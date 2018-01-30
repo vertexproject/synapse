@@ -31,15 +31,15 @@ class TinFoilTest(SynTest):
 
         data = edict.get('data')
         self.isinstance(data, bytes)
-        self.gt(len(data), 1)
+        self.len(16, data)  # The output is padded
 
         iv = edict.get('iv')
         self.isinstance(iv, bytes)
-        self.gt(len(iv), 1)
+        self.len(16, iv)
 
         hmac = edict.get('hmac')
         self.isinstance(hmac, bytes)
-        self.gt(len(hmac), 1)
+        self.len(32, hmac)
 
         # We can decrypt and get our original message back
         self.eq(tinh.dec(byts), b'foobar')
@@ -49,8 +49,29 @@ class TinFoilTest(SynTest):
         # the known key
         self.eq(s_tinfoil.TinFoilHat(ekey).dec(byts), b'foobar')
 
+        # We can encrypt/decrypt null messages
+        byts = tinh.enc(b'')
+        self.eq(tinh.dec(byts), b'')
+
         # Attempting to decrypt with the wrong key fails
         self.none(s_tinfoil.TinFoilHat(s_tinfoil.newkey()).dec(byts))
+
+        # Messages are padded to expected lengths
+        for msize in [0, 1, 2, 15, 16, 17, 31, 32, 33, 63, 65]:
+            mesg = msize * b'!'
+            byts = tinh.enc(mesg)
+            edict = s_msgpack.un(byts)
+
+            self.len(16, edict.get('iv'))
+            self.len(32, edict.get('hmac'))
+
+            mul = msize // 16
+            elen = (mul + 1) * 16
+
+            data = edict.get('data')
+            print(msize, elen, mesg)
+            self.len(elen, data)  # The output is padded
+            self.eq(tinh.dec(byts), mesg)
 
     def test_lib_crypto_tnfl_break(self):
         ekey = s_tinfoil.newkey()
