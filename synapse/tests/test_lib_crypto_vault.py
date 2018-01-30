@@ -123,12 +123,9 @@ class VaultTest(SynTest):
             # vault can no longer validate data from newvault
             self.false(vault.isValidCert(ncert))
 
-            # Here be dragons!
-            # XXX Ensure we know why/what we're doing with this API
             # Ensure we can make a new RSA key directly
             rkey = vault.genRsaKey()
             self.isinstance(rkey, s_rsa.PriKey)
-            # We can set that key to a given user
 
             # Tear down our vaults
             newvault.fini()
