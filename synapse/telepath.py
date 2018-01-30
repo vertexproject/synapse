@@ -395,13 +395,6 @@ class Proxy(s_eventbus.EventBus):
         task = (methname, args, kwargs)
         return self._tx_call(task, ondone=ondone)
 
-    def txfire(self, name, **info):
-        '''
-        Transmit a call to fire() without waiting for a response.
-        '''
-        task = ('fire', [name], info)
-        self._txTeleSock(('tele:call', {'name': self._tele_name, 'task': task}))
-
     def callx(self, name, task, ondone=None):
         '''
         Call a method on a specific shared object as a job.
