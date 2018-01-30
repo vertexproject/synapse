@@ -412,7 +412,7 @@ class Plex(EventBus):
 
         self._plexWake()
 
-    def addPlexSock(self, sock, txq=None):
+    def addPlexSock(self, sock):
         '''
         Add a Socket to the Plex()
 
@@ -425,8 +425,6 @@ class Plex(EventBus):
 
         '''
         sock.setblocking(0)
-
-        sock.txque = txq
 
         def txadd(mesg):
 
