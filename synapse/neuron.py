@@ -35,7 +35,7 @@ class SessBoss:
         self.roots = roots
 
         self.key = cert.getkey()
-        self.certbyts = cert.save()
+        self.certbyts = cert.dump()
 
     def decrypt(self, byts):
         return self.key.decrypt(byts)
@@ -314,7 +314,7 @@ class UserSess(Sess):
                 retn.retn(chan)
 
             self.taskplex.open(self, onchan)
-            
+
             return retn.wait(timeout=timeout)
 
     def linked(self):
