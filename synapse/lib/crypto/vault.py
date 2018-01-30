@@ -93,25 +93,6 @@ class Cert:
     def addsigner(self, sign):
         self.cert[1]['signers'] += (sign,)
 
-    #def (self, sig):
-        #self.cert[1]['signers'] += (sig,)
-
-    #def initCertSign(self, cert, name, rkey):
-        #'''
-        #Construct a cert signature tuple for the given cert.
-
-        #Args:
-        #Returns:
-            #((iden, bytes, bytes)): A cert signature tuple.
-        #'''
-        #data = s_msgpack.en({
-            #'user': name,
-            #'signed': s_common.now(),
-        #})
-
-        #iden = rkey.public().iden()
-        #return (iden, data, rkey.sign(data + cert[0]))
-
     def verify(self, byts, sign):
         '''
         Verify that the the Cert signed a set of bytes.
