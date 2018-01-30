@@ -16,60 +16,21 @@ import synapse.eventbus as s_eventbus
 
 import synapse.lib.kv as s_kv
 import synapse.lib.net as s_net
-import synapse.lib.fifo as s_fifo
 import synapse.lib.config as s_config
-#import synapse.lib.socket as s_socket
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
-#import synapse.lib.thishost as s_thishost
 
-import synapse.lib.crypto.rsa as s_rsa
 import synapse.lib.crypto.vault as s_vault
 import synapse.lib.crypto.tinfoil as s_tinfoil
 
 logger = logging.getLogger(__file__)
 
-'''
-
-Session Layer Messages:
-
-    ('init', {'sess':<buid>, 'cert':<byts>, 'skey':<byts>})
-    ('fini', {'sess':<buid>, 'data':<byts>})
-    ('xmit', {'sess':<buid>, 'chan': <buid>, 'data': <mesg>})
-
-'''
-#class CellPlex(
-
-# A neuron service is implemented by a EPoint/SPoint pair.
-#class EPoint(s_net.Link):
-
-    #name = 'ping'
-    #def open(self, mesg):
-        #pring('PING: %r' % (mesg,))
-        #self.link.tx(('pong', mesg[1]))
-        #self.link.fini()
-
-#class SPoint(s_net.Link):
-
-    #name = 'ping'
-
-    #def open(self, **info):
-        #self.link.tx((self.name, info))
-
-    #def handlers(self):
-        #return {
-            #'pong': self.pong,
-        #}
-
-    #def pong(self, mesg):
-        #print('PONG: %r' % (mesg,))
-        #self.link.fini()
-
 class SessBoss:
     '''
-    Base class for session negotiation pieces.
+    Mixin base class for sesion managers.
     '''
     def __init__(self, cert, roots):
+
         self.cert = cert
         self.roots = roots
 
@@ -82,7 +43,7 @@ class SessBoss:
     def valid(self, cert):
         return any([r.signed(cert) for r in self.roots])
 
-class Cell(s_config.Config, SessBoss):
+class Cell(s_config.Config, s_net.Link, SessBoss):
     '''
     A Cell is a micro-service in a neuron cluster.
     '''
@@ -90,6 +51,7 @@ class Cell(s_config.Config, SessBoss):
 
     def __init__(self, dirn, conf=None):
 
+        s_net.Link.__init__(self)
         s_config.Config.__init__(self)
 
         self.dirn = dirn
@@ -114,15 +76,10 @@ class Cell(s_config.Config, SessBoss):
 
         self.boot = self._loadBootFile()
 
-        # setup our certificate and private key
-        user = self.get('user') # do we have our user saved?
-        if user is None:
-            user = 'visi@vertex00'
-
-        print('CELL USER: %r' % (user,))
-
         self.root = self.vault.genRootCert()
 
+        # setup our certificate and private key
+        user = self.getConfOpt('user')
         cert = self.vault.genUserCert(user)
         roots = self.vault.getRootCerts()
 
@@ -134,42 +91,40 @@ class Cell(s_config.Config, SessBoss):
         if port == 0:
             port = self.kvinfo.get('port', port)
 
-        ctor = self.getLinkCtor()
-        addr = self.plex.listen((host, port), ctor)
-        print('ADDR: %r' % (addr,))
+        def onchan(chan):
+            sess = CellSess(chan, self)
+            chan.onrx(sess.rx)
+
+        self.sessplex = s_net.ChanPlex(onchan=onchan)
+
+        def onlink(link):
+            link.onrx(self.sessplex.rx)
+
+        self._cell_addr = self.plex.listen((host, port), onlink)
 
         # save the port so it can be semi-stable...
-        self.kvinfo.set('port', addr[1])
+        self.kvinfo.set('port', self._cell_addr[1])
 
-    def getLinkCtor(self):
+    def handlers(self):
+        return {
+            'cell:ping': self._onCellPingMesg,
+        }
 
-        def onchan(chan, data=None):
-            print('CHAN FOR LISN SESS')
-            # there is a channel for the session
-            sess = Sess(chan, self, lisn=True)
-            return sess
-
-        def ctor(sock):
-            # init/fini channels and call sess(chan)
-            return s_net.ChanPlex(sock, onchan)
-
-        return ctor
-
-    def get(self, prop, defval=None):
+    def genUserAuth(self, name):
         '''
-        Get a persistent property of the Cell.
+        Generate a user auth blob that is valid for this Cell.
         '''
-        return self.kvinfo.get(prop, defval=None)
+        return self.vault.genUserAuth(name)
 
-    def set(self, prop, valu):
-        '''
-        Set a persistent property of the Cell.
-        '''
-        return self.kvinfo.set(prop, valu)
+    def getCellPort(self):
+        return self.kvinfo.get('port')
 
-    #def addEndpHand(self, name, func):
-    #def addEndpFunc(self, name, func):
-    #def addEndpIter(self, name, func):
+    def genRootCert(self):
+        return self.root
+
+    def _onCellPingMesg(self, chan, mesg):
+        rply = ('retn', {'ok': True, 'data': mesg[1].get('data')})
+        chan.txfini(data=rply)
 
     def _loadBootFile(self):
         '''
@@ -195,11 +150,11 @@ class Cell(s_config.Config, SessBoss):
         # get and trust the root user cert
         root = boot.get('root')
         if root is not None:
-            self.vault.addSignerCert(root)
+            self.vault.addRootCert(root)
 
         auth = boot.get('auth')
         if auth is not None:
-            self.set('user', auth[0])
+            self.kvinfo('user', auth[0])
             self.vault.addUserAuth(auth, signer=True)
 
     def path(self, *paths):
@@ -215,6 +170,9 @@ class Cell(s_config.Config, SessBoss):
 
             ('ctor', {
                 'doc': 'The path to the cell constructor'}),
+
+            ('user', {'defval': 'cell@neuron.vertex.link',
+                'doc': 'The user this Cell runs as (cert).'}),
 
             ('root', {
                 'doc': 'The SHA256 of our neuron root cert (used for autoconf).'}),
@@ -249,86 +207,21 @@ class Neuron(Cell):
                 'doc': 'The TCP port to bind (defaults to %d)' % nodeport}),
         )
 
-#def Endp(s_net.Link):
-#class Endp:
-
-    #def __init__(self, link, mesg):
-
-    #@s_net.plexsafe
-
-#class Endp:
-
-    #def __init__(self, cell, link):
-        #self.cell = cell
-
-    #def open(self, chan, mesg):
-        #print('GOT OPEN: %r' % (mesg,))
-
-class Receptor:
-
-    _rxor_name = 'ping'
-
-    def __init__(self, name, cell):
-        self.name = name
-        self.cell = cell
-
-    def open(self, chan, mesg):
-        data = mesg[1].get('data')
-        chan.tx(('pong', {'data': data}))
-
-#class Pong:
-
-#class Agonist:
-    #def __init__(self, chan
-
-#class Ping(Agonist):
-
-    #def __init__(self, chan):
-        #self.chan = chan
-
-    #def open(self, **opts):
-
 class Sess(s_net.Link):
 
-    def __init__(self, link, boss, lisn=False):
+    def __init__(self, chan, boss, lisn=False):
 
-        s_net.Link.__init__(self, link)
+        s_net.Link.__init__(self, chan)
+
+        self._sess_boss = boss
 
         self.lisn = lisn    # True if we are the listener.
-        self.boss = boss
-
-        # if we fini, close the channel
-        self.onfini(link.fini)
 
         self.txkey = s_tinfoil.newkey()
         self.txtinh = s_tinfoil.TinFoilHat(self.txkey)
 
         self.rxkey = None
         self.rxtinh = None
-
-        # create a channel multi-plexor for endpoint
-        # channels within the session...
-        def onchan(chan, data=None):
-
-            if data is None:
-                return None
-
-            endp = self.boss.getEndPoint(data[0])
-            print('ENDP CHAN OPEN: %r' % (data,))
-            return None
-
-        self.chans = s_net.ChanPlex(self, onchan)
-
-    #def getChanCtor(self):
-
-        #def ctor(chan, data=endp):
-            # we got a chan init message
-
-    def open(self, name, **info):
-        '''
-        Open a new channel to the given remote endpoint.
-        '''
-        self.chans.open(data=(name,info))
 
     def handlers(self):
         return {
@@ -337,23 +230,19 @@ class Sess(s_net.Link):
             'xmit': self._onMesgXmit,
         }
 
-    def linked(self):
-        if not self.lisn:
-            self.sendcert()
-
     def setRxKey(self, rxkey):
         self.rxkey = rxkey
         self.rxtinh = s_tinfoil.TinFoilHat(rxkey)
 
-    def _tx_wrap(self, mesg):
+    def _tx_real(self, mesg):
 
-        if self.rxtinh is None:
+        if self.txtinh is None:
             raise s_exc.NotReady()
 
         data = self.txtinh.enc(s_msgpack.en(mesg))
-        return ('xmit', {'data': data})
+        self.link.tx(('xmit', {'data': data}))
 
-    def _onMesgXmit(self, mesg):
+    def _onMesgXmit(self, link, mesg):
 
         if self.rxtinh is None:
             logger.warning('xmit message before rxkey')
@@ -362,39 +251,90 @@ class Sess(s_net.Link):
         data = mesg[1].get('data')
         newm = s_msgpack.un(self.rxtinh.dec(data))
 
-        # feed our decrypted messages to the endpoint chan plex.
-        self.chans.rx(newm)
+        self.taskplex.rx(self, newm)
 
-    def _onMesgSkey(self, mesg):
+    def _onMesgSkey(self, link, mesg):
 
         data = mesg[1].get('data')
-        skey = self.boss.decrypt(data)
 
-        print('GOT RX KEY: %r' % (skey,))
+        skey = self._sess_boss.decrypt(data)
+
         self.setRxKey(skey)
 
     def sendcert(self):
-        print('%s sending cert' % (self.__class__.__name__,))
-        self.link.tx(('cert', {'cert': self.boss.certbyts}))
+        #print('%s (%d) sending cert' % (self.__class__.__name__,id(self)))
+        self.link.tx(('cert', {'cert': self._sess_boss.certbyts}))
 
-    def _onMesgCert(self, mesg):
+    def _onMesgCert(self, link, mesg):
 
         if self.lisn:
             self.sendcert()
 
         cert = s_vault.Cert.load(mesg[1].get('cert'))
 
-        if not self.boss.valid(cert):
+        if not self._sess_boss.valid(cert):
             clsn = self.__class__.__name__
             logger.warning('%s got bad cert (%r)' % (clsn, cert.iden(),))
             return
 
         # send back an skey message with our tx key
         data = cert.public().encrypt(self.txkey)
-        mesg = ('skey', {'data': data})
-        self.link.tx(mesg)
+        self.link.tx(('skey', {'data': data}))
 
-class CellProxy(SessBoss):
+        self.fire('sess:txok')
+
+class UserSess(Sess):
+    '''
+    The session object for a CellUser.
+    '''
+    def __init__(self, chan, prox):
+        Sess.__init__(self, chan, prox, lisn=False)
+        self._sess_prox = prox
+        self._txok_evnt = threading.Event()
+        self.on('sess:txok', self._setTxOk)
+
+        self.taskplex = s_net.ChanPlex(self)
+
+    def _setTxOk(self, mesg):
+        self._txok_evnt.set()
+
+    def waittx(self, timeout=None):
+        self._txok_evnt.wait(timeout=timeout)
+        return self._txok_evnt.is_set()
+
+    def task(self, mesg, timeout=None):
+        '''
+        Open a new channel within our session.
+        '''
+        with s_threads.retnwait() as retn:
+
+            def onchan(chan):
+                chan.setq() # make this channel use a Q
+                chan.tx(mesg)
+                retn.retn(chan)
+
+            self.taskplex.open(self, onchan)
+            
+            return retn.wait(timeout=timeout)
+
+    def linked(self):
+        self.sendcert()
+
+class CellSess(Sess):
+    '''
+    The session object for the Cell.
+    '''
+    def __init__(self, chan, cell):
+
+        Sess.__init__(self, chan, cell, lisn=True)
+        self._sess_cell = cell
+
+        def onchan(chan):
+            chan.onrx(self._sess_cell.rx)
+
+        self.taskplex = s_net.ChanPlex(onchan=onchan)
+
+class CellUser(SessBoss):
 
     def __init__(self, user, path=s_vault.uservault):
 
@@ -414,62 +354,53 @@ class CellProxy(SessBoss):
 
         SessBoss.__init__(self, cert, roots)
 
-        self.sess = None
-        self.ready = threading.Event()
+        self.sessplex = s_net.ChanPlex()
+        self.taskplex = s_net.ChanPlex()
 
-        self._runConnLoop()
+    def open(self, addr, timeout=None):
+        '''
+        Open the Cell at the remote addr and return a UserSess Link.
 
-    def _runConnLoop(self):
-        ctor = self.getLinkCtor()
-        s_glob.plex.connect((self.host, nodeport), ctor)
+        Args:
+            addr ((str,int)): A (host, port) address tuple
+            timeout (int/float): Connection timeout in seconds.
 
-    def open(self, endp, **info):
-        self.sess.open(endp, **info)
+        Returns:
+            (UserSess): The connected Link (or None).
+        '''
+        # a *synchronous* open...
 
-    def getLinkCtor(self):
+        with s_threads.retnwait() as retn:
 
-        def onchan(chan, data=None):
-            print('CHAN FOR CONN SESS')
-            self.sess = Sess(chan, self, lisn=False)
-            #chan.onrx(self.sess.rx)
-            #self.sess.linked()
-            return self.sess
+            def onlink(ok, link):
 
-        def onsock(sock):
+                if not ok:
+                    errs = os.strerror(erno)
+                    return retn.errx(OSError(erno, errs))
 
-            plex = s_net.ChanPlex(sock, onchan)
-            # tell the cell to open a new channel for us...
-            plex.open()
-            return plex
+                link.onrx(self.sessplex.rx)
 
-        return onsock
+                def onchan(chan):
 
-def opencell(user, path=s_vault.uservault):
-    return CellProxy(user, path=path)
+                    sess = UserSess(chan, self)
 
-def open(desc, path=s_vault.uservault):
-    '''
-    Open a connection to a remote Cell.
+                    chan.onrx(sess.rx)
+                    sess.linked()
 
-    Args:
-        desc (str): A <user>@<cluster>/<service> string.
-        vault (synapse.lib.crytpo.vault.Vault): Crypto vault.
+                    retn.retn(sess)
 
-    Example:
+                self.sessplex.open(link, onchan)
 
-        # open a single node by guid as user visi
-        visi@cluster.vertex.link/6a1a8e828764696cb15f473d43174a1ac5bec83d70f74cbe4eb82f03e655099a
+            s_glob.plex.connect(addr, onlink)
 
-        # open a single node by service alias:
-        visi@cluster.vertex.link/$auth
+            sess = retn.wait(timeout=timeout)
+            if sess is None:
+                return None
 
-        # open a group of nodes by the user running the node
-        visi@cluster.vertex.link/~axon
+            if not sess.waittx(timeout=timeout):
+                return None
 
-        # open a group of nodes by server side tag
-        visi@cluster.vertex.link/#woot
-    '''
-    return nodecache.open(desc, vault=vault)
+            return sess
 
 def divide(dirn, conf=None):
     '''
@@ -514,37 +445,3 @@ def _cell_entry(ctor, dirn, conf):
 
     except Exception as e:
         logger.exception('_cell_entry: %s (%s)' % (ctor, e))
-
-if __name__ == '__main__':
-
-
-    try:
-
-        path = 'fakevault.lmdb'
-
-        with s_vault.shared(path) as connvault:
-
-            #cert = connvault.genUserCert('visi@vertex00')
-            #connvault.addSignerCert(cert)
-
-            with s_vault.shared('shit/vault.lmdb') as lisnvault:
-                root = lisnvault.genRootCert()
-                auth = lisnvault.genUserAuth('visi@vertex00')
-
-            #connvault.addRootCert(root)
-            connvault.addUserAuth(auth)
-
-        cell = Cell('shit')
-        print('cell: %r' % (cell,))
-
-        prox = opencell('visi@vertex00', path=path)
-        import time
-        time.sleep(2)
-        prox.open('hehe', haha='hoho')
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-
-    while True:
-        time.sleep(1)

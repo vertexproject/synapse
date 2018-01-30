@@ -6,6 +6,8 @@ from synapse.tests.common import *
 def newtask(func, *args, **kwargs):
     return(func, args, kwargs)
 
+class FooErr(Exception): pass
+
 class ThreadsTest(SynTest):
 
     def test_threads_pool(self):
@@ -81,3 +83,23 @@ class ThreadsTest(SynTest):
         stream.seek(0)
         mesgs = stream.read()
         self.isin('error running task for', mesgs)
+
+    def test_threads_retnwait(self):
+
+        with s_threads.retnwait() as retn:
+
+            def work():
+                retn.retn(True)
+
+            thrd = s_threads.worker(work)
+            self.true(retn.wait(timeout=1))
+            thrd.join()
+
+        with s_threads.retnwait() as retn:
+
+            def work():
+                retn.errx(FooErr())
+
+            thrd = s_threads.worker(work)
+            self.raises(FooErr, retn.wait, timeout=1)
+            thrd.join()

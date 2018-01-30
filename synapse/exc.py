@@ -244,7 +244,8 @@ class JobErr(Exception):
 
         Exception.__init__(self, '%s: %s (%s:%s)' % (err, errmsg, errfile, errline))
 
-class LinkErr(Exception):
+# TODO: steal these names back for synapse/lib/net.py (and depricate old users)
+class LinkErr(SynErr):
 
     retry = False
     def __init__(self, link, mesg=''):

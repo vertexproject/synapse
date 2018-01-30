@@ -25,6 +25,81 @@ def iden():
 def isfini():
     return getattr(current(), 'isfini', False)
 
+retnlock = threading.Lock()
+class retnwait:
+    '''
+    Emulate synchronous callback waiting with a thread local event.
+
+    Example:
+
+    With retnwait() as retn:
+        dothing(callback=retn.retn)
+        isset, valu = retn.wait(timeout=3)
+
+    '''
+    def __init__(self):
+
+        thrd = threading.currentThread()
+
+        self._retn_exc = None
+        self._retn_valu = None
+
+        self._retn_evnt = getattr(thrd, '_retn_lock', None)
+        if self._retn_evnt is None:
+            self._retn_evnt = thrd._retn_lock = threading.Event()
+
+        # ensure the event is clear
+        self._retn_evnt.clear()
+
+    def wait(self, timeout=None):
+        '''
+        Wait for an async callback to complete.
+
+        Args:
+            timeout (int/float): Timeout in seconds.
+        '''
+        evnt = self._retn_evnt
+        if evnt is None:
+            return True, self._retn_evnt
+
+        evnt.wait(timeout=timeout)
+
+        if self._retn_exc is not None:
+            raise self._retn_exc
+
+        return self._retn_valu
+
+    def retn(self, valu):
+        '''
+        An ease-of-use API for single value callbacks.
+        '''
+        with retnlock:
+            self._retn_valu = valu
+            if self._retn_evnt is not None:
+                self._retn_evnt.set()
+
+    def errx(self, exc):
+
+        with retnlock:
+            self._retn_exc = exc
+            if self._retn_evnt is not None:
+                self._retn_evnt.set()
+
+    def retncall(self, *args, **kwargs):
+
+        with retnlock:
+            self._retn_valu = (args, kwargs)
+            if self._retn_evnt is not None:
+                self._retn_evnt.set()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc, cls, tb):
+        with retnlock:
+            self._retn_evnt.clear()
+            self._retn_evnt = None
+
 def withlock(lock):
     def decor(f):
         @wraps(f)
