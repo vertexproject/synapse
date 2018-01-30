@@ -21,7 +21,7 @@ class NetTest(SynTest):
                     'ping': self._onRecvPing,
                 }
 
-            def _onRecvPing(self, mesg):
+            def _onRecvPing(self, link, mesg):
                 self.tx(('pong', {}))
                 steps.done('ping')
 
@@ -36,12 +36,22 @@ class NetTest(SynTest):
                     'pong': self._onRecvPong,
                 }
 
-            def _onRecvPong(self, mesg):
+            def _onRecvPong(self, link, mesg):
                 steps.done('pong')
 
         with s_net.Plex() as plex:
 
-            addr = plex.listen(('127.0.0.1', 0), LisnLink)
-            plex.connect(addr, ConnLink)
+            def onconn(ok, link):
+                conn = ConnLink(link)
+                link.onrx(conn.rx)
+                conn.linked()
+
+            def onlink(link):
+                lisn = LisnLink(link)
+                link.onrx(lisn.rx)
+                lisn.linked()
+
+            addr = plex.listen(('127.0.0.1', 0), onlink)
+            plex.connect(addr, onconn)
 
             steps.waitall(timeout=2)
