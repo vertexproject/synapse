@@ -317,9 +317,6 @@ class UserSess(Sess):
 
             return retn.wait(timeout=timeout)
 
-    def linked(self):
-        self.sendcert()
-
 class CellSess(Sess):
     '''
     The session object for the Cell.
@@ -385,7 +382,7 @@ class CellUser(SessBoss):
                     sess = UserSess(chan, self)
 
                     chan.onrx(sess.rx)
-                    sess.linked()
+                    sess.sendcert()
 
                     retn.retn(sess)
 

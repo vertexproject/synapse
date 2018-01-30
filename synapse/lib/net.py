@@ -303,12 +303,6 @@ class Link(s_eventbus.EventBus):
         if self.isrxfini:
             self.fini()
 
-    def linked(self):
-        '''
-        A sub-class implementable callback for link established.
-        '''
-        pass
-
     def handlers(self):
         '''
         Return a dict of <mesg>:<func> handlers for this link layer.
