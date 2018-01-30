@@ -17,6 +17,13 @@ logger = logging.getLogger(__name__)
 uservault = '~/.syn/vault.lmdb'
 
 class Cert:
+    '''
+    A Certificate helper object for signing / verifying data.
+
+    Args:
+        cert ((str, dict)): Certificate tufo
+        rkey (s_rsa.PriKey): Private RSA Key
+    '''
 
     def __init__(self, cert, rkey=None):
 
@@ -169,28 +176,48 @@ class Cert:
         return Cert(s_msgpack.un(byts), rkey=rkey)
 
 class Vault(s_eventbus.EventBus):
-
     '''
-    tokn:
+    A Certificate / Key vault.
+
+    User tokens are stored in the following format:
+
+    ::
+
+        tokn:
         {
             'user': <str>,
             'rsa:pub': <bytes>,
         }
 
-    cert:
-        ( <toknbyts>, {
-            "signers": (
-                <sig>,
-            ),
-        })
+    Certs are stored in the following format:
 
-    sig:
-        # NOTE: <iden> must *only* be used for pub key lookup
+    ::
+
+        cert:
+            ( <toknbyts>, {
+                "signers": (
+                    <sig>,
+                ),
+            })
+
+    Sigs are stored as tuples of the following:
+
+    ::
+
         (<iden>, <bytes(signdata)>, <signbytes>),
 
-    '''
-    def __init__(self, path):
 
+    The iden used for signing data must *only* be used for public key lookup.
+
+    Args:
+        path (str): Path to the DB backing the vault.
+
+    Notes:
+        The Vault does store RSA Private Key material and should be treated
+        as a sensitive file by users.
+    '''
+
+    def __init__(self, path):
         s_eventbus.EventBus.__init__(self)
 
         self.kvstor = s_kv.KvStor(path)

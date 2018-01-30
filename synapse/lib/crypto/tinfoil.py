@@ -37,9 +37,11 @@ class TinFoilHat:
 
     This provides symmetric AES-CBC Encryption with SHA256 HMAC (in encrypt
     then mac mode).
+
+    Args:
+        ekey (bytes): A 32 byte key used for doing encryption & decryption.
     '''
     def __init__(self, ekey):
-
         self.ekey = ekey
         self.bend = default_backend()
         self.skey = hashlib.sha256(ekey).digest()
