@@ -113,20 +113,12 @@ class TinFoilHat:
 
         # decrypt the remaining bytes
         byts = decr.update(data)
-        try:
-            byts += decr.finalize()
-        except ValueError as e:
-            logger.warning('Error in decr.finalize: [%s]', str(e))
-            return None
+        byts += decr.finalize()
 
         # unpad the decrypted bytes
         padr = padding.PKCS7(self.bsize).unpadder()
 
         byts = padr.update(byts)
-        try:
-            byts += padr.finalize()
-        except ValueError as e:
-            logger.warning('Error in padr.finalize: [%s]', str(e))
-            return None
+        byts += padr.finalize()
 
         return byts
