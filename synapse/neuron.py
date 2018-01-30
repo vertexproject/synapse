@@ -87,9 +87,10 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
 
         host = self.getConfOpt('host')
         port = self.getConfOpt('port')
+        savedport = self.kvinfo.get('port')
 
-        if port == 0:
-            port = self.kvinfo.get('port', port)
+        if port == 0 and savedport is not None:
+            port = savedport
 
         def onchan(chan):
             sess = CellSess(chan, self)
