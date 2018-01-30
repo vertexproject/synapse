@@ -84,10 +84,10 @@ class TinFoilHat:
         Decode an envelope dict and decrypt the given bytes.
 
         Args:
-            byts (bytes):
+            byts (bytes): Bytes to decrypt.
 
         Returns:
-            bytes:
+            bytes: Decrypted message.
         '''
 
         envl = s_msgpack.un(byts)
