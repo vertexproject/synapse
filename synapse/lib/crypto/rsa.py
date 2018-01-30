@@ -100,9 +100,9 @@ class PriKey:
             logger.exception('Error in priv.decrypt')
             return None
 
-    def save(self):
+    def dump(self):
         '''
-        Save the private key bytes in DER/PKCS8 format.
+        Get the private key bytes in DER/PKCS8 format.
 
         Returns:
             bytes: The DER/PKCS8 encoded private key.
@@ -136,9 +136,9 @@ class PubKey:
     def __init__(self, publ):
         self.publ = publ  # type: c_rsa.RSAPublicKey
 
-    def save(self):
+    def dump(self):
         '''
-        Save the public key bytes in DER/PKCS8 format.
+        Get the public key bytes in DER/PKCS8 format.
 
         Returns:
             bytes: The DER/PKCS8 encoded public key.
@@ -207,7 +207,7 @@ class PubKey:
         Returns:
             str: The SHA256 hash of the public key bytes.
         '''
-        return hashlib.sha256(self.save()).hexdigest()
+        return hashlib.sha256(self.dump()).hexdigest()
 
     @staticmethod
     def load(byts):

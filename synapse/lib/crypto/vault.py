@@ -152,9 +152,9 @@ class Cert:
             if self.verify(data + byts, sign):
                 return s_msgpack.un(data)
 
-    def save(self):
+    def dump(self):
         '''
-        Serialize the certificate to bytes for storage.
+        Get the certificate in bytes for storage.
 
         Returns:
             bytes: A msgpack encoded form of the Cert.
@@ -240,7 +240,7 @@ class Vault(s_eventbus.EventBus):
         rkey = s_rsa.PriKey.generate()
 
         iden = rkey.iden()
-        self.keys.set(iden, rkey.save())
+        self.keys.set(iden, rkey.dump())
 
         return rkey
 
@@ -256,7 +256,7 @@ class Vault(s_eventbus.EventBus):
         Returns:
             bytes: A msgpack encoded dictionary.
         '''
-        info['rsa:pub'] = rpub.save()
+        info['rsa:pub'] = rpub.dump()
         info['created'] = s_common.now()
         return s_msgpack.en(info)
 
@@ -318,8 +318,8 @@ class Vault(s_eventbus.EventBus):
 
         iden = cert.iden()
 
-        self.certs.set(iden, cert.save())
-        self.certkeys.set(iden, rkey.save())
+        self.certs.set(iden, cert.dump())
+        self.certkeys.set(iden, rkey.dump())
         self.usercerts.set(name, iden)
 
         return cert
@@ -344,8 +344,8 @@ class Vault(s_eventbus.EventBus):
         rkey = self.getCertKey(cert.iden())
 
         return (user, {
-            'cert': cert.save(),
-            'rsa:key': rkey.save(),
+            'cert': cert.dump(),
+            'rsa:key': rkey.dump(),
         })
 
     def addUserAuth(self, auth):
@@ -373,8 +373,8 @@ class Vault(s_eventbus.EventBus):
 
         iden = cert.iden()
 
-        self.certs.set(iden, cert.save())
-        self.certkeys.set(iden, rkey.save())
+        self.certs.set(iden, cert.dump())
+        self.certkeys.set(iden, rkey.dump())
         self.usercerts.set(user, iden)
 
         return cert
@@ -429,7 +429,7 @@ class Vault(s_eventbus.EventBus):
 
         self.info.set('root', iden)
 
-        self.certkeys.set(iden, rkey.save())
+        self.certkeys.set(iden, rkey.dump())
 
         self.addRootCert(cert)
         return cert
@@ -446,7 +446,7 @@ class Vault(s_eventbus.EventBus):
         '''
         iden = cert.iden()
         self.roots.set(iden, True)
-        self.certs.set(iden, cert.save())
+        self.certs.set(iden, cert.dump())
 
     def delRootCert(self, cert):
         '''

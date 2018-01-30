@@ -32,6 +32,7 @@ class VaultTest(SynTest):
             self.isinstance(root.getkey(), s_rsa.PriKey)
             self.isinstance(root.public(), s_rsa.PubKey)
             self.isinstance(root.toknbytes(), bytes)
+            self.isinstance(root.dump(), bytes)
 
             # We can validate our root ca is self-signed
             signers = root.signers()

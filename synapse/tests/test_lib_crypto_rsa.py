@@ -18,8 +18,8 @@ class RsaTest(SynTest):
         self.true(pubkey.verify(b'haha', sign))
         self.false(pubkey.verify(b'haha', b'newp'))
 
-        prib = prikey.save()
-        pubb = pubkey.save()
+        prib = prikey.dump()
+        pubb = pubkey.dump()
         self.isinstance(prib, bytes)
         self.isinstance(pubb, bytes)
 
