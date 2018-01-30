@@ -69,7 +69,6 @@ class TinFoilTest(SynTest):
             elen = (mul + 1) * 16
 
             data = edict.get('data')
-            print(msize, elen, mesg)
             self.len(elen, data)  # The output is padded
             self.eq(tinh.dec(byts), mesg)
 
