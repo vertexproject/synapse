@@ -198,25 +198,6 @@ class Vault(s_eventbus.EventBus):
 
         return rkey
 
-    def setRsaKey(self, name, byts):
-        # XXX Untested
-        '''
-        Set the RSA key (bytes) for the given user.
-
-        Args:
-            name (str): User who is setting
-            byts (byts):
-
-        Returns:
-
-        '''
-        rkey = s_rsa.PriKey.load(byts)
-
-        self.rsacache[name] = rkey
-        self.rsakeys.set(name, byts)
-
-        return rkey
-
     @staticmethod
     def genCertTokn(rpub, **info):
         '''
@@ -265,12 +246,6 @@ class Vault(s_eventbus.EventBus):
             return None
 
         return self.getCert(iden)
-
-    def setUserCert(self, name, cert):
-        '''
-        Save a cert tufo for the given user.
-        '''
-        self.certs.set(name, cert)
 
     def genUserCert(self, name):
         '''
