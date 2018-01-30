@@ -1,5 +1,3 @@
-import threading
-
 import synapse.glob as s_glob
 
 class CmpSet:
