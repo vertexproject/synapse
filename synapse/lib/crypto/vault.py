@@ -76,6 +76,16 @@ class Cert:
         return self.cert[0]
 
     def sign(self, cert, **info):
+        '''
+        Sign a certificate with the current Cert.
+
+        Args:
+            cert (Cert): Certificate to sign with the current Cert.
+            **info: Additional data to include in the signed message.
+
+        Returns:
+            None
+        '''
 
         if self.rkey is None:
             raise s_exc.NoCertKey(mesg='sign() requires a private key')
@@ -91,6 +101,15 @@ class Cert:
         cert.addsigner(signer)
 
     def addsigner(self, sign):
+        '''
+        Append a new signature tuple to the current Cert's signers.
+
+        Args:
+            sign ((str, bytes, bytes)): Signature tuple to add the Cert.
+
+        Returns:
+            None
+        '''
         self.cert[1]['signers'] += (sign,)
 
     def verify(self, byts, sign):
@@ -429,7 +448,9 @@ class Vault(s_eventbus.EventBus):
                 continue
 
             cert = self.getCert(iden)
-            if cert is None:
+            if cert is None:  # pragma: no cover
+                # This is a unusual case since cert being added to self.roots
+                # is going to add the cert to self.certs
                 continue
 
             retn.append(cert)

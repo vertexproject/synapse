@@ -53,11 +53,23 @@ class VaultTest(SynTest):
             self.true(root.signed(ncert))
             self.false(nroot.signed(ncert))
 
+            # We can use one cert to sign another cert though
+            self.none(nroot.sign(cert))
+            self.true(root.signed(cert))
+            self.true(nroot.signed(cert))
+
+            # We can make a Cert without having the private key available
+            tstcert = s_vault.Cert(root.cert)
+            self.none(tstcert.getkey())
+            self.isinstance(tstcert.public(), s_rsa.PubKey)
+            # attempting to sign data with that cert fails though
+            self.raises(NoCertKey, tstcert.sign, ncert, haha=1)
+
             # Tear down our vaults
             newvault.fini()
             vault.fini()
 
-    def test_lib_crypto_vault(self):
+    def test_lib_crypto_vault_base(self):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'vault.lmdb')
             vault = s_vault.Vault(path)
