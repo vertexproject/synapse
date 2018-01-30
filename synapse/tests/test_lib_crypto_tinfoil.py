@@ -80,7 +80,7 @@ class TinFoilTest(SynTest):
         goodbyts = tinh.enc(b'foobar')
         edict = s_msgpack.un(goodbyts)
 
-        # Empty values will fail
+        # Empty values will fail to decrypt
         for key in ('iv', 'hmac', 'data'):
             bdict = {k: v for k, v in edict.items() if k != key}
             byts = s_msgpack.en(bdict)
