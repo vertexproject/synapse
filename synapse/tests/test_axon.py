@@ -47,27 +47,18 @@ class AxonTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            celldirn = os.path.join(dirn, 'cell')
-            userdirn = os.path.join(dirn, 'user')
-
             conf = {'user': 'cell@vertex.link', 'host': '127.0.0.1'}
 
-            #with s_neuron.Cell(celldirn, conf) as cell:
-            with s_axon.Axon(celldirn, conf) as axon:
+            with s_axon.Axon(dirn, conf) as axon:
 
                 iden = axon.wants('sha256', asdfsha256, 8)
                 axon.chunk(iden, b'asdfasdf')
 
                 port = axon.getCellPort()
 
-                root = axon.genRootCert()
                 auth = axon.genUserAuth('visi@vertex.link')
 
-                with s_vault.shared(userdirn) as vault:
-                    vault.addRootCert(root)
-                    vault.addUserAuth(auth)
-
-                user = s_neuron.CellUser('visi@vertex.link', path=userdirn)
+                user = s_neuron.CellUser(auth)
 
                 addr = ('127.0.0.1', port)
 
