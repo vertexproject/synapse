@@ -1,28 +1,17 @@
 import os
-import stat
-import time
-import fcntl
 import random
 import logging
-import threading
 
-from binascii import unhexlify
-
+import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.cortex as s_cortex
-import synapse.daemon as s_daemon
-import synapse.dyndeps as s_dyndeps
+import synapse.neuron as s_neuron
 import synapse.reactor as s_reactor
 import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
 
-import synapse.lib.heap as s_heap
-import synapse.lib.tufo as s_tufo
+import synapse.lib.kv as s_kv
 import synapse.lib.config as s_config
-import synapse.lib.persist as s_persist
-import synapse.lib.service as s_service
-import synapse.lib.thishost as s_thishost
-import synapse.lib.thisplat as s_thisplat
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.blobfile as s_blobfile
 
 # for backward compat (HashSet moved from this module to synapse.lib.hashset )
 from synapse.lib.hashset import *
@@ -34,47 +23,6 @@ gigabyte = 1024000000
 terabyte = 1024000000000
 chunksize = megabyte * 10
 
-'''
-class AxonMixin:
-    @s_telepath.clientside
-    def eatfd(self, fd):
-        hset = HashSet()
-        #iden, props = hset.eatfd(fd)
-
-        if self.has('guid', iden):
-            return (iden, props)
-
-        fd.seek(0)
-
-        sess = self.alloc(props.get('size'))
-
-        byts = fd.read(10000000)
-        retn = self.chunk(sess, byts)
-
-        byts = fd.read(10000000)
-        while byts:
-            retn = self.chunk(sess, byts)
-            byts = fd.read(10000000)
-
-        return (iden, props)
-
-    def eatbytes(self, byts):
-        hset = HashSet()
-
-        hset.update(byts)
-        iden, props = hset.guid()
-
-        if self.has('guid', iden):
-            return (iden, props)
-
-        sess = self.alloc(props.get('size'))
-
-        for chnk in s_common.chunks(byts, 10000000):
-            self.chunk(sess, chnk)
-
-        return (iden, props)
-'''
-
 class KvHashes:
     '''
     Use a synapse.lib.kv.KvStor to index (offs, size) tuples for
@@ -83,7 +31,7 @@ class KvHashes:
     def __init__(self, stor, name='axon:hashes'):
 
         self.stor = stor
-        self.iden = stor.getKvAlias(name)
+        self.iden = stor.genKvAlias(name)
 
         self.prefs = {} # hash key prefixes
 
@@ -108,9 +56,9 @@ class KvHashes:
         dups = []
         for name, byts in hashes:
             lkey = self._pref(name) + byts
-            dups.append(lkey, lval)
+            dups.append((lkey, lval))
 
-        self.addKvDups(dups)
+        self.stor.addKvDups(dups)
 
     def get(self, name, byts):
         '''
@@ -124,7 +72,7 @@ class KvHashes:
             ([(int,int)]): A list of (offs,size) tuples.
         '''
         lkey = self._pref(name) + byts
-        return [s_msgpack.un(b) for b in self.getKvDups(lkey)]
+        return [s_msgpack.un(b) for b in self.stor.iterKvDups(lkey)]
 
     def has(self, name, byts):
         '''
@@ -140,21 +88,17 @@ class KvHashes:
         lkey = self._pref(name) + byts
         return self.stor.hasKvDups(lkey)
 
-#class Axon(s_config.Config, AxonMixin):
-class Axon(s_config.Config):
+class Axon(s_neuron.Cell):
     '''
     An Axon acts as a binary blob store with hash based indexing/retrieval.
     '''
-    def __init__(self, conf):
+    def __init__(self, dirn, conf=None):
 
-        s_config.Config.__init__(self)
-        #s_neuron.Node.__init__(self, conf)
-
-        self.setConfOpts(conf)
-
-        self.reqConfOpts()
+        s_neuron.Cell.__init__(self, dirn, conf=conf)
 
         self.inprog = {}
+
+        axondir = self.getCellPath('axon')
         self.axondir = s_common.gendir(axondir)
 
         kvpath = os.path.join(self.axondir, 'axon.lmdb')
@@ -164,16 +108,51 @@ class Axon(s_config.Config):
         self.hashes = KvHashes(self.kvstor)
         self.axinfo = self.kvstor.getKvDict('axon:info')
 
-        fd = s_common.genfile(axondir, 'axon.blob')
-        self.blobfile = s_blobfile.BlobFile(fd)
+        blobpath = os.path.join(axondir, 'axon.blob')
+        self.blobfile = s_blobfile.BlobFile(blobpath)
 
         # create a reactor to unwrap core/heap sync events
-        self.syncact = s_reactor.Reactor()
-        self.syncact.act('bytes', self._actSyncBytes)
-        self.syncact.act('hashes', self._actSyncHashes)
+        #self.syncact = s_reactor.Reactor()
+        #self.syncact.act('bytes', self._actSyncBytes)
+        #self.syncact.act('hashes', self._actSyncHashes)
 
         self.onfini(self.kvstor.fini)
         self.onfini(self.blobfile.fini)
+
+    def handlers(self):
+        return {
+            'axon:find': self._onAxonFind,
+            'axon:blob': self._onAxonBlob,
+            #'axon:status': self._onAxonStatus,
+        }
+
+    @s_glob.inpool
+    def _onAxonFind(self, chan, mesg):
+        with chan:
+            name = mesg[1].get('name')
+            valu = mesg[1].get('valu')
+            chan.txfini(self.find(name,valu))
+
+    @s_glob.inpool
+    def _onAxonBlob(self, chan, mesg):
+
+        with chan:
+
+            blob = mesg[1].get('blob')
+
+            chan.setq()
+
+            for i, byts in enumerate(self.iterblob(blob)):
+
+                chan.tx(byts)
+
+                # create a transmission window of 10 tx()s
+                if i < 10:
+                    continue
+
+                if not chan.next(timeout=60):
+                    logger.warning('axon:blob early close: %d' % (i,))
+                    return
 
     @staticmethod
     @s_config.confdef(name='axon')
@@ -184,13 +163,13 @@ class Axon(s_config.Config):
         )
         return confdefs
 
-    def find(self, htype, hvalu):
+    def find(self, name, valu):
         '''
-        Returns a list of (offs, size) tuples for byte blobs in the axon.
+        Returns a list of (offs, size) tuples by hash name and valu.
 
         Args:
-            htype (str): Hash type.
-            hvalu (str): Hash value.
+            name (str): Hash name (ex. 'sha256')
+            valu (byts): The bytes of the hash.
 
         Examples:
 
@@ -202,54 +181,7 @@ class Axon(s_config.Config):
         Returns:
             list: List of (offs, size) tuples.
         '''
-        byts = unhexlify(hvalu)
-        return self.hashes.get(htype, byts)
-
-    def bytes(self, htype, hvalu):
-        '''
-        Yield chunks of bytes for the given hash value.
-
-        Args:
-            htype (str): Hash type.
-            hvalu (str): Hash value.
-
-        Examples:
-            Get the bytes for a given guid and do stuff with them::
-
-                for byts in axon.bytes('guid', axonblobguid):
-                    dostuff(byts)
-
-
-            Iteratively write bytes to a file for a given md5sum::
-
-                for byts in axon.bytes('md5', md5sum):
-                    fd.write(byts)
-
-            Form a contiguous bytes object for a given sha512sum. This is not recommended for large files.::
-
-                byts = b''.join((_byts for _byts in axon.bytes('sha512', sha512sum)))
-
-        Notes:
-            This API will raise an exception to the caller if the requested
-            hash is not present in the axon. This is contrasted against the
-            Axon.iterblob() API, which first requires the caller to first
-            obtain an axon:blob tufo in order to start retrieving bytes from
-            the axon.
-
-        Yields:
-            bytes:  A chunk of bytes for a given hash.
-
-        Raises:
-            NoSuchFile: If the requested hash is not present in the axon. This
-            is raised when the generator is first consumed.
-        '''
-        blobs = self.get(htype, hvalu)
-        if not blobs:
-            raise s_common.NoSuchFile(mesg='The requested blob was not found.', htype=htype, hvalu=hvalu)
-
-        offs, size = blobs[0]
-        for byts in self.iterbytes(offs, size):
-            yield byts
+        return self.hashes.get(name, valu)
 
     def iterblob(self, blob):
         '''
@@ -282,16 +214,17 @@ class Axon(s_config.Config):
         for byts in self.blobfile.readiter(offs, size):
             yield byts
 
-    def wants(self, htype, hvalu, size):
+    def wants(self, name, valu, size):
         '''
         Single round trip call to Axon.has() and possibly Axon.alloc().
 
         Args:
-            htype (str): Hash type.
-            hvalu (str): Hash value.
+            name (str): Hash type.
+            valu (bytes): Hash value.
             size (int): Number of bytes to allocate.
 
         Examples:
+
             Check if a sha256 value is present in the Axon, and if not, create the node for a set of bytes::
 
                 iden = axon.wants('sha256',valu,size)
@@ -300,9 +233,9 @@ class Axon(s_config.Config):
                         axon.chunk(iden,byts)
 
         Returns:
-            None if the hvalu is present; otherwise the iden is returned for writing.
+            None if the name=valu is present; otherwise the iden is returned for writing.
         '''
-        if self.has(htype, hvalu):
+        if self.has(name, valu):
             return None
 
         return self.alloc(size)
@@ -352,15 +285,14 @@ class Axon(s_config.Config):
         Raises:
 
         '''
-        self.axinfo.get('ro')
-        if self.isro:
+        if self.axinfo.get('ro'):
             raise AxonIsRo()
 
-        size = self.blobfile.size()
+        blobsize = self.blobfile.size()
         bytemax = self.getConfOpt('axon:bytemax')
-        if (hsize + size) > bytemax:
-            raise s_common.NotEnoughFree(mesg='Not enough free space on the heap to allocate bytes.',
-                                         size=size, heapsize=hsize, bytemax=bytmax)
+
+        if (blobsize + size) > bytemax:
+            raise s_common.NotEnoughFree(mesg='BlobFile() would exceed bytemax: %d' % (bytemax,))
 
         iden = s_common.guid()
         off = self.blobfile.alloc(size)
@@ -389,7 +321,7 @@ class Axon(s_config.Config):
         if info is None:
             raise s_common.NoSuchIden(iden)
 
-        blen = len(bytes)
+        blen = len(byts)
 
         cur = info.get('cur')
         maxoff = info.get('maxoff')
@@ -399,7 +331,7 @@ class Axon(s_config.Config):
             raise AxonBadChunk(mesg='chunk larger than remaining size')
 
         self.blobfile.writeoff(cur, byts)
-        self.syncbus.fire('bytes', offs=cur, byts=byts)
+        #self.syncbus.fire('bytes', offs=cur, byts=byts)
 
         info['cur'] += blen
 
@@ -415,22 +347,20 @@ class Axon(s_config.Config):
         offs = info.get('off')
         size = info.get('size')
 
-        guid, hashes = hset.hashes()
-        hashes.append(('guid', guid))
-
+        hashes = hset.digests()
         self.hashes.add(size, offs, hashes)
 
-        self.syncbus.fire('hashes', offs=offs, size=size, hashes=hashes)
+        #self.syncbus.fire('hashes', offs=offs, size=size, hashes=hashes)
 
         return True
 
-    def has(self, htype, hvalu):
+    def has(self, name, valu):
         '''
         Check if the Axon has a given hash type/valu combination stored in it.
 
         Args:
-            htype (str): Hash type.
-            hvalu (bytes): Hash value.
+            name (str): Hash type.
+            valu (bytes): Hash value.
 
         Examples:
 
@@ -447,6 +377,4 @@ class Axon(s_config.Config):
         Returns:
             ((str, dict)): axon:blob tufo if the axon has the hash or guid. None otherwise.
         '''
-        return self.hashes.has(htype, unhexlify(hvalu))
-
-s_dyndeps.addDynAlias('syn:axon', Axon)
+        return self.hashes.has(name, valu)

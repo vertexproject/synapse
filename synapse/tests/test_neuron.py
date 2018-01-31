@@ -34,9 +34,8 @@ class NeuronTest(SynTest):
 
                     with sess.task(('cell:ping', {'data': 'haha'})) as chan:
 
-                        mesg = chan.next(timeout=2)
+                        retn = chan.next(timeout=2)
+                        self.eq(retn, 'haha')
 
-                        self.nn(mesg)
-
-                        self.eq('retn', mesg[0])
-                        self.eq('haha', mesg[1].get('data'))
+                    retn = sess.call(('cell:ping', {'data': 'rofl'}), timeout=2)
+                    self.eq(retn, 'rofl')

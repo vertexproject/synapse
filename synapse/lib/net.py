@@ -366,6 +366,9 @@ class Link(s_eventbus.EventBus):
         Args:
             mesg ((str,dict)): A message tufo.
         '''
+        if self.istxfini:
+            return
+
         self.txtime = s_common.now()
         self._tx_real(mesg)
 
@@ -498,7 +501,8 @@ class ChanPlex(Link):
 
         chan = self.chans.get(iden)
         if chan is None:
-            logger.warning('chan data for missing chan: %r (link: %r)' % (iden, link))
+            # There are many chan shutdown instances where this is ok
+            logger.info('chan data for missing chan: %r (link: %r)' % (iden, link))
             return
 
         chan.setLinkProp('plex:link', link)

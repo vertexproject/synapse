@@ -1,5 +1,3 @@
-import unittest.mock as mock
-
 import synapse.lib.atomfile as s_atomfile
 import synapse.lib.blobfile as s_blobfile
 
@@ -64,24 +62,17 @@ class BlobFileTest(SynTest):
 
             # fini the blob closes the underlying fd
             self.true(blob.atom.isfini)
-            self.true(blob.fd.closed)
 
     def test_blob_simple_atom(self):
 
-        def getSimpleAtom(fd, memok=True):
-            return s_atomfile.AtomFile(fd)
-
-        with mock.patch('synapse.lib.atomfile.getAtomFile', getSimpleAtom) as p:
-            with self.getTestDir() as dir:
-                fp = os.path.join(dir, 'test.blob')
-                blob = s_blobfile.BlobFile(fp)
-                self.isinstance(blob.atom, s_atomfile.AtomFile)
-                self.false(isinstance(blob.atom, s_atomfile.FastAtom))
-                self.blobfile_basic_assumptions(blob)
-                blob.fini()
-                # fini the blob closes the underlying fd
-                self.true(blob.atom.isfini)
-                self.true(blob.fd.closed)
+        with self.getTestDir() as dirn:
+            fp = os.path.join(dirn, 'test.blob')
+            blob = s_blobfile.BlobFile(fp)
+            self.isinstance(blob.atom, s_atomfile.AtomFile)
+            self.blobfile_basic_assumptions(blob)
+            blob.fini()
+            # fini the blob closes the underlying fd
+            self.true(blob.atom.isfini)
 
     def test_blob_resize(self):
 
@@ -146,25 +137,20 @@ class BlobFileTest(SynTest):
 
             blob1.fini()
 
-            # ensure we can sync events back to a regular atomfile
-            def getSimpleAtom(fd, memok=True):
-                return s_atomfile.AtomFile(fd)
+            fp2 = os.path.join(dir, 'test2.blob')
+            blob2 = s_blobfile.BlobFile(fp2, isclone=True)
+            self.true(blob2.isclone)
+            # Using sync() here for test coverage
+            for msg in msgs:
+                blob2.sync(msg)
 
-            with mock.patch('synapse.lib.atomfile.getAtomFile', getSimpleAtom) as p:
-                fp2 = os.path.join(dir, 'test2.blob')
-                blob2 = s_blobfile.BlobFile(fp2, isclone=True)
-                self.true(blob2.isclone)
-                # Using sync() here for test coverage
-                for msg in msgs:
-                    blob2.sync(msg)
+            self.eq(blob0.readoff(off0, 8), blob2.readoff(off0, 8))
+            self.eq(blob0.readoff(off1, 8), blob2.readoff(off1, 8))
 
-                self.eq(blob0.readoff(off0, 8), blob2.readoff(off0, 8))
-                self.eq(blob0.readoff(off1, 8), blob2.readoff(off1, 8))
+            self.eq(blob0.size(), blob2.size())
+            self.eq(walks, [t for t in blob2.walk()])
 
-                self.eq(blob0.size(), blob2.size())
-                self.eq(walks, [t for t in blob2.walk()])
-
-                blob2.fini()
+            blob2.fini()
 
             blob0.fini()
 

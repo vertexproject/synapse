@@ -107,7 +107,7 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
 
     def handlers(self):
         return {
-            'cell:ping': self._onCellPingMesg,
+            'cell:ping': self._onCellPing,
         }
 
     def genUserAuth(self, name):
@@ -122,9 +122,9 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
     def genRootCert(self):
         return self.root
 
-    def _onCellPingMesg(self, chan, mesg):
-        rply = ('retn', {'ok': True, 'data': mesg[1].get('data')})
-        chan.txfini(data=rply)
+    def _onCellPing(self, chan, mesg):
+        data = mesg[1].get('data')
+        chan.txfini(data=data)
 
     def _loadBootFile(self):
         '''
@@ -162,6 +162,9 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         Join a path relative to the cell persistence directory.
         '''
         return os.path.join(self.dirn, *paths)
+
+    def getCellPath(self, *paths):
+        return os.path.join(self.dirn, 'cell', *paths)
 
     @staticmethod
     @s_config.confdef(name='cell')
@@ -302,15 +305,35 @@ class UserSess(Sess):
         self._txok_evnt.wait(timeout=timeout)
         return self._txok_evnt.is_set()
 
-    def task(self, mesg, timeout=None):
+    def call(self, mesg, timeout=None):
+        '''
+        Call a Cell endpoint which returns a single value.
+        '''
+        with self.task(mesg, timeout=timeout) as chan:
+            return chan.next(timeout=timeout)
+
+    def iter(self, mesg, timeout=None):
+        '''
+        Access a Cell endpoint that uses the iter convention.
+        '''
+        with self.task(mesg, timeout=timeout) as chan:
+            for item in chan.iter():
+                chan.tx(True)
+                yield item
+
+    def task(self, mesg=None, timeout=None):
         '''
         Open a new channel within our session.
         '''
         with s_threads.retnwait() as retn:
 
             def onchan(chan):
+
                 chan.setq() # make this channel use a Q
-                chan.tx(mesg)
+
+                if mesg is not None:
+                    chan.tx(mesg)
+
                 retn.retn(chan)
 
             self.taskplex.open(self, onchan)
