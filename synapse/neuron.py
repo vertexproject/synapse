@@ -2,6 +2,7 @@ import io
 import os
 import time
 import errno
+import fcntl
 import socket
 import logging
 import threading
@@ -106,9 +107,52 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         # save the port so it can be semi-stable...
         self.kvinfo.set('port', self._cell_addr[1])
 
+        # Give implementers the chance to hook into the cell
+        self.postCell()
+
+        # lock cell.lock
+        self.lockfd = s_common.genfile(self.path('cell.lock'))
+        try:
+            fcntl.lockf(self.lockfd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as e:
+            logger.exception('Failed to obtain lock for [%s]', self.lockfd.name)
+            raise
+        self.onfini(self._onCellFini)
+        self.onfini(self.finiCell)
         logger.debug('Cell is done initializing')
 
+    def _onCellFini(self):
+        self.plex.fini()
+        self.sessplex.fini()
+        self.kvstor.fini()
+        self.vault.fini()
+        self.lockfd.close()
+
+    def postCell(self):
+        '''
+        Module implementers may over-ride this method to initialize the cell
+        *after* the configuration data has been loaded.
+
+        Returns:
+            None
+        '''
+        pass
+
+    def finiCell(self):
+        '''
+        Module implementors may over-ride this method to automatically tear down
+        resources created during postCell().
+        '''
+        pass
+
     def handlers(self):
+        '''
+        Module implementors may over-ride this method to provide the
+        ``<mesg>:<func>`` mapping required for the Cell link layer.
+
+        Returns:
+            dict: Dictionary mapping endpoints to functions.
+        '''
         return {
             'cell:ping': self._onCellPing,
         }
@@ -252,7 +296,7 @@ class Sess(s_net.Link):
 
         if self.rxtinh is None:
             logger.warning('xmit message before rxkey')
-            raise NotReady()
+            raise s_common.NotReady()
 
         data = mesg[1].get('data')
         newm = s_msgpack.un(self.rxtinh.dec(data))
@@ -398,6 +442,7 @@ class CellUser(SessBoss):
             def onlink(ok, link):
 
                 if not ok:
+                    # XXX untested!
                     errs = os.strerror(erno)
                     return retn.errx(OSError(erno, errs))
 
@@ -428,6 +473,13 @@ class CellUser(SessBoss):
 def divide(dirn, conf=None):
     '''
     Create an instance of a Cell in a subprocess.
+
+    Args:
+        dirn (str):
+        conf (dict):
+
+    Returns:
+        multiprocessing.Process: The Process object which was created to run the Cell
     '''
     # lets try to find his constructor...
     ctor = None
@@ -442,11 +494,13 @@ def divide(dirn, conf=None):
         ctor = subconf.get('ctor')
 
     if ctor is None:
-        raise ReqConfOpt(name='ctor')
+        raise s_common.ReqConfOpt(mesg='Missing ctor, cannot divide',
+                                  name='ctor')
 
     func = s_dyndeps.getDynLocal(ctor)
     if func is None:
-        raise NoSuchCtor(name=ctor)
+        raise s_common.NoSuchCtor(mesg='Cannot resolve ctor',
+                                  name=ctor)
 
     proc = multiprocessing.Process(target=_cell_entry, args=(ctor, dirn, conf))
     proc.start()
@@ -454,17 +508,22 @@ def divide(dirn, conf=None):
     return proc
 
 def _cell_entry(ctor, dirn, conf):
+    '''
+    Helper for starting a Cell via a Process.
 
+    Args:
+        ctor (str): Python path to the Cell implementation.
+        dirn (str): Directory backing the Cell data.
+        conf (dict): Configuration dictionary.
+
+    Notes:
+        This ends up calling ``main()`` on the Cell and does not return.
+    '''
     try:
-
         dirn = s_common.genpath(dirn)
         func = s_dyndeps.getDynLocal(ctor)
-
         cell = func(dirn, conf)
-
         logger.info('cell divided: %s (%s)' % (ctor, dirn))
-
         cell.main()
-
     except Exception as e:
         logger.exception('_cell_entry: %s (%s)' % (ctor, e))
