@@ -1,4 +1,5 @@
 import os
+import lmdb
 import random
 import logging
 
@@ -98,18 +99,32 @@ class Axon(s_neuron.Cell):
 
         self.inprog = {}
 
-        axondir = self.getCellPath('axon')
-        self.axondir = s_common.gendir(axondir)
+        #axondir = self.getCellPath('axon')
+        #self.axondir = s_common.gendir(axondir)
 
-        kvpath = os.path.join(self.axondir, 'axon.lmdb')
+        #kvpath = os.path.join(self.axondir, 'axon.lmdb')
 
-        self.kvstor = s_kv.KvStor(kvpath)
+        path = self.getCellPath('axon.lmdb')
+        self.lmdb = lmdb.open(path, writemap=True)
 
-        self.hashes = KvHashes(self.kvstor)
-        self.axinfo = self.kvstor.getKvDict('axon:info')
+        self.blobs = self.lmdb.open_db(b'blobs', dupsort=True)
+        self.blob_indx = self.blobs.stat()['entries']
 
-        blobpath = os.path.join(axondir, 'axon.blob')
-        self.blobfile = s_blobfile.BlobFile(blobpath)
+        self.hashes = self.lmdb.open_db(b'hashes', dupsort=True)
+
+        def fini():
+            self.lmdb.sync()
+            self.lmdb.close()
+
+        self.onfini(fini)
+
+        #self.kvstor = s_kv.KvStor(kvpath)
+
+        #self.hashes = KvHashes(self.kvstor)
+        #self.axinfo = self.kvstor.getKvDict('axon:info')
+
+        #blobpath = os.path.join(axondir, 'axon.blob')
+        #self.blobfile = s_blobfile.BlobFile(blobpath)
 
         # create a reactor to unwrap core/heap sync events
         #self.syncact = s_reactor.Reactor()
