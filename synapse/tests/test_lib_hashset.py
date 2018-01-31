@@ -8,7 +8,6 @@ asdf = b'asdfasdf'
 asdfhash = '6a204bd89f3c8348afd5c77c717a097a'
 asdfhash_iden = '1c753abfe85b4cbe46584fa5b1834fa4'
 asdfhashb = binascii.unhexlify(asdfhash)
-asdfhash_idenb = binascii.unhexlify(asdfhash_iden)
 
 class HashsetTest(SynTest):
     def hashset_assertions(self, hset):
@@ -30,10 +29,9 @@ class HashsetTest(SynTest):
         self.eq(props.get('size'), 8)
 
         digests = hset.digests()
-        self.len(5, digests)
+        self.len(4, digests)
         hdict = dict(digests)
         self.eq(hdict.get('md5'), asdfhashb)
-        self.eq(hdict.get('guid'), asdfhash_idenb)
         self.isin('sha1', hdict)
         self.isin('sha256', hdict)
         self.isin('sha512', hdict)
