@@ -143,8 +143,8 @@ class ConfTest(SynTest):
         class CoolClass(s_config.Configable):
 
             def __init__(self, proxy):
-                self.proxy = proxy
                 s_config.Configable.__init__(self)
+                self.proxy = proxy
 
         with self.getRamCore() as core:
             with s_daemon.Daemon() as dmon:

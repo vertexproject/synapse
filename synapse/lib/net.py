@@ -22,6 +22,7 @@ The synapse.lib.net module implements async networking helpers.
 ( and will slowly replace synapse.lib.socket )
 '''
 
+
 class Plex(s_config.Config):
     '''
     A highly-efficient epoll based multi-plexor for sockets.
@@ -396,7 +397,7 @@ class Chan(Link):
             self.link.tx(('init', {'chan': self._chan_iden, 'data': mesg}))
             return
 
-        self.link.tx(('data', {'chan': self._chan_iden, 'data':mesg}))
+        self.link.tx(('data', {'chan': self._chan_iden, 'data': mesg}))
 
     def txfini(self, data=None):
         self.link.tx(('fini', {'chan': self._chan_iden, 'data': data}))
@@ -450,7 +451,6 @@ class ChanPlex(Link):
 
         iden = mesg[1].get('chan')
         data = mesg[1].get('data')
-
 
         chan = self.chans.get(iden)
         if chan is not None:
@@ -561,7 +561,6 @@ class SockLink(Link):
         self.sock = sock
         self.fino = sock.fileno()
 
-
         self.txbuf = b''
         self.txque = collections.deque() #(byts, info)
         self.txlock = threading.Lock()
@@ -601,7 +600,7 @@ class SockLink(Link):
                 self.fini()
 
         except Exception as e:
-            logger.exception('error during epoll event: %s for %r' % (e,self.sock))
+            logger.exception('error during epoll event: %s for %r' % (e, self.sock))
             self.fini()
 
     def tx(self, mesg, fini=False):

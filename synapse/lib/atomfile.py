@@ -7,6 +7,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
+
 logger = logging.getLogger(__name__)
 
 class AtomBase(s_eventbus.EventBus):
@@ -213,7 +214,7 @@ class AtomDir(AtomBase):
                 prev = self.atoms[-1]
 
                 if prev.size < self.filemax:
-                    prev.writeoff(self.filemax-1, b'\x00')
+                    prev.writeoff(self.filemax - 1, b'\x00')
 
             path = self._getAtomPath(len(self.atoms) * self.filemax)
             self.atoms.append(AtomFile(path))

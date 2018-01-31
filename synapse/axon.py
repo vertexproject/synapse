@@ -19,6 +19,7 @@ from synapse.lib.hashset import *
 
 logger = logging.getLogger(__name__)
 
+
 megabyte = 1024000
 gigabyte = 1024000000
 terabyte = 1024000000000
@@ -146,7 +147,7 @@ class Axon(s_neuron.Cell):
         with chan:
             name = mesg[1].get('name')
             valu = mesg[1].get('valu')
-            chan.txfini(self.find(name,valu))
+            chan.txfini(self.find(name, valu))
 
     @s_glob.inpool
     def _onAxonBlob(self, chan, mesg):
