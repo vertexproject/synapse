@@ -558,6 +558,9 @@ class BusRef(EventBus):
     def vals(self):
         return list(self.ebus_by_name.values())
 
+    def items(self):
+        return list(self.ebus_by_name.items())
+
     def __iter__(self):
         # make a copy during iteration to prevent dict
         # change during iteration exceptions

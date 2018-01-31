@@ -20,6 +20,7 @@ import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 
+import synapse.lib.crypto.rsa as s_rsa
 import synapse.lib.crypto.vault as s_vault
 import synapse.lib.crypto.tinfoil as s_tinfoil
 
@@ -121,6 +122,9 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
 
     def genRootCert(self):
         return self.root
+
+    def getCellDict(self, name):
+        return self.kvstor.getKvDict('cell:data:' + name)
 
     def _onCellPing(self, chan, mesg):
         data = mesg[1].get('data')
@@ -356,23 +360,31 @@ class CellSess(Sess):
 
 class CellUser(SessBoss):
 
-    def __init__(self, user, path=s_vault.uservault):
+    def __init__(self, auth, roots=()):
 
-        self.user = user
-        self.path = path
+        self.user, self.info = auth
 
-        self.host = user.split('@', 1)[1]
+        #self.host = user.split('@', 1)[1]
 
-        with s_vault.shared(path) as vault:
+        byts = self.info.get('root')
+        if byts is None:
+            raise BadUserAuth(user=auth[0], mesg='root cert missing')
 
-            cert = vault.getUserCert(user)
+        root = s_vault.Cert.load(byts)
 
-            if cert is None:
-                raise s_exc.NoSuchUser(name=user, mesg='No cert in vault: %s' % (path,))
+        byts = self.info.get('rsa:key')
+        if byts is None:
+            raise Exception('CellUser auth is missing rsa:key')
 
-            roots = vault.getRootCerts()
+        rkey = s_rsa.PriKey.load(byts)
 
-        SessBoss.__init__(self, cert, roots)
+        byts = self.info.get('cert')
+        if byts is None:
+            raise Exception('CellUser auth is missing cert')
+
+        cert = s_vault.Cert.load(byts, rkey=rkey)
+
+        SessBoss.__init__(self, cert, [root])
 
         self.sessplex = s_net.ChanPlex()
         self.taskplex = s_net.ChanPlex()

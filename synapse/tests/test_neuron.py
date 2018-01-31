@@ -10,23 +10,15 @@ class NeuronTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            celldirn = os.path.join(dirn, 'cell')
-            userdirn = os.path.join(dirn, 'user')
-
             conf = {'user': 'cell@vertex.link', 'host': '127.0.0.1'}
 
-            with s_neuron.Cell(celldirn, conf) as cell:
+            with s_neuron.Cell(dirn, conf) as cell:
 
                 port = cell.getCellPort()
 
-                root = cell.genRootCert()
                 auth = cell.genUserAuth('visi@vertex.link')
 
-                with s_vault.shared(userdirn) as vault:
-                    vault.addRootCert(root)
-                    vault.addUserAuth(auth)
-
-                user = s_neuron.CellUser('visi@vertex.link', path=userdirn)
+                user = s_neuron.CellUser(auth)
 
                 addr = ('127.0.0.1', port)
 
