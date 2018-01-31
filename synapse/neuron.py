@@ -1,3 +1,4 @@
+import io
 import os
 import time
 import errno
@@ -104,6 +105,8 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
 
         # save the port so it can be semi-stable...
         self.kvinfo.set('port', self._cell_addr[1])
+
+        logger.debug('Cell is done initializing')
 
     def handlers(self):
         return {

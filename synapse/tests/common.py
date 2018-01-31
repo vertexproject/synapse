@@ -14,7 +14,7 @@ import unittest.mock as mock
 
 loglevel = int(os.getenv('SYN_TEST_LOG_LEVEL', logging.WARNING))
 logging.basicConfig(level=loglevel,
-                    format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s]')
+                    format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]')
 
 import synapse.link as s_link
 import synapse.cortex as s_cortex
