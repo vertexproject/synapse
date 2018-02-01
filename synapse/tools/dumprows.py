@@ -18,11 +18,11 @@ import argparse
 # Third Party Code
 # Custom Code
 import synapse
-import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.lib.tufo as s_tufo
+import synapse.lib.const as s_const
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 
@@ -68,7 +68,7 @@ def dump_rows(outp, fd, store, compress=False, genrows_kwargs=None):
         byts = s_msgpack.en(tufo)
         bufs.append(byts)
         cur_bytes += len(byts)
-        if cur_bytes > s_axon.megabyte * DUMP_MEGS:
+        if cur_bytes > s_const.mebibyte * DUMP_MEGS:
             fd.write(b''.join([byts for byts in bufs]))
             outp.printf('Stored {} rows, total {} rows'.format(j, i))
             bufs = []

@@ -26,13 +26,13 @@ import urllib.parse
 import tornado.ioloop as t_ioloop
 import tornado.httpclient as t_http
 # Custom Code
-import synapse.axon as s_axon
 import synapse.async as s_async
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.glob as s_glob
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.ingest as s_ingest
 import synapse.lib.config as s_config
 import synapse.lib.threads as s_threads
@@ -51,7 +51,7 @@ HYPNOS_BASE_DEFS = (
     (MAX_SPOOL_FILESIZE, {'type': 'int',
                           'doc': 'Maximum spoolfile size, in bytes, to use for storing responses associated with '
                                  'APIs that have ingest definitions.',
-                          'defval': s_axon.megabyte * 2}),
+                          'defval': s_const.mebibyte * 2}),
     (CACHE_ENABLED, {'type': 'bool',
                      'doc': 'Enable caching of job results for a period of time, retrievable by jobid.',
                      'defval': False}),
@@ -119,7 +119,7 @@ def fetch(url, callback, defs=None):
     if defs is None:
         defs = {}
 
-    fd = tempfile.SpooledTemporaryFile(max_size=s_axon.megabyte * 100)
+    fd = tempfile.SpooledTemporaryFile(max_size=s_const.mebibyte * 100)
 
     def write_fd(chunk):
         fd.write(chunk)
@@ -134,7 +134,7 @@ def fetch(url, callback, defs=None):
 
     req = t_http.HTTPRequest(url, **defs)
     asynchttp = t_http.AsyncHTTPClient(io_loop=_getIoLoop(),
-                                       max_body_size=s_axon.terabyte * 1,
+                                       max_body_size=s_const.tebibyte * 1,
                                        )
     ioloop.add_callback(asynchttp.fetch, req, wrapped_callback)
 

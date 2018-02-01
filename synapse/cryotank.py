@@ -60,10 +60,10 @@ class CryoTank(s_eventbus.EventBus):
         Add the structured data from items to the CryoTank.
 
         Args:
-            items ([obj]): A list of objects to store in the CryoTank.
+            items (list):  A list of objects to store in the CryoTank.
 
         Returns:
-            (int): The index that the item storage began at.
+            int: The index that the item storage began at.
         '''
         itembyts = [s_msgpack.en(i) for i in items]
 
@@ -103,7 +103,7 @@ class CryoTank(s_eventbus.EventBus):
             size (int): The number to retrieve.
 
         Yields:
-            (int,dict): An (index, info) metrics entry.
+            ((int, dict)): An index offset, info tuple for metrics.
         '''
         imax = offs + size
         mink = struct.pack('>Q', offs)
@@ -125,20 +125,22 @@ class CryoTank(s_eventbus.EventBus):
 
     def slice(self, offs, size):
         '''
-        Return size data items from the given offset.
+        Yield a number of items from the CryoTank starting at a given offset.
 
         Args:
             offs (int): The index of the desired datum (starts at 0)
             size (int): The max number of items to yield.
 
+        Notes:
+            This API performs msgpack unpacking on the bytes, and could be
+            slow to call remotely.
+
         Yields:
-            (indx, item): Index and item values.
+            ((index, object)): Index and item values.
         '''
         lmin = struct.pack('>Q', offs)
         imax = offs + size
 
-        # time slice the items from the cryo tank
-        #with self.lmdb.begin(buffers=True) as xact:
         with self.lmdb.begin() as xact:
 
             with xact.cursor(db=self.lmdb_items) as curs:
@@ -156,14 +158,14 @@ class CryoTank(s_eventbus.EventBus):
 
     def rows(self, offs, size):
         '''
-        Yield raw (indx, byts) values for the given range.
+        Yield a number of raw items from the CryoTank starting at a given offset.
 
         Args:
             offs (int): The index of the desired datum (starts at 0)
             size (int): The max number of items to yield.
 
         Yields:
-            (indx, item): Index and item values.
+            ((indx, bytes)): Index and msgpacked bytes.
         '''
         lmin = struct.pack('>Q', offs)
         imax = offs + size
