@@ -61,12 +61,7 @@ class NeuronTest(SynTest):
             # Preload the cell vault
             vdir = os.path.join(celldirn, 'vault.lmdb')
             with s_vault.shared(vdir) as vault:
-                root = vault.genRootCert()
                 auth = vault.genUserAuth('pennywise@vertex.link')
-
-            with s_vault.shared(userdirn) as vault:
-                vault.addRootCert(root)
-                vault.addUserAuth(auth)
 
             proc = s_neuron.divide(celldirn, conf)
 
@@ -76,7 +71,7 @@ class NeuronTest(SynTest):
 
             try:
                 # Try connecting to the cell
-                user = s_neuron.CellUser('pennywise@vertex.link', path=userdirn)
+                user = s_neuron.CellUser(auth)
                 addr = ('127.0.0.1', port)
 
                 with user.open(addr, timeout=10) as sess:
