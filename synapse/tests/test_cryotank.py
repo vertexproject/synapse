@@ -56,8 +56,9 @@ class CryoTest(SynTest):
 
                 user = s_cryotank.CryoUser(auth, addr, timeout=2)
 
+                user._chunksize = 1
                 user.puts('woot:woot', cryodata, timeout=2)
-                print(repr(user.last('woot:woot')))
+
                 self.eq(user.last('woot:woot', timeout=2)[1][0], 'baz')
 
                 retn = user.list()
