@@ -76,7 +76,18 @@ def iterfd(fd):
 
 def iterfile(path):
     '''
-    Generator which yields msgpack objects from a file path
+    Generator which yields msgpack objects from a file path.
+
+    Args:
+        path: File path to open and consume data from.
+
+    Notes:
+        String objects are decoded using utf8 encoding.  In order to handle
+        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
+        to allow decoding bad input strings.
+
+    Yields:
+        Objects from a msgpack stream.
     '''
     with io.open(path, 'rb') as fd:
 

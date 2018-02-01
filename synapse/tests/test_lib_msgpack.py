@@ -47,6 +47,24 @@ class MsgPackTest(SynTest):
 
             fd.close()
 
+    def test_msgpack_iterfile(self):
+        t0 = ('5678', {'key': 1})
+        t1 = ('1234', {'key': 'haha'})
+
+        with self.getTestDir() as fdir:
+            fd = genfile(fdir, 'test.mpk')
+            for obj in (t0, t1):
+                fd.write(s_msgpack.en(obj))
+            fd.close()
+
+            gen = s_msgpack.iterfile(genpath(fdir, 'test.mpk'))
+
+            items = [obj for obj in gen]
+            self.len(2, items)
+            self.sorteq(items, [t0, t1])
+
+            fd.close()
+
     def test_msgpack_types(self):
         # This is a future-proofing test for msgpack to ensure that
         buf = b'\x92\xa4hehe\x85\xa3str\xa41234\xa3int\xcd\x04\xd2\xa5float\xcb@(\xae\x14z\xe1G\xae\xa3bin\xc4\x041234\xa9realworld\xac\xc7\x8b\xef\xbf\xbd\xed\xa1\x82\xef\xbf\xbd\x12'
