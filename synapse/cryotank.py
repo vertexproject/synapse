@@ -177,12 +177,11 @@ class CryoTank(s_eventbus.EventBus):
 
 class CryoCell(s_neuron.Cell):
 
-    def __init__(self, dirn, conf=None):
-
-        s_neuron.Cell.__init__(self, dirn, conf=conf)
-
+    def postCell(self):
+        '''
+        CryoCell initialization routines.
+        '''
         self.names = self.getCellDict('cryo:names')
-
         self.tanks = s_eventbus.BusRef()
 
         for name, iden in self.names.items():
@@ -190,8 +189,33 @@ class CryoCell(s_neuron.Cell):
             tank = CryoTank(path)
             self.tanks.put(name, tank)
 
-    def genCryoTank(self, name):
+    def finiCell(self):
+        '''
+        Fini handlers for the CryoCell
+        '''
+        self.tanks.fini()
 
+    def handlers(self):
+        '''
+        CryoCell message handlers.
+        '''
+        return {
+            'cryo:list': self._onCryoList,
+            'cryo:puts': self._onCryoPuts,
+            'cryo:dele': self._onCryoDele,
+            'cryo:metrics': self._onCryoMetrics,
+        }
+
+    def genCryoTank(self, name):
+        '''
+        Generate a new CryoTank with a given name or get an reference to an existing CryoTank.
+
+        Args:
+            name (str): Name of the CryoTank.
+
+        Returns:
+            CryoTank: A CryoTank instance.
+        '''
         tank = self.tanks.get(name)
         if tank is not None:
             return tank
@@ -210,17 +234,12 @@ class CryoCell(s_neuron.Cell):
 
     def getCryoList(self):
         '''
-        Return a list of (name, info) tuples for the CryoTanks.
+        Get a list of (name, info) tuples for the CryoTanks.
+
+        Returns:
+            list: A list of tufos.
         '''
         return [(name, tank.info()) for (name, tank) in self.tanks.items()]
-
-    def handlers(self):
-        return {
-            'cryo:list': self._onCryoList,
-            'cryo:puts': self._onCryoPuts,
-            'cryo:dele': self._onCryoDele,
-            'cryo:metrics': self._onCryoMetrics,
-        }
 
     def _onCryoList(self, chan, mesg):
         chan.txfini(self.getCryoList())
@@ -229,15 +248,14 @@ class CryoCell(s_neuron.Cell):
 
         name = mesg[1].get('name')
 
-        tank = self.tanks.pop(name)
+        tank = self.tanks.pop(name)  # type: CryoTank
         if tank is None:
             return chan.txfini(False)
 
         self.names.pop(name)
 
         tank.fini()
-
-        shutil.rmtree(tempdir, ignore_errors=True)
+        shutil.rmtree(tank.path, ignore_errors=True)
         return chan.txfini(True)
 
     @s_glob.inpool
@@ -255,7 +273,6 @@ class CryoCell(s_neuron.Cell):
 
     @s_glob.inpool
     def _onCryoPuts(self, chan, mesg):
-
         name = mesg[1].get('name')
         items = mesg[1].get('items')
 
