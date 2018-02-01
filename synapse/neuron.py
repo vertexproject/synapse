@@ -81,7 +81,6 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
 
         # open our vault
         self.vault = s_vault.Vault(self._path('vault.lmdb'))
-        self.boot = self._loadBootFile()
         self.root = self.vault.genRootCert()
 
         # setup our certificate and private key
