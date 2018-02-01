@@ -52,3 +52,7 @@ class CryoTest(SynTest):
                 retn = user.list()
                 self.eq(retn[0][1]['indx'], 2)
                 self.eq(retn[0][0], 'woot:woot')
+
+                metr = user.metrics('woot:woot', 0, 100, timeout=2)
+
+                self.eq(metr[0][1]['count'], len(cryodata))

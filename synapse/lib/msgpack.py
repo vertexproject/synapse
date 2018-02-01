@@ -1,3 +1,5 @@
+import io
+
 import logging
 import msgpack
 import msgpack.fallback as m_fallback
@@ -72,6 +74,18 @@ def iterfd(fd):
     for mesg in unpk:
         yield mesg
 
+def iterfile(path):
+    '''
+    Generator which yields msgpack objects from a file path
+    '''
+    with io.open(path, 'rb') as fd:
+
+        unpk = msgpack.Unpacker(fd, use_list=False, encoding='utf8',
+                            unicode_errors='surrogatepass')
+
+        for mesg in unpk:
+            yield mesg
+
 class Unpk:
     '''
     An extension of the msgpack streaming Unpacker which reports sizes.
@@ -117,3 +131,16 @@ class Unpk:
                 break
 
         return retn
+
+def loadfile(path):
+    '''
+    Load and upack the msgpack bytes from a file by path.
+
+    Args:
+        path (str): The file path to a message pack file.
+
+    Returns:
+        (obj): The decoded python object.
+    '''
+    with io.open(path, 'rb') as fd:
+        return un(fd.read())

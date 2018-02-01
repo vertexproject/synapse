@@ -345,7 +345,7 @@ class Link(s_eventbus.EventBus):
                 return self.rxfunc(self, mesg)
 
             except Exception as e:
-                logger.warning('rxfunc() failed: %r' % (e,))
+                logger.exception('%s.rxfunc() failed on: %r' % (self.__class__.__name__, mesg))
                 return
 
         func = self._mesg_funcs.get(mesg[0])

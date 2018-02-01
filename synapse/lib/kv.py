@@ -382,6 +382,7 @@ class KvStor(s_eventbus.EventBus):
                     return
 
                 for ikey, ival in curs.iternext():
+
                     if not ikey.startswith(lkey):
                         break
 

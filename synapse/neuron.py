@@ -32,16 +32,22 @@ class SessBoss:
     '''
     Mixin base class for sesion managers.
     '''
-    def __init__(self, cert, roots):
+    def __init__(self, auth, roots=()):
 
-        self.cert = cert
-        self.roots = roots
+        self._boss_auth = auth
 
-        self.key = cert.getkey()
-        self.certbyts = cert.dump()
+        self.roots = list(roots)
+
+        root = s_vault.Cert.load(auth[1].get('root'))
+        self.roots.append(root)
+
+        self.rkey = s_rsa.PriKey.load(auth[1].get('rsa:key'))
+
+        self.cert = s_vault.Cert.load(auth[1].get('cert'))
+        self.certbyts = self.cert.dump()
 
     def decrypt(self, byts):
-        return self.key.decrypt(byts)
+        return self.rkey.decrypt(byts)
 
     def valid(self, cert):
         return any([r.signed(cert) for r in self.roots])
@@ -82,11 +88,27 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         self.root = self.vault.genRootCert()
 
         # setup our certificate and private key
-        user = self.getConfOpt('user')
-        cert = self.vault.genUserCert(user)
-        roots = self.vault.getRootCerts()
+        auth = None
 
-        SessBoss.__init__(self, cert, roots)
+        path = self.path('cell.auth')
+        if os.path.isfile(path):
+            auth = s_msgpack.un(io.open(path,'rb').read())
+
+        # if we dont have provided auth, assume we stand alone
+        if auth is None:
+
+            auth = self.vault.genUserAuth('root')
+            with io.open(path, 'wb') as fd:
+                fd.write(s_msgpack.en(auth))
+
+            path = self.path('user.auth')
+            auth = self.vault.genUserAuth('user')
+
+            with io.open(path, 'wb') as fd:
+                fd.write(s_msgpack.en(auth))
+
+        roots = self.vault.getRootCerts()
+        SessBoss.__init__(self, auth, roots)
 
         host = self.getConfOpt('host')
         port = self.getConfOpt('port')
@@ -409,29 +431,7 @@ class CellUser(SessBoss):
 
     def __init__(self, auth, roots=()):
 
-        self.user, self.info = auth
-
-        #self.host = user.split('@', 1)[1]
-
-        byts = self.info.get('root')
-        if byts is None:
-            raise BadUserAuth(user=auth[0], mesg='root cert missing')
-
-        root = s_vault.Cert.load(byts)
-
-        byts = self.info.get('rsa:key')
-        if byts is None:
-            raise Exception('CellUser auth is missing rsa:key')
-
-        rkey = s_rsa.PriKey.load(byts)
-
-        byts = self.info.get('cert')
-        if byts is None:
-            raise Exception('CellUser auth is missing cert')
-
-        cert = s_vault.Cert.load(byts, rkey=rkey)
-
-        SessBoss.__init__(self, cert, [root])
+        SessBoss.__init__(self, auth, roots=roots)
 
         self.sessplex = s_net.ChanPlex()
         self.taskplex = s_net.ChanPlex()
@@ -482,18 +482,10 @@ class CellUser(SessBoss):
 
             return sess
 
-def divide(dirn, conf=None):
+def getCellCtor(dirn, conf=None):
     '''
-    Create an instance of a Cell in a subprocess.
-
-    Args:
-        dirn (str):
-        conf (dict):
-
-    Returns:
-        multiprocessing.Process: The Process object which was created to run the Cell
+    Find the ctor option for a cell and resolve the function.
     '''
-    # lets try to find his constructor...
     ctor = None
 
     if conf is not None:
@@ -514,17 +506,31 @@ def divide(dirn, conf=None):
         raise s_common.NoSuchCtor(mesg='Cannot resolve ctor',
                                   name=ctor)
 
-    proc = multiprocessing.Process(target=_cell_entry, args=(ctor, dirn, conf))
+    return ctor, func
+
+def divide(dirn, conf=None):
+    '''
+    Create an instance of a Cell in a subprocess.
+
+    Args:
+        dirn (str):
+        conf (dict):
+
+    Returns:
+        multiprocessing.Process: The Process object which was created to run the Cell
+    '''
+    ctor, func = getCellCtor(dirn, conf=conf)
+
+    proc = multiprocessing.Process(target=main, args=(dirn, conf))
     proc.start()
 
     return proc
 
-def _cell_entry(ctor, dirn, conf):
+def main(dirn, conf=None):
     '''
-    Helper for starting a Cell via a Process.
+    Initialize and execute the main loop for a Cell.
 
     Args:
-        ctor (str): Python path to the Cell implementation.
         dirn (str): Directory backing the Cell data.
         conf (dict): Configuration dictionary.
 
@@ -532,10 +538,22 @@ def _cell_entry(ctor, dirn, conf):
         This ends up calling ``main()`` on the Cell and does not return.
     '''
     try:
+
         dirn = s_common.genpath(dirn)
-        func = s_dyndeps.getDynLocal(ctor)
+        ctor, func = getCellCtor(dirn, conf=conf)
+
         cell = func(dirn, conf)
-        logger.info('cell divided: %s (%s)' % (ctor, dirn))
+
+        port = cell.getCellPort()
+        logger.warning('cell divided: %s (%s) port: %d' % (ctor, dirn, port))
+
         cell.main()
+
     except Exception as e:
-        logger.exception('_cell_entry: %s (%s)' % (ctor, e))
+
+        logger.exception('main: %s (%s)' % (dirn, e))
+
+if __name__ == '__main__':
+    import sys
+    main(sys.argv[1])
+

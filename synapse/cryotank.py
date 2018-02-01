@@ -3,6 +3,7 @@ import shutil
 import struct
 import logging
 
+import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.neuron as s_neuron
@@ -17,8 +18,7 @@ class CryoTank(s_eventbus.EventBus):
     '''
     A CryoTank implements a stream of structured data.
     '''
-    def __init__(self, dirn):
-
+    def __init__(self, dirn, mapsize=1099511627776): # from LMDB docs....
         s_eventbus.EventBus.__init__(self)
 
         self.path = s_common.gendir(dirn)
@@ -26,6 +26,7 @@ class CryoTank(s_eventbus.EventBus):
         path = s_common.gendir(self.path, 'cryo.lmdb')
 
         self.lmdb = lmdb.open(path, writemap=True, max_dbs=128)
+        self.lmdb.set_mapsize(mapsize)
 
         self.lmdb_items = self.lmdb.open_db(b'items')
         self.lmdb_metrics = self.lmdb.open_db(b'metrics')
@@ -34,13 +35,9 @@ class CryoTank(s_eventbus.EventBus):
             self.items_indx = xact.stat(self.lmdb_items)['entries']
             self.metrics_indx = xact.stat(self.lmdb_metrics)['entries']
 
-        path = s_common.gendir(self.path, 'cryo.atom')
-        self.atom = s_atomfile.AtomDir(path)
-
         def fini():
             self.lmdb.sync()
             self.lmdb.close()
-            self.atom.fini()
 
         self.onfini(fini)
 
@@ -71,12 +68,14 @@ class CryoTank(s_eventbus.EventBus):
             with xact.cursor() as curs:
                 curs.putmulti(todo, append=True)
 
+            took = s_common.now() - tick
+
             with xact.cursor(db=self.lmdb_metrics) as curs:
 
                 lkey = struct.pack('>Q', self.metrics_indx)
                 self.metrics_indx += 1
 
-                info = {'time': tick, 'count': len(items), 'size': bytesize}
+                info = {'time': tick, 'count': len(items), 'size': bytesize, 'took': took}
                 curs.put(lkey, s_msgpack.en(info), append=True)
 
         return retn
@@ -247,19 +246,12 @@ class CryoCell(s_neuron.Cell):
         offs = mesg[1].get('offs')
         size = mesg[1].get('size')
 
-        with chan:
+        tank = self.tanks.get(name)
+        if tank is None:
+            return chan.txfini()
 
-            tank = self.tanks.get(name)
-            if tank is None:
-                return chan.txfini()
-
-            chan.setq()
-
-            retn = tank.metrics(offs, size)
-            for itms in s_common.chunked(retn, 10000):
-                chan.tx(items)
-                if not chan.next(timeout=30):
-                    return
+        metr = list(tank.metrics(offs, size))
+        chan.txfini(metr)
 
     @s_glob.inpool
     def _onCryoPuts(self, chan, mesg):
@@ -317,3 +309,11 @@ class CryoUser(s_neuron.CellUser):
         Return a list of (name, info) tuples for the remote CryoTanks.
         '''
         return self._cryo_sess.call(('cryo:list', {}), timeout=timeout)
+
+    def metrics(self, name, offs, size, timeout=None):
+        '''
+        Carve a slice of metrics data from the named CryoTank.
+        ( see CryoTank.metrics )
+        '''
+        mesg = ('cryo:metrics', {'name': name, 'offs': offs, 'size': size})
+        return self._cryo_sess.call(mesg, timeout=timeout)
