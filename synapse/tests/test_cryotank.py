@@ -27,8 +27,12 @@ class CryoTest(SynTest):
                 retn = tuple(tank.slice(0, 1))
                 self.eq(retn, ((0, cryodata[0]),))
 
-                retn = tuple(tank.rows(0, 2))[-1]
-                self.eq(retn, (1, b'\x92\xa3baz\x81\xa3faz\x14'))
+                retn = tuple(tank.rows(0, 1))  # coverage related
+                self.len(1, retn)
+                retn = tuple(tank.rows(0, 2))
+                self.len(2, retn)
+                data = retn[-1]
+                self.eq(data, (1, b'\x92\xa3baz\x81\xa3faz\x14'))
 
                 info = tank.info()
                 self.eq(2, info.get('indx'))
@@ -39,6 +43,17 @@ class CryoTest(SynTest):
                 self.nn(retn[1].get('time'))
                 self.eq(retn[1].get('size'), 22)
                 self.eq(retn[1].get('count'), 2)
+
+                # Slices and rows can start at offsets
+                retn = tuple(tank.rows(1, 4))
+                self.len(1, retn)
+                retn = tuple(tank.slice(1, 4))
+                self.len(1, retn)
+
+                retn = tuple(tank.rows(4, 4))
+                self.len(0, retn)
+                retn = tuple(tank.slice(4, 4))
+                self.len(0, retn)
 
     def test_cryo_cell(self):
 
