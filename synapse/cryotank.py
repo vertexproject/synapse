@@ -296,6 +296,7 @@ class CryoUser(s_neuron.CellUser):
     def __init__(self, auth, addr, timeout=None):
 
         s_neuron.CellUser.__init__(self, auth)
+        self._chunksize = 10000
 
         self._cryo_sess = self.open(addr, timeout=timeout)
         if self._cryo_sess is None:
@@ -313,7 +314,7 @@ class CryoUser(s_neuron.CellUser):
         retn = 0
         with self._cryo_sess.task(('cryo:puts', {'name': name})) as chan:
 
-            for i, chun in enumerate(s_common.chunks(items, 10000)):
+            for i, chun in enumerate(s_common.chunks(items, self._chunksize)):
 
                 chan.tx(chun)
 
