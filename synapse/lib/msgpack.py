@@ -142,3 +142,19 @@ class Unpk:
                 break
 
         return retn
+
+def loadfile(path):
+    '''
+    Load and upack the msgpack bytes from a file by path.
+
+    Args:
+        path (str): The file path to a message pack file.
+
+    Raises:
+        msgpack.exceptions.ExtraData: If the file contains multiple objects.
+
+    Returns:
+        (obj): The decoded python object.
+    '''
+    with io.open(path, 'rb') as fd:
+        return un(fd.read())

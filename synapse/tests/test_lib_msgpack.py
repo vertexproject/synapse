@@ -1,3 +1,5 @@
+import msgpack
+
 from synapse.tests.common import *
 
 import synapse.lib.msgpack as s_msgpack
@@ -64,6 +66,26 @@ class MsgPackTest(SynTest):
             self.sorteq(items, [t0, t1])
 
             fd.close()
+
+    def test_msgpack_loadfile(self):
+        t0 = ('5678', {'key': 1})
+        t1 = ('1234', {'key': 'haha'})
+
+        with self.getTestDir() as fdir:
+            fd = genfile(fdir, 'oneobj.mpk')
+            fd.write(s_msgpack.en(t0))
+            fd.close()
+
+            fd = genfile(fdir, 'twoobjs.mpk')
+            for obj in (t0, t1):
+                fd.write(s_msgpack.en(obj))
+            fd.close()
+
+            data = s_msgpack.loadfile(genpath(fdir, 'oneobj.mpk'))
+            self.eq(data, ('5678', {'key': 1}))
+
+            # Files containing multiple objects are not supported
+            self.raises(msgpack.exceptions.ExtraData, s_msgpack.loadfile, genpath(fdir, 'twoobjs.mpk'))
 
     def test_msgpack_types(self):
         # This is a future-proofing test for msgpack to ensure that
