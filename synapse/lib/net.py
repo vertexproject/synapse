@@ -642,6 +642,9 @@ class SockLink(Link):
 
             return self.sock.recv(size)
 
+        except ConnectionError as e:
+            return ''
+
         except BlockingIOError as e:
             return None
 
