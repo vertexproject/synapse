@@ -46,15 +46,57 @@ def checkLock(fd, timeout, wait=0.1):
 
 class NeuronTest(SynTest):
 
+    def test_neuron_cell_base(self):
+        with self.getTestDir() as dirn:
+
+            conf = {'host': '127.0.0.1'}
+
+            with s_neuron.Cell(dirn, conf) as cell:
+                # A bunch of API tests here
+                port = cell.getCellPort()
+                self.isinstance(port, int)
+
+                auth = cell.genUserAuth('bobgrey@vertex.link')
+                self.istufo(auth)
+
+                root = cell.getRootCert()
+                self.isinstance(root, s_vault.Cert)
+
+                # We have a default ping handler
+                hdlrs = cell.handlers()
+                self.isinstance(hdlrs, dict)
+                self.isin('cell:ping', hdlrs)
+
+                p1 = cell.getCellPath('hehe.wut')
+                p2 = cell.getCellPath('woah', 'dude.txt')
+                self.isinstance(p1, str)
+                self.isinstance(p2, str)
+                self.eq(os.path.relpath(p1, dirn), os.path.join('cell', 'hehe.wut'))
+                self.eq(os.path.relpath(p2, dirn), os.path.join('cell', 'woah', 'dude.txt'))
+
+                # Demonstrate the use of getCellDict()
+                celld = cell.getCellDict('derry:sewers')
+                celld.set('float:junction', 'the narrows')
+                celld.set('float:place', (None, {'paperboat': 1}))
+
+            with s_neuron.Cell(dirn, conf) as cell:
+                # We persist the port if it is not specified in the config
+                self.eq(cell.getCellPort(), port)
+
+                # These are largely demonstrative tests
+                celld = cell.getCellDict('derry:sewers')
+                self.eq(celld.get('float:junction'), 'the narrows')
+                self.eq(celld.get('float:place'), (None, {'paperboat': 1}))
+                celld.pop('float:place')
+                self.none(celld.get('float:place'))
+
     def test_neuron_divide(self):
         with self.getTestDir() as dirn:
 
             celldirn = os.path.join(dirn, 'cell')
-            userdirn = os.path.join(dirn, 'user')
             port = random.randint(20000, 50000)
 
-            conf = {'user': 'cell@vertex.link',
-                    'host': '127.0.0.1',
+            conf = {'host': '127.0.0.1',
                     'port': port,
                     'ctor': 'synapse.tests.test_neuron.TstCell'}
 
@@ -106,7 +148,7 @@ class NeuronTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            conf = {'user': 'cell@vertex.link', 'host': '127.0.0.1'}
+            conf = {'host': '127.0.0.1'}
 
             with s_neuron.Cell(dirn, conf) as cell:
 

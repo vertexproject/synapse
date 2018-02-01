@@ -1,4 +1,3 @@
-import io
 import os
 import time
 import errno
@@ -55,6 +54,10 @@ class SessBoss:
 class Cell(s_config.Config, s_net.Link, SessBoss):
     '''
     A Cell is a micro-service in a neuron cluster.
+
+    Args:
+        dirn (str): Path to the directory backing the Cell.
+        conf (dict): Configuration data.
     '''
     _def_port = 0
 
@@ -67,44 +70,39 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         s_common.gendir(dirn)
 
         # config file in the dir first...
-        self.loadConfPath(self.path('config.json'))
-
+        self.loadConfPath(self._path('config.json'))
         if conf is not None:
             self.setConfOpts(conf)
-
         self.reqConfOpts()
 
         self.plex = s_net.Plex()
-
-        self.kvstor = s_kv.KvStor(self.path('cell.lmdb'))
-
+        self.kvstor = s_kv.KvStor(self._path('cell.lmdb'))
         self.kvinfo = self.kvstor.getKvDict('cell:info')
 
         # open our vault
-        self.vault = s_vault.Vault(self.path('vault.lmdb'))
-
+        self.vault = s_vault.Vault(self._path('vault.lmdb'))
         self.boot = self._loadBootFile()
-
         self.root = self.vault.genRootCert()
 
         # setup our certificate and private key
         auth = None
 
-        path = self.path('cell.auth')
+        path = self._path('cell.auth')
         if os.path.isfile(path):
-            auth = s_msgpack.un(io.open(path,'rb').read())
+            with open(path, 'rb') as fd:
+                auth = s_msgpack.un(fd.read())
 
         # if we dont have provided auth, assume we stand alone
         if auth is None:
 
             auth = self.vault.genUserAuth('root')
-            with io.open(path, 'wb') as fd:
+            with open(path, 'wb') as fd:
                 fd.write(s_msgpack.en(auth))
 
-            path = self.path('user.auth')
+            path = self._path('user.auth')
             auth = self.vault.genUserAuth('user')
 
-            with io.open(path, 'wb') as fd:
+            with open(path, 'wb') as fd:
                 fd.write(s_msgpack.en(auth))
 
         roots = self.vault.getRootCerts()
@@ -134,7 +132,7 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         self.postCell()
 
         # lock cell.lock
-        self.lockfd = s_common.genfile(self.path('cell.lock'))
+        self.lockfd = s_common.genfile(self._path('cell.lock'))
         try:
             fcntl.lockf(self.lockfd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as e:
@@ -183,16 +181,50 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
     def genUserAuth(self, name):
         '''
         Generate a user auth blob that is valid for this Cell.
+
+        Args:
+            name (str): Name of the user to generate the auth blob for.
+
+        Returns:
+            ((str, dict)): A user auth tufo.
         '''
         return self.vault.genUserAuth(name)
 
     def getCellPort(self):
+        '''
+        Get the port the Cell is listening on.
+
+        Returns:
+            int: Port the cell is running on.
+        '''
         return self.kvinfo.get('port')
 
-    def genRootCert(self):
+    def getRootCert(self):
+        '''
+        Get the root certificate for the cell.
+
+        Returns:
+            s_vault.Cert: The root Cert object for the cell.
+        '''
         return self.root
 
     def getCellDict(self, name):
+        '''
+        Get a KvDict with a given name.
+
+        Args:
+            name (str): Name of the KvDict.
+
+        Notes:
+            Module implementers may use the ``getCellDict()`` API to get
+            a KvDict object which acts like a Python dictionary, but will
+            persist data across process startup/shutdown.  The keys and
+            values are msgpack encoded prior to storing them, allowing the
+            persistence of complex data structures.
+
+        Returns:
+            s_kv.KvDict: A persistent KvDict.
+        '''
         return self.kvstor.getKvDict('cell:data:' + name)
 
     def _onCellPing(self, chan, mesg):
@@ -204,11 +236,11 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         ./node.boot is a msgpack bootstrap dict
         ( it is deleted one loaded the first time )
         '''
-        path = self.path('cell.boot')
+        path = self._path('cell.boot')
         if not os.path.isfile(path):
             return None
 
-        with io.open(path, 'rb') as fd:
+        with open(path, 'rb') as fd:
             byts = fd.read()
 
         os.unlink(path)
@@ -227,16 +259,29 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
 
         auth = boot.get('auth')
         if auth is not None:
+            # XXX Untested
             self.kvinfo('user', auth[0])
             self.vault.addUserAuth(auth, signer=True)
 
-    def path(self, *paths):
+    def _path(self, *paths):
         '''
         Join a path relative to the cell persistence directory.
         '''
         return os.path.join(self.dirn, *paths)
 
     def getCellPath(self, *paths):
+        '''
+        Get a file path underneath the underlying Cell path.
+
+        Args:
+            *paths: Paths to join together.
+
+        Notes:
+            Does not protect against path traversal.
+
+        Returns:
+            str: P
+        '''
         return os.path.join(self.dirn, 'cell', *paths)
 
     @staticmethod
@@ -246,9 +291,6 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
 
             ('ctor', {
                 'doc': 'The path to the cell constructor'}),
-
-            ('user', {'defval': 'cell@neuron.vertex.link',
-                'doc': 'The user this Cell runs as (cert).'}),
 
             ('root', {
                 'doc': 'The SHA256 of our neuron root cert (used for autoconf).'}),
@@ -556,4 +598,3 @@ def main(dirn, conf=None):
 if __name__ == '__main__':
     import sys
     main(sys.argv[1])
-
