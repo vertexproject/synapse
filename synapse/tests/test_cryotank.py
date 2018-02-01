@@ -35,7 +35,7 @@ class CryoTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            conf = {'user': 'cell@vertex.link', 'host': '127.0.0.1'}
+            conf = {'host': '127.0.0.1'}
 
             with s_cryotank.CryoCell(dirn, conf) as cell:
 
