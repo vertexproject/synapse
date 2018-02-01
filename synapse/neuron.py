@@ -231,38 +231,6 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         data = mesg[1].get('data')
         chan.txfini(data=data)
 
-    def _loadBootFile(self):
-        '''
-        ./node.boot is a msgpack bootstrap dict
-        ( it is deleted one loaded the first time )
-        '''
-        path = self._path('cell.boot')
-        if not os.path.isfile(path):
-            return None
-
-        with open(path, 'rb') as fd:
-            byts = fd.read()
-
-        os.unlink(path)
-
-        boot = s_msgpack.un(byts)
-        self._initFromBoot(boot)
-
-        return boot
-
-    def _initFromBoot(self, boot):
-
-        # get and trust the root user cert
-        root = boot.get('root')
-        if root is not None:
-            self.vault.addRootCert(root)
-
-        auth = boot.get('auth')
-        if auth is not None:
-            # XXX Untested
-            self.kvinfo('user', auth[0])
-            self.vault.addUserAuth(auth, signer=True)
-
     def _path(self, *paths):
         '''
         Join a path relative to the cell persistence directory.
