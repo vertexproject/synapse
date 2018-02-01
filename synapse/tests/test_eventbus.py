@@ -390,18 +390,18 @@ class EventBusTest(SynTest):
         bref.put('baz', bus2)
 
         items = bref.items()
-        self.eq(items[0], ('foo', bus0))
-        self.eq(items[1], ('bar', bus1))
-        self.eq(items[2], ('baz', bus2))
+        self.isin(('foo', bus0), items)
+        self.isin(('bar', bus1), items)
+        self.isin(('baz', bus2), items)
 
         bus1.fini()
         items = bref.items()
-        self.eq(items[0], ('foo', bus0))
-        self.eq(items[1], ('baz', bus2))
+        self.isin(('foo', bus0), items)
+        self.isin(('baz', bus2), items)
 
         bus2.fini()
         items = bref.items()
-        self.eq(items[0], ('foo', bus0))
+        self.isin(('foo', bus0), items)
 
         bus0.fini()
         items = bref.items()
