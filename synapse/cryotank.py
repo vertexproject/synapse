@@ -223,6 +223,7 @@ class CryoCell(s_neuron.Cell):
             'cryo:last': self._onCryoLast,
             'cryo:puts': self._onCryoPuts,
             'cryo:dele': self._onCryoDele,
+            'cryo:slice': self._onCryoSlice,
             'cryo:metrics': self._onCryoMetrics,
         }
 
@@ -274,6 +275,7 @@ class CryoCell(s_neuron.Cell):
     def _onCryoList(self, chan, mesg):
         chan.txfini(self.getCryoList())
 
+    @s_glob.inpool
     def _onCryoDele(self, chan, mesg):
 
         name = mesg[1].get('name')
@@ -287,6 +289,20 @@ class CryoCell(s_neuron.Cell):
         tank.fini()
         shutil.rmtree(tank.path, ignore_errors=True)
         return chan.txfini(True)
+
+    @s_glob.inpool
+    def _onCryoSlice(self, chan, mesg):
+
+        name = mesg[1].get('name')
+        offs = mesg[1].get('offs')
+        size = mesg[1].get('size')
+
+        tank = self.tanks.get(name)
+        if tank is None:
+            return chan.txfini()
+
+        #TODO: make this a chunked yielder
+        chan.txfini(tuple(tank.slice(offs, size)))
 
     @s_glob.inpool
     def _onCryoMetrics(self, chan, mesg):
@@ -360,6 +376,22 @@ class CryoUser(s_neuron.CellUser):
         Return a list of (name, info) tuples for the remote CryoTanks.
         '''
         return self._cryo_sess.call(('cryo:list', {}), timeout=timeout)
+
+    def slice(self, name, offs, size, timeout=None):
+        '''
+        Slice and return a section from the named CryoTank.
+
+        Args:
+            name (str): The name of the remote CryoTank.
+            offs (int): The offset to begin the slice.
+            size (int): The number of records to slice.
+
+        Yields:
+            (int, obj): (indx, item) tuples for the sliced range.
+        '''
+        mesg = ('cryo:slice', {'name': name, 'offs': offs, 'size': size})
+        for row in self._cryo_sess.call(mesg, timeout=timeout):
+            yield row
 
     def metrics(self, name, offs, size, timeout=None):
         '''

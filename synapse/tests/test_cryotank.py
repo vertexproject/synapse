@@ -84,3 +84,10 @@ class CryoTest(SynTest):
 
                 self.len(2, metr)
                 self.eq(metr[0][1]['count'], 1)
+
+                user._chunksize = 1
+                user.puts('woot:woot', cryodata, timeout=2)
+                retn = list(user.slice('woot:woot', 2, 2))
+
+                self.len(2, retn)
+                self.eq(2, retn[0][0])
