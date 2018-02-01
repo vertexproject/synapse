@@ -348,7 +348,6 @@ class Sess(s_net.Link):
         self.setRxKey(skey)
 
     def sendcert(self):
-        #print('%s (%d) sending cert' % (self.__class__.__name__,id(self)))
         self.link.tx(('cert', {'cert': self._sess_boss.certbyts}))
 
     def _onMesgCert(self, link, mesg):
