@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import errno
 import fcntl
@@ -527,8 +528,6 @@ def divide(dirn, conf=None):
     Returns:
         multiprocessing.Process: The Process object which was created to run the Cell
     '''
-    ctor, func = getCellCtor(dirn, conf=conf)
-
     proc = multiprocessing.Process(target=main, args=(dirn, conf))
     proc.start()
 
@@ -543,7 +542,8 @@ def main(dirn, conf=None):
         conf (dict): Configuration dictionary.
 
     Notes:
-        This ends up calling ``main()`` on the Cell and does not return.
+        This ends up calling ``main()`` on the Cell, and does not return
+         anything. It cals sys.exit() at the end of its processing.
     '''
     try:
 
@@ -556,10 +556,10 @@ def main(dirn, conf=None):
         logger.warning('cell divided: %s (%s) port: %d' % (ctor, dirn, port))
 
         cell.main()
-
+        sys.exit(0)
     except Exception as e:
-
         logger.exception('main: %s (%s)' % (dirn, e))
+        sys.exit(1)
 
 if __name__ == '__main__':
     import sys

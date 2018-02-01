@@ -21,7 +21,7 @@ class TstCell(s_neuron.Cell):
         }
 
     def _onCellPong(self, chan, mesg):
-        self._counter = self._counter + 1
+        self._counter += 1
         chan.txfini(data={'mesg': 'pong', 'counter': self._counter})
 
 def checkLock(fd, timeout, wait=0.1):
@@ -40,7 +40,7 @@ def checkLock(fd, timeout, wait=0.1):
         else:
             fcntl.lockf(fd, fcntl.LOCK_UN)
         time.sleep(wait)
-        wtime = wait + wtime
+        wtime += wait
         if wtime >= timeout:
             return False
 
@@ -89,6 +89,24 @@ class NeuronTest(SynTest):
                 self.eq(celld.get('float:place'), (None, {'paperboat': 1}))
                 celld.pop('float:place')
                 self.none(celld.get('float:place'))
+
+    def test_neuron_locked(self):
+        with self.getTestDir() as dirn:
+            celldirn = os.path.join(dirn, 'cell')
+
+            port = random.randint(20000, 50000)
+
+            conf = {'host': '127.0.0.1',
+                    'port': port,
+                    'ctor': 'synapse.neuron.Cell'}
+            # lock the cell
+            with genfile(celldirn, 'cell.lock') as fd:
+                fcntl.lockf(fd, fcntl.LOCK_EX)
+                # The cell process should die right away
+                proc = s_neuron.divide(celldirn, conf)
+                proc.join(10)
+                self.false(proc.is_alive())
+                self.eq(proc.exitcode, 1)
 
     def test_neuron_divide(self):
         with self.getTestDir() as dirn:
@@ -143,6 +161,7 @@ class NeuronTest(SynTest):
                 proc.terminate()
                 proc.join(1)
                 self.false(proc.is_alive())
+                self.eq(proc.exitcode, 0)
 
     def test_neuron_cell_ping(self):
 
