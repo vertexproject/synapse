@@ -252,6 +252,9 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         '''
         return os.path.join(self.dirn, 'cell', *paths)
 
+    def getCellDir(self, *paths):
+        return s_common.gendir(self.dirn, 'cell', *paths)
+
     @staticmethod
     @s_config.confdef(name='cell')
     def _getCellConf():

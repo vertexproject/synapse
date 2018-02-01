@@ -50,10 +50,12 @@ class NoSuchDyn(SynErr): pass
 class NoSuchSeq(SynErr): pass
 class NoRevPath(SynErr): pass
 class NoRevAllow(SynErr): pass
+class NoSuchAlgo(SynErr): pass
 class NoSuchConf(SynErr): pass
 class NoSuchCtor(SynErr): pass
 class NoSuchFifo(SynErr): pass
 class NoSuchForm(SynErr): pass
+class NoSuchHash(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchStat(SynErr): pass
 class NoSuchImpl(SynErr): pass

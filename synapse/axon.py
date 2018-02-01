@@ -1,8 +1,12 @@
 import os
 import lmdb
 import random
+import struct
 import logging
+import binascii
+import contextlib
 
+import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.neuron as s_neuron
@@ -19,310 +23,282 @@ from synapse.lib.hashset import *
 
 logger = logging.getLogger(__name__)
 
+blocksize = 2**26 # 64 meg blocks
 
-megabyte = 1024000
-gigabyte = 1024000000
-terabyte = 1024000000000
-chunksize = megabyte * 10
+def unhex(text):
+    return binascii.unhexlify(text)
 
-class KvHashes:
-    '''
-    Use a synapse.lib.kv.KvStor to index (offs, size) tuples for
-    various hashes.
-    '''
-    def __init__(self, stor, name='axon:hashes'):
+def enhex(byts):
+    return binascii.hexlify(byts).decode('utf8')
 
-        self.stor = stor
-        self.iden = stor.genKvAlias(name)
+prefs = {
+    'md5': b'md5:',
+    'sha1': b'sha1:',
+    'sha256': b'sha256:',
+    'sha512': b'sha512:',
+}
 
-        self.prefs = {} # hash key prefixes
+class Upload:
 
-    def _pref(self, name):
-        pref = self.prefs.get(name)
-        if pref is None:
-            pref = name.encode('utf8') + b':'
-            self.prefs[name] = pref
-        return pref
+    def __init__(self, axon, size):
 
-    def add(self, offs, size, hashes):
-        '''
-        Add an (offs, size) tuple with the given (name,byts) hashes.
+        self.gotn = 0
+        self.byts = b''
 
-        Args:
-            offs (int): The blob offset.
-            size (int): The blob size.
-            hashes ([(str,byts)]): A list of (name,hash) tuples.
-        '''
-        lval = s_msgpack.en((offs, size))
+        self.axon = axon
+        self.size = size
 
-        dups = []
-        for name, byts in hashes:
-            lkey = self._pref(name) + byts
-            dups.append((lkey, lval))
+        self.md5 = hashlib.md5()
+        self.sha1 = hashlib.sha1()
+        self.sha256 = hashlib.sha256()
+        self.sha512 = hashlib.sha512()
 
-        self.stor.addKvDups(dups)
+        self.blocks = []
 
-    def get(self, name, byts):
-        '''
-        Retrieve a list of (offs, size) tuples for the given hash by name.
+    def write(self, byts):
 
-        Args:
-            name (str): The name of the hash type.
-            byts (bytes): The hash value in binary bytes.
+        blen = len(byts)
 
-        Returns:
-            ([(int,int)]): A list of (offs,size) tuples.
-        '''
-        lkey = self._pref(name) + byts
-        return [s_msgpack.un(b) for b in self.stor.iterKvDups(lkey)]
+        self.gotn += blen
 
-    def has(self, name, byts):
-        '''
-        Returns True if the KvHash contains the given hash.
+        if self.gotn > self.size:
+            raise Exception('upload larger than expected')
 
-        Args:
-            name (str): The name of the hash type.
-            byts (bytes): The hash value in binary bytes.
+        self.md5.update(byts)
+        self.sha1.update(byts)
+        self.sha256.update(byts)
+        self.sha512.update(byts)
 
-        Returns:
-            (bool): True if the hash is present.
-        '''
-        lkey = self._pref(name) + byts
-        return self.stor.hasKvDups(lkey)
+        self.byts += byts
 
-class Axon(s_neuron.Cell):
+        if self.gotn < self.size and len(self.byts) < blocksize:
+            return False
+
+        with self.axon._withLmdbXact(write=True) as xact:
+
+            while len(self.byts) >= blocksize:
+
+                chnk = self.byts[:blocksize]
+                bkey = self.axon._saveFileByts(chnk, xact)
+                self.blocks.append(bkey)
+                self.byts = self.byts[blocksize:]
+
+            if self.gotn < self.size:
+                return False
+
+            # we got the last chunk... mop up!
+            if self.byts:
+                bkey = self.axon._saveFileByts(self.byts, xact)
+                self.blocks.append(bkey)
+
+            info = {
+                'size': self.size,
+                'tick': s_common.now(),
+
+                'md5': self.md5.hexdigest(),
+                'sha1': self.sha1.hexdigest(),
+                'sha256': self.sha256.hexdigest(),
+                'sha512': self.sha512.hexdigest(),
+            }
+
+            hashes = (
+                b'md5:' + self.md5.digest(),
+                b'sha1:' + self.sha1.digest(),
+                b'sha256:' + self.sha256.digest(),
+                b'sha512:' + self.sha512.digest(),
+            )
+            self.axon._saveFileDefn(info, self.blocks, hashes, xact)
+
+        return True
+
+class Axon(s_eventbus.EventBus):
     '''
     An Axon acts as a binary blob store with hash based indexing/retrieval.
     '''
-    def __init__(self, dirn, conf=None):
+    def __init__(self, dirn, mapsize=1099511627776): # from LMDB docs....
 
-        s_neuron.Cell.__init__(self, dirn, conf=conf)
+        s_eventbus.EventBus.__init__(self)
 
-        self.inprog = {}
+        path = s_common.gendir(dirn, 'axon.lmdb')
 
-        #axondir = self.getCellPath('axon')
-        #self.axondir = s_common.gendir(axondir)
+        self.lmdb = lmdb.open(path, writemap=True, max_dbs=128)
+        self.lmdb.set_mapsize(mapsize)
 
-        #kvpath = os.path.join(self.axondir, 'axon.lmdb')
+        self.lmdb_bytes = self.lmdb.open_db(b'bytes')
 
-        path = self.getCellPath('axon.lmdb')
-        self.lmdb = lmdb.open(path, writemap=True)
+        self.lmdb_files = self.lmdb.open_db(b'files')
+        self.lmdb_fileblocks = self.lmdb.open_db(b'fileblocks')
 
-        self.blobs = self.lmdb.open_db(b'blobs', dupsort=True)
-        self.blob_indx = self.blobs.stat()['entries']
+        self.lmdb_hashes = self.lmdb.open_db(b'hashes', dupsort=True)
 
-        self.hashes = self.lmdb.open_db(b'hashes', dupsort=True)
+        with self.lmdb.begin() as xact:
+            self.bytes_indx = xact.stat(db=self.lmdb_bytes)['entries']
+            self.files_indx = xact.stat(db=self.lmdb_files)['entries']
 
         def fini():
             self.lmdb.sync()
             self.lmdb.close()
 
         self.onfini(fini)
+        self.inprog = {}
 
-        #self.kvstor = s_kv.KvStor(kvpath)
+    @contextlib.contextmanager
+    def _withLmdbXact(self, write=False):
+        with self.lmdb.begin(write=write) as xact:
+            yield xact
 
-        #self.hashes = KvHashes(self.kvstor)
-        #self.axinfo = self.kvstor.getKvDict('axon:info')
+    def _saveFileByts(self, byts, xact):
+        with xact.cursor(db=self.lmdb_bytes) as curs:
 
-        #blobpath = os.path.join(axondir, 'axon.blob')
-        #self.blobfile = s_blobfile.BlobFile(blobpath)
+            indx = self.bytes_indx
+            self.bytes_indx += 1
 
-        # create a reactor to unwrap core/heap sync events
-        #self.syncact = s_reactor.Reactor()
-        #self.syncact.act('bytes', self._actSyncBytes)
-        #self.syncact.act('hashes', self._actSyncHashes)
+            lkey = struct.pack('>Q', indx)
+            curs.put(lkey, byts, append=True)
 
-        self.onfini(self.kvstor.fini)
-        self.onfini(self.blobfile.fini)
+        return lkey
 
-    def handlers(self):
-        return {
-            'axon:find': self._onAxonFind,
-            'axon:blob': self._onAxonBlob,
-            #'axon:status': self._onAxonStatus,
-        }
+    def _saveFileDefn(self, info, blocks, hashes, xact):
 
-    @s_glob.inpool
-    def _onAxonFind(self, chan, mesg):
-        with chan:
-            name = mesg[1].get('name')
-            valu = mesg[1].get('valu')
-            chan.txfini(self.find(name, valu))
+        # add a file definition blob ( [indx, ...] of bytes )
+        indx = self.files_indx
+        self.files_indx += 1
 
-    @s_glob.inpool
-    def _onAxonBlob(self, chan, mesg):
+        fkey = struct.pack('>Q', indx)
 
-        with chan:
+        rows = []
+        for i, bkey in enumerate(blocks):
+            ikey = struct.pack('>Q', i)
+            rows.append((fkey + ikey, bkey))
 
-            blob = mesg[1].get('blob')
+        with xact.cursor(db=self.lmdb_fileblocks) as curs:
+            curs.putmulti(rows, append=True)
 
-            chan.setq()
+        with xact.cursor(db=self.lmdb_files) as curs:
+            byts = s_msgpack.en((indx, info))
+            curs.put(fkey, byts, append=True)
 
-            for i, byts in enumerate(self.iterblob(blob)):
+        with xact.cursor(db=self.lmdb_hashes) as curs:
+            rows = tuple([ (hkey, fkey) for hkey in hashes ])
+            curs.putmulti(rows, dupdata=True)
 
-                chan.tx(byts)
+    def files(self, offs, size):
 
-                # create a transmission window of 10 tx()s
-                if i < 10:
-                    continue
+        lkey = struct.pack('>Q', offs)
 
-                if not chan.next(timeout=60):
-                    logger.warning('axon:blob early close: %d' % (i,))
-                    return
+        with self.lmdb.begin() as xact:
 
-    @staticmethod
-    @s_config.confdef(name='axon')
-    def _axon_confdefs():
-        confdefs = (
-            ('axon:bytemax', {'type': 'int', 'defval': terabyte,
-                'doc': 'Max size of data this axon is allowed to store.'}),
-        )
-        return confdefs
+            with xact.cursor(db=self.lmdb_files) as curs:
+
+                if not curs.set_key(lkey):
+                    return ()
+
+                for lkey, lval in curs.iternext():
+
+                    indx = struct.unpack('>Q', lkey)[0]
+                    yield s_msgpack.un(lval)
 
     def find(self, name, valu):
         '''
-        Returns a list of (offs, size) tuples by hash name and valu.
+        Yields (id,info) tuples for files matching name=valu.
 
         Args:
-            name (str): Hash name (ex. 'sha256')
-            valu (byts): The bytes of the hash.
+            name (str): The hash name.
+            valu (str): The hex digest.
+        '''
 
-        Examples:
+        pref = prefs.get(name)
+        if pref is None:
+            raise s_exc.NoSuchAlgo(name=name)
 
-            Find all (offs,size) tuples for a given md5sum::
+        hkey = pref + unhex(valu)
 
-                for offs, size in axon.find('md5', md5hash):
-                    dostuff()
+        with self.lmdb.begin() as xact:
+
+            with xact.cursor(db=self.lmdb_hashes) as curs:
+
+                if not curs.set_key(hkey):
+                    return
+
+                with xact.cursor(db=self.lmdb_files) as furs:
+                    for fkey in curs.iternext_dup():
+                        yield s_msgpack.un(furs.get(fkey))
+
+    def bytes(self, name, valu):
+        '''
+        Yields bytes chunks for the first file matching name=valu.
+
+        Args:
+            name (str): The hash name.
+            valu (str): The hex digest.
+        '''
+
+        pref = prefs.get(name)
+        if pref is None:
+            raise s_exc.NoSuchAlgo(name=name)
+
+        hkey = pref + unhex(valu)
+
+        with self.lmdb.begin() as xact:
+
+            with xact.cursor(db=self.lmdb_hashes) as curs:
+
+                if not curs.set_key(hkey):
+                    raise s_exc.NoSuchHash(name=name, valu=valu)
+
+                fkey = curs.value()
+
+            with xact.cursor(db=self.lmdb_fileblocks) as curs:
+
+                with xact.cursor(db=self.lmdb_bytes) as burs:
+
+                    curs.set_range(fkey)
+
+                    for bkey, bval in curs.iternext():
+
+                        if not bkey.startswith(fkey):
+                            break
+
+                        yield burs.get(bval)
+
+    def alloc(self, size, sha256=None):
+        '''
+        Allocate a new upload context for size bytes.
+
+        Args:
+            size (int): Size of the file in bytes.
+            sha256 (bytes): The SHA256 digest to deconflict on.
 
         Returns:
-            list: List of (offs, size) tuples.
+            bytes: The binary guid for upload calls to chunk().
         '''
-        return self.hashes.get(name, valu)
-
-    def iterblob(self, blob):
-        '''
-        Yield bytes blocks from the given (offset,size) tuple until complete.
-
-        Args:
-            blob ((int, int)): The (offset, size) tuple.
-
-        Examples:
-
-            Get the bytes from a blob and do stuff with them::
-
-                for byts in axon.iterblob(blob):
-                    dostuff(byts)
-
-            Iteratively write bytes to a file for a given blob::
-
-                fd = file('foo.bin','wb')
-                for byts in axon.iterblob(blob):
-                    fd.write(byts)
-
-            Form a contiguous bytes object for a given blob. This is not recommended for large files.::
-
-                byts = b''.join((_byts for _byts in axon.iterblob(blob)))
-
-        Yields:
-            bytes:  A chunk of bytes
-        '''
-        offs, size = blob
-        for byts in self.blobfile.readiter(offs, size):
-            yield byts
-
-    def wants(self, name, valu, size):
-        '''
-        Single round trip call to Axon.has() and possibly Axon.alloc().
-
-        Args:
-            name (str): Hash type.
-            valu (bytes): Hash value.
-            size (int): Number of bytes to allocate.
-
-        Examples:
-
-            Check if a sha256 value is present in the Axon, and if not, create the node for a set of bytes::
-
-                iden = axon.wants('sha256',valu,size)
-                if iden != None:
-                    for byts in chunks(filebytes,onemeg):
-                        axon.chunk(iden,byts)
-
-        Returns:
-            None if the name=valu is present; otherwise the iden is returned for writing.
-        '''
-        if self.has(name, valu):
+        if sha256 is not None and self._hasHash('sha256', sha256):
             return None
 
-        return self.alloc(size)
-
-    #def _fireAxonSync(self, mesg):
-        #self.fire('axon:sync', mesg=mesg)
-
-    #def sync(self, mesg):
-        #'''
-        ##Consume an axon:sync event (only if we are a clone).
-        #'''
-        #if not self.getConfOpt('axon:clone'):
-            #raise s_common.AxonNotClone()
-
-        #self.syncact.react(mesg)
-
-    #def syncs(self, msgs):
-        #if not self.getConfOpt('axon:clone'):
-            #raise s_common.AxonNotClone()
-
-        #[ self.syncact.react(mesg) for mesg in msgs ]
-
-    #def _onAxonFini(self):
-
-        # join clone threads
-        #[thr.join(timeout=2) for thr in list(self.axthrs)]
-        #if self.axcthr is not None:
-            #self.axcthr.join(timeout=2)
-
-    def alloc(self, size):
-        '''
-        Initialize a new blob upload context within this axon.
-
-        Args:
-            size (int): Size of the blob to allocate space for.
-
-        Examples:
-            Allocate a blob for a set of bytes and write it too the axon::
-
-                iden = axon.alloc(len(byts))
-                for b in chunks(byts,10240):
-                    axon.chunk(iden,b)
-
-        Returns:
-            str: Identifier for a given upload.
-
-        Raises:
-
-        '''
-        if self.axinfo.get('ro'):
-            raise AxonIsRo()
-
-        blobsize = self.blobfile.size()
-        bytemax = self.getConfOpt('axon:bytemax')
-
-        if (blobsize + size) > bytemax:
-            raise s_common.NotEnoughFree(mesg='BlobFile() would exceed bytemax: %d' % (bytemax,))
-
         iden = s_common.guid()
-        off = self.blobfile.alloc(size)
-
-        self.inprog[iden] = {'size': size, 'off': off, 'cur': off, 'maxoff': off + size, 'hashset': HashSet()}
-
+        self.inprog[iden] = Upload(self, size)
         return iden
+
+    def _hasHash(self, name, valu):
+
+        pref = prefs.get(name)
+        if pref is None:
+            raise s_exc.NoSuchAlgo(name=name)
+
+        lkey = pref + unhex(valu)
+
+        with self.lmdb.begin() as xact:
+
+            with xact.cursor(db=self.lmdb_hashes) as curs:
+
+                return curs.set_key(lkey)
 
     def chunk(self, iden, byts):
         '''
         Save a chunk of a blob allocated with alloc().
 
         Args:
-            iden (str): Iden to save bytes too
+            iden (str): The file upload guid started with alloc().
             byts (bytes): Bytes to write to the blob.
 
         Returns:
@@ -332,42 +308,22 @@ class Axon(s_neuron.Cell):
             NoSuchIden: If the iden is not in progress.
             AxonBadChunk: If a chunk would write past the allocation size.
         '''
-        info = self.inprog.get(iden)
-
-        if info is None:
+        upld = self.inprog.get(iden)
+        if upld is None:
             raise s_common.NoSuchIden(iden)
 
-        blen = len(byts)
+        return upld.write(byts)
 
-        cur = info.get('cur')
-        maxoff = info.get('maxoff')
-
-        if cur + len(byts) > maxoff:
-            self.inprog.pop(iden, None)
-            raise AxonBadChunk(mesg='chunk larger than remaining size')
-
-        self.blobfile.writeoff(cur, byts)
-        #self.syncbus.fire('bytes', offs=cur, byts=byts)
-
-        info['cur'] += blen
-
-        hset = info.get('hashset')
-        hset.update(byts)
-
-        if info['cur'] != maxoff:
+    def eat(self, byts):
+        '''
+        Single round trip file upload interface for small files.
+        '''
+        sha256 = hashlib.sha256(byts).hexdigest()
+        if self._hasHash('sha256', sha256):
             return False
 
-        # if the upload is complete, fire the add event
-        self.inprog.pop(iden, None)
-
-        offs = info.get('off')
-        size = info.get('size')
-
-        hashes = hset.digests()
-        self.hashes.add(size, offs, hashes)
-
-        #self.syncbus.fire('hashes', offs=offs, size=size, hashes=hashes)
-
+        upld = Upload(self, len(byts))
+        upld.write(byts)
         return True
 
     def has(self, name, valu):
@@ -376,7 +332,7 @@ class Axon(s_neuron.Cell):
 
         Args:
             name (str): Hash type.
-            valu (bytes): Hash value.
+            valu (str): Hash value.
 
         Examples:
 
@@ -385,12 +341,105 @@ class Axon(s_neuron.Cell):
                 if not axon.has('sha256', shaval):
                     stuff()
 
-            Check if a known superhash iden is present::
-
-                if axon.has('guid', guidval):
-                    stuff()
-
         Returns:
             ((str, dict)): axon:blob tufo if the axon has the hash or guid. None otherwise.
         '''
-        return self.hashes.has(name, valu)
+        return self._hasHash(name, valu)
+
+class AxonCell(s_neuron.Cell):
+
+    def postCell(self):
+        path = self.getCellDir('axon')
+        self.axon = Axon(path)
+
+    def handlers(self):
+        return {
+            'axon:eat': self._onAxonEat,
+            'axon:has': self._onAxonHas,
+
+            'axon:find': self._onAxonFind,
+            'axon:bytes': self._onAxonBytes,
+
+            'axon:alloc': self._onAxonAlloc,
+            'axon:chunk': self._onAxonChunk,
+        }
+
+    @s_glob.inpool
+    def _onAxonHas(self, chan, mesg):
+        name = mesg[1].get('name')
+        valu = mesg[1].get('valu')
+        chan.txfini(self.axon.has(name, valu))
+
+    @s_glob.inpool
+    def _onAxonEat(self, chan, mesg):
+        byts = mesg[1].get('byts')
+        chan.txfini(self.axon.eat(byts))
+
+    @s_glob.inpool
+    def _onAxonFind(self, chan, mesg):
+        name = mesg[1].get('name')
+        valu = mesg[1].get('valu')
+        chan.txfini(tuple(self.axon.find(name, valu)))
+
+    @s_glob.inpool
+    def _onAxonAlloc(self, chan, mesg):
+        size = mesg[1].get('size')
+        sha256 = mesg[1].get('sha256')
+        # TODO Maybe eventually make a more efficient
+        # "inverse generator" convention for this API
+        chan.txfini(self.axon.alloc(size, sha256=sha256))
+
+    @s_glob.inpool
+    def _onAxonChunk(self, chan, mesg):
+        iden = mesg[1].get('iden')
+        byts = mesg[1].get('byts')
+        # TODO Maybe eventually make a more efficient
+        # "inverse generator" convention for this API
+        chan.txfini(self.axon.chunk(iden, byts))
+
+    @s_glob.inpool
+    def _onAxonBytes(self, chan, mesg):
+
+        name = mesg[1].get('name')
+        valu = mesg[1].get('valu')
+
+        chan.setq()
+
+        with chan:
+            for byts in self.axon.bytes(name, valu):
+                chan.tx(byts)
+                if not chan.next(timeout=30):
+                    return
+
+class AxonUser(s_neuron.CellUser):
+
+    def __init__(self, auth, addr, timeout=None):
+
+        s_neuron.CellUser.__init__(self, auth)
+        self.addr = addr
+        self.timeout = timeout
+
+        self._axon_sess = self.open(addr, timeout=timeout)
+        if self._axon_sess is None:
+            raise s_exc.HitMaxTime(timeout=timeout)
+
+    def eat(self, byts, timeout=None):
+        mesg = ('axon:eat', {'byts': byts})
+        return self._axon_sess.call(mesg, timeout=timeout)
+
+    def has(self, name, valu, timeout=None):
+        mesg = ('axon:has', {'name': name, 'valu': valu})
+        return self._axon_sess.call(mesg, timeout=timeout)
+
+    def bytes(self, name, valu):
+        mesg = ('axon:bytes', {'name': name, 'valu': valu})
+        with self._axon_sess.task(mesg) as chan:
+            for byts in chan.iter():
+                chan.tx(True)
+                yield byts
+
+    #def eatfd(self, fd):
+    #def has(self, name, valu):
+    #def bytes(self, name, valu):
+    #def alloc(self, size, sha256=None):
+    #def chunk(self, iden, byts):

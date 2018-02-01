@@ -337,6 +337,9 @@ class Link(s_eventbus.EventBus):
         '''
         Recv a message on this link and dispatch the message.
         '''
+        if self.isfini:
+            return
+
         self.rxtime = s_common.now()
 
         if self.rxfunc is not None:
