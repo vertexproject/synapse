@@ -101,8 +101,11 @@ class VaultTest(SynTest):
             self.istufo(auth)
             self.isinstance(auth[1].get('cert'), bytes)
             self.isinstance(auth[1].get('rsa:key'), bytes)
+            self.isinstance(auth[1].get('root'), bytes)
             acert = s_vault.Cert.load(auth[1].get('cert'))
             self.eq(cert.iden(), acert.iden())
+            rcert = s_vault.Cert.load(auth[1].get('root'))
+            self.eq(root.iden(), rcert.iden())
             # The auth token is msgpackable
             self.nn(s_msgpack.en(auth))
 

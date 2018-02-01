@@ -13,8 +13,14 @@ class CryoTest(SynTest):
 
             with s_cryotank.CryoTank(dirn) as tank:
 
+                info = tank.info()
+                self.eq(0, info.get('indx'))
+                self.eq(0, info.get('metrics'))
+
                 tank.puts(cryodata)
                 info = tank.info()
+                self.eq(2, info.get('indx'))
+                self.eq(1, info.get('metrics'))
 
                 retn = tuple(tank.slice(0, 1))
                 self.eq(retn, ((0, cryodata[0]),))
@@ -24,6 +30,7 @@ class CryoTest(SynTest):
 
                 info = tank.info()
                 self.eq(2, info.get('indx'))
+                self.eq(1, info.get('metrics'))
 
                 retn = tuple(tank.metrics(0, 1))[0]
 
@@ -35,7 +42,7 @@ class CryoTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            conf = {'user': 'cell@vertex.link', 'host': '127.0.0.1'}
+            conf = {'host': '127.0.0.1'}
 
             with s_cryotank.CryoCell(dirn, conf) as cell:
 

@@ -57,16 +57,16 @@ class AtomBase(s_eventbus.EventBus):
         '''
         return self._flush()
 
-    def _readoff(self, offs, size):
+    def _readoff(self, offs, size):  # pragma: no cover
         raise s_exc.NoSuchImpl(name='_readoff')
 
-    def _writeoff(self, offs, byts):
+    def _writeoff(self, offs, byts):  # pragma: no cover
         raise s_exc.NoSuchImpl(name='_writeoff')
 
-    def _resize(self, size):
+    def _resize(self, size):  # pragma: no cover
         raise s_exc.NoSuchImpl(name='_resize')
 
-    def _flush(self):
+    def _flush(self):  # pragma: no cover
         raise s_exc.NoSuchImpl(name='_flush')
 
 class AtomFile(AtomBase):

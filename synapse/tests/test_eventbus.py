@@ -376,3 +376,37 @@ class EventBusTest(SynTest):
                 t1 = core.formTufoByProp('intform', 1234)
                 self.nn(t1)
         self.len(1, l2)
+
+    def test_eventbus_busref_items(self):
+
+        bref = s_eventbus.BusRef()
+
+        bus0 = s_eventbus.EventBus()
+        bus1 = s_eventbus.EventBus()
+        bus2 = s_eventbus.EventBus()
+
+        bref.put('foo', bus0)
+        bref.put('bar', bus1)
+        bref.put('baz', bus2)
+
+        items = bref.items()
+        self.eq(items[0], ('foo', bus0))
+        self.eq(items[1], ('bar', bus1))
+        self.eq(items[2], ('baz', bus2))
+
+        bus1.fini()
+        items = bref.items()
+        self.eq(items[0], ('foo', bus0))
+        self.eq(items[1], ('baz', bus2))
+
+        bus2.fini()
+        items = bref.items()
+        self.eq(items[0], ('foo', bus0))
+
+        bus0.fini()
+        items = bref.items()
+        self.eq(items, [])
+
+        bref.fini()
+        items = bref.items()
+        self.eq(items, [])
