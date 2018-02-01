@@ -10,7 +10,6 @@ import synapse.neuron as s_neuron
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.atomfile as s_atomfile
 
 logger = logging.getLogger(__name__)
 
