@@ -22,6 +22,8 @@ class CryoTest(SynTest):
                 self.eq(2, info.get('indx'))
                 self.eq(1, info.get('metrics'))
 
+                self.eq('baz', tank.last()[1][0])
+
                 retn = tuple(tank.slice(0, 1))
                 self.eq(retn, ((0, cryodata[0]),))
 
@@ -54,7 +56,9 @@ class CryoTest(SynTest):
 
                 user = s_cryotank.CryoUser(auth, addr, timeout=2)
 
-                user.puts('woot:woot', cryodata)
+                user.puts('woot:woot', cryodata, timeout=2)
+                print(repr(user.last('woot:woot')))
+                self.eq(user.last('woot:woot', timeout=2)[1][0], 'baz')
 
                 retn = user.list()
                 self.eq(retn[0][1]['indx'], 2)

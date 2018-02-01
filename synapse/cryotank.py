@@ -41,6 +41,20 @@ class CryoTank(s_eventbus.EventBus):
 
         self.onfini(fini)
 
+    def last(self):
+        '''
+        Return the last item stored in this CryoTank.
+        '''
+        with self.lmdb.begin() as xact:
+
+            with xact.cursor(db=self.lmdb_items) as curs:
+
+                if not curs.last():
+                    return None
+
+                indx = struct.unpack('>Q', curs.key())[0]
+                return indx, s_msgpack.un(curs.value())
+
     def puts(self, items):
         '''
         Add the structured data from items to the CryoTank.
@@ -205,6 +219,7 @@ class CryoCell(s_neuron.Cell):
         '''
         return {
             'cryo:list': self._onCryoList,
+            'cryo:last': self._onCryoLast,
             'cryo:puts': self._onCryoPuts,
             'cryo:dele': self._onCryoDele,
             'cryo:metrics': self._onCryoMetrics,
@@ -244,6 +259,16 @@ class CryoCell(s_neuron.Cell):
             list: A list of tufos.
         '''
         return [(name, tank.info()) for (name, tank) in self.tanks.items()]
+
+    def _onCryoLast(self, chan, mesg):
+
+        name = mesg[1].get('name')
+
+        tank = self.tanks.get(name)
+        if tank is None:
+            return chan.txfini(None)
+
+        return chan.txfini(tank.last())
 
     def _onCryoList(self, chan, mesg):
         chan.txfini(self.getCryoList())
@@ -324,6 +349,12 @@ class CryoUser(s_neuron.CellUser):
                 resp = chan.next(timeout=timeout)
                 if resp is None:
                     raise s_exc.LinkTimeOut(timeout=timeout)
+
+    def last(self, name, timeout=None):
+        '''
+        Return the last entry in the named CryoTank.
+        '''
+        return self._cryo_sess.call(('cryo:last', {'name': name}), timeout=timeout)
 
     def list(self, timeout=None):
         '''
