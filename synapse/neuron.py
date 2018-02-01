@@ -454,7 +454,7 @@ class CellUser(SessBoss):
             timeout (int/float): Connection timeout in seconds.
 
         Returns:
-            (UserSess): The connected Link (or None).
+            UserSess: The connected Link (or None).
         '''
         # a *synchronous* open...
 
