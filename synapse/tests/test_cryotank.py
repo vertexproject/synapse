@@ -67,4 +67,5 @@ class CryoTest(SynTest):
 
                 metr = user.metrics('woot:woot', 0, 100, timeout=2)
 
-                self.eq(metr[0][1]['count'], len(cryodata))
+                self.len(2, metr)
+                self.eq(metr[0][1]['count'], 1)

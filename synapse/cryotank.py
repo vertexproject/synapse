@@ -314,11 +314,8 @@ class CryoCell(s_neuron.Cell):
             if items is not None:
                 chan.tx(tank.puts(items))
 
-            items = chan.next(timeout=30)
-            if items is None:
-                return
-
-            chan.tx(tank.puts(items))
+            for items in chan.iter():
+                chan.tx(tank.puts(items))
 
 class CryoUser(s_neuron.CellUser):
 
