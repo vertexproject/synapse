@@ -241,7 +241,18 @@ class CertDir:
 
     def valUserCert(self, byts, cacerts=None):
         '''
-        Validate the PEM encoded x509 user certiicate bytes and return it.
+        Validate the PEM encoded x509 user certificate bytes and return it.
+
+        Args:
+            byts (bytes): The bytes for the User Certificate.
+            cacerts (tuple): A tuple of OpenSSL.crypto.X509 CA Certificates.
+
+        Raises:
+            OpenSSL.crypto.X509StoreContextError: If the certificate is not valid.
+
+        Returns:
+            OpenSSL.crypto.X509: The certificate, if it is valid.
+
         '''
         cert = crypto.load_certificate(crypto.FILETYPE_PEM, byts)
 
@@ -249,12 +260,11 @@ class CertDir:
             cacerts = self.getCaCerts()
 
         store = crypto.X509Store()
-        for cacert in cacerts:
-            store.add_cert(cacert)
+        [store.add_cert(cacert) for cacert in cacerts]
 
         ctx = crypto.X509StoreContext(store, cert)
-        if ctx.verify_certificate():
-            return cert
+        ctx.verify_certificate()  # raises X509StoreContextError if unable to verify
+        return cert
 
     def genUserCsr(self, name, outp=None):
         '''
@@ -919,13 +929,3 @@ class CertDir:
             fd.write(cert.export())
 
         return path
-
-if __name__ == '__main__':
-
-    cdir = CertDir()
-    print(repr(cdir.getCaCerts()))
-
-    byts = open(cdir._getPathJoin('users', 'visi@vertex.link.crt'), 'rb').read()
-
-    print(cdir.valUserCert(byts))
-    print(cdir.valUserCert(byts, cacerts=()))
