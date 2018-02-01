@@ -97,7 +97,7 @@ class Fifo(s_config.Config):
 
     def _brefAtomCtor(self, nseq):
         path = self._getSeqPath(nseq)
-        return s_atomfile.openAtomFile(path, memok=False)
+        return s_atomfile.AtomFile(path)
 
     def flush(self):
         '''
@@ -217,7 +217,7 @@ class Window(s_eventbus.EventBus):
         self.dequ = collections.deque()
 
         # open our state machine header atom
-        self.head = s_atomfile.openAtomFile(path, memok=True)
+        self.head = s_atomfile.AtomFile(path)
         self.onfini(self.head.fini)
 
         # the next expected ack
