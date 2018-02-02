@@ -74,7 +74,7 @@ def iterfd(fd):
     for mesg in unpk:
         yield mesg
 
-def iterfile(path):
+def iterfile(path, since=-1):
     '''
     Generator which yields msgpack objects from a file path.
 
@@ -94,7 +94,10 @@ def iterfile(path):
         unpk = msgpack.Unpacker(fd, use_list=False, encoding='utf8',
                             unicode_errors='surrogatepass')
 
-        for mesg in unpk:
+        for i, mesg in enumerate(unpk):
+            if i <= since:
+                continue
+
             yield mesg
 
 class Unpk:

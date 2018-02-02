@@ -119,6 +119,7 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
             chan.onrx(sess.rx)
 
         self.sessplex = s_net.ChanPlex(onchan=onchan)
+        self.sessplex.setLinkProp('repr', 'Cell.sessplex')
 
         def onlink(link):
             link.onrx(self.sessplex.rx)
@@ -381,7 +382,8 @@ class UserSess(Sess):
         self._txok_evnt = threading.Event()
         self.on('sess:txok', self._setTxOk)
 
-        self.taskplex = s_net.ChanPlex(self)
+        self.taskplex = s_net.ChanPlex()
+        self.taskplex.setLinkProp('repr', 'UserSess.taskplex')
 
     def _setTxOk(self, mesg):
         self._txok_evnt.set()
@@ -410,20 +412,13 @@ class UserSess(Sess):
         '''
         Open a new channel within our session.
         '''
-        with s_threads.retnwait() as retn:
+        chan = self.taskplex.open(self)
+        chan.setq()
 
-            def onchan(chan):
+        if mesg is not None:
+            chan.tx(mesg)
 
-                chan.setq() # make this channel use a Q
-
-                if mesg is not None:
-                    chan.tx(mesg)
-
-                retn.retn(chan)
-
-            self.taskplex.open(self, onchan)
-
-            return retn.wait(timeout=timeout)
+        return chan
 
 class CellSess(Sess):
     '''
@@ -438,6 +433,7 @@ class CellSess(Sess):
             chan.onrx(self._sess_cell.rx)
 
         self.taskplex = s_net.ChanPlex(onchan=onchan)
+        self.taskplex.setLinkProp('repr', 'CellSess.taskplex')
 
 class CellUser(SessBoss):
 
@@ -447,6 +443,9 @@ class CellUser(SessBoss):
 
         self.sessplex = s_net.ChanPlex()
         self.taskplex = s_net.ChanPlex()
+
+        self.sessplex.setLinkProp('repr', 'CellUser.sessplex')
+        self.taskplex.setLinkProp('repr', 'CellUser.taskplex')
 
     def open(self, addr, timeout=None):
         '''
@@ -472,16 +471,13 @@ class CellUser(SessBoss):
 
                 link.onrx(self.sessplex.rx)
 
-                def onchan(chan):
+                chan = self.sessplex.open(link)
+                sess = UserSess(chan, self)
 
-                    sess = UserSess(chan, self)
+                chan.onrx(sess.rx)
+                sess.sendcert()
 
-                    chan.onrx(sess.rx)
-                    sess.sendcert()
-
-                    retn.retn(sess)
-
-                self.sessplex.open(link, onchan)
+                retn.retn(sess)
 
             s_glob.plex.connect(addr, onlink)
 
