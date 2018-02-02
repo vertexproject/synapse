@@ -71,6 +71,8 @@ class CryoTest(SynTest):
 
                 user = s_cryotank.CryoUser(auth, addr, timeout=2)
 
+                # Setting the _chunksize to 1 forces iteration on the client
+                # side of puts, as well as the server-side.
                 user._chunksize = 1
                 user.puts('woot:woot', cryodata, timeout=2)
 
@@ -84,3 +86,42 @@ class CryoTest(SynTest):
 
                 self.len(2, metr)
                 self.eq(metr[0][1]['count'], 1)
+
+                user.puts('woot:woot', cryodata, timeout=2)
+                retn = list(user.slice('woot:woot', 2, 2))
+                self.len(2, retn)
+                self.eq(2, retn[0][0])
+
+                retn = list(user.rows('woot:woot', 0, 2))
+                self.len(2, retn)
+                self.eq(retn[0], (0, s_msgpack.en(cryodata[0])))
+                self.eq(retn[1], (1, s_msgpack.en(cryodata[1])))
+
+                # Reset chunksize
+                user._chunksize = s_cryotank.CryoUser._chunksize
+                user.puts('woot:hehe', cryodata, timeout=5)
+                user.puts('woot:hehe', cryodata, timeout=5)
+                retn = list(user.slice('woot:hehe', 1, 2))
+                retn = [val for indx, val in retn[::-1]]
+                self.eq(tuple(retn), cryodata)
+                self.len(2, (user.metrics('woot:hehe', 0, 100)))
+                listd = dict(user.list())
+                self.isin('woot:hehe', listd)
+                self.eq(user.last('woot:hehe'), (3, cryodata[1]))
+
+                # delete woot.hehe and hten call apis on it
+                self.true(user.delete('woot:hehe'))
+                self.false(user.delete('woot:hehe'))
+                self.none(cell.tanks.get('woot:hehe'))
+                self.none(cell.names.get('woot:hehe'))
+                self.eq(list(user.slice('woot:hehe', 1, 2)), [])
+                self.eq(list(user.rows('woot:hehe', 1, 2)), [])
+                listd = dict(user.list())
+                self.notin('woot:hehe', listd)
+                self.none(user.metrics('woot:hehe', 0, 100))
+                self.none(user.last('woot:hehe'))
+
+                # Adding data re-adds the tank
+                user.puts('woot:hehe', cryodata, timeout=5)
+                print(user.metrics('woot:hehe', 0, 100))
+                self.len(1, (user.metrics('woot:hehe', 0, 100)))

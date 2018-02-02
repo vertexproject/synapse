@@ -9,6 +9,7 @@ import synapse.common as s_common
 import synapse.neuron as s_neuron
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ class CryoTank(s_eventbus.EventBus):
     '''
     A CryoTank implements a stream of structured data.
     '''
-    def __init__(self, dirn, mapsize=1099511627776): # from LMDB docs....
+    def __init__(self, dirn, mapsize=s_const.tebibyte): # from LMDB docs....
         s_eventbus.EventBus.__init__(self)
 
         self.path = s_common.gendir(dirn)
@@ -223,6 +224,8 @@ class CryoCell(s_neuron.Cell):
             'cryo:last': self._onCryoLast,
             'cryo:puts': self._onCryoPuts,
             'cryo:dele': self._onCryoDele,
+            'cryo:rows': self._onCryoRows,
+            'cryo:slice': self._onCryoSlice,
             'cryo:metrics': self._onCryoMetrics,
         }
 
@@ -243,7 +246,7 @@ class CryoCell(s_neuron.Cell):
         iden = s_common.guid()
         self.names.set(name, iden)
 
-        logger.info('CryoCell: creating new tank: %s' % (name,))
+        logger.info('Creating new tank: %s' % (name,))
 
         path = self.getCellPath('tanks', iden)
 
@@ -274,9 +277,12 @@ class CryoCell(s_neuron.Cell):
     def _onCryoList(self, chan, mesg):
         chan.txfini(self.getCryoList())
 
+    @s_glob.inpool
     def _onCryoDele(self, chan, mesg):
 
         name = mesg[1].get('name')
+
+        logger.info('Deleting tank: %s' % (name,))
 
         tank = self.tanks.pop(name)  # type: CryoTank
         if tank is None:
@@ -287,6 +293,34 @@ class CryoCell(s_neuron.Cell):
         tank.fini()
         shutil.rmtree(tank.path, ignore_errors=True)
         return chan.txfini(True)
+
+    @s_glob.inpool
+    def _onCryoSlice(self, chan, mesg):
+
+        name = mesg[1].get('name')
+        offs = mesg[1].get('offs')
+        size = mesg[1].get('size')
+
+        tank = self.tanks.get(name)
+        if tank is None:
+            return chan.txfini()
+
+        #TODO: make this a chunked yielder
+        chan.txfini(tuple(tank.slice(offs, size)))
+
+    @s_glob.inpool
+    def _onCryoRows(self, chan, mesg):
+
+        name = mesg[1].get('name')
+        offs = mesg[1].get('offs')
+        size = mesg[1].get('size')
+
+        tank = self.tanks.get(name)
+        if tank is None:
+            return chan.txfini()
+
+        #TODO: make this a chunked yielder
+        chan.txfini(tuple(tank.rows(offs, size)))
 
     @s_glob.inpool
     def _onCryoMetrics(self, chan, mesg):
@@ -319,15 +353,22 @@ class CryoCell(s_neuron.Cell):
                 chan.tx(tank.puts(items))
 
 class CryoUser(s_neuron.CellUser):
+    '''
+    Client-side helper for interacting with a CryoCell which hosts CryoTanks.
 
+    Args:
+        auth ((str, dict)): A user auth tufo
+        addr ((str, int)): The address / port tuple.
+        timeout (int): Connect timeout
+    '''
+    _chunksize = 10000
     def __init__(self, auth, addr, timeout=None):
 
         s_neuron.CellUser.__init__(self, auth)
-        self._chunksize = 10000
 
         self._cryo_sess = self.open(addr, timeout=timeout)
         if self._cryo_sess is None:
-            raise s_exc.HitMaxTime(timeout=timeout)
+            raise s_common.HitMaxTime(timeout=timeout)
 
     def puts(self, name, items, timeout=None):
         '''
@@ -337,8 +378,10 @@ class CryoUser(s_neuron.CellUser):
             name (str): The name of the remote CryoTank.
             items (iter): An iterable of data items to load.
             timeout (float/int): The maximum timeout for an ack.
+
+        Returns:
+            None
         '''
-        retn = 0
         with self._cryo_sess.task(('cryo:puts', {'name': name})) as chan:
 
             wind = 0
@@ -366,19 +409,97 @@ class CryoUser(s_neuron.CellUser):
     def last(self, name, timeout=None):
         '''
         Return the last entry in the named CryoTank.
+
+        Args:
+            name (str): The name of the remote CryoTank.
+            timeout (int): Request timeout
+
+        Returns:
+            ((int, object)): The last entry index and object from the CryoTank.
         '''
         return self._cryo_sess.call(('cryo:last', {'name': name}), timeout=timeout)
 
+    def delete(self, name, timeout=None):
+        '''
+        Delete a named CryoTank.
+
+        Args:
+            name (str): The name of the remote CryoTank.
+            timeout (int): Request timeout
+
+        Returns:
+            bool: True if the CryoTank was deleted, False if it was not deleted.
+        '''
+        return self._cryo_sess.call(('cryo:dele', {'name': name}), timeout=timeout)
+
     def list(self, timeout=None):
         '''
-        Return a list of (name, info) tuples for the remote CryoTanks.
+        Get a list of the remote CryoTanks.
+
+        Args:
+            timeout (int): Request timeout
+
+        Returns:
+            tuple: A tuple containing name, info tufos for the remote CryoTanks.
         '''
         return self._cryo_sess.call(('cryo:list', {}), timeout=timeout)
+
+    def slice(self, name, offs, size, timeout=None):
+        '''
+        Slice and return a section from the named CryoTank.
+
+        Args:
+            name (str): The name of the remote CryoTank.
+            offs (int): The offset to begin the slice.
+            size (int): The number of records to slice.
+            timeout (int): Request timeout
+
+        Yields:
+            (int, obj): (indx, item) tuples for the sliced range.
+        '''
+        mesg = ('cryo:slice', {'name': name, 'offs': offs, 'size': size})
+        retn = self._cryo_sess.call(mesg, timeout=timeout)
+        if retn is None:
+            return
+        for row in retn:
+            yield row
+
+    def rows(self, name, offs, size, timeout=None):
+        '''
+        Retrive raw rows from a sectino of the named CryoTank.
+
+        Args:
+            name (str): The name of the remote CryoTank.
+            offs (int): The offset to begin the row retrieval from.
+            size (int): The number of records to retrieve.
+            timeout (int): Request timeout.
+
+        Notes:
+            This returns msgpack encoded records. It is the callers
+            responsibility to decode them.
+
+        Yields:
+            (int, bytes): (indx, bytes) tuples for the rows in range.
+        '''
+        mesg = ('cryo:rows', {'name': name, 'offs': offs, 'size': size})
+        retn = self._cryo_sess.call(mesg, timeout=timeout)
+        if retn is None:
+            return
+        for row in retn:
+            yield row
 
     def metrics(self, name, offs, size, timeout=None):
         '''
         Carve a slice of metrics data from the named CryoTank.
-        ( see CryoTank.metrics )
+
+        Args:
+            name (str): The name of the remote CryoTank.
+            offs (int): The index offset.
+            size (int): The number to retrieve.
+            timeout (int): Request timeout
+
+        Returns:
+            tuple: A tuple containing metrics tufos for the named CryoTank.
         '''
         mesg = ('cryo:metrics', {'name': name, 'offs': offs, 'size': size})
         return self._cryo_sess.call(mesg, timeout=timeout)

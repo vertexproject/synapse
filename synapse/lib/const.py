@@ -8,10 +8,10 @@ zettabyte = 1000 * exabyte
 yottabyte = 1000 * zettabyte
 
 kibibyte = 1024
-mebibyte = 1000 * kibibyte
-gibibyte = 1000 * mebibyte
-tebibyte = 1000 * gibibyte
-pebibyte = 1000 * tebibyte
-exbibyte = 1000 * pebibyte
-zebibyte = 1000 * exbibyte
-yobibyte = 1000 * zebibyte
+mebibyte = 1024 * kibibyte
+gibibyte = 1024 * mebibyte
+tebibyte = 1024 * gibibyte
+pebibyte = 1024 * tebibyte
+exbibyte = 1024 * pebibyte
+zebibyte = 1024 * exbibyte
+yobibyte = 1024 * zebibyte
