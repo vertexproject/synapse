@@ -155,7 +155,7 @@ class FileModelTest(SynTest):
             self.eq(img0[1].get('file:txtref:xref:intval'), None)
 
     def test_model_file_bytes_axon(self):
-
+        self.skipTest('Skipping until Axons are sewn back together.')
         fd = io.BytesIO(b'foobar')
 
         # create an cortex with access to an axon
