@@ -1,5 +1,4 @@
 import random
-import multiprocessing
 
 import synapse.neuron as s_neuron
 
@@ -23,26 +22,6 @@ class TstCell(s_neuron.Cell):
     def _onCellPong(self, chan, mesg):
         self._counter += 1
         chan.txfini(data={'mesg': 'pong', 'counter': self._counter})
-
-def checkLock(fd, timeout, wait=0.1):
-    wtime = 0
-
-    if timeout < 0:
-        raise ValueError('timeout must be > 0')
-
-    while True:
-        try:
-            fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError as e:
-            if e.errno == 11:
-                return True
-            logger.exception('Error obtaining lock')
-        else:
-            fcntl.lockf(fd, fcntl.LOCK_UN)
-        time.sleep(wait)
-        wtime += wait
-        if wtime >= timeout:
-            return False
 
 class NeuronTest(SynTest):
 

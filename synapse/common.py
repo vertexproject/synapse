@@ -255,7 +255,7 @@ def gendir(*paths, **opts):
     mode = opts.get('mode', 0o700)
     path = genpath(*paths)
     if not os.path.isdir(path):
-        os.makedirs(path, mode=mode)
+        os.makedirs(path, mode=mode, exist_ok=True)
     return path
 
 def reqdir(*paths):
