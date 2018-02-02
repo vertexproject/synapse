@@ -336,6 +336,10 @@ class Link(s_eventbus.EventBus):
     def rx(self, link, mesg):
         '''
         Recv a message on this link and dispatch the message.
+
+        Args:
+            link (Link): The link.
+            mesg ((str,dict)): A message tufo.
         '''
         if self.isfini:
             return
