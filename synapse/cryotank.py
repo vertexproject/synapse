@@ -341,14 +341,11 @@ class CryoCell(s_neuron.Cell):
         items = mesg[1].get('items')
 
         chan.setq()
+        chan.tx(True)
 
         with chan:
 
             tank = self.genCryoTank(name)
-
-            if items is not None:
-                chan.tx(tank.puts(items))
-
             for items in chan.iter():
                 chan.tx(tank.puts(items))
 
@@ -383,6 +380,9 @@ class CryoUser(s_neuron.CellUser):
             None
         '''
         with self._cryo_sess.task(('cryo:puts', {'name': name})) as chan:
+
+            if not chan.next(timeout=timeout):
+                raise s_exc.LinkTimedOut(timeout=timeout)
 
             wind = 0
             for i, chun in enumerate(s_common.chunks(items, self._chunksize)):
