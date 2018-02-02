@@ -71,6 +71,8 @@ class CryoTest(SynTest):
 
                 user = s_cryotank.CryoUser(auth, addr, timeout=2)
 
+                # Setting the _chunksize to 1 forces iteration on the client
+                # side of puts, as well as the server-side.
                 user._chunksize = 1
                 user.puts('woot:woot', cryodata, timeout=2)
 
