@@ -391,7 +391,7 @@ class Link(s_eventbus.EventBus):
 
     def __repr__(self):
         rstr = self.getLinkProp('repr')
-        return '%s: %s' % (self.__class__.__name__, rstr)
+        return '%s: %s at %s' % (self.__class__.__name__, rstr, hex(id(self)))
 
 class Chan(Link):
 
