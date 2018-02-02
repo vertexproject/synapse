@@ -9,6 +9,7 @@ import synapse.common as s_common
 import synapse.neuron as s_neuron
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ class CryoTank(s_eventbus.EventBus):
     '''
     A CryoTank implements a stream of structured data.
     '''
-    def __init__(self, dirn, mapsize=1099511627776): # from LMDB docs....
+    def __init__(self, dirn, mapsize=s_const.tebibyte): # from LMDB docs....
         s_eventbus.EventBus.__init__(self)
 
         self.path = s_common.gendir(dirn)

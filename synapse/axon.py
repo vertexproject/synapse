@@ -13,6 +13,7 @@ import synapse.reactor as s_reactor
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.kv as s_kv
+import synapse.lib.const as s_const
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.blobfile as s_blobfile
@@ -22,7 +23,7 @@ from synapse.lib.hashset import *
 
 logger = logging.getLogger(__name__)
 
-blocksize = 2**26 # 64 meg blocks
+blocksize = 64 * s_const.mebibyte # 64 meg blocks
 
 def unhex(text):
     return binascii.unhexlify(text)
@@ -114,7 +115,7 @@ class Axon(s_eventbus.EventBus):
     '''
     An Axon acts as a binary blob store with hash based indexing/retrieval.
     '''
-    def __init__(self, dirn, mapsize=1099511627776): # from LMDB docs....
+    def __init__(self, dirn, mapsize=s_const.tebibyte): # from LMDB docs....
 
         s_eventbus.EventBus.__init__(self)
 

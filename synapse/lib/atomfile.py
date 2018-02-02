@@ -7,6 +7,8 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.const as s_const
+
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +123,7 @@ class AtomFile(AtomBase):
 
 # NOTE: It is a big deal if this changes
 # ( it is used for mod math )
-ATOM_DIR_FILEMAX = 1000000000000
+ATOM_DIR_FILEMAX = s_const.terabyte
 
 class AtomDir(AtomBase):
 
