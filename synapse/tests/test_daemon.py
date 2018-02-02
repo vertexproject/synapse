@@ -1,4 +1,4 @@
-import logging
+import random
 
 import synapse.dyndeps as s_dyndeps
 
@@ -262,3 +262,35 @@ class DaemonTest(SynTest):
             dmon.loadDmonConf(conf)
 
             s_dyndeps.delDynAlias('test:check:blah')
+
+    def test_daemon_cells(self):
+
+        with self.getTestDir() as dirn:
+            celldir1 = os.path.join(dirn, 'cell1')
+            celldir2 = os.path.join(dirn, 'cell2')
+            port1 = random.randint(10000, 50000)
+            port2 = random.randint(10000, 50000)
+
+            conf = {
+                'cells': [
+                    (celldir1, {'ctor': 'synapse.neuron.Cell',
+                                'port': port1,
+                                'host': '127.0.0.1',
+                                }),
+                    (celldir2, {'ctor': 'synapse.neuron.Cell',
+                                'port': port2,
+                                'host': '127.0.0.1',
+                                }),
+                ],
+            }
+
+        with s_daemon.Daemon() as dmon:
+            dmon.loadDmonConf(conf)
+            with genfile(celldir1, 'cell.lock') as fd:
+                self.true(checkLock(fd, 6))
+            with genfile(celldir2, 'cell.lock') as fd:
+                self.true(checkLock(fd, 6))
+
+        # ensure dmon cell processes are fini'd
+        for celldir, proc in dmon.cellprocs.items():
+            self.false(proc.is_alive())

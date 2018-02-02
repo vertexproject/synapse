@@ -106,6 +106,10 @@ class DmonConf:
         for name in list(self.forks.keys()):
             self.killDmonFork(name, perm=True)
 
+        for celldir, proc in list(self.cellprocs.items()):
+            proc.terminate()
+            proc.join(2)
+
         # reverse the ebus items to fini them in LIFO order
         for item in reversed(self._fini_items):
             item.fini()

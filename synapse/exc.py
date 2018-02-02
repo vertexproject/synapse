@@ -162,8 +162,8 @@ class NoCurrSess(Exception): pass # API requires a current session
 class SidNotFound(Exception): pass
 class PropNotFound(SynErr): pass
 
-class HitMaxTime(Exception): pass
-class HitMaxRetry(Exception): pass
+class HitMaxTime(SynErr): pass
+class HitMaxRetry(SynErr): pass
 class HitCoreLimit(SynErr):
     ''' You've reached some limit of the storage layer.'''
     pass

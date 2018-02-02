@@ -336,6 +336,10 @@ class Link(s_eventbus.EventBus):
     def rx(self, link, mesg):
         '''
         Recv a message on this link and dispatch the message.
+
+        Args:
+            link (Link): The link.
+            mesg ((str,dict)): A message tufo.
         '''
         if self.isfini:
             return
@@ -351,7 +355,13 @@ class Link(s_eventbus.EventBus):
                 logger.exception('%s.rxfunc() failed on: %r' % (self.__class__.__name__, mesg))
                 return
 
-        func = self._mesg_funcs.get(mesg[0])
+        try:
+
+            func = self._mesg_funcs.get(mesg[0])
+
+        except Exception as e:
+            logger.exception('link %s: rx mesg exception: %s' % (self.__class__.__name__, e))
+            return
 
         if func is None:
             logger.warning('link %s: unknown message type %s' % (self.__class__.__name__, mesg[0]))
@@ -379,24 +389,28 @@ class Link(s_eventbus.EventBus):
     def _tx_real(self, mesg):
         return self.link.tx(mesg)
 
+    def __repr__(self):
+        rstr = self.getLinkProp('repr')
+        return '%s: %s' % (self.__class__.__name__, rstr)
+
 class Chan(Link):
 
-    def __init__(self, plex, iden):
+    def __init__(self, plex, iden, txinit=True):
 
         Link.__init__(self, plex)
 
         self._chan_rxq = None
         self._chan_iden = iden
         self._chan_plex = plex
-        self._chan_init = False
+        self._chan_txinit = True
 
     def iden(self):
         return self._chan_iden
 
     def _tx_real(self, mesg):
 
-        if not self._chan_init:
-            self._chan_init = True
+        if self._chan_txinit:
+            self._chan_txinit = True
             self.link.tx(('init', {'chan': self._chan_iden, 'data': mesg}))
             return
 
@@ -467,20 +481,24 @@ class ChanPlex(Link):
 
             return
 
-        chan = self.initPlexChan(iden)
+        if self.onchan is None:
+            logger.warning('%r: got init without onchan' % (self,))
+            return
+
+        chan = self.initPlexChan(iden, txinit=False)
+        chan.setLinkProp('plex:recv', True)
 
         self.chans.put(iden, chan)
         chan.setLinkProp('plex:link', link)
 
-        if self.onchan is not None:
+        try:
 
-            try:
-                self.onchan(chan)
+            self.onchan(chan)
 
-            except Exception as e:
-                logger.warning('onchan (%r) failed: %s' % (self.onchan, e))
-                chan.fini()
-                return
+        except Exception as e:
+            logger.exception('onchan (%r) failed: %s' % (self.onchan, e))
+            chan.fini()
+            return
 
         if data is not None:
             chan.rx(self, data)
@@ -532,28 +550,20 @@ class ChanPlex(Link):
 
         chan.rxfini()
 
-    def initPlexChan(self, iden):
-        chan = Chan(self, iden)
+    def initPlexChan(self, iden, txinit=True):
+        chan = Chan(self, iden, txinit=txinit)
         self.chans.put(iden, chan)
         return chan
 
-    def open(self, link, onchan):
+    def open(self, link):
 
         iden = os.urandom(16)
 
-        chan = self.initPlexChan(iden)
+        chan = self.initPlexChan(iden, txinit=True)
         chan.setLinkProp('plex:link', link)
+        chan.setLinkProp('plex:open', True)
 
-        try:
-
-            retn = onchan(chan)
-
-        except Exception as e:
-            logger.exception('onchan() failed during open()')
-            chan.fini()
-            return None
-
-        return retn
+        return chan
 
 class SockLink(Link):
     '''
