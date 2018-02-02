@@ -123,5 +123,4 @@ class CryoTest(SynTest):
 
                 # Adding data re-adds the tank
                 user.puts('woot:hehe', cryodata, timeout=5)
-                print(user.metrics('woot:hehe', 0, 100))
                 self.len(1, (user.metrics('woot:hehe', 0, 100)))
