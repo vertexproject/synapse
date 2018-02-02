@@ -426,6 +426,9 @@ class Chan(Link):
     def next(self, timeout=None):
         return self._chan_rxq.get(timeout=timeout)
 
+    def slice(self, size, timeout=None):
+        return self._chan_rxq.slice(size, timeout=timeout)
+
     def iter(self):
         return self._chan_rxq
 
@@ -686,7 +689,7 @@ class SockLink(Link):
                             return
 
                     except BrokenPipeError as e:
-                        logger.warning('tx broken pipe: ignore...')
+                        logger.info('tx broken pipe: ignore...')
                         return
 
                     self.txbuf = self.txbuf[sent:]
