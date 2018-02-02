@@ -14,7 +14,6 @@ class ConstTest(SynTest):
         self.eq(s_const.yottabyte, 10 ** 24)
 
     def test_const_kibis(self):
-
         self.eq(s_const.kibibyte, 2 ** 10)
         self.eq(s_const.mebibyte, 2 ** 20)
         self.eq(s_const.gibibyte, 2 ** 30)

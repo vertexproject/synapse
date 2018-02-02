@@ -1,10 +1,9 @@
-import os
-import lmdb
-import random
 import struct
 import logging
 import binascii
 import contextlib
+
+import lmdb
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -179,7 +178,7 @@ class Axon(s_eventbus.EventBus):
             curs.put(fkey, byts, append=True)
 
         with xact.cursor(db=self.lmdb_hashes) as curs:
-            rows = tuple([ (hkey, fkey) for hkey in hashes ])
+            rows = tuple([(hkey, fkey) for hkey in hashes])
             curs.putmulti(rows, dupdata=True)
 
     def files(self, offs, size):

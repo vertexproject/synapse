@@ -1,6 +1,3 @@
-import io
-import logging
-
 import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.neuron as s_neuron
@@ -58,7 +55,6 @@ class AxonTest(SynTest):
 
                 port = cell.getCellPort()
                 auth = cell.genUserAuth('visi@vertex.link')
-
 
                 addr = ('127.0.0.1', port)
 
