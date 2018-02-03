@@ -106,7 +106,7 @@ class NeuronTest(SynTest):
 
             # time.sleep(6)
             with genfile(celldirn, 'cell.lock') as fd:
-                self.true(checkLock(fd, 10))
+                self.true(checkLock(fd, 30))
 
             try:
                 # Try connecting to the cell

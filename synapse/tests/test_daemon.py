@@ -287,9 +287,9 @@ class DaemonTest(SynTest):
         with s_daemon.Daemon() as dmon:
             dmon.loadDmonConf(conf)
             with genfile(celldir1, 'cell.lock') as fd:
-                self.true(checkLock(fd, 6))
+                self.true(checkLock(fd, 30))
             with genfile(celldir2, 'cell.lock') as fd:
-                self.true(checkLock(fd, 6))
+                self.true(checkLock(fd, 30))
 
         # ensure dmon cell processes are fini'd
         for celldir, proc in dmon.cellprocs.items():
