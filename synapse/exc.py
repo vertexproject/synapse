@@ -207,12 +207,6 @@ class BadAtomFile(SynErr):
     '''
     pass
 
-class BadHeapFile(SynErr):
-    '''
-    Raised when there is an internal issue with a heapfile
-    '''
-    pass
-
 class BadBlobFile(SynErr):
     '''
     Raised when there is an internal issue with a blobfile
@@ -225,6 +219,12 @@ class BlobFileIsClone(SynErr):
     pass
 
 class IsFini(Exception): pass
+
+class RetnTimeout(SynErr):
+    '''
+    Raised when there is a RetnWait wait() call which timesout.
+    '''
+    pass
 
 class StepTimeout(SynErr):
     '''

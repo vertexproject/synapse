@@ -460,7 +460,7 @@ class CellUser(SessBoss):
         '''
         # a *synchronous* open...
 
-        with s_threads.retnwait() as retn:
+        with s_threads.RetnWait() as retn:
 
             def onlink(ok, link):
 

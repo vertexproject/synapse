@@ -25,17 +25,20 @@ def iden():
 def isfini():
     return getattr(current(), 'isfini', False)
 
+# Module level lock for the retnwait class
 retnlock = threading.Lock()
-class retnwait:
+
+class RetnWait:
     '''
     Emulate synchronous callback waiting with a thread local event.
 
     Example:
 
-    With retnwait() as retn:
-        dothing(callback=retn.retn)
-        isset, valu = retn.wait(timeout=3)
+        Do a thing in a thread and wait for the thread to return:
 
+            with retnwait() as retn:
+                dothing(callback=retn.retn)
+                isset, valu = retn.wait(timeout=3)
     '''
     def __init__(self):
 
@@ -44,7 +47,7 @@ class retnwait:
         self._retn_exc = None
         self._retn_valu = None
 
-        self._retn_evnt = getattr(thrd, '_retn_lock', None)
+        self._retn_evnt = getattr(thrd, '_retn_evt', None)
         if self._retn_evnt is None:
             self._retn_evnt = thrd._retn_lock = threading.Event()
 
@@ -57,21 +60,37 @@ class retnwait:
 
         Args:
             timeout (int/float): Timeout in seconds.
+
+        Returns:
+            ((bool, object)): A Boolean flag indicating if the operation
+            finished or had a timeout or error condition set. The object
+            is either the return value from the callback or an excfo tufo.
         '''
         evnt = self._retn_evnt
         if evnt is None:
-            return True, self._retn_evnt
+            return True, self._retn_valu
 
-        evnt.wait(timeout=timeout)
+        if not evnt.wait(timeout=timeout):
+            return False, s_common.getexcfo(s_common.RetnTimeout(timeout=timeout))
 
         if self._retn_exc is not None:
-            raise self._retn_exc
+            return False, self._retn_exc
 
-        return self._retn_valu
+        return True, self._retn_valu
 
     def retn(self, valu):
         '''
         An ease-of-use API for single value callbacks.
+
+        Args:
+            valu (object): The object to set the return value too.
+
+        Notes:
+            This sets the retn_evnt under the hood, so a caller which is
+            blocked on a ``wait()`` call will return the valu.
+
+        Returns:
+            None
         '''
         with retnlock:
             self._retn_valu = valu
@@ -79,14 +98,38 @@ class retnwait:
                 self._retn_evnt.set()
 
     def errx(self, exc):
+        '''
+        Set the exception information for the current RetnWait object.
+
+        Args:
+            exc (Exception): An Exception, or an Exception subclass.
+
+        Notes:
+            This is used by a caller to signal that an exception has occured.
+            This sets the retn_evnt under the hood, so a caller which is
+            blocked on a ``wait()`` call will return the excfo tufo.
+
+        Returns:
+            None
+        '''
 
         with retnlock:
-            self._retn_exc = exc
+            self._retn_exc = s_common.getexcfo(exc)
             if self._retn_evnt is not None:
                 self._retn_evnt.set()
 
-    def retncall(self, *args, **kwargs):
+    def capture(self, *args, **kwargs):
+        '''
+        This can be used as a generic callback function to capture callback arguments.
 
+        Notes:
+            This will capture the args and kwargs passed to it.
+            This sets the retn_evnt under the hood, so a caller which is
+            blocked on a ``wait()`` call will return the *args, **kwargs.
+
+        Returns:
+            None
+        '''
         with retnlock:
             self._retn_valu = (args, kwargs)
             if self._retn_evnt is not None:
