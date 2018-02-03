@@ -56,7 +56,7 @@ def getIngestCore(path, core=None):
 
     return core
 
-def checkLock(fd, timeout, wait=0.1):
+def checkLock(fd, timeout, wait=0.5):
     wtime = 0
 
     if timeout < 0:

@@ -481,8 +481,9 @@ class CellUser(SessBoss):
 
             s_glob.plex.connect(addr, onlink)
 
-            sess = retn.wait(timeout=timeout)
-            if sess is None:
+            isok, sess = retn.wait(timeout=timeout)
+            if not isok:
+                # XXX Raise / log here?
                 return None
 
             if not sess.waittx(timeout=timeout):

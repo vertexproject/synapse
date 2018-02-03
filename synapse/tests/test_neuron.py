@@ -104,7 +104,6 @@ class NeuronTest(SynTest):
 
             proc = s_neuron.divide(celldirn, conf)
 
-            # time.sleep(6)
             with genfile(celldirn, 'cell.lock') as fd:
                 self.true(checkLock(fd, 30))
 
