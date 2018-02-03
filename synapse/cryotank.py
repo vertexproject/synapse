@@ -382,7 +382,7 @@ class CryoUser(s_neuron.CellUser):
         with self._cryo_sess.task(('cryo:puts', {'name': name})) as chan:
 
             if not chan.next(timeout=timeout):
-                raise s_exc.LinkTimedOut(timeout=timeout)
+                raise s_exc.LinkTimeOut(timeout=timeout)
 
             wind = 0
             for i, chun in enumerate(s_common.chunks(items, self._chunksize)):
