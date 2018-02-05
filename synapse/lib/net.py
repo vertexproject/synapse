@@ -13,7 +13,7 @@ import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 '''
 The synapse.lib.net module implements async networking helpers.
