@@ -140,3 +140,9 @@ class NetTest(SynTest):
             stream.seek(0)
             mesgs = stream.read()
             self.isin(expected_msg, mesgs)
+
+    def test_lib_net_link_repr(self):
+        link = s_net.Link()
+        rep = link.__repr__()
+        self.len(28, rep)
+        self.true(rep.startswith('Link: None at 0x'))
