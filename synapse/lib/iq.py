@@ -635,6 +635,9 @@ class SynTest(unittest.TestCase):
                     mesgs = stream.read()
                 # Do something with messages
 
+        Notes:
+            This **only** captures logs for the current process.
+
         Yields:
             StreamEvent: A StreamEvent object
         '''
