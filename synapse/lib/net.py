@@ -205,24 +205,15 @@ class Plex(s_config.Config):
             self.polls.pop(fino, None)
 
             if not flags & select.EPOLLOUT:
-
                 self._finiPlexSock(sock)
-
-                errn = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-                logger.warning('connect failed: %d' % (errn,))
+                ok, link = False, sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+                logger.warning('connect failed: %d' % (link,))
                 sock.close()
+            else:
+                ok, link = True, self._initPlexSock(sock)
 
-                try:
-                    onconn(False, errn)
-                except Exception as e:
-                    logger.warning('connect() onconn failed: %s' % (e,))
-                    return
-
-            link = self._initPlexSock(sock)
             try:
-
-                onconn(True, link)
-
+                onconn(ok, link)
             except Exception as e:
                 logger.warning('connect() onconn failed: %s' % (e,))
                 return
@@ -233,9 +224,7 @@ class Plex(s_config.Config):
         self.epoll.register(fino, select.EPOLLOUT | select.EPOLLERR)
 
         try:
-
             sock.connect(addr)
-
         except BlockingIOError as e:
             pass
 
