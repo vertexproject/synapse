@@ -172,8 +172,9 @@ class WebAppTest(AsyncTestCase, SynTest):
 
         class FooServer(s_webapp.WebApp):
             def __init__(self, core):
-                self.core = core
                 s_webapp.WebApp.__init__(self, **{})
+                self.core = core
+
         s_dyndeps.addDynAlias('FooServer', FooServer)
 
         with s_daemon.Daemon() as core_dmon:

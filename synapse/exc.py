@@ -32,10 +32,16 @@ class CliFini(SynErr):
     '''
     pass
 
+class Retry(SynErr): pass
+class TxFull(Retry): pass
+class NotReady(Retry): pass
+
 class AuthDeny(SynErr): pass
 
 class NoSuchMod(SynErr): pass
 class NoModIden(SynErr): pass
+
+class NoCertKey(SynErr): pass
 
 class NoSuchAct(SynErr): pass
 class NoSuchOpt(SynErr): pass
@@ -44,10 +50,12 @@ class NoSuchDyn(SynErr): pass
 class NoSuchSeq(SynErr): pass
 class NoRevPath(SynErr): pass
 class NoRevAllow(SynErr): pass
+class NoSuchAlgo(SynErr): pass
 class NoSuchConf(SynErr): pass
 class NoSuchCtor(SynErr): pass
 class NoSuchFifo(SynErr): pass
 class NoSuchForm(SynErr): pass
+class NoSuchHash(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchStat(SynErr): pass
 class NoSuchImpl(SynErr): pass
@@ -83,6 +91,7 @@ class DupTypeName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupFileName(SynErr): pass
 class BadFileExt(SynErr): pass
+class DupUserName(SynErr): pass
 class BadPropName(SynErr): pass
 class BadCoreName(SynErr): pass
 class BadCtorType(SynErr): pass
@@ -153,8 +162,8 @@ class NoCurrSess(Exception): pass # API requires a current session
 class SidNotFound(Exception): pass
 class PropNotFound(SynErr): pass
 
-class HitMaxTime(Exception): pass
-class HitMaxRetry(Exception): pass
+class HitMaxTime(SynErr): pass
+class HitMaxRetry(SynErr): pass
 class HitCoreLimit(SynErr):
     ''' You've reached some limit of the storage layer.'''
     pass
@@ -164,6 +173,12 @@ class NotEnoughFree(SynErr):
     There is not enough disk space free for the required operation.
     '''
     pass
+
+class AxonErr(SynErr): pass
+class AxonIsRo(AxonErr): pass
+class AxonIsClone(AxonErr): pass
+class AxonNotClone(AxonErr): pass
+class AxonBadChunk(AxonErr): pass
 
 class NoWritableAxons(SynErr):
     '''
@@ -192,12 +207,6 @@ class BadAtomFile(SynErr):
     '''
     pass
 
-class BadHeapFile(SynErr):
-    '''
-    Raised when there is an internal issue with a heapfile
-    '''
-    pass
-
 class BadBlobFile(SynErr):
     '''
     Raised when there is an internal issue with a blobfile
@@ -210,6 +219,12 @@ class BlobFileIsClone(SynErr):
     pass
 
 class IsFini(Exception): pass
+
+class RetnTimeout(SynErr):
+    '''
+    Raised when there is a RetnWait wait() call which timesout.
+    '''
+    pass
 
 class StepTimeout(SynErr):
     '''
@@ -231,7 +246,10 @@ class JobErr(Exception):
 
         Exception.__init__(self, '%s: %s (%s:%s)' % (err, errmsg, errfile, errline))
 
-class LinkErr(Exception):
+class LinkTimeOut(SynErr): pass
+
+# TODO: steal these names back for synapse/lib/net.py (and depricate old users)
+class LinkErr(SynErr):
 
     retry = False
     def __init__(self, link, mesg=''):

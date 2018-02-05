@@ -5,7 +5,6 @@ import os
 import copy
 
 import synapse.common as s_common
-import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.reflect as s_reflect
@@ -48,9 +47,13 @@ def confdef(name):
     return wrap
 
 class Configable:
-
     '''
     Config object base mixin to allow addition to objects which already inherit from the EventBus.
+
+    Notes:
+        The ``Config.__init__`` method should be called prior to the
+        setting any object locals which are Telepath Proxy objects,
+        otherwise the @confdef finder will fail.
     '''
     def __init__(self, opts=None, defs=()):
         self._conf_defs = {}
@@ -66,10 +69,8 @@ class Configable:
 
     def _loadDecoratedFuncs(self):
         for name, meth in s_reflect.getItemLocals(self):
-            # Telepath will attempt to give you callable Method for any attr
-            # you ask for which will end poorly for us when we try to call it
-            if s_telepath.isProxy(meth):
-                continue
+            if not callable(meth):
+                pass
             attr = getattr(meth, '_syn_config', None)
             if attr is None:
                 continue

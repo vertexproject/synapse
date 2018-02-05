@@ -46,9 +46,8 @@ class BlobFile(s_eventbus.EventBus):
         self.syncact.act('blob:write', self._actSyncBlobWrite)
 
         self.path = path
-        self.fd = s_common.genfile(self.path)
+        self.atom = s_atomfile.AtomFile(path)
 
-        self.atom = s_atomfile.getAtomFile(self.fd, memok=False)  # type: s_atom: AtomFile
         self.onfini(self.atom.fini)
 
     def sync(self, mesg):

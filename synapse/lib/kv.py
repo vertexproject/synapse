@@ -60,17 +60,18 @@ class KvDict:
         lkey = self.iden + prop.encode('utf8')
         self.stor.setKvProp(lkey, s_msgpack.en(valu))
 
-    def get(self, prop):
+    def get(self, prop, defval=None):
         '''
         Get a property from the KvDict.
 
         Args:
             prop (str): The property name.
+            defval (obj): The default value to return.
 
         Returns:
             (obj): The return value, or None.
         '''
-        return self.vals.get(prop)
+        return self.vals.get(prop, defval)
 
     def pop(self, prop):
         '''
@@ -116,12 +117,13 @@ class KvLook:
         lkey = self.iden + prop.encode('utf8')
         self.stor.setKvProp(lkey, s_msgpack.en(valu))
 
-    def get(self, prop):
+    def get(self, prop, defval=None):
         '''
         Lookup a property from the KvLook.
 
         Args:
             prop (str): The property name.
+            defval (obj): The default value to return.
 
         Returns:
             object: The valu, aftering being unpacked via msgpack, or None.
@@ -130,7 +132,7 @@ class KvLook:
 
         lval = self.stor.getKvProp(lkey)
         if lval is None:
-            return None
+            return defval
 
         return s_msgpack.un(lval)
 
@@ -380,6 +382,7 @@ class KvStor(s_eventbus.EventBus):
                     return
 
                 for ikey, ival in curs.iternext():
+
                     if not ikey.startswith(lkey):
                         break
 

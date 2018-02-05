@@ -449,3 +449,36 @@ class CertDirTest(SynTest):
 
                         # Make sure it can't be overwritten
                         self.raises(FileExists, cdir.importFile, srcpath, ftype)
+
+    def test_certdir_valUserCert(self):
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+            base = cdir._getPathJoin()
+            cdir.genCaCert('syntest')
+            cdir.genCaCert('newp')
+            cacerts = cdir.getCaCerts()
+            syntestca = cdir.getCaCert('syntest')
+            newpca = cdir.getCaCert('newp')
+
+            self.raises(crypto.Error, cdir.valUserCert, b'')
+
+            cdir.genUserCert('cool')
+            path = cdir.getUserCertPath('cool')
+            byts = cdir._getPathBytes(path)
+
+            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts)
+
+            cdir.genUserCert('cooler', signas='syntest')
+            path = cdir.getUserCertPath('cooler')
+            byts = cdir._getPathBytes(path)
+            self.nn(cdir.valUserCert(byts))
+            self.nn(cdir.valUserCert(byts, cacerts=(syntestca,)))
+            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts, cacerts=(newpca,))
+            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts, cacerts=())
+
+            cdir.genUserCert('coolest', signas='newp')
+            path = cdir.getUserCertPath('coolest')
+            byts = cdir._getPathBytes(path)
+            self.nn(cdir.valUserCert(byts))
+            self.nn(cdir.valUserCert(byts, cacerts=(newpca,)))
+            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts, cacerts=(syntestca,))
+            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts, cacerts=())

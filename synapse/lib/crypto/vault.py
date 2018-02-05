@@ -340,11 +340,13 @@ class Vault(s_eventbus.EventBus):
             ((str, dict)): A tufo containing the user name and a dictionary
              of certificate and key material.
         '''
+        root = self.genRootCert()
         cert = self.genUserCert(user)
         rkey = self.getCertKey(cert.iden())
 
         return (user, {
             'cert': cert.dump(),
+            'root': root.dump(),
             'rsa:key': rkey.dump(),
         })
 

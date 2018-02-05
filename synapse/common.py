@@ -255,7 +255,7 @@ def gendir(*paths, **opts):
     mode = opts.get('mode', 0o700)
     path = genpath(*paths)
     if not os.path.isdir(path):
-        os.makedirs(path, mode=mode)
+        os.makedirs(path, mode=mode, exist_ok=True)
     return path
 
 def reqdir(*paths):
@@ -285,6 +285,39 @@ def verstr(vtup):
     Convert a version tuple to a string.
     '''
     return '.'.join([str(v) for v in vtup])
+
+def getexcfo(e):
+    '''
+    Get an err tufo from an exception.
+
+    Args:
+        e (Exception): An Exception (or Exception subclass).
+
+    Notes:
+        This can be called outside of the context of an exception handler,
+        however details such as file, line, function name and source may be
+        missing.
+
+    Returns:
+        ((str, dict)):
+    '''
+    tb = sys.exc_info()[2]
+    tbinfo = traceback.extract_tb(tb)
+    path, line, name, src = '', '', '', None
+    if tbinfo:
+        path, line, name, sorc = tbinfo[-1]
+    retd = {
+        'msg': str(e),
+        'file': path,
+        'line': line,
+        'name': name,
+        'src': src
+    }
+
+    if isinstance(e, SynErr):
+        retd['syn:err'] = e.errinfo
+
+    return (e.__class__.__name__, retd)
 
 def excinfo(e):
     '''
