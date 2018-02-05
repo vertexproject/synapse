@@ -249,6 +249,33 @@ class CmdGenerator(s_eventbus.EventBus):
             raise self.end_action('No further actions')
         raise Exception('Unhandled end action')
 
+class StreamEvent(io.StringIO, threading.Event):
+    '''
+    A combination of a io.StringIO object and a threading.Event object.
+    '''
+    def __init__(self, *args, **kwargs):
+        io.StringIO.__init__(self, *args, **kwargs)
+        threading.Event.__init__(self)
+        self.mesg = ''
+
+    def setMesg(self, mesg):
+        '''
+        Clear the internal event and set a new message that is used to set the event.
+
+        Args:
+            mesg (str): The string to monitor for.
+
+        Returns:
+            None
+        '''
+        self.mesg = mesg
+        self.clear()
+
+    def write(self, s):
+        if self.mesg and self.mesg in s:
+            self.set()
+        io.StringIO.write(self, s)
+
 class SynTest(unittest.TestCase):
 
     def getTestWait(self, bus, size, *evts):
@@ -567,12 +594,14 @@ class SynTest(unittest.TestCase):
             shutil.rmtree(tempdir, ignore_errors=True)
 
     @contextlib.contextmanager
-    def getLoggerStream(self, logname):
+    def getLoggerStream(self, logname, mesg=''):
         '''
         Get a logger and attach a io.StringIO object to the logger to capture log messages.
 
         Args:
             logname (str): Name of the logger to get.
+            mesg (str): A string which, if provided, sets the StreamEvent event if a message
+            containing the string is written to the log.
 
         Examples:
             Do an action and get the stream of log messages to check against::
@@ -584,10 +613,36 @@ class SynTest(unittest.TestCase):
                     mesgs = stream.read()
                 # Do something with messages
 
+            Do an action and wait for a specific log message to be written::
+
+                with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
+                    # Do something that triggers a log message
+                    doSomthing()
+                    stream.wait(timeout=10)  # Wait for the mesg to be written to the stream
+                    stream.seek(0)
+                    mesgs = stream.read()
+                # Do something with messages
+
+            You can also reset the message and wait for another message to occur::
+
+                with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
+                    # Do something that triggers a log message
+                    doSomthing()
+                    stream.wait(timeout=10)
+                    stream.setMesg('yo dawg')  # This will now wait for the 'yo dawg' string to be written.
+                    stream.wait(timeout=10)
+                    stream.seek(0)
+                    mesgs = stream.read()
+                # Do something with messages
+
+        Notes:
+            This **only** captures logs for the current process.
+
         Yields:
-            io.StringIO: A io.StringIO object
+            StreamEvent: A StreamEvent object
         '''
-        stream = io.StringIO()
+        stream = StreamEvent()
+        stream.setMesg(mesg)
         handler = logging.StreamHandler(stream)
         slogger = logging.getLogger(logname)
         slogger.addHandler(handler)
