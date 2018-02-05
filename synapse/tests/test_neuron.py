@@ -83,7 +83,7 @@ class NeuronTest(SynTest):
                 fcntl.lockf(fd, fcntl.LOCK_EX)
                 # The cell process should die right away
                 proc = s_neuron.divide(celldirn, conf)
-                proc.join(10)
+                proc.join(30)
                 self.false(proc.is_alive())
                 self.eq(proc.exitcode, 1)
 
@@ -137,7 +137,7 @@ class NeuronTest(SynTest):
             else:
                 time.sleep(0.01)
                 proc.terminate()
-                proc.join(1)
+                proc.join(30)
                 self.false(proc.is_alive())
                 self.eq(proc.exitcode, 0)
 
