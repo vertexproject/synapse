@@ -8,6 +8,7 @@ import types
 import base64
 import fnmatch
 import hashlib
+import binascii
 import builtins
 import functools
 import itertools
@@ -73,6 +74,20 @@ def guid(valu=None):
     # Generate a "stable" guid from the given item
     byts = s_msgpack.en(valu)
     return hashlib.md5(byts).hexdigest()
+
+def buid(valu=None):
+    '''
+    A binary GUID like sequence of 32 bytes.
+    ( stable BUID generation is sha256(msgpack(valu)) )
+    '''
+    if valu is None:
+        return os.urandom(32)
+
+    byts = s_msgpack.en(valu)
+    return hashlib.sha256(valu).digest()
+
+def ehex(byts):
+    binascii.hexlify(byts).decode('utf8')
 
 guidre = regex.compile('^[0-9a-f]{32}$')
 def isguid(text):
