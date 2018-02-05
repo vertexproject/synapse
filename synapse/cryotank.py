@@ -416,7 +416,7 @@ class CryoUser(s_neuron.CellUser):
                 return False
 
             iitr = s_common.chunks(items, self._chunksize)
-            return chan.txwind(iitr, 100, timeout=timeout)
+            return chan.txwind(iitr, self._chunksize, timeout=timeout)
 
     def last(self, name, timeout=None):
         '''

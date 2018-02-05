@@ -454,8 +454,6 @@ class Chan(Link):
             yield item
             item = self.next(timeout=timeout)
 
-        #return RxWind(self, timeout=timeout)
-
     def txwind(self, items, size, timeout=None):
         '''
         Execute a windowed transmission loop of each item in items.
