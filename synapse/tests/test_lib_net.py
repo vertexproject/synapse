@@ -2,6 +2,8 @@ import synapse.lib.net as s_net
 
 from synapse.tests.common import *
 
+logger = logging.getLogger(__name__)
+
 class NetTest(SynTest):
 
     def test_lib_net_basic(self):
@@ -91,6 +93,49 @@ class NetTest(SynTest):
 
                 steps.waitall(timeout=2)
                 self.true(stream.wait(10))
+
+            stream.seek(0)
+            mesgs = stream.read()
+            self.isin(expected_msg, mesgs)
+
+    def test_lib_net_finis(self):
+
+        names = ('conn', 'lisn')
+        steps = self.getTestSteps(names)
+        expected_msg = 'I WAS FINID'
+        with self.getLoggerStream('synapse.tests.test_lib_net', expected_msg) as stream:
+
+            class LisnLink(s_net.Link):
+
+                def linked(self):
+                    steps.done('lisn')
+
+            class ConnLink(s_net.Link):
+
+                def linked(self):
+                    self.rxfini()
+                    self.txfini(data='GOODBYE')
+                    self.txfini()
+                    steps.done('conn')
+
+                def onfini(self, msg):
+                    logger.info('I WAS FINID')
+
+            with s_net.Plex() as plex:
+
+                def onconn(ok, link):
+                    conn = ConnLink(link)
+                    link.onrx(conn.rx)
+                    conn.linked()
+
+                def onlink(link):
+                    lisn = LisnLink(link)
+                    link.onrx(lisn.rx)
+                    lisn.linked()
+
+                addr = plex.listen(('127.0.0.1', 0), onlink)
+                plex.connect(addr, onconn)
+                steps.waitall(timeout=2)
 
             stream.seek(0)
             mesgs = stream.read()
