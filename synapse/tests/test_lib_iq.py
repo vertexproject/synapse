@@ -128,6 +128,7 @@ class IqTest(SynTest):
             time.sleep(0.01)
             logger.error('StreamEvent Test Message')
 
+        logger.error('notthere')
         with self.getLoggerStream('synapse.tests.test_lib_iq', 'Test Message') as stream:
             thr = logathing()
             self.true(stream.wait(10))
@@ -136,6 +137,7 @@ class IqTest(SynTest):
         stream.seek(0)
         mesgs = stream.read()
         self.isin('StreamEvent Test Message', mesgs)
+        self.notin('notthere', mesgs)
 
     def test_iq_syntest_envars(self):
         os.environ['foo'] = '1'
