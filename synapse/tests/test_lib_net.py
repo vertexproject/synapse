@@ -119,7 +119,7 @@ class NetTest(SynTest):
                     steps.done('conn')
 
                 def onfini(self, msg):
-                    logger.info('I WAS FINID')
+                    logger.error('I WAS FINID')
 
             with s_net.Plex() as plex:
 
@@ -135,7 +135,9 @@ class NetTest(SynTest):
 
                 addr = plex.listen(('127.0.0.1', 0), onlink)
                 plex.connect(addr, onconn)
+
                 steps.waitall(timeout=2)
+                self.true(stream.wait(10))
 
             stream.seek(0)
             mesgs = stream.read()
