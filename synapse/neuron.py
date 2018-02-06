@@ -20,7 +20,7 @@ import synapse.lib.crypto.rsa as s_rsa
 import synapse.lib.crypto.vault as s_vault
 import synapse.lib.crypto.tinfoil as s_tinfoil
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 class SessBoss:
     '''
@@ -241,13 +241,26 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
 
         Notes:
             Does not protect against path traversal.
+            This does not make any required paths.
 
         Returns:
-            str: P
+            str: Path under the cell
         '''
         return os.path.join(self.dirn, 'cell', *paths)
 
     def getCellDir(self, *paths):
+        '''
+        Get (and make) a directory underneath the underlying Cell path.
+
+        Args:
+            *paths: Paths to join together
+
+        Notes:
+            Does not protect against path traversal.
+
+        Returns:
+            str: Path under the cell
+        '''
         return s_common.gendir(self.dirn, 'cell', *paths)
 
     @staticmethod
@@ -561,6 +574,6 @@ def main(dirn, conf=None):
         logger.exception('main: %s (%s)' % (dirn, e))
         sys.exit(1)
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     import sys
     main(sys.argv[1])

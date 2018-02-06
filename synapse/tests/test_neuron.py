@@ -52,7 +52,11 @@ class NeuronTest(SynTest):
                 self.isinstance(p2, str)
                 self.eq(os.path.relpath(p1, dirn), os.path.join('cell', 'hehe.wut'))
                 self.eq(os.path.relpath(p2, dirn), os.path.join('cell', 'woah', 'dude.txt'))
+                self.false(os.path.isdir(os.path.join(dirn, 'cell', 'woah')))
 
+                p3 = cell.getCellDir('woah')
+                self.eq(os.path.relpath(p3, dirn), os.path.join('cell', 'woah'))
+                self.true(os.path.isdir(p3))
                 # Demonstrate the use of getCellDict()
                 celld = cell.getCellDict('derry:sewers')
                 celld.set('float:junction', 'the narrows')
@@ -165,3 +169,48 @@ class NeuronTest(SynTest):
 
                     retn = sess.call(('cell:ping', {'data': 'rofl'}), timeout=2)
                     self.eq(retn, 'rofl')
+
+    def test_cell_getcellctor(self):
+        with self.getTestDir() as dirn:
+            jssave({'ctor': 'synapse.neuron.Cell'}, dirn, 'config.json')
+
+            conf = {'ctor': 'synapse.neuron.Cell'}
+            ctor, func = s_neuron.getCellCtor(dirn, conf)
+            self.eq(ctor, 'synapse.neuron.Cell')
+            self.true(callable(func))
+
+            ctor, func = s_neuron.getCellCtor(dirn, {})
+            self.eq(ctor, 'synapse.neuron.Cell')
+            self.true(callable(func))
+
+            self.raises(NoSuchCtor, s_neuron.getCellCtor, dirn,
+                        {'ctor': 'synapse.neuron.NotACell'})
+
+            jssave({'lolnewp': 'synapse.neuron.Cell'}, dirn, 'config.json')
+            self.raises(ReqConfOpt, s_neuron.getCellCtor, dirn, {})
+
+    def test_neuron_cell_authfail(self):
+        with self.getTestDir() as dirn:
+
+            conf = {'host': '127.0.0.1'}
+
+            c1 = os.path.join(dirn, 'c1')
+            c2 = os.path.join(dirn, 'c2')
+
+            with s_neuron.Cell(c1, conf) as cell:
+                auth = cell.genUserAuth('bobgrey@vertex.link')
+
+            with s_neuron.Cell(c2, conf) as cell:
+                # A bunch of API tests here
+                port = cell.getCellPort()
+                self.isinstance(port, int)
+                user = s_neuron.CellUser(auth)
+
+                addr = ('127.0.0.1', port)
+
+                with self.getLoggerStream('synapse.neuron') as stream:
+                    sess = user.open(addr, timeout=2)
+                    self.none(sess)
+                stream.seek(0)
+                mesgs = stream.read()
+                self.isin('got bad cert', mesgs)
