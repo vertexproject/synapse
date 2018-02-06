@@ -1,6 +1,7 @@
 import synapse.cryotank as s_cryotank
 
 from synapse.tests.common import *
+import random
 
 cryodata = (('foo', {'bar': 10}), ('baz', {'faz': 20}))
 
@@ -123,3 +124,47 @@ class CryoTest(SynTest):
                 # Adding data re-adds the tank
                 user.puts('woot:hehe', cryodata, timeout=5)
                 self.len(1, (user.metrics('woot:hehe', 0, 100)))
+
+    def test_cryo_cell_daemon(self):
+
+        with self.getTestDir() as dirn:
+            celldir = os.path.join(dirn, 'cell')
+            port = random.randint(10000, 50000)
+
+            conf = {
+                'cells': [
+                    (celldir, {'ctor': 'synapse.cryotank.CryoCell',
+                                'port': port,
+                                'host': '127.0.0.1',
+                                }),
+                ],
+            }
+
+        with s_daemon.Daemon() as dmon:
+            dmon.loadDmonConf(conf)
+            with genfile(celldir, 'cell.lock') as fd:
+                self.true(checkLock(fd, 30))
+
+            authfp = os.path.join(celldir, 'cell.auth')
+            auth = s_msgpack.loadfile(authfp)
+
+            addr = ('127.0.0.1', port)
+            user = s_cryotank.CryoUser(auth, addr, timeout=2)
+
+            retn = user.list()
+            self.eq(retn, ())
+
+            user.puts('woot:woot', cryodata, timeout=2)
+
+            retn = user.list()
+            self.eq(retn[0][1]['indx'], 2)
+            self.eq(retn[0][0], 'woot:woot')
+
+            self.eq(user.last('woot:woot', timeout=2)[1][0], 'baz')
+            retn = user.list()
+            self.eq(retn[0][1]['indx'], 2)
+            self.eq(retn[0][0], 'woot:woot')
+
+        # ensure dmon cell processes are fini'd
+        for celldir, proc in dmon.cellprocs.items():
+            self.false(proc.is_alive())
