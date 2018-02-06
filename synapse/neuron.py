@@ -241,13 +241,26 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
 
         Notes:
             Does not protect against path traversal.
+            This does not make any required paths.
 
         Returns:
-            str: P
+            str: Path under the cell
         '''
         return os.path.join(self.dirn, 'cell', *paths)
 
     def getCellDir(self, *paths):
+        '''
+        Get (and make) a directory underneath the underlying Cell path.
+
+        Args:
+            *paths: Paths to join together
+
+        Notes:
+            Does not protect against path traversal.
+
+        Returns:
+            str: Path under the cell
+        '''
         return s_common.gendir(self.dirn, 'cell', *paths)
 
     @staticmethod

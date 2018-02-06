@@ -52,7 +52,11 @@ class NeuronTest(SynTest):
                 self.isinstance(p2, str)
                 self.eq(os.path.relpath(p1, dirn), os.path.join('cell', 'hehe.wut'))
                 self.eq(os.path.relpath(p2, dirn), os.path.join('cell', 'woah', 'dude.txt'))
+                self.false(os.path.isdir(os.path.join(dirn, 'cell', 'woah')))
 
+                p3 = cell.getCellDir('woah')
+                self.eq(os.path.relpath(p3, dirn), os.path.join('cell', 'woah'))
+                self.true(os.path.isdir(p3))
                 # Demonstrate the use of getCellDict()
                 celld = cell.getCellDict('derry:sewers')
                 celld.set('float:junction', 'the narrows')
