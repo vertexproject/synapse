@@ -745,6 +745,10 @@ class SockLink(Link):
                         if sent == 0:
                             return
 
+                    except BlockingIOError as e:
+                        # we cant write any more without blocking
+                        return
+
                     except BrokenPipeError as e:
                         logger.info('tx broken pipe: ignore...')
                         return
