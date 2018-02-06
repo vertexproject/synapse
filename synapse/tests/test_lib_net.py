@@ -1,4 +1,3 @@
-
 import synapse.lib.net as s_net
 
 from synapse.tests.common import *

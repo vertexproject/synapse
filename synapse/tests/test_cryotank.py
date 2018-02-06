@@ -1,4 +1,3 @@
-import synapse.neuron as s_neuron
 import synapse.cryotank as s_cryotank
 
 from synapse.tests.common import *

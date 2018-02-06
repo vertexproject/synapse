@@ -1,20 +1,13 @@
 import os
-import sys
-import time
-import errno
 import fcntl
-import socket
 import logging
 import threading
-import collections
 import multiprocessing
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
-import synapse.link as s_link
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
-import synapse.eventbus as s_eventbus
 
 import synapse.lib.kv as s_kv
 import synapse.lib.net as s_net

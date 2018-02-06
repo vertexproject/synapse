@@ -5,14 +5,12 @@ import logging
 import threading
 import collections
 
-import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.queue as s_queue
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.reflect as s_reflect
 import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__file__)
