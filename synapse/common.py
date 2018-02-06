@@ -8,6 +8,7 @@ import types
 import base64
 import fnmatch
 import hashlib
+import logging
 import builtins
 import functools
 import itertools
@@ -24,6 +25,7 @@ import synapse.exc as s_exc
 
 from synapse.exc import *
 
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
 major = sys.version_info.major
@@ -487,3 +489,26 @@ def makedirs(path, mode=0o777):
 
 def iterzip(*args):
     return itertools.zip_longest(*args)
+
+def setlogging(mlogger, defval=None):
+    '''
+    Configure synapse logging.
+
+    Args:
+        mlogger (logging.Logger): Reference to a logging.Logger()
+        defval (str): Default log level
+
+    Notes:
+        This calls logging.basicConfig and should only be called once per process.
+
+    Returns:
+        None
+    '''
+    log_level = os.getenv('SYN_DMON_LOG_LEVEL',
+                          defval)
+    if log_level:  # pragma: no cover
+        log_level = log_level.upper()
+        if log_level not in s_const.LOG_LEVEL_CHOICES:
+            raise ValueError('Invalid log level provided: {}'.format(log_level))
+        logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
+        mlogger.info('log level set to %s', log_level)

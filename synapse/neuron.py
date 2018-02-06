@@ -1,20 +1,14 @@
 import os
 import sys
-import time
-import errno
 import fcntl
-import socket
 import logging
 import threading
-import collections
 import multiprocessing
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
-import synapse.link as s_link
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
-import synapse.eventbus as s_eventbus
 
 import synapse.lib.kv as s_kv
 import synapse.lib.net as s_net
@@ -528,7 +522,8 @@ def divide(dirn, conf=None):
     Returns:
         multiprocessing.Process: The Process object which was created to run the Cell
     '''
-    proc = multiprocessing.Process(target=main, args=(dirn, conf))
+    ctx = multiprocessing.get_context('spawn')
+    proc = ctx.Process(target=main, args=(dirn, conf))
     proc.start()
 
     return proc
@@ -546,6 +541,11 @@ def main(dirn, conf=None):
          anything. It cals sys.exit() at the end of its processing.
     '''
     try:
+
+        # Configure logging since we may have come in via
+        # multiprocessing.Process as part of a Daemon config.
+        s_common.setlogging(logger,
+                            os.getenv('SYN_TEST_LOG_LEVEL', 'WARNING'))
 
         dirn = s_common.genpath(dirn)
         ctor, func = getCellCtor(dirn, conf=conf)
