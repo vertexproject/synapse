@@ -272,9 +272,9 @@ class StreamEvent(io.StringIO, threading.Event):
         self.clear()
 
     def write(self, s):
+        io.StringIO.write(self, s)
         if self.mesg and self.mesg in s:
             self.set()
-        io.StringIO.write(self, s)
 
 class SynTest(unittest.TestCase):
 

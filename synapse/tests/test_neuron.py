@@ -184,3 +184,29 @@ class NeuronTest(SynTest):
 
             jssave({'lolnewp': 'synapse.neuron.Cell'}, dirn, 'config.json')
             self.raises(ReqConfOpt, s_neuron.getCellCtor, dirn, {})
+
+    def test_neuron_cell_authfail(self):
+        with self.getTestDir() as dirn:
+
+            conf = {'host': '127.0.0.1'}
+
+            c1 = os.path.join(dirn, 'c1')
+            c2 = os.path.join(dirn, 'c2')
+
+            with s_neuron.Cell(c1, conf) as cell:
+                auth = cell.genUserAuth('bobgrey@vertex.link')
+
+            with s_neuron.Cell(c2, conf) as cell:
+                # A bunch of API tests here
+                port = cell.getCellPort()
+                self.isinstance(port, int)
+                user = s_neuron.CellUser(auth)
+
+                addr = ('127.0.0.1', port)
+
+                with self.getLoggerStream('synapse.neuron') as stream:
+                    sess = user.open(addr, timeout=2)
+                    self.none(sess)
+                stream.seek(0)
+                mesgs = stream.read()
+                self.isin('got bad cert', mesgs)

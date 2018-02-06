@@ -20,7 +20,7 @@ import synapse.lib.crypto.rsa as s_rsa
 import synapse.lib.crypto.vault as s_vault
 import synapse.lib.crypto.tinfoil as s_tinfoil
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 class SessBoss:
     '''
