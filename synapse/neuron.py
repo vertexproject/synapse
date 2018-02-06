@@ -1,4 +1,5 @@
 import os
+import sys
 import fcntl
 import logging
 import threading
@@ -521,7 +522,8 @@ def divide(dirn, conf=None):
     Returns:
         multiprocessing.Process: The Process object which was created to run the Cell
     '''
-    proc = multiprocessing.Process(target=main, args=(dirn, conf))
+    ctx = multiprocessing.get_context('spawn')
+    proc = ctx.Process(target=main, args=(dirn, conf))
     proc.start()
 
     return proc
