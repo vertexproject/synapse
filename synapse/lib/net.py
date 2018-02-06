@@ -430,8 +430,68 @@ class Chan(Link):
     def slice(self, size, timeout=None):
         return self._chan_rxq.slice(size, timeout=timeout)
 
-    def iter(self):
-        return self._chan_rxq
+    def iter(self, timeout=None):
+        retn = self._chan_rxq.get(timeout=timeout)
+        while retn is not None:
+            yield retn
+            retn = self._chan_rxq.get(timeout=timeout)
+
+    def rxwind(self, timeout=None):
+
+        self.tx(('rx:wind', {}))
+
+        mesg = self.next(timeout=timeout)
+        if mesg is None:
+            return
+
+        if mesg[0] != 'tx:wind':
+            logger.warning('rxwind expected tx:wind but got %s' % (mesg[0],))
+            return
+
+        item = self.next(timeout=timeout)
+        while item is not None:
+            self.tx(True)
+            yield item
+            item = self.next(timeout=timeout)
+
+        #return RxWind(self, timeout=timeout)
+
+    def txwind(self, items, size, timeout=None):
+        '''
+        Execute a windowed transmission loop of each item in items.
+        '''
+        self.tx(('tx:wind', {}))
+
+        mesg = self.next(timeout=timeout)
+        if mesg is None:
+            return
+
+        if mesg[0] != 'rx:wind':
+            logger.warning('txwind expected rx:wind but got %s' % (mesg[0],))
+            return
+
+        wind = 0
+        for item in items:
+
+            self.tx(item)
+            wind += 1
+
+            while wind >= size:
+
+                acks = self.slice(size, timeout=timeout)
+                if acks is None:
+                    return False
+
+                wind -= len(acks)
+
+        while wind > 0:
+            acks = self.slice(size, timeout=timeout)
+            if acks is None:
+                return False
+
+            wind -= len(acks)
+
+        return True
 
 class ChanPlex(Link):
     '''
