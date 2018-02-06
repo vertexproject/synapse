@@ -60,6 +60,12 @@ class CryoTest(SynTest):
                 retn = tuple(tank.slice(4, 4))
                 self.len(0, retn)
 
+                # Test empty puts
+                tank.puts(tuple())
+                info = tank.info()
+                self.eq(2, info.get('indx'))
+                self.eq(2, info.get('metrics'))
+
     def test_cryo_mapsize(self):
         self.skipTest('LMDB Failure modes need research')
         mapsize = s_const.mebibyte * 1
@@ -172,6 +178,13 @@ class CryoTest(SynTest):
                 self.istufo(user.last('woot:woot')[1])
                 self.istufo(user.last('woot:hehe')[1])
                 self.none(user.last('weee:imthebest'))
+
+                # Test empty puts
+                user.puts('woot:hehe', tuple())
+                listd = dict(user.list())
+                self.len(2, (user.metrics('woot:hehe', 0, 100)))
+                self.nn(user.metrics('woot:hehe', 0, 100))
+                self.nn(user.last('woot:hehe'))
 
     def test_cryo_cell_daemon(self):
 
