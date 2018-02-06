@@ -165,3 +165,22 @@ class NeuronTest(SynTest):
 
                     retn = sess.call(('cell:ping', {'data': 'rofl'}), timeout=2)
                     self.eq(retn, 'rofl')
+
+    def test_cell_getcellctor(self):
+        with self.getTestDir() as dirn:
+            jssave({'ctor': 'synapse.neuron.Cell'}, dirn, 'config.json')
+
+            conf = {'ctor': 'synapse.neuron.Cell'}
+            ctor, func = s_neuron.getCellCtor(dirn, conf)
+            self.eq(ctor, 'synapse.neuron.Cell')
+            self.true(callable(func))
+
+            ctor, func = s_neuron.getCellCtor(dirn, {})
+            self.eq(ctor, 'synapse.neuron.Cell')
+            self.true(callable(func))
+
+            self.raises(NoSuchCtor, s_neuron.getCellCtor, dirn,
+                        {'ctor': 'synapse.neuron.NotACell'})
+
+            jssave({'lolnewp': 'synapse.neuron.Cell'}, dirn, 'config.json')
+            self.raises(ReqConfOpt, s_neuron.getCellCtor, dirn, {})

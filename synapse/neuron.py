@@ -561,6 +561,6 @@ def main(dirn, conf=None):
         logger.exception('main: %s (%s)' % (dirn, e))
         sys.exit(1)
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     import sys
     main(sys.argv[1])
