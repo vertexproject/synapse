@@ -19,6 +19,8 @@ def main(argv, outp=s_output.stdout):
     pars.add_argument('--authfile', help='Path to your auth file for the remote cell')
 
     # TODO: make input mode using stdin...
+    # TODO: make --jsonl output form for writing to file
+    # TODO: make --no-index option that prints just the item
 
     opts = pars.parse_args(argv)
 
