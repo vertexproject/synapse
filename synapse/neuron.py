@@ -547,6 +547,11 @@ def main(dirn, conf=None):
     '''
     try:
 
+        # Configure logging since we may have come in via
+        # multiprocessing.Process as part of a Daemon config.
+        s_common.setlogging(logger,
+                            os.getenv('SYN_TEST_LOG_LEVEL', 'WARNING'))
+
         dirn = s_common.genpath(dirn)
         ctor, func = getCellCtor(dirn, conf=conf)
 
