@@ -26,7 +26,7 @@ def main(argv, outp=s_output.stdout):
 
     if not opts.authfile:
         outp.printf('Currently requires --authfile until neuron protocol is supported')
-        return
+        return 1
 
     authpath = s_common.genpath(opts.authfile)
 
@@ -44,11 +44,12 @@ def main(argv, outp=s_output.stdout):
         for name, info in cryo.list(timeout=opts.timeout):
             outp.printf('%s: %r' % (name, info))
 
-        return
+        return 0
 
-    gotn = 0
     for item in cryo.slice(path, opts.offset, opts.size, opts.timeout):
         outp.printf(pprint.pformat(item))
 
-if __name__ == '__main__':
+    return 0
+
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(main(sys.argv[1:]))
