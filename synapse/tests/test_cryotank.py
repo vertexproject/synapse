@@ -1,7 +1,8 @@
+import random
+
 import synapse.cryotank as s_cryotank
 
 from synapse.tests.common import *
-import random
 
 cryodata = (('foo', {'bar': 10}), ('baz', {'faz': 20}))
 
