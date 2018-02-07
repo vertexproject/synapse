@@ -148,3 +148,14 @@ class NetTest(SynTest):
         rep = link.__repr__()
         self.len(28, rep)
         self.true(rep.startswith('Link: None at 0x'))
+
+    def test_lib_net_connectfail(self):
+        expected_msg = 'connect() onconn failed'
+        with self.getLoggerStream('synapse.lib.net', expected_msg) as stream:
+            with s_net.Plex() as plex:
+                plex.connect(('127.0.0.1', 0), None)
+                self.true(stream.wait(10))
+
+            stream.seek(0)
+            mesgs = stream.read()
+            self.isin(expected_msg, mesgs)
