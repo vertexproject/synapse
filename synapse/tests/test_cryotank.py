@@ -17,6 +17,8 @@ class CryoTest(SynTest):
                 self.eq(0, info.get('indx'))
                 self.eq(0, info.get('metrics'))
 
+                self.nn(info.get('stat').get('entries'))
+
                 tank.puts(cryodata)
                 info = tank.info()
                 self.eq(2, info.get('indx'))

@@ -193,7 +193,7 @@ class CryoTank(s_eventbus.EventBus):
         Returns:
             dict: A dict containing items and metrics indexes.
         '''
-        return {'indx': self.items_indx, 'metrics': self.metrics_indx}
+        return {'indx': self.items_indx, 'metrics': self.metrics_indx, 'stat':self.lmdb.stat()}
 
 class CryoCell(s_neuron.Cell):
 
