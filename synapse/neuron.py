@@ -529,8 +529,8 @@ def divide(dirn, conf=None):
     Create an instance of a Cell in a subprocess.
 
     Args:
-        dirn (str):
-        conf (dict):
+        dirn (str): Path to the directory backing the Cell.
+        conf (dict): Configuration data.
 
     Returns:
         multiprocessing.Process: The Process object which was created to run the Cell
