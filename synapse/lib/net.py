@@ -334,18 +334,14 @@ class Link(s_eventbus.EventBus):
         self.rxtime = s_common.now()
 
         if self.rxfunc is not None:
-
             try:
                 return self.rxfunc(self, mesg)
-
             except Exception as e:
                 logger.exception('%s.rxfunc() failed on: %r' % (self.__class__.__name__, mesg))
                 return
 
         try:
-
             func = self._mesg_funcs.get(mesg[0])
-
         except Exception as e:
             logger.exception('link %s: rx mesg exception: %s' % (self.__class__.__name__, e))
             return
@@ -356,7 +352,6 @@ class Link(s_eventbus.EventBus):
 
         try:
             func(link, mesg)
-
         except Exception as e:
             logger.exception('link %s: rx exception: %s' % (self.__class__.__name__, e))
 

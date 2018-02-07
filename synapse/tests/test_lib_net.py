@@ -6,6 +6,61 @@ logger = logging.getLogger(__name__)
 
 class NetTest(SynTest):
 
+    def test_lib_net_link(self):
+        link = s_net.Link()
+        msg = 'unknown message type haha'
+        with self.getLoggerStream('synapse.lib.net', msg) as stream:
+            link.rx(None, ('haha', {}))
+            stream.seek(0)
+            self.isin(msg, stream.read())
+
+        class BadLink(s_net.Link):
+
+            def handlers(self):
+                return {'bad': self._badfn}
+
+            def _badfn(self, link, msg):
+                raise Exception('a bad happened')
+
+        link = BadLink()
+        msg = 'Exception: a bad happened'
+        with self.getLoggerStream('synapse.lib.net', msg) as stream:
+            link.rx(None, ('bad', {}))
+            stream.seek(0)
+            self.isin(msg, stream.read())
+
+        class OtherBadLink(s_net.Link):
+
+            def __init__(self):
+                s_net.Link.__init__(self)
+                self._msg_funcs = 'nope'
+
+            def handlers(self):
+                return 'wat'
+
+        link = OtherBadLink()
+        msg = 'link OtherBadLink: rx mesg exception:'
+        with self.getLoggerStream('synapse.lib.net', msg) as stream:
+            link.rx(None, ('bad', {}))
+            stream.seek(0)
+            self.isin(msg, stream.read())
+
+        class BaddestLink(s_net.Link):
+
+            def __init__(self):
+                s_net.Link.__init__(self)
+                self.rxfunc = self._badfn
+
+            def _badfn(self, link, msg):
+                raise Exception('the baddest exception was raised')
+
+        link = BaddestLink()
+        msg = 'BaddestLink.rxfunc() failed on: (\'bad\', {})'
+        with self.getLoggerStream('synapse.lib.net', msg) as stream:
+            link.rx(None, ('bad', {}))
+            stream.seek(0)
+            self.isin(msg, stream.read())
+
     def test_lib_net_basic(self):
 
         names = ('conn', 'lisn', 'ping', 'pong')
