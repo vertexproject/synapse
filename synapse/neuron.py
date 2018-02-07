@@ -463,7 +463,8 @@ class CellUser(SessBoss):
             timeout (int/float): Connection timeout in seconds.
 
         Raises:
-            RetnTimeout
+            CellUserErr: Raised if a timeout or link negotion fails.  May have
+            additional data in the ``excfo`` field.
 
         Returns:
             UserSess: The connected Link.
