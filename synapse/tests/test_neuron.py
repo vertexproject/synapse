@@ -209,7 +209,7 @@ class NeuronTest(SynTest):
                 addr = ('127.0.0.1', port)
 
                 with self.getLoggerStream('synapse.neuron') as stream:
-                    self.raises(RetnTimeout, user.open, addr, timeout=1)
+                    self.raises(CellUserErr, user.open, addr, timeout=1)
 
                 stream.seek(0)
                 mesgs = stream.read()
@@ -228,4 +228,4 @@ class NeuronTest(SynTest):
 
                 user = s_neuron.CellUser(auth)
                 addr = ('127.0.0.1', 0)
-                self.raises(RetnTimeout, user.open, addr, timeout=1)
+                self.raises(CellUserErr, user.open, addr, timeout=1)

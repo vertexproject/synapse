@@ -491,12 +491,12 @@ class CellUser(SessBoss):
 
             isok, sess = retn.wait(timeout=timeout)
             if not isok:
-                raise s_common.RetnTimeout(msg='retnwait timed out or failed')
+                raise s_common.CellUserErr(mesg='retnwait timed out or failed', excfo=sess)
 
-            if not sess.waittx(timeout=timeout):
-                raise s_common.RetnTimeout(msg='waittx timed out or failed')
+        if not sess.waittx(timeout=timeout):
+            raise s_common.CellUserErr(mesg='waittx timed out or failed')
 
-            return sess
+        return sess
 
 def getCellCtor(dirn, conf=None):
     '''
