@@ -209,8 +209,23 @@ class NeuronTest(SynTest):
                 addr = ('127.0.0.1', port)
 
                 with self.getLoggerStream('synapse.neuron') as stream:
-                    sess = user.open(addr, timeout=2)
-                    self.none(sess)
+                    self.raises(RetnTimeout, user.open, addr, timeout=1)
+
                 stream.seek(0)
                 mesgs = stream.read()
                 self.isin('got bad cert', mesgs)
+
+    def test_neuron_cell_notok(self):
+
+        with self.getTestDir() as dirn:
+
+            conf = {'host': '127.0.0.1'}
+
+            with s_neuron.Cell(dirn, conf) as cell:
+
+                port = cell.getCellPort()
+                auth = cell.genUserAuth('visi@vertex.link')
+
+                user = s_neuron.CellUser(auth)
+                addr = ('127.0.0.1', 0)
+                self.raises(RetnTimeout, user.open, addr, timeout=1)
