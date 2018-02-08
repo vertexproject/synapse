@@ -110,12 +110,13 @@ class QueueTest(SynTest):
             q.fini()
 
         thr = finisoon()
-        for i, item in enumerate(q):
+        for i, item in enumerate(q, 1):
             results.append(item)
-            if i == len(data) - 1:
+            if i == len(data):
                 evt.set()
         thr.join()
 
+        self.true(q.isfini)
         self.eq(data, results)
 
     def test_queue_exit(self):
@@ -140,4 +141,5 @@ class QueueTest(SynTest):
             evt.set()
         thr.join()
 
+        self.true(q.isfini)
         self.eq(data, results)
