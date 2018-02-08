@@ -93,4 +93,4 @@ s_datamodel.rebuildTlib()
 
 # load any modules which register dyndeps aliases...
 # ( order matters...)
-import synapse.axon  # synapse.axon brings in synapse.cortex's dyndep registration.
+import synapse.cortex
