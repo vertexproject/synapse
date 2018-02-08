@@ -233,7 +233,7 @@ class CryoCell(s_neuron.Cell):
         CryoCell message handlers.
         '''
         return {
-            'cryo:new': self._onCryoNew,
+            'cryo:init': self._onCryoInit,
             'cryo:list': self._onCryoList,
             'cryo:last': self._onCryoLast,
             'cryo:puts': self._onCryoPuts,
@@ -367,7 +367,7 @@ class CryoCell(s_neuron.Cell):
                 tank.puts(items)
 
     @s_glob.inpool
-    def _onCryoNew(self, chan, mesg):
+    def _onCryoInit(self, chan, mesg):
         name = mesg[1].get('name')
         conf = mesg[1].get('conf')
 
@@ -516,7 +516,7 @@ class CryoUser(s_neuron.CellUser):
         mesg = ('cryo:metrics', {'name': name, 'offs': offs, 'size': size})
         return self._cryo_sess.call(mesg, timeout=timeout)
 
-    def new(self, name, conf=None, timeout=None):
+    def init(self, name, conf=None, timeout=None):
         '''
         Create a new named Cryotank.
 
@@ -529,5 +529,5 @@ class CryoUser(s_neuron.CellUser):
             True if the tank was created, False if the tank existed or
             there was an error during CryoTank creation.
         '''
-        mesg = ('cryo:new', {'name': name, 'conf': conf})
+        mesg = ('cryo:init', {'name': name, 'conf': conf})
         return self._cryo_sess.call(mesg, timeout=timeout)
