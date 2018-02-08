@@ -383,7 +383,6 @@ class Chan(Link):
 
         self._chan_rxq = None
         self._chan_iden = iden
-        self._chan_plex = plex
         self._chan_txinit = True
 
     def iden(self):
