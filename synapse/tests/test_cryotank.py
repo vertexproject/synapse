@@ -60,6 +60,27 @@ class CryoTest(SynTest):
                 retn = tuple(tank.slice(4, 4))
                 self.len(0, retn)
 
+    def test_cryo_mapsize(self):
+        self.skipTest('LMDB Failure modes need research')
+        mapsize = s_const.mebibyte * 1
+        v = s_const.kibibyte * b'''In that flickering pallor it had the effect of a large and clumsy black insect, an insect the size of an ironclad cruiser, crawling obliquely to the first line of trenches and firing shots out of portholes in its side. And on its carcass the bullets must have been battering with more than the passionate violence of hail on a roof of tin.'''
+
+        with self.getTestDir() as dirn:
+            with s_cryotank.CryoTank(dirn, {'mapsize': mapsize}) as tank:  # type: s_cryotank.CryoTank
+                tank.puts([(0, {'key': v})])
+                tank.puts([(1, {'key': v})])
+                # Now we fail
+                with self.getLoggerStream('synapse.cryotank') as stream:
+                    print('go boom')
+                    self.none(tank.puts([(2, {'key': v})]))
+                    print('no boom!')
+                stream.seek(0)
+                mesgs = stream.read()
+                self.isin('Error appending items to the cryotank', mesgs)
+                print('tiny item time!')
+                # We can still put a small item in though!
+                self.eq(tank.puts([(2, {'key': 'tinyitem'})]))
+
     def test_cryo_cell(self):
 
         with self.getTestDir() as dirn:
