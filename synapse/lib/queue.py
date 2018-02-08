@@ -106,6 +106,9 @@ class Queue(EventBus):
         Args:
             item: Item to add to the queue.
 
+        Notes:
+            This will not add the item or wake any consumers if .done() has not been called on the Queue.
+
         Examples:
             Put a string in a queue::
 
