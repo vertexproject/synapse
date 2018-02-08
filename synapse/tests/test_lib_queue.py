@@ -95,3 +95,20 @@ class QueueTest(SynTest):
         self.eq(q.get(), None)
         self.eq(q.slice(1), None)
         self.eq(deqdata, [1])
+
+    def test_queue_iter(self):
+        data = [1, 2, 3, 4, 5]
+        results = []
+        q = s_queue.Queue()
+        [q.put(item) for item in data]
+
+        @firethread
+        def finisoon():
+            time.sleep(1)
+            q.fini()
+
+        thr = finisoon()
+        [results.append(item) for item in q]
+        thr.join()
+
+        self.eq(data, results)
