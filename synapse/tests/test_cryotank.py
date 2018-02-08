@@ -130,16 +130,22 @@ class CryoTest(SynTest):
                 user.puts('woot:hehe', cryodata, timeout=5)
                 self.len(1, (user.metrics('woot:hehe', 0, 100)))
 
+                # We can initialize a new tank directly with a custom map size
+                self.true(user.new('weee:imthebest', {'mapsize': 5558675309}))
+                self.false(user.new('woot:hehe'))
+
             # Turn it back on
             with s_cryotank.CryoCell(dirn, conf) as cell:
                 # auth and port persist
                 user = s_cryotank.CryoUser(auth, addr, timeout=2)
                 listd = dict(user.list())
-                self.len(2, listd)
+                self.len(3, listd)
+                self.isin('weee:imthebest', listd)
                 self.isin('woot:woot', listd)
                 self.isin('woot:hehe', listd)
                 self.istufo(user.last('woot:woot')[1])
                 self.istufo(user.last('woot:hehe')[1])
+                self.none(user.last('weee:imthebest'))
 
     def test_cryo_cell_daemon(self):
 
