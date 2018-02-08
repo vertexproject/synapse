@@ -3,7 +3,6 @@ import collections
 
 from synapse.eventbus import EventBus
 
-class QueueShutdown(Exception): pass
 
 class Queue(EventBus):
     '''
