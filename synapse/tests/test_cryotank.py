@@ -114,7 +114,7 @@ class CryoTest(SynTest):
                 self.isin('woot:hehe', listd)
                 self.eq(user.last('woot:hehe'), (3, cryodata[1]))
 
-                # delete woot.hehe and hten call apis on it
+                # delete woot.hehe and then call apis on it
                 self.true(user.delete('woot:hehe'))
                 self.false(user.delete('woot:hehe'))
                 self.none(cell.tanks.get('woot:hehe'))
