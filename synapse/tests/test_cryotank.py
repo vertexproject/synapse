@@ -133,6 +133,11 @@ class CryoTest(SynTest):
                 # We can initialize a new tank directly with a custom map size
                 self.true(user.new('weee:imthebest', {'mapsize': 5558675309}))
                 self.false(user.new('woot:hehe'))
+                with self.getLoggerStream('synapse.cryotank') as stream:
+                    self.false(user.new('weee:danktank', {'newp': 'hehe'}))
+                stream.seek(0)
+                mesgs = stream.read()
+                self.isin('Error making CryoTank', mesgs)
 
             # Turn it back on
             with s_cryotank.CryoCell(dirn, conf) as cell:

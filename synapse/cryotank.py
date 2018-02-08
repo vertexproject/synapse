@@ -258,15 +258,18 @@ class CryoCell(s_neuron.Cell):
             return tank
 
         iden = s_common.guid()
-        self.names.set(name, iden)
-        self.confs.set(name, conf)
 
-        logger.info('Creating new tank: %s' % (name,))
+        logger.info('Creating new tank: %s', name)
 
         path = self.getCellPath('tanks', iden)
+        try:
+            tank = CryoTank(path, conf)
+        except Exception as e:
+            logger.exception('Error making CryoTank: %s', name)
+            return None
 
-        tank = CryoTank(path, conf)
-
+        self.names.set(name, iden)
+        self.confs.set(name, conf)
         self.tanks.put(name, tank)
         return tank
 
@@ -372,8 +375,10 @@ class CryoCell(s_neuron.Cell):
         if tank:
             return chan.txfini(False)
 
-        self.genCryoTank(name, conf)
-        chan.txfini(True)
+        if self.genCryoTank(name, conf):
+            return chan.txfini(True)
+
+        return chan.txfini(False)
 
 class CryoUser(s_neuron.CellUser):
     '''
