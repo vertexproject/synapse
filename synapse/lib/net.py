@@ -6,6 +6,7 @@ import threading
 import collections
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
@@ -68,7 +69,6 @@ class Plex(s_config.Config):
 
                     poll = self.polls.get(fino)
                     if poll is None:
-                        logger.warning('unknown epoll fd: %d' % (fino,))
                         self.epoll.unregister(fino)
                         continue
 
@@ -140,6 +140,7 @@ class Plex(s_config.Config):
 
                     news, addr = sock.accept()
                     news.setblocking(False)
+                    news.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
                     link = self._initPlexSock(news)
 
@@ -197,25 +198,34 @@ class Plex(s_config.Config):
         '''
         sock = socket.socket()
         sock.setblocking(False)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
         fino = sock.fileno()
 
         def poll(flags):
 
+            ok = True
+            retn = None
+
             self.polls.pop(fino, None)
 
-            if not flags & select.EPOLLOUT:
-                self._finiPlexSock(sock)
-                ok, link = False, sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-                logger.warning('connect failed: %d' % (link,))
+            errn = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+
+            if errn != 0 or flags & (select.EPOLLHUP | select.EPOLLERR):
+
+                ok = False
+                retn = errn
                 sock.close()
+
             else:
-                ok, link = True, self._initPlexSock(sock)
+
+                ok = True
+                retn = self._initPlexSock(sock)
 
             try:
-                onconn(ok, link)
+                onconn(ok, retn)
             except Exception as e:
-                logger.warning('connect() onconn failed: %s' % (e,))
+                logger.exception('connect() onconn failed: %s' % (e,))
                 return
 
         self.socks[fino] = sock
@@ -227,6 +237,8 @@ class Plex(s_config.Config):
             sock.connect(addr)
         except BlockingIOError as e:
             pass
+
+s_glob.plex = Plex()
 
 class Link(s_eventbus.EventBus):
     '''
@@ -455,8 +467,6 @@ class Chan(Link):
             self.tx(True)
             yield item
             item = self.next(timeout=timeout)
-
-        #return RxWind(self, timeout=timeout)
 
     def txwind(self, items, size, timeout=None):
         '''
@@ -747,6 +757,10 @@ class SockLink(Link):
                         if sent == 0:
                             return
 
+                    except BlockingIOError as e:
+                        # we cant send any more without blocking
+                        return
+
                     except BrokenPipeError as e:
                         logger.info('tx broken pipe: ignore...')
                         return
@@ -764,3 +778,65 @@ class SockLink(Link):
                     return
 
                 self.txbuf = self.txque.popleft()
+
+class LinkPool(s_eventbus.EventBus):
+    '''
+    A link pool manages a group of connects we want to maintain.
+    '''
+    def __init__(self):
+
+        s_eventbus.EventBus.__init__(self)
+
+        self.addrs = {}
+
+        self.links = s_eventbus.BusRef()
+        self.onfini(self.links.fini)
+
+    def setLinkAddr(self, name, addr):
+        self.addrs[name] = addr
+
+    def addLinkAddr(self, name, addr, onlink):
+
+        self.addrs[name] = addr
+
+        def fini():
+
+            if self.isfini:
+                return
+
+            s_glob.sched.insec(2, connect)
+
+        def onsock(ok, retn):
+            print('ONSOCK %r %r' % (ok, retn))
+
+            if not ok:
+
+                erno = retn
+                #erno = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+
+                estr = os.strerror(erno)
+                self.fire('pool:erno', name=name, addr=addr, erno=erno)
+
+                logger.warning('LinkPool connect error: %d %r' % (erno, estr))
+
+                if not self.isfini:
+                    s_glob.sched.insec(2, connect)
+
+                return
+
+            link = retn
+            link.onfini(fini)
+            link.setLinkProp('pool:name', name)
+
+            try:
+                onlink(link)
+                self.fire('pool:link', name=name, link=link)
+
+            except Exception as e:
+                logger.exception('LinkPool: onlink error')
+
+        def connect():
+            addr = self.addrs.get(name)
+            s_glob.plex.connect(addr, onsock)
+
+        s_glob.plex.connect(addr, onsock)

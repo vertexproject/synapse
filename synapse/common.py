@@ -84,10 +84,13 @@ def buid(valu=None):
         return os.urandom(32)
 
     byts = s_msgpack.en(valu)
-    return hashlib.sha256(valu).digest()
+    return hashlib.sha256(byts).digest()
 
 def ehex(byts):
-    binascii.hexlify(byts).decode('utf8')
+    return binascii.hexlify(byts).decode('utf8')
+
+def uhex(text):
+    return binascii.unhexlify(text)
 
 guidre = regex.compile('^[0-9a-f]{32}$')
 def isguid(text):
@@ -420,6 +423,13 @@ def iterfd(fd, size=10000000):
     while byts:
         yield byts
         byts = fd.read(size)
+
+def spin(genr):
+    '''
+    Crank through a generator but discard the yielded values.
+    '''
+    for item in genr:
+        pass
 
 def reqStorDict(x):
     '''

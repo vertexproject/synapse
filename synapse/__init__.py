@@ -6,6 +6,7 @@ import sys
 import msgpack
 import tornado
 import logging
+import multiprocessing
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,20 @@ BASE_MODULES = (
     ('synapse.models.chemistry.ChemMod', {}),
     ('synapse.models.gov.intl.GovIntlMod', {}),
 )
+
+##############################################
+# setup glob here to avoid import loops...
+import synapse.glob as s_glob
+import synapse.lib.net as s_net
+import synapse.lib.sched as s_sched
+import synapse.lib.threads as s_threads
+
+tmax = multiprocessing.cpu_count() * 8
+
+s_glob.plex = s_net.Plex()
+s_glob.pool = s_threads.Pool(maxsize=tmax)
+s_glob.sched = s_sched.Sched(pool=s_glob.pool)
+##############################################
 
 import synapse.lib.modules as s_modules
 for mod, conf in BASE_MODULES:

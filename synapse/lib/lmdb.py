@@ -2,23 +2,17 @@ import struct
 import itertools
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+
 import synapse.lib.msgpack as s_msgpack
 
 '''
 Some LMDB helpers...
 '''
 
-STOR_FLAG_NOINDEX = 0x0001    # there is no byprop index for this prop
-STOR_FLAG_MULTIVAL = 0x0002    # this is a multi-value prop
-
-STOR_TYPE_UTF8 = 0         # UTF8 encoded string byte value
-STOR_TYPE_UINT64 = 1         # Big-endian encoded 64 bit unsigned integer
-STOR_TYPE_UINT128 = 2         # Big-endian encoded 128 bit unsigned integer
-STOR_TYPE_BYTES = 3         # Raw bytes ( likely interpreted by the model layer )
-STOR_TYPE_IVAL = 4         # Interval tuple, stored as <uint64><uint64>
-
-#STOR_EDIT_SETPROP = 0
-#STOR_EDIT_DELPROP = 1
+STOR_FLAG_NOINDEX = 0x0001      # there is no byprop index for this prop
+STOR_FLAG_MULTIVAL = 0x0002     # this is a multi-value prop
+STOR_FLAG_DEFVAL = 0x0004       # Only set this if it doesn't exist
 
 class Seqn:
     '''
@@ -30,7 +24,12 @@ class Seqn:
         self.db = lenv.open_db(name)
 
         with lenv.begin() as xact:
-            indx = xact.stat(db=self.db)['entries']
+
+            indx = 0
+            with xact.cursor(db=self.db) as curs:
+                if curs.last():
+                    indx = struct.unpack('>Q', curs.key())
+
             self.indx = itertools.count(indx)
 
     def save(self, xact, items):
@@ -44,21 +43,167 @@ class Seqn:
         with xact.cursor(db=self.db) as curs:
             curs.putmulti(rows, append=True)
 
-    def iter(self, offs):
+    def iter(self, xact, offs):
+
+        lkey = struct.pack('>Q', offs)
+        with xact.cursor(db=self.db) as curs:
+
+            if not curs.set_key(lkey):
+                return
+
+            for lkey, lval in curs.iternext():
+                indx = struct.unpack('>Q', lkey)[0]
+                valu = s_msgpack.un(lval)
+                yield indx, valu
+
+class Metrics:
+
+    def __init__(self, lenv, name=b'metrics'):
+
+        self.lenv = lenv
+
+        self._db_history = lenv.open_db(name + b':history')
+        self._db_current = lenv.open_db(name + b':current')
+
+        self.info = {}
+
+        with lenv.begin() as xact:
+
+            for lkey, lval in xact.cursor(db=self._db_current):
+
+                name = lkey.decode('utf8')
+                valu = struct.unpack('>Q', lval)[0]
+
+                self.info[name] = valu
+
+            indx = 0
+
+            curs = xact.cursor(db=self._db_history)
+            if curs.last():
+                indx = struct.unpack('>Q', curs.key())[0]
+
+            self.indx = itertools.count(indx)
+
+    def inc(self, xact, prop, step=1):
+        '''
+        Increment the value of a global metric.
+        '''
+        valu = self.info.get(prop, 0)
+        valu += step
+
+        self.info[prop] = valu
+
+        penc = prop.encode('utf8')
+        pval = struct.pack('>Q', valu)
+
+        xact.put(penc, pval, db=self._db_current)
+
+    def stat(self):
+        return self.info
+
+    def iter(self, xact, offs):
 
         lkey = struct.pack('>Q', offs)
 
-        with self.lenv.begin() as xact:
+        with xact.cursor(db=self._db_history) as curs:
 
-            with xact.cursor(db=self.db) as curs:
+            if not curs.set_key(lkey):
+                return
 
-                if not curs.set_key(lkey):
-                    return
+            for lkey, lval in curs.iternext():
 
-                for lkey, lval in curs.iternext():
-                    indx = struct.unpack('>Q', lkey)[0]
-                    valu = s_msgpack.un(lval)
-                    yield indx, valu
+                indx = struct.unpack('>Q', lkey)[0]
+                sample = s_msgpack.un(lval)
+
+                yield indx, sample
+
+    def record(self, xact, info):
+        '''
+        Record metrics info.
+
+        Args:
+            xact (Transaction): An LMDB write transaction.
+            info (dict): A dictionary of sample info to save.
+        '''
+        indx = struct.pack('>Q', next(self.indx))
+        sample = s_msgpack.en(info)
+        xact.put(indx, sample, db=self._db_history, append=True)
+
+class PropSetr:
+    '''
+    A helper for setting properties.  Most to cache cursors.
+    '''
+    def __init__(self, psto, xact):
+
+        self.xact = xact
+        self.psto = psto
+
+        self.purs = xact.cursor(db=psto.props)
+        self.burs = xact.cursor(db=psto.byprop)
+
+    def has(self, penc, byts):
+        return self.burs.set_key(penc + b'\x00' + byts)
+
+    #def rem(self, buid):
+    #def addtag(self, buid, tag, times):
+    #def deltag(self, buid, tag):
+
+    def set(self, buid, penc, lval, flags=0):
+
+        pkey = buid + penc
+
+        noindex = flags & STOR_FLAG_NOINDEX
+        multival = flags & STOR_FLAG_MULTIVAL
+
+        if self.purs.set_key(pkey):
+
+            # At a minimum, we have the key...
+            if flags & STOR_FLAG_DEFVAL:
+                return False
+
+            # if this is a multi-val, iter to check for valu
+            if multival:
+
+                # if a multival prop=valu exists, skip adding
+                for mval in self.purs.iternext_dup():
+                    if mval == lval:
+                        return False
+
+            else:
+
+                # if it's exactly what we want, skip...
+                oldb = self.purs.value()
+                if oldb == lval:
+                    return False
+
+                okey = penc + b'\x00' + oldb
+                self.burs.delete(okey, value=buid)
+
+        # we are now free and clear to set and index
+        self.purs.put(pkey, lval, dupdata=multival)
+        if not noindex:
+            self.burs.put(penc + b'\x00' + lval, buid)
+
+        return True
+
+    def put(self, items):
+        '''
+        Put a list of (buid, ((penc, lval, flags),...)) tuples.
+
+        Yields:
+            (buid, <props>) edits (only yields changes).
+        '''
+        for buid, props in items:
+
+            edits = []
+
+            for penc, lval, flags in props:
+
+                if self.set(buid, penc, lval, flags=flags):
+                    edits.append((penc, lval, flags))
+
+            if edits:
+                yield (0, (buid, edits))
 
 class PropStor:
 
@@ -67,240 +212,87 @@ class PropStor:
         self.lenv = lenv
         self.edits = None
 
-        #self.tags = self.lenv.open_db(b'tags')                      # <tag>00<form>=<tick><tock>
-        self.props = self.lenv.open_db(name + b':props', dupsort=True)      # <buid><prop>=<valu>
-        self.byprop = self.lenv.open_db(name + b':byprop', dupsort=True)    # <prop>00<pval> = <buid><type><flags
+        #self.tags = self.lenv.open_db(b'tags')                             # <tag>00<form>=<init><tick><tock>
+        self.props = self.lenv.open_db(name + b':props', dupsort=True)      # <buid><pkey>=<pval>
+        self.byprop = self.lenv.open_db(name + b':byprop', dupsort=True)    # <pkey>00<pval> = <buid>
 
-        if edits:
-            self.edits = Seqn(self.lenv, name + b':edits')
+    def getPropSetr(self, xact):
+        return PropSetr(self, xact)
 
-        self._lift_funcs = {
-            'rows:by:prop:eq': self._liftRowsByPropEq,
-            'recs:by:buid': self._liftRecsByBuids,
-        }
+    def has(self, xact, penc, byts):
+        with xact.cursor(db=self.byprop) as burs:
+            return burs.set_key(penc + b'\x00' + byts)
 
-        self._stor_funcs = {
-            #'tag:add': self._storTagAdd,
-            #'tag:del': self._storTagDel,
-            'prop:set': self._storPropSet,
-            #'prop:del': self._storPropDel,
-        }
-
-        # type dump/load functions
-        self._dump_funcs = [
-            self._typeDumpUtf8,
-            self._typeDumpUint64,
-        ]
-
-        self._load_funcs = [
-            self._typeLoadUtf8,
-            self._typeLoadUint64,
-        ]
-
-    def lift(self, lifts, chain=True):
+    def pref(self, xact, penc, byts):
         '''
-        Select and yield results from a set of lift operations.
+        Perform a prefix search and yield (buid, penc, pval) rows.
         '''
-        if not lifts:
-            return
+        bkey = penc + b'\x00' + byts
 
-        with self.lenv.begin() as xact:
+        blen = len(bkey)
+        with xact.cursor(db=self.byprop) as burs:
 
-            iters = []
+            if not burs.set_range(bkey):
+                return
 
-            for i, lift in enumerate(lifts):
+            for lkey, buid in burs.iternext():
 
-                lift = list(lift) # to allow us to splice in the inputs
-
-                if i > 0:
-                    lift[1] = iters[i - 1]
-
-                func = self._lift_funcs.get(lift[0])
-                if func is None:
-                    logger.warning('no lift oper: %s' % (lift[0],))
+                if lkey[:blen] != bkey:
                     return
 
-                iters.append(func(xact, lift))
+                renc, rval = lkey.split(b'\x00', 1)
+                yield (buid, renc, rval)
 
-            for item in iters[-1]:
-                yield item
-
-    def store(self, stors):
+    def range(self, xact, penc, bval, nval):
         '''
-        Execute a series of stor operations.
+        Perform a range search and yield (buid, penc, pval) rows.
         '''
-        with self.lenv.begin(write=True) as xact:
+        bkey = penc + b'\x00' + bval
+        nkey = penc + b'\x00' + nval
 
-            for stor in stors:
+        blen = len(bkey)
+        with xact.cursor(db=self.byprop) as burs:
 
-                name = stor[0]
+            if not burs.set_range(bkey):
+                return
 
-                func = self._stor_funcs.get(name)
-                if func is None:
-                    raise s_exc.NoSuchFunc(name=name)
+            for lkey, buid in burs.iternext():
 
-                for edit in func(xact, stor):
-                    yield edit
+                if lkey >= nkey:
+                    break
 
-                if self.edits is not None:
-                    self.edits.save(xact, stors)
+                renc, rval = lkey.split(b'\x00', 1)
+                yield (buid, renc, rval)
 
-    def load(self, byts):
+    def recs(self, xact, rows):
         '''
-        Parse a storage type from the given bytes.
-        Bytes will be in <type><flags><bytes>... format.
-
-        Args:
-            byts (bytes): A serialized storage type.
-
-        Returns:
-            (int, int, obj): A (type, flags, valu) tuple.
-
-        '''
-        type, flags = struct.unpack_from('>HH', byts)
-        valu = self._load_funcs[type](byts[4:])
-        return type, flags, valu
-
-    def dump(self, type, valu):
-        '''
-        Dump the bytes for a given storage type value.
-        ( not including <type><flags> header )
-
-        Args:
-            type (int): A storage type integer.
-            flags (int): A storage flags mask.
-            valu (obj): The object to serialize.
-        '''
-        return self._dump_funcs[type](valu)
-
-    def _liftRecsByBuids(self, xact, lift):
-        return self.getRecsByBuids(lift[1])
-
-    #def getRowsByProp(self, xact, prop):
-    #def getRowsByBuid(self, xact, buid):
-
-    def getRecsByBuids(self, xact, buids):
-        '''
-        Yield (buid, ((prop, valu), ...)) records by buid.
-        '''
-        with xact.cursor(db=self.props) as curs:
-
-            for buid in buids:
-
-                props = []
-
-                if curs.set_range(buid):
-
-                    for lkey, lval in curs.iternext():
-
-                        if lkey[:32] != buid:
-                            break
-
-                        prop = lkey[32:].decode('utf8')
-
-                        type, flags, valu = self.load(lval)
-                        props.append((prop, valu))
-
-                yield (buid, props)
-
-    def addPropRows(self, xact, items):
-        '''
-        Add properties from a list of (buid, ((prop,type,flags,valu),...)) items.
+        Yield full (buid, (props..)) records from rows.
         '''
         with xact.cursor(db=self.props) as purs:
 
-            with xact.cursor(db=self.byprop) as burs:
+            for buid, penc, pval in rows:
 
-                for buid, props in items:
-
-                    edits = []
-                    for prop, type, flags, valu in props:
-
-                        penc = prop.encode('utf8')
-
-                        pkey = buid + penc
-                        byts = self._dump_funcs[type](valu) # speed
-
-                        hedr = struct.pack('>HH', type, flags)
-                        lval = hedr + byts
-
-                        noindex = flags & STOR_FLAG_NOINDEX
-                        multival = flags & STOR_FLAG_MULTIVAL
-
-                        if purs.set_key(pkey):
-                            # At a minimum, we have the key...
-
-                            # if this is a multi-val, iter to check for valu
-                            if multival:
-
-                                # if a multival prop=valu exists, skip adding
-                                skip = False
-                                for mval in purs.iternext_dup():
-                                    if mval == lval:
-                                        skip = True
-                                        break
-
-                                if skip:
-                                    continue # to next prop
-
-                            else:
-
-                                # if it's exactly what we want, skip...
-                                oldb = purs.value()
-                                if oldb == lval:
-                                    continue # to next prop...
-
-                                oldt, oldf, oldv = self._load_type(oldb)
-
-                                # was the previous value indexed?
-                                if not oldf & STOR_FLAGS_NOINDEX:
-                                    # blow away his old index value
-                                    oldi = penc + b'\x00' + oldb[32:]
-                                    burs.delete(oldi, value=buid)
-
-                        # we are now free and clear to set and index
-                        purs.put(pkey, lval, dupdata=multival)
-                        if not noindex:
-                            burs.put(penc + b'\x00' + byts, buid + hedr)
-
-                        edits.append((prop, type, flags, valu))
-
-                    if edits:
-                        yield (0, (buid, edits))
-
-    def _liftRowsByPropEq(self, xact, lift):
-        return self.getRowsByPropEq(xact, lift[1])
-
-    def getRowsByPropEq(self, xact, props):
-        '''
-        '''
-        with xact.cursor(db=self.byprop) as curs:
-
-            for prop, type, flags, valu in props:
-
-                penc = prop.encode('utf8')
-
-                byts = self.dump(type, valu)
-                # maybe we dont know about this type...
-                if byts is None:
+                # props: <buid><prop>=<valu>
+                if not purs.set_range(buid):
+                    # yield empty results for iterator alignment..
+                    yield (buid, ())
                     continue
 
-                if curs.set_key(penc + b'\x00' + byts):
-                    for lval in curs.iternext_dup(keys=False):
-                        # lval: <buid><type><flags>
-                        yield (lval[:32], prop, valu)
+                props = []
 
-    def _typeDumpUtf8(self, valu):
-        return valu.encode('utf8')
+                for lkey, lval in curs.iternext():
+                    props.append(lkey[32:], lval)
 
-    def _typeLoadUtf8(self, valu):
-        return valu.decode('utf8')
+                yield (buid, props)
 
-    def _typeDumpUint64(self, valu):
-        return struct.pack('>Q', valu)
+    def eq(self, xact, penc, pval):
+        '''
+        Yield (buid, pkey, pval) rows by prop=valu.
+        '''
+        lkey = penc + b'\x00' + pval
+        with xact.cursor(db=self.byprop) as burs:
+            if not burs.set_key(lkey):
+                return
 
-    def _typeLoadUint64(self, valu):
-        return struct.unpack('>Q', valu)[0]
-
-    def _storPropSet(self, xact, stor):
-        return self.addPropRows(xact, stor[1])
+            for buid in burs.iternext_dup():
+                yield buid, penc, pval

@@ -67,6 +67,11 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         s_net.Link.__init__(self)
         s_config.Config.__init__(self)
 
+        defs = self.getCellConfDefs()
+
+        if defs is not None:
+            self.addConfDefs(defs)
+
         self.dirn = dirn
         s_common.gendir(dirn)
 
@@ -74,6 +79,7 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         self.loadConfPath(self._path('config.json'))
         if conf is not None:
             self.setConfOpts(conf)
+
         self.reqConfOpts()
 
         self.plex = s_net.Plex()
@@ -108,21 +114,22 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         roots = self.vault.getRootCerts()
         SessBoss.__init__(self, auth, roots)
 
+        self.cellauth = auth
+
         host = self.getConfOpt('host')
         port = self.getConfOpt('port')
 
         if port == 0:
             port = self.kvinfo.get('port', port)
 
-        def onchan(chan):
-            sess = CellSess(chan, self)
-            chan.onrx(sess.rx)
-
-        self.sessplex = s_net.ChanPlex(onchan=onchan)
-        self.sessplex.setLinkProp('repr', 'Cell.sessplex')
-
         def onlink(link):
-            link.onrx(self.sessplex.rx)
+            sess = CellSess(link, self)
+
+            link.onrx(sess.rx)
+
+            # fini cuts both ways
+            sess.onfini(link.fini)
+            link.onfini(sess.fini)
 
         self._cell_addr = self.plex.listen((host, port), onlink)
 
@@ -145,7 +152,6 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
 
     def _onCellFini(self):
         self.plex.fini()
-        self.sessplex.fini()
         self.kvstor.fini()
         self.vault.fini()
         self.lockfd.close()
@@ -166,6 +172,9 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         resources created during postCell().
         '''
         pass
+
+    def getCellConfDefs(self):
+        return None
 
     def handlers(self):
         '''
@@ -199,6 +208,15 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
             int: Port the cell is running on.
         '''
         return self.kvinfo.get('port')
+
+    def getCellAuth(self):
+        '''
+        Return the auth structure for this Cell.
+
+        Returns:
+            ((str,dict)): Auth tufo for this Cell.
+        '''
+        return self.cellauth
 
     def getRootCert(self):
         '''
@@ -364,6 +382,7 @@ class Sess(s_net.Link):
         if not self._sess_boss.valid(cert):
             clsn = self.__class__.__name__
             logger.warning('%s got bad cert (%r)' % (clsn, cert.iden(),))
+            self.fini()
             return
 
         # send back an skey message with our tx key
@@ -435,17 +454,12 @@ class CellSess(Sess):
         self.taskplex = s_net.ChanPlex(onchan=onchan)
         self.taskplex.setLinkProp('repr', 'CellSess.taskplex')
 
+        self.onfini(self.taskplex.fini)
+
 class CellUser(SessBoss):
 
     def __init__(self, auth, roots=()):
-
         SessBoss.__init__(self, auth, roots=roots)
-
-        self.sessplex = s_net.ChanPlex()
-        self.taskplex = s_net.ChanPlex()
-
-        self.sessplex.setLinkProp('repr', 'CellUser.sessplex')
-        self.taskplex.setLinkProp('repr', 'CellUser.taskplex')
 
     def open(self, addr, timeout=None):
         '''
@@ -466,15 +480,18 @@ class CellUser(SessBoss):
 
                 if not ok:
                     # XXX untested!
+                    # def doesn't work...
                     errs = os.strerror(erno)
                     return retn.errx(OSError(erno, errs))
 
-                link.onrx(self.sessplex.rx)
+                sess = UserSess(link, self)
 
-                chan = self.sessplex.open(link)
-                sess = UserSess(chan, self)
+                link.onrx(sess.rx)
 
-                chan.onrx(sess.rx)
+                # fini cuts both ways
+                link.onfini(sess.fini)
+                sess.onfini(link.fini)
+
                 sess.sendcert()
 
                 retn.retn(sess)
