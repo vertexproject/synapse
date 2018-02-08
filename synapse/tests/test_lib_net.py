@@ -6,7 +6,28 @@ logger = logging.getLogger(__name__)
 
 class NetTest(SynTest):
 
-    def test_lib_net_link(self):
+    def test_lib_net_link_props(self):
+        link = s_net.Link()
+        self.none(link.getLinkProp('nope'))
+        self.eq(link.getLinkProp('nope', defval=1337), 1337)
+        self.none(link.setLinkProp('nope', 1337))
+        self.eq(link.getLinkProp('nope'), 1337)
+
+    def test_lib_net_link_onrx(self):
+        msg = 'woohoo'
+        def fn(self, *args, **kwargs):
+            logger.error('woohoo')
+
+        link = s_net.Link()
+        link.onrx(fn)
+        self.eq(link.rxfunc, fn)
+
+        with self.getLoggerStream('synapse.tests.test_lib_net', msg) as stream:
+            link.rx(None, ('haha', {}))
+            stream.seek(0)
+            self.isin(msg, stream.read())
+
+    def test_lib_net_link_rx_unknownmsgtype(self):
         link = s_net.Link()
         msg = 'unknown message type haha'
         with self.getLoggerStream('synapse.lib.net', msg) as stream:
@@ -14,8 +35,8 @@ class NetTest(SynTest):
             stream.seek(0)
             self.isin(msg, stream.read())
 
+    def test_lib_net_link_rx_handlerexpcetion(self):
         class BadLink(s_net.Link):
-
             def handlers(self):
                 return {'bad': self._badfn}
 
@@ -29,8 +50,8 @@ class NetTest(SynTest):
             stream.seek(0)
             self.isin(msg, stream.read())
 
+    def test_lib_net_link_rx_msgexpcetion(self):
         class OtherBadLink(s_net.Link):
-
             def __init__(self):
                 s_net.Link.__init__(self)
                 self._msg_funcs = 'nope'
@@ -45,8 +66,8 @@ class NetTest(SynTest):
             stream.seek(0)
             self.isin(msg, stream.read())
 
+    def test_lib_net_link_rx_rxfuncexpcetion(self):
         class BaddestLink(s_net.Link):
-
             def __init__(self):
                 s_net.Link.__init__(self)
                 self.rxfunc = self._badfn
@@ -60,6 +81,23 @@ class NetTest(SynTest):
             link.rx(None, ('bad', {}))
             stream.seek(0)
             self.isin(msg, stream.read())
+
+    def test_lib_net_link_rx_finid(self):
+        class FinidLink(s_net.Link):
+            def __init__(self):
+                s_net.Link.__init__(self)
+                self.rxfunc = self._fn
+
+            def _fn(self, link, msg):
+                raise Exception('if this was raised, the test should fail because the logger output isnt empty')
+
+        link = FinidLink()
+        link.fini()
+        link.rxfini()
+        with self.getLoggerStream('synapse.lib.net') as stream:
+            link.rx(None, ('anything', {}))
+            stream.seek(0)
+            self.len(0, stream.read())
 
     def test_lib_net_basic(self):
 
