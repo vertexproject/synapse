@@ -10,21 +10,23 @@ import synapse.neuron as s_neuron
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.const as s_const
+import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
-class CryoTank(s_eventbus.EventBus):
+class CryoTank(s_config.Config):
     '''
     A CryoTank implements a stream of structured data.
     '''
-    def __init__(self, dirn, mapsize=s_const.tebibyte): # from LMDB docs....
-        s_eventbus.EventBus.__init__(self)
+    def __init__(self, dirn, conf=None):
+        s_config.Config.__init__(self, conf)
 
         self.path = s_common.gendir(dirn)
 
         path = s_common.gendir(self.path, 'cryo.lmdb')
 
+        mapsize = self.getConfOpt('mapsize')
         self.lmdb = lmdb.open(path, writemap=True, max_dbs=128)
         self.lmdb.set_mapsize(mapsize)
 
@@ -40,6 +42,15 @@ class CryoTank(s_eventbus.EventBus):
             self.lmdb.close()
 
         self.onfini(fini)
+
+    @staticmethod
+    @s_config.confdef(name='cryotank')
+    def _crytotank_confdefs():
+        defs = (
+            # from LMDB docs
+            ('mapsize', {'type': 'int', 'doc': 'LMDB Mapsize value', 'defval': s_const.tebibyte}),
+        )
+        return defs
 
     def last(self):
         '''

@@ -11,7 +11,10 @@ class CryoTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            with s_cryotank.CryoTank(dirn) as tank:
+            with s_cryotank.CryoTank(dirn) as tank:  # type: s_cryotank.CryoTank
+
+                # Default configable option
+                self.eq(tank.getConfOpt('mapsize'), s_const.tebibyte)
 
                 info = tank.info()
                 self.eq(0, info.get('indx'))
