@@ -11,7 +11,10 @@ class CryoTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            with s_cryotank.CryoTank(dirn) as tank:
+            with s_cryotank.CryoTank(dirn) as tank:  # type: s_cryotank.CryoTank
+
+                # Default configable option
+                self.eq(tank.getConfOpt('mapsize'), s_const.tebibyte)
 
                 info = tank.info()
                 self.eq(0, info.get('indx'))
@@ -56,6 +59,27 @@ class CryoTest(SynTest):
                 self.len(0, retn)
                 retn = tuple(tank.slice(4, 4))
                 self.len(0, retn)
+
+    def test_cryo_mapsize(self):
+        self.skipTest('LMDB Failure modes need research')
+        mapsize = s_const.mebibyte * 1
+        v = s_const.kibibyte * b'''In that flickering pallor it had the effect of a large and clumsy black insect, an insect the size of an ironclad cruiser, crawling obliquely to the first line of trenches and firing shots out of portholes in its side. And on its carcass the bullets must have been battering with more than the passionate violence of hail on a roof of tin.'''
+
+        with self.getTestDir() as dirn:
+            with s_cryotank.CryoTank(dirn, {'mapsize': mapsize}) as tank:  # type: s_cryotank.CryoTank
+                tank.puts([(0, {'key': v})])
+                tank.puts([(1, {'key': v})])
+                # Now we fail
+                with self.getLoggerStream('synapse.cryotank') as stream:
+                    print('go boom')
+                    self.none(tank.puts([(2, {'key': v})]))
+                    print('no boom!')
+                stream.seek(0)
+                mesgs = stream.read()
+                self.isin('Error appending items to the cryotank', mesgs)
+                print('tiny item time!')
+                # We can still put a small item in though!
+                self.eq(tank.puts([(2, {'key': 'tinyitem'})]))
 
     def test_cryo_cell(self):
 
@@ -111,7 +135,7 @@ class CryoTest(SynTest):
                 self.isin('woot:hehe', listd)
                 self.eq(user.last('woot:hehe'), (3, cryodata[1]))
 
-                # delete woot.hehe and hten call apis on it
+                # delete woot.hehe and then call apis on it
                 self.true(user.delete('woot:hehe'))
                 self.false(user.delete('woot:hehe'))
                 self.none(cell.tanks.get('woot:hehe'))
@@ -127,16 +151,27 @@ class CryoTest(SynTest):
                 user.puts('woot:hehe', cryodata, timeout=5)
                 self.len(1, (user.metrics('woot:hehe', 0, 100)))
 
+                # We can initialize a new tank directly with a custom map size
+                self.true(user.new('weee:imthebest', {'mapsize': 5558675309}))
+                self.false(user.new('woot:hehe'))
+                with self.getLoggerStream('synapse.cryotank') as stream:
+                    self.false(user.new('weee:danktank', {'newp': 'hehe'}))
+                stream.seek(0)
+                mesgs = stream.read()
+                self.isin('Error making CryoTank', mesgs)
+
             # Turn it back on
             with s_cryotank.CryoCell(dirn, conf) as cell:
                 # auth and port persist
                 user = s_cryotank.CryoUser(auth, addr, timeout=2)
                 listd = dict(user.list())
-                self.len(2, listd)
+                self.len(3, listd)
+                self.isin('weee:imthebest', listd)
                 self.isin('woot:woot', listd)
                 self.isin('woot:hehe', listd)
                 self.istufo(user.last('woot:woot')[1])
                 self.istufo(user.last('woot:hehe')[1])
+                self.none(user.last('weee:imthebest'))
 
     def test_cryo_cell_daemon(self):
 
