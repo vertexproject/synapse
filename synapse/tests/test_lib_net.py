@@ -6,6 +6,40 @@ logger = logging.getLogger(__name__)
 
 class NetTest(SynTest):
 
+    def test_lib_net_link_tx(self):
+        class DstLink(s_net.Link):
+            def __init__(self):
+                s_net.Link.__init__(self)
+                self.callcount = 0
+            def tx(self, mesg):
+                self.callcount += 1
+
+        dstlink = DstLink()
+        link = s_net.Link(link=dstlink)
+        self.none(link.txtime)
+        self.eq(dstlink.callcount, 0)
+
+        link.tx(('cool', {}))
+        first_txtime = link.txtime
+        self.ge(first_txtime, 0)
+        self.eq(dstlink.callcount, 1)
+
+        link.rxfini()
+        link.txfini(data=('cool', {}))
+        second_txtime = link.txtime
+        self.ge(second_txtime, first_txtime)
+        self.eq(dstlink.callcount, 2)
+
+        link.tx(('cool', {}))
+        self.eq(link.txtime, second_txtime)
+        self.eq(dstlink.callcount, 2)
+
+    def test_lib_net_link_repr(self):
+        link = s_net.Link()
+        rep = link.__repr__()
+        self.len(28, rep)
+        self.true(rep.startswith('Link: None at 0x'))
+
     def test_lib_net_link_props(self):
         link = s_net.Link()
         self.none(link.getLinkProp('nope'))
@@ -235,12 +269,6 @@ class NetTest(SynTest):
             stream.seek(0)
             mesgs = stream.read()
             self.isin(expected_msg, mesgs)
-
-    def test_lib_net_link_repr(self):
-        link = s_net.Link()
-        rep = link.__repr__()
-        self.len(28, rep)
-        self.true(rep.startswith('Link: None at 0x'))
 
     def test_lib_net_connectfail(self):
         expected_msg = 'connect() onconn failed'
