@@ -1,9 +1,4 @@
-import io
-import time
-import unittest
-
 import synapse.lib.queue as s_queue
-import synapse.lib.threads as s_threads
 
 from synapse.tests.common import *
 
