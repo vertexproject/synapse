@@ -97,8 +97,8 @@ class QueueTest(SynTest):
         self.eq(deqdata, [1])
 
     def test_queue_iter(self):
-        data = [1, 2, 3, 4, 5]
         results = []
+        data = [1, 2, 3, 4, 5]
         q = s_queue.Queue()
         [q.put(item) for item in data]
 
@@ -109,6 +109,30 @@ class QueueTest(SynTest):
 
         thr = finisoon()
         [results.append(item) for item in q]
+        thr.join()
+
+        self.eq(data, results)
+
+    def test_queue_exit(self):
+        q = s_queue.Queue()
+        evt = threading.Event()
+        data = [1, 2, 3, 4, 5]
+        results = []
+
+        @firethread
+        def nommer():
+            evt.wait()
+            while True:
+                obj = q.get(timeout=1)
+                if obj is not None:
+                    results.append(obj)
+                else:
+                    break
+
+        thr = nommer()
+        with q:
+            [q.put(item) for item in data]
+            evt.set()
         thr.join()
 
         self.eq(data, results)

@@ -3,7 +3,6 @@ import collections
 
 from synapse.eventbus import EventBus
 
-
 class Queue(EventBus):
     '''
     A simple custom queue to address python Queue() issues.
