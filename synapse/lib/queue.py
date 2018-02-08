@@ -114,9 +114,10 @@ class Queue(EventBus):
         Returns:
             None
         '''
-        with self.lock:
-            self.deq.append(item)
-            self.event.set()
+        if not self._que_done:
+            with self.lock:
+                self.deq.append(item)
+                self.event.set()
 
     def slice(self, size, timeout=None):
         '''

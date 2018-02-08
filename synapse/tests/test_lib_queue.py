@@ -83,6 +83,8 @@ class QueueTest(SynTest):
         q.put(2)
         q.put(3)
         q.done()
+        q.put(4)
+
         self.eq(q.get(), 1)
         self.eq(q.slice(2), [2, 3])
         self.eq(q.get(), None)
@@ -91,5 +93,6 @@ class QueueTest(SynTest):
         q = s_queue.Queue()
         q.put(1)
         q.fini()
+        q.put(2)
         self.eq(q.get(), None)
         self.eq(q.slice(1), None)
