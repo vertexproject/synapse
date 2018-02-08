@@ -99,16 +99,21 @@ class QueueTest(SynTest):
     def test_queue_iter(self):
         results = []
         data = [1, 2, 3, 4, 5]
+        evt = threading.Event()
+
         q = s_queue.Queue()
         [q.put(item) for item in data]
 
         @firethread
         def finisoon():
-            time.sleep(1)
+            evt.wait()
             q.fini()
 
         thr = finisoon()
-        [results.append(item) for item in q]
+        for i, item in enumerate(q):
+            results.append(item)
+            if i == len(data) - 1:
+                evt.set()
         thr.join()
 
         self.eq(data, results)
