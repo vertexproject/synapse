@@ -26,7 +26,7 @@ import urllib.parse
 import tornado.ioloop as t_ioloop
 import tornado.httpclient as t_http
 # Custom Code
-import synapse.async as s_async
+import synapse.synasync as s_async
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
