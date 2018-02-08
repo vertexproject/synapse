@@ -16,7 +16,7 @@ class Queue(EventBus):
         self.event = threading.Event()
 
         self._que_done = False
-        self.onfini(self.event.set)
+        self.onfini(self.done)
 
     def __exit__(self, exc, cls, tb):
         self.done()
