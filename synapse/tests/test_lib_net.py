@@ -6,6 +6,64 @@ logger = logging.getLogger(__name__)
 
 class NetTest(SynTest):
 
+    def test_lib_net_chan_iden(self):
+        iden = 'hehe'
+        chan = s_net.Chan(None, iden)
+        self.eq(chan.iden(), iden)
+
+    def test_lib_net_chan_queue(self):
+        class FiniableLink(s_net.Link):
+
+            def fini(self, *args, **kwargs):
+                print('fini', args, kwargs)
+            def txfini(self, *args, **kwargs):
+                print('txfini', args, kwargs)
+            def tx(self, *args, **kwargs):
+                print('tx', args, kwargs)
+
+        chan = s_net.Chan(FiniableLink, None)
+
+        self.raises(AttributeError, chan.next)
+        self.raises(AttributeError, chan.slice, 1337)
+        with self.raises(AttributeError) as e:
+            [print(item) for item in chan.iter()]
+
+        chan.setq()
+        msgs = (
+            ('woo1', {}),
+            ('woo2', {}),
+            ('woo3', {}),
+            ('woo4', {}),
+            ('woo5', {}),
+        )
+
+        [chan.rx(None, msg) for msg in msgs]
+        self.eq(chan.next(timeout=1), msgs[0])
+        self.eq(chan.next(timeout=1), msgs[1])
+        self.eq(chan.next(timeout=1), msgs[2])
+        self.eq(chan.next(timeout=1), msgs[3])
+        self.eq(chan.next(timeout=1), msgs[4])
+        self.none(chan.next(timeout=1))
+
+        [chan.rx(None, msg) for msg in msgs]
+        self.eq(chan.slice(4), [msgs[0], msgs[1], msgs[2], msgs[3]])
+        self.eq(chan.next(timeout=1), msgs[4])
+        self.none(chan.next(timeout=1))
+        self.none(chan.slice(100, timeout=1))
+
+        results = []
+        [chan.rx(None, msg) for msg in msgs]
+        [results.append(item) for item in chan.iter(timeout=1)]
+        self.eq(results, list(msgs))
+        [results.append(item) for item in chan.iter(timeout=1)]
+        self.eq(results, list(msgs))
+
+        self.false(chan._chan_rxq._que_done)
+        chan.rxfini()
+        self.true(chan._chan_rxq._que_done)
+        [chan.rx(None, msg) for msg in msgs]
+        self.none(chan.next(timeout=1))
+
     def test_lib_net_link_tx(self):
         class DstLink(s_net.Link):
             def __init__(self):
