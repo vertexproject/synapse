@@ -94,5 +94,9 @@ class QueueTest(SynTest):
         q.put(1)
         q.fini()
         q.put(2)
+
+        deqdata = []
+        [deqdata.append(item) for item in q.deq]
         self.eq(q.get(), None)
         self.eq(q.slice(1), None)
+        self.eq(deqdata, [1])
