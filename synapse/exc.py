@@ -207,17 +207,6 @@ class BadAtomFile(SynErr):
     '''
     pass
 
-class BadBlobFile(SynErr):
-    '''
-    Raised when there is an internal issue with a blobfile
-    '''
-    pass
-class BlobFileIsClone(SynErr):
-    '''
-    Raised when there is a write operation on a blobfile which is a clone.
-    '''
-    pass
-
 class IsFini(Exception): pass
 
 class RetnTimeout(SynErr):
