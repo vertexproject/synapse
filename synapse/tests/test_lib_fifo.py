@@ -1,4 +1,3 @@
-
 from synapse.tests.common import *
 
 import synapse.lib.fifo as s_fifo
@@ -207,3 +206,107 @@ class FifoTest(SynTest):
                 fifo.puts(('foo', 'bar'))
 
             self.eq(tuple(sent), ((0, 4, 'foo'), (4, 8, 'bar')))
+
+    def test_fifo_resync_race_put(self):
+        with self.getTestDir() as dirn:
+            N = 1000
+            conf = {'dir': dirn}
+            evt = threading.Event()
+            items = ['foo' + str(i) for i in range(N)]
+            sent = []
+
+            def race(data):
+                evt.set()
+                time.sleep(0)
+                sent.append(data[2])
+
+            @firethread
+            def otherwrite():
+                evt.wait()
+                fifo.puts(('attempting to mutate', 'during iteration'))
+
+            with s_fifo.Fifo(conf) as fifo:
+                fifo.puts(items)
+                thr = otherwrite()
+                fifo.resync(xmit=race)
+                thr.join()
+
+            self.len(N + 2, sent)
+            self.eq(sent[0:N], items)
+            self.eq(sent[N:N+1], ['attempting to mutate'])
+            self.eq(sent[N+1:N+2], ['during iteration'])
+
+            with s_fifo.Fifo(conf) as fifo:
+                fifo.resync(xmit=race)
+
+            self.len(2 * (N + 2), sent)
+            self.eq(sent[0:N], items)
+            self.eq(sent[N:N+1], ['attempting to mutate'])
+            self.eq(sent[N+1:N+2], ['during iteration'])
+            self.eq(sent[N+2:2*N+2], items)
+            self.eq(sent[2*N+2:2*N+3], ['attempting to mutate'])
+            self.eq(sent[2*N+3:2*N+4], ['during iteration'])
+
+    def test_fifo_resync_race_ack(self):
+        with self.getTestDir() as dirn:
+            N = 1000
+            conf = {'dir': dirn}
+            evt = threading.Event()
+            items = ['foo' + str(i) for i in range(N)]
+            sent = []
+
+            def race(data):
+                evt.set()
+                time.sleep(0)
+                sent.append(data[2])
+
+            @firethread
+            def otherwrite():
+                evt.wait()
+
+                # This call to ack will not actually cull anything because
+                # it won't run until after iteration has completed.
+                fifo.ack(100)
+
+            with s_fifo.Fifo(conf) as fifo:
+                fifo.puts(items)
+                thr = otherwrite()
+                fifo.resync(xmit=race)
+                thr.join()
+
+            # The end result should be all of the items in order.
+            self.len(N, sent)
+            self.eq(sent, items)
+
+    def test_fifo_resync_race_ack_resync(self):
+        with self.getTestDir() as dirn:
+            N = 1000
+            conf = {'dir': dirn}
+            evt = threading.Event()
+            items = ['foo' + str(i) for i in range(N)]
+            sent = []
+
+            def race(data):
+                evt.set()
+                time.sleep(0)
+                sent.append(data[2])
+
+            @firethread
+            def otherwrite():
+                evt.wait()
+
+                # This call to ack will not actually cull anything because
+                # its seqn is -1. Instead, it will call resync, which won't
+                # until after iteration has completed.
+                fifo.ack(-1)
+
+            with s_fifo.Fifo(conf) as fifo:
+                fifo.puts(items)
+                thr = otherwrite()
+                fifo.resync(xmit=race)
+                thr.join()
+
+            # The end result should be all of the items in order, followed by all of the items in order again
+            self.len(2 * N, sent)
+            self.eq(sent[0:N], items)
+            self.eq(sent[N:2*N], items)
