@@ -233,19 +233,19 @@ class FifoTest(SynTest):
 
             self.len(N + 2, sent)
             self.eq(sent[0:N], items)
-            self.eq(sent[N:N+1], ['attempting to mutate'])
-            self.eq(sent[N+1:N+2], ['during iteration'])
+            self.eq(sent[N:N + 1], ['attempting to mutate'])
+            self.eq(sent[N + 1:N + 2], ['during iteration'])
 
             with s_fifo.Fifo(conf) as fifo:
                 fifo.resync(xmit=race)
 
             self.len(2 * (N + 2), sent)
             self.eq(sent[0:N], items)
-            self.eq(sent[N:N+1], ['attempting to mutate'])
-            self.eq(sent[N+1:N+2], ['during iteration'])
-            self.eq(sent[N+2:2*N+2], items)
-            self.eq(sent[2*N+2:2*N+3], ['attempting to mutate'])
-            self.eq(sent[2*N+3:2*N+4], ['during iteration'])
+            self.eq(sent[N:N + 1], ['attempting to mutate'])
+            self.eq(sent[N + 1:N + 2], ['during iteration'])
+            self.eq(sent[N + 2:2 * N + 2], items)
+            self.eq(sent[2 * N + 2:2 * N + 3], ['attempting to mutate'])
+            self.eq(sent[2 * N + 3:2 * N + 4], ['during iteration'])
 
     def test_fifo_resync_race_ack(self):
         with self.getTestDir() as dirn:
@@ -309,4 +309,4 @@ class FifoTest(SynTest):
             # The end result should be all of the items in order, followed by all of the items in order again
             self.len(2 * N, sent)
             self.eq(sent[0:N], items)
-            self.eq(sent[N:2*N], items)
+            self.eq(sent[N:2 * N], items)
