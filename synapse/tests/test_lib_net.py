@@ -6,6 +6,18 @@ logger = logging.getLogger(__name__)
 
 class NetTest(SynTest):
 
+    def test_lib_net_chan_txfini(self):
+        class FiniableLink(s_net.Link):
+            def tx(msg, **kwargs):
+                logger.error(msg)
+
+        msg = '%r' % (('cool', {}),)
+        with self.getLoggerStream('synapse.tests.test_lib_net', msg) as stream:
+            chan = s_net.Chan(FiniableLink, None)
+            chan.txfini(data=('cool', {}))
+            stream.seek(0)
+            self.isin(msg, stream.read())
+
     def test_lib_net_chan_iden(self):
         iden = 'hehe'
         chan = s_net.Chan(None, iden)
