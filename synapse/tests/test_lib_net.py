@@ -24,21 +24,12 @@ class NetTest(SynTest):
         self.eq(chan.iden(), iden)
 
     def test_lib_net_chan_queue(self):
-        class FiniableLink(s_net.Link):
-
-            def fini(self, *args, **kwargs):
-                print('fini', args, kwargs)
-            def txfini(self, *args, **kwargs):
-                print('txfini', args, kwargs)
-            def tx(self, *args, **kwargs):
-                print('tx', args, kwargs)
-
-        chan = s_net.Chan(FiniableLink, None)
+        chan = s_net.Chan(s_net.Link, None)
 
         self.raises(AttributeError, chan.next)
         self.raises(AttributeError, chan.slice, 1337)
         with self.raises(AttributeError) as e:
-            [print(item) for item in chan.iter()]
+            [logger.error(item) for item in chan.iter()]
 
         chan.setq()
         msgs = (
