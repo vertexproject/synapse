@@ -2,7 +2,7 @@ import time
 import collections
 
 import synapse.link as s_link
-import synapse.async as s_async
+import synapse.synasync as s_async
 import synapse.daemon as s_daemon
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath

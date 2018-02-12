@@ -14,11 +14,8 @@ import synapse.eventbus as s_eventbus
 
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
-
-#import synapse.lib.kv as s_kv
-#import synapse.lib.config as s_config
-#import synapse.lib.msgpack as s_msgpack
-#import synapse.lib.blobfile as s_blobfile
+import synapse.lib.config as s_config
+import synapse.lib.msgpack as s_msgpack
 
 # for backward compat (HashSet moved from this module to synapse.lib.hashset )
 from synapse.lib.hashset import *

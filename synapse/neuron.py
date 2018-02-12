@@ -1,20 +1,14 @@
 import os
 import sys
-import time
-import errno
 import fcntl
-import socket
 import logging
 import threading
-import collections
 import multiprocessing
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
-import synapse.link as s_link
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
-import synapse.eventbus as s_eventbus
 
 import synapse.lib.kv as s_kv
 import synapse.lib.net as s_net
@@ -26,7 +20,7 @@ import synapse.lib.crypto.rsa as s_rsa
 import synapse.lib.crypto.vault as s_vault
 import synapse.lib.crypto.tinfoil as s_tinfoil
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 class SessBoss:
     '''
@@ -259,13 +253,26 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
 
         Notes:
             Does not protect against path traversal.
+            This does not make any required paths.
 
         Returns:
-            str: P
+            str: Path under the cell
         '''
         return os.path.join(self.dirn, 'cell', *paths)
 
     def getCellDir(self, *paths):
+        '''
+        Get (and make) a directory underneath the underlying Cell path.
+
+        Args:
+            *paths: Paths to join together
+
+        Notes:
+            Does not protect against path traversal.
+
+        Returns:
+            str: Path under the cell
+        '''
         return s_common.gendir(self.dirn, 'cell', *paths)
 
     @staticmethod
@@ -457,17 +464,19 @@ class CellUser(SessBoss):
 
     def open(self, addr, timeout=None):
         '''
-        Open the Cell at the remote addr and return a UserSess Link.
+        Synchronously opens the Cell at the remote addr and return a UserSess Link.
 
         Args:
             addr ((str,int)): A (host, port) address tuple
             timeout (int/float): Connection timeout in seconds.
 
-        Returns:
-            UserSess: The connected Link (or None).
-        '''
-        # a *synchronous* open...
+        Raises:
+            CellUserErr: Raised if a timeout or link negotiation fails.  May have
+            additional data in the ``excfo`` field.
 
+        Returns:
+            UserSess: The connected Link.
+        '''
         with s_threads.RetnWait() as retn:
 
             def onlink(ok, link):
@@ -494,13 +503,12 @@ class CellUser(SessBoss):
 
             isok, sess = retn.wait(timeout=timeout)
             if not isok:
-                # XXX Raise / log here?
-                return None
+                raise s_common.CellUserErr(mesg='retnwait timed out or failed', excfo=sess)
 
-            if not sess.waittx(timeout=timeout):
-                return None
+        if not sess.waittx(timeout=timeout):
+            raise s_common.CellUserErr(mesg='waittx timed out or failed')
 
-            return sess
+        return sess
 
 def getCellCtor(dirn, conf=None):
     '''
@@ -533,13 +541,14 @@ def divide(dirn, conf=None):
     Create an instance of a Cell in a subprocess.
 
     Args:
-        dirn (str):
-        conf (dict):
+        dirn (str): Path to the directory backing the Cell.
+        conf (dict): Configuration data.
 
     Returns:
         multiprocessing.Process: The Process object which was created to run the Cell
     '''
-    proc = multiprocessing.Process(target=main, args=(dirn, conf))
+    ctx = multiprocessing.get_context('spawn')
+    proc = ctx.Process(target=main, args=(dirn, conf))
     proc.start()
 
     return proc
@@ -558,6 +567,11 @@ def main(dirn, conf=None):
     '''
     try:
 
+        # Configure logging since we may have come in via
+        # multiprocessing.Process as part of a Daemon config.
+        s_common.setlogging(logger,
+                            os.getenv('SYN_TEST_LOG_LEVEL', 'WARNING'))
+
         dirn = s_common.genpath(dirn)
         ctor, func = getCellCtor(dirn, conf=conf)
 
@@ -572,6 +586,6 @@ def main(dirn, conf=None):
         logger.exception('main: %s (%s)' % (dirn, e))
         sys.exit(1)
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     import sys
     main(sys.argv[1])

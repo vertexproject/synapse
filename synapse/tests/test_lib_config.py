@@ -108,6 +108,9 @@ class ConfTest(SynTest):
 
             self.raises(NoSuchOpt, conf.setConfOpts, {'newp': 'hehe'})
 
+        with Foo({'enabled': 1}) as conf:
+            self.eq(conf.getConfOpt('enabled'), 1)
+
     def test_config_loadpath(self):
         config0 = {'enabled': 1, 'fooval': 2}
         config1 = {'enabled': 1, 'newp': 'hehe'}

@@ -1,4 +1,4 @@
-import synapse.async as s_async
+import synapse.synasync as s_async
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 

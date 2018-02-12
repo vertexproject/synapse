@@ -200,21 +200,15 @@ class NoCertKey(SynErr):
     '''
     pass
 
+class CellUserErr(SynErr):
+    '''
+    Exception raised by a CellUser
+    '''
+    pass
 
 class BadAtomFile(SynErr):
     '''
     Raised when there is a internal issue with an atomfile.
-    '''
-    pass
-
-class BadBlobFile(SynErr):
-    '''
-    Raised when there is an internal issue with a blobfile
-    '''
-    pass
-class BlobFileIsClone(SynErr):
-    '''
-    Raised when there is a write operation on a blobfile which is a clone.
     '''
     pass
 

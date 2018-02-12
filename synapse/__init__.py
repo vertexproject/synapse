@@ -92,5 +92,4 @@ import synapse.datamodel as s_datamodel
 s_datamodel.rebuildTlib()
 
 # load any modules which register dyndeps aliases...
-# ( order matters...)
 import synapse.cortex

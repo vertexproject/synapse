@@ -10,21 +10,23 @@ import synapse.neuron as s_neuron
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.const as s_const
+import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
-class CryoTank(s_eventbus.EventBus):
+class CryoTank(s_config.Config):
     '''
     A CryoTank implements a stream of structured data.
     '''
-    def __init__(self, dirn, mapsize=s_const.tebibyte): # from LMDB docs....
-        s_eventbus.EventBus.__init__(self)
+    def __init__(self, dirn, conf=None):
+        s_config.Config.__init__(self, conf)
 
         self.path = s_common.gendir(dirn)
 
         path = s_common.gendir(self.path, 'cryo.lmdb')
 
+        mapsize = self.getConfOpt('mapsize')
         self.lmdb = lmdb.open(path, writemap=True, max_dbs=128)
         self.lmdb.set_mapsize(mapsize)
 
@@ -40,6 +42,15 @@ class CryoTank(s_eventbus.EventBus):
             self.lmdb.close()
 
         self.onfini(fini)
+
+    @staticmethod
+    @s_config.confdef(name='cryotank')
+    def _crytotank_confdefs():
+        defs = (
+            # from LMDB docs
+            ('mapsize', {'type': 'int', 'doc': 'LMDB Mapsize value', 'defval': s_const.tebibyte}),
+        )
+        return defs
 
     def last(self):
         '''
@@ -202,11 +213,13 @@ class CryoCell(s_neuron.Cell):
         CryoCell initialization routines.
         '''
         self.names = self.getCellDict('cryo:names')
+        self.confs = self.getCellDict('cryo:confs')
         self.tanks = s_eventbus.BusRef()
 
         for name, iden in self.names.items():
             path = self.getCellPath('tanks', iden)
-            tank = CryoTank(path)
+            conf = self.confs.get(name)
+            tank = CryoTank(path, conf)
             self.tanks.put(name, tank)
 
     def finiCell(self):
@@ -220,6 +233,7 @@ class CryoCell(s_neuron.Cell):
         CryoCell message handlers.
         '''
         return {
+            'cryo:init': self._onCryoInit,
             'cryo:list': self._onCryoList,
             'cryo:last': self._onCryoLast,
             'cryo:puts': self._onCryoPuts,
@@ -229,7 +243,7 @@ class CryoCell(s_neuron.Cell):
             'cryo:metrics': self._onCryoMetrics,
         }
 
-    def genCryoTank(self, name):
+    def genCryoTank(self, name, conf=None):
         '''
         Generate a new CryoTank with a given name or get an reference to an existing CryoTank.
 
@@ -244,14 +258,18 @@ class CryoCell(s_neuron.Cell):
             return tank
 
         iden = s_common.guid()
-        self.names.set(name, iden)
 
-        logger.info('Creating new tank: %s' % (name,))
+        logger.info('Creating new tank: %s', name)
 
         path = self.getCellPath('tanks', iden)
+        try:
+            tank = CryoTank(path, conf)
+        except Exception as e:
+            logger.exception('Error making CryoTank: %s', name)
+            return None
 
-        tank = CryoTank(path)
-
+        self.names.set(name, iden)
+        self.confs.set(name, conf)
         self.tanks.put(name, tank)
         return tank
 
@@ -344,9 +362,26 @@ class CryoCell(s_neuron.Cell):
         chan.tx(True)
 
         with chan:
+
             tank = self.genCryoTank(name)
             for items in chan.rxwind(timeout=30):
                 tank.puts(items)
+
+            chan.tx(True)
+
+    @s_glob.inpool
+    def _onCryoInit(self, chan, mesg):
+        name = mesg[1].get('name')
+        conf = mesg[1].get('conf')
+
+        tank = self.tanks.get(name)
+        if tank:
+            return chan.txfini(False)
+
+        if self.genCryoTank(name, conf):
+            return chan.txfini(True)
+
+        return chan.txfini(False)
 
 class CryoUser(s_neuron.CellUser):
     '''
@@ -384,7 +419,8 @@ class CryoUser(s_neuron.CellUser):
                 return False
 
             iitr = s_common.chunks(items, self._chunksize)
-            return chan.txwind(iitr, 100, timeout=timeout)
+            chan.txwind(iitr, self._chunksize, timeout=timeout)
+            return chan.next(timeout=timeout)
 
     def last(self, name, timeout=None):
         '''
@@ -482,4 +518,20 @@ class CryoUser(s_neuron.CellUser):
             tuple: A tuple containing metrics tufos for the named CryoTank.
         '''
         mesg = ('cryo:metrics', {'name': name, 'offs': offs, 'size': size})
+        return self._cryo_sess.call(mesg, timeout=timeout)
+
+    def init(self, name, conf=None, timeout=None):
+        '''
+        Create a new named Cryotank.
+
+        Args:
+            name (str): Name of the Cryotank to make.
+            conf (dict): Additional configable options for the Cryotank.
+            timeout (int): Request timeout
+
+        Returns:
+            True if the tank was created, False if the tank existed or
+            there was an error during CryoTank creation.
+        '''
+        mesg = ('cryo:init', {'name': name, 'conf': conf})
         return self._cryo_sess.call(mesg, timeout=timeout)

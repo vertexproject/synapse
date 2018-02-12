@@ -3,8 +3,6 @@ import collections
 
 from synapse.eventbus import EventBus
 
-class QueueShutdown(Exception): pass
-
 class Queue(EventBus):
     '''
     A simple custom queue to address python Queue() issues.
@@ -16,7 +14,7 @@ class Queue(EventBus):
         self.event = threading.Event()
 
         self._que_done = False
-        self.onfini(self.event.set)
+        self.onfini(self.done)
 
     def __exit__(self, exc, cls, tb):
         self.done()
@@ -106,6 +104,9 @@ class Queue(EventBus):
         Args:
             item: Item to add to the queue.
 
+        Notes:
+            This will not add the item or wake any consumers if .done() has not been called on the Queue.
+
         Examples:
             Put a string in a queue::
 
@@ -114,9 +115,10 @@ class Queue(EventBus):
         Returns:
             None
         '''
-        with self.lock:
-            self.deq.append(item)
-            self.event.set()
+        if not self._que_done:
+            with self.lock:
+                self.deq.append(item)
+                self.event.set()
 
     def slice(self, size, timeout=None):
         '''

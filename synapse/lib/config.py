@@ -62,10 +62,10 @@ class Configable:
         self._syn_loaded_confs = set([])
 
         self.addConfDefs(defs)
+        self._loadDecoratedFuncs()
 
         if opts is not None:
             self.setConfOpts(opts)
-        self._loadDecoratedFuncs()
 
     def _loadDecoratedFuncs(self):
         for name, meth in s_reflect.getItemLocals(self):
