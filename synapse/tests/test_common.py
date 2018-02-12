@@ -122,3 +122,13 @@ class CommonTest(SynTest):
         self.isin('src', excfo[1])
         self.isin('syn:err', excfo[1])
         self.eq(excfo[1].get('syn:err'), {'mesg': 'hehe', 'key': 1})
+
+    def test_common_ehex_uhex(self):
+        byts = b'deadb33f00010203'
+        s = ehex(byts)
+        self.isinstance(s, str)
+        self.eq(s, '64656164623333663030303130323033')
+        # uhex is a linear transform back
+        obyts = uhex(s)
+        self.isinstance(obyts, bytes)
+        self.eq(byts, obyts)
