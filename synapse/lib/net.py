@@ -82,8 +82,8 @@ class Plex(s_config.Config):
 
     def _onPlexFini(self):
 
-        [l.fini() for l in self.links.values()]
-        [s.close() for s in self.socks.values()]
+        [l.fini() for l in list(self.links.values())]
+        [s.close() for s in list(self.socks.values())]
 
         self.epoll.close()
 
