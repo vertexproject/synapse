@@ -8,12 +8,12 @@ class NetTest(SynTest):
 
     def test_lib_net_chan_txfini(self):
         class FiniableLink(s_net.Link):
-            def tx(msg, **kwargs):
+            def tx(self, msg, **kwargs):
                 logger.error(msg)
 
         msg = '%r' % (('cool', {}),)
         with self.getLoggerStream('synapse.tests.test_lib_net', msg) as stream:
-            chan = s_net.Chan(FiniableLink, None)
+            chan = s_net.Chan(FiniableLink(), None)
             chan.txfini(data=('cool', {}))
             self.true(stream.wait(10))
             stream.seek(0)
@@ -25,7 +25,7 @@ class NetTest(SynTest):
         self.eq(chan.iden(), iden)
 
     def test_lib_net_chan_queue(self):
-        chan = s_net.Chan(s_net.Link, None)
+        chan = s_net.Chan(s_net.Link(), None)
 
         self.raises(AttributeError, chan.next)
         self.raises(AttributeError, chan.slice, 1337)
