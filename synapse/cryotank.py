@@ -394,12 +394,9 @@ class CryoUser(s_neuron.CellUser):
     '''
     _chunksize = 10000
     def __init__(self, auth, addr, timeout=None):
-
         s_neuron.CellUser.__init__(self, auth)
 
         self._cryo_sess = self.open(addr, timeout=timeout)
-        if self._cryo_sess is None:
-            raise s_common.HitMaxTime(timeout=timeout)
 
     def puts(self, name, items, timeout=None):
         '''
