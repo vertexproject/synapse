@@ -30,6 +30,8 @@ class LmdbTest(SynTest):
 
             lenv = lmdb.open(dirn, writemap=True, max_dbs=128)
             metr = s_lmdb.Metrics(lenv)
+            self.eq(metr.stat(), {})
+
             with lenv.begin(write=True) as xact:
 
                 metr.inc(xact, 'woot', 20)
@@ -51,6 +53,8 @@ class LmdbTest(SynTest):
 
                 self.len(1, retn)
                 self.eq(retn[0][1].get('hehe'), 20)
+
+            self.eq(metr.stat(), {'woot': 40})
 
     def test_lmdb_propstor(self):
 
