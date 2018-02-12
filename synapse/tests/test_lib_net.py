@@ -16,8 +16,9 @@ class NetTest(SynTest):
             chan = s_net.Chan(FiniableLink(), None)
             chan.txfini(data=('cool', {}))
             self.true(stream.wait(10))
-            stream.seek(0)
-            self.isin(msg, stream.read())
+
+        stream.seek(0)
+        self.isin(msg, stream.read())
 
     def test_lib_net_chan_iden(self):
         iden = 'hehe'
@@ -121,8 +122,9 @@ class NetTest(SynTest):
         with self.getLoggerStream('synapse.tests.test_lib_net', msg) as stream:
             link.rx(None, ('haha', {}))
             self.true(stream.wait(10))
-            stream.seek(0)
-            self.isin(msg, stream.read())
+
+        stream.seek(0)
+        self.isin(msg, stream.read())
 
     def test_lib_net_link_rx_unknownmsgtype(self):
         link = s_net.Link()
@@ -130,8 +132,9 @@ class NetTest(SynTest):
         with self.getLoggerStream('synapse.lib.net', msg) as stream:
             link.rx(None, ('haha', {}))
             self.true(stream.wait(10))
-            stream.seek(0)
-            self.isin(msg, stream.read())
+
+        stream.seek(0)
+        self.isin(msg, stream.read())
 
     def test_lib_net_link_rx_handlerexpcetion(self):
         class BadLink(s_net.Link):
@@ -146,8 +149,9 @@ class NetTest(SynTest):
         with self.getLoggerStream('synapse.lib.net', msg) as stream:
             link.rx(None, ('bad', {}))
             self.true(stream.wait(10))
-            stream.seek(0)
-            self.isin(msg, stream.read())
+
+        stream.seek(0)
+        self.isin(msg, stream.read())
 
     def test_lib_net_link_rx_msgexpcetion(self):
         class OtherBadLink(s_net.Link):
@@ -163,8 +167,9 @@ class NetTest(SynTest):
         with self.getLoggerStream('synapse.lib.net', msg) as stream:
             link.rx(None, ('bad', {}))
             self.true(stream.wait(10))
-            stream.seek(0)
-            self.isin(msg, stream.read())
+
+        stream.seek(0)
+        self.isin(msg, stream.read())
 
     def test_lib_net_link_rx_rxfuncexpcetion(self):
         class BaddestLink(s_net.Link):
@@ -180,8 +185,9 @@ class NetTest(SynTest):
         with self.getLoggerStream('synapse.lib.net', msg) as stream:
             link.rx(None, ('bad', {}))
             self.true(stream.wait(10))
-            stream.seek(0)
-            self.isin(msg, stream.read())
+
+        stream.seek(0)
+        self.isin(msg, stream.read())
 
     def test_lib_net_link_rx_finid(self):
         class FinidLink(s_net.Link):
@@ -198,11 +204,11 @@ class NetTest(SynTest):
         with self.getLoggerStream('synapse.lib.net') as stream:
             link.rx(None, ('anything', {}))
             self.false(stream.wait(1))
-            stream.seek(0)
-            self.len(0, stream.read())
+
+        stream.seek(0)
+        self.len(0, stream.read())
 
     def test_lib_net_basic(self):
-
         names = ('conn', 'lisn', 'ping', 'pong')
 
         steps = self.getTestSteps(names)
@@ -289,9 +295,9 @@ class NetTest(SynTest):
                 steps.waitall(timeout=2)
                 self.true(stream.wait(10))
 
-            stream.seek(0)
-            mesgs = stream.read()
-            self.isin(expected_msg, mesgs)
+        stream.seek(0)
+        mesgs = stream.read()
+        self.isin(expected_msg, mesgs)
 
     def test_lib_net_finis(self):
 
@@ -334,9 +340,9 @@ class NetTest(SynTest):
                 steps.waitall(timeout=2)
                 self.true(stream.wait(10))
 
-            stream.seek(0)
-            mesgs = stream.read()
-            self.isin(expected_msg, mesgs)
+        stream.seek(0)
+        mesgs = stream.read()
+        self.isin(expected_msg, mesgs)
 
     def test_lib_net_connectfail(self):
         expected_msg = 'connect() onconn failed'
@@ -345,9 +351,9 @@ class NetTest(SynTest):
                 plex.connect(('127.0.0.1', 0), None)
                 self.true(stream.wait(10))
 
-            stream.seek(0)
-            mesgs = stream.read()
-            self.isin(expected_msg, mesgs)
+        stream.seek(0)
+        mesgs = stream.read()
+        self.isin(expected_msg, mesgs)
 
     def test_lib_net_listenfail(self):
         expected_msg = 'listen() onlink error'
@@ -358,9 +364,9 @@ class NetTest(SynTest):
                 plex.connect(addr, None)
                 self.true(stream.wait(10))
 
-            stream.seek(0)
-            mesgs = stream.read()
-            self.isin(expected_msg, mesgs)
+        stream.seek(0)
+        mesgs = stream.read()
+        self.isin(expected_msg, mesgs)
 
     def test_lib_net_stoplisten(self):
 
