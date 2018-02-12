@@ -78,7 +78,17 @@ def guid(valu=None):
 def buid(valu=None):
     '''
     A binary GUID like sequence of 32 bytes.
-    ( stable BUID generation is sha256(msgpack(valu)) )
+
+    Args:
+        valu (object): Optional, if provided, the hash of the msgpack
+        encoded form of the object is returned. This can be used to
+        create stable buids.
+
+    Notes:
+        By default, this returns a random 32 byte value.
+
+    Returns:
+        bytes: A 32 byte value.
     '''
     if valu is None:
         return os.urandom(32)
