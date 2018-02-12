@@ -609,8 +609,9 @@ class SynTest(unittest.TestCase):
                 with self.getLoggerStream('synapse.foo.bar') as stream:
                     # Do something that triggers a log message
                     doSomthing()
-                    stream.seek(0)
-                    mesgs = stream.read()
+
+                stream.seek(0)
+                mesgs = stream.read()
                 # Do something with messages
 
             Do an action and wait for a specific log message to be written::
@@ -619,8 +620,9 @@ class SynTest(unittest.TestCase):
                     # Do something that triggers a log message
                     doSomthing()
                     stream.wait(timeout=10)  # Wait for the mesg to be written to the stream
-                    stream.seek(0)
-                    mesgs = stream.read()
+
+                stream.seek(0)
+                mesgs = stream.read()
                 # Do something with messages
 
             You can also reset the message and wait for another message to occur::
@@ -631,8 +633,9 @@ class SynTest(unittest.TestCase):
                     stream.wait(timeout=10)
                     stream.setMesg('yo dawg')  # This will now wait for the 'yo dawg' string to be written.
                     stream.wait(timeout=10)
-                    stream.seek(0)
-                    mesgs = stream.read()
+
+                stream.seek(0)
+                mesgs = stream.read()
                 # Do something with messages
 
         Notes:
