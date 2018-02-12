@@ -390,12 +390,12 @@ class Chan(Link):
 
     def _tx_real(self, mesg):
 
+        name = 'data'
         if self._chan_txinit:
-            self._chan_txinit = True
-            self.link.tx(('init', {'chan': self._chan_iden, 'data': mesg}))
-            return
+            self._chan_txinit = False
+            name = 'init'
 
-        self.link.tx(('data', {'chan': self._chan_iden, 'data': mesg}))
+        self.link.tx((name, {'chan': self._chan_iden, 'data': mesg}))
 
     def txfini(self, data=None):
         self.link.tx(('fini', {'chan': self._chan_iden, 'data': data}))
