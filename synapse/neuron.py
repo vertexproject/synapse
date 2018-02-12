@@ -456,17 +456,19 @@ class CellUser(SessBoss):
 
     def open(self, addr, timeout=None):
         '''
-        Open the Cell at the remote addr and return a UserSess Link.
+        Synchronously opens the Cell at the remote addr and return a UserSess Link.
 
         Args:
             addr ((str,int)): A (host, port) address tuple
             timeout (int/float): Connection timeout in seconds.
 
-        Returns:
-            UserSess: The connected Link (or None).
-        '''
-        # a *synchronous* open...
+        Raises:
+            CellUserErr: Raised if a timeout or link negotiation fails.  May have
+            additional data in the ``excfo`` field.
 
+        Returns:
+            UserSess: The connected Link.
+        '''
         with s_threads.RetnWait() as retn:
 
             def onlink(ok, link):
@@ -490,13 +492,12 @@ class CellUser(SessBoss):
 
             isok, sess = retn.wait(timeout=timeout)
             if not isok:
-                # XXX Raise / log here?
-                return None
+                raise s_common.CellUserErr(mesg='retnwait timed out or failed', excfo=sess)
 
-            if not sess.waittx(timeout=timeout):
-                return None
+        if not sess.waittx(timeout=timeout):
+            raise s_common.CellUserErr(mesg='waittx timed out or failed')
 
-            return sess
+        return sess
 
 def getCellCtor(dirn, conf=None):
     '''
@@ -529,8 +530,8 @@ def divide(dirn, conf=None):
     Create an instance of a Cell in a subprocess.
 
     Args:
-        dirn (str):
-        conf (dict):
+        dirn (str): Path to the directory backing the Cell.
+        conf (dict): Configuration data.
 
     Returns:
         multiprocessing.Process: The Process object which was created to run the Cell

@@ -13,7 +13,7 @@ import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 '''
 The synapse.lib.net module implements async networking helpers.
@@ -334,18 +334,14 @@ class Link(s_eventbus.EventBus):
         self.rxtime = s_common.now()
 
         if self.rxfunc is not None:
-
             try:
                 return self.rxfunc(self, mesg)
-
             except Exception as e:
                 logger.exception('%s.rxfunc() failed on: %r' % (self.__class__.__name__, mesg))
                 return
 
         try:
-
             func = self._mesg_funcs.get(mesg[0])
-
         except Exception as e:
             logger.exception('link %s: rx mesg exception: %s' % (self.__class__.__name__, e))
             return
@@ -356,7 +352,6 @@ class Link(s_eventbus.EventBus):
 
         try:
             func(link, mesg)
-
         except Exception as e:
             logger.exception('link %s: rx exception: %s' % (self.__class__.__name__, e))
 
@@ -388,7 +383,6 @@ class Chan(Link):
 
         self._chan_rxq = None
         self._chan_iden = iden
-        self._chan_plex = plex
         self._chan_txinit = True
 
     def iden(self):
@@ -396,12 +390,12 @@ class Chan(Link):
 
     def _tx_real(self, mesg):
 
+        name = 'data'
         if self._chan_txinit:
-            self._chan_txinit = True
-            self.link.tx(('init', {'chan': self._chan_iden, 'data': mesg}))
-            return
+            self._chan_txinit = False
+            name = 'init'
 
-        self.link.tx(('data', {'chan': self._chan_iden, 'data': mesg}))
+        self.link.tx((name, {'chan': self._chan_iden, 'data': mesg}))
 
     def txfini(self, data=None):
         self.link.tx(('fini', {'chan': self._chan_iden, 'data': data}))
@@ -453,8 +447,6 @@ class Chan(Link):
             self.tx(True)
             yield item
             item = self.next(timeout=timeout)
-
-        #return RxWind(self, timeout=timeout)
 
     def txwind(self, items, size, timeout=None):
         '''
