@@ -346,11 +346,6 @@ class NetTest(SynTest):
         expected_msg = 'listen() onlink error'
         with self.getLoggerStream('synapse.lib.net', expected_msg) as stream:
 
-            class LisnLink(s_net.Link):
-
-                def linked(self):
-                    steps.done('lisn')
-
             with s_net.Plex() as plex:
                 addr = plex.listen(('127.0.0.1', 0), None)
                 plex.connect(addr, None)
