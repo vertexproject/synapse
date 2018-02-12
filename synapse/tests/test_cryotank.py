@@ -230,3 +230,12 @@ class CryoTest(SynTest):
         # ensure dmon cell processes are fini'd
         for celldir, proc in dmon.cellprocs.items():
             self.false(proc.is_alive())
+
+    def test_cryo_cryouser_timeout(self):
+        with self.getTestDir() as dirn:
+            conf = {'host': '127.0.0.1'}
+            with s_cryotank.CryoCell(dirn, conf) as cell:
+                port = cell.getCellPort()
+                auth = cell.genUserAuth('visi@vertex.link')
+                addr = ('127.0.0.1', port)
+                self.raises(CellUserErr, s_cryotank.CryoUser, auth, addr, timeout=-1)
