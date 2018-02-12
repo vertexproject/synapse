@@ -215,8 +215,8 @@ class AxonCell(s_neuron.Cell):
 
         self.onfini(fini)
 
-        for name, curl in self.config.getConfOpt('blobs')
-        blobs = self.config.getConfOpt('blobs')
+        #for name, curl in self.config.getConfOpt('blobs')
+        #blobs = self.config.getConfOpt('blobs')
 
         self.blobpool = s_net.LinkPool()
 
