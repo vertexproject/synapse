@@ -454,6 +454,13 @@ def iterfd(fd, size=10000000):
 def spin(genr):
     '''
     Crank through a generator but discard the yielded values.
+
+    Args:
+        genr: Any generator or iterable valu. This generator is exhausted
+        via a for loop which discards the values.
+
+    Returns:
+        None
     '''
     for item in genr:
         pass

@@ -148,3 +148,20 @@ class CommonTest(SynTest):
         evalu = b'\xde\x8a\x8a\x88\xbc \xd4\xc1\x81J\xf5\xc7\xbf\xbc\xd2T6\xba\xd0\xf1\x10\xaa\x07<\xfa\xe5\xfc\x8c\x93\xeb\xb4 '
         self.len(32, iden3)
         self.eq(iden3, evalu)
+
+    def test_common_spin(self):
+        s = '1234'
+        gen = iter(s)
+        spin(gen)
+        # Ensure we consumed everything from the generator
+        self.raises(StopIteration, next, gen)
+
+        # Consuming a generator could have effects!
+        data = []
+        def hehe():
+            for c in s:
+                data.append(c)
+                yield c
+        gen = hehe()
+        spin(gen)
+        self.eq(data, [c for c in s])
