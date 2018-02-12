@@ -50,13 +50,13 @@ class NetTest(SynTest):
         self.eq(chan.next(timeout=1), msgs[2])
         self.eq(chan.next(timeout=1), msgs[3])
         self.eq(chan.next(timeout=1), msgs[4])
-        self.none(chan.next(timeout=1))
+        self.none(chan.next(timeout=0.1))
 
         [chan.rx(None, msg) for msg in msgs]
         self.eq(chan.slice(4), [msgs[0], msgs[1], msgs[2], msgs[3]])
         self.eq(chan.next(timeout=1), msgs[4])
-        self.none(chan.next(timeout=1))
-        self.none(chan.slice(100, timeout=1))
+        self.none(chan.next(timeout=0.1))
+        self.none(chan.slice(100, timeout=0.1))
 
         results = []
         [chan.rx(None, msg) for msg in msgs]
@@ -69,7 +69,7 @@ class NetTest(SynTest):
         chan.rxfini()
         self.true(chan._chan_rxq._que_done)
         [chan.rx(None, msg) for msg in msgs]
-        self.none(chan.next(timeout=1))
+        self.none(chan.next(timeout=0.1))
 
     def test_lib_net_link_tx(self):
         class DstLink(s_net.Link):
