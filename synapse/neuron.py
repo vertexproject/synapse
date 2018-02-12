@@ -483,7 +483,7 @@ class CellUser(SessBoss):
 
                 if not ok:
                     # XXX untested!
-                    # def doesn't work...
+                    erno = link
                     errs = os.strerror(erno)
                     return retn.errx(OSError(erno, errs))
 
