@@ -210,7 +210,7 @@ class KvTest(SynTest):
             with s_kv.KvStor(path) as stor:  # type: s_kv.KvStor
                 kdic = stor.getKvDict('haha')
 
-                v = {'a':3, 'b':'foo'}
+                v = {'a': 3, 'b': 'foo'}
                 kdic.set('alpha', v)
                 self.eq(kdic.get('alpha'), v)
 

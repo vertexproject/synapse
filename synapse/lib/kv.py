@@ -15,7 +15,7 @@ class KvDict:
     in memory, so retrieval is fast; and only updates needs to be written
     to the the underlying KvStor object.
 
-    Note: set() must be called to persist changes to mutable values like 
+    Note: set() must be called to persist changes to mutable values like
     dicts or lists
     '''
     def __init__(self, stor, iden):
