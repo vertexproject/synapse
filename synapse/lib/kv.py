@@ -55,10 +55,11 @@ class KvDict:
         if self.vals.get(prop) == valu:
             return
 
-        self.vals[prop] = valu
+        byts = s_msgpack.en(valu)
+        self.vals[prop] = s_msgpack.un(byts)
 
         lkey = self.iden + prop.encode('utf8')
-        self.stor.setKvProp(lkey, s_msgpack.en(valu))
+        self.stor.setKvProp(lkey, byts)
 
     def get(self, prop, defval=None):
         '''
