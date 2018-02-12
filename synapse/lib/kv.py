@@ -14,6 +14,9 @@ class KvDict:
     Unlike the KvLook object, the KvDict keeps all items in the dictionary
     in memory, so retrieval is fast; and only updates needs to be written
     to the the underlying KvStor object.
+
+    Note: set() must be called to persist changes to mutable values like
+    dicts or lists
     '''
     def __init__(self, stor, iden):
         self.stor = stor
@@ -55,10 +58,11 @@ class KvDict:
         if self.vals.get(prop) == valu:
             return
 
-        self.vals[prop] = valu
+        byts = s_msgpack.en(valu)
+        self.vals[prop] = s_msgpack.un(byts)
 
         lkey = self.iden + prop.encode('utf8')
-        self.stor.setKvProp(lkey, s_msgpack.en(valu))
+        self.stor.setKvProp(lkey, byts)
 
     def get(self, prop, defval=None):
         '''
