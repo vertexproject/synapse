@@ -225,7 +225,7 @@ class AxonCell(s_neuron.Cell):
 
     @staticmethod
     @s_config.confdef(name='axon')
-    def _getAxonConfDefs(self):
+    def _getAxonConfDefs():
         return (
 
             ('mapsize', {'type': 'int', 'defval': s_const.tebibyte,
