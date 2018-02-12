@@ -50,9 +50,10 @@ class LmdbTest(SynTest):
                 self.eq(metr.info.get('woot'), 40)
 
                 retn = list(metr.iter(xact, 1))
-
                 self.len(1, retn)
                 self.eq(retn[0][1].get('hehe'), 20)
+
+                self.len(0, list(metr.iter(xact, 1234567890)))
 
             self.eq(metr.stat(), {'woot': 40})
 
