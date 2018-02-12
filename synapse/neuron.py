@@ -67,11 +67,6 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         s_net.Link.__init__(self)
         s_config.Config.__init__(self)
 
-        defs = self.getCellConfDefs()
-
-        if defs is not None:
-            self.addConfDefs(defs)
-
         self.dirn = dirn
         s_common.gendir(dirn)
 
@@ -141,11 +136,13 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
 
         # lock cell.lock
         self.lockfd = s_common.genfile(self._path('cell.lock'))
+
         try:
             fcntl.lockf(self.lockfd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as e:
             logger.exception('Failed to obtain lock for [%s]', self.lockfd.name)
             raise
+
         self.onfini(self._onCellFini)
         self.onfini(self.finiCell)
         logger.debug('Cell is done initializing')
@@ -172,9 +169,6 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         resources created during postCell().
         '''
         pass
-
-    def getCellConfDefs(self):
-        return None
 
     def handlers(self):
         '''

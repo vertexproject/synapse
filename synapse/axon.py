@@ -31,16 +31,14 @@ blocksize = 2**26 # 64 megabytes
 class BlobStor(s_eventbus.EventBus):
 
     def __init__(self, dirn, mapsize=s_const.tebibyte):
+
         s_eventbus.EventBus.__init__(self)
 
         path = s_common.gendir(dirn, 'blobs.lmdb')
         self.lenv = lmdb.open(path, writemap=True, max_dbs=128)
         self.lenv.set_mapsize(mapsize)
 
-        self.stat = {
-        }
-
-        self.infodb = self.lenv.open_db(b'info')
+        #self.infodb = self.lenv.open_db(b'info')
         self.bytesdb = self.lenv.open_db(b'bytes') # <fidn><foff>=<byts>
 
         self._blob_clone = s_lmdb.Seqn(self.lenv, b'clone')
@@ -75,11 +73,6 @@ class BlobStor(s_eventbus.EventBus):
 
                 tick = s_common.now()
                 self._blob_metrics.record(xact, {'time': tick, 'size': size, 'blocks': count})
-                #[ xact.put(lkey, lval) for lkey, lval in items ]
-                #self.clonedb.save(xact, [ item[0] for item in items ])
-
-                #tick = s_common.now()
-                #self.metricsdb.save(xact, (
 
     def load(self, buid):
         '''
@@ -120,6 +113,9 @@ class BlobStor(s_eventbus.EventBus):
                     clones.append(lkey)
 
                 self._blob_clone.save(xact, clones)
+
+    def stat(self):
+        return self._blob_metrics.stat()
 
     def metrics(self, offs=0):
         '''
@@ -192,8 +188,6 @@ class BlobUser(s_neuron.CellUser):
     def __init__(self, addr, auth, timeout=30):
         s_neuron.CellUser.__init__(self, auth)
 
-    #def load(
-
     def clone(self, offs, timeout=None):
 
         with self.open(self.addr, timeout=timeout) as sess:
@@ -203,16 +197,6 @@ class BlobUser(s_neuron.CellUser):
                 chan.next(timeout=timeout)
                 for item in chan.rxwind(timeout=timeout):
                     yield item
-
-axondefs = (
-
-    ('axon:mapsize', {'type': 'int', 'defval': s_const.tebibyte,
-        'doc': 'The maximum size of the LMDB memory map'}),
-
-    ('axon:blobs', {'req': True,
-        'doc': 'A list of cell connection strings.  Ie cell://1.2.3.4:34433/'}),
-
-)
 
 class AxonCell(s_neuron.Cell):
     '''
@@ -240,12 +224,11 @@ class AxonCell(s_neuron.Cell):
         self.blobpool = s_net.LinkPool()
 
         netw, path = opts.cryocell[7:].split('/', 1)
- 36     host, portstr = netw.split(':')
+        host, portstr = netw.split(':')
 
-
-        #self.inprog = {}
-
-    def getCellConfDefs(self):
+    @staticmethod
+    @s_config.confdef(name='axon')
+    def _getAxonConfDefs(self):
         return (
 
             ('mapsize', {'type': 'int', 'defval': s_const.tebibyte,
@@ -565,4 +548,3 @@ class AxonUser(s_neuron.CellUser):
         #self._axon_sess = self.open(addr, timeout=timeout)
         #if self._axon_sess is None:
             #raise s_exc.HitMaxTime(timeout=timeout)
-

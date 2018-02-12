@@ -101,7 +101,10 @@ class Plex(s_config.Config):
         self.socks.pop(fino, None)
         self.polls.pop(fino, None)
 
-        self.epoll.unregister(fino)
+        try:
+            self.epoll.unregister(fino)
+        except FileNotFoundError as e:
+            pass
 
         sock.close()
 
@@ -210,8 +213,7 @@ class Plex(s_config.Config):
             self.polls.pop(fino, None)
 
             errn = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-
-            if errn != 0 or flags & (select.EPOLLHUP | select.EPOLLERR):
+            if errn != 0 or flags & select.EPOLLERR:
 
                 ok = False
                 retn = errn
@@ -462,11 +464,18 @@ class Chan(Link):
             logger.warning('rxwind expected tx:wind but got %s' % (mesg[0],))
             return
 
-        item = self.next(timeout=timeout)
-        while item is not None:
-            self.tx(True)
-            yield item
-            item = self.next(timeout=timeout)
+        items = self.slice(100, timeout=timeout)
+        while items is not None:
+
+            for item in items:
+
+                if item is None:
+                    return
+
+                self.tx(True)
+                yield item[0]
+
+            items = self.slice(100, timeout=timeout)
 
     def txwind(self, items, size, timeout=None):
         '''
@@ -485,7 +494,8 @@ class Chan(Link):
         wind = 0
         for item in items:
 
-            self.tx(item)
+            # tx item as tuple to distinguish shutdown
+            self.tx((item,))
             wind += 1
 
             while wind >= size:
@@ -495,6 +505,8 @@ class Chan(Link):
                     return False
 
                 wind -= len(acks)
+
+        self.tx(None)
 
         while wind > 0:
             acks = self.slice(size, timeout=timeout)
@@ -804,16 +816,13 @@ class LinkPool(s_eventbus.EventBus):
             if self.isfini:
                 return
 
-            s_glob.sched.insec(2, connect)
+            connect()
 
         def onsock(ok, retn):
-            print('ONSOCK %r %r' % (ok, retn))
 
             if not ok:
 
                 erno = retn
-                #erno = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-
                 estr = os.strerror(erno)
                 self.fire('pool:erno', name=name, addr=addr, erno=erno)
 

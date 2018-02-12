@@ -184,6 +184,15 @@ class TestSteps:
             self.wait(name, timeout=timeout)
         return True
 
+    def clear(self, step):
+        '''
+        Clear the event for a given step.
+
+        Args:
+            step (str): The name of the step.
+        '''
+        self.steps[step].clear()
+
 class CmdGenerator(s_eventbus.EventBus):
     '''
     Generates a callable object which can be used with unittest.mock.patch in

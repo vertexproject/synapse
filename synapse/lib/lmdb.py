@@ -28,7 +28,7 @@ class Seqn:
             indx = 0
             with xact.cursor(db=self.db) as curs:
                 if curs.last():
-                    indx = struct.unpack('>Q', curs.key())
+                    indx = struct.unpack('>Q', curs.key())[0] + 1
 
             self.indx = itertools.count(indx)
 
