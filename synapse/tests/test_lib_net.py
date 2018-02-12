@@ -15,6 +15,7 @@ class NetTest(SynTest):
         with self.getLoggerStream('synapse.tests.test_lib_net', msg) as stream:
             chan = s_net.Chan(FiniableLink, None)
             chan.txfini(data=('cool', {}))
+            self.true(stream.wait(10))
             stream.seek(0)
             self.isin(msg, stream.read())
 
@@ -119,6 +120,7 @@ class NetTest(SynTest):
 
         with self.getLoggerStream('synapse.tests.test_lib_net', msg) as stream:
             link.rx(None, ('haha', {}))
+            self.true(stream.wait(10))
             stream.seek(0)
             self.isin(msg, stream.read())
 
@@ -127,6 +129,7 @@ class NetTest(SynTest):
         msg = 'unknown message type haha'
         with self.getLoggerStream('synapse.lib.net', msg) as stream:
             link.rx(None, ('haha', {}))
+            self.true(stream.wait(10))
             stream.seek(0)
             self.isin(msg, stream.read())
 
@@ -142,6 +145,7 @@ class NetTest(SynTest):
         msg = 'Exception: a bad happened'
         with self.getLoggerStream('synapse.lib.net', msg) as stream:
             link.rx(None, ('bad', {}))
+            self.true(stream.wait(10))
             stream.seek(0)
             self.isin(msg, stream.read())
 
@@ -158,6 +162,7 @@ class NetTest(SynTest):
         msg = 'link OtherBadLink: rx mesg exception:'
         with self.getLoggerStream('synapse.lib.net', msg) as stream:
             link.rx(None, ('bad', {}))
+            self.true(stream.wait(10))
             stream.seek(0)
             self.isin(msg, stream.read())
 
@@ -174,6 +179,7 @@ class NetTest(SynTest):
         msg = 'BaddestLink.rxfunc() failed on: (\'bad\', {})'
         with self.getLoggerStream('synapse.lib.net', msg) as stream:
             link.rx(None, ('bad', {}))
+            self.true(stream.wait(10))
             stream.seek(0)
             self.isin(msg, stream.read())
 
@@ -191,6 +197,7 @@ class NetTest(SynTest):
         link.rxfini()
         with self.getLoggerStream('synapse.lib.net') as stream:
             link.rx(None, ('anything', {}))
+            self.false(stream.wait(1))
             stream.seek(0)
             self.len(0, stream.read())
 
