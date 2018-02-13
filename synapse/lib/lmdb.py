@@ -169,6 +169,9 @@ class Metrics:
         Args:
             xact (Transaction): An LMDB write transaction.
             info (dict): A dictionary of sample info to save.
+
+        Returns:
+            None
         '''
         indx = struct.pack('>Q', next(self.indx))
         sample = s_msgpack.en(info)
@@ -195,6 +198,13 @@ class PropSetr:
     #def deltag(self, buid, tag):
 
     def has(self, penc, byts):
+        '''
+        Check for the existence of an encoded prop, valu pair in a PropStor.
+
+        Args:
+            penc (bytes): The encoded property name.
+            byts (bytes): The valu bytes.
+        '''
         return self.burs.set_key(penc + b'\x00' + byts)
 
     def set(self, buid, penc, lval, flags=0):
