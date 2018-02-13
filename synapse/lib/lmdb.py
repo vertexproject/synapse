@@ -3,10 +3,6 @@ import itertools
 
 import synapse.lib.msgpack as s_msgpack
 
-'''
-Some LMDB helpers...
-'''
-
 STOR_FLAG_NOINDEX = 0x0001      # there is no byprop index for this prop
 STOR_FLAG_MULTIVAL = 0x0002     # this is a multi-value prop
 STOR_FLAG_DEFVAL = 0x0004       # Only set this if it doesn't exist
@@ -14,6 +10,10 @@ STOR_FLAG_DEFVAL = 0x0004       # Only set this if it doesn't exist
 class Seqn:
     '''
     An append optimized sequence of byte blobs.
+
+    Args:
+        lenv (lmdb.Environment): The LMDB Environment.
+        name (str): The name of the sequence.
     '''
     def __init__(self, lenv, name):
 
@@ -30,7 +30,16 @@ class Seqn:
             self.indx = itertools.count(indx)
 
     def save(self, xact, items):
+        '''
+        Save a series of items to a sequence.
 
+        Args:
+            xact (lmdb.Transaction): The LMDB Transaction.
+            items (tuple): The series of items to save into the sequence.
+
+        Returns:
+            None
+        '''
         rows = []
         for item in items:
             byts = s_msgpack.en(item)

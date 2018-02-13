@@ -18,7 +18,10 @@ class LmdbTest(SynTest):
 
             with lenv.begin(write=True) as xact:
                 seqn.save(xact, items)
+                retn = tuple(seqn.iter(xact, 0))
+                self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
 
+                self.raises(TypeError, seqn.save, xact, ({'set'},))
                 retn = tuple(seqn.iter(xact, 0))
                 self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
 
