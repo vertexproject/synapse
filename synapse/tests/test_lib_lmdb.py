@@ -219,3 +219,22 @@ class LmdbTest(SynTest):
                 self.eq(retn, ((buid1, b'foo:intish', b'\x00\x01'), ))
                 retn = tuple(sorted(psto.eq(xact, b'foo:nothere', b'\x00\x01')))
                 self.eq(retn, ())
+
+            buid2 = b'\x02' * 32
+            buid3 = b'\x03' * 32
+            rows = (
+                (buid2, b'hehe:a', b'haha'),
+                (buid2, b'hehe:b', b'haha'),
+                (buid3, b'hehe:c', b'haha'),
+            )
+            with lenv.begin(write=True) as xact:
+                setr = psto.getPropSetr(xact=xact)
+                setr.set(*rows[0])
+                setr.set(*rows[1])
+                # don't add the last row
+
+                retn = tuple(sorted(psto.recs(xact, rows)))
+                self.len(3, retn)
+                self.eq(retn[0], (buid2, [(rows[0][1], rows[0][2]), (rows[1][1], rows[1][2]), ]))
+                self.eq(retn[1], (buid2, [(rows[0][1], rows[0][2]), (rows[1][1], rows[1][2]), ]))  # FIXME do we really need this twice?
+                self.eq(retn[2], (buid3, ()))
