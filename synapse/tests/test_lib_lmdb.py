@@ -170,10 +170,12 @@ class LmdbTest(SynTest):
 
                 setr = psto.getPropSetr(xact=xact)
                 self.true(setr.has(b'foo:baz', b'qwer'))
-
                 self.false(setr.has(b'foo:lol', b'rofl'))
+                self.true(setr.has(b'foo:baz', b'qwer'))
+
                 self.true(setr.set(buid0, b'foo:lol', b'rofl'))
                 self.true(setr.has(b'foo:lol', b'rofl'))
+                self.true(setr.has(b'foo:baz', b'qwer'))
 
                 self.false(setr.set(buid0, b'foo:lol', b'rofl'))
                 self.false(setr.set(buid0, b'foo:lol', b'defv', flags=s_lmdb.STOR_FLAG_DEFVAL))
@@ -184,7 +186,10 @@ class LmdbTest(SynTest):
                 self.true(setr.set(buid0, b'foo:lol', b'woo'))
                 self.true(setr.has(b'foo:lol', b'woo'))
                 self.true(psto.has(xact, b'foo:lol', b'woo'))
+                self.false(setr.has(b'foo:lol', b'defv'))
+                self.false(setr.has(b'foo:lol', b'rofl'))
                 self.false(psto.has(xact, b'foo:lol', b'defv'))
+                self.false(psto.has(xact, b'foo:lol', b'rofl'))
 
                 self.true(setr.set(buid1, b'foo:multi', b'root', flags=s_lmdb.STOR_FLAG_MULTIVAL))
                 self.true(setr.set(buid1, b'foo:multi', b'user', flags=s_lmdb.STOR_FLAG_MULTIVAL))

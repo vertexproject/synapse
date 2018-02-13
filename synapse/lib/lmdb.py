@@ -192,7 +192,8 @@ class PropSetr:
                     return False
 
                 okey = penc + b'\x00' + oldb
-                self.burs.delete(okey, value=buid)
+                if self.burs.set_key(okey):
+                    self.burs.delete()
 
         # we are now free and clear to set and index
         self.purs.put(pkey, lval, dupdata=multival)
