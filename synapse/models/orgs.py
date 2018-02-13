@@ -36,7 +36,8 @@ class OuMod(CoreModule):
 
                 ('ou:suborg',
                  {'subof': 'comp', 'fields': 'org,ou:org|sub,ou:org', 'doc': 'An org which owns a sub org'}),
-                ('ou:member', {'subof': 'comp', 'fields': 'org,ou:org|person,ps:person', }),
+                ('ou:member', {'subof': 'comp', 'fields': 'org,ou:org|person,ps:person',
+                               'doc': 'A person who is (or was) a member of an organization.'}),
                 ('ou:hasfile', {'subof': 'comp', 'fields': 'org,ou:org|file,file:bytes'}),
                 ('ou:hasfqdn', {'subof': 'comp', 'fields': 'org,ou:org|fqdn,inet:fqdn'}),
                 ('ou:hasipv4', {'subof': 'comp', 'fields': 'org,ou:org|ipv4,inet:ipv4'}),
