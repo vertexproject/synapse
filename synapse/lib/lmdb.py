@@ -211,7 +211,17 @@ class PropSetr:
         return self.burs.set_key(penc + b'\x00' + byts)
 
     def set(self, buid, penc, lval, flags=0):
+        '''
+        Set a (buid, encoded property, encoded valu) in a PropStor.
 
+        Args:
+            buid (bytes): The binary GUID like sequence of 32 bytes.
+            penc (bytes): The encoded property name.
+            lval (bytes): The valu bytes.
+
+        Returns:
+            (bool): True if the (buid, penc, lval) was set, False otherwise.
+        '''
         pkey = buid + penc
 
         noindex = flags & STOR_FLAG_NOINDEX
@@ -269,13 +279,16 @@ class PropSetr:
                 yield (0, (buid, edits))
 
 class PropStor:
+    '''
+    A property store.
 
-    def __init__(self, lenv, name=b'stor', edits=False):
+    Args:
+        lenv (lmdb.Environment): The LMDB Environment.
+        name (str): The name of property store.
+    '''
+    def __init__(self, lenv, name=b'stor'):
 
         self.lenv = lenv
-        self.edits = None
-
-        #self.tags = self.lenv.open_db(b'tags')                             # <tag>00<form>=<init><tick><tock>
         self.props = self.lenv.open_db(name + b':props', dupsort=True)      # <buid><pkey>=<pval>
         self.byprop = self.lenv.open_db(name + b':byprop', dupsort=True)    # <pkey>00<pval> = <buid>
 
