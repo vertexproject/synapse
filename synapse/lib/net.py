@@ -67,8 +67,13 @@ class Plex(s_config.Config):
                         return
 
                     poll = self.polls.get(fino)
+
                     if poll is None:
-                        self.epoll.unregister(fino)
+
+                        sock = self.socks.get(fino)
+                        if sock is not None:
+                            self._finiPlexSock(sock)
+
                         continue
 
                     try:
@@ -94,16 +99,11 @@ class Plex(s_config.Config):
 
         fino = sock.fileno()
 
-        if self.socks.pop(fino, None) is None:
-            return
-
         self.socks.pop(fino, None)
-        self.polls.pop(fino, None)
 
-        try:
+        poll = self.polls.pop(fino)
+        if poll is not None:
             self.epoll.unregister(fino)
-        except FileNotFoundError as e:
-            pass
 
         sock.close()
 
@@ -141,9 +141,8 @@ class Plex(s_config.Config):
                 try:
 
                     news, addr = sock.accept()
-                    news.setblocking(False)
-                    news.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
+                    self._setSockOpts(news)
                     link = self._initPlexSock(news)
 
                     try:
@@ -190,6 +189,20 @@ class Plex(s_config.Config):
         '''
         return self.epoll.modify(fino, flags)
 
+    def _setSockOpts(self, sock):
+
+        sock.setblocking(False)
+        # disable nagle ( to minimize latency for small xmit )
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        # enable TCP keep alives...
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        # start sending a keep alives after 1 sec of inactivity
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1)
+        # send keep alives every 3 seconds once started
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
+        # close the socket after 5 failed keep alives (15 sec)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
+
     def connect(self, addr, onconn):
         '''
         Perform a non-blocking connect with the given callback function.
@@ -199,8 +212,7 @@ class Plex(s_config.Config):
             onconn (function): A callback (ok, link)
         '''
         sock = socket.socket()
-        sock.setblocking(False)
-        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self._setSockOpts(sock)
 
         fino = sock.fileno()
 
@@ -209,14 +221,12 @@ class Plex(s_config.Config):
             ok = True
             retn = None
 
-            self.polls.pop(fino, None)
-
             errn = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
             if errn != 0 or flags & select.EPOLLERR:
 
                 ok = False
                 retn = errn
-                sock.close()
+                self._finiPlexSock(sock)
 
             else:
 
@@ -266,6 +276,17 @@ class Link(s_eventbus.EventBus):
 
         self._mesg_funcs = self.handlers()
         self.onfini(self._onLinkFini)
+
+    def chain(self, link):
+        link.onrx(self.rx)
+        self.onfini(link.fini)
+        link.onfini(self.fini)
+
+    def onmesg(self, name, func):
+        '''
+        Set a named message handler for the link.
+        '''
+        self._mesg_funcs[name] = func
 
     def onrx(self, func):
         '''
@@ -413,7 +434,17 @@ class Chan(Link):
         self.link.tx((name, {'chan': self._chan_iden, 'data': mesg}))
 
     def txfini(self, data=None):
-        self.link.tx(('fini', {'chan': self._chan_iden, 'data': data}))
+
+        name = 'fini'
+        info = {'chan': self._chan_iden, 'data': data}
+
+        # check for syn/psh/fin
+        if self._chan_txinit:
+            self._chan_txinit = False
+            name = 'init'
+            info['fini'] = True
+
+        self.link.tx((name, info))
 
     def setq(self):
         '''
@@ -546,7 +577,7 @@ class ChanPlex(Link):
             return
 
         if self.onchan is None:
-            logger.warning('%r: got init without onchan' % (self,))
+            logger.warning('%r: got init without onchan: %r' % (self, chan))
             return
 
         chan = self.initPlexChan(iden, txinit=False)
@@ -566,6 +597,10 @@ class ChanPlex(Link):
 
         if data is not None:
             chan.rx(self, data)
+
+        # syn/psh/fin ;)
+        if mesg[1].get('fini'):
+            chan.rxfini()
 
     def _tx_real(self, mesg):
 
@@ -616,6 +651,7 @@ class ChanPlex(Link):
 
     def initPlexChan(self, iden, txinit=True):
         chan = Chan(self, iden, txinit=txinit)
+        chan.info.update(self.info)
         self.chans.put(iden, chan)
         return chan
 
@@ -783,62 +819,3 @@ class SockLink(Link):
                     return
 
                 self.txbuf = self.txque.popleft()
-
-class LinkPool(s_eventbus.EventBus):
-    '''
-    A link pool manages a group of connects we want to maintain.
-    '''
-    def __init__(self):
-
-        s_eventbus.EventBus.__init__(self)
-
-        self.addrs = {}
-
-        self.links = s_eventbus.BusRef()
-        self.onfini(self.links.fini)
-
-    def setLinkAddr(self, name, addr):
-        self.addrs[name] = addr
-
-    def addLinkAddr(self, name, addr, onlink):
-
-        self.addrs[name] = addr
-
-        def fini():
-
-            if self.isfini:
-                return
-
-            connect()
-
-        def onsock(ok, retn):
-
-            if not ok:
-
-                erno = retn
-                estr = os.strerror(erno)
-                self.fire('pool:erno', name=name, addr=addr, erno=erno)
-
-                logger.warning('LinkPool connect error: %d %r' % (erno, estr))
-
-                if not self.isfini:
-                    s_glob.sched.insec(2, connect)
-
-                return
-
-            link = retn
-            link.onfini(fini)
-            link.setLinkProp('pool:name', name)
-
-            try:
-                onlink(link)
-                self.fire('pool:link', name=name, link=link)
-
-            except Exception as e:
-                logger.exception('LinkPool: onlink error')
-
-        def connect():
-            addr = self.addrs.get(name)
-            s_glob.plex.connect(addr, onsock)
-
-        s_glob.plex.connect(addr, onsock)

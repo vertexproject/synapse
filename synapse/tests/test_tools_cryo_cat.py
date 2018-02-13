@@ -20,14 +20,14 @@ class CryoCatTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            conf = {'host': '127.0.0.1'}
+            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
             celldir = os.path.join(dirn, 'cell')
             authfp = os.path.join(dirn, 'user.auth')
 
             with s_cryotank.CryoCell(celldir, conf) as cell:
 
-                port = cell.getCellPort()
+                addr = cell.getCellAddr()
                 auth = cell.genUserAuth('visi@vertex.link')
                 self.cell_populate(port, auth)
 

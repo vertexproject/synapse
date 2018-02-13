@@ -161,3 +161,17 @@ def loadfile(path):
     '''
     with io.open(path, 'rb') as fd:
         return un(fd.read())
+
+def dumpfile(item, path):
+    '''
+    Dump an object to a file by path.
+
+    Args:
+        item (object): The object to serialize.
+        path (str): The file path to save.
+
+    Returns:
+        None
+    '''
+    with io.open(path, 'wb') as fd:
+        fd.write(en(item))

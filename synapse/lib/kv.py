@@ -27,19 +27,12 @@ class KvDict:
 
     def items(self):
         '''
-        Yield (prop, valu) tuples from the KvDict.
+        Return a tuple of (prop, valu) tuples from the KvDict.
 
-        Notes:
-            This yields data from the internal dictionary ``items()`` method.
-            Changes made to the KvDict contents during the consumption of the
-            results of the ``KvDict.items()`` generator are not present in the
-            output of this generator.
-
-        Yields:
-            ((str, object)): Tuple of prop, valu pairs.
+        Returns:
+            (((str, object), ...)): Tuple of (prop, valu) tuples.
         '''
-        for item in tuple(self.vals.items()):
-            yield item
+        return tuple(self.vals.items())
 
     def set(self, prop, valu):
         '''
@@ -295,10 +288,10 @@ class KvStor(s_eventbus.EventBus):
         Create or retrieve a KvSet by name from the KvStor.
 
         Args:
-            name (str): The name of the KvList.
+            name (str): The name of the KvSet.
 
         Returns:
-            KvSet: The KvList helper instance.
+            KvSet: The KvSet helper instance.
         '''
         iden = self.genKvAlias(name)
         return KvSet(self, iden)

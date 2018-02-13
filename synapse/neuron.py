@@ -1,6 +1,7 @@
 import os
 import sys
 import fcntl
+import socket
 import logging
 import threading
 import multiprocessing
@@ -9,6 +10,7 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
+import synapse.eventbus as s_eventbus
 
 import synapse.lib.kv as s_kv
 import synapse.lib.net as s_net
@@ -21,6 +23,8 @@ import synapse.lib.crypto.vault as s_vault
 import synapse.lib.crypto.tinfoil as s_tinfoil
 
 logger = logging.getLogger(__name__)
+
+defport = 65521 # the default neuron port
 
 class SessBoss:
     '''
@@ -80,36 +84,17 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         self.root = self.vault.genRootCert()
 
         # setup our certificate and private key
-        auth = None
-
-        path = self._path('cell.auth')
-        if os.path.isfile(path):
-            with open(path, 'rb') as fd:
-                auth = s_msgpack.un(fd.read())
-
-        # if we dont have provided auth, assume we stand alone
-        if auth is None:
-
-            auth = self.vault.genUserAuth('root')
-            with open(path, 'wb') as fd:
-                fd.write(s_msgpack.en(auth))
-
-            path = self._path('user.auth')
-            auth = self.vault.genUserAuth('user')
-
-            with open(path, 'wb') as fd:
-                fd.write(s_msgpack.en(auth))
-
+        auth = self._genSelfAuth()
         roots = self.vault.getRootCerts()
         SessBoss.__init__(self, auth, roots)
 
+        self.cellinfo = {}
         self.cellauth = auth
+        self.cellpool = None
+        self.celluser = CellUser(auth, roots=roots)
 
-        host = self.getConfOpt('host')
+        addr = self.getConfOpt('bind')
         port = self.getConfOpt('port')
-
-        if port == 0:
-            port = self.kvinfo.get('port', port)
 
         def onlink(link):
             sess = CellSess(link, self)
@@ -120,13 +105,13 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
             sess.onfini(link.fini)
             link.onfini(sess.fini)
 
-        self._cell_addr = self.plex.listen((host, port), onlink)
+        addr, port = self.plex.listen((addr, port), onlink)
 
-        # save the port so it can be semi-stable...
-        self.kvinfo.set('port', self._cell_addr[1])
+        host = self.getConfOpt('host')
+        self.celladdr = (host, port)
 
-        # Give implementers the chance to hook into the cell
-        self.postCell()
+        # add it to our neuron reg info...
+        self.cellinfo['addr'] = self.celladdr
 
         # lock cell.lock
         self.lockfd = s_common.genfile(self._path('cell.lock'))
@@ -139,7 +124,49 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
 
         self.onfini(self._onCellFini)
         self.onfini(self.finiCell)
+
+        self.neuraddr = self.cellauth[1].get('neuron')
+        if self.neuraddr is not None:
+            self.cellpool = CellPool(auth, self.neuraddr, neurfunc=self._onNeurSess)
+            self.onfini(self.cellpool.fini)
+
+        # Give implementers the chance to hook into the cell
+        self.postCell()
+
         logger.debug('Cell is done initializing')
+
+    def _onNeurSess(self, sess):
+
+        def retn(ok, retn):
+            if not ok:
+                logger.warning('%s cell:reg %r' % (self.__class__.__name__, ok))
+
+        mesg = ('cell:reg', self.cellinfo)
+        sess.callx(mesg, retn)
+
+    def _genCellName(self, name):
+        return name
+
+    def _genSelfAuth(self):
+
+        path = self._path('cell.auth')
+        if os.path.isfile(path):
+            with open(path, 'rb') as fd:
+                return s_msgpack.un(fd.read())
+
+        name = self._genCellName('root')
+        root = self.vault.genUserAuth(name)
+        with open(path, 'wb') as fd:
+            fd.write(s_msgpack.en(root))
+
+        path = self._path('user.auth')
+
+        name = self._genCellName('user')
+        user = self.vault.genUserAuth(name)
+        with open(path, 'wb') as fd:
+            fd.write(s_msgpack.en(user))
+
+        return root
 
     def _onCellFini(self):
         self.plex.fini()
@@ -178,7 +205,7 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
 
     def genUserAuth(self, name):
         '''
-        Generate a user auth blob that is valid for this Cell.
+        Generate an auth blob that is valid for this Cell.
 
         Args:
             name (str): Name of the user to generate the auth blob for.
@@ -188,14 +215,11 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         '''
         return self.vault.genUserAuth(name)
 
-    def getCellPort(self):
+    def getCellAddr(self):
         '''
-        Get the port the Cell is listening on.
-
-        Returns:
-            int: Port the cell is running on.
+        Return a (host, port) address tuple for the Cell.
         '''
-        return self.kvinfo.get('port')
+        return self.celladdr
 
     def getCellAuth(self):
         '''
@@ -232,11 +256,17 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
         Returns:
             s_kv.KvDict: A persistent KvDict.
         '''
-        return self.kvstor.getKvDict('cell:data:' + name)
+        return self.kvstor.getKvDict('cell:dict:' + name)
+
+    def getCellSet(self, name):
+        '''
+        Get a KvList with a given name.
+        '''
+        return self.kvstor.getKvSet('cell:set:' + name)
 
     def _onCellPing(self, chan, mesg):
         data = mesg[1].get('data')
-        chan.txfini(data=data)
+        chan.txfini(data)
 
     def _path(self, *paths):
         '''
@@ -283,44 +313,121 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
             ('ctor', {
                 'doc': 'The path to the cell constructor'}),
 
-            ('root', {
-                'doc': 'The SHA256 of our neuron root cert (used for autoconf).'}),
+            ('bind', {'defval': '0.0.0.0', 'req': 1,
+                'doc': 'The IP address to bind'}),
 
-            ('neuron', {
-                'doc': 'The host name (and optionally port) of our neuron'}),
+            ('host', {'defval': socket.gethostname(),
+                'doc': 'The host name used to connect to this cell (should resolve over DNS).'}),
 
-            ('host', {'defval': '0.0.0.0', 'req': 1,
-                'doc': 'The host to bind'}),
-
-            ('port', {'defval': 0, 'req': 1,
+            ('port', {'defval': 0,
                 'doc': 'The TCP port to bind (defaults to dynamic)'}),
         )
-
-nodeport = 65521
 
 class Neuron(Cell):
     '''
     A neuron node is the "master cell" for a neuron cluster.
     '''
-    def __init__(self, dirn, conf=None):
-        Cell.__init__(self, dirn, conf=conf)
+    def postCell(self):
+        self.cells = self.getCellDict('cells')
+
+    def handlers(self):
+        return {
+            'cell:get': self._onCellGet,
+            'cell:reg': self._onCellReg,
+            'cell:init': self._onCellInit,
+            'cell:list': self._onCellList,
+        }
+
+    def _genCellName(self, name):
+        host = self.getConfOpt('host')
+        return '%s@%s' % (name, host)
+
+    def _onCellGet(self, chan, mesg):
+        name = mesg[1].get('name')
+        info = self.cells.get(name)
+        chan.txfini((True, info))
+
+    @s_glob.inpool
+    def _onCellReg(self, chan, mesg):
+
+        peer = chan.getLinkProp('cell:peer')
+        if peer is None:
+            enfo = ('NoCellPeer', {})
+            chan.tx((False, enfo))
+            return
+
+        info = mesg[1]
+
+        self.cells.set(peer, info)
+        self.fire('cell:reg', name=peer, info=info)
+
+        logger.info('cell registered: %s %r', peer, info)
+
+        chan.txfini((True, True))
+        return
+
+    def _onCellList(self, chan, mesg):
+        cells = self.cells.items()
+        chan.tx((True, cells))
+
+    @s_glob.inpool
+    def _onCellInit(self, chan, mesg):
+
+        # for now, only let root provision...
+        root = 'root@%s' % (self.getConfOpt('host'),)
+
+        peer = chan.getLinkProp('cell:peer')
+        if peer != root:
+            logger.warning('cell:init not allowed for: %s' % (peer,))
+            return chan.tx((False, None))
+
+        name = mesg[1].get('name').split('@')[0]
+        auth = self.genCellAuth(name)
+        chan.tx((True, auth))
+
+    def getCellInfo(self, name):
+        '''
+        Return the info dict for a given cell by name.
+        '''
+        return self.cells.get(name)
+
+    def getCellList(self):
+        '''
+        Return a list of (name, info) tuples for the known cells.
+        '''
+        return self.cells.items()
+
+    def genCellAuth(self, name):
+        '''
+        Generate or retrieve an auth/provision blob for a cell.
+
+        Args:
+            name (str): The unqualified cell name (ex. "axon00")
+        '''
+        host = self.getConfOpt('host')
+        full = '%s@%s' % (name, host)
+
+        auth = self.vault.genUserAuth(full)
+
+        auth[1]['neuron'] = self.getCellAddr()
+
+        return auth
 
     @staticmethod
-    @s_config.confdef(name='node')
+    @s_config.confdef(name='neuron')
     def _getNodeConf():
         return (
-            ('host', {'defval': '0.0.0.0', 'req': 1,
-                'doc': 'The host to bind'}),
-
-            ('port', {'defval': nodeport, 'req': 1,
-                'doc': 'The TCP port to bind (defaults to %d)' % nodeport}),
+            ('port', {'defval': defport, 'req': 1,
+                'doc': 'The TCP port to bind (defaults to %d)' % defport}),
         )
 
 class Sess(s_net.Link):
 
-    def __init__(self, chan, boss, lisn=False):
+    def __init__(self, link, boss, lisn=False):
 
-        s_net.Link.__init__(self, chan)
+        s_net.Link.__init__(self, link)
+
+        self.chain(link)
 
         self._sess_boss = boss
 
@@ -338,6 +445,17 @@ class Sess(s_net.Link):
             'skey': self._onMesgSkey,
             'xmit': self._onMesgXmit,
         }
+
+    def impel(self, mesg, mach):
+        '''
+        Use a StateMachine to handle a non-blocking client channel.
+        '''
+        chan = self.taskplex.open()
+
+        chan.onrx(mach.rx)
+        chan.onfini(mach.fini)
+
+        chan.tx(mesg)
 
     def setRxKey(self, rxkey):
         self.rxkey = rxkey
@@ -373,6 +491,7 @@ class Sess(s_net.Link):
     def sendcert(self):
         self.link.tx(('cert', {'cert': self._sess_boss.certbyts}))
 
+    @s_glob.inpool
     def _onMesgCert(self, link, mesg):
 
         if self.lisn:
@@ -389,6 +508,9 @@ class Sess(s_net.Link):
         # send back an skey message with our tx key
         data = cert.public().encrypt(self.txkey)
         self.link.tx(('skey', {'data': data}))
+
+        user = cert.tokn.get('user')
+        self.setLinkProp('cell:peer', user)
 
         self.fire('sess:txok')
 
@@ -419,6 +541,30 @@ class UserSess(Sess):
         with self.task(mesg, timeout=timeout) as chan:
             return chan.next(timeout=timeout)
 
+    def callx(self, mesg, func):
+
+        if self.isfini:
+            return func(False, ('IsFini', {}))
+
+        chan = self.chan()
+
+        def rx(link, data):
+            chan.setLinkProp('callx:retn', True)
+            chan.fini()
+            func(*data) # ok, retn
+
+        chan.onrx(rx)
+
+        def fini():
+
+            if chan.getLinkProp('callx:retn') is not None:
+                return
+
+            func(False, ('LinkTimeOut', {}))
+
+        chan.onfini(fini)
+        chan.tx(mesg)
+
     def iter(self, mesg, timeout=None):
         '''
         Access a Cell endpoint that uses the iter convention.
@@ -440,6 +586,9 @@ class UserSess(Sess):
 
         return chan
 
+    def chan(self):
+        return self.taskplex.open(self)
+
 class CellSess(Sess):
     '''
     The session object for the Cell.
@@ -450,6 +599,7 @@ class CellSess(Sess):
         self._sess_cell = cell
 
         def onchan(chan):
+            chan.setLinkProp('cell:peer', self.getLinkProp('cell:peer'))
             chan.onrx(self._sess_cell.rx)
 
         self.taskplex = s_net.ChanPlex(onchan=onchan)
@@ -482,19 +632,11 @@ class CellUser(SessBoss):
             def onlink(ok, link):
 
                 if not ok:
-                    # XXX untested!
-                    # def doesn't work...
+                    erno = link
                     errs = os.strerror(erno)
                     return retn.errx(OSError(erno, errs))
 
                 sess = UserSess(link, self)
-
-                link.onrx(sess.rx)
-
-                # fini cuts both ways
-                link.onfini(sess.fini)
-                sess.onfini(link.fini)
-
                 sess.sendcert()
 
                 retn.retn(sess)
@@ -509,6 +651,37 @@ class CellUser(SessBoss):
             raise s_common.CellUserErr(mesg='waittx timed out or failed')
 
         return sess
+
+    def getCellSess(self, addr, func):
+        '''
+        A non-blocking way to form a session to a remote Cell.
+        '''
+        def onsock(ok, retn):
+
+            if not ok:
+                return func(False, retn)
+
+            link = retn
+            sess = UserSess(link, self)
+
+            def txok(x):
+                sess.setLinkProp('sess:txok', True)
+                func(True, sess)
+
+            def fini():
+
+                # if we dont have a peer, we were not successful
+                if sess.getLinkProp('cell:peer') is not None:
+                    return
+
+                func(False, ('IsFini', {}))
+
+            sess.on('sess:txok', txok)
+            sess.onfini(fini)
+
+            sess.sendcert()
+
+        s_glob.plex.connect(addr, onsock)
 
 def getCellCtor(dirn, conf=None):
     '''
@@ -577,8 +750,8 @@ def main(dirn, conf=None):
 
         cell = func(dirn, conf)
 
-        port = cell.getCellPort()
-        logger.warning('cell divided: %s (%s) port: %d' % (ctor, dirn, port))
+        addr = cell.getCellAddr()
+        logger.warning('cell divided: %s (%s) addr: %r' % (ctor, dirn, addr))
 
         cell.main()
         sys.exit(0)
@@ -586,6 +759,114 @@ def main(dirn, conf=None):
         logger.exception('main: %s (%s)' % (dirn, e))
         sys.exit(1)
 
-if __name__ == '__main__':  # pragma: no cover
-    import sys
-    main(sys.argv[1])
+class CellPool(s_eventbus.EventBus):
+    '''
+    A CellPool maintains sessions with a neuron and cells.
+    '''
+    def __init__(self, auth, neuraddr, neurfunc=None):
+        s_eventbus.EventBus.__init__(self)
+
+        self.neur = None
+        self.neuraddr = neuraddr
+        self.neurfunc = neurfunc
+
+        self.auth = auth
+        self.user = CellUser(auth)
+
+        self.ctors = {}
+        self.cells = s_eventbus.BusRef()
+        self.neurok = threading.Event()
+
+        self._fireNeurLink()
+
+    def _fireNeurLink(self):
+
+        if self.isfini:
+            return
+
+        def fini():
+            if not self.isfini:
+                self._fireNeurLink()
+
+        def onsess(ok, sess):
+
+            if not ok:
+                if self.isfini:
+                    return
+                s_glob.sched.insec(2, self._fireNeurLink)
+                return
+
+            sess.onfini(fini)
+
+            self.neur = sess
+            self.neurok.set()
+            if self.neurfunc:
+                self.neurfunc(sess)
+
+        self.user.getCellSess(self.neuraddr, onsess)
+
+    def add(self, name, func=None):
+        '''
+        Add a named cell to the pool.
+        Func will be called back with each new Sess formed.
+        '''
+        def retry():
+            if not self.isfini:
+                s_glob.sched.insec(2, connect)
+
+        def onsess(ok, retn):
+
+            if not ok:
+                logger.warning('CellPool.add(%s) onsess error: %r' % (name, retn))
+                return retry()
+
+            sess = retn
+
+            sess.onfini(connect)
+            self.cells.put(name, sess)
+            self.fire('cell:add', name=name, sess=sess)
+
+            if func is not None:
+                try:
+                    func(sess)
+                except Exception as e:
+                    logger.exception('CellPool.add(%s) callback failed' % (name,))
+
+        def onlook(ok, retn):
+            if not ok:
+                logger.warning('CellPool.add(%s) onlook error: %r' % (name, retn))
+                return retry()
+
+            addr = retn.get('addr')
+            self.user.getCellSess(addr, onsess)
+
+        def connect():
+            if self.isfini:
+                return
+
+            self.lookup(name, onlook)
+
+        connect()
+
+    def get(self, name):
+        return self.cells.get(name)
+
+    def lookup(self, name, func):
+
+        if self.neur is None:
+            return func(False, ('NotReady', {}))
+
+        mesg = ('cell:get', {'name': name})
+        self.neur.callx(mesg, func)
+
+    #def any(self):
+        #'''
+        #'''
+
+    #def addCell(self, name, addr=None):
+
+    #def addCellAddr(self, name, addr):
+        #'''
+        #An API for adding non-clustered cell addresses to the CellPool.
+        #'''
+        #self.addrs[name] = addr

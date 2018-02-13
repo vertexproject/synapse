@@ -495,7 +495,9 @@ class BusRef(EventBus):
             (None)
         '''
         def fini():
-            self.ebus_by_name.pop(name, None)
+            with self.lock:
+                if self.ebus_by_name.get(name) is ebus:
+                    self.ebus_by_name.pop(name, None)
 
         ebus.onfini(fini)
         self.ebus_by_name[name] = ebus

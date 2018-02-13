@@ -1,5 +1,6 @@
 import random
 
+import synapse.common as s_common
 import synapse.neuron as s_neuron
 
 import synapse.lib.crypto.vault as s_vault
@@ -26,14 +27,15 @@ class TstCell(s_neuron.Cell):
 class NeuronTest(SynTest):
 
     def test_neuron_cell_base(self):
+
         with self.getTestDir() as dirn:
 
-            conf = {'host': '127.0.0.1'}
+            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
+
+            initCellDir(dirn)
 
             with s_neuron.Cell(dirn, conf) as cell:
                 # A bunch of API tests here
-                port = cell.getCellPort()
-                self.isinstance(port, int)
 
                 auth = cell.genUserAuth('bobgrey@vertex.link')
                 self.istufo(auth)
@@ -63,8 +65,6 @@ class NeuronTest(SynTest):
                 celld.set('float:place', (None, {'paperboat': 1}))
 
             with s_neuron.Cell(dirn, conf) as cell:
-                # We persist the port if it is not specified in the config
-                self.eq(cell.getCellPort(), port)
 
                 # These are largely demonstrative tests
                 celld = cell.getCellDict('derry:sewers')
@@ -79,8 +79,9 @@ class NeuronTest(SynTest):
 
             port = random.randint(20000, 50000)
 
-            conf = {'host': '127.0.0.1',
+            conf = {'bind': '127.0.0.1',
                     'port': port,
+                    'host': 'localhost',
                     'ctor': 'synapse.neuron.Cell'}
             # lock the cell
             with genfile(celldirn, 'cell.lock') as fd:
@@ -95,10 +96,12 @@ class NeuronTest(SynTest):
         with self.getTestDir() as dirn:
 
             celldirn = os.path.join(dirn, 'cell')
+            # FIXME: this could randomly fail if the port is in use!
             port = random.randint(20000, 50000)
 
-            conf = {'host': '127.0.0.1',
+            conf = {'bind': '127.0.0.1',
                     'port': port,
+                    'host': 'localhost',
                     'ctor': 'synapse.tests.test_neuron.TstCell'}
 
             # Preload the cell vault
@@ -149,16 +152,16 @@ class NeuronTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            conf = {'host': '127.0.0.1'}
+            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
+
+            initCellDir(dirn)
+            rootauth, userauth = getCellAuth()
 
             with s_neuron.Cell(dirn, conf) as cell:
 
-                port = cell.getCellPort()
-                auth = cell.genUserAuth('visi@vertex.link')
+                user = s_neuron.CellUser(userauth)
 
-                user = s_neuron.CellUser(auth)
-
-                addr = ('127.0.0.1', port)
+                addr = cell.getCellAddr()
 
                 with user.open(addr, timeout=2) as sess:
 
@@ -172,9 +175,10 @@ class NeuronTest(SynTest):
 
     def test_cell_getcellctor(self):
         with self.getTestDir() as dirn:
-            jssave({'ctor': 'synapse.neuron.Cell'}, dirn, 'config.json')
 
             conf = {'ctor': 'synapse.neuron.Cell'}
+            jssave(conf, dirn, 'config.json')
+
             ctor, func = s_neuron.getCellCtor(dirn, conf)
             self.eq(ctor, 'synapse.neuron.Cell')
             self.true(callable(func))
@@ -190,23 +194,20 @@ class NeuronTest(SynTest):
             self.raises(ReqConfOpt, s_neuron.getCellCtor, dirn, {})
 
     def test_neuron_cell_authfail(self):
+
         with self.getTestDir() as dirn:
 
-            conf = {'host': '127.0.0.1'}
+            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
-            c1 = os.path.join(dirn, 'c1')
-            c2 = os.path.join(dirn, 'c2')
+            newp = s_msgpack.loadfile(getTestPath('files', 'newp.auth'))
 
-            with s_neuron.Cell(c1, conf) as cell:
-                auth = cell.genUserAuth('bobgrey@vertex.link')
+            initCellDir(dirn)
 
-            with s_neuron.Cell(c2, conf) as cell:
-                # A bunch of API tests here
-                port = cell.getCellPort()
-                self.isinstance(port, int)
-                user = s_neuron.CellUser(auth)
+            with s_neuron.Cell(dirn, conf) as cell:
 
-                addr = ('127.0.0.1', port)
+                user = s_neuron.CellUser(newp)
+
+                addr = cell.getCellAddr()
 
                 with self.getLoggerStream('synapse.neuron') as stream:
                     self.raises(CellUserErr, user.open, addr, timeout=1)
@@ -219,14 +220,90 @@ class NeuronTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            conf = {'host': '127.0.0.1'}
+            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
+
+            initCellDir(dirn)
+            rootauth, userauth = getCellAuth()
 
             with s_neuron.Cell(dirn, conf) as cell:
 
-                port = cell.getCellPort()
-                auth = cell.genUserAuth('visi@vertex.link')
+                user = s_neuron.CellUser(userauth)
 
-                user = s_neuron.CellUser(auth)
-                addr = ('127.0.0.1', 0)
+                addr = ('localhost', 1)
                 self.raises(CellUserErr, user.open, addr, timeout=1)
                 self.raises(CellUserErr, user.open, addr, timeout=-1)
+
+    def test_neuron_neuron(self):
+
+        with self.getTestDir() as dirn:
+
+            steps = self.getTestSteps(('cell:reg',))
+
+            conf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
+
+            path = s_common.gendir(dirn, 'neuron')
+
+            with s_neuron.Neuron(path, conf) as neur:
+
+                path = s_common.genpath(path, 'cell.auth')
+                root = s_msgpack.loadfile(path)
+
+                def onreg(mesg):
+                    steps.done('cell:reg')
+
+                neur.on('cell:reg', onreg)
+                self.eq(neur._genCellName('root'), 'root@localhost')
+
+                user = s_neuron.CellUser(root)
+
+                pool = s_neuron.CellPool(root, neur.getCellAddr())
+                pool.neurok.wait(timeout=8)
+                self.true(pool.neurok.is_set())
+
+                with user.open(neur.getCellAddr()) as sess:
+
+                    mesg = ('cell:init', {'name': 'cell00'})
+                    ok, auth = sess.call(mesg, timeout=2)
+                    self.true(ok)
+
+                    path = s_common.gendir(dirn, 'cell')
+
+                    authpath = s_common.genpath(path, 'cell.auth')
+                    s_msgpack.dumpfile(auth, authpath)
+
+                    conf = {'host': 'localhost', 'bind': '127.0.0.1'}
+
+                    with s_neuron.Cell(path, conf) as cell:
+
+                        steps.wait('cell:reg', timeout=3)
+                        steps.clear('cell:reg')
+
+                        # we should be able to get a session to him in the pool...
+                        wait = pool.waiter(1, 'cell:add')
+                        pool.add('cell00@localhost')
+
+                        self.nn(wait.wait(timeout=3))
+                        self.nn(pool.get('cell00@localhost'))
+
+                        ok, cells = sess.call(('cell:list', {}))
+                        self.true(ok)
+
+                        self.eq(cells[0][0], 'cell00@localhost')
+
+                        ok, info = sess.call(('cell:get', {'name': 'cell00@localhost'}))
+                        self.true(ok)
+
+                        self.eq(info.get('addr'), cell.getCellAddr())
+
+                    # he'll come up on a new port...
+                    with s_neuron.Cell(path, conf) as cell:
+
+                        wait = pool.waiter(1, 'cell:add')
+
+                        steps.wait('cell:reg', timeout=3)
+
+                        self.nn(wait.wait(timeout=3))
+                        self.nn(pool.get('cell00@localhost'))
+
+                        mesg = ('cell:ping', {'data': 'hehe'})
+                        self.eq(pool.get('cell00@localhost').call(mesg), 'hehe')

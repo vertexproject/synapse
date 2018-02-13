@@ -429,31 +429,3 @@ class NetTest(SynTest):
             plex.connect(addr, onconn)
 
             steps.waitall(timeout=2)
-
-    def test_lib_net_pool(self):
-
-        data = {}
-        steps = self.getTestSteps(('accepted', 'connected'))
-
-        def onlisn(link):
-            data['lisn'] = link
-            steps.done('accepted')
-
-        with s_net.Plex() as plex:
-
-            addr = plex.listen(('127.0.0.1', 0), onlisn)
-
-            def onconnect(link):
-                steps.done('connected')
-
-            with s_net.LinkPool() as pool:
-
-                pool.addLinkAddr('foo', addr, onconnect)
-
-                steps.waitall(timeout=2)
-                steps.clear('connected')
-
-                lisn = data.get('lisn')
-                lisn.fini()
-
-                steps.wait('connected', timeout=2)

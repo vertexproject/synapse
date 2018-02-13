@@ -126,7 +126,11 @@ class BlobCell(s_neuron.Cell):
 
     def postCell(self):
 
+        if self.neuraddr is None:
+            raise Exception('BlobCell requires a neuron')
+
         path = self.getCellPath('blobs.lmdb')
+        self.cloneof = self.getConfOpt('clone')
 
         s_common.gendir(path)
         self.blobs = BlobStor(path)
@@ -180,26 +184,40 @@ class BlobCell(s_neuron.Cell):
             genr = self.blobs.load(buid)
             chan.txloop(genr)
 
-class BlobUser(s_neuron.CellUser):
+    @staticmethod
+    @s_config.confdef(name='blob')
+    def _getBlobConfDefs(self):
+        return (
+            ('mapsize', {'type': 'int', 'defval': s_const.tebibyte,
+                'doc': 'The maximum size of the LMDB memory map'}),
 
-    def __init__(self, addr, auth, timeout=30):
-        s_neuron.CellUser.__init__(self, auth)
+            ('clone', {'defval': None,
+                'doc': 'The name of a blob cell to clone from'}),
+        )
 
-    def clone(self, offs, timeout=None):
+#class BlobUser(s_neuron.CellUser):
 
-        with self.open(self.addr, timeout=timeout) as sess:
+    #def __init__(self, addr, auth, timeout=30):
+        #s_neuron.CellUser.__init__(self, auth)
 
-            with sess.task(('blob:clone', {'offs': offs})) as chan:
+    #def clone(self, offs, timeout=None):
 
-                chan.next(timeout=timeout)
-                for item in chan.rxwind(timeout=timeout):
-                    yield item
+        #with self.open(self.addr, timeout=timeout) as sess:
+
+            #with sess.task(('blob:clone', {'offs': offs})) as chan:
+
+                #chan.next(timeout=timeout)
+                #for item in chan.rxwind(timeout=timeout):
+                    #yield item
 
 class AxonCell(s_neuron.Cell):
     '''
     An Axon acts as an indexer and manages access to BlobCell bytes.
     '''
     def postCell(self):
+
+        if self.cellpool is None:
+            raise Exception('AxonCell requires a neuron and CellPool')
 
         mapsize = self.config.getConfOpt('axon:mapsize')
         path = s_common.gendir(dirn, 'axon.lmdb')
@@ -209,73 +227,38 @@ class AxonCell(s_neuron.Cell):
 
         self.propstor = s_lmdb.PropStor(self.lenv, b'axon')
 
+        self.bloblocs = self.lenv.open_db(b'axon:blob:locs')
+
         def fini():
             self.lenv.sync()
             self.lenv.close()
 
         self.onfini(fini)
 
-        #for name, curl in self.config.getConfOpt('blobs')
-        #blobs = self.config.getConfOpt('blobs')
+        self.blobs = s_neuron.CellPool(self.cellauth, self.neuraddr)
 
-        self.blobpool = s_net.LinkPool()
+        for name in self.getConfOpt('axon:blobs'):
+            self.blobs.add(name)
 
-        netw, path = opts.cryocell[7:].split('/', 1)
-        host, portstr = netw.split(':')
+    #def handlers(self):
+        #return {
+        #}
+
+    #def addBlobLocs(self, xact, bloblocs):
+        #'''
+        #Add a list of (sha256, cell) tuples to the file locations.
+        #'''
 
     @staticmethod
     @s_config.confdef(name='axon')
-    def _getAxonConfDefs(self):
+    def _getAxonConfDefs():
         return (
-
-            ('mapsize', {'type': 'int', 'defval': s_const.tebibyte,
+            ('axon:mapsize', {'type': 'int', 'defval': s_const.tebibyte,
                 'doc': 'The maximum size of the LMDB memory map'}),
 
-            ('blobs', {'req': True,
-                'doc': "A list of (name, conn) tuples.  Ex. ('blob00', 'cell://1.2.3.4:45998')"}),
+            ('axon:blobs', {'req': True,
+                'doc': 'A list of cell names in a neuron cluster'}),
         )
-
-    #def files(self, offs, size):
-
-        #lkey = struct.pack('>Q', offs)
-
-        #with self.lenv.begin() as xact:
-
-            #with xact.cursor(db=self.lenv_files) as curs:
-
-                #if not curs.set_key(lkey):
-                    #return ()
-
-                #for lkey, lval in curs.iternext():
-
-                    #indx = struct.unpack('>Q', lkey)[0]
-                    #yield s_msgpack.un(lval)
-
-    #def find(self, name, valu):
-        #'''
-        #Yields (id,info) tuples for files matching name=valu.
-
-        #Args:
-            #name (str): The hash name.
-            #valu (str): The hex digest.
-        #'''
-
-        #pref = prefs.get(name)
-        #if pref is None:
-            #raise s_exc.NoSuchAlgo(name=name)
-
-        #hkey = pref + unhex(valu)
-
-        #with self.lenv.begin() as xact:
-
-            #with xact.cursor(db=self.lenv_hashes) as curs:
-
-                #if not curs.set_key(hkey):
-                    #return
-
-                #with xact.cursor(db=self.lenv_files) as furs:
-                    #for fkey in curs.iternext_dup():
-                        #yield s_msgpack.un(furs.get(fkey))
 
     def find(self, name, valu):
         '''
@@ -461,78 +444,6 @@ class AxonCell(s_neuron.Cell):
             curs.put(bkey, byts)
 
         s_common.spin(setr.put(recs))
-
-    #def _addFilesBytes(self, xact, bytss):
-        #'''
-        #Add file bytes from a yielder containing each file as a bytes.
-        #'''
-        #with self.propstor.getPropSetr(xact) as setr:
-
-        #with xact.cursor(db=self.propstor.byprop) as burs:
-
-            #for byts in bytss:
-
-                #sha256 = hashlib.sha256(byts).digest()
-
-                #if setr.has(b'file:bytes:sha256', sha256):
-                    #continue
-
-                #if burs.set_key(sha256prop + b'\x00' + sha256):
-                    #continue
-
-                #size = len(byts)
-
-                #md5 = hashlib.md5(byts).digest()
-                #sha1 = hashlib.sha1(byts).digest()
-                #sha512 = hashlib.sha512(byts).digest()
-
-                #iden = s_common.guid()
-                #buid = s_common.buid(('file:bytes', iden))
-
-                #props = (
-                    #(buid, (
-                        ## bespoke node...
-                        #('file:bytes', STOR_TYPE_BYTES, 0, s_common.uhex(iden)),
-                        #('file:bytes:mime', STOR_TYPE_UTF8, 0, '??'),
-                        #('file:bytes:size', STOR_TYPE_UINT64, 0, size),
-                        #('file:bytes:md5', STOR_TYPE_BYTES, 0, md5),
-                        #('file:bytes:sha1', STOR_TYPE_BYTES, 0, sha1),
-                        #('file:bytes:sha256', STOR_TYPE_BYTES, 0, sha256),
-                        #('file:bytes:sha512', STOR_TYPE_BYTES, 0, sha512),
-                    #)),
-                #)
-
-    #def _addFileBytes(self, xact, burs
-
-    #def blobs(self, blobs):
-
-    #def eats(self, bytz):
-        #'''
-        ##Single round trip file upload for many small files.
-        #'''
-    #def addFilesBytes(self, bytz):
-
-    #def eat(self, byts):
-        #'''
-        #Single round trip file upload interface for small files.
-        #'''
-        #sha256 = hashlib.sha256(byts).hexdigest()
-        #if self._hasHash('sha256', sha256):
-            #return False
-
-        #upld = Upload(self, len(byts))
-        #upld.write(byts)
-        #return True
-
-    #def has(self, sha256s
-
-    #def hashash(
-    #def has(self, name, valu):
-        #penc = b'file:bytes:' + name.encode('utf8')
-        #with self.lenv.begin() as xact:
-            #self.propstor.has(
-
-        #return self._hasHash(name, valu)
 
 class AxonUser(s_neuron.CellUser):
 

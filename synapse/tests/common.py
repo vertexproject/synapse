@@ -27,6 +27,7 @@ import synapse.cores.common as s_cores_common
 import synapse.lib.scope as s_scope
 import synapse.lib.ingest as s_ingest
 import synapse.lib.output as s_output
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
 
 from synapse.common import *
@@ -45,6 +46,30 @@ TstSSLConnectionResetErr = socket.error
 testdir = os.path.dirname(__file__)
 def getTestPath(*paths):
     return os.path.join(testdir, *paths)
+
+def getCellAuth():
+
+    path = getTestPath('files', 'cell.auth')
+    cell = s_msgpack.loadfile(path)
+
+    path = getTestPath('files', 'user.auth')
+    user = s_msgpack.loadfile(path)
+
+    return cell, user
+
+def initCellDir(*path):
+
+    cell, user = getCellAuth()
+
+    dirn = gendir(*path)
+
+    path = os.path.join(dirn, 'cell.auth')
+    s_msgpack.dumpfile(cell, path)
+
+    path = os.path.join(dirn, 'user.auth')
+    s_msgpack.dumpfile(user, path)
+
+    return dirn
 
 def getIngestCore(path, core=None):
     if core is None:

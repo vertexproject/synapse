@@ -92,17 +92,16 @@ class CryoTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            conf = {'host': '127.0.0.1'}
+            initCellDir(dirn)
+            root, user = getCellAuth()
+
+            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
             with s_cryotank.CryoCell(dirn, conf) as cell:
 
-                port = cell.getCellPort()
+                addr = cell.getCellAddr()
 
-                auth = cell.genUserAuth('visi@vertex.link')
-
-                addr = ('127.0.0.1', port)
-
-                user = s_cryotank.CryoUser(auth, addr, timeout=2)
+                user = s_cryotank.CryoUser(user, addr, timeout=2)
 
                 # Setting the _chunksize to 1 forces iteration on the client
                 # side of puts, as well as the server-side.
@@ -147,12 +146,12 @@ class CryoTest(SynTest):
                 self.false(user.delete('woot:hehe'))
                 self.none(cell.tanks.get('woot:hehe'))
                 self.none(cell.names.get('woot:hehe'))
-                self.eq(list(user.slice('woot:hehe', 1, 2)), [])
-                self.eq(list(user.rows('woot:hehe', 1, 2)), [])
-                listd = dict(user.list())
+                self.eq(list(user.slice('woot:hehe', 1, 2, timeout=3)), [])
+                self.eq(list(user.rows('woot:hehe', 1, 2, timeout=3)), [])
+                listd = dict(user.list(timeout=3))
                 self.notin('woot:hehe', listd)
-                self.none(user.metrics('woot:hehe', 0, 100))
-                self.none(user.last('woot:hehe'))
+                self.none(user.metrics('woot:hehe', 0, 100, timeout=3))
+                self.none(user.last('woot:hehe', timeout=3))
 
                 # Adding data re-adds the tank
                 user.puts('woot:hehe', cryodata, timeout=5)
@@ -169,7 +168,8 @@ class CryoTest(SynTest):
 
             # Turn it back on
             with s_cryotank.CryoCell(dirn, conf) as cell:
-                # auth and port persist
+
+                addr = cell.getCellAddr()
                 user = s_cryotank.CryoUser(auth, addr, timeout=2)
                 listd = dict(user.list())
                 self.len(3, listd)
@@ -197,7 +197,8 @@ class CryoTest(SynTest):
                 'cells': [
                     (celldir, {'ctor': 'synapse.cryotank.CryoCell',
                                 'port': port,
-                                'host': '127.0.0.1',
+                                'host': 'localhost',
+                                'bind': '127.0.0.1',
                                 }),
                 ],
             }
