@@ -128,9 +128,25 @@ class Metrics:
         xact.put(penc, pval, db=self._db_current)
 
     def stat(self):
+        '''
+        Return the metrics info.
+
+        Returns:
+            (dict): The dictionary of recorded metrics.
+        '''
         return self.info
 
     def iter(self, xact, offs):
+        '''
+        Iterate over metrics items from a given offset.
+
+        Args:
+            xact (lmdb.Transaction): An LMDB transaction.
+            offs (int): The offset to begin iterating from.
+
+        Yields:
+            (indx, sample): The index and sample.
+        '''
 
         lkey = struct.pack('>Q', offs)
 
