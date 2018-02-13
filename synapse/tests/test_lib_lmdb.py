@@ -217,3 +217,5 @@ class LmdbTest(SynTest):
 
                 retn = tuple(sorted(psto.eq(xact, b'foo:intish', b'\x00\x01')))
                 self.eq(retn, ((buid1, b'foo:intish', b'\x00\x01'), ))
+                retn = tuple(sorted(psto.eq(xact, b'foo:nothere', b'\x00\x01')))
+                self.eq(retn, ())
