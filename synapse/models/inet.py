@@ -761,6 +761,22 @@ class InetMod(CoreModule):
             for i, p, v in dels:
                 self.core.delRowsByIdProp(i, p, v)
 
+    @modelrev('inet', 201802131725)
+    def _revModel201802131725(self):
+        # mark changed nodes with a dark row...
+        dvalu = 'inet:201802131725'
+        dprop = '_:dark:syn:modl:rev'
+
+        with self.core.getCoreXact() as xact:
+            rows = self.core.getRowsByProp('inet:web:group:name')
+            darks = [(i[::-1], dprop, dvalu, t) for (i, p, v, t) in rows]
+            self.core.store.updateProperty('inet:web:group:name',
+                                           'inet:web:group:id')
+            self.core.addRows(darks)
+            # Make the inet:group nodes
+            for (i, p, v, t) in rows:
+                self.core.formTufoByProp('inet:group', v)
+
     @staticmethod
     def getBaseModels():
         modl = {
@@ -864,6 +880,10 @@ class InetMod(CoreModule):
                     'subof': 'str:lwr',
                     'doc': 'A username string.'}),
 
+                ('inet:group', {
+                    'subof': 'str:lwr',
+                    'doc': 'A group name string.'}),
+
                 ('inet:passwd', {
                     'subof': 'str',
                     'doc': 'A password string.'}),
@@ -931,7 +951,7 @@ class InetMod(CoreModule):
                 ('inet:web:group', {
                     'subof': 'sepr',
                     'sep': '/',
-                    'fields': 'site,inet:fqdn|name,ou:name',
+                    'fields': 'site,inet:fqdn|id,inet:group',
                     'doc': 'A group hosted within or registered with a given Internet-based site or service.',
                     'ex': 'somesite.com/mycoolgroup'}),
 
@@ -1107,6 +1127,8 @@ class InetMod(CoreModule):
                  ]),
 
                 ('inet:user', {'ptype': 'inet:user'}, []),
+
+                ('inet:group', {'ptype': 'inet:group'}, []),
 
                 ('inet:passwd', {'ptype': 'inet:passwd'}, [
                     ('md5', {'ptype': 'hash:md5', 'ro': 1,
@@ -1427,15 +1449,34 @@ class InetMod(CoreModule):
                 ('inet:web:group', {}, [
                     ('site', {'ptype': 'inet:fqdn', 'ro': 1,
                         'doc': 'The site or service associated with the group.'}),
-                    ('name', {'ptype': 'ou:name', 'ro': 1}),
+                    ('id', {'ptype': 'inet:group', 'ro': 1,
+                            'doc': 'The site specific unique identifier for the group'}),
+                    ('name', {'ptype': 'inet:group',
+                              'doc': 'Localized name for an web group'}),
+                    ('name:en', {'ptype': 'inet:group',
+                                 'doc': 'English localized version of the name for a web group'}),
                     ('url', {'ptype': 'inet:url',
-                        'doc': 'The service provider URL where the group is hosted.'}),
+                             'doc': 'The service provider URL where the group is hosted.'}),
                     ('avatar', {'ptype': 'file:bytes',
-                        'doc': 'The file representing the avatar (e.g., profile picture) for the group.'}),
+                                'doc': 'The file representing the avatar (e.g., profile picture) for the group.'}),
                     ('desc', {'ptype': 'str:txt',
-                        'doc': 'The text of the description of the group.'}),
+                              'doc': 'The text of the description of the group.'}),
                     ('webpage', {'ptype': 'inet:url',
-                        'doc': 'A related URL specified by the group (e.g., primary web site, etc.).'}),
+                                 'doc': 'A related URL specified by the group (e.g., primary web site, etc.).'}),
+                    ('loc', {'ptype': 'str:lwr',
+                             'doc': 'A self-declared location for the group.'}),
+                    ('latlong', {'ptype': 'geo:latlong',
+                                 'doc': 'The last known latitude/longitude for the node'}),
+                    ('signup', {'ptype': 'time',
+                                'doc': 'The date and time the account was registered.'}),
+                    ('signup:ipv4', {'ptype': 'inet:ipv4',
+                                     'doc': 'The IPv6 address used to create the group.'}),
+                    ('signup:ipv6', {'ptype': 'inet:ipv6',
+                                     'doc': 'The IPv6 address used to create the group.'}),
+                    ('seen:min', {'ptype': 'time:min',
+                                  'doc': 'The earliest known date of activity for the group.'}),
+                    ('seen:max', {'ptype': 'time:max',
+                                  'doc': 'The most recent known date of activity for the group.'}),
                 ]),
 
                 ('inet:web:post', {}, [
