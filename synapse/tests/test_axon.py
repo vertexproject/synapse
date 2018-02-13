@@ -3,11 +3,7 @@ import struct
 import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.neuron as s_neuron
-#import synapse.daemon as s_daemon
-#import synapse.telepath as s_telepath
 
-#import synapse.lib.tufo as s_tufo
-#import synapse.lib.service as s_service
 import synapse.lib.crypto.vault as s_vault
 
 from synapse.tests.common import *

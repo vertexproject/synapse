@@ -18,8 +18,6 @@ import traceback
 import contextlib
 import collections
 
-from binascii import hexlify
-
 import regex
 
 import synapse.exc as s_exc
@@ -72,7 +70,7 @@ def guid(valu=None):
         str: 32 character, lowercase ascii string.
     '''
     if valu is None:
-        return hexlify(os.urandom(16)).decode('utf8')
+        return binascii.hexlify(os.urandom(16)).decode('utf8')
     # Generate a "stable" guid from the given item
     byts = s_msgpack.en(valu)
     return hashlib.md5(byts).hexdigest()
@@ -80,7 +78,17 @@ def guid(valu=None):
 def buid(valu=None):
     '''
     A binary GUID like sequence of 32 bytes.
-    ( stable BUID generation is sha256(msgpack(valu)) )
+
+    Args:
+        valu (object): Optional, if provided, the hash of the msgpack
+        encoded form of the object is returned. This can be used to
+        create stable buids.
+
+    Notes:
+        By default, this returns a random 32 byte value.
+
+    Returns:
+        bytes: A 32 byte value.
     '''
     if valu is None:
         return os.urandom(32)
@@ -89,9 +97,26 @@ def buid(valu=None):
     return hashlib.sha256(byts).digest()
 
 def ehex(byts):
+    '''
+    Encode a set of bytes to a string using binascii.hexlify.
+
+    Args:
+        byts (bytes): Bytes to encode.
+
+    Returns:
+        str: A string representing the bytes.
+    '''
     return binascii.hexlify(byts).decode('utf8')
 
 def uhex(text):
+    '''
+    Decode bytes to a string using binascci.unhexlify.
+    Args:
+        text (str): Text to decode.
+
+    Returns:
+        bytes: The decoded bytes.
+    '''
     return binascii.unhexlify(text)
 
 guidre = regex.compile('^[0-9a-f]{32}$')
@@ -429,6 +454,13 @@ def iterfd(fd, size=10000000):
 def spin(genr):
     '''
     Crank through a generator but discard the yielded values.
+
+    Args:
+        genr: Any generator or iterable valu. This generator is exhausted
+        via a for loop which discards the values.
+
+    Returns:
+        None
     '''
     for item in genr:
         pass

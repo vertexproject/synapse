@@ -1,14 +1,7 @@
 import struct
 import itertools
 
-import synapse.exc as s_exc
-import synapse.common as s_common
-
 import synapse.lib.msgpack as s_msgpack
-
-'''
-Some LMDB helpers...
-'''
 
 STOR_FLAG_NOINDEX = 0x0001      # there is no byprop index for this prop
 STOR_FLAG_MULTIVAL = 0x0002     # this is a multi-value prop
@@ -17,6 +10,10 @@ STOR_FLAG_DEFVAL = 0x0004       # Only set this if it doesn't exist
 class Seqn:
     '''
     An append optimized sequence of byte blobs.
+
+    Args:
+        lenv (lmdb.Environment): The LMDB Environment.
+        name (str): The name of the sequence.
     '''
     def __init__(self, lenv, name):
 
@@ -33,7 +30,16 @@ class Seqn:
             self.indx = itertools.count(indx)
 
     def save(self, xact, items):
+        '''
+        Save a series of items to a sequence.
 
+        Args:
+            xact (lmdb.Transaction): An LMDB write transaction.
+            items (tuple): The series of items to save into the sequence.
+
+        Returns:
+            None
+        '''
         rows = []
         for item in items:
             byts = s_msgpack.en(item)
@@ -44,7 +50,16 @@ class Seqn:
             curs.putmulti(rows, append=True)
 
     def iter(self, xact, offs):
+        '''
+        Iterate over items in a sequence from a given offset.
 
+        Args:
+            xact (lmdb.Transaction): An LMDB transaction.
+            offs (int): The offset to begin iterating from.
+
+        Yields:
+            (indx, valu): The index and valu of the item.
+        '''
         lkey = struct.pack('>Q', offs)
         with xact.cursor(db=self.db) as curs:
 
@@ -57,7 +72,13 @@ class Seqn:
                 yield indx, valu
 
 class Metrics:
+    '''
+    A helper for recording metrics about an Environment.
 
+    Args:
+        lenv (lmdb.Environment): The LMDB Environment.
+        name (str): The name of the metrics instance.
+    '''
     def __init__(self, lenv, name=b'metrics'):
 
         self.lenv = lenv
@@ -87,6 +108,14 @@ class Metrics:
     def inc(self, xact, prop, step=1):
         '''
         Increment the value of a global metric.
+
+        Args:
+            xact (lmdb.Transaction): An LMDB write transaction.
+            prop (str): The property to increment.
+            step (int): The value by which to increment the property.
+
+        Returns:
+            None
         '''
         valu = self.info.get(prop, 0)
         valu += step
@@ -99,9 +128,25 @@ class Metrics:
         xact.put(penc, pval, db=self._db_current)
 
     def stat(self):
+        '''
+        Return the metrics info.
+
+        Returns:
+            (dict): The dictionary of recorded metrics.
+        '''
         return self.info
 
     def iter(self, xact, offs):
+        '''
+        Iterate over metrics items from a given offset.
+
+        Args:
+            xact (lmdb.Transaction): An LMDB transaction.
+            offs (int): The offset to begin iterating from.
+
+        Yields:
+            (indx, sample): The index and sample.
+        '''
 
         lkey = struct.pack('>Q', offs)
 
@@ -124,6 +169,9 @@ class Metrics:
         Args:
             xact (Transaction): An LMDB write transaction.
             info (dict): A dictionary of sample info to save.
+
+        Returns:
+            None
         '''
         indx = struct.pack('>Q', next(self.indx))
         sample = s_msgpack.en(info)
@@ -131,7 +179,11 @@ class Metrics:
 
 class PropSetr:
     '''
-    A helper for setting properties.  Most to cache cursors.
+    A helper for setting properties. Most to cache cursors.
+
+    Args:
+        ptso (PropStor): The PropStore.
+        xact (lmdb.Transaction): An LMDB write transaction.
     '''
     def __init__(self, psto, xact):
 
@@ -141,12 +193,22 @@ class PropSetr:
         self.purs = xact.cursor(db=psto.props)
         self.burs = xact.cursor(db=psto.byprop)
 
-    def has(self, penc, byts):
-        return self.burs.set_key(penc + b'\x00' + byts)
-
     #def rem(self, buid):
     #def addtag(self, buid, tag, times):
     #def deltag(self, buid, tag):
+
+    def has(self, penc, byts):
+        '''
+        Check for the existence of an encoded prop, valu pair in a PropStor.
+
+        Args:
+            penc (bytes): The encoded property name.
+            byts (bytes): The valu bytes.
+
+        Returns:
+            (bool): True if the pair exists, False otherwise.
+        '''
+        return self.burs.set_key(penc + b'\x00' + byts)
 
     def set(self, buid, penc, lval, flags=0):
 
@@ -177,7 +239,8 @@ class PropSetr:
                     return False
 
                 okey = penc + b'\x00' + oldb
-                self.burs.delete(okey, value=buid)
+                if self.burs.set_key(okey):
+                    self.burs.delete()
 
         # we are now free and clear to set and index
         self.purs.put(pkey, lval, dupdata=multival)

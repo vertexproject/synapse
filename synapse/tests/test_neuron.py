@@ -26,6 +26,20 @@ class TstCell(s_neuron.Cell):
 
 class NeuronTest(SynTest):
 
+    def test_neuron_cell_cellAuth(self):
+        with self.getTestDir() as dirn:
+
+            conf = {'host': '127.0.0.1'}
+
+            with s_neuron.Cell(dirn, conf) as cell:
+                auth = cell.getCellAuth()
+                self.nn(auth)
+                self.isinstance(auth, tuple)
+                self.len(2, auth)
+                self.eq(auth[0], 'user')
+                self.isinstance(auth[1], dict)
+                self.isinstance(auth[1].get('cert'), bytes)
+
     def test_neuron_cell_base(self):
 
         with self.getTestDir() as dirn:
