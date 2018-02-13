@@ -174,9 +174,17 @@ class LmdbTest(SynTest):
                 self.false(setr.has(b'foo:lol', b'rofl'))
                 self.true(setr.set(buid0, b'foo:lol', b'rofl'))
                 self.true(setr.has(b'foo:lol', b'rofl'))
+
                 self.false(setr.set(buid0, b'foo:lol', b'rofl'))
                 self.false(setr.set(buid0, b'foo:lol', b'defv', flags=s_lmdb.STOR_FLAG_DEFVAL))
                 self.false(setr.has(b'foo:lol', b'defv'))
+                self.true(setr.has(b'foo:lol', b'rofl'))
+                self.true(psto.has(xact, b'foo:lol', b'rofl'))
+
+                self.true(setr.set(buid0, b'foo:lol', b'woo'))
+                self.true(setr.has(b'foo:lol', b'woo'))
+                self.true(psto.has(xact, b'foo:lol', b'woo'))
+                self.false(psto.has(xact, b'foo:lol', b'defv'))
 
                 self.true(setr.set(buid1, b'foo:multi', b'root', flags=s_lmdb.STOR_FLAG_MULTIVAL))
                 self.true(setr.set(buid1, b'foo:multi', b'user', flags=s_lmdb.STOR_FLAG_MULTIVAL))
