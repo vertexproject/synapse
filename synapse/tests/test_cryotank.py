@@ -93,7 +93,7 @@ class CryoTest(SynTest):
         with self.getTestDir() as dirn:
 
             initCellDir(dirn)
-            root, user = getCellAuth()
+            root, auth = getCellAuth()
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
@@ -101,7 +101,7 @@ class CryoTest(SynTest):
 
                 addr = cell.getCellAddr()
 
-                user = s_cryotank.CryoUser(user, addr, timeout=2)
+                user = s_cryotank.CryoUser(auth, addr, timeout=2)
 
                 # Setting the _chunksize to 1 forces iteration on the client
                 # side of puts, as well as the server-side.
@@ -234,9 +234,8 @@ class CryoTest(SynTest):
 
     def test_cryo_cryouser_timeout(self):
         with self.getTestDir() as dirn:
-            conf = {'host': '127.0.0.1'}
+            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
             with s_cryotank.CryoCell(dirn, conf) as cell:
-                port = cell.getCellPort()
+                addr = cell.getCellAddr()
                 auth = cell.genUserAuth('visi@vertex.link')
-                addr = ('127.0.0.1', port)
                 self.raises(CellUserErr, s_cryotank.CryoUser, auth, addr, timeout=-1)

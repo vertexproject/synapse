@@ -311,11 +311,11 @@ class Link(s_eventbus.EventBus):
         if self.istxfini:
             self.fini()
 
-    def txfini(self, data=None):
+    def txfini(self, data=s_common.novalu):
         '''
         Annotate that the there is nothing more to send.
         '''
-        if data is not None:
+        if data is not s_common.novalu:
             self.tx(data)
 
         if self.istxfini:
@@ -433,10 +433,13 @@ class Chan(Link):
 
         self.link.tx((name, {'chan': self._chan_iden, 'data': mesg}))
 
-    def txfini(self, data=None):
+    def txfini(self, data=s_common.novalu):
 
         name = 'fini'
-        info = {'chan': self._chan_iden, 'data': data}
+        info = {'chan': self._chan_iden}
+
+        if data is not s_common.novalu:
+            info['data'] = data
 
         # check for syn/psh/fin
         if self._chan_txinit:
@@ -565,13 +568,13 @@ class ChanPlex(Link):
     def _onChanInit(self, link, mesg):
 
         iden = mesg[1].get('chan')
-        data = mesg[1].get('data')
+        data = mesg[1].get('data', s_common.novalu)
 
         chan = self.chans.get(iden)
         if chan is not None:
             # an init for an existing chan
             # (return init message from our tx)
-            if data is not None:
+            if data is not s_common.novalu:
                 chan.rx(self, data)
 
             return
@@ -636,7 +639,7 @@ class ChanPlex(Link):
         # this message means the remote end is done sending
         # ( and does not by itself fini() the chan )
         iden = mesg[1].get('chan')
-        data = mesg[1].get('data')
+        data = mesg[1].get('data', s_common.novalu)
 
         chan = self.chans.get(iden)
         if chan is None:
@@ -644,7 +647,7 @@ class ChanPlex(Link):
 
         chan.setLinkProp('plex:link', link)
 
-        if data is not None:
+        if data is not s_common.novalu:
             chan.rx(self, data)
 
         chan.rxfini()
