@@ -1,9 +1,6 @@
 import struct
 import itertools
 
-import synapse.exc as s_exc
-import synapse.common as s_common
-
 import synapse.lib.msgpack as s_msgpack
 
 '''

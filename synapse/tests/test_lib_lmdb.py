@@ -1,5 +1,5 @@
 import lmdb
-import synapse.common as s_common
+
 import synapse.lib.lmdb as s_lmdb
 
 from synapse.tests.common import *
@@ -23,6 +23,83 @@ class LmdbTest(SynTest):
                 self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
 
             lenv.close()
+
+            # Reopen the seqn and continue where we left off
+            lenv = lmdb.open(dirn, writemap=True, max_dbs=128)
+            seqn = s_lmdb.Seqn(lenv, b'seqn:test')
+
+            with lenv.begin(write=True) as xact:
+                seqn.save(xact, items)
+
+                retn = tuple(seqn.iter(xact, 0))
+                self.eq(retn, ((0, 'foo'), (1, 10), (2, 20),
+                               (3, 'foo'), (4, 10), (5, 20)))
+
+            with lenv.begin() as xact:
+                # We can also start in the middle of the sequence
+                retn = tuple(seqn.iter(xact, 4))
+                self.eq(retn, ((4, 10), (5, 20)))
+
+            with lenv.begin() as xact:
+                # iterating past the end yields nothing
+                retn = tuple(seqn.iter(xact, 100))
+                self.eq(retn, ())
+
+            # A xact which is not a writer fails
+            with lenv.begin() as xact:
+                self.raises(lmdb.ReadonlyError, seqn.save, xact, items)
+
+            # A subseqeunt write works.
+            with lenv.begin(write=True) as xact:
+                seqn.save(xact, items)
+                retn = tuple(seqn.iter(xact, 0))
+                self.len(9, retn)
+
+            lenv.close()
+
+    def test_lmdb_seqn_raceattempt(self):
+        with self.getTestDir() as dirn:
+
+            lenv = lmdb.open(dirn, writemap=True, max_dbs=128)
+            seqn = s_lmdb.Seqn(lenv, b'seqn:test')
+
+            evt = threading.Event()
+            evt1 = threading.Event()
+            evt2 = threading.Event()
+            evt3 = threading.Event()
+            evt4 = threading.Event()
+
+            @firethread
+            def race(n, m, e):
+                valus = [i for i in range(n, m)]
+                e.set()
+                evt.wait()
+                with lenv.begin(write=True) as xact:
+                    seqn.save(xact, valus)
+
+            thr1 = race(10000, 20000, evt1)
+            thr2 = race(20000, 30000, evt2)
+            thr3 = race(30000, 40000, evt3)
+            thr4 = race(40000, 50000, evt4)
+            evt1.wait()
+            evt2.wait()
+            evt3.wait()
+            evt4.wait()
+            evt.set()
+
+            thr1.join()
+            thr2.join()
+            thr3.join()
+            thr4.join()
+
+            with lenv.begin(write=False) as xact:
+                retn = tuple(seqn.iter(xact, 0))
+                offsets = [off for off, valu in retn]
+                valus = [valu for off, valu in retn]
+                self.len(40000, offsets)
+                self.eq(offsets, [i for i in range(40000)])
+                # Everything makes it in but order isn't guaranteed
+                self.eq(sorted(valus), [i for i in range(10000, 50000)])
 
     def test_lmdb_metrics(self):
 
