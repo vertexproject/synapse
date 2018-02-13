@@ -197,9 +197,13 @@ class LmdbTest(SynTest):
                 self.true(setr.has(b'foo:multi', b'user'))
                 self.false(setr.set(buid1, b'foo:multi', b'user', flags=s_lmdb.STOR_FLAG_MULTIVAL))
 
+                retn = tuple(sorted(psto.pref(xact, b'e', b'gg')))
+                self.eq(retn, ())
+                retn = tuple(sorted(psto.pref(xact, b'f', b'gg')))
+                self.eq(retn, ())
                 retn = tuple(sorted(psto.pref(xact, b'foo:bar', b'asdf')))
                 self.eq(retn, ((buid0, b'foo:bar', b'asdfqwer'), (buid1, b'foo:bar', b'asdfzxcv')))
-                retn = tuple(sorted(psto.pref(xact, b'foo:bar:nope', b'asdf')))
+                retn = tuple(sorted(psto.pref(xact, b'g', b'gg')))
                 self.eq(retn, ())
 
                 retn = tuple(sorted(psto.range(xact, b'foo:intish', b'\x00\x00', b'\x00\x80')))
