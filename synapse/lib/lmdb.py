@@ -204,6 +204,9 @@ class PropSetr:
         Args:
             penc (bytes): The encoded property name.
             byts (bytes): The valu bytes.
+
+        Returns:
+            (bool): True if the pair exists, False otherwise.
         '''
         return self.burs.set_key(penc + b'\x00' + byts)
 
