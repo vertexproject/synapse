@@ -34,7 +34,7 @@ class Seqn:
         Save a series of items to a sequence.
 
         Args:
-            xact (lmdb.Transaction): The LMDB Transaction.
+            xact (lmdb.Transaction): An LMDB write transaction.
             items (tuple): The series of items to save into the sequence.
 
         Returns:
@@ -54,7 +54,7 @@ class Seqn:
         Iterate over items in a sequence from a given offset.
 
         Args:
-            xact (lmdb.Transaction): The LMDB Transaction.
+            xact (lmdb.Transaction): An LMDB transaction.
             offs (int): The offset to begin iterating from.
 
         Yields:
@@ -72,7 +72,13 @@ class Seqn:
                 yield indx, valu
 
 class Metrics:
+    '''
+    A helper for recording metrics about an Environment.
 
+    Args:
+        lenv (lmdb.Environment): The LMDB Environment.
+        name (str): The name of the metrics instance.
+    '''
     def __init__(self, lenv, name=b'metrics'):
 
         self.lenv = lenv
@@ -102,6 +108,14 @@ class Metrics:
     def inc(self, xact, prop, step=1):
         '''
         Increment the value of a global metric.
+
+        Args:
+            xact (lmdb.Transaction): An LMDB write transaction.
+            prop (str): The property to increment.
+            step (int): The value by which to increment the property.
+
+        Returns:
+            None
         '''
         valu = self.info.get(prop, 0)
         valu += step
@@ -156,12 +170,12 @@ class PropSetr:
         self.purs = xact.cursor(db=psto.props)
         self.burs = xact.cursor(db=psto.byprop)
 
-    def has(self, penc, byts):
-        return self.burs.set_key(penc + b'\x00' + byts)
-
     #def rem(self, buid):
     #def addtag(self, buid, tag, times):
     #def deltag(self, buid, tag):
+
+    def has(self, penc, byts):
+        return self.burs.set_key(penc + b'\x00' + byts)
 
     def set(self, buid, penc, lval, flags=0):
 
