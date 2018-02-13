@@ -176,7 +176,11 @@ class Metrics:
 
 class PropSetr:
     '''
-    A helper for setting properties.  Most to cache cursors.
+    A helper for setting properties. Most to cache cursors.
+
+    Args:
+        ptso (PropStor): The PropStore.
+        xact (lmdb.Transaction): An LMDB write transaction.
     '''
     def __init__(self, psto, xact):
 
