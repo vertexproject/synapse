@@ -50,7 +50,16 @@ class Seqn:
             curs.putmulti(rows, append=True)
 
     def iter(self, xact, offs):
+        '''
+        Iterate over items in a sequence from a given offset.
 
+        Args:
+            xact (lmdb.Transaction): The LMDB Transaction.
+            offs (int): The offset to begin iterating from.
+
+        Yields:
+            (indx, valu): The index and valu of the item.
+        '''
         lkey = struct.pack('>Q', offs)
         with xact.cursor(db=self.db) as curs:
 
