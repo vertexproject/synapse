@@ -343,8 +343,8 @@ class PropStor:
 
                 props = []
 
-                for lkey, lval in curs.iternext():
-                    props.append(lkey[32:], lval)
+                for lkey, lval in purs.iternext():
+                    props.append((lkey[32:], lval))
 
                 yield (buid, props)
 
