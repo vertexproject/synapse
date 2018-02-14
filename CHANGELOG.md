@@ -1,6 +1,23 @@
 Changelog
 =========
 
+v0.0.45 - 2018-02-13
+--------------------
+
+## New Features
+- #661 - Added the ``inet:group`` form and type. This is analogous to the ``inet:user`` form for tracking a given group name.
+
+## Enhancements
+- #666 - Add ``ps:person:name:en`` and various ``name:en`` subprops props to distinguish between localized and English versions of names.
+- #661 - The ``inet:web:group`` form was made more robust. The second field of the sepr type was renamed to ``:id`` to represent a site specific identifier, freeing the ``:name`` property up to represent a descriptive name of the group.  ``:name:en`` was added to provide for a English version of the name.  ``:signup``, ``:signup:ipv4`` and ``signup:ipv6`` props were added to track when groups were created.  ``:loc`` and ``:latlong`` props were added to allow for some location based tracking.  ``:seen:min`` and ``:seen:max`` secondary properties were added to track when a group was active.
+- #662 - The python ``msgpack`` library was version locked to 0.5.1.
+- #663 - Added ``:name:en`` and ``:realname:en`` secondary props to ``inet:web:acct`` for tracking English specific versions of a name.
+
+## Bugs
+- #624 - The ``ps:person`` was missing the ``:name:middle`` field. This has been added.
+- #660 - The ``ou:member`` form was broken. This has been changed to be a Comp type and had the secondary property ``:end`` added to it.
+
+
 v0.0.44 - 2018-01-11
 --------------------
 

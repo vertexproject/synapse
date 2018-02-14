@@ -217,7 +217,17 @@ class PropSetr:
         return self.burs.set_key(penc + b'\x00' + byts)
 
     def set(self, buid, penc, lval, flags=0):
+        '''
+        Set a row in a PropStor.
 
+        Args:
+            buid (bytes): The binary GUID like sequence of 32 bytes.
+            penc (bytes): The encoded property name.
+            lval (bytes): The valu bytes.
+
+        Returns:
+            (bool): True if the row was set, False otherwise.
+        '''
         pkey = buid + penc
 
         noindex = flags & STOR_FLAG_NOINDEX
@@ -275,20 +285,40 @@ class PropSetr:
                 yield (0, (buid, edits))
 
 class PropStor:
+    '''
+    A property store.
 
-    def __init__(self, lenv, name=b'stor', edits=False):
+    Args:
+        lenv (lmdb.Environment): The LMDB Environment.
+        name (str): The name of property store.
+    '''
+    def __init__(self, lenv, name=b'stor'):
 
         self.lenv = lenv
-        self.edits = None
-
-        #self.tags = self.lenv.open_db(b'tags')                             # <tag>00<form>=<init><tick><tock>
         self.props = self.lenv.open_db(name + b':props', dupsort=True)      # <buid><pkey>=<pval>
         self.byprop = self.lenv.open_db(name + b':byprop', dupsort=True)    # <pkey>00<pval> = <buid>
 
     def getPropSetr(self, xact):
+        '''
+        Return a new PropSetr helper.
+
+        Returns:
+            PropSetr: The property setter helper.
+        '''
         return PropSetr(self, xact)
 
     def has(self, xact, penc, byts):
+        '''
+        Check for the existence of an encoded prop, valu pair in a PropStor.
+
+        Args:
+            xact (lmdb.Transaction): An LMDB transaction.
+            penc (bytes): The encoded property name.
+            byts (bytes): The valu bytes.
+
+        Returns:
+            (bool): True if the pair exists, False otherwise.
+        '''
         with xact.cursor(db=self.byprop) as burs:
             return burs.set_key(penc + b'\x00' + byts)
 

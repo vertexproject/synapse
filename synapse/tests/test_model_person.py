@@ -29,6 +29,19 @@ class PersonTest(SynTest):
             self.eq(node[1].get('ps:person:name:given'), 'invisigoth')
             self.eq(node[1].get('ps:person:name:middle'), 'ninja')
 
+            node = core.formTufoByProp('ps:person', guid(),
+                                       **{'name': 'Гольдштейн, Эммануэль, брат',
+                                          'name:en': 'Goldstein, Emmanuel, Brother',
+                                          })
+            self.eq(node[1].get('ps:person:name'), 'гольдштейн,эммануэль,брат')
+            self.eq(node[1].get('ps:person:name:sur'), 'гольдштейн')
+            self.eq(node[1].get('ps:person:name:given'), 'эммануэль')
+            self.eq(node[1].get('ps:person:name:middle'), 'брат')
+            self.eq(node[1].get('ps:person:name:en'), 'goldstein,emmanuel,brother')
+            self.eq(node[1].get('ps:person:name:en:sur'), 'goldstein')
+            self.eq(node[1].get('ps:person:name:en:given'), 'emmanuel')
+            self.eq(node[1].get('ps:person:name:en:middle'), 'brother')
+
     def test_model_person_tokn(self):
         with self.getRamCore() as core:
             node = core.formTufoByProp('ps:tokn', 'Invisigoth')
