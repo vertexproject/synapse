@@ -90,6 +90,17 @@ class ThreadsTest(SynTest):
 
         self.eq(retn.wait(timeout=1), (True, True))
 
+        # no timeout
+        with s_threads.RetnWait() as retn:
+            def work():
+                retn.retn(True)
+
+            thrd = s_threads.worker(work)
+            self.eq(retn.wait(), (True, True))
+            thrd.join()
+
+        self.eq(retn.wait(timeout=1), (True, True))
+
         # Let a wait() timeout
         with s_threads.RetnWait() as retn:
             def work():
