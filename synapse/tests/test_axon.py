@@ -1,3 +1,4 @@
+import os
 import struct
 
 import synapse.axon as s_axon
@@ -45,6 +46,32 @@ class AxonTest(SynTest):
 
                     retn = b''.join(bst1.load(buid))
                     self.eq(retn, b'asdfqwerhehehaha')
+
+    def test_axon_blob_stat(self):
+
+        with self.getTestDir() as dirn:
+
+            path0 = os.path.join(dirn, 'blob0')
+            with s_axon.BlobStor(path0) as bst0:
+
+                buid = b'\x56' * 32
+                blobs = (
+                    (buid + u64(0), os.urandom(1000)),
+                    (buid + u64(1), b'qwer'),
+                    (buid + u64(2), b'hehe'),
+                    (buid + u64(3), b'haha'),
+                )  # 4 blocks, size 1000 + 4 + 4 + 4 = 1012 bytes
+
+                stats = bst0.stat()
+                self.eq(stats, {})
+
+                bst0.save(blobs[0:1])
+                stats = bst0.stat()
+                self.eq(stats, {'bytes': 1000, 'blocks': 1})
+
+                bst0.save(blobs[1:])
+                stats = bst0.stat()
+                self.eq(stats, {'bytes': 1012, 'blocks': 4})
 
     def test_axon_cell(self):
 

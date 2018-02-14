@@ -56,10 +56,7 @@ class BlobStor(s_eventbus.EventBus):
             clones = []
 
             for lkey, lval in blocs:
-
-                size = len(lval)
                 clones.append(lkey)
-
                 xact.put(lkey, lval, db=self._blob_bytes)
 
                 size += len(lval)
