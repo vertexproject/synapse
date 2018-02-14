@@ -134,6 +134,14 @@ class AxonTest(SynTest):
                 bref.put('blob00', blob00)
                 self.true(blob00.cellpool.neurwait(timeout=3))
 
+                user = s_neuron.CellUser(root)
+                blob00sess = user.open(blob00.getCellAddr(), timeout=3)
+
+                mesg = ('blob:stat', {})
+                ok, retn = blob00sess.call(mesg, timeout=3)
+                self.true(ok)
+                self.eq(retn, {})  # Nothing there yet
+
                 # blob01 ############################################
                 path = s_common.gendir(dirn, 'blob01')
                 authblob01 = neur.genCellAuth('blob01')
@@ -161,7 +169,6 @@ class AxonTest(SynTest):
                 self.true(axon00.cellpool.neurwait(timeout=3))
                 #####################################################
 
-                user = s_neuron.CellUser(root)
                 sess = user.open(axon00.getCellAddr(), timeout=3)
 
                 newp = os.urandom(32)
@@ -186,6 +193,11 @@ class AxonTest(SynTest):
                 ok, retn = sess.call(mesg, timeout=3)
                 self.true(ok)
                 self.eq(retn, True)
+
+                mesg = ('blob:stat', {})
+                ok, retn = blob00sess.call(mesg, timeout=3)
+                self.true(ok)
+                self.eq(retn, {'blocks': 1, 'bytes': 8})  # Now it should have data
 
                 mesg = ('axon:save', {'files': [b'asdfasdf']})
                 ok, retn = sess.call(mesg, timeout=3)

@@ -227,7 +227,7 @@ class BlobCell(s_neuron.Cell):
             chan.txfini((True, True))
 
     def _onBlobStat(self, chan, mesg):
-        chan.txfini(self._blob_metrics.stat())
+        chan.txfini((True, self.blobs.stat()))
 
     @s_glob.inpool
     def _onBlobMetrics(self, chan, mesg):
