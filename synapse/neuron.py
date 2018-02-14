@@ -1,9 +1,12 @@
 import os
 import sys
 import fcntl
+import random
 import socket
 import logging
 import threading
+import contextlib
+import collections
 import multiprocessing
 
 import synapse.exc as s_exc
@@ -138,11 +141,22 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
     def _onNeurSess(self, sess):
 
         def retn(ok, retn):
+
             if not ok:
                 logger.warning('%s cell:reg %r' % (self.__class__.__name__, ok))
 
-        mesg = ('cell:reg', self.cellinfo)
-        sess.callx(mesg, retn)
+            # either way, try again soon...
+            if not sess.isfini:
+                s_glob.sched.insec(60, cellreg)
+
+        def cellreg():
+
+            if sess.isfini:
+                return
+
+            sess.callx(('cell:reg', self.cellinfo), retn)
+
+        cellreg()
 
     def _genCellName(self, name):
         return name
@@ -772,12 +786,26 @@ class CellPool(s_eventbus.EventBus):
 
         self.auth = auth
         self.user = CellUser(auth)
+        self.names = collections.deque() # used for round robin..
 
         self.ctors = {}
         self.cells = s_eventbus.BusRef()
         self.neurok = threading.Event()
 
         self._fireNeurLink()
+
+    def neurwait(self, timeout=None):
+        '''
+        Wait for the neuron connection to be ready.
+
+        Returns:
+            (bool): True on ready, False on timeout.
+        '''
+        self.neurok.wait(timeout=timeout)
+        return self.neurok.is_set()
+
+    def items(self):
+        return self.cells.items()
 
     def _fireNeurLink(self):
 
@@ -808,13 +836,18 @@ class CellPool(s_eventbus.EventBus):
     def add(self, name, func=None):
         '''
         Add a named cell to the pool.
+
         Func will be called back with each new Sess formed.
         '''
+        self.names.append(name)
+
         def retry():
             if not self.isfini:
                 s_glob.sched.insec(2, connect)
 
         def onsess(ok, retn):
+            if self.isfini:
+                return
 
             if not ok:
                 logger.warning('CellPool.add(%s) onsess error: %r' % (name, retn))
@@ -833,6 +866,9 @@ class CellPool(s_eventbus.EventBus):
                     logger.exception('CellPool.add(%s) callback failed' % (name,))
 
         def onlook(ok, retn):
+            if self.isfini:
+                return
+
             if not ok:
                 logger.warning('CellPool.add(%s) onlook error: %r' % (name, retn))
                 return retry()
@@ -859,14 +895,10 @@ class CellPool(s_eventbus.EventBus):
         mesg = ('cell:get', {'name': name})
         self.neur.callx(mesg, func)
 
-    #def any(self):
-        #'''
-        #'''
+    def any(self):
 
-    #def addCell(self, name, addr=None):
+        items = self.cells.items()
+        if not items:
+            return False, ('NotReady', {})
 
-    #def addCellAddr(self, name, addr):
-        #'''
-        #An API for adding non-clustered cell addresses to the CellPool.
-        #'''
-        #self.addrs[name] = addr
+        return True, random.choice(items)

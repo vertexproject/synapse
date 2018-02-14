@@ -8,10 +8,7 @@ import synapse.lib.crypto.vault as s_vault
 
 from synapse.tests.common import *
 
-asdfmd5 = hashlib.md5(b'asdfasdf').hexdigest()
-asdfsha1 = hashlib.sha1(b'asdfasdf').hexdigest()
-asdfsha256 = hashlib.sha256(b'asdfasdf').hexdigest()
-asdfsha512 = hashlib.sha512(b'asdfasdf').hexdigest()
+asdfsha256 = hashlib.sha256(b'asdfasdf').digest()
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +41,127 @@ class AxonTest(SynTest):
 
                 with s_axon.BlobStor(path1) as bst1:
 
-                    bst1._saveCloneRows(bst0.clone(0))
+                    bst1.addCloneRows(bst0.clone(0))
 
                     retn = b''.join(bst1.load(buid))
                     self.eq(retn, b'asdfqwerhehehaha')
+
+    def test_axon_cell(self):
+
+        # implement as many tests as possible in this one
+        # since it *has* to use a neuron to work correctly
+
+        # put all the things that need fini() into a BusRef...
+        with self.getTestDir() as dirn:
+
+            with s_eventbus.BusRef() as bref:
+
+                # neur00 ############################################
+                conf = {'host': 'localhost', 'bind': '127.0.0.1'}
+                path = s_common.gendir(dirn, 'neuron')
+
+                neur = s_neuron.Neuron(path, conf)
+                bref.put('neur00', neur)
+
+                root = neur.getCellAuth()
+                addr = neur.getCellAddr()
+
+                # blob00 ############################################
+                path = s_common.gendir(dirn, 'blob00')
+                authblob00 = neur.genCellAuth('blob00')
+                s_msgpack.dumpfile(authblob00, os.path.join(path, 'cell.auth'))
+
+                blob00 = s_axon.BlobCell(path, conf)
+                bref.put('blob00', blob00)
+                self.true(blob00.cellpool.neurwait(timeout=3))
+
+                # blob01 ############################################
+                path = s_common.gendir(dirn, 'blob01')
+                authblob01 = neur.genCellAuth('blob01')
+                s_msgpack.dumpfile(authblob01, os.path.join(path, 'cell.auth'))
+
+                blob01conf = dict(conf)
+                blob01conf['blob:cloneof'] = 'blob00@localhost'
+
+                blob01 = s_axon.BlobCell(path, blob01conf)
+                bref.put('blob01', blob01)
+                self.true(blob01.cellpool.neurwait(timeout=3))
+                blob01wait = blob01.waiter(1, 'blob:clone:rows')
+
+                # axon00 ############################################
+                path = s_common.gendir(dirn, 'axon00')
+                authaxon00 = neur.genCellAuth('axon00')
+                s_msgpack.dumpfile(authaxon00, os.path.join(path, 'cell.auth'))
+                axonconf = {
+                    'host': 'localhost',
+                    'bind': '127.0.0.1',
+                    'axon:blobs': ('blob00@localhost',),
+                }
+
+                axon00 = s_axon.AxonCell(path, axonconf)
+                self.true(axon00.cellpool.neurwait(timeout=3))
+                #####################################################
+
+                user = s_neuron.CellUser(root)
+                sess = user.open(axon00.getCellAddr(), timeout=3)
+
+                newp = os.urandom(32)
+                ok, retn = sess.call(('axon:wants', {'hashes': [newp]}))
+                self.true(ok)
+                self.eq(retn, (newp,))
+
+                # wait for the axon to have blob00
+                ready = False
+
+                for i in range(30):
+
+                    if axon00.blobs.items():
+                        ready = True
+                        break
+
+                    time.sleep(0.1)
+
+                self.true(ready)
+
+                mesg = ('axon:save', {'files': [b'asdfasdf']})
+                ok, retn = sess.call(mesg, timeout=3)
+                self.true(ok)
+
+                ok, retn = sess.call(('axon:wants', {'hashes': [asdfsha256]}))
+                self.true(ok)
+                self.eq(retn, ())
+
+                # lets see if the bytes make it to the blob clone...
+                self.nn(blob01wait.wait(timeout=10))
+                valu = b''.join(blob01.blobs.load(asdfsha256))
+                self.eq(valu, b'asdfasdf')
+
+                # no such hash file...
+                mesg = ('axon:bytes', {'sha256': newp})
+                with sess.task(mesg) as chan:
+                    ok, retn = chan.next(timeout=3)
+                    self.false(ok)
+                    self.eq(retn[0], 'FileNotFound')
+
+                mesg = ('axon:bytes', {'sha256': asdfsha256})
+                with sess.task(mesg) as chan:
+                    ok, retn = chan.next(timeout=3)
+                    self.eq((ok, retn), (True, 'blob00@localhost'))
+
+                    full = b''
+                    for ok, byts in chan.rxwind(timeout=3):
+                        self.true(ok)
+                        full += byts
+
+                    self.eq(full, b'asdfasdf')
+
+                ok, retn = sess.call(('axon:stat', {}), timeout=3)
+                self.true(ok)
+
+                self.eq(retn.get('files'), 1)
+                self.eq(retn.get('bytes'), 8)
+
+                ok, retn = sess.call(('axon:metrics', {'offs': 0}), timeout=3)
+                self.true(ok)
+                self.eq(retn[0][1].get('size'), 8)
+                self.eq(retn[0][1].get('cell'), 'blob00@localhost')

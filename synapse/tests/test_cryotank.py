@@ -154,6 +154,7 @@ class CryoTest(SynTest):
                 self.none(user.last('woot:hehe', timeout=3))
 
                 # Adding data re-adds the tank
+                user._chunksize = 1000
                 user.puts('woot:hehe', cryodata, timeout=5)
                 self.len(1, (user.metrics('woot:hehe', 0, 100)))
 

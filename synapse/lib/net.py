@@ -453,6 +453,8 @@ class Chan(Link):
         '''
         Set this Chan to using a Queue for rx.
         '''
+        if self._chan_rxq is not None:
+            return
 
         self._chan_rxq = s_queue.Queue()
 
@@ -480,7 +482,9 @@ class Chan(Link):
             retn = self._chan_rxq.get(timeout=timeout)
 
     def rxwind(self, timeout=None):
-
+        '''
+        Yield (ok, item) tuples from an txwind caller.
+        '''
         self.tx(('rx:wind', {}))
 
         mesg = self.next(timeout=timeout)
@@ -491,7 +495,7 @@ class Chan(Link):
             logger.warning('rxwind expected tx:wind but got %s' % (mesg[0],))
             return
 
-        items = self.slice(100, timeout=timeout)
+        items = self.slice(1000, timeout=timeout)
         while items is not None:
 
             for item in items:
@@ -499,14 +503,14 @@ class Chan(Link):
                 if item is None:
                     return
 
-                self.tx(True)
-                yield item[0]
+                self.tx((True, True))
+                yield item
 
-            items = self.slice(100, timeout=timeout)
+            items = self.slice(1000, timeout=timeout)
 
     def txwind(self, items, size, timeout=None):
         '''
-        Execute a windowed transmission loop of each item in items.
+        Execute a windowed transmission loop from a generator.
         '''
         self.tx(('tx:wind', {}))
 
@@ -519,28 +523,36 @@ class Chan(Link):
             return
 
         wind = 0
-        for item in items:
 
-            # tx item as tuple to distinguish shutdown
-            self.tx((item,))
-            wind += 1
+        try:
 
-            while wind >= size:
+            for item in items:
 
-                acks = self.slice(size, timeout=timeout)
-                if acks is None:
-                    return False
+                # tx item as tuple to distinguish shutdown
+                self.tx((True, item))
+                wind += 1
 
-                wind -= len(acks)
+                while wind >= size:
+
+                    acks = self.slice(size, timeout=timeout)
+                    if acks is None:
+                        raise s_exc.LinkTimeOut()
+
+                    wind -= 1
+
+        except Exception as e:
+            enfo = s_common.getexcfo(e)
+            self.tx((False, enfo))
 
         self.tx(None)
 
         while wind > 0:
+
             acks = self.slice(size, timeout=timeout)
             if acks is None:
                 return False
 
-            wind -= len(acks)
+            wind -= 1
 
         return True
 
@@ -822,3 +834,63 @@ class SockLink(Link):
                     return
 
                 self.txbuf = self.txque.popleft()
+
+class LinkDisp:
+    '''
+    The Link Dispatcher ensures sequential/bulk processing
+    which executes from the global thread pool as needed.
+
+    This can be used to create transaction boundaries across
+    multiple links or prevent the need to permenantly eat threads.
+
+    Example:
+
+        def func(items):
+
+            with getFooXact() as xact:
+
+                for link, mesg in items:
+
+                    xact.dostuff(mesg)
+                    link.tx(True)
+
+        disp = LinkDisp(func):
+        chan.onrx(disp.rx)
+
+    '''
+
+    def __init__(self, func):
+
+        self.func = func
+        self.lock = threading.Lock()
+        self.items = collections.deque()
+        self.working = False
+
+    def rx(self, link, item):
+
+        with self.lock:
+
+            self.items.append((link, item))
+
+            if not self.working:
+                self.working = True
+                self._runItemsFunc()
+
+    @s_glob.inpool
+    def _runItemsFunc(self):
+
+        while True:
+
+            with self.lock:
+
+                items = self.items
+                if not items:
+                    self.working = False
+                    return
+
+                self.items = []
+
+            try:
+                self.func(items)
+            except Exception as e:
+                logger.exception('LinkDisp callback error')

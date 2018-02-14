@@ -22,11 +22,7 @@ class Seqn:
 
         with lenv.begin() as xact:
 
-            indx = 0
-            with xact.cursor(db=self.db) as curs:
-                if curs.last():
-                    indx = struct.unpack('>Q', curs.key())[0] + 1
-
+            indx = self.nextindx(xact)
             self.indx = itertools.count(indx)
 
     def save(self, xact, items):
@@ -48,6 +44,16 @@ class Seqn:
 
         with xact.cursor(db=self.db) as curs:
             curs.putmulti(rows, append=True)
+
+    def nextindx(self, xact):
+        '''
+        Determine the next insert offset according to storage.
+        '''
+        indx = 0
+        with xact.cursor(db=self.db) as curs:
+            if curs.last():
+                indx = struct.unpack('>Q', curs.key())[0] + 1
+        return indx
 
     def iter(self, xact, offs):
         '''

@@ -286,11 +286,13 @@ class CryoCell(s_neuron.Cell):
 
         name = mesg[1].get('name')
 
-        tank = self.tanks.get(name)
-        if tank is None:
-            return chan.txfini(None)
+        with chan:
 
-        return chan.txfini(tank.last())
+            tank = self.tanks.get(name)
+            if tank is None:
+                return chan.txfini(None)
+
+            return chan.txfini(tank.last())
 
     def _onCryoList(self, chan, mesg):
         chan.txfini(self.getCryoList())
@@ -364,10 +366,13 @@ class CryoCell(s_neuron.Cell):
         with chan:
 
             tank = self.genCryoTank(name)
-            for items in chan.rxwind(timeout=30):
-                tank.puts(items)
+            for ok, retn in chan.rxwind(timeout=30):
+                if not ok:
+                    return chan.txfini((False, retn))
 
-            chan.tx(True)
+                tank.puts(retn)
+
+            chan.txfini((True, None))
 
     @s_glob.inpool
     def _onCryoInit(self, chan, mesg):
@@ -415,8 +420,8 @@ class CryoUser(s_neuron.CellUser):
             if not chan.next(timeout=timeout):
                 return False
 
-            iitr = s_common.chunks(items, self._chunksize)
-            chan.txwind(iitr, self._chunksize, timeout=timeout)
+            genr = s_common.chunks(items, self._chunksize)
+            chan.txwind(genr, 100, timeout=timeout)
             return chan.next(timeout=timeout)
 
     def last(self, name, timeout=None):
