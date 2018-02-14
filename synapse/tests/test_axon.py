@@ -73,6 +73,38 @@ class AxonTest(SynTest):
                 stats = bst0.stat()
                 self.eq(stats, {'bytes': 1012, 'blocks': 4})
 
+    def test_axon_blob_metrics(self):
+
+        with self.getTestDir() as dirn:
+
+            path0 = os.path.join(dirn, 'blob0')
+            with s_axon.BlobStor(path0) as bst0:
+
+                buid = b'\x56' * 32
+                blobs = (
+                    (buid + u64(0), os.urandom(1000)),
+                    (buid + u64(1), b'qwer'),
+                    (buid + u64(2), b'hehe'),
+                    (buid + u64(3), b'haha'),
+                )  # 4 blocks, size 1000 + 4 + 4 + 4 = 1012 bytes
+
+                metrics = sorted(list(bst0.metrics()))
+                self.eq(metrics, [])
+
+                bst0.save(blobs[0:1])
+                metrics = []
+                for item in bst0.metrics():
+                    item[1].pop('time')
+                    metrics.append(item[1])
+                self.eq(metrics, [{'size': 1000, 'blocks': 1}])
+
+                bst0.save(blobs[1:])
+                metrics = []
+                for item in bst0.metrics():
+                    item[1].pop('time')
+                    metrics.append(item[1])
+                self.eq(metrics, [{'size': 1000, 'blocks': 1}, {'blocks': 3, 'size': 12}])
+
     def test_axon_cell(self):
 
         # implement as many tests as possible in this one
