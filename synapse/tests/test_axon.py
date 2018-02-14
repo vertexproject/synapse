@@ -185,6 +185,12 @@ class AxonTest(SynTest):
                 mesg = ('axon:save', {'files': [b'asdfasdf']})
                 ok, retn = sess.call(mesg, timeout=3)
                 self.true(ok)
+                self.eq(retn, True)
+
+                mesg = ('axon:save', {})
+                ok, retn = sess.call(mesg, timeout=3)
+                self.true(ok)
+                self.eq(retn, False)
 
                 ok, retn = sess.call(('axon:wants', {'hashes': [asdfsha256]}))
                 self.true(ok)
