@@ -479,12 +479,21 @@ class InetModelTest(SynTest):
     def test_model_inet_web_acct(self):
 
         with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:web:acct', 'vertex.link/person1')
+            t0 = core.formTufoByProp('inet:web:acct', 'vertex.link/person1',
+                                     **{'name': 'ካሳር',
+                                        'name:en': 'caesar',
+                                        'realname': 'Брут',    # uppercased Cyrllic
+                                        'realname:en': 'brutus',
+                                        })
             self.eq(t0[1].get('inet:web:acct'), 'vertex.link/person1')
             self.eq(t0[1].get('inet:web:acct:site'), 'vertex.link')
             self.eq(t0[1].get('inet:web:acct:user'), 'person1')
             t0 = core.setTufoProp(t0, 'loc', 'HAHA')
             self.eq(t0[1].get('inet:web:acct:loc'), 'haha')
+            self.eq(t0[1].get('inet:web:acct:name'), 'ካሳር')
+            self.eq(t0[1].get('inet:web:acct:name:en'), 'caesar')
+            self.eq(t0[1].get('inet:web:acct:realname'), 'брут')  # lowercased Cyrllic
+            self.eq(t0[1].get('inet:web:acct:realname:en'), 'brutus')
 
     def test_model_inet_web_post(self):
 

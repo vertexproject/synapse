@@ -1327,8 +1327,12 @@ class InetMod(CoreModule):
                         'doc': 'The service provider URL where the account is hosted.'}),
 
                     ('name', {'ptype': 'inet:user',
-                        'doc': 'The name associated with the account (may be different from the account '
-                            'identifier, e.g., a display name).'}),
+                        'doc': 'The localized name associated with the account (may be different from the '
+                            'account identifier, e.g., a display name).'}),
+
+                    ('name:en', {'ptype': 'inet:user',
+                        'doc': 'The English version of the name associated with the (may be different from '
+                            'the account identifier, e.g., a display name).'}),
 
                     ('avatar', {'ptype': 'file:bytes',
                         'doc': 'The file representing the avatar (e.g., profile picture) for the account.'}),
@@ -1355,7 +1359,9 @@ class InetMod(CoreModule):
                     # ('bio:bt',{'ptype':'wtf','doc':'The web account's self documented blood type'}),
 
                     ('realname', {'ptype': 'ps:name',
-                        'doc': 'The real name of the account owner / registrant.'}),
+                        'doc': 'The localized version of the real name of the account owner / registrant.'}),
+                    ('realname:en', {'ptype': 'ps:name',
+                        'doc': 'The English version of the real name of the account owner / registrant.'}),
                     ('email', {'ptype': 'inet:email',
                         'doc': 'The email address associated with the account.'}),
                     ('phone', {'ptype': 'tel:phone',
