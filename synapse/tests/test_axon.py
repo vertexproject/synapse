@@ -187,6 +187,11 @@ class AxonTest(SynTest):
                 self.true(ok)
                 self.eq(retn, True)
 
+                mesg = ('axon:save', {'files': [b'asdfasdf']})
+                ok, retn = sess.call(mesg, timeout=3)
+                self.true(ok)
+                self.eq(retn, False)
+
                 mesg = ('axon:save', {})
                 ok, retn = sess.call(mesg, timeout=3)
                 self.true(ok)
