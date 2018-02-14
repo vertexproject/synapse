@@ -17,6 +17,7 @@ class LmdbTest(SynTest):
             items = ('foo', 10, 20)
 
             with lenv.begin(write=True) as xact:
+                self.eq(seqn.nextindx(xact), 0)
                 seqn.save(xact, items)
                 retn = tuple(seqn.iter(xact, 0))
                 self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
@@ -25,6 +26,8 @@ class LmdbTest(SynTest):
                 retn = tuple(seqn.iter(xact, 0))
                 self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
 
+                self.eq(seqn.nextindx(xact), 3)
+
             lenv.close()
 
             # Reopen the seqn and continue where we left off
@@ -32,11 +35,13 @@ class LmdbTest(SynTest):
             seqn = s_lmdb.Seqn(lenv, b'seqn:test')
 
             with lenv.begin(write=True) as xact:
+                self.eq(seqn.nextindx(xact), 3)
                 seqn.save(xact, items)
 
                 retn = tuple(seqn.iter(xact, 0))
                 self.eq(retn, ((0, 'foo'), (1, 10), (2, 20),
                                (3, 'foo'), (4, 10), (5, 20)))
+                self.eq(seqn.nextindx(xact), 6)
 
             with lenv.begin() as xact:
                 # We can also start in the middle of the sequence

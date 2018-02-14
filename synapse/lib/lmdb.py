@@ -50,6 +50,12 @@ class Seqn:
     def nextindx(self, xact):
         '''
         Determine the next insert offset according to storage.
+
+        Args:
+            xact (lmdb.Transaction): An LMDB transaction.
+
+        Returns:
+            int: The next insert offset.
         '''
         indx = 0
         with xact.cursor(db=self.db) as curs:
@@ -153,7 +159,7 @@ class Metrics:
             offs (int): The offset to begin iterating from.
 
         Yields:
-            ((indx, sample)): The index and sample.
+            ((indx, object)): The index and sample.
         '''
 
         lkey = struct.pack('>Q', offs)
@@ -269,7 +275,7 @@ class PropSetr:
 
     def put(self, items):
         '''
-        Put a listof items into the PropStor.
+        Put a list of items into the PropStor.
 
         Args:
             items (list): A list of (buid, ((penv, lval, flags),...)) tuples to put.
@@ -306,6 +312,9 @@ class PropStor:
     def getPropSetr(self, xact):
         '''
         Return a new PropSetr helper.
+
+        Args:
+            xact (lmdb.Transaction): An LMDB transaction.
 
         Returns:
             PropSetr: The property setter helper.
