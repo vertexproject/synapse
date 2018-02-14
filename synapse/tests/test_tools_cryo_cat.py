@@ -28,6 +28,7 @@ class CryoCatTest(SynTest):
             with s_cryotank.CryoCell(celldir, conf) as cell:
 
                 addr = cell.getCellAddr()
+                port = addr[1]
                 auth = cell.genUserAuth('visi@vertex.link')
                 self.cell_populate(port, auth)
 
