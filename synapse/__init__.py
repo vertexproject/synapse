@@ -10,13 +10,13 @@ import multiprocessing
 
 logger = logging.getLogger(__name__)
 
-if (sys.version_info.major, sys.version_info.minor) < (3, 4):
+if (sys.version_info.major, sys.version_info.minor) < (3, 4):  # pragma: no cover
     raise Exception('synapse is not supported on Python versions < 3.4')
 
-if msgpack.version < (0, 5, 0):
+if msgpack.version < (0, 5, 0):  # pragma: no cover
     raise Exception('synapse requires msgpack >= 0.5.0')
 
-if tornado.version_info < (3, 2, 2):
+if tornado.version_info < (3, 2, 2):  # pragma: no cover
     raise Exception('synapse requires tornado >= 3.2.2')
 
 from synapse.lib.version import version, verstring
@@ -72,6 +72,7 @@ for mod, conf in BASE_MODULES:
 mods = os.getenv('SYN_CORE_MODULES')
 if mods:
     for name in mods.split(','):
+        name = name.strip()
         try:
             s_modules.load_ctor(name, {})
         except Exception as e:
@@ -81,6 +82,7 @@ if mods:
 mods = os.getenv('SYN_MODULES')
 if mods:
     for name in mods.split(','):
+        name = name.strip()
         try:
             s_modules.load(name)
         except Exception as e:
