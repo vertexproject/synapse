@@ -1,11 +1,8 @@
 import lmdb
 import struct
 import logging
-import binascii
 import itertools
-import contextlib
 
-import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.neuron as s_neuron
@@ -15,7 +12,6 @@ import synapse.lib.net as s_net
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
 import synapse.lib.config as s_config
-import synapse.lib.msgpack as s_msgpack
 
 # for backward compat (HashSet moved from this module to synapse.lib.hashset )
 from synapse.lib.hashset import *
