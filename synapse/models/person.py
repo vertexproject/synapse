@@ -87,10 +87,16 @@ class PsMod(CoreModule):
                     ('dob', {'ptype': 'time', 'doc': 'The Date of Birth (DOB) if known'}),
                     ('img', {'ptype': 'file:bytes', 'doc': 'The "primary" image of a person'}),
                     ('nick', {'ptype': 'inet:user'}),
-                    ('name', {'ptype': 'ps:name'}),
-                    ('name:sur', {'ptype': 'ps:tokn'}),
+                    ('name', {'ptype': 'ps:name',
+                        'doc': 'The localized name for the person'}),
+                    ('name:sur', {'ptype': 'ps:tokn', }),
                     ('name:middle', {'ptype': 'ps:tokn'}),
                     ('name:given', {'ptype': 'ps:tokn'}),
+                    ('name:en', {'ptype': 'ps:name',
+                        'doc': 'The English version of the name for the person'}),
+                    ('name:en:sur', {'ptype': 'ps:tokn'}),
+                    ('name:en:middle', {'ptype': 'ps:tokn'}),
+                    ('name:en:given', {'ptype': 'ps:tokn'}),
                 ]),
 
                 ('ps:contact', {'ptype': 'guid', 'doc': 'A collection of contact information in a single record'}, [
