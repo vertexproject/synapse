@@ -20,6 +20,9 @@ class SynMod(CoreModule):
 
                 ('syn:alias', {'subof': 'str', 'regex': r'^\$[a-z_]+$',
                     'doc': 'A synapse guid alias', 'ex': '$visi'}),
+                ('syn:fifo', {'subof': 'comp', 'fields': 'name=str:lwr'}),
+                ('syn:ingest', {'subof': 'str:lwr'}),
+                ('syn:log', {'subof': 'guid'}),
 
             ),
 
@@ -57,8 +60,8 @@ class SynMod(CoreModule):
                     ('role', {'ptype': 'syn:auth:role'}),
                 )),
 
-                ('syn:fifo', {'ptype': 'guid', 'local': 1}, (
-                    ('name', {'ptype': 'str', 'doc': 'The name of this fifo'}),
+                ('syn:fifo', {'ptype': 'syn:fifo', 'local': 1}, (
+                    ('name', {'ptype': 'str:lwr', 'doc': 'The fifo description'}),
                     ('desc', {'ptype': 'str', 'doc': 'The fifo description'}),
                 )),
 
@@ -119,7 +122,19 @@ class SynMod(CoreModule):
                 ('syn:seq', {'ptype': 'str:lwr', 'doc': 'A sequential id generation tracker'}, (
                     ('width', {'ptype': 'int', 'defval': 0, 'doc': 'How many digits to use to represent the number'}),
                     ('nextvalu', {'ptype': 'int', 'defval': 0, 'doc': 'The next sequential value'}),
-                ))
+                )),
+                ('syn:ingest', {'ptype': 'syn:ingest', 'local': 1}, (
+                    ('time', {'ptype': 'time'}),
+                    ('text', {'ptype': 'json'})
+                )),
+                ('syn:log', {'ptype': 'guid', 'local': 1}, (
+                    ('subsys', {'ptype': 'str', 'defval': '??',
+                                'doc': 'Named subsystem which originaed teh log event'}),
+                    ('level', {'ptype': 'int', 'defval': logging.WARNING, }),
+                    ('time', {'ptype': 'time', 'doc': 'When the log event occured'}),
+                    ('exc', {'ptype': 'str', 'doc': 'Exception class name if caused by an exception'}),
+                    ('info:*', {'glob': 1})
+                )),
             )
         }
 

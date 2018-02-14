@@ -282,17 +282,23 @@ class EventBusTest(SynTest):
             self.none(refs.get('woot'))
 
             woot = refs.gen('woot')
+            self.eq(1, woot._syn_refs)
 
             self.nn(woot)
             self.true(refs.gen('woot') is woot)
+            self.eq(2, woot._syn_refs)
 
             woot.fini()
             self.false(woot.isfini)
             self.true(refs.get('woot') is woot)
+            self.eq(1, woot._syn_refs)
 
             woot.fini()
+            self.eq(0, woot._syn_refs)
+
             self.true(woot.isfini)
             self.false(refs.get('woot') is woot)
+            self.eq(0, woot._syn_refs)
 
     def test_eventbus_main_sigterm(self):
         self.thisHostMustNot(platform='windows')
@@ -370,3 +376,37 @@ class EventBusTest(SynTest):
                 t1 = core.formTufoByProp('intform', 1234)
                 self.nn(t1)
         self.len(1, l2)
+
+    def test_eventbus_busref_items(self):
+
+        bref = s_eventbus.BusRef()
+
+        bus0 = s_eventbus.EventBus()
+        bus1 = s_eventbus.EventBus()
+        bus2 = s_eventbus.EventBus()
+
+        bref.put('foo', bus0)
+        bref.put('bar', bus1)
+        bref.put('baz', bus2)
+
+        items = bref.items()
+        self.isin(('foo', bus0), items)
+        self.isin(('bar', bus1), items)
+        self.isin(('baz', bus2), items)
+
+        bus1.fini()
+        items = bref.items()
+        self.isin(('foo', bus0), items)
+        self.isin(('baz', bus2), items)
+
+        bus2.fini()
+        items = bref.items()
+        self.isin(('foo', bus0), items)
+
+        bus0.fini()
+        items = bref.items()
+        self.eq(items, [])
+
+        bref.fini()
+        items = bref.items()
+        self.eq(items, [])

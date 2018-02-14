@@ -12,9 +12,9 @@ import contextlib
 import unittest.mock as mock
 
 
-loglevel = int(os.getenv('SYN_TEST_LOG_LEVEL', logging.WARNING))
+loglevel = os.getenv('SYN_TEST_LOG_LEVEL', 'WARNING')
 logging.basicConfig(level=loglevel,
-                    format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s]')
+                    format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]')
 
 import synapse.link as s_link
 import synapse.cortex as s_cortex
@@ -55,3 +55,22 @@ def getIngestCore(path, core=None):
         gest.ingest(core)
 
     return core
+
+def checkLock(fd, timeout, wait=0.5):
+    wtime = 0
+
+    if timeout < 0:
+        raise ValueError('timeout must be > 0')
+
+    while True:
+        try:
+            fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as e:
+            if e.errno == 11:
+                return True
+        else:
+            fcntl.lockf(fd, fcntl.LOCK_UN)
+        time.sleep(wait)
+        wtime += wait
+        if wtime >= timeout:
+            return False

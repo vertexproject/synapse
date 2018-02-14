@@ -5,7 +5,7 @@ Created on 10/21/17.
 
 Test for synapse.lib.iq classes
 """
-import types
+import synapse.glob as s_glob
 
 import synapse.lib.iq as s_iq
 
@@ -44,6 +44,7 @@ class IqTest(SynTest):
 
         def div0():
             return 1 / 0
+
         self.raises(ZeroDivisionError, div0)
 
         self.none(None)
@@ -120,6 +121,24 @@ class IqTest(SynTest):
         mesgs = stream.read()
         self.isin('ruh roh', mesgs)
 
+    def test_iq_syntest_logstream_event(self):
+
+        @firethread
+        def logathing():
+            time.sleep(0.01)
+            logger.error('StreamEvent Test Message')
+
+        logger.error('notthere')
+        with self.getLoggerStream('synapse.tests.test_lib_iq', 'Test Message') as stream:
+            thr = logathing()
+            self.true(stream.wait(10))
+            thr.join()
+
+        stream.seek(0)
+        mesgs = stream.read()
+        self.isin('StreamEvent Test Message', mesgs)
+        self.notin('notthere', mesgs)
+
     def test_iq_syntest_envars(self):
         os.environ['foo'] = '1'
         os.environ['bar'] = '2'
@@ -176,7 +195,6 @@ class IqTest(SynTest):
         self.eq(r, e)
 
     def test_cmdg_simple_sequence(self):
-
         cmdg = CmdGenerator(['foo', 'bar'])
         self.eq(cmdg(), 'foo')
         self.eq(cmdg(), 'bar')
@@ -214,3 +232,53 @@ class IqTest(SynTest):
         with self.raises(Exception) as cm:
             cmdg()
         self.assertIn('Unhandled end action', str(cm.exception))
+
+    def test_teststeps(self):
+        # Helper function - he is used a few times
+        def setStep(w, stepper, step):
+            time.sleep(w)
+            stepper.done(step)
+
+        names = ['hehe', 'haha', 'ohmy']
+        tsteps = self.getTestSteps(names)
+        self.isinstance(tsteps, s_iq.TestSteps)
+
+        tsteps.done('hehe')
+        self.true(tsteps.wait('hehe', 1))
+
+        s_glob.pool.call(setStep, 0.1, tsteps, 'haha')
+        self.true(tsteps.wait('haha', 1))
+
+        s_glob.pool.call(setStep, 0.2, tsteps, 'ohmy')
+        self.raises(StepTimeout, tsteps.wait, 'ohmy', 0.01)
+        self.true(tsteps.wait('ohmy', 1))
+
+        # use the waitall api
+        tsteps = self.getTestSteps(names)
+
+        s_glob.pool.call(setStep, 0.01, tsteps, 'hehe')
+        s_glob.pool.call(setStep, 0.10, tsteps, 'haha')
+        s_glob.pool.call(setStep, 0.05, tsteps, 'ohmy')
+        self.true(tsteps.waitall(1))
+
+        tsteps = self.getTestSteps(names)
+        self.raises(StepTimeout, tsteps.waitall, 0.1)
+
+        # Use the step() api
+        tsteps = self.getTestSteps(names)
+        s_glob.pool.call(setStep, 0.1, tsteps, 'haha')
+        self.true(tsteps.step('hehe', 'haha', 1))
+
+        tsteps = self.getTestSteps(names)
+        self.raises(StepTimeout, tsteps.step, 'hehe', 'haha', 0.01)
+
+    def test_lib_iq_istufo(self):
+        node = (None, {})
+        self.istufo(node)
+        node = ('1234', {})
+        self.istufo(node)
+
+        self.raises(AssertionError, self.istufo, [None, {}])
+        self.raises(AssertionError, self.istufo, (None, {}, {}))
+        self.raises(AssertionError, self.istufo, (1234, set()))
+        self.raises(AssertionError, self.istufo, (None, set()))

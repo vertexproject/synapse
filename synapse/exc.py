@@ -1,4 +1,3 @@
-
 class SynErr(Exception):
 
     def __init__(self, *args, **info):
@@ -33,10 +32,16 @@ class CliFini(SynErr):
     '''
     pass
 
+class Retry(SynErr): pass
+class TxFull(Retry): pass
+class NotReady(Retry): pass
+
 class AuthDeny(SynErr): pass
 
 class NoSuchMod(SynErr): pass
 class NoModIden(SynErr): pass
+
+class NoCertKey(SynErr): pass
 
 class NoSuchAct(SynErr): pass
 class NoSuchOpt(SynErr): pass
@@ -45,10 +50,12 @@ class NoSuchDyn(SynErr): pass
 class NoSuchSeq(SynErr): pass
 class NoRevPath(SynErr): pass
 class NoRevAllow(SynErr): pass
+class NoSuchAlgo(SynErr): pass
 class NoSuchConf(SynErr): pass
 class NoSuchCtor(SynErr): pass
 class NoSuchFifo(SynErr): pass
 class NoSuchForm(SynErr): pass
+class NoSuchHash(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchStat(SynErr): pass
 class NoSuchImpl(SynErr): pass
@@ -61,6 +68,8 @@ class NoSuchCmpr(SynErr): pass
 class NoSuchCore(SynErr): pass
 class NoSuchRule(SynErr): pass
 class NoSuchGetBy(SynErr): pass
+class NoSuchMembrane(SynErr): pass
+class MembraneExists(SynErr): pass
 
 class NoSuchDecoder(SynErr): pass
 class NoSuchEncoder(SynErr): pass
@@ -81,6 +90,8 @@ class BadTypeValu(SynErr): pass
 class DupTypeName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupFileName(SynErr): pass
+class BadFileExt(SynErr): pass
+class DupUserName(SynErr): pass
 class BadPropName(SynErr): pass
 class BadCoreName(SynErr): pass
 class BadCtorType(SynErr): pass
@@ -112,6 +123,9 @@ class WebAppErr(SynErr): pass
 class BadUrl(Exception): pass
 class BadJson(Exception): pass
 class BadMesgResp(Exception): pass
+class BadSpliceMesg(SynErr):
+    '''The splice message was invalid'''
+    pass
 class BadPropValu(SynErr): pass
 class BadPySource(Exception): pass
 
@@ -148,8 +162,8 @@ class NoCurrSess(Exception): pass # API requires a current session
 class SidNotFound(Exception): pass
 class PropNotFound(SynErr): pass
 
-class HitMaxTime(Exception): pass
-class HitMaxRetry(Exception): pass
+class HitMaxTime(SynErr): pass
+class HitMaxRetry(SynErr): pass
 class HitCoreLimit(SynErr):
     ''' You've reached some limit of the storage layer.'''
     pass
@@ -159,6 +173,12 @@ class NotEnoughFree(SynErr):
     There is not enough disk space free for the required operation.
     '''
     pass
+
+class AxonErr(SynErr): pass
+class AxonIsRo(AxonErr): pass
+class AxonIsClone(AxonErr): pass
+class AxonNotClone(AxonErr): pass
+class AxonBadChunk(AxonErr): pass
 
 class NoWritableAxons(SynErr):
     '''
@@ -173,6 +193,18 @@ class NoSuchData(SynErr): pass
 class FileExists(SynErr): pass
 class NotEmpty(SynErr): pass
 class NotSupported(SynErr): pass
+class NoCertKey(SynErr):
+    '''
+    Raised when a Cert object requires a RSA Private Key
+    to perform an operation and the key is not present.
+    '''
+    pass
+
+class CellUserErr(SynErr):
+    '''
+    Exception raised by a CellUser
+    '''
+    pass
 
 class BadAtomFile(SynErr):
     '''
@@ -180,13 +212,19 @@ class BadAtomFile(SynErr):
     '''
     pass
 
-class BadHeapFile(SynErr):
+class IsFini(Exception): pass
+
+class RetnTimeout(SynErr):
     '''
-    Raised when there is an internal issue with a heapfile
+    Raised when there is a RetnWait wait() call which timesout.
     '''
     pass
 
-class IsFini(Exception): pass
+class StepTimeout(SynErr):
+    '''
+    Raised when a TestStep.wait() call times out.
+    '''
+    pass
 
 class JobErr(Exception):
     '''
@@ -202,7 +240,10 @@ class JobErr(Exception):
 
         Exception.__init__(self, '%s: %s (%s:%s)' % (err, errmsg, errfile, errline))
 
-class LinkErr(Exception):
+class LinkTimeOut(SynErr): pass
+
+# TODO: steal these names back for synapse/lib/net.py (and depricate old users)
+class LinkErr(SynErr):
 
     retry = False
     def __init__(self, link, mesg=''):

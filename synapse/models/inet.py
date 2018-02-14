@@ -1095,6 +1095,10 @@ class InetMod(CoreModule):
                         'doc': 'The redirected/destination URL'}),
                     ('dst:fqdn', {'ptype': 'inet:fqdn',
                         'doc': 'The FQDN within the dst URL (if present)'}),
+                    ('seen:min', {'ptype': 'time:min',
+                        'doc': 'The earliest known time the URL redirect was active.'}),
+                    ('seen:max', {'ptype': 'time:max',
+                        'doc': 'The last known time the URL redirect was active.'}),
                 ]),
 
                 ('inet:urlfile', {'ptype': 'inet:urlfile'}, [

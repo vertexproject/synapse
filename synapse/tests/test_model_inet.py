@@ -1,4 +1,5 @@
 # -*- coding: UTF-8 -*-
+import synapse.lib.time as s_time
 import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
 
@@ -1661,7 +1662,11 @@ class InetModelTest(SynTest):
 
         with self.getRamCore() as core:
 
-            node = core.formTufoByProp('inet:urlredir', ('http://foo.com/', 'http://bar.com/'))
+            tick = s_time.parse('20161217')
+            tock = s_time.parse('20170216')
+
+            props = {'seen:min': tick, 'seen:max': tock}
+            node = core.formTufoByProp('inet:urlredir', ('http://foo.com/', 'http://bar.com/'), **props)
 
             self.nn(core.getTufoByProp('inet:url', 'http://foo.com/'))
             self.nn(core.getTufoByProp('inet:url', 'http://bar.com/'))
@@ -1671,6 +1676,9 @@ class InetModelTest(SynTest):
 
             self.eq(node[1].get('inet:urlredir:dst'), 'http://bar.com/')
             self.eq(node[1].get('inet:urlredir:dst:fqdn'), 'bar.com')
+
+            self.eq(node[1].get('inet:urlredir:seen:min'), tick)
+            self.eq(node[1].get('inet:urlredir:seen:max'), tock)
 
     def test_model_inet_rfc2822_addr(self):
 

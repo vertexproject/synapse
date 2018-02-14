@@ -89,3 +89,36 @@ class CommonTest(SynTest):
         # empty dict is caught during the [0:0] slice
         with self.assertRaises(TypeError) as cm:
             parts = [chunk for chunk in chunks({}, 10000)]
+
+    def test_common_lockfile(self):
+
+        with self.getTestDir() as fdir:
+            fp = os.path.join(fdir, 'hehe.lock')
+            # Ensure that our yield is None
+            with lockfile(fp) as cm:
+                self.none(cm)
+
+    def test_common_getexcfo(self):
+        try:
+            1 / 0
+        except ZeroDivisionError as e:
+            excfo = getexcfo(e)
+
+        self.istufo(excfo)
+        self.eq(excfo[0], 'ZeroDivisionError')
+        self.isin('msg', excfo[1])
+        self.isin('file', excfo[1])
+        self.isin('line', excfo[1])
+        self.isin('name', excfo[1])
+        self.isin('src', excfo[1])
+        self.notin('syn:err', excfo[1])
+
+        excfo = getexcfo(SynErr(mesg='hehe', key=1))
+        self.eq(excfo[0], 'SynErr')
+        self.isin('msg', excfo[1])
+        self.isin('file', excfo[1])
+        self.isin('line', excfo[1])
+        self.isin('name', excfo[1])
+        self.isin('src', excfo[1])
+        self.isin('syn:err', excfo[1])
+        self.eq(excfo[1].get('syn:err'), {'mesg': 'hehe', 'key': 1})

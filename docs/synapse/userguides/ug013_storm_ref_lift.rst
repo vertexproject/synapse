@@ -120,6 +120,23 @@ A single example using a "by" handler is provided for illustrative purposes. Ind
 * When lifting by prop + valu, additional comparison operators can be used besides just equals ( ``=`` ); these include 'not equals', 'greater than or equal to', etc. Use of these comparison operators is covered under Storm By Handlers.
 * For ``lift()`` operations at the CLI, it is generally simpler to use macro syntax.
 * The ``limit=`` option (``^`` in macro syntax) restricts **the number of nodes returned,** regardless of the total number of nodes that would otherwise be returned by the query. The specific nodes returned are non-deterministic. Limiting the results of a query is generally not useful for analysis (it artificially restricts results) but may be useful for troubleshooting queries or returning "exemplar" nodes (e.g., to examine their structure, properties, etc.)
+* The Storm query planner will optimize lifts which which meet the following criteria:
+
+  #. Do not specify a ``valu`` to lift by.
+  #. Are immediately followed by a positive tag filter.
+
+  This is done to prevent potentially dangerous queries which may cause all nodes of a given form or property to be
+  lifted, which may require significant resources and generate results that are subsequentially discarded by a
+  filter operation. For example, the following queries are all executed in the same fashion by the Storm runtime:
+
+  ::
+
+    inet:fqdn +#hehe.haha
+
+    lift( inet:fqdn ) +#hehe.haha
+
+    inet:fqdn*tag=hehe.haha
+
 * The number of nodes returned by any query can also be restricted by using the ``limit()`` operator_. The first set of examples below uses the *limit* parameter to the ``lift()`` operator (in both operator and macro syntax). The second set of examples uses the ``limit()`` operator (in both operator and macro syntax - note that the macro syntax is equivalent in each case).
   ::
     lift ( inet:fqdn , limit=10 )
@@ -178,11 +195,17 @@ alltag()
 
 Lifts a set of nodes based on one or more tags.
 
+Optional parameters:
+
+* **Return limit:** specify the maximum number of nodes to be returned by the alltag query.
+
+  * ``limit=`` (operator syntax)
+
 **Operator Syntax:**
 
 .. parsed-literal::
-  
-  **alltag(** *<tag>* [ **,** ...] **)**
+
+  **alltag(** *<tag>* [ **,** *<tag>* **,** ... **, limit=** *<limit>* ] **)**
   
 **Macro Syntax:**
 
@@ -191,16 +214,27 @@ Lifts a set of nodes based on one or more tags.
   **#** *<tag>* ...
   
 **Examples:**
+
 *Lifts all nodes that have the tag foo.bar or the tag baz.faz.*
 ::
   alltag( foo.bar , baz.faz )
   
   #foo.bar #baz.faz
 
+*Lifts up to three nodes that have the tag foo.bar*
+::
+  alltag( foo.bar , limit=3)
+
+  #foo.bar limit(3)
+
+
 **Usage Notes:**
 
 * ``alltag()`` retrieves all nodes that have **any** of the specified tags.
 
+* The macro syntax for ``alltag()`` does not support the use of a limit parameter with the operator itself. The
+  ``limit()`` operator_ can be used to with the alltags macro syntax to limit the number of nodes returned, as shown
+  above.
 
 .. _storm.py: https://github.com/vertexproject/synapse/blob/master/synapse/lib/storm.py
 

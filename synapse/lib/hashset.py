@@ -55,6 +55,6 @@ class HashSet:
 
     def digests(self):
         '''
-        Return a list of (name,digest) tuples for the hashes in the set.
+        Get a list of (name, bytes) tuples for the hashes in the hashset.
         '''
-        return [(name, item.hexdigest()) for (name, item) in self.hashes]
+        return [(name, item.digest()) for (name, item) in self.hashes]

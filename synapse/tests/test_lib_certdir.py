@@ -3,8 +3,10 @@ from contextlib import contextmanager
 
 from OpenSSL import crypto, SSL
 
+import synapse.common as s_common
 from synapse.tests.common import *
 import synapse.lib.certdir as s_certdir
+
 
 class CertDirTest(SynTest):
 
@@ -405,3 +407,78 @@ class CertDirTest(SynTest):
             cert = cdir.getUserCert(username)
             key = cdir.getUserKey(username)
             self.basic_assertions(cdir, cert, key, cacert=cacert)
+
+    def test_certdir_importfile(self):
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+            with self.getTestDir() as testpath:
+
+                # File doesn't exist
+                fpath = s_common.genpath(testpath, 'not_real.crt')
+                self.raises(NoSuchFile, cdir.importFile, fpath, 'cas')
+
+                # File has unsupported extension
+                fpath = s_common.genpath(testpath, 'coolpic.bmp')
+                with s_common.genfile(fpath) as fd:
+                    self.raises(BadFileExt, cdir.importFile, fpath, 'cas')
+
+                tests = (
+                    ('cas', 'coolca.crt'),
+                    ('cas', 'coolca.key'),
+                    ('hosts', 'coolhost.crt'),
+                    ('hosts', 'coolhost.key'),
+                    ('users', 'cooluser.crt'),
+                    ('users', 'cooluser.key'),
+                    ('users', 'cooluser.p12'),
+                )
+                data = b'arbitrary data'
+                for ftype, fname in tests:
+                    srcpath = s_common.genpath(testpath, fname)
+                    dstpath = s_common.genpath(cdir.path, ftype, fname)
+
+                    with s_common.genfile(srcpath) as fd:
+                        fd.write(b'arbitrary data')
+                        fd.seek(0)
+
+                        # Make sure the file is not there
+                        self.raises(NoSuchFile, s_common.reqfile, dstpath)
+
+                        # Import it and make sure it exists
+                        self.none(cdir.importFile(srcpath, ftype))
+                        with s_common.reqfile(dstpath) as dstfd:
+                            self.eq(dstfd.read(), b'arbitrary data')
+
+                        # Make sure it can't be overwritten
+                        self.raises(FileExists, cdir.importFile, srcpath, ftype)
+
+    def test_certdir_valUserCert(self):
+        with self.getCertDir() as cdir:  # type: s_certdir.CertDir
+            base = cdir._getPathJoin()
+            cdir.genCaCert('syntest')
+            cdir.genCaCert('newp')
+            cacerts = cdir.getCaCerts()
+            syntestca = cdir.getCaCert('syntest')
+            newpca = cdir.getCaCert('newp')
+
+            self.raises(crypto.Error, cdir.valUserCert, b'')
+
+            cdir.genUserCert('cool')
+            path = cdir.getUserCertPath('cool')
+            byts = cdir._getPathBytes(path)
+
+            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts)
+
+            cdir.genUserCert('cooler', signas='syntest')
+            path = cdir.getUserCertPath('cooler')
+            byts = cdir._getPathBytes(path)
+            self.nn(cdir.valUserCert(byts))
+            self.nn(cdir.valUserCert(byts, cacerts=(syntestca,)))
+            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts, cacerts=(newpca,))
+            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts, cacerts=())
+
+            cdir.genUserCert('coolest', signas='newp')
+            path = cdir.getUserCertPath('coolest')
+            byts = cdir._getPathBytes(path)
+            self.nn(cdir.valUserCert(byts))
+            self.nn(cdir.valUserCert(byts, cacerts=(newpca,)))
+            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts, cacerts=(syntestca,))
+            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts, cacerts=())

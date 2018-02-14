@@ -4,7 +4,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import synapse.glob as s_glob
-import synapse.async as s_async
+import synapse.synasync as s_async
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath

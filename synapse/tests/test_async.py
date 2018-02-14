@@ -2,7 +2,7 @@ import time
 import unittest
 import threading
 
-import synapse.async as s_async
+import synapse.synasync as s_async
 import synapse.lib.scope as s_scope
 import synapse.lib.threads as s_threads
 

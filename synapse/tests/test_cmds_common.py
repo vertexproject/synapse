@@ -33,10 +33,3 @@ class SynCmdCommonTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('guid')
             self.true(outp.expect('new guid:'))
-
-    def test_cmds_py(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            cmdr.runCmdLine('py 20 + 20')
-            self.true(outp.expect('40'))

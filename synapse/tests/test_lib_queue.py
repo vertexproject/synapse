@@ -1,9 +1,4 @@
-import io
-import time
-import unittest
-
 import synapse.lib.queue as s_queue
-import synapse.lib.threads as s_threads
 
 from synapse.tests.common import *
 
@@ -83,6 +78,8 @@ class QueueTest(SynTest):
         q.put(2)
         q.put(3)
         q.done()
+        q.put(4)
+
         self.eq(q.get(), 1)
         self.eq(q.slice(2), [2, 3])
         self.eq(q.get(), None)
@@ -91,5 +88,58 @@ class QueueTest(SynTest):
         q = s_queue.Queue()
         q.put(1)
         q.fini()
+        q.put(2)
+
+        deqdata = []
+        [deqdata.append(item) for item in q.deq]
         self.eq(q.get(), None)
         self.eq(q.slice(1), None)
+        self.eq(deqdata, [1])
+
+    def test_queue_iter(self):
+        results = []
+        data = [1, 2, 3, 4, 5]
+        evt = threading.Event()
+
+        q = s_queue.Queue()
+        [q.put(item) for item in data]
+
+        @firethread
+        def finisoon():
+            evt.wait()
+            q.fini()
+
+        thr = finisoon()
+        for i, item in enumerate(q, 1):
+            results.append(item)
+            if i == len(data):
+                evt.set()
+        thr.join()
+
+        self.true(q.isfini)
+        self.eq(data, results)
+
+    def test_queue_exit(self):
+        q = s_queue.Queue()
+        evt = threading.Event()
+        data = [1, 2, 3, 4, 5]
+        results = []
+
+        @firethread
+        def nommer():
+            evt.wait()
+            while True:
+                obj = q.get(timeout=1)
+                if obj is not None:
+                    results.append(obj)
+                else:
+                    break
+
+        thr = nommer()
+        with q:
+            [q.put(item) for item in data]
+            evt.set()
+        thr.join()
+
+        self.true(q.isfini)
+        self.eq(data, results)

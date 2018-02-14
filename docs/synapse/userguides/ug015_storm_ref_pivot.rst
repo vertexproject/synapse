@@ -112,7 +112,7 @@ Returns the current (working) set of nodes **and** the set of nodes that share a
 
 Optional parameters:
 
-* **Return limit**: specify the maximum number of nodes returned by the ``join()`` query.
+* **Return limit**: specify the maximum number of nodes added to the current working set by the ``join()`` query.
   
   * ``limit=`` (operator syntax)
 
@@ -162,13 +162,13 @@ Optional parameters:
 
 **Usage notes:**
 
-* ``join()`` does not consume nodes by design.
+* ``join()`` does not consume nodes, so the results of a ``join()`` operation will include both the original working set as well as the resulting set of nodes.
 * If the source property for the join is the primary property of the working set of nodes, *<srcprop>* can be omitted from both Operator and Macro syntax.
 * If the source property for the join is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source properties are, by definition, properties from the working set of nodes.
 * The ``limit=`` parameter can be provided as input to the ``join()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``join()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 * Because ``join()`` does not consume nodes, this impacts the results returned by either the ``limit=`` parameter or the ``limit()`` operator.
   
-  * The ``limit=`` parameter will return **all** of the original nodes, **plus** the specified number of results (if ``limit=10`` and the number of working nodes was eight, this will return 18 nodes).
+  * The ``limit=`` parameter will return **all** of the original nodes, **plus** the specified number of results (if ``limit=10`` and the number of working nodes was eight, this will return up to 18 total nodes).
   * The ``limit()`` operator will return a **total** number of nodes equal to the specified limit, first including the original working nodes and then including resulting nodes (if ``limit=10`` and the number of working nodes was eight, this will return 10 nodes: the original eight, plus two results).
 
 refs()
@@ -180,7 +180,7 @@ Optional parameters:
 * **in:** return all nodes that have a secondary property *<type> (<ptype>) = <valu>* that is the same as (**references**) any primary *<prop> = <valu>* in the working set of nodes.
 * **out:** return all the nodes whose primary *<prop> = <valu>* is the same as (is **referenced by**) any secondary property *<type> (<ptype>) = <valu>* in the working set of nodes.
 * If no parameters are specified, ``refs()`` will return the combined results of both ``refs(in)`` and ``refs(out)`` (e.g., execute all pivots to / from the working set of nodes).
-* **Return limit:** specify the maximum number of nodes returned by the ``refs()`` query.
+* **Return limit:** specify the maximum number of nodes added to the current working set by the ``refs()`` query.
   
   * ``limit=`` (operator syntax)
 
@@ -215,12 +215,13 @@ N/A
 
 **Usage notes:**
 
+* ``refs()`` does not consume nodes, so the results of a ``refs()`` operation will include both the original working set as well as the resulting set of nodes.
 * ``refs()`` / ``refs(in)`` / ``refs(out)`` can be useful in an "exploratory" manner to identify what other nodes / forms are "reachable from" (can be pivoted to or from) the working set of nodes. However, because ``refs()`` essentially carries out all possible pivots, the set of nodes returned may be quite large. In such cases a more focused ``pivot()`` or ``join()`` operation may be more useful.
 * ``refs()`` does not consume nodes, so the results of a ``refs()`` operation will include both the original working set as well as the resulting set of nodes.
 * The ``limit=`` parameter can be provided as input to the ``refs()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``refs()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 * Because ``refs()`` does not consume nodes, this impacts the results returned by either the ``limit=`` parameter or the ``limit()`` operator.
   
-  * The ``limit=`` parameter will return **all** of the original nodes, **plus** the specified number of results (if ``limit=10`` and the number of working nodes was eight, this will return 18 nodes).
+  * The ``limit=`` parameter will return **all** of the original nodes, **plus** the specified number of results (if ``limit=10`` and the number of working nodes was eight, this will return up to 18 nodes).
   * The ``limit()`` operator will return a **total** number of nodes equal to the specified limit, first including the original working nodes and then including resulting nodes (if ``limit=10`` and the number of working nodes was eight, this will return 10 nodes: the original eight, plus two results).
 
 fromtags()
@@ -334,7 +335,7 @@ N/A
 
 jointags()
 ----------
-Returns all specified nodes that have **any** of the tags applied to **any** of the working set of nodes.
+Returns the current working set **plus** all nodes that have **any** of the tags applied to **any** node in the working set.
 
 ``jointags()`` can be thought of as executing a ``totags()`` operation followed by a ``fromtags()`` operation.
 
@@ -374,9 +375,61 @@ N/A
 
 **Usage notes:**
 
-* ``jointags()`` pivots using the set of leaf tags only. For example if nodes in the working set have the tag ``#foo.bar.baz``, ``jointags()`` will return other nodes with ``#foo.bar.baz``, but not nodes with ``#foo.bar`` or ``#foo`` alone.
-* ``jointags()``, like ``refs()``, can be useful to "explore" other nodes that share some analytical assessment (tag) with the working set of nodes, but may return a large number of nodes. It may be more efficient to narrow the scope of the query using ``totags()`` in combination with a filter operator (e.g., to limit the specific tags selected) followed by ``fromtags()``.
-* The ``limit=`` parameter can be provided as input to the ``jointags()`` operator itself when using Operator syntax. Alternately the ``limit()`` operator_ can be used after the ``jointags()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
+* ``jointags()`` does **not** consume nodes by design and so includes (retains) the original working set as part of the resulting set.
+* ``jointags()`` joins using the set of leaf tags only. For example if nodes in the working set have the tag ``#foo.bar.baz``, ``jointags()`` will return other nodes with ``#foo.bar.baz``, but not nodes with ``#foo.bar`` or ``#foo`` alone.
+* ``jointags()``, like ``refs()``, can be useful to "explore" other nodes that share some analytical assessment (tag) with the working set of nodes, but may return a large number of nodes.
+It may be more efficient to narrow the scope of the query using ``totags()`` in combination with a filter operator (e.g., to limit the specific tags selected) followed by ``fromtags()``.
+* The ``limit=`` parameter represents the maximum number of nodes **added** to the results.
+It can be provided as input to the ``jointags()`` operator itself when using Operator syntax.
+Alternately the ``limit()`` operator_ can be used after the ``jointags()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
+
+pivottags()
+----------
+Returns all nodes that have **any** of the tags applied to **any** node in the original working set; excludes the original working set from the results.
+
+Optional parameters:
+
+* **<form>:** return only nodes of the specified form(s).
+  
+  * If no forms are specified, ``pivottags()`` returns all nodes for all forms to which the tags are applied.
+
+* **Return limit:** specify the maximum number of nodes returned by the ``pivottags()`` query.
+  
+  * ``limit=`` (operator syntax)
+
+**Operator syntax:**
+
+.. parsed-literal::
+  
+  **pivottags(** [ *<form_1>* **,** *<form_2>* **,** *...<form_n>* **, limit=** *<num>* ] **)**
+
+**Macro syntax:**
+
+N/A
+
+**Examples:**
+
+* Return the set of nodes that share any of the tags applied to the working set of nodes:
+  ::
+    pivottags()
+
+* Return the set of ``inet:fqdn`` and ``inet:email`` nodes that share any of the tags applied to the working set of nodes:
+  ::
+    pivottags( inet:fqdn, inet:email )
+
+* Return the set of ``inet:fqdn`` and ``inet:email`` nodes that share any of the tags applied to the working set of nodes, limiting the number of results to 10:
+  ::
+    pivottags( inet:fqdn, inet:email, limit=10 )
+
+**Usage notes:**
+
+* ``pivottags()`` consumes nodes input into the function, so the resulting set of nodes will **not** include nodes from the original working set.
+* ``pivottags()`` pivots using the set of leaf tags only. For example if nodes in the working set have the tag ``#foo.bar.baz``, ``pivottags()`` will return other nodes with ``#foo.bar.baz``, but not nodes with ``#foo.bar`` or ``#foo`` alone.
+* ``pivottags()``, like ``refs()``, can be useful to "explore" other nodes that share some analytical assessment (tag) with the working set of nodes, but may return a large number of nodes.
+It may be more efficient to narrow the scope of the query using ``totags()`` in combination with a filter operator (e.g., to limit the specific tags selected) followed by ``fromtags()``.
+* The ``limit=`` parameter represents the **total** number of nodes returned, as the original working set is consumed.
+It can be provided as input to the ``pivottags()`` operator itself when using Operator syntax.
+Alternately the ``limit()`` operator_ can be used after the ``pivottags()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 
 tree()
 ------
@@ -393,7 +446,7 @@ Optional parameters:
   * To disable limits on recursion (e.g., continue executing pivots until no more results are returned), ``recurnlim`` should be set to 0 (``recurnlim=0``).
   * **Note:** due to a known bug, ``tree()`` currently ignores any ``recurnlim`` parameter.
 
-* **Return limit:** specify the maximum number of nodes returned by the ``tree()`` query.
+* **Return limit:** specify the maximum number of nodes added to the current working set by the ``tree()`` query.
   
   * ``limit=`` (operator syntax)
 
@@ -449,6 +502,7 @@ N/A
 
 **Usage Notes:**
 
+* ``tree()`` does not consume nodes, so the results of a ``tree()`` operation will include both the original working set as well as the resulting set of nodes.
 * If the source property for the ``tree()`` operation is the primary property of the working set of nodes, *<srcprop>* can be omitted.
 * If the source property for the ``tree()`` operation is a secondary property of the working set of nodes, relative property syntax can be used to specify *<srcprop>* as the source properties are, by definition, properties from of the working set of nodes.
 * ``tree()`` does not consume nodes by design, so the results of a ``tree()`` operation will include both the original working set as well as the resulting (recursive) set of nodes.

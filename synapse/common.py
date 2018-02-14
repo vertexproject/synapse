@@ -3,15 +3,18 @@ import os
 import sys
 import json
 import time
+import fcntl
 import types
 import base64
 import fnmatch
 import hashlib
+import logging
 import builtins
 import functools
 import itertools
 import threading
 import traceback
+import contextlib
 import collections
 
 from binascii import hexlify
@@ -22,6 +25,7 @@ import synapse.exc as s_exc
 
 from synapse.exc import *
 
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
 major = sys.version_info.major
@@ -99,10 +103,6 @@ def addpref(pref, info):
 
 def tufo(typ, **kwargs):
     return (typ, kwargs)
-
-def splice(act, **info):
-    info['act'] = act
-    return ('splice', info)
 
 def vertup(vstr):
     '''
@@ -208,6 +208,34 @@ def genfile(*paths):
         return io.open(path, 'w+b')
     return io.open(path, 'r+b')
 
+@contextlib.contextmanager
+def lockfile(path):
+    '''
+    A file lock with-block helper.
+
+    Args:
+        path (str): A path to a lock file.
+
+    Examples:
+        Get the lock on a file and dostuff while having the lock:
+
+            path = '/hehe/haha.lock'
+            with lockfile(path):
+                dostuff()
+
+    Notes:
+        This is curently based on fcntl.lockf(), and as such, it is purely
+        advisory locking. If multiple processes are attempting to obtain a
+        lock on the same file, this will block until the process which has
+        the current lock releases it.
+
+    Yields:
+        None
+    '''
+    with genfile(path) as fd:
+        fcntl.lockf(fd, fcntl.LOCK_EX)
+        yield None
+
 def listdir(*paths, glob=None):
     '''
     List the (optionally glob filtered) full paths from a dir.
@@ -229,7 +257,7 @@ def gendir(*paths, **opts):
     mode = opts.get('mode', 0o700)
     path = genpath(*paths)
     if not os.path.isdir(path):
-        os.makedirs(path, mode=mode)
+        os.makedirs(path, mode=mode, exist_ok=True)
     return path
 
 def reqdir(*paths):
@@ -259,6 +287,39 @@ def verstr(vtup):
     Convert a version tuple to a string.
     '''
     return '.'.join([str(v) for v in vtup])
+
+def getexcfo(e):
+    '''
+    Get an err tufo from an exception.
+
+    Args:
+        e (Exception): An Exception (or Exception subclass).
+
+    Notes:
+        This can be called outside of the context of an exception handler,
+        however details such as file, line, function name and source may be
+        missing.
+
+    Returns:
+        ((str, dict)):
+    '''
+    tb = sys.exc_info()[2]
+    tbinfo = traceback.extract_tb(tb)
+    path, line, name, src = '', '', '', None
+    if tbinfo:
+        path, line, name, sorc = tbinfo[-1]
+    retd = {
+        'msg': str(e),
+        'file': path,
+        'line': line,
+        'name': name,
+        'src': src
+    }
+
+    if isinstance(e, SynErr):
+        retd['syn:err'] = e.errinfo
+
+    return (e.__class__.__name__, retd)
 
 def excinfo(e):
     '''
@@ -428,3 +489,26 @@ def makedirs(path, mode=0o777):
 
 def iterzip(*args):
     return itertools.zip_longest(*args)
+
+def setlogging(mlogger, defval=None):
+    '''
+    Configure synapse logging.
+
+    Args:
+        mlogger (logging.Logger): Reference to a logging.Logger()
+        defval (str): Default log level
+
+    Notes:
+        This calls logging.basicConfig and should only be called once per process.
+
+    Returns:
+        None
+    '''
+    log_level = os.getenv('SYN_DMON_LOG_LEVEL',
+                          defval)
+    if log_level:  # pragma: no cover
+        log_level = log_level.upper()
+        if log_level not in s_const.LOG_LEVEL_CHOICES:
+            raise ValueError('Invalid log level provided: {}'.format(log_level))
+        logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
+        mlogger.info('log level set to %s', log_level)

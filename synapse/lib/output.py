@@ -46,6 +46,8 @@ class OutPutStr(OutPut):
     def __str__(self):
         return ''.join(self.mesgs)
 
+stdout = OutPut()
+
 #class OutPutBus(OutPut,EventBus):
     #def __init__(self, bus):
         #OutPut.__init__(self)

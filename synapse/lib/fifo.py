@@ -13,7 +13,7 @@ import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.atomfile as s_atomfile
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 class Fifo(s_config.Config):
 
@@ -86,7 +86,8 @@ class Fifo(s_config.Config):
 
             fifo.resync(xmit=xmit)
         '''
-        return self.wind.resync(xmit=xmit)
+        with self.lock:
+            return self.wind.resync(xmit=xmit)
 
     def _findFifoAtom(self, nseq):
         # if they specify an un-aligned sequence, find the prev
@@ -97,7 +98,7 @@ class Fifo(s_config.Config):
 
     def _brefAtomCtor(self, nseq):
         path = self._getSeqPath(nseq)
-        return s_atomfile.openAtomFile(path, memok=False)
+        return s_atomfile.AtomFile(path)
 
     def flush(self):
         '''
@@ -217,7 +218,7 @@ class Window(s_eventbus.EventBus):
         self.dequ = collections.deque()
 
         # open our state machine header atom
-        self.head = s_atomfile.openAtomFile(path, memok=True)
+        self.head = s_atomfile.AtomFile(path)
         self.onfini(self.head.fini)
 
         # the next expected ack
@@ -281,8 +282,9 @@ class Window(s_eventbus.EventBus):
         if xmit is not None:
             self._xmit = xmit
 
-        for item in self.dequ:
-            self._xmit(item)
+        with self.lock:
+            for item in self.dequ:
+                self._xmit(item)
 
     def _run_xmit(self, item):
         if self._xmit is not None:
@@ -300,7 +302,6 @@ class Window(s_eventbus.EventBus):
         Args:
             seqn (int): The sequence number to acknowledge.
         '''
-
         if seqn == -1:
             self.resync()
             return False

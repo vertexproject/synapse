@@ -116,9 +116,14 @@ class TstOutPut(s_output.OutPutStr):
 class TestSteps:
     '''
     A class to assist with interlocking for multi-thread tests.
+
+    Args:
+        names (list): A list of names of tests steps as strings.
     '''
     def __init__(self, names):
         self.steps = {}
+        self.names = names
+
         for name in names:
             self.steps[name] = threading.Event()
 
@@ -139,11 +144,16 @@ class TestSteps:
             step (str): The step name to wait for.
             timeout (int): The timeout in seconds (or None)
 
+        Returns:
+            bool: True if the step is completed within the wait timeout.
+
         Raises:
-            Exception: on wait timeout
+            StepTimeout: on wait timeout
         '''
         if not self.steps[step].wait(timeout=timeout):
-            raise Exception('timeout waiting for step: %d' % (step,))
+            raise s_common.StepTimeout(mesg='timeout waiting for step',
+                                       step=step)
+        return True
 
     def step(self, done, wait, timeout=None):
         '''
@@ -155,7 +165,24 @@ class TestSteps:
             timeout (int): The wait timeout.
         '''
         self.done(done)
-        self.wait(wait, timeout=timeout)
+        return self.wait(wait, timeout=timeout)
+
+    def waitall(self, timeout=None):
+        '''
+        Wait for all the steps to be complete.
+
+        Args:
+            timeout (int): The wait timeout (per step).
+
+        Returns:
+            bool: True when all steps have completed within the alloted time.
+
+        Raises:
+            StepTimeout: When the first step fails to complete in the given time.
+        '''
+        for name in self.names:
+            self.wait(name, timeout=timeout)
+        return True
 
 class CmdGenerator(s_eventbus.EventBus):
     '''
@@ -221,6 +248,33 @@ class CmdGenerator(s_eventbus.EventBus):
         if callable(self.end_action) and issubclass(self.end_action, BaseException):
             raise self.end_action('No further actions')
         raise Exception('Unhandled end action')
+
+class StreamEvent(io.StringIO, threading.Event):
+    '''
+    A combination of a io.StringIO object and a threading.Event object.
+    '''
+    def __init__(self, *args, **kwargs):
+        io.StringIO.__init__(self, *args, **kwargs)
+        threading.Event.__init__(self)
+        self.mesg = ''
+
+    def setMesg(self, mesg):
+        '''
+        Clear the internal event and set a new message that is used to set the event.
+
+        Args:
+            mesg (str): The string to monitor for.
+
+        Returns:
+            None
+        '''
+        self.mesg = mesg
+        self.clear()
+
+    def write(self, s):
+        io.StringIO.write(self, s)
+        if self.mesg and self.mesg in s:
+            self.set()
 
 class SynTest(unittest.TestCase):
 
@@ -440,6 +494,7 @@ class SynTest(unittest.TestCase):
                     (
                         ('foo', {'ptype': 'str'}),
                         ('baz', {'ptype': 'int'}),
+                        ('faz', {'ptype': 'int', 'ro': 1}),
                     )
                 ),
                 (
@@ -539,12 +594,14 @@ class SynTest(unittest.TestCase):
             shutil.rmtree(tempdir, ignore_errors=True)
 
     @contextlib.contextmanager
-    def getLoggerStream(self, logname):
+    def getLoggerStream(self, logname, mesg=''):
         '''
         Get a logger and attach a io.StringIO object to the logger to capture log messages.
 
         Args:
             logname (str): Name of the logger to get.
+            mesg (str): A string which, if provided, sets the StreamEvent event if a message
+            containing the string is written to the log.
 
         Examples:
             Do an action and get the stream of log messages to check against::
@@ -552,14 +609,43 @@ class SynTest(unittest.TestCase):
                 with self.getLoggerStream('synapse.foo.bar') as stream:
                     # Do something that triggers a log message
                     doSomthing()
-                    stream.seek(0)
-                    mesgs = stream.read()
+
+                stream.seek(0)
+                mesgs = stream.read()
                 # Do something with messages
 
+            Do an action and wait for a specific log message to be written::
+
+                with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
+                    # Do something that triggers a log message
+                    doSomthing()
+                    stream.wait(timeout=10)  # Wait for the mesg to be written to the stream
+
+                stream.seek(0)
+                mesgs = stream.read()
+                # Do something with messages
+
+            You can also reset the message and wait for another message to occur::
+
+                with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
+                    # Do something that triggers a log message
+                    doSomthing()
+                    stream.wait(timeout=10)
+                    stream.setMesg('yo dawg')  # This will now wait for the 'yo dawg' string to be written.
+                    stream.wait(timeout=10)
+
+                stream.seek(0)
+                mesgs = stream.read()
+                # Do something with messages
+
+        Notes:
+            This **only** captures logs for the current process.
+
         Yields:
-            io.StringIO: A io.StringIO object
+            StreamEvent: A StreamEvent object
         '''
-        stream = io.StringIO()
+        stream = StreamEvent()
+        stream.setMesg(mesg)
         handler = logging.StreamHandler(stream)
         slogger = logging.getLogger(logname)
         slogger.addHandler(handler)
@@ -723,3 +809,23 @@ class SynTest(unittest.TestCase):
         Assert that the length of an object is equal to X
         '''
         self.eq(x, len(obj))
+
+    def istufo(self, obj):
+        '''
+        Check to see if an object is a tufo.
+
+        Args:
+            obj (object): Object being inspected. This is validated to be a
+            tuple of length two, contiaing a str or None as the first value,
+            and a dict as the second value.
+
+        Notes:
+            This does not make any assumptions about the contents of the dictionary.
+
+        Returns:
+            None
+        '''
+        self.isinstance(obj, tuple)
+        self.len(2, obj)
+        self.isinstance(obj[0], (type(None), str))
+        self.isinstance(obj[1], dict)

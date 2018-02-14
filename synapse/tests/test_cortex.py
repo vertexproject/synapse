@@ -988,6 +988,129 @@ class CortexBaseTest(SynTest):
 
 class CortexTest(SynTest):
 
+    def test_cortex_membrane(self):
+        name = 'testmembrane'
+        rules = (
+            (True, ('node:add', {'form': 'thing', 'valu': 'newp'})),
+            (False, ('node:add', {'form': 'thing'})),
+            (False, ('node:add', {'valu': 'newp'})),
+            (True, ('node:add', {})),
+
+            (True, ('node:del', {'form': 'thing'})),
+            (False, ('node:del', {})),
+
+            (True, ('y*', {})),
+            (False, ('z*', {}))
+        )
+        msgs = (
+            ('splice', {'mesg': ('node:add', {'form': 'thing'})}),
+            ('splice', {'mesg': ('node:add', {'valu': 'newp'})}),
+            ('splice', {'mesg': ('node:add', {'form': 'thing', 'valu': 'newp'})}),
+            ('splice', {'mesg': ('node:add', {})}),
+
+            ('splice', {'mesg': ('node:del', {'form': 'thing'})}),
+            ('splice', {'mesg': ('node:del', {'form': 'newp'})}),
+            ('splice', {'mesg': ('node:del', {})}),
+
+            ('splice', {'mesg': ('yeap', {})}),
+            ('splice', {'mesg': ('zillion', {})}),
+
+            ('splice', {'mesg': ('not-in-the-rules', {'hehe': 'haha'})}),
+        )
+        expected = [
+            ('node:add', {'form': 'thing', 'valu': 'newp'}),
+            ('node:add', {}),
+            ('node:del', {'form': 'thing'}),
+            ('yeap', {}),
+        ]
+
+        def run_tests(core, msgs, expected):
+            [core.dist(msg) for msg in msgs]
+
+            # subscribe to the membrane fifo and check the messages that made it through
+            actual = []
+            core.subCoreFifo(name, actual.append)
+
+            actual_msgs = [msg[2] for msg in actual]
+            self.eq(actual_msgs, expected)
+
+        # Add a membrane via Cortex API
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn) as core:
+                core.addCoreMembrane(name, rules)
+                run_tests(core, msgs, expected)
+
+        # Add membranes via setting config opt
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn) as core:
+                core.setConfOpt('membranes', ((name, rules),))
+                run_tests(core, msgs, expected)
+
+        # Add membranes via setting config opt at ctor time
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn, conf={'membranes': ((name, rules),)}) as core:
+                run_tests(core, msgs, expected)
+
+        # Test missing and dup membranes
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn) as core:
+
+                self.raises(NoSuchMembrane, core.delCoreMembrane, name)
+                core.addCoreMembrane(name, rules)
+
+                [core.dist(msg) for msg in msgs]
+                actual = []
+                core.subCoreFifo(name, actual.append)
+                actual_msgs = [msg[2] for msg in actual]
+                self.eq(actual_msgs, expected)
+
+                # Adding the membrane again should result in the same messages
+                [core.dist(msg) for msg in msgs]
+                core.addCoreMembrane(name, rules)
+                actual = []
+                core.subCoreFifo(name, actual.append)
+                actual_msgs = [msg[2] for msg in actual]
+                self.eq(actual_msgs, expected + expected)  # Now we have both of the sets of messages in order since we fired them twice
+
+                # Updating the rules should result in different messages
+                core.addCoreMembrane(name, [])
+                [core.dist(msg) for msg in msgs]
+                actual = []
+                core.subCoreFifo(name, actual.append)
+                actual_msgs = [msg[2] for msg in actual]
+                self.eq(actual_msgs, expected + expected)  # we still only have them twice even though we fired 3 times, since rules were set to []
+
+                # remove and re-add the membrane, subscribe again and make sure it is empty
+                fifo_dir = core.getCoreFifo(name).getConfOpt('dir')
+                self.gt(len(os.listdir(fifo_dir)), 0)  # did should be populated
+                self.none(core.delCoreMembrane(name))  # returns none
+                self.raises(FileNotFoundError, os.listdir, fifo_dir)  # should not exist
+                self.len(0, core.getTufosByProp('syn:fifo'))
+                self.raises(NoSuchFifo, core.getCoreFifo, name)  # should be removed
+                self.raises(AttributeError, core.subCoreFifo, name, actual.append)  # fifo is none
+                self.raises(NoSuchMembrane, core.delCoreMembrane, name)
+
+                core.addCoreMembrane(name, rules)
+                actual = []
+                core.subCoreFifo(name, actual.append)
+                actual_msgs = [msg[2] for msg in actual]
+                self.eq(actual_msgs, [])  # There should be no messages in the membrane yet
+
+                actual = []
+                core.subCoreFifo(name, actual.append)  # FIXME If I don't call subCoreFifo, I get no messages. If I call it again, I get all of the messages twice...
+                [core.dist(msg) for msg in msgs]
+                actual_msgs = [msg[2] for msg in actual]
+                self.eq(actual_msgs, expected)
+
+        # Test that a membrane survives restart
+        with self.getTestDir() as dirn:
+            with s_cortex.openurl('dir:///' + dirn) as core:
+                core.addCoreMembrane(name, rules)
+                run_tests(core, msgs, expected)
+            with s_cortex.openurl('dir:///' + dirn) as core:
+                core.addCoreMembrane(name, rules)
+                run_tests(core, msgs, expected + expected)
+
     def test_cortex_datamodel_runt_consistency(self):
         with self.getRamCore() as core:
 
@@ -1359,6 +1482,7 @@ class CortexTest(SynTest):
 
     def test_cortex_tags(self):
         core = s_cortex.openurl('ram://')
+        core.setConfOpt('caching', 1)
 
         core.addTufoForm('foo', ptype='str')
 
@@ -1448,7 +1572,7 @@ class CortexTest(SynTest):
         self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0, limit=3)')), 2)
         self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0, limit=2)')), 2)
         self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0, limit=1)')), 1)
-        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0, limit=0)')), 2)
+        self.eq(len(core.eval('inet:fqdn=w00t.com totags(leaf=0, limit=0)')), 0)
         self.raises(BadOperArg, core.eval, 'inet:fqdn=w00t.com totags(leaf=0, limit=-1)')
         self.eq(len(core.eval('syn:tag=some')), 1)
         self.eq(len(core.eval('syn:tag=some.tag')), 1)
@@ -2142,7 +2266,6 @@ class CortexTest(SynTest):
 
             def populate():
                 for i in range(N):
-                    #print('wrote %d tufos' % i)
                     core.formTufoByProp('inet:ipv4', str(i), **{})
                 evnt.set()
 
@@ -2153,7 +2276,6 @@ class CortexTest(SynTest):
             pool.call(populate)
             for i in range(N):
                 tufos = prox.getTufosByProp('inet:ipv4')
-                #print('got %d tufos' % len(tufos))
 
             self.true(evnt.wait(timeout=3))
             pool.fini()
@@ -2450,7 +2572,7 @@ class CortexTest(SynTest):
 
         with self.getRamCore() as core:
             tufo = core.formTufoByProp('strform', 'haha', foo='bar', bar='faz')
-            splice = ('splice', {'act': 'node:prop:del', 'form': 'strform', 'valu': 'haha', 'prop': 'foo'})
+            splice = ('splice', {'mesg': ('node:prop:del', {'form': 'strform', 'valu': 'haha', 'prop': 'foo'})})
             core.splice(splice)
 
             self.eq(len(core.eval('strform:foo')), 0)
@@ -2849,6 +2971,39 @@ class CortexTest(SynTest):
             self.none(t1[1].get('strform:baz'))
             self.none(t1[1].get('strform:haha'))
 
+    def test_cortex_fifos_busref(self):
+        with self.getTestDir() as dirn:
+
+            url = 'dir:///' + dirn
+            with s_cortex.openurl(url) as core:
+                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
+                name = node[1].get('syn:fifo:name')
+
+                # refcount is set to 1 when the fifo is created (when the syn:fifo node is formed),
+                #   then incremented when getCoreFifo is called
+                fiforef_0 = core.getCoreFifo(name)
+                self.eq(2, fiforef_0._syn_refs)
+
+                # Add 3 more refs
+                fiforef_1 = core.getCoreFifo(name)
+                fiforef_2 = core.getCoreFifo(name)
+                fiforef_3 = core.getCoreFifo(name)
+                self.eq(5, fiforef_0._syn_refs)
+
+                # Begin to remove them
+                fiforef_3.fini()
+                self.eq(4, fiforef_0._syn_refs)
+                fiforef_2.fini()
+                self.eq(3, fiforef_0._syn_refs)
+                fiforef_1.fini()
+                self.eq(2, fiforef_0._syn_refs)
+
+            # refs are finied, but the fifo is not finid because not all of the refs were closed yet
+            self.false(fiforef_0.isfini)
+            fiforef_1.fini()
+            self.true(fiforef_0.isfini)
+            self.eq(0, fiforef_0._syn_refs)
+
     def test_cortex_fifos(self):
 
         with self.getTestDir() as dirn:
@@ -2856,30 +3011,37 @@ class CortexTest(SynTest):
             url = 'dir:///' + dirn
             with s_cortex.openurl(url) as core:
 
-                self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
+                self.raises(NoSuchFifo, core.getCoreFifo, '(haha)')
 
-                node = core.formTufoByProp('syn:fifo', '*', name='haha')
-                path = core.getCorePath('fifos', node[1].get('syn:fifo'))
+                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
+                iden = node[1].get('syn:fifo')
+                name = node[1].get('syn:fifo:name')
+                desc = node[1].get('syn:fifo:desc')
 
-                sent = []
+                self.eq(iden, 'adb4864c8e5f2a2a44b454981e731b8b')
+                self.eq(name, 'haha')
+                self.eq(desc, 'test fifo')
 
-                # this will trigger dir creation
-                core.subCoreFifo('haha', sent.append)
-
+                # Assert that the fifo dir was created by simply forming the syn:fifo node
+                path = core.getCorePath('fifos', iden)
                 self.true(os.path.isdir(path))
 
-                core.putCoreFifo('haha', 'foo')
-                core.putCoreFifo('haha', 'bar')
+                self.raises(NoSuchFifo, core.getCoreFifo, 'shouldntexist')
+
+                sent = []
+                core.subCoreFifo(name, sent.append)
+
+                core.putCoreFifo(name, 'foo')
+                core.putCoreFifo(name, 'bar')
 
                 self.len(2, sent)
                 self.eq(sent[0][2], 'foo')
                 self.eq(sent[1][2], 'bar')
 
-                core.ackCoreFifo('haha', sent[0][0])
+                core.ackCoreFifo(name, sent[0][0])
 
                 sent = []
-                core.subCoreFifo('haha', sent.append)
-
+                core.subCoreFifo(name, sent.append)
                 self.len(1, sent)
                 self.eq(sent[0][2], 'bar')
 
@@ -2935,6 +3097,59 @@ class CortexTest(SynTest):
 
                 self.false(os.path.isdir(path))
                 self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
+
+    def test_cortex_fifos_fifodir(self):
+
+        def run_tests(node):
+            self.eq(node[1].get('syn:fifo'), 'adb4864c8e5f2a2a44b454981e731b8b')
+            self.eq(node[1].get('syn:fifo:name'), 'haha')
+            self.eq(node[1].get('syn:fifo:desc'), 'test fifo')
+            path = core.getCorePath('fifos', 'adb4864c8e5f2a2a44b454981e731b8b')
+            self.true(os.path.isdir(path))
+
+        with self.getTestDir() as dirn:
+            url = 'dir:///' + dirn
+
+            # create the fifo and put a message into it, close the cortex
+            with s_cortex.openurl(url) as core:
+                core.formTufoByProp('syn:fifo', '(FoO)')
+                core.formTufoByProp('syn:fifo', '(bAr)')
+                core.formTufoByProp('syn:fifo', '(BAz)')
+                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
+                run_tests(node)
+
+                core.getCoreFifo('haha')
+                core.getCoreFifo('haha')
+                fifo = core.getCoreFifo('haha')
+                self.eq(4, fifo._syn_refs)
+
+                core.putCoreFifo('haha', 'mymesg')
+
+            # make sure that the fifo still exists and is reloaded after the cortex was closed and reopened
+            with s_cortex.openurl(url) as core:
+                node = core.getTufoByProp('syn:fifo', '(haHA)')  # make sure that it is still there
+                run_tests(node)
+
+            # make sure that the fifo still works correctly after the cortex was closed and reopened
+            with s_cortex.openurl(url) as core:
+                fifo = core.getCoreFifo('haha')
+                self.eq(2, fifo._syn_refs)  # make sure that the old refs were cleaned up
+
+                actual = []
+                core.subCoreFifo('haha', actual.append)  # messages should persist
+                self.eq(2, fifo._syn_refs)  # calling subCoreFifo shouldn't incr refs
+
+                self.len(1, actual)
+                self.len(3, actual[0])
+                self.eq(actual[0][2], 'mymesg')  # make sure the original message survived
+
+                core.delTufo(node)
+
+            # make sure that the fifo is really removed after its node is removed
+            with s_cortex.openurl(url) as core:
+                self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
+                path = core.getCorePath('fifos', 'adb4864c8e5f2a2a44b454981e731b8b')
+                self.false(os.path.isdir(path))
 
     def test_cortex_universal_props(self):
         with self.getRamCore() as core:
@@ -3071,6 +3286,43 @@ class CortexTest(SynTest):
             self.len(2, tasks)
             self.isin('hehe:haha', tasks)
             self.isin('wow', tasks)
+
+    def test_cortex_dynalias(self):
+        conf = {
+            'ctors': [
+                [
+                    'core',
+                    'syn:cortex',
+                    {
+                        'url': 'ram:///',
+                        'storm:query:log:en': 1,
+                        'modules': [
+                            [
+                                'synapse.tests.test_cortex.CoreTestModule',
+                                {'foobar': True}
+                            ]
+                        ]
+                    }
+                ]
+            ],
+            'share': [
+                [
+                    'core',
+                    {}
+                ]
+            ],
+            'listen': [
+                'tcp://0.0.0.0:0/'
+            ]
+        }
+
+        with s_daemon.Daemon() as dmon:
+            dmon.loadDmonConf(conf)
+            link = dmon.links()[0]
+            port = link[1].get('port')
+            with s_cortex.openurl('tcp://0.0.0.0/core', port=port) as prox:
+                self.isin('synapse.tests.test_cortex.CoreTestModule', prox.getCoreMods())
+                self.eq(prox.getConfOpt('storm:query:log:en'), 1)
 
 class StorageTest(SynTest):
 

@@ -15,6 +15,8 @@ import synapse.lib.thishost as s_thishost
 # FIXME how to implement unit tests for the onboot/noboot helpers?
 
 logger = logging.getLogger(__name__)
+log_format = '%(asctime)s [%(levelname)s] %(message)s ' \
+             '[%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]'
 
 LOG_LEVEL_CHOICES = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
 
@@ -144,14 +146,8 @@ def main(argv, outp=None):
     p = getArgParser()
     opts = p.parse_args(argv)
 
-    log_level = os.getenv('SYN_DMON_LOG_LEVEL', opts.log_level)
-    if log_level:  # pragma: no cover
-        log_level = log_level.upper()
-        if log_level not in LOG_LEVEL_CHOICES:
-            raise ValueError('Invalid log level provided: {}'.format(log_level))
-        logging.basicConfig(level=log_level,
-                            format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s]')
-        logger.info('log level set to ' + log_level)
+    s_common.setlogging(logger,
+                        opts.log_level)
 
     if opts.lsboot:
         for path in lsboot():
