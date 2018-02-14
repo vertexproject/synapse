@@ -44,6 +44,7 @@ TstSSLInvalidClientCertErr = socket.error
 TstSSLConnectionResetErr = socket.error
 
 testdir = os.path.dirname(__file__)
+
 def getTestPath(*paths):
     return os.path.join(testdir, *paths)
 
