@@ -212,7 +212,7 @@ class PropSetr:
 
     def set(self, buid, penc, lval, flags=0):
         '''
-        Set a (buid, encoded property, encoded valu) in a PropStor.
+        Set a row in a PropStor.
 
         Args:
             buid (bytes): The binary GUID like sequence of 32 bytes.
@@ -220,7 +220,7 @@ class PropSetr:
             lval (bytes): The valu bytes.
 
         Returns:
-            (bool): True if the (buid, penc, lval) was set, False otherwise.
+            (bool): True if the row was set, False otherwise.
         '''
         pkey = buid + penc
 
