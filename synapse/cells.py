@@ -1,4 +1,3 @@
-
 '''
 Constructors for the various cells.
 ( used for dmon config automation)

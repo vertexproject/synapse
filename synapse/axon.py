@@ -23,7 +23,7 @@ from synapse.lib.hashset import *
 logger = logging.getLogger(__name__)
 
 zero64 = b'\x00\x00\x00\x00\x00\x00\x00\x00'
-blocksize = 2**26 # 64 megabytes
+blocksize = s_const.mebibyte * 64
 
 class BlobStor(s_eventbus.EventBus):
 
