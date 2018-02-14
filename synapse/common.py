@@ -110,7 +110,7 @@ def ehex(byts):
 
 def uhex(text):
     '''
-    Decode bytes to a string using binascci.unhexlify.
+    Decode bytes to a string using binascii.unhexlify.
     Args:
         text (str): Text to decode.
 
