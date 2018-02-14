@@ -192,23 +192,22 @@ class NetTest(SynTest):
         self.isin(msg, stream.read())
 
     def test_lib_net_link_rx_finid(self):
+
+        msg = 'if this was raised, the test should fail because the logger output isnt empty'
         class FinidLink(s_net.Link):
             def __init__(self):
                 s_net.Link.__init__(self)
                 self.rxfunc = self._fn
 
             def _fn(self, link, msg):
-                raise Exception('if this was raised, the test should fail because the logger output isnt empty')
+                raise Exception(msg)  # This shouldn't execute because the link will be finid.
 
         link = FinidLink()
         link.fini()
         link.rxfini()
-        with self.getLoggerStream('synapse.lib.net') as stream:
+        with self.getLoggerStream('synapse.lib.net', msg) as stream:
             link.rx(None, ('anything', {}))
             self.false(stream.wait(1))
-
-        stream.seek(0)
-        self.len(0, stream.read())
 
     def test_lib_net_basic(self):
         names = ('conn', 'lisn', 'ping', 'pong')

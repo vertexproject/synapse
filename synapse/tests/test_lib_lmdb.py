@@ -219,9 +219,15 @@ class LmdbTest(SynTest):
                 retn = tuple(sorted(psto.pref(xact, b'g', b'gg')))
                 self.eq(retn, ())
 
+                retn = tuple(sorted(psto.range(xact, b'e', b'\x00\x00', b'\x00\x80')))
+                self.eq(retn, ())
+                retn = tuple(sorted(psto.range(xact, b'foo:intaaa', b'\x00\x00', b'\x00\x80')))
+                self.eq(retn, ())
                 retn = tuple(sorted(psto.range(xact, b'foo:intish', b'\x00\x00', b'\x00\x80')))
                 self.eq(retn, ((buid1, b'foo:intish', b'\x00\x01'),))
                 retn = tuple(sorted(psto.range(xact, b'foo:nothere', b'\x00\x00', b'\x00\x80')))
+                self.eq(retn, ())
+                retn = tuple(sorted(psto.range(xact, b'g', b'\x00\x00', b'\x00\x80')))
                 self.eq(retn, ())
 
                 retn = tuple(sorted(psto.eq(xact, b'foo:intish', b'\x00\x01')))
