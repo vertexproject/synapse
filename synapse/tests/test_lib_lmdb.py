@@ -165,6 +165,15 @@ class LmdbTest(SynTest):
             with lenv.begin(write=True) as xact:
                 setr = psto.getPropSetr(xact)
                 retn = list(setr.put(recs))
+                self.len(2, retn)
+                self.eq(retn[0][0], 0)
+                self.eq(retn[0][1][0], buid0)
+                self.isinstance(retn[0][1][1], list)
+                edit = retn[0][1][1][0]
+                self.len(3, edit)
+                self.isinstance(edit[0], bytes)
+                self.isinstance(edit[1], bytes)
+                self.isinstance(edit[2], int)
 
             with lenv.begin(write=True) as xact:
 

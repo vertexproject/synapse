@@ -1,6 +1,8 @@
 import struct
 import itertools
 
+import lmdb  # used for type resolution
+
 import synapse.lib.msgpack as s_msgpack
 
 STOR_FLAG_NOINDEX = 0x0001      # there is no byprop index for this prop
@@ -138,7 +140,7 @@ class Metrics:
         Return the metrics info.
 
         Returns:
-            (dict): The dictionary of recorded metrics.
+            dict: The dictionary of recorded metrics.
         '''
         return self.info
 
@@ -151,7 +153,7 @@ class Metrics:
             offs (int): The offset to begin iterating from.
 
         Yields:
-            (indx, sample): The index and sample.
+            ((indx, sample)): The index and sample.
         '''
 
         lkey = struct.pack('>Q', offs)
@@ -212,7 +214,7 @@ class PropSetr:
             byts (bytes): The valu bytes.
 
         Returns:
-            (bool): True if the pair exists, False otherwise.
+            bool: True if the pair exists, False otherwise.
         '''
         return self.burs.set_key(penc + b'\x00' + byts)
 
@@ -226,7 +228,7 @@ class PropSetr:
             lval (bytes): The valu bytes.
 
         Returns:
-            (bool): True if the row was set, False otherwise.
+            bool: True if the row was set, False otherwise.
         '''
         pkey = buid + penc
 
@@ -267,12 +269,15 @@ class PropSetr:
 
     def put(self, items):
         '''
-        Put a list of (buid, ((penc, lval, flags),...)) tuples.
+        Put a listof items into the PropStor.
+
+        Args:
+            items (list): A list of (buid, ((penv, lval, flags),...)) tuples to put.
 
         Yields:
-            (buid, <props>) edits (only yields changes).
+            ((int, (bytes, list))): Yields the item number, buid and list of changed props.
         '''
-        for buid, props in items:
+        for i, (buid, props) in enumerate(items):
 
             edits = []
 
@@ -282,7 +287,7 @@ class PropSetr:
                     edits.append((penc, lval, flags))
 
             if edits:
-                yield (0, (buid, edits))
+                yield (i, (buid, edits))
 
 class PropStor:
     '''
@@ -317,7 +322,7 @@ class PropStor:
             byts (bytes): The valu bytes.
 
         Returns:
-            (bool): True if the pair exists, False otherwise.
+            bool: True if the pair exists, False otherwise.
         '''
         with xact.cursor(db=self.byprop) as burs:
             return burs.set_key(penc + b'\x00' + byts)
@@ -325,6 +330,14 @@ class PropStor:
     def pref(self, xact, penc, byts):
         '''
         Perform a prefix search and yield (buid, penc, pval) rows.
+
+        Args:
+            xact (lmdb.Transaction): An LMDB transaction.
+            penc (bytes): The encoded property name.
+            byts (bytes): The valu bytes.
+
+        Yields:
+            ((bytes, bytes, bytes)): A buid, penc, pval row.
         '''
         bkey = penc + b'\x00' + byts
 
@@ -345,6 +358,15 @@ class PropStor:
     def range(self, xact, penc, bval, nval):
         '''
         Perform a range search and yield (buid, penc, pval) rows.
+
+        Args:
+            xact (lmdb.Transaction): An LMDB transaction.
+            penc (bytes): The encoded property name.
+            bval (bytes): The lower bound to search.
+            nval (bytes): The upper bound to search.
+
+        Yields:
+            ((bytes, bytes, bytes)): A buid, penc, pval row.
         '''
         bkey = penc + b'\x00' + bval
         nkey = penc + b'\x00' + nval
@@ -365,7 +387,14 @@ class PropStor:
 
     def recs(self, xact, rows):
         '''
-        Yield full (buid, (props..)) records from rows.
+        Yields full (buid, (props..)) records from rows.
+
+        Args:
+            xact (lmdb.Transaction): An LMDB transaction.
+            rows (list): A list of ((buid, penc, pval)) rows.
+
+        Yields:
+            ((bytes, list)): A set of (buid, (props...)) for the rows.
         '''
         with xact.cursor(db=self.props) as purs:
 
@@ -387,6 +416,14 @@ class PropStor:
     def eq(self, xact, penc, pval):
         '''
         Yield (buid, pkey, pval) rows by prop=valu.
+
+        Args:
+            xact (lmdb.Transaction): An LMDB transaction.
+            penc (bytes): The encoded property name.
+            pval (bytes): The encoded property value.
+
+        Yields:
+            ((bytes, bytes, bytes)): A buid, penc, pval row.
         '''
         lkey = penc + b'\x00' + pval
         with xact.cursor(db=self.byprop) as burs:
