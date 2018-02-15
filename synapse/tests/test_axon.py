@@ -46,9 +46,29 @@ class AxonTest(SynTest):
                     (buid2 + u64(0), b'dead'),
                     (buid2 + u64(2), b'f0re'),
                 )
+
+                # We do not have bytes for buid2 yet
+                bl = []
+                for byts in bst0.load(buid2):
+                    bl.append(byts)
+                self.eq(bl, [])
+
                 bst0.save(blobs)
                 retn = b''.join(bst0.load(buid2))
                 self.eq(retn, b'deadb33ff0resale')
+
+                # We can store and retrieve an empty string
+                buid3 = b'\x02' * 32
+                blobs = (
+                    (buid3 + u64(0), b''),
+                )
+                bst0.save(blobs)
+                bl = []
+                for byts in bst0.load(buid3):
+                    bl.append(byts)
+                self.eq(bl, [b''])
+                retn = b''.join(bl)
+                self.eq(retn, b'')
 
                 path1 = os.path.join(dirn, 'blob1')
 
@@ -60,6 +80,10 @@ class AxonTest(SynTest):
                     self.eq(retn, b'asdfqwerhehehaha')
                     retn = b''.join(bst1.load(buid2))
                     self.eq(retn, b'deadb33ff0resale')
+                    retn = b''.join(bst0.load(buid3))
+                    self.eq(retn, b'')
+
+                    bst1.addCloneRows([])  # Empty addCloneRows call for coverage
 
     def test_axon_blob_stat(self):
 
