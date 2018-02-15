@@ -101,7 +101,12 @@ class FqdnType(DataType):
         return valu, subs
 
     def repr(self, valu):
-        return valu.encode('utf8').decode('idna')
+        try:
+            return valu.encode('utf8').decode('idna')
+        except UnicodeError as e:
+            if len(valu) >= 4 and valu[0:4] == 'xn--':
+                return valu
+            raise  # pragma: no cover
 
 class Rfc2822Addr(DataType):
     '''

@@ -380,10 +380,9 @@ class InetModelTest(SynTest):
             tufo = core.getTufoByProp(prop, valu)
             self.eq(tufo[1][prop], valu)
 
-            # FIXME
-            # I think we should either not allow this data in or catch the exception
-            # and return it in its raw form during repr.
-            core.getTypeRepr(prop, tufo[1][prop])
+            # Catch invalid IDNA error and just return the raw data
+            self.eq(core.getTypeRepr(prop, tufo[1][prop]), valu)
+            self.eq(core.getPropRepr(prop, tufo[1][prop]), valu)
 
     def test_model_inet_fqdn_set_sfx(self):
         with self.getRamCore() as core:
