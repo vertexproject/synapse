@@ -1,3 +1,4 @@
+import time
 import lmdb
 import struct
 import logging
@@ -13,6 +14,7 @@ import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
 import synapse.lib.config as s_config
 
+import synapse.lib.hashset as s_hashset
 # for backward compat (HashSet moved from this module to synapse.lib.hashset )
 from synapse.lib.hashset import *
 
@@ -47,7 +49,14 @@ class BlobStor(s_eventbus.EventBus):
         '''
         Save items from an iterator of (<buid><indx>, <byts>).
 
-        NOTE: This API is only for use by a single Axon who owns this BlobStor.
+        Args:
+            blocs: An iterator of (<buid><indx>, <bytes>).
+
+        Notes:
+            This API is only for use by a single Axon who owns this BlobStor.
+
+        Returns:
+            None
         '''
         with self.lenv.begin(write=True, db=self._blob_bytes) as xact:
 
@@ -72,6 +81,12 @@ class BlobStor(s_eventbus.EventBus):
     def load(self, buid):
         '''
         Load and yield the bytes blocks for a given buid.
+
+        Args:
+            buid (bytes): Buid to retrieve bytes for.
+
+        Yields:
+            bytes: Bytes for a given buid, in order.
         '''
         with self.lenv.begin(db=self._blob_bytes, buffers=True) as xact:
 
@@ -89,6 +104,12 @@ class BlobStor(s_eventbus.EventBus):
     def clone(self, offs):
         '''
         Yield (indx, (lkey, lval)) tuples to clone this BlobStor.
+
+        Args:
+            offs (int): Offset to start yielding rows from.
+
+        Yields:
+            ((bytes, (bytes, bytes))): tuples of (index, (<buid><index>,bytes)) data.
         '''
         with self.lenv.begin() as xact:
             curs = xact.cursor(db=self._blob_bytes)
@@ -97,6 +118,15 @@ class BlobStor(s_eventbus.EventBus):
                 yield indx, (lkey, byts)
 
     def addCloneRows(self, items):
+        '''
+        Add rows from obtained from a BlobStor.clone() method.
+
+        Args:
+            items (list): A list of tuples containing (index, (<buid><index>,bytes)) data.
+
+        Returns:
+            int: The last index value processed from the list of items.
+        '''
 
         if not items:
             return
@@ -113,18 +143,35 @@ class BlobStor(s_eventbus.EventBus):
             return indx
 
     def stat(self):
+        '''
+        Get storage stats for the BlobStor.
+
+        Returns:
+            dict: A dictionary containing the total bytes and blocks store in the BlobStor.
+        '''
         return self._blob_metrics.stat()
 
     def metrics(self, offs=0):
         '''
-        Yields (indx, sample) info from the metrics sequence.
+        Get metrics for the BlobStor. These can be aggregated to compute the storage stats.
+
+        Args:
+            offs (int): Offset to start collecting stats from.
+
+        Yields:
+            ((int, dict)): Yields index, sample data from the metrics sequence.
         '''
         with self.lenv.begin() as xact:
             for item in self._blob_metrics.iter(xact, offs):
                 yield item
 
     def getCloneOffs(self):
+        '''
+        Get the current offset for the clone:index of the BlobStor.
 
+        Returns:
+            int: The offset value.
+        '''
         with self.lenv.begin() as xact:
 
             lval = xact.get(b'clone:indx', db=self._blob_info)
@@ -347,7 +394,7 @@ class AxonCell(s_neuron.Cell):
                     chan.tx((False, retn))
 
                 chan.tx((True, True))
-
+                # XXX Broken code
                 if bchan.txwind(genr(), 10):
 
                     nenc = name.encode('utf8')

@@ -38,6 +38,18 @@ class AxonTest(SynTest):
                 retn = b''.join(bst0.load(buid))
                 self.eq(retn, b'asdfqwerhehehaha')
 
+                # Order doesn't matter since we're indexed chunks
+                buid2 = b'\x01' * 32
+                blobs = (
+                    (buid2 + u64(3), b'sale'),
+                    (buid2 + u64(1), b'b33f'),
+                    (buid2 + u64(0), b'dead'),
+                    (buid2 + u64(2), b'f0re'),
+                )
+                bst0.save(blobs)
+                retn = b''.join(bst0.load(buid2))
+                self.eq(retn, b'deadb33ff0resale')
+
                 path1 = os.path.join(dirn, 'blob1')
 
                 with s_axon.BlobStor(path1) as bst1:
@@ -46,6 +58,8 @@ class AxonTest(SynTest):
 
                     retn = b''.join(bst1.load(buid))
                     self.eq(retn, b'asdfqwerhehehaha')
+                    retn = b''.join(bst1.load(buid2))
+                    self.eq(retn, b'deadb33ff0resale')
 
     def test_axon_blob_stat(self):
 
