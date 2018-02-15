@@ -178,6 +178,8 @@ class InetModelTest(SynTest):
             self.eq(t0[1].get('inet:ipv4'), 0x01020304)
             self.eq(t0[1].get('inet:ipv4:asn'), -1)
 
+            self.raises(BadTypeValu, core.formTufoByProp, 'inet:ipv4', [])
+
     def test_model_inet_ipv6(self):
 
         with self.getRamCore() as core:
@@ -328,6 +330,7 @@ class InetModelTest(SynTest):
             prop = 'inet:fqdn'
             idna_valu = 'xn--tst-6la.xn--xampl-3raf.link'
             unicode_valu = 'tèst.èxamplè.link'
+            unicode_cap_valu = 'tèst.èxaMplè.link'
             parents = (
                     ('xn--xampl-3raf.link', {'inet:fqdn:host': 'xn--xampl-3raf', 'inet:fqdn:domain': 'link', 'inet:fqdn:zone': 1, 'inet:fqdn:sfx': 0}),
                     ('link', {'inet:fqdn:host': 'link', 'inet:fqdn:domain': None, 'inet:fqdn:zone': 0, 'inet:fqdn:sfx': 1}),
@@ -345,7 +348,9 @@ class InetModelTest(SynTest):
 
             idna_tufo = core.formTufoByProp(prop, idna_valu)
             unicode_tufo = core.formTufoByProp(prop, unicode_valu)
+            unicode_cap_tufo = core.formTufoByProp(prop, unicode_cap_valu)
             self.eq(unicode_tufo, idna_tufo)
+            self.eq(unicode_tufo, unicode_cap_tufo)
 
         with self.getRamCore() as core:
             prop = 'inet:web:acct'
@@ -367,6 +372,22 @@ class InetModelTest(SynTest):
             valu = '%s://%s/%s' % ('https', 'xn--tst-6la.xn--xampl-3raf.link', 'things')
             tufo = core.formTufoByProp(prop, valu)
             self.eq(tufo[1].get('inet:url'), 'https://xn--tst-6la.xn--xampl-3raf.link/things') # hostpart is not normed in inet:url
+
+    def test_model_inet_fqdn_idna(self):
+
+        with self.getRamCore() as core:
+            prop = 'inet:fqdn'
+            valu = 'xn--lskfjaslkdfjaslfj.link'
+
+            tufo = core.formTufoByProp(prop, valu)
+            self.eq(tufo[1][prop], valu)
+
+            tufo = core.getTufoByProp(prop, valu)
+            self.eq(tufo[1][prop], valu)
+
+            # Catch invalid IDNA error and just return the raw data
+            self.eq(core.getTypeRepr(prop, tufo[1][prop]), valu)
+            self.eq(core.getPropRepr(prop, tufo[1][prop]), valu)
 
     def test_model_inet_fqdn_set_sfx(self):
         with self.getRamCore() as core:
