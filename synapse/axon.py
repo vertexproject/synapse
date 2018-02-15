@@ -199,12 +199,14 @@ class BlobCell(s_neuron.Cell):
             'blob:metrics': self._onBlobMetrics, # ('metrics', {'offs':<indx>}) -> ( (indx, info), ... )
         }
 
+    @s_glob.inpool
     def _onBlobClone(self, chan, mesg):
         offs = mesg[1].get('offs')
         genr = self.blobs.clone(offs)
         rows = list(itertools.islice(genr, 1000))
         chan.txfini((True, rows))
 
+    @s_glob.inpool
     def _onBlobUpload(self, chan, mesg):
 
         with chan:
@@ -226,20 +228,18 @@ class BlobCell(s_neuron.Cell):
 
             chan.txfini((True, True))
 
+    @s_glob.inpool
     def _onBlobStat(self, chan, mesg):
         chan.txfini((True, self.blobs.stat()))
 
     @s_glob.inpool
     def _onBlobMetrics(self, chan, mesg):
-
-        offs = mesg[1].get('offs')
-
+        offs = mesg[1].get('offs', 0)
         chan.setq()
-        chan.tx(True)
 
-        with chan:
-            genr = self.blobs.metrics(offs=offs)
-            chan.txwind(genr, 1000, timeout=30)
+        genr = self.blobs.metrics(offs=offs)
+        chan.txwind(genr, 1000, timeout=30)
+        chan.txfini()
 
     @s_glob.inpool
     def _onBlobLoad(self, chan, mesg):
