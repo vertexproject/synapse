@@ -225,17 +225,6 @@ class AxonTest(SynTest):
                 self.eq(retn, {'blocks': 1, 'bytes': 8})  # Now it should have data
 
                 metrics = []
-                mesg = ('blob:metrics', {})
-                with blob00sess.chan() as bchan:
-                    bchan.setq()
-                    bchan.tx(mesg)
-                    for ok, retn in bchan.rxwind(timeout=30):
-                        self.true(ok)
-                        retn[1].pop('time')
-                        metrics.append(retn[1])
-                self.eq(metrics, [{'blocks': 1, 'size': 8}])  # Same data as above in stat
-
-                metrics = []
                 mesg = ('blob:metrics', {'offs': 99999999})
                 with blob00sess.chan() as bchan:
                     bchan.setq()
@@ -245,6 +234,17 @@ class AxonTest(SynTest):
                         retn[1].pop('time')
                         metrics.append(retn[1])
                 self.eq(metrics, [])  # No data because of higher offset
+
+                metrics = []
+                mesg = ('blob:metrics', {})
+                with blob00sess.chan() as bchan:
+                    bchan.setq()
+                    bchan.tx(mesg)
+                    for ok, retn in bchan.rxwind(timeout=30):
+                        self.true(ok)
+                        retn[1].pop('time')
+                        metrics.append(retn[1])
+                self.eq(metrics, [{'blocks': 1, 'size': 8}])  # Same data as above in stat
 
                 mesg = ('axon:save', {'files': [b'asdfasdf']})
                 ok, retn = sess.call(mesg, timeout=3)

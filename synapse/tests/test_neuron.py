@@ -279,7 +279,7 @@ class NeuronTest(SynTest):
                 with user.open(neur.getCellAddr()) as sess:
 
                     mesg = ('cell:init', {'name': 'cell00'})
-                    ok, auth = sess.call(mesg, timeout=2)
+                    ok, auth = sess.call(mesg, timeout=0)
                     self.true(ok)
 
                     path = s_common.gendir(dirn, 'cell')
