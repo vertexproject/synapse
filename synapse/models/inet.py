@@ -88,9 +88,6 @@ class FqdnType(DataType):
         except UnicodeError as e:
             self._raiseBadValu(valu)
 
-        if not fqdnre.match(valu):
-            self._raiseBadValu(valu)
-
         parts = valu.split('.', 1)
         subs = {'host': parts[0]}
         if len(parts) == 2:
