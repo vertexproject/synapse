@@ -105,6 +105,7 @@ class FqdnType(DataType):
             return valu.encode('utf8').decode('idna')
         except UnicodeError as e:
             if len(valu) >= 4 and valu[0:4] == 'xn--':
+                logger.exception(msg='Failed to IDNA decode ACE prefixed inet:fqdn')
                 return valu
             raise  # pragma: no cover
 
