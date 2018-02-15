@@ -178,6 +178,8 @@ class InetModelTest(SynTest):
             self.eq(t0[1].get('inet:ipv4'), 0x01020304)
             self.eq(t0[1].get('inet:ipv4:asn'), -1)
 
+            self.raises(BadTypeValu, core.formTufoByProp, 'inet:ipv4', [])
+
     def test_model_inet_ipv6(self):
 
         with self.getRamCore() as core:
