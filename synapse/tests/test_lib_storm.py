@@ -1469,6 +1469,42 @@ class StormTest(SynTest):
                 self.eq(node[1].get('tufo:form'), 'task')
                 self.isin(node[1].get('task'), ('hehe:haha', 'wow'))
 
+    def test_storm_vartree(self):
+
+        quer = s_storm.Query()
+
+        vals = ['x', 'y']
+        quer.addTreeVar('a', vals)
+
+        self.len(0, list(quer.iterVarTree('asdf')))
+
+        for node, varz in quer.iterVarTree('a'):
+            quer.addTreeVar('b', ['z','q'], tree=node)
+
+        rets = []
+        for node, varz in quer.iterVarTree('a.b'):
+            rets.append(tuple(sorted(varz.items())))
+
+        rets.sort()
+        self.eq(rets, [(('a', 'x'), ('a.b', 'q')), (('a', 'x'), ('a.b', 'z')), (('a', 'y'), ('a.b', 'q')), (('a', 'y'), ('a.b', 'z'))])
+
+        with self.getRamCore() as core:
+            core.ask('[ inet:ipv4=1.2.3.4 :cc=us inet:dns:a=vertex.link/1.2.3.4 ]')
+            core.ask('$dns={inet:dns:a:fqdn=woot.com} $dns.ipv4={ :ipv4->inet:ipv4 }')
+
+    def test_storm_filtsub(self):
+
+        with self.getRamCore() as core:
+
+            core.ask('[ inet:ipv4=1.2.3.4 :cc=us inet:dns:a=vertex.link/1.2.3.4 ]')
+
+            self.len(1, core.eval('inet:ipv4:cc=us'))
+
+            self.len(0, core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 +:cc=us }'))
+            self.len(1, core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 +:cc=us }'))
+            self.len(1, core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 -:cc=us }'))
+            self.len(0, core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:cc=us }'))
+
 class LimitTest(SynTest):
     def test_limit_default(self):
         # LimitHelper would normally be used with the kwlist arg limit,
