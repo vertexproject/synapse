@@ -368,6 +368,23 @@ class InetModelTest(SynTest):
             tufo = core.formTufoByProp(prop, valu)
             self.eq(tufo[1].get('inet:url'), 'https://xn--tst-6la.xn--xampl-3raf.link/things') # hostpart is not normed in inet:url
 
+    def test_model_inet_fqdn_idna(self):
+
+        with self.getRamCore() as core:
+            prop = 'inet:fqdn'
+            valu = 'xn--lskfjaslkdfjaslfj.link'
+
+            tufo = core.formTufoByProp(prop, valu)
+            self.eq(tufo[1][prop], valu)
+
+            tufo = core.getTufoByProp(prop, valu)
+            self.eq(tufo[1][prop], valu)
+
+            # FIXME
+            # I think we should either not allow this data in or catch the exception
+            # and return it in its raw form during repr.
+            core.getTypeRepr(prop, tufo[1][prop])
+
     def test_model_inet_fqdn_set_sfx(self):
         with self.getRamCore() as core:
             tufo = core.formTufoByProp('inet:fqdn', 'abc.dyndns.com') # abc.dyndns.com - zone=0 sfx=0, dyndns.com - zone=1 sfx=0, com - zone=0 sfx=1
