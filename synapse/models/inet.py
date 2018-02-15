@@ -88,9 +88,6 @@ class FqdnType(DataType):
         except UnicodeError as e:
             self._raiseBadValu(valu)
 
-        if not fqdnre.match(valu):
-            self._raiseBadValu(valu)
-
         parts = valu.split('.', 1)
         subs = {'host': parts[0]}
         if len(parts) == 2:
@@ -101,7 +98,13 @@ class FqdnType(DataType):
         return valu, subs
 
     def repr(self, valu):
-        return valu.encode('utf8').decode('idna')
+        try:
+            return valu.encode('utf8').decode('idna')
+        except UnicodeError as e:
+            if len(valu) >= 4 and valu[0:4] == 'xn--':
+                logger.exception(msg='Failed to IDNA decode ACE prefixed inet:fqdn')
+                return valu
+            raise  # pragma: no cover
 
 class Rfc2822Addr(DataType):
     '''
