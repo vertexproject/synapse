@@ -237,7 +237,7 @@ class Query:
             tree = self.vartree
 
         # *tree* nodes...
-        nodes = [ (valu, {}) for valu in vals ]
+        nodes = [(valu, {}) for valu in vals]
         tree[1][name] = nodes
 
     def iterVarTree(self, path):
@@ -254,10 +254,10 @@ class Query:
             return
 
         parts = path.split('.')
-        fulls = [ '.'.join(parts[:i]) for i in range(1, len(parts) + 1) ]
+        fulls = ['.'.join(parts[:i]) for i in range(1, len(parts) + 1)]
 
         # for this context, "node" is *tree* nodes...
-        todo = collections.deque([ (self.vartree, 0, {}) ])
+        todo = collections.deque([(self.vartree, 0, {})])
 
         while todo:
 
