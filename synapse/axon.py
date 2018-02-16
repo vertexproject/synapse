@@ -188,13 +188,14 @@ class BlobCell(s_neuron.Cell):
         mapsize = self.getConfOpt('blob:mapsize')
 
         self.blobs = BlobStor(path, mapsize=mapsize)
-        self.onfini(self.blobs.fini)
-
         self.cloneof = self.getConfOpt('blob:cloneof')
 
         if self.cloneof is not None:
             self.cellpool.add(self.cloneof, self._fireCloneThread)
             self.cellinfo['blob:cloneof'] = self.cloneof
+
+    def finiCell(self):
+        self.blobs.fini()
 
     def _saveDispItems(self, items):
 
