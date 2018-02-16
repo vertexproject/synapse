@@ -12,12 +12,9 @@ import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
-import synapse.cores.ram as s_cores_ram
 import synapse.cores.lmdb as s_cores_lmdb
-import synapse.cores.sqlite as s_cores_sqlite
 import synapse.cores.common as s_cores_common
 import synapse.cores.storage as s_cores_storage
-import synapse.cores.postgres as s_cores_postgres
 
 import synapse.lib.auth as s_auth
 import synapse.lib.tags as s_tags
@@ -25,8 +22,6 @@ import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
 import synapse.lib.threads as s_threads
 import synapse.lib.version as s_version
-
-import synapse.models.syn as s_models_syn
 
 from synapse.tests.common import *
 
