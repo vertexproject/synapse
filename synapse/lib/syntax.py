@@ -611,7 +611,7 @@ def parse_storm(text, off=0):
             # set load syntax goes here...
 
             if not nextchar(text, off, '='):
-                raise s_common.BadSyntaxError('expected = at %d' % (off,))
+                raise s_common.BadSyntaxError(msg='expected = at %d' % (off,))
 
             _, off = nom(text, off + 1, whites)
 
