@@ -14,6 +14,8 @@ bbuf = s_const.mebibyte * 130 * b'\00'
 nullhash = hashlib.sha256(b'').digest()
 bbufhash = hashlib.sha256(bbuf).digest()
 asdfsha256 = hashlib.sha256(b'asdfasdf').digest()
+hehasha256 = hashlib.sha256(b'hehehaha').digest()
+
 
 def u64(x):
     return struct.pack('>Q', x)
@@ -368,3 +370,29 @@ class AxonTest(SynTest):
                         full += byts
 
                     self.eq(full, b'')
+
+                # Shutdown blob01, add data, bring it back up, clone it
+                logger.debug('Shutdown / restart blob01 test')
+                bref.pop('blob01')
+                blob01.fini()
+                self.true(blob01.isfini)
+
+                mesg = ('axon:save', {'files': [b'hehehaha']})
+                ok, retn = sess.call(mesg, timeout=3)
+                self.true(ok)
+                self.eq(retn, 1)
+
+                ok, retn = sess.call(('axon:wants', {'hashes': [hehasha256]}))
+                self.true(ok)
+                self.eq(retn, ())
+
+                # Now bring blob01 back online
+
+                blob01 = s_axon.BlobCell(path, blob01conf)
+                bref.put('blob01', blob01)
+                self.true(blob01.cellpool.neurwait(timeout=3))
+                blob01wait = blob01.waiter(1, 'blob:clone:rows')
+                # Cloning should start up shortly
+                blob01wait.wait(10)
+                valu = b''.join(blob01.blobs.load(hehasha256))
+                self.eq(valu, b'hehehaha')
