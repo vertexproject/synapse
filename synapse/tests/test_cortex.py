@@ -547,19 +547,17 @@ class CortexBaseTest(SynTest):
         self.eq(core.getSizeBy('range', 'rg', (s_cores_lmdb.MIN_INT_VAL + 1, -42)), 0)
         self.eq(core.getSizeBy('range', 'rg', (s_cores_lmdb.MIN_INT_VAL, -42)), 1)
         self.eq(core.getSizeBy('le', 'rg', -42), 2)
-        # TODO: Need to implement lt for all the cores
-        if 0:
-            self.eq(core.getSizeBy('lt', 'rg', -42), 1)
         self.eq(core.getSizeBy('range', 'rg', (-42, 0)), 2)
         self.eq(core.getSizeBy('range', 'rg', (-1, 2)), 3)
-        if 0:
-            self.eq(core.getSizeBy('lt', 'rg', 0), 3)
         self.eq(core.getSizeBy('le', 'rg', 0), 4)
-        # This is broken for RAM and SQLite
-        if 0:
-            self.eq(core.getSizeBy('ge', 'rg', -1, limit=3), 3)
         self.eq(core.getSizeBy('ge', 'rg', 30), 2)
         self.eq(core.getSizeBy('ge', 'rg', s_cores_lmdb.MAX_INT_VAL), 1)
+
+        # TODO: Need to implement lt for all the cores
+        # self.eq(core.getSizeBy('lt', 'rg', -42), 1)
+        # self.eq(core.getSizeBy('lt', 'rg', 0), 3)
+        # TODO: This is broken for RAM and SQLite
+        # self.eq(core.getSizeBy('ge', 'rg', -1, limit=3), 3)
 
     def runjson(self, core):
 
