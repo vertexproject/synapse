@@ -1,7 +1,6 @@
 import regex
 
 import synapse.lib.cmdr as s_cmdr
-import synapse.cmds.cortex as s_cmds_cortex
 
 from synapse.tests.common import *
 

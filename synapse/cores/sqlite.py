@@ -664,7 +664,7 @@ class SqliteStorage(s_cores_storage.Storage):
         rows = self.select(self._q_getjoin_by_ge_int, prop=prop, valu=valu, limit=limit)
         return self._foldTypeCols(rows)
 
-    def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None, nolim=False):
+    def _runPropQuery(self, name, prop, valu=None, limit=None, mintime=None, maxtime=None, meth=None):
         limit = self._getDbLimit(limit)
 
         qkey = (type(valu), type(mintime), type(maxtime))
@@ -711,14 +711,14 @@ class SqliteStorage(s_cores_storage.Storage):
         self.delete(self._q_delrows_by_iden, iden=iden)
 
     def _delJoinByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        self._runPropQuery('deljoinbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)
+        self._runPropQuery('deljoinbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete)
 
     def getJoinByProp(self, prop, valu=None, mintime=None, maxtime=None, limit=None):
         rows = self._runPropQuery('joinbyprop', prop, valu=valu, limit=limit, mintime=mintime, maxtime=maxtime)
         return self._foldTypeCols(rows)
 
     def _delRowsByProp(self, prop, valu=None, mintime=None, maxtime=None):
-        self._runPropQuery('delrowsbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete, nolim=True)
+        self._runPropQuery('delrowsbyprop', prop, valu=valu, mintime=mintime, maxtime=maxtime, meth=self.delete)
 
     def _updateProperty(self, oldprop, newprop):
         return self.update(self._q_uprows_by_prop_prop, oldvalu=oldprop, newvalu=newprop)
