@@ -2,6 +2,7 @@ import time
 import lmdb
 import struct
 import logging
+import hashlib
 import itertools
 
 import synapse.glob as s_glob
@@ -13,10 +14,6 @@ import synapse.lib.net as s_net
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
 import synapse.lib.config as s_config
-
-import synapse.lib.hashset as s_hashset
-# for backward compat (HashSet moved from this module to synapse.lib.hashset )
-from synapse.lib.hashset import *
 
 logger = logging.getLogger(__name__)
 
