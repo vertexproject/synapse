@@ -1,10 +1,10 @@
 import io
 
-import synapse.axon as s_axon
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.lib.tufo as s_tufo
+import synapse.lib.hashset as s_hashset
 
 from synapse.tests.common import *
 
@@ -13,7 +13,7 @@ class FileModelTest(SynTest):
     def test_model_file_bytes(self):
         with self.getRamCore() as core:
 
-            hset = s_axon.HashSet()
+            hset = s_hashset.HashSet()
             hset.update(b'visi')
 
             valu, props = hset.guid()
@@ -30,7 +30,7 @@ class FileModelTest(SynTest):
     def test_model_file_seeds(self):
         with self.getRamCore() as core:
 
-            hset = s_axon.HashSet()
+            hset = s_hashset.HashSet()
             hset.update(b'visi')
 
             valu, props = hset.guid()
