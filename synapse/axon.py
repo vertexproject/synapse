@@ -231,7 +231,7 @@ class BlobCell(s_neuron.Cell):
 
             except Exception as e:
                 if not sess.isfini:
-                    logger.warning('BlobCell clone thread error: %s' % (e,))
+                    logger.exception('BlobCell clone thread error')
                     time.sleep(1)
 
     def handlers(self):
