@@ -326,17 +326,15 @@ class AxonCell(s_neuron.Cell):
         self.bloblocs = self.lenv.open_db(b'axon:blob:locs') # <sha256><loc>=1
         self.metrics = s_lmdb.Metrics(self.lenv)
 
-        def fini():
-            self.lenv.sync()
-            self.lenv.close()
-
-        self.onfini(fini)
-
         self.blobs = s_neuron.CellPool(self.cellauth, self.neuraddr)
-        self.onfini(self.blobs.fini)
 
         for name in self.getConfOpt('axon:blobs'):
             self.blobs.add(name)
+
+    def finiCell(self):
+        self.lenv.sync()
+        self.lenv.close()
+        self.blobs.fini()
 
     def handlers(self):
         return {
@@ -370,9 +368,7 @@ class AxonCell(s_neuron.Cell):
             def genr():
 
                 indx = 0
-                size = 0
 
-                ok = False
                 for ok, byts in chan.rxwind(timeout=30):
                     if not ok:
                         break
@@ -393,11 +389,11 @@ class AxonCell(s_neuron.Cell):
 
                 chan.tx((True, True))
                 # XXX Broken code
-                if bchan.txwind(genr(), 10):
+                if chanb.txwind(genr(), 10):
 
                     nenc = name.encode('utf8')
                     with self.lenv.begin(write=True) as xact:
-                        self._addFileLoc(xact, sha256, size, name)
+                        self._addFileLoc(xact, sha256, info.get('size'), name)
 
             chan.txfini((True, name))
 

@@ -1,4 +1,3 @@
-import os
 import struct
 
 import synapse.axon as s_axon
@@ -9,9 +8,12 @@ import synapse.lib.crypto.vault as s_vault
 
 from synapse.tests.common import *
 
-asdfsha256 = hashlib.sha256(b'asdfasdf').digest()
-
 logger = logging.getLogger(__name__)
+
+bbuf = s_const.mebibyte * 130 * b'\00'
+nullhash = hashlib.sha256(b'').digest()
+bbufhash = hashlib.sha256(bbuf).digest()
+asdfsha256 = hashlib.sha256(b'asdfasdf').digest()
 
 def u64(x):
     return struct.pack('>Q', x)
