@@ -320,3 +320,51 @@ class AxonTest(SynTest):
                 self.true(ok)
                 self.eq(retn[0][1].get('size'), 8)
                 self.eq(retn[0][1].get('cell'), 'blob00@localhost')
+
+                # Try uploading a large file
+                logger.debug('Bigfile test')
+                mesg = ('axon:save', {'files': [bbuf]})
+                ok, retn = sess.call(mesg, timeout=30)
+                self.true(ok)
+                self.eq(retn, 1)
+
+                ok, retn = sess.call(('axon:wants', {'hashes': [bbufhash]}))
+                self.true(ok)
+                self.eq(retn, ())
+
+                # Then retrieve it
+                mesg = ('axon:bytes', {'sha256': bbufhash})
+                with sess.task(mesg) as chan:
+                    ok, retn = chan.next(timeout=3)
+                    self.eq((ok, retn), (True, 'blob00@localhost'))
+
+                    full = b''
+                    for ok, byts in chan.rxwind(timeout=30):
+                        self.true(ok)
+                        full += byts
+
+                    self.eq(full, bbuf)
+
+                # Try storing a empty file
+                logger.debug('Nullfile test')
+                mesg = ('axon:save', {'files': [b'']})
+                ok, retn = sess.call(mesg, timeout=3)
+                self.true(ok)
+                self.eq(retn, 1)
+
+                ok, retn = sess.call(('axon:wants', {'hashes': [nullhash]}))
+                self.true(ok)
+                self.eq(retn, ())
+
+                # Then retrieve it
+                mesg = ('axon:bytes', {'sha256': nullhash})
+                with sess.task(mesg) as chan:
+                    ok, retn = chan.next(timeout=3)
+                    self.eq((ok, retn), (True, 'blob00@localhost'))
+
+                    full = b''
+                    for ok, byts in chan.rxwind(timeout=3):
+                        self.true(ok)
+                        full += byts
+
+                    self.eq(full, b'')
