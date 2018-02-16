@@ -1479,7 +1479,7 @@ class StormTest(SynTest):
         self.len(0, list(quer.iterVarTree('asdf')))
 
         for node, varz in quer.iterVarTree('a'):
-            quer.addTreeVar('b', ['z','q'], tree=node)
+            quer.addTreeVar('b', ['z', 'q'], tree=node)
 
         rets = []
         for node, varz in quer.iterVarTree('a.b'):
