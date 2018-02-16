@@ -388,10 +388,9 @@ class AxonCell(s_neuron.Cell):
                     chan.tx((False, retn))
 
                 chan.tx((True, True))
-                # XXX Broken code
                 if chanb.txwind(genr(), 10):
 
-                    nenc = name.encode('utf8')
+                    nenc = name.encode('utf8')  # XXX What is nenc for?
                     with self.lenv.begin(write=True) as xact:
                         self._addFileLoc(xact, sha256, info.get('size'), name)
 
