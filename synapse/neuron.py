@@ -802,8 +802,7 @@ class CellPool(s_eventbus.EventBus):
         Returns:
             bool: True on ready, False on timeout.
         '''
-        self.neurok.wait(timeout=timeout)
-        return self.neurok.is_set()
+        return self.neurok.wait(timeout=timeout)
 
     def items(self):
         return self.cells.items()
