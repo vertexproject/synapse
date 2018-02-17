@@ -273,6 +273,8 @@ class BlobCell(s_neuron.Cell):
 
             chan.txfini((True, True))
 
+        self.fire('blob:upload')
+
     @s_glob.inpool
     def _onBlobStat(self, chan, mesg):
         chan.txfini((True, self.blobs.stat()))

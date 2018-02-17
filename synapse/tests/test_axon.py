@@ -380,38 +380,23 @@ class AxonTest(SynTest):
                 blob01.fini()
                 self.true(blob01.isfini)
 
-                mesg = ('axon:save', {'files': [b'hehehaha']})
-                ok, retn = sess.call(mesg, timeout=3)
-                self.true(ok)
-                self.eq(retn, 1)
-
-                ok, retn = sess.call(('axon:wants', {'hashes': [hehasha256]}))
-                self.true(ok)
-                self.eq(retn, ())
-
-                # Now bring blob01 back online
-
-                blob01 = s_axon.BlobCell(path, blob01conf)
-                bref.put('blob01', blob01)
-                self.true(blob01.cellpool.neurwait(timeout=3))
-                blob01wait = blob01.waiter(1, 'blob:clone:rows')
-                # Cloning should start up shortly
-                blob01wait.wait(10)
-                valu = b''.join(blob01.blobs.load(hehasha256))
-                self.eq(valu, b'hehehaha')
                 # now let the busref tear down things and remake everything
+                logger.warning('Allowing busref to tear down the blob00/axon00/neuron00/blob01')
 
-                logger.debug('Allowing busref to tear down the blob00/axon00/neuron00/blob01')
+            # Let s_glob.sched calls flush out for CellPool
+            time.sleep(3)
 
             with s_eventbus.BusRef() as bref:
-                logger.debug('Bring the neuron/blob/axon back online')
+                logger.warning('Bring the neuron/blob/axon back online')
                 # neur00 ############################################
                 conf = {'host': 'localhost', 'bind': '127.0.0.1'}
                 path = s_common.gendir(dirn, 'neuron')
+                logger.debug('Bringing neuron back up')
                 neur = s_neuron.Neuron(path, conf)
                 bref.put('neur00', neur)
                 # blob00 ############################################
                 path = s_common.gendir(dirn, 'blob00')
+                logger.debug('Bringing blob00 back up')
                 blob00 = s_axon.BlobCell(path, conf)
                 bref.put('blob00', blob00)
                 self.true(blob00.cellpool.neurwait(timeout=3))
@@ -422,7 +407,9 @@ class AxonTest(SynTest):
                     'bind': '127.0.0.1',
                     'axon:blobs': ('blob00@localhost',),
                 }
+                logger.debug('Bringing axon00 back up')
                 axon00 = s_axon.AxonCell(path, axonconf)
+                bref.put('axon00', axon00)
                 self.true(axon00.cellpool.neurwait(timeout=3))
                 sess = user.open(axon00.getCellAddr(), timeout=3)
                 bref.put('sess', sess)
