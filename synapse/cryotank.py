@@ -365,14 +365,13 @@ class CryoCell(s_neuron.Cell):
 
         with chan:
 
+            size = 0
             tank = self.genCryoTank(name)
-            for ok, retn in chan.rxwind(timeout=30):
-                if not ok:
-                    return chan.txfini((False, retn))
+            for items in chan.rxwind(timeout=30):
+                tank.puts(items)
+                size += len(items)
 
-                tank.puts(retn)
-
-            chan.txfini((True, None))
+            chan.txok(size)
 
     @s_glob.inpool
     def _onCryoInit(self, chan, mesg):

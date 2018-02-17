@@ -9,6 +9,7 @@ import synapse.lib.crypto.vault as s_vault
 
 from synapse.tests.common import *
 
+asdfhex = hashlib.sha256(b'asdfasdf').hexdigest()
 asdfsha256 = hashlib.sha256(b'asdfasdf').digest()
 
 logger = logging.getLogger(__name__)
@@ -185,11 +186,6 @@ class AxonTest(SynTest):
 
                 sess = user.open(axon00.getCellAddr(), timeout=3)
 
-                newp = os.urandom(32)
-                ok, retn = sess.call(('axon:wants', {'hashes': [newp]}))
-                self.true(ok)
-                self.eq(retn, (newp,))
-
                 # wait for the axon to have blob00
                 ready = False
 
@@ -203,61 +199,29 @@ class AxonTest(SynTest):
 
                 self.true(ready)
 
-                mesg = ('axon:save', {'files': [b'asdfasdf']})
-                ok, retn = sess.call(mesg, timeout=3)
-                self.true(ok)
-                self.eq(retn, True)
+                axon = s_axon.Axon(sess)
 
-                mesg = ('blob:stat', {})
-                ok, retn = blob00sess.call(mesg, timeout=3)
-                self.true(ok)
-                self.eq(retn, {'blocks': 1, 'bytes': 8})  # Now it should have data
+                self.len(1, axon.wants([asdfhex]))
 
-                mesg = ('axon:save', {'files': [b'asdfasdf']})
-                ok, retn = sess.call(mesg, timeout=3)
-                self.true(ok)
-                self.eq(retn, False)
+                self.eq(1, axon.save([b'asdfasdf'], timeout=3))
 
-                mesg = ('axon:save', {})
-                ok, retn = sess.call(mesg, timeout=3)
-                self.true(ok)
-                self.eq(retn, False)
+                self.len(0, axon.wants([asdfhex], timeout=3))
 
-                ok, retn = sess.call(('axon:wants', {'hashes': [asdfsha256]}))
-                self.true(ok)
-                self.eq(retn, ())
+                self.eq(b'asdfasdf', b''.join(axon.bytes(asdfhex, timeout=3)))
 
-                # lets see if the bytes make it to the blob clone...
-                self.nn(blob01wait.wait(timeout=10))
-                valu = b''.join(blob01.blobs.load(asdfsha256))
-                self.eq(valu, b'asdfasdf')
+                stat = axon.stat(timeout=3)
+                self.eq(1, stat.get('files'))
+                self.eq(8, stat.get('bytes'))
 
-                # no such hash file...
-                mesg = ('axon:bytes', {'sha256': newp})
-                with sess.task(mesg) as chan:
-                    ok, retn = chan.next(timeout=3)
-                    self.false(ok)
-                    self.eq(retn[0], 'FileNotFound')
+                newp = s_common.ehex(os.urandom(32))
+                def loop():
+                    s_common.spin(axon.bytes(newp))
 
-                mesg = ('axon:bytes', {'sha256': asdfsha256})
-                with sess.task(mesg) as chan:
-                    ok, retn = chan.next(timeout=3)
-                    self.eq((ok, retn), (True, 'blob00@localhost'))
+                self.raises(s_exc.RetnErr, loop)
 
-                    full = b''
-                    for ok, byts in chan.rxwind(timeout=3):
-                        self.true(ok)
-                        full += byts
+                qwerhash = hashlib.sha256(b'qwerqwer').hexdigest()
 
-                    self.eq(full, b'asdfasdf')
+                self.eq(qwerhash, axon.upload([b'qwer', b'qwer'], timeout=3))
 
-                ok, retn = sess.call(('axon:stat', {}), timeout=3)
-                self.true(ok)
-
-                self.eq(retn.get('files'), 1)
-                self.eq(retn.get('bytes'), 8)
-
-                ok, retn = sess.call(('axon:metrics', {'offs': 0}), timeout=3)
-                self.true(ok)
-                self.eq(retn[0][1].get('size'), 8)
-                self.eq(retn[0][1].get('cell'), 'blob00@localhost')
+                self.len(0, axon.wants([qwerhash]))
+                self.eq(b'qwerqwer', b''.join(axon.bytes(qwerhash, timeout=3)))

@@ -214,6 +214,13 @@ class BadAtomFile(SynErr):
 
 class IsFini(Exception): pass
 
+class RetnErr(SynErr):
+    '''
+    Raised when a call using the retn convention has failed.
+    '''
+    def __init__(self, retn):
+        SynErr.__init__(self, excn=retn[0], **retn[1])
+
 class RetnTimeout(SynErr):
     '''
     Raised when there is a RetnWait wait() call which timesout.

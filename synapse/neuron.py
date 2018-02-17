@@ -460,17 +460,6 @@ class Sess(s_net.Link):
             'xmit': self._onMesgXmit,
         }
 
-    def impel(self, mesg, mach):
-        '''
-        Use a StateMachine to handle a non-blocking client channel.
-        '''
-        chan = self.taskplex.open()
-
-        chan.onrx(mach.rx)
-        chan.onfini(mach.fini)
-
-        chan.tx(mesg)
-
     def setRxKey(self, rxkey):
         self.rxkey = rxkey
         self.rxtinh = s_tinfoil.TinFoilHat(rxkey)
@@ -492,7 +481,10 @@ class Sess(s_net.Link):
         data = mesg[1].get('data')
         newm = s_msgpack.un(self.rxtinh.dec(data))
 
-        self.taskplex.rx(self, newm)
+        try:
+            self.taskplex.rx(self, newm)
+        except Exception as e:
+            logger.exception('xmit taskplex error')
 
     def _onMesgSkey(self, link, mesg):
 
@@ -902,3 +894,6 @@ class CellPool(s_eventbus.EventBus):
             return False, ('NotReady', {})
 
         return True, random.choice(items)
+
+if __name__ == '__main__':
+    main(sys.argv[1])

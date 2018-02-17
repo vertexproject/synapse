@@ -1,9 +1,11 @@
 import time
 import lmdb
 import struct
+import hashlib
 import logging
 import itertools
 
+import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.neuron as s_neuron
@@ -15,8 +17,6 @@ import synapse.lib.const as s_const
 import synapse.lib.config as s_config
 
 import synapse.lib.hashset as s_hashset
-# for backward compat (HashSet moved from this module to synapse.lib.hashset )
-from synapse.lib.hashset import *
 
 logger = logging.getLogger(__name__)
 
@@ -204,11 +204,14 @@ class BlobCell(s_neuron.Cell):
         def genr():
 
             for link, mesg in items:
-                rows = mesg[1].get('rows', ())
-                for row in rows:
-                    yield row
 
-                link.txfini((True, len(rows)))
+                with link:
+
+                    rows = mesg[1].get('rows', ())
+                    for row in rows:
+                        yield row
+
+                    link.txok(len(rows))
 
         self.blobs.save(genr())
 
@@ -243,38 +246,36 @@ class BlobCell(s_neuron.Cell):
             'blob:load': self._onBlobLoad, # ('blob:load', {'buid': <buid>} )
             'blob:stat': self._onBlobStat, # ('blob:stat', {}) -> (True, {info})
             'blob:clone': self._onBlobClone, # ('blob:clone', {'offs': <indx>}) -> [ (indx, (lkey, lval)), ]
+            'blob:upload': self._onBlobUpload,
             'blob:metrics': self._onBlobMetrics, # ('metrics', {'offs':<indx>}) -> ( (indx, info), ... )
         }
 
+    @s_glob.inpool
     def _onBlobClone(self, chan, mesg):
-        offs = mesg[1].get('offs')
-        genr = self.blobs.clone(offs)
-        rows = list(itertools.islice(genr, 1000))
-        chan.txfini((True, rows))
+        with chan:
+            offs = mesg[1].get('offs')
+            genr = self.blobs.clone(offs)
+            rows = list(itertools.islice(genr, 1000))
+            chan.txok(rows)
 
+    @s_glob.inpool
     def _onBlobUpload(self, chan, mesg):
 
         with chan:
 
             chan.setq()
-            chan.tx((True, True))
-
-            def genr():
-
-                for ok, row in self.rxwind(timeout=60):
-                    if not ok:
-                        break
-
-                    yield row
+            chan.txok(True)
 
             # in chunks for transaction optimization
-            for rows in s_common.chunks(genr(), 10):
+            genr = chan.rxwind(timeout=60)
+            for rows in s_common.chunks(genr, 10):
                 self.blobs.save(rows)
 
-            chan.txfini((True, True))
+            chan.txok(True)
 
     def _onBlobStat(self, chan, mesg):
-        chan.txfini((True, self.blobs.stat()))
+        with chan:
+            chan.txok(self.blobs.stat())
 
     @s_glob.inpool
     def _onBlobMetrics(self, chan, mesg):
@@ -293,9 +294,13 @@ class BlobCell(s_neuron.Cell):
         buid = mesg[1].get('buid')
         with chan:
             chan.setq()
-            chan.tx((True, None))
-            genr = self.blobs.load(buid)
-            chan.txwind(genr, 10, timeout=30)
+            chan.txok(None)
+            #genr = self.blobs.load(buid)
+            def genr():
+                for byts in self.blobs.load(buid):
+                    yield byts
+            #chan.txwind(genr, 10, timeout=30)
+            chan.txwind(genr(), 10, timeout=30)
 
     @staticmethod
     @s_config.confdef(name='blob')
@@ -324,8 +329,9 @@ class AxonCell(s_neuron.Cell):
         self.lenv = lmdb.open(path, writemap=True, max_dbs=128)
         self.lenv.set_mapsize(mapsize)
 
-        self.blobhas = self.lenv.open_db(b'axon:blob:has') # <sha256>=1
-        self.bloblocs = self.lenv.open_db(b'axon:blob:locs') # <sha256><loc>=1
+        self.blobhas = self.lenv.open_db(b'axon:blob:has') # <sha256>=<size>
+        self.bloblocs = self.lenv.open_db(b'axon:blob:locs') # <sha256><loc>=<buid>
+
         self.metrics = s_lmdb.Metrics(self.lenv)
 
         def fini():
@@ -353,74 +359,84 @@ class AxonCell(s_neuron.Cell):
     @s_glob.inpool
     def _onAxonUpload(self, chan, mesg):
 
-        sha256 = mesg[1].get('sha256')
-
         with chan:
 
-            with self.lenv.begin() as xact:
-                if xact.get(sha256, db=self.blobhas):
-                    return chan.txfini((True, False))
+            chan.setq()
 
             ok, retn = self.blobs.any()
             if not ok:
-                return chan.txfini((False, retn))
+                return chan.txerr(retn)
 
             name, sess = retn
 
             info = {'size': 0}
+            buid = s_common.buid()
+
+            sha256 = hashlib.sha256()
 
             def genr():
 
                 indx = 0
-                size = 0
 
-                ok = False
-                for ok, byts in chan.rxwind(timeout=30):
-                    if not ok:
-                        break
+                allb = b''
+                for byts in chan.rxwind(timeout=30):
 
+                    sha256.update(byts)
                     info['size'] += len(byts)
 
-                    lkey = sha256 + struct.pack('>Q', indx)
-                    indx += 1
+                    allb += byts
+                    while len(allb) >= blocksize:
 
-                    yield lkey, byts
+                        bloc = allb[:blocksize]
+                        allb = allb[blocksize:]
 
-            with sess.chan() as chanb:
+                        lkey = buid + struct.pack('>Q', indx)
+                        indx += 1
 
-                chanb.tx(('blob:upload', {}))
-                ok, retn = chanb.next(timeout=30)
+                        yield lkey, bloc
+
+                if allb:
+                    lkey = buid + struct.pack('>Q', indx)
+                    yield lkey, allb
+
+            with sess.chan() as bchan:
+
+                bchan.setq()
+
+                bchan.tx(('blob:upload', {}))
+                ok, retn = bchan.next(timeout=30)
                 if not ok:
-                    chan.tx((False, retn))
+                    chan.txerr(retn)
 
-                chan.tx((True, True))
-                # XXX Broken code
-                if bchan.txwind(genr(), 10):
+                chan.txok(True)
 
+                if bchan.txwind(genr(), 10, timeout=30):
+
+                    size = info.get('size')
                     nenc = name.encode('utf8')
                     with self.lenv.begin(write=True) as xact:
-                        self._addFileLoc(xact, sha256, size, name)
+                        self._addFileLoc(xact, buid, sha256.digest(), size, name)
 
-            chan.txfini((True, name))
+            chan.txok(sha256.hexdigest())
 
-    def _addFileLoc(self, xact, sha256, size, name):
+    def _addFileLoc(self, xact, buid, sha256, size, name):
 
         tick = s_common.now()
 
         nenc = name.encode('utf8')
 
         xact.put(sha256, struct.pack('>Q', size), db=self.blobhas)
-        xact.put(sha256 + nenc, struct.pack('>Q', tick), db=self.bloblocs)
+        xact.put(sha256 + nenc, buid, db=self.bloblocs)
 
         self.metrics.inc(xact, 'files', 1)
         self.metrics.inc(xact, 'bytes', size)
 
         # metrics contains everything we need to clone
-        self.metrics.record(xact, {'time': tick, 'cell': name, 'size': size, 'sha256': sha256})
+        self.metrics.record(xact, {'time': tick, 'cell': name, 'size': size, 'buid': buid, 'sha256': sha256})
 
     def _onAxonStat(self, chan, mesg):
         with chan:
-            return chan.txfini((True, self.metrics.stat()))
+            return chan.txok(self.metrics.stat())
 
     @s_glob.inpool
     def _onAxonMetrics(self, chan, mesg):
@@ -431,7 +447,7 @@ class AxonCell(s_neuron.Cell):
             with self.lenv.begin() as xact:
                 genr = self.metrics.iter(xact, offs)
                 retn = list(itertools.islice(genr, size))
-                return chan.txfini((True, retn))
+                return chan.txok(retn)
 
     @s_glob.inpool
     def _onAxonWants(self, chan, mesg):
@@ -450,50 +466,50 @@ class AxonCell(s_neuron.Cell):
                     if not curs.set_key(sha256):
                         wants.append(sha256)
 
-            chan.txfini((True, wants))
+            chan.txok(wants)
 
     @s_glob.inpool
     def _onAxonBytes(self, chan, mesg):
 
-        sha256 = mesg[1].get('sha256')
         with chan:
+
+            chan.setq()
+
+            sha256 = mesg[1].get('sha256')
 
             with self.lenv.begin() as xact:
                 locs = self.getBlobLocs(xact, sha256)
 
             if not locs:
-                return chan.txfini((False, ('FileNotFound', {})))
+                return chan.txerr(('FileNotFound', {}))
 
             sess = None
-            for name in locs:
+            buid = None
+
+            for name, buid in locs:
                 sess = self.blobs.get(name)
                 if sess is not None:
                     break
 
             if sess is None:
-                return chan.txfini((False, ('NotReady', {})))
-
-            chan.setq()
+                return chan.txerr(('NotReady', {}))
 
             with sess.chan() as bchan:
 
                 bchan.setq()
-                bchan.tx(('blob:load', {'buid': sha256}))
+                bchan.tx(('blob:load', {'buid': buid}))
 
                 ok, retn = bchan.next(timeout=30)
                 if not ok:
-                    return chan.txfini((ok, retn))
+                    return chan.txerr(retn)
 
-                chan.tx((True, name))
+                chan.txok(name)
 
                 def genr():
+                    for byts in bchan.rxwind(timeout=30):
+                        yield byts
 
-                    for ok, item in bchan.rxwind():
-                        if not ok:
-                            return
-
-                        yield item
-
+                #genr = bchan.rxwind(timeout=30)
                 chan.txwind(genr(), 10, timeout=30)
 
     def getBlobLocs(self, xact, sha256):
@@ -505,11 +521,12 @@ class AxonCell(s_neuron.Cell):
 
             locs = []
 
-            for lkey in curs.iternext(values=False):
+            for lkey, buid in curs.iternext():
                 if lkey[:32] != sha256:
                     break
 
-                locs.append(lkey[32:].decode('utf8'))
+                cellname = lkey[32:].decode('utf8')
+                locs.append((cellname, buid))
 
             return locs
 
@@ -526,15 +543,17 @@ class AxonCell(s_neuron.Cell):
                 if curs.get(sha256):
                     continue
 
-                todo.append((sha256, byts))
+                todo.append((s_common.buid(), sha256, byts))
 
         return todo
 
     def _saveBlobByts(self, todo):
 
         rows = []
-        for sha256, byts in todo:
-            rows.append((sha256 + zero64, byts))
+        for buid, sha256, byts in todo:
+            for i, byts in enumerate(s_common.chunks(byts, blocksize)):
+                indx = struct.pack('>Q', i)
+                rows.append((buid + indx, byts))
 
         ok, retn = self.blobs.any()
         if not ok:
@@ -557,25 +576,25 @@ class AxonCell(s_neuron.Cell):
 
             files = mesg[1].get('files', ())
             if not files:
-                return chan.txfini((True, 0))
+                return chan.txok(0)
 
             todo = self._filtSaveByts(files)
 
             # if there is nothing to do after deconfliction, bail
             if not todo:
-                return chan.txfini((True, 0))
+                return chan.txok(0)
 
             ok, retn = self._saveBlobByts(todo)
             if not ok:
                 logger.warning('axon:save failed save blobs: %r' % (retn,))
-                return chan.txfini((False, retn))
+                return chan.txerr(retn)
 
             name = retn
             with self.lenv.begin(write=True) as xact:
-                for sha256, byts in todo:
-                    self._addFileLoc(xact, sha256, len(byts), name)
+                for buid, sha256, byts in todo:
+                    self._addFileLoc(xact, buid, sha256, len(byts), name)
 
-            return chan.txfini((True, len(todo)))
+            return chan.txok(len(todo))
 
     @staticmethod
     @s_config.confdef(name='axon')
@@ -587,3 +606,80 @@ class AxonCell(s_neuron.Cell):
             ('axon:blobs', {'req': True,
                 'doc': 'A list of cell names in a neuron cluster'}),
         )
+
+
+class Axon:
+
+    def __init__(self, sess):
+        self.sess = sess
+
+    def stat(self, timeout=None):
+        '''
+        Return the stat dictionary for the Axon.
+        '''
+        mesg = ('axon:stat', {})
+        ok, retn = self.sess.call(mesg, timeout=timeout)
+        return s_common.reqok(ok, retn)
+
+    def save(self, files, timeout=None):
+        '''
+        Save a list of files to the axon.
+
+        Args:
+            files ([bytes]): A list of files as bytes blobs.
+            timeout (int): The network timeout in seconds.
+        '''
+        mesg = ('axon:save', {'files': files})
+        ok, retn = self.sess.call(mesg, timeout=timeout)
+        return s_common.reqok(ok, retn)
+
+    def wants(self, hashes, timeout=None):
+        '''
+        Filter and return a list of hashes that the axon wants.
+
+        Args:
+            hashes (list): A list of SHA256 hex strings.
+            timeout (int): The network timeout in seconds.
+        '''
+        hashes = [s_common.uhex(h) for h in hashes]
+        mesg = ('axon:wants', {'hashes': hashes})
+        ok, retn = self.sess.call(mesg, timeout=timeout)
+        s_common.reqok(ok, retn)
+        return [s_common.ehex(h) for h in retn]
+
+    def upload(self, genr, timeout=None):
+        '''
+        Upload a large file using a generator.
+        Args:
+            genr (generator): Yields file bytes chunks.
+            timeout (int): The network timeout in seconds.
+        '''
+        mesg = ('axon:upload', {})
+
+        with self.sess.task(mesg, timeout=timeout) as chan:
+
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
+
+            chan.txwind(genr, 10, timeout=timeout)
+
+            ok, retn = chan.next(timeout=None)
+            return s_common.reqok(ok, retn)
+
+    def bytes(self, sha256, timeout=None):
+        '''
+        Yield bytes for the given SHA256.
+
+        Args:
+            sha256 (str): The SHA256 hash hex string.
+            timeout (int): The network timeout in seconds.
+        '''
+        mesg = ('axon:bytes', {'sha256': s_common.uhex(sha256)})
+        with self.sess.task(mesg, timeout=timeout) as chan:
+
+            ok, retn = chan.next(timeout=timeout)
+            if not ok:
+                raise s_exc.RetnErr(retn)
+
+            for byts in chan.rxwind(timeout=timeout):
+                yield byts

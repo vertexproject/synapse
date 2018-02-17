@@ -364,6 +364,14 @@ def getexcfo(e):
 
     return (e.__class__.__name__, retd)
 
+def reqok(ok, retn):
+    '''
+    Raise exception from retn if not ok.
+    '''
+    if not ok:
+        raise RetnErr(retn)
+    return retn
+
 def excinfo(e):
     '''
     Populate err,errmsg,errtrace info from exc.

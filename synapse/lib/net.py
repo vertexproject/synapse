@@ -404,6 +404,16 @@ class Link(s_eventbus.EventBus):
         self.txtime = s_common.now()
         self._tx_real(mesg)
 
+    def txok(self, retn, fini=False):
+        self.tx((True, retn))
+        if fini:
+            self.txfini()
+
+    def txerr(self, enfo, fini=False):
+        self.tx((False, enfo))
+        if fini:
+            self.txfini()
+
     def _tx_real(self, mesg):
         return self.link.tx(mesg)
 
@@ -483,8 +493,9 @@ class Chan(Link):
 
     def rxwind(self, timeout=None):
         '''
-        Yield (ok, item) tuples from an txwind caller.
+        Yield items from an txwind caller.
         '''
+        self.setq()
         self.tx(('rx:wind', {}))
 
         mesg = self.next(timeout=timeout)
@@ -503,8 +514,14 @@ class Chan(Link):
                 if item is None:
                     return
 
-                self.tx((True, True))
-                yield item
+                self.txok(True)
+
+                ok, retn = item
+                if not ok:
+                    logger.warning('rxwind: %r' % (retn,))
+                    return
+
+                yield item[1]
 
             items = self.slice(1000, timeout=timeout)
 
@@ -529,7 +546,7 @@ class Chan(Link):
             for item in items:
 
                 # tx item as tuple to distinguish shutdown
-                self.tx((True, item))
+                self.txok(item)
                 wind += 1
 
                 while wind >= size:
@@ -542,7 +559,9 @@ class Chan(Link):
 
         except Exception as e:
             enfo = s_common.getexcfo(e)
-            self.tx((False, enfo))
+            self.txerr(enfo)
+            logger.exception('tx wind genr')
+            return
 
         self.tx(None)
 
@@ -623,7 +642,7 @@ class ChanPlex(Link):
 
         chan = self.chans.get(iden)
         if chan is None:
-            logger.warning('tx() for missing chan')
+            logger.warning('tx() for missing chan %r' % (mesg,))
             return
 
         link = chan.getLinkProp('plex:link', defval=self.link)
