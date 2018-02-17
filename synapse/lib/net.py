@@ -496,15 +496,6 @@ class Chan(Link):
         Yield items from an txwind caller.
         '''
         self.setq()
-        self.tx(('rx:wind', {}))
-
-        mesg = self.next(timeout=timeout)
-        if mesg is None:
-            return
-
-        if mesg[0] != 'tx:wind':
-            logger.warning('rxwind expected tx:wind but got %s' % (mesg[0],))
-            return
 
         items = self.slice(1000, timeout=timeout)
         while items is not None:
@@ -529,16 +520,6 @@ class Chan(Link):
         '''
         Execute a windowed transmission loop from a generator.
         '''
-        self.tx(('tx:wind', {}))
-
-        mesg = self.next(timeout=timeout)
-        if mesg is None:
-            return
-
-        if mesg[0] != 'rx:wind':
-            logger.warning('txwind expected rx:wind but got %s' % (mesg[0],))
-            return
-
         wind = 0
 
         try:
