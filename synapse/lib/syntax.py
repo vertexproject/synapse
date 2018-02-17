@@ -331,35 +331,6 @@ def nextin(text, off, vals):
         return False
     return text[off] in vals
 
-def parse_macro_join(text, off=0):
-    '''
-    &foo:bar
-    &foo:bar=baz:faz
-    &hehe.haha/foo:bar=baz:faz
-    '''
-    inst = ('join', {'args': [], 'kwlist': []})
-
-    prop, off = nom(text, off, varset, trim=True)
-
-    if len(text) == off:
-        inst[1]['args'].append(prop)
-        return inst, off
-
-    if text[off] == '/':
-        inst[1]['kwlist'].append(('from', prop))
-        prop, off = nom(text, off + 1, varset, trim=True)
-
-    inst[1]['args'].append(prop)
-
-    if len(text) == off:
-        return inst, off
-
-    if nextchar(text, off, '='):
-        prop, off = nom(text, off + 1, varset, trim=True)
-        inst[1]['args'].append(prop)
-
-    return inst, off
-
 macrocmps = [
     ('<=', 'le'),
     ('>=', 'ge'),

@@ -1,4 +1,3 @@
-import os
 import struct
 
 import synapse.axon as s_axon
@@ -10,9 +9,14 @@ import synapse.lib.crypto.vault as s_vault
 from synapse.tests.common import *
 
 asdfhex = hashlib.sha256(b'asdfasdf').hexdigest()
-asdfsha256 = hashlib.sha256(b'asdfasdf').digest()
 
 logger = logging.getLogger(__name__)
+
+bbuf = s_const.mebibyte * 130 * b'\00'
+
+nullhash = hashlib.sha256(b'').hexdigest()
+bbufhash = hashlib.sha256(bbuf).hexdigest()
+asdfhash = hashlib.sha256(b'asdfasdf').hexdigest()
 
 def u64(x):
     return struct.pack('>Q', x)
@@ -47,9 +51,29 @@ class AxonTest(SynTest):
                     (buid2 + u64(0), b'dead'),
                     (buid2 + u64(2), b'f0re'),
                 )
+
+                # We do not have bytes for buid2 yet
+                bl = []
+                for byts in bst0.load(buid2):
+                    bl.append(byts)
+                self.eq(bl, [])
+
                 bst0.save(blobs)
                 retn = b''.join(bst0.load(buid2))
                 self.eq(retn, b'deadb33ff0resale')
+
+                # We can store and retrieve an empty string
+                buid3 = b'\x02' * 32
+                blobs = (
+                    (buid3 + u64(0), b''),
+                )
+                bst0.save(blobs)
+                bl = []
+                for byts in bst0.load(buid3):
+                    bl.append(byts)
+                self.eq(bl, [b''])
+                retn = b''.join(bl)
+                self.eq(retn, b'')
 
                 path1 = os.path.join(dirn, 'blob1')
 
@@ -61,6 +85,10 @@ class AxonTest(SynTest):
                     self.eq(retn, b'asdfqwerhehehaha')
                     retn = b''.join(bst1.load(buid2))
                     self.eq(retn, b'deadb33ff0resale')
+                    retn = b''.join(bst0.load(buid3))
+                    self.eq(retn, b'')
+
+                    bst1.addCloneRows([])  # Empty addCloneRows call for coverage
 
     def test_axon_blob_stat(self):
 
@@ -151,6 +179,7 @@ class AxonTest(SynTest):
 
                 user = s_neuron.CellUser(root)
                 blob00sess = user.open(blob00.getCellAddr(), timeout=3)
+                bref.put('blob00sess', blob00sess)
 
                 mesg = ('blob:stat', {})
                 ok, retn = blob00sess.call(mesg, timeout=3)
@@ -181,10 +210,12 @@ class AxonTest(SynTest):
                 }
 
                 axon00 = s_axon.AxonCell(path, axonconf)
+                bref.put('axon00', axon00)
                 self.true(axon00.cellpool.neurwait(timeout=3))
                 #####################################################
 
                 sess = user.open(axon00.getCellAddr(), timeout=3)
+                bref.put('sess', sess)
 
                 # wait for the axon to have blob00
                 ready = False
@@ -199,11 +230,23 @@ class AxonTest(SynTest):
 
                 self.true(ready)
 
-                axon = s_axon.Axon(sess)
+                axon = s_axon.AxonClient(sess)
+                blob = s_axon.BlobClient(blob00sess)
 
-                self.len(1, axon.wants([asdfhex]))
+                self.eq((), tuple(axon.metrics()))
+                self.eq((), tuple(blob.metrics()))
+
+                self.len(1, axon.wants([asdfhash]))
 
                 self.eq(1, axon.save([b'asdfasdf'], timeout=3))
+
+                self.eq((), tuple(axon.metrics(offs=999999999)))
+                self.eq((), tuple(blob.metrics(offs=99999999, timeout=3)))
+
+                metrics = list(blob.metrics(timeout=3))
+                self.len(1, metrics)
+                self.eq(8, metrics[0][1].get('size'))
+                self.eq(1, metrics[0][1].get('blocks'))
 
                 self.len(0, axon.wants([asdfhex], timeout=3))
 
@@ -225,3 +268,30 @@ class AxonTest(SynTest):
 
                 self.len(0, axon.wants([qwerhash]))
                 self.eq(b'qwerqwer', b''.join(axon.bytes(qwerhash, timeout=3)))
+
+                retn = list(axon.metrics(0, timeout=3))
+                self.eq(retn[0][1].get('size'), 8)
+                self.eq(retn[0][1].get('cell'), 'blob00@localhost')
+
+                # Try uploading a large file
+                #self.eq(1, axon.save([bbuf], timeout=3))
+
+                #self.eq((), axon.wants([bbufhash], timeout=3))
+
+                # Then retrieve it
+                #self.eq(bbuf, b''.join(axon.bytes(bbufhash)))
+
+                # Try storing a empty file
+                logger.debug('Nullfile test')
+                axon.save([b''])
+
+                self.eq((), tuple(axon.wants([nullhash])))
+
+                # Then retrieve it
+                self.eq(b'', b''.join(axon.bytes(nullhash)))
+
+                # TODO: Shutdown blob01, add data, bring it back up, clone it
+                #blob01.fini()
+
+                # now let the busref tear down things and remake everything
+                #logger.warning('Allowing busref to tear down the blob00/axon00/neuron00/blob01')

@@ -785,16 +785,16 @@ class CellPool(s_eventbus.EventBus):
         self.neurok = threading.Event()
 
         self._fireNeurLink()
+        self.onfini(self.cells.fini)
 
     def neurwait(self, timeout=None):
         '''
         Wait for the neuron connection to be ready.
 
         Returns:
-            (bool): True on ready, False on timeout.
+            bool: True on ready, False on timeout.
         '''
-        self.neurok.wait(timeout=timeout)
-        return self.neurok.is_set()
+        return self.neurok.wait(timeout=timeout)
 
     def items(self):
         return self.cells.items()

@@ -3,6 +3,7 @@ import lmdb
 import struct
 import hashlib
 import logging
+import hashlib
 import itertools
 
 import synapse.exc as s_exc
@@ -15,8 +16,6 @@ import synapse.lib.net as s_net
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
 import synapse.lib.config as s_config
-
-import synapse.lib.hashset as s_hashset
 
 logger = logging.getLogger(__name__)
 
@@ -191,13 +190,14 @@ class BlobCell(s_neuron.Cell):
         mapsize = self.getConfOpt('blob:mapsize')
 
         self.blobs = BlobStor(path, mapsize=mapsize)
-        self.onfini(self.blobs.fini)
-
         self.cloneof = self.getConfOpt('blob:cloneof')
 
         if self.cloneof is not None:
             self.cellpool.add(self.cloneof, self._fireCloneThread)
             self.cellinfo['blob:cloneof'] = self.cloneof
+
+    def finiCell(self):
+        self.blobs.fini()
 
     def _saveDispItems(self, items):
 
@@ -236,7 +236,7 @@ class BlobCell(s_neuron.Cell):
 
             except Exception as e:
                 if not sess.isfini:
-                    logger.warning('BlobCell clone thread error: %s' % (e,))
+                    logger.exception('BlobCell clone thread error')
                     time.sleep(1)
 
     def handlers(self):
@@ -273,6 +273,9 @@ class BlobCell(s_neuron.Cell):
 
             chan.txok(True)
 
+        self.fire('blob:upload')
+
+    @s_glob.inpool
     def _onBlobStat(self, chan, mesg):
         with chan:
             chan.txok(self.blobs.stat())
@@ -280,14 +283,16 @@ class BlobCell(s_neuron.Cell):
     @s_glob.inpool
     def _onBlobMetrics(self, chan, mesg):
 
-        offs = mesg[1].get('offs')
+        offs = mesg[1].get('offs', 0)
 
         chan.setq()
-        chan.tx(True)
+        chan.txok(True)
 
-        with chan:
-            genr = self.blobs.metrics(offs=offs)
-            chan.txwind(genr, 1000, timeout=30)
+        metr = self.blobs.metrics(offs=offs)
+        genr = s_common.chunks(metr, 1000)
+
+        chan.txwind(genr, 100, timeout=30)
+        chan.txfini()
 
     @s_glob.inpool
     def _onBlobLoad(self, chan, mesg):
@@ -295,11 +300,11 @@ class BlobCell(s_neuron.Cell):
         with chan:
             chan.setq()
             chan.txok(None)
-            #genr = self.blobs.load(buid)
+
             def genr():
                 for byts in self.blobs.load(buid):
                     yield byts
-            #chan.txwind(genr, 10, timeout=30)
+
             chan.txwind(genr(), 10, timeout=30)
 
     @staticmethod
@@ -334,17 +339,15 @@ class AxonCell(s_neuron.Cell):
 
         self.metrics = s_lmdb.Metrics(self.lenv)
 
-        def fini():
-            self.lenv.sync()
-            self.lenv.close()
-
-        self.onfini(fini)
-
         self.blobs = s_neuron.CellPool(self.cellauth, self.neuraddr)
-        self.onfini(self.blobs.fini)
 
         for name in self.getConfOpt('axon:blobs'):
             self.blobs.add(name)
+
+    def finiCell(self):
+        self.lenv.sync()
+        self.lenv.close()
+        self.blobs.fini()
 
     def handlers(self):
         return {
@@ -413,7 +416,6 @@ class AxonCell(s_neuron.Cell):
                 if bchan.txwind(genr(), 10, timeout=30):
 
                     size = info.get('size')
-                    nenc = name.encode('utf8')
                     with self.lenv.begin(write=True) as xact:
                         self._addFileLoc(xact, buid, sha256.digest(), size, name)
 
@@ -440,14 +442,16 @@ class AxonCell(s_neuron.Cell):
 
     @s_glob.inpool
     def _onAxonMetrics(self, chan, mesg):
-        offs = mesg[1].get('offs')
-        size = mesg[1].get('size', 10000)
+        offs = mesg[1].get('offs', 0)
 
-        with chan:
-            with self.lenv.begin() as xact:
-                genr = self.metrics.iter(xact, offs)
-                retn = list(itertools.islice(genr, size))
-                return chan.txok(retn)
+        chan.setq()
+        chan.txok(True)
+
+        with self.lenv.begin() as xact:
+            metr = self.metrics.iter(xact, offs)
+            genr = s_common.chunks(metr, 1000)
+            chan.txwind(genr, 100, timeout=30)
+            chan.txfini()
 
     @s_glob.inpool
     def _onAxonWants(self, chan, mesg):
@@ -608,7 +612,7 @@ class AxonCell(s_neuron.Cell):
         )
 
 
-class Axon:
+class AxonClient:
 
     def __init__(self, sess):
         self.sess = sess
@@ -683,3 +687,31 @@ class Axon:
 
             for byts in chan.rxwind(timeout=timeout):
                 yield byts
+
+    def metrics(self, offs=0, timeout=None):
+
+        mesg = ('axon:metrics', {'offs': offs})
+        with self.sess.task(mesg, timeout=timeout) as chan:
+
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
+
+            for bloc in chan.rxwind(timeout=timeout):
+                for item in bloc:
+                    yield item
+
+class BlobClient:
+
+    def __init__(self, sess):
+        self.sess = sess
+
+    def metrics(self, offs=0, timeout=None):
+        mesg = ('blob:metrics', {'offs': offs})
+        with self.sess.task(mesg, timeout=timeout) as chan:
+
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
+
+            for bloc in chan.rxwind(timeout=timeout):
+                for item in bloc:
+                    yield item
