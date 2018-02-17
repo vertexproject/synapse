@@ -15,7 +15,7 @@ nullhash = hashlib.sha256(b'').digest()
 bbufhash = hashlib.sha256(bbuf).digest()
 asdfsha256 = hashlib.sha256(b'asdfasdf').digest()
 hehasha256 = hashlib.sha256(b'hehehaha').digest()
-
+tearsha256 = hashlib.sha256(b'tearsnrain').digest()
 
 def u64(x):
     return struct.pack('>Q', x)
@@ -178,6 +178,7 @@ class AxonTest(SynTest):
 
                 user = s_neuron.CellUser(root)
                 blob00sess = user.open(blob00.getCellAddr(), timeout=3)
+                bref.put('blob00sess', blob00sess)
 
                 mesg = ('blob:stat', {})
                 ok, retn = blob00sess.call(mesg, timeout=3)
@@ -219,10 +220,12 @@ class AxonTest(SynTest):
                 }
 
                 axon00 = s_axon.AxonCell(path, axonconf)
+                bref.put('axon00', axon00)
                 self.true(axon00.cellpool.neurwait(timeout=3))
                 #####################################################
 
                 sess = user.open(axon00.getCellAddr(), timeout=3)
+                bref.put('sess', sess)
 
                 newp = os.urandom(32)
                 ok, retn = sess.call(('axon:wants', {'hashes': [newp]}))
@@ -394,5 +397,76 @@ class AxonTest(SynTest):
                 blob01wait = blob01.waiter(1, 'blob:clone:rows')
                 # Cloning should start up shortly
                 blob01wait.wait(10)
+                valu = b''.join(blob01.blobs.load(hehasha256))
+                self.eq(valu, b'hehehaha')
+                # now let the busref tear down things and remake everything
+
+                logger.debug('Allowing busref to tear down the blob00/axon00/neuron00/blob01')
+
+            with s_eventbus.BusRef() as bref:
+                logger.debug('Bring the neuron/blob/axon back online')
+                # neur00 ############################################
+                conf = {'host': 'localhost', 'bind': '127.0.0.1'}
+                path = s_common.gendir(dirn, 'neuron')
+                neur = s_neuron.Neuron(path, conf)
+                bref.put('neur00', neur)
+                # blob00 ############################################
+                path = s_common.gendir(dirn, 'blob00')
+                blob00 = s_axon.BlobCell(path, conf)
+                bref.put('blob00', blob00)
+                self.true(blob00.cellpool.neurwait(timeout=3))
+                # axon00 ############################################
+                path = s_common.gendir(dirn, 'axon00')
+                axonconf = {
+                    'host': 'localhost',
+                    'bind': '127.0.0.1',
+                    'axon:blobs': ('blob00@localhost',),
+                }
+                axon00 = s_axon.AxonCell(path, axonconf)
+                self.true(axon00.cellpool.neurwait(timeout=3))
+                sess = user.open(axon00.getCellAddr(), timeout=3)
+                bref.put('sess', sess)
+
+                # Make sure the axon has everything
+                ok, retn = sess.call(('axon:wants', {'hashes': [bbufhash,
+                                                                nullhash,
+                                                                asdfsha256,
+                                                                hehasha256]}))
+                self.true(ok)
+                self.eq(retn, ())
+
+                # Make sure the blob has things we expect it to have
+                valu = b''.join(blob00.blobs.load(asdfsha256))
+                self.eq(valu, b'asdfasdf')
+                valu = b''.join(blob00.blobs.load(hehasha256))
+                self.eq(valu, b'hehehaha')
+
+                # Make sure we can add new stuff
+                mesg = ('axon:save', {'files': [b'tearsnrain']})
+                ok, retn = sess.call(mesg, timeout=3)
+                self.true(ok)
+                self.eq(retn, 1)
+
+                ok, retn = sess.call(('axon:wants', {'hashes': [tearsha256]}))
+                self.true(ok)
+                self.eq(retn, ())
+
+                # blob01 ############################################
+                path = s_common.gendir(dirn, 'blob01')
+                blob01conf = dict(conf)
+                blob01conf['blob:cloneof'] = 'blob00@localhost'
+                blob01 = s_axon.BlobCell(path, blob01conf)
+                blob01wait = blob01.waiter(1, 'blob:clone:rows')
+                bref.put('blob01', blob01)
+                self.true(blob01.cellpool.neurwait(timeout=3))
+
+                # Make sure blob01 clones the new data
+                blob01wait.wait(3)
+                valu = b''.join(blob01.blobs.load(tearsha256))
+                self.eq(valu, b'tearsnrain')
+
+                # Make sure blob01 still has the old data
+                valu = b''.join(blob01.blobs.load(asdfsha256))
+                self.eq(valu, b'asdfasdf')
                 valu = b''.join(blob01.blobs.load(hehasha256))
                 self.eq(valu, b'hehehaha')
