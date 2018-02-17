@@ -8,15 +8,13 @@ import synapse.lib.crypto.vault as s_vault
 
 from synapse.tests.common import *
 
-asdfhex = hashlib.sha256(b'asdfasdf').hexdigest()
-
 logger = logging.getLogger(__name__)
 
 bbuf = s_const.mebibyte * 130 * b'\00'
 
-nullhash = hashlib.sha256(b'').hexdigest()
-bbufhash = hashlib.sha256(bbuf).hexdigest()
-asdfhash = hashlib.sha256(b'asdfasdf').hexdigest()
+nullhash = hashlib.sha256(b'').digest()
+bbufhash = hashlib.sha256(bbuf).digest()
+asdfhash = hashlib.sha256(b'asdfasdf').digest()
 
 def u64(x):
     return struct.pack('>Q', x)
@@ -248,21 +246,21 @@ class AxonTest(SynTest):
                 self.eq(8, metrics[0][1].get('size'))
                 self.eq(1, metrics[0][1].get('blocks'))
 
-                self.len(0, axon.wants([asdfhex], timeout=3))
+                self.len(0, axon.wants([asdfhash], timeout=3))
 
-                self.eq(b'asdfasdf', b''.join(axon.bytes(asdfhex, timeout=3)))
+                self.eq(b'asdfasdf', b''.join(axon.bytes(asdfhash, timeout=3)))
 
                 stat = axon.stat(timeout=3)
                 self.eq(1, stat.get('files'))
                 self.eq(8, stat.get('bytes'))
 
-                newp = s_common.ehex(os.urandom(32))
+                newp = os.urandom(32)
                 def loop():
                     s_common.spin(axon.bytes(newp))
 
                 self.raises(s_exc.RetnErr, loop)
 
-                qwerhash = hashlib.sha256(b'qwerqwer').hexdigest()
+                qwerhash = hashlib.sha256(b'qwerqwer').digest()
 
                 self.eq(qwerhash, axon.upload([b'qwer', b'qwer'], timeout=3))
 

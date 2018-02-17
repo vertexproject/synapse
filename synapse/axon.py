@@ -419,7 +419,7 @@ class AxonCell(s_neuron.Cell):
                     with self.lenv.begin(write=True) as xact:
                         self._addFileLoc(xact, buid, sha256.digest(), size, name)
 
-            chan.txok(sha256.hexdigest())
+            chan.txok(sha256.digest())
 
     def _addFileLoc(self, xact, buid, sha256, size, name):
 
@@ -642,14 +642,12 @@ class AxonClient:
         Filter and return a list of hashes that the axon wants.
 
         Args:
-            hashes (list): A list of SHA256 hex strings.
+            hashes (list): A list of SHA256 bytes.
             timeout (int): The network timeout in seconds.
         '''
-        hashes = [s_common.uhex(h) for h in hashes]
         mesg = ('axon:wants', {'hashes': hashes})
         ok, retn = self.sess.call(mesg, timeout=timeout)
-        s_common.reqok(ok, retn)
-        return [s_common.ehex(h) for h in retn]
+        return s_common.reqok(ok, retn)
 
     def upload(self, genr, timeout=None):
         '''
@@ -675,10 +673,10 @@ class AxonClient:
         Yield bytes for the given SHA256.
 
         Args:
-            sha256 (str): The SHA256 hash hex string.
+            sha256 (str): The SHA256 hash bytes.
             timeout (int): The network timeout in seconds.
         '''
-        mesg = ('axon:bytes', {'sha256': s_common.uhex(sha256)})
+        mesg = ('axon:bytes', {'sha256': sha256})
         with self.sess.task(mesg, timeout=timeout) as chan:
 
             ok, retn = chan.next(timeout=timeout)
