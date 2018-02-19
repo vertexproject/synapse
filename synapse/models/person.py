@@ -140,26 +140,36 @@ class PsMod(CoreModule):
                 ('ps:hasuser', {'ptype': 'ps:hasuser'}, (
                     ('person', {'ptype': 'ps:person'}),
                     ('user', {'ptype': 'inet:user'}),
+                    ('seen:min', {'ptype': 'time:min'}),
+                    ('seen:max', {'ptype': 'time:max'}),
                 )),
 
                 ('ps:hasalias', {'ptype': 'ps:hasalias'}, (
                     ('person', {'ptype': 'ps:person'}),
                     ('alias', {'ptype': 'ps:name'}),
+                    ('seen:min', {'ptype': 'time:min'}),
+                    ('seen:max', {'ptype': 'time:max'}),
                 )),
 
                 ('ps:hasphone', {'ptype': 'ps:hasphone'}, (
                     ('person', {'ptype': 'ps:person'}),
                     ('phone', {'ptype': 'tel:phone'}),
+                    ('seen:min', {'ptype': 'time:min'}),
+                    ('seen:max', {'ptype': 'time:max'}),
                 )),
 
                 ('ps:hasemail', {'ptype': 'ps:hasemail'}, (
                     ('person', {'ptype': 'ps:person'}),
                     ('email', {'ptype': 'inet:email'}),
+                    ('seen:min', {'ptype': 'time:min'}),
+                    ('seen:max', {'ptype': 'time:max'}),
                 )),
 
                 ('ps:haswebacct', {'ptype': 'ps:haswebacct'}, (
                     ('person', {'ptype': 'ps:person'}),
                     ('web:acct', {'ptype': 'inet:web:acct'}),
+                    ('seen:min', {'ptype': 'time:min'}),
+                    ('seen:max', {'ptype': 'time:max'}),
                 )),
             ),
         }
