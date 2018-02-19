@@ -282,6 +282,15 @@ class AxonTest(SynTest):
                 # # Then retrieve it
                 # self.eq(bbuf, b''.join(axon.bytes(bbufhash)))
 
+                # Try uploading a large file
+                logger.debug('Largefile upload test')
+                blob01wait = blob01.waiter(3, 'blob:clone:rows')
+                self.true(axon.upload(chunks(bbuf, s_const.mebibyte * 1), timeout=30))
+                self.eq((), axon.wants([bbufhash], timeout=30))
+                self.eq(3, blob01wait.wait(10))
+                # Then retrieve it
+                self.eq(bbuf, b''.join(axon.bytes(bbufhash)))
+
                 # Try storing a empty file
                 logger.debug('Nullfile test')
                 axon.save([b''])
