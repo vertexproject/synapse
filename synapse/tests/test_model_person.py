@@ -68,18 +68,6 @@ class PersonTest(SynTest, ModelSeenMixin):
             self.nn(core.getTufoByProp('ps:tokn', 'kenshoto'))
             self.nn(core.getTufoByProp('ps:tokn', 'invisigoth'))
 
-    def test_model_person_has_user(self):
-        with self.getRamCore() as core:
-            iden = guid()
-            node = core.formTufoByProp('ps:hasuser', '%s/visi' % iden)
-
-            self.eq(node[1].get('ps:hasuser:user'), 'visi')
-            self.eq(node[1].get('ps:hasuser:person'), iden)
-            self.nn(core.getTufoByProp('ps:person', iden))
-            self.nn(core.getTufoByProp('inet:user', 'visi'))
-
-            self.check_seen(core, node)
-
     def test_model_person_has_alias(self):
         with self.getRamCore() as core:
             iden = guid()
@@ -90,6 +78,35 @@ class PersonTest(SynTest, ModelSeenMixin):
 
             self.nn(core.getTufoByProp('ps:person', iden))
             self.nn(core.getTufoByProp('ps:name', 'kenshoto,invisigoth'))
+
+            self.check_seen(core, node)
+
+    def test_model_person_has_host(self):
+        with self.getRamCore() as core:
+            pval = 32 * 'a'
+            hval = 32 * 'b'
+
+            node = core.formTufoByProp('ps:hashost', (pval, hval))
+
+            self.eq(node[1]['ps:hashost'], '%s/%s' % (pval, hval))
+            self.eq(node[1].get('ps:hashost:host'), hval)
+            self.eq(node[1].get('ps:hashost:person'), pval)
+
+            self.nn(core.getTufoByProp('ps:person', pval))
+            self.nn(core.getTufoByProp('it:host', hval))
+
+            self.check_seen(core, node)
+
+    def test_model_person_has_email(self):
+        with self.getRamCore() as core:
+            iden = guid()
+            node = core.formTufoByProp('ps:hasemail', '%s/visi@VERTEX.link' % iden)
+
+            self.eq(node[1].get('ps:hasemail:email'), 'visi@vertex.link')
+            self.eq(node[1].get('ps:hasemail:person'), iden)
+
+            self.nn(core.getTufoByProp('ps:person', iden))
+            self.nn(core.getTufoByProp('inet:email', 'visi@vertex.link'))
 
             self.check_seen(core, node)
 
@@ -106,16 +123,15 @@ class PersonTest(SynTest, ModelSeenMixin):
 
             self.check_seen(core, node)
 
-    def test_model_person_has_email(self):
+    def test_model_person_has_user(self):
         with self.getRamCore() as core:
             iden = guid()
-            node = core.formTufoByProp('ps:hasemail', '%s/visi@VERTEX.link' % iden)
+            node = core.formTufoByProp('ps:hasuser', '%s/visi' % iden)
 
-            self.eq(node[1].get('ps:hasemail:email'), 'visi@vertex.link')
-            self.eq(node[1].get('ps:hasemail:person'), iden)
-
+            self.eq(node[1].get('ps:hasuser:user'), 'visi')
+            self.eq(node[1].get('ps:hasuser:person'), iden)
             self.nn(core.getTufoByProp('ps:person', iden))
-            self.nn(core.getTufoByProp('inet:email', 'visi@vertex.link'))
+            self.nn(core.getTufoByProp('inet:user', 'visi'))
 
             self.check_seen(core, node)
 

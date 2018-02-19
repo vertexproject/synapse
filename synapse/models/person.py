@@ -151,6 +151,13 @@ class PsMod(CoreModule):
                     ('seen:max', {'ptype': 'time:max'}),
                 )),
 
+                ('ps:hashost', {'ptype': 'ps:hashost'}, (
+                    ('person', {'ptype': 'ps:person'}),
+                    ('host', {'ptype': 'it:host'}),
+                    ('seen:min', {'ptype': 'time:min'}),
+                    ('seen:max', {'ptype': 'time:max'}),
+                )),
+
                 ('ps:hasphone', {'ptype': 'ps:hasphone'}, (
                     ('person', {'ptype': 'ps:person'}),
                     ('phone', {'ptype': 'tel:phone'}),
