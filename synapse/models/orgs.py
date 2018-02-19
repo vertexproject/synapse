@@ -91,6 +91,8 @@ class OuMod(CoreModule):
                 ('ou:hasalias', {'ptype': 'ou:hasalias'}, (
                     ('org', {'ptype': 'ou:org'}),
                     ('alias', {'ptype': 'ou:alias'}),
+                    ('seen:min', {'ptype': 'time:min'}),
+                    ('seen:max', {'ptype': 'time:max'}),
                 )),
                 ('ou:hasfile', {}, [
                     ('org', {'ptype': 'ou:org', 'ro': 1}),
