@@ -2,7 +2,7 @@ import synapse.lib.tufo as s_tufo
 
 from synapse.tests.common import *
 
-class OrgTest(SynTest):
+class OrgTest(SynTest, ModelSeenMixin):
 
     def test_model_orgs_seed_alias(self):
         with self.getRamCore() as core:
@@ -40,6 +40,8 @@ class OrgTest(SynTest):
             self.eq(node[1].get('ou:hasalias:org'), iden)
             self.eq(node[1].get('ou:hasalias:alias'), 'b4dz')
 
+            self.check_seen(core, node)
+
             self.len(2, core.getTufosByProp('ou:hasalias:org', iden))
 
             self.raises(BadTypeValu, core.formTufoByProp, 'ou:hasalias', (iden, 'wee!!!'))
@@ -51,6 +53,8 @@ class OrgTest(SynTest):
 
             self.eq(node[1].get('ou:haswebacct:web:acct'), 'rootkit.com/visi')
             self.eq(node[1].get('ou:haswebacct:org'), iden)
+
+            self.check_seen(core, node)
 
             self.nn(core.getTufoByProp('ou:org', iden))
             self.nn(core.getTufoByProp('inet:user', 'visi'))
