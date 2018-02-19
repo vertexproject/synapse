@@ -26,6 +26,24 @@ class OrgTest(SynTest):
 
             self.eq(node0[0], node1[0])
 
+    def test_model_org_has_alias(self):
+        with self.getRamCore() as core:
+            iden = 32 * '0'
+
+            node = core.formTufoByProp('ou:hasalias', (iden, 'cools'))
+            self.eq(node[1].get('ou:hasalias'), iden + '/cools')
+            self.eq(node[1].get('ou:hasalias:org'), iden)
+            self.eq(node[1].get('ou:hasalias:alias'), 'cools')
+
+            node = core.formTufoByProp('ou:hasalias', (iden, 'b4dZ'))
+            self.eq(node[1].get('ou:hasalias'), iden + '/b4dz')
+            self.eq(node[1].get('ou:hasalias:org'), iden)
+            self.eq(node[1].get('ou:hasalias:alias'), 'b4dz')
+
+            self.len(2, core.getTufosByProp('ou:hasalias:org', iden))
+
+            self.raises(BadTypeValu, core.formTufoByProp, 'ou:hasalias', (iden, 'wee!!!'))
+
     def test_model_org_has_webacct(self):
         with self.getRamCore() as core:
             iden = guid()
