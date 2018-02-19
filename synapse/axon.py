@@ -625,7 +625,6 @@ class AxonCell(s_neuron.Cell):
                 'doc': 'A list of cell names in a neuron cluster'}),
         )
 
-
 class AxonClient:
 
     def __init__(self, sess):
