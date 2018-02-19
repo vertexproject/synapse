@@ -31,12 +31,12 @@ class OrgTest(SynTest):
             iden = 32 * '0'
 
             node = core.formTufoByProp('ou:hasalias', (iden, 'cools'))
-            self.eq(node[1].get('ou:hasalias'), iden + '/cools')
+            self.eq(node[1].get('ou:hasalias'), '77ff3cd31931a67b658af31260ade638')
             self.eq(node[1].get('ou:hasalias:org'), iden)
             self.eq(node[1].get('ou:hasalias:alias'), 'cools')
 
             node = core.formTufoByProp('ou:hasalias', (iden, 'b4dZ'))
-            self.eq(node[1].get('ou:hasalias'), iden + '/b4dz')
+            self.eq(node[1].get('ou:hasalias'), '4be15b22e4081e102d6c8201ca26f28f')
             self.eq(node[1].get('ou:hasalias:org'), iden)
             self.eq(node[1].get('ou:hasalias:alias'), 'b4dz')
 
