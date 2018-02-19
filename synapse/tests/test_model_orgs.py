@@ -46,6 +46,72 @@ class OrgTest(SynTest, ModelSeenMixin):
 
             self.raises(BadTypeValu, core.formTufoByProp, 'ou:hasalias', (iden, 'wee!!!'))
 
+    def test_model_org_has_file(self):
+        with self.getRamCore() as core:
+            oval = 32 * '0'
+            fval = 32 * 'f'
+
+            node = core.formTufoByProp('ou:hasfile', (oval, fval))
+            self.eq(node[1].get('ou:hasfile'), '9b7f777eee4e7d5d652a900c286148f1')
+            self.eq(node[1].get('ou:hasfile:org'), oval)
+            self.eq(node[1].get('ou:hasfile:file'), fval)
+            self.check_seen(core, node)
+
+    def test_model_org_has_fqdn(self):
+        with self.getRamCore() as core:
+            oval = 32 * '0'
+            fval = 'vertex.link'
+
+            node = core.formTufoByProp('ou:hasfqdn', (oval, fval))
+            self.eq(node[1].get('ou:hasfqdn'), 'a03c5c146283036868f196088982145a')
+            self.eq(node[1].get('ou:hasfqdn:org'), oval)
+            self.eq(node[1].get('ou:hasfqdn:fqdn'), fval)
+            self.check_seen(core, node)
+
+    def test_model_org_has_ipv4(self):
+        with self.getRamCore() as core:
+            oval = 32 * '0'
+            fval = '1.2.3.4'
+
+            node = core.formTufoByProp('ou:hasipv4', (oval, fval))
+            self.eq(node[1].get('ou:hasipv4'), '7c17a8170d0dc9bb2ec2a9ebb76edf29')
+            self.eq(node[1].get('ou:hasipv4:org'), oval)
+            self.eq(node[1].get('ou:hasipv4:ipv4'), 0x01020304)
+            self.check_seen(core, node)
+
+    def test_model_org_has_host(self):
+        with self.getRamCore() as core:
+            oval = 32 * '0'
+            fval = 32 * 'A'
+
+            node = core.formTufoByProp('ou:hashost', (oval, fval))
+            self.eq(node[1].get('ou:hashost'), '9a79fb0e6d2270076483e72cf572e514')
+            self.eq(node[1].get('ou:hashost:org'), oval)
+            self.eq(node[1].get('ou:hashost:host'), fval.lower())
+            self.check_seen(core, node)
+
+    def test_model_org_has_email(self):
+        with self.getRamCore() as core:
+            oval = 32 * '0'
+            fval = 'CONTACT@vertex.link'
+
+            node = core.formTufoByProp('ou:hasemail', (oval, fval))
+            self.eq(node[1].get('ou:hasemail'), 'c99e129a497cfbfd2dcce5ec89423276')
+            self.eq(node[1].get('ou:hasemail:org'), oval)
+            self.eq(node[1].get('ou:hasemail:email'), fval.lower())
+            self.check_seen(core, node)
+
+    def test_model_org_has_phone(self):
+        with self.getRamCore() as core:
+            oval = 32 * '0'
+            fval = '1234567890'
+
+            node = core.formTufoByProp('ou:hasphone', (oval, fval))
+            self.eq(node[1].get('ou:hasphone'), 'b7fdb3ca07543cd42c0faf478628d8d7')
+            self.eq(node[1].get('ou:hasphone:org'), oval)
+            self.eq(node[1].get('ou:hasphone:phone'), int(fval))
+            self.check_seen(core, node)
+
     def test_model_org_has_webacct(self):
         with self.getRamCore() as core:
             iden = guid()
