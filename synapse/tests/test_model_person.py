@@ -1,26 +1,6 @@
 from synapse.tests.common import *
 
-class PersonTest(SynTest):
-
-    def _check_seen(self, core, node):
-        form = node[1]['tufo:form']
-        minp = form + ':seen:min'
-        maxp = form + ':seen:max'
-
-        self.none(node[1].get(minp))
-        self.none(node[1].get(maxp))
-
-        core.setTufoProps(node, **{'seen:min': 100, 'seen:max': 100})
-        self.eq(node[1].get(minp), 100)
-        self.eq(node[1].get(maxp), 100)
-
-        core.setTufoProps(node, **{'seen:min': 0, 'seen:max': 0})
-        self.eq(node[1].get(minp), 0)
-        self.eq(node[1].get(maxp), 100)
-
-        core.setTufoProps(node, **{'seen:min': 1000, 'seen:max': 1000})
-        self.eq(node[1].get(minp), 0)
-        self.eq(node[1].get(maxp), 1000)
+class PersonTest(SynTest, ModelSeenMixin):
 
     def test_model_person(self):
 
@@ -98,7 +78,7 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('ps:person', iden))
             self.nn(core.getTufoByProp('inet:user', 'visi'))
 
-            self._check_seen(core, node)
+            self.check_seen(core, node)
 
     def test_model_person_has_alias(self):
         with self.getRamCore() as core:
@@ -111,7 +91,7 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('ps:person', iden))
             self.nn(core.getTufoByProp('ps:name', 'kenshoto,invisigoth'))
 
-            self._check_seen(core, node)
+            self.check_seen(core, node)
 
     def test_model_person_has_phone(self):
         with self.getRamCore() as core:
@@ -124,7 +104,7 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('ps:person', iden))
             self.nn(core.getTufoByProp('tel:phone', 17035551212))
 
-            self._check_seen(core, node)
+            self.check_seen(core, node)
 
     def test_model_person_has_email(self):
         with self.getRamCore() as core:
@@ -137,7 +117,7 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('ps:person', iden))
             self.nn(core.getTufoByProp('inet:email', 'visi@vertex.link'))
 
-            self._check_seen(core, node)
+            self.check_seen(core, node)
 
     def test_model_person_has_webacct(self):
         with self.getRamCore() as core:
@@ -151,7 +131,7 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('inet:user', 'visi'))
             self.nn(core.getTufoByProp('inet:web:acct', 'rootkit.com/visi'))
 
-            self._check_seen(core, node)
+            self.check_seen(core, node)
 
     def test_model_person_guidname(self):
 
