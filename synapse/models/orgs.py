@@ -38,14 +38,15 @@ class OuMod(CoreModule):
                  {'subof': 'comp', 'fields': 'org,ou:org|sub,ou:org', 'doc': 'An org which owns a sub org'}),
                 ('ou:member', {'subof': 'comp', 'fields': 'org,ou:org|person,ps:person',
                                'doc': 'A person who is (or was) a member of an organization.'}),
-                ('ou:hasalias', {'subof': 'comp', 'fields': 'org,ou:org|alias,ou:alias'}),
-                ('ou:hasfile', {'subof': 'comp', 'fields': 'org,ou:org|file,file:bytes'}),
-                ('ou:hasfqdn', {'subof': 'comp', 'fields': 'org,ou:org|fqdn,inet:fqdn'}),
-                ('ou:hasipv4', {'subof': 'comp', 'fields': 'org,ou:org|ipv4,inet:ipv4'}),
-                ('ou:hashost', {'subof': 'comp', 'fields': 'org,ou:org|host,it:host'}),
-                ('ou:hasemail', {'subof': 'comp', 'fields': 'org,ou:org|email,inet:email'}),
-                ('ou:hasphone', {'subof': 'comp', 'fields': 'org,ou:org|phone,tel:phone'}),
-                ('ou:haswebacct', {'subof': 'comp', 'fields': 'org,ou:org|web:acct,inet:web:acct'}),
+
+                ('ou:hasalias', {'subof': 'comp', 'fields': 'org=ou:org,alias=ou:alias'}),
+                ('ou:hasfile', {'subof': 'comp', 'fields': 'org=ou:org,file=file:bytes'}),
+                ('ou:hasfqdn', {'subof': 'comp', 'fields': 'org=ou:org,fqdn=inet:fqdn'}),
+                ('ou:hasipv4', {'subof': 'comp', 'fields': 'org=ou:org,ipv4=inet:ipv4'}),
+                ('ou:hashost', {'subof': 'comp', 'fields': 'org=ou:org,host=it:host'}),
+                ('ou:hasemail', {'subof': 'comp', 'fields': 'org=ou:org,email=inet:email'}),
+                ('ou:hasphone', {'subof': 'comp', 'fields': 'org=ou:org,phone=tel:phone'}),
+                ('ou:haswebacct', {'subof': 'comp', 'fields': 'org=ou:org,web:acct=inet:web:acct'}),
 
             ),
 
