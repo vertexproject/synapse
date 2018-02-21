@@ -31,9 +31,6 @@ import contextlib
 import collections
 import unittest.mock as mock
 
-from cryptography.hazmat.backends import default_backend
-import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa
-
 import synapse.axon as s_axon
 import synapse.link as s_link
 import synapse.common as s_common
