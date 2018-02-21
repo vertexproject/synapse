@@ -12,7 +12,7 @@ import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
-def main(argv, outp=s_output.stdout, errfd=sys.stderr):
+def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='cryo.cat', description='display data items from a cryo cell')
     pars.add_argument('cryocell', help='The cell descriptor and cryo tank path (cell://<host:port>/<name>).')
@@ -22,12 +22,17 @@ def main(argv, outp=s_output.stdout, errfd=sys.stderr):
     pars.add_argument('--timeout', default=10, type=int, help='The network timeout setting')
     pars.add_argument('--authfile', help='Path to your auth file for the remote cell')
     pars.add_argument('--jsonl', default=False, action='store_true', help='Output items in jsonl format')
+    pars.add_argument('--verbose', '-v', default=False, action='store_true', help='Verbose output')
 
     # TODO: make input mode using stdin...
     # TODO: make --jsonl output form for writing to file
     # TODO: make --no-index option that prints just the item
 
     opts = pars.parse_args(argv)
+
+    if opts.verbose:
+        logger.addHandler(logging.StreamHandler())
+        logger.setLevel(logging.INFO)
 
     if not opts.authfile:
         logger.error('Currently requires --authfile until neuron protocol is supported')
@@ -53,7 +58,7 @@ def main(argv, outp=s_output.stdout, errfd=sys.stderr):
 
     for item in cryo.slice(path, opts.offset, opts.size, opts.timeout):
         if opts.jsonl:
-            outp.printf(json.dumps(item, sort_keys=True))
+            outp.printf(json.dumps(item[1], sort_keys=True))
         else:
             outp.printf(pprint.pformat(item))
 
