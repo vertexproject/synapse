@@ -37,9 +37,11 @@ class CryoCatTest(SynTest):
 
                 outp = self.getTestOutp()
                 argv = ['--list', addr]
-                with self.assertLogs(logger='synapse.tools.cryo.cat', level='ERROR') as logs:
+                with self.getLoggerStream('synapse.tools.cryo.cat') as stream:
                     self.eq(s_cryocat.main(argv, outp), 1)
-                self.true(logs[0][0].message.startswith('Currently requires --authfile'))
+                stream.seek(0)
+                log_msgs = stream.read()
+                self.isin('Currently requires --authfile', log_msgs)
 
                 outp = self.getTestOutp()
                 argv = ['--list', '--authfile', authfp, addr]
@@ -55,7 +57,7 @@ class CryoCatTest(SynTest):
                 outp = self.getTestOutp()
                 argv = ['--offset', '0', '--jsonl', '--size', '2', '--authfile', authfp, addr]
                 self.eq(s_cryocat.main(argv, outp), 0)
-                self.true(outp.expect('[0, [null, {"key": 0}]]\n[1, [null, {"key": 1}]]\n'))
+                self.true(outp.expect('[null, {"key": 0}]\n[null, {"key": 1}]\n'))
 
                 outp = self.getTestOutp()
                 argv = ['--offset', '0', '--size', '20', '--authfile', authfp, addr]
