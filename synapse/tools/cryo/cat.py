@@ -1,6 +1,8 @@
 import sys
+import json
 import pprint
 import argparse
+import logging
 
 import synapse.common as s_common
 import synapse.cryotank as s_cryotank
@@ -8,7 +10,9 @@ import synapse.cryotank as s_cryotank
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 
-def main(argv, outp=s_output.stdout):
+logger = logging.getLogger(__name__)
+
+def main(argv, outp=s_output.stdout, errfd=sys.stderr):
 
     pars = argparse.ArgumentParser(prog='cryo.cat', description='display data items from a cryo cell')
     pars.add_argument('cryocell', help='The cell descriptor and cryo tank path (cell://<host:port>/<name>).')
@@ -17,6 +21,7 @@ def main(argv, outp=s_output.stdout):
     pars.add_argument('--size', default=10, type=int, help='How many items to display')
     pars.add_argument('--timeout', default=10, type=int, help='The network timeout setting')
     pars.add_argument('--authfile', help='Path to your auth file for the remote cell')
+    pars.add_argument('--jsonl', default=False, action='store_true', help='Output items in jsonl format')
 
     # TODO: make input mode using stdin...
     # TODO: make --jsonl output form for writing to file
@@ -25,7 +30,7 @@ def main(argv, outp=s_output.stdout):
     opts = pars.parse_args(argv)
 
     if not opts.authfile:
-        outp.printf('Currently requires --authfile until neuron protocol is supported')
+        logger.error('Currently requires --authfile until neuron protocol is supported')
         return 1
 
     authpath = s_common.genpath(opts.authfile)
@@ -36,7 +41,7 @@ def main(argv, outp=s_output.stdout):
     host, portstr = netw.split(':')
 
     addr = (host, int(portstr))
-    outp.printf('connecting to: %r' % (addr,))
+    logger.info('connecting to: %r', addr)
 
     cryo = s_cryotank.CryoUser(auth, addr, timeout=opts.timeout)
 
@@ -47,7 +52,10 @@ def main(argv, outp=s_output.stdout):
         return 0
 
     for item in cryo.slice(path, opts.offset, opts.size, opts.timeout):
-        outp.printf(pprint.pformat(item))
+        if opts.jsonl:
+            outp.printf(json.dumps(item, sort_keys=True))
+        else:
+            outp.printf(pprint.pformat(item))
 
     return 0
 
