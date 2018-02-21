@@ -1,13 +1,6 @@
 import os
-import ssl
-import sys
-import shutil
 import socket
 import logging
-import tempfile
-import unittest
-import threading
-import contextlib
 
 import unittest.mock as mock
 
@@ -71,16 +64,6 @@ def initCellDir(*path):
     s_msgpack.dumpfile(user, path)
 
     return dirn
-
-def getIngestCore(path, core=None):
-    if core is None:
-        core = s_cortex.openurl('ram:///')
-
-    gest = s_ingest.loadfile(path)
-    with core.getCoreXact() as xact:
-        gest.ingest(core)
-
-    return core
 
 def checkLock(fd, timeout, wait=0.5):
     wtime = 0
