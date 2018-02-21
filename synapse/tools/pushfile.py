@@ -11,7 +11,6 @@ def getArgParser():
     p.add_argument('cortex', help='telepath URL for a target cortex')
     p.add_argument('filenames', nargs='+', help='files to upload')
     p.add_argument('--tags', help='comma separated list of tags to add to the nodes')
-    #p.add_argument('--tag-force', type='bool', help='Force tag creation if they dont exist')
     return p
 
 def main(argv, outp=None):
