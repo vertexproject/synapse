@@ -646,7 +646,7 @@ class CellUser(SessBoss):
 
                 retn.retn(sess)
 
-            s_glob.plex.connect(addr, onlink)
+            s_glob.plex.connect(tuple(addr), onlink)
 
             isok, sess = retn.wait(timeout=timeout)
             if not isok:
@@ -686,7 +686,7 @@ class CellUser(SessBoss):
 
             sess.sendcert()
 
-        s_glob.plex.connect(addr, onsock)
+        s_glob.plex.connect(tuple(addr), onsock)
 
 def getCellCtor(dirn, conf=None):
     '''
