@@ -31,7 +31,6 @@ def main(argv, outp=s_output.stdout):
     opts = pars.parse_args(argv)
 
     if opts.verbose:
-        logger.addHandler(logging.StreamHandler())
         logger.setLevel(logging.INFO)
 
     if not opts.authfile:
@@ -65,4 +64,5 @@ def main(argv, outp=s_output.stdout):
     return 0
 
 if __name__ == '__main__':  # pragma: no cover
+    logging.basicConfig()
     sys.exit(main(sys.argv[1:]))
