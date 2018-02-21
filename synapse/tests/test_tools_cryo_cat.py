@@ -44,7 +44,7 @@ class CryoCatTest(SynTest):
                 self.isin('Currently requires --authfile', log_msgs)
 
                 outp = self.getTestOutp()
-                argv = ['--list', '--authfile', authfp, addr]
+                argv = ['-v', '--list', '--authfile', authfp, addr]
                 self.eq(s_cryocat.main(argv, outp), 0)
                 self.true(outp.expect('test:hehe'))
                 self.true(outp.expect('test:haha'))
