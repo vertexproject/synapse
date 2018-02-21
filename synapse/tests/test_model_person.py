@@ -88,7 +88,7 @@ class PersonTest(SynTest, ModelSeenMixin):
 
             node = core.formTufoByProp('ps:hashost', (pval, hval))
 
-            self.eq(node[1]['ps:hashost'], '%s/%s' % (pval, hval))
+            self.eq(node[1]['ps:hashost'], '20ffcd864aeb7f4f6e23d95680eeed47')
             self.eq(node[1].get('ps:hashost:host'), hval)
             self.eq(node[1].get('ps:hashost:person'), pval)
 
