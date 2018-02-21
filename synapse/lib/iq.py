@@ -33,6 +33,7 @@ import synapse.link as s_link
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.neuron as s_neuron
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
@@ -527,6 +528,22 @@ class SynTest(unittest.TestCase):
         }
         core.addDataModel('tst', modl)
         core.addTufoProp('inet:fqdn', 'inctest', ptype='int', defval=0)
+
+    @contextlib.contextmanager
+    def getNeuron(self):
+        '''
+        Context manager to make a neuron.
+
+        Yields:
+            s_neuron.Neuron
+        '''
+        conf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
+        with self.getTestDir() as dirn:
+            with s_neuron.Neuron(dirn, conf) as neuron:
+                try:
+                    yield neuron
+                finally:
+                    neuron.fini()
 
     @contextlib.contextmanager
     def getRamCore(self):
