@@ -271,67 +271,75 @@ class NeuronTest(SynTest):
 
     def test_neuron_neuron(self):
 
-        steps = self.getTestSteps(('cell:reg',))
+        with self.getTestDir() as dirn:
 
-        with self.getNeuron() as neur:
-            addr = neur.getCellAddr()
+            steps = self.getTestSteps(('cell:reg',))
 
-            path = s_common.genpath(neur.dirn, 'cell.auth')
-            root = s_msgpack.loadfile(path)
+            conf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
 
-            def onreg(mesg):
-                steps.done('cell:reg')
+            path = s_common.gendir(dirn, 'neuron')
 
-            neur.on('cell:reg', onreg)
-            self.eq(neur._genCellName('root'), 'root@localhost')
+            with s_neuron.Neuron(path, conf) as neur:
 
-            pool = s_neuron.CellPool(root, addr)
-            pool.neurok.wait(timeout=8)
-            self.true(pool.neurok.is_set())
+                path = s_common.genpath(path, 'cell.auth')
+                root = s_msgpack.loadfile(path)
 
-            user = s_neuron.CellUser(root)
-            with user.open(addr) as sess:
+                def onreg(mesg):
+                    steps.done('cell:reg')
 
-                mesg = ('cell:init', {'name': 'cell00'})
-                ok, auth = sess.call(mesg, timeout=2)
-                self.true(ok)
+                neur.on('cell:reg', onreg)
+                self.eq(neur._genCellName('root'), 'root@localhost')
 
-                path = s_common.gendir(neur.dirn, 'cell')
-                authpath = s_common.genpath(path, 'cell.auth')
-                s_msgpack.dumpfile(auth, authpath)
+                user = s_neuron.CellUser(root)
 
-                conf = {'host': 'localhost', 'bind': '127.0.0.1'}
-                with s_neuron.Cell(path, conf) as cell:
+                pool = s_neuron.CellPool(root, neur.getCellAddr())
+                pool.neurok.wait(timeout=8)
+                self.true(pool.neurok.is_set())
 
-                    steps.wait('cell:reg', timeout=3)
-                    steps.clear('cell:reg')
+                with user.open(neur.getCellAddr()) as sess:
 
-                    # we should be able to get a session to him in the pool...
-                    wait = pool.waiter(1, 'cell:add')
-                    pool.add('cell00@localhost')
-
-                    self.nn(wait.wait(timeout=3))
-                    self.nn(pool.get('cell00@localhost'))
-
-                    ok, cells = sess.call(('cell:list', {}))
+                    mesg = ('cell:init', {'name': 'cell00'})
+                    ok, auth = sess.call(mesg, timeout=2)
                     self.true(ok)
 
-                    self.eq(cells[0][0], 'cell00@localhost')
+                    path = s_common.gendir(dirn, 'cell')
 
-                    ok, info = sess.call(('cell:get', {'name': 'cell00@localhost'}))
-                    self.true(ok)
+                    authpath = s_common.genpath(path, 'cell.auth')
+                    s_msgpack.dumpfile(auth, authpath)
 
-                    self.eq(info.get('addr'), cell.getCellAddr())
+                    conf = {'host': 'localhost', 'bind': '127.0.0.1'}
 
-                # he'll come up on a new port...
-                with s_neuron.Cell(path, conf) as cell:
+                    with s_neuron.Cell(path, conf) as cell:
 
-                    wait = pool.waiter(1, 'cell:add')
+                        steps.wait('cell:reg', timeout=3)
+                        steps.clear('cell:reg')
 
-                    steps.wait('cell:reg', timeout=3)
+                        # we should be able to get a session to him in the pool...
+                        wait = pool.waiter(1, 'cell:add')
+                        pool.add('cell00@localhost')
 
-                    self.nn(wait.wait(timeout=3))
-                    self.nn(pool.get('cell00@localhost'))
+                        self.nn(wait.wait(timeout=3))
+                        self.nn(pool.get('cell00@localhost'))
 
-                    mesg = ('cell:ping', {'data': 'hehe'})
-                    self.eq(pool.get('cell00@localhost').call(mesg), 'hehe')
+                        ok, cells = sess.call(('cell:list', {}))
+                        self.true(ok)
+
+                        self.eq(cells[0][0], 'cell00@localhost')
+
+                        ok, info = sess.call(('cell:get', {'name': 'cell00@localhost'}))
+                        self.true(ok)
+
+                        self.eq(info.get('addr'), cell.getCellAddr())
+
+                    # he'll come up on a new port...
+                    with s_neuron.Cell(path, conf) as cell:
+
+                        wait = pool.waiter(1, 'cell:add')
+
+                        steps.wait('cell:reg', timeout=3)
+
+                        self.nn(wait.wait(timeout=3))
+                        self.nn(pool.get('cell00@localhost'))
+
+                        mesg = ('cell:ping', {'data': 'hehe'})
+                        self.eq(pool.get('cell00@localhost').call(mesg), 'hehe')
