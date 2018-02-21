@@ -22,19 +22,20 @@ class TestPushFile(SynTest):
                 dmonlink = dmon.listen('tcp://127.0.0.1:0/')
                 dmonport = dmonlink[1].get('port')
                 axonurl = 'tcp://127.0.0.1:%d/axon' % dmonport
+                coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
                 dmon.share('axon', env.axon)
                 dmon.share('core', env.core)
                 env.core.setConfOpt('axon:url', axonurl)
 
                 outp = self.getTestOutp()
-                s_pushfile.main(['--tags', 'foo.bar,baz.faz', 'tcp://127.0.0.1:%d/core' % dmonport, visipath], outp=outp)
+                s_pushfile.main(['--tags', 'foo.bar,baz.faz', coreurl, visipath], outp=outp)
 
-                node = core.getTufoByProp('file:bytes')
-
+                node = env.core.getTufoByProp('file:bytes')
                 self.eq(node[1].get('file:bytes'), '442f602ecf8230b2a59a44b4f845be27')
                 self.eq(node[1].get('file:bytes:size'), 4)
-
                 self.nn(node[1].get('#foo'))
                 self.nn(node[1].get('#foo.bar'))
                 self.nn(node[1].get('#baz'))
                 self.nn(node[1].get('#baz.faz'))
+
+                # FIXME this test doesn't make sure that the file is in the axon...

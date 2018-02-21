@@ -1395,7 +1395,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         proxy = s_telepath.openurl(url)
         reflections = s_reflect.getItemInfo(proxy)
         classes = reflections.get('inherits')
-        if 'synapse.axon.Axon' in classes:
+        if 'synapse.axon.AxonCell' in classes:
             self.axon = proxy
         elif 'synapse.lib.service.SvcBus' in classes:
             proxy.fini()
