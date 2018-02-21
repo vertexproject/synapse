@@ -5,7 +5,6 @@ import random
 import socket
 import logging
 import threading
-import contextlib
 import collections
 import multiprocessing
 
@@ -31,7 +30,7 @@ defport = 65521 # the default neuron port
 
 class SessBoss:
     '''
-    Mixin base class for sesion managers.
+    Mixin base class for session managers.
     '''
     def __init__(self, auth, roots=()):
 

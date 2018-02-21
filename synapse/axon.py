@@ -1,7 +1,6 @@
 import time
 import lmdb
 import struct
-import hashlib
 import logging
 import hashlib
 import itertools
