@@ -3,6 +3,7 @@ from synapse.tests.common import *
 import synapse.axon as s_axon
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.neuron as s_neuron
 
 import synapse.tools.pushfile as s_pushfile
 
@@ -10,34 +11,23 @@ class TestPushFile(SynTest):
 
     def test_tools_pushfile(self):
         self.skipLongTest()
-        self.skipTest('Skipping until Axons are sewn back together.')
-        with self.getTestDir() as path:
+        with self.getAxonCore() as env:
 
-            visipath = os.path.join(path, 'visi.txt')
-
+            visipath = os.path.join(env.path, 'visi.txt')
             with open(visipath, 'wb') as fd:
                 fd.write(b'visi')
 
-            outp = self.getTestOutp()
-
             with s_daemon.Daemon() as dmon:
 
-                link = dmon.listen('tcp://127.0.0.1:0/')
+                dmonlink = dmon.listen('tcp://127.0.0.1:0/')
+                dmonport = dmonlink[1].get('port')
+                axonurl = 'tcp://127.0.0.1:%d/axon' % dmonport
+                dmon.share('axon', env.axon)
+                dmon.share('core', env.core)
+                env.core.setConfOpt('axon:url', axonurl)
 
-                port = link[1].get('port')
-
-                core = s_cortex.openurl('ram:///')
-                dmon.onfini(core.fini)
-
-                axon = s_axon.Axon(os.path.join(path, 'axon00'))
-                dmon.onfini(axon.fini)
-
-                dmon.share('axon00', axon)
-                dmon.share('core00', core)
-
-                core.setConfOpt('axon:url', 'tcp://127.0.0.1:%d/axon00' % port)
-
-                s_pushfile.main(['--tags', 'foo.bar,baz.faz', 'tcp://127.0.0.1:%d/core00' % port, visipath], outp=outp)
+                outp = self.getTestOutp()
+                s_pushfile.main(['--tags', 'foo.bar,baz.faz', 'tcp://127.0.0.1:%d/core' % dmonport, visipath], outp=outp)
 
                 node = core.getTufoByProp('file:bytes')
 

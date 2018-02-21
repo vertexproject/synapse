@@ -29,10 +29,12 @@ import threading
 import contextlib
 import collections
 
+import synapse.axon as s_axon
 import synapse.link as s_link
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.neuron as s_neuron
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
@@ -40,6 +42,7 @@ import synapse.cores.common as s_cores_common
 
 import synapse.lib.scope as s_scope
 import synapse.lib.output as s_output
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)
@@ -527,6 +530,44 @@ class SynTest(unittest.TestCase):
         }
         core.addDataModel('tst', modl)
         core.addTufoProp('inet:fqdn', 'inctest', ptype='int', defval=0)
+
+    @contextlib.contextmanager
+    def getAxonCore(self):
+        with self.getTestDir() as dirn:
+            neurconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
+            neurpath = s_common.gendir(dirn, 'neuron')
+            neur = s_neuron.Neuron(neurpath, neurconf)
+
+            blobpath = s_common.gendir(dirn, 'blob')
+            blobconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
+            blobauth = neur.genCellAuth('blob')
+            s_msgpack.dumpfile(blobauth, os.path.join(blobpath, 'cell.auth'))
+            blob = s_axon.BlobCell(blobpath, blobconf)
+            self.true(blob.cellpool.neurwait(timeout=3))
+
+            axonpath = s_common.gendir(dirn, 'axon')
+            axonauth = neur.genCellAuth('axon')
+            s_msgpack.dumpfile(axonauth, os.path.join(axonpath, 'cell.auth'))
+            axonconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0, 'axon:blobs': ('blob@localhost',)}
+            axon = s_axon.AxonCell(axonpath, axonconf)
+            self.true(axon.cellpool.neurwait(timeout=3))
+
+            core = s_cortex.openurl('ram:///')
+            self.addTstForms(core)
+
+            with TstEnv() as env:
+                env.axon = axon
+                env.blob = blob
+                env.core = core
+                env.neur = neur
+                env.path = dirn
+                try:
+                    yield env
+                finally:
+                    core.fini()
+                    axon.fini()
+                    blob.fini()
+                    neur.fini()
 
     @contextlib.contextmanager
     def getRamCore(self):
