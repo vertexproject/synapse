@@ -99,7 +99,7 @@ The following items should be considered when contributing to Synapse:
             Summary line goes first.
 
             Longer description lives here. It can be a bunch of stuff across
-            multiple blocks if neccesary.
+            multiple blocks if necessary.
 
             Example:
                 Examples should be given using either the ``Example`` section.
@@ -255,7 +255,7 @@ The following items should be considered when contributing to Synapse:
 
      # -*- coding: utf-8 -*-
 
-* Convenience methods are availible for unit tests, primarily through the
+* Convenience methods are available for unit tests, primarily through the
   SynTest class. This is a subclass of unittest.TestCase and provides many
   short aliases for the assert* functions that TestCase provides.
 
@@ -268,7 +268,7 @@ The following items should be considered when contributing to Synapse:
   module. Additionally, ``regex`` does provide some performance benefits over
   ``re``, especially when using pre-compiled regular expression statements.
 
-* Whenever possible, regular expressions should be pre-compiled. String 
+* Whenever possible, regular expressions should be pre-compiled. String
   matches/comparisons should be performed against the pre-compiled regex instance.
 
   ::
@@ -290,7 +290,7 @@ The following items should be considered when contributing to Synapse:
   error.  The logic behind this is that it is much easier, cleaner, faster to
   check a return value than to handle an exception.
 
-  Raising exceptions is reserved for "exceptional circumstances" and should 
+  Raising exceptions is reserved for "exceptional circumstances" and should
   NEVER be used for normal program flow.
 
   ::
