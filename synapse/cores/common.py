@@ -6,7 +6,9 @@ import itertools
 import threading
 import collections
 
+import synapse.axon as s_axon
 import synapse.common as s_common
+import synapse.neuron as s_neuron
 import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
 import synapse.eventbus as s_eventbus
@@ -110,7 +112,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.formed = collections.defaultdict(int)      # count tufos formed since startup
 
         # Misc
-        self.axon = None  # A cortex may have a reference to an Axon
+        self.axon_client = None  # The cortex's axon client
         self.isok = True
         self.seqs = s_cache.KeyCache(self.getSeqNode)  # Used for sequence generation
         self.snaps = s_cache.Cache(maxtime=60)  # Used for caching tufos for the snaps apis
@@ -272,7 +274,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _initCortexConfSetPre(self):
         # Setup handlers for confOpt changes which are not racy
         self.onConfOptSet('caching', self._onSetCaching)
-        self.onConfOptSet('axon:url', self._onSetAxonUrl)
+        self.onConfOptSet('axon:conf', self._onSetAxonConf)
 
     def _initCortexConfSetPost(self):
         self._initCoreFifos()
@@ -571,7 +573,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             ('cache:maxsize', {'type': 'int', 'asloc': 'cache_maxsize', 'defval': 1000,
                                'doc': 'Enables caching layer in the cortex'}),
             ('rev:model', {'type': 'bool', 'defval': 1, 'doc': 'Set to 0 to disallow model version updates'}),
-            ('axon:url', {'type': 'str', 'doc': 'Allows cortex to be aware of an axon blob store'}),
+            ('axon:conf', {'defval': {}, 'doc': 'Allows cortex to be aware of an axon blob store'}),
             ('axon:dirmode', {'type': 'int', 'doc': 'Default mode used to make axon:path nodes for directories.',
                               'defval': 0o775}),
             ('log:save', {'type': 'bool', 'asloc': 'logsave', 'defval': 0,
@@ -1184,15 +1186,18 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _getStormCore(self, name=None):
         return self
 
-    def _getAxonWants(self, htype, hvalu, size):
-        if self.axon is None:
-            raise s_common.NoSuchOpt(name='axon:url', mesg='The cortex does not have an axon configured')
-        return self.axon.wants(htype, hvalu, size)
+    def _check_axonclient(self):
+        if self.axon_client is None:
+            raise s_common.NoSuchOpt(name='axon:conf', mesg='The cortex does not have an axon configured')
 
-    def _addAxonChunk(self, iden, byts):
-        if self.axon is None:
-            raise s_common.NoSuchOpt(name='axon:url', mesg='The cortex does not have an axon configured')
-        return self.axon.chunk(iden, byts)
+    def _axonclient_wants(self, hashes):
+        # takes a list of sha256 hashes
+        self._check_axonclient()
+        return self.axon_client.wants(hashes)
+
+    def _axonclient_upload(self, genr):
+        self._check_axonclient()
+        return self.axon_client.upload(genr)
 
     def getSeqNode(self, name):
         '''
@@ -1387,31 +1392,20 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 if atlim:
                     self._delCacheKey(ckey)
 
-    def _onSetAxonUrl(self, url):
-        old_axon = None
-        if self.axon:
-            old_axon = self.axon
+    def _onSetAxonConf(self, conf):
+        auth = conf.get('auth')
+        if not auth:
+            raise s_common.BadConfValu(mesg='auth must be set', valu=conf, key='axon:conf')
 
-        proxy = s_telepath.openurl(url)
-        reflections = s_reflect.getItemInfo(proxy)
-        classes = reflections.get('inherits')
-        if 'synapse.axon.AxonCell' in classes:
-            self.axon = proxy
-        elif 'synapse.lib.service.SvcBus' in classes:
-            proxy.fini()
-            # This is a delayed import to avoid a startup import loop
-            import synapse.axon as s_axon
-            svcprox = s_service.openurl(url)
-            self.axon = s_axon.AxonCluster(svcprox)
-        else:  # pragma: no cover
-            proxy.fini()
-            # This scenario is a no-op and the exception is raised
-            # to the eventbus and logged.
-            mesg = 'axon:url must point to a standalone Axon or a ServiceBus'
-            raise s_common.BadConfValu(mesg=mesg, valu=url, key='axon:url')
+        addr = (conf.get('host'), conf.get('port'))
+        if not all(part is not None for part in addr):
+            raise s_common.BadConfValu(mesg='host and port must be set', valu=conf, key='axon:conf')
 
-        if old_axon:
-            old_axon.fini()
+        self.axon_user = s_neuron.CellUser(auth)
+        self.axon_sess = self.axon_user.open(addr, timeout=30)
+        self.axon_client = s_axon.AxonClient(self.axon_sess)
+
+        # FIXME handle finis/reconnect/etc
 
     def initCoreModule(self, ctor, conf):
         '''
@@ -3166,21 +3160,14 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         hset = s_hashset.HashSet()
         iden, info = hset.eatfd(fd)
-
         props.update(info)
+        sha256 = info.get('sha256').encode('utf-8')
 
-        if stor:
-
-            size = props.get('size')
-            upid = self._getAxonWants('guid', iden, size)
-
-            # time to send it!
-            if upid is not None:
-                for byts in s_common.iterfd(fd):
-                    self._addAxonChunk(upid, byts)
+        if stor and self._axonclient_wants([sha256]) is not None:
+            logger.debug('uploading hash to axon: %r', sha256)
+            self._axonclient_upload(s_common.iterfd(fd))
 
         node = self.formTufoByProp('file:bytes', iden, **props)
-
         if node[1].get('file:bytes:size') is None:
             self.setTufoProp(node, 'size', info.get('size'))
 

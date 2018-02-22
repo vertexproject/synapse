@@ -21,11 +21,14 @@ class TestPushFile(SynTest):
 
                 dmonlink = dmon.listen('tcp://127.0.0.1:0/')
                 dmonport = dmonlink[1].get('port')
-                axonurl = 'tcp://127.0.0.1:%d/axon' % dmonport
-                coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
-                dmon.share('axon', env.axon)
                 dmon.share('core', env.core)
-                env.core.setConfOpt('axon:url', axonurl)
+
+                coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
+                axonhost, axonport = env.axon.getCellAddr()
+                axonauth = env.axon.getCellAuth()
+
+                axonconf = {'auth': axonauth, 'host': axonhost, 'port': axonport} # ???
+                env.core.setConfOpt('axon:conf', axonconf)  # FIXME need some event to know when its ready
 
                 outp = self.getTestOutp()
                 s_pushfile.main(['--tags', 'foo.bar,baz.faz', coreurl, visipath], outp=outp)
