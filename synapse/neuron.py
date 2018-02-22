@@ -660,6 +660,13 @@ class CellUser(SessBoss):
     def getCellSess(self, addr, func):
         '''
         A non-blocking way to form a session to a remote Cell.
+
+        Args:
+            addr (tuple): A address, port tuple.
+            func: A callback function which takes a (ok, retn) args
+
+        Returns:
+            None
         '''
         def onsock(ok, retn):
 
@@ -690,7 +697,20 @@ class CellUser(SessBoss):
 
 def getCellCtor(dirn, conf=None):
     '''
-    Find the ctor option for a cell and resolve the function.
+    Find the ctor option for a Cell and resolve the function.
+
+    Args:
+        dirn (str): The path to the Cell directory. This may contain the the
+         ctor in the ``config.json`` file.
+        conf (dict): Configuration dictionary for the cell. This may contain
+         the ctor in the ``ctor`` key.
+
+    Returns:
+        ((str, function)): The python path to the ctor function and the resolved function.
+
+    Raises:
+        ReqConfOpt: If the ctor cannot be resolved from the cell path or conf
+        NoSuchCtor: If the ctor function cannot be resolved.
     '''
     ctor = None
 
