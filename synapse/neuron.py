@@ -52,7 +52,7 @@ class SessBoss:
     def valid(self, cert):
         return any([r.signed(cert) for r in self.roots])
 
-class Cell(s_config.Config, s_net.Link, SessBoss):
+class Cell(s_config.Configable, s_net.Link, SessBoss):
     '''
     A Cell is a micro-service in a neuron cluster.
 
@@ -65,7 +65,7 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
     def __init__(self, dirn, conf=None):
 
         s_net.Link.__init__(self)
-        s_config.Config.__init__(self)
+        s_config.Configable.__init__(self)
 
         self.dirn = dirn
         s_common.gendir(dirn)
