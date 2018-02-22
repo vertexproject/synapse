@@ -3125,28 +3125,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             **props:        Additional props for the file:bytes node
 
         Example:
-
-            core.formNodeByBytes(byts,name='foo.exe')
-
+            core.formNodeByBytes(byts, name='foo.exe')
         '''
-
         hset = s_hashset.HashSet()
         hset.update(byts)
-
-        iden, info = hset.guid()
-
-        props.update(info)
-
-        if stor:
-
-            size = props.get('size')
-            upid = self._getAxonWants('guid', iden, size)
-
-            if upid is not None:
-                for chun in s_common.chunks(byts, 10000000):
-                    self._addAxonChunk(upid, chun)
-
-        return self.formTufoByProp('file:bytes', iden, **props)
+        return self._formFileBytesNode(hset, [byts], stor, **props)
 
     @s_telepath.clientside
     def formNodeByFd(self, fd, stor=True, **props):
@@ -3157,21 +3140,23 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             fd (file):      A file-like object to read file:bytes from.
             stor (bool):    If True, attempt to store the bytes in an axon
             **props:        Additional props for the file:bytes node
-
         '''
         hset = s_hashset.HashSet()
-        byts_array = []
+        data = []
         for byts in s_common.iterfd(fd):
             hset.update(byts)
-            byts_array.append(byts)
+            data.append(byts)
+        return self._formFileBytesNode(hset, data, stor, **props)
+
+    @s_telepath.clientside
+    def _formFileBytesNode(self, hset, data, stor=True, **props):
         iden, info = hset.guid()
         props.update(info)
-        # turn the sha256 into bytes version
         sha256 = s_common.uhex(info.get('sha256'))
 
         if stor and self._axonclient_wants([sha256]) is not None:
             logger.debug('uploading hash to axon: %r', sha256)
-            self._axonclient_upload(byts_array)
+            self._axonclient_upload(data)
 
         node = self.formTufoByProp('file:bytes', iden, **props)
         if node[1].get('file:bytes:size') is None:
