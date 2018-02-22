@@ -543,7 +543,7 @@ class SynTest(unittest.TestCase):
         def keygen():
             pk = c_rsa.generate_private_key(
                 public_exponent=65537,
-                key_size=1024,
+                key_size=bits,
                 backend=default_backend())
             return s_rsa.PriKey(pk)
 
