@@ -29,6 +29,10 @@ import unittest
 import threading
 import contextlib
 import collections
+import unittest.mock as mock
+
+from cryptography.hazmat.backends import default_backend
+import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa
 
 import synapse.axon as s_axon
 import synapse.link as s_link
@@ -45,6 +49,8 @@ import synapse.lib.scope as s_scope
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
+
+import synapse.lib.crypto.rsa as s_rsa
 
 logger = logging.getLogger(__name__)
 
@@ -533,60 +539,72 @@ class SynTest(unittest.TestCase):
         core.addTufoProp('inet:fqdn', 'inctest', ptype='int', defval=0)
 
     @contextlib.contextmanager
+    def patchKeyGen(self, bits=1024):
+        def keygen():
+            pk = c_rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=1024,
+                backend=default_backend())
+            return s_rsa.PriKey(pk)
+
+        with mock.patch('synapse.lib.crypto.rsa.PriKey.generate', keygen) as p:
+            yield p
+
+    @contextlib.contextmanager
     def getAxonCore(self):
-        with self.getTestDir() as dirn:
-            neurconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
-            neurpath = s_common.gendir(dirn, 'neuron')
-            neur = s_neuron.Neuron(neurpath, neurconf)
-            root = neur.getCellAuth()
+        with self.patchKeyGen() as p:
+            with self.getTestDir() as dirn:
+                neurconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
+                neurpath = s_common.gendir(dirn, 'neuron')
+                neur = s_neuron.Neuron(neurpath, neurconf)
 
-            blobpath = s_common.gendir(dirn, 'blob')
-            blobconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
-            blobauth = neur.genCellAuth('blob')
-            s_msgpack.dumpfile(blobauth, os.path.join(blobpath, 'cell.auth'))
-            blob = s_axon.BlobCell(blobpath, blobconf)
-            self.true(blob.cellpool.neurwait(timeout=3))
+                blobpath = s_common.gendir(dirn, 'blob')
+                blobconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
+                blobauth = neur.genCellAuth('blob')
+                s_msgpack.dumpfile(blobauth, os.path.join(blobpath, 'cell.auth'))
+                blob = s_axon.BlobCell(blobpath, blobconf)
+                self.true(blob.cellpool.neurwait(timeout=3))
 
-            axonpath = s_common.gendir(dirn, 'axon')
-            axonauth = neur.genCellAuth('axon')
-            s_msgpack.dumpfile(axonauth, os.path.join(axonpath, 'cell.auth'))
-            axonconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0, 'axon:blobs': ('blob@localhost',)}
-            axon = s_axon.AxonCell(axonpath, axonconf)
-            self.true(axon.cellpool.neurwait(timeout=3))
-            axonhost, axonport = axon.getCellAddr()
+                axonpath = s_common.gendir(dirn, 'axon')
+                axonauth = neur.genCellAuth('axon')
+                s_msgpack.dumpfile(axonauth, os.path.join(axonpath, 'cell.auth'))
+                axonconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0, 'axon:blobs': ('blob@localhost',)}
+                axon = s_axon.AxonCell(axonpath, axonconf)
+                self.true(axon.cellpool.neurwait(timeout=3))
+                axonhost, axonport = axon.getCellAddr()
 
-            # wait for the axon to have blob
-            ready = False
-            for i in range(30):
-                if axon.blobs.items():
-                    ready = True
-                    break
-                time.sleep(0.1)
-            self.true(ready)
+                # wait for the axon to have blob
+                ready = False
+                for i in range(30):
+                    if axon.blobs.items():
+                        ready = True
+                        break
+                    time.sleep(0.1)
+                self.true(ready)
 
-            axon_user = s_neuron.CellUser(axonauth)
-            axon_sess = axon_user.open((axonhost, axonport))
-            axon_client = s_axon.AxonClient(axon_sess)
+                axon_user = s_neuron.CellUser(axonauth)
+                axon_sess = axon_user.open((axonhost, axonport))
+                axon_client = s_axon.AxonClient(axon_sess)
 
-            core = s_cortex.openurl('ram:///')
-            self.addTstForms(core)
+                core = s_cortex.openurl('ram:///')
+                self.addTstForms(core)
 
-            axonconf = {'auth': axonauth, 'host': axonhost, 'port': axonport}  # ???
-            core.setConfOpt('axon:conf', axonconf)
+                axonconf = {'auth': axonauth, 'host': axonhost, 'port': axonport}  # ???
+                core.setConfOpt('axon:conf', axonconf)
 
-            env = TstEnv()
-            env.add('dirn', dirn)
-            env.add('axon_client', axon_client)
-            # Order matter for clean fini
-            env.add('core', core, True)
-            env.add('axon_sess', axon_sess, True)
-            env.add('axon', axon, True)
-            env.add('blob', blob, True)
-            env.add('neuron', neur, True)
-            try:
-                yield env
-            finally:
-                env.fini()
+                env = TstEnv()
+                env.add('dirn', dirn)
+                env.add('axon_client', axon_client)
+                # Order matter for clean fini
+                env.add('core', core, True)
+                env.add('axon_sess', axon_sess, True)
+                env.add('axon', axon, True)
+                env.add('blob', blob, True)
+                env.add('neuron', neur, True)
+                try:
+                    yield env
+                finally:
+                    env.fini()
 
     @contextlib.contextmanager
     def getRamCore(self):
