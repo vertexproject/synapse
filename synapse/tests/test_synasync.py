@@ -10,6 +10,15 @@ from synapse.tests.common import *
 
 class AsyncTests(SynTest):
 
+    def test_async_jobret(self):
+        job = (32 * '0', {
+            'err': 'RetnErr', 'errmsg': "RetnErr: excn='NotReady'",
+            'errfile': '/afile.py', 'errline': 123456, 'errinfo': {'excn': 'NotReady'}
+        })
+        s_async.jobret(job)
+        # FIXME - broken test demonstrating jobret not handling RetnErr
+        # This should raise RetnErr or NotReady
+
     def test_async_basics(self):
 
         boss = s_async.Boss()
