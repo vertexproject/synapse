@@ -16,6 +16,7 @@ class TestPushFile(SynTest):
         self.skipLongTest()
         with self.getAxonCore() as env:
 
+            nullpath = os.path.join(env.dirn, 'null.txt')
             visipath = os.path.join(env.dirn, 'visi.txt')
             with open(visipath, 'wb') as fd:
                 fd.write(b'visi')
@@ -38,7 +39,18 @@ class TestPushFile(SynTest):
                 self.nn(node[1].get('#foo.bar'))
                 self.nn(node[1].get('#baz'))
                 self.nn(node[1].get('#baz.faz'))
+
                 # Ensure the axon got the bytes
                 self.eq(env.axon_client.wants((visihash,)), ())
+                self.eq(list(env.axon_client.bytes(visihash))[0], b'visi')
 
-                # FIXME: Add null bytes formNodeByFd test
+                # Ensure user can't push a non-existant file and that it won't exist
+                self.raises(FileNotFoundError, s_pushfile.main, ['--tags', 'foo.bar,baz.faz', coreurl, nullpath], outp=outp)
+                self.eq(env.axon_client.wants((nullhash,)), (nullhash,))
+
+                # Ensure user can push an empty file
+                with open(nullpath, 'wb') as fd:
+                    fd.write(b'')
+                s_pushfile.main(['--tags', 'foo.bar,baz.faz', coreurl, nullpath], outp=outp)
+                self.eq(env.axon_client.wants((nullhash,)), ())
+                self.eq(list(env.axon_client.bytes(nullhash)), [])
