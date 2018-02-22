@@ -15,7 +15,7 @@ def getArgParser():
 
 def main(argv, outp=None):
 
-    if outp is None:
+    if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
 
     p = getArgParser()
@@ -46,5 +46,5 @@ def main(argv, outp=None):
 
             outp.printf('file: %s (%d) added (%s) as %s' % (base, size, iden, name))
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(main(sys.argv[1:]))
