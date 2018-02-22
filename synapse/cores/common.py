@@ -1734,20 +1734,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         '''
         self.store.addRows(rows)
 
-    def addListRows(self, prop, *vals):
-        '''
-        Add rows by making a guid for each and using now().
-
-        Example:
-
-            core.addListRows('foo:bar',[ 1, 2, 3, 4])
-
-        '''
-        tick = s_common.now()
-        rows = [(s_common.guid(), prop, valu, tick) for valu in vals]
-        self.addRows(rows)
-        return rows
-
     def getTufoList(self, tufo, name):
         '''
         Retrieve "list" values from a tufo.
