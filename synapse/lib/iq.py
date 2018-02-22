@@ -20,6 +20,7 @@ use to be invoked via the built-in Unittest library.
 """
 import io
 import os
+import time
 import types
 import shutil
 import logging
@@ -537,6 +538,7 @@ class SynTest(unittest.TestCase):
             neurconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
             neurpath = s_common.gendir(dirn, 'neuron')
             neur = s_neuron.Neuron(neurpath, neurconf)
+            root = neur.getCellAuth()
 
             blobpath = s_common.gendir(dirn, 'blob')
             blobconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
@@ -551,23 +553,40 @@ class SynTest(unittest.TestCase):
             axonconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0, 'axon:blobs': ('blob@localhost',)}
             axon = s_axon.AxonCell(axonpath, axonconf)
             self.true(axon.cellpool.neurwait(timeout=3))
+            axonhost, axonport = axon.getCellAddr()
+
+            # wait for the axon to have blob
+            ready = False
+            for i in range(30):
+                if axon.blobs.items():
+                    ready = True
+                    break
+                time.sleep(0.1)
+            self.true(ready)
+
+            axon_user = s_neuron.CellUser(axonauth)
+            axon_sess = axon_user.open((axonhost, axonport))
+            axon_client = s_axon.AxonClient(axon_sess)
 
             core = s_cortex.openurl('ram:///')
             self.addTstForms(core)
 
-            with TstEnv() as env:
-                env.axon = axon
-                env.blob = blob
-                env.core = core
-                env.neur = neur
-                env.path = dirn
-                try:
-                    yield env
-                finally:
-                    core.fini()
-                    axon.fini()
-                    blob.fini()
-                    neur.fini()
+            axonconf = {'auth': axonauth, 'host': axonhost, 'port': axonport}  # ???
+            core.setConfOpt('axon:conf', axonconf)
+
+            env = TstEnv()
+            env.add('dirn', dirn)
+            env.add('axon_client', axon_client)
+            # Order matter for clean fini
+            env.add('core', core, True)
+            env.add('axon_sess', axon_sess, True)
+            env.add('axon', axon, True)
+            env.add('blob', blob, True)
+            env.add('neuron', neur, True)
+            try:
+                yield env
+            finally:
+                env.fini()
 
     @contextlib.contextmanager
     def getRamCore(self):

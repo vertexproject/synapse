@@ -1405,6 +1405,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.axon_sess = self.axon_user.open(addr, timeout=30)
         self.axon_client = s_axon.AxonClient(self.axon_sess)
 
+        self.onfini(self.axon_sess.fini)
         # FIXME handle finis/reconnect/etc
 
     def initCoreModule(self, ctor, conf):
@@ -3159,13 +3160,18 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         '''
         hset = s_hashset.HashSet()
-        iden, info = hset.eatfd(fd)
+        byts_array = []
+        for byts in s_common.iterfd(fd):
+            hset.update(byts)
+            byts_array.append(byts)
+        iden, info = hset.guid()
         props.update(info)
-        sha256 = info.get('sha256').encode('utf-8')
+        # turn the sha256 into bytes version
+        sha256 = s_common.uhex(info.get('sha256'))
 
         if stor and self._axonclient_wants([sha256]) is not None:
             logger.debug('uploading hash to axon: %r', sha256)
-            self._axonclient_upload(s_common.iterfd(fd))
+            self._axonclient_upload(byts_array)
 
         node = self.formTufoByProp('file:bytes', iden, **props)
         if node[1].get('file:bytes:size') is None:

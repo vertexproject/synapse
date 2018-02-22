@@ -7,13 +7,16 @@ import synapse.neuron as s_neuron
 
 import synapse.tools.pushfile as s_pushfile
 
+nullhash = hashlib.sha256(b'').digest()
+visihash = hashlib.sha256(b'visi').digest()
+
 class TestPushFile(SynTest):
 
     def test_tools_pushfile(self):
         self.skipLongTest()
         with self.getAxonCore() as env:
 
-            visipath = os.path.join(env.path, 'visi.txt')
+            visipath = os.path.join(env.dirn, 'visi.txt')
             with open(visipath, 'wb') as fd:
                 fd.write(b'visi')
 
@@ -24,11 +27,6 @@ class TestPushFile(SynTest):
                 dmon.share('core', env.core)
 
                 coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
-                axonhost, axonport = env.axon.getCellAddr()
-                axonauth = env.axon.getCellAuth()
-
-                axonconf = {'auth': axonauth, 'host': axonhost, 'port': axonport} # ???
-                env.core.setConfOpt('axon:conf', axonconf)  # FIXME need some event to know when its ready
 
                 outp = self.getTestOutp()
                 s_pushfile.main(['--tags', 'foo.bar,baz.faz', coreurl, visipath], outp=outp)
@@ -40,5 +38,7 @@ class TestPushFile(SynTest):
                 self.nn(node[1].get('#foo.bar'))
                 self.nn(node[1].get('#baz'))
                 self.nn(node[1].get('#baz.faz'))
+                # Ensure the axon got the bytes
+                self.eq(env.axon_client.wants((visihash,)), ())
 
-                # FIXME this test doesn't make sure that the file is in the axon...
+                # FIXME: Add null bytes formNodeByFd test
