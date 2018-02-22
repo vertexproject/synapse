@@ -29,11 +29,6 @@ import synapse.cores.common as s_cores_common
 
 logger = logging.getLogger(__name__)
 
-class InvalidParam(Exception):
-    def __init__(self, name, msg):
-        Exception.__init__(self, '%s invalid: %s' % (name, msg))
-        self.param = name
-
 storectors = {
     'lmdb': synapse.cores.lmdb.LmdbStorage,
     'sqlite': synapse.cores.sqlite.SqliteStorage,
