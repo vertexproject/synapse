@@ -15,9 +15,7 @@ class AsyncTests(SynTest):
             'err': 'RetnErr', 'errmsg': "RetnErr: excn='NotReady'",
             'errfile': '/afile.py', 'errline': 123456, 'errinfo': {'excn': 'NotReady'}
         })
-        s_async.jobret(job)
-        # FIXME - broken test demonstrating jobret not handling RetnErr
-        # This should raise RetnErr or NotReady
+        self.raises(TypeError, s_async.jobret, job)  # jobret does not handle RetnErr
 
     def test_async_basics(self):
 
