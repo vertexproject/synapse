@@ -46,5 +46,7 @@ def main(argv, outp=None):
 
             outp.printf('file: %s (%d) added (%s) as %s' % (base, size, iden, name))
 
+    core.fini()  # Shut down the proxy
+
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(main(sys.argv[1:]))

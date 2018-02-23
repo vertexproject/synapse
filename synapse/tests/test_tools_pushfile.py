@@ -21,39 +21,30 @@ class TestPushFile(SynTest):
             with open(visipath, 'wb') as fd:
                 fd.write(b'visi')
 
-            with s_daemon.Daemon() as dmon:
+            outp = self.getTestOutp()
+            s_pushfile.main(['--tags', 'foo.bar,baz.faz', env.core_url, visipath], outp=outp)
 
-                dmonlink = dmon.listen('tcp://127.0.0.1:0/')
-                dmonport = dmonlink[1].get('port')
-                dmon.share('core', env.core)
+            node = env.core.getTufoByProp('file:bytes')
+            self.eq(node[1].get('file:bytes'), '442f602ecf8230b2a59a44b4f845be27')
+            self.eq(node[1].get('file:bytes:size'), 4)
+            self.nn(node[1].get('#foo'))
+            self.nn(node[1].get('#foo.bar'))
+            self.nn(node[1].get('#baz'))
+            self.nn(node[1].get('#baz.faz'))
+            # Ensure the axon got the bytes
+            self.eq(env.axon_client.wants((visihash,)), ())
+            self.eq(list(env.axon_client.bytes(visihash))[0], b'visi')
 
-                coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
+            # Ensure user can't push a non-existant file and that it won't exist
+            self.raises(FileNotFoundError, s_pushfile.main, ['--tags', 'foo.bar,baz.faz', env.core_url, nullpath], outp=outp)
+            self.eq(env.axon_client.wants((nullhash,)), (nullhash,))
 
-                outp = self.getTestOutp()
-                s_pushfile.main(['--tags', 'foo.bar,baz.faz', coreurl, visipath], outp=outp)
-
-                node = env.core.getTufoByProp('file:bytes')
-                self.eq(node[1].get('file:bytes'), '442f602ecf8230b2a59a44b4f845be27')
-                self.eq(node[1].get('file:bytes:size'), 4)
-                self.nn(node[1].get('#foo'))
-                self.nn(node[1].get('#foo.bar'))
-                self.nn(node[1].get('#baz'))
-                self.nn(node[1].get('#baz.faz'))
-
-                # Ensure the axon got the bytes
-                self.eq(env.axon_client.wants((visihash,)), ())
-                self.eq(list(env.axon_client.bytes(visihash))[0], b'visi')
-
-                # Ensure user can't push a non-existant file and that it won't exist
-                self.raises(FileNotFoundError, s_pushfile.main, ['--tags', 'foo.bar,baz.faz', coreurl, nullpath], outp=outp)
-                self.eq(env.axon_client.wants((nullhash,)), (nullhash,))
-
-                # Ensure user can push an empty file
-                with open(nullpath, 'wb') as fd:
-                    fd.write(b'')
-                outp = self.getTestOutp()
-                s_pushfile.main(['--tags', 'foo.bar,baz.faz', coreurl, nullpath], outp=outp)
-                node = env.core.getTufoByProp('file:bytes:sha256', ehex(nullhash))
-                self.istufo(node)
-                self.eq(env.axon_client.wants((nullhash,)), ())
-                self.eq(list(env.axon_client.bytes(nullhash)), [b''])
+            # Ensure user can push an empty file
+            with open(nullpath, 'wb') as fd:
+                fd.write(b'')
+            outp = self.getTestOutp()
+            s_pushfile.main(['--tags', 'foo.bar,baz.faz', env.core_url, nullpath], outp=outp)
+            node = env.core.getTufoByProp('file:bytes:sha256', ehex(nullhash))
+            self.istufo(node)
+            self.eq(env.axon_client.wants((nullhash,)), ())
+            self.eq(list(env.axon_client.bytes(nullhash)), [b''])

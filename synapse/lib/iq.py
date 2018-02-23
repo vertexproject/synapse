@@ -570,13 +570,25 @@ class SynTest(unittest.TestCase):
     @contextlib.contextmanager
     def getAxonCore(self):
         '''
-        Get a TstEnv instance which is preconfigured with a Neuron, Blob, Axon and Cortex.
+        Get a TstEnv instance which is preconfigured with a Neuron, Blob, Axon, Daemon and Cortex.
 
         Notes:
-            Words go here describing the TstEnv contents  # FIXME doc this
+            The following items are available in the TstEnv:
+
+            * dirn: Temporary test directory.
+            * axon_client: A Axon client object.
+            * core_url: The Telepath URL to the Cortex so a connection can be made to the Cortex
+              shared by the Daemon.
+            * dmon_port: Port the Daemon is listening on.
+            * dmon: A Daemon which is listening on 127.0.0.1:0. It is preconfigured to share the Cortex.
+            * core: A Cortex.
+            * axon_sess: The client session for the Axon.
+            * axon: The AxonCell.
+            * blob: The BlobCell backing the Axon.
+            * neuron: The Neuron.
 
         Yields:
-            TstEnv: A TstEnv instance.  # FIXME doc this
+            TstEnv: A TstEnv instance.
         '''
         with self.getTestDir() as dirn, self.patchKeyGen() as p:
             neurconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
@@ -617,10 +629,19 @@ class SynTest(unittest.TestCase):
             axonconf = {'auth': axonauth, 'host': axonhost, 'port': axonport}  # ???
             core.setConfOpt('axon:conf', axonconf)
 
+            dmon = s_daemon.Daemon()
+            dmonlink = dmon.listen('tcp://127.0.0.1:0/')
+            dmonport = dmonlink[1].get('port')
+            dmon.share('core', core)
+            coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
+
             env = TstEnv()
             env.add('dirn', dirn)
             env.add('axon_client', axon_client)
+            env.add('core_url', coreurl)
+            env.add('dmon_port', dmonport)
             # Order matter for clean fini
+            env.add('dmon', dmon, True)
             env.add('core', core, True)
             env.add('axon_sess', axon_sess, True)
             env.add('axon', axon, True)
