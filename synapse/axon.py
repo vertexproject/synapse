@@ -392,7 +392,7 @@ class AxonCell(s_neuron.Cell):
 
                         yield lkey, bloc
 
-                if allb:
+                if allb or (indx is 0):
                     lkey = buid + struct.pack('>Q', indx)
                     yield lkey, allb
 

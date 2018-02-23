@@ -296,7 +296,10 @@ class AxonTest(SynTest):
                 axon.save([b''])
                 self.eq((), tuple(axon.wants([nullhash])))
                 # Then retrieve it
-                self.eq(b'', b''.join(axon.bytes(nullhash)))
+                parts = []
+                for part in axon.bytes(nullhash):
+                    parts.append(part)
+                self.eq([b''], parts)
 
                 logger.debug('Shutdown / restart blob01 test')
                 bref.pop('blob01')

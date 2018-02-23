@@ -455,6 +455,10 @@ def chunks(item, size):
 def iterfd(fd, size=10000000):
     fd.seek(0)
     byts = fd.read(size)
+    # Fast path to yield b''
+    if len(byts) is 0:
+        yield byts
+        return
     while byts:
         yield byts
         byts = fd.read(size)

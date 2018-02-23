@@ -51,6 +51,9 @@ class TestPushFile(SynTest):
                 # Ensure user can push an empty file
                 with open(nullpath, 'wb') as fd:
                     fd.write(b'')
+                outp = self.getTestOutp()
                 s_pushfile.main(['--tags', 'foo.bar,baz.faz', coreurl, nullpath], outp=outp)
+                node = env.core.getTufoByProp('file:bytes:sha256', ehex(nullhash))
+                self.istufo(node)
                 self.eq(env.axon_client.wants((nullhash,)), ())
-                self.eq(list(env.axon_client.bytes(nullhash)), [])  # FIXME this should be [b''] but is not
+                self.eq(list(env.axon_client.bytes(nullhash)), [b''])
