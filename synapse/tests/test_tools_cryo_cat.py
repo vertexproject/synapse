@@ -72,7 +72,7 @@ class CryoCatTest(SynTest):
                 argv = ['--ingest', '--jsonl', '--authfile', authfp, addr]
                 inp = io.StringIO('{"foo: "bar"}\n[]\n')
                 with redirectStdin(inp):
-                    self.raises(json.decoder.JSONDecodeError, s_cryocat.main, argv, outp)
+                    self.raises(Exception, s_cryocat.main, argv, outp)
 
                 # Happy path msgpack ingest
                 outp = self.getTestOutp()
