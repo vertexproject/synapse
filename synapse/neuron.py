@@ -570,19 +570,6 @@ class UserSess(Sess):
         chan.onfini(fini)
         chan.tx(mesg)
 
-    #def iter(self, mesg, timeout=None):
-        #'''
-        #Access a Cell endpoint that uses the iter convention.
-        #'''
-        #with self.task(mesg, timeout=timeout) as chan:
-
-            #ok, retn = chan.next(timeout=timeout)
-            #s_common.reqok(ok, retn)
-
-            #for item in chan.iter():
-                #chan.tx(True)
-                #yield item
-
     def task(self, mesg=None, timeout=None):
         '''
         Open a new channel within our session.
