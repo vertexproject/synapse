@@ -1470,7 +1470,6 @@ class StormTest(SynTest):
                 self.isin(node[1].get('task'), ('hehe:haha', 'wow'))
 
     def test_storm_vartree(self):
-
         quer = s_storm.Query()
 
         vals = ['x', 'y']
@@ -1489,16 +1488,23 @@ class StormTest(SynTest):
         self.eq(rets, [(('a', 'x'), ('a.b', 'q')), (('a', 'x'), ('a.b', 'z')), (('a', 'y'), ('a.b', 'q')), (('a', 'y'), ('a.b', 'z'))])
 
     def test_storm_set(self):
-        raise Exception('FIXME implement')
-        core.eval('inet:dns:a:fqdn=vertex.link')
-        core.eval('$dns={inet:dns:a:fqdn=vertex.link}')
-        core.eval('$dns={inet:dns:a:fqdn=vertex.link} $dns.ipv4={ :ipv4->inet:ipv4 }')
+        with self.getRamCore() as core:
+            core.ask('[ inet:ipv4=1.2.3.4 :cc=us inet:dns:a=vertex.link/1.2.3.4 ]')
+            core.ask('[ inet:ipv4=4.3.2.1 :cc=zz inet:dns:a=example.com/4.3.2.1 ]')
+
+            self.len(1, core.eval('inet:ipv4:cc=us'))
+            self.len(1, core.eval('inet:dns:a:fqdn=vertex.link'))
+            self.len(1, core.eval('inet:ipv4:cc=zz'))
+            self.len(1, core.eval('inet:dns:a:fqdn=example.com'))
+
+            core.eval('$dns={inet:dns:a:fqdn} $dns.ipv4 = { :ipv4->inet:ipv4 }')
+            raise Exception('FIXME - set oper is not fully implemented')
 
     def test_storm_filtsub(self):
         with self.getRamCore() as core:
-
             core.ask('[ inet:ipv4=1.2.3.4 :cc=us inet:dns:a=vertex.link/1.2.3.4 ]')
             core.ask('[ inet:ipv4=4.3.2.1 :cc=zz inet:dns:a=example.com/4.3.2.1 ]')
+
             self.len(1, core.eval('inet:ipv4:cc=us'))
             self.len(1, core.eval('inet:dns:a:fqdn=vertex.link'))
             self.len(1, core.eval('inet:ipv4:cc=zz'))

@@ -1048,13 +1048,9 @@ class Runtime(Configable):
         return cmpr
 
     def _stormOperSet(self, query, oper):
-
         full, subq = oper[1].get('args')
-
         subq = self.plan(subq)
-
         parts = full.rsplit('.', 1)
-
         name = parts[-1]
 
         if len(parts) == 1:
