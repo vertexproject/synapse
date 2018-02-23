@@ -5,7 +5,6 @@ import random
 import socket
 import logging
 import threading
-import contextlib
 import collections
 import multiprocessing
 
@@ -31,7 +30,7 @@ defport = 65521 # the default neuron port
 
 class SessBoss:
     '''
-    Mixin base class for sesion managers.
+    Mixin base class for session managers.
     '''
     def __init__(self, auth, roots=()):
 
@@ -53,7 +52,7 @@ class SessBoss:
     def valid(self, cert):
         return any([r.signed(cert) for r in self.roots])
 
-class Cell(s_config.Config, s_net.Link, SessBoss):
+class Cell(s_config.Configable, s_net.Link, SessBoss):
     '''
     A Cell is a micro-service in a neuron cluster.
 
@@ -66,7 +65,7 @@ class Cell(s_config.Config, s_net.Link, SessBoss):
     def __init__(self, dirn, conf=None):
 
         s_net.Link.__init__(self)
-        s_config.Config.__init__(self)
+        s_config.Configable.__init__(self)
 
         self.dirn = dirn
         s_common.gendir(dirn)
@@ -651,7 +650,7 @@ class CellUser(SessBoss):
 
                 retn.retn(sess)
 
-            s_glob.plex.connect(addr, onlink)
+            s_glob.plex.connect(tuple(addr), onlink)
 
             isok, sess = retn.wait(timeout=timeout)
             if not isok:
@@ -665,6 +664,13 @@ class CellUser(SessBoss):
     def getCellSess(self, addr, func):
         '''
         A non-blocking way to form a session to a remote Cell.
+
+        Args:
+            addr (tuple): A address, port tuple.
+            func: A callback function which takes a (ok, retn) args
+
+        Returns:
+            None
         '''
         def onsock(ok, retn):
 
@@ -691,11 +697,24 @@ class CellUser(SessBoss):
 
             sess.sendcert()
 
-        s_glob.plex.connect(addr, onsock)
+        s_glob.plex.connect(tuple(addr), onsock)
 
 def getCellCtor(dirn, conf=None):
     '''
-    Find the ctor option for a cell and resolve the function.
+    Find the ctor option for a Cell and resolve the function.
+
+    Args:
+        dirn (str): The path to the Cell directory. This may contain the the
+         ctor in the ``config.json`` file.
+        conf (dict): Configuration dictionary for the cell. This may contain
+         the ctor in the ``ctor`` key.
+
+    Returns:
+        ((str, function)): The python path to the ctor function and the resolved function.
+
+    Raises:
+        ReqConfOpt: If the ctor cannot be resolved from the cell path or conf
+        NoSuchCtor: If the ctor function cannot be resolved.
     '''
     ctor = None
 

@@ -10,12 +10,12 @@ from synapse.tests.common import *
 
 logger = logging.getLogger(__name__)
 
-#bbuf = s_const.mebibyte * 130 * b'\00'
 bbuf = b'V' * 32100
 
 nullhash = hashlib.sha256(b'').digest()
 bbufhash = hashlib.sha256(bbuf).digest()
 asdfhash = hashlib.sha256(b'asdfasdf').digest()
+hehahash = hashlib.sha256(b'hehehaha').digest()
 
 def u64(x):
     return struct.pack('>Q', x)
@@ -160,7 +160,7 @@ class AxonTest(SynTest):
                 # neur00 ############################################
                 conf = {'host': 'localhost', 'bind': '127.0.0.1'}
                 path = s_common.gendir(dirn, 'neuron')
-
+                logger.debug('Bringing Neuron online')
                 neur = s_neuron.Neuron(path, conf)
                 bref.put('neur00', neur)
 
@@ -171,7 +171,7 @@ class AxonTest(SynTest):
                 path = s_common.gendir(dirn, 'blob00')
                 authblob00 = neur.genCellAuth('blob00')
                 s_msgpack.dumpfile(authblob00, os.path.join(path, 'cell.auth'))
-
+                logger.debug('Bringing blob00 online')
                 blob00 = s_axon.BlobCell(path, conf)
                 bref.put('blob00', blob00)
                 self.true(blob00.cellpool.neurwait(timeout=3))
@@ -192,7 +192,7 @@ class AxonTest(SynTest):
 
                 blob01conf = dict(conf)
                 blob01conf['blob:cloneof'] = 'blob00@localhost'
-
+                logger.debug('Bringing blob01 online')
                 blob01 = s_axon.BlobCell(path, blob01conf)
                 bref.put('blob01', blob01)
                 self.true(blob01.cellpool.neurwait(timeout=3))
@@ -207,7 +207,7 @@ class AxonTest(SynTest):
                     'bind': '127.0.0.1',
                     'axon:blobs': ('blob00@localhost',),
                 }
-
+                logger.debug('Bringing axon00 online')
                 axon00 = s_axon.AxonCell(path, axonconf)
                 bref.put('axon00', axon00)
                 self.true(axon00.cellpool.neurwait(timeout=3))
@@ -255,6 +255,9 @@ class AxonTest(SynTest):
                 self.eq(1, stat.get('files'))
                 self.eq(8, stat.get('bytes'))
 
+                # lets see if the bytes made it to the blob clone...
+                self.nn(blob01wait.wait(timeout=10))
+
                 newp = os.urandom(32)
                 def loop():
                     s_common.spin(axon.bytes(newp))
@@ -282,7 +285,6 @@ class AxonTest(SynTest):
 
                 # Then retrieve it
                 testhash = hashlib.sha256()
-                x = b''.join(axon.bytes(bbufhash, timeout=3))
 
                 for byts in axon.bytes(bbufhash, timeout=3):
                     testhash.update(byts)
@@ -292,14 +294,21 @@ class AxonTest(SynTest):
                 # Try storing a empty file
                 logger.debug('Nullfile test')
                 axon.save([b''])
-
                 self.eq((), tuple(axon.wants([nullhash])))
-
                 # Then retrieve it
                 self.eq(b'', b''.join(axon.bytes(nullhash)))
 
-                # TODO: Shutdown blob01, add data, bring it back up, clone it
-                #blob01.fini()
-
-                # now let the busref tear down things and remake everything
-                #logger.warning('Allowing busref to tear down the blob00/axon00/neuron00/blob01')
+                logger.debug('Shutdown / restart blob01 test')
+                bref.pop('blob01')
+                blob01.fini()
+                self.true(blob01.isfini)
+                axon.save([b'hehehaha'], timeout=3)
+                self.eq((), axon.wants([hehahash], timeout=3))
+                # Now bring blob01 back online
+                logger.debug('Bringing blob01 back online')
+                blob01 = s_axon.BlobCell(path, blob01conf)
+                bref.put('blob01', blob01)
+                self.true(blob01.cellpool.neurwait(timeout=3))
+                blob01wait = blob01.waiter(1, 'blob:clone:rows')
+                # Cloning should start up shortly
+                self.nn(blob01wait.wait(10))

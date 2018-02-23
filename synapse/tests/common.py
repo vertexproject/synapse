@@ -1,13 +1,6 @@
 import os
-import ssl
-import sys
-import shutil
 import socket
 import logging
-import tempfile
-import unittest
-import threading
-import contextlib
 
 import unittest.mock as mock
 
@@ -72,16 +65,6 @@ def initCellDir(*path):
 
     return dirn
 
-def getIngestCore(path, core=None):
-    if core is None:
-        core = s_cortex.openurl('ram:///')
-
-    gest = s_ingest.loadfile(path)
-    with core.getCoreXact() as xact:
-        gest.ingest(core)
-
-    return core
-
 def checkLock(fd, timeout, wait=0.5):
     wtime = 0
 
@@ -100,3 +83,25 @@ def checkLock(fd, timeout, wait=0.5):
         wtime += wait
         if wtime >= timeout:
             return False
+
+class ModelSeenMixin:
+
+    def check_seen(self, core, node):
+        form = node[1]['tufo:form']
+        minp = form + ':seen:min'
+        maxp = form + ':seen:max'
+
+        self.none(node[1].get(minp))
+        self.none(node[1].get(maxp))
+
+        core.setTufoProps(node, **{'seen:min': 100, 'seen:max': 100})
+        self.eq(node[1].get(minp), 100)
+        self.eq(node[1].get(maxp), 100)
+
+        core.setTufoProps(node, **{'seen:min': 0, 'seen:max': 0})
+        self.eq(node[1].get(minp), 0)
+        self.eq(node[1].get(maxp), 100)
+
+        core.setTufoProps(node, **{'seen:min': 1000, 'seen:max': 1000})
+        self.eq(node[1].get(minp), 0)
+        self.eq(node[1].get(maxp), 1000)

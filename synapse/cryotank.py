@@ -217,6 +217,7 @@ class CryoCell(s_neuron.Cell):
         self.tanks = s_eventbus.BusRef()
 
         for name, iden in self.names.items():
+            logger.info('Bringing tank [%s][%s] online', name, iden)
             path = self.getCellPath('tanks', iden)
             conf = self.confs.get(name)
             tank = CryoTank(path, conf)

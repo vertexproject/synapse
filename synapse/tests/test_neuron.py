@@ -164,6 +164,26 @@ class NeuronTest(SynTest):
                 self.false(proc.is_alive())
                 self.eq(proc.exitcode, 0)
 
+    def test_neuron_cell_openlist(self):
+
+        with self.getTestDir() as dirn:
+
+            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
+            initCellDir(dirn)
+            rootauth, userauth = getCellAuth()
+
+            with s_neuron.Cell(dirn, conf) as cell:
+
+                user = s_neuron.CellUser(userauth)
+                addr = list(cell.getCellAddr())
+
+                with user.open(addr, timeout=2) as sess:
+                    with sess.task(('cell:ping', {'data': 'haha'})) as chan:
+                        retn = chan.next(timeout=2)
+                        self.eq(retn, 'haha')
+                    retn = sess.call(('cell:ping', {'data': 'rofl'}), timeout=2)
+                    self.eq(retn, 'rofl')
+
     def test_neuron_cell_ping(self):
 
         with self.getTestDir() as dirn:

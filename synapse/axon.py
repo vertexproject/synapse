@@ -1,7 +1,6 @@
 import time
 import lmdb
 import struct
-import hashlib
 import logging
 import hashlib
 import itertools
@@ -605,7 +604,6 @@ class AxonCell(s_neuron.Cell):
             ('axon:blobs', {'req': True,
                 'doc': 'A list of cell names in a neuron cluster'}),
         )
-
 
 class AxonClient:
 

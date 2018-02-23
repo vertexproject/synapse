@@ -1,7 +1,6 @@
-
 from synapse.tests.common import *
 
-class PersonTest(SynTest):
+class PersonTest(SynTest, ModelSeenMixin):
 
     def test_model_person(self):
 
@@ -69,17 +68,6 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('ps:tokn', 'kenshoto'))
             self.nn(core.getTufoByProp('ps:tokn', 'invisigoth'))
 
-    def test_model_person_has_user(self):
-        with self.getRamCore() as core:
-            iden = guid()
-            node = core.formTufoByProp('ps:hasuser', '%s/visi' % iden)
-
-            self.eq(node[1].get('ps:hasuser:user'), 'visi')
-            self.eq(node[1].get('ps:hasuser:person'), iden)
-
-            self.nn(core.getTufoByProp('ps:person', iden))
-            self.nn(core.getTufoByProp('inet:user', 'visi'))
-
     def test_model_person_has_alias(self):
         with self.getRamCore() as core:
             iden = guid()
@@ -91,16 +79,23 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('ps:person', iden))
             self.nn(core.getTufoByProp('ps:name', 'kenshoto,invisigoth'))
 
-    def test_model_person_has_phone(self):
+            self.check_seen(core, node)
+
+    def test_model_person_has_host(self):
         with self.getRamCore() as core:
-            iden = guid()
-            node = core.formTufoByProp('ps:hasphone', '%s/17035551212' % iden)
+            pval = 32 * 'a'
+            hval = 32 * 'b'
 
-            self.eq(node[1].get('ps:hasphone:phone'), 17035551212)
-            self.eq(node[1].get('ps:hasphone:person'), iden)
+            node = core.formTufoByProp('ps:hashost', (pval, hval))
 
-            self.nn(core.getTufoByProp('ps:person', iden))
-            self.nn(core.getTufoByProp('tel:phone', 17035551212))
+            self.eq(node[1]['ps:hashost'], '20ffcd864aeb7f4f6e23d95680eeed47')
+            self.eq(node[1].get('ps:hashost:host'), hval)
+            self.eq(node[1].get('ps:hashost:person'), pval)
+
+            self.nn(core.getTufoByProp('ps:person', pval))
+            self.nn(core.getTufoByProp('it:host', hval))
+
+            self.check_seen(core, node)
 
     def test_model_person_has_email(self):
         with self.getRamCore() as core:
@@ -113,6 +108,33 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('ps:person', iden))
             self.nn(core.getTufoByProp('inet:email', 'visi@vertex.link'))
 
+            self.check_seen(core, node)
+
+    def test_model_person_has_phone(self):
+        with self.getRamCore() as core:
+            iden = guid()
+            node = core.formTufoByProp('ps:hasphone', '%s/17035551212' % iden)
+
+            self.eq(node[1].get('ps:hasphone:phone'), 17035551212)
+            self.eq(node[1].get('ps:hasphone:person'), iden)
+
+            self.nn(core.getTufoByProp('ps:person', iden))
+            self.nn(core.getTufoByProp('tel:phone', 17035551212))
+
+            self.check_seen(core, node)
+
+    def test_model_person_has_user(self):
+        with self.getRamCore() as core:
+            iden = guid()
+            node = core.formTufoByProp('ps:hasuser', '%s/visi' % iden)
+
+            self.eq(node[1].get('ps:hasuser:user'), 'visi')
+            self.eq(node[1].get('ps:hasuser:person'), iden)
+            self.nn(core.getTufoByProp('ps:person', iden))
+            self.nn(core.getTufoByProp('inet:user', 'visi'))
+
+            self.check_seen(core, node)
+
     def test_model_person_has_webacct(self):
         with self.getRamCore() as core:
             iden = guid()
@@ -124,6 +146,8 @@ class PersonTest(SynTest):
             self.nn(core.getTufoByProp('ps:person', iden))
             self.nn(core.getTufoByProp('inet:user', 'visi'))
             self.nn(core.getTufoByProp('inet:web:acct', 'rootkit.com/visi'))
+
+            self.check_seen(core, node)
 
     def test_model_person_guidname(self):
 
