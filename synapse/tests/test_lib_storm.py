@@ -1488,18 +1488,45 @@ class StormTest(SynTest):
         rets.sort()
         self.eq(rets, [(('a', 'x'), ('a.b', 'q')), (('a', 'x'), ('a.b', 'z')), (('a', 'y'), ('a.b', 'q')), (('a', 'y'), ('a.b', 'z'))])
 
-    def test_storm_filtsub(self):
+    def test_storm_set(self):
+        raise Exception('FIXME implement')
+        core.eval('inet:dns:a:fqdn=vertex.link')
+        core.eval('$dns={inet:dns:a:fqdn=vertex.link}')
+        core.eval('$dns={inet:dns:a:fqdn=vertex.link} $dns.ipv4={ :ipv4->inet:ipv4 }')
 
+    def test_storm_filtsub(self):
         with self.getRamCore() as core:
 
             core.ask('[ inet:ipv4=1.2.3.4 :cc=us inet:dns:a=vertex.link/1.2.3.4 ]')
-
+            core.ask('[ inet:ipv4=4.3.2.1 :cc=zz inet:dns:a=example.com/4.3.2.1 ]')
             self.len(1, core.eval('inet:ipv4:cc=us'))
+            self.len(1, core.eval('inet:dns:a:fqdn=vertex.link'))
+            self.len(1, core.eval('inet:ipv4:cc=zz'))
+            self.len(1, core.eval('inet:dns:a:fqdn=example.com'))
 
-            self.len(0, core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 +:cc=us }'))
-            self.len(1, core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 +:cc=us }'))
-            self.len(1, core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 -:cc=us }'))
-            self.len(0, core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:cc=us }'))
+            # lift all dns, pivot to ipv4 where cc=us (calls take), remove the results
+            # this should return the example node because the vertex node matches the filter and should be removed
+            nodes = core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 +:cc=us }')
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('inet:dns:a'), 'example.com/4.3.2.1')
+
+            # lift all dns, pivot to ipv4 where cc=us (calls take), add the results
+            # this should return the vertex node because only the vertex node matches the filter
+            nodes = core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 +:cc=us }')
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('inet:dns:a'), 'vertex.link/1.2.3.4')
+
+            # lift all dns, pivot to ipv4 where cc!=us (calls take), remove the results
+            # this should return the vertex node because the example node matches the filter and should be removed
+            nodes = core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 -:cc=us }')
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('inet:dns:a'), 'vertex.link/1.2.3.4')
+
+            # lift all dns, pivot to ipv4 where cc!=us (calls take), add the results
+            # this should return the example node because only the example node matches the filter
+            nodes = core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:cc=us }')
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('inet:dns:a'), 'example.com/4.3.2.1')
 
 class LimitTest(SynTest):
     def test_limit_default(self):
