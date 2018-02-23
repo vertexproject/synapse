@@ -20,6 +20,7 @@ use to be invoked via the built-in Unittest library.
 """
 import io
 import os
+import sys
 import types
 import shutil
 import logging
@@ -829,3 +830,19 @@ class SynTest(unittest.TestCase):
         self.len(2, obj)
         self.isinstance(obj[0], (type(None), str))
         self.isinstance(obj[1], dict)
+
+@contextlib.contextmanager
+def redirectStdin(new_stdin):
+    '''
+    Temporary replace stdin.
+
+    Args:
+        new_stdin(file-like object):  file-like object.
+
+    Returns:
+        None
+    '''
+    old_stdin = sys.stdin
+    sys.stdin = new_stdin
+    yield
+    sys.stdin = old_stdin
