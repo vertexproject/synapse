@@ -486,10 +486,8 @@ class Chan(Link):
         return self._chan_rxq.slice(size, timeout=timeout)
 
     def iter(self, timeout=None):
-        retn = self._chan_rxq.get(timeout=timeout)
-        while retn is not None:
-            yield retn
-            retn = self._chan_rxq.get(timeout=timeout)
+        while not self.isfini:
+            yield self._chan_rxq.get(timeout=timeout)
 
     def rxwind(self, timeout=None):
         '''
@@ -497,24 +495,19 @@ class Chan(Link):
         '''
         self.setq()
 
-        items = self.slice(1000, timeout=timeout)
-        while items is not None:
+        while not self.isfini:
 
-            for item in items:
+            for ok, retn in self.slice(1000, timeout=timeout):
 
-                if item is None:
-                    return
-
-                self.txok(True)
-
-                ok, retn = item
                 if not ok:
-                    logger.warning('rxwind: %r' % (retn,))
+
+                    if retn is not None:
+                        logger.warning('rxwind(): %r' % (retn,))
+
                     return
 
-                yield item[1]
-
-            items = self.slice(1000, timeout=timeout)
+                self.tx((True, True))
+                yield retn
 
     def txwind(self, items, size, timeout=None):
         '''
@@ -526,17 +519,12 @@ class Chan(Link):
 
             for item in items:
 
-                # tx item as tuple to distinguish shutdown
-                self.txok(item)
+                self.tx((True, item))
                 wind += 1
 
                 while wind >= size:
-
-                    acks = self.slice(size, timeout=timeout)
-                    if acks is None:
-                        raise s_exc.LinkTimeOut()
-
-                    wind -= 1
+                    acks = self.slice(wind, timeout=timeout)
+                    wind -= len(acks)
 
         except Exception as e:
             enfo = s_common.getexcfo(e)
@@ -544,15 +532,11 @@ class Chan(Link):
             logger.exception('tx wind genr')
             return
 
-        self.tx(None)
+        self.tx((False, None))
 
         while wind > 0:
-
-            acks = self.slice(size, timeout=timeout)
-            if acks is None:
-                return False
-
-            wind -= 1
+            acks = self.slice(wind, timeout=timeout)
+            wind -= len(acks)
 
         return True
 

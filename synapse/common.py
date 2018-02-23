@@ -470,8 +470,7 @@ def spin(genr):
     Returns:
         None
     '''
-    for item in genr:
-        pass
+    collections.deque(genr, 0)
 
 def reqStorDict(x):
     '''

@@ -258,36 +258,17 @@ class BlobCell(s_neuron.Cell):
             rows = list(itertools.islice(genr, 1000))
             chan.txok(rows)
 
+    @s_glob.inpool
     def _onBlobUpload(self, chan, mesg):
 
-        def ondisp(items):
+        with chan:
 
-            rows = []
+            chan.setq()
+            self.fire('blob:upload')
 
-            # implement the iterator convention...
-            for link, item in items:
-
-                if item is None:
-                    link.txfini()
-                    return
-
-                ok, retn = item
-
-                if not ok:
-                    logger.warning('blob:upload ondisp(): %r' % (retn,))
-                    return
-
-                link.txok(True)
-                rows.append(retn)
-
-            self.blobs.save(rows)
-
-        disp = s_net.LinkDisp(ondisp)
-
-        chan.onrx(disp.rx)
-        chan.txok(True)
-
-        self.fire('blob:upload')
+            chan.txok(True)
+            for row in chan.rxwind(timeout=60):
+                self.blobs.save([row])
 
     @s_glob.inpool
     def _onBlobStat(self, chan, mesg):
@@ -679,7 +660,7 @@ class AxonClient:
 
             chan.txwind(genr, 10, timeout=timeout)
 
-            ok, retn = chan.next(timeout=None)
+            ok, retn = chan.next(timeout=timeout)
             return s_common.reqok(ok, retn)
 
     def bytes(self, sha256, timeout=None):
@@ -724,13 +705,6 @@ class BlobClient:
         self.sess = sess
 
     def metrics(self, offs=0, timeout=None):
-        '''
-        Yield metrics rows beginning at an offset.
-
-        Args:
-            offs (int): The offset to begin at.
-            timeout (int): The network timeout in seconds.
-        '''
         mesg = ('blob:metrics', {'offs': offs})
         with self.sess.task(mesg, timeout=timeout) as chan:
 

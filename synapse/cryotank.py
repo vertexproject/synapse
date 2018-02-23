@@ -2,6 +2,7 @@ import lmdb
 import shutil
 import struct
 import logging
+import itertools
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -105,18 +106,16 @@ class CryoTank(s_config.Config):
 
         return retn
 
-    def metrics(self, offs, size):
+    def metrics(self, offs, size=None):
         '''
-        Retrieve size metrics rows starting at offset.
+        Yield metrics rows starting at offset.
 
         Args:
             offs (int): The index offset.
-            size (int): The number to retrieve.
 
         Yields:
             ((int, dict)): An index offset, info tuple for metrics.
         '''
-        imax = offs + size
         mink = struct.pack('>Q', offs)
 
         with self.lmdb.begin() as xact:
@@ -126,13 +125,15 @@ class CryoTank(s_config.Config):
                 if not curs.set_range(mink):
                     return
 
-                for lkey, lval in curs:
+                for i, (lkey, lval) in enumerate(curs):
+
+                    if size is not None and i >= size:
+                        return
 
                     indx = struct.unpack('>Q', lkey)[0]
-                    if indx >= imax:
-                        break
+                    item = s_msgpack.un(lval)
 
-                    yield indx, s_msgpack.un(lval)
+                    yield indx, item
 
     def slice(self, offs, size):
         '''
@@ -150,7 +151,6 @@ class CryoTank(s_config.Config):
             ((index, object)): Index and item values.
         '''
         lmin = struct.pack('>Q', offs)
-        imax = offs + size
 
         with self.lmdb.begin() as xact:
 
@@ -159,12 +159,12 @@ class CryoTank(s_config.Config):
                 if not curs.set_range(lmin):
                     return
 
-                for lkey, lval in curs:
+                for i, (lkey, lval) in enumerate(curs):
+
+                    if i >= size:
+                        return
 
                     indx = struct.unpack('>Q', lkey)[0]
-                    if indx >= imax:
-                        break
-
                     yield indx, s_msgpack.un(lval)
 
     def rows(self, offs, size):
@@ -262,11 +262,7 @@ class CryoCell(s_neuron.Cell):
         logger.info('Creating new tank: %s', name)
 
         path = self.getCellPath('tanks', iden)
-        try:
-            tank = CryoTank(path, conf)
-        except Exception as e:
-            logger.exception('Error making CryoTank: %s', name)
-            return None
+        tank = CryoTank(path, conf)
 
         self.names.set(name, iden)
         self.confs.set(name, conf)
@@ -295,7 +291,7 @@ class CryoCell(s_neuron.Cell):
             return chan.txfini(tank.last())
 
     def _onCryoList(self, chan, mesg):
-        chan.txfini(self.getCryoList())
+        chan.txfini((True, self.getCryoList()))
 
     @s_glob.inpool
     def _onCryoDele(self, chan, mesg):
@@ -321,12 +317,20 @@ class CryoCell(s_neuron.Cell):
         offs = mesg[1].get('offs')
         size = mesg[1].get('size')
 
-        tank = self.tanks.get(name)
-        if tank is None:
-            return chan.txfini()
+        with chan:
 
-        #TODO: make this a chunked yielder
-        chan.txfini(tuple(tank.slice(offs, size)))
+            tank = self.tanks.get(name)
+            if tank is None:
+                return chan.tx((False, ('NoSuchName', {'name': name})))
+
+            chan.setq()
+            chan.tx((True, True))
+
+            genr = tank.slice(offs, size)
+            genr = s_common.chunks(genr, 100)
+
+            # 100 chunks of 100 in flight...
+            chan.txwind(genr, 100, timeout=30)
 
     @s_glob.inpool
     def _onCryoRows(self, chan, mesg):
@@ -335,12 +339,19 @@ class CryoCell(s_neuron.Cell):
         offs = mesg[1].get('offs')
         size = mesg[1].get('size')
 
-        tank = self.tanks.get(name)
-        if tank is None:
-            return chan.txfini()
+        with chan:
 
-        #TODO: make this a chunked yielder
-        chan.txfini(tuple(tank.rows(offs, size)))
+            tank = self.tanks.get(name)
+            if tank is None:
+                return chan.tx((False, ('NoSuchName', {'name': name})))
+
+            chan.setq()
+            chan.tx((True, True))
+
+            rows = tank.rows(offs, size=size)
+            genr = s_common.chunks(rows, 1000)
+
+            chan.txwind(genr, 100, timeout=30)
 
     @s_glob.inpool
     def _onCryoMetrics(self, chan, mesg):
@@ -348,12 +359,19 @@ class CryoCell(s_neuron.Cell):
         offs = mesg[1].get('offs')
         size = mesg[1].get('size')
 
-        tank = self.tanks.get(name)
-        if tank is None:
-            return chan.txfini()
+        with chan:
 
-        metr = list(tank.metrics(offs, size))
-        chan.txfini(metr)
+            tank = self.tanks.get(name)
+            if tank is None:
+                return chan.txfini((False, ('NoSuchName', {'name': name})))
+
+            chan.setq()
+            chan.tx((True, True))
+
+            metr = tank.metrics(offs, size=size)
+
+            genr = s_common.chunks(metr, 1000)
+            chan.txwind(genr, 100, timeout=30)
 
     @s_glob.inpool
     def _onCryoPuts(self, chan, mesg):
@@ -378,14 +396,19 @@ class CryoCell(s_neuron.Cell):
         name = mesg[1].get('name')
         conf = mesg[1].get('conf')
 
-        tank = self.tanks.get(name)
-        if tank:
-            return chan.txfini(False)
+        with chan:
 
-        if self.genCryoTank(name, conf):
-            return chan.txfini(True)
+            tank = self.tanks.get(name)
+            if tank:
+                return chan.tx((True, False))
 
-        return chan.txfini(False)
+            try:
+                self.genCryoTank(name, conf)
+                return chan.tx((True, True))
+
+            except Exception as e:
+                retn = s_common.getexcfo(e)
+                return chan.tx((False, retn))
 
 class CryoUser(s_neuron.CellUser):
     '''
@@ -459,7 +482,8 @@ class CryoUser(s_neuron.CellUser):
         Returns:
             tuple: A tuple containing name, info tufos for the remote CryoTanks.
         '''
-        return self._cryo_sess.call(('cryo:list', {}), timeout=timeout)
+        ok, retn = self._cryo_sess.call(('cryo:list', {}), timeout=timeout)
+        return s_common.reqok(ok, retn)
 
     def slice(self, name, offs, size, timeout=None):
         '''
@@ -475,15 +499,18 @@ class CryoUser(s_neuron.CellUser):
             (int, obj): (indx, item) tuples for the sliced range.
         '''
         mesg = ('cryo:slice', {'name': name, 'offs': offs, 'size': size})
-        retn = self._cryo_sess.call(mesg, timeout=timeout)
-        if retn is None:
-            return
-        for row in retn:
-            yield row
+        with self._cryo_sess.task(mesg, timeout=timeout) as chan:
+
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
+
+            for bloc in chan.rxwind(timeout=timeout):
+                for item in bloc:
+                    yield item
 
     def rows(self, name, offs, size, timeout=None):
         '''
-        Retrive raw rows from a sectino of the named CryoTank.
+        Retrive raw rows from a section of the named CryoTank.
 
         Args:
             name (str): The name of the remote CryoTank.
@@ -499,27 +526,36 @@ class CryoUser(s_neuron.CellUser):
             (int, bytes): (indx, bytes) tuples for the rows in range.
         '''
         mesg = ('cryo:rows', {'name': name, 'offs': offs, 'size': size})
-        retn = self._cryo_sess.call(mesg, timeout=timeout)
-        if retn is None:
-            return
-        for row in retn:
-            yield row
+        with self._cryo_sess.task(mesg, timeout=timeout) as chan:
 
-    def metrics(self, name, offs, size, timeout=None):
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
+
+            for bloc in chan.rxwind(timeout=timeout):
+                for item in bloc:
+                    yield item
+
+    def metrics(self, name, offs, size=None, timeout=None):
         '''
         Carve a slice of metrics data from the named CryoTank.
 
         Args:
             name (str): The name of the remote CryoTank.
             offs (int): The index offset.
-            size (int): The number to retrieve.
             timeout (int): Request timeout
 
         Returns:
             tuple: A tuple containing metrics tufos for the named CryoTank.
         '''
         mesg = ('cryo:metrics', {'name': name, 'offs': offs, 'size': size})
-        return self._cryo_sess.call(mesg, timeout=timeout)
+        with self._cryo_sess.task(mesg, timeout=timeout) as chan:
+
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
+
+            for bloc in chan.rxwind(timeout=timeout):
+                for item in bloc:
+                    yield item
 
     def init(self, name, conf=None, timeout=None):
         '''
@@ -535,4 +571,5 @@ class CryoUser(s_neuron.CellUser):
             there was an error during CryoTank creation.
         '''
         mesg = ('cryo:init', {'name': name, 'conf': conf})
-        return self._cryo_sess.call(mesg, timeout=timeout)
+        ok, retn = self._cryo_sess.call(mesg, timeout=timeout)
+        return s_common.reqok(ok, retn)

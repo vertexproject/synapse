@@ -212,7 +212,8 @@ class BadAtomFile(SynErr):
     '''
     pass
 
-class IsFini(Exception): pass
+class IsFini(SynErr): pass
+class TimeOut(SynErr): pass
 
 class RetnErr(SynErr):
     '''
@@ -220,12 +221,6 @@ class RetnErr(SynErr):
     '''
     def __init__(self, retn):
         SynErr.__init__(self, excn=retn[0], **retn[1])
-
-class RetnTimeout(SynErr):
-    '''
-    Raised when there is a RetnWait wait() call which timesout.
-    '''
-    pass
 
 class StepTimeout(SynErr):
     '''

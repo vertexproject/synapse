@@ -10,7 +10,8 @@ from synapse.tests.common import *
 
 logger = logging.getLogger(__name__)
 
-bbuf = s_const.mebibyte * 130 * b'\00'
+#bbuf = s_const.mebibyte * 130 * b'\00'
+bbuf = b'V' * 32100
 
 nullhash = hashlib.sha256(b'').digest()
 bbufhash = hashlib.sha256(bbuf).digest()
@@ -271,13 +272,22 @@ class AxonTest(SynTest):
                 self.eq(retn[0][1].get('size'), 8)
                 self.eq(retn[0][1].get('cell'), 'blob00@localhost')
 
-                # Try uploading a large file
-                #self.eq(1, axon.save([bbuf], timeout=3))
+                s_axon.blocksize = 1024
 
-                #self.eq((), axon.wants([bbufhash], timeout=3))
+                # Try uploading a large file
+                genr = s_common.chunks(bbuf, s_axon.blocksize)
+                self.eq(bbufhash, axon.upload(genr, timeout=3))
+
+                self.eq((), axon.wants([bbufhash], timeout=3))
 
                 # Then retrieve it
-                #self.eq(bbuf, b''.join(axon.bytes(bbufhash)))
+                testhash = hashlib.sha256()
+                x = b''.join(axon.bytes(bbufhash, timeout=3))
+
+                for byts in axon.bytes(bbufhash, timeout=3):
+                    testhash.update(byts)
+
+                self.eq(bbufhash, testhash.digest())
 
                 # Try storing a empty file
                 logger.debug('Nullfile test')

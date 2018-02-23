@@ -108,16 +108,11 @@ class ThreadsTest(SynTest):
                 retn.retn(True)
 
             thrd = s_threads.worker(work)
-            failure = (False, ('RetnTimeout',
-                               {'file': '',
-                                'line': '',
-                                'msg': 'RetnTimeout: timeout=0.01',
-                                'name': '',
-                                'src': None,
-                                'syn:err': {'timeout': 0.01}
-                                }))
-            ret = retn.wait(timeout=0.01)
-            self.eq(ret, failure)
+            ok, retn = retn.wait(timeout=0.01)
+
+            self.false(ok)
+            self.eq(retn[0], 'TimeOut')
+
             thrd.join()
 
         with s_threads.RetnWait() as retn:
