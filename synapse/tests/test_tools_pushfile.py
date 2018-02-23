@@ -53,4 +53,4 @@ class TestPushFile(SynTest):
                     fd.write(b'')
                 s_pushfile.main(['--tags', 'foo.bar,baz.faz', coreurl, nullpath], outp=outp)
                 self.eq(env.axon_client.wants((nullhash,)), ())
-                self.eq(list(env.axon_client.bytes(nullhash)), [])
+                self.eq(list(env.axon_client.bytes(nullhash)), [])  # FIXME this should be [b''] but is not

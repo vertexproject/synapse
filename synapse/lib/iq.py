@@ -545,7 +545,7 @@ class SynTest(unittest.TestCase):
         an arbitrary size. This can be used to reduce runtime for tests which
         may do RSA keypair generation.
 
-        Args:y
+        Args:
             bits (int): Bitsize of the keys togenerate.
 
         Notes:
@@ -573,10 +573,10 @@ class SynTest(unittest.TestCase):
         Get a TstEnv instance which is preconfigured with a Neuron, Blob, Axon and Cortex.
 
         Notes:
-            Words go here describing the TstEnv contents
+            Words go here describing the TstEnv contents  # FIXME doc this
 
         Yields:
-            TstEnv: A TstEnv instance.
+            TstEnv: A TstEnv instance.  # FIXME doc this
         '''
         with self.getTestDir() as dirn, self.patchKeyGen() as p:
             neurconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
