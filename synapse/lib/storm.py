@@ -1065,7 +1065,7 @@ class Runtime(Configable):
             return
 
         path = parts[0]
-        for tnode, varz in self.iterVarTree(path):
+        for tnode, varz in query.iterVarTree(path):
             data = (tnode[0],)
             answ = self.runPostPlan(subq, data=data)
             nodes = answ.get('data', ())
