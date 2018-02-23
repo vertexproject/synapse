@@ -1488,10 +1488,6 @@ class StormTest(SynTest):
         rets.sort()
         self.eq(rets, [(('a', 'x'), ('a.b', 'q')), (('a', 'x'), ('a.b', 'z')), (('a', 'y'), ('a.b', 'q')), (('a', 'y'), ('a.b', 'z'))])
 
-        with self.getRamCore() as core:
-            core.ask('[ inet:ipv4=1.2.3.4 :cc=us inet:dns:a=vertex.link/1.2.3.4 ]')
-            core.ask('$dns={inet:dns:a:fqdn=woot.com} $dns.ipv4={ :ipv4->inet:ipv4 }')
-
     def test_storm_filtsub(self):
 
         with self.getRamCore() as core:
