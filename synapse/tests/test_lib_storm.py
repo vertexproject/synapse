@@ -1528,6 +1528,18 @@ class StormTest(SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][1].get('inet:dns:a'), 'example.com/4.3.2.1')
 
+            # lift all dns, pivot to ipv4 where asn=1234 (calls take), add the results
+            # this should return nothing because no nodes have asn=1234
+            self.len(0, core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 +:asn=1234 }'))
+
+            # lift all dns, pivot to ipv4 where asn!=1234 (calls take), add the results
+            # this should return everything because no nodes have asn=1234
+            nodes = core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:asn=1234 }')
+            self.len(2, nodes)
+            nodes.sort(key=lambda x: x[1].get('inet:dns:a'))
+            self.eq(nodes[0][1].get('inet:dns:a'), 'example.com/4.3.2.1')
+            self.eq(nodes[1][1].get('inet:dns:a'), 'vertex.link/1.2.3.4')
+
 class LimitTest(SynTest):
     def test_limit_default(self):
         # LimitHelper would normally be used with the kwlist arg limit,

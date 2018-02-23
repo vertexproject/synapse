@@ -1089,16 +1089,15 @@ class Runtime(Configable):
         [query.add(t) for t in query.take() if cmpr(t)]
 
     def _stormOperFiltSub(self, query, oper):
-
         must, opers = oper[1].get('args')
-
         opers = self.plan(opers)
 
         for node in query.take():
-            data = (node,)
-            answ = self.runPostPlan(opers, data=data)
+            answ = self.runPostPlan(opers, data=(node,))
 
-            if bool(answ.get('data')) != must:
+            # if +, only add if there is data
+            # if -, only add if there is not data
+            if must == bool(answ.get('data')):
                 query.add(node)
 
     def _stormOperSave(self, query, oper):
