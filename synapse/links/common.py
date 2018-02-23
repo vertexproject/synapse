@@ -3,11 +3,6 @@ import errno
 
 import synapse.common as s_common
 
-class NoSuchProto(Exception): pass
-
-class TooManyTries(Exception): pass
-class ImplementMe(Exception): pass
-
 class LinkRelay:
 
     proto = None

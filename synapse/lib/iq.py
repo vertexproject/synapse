@@ -20,6 +20,7 @@ use to be invoked via the built-in Unittest library.
 """
 import io
 import os
+import time
 import types
 import shutil
 import logging
@@ -28,11 +29,17 @@ import unittest
 import threading
 import contextlib
 import collections
+import unittest.mock as mock
 
+from cryptography.hazmat.backends import default_backend
+import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa
+
+import synapse.axon as s_axon
 import synapse.link as s_link
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.neuron as s_neuron
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
@@ -40,7 +47,10 @@ import synapse.cores.common as s_cores_common
 
 import synapse.lib.scope as s_scope
 import synapse.lib.output as s_output
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
+
+import synapse.lib.crypto.rsa as s_rsa
 
 logger = logging.getLogger(__name__)
 
@@ -527,6 +537,120 @@ class SynTest(unittest.TestCase):
         }
         core.addDataModel('tst', modl)
         core.addTufoProp('inet:fqdn', 'inctest', ptype='int', defval=0)
+
+    @contextlib.contextmanager
+    def patchKeyGen(self, bits=1024):
+        '''
+        Patch the @static method of PriKey.generate() to generate keys with
+        an arbitrary size. This can be used to reduce runtime for tests which
+        may do RSA keypair generation.
+
+        Args:
+            bits (int): Bitsize of the keys togenerate.
+
+        Notes:
+            While this may speed up test runs, the cryptography library may
+            refuse to use keys that are too small to encrypt or sign data.
+            The default size for patchKeyGen should work for most synapse
+            use cases regarding communications.
+
+        Yields:
+            None
+        '''
+        def keygen():
+            pk = c_rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=bits,
+                backend=default_backend())
+            return s_rsa.PriKey(pk)
+
+        with mock.patch('synapse.lib.crypto.rsa.PriKey.generate', keygen) as p:
+            yield None
+
+    @contextlib.contextmanager
+    def getAxonCore(self):
+        '''
+        Get a TstEnv instance which is preconfigured with a Neuron, Blob, Axon, Daemon and Cortex.
+
+        Notes:
+            The following items are available in the TstEnv:
+
+            * dirn: Temporary test directory.
+            * axon_client: A Axon client object.
+            * core_url: The Telepath URL to the Cortex so a connection can be made to the Cortex
+              shared by the Daemon.
+            * dmon_port: Port the Daemon is listening on.
+            * dmon: A Daemon which is listening on 127.0.0.1:0. It is preconfigured to share the Cortex.
+            * core: A Cortex.
+            * axon_sess: The client session for the Axon.
+            * axon: The AxonCell.
+            * blob: The BlobCell backing the Axon.
+            * neuron: The Neuron.
+
+        Yields:
+            TstEnv: A TstEnv instance.
+        '''
+        with self.getTestDir() as dirn, self.patchKeyGen() as p:
+            neurconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
+            neurpath = s_common.gendir(dirn, 'neuron')
+            neur = s_neuron.Neuron(neurpath, neurconf)
+
+            blobpath = s_common.gendir(dirn, 'blob')
+            blobconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
+            blobauth = neur.genCellAuth('blob')
+            s_msgpack.dumpfile(blobauth, os.path.join(blobpath, 'cell.auth'))
+            blob = s_axon.BlobCell(blobpath, blobconf)
+            self.true(blob.cellpool.neurwait(timeout=3))
+
+            axonpath = s_common.gendir(dirn, 'axon')
+            axonauth = neur.genCellAuth('axon')
+            s_msgpack.dumpfile(axonauth, os.path.join(axonpath, 'cell.auth'))
+            axonconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0, 'axon:blobs': ('blob@localhost',)}
+            axon = s_axon.AxonCell(axonpath, axonconf)
+            self.true(axon.cellpool.neurwait(timeout=3))
+            axonhost, axonport = axon.getCellAddr()
+
+            # wait for the axon to have blob
+            ready = False
+            for i in range(30):
+                if axon.blobs.items():
+                    ready = True
+                    break
+                time.sleep(0.1)
+            self.true(ready)
+
+            axon_user = s_neuron.CellUser(axonauth)
+            axon_sess = axon_user.open((axonhost, axonport))
+            axon_client = s_axon.AxonClient(axon_sess)
+
+            core = s_cortex.openurl('ram:///')
+            self.addTstForms(core)
+
+            axonconf = {'auth': axonauth, 'host': axonhost, 'port': axonport}  # ???
+            core.setConfOpt('axon:conf', axonconf)
+
+            dmon = s_daemon.Daemon()
+            dmonlink = dmon.listen('tcp://127.0.0.1:0/')
+            dmonport = dmonlink[1].get('port')
+            dmon.share('core', core)
+            coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
+
+            env = TstEnv()
+            env.add('dirn', dirn)
+            env.add('axon_client', axon_client)
+            env.add('core_url', coreurl)
+            env.add('dmon_port', dmonport)
+            # Order matter for clean fini
+            env.add('dmon', dmon, True)
+            env.add('core', core, True)
+            env.add('axon_sess', axon_sess, True)
+            env.add('axon', axon, True)
+            env.add('blob', blob, True)
+            env.add('neuron', neur, True)
+            try:
+                yield env
+            finally:
+                env.fini()
 
     @contextlib.contextmanager
     def getRamCore(self):
