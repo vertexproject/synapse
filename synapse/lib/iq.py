@@ -831,18 +831,30 @@ class SynTest(unittest.TestCase):
         self.isinstance(obj[0], (type(None), str))
         self.isinstance(obj[1], dict)
 
-@contextlib.contextmanager
-def redirectStdin(new_stdin):
-    '''
-    Temporary replace stdin.
+    @contextlib.contextmanager
+    def redirectStdin(self, new_stdin):
+        '''
+        Temporary replace stdin.
 
-    Args:
-        new_stdin(file-like object):  file-like object.
+        Args:
+            new_stdin(file-like object):  file-like object.
 
-    Returns:
-        None
-    '''
-    old_stdin = sys.stdin
-    sys.stdin = new_stdin
-    yield
-    sys.stdin = old_stdin
+        Examples:
+            inp = io.StringIO('stdin stuff\nanother line\n')
+            with self.redirectStdin(inp):
+                main()
+
+            Here's a way to use this for code that's expecting the stdin buffer to have bytes.
+            inp = Mock()
+            inp.buffer = io.BytesIO(b'input data')
+            with self.redirectStdin(inp):
+                main()
+
+
+        Returns:
+            None
+        '''
+        old_stdin = sys.stdin
+        sys.stdin = new_stdin
+        yield
+        sys.stdin = old_stdin

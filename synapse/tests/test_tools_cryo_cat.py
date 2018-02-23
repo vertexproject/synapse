@@ -8,7 +8,6 @@ import synapse.cryotank as s_cryotank
 import synapse.tools.cryo.cat as s_cryocat
 
 from synapse.tests.common import *
-from synapse.lib.iq import redirectStdin
 
 class CryoCatTest(SynTest):
 
@@ -64,14 +63,14 @@ class CryoCatTest(SynTest):
                 outp = self.getTestOutp()
                 argv = ['--ingest', '--jsonl', '--authfile', authfp, addr]
                 inp = io.StringIO('{"foo": "bar"}\n[]\n')
-                with redirectStdin(inp):
+                with self.redirectStdin(inp):
                     self.eq(s_cryocat.main(argv, outp), 0)
 
                 # Sad path jsonl ingest
                 outp = self.getTestOutp()
                 argv = ['--ingest', '--jsonl', '--authfile', authfp, addr]
                 inp = io.StringIO('{"foo: "bar"}\n[]\n')
-                with redirectStdin(inp):
+                with self.redirectStdin(inp):
                     self.raises(Exception, s_cryocat.main, argv, outp)
 
                 # Happy path msgpack ingest
@@ -81,7 +80,7 @@ class CryoCatTest(SynTest):
                 to_ingest2 = s_msgpack.en(['lol', 'brb'])
                 inp = Mock()
                 inp.buffer = io.BytesIO(to_ingest1 + to_ingest2)
-                with redirectStdin(inp):
+                with self.redirectStdin(inp):
                     self.eq(s_cryocat.main(argv, outp), 0)
 
                 # Sad path msgpack ingest
@@ -92,7 +91,7 @@ class CryoCatTest(SynTest):
                 bad_encoding[2] = 0xff
                 inp = Mock()
                 inp.buffer = io.BytesIO(bad_encoding)
-                with redirectStdin(inp):
+                with self.redirectStdin(inp):
                     self.raises(msgpack.exceptions.UnpackValueError, s_cryocat.main, argv, outp)
 
                 outp = self.getTestOutp()
@@ -101,7 +100,7 @@ class CryoCatTest(SynTest):
                 self.true(outp.expect("(0, (None, {'key': 0}))"))
 
                 outp = self.getTestOutp()
-                argv = ['--offset', '0', '--jsonl', '--size', '2', '--authfile', authfp, addr]
+                argv = ['--offset', '0', '--jsonl', '--size', '2', '--elide-offset', '--authfile', authfp, addr]
                 self.eq(s_cryocat.main(argv, outp), 0)
                 self.true(outp.expect('[null, {"key": 0}]\n[null, {"key": 1}]\n'))
 

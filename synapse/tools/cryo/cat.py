@@ -12,6 +12,21 @@ import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
+
+def _except_wrap(it, error_str_func):
+    ''' Wrap an iterator and adds a bit of context to the exception message '''
+    item_no = 0
+    while True:
+        item_no += 1
+        try:
+            yield next(it)
+        except StopIteration:
+            return
+        except Exception as e:
+            extra_context = error_str_func(item_no)
+            e.args = (extra_context + ': ' + str(e.args[0]), ) + e.args[1:]
+            raise
+
 def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='cryo.cat', description='display data items from a cryo cell')
@@ -27,6 +42,7 @@ def main(argv, outp=s_output.stdout):
     pars.add_argument('--verbose', '-v', default=False, action='store_true', help='Verbose output')
     pars.add_argument('--ingest', '-i', default=False, action='store_true',
                       help='Reverses direction: feeds cryotank from stdin in msgpack or jsonl format')
+    pars.add_argument('--elide-offset', default=False, action='store_true', help="Don't output offsets of objects")
 
     opts = pars.parse_args(argv)
 
@@ -59,36 +75,23 @@ def main(argv, outp=s_output.stdout):
 
         return 0
 
-    def except_wrap(it, error_str_func):
-        ''' Wrap an iterator and adds a bit of context to the exception message '''
-        item_no = 0
-        while True:
-            item_no += 1
-            try:
-                yield next(it)
-            except StopIteration:
-                return
-            except Exception as e:
-                extra_context = error_str_func(item_no)
-                e.args = (extra_context + ': ' + str(e.args[0]), ) + e.args[1:]
-                raise
-
     if opts.ingest:
         if opts.msgpack:
             fd = sys.stdin.buffer
-            item_it = except_wrap(s_msgpack.iterfd(fd), lambda x: 'Error parsing item %d' % x)
+            item_it = _except_wrap(s_msgpack.iterfd(fd), lambda x: 'Error parsing item %d' % x)
         else:
             fd = sys.stdin
-            item_it = except_wrap((json.loads(s) for s in fd), lambda x: ('Failure parsing line %d of input' % x))
+            item_it = _except_wrap((json.loads(s) for s in fd), lambda x: ('Failure parsing line %d of input' % x))
         cryo.puts(path, item_it)
     else:
         for item in cryo.slice(path, opts.offset, opts.size, opts.timeout):
+            i = item[1] if opts.elide_offset else item
             if opts.jsonl:
-                outp.printf(json.dumps(item[1], sort_keys=True))
+                outp.printf(json.dumps(i, sort_keys=True))
             elif opts.msgpack:
-                sys.stdout.write(s_msgpack.en(item))
+                sys.stdout.write(s_msgpack.en(i))
             else:
-                outp.printf(pprint.pformat(item))
+                outp.printf(pprint.pformat(i))
 
     return 0
 
