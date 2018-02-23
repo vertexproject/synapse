@@ -3,7 +3,7 @@ import synapse.lib.crypto.ecc as s_ecc
 
 from synapse.tests.common import *
 
-class RsaTest(SynTest):
+class EccTest(SynTest):
 
     def test_lib_crypto_ecc_keys(self):
 
@@ -39,7 +39,7 @@ class RsaTest(SynTest):
         sign = prikey.sign(byts)
         self.true(pubkey.verify(byts, sign))
 
-    def test_lib_crypto_rsa_break(self):
+    def test_lib_crypto_ecc_break(self):
         pvk1 = s_ecc.PriKey.generate()
         pbk1 = pvk1.public()
 

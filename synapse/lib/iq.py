@@ -29,10 +29,6 @@ import unittest
 import threading
 import contextlib
 import collections
-import unittest.mock as mock
-
-from cryptography.hazmat.backends import default_backend
-import cryptography.hazmat.primitives.asymmetric.rsa as c_rsa
 
 import synapse.axon as s_axon
 import synapse.link as s_link
@@ -49,8 +45,6 @@ import synapse.lib.scope as s_scope
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
-
-import synapse.lib.crypto.rsa as s_rsa
 
 logger = logging.getLogger(__name__)
 
