@@ -3317,6 +3317,39 @@ class CortexTest(SynTest):
                 self.isin('synapse.tests.test_cortex.CoreTestModule', prox.getCoreMods())
                 self.eq(prox.getConfOpt('storm:query:log:en'), 1)
 
+    def test_cortex_axon(self):
+        self.skipLongTest()
+        with self.getAxonCore() as env:
+            with s_daemon.Daemon() as dmon:
+
+                dmonlink = dmon.listen('tcp://127.0.0.1:0/')
+                dmonport = dmonlink[1].get('port')
+                dmon.share('core', env.core)
+
+                coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
+                core = s_telepath.openurl(coreurl)
+
+                self.istufo(core.formNodeByBytes(b'visi'))
+                with io.BytesIO(b'foobar') as fd:
+                    self.istufo(core.formNodeByFd(fd))
+
+            # Ensure that Axon fns do not execute on a core without an axon
+            with self.getRamCore() as othercore:
+                self.raises(NoSuchOpt, othercore.formNodeByBytes, b'visi', name='visi.bin')
+                with io.BytesIO(b'foobar') as fd:
+                    self.raises(NoSuchOpt, othercore.formNodeByFd, fd, name='foobar.exe')
+
+                axonhost, axonport = env.axon.getCellAddr()
+                axonauth = env.axon.getCellAuth()
+                othercore.setConfOpt('axon:conf', {'fake': 'fake'})
+                self.none(othercore.axon_client)
+                othercore.setConfOpt('axon:conf', {'auth': axonauth})
+                self.none(othercore.axon_client)
+                othercore.setConfOpt('axon:conf', {'auth': axonauth, 'host': axonhost})
+                self.none(othercore.axon_client)
+                othercore.setConfOpt('axon:conf', {'auth': axonauth, 'host': axonhost, 'port': axonport})
+                self.nn(othercore.axon_client)
+
 class StorageTest(SynTest):
 
     def test_nonexist_ctor(self):
