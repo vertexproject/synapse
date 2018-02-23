@@ -673,8 +673,7 @@ class AxonClient:
         with self.sess.task(mesg, timeout=timeout) as chan:
 
             ok, retn = chan.next(timeout=timeout)
-            if not ok:
-                raise s_exc.RetnErr(retn)
+            s_common.reqok(ok, retn)
 
             for byts in chan.rxwind(timeout=timeout):
                 yield byts
