@@ -12,13 +12,13 @@ binset = set('01')
 decset = set('0123456789')
 hexset = set('01234567890abcdef')
 intset = set('01234567890abcdefx')
-setset = set('.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+setset = set('.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 timeset = set('01234567890')
 propset = set(':abcdefghijklmnopqrstuvwxyz_0123456789')
 starset = varset.union({'*'})
 tagfilt = varset.union({'#', '*'})
-alphaset = set('abcdefghijklmnopqrstuvwxyz')
+alphaset = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
 # this may be used to meh() potentially unquoted values
 valmeh = whites.union({'(', ')', '=', ',', '[', ']', '{', '}'})
@@ -605,6 +605,8 @@ def parse_storm(text, off=0):
         if nextchar(text, off, '$'):
 
             _, off = nom(text, off + 1, whites)
+            if not nextin(text, off, alphaset):
+                raise s_common.BadSyntaxError(msg='Set variables must start with an alpha char')
             name, off = nom(text, off, setset)
             _, off = nom(text, off, whites)
 
