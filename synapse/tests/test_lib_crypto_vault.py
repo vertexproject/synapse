@@ -23,7 +23,7 @@ def addUserToVault(evt1, evt2, fp, user):
 
 class VaultTest(SynTest):
     def test_lib_crypto_vault_cert(self):
-        with self.getTestDir() as dirn, self.patchKeyGen() as p:
+        with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'vault.lmdb')
             vault = s_vault.Vault(path)
             root = vault.genRootCert()
@@ -71,7 +71,7 @@ class VaultTest(SynTest):
             vault.fini()
 
     def test_lib_crypto_vault_base(self):
-        with self.getTestDir() as dirn, self.patchKeyGen() as p:
+        with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'vault.lmdb')
             vault = s_vault.Vault(path)
 

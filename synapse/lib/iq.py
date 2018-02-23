@@ -539,35 +539,6 @@ class SynTest(unittest.TestCase):
         core.addTufoProp('inet:fqdn', 'inctest', ptype='int', defval=0)
 
     @contextlib.contextmanager
-    def patchKeyGen(self, bits=1024):
-        '''
-        Patch the @static method of PriKey.generate() to generate keys with
-        an arbitrary size. This can be used to reduce runtime for tests which
-        may do RSA keypair generation.
-
-        Args:
-            bits (int): Bitsize of the keys togenerate.
-
-        Notes:
-            While this may speed up test runs, the cryptography library may
-            refuse to use keys that are too small to encrypt or sign data.
-            The default size for patchKeyGen should work for most synapse
-            use cases regarding communications.
-
-        Yields:
-            None
-        '''
-        def keygen():
-            pk = c_rsa.generate_private_key(
-                public_exponent=65537,
-                key_size=bits,
-                backend=default_backend())
-            return s_rsa.PriKey(pk)
-
-        with mock.patch('synapse.lib.crypto.rsa.PriKey.generate', keygen) as p:
-            yield None
-
-    @contextlib.contextmanager
     def getAxonCore(self):
         '''
         Get a TstEnv instance which is preconfigured with a Neuron, Blob, Axon, Daemon and Cortex.
@@ -590,7 +561,7 @@ class SynTest(unittest.TestCase):
         Yields:
             TstEnv: A TstEnv instance.
         '''
-        with self.getTestDir() as dirn, self.patchKeyGen() as p:
+        with self.getTestDir() as dirn:
             neurconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
             neurpath = s_common.gendir(dirn, 'neuron')
             neur = s_neuron.Neuron(neurpath, neurconf)
