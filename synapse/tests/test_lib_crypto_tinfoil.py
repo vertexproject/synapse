@@ -26,24 +26,19 @@ class TinFoilTest(SynTest):
 
         # Ensure the envelope is shaped as we expect it too be
         edict = s_msgpack.un(byts)
-        print(edict)
         self.isinstance(edict, dict)
-        self.len(4, edict)
+        self.len(3, edict)
 
         data = edict.get('data')
         self.isinstance(data, bytes)
-        self.len(6, data)
+        self.len(6 + 16, data)
 
         iv = edict.get('iv')
         self.isinstance(iv, bytes)
         self.len(16, iv)
 
-        tag = edict.get('tag')
-        self.isinstance(tag, bytes)
-        self.len(16, tag)
-
         asscd = edict.get('asscd')
-        self.eq(asscd, b'')
+        self.eq(asscd, None)
 
         # We can decrypt and get our original message back
         self.eq(tinh.dec(byts), b'foobar')
@@ -67,10 +62,8 @@ class TinFoilTest(SynTest):
             edict = s_msgpack.un(byts)
 
             self.len(16, edict.get('iv'))
-            self.len(16, edict.get('tag'))
-
             data = edict.get('data')
-            self.len(len(mesg), data)
+            self.len(len(mesg) + 16, data)
             self.eq(tinh.dec(byts), mesg)
 
         # We can pass in additional data that we want authed too
@@ -90,7 +83,7 @@ class TinFoilTest(SynTest):
         edict = s_msgpack.un(goodbyts)
 
         # Empty values will fail to decrypt
-        for key in ('iv', 'tag', 'data', 'asscd'):
+        for key in ('iv', 'data', 'asscd'):
             bdict = {k: v for k, v in edict.items() if k != key}
             byts = s_msgpack.en(bdict)
             self.none(tinh.dec(byts))
@@ -98,11 +91,6 @@ class TinFoilTest(SynTest):
         # Tampered values will fail
         bdict = {k: v for k, v in edict.items()}
         bdict['iv'] = os.urandom(16)
-        byts = s_msgpack.en(bdict)
-        self.none(tinh.dec(byts))
-
-        bdict = {k: v for k, v in edict.items()}
-        bdict['tag'] = os.urandom(16)
         byts = s_msgpack.en(bdict)
         self.none(tinh.dec(byts))
 
@@ -123,10 +111,10 @@ class TinFoilTest(SynTest):
                          b'432ed8ec6d54b245d66864b06cc6cbdc52ebf5f0dbe1382b42e'
                          b'94a67411f7042d0562f3fd9b1a6961aacff69292aa596382c9f'
                          b'869e2957269191c5f916f56889188db03eb60d2caf7f7dd7388'
-                         b'a5a9ef13494aaeb905f08e658fbb907afd7169b879b031',
+                         b'a5a9ef13494aaeb905f08e658fbb907afd7169b879b0313d065'
+                         b'c1045e844c039b43296f44d6bc5',
                  'hmac': b'fb4b53fb2b94d4ef91b5a094ab786b879ba6274384e23da15f7990609df5ab88',
                  'iv': b'ecf8ed3d7932834fc76b7323d6ab73ce',
-                 'tag': b'3d065c1045e844c039b43296f44d6bc5',
                  'asscd': b''
                  }
         msg = s_msgpack.en({k: binascii.unhexlify(v) for k, v in edict.items()})

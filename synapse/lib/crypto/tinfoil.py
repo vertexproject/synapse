@@ -2,9 +2,8 @@ import os
 import hashlib
 import logging
 
-from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 import synapse.lib.msgpack as s_msgpack
 
@@ -24,7 +23,8 @@ class TinFoilHat:
     The TinFoilHat class implements a GCM-AES encryption/decryption class.
 
     Args:
-        ekey (bytes): A 32 byte key used for doing encryption & decryption.
+        ekey (bytes): A 32 byte key used for doing encryption & decryption. It
+        is assumed the caller has generated the key in a safe manner.
     '''
     def __init__(self, ekey):
         self.ekey = ekey
@@ -40,26 +40,12 @@ class TinFoilHat:
 
         Returns:
             bytes: The encrypted message. This is a msgpacked dictionary
-            containing the IV, ciphertext, associated data and tag values.
+            containing the IV, ciphertext, and associated data.
         '''
         iv = os.urandom(16)
-
-        try:
-            encryptor = Cipher(
-                algorithms.AES(self.ekey),
-                modes.GCM(iv),
-                backend=self.bend
-            ).encryptor()
-        except Exception as e:
-            logger.exception('Failed to initialize encryptor')
-            return None
-
-        if asscd is None:
-            asscd = b''
-
-        encryptor.authenticate_additional_data(asscd)
-        byts = encryptor.update(byts) + encryptor.finalize()
-        envl = {'iv': iv, 'data': byts, 'asscd': asscd, 'tag': encryptor.tag}
+        encryptor = AESGCM(self.ekey)
+        byts = encryptor.encrypt(iv, byts, asscd)
+        envl = {'iv': iv, 'data': byts, 'asscd': asscd}
         return s_msgpack.en(envl)
 
     def dec(self, byts):
@@ -74,24 +60,14 @@ class TinFoilHat:
         '''
         envl = s_msgpack.un(byts)
         iv = envl.get('iv', b'')
-        assc = envl.get('asscd', b'')
+        asscd = envl.get('asscd', b'')
         data = envl.get('data', b'')
-        tag = envl.get('tag', b'')
+
+        decryptor = AESGCM(self.ekey)
 
         try:
-            decryptor = Cipher(
-                algorithms.AES(self.ekey),
-                modes.GCM(iv, tag),
-                backend=self.bend
-            ).decryptor()
+            data = decryptor.decrypt(iv, data, asscd)
         except Exception as e:
-            logger.exception('Failed to initialize decryptor')
-            return None
-
-        decryptor.authenticate_additional_data(assc)
-        try:
-            data = decryptor.update(data) + decryptor.finalize()
-        except InvalidTag as e:
             logger.exception('Error decrypting data')
             return None
         return data
