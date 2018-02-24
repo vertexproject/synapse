@@ -47,6 +47,19 @@ class PriKey:
                               c_ec.ECDSA(c_utils.Prehashed(chosen_hash))
                               )
 
+    def exchange(self, pubkey):
+        '''
+        Perform a ECDH key exchange with a public key.
+
+        Args:
+            pubkey (PubKey): A PubKey to perform the ECDH with.
+
+        Returns:
+            bytes: The ECDH bytes. This is deterministic for a given pubkey
+            and private key.
+        '''
+        return self.priv.exchange(c_ec.ECDH(), pubkey.publ)
+
     def public(self):
         '''
         Get the PubKey which corresponds to the ECC PriKey.
