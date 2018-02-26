@@ -50,7 +50,21 @@ class SessBoss:
         return self.rkey.decrypt(byts)
 
     def valid(self, cert):
-        return any([r.signed(cert) for r in self.roots])
+
+        if not any([r.signed(cert) for r in self.roots]):
+            return False
+
+        tock = cert.tokn.get('expires')
+        if tock is None:
+            logger.warning('SessBoss: cert has no "expires" value')
+            return False
+
+        tick = s_common.now()
+        if tock < tick:
+            logger.warning('SessBoss: cert has expired')
+            return False
+
+        return True
 
 class Cell(s_config.Configable, s_net.Link, SessBoss):
     '''

@@ -8,6 +8,7 @@ import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.kv as s_kv
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.lib.crypto.rsa as s_rsa
@@ -256,8 +257,10 @@ class Vault(s_eventbus.EventBus):
         Returns:
             bytes: A msgpack encoded dictionary.
         '''
+        tick = s_common.now()
         info['rsa:pub'] = rpub.dump()
-        info['created'] = s_common.now()
+        info['created'] = tick
+        info.setdefault('expires', tick + (3 * s_const.year))
         return s_msgpack.en(info)
 
     def genToknCert(self, tokn, rkey=None):
