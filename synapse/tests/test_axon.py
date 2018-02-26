@@ -383,5 +383,6 @@ class AxonTest(SynTest):
                 self.eq(bbufhash, testhash.digest())
 
                 # Try saving a new file to the cluster and ensure it is replicated
+                self.eq((ohmyhash,), axon.wants((ohmyhash, hehahash, nullhash), 3))
                 self.eq(1, axon.save([b'ohmyohmyy']))
                 self.nn(blob01wait.wait(10))
