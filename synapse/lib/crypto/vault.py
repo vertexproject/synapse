@@ -186,7 +186,7 @@ class Vault(s_eventbus.EventBus):
         tokn:
         {
             'user': <str>,
-            'ecc:pub': <bytes>,
+            'ecdsa:pubkey': <bytes>,
         }
 
     Certs are stored in the following format:
@@ -256,7 +256,7 @@ class Vault(s_eventbus.EventBus):
         Returns:
             bytes: A msgpack encoded dictionary.
         '''
-        info['ecc:pub'] = rpub.dump()
+        info['ecdsa:pubkey'] = rpub.dump()
         info['created'] = s_common.now()
         return s_msgpack.en(info)
 
@@ -347,7 +347,7 @@ class Vault(s_eventbus.EventBus):
         return (user, {
             'cert': cert.dump(),
             'root': root.dump(),
-            'ecc:key': rkey.dump(),
+            'ecdsa:prvkey': rkey.dump(),
         })
 
     def addUserAuth(self, auth):
@@ -368,7 +368,7 @@ class Vault(s_eventbus.EventBus):
         user, info = auth
 
         certbyts = info.get('cert')
-        rkeybyts = info.get('ecc:key')
+        rkeybyts = info.get('ecdsa:prvkey')
 
         rkey = s_ecc.PriKey.load(rkeybyts)
         cert = Cert.load(certbyts, rkey=rkey)
