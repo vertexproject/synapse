@@ -64,6 +64,8 @@ class Configable:
         self.addConfDefs(defs)
         self._loadDecoratedFuncs()
 
+        self.initConfDefs()
+
         if opts is not None:
             self.setConfOpts(opts)
 
@@ -81,6 +83,12 @@ class Configable:
                 continue
             self.addConfDefs(meth())
             self._syn_loaded_confs.add(attr)
+
+    def initConfDefs(self):
+        '''
+        A callback which allows sub-classes to initialize their config definitions.
+        '''
+        pass
 
     def addConfDefs(self, defs):
         '''
