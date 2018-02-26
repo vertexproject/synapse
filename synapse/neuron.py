@@ -20,7 +20,7 @@ import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 
-import synapse.lib.crypto.rsa as s_rsa
+import synapse.lib.crypto.ecc as s_ecc
 import synapse.lib.crypto.vault as s_vault
 import synapse.lib.crypto.tinfoil as s_tinfoil
 
@@ -41,13 +41,15 @@ class SessBoss:
         root = s_vault.Cert.load(auth[1].get('root'))
         self.roots.append(root)
 
-        self.rkey = s_rsa.PriKey.load(auth[1].get('rsa:key'))
+        # FIXME:  any way not to keep this in memory?
+        self.my_static_priv = s_ecc.PriKey.load(auth[1].get('rsa:key'))
+        self.my_static_pub = self.my_static_priv.public()
 
         self.cert = s_vault.Cert.load(auth[1].get('cert'))
         self.certbyts = self.cert.dump()
 
     def decrypt(self, byts):
-        return self.rkey.decrypt(byts)
+        return self.my_static_priv.decrypt(byts)
 
     def valid(self, cert):
         return any([r.signed(cert) for r in self.roots])
@@ -431,10 +433,26 @@ class Neuron(Cell):
     def _getNodeConf():
         return (
             ('port', {'defval': defport, 'req': 1,
-                'doc': 'The TCP port to bind (defaults to %d)' % defport}),
+             'doc': 'The TCP port to bind (defaults to %d)' % defport}),
         )
 
 class Sess(s_net.Link):
+
+    '''
+    Manages network session establishment and maintainance
+
+    We use NIST SP 56A r2 "C(2e, 2s, ECC DH)", a scheme where both parties have 2 key pairs:  static and ephemeral.
+
+    Sequence diagram C: client, S: server, Ec:  public ephemeral client key, ec: private ephemeral client
+
+    C -> S:  Ec, client cert
+    S -> C:  Es, server cert, encrypted message ("hello")
+
+    The first encrypted message is se
+
+
+
+    '''
 
     def __init__(self, link, boss, lisn=False):
 
@@ -444,23 +462,24 @@ class Sess(s_net.Link):
 
         self._sess_boss = boss
 
-        self.lisn = lisn    # True if we are the listener.
+        self.is_lisn = lisn    # True if we are the listener.
 
-        self.txkey = s_tinfoil.newkey()
-        self.txtinh = s_tinfoil.TinFoilHat(self.txkey)
-
-        self.rxkey = None
-        self.rxtinh = None
+        self.tx_tinh = None
+        self.rx_tinh = None
 
     def handlers(self):
-        return {
-            'cert': self._onMesgCert,
-            'skey': self._onMesgSkey,
-            'xmit': self._onMesgXmit,
-        }
+        if self.is_lisn:
+            return {
+                'clientHello': self._onMesgClientHello,
+                'xmit': self._onMesgXmit,
+            }
+        else:
+            return {
+                'serverHello': self._onMesgServerHello,
+                'xmit': self._onMesgXmit,
+            }
 
     def setRxKey(self, rxkey):
-        self.rxkey = rxkey
         self.rxtinh = s_tinfoil.TinFoilHat(rxkey)
 
     def _tx_real(self, mesg):
@@ -493,28 +512,87 @@ class Sess(s_net.Link):
 
         self.setRxKey(skey)
 
-    def sendcert(self):
-        self.link.tx(('cert', {'cert': self._sess_boss.certbyts}))
+    def _calcKeys(self, my_ephem_priv, peer_ephem_pub, my_static_priv, peer_static_priv):
+        secret1 = my_ephem_priv.exchange(peer_ephem_pub)
+        secret2 = my_static_priv.exchange(peer_static_priv)
+
+        kdf = c_hkdf.HKDF(hashes.SHA256(), length=64, salt=None, info=b'synapse', backend=default_backend())
+        km = kdf.derive(secret1 + secret2)
+        key1, key2 = km[:32], km[32:]
+
+        tinh1 = s_tinfoil.TinFoilHot(key1)
+        tinh2 = s_tinfoil.TinFoilHot(key2)
+        return tinh1, tinh2
 
     @s_glob.inpool
-    def _onMesgCert(self, link, mesg):
+    def _initiateSession(self):
+        ''' Send ephemeral public and my certificate '''
+        assert not self.is_lisn
+        self._my_ephem_priv = s_ecc.PriKey.generate()
+        self.link.tx(('clientHello', {'c_ephem_pub': self.my_ephem_pub, 'cert': self._sess_boss.certbyts}))
 
-        if self.lisn:
-            self.sendcert()
+    @s_glob.inpool
+    def _onMesgServerHello(self, link, mesg):
+        ''' Handle receiving the session establishment message from server '''
+        assert not self.is_lisn
 
-        cert = s_vault.Cert.load(mesg[1].get('cert'))
-
-        if not self._sess_boss.valid(cert):
-            clsn = self.__class__.__name__
-            logger.warning('%s got bad cert (%r)' % (clsn, cert.iden(),))
+        if not self._my_ephem_priv:
+            logger.warning('Protocol violation: Received two server hellos')
             self.fini()
             return
 
-        # send back an skey message with our tx key
-        data = cert.public().encrypt(self.txkey)
-        self.link.tx(('skey', {'data': data}))
+        peer_cert = s_vault.Cert.load(mesg[1].get('cert'))
+        peer_ephem_pub = s_ecc.PubKey.load(mesg[1].get('s_ephem_pub'))
 
-        user = cert.tokn.get('user')
+        if not self._sess_boss.valid(peer_cert):
+            clsn = self.__class__.__name__
+            logger.warning('%s got bad cert (%r)' % (clsn, peer_cert.iden(),))
+            self.fini()
+            return
+
+        self._my_ephem_priv = None
+
+        peer_static_public = s_ecc.PubKey.load(peer_cert.tokn.get('ecc:pub'))
+        self.rx_tinh, self.tx_tinh = self._calcKeys(self._my_ephem_priv, peer_ephem_pub,
+                                                    self.my_static_priv, peer_static_public)
+
+    @s_glob.inpool
+    def _onMesgClientHello(self, link, mesg):
+        ''' Handle receiving the session establishment message from client '''
+        assert self.is_lisn
+
+        if self.tx_tinh:
+            logger.warning('Protocol violation: Received two client hellos')
+            self.fini()
+            return
+
+        peer_cert = s_vault.Cert.load(mesg[1].get('cert'))
+        peer_ephem_pub = s_ecc.PubKey.load(mesg[1].get('c_ephem_pub'))
+
+        if not self._sess_boss.valid(peer_cert):
+            clsn = self.__class__.__name__
+            logger.warning('%s got bad cert (%r)' % (clsn, peer_cert.iden(),))
+            self.fini()
+            return
+
+        my_ephem_priv = s_ecc.PriKey.generate()
+        my_ephem_pub = my_ephem_priv.public()
+        peer_static_public = s_ecc.PubKey.load(peer_cert.tokn.get('ecc:pub'))
+        self.tx_tinh, self.rx_tinh = self._calcKeys(my_ephem_priv, peer_ephem_pub,
+                                                    self.my_static_priv, peer_static_public)
+
+        # send back our ephemerical public, our cert, and an encrypted message
+
+        # This would be a good place to stick an version or info stuff
+        first_message = {}
+
+        # FIXME: But link is passed as parameter...
+        self.link.tx(('serverHello', {'s_ephem_pub': my_ephem_pub,
+                                      'cert': self._sess_boss.certbyts,
+                                      'msg': self.txtinh.enc(s_msgpack.en(first_message))
+                                      }))
+
+        user = peer_cert.tokn.get('user')
         self.setLinkProp('cell:peer', user)
 
         self.fire('sess:txok')
@@ -633,7 +711,7 @@ class CellUser(SessBoss):
                     return retn.errx(OSError(erno, errs))
 
                 sess = UserSess(link, self)
-                sess.sendcert()
+                sess._initiateSession()
 
                 retn.retn(sess)
 
@@ -682,7 +760,7 @@ class CellUser(SessBoss):
             sess.on('sess:txok', txok)
             sess.onfini(fini)
 
-            sess.sendcert()
+            sess.establishSession()
 
         s_glob.plex.connect(tuple(addr), onsock)
 
