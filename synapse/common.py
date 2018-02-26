@@ -453,6 +453,23 @@ def chunks(item, size):
         off += size
 
 def iterfd(fd, size=10000000):
+    '''
+    Generator which yields bytes from a file descriptor.
+
+    Args:
+        fd (file): A file-like object to read bytes from.
+        size (int): Size, in bytes, of the number of bytes to read from the
+        fd at a given time.
+
+    Notes:
+        If the first read call on the file descriptor is a empty bytestring,
+        that zero length bytestring will be yielded and the generator will
+        then be exhuasted. This behavior is intended to allow the yielding of
+        contents of a zero byte file.
+
+    Yields:
+        bytes: Bytes from the file descriptor.
+    '''
     fd.seek(0)
     byts = fd.read(size)
     # Fast path to yield b''
@@ -468,8 +485,12 @@ def spin(genr):
     Crank through a generator but discard the yielded values.
 
     Args:
-        genr: Any generator or iterable valu. This generator is exhausted
-        via a for loop which discards the values.
+        genr: Any generator or iterable valu.
+
+    Notes:
+        This generator is exhausted via the ``collections.dequeue()``
+        constructor with a ``maxlen=0``, which will quickly exhaust an
+        iterator staying in C code as much as possible.
 
     Returns:
         None
