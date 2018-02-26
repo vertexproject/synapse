@@ -42,7 +42,7 @@ class SessBoss:
         self.roots.append(root)
 
         # FIXME:  doesn't seem to be used
-        # self._my_static_prv = s_ecc.PriKey.load(auth[1].get('ecdsa:prvkey'))
+        self._my_static_prv = s_ecc.PriKey.load(auth[1].get('ecdsa:prvkey'))
 
         self.cert = s_vault.Cert.load(auth[1].get('cert'))
         self.certbyts = self.cert.dump()
@@ -479,24 +479,28 @@ class Sess(s_net.Link):
         }
 
     def setRxKey(self, rxkey):
-        self.rxtinh = s_tinfoil.TinFoilHat(rxkey)
+        self.rx_tinh = s_tinfoil.TinFoilHat(rxkey)
 
     def _tx_real(self, mesg):
 
-        if self.txtinh is None:
+        if self.tx_tinh is None:
             raise s_exc.NotReady()
 
-        data = self.txtinh.enc(s_msgpack.en(mesg))
+        data = self.tx_tinh.enc(s_msgpack.en(mesg))
         self.link.tx(('xmit', {'data': data}))
 
     def _onMesgXmit(self, link, mesg):
 
-        if self.rxtinh is None:
-            logger.warning('xmit message before rxkey')
+        if self.rx_tinh is None:
+            logger.warning('xmit message before session establishment complete')
             raise s_common.NotReady()
 
-        data = mesg[1].get('data')
-        newm = s_msgpack.un(self.rxtinh.dec(data))
+        ciphertext = mesg[1].get('data')
+        plaintext = self.rx_tinh.dec(ciphertext)
+        if plaintext is None:
+            raise Exception('Message decryption failure')
+
+        newm = s_msgpack.un(plaintext)
 
         try:
             self.taskplex.rx(self, newm)
@@ -513,10 +517,10 @@ class Sess(s_net.Link):
 
     def _calcKeys(self, my_ephem_prv, peer_ephem_pub, my_static_prv, peer_static_prv):
 
-        km = s_ecc.doECDHE(my_ephem_prv, peer_ephem_pub, my_static_prv, peer_static_prv, info='session')
+        km = s_ecc.doECDHE(my_ephem_prv, peer_ephem_pub, my_static_prv, peer_static_prv, info=b'session')
 
-        tinh1 = s_tinfoil.TinFoilHot(km[:32])
-        tinh2 = s_tinfoil.TinFoilHot(km[32:])
+        tinh1 = s_tinfoil.TinFoilHat(km[:32])
+        tinh2 = s_tinfoil.TinFoilHat(km[32:])
         return tinh1, tinh2
 
     @s_glob.inpool
@@ -549,8 +553,13 @@ class Sess(s_net.Link):
             return
 
         peer_static_pub = s_ecc.PubKey.load(peer_cert.tokn.get('ecdsa:pubkey'))
-        self.rx_tinh, self.tx_tinh = self._calcKeys(self._my_ephem_prv, peer_ephem_pub,
-                                                    self._sess_boss._my_static_prv, peer_static_pub)
+        to_initiator, to_listener = self._calcKeys(self._my_ephem_prv, peer_ephem_pub,
+                                                   self._sess_boss._my_static_prv, peer_static_pub)
+
+        if self.is_lisn:
+            self.tx_tinh, self.rx_tinh = to_initiator, to_listener
+        else:
+            self.rx_tinh, self.tx_tinh = to_initiator, to_listener
         return peer_cert
 
     @s_glob.inpool
@@ -568,7 +577,7 @@ class Sess(s_net.Link):
             first_message = {}
             self.link.tx(('helo', {'ephem_pub': self._my_ephem_prv.public().dump(),
                                    'cert': self._sess_boss.certbyts,
-                                   'msg': self.txtinh.enc(s_msgpack.en(first_message))}))
+                                   'msg': self.tx_tinh.enc(s_msgpack.en(first_message))}))
 
         user = peer_cert.tokn.get('user')
         self.setLinkProp('cell:peer', user)

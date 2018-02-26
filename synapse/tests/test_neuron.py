@@ -189,8 +189,7 @@ class NeuronTest(SynTest):
 
             with s_neuron.Cell(dirn, conf) as cell:
 
-                user = cell.genUserAuth('foo')
-
+                user = cell.celluser
                 addr = cell.getCellAddr()
 
                 with user.open(addr, timeout=2) as sess:
@@ -271,19 +270,15 @@ class NeuronTest(SynTest):
                 cdef = neur.getConfDef('port')
                 self.eq(s_neuron.defport, cdef[1].get('defval'))
 
-                path = s_common.genpath(path, 'cell.auth')
-                root = s_msgpack.loadfile(path)
-
                 def onreg(mesg):
                     steps.done('cell:reg')
 
                 neur.on('cell:reg', onreg)
                 self.eq(neur._genCellName('root'), 'root@localhost')
-                root = neur.getRootCert()
 
-                user = s_neuron.CellUser(root)
+                user = neur.celluser
 
-                pool = s_neuron.CellPool(root, neur.getCellAddr())
+                pool = s_neuron.CellPool(neur.genUserAuth('foo'), neur.getCellAddr())
                 pool.neurok.wait(timeout=8)
                 self.true(pool.neurok.is_set())
 

@@ -257,6 +257,7 @@ class Vault(s_eventbus.EventBus):
         Returns:
             bytes: A msgpack encoded dictionary.
         '''
+        tick = s_common.now()
         info['ecdsa:pubkey'] = rpub.dump()
         info['created'] = s_common.now()
         info.setdefault('expires', tick + (3 * s_const.year))

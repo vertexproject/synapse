@@ -60,8 +60,6 @@ class PriKey:
             bytes: The ECDH bytes. This is deterministic for a given pubkey
             and private key.
         '''
-        if pubkey.iden() == self.iden():
-            raise s_common.BadEccExchange(mesg='Cannot do a key exchange with self', iden=self.iden())
         try:
             return self.priv.exchange(c_ec.ECDH(), pubkey.publ)
         except ValueError as e:
