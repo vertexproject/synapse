@@ -48,8 +48,6 @@ class NeuronTest(SynTest):
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
-            initCellDir(dirn)
-
             with s_neuron.Cell(dirn, conf) as cell:
                 # A bunch of API tests here
 
@@ -169,12 +167,11 @@ class NeuronTest(SynTest):
         with self.getTestDir() as dirn:
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
-            initCellDir(dirn)
-            rootauth, userauth = getCellAuth()
+            cell = s_neuron.Cell(dirn)
 
             with s_neuron.Cell(dirn, conf) as cell:
 
-                user = s_neuron.CellUser(userauth)
+                user = s_neuron.CellUser(cell.genUserAuth('foo'))
                 addr = list(cell.getCellAddr())
 
                 with user.open(addr, timeout=2) as sess:
@@ -190,12 +187,9 @@ class NeuronTest(SynTest):
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
-            initCellDir(dirn)
-            rootauth, userauth = getCellAuth()
-
             with s_neuron.Cell(dirn, conf) as cell:
 
-                user = s_neuron.CellUser(userauth)
+                user = cell.genUserAuth('foo')
 
                 addr = cell.getCellAddr()
 
@@ -230,18 +224,14 @@ class NeuronTest(SynTest):
             self.raises(ReqConfOpt, s_neuron.getCellCtor, dirn, {})
 
     def test_neuron_cell_authfail(self):
-
-        with self.getTestDir() as dirn:
+        ''' Make a separate cell dir and make sure it can't connect to the first one '''
+        with self.getTestDir() as dirn, self.getTestDir() as dirn2:
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
-            newp = s_msgpack.loadfile(getTestPath('files', 'newp.auth'))
+            with s_neuron.Cell(dirn, conf) as cell, s_neuron.Cell(dirn2) as newp:
 
-            initCellDir(dirn)
-
-            with s_neuron.Cell(dirn, conf) as cell:
-
-                user = s_neuron.CellUser(newp)
+                user = s_neuron.CellUser(newp.getCellAuth())
 
                 addr = cell.getCellAddr()
 
@@ -258,12 +248,9 @@ class NeuronTest(SynTest):
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
-            initCellDir(dirn)
-            rootauth, userauth = getCellAuth()
-
             with s_neuron.Cell(dirn, conf) as cell:
 
-                user = s_neuron.CellUser(userauth)
+                user = s_neuron.CellUser(cell.genUserAuth('foo'))
 
                 addr = ('localhost', 1)
                 self.raises(CellUserErr, user.open, addr, timeout=1)
@@ -281,14 +268,12 @@ class NeuronTest(SynTest):
 
             with s_neuron.Neuron(path, conf) as neur:
 
-                path = s_common.genpath(path, 'cell.auth')
-                root = s_msgpack.loadfile(path)
-
                 def onreg(mesg):
                     steps.done('cell:reg')
 
                 neur.on('cell:reg', onreg)
                 self.eq(neur._genCellName('root'), 'root@localhost')
+                root = neur.getRootCert()
 
                 user = s_neuron.CellUser(root)
 
