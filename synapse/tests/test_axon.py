@@ -10,12 +10,14 @@ from synapse.tests.common import *
 
 logger = logging.getLogger(__name__)
 
-bbuf = b'V' * 32100
+# This causes blocks which are not homogeneous when sliced in kibibyte lengths
+bbuf = b'0123456' * 4585
 
 nullhash = hashlib.sha256(b'').digest()
 bbufhash = hashlib.sha256(bbuf).digest()
 asdfhash = hashlib.sha256(b'asdfasdf').digest()
 hehahash = hashlib.sha256(b'hehehaha').digest()
+ohmyhash = hashlib.sha256(b'ohmyohmy').digest()
 
 def u64(x):
     return struct.pack('>Q', x)
@@ -158,7 +160,8 @@ class AxonTest(SynTest):
             with s_eventbus.BusRef() as bref:
 
                 # neur00 ############################################
-                conf = {'host': 'localhost', 'bind': '127.0.0.1'}
+                # Set port to zero to allow a port to be automatically assigned during testing
+                conf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
                 path = s_common.gendir(dirn, 'neuron')
                 logger.debug('Bringing Neuron online')
                 neur = s_neuron.Neuron(path, conf)
@@ -166,12 +169,14 @@ class AxonTest(SynTest):
 
                 root = neur.getCellAuth()
                 addr = neur.getCellAddr()
+                nport = addr[1]  # Save the port for later use
 
                 # blob00 ############################################
                 path = s_common.gendir(dirn, 'blob00')
                 authblob00 = neur.genCellAuth('blob00')
                 s_msgpack.dumpfile(authblob00, os.path.join(path, 'cell.auth'))
                 logger.debug('Bringing blob00 online')
+                conf = {'host': 'localhost', 'bind': '127.0.0.1'}
                 blob00 = s_axon.BlobCell(path, conf)
                 bref.put('blob00', blob00)
                 self.true(blob00.cellpool.neurwait(timeout=3))
@@ -314,4 +319,70 @@ class AxonTest(SynTest):
                 self.true(blob01.cellpool.neurwait(timeout=3))
                 blob01wait = blob01.waiter(1, 'blob:clone:rows')
                 # Cloning should start up shortly
+                self.nn(blob01wait.wait(10))
+
+            # Let everything get shut down by the busref fini
+            logger.debug('Bringing everything back up')
+            with s_eventbus.BusRef() as bref:
+                # neur00 ############################################
+                conf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': nport}
+                path = s_common.gendir(dirn, 'neuron')
+                logger.debug('Bringing Neuron Back online')
+                neur = s_neuron.Neuron(path, conf)
+                bref.put('neur00', neur)
+                root = neur.getCellAuth()
+                # blob00 ############################################
+                path = s_common.gendir(dirn, 'blob00')
+                logger.debug('Bringing blob00 back online')
+                conf = {'host': 'localhost', 'bind': '127.0.0.1'}
+                blob00 = s_axon.BlobCell(path, conf)
+                bref.put('blob00', blob00)
+                self.true(blob00.cellpool.neurwait(timeout=3))
+                user = s_neuron.CellUser(root)
+                blob00sess = user.open(blob00.getCellAddr(), timeout=3)
+                bref.put('blob00sess', blob00sess)
+                # blob01 ############################################
+                path = s_common.gendir(dirn, 'blob01')
+                blob01conf = dict(conf)
+                blob01conf['blob:cloneof'] = 'blob00@localhost'
+                logger.debug('Bringing blob01 back online')
+                blob01 = s_axon.BlobCell(path, blob01conf)
+                bref.put('blob01', blob01)
+                self.true(blob01.cellpool.neurwait(timeout=3))
+                blob01wait = blob01.waiter(1, 'blob:clone:rows')
+                # axon00 ############################################
+                path = s_common.gendir(dirn, 'axon00')
+                authaxon00 = neur.genCellAuth('axon00')
+                s_msgpack.dumpfile(authaxon00, os.path.join(path, 'cell.auth'))
+                axonconf = {
+                    'host': 'localhost',
+                    'bind': '127.0.0.1',
+                    'axon:blobs': ('blob00@localhost',),
+                }
+                logger.debug('Bringing axon00 online')
+                axon00 = s_axon.AxonCell(path, axonconf)
+                bref.put('axon00', axon00)
+                self.true(axon00.cellpool.neurwait(timeout=3))
+                #####################################################
+                sess = user.open(axon00.getCellAddr(), timeout=3)
+                bref.put('sess', sess)
+                # wait for the axon to have blob00
+                ready = False
+                for i in range(30):
+                    if axon00.blobs.items():
+                        ready = True
+                        break
+                    time.sleep(0.1)
+                self.true(ready)
+                axon = s_axon.AxonClient(sess)
+
+                # Try retrieving a large file
+                testhash = hashlib.sha256()
+                for byts in axon.bytes(bbufhash, timeout=3):
+                    testhash.update(byts)
+                self.eq(bbufhash, testhash.digest())
+
+                # Try saving a new file to the cluster and ensure it is replicated
+                self.eq((ohmyhash,), axon.wants((ohmyhash, hehahash, nullhash), 3))
+                self.eq(1, axon.save([b'ohmyohmyy']))
                 self.nn(blob01wait.wait(10))

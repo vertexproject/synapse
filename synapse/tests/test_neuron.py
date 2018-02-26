@@ -268,6 +268,12 @@ class NeuronTest(SynTest):
 
             with s_neuron.Neuron(path, conf) as neur:
 
+                cdef = neur.getConfDef('port')
+                self.eq(s_neuron.defport, cdef[1].get('defval'))
+
+                path = s_common.genpath(path, 'cell.auth')
+                root = s_msgpack.loadfile(path)
+
                 def onreg(mesg):
                     steps.done('cell:reg')
 
