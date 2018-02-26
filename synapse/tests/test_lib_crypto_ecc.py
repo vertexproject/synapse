@@ -71,8 +71,6 @@ class EccTest(SynTest):
         k1 = (spvk1.exchange(spbk2))
         k2 = (spvk2.exchange(spbk1))
         self.eq(k1, k2)
-        # Cannot exchange with self
-        self.raises(BadEccExchange, spvk1.exchange, spbk1)
 
         # Curves must be the same
         _pkd = c_ec.generate_private_key(
