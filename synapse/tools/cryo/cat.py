@@ -42,7 +42,9 @@ def main(argv, outp=s_output.stdout):
     pars.add_argument('--verbose', '-v', default=False, action='store_true', help='Verbose output')
     pars.add_argument('--ingest', '-i', default=False, action='store_true',
                       help='Reverses direction: feeds cryotank from stdin in msgpack or jsonl format')
-    pars.add_argument('--elide-offset', default=False, action='store_true', help="Don't output offsets of objects")
+    pars.add_argument('--omit-offset', default=False, action='store_true',
+                      help="Don't output offsets of objects. This is recommended to be used when jsonl/msgpack"
+                           " output is used.")
 
     opts = pars.parse_args(argv)
 
@@ -85,7 +87,7 @@ def main(argv, outp=s_output.stdout):
         cryo.puts(path, item_it)
     else:
         for item in cryo.slice(path, opts.offset, opts.size, opts.timeout):
-            i = item[1] if opts.elide_offset else item
+            i = item[1] if opts.omit_offset else item
             if opts.jsonl:
                 outp.printf(json.dumps(i, sort_keys=True))
             elif opts.msgpack:
