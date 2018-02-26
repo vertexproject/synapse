@@ -43,7 +43,6 @@ class SessBoss:
 
         # FIXME:  any way not to keep this in memory?
         self.my_static_prv = s_ecc.PriKey.load(auth[1].get('ecdsa:prvkey'))
-        self.my_static_pub = self.my_static_prv.public()
 
         self.cert = s_vault.Cert.load(auth[1].get('cert'))
         self.certbyts = self.cert.dump()
@@ -527,7 +526,7 @@ class Sess(s_net.Link):
         '''
         assert not self.is_lisn
         self._my_ephem_prv = s_ecc.PriKey.generate()
-        self.link.tx(('clientHello', {'ephem_pub': self.my_ephem_prv.public(),
+        self.link.tx(('clientHello', {'ephem_pub': self.my_ephem_prv.public().dumps(),
                                       'cert': self._sess_boss.certbyts}))
 
     def _handle_session_msg(self, mesg):
@@ -574,7 +573,7 @@ class Sess(s_net.Link):
         peer_cert = self._handle_session_msg(mesg)
 
         # FIXME: But link is already passed as parameter...
-        self.link.tx(('serverHello', {'ephem_pub': self._my_ephem_prv.public(),
+        self.link.tx(('serverHello', {'ephem_pub': self._my_ephem_prv.public().dumps(),
                                       'cert': self._sess_boss.certbyts,
                                       'msg': self.txtinh.enc(s_msgpack.en(first_message))
                                       }))

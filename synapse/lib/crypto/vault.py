@@ -33,7 +33,7 @@ class Cert:
         self.tokn = s_msgpack.un(cert[0])
         self.toknhash = hashlib.sha256(cert[0]).hexdigest()
 
-        byts = self.tokn.get('ecc:pub')
+        byts = self.tokn.get('ecdsa:pubkey')
         self.rpub = s_ecc.PubKey.load(byts)
 
     def iden(self):

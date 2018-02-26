@@ -100,7 +100,7 @@ class VaultTest(SynTest):
             auth = vault.genUserAuth('bobgrey@vertex.link')
             self.istufo(auth)
             self.isinstance(auth[1].get('cert'), bytes)
-            self.isinstance(auth[1].get('rsa:key'), bytes)
+            self.isinstance(auth[1].get('ecdsa:prvkey'), bytes)
             self.isinstance(auth[1].get('root'), bytes)
             acert = s_vault.Cert.load(auth[1].get('cert'))
             self.eq(cert.iden(), acert.iden())
@@ -139,8 +139,8 @@ class VaultTest(SynTest):
             # vault can no longer validate data from newvault
             self.false(vault.isValidCert(ncert))
 
-            # Ensure we can make a new RSA key directly
-            rkey = vault.genRsaKey()
+            # Ensure we can make a new ECC key directly
+            rkey = vault.genEccKey()
             self.isinstance(rkey, s_ecc.PriKey)
 
             # Tear down our vaults
