@@ -802,7 +802,7 @@ class SockLink(Link):
                         return
 
                     except BrokenPipeError as e:
-                        logger.info('tx broken pipe: ignore...')
+                        logger.debug('tx broken pipe: ignore...')
                         return
 
                     self.txbuf = self.txbuf[sent:]
