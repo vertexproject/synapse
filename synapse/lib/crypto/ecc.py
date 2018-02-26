@@ -1,14 +1,16 @@
 import hashlib
 import logging
 
-
 import cryptography.hazmat.primitives.hashes as c_hashes
+import cryptography.hazmat.primitives.kdf.hkdf as c_hkdf
 import cryptography.hazmat.primitives.asymmetric.ec as c_ec
 import cryptography.hazmat.primitives.serialization as c_ser
 import cryptography.hazmat.primitives.asymmetric.utils as c_utils
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
+
+import synapse.common as s_common
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +60,12 @@ class PriKey:
             bytes: The ECDH bytes. This is deterministic for a given pubkey
             and private key.
         '''
-        return self.priv.exchange(c_ec.ECDH(), pubkey.publ)
+        if pubkey.iden() == self.iden():
+            raise s_common.BadEccExchange(mesg='Cannot do a key exchange with self', iden=self.iden())
+        try:
+            return self.priv.exchange(c_ec.ECDH(), pubkey.publ)
+        except ValueError as e:
+            raise s_common.BadEccExchange(mesg=str(e))
 
     def public(self):
         '''
@@ -178,3 +185,39 @@ class PubKey:
         return PubKey(c_ser.load_der_public_key(
                 byts,
                 backend=default_backend()))
+
+def doECDHE(sprku, spbkv, eprku, epbkv,
+            length=64,
+            salt=None,
+            info=None):
+    '''
+    Perform one side of an Ecliptic Curve Diffie Hellman Ephemeral key exchange.
+
+    Args:
+        sprku (PriKey): Static Private Key for U
+        spbkv (PubKey: Static Public Key for V
+        eprku (PriKey): Ephemeral Private Key for U
+        epbkv (PubKey): Ephemeral Public Key for V
+        length (int): Number of bytes to return
+        salt (bytes): Salt to use when computing the key.
+        info (bytes): Additional information to use when computing the key.
+
+    Notes:
+        This makes no assumption about the reuse of the Ephemeral keys passed
+        to the function. It is the callers responsibility to destroy the keys
+        after they are used for doing key generation. This implementation is
+        the dhHybrid1 scheme described in NIST 800-56A Revision 2.
+
+    Returns:
+        bytes: The derived key.
+    '''
+    zs = sprku.exchange(spbkv)
+    ze = eprku.exchange(epbkv)
+    z = ze + zs
+    kdf = c_hkdf.HKDF(c_hashes.SHA256(),
+                      length=length,
+                      salt=salt,
+                      info=info,
+                      backend=default_backend())
+    k = kdf.derive(z)
+    return k

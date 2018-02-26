@@ -215,6 +215,18 @@ class BadAtomFile(SynErr):
 class IsFini(SynErr): pass
 class TimeOut(SynErr): pass
 
+class CryptoErr(SynErr):
+    '''
+    Raised when there is a synapse.lib.crypto error.
+    '''
+    pass
+
+class BadEccExchange(CryptoErr):
+    '''
+    Raised when there is an issue doing a ECC Key Exchange
+    '''
+    pass
+
 class RetnErr(SynErr):
     '''
     Raised when a call using the retn convention has failed.
