@@ -100,7 +100,7 @@ class CryoCatTest(SynTest):
                 self.true(outp.expect("(0, (None, {'key': 0}))"))
 
                 outp = self.getTestOutp()
-                argv = ['--offset', '0', '--jsonl', '--size', '2', '--elide-offset', '--authfile', authfp, addr]
+                argv = ['--offset', '0', '--jsonl', '--size', '2', '--omit-offset', '--authfile', authfp, addr]
                 self.eq(s_cryocat.main(argv, outp), 0)
                 self.true(outp.expect('[null, {"key": 0}]\n[null, {"key": 1}]\n'))
 
