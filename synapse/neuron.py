@@ -41,7 +41,6 @@ class SessBoss:
         root = s_vault.Cert.load(auth[1].get('root'))
         self.roots.append(root)
 
-        # FIXME:  doesn't seem to be used
         self._my_static_prv = s_ecc.PriKey.load(auth[1].get('ecdsa:prvkey'))
 
         self.cert = s_vault.Cert.load(auth[1].get('cert'))
@@ -469,8 +468,9 @@ class Sess(s_net.Link):
 
         self.is_lisn = lisn    # True if we are the listener.
 
-        self.tx_tinh = None
-        self.rx_tinh = None
+        self.tx_tinh = None  # type: s_tinfoil.TinFoilHat
+        self.rx_tinh = None  # type: s_tinfoil.TinFoilHat
+        self._my_ephem_prv = None  # type: s_ecc.PriKey
 
     def handlers(self):
         return {
@@ -518,7 +518,8 @@ class Sess(s_net.Link):
 
         Send ephemeral public and my certificate
         '''
-        assert not self.is_lisn
+        if self.is_lisn:
+            raise s_common.CryptoErr(mesg='Listen link cannot initiate a session')
         self._my_ephem_prv = s_ecc.PriKey.generate()
         self.link.tx(('helo', {'ephem_pub': self._my_ephem_prv.public().dump(),
                                'cert': self._sess_boss.certbyts}))
