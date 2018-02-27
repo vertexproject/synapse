@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 defport = 65521 # the default neuron port
 
+NEURON_PROTO_VERSION = (1, 0)
+
 class SessBoss:
     '''
     Mixin base class for session managers.
@@ -520,7 +522,8 @@ class Sess(s_net.Link):
         '''
         assert not self.is_lisn
         self._my_ephem_prv = s_ecc.PriKey.generate()
-        self.link.tx(('helo', {'ephem_pub': self._my_ephem_prv.public().dump(),
+        self.link.tx(('helo', {'version': NEURON_PROTO_VERSION,
+                               'ephem_pub': self._my_ephem_prv.public().dump(),
                                'cert': self._sess_boss.certbyts}))
 
     def _handle_session_msg(self, mesg):
@@ -532,12 +535,20 @@ class Sess(s_net.Link):
         if self.is_lisn:
             self._my_ephem_prv = s_ecc.PriKey.generate()
 
+        version = mesg[1].get('version')
+        if version != NEURON_PROTO_VERSION:
+            # FIXME: send a message to peer?
+            logger.warning('Found peer with missing or incompatible version')
+            # FIXME: fini?
+            return
+
         peer_cert = s_vault.Cert.load(mesg[1].get('cert'))
         peer_ephem_pub = s_ecc.PubKey.load(mesg[1].get('ephem_pub'))
 
         if not self._sess_boss.valid(peer_cert):
             clsn = self.__class__.__name__
             logger.warning('%s got bad cert (%r)' % (clsn, peer_cert.iden(),))
+            # FIXME: clarify what to do on error here (obviously don't kill the listener)
             self.fini()
             return
 
@@ -564,7 +575,8 @@ class Sess(s_net.Link):
         if self.is_lisn:
             # This would be a good place to stick version or info stuff
             first_message = {}
-            self.link.tx(('helo', {'ephem_pub': self._my_ephem_prv.public().dump(),
+            self.link.tx(('helo', {'version': NEURON_PROTO_VERSION,
+                                   'ephem_pub': self._my_ephem_prv.public().dump(),
                                    'cert': self._sess_boss.certbyts,
                                    'msg': self.tx_tinh.enc(s_msgpack.en(first_message))}))
 
