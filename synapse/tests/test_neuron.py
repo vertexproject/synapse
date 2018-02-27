@@ -255,6 +255,68 @@ class NeuronTest(SynTest):
                 self.raises(CellUserErr, user.open, addr, timeout=1)
                 self.raises(CellUserErr, user.open, addr, timeout=-1)
 
+    def test_neuron_double_initiate(self):
+        ''' Have the initiator send the listener two session initiation messages '''
+
+        with self.getTestDir() as dirn:
+
+            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
+
+            with self.getLoggerStream('synapse.neuron') as stream, s_neuron.Cell(dirn, conf) as cell:
+
+                user = cell.celluser
+                addr = cell.getCellAddr()
+
+                with user.open(addr, timeout=2) as sess:
+                    sess._initiateSession()
+                    stream.wait(.1)
+            stream.seek(0)
+            self.isin('ProtoErr', stream.read())
+
+    def test_neuron_wrong_version(self):
+        ''' Have the initiator send the listener a weird version '''
+
+        with self.getTestDir() as dirn:
+
+            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
+
+            with self.getLoggerStream('synapse.neuron') as stream, s_neuron.Cell(dirn, conf) as cell:
+
+                user = cell.celluser
+                addr = cell.getCellAddr()
+
+                def bad_version_initiate(sess):
+                    sess.link.tx(('helo', {'version': (42, 42), 'ephem_pub': b'', 'cert': b''}))
+
+                with mock.patch('synapse.neuron.Sess._initiateSession', bad_version_initiate):
+                    self.raises(CellUserErr, user.open, addr, timeout=1)
+            stream.seek(0)
+            self.isin('incompatible version', stream.read())
+
+    def test_neuron_bad_sequence(self):
+        ''' Have the initiator send the listener a message with the wrong sequence number '''
+
+        with self.getTestDir() as dirn:
+
+            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
+
+            with self.getLoggerStream('synapse.neuron') as stream, s_neuron.Cell(dirn, conf) as cell:
+
+                user = cell.celluser
+                addr = cell.getCellAddr()
+
+                with user.open(addr, timeout=2) as sess:
+                    sess.tx('Test message')
+                    sess._crypter._tx_sn = 42
+                    sess.tx('Test message')
+                    stream.wait(.1)
+            stream.seek(0)
+            log_msgs = stream.read()
+            self.isin('out of sequence', log_msgs)
+
+            # Currently this fails due to fini killing the whole socket
+            # self.isin('Remote peer issued error', log_msgs)
+
     def test_neuron_neuron(self):
 
         with self.getTestDir() as dirn:

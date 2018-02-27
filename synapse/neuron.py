@@ -521,6 +521,9 @@ class Sess(s_net.Link):
         logger.error('Remote peer issued error: %r.', mesg)
         self.fini()
 
+    def _send_fail(self, exc, exc_info=None):
+        self.link.tx(('fail', {'exception': (repr(exc), exc_info)}))
+
     def _onMesgXmit(self, link, mesg):
 
         if self._crypter is None:
@@ -528,16 +531,19 @@ class Sess(s_net.Link):
             raise s_common.NotReady()
 
         ciphertext = mesg[1].get('data')
-        newm = self._crypter.decrypt(ciphertext)
+        try:
+            newm = self._crypter.decrypt(ciphertext)
+        except Exception as e:
+            self._send_fail(e)
+            logger.exception('decryption')
+            # self.fini()
+            return
 
         try:
             self.taskplex.rx(self, newm)
         except Exception as e:
             logger.exception('xmit taskplex error')
             self.fini()
-
-    def _send_fail(self, exc, exc_info=None):
-        self.link.tx(('fail', {'exception': (repr(exc), exc_info)}))
 
     @s_glob.inpool
     def _initiateSession(self):
@@ -555,7 +561,7 @@ class Sess(s_net.Link):
     def _handle_session_msg(self, mesg):
         ''' Validate and set up the crypto from a helo message '''
         if self._crypter:
-            raise ProtoError('Received two client helos')
+            raise ProtoErr('Received two client helos')
 
         if self.is_lisn:
             self._my_ephem_prv = s_ecc.PriKey.generate()
