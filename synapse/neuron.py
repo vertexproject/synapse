@@ -8,7 +8,6 @@ import threading
 import collections
 import multiprocessing
 
-import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
@@ -50,7 +49,21 @@ class SessBoss:
         return self.rkey.decrypt(byts)
 
     def valid(self, cert):
-        return any([r.signed(cert) for r in self.roots])
+
+        if not any([r.signed(cert) for r in self.roots]):
+            return False
+
+        tock = cert.tokn.get('expires')
+        if tock is None:
+            logger.warning('SessBoss: cert has no "expires" value')
+            return False
+
+        tick = s_common.now()
+        if tock < tick:
+            logger.warning('SessBoss: cert has expired')
+            return False
+
+        return True
 
 class Cell(s_config.Configable, s_net.Link, SessBoss):
     '''
@@ -318,23 +331,23 @@ class Cell(s_config.Configable, s_net.Link, SessBoss):
         '''
         return s_common.gendir(self.dirn, 'cell', *paths)
 
-    @staticmethod
-    @s_config.confdef(name='cell')
-    def _getCellConf():
-        return (
-
+    def initConfDefs(self):
+        self.addConfDefs((
             ('ctor', {
+                'ex': 'synapse.cells.axon',
                 'doc': 'The path to the cell constructor'}),
 
             ('bind', {'defval': '0.0.0.0', 'req': 1,
+                'ex': '127.0.0.1',
                 'doc': 'The IP address to bind'}),
 
             ('host', {'defval': socket.gethostname(),
+                'ex': 'cell.vertex.link',
                 'doc': 'The host name used to connect to this cell (should resolve over DNS).'}),
 
             ('port', {'defval': 0,
                 'doc': 'The TCP port to bind (defaults to dynamic)'}),
-        )
+        ))
 
 class Neuron(Cell):
     '''
@@ -426,13 +439,12 @@ class Neuron(Cell):
 
         return auth
 
-    @staticmethod
-    @s_config.confdef(name='neuron')
-    def _getNodeConf():
-        return (
+    def initConfDefs(self):
+        Cell.initConfDefs(self)
+        self.addConfDefs((
             ('port', {'defval': defport, 'req': 1,
                 'doc': 'The TCP port to bind (defaults to %d)' % defport}),
-        )
+        ))
 
 class Sess(s_net.Link):
 
@@ -466,7 +478,7 @@ class Sess(s_net.Link):
     def _tx_real(self, mesg):
 
         if self.txtinh is None:
-            raise s_exc.NotReady()
+            raise s_common.NotReady()
 
         data = self.txtinh.enc(s_msgpack.en(mesg))
         self.link.tx(('xmit', {'data': data}))

@@ -5,7 +5,6 @@ import logging
 import hashlib
 import itertools
 
-import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.neuron as s_neuron
@@ -22,6 +21,9 @@ zero64 = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 blocksize = s_const.mebibyte * 64
 
 class BlobStor(s_eventbus.EventBus):
+    '''
+    The blob store maps buid,indx values to sequences of bytes stored in a LMDB database.
+    '''
 
     def __init__(self, dirn, mapsize=s_const.tebibyte):
 
@@ -61,6 +63,7 @@ class BlobStor(s_eventbus.EventBus):
             size = 0
             count = 0
             clones = []
+            tick = s_common.now()
 
             for lkey, lval in blocs:
                 clones.append(lkey)
@@ -73,8 +76,8 @@ class BlobStor(s_eventbus.EventBus):
             self._blob_metrics.inc(xact, 'bytes', size)
             self._blob_metrics.inc(xact, 'blocks', count)
 
-            tick = s_common.now()
-            self._blob_metrics.record(xact, {'time': tick, 'size': size, 'blocks': count})
+            took = s_common.now() - tick
+            self._blob_metrics.record(xact, {'time': tick, 'size': size, 'blocks': count, 'took': took})
 
     def load(self, buid):
         '''
@@ -183,7 +186,7 @@ class BlobCell(s_neuron.Cell):
     def postCell(self):
 
         if self.neuraddr is None:
-            raise Exception('BlobCell requires a neuron')
+            raise s_common.BadConfValu(mesg='BlobCell requires a neuron')
 
         path = self.getCellDir('blobs.lmdb')
         mapsize = self.getConfOpt('blob:mapsize')
@@ -319,7 +322,7 @@ class AxonCell(s_neuron.Cell):
     def postCell(self):
 
         if self.cellpool is None:
-            raise Exception('AxonCell requires a neuron and CellPool')
+            raise s_common.BadConfValu(mesg='AxonCell requires a neuron and CellPool')
 
         mapsize = self.getConfOpt('axon:mapsize')
 
@@ -549,9 +552,9 @@ class AxonCell(s_neuron.Cell):
 
         rows = []
         for buid, sha256, byts in todo:
-            for i, byts in enumerate(s_common.chunks(byts, blocksize)):
+            for i, ibyts in enumerate(s_common.chunks(byts, blocksize)):
                 indx = struct.pack('>Q', i)
-                rows.append((buid + indx, byts))
+                rows.append((buid + indx, ibyts))
 
         ok, retn = self.blobs.any()
         if not ok:

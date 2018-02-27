@@ -1,7 +1,7 @@
 import threading
 import collections
 
-import synapse.exc as s_exc
+import synapse.common as s_common
 
 from synapse.eventbus import EventBus
 
@@ -26,7 +26,7 @@ class Queue(EventBus):
         while not self.isfini:
             try:
                 yield self.get()
-            except s_exc.IsFini as e:
+            except s_common.IsFini as e:
                 return
 
     def __len__(self):
@@ -90,18 +90,18 @@ class Queue(EventBus):
                 except IndexError as e:
                     if self._que_done:
                         self.fini()
-                        raise s_exc.IsFini()
+                        raise s_common.IsFini()
 
                 self.event.clear()
 
             if not self.event.wait(timeout=timeout):
 
                 if self.isfini:
-                    raise s_exc.IsFini()
+                    raise s_common.IsFini()
 
-                raise s_exc.TimeOut()
+                raise s_common.TimeOut()
 
-        raise s_exc.IsFini()
+        raise s_common.IsFini()
 
     def getn(self, timeout=None):
         '''
@@ -199,18 +199,18 @@ class Queue(EventBus):
 
                 if self._que_done and not self.deq:
                     self.fini()
-                    raise s_exc.IsFini()
+                    raise s_common.IsFini()
 
                 self.event.clear()
 
             if not self.event.wait(timeout=timeout):
 
                 if self.isfini:
-                    raise s_exc.IsFini()
+                    raise s_common.IsFini()
 
-                raise s_exc.TimeOut()
+                raise s_common.TimeOut()
 
-        raise s_exc.IsFini()
+        raise s_common.IsFini()
 
     def slices(self, size, timeout=None):
         '''
@@ -238,5 +238,5 @@ class Queue(EventBus):
         while not self.isfini:
             try:
                 yield self.slice(size, timeout=timeout)
-            except s_exc.IsFini as e:
+            except s_common.IsFini as e:
                 return

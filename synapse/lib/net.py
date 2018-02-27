@@ -5,7 +5,6 @@ import logging
 import threading
 import collections
 
-import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
@@ -802,7 +801,7 @@ class SockLink(Link):
                         return
 
                     except BrokenPipeError as e:
-                        logger.info('tx broken pipe: ignore...')
+                        logger.debug('tx broken pipe: ignore...')
                         return
 
                     self.txbuf = self.txbuf[sent:]

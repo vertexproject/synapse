@@ -13,7 +13,6 @@ visihash = hashlib.sha256(b'visi').digest()
 class TestPushFile(SynTest):
 
     def test_tools_pushfile(self):
-        self.skipLongTest()
         with self.getAxonCore() as env:
 
             nullpath = os.path.join(env.dirn, 'null.txt')

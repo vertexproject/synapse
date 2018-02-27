@@ -3,7 +3,6 @@ import mmap
 import logging
 import threading
 
-import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
@@ -60,16 +59,16 @@ class AtomBase(s_eventbus.EventBus):
         return self._flush()
 
     def _readoff(self, offs, size):  # pragma: no cover
-        raise s_exc.NoSuchImpl(name='_readoff')
+        raise s_common.NoSuchImpl(name='_readoff')
 
     def _writeoff(self, offs, byts):  # pragma: no cover
-        raise s_exc.NoSuchImpl(name='_writeoff')
+        raise s_common.NoSuchImpl(name='_writeoff')
 
     def _resize(self, size):  # pragma: no cover
-        raise s_exc.NoSuchImpl(name='_resize')
+        raise s_common.NoSuchImpl(name='_resize')
 
     def _flush(self):  # pragma: no cover
-        raise s_exc.NoSuchImpl(name='_flush')
+        raise s_common.NoSuchImpl(name='_flush')
 
 class AtomFile(AtomBase):
     '''

@@ -2,9 +2,7 @@ import lmdb
 import shutil
 import struct
 import logging
-import itertools
 
-import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.neuron as s_neuron
