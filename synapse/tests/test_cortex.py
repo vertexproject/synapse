@@ -3319,6 +3319,11 @@ class CortexTest(SynTest):
 
     def test_cortex_axon(self):
         self.skipLongTest()
+
+        visihash = hashlib.sha256(b'visi').digest()
+        craphash = hashlib.sha256(b'crap').digest()
+        foobarhash = hashlib.sha256(b'foobar').digest()
+
         with self.getAxonCore() as env:
             with s_daemon.Daemon() as dmon:
 
@@ -3329,9 +3334,15 @@ class CortexTest(SynTest):
                 coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
                 core = s_telepath.openurl(coreurl)
 
+                wants = env.axon_client.wants([visihash, craphash, foobarhash])
+                self.len(3, wants)
+
                 self.istufo(core.formNodeByBytes(b'visi'))
                 with io.BytesIO(b'foobar') as fd:
                     self.istufo(core.formNodeByFd(fd))
+
+                wants = env.axon_client.wants([visihash, craphash, foobarhash])
+                self.len(1, wants)
 
             # Ensure that Axon fns do not execute on a core without an axon
             with self.getRamCore() as othercore:
@@ -3339,16 +3350,22 @@ class CortexTest(SynTest):
                 with io.BytesIO(b'foobar') as fd:
                     self.raises(NoSuchOpt, othercore.formNodeByFd, fd, name='foobar.exe')
 
-                axonhost, axonport = env.axon.getCellAddr()
+                neurhost, neurport = env.neuron.getCellAddr()
                 axonauth = env.axon.getCellAuth()
-                othercore.setConfOpt('axon:conf', {'fake': 'fake'})
-                self.none(othercore.axon_client)
-                othercore.setConfOpt('axon:conf', {'auth': axonauth})
-                self.none(othercore.axon_client)
-                othercore.setConfOpt('axon:conf', {'auth': axonauth, 'host': axonhost})
-                self.none(othercore.axon_client)
-                othercore.setConfOpt('axon:conf', {'auth': axonauth, 'host': axonhost, 'port': axonport})
-                self.nn(othercore.axon_client)
+                othercore.setConfOpt('cellpool:conf', {'fake': 'fake'})
+                self.false(othercore.axon_ready)
+                othercore.setConfOpt('cellpool:conf', {'auth': axonauth})
+                self.false(othercore.axon_ready)
+                othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost})
+                self.false(othercore.axon_ready)
+                othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost, 'port': neurport})
+                self.true(othercore.axon_ready)
+
+                wants = env.axon_client.wants([visihash, craphash, foobarhash])
+                self.len(1, wants)
+                self.istufo(othercore.formNodeByBytes(b'crap'))
+                wants = env.axon_client.wants([visihash, craphash, foobarhash])
+                self.len(0, wants)
 
 class StorageTest(SynTest):
 
