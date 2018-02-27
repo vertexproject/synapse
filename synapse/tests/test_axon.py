@@ -308,21 +308,34 @@ class AxonTest(SynTest):
                 self.eq((), axon.wants([bbufhash], timeout=3))
 
                 # Then retrieve it
+                size = 0
+                gots = []
                 testhash = hashlib.sha256()
                 for byts in axon.bytes(bbufhash, timeout=3):
+                    size += len(byts)
+                    gots.append(byts)
                     testhash.update(byts)
                 self.eq(bbufhash, testhash.digest())
+
+                try:
+                    self.eq(size, len(bbuf))
+                    self.eq(bbufhash, testhash.digest())
+
+                except Exception as e:
+
+                    for byts in gots:
+                        print(repr(byts))
+
+                    print('SIZE: %d/%d' % (size, len(bbuf)))
+                    raise
 
                 self.nn(blob01wait.wait(3))
                 locs = axon.locs(bbufhash, timeout=3)
                 self.len(1, locs)
                 self.isin('blob00', locs[0][0])
                 # Use the buid to retrieve the large file from blob01
+
                 buid = locs[0][1]
-                testhash = hashlib.sha256()
-                for byts in blob01c.bytes(buid, 3):
-                    testhash.update(byts)
-                self.eq(bbufhash, testhash.digest())
 
                 # Try storing a empty file
                 logger.debug('Nullfile test')
