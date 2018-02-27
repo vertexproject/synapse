@@ -819,6 +819,9 @@ class SockLink(Link):
 
                 # no more txbuf... are we done?
                 if not self.txque:
+                    if self.istxfini:
+                        self.fini()
+                        return
                     self.flags &= ~select.EPOLLOUT
                     self.plex.modify(self.fino, self.flags)
                     return
