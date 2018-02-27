@@ -478,9 +478,6 @@ class Sess(s_net.Link):
             'xmit': self._onMesgXmit,
         }
 
-    def setRxKey(self, rxkey):
-        self.rx_tinh = s_tinfoil.TinFoilHat(rxkey)
-
     def _tx_real(self, mesg):
 
         if self.tx_tinh is None:
@@ -506,14 +503,6 @@ class Sess(s_net.Link):
             self.taskplex.rx(self, newm)
         except Exception as e:
             logger.exception('xmit taskplex error')
-
-    def _onMesgSkey(self, link, mesg):
-
-        data = mesg[1].get('data')
-
-        skey = self._sess_boss.decrypt(data)
-
-        self.setRxKey(skey)
 
     def _calcKeys(self, my_ephem_prv, peer_ephem_pub, my_static_prv, peer_static_prv):
 
