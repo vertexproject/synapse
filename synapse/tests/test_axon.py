@@ -256,6 +256,9 @@ class AxonTest(SynTest):
 
                 self.len(1, axon.wants([asdfhash]))
 
+                # Asking for bytes prior to the bytes being present raises
+                self.genraises(RetnErr, axon.bytes, asdfhash, timeout=3)
+
                 self.eq(1, axon.save([b'asdfasdf'], timeout=3))
 
                 self.eq((), tuple(axon.metrics(offs=999999999)))
@@ -407,7 +410,7 @@ class AxonTest(SynTest):
                     testhash.update(byts)
                 self.eq(bbufhash, testhash.digest())
 
-                # Try saving a new file to the cluster and ensure it is replicated
+                # Try saving a new file and a existing file to the cluster and ensure it is replicated
                 self.eq((ohmyhash,), axon.wants((ohmyhash, hehahash, nullhash), 3))
-                self.eq(1, axon.save([b'ohmyohmyy']))
+                self.eq(1, axon.save([b'ohmyohmyy', b'']))
                 self.nn(blob01wait.wait(10))

@@ -219,7 +219,10 @@ class BlobCell(s_neuron.Cell):
 
     @s_common.firethread
     def _fireCloneThread(self, sess):
-
+        '''
+        Fires a thread which requests clone rows from a given offset
+        for the remote blob.
+        '''
         while not sess.isfini:
 
             try:
@@ -640,7 +643,10 @@ class AxonClient:
             timeout (int): The network timeout in seconds.
 
         Returns:
-            list: A list of (blob, buid) tuples.
+            tuple: A tuple of (blob, buid) tuples.
+
+        Raises:
+            RetnErr: If the file requested does not exist.
         '''
         mesg = ('axon:locs', {'sha256': sha256})
         ok, retn = self.sess.call(mesg, timeout=timeout)
@@ -649,6 +655,12 @@ class AxonClient:
     def stat(self, timeout=None):
         '''
         Return the stat dictionary for the Axon.
+
+        Args:
+            timeout (int): The network timeout in seconds.
+
+        Returns:
+            dict: The stat dictionary.
         '''
         mesg = ('axon:stat', {})
         ok, retn = self.sess.call(mesg, timeout=timeout)
@@ -661,6 +673,9 @@ class AxonClient:
         Args:
             files ([bytes]): A list of files as bytes blobs.
             timeout (int): The network timeout in seconds.
+
+        Returns:
+            int: The number of files saved.
         '''
         mesg = ('axon:save', {'files': files})
         ok, retn = self.sess.call(mesg, timeout=timeout)
@@ -673,6 +688,9 @@ class AxonClient:
         Args:
             hashes (list): A list of SHA256 bytes.
             timeout (int): The network timeout in seconds.
+
+        Returns:
+            tuple: A tuple containg hashes the axon wants.
         '''
         mesg = ('axon:wants', {'hashes': hashes})
         ok, retn = self.sess.call(mesg, timeout=timeout)
@@ -681,9 +699,13 @@ class AxonClient:
     def upload(self, genr, timeout=None):
         '''
         Upload a large file using a generator.
+
         Args:
             genr (generator): Yields file bytes chunks.
             timeout (int): The network timeout in seconds.
+
+        Returns:
+            bytes: The sha256 digest of the file received, in bytes.
         '''
         mesg = ('axon:upload', {})
 
@@ -704,6 +726,12 @@ class AxonClient:
         Args:
             sha256 (str): The SHA256 hash bytes.
             timeout (int): The network timeout in seconds.
+
+        Yields:
+            bytes: Bytes of the file requested.
+
+        Raises:
+            RetnErr: If the file requested does not exist.
         '''
         mesg = ('axon:bytes', {'sha256': sha256})
         with self.sess.task(mesg, timeout=timeout) as chan:
@@ -721,6 +749,9 @@ class AxonClient:
         Args:
             offs (int): The offset to begin at.
             timeout (int): The network timeout in seconds.
+
+        Yields:
+            ((int, dict)): A tuple of offset and metrics information.
         '''
         mesg = ('axon:metrics', {'offs': offs})
         with self.sess.task(mesg, timeout=timeout) as chan:
@@ -746,7 +777,7 @@ class BlobClient:
             timeout (int): The network timeout in seconds.
 
         Yields:
-            dict: A Dictionary of metrics information
+            ((int, dict)): A tuple of offset and metrics information.
         '''
         mesg = ('blob:metrics', {'offs': offs})
         with self.sess.task(mesg, timeout=timeout) as chan:

@@ -991,3 +991,23 @@ class SynTest(unittest.TestCase):
         sys.stdin = new_stdin
         yield
         sys.stdin = old_stdin
+
+    def genraises(self, exc, gfunc, *args, **kwargs):
+        '''
+        Helper to validate that a generator function will throw an exception.
+
+        Args:
+            exc: Exception class to catch
+            gfunc: Generator function to call.
+            *args: Args passed to the generator function.
+            **kwargs: Kwargs passed to the generator function.
+
+        Notes:
+            Wrap a generator function in a list() call and execute that in a
+            bound local using ``self.raises(exc, boundlocal)``. The ``list()``
+            will consume the generator until complete or an exception occurs.
+        '''
+        def testfunc():
+            return list(gfunc(*args, **kwargs))
+
+        self.raises(exc, testfunc)
