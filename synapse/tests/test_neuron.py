@@ -223,7 +223,9 @@ class NeuronTest(SynTest):
             self.raises(ReqConfOpt, s_neuron.getCellCtor, dirn, {})
 
     def test_neuron_cell_authfail(self):
-        ''' Make a separate cell dir and make sure it can't connect to the first one '''
+        '''
+        Make a separate cell dir and make sure it can't connect to the first one
+        '''
         with self.getTestDir() as dirn, self.getTestDir() as dirn2:
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
@@ -256,7 +258,9 @@ class NeuronTest(SynTest):
                 self.raises(CellUserErr, user.open, addr, timeout=-1)
 
     def test_neuron_double_initiate(self):
-        ''' Have the initiator send the listener two session initiation messages '''
+        '''
+        Have the initiator send the listener two session initiation messages
+        '''
 
         with self.getTestDir() as dirn:
 
@@ -274,7 +278,9 @@ class NeuronTest(SynTest):
             self.isin('ProtoErr', stream.read())
 
     def test_neuron_wrong_version(self):
-        ''' Have the initiator send the listener a weird version '''
+        '''
+        Have the initiator send the listener a weird version
+        '''
 
         with self.getTestDir() as dirn:
 
@@ -294,7 +300,9 @@ class NeuronTest(SynTest):
             self.isin('incompatible version', stream.read())
 
     def test_neuron_bad_sequence(self):
-        ''' Have the initiator send the listener a message with the wrong sequence number '''
+        '''
+        Have the initiator send the listener a message with the wrong sequence number
+        '''
 
         with self.getTestDir() as dirn:
 

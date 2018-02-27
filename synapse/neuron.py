@@ -475,7 +475,6 @@ class CryptSeq:
         return mesg
 
 class Sess(s_net.Link):
-
     '''
     Manages network session establishment and maintainance
 
@@ -544,7 +543,8 @@ class Sess(s_net.Link):
 
     @s_glob.inpool
     def _initiateSession(self):
-        ''' (As the initiator) start a new session
+        '''
+        (As the initiator) start a new session
 
         Send ephemeral public and my certificate
         '''
@@ -555,9 +555,11 @@ class Sess(s_net.Link):
                                'ephem_pub': self._my_ephem_prv.public().dump(),
                                'cert': self._sess_boss.certbyts}))
 
-    def _handle_session_msg(self, mesg):
-        ''' Validate and set up the crypto from a helo message '''
-        if self._crypter:
+    def _handSessMesg(self, mesg):
+        '''
+        Validate and set up the crypto from a helo message
+        '''
+        if self._crypter is not None:
             raise s_exc.ProtoErr('Received two client helos')
 
         if self.is_lisn:
@@ -585,7 +587,7 @@ class Sess(s_net.Link):
         else:
             self._crypter = CryptSeq(to_initiator_symkey, to_listener_symkey)
             # Decrypt the first i.e. test message
-            first_msg_ct = mesg[1].get('first_msg')
+            first_msg_ct = mesg[1].get('first_mesg')
             self._crypter.decrypt(first_msg_ct)
 
         return peer_cert
@@ -593,13 +595,12 @@ class Sess(s_net.Link):
     @s_glob.inpool
     def _onMesgHelo(self, link, mesg):
         '''
-        handle receiving the session establishment message from the peer.
+        Handle receiving the session establishment message from the peer.
 
         send back our ephemerical public, our cert, and, if the listener, an encrypted message
         '''
-
         try:
-            peer_cert = self._handle_session_msg(mesg)
+            peer_cert = self._handSessMesg(mesg)
         except Exception as e:
             logger.exception('Exception encountered handling session message.')
             self._send_fail(s_common.getexcfo(e))
@@ -608,11 +609,11 @@ class Sess(s_net.Link):
 
         if self.is_lisn:
             # This would be a good place to stick version or info stuff
-            first_message = {'first_message': 0}
+            first_message = {}
             self.link.tx(('helo', {'version': NEURON_PROTO_VERSION,
                                    'ephem_pub': self._my_ephem_prv.public().dump(),
                                    'cert': self._sess_boss.certbyts,
-                                   'first_msg': self._crypter.encrypt(first_message)}))
+                                   'first_mesg': self._crypter.encrypt(first_message)}))
 
         user = peer_cert.tokn.get('user')
         self.setLinkProp('cell:peer', user)

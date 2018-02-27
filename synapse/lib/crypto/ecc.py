@@ -202,7 +202,7 @@ def doECDHE(sprku, spbkv, eprku, epbkv,
 
     Notes:
         This makes no assumption about the reuse of the Ephemeral keys passed
-        to the function. It is the callers responsibility to destroy the keys
+        to the function. It is the caller's responsibility to destroy the keys
         after they are used for doing key generation. This implementation is
         the dhHybrid1 scheme described in NIST 800-56A Revision 2.
 
