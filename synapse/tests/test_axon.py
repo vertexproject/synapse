@@ -299,12 +299,26 @@ class AxonTest(SynTest):
                 self.eq((), axon.wants([bbufhash], timeout=3))
 
                 # Then retrieve it
+                size = 0
+                gots = []
                 testhash = hashlib.sha256()
 
                 for byts in axon.bytes(bbufhash, timeout=3):
+                    size += len(byts)
+                    gots.append(byts)
                     testhash.update(byts)
 
-                self.eq(bbufhash, testhash.digest())
+                try:
+                    self.eq(size, len(bbuf))
+                    self.eq(bbufhash, testhash.digest())
+
+                except Exception as e:
+
+                    for byts in gots:
+                        print(repr(byts))
+
+                    print('SIZE: %d/%d' % (size, len(bbuf)))
+                    raise
 
                 # Try storing a empty file
                 logger.debug('Nullfile test')

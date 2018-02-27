@@ -534,8 +534,12 @@ class Chan(Link):
         self.tx((False, None))
 
         while wind > 0:
-            acks = self.slice(wind, timeout=timeout)
-            wind -= len(acks)
+            try:
+                acks = self.slice(wind, timeout=timeout)
+                wind -= len(acks)
+            except Exception as e:
+                print('TXWIND REMAIN WIND: %r' % (wind,))
+                raise
 
         return True
 
