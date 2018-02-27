@@ -256,7 +256,7 @@ class JobErr(Exception):
 
 class LinkTimeOut(SynErr): pass
 
-# TODO: steal these names back for synapse/lib/net.py (and depricate old users)
+# TODO: steal these names back for synapse/lib/net.py (and deprecate old users)
 class LinkErr(SynErr):
 
     retry = False
@@ -268,3 +268,7 @@ class LinkRefused(LinkErr):
     retry = True
 
 class LinkNotAuth(LinkErr): pass
+
+class ProtoErr(SynErr):
+    ''' There's a network protocol failure (in neuron.Sess) '''
+    pass

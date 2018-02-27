@@ -262,7 +262,7 @@ class NeuronTest(SynTest):
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
-            with self.getLoggerStream('synapse.neuron') as stream, s_neuron.Cell(dirn, conf) as cell:
+            with self.getLoggerStream('synapse.neuron', 'ProtoErr') as stream, s_neuron.Cell(dirn, conf) as cell:
 
                 user = cell.celluser
                 addr = cell.getCellAddr()
@@ -280,7 +280,7 @@ class NeuronTest(SynTest):
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
-            with self.getLoggerStream('synapse.neuron') as stream, s_neuron.Cell(dirn, conf) as cell:
+            with self.getLoggerStream('synapse.neuron', 'incompatible') as stream, s_neuron.Cell(dirn, conf) as cell:
 
                 user = cell.celluser
                 addr = cell.getCellAddr()
@@ -300,7 +300,7 @@ class NeuronTest(SynTest):
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
-            with self.getLoggerStream('synapse.neuron') as stream, s_neuron.Cell(dirn, conf) as cell:
+            with self.getLoggerStream('synapse.neuron', 'remote peer') as stream, s_neuron.Cell(dirn, conf) as cell:
 
                 user = cell.celluser
                 addr = cell.getCellAddr()
@@ -315,7 +315,7 @@ class NeuronTest(SynTest):
             self.isin('out of sequence', log_msgs)
 
             # Currently this fails due to fini killing the whole socket
-            # self.isin('Remote peer issued error', log_msgs)
+            self.isin('Remote peer issued error', log_msgs)
 
     def test_neuron_neuron(self):
 

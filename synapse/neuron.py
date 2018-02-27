@@ -474,10 +474,6 @@ class CryptSeq:
         self._rx_sn += 1
         return mesg
 
-
-class ProtoErr(s_exc.SynErr):
-    pass
-
 class Sess(s_net.Link):
 
     '''
@@ -519,10 +515,10 @@ class Sess(s_net.Link):
 
     def _onMesgFail(self, link, mesg):
         logger.error('Remote peer issued error: %r.', mesg)
-        self.fini()
+        self.txfini()
 
-    def _send_fail(self, exc, exc_info=None):
-        self.link.tx(('fail', {'exception': (repr(exc), exc_info)}))
+    def _send_fail(self, exc):
+        self.link.tx(('fail', {'exception': repr(exc)}))
 
     def _onMesgXmit(self, link, mesg):
 
@@ -534,16 +530,17 @@ class Sess(s_net.Link):
         try:
             newm = self._crypter.decrypt(ciphertext)
         except Exception as e:
-            self._send_fail(e)
+            self._send_fail(s_common.getexcfo(e))
             logger.exception('decryption')
-            # self.fini()
+            self.txfini()
             return
 
         try:
             self.taskplex.rx(self, newm)
         except Exception as e:
+            self._send_fail(s_common.getexcfo(e))
             logger.exception('xmit taskplex error')
-            self.fini()
+            self.txfini()
 
     @s_glob.inpool
     def _initiateSession(self):
@@ -561,14 +558,14 @@ class Sess(s_net.Link):
     def _handle_session_msg(self, mesg):
         ''' Validate and set up the crypto from a helo message '''
         if self._crypter:
-            raise ProtoErr('Received two client helos')
+            raise s_exc.ProtoErr('Received two client helos')
 
         if self.is_lisn:
             self._my_ephem_prv = s_ecc.PriKey.generate()
 
         version = mesg[1].get('version')
         if version != NEURON_PROTO_VERSION:
-            raise ProtoErr('Found peer with missing or incompatible version')
+            raise s_exc.ProtoErr('Found peer with missing or incompatible version')
 
         peer_cert = s_vault.Cert.load(mesg[1].get('cert'))
         peer_ephem_pub = s_ecc.PubKey.load(mesg[1].get('ephem_pub'))
@@ -605,8 +602,8 @@ class Sess(s_net.Link):
             peer_cert = self._handle_session_msg(mesg)
         except Exception as e:
             logger.exception('Exception encountered handling session message.')
-            self._send_fail(e)
-            self.fini()
+            self._send_fail(s_common.getexcfo(e))
+            self.txfini()
             return
 
         if self.is_lisn:
