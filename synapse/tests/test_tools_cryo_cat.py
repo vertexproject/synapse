@@ -71,8 +71,14 @@ class CryoCatTest(SynTest):
                 outp = self.getTestOutp()
                 argv = ['--ingest', '--jsonl', '--authfile', authfp, addr]
                 inp = io.StringIO('{"foo: "bar"}\n[]\n')
+                msg = 'Failure parsing line'
                 with self.redirectStdin(inp):
-                    self.raises(Exception, s_cryocat.main, argv, outp)
+                    with self.getLoggerStream('synapse.lib.net', msg) as stream:
+                        self.eq(s_cryocat.main(argv, outp), 0)
+                        self.true(stream.wait(10))
+                    stream.seek(0)
+                    log_msgs = stream.read()
+                    self.isin(msg, log_msgs)
 
                 # Happy path msgpack ingest
                 outp = self.getTestOutp()
@@ -92,8 +98,14 @@ class CryoCatTest(SynTest):
                 bad_encoding[2] = 0xff
                 inp = Mock()
                 inp.buffer = io.BytesIO(bad_encoding)
+                msg = '(\'UnpackValueError\', {\'msg\': "Error parsing item'
                 with self.redirectStdin(inp):
-                    self.raises(msgpack.exceptions.UnpackValueError, s_cryocat.main, argv, outp)
+                    with self.getLoggerStream('synapse.lib.net', msg) as stream:
+                        self.eq(s_cryocat.main(argv, outp), 0)
+                        self.true(stream.wait(10))
+                    stream.seek(0)
+                    log_msgs = stream.read()
+                    self.isin(msg, log_msgs)
 
                 outp = self.getTestOutp()
                 argv = ['--offset', '0', '--size', '1', '--authfile', authfp, addr]
