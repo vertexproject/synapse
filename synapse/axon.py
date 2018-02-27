@@ -348,7 +348,8 @@ class AxonCell(s_neuron.Cell):
 
     def handlers(self):
         return {
-            'axon:save': self._onAxonSave,       # ('axon:save', {'files':[<bytes>, ...]})
+            'axon:locs': self._onAxonLocs,
+            'axon:save': self._onAxonSave,
             'axon:stat': self._onAxonStat,
             'axon:wants': self._onAxonWants,
             'axon:bytes': self._onAxonBytes,
@@ -470,6 +471,16 @@ class AxonCell(s_neuron.Cell):
             chan.txok(wants)
 
     @s_glob.inpool
+    def _onAxonLocs(self, chan, mesg):
+        with chan:
+            sha256 = mesg[1].get('sha256')
+            with self.lenv.begin() as xact:
+                locs = self.getBlobLocs(xact, sha256)
+            if not locs:
+                return chan.txerr(('FileNotFound', {}))
+            return chan.txok(locs)
+
+    @s_glob.inpool
     def _onAxonBytes(self, chan, mesg):
 
         with chan:
@@ -483,7 +494,6 @@ class AxonCell(s_neuron.Cell):
 
             if not locs:
                 return chan.txerr(('FileNotFound', {}))
-
             sess = None
             buid = None
 
@@ -510,11 +520,19 @@ class AxonCell(s_neuron.Cell):
                     for byts in bchan.rxwind(timeout=30):
                         yield byts
 
-                #genr = bchan.rxwind(timeout=30)
                 chan.txwind(genr(), 10, timeout=30)
 
     def getBlobLocs(self, xact, sha256):
+        '''
+        Get the blob and buids for a given sha256 value
 
+        Args:
+            xact (lmdb.Transaction): An LMDB transaction.
+            sha256 (bytes): The sha256 digest to look up in bytes.
+
+        Returns:
+            list: A list of (blobname, buid) tuples.
+        '''
         with xact.cursor(db=self.bloblocs) as curs:
 
             if not curs.set_range(sha256):
@@ -613,6 +631,21 @@ class AxonClient:
     def __init__(self, sess):
         self.sess = sess
 
+    def locs(self, sha256, timeout=None):
+        '''
+        Get the Blob hostname and buid pairs for a given sha256.
+
+        Args:
+            sha256 (bytes): Sha256 to look up.
+            timeout (int): The network timeout in seconds.
+
+        Returns:
+            list: A list of (blob, buid) tuples.
+        '''
+        mesg = ('axon:locs', {'sha256': sha256})
+        ok, retn = self.sess.call(mesg, timeout=timeout)
+        return s_common.reqok(ok, retn)
+
     def stat(self, timeout=None):
         '''
         Return the stat dictionary for the Axon.
@@ -705,6 +738,16 @@ class BlobClient:
         self.sess = sess
 
     def metrics(self, offs=0, timeout=None):
+        '''
+        Get metrics for a given blob.
+
+        Args:
+            offs (int): Offset to start collecting metrics from.
+            timeout (int): The network timeout in seconds.
+
+        Yields:
+            dict: A Dictionary of metrics information
+        '''
         mesg = ('blob:metrics', {'offs': offs})
         with self.sess.task(mesg, timeout=timeout) as chan:
 
@@ -714,3 +757,21 @@ class BlobClient:
             for bloc in chan.rxwind(timeout=timeout):
                 for item in bloc:
                     yield item
+
+    def bytes(self, buid, timeout=None):
+        '''
+        Yield bytes for the given buid.
+
+        Args:
+            buid (bytes): The buid hash.
+            timeout (int): The network timeout in seconds.
+
+        Yields:
+            bytes: Chunks of bytes for the given buid.
+        '''
+        mesg = ('blob:load', {'buid': buid})
+        with self.sess.task(mesg, timeout=timeout) as chan:
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
+            for byts in chan.rxwind(timeout=timeout):
+                yield byts
