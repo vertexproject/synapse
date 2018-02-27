@@ -140,14 +140,24 @@ class AxonTest(SynTest):
                 for item in bst0.metrics():
                     item[1].pop('time')
                     metrics.append(item[1])
+                tooks = [m.pop('took') for m in metrics]  # remove took since it may vary
                 self.eq(metrics, [{'size': 1000, 'blocks': 1}])
+                self.len(1, tooks)
+                # These are time based and cannot be promised to be a particular value
+                for took in tooks:
+                    self.lt(took, 10000)
 
                 bst0.save(blobs[1:])
                 metrics = []
                 for item in bst0.metrics():
                     item[1].pop('time')
                     metrics.append(item[1])
+                tooks = [m.pop('took') for m in metrics]  # remove took since it may vary
                 self.eq(metrics, [{'size': 1000, 'blocks': 1}, {'blocks': 3, 'size': 12}])
+                self.len(2, tooks)
+                # These are time based and cannot be promised to be a particular value
+                for took in tooks:
+                    self.lt(took, 10000)
 
     def test_axon_cell(self):
 

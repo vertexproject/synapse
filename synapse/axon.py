@@ -22,6 +22,9 @@ zero64 = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 blocksize = s_const.mebibyte * 64
 
 class BlobStor(s_eventbus.EventBus):
+    '''
+    The blob store maps buid,indx values to sequences of bytes stored in a LMDB database.
+    '''
 
     def __init__(self, dirn, mapsize=s_const.tebibyte):
 
@@ -61,6 +64,7 @@ class BlobStor(s_eventbus.EventBus):
             size = 0
             count = 0
             clones = []
+            tick = s_common.now()
 
             for lkey, lval in blocs:
                 clones.append(lkey)
@@ -73,8 +77,8 @@ class BlobStor(s_eventbus.EventBus):
             self._blob_metrics.inc(xact, 'bytes', size)
             self._blob_metrics.inc(xact, 'blocks', count)
 
-            tick = s_common.now()
-            self._blob_metrics.record(xact, {'time': tick, 'size': size, 'blocks': count})
+            took = s_common.now() - tick
+            self._blob_metrics.record(xact, {'time': tick, 'size': size, 'blocks': count, 'took': took})
 
     def load(self, buid):
         '''
