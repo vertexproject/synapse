@@ -1,3 +1,8 @@
+import io
+from unittest.mock import Mock
+
+import msgpack
+
 import synapse.cryotank as s_cryotank
 
 import synapse.tools.cryo.cat as s_cryocat
@@ -50,13 +55,65 @@ class CryoCatTest(SynTest):
                 self.true(outp.expect('test:hehe'))
                 self.true(outp.expect('test:haha'))
 
+                # Make sure that --ingest without a format dies
+                outp = self.getTestOutp()
+                argv = ['--ingest', '--authfile', authfp, addr]
+                self.eq(s_cryocat.main(argv, outp), 1)
+
+                # Happy path jsonl ingest
+                outp = self.getTestOutp()
+                argv = ['--ingest', '--jsonl', '--authfile', authfp, addr]
+                inp = io.StringIO('{"foo": "bar"}\n[]\n')
+                with self.redirectStdin(inp):
+                    self.eq(s_cryocat.main(argv, outp), 0)
+
+                # Sad path jsonl ingest
+                outp = self.getTestOutp()
+                argv = ['--ingest', '--jsonl', '--authfile', authfp, addr]
+                inp = io.StringIO('{"foo: "bar"}\n[]\n')
+                msg = 'Failure parsing line'
+                with self.redirectStdin(inp):
+                    with self.getLoggerStream('synapse.lib.net', msg) as stream:
+                        self.eq(s_cryocat.main(argv, outp), 0)
+                        self.true(stream.wait(10))
+                    stream.seek(0)
+                    log_msgs = stream.read()
+                    self.isin(msg, log_msgs)
+
+                # Happy path msgpack ingest
+                outp = self.getTestOutp()
+                argv = ['--ingest', '--msgpack', '--authfile', authfp, addr]
+                to_ingest1 = s_msgpack.en({'foo': 'bar'})
+                to_ingest2 = s_msgpack.en(['lol', 'brb'])
+                inp = Mock()
+                inp.buffer = io.BytesIO(to_ingest1 + to_ingest2)
+                with self.redirectStdin(inp):
+                    self.eq(s_cryocat.main(argv, outp), 0)
+
+                # Sad path msgpack ingest
+                outp = self.getTestOutp()
+                argv = ['--ingest', '--msgpack', '--authfile', authfp, addr]
+                good_encoding = s_msgpack.en({'foo': 'bar'})
+                bad_encoding = bytearray(good_encoding)
+                bad_encoding[2] = 0xff
+                inp = Mock()
+                inp.buffer = io.BytesIO(bad_encoding)
+                msg = '(\'UnpackValueError\', {\'msg\': "Error parsing item'
+                with self.redirectStdin(inp):
+                    with self.getLoggerStream('synapse.lib.net', msg) as stream:
+                        self.eq(s_cryocat.main(argv, outp), 0)
+                        self.true(stream.wait(10))
+                    stream.seek(0)
+                    log_msgs = stream.read()
+                    self.isin(msg, log_msgs)
+
                 outp = self.getTestOutp()
                 argv = ['--offset', '0', '--size', '1', '--authfile', authfp, addr]
                 self.eq(s_cryocat.main(argv, outp), 0)
                 self.true(outp.expect("(0, (None, {'key': 0}))"))
 
                 outp = self.getTestOutp()
-                argv = ['--offset', '0', '--jsonl', '--size', '2', '--authfile', authfp, addr]
+                argv = ['--offset', '0', '--jsonl', '--size', '2', '--omit-offset', '--authfile', authfp, addr]
                 self.eq(s_cryocat.main(argv, outp), 0)
                 self.true(outp.expect('[null, {"key": 0}]\n[null, {"key": 1}]\n'))
 
@@ -65,7 +122,13 @@ class CryoCatTest(SynTest):
                 self.eq(s_cryocat.main(argv, outp), 0)
                 self.true(outp.expect("(0, (None, {'key': 0}))"))
                 self.true(outp.expect("(9, (None, {'key': 9}))"))
-                self.false(outp.expect("(10, (None, {'key': 10}))", throw=False))
+
+                # Verify the ingested data
+                self.true(outp.expect("(10, {'foo': 'bar'})"))
+                self.true(outp.expect("(11, ())"))
+                self.true(outp.expect("(12, {'foo': 'bar'})"))
+                self.true(outp.expect("(13, ('lol', 'brb'))"))
+                self.false(outp.expect("(14, (None, {'key': 10}))", throw=False))
 
                 outp = self.getTestOutp()
                 argv = ['--offset', '10', '--size', '20', '--authfile', authfp, addr]

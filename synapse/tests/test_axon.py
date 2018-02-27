@@ -18,6 +18,7 @@ bbufhash = hashlib.sha256(bbuf).digest()
 asdfhash = hashlib.sha256(b'asdfasdf').digest()
 hehahash = hashlib.sha256(b'hehehaha').digest()
 ohmyhash = hashlib.sha256(b'ohmyohmy').digest()
+qwerhash = hashlib.sha256(b'qwerqwer').digest()
 
 def u64(x):
     return struct.pack('>Q', x)
@@ -140,14 +141,24 @@ class AxonTest(SynTest):
                 for item in bst0.metrics():
                     item[1].pop('time')
                     metrics.append(item[1])
+                tooks = [m.pop('took') for m in metrics]  # remove took since it may vary
                 self.eq(metrics, [{'size': 1000, 'blocks': 1}])
+                self.len(1, tooks)
+                # These are time based and cannot be promised to be a particular value
+                for took in tooks:
+                    self.lt(took, 10000)
 
                 bst0.save(blobs[1:])
                 metrics = []
                 for item in bst0.metrics():
                     item[1].pop('time')
                     metrics.append(item[1])
+                tooks = [m.pop('took') for m in metrics]  # remove took since it may vary
                 self.eq(metrics, [{'size': 1000, 'blocks': 1}, {'blocks': 3, 'size': 12}])
+                self.len(2, tooks)
+                # These are time based and cannot be promised to be a particular value
+                for took in tooks:
+                    self.lt(took, 10000)
 
     def test_axon_cell(self):
 
@@ -201,6 +212,8 @@ class AxonTest(SynTest):
                 blob01 = s_axon.BlobCell(path, blob01conf)
                 bref.put('blob01', blob01)
                 self.true(blob01.cellpool.neurwait(timeout=3))
+                blob01sess = user.open(blob01.getCellAddr(), timeout=3)
+                bref.put('blob01sess', blob01sess)
                 blob01wait = blob01.waiter(1, 'blob:clone:rows')
 
                 # axon00 ############################################
@@ -236,6 +249,7 @@ class AxonTest(SynTest):
 
                 axon = s_axon.AxonClient(sess)
                 blob = s_axon.BlobClient(blob00sess)
+                blob01c = s_axon.BlobClient(blob01sess)
 
                 self.eq((), tuple(axon.metrics()))
                 self.eq((), tuple(blob.metrics()))
@@ -269,32 +283,56 @@ class AxonTest(SynTest):
 
                 self.raises(s_exc.RetnErr, loop)
 
-                qwerhash = hashlib.sha256(b'qwerqwer').digest()
-
+                blob01wait = blob01.waiter(1, 'blob:clone:rows')
                 self.eq(qwerhash, axon.upload([b'qwer', b'qwer'], timeout=3))
 
                 self.len(0, axon.wants([qwerhash]))
                 self.eq(b'qwerqwer', b''.join(axon.bytes(qwerhash, timeout=3)))
+                self.nn(blob01wait.wait(3))
 
                 retn = list(axon.metrics(0, timeout=3))
                 self.eq(retn[0][1].get('size'), 8)
                 self.eq(retn[0][1].get('cell'), 'blob00@localhost')
 
-                s_axon.blocksize = 1024
-
                 # Try uploading a large file
+                logger.debug('Large file test')
+                # Monkeypatch axon to a smaller blocksize
+                s_axon.blocksize = s_const.kibibyte
+                self.raises(RetnErr, axon.locs, bbufhash, timeout=3)
                 genr = s_common.chunks(bbuf, s_axon.blocksize)
+                blob01wait = blob01.waiter(1, 'blob:clone:rows')
                 self.eq(bbufhash, axon.upload(genr, timeout=3))
-
                 self.eq((), axon.wants([bbufhash], timeout=3))
 
                 # Then retrieve it
+                size = 0
+                gots = []
                 testhash = hashlib.sha256()
-
                 for byts in axon.bytes(bbufhash, timeout=3):
+                    size += len(byts)
+                    gots.append(byts)
                     testhash.update(byts)
-
                 self.eq(bbufhash, testhash.digest())
+
+                try:
+                    self.eq(size, len(bbuf))
+                    self.eq(bbufhash, testhash.digest())
+
+                except Exception as e:
+
+                    for byts in gots:
+                        print(repr(byts))
+
+                    print('SIZE: %d/%d' % (size, len(bbuf)))
+                    raise
+
+                self.nn(blob01wait.wait(3))
+                locs = axon.locs(bbufhash, timeout=3)
+                self.len(1, locs)
+                self.isin('blob00', locs[0][0])
+                # Use the buid to retrieve the large file from blob01
+
+                buid = locs[0][1]
 
                 # Try storing a empty file
                 logger.debug('Nullfile test')

@@ -8,7 +8,6 @@ import collections
 
 import synapse.common as s_common
 
-import synapse.lib.reflect as s_reflect
 import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)

@@ -3,7 +3,6 @@ import hashlib
 import logging
 import contextlib
 
-import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
@@ -96,7 +95,7 @@ class Cert:
         '''
 
         if self.rkey is None:
-            raise s_exc.NoCertKey(mesg='sign() requires a private key')
+            raise s_common.NoCertKey(mesg='sign() requires a private key')
 
         info['time'] = s_common.now()
 

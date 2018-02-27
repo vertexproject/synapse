@@ -5,12 +5,10 @@ import zlib
 import types
 import logging
 import threading
-import traceback
 import collections
 import multiprocessing
 
 import synapse.link as s_link
-import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.neuron as s_neuron
 import synapse.dyndeps as s_dyndeps

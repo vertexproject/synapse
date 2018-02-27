@@ -5,7 +5,6 @@ import logging
 import threading
 import collections
 
-import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
@@ -538,8 +537,12 @@ class Chan(Link):
         self.tx((False, None))
 
         while wind > 0:
-            acks = self.slice(wind, timeout=timeout)
-            wind -= len(acks)
+            try:
+                acks = self.slice(wind, timeout=timeout)
+                wind -= len(acks)
+            except Exception as e:
+                print('TXWIND REMAIN WIND: %r' % (wind,))
+                raise
 
         return True
 

@@ -8,7 +8,6 @@ import threading
 import collections
 import multiprocessing
 
-import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
