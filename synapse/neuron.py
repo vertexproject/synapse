@@ -9,6 +9,7 @@ import collections
 import multiprocessing
 
 import synapse.glob as s_glob
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
