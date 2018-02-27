@@ -581,7 +581,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             ('cache:maxsize', {'type': 'int', 'asloc': 'cache_maxsize', 'defval': 1000,
                                'doc': 'Enables caching layer in the cortex'}),
             ('rev:model', {'type': 'bool', 'defval': 1, 'doc': 'Set to 0 to disallow model version updates'}),
-            ('cellpool:conf', {'defval': {}, 'doc': 'Allows cortex to be aware of an axon blob store'}),
+            ('cellpool:conf', {'defval': None, 'doc': 'Allows cortex to be aware of a neuron cell pool'}),
             ('axon:name', {'defval': None, 'doc': 'Allows cortex to be aware of an axon blob store'}),
             ('log:save', {'type': 'bool', 'asloc': 'logsave', 'defval': 0,
                           'doc': 'Enables saving exceptions to the cortex as syn:log nodes'}),
