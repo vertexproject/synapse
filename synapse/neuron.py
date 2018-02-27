@@ -450,9 +450,7 @@ class CryptSeq:
     '''
     Applies and verifies sequence numbers of encrypted messages coming and going
     '''
-    MSGPACK_MAX_INT = 2 ** 63 - 1
     def __init__(self, rx_key, tx_key, initial_rx_seq=0, initial_tx_seq=0):
-        print('CryptSeq: %r %r %r ' % (self, rx_key[:4], tx_key[:4]))
         self._rx_tinh = s_tinfoil.TinFoilHat(rx_key)
         self._tx_tinh = s_tinfoil.TinFoilHat(tx_key)
         self._rx_sn = initial_rx_seq
@@ -460,24 +458,25 @@ class CryptSeq:
 
     def encrypt(self, mesg):
         rv = self._tx_tinh.enc(s_msgpack.en((self._tx_sn, mesg)))
-        print('%r sending: %d %r' % (self, self._tx_sn, mesg))
         self._tx_sn += 1
         return rv
 
     def decrypt(self, ciphertext):
         plaintext = self._rx_tinh.dec(ciphertext)
         if plaintext is None:
-            raise s_common.CryptoErr(mesg='Message decryption failure')
+            logger.error(mesg='Message decryption failure')
+            raise s_exc.CryptoErr()
         sn, mesg = s_msgpack.un(plaintext)
-        import pdb; pdb.set_trace()
-        print('%r Got: %d %r' % (self, sn, mesg))
+        # import pdb; pdb.set_trace()
         if sn != self._rx_sn:
-            print('Exception on %r : %d %r' % (self, sn, mesg))
-            raise Exception('Message out of sequence: got %d expected %d' % (sn, self._rx_sn))
+            logger.error('Message out of sequence: got %d expected %d', sn, self._rx_sn)
+            raise s_exc.CryptoErr()
         self._rx_sn += 1
-        print('%r new rx_sn = ', self, self._rx_sn)
         return mesg
 
+
+class ProtoErr(s_exc.SynErr):
+    pass
 
 class Sess(s_net.Link):
 
@@ -507,6 +506,7 @@ class Sess(s_net.Link):
         return {
             'helo': self._onMesgHelo,
             'xmit': self._onMesgXmit,
+            'fail': self._onMesgFail
         }
 
     def _tx_real(self, mesg):
@@ -516,6 +516,10 @@ class Sess(s_net.Link):
 
         data = self._crypter.encrypt(mesg)
         self.link.tx(('xmit', {'data': data}))
+
+    def _onMesgFail(self, link, mesg):
+        logger.error('Remote peer issued error: %r.', mesg)
+        self.fini()
 
     def _onMesgXmit(self, link, mesg):
 
@@ -530,45 +534,42 @@ class Sess(s_net.Link):
             self.taskplex.rx(self, newm)
         except Exception as e:
             logger.exception('xmit taskplex error')
+            self.fini()
+
+    def _send_fail(self, exc, exc_info=None):
+        self.link.tx(('fail', {'exception': (repr(exc), exc_info)}))
 
     @s_glob.inpool
     def _initiateSession(self):
-        ''' (As the client) start a new session
+        ''' (As the initiator) start a new session
 
         Send ephemeral public and my certificate
         '''
         if self.is_lisn:
-            raise s_common.CryptoErr(mesg='Listen link cannot initiate a session')
+            raise Exception('Listen link cannot initiate a session')
         self._my_ephem_prv = s_ecc.PriKey.generate()
         self.link.tx(('helo', {'version': NEURON_PROTO_VERSION,
                                'ephem_pub': self._my_ephem_prv.public().dump(),
                                'cert': self._sess_boss.certbyts}))
 
     def _handle_session_msg(self, mesg):
+        ''' Validate and set up the crypto from a helo message '''
         if self._crypter:
-            logger.warning('Protocol violation: Received two client helos')
-            self.fini()
-            return
+            raise ProtoError('Received two client helos')
 
         if self.is_lisn:
             self._my_ephem_prv = s_ecc.PriKey.generate()
 
         version = mesg[1].get('version')
         if version != NEURON_PROTO_VERSION:
-            # FIXME: send a message to peer?
-            logger.warning('Found peer with missing or incompatible version')
-            # FIXME: fini?
-            return
+            raise ProtoErr('Found peer with missing or incompatible version')
 
         peer_cert = s_vault.Cert.load(mesg[1].get('cert'))
         peer_ephem_pub = s_ecc.PubKey.load(mesg[1].get('ephem_pub'))
 
         if not self._sess_boss.valid(peer_cert):
             clsn = self.__class__.__name__
-            logger.warning('%s got bad cert (%r)' % (clsn, peer_cert.iden(),))
-            # FIXME: clarify what to do on error here (obviously don't kill the listener)
-            self.fini()
-            return
+            raise s_exc.CryptoErr(mesg='%s got bad cert (%r)' % (clsn, peer_cert.iden(),))
 
         peer_static_pub = s_ecc.PubKey.load(peer_cert.tokn.get('ecdsa:pubkey'))
         km = s_ecc.doECDHE(self._my_ephem_prv, peer_ephem_pub,
@@ -580,25 +581,35 @@ class Sess(s_net.Link):
             self._crypter = CryptSeq(to_listener_symkey, to_initiator_symkey)
         else:
             self._crypter = CryptSeq(to_initiator_symkey, to_listener_symkey)
+            # Decrypt the first i.e. test message
+            first_msg_ct = mesg[1].get('first_msg')
+            self._crypter.decrypt(first_msg_ct)
+
         return peer_cert
 
     @s_glob.inpool
     def _onMesgHelo(self, link, mesg):
         '''
-        (As the server) handle receiving the session establishment message from client.
+        handle receiving the session establishment message from the peer.
 
-        send back our ephemerical public, our cert, and an encrypted message
+        send back our ephemerical public, our cert, and, if the listener, an encrypted message
         '''
 
-        peer_cert = self._handle_session_msg(mesg)
+        try:
+            peer_cert = self._handle_session_msg(mesg)
+        except Exception as e:
+            logger.exception('Exception encountered handling session message.')
+            self._send_fail(e)
+            self.fini()
+            return
 
         if self.is_lisn:
             # This would be a good place to stick version or info stuff
-            first_message = {}
+            first_message = {'first_message': 0}
             self.link.tx(('helo', {'version': NEURON_PROTO_VERSION,
                                    'ephem_pub': self._my_ephem_prv.public().dump(),
                                    'cert': self._sess_boss.certbyts,
-                                   'msg': self._crypter.encrypt(first_message)}))
+                                   'first_msg': self._crypter.encrypt(first_message)}))
 
         user = peer_cert.tokn.get('user')
         self.setLinkProp('cell:peer', user)
