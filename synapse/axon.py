@@ -552,9 +552,9 @@ class AxonCell(s_neuron.Cell):
 
         rows = []
         for buid, sha256, byts in todo:
-            for i, byts in enumerate(s_common.chunks(byts, blocksize)):
+            for i, ibyts in enumerate(s_common.chunks(byts, blocksize)):
                 indx = struct.pack('>Q', i)
-                rows.append((buid + indx, byts))
+                rows.append((buid + indx, ibyts))
 
         ok, retn = self.blobs.any()
         if not ok:
