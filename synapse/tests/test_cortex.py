@@ -6,6 +6,7 @@ import binascii
 import tempfile
 import unittest
 
+import synapse.axon as s_axon
 import synapse.link as s_link
 import synapse.common as s_common
 import synapse.cortex as s_cortex
@@ -3322,6 +3323,7 @@ class CortexTest(SynTest):
 
         visihash = hashlib.sha256(b'visi').digest()
         craphash = hashlib.sha256(b'crap').digest()
+        coolhash = hashlib.sha256(b'cool').digest()
         foobarhash = hashlib.sha256(b'foobar').digest()
 
         with self.getAxonCore() as env:
@@ -3334,14 +3336,14 @@ class CortexTest(SynTest):
                 coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
                 core = s_telepath.openurl(coreurl)
 
-                wants = env.axon_client.wants([visihash, craphash, foobarhash])
+                wants = core._axonclient_wants([visihash, craphash, foobarhash])
                 self.len(3, wants)
 
                 self.istufo(core.formNodeByBytes(b'visi'))
                 with io.BytesIO(b'foobar') as fd:
                     self.istufo(core.formNodeByFd(fd))
 
-                wants = env.axon_client.wants([visihash, craphash, foobarhash])
+                wants = core._axonclient_wants([visihash, craphash, foobarhash])
                 self.len(1, wants)
 
             # Ensure that Axon fns do not execute on a core without an axon
@@ -3363,11 +3365,32 @@ class CortexTest(SynTest):
                 othercore.setConfOpt('axon:name', 'axon@localhost')
                 self.true(othercore.axon_ready)
 
-                wants = env.axon_client.wants([visihash, craphash, foobarhash])
+                wants = othercore._axonclient_wants([visihash, craphash, foobarhash])
                 self.len(1, wants)
                 self.istufo(othercore.formNodeByBytes(b'crap'))
-                wants = env.axon_client.wants([visihash, craphash, foobarhash])
+                wants = othercore._axonclient_wants([visihash, craphash, foobarhash])
                 self.len(0, wants)
+
+            # Pull out the axon config an shut it down
+            axonpath = os.path.split(env.axon.getCellPath())[0]
+            axonconf = env.axon.getConfOpts()
+            env.axon.fini()
+            env.axon.waitfini(timeout=30)
+            print('%%%%%%%%%%%%%%%%%%%% SHUT DOWN AXON %%%%%%%%%%%%%%%%%%%%')
+
+            # Make sure that it doesn't work
+            print('%%%%%%%%%%%%%%%%%%%% CALL WANTS %%%%%%%%%%%%%%%%%%%%')
+            self.raises(Exception, core._axonclient_wants, [visihash, craphash, foobarhash], timeout=2)  # FIXME hangs here
+            print('%%%%%%%%%%%%%%%%%%%% WANTS CALLED %%%%%%%%%%%%%%%%%%%%')
+
+            # Turn the axon back on
+            print('%%%%%%%%%%%%%%%%%%%% TURN ON AXON %%%%%%%%%%%%%%%%%%%%')
+            axon = s_axon.AxonCell(axonpath, axonconf)
+            env.add('axon', axon, fini=True)
+
+            # Make sure its still works
+            wants = core._axonclient_wants([visihash, craphash, foobarhash])
+            self.len(0, wants)
 
 class StorageTest(SynTest):
 
