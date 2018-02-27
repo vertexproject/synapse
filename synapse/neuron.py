@@ -8,7 +8,6 @@ import threading
 import collections
 import multiprocessing
 
-import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
@@ -479,7 +478,7 @@ class Sess(s_net.Link):
     def _tx_real(self, mesg):
 
         if self.txtinh is None:
-            raise s_exc.NotReady()
+            raise s_common.NotReady()
 
         data = self.txtinh.enc(s_msgpack.en(mesg))
         self.link.tx(('xmit', {'data': data}))
