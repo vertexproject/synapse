@@ -495,7 +495,7 @@ class Sess(s_net.Link):
         ciphertext = mesg[1].get('data')
         plaintext = self.rx_tinh.dec(ciphertext)
         if plaintext is None:
-            raise Exception('Message decryption failure')
+            raise s_common.CryptoErr(mesg='Message decryption failure')
 
         newm = s_msgpack.un(plaintext)
 
