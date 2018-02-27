@@ -3359,6 +3359,8 @@ class CortexTest(SynTest):
                 othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost})
                 self.false(othercore.axon_ready)
                 othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost, 'port': neurport})
+                self.false(othercore.axon_ready)
+                othercore.setConfOpt('axon:name', 'axon@localhost')
                 self.true(othercore.axon_ready)
 
                 wants = env.axon_client.wants([visihash, craphash, foobarhash])
