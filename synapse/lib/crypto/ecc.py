@@ -184,7 +184,7 @@ class PubKey:
                 byts,
                 backend=default_backend()))
 
-def doECDHE(sprku, spbkv, eprku, epbkv,
+def doECDHE(statprv_u, statpub_v, ephmprv_u, ephmpub_v,
             length=64,
             salt=None,
             info=None):
@@ -192,10 +192,10 @@ def doECDHE(sprku, spbkv, eprku, epbkv,
     Perform one side of an Ecliptic Curve Diffie Hellman Ephemeral key exchange.
 
     Args:
-        sprku (PriKey): Static Private Key for U
-        spbkv (PubKey: Static Public Key for V
-        eprku (PriKey): Ephemeral Private Key for U
-        epbkv (PubKey): Ephemeral Public Key for V
+        statprv_u (PriKey): Static Private Key for U
+        statpub_v (PubKey: Static Public Key for V
+        ephmprv_u (PriKey): Ephemeral Private Key for U
+        ephmpub_v (PubKey): Ephemeral Public Key for V
         length (int): Number of bytes to return
         salt (bytes): Salt to use when computing the key.
         info (bytes): Additional information to use when computing the key.
@@ -209,8 +209,8 @@ def doECDHE(sprku, spbkv, eprku, epbkv,
     Returns:
         bytes: The derived key.
     '''
-    zs = sprku.exchange(spbkv)
-    ze = eprku.exchange(epbkv)
+    zs = statprv_u.exchange(statpub_v)
+    ze = ephmprv_u.exchange(ephmpub_v)
     z = ze + zs
     kdf = c_hkdf.HKDF(c_hashes.SHA256(),
                       length=length,
