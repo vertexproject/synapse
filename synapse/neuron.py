@@ -43,7 +43,6 @@ class SessBoss:
         root = s_vault.Cert.load(auth[1].get('root'))
         self.roots.append(root)
 
-        # FIXME:  doesn't seem to be used
         self._my_static_prv = s_ecc.PriKey.load(auth[1].get('ecdsa:prvkey'))
 
         self.cert = s_vault.Cert.load(auth[1].get('cert'))
@@ -446,6 +445,45 @@ class Neuron(Cell):
                 'doc': 'The TCP port to bind (defaults to %d)' % defport}),
         ))
 
+
+class CryptSeq:
+    '''
+    Applies and verifies sequence numbers of encrypted messages coming and going
+    '''
+    MSGPACK_MAX_INT = 2 ** 63 - 1
+    def __init__(self, rx_key, tx_key, initial_rx_seq=0, initial_tx_seq=0):
+        print('CryptSeq: %r %r %r ' % (self, rx_key[:4], tx_key[:4]))
+        self._rx_tinh = s_tinfoil.TinFoilHat(rx_key)
+        self._tx_tinh = s_tinfoil.TinFoilHat(tx_key)
+        self._rx_sn = initial_rx_seq
+        self._tx_sn = initial_tx_seq
+
+    def encrypt(self, mesg):
+        rv = self._tx_tinh.enc(s_msgpack.en((self._tx_sn, mesg)))
+        print('%r sending: %d %r' % (self, self._tx_sn, mesg))
+        self._tx_sn += 1
+        if self._tx_sn >= self.MSGPACK_MAX_INT:
+            self._tx_sn = 0
+        return rv
+
+    def decrypt(self, ciphertext):
+        plaintext = self._rx_tinh.dec(ciphertext)
+        if plaintext is None:
+            raise Exception('Decryption failure')
+        sn, mesg = s_msgpack.un(plaintext)
+        import pdb; pdb.set_trace()
+        print('%r Got: %d %r' % (self, sn, mesg))
+        if sn != self._rx_sn:
+            print('Exception on %r : %d %r' % (self, sn, mesg))
+            raise Exception('Message out of sequence: got %d expected %d' % (sn, self._rx_sn))
+        self._rx_sn += 1
+        print('%r new rx_sn = ', self, self._rx_sn)
+        if self._rx_sn >= self.MSGPACK_MAX_INT:
+            print('rollover!!!!')
+            self._rx_sn = 0
+        return mesg
+
+
 class Sess(s_net.Link):
 
     '''
@@ -464,15 +502,10 @@ class Sess(s_net.Link):
     def __init__(self, link, boss, lisn=False):
 
         s_net.Link.__init__(self, link)
-
         self.chain(link)
-
         self._sess_boss = boss
-
         self.is_lisn = lisn    # True if we are the listener.
-
-        self.tx_tinh = None
-        self.rx_tinh = None
+        self._crypter = None
 
     def handlers(self):
         return {
@@ -482,37 +515,25 @@ class Sess(s_net.Link):
 
     def _tx_real(self, mesg):
 
-        if self.tx_tinh is None:
+        if self._crypter is None:
             raise s_exc.NotReady()
 
-        data = self.tx_tinh.enc(s_msgpack.en(mesg))
+        data = self._crypter.encrypt(mesg)
         self.link.tx(('xmit', {'data': data}))
 
     def _onMesgXmit(self, link, mesg):
 
-        if self.rx_tinh is None:
+        if self._crypter is None:
             logger.warning('xmit message before session establishment complete')
             raise s_common.NotReady()
 
         ciphertext = mesg[1].get('data')
-        plaintext = self.rx_tinh.dec(ciphertext)
-        if plaintext is None:
-            raise Exception('Message decryption failure')
-
-        newm = s_msgpack.un(plaintext)
+        newm = self._crypter.decrypt(ciphertext)
 
         try:
             self.taskplex.rx(self, newm)
         except Exception as e:
             logger.exception('xmit taskplex error')
-
-    def _calcKeys(self, my_ephem_prv, peer_ephem_pub, my_static_prv, peer_static_prv):
-
-        km = s_ecc.doECDHE(my_ephem_prv, peer_ephem_pub, my_static_prv, peer_static_prv, info=b'session')
-
-        tinh1 = s_tinfoil.TinFoilHat(km[:32])
-        tinh2 = s_tinfoil.TinFoilHat(km[32:])
-        return tinh1, tinh2
 
     @s_glob.inpool
     def _initiateSession(self):
@@ -527,7 +548,7 @@ class Sess(s_net.Link):
                                'cert': self._sess_boss.certbyts}))
 
     def _handle_session_msg(self, mesg):
-        if self.tx_tinh:
+        if self._crypter:
             logger.warning('Protocol violation: Received two client helos')
             self.fini()
             return
@@ -553,13 +574,15 @@ class Sess(s_net.Link):
             return
 
         peer_static_pub = s_ecc.PubKey.load(peer_cert.tokn.get('ecdsa:pubkey'))
-        to_initiator, to_listener = self._calcKeys(self._my_ephem_prv, peer_ephem_pub,
-                                                   self._sess_boss._my_static_prv, peer_static_pub)
+        km = s_ecc.doECDHE(self._my_ephem_prv, peer_ephem_pub,
+                           self._sess_boss._my_static_prv, peer_static_pub, info=b'session')
+
+        to_initiator_symkey, to_listener_symkey = km[:32], km[32:]
 
         if self.is_lisn:
-            self.tx_tinh, self.rx_tinh = to_initiator, to_listener
+            self._crypter = CryptSeq(to_listener_symkey, to_initiator_symkey)
         else:
-            self.rx_tinh, self.tx_tinh = to_initiator, to_listener
+            self._crypter = CryptSeq(to_initiator_symkey, to_listener_symkey)
         return peer_cert
 
     @s_glob.inpool
@@ -578,7 +601,7 @@ class Sess(s_net.Link):
             self.link.tx(('helo', {'version': NEURON_PROTO_VERSION,
                                    'ephem_pub': self._my_ephem_prv.public().dump(),
                                    'cert': self._sess_boss.certbyts,
-                                   'msg': self.tx_tinh.enc(s_msgpack.en(first_message))}))
+                                   'msg': self._crypter.encrypt(first_message)}))
 
         user = peer_cert.tokn.get('user')
         self.setLinkProp('cell:peer', user)
