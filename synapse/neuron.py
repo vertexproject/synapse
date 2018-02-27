@@ -462,14 +462,12 @@ class CryptSeq:
         rv = self._tx_tinh.enc(s_msgpack.en((self._tx_sn, mesg)))
         print('%r sending: %d %r' % (self, self._tx_sn, mesg))
         self._tx_sn += 1
-        if self._tx_sn >= self.MSGPACK_MAX_INT:
-            self._tx_sn = 0
         return rv
 
     def decrypt(self, ciphertext):
         plaintext = self._rx_tinh.dec(ciphertext)
         if plaintext is None:
-            raise Exception('Decryption failure')
+            raise s_common.CryptoErr(mesg='Message decryption failure')
         sn, mesg = s_msgpack.un(plaintext)
         import pdb; pdb.set_trace()
         print('%r Got: %d %r' % (self, sn, mesg))
@@ -478,9 +476,6 @@ class CryptSeq:
             raise Exception('Message out of sequence: got %d expected %d' % (sn, self._rx_sn))
         self._rx_sn += 1
         print('%r new rx_sn = ', self, self._rx_sn)
-        if self._rx_sn >= self.MSGPACK_MAX_INT:
-            print('rollover!!!!')
-            self._rx_sn = 0
         return mesg
 
 
@@ -505,7 +500,8 @@ class Sess(s_net.Link):
         self.chain(link)
         self._sess_boss = boss
         self.is_lisn = lisn    # True if we are the listener.
-        self._crypter = None
+        self._crypter = None  # type: CryptSeq
+        self._my_ephem_prv = None  # type: s_ecc.PriKey
 
     def handlers(self):
         return {
@@ -541,7 +537,8 @@ class Sess(s_net.Link):
 
         Send ephemeral public and my certificate
         '''
-        assert not self.is_lisn
+        if self.is_lisn:
+            raise s_common.CryptoErr(mesg='Listen link cannot initiate a session')
         self._my_ephem_prv = s_ecc.PriKey.generate()
         self.link.tx(('helo', {'version': NEURON_PROTO_VERSION,
                                'ephem_pub': self._my_ephem_prv.public().dump(),

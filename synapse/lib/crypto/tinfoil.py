@@ -7,9 +7,6 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 import synapse.lib.msgpack as s_msgpack
 
-# nic tmp
-from binascii import hexlify
-
 logger = logging.getLogger(__name__)
 
 def newkey():
