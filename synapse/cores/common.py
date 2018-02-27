@@ -111,6 +111,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         # Runtime stats
         self.formed = collections.defaultdict(int)      # count tufos formed since startup
 
+        # Cell Pool
+        self.cellpool_ready = False
+
         # Axon
         self.axon_name = None
         self.axon_ready = False
@@ -1191,8 +1194,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         return self
 
     def _check_axonclient(self):
+        if not self.cellpool_ready:
+            raise s_common.NoSuchOpt(name='cellpool:conf', mesg='The cortex does not have a cell pool configured')
         if not self.axon_ready:
-            raise s_common.NoSuchOpt(name='cellpool:conf', mesg='The cortex does not have an axon configured')
+            raise s_common.NoSuchOpt(name='axon:name', mesg='The cortex does not have an axon configured')
 
     def _get_axon_client(self):
         self._check_axonclient()
@@ -1418,10 +1423,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         cellnames = conf.get('cellnames', [])
         if len(cellnames) > 0:
             for name in cellnames:
-                print('adding', name)
                 self.axon_cellpool.add(name)
             waiter = self.axon_cellpool.waiter(len(cellnames), 'cell:add')
             waiter.wait(30)
+
+        self.cellpool_ready = True
 
     def _onSetAxonName(self, name):
         self.axon_name = name
