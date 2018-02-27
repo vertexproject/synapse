@@ -1,6 +1,5 @@
 import os
 import datetime
-import collections
 
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
