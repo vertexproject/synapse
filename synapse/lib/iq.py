@@ -607,6 +607,7 @@ class SynTest(unittest.TestCase):
 
             cellpoolconf = {'host': neurhost, 'port': neurport, 'auth': axonauth}
             core.setConfOpt('cellpool:conf', cellpoolconf)
+            core.setConfOpt('axon:name', 'axon@localhost')
 
             dmon = s_daemon.Daemon()
             dmonlink = dmon.listen('tcp://127.0.0.1:0/')
