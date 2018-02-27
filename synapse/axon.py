@@ -186,7 +186,7 @@ class BlobCell(s_neuron.Cell):
     def postCell(self):
 
         if self.neuraddr is None:
-            raise Exception('BlobCell requires a neuron')
+            raise s_common.BadConfValu(mesg='BlobCell requires a neuron')
 
         path = self.getCellDir('blobs.lmdb')
         mapsize = self.getConfOpt('blob:mapsize')
@@ -322,7 +322,7 @@ class AxonCell(s_neuron.Cell):
     def postCell(self):
 
         if self.cellpool is None:
-            raise Exception('AxonCell requires a neuron and CellPool')
+            raise s_common.BadConfValu(mesg='AxonCell requires a neuron and CellPool')
 
         mapsize = self.getConfOpt('axon:mapsize')
 
