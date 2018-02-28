@@ -1,8 +1,6 @@
 import io
 from unittest.mock import Mock
 
-import msgpack
-
 import synapse.cryotank as s_cryotank
 
 import synapse.tools.cryo.cat as s_cryocat
@@ -98,7 +96,7 @@ class CryoCatTest(SynTest):
                 bad_encoding[2] = 0xff
                 inp = Mock()
                 inp.buffer = io.BytesIO(bad_encoding)
-                msg = '(\'UnpackValueError\', {\'msg\': "Error parsing item'
+                msg = 'UnpackValueError'
                 with self.redirectStdin(inp):
                     with self.getLoggerStream('synapse.lib.net', msg) as stream:
                         self.eq(s_cryocat.main(argv, outp), 0)
@@ -106,6 +104,7 @@ class CryoCatTest(SynTest):
                     stream.seek(0)
                     log_msgs = stream.read()
                     self.isin(msg, log_msgs)
+                    self.isin('Error parsing item', log_msgs)
 
                 outp = self.getTestOutp()
                 argv = ['--offset', '0', '--size', '1', '--authfile', authfp, addr]
