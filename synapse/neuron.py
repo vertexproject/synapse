@@ -467,7 +467,6 @@ class CryptSeq:
             logger.error('Message decryption failure')
             raise s_exc.CryptoErr(mesg='Message decryption failure')
         sn, mesg = s_msgpack.un(plaintext)
-        # import pdb; pdb.set_trace()
         if sn != self._rx_sn:
             logger.error('Message out of sequence: got %d expected %d', sn, self._rx_sn)
             raise s_exc.CryptoErr(mesg='Message out of sequence', expected=self._rx_sn, got=sn)
@@ -496,6 +495,7 @@ class Sess(s_net.Link):
         self.is_lisn = lisn    # True if we are the listener.
         self._crypter = None  # type: CryptSeq
         self._my_ephem_prv = None  # type: s_ecc.PriKey
+        self._tx_lock = threading.Lock()
 
     def handlers(self):
         return {
@@ -509,8 +509,9 @@ class Sess(s_net.Link):
         if self._crypter is None:
             raise s_exc.NotReady(mesg='Crypter not set')
 
-        data = self._crypter.encrypt(mesg)
-        self.link.tx(('xmit', {'data': data}))
+        with self._tx_lock:
+            data = self._crypter.encrypt(mesg)
+            self.link.tx(('xmit', {'data': data}))
 
     def _onMesgFail(self, link, mesg):
         logger.error('Remote peer issued error: %r.', mesg)
@@ -610,10 +611,11 @@ class Sess(s_net.Link):
         if self.is_lisn:
             # This would be a good place to stick version or info stuff
             first_message = {}
-            self.link.tx(('helo', {'version': NEURON_PROTO_VERSION,
-                                   'ephem_pub': self._my_ephem_prv.public().dump(),
-                                   'cert': self._sess_boss.certbyts,
-                                   'first_mesg': self._crypter.encrypt(first_message)}))
+            with self._tx_lock:
+                self.link.tx(('helo', {'version': NEURON_PROTO_VERSION,
+                                       'ephem_pub': self._my_ephem_prv.public().dump(),
+                                       'cert': self._sess_boss.certbyts,
+                                       'first_mesg': self._crypter.encrypt(first_message)}))
 
         user = peer_cert.tokn.get('user')
         self.setLinkProp('cell:peer', user)
