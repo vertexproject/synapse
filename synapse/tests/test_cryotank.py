@@ -114,11 +114,11 @@ class CryoTest(SynTest):
                 self.eq(metr[0][1]['count'], 1)
 
                 user.puts('woot:woot', cryodata, timeout=2)
-                retn = list(user.slice('woot:woot', 2, 2))
+                retn = list(user.slice('woot:woot', 2, 2, timeout=3))
                 self.len(2, retn)
                 self.eq(2, retn[0][0])
 
-                retn = list(user.rows('woot:woot', 0, 2))
+                retn = list(user.rows('woot:woot', 0, 2, timeout=3))
                 self.len(2, retn)
                 self.eq(retn[0], (0, s_msgpack.en(cryodata[0])))
                 self.eq(retn[1], (1, s_msgpack.en(cryodata[1])))
@@ -136,7 +136,7 @@ class CryoTest(SynTest):
 
                 listd = dict(user.list(timeout=3))
                 self.isin('woot:hehe', listd)
-                self.eq(user.last('woot:hehe'), (3, cryodata[1]))
+                self.eq(user.last('woot:hehe', timeout=3), (3, cryodata[1]))
 
                 # delete woot.hehe and then call apis on it
                 self.true(user.delete('woot:hehe'))
