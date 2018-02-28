@@ -14,12 +14,12 @@ class CryoCatTest(SynTest):
     def cell_populate(self, port, auth):
         # Populate the cell with data
         addr = ('127.0.0.1', port)
-        user = s_cryotank.CryoUser(auth, addr, timeout=2)
-        nodes = [(None, {'key': i}) for i in range(10)]
-        user.puts('test:hehe', nodes, 4)
-        self.len(10, list(user.slice('test:hehe', 0, 100)))
-        user.puts('test:haha', nodes, 4)
-        self.len(2, user.list())
+        with s_cryotank.CryoUser(auth, addr, timeout=2) as user:
+            nodes = [(None, {'key': i}) for i in range(10)]
+            user.puts('test:hehe', nodes, 4)
+            self.len(10, list(user.slice('test:hehe', 0, 100)))
+            user.puts('test:haha', nodes, 4)
+            self.len(2, user.list())
 
     def test_cryocat(self):
 

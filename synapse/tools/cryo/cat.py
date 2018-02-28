@@ -69,31 +69,31 @@ def main(argv, outp=s_output.stdout):
     addr = (host, int(portstr))
     logger.info('connecting to: %r', addr)
 
-    cryo = s_cryotank.CryoUser(auth, addr, timeout=opts.timeout)
+    with s_cryotank.CryoUser(auth, addr, timeout=opts.timeout) as cryo:
 
-    if opts.list:
-        for name, info in cryo.list(timeout=opts.timeout):
-            outp.printf('%s: %r' % (name, info))
+        if opts.list:
+            for name, info in cryo.list(timeout=opts.timeout):
+                outp.printf('%s: %r' % (name, info))
 
-        return 0
+            return 0
 
-    if opts.ingest:
-        if opts.msgpack:
-            fd = sys.stdin.buffer
-            item_it = _except_wrap(s_msgpack.iterfd(fd), lambda x: 'Error parsing item %d' % x)
-        else:
-            fd = sys.stdin
-            item_it = _except_wrap((json.loads(s) for s in fd), lambda x: ('Failure parsing line %d of input' % x))
-        cryo.puts(path, item_it)
-    else:
-        for item in cryo.slice(path, opts.offset, opts.size, opts.timeout):
-            i = item[1] if opts.omit_offset else item
-            if opts.jsonl:
-                outp.printf(json.dumps(i, sort_keys=True))
-            elif opts.msgpack:
-                sys.stdout.write(s_msgpack.en(i))
+        if opts.ingest:
+            if opts.msgpack:
+                fd = sys.stdin.buffer
+                item_it = _except_wrap(s_msgpack.iterfd(fd), lambda x: 'Error parsing item %d' % x)
             else:
-                outp.printf(pprint.pformat(i))
+                fd = sys.stdin
+                item_it = _except_wrap((json.loads(s) for s in fd), lambda x: ('Failure parsing line %d of input' % x))
+            cryo.puts(path, item_it)
+        else:
+            for item in cryo.slice(path, opts.offset, opts.size, opts.timeout):
+                i = item[1] if opts.omit_offset else item
+                if opts.jsonl:
+                    outp.printf(json.dumps(i, sort_keys=True))
+                elif opts.msgpack:
+                    sys.stdout.write(s_msgpack.en(i))
+                else:
+                    outp.printf(pprint.pformat(i))
 
     return 0
 
