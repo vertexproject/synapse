@@ -423,6 +423,7 @@ class CryoUser(s_neuron.CellUser):
         s_neuron.CellUser.__init__(self, auth)
 
         self._cryo_sess = self.open(addr, timeout=timeout)
+        self.onfini(self._cryo_sess.fini)
 
     def puts(self, name, items, timeout=None):
         '''
