@@ -112,12 +112,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.formed = collections.defaultdict(int)      # count tufos formed since startup
 
         # Cell Pool
+        self.cellpool = None
         self.cellpool_ready = False
 
         # Axon
         self.axon_name = None
         self.axon_ready = False
-        self.axon_cellpool = None
 
         # Misc
         self.isok = True
@@ -1201,7 +1201,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
     def _get_axon_client(self):
         self._check_axonclient()
-        return s_axon.AxonClient(self.axon_cellpool.get(self.axon_name))
+        return s_axon.AxonClient(self.cellpool.get(self.axon_name))
 
     def _axonclient_wants(self, hashes):
         client = self._get_axon_client()
@@ -1413,18 +1413,18 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if not all(part is not None for part in neuraddr):
             raise s_common.BadConfValu(mesg='host and port must be set', key='cellpool:conf')
 
-        if self.axon_cellpool:
-            self.axon_cellpool.fini()
+        if self.cellpool:
+            self.cellpool.fini()
 
-        self.axon_cellpool = s_cell.CellPool(auth, neuraddr)
-        self.axon_cellpool.neurwait(timeout=30)
-        self.onfini(self.axon_cellpool.fini)
+        self.cellpool = s_cell.CellPool(auth, neuraddr)
+        self.cellpool.neurwait(timeout=30)
+        self.onfini(self.cellpool.fini)
 
         cellnames = conf.get('cellnames', [])
         if len(cellnames) > 0:
             for name in cellnames:
-                self.axon_cellpool.add(name)
-            waiter = self.axon_cellpool.waiter(len(cellnames), 'cell:add')
+                self.cellpool.add(name)
+            waiter = self.cellpool.waiter(len(cellnames), 'cell:add')
             waiter.wait(30)
 
         self.cellpool_ready = True
@@ -1432,8 +1432,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _onSetAxonName(self, name):
         self.axon_name = name
 
-        self.axon_cellpool.add(name)
-        waiter = self.axon_cellpool.waiter(1, 'cell:add')
+        self.cellpool.add(name)
+        waiter = self.cellpool.waiter(1, 'cell:add')
         waiter.wait(30)
 
         self.axon_ready = True
