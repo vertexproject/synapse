@@ -67,6 +67,11 @@ class PsMod(s_module.CoreModule):
                 ('ps:hasemail', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|email,inet:email'}),
                 ('ps:haswebacct', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|web:acct,inet:web:acct'}),
 
+                ('ps:has', {
+                    'subof': 'xref',
+                    'source': 'person,ps:person',
+                    'doc': 'A person that has a thing. FIXME reword'}),
+
                 ('ps:image', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|file,file:bytes'}),
 
                 # FIXME add wireless elemements like NMEI and IMEI once modeled
@@ -178,6 +183,20 @@ class PsMod(s_module.CoreModule):
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
                 )),
+
+                ('ps:has', {}, [
+                    ('person', {'ptype': 'ps:person', 'ro': 1, 'req': 1,
+                        'doc': 'The action that references the given node.'}),
+                    ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
+                        'doc': 'The prop=valu that is referenced as part of the action.'}),
+                    ('xref:prop', {'ptype': 'str', 'ro': 1,
+                        'doc': 'The property (form) of the referenced object, as specified by the propvalu.'}),
+                    ('xref:intval', {'ptype': 'int', 'ro': 1,
+                        'doc': 'The normed value of the form that was referenced, if the value is an integer.'}),
+                    ('xref:strval', {'ptype': 'str', 'ro': 1,
+                        'doc': 'The normed value of the form that was referenced, if the value is a string.'}),
+                ]),
+
             ),
         }
         name = 'ps'

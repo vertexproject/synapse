@@ -2,6 +2,21 @@ from synapse.tests.common import *
 
 class PersonTest(SynTest, ModelSeenMixin):
 
+    def test_model_ps_has(self):
+        with self.getRamCore() as core:
+            person_guid = 32 * '0'
+            person_tufo = core.formTufoByProp('ps:person', person_guid, name='Kenshoto,Invisigoth')
+            personval = person_tufo[1].get('ps:person')
+            fqdn_tufo = core.formTufoByProp('inet:fqdn', 'vertex.link')
+
+            node = core.formTufoByProp('ps:has', (personval, ('inet:fqdn', 'vertex.link')))
+            self.ge(node[1].get('node:created'), 1519852535218)
+            self.eq(node[1].get('ps:has'), '03870dc800bc21c7c594a900ae65f5cb')
+            self.eq(node[1].get('ps:has:person'), personval)
+            self.eq(node[1].get('ps:has:xref'), 'inet:fqdn=vertex.link')
+            self.eq(node[1].get('ps:has:xref:prop'), 'inet:fqdn')
+            self.eq(node[1].get('ps:has:xref:strval'), 'vertex.link')
+
     def test_model_person(self):
 
         with self.getRamCore() as core:
