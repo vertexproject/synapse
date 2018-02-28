@@ -464,13 +464,13 @@ class CryptSeq:
     def decrypt(self, ciphertext):
         plaintext = self._rx_tinh.dec(ciphertext)
         if plaintext is None:
-            logger.error(mesg='Message decryption failure')
-            raise s_exc.CryptoErr()
+            logger.error('Message decryption failure')
+            raise s_exc.CryptoErr(mesg='Message decryption failure')
         sn, mesg = s_msgpack.un(plaintext)
         # import pdb; pdb.set_trace()
         if sn != self._rx_sn:
             logger.error('Message out of sequence: got %d expected %d', sn, self._rx_sn)
-            raise s_exc.CryptoErr()
+            raise s_exc.CryptoErr(mesg='Message out of sequence', expected=self._rx_sn, got=sn)
         self._rx_sn += 1
         return mesg
 
@@ -507,7 +507,7 @@ class Sess(s_net.Link):
     def _tx_real(self, mesg):
 
         if self._crypter is None:
-            raise s_exc.NotReady()
+            raise s_exc.NotReady(mesg='Crypter not set')
 
         data = self._crypter.encrypt(mesg)
         self.link.tx(('xmit', {'data': data}))
