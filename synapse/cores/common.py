@@ -1201,15 +1201,19 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
     def _get_axon_client(self):
         self._check_axonclient()
-        return s_axon.AxonClient(self.cellpool.get(self.axon_name))
+        client = s_axon.AxonClient(self.cellpool.get(self.axon_name))
+        if client.sess is None:
+            waiter = self.cellpool.waiter(1, 'cell:add')
+            waiter.wait(5)
+        return client
 
-    def _axonclient_wants(self, hashes):
+    def _axonclient_wants(self, hashes, timeout=None):
         client = self._get_axon_client()
-        return client.wants(hashes)
+        return client.wants(hashes, timeout=timeout)
 
-    def _axonclient_upload(self, genr):
+    def _axonclient_upload(self, genr, timeout=None):
         client = self._get_axon_client()
-        return client.upload(genr)
+        return client.upload(genr, timeout=timeout)
 
     def getSeqNode(self, name):
         '''
@@ -1965,7 +1969,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         Example:
 
             size = core.getSizeBy('range','foo:bar',(20,30))
-            print('there are %d rows where 20 <= foo < 30 ' % (size,))
+            dostuff('there are %d rows where 20 <= foo < 30 ' % (size,))
 
         '''
         meth = self.store.reqSizeByMeth(name)
