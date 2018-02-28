@@ -48,8 +48,6 @@ class NeuronTest(SynTest):
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
-            initCellDir(dirn)
-
             with s_neuron.Cell(dirn, conf) as cell:
                 # A bunch of API tests here
 
@@ -169,12 +167,11 @@ class NeuronTest(SynTest):
         with self.getTestDir() as dirn:
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
-            initCellDir(dirn)
-            rootauth, userauth = getCellAuth()
+            cell = s_neuron.Cell(dirn)
 
             with s_neuron.Cell(dirn, conf) as cell:
 
-                user = s_neuron.CellUser(userauth)
+                user = s_neuron.CellUser(cell.genUserAuth('foo'))
                 addr = list(cell.getCellAddr())
 
                 with user.open(addr, timeout=2) as sess:
@@ -190,13 +187,9 @@ class NeuronTest(SynTest):
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
-            initCellDir(dirn)
-            rootauth, userauth = getCellAuth()
-
             with s_neuron.Cell(dirn, conf) as cell:
 
-                user = s_neuron.CellUser(userauth)
-
+                user = cell.celluser
                 addr = cell.getCellAddr()
 
                 with user.open(addr, timeout=2) as sess:
@@ -230,18 +223,16 @@ class NeuronTest(SynTest):
             self.raises(ReqConfOpt, s_neuron.getCellCtor, dirn, {})
 
     def test_neuron_cell_authfail(self):
-
-        with self.getTestDir() as dirn:
+        '''
+        Make a separate cell dir and make sure it can't connect to the first one
+        '''
+        with self.getTestDir() as dirn, self.getTestDir() as dirn2:
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
-            newp = s_msgpack.loadfile(getTestPath('files', 'newp.auth'))
+            with s_neuron.Cell(dirn, conf) as cell, s_neuron.Cell(dirn2) as newp:
 
-            initCellDir(dirn)
-
-            with s_neuron.Cell(dirn, conf) as cell:
-
-                user = s_neuron.CellUser(newp)
+                user = s_neuron.CellUser(newp.getCellAuth())
 
                 addr = cell.getCellAddr()
 
@@ -258,16 +249,81 @@ class NeuronTest(SynTest):
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
-            initCellDir(dirn)
-            rootauth, userauth = getCellAuth()
-
             with s_neuron.Cell(dirn, conf) as cell:
 
-                user = s_neuron.CellUser(userauth)
+                user = s_neuron.CellUser(cell.genUserAuth('foo'))
 
                 addr = ('localhost', 1)
                 self.raises(CellUserErr, user.open, addr, timeout=1)
                 self.raises(CellUserErr, user.open, addr, timeout=-1)
+
+    def test_neuron_double_initiate(self):
+        '''
+        Have the initiator send the listener two session initiation messages
+        '''
+
+        with self.getTestDir() as dirn:
+
+            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
+
+            with self.getLoggerStream('synapse.neuron', 'ProtoErr') as stream, s_neuron.Cell(dirn, conf) as cell:
+
+                user = cell.celluser
+                addr = cell.getCellAddr()
+
+                with user.open(addr, timeout=2) as sess:
+                    sess._initiateSession()
+                    stream.wait(.1)
+            stream.seek(0)
+            self.isin('ProtoErr', stream.read())
+
+    def test_neuron_wrong_version(self):
+        '''
+        Have the initiator send the listener a weird version
+        '''
+
+        with self.getTestDir() as dirn:
+
+            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
+
+            with self.getLoggerStream('synapse.neuron', 'incompatible') as stream, s_neuron.Cell(dirn, conf) as cell:
+
+                user = cell.celluser
+                addr = cell.getCellAddr()
+
+                def bad_version_initiate(sess):
+                    sess.link.tx(('helo', {'version': (42, 42), 'ephem_pub': b'', 'cert': b''}))
+
+                with mock.patch('synapse.neuron.Sess._initiateSession', bad_version_initiate):
+                    self.raises(CellUserErr, user.open, addr, timeout=1)
+            stream.seek(0)
+            self.isin('incompatible version', stream.read())
+
+    def test_neuron_bad_sequence(self):
+        '''
+        Have the initiator send the listener a message with the wrong sequence number
+        '''
+
+        with self.getTestDir() as dirn:
+
+            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
+
+            with self.getLoggerStream('synapse.neuron', 'remote peer') as stream, s_neuron.Cell(dirn, conf) as cell:
+
+                user = cell.celluser
+                addr = cell.getCellAddr()
+
+                with user.open(addr, timeout=2) as sess:
+                    sess.tx('Test message')
+                    sess._crypter._tx_sn = 42
+                    sess.tx('Test message')
+                    stream.wait(.1)
+            stream.seek(0)
+            log_msgs = stream.read()
+            self.isin('out of sequence', log_msgs)
+
+            # Currently this fails due to fini killing the whole socket
+            self.isin('Remote peer issued error', log_msgs)
 
     def test_neuron_neuron(self):
 
@@ -284,18 +340,15 @@ class NeuronTest(SynTest):
                 cdef = neur.getConfDef('port')
                 self.eq(s_neuron.defport, cdef[1].get('defval'))
 
-                path = s_common.genpath(path, 'cell.auth')
-                root = s_msgpack.loadfile(path)
-
                 def onreg(mesg):
                     steps.done('cell:reg')
 
                 neur.on('cell:reg', onreg)
                 self.eq(neur._genCellName('root'), 'root@localhost')
 
-                user = s_neuron.CellUser(root)
+                user = neur.celluser
 
-                pool = s_neuron.CellPool(root, neur.getCellAddr())
+                pool = s_neuron.CellPool(neur.genUserAuth('foo'), neur.getCellAddr())
                 pool.neurok.wait(timeout=8)
                 self.true(pool.neurok.is_set())
 

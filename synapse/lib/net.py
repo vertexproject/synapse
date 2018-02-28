@@ -373,12 +373,14 @@ class Link(s_eventbus.EventBus):
                 return self.rxfunc(self, mesg)
             except Exception as e:
                 logger.exception('%s.rxfunc() failed on: %r' % (self.__class__.__name__, mesg))
+                self.fini()
                 return
 
         try:
             func = self._mesg_funcs.get(mesg[0])
         except Exception as e:
             logger.exception('link %s: rx mesg exception: %s' % (self.__class__.__name__, e))
+            self.fini()
             return
 
         if func is None:
@@ -389,6 +391,7 @@ class Link(s_eventbus.EventBus):
             func(link, mesg)
         except Exception as e:
             logger.exception('link %s: rx exception: %s' % (self.__class__.__name__, e))
+            self.fini()
 
     def tx(self, mesg):
         '''
@@ -816,6 +819,9 @@ class SockLink(Link):
 
                 # no more txbuf... are we done?
                 if not self.txque:
+                    if self.istxfini:
+                        self.fini()
+                        return
                     self.flags &= ~select.EPOLLOUT
                     self.plex.modify(self.fino, self.flags)
                     return

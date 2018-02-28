@@ -9,6 +9,7 @@ import collections
 import multiprocessing
 
 import synapse.glob as s_glob
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
@@ -19,13 +20,15 @@ import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 
-import synapse.lib.crypto.rsa as s_rsa
+import synapse.lib.crypto.ecc as s_ecc
 import synapse.lib.crypto.vault as s_vault
 import synapse.lib.crypto.tinfoil as s_tinfoil
 
 logger = logging.getLogger(__name__)
 
 defport = 65521 # the default neuron port
+
+NEURON_PROTO_VERSION = (1, 0)
 
 class SessBoss:
     '''
@@ -40,13 +43,10 @@ class SessBoss:
         root = s_vault.Cert.load(auth[1].get('root'))
         self.roots.append(root)
 
-        self.rkey = s_rsa.PriKey.load(auth[1].get('rsa:key'))
+        self._my_static_prv = s_ecc.PriKey.load(auth[1].get('ecdsa:prvkey'))
 
         self.cert = s_vault.Cert.load(auth[1].get('cert'))
         self.certbyts = self.cert.dump()
-
-    def decrypt(self, byts):
-        return self.rkey.decrypt(byts)
 
     def valid(self, cert):
 
@@ -338,7 +338,6 @@ class Cell(s_config.Configable, s_net.Link, SessBoss):
                 'doc': 'The path to the cell constructor'}),
 
             ('bind', {'defval': '0.0.0.0', 'req': 1,
-                'ex': '127.0.0.1',
                 'doc': 'The IP address to bind'}),
 
             ('host', {'defval': socket.gethostname(),
@@ -446,90 +445,184 @@ class Neuron(Cell):
                 'doc': 'The TCP port to bind (defaults to %d)' % defport}),
         ))
 
+
+class CryptSeq:
+    '''
+    Applies and verifies sequence numbers of encrypted messages coming and going
+    '''
+    def __init__(self, rx_key, tx_key, initial_rx_seq=0, initial_tx_seq=0):
+        self._rx_tinh = s_tinfoil.TinFoilHat(rx_key)
+        self._tx_tinh = s_tinfoil.TinFoilHat(tx_key)
+        self._rx_sn = initial_rx_seq
+        self._tx_sn = initial_tx_seq
+
+    def encrypt(self, mesg):
+        rv = self._tx_tinh.enc(s_msgpack.en((self._tx_sn, mesg)))
+        self._tx_sn += 1
+        return rv
+
+    def decrypt(self, ciphertext):
+        plaintext = self._rx_tinh.dec(ciphertext)
+        if plaintext is None:
+            logger.error('Message decryption failure')
+            raise s_exc.CryptoErr(mesg='Message decryption failure')
+        sn, mesg = s_msgpack.un(plaintext)
+        if sn != self._rx_sn:
+            logger.error('Message out of sequence: got %d expected %d', sn, self._rx_sn)
+            raise s_exc.CryptoErr(mesg='Message out of sequence', expected=self._rx_sn, got=sn)
+        self._rx_sn += 1
+        return mesg
+
 class Sess(s_net.Link):
+    '''
+    Manages network session establishment and maintainance
+
+    We use NIST SP 56A r2 "C(2e, 2s, ECC DH)", a scheme where both parties have 2 key pairs:  static and ephemeral.
+
+    Sequence diagram U: initiator, V: listener, Ec:  public ephemeral initiator key, ec: private ephemeral initiator
+
+    U -> V:  Ec, initiator cert
+    V -> U:  Es, listener cert, encrypted message ("helo")
+
+    The first encrypted message is sent in order to as quickly as possible identify a failure.
+    '''
 
     def __init__(self, link, boss, lisn=False):
 
         s_net.Link.__init__(self, link)
-
         self.chain(link)
-
         self._sess_boss = boss
-
-        self.lisn = lisn    # True if we are the listener.
-
-        self.txkey = s_tinfoil.newkey()
-        self.txtinh = s_tinfoil.TinFoilHat(self.txkey)
-
-        self.rxkey = None
-        self.rxtinh = None
+        self.is_lisn = lisn    # True if we are the listener.
+        self._crypter = None  # type: CryptSeq
+        self._my_ephem_prv = None  # type: s_ecc.PriKey
+        self._tx_lock = threading.Lock()
 
     def handlers(self):
         return {
-            'cert': self._onMesgCert,
-            'skey': self._onMesgSkey,
+            'helo': self._onMesgHelo,
             'xmit': self._onMesgXmit,
+            'fail': self._onMesgFail
         }
-
-    def setRxKey(self, rxkey):
-        self.rxkey = rxkey
-        self.rxtinh = s_tinfoil.TinFoilHat(rxkey)
 
     def _tx_real(self, mesg):
 
-        if self.txtinh is None:
-            raise s_common.NotReady()
+        if self._crypter is None:
+            raise s_exc.NotReady(mesg='Crypter not set')
 
-        data = self.txtinh.enc(s_msgpack.en(mesg))
-        self.link.tx(('xmit', {'data': data}))
+        with self._tx_lock:
+            data = self._crypter.encrypt(mesg)
+            self.link.tx(('xmit', {'data': data}))
+
+    def _onMesgFail(self, link, mesg):
+        logger.error('Remote peer issued error: %r.', mesg)
+        self.txfini()
+
+    def _send_fail(self, exc):
+        self.link.tx(('fail', {'exception': repr(exc)}))
 
     def _onMesgXmit(self, link, mesg):
 
-        if self.rxtinh is None:
-            logger.warning('xmit message before rxkey')
+        if self._crypter is None:
+            logger.warning('xmit message before session establishment complete')
             raise s_common.NotReady()
 
-        data = mesg[1].get('data')
-        newm = s_msgpack.un(self.rxtinh.dec(data))
+        ciphertext = mesg[1].get('data')
+        try:
+            newm = self._crypter.decrypt(ciphertext)
+        except Exception as e:
+            self._send_fail(s_common.getexcfo(e))
+            logger.exception('decryption')
+            self.txfini()
+            return
 
         try:
             self.taskplex.rx(self, newm)
         except Exception as e:
+            self._send_fail(s_common.getexcfo(e))
             logger.exception('xmit taskplex error')
-
-    def _onMesgSkey(self, link, mesg):
-
-        data = mesg[1].get('data')
-
-        skey = self._sess_boss.decrypt(data)
-
-        self.setRxKey(skey)
-
-    def sendcert(self):
-        self.link.tx(('cert', {'cert': self._sess_boss.certbyts}))
+            self.txfini()
 
     @s_glob.inpool
-    def _onMesgCert(self, link, mesg):
+    def _initiateSession(self):
+        '''
+        (As the initiator) start a new session
 
-        if self.lisn:
-            self.sendcert()
+        Send ephemeral public and my certificate
+        '''
+        if self.is_lisn:
+            raise Exception('Listen link cannot initiate a session')
+        self._my_ephem_prv = s_ecc.PriKey.generate()
+        self.link.tx(('helo', {'version': NEURON_PROTO_VERSION,
+                               'ephem_pub': self._my_ephem_prv.public().dump(),
+                               'cert': self._sess_boss.certbyts}))
 
-        cert = s_vault.Cert.load(mesg[1].get('cert'))
+    def _handSessMesg(self, mesg):
+        '''
+        Validate and set up the crypto from a helo message
+        '''
+        if self._crypter is not None:
+            raise s_exc.ProtoErr('Received two client helos')
 
-        if not self._sess_boss.valid(cert):
+        if self.is_lisn:
+            self._my_ephem_prv = s_ecc.PriKey.generate()
+
+        version = mesg[1].get('version')
+        if version != NEURON_PROTO_VERSION:
+            raise s_exc.ProtoErr('Found peer with missing or incompatible version')
+
+        peer_cert = s_vault.Cert.load(mesg[1].get('cert'))
+        peer_ephem_pub = s_ecc.PubKey.load(mesg[1].get('ephem_pub'))
+
+        if not self._sess_boss.valid(peer_cert):
             clsn = self.__class__.__name__
-            logger.warning('%s got bad cert (%r)' % (clsn, cert.iden(),))
-            self.fini()
+            raise s_exc.CryptoErr(mesg='%s got bad cert (%r)' % (clsn, peer_cert.iden(),))
+
+        peer_static_pub = s_ecc.PubKey.load(peer_cert.tokn.get('ecdsa:pubkey'))
+        km = s_ecc.doECDHE(self._my_ephem_prv, peer_ephem_pub,
+                           self._sess_boss._my_static_prv, peer_static_pub, info=b'session')
+
+        to_initiator_symkey, to_listener_symkey = km[:32], km[32:]
+
+        if self.is_lisn:
+            self._crypter = CryptSeq(to_listener_symkey, to_initiator_symkey)
+        else:
+            self._crypter = CryptSeq(to_initiator_symkey, to_listener_symkey)
+            # Decrypt the first i.e. test message
+            first_msg_ct = mesg[1].get('first_mesg')
+            self._crypter.decrypt(first_msg_ct)
+
+        return peer_cert
+
+    @s_glob.inpool
+    def _onMesgHelo(self, link, mesg):
+        '''
+        Handle receiving the session establishment message from the peer.
+
+        send back our ephemerical public, our cert, and, if the listener, an encrypted message
+        '''
+        try:
+            peer_cert = self._handSessMesg(mesg)
+        except Exception as e:
+            logger.exception('Exception encountered handling session message.')
+            self._send_fail(s_common.getexcfo(e))
+            self.txfini()
             return
 
-        # send back an skey message with our tx key
-        data = cert.public().encrypt(self.txkey)
-        self.link.tx(('skey', {'data': data}))
+        if self.is_lisn:
+            # This would be a good place to stick version or info stuff
+            first_message = {}
+            with self._tx_lock:
+                self.link.tx(('helo', {'version': NEURON_PROTO_VERSION,
+                                       'ephem_pub': self._my_ephem_prv.public().dump(),
+                                       'cert': self._sess_boss.certbyts,
+                                       'first_mesg': self._crypter.encrypt(first_message)}))
 
-        user = cert.tokn.get('user')
+        user = peer_cert.tokn.get('user')
         self.setLinkProp('cell:peer', user)
 
         self.fire('sess:txok')
+
+        self._my_ephem_prv = None
 
 class UserSess(Sess):
     '''
@@ -581,19 +674,6 @@ class UserSess(Sess):
 
         chan.onfini(fini)
         chan.tx(mesg)
-
-    #def iter(self, mesg, timeout=None):
-        #'''
-        #Access a Cell endpoint that uses the iter convention.
-        #'''
-        #with self.task(mesg, timeout=timeout) as chan:
-
-            #ok, retn = chan.next(timeout=timeout)
-            #s_common.reqok(ok, retn)
-
-            #for item in chan.iter():
-                #chan.tx(True)
-                #yield item
 
     def task(self, mesg=None, timeout=None):
         '''
@@ -658,7 +738,7 @@ class CellUser(SessBoss):
                     return retn.errx(OSError(erno, errs))
 
                 sess = UserSess(link, self)
-                sess.sendcert()
+                sess._initiateSession()
 
                 retn.retn(sess)
 
@@ -707,7 +787,7 @@ class CellUser(SessBoss):
             sess.on('sess:txok', txok)
             sess.onfini(fini)
 
-            sess.sendcert()
+            sess._initiateSession()
 
         s_glob.plex.connect(tuple(addr), onsock)
 

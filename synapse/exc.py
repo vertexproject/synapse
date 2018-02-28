@@ -215,6 +215,18 @@ class BadAtomFile(SynErr):
 class IsFini(SynErr): pass
 class TimeOut(SynErr): pass
 
+class CryptoErr(SynErr):
+    '''
+    Raised when there is a synapse.lib.crypto error.
+    '''
+    pass
+
+class BadEccExchange(CryptoErr):
+    '''
+    Raised when there is an issue doing a ECC Key Exchange
+    '''
+    pass
+
 class RetnErr(SynErr):
     '''
     Raised when a call using the retn convention has failed.
@@ -244,7 +256,7 @@ class JobErr(Exception):
 
 class LinkTimeOut(SynErr): pass
 
-# TODO: steal these names back for synapse/lib/net.py (and depricate old users)
+# TODO: steal these names back for synapse/lib/net.py (and deprecate old users)
 class LinkErr(SynErr):
 
     retry = False
@@ -256,3 +268,7 @@ class LinkRefused(LinkErr):
     retry = True
 
 class LinkNotAuth(LinkErr): pass
+
+class ProtoErr(SynErr):
+    ''' There's a network protocol failure (in neuron.Sess) '''
+    pass

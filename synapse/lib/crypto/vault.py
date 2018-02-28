@@ -10,7 +10,7 @@ import synapse.lib.kv as s_kv
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
-import synapse.lib.crypto.rsa as s_rsa
+import synapse.lib.crypto.ecc as s_ecc
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class Cert:
 
     Args:
         cert ((str, dict)): Certificate tufo
-        rkey (s_rsa.PriKey): Private RSA Key
+        rkey (s_ecc.PriKey): Private ECC Key
     '''
 
     def __init__(self, cert, rkey=None):
@@ -33,8 +33,8 @@ class Cert:
         self.tokn = s_msgpack.un(cert[0])
         self.toknhash = hashlib.sha256(cert[0]).hexdigest()
 
-        byts = self.tokn.get('rsa:pub')
-        self.rpub = s_rsa.PubKey.load(byts)
+        byts = self.tokn.get('ecdsa:pubkey')
+        self.rpub = s_ecc.PubKey.load(byts)
 
     def iden(self):
         '''
@@ -47,10 +47,10 @@ class Cert:
 
     def getkey(self):
         '''
-        Get the private RSA key for the certificate.
+        Get the private ECC key for the certificate.
 
         Returns:
-            s_rsa.PriKey: Private RSA Key. If not present, this returns None.
+            s_ecc.PriKey: Private ECC Key. If not present, this returns None.
         '''
         return self.rkey
 
@@ -66,10 +66,10 @@ class Cert:
 
     def public(self):
         '''
-        Get the Public RSA key for the Cert
+        Get the Public ECC key for the Cert
 
         Returns:
-            s_rsa.PubKey: The Public RSA key.
+            s_ecc.PubKey: The Public ECC key.
         '''
         return self.rpub
 
@@ -168,10 +168,10 @@ class Cert:
 
         Args:
             byts (bytes): Bytes from a previously saved Cert
-            rkey (s_rsa.PriKey): The RSA Private Key assocaited with the Cert.
+            rkey (s_ecc.PriKey): The ECC Private Key associated with the Cert.
 
         Returns:
-            Cert: A Cert object for the bytes and RSA private key.
+            Cert: A Cert object for the bytes and ECC private key.
         '''
         return Cert(s_msgpack.un(byts), rkey=rkey)
 
@@ -186,7 +186,7 @@ class Vault(s_eventbus.EventBus):
         tokn:
         {
             'user': <str>,
-            'rsa:pub': <bytes>,
+            'ecdsa:pubkey': <bytes>,
         }
 
     Certs are stored in the following format:
@@ -213,7 +213,7 @@ class Vault(s_eventbus.EventBus):
         path (str): Path to the DB backing the vault.
 
     Notes:
-        The Vault does store RSA Private Key material and should be treated
+        The Vault does store ECC Private Key material and should be treated
         as a sensitive file by users.
     '''
 
@@ -224,20 +224,20 @@ class Vault(s_eventbus.EventBus):
         self.onfini(self.kvstor.fini)
 
         self.info = self.kvstor.getKvLook('info')  # Internal Housekeeping
-        self.keys = self.kvstor.getKvLook('keys')  # iden -> private RSA keys
+        self.keys = self.kvstor.getKvLook('keys')  # iden -> private ECC keys
         self.certs = self.kvstor.getKvLook('certs')  # iden -> signed Cert
         self.roots = self.kvstor.getKvLook('roots')  # iden -> CAs capable of signing
-        self.certkeys = self.kvstor.getKvLook('keys:bycert')  # cert -> private RSA keys
+        self.certkeys = self.kvstor.getKvLook('keys:bycert')  # cert -> private ECC keys
         self.usercerts = self.kvstor.getKvLook('certs:byuser')  # user -> certs
 
-    def genRsaKey(self):
+    def genEccKey(self):
         '''
-        Generate a new RSA key and store it in the vault.
+        Generate a new ECC key and store it in the vault.
 
         Returns:
-            s_rsa.PriKey: The new RSA key.
+            s_ecc.PriKey: The new ECC key.
         '''
-        rkey = s_rsa.PriKey.generate()
+        rkey = s_ecc.PriKey.generate()
 
         iden = rkey.iden()
         self.keys.set(iden, rkey.dump())
@@ -250,25 +250,25 @@ class Vault(s_eventbus.EventBus):
         Generate a public key certificate token.
 
         Args:
-            rpub (s_rsa.PubKey):
+            rpub (s_ecc.PubKey):
             **info: Additional key/value data to be added to the certificate token.
 
         Returns:
             bytes: A msgpack encoded dictionary.
         '''
         tick = s_common.now()
-        info['rsa:pub'] = rpub.dump()
-        info['created'] = tick
+        info['ecdsa:pubkey'] = rpub.dump()
+        info['created'] = s_common.now()
         info.setdefault('expires', tick + (3 * s_const.year))
         return s_msgpack.en(info)
 
     def genToknCert(self, tokn, rkey=None):
         '''
-        Generate Cert object for a given token and RSA Private key.
+        Generate Cert object for a given token and ECC Private key.
 
         Args:
             tokn (bytes): Token which will be signed.
-            rkey s_rsa.PriKey: RSA Private key used to sign the token.
+            rkey s_ecc.PriKey: ECC Private key used to sign the token.
 
         Returns:
             Cert: A Cert object
@@ -309,7 +309,7 @@ class Vault(s_eventbus.EventBus):
         if iden is not None:
             return self.getCert(iden)
 
-        rkey = self.genRsaKey()
+        rkey = self.genEccKey()
 
         rpub = rkey.public()
         tokn = self.genCertTokn(rpub, user=name)
@@ -349,7 +349,7 @@ class Vault(s_eventbus.EventBus):
         return (user, {
             'cert': cert.dump(),
             'root': root.dump(),
-            'rsa:key': rkey.dump(),
+            'ecdsa:prvkey': rkey.dump(),
         })
 
     def addUserAuth(self, auth):
@@ -370,9 +370,9 @@ class Vault(s_eventbus.EventBus):
         user, info = auth
 
         certbyts = info.get('cert')
-        rkeybyts = info.get('rsa:key')
+        rkeybyts = info.get('ecdsa:prvkey')
 
-        rkey = s_rsa.PriKey.load(rkeybyts)
+        rkey = s_ecc.PriKey.load(rkeybyts)
         cert = Cert.load(certbyts, rkey=rkey)
 
         iden = cert.iden()
@@ -402,17 +402,17 @@ class Vault(s_eventbus.EventBus):
 
     def getCertKey(self, iden):
         '''
-        Get the RSA Private Key for a given iden.
+        Get the ECC Private Key for a given iden.
 
         Args:
             iden (str): Iden to retrieve
 
         Returns:
-            s_rsa.PriKey: The RSA Private Key object.
+            s_ecc.PriKey: The ECC Private Key object.
         '''
         byts = self.certkeys.get(iden)
         if byts is not None:
-            return s_rsa.PriKey.load(byts)
+            return s_ecc.PriKey.load(byts)
 
     def genRootCert(self):
         '''
@@ -425,7 +425,7 @@ class Vault(s_eventbus.EventBus):
         if iden is not None:
             return self.getCert(iden)
 
-        rkey = self.genRsaKey()
+        rkey = self.genEccKey()
         tokn = self.genCertTokn(rkey.public())
         cert = self.genToknCert(tokn, rkey=rkey)
 

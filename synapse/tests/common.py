@@ -41,30 +41,6 @@ testdir = os.path.dirname(__file__)
 def getTestPath(*paths):
     return os.path.join(testdir, *paths)
 
-def getCellAuth():
-
-    path = getTestPath('files', 'cell.auth')
-    cell = s_msgpack.loadfile(path)
-
-    path = getTestPath('files', 'user.auth')
-    user = s_msgpack.loadfile(path)
-
-    return cell, user
-
-def initCellDir(*path):
-
-    cell, user = getCellAuth()
-
-    dirn = gendir(*path)
-
-    path = os.path.join(dirn, 'cell.auth')
-    s_msgpack.dumpfile(cell, path)
-
-    path = os.path.join(dirn, 'user.auth')
-    s_msgpack.dumpfile(user, path)
-
-    return dirn
-
 def checkLock(fd, timeout, wait=0.5):
     wtime = 0
 
