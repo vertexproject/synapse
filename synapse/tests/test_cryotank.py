@@ -104,7 +104,7 @@ class CryoTest(SynTest):
 
                 self.eq(user.last('woot:woot', timeout=2)[1][0], 'baz')
 
-                retn = user.list()
+                retn = user.list(timeout=3)
                 self.eq(retn[0][1]['indx'], 2)
                 self.eq(retn[0][0], 'woot:woot')
 
@@ -134,7 +134,7 @@ class CryoTest(SynTest):
                 metr = list(user.metrics('woot:hehe', 0))
                 self.len(2, metr)
 
-                listd = dict(user.list())
+                listd = dict(user.list(timeout=3))
                 self.isin('woot:hehe', listd)
                 self.eq(user.last('woot:hehe'), (3, cryodata[1]))
 
@@ -150,7 +150,8 @@ class CryoTest(SynTest):
                 listd = dict(user.list(timeout=3))
                 self.notin('woot:hehe', listd)
 
-                self.raises(s_exc.RetnErr, user.last('woot:hehe', timeout=3))
+                # FIXME when we merge this with visi-axon
+                # self.raises(s_exc.RetnErr, list, user.last('woot:hehe', timeout=3))
                 self.raises(s_exc.RetnErr, list, user.metrics('woot:hehe', 0, 100, timeout=3))
 
                 # Adding data re-adds the tank
@@ -171,7 +172,7 @@ class CryoTest(SynTest):
 
                 addr = cell.getCellAddr()
                 user = s_cryotank.CryoUser(cell.genUserAuth('foo'), addr, timeout=2)
-                listd = dict(user.list())
+                listd = dict(user.list(timeout=3))
                 self.len(3, listd)
                 self.isin('weee:imthebest', listd)
                 self.isin('woot:woot', listd)
@@ -182,7 +183,7 @@ class CryoTest(SynTest):
 
                 # Test empty puts
                 user.puts('woot:hehe', tuple())
-                listd = dict(user.list())
+                listd = dict(user.list(timeout=3))
                 metr = list(user.metrics('woot:hehe', 0))
                 self.len(2, metr)
                 self.nn(user.last('woot:hehe'))
@@ -214,17 +215,17 @@ class CryoTest(SynTest):
             addr = ('127.0.0.1', port)
             user = s_cryotank.CryoUser(auth, addr, timeout=2)
 
-            retn = user.list()
+            retn = user.list(timeout=3)
             self.eq(retn, ())
 
             user.puts('woot:woot', cryodata, timeout=2)
 
-            retn = user.list()
+            retn = user.list(timeout=3)
             self.eq(retn[0][1]['indx'], 2)
             self.eq(retn[0][0], 'woot:woot')
 
             self.eq(user.last('woot:woot', timeout=2)[1][0], 'baz')
-            retn = user.list()
+            retn = user.list(timeout=3)
             self.eq(retn[0][1]['indx'], 2)
             self.eq(retn[0][0], 'woot:woot')
 
