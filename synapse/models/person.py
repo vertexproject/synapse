@@ -1,7 +1,6 @@
 import synapse.lib.tufo as s_tufo
-from synapse.lib.types import DataType
-
 import synapse.lib.module as s_module
+from synapse.lib.types import DataType
 
 # FIXME identify/handle possibly as seeds
 # tony stark
