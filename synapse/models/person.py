@@ -1,3 +1,4 @@
+import synapse.lib.tufo as s_tufo
 from synapse.lib.types import DataType
 
 import synapse.lib.module as s_module
@@ -45,6 +46,42 @@ class PsMod(s_module.CoreModule):
             # trigger GUID auto-creation
             node = self.core.formTufoByProp('ps:person', None, guidname=valu, **props)
         return node
+
+    @modelrev('ps', 201802281621)
+    def _revModl201802281621(self):
+        '''
+        Combine ps:has* into ps:has
+        - Forms a new ps:has node for all of the old ps:has* nodes
+        - Applies the old node's tags to the new node
+        - Deletes the old node
+        - Deletes the syn:tagform nodes for the old form
+        - FIXME do we need to do anything with dark rows?
+        '''
+        data = (
+            ('ps:hasuser', 'user', 'inet:user'),
+            ('ps:hashost', 'host', 'it:host'),
+            ('ps:hasalias', 'alias', 'ps:name'),
+            ('ps:hasphone', 'phone', 'tel:phone'),
+            ('ps:hasemail', 'email', 'inet:email'),
+            ('ps:haswebacct', 'web:acct', 'inet:web:acct'),
+        )
+        with self.core.getCoreXact() as xact:
+
+            for oldform, pname, ptype in data:
+                personkey = oldform + ':person'
+                newvalkey = oldform + ':' + pname
+
+                for tufo in self.core.getTufosByProp(oldform):
+                    perval = tufo[1].get(personkey)
+                    newval = tufo[1].get(newvalkey)
+                    newfo = self.core.formTufoByProp('ps:has', (perval, (ptype, newval)))
+
+                    tags = s_tufo.tags(tufo, leaf=True)
+                    self.core.addTufoTags(newfo, tags)
+
+                    self.core.delTufo(tufo)
+
+                self.core.delTufosByProp('syn:tagform:form', oldform)
 
     @staticmethod
     def getBaseModels():
