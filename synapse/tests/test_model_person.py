@@ -299,6 +299,8 @@ class PersonTest(SynTest, ModelSeenMixin):
                 (iden, 'ps:hasuser:user', user, tick),
                 (iden, 'ps:hasuser:person', '2f6d1248de48f451e1f349cff33f336c', tick),
                 (iden, 'ps:hasuser', '2f6d1248de48f451e1f349cff33f336c/' + user, tick),
+                (iden, 'ps:hasuser:seen:min', 0, tick),
+                (iden, 'ps:hasuser:seen:max', 1, tick),
                 (iden, '#hehe.hoho', tick, tick),
                 (iden, '#hehe', tick, tick),
                 (dark_iden, '_:*ps:hasuser#hehe.hoho', tick, tick),
@@ -313,6 +315,7 @@ class PersonTest(SynTest, ModelSeenMixin):
             stor.on('modl:vers:rev', addrows, name='ps', vers=201802281621)
 
             with s_cortex.fromstore(stor) as core:
+                # FIXME seen/min/max. hashost is a comp
 
                 # ps:hasuser ======================================================================
                 oldname = 'ps:hasuser'
@@ -321,6 +324,8 @@ class PersonTest(SynTest, ModelSeenMixin):
                     tufo = core.getTufoByProp('ps:has:xref', 'inet:user=pennywise0')
                     self.eq(tufo[1]['tufo:form'], 'ps:has')
                     self.eq(tufo[1]['ps:has'], 'f8cb39f7e4d8f1b82a5263c14655df68')
+                    self.eq(tufo[1]['ps:has:seen:min'], 0)
+                    self.eq(tufo[1]['ps:has:seen:max'], 1)
                     self.eq(tufo[1]['ps:has:xref'], 'inet:user=pennywise0')
                     self.eq(tufo[1]['ps:has:xref:prop'], 'inet:user')
                     self.eq(tufo[1]['ps:has:xref:node'], '707d5a722ceaa4101d19d7ce3b1a60bb')

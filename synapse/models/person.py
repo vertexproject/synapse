@@ -70,11 +70,22 @@ class PsMod(s_module.CoreModule):
             for oldform, pname, ptype in data:
                 personkey = oldform + ':person'
                 newvalkey = oldform + ':' + pname
+                sminkey = oldform + ':seen:min'
+                smaxkey = oldform + ':seen:max'
 
                 for tufo in self.core.getTufosByProp(oldform):
                     perval = tufo[1].get(personkey)
                     newval = tufo[1].get(newvalkey)
-                    newfo = self.core.formTufoByProp('ps:has', (perval, (ptype, newval)))
+
+                    kwargs = {}
+                    smin = tufo[1].get(sminkey)
+                    if smin is not None:
+                        kwargs['seen:min'] = smin
+                    smax = tufo[1].get(smaxkey)
+                    if smax is not None:
+                        kwargs['seen:max'] = smax
+
+                    newfo = self.core.formTufoByProp('ps:has', (perval, (ptype, newval)), **kwargs)
 
                     tags = s_tufo.tags(tufo, leaf=True)
                     self.core.addTufoTags(newfo, tags)
@@ -229,6 +240,8 @@ class PsMod(s_module.CoreModule):
                         'doc': 'FIXME.'}),
                     ('xref:prop', {'ptype': 'str', 'ro': 1,
                         'doc': 'The property (form) of the referenced object, as specified by the propvalu.'}),
+                    ('seen:min', {'ptype': 'time:min'}),
+                    ('seen:max', {'ptype': 'time:max'}),
                 ]),
 
             ),
