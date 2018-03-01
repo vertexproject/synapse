@@ -229,10 +229,6 @@ class PsMod(s_module.CoreModule):
                         'doc': 'FIXME.'}),
                     ('xref:prop', {'ptype': 'str', 'ro': 1,
                         'doc': 'The property (form) of the referenced object, as specified by the propvalu.'}),
-                    ('xref:intval', {'ptype': 'int', 'ro': 1,
-                        'doc': 'The normed value of the form that was referenced, if the value is an integer.'}),
-                    ('xref:strval', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The normed value of the form that was referenced, if the value is a string.'}),
                 ]),
 
             ),

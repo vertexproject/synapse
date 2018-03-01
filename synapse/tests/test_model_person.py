@@ -10,7 +10,6 @@ class PersonTest(SynTest, ModelSeenMixin):
             person_guid = 32 * '0'
             person_tufo = core.formTufoByProp('ps:person', person_guid, name='Kenshoto,Invisigoth')
             personval = person_tufo[1].get('ps:person')
-            fqdn_tufo = core.formTufoByProp('inet:fqdn', 'vertex.link')
 
             node = core.formTufoByProp('ps:has', (personval, ('inet:fqdn', 'vertex.link')))
             self.ge(node[1].get('node:created'), 1519852535218)
@@ -18,7 +17,12 @@ class PersonTest(SynTest, ModelSeenMixin):
             self.eq(node[1].get('ps:has:person'), personval)
             self.eq(node[1].get('ps:has:xref'), 'inet:fqdn=vertex.link')
             self.eq(node[1].get('ps:has:xref:prop'), 'inet:fqdn')
-            self.eq(node[1].get('ps:has:xref:strval'), 'vertex.link')
+            self.eq(node[1].get('ps:has:xref:node'), '42366d896b947b97e7f3b1afeb9433a3')
+
+            self.none(core.getTufoByProp('node:ndef', '42366d896b947b97e7f3b1afeb9433a3'))  # Not automatically formed
+            core.formTufoByProp('inet:fqdn', 'vertex.link')
+            fqdnfo = core.getTufoByProp('node:ndef', '42366d896b947b97e7f3b1afeb9433a3')
+            self.eq(fqdnfo[1].get('inet:fqdn'), 'vertex.link')
 
     def test_model_person(self):
 
@@ -319,7 +323,6 @@ class PersonTest(SynTest, ModelSeenMixin):
                     self.eq(tufo[1]['ps:has'], 'f8cb39f7e4d8f1b82a5263c14655df68')
                     self.eq(tufo[1]['ps:has:xref'], 'inet:user=pennywise0')
                     self.eq(tufo[1]['ps:has:xref:prop'], 'inet:user')
-                    self.eq(tufo[1]['ps:has:xref:strval'], 'pennywise0')
                     self.eq(tufo[1]['ps:has:xref:node'], '707d5a722ceaa4101d19d7ce3b1a60bb')
                     self.eq(tufo[1]['ps:has:person'], '2f6d1248de48f451e1f349cff33f336c')
 
