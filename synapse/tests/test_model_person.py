@@ -243,6 +243,10 @@ class PersonTest(SynTest, ModelSeenMixin):
             self.len(count, core.getRowsByProp('_:*' + newname + '#hehe.hoho'))
             self.len(count, core.getRowsByProp('_:*' + newname + '#hehe'))
 
+        def _check_darkmodlrev(core, tufo):
+            dark_rows = core.getRowsById(tufo[0][::-1])
+            self.true(any([p == '_:dark:syn:modl:rev' and v == 'ps:201802281621' for (i, p, v, t) in dark_rows]))
+
         def run_assertions(core, oldname, reftype, tufo_check):
             # assert that the correct number of items was migrated
             tufos = core.getTufosByProp('ps:has:xref:prop', 'inet:user')
@@ -255,6 +259,7 @@ class PersonTest(SynTest, ModelSeenMixin):
             _check_tags(core, tufo, TAGS)
             _check_tagforms(core, oldname, 'ps:has', NODECOUNT)
             _check_tagdarks(core, oldname, 'ps:has', NODECOUNT)
+            _check_darkmodlrev(core, tufo)
 
             # assert that no old data remains
             _check_no_old_data_remains(core, oldname)

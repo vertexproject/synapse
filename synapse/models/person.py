@@ -83,6 +83,13 @@ class PsMod(s_module.CoreModule):
 
                 self.core.delTufosByProp('syn:tagform:form', oldform)
 
+            # Add dark rows to the ps:has
+            # It is safe to operate on all ps:has nodes as this point as none should exist
+            dvalu = 'ps:201802281621'
+            dprop = '_:dark:syn:modl:rev'
+            darks = [(i[::-1], dprop, dvalu, t) for (i, p, v, t) in self.core.getRowsByProp('ps:has')]
+            self.core.addRows(darks)
+
     @staticmethod
     def getBaseModels():
         modl = {
