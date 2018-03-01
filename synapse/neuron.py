@@ -708,9 +708,10 @@ class CellSess(Sess):
 
         self.onfini(self.taskplex.fini)
 
-class CellUser(SessBoss):
+class CellUser(SessBoss, s_eventbus.EventBus):
 
     def __init__(self, auth, roots=()):
+        s_eventbus.EventBus.__init__(self)
         SessBoss.__init__(self, auth, roots=roots)
 
     def open(self, addr, timeout=None):

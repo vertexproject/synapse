@@ -95,98 +95,97 @@ class CryoTest(SynTest):
 
                 addr = cell.getCellAddr()
 
-                user = s_cryotank.CryoUser(cell.genUserAuth('foo'), addr, timeout=2)
+                with s_cryotank.CryoUser(cell.genUserAuth('foo'), addr, timeout=2) as user:
 
-                # Setting the _chunksize to 1 forces iteration on the client
-                # side of puts, as well as the server-side.
-                user._chunksize = 1
-                user.puts('woot:woot', cryodata, timeout=2)
+                    # Setting the _chunksize to 1 forces iteration on the client
+                    # side of puts, as well as the server-side.
+                    user._chunksize = 1
+                    user.puts('woot:woot', cryodata, timeout=2)
 
-                self.eq(user.last('woot:woot', timeout=2)[1][0], 'baz')
+                    self.eq(user.last('woot:woot', timeout=2)[1][0], 'baz')
 
-                retn = user.list(timeout=3)
-                self.eq(retn[0][1]['indx'], 2)
-                self.eq(retn[0][0], 'woot:woot')
+                    retn = user.list(timeout=3)
+                    self.eq(retn[0][1]['indx'], 2)
+                    self.eq(retn[0][0], 'woot:woot')
 
-                metr = list(user.metrics('woot:woot', 0, 100, timeout=2))
+                    metr = list(user.metrics('woot:woot', 0, 100, timeout=2))
 
-                self.len(2, metr)
-                self.eq(metr[0][1]['count'], 1)
+                    self.len(2, metr)
+                    self.eq(metr[0][1]['count'], 1)
 
-                user.puts('woot:woot', cryodata, timeout=2)
-                retn = list(user.slice('woot:woot', 2, 2, timeout=3))
-                self.len(2, retn)
-                self.eq(2, retn[0][0])
+                    user.puts('woot:woot', cryodata, timeout=2)
+                    retn = list(user.slice('woot:woot', 2, 2, timeout=3))
+                    self.len(2, retn)
+                    self.eq(2, retn[0][0])
 
-                retn = list(user.rows('woot:woot', 0, 2, timeout=3))
-                self.len(2, retn)
-                self.eq(retn[0], (0, s_msgpack.en(cryodata[0])))
-                self.eq(retn[1], (1, s_msgpack.en(cryodata[1])))
+                    retn = list(user.rows('woot:woot', 0, 2, timeout=3))
+                    self.len(2, retn)
+                    self.eq(retn[0], (0, s_msgpack.en(cryodata[0])))
+                    self.eq(retn[1], (1, s_msgpack.en(cryodata[1])))
 
-                # Reset chunksize
-                user._chunksize = s_cryotank.CryoUser._chunksize
-                user.puts('woot:hehe', cryodata, timeout=5)
-                user.puts('woot:hehe', cryodata, timeout=5)
-                retn = list(user.slice('woot:hehe', 1, 2))
-                retn = [val for indx, val in retn[::-1]]
-                self.eq(tuple(retn), cryodata)
+                    # Reset chunksize
+                    user._chunksize = s_cryotank.CryoUser._chunksize
+                    user.puts('woot:hehe', cryodata, timeout=5)
+                    user.puts('woot:hehe', cryodata, timeout=5)
+                    retn = list(user.slice('woot:hehe', 1, 2))
+                    retn = [val for indx, val in retn[::-1]]
+                    self.eq(tuple(retn), cryodata)
 
-                metr = list(user.metrics('woot:hehe', 0))
-                self.len(2, metr)
+                    metr = list(user.metrics('woot:hehe', 0))
+                    self.len(2, metr)
 
-                listd = dict(user.list(timeout=3))
-                self.isin('woot:hehe', listd)
-                self.eq(user.last('woot:hehe', timeout=3), (3, cryodata[1]))
+                    listd = dict(user.list(timeout=3))
+                    self.isin('woot:hehe', listd)
+                    self.eq(user.last('woot:hehe', timeout=3), (3, cryodata[1]))
 
-                # delete woot.hehe and then call apis on it
-                self.true(user.delete('woot:hehe'))
-                self.false(user.delete('woot:hehe'))
-                self.none(cell.tanks.get('woot:hehe'))
-                self.none(cell.names.get('woot:hehe'))
+                    # delete woot.hehe and then call apis on it
+                    self.true(user.delete('woot:hehe'))
+                    self.false(user.delete('woot:hehe'))
+                    self.none(cell.tanks.get('woot:hehe'))
+                    self.none(cell.names.get('woot:hehe'))
 
-                self.raises(s_exc.RetnErr, list, user.slice('woot:hehe', 1, 2, timeout=3))
-                self.raises(s_exc.RetnErr, list, user.rows('woot:hehe', 1, 2, timeout=3))
+                    self.genraises(s_exc.RetnErr, user.slice, 'woot:hehe', 1, 2, timeout=3)
+                    self.genraises(s_exc.RetnErr, user.rows, 'woot:hehe', 1, 2, timeout=3)
 
-                listd = dict(user.list(timeout=3))
-                self.notin('woot:hehe', listd)
+                    listd = dict(user.list(timeout=3))
+                    self.notin('woot:hehe', listd)
 
-                # FIXME when we merge this with visi-axon
-                # self.raises(s_exc.RetnErr, list, user.last('woot:hehe', timeout=3))
-                self.raises(s_exc.RetnErr, list, user.metrics('woot:hehe', 0, 100, timeout=3))
+                    self.none(user.last('woot:hehe', timeout=3))
+                    self.genraises(s_exc.RetnErr, user.metrics, 'woot:hehe', 0, 100, timeout=3)
 
-                # Adding data re-adds the tank
-                user._chunksize = 1000
-                user.puts('woot:hehe', cryodata, timeout=5)
-                metr = list(user.metrics('woot:hehe', 0))
-                self.len(1, metr)
+                    # Adding data re-adds the tank
+                    user._chunksize = 1000
+                    user.puts('woot:hehe', cryodata, timeout=5)
+                    metr = list(user.metrics('woot:hehe', 0))
+                    self.len(1, metr)
 
-                # We can initialize a new tank directly with a custom map size
-                self.true(user.init('weee:imthebest', {'mapsize': 5558675309}))
-                self.false(user.init('woot:hehe'))
+                    # We can initialize a new tank directly with a custom map size
+                    self.true(user.init('weee:imthebest', {'mapsize': 5558675309}))
+                    self.false(user.init('woot:hehe'))
 
-                # error when we specify an invalid config option
-                self.raises(s_exc.RetnErr, user.init, 'weee:danktank', {'newp': 'hehe'})
+                    # error when we specify an invalid config option
+                    self.raises(s_exc.RetnErr, user.init, 'weee:danktank', {'newp': 'hehe'})
 
             # Turn it back on
             with s_cryotank.CryoCell(dirn, conf) as cell:
 
                 addr = cell.getCellAddr()
-                user = s_cryotank.CryoUser(cell.genUserAuth('foo'), addr, timeout=2)
-                listd = dict(user.list(timeout=3))
-                self.len(3, listd)
-                self.isin('weee:imthebest', listd)
-                self.isin('woot:woot', listd)
-                self.isin('woot:hehe', listd)
-                self.istufo(user.last('woot:woot')[1])
-                self.istufo(user.last('woot:hehe')[1])
-                self.none(user.last('weee:imthebest'))
+                with s_cryotank.CryoUser(cell.genUserAuth('foo'), addr, timeout=2) as user:
+                    listd = dict(user.list(timeout=3))
+                    self.len(3, listd)
+                    self.isin('weee:imthebest', listd)
+                    self.isin('woot:woot', listd)
+                    self.isin('woot:hehe', listd)
+                    self.istufo(user.last('woot:woot')[1])
+                    self.istufo(user.last('woot:hehe')[1])
+                    self.none(user.last('weee:imthebest'))
 
-                # Test empty puts
-                user.puts('woot:hehe', tuple())
-                listd = dict(user.list(timeout=3))
-                metr = list(user.metrics('woot:hehe', 0))
-                self.len(2, metr)
-                self.nn(user.last('woot:hehe'))
+                    # Test empty puts
+                    user.puts('woot:hehe', tuple())
+                    listd = dict(user.list(timeout=3))
+                    metr = list(user.metrics('woot:hehe', 0))
+                    self.len(2, metr)
+                    self.nn(user.last('woot:hehe'))
 
     def test_cryo_cell_daemon(self):
 
@@ -213,21 +212,21 @@ class CryoTest(SynTest):
             auth = s_msgpack.loadfile(authfp)
 
             addr = ('127.0.0.1', port)
-            user = s_cryotank.CryoUser(auth, addr, timeout=2)
+            with s_cryotank.CryoUser(auth, addr, timeout=2) as user:
 
-            retn = user.list(timeout=3)
-            self.eq(retn, ())
+                retn = user.list(timeout=3)
+                self.eq(retn, ())
 
-            user.puts('woot:woot', cryodata, timeout=2)
+                user.puts('woot:woot', cryodata, timeout=2)
 
-            retn = user.list(timeout=3)
-            self.eq(retn[0][1]['indx'], 2)
-            self.eq(retn[0][0], 'woot:woot')
+                retn = user.list(timeout=3)
+                self.eq(retn[0][1]['indx'], 2)
+                self.eq(retn[0][0], 'woot:woot')
 
-            self.eq(user.last('woot:woot', timeout=2)[1][0], 'baz')
-            retn = user.list(timeout=3)
-            self.eq(retn[0][1]['indx'], 2)
-            self.eq(retn[0][0], 'woot:woot')
+                self.eq(user.last('woot:woot', timeout=2)[1][0], 'baz')
+                retn = user.list(timeout=3)
+                self.eq(retn[0][1]['indx'], 2)
+                self.eq(retn[0][0], 'woot:woot')
 
         # ensure dmon cell processes are fini'd
         for celldir, proc in dmon.cellprocs.items():

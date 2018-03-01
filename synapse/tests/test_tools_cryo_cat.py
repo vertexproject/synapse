@@ -1,8 +1,6 @@
 import io
 from unittest.mock import Mock
 
-import msgpack
-
 import synapse.cryotank as s_cryotank
 
 import synapse.tools.cryo.cat as s_cryocat
@@ -14,12 +12,12 @@ class CryoCatTest(SynTest):
     def cell_populate(self, port, auth):
         # Populate the cell with data
         addr = ('127.0.0.1', port)
-        user = s_cryotank.CryoUser(auth, addr, timeout=2)
-        nodes = [(None, {'key': i}) for i in range(10)]
-        user.puts('test:hehe', nodes, 4)
-        self.len(10, list(user.slice('test:hehe', 0, 100)))
-        user.puts('test:haha', nodes, 4)
-        self.len(2, user.list())
+        with s_cryotank.CryoUser(auth, addr, timeout=2) as user:
+            nodes = [(None, {'key': i}) for i in range(10)]
+            user.puts('test:hehe', nodes, 4)
+            self.len(10, list(user.slice('test:hehe', 0, 100)))
+            user.puts('test:haha', nodes, 4)
+            self.len(2, user.list())
 
     def test_cryocat(self):
 
@@ -98,7 +96,7 @@ class CryoCatTest(SynTest):
                 bad_encoding[2] = 0xff
                 inp = Mock()
                 inp.buffer = io.BytesIO(bad_encoding)
-                msg = '(\'UnpackValueError\', {\'msg\': "Error parsing item'
+                msg = 'UnpackValueError'
                 with self.redirectStdin(inp):
                     with self.getLoggerStream('synapse.lib.net', msg) as stream:
                         self.eq(s_cryocat.main(argv, outp), 0)
@@ -106,6 +104,7 @@ class CryoCatTest(SynTest):
                     stream.seek(0)
                     log_msgs = stream.read()
                     self.isin(msg, log_msgs)
+                    self.isin('Error parsing item', log_msgs)
 
                 outp = self.getTestOutp()
                 argv = ['--offset', '0', '--size', '1', '--authfile', authfp, addr]
