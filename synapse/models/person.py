@@ -225,6 +225,8 @@ class PsMod(s_module.CoreModule):
                         'doc': 'The person that has the given node.'}),
                     ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
                         'doc': 'The prop=valu that is referenced as part of the FIXME.'}),
+                    ('xref:node', {'ptype': 'ndef', 'ro': 1, 'req': 1,
+                        'doc': 'FIXME.'}),
                     ('xref:prop', {'ptype': 'str', 'ro': 1,
                         'doc': 'The property (form) of the referenced object, as specified by the propvalu.'}),
                     ('xref:intval', {'ptype': 'int', 'ro': 1,

@@ -320,7 +320,14 @@ class PersonTest(SynTest, ModelSeenMixin):
                     self.eq(tufo[1]['ps:has:xref'], 'inet:user=pennywise0')
                     self.eq(tufo[1]['ps:has:xref:prop'], 'inet:user')
                     self.eq(tufo[1]['ps:has:xref:strval'], 'pennywise0')
+                    self.eq(tufo[1]['ps:has:xref:node'], '707d5a722ceaa4101d19d7ce3b1a60bb')
                     self.eq(tufo[1]['ps:has:person'], '2f6d1248de48f451e1f349cff33f336c')
+
+                    # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
+                    core.formTufoByProp('inet:user', 'pennywise0')
+                    userfo = core.getTufoByProp('node:ndef', '707d5a722ceaa4101d19d7ce3b1a60bb')
+                    self.eq(userfo[1].get('inet:user'), 'pennywise0')
+
                     return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
                 return
