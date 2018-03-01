@@ -138,18 +138,6 @@ class PersonTest(SynTest, ModelSeenMixin):
 
             self.check_seen(core, node)
 
-    def test_model_person_has_user(self):
-        with self.getRamCore() as core:
-            iden = guid()
-            node = core.formTufoByProp('ps:hasuser', '%s/visi' % iden)
-
-            self.eq(node[1].get('ps:hasuser:user'), 'visi')
-            self.eq(node[1].get('ps:hasuser:person'), iden)
-            self.nn(core.getTufoByProp('ps:person', iden))
-            self.nn(core.getTufoByProp('inet:user', 'visi'))
-
-            self.check_seen(core, node)
-
     def test_model_person_has_webacct(self):
         with self.getRamCore() as core:
             iden = guid()
