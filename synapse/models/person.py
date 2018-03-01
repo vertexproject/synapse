@@ -55,7 +55,7 @@ class PsMod(s_module.CoreModule):
         - Applies the old node's tags to the new node
         - Deletes the old node
         - Deletes the syn:tagform nodes for the old form
-        - FIXME do we need to do anything with dark rows?
+        - Adds dark row for each node, signifying that they were added by migration
         '''
         data = (
             ('ps:hasuser', 'user', 'inet:user'),
