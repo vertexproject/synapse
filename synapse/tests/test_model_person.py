@@ -1,3 +1,6 @@
+import synapse.lib.tufo as s_tufo
+import synapse.lib.types as s_types
+
 from synapse.tests.common import *
 
 class PersonTest(SynTest, ModelSeenMixin):
@@ -213,3 +216,141 @@ class PersonTest(SynTest, ModelSeenMixin):
             self.nn(core.getTufoByProp('tel:phone', node[1].get('ps:contact:phone:work')))
 
             self.eq(node[1].get('ps:contact:address'), '1 iron suit drive, san francisco, ca, 22222, usa')
+
+    def test_model_ps_201802281621(self):
+        N = 2
+        FORMS = ('ps:hasuser', )
+        NODECOUNT = N * len(FORMS)
+        TAGS = ['hehe', 'hehe.hoho']
+
+        def _check_no_old_data_remains(core, oldname):
+            tufos = core.getTufosByProp(oldname)
+            self.len(0, tufos)
+            rows = core.getJoinByProp(oldname)
+            self.len(0, rows)
+
+        def _check_tags(core, tufo, tags):
+            self.eq(sorted(tags), sorted(s_tufo.tags(tufo)))
+
+        def _check_tagforms(core, oldname, newname, count):
+            self.len(0, core.getRowsByProp('syn:tagform:form', oldname))
+            self.len(0, core.getJoinByProp(oldname))
+            self.len(count, core.getRowsByProp('syn:tagform:form', newname))
+
+        def _check_tagdarks(core, oldname, newname, count):
+            self.len(0, core.getRowsByProp('_:*' + oldname + '#hehe.hoho'))
+            self.len(0, core.getRowsByProp('_:*' + oldname + '#hehe'))
+            self.len(count, core.getRowsByProp('_:*' + newname + '#hehe.hoho'))
+            self.len(count, core.getRowsByProp('_:*' + newname + '#hehe'))
+
+        def run_assertions(core, oldname, reftype, tufo_check):
+            # assert that the correct number of items was migrated
+            tufos = core.getTufosByProp('ps:has:xref:prop', 'inet:user')
+            self.len(N, tufos)
+
+            # check that properties were correctly migrated and tags were not damaged
+            tufo = tufo_check(core)
+
+            # check that tags were correctly migrated
+            _check_tags(core, tufo, TAGS)
+            _check_tagforms(core, oldname, 'ps:has', NODECOUNT)
+            _check_tagdarks(core, oldname, 'ps:has', NODECOUNT)
+
+            # assert that no old data remains
+            _check_no_old_data_remains(core, oldname)
+
+        def _addTag(tag, form):
+            tick = now()
+            iden = guid()
+            tlib = s_types.TypeLib()
+            form_valu, _ = tlib.getTypeNorm('syn:tagform', (tag, form))
+            return [
+                (iden, 'syn:tagform:title', '??', tick),
+                (iden, 'syn:tagform', form_valu, tick),
+                (iden, 'tufo:form', 'syn:tagform', tick),
+                (iden, 'syn:tagform:tag', tag, tick),
+                (iden, 'syn:tagform:form', form, tick),
+                (iden, 'syn:tagform:doc', '??', tick),
+            ]
+
+        # Add rows to the storage layer so we have something to migrate
+        adds = []
+        for form in FORMS:
+            adds.extend(_addTag('hehe.hoho', form))
+            adds.extend(_addTag('hehe', form))
+
+        for i in range(N):
+            user = 'pennywise%d' % i
+            iden = guid()
+            dark_iden = iden[::-1]
+            tick = now()
+
+            adds.extend([
+                (iden, 'tufo:form', 'ps:hasuser', tick),
+                (iden, 'ps:hasuser:user', user, tick),
+                (iden, 'ps:hasuser:person', '2f6d1248de48f451e1f349cff33f336c', tick),
+                (iden, 'ps:hasuser', '2f6d1248de48f451e1f349cff33f336c/' + user, tick),
+                (iden, '#hehe.hoho', tick, tick),
+                (iden, '#hehe', tick, tick),
+                (dark_iden, '_:*ps:hasuser#hehe.hoho', tick, tick),
+                (dark_iden, '_:*ps:hasuser#hehe', tick, tick),
+            ])
+
+        # Spin up a core with the old rows, then run the migration and check the results
+        with s_cortex.openstore('ram:///') as stor:
+            stor.setModlVers('ps', 0)
+            def addrows(mesg):
+                stor.addRows(adds)
+            stor.on('modl:vers:rev', addrows, name='ps', vers=201802281621)
+
+            with s_cortex.fromstore(stor) as core:
+
+                # ps:hasuser ======================================================================
+                oldname = 'ps:hasuser'
+                reftype = 'inet:user'
+                def tufo_check(core):
+                    tufo = core.getTufoByProp('ps:has:xref', 'inet:user=pennywise0')
+                    self.eq(tufo[1]['tufo:form'], 'ps:has')
+                    self.eq(tufo[1]['ps:has'], 'f8cb39f7e4d8f1b82a5263c14655df68')
+                    self.eq(tufo[1]['ps:has:xref'], 'inet:user=pennywise0')
+                    self.eq(tufo[1]['ps:has:xref:prop'], 'inet:user')
+                    self.eq(tufo[1]['ps:has:xref:strval'], 'pennywise0')
+                    self.eq(tufo[1]['ps:has:person'], '2f6d1248de48f451e1f349cff33f336c')
+                    return tufo
+                run_assertions(core, oldname, reftype, tufo_check)
+                return
+
+                # ps:hashost ======================================================================
+                oldname = 'ps:hashost'
+                reftype = 'it:host'
+                tufo_check = None  # FIXME
+                run_assertions(core, oldname, reftype, tufo_check)
+                return
+
+                # ps:hasalias =====================================================================
+                oldname = 'ps:hasalias'
+                reftype = 'ps:name'
+                tufo_check = None  # FIXME
+                run_assertions(core, oldname, reftype, tufo_check)
+                return
+
+                # ps:hasphone =====================================================================
+                oldname = 'ps:hasphone'
+                reftype = 'tel:phone'
+                tufo_check = None  # FIXME
+                run_assertions(core, oldname, reftype, tufo_check)
+                return
+
+                # ps:hasemail =====================================================================
+                oldname = 'ps:hasemail'
+                reftype = 'inet:email'
+                tufo_check = None  # FIXME
+                run_assertions(core, oldname, reftype, tufo_check)
+                return
+
+                # ps:haswebacct ===================================================================
+                oldname = 'ps:haswebacct'
+                reftype = 'inet:web:acct'
+                tufo_check = None  # FIXME
+                run_assertions(core, oldname, reftype, tufo_check)
+                return
