@@ -236,10 +236,10 @@ class PersonTest(SynTest, ModelSeenMixin):
         def _check_tags(core, tufo, tags):
             self.eq(sorted(tags), sorted(s_tufo.tags(tufo)))
 
-        def _check_tagforms(core, oldname, newname, count):
+        def _check_tagforms(core, oldname, newname):
             self.len(0, core.getRowsByProp('syn:tagform:form', oldname))
             self.len(0, core.getJoinByProp(oldname))
-            self.len(count, core.getRowsByProp('syn:tagform:form', newname))
+            self.len(len(TAGS), core.getRowsByProp('syn:tagform:form', newname))
 
         def _check_tagdarks(core, oldname, newname, count):
             self.len(0, core.getRowsByProp('_:*' + oldname + '#hehe.hoho'))
@@ -261,7 +261,7 @@ class PersonTest(SynTest, ModelSeenMixin):
 
             # check that tags were correctly migrated
             _check_tags(core, tufo, TAGS)
-            _check_tagforms(core, oldname, 'ps:has', NODECOUNT)
+            _check_tagforms(core, oldname, 'ps:has')
             _check_tagdarks(core, oldname, 'ps:has', NODECOUNT)
             _check_darkmodlrev(core, tufo)
 
