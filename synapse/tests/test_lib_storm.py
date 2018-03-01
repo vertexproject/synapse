@@ -337,6 +337,31 @@ class StormTest(SynTest):
             self.none(node[1].get('#foo.bar'))
             self.none(node[1].get('#baz.faz'))
 
+    def test_storm_refs_ndef(self):
+        with self.getRamCore() as core:
+            pnode = core.formTufoByProp('ps:person', 32 * '0')
+            enode = core.formTufoByProp('inet:email', 'c00l@vertex.link')
+            pvalu = pnode[1].get('ps:person')
+            core.formTufoByProp('ps:has', (pvalu, ('inet:email', 'c00l@vertex.link')))
+            core.formTufoByProp('ps:has', (pvalu, ('inet:fqdn', 'vertex.link')))
+
+            outnodes = core.eval('ps:has refs(out)')  # out
+            outforms = sorted({node[1]['tufo:form'] for node in outnodes})
+            self.len(5, outnodes)
+            self.eq(outforms, ['inet:email', 'inet:fqdn', 'ps:has', 'ps:person'])
+
+            innodes = core.eval('ps:has refs(in)')  # in
+            informs = sorted({node[1]['tufo:form'] for node in innodes})
+            self.len(2, innodes)
+            self.eq(informs, ['ps:has'])  # Nothing refs in to these nodes
+
+            expected_bothforms = sorted(set(informs + outforms))
+
+            bothnodes = core.eval('ps:has refs()')  # in and out
+            bothforms = sorted({node[1]['tufo:form'] for node in bothnodes})
+            self.len(5, bothnodes)
+            self.eq(expected_bothforms, bothforms)
+
     def test_storm_refs(self):
         with self.getRamCore() as core:
             core.formTufoByProp('inet:dns:a', 'foo.com/1.2.3.4')
