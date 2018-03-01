@@ -342,8 +342,13 @@ class StormTest(SynTest):
             pnode = core.formTufoByProp('ps:person', 32 * '0')
             enode = core.formTufoByProp('inet:email', 'c00l@vertex.link')
             pvalu = pnode[1].get('ps:person')
-            core.formTufoByProp('ps:has', (pvalu, ('inet:email', 'c00l@vertex.link')))
+            phas0 = core.formTufoByProp('ps:has', (pvalu, ('inet:email', 'c00l@vertex.link')))
             core.formTufoByProp('ps:has', (pvalu, ('inet:fqdn', 'vertex.link')))
+
+            # It does not actually make sense to have a file reference a ps:has, this is just for testing
+            fnode = core.formTufoByProp('file:bytes:md5', 'd41d8cd98f00b204e9800998ecf8427e')
+            _, fvalu = s_tufo.ndef(fnode)
+            core.formTufoByProp('file:txtref', (fvalu, ('ps:has', phas0[1].get('ps:has'))))
 
             outnodes = core.eval('ps:has refs(out)')  # out
             outforms = sorted({node[1]['tufo:form'] for node in outnodes})
@@ -352,14 +357,14 @@ class StormTest(SynTest):
 
             innodes = core.eval('ps:has refs(in)')  # in
             informs = sorted({node[1]['tufo:form'] for node in innodes})
-            self.len(2, innodes)
-            self.eq(informs, ['ps:has'])  # Nothing refs in to these nodes
+            self.len(3, innodes)
+            self.eq(informs, ['file:txtref', 'ps:has'])  # Nothing refs in to these nodes
 
             expected_bothforms = sorted(set(informs + outforms))
 
             bothnodes = core.eval('ps:has refs()')  # in and out
             bothforms = sorted({node[1]['tufo:form'] for node in bothnodes})
-            self.len(5, bothnodes)
+            self.len(6, bothnodes)
             self.eq(expected_bothforms, bothforms)
 
     def test_storm_refs(self):
