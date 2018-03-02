@@ -93,7 +93,7 @@ class OuMod(s_module.CoreModule):
                 ]),
 
                 ('ou:owns', {'ptype': 'sepr', 'sep': '/', 'fields': 'owner,ou:org|owned,ou:org'}, [
-                ]),
+                ]),  # FIXME does this become an ou:has?
 
                 ('ou:hasalias', {'ptype': 'ou:hasalias'}, (
                     ('org', {'ptype': 'ou:org'}),
