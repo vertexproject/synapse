@@ -106,19 +106,6 @@ class PersonTest(SynTest, ModelSeenMixin):
 
             self.check_seen(core, node)
 
-    def test_model_person_has_email(self):
-        with self.getRamCore() as core:
-            iden = guid()
-            node = core.formTufoByProp('ps:hasemail', '%s/visi@VERTEX.link' % iden)
-
-            self.eq(node[1].get('ps:hasemail:email'), 'visi@vertex.link')
-            self.eq(node[1].get('ps:hasemail:person'), iden)
-
-            self.nn(core.getTufoByProp('ps:person', iden))
-            self.nn(core.getTufoByProp('inet:email', 'visi@vertex.link'))
-
-            self.check_seen(core, node)
-
     def test_model_person_has_webacct(self):
         with self.getRamCore() as core:
             iden = guid()
@@ -197,7 +184,7 @@ class PersonTest(SynTest, ModelSeenMixin):
 
     def test_model_ps_201802281621(self):
         N = 2
-        FORMS = ('ps:hasuser', 'ps:hasalias', 'ps:hasphone')
+        FORMS = ('ps:hasuser', 'ps:hasalias', 'ps:hasphone', 'ps:hasemail')
         NODECOUNT = N * len(FORMS)
         TAGS = ['hehe', 'hehe.hoho']
 
@@ -315,6 +302,24 @@ class PersonTest(SynTest, ModelSeenMixin):
                 (dark_iden, '_:*ps:hasphone#hehe', tick, tick),
             ])
 
+        for i in range(N):
+            email = 'email%d@vertex.link' % i
+            iden = guid()
+            dark_iden = iden[::-1]
+            tick = now()
+            adds.extend([
+                (iden, 'tufo:form', 'ps:hasemail', tick),
+                (iden, 'ps:hasemail:email', email, tick),
+                (iden, 'ps:hasemail:person', '2f6d1248de48f451e1f349cff33f336c', tick),
+                (iden, 'ps:hasemail', '2f6d1248de48f451e1f349cff33f336c/' + email, tick),
+                (iden, 'ps:hasemail:seen:min', 0, tick),
+                (iden, 'ps:hasemail:seen:max', 1, tick),
+                (iden, '#hehe.hoho', tick, tick),
+                (iden, '#hehe', tick, tick),
+                (dark_iden, '_:*ps:hasemail#hehe.hoho', tick, tick),
+                (dark_iden, '_:*ps:hasemail#hehe', tick, tick),
+            ])
+
         for form in FORMS:
             adds.extend(_addTag('hehe.hoho', form))
             adds.extend(_addTag('hehe', form))
@@ -327,7 +332,7 @@ class PersonTest(SynTest, ModelSeenMixin):
             stor.on('modl:vers:rev', addrows, name='ps', vers=201802281621)
 
             with s_cortex.fromstore(stor) as core:
-                # FIXME seen/min/max. hashost is a comp
+                # FIXME hashost is a comp
 
                 # ps:hasuser ======================================================================
                 oldname = 'ps:hasuser'
@@ -404,12 +409,27 @@ class PersonTest(SynTest, ModelSeenMixin):
 
                     return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
-                return
 
                 # ps:hasemail =====================================================================
                 oldname = 'ps:hasemail'
                 reftype = 'inet:email'
-                tufo_check = None  # FIXME
+                def tufo_check(core):
+                    tufo = core.getTufoByProp('ps:has:xref', 'inet:email=email0@vertex.link')
+                    self.eq(tufo[1]['tufo:form'], 'ps:has')
+                    self.eq(tufo[1]['ps:has'], 'f1459cf885d792f2a98ae89d36ee9227')
+                    self.eq(tufo[1]['ps:has:seen:min'], 0)
+                    self.eq(tufo[1]['ps:has:seen:max'], 1)
+                    self.eq(tufo[1]['ps:has:xref'], 'inet:email=email0@vertex.link')
+                    self.eq(tufo[1]['ps:has:xref:prop'], 'inet:email')
+                    self.eq(tufo[1]['ps:has:xref:node'], '79249f2582baef41cbed45f609e2ea89')
+                    self.eq(tufo[1]['ps:has:person'], '2f6d1248de48f451e1f349cff33f336c')
+
+                    # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
+                    core.formTufoByProp('inet:email', 'email0@vertex.link')
+                    namefo = core.getTufoByProp('node:ndef', '79249f2582baef41cbed45f609e2ea89')
+                    self.eq(namefo[1].get('inet:email'), 'email0@vertex.link')
+
+                    return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
                 return
 
