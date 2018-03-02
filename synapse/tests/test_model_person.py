@@ -166,7 +166,7 @@ class PersonTest(SynTest, ModelSeenMixin):
 
         def run_assertions(core, oldname, reftype, tufo_check):
             # assert that the correct number of items was migrated
-            tufos = core.getTufosByProp('ps:has:xref:prop', 'inet:user')
+            tufos = core.getTufosByProp('ps:has:xref:prop', reftype)
             self.len(N, tufos)
 
             # check that properties were correctly migrated and tags were not damaged
