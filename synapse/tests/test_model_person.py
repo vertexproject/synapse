@@ -90,22 +90,6 @@ class PersonTest(SynTest, ModelSeenMixin):
             self.nn(core.getTufoByProp('ps:tokn', 'kenshoto'))
             self.nn(core.getTufoByProp('ps:tokn', 'invisigoth'))
 
-    def test_model_person_has_host(self):
-        with self.getRamCore() as core:
-            pval = 32 * 'a'
-            hval = 32 * 'b'
-
-            node = core.formTufoByProp('ps:hashost', (pval, hval))
-
-            self.eq(node[1]['ps:hashost'], '20ffcd864aeb7f4f6e23d95680eeed47')
-            self.eq(node[1].get('ps:hashost:host'), hval)
-            self.eq(node[1].get('ps:hashost:person'), pval)
-
-            self.nn(core.getTufoByProp('ps:person', pval))
-            self.nn(core.getTufoByProp('it:host', hval))
-
-            self.check_seen(core, node)
-
     def test_model_person_contact(self):
 
         with self.getRamCore() as core:
@@ -152,7 +136,7 @@ class PersonTest(SynTest, ModelSeenMixin):
 
     def test_model_ps_201802281621(self):
         N = 2
-        FORMS = ('ps:hasuser', 'ps:hasalias', 'ps:hasphone', 'ps:hasemail', 'ps:haswebacct')
+        FORMS = ('ps:hasuser', 'ps:hashost', 'ps:hasalias', 'ps:hasphone', 'ps:hasemail', 'ps:haswebacct')
         NODECOUNT = N * len(FORMS)
         TAGS = ['hehe', 'hehe.hoho']
 
@@ -232,7 +216,24 @@ class PersonTest(SynTest, ModelSeenMixin):
                 (dark_iden, '_:*ps:hasuser#hehe', tick, tick),
             ])
 
-        # FIXME hashost
+        hostcompguids = ['05a67fe71d3f2ad5e7c9db1aa0eabb35', '0b579d971767ad8391baed2382bef53e']
+        for i in range(N):
+            host = 32 * str(i)
+            iden = guid()
+            dark_iden = iden[::-1]
+            tick = now()
+            adds.extend([
+                (iden, 'tufo:form', 'ps:hashost', tick),
+                (iden, 'ps:hashost:host', host, tick),
+                (iden, 'ps:hashost:person', '2f6d1248de48f451e1f349cff33f336c', tick),
+                (iden, 'ps:hashost', hostcompguids[i], tick),
+                (iden, 'ps:hashost:seen:min', 0, tick),
+                (iden, 'ps:hashost:seen:max', 1, tick),
+                (iden, '#hehe.hoho', tick, tick),
+                (iden, '#hehe', tick, tick),
+                (dark_iden, '_:*ps:hashost#hehe.hoho', tick, tick),
+                (dark_iden, '_:*ps:hashost#hehe', tick, tick),
+            ])
 
         for i in range(N):
             alias = 'ps:name%d' % i
@@ -343,14 +344,26 @@ class PersonTest(SynTest, ModelSeenMixin):
                 run_assertions(core, oldname, reftype, tufo_check)
 
                 # ps:hashost ======================================================================
-                # FIXME doing this last as it is a comp
-                '''
                 oldname = 'ps:hashost'
                 reftype = 'it:host'
-                tufo_check = None  # FIXME
+                def tufo_check(core):
+                    tufo = core.getTufoByProp('ps:has:xref', 'it:host=00000000000000000000000000000000')
+                    self.eq(tufo[1]['tufo:form'], 'ps:has')
+                    self.eq(tufo[1]['ps:has'], '4b4e7d417c84e75fbd30332bde6d9614')
+                    self.eq(tufo[1]['ps:has:seen:min'], 0)
+                    self.eq(tufo[1]['ps:has:seen:max'], 1)
+                    self.eq(tufo[1]['ps:has:xref'], 'it:host=00000000000000000000000000000000')
+                    self.eq(tufo[1]['ps:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ps:has:xref:node'], '09cd1fbc8b183f18c38ae034713af5e3')
+                    self.eq(tufo[1]['ps:has:person'], '2f6d1248de48f451e1f349cff33f336c')
+
+                    # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
+                    core.formTufoByProp(reftype, 32 * '0')
+                    userfo = core.getTufoByProp('node:ndef', '09cd1fbc8b183f18c38ae034713af5e3')
+                    self.eq(userfo[1].get(reftype), 32 * '0')
+
+                    return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
-                return
-                '''
 
                 # ps:hasalias =====================================================================
                 oldname = 'ps:hasalias'

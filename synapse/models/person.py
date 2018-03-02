@@ -115,8 +115,6 @@ class PsMod(s_module.CoreModule):
 
                 ('ps:contact', {'subof': 'guid', 'doc': 'A GUID for a contact info record'}),
 
-                ('ps:hashost', {'subof': 'comp', 'fields': 'person=ps:person,host=it:host'}),
-
                 ('ps:has', {
                     'subof': 'xref',
                     'source': 'person,ps:person',
@@ -190,13 +188,6 @@ class PsMod(s_module.CoreModule):
                     ('person', {'ptype': 'ps:person'}),
                     ('file', {'ptype': 'file:bytes'}),
                     # FIXME add an optional bounding box
-                )),
-
-                ('ps:hashost', {'ptype': 'ps:hashost'}, (
-                    ('person', {'ptype': 'ps:person'}),
-                    ('host', {'ptype': 'it:host'}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
                 )),
 
                 ('ps:has', {}, [
