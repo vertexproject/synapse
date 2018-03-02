@@ -2,11 +2,11 @@ import logging
 
 import synapse.common as s_common
 import synapse.lib.tufo as s_tufo
-from synapse.lib.module import CoreModule, modelrev
+import synapse.lib.module as s_module
 
 logger = logging.getLogger(__name__)
 
-class SynMod(CoreModule):
+class SynMod(s_module.CoreModule):
     @staticmethod
     def getBaseModels():
         modl = {
@@ -141,7 +141,7 @@ class SynMod(CoreModule):
         name = 'syn'
         return ((name, modl),)
 
-    @modelrev('syn', 201709051630)
+    @s_module.modelrev('syn', 201709051630)
     def _delOldModelNodes(self):
         types = self.core.getRowsByProp('syn:type')
         forms = self.core.getRowsByProp('syn:form')
@@ -154,7 +154,7 @@ class SynMod(CoreModule):
             [self.core.delRowsById(r[0]) for r in props]
             [self.core.delRowsById(r[0]) for r in syncore]
 
-    @modelrev('syn', 201709191412)
+    @s_module.modelrev('syn', 201709191412)
     def _revModl201709191412(self):
         '''
         Migrate the XREF types to use the propvalu syntax.
@@ -208,7 +208,7 @@ class SynMod(CoreModule):
             for prop in dels:
                 self.core.delRowsByProp(prop)
 
-    @modelrev('syn', 201710191144)
+    @s_module.modelrev('syn', 201710191144)
     def _revModl201710191144(self):
         with self.core.getCoreXact():
             now = s_common.now()
@@ -229,7 +229,7 @@ class SynMod(CoreModule):
                     logger.debug('Loading {:,d} [{}%] rows into transaction'.format(i, int((i / tot) * 100)))
         logger.debug('Finished adding node:created rows to the Cortex')
 
-    @modelrev('syn', 201711012123)
+    @s_module.modelrev('syn', 201711012123)
     def _revModl201711012123(self):
         now = s_common.now()
         forms = sorted(self.core.getTufoForms())

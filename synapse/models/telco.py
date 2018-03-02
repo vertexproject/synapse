@@ -4,7 +4,7 @@ import synapse.common as s_common
 
 import synapse.lookup.phonenum as s_l_phone
 from synapse.lib.types import DataType
-from synapse.lib.module import CoreModule, modelrev
+import synapse.lib.module as s_module
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +170,7 @@ class ImsiType(DataType):
         # TODO full imsi analysis tree
         return valu, {'mcc': mcc}
 
-class TelMod(CoreModule):
+class TelMod(s_module.CoreModule):
 
     def initCoreModule(self):
         # TODO

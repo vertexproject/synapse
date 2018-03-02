@@ -2,7 +2,7 @@ import synapse.lib.gis as s_gis
 import synapse.lib.types as s_types
 import synapse.lib.syntax as s_syntax
 
-from synapse.lib.module import CoreModule
+import synapse.lib.module as s_module
 
 class LatLongType(s_types.DataType):
 
@@ -62,7 +62,7 @@ class DistType(s_types.DataType):
 
         return valu * mult, {}
 
-class GeoMod(CoreModule):
+class GeoMod(s_module.CoreModule):
 
     @staticmethod
     def getBaseModels():

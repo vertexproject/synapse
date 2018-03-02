@@ -1,7 +1,7 @@
 from synapse.common import guid
-from synapse.lib.module import CoreModule, modelrev
+import synapse.lib.module as s_module
 
-class GovCnMod(CoreModule):
+class GovCnMod(s_module.CoreModule):
 
     @staticmethod
     def getBaseModels():

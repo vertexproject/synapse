@@ -15,7 +15,7 @@ import synapse.lookup.iana as s_l_iana
 
 from synapse.exc import BadTypeValu
 from synapse.lib.types import DataType
-from synapse.lib.module import CoreModule, modelrev
+import synapse.lib.module as s_module
 
 logger = logging.getLogger(__name__)
 
@@ -404,7 +404,7 @@ class AddrType(DataType):
         addr, _ = self.tlib.getTypeNorm('inet:ipv6', valu)
         return addr, subs
 
-class InetMod(CoreModule):
+class InetMod(s_module.CoreModule):
 
     def initCoreModule(self):
         # add an inet:defang cast to swap [.] to .
@@ -434,7 +434,7 @@ class InetMod(CoreModule):
         for tufo in self.core.getTufosByProp('inet:fqdn:domain', fqdn):
             self.core.setTufoProp(tufo, 'zone', sfx)
 
-    @modelrev('inet', 201706201837)
+    @s_module.modelrev('inet', 201706201837)
     def _revModl201706201837(self):
         '''
         Add :port and :ipv4 to inet:tcp4 and inet:udp4 nodes.
@@ -462,7 +462,7 @@ class InetMod(CoreModule):
             if adds:
                 self.core.addRows(adds)
 
-    @modelrev('inet', 201706121318)
+    @s_module.modelrev('inet', 201706121318)
     def _revModl201706121318(self):
 
         # account for the updated sub-property extraction for inet:url nodes
@@ -483,11 +483,11 @@ class InetMod(CoreModule):
         if adds:
             self.core.addRows(adds)
 
-    @modelrev('inet', 201708231646)
+    @s_module.modelrev('inet', 201708231646)
     def _revModl201708231646(self):
         pass # for legacy/backward compat
 
-    @modelrev('inet', 201709181501)
+    @s_module.modelrev('inet', 201709181501)
     def _revModl201709181501(self):
         '''
         Replace inet:whois:rec:ns<int> rows with inet:whos:recns nodes.
@@ -528,7 +528,7 @@ class InetMod(CoreModule):
         for prop in delprops:
             self.core.delRowsByProp(prop)
 
-    @modelrev('inet', 201709271521)
+    @s_module.modelrev('inet', 201709271521)
     def _revModl201709271521(self):
         '''
         Rename inet:net* to inet:web*
@@ -747,7 +747,7 @@ class InetMod(CoreModule):
                     continue
                 self.core.store.updateProperty(old, new)
 
-    @modelrev('inet', 201710111553)
+    @s_module.modelrev('inet', 201710111553)
     def _revModl201710111553(self):
 
         adds, dels = [], []
@@ -764,7 +764,7 @@ class InetMod(CoreModule):
             for i, p, v in dels:
                 self.core.delRowsByIdProp(i, p, v)
 
-    @modelrev('inet', 201802131725)
+    @s_module.modelrev('inet', 201802131725)
     def _revModel201802131725(self):
         # mark changed nodes with a dark row...
         dvalu = 'inet:201802131725'

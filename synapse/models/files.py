@@ -2,7 +2,7 @@ import synapse.common as s_common
 
 from synapse.lib.types import DataType
 from synapse.common import addpref, guid
-from synapse.lib.module import CoreModule, modelrev
+import synapse.lib.module as s_module
 
 class FileBaseType(DataType):
     def norm(self, valu, oldval=None):
@@ -71,7 +71,7 @@ class FileRawPathType(DataType):
 
         return valu, subs
 
-class FileMod(CoreModule):
+class FileMod(s_module.CoreModule):
 
     def initCoreModule(self):
         self.core.addSeedCtor('file:bytes:md5', self.seedFileMd5)

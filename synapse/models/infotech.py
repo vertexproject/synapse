@@ -5,7 +5,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.version as s_version
 
-from synapse.lib.module import CoreModule, modelrev
+import synapse.lib.module as s_module
 from synapse.lib.types import DataType
 
 logger = logging.getLogger(__name__)
@@ -134,7 +134,7 @@ def bruteStr(valu):
                                          subs.get('patch', 0))
             return valu, subs
 
-class ItMod(CoreModule):
+class ItMod(s_module.CoreModule):
 
     def initCoreModule(self):
         self.onFormNode('it:dev:str', self._onFormItDevStr)
@@ -144,7 +144,7 @@ class ItMod(CoreModule):
     def _onFormItDevStr(self, form, valu, props, mesg):
         props['it:dev:str:norm'] = valu.lower()
 
-    @modelrev('it', 201801041154)
+    @s_module.modelrev('it', 201801041154)
     def _revModl201801041154(self):
 
         now = s_common.now()
