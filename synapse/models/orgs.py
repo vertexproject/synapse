@@ -48,6 +48,12 @@ class OuMod(s_module.CoreModule):
                 ('ou:hasphone', {'subof': 'comp', 'fields': 'org=ou:org,phone=tel:phone'}),
                 ('ou:haswebacct', {'subof': 'comp', 'fields': 'org=ou:org,web:acct=inet:web:acct'}),
 
+                ('ou:has', {
+                    'subof': 'xref',
+                    'source': 'org,ou:org',
+                    'doc': 'FIXME An org owns, controls, or has exclusive use of an object or resource,'
+                        'potentially during a specific period of time.'}),
+
             ),
 
             'forms': (
@@ -137,6 +143,20 @@ class OuMod(s_module.CoreModule):
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
                 ]),
+
+                ('ou:has', {}, [
+                    ('org', {'ptype': 'ou:org', 'ro': 1, 'req': 1,
+                        'doc': 'FIXME The org who owns or controls the object or resource.'}),
+                    ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
+                        'doc': 'FIXME The object or resource (prop=valu) that is owned or controlled by the org.'}),
+                    ('xref:node', {'ptype': 'ndef', 'ro': 1, 'req': 1,
+                        'doc': 'FIXME The ndef of the node that is owned or controlled by the org.'}),
+                    ('xref:prop', {'ptype': 'str', 'ro': 1,
+                        'doc': 'FIXME The property (form) of the object or resource that is owned or controlled by the org.'}),
+                    ('seen:min', {'ptype': 'time:min'}),
+                    ('seen:max', {'ptype': 'time:max'}),
+                ]),
+
             ),
         }
         name = 'ou'
