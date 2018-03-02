@@ -90,19 +90,6 @@ class PersonTest(SynTest, ModelSeenMixin):
             self.nn(core.getTufoByProp('ps:tokn', 'kenshoto'))
             self.nn(core.getTufoByProp('ps:tokn', 'invisigoth'))
 
-    def test_model_person_has_alias(self):
-        with self.getRamCore() as core:
-            iden = guid()
-            node = core.formTufoByProp('ps:hasalias', '%s/Kenshoto,Invisigoth' % iden)
-
-            self.eq(node[1].get('ps:hasalias:alias'), 'kenshoto,invisigoth')
-            self.eq(node[1].get('ps:hasalias:person'), iden)
-
-            self.nn(core.getTufoByProp('ps:person', iden))
-            self.nn(core.getTufoByProp('ps:name', 'kenshoto,invisigoth'))
-
-            self.check_seen(core, node)
-
     def test_model_person_has_host(self):
         with self.getRamCore() as core:
             pval = 32 * 'a'
@@ -223,7 +210,7 @@ class PersonTest(SynTest, ModelSeenMixin):
 
     def test_model_ps_201802281621(self):
         N = 2
-        FORMS = ('ps:hasuser', )
+        FORMS = ('ps:hasuser', 'ps:hasalias')
         NODECOUNT = N * len(FORMS)
         TAGS = ['hehe', 'hehe.hoho']
 
@@ -284,16 +271,12 @@ class PersonTest(SynTest, ModelSeenMixin):
 
         # Add rows to the storage layer so we have something to migrate
         adds = []
-        for form in FORMS:
-            adds.extend(_addTag('hehe.hoho', form))
-            adds.extend(_addTag('hehe', form))
 
         for i in range(N):
-            user = 'pennywise%d' % i
+            user = 'inet:user%d' % i
             iden = guid()
             dark_iden = iden[::-1]
             tick = now()
-
             adds.extend([
                 (iden, 'tufo:form', 'ps:hasuser', tick),
                 (iden, 'ps:hasuser:user', user, tick),
@@ -306,6 +289,30 @@ class PersonTest(SynTest, ModelSeenMixin):
                 (dark_iden, '_:*ps:hasuser#hehe.hoho', tick, tick),
                 (dark_iden, '_:*ps:hasuser#hehe', tick, tick),
             ])
+
+        # FIXME hashost
+
+        for i in range(N):
+            alias = 'ps:name%d' % i
+            iden = guid()
+            dark_iden = iden[::-1]
+            tick = now()
+            adds.extend([
+                (iden, 'tufo:form', 'ps:hasalias', tick),
+                (iden, 'ps:hasalias:alias', alias, tick),
+                (iden, 'ps:hasalias:person', '2f6d1248de48f451e1f349cff33f336c', tick),
+                (iden, 'ps:hasalias', '2f6d1248de48f451e1f349cff33f336c/' + alias, tick),
+                (iden, 'ps:hasalias:seen:min', 0, tick),
+                (iden, 'ps:hasalias:seen:max', 1, tick),
+                (iden, '#hehe.hoho', tick, tick),
+                (iden, '#hehe', tick, tick),
+                (dark_iden, '_:*ps:hasalias#hehe.hoho', tick, tick),
+                (dark_iden, '_:*ps:hasalias#hehe', tick, tick),
+            ])
+
+        for form in FORMS:
+            adds.extend(_addTag('hehe.hoho', form))
+            adds.extend(_addTag('hehe', form))
 
         # Spin up a core with the old rows, then run the migration and check the results
         with s_cortex.openstore('ram:///') as stor:
@@ -321,36 +328,54 @@ class PersonTest(SynTest, ModelSeenMixin):
                 oldname = 'ps:hasuser'
                 reftype = 'inet:user'
                 def tufo_check(core):
-                    tufo = core.getTufoByProp('ps:has:xref', 'inet:user=pennywise0')
+                    tufo = core.getTufoByProp('ps:has:xref', 'inet:user=inet:user0')
                     self.eq(tufo[1]['tufo:form'], 'ps:has')
-                    self.eq(tufo[1]['ps:has'], 'f8cb39f7e4d8f1b82a5263c14655df68')
+                    self.eq(tufo[1]['ps:has'], '1d69ccd1948c985d9467fb4d3caab4f1')
                     self.eq(tufo[1]['ps:has:seen:min'], 0)
                     self.eq(tufo[1]['ps:has:seen:max'], 1)
-                    self.eq(tufo[1]['ps:has:xref'], 'inet:user=pennywise0')
+                    self.eq(tufo[1]['ps:has:xref'], 'inet:user=inet:user0')
                     self.eq(tufo[1]['ps:has:xref:prop'], 'inet:user')
-                    self.eq(tufo[1]['ps:has:xref:node'], '707d5a722ceaa4101d19d7ce3b1a60bb')
+                    self.eq(tufo[1]['ps:has:xref:node'], 'bec8693bb5b38ffe62b97b0d2b7cdbb5')
                     self.eq(tufo[1]['ps:has:person'], '2f6d1248de48f451e1f349cff33f336c')
 
                     # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
-                    core.formTufoByProp('inet:user', 'pennywise0')
-                    userfo = core.getTufoByProp('node:ndef', '707d5a722ceaa4101d19d7ce3b1a60bb')
-                    self.eq(userfo[1].get('inet:user'), 'pennywise0')
+                    core.formTufoByProp('inet:user', 'inet:user0')
+                    userfo = core.getTufoByProp('node:ndef', 'bec8693bb5b38ffe62b97b0d2b7cdbb5')
+                    self.eq(userfo[1].get('inet:user'), 'inet:user0')
 
                     return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
-                return
 
                 # ps:hashost ======================================================================
+                # FIXME doing this last as it is a comp
+                '''
                 oldname = 'ps:hashost'
                 reftype = 'it:host'
                 tufo_check = None  # FIXME
                 run_assertions(core, oldname, reftype, tufo_check)
                 return
+                '''
 
                 # ps:hasalias =====================================================================
                 oldname = 'ps:hasalias'
                 reftype = 'ps:name'
-                tufo_check = None  # FIXME
+                def tufo_check(core):
+                    tufo = core.getTufoByProp('ps:has:xref', 'ps:name=ps:name0')
+                    self.eq(tufo[1]['tufo:form'], 'ps:has')
+                    self.eq(tufo[1]['ps:has'], '5225cebcede28ca91fae6d9dcf0442f0')
+                    self.eq(tufo[1]['ps:has:seen:min'], 0)
+                    self.eq(tufo[1]['ps:has:seen:max'], 1)
+                    self.eq(tufo[1]['ps:has:xref'], 'ps:name=ps:name0')
+                    self.eq(tufo[1]['ps:has:xref:prop'], 'ps:name')
+                    self.eq(tufo[1]['ps:has:xref:node'], '06359585e4d66e7ab081aaafdedabe39')
+                    self.eq(tufo[1]['ps:has:person'], '2f6d1248de48f451e1f349cff33f336c')
+
+                    # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
+                    core.formTufoByProp('ps:name', 'ps:name0')
+                    namefo = core.getTufoByProp('node:ndef', '06359585e4d66e7ab081aaafdedabe39')
+                    self.eq(namefo[1].get('ps:name'), 'ps:name0')
+
+                    return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
                 return
 
