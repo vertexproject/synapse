@@ -147,6 +147,8 @@ def docConfigables(outp, fd):
         rst.addHead(name=obj_path, lvl=1)
         for detail in details:
             confvalu, confdict = detail[0], detail[1]
+            if confvalu == 'port':
+                print(obj_path, confvalu, confdict)
             rst.addHead(confvalu, lvl=2)
             _keys = list(confdict.keys())
             _keys.sort()
