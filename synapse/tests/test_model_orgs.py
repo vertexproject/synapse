@@ -1,4 +1,5 @@
 import synapse.lib.tufo as s_tufo
+import synapse.lib.types as s_types
 
 from synapse.tests.common import *
 
@@ -175,3 +176,141 @@ class OrgTest(SynTest, ModelSeenMixin):
             nodes = core.eval('ou:org=%s -> ou:member:org :person -> ps:person' % oprop)
             self.len(1, nodes)
             self.eq(pprop, nodes[0][1].get('ps:person'))
+
+    def test_model_ou_201802281621(self):
+        # FIXME a lot of this code can be combined with the ps:has migration
+        N = 2
+        # FORMS = ('ps:hasuser', 'ps:hashost', 'ps:hasalias', 'ps:hasphone', 'ps:hasemail', 'ps:haswebacct')
+        FORMS = ('ou:hasalias', )
+        NODECOUNT = N * len(FORMS)
+        TAGS = ['hehe', 'hehe.hoho']
+
+        def _check_no_old_data_remains(core, oldname):
+            tufos = core.getTufosByProp(oldname)
+            self.len(0, tufos)
+            rows = core.getJoinByProp(oldname)
+            self.len(0, rows)
+
+        def _check_tags(core, tufo, tags):
+            self.eq(sorted(tags), sorted(s_tufo.tags(tufo)))
+
+        def _check_tagforms(core, oldname, newname):
+            self.len(0, core.getRowsByProp('syn:tagform:form', oldname))
+            self.len(0, core.getJoinByProp(oldname))
+            self.len(len(TAGS), core.getRowsByProp('syn:tagform:form', newname))
+
+        def _check_tagdarks(core, oldname, newname, count):
+            self.len(0, core.getRowsByProp('_:*' + oldname + '#hehe.hoho'))
+            self.len(0, core.getRowsByProp('_:*' + oldname + '#hehe'))
+            self.len(count, core.getRowsByProp('_:*' + newname + '#hehe.hoho'))
+            self.len(count, core.getRowsByProp('_:*' + newname + '#hehe'))
+
+        def _check_darkmodlrev(core, tufo):
+            dark_rows = core.getRowsById(tufo[0][::-1])
+            self.true(any([p == '_:dark:syn:modl:rev' and v == 'ou:201802281621' for (i, p, v, t) in dark_rows]))
+
+        def run_assertions(core, oldname, reftype, tufo_check):
+            # assert that the correct number of items was migrated
+            tufos = core.getTufosByProp('ou:has:xref:prop', reftype)
+            self.len(N, tufos)
+
+            # check that properties were correctly migrated and tags were not damaged
+            tufo = tufo_check(core)
+
+            # check that tags were correctly migrated
+            _check_tags(core, tufo, TAGS)
+            _check_tagforms(core, oldname, 'ou:has')
+            _check_tagdarks(core, oldname, 'ou:has', NODECOUNT)
+            _check_darkmodlrev(core, tufo)
+
+            # assert that no old data remains
+            _check_no_old_data_remains(core, oldname)
+
+        def _addTag(tag, form):
+            tick = now()
+            iden = guid()
+            tlib = s_types.TypeLib()
+            form_valu, _ = tlib.getTypeNorm('syn:tagform', (tag, form))
+            return [
+                (iden, 'syn:tagform:title', '??', tick),
+                (iden, 'syn:tagform', form_valu, tick),
+                (iden, 'tufo:form', 'syn:tagform', tick),
+                (iden, 'syn:tagform:tag', tag, tick),
+                (iden, 'syn:tagform:form', form, tick),
+                (iden, 'syn:tagform:doc', '??', tick),
+            ]
+
+        # Add rows to the storage layer so we have something to migrate
+        adds = []
+
+        # NOTE: Not migrating ou:hasalias, see below
+        filecompguids = ['d146d3e5d63fc05baa25532b7cbac96e', '424079c0c7e3132073c90747ba5f59bd']
+        for i in range(N):
+            fval = 32 * str(i)
+            iden = guid()
+            dark_iden = iden[::-1]
+            tick = now()
+            adds.extend([
+                (iden, 'tufo:form', 'ou:hasfile', tick),
+                (iden, 'ou:hasfile:file', fval, tick),
+                (iden, 'ou:hasfile:org', 32 * 'a', tick),
+                (iden, 'ou:hasfile', filecompguids[i], tick),
+                (iden, 'ou:hasfile:seen:min', 0, tick),
+                (iden, 'ou:hasfile:seen:max', 1, tick),
+                (iden, '#hehe.hoho', tick, tick),
+                (iden, '#hehe', tick, tick),
+                (dark_iden, '_:*ou:hasfile#hehe.hoho', tick, tick),
+                (dark_iden, '_:*ou:hasfile#hehe', tick, tick),
+            ])
+
+        for form in FORMS:
+            adds.extend(_addTag('hehe.hoho', form))
+            adds.extend(_addTag('hehe', form))
+
+        # Spin up a core with the old rows, then run the migration and check the results
+        with s_cortex.openstore('ram:///') as stor:
+            stor.setModlVers('ou', 0)
+            def addrows(mesg):
+                stor.addRows(adds)
+            stor.on('modl:vers:rev', addrows, name='ou', vers=201802281621)
+
+            with s_cortex.fromstore(stor) as core:
+
+                orgval = 32 * 'a'
+
+                # ou:hasalias =====================================================================
+                # NOTE: This form is not being migrated as it is not possible to form them correctly
+                # This can be migrated *IF* we make ou:alias a form
+
+                # ou:hasfile ======================================================================
+                oldname = 'ou:hasfile'
+                reftype = 'file:bytes'
+                refval = 32 * '0'
+                xrval = '%s=%s' % (reftype, refval)
+                ndefval = '8c313cbd0f67bd15eb2bf3adea46a9dd'
+                hasval = '9c9eceba074787316af6750f307b8118'
+                def tufo_check(core):
+                    tufo = core.getTufoByProp('ou:has:xref', xrval)
+                    self.eq(tufo[1]['tufo:form'], 'ou:has')
+                    self.eq(tufo[1]['ou:has'], hasval)
+                    self.eq(tufo[1]['ou:has:seen:min'], 0)
+                    self.eq(tufo[1]['ou:has:seen:max'], 1)
+                    self.eq(tufo[1]['ou:has:xref'], xrval)
+                    self.eq(tufo[1]['ou:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ou:has:xref:node'], ndefval)
+                    self.eq(tufo[1]['ou:has:org'], orgval)
+
+                    # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
+                    core.formTufoByProp(reftype, refval)
+                    userfo = core.getTufoByProp('node:ndef', ndefval)
+                    self.eq(userfo[1].get(reftype), refval)
+
+                    return tufo
+                run_assertions(core, oldname, reftype, tufo_check)
+
+                # ou:hasfqdn ======================================================================
+                # ou:hasipv4 ======================================================================
+                # ou:hashost ======================================================================
+                # ou:hasemail =====================================================================
+                # ou:hasphone =====================================================================
+                # ou:haswebacct ===================================================================

@@ -1,4 +1,6 @@
 from synapse.common import guid
+
+import synapse.lib.tufo as s_tufo
 import synapse.lib.module as s_module
 
 class OuMod(s_module.CoreModule):
@@ -19,7 +21,7 @@ class OuMod(s_module.CoreModule):
             node = self.core.formTufoByProp('ou:org', guid(), alias=valu, **props)
         return node
 
-    @modelrev('ou', 201802281621)
+    @s_module.modelrev('ou', 201802281621)
     def _revModl201802281621(self):
         '''
         Combine ou:has* into ou:has
@@ -95,7 +97,6 @@ class OuMod(s_module.CoreModule):
                 ('ou:member', {'subof': 'comp', 'fields': 'org,ou:org|person,ps:person',
                                'doc': 'A person who is (or was) a member of an organization.'}),
 
-                ('ou:hasalias', {'subof': 'comp', 'fields': 'org=ou:org,alias=ou:alias'}),
                 ('ou:hasfile', {'subof': 'comp', 'fields': 'org=ou:org,file=file:bytes'}),
                 ('ou:hasfqdn', {'subof': 'comp', 'fields': 'org=ou:org,fqdn=inet:fqdn'}),
                 ('ou:hasipv4', {'subof': 'comp', 'fields': 'org=ou:org,ipv4=inet:ipv4'}),
@@ -151,12 +152,6 @@ class OuMod(s_module.CoreModule):
                 ('ou:owns', {'ptype': 'sepr', 'sep': '/', 'fields': 'owner,ou:org|owned,ou:org'}, [
                 ]),  # FIXME does this become an ou:has?
 
-                ('ou:hasalias', {'ptype': 'ou:hasalias'}, (
-                    ('org', {'ptype': 'ou:org'}),
-                    ('alias', {'ptype': 'ou:alias'}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                )),
                 ('ou:hasfile', {}, [
                     ('org', {'ptype': 'ou:org', 'ro': 1}),
                     ('file', {'ptype': 'file:bytes', 'ro': 1}),
