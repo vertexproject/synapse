@@ -118,7 +118,8 @@ class PsMod(s_module.CoreModule):
                 ('ps:has', {
                     'subof': 'xref',
                     'source': 'person,ps:person',
-                    'doc': 'A person that has a thing. FIXME reword'}),
+                    'doc': 'A person owns, controls, or has exclusive use of an object or resource,'
+                        'potentially during a specific period of time.'}),
 
                 ('ps:image', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|file,file:bytes'}),
 
@@ -192,13 +193,13 @@ class PsMod(s_module.CoreModule):
 
                 ('ps:has', {}, [
                     ('person', {'ptype': 'ps:person', 'ro': 1, 'req': 1,
-                        'doc': 'The person that has the given node.'}),
+                        'doc': 'The person who owns or controls the object or resource.'}),
                     ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
-                        'doc': 'The prop=valu that is referenced as part of the FIXME.'}),
+                        'doc': 'The object or resource (prop=valu) that is owned or controlled by the person.'}),
                     ('xref:node', {'ptype': 'ndef', 'ro': 1, 'req': 1,
-                        'doc': 'FIXME.'}),
+                        'doc': 'The ndef of the node that is owned or controlled by the person.'}),
                     ('xref:prop', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The property (form) of the referenced object, as specified by the propvalu.'}),
+                        'doc': 'The property (form) of the object or resource that is owned or controlled by the person.'}),
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
                 ]),
