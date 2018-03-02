@@ -1101,8 +1101,16 @@ class StormTest(SynTest):
             self.notin('.new', node1[1])
             self.eq(node0[0], node1[0])
 
-            node2 = core.eval('addnode(ps:haswebacct, ((guidname="bob gray"),vertex.link/pennywise))')[0]
-            self.eq(node2[1].get('ps:haswebacct'), 'faebe657f7a5839ecda3f8af15293893/vertex.link/pennywise')
+            pnode = core.eval('addnode(ps:person, (guidname="bob gray"))')[0]
+            pguid = pnode[1].get('ps:person')
+            self.eq(pguid, 'faebe657f7a5839ecda3f8af15293893')
+
+            node2 = core.eval('addnode(ps:has, (faebe657f7a5839ecda3f8af15293893,(inet:web:acct,vertex.link/pennywise)))')[0]
+            self.eq(node2[1].get('ps:has'), 'e845e52f7bd78385291d3df6c1aeda31')
+            self.eq(node2[1].get('ps:has:person'), 'faebe657f7a5839ecda3f8af15293893')
+            self.eq(node2[1].get('ps:has:xref'), 'inet:web:acct=vertex.link/pennywise')
+            self.eq(node2[1].get('ps:has:xref:prop'), 'inet:web:acct')
+            self.eq(node2[1].get('ps:has:xref:node'), '600ec8667d978eba100b8a412f7154ae')
 
             node3 = core.eval('addnode(ou:haswebacct, ((alias="vertex"),vertex.link/pennywise))')[0]
             self.eq(node3[1].get('ou:haswebacct'), 'e0d1c290732ac433444afe7b5825f94d')
