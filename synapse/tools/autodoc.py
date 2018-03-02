@@ -350,7 +350,7 @@ def main(argv, outp=None):
             return docModel(outp, fd, core)
 
     if opts.configable_opts:
-        docConfigables(outp, fd)
+        return docConfigables(outp, fd)
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))
