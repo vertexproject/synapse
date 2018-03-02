@@ -1,6 +1,8 @@
 import os
 import sys
+import shutil
 import argparse
+import tempfile
 import importlib
 import collections
 
@@ -8,6 +10,7 @@ import synapse
 
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.dyndeps as s_dyndeps
 
 import synapse.lib.tufo as s_tufo
 import synapse.lib.config as s_config
@@ -29,6 +32,15 @@ obj_path_skips = ('synapse.cores.common.Runtime',
                   'synapse.cores.storage.Storage',
                   )
 
+obj_instance_confs = [
+    ('synapse.neuron.Cell', {'bind': '127.0.0.1'}),
+    ('synapse.neuron.Neuron', {'bind': '127.0.0.1', 'port': 0}),
+]
+
+obj_instance_reqpath = [
+    'synapse.neuron.Cell',
+]
+
 descr = '''
 Command line tool to generate various synapse documentation
 '''
@@ -47,7 +59,9 @@ def reprvalu(valu):
     return '%d (0x%x)' % (valu, valu)
 
 def inspect_mod(mod, cls):
-    '''Find Config classes in a module which has @confdef decorated functions in them.'''
+    '''
+    Find Config classes in a module which has @confdef decorated functions in them.
+    '''
     for modname in dir(mod):
         valu = getattr(mod, modname)
         try:
@@ -104,6 +118,25 @@ def docConfigables(outp, fd):
                 if not rslt:
                     continue
                 detaildict[obj_path].append(rslt)
+
+    # Extract configable information from object instances
+    cls_req_paths = tuple([s_dyndeps.getDynMeth(obj_path) for obj_path
+                           in obj_instance_reqpath])
+    tdir = tempfile.mkdtemp()
+    for obj_path, conf in obj_instance_confs:
+        fp = os.path.join(tdir, obj_path)
+        cls = s_dyndeps.getDynMeth(obj_path)
+        # Handle special configables which require additional args
+        if issubclass(cls, cls_req_paths):
+            os.makedirs(fp)
+            obj = cls(fp, conf=conf)  # type: s_config.Config
+        else:
+            obj = cls(conf=conf)  # type: s_config.Config
+        cdefs = obj.getConfDefs()
+        cdefs = list(cdefs.items())
+        detaildict[obj_path].extend(cdefs)
+        obj.fini()
+    shutil.rmtree(tdir, ignore_errors=True)
 
     # Now make the RST proper like
     keys = list(detaildict.keys())
