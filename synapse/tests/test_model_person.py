@@ -119,19 +119,6 @@ class PersonTest(SynTest, ModelSeenMixin):
 
             self.check_seen(core, node)
 
-    def test_model_person_has_phone(self):
-        with self.getRamCore() as core:
-            iden = guid()
-            node = core.formTufoByProp('ps:hasphone', '%s/17035551212' % iden)
-
-            self.eq(node[1].get('ps:hasphone:phone'), 17035551212)
-            self.eq(node[1].get('ps:hasphone:person'), iden)
-
-            self.nn(core.getTufoByProp('ps:person', iden))
-            self.nn(core.getTufoByProp('tel:phone', 17035551212))
-
-            self.check_seen(core, node)
-
     def test_model_person_has_webacct(self):
         with self.getRamCore() as core:
             iden = guid()
@@ -210,7 +197,7 @@ class PersonTest(SynTest, ModelSeenMixin):
 
     def test_model_ps_201802281621(self):
         N = 2
-        FORMS = ('ps:hasuser', 'ps:hasalias')
+        FORMS = ('ps:hasuser', 'ps:hasalias', 'ps:hasphone')
         NODECOUNT = N * len(FORMS)
         TAGS = ['hehe', 'hehe.hoho']
 
@@ -310,6 +297,24 @@ class PersonTest(SynTest, ModelSeenMixin):
                 (dark_iden, '_:*ps:hasalias#hehe', tick, tick),
             ])
 
+        for i in range(N):
+            phone = (123456789 * 10) + i
+            iden = guid()
+            dark_iden = iden[::-1]
+            tick = now()
+            adds.extend([
+                (iden, 'tufo:form', 'ps:hasphone', tick),
+                (iden, 'ps:hasphone:phone', phone, tick),
+                (iden, 'ps:hasphone:person', '2f6d1248de48f451e1f349cff33f336c', tick),
+                (iden, 'ps:hasphone', '2f6d1248de48f451e1f349cff33f336c/' + str(phone), tick),
+                (iden, 'ps:hasphone:seen:min', 0, tick),
+                (iden, 'ps:hasphone:seen:max', 1, tick),
+                (iden, '#hehe.hoho', tick, tick),
+                (iden, '#hehe', tick, tick),
+                (dark_iden, '_:*ps:hasphone#hehe.hoho', tick, tick),
+                (dark_iden, '_:*ps:hasphone#hehe', tick, tick),
+            ])
+
         for form in FORMS:
             adds.extend(_addTag('hehe.hoho', form))
             adds.extend(_addTag('hehe', form))
@@ -377,12 +382,27 @@ class PersonTest(SynTest, ModelSeenMixin):
 
                     return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
-                return
 
                 # ps:hasphone =====================================================================
                 oldname = 'ps:hasphone'
                 reftype = 'tel:phone'
-                tufo_check = None  # FIXME
+                def tufo_check(core):
+                    tufo = core.getTufoByProp('ps:has:xref', 'tel:phone=+1 (234) 567-890')
+                    self.eq(tufo[1]['tufo:form'], 'ps:has')
+                    self.eq(tufo[1]['ps:has'], 'e7cdfaba2a1cb739bdf5afd56795dbd3')
+                    self.eq(tufo[1]['ps:has:seen:min'], 0)
+                    self.eq(tufo[1]['ps:has:seen:max'], 1)
+                    self.eq(tufo[1]['ps:has:xref'], 'tel:phone=+1 (234) 567-890')
+                    self.eq(tufo[1]['ps:has:xref:prop'], 'tel:phone')
+                    self.eq(tufo[1]['ps:has:xref:node'], '0068a540030a8de1d3f3817e52d50b7c')
+                    self.eq(tufo[1]['ps:has:person'], '2f6d1248de48f451e1f349cff33f336c')
+
+                    # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
+                    core.formTufoByProp('tel:phone', '1234567890')
+                    phonefo = core.getTufoByProp('node:ndef', '0068a540030a8de1d3f3817e52d50b7c')
+                    self.eq(phonefo[1].get('tel:phone'), 1234567890)
+
+                    return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
                 return
 

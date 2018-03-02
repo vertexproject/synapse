@@ -116,7 +116,6 @@ class PsMod(s_module.CoreModule):
                 ('ps:contact', {'subof': 'guid', 'doc': 'A GUID for a contact info record'}),
 
                 ('ps:hashost', {'subof': 'comp', 'fields': 'person=ps:person,host=it:host'}),
-                ('ps:hasphone', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|phone,tel:phone'}),
                 ('ps:hasemail', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|email,inet:email'}),
                 ('ps:haswebacct', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|web:acct,inet:web:acct'}),
 
@@ -198,13 +197,6 @@ class PsMod(s_module.CoreModule):
                 ('ps:hashost', {'ptype': 'ps:hashost'}, (
                     ('person', {'ptype': 'ps:person'}),
                     ('host', {'ptype': 'it:host'}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                )),
-
-                ('ps:hasphone', {'ptype': 'ps:hasphone'}, (
-                    ('person', {'ptype': 'ps:person'}),
-                    ('phone', {'ptype': 'tel:phone'}),
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
                 )),
