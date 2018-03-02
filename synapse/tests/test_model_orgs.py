@@ -4,6 +4,25 @@ from synapse.tests.common import *
 
 class OrgTest(SynTest, ModelSeenMixin):
 
+    def test_model_ou_has(self):
+        with self.getRamCore() as core:
+            org_guid = 32 * '0'
+            org_tufo = core.formTufoByProp('ou:org', org_guid, name='The Vertex Project')
+            orgval = org_tufo[1].get('ou:org')
+
+            node = core.formTufoByProp('ou:has', (orgval, ('inet:fqdn', 'vertex.link')))
+            self.ge(node[1].get('node:created'), 1519852535218)
+            self.eq(node[1].get('ou:has'), '03870dc800bc21c7c594a900ae65f5cb')
+            self.eq(node[1].get('ou:has:org'), orgval)
+            self.eq(node[1].get('ou:has:xref'), 'inet:fqdn=vertex.link')
+            self.eq(node[1].get('ou:has:xref:prop'), 'inet:fqdn')
+            self.eq(node[1].get('ou:has:xref:node'), '42366d896b947b97e7f3b1afeb9433a3')
+
+            self.none(core.getTufoByProp('node:ndef', '42366d896b947b97e7f3b1afeb9433a3'))  # Not automatically formed
+            core.formTufoByProp('inet:fqdn', 'vertex.link')
+            fqdnfo = core.getTufoByProp('node:ndef', '42366d896b947b97e7f3b1afeb9433a3')
+            self.eq(fqdnfo[1].get('inet:fqdn'), 'vertex.link')
+
     def test_model_orgs_seed_alias(self):
         with self.getRamCore() as core:
 
