@@ -186,6 +186,7 @@ of rows which the Cortex can turn into tufos as needed.
 
 The default implementations of these functions are just wrappers for
 joinsByLe / joinsByGt, respectively.
+
   - joinsByLt(self, prop, valu, limit=None):
   - joinsByGt(self, prop, valu, limit=None):
 
