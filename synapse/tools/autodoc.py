@@ -225,7 +225,7 @@ def docModel(outp, fd, core):
 
             regex = inst.get('regex')
             if regex is not None:
-                cons.append('- regex: %s' % (regex,))
+                cons.append('- regex: ``%s``' % (regex,))
 
             lower = inst.get('lower')
             if lower:
