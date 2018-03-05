@@ -1121,9 +1121,16 @@ class StormTest(SynTest):
             self.eq(node2[1].get('ps:person:has:xref:prop'), 'inet:web:acct')
             self.eq(node2[1].get('ps:person:has:xref:node'), '600ec8667d978eba100b8a412f7154ae')
 
-            node3 = core.eval('addnode(ou:haswebacct, ((alias="vertex"),vertex.link/pennywise))')[0]
-            self.eq(node3[1].get('ou:haswebacct'), 'e0d1c290732ac433444afe7b5825f94d')
-            self.eq(node3[1].get('ou:haswebacct:web:acct'), 'vertex.link/pennywise')
+            onode = core.eval('addnode(ou:org, (name="clowns"))')[0]
+            oguid = onode[1].get('ou:org')
+            self.eq(oguid, 'd4556f76e65043a138f7899db9d27cf1')
+
+            node3 = core.eval('addnode(ou:has, (d4556f76e65043a138f7899db9d27cf1, (inet:web:acct,vertex.link/pennywise)))')[0]
+            self.eq(node3[1].get('ou:has'), '378c9905f931af5786a753d10c0cd20b')
+            self.eq(node3[1].get('ou:has:org'), 'd4556f76e65043a138f7899db9d27cf1')
+            self.eq(node3[1].get('ou:has:xref'), 'inet:web:acct=vertex.link/pennywise')
+            self.eq(node3[1].get('ou:has:xref:prop'), 'inet:web:acct')
+            self.eq(node3[1].get('ou:has:xref:node'), '600ec8667d978eba100b8a412f7154ae')
 
     def test_storm_task(self):
         with self.getRamCore() as core:
