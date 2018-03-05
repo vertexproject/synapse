@@ -160,7 +160,7 @@ class OrgTest(SynTest, ModelSeenMixin):
     def test_model_ou_201802281621(self):
         # NOTE: a lot of this code can be combined with the ps:has migration
         N = 2
-        FORMS = ('ou:hasfile', 'ou:hasfqdn', 'ou:hasipv4', 'ou:hashost', 'ou:hasemail')
+        FORMS = ('ou:hasfile', 'ou:hasfqdn', 'ou:hasipv4', 'ou:hashost', 'ou:hasemail', 'ou:hasphone')
         NODECOUNT = N * len(FORMS)
         TAGS = ['hehe', 'hehe.hoho']
 
@@ -320,6 +320,25 @@ class OrgTest(SynTest, ModelSeenMixin):
                 (dark_iden, '_:*ou:hasemail#hehe', tick, tick),
             ])
 
+        telcompguids = ['a20cf139c699973c05c959898b04f3ef', 'd1f1e18dd11375c32f83f053a318e37a']
+        for i in range(N):
+            phone = int('123456789' + str(i))
+            iden = guid()
+            dark_iden = iden[::-1]
+            tick = now()
+            adds.extend([
+                (iden, 'tufo:form', 'ou:hasphone', tick),
+                (iden, 'ou:hasphone:phone', phone, tick),
+                (iden, 'ou:hasphone:org', 32 * 'a', tick),
+                (iden, 'ou:hasphone', telcompguids[i], tick),
+                (iden, 'ou:hasphone:seen:min', 0, tick),
+                (iden, 'ou:hasphone:seen:max', 1, tick),
+                (iden, '#hehe.hoho', tick, tick),
+                (iden, '#hehe', tick, tick),
+                (dark_iden, '_:*ou:hasphone#hehe.hoho', tick, tick),
+                (dark_iden, '_:*ou:hasphone#hehe', tick, tick),
+            ])
+
         for form in FORMS:
             adds.extend(_addTag('hehe.hoho', form))
             adds.extend(_addTag('hehe', form))
@@ -468,7 +487,57 @@ class OrgTest(SynTest, ModelSeenMixin):
 
                     return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
-                return
 
                 # ou:hasphone =====================================================================
+                oldname = 'ou:hasphone'
+                reftype = 'tel:phone'
+                refval = 1234567890
+                xrval = 'tel:phone=+1 (234) 567-890'
+                hasval = '5650ba4dca5ef636817228cffc718dd3'
+                ndefval = '0068a540030a8de1d3f3817e52d50b7c'
+                def tufo_check(core):
+                    tufo = core.getTufoByProp('ou:has:xref', xrval)
+                    self.eq(tufo[1]['tufo:form'], 'ou:has')
+                    self.eq(tufo[1]['ou:has'], hasval)
+                    self.eq(tufo[1]['ou:has:seen:min'], 0)
+                    self.eq(tufo[1]['ou:has:seen:max'], 1)
+                    self.eq(tufo[1]['ou:has:xref'], xrval)
+                    self.eq(tufo[1]['ou:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ou:has:xref:node'], ndefval)
+                    self.eq(tufo[1]['ou:has:org'], orgval)
+
+                    # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
+                    core.formTufoByProp(reftype, refval)
+                    userfo = core.getTufoByProp('node:ndef', ndefval)
+                    self.eq(userfo[1].get(reftype), refval)
+
+                    return tufo
+                run_assertions(core, oldname, reftype, tufo_check)
+                return
+
                 # ou:haswebacct ===================================================================
+                oldname = 'ou:haswebacct'
+                reftype = 'inet:web:acct'
+                refval = 32 * '0'
+                xrval = '%s=%s' % (reftype, refval)
+                hasval = '9c9eceba074787316af6750f307b8118'
+                ndefval = '8c313cbd0f67bd15eb2bf3adea46a9dd'
+                def tufo_check(core):
+                    tufo = core.getTufoByProp('ou:has:xref', xrval)
+                    self.eq(tufo[1]['tufo:form'], 'ou:has')
+                    self.eq(tufo[1]['ou:has'], hasval)
+                    self.eq(tufo[1]['ou:has:seen:min'], 0)
+                    self.eq(tufo[1]['ou:has:seen:max'], 1)
+                    self.eq(tufo[1]['ou:has:xref'], xrval)
+                    self.eq(tufo[1]['ou:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ou:has:xref:node'], ndefval)
+                    self.eq(tufo[1]['ou:has:org'], orgval)
+
+                    # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
+                    core.formTufoByProp(reftype, refval)
+                    userfo = core.getTufoByProp('node:ndef', ndefval)
+                    self.eq(userfo[1].get(reftype), refval)
+
+                    return tufo
+                run_assertions(core, oldname, reftype, tufo_check)
+                return

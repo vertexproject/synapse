@@ -97,7 +97,6 @@ class OuMod(s_module.CoreModule):
                 ('ou:member', {'subof': 'comp', 'fields': 'org,ou:org|person,ps:person',
                                'doc': 'A person who is (or was) a member of an organization.'}),
 
-                ('ou:hasphone', {'subof': 'comp', 'fields': 'org=ou:org,phone=tel:phone'}),
                 ('ou:haswebacct', {'subof': 'comp', 'fields': 'org=ou:org,web:acct=inet:web:acct'}),
 
                 ('ou:has', {
@@ -147,12 +146,6 @@ class OuMod(s_module.CoreModule):
                 ('ou:owns', {'ptype': 'sepr', 'sep': '/', 'fields': 'owner,ou:org|owned,ou:org'}, [
                 ]),  # FIXME does this become an ou:has?
 
-                ('ou:hasphone', {}, [
-                    ('org', {'ptype': 'ou:org', 'ro': 1}),
-                    ('phone', {'ptype': 'tel:phone', 'ro': 1}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                ]),
                 ('ou:haswebacct', {}, [
                     ('org', {'ptype': 'ou:org', 'ro': 1}),
                     ('web:acct', {'ptype': 'inet:web:acct', 'ro': 1}),
