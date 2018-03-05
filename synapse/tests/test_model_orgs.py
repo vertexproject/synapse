@@ -160,7 +160,7 @@ class OrgTest(SynTest, ModelSeenMixin):
     def test_model_ou_201802281621(self):
         # NOTE: a lot of this code can be combined with the ps:has migration
         N = 2
-        FORMS = ('ou:hasfile', 'ou:hasfqdn', 'ou:hasipv4', 'ou:hashost', 'ou:hasemail', 'ou:hasphone')
+        FORMS = ('ou:hasfile', 'ou:hasfqdn', 'ou:hasipv4', 'ou:hashost', 'ou:hasemail', 'ou:hasphone', 'ou:haswebacct')
         NODECOUNT = N * len(FORMS)
         TAGS = ['hehe', 'hehe.hoho']
 
@@ -339,6 +339,25 @@ class OrgTest(SynTest, ModelSeenMixin):
                 (dark_iden, '_:*ou:hasphone#hehe', tick, tick),
             ])
 
+        acctcompguids = ['d146d3e5d63fc05baa25532b7cbac96e', '424079c0c7e3132073c90747ba5f59bd']
+        for i in range(N):
+            acct = 'vertex.link/user%d' % i
+            iden = guid()
+            dark_iden = iden[::-1]
+            tick = now()
+            adds.extend([
+                (iden, 'tufo:form', 'ou:haswebacct', tick),
+                (iden, 'ou:haswebacct:web:acct', acct, tick),
+                (iden, 'ou:haswebacct:org', 32 * 'a', tick),
+                (iden, 'ou:haswebacct', acctcompguids[i], tick),
+                (iden, 'ou:haswebacct:seen:min', 0, tick),
+                (iden, 'ou:haswebacct:seen:max', 1, tick),
+                (iden, '#hehe.hoho', tick, tick),
+                (iden, '#hehe', tick, tick),
+                (dark_iden, '_:*ou:haswebacct#hehe.hoho', tick, tick),
+                (dark_iden, '_:*ou:haswebacct#hehe', tick, tick),
+            ])
+
         for form in FORMS:
             adds.extend(_addTag('hehe.hoho', form))
             adds.extend(_addTag('hehe', form))
@@ -513,15 +532,14 @@ class OrgTest(SynTest, ModelSeenMixin):
 
                     return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
-                return
 
                 # ou:haswebacct ===================================================================
                 oldname = 'ou:haswebacct'
                 reftype = 'inet:web:acct'
-                refval = 32 * '0'
+                refval = 'vertex.link/user0'
                 xrval = '%s=%s' % (reftype, refval)
-                hasval = '9c9eceba074787316af6750f307b8118'
-                ndefval = '8c313cbd0f67bd15eb2bf3adea46a9dd'
+                hasval = '8001ce943435e274f1d83a6f17f61e44'
+                ndefval = '0cd705305c7f4573a38b7e7c8f4ddef9'
                 def tufo_check(core):
                     tufo = core.getTufoByProp('ou:has:xref', xrval)
                     self.eq(tufo[1]['tufo:form'], 'ou:has')
@@ -540,4 +558,3 @@ class OrgTest(SynTest, ModelSeenMixin):
 
                     return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
-                return
