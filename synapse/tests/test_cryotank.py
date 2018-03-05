@@ -238,4 +238,10 @@ class CryoTest(SynTest):
             with s_cryotank.CryoCell(dirn, conf) as cell:
                 addr = cell.getCellAddr()
                 auth = cell.genUserAuth('visi@vertex.link')
-                self.raises(CellUserErr, s_cryotank.CryoUser, auth, addr, timeout=-1)
+                f = False
+                try:
+                    user = s_cryotank.CryoUser(auth, addr, timeout=-1)
+                    user.fini()
+                except CellUserErr:
+                    f = True
+                self.true(f)
