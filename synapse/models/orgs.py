@@ -97,10 +97,6 @@ class OuMod(s_module.CoreModule):
                 ('ou:member', {'subof': 'comp', 'fields': 'org,ou:org|person,ps:person',
                                'doc': 'A person who is (or was) a member of an organization.'}),
 
-                ('ou:hasfile', {'subof': 'comp', 'fields': 'org=ou:org,file=file:bytes'}),
-                ('ou:hasfqdn', {'subof': 'comp', 'fields': 'org=ou:org,fqdn=inet:fqdn'}),
-                ('ou:hasipv4', {'subof': 'comp', 'fields': 'org=ou:org,ipv4=inet:ipv4'}),
-                ('ou:hashost', {'subof': 'comp', 'fields': 'org=ou:org,host=it:host'}),
                 ('ou:hasemail', {'subof': 'comp', 'fields': 'org=ou:org,email=inet:email'}),
                 ('ou:hasphone', {'subof': 'comp', 'fields': 'org=ou:org,phone=tel:phone'}),
                 ('ou:haswebacct', {'subof': 'comp', 'fields': 'org=ou:org,web:acct=inet:web:acct'}),
@@ -152,30 +148,6 @@ class OuMod(s_module.CoreModule):
                 ('ou:owns', {'ptype': 'sepr', 'sep': '/', 'fields': 'owner,ou:org|owned,ou:org'}, [
                 ]),  # FIXME does this become an ou:has?
 
-                ('ou:hasfile', {}, [
-                    ('org', {'ptype': 'ou:org', 'ro': 1}),
-                    ('file', {'ptype': 'file:bytes', 'ro': 1}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                ]),
-                ('ou:hasfqdn', {}, [
-                    ('org', {'ptype': 'ou:org', 'ro': 1}),
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                ]),
-                ('ou:hasipv4', {}, [
-                    ('org', {'ptype': 'ou:org', 'ro': 1}),
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                ]),
-                ('ou:hashost', {}, [
-                    ('org', {'ptype': 'ou:org', 'ro': 1}),
-                    ('host', {'ptype': 'it:host', 'ro': 1}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                ]),
                 ('ou:hasemail', {}, [
                     ('org', {'ptype': 'ou:org', 'ro': 1}),
                     ('email', {'ptype': 'inet:email', 'ro': 1}),
