@@ -361,7 +361,9 @@ def run_autodoc(_):
     abssynf = os.path.abspath(synapse.__file__)
     synbd = os.path.split(abssynf)[0]  # Split off __init__
     synpd = os.path.split(synbd)[0]  # split off the synapse module directory
-    subprocess.check_call(['python', '-m', 'synapse.tools.autodoc', '--configable-opts', '--savefile', 'docs/synapse/configables.rst'], cwd=synpd)
+    args = ['python', '-m', 'synapse.tools.autodoc', '--configable-opts',
+            '--savefile', 'docs/synapse/configables.rst']
+    subprocess.check_call(args, cwd=synpd)
 
 def setup(app):
     app.add_stylesheet('theme_overrides.css')
