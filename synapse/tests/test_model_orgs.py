@@ -160,7 +160,7 @@ class OrgTest(SynTest, ModelSeenMixin):
     def test_model_ou_201802281621(self):
         # NOTE: a lot of this code can be combined with the ps:has migration
         N = 2
-        FORMS = ('ou:hasfile', 'ou:hasfqdn', 'ou:hasipv4', 'ou:hashost')
+        FORMS = ('ou:hasfile', 'ou:hasfqdn', 'ou:hasipv4', 'ou:hashost', 'ou:hasemail')
         NODECOUNT = N * len(FORMS)
         TAGS = ['hehe', 'hehe.hoho']
 
@@ -300,6 +300,26 @@ class OrgTest(SynTest, ModelSeenMixin):
                 (dark_iden, '_:*ou:hashost#hehe', tick, tick),
             ])
 
+        emailcompguids = ['32d2112204c514b5195d3f03f537b687', '3b4194eeac4f7d197287ff247a61753c']
+        emails = ['example@vertex.link', 'visi@vertex.link']
+        for i in range(N):
+            email = emails[i]
+            iden = guid()
+            dark_iden = iden[::-1]
+            tick = now()
+            adds.extend([
+                (iden, 'tufo:form', 'ou:hasemail', tick),
+                (iden, 'ou:hasemail:email', email, tick),
+                (iden, 'ou:hasemail:org', 32 * 'a', tick),
+                (iden, 'ou:hasemail', fqdncompguids[i], tick),
+                (iden, 'ou:hasemail:seen:min', 0, tick),
+                (iden, 'ou:hasemail:seen:max', 1, tick),
+                (iden, '#hehe.hoho', tick, tick),
+                (iden, '#hehe', tick, tick),
+                (dark_iden, '_:*ou:hasemail#hehe.hoho', tick, tick),
+                (dark_iden, '_:*ou:hasemail#hehe', tick, tick),
+            ])
+
         for form in FORMS:
             adds.extend(_addTag('hehe.hoho', form))
             adds.extend(_addTag('hehe', form))
@@ -422,8 +442,33 @@ class OrgTest(SynTest, ModelSeenMixin):
 
                     return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
-                return
 
                 # ou:hasemail =====================================================================
+                oldname = 'ou:hasemail'
+                reftype = 'inet:email'
+                refval = 'example@vertex.link'
+                xrval = '%s=%s' % (reftype, refval)
+                hasval = '56883ea61acc8bf4443dc3b9a60638cf'
+                ndefval = 'e1b961ba74520aa06f5f4bb526f4ad1e'
+                def tufo_check(core):
+                    tufo = core.getTufoByProp('ou:has:xref', xrval)
+                    self.eq(tufo[1]['tufo:form'], 'ou:has')
+                    self.eq(tufo[1]['ou:has'], hasval)
+                    self.eq(tufo[1]['ou:has:seen:min'], 0)
+                    self.eq(tufo[1]['ou:has:seen:max'], 1)
+                    self.eq(tufo[1]['ou:has:xref'], xrval)
+                    self.eq(tufo[1]['ou:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ou:has:xref:node'], ndefval)
+                    self.eq(tufo[1]['ou:has:org'], orgval)
+
+                    # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
+                    core.formTufoByProp(reftype, refval)
+                    userfo = core.getTufoByProp('node:ndef', ndefval)
+                    self.eq(userfo[1].get(reftype), refval)
+
+                    return tufo
+                run_assertions(core, oldname, reftype, tufo_check)
+                return
+
                 # ou:hasphone =====================================================================
                 # ou:haswebacct ===================================================================
