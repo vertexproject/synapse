@@ -46,26 +46,6 @@ class OrgTest(SynTest, ModelSeenMixin):
 
             self.eq(node0[0], node1[0])
 
-    def test_model_org_has_alias(self):
-        with self.getRamCore() as core:
-            iden = 32 * '0'
-
-            node = core.formTufoByProp('ou:hasalias', (iden, 'cools'))
-            self.eq(node[1].get('ou:hasalias'), '77ff3cd31931a67b658af31260ade638')
-            self.eq(node[1].get('ou:hasalias:org'), iden)
-            self.eq(node[1].get('ou:hasalias:alias'), 'cools')
-
-            node = core.formTufoByProp('ou:hasalias', (iden, 'b4dZ'))
-            self.eq(node[1].get('ou:hasalias'), '4be15b22e4081e102d6c8201ca26f28f')
-            self.eq(node[1].get('ou:hasalias:org'), iden)
-            self.eq(node[1].get('ou:hasalias:alias'), 'b4dz')
-
-            self.check_seen(core, node)
-
-            self.len(2, core.getTufosByProp('ou:hasalias:org', iden))
-
-            self.raises(BadTypeValu, core.formTufoByProp, 'ou:hasalias', (iden, 'wee!!!'))
-
     def test_model_org_has_file(self):
         with self.getRamCore() as core:
             oval = 32 * '0'
