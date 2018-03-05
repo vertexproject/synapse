@@ -63,6 +63,61 @@ class PersonTest(SynTest, ModelSeenMixin):
             self.eq(node[1].get('ps:person:name:en:given'), 'emmanuel')
             self.eq(node[1].get('ps:person:name:en:middle'), 'brother')
 
+            node = core.formTufoByProp('ps:person:guidname', 'person123', name='cool')
+            person = node[1].get('ps:person')
+
+            node = core.getTufoByProp('ps:person', person)
+            self.eq(node[1].get('ps:person'), person)
+            self.eq(node[1].get('ps:person:guidname'), 'person123')
+            self.eq(node[1].get('ps:person:name'), 'cool')
+
+    def test_model_persona(self):
+
+        with self.getRamCore() as core:
+            dob = core.getTypeParse('time', '19700101000000001')
+            node = core.formTufoByProp('ps:persona', guid(), dob=dob[0],
+                                       name='Kenshoto,Invisigoth')
+            self.eq(node[1].get('ps:persona:dob'), 1)
+            self.eq(node[1].get('ps:persona:name'), 'kenshoto,invisigoth')
+            self.eq(node[1].get('ps:persona:name:sur'), 'kenshoto')
+            self.eq(node[1].get('ps:persona:name:given'), 'invisigoth')
+            self.none(node[1].get('ps:persona:name:middle'))
+
+            node = core.formTufoByProp('ps:persona', guid(), dob=dob[0],
+                                       name='Kenshoto,Invisigoth,Ninja')
+            self.eq(node[1].get('ps:persona:name'), 'kenshoto,invisigoth,ninja')
+            self.eq(node[1].get('ps:persona:name:sur'), 'kenshoto')
+            self.eq(node[1].get('ps:persona:name:given'), 'invisigoth')
+            self.eq(node[1].get('ps:persona:name:middle'), 'ninja')
+
+            node = core.formTufoByProp('ps:persona', guid(), dob=dob[0],
+                                       name='Kenshoto,Invisigoth,Ninja,Gray')
+            self.eq(node[1].get('ps:persona:name'), 'kenshoto,invisigoth,ninja,gray')
+            self.eq(node[1].get('ps:persona:name:sur'), 'kenshoto')
+            self.eq(node[1].get('ps:persona:name:given'), 'invisigoth')
+            self.eq(node[1].get('ps:persona:name:middle'), 'ninja')
+
+            node = core.formTufoByProp('ps:persona', guid(),
+                                       **{'name': 'Гольдштейн, Эммануэль, брат',
+                                          'name:en': 'Goldstein, Emmanuel, Brother',
+                                          })
+            self.eq(node[1].get('ps:persona:name'), 'гольдштейн,эммануэль,брат')
+            self.eq(node[1].get('ps:persona:name:sur'), 'гольдштейн')
+            self.eq(node[1].get('ps:persona:name:given'), 'эммануэль')
+            self.eq(node[1].get('ps:persona:name:middle'), 'брат')
+            self.eq(node[1].get('ps:persona:name:en'), 'goldstein,emmanuel,brother')
+            self.eq(node[1].get('ps:persona:name:en:sur'), 'goldstein')
+            self.eq(node[1].get('ps:persona:name:en:given'), 'emmanuel')
+            self.eq(node[1].get('ps:persona:name:en:middle'), 'brother')
+
+            node = core.formTufoByProp('ps:persona:guidname', 'persona456', name='cool')
+            persona = node[1].get('ps:persona')
+
+            node = core.getTufoByProp('ps:persona', persona)
+            self.eq(node[1].get('ps:persona'), persona)
+            self.eq(node[1].get('ps:persona:guidname'), 'persona456')
+            self.eq(node[1].get('ps:persona:name'), 'cool')
+
     def test_model_person_tokn(self):
         with self.getRamCore() as core:
             node = core.formTufoByProp('ps:tokn', 'Invisigoth')
