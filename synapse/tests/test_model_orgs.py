@@ -158,10 +158,9 @@ class OrgTest(SynTest, ModelSeenMixin):
             self.eq(pprop, nodes[0][1].get('ps:person'))
 
     def test_model_ou_201802281621(self):
-        # FIXME a lot of this code can be combined with the ps:has migration
+        # NOTE: a lot of this code can be combined with the ps:has migration
         N = 2
-        # FORMS = ('ps:hasuser', 'ps:hashost', 'ps:hasalias', 'ps:hasphone', 'ps:hasemail', 'ps:haswebacct')
-        FORMS = ('ou:hasfile', 'ou:hasfqdn')
+        FORMS = ('ou:hasfile', 'ou:hasfqdn', 'ou:hasipv4')
         NODECOUNT = N * len(FORMS)
         TAGS = ['hehe', 'hehe.hoho']
 
@@ -264,6 +263,24 @@ class OrgTest(SynTest, ModelSeenMixin):
                 (dark_iden, '_:*ou:hasfqdn#hehe', tick, tick),
             ])
 
+        ipv4compguids = ['d146d3e5d63fc05baa25532b7cbac96e', '424079c0c7e3132073c90747ba5f59bd']
+        for i in range(N):
+            iden = guid()
+            dark_iden = iden[::-1]
+            tick = now()
+            adds.extend([
+                (iden, 'tufo:form', 'ou:hasipv4', tick),
+                (iden, 'ou:hasipv4:ipv4', i, tick),
+                (iden, 'ou:hasipv4:org', 32 * 'a', tick),
+                (iden, 'ou:hasipv4', ipv4compguids[i], tick),
+                (iden, 'ou:hasipv4:seen:min', 0, tick),
+                (iden, 'ou:hasipv4:seen:max', 1, tick),
+                (iden, '#hehe.hoho', tick, tick),
+                (iden, '#hehe', tick, tick),
+                (dark_iden, '_:*ou:hasipv4#hehe.hoho', tick, tick),
+                (dark_iden, '_:*ou:hasipv4#hehe', tick, tick),
+            ])
+
         for form in FORMS:
             adds.extend(_addTag('hehe.hoho', form))
             adds.extend(_addTag('hehe', form))
@@ -334,9 +351,34 @@ class OrgTest(SynTest, ModelSeenMixin):
 
                     return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
-                return
 
                 # ou:hasipv4 ======================================================================
+                oldname = 'ou:hasipv4'
+                reftype = 'inet:ipv4'
+                refval = '0.0.0.0'
+                xrval = '%s=%s' % (reftype, refval)
+                hasval = '69339004f2dcb7d06454357d8809c764'
+                ndefval = 'ac544a8fffd9636664df2254371aea5a'
+                def tufo_check(core):
+                    tufo = core.getTufoByProp('ou:has:xref', xrval)
+                    self.eq(tufo[1]['tufo:form'], 'ou:has')
+                    self.eq(tufo[1]['ou:has'], hasval)
+                    self.eq(tufo[1]['ou:has:seen:min'], 0)
+                    self.eq(tufo[1]['ou:has:seen:max'], 1)
+                    self.eq(tufo[1]['ou:has:xref'], xrval)
+                    self.eq(tufo[1]['ou:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ou:has:xref:node'], ndefval)
+                    self.eq(tufo[1]['ou:has:org'], orgval)
+
+                    # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
+                    core.formTufoByProp(reftype, refval)
+                    userfo = core.getTufoByProp('node:ndef', ndefval)
+                    self.eq(userfo[1].get(reftype), 0)
+
+                    return tufo
+                run_assertions(core, oldname, reftype, tufo_check)
+                return
+
                 # ou:hashost ======================================================================
                 # ou:hasemail =====================================================================
                 # ou:hasphone =====================================================================
