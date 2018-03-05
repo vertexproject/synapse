@@ -355,6 +355,16 @@ class StormTest(SynTest):
             self.len(5, outnodes)
             self.eq(outforms, ['inet:email', 'inet:fqdn', 'ps:has', 'ps:person'])
 
+            outnodes = core.eval('ps:has refs(out, limit=0)')  # out
+            limtoutforms = sorted({node[1]['tufo:form'] for node in outnodes})
+            self.len(2, outnodes)
+            self.eq(limtoutforms, ['ps:has'])
+
+            outnodes = core.eval('ps:has refs(out, limit=1)')  # out
+            limtoutforms = sorted({node[1]['tufo:form'] for node in outnodes})
+            self.len(3, outnodes)
+            [self.isin(form, ['inet:email', 'inet:fqdn', 'ps:has', 'ps:person']) for form in limtoutforms]
+
             innodes = core.eval('ps:has refs(in)')  # in
             informs = sorted({node[1]['tufo:form'] for node in innodes})
             self.len(3, innodes)
