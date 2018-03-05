@@ -120,6 +120,12 @@ class PsMod(s_module.CoreModule):
                     'doc': 'A person owns, controls, or has exclusive use of an object or resource,'
                         'potentially during a specific period of time.'}),
 
+                ('ps:persona:has', {
+                    'subof': 'xref',
+                    'source': 'persona,ps:persona',
+                    'doc': 'A persona owns, controls, or has exclusive use of an object or resource,'
+                        'potentially during a specific period of time.'}),
+
                 ('ps:image', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|file,file:bytes'}),
 
                 # FIXME add wireless elemements like NMEI and IMEI once modeled
@@ -199,6 +205,19 @@ class PsMod(s_module.CoreModule):
                         'doc': 'The ndef of the node that is owned or controlled by the person.'}),
                     ('xref:prop', {'ptype': 'str', 'ro': 1,
                         'doc': 'The property (form) of the object or resource that is owned or controlled by the person.'}),
+                    ('seen:min', {'ptype': 'time:min'}),
+                    ('seen:max', {'ptype': 'time:max'}),
+                ]),
+
+                ('ps:persona:has', {}, [
+                    ('persona', {'ptype': 'ps:persona', 'ro': 1, 'req': 1,
+                        'doc': 'The persona who owns or controls the object or resource.'}),
+                    ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
+                        'doc': 'The object or resource (prop=valu) that is owned or controlled by the persona.'}),
+                    ('xref:node', {'ptype': 'ndef', 'ro': 1, 'req': 1,
+                        'doc': 'The ndef of the node that is owned or controlled by the persona.'}),
+                    ('xref:prop', {'ptype': 'str', 'ro': 1,
+                        'doc': 'The property (form) of the object or resource that is owned or controlled by the persona.'}),
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
                 ]),
