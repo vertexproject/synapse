@@ -161,7 +161,7 @@ class OrgTest(SynTest, ModelSeenMixin):
         # FIXME a lot of this code can be combined with the ps:has migration
         N = 2
         # FORMS = ('ps:hasuser', 'ps:hashost', 'ps:hasalias', 'ps:hasphone', 'ps:hasemail', 'ps:haswebacct')
-        FORMS = ('ou:hasalias', )
+        FORMS = ('ou:hasfile', 'ou:hasfqdn')
         NODECOUNT = N * len(FORMS)
         TAGS = ['hehe', 'hehe.hoho']
 
@@ -224,6 +224,7 @@ class OrgTest(SynTest, ModelSeenMixin):
         adds = []
 
         # NOTE: Not migrating ou:hasalias, see below
+
         filecompguids = ['d146d3e5d63fc05baa25532b7cbac96e', '424079c0c7e3132073c90747ba5f59bd']
         for i in range(N):
             fval = 32 * str(i)
@@ -241,6 +242,26 @@ class OrgTest(SynTest, ModelSeenMixin):
                 (iden, '#hehe', tick, tick),
                 (dark_iden, '_:*ou:hasfile#hehe.hoho', tick, tick),
                 (dark_iden, '_:*ou:hasfile#hehe', tick, tick),
+            ])
+
+        fqdncompguids = ['32d2112204c514b5195d3f03f537b687', '3b4194eeac4f7d197287ff247a61753c']
+        fqdns = ['vertex.link', 'example.com']
+        for i in range(N):
+            fval = fqdns[i]
+            iden = guid()
+            dark_iden = iden[::-1]
+            tick = now()
+            adds.extend([
+                (iden, 'tufo:form', 'ou:hasfqdn', tick),
+                (iden, 'ou:hasfqdn:fqdn', fval, tick),
+                (iden, 'ou:hasfqdn:org', 32 * 'a', tick),
+                (iden, 'ou:hasfqdn', fqdncompguids[i], tick),
+                (iden, 'ou:hasfqdn:seen:min', 0, tick),
+                (iden, 'ou:hasfqdn:seen:max', 1, tick),
+                (iden, '#hehe.hoho', tick, tick),
+                (iden, '#hehe', tick, tick),
+                (dark_iden, '_:*ou:hasfqdn#hehe.hoho', tick, tick),
+                (dark_iden, '_:*ou:hasfqdn#hehe', tick, tick),
             ])
 
         for form in FORMS:
@@ -267,8 +288,8 @@ class OrgTest(SynTest, ModelSeenMixin):
                 reftype = 'file:bytes'
                 refval = 32 * '0'
                 xrval = '%s=%s' % (reftype, refval)
-                ndefval = '8c313cbd0f67bd15eb2bf3adea46a9dd'
                 hasval = '9c9eceba074787316af6750f307b8118'
+                ndefval = '8c313cbd0f67bd15eb2bf3adea46a9dd'
                 def tufo_check(core):
                     tufo = core.getTufoByProp('ou:has:xref', xrval)
                     self.eq(tufo[1]['tufo:form'], 'ou:has')
@@ -289,6 +310,32 @@ class OrgTest(SynTest, ModelSeenMixin):
                 run_assertions(core, oldname, reftype, tufo_check)
 
                 # ou:hasfqdn ======================================================================
+                oldname = 'ou:hasfqdn'
+                reftype = 'inet:fqdn'
+                refval = 'vertex.link'
+                xrval = '%s=%s' % (reftype, refval)
+                hasval = 'bb3df3b5ddbbd7c80b9dcbee28135668'
+                ndefval = '42366d896b947b97e7f3b1afeb9433a3'
+                def tufo_check(core):
+                    tufo = core.getTufoByProp('ou:has:xref', xrval)
+                    self.eq(tufo[1]['tufo:form'], 'ou:has')
+                    self.eq(tufo[1]['ou:has'], hasval)
+                    self.eq(tufo[1]['ou:has:seen:min'], 0)
+                    self.eq(tufo[1]['ou:has:seen:max'], 1)
+                    self.eq(tufo[1]['ou:has:xref'], xrval)
+                    self.eq(tufo[1]['ou:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ou:has:xref:node'], ndefval)
+                    self.eq(tufo[1]['ou:has:org'], orgval)
+
+                    # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
+                    core.formTufoByProp(reftype, refval)
+                    userfo = core.getTufoByProp('node:ndef', ndefval)
+                    self.eq(userfo[1].get(reftype), refval)
+
+                    return tufo
+                run_assertions(core, oldname, reftype, tufo_check)
+                return
+
                 # ou:hasipv4 ======================================================================
                 # ou:hashost ======================================================================
                 # ou:hasemail =====================================================================
