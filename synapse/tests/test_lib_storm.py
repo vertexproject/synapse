@@ -969,25 +969,22 @@ class StormTest(SynTest):
 
             # Setting RO nodes on guid nodes made without secondary props / subs
             # Testing only - do NOT make comp nodes like this
-            ouhnode = core.eval('[ou:hasfqdn=*]')[0]
+            ouhnode = core.eval('[compfqdn=*]')[0]
             self.nn(ouhnode)
-            self.notin('ou:hasfqdn:org', ouhnode[1])
-            self.notin('ou:hasfqdn:fqdn', ouhnode[1])
-            orgnode = core.eval('[ou:org:alias=vertex]')[0]
-            self.nn(orgnode)
-            self.nn(core.eval('[inet:fqdn=woot.com]')[0])
+            self.notin('compfqdn:guid', ouhnode[1])
+            self.notin('compfqdn:fqdn', ouhnode[1])
+
             # Set the missing props
-            query = 'ou:hasfqdn=%s [:org=%s :fqdn=woot.com]' % (ouhnode[1].get('ou:hasfqdn'),
-                                                                orgnode[1].get('ou:org'))
+            query = 'compfqdn=%s [:guid=%s :fqdn=woot.com]' % (ouhnode[1].get('compfqdn'), 32 * 'a')
             ouhnode = core.eval(query)[0]
-            self.eq(ouhnode[1].get('ou:hasfqdn:org'), orgnode[1].get('ou:org'))
-            self.eq(ouhnode[1].get('ou:hasfqdn:fqdn'), 'woot.com')
+            self.eq(ouhnode[1].get('compfqdn:guid'), 32 * 'a')
+            self.eq(ouhnode[1].get('compfqdn:fqdn'), 'woot.com')
+
             # We cannot change ro values via set prop mode
-            query = 'ou:hasfqdn=%s [:org=%s :fqdn=vertex.link]' % (ouhnode[1].get('ou:hasfqdn'),
-                                                                   orgnode[1].get('ou:org'))
+            query = 'compfqdn=%s [:guid=%s :fqdn=vertex.link]' % (ouhnode[1].get('compfqdn'), 32 * 'b')
             ouhnode = core.eval(query)[0]
-            self.eq(ouhnode[1].get('ou:hasfqdn:org'), orgnode[1].get('ou:org'))
-            self.eq(ouhnode[1].get('ou:hasfqdn:fqdn'), 'woot.com')
+            self.eq(ouhnode[1].get('compfqdn:guid'), 32 * 'a')
+            self.eq(ouhnode[1].get('compfqdn:fqdn'), 'woot.com')
 
     def test_storm_tag_ival(self):
         with self.getRamCore() as core:
