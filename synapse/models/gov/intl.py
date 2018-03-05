@@ -1,6 +1,6 @@
-from synapse.lib.module import CoreModule, modelrev
+import synapse.lib.module as s_module
 
-class GovIntlMod(CoreModule):
+class GovIntlMod(s_module.CoreModule):
 
     @staticmethod
     def getBaseModels():

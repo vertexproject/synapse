@@ -19,12 +19,14 @@ The following examples show how the output of ``stat()`` varies based on the ``a
 
 *No parameters:*
 ::
+
   ask stat(count,inet:fqdn)
   stat:count = inet:fqdn
   (1 results)
 
 *"props" parameter:*
 ::
+
   ask --props stat(count,inet:fqdn)
   stat:count = inet:fqdn
       :valu = 239886
@@ -32,6 +34,7 @@ The following examples show how the output of ``stat()`` varies based on the ``a
 
 *"raw" parameter:*
 ::
+
   ask --raw stat(count,inet:fqdn)
   [
     [
@@ -72,6 +75,7 @@ N/A
 
 *Determine the number of domains in the Cortex:*
 ::
+
   ask --props stat(count,inet:fqdn)
   stat:count = inet:fqdn
       :valu = 239887
@@ -79,6 +83,7 @@ N/A
 
 *Determine the number of .net domains in the Cortex:*
 ::
+
   ask --props stat(count,inet:fqdn:domain,valu=net)
   stat:count = inet:fqdn:domain
       :valu = 11438
@@ -86,6 +91,7 @@ N/A
 
 *Determine the total number of nodes (forms) in the Cortex:*
 ::
+
   ask --props stat(count,tufo:form)
   stat:count = tufo:form
       :valu = 100461644
@@ -95,6 +101,7 @@ N/A
 
 *Determine the minimum (earliest) date of birth for any person in the Cortex:*
 ::
+
   ask --props stat(min,ps:person:dob)
   stat:min - ps:person:dob
       :valu = 345772800000
@@ -102,6 +109,7 @@ N/A
 
 *Determine the minimum (earliest) observed date for any DNS A record in the Cortex:*
 ::
+
   ask --props stat(min,inet:dns:a:seen:min)
   stat:min = inet:dns:a:seen:min
       :valu = 1251770027000
@@ -113,6 +121,7 @@ N/A
 
 *Determine the maximum (largest) IPv6 address stored in the Cortex:*
 ::
+
   ask --props stat(max,inet:ipv6)
   stat:max = inet:ipv6
       :valu = 2a06:1700:0:14::207
@@ -122,6 +131,7 @@ N/A
 
 *Determine the total size of all files in the Cortex:*
 ::
+
   ask --props stat(sum,file:bytes:size)
   stat:sum = file:bytes:size
       :valu = 1088807999
@@ -132,6 +142,7 @@ N/A
 
 *Determine the average size of a file in the Cortex:*
 ::
+
   ask --props stat(mean,file:bytes:size)
   stat:mean - file:bytes:size
       :valu = 1382.3535373669456
@@ -144,6 +155,7 @@ N/A
 
 *Determine the distribution by country for organizations in the Cortex:*
 ::
+
   ask --props stat(histo,ou:org:cc)
   stat:histo - ou:org:cc
       :valu = {'fi': 1, 'ua': 2, 'ca': 1, 'ie': 2, 'ch': 2, 'pl': 1, 'ro': 1, 'cz': 1, 
@@ -153,6 +165,7 @@ N/A
 
 *Determine the distribution of registration dates for domains in the Cortex:*
 ::
+
   ask --props stat(histo,inet:whois:rec:created)
   stat:histo = inet:whois:rec:created
       :valu = {0: 2, 756604800000: 1, 1504310400000: 1, 1481932800000: 2, 
@@ -169,6 +182,7 @@ N/A
 
 *Determine whether the inet:web:acct:avatar property is present (exists and is non-zero) on any nodes in the Cortex:*
 ::
+
   ask --props stat(any,inet:web:acct:avatar)
   stat:any = inet:web:acct:avatar
       :valu = True
@@ -178,6 +192,7 @@ N/A
 
 *Determine whether all syn:tag:title properties in the Cortex have non-zero values:*
 ::
+
   ask --props stat(all,syn:tag:title)
   stat:all = syn:tag:title
       :valu = False

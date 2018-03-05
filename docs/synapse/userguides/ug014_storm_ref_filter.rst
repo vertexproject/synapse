@@ -35,30 +35,35 @@ These basic examples all use the "equals" comparator. See below for additional e
 
 * Downselect to include only domains:
   ::
+
     +inet:fqdn
 
 *Filter by primary <prop> / <valu>:*
 
 * Downselect to exclude the domain google.com:
   ::
+
     -inet:fqdn = google.com
     
 *Filter by secondary property:*
 
 * Downselect to exclude domains with an "expires" property:
   ::
+
     -inet:fqdn:expires
     
 *Filter by secondary <prop> / <valu>:*
 
 * Downselect to include only those domains that are also logical zones:
   ::
+
     +inet:fqdn:zone = 1
  
 *Filter by tag:*
 
 * Downselect to exclude nodes tagged as associated with Tor:
   ::
+
     -#anon.tor
     
 **Usage Notes:**
@@ -89,30 +94,35 @@ Filter operations can be performed using any of the standard mathematical / logi
 
 * Downselect to include only domains created before January 1, 2017:
   ::
+
     +inet:fqdn:created < "20170101"
 
 *Greater than:*
 
 * Downselect to exclude files larger than 4096 bytes:
   ::
+
     -file:bytes:size > 4096
     
 *Less than or equal to:*
 
 * Downselect to include only DNS A records whose most recent observed time was on or before March 15, 2014 at 12:00 UTC:
   ::
+
     +inet:dns:a:seen:max <= "201403151200"
     
 *Greater than or equal to:*
 
 * Downselect to include only people born on or after January 1, 1980:
   ::
+
     +ps:person:dob >= "19800101"
     
 *Regular expression:*
 
 * Downselect to include only domains that start with the string "serve":
   ::
+
     +inet:fqdn ~= "serve*"
     
 **Usage Notes:**

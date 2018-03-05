@@ -86,7 +86,7 @@ The following items should be considered when contributing to Synapse:
   - Google Style typically has the summary line after the opening ''' marker.
     Place this summary value on the new line following the opening ''' marker.
   - More information about Google Style docstrings (and examples) can be found
-    `here <http://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html>`_.
+    at the `examples here <http://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html>`_.
   - We use Napoleon for parsing these doc strings. More info `here <https://sphinxcontrib-napoleon.readthedocs.io>`_.
   - Synapse as a project is not written using the Napoleon format currently
     but all new modules should audhere to that format.
@@ -468,8 +468,6 @@ This does require docker and docker-compose to be installed and working.
       Ran 1 test in 12.006s
 
       OK
-
-   ::
 
 #. Tear down the PSQL container when done with it.
 

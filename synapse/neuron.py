@@ -342,10 +342,10 @@ class Cell(s_config.Configable, s_net.Link, SessBoss):
 
             ('host', {'defval': socket.gethostname(),
                 'ex': 'cell.vertex.link',
-                'doc': 'The host name used to connect to this cell (should resolve over DNS).'}),
+                'doc': 'The host name used to connect to this cell. This should resolve over DNS. Defaults to the result of socket.gethostname().'}),
 
             ('port', {'defval': 0,
-                'doc': 'The TCP port to bind (defaults to dynamic)'}),
+                'doc': 'The TCP port the Cell binds to (defaults to dynamic)'}),
         ))
 
 class Neuron(Cell):
@@ -442,7 +442,7 @@ class Neuron(Cell):
         Cell.initConfDefs(self)
         self.addConfDefs((
             ('port', {'defval': defport, 'req': 1,
-                'doc': 'The TCP port to bind (defaults to %d)' % defport}),
+                'doc': 'The TCP port the Neuron binds to (defaults to %d)' % defport}),
         ))
 
 

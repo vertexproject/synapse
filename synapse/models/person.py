@@ -1,6 +1,6 @@
 from synapse.lib.types import DataType
 
-from synapse.lib.module import CoreModule, modelrev
+import synapse.lib.module as s_module
 
 # FIXME identify/handle possibly as seeds
 # tony stark
@@ -34,7 +34,7 @@ class Name(DataType):
         valu = ','.join(parts)
         return valu, subs
 
-class PsMod(CoreModule):
+class PsMod(s_module.CoreModule):
 
     def initCoreModule(self):
         self.core.addSeedCtor('ps:person:guidname', self.seedPersonGuidName)

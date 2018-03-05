@@ -1,7 +1,7 @@
 from synapse.common import guid
-from synapse.lib.module import CoreModule, modelrev
+import synapse.lib.module as s_module
 
-class OuMod(CoreModule):
+class OuMod(s_module.CoreModule):
 
     def initCoreModule(self):
         self.core.addSeedCtor('ou:org:name', self.seedOrgName)
