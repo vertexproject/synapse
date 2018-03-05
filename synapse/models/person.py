@@ -38,12 +38,20 @@ class PsMod(s_module.CoreModule):
 
     def initCoreModule(self):
         self.core.addSeedCtor('ps:person:guidname', self.seedPersonGuidName)
+        self.core.addSeedCtor('ps:persona:guidname', self.seedPersonGuidName)
 
     def seedPersonGuidName(self, prop, valu, **props):
         node = self.core.getTufoByProp('ps:person:guidname', valu)
         if node is None:
             # trigger GUID auto-creation
             node = self.core.formTufoByProp('ps:person', None, guidname=valu, **props)
+        return node
+
+    def seedPersonaGuidName(self, prop, valu, **props):
+        node = self.core.getTufoByProp('ps:persona:guidname', valu)
+        if node is None:
+            # trigger GUID auto-creation
+            node = self.core.formTufoByProp('ps:persona', None, guidname=valu, **props)
         return node
 
     @s_module.modelrev('ps', 201802281621)
@@ -110,7 +118,9 @@ class PsMod(s_module.CoreModule):
                 ('ps:name',
                  {'ctor': 'synapse.models.person.Name', 'ex': 'smith,bob', 'doc': 'A last,first person full name'}),
                 ('ps:person',
-                 {'subof': 'guid', 'alias': 'ps:person:guidname', 'doc': 'A GUID for a person or suspected person'}),
+                 {'subof': 'guid', 'alias': 'ps:person:guidname', 'doc': 'A GUID for a person'}),
+                ('ps:persona',
+                 {'subof': 'guid', 'alias': 'ps:persona:guidname', 'doc': 'A GUID for a suspected person'}),
 
                 ('ps:contact', {'subof': 'guid', 'doc': 'A GUID for a contact info record'}),
 
@@ -153,6 +163,23 @@ class PsMod(s_module.CoreModule):
                     ('name:given', {'ptype': 'ps:tokn'}),
                     ('name:en', {'ptype': 'ps:name',
                         'doc': 'The English version of the name for the person'}),
+                    ('name:en:sur', {'ptype': 'ps:tokn'}),
+                    ('name:en:middle', {'ptype': 'ps:tokn'}),
+                    ('name:en:given', {'ptype': 'ps:tokn'}),
+                ]),
+
+                ('ps:persona', {'ptype': 'ps:persona'}, [
+                    ('guidname', {'ptype': 'str:lwr', 'doc': 'The GUID resolver alias for this suspected person'}),
+                    ('dob', {'ptype': 'time', 'doc': 'The Date of Birth (DOB) if known'}),
+                    ('img', {'ptype': 'file:bytes', 'doc': 'The "primary" image of a suspected person'}),
+                    ('nick', {'ptype': 'inet:user'}),
+                    ('name', {'ptype': 'ps:name',
+                        'doc': 'The localized name for the suspected person'}),
+                    ('name:sur', {'ptype': 'ps:tokn', }),
+                    ('name:middle', {'ptype': 'ps:tokn'}),
+                    ('name:given', {'ptype': 'ps:tokn'}),
+                    ('name:en', {'ptype': 'ps:name',
+                        'doc': 'The English version of the name for the suspected person'}),
                     ('name:en:sur', {'ptype': 'ps:tokn'}),
                     ('name:en:middle', {'ptype': 'ps:tokn'}),
                     ('name:en:given', {'ptype': 'ps:tokn'}),
