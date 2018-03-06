@@ -1,13 +1,6 @@
 import os
-import ssl
-import sys
-import shutil
 import socket
 import logging
-import tempfile
-import unittest
-import threading
-import contextlib
 
 import unittest.mock as mock
 
@@ -27,6 +20,7 @@ import synapse.cores.common as s_cores_common
 import synapse.lib.scope as s_scope
 import synapse.lib.ingest as s_ingest
 import synapse.lib.output as s_output
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
 
 from synapse.common import *
@@ -43,18 +37,9 @@ TstSSLInvalidClientCertErr = socket.error
 TstSSLConnectionResetErr = socket.error
 
 testdir = os.path.dirname(__file__)
+
 def getTestPath(*paths):
     return os.path.join(testdir, *paths)
-
-def getIngestCore(path, core=None):
-    if core is None:
-        core = s_cortex.openurl('ram:///')
-
-    gest = s_ingest.loadfile(path)
-    with core.getCoreXact() as xact:
-        gest.ingest(core)
-
-    return core
 
 def checkLock(fd, timeout, wait=0.5):
     wtime = 0

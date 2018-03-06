@@ -39,6 +39,7 @@ Optional parameters:
 
 * Pivot from a set of domains (``inet:fqdn`` nodes) in the working set to the DNS A records for those domains:
   ::
+
     pivot( inet:fqdn, inet:dns:a:fqdn )
     
     pivot( inet:dns:a:fqdn )
@@ -49,12 +50,14 @@ Optional parameters:
 
 * Pivot from a set of domains in the working set to the DNS A records for those domains, but limit the results to 10 nodes:
   ::
+
     pivot( inet:fqdn, inet:dns:a:fqdn, limit=10 )
     
     pivot( inet:dns:a:fqdn, limit=10 )
 
 * Pivot from a set of domains in the working set to the DNS A records for those domains, and from the IP addresses in the DNS A records to the associated set of IPv4 nodes (e.g., pivot from a set of domains to the set of IP addresses the domains resolved to).
   ::
+
     pivot( inet:fqdn, inet:dns:a:fqdn ) pivot( inet:dns:a:ipv4, inet:ipv4 )
       
     pivot( inet:dns:a:fqdn ) pivot( :ipv4, inet:ipv4 )
@@ -66,6 +69,7 @@ Optional parameters:
 
 * Pivot from a set of domains in the working set to the set of immediate subdomains for those domains:
   ::
+
     pivot( inet:fqdn, inet:fqdn:domain )
     
     pivot( inet:fqdn:domain )
@@ -76,6 +80,7 @@ Optional parameters:
 
 * Pivot from a set of email addresses in the working set to the set of domains registered to those email addresses.
   ::
+
     pivot( inet:email, inet:whois:regmail:email )
       pivot( inet:whois:regmail:fqdn, inet:fqdn )
     
@@ -88,6 +93,7 @@ Optional parameters:
 
 * Pivot from a set of email addresses in the working set to the set of whois records associated with those email addresses.
   ::
+
     pivot( inet:email, inet:whois:contact:email )
       pivot( inet:whois:contact:rec, inet:whois:rec )
     
@@ -132,6 +138,7 @@ Optional parameters:
 
 * Given a set of domains (``inet:fqdn``) in the working set, return the domains and their set of immediate subdomains:
   ::
+
     join( inet:fqdn, inet:fqdn:domain )
     
     join( inet:fqdn:domain )
@@ -142,6 +149,7 @@ Optional parameters:
 
 * Given a set of email addresses (``inet:email``) in the working set, return the email addresses and the set of domain / registrant email (``inet:whois:regmail``) records associated with those email addresses:
   ::
+
     join( inet:email, inet:whois:regmail:email )
     
     join( inet:whois:regmail:email )
@@ -152,6 +160,7 @@ Optional parameters:
 
 * Given a set of DNS SOA records (``inet:dns:soa``) in the working set, return the SOA records and the email addresses (``inet:email``) associated with them:
   ::
+
     join( inet:dns:soa:email, inet:email )
     
     join( :email, inet:email )
@@ -197,18 +206,21 @@ N/A
 
 * Return all of the nodes that **reference** a set of nodes:
   ::
+
     refs( in )
 
   Assume a set of ``inet:fqdn`` nodes in the working set. ``refs(in)`` will return any node with a secondary property type *<ptype> = <valu>* that matches the *<type> = <valu>* of those ``inet:fqdn`` nodes. For example, this may include ``inet:dns:a`` nodes (``inet:dns:a:fqdn``), ``inet:whois:rec`` nodes (``inet:whois:rec:fqdn``), additional ``inet:fqdn`` nodes (``inet:fqdn:domain``), etc.
 
 * Return all the nodes **referenced by** a set of nodes:
   ::
+
     refs( out )
 
   Assume a set of ``inet:dns:a`` nodes in the working set. ``refs(out)`` will return any node with a primary *<type> = <valu>* that matches any secondary property type *<ptype> = <valu>* in the working set. As an ``inet:dns:a`` record includes secondary properties of type ``inet:fqdn`` (``inet:dns:a:fqdn``) and ``inet:ipv4`` (``inet:dns:a:ipv4``), the query may return those node types.
 
 * Return all of the nodes that **reference** or are **referenced by** a set of nodes:
   ::
+
     refs()
 
   Assume a set of ``inet:email`` nodes in the working set. An ``inet:email`` *<type> = <valu>* may be referenced by *<ptype> = <valu>* from a variety of forms, including ``inet:whois:contact`` (``inet:whois:contact:email``), ``inet:dns:soa`` (``inet:dns:soa:email``) or ``inet:web:acct`` (``inet:web:acct:email``). Based on its secondary properties, a *<ptype> = <valu>* from an ``inet:email`` node may reference *<type> = <valu>* forms such as ``inet:fqdn`` (``inet:email:fqdn``) or ``inet:user`` (``inet:email:user``).
@@ -254,14 +266,17 @@ N/A
 
 * Return the set of all nodes to which a given set of tags have been applied:
   ::
+
     fromtags()
 
 * Return the set of ``inet:fqdn`` and ``inet:email`` nodes to which a given set of tags have been applied:
   ::
+
     fromtags( inet:fqdn, inet:email )
 
 * Return the set of ``inet:fqdn`` and ``inet:email`` nodes to which a given set of tags have been applied, limiting the number of results to 10:
   ::
+
     fromtags( inet:fqdn, inet:email, limit=10 )
 
 **Usage notes:**
@@ -308,16 +323,19 @@ N/A
 
 * Return the set of leaf tags applied to a given set of nodes:
   ::
+
     totags( leaf = 1 )
     
     totags()
 
 * Return all tags applied to a given set of nodes:
   ::
+
     totags( leaf = 0 )
 
 * Return 10 tags applied to a given set of nodes:
   ::
+
     totags( leaf = 0, limit = 10 )
 
 **Usage notes:**
@@ -326,6 +344,7 @@ N/A
 
 * As tags represent analytical observations or assessments, ``totags()`` can be useful for "summarizing" the set of assessments associated with a given set of nodes. For example, with respect to cyber threat data, assume you are using tags to track malicious activity associated with a particular threat cluster (threat group), such as "Threat Cluster 5". After retrieving all nodes tagged as part of that threat cluster, you can use ``totags()`` to list all other tags (analytical observations) that are associated with the nodes in that threat cluster. Depending on the analytical model (tag structure) you are using, those tags could represent the names of malware families, sets of tactics, techniques, and procedures (TTPs) used by the threat cluster, and so on:
   ::
+
     ask #cno.threat.t5.tc totags()
 
 * ``totags()`` and ``fromtags()`` are often used together to:
@@ -363,14 +382,17 @@ N/A
 
 * Return the set of nodes that share any of the tags applied to the working set of nodes:
   ::
+
     jointags()
 
 * Return the set of ``inet:fqdn`` and ``inet:email`` nodes that share any of the tags applied to the working set of nodes:
   ::
+
     jointags( inet:fqdn, inet:email )
 
 * Return the set of ``inet:fqdn`` and ``inet:email`` nodes that share any of the tags applied to the working set of nodes, limiting the number of results to 10:
   ::
+
     jointags( inet:fqdn, inet:email, limit=10 )
 
 **Usage notes:**
@@ -378,13 +400,13 @@ N/A
 * ``jointags()`` does **not** consume nodes by design and so includes (retains) the original working set as part of the resulting set.
 * ``jointags()`` joins using the set of leaf tags only. For example if nodes in the working set have the tag ``#foo.bar.baz``, ``jointags()`` will return other nodes with ``#foo.bar.baz``, but not nodes with ``#foo.bar`` or ``#foo`` alone.
 * ``jointags()``, like ``refs()``, can be useful to "explore" other nodes that share some analytical assessment (tag) with the working set of nodes, but may return a large number of nodes.
-It may be more efficient to narrow the scope of the query using ``totags()`` in combination with a filter operator (e.g., to limit the specific tags selected) followed by ``fromtags()``.
+  It may be more efficient to narrow the scope of the query using ``totags()`` in combination with a filter operator (e.g., to limit the specific tags selected) followed by ``fromtags()``.
 * The ``limit=`` parameter represents the maximum number of nodes **added** to the results.
-It can be provided as input to the ``jointags()`` operator itself when using Operator syntax.
-Alternately the ``limit()`` operator_ can be used after the ``jointags()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
+  It can be provided as input to the ``jointags()`` operator itself when using Operator syntax.
+  Alternately the ``limit()`` operator_ can be used after the ``jointags()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 
 pivottags()
-----------
+-----------
 Returns all nodes that have **any** of the tags applied to **any** node in the original working set; excludes the original working set from the results.
 
 Optional parameters:
@@ -411,14 +433,17 @@ N/A
 
 * Return the set of nodes that share any of the tags applied to the working set of nodes:
   ::
+
     pivottags()
 
 * Return the set of ``inet:fqdn`` and ``inet:email`` nodes that share any of the tags applied to the working set of nodes:
   ::
+
     pivottags( inet:fqdn, inet:email )
 
 * Return the set of ``inet:fqdn`` and ``inet:email`` nodes that share any of the tags applied to the working set of nodes, limiting the number of results to 10:
   ::
+
     pivottags( inet:fqdn, inet:email, limit=10 )
 
 **Usage notes:**
@@ -426,10 +451,10 @@ N/A
 * ``pivottags()`` consumes nodes input into the function, so the resulting set of nodes will **not** include nodes from the original working set.
 * ``pivottags()`` pivots using the set of leaf tags only. For example if nodes in the working set have the tag ``#foo.bar.baz``, ``pivottags()`` will return other nodes with ``#foo.bar.baz``, but not nodes with ``#foo.bar`` or ``#foo`` alone.
 * ``pivottags()``, like ``refs()``, can be useful to "explore" other nodes that share some analytical assessment (tag) with the working set of nodes, but may return a large number of nodes.
-It may be more efficient to narrow the scope of the query using ``totags()`` in combination with a filter operator (e.g., to limit the specific tags selected) followed by ``fromtags()``.
+  It may be more efficient to narrow the scope of the query using ``totags()`` in combination with a filter operator (e.g., to limit the specific tags selected) followed by ``fromtags()``.
 * The ``limit=`` parameter represents the **total** number of nodes returned, as the original working set is consumed.
-It can be provided as input to the ``pivottags()`` operator itself when using Operator syntax.
-Alternately the ``limit()`` operator_ can be used after the ``pivottags()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
+  It can be provided as input to the ``pivottags()`` operator itself when using Operator syntax.
+  Alternately the ``limit()`` operator_ can be used after the ``pivottags()`` operator (in either Operator or Macro syntax) to specify a limit on the number of nodes returned.
 
 tree()
 ------
@@ -466,24 +491,28 @@ N/A
 
 * Given a set of domains (``inet:fqdn``) in the working set, return the domain(s) and all of their child domains (subdomains):
   ::
+
     tree( inet:fqdn, inet:fqdn:domain )
     
     tree( inet:fqdn:domain )
 
 * Given a set of base tags (``syn:tag``) in the working set, return all tags in the tag hierarchy for those tags:
   ::
+
     tree( syn:tag, syn:tag:up )
     
     tree( syn:tag:up )
 
 * Given a set of base tags (``syn:tag``) in the working set, return all the tags in the tag hierarchy for those tags, limiting the number of results to 10:
   ::
+
     tree( syn:tag, syn:tag:up, limit=10 )
     
     tree( syn:tag:up, limit=10 )
 
 * Given a parent organization (``ou:org``), pivot to the organization / sub-organization nodes (``ou:suborg``) where that org is a parent, and return all of the sub-organizations under that parent (full Storm query provided for clarity):
   ::
+
      ask --props ou:org=<org_guid> -> ou:suborg:org tree( ou:suborg:sub,
        ou:suborg:org ) :sub -> ou:org
 
@@ -491,12 +520,14 @@ N/A
 
 * Given a set of domains (``inet:fqdn``) in the working set, return the domain(s) and all of their parent domains:
   ::
+
     tree( inet:fqdn:domain, inet:fqdn )
     
     tree( :domain, inet:fqdn)
 
 * Given a child organization (``ou:org``), pivot to the organization / sub-organization nodes (``ou:suborg``) where that org is a child, and return all of the parent organizations above that child (full Storm query provided for clarity):
   ::
+
     ask --props ou:org=<org_guid> -> ou:suborg:sub tree( ou:suborg:org,
       ou:suborg:sub ) :org -> ou:org
 

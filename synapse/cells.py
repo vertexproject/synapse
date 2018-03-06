@@ -1,4 +1,3 @@
-
 '''
 Constructors for the various cells.
 ( used for dmon config automation)
@@ -13,5 +12,8 @@ def cryo(dirn, conf=None):
 def axon(dirn, conf=None):
     return s_axon.AxonCell(dirn, conf=conf)
 
-#def neuron(dirn, conf=None):
-    #return s_neuron.Neuron(dirn, conf=conf)
+def blob(dirn, conf=None):
+    return s_axon.BlobCell(dirn, conf=conf)
+
+def neuron(dirn, conf=None):
+    return s_neuron.Neuron(dirn, conf=conf)

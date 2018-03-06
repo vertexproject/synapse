@@ -11,7 +11,7 @@ class CellTest(SynTest):
             with s_cells.cryo(dirn) as cryo:
                 self.isinstance(cryo, s_cryotank.CryoCell)
 
-    def test_cell_axon(self):
-        with self.getTestDir() as dirn:
-            with s_cells.axon(dirn) as axon:
-                self.isinstance(axon, s_axon.AxonCell)
+    #def test_cell_axon(self):
+        #with self.getTestDir() as dirn:
+            #with s_cells.axon(dirn) as axon:
+                #self.isinstance(axon, s_axon.AxonCell)

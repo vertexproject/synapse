@@ -2,7 +2,7 @@ import logging
 
 import synapse.common as s_common
 
-from synapse.lib.module import CoreModule, modelrev
+import synapse.lib.module as s_module
 
 logger = logging.getLogger(__name__)
 
@@ -12,9 +12,9 @@ ex_sha256 = 'ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c'
 ex_sha384 = 'd425f1394e418ce01ed1579069a8bfaa1da8f32cf823982113ccbef531fa36bda9987f389c5af05b5e28035242efab6c'
 ex_sha512 = 'ca74fe2ff2d03b29339ad7d08ba21d192077fece1715291c7b43c20c9136cd132788239189f3441a87eb23ce2660aa243f334295902c904b5520f6e80ab91f11'
 
-class CryptoMod(CoreModule):
+class CryptoMod(s_module.CoreModule):
 
-    @modelrev('crypto', 201708231712)
+    @s_module.modelrev('crypto', 201708231712)
     def _revModl201708231712(self):
         pass # here from legacy for backward compat
 

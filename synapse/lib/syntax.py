@@ -1,7 +1,6 @@
 import synapse.common as s_common
 
 import synapse.lib.time as s_time
-import synapse.lib.interval as s_interval
 
 '''
 This module implements syntax parsing for the storm runtime.

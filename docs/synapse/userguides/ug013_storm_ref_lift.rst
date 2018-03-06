@@ -50,6 +50,7 @@ Lift operations are highly flexible. Only basic examples of ``lift()`` usage are
 
 * Lift all domain nodes:
   ::
+
     lift( inet:fqdn )
     
     inet:fqdn
@@ -58,6 +59,7 @@ Lift operations are highly flexible. Only basic examples of ``lift()`` usage are
 
 * Lift all ``inet:fqdn`` nodes that have an ``:updated`` secondary property:
   ::
+
     lift( inet:fqdn:updated )
     
     inet:fqdn:updated
@@ -66,6 +68,7 @@ Lift operations are highly flexible. Only basic examples of ``lift()`` usage are
 
 * Lift the node for domain ``woot.com``:
   ::
+
     lift( inet:fqdn , woot.com )
     
     inet:fqdn = woot.com
@@ -74,6 +77,7 @@ Lift operations are highly flexible. Only basic examples of ``lift()`` usage are
 
 * Lift all DNS A record nodes where the domain is ``woot.com``:
   ::
+
     lift( inet:dns:a:fqdn , woot.com )
     
     inet:dns:a:fqdn = woot.com
@@ -82,12 +86,14 @@ Lift operations are highly flexible. Only basic examples of ``lift()`` usage are
 
 * Lift 10 domain nodes:
   ::
+
     lift( inet:fqdn , limit=10 )
     
     inet:fqdn^10
   
 * Lift 25 DNS A record nodes where the IP is ``127.0.0.1``:
   ::
+
     lift( inet:dns:a:ipv4 , 127.0.0.1 , limit=25)
     
     inet:dns:a:ipv4^25=127.0.0.1
@@ -98,12 +104,14 @@ A single example using a "by" handler is provided for illustrative purposes. Ind
 
 * Lift by tag: lift all ``inet:fqdn`` nodes that have the tag ``my.tag``:
   ::
+
     lift( inet:fqdn , by=tag , my.tag)
     
     inet:fqdn*tag=my.tag
   
 * Lift 10 ``inet:fqdn`` nodes with the tag ``my.tag``:
   ::
+
     lift(inet:fqdn,limit=10,by=tag,my.tag)
     
     inet:fqdn^10*tag=my.tag
@@ -139,12 +147,14 @@ A single example using a "by" handler is provided for illustrative purposes. Ind
 
 * The number of nodes returned by any query can also be restricted by using the ``limit()`` operator_. The first set of examples below uses the *limit* parameter to the ``lift()`` operator (in both operator and macro syntax). The second set of examples uses the ``limit()`` operator (in both operator and macro syntax - note that the macro syntax is equivalent in each case).
   ::
+
     lift ( inet:fqdn , limit=10 )
     
     inet:fqdn^10
 
   vs.
   ::
+
     lift ( inet:fqdn ) limit( 10 )
     
     inet:fqdn^10
@@ -166,6 +176,7 @@ N/A
 
 **Examples:**
 ::
+
   guid( a4d82cf025323796617ff57e884a4738 )
   
   guid( 6472c5f038b0a4e5b1853c49e688fc74 , 5413b2ae7632a0909d63d31a33ec0807 )
@@ -175,6 +186,7 @@ N/A
 * The GUID is a unique identifier assigned to every node. (This identifier is **not** the GUID value used as a primary property by some forms). This GUID is frequently referred to as the ``iden`` in API documentation.
 * The GUID for a node or set of nodes can be displayed at the Synapse CLI by using the ``ask --raw`` option preceding a Storm query. For example, in the query output below, ``b19fe2a26bbe4a6c74b051142d0e5316`` is the GUID for the requested node:
   ::
+
     ask --raw inet:ipv4=1.2.3.4
     [
       [
@@ -217,12 +229,14 @@ Optional parameters:
 
 *Lifts all nodes that have the tag foo.bar or the tag baz.faz.*
 ::
+
   alltag( foo.bar , baz.faz )
   
   #foo.bar #baz.faz
 
 *Lifts up to three nodes that have the tag foo.bar*
 ::
+
   alltag( foo.bar , limit=3)
 
   #foo.bar limit(3)

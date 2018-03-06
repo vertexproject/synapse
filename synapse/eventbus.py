@@ -8,7 +8,6 @@ import collections
 
 import synapse.common as s_common
 
-import synapse.lib.reflect as s_reflect
 import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)
@@ -495,7 +494,9 @@ class BusRef(EventBus):
             (None)
         '''
         def fini():
-            self.ebus_by_name.pop(name, None)
+            with self.lock:
+                if self.ebus_by_name.get(name) is ebus:
+                    self.ebus_by_name.pop(name, None)
 
         ebus.onfini(fini)
         self.ebus_by_name[name] = ebus

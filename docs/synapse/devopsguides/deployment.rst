@@ -17,6 +17,7 @@ Install
 -------
 Ubuntu 16.04 LTS is the recommended platform for installation. Installation via Docker is also
 supported. Synapse is available at the following places:
+
     #. PyPi https://pypi.python.org/pypi/synapse
     #. Github https://github.com/vertexproject/synapse
     #. DockerHub https://hub.docker.com/r/vertexproject/synapse/

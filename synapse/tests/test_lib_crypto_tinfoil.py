@@ -31,15 +31,14 @@ class TinFoilTest(SynTest):
 
         data = edict.get('data')
         self.isinstance(data, bytes)
-        self.len(16, data)  # The output is padded
+        self.len(6 + 16, data)
 
         iv = edict.get('iv')
         self.isinstance(iv, bytes)
         self.len(16, iv)
 
-        hmac = edict.get('hmac')
-        self.isinstance(hmac, bytes)
-        self.len(32, hmac)
+        asscd = edict.get('asscd')
+        self.eq(asscd, None)
 
         # We can decrypt and get our original message back
         self.eq(tinh.dec(byts), b'foobar')
@@ -56,59 +55,67 @@ class TinFoilTest(SynTest):
         # Attempting to decrypt with the wrong key fails
         self.none(s_tinfoil.TinFoilHat(s_tinfoil.newkey()).dec(byts))
 
-        # Messages are padded to expected lengths
+        # Messages are stream encoded so the length is 1 to 1
         for msize in [0, 1, 2, 15, 16, 17, 31, 32, 33, 63, 65]:
             mesg = msize * b'!'
             byts = tinh.enc(mesg)
             edict = s_msgpack.un(byts)
 
             self.len(16, edict.get('iv'))
-            self.len(32, edict.get('hmac'))
-
-            mul = msize // 16
-            elen = (mul + 1) * 16
-
             data = edict.get('data')
-            self.len(elen, data)  # The output is padded
+            self.len(len(mesg) + 16, data)
             self.eq(tinh.dec(byts), mesg)
+
+        # We can pass in additional data that we want authed too
+        byts = tinh.enc(b'robert grey', b'pennywise')
+        edict = s_msgpack.un(byts)
+        self.eq(edict.get('asscd'), b'pennywise')
+        self.eq(tinh.dec(byts), b'robert grey')
+        # A malformed edict with a bad asscd won't decrypt
+        edict['asscd'] = b'georgey'
+        self.none(tinh.dec(s_msgpack.en(edict)))
 
     def test_lib_crypto_tnfl_break(self):
         ekey = s_tinfoil.newkey()
         tinh = s_tinfoil.TinFoilHat(ekey)
 
-        goodbyts = tinh.enc(b'foobar')
+        goodbyts = tinh.enc(b'foobar', b'hehe')
         edict = s_msgpack.un(goodbyts)
 
         # Empty values will fail to decrypt
-        for key in ('iv', 'hmac', 'data'):
+        for key in ('iv', 'data', 'asscd'):
             bdict = {k: v for k, v in edict.items() if k != key}
             byts = s_msgpack.en(bdict)
-            self.false(tinh.dec(byts))
+            self.none(tinh.dec(byts))
 
         # Tampered values will fail
         bdict = {k: v for k, v in edict.items()}
         bdict['iv'] = os.urandom(16)
         byts = s_msgpack.en(bdict)
-        self.false(tinh.dec(byts))
-
-        bdict = {k: v for k, v in edict.items()}
-        bdict['hmac'] = os.urandom(32)
-        byts = s_msgpack.en(bdict)
-        self.false(tinh.dec(byts))
+        self.none(tinh.dec(byts))
 
         bdict = {k: v for k, v in edict.items()}
         bdict['data'] = os.urandom(16)
         byts = s_msgpack.en(bdict)
-        self.false(tinh.dec(byts))
+        self.none(tinh.dec(byts))
+
+        bdict = {k: v for k, v in edict.items()}
+        bdict['asscd'] = os.urandom(16)
+        byts = s_msgpack.en(bdict)
+        self.none(tinh.dec(byts))
 
     def test_lib_crypto_tnfl_vector(self):
         key = binascii.unhexlify(b'fc066c018159a674c13ae1fb7c5c6548a4e05a11d742a0ebed35d28724b767b0')
-        edict = {'data': b'339f3a4efd4b158d61f87b303655fe1e971e83eaba41d9ea7076991f85a995953cc7598c'
-                         b'745f3e159edbb36a4c03d2b138dc599434fa59e3ee3a2f39335c2addef531244644db350'
-                         b'4b13a6e5f93d4019063550ddee5cd66b277000683144f5b066c30eab08309990cafee7f2'
-                         b'9d23fedc7240bbe41d152a0b769e64c5aac6ac4c',
+
+        edict = {'data': b'02f9f72c9164e231f0e6795fd1d1fb21db6e8b0c049ef611ea6'
+                         b'432ed8ec6d54b245d66864b06cc6cbdc52ebf5f0dbe1382b42e'
+                         b'94a67411f7042d0562f3fd9b1a6961aacff69292aa596382c9f'
+                         b'869e2957269191c5f916f56889188db03eb60d2caf7f7dd7388'
+                         b'a5a9ef13494aaeb905f08e658fbb907afd7169b879b0313d065'
+                         b'c1045e844c039b43296f44d6bc5',
                  'hmac': b'fb4b53fb2b94d4ef91b5a094ab786b879ba6274384e23da15f7990609df5ab88',
-                 'iv': b'575a0ee4c0293b444e67a8ac27ee34fb',
+                 'iv': b'ecf8ed3d7932834fc76b7323d6ab73ce',
+                 'asscd': b''
                  }
         msg = s_msgpack.en({k: binascii.unhexlify(v) for k, v in edict.items()})
         tinh = s_tinfoil.TinFoilHat(key)

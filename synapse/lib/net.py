@@ -5,6 +5,7 @@ import logging
 import threading
 import collections
 
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
@@ -65,9 +66,13 @@ class Plex(s_config.Config):
                         return
 
                     poll = self.polls.get(fino)
+
                     if poll is None:
-                        logger.warning('unknown epoll fd: %d' % (fino,))
-                        self.epoll.unregister(fino)
+
+                        sock = self.socks.get(fino)
+                        if sock is not None:
+                            self._finiPlexSock(sock)
+
                         continue
 
                     try:
@@ -93,13 +98,11 @@ class Plex(s_config.Config):
 
         fino = sock.fileno()
 
-        if self.socks.pop(fino, None) is None:
-            return
-
         self.socks.pop(fino, None)
-        self.polls.pop(fino, None)
 
-        self.epoll.unregister(fino)
+        poll = self.polls.pop(fino)
+        if poll is not None:
+            self.epoll.unregister(fino)
 
         sock.close()
 
@@ -137,8 +140,8 @@ class Plex(s_config.Config):
                 try:
 
                     news, addr = sock.accept()
-                    news.setblocking(False)
 
+                    self._setSockOpts(news)
                     link = self._initPlexSock(news)
 
                     try:
@@ -185,6 +188,20 @@ class Plex(s_config.Config):
         '''
         return self.epoll.modify(fino, flags)
 
+    def _setSockOpts(self, sock):
+
+        sock.setblocking(False)
+        # disable nagle ( to minimize latency for small xmit )
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        # enable TCP keep alives...
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        # start sending a keep alives after 1 sec of inactivity
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1)
+        # send keep alives every 3 seconds once started
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
+        # close the socket after 5 failed keep alives (15 sec)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
+
     def connect(self, addr, onconn):
         '''
         Perform a non-blocking connect with the given callback function.
@@ -194,26 +211,31 @@ class Plex(s_config.Config):
             onconn (function): A callback (ok, link)
         '''
         sock = socket.socket()
-        sock.setblocking(False)
+        self._setSockOpts(sock)
 
         fino = sock.fileno()
 
         def poll(flags):
 
-            self.polls.pop(fino, None)
+            ok = True
+            retn = None
 
-            if not flags & select.EPOLLOUT:
+            errn = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+            if errn != 0 or flags & select.EPOLLERR:
+
+                ok = False
+                retn = errn
                 self._finiPlexSock(sock)
-                ok, link = False, sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-                logger.warning('connect failed: %d' % (link,))
-                sock.close()
+
             else:
-                ok, link = True, self._initPlexSock(sock)
+
+                ok = True
+                retn = self._initPlexSock(sock)
 
             try:
-                onconn(ok, link)
+                onconn(ok, retn)
             except Exception as e:
-                logger.warning('connect() onconn failed: %s' % (e,))
+                logger.exception('connect() onconn failed: %s' % (e,))
                 return
 
         self.socks[fino] = sock
@@ -225,6 +247,8 @@ class Plex(s_config.Config):
             sock.connect(addr)
         except BlockingIOError as e:
             pass
+
+s_glob.plex = Plex()
 
 class Link(s_eventbus.EventBus):
     '''
@@ -252,6 +276,17 @@ class Link(s_eventbus.EventBus):
         self._mesg_funcs = self.handlers()
         self.onfini(self._onLinkFini)
 
+    def chain(self, link):
+        link.onrx(self.rx)
+        self.onfini(link.fini)
+        link.onfini(self.fini)
+
+    def onmesg(self, name, func):
+        '''
+        Set a named message handler for the link.
+        '''
+        self._mesg_funcs[name] = func
+
     def onrx(self, func):
         '''
         Register a callback to recieve (link, mesg) tuples.
@@ -275,11 +310,11 @@ class Link(s_eventbus.EventBus):
         if self.istxfini:
             self.fini()
 
-    def txfini(self, data=None):
+    def txfini(self, data=s_common.novalu):
         '''
         Annotate that the there is nothing more to send.
         '''
-        if data is not None:
+        if data is not s_common.novalu:
             self.tx(data)
 
         if self.istxfini:
@@ -338,12 +373,14 @@ class Link(s_eventbus.EventBus):
                 return self.rxfunc(self, mesg)
             except Exception as e:
                 logger.exception('%s.rxfunc() failed on: %r' % (self.__class__.__name__, mesg))
+                self.fini()
                 return
 
         try:
             func = self._mesg_funcs.get(mesg[0])
         except Exception as e:
             logger.exception('link %s: rx mesg exception: %s' % (self.__class__.__name__, e))
+            self.fini()
             return
 
         if func is None:
@@ -354,6 +391,7 @@ class Link(s_eventbus.EventBus):
             func(link, mesg)
         except Exception as e:
             logger.exception('link %s: rx exception: %s' % (self.__class__.__name__, e))
+            self.fini()
 
     def tx(self, mesg):
         '''
@@ -367,6 +405,16 @@ class Link(s_eventbus.EventBus):
 
         self.txtime = s_common.now()
         self._tx_real(mesg)
+
+    def txok(self, retn, fini=False):
+        self.tx((True, retn))
+        if fini:
+            self.txfini()
+
+    def txerr(self, enfo, fini=False):
+        self.tx((False, enfo))
+        if fini:
+            self.txfini()
 
     def _tx_real(self, mesg):
         return self.link.tx(mesg)
@@ -397,13 +445,28 @@ class Chan(Link):
 
         self.link.tx((name, {'chan': self._chan_iden, 'data': mesg}))
 
-    def txfini(self, data=None):
-        self.link.tx(('fini', {'chan': self._chan_iden, 'data': data}))
+    def txfini(self, data=s_common.novalu):
+
+        name = 'fini'
+        info = {'chan': self._chan_iden}
+
+        if data is not s_common.novalu:
+            info['data'] = data
+
+        # check for syn/psh/fin
+        if self._chan_txinit:
+            self._chan_txinit = False
+            name = 'init'
+            info['fini'] = True
+
+        self.link.tx((name, info))
 
     def setq(self):
         '''
         Set this Chan to using a Queue for rx.
         '''
+        if self._chan_rxq is not None:
+            return
 
         self._chan_rxq = s_queue.Queue()
 
@@ -425,63 +488,61 @@ class Chan(Link):
         return self._chan_rxq.slice(size, timeout=timeout)
 
     def iter(self, timeout=None):
-        retn = self._chan_rxq.get(timeout=timeout)
-        while retn is not None:
-            yield retn
-            retn = self._chan_rxq.get(timeout=timeout)
+        while not self.isfini:
+            yield self._chan_rxq.get(timeout=timeout)
 
     def rxwind(self, timeout=None):
+        '''
+        Yield items from an txwind caller.
+        '''
+        self.setq()
 
-        self.tx(('rx:wind', {}))
+        while not self.isfini:
 
-        mesg = self.next(timeout=timeout)
-        if mesg is None:
-            return
+            for ok, retn in self.slice(1000, timeout=timeout):
 
-        if mesg[0] != 'tx:wind':
-            logger.warning('rxwind expected tx:wind but got %s' % (mesg[0],))
-            return
+                if not ok:
 
-        item = self.next(timeout=timeout)
-        while item is not None:
-            self.tx(True)
-            yield item
-            item = self.next(timeout=timeout)
+                    if retn is not None:
+                        logger.warning('rxwind(): %r' % (retn,))
+
+                    return
+
+                self.tx((True, True))
+                yield retn
 
     def txwind(self, items, size, timeout=None):
         '''
-        Execute a windowed transmission loop of each item in items.
+        Execute a windowed transmission loop from a generator.
         '''
-        self.tx(('tx:wind', {}))
-
-        mesg = self.next(timeout=timeout)
-        if mesg is None:
-            return
-
-        if mesg[0] != 'rx:wind':
-            logger.warning('txwind expected rx:wind but got %s' % (mesg[0],))
-            return
-
         wind = 0
-        for item in items:
 
-            self.tx(item)
-            wind += 1
+        try:
 
-            while wind >= size:
+            for item in items:
 
-                acks = self.slice(size, timeout=timeout)
-                if acks is None:
-                    return False
+                self.tx((True, item))
+                wind += 1
 
-                wind -= len(acks)
+                while wind >= size:
+                    acks = self.slice(wind, timeout=timeout)
+                    wind -= len(acks)
+
+        except Exception as e:
+            enfo = s_common.getexcfo(e)
+            self.txerr(enfo)
+            logger.exception('tx wind genr')
+            return
+
+        self.tx((False, None))
 
         while wind > 0:
-            acks = self.slice(size, timeout=timeout)
-            if acks is None:
-                return False
-
-            wind -= len(acks)
+            try:
+                acks = self.slice(wind, timeout=timeout)
+                wind -= len(acks)
+            except Exception as e:
+                print('TXWIND REMAIN WIND: %r' % (wind,))
+                raise
 
         return True
 
@@ -509,19 +570,19 @@ class ChanPlex(Link):
     def _onChanInit(self, link, mesg):
 
         iden = mesg[1].get('chan')
-        data = mesg[1].get('data')
+        data = mesg[1].get('data', s_common.novalu)
 
         chan = self.chans.get(iden)
         if chan is not None:
             # an init for an existing chan
             # (return init message from our tx)
-            if data is not None:
+            if data is not s_common.novalu:
                 chan.rx(self, data)
 
             return
 
         if self.onchan is None:
-            logger.warning('%r: got init without onchan' % (self,))
+            logger.warning('%r: got init without onchan: %r' % (self, chan))
             return
 
         chan = self.initPlexChan(iden, txinit=False)
@@ -542,13 +603,17 @@ class ChanPlex(Link):
         if data is not None:
             chan.rx(self, data)
 
+        # syn/psh/fin ;)
+        if mesg[1].get('fini'):
+            chan.rxfini()
+
     def _tx_real(self, mesg):
 
         iden = mesg[1].get('chan')
 
         chan = self.chans.get(iden)
         if chan is None:
-            logger.warning('tx() for missing chan')
+            logger.warning('tx() for missing chan %r' % (mesg,))
             return
 
         link = chan.getLinkProp('plex:link', defval=self.link)
@@ -576,7 +641,7 @@ class ChanPlex(Link):
         # this message means the remote end is done sending
         # ( and does not by itself fini() the chan )
         iden = mesg[1].get('chan')
-        data = mesg[1].get('data')
+        data = mesg[1].get('data', s_common.novalu)
 
         chan = self.chans.get(iden)
         if chan is None:
@@ -584,13 +649,14 @@ class ChanPlex(Link):
 
         chan.setLinkProp('plex:link', link)
 
-        if data is not None:
+        if data is not s_common.novalu:
             chan.rx(self, data)
 
         chan.rxfini()
 
     def initPlexChan(self, iden, txinit=True):
         chan = Chan(self, iden, txinit=txinit)
+        chan.info.update(self.info)
         self.chans.put(iden, chan)
         return chan
 
@@ -738,11 +804,11 @@ class SockLink(Link):
                             return
 
                     except BlockingIOError as e:
-                        # we cant write any more without blocking
+                        # we cant send any more without blocking
                         return
 
                     except BrokenPipeError as e:
-                        logger.info('tx broken pipe: ignore...')
+                        logger.debug('tx broken pipe: ignore...')
                         return
 
                     self.txbuf = self.txbuf[sent:]
@@ -753,8 +819,71 @@ class SockLink(Link):
 
                 # no more txbuf... are we done?
                 if not self.txque:
+                    if self.istxfini:
+                        self.fini()
+                        return
                     self.flags &= ~select.EPOLLOUT
                     self.plex.modify(self.fino, self.flags)
                     return
 
                 self.txbuf = self.txque.popleft()
+
+class LinkDisp:
+    '''
+    The Link Dispatcher ensures sequential/bulk processing
+    which executes from the global thread pool as needed.
+
+    This can be used to create transaction boundaries across
+    multiple links or prevent the need to permenantly eat threads.
+
+    Example:
+
+        def func(items):
+
+            with getFooXact() as xact:
+
+                for link, mesg in items:
+
+                    xact.dostuff(mesg)
+                    link.tx(True)
+
+        disp = LinkDisp(func):
+        chan.onrx(disp.rx)
+
+    '''
+
+    def __init__(self, func):
+
+        self.func = func
+        self.lock = threading.Lock()
+        self.items = collections.deque()
+        self.working = False
+
+    def rx(self, link, item):
+
+        with self.lock:
+
+            self.items.append((link, item))
+
+            if not self.working:
+                self.working = True
+                self._runItemsFunc()
+
+    @s_glob.inpool
+    def _runItemsFunc(self):
+
+        while True:
+
+            with self.lock:
+
+                items = self.items
+                if not items:
+                    self.working = False
+                    return
+
+                self.items = []
+
+            try:
+                self.func(items)
+            except Exception as e:
+                logger.exception('LinkDisp callback error')

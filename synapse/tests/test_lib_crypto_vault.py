@@ -1,7 +1,7 @@
 import hashlib
 import multiprocessing
 
-import synapse.lib.crypto.rsa as s_rsa
+import synapse.lib.crypto.ecc as s_ecc
 import synapse.lib.crypto.vault as s_vault
 
 from synapse.tests.common import *
@@ -29,8 +29,8 @@ class VaultTest(SynTest):
             root = vault.genRootCert()
 
             self.isinstance(root.iden(), str)
-            self.isinstance(root.getkey(), s_rsa.PriKey)
-            self.isinstance(root.public(), s_rsa.PubKey)
+            self.isinstance(root.getkey(), s_ecc.PriKey)
+            self.isinstance(root.public(), s_ecc.PubKey)
             self.isinstance(root.toknbytes(), bytes)
             self.isinstance(root.dump(), bytes)
 
@@ -62,7 +62,7 @@ class VaultTest(SynTest):
             # We can make a Cert without having the private key available
             tstcert = s_vault.Cert(root.cert)
             self.none(tstcert.getkey())
-            self.isinstance(tstcert.public(), s_rsa.PubKey)
+            self.isinstance(tstcert.public(), s_ecc.PubKey)
             # attempting to sign data with that cert fails though
             self.raises(NoCertKey, tstcert.sign, ncert, haha=1)
 
@@ -100,7 +100,7 @@ class VaultTest(SynTest):
             auth = vault.genUserAuth('bobgrey@vertex.link')
             self.istufo(auth)
             self.isinstance(auth[1].get('cert'), bytes)
-            self.isinstance(auth[1].get('rsa:key'), bytes)
+            self.isinstance(auth[1].get('ecdsa:prvkey'), bytes)
             self.isinstance(auth[1].get('root'), bytes)
             acert = s_vault.Cert.load(auth[1].get('cert'))
             self.eq(cert.iden(), acert.iden())
@@ -139,9 +139,9 @@ class VaultTest(SynTest):
             # vault can no longer validate data from newvault
             self.false(vault.isValidCert(ncert))
 
-            # Ensure we can make a new RSA key directly
-            rkey = vault.genRsaKey()
-            self.isinstance(rkey, s_rsa.PriKey)
+            # Ensure we can make a new ECC key directly
+            rkey = vault.genEccKey()
+            self.isinstance(rkey, s_ecc.PriKey)
 
             # Tear down our vaults
             newvault.fini()

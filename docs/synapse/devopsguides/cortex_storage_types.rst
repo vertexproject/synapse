@@ -45,7 +45,7 @@ inverse is also true; a Cortex created in 3.x may not work in Python2.7 as expec
 This is known to affect the LMDB Cortex implementation, which heavily relies on using msgpack
 for doing key/value serialization, which has issues across python 2/3 with string handling.
 The Blob store APIs may also be affected by this, since the stored data is stored as a
- sgpack'd object.
+msgpack'd object.
 
 If there is a need for doing a data migration in order to ensure that your able to access a
 Cortex created on 2.7 with python 3.x, we have plans to provide a row level dump/backup tool

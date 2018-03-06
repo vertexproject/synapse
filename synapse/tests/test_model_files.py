@@ -1,10 +1,10 @@
 import io
 
-import synapse.axon as s_axon
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.lib.tufo as s_tufo
+import synapse.lib.hashset as s_hashset
 
 from synapse.tests.common import *
 
@@ -13,7 +13,7 @@ class FileModelTest(SynTest):
     def test_model_file_bytes(self):
         with self.getRamCore() as core:
 
-            hset = s_axon.HashSet()
+            hset = s_hashset.HashSet()
             hset.update(b'visi')
 
             valu, props = hset.guid()
@@ -30,7 +30,7 @@ class FileModelTest(SynTest):
     def test_model_file_seeds(self):
         with self.getRamCore() as core:
 
-            hset = s_axon.HashSet()
+            hset = s_hashset.HashSet()
             hset.update(b'visi')
 
             valu, props = hset.guid()
@@ -155,50 +155,28 @@ class FileModelTest(SynTest):
             self.eq(img0[1].get('file:txtref:xref:intval'), None)
 
     def test_model_file_bytes_axon(self):
-        self.skipTest('Skipping until Axons are sewn back together.')
-        fd = io.BytesIO(b'foobar')
-
-        # create an cortex with access to an axon
-        with self.getTestDir() as dirname:
-
-            conf = {
-                'ctors': (
-                    ('axon00',
-                     'syn:axon',
-                     {'datadir': dirname}),
-                    ('core00',
-                     'syn:cortex',
-                     {'url': 'ram:///',
-                      'axon:url': 'dmon://axon00'}),
-                ),
-
-                'share': (
-                    ('core00', {}),
-                ),
-
-            }
-
+        self.skipLongTest()
+        with self.getAxonCore() as env:
             with s_daemon.Daemon() as dmon:
 
-                dmon.loadDmonConf(conf)
-                link = dmon.listen('tcp://127.0.0.1:0/')
+                dmonlink = dmon.listen('tcp://127.0.0.1:0/')
+                dmonport = dmonlink[1].get('port')
+                dmon.share('core', env.core)
 
-                port = link[1].get('port')
-
-                core = s_telepath.openurl('tcp://127.0.0.1/core00', port=port)
+                coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
+                core = s_telepath.openurl(coreurl)
 
                 node = core.formNodeByBytes(b'visi', name='visi.bin')
-
                 self.eq(node[1].get('file:bytes:size'), 4)
                 self.eq(node[1].get('file:bytes:name'), 'visi.bin')
-
                 self.eq(node[1].get('file:bytes'), '442f602ecf8230b2a59a44b4f845be27')
                 self.eq(node[1].get('file:bytes:md5'), '1b2e93225959e3722efed95e1731b764')
                 self.eq(node[1].get('file:bytes:sha1'), '93de0c7d579384feb3561aa504acd8f23f388040')
                 self.eq(node[1].get('file:bytes:sha256'), 'e45bbb7e03acacf4d1cca4c16af1ec0c51d777d10e53ed3155bd3d8deb398f3f')
-                self.eq(node[1].get('file:bytes:sha512'), '8238be12bcc3c10da7e07dbea528e9970dc809c07c5aef545a14e5e8d2038563b29c2e818d167b06e6a33412e6beb8347fcc44520691347aea9ee21fcf804e39')
+                self.eq(node[1].get('file:bytes:sha512'), '8238be12bcc3c10da7e07dbea528e9970dc809c07c5aef545a14e5e8d2038563b'
+                                                            '29c2e818d167b06e6a33412e6beb8347fcc44520691347aea9ee21fcf804e39')
 
+                fd = io.BytesIO(b'foobar')
                 node = core.formNodeByFd(fd, name='foobar.exe')
-
                 self.eq(node[1].get('file:bytes:size'), 6)
                 self.eq(node[1].get('file:bytes:name'), 'foobar.exe')

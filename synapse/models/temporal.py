@@ -3,7 +3,7 @@ import datetime
 import synapse.common as s_common
 
 from synapse.lib.types import DataType
-from synapse.lib.module import CoreModule, modelrev
+import synapse.lib.module as s_module
 
 def fromUnixEpoch(valu):
     if isinstance(valu, str):
@@ -77,7 +77,7 @@ class EpochType(DataType):
         dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(seconds=int(valu))
         return '%d/%.2d/%.2d %.2d:%.2d:%.2d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
 
-class TimeMod(CoreModule):
+class TimeMod(s_module.CoreModule):
 
     def initCoreModule(self):
         self.core.addTypeCast('from:unix:epoch', fromUnixEpoch)

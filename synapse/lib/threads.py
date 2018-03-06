@@ -71,7 +71,7 @@ class RetnWait:
             return True, self._retn_valu
 
         if not evnt.wait(timeout=timeout):
-            return False, s_common.getexcfo(s_common.RetnTimeout(timeout=timeout))
+            return False, ('TimeOut', {})
 
         if self._retn_exc is not None:
             return False, self._retn_exc
