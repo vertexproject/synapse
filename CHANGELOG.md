@@ -1,6 +1,13 @@
 Changelog
 =========
 
+v0.0.46 - 2018-03-06
+--------------------
+
+## Bugs
+- Pull in version bounds for third-party packages from the master branch. This addresses an immeadiate issue where Synapse fails to work with a pypi installation and Tornado 5.0.0 is installed.
+
+
 v0.0.45 - 2018-02-13
 --------------------
 
