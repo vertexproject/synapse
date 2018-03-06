@@ -345,7 +345,6 @@ class StormTest(SynTest):
             phas0 = core.formTufoByProp('ps:has', (pvalu, ('inet:email', 'c00l@vertex.link')))
             core.formTufoByProp('ps:has', (pvalu, ('inet:fqdn', 'vertex.link')))
 
-            # It does not actually make sense to have a file reference a ps:has, this is just for testing
             fnode = core.formTufoByProp('file:bytes:md5', 'd41d8cd98f00b204e9800998ecf8427e')
             _, fvalu = s_tufo.ndef(fnode)
             core.formTufoByProp('file:txtref', (fvalu, ('ps:has', phas0[1].get('ps:has'))))
