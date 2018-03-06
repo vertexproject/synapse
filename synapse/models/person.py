@@ -50,8 +50,8 @@ class PsMod(s_module.CoreModule):
     @modelrev('ps', 201802281621)
     def _revModl201802281621(self):
         '''
-        Combine ps:has* into ps:has
-        - Forms a new ps:has node for all of the old ps:has* nodes
+        Combine ps:has* into ps:person:has
+        - Forms a new ps:person:has node for all of the old ps:has* nodes
         - Applies the old node's tags to the new node
         - Deletes the old node
         - Deletes the syn:tagform nodes for the old form
@@ -85,7 +85,7 @@ class PsMod(s_module.CoreModule):
                     if smax is not None:
                         kwargs['seen:max'] = smax
 
-                    newfo = self.core.formTufoByProp('ps:has', (perval, (ptype, newval)), **kwargs)
+                    newfo = self.core.formTufoByProp('ps:person:has', (perval, (ptype, newval)), **kwargs)
 
                     tags = s_tufo.tags(tufo, leaf=True)
                     self.core.addTufoTags(newfo, tags)
@@ -94,11 +94,11 @@ class PsMod(s_module.CoreModule):
 
                 self.core.delTufosByProp('syn:tagform:form', oldform)
 
-            # Add dark rows to the ps:has
-            # It is safe to operate on all ps:has nodes as this point as none should exist
+            # Add dark rows to the ps:person:has
+            # It is safe to operate on all ps:person:has nodes as this point as none should exist
             dvalu = 'ps:201802281621'
             dprop = '_:dark:syn:modl:rev'
-            darks = [(i[::-1], dprop, dvalu, t) for (i, p, v, t) in self.core.getRowsByProp('ps:has')]
+            darks = [(i[::-1], dprop, dvalu, t) for (i, p, v, t) in self.core.getRowsByProp('ps:person:has')]
             self.core.addRows(darks)
 
     @staticmethod
@@ -115,7 +115,7 @@ class PsMod(s_module.CoreModule):
 
                 ('ps:contact', {'subof': 'guid', 'doc': 'A GUID for a contact info record'}),
 
-                ('ps:has', {
+                ('ps:person:has', {
                     'subof': 'xref',
                     'source': 'person,ps:person',
                     'doc': 'A person owns, controls, or has exclusive use of an object or resource,'
@@ -191,7 +191,7 @@ class PsMod(s_module.CoreModule):
                     # FIXME add an optional bounding box
                 )),
 
-                ('ps:has', {}, [
+                ('ps:person:has', {}, [
                     ('person', {'ptype': 'ps:person', 'ro': 1, 'req': 1,
                         'doc': 'The person who owns or controls the object or resource.'}),
                     ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,

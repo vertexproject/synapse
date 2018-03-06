@@ -11,13 +11,13 @@ class PersonTest(SynTest, ModelSeenMixin):
             person_tufo = core.formTufoByProp('ps:person', person_guid, name='Kenshoto,Invisigoth')
             personval = person_tufo[1].get('ps:person')
 
-            node = core.formTufoByProp('ps:has', (personval, ('inet:fqdn', 'vertex.link')))
+            node = core.formTufoByProp('ps:person:has', (personval, ('inet:fqdn', 'vertex.link')))
             self.ge(node[1].get('node:created'), 1519852535218)
-            self.eq(node[1].get('ps:has'), '03870dc800bc21c7c594a900ae65f5cb')
-            self.eq(node[1].get('ps:has:person'), personval)
-            self.eq(node[1].get('ps:has:xref'), 'inet:fqdn=vertex.link')
-            self.eq(node[1].get('ps:has:xref:prop'), 'inet:fqdn')
-            self.eq(node[1].get('ps:has:xref:node'), '42366d896b947b97e7f3b1afeb9433a3')
+            self.eq(node[1].get('ps:person:has'), '03870dc800bc21c7c594a900ae65f5cb')
+            self.eq(node[1].get('ps:person:has:person'), personval)
+            self.eq(node[1].get('ps:person:has:xref'), 'inet:fqdn=vertex.link')
+            self.eq(node[1].get('ps:person:has:xref:prop'), 'inet:fqdn')
+            self.eq(node[1].get('ps:person:has:xref:node'), '42366d896b947b97e7f3b1afeb9433a3')
 
             self.none(core.getTufoByProp('node:ndef', '42366d896b947b97e7f3b1afeb9433a3'))  # Not automatically formed
             core.formTufoByProp('inet:fqdn', 'vertex.link')
@@ -166,7 +166,7 @@ class PersonTest(SynTest, ModelSeenMixin):
 
         def run_assertions(core, oldname, reftype, tufo_check):
             # assert that the correct number of items was migrated
-            tufos = core.getTufosByProp('ps:has:xref:prop', reftype)
+            tufos = core.getTufosByProp('ps:person:has:xref:prop', reftype)
             self.len(N, tufos)
 
             # check that properties were correctly migrated and tags were not damaged
@@ -174,8 +174,8 @@ class PersonTest(SynTest, ModelSeenMixin):
 
             # check that tags were correctly migrated
             _check_tags(core, tufo, TAGS)
-            _check_tagforms(core, oldname, 'ps:has')
-            _check_tagdarks(core, oldname, 'ps:has', NODECOUNT)
+            _check_tagforms(core, oldname, 'ps:person:has')
+            _check_tagdarks(core, oldname, 'ps:person:has', NODECOUNT)
             _check_darkmodlrev(core, tufo)
 
             # assert that no old data remains
@@ -319,21 +319,20 @@ class PersonTest(SynTest, ModelSeenMixin):
             stor.on('modl:vers:rev', addrows, name='ps', vers=201802281621)
 
             with s_cortex.fromstore(stor) as core:
-                # FIXME hashost is a comp
 
                 # ps:hasuser ======================================================================
                 oldname = 'ps:hasuser'
                 reftype = 'inet:user'
                 def tufo_check(core):
-                    tufo = core.getTufoByProp('ps:has:xref', 'inet:user=inet:user0')
-                    self.eq(tufo[1]['tufo:form'], 'ps:has')
-                    self.eq(tufo[1]['ps:has'], '1d69ccd1948c985d9467fb4d3caab4f1')
-                    self.eq(tufo[1]['ps:has:seen:min'], 0)
-                    self.eq(tufo[1]['ps:has:seen:max'], 1)
-                    self.eq(tufo[1]['ps:has:xref'], 'inet:user=inet:user0')
-                    self.eq(tufo[1]['ps:has:xref:prop'], reftype)
-                    self.eq(tufo[1]['ps:has:xref:node'], 'bec8693bb5b38ffe62b97b0d2b7cdbb5')
-                    self.eq(tufo[1]['ps:has:person'], '2f6d1248de48f451e1f349cff33f336c')
+                    tufo = core.getTufoByProp('ps:person:has:xref', 'inet:user=inet:user0')
+                    self.eq(tufo[1]['tufo:form'], 'ps:person:has')
+                    self.eq(tufo[1]['ps:person:has'], '1d69ccd1948c985d9467fb4d3caab4f1')
+                    self.eq(tufo[1]['ps:person:has:seen:min'], 0)
+                    self.eq(tufo[1]['ps:person:has:seen:max'], 1)
+                    self.eq(tufo[1]['ps:person:has:xref'], 'inet:user=inet:user0')
+                    self.eq(tufo[1]['ps:person:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ps:person:has:xref:node'], 'bec8693bb5b38ffe62b97b0d2b7cdbb5')
+                    self.eq(tufo[1]['ps:person:has:person'], '2f6d1248de48f451e1f349cff33f336c')
 
                     # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
                     core.formTufoByProp(reftype, 'inet:user0')
@@ -347,15 +346,15 @@ class PersonTest(SynTest, ModelSeenMixin):
                 oldname = 'ps:hashost'
                 reftype = 'it:host'
                 def tufo_check(core):
-                    tufo = core.getTufoByProp('ps:has:xref', 'it:host=00000000000000000000000000000000')
-                    self.eq(tufo[1]['tufo:form'], 'ps:has')
-                    self.eq(tufo[1]['ps:has'], '4b4e7d417c84e75fbd30332bde6d9614')
-                    self.eq(tufo[1]['ps:has:seen:min'], 0)
-                    self.eq(tufo[1]['ps:has:seen:max'], 1)
-                    self.eq(tufo[1]['ps:has:xref'], 'it:host=00000000000000000000000000000000')
-                    self.eq(tufo[1]['ps:has:xref:prop'], reftype)
-                    self.eq(tufo[1]['ps:has:xref:node'], '09cd1fbc8b183f18c38ae034713af5e3')
-                    self.eq(tufo[1]['ps:has:person'], '2f6d1248de48f451e1f349cff33f336c')
+                    tufo = core.getTufoByProp('ps:person:has:xref', 'it:host=00000000000000000000000000000000')
+                    self.eq(tufo[1]['tufo:form'], 'ps:person:has')
+                    self.eq(tufo[1]['ps:person:has'], '4b4e7d417c84e75fbd30332bde6d9614')
+                    self.eq(tufo[1]['ps:person:has:seen:min'], 0)
+                    self.eq(tufo[1]['ps:person:has:seen:max'], 1)
+                    self.eq(tufo[1]['ps:person:has:xref'], 'it:host=00000000000000000000000000000000')
+                    self.eq(tufo[1]['ps:person:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ps:person:has:xref:node'], '09cd1fbc8b183f18c38ae034713af5e3')
+                    self.eq(tufo[1]['ps:person:has:person'], '2f6d1248de48f451e1f349cff33f336c')
 
                     # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
                     core.formTufoByProp(reftype, 32 * '0')
@@ -369,15 +368,15 @@ class PersonTest(SynTest, ModelSeenMixin):
                 oldname = 'ps:hasalias'
                 reftype = 'ps:name'
                 def tufo_check(core):
-                    tufo = core.getTufoByProp('ps:has:xref', 'ps:name=ps:name0')
-                    self.eq(tufo[1]['tufo:form'], 'ps:has')
-                    self.eq(tufo[1]['ps:has'], '5225cebcede28ca91fae6d9dcf0442f0')
-                    self.eq(tufo[1]['ps:has:seen:min'], 0)
-                    self.eq(tufo[1]['ps:has:seen:max'], 1)
-                    self.eq(tufo[1]['ps:has:xref'], 'ps:name=ps:name0')
-                    self.eq(tufo[1]['ps:has:xref:prop'], reftype)
-                    self.eq(tufo[1]['ps:has:xref:node'], '06359585e4d66e7ab081aaafdedabe39')
-                    self.eq(tufo[1]['ps:has:person'], '2f6d1248de48f451e1f349cff33f336c')
+                    tufo = core.getTufoByProp('ps:person:has:xref', 'ps:name=ps:name0')
+                    self.eq(tufo[1]['tufo:form'], 'ps:person:has')
+                    self.eq(tufo[1]['ps:person:has'], '5225cebcede28ca91fae6d9dcf0442f0')
+                    self.eq(tufo[1]['ps:person:has:seen:min'], 0)
+                    self.eq(tufo[1]['ps:person:has:seen:max'], 1)
+                    self.eq(tufo[1]['ps:person:has:xref'], 'ps:name=ps:name0')
+                    self.eq(tufo[1]['ps:person:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ps:person:has:xref:node'], '06359585e4d66e7ab081aaafdedabe39')
+                    self.eq(tufo[1]['ps:person:has:person'], '2f6d1248de48f451e1f349cff33f336c')
 
                     # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
                     core.formTufoByProp(reftype, 'ps:name0')
@@ -391,15 +390,15 @@ class PersonTest(SynTest, ModelSeenMixin):
                 oldname = 'ps:hasphone'
                 reftype = 'tel:phone'
                 def tufo_check(core):
-                    tufo = core.getTufoByProp('ps:has:xref', 'tel:phone=+1 (234) 567-890')
-                    self.eq(tufo[1]['tufo:form'], 'ps:has')
-                    self.eq(tufo[1]['ps:has'], 'e7cdfaba2a1cb739bdf5afd56795dbd3')
-                    self.eq(tufo[1]['ps:has:seen:min'], 0)
-                    self.eq(tufo[1]['ps:has:seen:max'], 1)
-                    self.eq(tufo[1]['ps:has:xref'], 'tel:phone=+1 (234) 567-890')
-                    self.eq(tufo[1]['ps:has:xref:prop'], reftype)
-                    self.eq(tufo[1]['ps:has:xref:node'], '0068a540030a8de1d3f3817e52d50b7c')
-                    self.eq(tufo[1]['ps:has:person'], '2f6d1248de48f451e1f349cff33f336c')
+                    tufo = core.getTufoByProp('ps:person:has:xref', 'tel:phone=+1 (234) 567-890')
+                    self.eq(tufo[1]['tufo:form'], 'ps:person:has')
+                    self.eq(tufo[1]['ps:person:has'], 'e7cdfaba2a1cb739bdf5afd56795dbd3')
+                    self.eq(tufo[1]['ps:person:has:seen:min'], 0)
+                    self.eq(tufo[1]['ps:person:has:seen:max'], 1)
+                    self.eq(tufo[1]['ps:person:has:xref'], 'tel:phone=+1 (234) 567-890')
+                    self.eq(tufo[1]['ps:person:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ps:person:has:xref:node'], '0068a540030a8de1d3f3817e52d50b7c')
+                    self.eq(tufo[1]['ps:person:has:person'], '2f6d1248de48f451e1f349cff33f336c')
 
                     # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
                     core.formTufoByProp(reftype, '1234567890')
@@ -413,15 +412,15 @@ class PersonTest(SynTest, ModelSeenMixin):
                 oldname = 'ps:hasemail'
                 reftype = 'inet:email'
                 def tufo_check(core):
-                    tufo = core.getTufoByProp('ps:has:xref', 'inet:email=email0@vertex.link')
-                    self.eq(tufo[1]['tufo:form'], 'ps:has')
-                    self.eq(tufo[1]['ps:has'], 'f1459cf885d792f2a98ae89d36ee9227')
-                    self.eq(tufo[1]['ps:has:seen:min'], 0)
-                    self.eq(tufo[1]['ps:has:seen:max'], 1)
-                    self.eq(tufo[1]['ps:has:xref'], 'inet:email=email0@vertex.link')
-                    self.eq(tufo[1]['ps:has:xref:prop'], reftype)
-                    self.eq(tufo[1]['ps:has:xref:node'], '79249f2582baef41cbed45f609e2ea89')
-                    self.eq(tufo[1]['ps:has:person'], '2f6d1248de48f451e1f349cff33f336c')
+                    tufo = core.getTufoByProp('ps:person:has:xref', 'inet:email=email0@vertex.link')
+                    self.eq(tufo[1]['tufo:form'], 'ps:person:has')
+                    self.eq(tufo[1]['ps:person:has'], 'f1459cf885d792f2a98ae89d36ee9227')
+                    self.eq(tufo[1]['ps:person:has:seen:min'], 0)
+                    self.eq(tufo[1]['ps:person:has:seen:max'], 1)
+                    self.eq(tufo[1]['ps:person:has:xref'], 'inet:email=email0@vertex.link')
+                    self.eq(tufo[1]['ps:person:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ps:person:has:xref:node'], '79249f2582baef41cbed45f609e2ea89')
+                    self.eq(tufo[1]['ps:person:has:person'], '2f6d1248de48f451e1f349cff33f336c')
 
                     # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
                     core.formTufoByProp(reftype, 'email0@vertex.link')
@@ -435,15 +434,15 @@ class PersonTest(SynTest, ModelSeenMixin):
                 oldname = 'ps:haswebacct'
                 reftype = 'inet:web:acct'
                 def tufo_check(core):
-                    tufo = core.getTufoByProp('ps:has:xref', 'inet:web:acct=vertex.link/user0')
-                    self.eq(tufo[1]['tufo:form'], 'ps:has')
-                    self.eq(tufo[1]['ps:has'], '9f2179b7a428d4ca233b96acd9b0c8fc')
-                    self.eq(tufo[1]['ps:has:seen:min'], 0)
-                    self.eq(tufo[1]['ps:has:seen:max'], 1)
-                    self.eq(tufo[1]['ps:has:xref'], 'inet:web:acct=vertex.link/user0')
-                    self.eq(tufo[1]['ps:has:xref:prop'], reftype)
-                    self.eq(tufo[1]['ps:has:xref:node'], '0cd705305c7f4573a38b7e7c8f4ddef9')
-                    self.eq(tufo[1]['ps:has:person'], '2f6d1248de48f451e1f349cff33f336c')
+                    tufo = core.getTufoByProp('ps:person:has:xref', 'inet:web:acct=vertex.link/user0')
+                    self.eq(tufo[1]['tufo:form'], 'ps:person:has')
+                    self.eq(tufo[1]['ps:person:has'], '9f2179b7a428d4ca233b96acd9b0c8fc')
+                    self.eq(tufo[1]['ps:person:has:seen:min'], 0)
+                    self.eq(tufo[1]['ps:person:has:seen:max'], 1)
+                    self.eq(tufo[1]['ps:person:has:xref'], 'inet:web:acct=vertex.link/user0')
+                    self.eq(tufo[1]['ps:person:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ps:person:has:xref:node'], '0cd705305c7f4573a38b7e7c8f4ddef9')
+                    self.eq(tufo[1]['ps:person:has:person'], '2f6d1248de48f451e1f349cff33f336c')
 
                     # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
                     core.formTufoByProp(reftype, 'vertex.link/user0')
