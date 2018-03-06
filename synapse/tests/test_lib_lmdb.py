@@ -148,7 +148,7 @@ class LmdbTest(SynTest):
                 metr.record(xact, {'hehe': 40, 'haha': 30})
             self.eq(str(metr.indx), 'count(4)')
 
-            with lenv.begin(write=True) as xact:
+            with lenv.begin(write=False) as xact:
                 retn = list(metr.iter(xact, 0))
                 self.eq([off for off, item in retn], [0, 1, 2, 3])
 

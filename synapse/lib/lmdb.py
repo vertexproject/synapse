@@ -115,7 +115,7 @@ class Metrics:
 
             curs = xact.cursor(db=self._db_history)
             if curs.last():
-                indx = struct.unpack('>Q', curs.key())[0]
+                indx = struct.unpack('>Q', curs.key())[0] + 1
 
             self.indx = itertools.count(indx)
 
