@@ -110,6 +110,7 @@ class CryoTank(s_config.Config):
 
         Args:
             offs (int): The index offset.
+            size (int): The maximum number of records to yield.
 
         Yields:
             ((int, dict)): An index offset, info tuple for metrics.
