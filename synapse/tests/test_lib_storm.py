@@ -350,31 +350,31 @@ class StormTest(SynTest):
             core.formTufoByProp('file:txtref', (fvalu, ('ps:has', phas0[1].get('ps:has'))))
 
             outnodes = core.eval('ps:has refs(out)')  # out
-            outforms = sorted({node[1]['tufo:form'] for node in outnodes})
+            outforms = {node[1]['tufo:form'] for node in outnodes}
             self.len(5, outnodes)
-            self.eq(outforms, ['inet:email', 'inet:fqdn', 'ps:has', 'ps:person'])
+            self.sorteq(outforms, ['inet:email', 'inet:fqdn', 'ps:has', 'ps:person'])
 
             outnodes = core.eval('ps:has refs(out, limit=0)')  # out
-            limtoutforms = sorted({node[1]['tufo:form'] for node in outnodes})
+            limtoutforms = {node[1]['tufo:form'] for node in outnodes}
             self.len(2, outnodes)
-            self.eq(limtoutforms, ['ps:has'])
+            self.sorteq(limtoutforms, ['ps:has'])
 
             outnodes = core.eval('ps:has refs(out, limit=1)')  # out
-            limtoutforms = sorted({node[1]['tufo:form'] for node in outnodes})
+            limtoutforms = {node[1]['tufo:form'] for node in outnodes}
             self.len(3, outnodes)
             [self.isin(form, ['inet:email', 'inet:fqdn', 'ps:has', 'ps:person']) for form in limtoutforms]
 
             innodes = core.eval('ps:has refs(in)')  # in
-            informs = sorted({node[1]['tufo:form'] for node in innodes})
+            informs = {node[1]['tufo:form'] for node in innodes}
             self.len(3, innodes)
-            self.eq(informs, ['file:txtref', 'ps:has'])  # Nothing refs in to these nodes
+            self.sorteq(informs, ['file:txtref', 'ps:has'])  # Nothing refs in to these nodes
 
-            expected_bothforms = sorted(set(informs + outforms))
+            expected_bothforms = informs.union(outforms)
 
             bothnodes = core.eval('ps:has refs()')  # in and out
-            bothforms = sorted({node[1]['tufo:form'] for node in bothnodes})
+            bothforms = {node[1]['tufo:form'] for node in bothnodes}
             self.len(6, bothnodes)
-            self.eq(expected_bothforms, bothforms)
+            self.sorteq(expected_bothforms, bothforms)
 
     def test_storm_refs(self):
         with self.getRamCore() as core:

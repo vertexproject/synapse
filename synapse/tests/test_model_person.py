@@ -147,7 +147,7 @@ class PersonTest(SynTest, ModelSeenMixin):
             self.len(0, rows)
 
         def _check_tags(core, tufo, tags):
-            self.eq(sorted(tags), sorted(s_tufo.tags(tufo)))
+            self.sorteq(tags, s_tufo.tags(tufo))
 
         def _check_tagforms(core, oldname, newname):
             self.len(0, core.getRowsByProp('syn:tagform:form', oldname))
