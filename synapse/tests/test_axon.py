@@ -334,8 +334,11 @@ class AxonTest(SynTest):
                 self.len(1, locs)
                 self.isin('blob00', locs[0][0])
                 # Use the buid to retrieve the large file from blob01
-
                 buid = locs[0][1]
+                testhash = hashlib.sha256()
+                for byts in blob01c.bytes(buid, timeout=3):
+                    testhash.update(byts)
+                self.eq(bbufhash, testhash.digest())
 
                 # Try storing a empty file
                 logger.debug('Nullfile test')
