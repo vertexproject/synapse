@@ -314,10 +314,15 @@ class NeuronTest(SynTest):
                 addr = cell.getCellAddr()
 
                 with user.open(addr, timeout=2) as sess:
+
                     sess.tx('Test message')
-                    sess._crypter._tx_sn = 42
+
+                    # hand increment the sequence so we break
+                    next(sess._crypter._tx_sn)
+
                     sess.tx('Test message')
                     stream.wait(.1)
+
             stream.seek(0)
             log_msgs = stream.read()
             self.isin('out of sequence', log_msgs)

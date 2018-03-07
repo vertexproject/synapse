@@ -4,6 +4,7 @@ import fcntl
 import random
 import socket
 import logging
+import itertools
 import threading
 import collections
 import multiprocessing
@@ -453,24 +454,28 @@ class CryptSeq:
     def __init__(self, rx_key, tx_key, initial_rx_seq=0, initial_tx_seq=0):
         self._rx_tinh = s_tinfoil.TinFoilHat(rx_key)
         self._tx_tinh = s_tinfoil.TinFoilHat(tx_key)
-        self._rx_sn = initial_rx_seq
-        self._tx_sn = initial_tx_seq
+        self._rx_sn = itertools.count(initial_rx_seq)
+        self._tx_sn = itertools.count(initial_tx_seq)
 
     def encrypt(self, mesg):
-        rv = self._tx_tinh.enc(s_msgpack.en((self._tx_sn, mesg)))
-        self._tx_sn += 1
+        seqn = next(self._tx_sn)
+        rv = self._tx_tinh.enc(s_msgpack.en((seqn, mesg)))
         return rv
 
     def decrypt(self, ciphertext):
+
         plaintext = self._rx_tinh.dec(ciphertext)
         if plaintext is None:
             logger.error('Message decryption failure')
             raise s_exc.CryptoErr(mesg='Message decryption failure')
+
+        seqn = next(self._rx_sn)
+
         sn, mesg = s_msgpack.un(plaintext)
-        if sn != self._rx_sn:
-            logger.error('Message out of sequence: got %d expected %d', sn, self._rx_sn)
-            raise s_exc.CryptoErr(mesg='Message out of sequence', expected=self._rx_sn, got=sn)
-        self._rx_sn += 1
+        if sn != seqn:
+            logger.error('Message out of sequence: got %d expected %d', sn, seqn)
+            raise s_exc.CryptoErr(mesg='Message out of sequence', expected=seqn, got=sn)
+
         return mesg
 
 class Sess(s_net.Link):
