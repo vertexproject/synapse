@@ -480,6 +480,7 @@ class SynTest(unittest.TestCase):
                 ('default_foo', {'subof': 'str'},),
                 ('guidform', {'subof': 'guid'},),
                 ('pvsub', {'subof': 'str'}),
+                ('compfqdn', {'subof': 'comp', 'fields': 'guid=guid,fqdn=inet:fqdn'}),
             ),
             'forms': (
                 (
@@ -528,6 +529,16 @@ class SynTest(unittest.TestCase):
                         ('prop', {'ptype': 'str', 'ro': 1}),
                     )
                 ),
+                (
+                    'compfqdn', {'ptype': 'compfqdn'},
+                    (
+                        ('guid', {'ptype': 'guid', 'ro': 1}),
+                        ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
+                        ('seen:min', {'ptype': 'time:min'}),
+                        ('seen:max', {'ptype': 'time:max'}),
+                    )
+                ),
+
             )
         }
         core.addDataModel('tst', modl)

@@ -969,25 +969,22 @@ class StormTest(SynTest):
 
             # Setting RO nodes on guid nodes made without secondary props / subs
             # Testing only - do NOT make comp nodes like this
-            ouhnode = core.eval('[ou:hasfqdn=*]')[0]
+            ouhnode = core.eval('[compfqdn=*]')[0]
             self.nn(ouhnode)
-            self.notin('ou:hasfqdn:org', ouhnode[1])
-            self.notin('ou:hasfqdn:fqdn', ouhnode[1])
-            orgnode = core.eval('[ou:org:alias=vertex]')[0]
-            self.nn(orgnode)
-            self.nn(core.eval('[inet:fqdn=woot.com]')[0])
+            self.notin('compfqdn:guid', ouhnode[1])
+            self.notin('compfqdn:fqdn', ouhnode[1])
+
             # Set the missing props
-            query = 'ou:hasfqdn=%s [:org=%s :fqdn=woot.com]' % (ouhnode[1].get('ou:hasfqdn'),
-                                                                orgnode[1].get('ou:org'))
+            query = 'compfqdn=%s [:guid=%s :fqdn=woot.com]' % (ouhnode[1].get('compfqdn'), 32 * 'a')
             ouhnode = core.eval(query)[0]
-            self.eq(ouhnode[1].get('ou:hasfqdn:org'), orgnode[1].get('ou:org'))
-            self.eq(ouhnode[1].get('ou:hasfqdn:fqdn'), 'woot.com')
+            self.eq(ouhnode[1].get('compfqdn:guid'), 32 * 'a')
+            self.eq(ouhnode[1].get('compfqdn:fqdn'), 'woot.com')
+
             # We cannot change ro values via set prop mode
-            query = 'ou:hasfqdn=%s [:org=%s :fqdn=vertex.link]' % (ouhnode[1].get('ou:hasfqdn'),
-                                                                   orgnode[1].get('ou:org'))
+            query = 'compfqdn=%s [:guid=%s :fqdn=vertex.link]' % (ouhnode[1].get('compfqdn'), 32 * 'b')
             ouhnode = core.eval(query)[0]
-            self.eq(ouhnode[1].get('ou:hasfqdn:org'), orgnode[1].get('ou:org'))
-            self.eq(ouhnode[1].get('ou:hasfqdn:fqdn'), 'woot.com')
+            self.eq(ouhnode[1].get('compfqdn:guid'), 32 * 'a')
+            self.eq(ouhnode[1].get('compfqdn:fqdn'), 'woot.com')
 
     def test_storm_tag_ival(self):
         with self.getRamCore() as core:
@@ -1121,9 +1118,16 @@ class StormTest(SynTest):
             self.eq(node2[1].get('ps:person:has:xref:prop'), 'inet:web:acct')
             self.eq(node2[1].get('ps:person:has:xref:node'), '600ec8667d978eba100b8a412f7154ae')
 
-            node3 = core.eval('addnode(ou:haswebacct, ((alias="vertex"),vertex.link/pennywise))')[0]
-            self.eq(node3[1].get('ou:haswebacct'), 'e0d1c290732ac433444afe7b5825f94d')
-            self.eq(node3[1].get('ou:haswebacct:web:acct'), 'vertex.link/pennywise')
+            onode = core.eval('addnode(ou:org, (name="clowns"))')[0]
+            oguid = onode[1].get('ou:org')
+            self.eq(oguid, 'd4556f76e65043a138f7899db9d27cf1')
+
+            node3 = core.eval('addnode(ou:org:has, (d4556f76e65043a138f7899db9d27cf1, (inet:web:acct,vertex.link/pennywise)))')[0]
+            self.eq(node3[1].get('ou:org:has'), '378c9905f931af5786a753d10c0cd20b')
+            self.eq(node3[1].get('ou:org:has:org'), 'd4556f76e65043a138f7899db9d27cf1')
+            self.eq(node3[1].get('ou:org:has:xref'), 'inet:web:acct=vertex.link/pennywise')
+            self.eq(node3[1].get('ou:org:has:xref:prop'), 'inet:web:acct')
+            self.eq(node3[1].get('ou:org:has:xref:node'), '600ec8667d978eba100b8a412f7154ae')
 
     def test_storm_task(self):
         with self.getRamCore() as core:

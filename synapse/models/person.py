@@ -232,8 +232,12 @@ class PsMod(s_module.CoreModule):
                         'doc': 'The ndef of the node that is owned or controlled by the person.'}),
                     ('xref:prop', {'ptype': 'str', 'ro': 1,
                         'doc': 'The property (form) of the object or resource that is owned or controlled by the person.'}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
+                    ('seen:min', {'ptype': 'time:min',
+                        'doc': 'The earliest known time when the person owned or controlled the resource.'
+                    }),
+                    ('seen:max', {'ptype': 'time:max',
+                        'doc': 'The most recent known time when the person owned or controlled the resource.'
+                    }),
                 ]),
 
                 ('ps:persona:has', {}, [
@@ -245,8 +249,12 @@ class PsMod(s_module.CoreModule):
                         'doc': 'The ndef of the node that is owned or controlled by the persona.'}),
                     ('xref:prop', {'ptype': 'str', 'ro': 1,
                         'doc': 'The property (form) of the object or resource that is owned or controlled by the persona.'}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
+                    ('seen:min', {'ptype': 'time:min',
+                        'doc': 'The earliest known time when the persona owned or controlled the resource.'
+                    }),
+                    ('seen:max', {'ptype': 'time:max',
+                        'doc': 'The most recent known time when the persona owned or controlled the resource.'
+                    }),
                 ]),
 
             ),
