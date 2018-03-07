@@ -1,6 +1,6 @@
-from synapse.lib.types import DataType
-
+import synapse.lib.tufo as s_tufo
 import synapse.lib.module as s_module
+from synapse.lib.types import DataType
 
 # FIXME identify/handle possibly as seeds
 # tony stark
@@ -38,6 +38,7 @@ class PsMod(s_module.CoreModule):
 
     def initCoreModule(self):
         self.core.addSeedCtor('ps:person:guidname', self.seedPersonGuidName)
+        self.core.addSeedCtor('ps:persona:guidname', self.seedPersonaGuidName)
 
     def seedPersonGuidName(self, prop, valu, **props):
         node = self.core.getTufoByProp('ps:person:guidname', valu)
@@ -45,6 +46,67 @@ class PsMod(s_module.CoreModule):
             # trigger GUID auto-creation
             node = self.core.formTufoByProp('ps:person', None, guidname=valu, **props)
         return node
+
+    def seedPersonaGuidName(self, prop, valu, **props):
+        node = self.core.getTufoByProp('ps:persona:guidname', valu)
+        if node is None:
+            # trigger GUID auto-creation
+            node = self.core.formTufoByProp('ps:persona', None, guidname=valu, **props)
+        return node
+
+    @s_module.modelrev('ps', 201802281621)
+    def _revModl201802281621(self):
+        '''
+        Combine ps:has* into ps:person:has
+        - Forms a new ps:person:has node for all of the old ps:has* nodes
+        - Applies the old node's tags to the new node
+        - Deletes the old node
+        - Deletes the syn:tagform nodes for the old form
+        - Adds dark row for each node, signifying that they were added by migration
+        '''
+        data = (
+            ('ps:hasuser', 'user', 'inet:user'),
+            ('ps:hashost', 'host', 'it:host'),
+            ('ps:hasalias', 'alias', 'ps:name'),
+            ('ps:hasphone', 'phone', 'tel:phone'),
+            ('ps:hasemail', 'email', 'inet:email'),
+            ('ps:haswebacct', 'web:acct', 'inet:web:acct'),
+        )
+        with self.core.getCoreXact() as xact:
+
+            for oldform, pname, ptype in data:
+                personkey = oldform + ':person'
+                newvalkey = oldform + ':' + pname
+                sminkey = oldform + ':seen:min'
+                smaxkey = oldform + ':seen:max'
+
+                for tufo in self.core.getTufosByProp(oldform):
+                    perval = tufo[1].get(personkey)
+                    newval = tufo[1].get(newvalkey)
+
+                    kwargs = {}
+                    smin = tufo[1].get(sminkey)
+                    if smin is not None:
+                        kwargs['seen:min'] = smin
+                    smax = tufo[1].get(smaxkey)
+                    if smax is not None:
+                        kwargs['seen:max'] = smax
+
+                    newfo = self.core.formTufoByProp('ps:person:has', (perval, (ptype, newval)), **kwargs)
+
+                    tags = s_tufo.tags(tufo, leaf=True)
+                    self.core.addTufoTags(newfo, tags)
+
+                    self.core.delTufo(tufo)
+
+                self.core.delTufosByProp('syn:tagform:form', oldform)
+
+            # Add dark rows to the ps:person:has
+            # It is safe to operate on all ps:person:has nodes as this point as none should exist
+            dvalu = 'ps:201802281621'
+            dprop = '_:dark:syn:modl:rev'
+            darks = [(i[::-1], dprop, dvalu, t) for (i, p, v, t) in self.core.getRowsByProp('ps:person:has')]
+            self.core.addRows(darks)
 
     @staticmethod
     def getBaseModels():
@@ -56,16 +118,23 @@ class PsMod(s_module.CoreModule):
                 ('ps:name',
                  {'ctor': 'synapse.models.person.Name', 'ex': 'smith,bob', 'doc': 'A last,first person full name'}),
                 ('ps:person',
-                 {'subof': 'guid', 'alias': 'ps:person:guidname', 'doc': 'A GUID for a person or suspected person'}),
+                 {'subof': 'guid', 'alias': 'ps:person:guidname', 'doc': 'A GUID for a person'}),
+                ('ps:persona',
+                 {'subof': 'guid', 'alias': 'ps:persona:guidname', 'doc': 'A GUID for a suspected person'}),
 
                 ('ps:contact', {'subof': 'guid', 'doc': 'A GUID for a contact info record'}),
 
-                ('ps:hasuser', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|user,inet:user'}),
-                ('ps:hashost', {'subof': 'comp', 'fields': 'person=ps:person,host=it:host'}),
-                ('ps:hasalias', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|alias,ps:name'}),
-                ('ps:hasphone', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|phone,tel:phone'}),
-                ('ps:hasemail', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|email,inet:email'}),
-                ('ps:haswebacct', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|web:acct,inet:web:acct'}),
+                ('ps:person:has', {
+                    'subof': 'xref',
+                    'source': 'person,ps:person',
+                    'doc': 'A person owns, controls, or has exclusive use of an object or resource,'
+                        'potentially during a specific period of time.'}),
+
+                ('ps:persona:has', {
+                    'subof': 'xref',
+                    'source': 'persona,ps:persona',
+                    'doc': 'A persona owns, controls, or has exclusive use of an object or resource,'
+                        'potentially during a specific period of time.'}),
 
                 ('ps:image', {'subof': 'sepr', 'sep': '/', 'fields': 'person,ps:person|file,file:bytes'}),
 
@@ -94,6 +163,23 @@ class PsMod(s_module.CoreModule):
                     ('name:given', {'ptype': 'ps:tokn'}),
                     ('name:en', {'ptype': 'ps:name',
                         'doc': 'The English version of the name for the person'}),
+                    ('name:en:sur', {'ptype': 'ps:tokn'}),
+                    ('name:en:middle', {'ptype': 'ps:tokn'}),
+                    ('name:en:given', {'ptype': 'ps:tokn'}),
+                ]),
+
+                ('ps:persona', {'ptype': 'ps:persona'}, [
+                    ('guidname', {'ptype': 'str:lwr', 'doc': 'The GUID resolver alias for this suspected person'}),
+                    ('dob', {'ptype': 'time', 'doc': 'The Date of Birth (DOB) if known'}),
+                    ('img', {'ptype': 'file:bytes', 'doc': 'The "primary" image of a suspected person'}),
+                    ('nick', {'ptype': 'inet:user'}),
+                    ('name', {'ptype': 'ps:name',
+                        'doc': 'The localized name for the suspected person'}),
+                    ('name:sur', {'ptype': 'ps:tokn', }),
+                    ('name:middle', {'ptype': 'ps:tokn'}),
+                    ('name:given', {'ptype': 'ps:tokn'}),
+                    ('name:en', {'ptype': 'ps:name',
+                        'doc': 'The English version of the name for the suspected person'}),
                     ('name:en:sur', {'ptype': 'ps:tokn'}),
                     ('name:en:middle', {'ptype': 'ps:tokn'}),
                     ('name:en:given', {'ptype': 'ps:tokn'}),
@@ -137,47 +223,32 @@ class PsMod(s_module.CoreModule):
                     # FIXME add an optional bounding box
                 )),
 
-                ('ps:hasuser', {'ptype': 'ps:hasuser'}, (
-                    ('person', {'ptype': 'ps:person'}),
-                    ('user', {'ptype': 'inet:user'}),
+                ('ps:person:has', {}, [
+                    ('person', {'ptype': 'ps:person', 'ro': 1, 'req': 1,
+                        'doc': 'The person who owns or controls the object or resource.'}),
+                    ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
+                        'doc': 'The object or resource (prop=valu) that is owned or controlled by the person.'}),
+                    ('xref:node', {'ptype': 'ndef', 'ro': 1, 'req': 1,
+                        'doc': 'The ndef of the node that is owned or controlled by the person.'}),
+                    ('xref:prop', {'ptype': 'str', 'ro': 1,
+                        'doc': 'The property (form) of the object or resource that is owned or controlled by the person.'}),
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
-                )),
+                ]),
 
-                ('ps:hasalias', {'ptype': 'ps:hasalias'}, (
-                    ('person', {'ptype': 'ps:person'}),
-                    ('alias', {'ptype': 'ps:name'}),
+                ('ps:persona:has', {}, [
+                    ('persona', {'ptype': 'ps:persona', 'ro': 1, 'req': 1,
+                        'doc': 'The persona who owns or controls the object or resource.'}),
+                    ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
+                        'doc': 'The object or resource (prop=valu) that is owned or controlled by the persona.'}),
+                    ('xref:node', {'ptype': 'ndef', 'ro': 1, 'req': 1,
+                        'doc': 'The ndef of the node that is owned or controlled by the persona.'}),
+                    ('xref:prop', {'ptype': 'str', 'ro': 1,
+                        'doc': 'The property (form) of the object or resource that is owned or controlled by the persona.'}),
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
-                )),
+                ]),
 
-                ('ps:hashost', {'ptype': 'ps:hashost'}, (
-                    ('person', {'ptype': 'ps:person'}),
-                    ('host', {'ptype': 'it:host'}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                )),
-
-                ('ps:hasphone', {'ptype': 'ps:hasphone'}, (
-                    ('person', {'ptype': 'ps:person'}),
-                    ('phone', {'ptype': 'tel:phone'}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                )),
-
-                ('ps:hasemail', {'ptype': 'ps:hasemail'}, (
-                    ('person', {'ptype': 'ps:person'}),
-                    ('email', {'ptype': 'inet:email'}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                )),
-
-                ('ps:haswebacct', {'ptype': 'ps:haswebacct'}, (
-                    ('person', {'ptype': 'ps:person'}),
-                    ('web:acct', {'ptype': 'inet:web:acct'}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                )),
             ),
         }
         name = 'ps'

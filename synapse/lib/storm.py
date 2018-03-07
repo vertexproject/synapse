@@ -1293,7 +1293,19 @@ class Runtime(Configable):
                 if limt.reached():
                     break
 
+                # node:ndef optimization
                 form = node[1].get('tufo:form')
+                ndef = node[1].get(form + ':xref:node')
+                if ndef is not None:
+                    skipprop = form + ':xref'
+                    done.add((skipprop, node[1].get(skipprop)))
+
+                    newfo = core.getTufoByProp('node:ndef', ndef)
+                    if newfo:
+                        query.add(newfo)
+                        if limt.dec(1):
+                            break
+
                 for prop, info in core.getSubProps(form):
 
                     valu = node[1].get(prop)

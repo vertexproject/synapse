@@ -631,10 +631,12 @@ class XrefType(DataType):
         valu, vsub = self.tlib.getTypeNorm(self._sorc_type, valu)
         tval, tsub = self.tlib.getTypeNorm(tstr, tval)
 
+        tndef = s_common.guid((tstr, tval))
         iden = s_common.guid((valu, tstr, tval))
 
         subs = {
             self._sorc_name: valu,
+            'xref:node': tndef,
             'xref': pvval,
         }
 
