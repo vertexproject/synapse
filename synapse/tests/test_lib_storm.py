@@ -337,6 +337,45 @@ class StormTest(SynTest):
             self.none(node[1].get('#foo.bar'))
             self.none(node[1].get('#baz.faz'))
 
+    def test_storm_refs_ndef(self):
+        with self.getRamCore() as core:
+            pnode = core.formTufoByProp('ps:person', 32 * '0')
+            enode = core.formTufoByProp('inet:email', 'c00l@vertex.link')
+            pvalu = pnode[1].get('ps:person')
+            phas0 = core.formTufoByProp('ps:person:has', (pvalu, ('inet:email', 'c00l@vertex.link')))
+            core.formTufoByProp('ps:person:has', (pvalu, ('inet:fqdn', 'vertex.link')))
+
+            fnode = core.formTufoByProp('file:bytes:md5', 'd41d8cd98f00b204e9800998ecf8427e')
+            _, fvalu = s_tufo.ndef(fnode)
+            core.formTufoByProp('file:txtref', (fvalu, ('ps:person:has', phas0[1].get('ps:person:has'))))
+
+            outnodes = core.eval('ps:person:has refs(out)')  # out
+            outforms = {node[1]['tufo:form'] for node in outnodes}
+            self.len(5, outnodes)
+            self.sorteq(outforms, ['inet:email', 'inet:fqdn', 'ps:person:has', 'ps:person'])
+
+            outnodes = core.eval('ps:person:has refs(out, limit=0)')  # out
+            limtoutforms = {node[1]['tufo:form'] for node in outnodes}
+            self.len(2, outnodes)
+            self.sorteq(limtoutforms, ['ps:person:has'])
+
+            outnodes = core.eval('ps:person:has refs(out, limit=1)')  # out
+            limtoutforms = {node[1]['tufo:form'] for node in outnodes}
+            self.len(3, outnodes)
+            [self.isin(form, ['inet:email', 'inet:fqdn', 'ps:person:has', 'ps:person']) for form in limtoutforms]
+
+            innodes = core.eval('ps:person:has refs(in)')  # in
+            informs = {node[1]['tufo:form'] for node in innodes}
+            self.len(3, innodes)
+            self.sorteq(informs, ['file:txtref', 'ps:person:has'])  # Nothing refs in to these nodes
+
+            expected_bothforms = informs.union(outforms)
+
+            bothnodes = core.eval('ps:person:has refs()')  # in and out
+            bothforms = {node[1]['tufo:form'] for node in bothnodes}
+            self.len(6, bothnodes)
+            self.sorteq(expected_bothforms, bothforms)
+
     def test_storm_refs(self):
         with self.getRamCore() as core:
             core.formTufoByProp('inet:dns:a', 'foo.com/1.2.3.4')
@@ -1071,8 +1110,16 @@ class StormTest(SynTest):
             self.notin('.new', node1[1])
             self.eq(node0[0], node1[0])
 
-            node2 = core.eval('addnode(ps:haswebacct, ((guidname="bob gray"),vertex.link/pennywise))')[0]
-            self.eq(node2[1].get('ps:haswebacct'), 'faebe657f7a5839ecda3f8af15293893/vertex.link/pennywise')
+            pnode = core.eval('addnode(ps:person, (guidname="bob gray"))')[0]
+            pguid = pnode[1].get('ps:person')
+            self.eq(pguid, 'faebe657f7a5839ecda3f8af15293893')
+
+            node2 = core.eval('addnode(ps:person:has, (faebe657f7a5839ecda3f8af15293893,(inet:web:acct,vertex.link/pennywise)))')[0]
+            self.eq(node2[1].get('ps:person:has'), 'e845e52f7bd78385291d3df6c1aeda31')
+            self.eq(node2[1].get('ps:person:has:person'), 'faebe657f7a5839ecda3f8af15293893')
+            self.eq(node2[1].get('ps:person:has:xref'), 'inet:web:acct=vertex.link/pennywise')
+            self.eq(node2[1].get('ps:person:has:xref:prop'), 'inet:web:acct')
+            self.eq(node2[1].get('ps:person:has:xref:node'), '600ec8667d978eba100b8a412f7154ae')
 
             node3 = core.eval('addnode(ou:haswebacct, ((alias="vertex"),vertex.link/pennywise))')[0]
             self.eq(node3[1].get('ou:haswebacct'), 'e0d1c290732ac433444afe7b5825f94d')
