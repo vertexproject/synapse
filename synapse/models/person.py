@@ -47,7 +47,7 @@ class PsMod(s_module.CoreModule):
             node = self.core.formTufoByProp('ps:person', None, guidname=valu, **props)
         return node
 
-    @modelrev('ps', 201802281621)
+    @s_module.modelrev('ps', 201802281621)
     def _revModl201802281621(self):
         '''
         Combine ps:has* into ps:person:has
