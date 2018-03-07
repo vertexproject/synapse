@@ -30,9 +30,9 @@ class OuMod(s_module.CoreModule):
         - Deletes the old node
         - Deletes the syn:tagform nodes for the old form
         - Adds dark row for each node, signifying that they were added by migration
+        - NOTE: does not migrate ou:hasalias
         '''
         data = (
-            ('ou:hasalias', 'alias', 'ou:alias'),
             ('ou:hasfile', 'file', 'file:bytes'),
             ('ou:hasfqdn', 'fqdn', 'inet:fqdn'),
             ('ou:hasipv4', 'ipv4', 'inet:ipv4'),
@@ -96,6 +96,8 @@ class OuMod(s_module.CoreModule):
                  {'subof': 'comp', 'fields': 'org,ou:org|sub,ou:org', 'doc': 'An org which owns a sub org'}),
                 ('ou:member', {'subof': 'comp', 'fields': 'org,ou:org|person,ps:person',
                                'doc': 'A person who is (or was) a member of an organization.'}),
+
+                ('ou:hasalias', {'subof': 'comp', 'fields': 'org=ou:org,alias=ou:alias'}),
                 ('ou:org:has', {
                     'subof': 'xref',
                     'source': 'org,ou:org',
@@ -143,6 +145,12 @@ class OuMod(s_module.CoreModule):
                 ('ou:owns', {'ptype': 'sepr', 'sep': '/', 'fields': 'owner,ou:org|owned,ou:org'}, [
                 ]),  # FIXME does this become an ou:org:has?
 
+                ('ou:hasalias', {'ptype': 'ou:hasalias'}, (
+                    ('org', {'ptype': 'ou:org'}),
+                    ('alias', {'ptype': 'ou:alias'}),
+                    ('seen:min', {'ptype': 'time:min'}),
+                    ('seen:max', {'ptype': 'time:max'}),
+                )),
                 ('ou:org:has', {}, [
                     ('org', {'ptype': 'ou:org', 'ro': 1, 'req': 1,
                         'doc': 'FIXME The org who owns or controls the object or resource.'}),

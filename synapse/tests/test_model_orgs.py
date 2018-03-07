@@ -24,6 +24,26 @@ class OrgTest(SynTest, ModelSeenMixin):
             fqdnfo = core.getTufoByProp('node:ndef', '42366d896b947b97e7f3b1afeb9433a3')
             self.eq(fqdnfo[1].get('inet:fqdn'), 'vertex.link')
 
+    def test_model_org_has_alias(self):
+        with self.getRamCore() as core:
+            iden = 32 * '0'
+
+            node = core.formTufoByProp('ou:hasalias', (iden, 'cools'))
+            self.eq(node[1].get('ou:hasalias'), '77ff3cd31931a67b658af31260ade638')
+            self.eq(node[1].get('ou:hasalias:org'), iden)
+            self.eq(node[1].get('ou:hasalias:alias'), 'cools')
+
+            node = core.formTufoByProp('ou:hasalias', (iden, 'b4dZ'))
+            self.eq(node[1].get('ou:hasalias'), '4be15b22e4081e102d6c8201ca26f28f')
+            self.eq(node[1].get('ou:hasalias:org'), iden)
+            self.eq(node[1].get('ou:hasalias:alias'), 'b4dz')
+
+            self.check_seen(core, node)
+
+            self.len(2, core.getTufosByProp('ou:hasalias:org', iden))
+
+            self.raises(BadTypeValu, core.formTufoByProp, 'ou:hasalias', (iden, 'wee!!!'))
+
     def test_model_orgs_seed_alias(self):
         with self.getRamCore() as core:
 
