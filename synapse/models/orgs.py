@@ -143,7 +143,7 @@ class OuMod(s_module.CoreModule):
                 ('ou:owns', {'ptype': 'sepr', 'sep': '/', 'fields': 'owner,ou:org|owned,ou:org'}, [
                 ]),  # FIXME does this become an ou:has:org?
 
-                ('ou:has:org', {}, [A
+                ('ou:has:org', {}, [
                     ('org', {'ptype': 'ou:org', 'ro': 1, 'req': 1,
                         'doc': 'FIXME The org who owns or controls the object or resource.'}),
                     ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,

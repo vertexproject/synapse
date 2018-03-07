@@ -1122,12 +1122,12 @@ class StormTest(SynTest):
             oguid = onode[1].get('ou:org')
             self.eq(oguid, 'd4556f76e65043a138f7899db9d27cf1')
 
-            node3 = core.eval('addnode(ou:has, (d4556f76e65043a138f7899db9d27cf1, (inet:web:acct,vertex.link/pennywise)))')[0]
-            self.eq(node3[1].get('ou:has'), '378c9905f931af5786a753d10c0cd20b')
-            self.eq(node3[1].get('ou:has:org'), 'd4556f76e65043a138f7899db9d27cf1')
-            self.eq(node3[1].get('ou:has:xref'), 'inet:web:acct=vertex.link/pennywise')
-            self.eq(node3[1].get('ou:has:xref:prop'), 'inet:web:acct')
-            self.eq(node3[1].get('ou:has:xref:node'), '600ec8667d978eba100b8a412f7154ae')
+            node3 = core.eval('addnode(ou:has:org, (d4556f76e65043a138f7899db9d27cf1, (inet:web:acct,vertex.link/pennywise)))')[0]
+            self.eq(node3[1].get('ou:has:org'), '378c9905f931af5786a753d10c0cd20b')
+            self.eq(node3[1].get('ou:has:org:org'), 'd4556f76e65043a138f7899db9d27cf1')
+            self.eq(node3[1].get('ou:has:org:xref'), 'inet:web:acct=vertex.link/pennywise')
+            self.eq(node3[1].get('ou:has:org:xref:prop'), 'inet:web:acct')
+            self.eq(node3[1].get('ou:has:org:xref:node'), '600ec8667d978eba100b8a412f7154ae')
 
     def test_storm_task(self):
         with self.getRamCore() as core:
