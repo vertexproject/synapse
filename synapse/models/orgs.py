@@ -101,7 +101,7 @@ class OuMod(s_module.CoreModule):
                 ('ou:org:has', {
                     'subof': 'xref',
                     'source': 'org,ou:org',
-                    'doc': 'FIXME An org owns, controls, or has exclusive use of an object or resource,'
+                    'doc': 'An org owns, controls, or has exclusive use of an object or resource,'
                         'potentially during a specific period of time.'}),
 
             ),
@@ -153,13 +153,13 @@ class OuMod(s_module.CoreModule):
                 )),
                 ('ou:org:has', {}, [
                     ('org', {'ptype': 'ou:org', 'ro': 1, 'req': 1,
-                        'doc': 'FIXME The org who owns or controls the object or resource.'}),
+                        'doc': 'The org who owns or controls the object or resource.'}),
                     ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
-                        'doc': 'FIXME The object or resource (prop=valu) that is owned or controlled by the org.'}),
+                        'doc': 'The object or resource (prop=valu) that is owned or controlled by the org.'}),
                     ('xref:node', {'ptype': 'ndef', 'ro': 1, 'req': 1,
-                        'doc': 'FIXME The ndef of the node that is owned or controlled by the org.'}),
+                        'doc': 'The ndef of the node that is owned or controlled by the org.'}),
                     ('xref:prop', {'ptype': 'str', 'ro': 1,
-                        'doc': 'FIXME The property (form) of the object or resource that is owned or controlled by the org.'}),
+                        'doc': 'The property (form) of the object or resource that is owned or controlled by the org.'}),
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
                 ]),
