@@ -24,8 +24,8 @@ class OuMod(s_module.CoreModule):
     @s_module.modelrev('ou', 201802281621)
     def _revModl201802281621(self):
         '''
-        Combine ou:has* into ou:has:org
-        - Forms a new ou:has:org node for all of the old ou:has* nodes
+        Combine ou:has* into ou:org:has
+        - Forms a new ou:org:has node for all of the old ou:has* nodes
         - Applies the old node's tags to the new node
         - Deletes the old node
         - Deletes the syn:tagform nodes for the old form
@@ -61,7 +61,7 @@ class OuMod(s_module.CoreModule):
                     if smax is not None:
                         kwargs['seen:max'] = smax
 
-                    newfo = self.core.formTufoByProp('ou:has:org', (orgval, (ptype, newval)), **kwargs)
+                    newfo = self.core.formTufoByProp('ou:org:has', (orgval, (ptype, newval)), **kwargs)
 
                     tags = s_tufo.tags(tufo, leaf=True)
                     self.core.addTufoTags(newfo, tags)
@@ -70,11 +70,11 @@ class OuMod(s_module.CoreModule):
 
                 self.core.delTufosByProp('syn:tagform:form', oldform)
 
-            # Add dark rows to the ou:has:org
-            # It is safe to operate on all ou:has:org nodes as this point as none should exist
+            # Add dark rows to the ou:org:has
+            # It is safe to operate on all ou:org:has nodes as this point as none should exist
             dvalu = 'ou:201802281621'
             dprop = '_:dark:syn:modl:rev'
-            darks = [(i[::-1], dprop, dvalu, t) for (i, p, v, t) in self.core.getRowsByProp('ou:has:org')]
+            darks = [(i[::-1], dprop, dvalu, t) for (i, p, v, t) in self.core.getRowsByProp('ou:org:has')]
             self.core.addRows(darks)
 
     @staticmethod
@@ -96,7 +96,7 @@ class OuMod(s_module.CoreModule):
                  {'subof': 'comp', 'fields': 'org,ou:org|sub,ou:org', 'doc': 'An org which owns a sub org'}),
                 ('ou:member', {'subof': 'comp', 'fields': 'org,ou:org|person,ps:person',
                                'doc': 'A person who is (or was) a member of an organization.'}),
-                ('ou:has:org', {
+                ('ou:org:has', {
                     'subof': 'xref',
                     'source': 'org,ou:org',
                     'doc': 'FIXME An org owns, controls, or has exclusive use of an object or resource,'
@@ -141,9 +141,9 @@ class OuMod(s_module.CoreModule):
                 ]),
 
                 ('ou:owns', {'ptype': 'sepr', 'sep': '/', 'fields': 'owner,ou:org|owned,ou:org'}, [
-                ]),  # FIXME does this become an ou:has:org?
+                ]),  # FIXME does this become an ou:org:has?
 
-                ('ou:has:org', {}, [
+                ('ou:org:has', {}, [
                     ('org', {'ptype': 'ou:org', 'ro': 1, 'req': 1,
                         'doc': 'FIXME The org who owns or controls the object or resource.'}),
                     ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,

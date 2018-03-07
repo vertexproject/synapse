@@ -11,13 +11,13 @@ class OrgTest(SynTest, ModelSeenMixin):
             org_tufo = core.formTufoByProp('ou:org', org_guid, name='The Vertex Project')
             orgval = org_tufo[1].get('ou:org')
 
-            node = core.formTufoByProp('ou:has:org', (orgval, ('inet:fqdn', 'vertex.link')))
+            node = core.formTufoByProp('ou:org:has', (orgval, ('inet:fqdn', 'vertex.link')))
             self.ge(node[1].get('node:created'), 1519852535218)
-            self.eq(node[1].get('ou:has:org'), '03870dc800bc21c7c594a900ae65f5cb')
-            self.eq(node[1].get('ou:has:org:org'), orgval)
-            self.eq(node[1].get('ou:has:org:xref'), 'inet:fqdn=vertex.link')
-            self.eq(node[1].get('ou:has:org:xref:prop'), 'inet:fqdn')
-            self.eq(node[1].get('ou:has:org:xref:node'), '42366d896b947b97e7f3b1afeb9433a3')
+            self.eq(node[1].get('ou:org:has'), '03870dc800bc21c7c594a900ae65f5cb')
+            self.eq(node[1].get('ou:org:has:org'), orgval)
+            self.eq(node[1].get('ou:org:has:xref'), 'inet:fqdn=vertex.link')
+            self.eq(node[1].get('ou:org:has:xref:prop'), 'inet:fqdn')
+            self.eq(node[1].get('ou:org:has:xref:node'), '42366d896b947b97e7f3b1afeb9433a3')
 
             self.none(core.getTufoByProp('node:ndef', '42366d896b947b97e7f3b1afeb9433a3'))  # Not automatically formed
             core.formTufoByProp('inet:fqdn', 'vertex.link')
@@ -110,7 +110,7 @@ class OrgTest(SynTest, ModelSeenMixin):
 
         def run_assertions(core, oldname, reftype, tufo_check):
             # assert that the correct number of items was migrated
-            tufos = core.getTufosByProp('ou:has:org:xref:prop', reftype)
+            tufos = core.getTufosByProp('ou:org:has:xref:prop', reftype)
             self.len(N, tufos)
 
             # check that properties were correctly migrated and tags were not damaged
@@ -118,8 +118,8 @@ class OrgTest(SynTest, ModelSeenMixin):
 
             # check that tags were correctly migrated
             _check_tags(core, tufo, TAGS)
-            _check_tagforms(core, oldname, 'ou:has:org')
-            _check_tagdarks(core, oldname, 'ou:has:org', NODECOUNT)
+            _check_tagforms(core, oldname, 'ou:org:has')
+            _check_tagdarks(core, oldname, 'ou:org:has', NODECOUNT)
             _check_darkmodlrev(core, tufo)
 
             # assert that no old data remains
@@ -305,15 +305,15 @@ class OrgTest(SynTest, ModelSeenMixin):
                 hasval = '9c9eceba074787316af6750f307b8118'
                 ndefval = '8c313cbd0f67bd15eb2bf3adea46a9dd'
                 def tufo_check(core):
-                    tufo = core.getTufoByProp('ou:has:org:xref', xrval)
-                    self.eq(tufo[1]['tufo:form'], 'ou:has:org')
-                    self.eq(tufo[1]['ou:has:org'], hasval)
-                    self.eq(tufo[1]['ou:has:org:seen:min'], 0)
-                    self.eq(tufo[1]['ou:has:org:seen:max'], 1)
-                    self.eq(tufo[1]['ou:has:org:xref'], xrval)
-                    self.eq(tufo[1]['ou:has:org:xref:prop'], reftype)
-                    self.eq(tufo[1]['ou:has:org:xref:node'], ndefval)
-                    self.eq(tufo[1]['ou:has:org:org'], orgval)
+                    tufo = core.getTufoByProp('ou:org:has:xref', xrval)
+                    self.eq(tufo[1]['tufo:form'], 'ou:org:has')
+                    self.eq(tufo[1]['ou:org:has'], hasval)
+                    self.eq(tufo[1]['ou:org:has:seen:min'], 0)
+                    self.eq(tufo[1]['ou:org:has:seen:max'], 1)
+                    self.eq(tufo[1]['ou:org:has:xref'], xrval)
+                    self.eq(tufo[1]['ou:org:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ou:org:has:xref:node'], ndefval)
+                    self.eq(tufo[1]['ou:org:has:org'], orgval)
 
                     # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
                     core.formTufoByProp(reftype, refval)
@@ -331,15 +331,15 @@ class OrgTest(SynTest, ModelSeenMixin):
                 hasval = 'bb3df3b5ddbbd7c80b9dcbee28135668'
                 ndefval = '42366d896b947b97e7f3b1afeb9433a3'
                 def tufo_check(core):
-                    tufo = core.getTufoByProp('ou:has:org:xref', xrval)
-                    self.eq(tufo[1]['tufo:form'], 'ou:has:org')
-                    self.eq(tufo[1]['ou:has:org'], hasval)
-                    self.eq(tufo[1]['ou:has:org:seen:min'], 0)
-                    self.eq(tufo[1]['ou:has:org:seen:max'], 1)
-                    self.eq(tufo[1]['ou:has:org:xref'], xrval)
-                    self.eq(tufo[1]['ou:has:org:xref:prop'], reftype)
-                    self.eq(tufo[1]['ou:has:org:xref:node'], ndefval)
-                    self.eq(tufo[1]['ou:has:org:org'], orgval)
+                    tufo = core.getTufoByProp('ou:org:has:xref', xrval)
+                    self.eq(tufo[1]['tufo:form'], 'ou:org:has')
+                    self.eq(tufo[1]['ou:org:has'], hasval)
+                    self.eq(tufo[1]['ou:org:has:seen:min'], 0)
+                    self.eq(tufo[1]['ou:org:has:seen:max'], 1)
+                    self.eq(tufo[1]['ou:org:has:xref'], xrval)
+                    self.eq(tufo[1]['ou:org:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ou:org:has:xref:node'], ndefval)
+                    self.eq(tufo[1]['ou:org:has:org'], orgval)
 
                     # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
                     core.formTufoByProp(reftype, refval)
@@ -357,15 +357,15 @@ class OrgTest(SynTest, ModelSeenMixin):
                 hasval = '69339004f2dcb7d06454357d8809c764'
                 ndefval = 'ac544a8fffd9636664df2254371aea5a'
                 def tufo_check(core):
-                    tufo = core.getTufoByProp('ou:has:org:xref', xrval)
-                    self.eq(tufo[1]['tufo:form'], 'ou:has:org')
-                    self.eq(tufo[1]['ou:has:org'], hasval)
-                    self.eq(tufo[1]['ou:has:org:seen:min'], 0)
-                    self.eq(tufo[1]['ou:has:org:seen:max'], 1)
-                    self.eq(tufo[1]['ou:has:org:xref'], xrval)
-                    self.eq(tufo[1]['ou:has:org:xref:prop'], reftype)
-                    self.eq(tufo[1]['ou:has:org:xref:node'], ndefval)
-                    self.eq(tufo[1]['ou:has:org:org'], orgval)
+                    tufo = core.getTufoByProp('ou:org:has:xref', xrval)
+                    self.eq(tufo[1]['tufo:form'], 'ou:org:has')
+                    self.eq(tufo[1]['ou:org:has'], hasval)
+                    self.eq(tufo[1]['ou:org:has:seen:min'], 0)
+                    self.eq(tufo[1]['ou:org:has:seen:max'], 1)
+                    self.eq(tufo[1]['ou:org:has:xref'], xrval)
+                    self.eq(tufo[1]['ou:org:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ou:org:has:xref:node'], ndefval)
+                    self.eq(tufo[1]['ou:org:has:org'], orgval)
 
                     # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
                     core.formTufoByProp(reftype, refval)
@@ -383,15 +383,15 @@ class OrgTest(SynTest, ModelSeenMixin):
                 hasval = '2b43700d635b1f9840d1bf83e4181830'
                 ndefval = '09cd1fbc8b183f18c38ae034713af5e3'
                 def tufo_check(core):
-                    tufo = core.getTufoByProp('ou:has:org:xref', xrval)
-                    self.eq(tufo[1]['tufo:form'], 'ou:has:org')
-                    self.eq(tufo[1]['ou:has:org'], hasval)
-                    self.eq(tufo[1]['ou:has:org:seen:min'], 0)
-                    self.eq(tufo[1]['ou:has:org:seen:max'], 1)
-                    self.eq(tufo[1]['ou:has:org:xref'], xrval)
-                    self.eq(tufo[1]['ou:has:org:xref:prop'], reftype)
-                    self.eq(tufo[1]['ou:has:org:xref:node'], ndefval)
-                    self.eq(tufo[1]['ou:has:org:org'], orgval)
+                    tufo = core.getTufoByProp('ou:org:has:xref', xrval)
+                    self.eq(tufo[1]['tufo:form'], 'ou:org:has')
+                    self.eq(tufo[1]['ou:org:has'], hasval)
+                    self.eq(tufo[1]['ou:org:has:seen:min'], 0)
+                    self.eq(tufo[1]['ou:org:has:seen:max'], 1)
+                    self.eq(tufo[1]['ou:org:has:xref'], xrval)
+                    self.eq(tufo[1]['ou:org:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ou:org:has:xref:node'], ndefval)
+                    self.eq(tufo[1]['ou:org:has:org'], orgval)
 
                     # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
                     core.formTufoByProp(reftype, refval)
@@ -409,15 +409,15 @@ class OrgTest(SynTest, ModelSeenMixin):
                 hasval = '56883ea61acc8bf4443dc3b9a60638cf'
                 ndefval = 'e1b961ba74520aa06f5f4bb526f4ad1e'
                 def tufo_check(core):
-                    tufo = core.getTufoByProp('ou:has:org:xref', xrval)
-                    self.eq(tufo[1]['tufo:form'], 'ou:has:org')
-                    self.eq(tufo[1]['ou:has:org'], hasval)
-                    self.eq(tufo[1]['ou:has:org:seen:min'], 0)
-                    self.eq(tufo[1]['ou:has:org:seen:max'], 1)
-                    self.eq(tufo[1]['ou:has:org:xref'], xrval)
-                    self.eq(tufo[1]['ou:has:org:xref:prop'], reftype)
-                    self.eq(tufo[1]['ou:has:org:xref:node'], ndefval)
-                    self.eq(tufo[1]['ou:has:org:org'], orgval)
+                    tufo = core.getTufoByProp('ou:org:has:xref', xrval)
+                    self.eq(tufo[1]['tufo:form'], 'ou:org:has')
+                    self.eq(tufo[1]['ou:org:has'], hasval)
+                    self.eq(tufo[1]['ou:org:has:seen:min'], 0)
+                    self.eq(tufo[1]['ou:org:has:seen:max'], 1)
+                    self.eq(tufo[1]['ou:org:has:xref'], xrval)
+                    self.eq(tufo[1]['ou:org:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ou:org:has:xref:node'], ndefval)
+                    self.eq(tufo[1]['ou:org:has:org'], orgval)
 
                     # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
                     core.formTufoByProp(reftype, refval)
@@ -435,15 +435,15 @@ class OrgTest(SynTest, ModelSeenMixin):
                 hasval = '5650ba4dca5ef636817228cffc718dd3'
                 ndefval = '0068a540030a8de1d3f3817e52d50b7c'
                 def tufo_check(core):
-                    tufo = core.getTufoByProp('ou:has:org:xref', xrval)
-                    self.eq(tufo[1]['tufo:form'], 'ou:has:org')
-                    self.eq(tufo[1]['ou:has:org'], hasval)
-                    self.eq(tufo[1]['ou:has:org:seen:min'], 0)
-                    self.eq(tufo[1]['ou:has:org:seen:max'], 1)
-                    self.eq(tufo[1]['ou:has:org:xref'], xrval)
-                    self.eq(tufo[1]['ou:has:org:xref:prop'], reftype)
-                    self.eq(tufo[1]['ou:has:org:xref:node'], ndefval)
-                    self.eq(tufo[1]['ou:has:org:org'], orgval)
+                    tufo = core.getTufoByProp('ou:org:has:xref', xrval)
+                    self.eq(tufo[1]['tufo:form'], 'ou:org:has')
+                    self.eq(tufo[1]['ou:org:has'], hasval)
+                    self.eq(tufo[1]['ou:org:has:seen:min'], 0)
+                    self.eq(tufo[1]['ou:org:has:seen:max'], 1)
+                    self.eq(tufo[1]['ou:org:has:xref'], xrval)
+                    self.eq(tufo[1]['ou:org:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ou:org:has:xref:node'], ndefval)
+                    self.eq(tufo[1]['ou:org:has:org'], orgval)
 
                     # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
                     core.formTufoByProp(reftype, refval)
@@ -461,15 +461,15 @@ class OrgTest(SynTest, ModelSeenMixin):
                 hasval = '8001ce943435e274f1d83a6f17f61e44'
                 ndefval = '0cd705305c7f4573a38b7e7c8f4ddef9'
                 def tufo_check(core):
-                    tufo = core.getTufoByProp('ou:has:org:xref', xrval)
-                    self.eq(tufo[1]['tufo:form'], 'ou:has:org')
-                    self.eq(tufo[1]['ou:has:org'], hasval)
-                    self.eq(tufo[1]['ou:has:org:seen:min'], 0)
-                    self.eq(tufo[1]['ou:has:org:seen:max'], 1)
-                    self.eq(tufo[1]['ou:has:org:xref'], xrval)
-                    self.eq(tufo[1]['ou:has:org:xref:prop'], reftype)
-                    self.eq(tufo[1]['ou:has:org:xref:node'], ndefval)
-                    self.eq(tufo[1]['ou:has:org:org'], orgval)
+                    tufo = core.getTufoByProp('ou:org:has:xref', xrval)
+                    self.eq(tufo[1]['tufo:form'], 'ou:org:has')
+                    self.eq(tufo[1]['ou:org:has'], hasval)
+                    self.eq(tufo[1]['ou:org:has:seen:min'], 0)
+                    self.eq(tufo[1]['ou:org:has:seen:max'], 1)
+                    self.eq(tufo[1]['ou:org:has:xref'], xrval)
+                    self.eq(tufo[1]['ou:org:has:xref:prop'], reftype)
+                    self.eq(tufo[1]['ou:org:has:xref:node'], ndefval)
+                    self.eq(tufo[1]['ou:org:has:org'], orgval)
 
                     # Demonstrate that node:ndef works (We have to form this node as adding the xref will not)
                     core.formTufoByProp(reftype, refval)
