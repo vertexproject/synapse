@@ -160,8 +160,10 @@ class OuMod(s_module.CoreModule):
                         'doc': 'The ndef of the node that is owned or controlled by the org.'}),
                     ('xref:prop', {'ptype': 'str', 'ro': 1,
                         'doc': 'The property (form) of the object or resource that is owned or controlled by the org.'}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
+                    ('seen:min', {'ptype': 'time:min',
+                        'doc': 'The earliest known time when the org owned or controlled the resource.'}),
+                    ('seen:max', {'ptype': 'time:max',
+                        'doc': 'The most recent known time when the org owned or controlled the resource.'}),
                 ]),
 
             ),
