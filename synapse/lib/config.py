@@ -152,11 +152,12 @@ class Configable:
         self._conf_defs[name] = (name, dict(info))
 
         defval = info.get('defval')
-        self._conf_opts.setdefault(name, copy.deepcopy(defval))
+        defval = copy.deepcopy(defval)
+        self._conf_opts[name] = defval
 
         asloc = info.get('asloc')
         if asloc is not None:
-            self.__dict__.setdefault(asloc, defval)
+            self.__dict__[asloc] = defval
 
     def reqConfOk(self, opts):
         '''
