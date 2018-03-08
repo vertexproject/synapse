@@ -1,4 +1,5 @@
 import os
+import sys
 import struct
 import logging
 import threading
@@ -10,13 +11,13 @@ import lmdb  # type: ignore
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.synasync as s_async
 import synapse.lib.const as s_const
 import synapse.datamodel as s_datamodel
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.datapath as s_datapath
 import synapse.lib.threads as s_threads
 import synapse.lib.lmdb as s_lmdb
+import synapse.lib.queue as s_queue
 
 logger = logging.getLogger(__name__)
 
@@ -199,13 +200,10 @@ class CryoTankIndexer:
         self._remove_chunk_sz = 1000  # < How many index entries to remove at a time
 
         def _onfini():
-            print('indexer _fini start')
             self._going_down = True
             self._workq.done()
-            self.suspendIndex('foo')
-            # self._worker.join(self.MAX_WAIT_S)
+            self._worker.join(self.MAX_WAIT_S)
             if self._worker.is_alive():
-                print('worker still alive!')
             print('indexer fini ended')
 
         ebus.onfini(_onfini)
@@ -275,44 +273,39 @@ class CryoTankIndexer:
         return count
 
     def _workerloop(self):
-        print('Worker started')
         busy = True
-        waiter = self.cryotank.waiter(1, 'job:init', 'job:done')
 
         while True:
             # Run the outstanding commands
             while True:
-                job = self._workq.get(timeout=0)
-                if job is None:
+                try:
+                    job = self._workq.get(timeout=0 if busy else None)
+                    if job is None:
+                        break
+                    retn, callback, args, kwargs = job
+                    try:
+                        retn.retn(callback(*args, **kwargs))
+                    except Exception as e:
+                        # Not using errx because I want the exception object itself
+                        retn.retn(e)
+                except s_exc.IsFini:
+                    return
+                except s_exc.TimeOut:
                     break
-                self._boss._runJob(job)
-            if self._workq.isfini:
-                break
-            if self._going_down:
-                break
 
             # loop_start_t = time.time()
-            print('before rows')
             record_tuples = self.cryotank.rows(self._next_offset, self._chunk_sz)
             norm_gen = self._normalize_records(record_tuples)
             rowcount = self._writeIndices(norm_gen)
-            print('after rows, rowcount=', rowcount)
 
             self._removeSome()
             if not rowcount and not self._meta.deleting:
                 if busy is True:
                     logger.info('Completely caught up with indexing')
                     busy = False
-                if not busy:
-                    print('Not busy waiting')
-                    rv = waiter.wait(timeout=self.MAX_WAIT_S)
-                    if rv is None:
-                        print('waiter timed out')
-                    print('done waiting')
             else:
                 busy = True
             # loop_end_t = loop_start_t + self.MAX_WAIT_S
-        print('Worker ending')
 
     def _inWorker(callback):
         '''
@@ -322,8 +315,14 @@ class CryoTankIndexer:
         '''
         def wrap(self, *args, **kwargs):
             with s_threads.RetnWait() as retn:
-                self._workq.put((retn, callback, args, kwargs))
-                return retn.wait(timeout=self.MAX_WAIT_S)
+                self._workq.put((retn, callback, (self, ) + args, kwargs))
+                succ, rv = retn.wait(timeout=self.MAX_WAIT_S)
+                if succ:
+                    if isinstance(rv, Exception):
+                        raise rv
+                    return rv
+                raise s_exc.Timeout()
+
         return wrap
 
     @_inWorker
@@ -336,7 +335,7 @@ class CryoTankIndexer:
 
     @_inWorker
     def resumeIndex(self, prop):
-        # FIXME
+        raise Exception('my exception')
         pass
 
     @_inWorker
