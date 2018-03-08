@@ -1469,6 +1469,84 @@ class StormTest(SynTest):
                 self.eq(node[1].get('tufo:form'), 'task')
                 self.isin(node[1].get('task'), ('hehe:haha', 'wow'))
 
+    def test_storm_vartree(self):
+        quer = s_storm.Query()
+
+        vals = ['x', 'y']
+        quer.addTreeVar('a', vals)
+
+        self.len(0, list(quer.iterVarTree('asdf')))
+
+        for node, varz in quer.iterVarTree('a'):
+            quer.addTreeVar('b', ['z', 'q'], tree=node)
+
+        rets = []
+        for node, varz in quer.iterVarTree('a.b'):
+            rets.append(tuple(sorted(varz.items())))
+
+        rets.sort()
+        self.eq(rets, [(('a', 'x'), ('a.b', 'q')), (('a', 'x'), ('a.b', 'z')), (('a', 'y'), ('a.b', 'q')), (('a', 'y'), ('a.b', 'z'))])
+
+    '''
+    def test_storm_set(self):
+        with self.getRamCore() as core:
+            core.ask('[ inet:ipv4=1.2.3.4 :cc=us inet:dns:a=vertex.link/1.2.3.4 ]')
+            core.ask('[ inet:ipv4=4.3.2.1 :cc=zz inet:dns:a=example.com/4.3.2.1 ]')
+
+            self.len(1, core.eval('inet:ipv4:cc=us'))
+            self.len(1, core.eval('inet:dns:a:fqdn=vertex.link'))
+            self.len(1, core.eval('inet:ipv4:cc=zz'))
+            self.len(1, core.eval('inet:dns:a:fqdn=example.com'))
+
+            core.eval('$dns={inet:dns:a:fqdn} $dns.ipv4 = { :ipv4->inet:ipv4 }')
+    '''
+
+    def test_storm_filtsub(self):
+        with self.getRamCore() as core:
+            core.ask('[ inet:ipv4=1.2.3.4 :cc=us inet:dns:a=vertex.link/1.2.3.4 ]')
+            core.ask('[ inet:ipv4=4.3.2.1 :cc=zz inet:dns:a=example.com/4.3.2.1 ]')
+
+            self.len(1, core.eval('inet:ipv4:cc=us'))
+            self.len(1, core.eval('inet:dns:a:fqdn=vertex.link'))
+            self.len(1, core.eval('inet:ipv4:cc=zz'))
+            self.len(1, core.eval('inet:dns:a:fqdn=example.com'))
+
+            # lift all dns, pivot to ipv4 where cc=us (calls take), remove the results
+            # this should return the example node because the vertex node matches the filter and should be removed
+            nodes = core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 +:cc=us }')
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('inet:dns:a'), 'example.com/4.3.2.1')
+
+            # lift all dns, pivot to ipv4 where cc=us (calls take), add the results
+            # this should return the vertex node because only the vertex node matches the filter
+            nodes = core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 +:cc=us }')
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('inet:dns:a'), 'vertex.link/1.2.3.4')
+
+            # lift all dns, pivot to ipv4 where cc!=us (calls take), remove the results
+            # this should return the vertex node because the example node matches the filter and should be removed
+            nodes = core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 -:cc=us }')
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('inet:dns:a'), 'vertex.link/1.2.3.4')
+
+            # lift all dns, pivot to ipv4 where cc!=us (calls take), add the results
+            # this should return the example node because only the example node matches the filter
+            nodes = core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:cc=us }')
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('inet:dns:a'), 'example.com/4.3.2.1')
+
+            # lift all dns, pivot to ipv4 where asn=1234 (calls take), add the results
+            # this should return nothing because no nodes have asn=1234
+            self.len(0, core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 +:asn=1234 }'))
+
+            # lift all dns, pivot to ipv4 where asn!=1234 (calls take), add the results
+            # this should return everything because no nodes have asn=1234
+            nodes = core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:asn=1234 }')
+            self.len(2, nodes)
+            nodes.sort(key=lambda x: x[1].get('inet:dns:a'))
+            self.eq(nodes[0][1].get('inet:dns:a'), 'example.com/4.3.2.1')
+            self.eq(nodes[1][1].get('inet:dns:a'), 'vertex.link/1.2.3.4')
+
 class LimitTest(SynTest):
     def test_limit_default(self):
         # LimitHelper would normally be used with the kwlist arg limit,
