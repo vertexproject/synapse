@@ -33,8 +33,7 @@ def genauth(opts, outp=s_output.stdout):
         nuro = s_neuron.NeuronClient(sess)
         auth = nuro.genCellAuth(opts.cellname, timeout=20)
 
-        with open(savepath, 'wb') as fd:
-            fd.write(s_msgpack.en(auth))
+        s_msgpack.dumpfile(auth, savepath)
 
         outp.printf('saved %s: %s' % (opts.cellname, savepath))
 
