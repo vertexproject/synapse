@@ -5,6 +5,8 @@ import synapse.neuron as s_neuron
 
 import synapse.lib.crypto.vault as s_vault
 
+import synapse.tools.neuron as s_tools_neuron
+
 from synapse.tests.common import *
 
 logger = logging.getLogger(__name__)
@@ -351,7 +353,9 @@ class NeuronTest(SynTest):
                 neur.on('cell:reg', onreg)
                 self.eq(neur._genCellName('root'), 'root@localhost')
 
-                user = neur.celluser
+                path = os.path.join(neur.dirn, 'admin.auth')
+                auth = s_msgpack.loadfile(path)
+                user = s_neuron.CellUser(auth)
 
                 pool = s_neuron.CellPool(neur.genUserAuth('foo'), neur.getCellAddr())
                 pool.neurok.wait(timeout=8)
@@ -359,10 +363,9 @@ class NeuronTest(SynTest):
 
                 with user.open(neur.getCellAddr()) as sess:
 
-                    mesg = ('cell:init', {'name': 'cell00'})
-                    ok, auth = sess.call(mesg, timeout=2)
-                    self.true(ok)
+                    ncli = s_neuron.NeuronClient(sess)
 
+                    auth = ncli.genCellAuth('cell00')
                     path = s_common.gendir(dirn, 'cell')
 
                     authpath = s_common.genpath(path, 'cell.auth')
@@ -404,3 +407,13 @@ class NeuronTest(SynTest):
 
                         mesg = ('cell:ping', {'data': 'hehe'})
                         self.eq(pool.get('cell00@localhost').call(mesg), 'hehe')
+
+                # since we have an active neuron, lets test the CLI tools here as well...
+                authpath = os.path.join(dirn, 'neuron', 'admin.auth')
+                savepath = os.path.join(dirn, 'woot.auth')
+
+                argv = ['genauth', authpath, 'woot', savepath]
+                s_tools_neuron.main(argv)
+
+                wootauth = s_msgpack.loadfile(savepath)
+                self.nn(wootauth[1].get('neuron'))
