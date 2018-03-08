@@ -270,7 +270,9 @@ class LinkRefused(LinkErr):
 class LinkNotAuth(LinkErr): pass
 
 class ProtoErr(SynErr):
-    ''' There's a network protocol failure (in neuron.Sess) '''
+    '''
+    There's a network protocol failure (in neuron.Sess)
+    '''
     pass
 
 class CorruptDatabase(SynErr): pass
@@ -278,4 +280,3 @@ class CorruptDatabase(SynErr): pass
 class IndexAlreadyPresent(SynErr): pass
 
 class IndexNotPresent(SynErr): pass
-
