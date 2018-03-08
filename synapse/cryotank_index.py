@@ -1,7 +1,8 @@
 import os
 import struct
 import logging
-# import threading
+import threading
+import contextlib
 from collections import namedtuple, defaultdict
 from typing import List, Dict, Union, Iterable, Tuple, Any, Optional  # NOQA
 
@@ -11,11 +12,10 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.synasync as s_async
 import synapse.lib.const as s_const
-import synapse.cryotank as s_cryotank
 import synapse.datamodel as s_datamodel
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.threads as s_threads
 import synapse.lib.datapath as s_datapath
+import synapse.lib.threads as s_threads
 import synapse.lib.lmdb as s_lmdb
 
 logger = logging.getLogger(__name__)
@@ -76,6 +76,7 @@ class _IndexMeta:
     def __init__(self, dbenv: lmdb.Environment) -> None:
         self._dbenv = dbenv
         self._metatbl = dbenv.open_db(b'meta')
+        is_new_db = False
         with dbenv.begin(db=self._metatbl, buffers=True) as txn:
             indices_enc = txn.get(b'indices')
             progress_enc = txn.get(b'progress')
@@ -91,7 +92,7 @@ class _IndexMeta:
         self._indices = {k: _MetaEntry(**v) for k, v in indices.get('present', ())}
         self.deleting = indices.get('deleting', ())
 
-        self.progresses = defaultdict(s_msgpack.un(progress_enc), lambda: {'nextoffset': 0, 'ngood': 0, 'nnormfail': 0})  # type: ignore  # NOQA
+        self.progresses = defaultdict(lambda: {'nextoffset': 0, 'ngood': 0, 'nnormfail': 0}, s_msgpack.un(progress_enc))
         if not all(p in self._indices for p in self.deleting):
             raise s_exc.CorruptDatabase('index meta table: deleting entry with unrecognized property name')
         if not all(p in self._indices for p in self.progresses):
@@ -99,14 +100,16 @@ class _IndexMeta:
         if is_new_db:
             self.persist()
 
-    def persist(self, progressonly=False) -> None:
+    def persist(self, progressonly=False, txn: Optional[lmdb.Transaction]=None) -> None:
         '''
         Persists the index info
         '''
         d = {'delete': self.deleting,
              'present': {k: v._asdict() for k, v in self._indices.items()}}
 
-        with self._dbenv.begin(db=self._metatbl, buffers=True, write=True) as txn:
+        with contextlib.ExitStack() as stack:
+            if txn is None:
+                txn = stack.enter_context(self._dbenv.begin(db=self._metatbl, buffers=True, write=True))
             if not progressonly:
                 txn.put(b'indices', s_msgpack.en(d))
             txn.put(b'progress', s_msgpack.en(self.progresses))
@@ -168,13 +171,15 @@ class CryoTankIndexer:
     '''
     Manages indexing of a single cryotank's records
     '''
-    MAX_WAIT_S = 10
+    # MAX_WAIT_S = 10
+    # Nic tmp
+    MAX_WAIT_S = 1000
 
     def __init__(self, cryotank):
         self.cryotank = cryotank
         ebus = cryotank
         self._going_down = False
-        self._worker = s_threads.Thread(ebus)
+        self._worker = threading.Thread(target=self._workerloop, name='CryoTankIndexer')
         path = s_common.gendir(cryotank.path, 'cryo_index.lmdb')
         cryotank_map_size = cryotank.lmdb.info()['map_size']
         self._dbenv = lmdb.open(path, writemap=True, metasync=False, max_readers=2, max_dbs=4,
@@ -185,19 +190,25 @@ class CryoTankIndexer:
         # offset, iid -> normalized prop
         self._normtbl = self._dbenv.open_db(b'norms')
         self._to_delete = {}  # type: Dict[str, int]
-        self._boss = s_async.Boss()
+        self._workq = s_queue.Queue()
         # A dict of propname -> version, type, datapath dict
         self._meta = _IndexMeta(self._dbenv)
         self._next_offset = self._meta.lowestProgress()
         self._chunk_sz = 1000  # < How many records to read at a time
-        self._worker.run(self._workerloop)
+        self._worker.start()
         self._remove_chunk_sz = 1000  # < How many index entries to remove at a time
 
-        def fini():
-            self._boss.fini()
-            self._worker.join(self.MAX_WAIT_S)
+        def _onfini():
+            print('indexer _fini start')
+            self._going_down = True
+            self._workq.done()
+            self.suspendIndex('foo')
+            # self._worker.join(self.MAX_WAIT_S)
+            if self._worker.is_alive():
+                print('worker still alive!')
+            print('indexer fini ended')
 
-        ebus.onfini(fini)
+        ebus.onfini(_onfini)
 
     def _removeSome(self) -> None:
         # Make some progress on removing deleted indices
@@ -248,12 +259,12 @@ class CryoTankIndexer:
                 self._meta.progress[iid]['ngood'] += 1
                 yield offset, iid, normprop
 
-    def _writeIndices(self, rows: Iterable[Tuple[int, int, Union[str, int]]]) -> None:
+    def _writeIndices(self, rows: Iterable[Tuple[int, int, Union[str, int]]]) -> int:
+        count = 0
         with self._dbenv.begin(db=self._idxtbl, buffers=True, write=True) as txn:
+            for count, (offset, iid, normprop) in enumerate(rows):
 
-            for offset, iid, normprop in rows:
-
-                offset_enc = s_cryotank.int64be.pack(offset)
+                offset_enc = s_lmdb.int64be.pack(offset)
                 iid_enc = _iid_en(iid)
                 normprop_enc = s_lmdb.encodeValAsKey(normprop)
 
@@ -261,45 +272,58 @@ class CryoTankIndexer:
                 txn.put(offset_enc + iid_enc, normprop_enc, db=self._normtbl)
 
             self._meta.persist(progressonly=True, txn=txn)
+        return count
 
     def _workerloop(self):
+        print('Worker started')
         busy = True
-        waiter = self.cryotank(1, 'job:init', 'job:done')
+        waiter = self.cryotank.waiter(1, 'job:init', 'job:done')
 
         while True:
             # Run the outstanding commands
-            for job in self._boss:
+            while True:
+                job = self._workq.get(timeout=0)
+                if job is None:
+                    break
                 self._boss._runJob(job)
+            if self._workq.isfini:
+                break
             if self._going_down:
                 break
 
             # loop_start_t = time.time()
+            print('before rows')
             record_tuples = self.cryotank.rows(self._next_offset, self._chunk_sz)
-            if record_tuples is not None:
-                norm_gen = self._normalize_records(record_tuples)
-            self._writeIndices(norm_gen)
+            norm_gen = self._normalize_records(record_tuples)
+            rowcount = self._writeIndices(norm_gen)
+            print('after rows, rowcount=', rowcount)
 
             self._removeSome()
-            if record_tuples is None and not self._meta.deleting:
+            if not rowcount and not self._meta.deleting:
                 if busy is True:
                     logger.info('Completely caught up with indexing')
                     busy = False
                 if not busy:
-                    waiter.wait(timeout=self.MAX_WAIT_S)
+                    print('Not busy waiting')
+                    rv = waiter.wait(timeout=self.MAX_WAIT_S)
+                    if rv is None:
+                        print('waiter timed out')
+                    print('done waiting')
             else:
                 busy = True
             # loop_end_t = loop_start_t + self.MAX_WAIT_S
+        print('Worker ending')
 
     def _inWorker(callback):
         '''
-        Gives the decorated function to the boss to run in his thread.
+        Gives the decorated function to the worker to run in his thread.
 
         (Just like inpool for the worker)
         '''
         def wrap(self, *args, **kwargs):
-            task = s_async.newtask(callback, args, kwargs)
-            job = self._boss.initJob(task)
-            return job.sync(self.MAX_WAIT_S)
+            with s_threads.RetnWait() as retn:
+                self._workq.put((retn, callback, args, kwargs))
+                return retn.wait(timeout=self.MAX_WAIT_S)
         return wrap
 
     @_inWorker
@@ -390,7 +414,7 @@ class CryoTankIndexer:
                 curkey, offset_enc = curs.item()
                 if (not exact and not curkey[:len(key)] == key) or (exact and curkey == key):
                     return
-                offset = s_cryotank.int64be.unpack(offset_enc)
+                offset = s_lmdb.int64be.unpack(offset_enc)
                 if retoffset:
                     rv.append(offset)
                 if retraw:
@@ -401,6 +425,3 @@ class CryoTankIndexer:
                 yield tuple(rv)
                 if not curs.next():
                     return
-
-    def fini(self):
-        self._going_down.set()

@@ -1,14 +1,13 @@
-import lmdb
 import shutil
-import struct
 import logging
 
-import synapse.exc as s_exc
+import lmdb
+
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.neuron as s_neuron
+from synapse.lib.lmdb import int64be
 import synapse.eventbus as s_eventbus
-
 import synapse.lib.const as s_const
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
@@ -16,8 +15,6 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.cryotank_index as s_cryotank_index
 
 logger = logging.getLogger(__name__)
-
-int64be = struct.Struct('>Q')
 
 class CryoTank(s_config.Config):
     '''
@@ -45,8 +42,6 @@ class CryoTank(s_config.Config):
         self.indexer = None if noindex else s_cryotank_index.CryoTankIndexer(self)
 
         def fini():
-            if self.indexer is not None:
-                self.indexer.fini()
             self.lmdb.sync()
             self.lmdb.close()
 

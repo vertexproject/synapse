@@ -472,6 +472,7 @@ class PropStor:
             for buid in burs.iternext_dup():
                 yield buid, penc, pval
 
+int64be = struct.Struct('>Q')
 
 # FIXME:  move to some place more generic
 def _get_max_filesize(path):
@@ -547,4 +548,3 @@ def encodeValAsKey(v: Union[str, int]) -> bytes:
 
         else:
             return STR_VAL_MARKER + v_enc + b'\x00'
->>>>>>> Implement indexer for cryotank.
