@@ -1030,6 +1030,46 @@ class InetMod(s_module.CoreModule):
                     'ctor': 'synapse.models.inet.Rfc2822Addr',
                     'ex': '"Visi Kenshoto" <visi@vertex.link>',
                     'doc': 'An RFC 2822 Address field.'}),
+
+                ('inet:http:request', {
+                    'subof': 'guid',
+                    'doc': 'A single client HTTP request.',
+                }),
+
+                ('inet:http:response', {
+                    'subof': 'guid',
+                    'doc': 'A server response to a client HTTP request.',
+                }),
+
+                ('inet:http:header', {
+                    'subof': 'comp',
+                    'fields': 'name=str:lwr,value=str',
+                    'doc': 'An HTTP protocol header key/value.',
+                }),
+
+                ('inet:http:param', {
+                    'subof': 'comp',
+                    'fields': 'name=str,value=str',
+                    'doc': 'An HTTP request path query parameter.',
+                }),
+
+                ('inet:http:reqhead', {
+                    'subof': 'comp',
+                    'fields': 'request=inet:http:request,header=inet:http:header',
+                    'doc': 'An instance of an HTTP header within a specific HTTP request.',
+                }),
+
+                ('inet:http:reqparam', {
+                    'subof': 'comp',
+                    'fields': 'request=inet:http:request,param=inet:http:param',
+                    'doc': 'An instance of an HTTP request parameter within a specific HTTP requst.',
+                }),
+
+                ('inet:http:resphead', {
+                    'subof': 'comp',
+                    'fields': 'response=inet:http:response,header=inet:http:header',
+                    'doc': 'An instance of an HTTP header within a specific HTTP request.',
+                }),
             ),
 
             'forms': (
@@ -1691,6 +1731,121 @@ class InetMod(s_module.CoreModule):
                     ('email', {'ptype': 'inet:email', 'ro': 1,
                         'doc': 'The email field parsed from an RFC 2822 address string.'}),
                 )),
+
+                ('inet:http:request', {}, (
+
+                    ('flow', {'ptype': 'inet:flow',
+                        'doc': 'The inet:flow which contained the HTTP request.'}),
+
+                    ('host', {'ptype': 'it:host',
+                        'doc': 'The it:host which sent the HTTP request.'}),
+
+                    ('time', {'ptype': 'time',
+                        'doc': 'The time that the HTTP request was sent.'}),
+
+                    # HTTP protocol specific fields...
+                    ('method', {'ptype': 'str',
+                        'doc': 'The HTTP request method string.'}),
+
+                    ('path', {'ptype': 'str',
+                        'doc': 'The requested HTTP path (without query parameters).'}),
+
+                    ('query', {'ptype': 'str',
+                        'doc': 'The HTTP query string which optionally folows the path.'}),
+
+                    ('body', {'ptype': 'file:bytes',
+                        'doc': 'The body of the HTTP request.'})
+                )),
+
+                ('inet:http:response', {}, (
+
+                    ('flow', {'ptype': 'inet:flow',
+                        'doc': 'The inet:flow which contained the HTTP response.'}),
+
+                    ('host', {'ptype': 'it:host',
+                        'doc': 'The it:host which sent the HTTP response.'}),
+
+                    ('time', {'ptype': 'time',
+                        'doc': 'The time that the HTTP response was sent.'}),
+
+                    ('request', {'ptype': 'inet:http:request',
+                        'doc': 'The HTTP request which caused the response.'}),
+
+                    # HTTP response protocol fields....
+                    ('code', {'ptype': 'int',
+                        'doc': 'The HTTP response code.'}),
+
+                    ('reason', {'ptype': 'str',
+                        'doc': 'The HTTP response reason string.'}),
+
+                    ('body', {'ptype': 'file:bytes',
+                        'doc': 'The HTTP response body data.'}),
+
+                )),
+
+                ('inet:http:header', {}, (
+
+                    ('name', {'ptype': 'str:lwr', 'ro': 1,
+                        'doc': 'The name of the HTTP header.'}),
+
+                    ('value', {'ptype': 'str', 'ro': 1,
+                        'doc': 'The value of the HTTP header.'}),
+                )),
+
+                ('inet:http:param', {}, (
+
+                    ('name', {'ptype': 'str:lwr', 'ro': 1,
+                        'doc': 'The name of the HTTP query parameter.'}),
+
+                    ('value', {'ptype': 'str', 'ro': 1,
+                        'doc': 'The value of the HTTP query parameter.'}),
+                )),
+
+                ('inet:http:reqhead', {}, (
+
+                    ('request', {'ptype': 'inet:http:request', 'ro': 1,
+                        'doc': 'The HTTP request which contained the header.'}),
+
+                    ('header', {'ptype': 'inet:http:header', 'ro': 1,
+                        'doc': 'The HTTP header contained in the request.'}),
+
+                    ('header:name', {'ptype': 'str:lwr', 'ro': 1,
+                        'doc': 'The HTTP header name'}),
+
+                    ('header:value', {'ptype': 'str', 'ro': 1,
+                        'doc': 'The HTTP header value.'}),
+                )),
+
+                ('inet:http:reqparam', {}, (
+
+                    ('request', {'ptype': 'inet:http:request', 'ro': 1,
+                        'doc': 'The HTTP request which contained the header.'}),
+
+                    ('param', {'ptype': 'inet:http:header', 'ro': 1,
+                        'doc': 'The HTTP query parameter contained in the request.'}),
+
+                    ('param:name', {'ptype': 'str:lwr', 'ro': 1,
+                        'doc': 'The HTTP query parameter name'}),
+
+                    ('param:value', {'ptype': 'str', 'ro': 1,
+                        'doc': 'The HTTP query parameter value.'}),
+                )),
+
+                ('inet:http:resphead', {}, (
+
+                    ('response', {'ptype': 'inet:http:response', 'ro': 1,
+                        'doc': 'The HTTP response which contained the header.'}),
+
+                    ('header', {'ptype': 'inet:http:header', 'ro': 1,
+                        'doc': 'The HTTP header contained in the response.'}),
+
+                    ('header:name', {'ptype': 'str:lwr', 'ro': 1,
+                        'doc': 'The HTTP header name'}),
+
+                    ('header:value', {'ptype': 'str', 'ro': 1,
+                        'doc': 'The HTTP header value.'}),
+                )),
+
             ),
         }
         name = 'inet'
