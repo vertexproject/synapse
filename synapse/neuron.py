@@ -446,38 +446,6 @@ class Neuron(Cell):
                 'doc': 'The TCP port the Neuron binds to (defaults to %d)' % defport}),
         ))
 
-
-class CryptSeq:
-    '''
-    Applies and verifies sequence numbers of encrypted messages coming and going
-    '''
-    def __init__(self, rx_key, tx_key, initial_rx_seq=0, initial_tx_seq=0):
-        self._rx_tinh = s_tinfoil.TinFoilHat(rx_key)
-        self._tx_tinh = s_tinfoil.TinFoilHat(tx_key)
-        self._rx_sn = itertools.count(initial_rx_seq)
-        self._tx_sn = itertools.count(initial_tx_seq)
-
-    def encrypt(self, mesg):
-        seqn = next(self._tx_sn)
-        rv = self._tx_tinh.enc(s_msgpack.en((seqn, mesg)))
-        return rv
-
-    def decrypt(self, ciphertext):
-
-        plaintext = self._rx_tinh.dec(ciphertext)
-        if plaintext is None:
-            logger.error('Message decryption failure')
-            raise s_exc.CryptoErr(mesg='Message decryption failure')
-
-        seqn = next(self._rx_sn)
-
-        sn, mesg = s_msgpack.un(plaintext)
-        if sn != seqn:
-            logger.error('Message out of sequence: got %d expected %d', sn, seqn)
-            raise s_exc.CryptoErr(mesg='Message out of sequence', expected=seqn, got=sn)
-
-        return mesg
-
 class Sess(s_net.Link):
     '''
     Manages network session establishment and maintainance
@@ -589,9 +557,9 @@ class Sess(s_net.Link):
         to_initiator_symkey, to_listener_symkey = km[:32], km[32:]
 
         if self.is_lisn:
-            self._crypter = CryptSeq(to_listener_symkey, to_initiator_symkey)
+            self._crypter = s_tinfoil.CryptSeq(to_listener_symkey, to_initiator_symkey)
         else:
-            self._crypter = CryptSeq(to_initiator_symkey, to_listener_symkey)
+            self._crypter = s_tinfoil.CryptSeq(to_initiator_symkey, to_listener_symkey)
             # Decrypt the first i.e. test message
             first_msg_ct = mesg[1].get('first_mesg')
             self._crypter.decrypt(first_msg_ct)
