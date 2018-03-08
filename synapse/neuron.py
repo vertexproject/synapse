@@ -178,20 +178,17 @@ class Cell(s_config.Configable, s_net.Link, SessBoss):
 
         path = self._path('cell.auth')
         if os.path.isfile(path):
-            with open(path, 'rb') as fd:
-                return s_msgpack.un(fd.read())
+            return s_msgpack.loadfile(path)
 
         name = self._genCellName('root')
         root = self.vault.genUserAuth(name)
-        with open(path, 'wb') as fd:
-            fd.write(s_msgpack.en(root))
+        s_msgpack.dumpfile(root, path)
 
         path = self._path('user.auth')
 
         name = self._genCellName('user')
         user = self.vault.genUserAuth(name)
-        with open(path, 'wb') as fd:
-            fd.write(s_msgpack.en(user))
+        s_msgpack.dumpfile(user, path)
 
         return root
 
@@ -357,14 +354,11 @@ class Neuron(Cell):
 
         self.cells = self.getCellDict('cells')
 
-        path = os.path.join(self.dirn, 'admin.auth')
+        path = self._path('admin.auth')
 
         if not os.path.exists(path):
-
             auth = self.genCellAuth('admin')
-
-            with open(path, 'wb') as fd:
-                return fd.write(s_msgpack.en(auth))
+            s_msgpack.dumpfile(auth, path)
 
     def handlers(self):
         return {

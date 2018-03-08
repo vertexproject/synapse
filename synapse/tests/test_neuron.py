@@ -51,8 +51,11 @@ class NeuronTest(SynTest):
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
             with s_neuron.Cell(dirn, conf) as cell:
-                # A bunch of API tests here
+                # Ensure making the cell makes auth files
+                self.true(os.path.isfile(cell._path('cell.auth')))
+                self.true(os.path.isfile(cell._path('user.auth')))
 
+                # A bunch of API tests here
                 auth = cell.genUserAuth('bobgrey@vertex.link')
                 self.istufo(auth)
 
@@ -353,7 +356,7 @@ class NeuronTest(SynTest):
                 neur.on('cell:reg', onreg)
                 self.eq(neur._genCellName('root'), 'root@localhost')
 
-                path = os.path.join(neur.dirn, 'admin.auth')
+                path = neur._path('admin.auth')
                 auth = s_msgpack.loadfile(path)
                 user = s_neuron.CellUser(auth)
 
