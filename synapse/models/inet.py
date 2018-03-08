@@ -1068,7 +1068,7 @@ class InetMod(s_module.CoreModule):
                 ('inet:http:resphead', {
                     'subof': 'comp',
                     'fields': 'response=inet:http:response,header=inet:http:header',
-                    'doc': 'An instance of an HTTP header within a specific HTTP request.',
+                    'doc': 'An instance of an HTTP header within a specific HTTP response.',
                 }),
             ),
 
