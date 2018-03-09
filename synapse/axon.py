@@ -284,15 +284,14 @@ class BlobCell(s_cell.Cell):
     def _onBlobMetrics(self, chan, mesg):
 
         offs = mesg[1].get('offs', 0)
+        with chan:
+            chan.setq()
+            chan.txok(True)
 
-        chan.setq()
-        chan.txok(True)
+            metr = self.blobs.metrics(offs=offs)
+            genr = s_common.chunks(metr, 1000)
 
-        metr = self.blobs.metrics(offs=offs)
-        genr = s_common.chunks(metr, 1000)
-
-        chan.txwind(genr, 100, timeout=30)
-        chan.txfini()
+            chan.txwind(genr, 100, timeout=30)
 
     @s_glob.inpool
     def _onBlobLoad(self, chan, mesg):
