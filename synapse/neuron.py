@@ -974,6 +974,10 @@ class CellPool(s_eventbus.EventBus):
                 logger.warning('CellPool.add(%s) onlook error: %r' % (name, retn))
                 return retry()
 
+            if retn is None:
+                logger.warning('CellPool.add(%s) onlook retn none.' % (name,))
+                return retry()
+
             addr = retn.get('addr')
             self.user.getCellSess(addr, onsess)
 
