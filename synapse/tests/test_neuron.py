@@ -426,3 +426,18 @@ class NeuronTest(SynTest):
 
                 self.eq(auth[0], 'woot@localhost')
                 self.nn(auth[1].get('neuron'))
+
+                # Use wootauth for provisioning a test cell
+                steps.clear('cell:reg')
+                path = gendir(dirn, 'wootcell')
+                authpath = s_common.genpath(path, 'cell.auth')
+                s_msgpack.dumpfile(auth, authpath)
+                conf = {'host': 'localhost', 'bind': '127.0.0.1'}
+                with s_neuron.Cell(path, conf) as cell:
+                    wait = pool.waiter(1, 'cell:add')
+                    steps.wait('cell:reg', timeout=3)
+                    self.nn(wait.wait(timeout=3))
+                    self.nn(pool.get('woot@localhost'))
+
+                    mesg = ('cell:ping', {'data': 'w00t!'})
+                    self.eq(pool.get('woot@localhost').call(mesg), 'w00t!')
