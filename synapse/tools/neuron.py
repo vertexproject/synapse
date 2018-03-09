@@ -56,5 +56,5 @@ def main(argv, outp=s_output.stdout):
 
     opts.func(opts, outp=outp)
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(main(sys.argv[1:]))
