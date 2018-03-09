@@ -45,10 +45,8 @@ logger.setLevel(logging.DEBUG)
 # TODO:  what to do with subprops returned from getTypeNorm
 # TODO:  need a way to specify/load custom types
 
-# FIXME: filter retrieved data by active props
 # FIXME: add multiple datapaths
 # FIXME: improve datapath perf by precompile
-# FIXME: add to progress stats on successful rows, norm failures
 # FIXME: suspend/resume individual/all indices
 
 # Describes a single index in the system.
@@ -164,9 +162,7 @@ class CryoTankIndexer:
     '''
     Manages indexing of a single cryotank's records
     '''
-    # MAX_WAIT_S = 10
-    # Nic tmp
-    MAX_WAIT_S = 1000
+    MAX_WAIT_S = 10
 
     def __init__(self, cryotank):
         self.cryotank = cryotank
@@ -238,6 +234,7 @@ class CryoTankIndexer:
                     self._meta.progresses[iid]['nextoffset'] = offset + 1
                     field = dp.valu(idx.datapath)
                     if field is None:
+                        logger.debug('Datapath %s yields nothing for offset %d', idx.datapath, offset)
                         continue
                     # TODO : what to do with subprops?
                     normval, _ = s_datamodel.getTypeNorm(idx.syntype, field)
@@ -264,14 +261,14 @@ class CryoTankIndexer:
         return count + 1
 
     def _workerloop(self):
-        busy = True
+        stillworktodo = True
 
         while True:
             # Run the outstanding commands
             while True:
                 try:
-                    job = self._workq.get(timeout=0 if busy else self.MAX_WAIT_S)
-                    busy = True
+                    job = self._workq.get(timeout=0 if stillworktodo else self.MAX_WAIT_S)
+                    stillworktodo = True
                     retn, callback, args, kwargs = job
                     try:
                         retn.retn(callback(*args, **kwargs))
@@ -295,11 +292,11 @@ class CryoTankIndexer:
             self._removeSome()
             logger.debug('Processed %d rows', rowcount)
             if not rowcount and not self._meta.deleting:
-                if busy is True:
+                if stillworktodo is True:
                     # logger.info('Completely caught up with indexing')
-                    busy = False
+                    stillworktodo = False
             else:
-                busy = True
+                stillworktodo = True
             # loop_end_t = loop_start_t + self.MAX_WAIT_S
 
     def _inWorker(callback):
@@ -321,20 +318,25 @@ class CryoTankIndexer:
         return wrap
 
     @_inWorker
-    def addIndex(self, prop, syntype, datapath):
+    def addIndex(self, prop: str, syntype: str, datapath: str) -> None:
         return self._meta.addIndex(prop, syntype, datapath)
 
     @_inWorker
-    def delIndex(self, prop):
+    def delIndex(self, prop: str) -> None:
         return self._meta.delIndex(prop)
 
     @_inWorker
-    def resumeIndex(self, prop):
-        raise Exception('my exception')
-        pass
+    def resumeIndex(self, prop: Optional[str]=None) -> None:
+        '''
+        Unpauses a single index.  As a special case, setting prop to none will wake up all indexing.
+        '''
+        if prop is None:
+            return
+        # FIXME
+        return self._meta.resumeIndex(prop)
 
     @_inWorker
-    def suspendIndex(self, prop):
+    def pauseIndex(self, prop):
         # FIXME
         pass
 
@@ -399,13 +401,15 @@ class CryoTankIndexer:
         iidenc = _iid_en(iid)
 
         islarge = valu is not None and isinstance(valu, str) and len(valu) >= s_lmdb.LARGE_STRING_SIZE
-        # Unless we're looking for an exist
+        if islarge and not exact:
+            valu = valu[:s_lmdb.LARGE_STRING_SIZE]  # type: ignore
+
         if islarge and exact:
             key = iidenc + s_lmdb.encodeValAsKey(valu)
         elif valu is None:
             key = iidenc
         else:
-            key = iidenc + s_lmdb.encodeValAsKey(valu)[:s_lmdb.LARGE_STRING_SIZE]
+            key = iidenc + s_lmdb.encodeValAsKey(valu, isprefix=True)
         with self._dbenv.begin(db=self._idxtbl, buffers=True) as txn, txn.cursor() as curs:
             if exact:
                 rv = curs.set_key(key)
@@ -416,7 +420,7 @@ class CryoTankIndexer:
             while True:
                 rv = []
                 curkey, offset_enc = curs.item()
-                if (not exact and not curkey[:len(key)] == key) or (exact and curkey == key):
+                if (not exact and not curkey[:len(key)] == key) or (exact and curkey != key):
                     return
                 offset = s_lmdb.int64be.unpack(offset_enc)[0]
                 if retoffset:

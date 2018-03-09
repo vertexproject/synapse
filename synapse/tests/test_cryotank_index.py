@@ -1,13 +1,23 @@
 import time
 import synapse.cryotank as s_cryotank
+import synapse.cryotank_index as s_cryotank_index
+import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.common as s_tc
+
+logger = s_cryotank_index.logger
 
 class CryoIndexTest(s_tc.SynTest):
     def test_cryotank_index(self):
         with self.getTestDir() as dirn, s_cryotank.CryoTank(dirn) as tank:
             idxr = tank.indexer
             data1 = {'foo': 1234, 'bar': 'stringval'}
+            data2 = {'foo': 2345, 'baz': 4567, 'bar': 'strinstrin'}
+            data3 = {'foo': 388383, 'bar': ('strinstrin' * 20)}
+
+            # Make the unit test run a little faster
+            MY_MAX_WAIT = 2
+            s_cryotank_index.CryoTankIndexer.MAX_WAIT_S = MY_MAX_WAIT
 
             # Simple index add/remove
             self.eq([], idxr.getIndices())
@@ -17,12 +27,47 @@ class CryoIndexTest(s_tc.SynTest):
             idxr.delIndex('first')
             self.eq([], idxr.getIndices())
 
+            # Check simple 1 record, 1 index index and retrieval
             tank.puts([data1])
             idxr.addIndex('first', 'int', 'foo')
             idxs = idxr.getIndices()
             self.eq(1, idxs[0]['nextoffset'])
             self.eq(1, idxs[0]['ngood'])
-            import ipdb; ipdb.set_trace()
             retn = list(idxr.rowsByPropVal('first', retoffset=True, retraw=True, retnorm=True))
+            self.eq(1, len(retn))
+            t = retn[0]
+            self.eq(3, len(t))
+            self.eq(t[0], 0)
+            self.eq(s_msgpack.un(t[1]), data1)
+            self.eq(t[2], {'first': 1234})
+
+            tank.puts([data2])
+            # Index worker is asleep, need to sleep a little
+            time.sleep(MY_MAX_WAIT)
+            idxs = idxr.getIndices()
+            logger.debug('idxs: %s', idxs)
+            self.eq(2, idxs[0]['nextoffset'])
+            self.eq(2, idxs[0]['ngood'])
+
+            # exact query
+            retn = list(idxr.rowsByPropVal('first', valu=2345, retoffset=True, retraw=True, retnorm=False, exact=True))
+            self.eq(1, len(retn))
+            t = retn[0]
+            self.eq(2, len(t))
+            self.eq(t[0], 1)
+            self.eq(s_msgpack.un(t[1]), data2)
+
+            # second index
+            idxr.addIndex('second', 'str', 'bar')
+            time.sleep(0.1)
+
+            # prefix search
+            retn = list(idxr.rowsByPropVal('second', valu='strin'))
             print(retn)
+            self.eq(2, len(retn))
+
+            # long value
+            tank.puts([data3])
+            idxr.resumeIndex()  # < kicks worker to wake up
+            retn = list(idxr.rowsByPropVal('second', valu='strinstrin' * 20, retraw=True, retnorm=False, exact=True))
             self.eq(1, len(retn))

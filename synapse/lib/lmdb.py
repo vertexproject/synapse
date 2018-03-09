@@ -524,7 +524,7 @@ def ensureMapSlack(dbenv, desired_slack):
             # We're in serious trouble here.  LMDB .93 will seg fault if any access is made
             dbenv.close()
 
-def encodeValAsKey(v: Union[str, int]) -> bytes:
+def encodeValAsKey(v: Union[str, int], isprefix=False) -> bytes:
     '''
     Encode a value (int or str) as used in a key into bytes so that prefix searches on strings and range searches
     on ints work.  The first encoded byte indicates
@@ -532,8 +532,8 @@ def encodeValAsKey(v: Union[str, int]) -> bytes:
     Integers are 8-byte little endian + MIN_INT_VAL (this ensures that all negative values sort before all nonnegative
     values)
 
-    Strings are UTF-8 encoded NULL-terminated.  If string length > LARGE_STRING_SIZE, just the first 128 bytes are
-    written and a non-cryptographically hash is appended.
+    Strings are UTF-8 encoded NULL-terminated unless isprefix is True.  If string length > LARGE_STRING_SIZE, just the
+    first 128 bytes are written and a non-cryptographically hash is appended, and isprefix is disregarded.
 
     Note that this scheme prevents interleaving of value types: all string encodings compare larger than all integer
     encodings
@@ -544,6 +544,7 @@ def encodeValAsKey(v: Union[str, int]) -> bytes:
         v_enc = v.encode('utf8', errors='surrogatepass')
         if len(v_enc) >= LARGE_STRING_SIZE:
             return STR_VAL_MARKER + v_enc[:LARGE_STRING_SIZE] + b'\x00' + xxhash.xxh64(v_enc).digest()
-
+        elif isprefix:
+            return STR_VAL_MARKER + v_enc
         else:
             return STR_VAL_MARKER + v_enc + b'\x00'
