@@ -92,18 +92,42 @@ class OuMod(s_module.CoreModule):
                 ('ou:sic', {'subof': 'int', 'doc': 'Standard Industrial Classification Code'}),
                 ('ou:naics', {'subof': 'int', 'doc': 'North American Industry Classification System'}),
 
-                ('ou:suborg',
-                 {'subof': 'comp', 'fields': 'org,ou:org|sub,ou:org', 'doc': 'An org which owns a sub org'}),
-                ('ou:member', {'subof': 'comp', 'fields': 'org,ou:org|person,ps:person',
-                               'doc': 'A person who is (or was) a member of an organization.'}),
+                ('ou:suborg', {
+                    'subof': 'comp',
+                    'fields': 'org,ou:org|sub,ou:org',
+                    'doc': 'An org which owns a sub org'}),
+
+                ('ou:member', {
+                    'subof': 'comp',
+                    'fields': 'org,ou:org|person,ps:person',
+                    'doc': 'A person who is (or was) a member of an organization.'}),
 
                 ('ou:hasalias', {'subof': 'comp', 'fields': 'org=ou:org,alias=ou:alias'}),
+
                 ('ou:org:has', {
                     'subof': 'xref',
                     'source': 'org,ou:org',
                     'doc': 'An org owns, controls, or has exclusive use of an object or resource,'
                         'potentially during a specific period of time.'}),
 
+                ('ou:meet', {
+                    'subof': 'guid',
+                    'doc': 'A informal meeting of people which has no title or sponsor.  See also: ou:conference.'}),
+
+                ('ou:meet:attendee', {
+                    'subof': 'comp',
+                    'fields': 'meet=ou:meet,person=ps:person',
+                    'doc': 'Represents a person attending a meeting represented by an ou:meet node.'}),
+
+                ('ou:conference', {
+                    'subof': 'guid',
+                    'fields': 'date=time,name=str:lwr',
+                    'doc': 'A conference with a name and sponsoring org.'}),
+
+                ('ou:conference:attendee', {
+                    'subof': 'comp',
+                    'fields': 'conference=ou:conference,person=ps:person',
+                    'doc': 'Represents a person attending a conference represented by an ou:conference node.'}),
             ),
 
             'forms': (
@@ -151,6 +175,7 @@ class OuMod(s_module.CoreModule):
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
                 )),
+
                 ('ou:org:has', {}, [
                     ('org', {'ptype': 'ou:org', 'ro': 1, 'req': 1,
                         'doc': 'The org who owns or controls the object or resource.'}),
@@ -165,6 +190,47 @@ class OuMod(s_module.CoreModule):
                     ('seen:max', {'ptype': 'time:max',
                         'doc': 'The most recent known time when the org owned or controlled the resource.'}),
                 ]),
+
+                ('ou:meet', {}, (
+                    ('name', {'ptype': 'str:lwr',
+                        'doc': 'A human friendly name for the meeting.'}),
+                    ('place', {'ptype': 'geo:place',
+                        'doc': 'The geo:place node where the conference was held.'}),
+                )),
+
+                ('ou:meet:attendee', {}, (
+                    ('meet', {'ptype': 'ou:meet', 'req': 1, 'ro': 1,
+                        'doc': 'The meeting which was attended.'}),
+                    ('person', {'ptype': 'ps:person', 'req': 1, 'ro': 1,
+                        'doc': 'The person who attended the meet.'}),
+                    ('arrive', {'ptype': 'time',
+                        'doc': 'An optional property to annotate when the person arrived.'}),
+                    ('depart': {'ptype': 'time',
+                        'doc': 'An optionala property to annotate when the person departed.'}),
+                )),
+
+                ('ou:conference', {}, (
+                    ('org', {'ptype': 'ou:org',
+                        'doc': 'The org which created/managed the conference.'}),
+                    ('name', {'ptype': 'str:lwr', 'req': 1, 'ro': 1,
+                        'doc': 'The name of the conference (without time).'}),
+                    ('date', {'ptype': 'time', 'req': 1, 'ro': 1,
+                        'doc': 'The date of the beginning of the conference.'}),
+                    ('place', {'ptype': 'geo:place',
+                        'doc': 'The geo:place node where the conference was held.'}),
+                    # TODO: prefix optimized geo political location
+                )),
+
+                ('ou:conference:attendee', {}, (
+                    ('conference', {'ptype': 'ou:conference', 'req': 1, 'ro': 1,
+                        'doc': 'The conference which was attended.'}),
+                    ('person', {'ptype': 'ps:person', 'req': 1, 'ro': 1,
+                        'doc': 'The person who attended the conference.'}),
+                    ('arrive', {'ptype': 'time',
+                        'doc': 'An optional property to annotate when the person arrived.'}),
+                    ('depart': {'ptype': 'time',
+                        'doc': 'An optionala property to annotate when the person departed.'}),
+                )),
 
             ),
         }
