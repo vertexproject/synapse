@@ -1432,6 +1432,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         neuraddr = (conf.get('host'), conf.get('port'))
         if not all(part is not None for part in neuraddr):
+            logger.info('Popping "auth" with private data from mesg.')
+            conf.pop('auth', None)
             raise s_common.BadConfValu(mesg='host and port must be set', key='cellpool:conf')
 
         if self.cellpool:
