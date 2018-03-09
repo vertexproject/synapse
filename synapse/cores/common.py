@@ -592,6 +592,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                                'doc': 'Enables caching layer in the cortex'}),
             ('rev:model', {'type': 'bool', 'defval': 1, 'doc': 'Set to 0 to disallow model version updates'}),
             ('cellpool:conf', {'defval': None, 'doc': 'Allows cortex to be aware of a neuron cell pool'}),
+            ('cellpool:timeout', {'defval': 30, 'type': 'int', 'asloc': 'cell_timeout',
+                                  'doc': 'Timeout for cellpool related operations'
+                                  }),
             ('axon:name', {'defval': None, 'doc': 'Allows cortex to be aware of an axon blob store'}),
             ('log:save', {'type': 'bool', 'asloc': 'logsave', 'defval': 0,
                           'doc': 'Enables saving exceptions to the cortex as syn:log nodes'}),
@@ -1215,10 +1218,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if sess is None:
             # Wait for a cell:add event to fire on our cellpool.
             # We cannot gaurantee that new session is an axon though
-            # 30 seconds may be a long time to wait, esp for a remote caller
-            # TODO - make this wait time configable
             waiter = self.cellpool.waiter(1, 'cell:add')
-            waiter.wait(30)
+            waiter.wait(self.cell_timeout)
             sess = self.cellpool.get(self.axon_name)
         client = s_axon.AxonClient(sess)
         return client
@@ -1437,15 +1438,15 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             self.cellpool.fini()
 
         self.cellpool = s_cell.CellPool(auth, neuraddr)
-        self.cellpool.neurwait(timeout=30)
+        self.cellpool.neurwait(timeout=self.cell_timeout)
         self.onfini(self.cellpool.fini)
 
         cellnames = conf.get('cellnames', [])
         if len(cellnames) > 0:
+            waiter = self.cellpool.waiter(len(cellnames), 'cell:add')
             for name in cellnames:
                 self.cellpool.add(name)
-            waiter = self.cellpool.waiter(len(cellnames), 'cell:add')
-            waiter.wait(30)
+            waiter.wait(self.cell_timeout)
 
         self.cellpool_ready = True
 
@@ -1454,7 +1455,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         waiter = self.cellpool.waiter(1, 'cell:add')
         self.cellpool.add(name)
-        waiter.wait(6)
+        waiter.wait(self.cell_timeout)
 
         self.axon_ready = True  # XXX What if cell:add is never fired?
 

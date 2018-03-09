@@ -3318,69 +3318,15 @@ class CortexTest(SynTest):
                 self.isin('synapse.tests.test_cortex.CoreTestModule', prox.getCoreMods())
                 self.eq(prox.getConfOpt('storm:query:log:en'), 1)
 
-    def test_cortex_axon_disconnect_reconnect(self):
-        self.skipLongTest()
-
-        visihash = hashlib.sha256(b'visi').digest()
-        craphash = hashlib.sha256(b'crap').digest()
-        coolhash = hashlib.sha256(b'cool').digest()
-        foobarhash = hashlib.sha256(b'foobar').digest()
-
-        with self.getAxonCore() as env:
-            with s_daemon.Daemon() as dmon:
-
-                dmonlink = dmon.listen('tcp://127.0.0.1:0/')
-                dmonport = dmonlink[1].get('port')
-                dmon.share('core', env.core)
-
-                coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
-                core = s_telepath.openurl(coreurl)
-
-                wants = core._axonclient_wants([visihash, craphash, foobarhash])
-                self.len(3, wants)
-
-                self.istufo(core.formNodeByBytes(b'visi'))
-                with io.BytesIO(b'foobar') as fd:
-                    self.istufo(core.formNodeByFd(fd))
-
-                wants = core._axonclient_wants([visihash, craphash, foobarhash])
-                self.len(1, wants)
-
-                # Shut down the axon
-                blobpath = os.path.split(env.blob.getCellPath())[0]
-                blobconf = env.blob.getConfOpts()
-                axonpath = os.path.split(env.axon.getCellPath())[0]
-                axonconf = env.axon.getConfOpts()
-                env.axon.fini()  # also finis the blob...
-                env.axon.waitfini(timeout=30)
-
-                # Make sure that it doesn't work
-                self.raises(SynErr, core._axonclient_wants, [visihash, craphash, foobarhash], timeout=1)  # This fails because sess is None
-
-                # Turn the axon back on
-                blob = s_axon.BlobCell(blobpath, blobconf)
-                env.add('blob', blob, fini=True)
-                self.true(blob.cellpool.neurwait(timeout=3))
-                axon = s_axon.AxonCell(axonpath, axonconf)
-                env.add('axon', axon, fini=True)
-                self.true(axon.cellpool.neurwait(timeout=3))
-
-                wants = core._axonclient_wants([visihash, craphash, foobarhash])
-                self.len(1, wants)
-
-                self.istufo(core.formNodeByBytes(b'crap'))
-                wants = core._axonclient_wants([visihash, craphash, foobarhash])
-                self.len(0, wants)
-
     def test_cortex_axon(self):
         self.skipLongTest()
 
         visihash = hashlib.sha256(b'visi').digest()
         craphash = hashlib.sha256(b'crap').digest()
-        coolhash = hashlib.sha256(b'cool').digest()
         foobarhash = hashlib.sha256(b'foobar').digest()
 
         with self.getAxonCore() as env:
+            env.core.setConfOpt('cellpool:timeout', 3)
 
             core = s_telepath.openurl(env.core_url)
             env.add('_core_prox', core, fini=True)  # ensure the Proxy object is fini'd
@@ -3412,6 +3358,7 @@ class CortexTest(SynTest):
 
             # Ensure that Axon fns do not execute on a core without an axon
             with self.getRamCore() as othercore:
+                othercore.setConfOpt('cellpool:timeout', 3)
                 self.raises(NoSuchOpt, othercore.formNodeByBytes, b'visi', name='visi.bin')
                 with io.BytesIO(b'foobar') as fd:
                     self.raises(NoSuchOpt, othercore.formNodeByFd, fd, name='foobar.exe')
