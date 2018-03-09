@@ -276,7 +276,3 @@ class ProtoErr(SynErr):
     pass
 
 class CorruptDatabase(SynErr): pass
-
-class IndexAlreadyPresent(SynErr): pass
-
-class IndexNotPresent(SynErr): pass

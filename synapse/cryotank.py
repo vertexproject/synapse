@@ -107,6 +107,8 @@ class CryoTank(s_config.Config):
                 info = {'time': tick, 'count': len(items), 'size': bytesize, 'took': took}
                 curs.put(lkey, s_msgpack.en(info), append=True)
 
+        self.fire('cryotank:puts')
+
         return retn
 
     def metrics(self, offs, size=None):

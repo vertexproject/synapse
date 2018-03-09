@@ -31,8 +31,6 @@ logger.setLevel(logging.DEBUG)
 # CryotankIndexer.delIndex.
 
 # Indexes can be queried with rowsByPropVal.
-
-
 # To harmonize with LMDB requirements, writing only occurs on the worker thread, while reading indices takes
 # place in the caller's thread.  Both reading and writing index metadata (that is, information about which indices
 # are running) take place on the worker's thread.
@@ -124,7 +122,7 @@ class _IndexMeta:
 
     def addIndex(self, prop: str, syntype: str, datapath: str) -> None:
         if self.iidFromProp(prop) is not None:
-            raise s_exc.IndexAlreadyPresent
+            raise ValueError('index already added')
 
         s_datamodel.tlib.reqDataType(syntype)
         iid = int.from_bytes(os.urandom(8), 'little')
@@ -135,7 +133,7 @@ class _IndexMeta:
     def delIndex(self, prop: str) -> None:
         iid = self.iidFromProp(prop)
         if iid is None:
-            raise s_exc.IndexNotPresent
+            raise ValueError('Index not present')
         del self.indices[iid]
         self.deleting.append(iid)
 
@@ -185,6 +183,7 @@ class CryoTankIndexer:
         self._next_offset = self._meta.lowestProgress()
         self._chunk_sz = 1000  # < How many records to read at a time
         self._remove_chunk_sz = 1000  # < How many index entries to remove at a time
+        ebus.on('cryotank:puts', self._onData)
 
         self._worker.start()
 
@@ -194,6 +193,13 @@ class CryoTankIndexer:
             self._worker.join(self.MAX_WAIT_S)
 
         ebus.onfini(_onfini)
+
+    def _onData(self, unused):
+        '''
+        Wake up the worker if he already doesn't have a reason to be awake
+        '''
+        if 0 == len(self._workq):
+            self._workq.put((None, lambda: None, None, None))
 
     def _removeSome(self) -> None:
         # Make some progress on removing deleted indices
@@ -225,6 +231,7 @@ class CryoTankIndexer:
         Yields a stream of normalized fields
         '''
         for offset, record in raw_records:
+            self._next_offset = offset + 1
             dp = s_datapath.initelem(s_msgpack.un(record))
 
             for iid, idx in self._meta.activeIndices():
@@ -265,32 +272,39 @@ class CryoTankIndexer:
 
         while True:
             # Run the outstanding commands
+            recalc = False
             while True:
                 try:
-                    job = self._workq.get(timeout=0 if stillworktodo else self.MAX_WAIT_S)
+                    job = self._workq.get(timeout=0 if stillworktodo else None)
                     stillworktodo = True
                     retn, callback, args, kwargs = job
                     try:
-                        retn.retn(callback(*args, **kwargs))
-                        self._next_offset = self._meta.lowestProgress()
+                        if retn is not None:
+                            retn.retn(callback(*args, **kwargs))
+                            recalc = True
                     except Exception as e:
-                        # Not using errx because I want the exception object itself
-                        retn.retn(e)
+                        if retn is None:
+                            raise
+                        else:
+                            # Not using errx because I want the exception object itself
+                            retn.retn(e)
                 except s_exc.IsFini:
                     return
                 except s_exc.TimeOut:
                     break
+            if recalc:
+                self._next_offset = self._meta.lowestProgress()
 
             # loop_start_t = time.time()
             import itertools
             record_tuples = self.cryotank.rows(self._next_offset, self._chunk_sz)
             rt_copy1, rt_copy2 = itertools.tee(record_tuples)
-            print('got: ', self._next_offset, list(rt_copy1))
+            # logger.debug('got: next_offset=%d, data=%s', self._next_offset, list(rt_copy1))
             norm_gen = self._normalize_records(rt_copy2)
             rowcount = self._writeIndices(norm_gen)
 
             self._removeSome()
-            logger.debug('Processed %d rows', rowcount)
+            # logger.debug('Processed %d rows', rowcount)
             if not rowcount and not self._meta.deleting:
                 if stillworktodo is True:
                     # logger.info('Completely caught up with indexing')
