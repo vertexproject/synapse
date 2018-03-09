@@ -11,6 +11,8 @@ import xxhash  # type: ignore
 
 _LeMarkerUint_ST = struct.Struct('<BQ')
 _LeUint_ST = struct.Struct('<Q')
+int64be = struct.Struct('>Q')
+
 
 import synapse.lib.msgpack as s_msgpack
 
@@ -37,7 +39,6 @@ MAX_PROP_LEN = 350
 # Smallest and largest values for an integer value.  Matches sqlite3
 MAX_INT_VAL = 2 ** 63 - 1
 MIN_INT_VAL = -1 * (2 ** 63)
-
 
 class Seqn:
     '''
@@ -471,8 +472,6 @@ class PropStor:
 
             for buid in burs.iternext_dup():
                 yield buid, penc, pval
-
-int64be = struct.Struct('>Q')
 
 # FIXME:  move to some place more generic
 def _get_max_filesize(path):
