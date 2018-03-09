@@ -498,3 +498,7 @@ class OrgTest(SynTest, ModelSeenMixin):
 
                     return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
+
+    def test_model_org_meeting(self):
+        with self.getRamCore() as core:
+            pass
