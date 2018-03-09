@@ -1201,10 +1201,16 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
     def _get_axon_client(self):
         self._check_axonclient()
-        client = s_axon.AxonClient(self.cellpool.get(self.axon_name))
-        if client.sess is None:
+        sess = self.cellpool.get(self.axon_name)
+        if sess is None:
+            # Wait for a cell:add event to fire on our cellpool.
+            # We cannot gaurantee that new session is an axon though
+            # 30 seconds may be a long time to wait, esp for a remote caller
+            # TODO - make this wait time configable
             waiter = self.cellpool.waiter(1, 'cell:add')
-            waiter.wait(5)
+            waiter.wait(30)
+            sess = self.cellpool.get(self.axon_name)
+        client = s_axon.AxonClient(sess)
         return client
 
     def _axonclient_wants(self, hashes, timeout=None):
@@ -1436,11 +1442,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _onSetAxonName(self, name):
         self.axon_name = name
 
-        self.cellpool.add(name)
         waiter = self.cellpool.waiter(1, 'cell:add')
-        waiter.wait(30)
+        self.cellpool.add(name)
+        waiter.wait(6)
 
-        self.axon_ready = True
+        self.axon_ready = True  # XXX What if cell:add is never fired?
 
     def initCoreModule(self, ctor, conf):
         '''

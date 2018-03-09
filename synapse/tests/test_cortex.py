@@ -3404,10 +3404,11 @@ class CortexTest(SynTest):
             # Turn the axon back on
             axon = s_axon.AxonCell(axonpath, axonconf)
             env.add('axon', axon, fini=True)
+            self.true(axon.cellpool.neurwait(timeout=3))
 
-            # Make sure its still works
+            # Make sure the api still works.
             wants = core._axonclient_wants([visihash, craphash, foobarhash])
-            self.len(0, wants)
+            self.len(1, wants)
 
             # Ensure that Axon fns do not execute on a core without an axon
             with self.getRamCore() as othercore:
