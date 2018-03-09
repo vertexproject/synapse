@@ -159,7 +159,7 @@ def openurl(url, conf=None, storconf=None, **opts):
             core = openurl('tcp://1.2.3.4:10000/core)
 
     Notes:
-        The following handlers are registerd by default:
+        The following handlers are registered by default:
             * ram://
             * sqlite:///<db>
             * lmdb:///<db>
