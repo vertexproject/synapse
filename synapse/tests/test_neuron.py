@@ -404,6 +404,7 @@ class NeuronTest(SynTest):
                         wait = pool.waiter(1, 'cell:add')
 
                         steps.wait('cell:reg', timeout=3)
+                        steps.clear('cell:reg')
 
                         self.nn(wait.wait(timeout=3))
                         self.nn(pool.get('cell00@localhost'))
@@ -416,7 +417,12 @@ class NeuronTest(SynTest):
                 savepath = os.path.join(dirn, 'woot.auth')
 
                 argv = ['genauth', authpath, 'woot', savepath]
-                s_tools_neuron.main(argv)
+                outp = self.getTestOutp()
+                s_tools_neuron.main(argv, outp=outp)
+                self.true(outp.expect('saved woot'))
+                self.true(outp.expect('woot.auth'))
 
-                wootauth = s_msgpack.loadfile(savepath)
-                self.nn(wootauth[1].get('neuron'))
+                auth = s_msgpack.loadfile(savepath)
+
+                self.eq(auth[0], 'woot@localhost')
+                self.nn(auth[1].get('neuron'))
