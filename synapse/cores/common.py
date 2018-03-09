@@ -281,8 +281,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _initCortexConfSetPre(self):
         # Setup handlers for confOpt changes which are not racy
         self.onConfOptSet('caching', self._onSetCaching)
-        self.onConfOptSet('cellpool:conf', self._onSetCellPoolConf)
-        self.onConfOptSet('axon:name', self._onSetAxonName)
 
     def _initCortexConfSetPost(self):
         self._initCoreFifos()
@@ -301,6 +299,18 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         valu = self.getConfOpt('modules')
         if valu:
             self.fire('syn:conf:set:%s' % 'modules', valu=valu)
+
+        # Add the cellpool handler
+        self.onConfOptSet('cellpool:conf', self._onSetCellPoolConf)
+        valu = self.getConfOpt('cellpool:conf')
+        if valu:
+            self.fire('syn:conf:set:%s' % 'cellpool:conf', valu=valu)
+
+        # Add the axon:name handler - it relies on the cellpool:conf
+        self.onConfOptSet('axon:name', self._onSetAxonName)
+        valu = self.getConfOpt('axon:name')
+        if valu:
+            self.fire('syn:conf:set:%s' % 'axon:name', valu=valu)
 
     def addRuntNode(self, form, valu, props=None):
         '''
