@@ -5,6 +5,8 @@ import synapse.neuron as s_neuron
 
 import synapse.lib.crypto.vault as s_vault
 
+import synapse.tools.neuron as s_tools_neuron
+
 from synapse.tests.common import *
 
 logger = logging.getLogger(__name__)
@@ -49,8 +51,11 @@ class NeuronTest(SynTest):
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
             with s_neuron.Cell(dirn, conf) as cell:
-                # A bunch of API tests here
+                # Ensure making the cell makes auth files
+                self.true(os.path.isfile(cell._path('cell.auth')))
+                self.true(os.path.isfile(cell._path('user.auth')))
 
+                # A bunch of API tests here
                 auth = cell.genUserAuth('bobgrey@vertex.link')
                 self.istufo(auth)
 
@@ -351,7 +356,9 @@ class NeuronTest(SynTest):
                 neur.on('cell:reg', onreg)
                 self.eq(neur._genCellName('root'), 'root@localhost')
 
-                user = neur.celluser
+                path = neur._path('admin.auth')
+                auth = s_msgpack.loadfile(path)
+                user = s_neuron.CellUser(auth)
 
                 pool = s_neuron.CellPool(neur.genUserAuth('foo'), neur.getCellAddr())
                 pool.neurok.wait(timeout=8)
@@ -359,10 +366,9 @@ class NeuronTest(SynTest):
 
                 with user.open(neur.getCellAddr()) as sess:
 
-                    mesg = ('cell:init', {'name': 'cell00'})
-                    ok, auth = sess.call(mesg, timeout=2)
-                    self.true(ok)
+                    ncli = s_neuron.NeuronClient(sess)
 
+                    auth = ncli.genCellAuth('cell00')
                     path = s_common.gendir(dirn, 'cell')
 
                     authpath = s_common.genpath(path, 'cell.auth')
@@ -398,9 +404,50 @@ class NeuronTest(SynTest):
                         wait = pool.waiter(1, 'cell:add')
 
                         steps.wait('cell:reg', timeout=3)
+                        steps.clear('cell:reg')
 
                         self.nn(wait.wait(timeout=3))
                         self.nn(pool.get('cell00@localhost'))
 
                         mesg = ('cell:ping', {'data': 'hehe'})
                         self.eq(pool.get('cell00@localhost').call(mesg), 'hehe')
+
+                # since we have an active neuron, lets test the CLI tools here as well...
+                authpath = os.path.join(dirn, 'neuron', 'admin.auth')
+                savepath = os.path.join(dirn, 'woot.auth')
+
+                argv = ['genauth', authpath, 'woot', savepath]
+                outp = self.getTestOutp()
+
+                s_tools_neuron.main(argv, outp=outp)
+
+                self.true(outp.expect('saved woot'))
+                self.true(outp.expect('woot.auth'))
+
+                auth = s_msgpack.loadfile(savepath)
+
+                self.eq(auth[0], 'woot@localhost')
+                self.nn(auth[1].get('neuron'))
+
+                # Use wootauth for provisioning a test cell
+
+                steps.clear('cell:reg')
+
+                path = gendir(dirn, 'wootcell')
+
+                authpath = s_common.genpath(path, 'cell.auth')
+                s_msgpack.dumpfile(auth, authpath)
+
+                conf = {'host': 'localhost', 'bind': '127.0.0.1'}
+                with s_neuron.Cell(path, conf) as cell:
+
+                    wait = pool.waiter(1, 'cell:add')
+                    pool.add('woot@localhost')
+
+                    steps.wait('cell:reg', timeout=3)
+
+                    self.nn(wait.wait(timeout=3))
+                    self.nn(pool.get('woot@localhost'))
+
+                    mesg = ('cell:ping', {'data': 'w00t!'})
+                    self.eq(pool.get('woot@localhost').call(mesg), 'w00t!')

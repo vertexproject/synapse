@@ -178,20 +178,17 @@ class Cell(s_config.Configable, s_net.Link, SessBoss):
 
         path = self._path('cell.auth')
         if os.path.isfile(path):
-            with open(path, 'rb') as fd:
-                return s_msgpack.un(fd.read())
+            return s_msgpack.loadfile(path)
 
         name = self._genCellName('root')
         root = self.vault.genUserAuth(name)
-        with open(path, 'wb') as fd:
-            fd.write(s_msgpack.en(root))
+        s_msgpack.dumpfile(root, path)
 
         path = self._path('user.auth')
 
         name = self._genCellName('user')
         user = self.vault.genUserAuth(name)
-        with open(path, 'wb') as fd:
-            fd.write(s_msgpack.en(user))
+        s_msgpack.dumpfile(user, path)
 
         return root
 
@@ -354,7 +351,14 @@ class Neuron(Cell):
     A neuron node is the "master cell" for a neuron cluster.
     '''
     def postCell(self):
+
         self.cells = self.getCellDict('cells')
+
+        path = self._path('admin.auth')
+
+        if not os.path.exists(path):
+            auth = self.genCellAuth('admin')
+            s_msgpack.dumpfile(auth, path)
 
     def handlers(self):
         return {
@@ -399,8 +403,8 @@ class Neuron(Cell):
     @s_glob.inpool
     def _onCellInit(self, chan, mesg):
 
-        # for now, only let root provision...
-        root = 'root@%s' % (self.getConfOpt('host'),)
+        # for now, only let admin provision...
+        root = 'admin@%s' % (self.getConfOpt('host'),)
 
         peer = chan.getLinkProp('cell:peer')
         if peer != root:
@@ -445,6 +449,19 @@ class Neuron(Cell):
             ('port', {'defval': defport, 'req': 1,
                 'doc': 'The TCP port the Neuron binds to (defaults to %d)' % defport}),
         ))
+
+class NeuronClient:
+
+    def __init__(self, sess):
+        self.sess = sess
+
+    def genCellAuth(self, name, timeout=None):
+        '''
+        Generate a new cell auth file.
+        '''
+        mesg = ('cell:init', {'name': name})
+        ok, retn = self.sess.call(mesg, timeout=timeout)
+        return s_common.reqok(ok, retn)
 
 class Sess(s_net.Link):
     '''
@@ -551,6 +568,7 @@ class Sess(s_net.Link):
             raise s_exc.CryptoErr(mesg='%s got bad cert (%r)' % (clsn, peer_cert.iden(),))
 
         peer_static_pub = s_ecc.PubKey.load(peer_cert.tokn.get('ecdsa:pubkey'))
+
         km = s_ecc.doECDHE(self._my_ephem_prv, peer_ephem_pub,
                            self._sess_boss._my_static_prv, peer_static_pub, info=b'session')
 
@@ -558,11 +576,13 @@ class Sess(s_net.Link):
 
         if self.is_lisn:
             self._crypter = s_tinfoil.CryptSeq(to_listener_symkey, to_initiator_symkey)
+
         else:
             self._crypter = s_tinfoil.CryptSeq(to_initiator_symkey, to_listener_symkey)
-            # Decrypt the first i.e. test message
-            first_msg_ct = mesg[1].get('first_mesg')
-            self._crypter.decrypt(first_msg_ct)
+
+            # Decrypt the test message
+            testmesg = mesg[1].get('testmesg')
+            self._crypter.decrypt(testmesg)
 
         return peer_cert
 
@@ -583,12 +603,12 @@ class Sess(s_net.Link):
 
         if self.is_lisn:
             # This would be a good place to stick version or info stuff
-            first_message = {}
+            testmesg = {}
             with self._tx_lock:
                 self.link.tx(('helo', {'version': NEURON_PROTO_VERSION,
                                        'ephem_pub': self._my_ephem_prv.public().dump(),
                                        'cert': self._sess_boss.certbyts,
-                                       'first_mesg': self._crypter.encrypt(first_message)}))
+                                       'testmesg': self._crypter.encrypt(testmesg)}))
 
         user = peer_cert.tokn.get('user')
         self.setLinkProp('cell:peer', user)
@@ -952,6 +972,10 @@ class CellPool(s_eventbus.EventBus):
 
             if not ok:
                 logger.warning('CellPool.add(%s) onlook error: %r' % (name, retn))
+                return retry()
+
+            if retn is None:
+                logger.warning('CellPool.add(%s) onlook retn none.' % (name,))
                 return retry()
 
             addr = retn.get('addr')
