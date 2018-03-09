@@ -5,6 +5,7 @@ import argparse
 import logging
 
 import synapse.common as s_common
+import synapse.neuron as s_neuron
 import synapse.cryotank as s_cryotank
 
 import synapse.lib.output as s_output
@@ -69,7 +70,9 @@ def main(argv, outp=s_output.stdout):
     addr = (host, int(portstr))
     logger.info('connecting to: %r', addr)
 
-    with s_cryotank.CryoUser(auth, addr, timeout=opts.timeout) as cryo:
+    cuser = s_neuron.CellUser(auth)
+    with cuser.open(addr, timeout=opts.timeout) as sess:
+        cryo = s_cryotank.CryoClient(sess)
 
         if opts.list:
             for name, info in cryo.list(timeout=opts.timeout):

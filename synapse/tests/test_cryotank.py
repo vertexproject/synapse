@@ -1,5 +1,6 @@
 import random
 
+import synapse.neuron as s_neuron
 import synapse.cryotank as s_cryotank
 
 from synapse.tests.common import *
@@ -94,8 +95,9 @@ class CryoTest(SynTest):
             with s_cryotank.CryoCell(dirn, conf) as cell:
 
                 addr = cell.getCellAddr()
-
-                with s_cryotank.CryoUser(cell.genUserAuth('foo'), addr, timeout=2) as user:
+                cuser = s_neuron.CellUser(cell.genUserAuth('foo'))
+                with cuser.open(addr, timeout=2) as sess:
+                    user = s_cryotank.CryoClient(sess)
 
                     # Setting the _chunksize to 1 forces iteration on the client
                     # side of puts, as well as the server-side.
@@ -124,7 +126,7 @@ class CryoTest(SynTest):
                     self.eq(retn[1], (1, s_msgpack.en(cryodata[1])))
 
                     # Reset chunksize
-                    user._chunksize = s_cryotank.CryoUser._chunksize
+                    user._chunksize = s_cryotank.CryoClient._chunksize
                     user.puts('woot:hehe', cryodata, timeout=5)
                     user.puts('woot:hehe', cryodata, timeout=5)
                     retn = list(user.slice('woot:hehe', 1, 2))
@@ -170,7 +172,9 @@ class CryoTest(SynTest):
             with s_cryotank.CryoCell(dirn, conf) as cell:
 
                 addr = cell.getCellAddr()
-                with s_cryotank.CryoUser(cell.genUserAuth('foo'), addr, timeout=2) as user:
+                cuser = s_neuron.CellUser(cell.genUserAuth('foo'))
+                with cuser.open(addr, timeout=2) as sess:
+                    user = s_cryotank.CryoClient(sess)
                     listd = dict(user.list(timeout=3))
                     self.len(3, listd)
                     self.isin('weee:imthebest', listd)
@@ -212,8 +216,9 @@ class CryoTest(SynTest):
             auth = s_msgpack.loadfile(authfp)
 
             addr = ('127.0.0.1', port)
-            with s_cryotank.CryoUser(auth, addr, timeout=2) as user:
-
+            cuser = s_neuron.CellUser(auth)
+            with cuser.open(addr, timeout=2) as sess:
+                user = s_cryotank.CryoClient(sess)
                 retn = user.list(timeout=3)
                 self.eq(retn, ())
 
