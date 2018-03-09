@@ -5,9 +5,9 @@ import logging
 
 import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.neuron as s_neuron
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.cell as s_cell
 import synapse.lib.const as s_const
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
@@ -205,7 +205,7 @@ class CryoTank(s_config.Config):
         '''
         return {'indx': self.items_indx, 'metrics': self.metrics_indx, 'stat': self.lmdb.stat()}
 
-class CryoCell(s_neuron.Cell):
+class CryoCell(s_cell.Cell):
 
     def postCell(self):
         '''

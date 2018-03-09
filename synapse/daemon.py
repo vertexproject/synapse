@@ -10,10 +10,10 @@ import multiprocessing
 
 import synapse.link as s_link
 import synapse.common as s_common
-import synapse.neuron as s_neuron
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 
+import synapse.lib.cell as s_cell
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.socket as s_socket
@@ -242,7 +242,7 @@ class DmonConf:
 
             celldone.add(celldirn)
 
-            proc = s_neuron.divide(celldirn, cellconf)
+            proc = s_cell.divide(celldirn, cellconf)
             self.cellprocs[celldirn] = proc
 
         # once neuron cells are standardized, nearly everything else can go

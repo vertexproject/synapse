@@ -7,6 +7,7 @@ import argparse
 import synapse.common as s_common
 import synapse.neuron as s_neuron
 
+import synapse.lib.cell as s_cell
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 
@@ -26,7 +27,7 @@ def genauth(opts, outp=s_output.stdout):
         outp.printf('auth file has no neuron info: %s' % (authpath, ))
         return
 
-    celluser = s_neuron.CellUser(auth)
+    celluser = s_cell.CellUser(auth)
 
     with celluser.open(addr, timeout=20) as sess:
 
