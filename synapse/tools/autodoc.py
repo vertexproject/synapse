@@ -33,12 +33,12 @@ obj_path_skips = ('synapse.cores.common.Runtime',
                   )
 
 obj_instance_confs = [
-    ('synapse.neuron.Cell', {'bind': '127.0.0.1'}),
+    ('synapse.lib.cell.Cell', {'bind': '127.0.0.1'}),
     ('synapse.neuron.Neuron', {'bind': '127.0.0.1', 'port': 0}),
 ]
 
 obj_instance_reqpath = [
-    'synapse.neuron.Cell',
+    'synapse.lib.cell.Cell',
 ]
 
 descr = '''

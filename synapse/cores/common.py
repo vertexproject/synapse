@@ -8,7 +8,6 @@ import collections
 
 import synapse.axon as s_axon
 import synapse.common as s_common
-import synapse.neuron as s_neuron
 import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
 import synapse.eventbus as s_eventbus
@@ -17,6 +16,7 @@ import synapse.telepath as s_telepath
 import synapse.cores.storage as s_storage
 
 import synapse.lib.auth as s_auth
+import synapse.lib.cell as s_cell
 import synapse.lib.fifo as s_fifo
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
@@ -1399,7 +1399,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if not all(part is not None for part in addr):
             raise s_common.BadConfValu(mesg='host and port must be set', valu=conf, key='axon:conf')
 
-        self.axon_user = s_neuron.CellUser(auth)
+        self.axon_user = s_cell.CellUser(auth)
         self.axon_sess = self.axon_user.open(addr, timeout=30)
         self.axon_client = s_axon.AxonClient(self.axon_sess)
 

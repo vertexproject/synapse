@@ -7,10 +7,10 @@ import itertools
 
 import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.neuron as s_neuron
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.net as s_net
+import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
 import synapse.lib.config as s_config
@@ -181,7 +181,7 @@ class BlobStor(s_eventbus.EventBus):
 
             return struct.unpack('>Q', lval)[0] + 1
 
-class BlobCell(s_neuron.Cell):
+class BlobCell(s_cell.Cell):
 
     def postCell(self):
 
@@ -317,7 +317,7 @@ class BlobCell(s_neuron.Cell):
                 'doc': 'The name of a blob cell to clone from'}),
         )
 
-class AxonCell(s_neuron.Cell):
+class AxonCell(s_cell.Cell):
     '''
     An Axon acts as an indexer and manages access to BlobCell bytes.
     '''
@@ -338,7 +338,7 @@ class AxonCell(s_neuron.Cell):
 
         self.metrics = s_lmdb.Metrics(self.lenv)
 
-        self.blobs = s_neuron.CellPool(self.cellauth, self.neuraddr)
+        self.blobs = s_cell.CellPool(self.cellauth, self.neuraddr)
 
         for name in self.getConfOpt('axon:blobs'):
             self.blobs.add(name)

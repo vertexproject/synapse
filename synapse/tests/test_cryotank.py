@@ -1,7 +1,8 @@
 import random
 
-import synapse.neuron as s_neuron
 import synapse.cryotank as s_cryotank
+
+import synapse.lib.cell as s_cell
 
 from synapse.tests.common import *
 
@@ -95,7 +96,7 @@ class CryoTest(SynTest):
             with s_cryotank.CryoCell(dirn, conf) as cell:
 
                 addr = cell.getCellAddr()
-                cuser = s_neuron.CellUser(cell.genUserAuth('foo'))
+                cuser = s_cell.CellUser(cell.genUserAuth('foo'))
                 with cuser.open(addr, timeout=2) as sess:
                     user = s_cryotank.CryoClient(sess)
 
@@ -172,7 +173,7 @@ class CryoTest(SynTest):
             with s_cryotank.CryoCell(dirn, conf) as cell:
 
                 addr = cell.getCellAddr()
-                cuser = s_neuron.CellUser(cell.genUserAuth('foo'))
+                cuser = s_cell.CellUser(cell.genUserAuth('foo'))
                 with cuser.open(addr, timeout=2) as sess:
                     user = s_cryotank.CryoClient(sess)
                     listd = dict(user.list(timeout=3))
@@ -216,7 +217,7 @@ class CryoTest(SynTest):
             auth = s_msgpack.loadfile(authfp)
 
             addr = ('127.0.0.1', port)
-            cuser = s_neuron.CellUser(auth)
+            cuser = s_cell.CellUser(auth)
             with cuser.open(addr, timeout=2) as sess:
                 user = s_cryotank.CryoClient(sess)
                 retn = user.list(timeout=3)
