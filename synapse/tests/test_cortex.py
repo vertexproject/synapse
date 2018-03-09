@@ -3381,24 +3381,33 @@ class CortexTest(SynTest):
         foobarhash = hashlib.sha256(b'foobar').digest()
 
         with self.getAxonCore() as env:
-            with s_daemon.Daemon() as dmon:
 
-                dmonlink = dmon.listen('tcp://127.0.0.1:0/')
-                dmonport = dmonlink[1].get('port')
-                dmon.share('core', env.core)
+            core = s_telepath.openurl(env.core_url)
+            env.add('_core_prox', core, fini=True)  # ensure the Proxy object is fini'd
 
-                coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
-                core = s_telepath.openurl(coreurl)
+            wants = core._axonclient_wants([visihash, craphash, foobarhash])
+            self.len(3, wants)
+            self.istufo(core.formNodeByBytes(b'visi'))
+            with io.BytesIO(b'foobar') as fd:
+                self.istufo(core.formNodeByFd(fd))
+            wants = core._axonclient_wants([visihash, craphash, foobarhash])
+            self.len(1, wants)
 
-                wants = core._axonclient_wants([visihash, craphash, foobarhash])
-                self.len(3, wants)
+            # Pull out the axon config an shut it down
+            axonpath = os.path.split(env.axon.getCellPath())[0]
+            axonconf = env.axon.getConfOpts()
+            env.axon.fini()
+            env.axon.waitfini(timeout=30)
 
-                self.istufo(core.formNodeByBytes(b'visi'))
-                with io.BytesIO(b'foobar') as fd:
-                    self.istufo(core.formNodeByFd(fd))
+            # Make sure that it doesn't work
+            self.raises(Exception, core._axonclient_wants, [visihash, craphash, foobarhash], timeout=2)
+            # Turn the axon back on
+            axon = s_axon.AxonCell(axonpath, axonconf)
+            env.add('axon', axon, fini=True)
 
-                wants = core._axonclient_wants([visihash, craphash, foobarhash])
-                self.len(1, wants)
+            # Make sure its still works
+            wants = core._axonclient_wants([visihash, craphash, foobarhash])
+            self.len(0, wants)
 
             # Ensure that Axon fns do not execute on a core without an axon
             with self.getRamCore() as othercore:
@@ -3424,23 +3433,6 @@ class CortexTest(SynTest):
                 self.istufo(othercore.formNodeByBytes(b'crap'))
                 wants = othercore._axonclient_wants([visihash, craphash, foobarhash])
                 self.len(0, wants)
-
-            # Pull out the axon config an shut it down
-            axonpath = os.path.split(env.axon.getCellPath())[0]
-            axonconf = env.axon.getConfOpts()
-            env.axon.fini()
-            env.axon.waitfini(timeout=30)
-
-            # Make sure that it doesn't work
-            self.raises(Exception, core._axonclient_wants, [visihash, craphash, foobarhash], timeout=2)  # FIXME hangs here
-
-            # Turn the axon back on
-            axon = s_axon.AxonCell(axonpath, axonconf)
-            env.add('axon', axon, fini=True)
-
-            # Make sure its still works
-            wants = core._axonclient_wants([visihash, craphash, foobarhash])
-            self.len(0, wants)
 
 class StorageTest(SynTest):
 
