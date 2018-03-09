@@ -273,11 +273,11 @@ class DaemonTest(SynTest):
 
             conf = {
                 'cells': [
-                    (celldir1, {'ctor': 'synapse.neuron.Cell',
+                    (celldir1, {'ctor': 'synapse.lib.cell.Cell',
                                 'port': port1,
                                 'host': '127.0.0.1',
                                 }),
-                    (celldir2, {'ctor': 'synapse.neuron.Cell',
+                    (celldir2, {'ctor': 'synapse.lib.cell.Cell',
                                 'port': port2,
                                 'host': '127.0.0.1',
                                 }),

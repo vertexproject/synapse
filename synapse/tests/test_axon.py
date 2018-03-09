@@ -4,6 +4,7 @@ import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.neuron as s_neuron
 
+import synapse.lib.cell as s_cell
 import synapse.lib.crypto.vault as s_vault
 
 from synapse.tests.common import *
@@ -192,7 +193,7 @@ class AxonTest(SynTest):
                 bref.put('blob00', blob00)
                 self.true(blob00.cellpool.neurwait(timeout=3))
 
-                user = s_neuron.CellUser(root)
+                user = s_cell.CellUser(root)
                 blob00sess = user.open(blob00.getCellAddr(), timeout=3)
                 bref.put('blob00sess', blob00sess)
 
@@ -382,7 +383,7 @@ class AxonTest(SynTest):
                 blob00 = s_axon.BlobCell(path, conf)
                 bref.put('blob00', blob00)
                 self.true(blob00.cellpool.neurwait(timeout=3))
-                user = s_neuron.CellUser(root)
+                user = s_cell.CellUser(root)
                 blob00sess = user.open(blob00.getCellAddr(), timeout=3)
                 bref.put('blob00sess', blob00sess)
                 # blob01 ############################################
