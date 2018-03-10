@@ -9,8 +9,6 @@ from typing import Union  # NOQA
 
 import xxhash  # type: ignore
 
-_LeMarkerUint_ST = struct.Struct('<BQ')
-_LeUint_ST = struct.Struct('<Q')
 int64be = struct.Struct('>Q')
 
 
@@ -19,12 +17,6 @@ import synapse.lib.msgpack as s_msgpack
 STOR_FLAG_NOINDEX = 0x0001      # there is no byprop index for this prop
 STOR_FLAG_MULTIVAL = 0x0002     # this is a multi-value prop
 STOR_FLAG_DEFVAL = 0x0004       # Only set this if it doesn't exist
-
-# Prefix to indicate that a v is an integer
-INT_VAL_MARKER = 0
-
-# Prefix to indicate than a v is a string
-STR_VAL_MARKER = b'\x01'
 
 # An index key can't ever be larger (lexicographically) than this
 MAX_INDEX_KEY = b'\xff' * 20
@@ -473,78 +465,37 @@ class PropStor:
             for buid in burs.iternext_dup():
                 yield buid, penc, pval
 
-# FIXME:  move to some place more generic
-def _get_max_filesize(path):
-    if sys.platform == 'linux':
-        # https://serverfault.com/questions/137544/rhel5-cant-create-sparse-file-bigger-than-256gb-in-tmpfs
-        fs_max_sizes = {'ext4': 2**44, 'tmpfs': 2**38}
-        try:
-            fs = subprocess.check_output(["/bin/findmnt", "-n", "-o", "FSTYPE", "-T", path]).rstrip()
-            return fs_max_sizes[fs]
-        except Exception:
-            # A conservative answer
-            return 2 ** 32
-    elif sys.platform == 'darwin':
-        # https://support.apple.com/en-us/HT201711
-        return 2**63 - 2 ** 31
-    else: # assume Windows
-        # https://msdn.microsoft.com/en-us/library/ff469400(v=prot.20).aspx#id116
-        return 512 * 2 ** 32
 
-def _get_fs_free_space(path):
-    # FIXME:  test on Windows
-    statvfs = os.statvfs(path)
-    return statvfs.f_frsize * statvfs.f_bavail
+# Prefix to indicate that a v is an integer
+_INT_VAL_MARKER = 0
 
-def ensureMapSlack(dbenv, desired_slack):
-    '''
-    Checks if there's enough extra space in the LMDB memory map to accomodate a commit of at least
-    desired_slack and increase it if not.
-    '''
-    # Don't change map size if 32-bit interpreter.  set_mapsize failure will lead to seg fault,
-    # so avoid it altogether
-    if sys.maxsize <= 2**32:
-        return
+# Prefix to indicate than a v is a string
+_STR_VAL_MARKER = b'\x01'
 
-    # Figure how how much space the DB is using
-    info = dbenv.info()
-    used = 4096 * info['last_pgno']
-    map_size = info['map_size']
-    max_file_size = _get_max_filesize(dbenv.path())
-
-    target_size = min(max_file_size, used + desired_slack)
-    if target_size > _get_fs_free_space(dbenv.path()):
-        raise OSError('Out of space')
-
-    # Increase map size if necessary
-    if target_size > map_size:
-        try:
-            dbenv.set_mapsize(target_size)
-        except Exception:
-            # We're in serious trouble here.  LMDB .93 will seg fault if any access is made
-            dbenv.close()
+# Precompiled struct of a byte then a little-endian 64-bit int
+_LeMarkerUint_ST = struct.Struct('<BQ')
 
 def encodeValAsKey(v: Union[str, int], isprefix=False) -> bytes:
     '''
     Encode a value (int or str) as used in a key into bytes so that prefix searches on strings and range searches
     on ints work.  The first encoded byte indicates
 
-    Integers are 8-byte little endian + MIN_INT_VAL (this ensures that all negative values sort before all nonnegative
+    Integers are 8-byte little endian - MIN_INT_VAL (this ensures that all negative values sort before all nonnegative
     values)
 
     Strings are UTF-8 encoded NULL-terminated unless isprefix is True.  If string length > LARGE_STRING_SIZE, just the
     first 128 bytes are written and a non-cryptographically hash is appended, and isprefix is disregarded.
 
     Note that this scheme prevents interleaving of value types: all string encodings compare larger than all integer
-    encodings
+    encodings.
     '''
     if isinstance(v, int):
-        return _LeMarkerUint_ST.pack(INT_VAL_MARKER, v - MIN_INT_VAL)
+        return _LeMarkerUint_ST.pack(_INT_VAL_MARKER, v - MIN_INT_VAL)
     else:
         v_enc = v.encode('utf8', errors='surrogatepass')
         if len(v_enc) >= LARGE_STRING_SIZE:
-            return STR_VAL_MARKER + v_enc[:LARGE_STRING_SIZE] + b'\x00' + xxhash.xxh64(v_enc).digest()
+            return _STR_VAL_MARKER + v_enc[:LARGE_STRING_SIZE] + b'\x00' + xxhash.xxh64(v_enc).digest()
         elif isprefix:
-            return STR_VAL_MARKER + v_enc
+            return _STR_VAL_MARKER + v_enc
         else:
-            return STR_VAL_MARKER + v_enc + b'\x00'
+            return _STR_VAL_MARKER + v_enc + b'\x00'

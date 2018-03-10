@@ -10,7 +10,6 @@ import lmdb  # type: ignore
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.const as s_const
 import synapse.datamodel as s_datamodel
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.datapath as s_datapath
@@ -31,6 +30,8 @@ logger.setLevel(logging.DEBUG)
 # CryotankIndexer.delIndex.
 
 # Indexes can be queried with rowsByPropVal.
+
+
 # To harmonize with LMDB requirements, writing only occurs on the worker thread, while reading indices takes
 # place in the caller's thread.  Both reading and writing index metadata (that is, information about which indices
 # are running) take place on the worker's thread.
@@ -46,6 +47,7 @@ logger.setLevel(logging.DEBUG)
 # FIXME: add multiple datapaths
 # FIXME: improve datapath perf by precompile
 # FIXME: suspend/resume individual/all indices
+# FIXME: rip out typing
 
 # Describes a single index in the system.
 _MetaEntry = namedtuple('_MetaEntry', ('propname', 'syntype', 'datapath', 'awake'))
@@ -156,6 +158,24 @@ def _iid_en(iid):
 def _iid_un(iid):
     return int64le.unpack(iid)[0]
 
+def _inWorker(callback):
+    '''
+    Gives the decorated function to the worker to run in his thread.
+
+    (Just like inpool for the worker)
+    '''
+    def wrap(self, *args, **kwargs):
+        with s_threads.RetnWait() as retn:
+            self._workq.put((retn, callback, (self, ) + args, kwargs))
+            succ, rv = retn.wait(timeout=self.MAX_WAIT_S)
+            if succ:
+                if isinstance(rv, Exception):
+                    raise rv
+                return rv
+            raise s_exc.Timeout()
+
+    return wrap
+
 class CryoTankIndexer:
     '''
     Manages indexing of a single cryotank's records
@@ -171,7 +191,6 @@ class CryoTankIndexer:
         cryotank_map_size = cryotank.lmdb.info()['map_size']
         self._dbenv = lmdb.open(path, writemap=True, metasync=False, max_readers=2, max_dbs=4,
                                 map_size=cryotank_map_size)
-        s_lmdb.ensureMapSlack(self._dbenv, s_const.gibibyte)
         # iid, v -> offset table
         self._idxtbl = self._dbenv.open_db(b'indices', dupsort=True)
         # offset, iid -> normalized prop
@@ -313,24 +332,6 @@ class CryoTankIndexer:
                 stillworktodo = True
             # loop_end_t = loop_start_t + self.MAX_WAIT_S
 
-    def _inWorker(callback):
-        '''
-        Gives the decorated function to the worker to run in his thread.
-
-        (Just like inpool for the worker)
-        '''
-        def wrap(self, *args, **kwargs):
-            with s_threads.RetnWait() as retn:
-                self._workq.put((retn, callback, (self, ) + args, kwargs))
-                succ, rv = retn.wait(timeout=self.MAX_WAIT_S)
-                if succ:
-                    if isinstance(rv, Exception):
-                        raise rv
-                    return rv
-                raise s_exc.Timeout()
-
-        return wrap
-
     @_inWorker
     def addIndex(self, prop: str, syntype: str, datapath: str) -> None:
         return self._meta.addIndex(prop, syntype, datapath)
@@ -361,34 +362,7 @@ class CryoTankIndexer:
             idxs[iid].update(self._meta.progresses.get(iid, {}))
         return list(idxs.values())
 
-    def _getnorm(self, offset_enc: bytes, txn: lmdb.Transaction) -> Dict[str, Union[str, int]]:
-        '''
-        Retrieves all the normalized fields for an offset
-        '''
-        norm: Dict[str, Union[int, str]] = {}
-        olen = len(offset_enc)
-        with txn.cursor(db=self._normtbl) as curs:
-            if not curs.set_range(offset_enc):
-                logger.warning('Missing normalized fields')
-                return norm
-            while True:
-                curkey, norm_enc = curs.item()
-                if curkey[:olen] != offset_enc:
-                    break
-                iid = _iid_un(curkey[olen:])
-                # this is racy with the worker, but it is still safe
-                idx = self._meta.indices.get(iid)
-                if idx is None:
-                    # Could be a deleted index
-                    continue
-                norm[idx.propname] = s_msgpack.un(norm_enc)
-                if not curs.next():
-                    break
-        return norm
-
-    # FIXME:  consider running this on worker thread...
-    def rowsByPropVal(self, prop: str, valu: Optional[Union[int, str]]=None, *,
-                      retoffset=True, retraw=False, retnorm=True, exact=False) -> Iterable[Tuple[Any, ...]]:
+    def _iterrows(self, prop: str, valu: Optional[Union[int, str]], exact=False) -> Iterable[Tuple[Any, ...]]:
         '''
         Query against an index.
 
@@ -396,9 +370,6 @@ class CryoTankIndexer:
             prop:  The name of the indexed property
             valu:  The value.  If not present, all records with prop present, sorted by prop will be returned.
             If valu is a string, it may be a prefix.
-            retoffset: Includes the cryotank offset in the returned tuples
-            retraw: Includes the cryotank entry in the returned tuples
-            retnorm: Includes a dictionary of all the indexed properties and normalized values in the return tuples
             exact: The result must match exactly
 
         Returns:
@@ -406,9 +377,6 @@ class CryoTankIndexer:
 
         N.B. ordering of the parts of string values after the first UTF-8-encoded 128 bytes are arbitrary.
         '''
-        if not (retraw or retnorm or retoffset):
-            raise ValueError('At least one of retRaw, retNorm, retOffset must be True')
-
         iid = self._meta.iidFromProp(prop)
         if iid is None:
             raise ValueError("%s isn't being indexed")
@@ -437,13 +405,46 @@ class CryoTankIndexer:
                 if (not exact and not curkey[:len(key)] == key) or (exact and curkey != key):
                     return
                 offset = s_lmdb.int64be.unpack(offset_enc)[0]
-                if retoffset:
-                    rv.append(offset)
-                if retraw:
-                    _, raw = next(self.cryotank.rows(offset, 1))
-                    rv.append(raw)
-                if retnorm:
-                    rv.append(self._getnorm(offset_enc, txn))
-                yield tuple(rv)
+                yield (offset, offset_enc, iidenc, txn)
                 if not curs.next():
                     return
+
+    def normValuByPropVal(self, prop: str, valu: Optional[Union[int, str]], exact=False) -> \
+            Iterable[Tuple[int, Union[str, int]]]:
+        for (offset, offset_enc, iidenc, txn) in self._iterrows(prop, valu, exact):
+            rv = txn.get(offset_enc + iidenc, None)
+            if rv is None:
+                raise s_exc.CorruptDatabase('Missing normalized record')
+            yield offset, rv
+
+    def normRecordsByPropVal(self, prop: str, valu: Optional[Union[int, str]], exact=False) -> \
+            Iterable[Tuple[int, Dict[str, Union[str, int]]]]:
+        '''
+        Retrieves all the normalized fields for an offset
+        '''
+        for offset, offset_enc, _, txn in self._iterrows(prop, valu, exact):
+            norm: Dict[str, Union[int, str]] = {}
+            olen = len(offset_enc)
+            with txn.cursor(db=self._normtbl) as curs:
+                if not curs.set_range(offset_enc):
+                    raise s_exc.CorruptDatabase('Missing normalized record')
+                    return norm
+                while True:
+                    curkey, norm_enc = curs.item()
+                    if curkey[:olen] != offset_enc:
+                        break
+                    iid = _iid_un(curkey[olen:])
+                    # this is racy with the worker, but it is still safe
+                    idx = self._meta.indices.get(iid)
+                    if idx is None:
+                        # Could be a deleted index
+                        continue
+                    norm[idx.propname] = s_msgpack.un(norm_enc)
+                    if not curs.next():
+                        break
+            yield offset, norm
+
+    def rawRecordsByPropVal(self, prop: str, valu: Optional[Union[int, str]], exact=False) -> \
+            Iterable[Tuple[int, Dict[str, Any]]]:
+        for offset, _, _, txn in self._iterrows(prop, valu, exact):
+            yield offset, next(self.cryotank.rows(offset, 1))
