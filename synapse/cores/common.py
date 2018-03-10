@@ -1216,10 +1216,14 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
     def _axonclient_wants(self, hashes, timeout=None):
         client = self._get_axon_client()
+        if timeout is None:
+            timeout = self.cell_timeout
         return client.wants(hashes, timeout=timeout)
 
     def _axonclient_upload(self, genr, timeout=None):
         client = self._get_axon_client()
+        if timeout is None:
+            timeout = self.cell_timeout
         return client.upload(genr, timeout=timeout)
 
     def getSeqNode(self, name):
