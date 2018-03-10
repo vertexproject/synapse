@@ -118,6 +118,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         # Axon
         self.axon_name = None
         self.axon_ready = False
+        self.axon_client = None
 
         # Misc
         self.isok = True
@@ -1206,23 +1207,12 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _getStormCore(self, name=None):
         return self
 
-    def _check_axonclient(self):
-        if not self.cellpool_ready:
-            raise s_common.NoSuchOpt(name='cellpool:conf', mesg='The cortex does not have a cell pool configured')
-        if not self.axon_ready:
-            raise s_common.NoSuchOpt(name='axon:name', mesg='The cortex does not have an axon configured')
-
     def _get_axon_client(self):
-        self._check_axonclient()
-        sess = self.cellpool.get(self.axon_name)
-        if sess is None:
-            # Wait for a cell:add event to fire on our cellpool.
-            # We cannot gaurantee that new session is an axon though
-            waiter = self.cellpool.waiter(1, 'cell:add')
-            waiter.wait(self.cell_timeout)
-            sess = self.cellpool.get(self.axon_name)
-        client = s_axon.AxonClient(sess)
-        return client
+        if not self.cellpool_ready:
+            raise s_common.NoSuchOpt(name='cellpool:conf', mesg='The cortex does not have a cell pool configured or it is not yet ready')
+        if not self.axon_ready:
+            raise s_common.NoSuchOpt(name='axon:name', mesg='The cortex does not have an axon configured or it is not yet ready')
+        return self.axon_client
 
     def _axonclient_wants(self, hashes, timeout=None):
         client = self._get_axon_client()
@@ -1455,11 +1445,20 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _onSetAxonName(self, name):
         self.axon_name = name
 
+        def _setAxonClient(sess):
+            self.axon_client = s_axon.AxonClient(sess)
+            self.axon_ready = True
+
         waiter = self.cellpool.waiter(1, 'cell:add')
-        self.cellpool.add(name)
+        self.cellpool.add(name, _setAxonClient)
         waiter.wait(self.cell_timeout)
 
-        self.axon_ready = True  # XXX What if cell:add is never fired?
+        # Setup a handler to react when the cellpool is disconnected from the axon
+        def _onAxonDisconnect(mesg):
+            self.axon_ready = False
+            self.axon_client = None
+
+        self.cellpool.on('cell:disc', _onAxonDisconnect, name=name)
 
     def initCoreModule(self, ctor, conf):
         '''

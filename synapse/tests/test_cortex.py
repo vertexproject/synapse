@@ -3348,12 +3348,14 @@ class CortexTest(SynTest):
             # Make sure that it doesn't work
             self.raises(Exception, core._axonclient_wants, [visihash, craphash, foobarhash], timeout=2)
             # Turn the axon back on
+            w = env.core.cellpool.waiter(1, 'cell:add')
             axon = s_axon.AxonCell(axonpath, axonconf)
             env.add('axon', axon, fini=True)
             self.true(axon.cellpool.neurwait(timeout=3))
-
             # Make sure the api still works.
+            self.nn(w.wait(4))
             wants = core._axonclient_wants([visihash, craphash, foobarhash])
+
             self.len(1, wants)
 
             # Ensure that Axon fns do not execute on a core without an axon
