@@ -3376,9 +3376,15 @@ class CortexTest(SynTest):
                 othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost})
                 self.false(othercore.cellpool_ready)
                 self.false(othercore.axon_ready)
+
+                othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost, 'port': neurport + 1})
+                self.false(othercore.cellpool_ready)
+                self.false(othercore.axon_ready)
+
                 othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost, 'port': neurport})
                 self.true(othercore.cellpool_ready)
                 self.false(othercore.axon_ready)
+
                 othercore.setConfOpt('axon:name', 'axon@localhost')
                 self.true(othercore.axon_ready)
 

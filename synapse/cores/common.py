@@ -1433,8 +1433,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if self.cellpool:
             self.cellpool.fini()
 
-        self.cellpool = s_cell.CellPool(auth, neuraddr)
-        self.cellpool.neurwait(timeout=self.cell_timeout)
+        cellpool = s_cell.CellPool(auth, neuraddr)
+        if not cellpool.neurwait(timeout=self.cell_timeout):
+            cellpool.fini()
+            raise s_common.BadConfValu(mesg='unable to set up cell pool', key='cellpool:conf')
+        self.cellpool = cellpool
         self.onfini(self.cellpool.fini)
 
         cellnames = conf.get('cellnames', [])
