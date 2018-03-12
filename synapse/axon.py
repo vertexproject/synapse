@@ -339,6 +339,7 @@ class AxonCell(s_cell.Cell):
         self.metrics = s_lmdb.Metrics(self.lenv)
 
         self.blobs = s_cell.CellPool(self.cellauth, self.neuraddr)
+        self.blobs.neurwait(timeout=10)
 
         for name in self.getConfOpt('axon:blobs'):
             self.blobs.add(name)
