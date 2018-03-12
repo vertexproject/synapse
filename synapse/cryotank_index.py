@@ -10,21 +10,21 @@ import lmdb  # type: ignore
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.datamodel as s_datamodel
-import synapse.lib.msgpack as s_msgpack
-import synapse.lib.datapath as s_datapath
-import synapse.lib.threads as s_threads
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.queue as s_queue
+import synapse.datamodel as s_datamodel
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.threads as s_threads
+import synapse.lib.datapath as s_datapath
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 # Cryotank indexing.  This implements a lazy indexer that indexes a cryotank in a separate thread.
 #
-# Cryotank entries are json-compatible dictionaries with arbitrary nestign.  An index consists of a property name, a
-# datapath (a specified portion of the entry), and a synapse type.   The type specifies the function that normalizes
-# the output of the datapath query into a string or integer.
+# Cryotank entries are msgpack-encoded json-compatible dictionaries with arbitrary nesting.  An index consists of a
+# property name, a datapath (a specified portion of the entry), and a synapse type.   The type specifies the function
+# that normalizes the output of the datapath query into a string or integer.
 
 # Indices can be added and deleted asynchronously from the indexing thread via CryotankIndexer.addIndex and
 # CryotankIndexer.delIndex.
@@ -40,13 +40,13 @@ logger.setLevel(logging.DEBUG)
 # explicitly delete and re-add the index to avoid mixed normalized data.
 
 # ----
-# TODO: could index faster if ingest/normalize is separate thread from writing
+# TODO: could index faster maybe if ingest/normalize is separate thread from writing
 # TODO:  what to do with subprops returned from getTypeNorm
 # TODO:  need a way to specify/load custom types
 
-# FIXME: add multiple datapaths
 # FIXME: improve datapath perf by precompile
 # FIXME: rip out typing
+# FIXME: move this file into cryotank.py
 
 # Describes a single index in the system.
 _MetaEntry = namedtuple('_MetaEntry', ('propname', 'syntype', 'datapath'))
@@ -124,13 +124,25 @@ class _IndexMeta:
         '''
         return next((k for k, idx in self.indices.items() if idx.propname == prop), None)
 
-    def addIndex(self, prop: str, syntype: str, datapath: str) -> None:
+    def addIndex(self, prop: str, syntype: str, datapath: str, *args: str) -> None:
+        '''
+        Adds an index to the cryotank.
+
+        Args:
+        - datapath:  the datapath spec against which the raw record is run to extract a single field
+        that is passed to the type normalizer.
+        - *args:  additional datapaths that will be tried in order if the first isn't present.
+
+        N.B.  additional datapaths will be tried iff the prior datapath is not present, and *not* if
+        the normalization fails.
+
+        '''
         if self.iidFromProp(prop) is not None:
             raise ValueError('index already added')
 
         s_datamodel.tlib.reqDataType(syntype)
         iid = int.from_bytes(os.urandom(8), 'little')
-        self.indices[iid] = _MetaEntry(propname=prop, syntype=syntype, datapath=datapath)
+        self.indices[iid] = _MetaEntry(propname=prop, syntype=syntype, datapath=(datapath, *args))
         self.progresses[iid] = {'nextoffset': 0, 'ngood': 0, 'nnormfail': 0}
         self.persist()
 
@@ -233,7 +245,9 @@ class CryoTankIndexer:
             self._workq.put((None, lambda: None, None, None))
 
     def _removeSome(self) -> None:
-        # Make some progress on removing deleted indices
+        '''
+        Make some progress on removing deleted indices
+        '''
         left = self._remove_chunk_sz
         for iid in self._meta.deleting:
             if not left:
@@ -259,7 +273,7 @@ class CryoTankIndexer:
     def _normalize_records(self, raw_records: Iterable[Tuple[int, Dict[int, str]]]) -> \
             Iterable[Tuple[int, int, Union[str, int]]]:
         '''
-        Yields a stream of normalized fields
+        Yields stream of normalized fields
         '''
         for offset, record in raw_records:
             self._next_offset = offset + 1
@@ -270,11 +284,15 @@ class CryoTankIndexer:
                     continue
                 try:
                     self._meta.progresses[iid]['nextoffset'] = offset + 1
-                    field = dp.valu(idx.datapath)
-                    if field is None:
-                        logger.debug('Datapath %s yields nothing for offset %d', idx.datapath, offset)
+                    for datapath in idx.datapath:
+                        field = dp.valu(datapath)
+                        if field is None:
+                            continue
+                        # TODO : what to do with subprops?
+                        break
+                    else:
+                        logger.debug('Datapaths %s yield nothing for offset %d', idx.datapath, offset)
                         continue
-                    # TODO : what to do with subprops?
                     normval, _ = s_datamodel.getTypeNorm(idx.syntype, field)
                 except (s_exc.NoSuchType, s_exc.BadTypeValu):
                     logger.debug('Norm fail')
@@ -345,8 +363,8 @@ class CryoTankIndexer:
             # loop_end_t = loop_start_t + self.MAX_WAIT_S
 
     @_inWorker
-    def addIndex(self, prop: str, syntype: str, datapath: str) -> None:
-        return self._meta.addIndex(prop, syntype, datapath)
+    def addIndex(self, prop: str, syntype: str, datapath: str, *args: str) -> None:
+        return self._meta.addIndex(prop, syntype, datapath, args)
 
     @_inWorker
     def delIndex(self, prop: str) -> None:
@@ -423,7 +441,7 @@ class CryoTankIndexer:
             rv = txn.get(bytes(offset_enc) + iidenc, None, db=self._normtbl)
             if rv is None:
                 raise s_exc.CorruptDatabase('Missing normalized record')
-            yield offset, rv
+            yield offset, s_msgpack.un(rv)
 
     def normRecordsByPropVal(self, prop: str, valu: Optional[Union[int, str]]=None, exact=False) -> \
             Iterable[Tuple[int, Dict[str, Union[str, int]]]]:

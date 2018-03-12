@@ -14,6 +14,7 @@ class CryoIndexTest(s_tc.SynTest):
             data1 = {'foo': 1234, 'bar': 'stringval'}
             data2 = {'foo': 2345, 'baz': 4567, 'bar': 'strinstrin'}
             data3 = {'foo': 388383, 'bar': ('strinstrin' * 20)}
+            data4 = {'foo2': 9999, 'baz': 4567}
             baddata = {'foo': 'bad'}
 
             # Simple index add/remove
@@ -62,7 +63,7 @@ class CryoIndexTest(s_tc.SynTest):
 
             # prefix search
             retn = list(idxr.normValuByPropVal('second', valu='strin'))
-            self.eq(2, len(retn))
+            self.eq(retn, [(0, 'stringval'), (1, 'strinstrin')])
 
             # long value, exact
             tank.puts([data3])
@@ -85,3 +86,11 @@ class CryoIndexTest(s_tc.SynTest):
 
             idxr.delIndex('second')
             time.sleep(0.1)
+
+            # Multiple datapaths
+            idxr.delIndex('first')
+            idxr.addIndex('first', 'int', 'foo', 'foo2')
+            tank.puts([data4])
+            time.sleep(0.1)
+            retn = list(idxr.normValuByPropVal('first'))
+            self.eq(retn, [(0, 1234), (1, 2345), (4, 9999), (2, 388383)])
