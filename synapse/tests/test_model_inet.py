@@ -1771,6 +1771,15 @@ class InetModelTest(SynTest):
             self.eq(node[1].get('inet:http:header:name'), 'user-agent')
             self.eq(node[1].get('inet:http:header:value'), 'BillyBob')
 
+            node = core.formTufoByProp('inet:http:reqhead', (iden, ('Host', 'vertex.ninja')))
+            self.eq(node[1].get('inet:http:reqhead:request'), iden)
+            self.eq(node[1].get('inet:http:reqhead:header:name'), 'host')
+            self.eq(node[1].get('inet:http:reqhead:header:value'), 'vertex.ninja')
+
+            node = core.getTufoByProp('inet:http:header', ('Host', 'vertex.ninja'))
+            self.eq(node[1].get('inet:http:header:name'), 'host')
+            self.eq(node[1].get('inet:http:header:value'), 'vertex.ninja')
+
             node = core.formTufoByProp('inet:http:reqparam', (iden, ('baz', 'faz')))
             self.eq(node[1].get('inet:http:reqparam:request'), iden)
             self.eq(node[1].get('inet:http:reqparam:param:name'), 'baz')
