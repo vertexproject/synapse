@@ -42,6 +42,7 @@ import synapse.telepath as s_telepath
 
 import synapse.cores.common as s_cores_common
 
+import synapse.lib.cell as s_cell
 import synapse.lib.scope as s_scope
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
@@ -596,7 +597,7 @@ class SynTest(unittest.TestCase):
                 time.sleep(0.1)
             self.true(ready)
 
-            axon_user = s_neuron.CellUser(axonauth)
+            axon_user = s_cell.CellUser(axonauth)
             axon_sess = axon_user.open((axonhost, axonport))
             axon_client = s_axon.AxonClient(axon_sess)
 

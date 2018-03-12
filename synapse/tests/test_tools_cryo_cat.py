@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import synapse.cryotank as s_cryotank
 
+import synapse.lib.cell as s_cell
 import synapse.tools.cryo.cat as s_cryocat
 
 from synapse.tests.common import *
@@ -12,7 +13,9 @@ class CryoCatTest(SynTest):
     def cell_populate(self, port, auth):
         # Populate the cell with data
         addr = ('127.0.0.1', port)
-        with s_cryotank.CryoUser(auth, addr, timeout=2) as user:
+        cuser = s_cell.CellUser(auth)
+        with cuser.open(addr, timeout=2) as sess:
+            user = s_cryotank.CryoClient(sess)
             nodes = [(None, {'key': i}) for i in range(10)]
             user.puts('test:hehe', nodes, 4)
             self.len(10, list(user.slice('test:hehe', 0, 100)))

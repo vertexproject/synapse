@@ -121,3 +121,27 @@ class TinFoilTest(SynTest):
         tinh = s_tinfoil.TinFoilHat(key)
         self.eq(hashlib.md5(tinh.dec(msg)).digest(),
                 binascii.unhexlify(b'3303e226461e38f0f36988e441825e19'))
+
+    def test_lib_crypto_tnfl_cryptseq(self):
+        txk = buid()
+        rxk = buid()
+
+        crypter1 = s_tinfoil.CryptSeq(rxk, txk)
+        crypter2 = s_tinfoil.CryptSeq(txk, rxk)
+        mesg = ('hehe', {'key': 'valu'})
+
+        self.eq(str(crypter1._tx_sn), 'count(0)')
+        self.eq(str(crypter2._rx_sn), 'count(0)')
+        ct = crypter1.encrypt(mesg)
+        self.isinstance(ct, bytes)
+        self.eq(str(crypter1._tx_sn), 'count(1)')
+
+        pt = crypter2.decrypt(ct)
+        self.eq(str(crypter2._rx_sn), 'count(1)')
+        self.eq(mesg, pt)
+
+        self.raises(CryptoErr, crypter1.decrypt, ct)
+        self.eq(str(crypter1._rx_sn), 'count(0)')
+
+        self.raises(CryptoErr, crypter2.decrypt, ct)
+        self.eq(str(crypter2._rx_sn), 'count(2)')  # even though we fail, we've incremented the seqn valu

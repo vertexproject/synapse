@@ -5,9 +5,9 @@ import logging
 
 import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.neuron as s_neuron
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.cell as s_cell
 import synapse.lib.const as s_const
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
@@ -205,7 +205,7 @@ class CryoTank(s_config.Config):
         '''
         return {'indx': self.items_indx, 'metrics': self.metrics_indx, 'stat': self.lmdb.stat()}
 
-class CryoCell(s_neuron.Cell):
+class CryoCell(s_cell.Cell):
 
     def postCell(self):
         '''
@@ -410,7 +410,7 @@ class CryoCell(s_neuron.Cell):
                 retn = s_common.getexcfo(e)
                 return chan.tx((False, retn))
 
-class CryoUser(s_neuron.CellUser):
+class CryoClient:
     '''
     Client-side helper for interacting with a CryoCell which hosts CryoTanks.
 
@@ -420,11 +420,8 @@ class CryoUser(s_neuron.CellUser):
         timeout (int): Connect timeout
     '''
     _chunksize = 10000
-    def __init__(self, auth, addr, timeout=None):
-        s_neuron.CellUser.__init__(self, auth)
-
-        self._cryo_sess = self.open(addr, timeout=timeout)
-        self.onfini(self._cryo_sess.fini)
+    def __init__(self, sess):
+        self.sess = sess
 
     def puts(self, name, items, timeout=None):
         '''
@@ -438,7 +435,7 @@ class CryoUser(s_neuron.CellUser):
         Returns:
             None
         '''
-        with self._cryo_sess.task(('cryo:puts', {'name': name})) as chan:
+        with self.sess.task(('cryo:puts', {'name': name})) as chan:
 
             if not chan.next(timeout=timeout):
                 return False
@@ -458,7 +455,7 @@ class CryoUser(s_neuron.CellUser):
         Returns:
             ((int, object)): The last entry index and object from the CryoTank.
         '''
-        return self._cryo_sess.call(('cryo:last', {'name': name}), timeout=timeout)
+        return self.sess.call(('cryo:last', {'name': name}), timeout=timeout)
 
     def delete(self, name, timeout=None):
         '''
@@ -471,7 +468,7 @@ class CryoUser(s_neuron.CellUser):
         Returns:
             bool: True if the CryoTank was deleted, False if it was not deleted.
         '''
-        return self._cryo_sess.call(('cryo:dele', {'name': name}), timeout=timeout)
+        return self.sess.call(('cryo:dele', {'name': name}), timeout=timeout)
 
     def list(self, timeout=None):
         '''
@@ -483,7 +480,7 @@ class CryoUser(s_neuron.CellUser):
         Returns:
             tuple: A tuple containing name, info tufos for the remote CryoTanks.
         '''
-        ok, retn = self._cryo_sess.call(('cryo:list', {}), timeout=timeout)
+        ok, retn = self.sess.call(('cryo:list', {}), timeout=timeout)
         return s_common.reqok(ok, retn)
 
     def slice(self, name, offs, size, timeout=None):
@@ -500,7 +497,7 @@ class CryoUser(s_neuron.CellUser):
             (int, obj): (indx, item) tuples for the sliced range.
         '''
         mesg = ('cryo:slice', {'name': name, 'offs': offs, 'size': size})
-        with self._cryo_sess.task(mesg, timeout=timeout) as chan:
+        with self.sess.task(mesg, timeout=timeout) as chan:
 
             ok, retn = chan.next(timeout=timeout)
             s_common.reqok(ok, retn)
@@ -527,7 +524,7 @@ class CryoUser(s_neuron.CellUser):
             (int, bytes): (indx, bytes) tuples for the rows in range.
         '''
         mesg = ('cryo:rows', {'name': name, 'offs': offs, 'size': size})
-        with self._cryo_sess.task(mesg, timeout=timeout) as chan:
+        with self.sess.task(mesg, timeout=timeout) as chan:
 
             ok, retn = chan.next(timeout=timeout)
             s_common.reqok(ok, retn)
@@ -549,7 +546,7 @@ class CryoUser(s_neuron.CellUser):
             tuple: A tuple containing metrics tufos for the named CryoTank.
         '''
         mesg = ('cryo:metrics', {'name': name, 'offs': offs, 'size': size})
-        with self._cryo_sess.task(mesg, timeout=timeout) as chan:
+        with self.sess.task(mesg, timeout=timeout) as chan:
 
             ok, retn = chan.next(timeout=timeout)
             s_common.reqok(ok, retn)
@@ -572,5 +569,5 @@ class CryoUser(s_neuron.CellUser):
             there was an error during CryoTank creation.
         '''
         mesg = ('cryo:init', {'name': name, 'conf': conf})
-        ok, retn = self._cryo_sess.call(mesg, timeout=timeout)
+        ok, retn = self.sess.call(mesg, timeout=timeout)
         return s_common.reqok(ok, retn)
