@@ -747,6 +747,7 @@ class CellPool(s_eventbus.EventBus):
                 return
 
             if not ok:
+                self.fire('cell:disc', name=name)
                 logger.warning('CellPool.add(%s) onsess error: %r' % (name, retn))
                 return retry()
 
@@ -754,13 +755,13 @@ class CellPool(s_eventbus.EventBus):
 
             sess.onfini(connect)
             self.cells.put(name, sess)
-            self.fire('cell:add', name=name, sess=sess)
 
             if func is not None:
                 try:
                     func(sess)
                 except Exception as e:
                     logger.exception('CellPool.add(%s) callback failed' % (name,))
+            self.fire('cell:add', name=name, sess=sess)
 
         def onlook(ok, retn):
             if self.isfini:

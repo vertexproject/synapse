@@ -6,6 +6,7 @@ import binascii
 import tempfile
 import unittest
 
+import synapse.axon as s_axon
 import synapse.link as s_link
 import synapse.common as s_common
 import synapse.cortex as s_cortex
@@ -3319,36 +3320,89 @@ class CortexTest(SynTest):
 
     def test_cortex_axon(self):
         self.skipLongTest()
+
+        visihash = hashlib.sha256(b'visi').digest()
+        craphash = hashlib.sha256(b'crap').digest()
+        foobarhash = hashlib.sha256(b'foobar').digest()
+
         with self.getAxonCore() as env:
-            with s_daemon.Daemon() as dmon:
+            env.core.setConfOpt('cellpool:timeout', 3)
 
-                dmonlink = dmon.listen('tcp://127.0.0.1:0/')
-                dmonport = dmonlink[1].get('port')
-                dmon.share('core', env.core)
+            core = s_telepath.openurl(env.core_url)
+            env.add('_core_prox', core, fini=True)  # ensure the Proxy object is fini'd
 
-                coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
-                core = s_telepath.openurl(coreurl)
+            wants = core._axonclient_wants([visihash, craphash, foobarhash])
+            self.len(3, wants)
+            self.istufo(core.formNodeByBytes(b'visi'))
+            with io.BytesIO(b'foobar') as fd:
+                self.istufo(core.formNodeByFd(fd))
+            wants = core._axonclient_wants([visihash, craphash, foobarhash])
+            self.len(1, wants)
 
-                self.istufo(core.formNodeByBytes(b'visi'))
-                with io.BytesIO(b'foobar') as fd:
-                    self.istufo(core.formNodeByFd(fd))
+            # Pull out the axon config an shut it down
+            axonpath = os.path.split(env.axon.getCellPath())[0]
+            axonconf = env.axon.getConfOpts()
+            env.axon.fini()
+            env.axon.waitfini(timeout=30)
 
+            # Make sure that it doesn't work
+            self.raises(Exception, core._axonclient_wants, [visihash, craphash, foobarhash], timeout=2)
+            # Turn the axon back on
+            w = env.core.cellpool.waiter(1, 'cell:add')
+            axon = s_axon.AxonCell(axonpath, axonconf)
+            env.add('axon', axon, fini=True)
+            self.true(axon.cellpool.neurwait(timeout=3))
+            # Make sure the api still works.
+            self.nn(w.wait(4))
+            wants = core._axonclient_wants([visihash, craphash, foobarhash])
+
+            self.len(1, wants)
+
+            neurhost, neurport = env.neuron.getCellAddr()
+            axonauth = env.axon.getCellAuth()
             # Ensure that Axon fns do not execute on a core without an axon
             with self.getRamCore() as othercore:
+                othercore.setConfOpt('cellpool:timeout', 3)
                 self.raises(NoSuchOpt, othercore.formNodeByBytes, b'visi', name='visi.bin')
                 with io.BytesIO(b'foobar') as fd:
                     self.raises(NoSuchOpt, othercore.formNodeByFd, fd, name='foobar.exe')
 
-                axonhost, axonport = env.axon.getCellAddr()
-                axonauth = env.axon.getCellAuth()
-                othercore.setConfOpt('axon:conf', {'fake': 'fake'})
-                self.none(othercore.axon_client)
-                othercore.setConfOpt('axon:conf', {'auth': axonauth})
-                self.none(othercore.axon_client)
-                othercore.setConfOpt('axon:conf', {'auth': axonauth, 'host': axonhost})
-                self.none(othercore.axon_client)
-                othercore.setConfOpt('axon:conf', {'auth': axonauth, 'host': axonhost, 'port': axonport})
-                self.nn(othercore.axon_client)
+                othercore.setConfOpt('cellpool:conf', {'fake': 'fake'})
+                self.false(othercore.axon_ready)
+                self.false(othercore.cellpool_ready)
+                othercore.setConfOpt('cellpool:conf', {'auth': axonauth})
+                self.false(othercore.axon_ready)
+                self.false(othercore.cellpool_ready)
+                othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost})
+                self.false(othercore.cellpool_ready)
+                self.false(othercore.axon_ready)
+
+                othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost, 'port': neurport + 1})
+                self.false(othercore.cellpool_ready)
+                self.false(othercore.axon_ready)
+
+                othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost, 'port': neurport})
+                self.true(othercore.cellpool_ready)
+                self.false(othercore.axon_ready)
+
+                othercore.setConfOpt('axon:name', 'axon@localhost')
+                self.true(othercore.axon_ready)
+
+                wants = othercore._axonclient_wants([visihash, craphash, foobarhash])
+                self.len(1, wants)
+                self.istufo(othercore.formNodeByBytes(b'crap'))
+                wants = othercore._axonclient_wants([visihash, craphash, foobarhash])
+                self.len(0, wants)
+
+            # ensure that we can configure a cellpool/axon via conf options
+            conf = {
+                'cellpool:conf': {'auth': axonauth, 'host': neurhost, 'port': neurport},
+                'axon:name': 'axon@localhost',
+                'cellpool:timeout': 6,
+            }
+            with s_cortex.openurl('ram://', conf) as rcore:
+                wants = rcore._axonclient_wants([visihash, craphash, foobarhash])
+                self.len(0, wants)
 
 class StorageTest(SynTest):
 
