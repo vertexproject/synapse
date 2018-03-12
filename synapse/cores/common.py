@@ -1440,13 +1440,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.cellpool = cellpool
         self.onfini(self.cellpool.fini)
 
-        cellnames = conf.get('cellnames', [])
-        if len(cellnames) > 0:
-            waiter = self.cellpool.waiter(len(cellnames), 'cell:add')
-            for name in cellnames:
-                self.cellpool.add(name)
-            waiter.wait(self.cell_timeout)
-
         self.cellpool_ready = True
 
     def _onSetAxonName(self, name):
