@@ -20,25 +20,6 @@ import synapse.lib.datapath as s_datapath
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-# Cryotank indexing.  This implements a lazy indexer that indexes a cryotank in a separate thread.
-#
-# Cryotank entries are msgpack-encoded json-compatible dictionaries with arbitrary nesting.  An index consists of a
-# property name, a datapath (a specified portion of the entry), and a synapse type.   The type specifies the function
-# that normalizes the output of the datapath query into a string or integer.
-
-# Indices can be added and deleted asynchronously from the indexing thread via CryotankIndexer.addIndex and
-# CryotankIndexer.delIndex.
-
-# Indexes can be queried with rowsByPropVal.
-
-
-# To harmonize with LMDB requirements, writing only occurs on the worker thread, while reading indices takes
-# place in the caller's thread.  Both reading and writing index metadata (that is, information about which indices
-# are running) take place on the worker's thread.
-
-# N.B. The indexer cannot realistically detect when a type has changed from underneath itself.   Operators must
-# explicitly delete and re-add the index to avoid mixed normalized data.
-
 # ----
 # TODO: could index faster maybe if ingest/normalize is separate thread from writing
 # TODO:  what to do with subprops returned from getTypeNorm
@@ -68,7 +49,6 @@ class _IndexMeta:
     _progress_ contains how far each index has gotten, how many sucessful props were indexed (which might be different
     because of missing properties), and how many normalizations failed and is separate because it gets updated a lot
     more
-
     '''
 
     def __init__(self, dbenv: lmdb.Environment) -> None:
@@ -171,16 +151,13 @@ class _IndexMeta:
         self.deleting.remove(iid)
         self.persist()
 
-    def activeIndices(self) -> Iterable[Tuple[str, _MetaEntry]]:
-        return ((k, self.indices[k]) for k in sorted(self.indices) if not self.asleep[k])
 
-
-int64le = struct.Struct('<Q')
+_int64le = struct.Struct('<Q')
 def _iid_en(iid):
-    return int64le.pack(iid)
+    return _int64le.pack(iid)
 
 def _iid_un(iid):
-    return int64le.unpack(iid)[0]
+    return _int64le.unpack(iid)[0]
 
 def _inWorker(callback):
     '''
@@ -203,6 +180,24 @@ def _inWorker(callback):
 class CryoTankIndexer:
     '''
     Manages indexing of a single cryotank's records
+
+    This implements a lazy indexer that indexes a cryotank in a separate thread.
+
+    Cryotank entries are msgpack-encoded json-compatible dictionaries with arbitrary nesting.  An index consists of a
+    property name, one or more datapaths (i.e. what field out of the entry), and a synapse type.   The type specifies
+    the function that normalizes the output of the datapath query into a string or integer.
+
+    Indices can be added and deleted asynchronously from the indexing thread via CryotankIndexer.addIndex and
+    CryotankIndexer.delIndex.
+
+    Indexes can be queried with rowsByPropVal.
+
+    To harmonize with LMDB requirements, writing only occurs on the worker thread, while reading indices takes place in
+    the caller's thread.  Both reading and writing index metadata (that is, information about which indices are
+    running) take place on the worker's thread.
+
+    N.B. The indexer cannot detect when a type has changed from underneath itself.   Operators must explicitly delete
+    and re-add the index to avoid mixed normalized data.
     '''
     MAX_WAIT_S = 10
 
@@ -279,7 +274,7 @@ class CryoTankIndexer:
             self._next_offset = offset + 1
             dp = s_datapath.initelem(s_msgpack.un(record))
 
-            for iid, idx in self._meta.activeIndices():
+            for iid, idx in ((k, v) for k, v in self._meta.indices.items() if not self._meta.asleep[k]):
                 if self._meta.progresses[iid]['nextoffset'] > offset:
                     continue
                 try:
