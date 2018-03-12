@@ -26,8 +26,7 @@ class CryoIndexTest(s_tc.SynTest):
             self.raises(ValueError, idxr.delIndex, 'first')
             self.eq([], idxr.getIndices())
 
-            self.genraises(ValueError, idxr.rowsByPropVal, 'first', retoffset=False, retnorm=False)
-            self.genraises(ValueError, idxr.rowsByPropVal, 'notanindex')
+            self.genraises(ValueError, idxr.normValuByPropVal, 'notanindex')
 
             # Check simple 1 record, 1 index index and retrieval
             tank.puts([data1])
@@ -36,13 +35,12 @@ class CryoIndexTest(s_tc.SynTest):
             idxs = idxr.getIndices()
             self.eq(1, idxs[0]['nextoffset'])
             self.eq(1, idxs[0]['ngood'])
-            retn = list(idxr.rowsByPropVal('first', retoffset=True, retraw=True))
+            retn = list(idxr.normRecordsByPropVal('first'))
             self.eq(1, len(retn))
             t = retn[0]
-            self.eq(3, len(t))
+            self.eq(2, len(t))
             self.eq(t[0], 0)
-            self.eq(s_msgpack.un(t[1]), data1)
-            self.eq(t[2], {'first': 1234})
+            self.eq(t[1], {'first': 1234})
 
             tank.puts([data2])
             time.sleep(0.1)
@@ -51,7 +49,7 @@ class CryoIndexTest(s_tc.SynTest):
             self.eq(2, idxs[0]['ngood'])
 
             # exact query
-            retn = list(idxr.rowsByPropVal('first', valu=2345, retraw=True, retnorm=False, exact=True))
+            retn = list(idxr.rawRecordsByPropVal('first', valu=2345, exact=True))
             self.eq(1, len(retn))
             t = retn[0]
             self.eq(2, len(t))
@@ -63,19 +61,18 @@ class CryoIndexTest(s_tc.SynTest):
             time.sleep(0.1)
 
             # prefix search
-            retn = list(idxr.rowsByPropVal('second', valu='strin'))
+            retn = list(idxr.normValuByPropVal('second', valu='strin'))
             self.eq(2, len(retn))
 
-            # long value
+            # long value, exact
             tank.puts([data3])
             time.sleep(0.1)
-            idxr.resumeIndex()  # < kicks worker to wake up
-            retn = list(idxr.rowsByPropVal('second', valu='strinstrin' * 20, retoffset=False, retraw=True,
-                retnorm=False, exact=True))
+            retn = list(idxr.rawRecordsByPropVal('second', valu='strinstrin' * 20, exact=True))
             self.eq(1, len(retn))
-            self.eq(s_msgpack.un(retn[0][0]), data3)
+            self.eq(s_msgpack.un(retn[0][1]), data3)
 
-            retn = list(idxr.rowsByPropVal('second', valu='str', retnorm=False))
+            # long value with prefix
+            retn = list(idxr.rawRecordsByPropVal('second', valu='str'))
             self.eq(3, len(retn))
 
             # Bad data

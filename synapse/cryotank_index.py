@@ -3,8 +3,8 @@ import struct
 import logging
 import threading
 import contextlib
-from collections import namedtuple
-from typing import List, Dict, Union, Iterable, Tuple, Any, Optional  # NOQA
+from collections import namedtuple, defaultdict
+from typing import List, Dict, Union, Iterable, Tuple, Any, Optional, DefaultDict  # NOQA
 
 import lmdb  # type: ignore
 
@@ -46,11 +46,10 @@ logger.setLevel(logging.DEBUG)
 
 # FIXME: add multiple datapaths
 # FIXME: improve datapath perf by precompile
-# FIXME: suspend/resume individual/all indices
 # FIXME: rip out typing
 
 # Describes a single index in the system.
-_MetaEntry = namedtuple('_MetaEntry', ('propname', 'syntype', 'datapath', 'awake'))
+_MetaEntry = namedtuple('_MetaEntry', ('propname', 'syntype', 'datapath'))
 
 class _IndexMeta:
     '''
@@ -90,6 +89,7 @@ class _IndexMeta:
         self._meta_table = self._dbenv.open_db(b'meta')
         self.indices = {k: _MetaEntry(**v) for k, v in indices.get('present', {}).items()}
         self.deleting = list(indices.get('deleting', ()))
+        self.asleep: DefaultDict[int, bool] = defaultdict(bool)
 
         self.progresses = s_msgpack.un(progress_enc)
         if not all(p in self.indices for p in self.deleting):
@@ -114,7 +114,9 @@ class _IndexMeta:
             txn.put(b'progress', s_msgpack.en(self.progresses))
 
     def lowestProgress(self) -> int:
-        return min(p['nextoffset'] for p in self.progresses.values()) if self.progresses else s_lmdb.MAX_INT_VAL
+        if self.progresses:
+            return min(p['nextoffset'] for iid, p in self.progresses.items() if not self.asleep[iid])
+        return s_lmdb.MAX_INT_VAL
 
     def iidFromProp(self, prop):
         '''
@@ -128,7 +130,7 @@ class _IndexMeta:
 
         s_datamodel.tlib.reqDataType(syntype)
         iid = int.from_bytes(os.urandom(8), 'little')
-        self.indices[iid] = _MetaEntry(propname=prop, syntype=syntype, datapath=datapath, awake=True)
+        self.indices[iid] = _MetaEntry(propname=prop, syntype=syntype, datapath=datapath)
         self.progresses[iid] = {'nextoffset': 0, 'ngood': 0, 'nnormfail': 0}
         self.persist()
 
@@ -143,12 +145,22 @@ class _IndexMeta:
         del self.progresses[iid]
         self.persist()
 
+    def pauseIndex(self, prop: Optional[str]) -> None:
+        for iid, idx in self.indices.items():
+            if prop is None or prop == idx.propname:
+                self.asleep[iid] = True
+
+    def resumeIndex(self, prop: Optional[str]) -> None:
+        for iid, idx in self.indices.items():
+            if prop is None or prop == idx.propname:
+                self.asleep[iid] = False
+
     def markDeleteComplete(self, iid: int) -> None:
         self.deleting.remove(iid)
         self.persist()
 
     def activeIndices(self) -> Iterable[Tuple[str, _MetaEntry]]:
-        return ((k, self.indices[k]) for k in sorted(self.indices) if self.indices[k].awake)
+        return ((k, self.indices[k]) for k in sorted(self.indices) if not self.asleep[k])
 
 
 int64le = struct.Struct('<Q')
@@ -345,15 +357,11 @@ class CryoTankIndexer:
         '''
         Unpauses a single index.  As a special case, setting prop to none will wake up all indexing.
         '''
-        if prop is None:
-            return
-        # FIXME
         return self._meta.resumeIndex(prop)
 
     @_inWorker
-    def pauseIndex(self, prop):
-        # FIXME
-        pass
+    def pauseIndex(self, prop=None):
+        return self._meta.pauseIndex(prop)
 
     @_inWorker
     def getIndices(self) -> List[Dict[str, Union[str, int]]]:
@@ -409,15 +417,15 @@ class CryoTankIndexer:
                 if not curs.next():
                     return
 
-    def normValuByPropVal(self, prop: str, valu: Optional[Union[int, str]], exact=False) -> \
+    def normValuByPropVal(self, prop: str, valu: Optional[Union[int, str]]=None, exact=False) -> \
             Iterable[Tuple[int, Union[str, int]]]:
         for (offset, offset_enc, iidenc, txn) in self._iterrows(prop, valu, exact):
-            rv = txn.get(offset_enc + iidenc, None)
+            rv = txn.get(bytes(offset_enc) + iidenc, None, db=self._normtbl)
             if rv is None:
                 raise s_exc.CorruptDatabase('Missing normalized record')
             yield offset, rv
 
-    def normRecordsByPropVal(self, prop: str, valu: Optional[Union[int, str]], exact=False) -> \
+    def normRecordsByPropVal(self, prop: str, valu: Optional[Union[int, str]]=None, exact=False) -> \
             Iterable[Tuple[int, Dict[str, Union[str, int]]]]:
         '''
         Retrieves all the normalized fields for an offset
@@ -444,7 +452,7 @@ class CryoTankIndexer:
                         break
             yield offset, norm
 
-    def rawRecordsByPropVal(self, prop: str, valu: Optional[Union[int, str]], exact=False) -> \
-            Iterable[Tuple[int, Dict[str, Any]]]:
+    def rawRecordsByPropVal(self, prop: str, valu: Optional[Union[int, str]]=None, exact=False) -> \
+            Iterable[Tuple[int, bytes]]:
         for offset, _, _, txn in self._iterrows(prop, valu, exact):
-            yield offset, next(self.cryotank.rows(offset, 1))
+            yield next(self.cryotank.rows(offset, 1))
