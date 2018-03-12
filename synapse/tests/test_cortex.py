@@ -3358,6 +3358,8 @@ class CortexTest(SynTest):
 
             self.len(1, wants)
 
+            neurhost, neurport = env.neuron.getCellAddr()
+            axonauth = env.axon.getCellAuth()
             # Ensure that Axon fns do not execute on a core without an axon
             with self.getRamCore() as othercore:
                 othercore.setConfOpt('cellpool:timeout', 3)
@@ -3365,8 +3367,6 @@ class CortexTest(SynTest):
                 with io.BytesIO(b'foobar') as fd:
                     self.raises(NoSuchOpt, othercore.formNodeByFd, fd, name='foobar.exe')
 
-                neurhost, neurport = env.neuron.getCellAddr()
-                axonauth = env.axon.getCellAuth()
                 othercore.setConfOpt('cellpool:conf', {'fake': 'fake'})
                 self.false(othercore.axon_ready)
                 self.false(othercore.cellpool_ready)
@@ -3392,6 +3392,16 @@ class CortexTest(SynTest):
                 self.len(1, wants)
                 self.istufo(othercore.formNodeByBytes(b'crap'))
                 wants = othercore._axonclient_wants([visihash, craphash, foobarhash])
+                self.len(0, wants)
+
+            # ensure that we can configure a cellpool/axon via conf options
+            conf = {
+                'cellpool:conf': {'auth': axonauth, 'host': neurhost, 'port': neurport},
+                'axon:name': 'axon@localhost',
+                'cellpool:timeout': 6,
+            }
+            with s_cortex.openurl('ram://', conf) as rcore:
+                wants = rcore._axonclient_wants([visihash, craphash, foobarhash])
                 self.len(0, wants)
 
 class StorageTest(SynTest):
