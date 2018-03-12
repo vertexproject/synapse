@@ -472,8 +472,8 @@ _INT_VAL_MARKER = 0
 # Prefix to indicate than a v is a string
 _STR_VAL_MARKER = b'\x01'
 
-# Precompiled struct of a byte then a little-endian 64-bit int
-_LeMarkerUint_ST = struct.Struct('<BQ')
+# Precompiled struct of a byte then a big-endian 64-bit int
+_LeMarkerUint_ST = struct.Struct('>BQ')
 
 def encodeValAsKey(v: Union[str, int], isprefix=False) -> bytes:
     '''
