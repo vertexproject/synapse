@@ -8,7 +8,6 @@ import collections
 
 import synapse.axon as s_axon
 import synapse.common as s_common
-import synapse.neuron as s_neuron
 import synapse.dyndeps as s_dyndeps
 import synapse.reactor as s_reactor
 import synapse.eventbus as s_eventbus
@@ -17,6 +16,7 @@ import synapse.telepath as s_telepath
 import synapse.cores.storage as s_storage
 
 import synapse.lib.auth as s_auth
+import synapse.lib.cell as s_cell
 import synapse.lib.fifo as s_fifo
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
@@ -111,8 +111,16 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         # Runtime stats
         self.formed = collections.defaultdict(int)      # count tufos formed since startup
 
+        # Cell Pool
+        self.cellpool = None
+        self.cellpool_ready = False
+
+        # Axon
+        self.axon_name = None
+        self.axon_ready = False
+        self.axon_client = None
+
         # Misc
-        self.axon_client = None  # The cortex's axon client
         self.isok = True
         self.seqs = s_cache.KeyCache(self.getSeqNode)  # Used for sequence generation
         self.snaps = s_cache.Cache(maxtime=60)  # Used for caching tufos for the snaps apis
@@ -274,7 +282,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _initCortexConfSetPre(self):
         # Setup handlers for confOpt changes which are not racy
         self.onConfOptSet('caching', self._onSetCaching)
-        self.onConfOptSet('axon:conf', self._onSetAxonConf)
 
     def _initCortexConfSetPost(self):
         self._initCoreFifos()
@@ -293,6 +300,18 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         valu = self.getConfOpt('modules')
         if valu:
             self.fire('syn:conf:set:%s' % 'modules', valu=valu)
+
+        # Add the cellpool handler
+        self.onConfOptSet('cellpool:conf', self._onSetCellPoolConf)
+        valu = self.getConfOpt('cellpool:conf')
+        if valu:
+            self.fire('syn:conf:set:%s' % 'cellpool:conf', valu=valu)
+
+        # Add the axon:name handler - it relies on the cellpool:conf
+        self.onConfOptSet('axon:name', self._onSetAxonName)
+        valu = self.getConfOpt('axon:name')
+        if valu:
+            self.fire('syn:conf:set:%s' % 'axon:name', valu=valu)
 
     def addRuntNode(self, form, valu, props=None):
         '''
@@ -573,7 +592,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             ('cache:maxsize', {'type': 'int', 'asloc': 'cache_maxsize', 'defval': 1000,
                                'doc': 'Enables caching layer in the cortex'}),
             ('rev:model', {'type': 'bool', 'defval': 1, 'doc': 'Set to 0 to disallow model version updates'}),
-            ('axon:conf', {'defval': {}, 'doc': 'Allows cortex to be aware of an axon blob store'}),
+            ('cellpool:conf', {'defval': None, 'doc': 'Allows cortex to be aware of a neuron cell pool'}),
+            ('cellpool:timeout', {'defval': 30, 'type': 'int', 'asloc': 'cell_timeout',
+                                  'doc': 'Timeout for cellpool related operations'
+                                  }),
+            ('axon:name', {'defval': None, 'doc': 'Allows cortex to be aware of an axon blob store'}),
             ('log:save', {'type': 'bool', 'asloc': 'logsave', 'defval': 0,
                           'doc': 'Enables saving exceptions to the cortex as syn:log nodes'}),
             ('log:level', {'type': 'int', 'asloc': 'loglevel', 'defval': 0, 'doc': 'Filters log events to >= level'}),
@@ -1184,18 +1207,24 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _getStormCore(self, name=None):
         return self
 
-    def _check_axonclient(self):
-        if self.axon_client is None:
-            raise s_common.NoSuchOpt(name='axon:conf', mesg='The cortex does not have an axon configured')
+    def _get_axon_client(self):
+        if not self.cellpool_ready:
+            raise s_common.NoSuchOpt(name='cellpool:conf', mesg='The cortex does not have a cell pool configured or it is not yet ready')
+        if not self.axon_ready:
+            raise s_common.NoSuchOpt(name='axon:name', mesg='The cortex does not have an axon configured or it is not yet ready')
+        return self.axon_client
 
-    def _axonclient_wants(self, hashes):
-        # takes a list of sha256 hashes
-        self._check_axonclient()
-        return self.axon_client.wants(hashes)
+    def _axonclient_wants(self, hashes, timeout=None):
+        client = self._get_axon_client()
+        if timeout is None:
+            timeout = self.cell_timeout
+        return client.wants(hashes, timeout=timeout)
 
-    def _axonclient_upload(self, genr):
-        self._check_axonclient()
-        return self.axon_client.upload(genr)
+    def _axonclient_upload(self, genr, timeout=None):
+        client = self._get_axon_client()
+        if timeout is None:
+            timeout = self.cell_timeout
+        return client.upload(genr, timeout=timeout)
 
     def getSeqNode(self, name):
         '''
@@ -1390,21 +1419,46 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 if atlim:
                     self._delCacheKey(ckey)
 
-    def _onSetAxonConf(self, conf):
+    def _onSetCellPoolConf(self, conf):
         auth = conf.get('auth')
         if not auth:
-            raise s_common.BadConfValu(mesg='auth must be set', valu=conf, key='axon:conf')
+            raise s_common.BadConfValu(mesg='auth must be set', key='cellpool:conf')
 
-        addr = (conf.get('host'), conf.get('port'))
-        if not all(part is not None for part in addr):
-            raise s_common.BadConfValu(mesg='host and port must be set', valu=conf, key='axon:conf')
+        neuraddr = (conf.get('host'), conf.get('port'))
+        if not all(part is not None for part in neuraddr):
+            logger.info('Popping "auth" with private data from mesg.')
+            conf.pop('auth', None)
+            raise s_common.BadConfValu(mesg='host and port must be set', key='cellpool:conf')
 
-        self.axon_user = s_neuron.CellUser(auth)
-        self.axon_sess = self.axon_user.open(addr, timeout=30)
-        self.axon_client = s_axon.AxonClient(self.axon_sess)
+        if self.cellpool:
+            self.cellpool.fini()
 
-        self.onfini(self.axon_sess.fini)
-        # FIXME handle finis/reconnect/etc
+        cellpool = s_cell.CellPool(auth, neuraddr)
+        if not cellpool.neurwait(timeout=self.cell_timeout):
+            cellpool.fini()
+            raise s_common.BadConfValu(mesg='unable to set up cell pool', key='cellpool:conf')
+        self.cellpool = cellpool
+        self.onfini(self.cellpool.fini)
+
+        self.cellpool_ready = True
+
+    def _onSetAxonName(self, name):
+        self.axon_name = name
+
+        def _setAxonClient(sess):
+            self.axon_client = s_axon.AxonClient(sess)
+            self.axon_ready = True
+
+        waiter = self.cellpool.waiter(1, 'cell:add')
+        self.cellpool.add(name, _setAxonClient)
+        waiter.wait(self.cell_timeout)
+
+        # Setup a handler to react when the cellpool is disconnected from the axon
+        def _onAxonDisconnect(mesg):
+            self.axon_ready = False
+            self.axon_client = None
+
+        self.cellpool.on('cell:disc', _onAxonDisconnect, name=name)
 
     def initCoreModule(self, ctor, conf):
         '''
@@ -1933,7 +1987,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         Example:
 
             size = core.getSizeBy('range','foo:bar',(20,30))
-            print('there are %d rows where 20 <= foo < 30 ' % (size,))
+            dostuff('there are %d rows where 20 <= foo < 30 ' % (size,))
 
         '''
         meth = self.store.reqSizeByMeth(name)

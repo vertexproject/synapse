@@ -1,4 +1,5 @@
 # -*- coding: UTF-8 -*-
+import synapse.common as s_common
 import synapse.lib.time as s_time
 import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
@@ -1729,3 +1730,83 @@ class InetModelTest(SynTest):
             self.eq(n2[0], n3[0])
             self.eq(n2[0], n4[0])
             self.eq(n1[0], n5[0])
+
+    def test_model_inet_http(self):
+
+        with self.getRamCore() as core:
+
+            tick = 0x01010101
+            flow = s_common.guid()
+            host = s_common.guid()
+            body = s_common.guid()
+
+            props = {
+                'flow': flow,
+                'time': tick,
+                'host': host,
+                'method': 'HeHe',
+                'path': '/foo/bar',
+                'query': 'baz=faz&woot=haha',
+                'body': body,
+            }
+
+            requ = core.formTufoByProp('inet:http:request', '*', **props)
+
+            iden = requ[1].get('inet:http:request')
+
+            self.eq(requ[1]['inet:http:request:flow'], flow)
+            self.eq(requ[1]['inet:http:request:time'], tick)
+            self.eq(requ[1]['inet:http:request:host'], host)
+            self.eq(requ[1]['inet:http:request:method'], 'HeHe')
+            self.eq(requ[1]['inet:http:request:path'], '/foo/bar')
+            self.eq(requ[1]['inet:http:request:query'], 'baz=faz&woot=haha')
+
+            node = core.formTufoByProp('inet:http:reqhead', (iden, ('User-Agent', 'BillyBob')))
+
+            self.eq(node[1].get('inet:http:reqhead:request'), iden)
+            self.eq(node[1].get('inet:http:reqhead:header:name'), 'user-agent')
+            self.eq(node[1].get('inet:http:reqhead:header:value'), 'BillyBob')
+
+            node = core.getTufoByProp('inet:http:header', ('User-Agent', 'BillyBob'))
+            self.eq(node[1].get('inet:http:header:name'), 'user-agent')
+            self.eq(node[1].get('inet:http:header:value'), 'BillyBob')
+
+            node = core.formTufoByProp('inet:http:reqhead', (iden, ('Host', 'vertex.ninja')))
+            self.eq(node[1].get('inet:http:reqhead:request'), iden)
+            self.eq(node[1].get('inet:http:reqhead:header:name'), 'host')
+            self.eq(node[1].get('inet:http:reqhead:header:value'), 'vertex.ninja')
+
+            node = core.getTufoByProp('inet:http:header', ('Host', 'vertex.ninja'))
+            self.eq(node[1].get('inet:http:header:name'), 'host')
+            self.eq(node[1].get('inet:http:header:value'), 'vertex.ninja')
+
+            node = core.formTufoByProp('inet:http:reqparam', (iden, ('baz', 'faz')))
+            self.eq(node[1].get('inet:http:reqparam:request'), iden)
+            self.eq(node[1].get('inet:http:reqparam:param:name'), 'baz')
+            self.eq(node[1].get('inet:http:reqparam:param:value'), 'faz')
+
+            props = {
+                'time': tick,
+                'host': host,
+                'request': iden,
+                'code': 31337,
+                'reason': 'too leet',
+                'flow': flow,
+                'body': body,
+            }
+
+            resp = core.formTufoByProp('inet:http:response', '*', **props)
+            self.eq(resp[1]['inet:http:response:request'], iden)
+            self.eq(resp[1]['inet:http:response:flow'], flow)
+            self.eq(resp[1]['inet:http:response:time'], tick)
+            self.eq(resp[1]['inet:http:response:host'], host)
+            self.eq(resp[1]['inet:http:response:code'], 31337)
+            self.eq(resp[1]['inet:http:response:reason'], 'too leet')
+            self.eq(resp[1]['inet:http:response:body'], body)
+
+            ridn = resp[1].get('inet:http:response')
+
+            node = core.formTufoByProp('inet:http:resphead', (ridn, ('server', 'my web server')))
+            self.eq(node[1].get('inet:http:resphead:response'), ridn)
+            self.eq(node[1].get('inet:http:resphead:header:name'), 'server')
+            self.eq(node[1].get('inet:http:resphead:header:value'), 'my web server')

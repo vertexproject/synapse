@@ -12,15 +12,16 @@ binset = set('01')
 decset = set('0123456789')
 hexset = set('01234567890abcdef')
 intset = set('01234567890abcdefx')
+setset = set('.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 timeset = set('01234567890')
 propset = set(':abcdefghijklmnopqrstuvwxyz_0123456789')
 starset = varset.union({'*'})
 tagfilt = varset.union({'#', '*'})
-alphaset = set('abcdefghijklmnopqrstuvwxyz')
+alphaset = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
 # this may be used to meh() potentially unquoted values
-valmeh = whites.union({'(', ')', '=', ',', '[', ']'})
+valmeh = whites.union({'(', ')', '=', ',', '[', ']', '{', '}'})
 
 def nom(txt, off, cset, trim=True):
     '''
@@ -568,12 +569,27 @@ def oper(name, *args, **kwargs):
     kwlist = list(sorted(kwargs.items()))
     return (name, {'args': args, 'kwlist': kwlist})
 
-def parse(text, off=0):
-    '''
-    Parse and return a set of instruction tufos.
-    '''
-    ret = []
+def parse_stormsub(text, off=0):
 
+    _, off = nom(text, off, whites)
+
+    if not nextchar(text, off, '{'):
+        raise s_common.BadSyntaxError('expected { at %d' % (off,))
+
+    _, off = nom(text, off + 1, whites)
+
+    opers, off = parse_storm(text, off)
+
+    if not nextchar(text, off, '}'):
+        raise s_common.BadSyntaxError('expected } at %d' % (off,))
+
+    _, off = nom(text, off + 1, whites)
+
+    return opers, off
+
+def parse_storm(text, off=0):
+
+    ret = []
     while True:
 
         # leading whitespace is irrelevant
@@ -581,7 +597,33 @@ def parse(text, off=0):
         if off >= len(text):
             break
 
-        # handle some special "macro" style syntaxes
+        # handle a sub-query terminator
+        if nextchar(text, off, '}'):
+            break
+
+        # handle $foo.bar={<subquery>} syntax
+        if nextchar(text, off, '$'):
+
+            _, off = nom(text, off + 1, whites)
+            if not nextin(text, off, alphaset):
+                raise s_common.BadSyntaxError(msg='Set variables must start with an alpha char')
+            name, off = nom(text, off, setset)
+            _, off = nom(text, off, whites)
+
+            # set load syntax goes here...
+
+            if not nextchar(text, off, '='):
+                raise s_common.BadSyntaxError(msg='expected = at %d' % (off,))
+
+            _, off = nom(text, off + 1, whites)
+
+            if not nextchar(text, off, '{'):
+                raise s_common.BadSyntaxError('expected { at %d' % (off,))
+
+            opers, off = parse_stormsub(text, off)
+
+            ret.append(oper('set', name, opers))
+            continue
 
         # [ ] for node modification macro syntax
 
@@ -665,13 +707,31 @@ def parse(text, off=0):
 
         # must() macro syntax: +foo:bar="woot"
         if nextchar(text, off, '+'):
-            inst, off = parse_macro_filt(text, off + 1, mode='must')
+
+            _, off = nom(text, off + 1, whites)
+
+            # subquery filter syntax
+            if nextchar(text, off, '{'):
+                opers, off = parse_stormsub(text, off)
+                ret.append(oper('filtsub', True, opers))
+                continue
+
+            inst, off = parse_macro_filt(text, off, mode='must')
             ret.append(inst)
             continue
 
         # cant() macro syntax: -foo:bar=10
         if nextchar(text, off, '-'):
-            inst, off = parse_macro_filt(text, off + 1, mode='cant')
+
+            _, off = nom(text, off + 1, whites)
+
+            # subquery filter syntax
+            if nextchar(text, off, '{'):
+                opers, off = parse_stormsub(text, off)
+                ret.append(oper('filtsub', False, opers))
+                continue
+
+            inst, off = parse_macro_filt(text, off, mode='cant')
             ret.append(inst)
             continue
 
@@ -776,6 +836,14 @@ def parse(text, off=0):
         inst, off = parse_macro_lift(text, origoff)
         ret.append(inst)
 
-    #[ i[1]['kwlist'].sort() for i in ret ]
+    return ret, off
 
-    return ret
+def parse(text, off=0):
+    '''
+    Parse and return a set of instruction tufos.
+    '''
+    retn, off = parse_storm(text, off=off)
+    if off != len(text):
+        raise s_common.BadSyntaxError('trailing text: %s' % (text[off:],))
+
+    return retn
