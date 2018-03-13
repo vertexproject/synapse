@@ -42,6 +42,7 @@ import synapse.telepath as s_telepath
 
 import synapse.cores.common as s_cores_common
 
+import synapse.lib.cell as s_cell
 import synapse.lib.scope as s_scope
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
@@ -571,6 +572,7 @@ class SynTest(unittest.TestCase):
             neurconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
             neurpath = s_common.gendir(dirn, 'neuron')
             neur = s_neuron.Neuron(neurpath, neurconf)
+            neurhost, neurport = neur.getCellAddr()
 
             blobpath = s_common.gendir(dirn, 'blob')
             blobconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
@@ -596,15 +598,16 @@ class SynTest(unittest.TestCase):
                 time.sleep(0.1)
             self.true(ready)
 
-            axon_user = s_neuron.CellUser(axonauth)
+            axon_user = s_cell.CellUser(axonauth)
             axon_sess = axon_user.open((axonhost, axonport))
             axon_client = s_axon.AxonClient(axon_sess)
 
             core = s_cortex.openurl('ram:///')
             self.addTstForms(core)
 
-            axonconf = {'auth': axonauth, 'host': axonhost, 'port': axonport}  # ???
-            core.setConfOpt('axon:conf', axonconf)
+            cellpoolconf = {'host': neurhost, 'port': neurport, 'auth': axonauth}
+            core.setConfOpt('cellpool:conf', cellpoolconf)
+            core.setConfOpt('axon:name', 'axon@localhost')
 
             dmon = s_daemon.Daemon()
             dmonlink = dmon.listen('tcp://127.0.0.1:0/')
