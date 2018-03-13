@@ -328,6 +328,9 @@ class CryoIndexTest(SynTest):
             retn = list(idxr.normValuByPropVal('first'))
             self.eq(retn, [(0, 1234), (1, 2345), (4, 9999), (2, 388383)])
 
+            idxr.pauseIndex('first')
+            idxr.resumeIndex('first')
+
             if 0:
                 # Add a ton of records:  SEG FAULTS!
                 tank.puts([data1, data2, data3, data4] * 1000)

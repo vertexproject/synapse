@@ -696,9 +696,8 @@ class _IndexMeta:
         Returns:
             int: The next offset that should be indexed, based on active indices.
         '''
-        if self.progresses:
-            return min(p['nextoffset'] for iid, p in self.progresses.items() if not self.asleep[iid])
-        return s_lmdb.MAX_INT_VAL
+        nextoffsets = [p['nextoffset'] for iid, p in self.progresses.items() if not self.asleep[iid]]
+        return min(nextoffsets) if nextoffsets else s_lmdb.MAX_INT_VAL
 
     def iidFromProp(self, prop):
         '''
@@ -801,7 +800,7 @@ def _inWorker(callback):
     def wrap(self, *args, **kwargs):
         with s_threads.RetnWait() as retn:
             self._workq.put((retn, callback, (self, ) + args, kwargs))
-            succ, rv = retn.wait(timeout=1000)
+            succ, rv = retn.wait(timeout=self.MAX_WAIT_S)
             if succ:
                 if isinstance(rv, Exception):
                     raise rv
