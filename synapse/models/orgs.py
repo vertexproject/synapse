@@ -210,7 +210,7 @@ class OuMod(s_module.CoreModule):
                     ('arrive', {'ptype': 'time',
                         'doc': 'An optional property to annotate when the person arrived.'}),
                     ('depart', {'ptype': 'time',
-                        'doc': 'An optionala property to annotate when the person departed.'}),
+                        'doc': 'An optional property to annotate when the person departed.'}),
                 )),
 
                 ('ou:conference', {}, (
