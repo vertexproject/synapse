@@ -94,3 +94,12 @@ class CryoIndexTest(s_tc.SynTest):
             time.sleep(0.1)
             retn = list(idxr.normValuByPropVal('first'))
             self.eq(retn, [(0, 1234), (1, 2345), (4, 9999), (2, 388383)])
+
+            # Add a ton of records
+            tank.puts([data1, data2, data3, data4]*1000)
+            logger.debug('GOT HERE')
+
+            time.sleep(10)
+            logger.debug('GOT HERE 2')
+            idxs = idxr.getIndices()
+            print(idxs)

@@ -168,12 +168,12 @@ def _inWorker(callback):
     def wrap(self, *args, **kwargs):
         with s_threads.RetnWait() as retn:
             self._workq.put((retn, callback, (self, ) + args, kwargs))
-            succ, rv = retn.wait(timeout=self.MAX_WAIT_S)
+            succ, rv = retn.wait(timeout=1000)
             if succ:
                 if isinstance(rv, Exception):
                     raise rv
                 return rv
-            raise s_exc.Timeout()
+            raise s_exc.TimeOut()
 
     return wrap
 
@@ -299,16 +299,19 @@ class CryoTankIndexer:
     def _writeIndices(self, rows: Iterable[Tuple[int, int, Union[str, int]]]) -> int:
         count = -1
         with self._dbenv.begin(db=self._idxtbl, buffers=True, write=True) as txn:
+            logger.debug('_dbenv.begin(a, buffers=True, write=True')
             for count, (offset, iid, normval) in enumerate(rows):
 
                 offset_enc = s_lmdb.int64be.pack(offset)
                 iid_enc = _iid_en(iid)
                 valkey_enc = s_lmdb.encodeValAsKey(normval)
 
+                logger.debug('txn.put(%r, %r)', iid_enc + valkey_enc, offset_enc)
                 txn.put(iid_enc + valkey_enc, offset_enc)
                 txn.put(offset_enc + iid_enc, s_msgpack.en(normval), db=self._normtbl)
 
             self._meta.persist(progressonly=True, txn=txn)
+            logger.debug('txn end')
         return count + 1
 
     def _workerloop(self):
