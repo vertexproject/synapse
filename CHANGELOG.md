@@ -18,11 +18,11 @@ There are a sizeable amount of changes included in v0.0.47.  A few items are hig
 ### Backwards Incompatible Changes
 
 - A global socket multiplexor, implemented using EPOLL, has been added to Synapse.  This change means that Synapse will only work on Linux at the moment.  The Vertex Project does plan on restoring Windows and OSX support in a future release.
-- The Cortex Splice format has changed, in order to support better filtration.  This requires that splice producers and splice consumers update in step to v0.0.47.  If users have existing splice logs that need to be updated, a helper function has been written to to convert an existing splice log file to the new format.  See the notes below for additional information.
+- The Cortex Splice format has changed, in order to support better filtration.  This requires that splice producers and splice consumers update simultaneously to v0.0.47.  If users have existing splice logs that need to be updated, a helper function has been written to to convert an existing splice log file to the new format.  See the notes below for additional information.
 - The following Synapse components have been removed or altered significantly:
   * ``synapse.axon`` has been rewritten substantially.  In addition, it no longer imports ``synapse.lib.hashset`` using a star import.
   * ``synapse.lib.persist`` has been removed.  It is no longer used in core Synapse code.
-  * ``synapse.lib.heap`` has been removed.  It contained a implementation error and is no longer used in core Synapse code.
+  * ``synapse.lib.heap`` has been removed.  It contained an implementation error and is no longer used in core Synapse code.
   * ``synapse.lib.atomfile`` has been changed to currently only support Linux.
 
 ## New Features
@@ -46,7 +46,7 @@ There are a sizeable amount of changes included in v0.0.47.  A few items are hig
 
 ## Enhancements
 - #667 - Added subquery based filtration for Storm. Subqueries take all of the query nodes, apply either a positive or negative a filter to those nodes, and then add matching nodes back to the query results.
-- #685 - Migrated ``ou:has``* forms to a generic ``ou:org:has`` Xref form.  Add ``seen:min`` and ``seen:max`` secondary properties.
+- #685 - Migrated ``ou:has``\* forms to a generic ``ou:org:has`` Xref form.  Add ``seen:min`` and ``seen:max`` secondary properties.
 - #650 - Added ``genraises()`` API to ``synapse.lib.iq.SynTest``. This mimics the ``raises()`` API, but expects the function to be a generator. This consumes the generator in a bound local and expects that to raise.
 - #650 - Added ``getAxonCore()`` API to ``synapse.lib.iq.SynTest`` to get a ``TstEnv`` instance which has a Axon, Cortex, Blob, Neuron, Daemon and clients configured already.
 - #650 - Added ``synapse.common.ehex()``/``synapse.common.uhex()`` wraps around ``binascii.hexlify()`` and ``binascii.unhexlify()`` APIs.
@@ -57,7 +57,7 @@ There are a sizeable amount of changes included in v0.0.47.  A few items are hig
 - #650 - Updated ``synapse.lib.queue.Queue`` behavior to raise an exception (``IsFini`` or ``TimeOut``) when ``get()`` has no objects to return.  Previously this returned ``None``; however it was impossible to distinguish if the queue legitimately returned ``None`` or there was a timeout or if the ``Queue`` had been fini’d.
 - #673, #681 - Changed the ``Cortex`` config option of ``axon:url`` to be ``axon:name``.  This is the name of the ``AxonCell`` resolve via the cores’ ``CellPool``.
 - #670 - ``ou:hasalias`` form to note when a org has an alias or alternative name.
-- #671, #687 - Migrated ``ps:has``* forms to a single ``ps:person:has`` xref form.  Add ``seen:min`` and ``seen:max`` secondary properties.
+- #671, #687 - Migrated ``ps:has``\* forms to a single ``ps:person:has`` xref form.  Add ``seen:min`` and ``seen:max`` secondary properties.
 - #631 - The ``synapse.async`` module was renamed to ``synapse.synasync`` in order to allow for future compatibility with Python 3.7.
 - #637, #650 - Added ``iterfile()``, ``loadfile()`` and ``dumpfile()`` APIs to ``synapse.lib.msgpack``. These iterate over a file, load the contents of a file, and save a value to a file, respectively.
 - #637 - Removed ``synapse.lib.heapfile``. It had implementation errors which caused issues with data recovery and is no longer used for backing ``Axon`` storage.  In addition, ``synapse.lib.persist`` was also removed since it is no longer being used.
@@ -103,7 +103,7 @@ v0.0.46 - 2018-03-06
 --------------------
 
 ## Bugs
-- Pull in version bounds for third-party packages from the master branch. This addresses an immeadiate issue where Synapse fails to work with a pypi installation and Tornado 5.0.0 is installed.
+- Pull in version bounds for third-party packages from the master branch. This addresses an immediate issue where Synapse fails to work with a pypi installation and Tornado 5.0.0 is installed.
 
 
 v0.0.45 - 2018-02-13
@@ -700,7 +700,7 @@ Since there are significant changes to how we handle models and storage layers i
 - #286 - Easycert tool can make PKCS12 client certs.
 - #333 - Comp types now support optional kw fields, allowing recording of varying levels of knowledge for a given type.
 - #321 - SSL Support added to the webapp
-- #289, #290, #301 - Add support for a blob key/value store to the Cortex which exists separately from the Row layer storage. 
+- #289, #290, #301 - Add support for a blob key/value store to the Cortex which exists separately from the Row layer storage.
 - #291, #292, #301 - Add support for storage layers to be revisioned independently of models.
 - #300, #342 - Add support for sending BODY content via remcycle
 - #348, #350 - Add a guid() operator to storm for lifting a node by iden.
