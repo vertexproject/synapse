@@ -195,11 +195,11 @@ class OuMod(s_module.CoreModule):
                     ('name', {'ptype': 'str:lwr',
                         'doc': 'A human friendly name for the meeting.'}),
                     ('time:start', {'ptype': 'time',
-                        'doc': 'The time the meet starts.'}),
+                        'doc': 'The date / time the meet starts.'}),
                     ('time:end', {'ptype': 'time',
-                        'doc': 'The time the meet is ends.'}),
+                        'doc': 'The date / time the meet ends.'}),
                     ('place', {'ptype': 'geo:place',
-                        'doc': 'The geo:place node where the conference was held.'}),
+                        'doc': 'The geo:place node where the meet was held.'}),
                 )),
 
                 ('ou:meet:attendee', {}, (
@@ -219,9 +219,9 @@ class OuMod(s_module.CoreModule):
                     ('name', {'ptype': 'str:lwr', 'req': 1, 'ro': 1,
                         'doc': 'The name of the conference (without time).'}),
                     ('time:start', {'ptype': 'time',
-                        'doc': 'The time the meet starts.'}),
+                        'doc': 'The date / time the conference starts.'}),
                     ('time:end', {'ptype': 'time',
-                        'doc': 'The time the meet is ends.'}),
+                        'doc': 'The date / time the conference ends.'}),
                     ('place', {'ptype': 'geo:place',
                         'doc': 'The geo:place node where the conference was held.'}),
                     # TODO: prefix optimized geo political location
@@ -235,7 +235,7 @@ class OuMod(s_module.CoreModule):
                     ('arrive', {'ptype': 'time',
                         'doc': 'An optional property to annotate when the person arrived.'}),
                     ('depart', {'ptype': 'time',
-                        'doc': 'An optionala property to annotate when the person departed.'}),
+                        'doc': 'An optional property to annotate when the person departed.'}),
                 )),
 
             ),

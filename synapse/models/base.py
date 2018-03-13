@@ -1,6 +1,7 @@
 import logging
 
 import synapse.common as s_common
+
 import synapse.lib.tufo as s_tufo
 import synapse.lib.module as s_module
 
@@ -21,7 +22,7 @@ class BaseMod(s_module.CoreModule):
                 ('seen', {
                     'subof': 'comp',
                     'fields': 'source=source,node=node:ndef',
-                    'doc': 'Annotates the presence of a node from the specififed source.'}),
+                    'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
 
                 ('record', {
                     'subof': 'guid',
@@ -44,15 +45,15 @@ class BaseMod(s_module.CoreModule):
 
                 ('seen', {}, (
                     ('source', {'ptype': 'source', 'req': 1, 'ro': 1,
-                        'doc': 'The source which observed the node.'}),
+                        'doc': 'The source which observed or provided the node.'}),
                     ('node', {'ptype': 'ndef', 'req': 1, 'ro': 1,
-                        'doc': 'The node which was observed from the source.'}),
+                        'doc': 'The node which was observed by or received from the source.'}),
                     ('node:form', {'ptype': 'syn:prop', 'req': 1, 'ro': 1,
                         'doc': 'The form of the observed node.'}),
                     ('time:min', {'ptype': 'time:min',
-                        'doc': 'An optional earliest observed time.'}),
+                        'doc': 'An optional earliest time the data in the node was observed by the source.'}),
                     ('time:max', {'ptype': 'time:max',
-                        'doc': 'An optional last observed time'}),
+                        'doc': 'An optional most recent time the data in the node was observed by the source.'}),
                 )),
 
                 ('record', {}, (
