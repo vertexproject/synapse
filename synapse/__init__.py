@@ -25,6 +25,7 @@ from synapse.lib.version import version, verstring
 # the built-in cortex modules...
 BASE_MODULES = (
     ('synapse.models.syn.SynMod', {}),
+    ('synapse.models.base.BaseMod', {}),
     ('synapse.models.dns.DnsMod', {}),
     ('synapse.models.orgs.OuMod', {}),
     ('synapse.models.inet.InetMod', {}),

@@ -194,6 +194,10 @@ class OuMod(s_module.CoreModule):
                 ('ou:meet', {}, (
                     ('name', {'ptype': 'str:lwr',
                         'doc': 'A human friendly name for the meeting.'}),
+                    ('time:start', {'ptype': 'time',
+                        'doc': 'The time the meet starts.'}),
+                    ('time:end', {'ptype': 'time',
+                        'doc': 'The time the meet is ends.'}),
                     ('place', {'ptype': 'geo:place',
                         'doc': 'The geo:place node where the conference was held.'}),
                 )),
@@ -205,7 +209,7 @@ class OuMod(s_module.CoreModule):
                         'doc': 'The person who attended the meet.'}),
                     ('arrive', {'ptype': 'time',
                         'doc': 'An optional property to annotate when the person arrived.'}),
-                    ('depart': {'ptype': 'time',
+                    ('depart', {'ptype': 'time',
                         'doc': 'An optionala property to annotate when the person departed.'}),
                 )),
 
@@ -214,8 +218,10 @@ class OuMod(s_module.CoreModule):
                         'doc': 'The org which created/managed the conference.'}),
                     ('name', {'ptype': 'str:lwr', 'req': 1, 'ro': 1,
                         'doc': 'The name of the conference (without time).'}),
-                    ('date', {'ptype': 'time', 'req': 1, 'ro': 1,
-                        'doc': 'The date of the beginning of the conference.'}),
+                    ('time:start', {'ptype': 'time',
+                        'doc': 'The time the meet starts.'}),
+                    ('time:end', {'ptype': 'time',
+                        'doc': 'The time the meet is ends.'}),
                     ('place', {'ptype': 'geo:place',
                         'doc': 'The geo:place node where the conference was held.'}),
                     # TODO: prefix optimized geo political location
@@ -228,7 +234,7 @@ class OuMod(s_module.CoreModule):
                         'doc': 'The person who attended the conference.'}),
                     ('arrive', {'ptype': 'time',
                         'doc': 'An optional property to annotate when the person arrived.'}),
-                    ('depart': {'ptype': 'time',
+                    ('depart', {'ptype': 'time',
                         'doc': 'An optionala property to annotate when the person departed.'}),
                 )),
 
