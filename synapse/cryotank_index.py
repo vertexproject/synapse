@@ -28,9 +28,13 @@ logger.setLevel(logging.DEBUG)
 # FIXME: improve datapath perf by precompile
 # FIXME: rip out typing
 # FIXME: move this file into cryotank.py
+# FIXME: fix variable names
 
 # Describes a single index in the system.
 _MetaEntry = namedtuple('_MetaEntry', ('propname', 'syntype', 'datapath'))
+
+# Big-endian 64-bit integer encoder
+_Int64be = struct.Struct('>Q')
 
 class _IndexMeta:
     '''
@@ -52,7 +56,19 @@ class _IndexMeta:
     '''
 
     def __init__(self, dbenv: lmdb.Environment) -> None:
+        '''
+        Creates metadata for all the indices.
+
+        Args:
+            dbenv (lmdb.Environment): the lmdb instance in which to store the metadata.
+
+        Returns:
+            None
+        '''
+
         self._dbenv = dbenv
+
+        # The table in the database file (N.B. in LMDB speak, this is called a database)
         self._metatbl = dbenv.open_db(b'meta')
         is_new_db = False
         with dbenv.begin(db=self._metatbl, buffers=True) as txn:
@@ -65,12 +81,16 @@ class _IndexMeta:
                 progress_enc = s_msgpack.en({})
             else:
                 raise s_exc.CorruptDatabase('missing meta information in index meta')
+
         indices = s_msgpack.un(indices_enc)
-        self._meta_table = self._dbenv.open_db(b'meta')
+
+        # The details about what the indices are actually indexing: the datapath and type.
         self.indices = {k: _MetaEntry(**v) for k, v in indices.get('present', {}).items()}
         self.deleting = list(indices.get('deleting', ()))
+        # Keeps track (non-persistently) of which indicies have been paused
         self.asleep: DefaultDict[int, bool] = defaultdict(bool)
 
+        # How far each index has progressed as well as statistics
         self.progresses = s_msgpack.un(progress_enc)
         if not all(p in self.indices for p in self.deleting):
             raise s_exc.CorruptDatabase('index meta table: deleting entry with unrecognized property name')
@@ -81,7 +101,15 @@ class _IndexMeta:
 
     def persist(self, progressonly=False, txn: Optional[lmdb.Transaction]=None) -> None:
         '''
-        Persists the index info
+        Persists the index info to the database
+
+        Args:
+            progressonly (bool): if True, only persists the progress (i.e. more dynamic) information
+            txn (Optional[lmdb.Transaction]): if not None, will use that transaction to record data.  txn is
+            not committed.
+
+        Returns:
+            None
         '''
         d = {'delete': self.deleting,
              'present': {k: v._asdict() for k, v in self.indices.items()}}
@@ -94,13 +122,18 @@ class _IndexMeta:
             txn.put(b'progress', s_msgpack.en(self.progresses))
 
     def lowestProgress(self) -> int:
+        '''
+        Returns:
+            int: The next offset that should be indexed, based on active indices.
+        '''
         if self.progresses:
             return min(p['nextoffset'] for iid, p in self.progresses.items() if not self.asleep[iid])
         return s_lmdb.MAX_INT_VAL
 
     def iidFromProp(self, prop):
         '''
-        Returns the index id for the propname, None if not found
+        Returns:
+            int: the index id for the propname, None if not found
         '''
         return next((k for k, idx in self.indices.items() if idx.propname == prop), None)
 
@@ -109,13 +142,16 @@ class _IndexMeta:
         Adds an index to the cryotank.
 
         Args:
-        - datapath:  the datapath spec against which the raw record is run to extract a single field
+            prop (str):  the name of the property this will be stored as in the normalized record
+            syntype (str):  the synapse type this will be interpreted as
+            datapath (str):  the datapath spec against which the raw record is run to extract a single field
         that is passed to the type normalizer.
-        - *args:  additional datapaths that will be tried in order if the first isn't present.
+            *args (str):  additional datapaths that will be tried in order if the first isn't present.
+        Returns:
+            None
 
-        N.B.  additional datapaths will be tried iff the prior datapath is not present, and *not* if
+        N.B.  additional datapaths will be tried iff prior datapaths are not present, and *not* if
         the normalization fails.
-
         '''
         if self.iidFromProp(prop) is not None:
             raise ValueError('index already added')
@@ -127,6 +163,14 @@ class _IndexMeta:
         self.persist()
 
     def delIndex(self, prop: str) -> None:
+        '''
+        Deletes an index
+
+        Args:
+            prop (str): the (normalized) property name
+        Returns:
+            None
+        '''
         iid = self.iidFromProp(prop)
         if iid is None:
             raise ValueError('Index not present')
@@ -138,11 +182,28 @@ class _IndexMeta:
         self.persist()
 
     def pauseIndex(self, prop: Optional[str]) -> None:
+        '''
+        Temporarily stop indexing one or all indices.
+
+        Args:
+            prop: (Optional[str]):  the index to stop indexing, or if None, indicate to stop all indices
+        Returns:
+            None
+
+        N.B. pausing is not persistent.  Restarting the process will resume indexing.
+        '''
         for iid, idx in self.indices.items():
             if prop is None or prop == idx.propname:
                 self.asleep[iid] = True
 
     def resumeIndex(self, prop: Optional[str]) -> None:
+        '''
+        Undo a pauseIndex.
+        Args:
+            prop: (Optional[str]):  the index to start indexing, or if None, indicate to resume all indices
+        Returns:
+            None
+        '''
         for iid, idx in self.indices.items():
             if prop is None or prop == idx.propname:
                 self.asleep[iid] = False
@@ -151,13 +212,14 @@ class _IndexMeta:
         self.deleting.remove(iid)
         self.persist()
 
-
-_int64le = struct.Struct('<Q')
+# Encodes a little endian 64-bit integer
+_Int64le = struct.Struct('<Q')
 def _iid_en(iid):
-    return _int64le.pack(iid)
+    return _Int64le.pack(iid)
 
+# Decodes a little endian 64-bit integer
 def _iid_un(iid):
-    return _int64le.unpack(iid)[0]
+    return _Int64le.unpack(iid)[0]
 
 def _inWorker(callback):
     '''
@@ -190,7 +252,7 @@ class CryoTankIndexer:
     Indices can be added and deleted asynchronously from the indexing thread via CryotankIndexer.addIndex and
     CryotankIndexer.delIndex.
 
-    Indexes can be queried with rowsByPropVal.
+    Indexes can be queried with normValuByPropVal, normRecordsByPropVal, rawRecordsByPropVal.
 
     To harmonize with LMDB requirements, writing only occurs on the worker thread, while reading indices takes place in
     the caller's thread.  Both reading and writing index metadata (that is, information about which indices are
@@ -208,7 +270,7 @@ class CryoTankIndexer:
         self._worker = threading.Thread(target=self._workerloop, name='CryoTankIndexer')
         path = s_common.gendir(cryotank.path, 'cryo_index.lmdb')
         cryotank_map_size = cryotank.lmdb.info()['map_size']
-        self._dbenv = lmdb.open(path, writemap=True, metasync=False, max_readers=2, max_dbs=4,
+        self._dbenv = lmdb.open(path, writemap=True, metasync=False, max_readers=8, max_dbs=4,
                                 map_size=cryotank_map_size)
         # iid, v -> offset table
         self._idxtbl = self._dbenv.open_db(b'indices', dupsort=True)
@@ -302,7 +364,7 @@ class CryoTankIndexer:
             logger.debug('_dbenv.begin(a, buffers=True, write=True')
             for count, (offset, iid, normval) in enumerate(rows):
 
-                offset_enc = s_lmdb.int64be.pack(offset)
+                offset_enc = _Int64be.pack(offset)
                 iid_enc = _iid_en(iid)
                 valkey_enc = s_lmdb.encodeValAsKey(normval)
 
@@ -362,22 +424,49 @@ class CryoTankIndexer:
 
     @_inWorker
     def addIndex(self, prop: str, syntype: str, datapath: str, *args: str) -> None:
+        '''
+        Adds an index to the cryotank.
+
+        Args:
+            prop (str):  the name of the property this will be stored as in the normalized record
+            syntype (str):  the synapse type this will be interpreted as
+            datapath (str):  the datapath spec against which the raw record is run to extract a single field
+        that is passed to the type normalizer.
+            *args (str):  additional datapaths that will be tried in order if the first isn't present.
+        Returns:
+            None
+
+        N.B.  additional datapaths will be tried iff prior datapaths are not present, and *not* if
+        the normalization fails.
+        '''
         return self._meta.addIndex(prop, syntype, datapath, args)
 
     @_inWorker
     def delIndex(self, prop: str) -> None:
-        return self._meta.delIndex(prop)
+        '''
+        Deletes an index
 
-    @_inWorker
-    def resumeIndex(self, prop: Optional[str]=None) -> None:
+        Args:
+            prop (str): the (normalized) property name
+        Returns:
+            None
         '''
-        Unpauses a single index.  As a special case, setting prop to none will wake up all indexing.
-        '''
-        return self._meta.resumeIndex(prop)
+        return self._meta.delIndex(prop)
 
     @_inWorker
     def pauseIndex(self, prop=None):
         return self._meta.pauseIndex(prop)
+
+    @_inWorker
+    def resumeIndex(self, prop: Optional[str]=None) -> None:
+        '''
+        Undo a pauseIndex.
+        Args:
+            prop: (Optional[str]):  the index to start indexing, or if None, indicate to resume all indices
+        Returns:
+            None
+        '''
+        return self._meta.resumeIndex(prop)
 
     @_inWorker
     def getIndices(self) -> List[Dict[str, Union[str, int]]]:
@@ -386,20 +475,22 @@ class CryoTankIndexer:
             idxs[iid].update(self._meta.progresses.get(iid, {}))
         return list(idxs.values())
 
-    def _iterrows(self, prop: str, valu: Optional[Union[int, str]], exact=False) -> Iterable[Tuple[Any, ...]]:
+    def _iterrows(self, prop: str, valu: Optional[Union[int, str]], exact=False) -> Iterable[Tuple[int, bytes, bytes,
+        lmdb.Transaction]]:
         '''
         Query against an index.
 
         Args;
-            prop:  The name of the indexed property
-            valu:  The value.  If not present, all records with prop present, sorted by prop will be returned.
-            If valu is a string, it may be a prefix.
-            exact: The result must match exactly
+            prop (str):  The name of the indexed property
+            valu (Optional[Union[int, str]]):  The normalized value.  If not present, all records with prop present,
+            sorted by prop will be returned.  It will be considered prefix if exact is False.
+            exact (bool): Indicates that the result must match exactly.  Conversly, if False, indicates a prefix match.
 
         Returns:
-            A iterable of tuples of the requested entries.
+            Iterable[Tuple[int, bytes, bytes, lmdb.Transaction]: a generator of a Tuple of the offset, the encoded
+            offset, the encoded index ID, and the LMDB read transaction.
 
-        N.B. ordering of the parts of string values after the first UTF-8-encoded 128 bytes are arbitrary.
+        N.B. ordering of Tuples disregard everything after the first 128 bytes of a property.
         '''
         iid = self._meta.iidFromProp(prop)
         if iid is None:
@@ -428,13 +519,23 @@ class CryoTankIndexer:
                 curkey, offset_enc = curs.item()
                 if (not exact and not curkey[:len(key)] == key) or (exact and curkey != key):
                     return
-                offset = s_lmdb.int64be.unpack(offset_enc)[0]
+                offset = _Int64be.unpack(offset_enc)[0]
                 yield (offset, offset_enc, iidenc, txn)
                 if not curs.next():
                     return
 
     def normValuByPropVal(self, prop: str, valu: Optional[Union[int, str]]=None, exact=False) -> \
             Iterable[Tuple[int, Union[str, int]]]:
+        '''
+        Query for normalized individual property values.
+
+        Args:
+            See _iterrows
+
+        Returns:
+            Iterable[Tuple[int, Union[str, int]]]:  A generator of offset, normalized value tuples.
+
+        '''
         for (offset, offset_enc, iidenc, txn) in self._iterrows(prop, valu, exact):
             rv = txn.get(bytes(offset_enc) + iidenc, None, db=self._normtbl)
             if rv is None:
@@ -444,7 +545,13 @@ class CryoTankIndexer:
     def normRecordsByPropVal(self, prop: str, valu: Optional[Union[int, str]]=None, exact=False) -> \
             Iterable[Tuple[int, Dict[str, Union[str, int]]]]:
         '''
-        Retrieves all the normalized fields for an offset
+        Query for normalized property values grouped together in dicts.
+
+        Args:
+            See _iterrows
+
+        Returns:
+            Iterable[Tuple[int, Dict[str, Union[str, int]]]]: A generator of offset, dictionary tuples
         '''
         for offset, offset_enc, _, txn in self._iterrows(prop, valu, exact):
             norm: Dict[str, Union[int, str]] = {}
@@ -470,5 +577,14 @@ class CryoTankIndexer:
 
     def rawRecordsByPropVal(self, prop: str, valu: Optional[Union[int, str]]=None, exact=False) -> \
             Iterable[Tuple[int, bytes]]:
+        '''
+        Query for raw (i.e. from the cryotank itself) records
+
+        Args:
+            See _iterrows
+
+        Returns:
+            Iterable[Tuple[int, bytes]]: A generator of offset, message pack encoded raw records
+        '''
         for offset, _, _, txn in self._iterrows(prop, valu, exact):
             yield next(self.cryotank.rows(offset, 1))

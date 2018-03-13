@@ -4,13 +4,10 @@ import subprocess
 import struct
 import itertools
 
-import lmdb  # used for type resolution
 from typing import Union  # NOQA
 
+import lmdb  # used for type resolution
 import xxhash  # type: ignore
-
-int64be = struct.Struct('>Q')
-
 
 import synapse.lib.msgpack as s_msgpack
 
@@ -18,15 +15,9 @@ STOR_FLAG_NOINDEX = 0x0001      # there is no byprop index for this prop
 STOR_FLAG_MULTIVAL = 0x0002     # this is a multi-value prop
 STOR_FLAG_DEFVAL = 0x0004       # Only set this if it doesn't exist
 
-# An index key can't ever be larger (lexicographically) than this
-MAX_INDEX_KEY = b'\xff' * 20
-
 # String vals of this size or larger will be truncated and hashed in index.  What this means is
 # that comparison on large string vals require retrieving the row from the main table
 LARGE_STRING_SIZE = 128
-
-# Largest length allowed for a prop
-MAX_PROP_LEN = 350
 
 # Smallest and largest values for an integer value.  Matches sqlite3
 MAX_INT_VAL = 2 ** 63 - 1
@@ -473,7 +464,7 @@ _INT_VAL_MARKER = 0
 _STR_VAL_MARKER = b'\x01'
 
 # Precompiled struct of a byte then a big-endian 64-bit int
-_LeMarkerUint_ST = struct.Struct('>BQ')
+_LeMarkerUintST = struct.Struct('>BQ')
 
 def encodeValAsKey(v: Union[str, int], isprefix=False) -> bytes:
     '''
@@ -488,9 +479,13 @@ def encodeValAsKey(v: Union[str, int], isprefix=False) -> bytes:
 
     Note that this scheme prevents interleaving of value types: all string encodings compare larger than all integer
     encodings.
+
+    Args:
+        v (Union[str, int]: the value.
+        isprefix: whether to interpret v as a prefix.  If true, strings will not be appended with a NULL.
     '''
     if isinstance(v, int):
-        return _LeMarkerUint_ST.pack(_INT_VAL_MARKER, v - MIN_INT_VAL)
+        return _LeMarkerUintST.pack(_INT_VAL_MARKER, v - MIN_INT_VAL)
     else:
         v_enc = v.encode('utf8', errors='surrogatepass')
         if len(v_enc) >= LARGE_STRING_SIZE:
