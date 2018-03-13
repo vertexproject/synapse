@@ -1,12 +1,6 @@
-import os
-import sys
-import subprocess
 import struct
 import itertools
 
-from typing import Union  # NOQA
-
-import lmdb  # used for type resolution
 import xxhash  # type: ignore
 
 import synapse.lib.msgpack as s_msgpack
@@ -466,7 +460,7 @@ _STR_VAL_MARKER = b'\x01'
 # Precompiled struct of a byte then a big-endian 64-bit int
 _LeMarkerUintST = struct.Struct('>BQ')
 
-def encodeValAsKey(v: Union[str, int], isprefix=False) -> bytes:
+def encodeValAsKey(v, isprefix=False):
     '''
     Encode a value (int or str) as used in a key into bytes so that prefix searches on strings and range searches
     on ints work.  The first encoded byte indicates
