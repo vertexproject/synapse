@@ -8,19 +8,20 @@ from collections import namedtuple, defaultdict
 
 import lmdb  # type: ignore
 
-import synapse.exc as s_exc
-import synapse.glob as s_glob
-import synapse.common as s_common
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
 import synapse.lib.queue as s_queue
 import synapse.lib.config as s_config
-import synapse.eventbus as s_eventbus
-import synapse.datamodel as s_datamodel
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 import synapse.lib.datapath as s_datapath
+
+import synapse.exc as s_exc
+import synapse.glob as s_glob
+import synapse.common as s_common
+import synapse.eventbus as s_eventbus
+import synapse.datamodel as s_datamodel
 
 logger = logging.getLogger(__name__)
 
@@ -673,7 +674,6 @@ class _IndexMeta:
             progressonly (bool): if True, only persists the progress (i.e. more dynamic) information
             txn (Optional[lmdb.Transaction]): if not None, will use that transaction to record data.  txn is
             not committed.
-
         Returns:
             None
         '''
@@ -697,6 +697,8 @@ class _IndexMeta:
 
     def iidFromProp(self, prop):
         '''
+        Args:
+            prop (str) The name of the indexed property
         Returns:
             int: the index id for the propname, None if not found
         '''
@@ -764,8 +766,9 @@ class _IndexMeta:
     def resumeIndex(self, prop):
         '''
         Undo a pauseIndex.
+
         Args:
-            prop: (Optional[str]):  the index to start indexing, or if None, indicate to resume all indices
+            prop (Optional[str]):  the index to start indexing, or if None, indicate to resume all indices
         Returns:
             None
         '''
@@ -773,7 +776,14 @@ class _IndexMeta:
             if prop is None or prop == idx.propname:
                 self.asleep[iid] = False
 
-    def markDeleteComplete(self, iid: int):
+    def markDeleteComplete(self, iid):
+        '''
+        Indicates that deletion of a single index is complete.
+
+        Args:
+            iid (int):  The index ID to mark as deleted
+        '''
+
         self.deleting.remove(iid)
         self.persist()
 
@@ -790,6 +800,11 @@ def _iid_un(iid):
 def _inWorker(callback):
     '''
     Gives the decorated function to the worker to run in his thread.
+
+    Args:
+        callback: the function to wrap
+    Returns:
+        the wrapped function
 
     (Just like inpool for the worker)
     '''
@@ -994,12 +1009,8 @@ class CryoTankIndexer:
             if recalc:
                 self._next_offset = self._meta.lowestProgress()
 
-            # loop_start_t = time.time()
-            import itertools
             record_tuples = self.cryotank.rows(self._next_offset, self._chunk_sz)
-            rt_copy1, rt_copy2 = itertools.tee(record_tuples)
-            # logger.debug('got: next_offset=%d, data=%s', self._next_offset, list(rt_copy1))
-            norm_gen = self._normalize_records(rt_copy2)
+            norm_gen = self._normalize_records(record_tuples)
             rowcount = self._writeIndices(norm_gen)
 
             self._removeSome()
@@ -1032,7 +1043,7 @@ class CryoTankIndexer:
         return self._meta.addIndex(prop, syntype, datapath, args)
 
     @_inWorker
-    def delIndex(self, prop: str):
+    def delIndex(self, prop):
         '''
         Deletes an index
 
@@ -1081,7 +1092,7 @@ class CryoTankIndexer:
             idxs[iid].update(self._meta.progresses.get(iid, {}))
         return list(idxs.values())
 
-    def _iterrows(self, prop: str, valu, exact=False):
+    def _iterrows(self, prop, valu, exact=False):
         '''
         Query against an index.
 
@@ -1100,7 +1111,7 @@ class CryoTankIndexer:
         '''
         iid = self._meta.iidFromProp(prop)
         if iid is None:
-            raise ValueError("%s isn't being indexed")
+            raise ValueError("%s isn't being indexed" % prop)
         iidenc = _iid_en(iid)
 
         islarge = valu is not None and isinstance(valu, str) and len(valu) >= s_lmdb.LARGE_STRING_SIZE
@@ -1179,7 +1190,7 @@ class CryoTankIndexer:
                         break
             yield offset, norm
 
-    def rawRecordsByPropVal(self, prop: str, valu=None, exact=False):
+    def rawRecordsByPropVal(self, prop, valu=None, exact=False):
         '''
         Query for raw (i.e. from the cryotank itself) records
 
