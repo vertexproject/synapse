@@ -25,6 +25,10 @@ There are a sizeable amount of changes included in v0.0.47.  A few items are hig
   * ``synapse.lib.heap`` has been removed.  It contained an implementation error and is no longer used in core Synapse code.
   * ``synapse.lib.atomfile`` has been changed to currently only support Linux.
 
+### Known Issues
+
+- #700 - The ``axon:upload`` handler on the ``AxonCell`` can allow bytes to be stored twice in the same ``BlobStor``.  This may result in a ``BlobStor`` having bytes which the ``AxonCell`` does not have direct knowledge of.  No data is lost here, but extra disk space may be consumed.
+
 ## New Features
 - #637, #650, #695 - Added ``synapse.lib.cell``.  This contains the ``Cell`` class and related helper classes.  The ``Cell`` is the base class for a microservices architecture.  Similar to a ``CoreModule``, the ``Cell`` is designed to be subclassed and have some functions overridden.  See ``Cell`` docstrings for additional notes.
 - #637, #695 - Added ``synapse.neuron`` module. This contains the ``Neuron()`` class which is used as a service directory for Synapse ``Cell`` based services.  The ``Neuron`` is responsible for doing service provisioning and service name resolution.  Additional documentation related to Neuron, Cell architectures will be included in a future Synapse release.
