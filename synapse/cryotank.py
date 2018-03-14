@@ -594,11 +594,7 @@ class CryoClient:
 # TODO: could index faster maybe if ingest/normalize is separate thread from writing
 # TODO:  what to do with subprops returned from getTypeNorm
 # TODO:  need a way to specify/load custom types
-
-# FIXME: improve datapath perf by precompile
-# FIXME: rip out typing
-# FIXME: move this file into cryotank.py
-# FIXME: fix variable names
+# TODO: improve datapath perf by precompile
 
 # Describes a single index in the system.
 _MetaEntry = namedtuple('_MetaEntry', ('propname', 'syntype', 'datapath'))
