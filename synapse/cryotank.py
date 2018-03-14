@@ -116,7 +116,7 @@ class CryoTank(s_config.Config):
                 info = {'time': tick, 'count': len(items), 'size': bytesize, 'took': took}
                 curs.put(lkey, s_msgpack.en(info), append=True)
 
-        self.fire('cryotank:puts')
+        self.fire('cryotank:puts', numrecords=len(itembyts))
 
         return retn
 
@@ -625,7 +625,7 @@ class _IndexMeta:
     more
     '''
 
-    def __init__(self, dbenv: lmdb.Environment) -> None:
+    def __init__(self, dbenv: lmdb.Environment):
         '''
         Creates metadata for all the indices.
 
@@ -718,8 +718,8 @@ class _IndexMeta:
             *args (str):  additional datapaths that will be tried in order if the first isn't present.
         Returns:
             None
-
-        N.B.  additional datapaths will be tried iff prior datapaths are not present, and *not* if
+        Note:
+            Additional datapaths will be tried iff prior datapaths are not present, and *not* if
         the normalization fails.
         '''
         if self.iidFromProp(prop) is not None:
@@ -758,8 +758,8 @@ class _IndexMeta:
             prop: (Optional[str]):  the index to stop indexing, or if None, indicate to stop all indices
         Returns:
             None
-
-        N.B. pausing is not persistent.  Restarting the process will resume indexing.
+        Note:
+            Pausing is not persistent.  Restarting the process will resume indexing.
         '''
         for iid, idx in self.indices.items():
             if prop is None or prop == idx.propname:
@@ -777,7 +777,7 @@ class _IndexMeta:
             if prop is None or prop == idx.propname:
                 self.asleep[iid] = False
 
-    def markDeleteComplete(self, iid: int) -> None:
+    def markDeleteComplete(self, iid: int):
         self.deleting.remove(iid)
         self.persist()
 
@@ -828,8 +828,9 @@ class CryoTankIndexer:
     the caller's thread.  Both reading and writing index metadata (that is, information about which indices are
     running) take place on the worker's thread.
 
-    N.B. The indexer cannot detect when a type has changed from underneath itself.   Operators must explicitly delete
-    and re-add the index to avoid mixed normalized data.
+    Note:
+        The indexer cannot detect when a type has changed from underneath itself.   Operators must explicitly delete
+        and re-add the index to avoid mixed normalized data.
     '''
     MAX_WAIT_S = 10
 
@@ -844,7 +845,6 @@ class CryoTankIndexer:
         '''
         self.cryotank = cryotank
         ebus = cryotank
-        self._going_down = False
         self._worker = threading.Thread(target=self._workerloop, name='CryoTankIndexer')
         path = s_common.gendir(cryotank.path, 'cryo_index.lmdb')
         cryotank_map_size = cryotank.lmdb.info()['map_size']
@@ -866,9 +866,9 @@ class CryoTankIndexer:
         self._worker.start()
 
         def _onfini():
-            self._going_down = True
             self._workq.done()
             self._worker.join(self.MAX_WAIT_S)
+            self._dbenv.close()
 
         ebus.onfini(_onfini)
 
@@ -1029,14 +1029,14 @@ class CryoTankIndexer:
             *args (str):  additional datapaths that will be tried in order if the first isn't present.
         Returns:
             None
-
-        N.B.  additional datapaths will be tried iff prior datapaths are not present, and *not* if
-        the normalization fails.
+        Note:
+            Additional datapaths will be tried iff prior datapaths are not present, and *not* if
+            the normalization fails.
         '''
         return self._meta.addIndex(prop, syntype, datapath, args)
 
     @_inWorker
-    def delIndex(self, prop: str) -> None:
+    def delIndex(self, prop: str):
         '''
         Deletes an index
 
@@ -1056,8 +1056,8 @@ class CryoTankIndexer:
             prop: (Optional[str]):  the index to stop indexing, or if None, indicate to stop all indices
         Returns:
             None
-
-        N.B. pausing is not persistent.  Restarting the process will resume indexing.
+        Note:
+            Pausing is not persistent.  Restarting the process will resume indexing.
         '''
         return self._meta.pauseIndex(prop)
 
@@ -1089,7 +1089,7 @@ class CryoTankIndexer:
         '''
         Query against an index.
 
-        Args;
+        Args:
             prop (str):  The name of the indexed property
             valu (Optional[Union[int, str]]):  The normalized value.  If not present, all records with prop present,
             sorted by prop will be returned.  It will be considered prefix if exact is False.
@@ -1099,7 +1099,8 @@ class CryoTankIndexer:
             Iterable[Tuple[int, bytes, bytes, lmdb.Transaction]: a generator of a Tuple of the offset, the encoded
             offset, the encoded index ID, and the LMDB read transaction.
 
-        N.B. ordering of Tuples disregard everything after the first 128 bytes of a property.
+        Note:
+            ordering of Tuples disregard everything after the first 128 bytes of a property.
         '''
         iid = self._meta.iidFromProp(prop)
         if iid is None:
