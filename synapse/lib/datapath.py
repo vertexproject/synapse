@@ -6,6 +6,43 @@ import synapse.common as s_common
 
 import synapse.lib.syntax as s_syntax
 
+def _parse_path(path: str):
+
+    ''' Parses a datapath into its parts '''
+
+    off = 0
+    steps = []
+
+    plen = len(path)
+    while off < plen:
+
+        # eat the next (or possibly a first) slash
+        _, off = s_syntax.nom(path, off, ('/',))
+
+        if off >= plen:
+            break
+
+        if s_syntax.is_literal(path, off):
+            elem, off = s_syntax.parse_literal(path, off)
+            steps.append(elem)
+            continue
+
+        # eat until the next /
+        elem, off = s_syntax.meh(path, off, ('/',))
+        if not elem:
+            continue
+
+        steps.append(elem)
+
+    return steps
+
+
+class DataPath:
+    ''' A pre-computation of a datapath. '''
+    def __init__(self, path: str) -> None:
+        self.path = path
+        self.steps = _parse_path(path)
+
 class DataElem:
 
     def __init__(self, item, name=None, parent=None):
@@ -43,9 +80,10 @@ class DataElem:
         '''
         Step to the given DataElem within the tree.
         '''
+        if isinstance(path, str):
+            path = DataPath(path)
         base = self
-        for step in self._parse_path(path):
-
+        for step in path.steps:
             spec = base._d_special.get(step)
             if spec is not None:
                 base = spec
@@ -73,6 +111,9 @@ class DataElem:
     def vals(self, path):
         '''
         Iterate the given path elements and yield values.
+
+        Args:
+            path (Union[str, Datapath]): the datapath string or a pre-computed one
 
         Example:
 
@@ -124,6 +165,9 @@ class DataElem:
         '''
         Iterate sub elements using the given path.
 
+        Args:
+            path (Union[str, Datapath]): the datapath string or a pre-computed one
+
         Example:
 
             data = { 'foo':[ {'bar':'lol'}, {'bar':'heh'} ] }
@@ -134,7 +178,10 @@ class DataElem:
                 dostuff(elem) # elem is at value "lol" and "heh"
 
         '''
-        steps = self._parse_path(path)
+
+        if isinstance(path, str):
+            path = DataPath(path)
+        steps = path.steps
         if not steps:
             return
 
@@ -178,34 +225,6 @@ class DataElem:
                     yield elem
                 else:
                     todo.append((elem, off + 1))
-
-    def _parse_path(self, path):
-
-        off = 0
-        steps = []
-
-        plen = len(path)
-        while off < plen:
-
-            # eat the next (or possibly a first) slash
-            _, off = s_syntax.nom(path, off, ('/',))
-
-            if off >= plen:
-                break
-
-            if s_syntax.is_literal(path, off):
-                elem, off = s_syntax.parse_literal(path, off)
-                steps.append(elem)
-                continue
-
-            # eat until the next /
-            elem, off = s_syntax.meh(path, off, ('/',))
-            if not elem:
-                continue
-
-            steps.append(elem)
-
-        return steps
 
 class XmlDataElem(DataElem):
 
