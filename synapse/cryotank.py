@@ -4,7 +4,7 @@ import struct
 import logging
 import threading
 import contextlib
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 
 import lmdb  # type: ignore
 
@@ -595,10 +595,37 @@ class CryoClient:
 # TODO: could index faster maybe if ingest/normalize is separate thread from writing
 # TODO:  what to do with subprops returned from getTypeNorm
 # TODO:  need a way to specify/load custom types
-# TODO: improve datapath perf by precompile
 
-# Describes a single index in the system.
-_MetaEntry = namedtuple('_MetaEntry', ('propname', 'syntype', 'datapath'))
+class _MetaEntry:
+    ''' Describes a single index in the system. '''
+    def __init__(self, propname: str, syntype: str, datapaths) -> None:
+        '''
+        Makes a MetaEntry
+
+        Args:
+            propname: The name of the key in the normalized dictionary
+            syntype: The synapse type name against which the data will be normalized
+            datapath (Iterable[str]) One or more datapath strings that will be used to find the field in a raw record
+        '''
+
+        self.propname = propname
+        self.syntype = syntype
+        self.datapaths = tuple(s_datapath.DataPath(d) for d in datapaths)
+
+    def en(self):
+        '''
+        Encodes a MetaEntry for storage
+        '''
+        return s_msgpack.en(self.asdict())
+
+    def asdict(self):
+        '''
+        Returns a MetaEntry as a dictionary
+        '''
+        return {'propname': self.propname,
+                'syntype': self.syntype,
+                'datapaths': tuple(d.path for d in self.datapaths)}
+
 
 # Big-endian 64-bit integer encoder
 _Int64be = struct.Struct('>Q')
@@ -609,7 +636,7 @@ class _IndexMeta:
 
     "Schema":
     b'indices' key has msgpack encoded dict of
-    { 'present': [8238483: {'propname': 'foo:bar', 'syntype': type, 'datapath': datapath}, ...],
+    { 'present': [8238483: {'propname': 'foo:bar', 'syntype': type, 'datapaths': (datapath, datapath2)}, ...],
       'deleting': [8238483, ...]
     }
     b'progress' key has mesgpack encoded dict of
@@ -622,7 +649,7 @@ class _IndexMeta:
     more
     '''
 
-    def __init__(self, dbenv: lmdb.Environment):
+    def __init__(self, dbenv: lmdb.Environment) -> None:
         '''
         Creates metadata for all the indices.
 
@@ -678,7 +705,7 @@ class _IndexMeta:
             None
         '''
         d = {'delete': self.deleting,
-             'present': {k: v._asdict() for k, v in self.indices.items()}}
+             'present': {k: metaentry.en() for k, metaentry in self.indices.items()}}
 
         with contextlib.ExitStack() as stack:
             if txn is None:
@@ -718,14 +745,14 @@ class _IndexMeta:
             None
         Note:
             Additional datapaths will be tried iff prior datapaths are not present, and *not* if
-        the normalization fails.
+            the normalization fails.
         '''
         if self.iidFromProp(prop) is not None:
             raise ValueError('index already added')
 
         s_datamodel.tlib.reqDataType(syntype)
         iid = int.from_bytes(os.urandom(8), 'little')
-        self.indices[iid] = _MetaEntry(propname=prop, syntype=syntype, datapath=(datapath,) + args)
+        self.indices[iid] = _MetaEntry(propname=prop, syntype=syntype, datapaths=(datapath,) + args)
         self.progresses[iid] = {'nextoffset': 0, 'ngood': 0, 'nnormfail': 0}
         self.persist()
 
@@ -867,7 +894,7 @@ class CryoTankIndexer:
         self._normtbl = self._dbenv.open_db(b'norms')
         self._to_delete = {}  # type: Dict[str, int]
         self._workq = s_queue.Queue()
-        # A dict of propname -> version, type, datapath dict
+        # A dict of propname -> MetaEntry
         self._meta = _IndexMeta(self._dbenv)
         self._next_offset = self._meta.lowestProgress()
         self._chunk_sz = 1000  # < How many records to read at a time
@@ -936,14 +963,15 @@ class CryoTankIndexer:
                     continue
                 try:
                     self._meta.progresses[iid]['nextoffset'] = offset + 1
-                    for datapath in idx.datapath:
+                    for datapath in idx.datapaths:
                         field = dp.valu(datapath)
                         if field is None:
                             continue
                         # TODO : what to do with subprops?
                         break
                     else:
-                        logger.debug('Datapaths %s yield nothing for offset %d', idx.datapath, offset)
+                        logger.debug('Datapaths %s yield nothing for offset %d',
+                                     [d.path for d in idx.datapaths], offset)
                         continue
                     normval, _ = s_datamodel.getTypeNorm(idx.syntype, field)
                 except (s_exc.NoSuchType, s_exc.BadTypeValu):
@@ -1087,7 +1115,7 @@ class CryoTankIndexer:
         Returns
             List[Dict[str: Any]]: all the indices with progress and statistics
         '''
-        idxs = {iid: dict(v._asdict()) for iid, v in self._meta.indices.items()}
+        idxs = {iid: dict(metaentry.asdict()) for iid, metaentry in self._meta.indices.items()}
         for iid in idxs:
             idxs[iid].update(self._meta.progresses.get(iid, {}))
         return list(idxs.values())
