@@ -387,6 +387,16 @@ class AxonTest(SynTest):
                 # Cloning should start up shortly
                 self.nn(blob01wait.wait(10))
 
+                newp = buid()
+                # These raise marshalled NoSuchFile exceptions
+                self.genraises(RetnErr, axon.bytes, newp)
+                self.raises(RetnErr, axon.locs, newp)
+
+                parts = []
+                for part in blob.bytes(newp):
+                    parts.append(part)
+                self.eq(parts, [])
+
             # Let everything get shut down by the busref fini
             logger.debug('Bringing everything back up')
             with s_eventbus.BusRef() as bref:
