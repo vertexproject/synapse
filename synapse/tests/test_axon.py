@@ -33,17 +33,17 @@ class AxonTest(SynTest):
             path0 = os.path.join(dirn, 'blob0')
             with s_axon.BlobStor(path0) as bst0:
 
-                buid = b'\x56' * 32
+                tbuid = b'\x56' * 32
                 blobs = (
-                    (buid + u64(0), b'asdf'),
-                    (buid + u64(1), b'qwer'),
-                    (buid + u64(2), b'hehe'),
-                    (buid + u64(3), b'haha'),
+                    (tbuid + u64(0), b'asdf'),
+                    (tbuid + u64(1), b'qwer'),
+                    (tbuid + u64(2), b'hehe'),
+                    (tbuid + u64(3), b'haha'),
                 )
 
                 bst0.save(blobs)
 
-                retn = b''.join(bst0.load(buid))
+                retn = b''.join(bst0.load(tbuid))
                 self.eq(retn, b'asdfqwerhehehaha')
 
                 # Order doesn't matter since we're indexed chunks
@@ -84,7 +84,7 @@ class AxonTest(SynTest):
 
                     bst1.addCloneRows(bst0.clone(0))
 
-                    retn = b''.join(bst1.load(buid))
+                    retn = b''.join(bst1.load(tbuid))
                     self.eq(retn, b'asdfqwerhehehaha')
                     retn = b''.join(bst1.load(buid2))
                     self.eq(retn, b'deadb33ff0resale')
@@ -100,12 +100,12 @@ class AxonTest(SynTest):
             path0 = os.path.join(dirn, 'blob0')
             with s_axon.BlobStor(path0) as bst0:
 
-                buid = b'\x56' * 32
+                tbuid = b'\x56' * 32
                 blobs = (
-                    (buid + u64(0), os.urandom(1000)),
-                    (buid + u64(1), b'qwer'),
-                    (buid + u64(2), b'hehe'),
-                    (buid + u64(3), b'haha'),
+                    (tbuid + u64(0), os.urandom(1000)),
+                    (tbuid + u64(1), b'qwer'),
+                    (tbuid + u64(2), b'hehe'),
+                    (tbuid + u64(3), b'haha'),
                 )  # 4 blocks, size 1000 + 4 + 4 + 4 = 1012 bytes
 
                 stats = bst0.stat()
@@ -126,12 +126,12 @@ class AxonTest(SynTest):
             path0 = os.path.join(dirn, 'blob0')
             with s_axon.BlobStor(path0) as bst0:
 
-                buid = b'\x56' * 32
+                tbuid = b'\x56' * 32
                 blobs = (
-                    (buid + u64(0), os.urandom(1000)),
-                    (buid + u64(1), b'qwer'),
-                    (buid + u64(2), b'hehe'),
-                    (buid + u64(3), b'haha'),
+                    (tbuid + u64(0), os.urandom(1000)),
+                    (tbuid + u64(1), b'qwer'),
+                    (tbuid + u64(2), b'hehe'),
+                    (tbuid + u64(3), b'haha'),
                 )  # 4 blocks, size 1000 + 4 + 4 + 4 = 1012 bytes
 
                 metrics = sorted(list(bst0.metrics()))
@@ -356,9 +356,9 @@ class AxonTest(SynTest):
                 self.len(1, locs)
                 self.isin('blob00', locs[0][0])
                 # Use the buid to retrieve the large file from blob01
-                buid = locs[0][1]
+                tbuid = locs[0][1]
                 testhash = hashlib.sha256()
-                for byts in blob01c.bytes(buid, timeout=3):
+                for byts in blob01c.bytes(tbuid, timeout=3):
                     testhash.update(byts)
                 self.eq(bbufhash, testhash.digest())
 
