@@ -182,8 +182,6 @@ class DataElem:
 
         '''
 
-        if isinstance(path, str):
-            path = DataPath(path)
         steps = path.steps
         if not steps:
             return

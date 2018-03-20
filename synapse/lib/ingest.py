@@ -657,7 +657,7 @@ class Ingest(EventBus):
 
             # handle explicit nested iterators
             for path, tifo in info.get('iters', ()):
-                for base in data.iter(path):
+                for base in data.iter(s_datapath.DataPath(path)):
                     self._ingDataInfo(core, base, tifo, scope)
 
     def _isCondTrue(self, cond, scope):
@@ -680,7 +680,7 @@ class Ingest(EventBus):
 
             return
 
-        for base in data.iter(path):
+        for base in data.iter(s_datapath.DataPath(path)):
 
             with scope:
 
