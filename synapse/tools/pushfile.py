@@ -11,12 +11,11 @@ def getArgParser():
     p.add_argument('cortex', help='telepath URL for a target cortex')
     p.add_argument('filenames', nargs='+', help='files to upload')
     p.add_argument('--tags', help='comma separated list of tags to add to the nodes')
-    #p.add_argument('--tag-force', type='bool', help='Force tag creation if they dont exist')
     return p
 
 def main(argv, outp=None):
 
-    if outp is None:
+    if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
 
     p = getArgParser()
@@ -47,5 +46,7 @@ def main(argv, outp=None):
 
             outp.printf('file: %s (%d) added (%s) as %s' % (base, size, iden, name))
 
-if __name__ == '__main__':
+    core.fini()  # Shut down the proxy
+
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(main(sys.argv[1:]))

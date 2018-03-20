@@ -1,6 +1,6 @@
-from synapse.lib.module import CoreModule, modelrev
+import synapse.lib.module as s_module
 
-class PolMod(CoreModule):
+class PolMod(s_module.CoreModule):
 
     @staticmethod
     def getBaseModels():

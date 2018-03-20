@@ -1,9 +1,9 @@
 import threading
 import collections
 
-from synapse.eventbus import EventBus
+import synapse.common as s_common
 
-class QueueShutdown(Exception): pass
+from synapse.eventbus import EventBus
 
 class Queue(EventBus):
     '''
@@ -16,7 +16,7 @@ class Queue(EventBus):
         self.event = threading.Event()
 
         self._que_done = False
-        self.onfini(self.event.set)
+        self.onfini(self.done)
 
     def __exit__(self, exc, cls, tb):
         self.done()
@@ -24,11 +24,10 @@ class Queue(EventBus):
 
     def __iter__(self):
         while not self.isfini:
-            ret = self.get()
-            if ret is None:
+            try:
+                yield self.get()
+            except s_common.IsFini as e:
                 return
-
-            yield ret
 
     def __len__(self):
         return self.size()
@@ -91,13 +90,52 @@ class Queue(EventBus):
                 except IndexError as e:
                     if self._que_done:
                         self.fini()
-                        return None
+                        raise s_common.IsFini()
+
+                self.event.clear()
+
+            if not self.event.wait(timeout=timeout):
+
+                if self.isfini:
+                    raise s_common.IsFini()
+
+                raise s_common.TimeOut()
+
+        raise s_common.IsFini()
+
+    def getn(self, timeout=None):
+        '''
+        Get the next item using the (ok, retn) convention.
+        '''
+        while not self.isfini:
+
+            # for perf, try taking a lockless shot at it
+            try:
+                retn = self.deq.popleft()
+                return True, retn
+
+            except IndexError as e:
+                pass
+
+            with self.lock:
+
+                try:
+
+                    retn = self.deq.popleft()
+                    return True, retn
+
+                except IndexError as e:
+                    if self._que_done:
+                        self.fini()
+                        return False, ('IsFini', {})
 
                 self.event.clear()
 
             self.event.wait(timeout=timeout)
             if not self.event.is_set():
-                return None
+                return False, ('TimeOut', {})
+
+        return False, ('IsFini', {})
 
     def put(self, item):
         '''
@@ -105,6 +143,9 @@ class Queue(EventBus):
 
         Args:
             item: Item to add to the queue.
+
+        Notes:
+            This will not add the item or wake any consumers if .done() has not been called on the Queue.
 
         Examples:
             Put a string in a queue::
@@ -114,9 +155,10 @@ class Queue(EventBus):
         Returns:
             None
         '''
-        with self.lock:
-            self.deq.append(item)
-            self.event.set()
+        if not self._que_done:
+            with self.lock:
+                self.deq.append(item)
+                self.event.set()
 
     def slice(self, size, timeout=None):
         '''
@@ -139,6 +181,10 @@ class Queue(EventBus):
         Returns:
             list: A list of items from the queue. This will return None on
                   fini() or timeout.
+
+        Raises:
+            synapse.exc.IsFini: Once the queue is fini
+            synapse.exc.TimeOut: If timeout it specified and has passed.
         '''
         while not self.isfini:
 
@@ -153,13 +199,18 @@ class Queue(EventBus):
 
                 if self._que_done and not self.deq:
                     self.fini()
-                    return None
+                    raise s_common.IsFini()
 
                 self.event.clear()
 
-            self.event.wait(timeout=timeout)
-            if not self.event.is_set():
-                return None
+            if not self.event.wait(timeout=timeout):
+
+                if self.isfini:
+                    raise s_common.IsFini()
+
+                raise s_common.TimeOut()
+
+        raise s_common.IsFini()
 
     def slices(self, size, timeout=None):
         '''
@@ -184,7 +235,8 @@ class Queue(EventBus):
         Yields:
             list: This generator yields a list of items.
         '''
-        ret = self.slice(size, timeout=timeout)
-        while ret is not None:
-            yield ret
-            ret = self.slice(size, timeout=timeout)
+        while not self.isfini:
+            try:
+                yield self.slice(size, timeout=timeout)
+            except s_common.IsFini as e:
+                return

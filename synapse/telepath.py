@@ -9,7 +9,7 @@ import collections
 
 import synapse.glob as s_glob
 import synapse.link as s_link
-import synapse.async as s_async
+import synapse.synasync as s_async
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus

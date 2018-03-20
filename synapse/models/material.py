@@ -1,9 +1,9 @@
 '''
 A data model focused on material objects.
 '''
-from synapse.lib.module import CoreModule, modelrev
+import synapse.lib.module as s_module
 
-class MatMod(CoreModule):
+class MatMod(s_module.CoreModule):
 
     @staticmethod
     def getBaseModels():

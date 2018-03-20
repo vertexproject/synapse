@@ -476,8 +476,6 @@ class Plex(EventBus):
                 # addressed copy of integers between -5 and 256 in. memory
                 logger.exception('Error during socket select. Culling fini or fileno==-1 sockets.')
                 [self._finiPlexSock(sck) for sck in self._plex_rxsocks.copy() if sck.isfini or sck.fileno() is -1]
-                [self._finiPlexSock(sck) for sck in self._plex_txsocks.copy() if sck.isfini or sck.fileno() is -1]
-                [self._finiPlexSock(sck) for sck in self._plex_xxsocks.copy() if sck.isfini or sck.fileno() is -1]
                 continue
 
             try:

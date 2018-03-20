@@ -2,13 +2,20 @@ import time
 import unittest
 import threading
 
-import synapse.async as s_async
+import synapse.synasync as s_async
 import synapse.lib.scope as s_scope
 import synapse.lib.threads as s_threads
 
 from synapse.tests.common import *
 
 class AsyncTests(SynTest):
+
+    def test_async_jobret(self):
+        job = (32 * '0', {
+            'err': 'RetnErr', 'errmsg': "RetnErr: excn='NotReady'",
+            'errfile': '/afile.py', 'errline': 123456, 'errinfo': {'excn': 'NotReady'}
+        })
+        self.raises(TypeError, s_async.jobret, job)  # jobret does not handle RetnErr
 
     def test_async_basics(self):
 

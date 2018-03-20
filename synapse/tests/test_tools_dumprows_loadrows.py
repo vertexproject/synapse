@@ -7,8 +7,7 @@ Unittests for the dumprows and loadrows tools.
 """
 import gzip
 
-import synapse.axon as s_axon
-
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tools.dumprows as s_dumprows
@@ -205,7 +204,7 @@ class DumpRowsTest(SynTest):
             self.eq(ret, 0)
 
             stat = os.stat(fp)
-            self.gt(stat.st_size, s_axon.megabyte * 4)
+            self.gt(stat.st_size, s_const.mebibyte * 4)
 
             # Now ensure our .mpk file is correct
             with open(fp, 'rb') as fd:

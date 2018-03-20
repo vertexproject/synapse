@@ -1,5 +1,4 @@
 import logging
-import collections
 
 import synapse.lib.cache as s_cache
 

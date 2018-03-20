@@ -1,6 +1,5 @@
 import os
 import datetime
-import collections
 
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
@@ -222,7 +221,7 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         Args:
 
         Returns:
-            (None)
+            None
         '''
         pass
 
@@ -232,8 +231,7 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         *after* the configuration data has been loaded.
 
         Returns:
-            (None)
-
+            None
         '''
         pass
 
@@ -340,7 +338,6 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         self.onfini(fini)
 
     def onNodeDel(self, func, form=None):
-
         '''
         Register a callback to run when a node is deleted.
 

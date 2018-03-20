@@ -46,6 +46,7 @@ def daemonize():
 
     if os.fork() != 0:
         exit()
+
 def getLibC():
     '''
     Return a ctypes reference to libc

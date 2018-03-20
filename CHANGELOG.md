@@ -1,6 +1,132 @@
 Changelog
 =========
 
+v0.0.47 - 2018-03-14
+--------------------
+
+## Summary
+
+There are a sizeable amount of changes included in v0.0.47.  A few items are highlighted here; please see the sections after the summary for a full list of new features and enhancements.
+
+### Notable New features
+
+- A new data storage object, the ``CryoTank``, has been introduced.  This utilizes LMDB to perform fast storage and retrieval of structured records.  This can be used to quickly store and retrieve large feeds of data.
+- A new service architecture has been implemented in Synapse.  This uses an asynchronous, generator based approach to networking and remote calling.  This has been utilized to reimplement the ``Axon`` storage (now ``AxonCell``), as well as implementing the networking protocol for the ``CryoTank``, the ``CryoCell``.  Detailed documentation for this service architecture will be included in future Synapse release.
+- A new LMDB key-value store helper has been added, the ``KvStor``.  This is used to implement persist dictionary and set objects, which are used as helpers to the ``Cell``.  Previously, a service could use their own Cortex as a simple KV store, but that was potentially heavy thing to do.  This alternative is considerably lighter for these simple use cases.
+- Storm now supports the use of subquery filters.  An example query is the following:  ``inet:dns:a -{ :ipv4 -> inet:ipv4 +cc=us } `` which will lift all ``inet:dns:a`` nodes, then filter nodes whose IPv4 address has a ``us`` country code. Detailed documentation for this will be added in a future Synapse release.
+
+### Backwards Incompatible Changes
+
+- A global socket multiplexor, implemented using EPOLL, has been added to Synapse.  This change means that Synapse will only work on Linux at the moment.  The Vertex Project does plan on restoring Windows and OSX support in a future release.
+- The Cortex Splice format has changed, in order to support better filtration.  This requires that splice producers and splice consumers update simultaneously to v0.0.47.  If users have existing splice logs that need to be updated, a helper function has been written to to convert an existing splice log file to the new format.  See the notes below for additional information.
+- The following Synapse components have been removed or altered significantly:
+  * ``synapse.axon`` has been rewritten substantially.  In addition, it no longer imports ``synapse.lib.hashset`` using a star import.
+  * ``synapse.lib.persist`` has been removed.  It is no longer used in core Synapse code.
+  * ``synapse.lib.heap`` has been removed.  It contained an implementation error and is no longer used in core Synapse code.
+  * ``synapse.lib.atomfile`` has been changed to currently only support Linux.
+
+### Known Issues
+
+- #700 - The ``axon:upload`` handler on the ``AxonCell`` can allow bytes to be stored twice in the same ``BlobStor``.  This may result in a ``BlobStor`` having bytes which the ``AxonCell`` does not have direct knowledge of.  No data is lost here, but extra disk space may be consumed.
+
+## New Features
+- #637, #650, #695 - Added ``synapse.lib.cell``.  This contains the ``Cell`` class and related helper classes.  The ``Cell`` is the base class for a microservices architecture.  Similar to a ``CoreModule``, the ``Cell`` is designed to be subclassed and have some functions overridden.  See ``Cell`` docstrings for additional notes.
+- #637, #695 - Added ``synapse.neuron`` module. This contains the ``Neuron()`` class which is used as a service directory for Synapse ``Cell`` based services.  The ``Neuron`` is responsible for doing service provisioning and service name resolution.  Additional documentation related to Neuron, Cell architectures will be included in a future Synapse release.
+- #650, #679 - The ``synapse.axon.Axon`` implementation was removed, and replaced by a new ``AxonCell`` and ``BlobCell`` implementations.  This decouples the ``Axon`` idea from the ``Cortex`` implementation, and makes the ``AxonCell`` solely responsible for storing files and doing retrieval by SHA256 hash.  The ``AxonCell`` acts as a indexing master, while multiple ``BlobCells`` need to be used in order to store files. The  ``AxonClient`` helper is available to interact with a ``AxonCell``, while the ``BlobClient`` is available to interact with the ``BlocCell``.  The use of this new storage implementation does require the deployment of a ``Neuron``, since these are all ``Cell`` based services.  Additional documentation related to Axon architecture will be included in a future Synapse release.
+- #637, #654, #655, #674 - Added a new module, ``synapse.cryotank``. It contains a ``CryoTank()`` class, which is used for storing structured data (anything that can be msgpacked) into a LMDB database.  It also contains a ``CryoCell()`` class for creation, management, deletion of ``CryoTank`` objects, as well as for putting data into remote ``CryoTank``’s.  It has a ``CryoClient()`` helper object which can be used to interact with the remote ``CryoCell``.
+- #648, #649, #672, #674, #675 - Added ``synapse.tools.cryo.cat`` to look at data from remote ``CryoTank``s, dump that data to disk in different formats, or add data to a remote ``CryoTank`` when reading data from stdin.
+- #681 - Add ``cellpool:conf`` config option to the ``Cortex``.  This is a dictionary which takes three value, a ``auth`` blob for talking to a ``Neuron``, as well as the ``host`` and ``port`` used to connect to the ``Neuron``.  The configuration of a ``cellpool:conf``, and subsequentially ``axon:name``, is required in order to allow a ``Cortex`` to save bytes to a ``AxonCell`` using the ``formNodeByBytes()`` and ``formNodeByFd()`` APIs.
+- #637 - Added ``RetnWait()`` to the ``synapse.lib.thread``.  This can (and should) be used as a context manager, which can emulate a synchronous callback occuring, while waiting for a local ``thread.event`` to be set.
+- #650 - Added ``synapse.lib.lmdb``. This contains several LMDB related classes for future use with new Cortex storage layers.  The APIs for these objects should not be considered stable for third party use at this time.
+- #637, #642, #658 - Added a new module, ``synapse.lib.net``, to handle asynchronous networking code.  This includes a new EPoll based multiplexer for Socket IO.  An instance of this plex is used as part of a global plex (located in ``synapse.glob``).  This change currently makes Synapse only compatible with Linux operating systems.  Eventually, we’ll re-add Windows and OSX support in a future release.
+- #687 - Added ``ps:persona`` and ``ps:persona:has`` forms to represent the idea of a persona.
+- #637 - Added a new way to marshall exceptions, ``synapse.common.getexcfo()`` which will be the preferred way to marshall exceptions moving forward for Synapse code.
+- #636, #638, #676, #678, #689 - Added the ``synapse.lib.crypto`` module.  This contains several new modules.  ``synapse.lib.crypto.tinfoil`` contains a simple AESGCM encryption/decryption class called ``TinFoilHat``.  ``synapse.lib.crypto.ecc`` contains helpers for doing ECC key pair generation and doing ECDHE key exchange.  ``synapse.lib.crypto.vault`` contains a ``Vault()`` class. The ``Vault()`` can be used to store key pairs and do key signing locally.
+- #634 - The Storm CLI command ``jointags()`` was split into ``jointags()`` and ``pivottags()`` which behave similarly to the ``pivot()`` and ``refs()`` commands, respectively. The old default behavior for ``jointags()`` was moved to ``pivottags()``, and the current ``jointags()`` behavior now reflects the old ``jointags(keep_nodes=1)`` behavior.
+- #628, #659 - Added ``synapse.lib.kv``.  This module contains the ``KvStor()`` class; which implements a LMDB backed kv-store.  An instance of the ``KvStor()`` object can be used to get ``KvLook()``, ``KvDict()`` and ``KvSet()`` objects.  The ``KvLook`` can be used to do ``key=valu`` type storage, which is directly backed by the LMDB database.  The ``KvDict`` can be used for ``key=valu`` storage, but it also keeps a in-memory dictionary of the contents to avoid database lookups.  The ``KvSet`` can be treated similarly to a ``set()`` object, but addition and removal is backed by the LMDB database.
+- #691 - Added a initial HTTP model for tracking to the ``inet`` model.  Added ``inet:http:request``, ``inet:http:response``, ``inet:http:header``, ``inet:http:param``, ``inet:http:reqhead``, and ``inet:http:reqparam`` forms.
+- #606 - Added ``synapse.lib.membrane`` and ``Membrane()`` class.  The ``Membrane`` object can be used as a filter on the events fired by a ``EventBus`` to determine whether or not they are sent to a function provided to the ``Membrane()`` object.
+- #606 - Added a ``membranes`` config option to the ``Cortex`` which applies rules to ``splice`` events and puts splices into a named ``Fifo`` for later consumption.
+
+## Enhancements
+- #667 - Added subquery based filtration for Storm. Subqueries take all of the query nodes, apply either a positive or negative a filter to those nodes, and then add matching nodes back to the query results.
+- #685 - Migrated ``ou:has``\* forms to a generic ``ou:org:has`` Xref form.  Add ``seen:min`` and ``seen:max`` secondary properties.
+- #650 - Added ``genraises()`` API to ``synapse.lib.iq.SynTest``. This mimics the ``raises()`` API, but expects the function to be a generator. This consumes the generator in a bound local and expects that to raise.
+- #650 - Added ``getAxonCore()`` API to ``synapse.lib.iq.SynTest`` to get a ``TstEnv`` instance which has a Axon, Cortex, Blob, Neuron, Daemon and clients configured already.
+- #650 - Added ``synapse.common.ehex()``/``synapse.common.uhex()`` wraps around ``binascii.hexlify()`` and ``binascii.unhexlify()`` APIs.
+- #650 - Added ``synapse.common.buid()`` to generate a 32 byte hash. Unlike the ``guid()`` API, this returns bytes.  It can take a msgpackable object to generate a stable buid.
+- #650 - Added ``synapse.common.spin()`` to consume a generator and discard the results as fast as possible.
+- #686 - Updated ``synapse.tools.autodoc`` to extract configable docs for a defined list of classes which use the ``initConfDefs()`` API to to define their config options.
+- #650 - Added ``initConfDefs()`` API to ``synapse.lib.config.Configable()``. This function is executed during ``__init__``. It is intended to be overridden by implementers, and will replace use of the ``@confdef`` decorator function over time. Care must be taken by implementers when class mixing or inheriting that a new class properly calls or overrides  ``initConfDefs``.
+- #650 - Updated ``synapse.lib.queue.Queue`` behavior to raise an exception (``IsFini`` or ``TimeOut``) when ``get()`` has no objects to return.  Previously this returned ``None``; however it was impossible to distinguish if the queue legitimately returned ``None`` or there was a timeout or if the ``Queue`` had been fini’d.
+- #673, #681 - Changed the ``Cortex`` config option of ``axon:url`` to be ``axon:name``.  This is the name of the ``AxonCell`` resolve via the cores’ ``CellPool``.
+- #670 - ``ou:hasalias`` form to note when a org has an alias or alternative name.
+- #671, #687 - Migrated ``ps:has``\* forms to a single ``ps:person:has`` xref form.  Add ``seen:min`` and ``seen:max`` secondary properties.
+- #631 - The ``synapse.async`` module was renamed to ``synapse.synasync`` in order to allow for future compatibility with Python 3.7.
+- #637, #650 - Added ``iterfile()``, ``loadfile()`` and ``dumpfile()`` APIs to ``synapse.lib.msgpack``. These iterate over a file, load the contents of a file, and save a value to a file, respectively.
+- #637 - Removed ``synapse.lib.heapfile``. It had implementation errors which caused issues with data recovery and is no longer used for backing ``Axon`` storage.  In addition, ``synapse.lib.persist`` was also removed since it is no longer being used.
+- #637 - Added ``synapse.lib.const`` to store constants.
+- #637 - The ``AtomFile`` implementations were simplified to use ``pread``/``pwrite`` and drop memory mapped file support.
+- #637 - A new decorator API, ``inpool`` was added to fire functions in the synapse global thread pool.  This is available from ``synapse.glob``.  Assuming ``synapse.glob`` is imported as ``s_glob``, it can decorate functions as ``@s_glob.inpool``.
+- #637 - The ``DmonConf()`` class has been updated to parse a ``cells`` directive, which can be used to launch ``Cell`` based objects. These objects are run in their own processes.
+- #640, #641 - The ``SynTest`` helper function ``getLoggerStream()`` now yields a ``io.StringIO`` object which is mixed in with a ``threading.Event`` object. In addition, the ``getLoggerStream()`` now takes a second, optional, argument which must be a string.  When a log message containing that string is logged, the event will be set.  This allows writing tests which wait for a log message to be logged prior to continuing the test.
+- #635 - Added  ``seen:min`` and ``seen:max`` secondary properties to ``inet:dns:req``.
+- #632 - Added ``loadConfPath()`` API to ``syapse.lib.config.Configable`` to load configuration options from a JSON file at a given path.
+- #629 - Changed the``digests()`` API in ``synapse.lib.hashset.HashSet()`` to return the digests in bytes instead hex.
+- #627 - Added a ``waitall()`` API to ``synapse.lib.iq.TestSteps()`` to wait for all steps to complete.
+- #626 - Added ``lockfile()`` API to ``synapse.common``. This is a helper for advisory locking around a file provided by the ``fcntl`` library.
+- #620 - In Storm, lifts by form which are followed by a positive tag filter are now optimized to use a single lift-by-tag operation at the storage layer.
+- #615 - The use of limits in the Storm query language has been normalized. For operators which consume the input set of nodes, a limit applies a maximum number of nodes to the output set. For operators which do not consume the input set of nodes, a limit applies to the maximum number of nodes added to the current working set.
+- #619 - Add test showing that read-only properties can be set via ingest if they do not previously exist.
+- #614 - Added a ``--importfile`` switch to the ``synapse.tools.easycert`` tool to assist with easily importing a certificate file to their certdir.
+- #616 - Added ``isTufoProp()`` API to the ``DataModel`` to check to see if a property is a valid prop for the currently loaded data model.
+- #600 - Splices format was changed to better encapsulate the splice to support filtering.  Old splice logs will not be replayable as is, and can be converted with ``synapse.lib.splices.convertSpliceFd()``.  This change is backwards incompatible with previous versions of synapse.
+- #611 - Added ``seen:min`` and ``seen:max`` secondary properties to ``inet:urlredir``.
+- #610 - Splice Pump producers have debug messages logged about splice consumption, errors, and remaining splices.
+
+## Bugs
+- #690 - Defvals passed to configuration options for ``synapse.lib.config.Configable`` will now smash existing values for a given option when they are set.
+- #493, #677 - Removed unused (and not working) ``ssh://`` link implementation stub.
+- #669 - Removed unused ``parse_macro_join`` function from ``synapse.lib.syntax``.
+- #668 - Fix an issue where the ``inet:fqdn`` normalization would allow an internationalized domain to be stored after doing IDNA encoding, but would fail to render in the Storm CLI due to it actually being invalid Punycode.  The raw string is now returned if the string starts with ``xn--``.  This is a harsh reminder the world is not tidy.
+- #657 - Fix race conditions related to ``Fifo`` resync/ack/push operations.
+- #652 - The ``synapse.lib.queue.Queue`` object would accept additional data after it had either ``done()`` or ``fini()`` called on it.  This is no longer allowed.
+- #651 - Fix a bug in ``synapse.lib.config.Configable`` where config options passed in during ``__init__`` were set prior to all confdefs being loaded.
+- #637 - ``synapse.common.gendirs()`` would fail if the directories needed to be made by ``os.makedirs()`` already existed.  This has been fixed.
+- #633 - Removed ``py`` command from the base CLI commands. This could be used to perform authenticated remote code execution as the process running the Daemon object that a user connected to.
+- #623 - ``node:del`` events fired by ``Cortex.delTufo()`` were incorrectly setting the primary property on the ``node:del`` events. This was preventing tag deletion from working properly.
+- #617 - Clean up ``Cortex`` fifo APIs to not automatically incref ``Fifo`` objects for every object access.
+- #618 - Refactored ``Cortex.__init__()`` to allow using the ``syn:cortex`` alias to start up a ``Cortex`` via a ``Daemon`` properly.
+- #616 - Fix bug in ``_initCoreFifo`` which prevented Fifo’s from being initialized on startup properly. Changed the ``syn:fifo`` node to a comp type.
+
+## Documentation
+- #630 - Updated docstrings in ``synapse.lib.sqlite``.
+
+
+v0.0.46 - 2018-03-06
+--------------------
+
+## Bugs
+- Pull in version bounds for third-party packages from the master branch. This addresses an immediate issue where Synapse fails to work with a pypi installation and Tornado 5.0.0 is installed.
+
+
+v0.0.45 - 2018-02-13
+--------------------
+
+## New Features
+- #661 - Added the ``inet:group`` form and type. This is analogous to the ``inet:user`` form for tracking a given group name.
+
+## Enhancements
+- #666 - Add ``ps:person:name:en`` and various ``name:en`` subprops props to distinguish between localized and English versions of names.
+- #661 - The ``inet:web:group`` form was made more robust. The second field of the sepr type was renamed to ``:id`` to represent a site specific identifier, freeing the ``:name`` property up to represent a descriptive name of the group.  ``:name:en`` was added to provide for a English version of the name.  ``:signup``, ``:signup:ipv4`` and ``signup:ipv6`` props were added to track when groups were created.  ``:loc`` and ``:latlong`` props were added to allow for some location based tracking.  ``:seen:min`` and ``:seen:max`` secondary properties were added to track when a group was active.
+- #662 - The python ``msgpack`` library was version locked to 0.5.1.
+- #663 - Added ``:name:en`` and ``:realname:en`` secondary props to ``inet:web:acct`` for tracking English specific versions of a name.
+
+## Bugs
+- #624 - The ``ps:person`` was missing the ``:name:middle`` field. This has been added.
+- #660 - The ``ou:member`` form was broken. This has been changed to be a Comp type and had the secondary property ``:end`` added to it.
+
+
 v0.0.44 - 2018-01-11
 --------------------
 
@@ -578,7 +704,7 @@ Since there are significant changes to how we handle models and storage layers i
 - #286 - Easycert tool can make PKCS12 client certs.
 - #333 - Comp types now support optional kw fields, allowing recording of varying levels of knowledge for a given type.
 - #321 - SSL Support added to the webapp
-- #289, #290, #301 - Add support for a blob key/value store to the Cortex which exists separately from the Row layer storage. 
+- #289, #290, #301 - Add support for a blob key/value store to the Cortex which exists separately from the Row layer storage.
 - #291, #292, #301 - Add support for storage layers to be revisioned independently of models.
 - #300, #342 - Add support for sending BODY content via remcycle
 - #348, #350 - Add a guid() operator to storm for lifting a node by iden.

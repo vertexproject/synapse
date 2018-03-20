@@ -206,6 +206,22 @@ class KvTest(SynTest):
                 self.none(kdic.get('lol'))
                 self.nn(kdic.get('vertex'))
 
+            # Make sure we store updates to mutable objects
+            with s_kv.KvStor(path) as stor:  # type: s_kv.KvStor
+                kdic = stor.getKvDict('haha')
+
+                v = {'a': 3, 'b': 'foo'}
+                kdic.set('alpha', v)
+                self.eq(kdic.get('alpha'), v)
+
+                # change internal dictionary value
+                v['a'] = 5
+                kdic.set('alpha', v)
+
+            with s_kv.KvStor(path) as stor:  # type: s_kv.KvStor
+                kdic = stor.getKvDict('haha')
+                self.eq(kdic.get('alpha')['a'], 5)
+
     def test_lib_kv_look(self):
 
         with self.getTestDir() as dirn:

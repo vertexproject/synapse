@@ -20,6 +20,8 @@ use to be invoked via the built-in Unittest library.
 """
 import io
 import os
+import sys
+import time
 import types
 import shutil
 import logging
@@ -29,17 +31,21 @@ import threading
 import contextlib
 import collections
 
+import synapse.axon as s_axon
 import synapse.link as s_link
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.neuron as s_neuron
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
 import synapse.cores.common as s_cores_common
 
+import synapse.lib.cell as s_cell
 import synapse.lib.scope as s_scope
 import synapse.lib.output as s_output
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)
@@ -184,6 +190,15 @@ class TestSteps:
             self.wait(name, timeout=timeout)
         return True
 
+    def clear(self, step):
+        '''
+        Clear the event for a given step.
+
+        Args:
+            step (str): The name of the step.
+        '''
+        self.steps[step].clear()
+
 class CmdGenerator(s_eventbus.EventBus):
     '''
     Generates a callable object which can be used with unittest.mock.patch in
@@ -248,6 +263,33 @@ class CmdGenerator(s_eventbus.EventBus):
         if callable(self.end_action) and issubclass(self.end_action, BaseException):
             raise self.end_action('No further actions')
         raise Exception('Unhandled end action')
+
+class StreamEvent(io.StringIO, threading.Event):
+    '''
+    A combination of a io.StringIO object and a threading.Event object.
+    '''
+    def __init__(self, *args, **kwargs):
+        io.StringIO.__init__(self, *args, **kwargs)
+        threading.Event.__init__(self)
+        self.mesg = ''
+
+    def setMesg(self, mesg):
+        '''
+        Clear the internal event and set a new message that is used to set the event.
+
+        Args:
+            mesg (str): The string to monitor for.
+
+        Returns:
+            None
+        '''
+        self.mesg = mesg
+        self.clear()
+
+    def write(self, s):
+        io.StringIO.write(self, s)
+        if self.mesg and self.mesg in s:
+            self.set()
 
 class SynTest(unittest.TestCase):
 
@@ -439,6 +481,7 @@ class SynTest(unittest.TestCase):
                 ('default_foo', {'subof': 'str'},),
                 ('guidform', {'subof': 'guid'},),
                 ('pvsub', {'subof': 'str'}),
+                ('compfqdn', {'subof': 'comp', 'fields': 'guid=guid,fqdn=inet:fqdn'}),
             ),
             'forms': (
                 (
@@ -487,10 +530,107 @@ class SynTest(unittest.TestCase):
                         ('prop', {'ptype': 'str', 'ro': 1}),
                     )
                 ),
+                (
+                    'compfqdn', {'ptype': 'compfqdn'},
+                    (
+                        ('guid', {'ptype': 'guid', 'ro': 1}),
+                        ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
+                        ('seen:min', {'ptype': 'time:min'}),
+                        ('seen:max', {'ptype': 'time:max'}),
+                    )
+                ),
+
             )
         }
         core.addDataModel('tst', modl)
         core.addTufoProp('inet:fqdn', 'inctest', ptype='int', defval=0)
+
+    @contextlib.contextmanager
+    def getAxonCore(self):
+        '''
+        Get a TstEnv instance which is preconfigured with a Neuron, Blob, Axon, Daemon and Cortex.
+
+        Notes:
+            The following items are available in the TstEnv:
+
+            * dirn: Temporary test directory.
+            * axon_client: A Axon client object.
+            * core_url: The Telepath URL to the Cortex so a connection can be made to the Cortex
+              shared by the Daemon.
+            * dmon_port: Port the Daemon is listening on.
+            * dmon: A Daemon which is listening on 127.0.0.1:0. It is preconfigured to share the Cortex.
+            * core: A Cortex.
+            * axon_sess: The client session for the Axon.
+            * axon: The AxonCell.
+            * blob: The BlobCell backing the Axon.
+            * neuron: The Neuron.
+
+        Yields:
+            TstEnv: A TstEnv instance.
+        '''
+        with self.getTestDir() as dirn:
+            neurconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
+            neurpath = s_common.gendir(dirn, 'neuron')
+            neur = s_neuron.Neuron(neurpath, neurconf)
+            neurhost, neurport = neur.getCellAddr()
+
+            blobpath = s_common.gendir(dirn, 'blob')
+            blobconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
+            blobauth = neur.genCellAuth('blob')
+            s_msgpack.dumpfile(blobauth, os.path.join(blobpath, 'cell.auth'))
+            blob = s_axon.BlobCell(blobpath, blobconf)
+            self.true(blob.cellpool.neurwait(timeout=3))
+
+            axonpath = s_common.gendir(dirn, 'axon')
+            axonauth = neur.genCellAuth('axon')
+            s_msgpack.dumpfile(axonauth, os.path.join(axonpath, 'cell.auth'))
+            axonconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0, 'axon:blobs': ('blob@localhost',)}
+            axon = s_axon.AxonCell(axonpath, axonconf)
+            self.true(axon.cellpool.neurwait(timeout=3))
+            axonhost, axonport = axon.getCellAddr()
+
+            # wait for the axon to have blob
+            ready = False
+            for i in range(30):
+                if axon.blobs.items():
+                    ready = True
+                    break
+                time.sleep(0.1)
+            self.true(ready)
+
+            axon_user = s_cell.CellUser(axonauth)
+            axon_sess = axon_user.open((axonhost, axonport))
+            axon_client = s_axon.AxonClient(axon_sess)
+
+            core = s_cortex.openurl('ram:///')
+            self.addTstForms(core)
+
+            cellpoolconf = {'host': neurhost, 'port': neurport, 'auth': axonauth}
+            core.setConfOpt('cellpool:conf', cellpoolconf)
+            core.setConfOpt('axon:name', 'axon@localhost')
+
+            dmon = s_daemon.Daemon()
+            dmonlink = dmon.listen('tcp://127.0.0.1:0/')
+            dmonport = dmonlink[1].get('port')
+            dmon.share('core', core)
+            coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
+
+            env = TstEnv()
+            env.add('dirn', dirn)
+            env.add('axon_client', axon_client)
+            env.add('core_url', coreurl)
+            env.add('dmon_port', dmonport)
+            # Order matter for clean fini
+            env.add('dmon', dmon, True)
+            env.add('core', core, True)
+            env.add('axon_sess', axon_sess, True)
+            env.add('axon', axon, True)
+            env.add('blob', blob, True)
+            env.add('neuron', neur, True)
+            try:
+                yield env
+            finally:
+                env.fini()
 
     @contextlib.contextmanager
     def getRamCore(self):
@@ -567,12 +707,14 @@ class SynTest(unittest.TestCase):
             shutil.rmtree(tempdir, ignore_errors=True)
 
     @contextlib.contextmanager
-    def getLoggerStream(self, logname):
+    def getLoggerStream(self, logname, mesg=''):
         '''
         Get a logger and attach a io.StringIO object to the logger to capture log messages.
 
         Args:
             logname (str): Name of the logger to get.
+            mesg (str): A string which, if provided, sets the StreamEvent event if a message
+            containing the string is written to the log.
 
         Examples:
             Do an action and get the stream of log messages to check against::
@@ -580,14 +722,43 @@ class SynTest(unittest.TestCase):
                 with self.getLoggerStream('synapse.foo.bar') as stream:
                     # Do something that triggers a log message
                     doSomthing()
-                    stream.seek(0)
-                    mesgs = stream.read()
+
+                stream.seek(0)
+                mesgs = stream.read()
                 # Do something with messages
 
+            Do an action and wait for a specific log message to be written::
+
+                with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
+                    # Do something that triggers a log message
+                    doSomthing()
+                    stream.wait(timeout=10)  # Wait for the mesg to be written to the stream
+
+                stream.seek(0)
+                mesgs = stream.read()
+                # Do something with messages
+
+            You can also reset the message and wait for another message to occur::
+
+                with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
+                    # Do something that triggers a log message
+                    doSomthing()
+                    stream.wait(timeout=10)
+                    stream.setMesg('yo dawg')  # This will now wait for the 'yo dawg' string to be written.
+                    stream.wait(timeout=10)
+
+                stream.seek(0)
+                mesgs = stream.read()
+                # Do something with messages
+
+        Notes:
+            This **only** captures logs for the current process.
+
         Yields:
-            io.StringIO: A io.StringIO object
+            StreamEvent: A StreamEvent object
         '''
-        stream = io.StringIO()
+        stream = StreamEvent()
+        stream.setMesg(mesg)
         handler = logging.StreamHandler(stream)
         slogger = logging.getLogger(logname)
         slogger.addHandler(handler)
@@ -771,3 +942,51 @@ class SynTest(unittest.TestCase):
         self.len(2, obj)
         self.isinstance(obj[0], (type(None), str))
         self.isinstance(obj[1], dict)
+
+    @contextlib.contextmanager
+    def redirectStdin(self, new_stdin):
+        '''
+        Temporary replace stdin.
+
+        Args:
+            new_stdin(file-like object):  file-like object.
+
+        Examples:
+            inp = io.StringIO('stdin stuff\nanother line\n')
+            with self.redirectStdin(inp):
+                main()
+
+            Here's a way to use this for code that's expecting the stdin buffer to have bytes.
+            inp = Mock()
+            inp.buffer = io.BytesIO(b'input data')
+            with self.redirectStdin(inp):
+                main()
+
+
+        Returns:
+            None
+        '''
+        old_stdin = sys.stdin
+        sys.stdin = new_stdin
+        yield
+        sys.stdin = old_stdin
+
+    def genraises(self, exc, gfunc, *args, **kwargs):
+        '''
+        Helper to validate that a generator function will throw an exception.
+
+        Args:
+            exc: Exception class to catch
+            gfunc: Generator function to call.
+            *args: Args passed to the generator function.
+            **kwargs: Kwargs passed to the generator function.
+
+        Notes:
+            Wrap a generator function in a list() call and execute that in a
+            bound local using ``self.raises(exc, boundlocal)``. The ``list()``
+            will consume the generator until complete or an exception occurs.
+        '''
+        def testfunc():
+            return list(gfunc(*args, **kwargs))
+
+        self.raises(exc, testfunc)

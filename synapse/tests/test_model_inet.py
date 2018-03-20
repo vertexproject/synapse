@@ -1,4 +1,5 @@
 # -*- coding: UTF-8 -*-
+import synapse.common as s_common
 import synapse.lib.time as s_time
 import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
@@ -178,6 +179,8 @@ class InetModelTest(SynTest):
             self.eq(t0[1].get('inet:ipv4'), 0x01020304)
             self.eq(t0[1].get('inet:ipv4:asn'), -1)
 
+            self.raises(BadTypeValu, core.formTufoByProp, 'inet:ipv4', [])
+
     def test_model_inet_ipv6(self):
 
         with self.getRamCore() as core:
@@ -328,6 +331,7 @@ class InetModelTest(SynTest):
             prop = 'inet:fqdn'
             idna_valu = 'xn--tst-6la.xn--xampl-3raf.link'
             unicode_valu = 'tèst.èxamplè.link'
+            unicode_cap_valu = 'tèst.èxaMplè.link'
             parents = (
                     ('xn--xampl-3raf.link', {'inet:fqdn:host': 'xn--xampl-3raf', 'inet:fqdn:domain': 'link', 'inet:fqdn:zone': 1, 'inet:fqdn:sfx': 0}),
                     ('link', {'inet:fqdn:host': 'link', 'inet:fqdn:domain': None, 'inet:fqdn:zone': 0, 'inet:fqdn:sfx': 1}),
@@ -345,7 +349,9 @@ class InetModelTest(SynTest):
 
             idna_tufo = core.formTufoByProp(prop, idna_valu)
             unicode_tufo = core.formTufoByProp(prop, unicode_valu)
+            unicode_cap_tufo = core.formTufoByProp(prop, unicode_cap_valu)
             self.eq(unicode_tufo, idna_tufo)
+            self.eq(unicode_tufo, unicode_cap_tufo)
 
         with self.getRamCore() as core:
             prop = 'inet:web:acct'
@@ -367,6 +373,22 @@ class InetModelTest(SynTest):
             valu = '%s://%s/%s' % ('https', 'xn--tst-6la.xn--xampl-3raf.link', 'things')
             tufo = core.formTufoByProp(prop, valu)
             self.eq(tufo[1].get('inet:url'), 'https://xn--tst-6la.xn--xampl-3raf.link/things') # hostpart is not normed in inet:url
+
+    def test_model_inet_fqdn_idna(self):
+
+        with self.getRamCore() as core:
+            prop = 'inet:fqdn'
+            valu = 'xn--lskfjaslkdfjaslfj.link'
+
+            tufo = core.formTufoByProp(prop, valu)
+            self.eq(tufo[1][prop], valu)
+
+            tufo = core.getTufoByProp(prop, valu)
+            self.eq(tufo[1][prop], valu)
+
+            # Catch invalid IDNA error and just return the raw data
+            self.eq(core.getTypeRepr(prop, tufo[1][prop]), valu)
+            self.eq(core.getPropRepr(prop, tufo[1][prop]), valu)
 
     def test_model_inet_fqdn_set_sfx(self):
         with self.getRamCore() as core:
@@ -480,12 +502,21 @@ class InetModelTest(SynTest):
     def test_model_inet_web_acct(self):
 
         with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:web:acct', 'vertex.link/person1')
+            t0 = core.formTufoByProp('inet:web:acct', 'vertex.link/person1',
+                                     **{'name': 'ካሳር',
+                                        'name:en': 'caesar',
+                                        'realname': 'Брут',    # uppercased Cyrllic
+                                        'realname:en': 'brutus',
+                                        })
             self.eq(t0[1].get('inet:web:acct'), 'vertex.link/person1')
             self.eq(t0[1].get('inet:web:acct:site'), 'vertex.link')
             self.eq(t0[1].get('inet:web:acct:user'), 'person1')
             t0 = core.setTufoProp(t0, 'loc', 'HAHA')
             self.eq(t0[1].get('inet:web:acct:loc'), 'haha')
+            self.eq(t0[1].get('inet:web:acct:name'), 'ካሳር')
+            self.eq(t0[1].get('inet:web:acct:name:en'), 'caesar')
+            self.eq(t0[1].get('inet:web:acct:realname'), 'брут')  # lowercased Cyrllic
+            self.eq(t0[1].get('inet:web:acct:realname:en'), 'brutus')
 
     def test_model_inet_web_post(self):
 
@@ -562,6 +593,55 @@ class InetModelTest(SynTest):
 
             self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/visi'))
             self.nn(core.getTufoByProp('inet:web:group', 'vertex.link/kenshoto'))
+
+    def test_model_inet_web_group(self):
+        with self.getRamCore() as core:
+            from pprint import pprint
+            iden = guid()
+            node = core.formTufoByProp('inet:web:group',
+                                       ('vertex.link', '1234'),
+                                       **{'name': 'brjálaður muffins',
+                                          'name:en': 'crazy cupcakes',
+                                          'url': 'http://vertex.link/g/1234',
+                                          'desc': 'Crazy cupcakes players union',
+                                          'avatar': iden,
+                                          'webpage': 'http://muffinman.com/hehe',
+                                          'loc': 'Reykjavík',
+                                          'latlong': '64.0788707,-21.8369301',
+                                          'signup': '2016',
+                                          'signup:ipv4': '1.2.3.4',
+                                          'signup:ipv6': '0:0:0:0:0:0:0:1',
+                                          'seen:min': '2016',
+                                          'seen:max': '2018'
+                                          })
+            self.nn(node)
+            _, pprop = s_tufo.ndef(node)
+            self.eq(pprop, 'vertex.link/1234')
+            props = s_tufo.props(node)
+            self.eq(props.get('avatar'), iden)
+            self.eq(props.get('desc'), 'Crazy cupcakes players union')
+            self.eq(props.get('id'), '1234')
+            self.eq(props.get('latlong'), '64.0788707,-21.8369301')
+            self.eq(props.get('loc'), 'reykjavík')
+            self.eq(props.get('name'), 'brjálaður muffins')
+            self.eq(props.get('name:en'), 'crazy cupcakes')
+            self.eq(props.get('seen:max'), 1514764800000,)
+            self.eq(props.get('seen:min'), 1451606400000,)
+            self.eq(props.get('signup'), 1451606400000,)
+            self.eq(props.get('signup:ipv4'), 16909060)
+            self.eq(props.get('signup:ipv6'), '::1')
+            self.eq(props.get('site'), 'vertex.link')
+            self.eq(props.get('url'), 'http://vertex.link/g/1234')
+            self.eq(props.get('webpage'), 'http://muffinman.com/hehe')
+            # Validate autoadds
+            self.nn(core.getTufoByProp('inet:group', '1234'))
+            self.nn(core.getTufoByProp('inet:group', 'crazy cupcakes'))
+            self.nn(core.getTufoByProp('inet:group', 'brjálaður muffins'))
+            self.nn(core.getTufoByProp('inet:fqdn', 'vertex.link'))
+            self.nn(core.getTufoByProp('inet:fqdn', 'muffinman.com'))
+            self.nn(core.getTufoByProp('file:bytes', iden))
+            self.nn(core.getTufoByProp('inet:ipv4', '1.2.3.4'))
+            self.nn(core.getTufoByProp('inet:ipv6', '::1'))
 
     def test_model_inet_web_follows(self):
 
@@ -1201,7 +1281,7 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['tufo:form'], 'inet:web:group')
                 self.eq(tufo[1]['inet:web:group'], 'vertex.link/group0')
                 self.eq(tufo[1]['inet:web:group:site'], 'vertex.link')
-                self.eq(tufo[1]['inet:web:group:name'], 'group0')
+                self.eq(tufo[1]['inet:web:group:id'], 'group0')
                 self.eq(tufo[1]['inet:web:group:desc'], 'hehe')
                 self.eq(tufo[1]['inet:web:group:url'], 'https://vertex.link/url')
                 self.eq(tufo[1]['inet:web:group:webpage'], 'https://vertex.link/webpage')
@@ -1513,6 +1593,35 @@ class InetModelTest(SynTest):
                 self.eq(tufo[1]['inet:web:acct'], 'vertex.link/pennywise2')
                 self.eq(tufo[1]['inet:web:acct:occupation'], 'entertainer')
 
+    def test_model_inet_201802131725(self):
+
+        data = {}
+        iden0 = guid()
+        tick = now()
+        rows = [
+            (iden0, 'tufo:form', 'inet:web:group', tick),
+            (iden0, 'inet:web:group', 'vertex.link/1234', tick),
+            (iden0, 'inet:web:group:site', 'vertex.link', tick),
+            (iden0, 'inet:web:group:name', '1234', tick),
+        ]
+
+        with s_cortex.openstore('ram:///') as stor:
+            # force model migration callbacks
+            stor.setModlVers('inet', 201802131724)
+
+            def addrows(mesg):
+                stor.addRows(rows)
+                data['added'] = True
+            stor.on('modl:vers:rev', addrows, name='inet', vers=201802131725)
+
+            with s_cortex.fromstore(stor) as core:
+                t1 = core.getTufoByIden(iden0)
+                self.none(t1[1].get('inet:web:group:name'))
+                self.eq(t1[1].get('inet:web:group:id'), '1234')
+                self.nn(core.getTufoByProp('inet:group', '1234'))
+                vals = [v for v, t in core.getTufoDarkValus(t1, 'syn:modl:rev')]
+                self.isin('inet:201802131725', vals)
+
     def test_model_inet_addr(self):
         with self.getRamCore() as core:
 
@@ -1621,3 +1730,83 @@ class InetModelTest(SynTest):
             self.eq(n2[0], n3[0])
             self.eq(n2[0], n4[0])
             self.eq(n1[0], n5[0])
+
+    def test_model_inet_http(self):
+
+        with self.getRamCore() as core:
+
+            tick = 0x01010101
+            flow = s_common.guid()
+            host = s_common.guid()
+            body = s_common.guid()
+
+            props = {
+                'flow': flow,
+                'time': tick,
+                'host': host,
+                'method': 'HeHe',
+                'path': '/foo/bar',
+                'query': 'baz=faz&woot=haha',
+                'body': body,
+            }
+
+            requ = core.formTufoByProp('inet:http:request', '*', **props)
+
+            iden = requ[1].get('inet:http:request')
+
+            self.eq(requ[1]['inet:http:request:flow'], flow)
+            self.eq(requ[1]['inet:http:request:time'], tick)
+            self.eq(requ[1]['inet:http:request:host'], host)
+            self.eq(requ[1]['inet:http:request:method'], 'HeHe')
+            self.eq(requ[1]['inet:http:request:path'], '/foo/bar')
+            self.eq(requ[1]['inet:http:request:query'], 'baz=faz&woot=haha')
+
+            node = core.formTufoByProp('inet:http:reqhead', (iden, ('User-Agent', 'BillyBob')))
+
+            self.eq(node[1].get('inet:http:reqhead:request'), iden)
+            self.eq(node[1].get('inet:http:reqhead:header:name'), 'user-agent')
+            self.eq(node[1].get('inet:http:reqhead:header:value'), 'BillyBob')
+
+            node = core.getTufoByProp('inet:http:header', ('User-Agent', 'BillyBob'))
+            self.eq(node[1].get('inet:http:header:name'), 'user-agent')
+            self.eq(node[1].get('inet:http:header:value'), 'BillyBob')
+
+            node = core.formTufoByProp('inet:http:reqhead', (iden, ('Host', 'vertex.ninja')))
+            self.eq(node[1].get('inet:http:reqhead:request'), iden)
+            self.eq(node[1].get('inet:http:reqhead:header:name'), 'host')
+            self.eq(node[1].get('inet:http:reqhead:header:value'), 'vertex.ninja')
+
+            node = core.getTufoByProp('inet:http:header', ('Host', 'vertex.ninja'))
+            self.eq(node[1].get('inet:http:header:name'), 'host')
+            self.eq(node[1].get('inet:http:header:value'), 'vertex.ninja')
+
+            node = core.formTufoByProp('inet:http:reqparam', (iden, ('baz', 'faz')))
+            self.eq(node[1].get('inet:http:reqparam:request'), iden)
+            self.eq(node[1].get('inet:http:reqparam:param:name'), 'baz')
+            self.eq(node[1].get('inet:http:reqparam:param:value'), 'faz')
+
+            props = {
+                'time': tick,
+                'host': host,
+                'request': iden,
+                'code': 31337,
+                'reason': 'too leet',
+                'flow': flow,
+                'body': body,
+            }
+
+            resp = core.formTufoByProp('inet:http:response', '*', **props)
+            self.eq(resp[1]['inet:http:response:request'], iden)
+            self.eq(resp[1]['inet:http:response:flow'], flow)
+            self.eq(resp[1]['inet:http:response:time'], tick)
+            self.eq(resp[1]['inet:http:response:host'], host)
+            self.eq(resp[1]['inet:http:response:code'], 31337)
+            self.eq(resp[1]['inet:http:response:reason'], 'too leet')
+            self.eq(resp[1]['inet:http:response:body'], body)
+
+            ridn = resp[1].get('inet:http:response')
+
+            node = core.formTufoByProp('inet:http:resphead', (ridn, ('server', 'my web server')))
+            self.eq(node[1].get('inet:http:resphead:response'), ridn)
+            self.eq(node[1].get('inet:http:resphead:header:name'), 'server')
+            self.eq(node[1].get('inet:http:resphead:header:value'), 'my web server')

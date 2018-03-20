@@ -337,6 +337,45 @@ class StormTest(SynTest):
             self.none(node[1].get('#foo.bar'))
             self.none(node[1].get('#baz.faz'))
 
+    def test_storm_refs_ndef(self):
+        with self.getRamCore() as core:
+            pnode = core.formTufoByProp('ps:person', 32 * '0')
+            enode = core.formTufoByProp('inet:email', 'c00l@vertex.link')
+            pvalu = pnode[1].get('ps:person')
+            phas0 = core.formTufoByProp('ps:person:has', (pvalu, ('inet:email', 'c00l@vertex.link')))
+            core.formTufoByProp('ps:person:has', (pvalu, ('inet:fqdn', 'vertex.link')))
+
+            fnode = core.formTufoByProp('file:bytes:md5', 'd41d8cd98f00b204e9800998ecf8427e')
+            _, fvalu = s_tufo.ndef(fnode)
+            core.formTufoByProp('file:txtref', (fvalu, ('ps:person:has', phas0[1].get('ps:person:has'))))
+
+            outnodes = core.eval('ps:person:has refs(out)')  # out
+            outforms = {node[1]['tufo:form'] for node in outnodes}
+            self.len(5, outnodes)
+            self.sorteq(outforms, ['inet:email', 'inet:fqdn', 'ps:person:has', 'ps:person'])
+
+            outnodes = core.eval('ps:person:has refs(out, limit=0)')  # out
+            limtoutforms = {node[1]['tufo:form'] for node in outnodes}
+            self.len(2, outnodes)
+            self.sorteq(limtoutforms, ['ps:person:has'])
+
+            outnodes = core.eval('ps:person:has refs(out, limit=1)')  # out
+            limtoutforms = {node[1]['tufo:form'] for node in outnodes}
+            self.len(3, outnodes)
+            [self.isin(form, ['inet:email', 'inet:fqdn', 'ps:person:has', 'ps:person']) for form in limtoutforms]
+
+            innodes = core.eval('ps:person:has refs(in)')  # in
+            informs = {node[1]['tufo:form'] for node in innodes}
+            self.len(3, innodes)
+            self.sorteq(informs, ['file:txtref', 'ps:person:has'])  # Nothing refs in to these nodes
+
+            expected_bothforms = informs.union(outforms)
+
+            bothnodes = core.eval('ps:person:has refs()')  # in and out
+            bothforms = {node[1]['tufo:form'] for node in bothnodes}
+            self.len(6, bothnodes)
+            self.sorteq(expected_bothforms, bothforms)
+
     def test_storm_refs(self):
         with self.getRamCore() as core:
             core.formTufoByProp('inet:dns:a', 'foo.com/1.2.3.4')
@@ -930,25 +969,22 @@ class StormTest(SynTest):
 
             # Setting RO nodes on guid nodes made without secondary props / subs
             # Testing only - do NOT make comp nodes like this
-            ouhnode = core.eval('[ou:hasfqdn=*]')[0]
+            ouhnode = core.eval('[compfqdn=*]')[0]
             self.nn(ouhnode)
-            self.notin('ou:hasfqdn:org', ouhnode[1])
-            self.notin('ou:hasfqdn:fqdn', ouhnode[1])
-            orgnode = core.eval('[ou:org:alias=vertex]')[0]
-            self.nn(orgnode)
-            self.nn(core.eval('[inet:fqdn=woot.com]')[0])
+            self.notin('compfqdn:guid', ouhnode[1])
+            self.notin('compfqdn:fqdn', ouhnode[1])
+
             # Set the missing props
-            query = 'ou:hasfqdn=%s [:org=%s :fqdn=woot.com]' % (ouhnode[1].get('ou:hasfqdn'),
-                                                                orgnode[1].get('ou:org'))
+            query = 'compfqdn=%s [:guid=%s :fqdn=woot.com]' % (ouhnode[1].get('compfqdn'), 32 * 'a')
             ouhnode = core.eval(query)[0]
-            self.eq(ouhnode[1].get('ou:hasfqdn:org'), orgnode[1].get('ou:org'))
-            self.eq(ouhnode[1].get('ou:hasfqdn:fqdn'), 'woot.com')
+            self.eq(ouhnode[1].get('compfqdn:guid'), 32 * 'a')
+            self.eq(ouhnode[1].get('compfqdn:fqdn'), 'woot.com')
+
             # We cannot change ro values via set prop mode
-            query = 'ou:hasfqdn=%s [:org=%s :fqdn=vertex.link]' % (ouhnode[1].get('ou:hasfqdn'),
-                                                                   orgnode[1].get('ou:org'))
+            query = 'compfqdn=%s [:guid=%s :fqdn=vertex.link]' % (ouhnode[1].get('compfqdn'), 32 * 'b')
             ouhnode = core.eval(query)[0]
-            self.eq(ouhnode[1].get('ou:hasfqdn:org'), orgnode[1].get('ou:org'))
-            self.eq(ouhnode[1].get('ou:hasfqdn:fqdn'), 'woot.com')
+            self.eq(ouhnode[1].get('compfqdn:guid'), 32 * 'a')
+            self.eq(ouhnode[1].get('compfqdn:fqdn'), 'woot.com')
 
     def test_storm_tag_ival(self):
         with self.getRamCore() as core:
@@ -1071,12 +1107,27 @@ class StormTest(SynTest):
             self.notin('.new', node1[1])
             self.eq(node0[0], node1[0])
 
-            node2 = core.eval('addnode(ps:haswebacct, ((guidname="bob gray"),vertex.link/pennywise))')[0]
-            self.eq(node2[1].get('ps:haswebacct'), 'faebe657f7a5839ecda3f8af15293893/vertex.link/pennywise')
+            pnode = core.eval('addnode(ps:person, (guidname="bob gray"))')[0]
+            pguid = pnode[1].get('ps:person')
+            self.eq(pguid, 'faebe657f7a5839ecda3f8af15293893')
 
-            node3 = core.eval('addnode(ou:haswebacct, ((alias="vertex"),vertex.link/pennywise))')[0]
-            self.eq(node3[1].get('ou:haswebacct'), 'e0d1c290732ac433444afe7b5825f94d')
-            self.eq(node3[1].get('ou:haswebacct:web:acct'), 'vertex.link/pennywise')
+            node2 = core.eval('addnode(ps:person:has, (faebe657f7a5839ecda3f8af15293893,(inet:web:acct,vertex.link/pennywise)))')[0]
+            self.eq(node2[1].get('ps:person:has'), 'e845e52f7bd78385291d3df6c1aeda31')
+            self.eq(node2[1].get('ps:person:has:person'), 'faebe657f7a5839ecda3f8af15293893')
+            self.eq(node2[1].get('ps:person:has:xref'), 'inet:web:acct=vertex.link/pennywise')
+            self.eq(node2[1].get('ps:person:has:xref:prop'), 'inet:web:acct')
+            self.eq(node2[1].get('ps:person:has:xref:node'), '600ec8667d978eba100b8a412f7154ae')
+
+            onode = core.eval('addnode(ou:org, (name="clowns"))')[0]
+            oguid = onode[1].get('ou:org')
+            self.eq(oguid, 'd4556f76e65043a138f7899db9d27cf1')
+
+            node3 = core.eval('addnode(ou:org:has, (d4556f76e65043a138f7899db9d27cf1, (inet:web:acct,vertex.link/pennywise)))')[0]
+            self.eq(node3[1].get('ou:org:has'), '378c9905f931af5786a753d10c0cd20b')
+            self.eq(node3[1].get('ou:org:has:org'), 'd4556f76e65043a138f7899db9d27cf1')
+            self.eq(node3[1].get('ou:org:has:xref'), 'inet:web:acct=vertex.link/pennywise')
+            self.eq(node3[1].get('ou:org:has:xref:prop'), 'inet:web:acct')
+            self.eq(node3[1].get('ou:org:has:xref:node'), '600ec8667d978eba100b8a412f7154ae')
 
     def test_storm_task(self):
         with self.getRamCore() as core:
@@ -1417,6 +1468,84 @@ class StormTest(SynTest):
                 self.none(node[0])
                 self.eq(node[1].get('tufo:form'), 'task')
                 self.isin(node[1].get('task'), ('hehe:haha', 'wow'))
+
+    def test_storm_vartree(self):
+        quer = s_storm.Query()
+
+        vals = ['x', 'y']
+        quer.addTreeVar('a', vals)
+
+        self.len(0, list(quer.iterVarTree('asdf')))
+
+        for node, varz in quer.iterVarTree('a'):
+            quer.addTreeVar('b', ['z', 'q'], tree=node)
+
+        rets = []
+        for node, varz in quer.iterVarTree('a.b'):
+            rets.append(tuple(sorted(varz.items())))
+
+        rets.sort()
+        self.eq(rets, [(('a', 'x'), ('a.b', 'q')), (('a', 'x'), ('a.b', 'z')), (('a', 'y'), ('a.b', 'q')), (('a', 'y'), ('a.b', 'z'))])
+
+    '''
+    def test_storm_set(self):
+        with self.getRamCore() as core:
+            core.ask('[ inet:ipv4=1.2.3.4 :cc=us inet:dns:a=vertex.link/1.2.3.4 ]')
+            core.ask('[ inet:ipv4=4.3.2.1 :cc=zz inet:dns:a=example.com/4.3.2.1 ]')
+
+            self.len(1, core.eval('inet:ipv4:cc=us'))
+            self.len(1, core.eval('inet:dns:a:fqdn=vertex.link'))
+            self.len(1, core.eval('inet:ipv4:cc=zz'))
+            self.len(1, core.eval('inet:dns:a:fqdn=example.com'))
+
+            core.eval('$dns={inet:dns:a:fqdn} $dns.ipv4 = { :ipv4->inet:ipv4 }')
+    '''
+
+    def test_storm_filtsub(self):
+        with self.getRamCore() as core:
+            core.ask('[ inet:ipv4=1.2.3.4 :cc=us inet:dns:a=vertex.link/1.2.3.4 ]')
+            core.ask('[ inet:ipv4=4.3.2.1 :cc=zz inet:dns:a=example.com/4.3.2.1 ]')
+
+            self.len(1, core.eval('inet:ipv4:cc=us'))
+            self.len(1, core.eval('inet:dns:a:fqdn=vertex.link'))
+            self.len(1, core.eval('inet:ipv4:cc=zz'))
+            self.len(1, core.eval('inet:dns:a:fqdn=example.com'))
+
+            # lift all dns, pivot to ipv4 where cc=us (calls take), remove the results
+            # this should return the example node because the vertex node matches the filter and should be removed
+            nodes = core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 +:cc=us }')
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('inet:dns:a'), 'example.com/4.3.2.1')
+
+            # lift all dns, pivot to ipv4 where cc=us (calls take), add the results
+            # this should return the vertex node because only the vertex node matches the filter
+            nodes = core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 +:cc=us }')
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('inet:dns:a'), 'vertex.link/1.2.3.4')
+
+            # lift all dns, pivot to ipv4 where cc!=us (calls take), remove the results
+            # this should return the vertex node because the example node matches the filter and should be removed
+            nodes = core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 -:cc=us }')
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('inet:dns:a'), 'vertex.link/1.2.3.4')
+
+            # lift all dns, pivot to ipv4 where cc!=us (calls take), add the results
+            # this should return the example node because only the example node matches the filter
+            nodes = core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:cc=us }')
+            self.len(1, nodes)
+            self.eq(nodes[0][1].get('inet:dns:a'), 'example.com/4.3.2.1')
+
+            # lift all dns, pivot to ipv4 where asn=1234 (calls take), add the results
+            # this should return nothing because no nodes have asn=1234
+            self.len(0, core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 +:asn=1234 }'))
+
+            # lift all dns, pivot to ipv4 where asn!=1234 (calls take), add the results
+            # this should return everything because no nodes have asn=1234
+            nodes = core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:asn=1234 }')
+            self.len(2, nodes)
+            nodes.sort(key=lambda x: x[1].get('inet:dns:a'))
+            self.eq(nodes[0][1].get('inet:dns:a'), 'example.com/4.3.2.1')
+            self.eq(nodes[1][1].get('inet:dns:a'), 'vertex.link/1.2.3.4')
 
 class LimitTest(SynTest):
     def test_limit_default(self):

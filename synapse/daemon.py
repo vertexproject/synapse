@@ -5,16 +5,15 @@ import zlib
 import types
 import logging
 import threading
-import traceback
 import collections
 import multiprocessing
 
 import synapse.link as s_link
-import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 
+import synapse.lib.cell as s_cell
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.socket as s_socket
@@ -75,6 +74,8 @@ class DmonConf:
         self.locs = {'dmon': self}
         self.forks = {}
 
+        self.cellprocs = {}
+
         self.forkperm = {}
         self.evalcache = {}
         self._fini_items = []
@@ -102,6 +103,10 @@ class DmonConf:
     def _onDmonFini(self):
         for name in list(self.forks.keys()):
             self.killDmonFork(name, perm=True)
+
+        for celldir, proc in list(self.cellprocs.items()):
+            proc.terminate()
+            proc.join(2)
 
         # reverse the ebus items to fini them in LIFO order
         for item in reversed(self._fini_items):
@@ -168,6 +173,10 @@ class DmonConf:
                 '~/foo/config.json',
             ),
 
+            'cells':(
+                (<dirn>, <conf>),
+            ),
+
             'ctors':(
                 ('baz', 'ctor://foo.bar.Baz()'),
                 ('faz', 'ctor://foo.bar.Baz()', {'config':'woot'}),
@@ -221,6 +230,22 @@ class DmonConf:
                 self.loadDmonFile(fullpath)
             except Exception as e:
                 raise Exception('Include Error (%s): %s' % (path, e))
+
+        # deploy any cells we have configured...
+        celldone = set()
+        for celldirn, cellconf in conf.get('cells', ()):
+
+            if celldirn in celldone:
+                raise Exception('Duplicate Cell Entry: %s' % (celldirn,))
+
+            logger.info('dmon starting cell: %s' % (celldirn,))
+
+            celldone.add(celldirn)
+
+            proc = s_cell.divide(celldirn, cellconf)
+            self.cellprocs[celldirn] = proc
+
+        # once neuron cells are standardized, nearly everything else can go
 
         configs = conf.get('configs', {})
 

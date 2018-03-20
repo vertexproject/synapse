@@ -14,6 +14,9 @@ class KvDict:
     Unlike the KvLook object, the KvDict keeps all items in the dictionary
     in memory, so retrieval is fast; and only updates needs to be written
     to the the underlying KvStor object.
+
+    Note: set() must be called to persist changes to mutable values like
+    dicts or lists
     '''
     def __init__(self, stor, iden):
         self.stor = stor
@@ -27,19 +30,12 @@ class KvDict:
 
     def items(self):
         '''
-        Yield (prop, valu) tuples from the KvDict.
+        Return a tuple of (prop, valu) tuples from the KvDict.
 
-        Notes:
-            This yields data from the internal dictionary ``items()`` method.
-            Changes made to the KvDict contents during the consumption of the
-            results of the ``KvDict.items()`` generator are not present in the
-            output of this generator.
-
-        Yields:
-            ((str, object)): Tuple of prop, valu pairs.
+        Returns:
+            (((str, object), ...)): Tuple of (prop, valu) tuples.
         '''
-        for item in tuple(self.vals.items()):
-            yield item
+        return tuple(self.vals.items())
 
     def set(self, prop, valu):
         '''
@@ -55,22 +51,24 @@ class KvDict:
         if self.vals.get(prop) == valu:
             return
 
-        self.vals[prop] = valu
+        byts = s_msgpack.en(valu)
+        self.vals[prop] = s_msgpack.un(byts)
 
         lkey = self.iden + prop.encode('utf8')
-        self.stor.setKvProp(lkey, s_msgpack.en(valu))
+        self.stor.setKvProp(lkey, byts)
 
-    def get(self, prop):
+    def get(self, prop, defval=None):
         '''
         Get a property from the KvDict.
 
         Args:
             prop (str): The property name.
+            defval (obj): The default value to return.
 
         Returns:
             (obj): The return value, or None.
         '''
-        return self.vals.get(prop)
+        return self.vals.get(prop, defval)
 
     def pop(self, prop):
         '''
@@ -116,12 +114,13 @@ class KvLook:
         lkey = self.iden + prop.encode('utf8')
         self.stor.setKvProp(lkey, s_msgpack.en(valu))
 
-    def get(self, prop):
+    def get(self, prop, defval=None):
         '''
         Lookup a property from the KvLook.
 
         Args:
             prop (str): The property name.
+            defval (obj): The default value to return.
 
         Returns:
             object: The valu, aftering being unpacked via msgpack, or None.
@@ -130,7 +129,7 @@ class KvLook:
 
         lval = self.stor.getKvProp(lkey)
         if lval is None:
-            return None
+            return defval
 
         return s_msgpack.un(lval)
 
@@ -293,10 +292,10 @@ class KvStor(s_eventbus.EventBus):
         Create or retrieve a KvSet by name from the KvStor.
 
         Args:
-            name (str): The name of the KvList.
+            name (str): The name of the KvSet.
 
         Returns:
-            KvSet: The KvList helper instance.
+            KvSet: The KvSet helper instance.
         '''
         iden = self.genKvAlias(name)
         return KvSet(self, iden)
@@ -380,6 +379,7 @@ class KvStor(s_eventbus.EventBus):
                     return
 
                 for ikey, ival in curs.iternext():
+
                     if not ikey.startswith(lkey):
                         break
 

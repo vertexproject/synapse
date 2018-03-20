@@ -1,1694 +1,808 @@
-import os
-import stat
 import time
-import random
+import lmdb
+import struct
 import logging
-import threading
+import hashlib
+import itertools
 
+import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.cortex as s_cortex
-import synapse.daemon as s_daemon
-import synapse.dyndeps as s_dyndeps
-import synapse.reactor as s_reactor
 import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
 
-import synapse.lib.heap as s_heap
-import synapse.lib.tufo as s_tufo
+import synapse.lib.net as s_net
+import synapse.lib.cell as s_cell
+import synapse.lib.lmdb as s_lmdb
+import synapse.lib.const as s_const
 import synapse.lib.config as s_config
-import synapse.lib.persist as s_persist
-import synapse.lib.service as s_service
-import synapse.lib.thishost as s_thishost
-import synapse.lib.thisplat as s_thisplat
-
-# for backward compat (HashSet moved from this module to synapse.lib.hashset )
-from synapse.lib.hashset import *
 
 logger = logging.getLogger(__name__)
 
-megabyte = 1024000
-gigabyte = 1024000000
-terabyte = 1024000000000
-chunksize = megabyte * 10
-axontag = 'class.synapse.axon.Axon'
+zero64 = b'\x00\x00\x00\x00\x00\x00\x00\x00'
+blocksize = s_const.mebibyte * 64
 
-_fs_attrs = ('st_mode', 'st_nlink', 'st_size', 'st_atime', 'st_ctime', 'st_mtime')
-
-class AxonHost(s_config.Config):
+class BlobStor(s_eventbus.EventBus):
     '''
-    Manage multiple axons on a given host.
+    The blob store maps buid,indx values to sequences of bytes stored in a LMDB database.
     '''
-    def __init__(self, datadir, **opts):
-        s_config.Config.__init__(self)
 
-        self.datadir = s_common.gendir(datadir)
+    def __init__(self, dirn, mapsize=s_const.tebibyte):
 
-        self.iden = s_common.guid()  # A non-persistent iden for identification
-        self.lock = threading.Lock()
-
-        self.axons = {}  # iden -> Axon mapping.
-        self.axonbus = None
-        self.axonforks = {}
-        self.cloneaxons = []  # List of idens which are clones.
-
-        self.onfini(self._onAxonHostFini)
-
-        self.setConfOpts(opts)
-
-        self._axonconfs = [_name for _name, _ in Axon._axon_confdefs()]
-
-        # track the total number of bytes which may be used by axons for startup operations
-        self.usedspace = 0
-
-        for name in os.listdir(self.datadir):
-
-            if not name.endswith('.axon'):
-                continue
-
-            iden, _ = name.split('.', 1)
-
-            logger.debug('Bringing Axon [%s] online', iden)
-            self._fireAxonIden(iden)
-
-        # fire auto-run axons
-        auto = self.getConfOpt('axonhost:autorun')
-        while (len(self.axons) - len(self.cloneaxons)) < auto:
-            self.add()
-
-        url = self.getConfOpt('axon:axonbus')
-        if url:
-            self.axonbus = s_service.openurl(url)
-            self.onfini(self.axonbus.fini)
-            self.axonbus.runSynSvc(self.iden, self)
-
-    @staticmethod
-    @s_config.confdef(name='axonhost')
-    def _axonhost_confdefs():
-        confdefs = (
-            ('axonhost:autorun', {'type': 'int', 'defval': 0,
-                                  'doc': 'Number of Axons to autostart.'}),
-            ('axon:axonbus', {'type': 'str', 'defval': '',
-                                  'doc': 'URL to an axonbus'}),
-            ('axon:bytemax', {'type': 'int', 'defval': terabyte,
-                                  'doc': 'Max size of each axon created by the host.'}),
-            ('axon:listen', {'type': 'str', 'defval': 'tcp://0.0.0.0:0/axon',
-                             'doc': 'Default listener URLs for the axons created by this host', }),
-            ('axon:tags', {'defval': (),
-                           'doc': 'Tuple of tag values for the axon to add when sharing over a Axon servicebus.'}),
-            ('axon:syncopts', {'defval': {},
-                               'doc': 'kwarg Options used when making a persistent sync directory for axons.'}),
-            ('axon:clones', {'type': 'int', 'defval': 2,
-                                 'doc': 'The default number of clones for a axon.'}),
-            ('axonhost:maxsize', {'type': 'int', 'defval': 0,
-                                  'doc': 'Max total allocations for Axons created by the host. '
-                                         'Only applies if set to a positive integer.'}),
-            ('axon:hostname', {'type': 'str', 'defval': s_thishost.get('hostname'),
-                                   'doc': 'AxonHost hostname'}),
-        )
-        return confdefs
-
-    def _fireAxonIden(self, iden):
-        '''
-        This is used to bring existing Axons owned by the AxonHost online.
-        '''
-        axondir = s_common.gendir(self.datadir, '%s.axon' % iden)
-
-        opts = self.makeAxonOpts()
-        jsopts = s_common.jsload(axondir, 'axon.opts')
-        if jsopts is not None:
-            opts.update(jsopts)
-
-        # Special case where the axonbus may update - we want to ensure
-        # we're passing the latest axonbus to the Axon so it can register
-        # itself properly.
-        axonbus = opts.get('axon:axonbus')
-        if axonbus is not None:
-            myaxonbus = self.getConfOpt('axon:axonbus')
-            if axonbus != myaxonbus:
-                opts['axon:axonbus'] = myaxonbus
-                s_common.jssave(opts, axondir, 'axon.opts')
-
-        logger.debug('Bringing Axon online from [%s]', axondir)
-        self.axons[iden] = Axon(axondir, **opts)
-
-        bytemax = opts.get('axon:bytemax')
-        clone = opts.get('axon:clone')
-
-        if clone:
-            self.cloneaxons.append(iden)
-        self.usedspace = self.usedspace + bytemax
-
-    def _onAxonHostFini(self):
-        for axon in list(self.axons.values()):
-            axon.fini()
-
-    def makeAxonOpts(self):
-        '''
-        Make a configable dictionary from the current AxonHost options.
-
-        Returns:
-            dict: Configable dict of valid options which can be passed to a Axon()
-        '''
-        ret = {}
-        for name, valu in self.getConfOpts().items():
-            if name not in self._axonconfs:
-                continue
-            ret[name] = valu
-        return ret
-
-    def info(self):
-        '''
-        Return info for attempting to allocate clones and check health.
-        '''
-        usage = self.usage()
-        return {
-            'count': len(self.axons),
-            'free': usage.get('free', 0),
-            'used': usage.get('used', 0),
-            'hostname': self.getConfOpt('axon:hostname'),
-        }
-
-    def getAxonHostStatus(self):
-        '''
-        Get status about the AxonHost and Axons it is hosting.
-
-        Returns:
-            (str, dict): Tufo of information about the axonhost and the axons.
-        '''
-        statsd = {
-            'host:info': self.info(),
-            'axons': [axon.getAxonStatus() for axon in list(self.axons.values())],
-            'time': s_common.now()
-        }
-        return s_tufo.ephem('axonhost:status', self.iden, **statsd)
-
-    def add(self, **opts):
-        '''
-        Add a new axon to the AxonHost.
-
-        Args:
-            **opts: kwarg values which supersede the defaults of the AxonHost when making the Axon.
-
-        Examples:
-            Add another Axon to the host with defaults::
-
-                axfo = host.add()
-
-        Returns:
-            ((str, dict)): A Axon information tuple containing configuration and link data.
-        '''
-        iden = s_common.guid()
-
-        fullopts = self.makeAxonOpts()
-        fullopts['axon:iden'] = iden  # store iden as a specified option
-        fullopts.update(opts)
-
-        bytemax = fullopts.get('axon:bytemax')
-        clone = fullopts.get('axon:clone')
-
-        volinfo = s_thisplat.getVolInfo(self.datadir)
-
-        free = volinfo.get('free')
-        total = volinfo.get('total')
-        maxsize = self.getConfOpt('axonhost:maxsize')
-
-        if maxsize and (self.usedspace + bytemax) > maxsize:
-            raise s_common.NotEnoughFree(mesg='Not enough free space on the AxonHost (due to axonhost:maxsize) to '
-                                              'create the new Axon.',
-                                         bytemax=bytemax, maxsize=maxsize, usedspace=self.usedspace)
-
-        if (self.usedspace + bytemax) > free:
-            raise s_common.NotEnoughFree(mesg='Not enough free space on the volume when considering the allocations'
-                                              ' of existing Axons.',
-                                         bytemax=bytemax, free=free, usedspace=self.usedspace)
-
-        if bytemax > free:
-            raise s_common.NotEnoughFree(mesg='Not enough free space on the volume to create the new Axon.',
-                                         bytemax=bytemax, free=free)
-
-        axondir = s_common.gendir(self.datadir, '%s.axon' % iden)
-
-        s_common.jssave(fullopts, axondir, 'axon.opts')
-
-        # FIXME fork
-        axon = Axon(axondir, **fullopts)
-
-        self.usedspace = self.usedspace + bytemax
-
-        self.axons[iden] = axon
-
-        if clone:
-            self.cloneaxons.append(iden)
-
-        return axon.axfo
-
-    def usage(self):
-        '''
-        Return volume usage info.
-        '''
-        volinfo = s_thisplat.getVolInfo(self.datadir)
-        return volinfo
-
-class AxonMixin:
-    '''
-    The parts of the Axon which must be executed locally in proxy cases.
-    ( used as mixin for both Axon and AxonCluster )
-    '''
-    @s_telepath.clientside
-    def eatfd(self, fd):
-        '''
-        Consume the contents of a file object into the axon as a blob.
-
-        Example:
-
-            tufo = axon.eatfd(fd)
-
-        '''
-
-        hset = HashSet()
-        iden, props = hset.eatfd(fd)
-
-        blob = self.byiden(iden)
-        if blob is not None:
-            return blob
-
-        fd.seek(0)
-
-        sess = self.alloc(props.get('size'))
-
-        byts = fd.read(10000000)
-        retn = self.chunk(sess, byts)
-
-        byts = fd.read(10000000)
-        while byts:
-            retn = self.chunk(sess, byts)
-            byts = fd.read(10000000)
-
-        return retn
-
-    @s_telepath.clientside
-    def eatbytes(self, byts):
-        '''
-        Consume a buffer of bytes into the axon as a blob.
-
-        Example:
-
-            tufo = axon.eatbytes(byts)
-
-        '''
-        hset = HashSet()
-
-        hset.update(byts)
-        iden, props = hset.guid()
-        blob = self.byiden(iden)
-        if blob is not None:
-            return blob
-
-        sess = self.alloc(props.get('size'))
-
-        for chnk in s_common.chunks(byts, 10000000):
-            blob = self.chunk(sess, chnk)
-
-        return blob
-
-class AxonCluster(AxonMixin, s_eventbus.EventBus):
-    '''
-    Present a singular axon API from an axon cluster.
-    '''
-    def __init__(self, svcprox):
         s_eventbus.EventBus.__init__(self)
-        self.axons = {}
-        self.saves = {}
 
-        self.svcprox = svcprox
-        self.svcprox.on('syn:svc:fini', self._onSvcFini)
-        self.onfini(self.svcprox.fini)
+        path = s_common.gendir(dirn, 'blobs.lmdb')
+        self.lenv = lmdb.open(path, writemap=True, max_dbs=128)
+        self.lenv.set_mapsize(mapsize)
 
-    def _onSvcFini(self, mesg):
-        svcfo = mesg[1].get('svcfo')
-        if svcfo is None:
-            return
+        self._blob_info = self.lenv.open_db(b'info')
+        self._blob_bytes = self.lenv.open_db(b'bytes') # <fidn><foff>=<byts>
 
-        axon = self.axons.get(svcfo[0])
-        if axon is None:
-            return
+        self._blob_clone = s_lmdb.Seqn(self.lenv, b'clone')
+        self._blob_metrics = s_lmdb.Metrics(self.lenv)
 
-        axon.fini()
+        def fini():
+            self.lenv.sync()
+            self.lenv.close()
 
-    def has(self, htype, hvalu, bytag=axontag):
+        self.onfini(fini)
+
+    def save(self, blocs):
         '''
-        Returns True if any of the axons in the cluster contain the given hash.
-
-        Example:
-
-            if not axapi.has('sha256',filehash):
-                dostuff()
-
-        '''
-        dyntask = s_common.gentask('has', htype, hvalu)
-        for svcfo, retval in self.svcprox.callByTag(bytag, dyntask):
-            if retval:
-                return True
-
-        return False
-
-    def byiden(self, iden, bytag=axontag):
-        '''
-        Get a axon:blob node by iden (superhash) value.
+        Save items from an iterator of (<buid><indx>, <byts>).
 
         Args:
-            iden (str): Iden to look up.
+            blocs: An iterator of (<buid><indx>, <bytes>).
+
+        Notes:
+            This API is only for use by a single Axon who owns this BlobStor.
 
         Returns:
-            ((str, dict)): Blob tufo returned by the Axons cortex.
+            None
         '''
-        dyntask = s_common.gentask('byiden', iden)
-        for svcfo, retval in self.svcprox.callByTag(bytag, dyntask):
-            if retval:
-                return retval
+        with self.lenv.begin(write=True, db=self._blob_bytes) as xact:
 
-        return None
+            size = 0
+            count = 0
+            clones = []
+            tick = s_common.now()
 
-    def _getSvcAxon(self, iden):
+            for lkey, lval in blocs:
+                clones.append(lkey)
+                xact.put(lkey, lval, db=self._blob_bytes)
 
-        svcfo = self.svcprox.getSynSvc(iden)
-        if svcfo is None:
-            return None
+                size += len(lval)
+                count += 1
 
-        axon = self.axons.get(iden)
-        if axon is None:
+            self._blob_clone.save(xact, clones)
+            self._blob_metrics.inc(xact, 'bytes', size)
+            self._blob_metrics.inc(xact, 'blocks', count)
 
-            link = svcfo[1].get('link')
-            if link is None:
-                return None
+            took = s_common.now() - tick
+            self._blob_metrics.record(xact, {'time': tick, 'size': size, 'blocks': count, 'took': took})
 
-            def onfini():
-                self.axons.pop(iden, None)
+    def load(self, buid):
+        '''
+        Load and yield the bytes blocks for a given buid.
+
+        Args:
+            buid (bytes): Buid to retrieve bytes for.
+
+        Yields:
+            bytes: Bytes for a given buid, in order.
+        '''
+        with self.lenv.begin(db=self._blob_bytes, buffers=True) as xact:
+
+            curs = xact.cursor()
+            if not curs.set_range(buid):
+                return
+
+            for lkey, byts in curs.iternext():
+
+                if lkey[:32] != buid:
+                    break
+
+                yield byts
+
+    def clone(self, offs):
+        '''
+        Yield (indx, (lkey, lval)) tuples to clone this BlobStor.
+
+        Args:
+            offs (int): Offset to start yielding rows from.
+
+        Yields:
+            ((bytes, (bytes, bytes))): tuples of (index, (<buid><index>,bytes)) data.
+        '''
+        with self.lenv.begin() as xact:
+            curs = xact.cursor(db=self._blob_bytes)
+            for indx, lkey in self._blob_clone.iter(xact, offs):
+                byts = curs.get(lkey)
+                yield indx, (lkey, byts)
+
+    def addCloneRows(self, items):
+        '''
+        Add rows from obtained from a BlobStor.clone() method.
+
+        Args:
+            items (list): A list of tuples containing (index, (<buid><index>,bytes)) data.
+
+        Returns:
+            int: The last index value processed from the list of items.
+        '''
+
+        if not items:
+            return
+
+        with self.lenv.begin(write=True, db=self._blob_bytes) as xact:
+
+            clones = []
+            for indx, (lkey, lval) in items:
+                xact.put(lkey, lval)
+                clones.append(lkey)
+
+            xact.put(b'clone:indx', struct.pack('>Q', indx), db=self._blob_info)
+            self._blob_clone.save(xact, clones)
+            return indx
+
+    def stat(self):
+        '''
+        Get storage stats for the BlobStor.
+
+        Returns:
+            dict: A dictionary containing the total bytes and blocks store in the BlobStor.
+        '''
+        return self._blob_metrics.stat()
+
+    def metrics(self, offs=0):
+        '''
+        Get metrics for the BlobStor. These can be aggregated to compute the storage stats.
+
+        Args:
+            offs (int): Offset to start collecting stats from.
+
+        Yields:
+            ((int, dict)): Yields index, sample data from the metrics sequence.
+        '''
+        with self.lenv.begin() as xact:
+            for item in self._blob_metrics.iter(xact, offs):
+                yield item
+
+    def getCloneOffs(self):
+        '''
+        Get the current offset for the clone:index of the BlobStor.
+
+        Returns:
+            int: The offset value.
+        '''
+        with self.lenv.begin() as xact:
+
+            lval = xact.get(b'clone:indx', db=self._blob_info)
+            if lval is None:
+                return 0
+
+            return struct.unpack('>Q', lval)[0] + 1
+
+class BlobCell(s_cell.Cell):
+
+    def postCell(self):
+
+        if self.neuraddr is None:
+            raise s_common.BadConfValu(mesg='BlobCell requires a neuron')
+
+        path = self.getCellDir('blobs.lmdb')
+        mapsize = self.getConfOpt('blob:mapsize')
+
+        self.blobs = BlobStor(path, mapsize=mapsize)
+        self.cloneof = self.getConfOpt('blob:cloneof')
+
+        if self.cloneof is not None:
+            self.cellpool.add(self.cloneof, self._fireCloneThread)
+            self.cellinfo['blob:cloneof'] = self.cloneof
+
+    def finiCell(self):
+        self.blobs.fini()
+
+    def _saveDispItems(self, items):
+
+        def genr():
+
+            for link, mesg in items:
+
+                with link:
+
+                    rows = mesg[1].get('rows', ())
+                    for row in rows:
+                        yield row
+
+                    link.txok(len(rows))
+
+        self.blobs.save(genr())
+
+    @s_common.firethread
+    def _fireCloneThread(self, sess):
+        '''
+        Fires a thread which requests clone rows from a given offset
+        for the remote blob.
+        '''
+        while not sess.isfini:
 
             try:
 
-                axon = s_telepath.openlink(link)
-                self.axons[iden] = axon
+                offs = self.blobs.getCloneOffs()
 
-                axon.onfini(onfini)
+                mesg = ('blob:clone', {'offs': offs})
+                ok, rows = sess.call(mesg, timeout=60)
 
-            except Exception as e:
-                return None
-
-        return axon
-
-    def find(self, htype, hvalu, bytag=axontag):
-        '''
-        Find and return any blobs with the given hash.
-
-        Example:
-
-            blobs = axon.find('sha256',valu)
-
-        '''
-        retblobs = []
-        dyntask = s_common.gentask('find', htype, hvalu)
-        for svcfo, blobs in self.svcprox.callByTag(bytag, dyntask):
-
-            if not blobs:
-                continue
-
-            try:
-
-                axon = self._getSvcAxon(svcfo[0])
-                if axon is None:
+                if not ok or not rows:
+                    sess.waitfini(timeout=1)
                     continue
 
-                [b[1].__setitem__('.axon', svcfo[0]) for b in blobs]
-                retblobs.extend(blobs)
+                self.blobs.addCloneRows(rows)
+                self.fire('blob:clone:rows', size=len(rows))
 
             except Exception as e:
-                logger.warning('AxonApi find: %s %s' % (svcfo[0], e))
+                if not sess.isfini:
+                    logger.exception('BlobCell clone thread error')
+                    time.sleep(1)
 
-        return retblobs
+    def handlers(self):
+        self.savedisp = s_net.LinkDisp(self._saveDispItems)
+        return {
+            'blob:save': self.savedisp.rx, # ('blob:save', {'rows':[ (lkey, lval)]})
+            'blob:load': self._onBlobLoad, # ('blob:load', {'buid': <buid>} )
+            'blob:stat': self._onBlobStat, # ('blob:stat', {}) -> (True, {info})
+            'blob:clone': self._onBlobClone, # ('blob:clone', {'offs': <indx>}) -> [ (indx, (lkey, lval)), ]
+            'blob:upload': self._onBlobUpload,
+            'blob:metrics': self._onBlobMetrics, # ('metrics', {'offs':<indx>}) -> ( (indx, info), ... )
+        }
 
-    def iterblob(self, blob):
-        # try to use the blob they wanted, otherwise look it up again and iter.
-        axon = None
+    @s_glob.inpool
+    def _onBlobClone(self, chan, mesg):
+        with chan:
+            offs = mesg[1].get('offs')
+            genr = self.blobs.clone(offs)
+            rows = list(itertools.islice(genr, 1000))
+            chan.txok(rows)
 
-        iden = blob[1].get('.axon')
-        axon = self._getSvcAxon(iden)
+    @s_glob.inpool
+    def _onBlobUpload(self, chan, mesg):
 
-        if axon is None:
-            valu = blob[1].get('axon:blob:sha256')
-            for byts in self.bytes('sha256', valu):
-                yield byts
-            return
+        with chan:
 
-        for byts in axon.iterblob(blob):
-            yield byts
+            chan.setq()
+            self.fire('blob:upload')
 
-    def bytes(self, htype, hvalu, bytag=axontag):
+            chan.txok(True)
+            for row in chan.rxwind(timeout=60):
+                self.blobs.save([row])
 
-        dyntask = s_common.gentask('find', htype, hvalu)
-        for svcfo, blobs in self.svcprox.callByTag(bytag, dyntask):
+    @s_glob.inpool
+    def _onBlobStat(self, chan, mesg):
+        with chan:
+            chan.txok(self.blobs.stat())
 
-            if not blobs:
-                continue
+    @s_glob.inpool
+    def _onBlobMetrics(self, chan, mesg):
 
-            axon = self._getSvcAxon(svcfo[0])
-            if axon is None:
-                continue
+        offs = mesg[1].get('offs', 0)
+        with chan:
+            chan.setq()
+            chan.txok(True)
 
-            for byts in axon.bytes(htype, hvalu):
-                yield byts
+            metr = self.blobs.metrics(offs=offs)
+            genr = s_common.chunks(metr, 1000)
 
-            return
+            chan.txwind(genr, 100, timeout=30)
 
-    def wants(self, htype, hvalu, size, bytag=axontag):
-        if self.has(htype, hvalu, bytag=bytag):
-            return None
-        return self.alloc(size, bytag=bytag)
+    @s_glob.inpool
+    def _onBlobLoad(self, chan, mesg):
+        buid = mesg[1].get('buid')
+        with chan:
+            chan.setq()
+            chan.txok(None)
 
-    def alloc(self, size, bytag=axontag):
-        '''
-        Allocate a new block within an axon to save size bytes.
+            def genr():
+                for byts in self.blobs.load(buid):
+                    yield byts
 
-        Returns an iden to use for subsequent calls to axon.chunk()
+            chan.txwind(genr(), 10, timeout=30)
 
-        '''
-        axons = self._getWrAxons(bytag=bytag)
-        if not len(axons):
-            raise s_common.NoWritableAxons(mesg='No Writeable axons found in AxonCluster', bytag=bytag)
+    @staticmethod
+    @s_config.confdef(name='blob')
+    def _getBlobConfDefs():
+        return (
+            ('blob:mapsize', {'type': 'int', 'defval': s_const.tebibyte * 10,
+                'doc': 'The maximum size of the LMDB memory map'}),
 
-        random.shuffle(axons)
+            ('blob:cloneof', {'defval': None,
+                'doc': 'The name of a blob cell to clone from'}),
+        )
 
-        for axon in axons:
-            iden = axon.alloc(size)
-            self.saves[iden] = {'iden': iden, 'axon': axon}
-            return iden
-
-    def chunk(self, iden, byts):
-        info = self.saves.get(iden)
-        if info is None:
-            s_common.NoSuchIden(iden)
-
-        axon = info.get('axon')
-        retn = axon.chunk(iden, byts)
-        if retn is not None:
-            self.saves.pop(iden, None)
-
-        return retn
-
-    def _getWrAxons(self, bytag=axontag):
-
-        wraxons = []
-
-        # FIXME cache this call for a few seconds
-        dyntask = s_common.gentask('getAxonInfo')
-        for svcfo, axfo in self.svcprox.callByTag(bytag, dyntask):
-
-            if axfo[1]['opts'].get('axon:ro'):
-                continue
-
-            axon = self._getSvcAxon(svcfo[0])
-            if axon is None:
-                continue
-
-            wraxons.append(axon)
-
-        return wraxons
-
-    def _waitWrAxons(self, count, timeout):
-
-        # mostly used for unit test race elimination
-        maxtime = time.time() + timeout
-        while True:
-            if time.time() >= maxtime:
-                return False
-
-            if len(self._getWrAxons()) >= count:
-                return True
-
-            time.sleep(0.1)
-
-class Axon(s_config.Config, AxonMixin):
+class AxonCell(s_cell.Cell):
     '''
-    An Axon acts as a binary blob store with hash based indexing/retrieval.
+    An Axon acts as an indexer and manages access to BlobCell bytes.
     '''
-    def __init__(self, axondir, **opts):
-        s_config.Config.__init__(self)
+    def postCell(self):
 
-        self.inprog = {}
-        self.axondir = s_common.gendir(axondir)
+        if self.cellpool is None:
+            raise s_common.BadConfValu(mesg='AxonCell requires a neuron and CellPool')
 
-        self.clones = {}
-        self.clonehosts = set()
-        self.clonelock = threading.Lock()
+        mapsize = self.getConfOpt('axon:mapsize')
 
-        self.readyclones = set()                # iden of each clone added as it comes up
-        self.clonesready = threading.Event()    # set once all clones are up and running
-        self.poffs = {}
+        path = self.getCellDir('axon.lmdb')
 
-        self.axonbus = None
+        self.lenv = lmdb.open(path, writemap=True, max_dbs=128)
+        self.lenv.set_mapsize(mapsize)
 
-        self.setConfOpts(opts)
+        self.blobhas = self.lenv.open_db(b'axon:blob:has') # <sha256>=<size>
+        self.bloblocs = self.lenv.open_db(b'axon:blob:locs') # <sha256><loc>=<buid>
 
-        self.iden = self.getConfOpt('axon:iden')
-        self.tags = self.getConfOpt('axon:tags')
+        self.metrics = s_lmdb.Metrics(self.lenv)
 
-        # if we're a clone, we're read-only and have no clones
-        if self.getConfOpt('axon:clone'):
-            self.setConfOpt('axon:ro', 1)
-            self.setConfOpt('axon:clones', 0)
+        self.blobs = s_cell.CellPool(self.cellauth, self.neuraddr)
+        self.blobs.neurwait(timeout=10)
 
-        corepath = os.path.join(self.axondir, 'axon.db')
-        self.core = s_cortex.openurl('sqlite:///%s' % corepath)
-        self.core.setConfOpt('modules', (('synapse.models.axon.AxonMod', {}),))
-        self.core.setConfOpt('caching', 1)
+        for name in self.getConfOpt('axon:blobs'):
+            self.blobs.add(name)
 
-        self._fs_mkdir_root()  # create the fs root
-        self.flock = threading.Lock()
+    def finiCell(self):
+        self.lenv.sync()
+        self.lenv.close()
+        self.blobs.fini()
 
-        fd = s_common.genfile(axondir, 'axon.heap')
+    def handlers(self):
+        return {
+            'axon:locs': self._onAxonLocs,
+            'axon:save': self._onAxonSave,
+            'axon:stat': self._onAxonStat,
+            'axon:wants': self._onAxonWants,
+            'axon:bytes': self._onAxonBytes,
+            'axon:upload': self._onAxonUpload,
+            'axon:metrics': self._onAxonMetrics,
+        }
 
-        self.link = None
-        self.heap = s_heap.Heap(fd)
-        self.dmon = s_daemon.Daemon()
+    @s_glob.inpool
+    def _onAxonUpload(self, chan, mesg):
 
-        lisn = self.getConfOpt('axon:listen')
-        if lisn:
-            self.link = self.dmon.listen(lisn)
+        with chan:
 
-        self.axfo = (self.iden, {})
+            chan.setq()
 
-        self.axthrs = set()
+            ok, retn = self.blobs.any()
+            if not ok:
+                return chan.txerr(retn)
 
-        self.setAxonInfo('link', self.link)
-        self.setAxonInfo('opts', self.getConfOpts())
-        self.on('syn:conf:set', self._onSetConfigableValu)
+            name, sess = retn
 
-        self.dmon.share('axon', self)
+            info = {'size': 0}
+            buid = s_common.buid()
 
-        # create a reactor to unwrap core/heap sync events
-        self.syncact = s_reactor.Reactor()
-        self.syncact.act('splice', self.core.splice)
-        self.syncact.act('heap:sync', self.heap.sync)
+            sha256 = hashlib.sha256()
 
-        # wrap core/heap sync events as axon:sync events
-        self.core.on('splice', self._fireAxonSync)
-        self.heap.on('heap:sync', self._fireAxonSync)
+            def genr():
 
-        self.syncdir = None
+                indx = 0
 
-        self.onfini(self.core.fini)
-        self.onfini(self.heap.fini)
-        self.onfini(self.dmon.fini)
+                allb = b''
+                for byts in chan.rxwind(timeout=30):
 
-        # if we're not a clone, create a sync dir
-        if not self.getConfOpt('axon:clone'):
-            dirname = s_common.gendir(axondir, 'sync')
-            syncopts = self.getConfOpt('axon:syncopts')
-            self.syncdir = s_persist.Dir(dirname, **syncopts)
-            self.onfini(self.syncdir.fini)
+                    sha256.update(byts)
+                    info['size'] += len(byts)
 
-            self.on('axon:sync', self.syncdir.add)
+                    allb += byts
+                    while len(allb) >= blocksize:
 
-        self.axcthr = None
+                        bloc = allb[:blocksize]
+                        allb = allb[blocksize:]
 
-        # share last to avoid startup races
-        busurl = self.getConfOpt('axon:axonbus')
-        if busurl:
-            logger.debug('[%s] Sharing self on AxonBus', self.iden)
-            self.axonbus = s_service.openurl(busurl)
-            self.onfini(self.axonbus.fini)
+                        lkey = buid + struct.pack('>Q', indx)
+                        indx += 1
 
-            props = {'link': self.link, 'tags': self.tags}
-            self.axonbus.runSynSvc(self.iden, self, **props)
-            logger.debug('[%s] Finding/making clones', self.iden)
-            self.axcthr = self._fireAxonClones()
+                        yield lkey, bloc
 
-        self.onfini(self._onAxonFini)
+                if allb or (indx is 0):
+                    lkey = buid + struct.pack('>Q', indx)
+                    yield lkey, allb
+
+            with sess.chan() as bchan:
+
+                bchan.setq()
+
+                bchan.tx(('blob:upload', {}))
+                ok, retn = bchan.next(timeout=30)
+                if not ok:
+                    chan.txerr(retn)
+
+                chan.txok(True)
+
+                if bchan.txwind(genr(), 10, timeout=30):
+
+                    size = info.get('size')
+                    with self.lenv.begin(write=True) as xact:
+                        self._addFileLoc(xact, buid, sha256.digest(), size, name)
+
+            chan.txok(sha256.digest())
+
+    def _addFileLoc(self, xact, buid, sha256, size, name):
+
+        tick = s_common.now()
+
+        nenc = name.encode('utf8')
+
+        xact.put(sha256, struct.pack('>Q', size), db=self.blobhas)
+        xact.put(sha256 + nenc, buid, db=self.bloblocs)
+
+        self.metrics.inc(xact, 'files', 1)
+        self.metrics.inc(xact, 'bytes', size)
+
+        # metrics contains everything we need to clone
+        self.metrics.record(xact, {'time': tick, 'cell': name, 'size': size, 'buid': buid, 'sha256': sha256})
+
+    def _onAxonStat(self, chan, mesg):
+        with chan:
+            return chan.txok(self.metrics.stat())
+
+    @s_glob.inpool
+    def _onAxonMetrics(self, chan, mesg):
+        offs = mesg[1].get('offs', 0)
+
+        chan.setq()
+        chan.txok(True)
+
+        with self.lenv.begin() as xact:
+            metr = self.metrics.iter(xact, offs)
+            genr = s_common.chunks(metr, 1000)
+            chan.txwind(genr, 100, timeout=30)
+            chan.txfini()
+
+    @s_glob.inpool
+    def _onAxonWants(self, chan, mesg):
+
+        # ('axon:wants', {'hashes': [sha256, ...]})
+        with chan:
+
+            wants = []
+            hashes = mesg[1].get('hashes', ())
+
+            with self.lenv.begin(db=self.blobhas) as xact:
+
+                curs = xact.cursor()
+
+                for sha256 in hashes:
+                    if not curs.set_key(sha256):
+                        wants.append(sha256)
+
+            chan.txok(wants)
+
+    @s_glob.inpool
+    def _onAxonLocs(self, chan, mesg):
+        with chan:
+            sha256 = mesg[1].get('sha256')
+            with self.lenv.begin() as xact:
+                locs = self.getBlobLocs(xact, sha256)
+            if not locs:
+                return chan.txerr(('FileNotFound', {}))
+            return chan.txok(locs)
+
+    @s_glob.inpool
+    def _onAxonBytes(self, chan, mesg):
+
+        with chan:
+
+            chan.setq()
+
+            sha256 = mesg[1].get('sha256')
+
+            with self.lenv.begin() as xact:
+                locs = self.getBlobLocs(xact, sha256)
+
+            if not locs:
+                return chan.txerr(('FileNotFound', {}))
+            sess = None
+            buid = None
+
+            for name, buid in locs:
+                sess = self.blobs.get(name)
+                if sess is not None:
+                    break
+
+            if sess is None:
+                return chan.txerr(('NotReady', {}))
+
+            with sess.chan() as bchan:
+
+                bchan.setq()
+                bchan.tx(('blob:load', {'buid': buid}))
+
+                ok, retn = bchan.next(timeout=30)
+                if not ok:
+                    return chan.txerr(retn)
+
+                chan.txok(name)
+
+                def genr():
+                    for byts in bchan.rxwind(timeout=30):
+                        yield byts
+
+                chan.txwind(genr(), 10, timeout=30)
+
+    def getBlobLocs(self, xact, sha256):
+        '''
+        Get the blob and buids for a given sha256 value
+
+        Args:
+            xact (lmdb.Transaction): An LMDB transaction.
+            sha256 (bytes): The sha256 digest to look up in bytes.
+
+        Returns:
+            list: A list of (blobname, buid) tuples.
+        '''
+        with xact.cursor(db=self.bloblocs) as curs:
+
+            if not curs.set_range(sha256):
+                return ()
+
+            locs = []
+
+            for lkey, buid in curs.iternext():
+                if lkey[:32] != sha256:
+                    break
+
+                cellname = lkey[32:].decode('utf8')
+                locs.append((cellname, buid))
+
+            return locs
+
+    def _filtSaveByts(self, files):
+
+        todo = []
+        with self.lenv.begin() as xact:
+
+            curs = xact.cursor(db=self.blobhas)
+            for byts in files:
+
+                sha256 = hashlib.sha256(byts).digest()
+
+                if curs.get(sha256):
+                    continue
+
+                todo.append((s_common.buid(), sha256, byts))
+
+        return todo
+
+    def _saveBlobByts(self, todo):
+
+        rows = []
+        for buid, sha256, byts in todo:
+            for i, ibyts in enumerate(s_common.chunks(byts, blocksize)):
+                indx = struct.pack('>Q', i)
+                rows.append((buid + indx, ibyts))
+
+        ok, retn = self.blobs.any()
+        if not ok:
+            return False, retn
+
+        name, cell = retn
+
+        mesg = ('blob:save', {'rows': rows})
+
+        ok, retn = cell.call(mesg, timeout=30)
+        if not ok:
+            return False, retn
+
+        return True, name
+
+    @s_glob.inpool
+    def _onAxonSave(self, chan, mesg):
+
+        with chan:
+
+            files = mesg[1].get('files', ())
+            if not files:
+                return chan.txok(0)
+
+            todo = self._filtSaveByts(files)
+
+            # if there is nothing to do after deconfliction, bail
+            if not todo:
+                return chan.txok(0)
+
+            ok, retn = self._saveBlobByts(todo)
+            if not ok:
+                logger.warning('axon:save failed save blobs: %r' % (retn,))
+                return chan.txerr(retn)
+
+            name = retn
+            with self.lenv.begin(write=True) as xact:
+                for buid, sha256, byts in todo:
+                    self._addFileLoc(xact, buid, sha256, len(byts), name)
+
+            return chan.txok(len(todo))
 
     @staticmethod
     @s_config.confdef(name='axon')
-    def _axon_confdefs():
-        confdefs = (
-            ('axon:ro', {'type': 'bool', 'defval': 0,
-                         'doc': 'Axon Read-only mode. Prevents allocating new space for writing data to the heap file.',
-                         }),
-            ('axon:clone', {'type': 'bool', 'defval': 0,
-                            'doc': 'Flag to indicate the axon is to be a clone axon or not. Not usually directly set'
-                                   'by the user.',
-                            }),
-            ('axon:clone:iden', {'type': 'str', 'defval': '',
-                                 'doc': 'Iden of the axon that this is a clone of (only applies to clones). Not usually'
-                                        ' directly set by the user.'}),
-            ('axon:clones', {'type': 'int', 'defval': 2,
-                       'doc': 'Number of clones to make of this axon on the axonbus.', }),
-            ('axon:axonbus', {'type': 'str', 'defval': '',
-                       'doc': 'Axon servicebus used for making clones of a Axon.', }),
-            ('axon:hostname', {'type': 'str', 'defval': s_thishost.get('hostname'),
-                       'doc': 'Hostname associated with an Axon.', }),
-            ('axon:listen', {'type': 'str', 'defval': 'tcp://0.0.0.0:0/axon',
-                       'doc': 'Default listener URL for the axon', }),
-            ('axon:tags', {'defval': (),
-                           'doc': 'Tuple of tag values for the axon over a Axon servicebus.'}),
-            ('axon:iden', {'type': 'str', 'defval': None,
-                           'doc': 'Unique identifier for the axon. Not usually directly set by the user.'}),
-            ('axon:syncopts', {'defval': {},
-                               'doc': 'kwarg Options used when making a persistent sync directory.'}),
-            ('axon:bytemax', {'type': 'int', 'defval': terabyte,
-                              'doc': 'Max size of data this axon is allowed to store.'}),
+    def _getAxonConfDefs():
+        return (
+            ('axon:mapsize', {'type': 'int', 'defval': s_const.tebibyte,
+                'doc': 'The maximum size of the LMDB memory map'}),
+
+            ('axon:blobs', {'req': True,
+                'doc': 'A list of cell names in a neuron cluster'}),
         )
-        return confdefs
 
-    def _onSetConfigableValu(self, mesg):
-        axfo = self.getAxonInfo()
-        name = mesg[1].get('name')
-        valu = mesg[1].get('valu')
-        opts = axfo[1].get('opts')
-        opts[name] = valu
+class AxonClient:
 
-    @s_common.firethread
-    def _fireAxonClones(self):
+    def __init__(self, sess):
+        self.sess = sess
+
+    def locs(self, sha256, timeout=None):
         '''
-        Find the clones for the current Axon on the AxonBus
-        '''
-
-        # If this axon is a clone, then don't try to make or find other clones
-        if self.getConfOpt('axon:clone'):
-            return
-
-        clones = self.core.getTufosByProp('axon:clone')
-        for axfo in clones:
-            iden = axfo[1].get('axon:clone')
-            host = axfo[1].get('axon:clone:host')
-
-            self.clonehosts.add(host)
-
-            self._initAxonClone(iden)
-
-            # Wait for our clone to come online
-            waiter = self.waiter(1, 'syn:axon:clone:ready')
-            waiter.wait(60)
-
-        self._findAxonClones()
-
-    def _waitClonesReady(self, timeout=None):
-        '''
-        Wait for the "clonesready" event which is set during
-        initialization once running/online clone count is full.
-        '''
-        self.clonesready.wait(timeout=timeout)
-        return self.clonesready.is_set()
-
-    def _addCloneReady(self, iden, axon):
-        '''
-        Add the clone iden and Axon to the ready list and potentially set the "clonesready" event.
+        Get the Blob hostname and buid pairs for a given sha256.
 
         Args:
-            iden (str): The Axon clone iden.
-            axon (Axon): A Proxy to an Axon.
+            sha256 (bytes): Sha256 to look up.
+            timeout (int): The network timeout in seconds.
 
         Returns:
-            None
-        '''
-        if iden in self.readyclones:
-            return
-
-        count = self.getConfOpt('axon:clones')
-        with self.clonelock:
-            self.clones[iden] = axon
-            self.readyclones.add(iden)
-            if len(self.readyclones) == count:
-                self.clonesready.set()
-
-    def _delCloneReady(self, iden):
-        '''
-        Remove the clone iden from the ready list and unset the "clonesready" event.
-
-        Args:
-            iden (str): Iden to remove.
-
-        Returns:
-            None
-        '''
-        if iden not in self.readyclones:
-            return
-
-        with self.clonelock:
-            self.clones.pop(iden, None)
-            self.readyclones.remove(iden)
-            self.clonesready.clear()
-
-    def _findAxonClones(self):
-        '''
-        Sleep/Loop attempting to find AxonHost instances to clone for us.
-        '''
-        while len(self.clones) < self.getConfOpt('axon:clones'):
-
-            if self.isfini:
-                break
-
-            try:
-
-                axfo = self._findAxonClone()
-                if axfo is None:
-                    time.sleep(1)
-                    continue
-
-                self._initAxonClone(axfo[0])
-
-                waiter = self.waiter(1, 'syn:axon:clone:ready')
-                waiter.wait(60)
-
-            except Exception as e:  # pragma: no cover
-                logger.exception('Axon %s (_findAxonClones)', self.iden)
-
-    def _findAxonClone(self):
-
-        myhost = self.getConfOpt('axon:hostname')
-        bytemax = self.getConfOpt('axon:bytemax')
-
-        dyntask = s_common.gentask('info')
-        hostinfo = list(self.axonbus.callByTag('class.synapse.axon.AxonHost', dyntask))
-
-        hostinfo = [h for h in hostinfo if h[1].get('free') > bytemax]
-        hostinfo = [h for h in hostinfo if h[1].get('hostname') != myhost]
-
-        def hostkey(x):
-            used = x[1].get('used')
-            count = x[1].get('count')
-            return (count, used)
-
-        for svcfo, ahinfo in sorted(hostinfo, key=hostkey):
-            try:
-                host = ahinfo.get('hostname')
-                if host in self.clonehosts:
-                    continue
-
-                props = {'axon:clone': 1,
-                         'axon:clones': 0,
-                         'axon:clone:iden': self.iden,
-                         'axon:bytemax': bytemax,
-                         'axon:hostname': host,
-                         }
-
-                axfo = self.axonbus.callByIden(svcfo[0], 'add', **props)
-
-                tufo = self.core.formTufoByProp('axon:clone', axfo[0], host=host)
-                self.clonehosts.add(host)
-                if not axfo:  # pragma: no cover
-                    logger.error('{} Did not get a clone for {} from {}'.format(myhost, self.iden, host))
-                return axfo
-
-            except Exception as e:
-                logger.exception('Axon %s, svc iden %s, host %s, props %s (_findAxonClone)',
-                                 self.iden, svcfo[0], host, props)
-
-    def _initAxonClone(self, iden):
-        tufo = self.core.formTufoByProp('axon:clone', iden)
-
-        poff = self.syncdir.getIdenOffset(iden)
-        self.poffs[iden] = poff
-        thr = self._fireAxonClone(iden, poff)
-        self.axthrs.add(thr)
-
-    @s_common.firethread
-    def _fireAxonClone(self, iden, poff):
-        '''
-        This thread actually performs the sync operations from the source Axon
-        to the clone axon.
-
-        Args:
-            iden (str): Destination clone axon iden
-            poff (s_persist.Offset): The offset object for sourcing sync events
-            for the destination Axon.
-        '''
-
-        with poff:
-
-            while not self.isfini:
-
-                try:
-
-                    svcfo = self.axonbus.getSynSvcByName(iden)
-
-                    if not svcfo:
-                        time.sleep(0.3)
-                        continue
-
-                    link = svcfo[1].get('link')
-                    if link is None:  # pragma: no cover
-                        raise s_common.LinkErr('No Axon clone Link For: %s' % (iden,))
-
-                    logger.debug('[%s] connecting too clone %s @ %s', self.iden, iden, link)
-
-                    with s_telepath.openlink(link) as axon:
-
-                        # This event is used to signal that the socket on the Proxy has
-                        # gone away, so we can break out of our Perist items() loop.
-                        sockevt = threading.Event()
-
-                        def _onRunSockFini(mesg):
-                            sockevt.set()
-
-                        axon.on('tele:sock:runsockfini', _onRunSockFini)
-
-                        self._addCloneReady(iden, axon)
-
-                        self.fire('syn:axon:clone:ready', iden=iden)
-
-                        off = poff.get()
-
-                        for noff, item in self.syncdir.items(off):
-
-                            if sockevt.is_set():
-                                logger.warning('[%s] Breaking out of noff @ [%s] due to disconnect', self.iden, noff)
-                                break
-
-                            logger.debug('[%s] Syncing noff: [%s]', self.iden, noff)
-                            axon.sync(item)
-                            poff.set(noff)
-                            logger.debug('[%s] Synced noff: [%s]', self.iden, noff)
-
-                        # Cleanup
-                        self._delCloneReady(iden)
-
-                    logger.warning('[%s] Looping in _fireAxonClone inner while loop', self.iden)
-
-                except Exception as e:  # pragma: no cover
-
-                    logger.exception('Axon %s, clone iden %s (_fireAxonClone)', self.iden, iden)
-
-                    if self.isfini:
-                        break
-
-                    time.sleep(1)
-
-        self.poffs.pop(iden, None)
-        logger.debug('Graceful exit for _fireAxonClone thread')
-
-    def getAxonInfo(self):
-        '''
-        Return a dictionary of salient info about an axon.
-        '''
-        return self.axfo
-
-    def getAxonStatus(self):
-        '''
-        Get runtime information for the current axon.
-
-        Returns:
-            ((None, dict)): A ephemeral Tufo of data about the current axon.
-        '''
-        statsd = {
-            'heap:used': self.heap.heapSize(),
-            'heap:atomsize': self.heap.atomSize(),
-            'inprog': {k: dict(v) for k, v in list(self.inprog.items())},
-            'clones:ready': self.clonesready.is_set(),
-            'clones:clonesready': tuple(sorted(self.readyclones)),
-            'clones:clonehosts': tuple(sorted(self.clonehosts)),
-            'thrs:len': len(self.axthrs),
-            'time': s_common.now(),
-        }
-
-        if self.syncdir:
-            statsd['sync:size'] = self.syncdir.dirSize()
-            statsd['sync:idens'] = tuple(sorted(self.syncdir.getOffsetIdens()))
-            statsd['sync:poffs'] = {iden: poff.valu for iden, poff in list(self.poffs.items())}
-
-        # Cleanup statsd from objects which will not serialize
-        for v in statsd.get('inprog').values():
-            v.pop('hashset', None)
-
-        return s_tufo.ephem('axon:stats', self.iden, **statsd)
-
-    def setAxonInfo(self, prop, valu):
-        self.axfo[1][prop] = valu
-
-    def find(self, htype, hvalu):
-        '''
-        Returns a list of blob tufos for hashes in the axon.
-
-        Args:
-            htype (str): Hash type.
-            hvalu (str): Hash value.
-
-        Examples:
-            Find all blobs for a given md5sum::
-
-                blobs = axon.find('md5', md5hash)
-
-        Returns:
-            list: List of tufos for a given hash value.
-        '''
-        return self.core.getTufosByProp('axon:blob:%s' % htype, valu=hvalu)
-
-    def bytes(self, htype, hvalu):
-        '''
-        Yield chunks of bytes for the given hash value.
-
-        Args:
-            htype (str): Hash type.
-            hvalu (str): Hash value.
-
-        Examples:
-            Get the bytes for a given guid and do stuff with them::
-
-                for byts in axon.bytes('guid', axonblobguid):
-                    dostuff(byts)
-
-
-            Iteratively write bytes to a file for a given md5sum::
-
-                for byts in axon.bytes('md5', md5sum):
-                    fd.write(byts)
-
-            Form a contiguous bytes object for a given sha512sum. This is not recommended for large files.::
-
-                byts = b''.join((_byts for _byts in axon.bytes('sha512', sha512sum)))
-
-        Notes:
-            This API will raise an exception to the caller if the requested
-            hash is not present in the axon. This is contrasted against the
-            Axon.iterblob() API, which first requires the caller to first
-            obtain an axon:blob tufo in order to start retrieving bytes from
-            the axon.
-
-        Yields:
-            bytes:  A chunk of bytes for a given hash.
+            tuple: A tuple of (blob, buid) tuples.
 
         Raises:
-            NoSuchFile: If the requested hash is not present in the axon. This
-            is raised when the generator is first consumed.
+            RetnErr: If the file requested does not exist.
         '''
-        blob = self.has(htype, hvalu)
-        if blob:
-            for byts in self.iterblob(blob):
+        mesg = ('axon:locs', {'sha256': sha256})
+        ok, retn = self.sess.call(mesg, timeout=timeout)
+        return s_common.reqok(ok, retn)
+
+    def stat(self, timeout=None):
+        '''
+        Return the stat dictionary for the Axon.
+
+        Args:
+            timeout (int): The network timeout in seconds.
+
+        Returns:
+            dict: The stat dictionary.
+        '''
+        mesg = ('axon:stat', {})
+        ok, retn = self.sess.call(mesg, timeout=timeout)
+        return s_common.reqok(ok, retn)
+
+    def save(self, files, timeout=None):
+        '''
+        Save a list of files to the axon.
+
+        Args:
+            files ([bytes]): A list of files as bytes blobs.
+            timeout (int): The network timeout in seconds.
+
+        Returns:
+            int: The number of files saved.
+        '''
+        mesg = ('axon:save', {'files': files})
+        ok, retn = self.sess.call(mesg, timeout=timeout)
+        return s_common.reqok(ok, retn)
+
+    def wants(self, hashes, timeout=None):
+        '''
+        Filter and return a list of hashes that the axon wants.
+
+        Args:
+            hashes (list): A list of SHA256 bytes.
+            timeout (int): The network timeout in seconds.
+
+        Returns:
+            tuple: A tuple containg hashes the axon wants.
+        '''
+        mesg = ('axon:wants', {'hashes': hashes})
+        ok, retn = self.sess.call(mesg, timeout=timeout)
+        return s_common.reqok(ok, retn)
+
+    def upload(self, genr, timeout=None):
+        '''
+        Upload a large file using a generator.
+
+        Args:
+            genr (generator): Yields file bytes chunks.
+            timeout (int): The network timeout in seconds.
+
+        Returns:
+            bytes: The sha256 digest of the file received, in bytes.
+        '''
+        mesg = ('axon:upload', {})
+
+        with self.sess.task(mesg, timeout=timeout) as chan:
+
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
+
+            chan.txwind(genr, 10, timeout=timeout)
+
+            ok, retn = chan.next(timeout=timeout)
+            return s_common.reqok(ok, retn)
+
+    def bytes(self, sha256, timeout=None):
+        '''
+        Yield bytes for the given SHA256.
+
+        Args:
+            sha256 (str): The SHA256 hash bytes.
+            timeout (int): The network timeout in seconds.
+
+        Yields:
+            bytes: Bytes of the file requested.
+
+        Raises:
+            RetnErr: If the file requested does not exist.
+        '''
+        mesg = ('axon:bytes', {'sha256': sha256})
+        with self.sess.task(mesg, timeout=timeout) as chan:
+
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
+
+            for byts in chan.rxwind(timeout=timeout):
                 yield byts
-        else:
-            raise s_common.NoSuchFile(mesg='The requested blob was not found.',
-                                      htype=htype, hvalu=hvalu)
 
-    def iterblob(self, blob):
+    def metrics(self, offs=0, timeout=None):
         '''
-        Yield bytes blocks from the give blob until complete.
+        Yield metrics rows beginning at an offset.
 
         Args:
-            blob ((str, dict)):  axon:blob tufo to yield bytes from.
-
-        Examples:
-            Get the bytes from a blob and do stuff with them::
-
-                for byts in axon.iterblob(blob):
-                    dostuff(byts)
-
-            Iteratively write bytes to a file for a given blob::
-
-                fd = file('foo.bin','wb')
-                for byts in axon.iterblob(blob):
-                    fd.write(byts)
-
-            Form a contiguous bytes object for a given blob. This is not recommended for large files.::
-
-                byts = b''.join((_byts for _byts in axon.iterblob(blob)))
+            offs (int): The offset to begin at.
+            timeout (int): The network timeout in seconds.
 
         Yields:
-            bytes:  A chunk of bytes
+            ((int, dict)): A tuple of offset and metrics information.
         '''
-        off = blob[1].get('axon:blob:off')
-        size = blob[1].get('axon:blob:size')
+        mesg = ('axon:metrics', {'offs': offs})
+        with self.sess.task(mesg, timeout=timeout) as chan:
 
-        for byts in self.heap.readiter(off, size):
-            yield byts
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
 
-    def wants(self, htype, hvalu, size):
+            for bloc in chan.rxwind(timeout=timeout):
+                for item in bloc:
+                    yield item
+
+class BlobClient:
+
+    def __init__(self, sess):
+        self.sess = sess
+
+    def metrics(self, offs=0, timeout=None):
         '''
-        Single round trip call to Axon.has() and possibly Axon.alloc().
+        Get metrics for a given blob.
 
         Args:
-            htype (str): Hash type.
-            hvalu (str): Hash value.
-            size (int): Number of bytes to allocate.
+            offs (int): Offset to start collecting metrics from.
+            timeout (int): The network timeout in seconds.
 
-        Examples:
-            Check if a sha256 value is present in the Axon, and if not, create the node for a set of bytes::
-
-                iden = axon.wants('sha256',valu,size)
-                if iden != None:
-                    for byts in chunks(filebytes,onemeg):
-                        axon.chunk(iden,byts)
-
-        Returns:
-            None if the hvalu is present; otherwise the iden is returned for writing.
+        Yields:
+            ((int, dict)): A tuple of offset and metrics information.
         '''
-        if self.has(htype, hvalu):
-            return None
+        mesg = ('blob:metrics', {'offs': offs})
+        with self.sess.task(mesg, timeout=timeout) as chan:
 
-        return self.alloc(size)
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
 
-    def _fireAxonSync(self, mesg):
-        self.fire('axon:sync', mesg=mesg)
+            for bloc in chan.rxwind(timeout=timeout):
+                for item in bloc:
+                    yield item
 
-    def sync(self, mesg):
+    def bytes(self, buid, timeout=None):
         '''
-        Consume an axon:sync event (only if we are a clone).
-        '''
-        if not self.getConfOpt('axon:clone'):
-            raise s_common.NotSupported(mesg='Axon is not a Clone and cannot react to sync events')
-
-        self.syncact.react(mesg[1].get('mesg'))
-
-    def _onAxonFini(self):
-        # join clone threads
-        [thr.join(timeout=2) for thr in list(self.axthrs)]
-        if self.axcthr is not None:
-            self.axcthr.join(timeout=2)
-
-    def alloc(self, size):
-        '''
-        Initialize a new blob upload context within this axon.
+        Yield bytes for the given buid.
 
         Args:
-            size (int): Size of the blob to allocate space for.
+            buid (bytes): The buid hash.
+            timeout (int): The network timeout in seconds.
 
-        Examples:
-            Allocate a blob for a set of bytes and write it too the axon::
-
-                iden = axon.alloc(len(byts))
-                for b in chunks(byts,10240):
-                    axon.chunk(iden,b)
-
-        Returns:
-            str: Identifier for a given upload.
-
-        Raises:
-
+        Yields:
+            bytes: Chunks of bytes for the given buid.
         '''
-        if self.getConfOpt('axon:clone'):
-            raise s_common.NotSupported(mesg='Axon Is Clone - cannot allocate new blobs.')
-
-        if self.getConfOpt('axon:ro'):
-            raise s_common.NotSupported(mesg='Axon Is Read-Only - cannot allocate new blobs.')
-
-        hsize = self.heap.heapSize()
-        bytmax = self.getConfOpt('axon:bytemax')
-        if (hsize + size) > bytmax:
-            raise s_common.NotEnoughFree(mesg='Not enough free space on the heap to allocate bytes.',
-                                         size=size, heapsize=hsize, bytemax=bytmax)
-
-        iden = s_common.guid()
-        off = self.heap.alloc(size)
-
-        self.inprog[iden] = {'size': size, 'off': off, 'cur': off, 'maxoff': off + size, 'hashset': HashSet()}
-
-        return iden
-
-    def chunk(self, iden, byts):
-        '''
-        Save a chunk of a blob allocated with alloc().
-
-        Args:
-            iden (str): Iden to save bytes too
-            byts (bytes): Bytes to write to the blob.
-
-        Returns:
-            ((str, dict)): axon:blob node if the upload is complete; otherwise None.
-
-        Raises:
-            NoSuchIden: If the iden is not in progress.
-        '''
-        info = self.inprog.get(iden)
-
-        if info is None:
-            raise s_common.NoSuchIden(iden)
-
-        cur = info.get('cur')
-        self.heap.writeoff(cur, byts)
-
-        info['cur'] += len(byts)
-
-        hset = info.get('hashset')
-        hset.update(byts)
-
-        # if the upload is complete, fire the add event
-        if info['cur'] == info['maxoff']:
-
-            self.inprog.pop(iden, None)
-
-            off = info.get('off')
-            iden, props = hset.guid()
-
-            return self.core.formTufoByProp('axon:blob', iden, off=off, **props)
-
-    def has(self, htype, hvalu):
-        '''
-        Check if the Axon has a given hash type/valu combination stored in it.
-
-        Args:
-            htype (str): Hash type.
-            hvalu (str): Hash value.
-
-        Examples:
-            Check if a sha256 value is present::
-
-                if not axon.has('sha256', shaval):
-                    stuff()
-
-            Check if a known superhash iden is present::
-
-                if axon.has('guid', guidval):
-                    stuff()
-
-        Returns:
-            ((str, dict)): axon:blob tufo if the axon has the hash or guid. None otherwise.
-        '''
-        if hvalu is None:
-            logger.error('Hvalu must be provided.')
-            return
-        if htype == 'guid':
-            tufo = self.core.getTufoByProp('axon:blob', hvalu)
-        else:
-            tufo = self.core.getTufoByProp('axon:blob:%s' % htype, hvalu)
-        if tufo:
-            return tufo
-
-    def byiden(self, iden):
-        '''
-        Get a axon:blob node by iden (superhash) value.
-
-        Args:
-            iden (str): Iden to look up.
-
-        Returns:
-            ((str, dict)): Blob tufo returned by the Axons cortex.
-        '''
-        return self.core.getTufoByProp('axon:blob', iden)
-
-    def fs_create(self, path, mode):
-        '''
-        Forms an axon:path node and sets its properties based on a given file mode.
-
-        Args:
-            path (str):  Path to form.
-            mode (int): Path mode.
-
-        Examples:
-            Creating a directory::
-
-                axon.fs_create('/mydir', 0o775)
-
-            Creating a file ::
-
-                axon.fs_create('/mydir/myfile', 0x81B4)
-
-        Returns:
-            None
-        '''
-        normed, props = self.core.getPropNorm('axon:path', path)
-
-        dirn = None
-        ppath = props.get('dir')
-
-        if ppath:
-            dirn = self._getDirNode(ppath)
-
-        attr = Axon._fs_new_file_attrs(ppath, mode)
-        with self.flock:
-            filefo = self.core.formTufoByProp('axon:path', path, **attr)
-
-        if filefo[1].get('.new') and dirn is not None:
-            self.core.incTufoProp(dirn, 'st_nlink', 1)
-
-        return 0
-
-    def fs_getattr(self, path):
-        '''
-        Return the file attributes for a given file path.
-
-        Args:
-            path (str): Path to look up.
-
-        Examples:
-            Get the attributes for a given file::
-
-                axon.fs_getattr('/foo/bar/baz.faz')
-
-        Returns:
-            dict: Attribute dictionary.
-        '''
-        path = self._fs_normpath(path)
-        tufo = self.core.getTufoByProp('axon:path', path)
-        # Inconsistent exception raising between this and fs_getxattr
-        return Axon._fs_tufo2attr(tufo)
-
-    def fs_getxattr(self, path, name):
-        '''
-        Return a file attribute value for a given file path and attr name.
-
-        Args:
-            path (str): Path to look up.
-            name (str): Attribute name to retrieve.
-
-        Examples:
-            Get the size of a file::
-
-                axon.fs_getxattr('/foo/bar/baz.faz', 'st_size')
-
-        Returns:
-            Requested attribute value, or None if the attribute does not exist.
-
-        Raises:
-            NoSuchData if the requested path does not exist.
-        '''
-        if name not in _fs_attrs:
-            raise s_common.NoSuchData()
-
-        path = self._fs_normpath(path)
-        tufo = self.core.getTufoByProp('axon:path', path)
-        if tufo:
-            return tufo[1].get('axon:path:%s' % name)
-
-        raise s_common.NoSuchData()
-
-    def fs_mkdir(self, path, mode):
-        '''
-        Creates a new directory at the given path.
-
-        Args:
-            path (str): Path to create.
-            mode (int): Mode for any created path nodes.
-
-        Example:
-
-            axon.fs_mkdir('/mydir', 0o775)
-
-        Returns:
-            None
-
-        Raises:
-            FileExists: If the path already exists.
-        '''
-        normed, props = self.core.getPropNorm('axon:path', path)
-
-        dirn = None
-        ppath = props.get('dir')
-
-        if ppath:
-            dirn = self._getDirNode(ppath)
-
-        attr = Axon._fs_new_dir_attrs(ppath, mode)
-        with self.flock:
-            tufo = self.core.formTufoByProp('axon:path', path, **attr)
-        if tufo and not tufo[1].get('.new'):
-            raise s_common.FileExists()
-
-        if dirn is not None:
-            self.core.incTufoProp(dirn, 'st_nlink', 1)
-
-    def _getDirNode(self, path):
-        '''
-        Get the axon:path node for a directory.
-
-        Args:
-            path (str): Path to retrieve
-
-        Returns:
-            ((str, dict)): axon:path node.
-
-        Raises:
-            NoSuchDir: If the path does not exist or if the path is a file.
-        '''
-
-        node = self.core.getTufoByProp('axon:path', path)
-        if node is None:
-            raise s_common.NoSuchDir()
-
-        if not Axon._fs_isdir(node[1].get('axon:path:st_mode')):
-            raise s_common.NoSuchDir()
-
-        return node
-
-    def fs_read(self, path, size, offset):
-        '''
-        Reads a file.
-
-        Args:
-            path (str): Path to read
-            size (int): Number of bytes to read.
-            offset (int): File offset to retrieve.
-
-        Examples:
-            Get the bytes of a file::
-
-                byts = axon.fs_read('/dir/file1', 100, 0)
-
-        Returns:
-            bytes: Bytes read from the path.
-
-        Raises:
-            NoSuchEntity: If the path does not exist.
-        '''
-        tufo = self.core.getTufoByProp('axon:path', path)
-        if not tufo:
-            raise s_common.NoSuchEntity()
-        bval = tufo[1].get('axon:path:blob')
-        blob = None
-
-        if bval:
-            blob = self.core.getTufoByProp('axon:blob', bval)
-
-        if not blob:
-            return b''
-
-        boff = blob[1].get('axon:blob:off')
-        blob[1]['axon:blob:off'] = boff + offset  # the offset of the blob in the axon + the offset within the file
-        blob[1]['axon:blob:size'] = size  # number of bytes that the OS asks for
-
-        return b''.join(self.iterblob(blob))
-
-    def fs_readdir(self, path):
-        '''
-        Reads a directory and gets a list of files in the directory.
-
-        Args:
-            path (str): Path to get a list of files for.
-
-        Examples:d
-            Read the files in the root directory::
-
-                files = axon.fs_readdir('/')
-
-        Returns:
-            list: List of files / folders under the path
-        '''
-        files = ['.', '..']
-
-        attr = self.fs_getattr(path)
-        if not Axon._fs_isdir(attr.get('st_mode')):
-            raise s_common.NotSupported()
-
-        tufos = self.core.getTufosByProp('axon:path:dir', path)
-        for tufo in tufos:
-            fpath = tufo[1].get('axon:path')
-            fname = fpath.split('/')[-1]
-            if fname:
-                files.append(fname)
-
-        return files
-
-    def fs_rmdir(self, path):
-        '''
-        Removes a directory
-
-        Args:
-            path (str): Path to remove.
-
-        Examples:
-            Remove a directory::
-
-                axon.fs_rmdir('/mydir')
-
-        Returns:
-            None
-
-        Raises:
-            NoSuchEntity: If the path does not exist.
-            NotEmpty: If the path is not empty.
-        '''
-        tufo = self.core.getTufoByProp('axon:path', path)
-        if not tufo:
-            raise s_common.NoSuchEntity()
-
-        nlinks = tufo[1].get('axon:path:st_nlink')
-        if nlinks != 2:
-            raise s_common.NotEmpty()
-
-        parent = tufo[1].get('axon:path:dir')
-        if parent:
-            parentfo = self.core.getTufoByProp('axon:path', parent)
-            self.core.incTufoProp(parentfo, 'st_nlink', -1)
-            self.core.delTufo(tufo)
-
-    def fs_rename(self, src, dst):
-        '''
-        Rename a file:
-
-        Args:
-            src (str): Full path to the source file.
-            dst (str): Full path to teh destination.
-
-        Examples:
-            Rename a file::
-
-                axon.fs_rename('/myfile', '/mycoolerfile')
-
-        Returns:
-            None
-
-        Raises:
-            NoSuchEntity: If the source does not exist.
-            NoSuchDir: If the source or destination parent path does not exist.
-            NotEmpty: If the destination already exists.
-        '''
-
-        _, srcprops = self.core.getPropNorm('axon:path', src)
-        srcppath, srcfname = srcprops.get('dir'), srcprops.get('base')
-        _, dstprops = self.core.getPropNorm('axon:path', dst)
-        dstppath, dstfname = dstprops.get('dir'), dstprops.get('base')
-
-        with self.flock:
-
-            srcfo = self.core.getTufoByProp('axon:path', src)
-            if not srcfo:
-                raise s_common.NoSuchEntity()
-            src_isdir = Axon._fs_isdir(srcfo[1].get('axon:path:st_mode'))
-
-            psrcfo = self.core.getTufoByProp('axon:path', srcppath)
-            if not (psrcfo and Axon._fs_isdir(psrcfo[1].get('axon:path:st_mode'))):
-                raise s_common.NoSuchDir()
-
-            pdstfo = self.core.getTufoByProp('axon:path', dstppath)
-            if not (pdstfo and Axon._fs_isdir(pdstfo[1].get('axon:path:st_mode'))):
-                raise s_common.NoSuchDir()
-
-            # prepare to set dst props to what src props were
-            dstprops = Axon._get_renameprops(srcfo)
-            dstprops.update({'dir': dstppath})
-
-            # create or update the dstfo node
-            dstfo = self.core.formTufoByProp('axon:path', dst, **dstprops)
-            dst_isdir = Axon._fs_isdir(dstfo[1].get('axon:path:st_mode'))
-            dst_isemptydir = dstfo[1].get('axon:path:st_nlink', -1) == 2
-            dstfo_isnew = dstfo[1].get('.new')
-            if dst_isdir and not dst_isemptydir and not dstfo_isnew:
-                raise s_common.NotEmpty()
-
-            # all pre-checks complete
-
-            if dstfo_isnew:
-                # if a new file was created, increment its parents link count ??
-                self.core.incTufoProp(pdstfo, 'st_nlink', 1)
-            else:
-                # Now update dstfo props
-                self.core.setTufoProps(dstfo, **dstprops)
-
-            # if overwriting a regular file with a dir, remove its st_size
-            if src_isdir:
-                self.core.delTufoProp(dstfo, 'st_size')
-                self._fs_reroot_kids(src, dst)
-
-            # Remove src and decrement its parent's link count
-            self.core.delTufo(srcfo)
-            self.core.incTufoProp(psrcfo, 'st_nlink', -1)
-
-    def fs_truncate(self, path):
-        '''
-        Truncates a file by setting its st_size to zero.
-
-        Args:
-            path (str): Path to truncate.
-
-        Examples:
-            Truncate a file::
-
-                axon.fs_truncate('/myfile')
-
-        Returns:
-            None
-
-        Raises:
-            NoSuchEntity: If the path does not exist.
-        '''
-        tufo = self.core.getTufoByProp('axon:path', path)
-        if tufo:
-            self.core.delTufoProp(tufo, 'blob')
-            self.core.setTufoProps(tufo, st_size=0)
-            return
-
-        raise s_common.NoSuchEntity(mesg='File does not exist to truncate.', path=path)
-
-    def fs_unlink(self, path):
-        '''
-        Unlink (delete) a file.
-
-        Args:
-            path (str): Path to unlink.
-
-        Examples:
-            Delete a file::
-
-                axon.fs_unlink('/myfile')
-
-        Returns:
-            None
-
-        Raises:
-            NoSuchFile: If the path does not exist.
-        '''
-        tufo = self.core.getTufoByProp('axon:path', path)
-        if not tufo:
-            raise s_common.NoSuchFile()
-
-        ppath = tufo[1].get('axon:path:dir')
-        self.core.delTufo(tufo)
-
-        parentfo = self.core.getTufoByProp('axon:path', ppath)
-        if parentfo:
-            self.core.incTufoProp(parentfo, 'st_nlink', -1)
-
-    def fs_utimens(self, path, times=None):
-        '''
-        Change file timestamps (st_atime, st_mtime).
-
-        Args:
-            path (str): Path to file to change.
-            times (tuple): Tuple containing two integers - st_atime and st_mtime.
-
-        Examples:
-            Set the timestamps to epoch 0::
-
-                axon.fs_utimens('/myfile', (0, 0))
-
-        Returns:
-            None
-        '''
-        if not(type(times) is tuple and len(times) == 2):
-            return
-
-        st_atime = int(times[0])
-        st_mtime = int(times[1])
-
-        tufo = self.core.getTufoByProp('axon:path', path)
-        if tufo:
-            self.core.setTufoProps(tufo, st_atime=st_atime, st_mtime=st_mtime)
-            return
-
-        raise s_common.NoSuchEntity(mesg='Path does not exist.', path=path)
-
-    def _fs_reroot_kids(self, oldroot, newroot):
-
-        for child in self.core.getTufosByProp('axon:path:dir', oldroot):
-
-            normed, props = self.core.getPropNorm('axon:path', child[1].get('axon:path'))
-            cpath, cfname = props.get('dir'), props.get('base')
-            cmode = child[1].get('axon:path:st_mode')
-
-            newdst = '%s%s%s' % (newroot, '/', cfname)
-            self.core.delTufo(child)
-            child[1]['axon:path:dir'] = newroot
-            child[1]['axon:path'] = newdst
-            self.core.formTufoByTufo(child)
-
-            # move the kids
-            if Axon._fs_isdir(cmode):
-                newroot = '%s/%s' % (newroot, cfname)
-                self._fs_reroot_kids(normed, newroot)
-
-    def _fs_update_blob(self, path, blobsize, blob):
-        tufo = self.core.getTufoByProp('axon:path', path)
-        if tufo:
-            self.core.setTufoProps(tufo, st_size=blobsize, blob=blob)
-
-    def _fs_normpath(self, path):
-        normed, _ = self.core.getPropNorm('axon:path', path)
-        return normed
-
-    def _fs_mkdir_root(self):
-        '''
-        Makes the root ('/') axon:path node.
-        '''
-        attr = Axon._fs_new_dir_attrs(None, 0x1FD)
-        del attr['dir']
-        attr['base'] = ''
-        self.core.formTufoByProp('axon:path', '/', **attr)
-
-    @staticmethod
-    def _fs_tufo2attr(tufo):
-
-        if not tufo:
-            raise s_common.NoSuchEntity()
-
-        attrs = {}
-        for attr in _fs_attrs:
-            val = tufo[1].get('axon:path:%s' % attr)
-            if val is not None:
-                attrs[attr] = val
-
-        return attrs
-
-    @staticmethod
-    def _get_renameprops(tufo):
-
-        props = Axon._fs_tufo2attr(tufo)
-        blob = tufo[1].get('axon:path:blob')
-        if blob:
-            props['blob'] = blob
-
-        return props
-
-    @staticmethod
-    def _fs_isdir(mode):
-
-        try:
-            return stat.S_ISDIR(mode)
-        except:
-            return False
-
-    @staticmethod
-    def _fs_isfile(mode):
-
-        try:
-            return stat.S_ISREG(mode)
-        except:
-            return False
-
-    @staticmethod
-    def _fs_new_file_attrs(parent, mode):
-
-        now = int(time.time())
-        return {'st_ctime': now, 'st_mtime': now, 'st_atime': now, 'st_nlink': 1, 'st_size': 0, 'st_mode': (stat.S_IFREG | mode), 'dir': parent}
-
-    @staticmethod
-    def _fs_new_dir_attrs(parent, mode):
-
-        now = int(time.time())
-        return {'st_ctime': now, 'st_mtime': now, 'st_atime': now, 'st_nlink': 2, 'st_mode': (stat.S_IFDIR | mode), 'dir': parent}
-
-def _ctor_axon(opts):
-    '''
-    A function to allow terse/clean construction of an axon from a dmon ctor.
-
-    Args:
-        opts (dict): Options dictionary used to make the Axon object. Requires a "datadir" value.
-
-    Returns:
-        Axon: Axon created with the opts.
-
-    Raises:
-        BadInfoBalu: If the "datadir" value is missing from opts.
-    '''
-    datadir = opts.pop('datadir', None)
-    if datadir is None:
-        raise s_common.BadInfoValu(name='datadir', valu=None, mesg='axon ctor requires "datadir":<path> option')
-
-    return Axon(datadir, **opts)
-
-s_dyndeps.addDynAlias('syn:axon', _ctor_axon)
+        mesg = ('blob:load', {'buid': buid})
+        with self.sess.task(mesg, timeout=timeout) as chan:
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
+            for byts in chan.rxwind(timeout=timeout):
+                yield byts

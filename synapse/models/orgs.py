@@ -1,7 +1,9 @@
 from synapse.common import guid
-from synapse.lib.module import CoreModule, modelrev
 
-class OuMod(CoreModule):
+import synapse.lib.tufo as s_tufo
+import synapse.lib.module as s_module
+
+class OuMod(s_module.CoreModule):
 
     def initCoreModule(self):
         self.core.addSeedCtor('ou:org:name', self.seedOrgName)
@@ -18,6 +20,62 @@ class OuMod(CoreModule):
         if node is None:
             node = self.core.formTufoByProp('ou:org', guid(), alias=valu, **props)
         return node
+
+    @s_module.modelrev('ou', 201802281621)
+    def _revModl201802281621(self):
+        '''
+        Combine ou:has* into ou:org:has
+        - Forms a new ou:org:has node for all of the old ou:has* nodes
+        - Applies the old node's tags to the new node
+        - Deletes the old node
+        - Deletes the syn:tagform nodes for the old form
+        - Adds dark row for each node, signifying that they were added by migration
+        - NOTE: does not migrate ou:hasalias
+        '''
+        data = (
+            ('ou:hasfile', 'file', 'file:bytes'),
+            ('ou:hasfqdn', 'fqdn', 'inet:fqdn'),
+            ('ou:hasipv4', 'ipv4', 'inet:ipv4'),
+            ('ou:hashost', 'host', 'it:host'),
+            ('ou:hasemail', 'email', 'inet:email'),
+            ('ou:hasphone', 'phone', 'tel:phone'),
+            ('ou:haswebacct', 'web:acct', 'inet:web:acct'),
+        )
+        with self.core.getCoreXact() as xact:
+
+            for oldform, pname, ptype in data:
+                orgkey = oldform + ':org'
+                newvalkey = oldform + ':' + pname
+                sminkey = oldform + ':seen:min'
+                smaxkey = oldform + ':seen:max'
+
+                for tufo in self.core.getTufosByProp(oldform):
+                    orgval = tufo[1].get(orgkey)
+                    newval = tufo[1].get(newvalkey)
+
+                    kwargs = {}
+                    smin = tufo[1].get(sminkey)
+                    if smin is not None:
+                        kwargs['seen:min'] = smin
+                    smax = tufo[1].get(smaxkey)
+                    if smax is not None:
+                        kwargs['seen:max'] = smax
+
+                    newfo = self.core.formTufoByProp('ou:org:has', (orgval, (ptype, newval)), **kwargs)
+
+                    tags = s_tufo.tags(tufo, leaf=True)
+                    self.core.addTufoTags(newfo, tags)
+
+                    self.core.delTufo(tufo)
+
+                self.core.delTufosByProp('syn:tagform:form', oldform)
+
+            # Add dark rows to the ou:org:has
+            # It is safe to operate on all ou:org:has nodes as this point as none should exist
+            dvalu = 'ou:201802281621'
+            dprop = '_:dark:syn:modl:rev'
+            darks = [(i[::-1], dprop, dvalu, t) for (i, p, v, t) in self.core.getRowsByProp('ou:org:has')]
+            self.core.addRows(darks)
 
     @staticmethod
     def getBaseModels():
@@ -36,14 +94,15 @@ class OuMod(CoreModule):
 
                 ('ou:suborg',
                  {'subof': 'comp', 'fields': 'org,ou:org|sub,ou:org', 'doc': 'An org which owns a sub org'}),
+                ('ou:member', {'subof': 'comp', 'fields': 'org,ou:org|person,ps:person',
+                               'doc': 'A person who is (or was) a member of an organization.'}),
 
-                ('ou:hasfile', {'subof': 'comp', 'fields': 'org,ou:org|file,file:bytes'}),
-                ('ou:hasfqdn', {'subof': 'comp', 'fields': 'org,ou:org|fqdn,inet:fqdn'}),
-                ('ou:hasipv4', {'subof': 'comp', 'fields': 'org,ou:org|ipv4,inet:ipv4'}),
-                ('ou:hashost', {'subof': 'comp', 'fields': 'org,ou:org|host,it:host'}),
-                ('ou:hasemail', {'subof': 'comp', 'fields': 'org,ou:org|email,inet:email'}),
-                ('ou:hasphone', {'subof': 'comp', 'fields': 'org,ou:org|phone,tel:phone'}),
-                ('ou:haswebacct', {'subof': 'comp', 'fields': 'org,ou:org|web:acct,inet:web:acct'}),
+                ('ou:hasalias', {'subof': 'comp', 'fields': 'org=ou:org,alias=ou:alias'}),
+                ('ou:org:has', {
+                    'subof': 'xref',
+                    'source': 'org,ou:org',
+                    'doc': 'An org owns, controls, or has exclusive use of an object or resource,'
+                        'potentially during a specific period of time.'}),
 
             ),
 
@@ -75,56 +134,38 @@ class OuMod(CoreModule):
                     ('user', {'ptype': 'inet:user'}),
                 ]),
 
-                ('ou:member', {'ptype': 'sepr', 'sep': '/', 'fields': 'org,ou:org|person,ou:person'}, [
+                ('ou:member', {}, [
+                    ('org', {'ptype': 'ou:org', 'ro': 1}),
+                    ('person', {'ptype': 'ps:person', 'ro': 1}),
                     ('start', {'ptype': 'time:min'}),
+                    ('end', {'ptype': 'time:max'}),
                     ('title', {'ptype': 'str:lwr', 'defval': '??'}),
                 ]),
 
                 ('ou:owns', {'ptype': 'sepr', 'sep': '/', 'fields': 'owner,ou:org|owned,ou:org'}, [
+                ]),  # FIXME does this become an ou:org:has?
+
+                ('ou:hasalias', {'ptype': 'ou:hasalias'}, (
+                    ('org', {'ptype': 'ou:org'}),
+                    ('alias', {'ptype': 'ou:alias'}),
+                    ('seen:min', {'ptype': 'time:min'}),
+                    ('seen:max', {'ptype': 'time:max'}),
+                )),
+                ('ou:org:has', {}, [
+                    ('org', {'ptype': 'ou:org', 'ro': 1, 'req': 1,
+                        'doc': 'The org who owns or controls the object or resource.'}),
+                    ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
+                        'doc': 'The object or resource (prop=valu) that is owned or controlled by the org.'}),
+                    ('xref:node', {'ptype': 'ndef', 'ro': 1, 'req': 1,
+                        'doc': 'The ndef of the node that is owned or controlled by the org.'}),
+                    ('xref:prop', {'ptype': 'str', 'ro': 1,
+                        'doc': 'The property (form) of the object or resource that is owned or controlled by the org.'}),
+                    ('seen:min', {'ptype': 'time:min',
+                        'doc': 'The earliest known time when the org owned or controlled the resource.'}),
+                    ('seen:max', {'ptype': 'time:max',
+                        'doc': 'The most recent known time when the org owned or controlled the resource.'}),
                 ]),
 
-                ('ou:hasfile', {}, [
-                    ('org', {'ptype': 'ou:org', 'ro': 1}),
-                    ('file', {'ptype': 'file:bytes', 'ro': 1}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                ]),
-                ('ou:hasfqdn', {}, [
-                    ('org', {'ptype': 'ou:org', 'ro': 1}),
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                ]),
-                ('ou:hasipv4', {}, [
-                    ('org', {'ptype': 'ou:org', 'ro': 1}),
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                ]),
-                ('ou:hashost', {}, [
-                    ('org', {'ptype': 'ou:org', 'ro': 1}),
-                    ('host', {'ptype': 'it:host', 'ro': 1}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                ]),
-                ('ou:hasemail', {}, [
-                    ('org', {'ptype': 'ou:org', 'ro': 1}),
-                    ('email', {'ptype': 'inet:email', 'ro': 1}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                ]),
-                ('ou:hasphone', {}, [
-                    ('org', {'ptype': 'ou:org', 'ro': 1}),
-                    ('phone', {'ptype': 'tel:phone', 'ro': 1}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                ]),
-                ('ou:haswebacct', {}, [
-                    ('org', {'ptype': 'ou:org', 'ro': 1}),
-                    ('web:acct', {'ptype': 'inet:web:acct', 'ro': 1}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                ]),
             ),
         }
         name = 'ou'

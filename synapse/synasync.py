@@ -42,25 +42,6 @@ def jobret(job):
         raise s_common.JobErr(job)
     return job[1].get('ret')
 
-def jobDoneMesg(job):
-    '''
-    Construct a job:done message for the given job.
-
-    Example:
-
-        def ondone(job):
-            otherguy.dist( jobDoneMesg(job) )
-
-    '''
-    info = {'jid': job[0], 'ret': job[1].get('ret')}
-    if job[1].get('err') is not None:
-        info['err'] = job[1].get('err'),
-        info['errmsg'] = job[1].get('errmsg'),
-        info['errfile'] = job[1].get('errfile'),
-        info['errline'] = job[1].get('errline'),
-
-    return s_common.tufo('job:done', **info)
-
 def newtask(meth, *args, **kwargs):
     return (meth, args, kwargs)
 

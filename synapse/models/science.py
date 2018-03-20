@@ -1,6 +1,6 @@
-from synapse.lib.module import CoreModule
+import synapse.lib.module as s_module
 
-class SciMod(CoreModule):
+class SciMod(s_module.CoreModule):
 
     @staticmethod
     def getBaseModels():

@@ -1,3 +1,5 @@
+import io
+
 import logging
 import msgpack
 import msgpack.fallback as m_fallback
@@ -72,6 +74,32 @@ def iterfd(fd):
     for mesg in unpk:
         yield mesg
 
+def iterfile(path, since=-1):
+    '''
+    Generator which yields msgpack objects from a file path.
+
+    Args:
+        path: File path to open and consume data from.
+
+    Notes:
+        String objects are decoded using utf8 encoding.  In order to handle
+        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
+        to allow decoding bad input strings.
+
+    Yields:
+        Objects from a msgpack stream.
+    '''
+    with io.open(path, 'rb') as fd:
+
+        unpk = msgpack.Unpacker(fd, use_list=False, encoding='utf8',
+                            unicode_errors='surrogatepass')
+
+        for i, mesg in enumerate(unpk):
+            if i <= since:
+                continue
+
+            yield mesg
+
 class Unpk:
     '''
     An extension of the msgpack streaming Unpacker which reports sizes.
@@ -117,3 +145,33 @@ class Unpk:
                 break
 
         return retn
+
+def loadfile(path):
+    '''
+    Load and upack the msgpack bytes from a file by path.
+
+    Args:
+        path (str): The file path to a message pack file.
+
+    Raises:
+        msgpack.exceptions.ExtraData: If the file contains multiple objects.
+
+    Returns:
+        (obj): The decoded python object.
+    '''
+    with io.open(path, 'rb') as fd:
+        return un(fd.read())
+
+def dumpfile(item, path):
+    '''
+    Dump an object to a file by path.
+
+    Args:
+        item (object): The object to serialize.
+        path (str): The file path to save.
+
+    Returns:
+        None
+    '''
+    with io.open(path, 'wb') as fd:
+        fd.write(en(item))

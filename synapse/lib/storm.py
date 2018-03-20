@@ -197,6 +197,8 @@ class Query:
         self.added = 0
         self.subed = 0
 
+        self.vartree = (None, {})
+
         self.maxtime = maxtime
         self.maxtouch = None
 
@@ -217,11 +219,68 @@ class Query:
 
             'data': list(data),
             'show': {},
-
         }
 
     def __len__(self):
         return len(self.results['data'])
+
+    def addTreeVar(self, name, vals, tree=None):
+        '''
+        Add a list of values (likely graph nodes) to the var tree.
+
+        Args:
+            name (str): The variable base name.
+            vals (list): The values to add to the tree.
+            tree ((obj,dict)): The tree node. (defaults to root node)
+        '''
+        if tree is None:
+            tree = self.vartree
+
+        # *tree* nodes...
+        nodes = [(valu, {}) for valu in vals]
+        tree[1][name] = nodes
+
+    def iterVarTree(self, path):
+        '''
+        Iterate through the var tree and yield (node, vars) tuples.
+        Args:
+            path (str): A var tree path (ie. foo.bar.baz).
+
+        Yields:
+            (treenode, dict): Tuples of the tree node and parent vars.
+        '''
+        if path is None:
+            yield self.vartree, {}
+            return
+
+        parts = path.split('.')
+        fulls = ['.'.join(parts[:i]) for i in range(1, len(parts) + 1)]
+
+        # for this context, "node" is *tree* nodes...
+        todo = collections.deque([(self.vartree, 0, {})])
+
+        while todo:
+
+            node, indx, varz = todo.popleft()
+
+            if indx >= len(parts):
+                yield node, varz
+                continue
+
+            nexi = indx + 1
+            base = parts[indx]
+            full = fulls[indx]
+
+            kids = node[1].get(base)
+            if kids is None:
+                continue
+
+            for tkid in kids:
+
+                newv = dict(varz)
+                newv[full] = tkid[0]
+
+                todo.append((tkid, nexi, newv))
 
     def size(self):
         '''
@@ -409,10 +468,12 @@ class Runtime(Configable):
         self.setCmprCtor('in', self._cmprCtorIn)
         self.setCmprCtor('re', self._cmprCtorRe)
         self.setCmprCtor('has', self._cmprCtorHas)
-
-        self.setOperFunc('filt', self._stormOperFilt)
         self.setOperFunc('opts', self._stormOperOpts)
 
+        self.setOperFunc('filt', self._stormOperFilt)
+        self.setOperFunc('filtsub', self._stormOperFiltSub)
+
+        self.setOperFunc('set', self._stormOperSet)
         self.setOperFunc('save', self._stormOperSave)
         self.setOperFunc('load', self._stormOperLoad)
         self.setOperFunc('clear', self._stormOperClear)
@@ -716,6 +777,9 @@ class Runtime(Configable):
 
         '''
         opers = self.plan(opers)
+        return self.runPostPlan(opers, data=data, timeout=timeout)
+
+    def runPostPlan(self, opers, data=(), timeout=None):
 
         maxtime = None
         if timeout is not None:
@@ -983,6 +1047,26 @@ class Runtime(Configable):
 
         return cmpr
 
+    def _stormOperSet(self, query, oper):
+        full, subq = oper[1].get('args')
+        subq = self.plan(subq)
+        parts = full.rsplit('.', 1)
+        name = parts[-1]
+
+        if len(parts) == 1:
+            answ = self.runPostPlan(subq) # TIMEOUT?
+            # TODO: propagate errors...
+            nodes = answ.get('data', ())
+            query.addTreeVar(name, nodes)
+            return
+
+        path = parts[0]
+        for tnode, varz in query.iterVarTree(path):
+            data = (tnode[0],)
+            answ = self.runPostPlan(subq, data=data)
+            nodes = answ.get('data', ())
+            query.addTreeVar(name, nodes, tree=tnode)
+
     def _stormOperShowCols(self, query, oper):
 
         opts = dict(oper[1].get('kwlist'))
@@ -999,6 +1083,18 @@ class Runtime(Configable):
             cmpr = invert(cmpr)
 
         [query.add(t) for t in query.take() if cmpr(t)]
+
+    def _stormOperFiltSub(self, query, oper):
+        must, opers = oper[1].get('args')
+        opers = self.plan(opers)
+
+        for node in query.take():
+            answ = self.runPostPlan(opers, data=(node,))
+
+            # if +, only add if there is data
+            # if -, only add if there is not data
+            if must == bool(answ.get('data')):
+                query.add(node)
 
     def _stormOperSave(self, query, oper):
         data = query.data()
@@ -1293,7 +1389,19 @@ class Runtime(Configable):
                 if limt.reached():
                     break
 
+                # node:ndef optimization
                 form = node[1].get('tufo:form')
+                ndef = node[1].get(form + ':xref:node')
+                if ndef is not None:
+                    skipprop = form + ':xref'
+                    done.add((skipprop, node[1].get(skipprop)))
+
+                    newfo = core.getTufoByProp('node:ndef', ndef)
+                    if newfo:
+                        query.add(newfo)
+                        if limt.dec(1):
+                            break
+
                 for prop, info in core.getSubProps(form):
 
                     valu = node[1].get(prop)

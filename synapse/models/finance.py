@@ -1,6 +1,6 @@
-from synapse.lib.module import CoreModule
+import synapse.lib.module as s_module
 
-class FinMod(CoreModule):
+class FinMod(s_module.CoreModule):
 
     @staticmethod
     def getBaseModels():

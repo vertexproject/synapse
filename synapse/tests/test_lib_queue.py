@@ -1,9 +1,5 @@
-import io
-import time
-import unittest
-
+import synapse.exc as s_exc
 import synapse.lib.queue as s_queue
-import synapse.lib.threads as s_threads
 
 from synapse.tests.common import *
 
@@ -21,7 +17,7 @@ class QueueTest(SynTest):
         self.eq(q.size(), 1)
 
         self.eq(q.get(), 'woot')
-        self.none(q.get(timeout=0.1))
+        self.raises(s_exc.TimeOut, q.get, timeout=0.1)
 
         self.len(0, q)
         self.eq(q.size(), 0)
@@ -55,27 +51,40 @@ class QueueTest(SynTest):
         q.put(3)
         q.put(4)
 
-        for slic in q.slices(2, timeout=0.1):
-            retn.append(tuple(slic))
+        try:
+
+            for slic in q.slices(2, timeout=0.1):
+                retn.append(tuple(slic))
+
+        except s_exc.TimeOut as e:
+            pass
 
         q.put(1)
         q.put(2)
         q.put(3)
         q.put(4)
 
-        for slic in q.slices(2, timeout=0.1):
-            retn.append(tuple(slic))
+        try:
+
+            for slic in q.slices(2, timeout=0.1):
+                retn.append(tuple(slic))
+
+        except s_exc.TimeOut as e:
+            pass
 
         self.eq(tuple(retn), ((1, 2), (3, 4), (1, 2), (3, 4)))
 
     def test_queue_timeout(self):
         q = s_queue.Queue()
         q.put(1)
+
         self.eq(q.slice(1, timeout=0.001), [1])
-        self.eq(q.slice(1, timeout=0.001), None)
+        self.raises(s_exc.TimeOut, q.slice, 1, timeout=0.001)
+
         q.put(1)
+
         self.eq(q.get(timeout=0.001), 1)
-        self.eq(q.get(timeout=0.001), None)
+        self.raises(s_exc.TimeOut, q.slice, 1, timeout=0.001)
 
     def test_queue_postfini(self):
         q = s_queue.Queue()
@@ -83,13 +92,99 @@ class QueueTest(SynTest):
         q.put(2)
         q.put(3)
         q.done()
+        q.put(4)
+
         self.eq(q.get(), 1)
         self.eq(q.slice(2), [2, 3])
-        self.eq(q.get(), None)
-        self.eq(q.slice(1), None)
+
+        self.raises(s_exc.IsFini, q.get)
+        self.raises(s_exc.IsFini, q.slice, 1)
 
         q = s_queue.Queue()
         q.put(1)
         q.fini()
-        self.eq(q.get(), None)
-        self.eq(q.slice(1), None)
+        q.put(2)
+
+        deqdata = []
+
+        [deqdata.append(item) for item in q.deq]
+
+        self.raises(s_exc.IsFini, q.get)
+        self.raises(s_exc.IsFini, q.slice, 1)
+
+        self.eq(deqdata, [1])
+
+    def test_queue_iter(self):
+        results = []
+        data = [1, 2, 3, 4, 5]
+        evt = threading.Event()
+
+        q = s_queue.Queue()
+        [q.put(item) for item in data]
+
+        @firethread
+        def finisoon():
+            evt.wait()
+            q.fini()
+
+        thr = finisoon()
+        for i, item in enumerate(q, 1):
+            results.append(item)
+            if i == len(data):
+                evt.set()
+        thr.join()
+
+        self.true(q.isfini)
+        self.eq(data, results)
+
+    def test_queue_exit(self):
+        q = s_queue.Queue()
+        evt = threading.Event()
+        data = [1, 2, 3, 4, 5]
+        results = []
+
+        @firethread
+        def nommer():
+            evt.wait()
+            try:
+
+                while True:
+                    results.append(q.get(timeout=1))
+
+            except s_exc.IsFini as e:
+                return
+
+        thr = nommer()
+        with q:
+            [q.put(item) for item in data]
+            evt.set()
+
+        thr.join()
+
+        self.true(q.isfini)
+        self.eq(data, results)
+
+    def test_queue_getn(self):
+        q = s_queue.Queue()
+        data = [0, 1, 2, 3, 4]
+
+        [q.put(d) for d in data]
+
+        for i in range(5):
+            retn = q.getn()
+            self.true(retn[0])
+            self.eq(retn[1], i)
+
+        retn = q.getn(0.01)
+        self.false(retn[0])
+        self.eq(retn[1][0], 'TimeOut')
+
+        q.done()
+        retn = q.getn(0.01)
+        self.false(retn[0])
+        self.eq(retn[1][0], 'IsFini')
+        self.true(q.isfini)
+
+        retn = q.getn(0.01)
+        self.false(retn[0])
+        self.eq(retn[1][0], 'IsFini')

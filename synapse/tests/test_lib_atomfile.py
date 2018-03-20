@@ -11,7 +11,10 @@ class AtomTest(SynTest):
 
         atom.resize(8192)
 
-        self.eq(atom.readoff(100, 20), b'\x00' * 20)
+        byts = atom.readoff(100, 20)
+
+        self.eq(len(byts), 20)
+        self.eq(byts, b'\x00' * 20)
 
         atom.writeoff(100, b'asdf')
         atom.writeoff(104, b'qwer')
@@ -26,35 +29,44 @@ class AtomTest(SynTest):
         atom.resize(4096)
         self.eq(atom.size, 4096)
 
-    def test_atomfile_base(self):
-        fd = self._getTempFile()
-        with s_atomfile.AtomFile(fd) as atom:
-            self._runAtomChecks(atom)
+    def test_atomfile_file(self):
 
-    def test_atomfile_pread(self):
+        with self.getTestDir() as dirn:
 
-        if not s_atomfile.haspread:
-            self.skip('Platform lacks pread')
+            path = os.path.join(dirn, 'atom')
 
-        fd = self._getTempFile()
-        with s_atomfile.FastAtom(fd) as atom:
-            atom = s_atomfile.FastAtom(fd)
-            self._runAtomChecks(atom)
+            with s_atomfile.AtomFile(path) as atom:
+                self._runAtomChecks(atom)
 
-    def test_atomfile_memfile(self):
-        if not s_atomfile.ptrsize >= 8 and s_atomfile.hasremap and s_atomfile.haspriv:
-            self.skipTest('Platform lacks MemAtom support')
+    def test_atomfile_dir(self):
 
-        fd = self._getTempFile()
-        atom = s_atomfile.MemAtom(fd)
-        self._runAtomChecks(atom)
+        with self.getTestDir() as dirn:
 
-    def _getTempFile(self):
-        fd = tempfile.TemporaryFile()
-        fd.write(b'\x00' * 4096)
-        return fd
+            with s_atomfile.AtomDir(dirn, filemax=12) as atom:
 
-    def test_atomfile_get(self):
-        fd = self._getTempFile()
-        with s_atomfile.getAtomFile(fd) as atom:
-            self._runAtomChecks(atom)
+                atom.writeoff(3, b'asdf')
+                self.eq(atom.readoff(0, 7), b'\x00\x00\x00asdf')
+
+                self.len(1, atom.atoms)
+
+                # across an AtomFile boundary...
+                atom.writeoff(10, b'visi')
+                self.eq(atom.readoff(10, 4), b'visi')
+                self.eq(atom.atoms[0].size, 12)
+                self.eq(atom.atoms[1].size, 2)
+
+                # skip a whole file...
+                atom.writeoff(40, b'hehe')
+
+                self.eq(atom.size, 44)
+
+                self.eq(atom.atoms[0].size, 12)
+                self.eq(atom.atoms[1].size, 12)
+                self.eq(atom.atoms[2].size, 12)
+                self.eq(atom.atoms[3].size, 8)
+
+                self.len(4, atom.atoms)
+
+            with s_atomfile.AtomDir(dirn, filemax=12) as atom:
+                self.eq(44, atom.size)
+                self.len(4, atom.atoms)

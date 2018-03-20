@@ -6,18 +6,16 @@ import binascii
 import tempfile
 import unittest
 
+import synapse.axon as s_axon
 import synapse.link as s_link
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
-import synapse.cores.ram as s_cores_ram
 import synapse.cores.lmdb as s_cores_lmdb
-import synapse.cores.sqlite as s_cores_sqlite
 import synapse.cores.common as s_cores_common
 import synapse.cores.storage as s_cores_storage
-import synapse.cores.postgres as s_cores_postgres
 
 import synapse.lib.auth as s_auth
 import synapse.lib.tags as s_tags
@@ -25,8 +23,6 @@ import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
 import synapse.lib.threads as s_threads
 import synapse.lib.version as s_version
-
-import synapse.models.syn as s_models_syn
 
 from synapse.tests.common import *
 
@@ -552,19 +548,17 @@ class CortexBaseTest(SynTest):
         self.eq(core.getSizeBy('range', 'rg', (s_cores_lmdb.MIN_INT_VAL + 1, -42)), 0)
         self.eq(core.getSizeBy('range', 'rg', (s_cores_lmdb.MIN_INT_VAL, -42)), 1)
         self.eq(core.getSizeBy('le', 'rg', -42), 2)
-        # TODO: Need to implement lt for all the cores
-        if 0:
-            self.eq(core.getSizeBy('lt', 'rg', -42), 1)
         self.eq(core.getSizeBy('range', 'rg', (-42, 0)), 2)
         self.eq(core.getSizeBy('range', 'rg', (-1, 2)), 3)
-        if 0:
-            self.eq(core.getSizeBy('lt', 'rg', 0), 3)
         self.eq(core.getSizeBy('le', 'rg', 0), 4)
-        # This is broken for RAM and SQLite
-        if 0:
-            self.eq(core.getSizeBy('ge', 'rg', -1, limit=3), 3)
         self.eq(core.getSizeBy('ge', 'rg', 30), 2)
         self.eq(core.getSizeBy('ge', 'rg', s_cores_lmdb.MAX_INT_VAL), 1)
+
+        # TODO: Need to implement lt for all the cores
+        # self.eq(core.getSizeBy('lt', 'rg', -42), 1)
+        # self.eq(core.getSizeBy('lt', 'rg', 0), 3)
+        # TODO: This is broken for RAM and SQLite
+        # self.eq(core.getSizeBy('ge', 'rg', -1, limit=3), 3)
 
     def runjson(self, core):
 
@@ -3323,6 +3317,92 @@ class CortexTest(SynTest):
             with s_cortex.openurl('tcp://0.0.0.0/core', port=port) as prox:
                 self.isin('synapse.tests.test_cortex.CoreTestModule', prox.getCoreMods())
                 self.eq(prox.getConfOpt('storm:query:log:en'), 1)
+
+    def test_cortex_axon(self):
+        self.skipLongTest()
+
+        visihash = hashlib.sha256(b'visi').digest()
+        craphash = hashlib.sha256(b'crap').digest()
+        foobarhash = hashlib.sha256(b'foobar').digest()
+
+        with self.getAxonCore() as env:
+            env.core.setConfOpt('cellpool:timeout', 3)
+
+            core = s_telepath.openurl(env.core_url)
+            env.add('_core_prox', core, fini=True)  # ensure the Proxy object is fini'd
+
+            wants = core._axonclient_wants([visihash, craphash, foobarhash])
+            self.len(3, wants)
+            self.istufo(core.formNodeByBytes(b'visi'))
+            with io.BytesIO(b'foobar') as fd:
+                self.istufo(core.formNodeByFd(fd))
+            wants = core._axonclient_wants([visihash, craphash, foobarhash])
+            self.len(1, wants)
+
+            # Pull out the axon config an shut it down
+            axonpath = os.path.split(env.axon.getCellPath())[0]
+            axonconf = env.axon.getConfOpts()
+            env.axon.fini()
+            env.axon.waitfini(timeout=30)
+
+            # Make sure that it doesn't work
+            self.raises(Exception, core._axonclient_wants, [visihash, craphash, foobarhash], timeout=2)
+            # Turn the axon back on
+            w = env.core.cellpool.waiter(1, 'cell:add')
+            axon = s_axon.AxonCell(axonpath, axonconf)
+            env.add('axon', axon, fini=True)
+            self.true(axon.cellpool.neurwait(timeout=3))
+            # Make sure the api still works.
+            self.nn(w.wait(4))
+            wants = core._axonclient_wants([visihash, craphash, foobarhash])
+
+            self.len(1, wants)
+
+            neurhost, neurport = env.neuron.getCellAddr()
+            axonauth = env.axon.getCellAuth()
+            # Ensure that Axon fns do not execute on a core without an axon
+            with self.getRamCore() as othercore:
+                othercore.setConfOpt('cellpool:timeout', 3)
+                self.raises(NoSuchOpt, othercore.formNodeByBytes, b'visi', name='visi.bin')
+                with io.BytesIO(b'foobar') as fd:
+                    self.raises(NoSuchOpt, othercore.formNodeByFd, fd, name='foobar.exe')
+
+                othercore.setConfOpt('cellpool:conf', {'fake': 'fake'})
+                self.false(othercore.axon_ready)
+                self.false(othercore.cellpool_ready)
+                othercore.setConfOpt('cellpool:conf', {'auth': axonauth})
+                self.false(othercore.axon_ready)
+                self.false(othercore.cellpool_ready)
+                othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost})
+                self.false(othercore.cellpool_ready)
+                self.false(othercore.axon_ready)
+
+                othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost, 'port': neurport + 1})
+                self.false(othercore.cellpool_ready)
+                self.false(othercore.axon_ready)
+
+                othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost, 'port': neurport})
+                self.true(othercore.cellpool_ready)
+                self.false(othercore.axon_ready)
+
+                othercore.setConfOpt('axon:name', 'axon@localhost')
+                self.true(othercore.axon_ready)
+
+                wants = othercore._axonclient_wants([visihash, craphash, foobarhash])
+                self.len(1, wants)
+                self.istufo(othercore.formNodeByBytes(b'crap'))
+                wants = othercore._axonclient_wants([visihash, craphash, foobarhash])
+                self.len(0, wants)
+
+            # ensure that we can configure a cellpool/axon via conf options
+            conf = {
+                'cellpool:conf': {'auth': axonauth, 'host': neurhost, 'port': neurport},
+                'axon:name': 'axon@localhost',
+                'cellpool:timeout': 6,
+            }
+            with s_cortex.openurl('ram://', conf) as rcore:
+                wants = rcore._axonclient_wants([visihash, craphash, foobarhash])
+                self.len(0, wants)
 
 class StorageTest(SynTest):
 

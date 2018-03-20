@@ -8,6 +8,8 @@ import types
 import base64
 import fnmatch
 import hashlib
+import logging
+import binascii
 import builtins
 import functools
 import itertools
@@ -16,14 +18,13 @@ import traceback
 import contextlib
 import collections
 
-from binascii import hexlify
-
 import regex
 
 import synapse.exc as s_exc
 
 from synapse.exc import *
 
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
 major = sys.version_info.major
@@ -69,10 +70,54 @@ def guid(valu=None):
         str: 32 character, lowercase ascii string.
     '''
     if valu is None:
-        return hexlify(os.urandom(16)).decode('utf8')
+        return binascii.hexlify(os.urandom(16)).decode('utf8')
     # Generate a "stable" guid from the given item
     byts = s_msgpack.en(valu)
     return hashlib.md5(byts).hexdigest()
+
+def buid(valu=None):
+    '''
+    A binary GUID like sequence of 32 bytes.
+
+    Args:
+        valu (object): Optional, if provided, the hash of the msgpack
+        encoded form of the object is returned. This can be used to
+        create stable buids.
+
+    Notes:
+        By default, this returns a random 32 byte value.
+
+    Returns:
+        bytes: A 32 byte value.
+    '''
+    if valu is None:
+        return os.urandom(32)
+
+    byts = s_msgpack.en(valu)
+    return hashlib.sha256(byts).digest()
+
+def ehex(byts):
+    '''
+    Encode a set of bytes to a string using binascii.hexlify.
+
+    Args:
+        byts (bytes): Bytes to encode.
+
+    Returns:
+        str: A string representing the bytes.
+    '''
+    return binascii.hexlify(byts).decode('utf8')
+
+def uhex(text):
+    '''
+    Decode bytes to a string using binascii.unhexlify.
+    Args:
+        text (str): Text to decode.
+
+    Returns:
+        bytes: The decoded bytes.
+    '''
+    return binascii.unhexlify(text)
 
 guidre = regex.compile('^[0-9a-f]{32}$')
 def isguid(text):
@@ -255,7 +300,7 @@ def gendir(*paths, **opts):
     mode = opts.get('mode', 0o700)
     path = genpath(*paths)
     if not os.path.isdir(path):
-        os.makedirs(path, mode=mode)
+        os.makedirs(path, mode=mode, exist_ok=True)
     return path
 
 def reqdir(*paths):
@@ -285,6 +330,47 @@ def verstr(vtup):
     Convert a version tuple to a string.
     '''
     return '.'.join([str(v) for v in vtup])
+
+def getexcfo(e):
+    '''
+    Get an err tufo from an exception.
+
+    Args:
+        e (Exception): An Exception (or Exception subclass).
+
+    Notes:
+        This can be called outside of the context of an exception handler,
+        however details such as file, line, function name and source may be
+        missing.
+
+    Returns:
+        ((str, dict)):
+    '''
+    tb = sys.exc_info()[2]
+    tbinfo = traceback.extract_tb(tb)
+    path, line, name, src = '', '', '', None
+    if tbinfo:
+        path, line, name, sorc = tbinfo[-1]
+    retd = {
+        'msg': str(e),
+        'file': path,
+        'line': line,
+        'name': name,
+        'src': src
+    }
+
+    if isinstance(e, SynErr):
+        retd['syn:err'] = e.errinfo
+
+    return (e.__class__.__name__, retd)
+
+def reqok(ok, retn):
+    '''
+    Raise exception from retn if not ok.
+    '''
+    if not ok:
+        raise RetnErr(retn)
+    return retn
 
 def excinfo(e):
     '''
@@ -367,11 +453,49 @@ def chunks(item, size):
         off += size
 
 def iterfd(fd, size=10000000):
+    '''
+    Generator which yields bytes from a file descriptor.
+
+    Args:
+        fd (file): A file-like object to read bytes from.
+        size (int): Size, in bytes, of the number of bytes to read from the
+        fd at a given time.
+
+    Notes:
+        If the first read call on the file descriptor is a empty bytestring,
+        that zero length bytestring will be yielded and the generator will
+        then be exhuasted. This behavior is intended to allow the yielding of
+        contents of a zero byte file.
+
+    Yields:
+        bytes: Bytes from the file descriptor.
+    '''
     fd.seek(0)
     byts = fd.read(size)
+    # Fast path to yield b''
+    if len(byts) is 0:
+        yield byts
+        return
     while byts:
         yield byts
         byts = fd.read(size)
+
+def spin(genr):
+    '''
+    Crank through a generator but discard the yielded values.
+
+    Args:
+        genr: Any generator or iterable valu.
+
+    Notes:
+        This generator is exhausted via the ``collections.dequeue()``
+        constructor with a ``maxlen=0``, which will quickly exhaust an
+        iterator staying in C code as much as possible.
+
+    Returns:
+        None
+    '''
+    collections.deque(genr, 0)
 
 def reqStorDict(x):
     '''
@@ -454,3 +578,26 @@ def makedirs(path, mode=0o777):
 
 def iterzip(*args):
     return itertools.zip_longest(*args)
+
+def setlogging(mlogger, defval=None):
+    '''
+    Configure synapse logging.
+
+    Args:
+        mlogger (logging.Logger): Reference to a logging.Logger()
+        defval (str): Default log level
+
+    Notes:
+        This calls logging.basicConfig and should only be called once per process.
+
+    Returns:
+        None
+    '''
+    log_level = os.getenv('SYN_DMON_LOG_LEVEL',
+                          defval)
+    if log_level:  # pragma: no cover
+        log_level = log_level.upper()
+        if log_level not in s_const.LOG_LEVEL_CHOICES:
+            raise ValueError('Invalid log level provided: {}'.format(log_level))
+        logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
+        mlogger.info('log level set to %s', log_level)

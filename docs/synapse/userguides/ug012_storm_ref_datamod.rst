@@ -44,18 +44,21 @@ Adds the specified node(s) to a Cortex.
 
 *Simple Node:*
 ::
+
   addnode( inet:fqdn , woot.com )
   
   [ inet:fqdn = woot.com ]
 
 *Separator (sepr) Node:*
 ::
+
   addnode( inet:dns:a , ( woot.com , 1.2.3.4 ) )
   
   [ inet:dns:a = ( woot.com , 1.2.3.4 ) ]
 
 *Composite (comp) Node:*
 ::
+
   addnode( inet:follows , (twitter.com/ernie , twitter.com/bert ) )
   
   [ inet:follows = ( twitter.com/ernie , twitter.com/bert ) ]
@@ -66,12 +69,14 @@ Todo
 
 *Cross-reference (xref) Node:*
 ::
+
   addnode( file:txtref , ( d41d8cd98f00b204e9800998ecf8427e , inet:fqdn , woot.com ) )
   
   [ file:txtref = ( d41d8cd98f00b204e9800998ecf8427e , inet:fqdn , woot.com ) ]
 
 *Node with Properties:*
 ::
+
   addnode( inet:dns:a , ( woot.com , 1.2.3.4 ) , :seen:min = "2017-08-01 01:23" , 
       :seen:max = "2017-08-10 04:56" )
   
@@ -113,6 +118,7 @@ None.
 
 **Examples:**
 ::
+
   file:bytes = d41d8cd98f00b204e9800998ecf8427e addxref( file:txtref , inet:fqdn , woot.com )
 
 **Usage Notes:**
@@ -140,6 +146,7 @@ Sets one or more property values on the specified node(s).
 
 **Examples:**
 ::
+
   inet:dns:a = woot.com/1.2.3.4 setprop( :seen:min = "2017-08-01 01:23" , 
       :seen:max = "2017-08-10 04:56" )
   
@@ -182,18 +189,21 @@ Adds one or more tags to the specified node(s).
 
 *Add Tags*
 ::
+
   inet:fqdn = woot.com addtag( foo.bar , baz.faz )
   
   inet:fqdn = woot.com [ #foo.bar #baz.faz ]
 
 *Add Tag with Single Timestamp*
 ::
+
   inet:fqdn = woot.com addtag( baz.faz@201708151330 )
   
   inet:fqdn = woot.com [ #baz.faz@201708151330 ]
 
 *Add Tag with Time Boundaries*
 ::
+
   inet:fqdn = woot.com addtag( baz.faz@20160101-20160131 )
   
   inet:fqdn = woot.com [ #baz.faz@20160101-20160131 ]
@@ -238,6 +248,7 @@ None.
 
 **Examples:**
 ::
+
   inet:fqdn = woot.com delnode()
   
   inet:fqdn = woot.com delnode(force=1)
@@ -268,6 +279,7 @@ Delete a property from the specified node(s).
 
 **Examples:**
 ::
+
   # Operator examples
 
   inet:fqdn = vertex.link delprop(:created)
@@ -320,6 +332,7 @@ Deletes one or more tags from the specified node(s).
 
 **Examples:**
 ::
+
   inet:fqdn = woot.com deltag( baz.faz )
   
   inet:fqdn = woot.com [ -#baz.faz ]
