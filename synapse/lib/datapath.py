@@ -116,7 +116,7 @@ class DataElem:
         Iterate the given path elements and yield values.
 
         Args:
-            path (Union[str, Datapath]): the datapath string or a pre-computed one
+            path (Datapath): the datapath string or a pre-computed one
 
         Example:
 
@@ -169,7 +169,7 @@ class DataElem:
         Iterate sub elements using the given path.
 
         Args:
-            path (Union[str, Datapath]): the datapath string or a pre-computed one
+            path (Datapath): the datapath string or a pre-computed one
 
         Example:
 
