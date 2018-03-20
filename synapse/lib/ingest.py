@@ -543,7 +543,7 @@ class Ingest(EventBus):
 
             path = info.get('path')
 
-            byts = data.valu(path)
+            byts = data.valu(s_datapath.DataPath(path))
 
             dcod = info.get('decode')
             if dcod is not None:
@@ -734,7 +734,7 @@ class Ingest(EventBus):
 
         if valu is None:
             path = info.get('path')
-            valu = base.valu(path)
+            valu = base.valu(s_datapath.DataPath(path))
 
         if valu is None:
             return None

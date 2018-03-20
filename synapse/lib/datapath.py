@@ -2,16 +2,16 @@ import collections
 
 import xml.etree.ElementTree as x_etree
 
-import synapse.common as s_common
-
 import synapse.lib.syntax as s_syntax
 
-def _parse_path(path: str):
+def _parse_path(path):
 
     ''' Parses a datapath into its parts '''
 
     off = 0
     steps = []
+    if path is None:
+        return steps
 
     plen = len(path)
     while off < plen:
@@ -38,10 +38,15 @@ def _parse_path(path: str):
 
 
 class DataPath:
-    ''' A pre-computation of a datapath. '''
+    '''
+    A pre-computation of a datapath.
+    '''
     def __init__(self, path: str) -> None:
         self.path = path
         self.steps = _parse_path(path)
+
+    def __bool__(self):
+        return bool(self.path)
 
 class DataElem:
 
@@ -80,8 +85,6 @@ class DataElem:
         '''
         Step to the given DataElem within the tree.
         '''
-        if isinstance(path, str):
-            path = DataPath(path)
         base = self
         for step in path.steps:
             spec = base._d_special.get(step)
@@ -95,7 +98,7 @@ class DataElem:
 
         return base
 
-    def valu(self, path):
+    def valu(self, path: DataPath):
         '''
         Return the value of the element at the given path.
         '''
@@ -154,7 +157,7 @@ class DataElem:
         while todo:
 
             elem = todo.popleft()
-            #print('SEARCH: %r' % (elem.name(),))
+            # print('SEARCH: %r' % (elem.name(),))
             if elem.name() == step:
                 yield elem
 
@@ -232,15 +235,15 @@ class XmlDataElem(DataElem):
         DataElem.__init__(self, item, name=name, parent=parent)
 
     def _elem_kids(self, step):
-        #TODO possibly make step fnmatch compat?
+        # TODO possibly make step fnmatch compat?
 
         # special case for iterating <tag> which recurses
         # to find all instances of that element.
-        #if step[0] == '<' and step[-1] == '>':
-            #allstep = step[1:-1]
-            #todo = collections.deque(self._d_item)
-            #while todo:
-                #elem = todo.popleft()
+        # if step[0] == '<' and step[-1] == '>':
+            # allstep = step[1:-1]
+            # todo = collections.deque(self._d_item)
+            # while todo:
+                # elem = todo.popleft()
 
         for xmli in self._d_item:
             if xmli.tag == step:
