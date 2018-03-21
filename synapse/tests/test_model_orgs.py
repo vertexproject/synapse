@@ -1,3 +1,5 @@
+import synapse.common as s_common
+
 import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
 
@@ -498,3 +500,69 @@ class OrgTest(SynTest, ModelSeenMixin):
 
                     return tufo
                 run_assertions(core, oldname, reftype, tufo_check)
+
+    def test_model_org_meeting(self):
+
+        with self.getRamCore() as core:
+
+            plac = s_common.guid()
+            pers = s_common.guid()
+
+            props = {
+                'name': 'woot woot',
+                'place': plac,
+                'start': '2016 12 17 14:30',
+                'end': '2016 12 17 15:00',
+            }
+
+            meet = core.formTufoByProp('ou:meet', '*', **props)
+
+            self.eq(meet[1].get('ou:meet:name'), 'woot woot')
+            self.eq(meet[1].get('ou:meet:start'), 1481985000000)
+            self.eq(meet[1].get('ou:meet:end'), 1481986800000)
+            self.eq(meet[1].get('ou:meet:place'), plac)
+
+            iden = meet[1].get('ou:meet')
+
+            props = {
+                'arrived': '2016 12 17 14:33',
+                'departed': '2016 12 17 15:13',
+            }
+            atnd = core.formTufoByProp('ou:meet:attendee', (iden, pers), **props)
+
+            self.eq(atnd[1].get('ou:meet:attendee:meet'), iden)
+            self.eq(atnd[1].get('ou:meet:attendee:person'), pers)
+            self.eq(atnd[1].get('ou:meet:attendee:arrived'), 1481985180000)
+            self.eq(atnd[1].get('ou:meet:attendee:departed'), 1481987580000)
+
+            props = {
+                'base': 'woot',
+                'name': 'woot 2016',
+                'place': plac,
+                'start': '2016 12 17 14:30',
+                'end': '2016 12 17 15:00',
+            }
+            conf = core.formTufoByProp('ou:conference', '*', **props)
+
+            iden = conf[1].get('ou:conference')
+
+            self.eq(conf[1].get('ou:conference:base'), 'woot')
+            self.eq(conf[1].get('ou:conference:name'), 'woot 2016')
+            self.eq(conf[1].get('ou:conference:place'), plac)
+            self.eq(conf[1].get('ou:conference:start'), 1481985000000)
+            self.eq(conf[1].get('ou:conference:end'), 1481986800000)
+
+            props = {
+                'arrived': '2016 12 17 14:33',
+                'departed': '2016 12 17 15:13',
+                'role:staff': 1,
+                'role:speaker': 0,
+            }
+            atnd = core.formTufoByProp('ou:conference:attendee', (iden, pers), **props)
+
+            self.eq(atnd[1].get('ou:conference:attendee:conference'), iden)
+            self.eq(atnd[1].get('ou:conference:attendee:person'), pers)
+            self.eq(atnd[1].get('ou:conference:attendee:arrived'), 1481985180000)
+            self.eq(atnd[1].get('ou:conference:attendee:departed'), 1481987580000)
+            self.eq(atnd[1].get('ou:conference:attendee:role:staff'), 1)
+            self.eq(atnd[1].get('ou:conference:attendee:role:speaker'), 0)
