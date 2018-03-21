@@ -605,7 +605,7 @@ class SynTest(unittest.TestCase):
             core = s_cortex.openurl('ram:///')
             self.addTstForms(core)
 
-            cellpoolconf = {'host': neurhost, 'port': neurport, 'auth': axonauth}
+            cellpoolconf = {'host': neurhost, 'port': neurport, 'auth': s_common.enbase64(s_msgpack.en(axonauth))}
             core.setConfOpt('cellpool:conf', cellpoolconf)
             core.setConfOpt('axon:name', 'axon@localhost')
 
