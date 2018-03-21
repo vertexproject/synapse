@@ -74,6 +74,10 @@ class MembraneExists(SynErr): pass
 class NoSuchDecoder(SynErr): pass
 class NoSuchEncoder(SynErr): pass
 
+# layer / lift exceptions
+class NoSuchLift(SynErr): pass
+class BadLiftValu(SynErr): pass
+
 class BadOperArg(SynErr): pass
 class ReqConfOpt(SynErr): pass
 class BadConfValu(SynErr):

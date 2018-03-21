@@ -64,34 +64,34 @@ s_glob.pool = s_threads.Pool(maxsize=tmax)
 s_glob.sched = s_sched.Sched(pool=s_glob.pool)
 ##############################################
 
-import synapse.lib.modules as s_modules
-for mod, conf in BASE_MODULES:
-    s_modules.load_ctor(mod, conf)
+#import synapse.lib.modules as s_modules
+#for mod, conf in BASE_MODULES:
+    #s_modules.load_ctor(mod, conf)
 
 # Register any CoreModules from envars
-mods = os.getenv('SYN_CORE_MODULES')
-if mods:
-    for name in mods.split(','):
-        name = name.strip()
-        try:
-            s_modules.load_ctor(name, {})
-        except Exception as e:
-            logger.warning('SYN_CORE_MODULES failed: %s (%s)' % (name, e))
+#mods = os.getenv('SYN_CORE_MODULES')
+#if mods:
+    #for name in mods.split(','):
+        #name = name.strip()
+        #try:
+            #s_modules.load_ctor(name, {})
+        #except Exception as e:
+            #logger.warning('SYN_CORE_MODULES failed: %s (%s)' % (name, e))
 
 # Register any synapse modules from envars
-mods = os.getenv('SYN_MODULES')
-if mods:
-    for name in mods.split(','):
-        name = name.strip()
-        try:
-            s_modules.load(name)
-        except Exception as e:
-            logger.warning('SYN_MODULES failed: %s (%s)' % (name, e))
+#mods = os.getenv('SYN_MODULES')
+#if mods:
+    #for name in mods.split(','):
+        #name = name.strip()
+        #try:
+            #s_modules.load(name)
+        #except Exception as e:
+            #logger.warning('SYN_MODULES failed: %s (%s)' % (name, e))
 
 # Rebuild the datamodel's typelib now that we have loaded
 # builtin and envar modules.
-import synapse.datamodel as s_datamodel
-s_datamodel.rebuildTlib()
+#import synapse.datamodel as s_datamodel
+#s_datamodel.rebuildTlib()
 
 # load any modules which register dyndeps aliases...
-import synapse.cortex
+#import synapse.cortex

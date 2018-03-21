@@ -5,6 +5,7 @@ import collections
 
 import regex
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 
@@ -17,19 +18,40 @@ import synapse.lookup.iso3166 as s_l_iso3166
 
 logger = logging.getLogger(__name__)
 
-class DataType:
+class Type:
 
-    subprops = ()
+    def __init__(self, name, modl, info, opts):
+        self._type_name = name
+        self._type_modl = modl
+        self._type_info = info
+        self._type_opts = opts
 
-    def __init__(self, tlib, name, **info):
-        self.tlib = tlib
-        self.name = name
-        self.info = info
-        self.prop = self.info.get('prop')
-        s_common.reqStorDict(info)
+        self._reqTypeOpts()
+        self.postTypeInit()
 
-    def _raiseBadValu(self, valu, **info):
-        raise s_common.BadTypeValu(name=self.name, valu=valu, **info)
+    def addTypeNorm(self, typo, func):
+        '''
+        Register a normalizer function for a given python type.
+        '''
+        self._type_norms[typo] = func
+
+    def postTypeInit(self):
+        pass
+
+    def _reqTypeOpts(self):
+        pass
+
+    def name(self):
+        return self._type_name
+
+    def info(self, name):
+        return self._type_info.get(name)
+
+    def opts(self):
+        return dict(self._type_opts)
+
+    def opt(self, name):
+        return self._type_opts.get(name)
 
     def get(self, prop, defval=None):
         '''
@@ -40,45 +62,120 @@ class DataType:
             ex = item.get('doc')
 
         '''
-        return self.tlib.getTypeInfo(self.name, prop, defval=defval)
+        return self.modl.getTypeInfo(self.name, prop, defval=defval)
 
-    def subs(self):
-        '''
-        Implement if the presence of a property with this type requires sub props.
-        '''
-        return self.subprops
+    def norm(self, valu):
 
-    def extend(self, name, **info):
-        '''
-        Construct a new subtype from this instance.
-        '''
-        for k, v in self.info.items():
-            info.setdefault(k, v)
+        func = self._type_norms.get(type(valu))
+        if func is None:
+            raise NoTypeNorm(name=self._type_name, type=type(valu))
 
-        return self.__class__(self.tlib, name, **info)
-
-    def parse(self, text, oldval=None):
-        '''
-        Parse input text and return the system mode (normalized) value for the type.
-
-        Example:
-
-            valu = tobj.parse(text)
-
-        '''
-        return self.norm(text, oldval=oldval)
+        return func(valu)
 
     def repr(self, valu):
-        return valu
+        return str(valu)
 
-class GuidType(DataType):
+    def adds(self, text):
+        '''
+        Return a list of values to create from the given text.
+        '''
+        return (self.norm(text)[0], )
 
-    def __init__(self, tlib, name, **info):
-        DataType.__init__(self, tlib, name, **info)
-        self._guid_alias = info.get('alias')
-        # TODO figure out what to do about tlib vs core issues
-        self._getTufoByProp = getattr(tlib, 'getTufoByProp', None)
-        self._reqPropNorm = getattr(tlib, 'reqPropNorm', None)
+    def lift(self, name, text, cmp='='):
+        '''
+        Return a lift operation tuple for the given query text.
+        '''
+        valu, infos = self.norm(text)
+        return ('prop:eq', (name, valu), {})
+
+    def clone(self, name, info, **opts):
+        '''
+        Extend this type for sub-type or prop construction.
+        '''
+        tifo = self._type_info.copy()
+        tifo.update(info)
+
+        topt = self._type_opts.copy()
+        topt.update(opts)
+
+        return self.__class__(name, self._type_modl, tifo, opts=topt)
+
+class Str(Type):
+
+    _opt_defs = {
+        'regex': None,
+        'lower': False,
+    }
+
+    def norm(self, valu):
+        return str(valu), {}
+
+class Int(Type):
+
+    #def postTypeInit(self):
+        #self.addTypeNorm(str, self._norm_str)
+        #self.addTypeNorm(str, self._norm_int)
+
+    #def lift(self, text, cmp='='):
+        #if text.find(',') != -1:
+
+    #def adds(self, text):
+        #if text.find(','
+
+    def lift(self, name, text, cmp='='):
+
+        if text.find(':') != -1:
+            try:
+
+                smin, smax = text.split(':', 1)
+
+                vmin = struct.pack('>Q', int(smin, 0))
+                vmax = struct.pack('>Q', int(smax, 0))
+
+                return ('prop:range', (name, (vmin, vmax)), {})
+
+            except Exception as e:
+                logger.exception(e)
+                raise s_exc.BadLiftValu(name=name, text=text)
+
+        return Type.lift(self, name, text, cmp=cmp)
+
+    def norm(self, valu):
+        return int(valu, 0), {}
+
+class Bool(Type):
+
+    def postTypeInit(self):
+        self.addTypeNorm(str, self._norm_str)
+        self.addTypeNorm(int, self._norm_int)
+        self.addTypeNorm(bool, self._norm_int)
+
+    def _norm_str(self, valu):
+
+        valu = valu.lower()
+        if valu in ('true', 't', 'y', 'yes', '1', 'on'):
+            return 1, {}
+
+        if valu in ('false', 'f', 'n', 'no', '0', 'off'):
+            return 0, {}
+
+        raise BadTypeValu(name=self._type_name, valu=valu)
+
+    def _norm_int(self, valu):
+        return int(bool(valu)), {}
+
+    def repr(self, valu):
+        return repr(bool(valu))
+
+
+class Guid(Type):
+
+    #def __init__(self, modl, name, **info):
+        #Type.__init__(self, modl, name, **info)
+        #self._guid_alias = info.get('alias')
+        # TODO figure out what to do about modl vs core issues
+        #self._getTufoByProp = getattr(modl, 'getTufoByProp', None)
+        #self._reqPropNorm = getattr(modl, 'reqPropNorm', None)
 
     def norm(self, valu, oldval=None):
 
@@ -110,32 +207,32 @@ class GuidType(DataType):
         if text == '*':
             return s_common.guid(), {}
 
-        if text[0] != '$':
-            retn = text.lower().replace('-', '')
-            if not s_common.isguid(retn):
-                self._raiseBadValu(text, mesg='Expected a 32 char guid string')
+        #if text[0] != '$':
+            ##retn = text.lower().replace('-', '')
+            #if not s_common.isguid(retn):
+                #self._raiseBadValu(text, mesg='Expected a 32 char guid string')
 
-            return retn, {}
+            #return retn, {}
 
-        node = self.tlib.getTufoByProp('syn:alias', text)
-        if node is not None:
-            return node[1].get('syn:alias:iden'), {}
+        #node = self.modl.getTufoByProp('syn:alias', text)
+        #if node is not None:
+            #return node[1].get('syn:alias:iden'), {}
 
         # TODO remove legacy model aliases
-        if self._guid_alias is None:
-            self._raiseBadValu(text, mesg='guid resolver syntax used with non-aliased guid')
+        #if self._guid_alias is None:
+            #self._raiseBadValu(text, mesg='guid resolver syntax used with non-aliased guid')
 
-        if self._getTufoByProp is None:
-            self._raiseBadValu(text, mesg='guid resolver syntax used with non-cortex tlib')
+        #if self._getTufoByProp is None:
+            #self._raiseBadValu(text, mesg='guid resolver syntax used with non-cortex modl')
 
         # ( sigh... eventually everything will be a cortex... )
-        node = self._getTufoByProp(self._guid_alias, text[1:])
-        if node is None:
-            self._raiseBadValu(text, mesg='no result for guid resolver',
-                               alias=self._guid_alias)
+        #node = self._getTufoByProp(self._guid_alias, text[1:])
+        #if node is None:
+            #self._raiseBadValu(text, mesg='no result for guid resolver',
+                               #alias=self._guid_alias)
 
-        iden = node[1].get(node[1].get('tufo:form'))
-        return iden, {}
+        #iden = node[1].get(node[1].get('tufo:form'))
+        #return iden, {}
 
     def _norm_list(self, valu, oldval=None):
 
@@ -152,6 +249,7 @@ class GuidType(DataType):
         for kv in valu:
             if not isinstance(kv, (list, tuple)) or not len(kv) == 2:
                 self._raiseBadValu(valu, kv=kv, mesg='Expected a list or tuple of length 2')
+
             k, v = kv
             fullprop = self.prop + ':' + k
             try:
@@ -169,15 +267,70 @@ class GuidType(DataType):
         subs.update(vals)
         return valu, subs
 
-class NDefType(DataType):
+class Fqdn(Type):
+    subprops = (
+        ('sfx', {'ptype': 'bool'}),
+        ('zone', {'ptype': 'bool'}),
+        ('domain', {'ptype': 'inet:fqdn'}),
+        ('host', {'ptype': 'str'}),
+    )
 
-    def __init__(self, tlib, name, **info):
-        DataType.__init__(self, tlib, name, **info)
-        # TODO figure out what to do about tlib vs core issues
-        self._isTufoForm = getattr(tlib, 'isTufoForm', None)
-        self._getPropNorm = getattr(tlib, 'getPropNorm', None)
+    def norm(self, valu):
 
-    def norm(self, valu, oldval=None):
+        valu = valu.replace('[.]', '.')
+        if not fqdnre.match(valu):
+            self._raiseBadValu(valu)
+
+        try:
+            valu = valu.encode('idna').decode('utf8').lower()
+        except UnicodeError as e:
+            self._raiseBadValu(valu)
+
+        parts = valu.split('.', 1)
+        subs = {'host': parts[0]}
+
+        if len(parts) == 2:
+            subs['domain'] = parts[1]
+        else:
+            subs['sfx'] = 1
+
+        return valu, {'subs':subs}
+
+    def lift(self, name, text, cmp='='):
+
+        valu = text.strip().lower()
+        if not valu:
+            return None
+
+        indx = valu=[::-1]
+
+        if indx[-1] == '*':
+            return ('prop:pref', (name, indx[:-1]), {})
+
+        return ('prop:eq', (name, indx), {'indx': indx})
+
+        if valu[0] == '*':
+            indx = valu[::-1]
+            return ('prop:pref', (name, 
+
+    def repr(self, valu):
+        try:
+            return valu.encode('utf8').decode('idna')
+        except UnicodeError as e:
+            if len(valu) >= 4 and valu[0:4] == 'xn--':
+                logger.exception(msg='Failed to IDNA decode ACE prefixed inet:fqdn')
+                return valu
+            raise  # pragma: no cover
+
+class NDefType(Type):
+
+    def __init__(self, modl, name, **info):
+        DataType.__init__(self, modl, name, **info)
+        # TODO figure out what to do about modl vs core issues
+        self._isTufoForm = getattr(modl, 'isTufoForm', None)
+        self._getPropNorm = getattr(modl, 'getPropNorm', None)
+
+    def norm(self, valu):
 
         if isinstance(valu, (list, tuple)):
             return self._norm_list(valu, oldval)
@@ -219,10 +372,10 @@ class NDefType(DataType):
         retn = s_common.guid((form, fvalu))
         return retn, {}
 
-class StrType(DataType):
+class StrType(Type):
 
-    def __init__(self, tlib, name, **info):
-        DataType.__init__(self, tlib, name, **info)
+    def __init__(self, modl, name, **info):
+        DataType.__init__(self, modl, name, **info)
 
         self.regex = None
         self.envals = None
@@ -276,7 +429,7 @@ class StrType(DataType):
 
         return valu, {}
 
-class JsonType(DataType):
+class JsonType(Type):
 
     def norm(self, valu, oldval=None):
 
@@ -291,10 +444,10 @@ class JsonType(DataType):
         except Exception as e:
             self._raiseBadValu(valu, mesg='Unable to norm json string')
 
-class IntType(DataType):
+class IntType(Type):
 
-    def __init__(self, tlib, name, **info):
-        DataType.__init__(self, tlib, name, **info)
+    def __init__(self, modl, name, **info):
+        DataType.__init__(self, modl, name, **info)
 
         self.fmt = info.get('fmt', '%d')
         # self.modval = info.get('mod',None)
@@ -344,26 +497,15 @@ class IntType(DataType):
 
         return valu, {}
 
-def enMsgB64(item):
-    # FIXME find a way to go directly from binary bytes to
-    # base64 *string* to avoid the extra decode pass..
-    return base64.b64encode(s_msgpack.en(item)).decode('utf8')
-
-def deMsgB64(text):
-    # FIXME see above
-    return s_msgpack.un(base64.b64decode(text.encode('utf8')))
-
 jsseps = (',', ':')
 
 def islist(x):
     return type(x) in (list, tuple)
 
-class MultiFieldType(DataType):
+class MultiFieldType(Type):
 
-    def __init__(self, tlib, name, **info):
-        DataType.__init__(self, tlib, name, **info)
-        # TODO figure out what to do about tlib vs core issues
-        self._getPropType = getattr(tlib, 'getPropType', None)
+    def __init__(self, modl, name, **info):
+        DataType.__init__(self, modl, name, **info)
         self.fields = None
 
     def _norm_fields(self, valu):
@@ -400,7 +542,7 @@ class MultiFieldType(DataType):
                 if fields:
                     for part in fields.split('|'):
                         fname, ftype = part.split(',')
-                        fitem = self.tlib.getTypeInst(ftype)
+                        fitem = self.modl.getTypeInst(ftype)
                         if self.prop:
                             _fitem = self._getPropType(ftype)
                             if _fitem:
@@ -427,7 +569,7 @@ class MultiFieldType(DataType):
                 raise s_common.BadInfoValu(name='types', valu=ftstr, mesg='len(names) != len(types)')
 
             for i in range(self.flen):
-                item = self.tlib.getTypeInst(ftypes[i])
+                item = self.modl.getTypeInst(ftypes[i])
                 self.fields.append((fnames[i], item))
 
         return self.fields
@@ -440,12 +582,10 @@ def _splitpairs(text, sep0, sep1):
         k, v = part.split(sep1)
         yield k.strip(), v.strip()
 
-class CompType(DataType):
+class CompType(Type):
 
-    def __init__(self, tlib, name, **info):
-        DataType.__init__(self, tlib, name, **info)
-        # TODO figure out what to do about tlib vs core issues
-        self._getPropNorm = getattr(tlib, 'getPropNorm', None)
+    def __init__(self, modl, name, **info):
+        DataType.__init__(self, modl, name, **info)
         self.fields = []
         self.optfields = []
 
@@ -475,7 +615,7 @@ class CompType(DataType):
             self._raiseBadValu(text, mesg='No text left after strip().')
 
         if text[0] != '(':
-            return self.tlib.getTypeNorm('guid', text)
+            return self.modl.getTypeNorm('guid', text)
 
         vals, off = s_syntax.parse_list(text)
         if off != len(text):
@@ -503,12 +643,12 @@ class CompType(DataType):
 
             # FIXME - this if/else is a artifact of typelib/datamodel separation
             if self.prop:
-                if self.tlib.isTufoProp(tname):
+                if self.modl.isTufoProp(tname):
                     norm, ssubs = self._getPropNorm(tname, v)
                 else:
-                    norm, ssubs = self.tlib.getTypeNorm(tname, v)
+                    norm, ssubs = self.modl.getTypeNorm(tname, v)
             else:
-                norm, ssubs = self.tlib.getTypeNorm(tname, v)
+                norm, ssubs = self.modl.getTypeNorm(tname, v)
 
             subs[name] = norm
             for subkey, subval in ssubs.items():
@@ -521,7 +661,7 @@ class CompType(DataType):
             if v is None:
                 continue
 
-            norm, ssubs = self.tlib.getTypeNorm(tname, v)
+            norm, ssubs = self.modl.getTypeNorm(tname, v)
 
             subs[name] = norm
             for subkey, subval in ssubs.items():
@@ -563,7 +703,7 @@ class CompType(DataType):
 
         return self._norm_list(valu)
 
-class XrefType(DataType):
+class XrefType(Type):
     '''
     The XrefType allows linking a specific type of node to an inspecific
     set of node forms.
@@ -574,8 +714,8 @@ class XrefType(DataType):
 
     '''
 
-    def __init__(self, tlib, name, **info):
-        DataType.__init__(self, tlib, name, **info)
+    def __init__(self, modl, name, **info):
+        DataType.__init__(self, modl, name, **info)
         self._sorc_type = None
         self._sorc_name = None
 
@@ -607,7 +747,7 @@ class XrefType(DataType):
             self._raiseBadValu(text, mesg='No text left after strip().')
 
         if len(text) == 32 and text.find('=') == -1:
-            return self.tlib.getTypeNorm('guid', text)
+            return self.modl.getTypeNorm('guid', text)
 
         vals, off = s_syntax.parse_list(text)
 
@@ -624,12 +764,12 @@ class XrefType(DataType):
 
         valu, pvval = valu
 
-        pvval, pvsub = self.tlib.getTypeNorm('propvalu', pvval)
+        pvval, pvsub = self.modl.getTypeNorm('propvalu', pvval)
 
         tstr, tval = pvval.split('=', 1)
 
-        valu, vsub = self.tlib.getTypeNorm(self._sorc_type, valu)
-        tval, tsub = self.tlib.getTypeNorm(tstr, tval)
+        valu, vsub = self.modl.getTypeNorm(self._sorc_type, valu)
+        tval, tsub = self.modl.getTypeNorm(tstr, tval)
 
         tndef = s_common.guid((tstr, tval))
         iden = s_common.guid((valu, tstr, tval))
@@ -650,11 +790,12 @@ class XrefType(DataType):
 
         return iden, subs
 
-class TimeType(DataType):
+class TimeType(Type):
     # FIXME subfields for various time parts (year,month,etc)
 
-    def __init__(self, tlib, name, **info):
-        DataType.__init__(self, tlib, name, **info)
+    def __init__(self, modl, name, **info):
+
+        DataType.__init__(self, modl, name, **info)
 
         self.ismin = info.get('ismin', False)
         self.ismax = info.get('ismax', False)
@@ -690,8 +831,8 @@ class TimeType(DataType):
 
 class SeprType(MultiFieldType):
 
-    def __init__(self, tlib, name, **info):
-        MultiFieldType.__init__(self, tlib, name, **info)
+    def __init__(self, modl, name, **info):
+        MultiFieldType.__init__(self, modl, name, **info)
         self.sepr = info.get('sep', ',')
         self.reverse = info.get('reverse', 0)
 
@@ -735,26 +876,9 @@ class SeprType(MultiFieldType):
     def _zipvals(self, vals):
         return s_common.iterzip(vals, self._get_fields())
 
-class BoolType(DataType):
-    def norm(self, valu, oldval=None):
-        if isinstance(valu, str):
-            valu = valu.lower()
-            if valu in ('true', 't', 'y', 'yes', '1', 'on'):
-                return 1, {}
-
-            if valu in ('false', 'f', 'n', 'no', '0', 'off'):
-                return 0, {}
-
-            self._raiseBadValu(valu, mesg='Invalid boolean string')
-
-        return int(bool(valu)), {}
-
-    def repr(self, valu):
-        return repr(bool(valu))
-
 tagre = regex.compile(r'^([\w]+\.)*[\w]+$')
 
-class TagType(DataType):
+class TagType(Type):
 
     def norm(self, valu, oldval=None):
 
@@ -764,7 +888,7 @@ class TagType(DataType):
 
         if len(parts) == 2:
             strs = parts[1].split('-')
-            tims = [self.tlib.getTypeNorm('time', s)[0] for s in strs]
+            tims = [self.modl.getTypeNorm('time', s)[0] for s in strs]
 
             tmin = min(tims)
             tmax = max(tims)
@@ -778,7 +902,7 @@ class TagType(DataType):
 
         return retn, subs
 
-class StormType(DataType):
+class StormType(Type):
 
     def norm(self, valu, oldval=None):
         try:
@@ -787,7 +911,7 @@ class StormType(DataType):
             self._raiseBadValu(valu)
         return valu, {}
 
-class PermType(DataType):
+class PermType(Type):
     '''
     Enforce that the permission string and options are known.
     '''
@@ -802,12 +926,9 @@ class PermType(DataType):
             self._raiseBadValu(valu)
         return valu, {}
 
-class PropValuType(DataType):
-    def __init__(self, tlib, name, **info):
-        DataType.__init__(self, tlib, name, **info)
-        # TODO figure out what to do about tlib vs core issues
-        self._reqPropNorm = getattr(tlib, 'reqPropNorm', None)
-        self._getPropRepr = getattr(tlib, 'getPropRepr', None)
+class PropValuType(Type):
+    def __init__(self, modl, name, **info):
+        Type.__init__(self, modl, name, **info)
 
     def norm(self, valu, oldval=None):
         # if it's already a str, we'll need to split it into its two parts to norm.
@@ -916,6 +1037,9 @@ class TypeLib:
         if load:
             self.loadModModels()
 
+    #def addTypeDef(self, 
+    #def addPropDef(self, form, prop, 
+
     def _castCountry2CC(self, valu):
         valu = valu.replace('.', '').lower()
         return s_l_iso3166.country2iso.get(valu)
@@ -935,11 +1059,11 @@ class TypeLib:
 
     def getTypeInst(self, name):
         '''
-        Return the DataType instance for the given type name.
+        Return the Type instance for the given type name.
 
         Example:
 
-            dtype = tlib.getTypeInst('foo:bar')
+            dtype = modl.getTypeInst('foo:bar')
 
         NOTE: This API returns non-primitive objects and can not be
               used over telepath RMI.
@@ -972,7 +1096,7 @@ class TypeLib:
 
         Example:
 
-            if tlib.isSubType('foo','str'):
+            if modl.isSubType('foo','str'):
                 dostuff()
 
         '''
@@ -1047,19 +1171,19 @@ class TypeLib:
             except Exception as e:
                 logger.exception('pended: addType %s' % name)
 
-    def getDataType(self, name):
+    def getType(self, name):
         '''
-        Return the DataType subclass for the given type name.
+        Return the Type subclass for the given type name.
         '''
         return self.types.get(name)
 
-    def isDataType(self, name):
+    def isType(self, name):
         '''
         Return boolean which is true if the given name is a data type.
 
         Example:
 
-            if tlib.isDataType('foo:bar'):
+            if modl.isType('foo:bar'):
                 dostuff()
 
         '''
@@ -1094,7 +1218,7 @@ class TypeLib:
         Example:
             Add a new foo:bar type::
 
-                tlib.addType('foo:bar', subof='str', doc='A foo bar.')
+                modl.addType('foo:bar', subof='str', doc='A foo bar.')
 
         Raises:
             DupTypeName: If the type already exists.
@@ -1141,14 +1265,14 @@ class TypeLib:
             self.pended[tnam].append((name, info))
             return False
 
-    def getTypeDefs(self):
-        '''
-        Return a list of (name,info) tuples for all the types.
+    #def getTypeDefs(self):
+        #'''
+        #Return a list of (name,info) tuples for all the types.
 
-        Returns:
-            ([(name,info)]):    The loaded types
-        '''
-        return list(self.typeinfo.items())
+        #Returns:
+            #([(name,info)]):    The loaded types
+        #'''
+        #return list(self.typeinfo.items())
 
     def getTypeDef(self, name):
         '''
@@ -1160,7 +1284,7 @@ class TypeLib:
         Examples:
             Do stuff with the type definition of 'int'::
 
-                tdef = tlib.getTypeDef('int')
+                tdef = modl.getTypeDef('int')
                 dostuff(tdef)
 
         Returns:
@@ -1178,7 +1302,7 @@ class TypeLib:
 
         Example:
 
-            ex = tlib.getTypeInfo('inet:tcp4','ex')
+            ex = modl.getTypeInfo('inet:tcp4','ex')
 
         '''
         todo = name
@@ -1202,7 +1326,7 @@ class TypeLib:
 
         Example:
 
-            fqdn,subs = tlib.getTypeNorm('inet:fqdn','Foo.Com')
+            fqdn,subs = modl.getTypeNorm('inet:fqdn','Foo.Com')
 
         '''
         return self.reqDataType(name).norm(valu, oldval=oldval)
@@ -1214,7 +1338,7 @@ class TypeLib:
 
         Example:
 
-            valu = tlib.getTypeCast("foo:bar","hehe")
+            valu = modl.getTypeCast("foo:bar","hehe")
 
         '''
         func = self.casts.get(name)
