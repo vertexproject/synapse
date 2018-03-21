@@ -480,7 +480,7 @@ class AxonCell(s_cell.Cell):
             with self.lenv.begin() as xact:
                 locs = self.getBlobLocs(xact, sha256)
             if not locs:
-                return chan.txerr(('FileNotFound', {}))
+                return chan.txerr(('NoSuchFile', {}))
             return chan.txok(locs)
 
     @s_glob.inpool
@@ -496,7 +496,7 @@ class AxonCell(s_cell.Cell):
                 locs = self.getBlobLocs(xact, sha256)
 
             if not locs:
-                return chan.txerr(('FileNotFound', {}))
+                return chan.txerr(('NoSuchFile', {}))
             sess = None
             buid = None
 

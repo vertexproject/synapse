@@ -1423,6 +1423,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         auth = conf.get('auth')
         if not auth:
             raise s_common.BadConfValu(mesg='auth must be set', key='cellpool:conf')
+        auth = s_msgpack.un(s_common.debase64(auth))
 
         neuraddr = (conf.get('host'), conf.get('port'))
         if not all(part is not None for part in neuraddr):
@@ -1436,6 +1437,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         cellpool = s_cell.CellPool(auth, neuraddr)
         if not cellpool.neurwait(timeout=self.cell_timeout):
             cellpool.fini()
+            logger.info('Popping "auth" with private data from mesg.')
+            conf.pop('auth', None)
             raise s_common.BadConfValu(mesg='unable to set up cell pool', key='cellpool:conf')
         self.cellpool = cellpool
         self.onfini(self.cellpool.fini)

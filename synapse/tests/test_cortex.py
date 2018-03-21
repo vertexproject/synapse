@@ -3360,6 +3360,7 @@ class CortexTest(SynTest):
 
             neurhost, neurport = env.neuron.getCellAddr()
             axonauth = env.axon.getCellAuth()
+            axonauth = enbase64(s_msgpack.en(axonauth))
             # Ensure that Axon fns do not execute on a core without an axon
             with self.getRamCore() as othercore:
                 othercore.setConfOpt('cellpool:timeout', 3)
