@@ -121,7 +121,6 @@ class OuMod(s_module.CoreModule):
 
                 ('ou:conference', {
                     'subof': 'guid',
-                    'fields': 'date=time,name=str:lwr',
                     'doc': 'A conference with a name and sponsoring org.'}),
 
                 ('ou:conference:attendee', {
@@ -194,9 +193,9 @@ class OuMod(s_module.CoreModule):
                 ('ou:meet', {}, (
                     ('name', {'ptype': 'str:lwr',
                         'doc': 'A human friendly name for the meeting.'}),
-                    ('time:start', {'ptype': 'time',
+                    ('start', {'ptype': 'time',
                         'doc': 'The date / time the meet starts.'}),
-                    ('time:end', {'ptype': 'time',
+                    ('end', {'ptype': 'time',
                         'doc': 'The date / time the meet ends.'}),
                     ('place', {'ptype': 'geo:place',
                         'doc': 'The geo:place node where the meet was held.'}),
@@ -207,21 +206,23 @@ class OuMod(s_module.CoreModule):
                         'doc': 'The meeting which was attended.'}),
                     ('person', {'ptype': 'ps:person', 'req': 1, 'ro': 1,
                         'doc': 'The person who attended the meet.'}),
-                    ('arrive', {'ptype': 'time',
+                    ('arrived', {'ptype': 'time',
                         'doc': 'An optional property to annotate when the person arrived.'}),
-                    ('depart', {'ptype': 'time',
+                    ('departed', {'ptype': 'time',
                         'doc': 'An optional property to annotate when the person departed.'}),
                 )),
 
                 ('ou:conference', {}, (
                     ('org', {'ptype': 'ou:org',
                         'doc': 'The org which created/managed the conference.'}),
-                    ('name', {'ptype': 'str:lwr', 'req': 1, 'ro': 1,
-                        'doc': 'The name of the conference (without time).'}),
-                    ('time:start', {'ptype': 'time',
-                        'doc': 'The date / time the conference starts.'}),
-                    ('time:end', {'ptype': 'time',
-                        'doc': 'The date / time the conference ends.'}),
+                    ('name', {'ptype': 'str:lwr', 'req': 1, 'ex': 'defcon 2017',
+                        'doc': 'The full name of the conference.'}),
+                    ('base', {'ptype': 'str:lwr', 'ex': 'defcon',
+                        'doc': 'The base name which is shared by all conference instances.'}),
+                    ('start', {'ptype': 'time',
+                        'doc': 'The conference start date / time.'}),
+                    ('end', {'ptype': 'time',
+                        'doc': 'The conference end date / time.'}),
                     ('place', {'ptype': 'geo:place',
                         'doc': 'The geo:place node where the conference was held.'}),
                     # TODO: prefix optimized geo political location
@@ -232,10 +233,14 @@ class OuMod(s_module.CoreModule):
                         'doc': 'The conference which was attended.'}),
                     ('person', {'ptype': 'ps:person', 'req': 1, 'ro': 1,
                         'doc': 'The person who attended the conference.'}),
-                    ('arrive', {'ptype': 'time',
+                    ('arrived', {'ptype': 'time',
                         'doc': 'An optional property to annotate when the person arrived.'}),
-                    ('depart', {'ptype': 'time',
+                    ('departed', {'ptype': 'time',
                         'doc': 'An optional property to annotate when the person departed.'}),
+                    ('role:staff', {'ptype': 'bool',
+                        'doc': 'The person worked as staff at the conference.'}),
+                    ('role:speaker', {'ptype': 'bool',
+                        'doc': 'The person was a speaker/presenter at the conference.'}),
                 )),
 
             ),
