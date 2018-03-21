@@ -95,7 +95,7 @@ class OuMod(s_module.CoreModule):
                 ('ou:suborg', {
                     'subof': 'comp',
                     'fields': 'org,ou:org|sub,ou:org',
-                    'doc': 'An org which owns a sub org'}),
+                    'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.'}),
 
                 ('ou:member', {
                     'subof': 'comp',
