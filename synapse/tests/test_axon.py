@@ -278,6 +278,27 @@ class AxonTest(SynTest):
                 self.eq(1, stat.get('files'))
                 self.eq(8, stat.get('bytes'))
 
+                # Save it again - we should have no change in metrics/storage
+                self.eq(0, axon.save([b'asdfasdf'], timeout=3))
+                metrics = list(blob.metrics(timeout=3))
+                self.len(1, metrics)
+                self.eq(8, metrics[0][1].get('size'))
+                self.eq(1, metrics[0][1].get('blocks'))
+                stat = axon.stat(timeout=3)
+                self.eq(1, stat.get('files'))
+                self.eq(8, stat.get('bytes'))
+
+                # FIXME - What is the behavior we want here?
+                # Currently, we duplicate the uploaded bytes with a new buid.
+                # self.eq(asdfhash, axon.upload([b'asdf', b'asdf'], timeout=3))
+                # metrics = list(blob.metrics(timeout=3))
+                # self.len(1, metrics)
+                # self.eq(8, metrics[0][1].get('size'))
+                # self.eq(1, metrics[0][1].get('blocks'))
+                # stat = axon.stat(timeout=3)
+                # self.eq(1, stat.get('files'))
+                # self.eq(8, stat.get('bytes'))
+
                 # lets see if the bytes made it to the blob clone...
                 self.nn(blob01wait.wait(timeout=10))
 
