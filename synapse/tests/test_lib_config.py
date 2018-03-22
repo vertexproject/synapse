@@ -14,11 +14,6 @@ class Foo(s_config.Config):
         )
         return defs
 
-class MyCoolClass(s_config.Configable):
-    def __init__(self, proxy):
-        self.proxy = proxy
-        s_config.Configable.__init__(self)
-
 class ConfTest(SynTest):
 
     def test_conf_base(self):
@@ -154,33 +149,10 @@ class ConfTest(SynTest):
                 s_config.Configable.__init__(self)
                 self.proxy = proxy
 
-        with self.getRamCore() as core:
-            with s_daemon.Daemon() as dmon:
-                dmon.share('core', core)
-                link = dmon.listen('tcp://127.0.0.1:0/core')
-                with s_cortex.openurl('tcp://127.0.0.1:%d/core' % link[1]['port']) as prox:
-                    cool = CoolClass(prox)
-                    tufo = cool.proxy.formTufoByProp('inet:ipv4', 0)
-                    self.eq(tufo[1]['tufo:form'], 'inet:ipv4')
-                    self.eq(tufo[1]['inet:ipv4'], 0)
-
-    def test_configable_noncallable(self):
-
-        with self.getRamCore() as core:
-            with s_daemon.Daemon() as dmon:
-                dmon.share('core', core)
-                link = dmon.listen('tcp://127.0.0.1:0/core')
-                port = link[1]['port']
-                core_url = 'tcp://127.0.0.1:%d/core' % port
-                conf = {
-                    'ctors': (
-                        ('core', 'ctor://synapse.cortex.openurl("%s")' % core_url, {}),
-                        ('cc', 'ctor://synapse.tests.test_lib_config.MyCoolClass(core)', {}),
-                    ),
-
-                }
-                with s_daemon.Daemon() as inner_daemon:
-                    inner_daemon.loadDmonConf(conf)
+        with self.getDmonCore() as core:
+            cool = CoolClass(core)
+            tufo = cool.proxy.formTufoByProp('intform', 0)
+            self.istufo(tufo)
 
     def test_lib_config_req(self):
         defs = (
