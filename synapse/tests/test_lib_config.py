@@ -146,8 +146,8 @@ class ConfTest(SynTest):
         class CoolClass(s_config.Configable):
 
             def __init__(self, proxy):
-                s_config.Configable.__init__(self)
                 self.proxy = proxy
+                s_config.Configable.__init__(self)
 
         with self.getDmonCore() as core:
             cool = CoolClass(core)
