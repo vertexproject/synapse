@@ -3558,6 +3558,11 @@ class CortexTest(SynTest):
                     'valu': 'vertex.link',
                     'tag': 'hehe',
                 }),
+                ('node:ival:del', {
+                    'form': 'inet:fqdn',
+                    'valu': 'vertex.link',
+                    'prop': '#woah',
+                }),
                 ('node:del', {
                     'form': 'inet:fqdn',
                     'valu': 'vertex.link',
