@@ -3424,149 +3424,129 @@ class CortexTest(SynTest):
 
         with self.getRamCore() as core:
 
-            splices = (
-                ('node:add', {
+            node_add_splice = ('node:add', {
                     'form': 'inet:fqdn',
                     'valu': 'vertex.link',
                     'tags': ['hehe.haha'],
                     'props': {'expires': '2017'},
-                }),
-            )
-
-            core.splices(splices)
-            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
-
-            self.nn(node)
-            self.nn(node[1].get('#hehe.haha'))
-            self.eq(node[1].get('inet:fqdn:expires'), 1483228800000)
-
-            splice = ('node:add', {
+                })
+            node_add_splice_props = ('node:add', {
                 'form': 'inet:fqdn',
                 'valu': 'vertex.link',
                 'props': {'expires': '2018'},
             })
-
-            core.splice(splice)
-
-            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
-            self.eq(node[1].get('inet:fqdn:expires'), 1514764800000)
-
-            splice = ('node:prop:set', {
+            node_prop_set_splice = ('node:prop:set', {
                 'form': 'inet:fqdn',
                 'valu': 'vertex.link',
                 'prop': 'expires',
                 'newv': '2019',
             })
-            core.splices((splice,))
-            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
-            self.eq(node[1].get('inet:fqdn:expires'), 1546300800000)
-
-            splice = ('node:prop:del', {
+            node_prop_del_splice = ('node:prop:del', {
                 'form': 'inet:fqdn',
                 'valu': 'vertex.link',
                 'prop': 'expires',
             })
-            core.splices((splice,))
-            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
-            self.none(node[1].get('inet:fqdn:expires'))
-
-            splice = ('node:tag:add', {
+            node_tag_add_splice = ('node:tag:add', {
                 'form': 'inet:fqdn',
                 'valu': 'vertex.link',
                 'tag': 'hehe.haha',
             })
-            core.splices((splice,))
-            splice = ('node:tag:add', {
+            node_tag_add_splice2 = ('node:tag:add', {
                 'form': 'inet:fqdn',
                 'valu': 'vertex.link',
                 'tag': 'hehe.woah',
             })
-            core.splices((splice,))
-            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
-            self.true(s_tufo.tagged(node, 'hehe'))
-            self.true(s_tufo.tagged(node, 'hehe.haha'))
-            self.true(s_tufo.tagged(node, 'hehe.woah'))
-
-            splice = ('node:tag:del', {
+            node_tag_del_splice = ('node:tag:del', {
                 'form': 'inet:fqdn',
                 'valu': 'vertex.link',
                 'tag': 'hehe.woah',
             })
-            core.splices((splice,))
-            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
-            self.true(s_tufo.tagged(node, 'hehe'))
-            self.true(s_tufo.tagged(node, 'hehe.haha'))
-            self.false(s_tufo.tagged(node, 'hehe.woah'))
-
-            splice = ('node:tag:del', {
+            node_tag_del_splice2 = ('node:tag:del', {
                 'form': 'inet:fqdn',
                 'valu': 'vertex.link',
                 'tag': 'hehe',
             })
-            core.splices((splice,))
-            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
-            self.false(s_tufo.tagged(node, 'hehe'))
-            self.false(s_tufo.tagged(node, 'hehe.haha'))
-            self.false(s_tufo.tagged(node, 'hehe.woah'))
-
-            splice = ('node:ival:set', {
+            node_ival_set_splice = ('node:ival:set', {
                 'form': 'inet:fqdn',
                 'valu': 'vertex.link',
                 'prop': '#woah',
                 'ival': (100, 200)
             })
-            core.splices((splice,))
-            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
-            self.eq(node[1].get('<#woah'), 200)
-            self.eq(node[1].get('>#woah'), 100)
-
-            splice = ('node:ival:del', {
+            node_ival_del_splice = ('node:ival:del', {
                 'form': 'inet:fqdn',
                 'valu': 'vertex.link',
                 'prop': '#woah',
             })
-            core.splices((splice,))
+            node_del_splice = ('node:del', {
+                'form': 'inet:fqdn',
+                'valu': 'vertex.link',
+            })
+
+            splices = (node_add_splice,)
+
+            core.splices(splices)
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.nn(node)
+            self.nn(node[1].get('#hehe.haha'))
+            self.eq(node[1].get('inet:fqdn:expires'), 1483228800000)
+
+            core.splice(node_add_splice_props)
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.eq(node[1].get('inet:fqdn:expires'), 1514764800000)
+
+            core.splices((node_prop_set_splice,))
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.eq(node[1].get('inet:fqdn:expires'), 1546300800000)
+
+            core.splices((node_prop_del_splice,))
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.none(node[1].get('inet:fqdn:expires'))
+
+            core.splices((node_tag_add_splice, node_tag_add_splice2))
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.true(s_tufo.tagged(node, 'hehe'))
+            self.true(s_tufo.tagged(node, 'hehe.haha'))
+            self.true(s_tufo.tagged(node, 'hehe.woah'))
+
+            core.splices((node_tag_del_splice,))
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.true(s_tufo.tagged(node, 'hehe'))
+            self.true(s_tufo.tagged(node, 'hehe.haha'))
+            self.false(s_tufo.tagged(node, 'hehe.woah'))
+
+            core.splices((node_tag_del_splice2,))
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.false(s_tufo.tagged(node, 'hehe'))
+            self.false(s_tufo.tagged(node, 'hehe.haha'))
+            self.false(s_tufo.tagged(node, 'hehe.woah'))
+
+            core.splices((node_ival_set_splice,))
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.eq(node[1].get('<#woah'), 200)
+            self.eq(node[1].get('>#woah'), 100)
+
+            core.splices((node_ival_del_splice,))
             node = core.getTufoByProp('inet:fqdn', 'vertex.link')
             self.none(node[1].get('<#woah'))
             self.none(node[1].get('>#woah'))
 
-            splice = ('node:del', {
-                'form': 'inet:fqdn',
-                'valu': 'vertex.link',
-            })
-            core.splices((splice,))
+            core.splices((node_del_splice,))
             node = core.getTufoByProp('inet:fqdn', 'vertex.link')
             self.none(node)
 
             # del splices do not make nodes
             events = []
-            # core.on('node:add', events.append)
             core.link(events.append)
             splices = (
-                ('node:prop:del', {
-                    'form': 'inet:fqdn',
-                    'valu': 'vertex.link',
-                    'prop': 'expires',
-                }),
-                ('node:tag:del', {
-                'form': 'inet:fqdn',
-                'valu': 'vertex.link',
-                'tag': 'hehe.woah',
-                }),
-                ('node:tag:del', {
-                    'form': 'inet:fqdn',
-                    'valu': 'vertex.link',
-                    'tag': 'hehe',
-                }),
-                ('node:ival:del', {
-                    'form': 'inet:fqdn',
-                    'valu': 'vertex.link',
-                    'prop': '#woah',
-                }),
-                ('node:del', {
-                    'form': 'inet:fqdn',
-                    'valu': 'vertex.link',
-                })
+                node_prop_set_splice,
+                node_prop_del_splice,
+                node_ival_del_splice,
+                node_ival_set_splice,
+                node_tag_add_splice,
+                node_tag_add_splice2,
+                node_tag_del_splice,
+                node_tag_del_splice2,
+                node_del_splice
             )
             core.splices(splices)
             self.eq(events, [])
