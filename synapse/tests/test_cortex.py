@@ -3451,6 +3451,92 @@ class CortexTest(SynTest):
             node = core.getTufoByProp('inet:fqdn', 'vertex.link')
             self.eq(node[1].get('inet:fqdn:expires'), 1514764800000)
 
+            splice = ('node:prop:set', {
+                'form': 'inet:fqdn',
+                'valu': 'vertex.link',
+                'prop': 'expires',
+                'newv': '2019',
+            })
+            core.splices((splice,))
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.eq(node[1].get('inet:fqdn:expires'), 1546300800000)
+
+            splice = ('node:prop:del', {
+                'form': 'inet:fqdn',
+                'valu': 'vertex.link',
+                'prop': 'expires',
+            })
+            core.splices((splice,))
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.none(node[1].get('inet:fqdn:expires'))
+
+            splice = ('node:tag:add', {
+                'form': 'inet:fqdn',
+                'valu': 'vertex.link',
+                'tag': 'hehe.haha',
+            })
+            core.splices((splice,))
+            splice = ('node:tag:add', {
+                'form': 'inet:fqdn',
+                'valu': 'vertex.link',
+                'tag': 'hehe.woah',
+            })
+            core.splices((splice,))
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.true(s_tufo.tagged(node, 'hehe'))
+            self.true(s_tufo.tagged(node, 'hehe.haha'))
+            self.true(s_tufo.tagged(node, 'hehe.woah'))
+
+            splice = ('node:tag:del', {
+                'form': 'inet:fqdn',
+                'valu': 'vertex.link',
+                'tag': 'hehe.woah',
+            })
+            core.splices((splice,))
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.true(s_tufo.tagged(node, 'hehe'))
+            self.true(s_tufo.tagged(node, 'hehe.haha'))
+            self.false(s_tufo.tagged(node, 'hehe.woah'))
+
+            splice = ('node:tag:del', {
+                'form': 'inet:fqdn',
+                'valu': 'vertex.link',
+                'tag': 'hehe',
+            })
+            core.splices((splice,))
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.false(s_tufo.tagged(node, 'hehe'))
+            self.false(s_tufo.tagged(node, 'hehe.haha'))
+            self.false(s_tufo.tagged(node, 'hehe.woah'))
+
+            splice = ('node:ival:set', {
+                'form': 'inet:fqdn',
+                'valu': 'vertex.link',
+                'prop': '#woah',
+                'ival': (100, 200)
+            })
+            core.splices((splice,))
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.eq(node[1].get('<#woah'), 200)
+            self.eq(node[1].get('>#woah'), 100)
+
+            splice = ('node:ival:del', {
+                'form': 'inet:fqdn',
+                'valu': 'vertex.link',
+                'prop': '#woah',
+            })
+            core.splices((splice,))
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.none(node[1].get('<#woah'))
+            self.none(node[1].get('>#woah'))
+
+            splice = ('node:del', {
+                'form': 'inet:fqdn',
+                'valu': 'vertex.link',
+            })
+            core.splices((splice,))
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.none(node)
 
 class StorageTest(SynTest):
 
