@@ -3420,6 +3420,38 @@ class CortexTest(SynTest):
                 wants = rcore._axonclient_wants([visihash, craphash, foobarhash])
                 self.len(0, wants)
 
+    def test_cortex_splices(self):
+
+        with self.getRamCore() as core:
+
+            splices = (
+                ('node:add', {
+                    'form': 'inet:fqdn',
+                    'valu': 'vertex.link',
+                    'tags': ['hehe.haha'],
+                    'props': {'expires': '2017'},
+                }),
+            )
+
+            core.splices(splices)
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+
+            self.nn(node)
+            self.nn(node[1].get('#hehe.haha'))
+            self.eq(node[1].get('inet:fqdn:expires'), 1483228800000)
+
+            splice = ('node:add', {
+                'form': 'inet:fqdn',
+                'valu': 'vertex.link',
+                'props': {'expires': '2018'},
+            })
+
+            core.splice(splice)
+
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.eq(node[1].get('inet:fqdn:expires'), 1514764800000)
+
+
 class StorageTest(SynTest):
 
     def test_nonexist_ctor(self):
@@ -3508,34 +3540,3 @@ class StorageTest(SynTest):
             self.nn(store.reqJoinByMeth('range'))
             self.nn(store.reqRowsByMeth('range'))
             self.nn(store.reqSizeByMeth('range'))
-
-    def test_cortex_splices(self):
-
-        with self.getRamCore() as core:
-
-            splices = (
-                ('node:add', {
-                    'form': 'inet:fqdn',
-                    'valu': 'vertex.link',
-                    'tags': ['hehe.haha'],
-                    'props': {'expires': '2017'},
-                }),
-            )
-
-            core.splices(splices)
-            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
-
-            self.nn(node)
-            self.nn(node[1].get('#hehe.haha'))
-            self.eq(node[1].get('inet:fqdn:expires'), 1483228800000)
-
-            splice = ('node:add', {
-                'form': 'inet:fqdn',
-                'valu': 'vertex.link',
-                'props': {'expires': '2018'},
-            })
-
-            core.splice(splice)
-
-            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
-            self.eq(node[1].get('inet:fqdn:expires'), 1514764800000)
