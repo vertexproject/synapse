@@ -25,7 +25,7 @@ def splice(act, **info):
     Returns:
         (str, dict): The splice event.
     '''
-    return ('splice', {'mesg': (act, info)})
+    return (act, info)
 
 def convertOldSplice(mesg):
     '''
@@ -87,9 +87,7 @@ def convertSpliceFd(fpath):
 
             for chnk in s_common.chunks(s_msgpack.iterfd(fd), 1000):
                 for mesg in chnk:
-                    newspl = convertOldSplice(mesg)
-                    if newspl:
-                        mesg = newspl[1]['mesg']
+                    mesg = convertOldSplice(mesg)
                     tmp.write(s_msgpack.en(mesg))
 
             tmp.seek(0)

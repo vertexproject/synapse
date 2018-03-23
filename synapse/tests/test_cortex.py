@@ -486,6 +486,13 @@ class CortexBaseTest(SynTest):
         self.eq(len(core.eval('strform:foo')), 0)
         self.eq(len(core.eval('strform:bar')), 2)
 
+        # Calling formTufoByProp twice with different props will
+        # smash the most recent props in that are valid to set
+        tufo = core.formTufoByProp('strform', 'haha', foo='foo', bar='bar')
+        self.eq(tufo[1].get('strform'), 'haha')
+        self.eq(tufo[1].get('strform:foo'), 'foo')
+        self.eq(tufo[1].get('strform:bar'), 'bar')
+
         # Ensure we can store data at the boundary of 64 bit integers
         node = core.formTufoByProp('intform', -9223372036854775808)
         self.nn(node)
@@ -1098,9 +1105,11 @@ class CortexTest(SynTest):
 
         # Test that a membrane survives restart
         with self.getTestDir() as dirn:
+
             with s_cortex.openurl('dir:///' + dirn) as core:
                 core.addCoreMembrane(name, rules)
                 run_tests(core, msgs, expected)
+
             with s_cortex.openurl('dir:///' + dirn) as core:
                 core.addCoreMembrane(name, rules)
                 run_tests(core, msgs, expected + expected)
@@ -1588,7 +1597,10 @@ class CortexTest(SynTest):
             core0.addTufoTag(tufo_before2, 'hoho')  # this will not be synced
 
             # Start sending splices
-            core0.on('splice', core1.splice)
+            def splicecore(mesg):
+                core1.splice(mesg[1].get('mesg'))
+
+            core0.on('splice', splicecore)
             core0.delTufo(tufo_before1)
 
             # Add node by forming it
@@ -2357,10 +2369,10 @@ class CortexTest(SynTest):
 
     def test_cortex_splices_errs(self):
 
-        splices = [('newp:fake', {})]
-        with self.getRamCore() as core:
-            core.on('splice', splices.append)
-            core.formTufoByProp('inet:fqdn', 'vertex.link')
+        splices = [
+            ('newp:fake', {}),
+            ('node:add', {'form': 'inet:fqdn', 'valu': 'vertex.link'})
+        ]
 
         with self.getRamCore() as core:
             errs = core.splices(splices)
@@ -2499,9 +2511,12 @@ class CortexTest(SynTest):
     def test_cortex_tag_ival(self):
 
         splices = []
+        def append(mesg):
+            splices.append(mesg[1].get('mesg'))
+
         with self.getRamCore() as core:
 
-            core.on('splice', splices.append)
+            core.on('splice', append)
 
             node = core.eval('[ inet:ipv4=1.2.3.4 +#foo.bar@20171217 ]')[0]
             self.eq(s_tufo.ival(node, '#foo.bar'), (1513468800000, 1513468800000))
@@ -2520,7 +2535,7 @@ class CortexTest(SynTest):
 
         with self.getRamCore() as core:
             core.splices(splices)
-            core.on('splice', splices.append)
+            core.on('splice', append)
             node = core.eval('inet:ipv4=1.2.3.4')[0]
             self.eq(s_tufo.ival(node, '#foo.bar'), (1293840000000, 1514764800000))
             core.eval('inet:ipv4=1.2.3.4 [ -#foo.bar ]')
@@ -2566,7 +2581,7 @@ class CortexTest(SynTest):
 
         with self.getRamCore() as core:
             tufo = core.formTufoByProp('strform', 'haha', foo='bar', bar='faz')
-            splice = ('splice', {'mesg': ('node:prop:del', {'form': 'strform', 'valu': 'haha', 'prop': 'foo'})})
+            splice = ('node:prop:del', {'form': 'strform', 'valu': 'haha', 'prop': 'foo'})
             core.splice(splice)
 
             self.eq(len(core.eval('strform:foo')), 0)
@@ -3493,3 +3508,34 @@ class StorageTest(SynTest):
             self.nn(store.reqJoinByMeth('range'))
             self.nn(store.reqRowsByMeth('range'))
             self.nn(store.reqSizeByMeth('range'))
+
+    def test_cortex_splices(self):
+
+        with self.getRamCore() as core:
+
+            splices = (
+                ('node:add', {
+                    'form': 'inet:fqdn',
+                    'valu': 'vertex.link',
+                    'tags': ['hehe.haha'],
+                    'props': {'expires': '2017'},
+                }),
+            )
+
+            core.splices(splices)
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+
+            self.nn(node)
+            self.nn(node[1].get('#hehe.haha'))
+            self.eq(node[1].get('inet:fqdn:expires'), 1483228800000)
+
+            splice = ('node:add', {
+                'form': 'inet:fqdn',
+                'valu': 'vertex.link',
+                'props': {'expires': '2018'},
+            })
+
+            core.splice(splice)
+
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.eq(node[1].get('inet:fqdn:expires'), 1514764800000)

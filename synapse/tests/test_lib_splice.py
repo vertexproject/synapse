@@ -6,23 +6,23 @@ class SpliceTest(SynTest):
 
     def test_splice(self):
 
-        expected = ('splice', {'mesg': ('foo', {'bar': 'baz', 'faz': 3})})
+        expected = ('foo', {'bar': 'baz', 'faz': 3})
         actual = s_splice.splice('foo', bar='baz', faz=3)
         self.eq(actual, expected)
 
-        expected = ('splice', {'mesg': ('foo', {})})
+        expected = ('foo', {})
         actual = s_splice.splice('foo')
         self.eq(actual, expected)
 
         oldsplice = ('splice', {'act': 'node:prop:del', 'form': 'strform', 'valu': 'haha', 'prop': 'foo'})
-        self.raises(TypeError, s_splice.splice(oldsplice))
 
+        self.raises(TypeError, s_splice.splice(oldsplice))
         self.raises(TypeError, s_splice.splice(None))
 
     def test_convertOldSplice(self):
 
         oldsplice = ('splice', {'act': 'node:prop:del', 'form': 'strform', 'valu': 'haha', 'prop': 'foo'})
-        expected = ('splice', {'mesg': ('node:prop:del', {'form': 'strform', 'valu': 'haha', 'prop': 'foo'})})
+        expected = ('node:prop:del', {'form': 'strform', 'valu': 'haha', 'prop': 'foo'})
         actual = s_splice.convertOldSplice(oldsplice)
         self.eq(actual, expected)
 
