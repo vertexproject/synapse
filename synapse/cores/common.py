@@ -1596,7 +1596,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         valu = mesg[1].get('valu')
         prop = mesg[1].get('prop')
 
-        node = self.formTufoByProp(form, valu)
+        node = self.getTufoByProp(form, valu)
+        if not node:
+            return
+
         self.delTufoProp(node, prop)
 
     def _actNodeTagAdd(self, mesg):
@@ -1614,7 +1617,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         form = mesg[1].get('form')
         valu = mesg[1].get('valu')
 
-        node = self.formTufoByProp(form, valu)
+        node = self.getTufoByProp(form, valu)
+        if not node:
+            return
+
         self.delTufoTag(node, tag)
 
     def _actNodeIvalSet(self, mesg):
@@ -1633,7 +1639,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         valu = mesg[1].get('valu')
         prop = mesg[1].get('prop')
 
-        node = self.formTufoByProp(form, valu)
+        node = self.getTufoByProp(form, valu)
+        if not node:
+            return
+
         self.delTufoIval(node, prop)
 
     def splices(self, msgs):
