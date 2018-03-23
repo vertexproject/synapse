@@ -3538,6 +3538,35 @@ class CortexTest(SynTest):
             node = core.getTufoByProp('inet:fqdn', 'vertex.link')
             self.none(node)
 
+            # del splices do not make nodes
+            events = []
+            # core.on('node:add', events.append)
+            core.link(events.append)
+            splices = (
+                ('node:prop:del', {
+                    'form': 'inet:fqdn',
+                    'valu': 'vertex.link',
+                    'prop': 'expires',
+                }),
+                ('node:tag:del', {
+                'form': 'inet:fqdn',
+                'valu': 'vertex.link',
+                'tag': 'hehe.woah',
+                }),
+                ('node:tag:del', {
+                    'form': 'inet:fqdn',
+                    'valu': 'vertex.link',
+                    'tag': 'hehe',
+                }),
+                ('node:del', {
+                    'form': 'inet:fqdn',
+                    'valu': 'vertex.link',
+                })
+            )
+            core.splices(splices)
+            self.eq(events, [])
+            core.unlink(events.append)
+
 class StorageTest(SynTest):
 
     def test_nonexist_ctor(self):
