@@ -3435,6 +3435,12 @@ class CortexTest(SynTest):
                 'valu': 'vertex.link',
                 'props': {'expires': '2018'},
             })
+            node_add_splice_tags = ('node:add', {
+                'form': 'inet:fqdn',
+                'valu': 'vertex.link',
+                'tags': ('foo.bar',
+                         'oh.my')
+            })
             node_prop_set_splice = ('node:prop:set', {
                 'form': 'inet:fqdn',
                 'valu': 'vertex.link',
@@ -3494,6 +3500,11 @@ class CortexTest(SynTest):
             node = core.getTufoByProp('inet:fqdn', 'vertex.link')
             self.eq(node[1].get('inet:fqdn:expires'), 1514764800000)
 
+            core.splice(node_add_splice_tags)
+            node = core.getTufoByProp('inet:fqdn', 'vertex.link')
+            self.true(s_tufo.tagged(node, 'foo.bar'))
+            self.true(s_tufo.tagged(node, 'oh.my'))
+
             core.splices((node_prop_set_splice,))
             node = core.getTufoByProp('inet:fqdn', 'vertex.link')
             self.eq(node[1].get('inet:fqdn:expires'), 1546300800000)
@@ -3534,7 +3545,7 @@ class CortexTest(SynTest):
             node = core.getTufoByProp('inet:fqdn', 'vertex.link')
             self.none(node)
 
-            # del splices do not make nodes
+            # set / del splices do not make nodes
             events = []
             core.link(events.append)
             splices = (
