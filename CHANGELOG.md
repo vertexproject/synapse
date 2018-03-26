@@ -1,6 +1,21 @@
 Changelog
 =========
 
+v0.0.48 - 2018-03-21
+--------------------
+
+## New Features
+- #698 - Add ``source``, ``seen``, ``record`` and ``recref`` forms to allow for tracking data sources and references in a ``Cortex`` hypergraph.
+- #698 - Add ``ou:meet``, ``ou:meet:attendee``, ``ou:conference``, and ``ou:conference:attendee`` forms to allow for tracking meetings and conferences, as well as their attendees.
+
+## Enhancements
+- #702 - ``synapse.lib.datapath`` now has a ``DataPath()`` class which is used to represent the steps in a given path. This allows pre-computation of a given datapath to reduce overhead when the same path may need to be parsed multiple times.
+
+## Bugs
+- #703 - Ensure that the ``AxonCell`` was sending the correct marshalled exceptions.
+- #704 - Change the ``auth`` value of the ``Cortex`` configuration for a ``cell:pool`` to be a Base64 encoded version of the msgpack encoded auth dictionary.  This allows for configuring the ``cell:pool`` via a JSON ``Daemon`` configuration file.
+
+
 v0.0.47 - 2018-03-14
 --------------------
 

@@ -146,18 +146,13 @@ class ConfTest(SynTest):
         class CoolClass(s_config.Configable):
 
             def __init__(self, proxy):
-                s_config.Configable.__init__(self)
                 self.proxy = proxy
+                s_config.Configable.__init__(self)
 
-        with self.getRamCore() as core:
-            with s_daemon.Daemon() as dmon:
-                dmon.share('core', core)
-                link = dmon.listen('tcp://127.0.0.1:0/core')
-                with s_cortex.openurl('tcp://127.0.0.1:%d/core' % link[1]['port']) as prox:
-                    cool = CoolClass(prox)
-                    tufo = cool.proxy.formTufoByProp('inet:ipv4', 0)
-                    self.eq(tufo[1]['tufo:form'], 'inet:ipv4')
-                    self.eq(tufo[1]['inet:ipv4'], 0)
+        with self.getDmonCore() as core:
+            cool = CoolClass(core)
+            tufo = cool.proxy.formTufoByProp('intform', 0)
+            self.istufo(tufo)
 
     def test_lib_config_req(self):
         defs = (

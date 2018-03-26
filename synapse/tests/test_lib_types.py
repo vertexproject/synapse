@@ -715,7 +715,7 @@ class DataTypesTest(SynTest):
             # No subs
             valu, subs = core.getTypeNorm('ndef', ('inet:fqdn', 'woot.com'))
             self.eq(valu, 'e247b8451766865f231805fcce989bdf')
-            self.eq(subs, {})
+            self.eq(subs, {'form': 'inet:fqdn'})
             # Accept lists/tuples via API
             self.eq(core.getTypeNorm('ndef', ['inet:fqdn', 'woot.com'])[0], 'e247b8451766865f231805fcce989bdf')
             self.eq(core.getTypeNorm('ndef', ('inet:fqdn', 'woot.com'))[0], 'e247b8451766865f231805fcce989bdf')

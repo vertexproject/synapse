@@ -2,9 +2,51 @@ import collections
 
 import xml.etree.ElementTree as x_etree
 
-import synapse.common as s_common
-
 import synapse.lib.syntax as s_syntax
+
+def _parse_path(path):
+
+    ''' Parses a datapath into its parts '''
+
+    off = 0
+    steps = []
+    if path is None:
+        return steps
+
+    plen = len(path)
+    while off < plen:
+
+        # eat the next (or possibly a first) slash
+        _, off = s_syntax.nom(path, off, ('/',))
+
+        if off >= plen:
+            break
+
+        if s_syntax.is_literal(path, off):
+            elem, off = s_syntax.parse_literal(path, off)
+            steps.append(elem)
+            continue
+
+        # eat until the next /
+        elem, off = s_syntax.meh(path, off, ('/',))
+        if not elem:
+            continue
+
+        steps.append(elem)
+
+    return steps
+
+
+class DataPath:
+    '''
+    A pre-computation of a datapath.
+    '''
+    def __init__(self, path: str) -> None:
+        self.path = path
+        self.steps = _parse_path(path)
+
+    def __bool__(self):
+        return bool(self.path)
 
 class DataElem:
 
@@ -44,8 +86,7 @@ class DataElem:
         Step to the given DataElem within the tree.
         '''
         base = self
-        for step in self._parse_path(path):
-
+        for step in path.steps:
             spec = base._d_special.get(step)
             if spec is not None:
                 base = spec
@@ -57,7 +98,7 @@ class DataElem:
 
         return base
 
-    def valu(self, path):
+    def valu(self, path: DataPath):
         '''
         Return the value of the element at the given path.
         '''
@@ -73,6 +114,9 @@ class DataElem:
     def vals(self, path):
         '''
         Iterate the given path elements and yield values.
+
+        Args:
+            path (Datapath): the datapath string or a pre-computed one
 
         Example:
 
@@ -113,7 +157,7 @@ class DataElem:
         while todo:
 
             elem = todo.popleft()
-            #print('SEARCH: %r' % (elem.name(),))
+            # print('SEARCH: %r' % (elem.name(),))
             if elem.name() == step:
                 yield elem
 
@@ -123,6 +167,9 @@ class DataElem:
     def iter(self, path):
         '''
         Iterate sub elements using the given path.
+
+        Args:
+            path (Datapath): the datapath string or a pre-computed one
 
         Example:
 
@@ -134,7 +181,8 @@ class DataElem:
                 dostuff(elem) # elem is at value "lol" and "heh"
 
         '''
-        steps = self._parse_path(path)
+
+        steps = path.steps
         if not steps:
             return
 
@@ -179,49 +227,21 @@ class DataElem:
                 else:
                     todo.append((elem, off + 1))
 
-    def _parse_path(self, path):
-
-        off = 0
-        steps = []
-
-        plen = len(path)
-        while off < plen:
-
-            # eat the next (or possibly a first) slash
-            _, off = s_syntax.nom(path, off, ('/',))
-
-            if off >= plen:
-                break
-
-            if s_syntax.is_literal(path, off):
-                elem, off = s_syntax.parse_literal(path, off)
-                steps.append(elem)
-                continue
-
-            # eat until the next /
-            elem, off = s_syntax.meh(path, off, ('/',))
-            if not elem:
-                continue
-
-            steps.append(elem)
-
-        return steps
-
 class XmlDataElem(DataElem):
 
     def __init__(self, item, name=None, parent=None):
         DataElem.__init__(self, item, name=name, parent=parent)
 
     def _elem_kids(self, step):
-        #TODO possibly make step fnmatch compat?
+        # TODO possibly make step fnmatch compat?
 
         # special case for iterating <tag> which recurses
         # to find all instances of that element.
-        #if step[0] == '<' and step[-1] == '>':
-            #allstep = step[1:-1]
-            #todo = collections.deque(self._d_item)
-            #while todo:
-                #elem = todo.popleft()
+        # if step[0] == '<' and step[-1] == '>':
+            # allstep = step[1:-1]
+            # todo = collections.deque(self._d_item)
+            # while todo:
+                # elem = todo.popleft()
 
         for xmli in self._d_item:
             if xmli.tag == step:
