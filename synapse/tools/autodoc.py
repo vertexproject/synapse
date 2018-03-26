@@ -34,6 +34,7 @@ obj_path_skips = ('synapse.cores.common.Runtime',
 
 obj_instance_confs = [
     ('synapse.lib.cell.Cell', {'bind': '127.0.0.1'}),
+    ('synapse.cryotank.CryoCell', {'bind': '127.0.0.1'}),
     ('synapse.neuron.Neuron', {'bind': '127.0.0.1', 'port': 0}),
 ]
 
