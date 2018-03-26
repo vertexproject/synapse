@@ -1,6 +1,24 @@
 Changelog
 =========
 
+v0.0.49 - 2018-03-26
+--------------------
+V0.0.49 is primarily a bugfix release to address regressions and issues from v0.0.47.
+
+## Enhancements
+- #706 - The ``Cortex.formNodeByProp()`` API will now call ``setTufoProps()`` on a node if it already exists and properties are passed into ``formNodeByProp``.  This allows properties to be added in a “last caller wins” scenario.
+- #706 - The ``node:add`` splice now accepts a ``tags`` value which contains a list of tags to add to the node created by the splice.
+
+## Bugs
+- #705 - Fix an issue in ``Configable``\’s ``@confdef`` decorator helper for identifying config options in classes.  This method was previously skipping Telepath proxy objects during introspection; and a regression was introduced which didn’t properly skip non-callable object methods.  This caused  an issue when doing introspection on objects which had Telepath ``Proxy`` objects as the value of class attributes.  This regression has been fixed by properly skipping non-callable class members.
+- #706 - Splice changes introduced in v0.0.47 were improperly wrapping messages. This meant that the ``Cortex.splice()`` and ``Cortex.splices()`` APIs required splice messages as though they came off of the ``EventBus``.  This required sending duplicate, redundant data over the network during remote calls.  This splice reactors now expect unpacked splices.  This does not affect splices written to splice files or splices converted to the new format, since those splices were already unwrapped.
+- #707 - The Telepath socket multiplexor (``synapse.lib.socket.Plex``) had an issue added where xlist sockets may not have been properly culled from the list of Sockets maintained by the plex.  The xlist sockets were the same as the rlist sockets, so this has been simplified.  In addition, an identity check for fileno was changed to a equality check.
+
+## Documentation
+- #706 - Examples of all different``splice`` message forms have been added in a ``Cortex`` test ``test_cortex_splices``.  This can be used as an immediate reference to people doing manual splice creation.
+- #708 - Added ``synapse.cryotank.CryoCell`` to the automatically generated ``Configable`` docs.
+
+
 v0.0.48 - 2018-03-21
 --------------------
 
