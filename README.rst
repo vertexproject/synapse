@@ -22,7 +22,7 @@ Join the Vertex Project on |slack|_!
 .. _drone: https://drone.vertex.link/vertexproject/synapse
 
 .. |travisci| image:: https://travis-ci.org/vertexproject/synapse.svg?branch=master
-    :target: https://travis-ci.org/vertexproject/synapse
+.. _travisci: https://travis-ci.org/vertexproject/synapse
 
 .. |appveyor| image:: https://ci.appveyor.com/api/projects/status/github/vertexproject/synapse?branch=master&svg=true
 .. _appveyor: https://ci.appveyor.com/project/invisig0th/synapse/
