@@ -1,0 +1,38 @@
+# Use containers instead of full VMs for faster startup.
+sudo: true
+
+language: python
+
+matrix:
+  include:
+    - python: "3.6"
+      env:
+        - COVERAGE_ARGS=" --cov synapse --no-cov-on-fail"
+        - TNAME="3.6"
+    - python: "3.5"
+      env: TNAME="3.5"
+    - python: "3.4"
+      env: TNAME="3.4"
+
+cache:
+  pip: true
+
+before_cache:
+  - rm -f $HOME/.cache/pip/log/debug.log
+
+before_install:
+  - python -m pip install -U wheel pip
+  - python -m pip install pycodestyle codecov pytest pytest-cov
+  - echo "Linting checks"
+  - pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 synapse
+  - pycodestyle --max-line-length=120 --select E111,E101,E201,E202,E203,E221,E222,E223,E224,E225,E226,E227,E228,E231,E241,E242,E251,E303,E304,E502,E711,E712,E713,E714,E721,E741,E742,E743,W191,W291,W293,W292,W391,W602,W603 scripts
+
+install:
+  - python setup.py install
+
+script:
+  - pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging ${COVERAGE_ARGS}
+
+after_success:
+  - if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${TNAME} --required; fi;
+
