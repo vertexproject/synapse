@@ -1,4 +1,3 @@
-# Use containers instead of full VMs for faster startup.
 sudo: true
 
 language: python
