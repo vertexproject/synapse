@@ -230,14 +230,12 @@ class ItMod(s_module.CoreModule):
                     'ex': 'CVE-2012-0158'}),
 
                 ('it:av:sig', {
-                    'subof': 'sepr',
-                    'sep': '/',
-                    'fields': 'org,ou:alias|sig,str:lwr',
-                    'doc': 'A vendor- or organization-specific antivirus signature name.'}),
+                    'subof': 'comp',
+                    'fields': 'soft=it:prod:soft,name=str:lwr',
+                    'doc': 'A signature name within the namespace of an antivirus engine name.'}),
 
                 ('it:av:filehit', {
-                    'subof': 'sepr',
-                    'sep': '/',
+                    'subof': 'comp',
                     'fields': 'file,file:bytes|sig,it:av:sig',
                     'doc': 'A file that triggered an alert on a specific antivirus signature.'}),
 
@@ -312,16 +310,22 @@ class ItMod(s_module.CoreModule):
                     ('desc', {'ptype': 'str', 'doc': 'A free-form description of the CVE vulnerability.'}),
                 ]),
 
-                ('it:av:sig', {'ptype': 'it:av:sig'}, [
-                    ('sig', {'ptype': 'str:lwr', 'doc': 'The signature name.', 'ro': 1}),
-                    ('org', {'ptype': 'ou:alias', 'doc': 'The organization responsible for the signature.', 'ro': 1}),
-                    ('desc', {'ptype': 'str', 'doc': 'A free-form description of the signature.'}),
-                    ('url', {'ptype': 'inet:url', 'doc': 'A reference URL for information about the signature.'}),
+                ('it:av:sig', {}, [
+                    ('soft', {'ptype': 'it:prod:soft', 'req': 1, 'ro': 1,
+                        'doc': 'The anti-virus product which contains the signature.'}),
+                    ('name', {'ptype': 'str:lwr', 'req': 1, 'ro': 1,
+                        'doc': 'The signature name.', 'ro': 1}),
+                    ('desc', {'ptype': 'str',
+                        'doc': 'A free-form description of the signature.'}),
+                    ('url', {'ptype': 'inet:url',
+                        'doc': 'A reference URL for information about the signature.'}),
                 ]),
 
                 ('it:av:filehit', {'ptype': 'it:av:filehit'}, [
-                    ('file', {'ptype': 'file:bytes', 'doc': 'The file that triggered the signature hit.'}),
-                    ('sig', {'ptype': 'it:av:sig', 'doc': 'The signature that the file triggered on.'}),
+                    ('file', {'ptype': 'file:bytes',
+                        'doc': 'The file that triggered the signature hit.'}),
+                    ('sig', {'ptype': 'it:av:sig',
+                        'doc': 'The signature that the file triggered on.'}),
                 ]),
 
                 ('it:dev:str', {}, (
@@ -535,8 +539,9 @@ class ItMod(s_module.CoreModule):
                     ('reg:int', {'ptype': 'it:dev:int', 'doc': 'The integer value that was deleted (parsed from :reg).', 'ro': 1}),
                     ('reg:bytes', {'ptype': 'file:bytes', 'doc': 'The binary data that was deleted (parsed from :reg).', 'ro': 1}),
                 )),
+
                 ('it:prod:soft', {}, (
-                    ('name', {'ptype': 'str:lwr', 'ro': 1, 'req': 1,
+                    ('name', {'ptype': 'str:lwr',
                               'doc': 'Name of the software'}),
                     ('desc', {'ptype': 'str:txt', 'doc': 'A description of the software'}),
                     ('desc:short', {'ptype': 'str:lwr', 'doc': 'A short description of the software'}),

@@ -116,9 +116,11 @@ class DnsMod(s_module.CoreModule):
 
                 ('inet:dns:req', {'doc': 'Fused knowledge of a DNS request origin'}, [
                     ('addr', {'ptype': 'inet:addr', 'ro': 1, 'req': 1,
-                        'doc': 'The IPv4 address which requested the FQDN'}),
+                        'doc': 'The inet:addr which requested the FQDN'}),
                     ('addr:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
                         'doc': 'The IPv4 address which requested the FQDN'}),
+                    ('addr:ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
+                        'doc': 'The IPv6 address which requested the FQDN'}),
                     ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,
                         'doc': 'The requested FQDN'}),
                     ('type', {'ptype': 'inet:dns:type', 'ro': 1, 'req': 1,

@@ -1625,23 +1625,93 @@ class InetModelTest(SynTest):
     def test_model_inet_addr(self):
         with self.getRamCore() as core:
 
-            valu, subs = core.getTypeNorm('inet:addr', 'FF::56')
+            # ipv4
+            valu, subs = core.getTypeNorm('inet:addr', '1.2.3.4')
+            self.eq(valu, 'tcp://1.2.3.4')
+            self.eq(subs['proto'], 'tcp')
+            self.eq(subs['ipv4'], 0x01020304)
+            self.none(subs.get('port'))
+            self.none(subs.get('ipv6'))
+            self.none(subs.get('host'))
+            self.none(subs.get('fqdn'))
 
-            self.eq(valu, 'ff::56')
+            # ipv4:port
+            valu, subs = core.getTypeNorm('inet:addr', '1.2.3.4:80')
+            self.eq(valu, 'tcp://1.2.3.4:80')
+            self.eq(subs['proto'], 'tcp')
+            self.eq(subs['port'], 80)
+            self.eq(subs['ipv4'], 0x01020304)
+            self.none(subs.get('ipv6'))
+            self.none(subs.get('host'))
+            self.none(subs.get('fqdn'))
+
+            # fqdn:port
+            valu, subs = core.getTypeNorm('inet:addr', 'woot.com:80')
+            self.eq(valu, 'tcp://woot.com:80')
+            self.eq(subs['proto'], 'tcp')
+            self.eq(subs['port'], 80)
+            self.eq(subs['fqdn'], 'woot.com')
+            self.none(subs.get('ipv6'))
+            self.none(subs.get('host'))
             self.none(subs.get('ipv4'))
 
-            valu, subs = core.getTypeNorm('inet:addr', '1.2.3.4')
+            # fqdn
+            valu, subs = core.getTypeNorm('inet:addr', 'tcp://WOOT.COM')
+            self.eq(valu, 'tcp://woot.com')
+            self.eq(subs['proto'], 'tcp')
+            self.eq(subs['fqdn'], 'woot.com')
+            self.none(subs.get('port'))
+            self.none(subs.get('ipv6'))
+            self.none(subs.get('host'))
+            self.none(subs.get('ipv4'))
 
-            self.eq(valu, '::ffff:1.2.3.4')
-            self.eq(subs.get('ipv4'), 0x01020304)
+            # ipv6 port
+            valu, subs = core.getTypeNorm('inet:addr', '[FF::56]:99')
+            self.eq(subs['port'], 99)
+            self.eq(subs['ipv6'], 'ff::56')
+            self.none(subs.get('ipv4'))
+            self.none(subs.get('host'))
+            self.none(subs.get('fqdn'))
 
-            nv, nsubs = core.getTypeNorm('inet:addr', '::ffff:1.2.3.4')
-            self.eq(valu, nv)
-            self.eq(subs, nsubs)
+            # unadorned syntax...
+            valu, subs = core.getTypeNorm('inet:addr', 'FF::56')
+            self.eq(subs['proto'], 'tcp')
+            self.eq(subs['ipv6'], 'ff::56')
+            self.none(subs.get('ipv4'))
+            self.none(subs.get('port'))
+            self.none(subs.get('host'))
+            self.none(subs.get('fqdn'))
 
-            # These change when we move to using inet:addr instead of
-            self.raises(NoSuchForm, core.formTufoByProp, 'inet:addr', 0x01020304)
-            # self.nn(core.getTufoByProp('inet:addr:ipv4', '1.2.3.4'))
+    def test_model_inet_server(self):
+
+        with self.getRamCore() as core:
+
+            valu, subs = core.getTypeNorm('inet:server', 'udp://1.2.3.4:80')
+            self.eq(valu, 'udp://1.2.3.4:80')
+            self.eq(subs['port'], 80)
+            self.eq(subs['proto'], 'udp')
+            self.eq(subs['ipv4'], 0x01020304)
+
+            valu, subs = core.getTypeNorm('inet:server', 'tcp://WOOT.com:80')
+            self.eq(valu, 'tcp://woot.com:80')
+            self.eq(subs['port'], 80)
+            self.eq(subs['proto'], 'tcp')
+            self.eq(subs['fqdn'], 'woot.com')
+
+    def test_model_inet_servfile(self):
+
+        with self.getRamCore() as core:
+
+            iden = s_common.guid()
+            props = {'seen:min': 10, 'seen:max': 20}
+            node = core.formTufoByProp('inet:servfile', ('tcp://1.2.3.4:443', iden), **props)
+            self.eq(node[1]['inet:servfile:file'], iden)
+            self.eq(node[1]['inet:servfile:server'], 'tcp://1.2.3.4:443')
+            self.eq(node[1]['inet:servfile:server:port'], 443)
+            self.eq(node[1]['inet:servfile:server:proto'], 'tcp')
+            self.eq(node[1]['inet:servfile:server:ipv4'], 0x01020304)
+            self.eq(node[1]['inet:servfile:seen:min'], 10)
+            self.eq(node[1]['inet:servfile:seen:max'], 20)
 
     def test_model_inet_wifi(self):
         with self.getRamCore() as core:

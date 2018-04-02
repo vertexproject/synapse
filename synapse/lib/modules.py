@@ -170,6 +170,7 @@ def call_ctor(name, *args, **kwargs):
             ret.append((sname, val, None))
 
         except Exception as e:
+            logger.exception(e)
             ret.append((sname, None, e))
 
     return ret
