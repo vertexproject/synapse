@@ -418,7 +418,7 @@ class AddrType(DataType):
                 guid, _ = self.tlib.getTypeNorm('guid', valu)
                 subs['host'] = guid
 
-                return 'host://%s:%d' % (guid,port), subs
+                return 'host://%s:%d' % (guid, port), subs
 
             guid, _ = self.tlib.getTypeNorm('guid', valu)
             subs['host'] = guid
@@ -485,7 +485,7 @@ class AddrType(DataType):
         # is it a valid fqdn?  hopefully?
         if fqdnre.match(valu):
 
-            fqdn, _ = self.tlib.getTypeNorm('inet:fqdn',valu)
+            fqdn, _ = self.tlib.getTypeNorm('inet:fqdn', valu)
             subs['fqdn'] = fqdn
 
             if port is None:

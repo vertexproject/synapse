@@ -52,7 +52,6 @@ class InfoTechTest(SynTest):
             self.eq(fhit[1].get('it:av:filehit:sig', asig[1].get('it:av:sig')))
             self.eq(fhit[1].get('it:av:filehit:file'), '1234567890abcdeffedcba0987654321')
 
-
     def test_model_infotech_hostname(self):
         with self.getRamCore() as core:
 
