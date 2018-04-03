@@ -1177,7 +1177,7 @@ class InetMod(s_module.CoreModule):
                     'doc': 'A file hosted on a server for access over a network protocol.',
                 }),
 
-                ('inet:file:download', {
+                ('inet:download', {
                     'subof': 'guid',
                     'doc': 'An instance of a file downloaded from a server.',
                 }),
@@ -1260,6 +1260,8 @@ class InetMod(s_module.CoreModule):
 
                     ('server', {'ptype': 'inet:server',
                         'doc': 'The inet:addr of the server.'}),
+                    ('server:proto', {'ptype': 'str:lwr',
+                        'doc': 'The server network layer protocol.'}),
                     ('server:ipv4', {'ptype': 'inet:ipv4',
                         'doc': 'The IPv4 of the server.'}),
                     ('server:ipv6', {'ptype': 'inet:ipv6',
@@ -1273,6 +1275,8 @@ class InetMod(s_module.CoreModule):
 
                     ('client', {'ptype': 'inet:client',
                         'doc': 'The inet:addr of the client.'}),
+                    ('client:proto', {'ptype': 'str:lwr',
+                        'doc': 'The client network layer protocol.'}),
                     ('client:ipv4', {'ptype': 'inet:ipv4',
                         'doc': 'The IPv4 of the client.'}),
                     ('client:ipv6', {'ptype': 'inet:ipv6',

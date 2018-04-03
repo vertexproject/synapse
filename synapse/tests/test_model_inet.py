@@ -1713,6 +1713,21 @@ class InetModelTest(SynTest):
             self.eq(node[1]['inet:servfile:seen:min'], 10)
             self.eq(node[1]['inet:servfile:seen:max'], 20)
 
+    def test_model_inet_download(self):
+
+        with self.getRamCore() as core:
+
+            iden = s_common.guid()
+            props = {'time': 10, 'file': iden, 'server': 'tcp://1.2.3.4:80', 'client': 'tcp://5.6.7.8'}
+            node = core.formTufoByProp('inet:download', '*', **props)
+            self.eq(node[1].get('inet:download:time'), 10)
+            self.eq(node[1].get('inet:download:file'), iden)
+            self.eq(node[1].get('inet:download:server:proto'), 'tcp')
+            self.eq(node[1].get('inet:download:server:port'), 80)
+            self.eq(node[1].get('inet:download:server:ipv4'), 0x01020304)
+            self.eq(node[1].get('inet:download:client:proto'), 'tcp')
+            self.eq(node[1].get('inet:download:client:ipv4'), 0x05060708)
+
     def test_model_inet_wifi(self):
         with self.getRamCore() as core:
             node = core.formTufoByProp('inet:wifi:ssid', 'hehe haha')
