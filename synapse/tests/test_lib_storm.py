@@ -235,6 +235,9 @@ class StormTest(SynTest):
             core.eval('[ inet:fqdn=hehe.com inet:fqdn=haha.com #lol ]')
             self.len(1, core.eval('#lol limit(1)'))
 
+            # Ensure that tag based lifts have the tag normed
+            self.eq(node, core.eval('#FOO.BAR')[0])
+
     def test_storm_limit(self):
         with self.getRamCore() as core:
             # test that the limit operator correctly handles being first (no opers[-1])
