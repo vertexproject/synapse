@@ -542,13 +542,19 @@ class ItMod(s_module.CoreModule):
 
                 ('it:prod:soft', {}, (
                     ('name', {'ptype': 'str:lwr',
-                              'doc': 'Name of the software'}),
-                    ('desc', {'ptype': 'str:txt', 'doc': 'A description of the software'}),
-                    ('desc:short', {'ptype': 'str:lwr', 'doc': 'A short description of the software'}),
-                    ('author:org', {'ptype': 'ou:org', 'doc': 'Organization responsible for the software', }),
-                    ('author:acct', {'ptype': 'inet:web:acct', 'doc': 'Web user responsible for the software', }),
-                    ('author:person', {'ptype': 'ps:person', 'doc': 'Person responsible for the software', }),
-                    ('url', {'ptype': 'inet:url', 'doc': 'URL relevant for the software', }),
+                        'doc': 'Name of the software'}),
+                    ('desc', {'ptype': 'str:txt',
+                        'doc': 'A description of the software'}),
+                    ('desc:short', {'ptype': 'str:lwr',
+                        'doc': 'A short description of the software'}),
+                    ('author:org', {'ptype': 'ou:org',
+                        'doc': 'Organization responsible for the software', }),
+                    ('author:acct', {'ptype': 'inet:web:acct',
+                        'doc': 'Web user responsible for the software', }),
+                    ('author:person', {'ptype': 'ps:person',
+                        'doc': 'Person responsible for the software', }),
+                    ('url', {'ptype': 'inet:url',
+                        'doc': 'URL relevant for the software', }),
                 )),
 
                 ('it:prod:softver', {}, (
