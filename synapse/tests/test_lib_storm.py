@@ -468,6 +468,15 @@ class StormTest(SynTest):
             nodes = core.eval('inet:dns:a -#aka.foo.bar')
             self.len(1, nodes)
 
+            # Ensure that tags are normed prior to filtering
+            # The node creation in this query prevents current lift and
+            # filter optimizations from working
+            nodes = core.eval('inet:dns:a [inet:ipv4=127.0.0.1] +#SRC')
+            self.len(3, nodes)
+
+            nodes = core.eval('inet:dns:a -#AKA.FOO.BAR')
+            self.len(1, nodes)
+
     def test_storm_tag_glob(self):
         # Ensure that glob operators with tag filters operate properly.
         with self.getRamCore() as core:  # type: s_cores_common.Cortex
