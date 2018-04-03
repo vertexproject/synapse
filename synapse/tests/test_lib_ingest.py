@@ -899,7 +899,7 @@ class IngTest(SynTest):
     def test_ingest_savevar(self):
 
         data = { 'dns': [
-            {'domain':'woot.com', 'address': '1.2.3.4'},
+            {'domain': 'woot.com', 'address': '1.2.3.4'},
         ]}
 
         info = {'ingest': {
@@ -910,7 +910,7 @@ class IngTest(SynTest):
                         ['fqdn', {'path': 'domain'}],
                     ],
                     'forms': [
-                        ['inet:dns:a', {'template':'{{fqdn}}/{{ipv4}}'}],
+                        ['inet:dns:a', {'template': '{{fqdn}}/{{ipv4}}'}],
                     ]
                 }],
             ],
