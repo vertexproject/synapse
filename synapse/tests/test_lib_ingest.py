@@ -897,53 +897,31 @@ class IngTest(SynTest):
             self.nn(node)
 
     def test_ingest_savevar(self):
-        data = {'foo': [{'md5': '9e107d9d372bb6826bd81d3542a419d6',
-                         'sha1': '2fd4e1c67a2d28fced849ee1bb76e7391b93eb12',
-                         'sha256': 'd7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592',
-                         'signame': 'Meme32.LazyDog',
-                         'vendor': 'memeSec'},
-                        {'md5': 'e4d909c290d0fb1ca068ffaddf22cbd0',
-                         'sha1': '408d94384216f890ff7a0c3528e8bed1e0b01621',
-                         'sha256': 'ef537f25c895bfa782526529a9b63d97aa631564d5d789c2b765448c8635fb6c',
-                         'signame': 'Meme32.LazyDog.Puntuation',
-                         'vendor': 'memeSec'}
-                        ]
-                }
+
+        data = { 'dns': [
+            {'domain':'woot.com', 'address': '1.2.3.4'},
+        ]}
 
         info = {'ingest': {
             'iters': [
-                ["foo/*", {
+                ["dns/*", {
                     'vars': [
-                        ['md5', {'path': 'md5'}],
-                        ['sha1', {'path': 'sha1'}],
-                        ['sha256', {'path': 'sha256'}],
-                        ['sig_name', {'path': 'signame'}],
-                        ['vendor', {'path': 'vendor'}]
+                        ['ipv4', {'path': 'address'}],
+                        ['fqdn', {'path': 'domain'}],
                     ],
                     'forms': [
-                        ['file:bytes:sha256',
-                         {'props': {'md5': {'var': 'md5'}, 'sha1': {'var': 'sha1'}, 'sha256': {'var': 'sha256'}},
-                          'var': 'sha256',
-                          'savevar': 'file_guid'}],
-                        ['it:av:filehit', {'template': '{{file_guid}}/{{vendor}}/{{sig_name}}'}]
+                        ['inet:dns:a', {'template':'{{fqdn}}/{{ipv4}}'}],
                     ]
                 }],
             ],
         }}
 
         with self.getRamCore() as core:
+
             gest = s_ingest.Ingest(info)
             gest.ingest(core, data=data)
 
-            self.nn(core.getTufoByProp('file:bytes:sha256',
-                                       'd7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592'))
-            self.nn(core.getTufoByProp('it:av:filehit:sig', 'memesec/meme32.lazydog'))
-            self.nn(core.getTufoByProp('it:av:sig:sig', 'meme32.lazydog'))
-            self.nn(core.getTufoByProp('file:bytes:sha256',
-                                       'ef537f25c895bfa782526529a9b63d97aa631564d5d789c2b765448c8635fb6c'))
-            self.nn(core.getTufoByProp('it:av:filehit:sig', 'memesec/meme32.lazydog.puntuation'))
-            self.nn(core.getTufoByProp('it:av:sig:sig', 'meme32.lazydog.puntuation'))
-            self.len(2, core.getTufosByProp('it:av:sig:org', 'memesec'))
+            node = core.getTufoByProp('inet:dns:a', 'woot.com/1.2.3.4')
 
     def test_ingest_cortex_registration(self):
 
