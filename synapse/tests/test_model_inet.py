@@ -1682,6 +1682,11 @@ class InetModelTest(SynTest):
             self.none(subs.get('host'))
             self.none(subs.get('fqdn'))
 
+            host = s_common.guid()
+            node = core.formTufoByProp('inet:client', 'host://%s' % (host,))
+            self.eq(node[1]['inet:client:host'], host)
+            self.eq(node[1]['inet:client:proto'], 'host')
+
     def test_model_inet_server(self):
 
         with self.getRamCore() as core:
