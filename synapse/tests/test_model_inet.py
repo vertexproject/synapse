@@ -1686,6 +1686,7 @@ class InetModelTest(SynTest):
             node = core.formTufoByProp('inet:client', 'host://%s' % (host,))
             self.eq(node[1]['inet:client:host'], host)
             self.eq(node[1]['inet:client:proto'], 'host')
+            self.nn(core.getTufoByProp('it:host', host))
 
     def test_model_inet_server(self):
 
