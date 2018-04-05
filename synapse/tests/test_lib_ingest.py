@@ -898,7 +898,7 @@ class IngTest(SynTest):
 
     def test_ingest_savevar(self):
 
-        data = { 'dns': [
+        data = {'dns': [
             {'domain': 'woot.com', 'address': '1.2.3.4'},
         ]}
 
