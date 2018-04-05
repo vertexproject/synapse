@@ -219,6 +219,7 @@ class Query:
 
             'data': list(data),
             'show': {},
+            'mesgs': [],
         }
 
     def __len__(self):
@@ -293,6 +294,18 @@ class Query:
         Log execution metadata for the current oper.
         '''
         self.results['oplog'][-1].update(info)
+
+    def mesg(self, mesg):
+        '''
+        Add a message to the Storm messages list.
+
+        Args:
+            mesg (str): Message to append to the messages list.
+
+        Returns:
+            None
+        '''
+        self.results['mesgs'].append(mesg)
 
     def result(self):
         return self.results

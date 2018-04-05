@@ -1547,6 +1547,13 @@ class StormTest(SynTest):
             self.eq(nodes[0][1].get('inet:dns:a'), 'example.com/4.3.2.1')
             self.eq(nodes[1][1].get('inet:dns:a'), 'vertex.link/1.2.3.4')
 
+    def test_storm_messages(self):
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
+            core.setOperFunc('test:mesg', mesg_cmd)
+            results = core.ask('[inet:ipv4=1.2.3.4] test:mesg()')
+            mesgs = results.get('mesgs')
+            self.sorteq(mesgs, ['Log test messages', 'Query has [1] nodes'])
+
 class LimitTest(SynTest):
     def test_limit_default(self):
         # LimitHelper would normally be used with the kwlist arg limit,
