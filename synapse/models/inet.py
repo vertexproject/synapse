@@ -430,8 +430,11 @@ class AddrType(DataType):
             ipv6, v6sub = self.tlib.getTypeNorm('inet:ipv6', valu[1:].split(']', 1)[0])
             subs['ipv6'] = ipv6
 
+            text = '[%s]' % (ipv6,)
+
             ipv4 = v6sub.get('ipv4')
             if ipv4 is not None:
+                text = ipv4str(ipv4)
                 subs['ipv4'] = ipv4
 
             if valu.find(']:') != -1:
@@ -440,20 +443,26 @@ class AddrType(DataType):
                     self._raiseBadValu(orig, mesg='IPv6 port syntax with non tcp/udp protocol')
 
                 subs['port'] = port = int(valu.rsplit(':', 1)[1], 0)
-                return '%s://%s:%d' % (proto, ipv6, port), subs
+                text += ':%d' % (port,)
 
-            return '%s://%s' % (proto, ipv6), subs
+            norm = '%s://%s' % (proto, text)
+            return norm, subs
 
+        # check for DWIM ipv6 with no []s
         try:
 
-            ipv6, v6sub = self.tlib.getTypeNorm('inet:ipv6', orig)
+            ipv6, v6sub = self.tlib.getTypeNorm('inet:ipv6', valu)
             subs['ipv6'] = ipv6
+
+            text = '[%s]' % (ipv6,)
 
             ipv4 = v6sub.get('ipv4')
             if ipv4 is not None:
+                text = ipv4str(ipv4)
                 subs['ipv4'] = ipv4
 
-            return '%s://%s' % (proto, ipv6), subs
+            norm = proto + '://' + text
+            return norm, subs
 
         except BadTypeValu as e:
             pass
@@ -472,26 +481,21 @@ class AddrType(DataType):
         try:
 
             ipv4 = ipv4int(valu)
+            ipv6 = '::ffff:%s' % (ipv4str(ipv4),)
+
+            text = ipv4str(ipv4)
 
             subs['ipv4'] = ipv4
-            if port is None:
-                return '%s://%s' % (proto, valu), subs
+            subs['ipv6'] = ipv6
 
-            return '%s://%s:%d' % (proto, valu, port), subs
+            if port is not None:
+                text += ':%d' % (port,)
+
+            norm = '%s://%s' % (proto, text)
+            return norm, subs
 
         except BadTypeValu as e:
             pass
-
-        # is it a valid fqdn?  hopefully?
-        if fqdnre.match(valu):
-
-            fqdn, _ = self.tlib.getTypeNorm('inet:fqdn', valu)
-            subs['fqdn'] = fqdn
-
-            if port is None:
-                return '%s://%s' % (proto, fqdn), subs
-
-            return '%s://%s:%d' % (proto, fqdn, port), subs
 
         self._raiseBadValu(valu, mesg='inet:addr must be <tcp|udp|icmp>://<ipv4|ipv6|fqdn>[:port]/')
 
@@ -1186,17 +1190,6 @@ class InetMod(s_module.CoreModule):
 
             'forms': (
 
-                #('inet:servfile', {}, {
-                    #('tcp4', {'ptype': 'inet:tcp4', 'ro':1, 'req': 1,
-                        #'doc': 'The IPv4/TCP server which hosted the file.'}),
-                    #('file', {'ptype': 'file:bytes', 'ro': 1, 'req': 1,
-                        #'doc': 'The file hosted by the server.'}),
-                    #('seen:min', {'ptype': 'time:min',
-                        #'doc': 'The earliest known time file was hosted on the server.'}),
-                    #('seen:max', {'ptype': 'time:max',
-                        ##'doc': 'The last known time the file was hosted on the server.'}),
-                #}),
-
                 ('inet:server', {}, (
                     ('proto', {'ptype': 'str:lwr', 'ro': 1,
                         'doc': 'The network protocol of the server.'}),
@@ -1204,8 +1197,6 @@ class InetMod(s_module.CoreModule):
                         'doc': 'The IPv4 of the server.'}),
                     ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
                         'doc': 'The IPv6 of the server.'}),
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
-                        'doc': 'The FQDN used to access the server.'}),
                     ('host', {'ptype': 'it:host', 'ro': 1,
                         'doc': 'The it:host node for the server.'}),
                     ('port', {'ptype': 'inet:port',
@@ -1219,8 +1210,6 @@ class InetMod(s_module.CoreModule):
                         'doc': 'The IPv4 of the client.'}),
                     ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
                         'doc': 'The IPv6 of the client.'}),
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
-                        'doc': 'The client FQDN.'}),
                     ('host', {'ptype': 'it:host', 'ro': 1,
                         'doc': 'The it:host node for the client.'}),
                     ('port', {'ptype': 'inet:port',
@@ -1238,8 +1227,6 @@ class InetMod(s_module.CoreModule):
                         'doc': 'The IPv4 of the server.'}),
                     ('server:ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
                         'doc': 'The IPv6 of the server.'}),
-                    ('server:fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
-                        'doc': 'The FQDN used to access the server.'}),
                     ('server:host', {'ptype': 'it:host', 'ro': 1,
                         'doc': 'The it:host node for the server.'}),
                     ('server:port', {'ptype': 'inet:port',
@@ -1255,6 +1242,9 @@ class InetMod(s_module.CoreModule):
                     ('time', {'ptype': 'time',
                         'doc': 'The time the file was downloaded.'}),
 
+                    ('fqdn', {'ptype': 'inet:fqdn',
+                        'doc': 'The FQDN used to resolve the server.'}),
+
                     ('file', {'ptype': 'file:bytes',
                         'doc': 'The file that was downloaded.'}),
 
@@ -1266,8 +1256,6 @@ class InetMod(s_module.CoreModule):
                         'doc': 'The IPv4 of the server.'}),
                     ('server:ipv6', {'ptype': 'inet:ipv6',
                         'doc': 'The IPv6 of the server.'}),
-                    ('server:fqdn', {'ptype': 'inet:fqdn',
-                        'doc': 'The FQDN used to access the server.'}),
                     ('server:host', {'ptype': 'it:host',
                         'doc': 'The it:host node for the server.'}),
                     ('server:port', {'ptype': 'inet:port',
@@ -1281,8 +1269,6 @@ class InetMod(s_module.CoreModule):
                         'doc': 'The IPv4 of the client.'}),
                     ('client:ipv6', {'ptype': 'inet:ipv6',
                         'doc': 'The IPv6 of the client.'}),
-                    ('client:fqdn', {'ptype': 'inet:fqdn',
-                        'doc': 'The FQDN used to access the client.'}),
                     ('client:host', {'ptype': 'it:host',
                         'doc': 'The it:host node for the client.'}),
                     ('client:port', {'ptype': 'inet:port',

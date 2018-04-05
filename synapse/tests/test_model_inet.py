@@ -1630,8 +1630,8 @@ class InetModelTest(SynTest):
             self.eq(valu, 'tcp://1.2.3.4')
             self.eq(subs['proto'], 'tcp')
             self.eq(subs['ipv4'], 0x01020304)
+            self.eq(subs['ipv6'], '::ffff:1.2.3.4')
             self.none(subs.get('port'))
-            self.none(subs.get('ipv6'))
             self.none(subs.get('host'))
             self.none(subs.get('fqdn'))
 
@@ -1641,40 +1641,33 @@ class InetModelTest(SynTest):
             self.eq(subs['proto'], 'tcp')
             self.eq(subs['port'], 80)
             self.eq(subs['ipv4'], 0x01020304)
-            self.none(subs.get('ipv6'))
+            self.eq(subs['ipv6'], '::ffff:1.2.3.4')
             self.none(subs.get('host'))
             self.none(subs.get('fqdn'))
 
-            # fqdn:port
-            valu, subs = core.getTypeNorm('inet:addr', 'woot.com:80')
-            self.eq(valu, 'tcp://woot.com:80')
+            # DWIM IPv6...
+            valu, subs = core.getTypeNorm('inet:addr', '1.2.3.4:80')
+            self.eq(valu, 'tcp://1.2.3.4:80')
             self.eq(subs['proto'], 'tcp')
             self.eq(subs['port'], 80)
-            self.eq(subs['fqdn'], 'woot.com')
-            self.none(subs.get('ipv6'))
+            self.eq(subs['ipv4'], 0x01020304)
+            self.eq(subs['ipv6'], '::ffff:1.2.3.4')
             self.none(subs.get('host'))
-            self.none(subs.get('ipv4'))
-
-            # fqdn
-            valu, subs = core.getTypeNorm('inet:addr', 'tcp://WOOT.COM')
-            self.eq(valu, 'tcp://woot.com')
-            self.eq(subs['proto'], 'tcp')
-            self.eq(subs['fqdn'], 'woot.com')
-            self.none(subs.get('port'))
-            self.none(subs.get('ipv6'))
-            self.none(subs.get('host'))
-            self.none(subs.get('ipv4'))
+            self.none(subs.get('fqdn'))
 
             # ipv6 port
             valu, subs = core.getTypeNorm('inet:addr', '[FF::56]:99')
+            self.eq(valu, 'tcp://[ff::56]:99')
             self.eq(subs['port'], 99)
             self.eq(subs['ipv6'], 'ff::56')
+            self.eq(subs['proto'], 'tcp')
             self.none(subs.get('ipv4'))
             self.none(subs.get('host'))
             self.none(subs.get('fqdn'))
 
             # unadorned syntax...
             valu, subs = core.getTypeNorm('inet:addr', 'FF::56')
+            self.eq(valu, 'tcp://[ff::56]')
             self.eq(subs['proto'], 'tcp')
             self.eq(subs['ipv6'], 'ff::56')
             self.none(subs.get('ipv4'))
@@ -1697,12 +1690,7 @@ class InetModelTest(SynTest):
             self.eq(subs['port'], 80)
             self.eq(subs['proto'], 'udp')
             self.eq(subs['ipv4'], 0x01020304)
-
-            valu, subs = core.getTypeNorm('inet:server', 'tcp://WOOT.com:80')
-            self.eq(valu, 'tcp://woot.com:80')
-            self.eq(subs['port'], 80)
-            self.eq(subs['proto'], 'tcp')
-            self.eq(subs['fqdn'], 'woot.com')
+            self.eq(subs['ipv6'], '::ffff:1.2.3.4')
 
     def test_model_inet_servfile(self):
 
@@ -1716,6 +1704,7 @@ class InetModelTest(SynTest):
             self.eq(node[1]['inet:servfile:server:port'], 443)
             self.eq(node[1]['inet:servfile:server:proto'], 'tcp')
             self.eq(node[1]['inet:servfile:server:ipv4'], 0x01020304)
+            self.eq(node[1]['inet:servfile:server:ipv6'], '::ffff:1.2.3.4')
             self.eq(node[1]['inet:servfile:seen:min'], 10)
             self.eq(node[1]['inet:servfile:seen:max'], 20)
 
