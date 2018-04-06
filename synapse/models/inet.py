@@ -497,7 +497,7 @@ class AddrType(DataType):
         except BadTypeValu as e:
             pass
 
-        self._raiseBadValu(orig, mesg='inet:addr must be <tcp|udp|icmp>://<ipv4|ipv6|fqdn>[:port]/')
+        self._raiseBadValu(orig, mesg='inet:addr must be a <tcp|udp|icmp|host>://<ipv4|ipv6|guid>[:port]/')
 
 
 class InetMod(s_module.CoreModule):
