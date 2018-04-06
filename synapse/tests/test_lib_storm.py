@@ -235,6 +235,9 @@ class StormTest(SynTest):
             core.eval('[ inet:fqdn=hehe.com inet:fqdn=haha.com #lol ]')
             self.len(1, core.eval('#lol limit(1)'))
 
+            # Ensure that tag based lifts have the tag normed
+            self.eq(node, core.eval('#FOO.BAR')[0])
+
     def test_storm_limit(self):
         with self.getRamCore() as core:
             # test that the limit operator correctly handles being first (no opers[-1])
@@ -463,6 +466,15 @@ class StormTest(SynTest):
             self.len(0, nodes)
 
             nodes = core.eval('inet:dns:a -#aka.foo.bar')
+            self.len(1, nodes)
+
+            # Ensure that tags are normed prior to filtering
+            # The node creation in this query prevents current lift and
+            # filter optimizations from working
+            nodes = core.eval('inet:dns:a [inet:ipv4=127.0.0.1] +#SRC')
+            self.len(3, nodes)
+
+            nodes = core.eval('inet:dns:a -#AKA.FOO.BAR')
             self.len(1, nodes)
 
     def test_storm_tag_glob(self):
@@ -1469,38 +1481,6 @@ class StormTest(SynTest):
                 self.eq(node[1].get('tufo:form'), 'task')
                 self.isin(node[1].get('task'), ('hehe:haha', 'wow'))
 
-    def test_storm_vartree(self):
-        quer = s_storm.Query()
-
-        vals = ['x', 'y']
-        quer.addTreeVar('a', vals)
-
-        self.len(0, list(quer.iterVarTree('asdf')))
-
-        for node, varz in quer.iterVarTree('a'):
-            quer.addTreeVar('b', ['z', 'q'], tree=node)
-
-        rets = []
-        for node, varz in quer.iterVarTree('a.b'):
-            rets.append(tuple(sorted(varz.items())))
-
-        rets.sort()
-        self.eq(rets, [(('a', 'x'), ('a.b', 'q')), (('a', 'x'), ('a.b', 'z')), (('a', 'y'), ('a.b', 'q')), (('a', 'y'), ('a.b', 'z'))])
-
-    '''
-    def test_storm_set(self):
-        with self.getRamCore() as core:
-            core.ask('[ inet:ipv4=1.2.3.4 :cc=us inet:dns:a=vertex.link/1.2.3.4 ]')
-            core.ask('[ inet:ipv4=4.3.2.1 :cc=zz inet:dns:a=example.com/4.3.2.1 ]')
-
-            self.len(1, core.eval('inet:ipv4:cc=us'))
-            self.len(1, core.eval('inet:dns:a:fqdn=vertex.link'))
-            self.len(1, core.eval('inet:ipv4:cc=zz'))
-            self.len(1, core.eval('inet:dns:a:fqdn=example.com'))
-
-            core.eval('$dns={inet:dns:a:fqdn} $dns.ipv4 = { :ipv4->inet:ipv4 }')
-    '''
-
     def test_storm_filtsub(self):
         with self.getRamCore() as core:
             core.ask('[ inet:ipv4=1.2.3.4 :cc=us inet:dns:a=vertex.link/1.2.3.4 ]')
@@ -1546,6 +1526,13 @@ class StormTest(SynTest):
             nodes.sort(key=lambda x: x[1].get('inet:dns:a'))
             self.eq(nodes[0][1].get('inet:dns:a'), 'example.com/4.3.2.1')
             self.eq(nodes[1][1].get('inet:dns:a'), 'vertex.link/1.2.3.4')
+
+    def test_storm_messages(self):
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
+            core.setOperFunc('test:mesg', mesg_cmd)
+            results = core.ask('[inet:ipv4=1.2.3.4] test:mesg()')
+            mesgs = results.get('mesgs')
+            self.sorteq(mesgs, ['Log test messages', 'Query has [1] nodes'])
 
 class LimitTest(SynTest):
     def test_limit_default(self):

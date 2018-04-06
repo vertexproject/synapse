@@ -26,6 +26,22 @@ class AskCmd(s_cli.Cmd):
         ('query', {'type': 'glob'}),
     )
 
+    def show_mesgs(self, mesgs):
+        '''
+        Show messages to a user.
+
+        Args:
+            mesgs (tuple): A tuple of messages to display to the user.
+
+        Returns:
+            None
+        '''
+        if not mesgs:
+            return
+        self.printf('Storm Status Messages:')
+        for i, mesg in enumerate(mesgs):
+            self.printf('[%s] %s' % (i, mesg))
+
     def runCmdOpts(self, opts):
 
         ques = opts.get('query')
@@ -90,6 +106,7 @@ class AskCmd(s_cli.Cmd):
 
         show = resp.get('show', {})
         cols = show.get('columns')
+        mesgs = resp.get('mesgs', ())
 
         if cols is not None:
 
@@ -149,5 +166,7 @@ class AskCmd(s_cli.Cmd):
                         self.printf('    %s = %s' % (prop, disp))
 
         self.printf('(%d results)' % (len(nodes),))
+
+        self.show_mesgs(mesgs)
 
         return resp
