@@ -941,6 +941,9 @@ class Runtime(Configable):
 
             return glob_cmpr
 
+        # We're out of glob town, so a tag must be normalized
+        tag, _ = self.getTypeNorm('syn:tag', tag)
+
         def reg_cmpr(tufo):
             return tufo[1].get('#' + tag) is not None
 

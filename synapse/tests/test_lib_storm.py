@@ -235,6 +235,9 @@ class StormTest(SynTest):
             core.eval('[ inet:fqdn=hehe.com inet:fqdn=haha.com #lol ]')
             self.len(1, core.eval('#lol limit(1)'))
 
+            # Ensure that tag based lifts have the tag normed
+            self.eq(node, core.eval('#FOO.BAR')[0])
+
     def test_storm_limit(self):
         with self.getRamCore() as core:
             # test that the limit operator correctly handles being first (no opers[-1])
@@ -463,6 +466,15 @@ class StormTest(SynTest):
             self.len(0, nodes)
 
             nodes = core.eval('inet:dns:a -#aka.foo.bar')
+            self.len(1, nodes)
+
+            # Ensure that tags are normed prior to filtering
+            # The node creation in this query prevents current lift and
+            # filter optimizations from working
+            nodes = core.eval('inet:dns:a [inet:ipv4=127.0.0.1] +#SRC')
+            self.len(3, nodes)
+
+            nodes = core.eval('inet:dns:a -#AKA.FOO.BAR')
             self.len(1, nodes)
 
     def test_storm_tag_glob(self):
