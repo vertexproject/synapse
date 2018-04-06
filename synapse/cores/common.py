@@ -2378,6 +2378,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 dostuff(tufo)
 
         '''
+        tag, _ = self.getTypeNorm('syn:tag', tag)
         prop = '#' + tag
         if form is None:
             return self.getTufosByProp(prop, limit=limit)

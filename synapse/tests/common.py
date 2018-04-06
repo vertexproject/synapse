@@ -60,6 +60,20 @@ def checkLock(fd, timeout, wait=0.5):
         if wtime >= timeout:
             return False
 
+def mesg_cmd(query, oper):
+    '''
+    Test command which adds messages to the storm message queue.
+
+    Args:
+        query (s_storm.Query): Query object.
+        oper ((str, dict)): Oper tuple
+
+    Returns:
+        None
+    '''
+    query.mesg('Log test messages')
+    query.mesg('Query has [%s] nodes' % len(query.data()))
+
 class ModelSeenMixin:
 
     def check_seen(self, core, node):

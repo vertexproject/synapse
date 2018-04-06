@@ -180,11 +180,3 @@ class StormSyntaxTest(SynTest):
 
     def test_lib_syntax_term(self):
         self.raises(BadSyntaxError, s_syntax.parse, '}')
-
-    def test_lib_syntax_assign(self):
-        self.raises(BadSyntaxError, s_syntax.parse, '$foo?')
-        self.raises(BadSyntaxError, s_syntax.parse, '$foo=?')
-        self.raises(BadSyntaxError, s_syntax.parse, '$foo={')
-
-        opers = s_syntax.parse('$foo={baz:faz}')
-        self.eq(opers[0][0], 'set')
