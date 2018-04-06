@@ -87,12 +87,6 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         s_telepath.reqNotProxy(core)
 
         self.core = core  # type: s_cores_common.Cortex
-        core.link(self.dist)
-
-        def fini():
-            core.unlink(self.dist)
-
-        self.onfini(fini)
 
         # check for decorated functions for model rev
         self._syn_mrevs = []
