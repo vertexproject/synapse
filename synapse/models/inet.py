@@ -167,9 +167,9 @@ def ipv6norm(text):
     v6addr = ipaddress.IPv6Address(text)
     v4addr = v6addr.ipv4_mapped
     if v4addr is not None:
-        return '::ffff:%s' % (v4addr)
+        return '::ffff:%s' % (v4addr), {'ipv4': ipv4int(str(v4addr))}
 
-    return v6addr.compressed
+    return v6addr.compressed, {}
 
 class IPv6Type(DataType):
     def repr(self, valu):
@@ -177,7 +177,7 @@ class IPv6Type(DataType):
 
     def norm(self, valu, oldval=None):
         try:
-            return ipv6norm(valu), {}
+            return ipv6norm(valu)
         except Exception as e:
             self._raiseBadValu(valu)
 
@@ -256,7 +256,7 @@ class Srv6Type(DataType):
             self._raiseBadValu(valu, port=port)
 
         try:
-            host = ipv6norm(host)
+            host = ipv6norm(host)[0]
         except Exception as e:
             self._raiseBadValu(valu)
 
