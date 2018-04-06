@@ -1697,7 +1697,18 @@ class InetModelTest(SynTest):
             self.none(subs.get('host'))
             self.none(subs.get('fqdn'))
 
+            host = s_common.guid('thx')
+            valu, subs = core.getTypeNorm('inet:addr', 'HosT://%s:1138/' % host)
+            self.eq(valu, 'host://%s:1138' % host)
+            self.eq(subs['proto'], 'host')
+            self.eq(subs['host'], host)
+            self.eq(subs['port'], 1138)
+            self.none(subs.get('fqdn'))
+            self.none(subs.get('ipv4'))
+            self.none(subs.get('ipv6'))
+
             self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'icmp://[FF::56]:99')
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'icmp://8.6.7.5:309')
             self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'giggles://float.down.here/')
 
             host = s_common.guid()
