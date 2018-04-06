@@ -1709,6 +1709,7 @@ class InetModelTest(SynTest):
 
             self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'icmp://[FF::56]:99')
             self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'icmp://8.6.7.5:309')
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'tcp://8.6.7.256:309')
             self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'giggles://float.down.here/')
 
             host = s_common.guid()
