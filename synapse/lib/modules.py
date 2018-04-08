@@ -169,7 +169,8 @@ def call_ctor(name, *args, **kwargs):
             val = func(*args, **kwargs)
             ret.append((sname, val, None))
 
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
+            logger.exception('Error calling [%s]', func)
             ret.append((sname, None, e))
 
     return ret

@@ -74,7 +74,7 @@ class DnsMod(s_module.CoreModule):
                     'enums': 'soa,ns,mx,a,aaaa,txt,srv,ptr,cname,hinfo,isdn',
                     'doc': 'A DNS request type enum'}),
 
-                ('inet:dns:req', {'subof': 'comp', 'fields': 'addr=inet:addr,fqdn=inet:fqdn,type=inet:dns:type',
+                ('inet:dns:req', {'subof': 'comp', 'fields': 'client=inet:client,fqdn=inet:fqdn,type=inet:dns:type',
                     'doc': 'A fused DNS request record'}),
             ),
 
@@ -115,10 +115,12 @@ class DnsMod(s_module.CoreModule):
                  ]),
 
                 ('inet:dns:req', {'doc': 'Fused knowledge of a DNS request origin'}, [
-                    ('addr', {'ptype': 'inet:addr', 'ro': 1, 'req': 1,
-                        'doc': 'The IPv4 address which requested the FQDN'}),
-                    ('addr:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                        'doc': 'The IPv4 address which requested the FQDN'}),
+                    ('client', {'ptype': 'inet:client', 'ro': 1, 'req': 1,
+                        'doc': 'The inet:addr which requested the FQDN'}),
+                    ('client:ipv4', {'ptype': 'inet:ipv4',
+                        'doc': 'The IPv4 of the client.'}),
+                    ('client:ipv6', {'ptype': 'inet:ipv6',
+                        'doc': 'The IPv6 of the client.'}),
                     ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,
                         'doc': 'The requested FQDN'}),
                     ('type', {'ptype': 'inet:dns:type', 'ro': 1, 'req': 1,

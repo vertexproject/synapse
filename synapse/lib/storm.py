@@ -197,8 +197,6 @@ class Query:
         self.added = 0
         self.subed = 0
 
-        self.vartree = (None, {})
-
         self.maxtime = maxtime
         self.maxtouch = None
 
@@ -219,68 +217,11 @@ class Query:
 
             'data': list(data),
             'show': {},
+            'mesgs': [],
         }
 
     def __len__(self):
         return len(self.results['data'])
-
-    def addTreeVar(self, name, vals, tree=None):
-        '''
-        Add a list of values (likely graph nodes) to the var tree.
-
-        Args:
-            name (str): The variable base name.
-            vals (list): The values to add to the tree.
-            tree ((obj,dict)): The tree node. (defaults to root node)
-        '''
-        if tree is None:
-            tree = self.vartree
-
-        # *tree* nodes...
-        nodes = [(valu, {}) for valu in vals]
-        tree[1][name] = nodes
-
-    def iterVarTree(self, path):
-        '''
-        Iterate through the var tree and yield (node, vars) tuples.
-        Args:
-            path (str): A var tree path (ie. foo.bar.baz).
-
-        Yields:
-            (treenode, dict): Tuples of the tree node and parent vars.
-        '''
-        if path is None:
-            yield self.vartree, {}
-            return
-
-        parts = path.split('.')
-        fulls = ['.'.join(parts[:i]) for i in range(1, len(parts) + 1)]
-
-        # for this context, "node" is *tree* nodes...
-        todo = collections.deque([(self.vartree, 0, {})])
-
-        while todo:
-
-            node, indx, varz = todo.popleft()
-
-            if indx >= len(parts):
-                yield node, varz
-                continue
-
-            nexi = indx + 1
-            base = parts[indx]
-            full = fulls[indx]
-
-            kids = node[1].get(base)
-            if kids is None:
-                continue
-
-            for tkid in kids:
-
-                newv = dict(varz)
-                newv[full] = tkid[0]
-
-                todo.append((tkid, nexi, newv))
 
     def size(self):
         '''
@@ -293,6 +234,18 @@ class Query:
         Log execution metadata for the current oper.
         '''
         self.results['oplog'][-1].update(info)
+
+    def mesg(self, mesg):
+        '''
+        Add a message to the Storm messages list.
+
+        Args:
+            mesg (str): Message to append to the messages list.
+
+        Returns:
+            None
+        '''
+        self.results['mesgs'].append(mesg)
 
     def result(self):
         return self.results
@@ -473,7 +426,6 @@ class Runtime(Configable):
         self.setOperFunc('filt', self._stormOperFilt)
         self.setOperFunc('filtsub', self._stormOperFiltSub)
 
-        self.setOperFunc('set', self._stormOperSet)
         self.setOperFunc('save', self._stormOperSave)
         self.setOperFunc('load', self._stormOperLoad)
         self.setOperFunc('clear', self._stormOperClear)
@@ -1049,26 +1001,6 @@ class Runtime(Configable):
             return s_interval.overlap(ival, (minv, maxv))
 
         return cmpr
-
-    def _stormOperSet(self, query, oper):
-        full, subq = oper[1].get('args')
-        subq = self.plan(subq)
-        parts = full.rsplit('.', 1)
-        name = parts[-1]
-
-        if len(parts) == 1:
-            answ = self.runPostPlan(subq) # TIMEOUT?
-            # TODO: propagate errors...
-            nodes = answ.get('data', ())
-            query.addTreeVar(name, nodes)
-            return
-
-        path = parts[0]
-        for tnode, varz in query.iterVarTree(path):
-            data = (tnode[0],)
-            answ = self.runPostPlan(subq, data=data)
-            nodes = answ.get('data', ())
-            query.addTreeVar(name, nodes, tree=tnode)
 
     def _stormOperShowCols(self, query, oper):
 
