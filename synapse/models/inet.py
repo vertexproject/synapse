@@ -167,9 +167,9 @@ def ipv6norm(text):
     v6addr = ipaddress.IPv6Address(text)
     v4addr = v6addr.ipv4_mapped
     if v4addr is not None:
-        return '::ffff:%s' % (v4addr)
+        return '::ffff:%s' % (v4addr), {'ipv4': ipv4int(str(v4addr))}
 
-    return v6addr.compressed
+    return v6addr.compressed, {}
 
 class IPv6Type(DataType):
     def repr(self, valu):
@@ -177,7 +177,7 @@ class IPv6Type(DataType):
 
     def norm(self, valu, oldval=None):
         try:
-            return ipv6norm(valu), {}
+            return ipv6norm(valu)
         except Exception as e:
             self._raiseBadValu(valu)
 
@@ -256,7 +256,7 @@ class Srv6Type(DataType):
             self._raiseBadValu(valu, port=port)
 
         try:
-            host = ipv6norm(host)
+            host = ipv6norm(host)[0]
         except Exception as e:
             self._raiseBadValu(valu)
 
@@ -393,16 +393,112 @@ class AddrType(DataType):
 
     def norm(self, valu, oldval=None):
 
-        subs = {}
-        if valu.find('.') != -1:
-            valu = valu.split(':')[-1]
-            ipv4, subs = self.tlib.getTypeNorm('inet:ipv4', valu)
+        orig = valu
+
+        proto = 'tcp'
+        if valu.find('://') != -1:
+            proto, valu = valu.split('://', 1)
+            proto = proto.lower()
+
+        if proto not in ('tcp', 'udp', 'icmp', 'host'):
+            self._raiseBadValu(valu, mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
+
+        # strip any trailing /
+        valu = valu.strip().strip('/')
+
+        subs = {'proto': proto}
+
+        # handle host proto
+        if proto == 'host':
+            if valu.find(':') != -1:
+
+                valu, portstr = valu.rsplit(':')
+                subs['port'] = port = int(portstr, 0) & 0xffff
+
+                guid, _ = self.tlib.getTypeNorm('guid', valu)
+                subs['host'] = guid
+
+                return 'host://%s:%d' % (guid, port), subs
+
+            guid, _ = self.tlib.getTypeNorm('guid', valu)
+            subs['host'] = guid
+            return 'host://%s' % (guid,), subs
+
+        # check for ipv6
+        if valu.startswith('['): # "[" <ipv6> "]" [:port]
+
+            ipv6, v6sub = self.tlib.getTypeNorm('inet:ipv6', valu[1:].split(']', 1)[0])
+            subs['ipv6'] = ipv6
+
+            text = '[%s]' % (ipv6,)
+
+            ipv4 = v6sub.get('ipv4')
+            if ipv4 is not None:
+                text = ipv4str(ipv4)
+                subs['ipv4'] = ipv4
+
+            if valu.find(']:') != -1:
+
+                if proto not in ('tcp', 'udp'):
+                    self._raiseBadValu(orig, mesg='IPv6 port syntax with non tcp/udp protocol')
+
+                subs['port'] = port = int(valu.rsplit(':', 1)[1], 0)
+                text += ':%d' % (port,)
+
+            norm = '%s://%s' % (proto, text)
+            return norm, subs
+
+        # check for DWIM ipv6 with no []s
+        try:
+
+            ipv6, v6sub = self.tlib.getTypeNorm('inet:ipv6', valu)
+            subs['ipv6'] = ipv6
+
+            text = '[%s]' % (ipv6,)
+
+            ipv4 = v6sub.get('ipv4')
+            if ipv4 is not None:
+                text = ipv4str(ipv4)
+                subs['ipv4'] = ipv4
+
+            norm = proto + '://' + text
+            return norm, subs
+
+        except BadTypeValu as e:
+            pass
+
+        # check for a port
+        port = None
+        if valu.find(':') != -1:
+
+            if proto not in ('tcp', 'udp'):
+                self._raiseBadValu(orig, mesg='IPv6 port syntax with non tcp/udp protocol')
+
+            valu, portstr = valu.rsplit(':', 1)
+            subs['port'] = port = int(portstr, 0) & 0xffff
+
+        # check for ipv4
+        try:
+
+            ipv4 = ipv4int(valu)
+            ipv6 = '::ffff:%s' % (ipv4str(ipv4),)
+
+            text = ipv4str(ipv4)
+
             subs['ipv4'] = ipv4
+            subs['ipv6'] = ipv6
 
-            valu = '::ffff:' + valu
+            if port is not None:
+                text += ':%d' % (port,)
 
-        addr, _ = self.tlib.getTypeNorm('inet:ipv6', valu)
-        return addr, subs
+            norm = '%s://%s' % (proto, text)
+            return norm, subs
+
+        except BadTypeValu as e:
+            pass
+
+        self._raiseBadValu(orig, mesg='inet:addr must be a <tcp|udp|icmp|host>://<ipv4|ipv6|guid>[:port]/')
+
 
 class InetMod(s_module.CoreModule):
 
@@ -794,8 +890,16 @@ class InetMod(s_module.CoreModule):
 
                 ('inet:addr', {
                     'ctor': 'synapse.models.inet.AddrType',
-                    'doc': 'An IPv4 or IPv6 address',
-                    'ex': '1.2.3.4'}),
+                    'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
+                    'ex': 'tcp://1.2.3.4:80'}),
+
+                ('inet:server', {
+                    'subof': 'inet:addr',
+                    'doc': 'A network server address.'}),
+
+                ('inet:client', {
+                    'subof': 'inet:addr',
+                    'doc': 'A network client address.'}),
 
                 ('inet:ipv4', {
                     'ctor': 'synapse.models.inet.IPv4Type',
@@ -1073,21 +1177,107 @@ class InetMod(s_module.CoreModule):
                     'fields': 'response=inet:http:response,header=inet:http:header',
                     'doc': 'An instance of an HTTP header within a specific HTTP response.',
                 }),
+
+                ('inet:servfile', {
+                    'subof': 'comp',
+                    'fields': 'server=inet:server,file=file:bytes',
+                    'doc': 'A file hosted on a server for access over a network protocol.',
+                }),
+
+                ('inet:download', {
+                    'subof': 'guid',
+                    'doc': 'An instance of a file downloaded from a server.',
+                }),
+
             ),
 
             'forms': (
 
-                # TODO: prep for atomic cut over?
-#                ('inet:addr', {}, (
-#                    ('ipv4', {'ptype': 'inet:ipv4',
-#                        'doc': 'The IPv4 part of the address.'}),
-#                    ('cc', {'ptype': 'pol:iso2', 'defval': '??',
-#                        'doc': 'The country where the address is currently located.'}),
-#                    ('type', {'ptype': 'str', 'defval': '??',
-#                        'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
-#                    ('asn', {'ptype': 'inet:asn', 'defval': -1,
-#                        'doc': 'The ASN to which the address is currently assigned.'}),
-#                )),
+                ('inet:server', {}, (
+                    ('proto', {'ptype': 'str:lwr', 'ro': 1,
+                        'doc': 'The network protocol of the server.'}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
+                        'doc': 'The IPv4 of the server.'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
+                        'doc': 'The IPv6 of the server.'}),
+                    ('host', {'ptype': 'it:host', 'ro': 1,
+                        'doc': 'The it:host node for the server.'}),
+                    ('port', {'ptype': 'inet:port',
+                        'doc': 'The server tcp/udp port.'}),
+                )),
+
+                ('inet:client', {}, (
+                    ('proto', {'ptype': 'str:lwr', 'ro': 1,
+                        'doc': 'The network protocol of the client.'}),
+                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
+                        'doc': 'The IPv4 of the client.'}),
+                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
+                        'doc': 'The IPv6 of the client.'}),
+                    ('host', {'ptype': 'it:host', 'ro': 1,
+                        'doc': 'The it:host node for the client.'}),
+                    ('port', {'ptype': 'inet:port',
+                        'doc': 'The client tcp/udp port.'}),
+                )),
+
+                ('inet:servfile', {}, (
+                    ('file', {'ptype': 'file:bytes', 'req': 1, 'ro': 1,
+                        'doc': 'The file hosted by the server.'}),
+                    ('server', {'ptype': 'inet:server', 'req': 1, 'ro': 1,
+                        'doc': 'The inet:addr of the server.'}),
+                    ('server:proto', {'ptype': 'str:lwr', 'ro': 1,
+                        'doc': 'The network protocol of the server.'}),
+                    ('server:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
+                        'doc': 'The IPv4 of the server.'}),
+                    ('server:ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
+                        'doc': 'The IPv6 of the server.'}),
+                    ('server:host', {'ptype': 'it:host', 'ro': 1,
+                        'doc': 'The it:host node for the server.'}),
+                    ('server:port', {'ptype': 'inet:port',
+                        'doc': 'The server tcp/udp port.'}),
+                    ('seen:min', {'ptype': 'time:min',
+                        'doc': 'The earliest known time file was hosted on the server.'}),
+                    ('seen:max', {'ptype': 'time:max',
+                        'doc': 'The last known time the file was hosted on the server.'}),
+                )),
+
+                ('inet:download', {}, (
+
+                    ('time', {'ptype': 'time',
+                        'doc': 'The time the file was downloaded.'}),
+
+                    ('fqdn', {'ptype': 'inet:fqdn',
+                        'doc': 'The FQDN used to resolve the server.'}),
+
+                    ('file', {'ptype': 'file:bytes',
+                        'doc': 'The file that was downloaded.'}),
+
+                    ('server', {'ptype': 'inet:server',
+                        'doc': 'The inet:addr of the server.'}),
+                    ('server:proto', {'ptype': 'str:lwr',
+                        'doc': 'The server network layer protocol.'}),
+                    ('server:ipv4', {'ptype': 'inet:ipv4',
+                        'doc': 'The IPv4 of the server.'}),
+                    ('server:ipv6', {'ptype': 'inet:ipv6',
+                        'doc': 'The IPv6 of the server.'}),
+                    ('server:host', {'ptype': 'it:host',
+                        'doc': 'The it:host node for the server.'}),
+                    ('server:port', {'ptype': 'inet:port',
+                        'doc': 'The server tcp/udp port.'}),
+
+                    ('client', {'ptype': 'inet:client',
+                        'doc': 'The inet:addr of the client.'}),
+                    ('client:proto', {'ptype': 'str:lwr',
+                        'doc': 'The client network layer protocol.'}),
+                    ('client:ipv4', {'ptype': 'inet:ipv4',
+                        'doc': 'The IPv4 of the client.'}),
+                    ('client:ipv6', {'ptype': 'inet:ipv6',
+                        'doc': 'The IPv6 of the client.'}),
+                    ('client:host', {'ptype': 'it:host',
+                        'doc': 'The it:host node for the client.'}),
+                    ('client:port', {'ptype': 'inet:port',
+                        'doc': 'The client tcp/udp port.'}),
+
+                )),
 
                 ('inet:ipv4', {'ptype': 'inet:ipv4'}, [
                     ('cc', {'ptype': 'pol:iso2', 'defval': '??',

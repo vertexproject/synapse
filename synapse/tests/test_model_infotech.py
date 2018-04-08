@@ -38,22 +38,19 @@ class InfoTechTest(SynTest):
 
     def test_model_infotech_av(self):
         with self.getRamCore() as core:
+            prodguid = '11111111111111111111111111111111'
             bytesguid = '1234567890ABCDEFFEDCBA0987654321'
-            orgname = 'Foo'
-            signame = 'Bar.BAZ.faZ'
-            valu = (bytesguid, (orgname, signame))
 
-            tufo = core.formTufoByProp('it:av:filehit', valu)
-            self.eq(tufo[1].get('it:av:filehit:sig'), 'foo/bar.baz.faz')
-            self.eq(tufo[1].get('it:av:filehit:file'), '1234567890abcdeffedcba0987654321')
+            sigval = (prodguid, 'Bar.BAZ.faZ')
+            valu = (bytesguid, sigval)
 
-            tufo = core.getTufoByProp('it:av:sig', 'foo/bar.baz.faz')
-            self.eq(tufo[1].get('it:av:sig'), 'foo/bar.baz.faz')
-            self.eq(tufo[1].get('it:av:sig:org'), 'foo')
-            self.eq(tufo[1].get('it:av:sig:sig'), 'bar.baz.faz')
+            asig = core.formTufoByProp('it:av:sig', sigval)
+            self.eq(asig[1].get('it:av:sig:soft'), prodguid)
+            self.eq(asig[1].get('it:av:sig:name'), 'bar.baz.faz')
 
-            tufo = core.getTufoByProp('ou:alias', 'foo')
-            self.eq(tufo, None) # ou:alias will not be automatically formed at this time
+            fhit = core.formTufoByProp('it:av:filehit', (bytesguid, sigval))
+            self.eq(fhit[1].get('it:av:filehit:sig'), asig[1].get('it:av:sig'))
+            self.eq(fhit[1].get('it:av:filehit:file'), '1234567890abcdeffedcba0987654321')
 
     def test_model_infotech_hostname(self):
         with self.getRamCore() as core:
@@ -392,8 +389,6 @@ class InfoTechTest(SynTest):
             # Stable guid
             s2 = core.formTufoByProp('it:prod:soft', '(name="Balloon Maker",author:acct=vertex.link/pennywise)')
             self.eq(s2[1].get('it:prod:soft'), '5fd0340d2ad8878fe53ccd28843ff2dc')
-
-            self.raises(PropNotFound, core.formTufoByProp, 'it:prod:soft', '*')
 
             nodes = core.getTufosByProp('it:prod:soft:name', 'balloon maker')
             self.len(2, nodes)
