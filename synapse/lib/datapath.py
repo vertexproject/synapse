@@ -4,12 +4,14 @@ import xml.etree.ElementTree as x_etree
 
 import synapse.lib.syntax as s_syntax
 
-def _parse_path(path: str):
+def _parse_path(path):
     '''
     Parses a datapath into its parts
     '''
     off = 0
     steps = []
+    if path is None:
+        return steps
 
     plen = len(path)
     while off < plen:
@@ -39,7 +41,7 @@ class DataPath:
     '''
     A pre-computation of a datapath.
     '''
-    def __init__(self, path: str) -> None:
+    def __init__(self, path) -> None:
         self.path = path
         self.steps = _parse_path(path)
 
