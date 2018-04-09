@@ -32,6 +32,7 @@ class TestAutoDoc(SynTest):
 
             self.true('Synapse Configable Classes' in rst)
             # Some cell configs which are comming in from @staticmethod and initConfDefs()
+            self.isin('synapse.cryotank.CryoCell', rst)
             self.true('axon:mapsize' in rst)
             self.true('The TCP port the Cell binds to (defaults to dynamic)' in rst)
             self.true('The TCP port the Neuron binds to' in rst)

@@ -1625,23 +1625,132 @@ class InetModelTest(SynTest):
     def test_model_inet_addr(self):
         with self.getRamCore() as core:
 
-            valu, subs = core.getTypeNorm('inet:addr', 'FF::56')
-
-            self.eq(valu, 'ff::56')
-            self.none(subs.get('ipv4'))
-
+            # ipv4
             valu, subs = core.getTypeNorm('inet:addr', '1.2.3.4')
+            self.eq(valu, 'tcp://1.2.3.4')
+            self.eq(subs['proto'], 'tcp')
+            self.eq(subs['ipv4'], 0x01020304)
+            self.eq(subs['ipv6'], '::ffff:1.2.3.4')
+            self.none(subs.get('port'))
+            self.none(subs.get('host'))
 
-            self.eq(valu, '::ffff:1.2.3.4')
-            self.eq(subs.get('ipv4'), 0x01020304)
+            # ipv4:port
+            valu, subs = core.getTypeNorm('inet:addr', '1.2.3.4:80')
+            self.eq(valu, 'tcp://1.2.3.4:80')
+            self.eq(subs['proto'], 'tcp')
+            self.eq(subs['port'], 80)
+            self.eq(subs['ipv4'], 0x01020304)
+            self.eq(subs['ipv6'], '::ffff:1.2.3.4')
+            self.none(subs.get('host'))
 
-            nv, nsubs = core.getTypeNorm('inet:addr', '::ffff:1.2.3.4')
-            self.eq(valu, nv)
-            self.eq(subs, nsubs)
+            # DWIM IPv6...
+            valu, subs = core.getTypeNorm('inet:addr', '1.2.3.4:80')
+            self.eq(valu, 'tcp://1.2.3.4:80')
+            self.eq(subs['proto'], 'tcp')
+            self.eq(subs['port'], 80)
+            self.eq(subs['ipv4'], 0x01020304)
+            self.eq(subs['ipv6'], '::ffff:1.2.3.4')
+            self.none(subs.get('host'))
 
-            # These change when we move to using inet:addr instead of
-            self.raises(NoSuchForm, core.formTufoByProp, 'inet:addr', 0x01020304)
-            # self.nn(core.getTufoByProp('inet:addr:ipv4', '1.2.3.4'))
+            # ipv6 port
+            valu, subs = core.getTypeNorm('inet:addr', '[FF::56]:99')
+            self.eq(valu, 'tcp://[ff::56]:99')
+            self.eq(subs['port'], 99)
+            self.eq(subs['ipv6'], 'ff::56')
+            self.eq(subs['proto'], 'tcp')
+            self.none(subs.get('ipv4'))
+            self.none(subs.get('host'))
+
+            # unadorned syntax...
+            valu, subs = core.getTypeNorm('inet:addr', 'FF::56')
+            self.eq(valu, 'tcp://[ff::56]')
+            self.eq(subs['proto'], 'tcp')
+            self.eq(subs['ipv6'], 'ff::56')
+            self.none(subs.get('ipv4'))
+            self.none(subs.get('port'))
+            self.none(subs.get('host'))
+
+            valu, subs = core.getTypeNorm('inet:addr', '[::ffff:1.2.3.4]:8080')
+            self.eq(valu, 'tcp://1.2.3.4:8080')
+            self.eq(subs['proto'], 'tcp')
+            self.eq(subs['ipv6'], '::ffff:1.2.3.4')
+            self.eq(subs['ipv4'], 16909060,)
+            self.eq(subs['port'], 8080)
+            self.none(subs.get('host'))
+            # Renorm the primary property (which no longer uses the ipv6 syntax
+            nvalu, nsubs = core.getTypeNorm('inet:addr', valu)
+            self.eq(nvalu, valu)
+            self.eq(nsubs, subs)
+
+            valu, subs = core.getTypeNorm('inet:addr', '::ffff:1.2.3.4')
+            self.eq(valu, 'tcp://1.2.3.4')
+            self.eq(subs['proto'], 'tcp')
+            self.eq(subs['ipv6'], '::ffff:1.2.3.4')
+            self.eq(subs['ipv4'], 16909060,)
+            self.none(subs.get('port'))
+            self.none(subs.get('host'))
+
+            host = s_common.guid('thx')
+            valu, subs = core.getTypeNorm('inet:addr', 'HosT://%s:1138/' % host)
+            self.eq(valu, 'host://%s:1138' % host)
+            self.eq(subs['proto'], 'host')
+            self.eq(subs['host'], host)
+            self.eq(subs['port'], 1138)
+            self.none(subs.get('ipv4'))
+            self.none(subs.get('ipv6'))
+
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'icmp://[FF::56]:99')
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'icmp://8.6.7.5:309')
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'tcp://8.6.7.256:309')
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'giggles://float.down.here/')
+
+            host = s_common.guid()
+            node = core.formTufoByProp('inet:client', 'host://%s' % (host,))
+            self.eq(node[1]['inet:client:host'], host)
+            self.eq(node[1]['inet:client:proto'], 'host')
+            self.nn(core.getTufoByProp('it:host', host))
+
+    def test_model_inet_server(self):
+
+        with self.getRamCore() as core:
+
+            valu, subs = core.getTypeNorm('inet:server', 'udp://1.2.3.4:80')
+            self.eq(valu, 'udp://1.2.3.4:80')
+            self.eq(subs['port'], 80)
+            self.eq(subs['proto'], 'udp')
+            self.eq(subs['ipv4'], 0x01020304)
+            self.eq(subs['ipv6'], '::ffff:1.2.3.4')
+
+    def test_model_inet_servfile(self):
+
+        with self.getRamCore() as core:
+
+            iden = s_common.guid()
+            props = {'seen:min': 10, 'seen:max': 20}
+            node = core.formTufoByProp('inet:servfile', ('tcp://1.2.3.4:443', iden), **props)
+            self.eq(node[1]['inet:servfile:file'], iden)
+            self.eq(node[1]['inet:servfile:server'], 'tcp://1.2.3.4:443')
+            self.eq(node[1]['inet:servfile:server:port'], 443)
+            self.eq(node[1]['inet:servfile:server:proto'], 'tcp')
+            self.eq(node[1]['inet:servfile:server:ipv4'], 0x01020304)
+            self.eq(node[1]['inet:servfile:server:ipv6'], '::ffff:1.2.3.4')
+            self.eq(node[1]['inet:servfile:seen:min'], 10)
+            self.eq(node[1]['inet:servfile:seen:max'], 20)
+
+    def test_model_inet_download(self):
+
+        with self.getRamCore() as core:
+
+            iden = s_common.guid()
+            props = {'time': 10, 'file': iden, 'server': 'tcp://1.2.3.4:80', 'client': 'tcp://5.6.7.8'}
+            node = core.formTufoByProp('inet:download', '*', **props)
+            self.eq(node[1].get('inet:download:time'), 10)
+            self.eq(node[1].get('inet:download:file'), iden)
+            self.eq(node[1].get('inet:download:server:proto'), 'tcp')
+            self.eq(node[1].get('inet:download:server:port'), 80)
+            self.eq(node[1].get('inet:download:server:ipv4'), 0x01020304)
+            self.eq(node[1].get('inet:download:client:proto'), 'tcp')
+            self.eq(node[1].get('inet:download:client:ipv4'), 0x05060708)
 
     def test_model_inet_wifi(self):
         with self.getRamCore() as core:

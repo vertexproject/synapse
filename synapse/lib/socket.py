@@ -355,7 +355,6 @@ class Plex(EventBus):
         # used for select()
         self._plex_rxsocks = []
         self._plex_txsocks = []
-        self._plex_xxsocks = []
 
         self._plex_wake, self._plex_s2 = socketpair()
 
@@ -390,11 +389,6 @@ class Plex(EventBus):
 
         try:
             self._plex_txsocks.remove(sock)
-        except ValueError as e:
-            pass
-
-        try:
-            self._plex_xxsocks.remove(sock)
         except ValueError as e:
             pass
 
@@ -445,7 +439,6 @@ class Plex(EventBus):
 
         # we monitor all socks for rx and xx
         self._plex_rxsocks.append(sock)
-        self._plex_xxsocks.append(sock)
 
         def fini():
             self._finiPlexSock(sock)
@@ -467,15 +460,13 @@ class Plex(EventBus):
         while not self.isfini:
 
             try:
-                rxlist, txlist, xxlist = select.select(self._plex_rxsocks, self._plex_txsocks, self._plex_xxsocks, 0.2)
+                rxlist, txlist, xxlist = select.select(self._plex_rxsocks, self._plex_txsocks, self._plex_rxsocks, 0.2)
             except Exception as e:
-                # go through ALL of our sockets, and call _finiPlexSock on that socket if it has been fini'd or
-                # if those sockets fileno() call is -1
+                # go through ALL of our rx sockets, and call fini() on the
+                # sock if those sockets fileno() call is -1
                 # The .copy() method is used since it is faster for small lists.
-                # The identity check of -1 is reliant on a CPython optimization which keeps a single
-                # addressed copy of integers between -5 and 256 in. memory
                 logger.exception('Error during socket select. Culling fini or fileno==-1 sockets.')
-                [self._finiPlexSock(sck) for sck in self._plex_rxsocks.copy() if sck.isfini or sck.fileno() is -1]
+                [sock.fini() for sock in self._plex_rxsocks.copy() if sock.fileno() == -1]
                 continue
 
             try:

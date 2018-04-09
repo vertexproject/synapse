@@ -452,3 +452,5 @@ class NeuronTest(SynTest):
 
                     mesg = ('cell:ping', {'data': 'w00t!'})
                     self.eq(pool.get('woot@localhost').call(mesg), 'w00t!')
+
+                pool.fini()
