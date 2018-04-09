@@ -213,11 +213,11 @@ class NDefType(DataType):
         if not self._isTufoForm(form):
             self._raiseBadValu(valu=valu, form=form,
                                mesg='Form is not a valid form.')
-        # NDefType specifically does not care about the subs since
-        # they aren't useful for universal node identification
+
         fvalu, _ = self._getPropNorm(form, fvalu)
         retn = s_common.guid((form, fvalu))
-        return retn, {}
+        subs = {'form': form}
+        return retn, subs
 
 class StrType(DataType):
 

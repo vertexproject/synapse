@@ -2,14 +2,12 @@ import collections
 
 import xml.etree.ElementTree as x_etree
 
-import synapse.common as s_common
-
 import synapse.lib.syntax as s_syntax
 
 def _parse_path(path: str):
-
-    ''' Parses a datapath into its parts '''
-
+    '''
+    Parses a datapath into its parts
+    '''
     off = 0
     steps = []
 
@@ -38,7 +36,9 @@ def _parse_path(path: str):
 
 
 class DataPath:
-    ''' A pre-computation of a datapath. '''
+    '''
+    A pre-computation of a datapath.
+    '''
     def __init__(self, path: str) -> None:
         self.path = path
         self.steps = _parse_path(path)
@@ -154,7 +154,6 @@ class DataElem:
         while todo:
 
             elem = todo.popleft()
-            #print('SEARCH: %r' % (elem.name(),))
             if elem.name() == step:
                 yield elem
 

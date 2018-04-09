@@ -543,7 +543,7 @@ class Ingest(EventBus):
 
             path = info.get('path')
 
-            byts = data.valu(path)
+            byts = data.valu(s_datapath.DataPath(path))
 
             dcod = info.get('decode')
             if dcod is not None:
@@ -657,7 +657,7 @@ class Ingest(EventBus):
 
             # handle explicit nested iterators
             for path, tifo in info.get('iters', ()):
-                for base in data.iter(path):
+                for base in data.iter(s_datapath.DataPath(path)):
                     self._ingDataInfo(core, base, tifo, scope)
 
     def _isCondTrue(self, cond, scope):
@@ -680,7 +680,7 @@ class Ingest(EventBus):
 
             return
 
-        for base in data.iter(path):
+        for base in data.iter(s_datapath.DataPath(path)):
 
             with scope:
 
@@ -734,7 +734,7 @@ class Ingest(EventBus):
 
         if valu is None:
             path = info.get('path')
-            valu = base.valu(path)
+            valu = base.valu(s_datapath.DataPath(path))
 
         if valu is None:
             return None

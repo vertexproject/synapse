@@ -92,18 +92,41 @@ class OuMod(s_module.CoreModule):
                 ('ou:sic', {'subof': 'int', 'doc': 'Standard Industrial Classification Code'}),
                 ('ou:naics', {'subof': 'int', 'doc': 'North American Industry Classification System'}),
 
-                ('ou:suborg',
-                 {'subof': 'comp', 'fields': 'org,ou:org|sub,ou:org', 'doc': 'An org which owns a sub org'}),
-                ('ou:member', {'subof': 'comp', 'fields': 'org,ou:org|person,ps:person',
-                               'doc': 'A person who is (or was) a member of an organization.'}),
+                ('ou:suborg', {
+                    'subof': 'comp',
+                    'fields': 'org,ou:org|sub,ou:org',
+                    'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.'}),
+
+                ('ou:member', {
+                    'subof': 'comp',
+                    'fields': 'org,ou:org|person,ps:person',
+                    'doc': 'A person who is (or was) a member of an organization.'}),
 
                 ('ou:hasalias', {'subof': 'comp', 'fields': 'org=ou:org,alias=ou:alias'}),
+
                 ('ou:org:has', {
                     'subof': 'xref',
                     'source': 'org,ou:org',
                     'doc': 'An org owns, controls, or has exclusive use of an object or resource,'
                         'potentially during a specific period of time.'}),
 
+                ('ou:meet', {
+                    'subof': 'guid',
+                    'doc': 'A informal meeting of people which has no title or sponsor.  See also: ou:conference.'}),
+
+                ('ou:meet:attendee', {
+                    'subof': 'comp',
+                    'fields': 'meet=ou:meet,person=ps:person',
+                    'doc': 'Represents a person attending a meeting represented by an ou:meet node.'}),
+
+                ('ou:conference', {
+                    'subof': 'guid',
+                    'doc': 'A conference with a name and sponsoring org.'}),
+
+                ('ou:conference:attendee', {
+                    'subof': 'comp',
+                    'fields': 'conference=ou:conference,person=ps:person',
+                    'doc': 'Represents a person attending a conference represented by an ou:conference node.'}),
             ),
 
             'forms': (
@@ -151,6 +174,7 @@ class OuMod(s_module.CoreModule):
                     ('seen:min', {'ptype': 'time:min'}),
                     ('seen:max', {'ptype': 'time:max'}),
                 )),
+
                 ('ou:org:has', {}, [
                     ('org', {'ptype': 'ou:org', 'ro': 1, 'req': 1,
                         'doc': 'The org who owns or controls the object or resource.'}),
@@ -165,6 +189,59 @@ class OuMod(s_module.CoreModule):
                     ('seen:max', {'ptype': 'time:max',
                         'doc': 'The most recent known time when the org owned or controlled the resource.'}),
                 ]),
+
+                ('ou:meet', {}, (
+                    ('name', {'ptype': 'str:lwr',
+                        'doc': 'A human friendly name for the meeting.'}),
+                    ('start', {'ptype': 'time',
+                        'doc': 'The date / time the meet starts.'}),
+                    ('end', {'ptype': 'time',
+                        'doc': 'The date / time the meet ends.'}),
+                    ('place', {'ptype': 'geo:place',
+                        'doc': 'The geo:place node where the meet was held.'}),
+                )),
+
+                ('ou:meet:attendee', {}, (
+                    ('meet', {'ptype': 'ou:meet', 'req': 1, 'ro': 1,
+                        'doc': 'The meeting which was attended.'}),
+                    ('person', {'ptype': 'ps:person', 'req': 1, 'ro': 1,
+                        'doc': 'The person who attended the meet.'}),
+                    ('arrived', {'ptype': 'time',
+                        'doc': 'An optional property to annotate when the person arrived.'}),
+                    ('departed', {'ptype': 'time',
+                        'doc': 'An optional property to annotate when the person departed.'}),
+                )),
+
+                ('ou:conference', {}, (
+                    ('org', {'ptype': 'ou:org',
+                        'doc': 'The org which created/managed the conference.'}),
+                    ('name', {'ptype': 'str:lwr', 'req': 1, 'ex': 'defcon 2017',
+                        'doc': 'The full name of the conference.'}),
+                    ('base', {'ptype': 'str:lwr', 'ex': 'defcon',
+                        'doc': 'The base name which is shared by all conference instances.'}),
+                    ('start', {'ptype': 'time',
+                        'doc': 'The conference start date / time.'}),
+                    ('end', {'ptype': 'time',
+                        'doc': 'The conference end date / time.'}),
+                    ('place', {'ptype': 'geo:place',
+                        'doc': 'The geo:place node where the conference was held.'}),
+                    # TODO: prefix optimized geo political location
+                )),
+
+                ('ou:conference:attendee', {}, (
+                    ('conference', {'ptype': 'ou:conference', 'req': 1, 'ro': 1,
+                        'doc': 'The conference which was attended.'}),
+                    ('person', {'ptype': 'ps:person', 'req': 1, 'ro': 1,
+                        'doc': 'The person who attended the conference.'}),
+                    ('arrived', {'ptype': 'time',
+                        'doc': 'An optional property to annotate when the person arrived.'}),
+                    ('departed', {'ptype': 'time',
+                        'doc': 'An optional property to annotate when the person departed.'}),
+                    ('role:staff', {'ptype': 'bool',
+                        'doc': 'The person worked as staff at the conference.'}),
+                    ('role:speaker', {'ptype': 'bool',
+                        'doc': 'The person was a speaker/presenter at the conference.'}),
+                )),
 
             ),
         }

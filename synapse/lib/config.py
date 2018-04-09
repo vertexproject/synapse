@@ -72,7 +72,7 @@ class Configable:
     def _loadDecoratedFuncs(self):
         for name, meth in s_reflect.getItemLocals(self):
             if not callable(meth):
-                pass
+                continue
             attr = getattr(meth, '_syn_config', None)
             if attr is None:
                 continue
