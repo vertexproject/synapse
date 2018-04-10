@@ -679,9 +679,9 @@ class _IndexMeta:
         indices = s_msgpack.un(indices_enc)
 
         # The details about what the indices are actually indexing: the datapath and type.
-        self.indices = {k: _MetaEntry(**v) for k, v in indices.get('present', {}).items()}
+        self.indices = {k: _MetaEntry(**s_msgpack.un(v)) for k, v in indices.get('present', {}).items()}
         self.deleting = list(indices.get('deleting', ()))
-        # Keeps track (non-persistently) of which indicies have been paused
+        # Keeps track (non-persistently) of which indices have been paused
         self.asleep = defaultdict(bool)  # type: ignore
 
         # How far each index has progressed as well as statistics
@@ -711,8 +711,8 @@ class _IndexMeta:
             if txn is None:
                 txn = stack.enter_context(self._dbenv.begin(db=self._metatbl, buffers=True, write=True))
             if not progressonly:
-                txn.put(b'indices', s_msgpack.en(d))
-            txn.put(b'progress', s_msgpack.en(self.progresses))
+                txn.put(b'indices', s_msgpack.en(d), db=self._metatbl)
+            txn.put(b'progress', s_msgpack.en(self.progresses), db=self._metatbl)
 
     def lowestProgress(self):
         '''
@@ -1151,7 +1151,7 @@ class CryoTankIndexer:
         elif valu is None:
             key = iidenc
         else:
-            key = iidenc + s_lmdb.encodeValAsKey(valu, isprefix=True)
+            key = iidenc + s_lmdb.encodeValAsKey(valu, isprefix=not exact)
         with self._dbenv.begin(db=self._idxtbl, buffers=True) as txn, txn.cursor() as curs:
             if exact:
                 rv = curs.set_key(key)
