@@ -331,12 +331,8 @@ class CryoIndexTest(SynTest):
             idxr.pauseIndex('first')
             idxr.resumeIndex('first')
 
-            if 0:
-                # Add a ton of records:  SEG FAULTS!
-                tank.puts([data1, data2, data3, data4] * 1000)
-                logger.debug('GOT HERE')
-
-                time.sleep(10)
-                logger.debug('GOT HERE 2')
-                idxs = idxr.getIndices()
-                print(idxs)
+            before_idxs = idxr.getIndices()
+            tank.puts([data1, data2, data3, data4] * 1000)
+            time.sleep(0.5)
+            after_idxs = idxr.getIndices()
+            assert before_idxs[0]['ngood'] < after_idxs[0]['ngood']
