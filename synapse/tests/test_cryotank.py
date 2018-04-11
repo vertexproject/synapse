@@ -331,12 +331,8 @@ class CryoIndexTest(SynTest):
             idxr.pauseIndex('first')
             idxr.resumeIndex('first')
 
-            if 0:
-                # Add a ton of records:  SEG FAULTS!
-                tank.puts([data1, data2, data3, data4] * 1000)
-                logger.debug('GOT HERE')
-
-                time.sleep(10)
-                logger.debug('GOT HERE 2')
-                idxs = idxr.getIndices()
-                print(idxs)
+            tank.puts([data1, data2, data3, data4] * 1000)
+            # XXX Can we turn this sleep into a event wait??
+            time.sleep(10)
+            idxs = idxr.getIndices()
+            print(idxs)
