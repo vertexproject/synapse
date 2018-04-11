@@ -42,7 +42,7 @@ def parse(text, base=None, chop=False):
         dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S%f')
 
     else:
-        raise s_common.BadTypeValu(mesg='Unknown time format')
+        raise s_common.BadTypeValu(valu=text, mesg='Unknown time format')
 
     epoch = datetime.datetime(1970, 1, 1)
     return int((dt - epoch).total_seconds() * 1000)
