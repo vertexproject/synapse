@@ -225,13 +225,22 @@ class Query:
 
     def size(self):
         '''
-        Get the number of tufos currently in the query.
+        Get the number of nodes currently in the query.
+
+        Returns:
+            int: Number of nodes currently in the query.
         '''
         return len(self)
 
     def log(self, **info):
         '''
-        Log execution metadata for the current oper.
+        Log execution metadata for the current user.
+
+        Args:
+            **info: Data to add to the oplog.
+
+        Returns:
+
         '''
         self.results['oplog'][-1].update(info)
 
@@ -248,22 +257,54 @@ class Query:
         self.results['mesgs'].append(mesg)
 
     def result(self):
+        '''
+        Get the current results dict
+
+        Returns:
+            dict: Current results dict.
+        '''
         return self.results
 
     def retn(self):
         '''
         Return the results data or raise exception.
         '''
+        raise s_common.NoSuchImpl(mesg='retn is not implemented.')
 
     def save(self, name, data):
+        '''
+        Save a set of data in the query under a name.
+
+        Args:
+            name (str): Name to save the data as.
+            data (list): List of nodes to save.
+
+        Returns:
+            None
+        '''
         self.saved[name] = data
 
     def load(self, name):
+        '''
+        Get a set of saved data from the query.
+
+        Args:
+            name (str): Name of of the results to load.
+
+        Returns:
+            list: List of nodes which were previously saved.
+        '''
         return self.saved.get(name, ())
 
     def add(self, tufo):
         '''
-        Add a tufo to the current query result set.
+        Add a node to the current query result set.
+
+        Args:
+            tufo ((str, dict)): A node to add to the current set.
+
+        Returns:
+            bool: True if the node was added, false if the node was not added.
         '''
         self.tick()
         self.added += 1
@@ -285,22 +326,46 @@ class Query:
     def setOpt(self, name, valu):
         '''
         Set a query option to the given value.
+
+        Args:
+            name (str): Option to set.
+            valu (object): Value to set
+
+        Returns:
+            None
         '''
         self.results['options'][name] = valu
 
     def opt(self, name):
         '''
         Return the current value of a query option.
+
+        Args:
+            name (str): Option to retrieve.
+
+        Returns:
+            object: Named value, or None if not set.
         '''
         return self.results['options'].get(name)
 
     def data(self):
+        '''
+        Get the current working set nodes.
+
+        Returns:
+            list: List of nodes in the current working set.
+        '''
         return list(self.results.get('data'))
 
     def take(self):
         '''
-        Return and clear the current result set.
-        ( used by filtration operators )
+        Get the current working set of nodes and clear the result set.
+
+        Notes:
+            This is typically used by filtration operators.
+
+        Returns:
+            list: List of nodes in the current working set.
         '''
         data = self.results.get('data')
         self.subed += len(data)
@@ -311,6 +376,12 @@ class Query:
         return data
 
     def clear(self):
+        '''
+        Clear the working results set.
+
+        Returns:
+            None
+        '''
         self.take()
 
     def withop(self, oper):
@@ -320,14 +391,28 @@ class Query:
     def cancel(self):
         '''
         Cancel the current query ( occurs at next tick() call ).
+
+        Returns:
+            None
         '''
         self.canc = True
 
     def tick(self, touch=1):
         '''
+        Update the current query runtime / operation count.
+
+        Args:
+            touch (int):
+
+        Returns:
+            None
+
+        Raises:
+            s_common.QueryCancelled: If the query is cancelled.
+            s_common.HitStormLimit: If the query has hit a limit.
         '''
         if self.canc:
-            raise QueryCancelled()
+            raise s_common.QueryCancelled(mesg='Query was cancelled.')
 
         nowtime = time.time()
         if self.maxtime is not None and nowtime >= self.maxtime:
@@ -336,11 +421,6 @@ class Query:
         self.touched += touch
         if self.maxtouch is not None and self.touched > self.maxtouch:
             raise s_common.HitStormLimit(name='maxtouch', limit=self.maxtouch, valu=self.touched)
-
-class QueryKilled(Exception): pass
-class QueryCancelled(QueryKilled): pass
-class QueryLimitTime(QueryKilled): pass
-class QueryLimitTouch(QueryKilled): pass
 
 def invert(func):
     def invfunc(*args, **kwargs):
@@ -1382,11 +1462,11 @@ class Runtime(Configable):
             prop = k[1:]
             props[prop] = v
 
-        node = self.formTufoByProp(args[0], args[1], **props)
+        node = core.formTufoByProp(args[0], args[1], **props)
 
         # call set props if the node is not new...
         if not node[1].get('.new'):
-            self.setTufoProps(node, **props)
+            core.setTufoProps(node, **props)
 
         query.add(node)
 
