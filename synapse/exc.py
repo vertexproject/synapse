@@ -67,6 +67,7 @@ class NoSuchOper(SynErr): pass
 class NoSuchCmpr(SynErr): pass
 class NoSuchCore(SynErr): pass
 class NoSuchRule(SynErr): pass
+class NoSuchIndx(SynErr): pass
 class NoSuchGetBy(SynErr): pass
 class NoSuchMembrane(SynErr): pass
 class MembraneExists(SynErr): pass
@@ -90,6 +91,7 @@ class BadTypeValu(SynErr): pass
 class DupTypeName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupFileName(SynErr): pass
+class DupIndx (SynErr): pass
 class BadFileExt(SynErr): pass
 class DupUserName(SynErr): pass
 class BadPropName(SynErr): pass

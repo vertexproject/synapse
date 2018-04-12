@@ -241,9 +241,18 @@ class CryoTest(SynTest):
             self.false(proc.is_alive())
 
 class CryoIndexTest(SynTest):
+    def initWaiter(self, tank, count=1):
+        return tank.waiter(count, 'cryotank:indexer:noworkleft')
+
+    def wait(self, waiter):
+        rv = waiter.wait(s_cryotank.CryoTankIndexer.MAX_WAIT_S)
+        self.nn(rv)
+
     def test_cryotank_index(self):
         with self.getTestDir() as dirn, s_cryotank.CryoTank(dirn) as tank:
             idxr = tank.indexer
+
+            waiter = self.initWaiter(tank)
             data1 = {'foo': 1234, 'bar': 'stringval'}
             data2 = {'foo': 2345, 'baz': 4567, 'bar': 'strinstrin'}
             data3 = {'foo': 388383, 'bar': ('strinstrin' * 20)}
@@ -253,19 +262,20 @@ class CryoIndexTest(SynTest):
             # Simple index add/remove
             self.eq([], idxr.getIndices())
             idxr.addIndex('first', 'int', 'foo')
-            self.raises(ValueError, idxr.addIndex, 'first', 'int', 'foo')
+            self.raises(DupIndx, idxr.addIndex, 'first', 'int', 'foo')
             idxs = idxr.getIndices()
             self.eq(idxs[0]['propname'], 'first')
             idxr.delIndex('first')
-            self.raises(ValueError, idxr.delIndex, 'first')
+            self.raises(NoSuchIndx, idxr.delIndex, 'first')
             self.eq([], idxr.getIndices())
 
-            self.genraises(ValueError, idxr.normValuByPropVal, 'notanindex')
+            self.genraises(NoSuchIndx, idxr.normValuByPropVal, 'notanindex')
 
             # Check simple 1 record, 1 index index and retrieval
+            waiter = self.initWaiter(tank)
             tank.puts([data1])
-            time.sleep(1)
             idxr.addIndex('first', 'int', 'foo')
+            self.wait(waiter)
             idxs = idxr.getIndices()
             self.eq(1, idxs[0]['nextoffset'])
             self.eq(1, idxs[0]['ngood'])
@@ -275,9 +285,12 @@ class CryoIndexTest(SynTest):
             self.eq(2, len(t))
             self.eq(t[0], 0)
             self.eq(t[1], {'first': 1234})
+            waiter = self.initWaiter(tank)
+            self.wait(waiter)
 
+            waiter = self.initWaiter(tank)
             tank.puts([data2])
-            time.sleep(0.1)
+            self.wait(waiter)
             idxs = idxr.getIndices()
             self.eq(2, idxs[0]['nextoffset'])
             self.eq(2, idxs[0]['ngood'])
@@ -290,17 +303,22 @@ class CryoIndexTest(SynTest):
             self.eq(t[0], 1)
             self.eq(s_msgpack.un(t[1]), data2)
 
+            waiter = self.initWaiter(tank)
+            self.wait(waiter)
+
             # second index
+            waiter = self.initWaiter(tank)
             idxr.addIndex('second', 'str', 'bar')
-            time.sleep(0.1)
+            self.wait(waiter)
 
             # prefix search
             retn = list(idxr.normValuByPropVal('second', valu='strin'))
             self.eq(retn, [(0, 'stringval'), (1, 'strinstrin')])
 
             # long value, exact
+            waiter = self.initWaiter(tank)
             tank.puts([data3])
-            time.sleep(0.1)
+            self.wait(waiter)
             retn = list(idxr.rawRecordsByPropVal('second', valu='strinstrin' * 20, exact=True))
             self.eq(1, len(retn))
             self.eq(s_msgpack.un(retn[0][1]), data3)
@@ -310,29 +328,67 @@ class CryoIndexTest(SynTest):
             self.eq(3, len(retn))
 
             # Bad data
+            waiter = self.initWaiter(tank)
             tank.puts([baddata])
-            time.sleep(0.1)
+            self.wait(waiter)
             idxs = idxr.getIndices()
             self.eq(4, idxs[0]['nextoffset'])
             self.eq(3, idxs[0]['ngood'])
             self.eq(1, idxs[0]['nnormfail'])
 
+            waiter = self.initWaiter(tank)
             idxr.delIndex('second')
-            time.sleep(0.1)
+            self.wait(waiter)
+
+            waiter = self.initWaiter(tank)
+            self.wait(waiter)
 
             # Multiple datapaths
             idxr.delIndex('first')
+            waiter = self.initWaiter(tank)
+            self.wait(waiter)
             idxr.addIndex('first', 'int', 'foo', 'foo2')
+            waiter = self.initWaiter(tank)
+            self.wait(waiter)
+
+            waiter = self.initWaiter(tank)
             tank.puts([data4])
-            time.sleep(0.1)
+            self.wait(waiter)
             retn = list(idxr.normValuByPropVal('first'))
             self.eq(retn, [(0, 1234), (1, 2345), (4, 9999), (2, 388383)])
 
             idxr.pauseIndex('first')
-            idxr.resumeIndex('first')
+            waiter = self.initWaiter(tank)
+            self.wait(waiter)
 
+            idxr.resumeIndex('first')
+            waiter = self.initWaiter(tank)
+            self.wait(waiter)
+
+            waiter = self.initWaiter(tank)
             before_idxs = idxr.getIndices()
+            self.wait(waiter)
+            waiter = self.initWaiter(tank)
             tank.puts([data1, data2, data3, data4] * 1000)
-            time.sleep(0.5)
+            self.wait(waiter)
             after_idxs = idxr.getIndices()
-            assert before_idxs[0]['ngood'] < after_idxs[0]['ngood']
+            self.lt(before_idxs[0]['ngood'], after_idxs[0]['ngood'])
+
+    def test_cryotank_index_nest(self):
+        with self.getTestDir() as dirn, s_cryotank.CryoTank(dirn) as tank:
+            idxr = tank.indexer
+            item = {
+                'hehe': {
+                    'haha': {
+                        'key': 'valu'
+                    }
+                }
+            }
+            idxr.addIndex('key', 'str:lwr', 'hehe/haha/key')
+            waiter = self.initWaiter(tank)
+            self.wait(waiter)
+            waiter = self.initWaiter(tank)
+            tank.puts([item])
+            self.wait(waiter)
+            idxs = idxr.getIndices()
+            self.eq(idxs[0]['ngood'], 1)

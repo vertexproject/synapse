@@ -594,7 +594,6 @@ class CryoClient:
 # ----
 # TODO: could index faster maybe if ingest/normalize is separate thread from writing
 # TODO:  what to do with subprops returned from getTypeNorm
-# TODO:  need a way to specify/load custom types
 
 class _MetaEntry:
     ''' Describes a single index in the system. '''
@@ -748,7 +747,7 @@ class _IndexMeta:
             the normalization fails.
         '''
         if self.iidFromProp(prop) is not None:
-            raise ValueError('index already added')
+            raise s_exc.DupIndx()
 
         s_datamodel.tlib.reqDataType(syntype)
         iid = int.from_bytes(os.urandom(8), 'little')
@@ -767,7 +766,7 @@ class _IndexMeta:
         '''
         iid = self.iidFromProp(prop)
         if iid is None:
-            raise ValueError('Index not present')
+            raise s_exc.NoSuchIndx()
         del self.indices[iid]
         self.deleting.append(iid)
 
@@ -814,14 +813,18 @@ class _IndexMeta:
         self.deleting.remove(iid)
         self.persist()
 
-# Encodes a little endian 64-bit integer
 _Int64le = struct.Struct('<Q')
 
 def _iid_en(iid):
+    '''
+    Encodes a little endian 64-bit integer
+    '''
     return _Int64le.pack(iid)
 
-# Decodes a little endian 64-bit integer
 def _iid_un(iid):
+    '''
+    Decodes a little endian 64-bit integer
+    '''
     return _Int64le.unpack(iid)[0]
 
 def _inWorker(callback):
@@ -853,9 +856,9 @@ class CryoTankIndexer:
 
     This implements a lazy indexer that indexes a cryotank in a separate thread.
 
-    Cryotank entries are msgpack-encoded json-compatible dictionaries with arbitrary nesting.  An index consists of a
-    property name, one or more datapaths (i.e. what field out of the entry), and a synapse type.   The type specifies
-    the function that normalizes the output of the datapath query into a string or integer.
+    Cryotank entries are msgpack-encoded values.  An index consists of a property name, one or more datapaths (i.e.
+    what field out of the entry), and a synapse type.   The type specifies the function that normalizes the output of
+    the datapath query into a string or integer.
 
     Indices can be added and deleted asynchronously from the indexing thread via CryotankIndexer.addIndex and
     CryotankIndexer.delIndex.
@@ -970,12 +973,12 @@ class CryoTankIndexer:
                         # TODO : what to do with subprops?
                         break
                     else:
-                        logger.debug('Datapaths %s yield nothing for offset %d',
-                                     [d.path for d in idx.datapaths], offset)
+                        # logger.debug('Datapaths %s yield nothing for offset %d',
+                        #              [d.path for d in idx.datapaths], offset)
                         continue
                     normval, _ = s_datamodel.getTypeNorm(idx.syntype, field)
                 except (s_exc.NoSuchType, s_exc.BadTypeValu):
-                    logger.debug('Norm fail')
+                    # logger.debug('Norm fail', exc_info=True)
                     self._meta.progresses[iid]['nnormfail'] += 1
                     continue
                 self._meta.progresses[iid]['ngood'] += 1
@@ -1010,6 +1013,9 @@ class CryoTankIndexer:
         return count + 1
 
     def _workerloop(self):
+        '''
+        Does the indexing.  Run as separate thread.
+        '''
         stillworktodo = True
 
         while True:
@@ -1042,14 +1048,12 @@ class CryoTankIndexer:
             rowcount = self._writeIndices(norm_gen)
 
             self._removeSome()
-            # logger.debug('Processed %d rows', rowcount)
             if not rowcount and not self._meta.deleting:
                 if stillworktodo is True:
-                    # logger.info('Completely caught up with indexing')
+                    self.cryotank.fire('cryotank:indexer:noworkleft')
                     stillworktodo = False
             else:
                 stillworktodo = True
-            # loop_end_t = loop_start_t + self.MAX_WAIT_S
 
     @_inWorker
     def addIndex(self, prop, syntype, datapath, *args):
@@ -1065,7 +1069,7 @@ class CryoTankIndexer:
         Returns:
             None
         Note:
-            Additional datapaths will be tried iff prior datapaths are not present, and *not* if
+            Additional datapaths will be tried if and only if prior datapaths are not present, and *not* if
             the normalization fails.
         '''
         return self._meta.addIndex(prop, syntype, datapath, args)
@@ -1139,7 +1143,7 @@ class CryoTankIndexer:
         '''
         iid = self._meta.iidFromProp(prop)
         if iid is None:
-            raise ValueError("%s isn't being indexed" % prop)
+            raise s_exc.NoSuchIndx()
         iidenc = _iid_en(iid)
 
         islarge = valu is not None and isinstance(valu, str) and len(valu) >= s_lmdb.LARGE_STRING_SIZE
@@ -1174,7 +1178,10 @@ class CryoTankIndexer:
         Query for normalized individual property values.
 
         Args:
-            See _iterrows
+            prop (str):  The name of the indexed property
+            valu (Optional[Union[int, str]]):  The normalized value.  If not present, all records with prop present,
+            sorted by prop will be returned.  It will be considered prefix if exact is False.
+            exact (bool): Indicates that the result must match exactly.  Conversly, if False, indicates a prefix match.
 
         Returns:
             Iterable[Tuple[int, Union[str, int]]]:  A generator of offset, normalized value tuples.
@@ -1191,7 +1198,10 @@ class CryoTankIndexer:
         Query for normalized property values grouped together in dicts.
 
         Args:
-            See _iterrows
+            prop (str):  The name of the indexed property
+            valu (Optional[Union[int, str]]):  The normalized value.  If not present, all records with prop present,
+            sorted by prop will be returned.  It will be considered prefix if exact is False.
+            exact (bool): Indicates that the result must match exactly.  Conversly, if False, indicates a prefix match.
 
         Returns:
             Iterable[Tuple[int, Dict[str, Union[str, int]]]]: A generator of offset, dictionary tuples
