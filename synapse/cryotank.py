@@ -1,9 +1,11 @@
 import os
+import types
 import shutil
 import struct
 import logging
 import threading
 import contextlib
+from functools import partial
 from collections import defaultdict
 
 import lmdb  # type: ignore
@@ -258,6 +260,13 @@ class CryoCell(s_cell.Cell):
             'cryo:rows': self._onCryoRows,
             'cryo:slice': self._onCryoSlice,
             'cryo:metrics': self._onCryoMetrics,
+            'cryo:indx:add': partial(self._onCryoIndex, CryoTankIndexer.addIndex),
+            'cryo:indx:del': partial(self._onCryoIndex, CryoTankIndexer.delIndex),
+            'cryo:indx:pause': partial(self._onCryoIndex, CryoTankIndexer.pauseIndex),
+            'cryo:indx:resume': partial(self._onCryoIndex, CryoTankIndexer.resumeIndex),
+            'cryo:indx:stat': partial(self._onCryoIndex, CryoTankIndexer.getIndices),
+            'cryo:indx:normvalubypropval': partial(self._onCryoIndex, CryoTankIndexer.normValuByPropVal),
+            'cryo:indx:normrecordsbypropval': partial(self._onCryoIndex, CryoTankIndexer.normRecordsByPropVal)
         }
 
     def genCryoTank(self, name, conf=None):
@@ -326,6 +335,31 @@ class CryoCell(s_cell.Cell):
         tank.fini()
         shutil.rmtree(tank.path, ignore_errors=True)
         return chan.txfini(True)
+
+    # FIXME: move to bottom
+    @s_glob.inpool
+    def _onCryoIndex(self, subfunc, chan, mesg):
+        name = mesg[1].pop('name')
+        tank = self.tanks.get(name)
+
+        with chan:
+            if tank is None:
+                return chan.txfini(None)
+            indexer = tank.indexer
+            if indexer is None:
+                return chan.tx((False, ('IndexingDisabled', {'name': name})))
+            rv = subfunc(indexer, **mesg[1])
+            if rv is None:
+                chan.txfini(True)
+                return
+            if isinstance(rv, types.GeneratorType):
+                genr = s_common.chunks(rv, 1000)
+                chan.txwind(genr, 100, timeout=30)
+                return
+            if isinstance(rv, Exception):
+                return chan.tx(rv)
+
+            chan.tx(rv)
 
     @s_glob.inpool
     def _onCryoSlice(self, chan, mesg):
@@ -732,7 +766,7 @@ class _IndexMeta:
         '''
         return next((k for k, idx in self.indices.items() if idx.propname == prop), None)
 
-    def addIndex(self, prop, syntype, datapath, *args):
+    def addIndex(self, prop, syntype, datapath, *moredatapaths):
         '''
         Add an index to the cryotank
 
@@ -741,7 +775,7 @@ class _IndexMeta:
             syntype (str):  the synapse type this will be interpreted as
             datapath (str):  the datapath spec against which the raw record is run to extract a single field
         that is passed to the type normalizer.
-            *args (str):  additional datapaths that will be tried in order if the first isn't present.
+            *moredatapaths (str):  additional datapaths that will be tried in order if the first isn't present.
         Returns:
             None
         Note:
@@ -753,7 +787,7 @@ class _IndexMeta:
 
         s_datamodel.tlib.reqDataType(syntype)
         iid = int.from_bytes(os.urandom(8), 'little')
-        self.indices[iid] = _MetaEntry(propname=prop, syntype=syntype, datapaths=(datapath,) + args)
+        self.indices[iid] = _MetaEntry(propname=prop, syntype=syntype, datapaths=(datapath,) + moredatapaths)
         self.progresses[iid] = {'nextoffset': 0, 'ngood': 0, 'nnormfail': 0}
         self.persist()
 
