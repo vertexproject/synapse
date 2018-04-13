@@ -2936,8 +2936,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             core.delTufo(foob)
 
         '''
-        form = tufo[1].get('tufo:form')
-        valu = tufo[1].get(form)
+        form, valu = s_tufo.ndef(tufo)
+        logger.info('Deleting tufo: [%s]/[%s] by [%s]', form, valu, s_auth.whoami())
 
         for name, tick in self.getTufoDsets(tufo):
             self.delTufoDset(tufo, name)
