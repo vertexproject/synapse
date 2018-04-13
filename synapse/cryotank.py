@@ -747,7 +747,7 @@ class _IndexMeta:
             the normalization fails.
         '''
         if self.iidFromProp(prop) is not None:
-            raise s_exc.DupIndx()
+            raise s_exc.DupIndx(mesg='Index already exists', index=prop)
 
         s_datamodel.tlib.reqDataType(syntype)
         iid = int.from_bytes(os.urandom(8), 'little')
@@ -766,7 +766,7 @@ class _IndexMeta:
         '''
         iid = self.iidFromProp(prop)
         if iid is None:
-            raise s_exc.NoSuchIndx()
+            raise s_exc.NoSuchIndx(mesg='No such index', index=prop)
         del self.indices[iid]
         self.deleting.append(iid)
 
@@ -1143,7 +1143,7 @@ class CryoTankIndexer:
         '''
         iid = self._meta.iidFromProp(prop)
         if iid is None:
-            raise s_exc.NoSuchIndx()
+            raise s_exc.NoSuchIndx(mesg='No such index', index=prop)
         iidenc = _iid_en(iid)
 
         islarge = valu is not None and isinstance(valu, str) and len(valu) >= s_lmdb.LARGE_STRING_SIZE
