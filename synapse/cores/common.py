@@ -2268,7 +2268,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         rows = []
         dark = iden[::-1]
-        user = s_auth.whoami()
 
         with self.getCoreXact() as xact:
 
@@ -2291,7 +2290,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 rows.append((dark, '_:*' + form + subprop, tick, tick))
 
                 xact.fire('node:tag:add', form=form, valu=valu, tag=subtag, node=tufo)
-                xact.spliced('node:tag:add', form=form, valu=valu, tag=subtag, user=user)
+                xact.spliced('node:tag:add', form=form, valu=valu, tag=subtag)
                 xact.trigger(tufo, 'node:tag:add', form=form, tag=subtag)
 
             self.addRows(rows)
@@ -2337,7 +2336,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         form = tufo[1].get('tufo:form')
         valu = tufo[1].get(form)
-        user = s_auth.whoami()
 
         with self.getCoreXact() as xact:
 
@@ -2358,7 +2356,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
                 # fire notification events
                 xact.fire('node:tag:del', form=form, valu=valu, tag=subtag, node=tufo)
-                xact.spliced('node:tag:del', form=form, valu=valu, tag=subtag, asof=asof, user=user)
+                xact.spliced('node:tag:del', form=form, valu=valu, tag=subtag, asof=asof)
                 xact.trigger(tufo, 'node:tag:del', form=form, tag=subtag)
 
                 self.delTufoIval(tufo, subprop)
@@ -2415,7 +2413,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         iden = tufo[0]
 
         form, valu = s_tufo.ndef(tufo)
-        user = s_auth.whoami()
 
         with self.getCoreXact() as xact:
 
@@ -2449,7 +2446,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             ival = (tufo[1].get(minp), tufo[1].get(maxp))
 
             xact.fire('node:ival', form=form, valu=valu, prop=name, ival=ival, node=tufo)
-            xact.spliced('node:ival:set', form=form, valu=valu, prop=name, ival=ival, user=user)
+            xact.spliced('node:ival:set', form=form, valu=valu, prop=name, ival=ival)
             xact.trigger(tufo, 'node:ival:set', form=form, prop=name)
 
         return tufo
@@ -2477,7 +2474,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             return tufo
 
         form, valu = s_tufo.ndef(tufo)
-        user = s_auth.whoami()
 
         with self.getCoreXact() as xact:
             self.delRowsByIdProp(iden, minp)
@@ -2485,7 +2481,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             self._bumpTufoCache(tufo, minp, minv, None)
             self._bumpTufoCache(tufo, maxp, maxv, None)
             xact.fire('node:ival:del', form=form, valu=valu, prop=name, node=tufo)
-            xact.spliced('node:ival:del', form=form, valu=valu, prop=name, user=user)
+            xact.spliced('node:ival:del', form=form, valu=valu, prop=name)
             xact.trigger(tufo, 'node:ival:del', form=form, prop=name)
 
         return tufo
@@ -2792,8 +2788,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             raise s_common.IsRuntProp(form=prop, valu=valu,
                   mesg='Runtime nodes may not be created with formTufoByProp')
 
-        user = s_auth.whoami()
-
         with self.getCoreXact() as xact:
 
             if deconf:
@@ -2862,7 +2856,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
             # fire the node:add events from the xact
             xact.fire('node:add', form=prop, valu=valu, node=tufo)
-            xact.spliced('node:add', form=prop, valu=valu, props=props, user=user)
+            xact.spliced('node:add', form=prop, valu=valu, props=props)
             xact.trigger(tufo, 'node:add', form=prop)
 
             # fire prop set notifications for each prop
@@ -2953,7 +2947,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 self._bumpTufoCache(tufo, prop, pvalu, None)
 
         iden = tufo[0]
-        user = s_auth.whoami()
 
         with self.getCoreXact() as xact:
             self.delRowsById(iden)
@@ -2969,7 +2962,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 xact.fire('node:prop:set', form=form, valu=valu, prop=p, newv=None, oldv=v, node=tufo)
 
             xact.fire('node:del', form=form, valu=valu, node=tufo)
-            xact.spliced('node:del', form=form, valu=valu, user=user)
+            xact.spliced('node:del', form=form, valu=valu)
             xact.trigger(tufo, 'node:del', form=form)
 
         lists = [p.split(':', 2)[2] for p in tufo[1].keys() if p.startswith('tufo:list:')]
@@ -3304,8 +3297,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         if oldv is None:
             return tufo
 
-        user = s_auth.whoami()
-
         with self.getCoreXact() as xact:
 
             # update the tufo cache if present
@@ -3319,7 +3310,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             xact.fire('node:prop:del', form=form, valu=valu, prop=prop, oldv=oldv, node=tufo)
 
             # fire the splice event
-            xact.spliced('node:prop:del', form=form, valu=valu, prop=prop, user=user)
+            xact.spliced('node:prop:del', form=form, valu=valu, prop=prop)
             xact.trigger(tufo, 'node:prop:del', form=form, prop=prop)
 
         return tufo
@@ -3355,8 +3346,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             toadds = self._formToAdd(form, fulls)
         self._pruneFulls(form, fulls, props, isadd=True)
 
-        user = s_auth.whoami()
-
         with self.getCoreXact() as xact:
 
             for p, v in fulls.items():
@@ -3374,7 +3363,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
                 # fire the splice event
                 xact.spliced('node:prop:set', form=form, valu=valu, prop=p[len(form) + 1:], newv=v, oldv=oldv,
-                             node=tufo, user=user)
+                             node=tufo)
 
                 xact.trigger(tufo, 'node:prop:set', form=form, prop=p)
 
