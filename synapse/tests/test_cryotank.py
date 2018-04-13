@@ -1,9 +1,10 @@
 import time
 import random
 
+import synapse.exc as s_exc
 import synapse.lib.cell as s_cell
-import synapse.lib.msgpack as s_msgpack
 import synapse.cryotank as s_cryotank
+import synapse.lib.msgpack as s_msgpack
 from synapse.tests.common import *
 
 logger = s_cryotank.logger
@@ -326,6 +327,9 @@ class CryoIndexTest(SynTest):
             # long value with prefix
             retn = list(idxr.rawRecordsByPropVal('second', valu='str'))
             self.eq(3, len(retn))
+
+            # long value with long prefix
+            self.genraises(s_exc.BadOperArg, idxr.normRecordsByPropVal, 'second', valu='strinstrin' * 15)
 
             # Bad data
             waiter = self.initWaiter(tank)

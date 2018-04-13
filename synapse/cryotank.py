@@ -1180,13 +1180,15 @@ class CryoTankIndexer:
         Args:
             prop (str):  The name of the indexed property
             valu (Optional[Union[int, str]]):  The normalized value.  If not present, all records with prop present,
-            sorted by prop will be returned.  It will be considered prefix if exact is False.
+            sorted by prop will be returned.  It will be considered a prefix if exact is False.
             exact (bool): Indicates that the result must match exactly.  Conversly, if False, indicates a prefix match.
 
         Returns:
             Iterable[Tuple[int, Union[str, int]]]:  A generator of offset, normalized value tuples.
 
         '''
+        if not exact and valu is not None and isinstance(valu, str) and len(valu) >= s_lmdb.LARGE_STRING_SIZE:
+            raise BadOperArg(mesg='prefix search valu cannot exceed 128 characters')
         for (offset, offset_enc, iidenc, txn) in self._iterrows(prop, valu, exact):
             rv = txn.get(bytes(offset_enc) + iidenc, None, db=self._normtbl)
             if rv is None:
@@ -1200,19 +1202,20 @@ class CryoTankIndexer:
         Args:
             prop (str):  The name of the indexed property
             valu (Optional[Union[int, str]]):  The normalized value.  If not present, all records with prop present,
-            sorted by prop will be returned.  It will be considered prefix if exact is False.
+            sorted by prop will be returned.  It will be considered a prefix if exact is False.
             exact (bool): Indicates that the result must match exactly.  Conversly, if False, indicates a prefix match.
 
         Returns:
             Iterable[Tuple[int, Dict[str, Union[str, int]]]]: A generator of offset, dictionary tuples
         '''
+        if not exact and valu is not None and isinstance(valu, str) and len(valu) >= s_lmdb.LARGE_STRING_SIZE:
+            raise s_exc.BadOperArg(mesg='prefix search valu cannot exceed 128 characters')
         for offset, offset_enc, _, txn in self._iterrows(prop, valu, exact):
             norm = {}
             olen = len(offset_enc)
             with txn.cursor(db=self._normtbl) as curs:
                 if not curs.set_range(offset_enc):
                     raise s_exc.CorruptDatabase('Missing normalized record')
-                    return norm
                 while True:
                     curkey, norm_enc = curs.item()
                     if curkey[:olen] != offset_enc:
@@ -1238,5 +1241,7 @@ class CryoTankIndexer:
         Returns:
             Iterable[Tuple[int, bytes]]: A generator of offset, message pack encoded raw records
         '''
+        if not exact and valu is not None and isinstance(valu, str) and len(valu) >= s_lmdb.LARGE_STRING_SIZE:
+            raise BadOperArg(mesg='prefix search valu cannot exceed 128 characters')
         for offset, _, _, txn in self._iterrows(prop, valu, exact):
             yield next(self.cryotank.rows(offset, 1))

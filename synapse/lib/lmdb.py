@@ -483,7 +483,11 @@ def encodeValAsKey(v, isprefix=False):
     else:
         v_enc = v.encode('utf8', errors='surrogatepass')
         if len(v_enc) >= LARGE_STRING_SIZE:
-            return _STR_VAL_MARKER + v_enc[:LARGE_STRING_SIZE] + b'\x00' + xxhash.xxh64(v_enc).digest()
+            if isprefix:
+                return _STR_VAL_MARKER + v_enc[:LARGE_STRING_SIZE] + b'\x00'
+            else:
+                return _STR_VAL_MARKER + v_enc[:LARGE_STRING_SIZE] + b'\x00' + xxhash.xxh64(v_enc).digest()
+
         elif isprefix:
             return _STR_VAL_MARKER + v_enc
         else:
