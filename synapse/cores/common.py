@@ -2947,7 +2947,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                 self._bumpTufoCache(tufo, prop, pvalu, None)
 
         iden = tufo[0]
-
         with self.getCoreXact() as xact:
             self.delRowsById(iden)
             # delete any dark props/rows
