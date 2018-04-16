@@ -1226,12 +1226,12 @@ class CryoTankIndexer:
                     if curkey[:olen] != offset_enc:
                         break
                     iid = _iid_un(curkey[olen:])
+
                     # this is racy with the worker, but it is still safe
                     idx = self._meta.indices.get(iid)
-                    if idx is None:
-                        # Could be a deleted index
-                        continue
-                    norm[idx.propname] = s_msgpack.un(norm_enc)
+
+                    if idx is not None:
+                        norm[idx.propname] = s_msgpack.un(norm_enc)
                     if not curs.next():
                         break
             yield offset, norm
