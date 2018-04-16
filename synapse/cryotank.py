@@ -865,7 +865,7 @@ class CryoTankIndexer:
     Indices can be added and deleted asynchronously from the indexing thread via CryotankIndexer.addIndex and
     CryotankIndexer.delIndex.
 
-    Indexes can be queried with normValuByPropVal, normRecordsByPropVal, rawRecordsByPropVal.
+    Indexes can be queried with queryNormValu, queryNormRecords, queryRows.
 
     To harmonize with LMDB requirements, writing only occurs on a singular indexing thread.  Reading indices takes
     place in the caller's thread.  Both reading and writing index metadata (that is, information about which indices
@@ -1153,7 +1153,7 @@ class CryoTankIndexer:
 
         islarge = valu is not None and isinstance(valu, str) and len(valu) >= s_lmdb.LARGE_STRING_SIZE
         if islarge and not exact:
-            valu = valu[:s_lmdb.LARGE_STRING_SIZE]  # type: ignore
+            raise s_exc.BadOperArg(mesg='prefix search valu cannot exceed 128 characters')
 
         if islarge and exact:
             key = iidenc + s_lmdb.encodeValAsKey(valu)
@@ -1178,7 +1178,7 @@ class CryoTankIndexer:
                 if not curs.next():
                     return
 
-    def normValuByPropVal(self, prop, valu=None, exact=False):
+    def queryNormValu(self, prop, valu=None, exact=False):
         '''
         Query for normalized individual property values
 
@@ -1200,7 +1200,7 @@ class CryoTankIndexer:
                 raise s_exc.CorruptDatabase('Missing normalized record')
             yield offset, s_msgpack.un(rv)
 
-    def normRecordsByPropVal(self, prop, valu=None, exact=False):
+    def queryNormRecords(self, prop, valu=None, exact=False):
         '''
         Query for normalized property values grouped together in dicts
 
@@ -1236,7 +1236,7 @@ class CryoTankIndexer:
                         break
             yield offset, norm
 
-    def rawRecordsByPropVal(self, prop, valu=None, exact=False):
+    def queryRows(self, prop, valu=None, exact=False):
         '''
         Query for raw (i.e. from the cryotank itself) records
 
