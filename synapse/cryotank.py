@@ -643,9 +643,9 @@ class _IndexMeta:
 
     _present_ contains the encoding information about the current indices
     _deleting_ contains the indices currently being deleted (but aren't done)
-    _progress_ contains how far each index has gotten, how many sucessful props were indexed (which might be different
-    because of missing properties), and how many normalizations failed and is separate because it gets updated a lot
-    more
+    _progress_ contains how far each index has gotten, how many successful props were indexed (which might be different
+    because of missing properties), and how many normalizations failed.  It is separate because it gets updated a lot
+    more.
     '''
 
     def __init__(self, dbenv: lmdb.Environment) -> None:
@@ -865,9 +865,9 @@ class CryoTankIndexer:
 
     Indexes can be queried with normValuByPropVal, normRecordsByPropVal, rawRecordsByPropVal.
 
-    To harmonize with LMDB requirements, writing only occurs on the worker thread, while reading indices takes place in
-    the caller's thread.  Both reading and writing index metadata (that is, information about which indices are
-    running) take place on the worker's thread.
+    To harmonize with LMDB requirements, writing only occurs on a singular worker thread.  Reading indices takes
+    place in the caller's thread.  Both reading and writing index metadata (that is, information about which indices
+    are running) take place on the worker's thread.
 
     Note:
         The indexer cannot detect when a type has changed from underneath itself.   Operators must explicitly delete
@@ -948,7 +948,7 @@ class CryoTankIndexer:
 
     def _normalize_records(self, raw_records):
         '''
-        Yields stream of normalized fields
+        Yield stream of normalized fields
 
         Args:
             raw_records(Iterable[Tuple[int, Dict[int, str]]])  generator of tuples of offset/decoded raw cryotank
@@ -986,10 +986,10 @@ class CryoTankIndexer:
 
     def _writeIndices(self, rows):
         '''
-        Persists actual indexing to disk.
+        Persist actual indexing to disk.
 
         Args:
-            rows(Iterable[Tuple[int, int, Union[str, int]]]):  generators of tuples of offset, index ID,  normalized
+            rows(Iterable[Tuple[int, int, Union[str, int]]]):  generators of tuples of offset, index ID, normalized
             property value
 
         Returns:
@@ -997,24 +997,21 @@ class CryoTankIndexer:
         '''
         count = -1
         with self._dbenv.begin(db=self._idxtbl, buffers=True, write=True) as txn:
-            logger.debug('_dbenv.begin(a, buffers=True, write=True')
             for count, (offset, iid, normval) in enumerate(rows):
 
                 offset_enc = _Int64be.pack(offset)
                 iid_enc = _iid_en(iid)
                 valkey_enc = s_lmdb.encodeValAsKey(normval)
 
-                logger.debug('txn.put(%r, %r)', iid_enc + valkey_enc, offset_enc)
                 txn.put(iid_enc + valkey_enc, offset_enc)
                 txn.put(offset_enc + iid_enc, s_msgpack.en(normval), db=self._normtbl)
 
             self._meta.persist(progressonly=True, txn=txn)
-            logger.debug('txn end')
         return count + 1
 
     def _workerloop(self):
         '''
-        Does the indexing.  Run as separate thread.
+        Do the indexing.  Runs as separate thread.
         '''
         stillworktodo = True
 
@@ -1041,6 +1038,7 @@ class CryoTankIndexer:
                 except s_exc.TimeOut:
                     break
             if recalc:
+                # Recalculate the next offset to index, since we may have a new index
                 self._next_offset = self._meta.lowestProgress()
 
             record_tuples = self.cryotank.rows(self._next_offset, self._chunk_sz)
@@ -1058,7 +1056,7 @@ class CryoTankIndexer:
     @_inWorker
     def addIndex(self, prop, syntype, datapath, *args):
         '''
-        Adds an index to the cryotank.
+        Add an index to the cryotank.
 
         Args:
             prop (str):  the name of the property this will be stored as in the normalized record
@@ -1077,7 +1075,7 @@ class CryoTankIndexer:
     @_inWorker
     def delIndex(self, prop):
         '''
-        Deletes an index
+        Delete an index
 
         Args:
             prop (str): the (normalized) property name
@@ -1114,9 +1112,11 @@ class CryoTankIndexer:
     @_inWorker
     def getIndices(self):
         '''
+        Get information about all the indices
+
         Args:
             None
-        Returns
+        Returns:
             List[Dict[str: Any]]: all the indices with progress and statistics
         '''
         idxs = {iid: dict(metaentry.asdict()) for iid, metaentry in self._meta.indices.items()}
@@ -1139,7 +1139,7 @@ class CryoTankIndexer:
             offset, the encoded index ID, and the LMDB read transaction.
 
         Note:
-            ordering of Tuples disregard everything after the first 128 bytes of a property.
+            Ordering of Tuples disregard everything after the first 128 bytes of a property.
         '''
         iid = self._meta.iidFromProp(prop)
         if iid is None:
@@ -1188,7 +1188,7 @@ class CryoTankIndexer:
 
         '''
         if not exact and valu is not None and isinstance(valu, str) and len(valu) >= s_lmdb.LARGE_STRING_SIZE:
-            raise BadOperArg(mesg='prefix search valu cannot exceed 128 characters')
+            raise s_exc.BadOperArg(mesg='prefix search valu cannot exceed 128 characters')
         for (offset, offset_enc, iidenc, txn) in self._iterrows(prop, valu, exact):
             rv = txn.get(bytes(offset_enc) + iidenc, None, db=self._normtbl)
             if rv is None:
@@ -1242,6 +1242,6 @@ class CryoTankIndexer:
             Iterable[Tuple[int, bytes]]: A generator of offset, message pack encoded raw records
         '''
         if not exact and valu is not None and isinstance(valu, str) and len(valu) >= s_lmdb.LARGE_STRING_SIZE:
-            raise BadOperArg(mesg='prefix search valu cannot exceed 128 characters')
+            raise s_exc.BadOperArg(mesg='prefix search valu cannot exceed 128 characters')
         for offset, _, _, txn in self._iterrows(prop, valu, exact):
             yield next(self.cryotank.rows(offset, 1))
