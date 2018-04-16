@@ -526,7 +526,7 @@ class CryoClient:
 
     def rows(self, name, offs, size, timeout=None):
         '''
-        Retrive raw rows from a section of the named CryoTank.
+        Retrieve raw rows from a section of the named CryoTank.
 
         Args:
             name (str): The name of the remote CryoTank.
@@ -723,6 +723,8 @@ class _IndexMeta:
 
     def iidFromProp(self, prop):
         '''
+        Retrieve the random index ID from the property name
+
         Args:
             prop (str) The name of the indexed property
         Returns:
@@ -732,7 +734,7 @@ class _IndexMeta:
 
     def addIndex(self, prop, syntype, datapath, *args):
         '''
-        Adds an index to the cryotank.
+        Add an index to the cryotank
 
         Args:
             prop (str):  the name of the property this will be stored as in the normalized record
@@ -757,7 +759,7 @@ class _IndexMeta:
 
     def delIndex(self, prop):
         '''
-        Deletes an index
+        Delete an index
 
         Args:
             prop (str): the (normalized) property name
@@ -776,7 +778,7 @@ class _IndexMeta:
 
     def pauseIndex(self, prop):
         '''
-        Temporarily stop indexing one or all indices.
+        Temporarily stop indexing one or all indices
 
         Args:
             prop: (Optional[str]):  the index to stop indexing, or if None, indicate to stop all indices
@@ -791,7 +793,7 @@ class _IndexMeta:
 
     def resumeIndex(self, prop):
         '''
-        Undo a pauseIndex.
+        Undo a pauseIndex
 
         Args:
             prop (Optional[str]):  the index to start indexing, or if None, indicate to resume all indices
@@ -804,7 +806,7 @@ class _IndexMeta:
 
     def markDeleteComplete(self, iid):
         '''
-        Indicates that deletion of a single index is complete.
+        Indicates that deletion of a single index is complete
 
         Args:
             iid (int):  The index ID to mark as deleted
@@ -817,19 +819,19 @@ _Int64le = struct.Struct('<Q')
 
 def _iid_en(iid):
     '''
-    Encodes a little endian 64-bit integer
+    Encode a little endian 64-bit integer
     '''
     return _Int64le.pack(iid)
 
 def _iid_un(iid):
     '''
-    Decodes a little endian 64-bit integer
+    Decode a little endian 64-bit integer
     '''
     return _Int64le.unpack(iid)[0]
 
 def _inWorker(callback):
     '''
-    Gives the decorated function to the worker to run in his thread.
+    Queue the the decorated function to the indexing worker to run in his thread
 
     Args:
         callback: the function to wrap
@@ -865,9 +867,9 @@ class CryoTankIndexer:
 
     Indexes can be queried with normValuByPropVal, normRecordsByPropVal, rawRecordsByPropVal.
 
-    To harmonize with LMDB requirements, writing only occurs on a singular worker thread.  Reading indices takes
+    To harmonize with LMDB requirements, writing only occurs on a singular indexing thread.  Reading indices takes
     place in the caller's thread.  Both reading and writing index metadata (that is, information about which indices
-    are running) take place on the worker's thread.
+    are running) take place on the indexer's thread.
 
     Note:
         The indexer cannot detect when a type has changed from underneath itself.   Operators must explicitly delete
@@ -877,7 +879,7 @@ class CryoTankIndexer:
 
     def __init__(self, cryotank):
         '''
-        Create an indexer.
+        Create an indexer
 
         Args:
             cryotank: the cryotank to index
@@ -915,7 +917,7 @@ class CryoTankIndexer:
 
     def _onData(self, unused):
         '''
-        Wake up the worker if he already doesn't have a reason to be awake
+        Wake up the index worker if he already doesn't have a reason to be awake
         '''
         if 0 == len(self._workq):
             self._workq.put((None, lambda: None, None, None))
@@ -986,7 +988,7 @@ class CryoTankIndexer:
 
     def _writeIndices(self, rows):
         '''
-        Persist actual indexing to disk.
+        Persist actual indexing to disk
 
         Args:
             rows(Iterable[Tuple[int, int, Union[str, int]]]):  generators of tuples of offset, index ID, normalized
@@ -1011,7 +1013,9 @@ class CryoTankIndexer:
 
     def _workerloop(self):
         '''
-        Do the indexing.  Runs as separate thread.
+        Actually do the indexing
+
+        Runs as separate thread.
         '''
         stillworktodo = True
 
@@ -1056,7 +1060,7 @@ class CryoTankIndexer:
     @_inWorker
     def addIndex(self, prop, syntype, datapath, *args):
         '''
-        Add an index to the cryotank.
+        Add an index to the cryotank
 
         Args:
             prop (str):  the name of the property this will be stored as in the normalized record
@@ -1101,7 +1105,8 @@ class CryoTankIndexer:
     @_inWorker
     def resumeIndex(self, prop=None):
         '''
-        Undo a pauseIndex.
+        Undo a pauseIndex
+
         Args:
             prop: (Optional[str]):  the index to start indexing, or if None, indicate to resume all indices
         Returns:
@@ -1175,13 +1180,13 @@ class CryoTankIndexer:
 
     def normValuByPropVal(self, prop, valu=None, exact=False):
         '''
-        Query for normalized individual property values.
+        Query for normalized individual property values
 
         Args:
             prop (str):  The name of the indexed property
             valu (Optional[Union[int, str]]):  The normalized value.  If not present, all records with prop present,
             sorted by prop will be returned.  It will be considered a prefix if exact is False.
-            exact (bool): Indicates that the result must match exactly.  Conversly, if False, indicates a prefix match.
+            exact (bool): Indicates that the result must match exactly.  Conversely, if False, indicates a prefix match.
 
         Returns:
             Iterable[Tuple[int, Union[str, int]]]:  A generator of offset, normalized value tuples.
@@ -1197,13 +1202,13 @@ class CryoTankIndexer:
 
     def normRecordsByPropVal(self, prop, valu=None, exact=False):
         '''
-        Query for normalized property values grouped together in dicts.
+        Query for normalized property values grouped together in dicts
 
         Args:
             prop (str):  The name of the indexed property
             valu (Optional[Union[int, str]]):  The normalized value.  If not present, all records with prop present,
             sorted by prop will be returned.  It will be considered a prefix if exact is False.
-            exact (bool): Indicates that the result must match exactly.  Conversly, if False, indicates a prefix match.
+            exact (bool): Indicates that the result must match exactly.  Conversely, if False, indicates a prefix match.
 
         Returns:
             Iterable[Tuple[int, Dict[str, Union[str, int]]]]: A generator of offset, dictionary tuples
@@ -1236,10 +1241,13 @@ class CryoTankIndexer:
         Query for raw (i.e. from the cryotank itself) records
 
         Args:
-            See _iterrows
+            prop (str):  The name of the indexed property
+            valu (Optional[Union[int, str]]):  The normalized value.  If not present, all records with prop present,
+            sorted by prop will be returned.  It will be considered a prefix if exact is False.
+            exact (bool): Indicates that the result must match exactly.  Conversely, if False, indicates a prefix match.
 
         Returns:
-            Iterable[Tuple[int, bytes]]: A generator of offset, message pack encoded raw records
+            Iterable[Tuple[int, bytes]]: A generator of tuple (offset, messagepack encoded) raw records
         '''
         if not exact and valu is not None and isinstance(valu, str) and len(valu) >= s_lmdb.LARGE_STRING_SIZE:
             raise s_exc.BadOperArg(mesg='prefix search valu cannot exceed 128 characters')
