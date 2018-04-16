@@ -5,8 +5,8 @@ import struct
 import logging
 import threading
 import contextlib
-from functools import partial, partialmethod, wraps
-from inspect import signature, isgeneratorfunction
+from functools import partial, wraps, update_wrapper
+from inspect import signature, isgeneratorfunction, Parameter
 from collections import defaultdict
 
 import lmdb  # type: ignore
@@ -232,7 +232,8 @@ _indexerCalls = {
     'cryo:indx:resume': 'resumeIndex',
     'cryo:indx:stat': 'getIndices',
     'cryo:indx:normvalubypropval': 'normValuByPropVal',
-    'cryo:indx:normrecordsbypropval': 'normRecordsByPropVal'
+    'cryo:indx:normrecordsbypropval': 'normRecordsByPropVal',
+    'cryo:indx:rawrecordsbypropval': 'rawRecordsByPropVal'
 }
 
 class CryoCell(s_cell.Cell):
@@ -343,33 +344,6 @@ class CryoCell(s_cell.Cell):
         shutil.rmtree(tank.path, ignore_errors=True)
         return chan.txfini(True)
 
-    # FIXME: move to bottom
-    @s_glob.inpool
-    def _onCryoIndex(self, subfunc, chan, mesg):
-        name = mesg[1].pop('name')
-        tank = self.tanks.get(name)
-
-        with chan:
-            if tank is None:
-                return chan.tx((False, ('NoSuchName', {'name': name})))
-            indexer = tank.indexer
-            if indexer is None:
-                return chan.tx((False, ('IndexingDisabled', {'name': name})))
-            try:
-                rv = subfunc(indexer, **mesg[1])
-            except Exception as e:
-                retn = s_common.getexcfo(e)
-                return chan.tx((False, retn))
-
-            if isinstance(rv, types.GeneratorType):
-                chan.setq()
-                chan.tx((True, True))
-                genr = s_common.chunks(rv, 1000)
-                chan.txwind(genr, 100, timeout=30)
-                return
-
-            return chan.tx((True, rv))
-
     @s_glob.inpool
     def _onCryoSlice(self, chan, mesg):
 
@@ -469,6 +443,32 @@ class CryoCell(s_cell.Cell):
             except Exception as e:
                 retn = s_common.getexcfo(e)
                 return chan.tx((False, retn))
+
+    @s_glob.inpool
+    def _onCryoIndex(self, subfunc, chan, mesg):
+        name = mesg[1].pop('name')
+        tank = self.tanks.get(name)
+
+        with chan:
+            if tank is None:
+                return chan.tx((False, ('NoSuchName', {'name': name})))
+            indexer = tank.indexer
+            if indexer is None:
+                return chan.tx((False, ('IndexingDisabled', {'name': name})))
+            try:
+                rv = subfunc(indexer, **mesg[1])
+            except Exception as e:
+                retn = s_common.getexcfo(e)
+                return chan.tx((False, retn))
+
+            if isinstance(rv, types.GeneratorType):
+                chan.setq()
+                chan.tx((True, True))
+                genr = s_common.chunks(rv, 1000)
+                chan.txwind(genr, 100, timeout=30)
+                return
+
+            return chan.tx((True, rv))
 
 class CryoClient:
     '''
@@ -635,6 +635,9 @@ class CryoClient:
 
     @staticmethod
     def _combineparms(name, *args, template_func, **kwargs):
+        '''
+        Fuses args and kwargs into single map given a function object
+        '''
         parms = {}
         sigparms = list(signature(template_func).parameters.values())[1:]  # skip the 'self' argument
         if len(args) > len(sigparms):
@@ -658,7 +661,7 @@ class CryoClient:
 
     def _indexercallgen(self, name, *args, cmd_str, template_func, timeout=None, **kwargs):
         '''
-        Handles all generator client indexer calls
+        Handles all generator function client indexer calls
         '''
         parms = CryoClient._combineparms(name, *args, template_func=template_func, **kwargs)
         with self.sess.task((cmd_str, parms), timeout=timeout) as chan:
@@ -1327,9 +1330,34 @@ class CryoTankIndexer:
         for offset, _, _, txn in self._iterrows(prop, valu, exact):
             yield next(self.cryotank.rows(offset, 1))
 
+def _partialmethod(func, *args1, **kwargs1):
+    '''
+    Similar to functools.partialmethod, but returns a function so we can add __doc__ to it.
+    '''
+    def method(self, *args2, **kwargs2):
+        kwargs = kwargs1.copy()
+        kwargs.update(kwargs2)
+        return func(self, *(args1 + args2), **kwargs)
+    return method
+
 # Add the indexer calls to CryoClient now that CryoTankIndexer is defined
 for k, v in _indexerCalls.items():
     indexer_method = getattr(CryoTankIndexer, v)
     handler = CryoClient._indexercallgen if isgeneratorfunction(indexer_method) else CryoClient._indexercall
-    method = partialmethod(handler, cmd_str=k, template_func=indexer_method)
+    method = _partialmethod(handler, cmd_str=k, template_func=indexer_method)
+
+    # All this is just to update the function meta-information for doc purposes
+    update_wrapper(method, indexer_method)
+    new_docs = '''
+            name (str): Name of the CryoTank.
+            timeout (float/int): The maximum timeout for an ack.  '''
+    docs = method.__doc__.partition('Args:')
+    method.__doc__ = docs[0] + docs[1] + new_docs + docs[2]
+    old_sig = signature(method)
+    old_parms = list(old_sig.parameters.values())
+    name_parm = Parameter('name', Parameter.POSITIONAL_OR_KEYWORD)
+    timeout_parm = Parameter('timeout', Parameter.KEYWORD_ONLY, default=None)
+    new_sig = old_sig.replace(parameters=[old_parms[0], ] + [name_parm, ] + old_parms[1:] + [timeout_parm, ])
+    method.__signature__ = new_sig
+
     setattr(CryoClient, v, method)

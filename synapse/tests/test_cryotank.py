@@ -223,6 +223,8 @@ class CryoTest(SynTest):
                 self.eq([(1, 'baz')], list(user.normValuByPropVal('woot:woot', 'prop1', valu='b')))
                 self.eq([], list(user.normValuByPropVal('woot:woot', 'prop1', valu='bz', timeout=10)))
                 self.eq([(1, {'prop1': 'baz'})], (list(user.normRecordsByPropVal('woot:woot', 'prop1', valu='b'))))
+                self.eq([(1, s_msgpack.en(('baz', {'faz': 20})))],
+                        list(user.rawRecordsByPropVal('woot:woot', 'prop1', valu='b')))
 
     def test_cryo_cell_daemon(self):
 
