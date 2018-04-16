@@ -231,9 +231,9 @@ _indexerCalls = {
     'cryo:indx:pause': 'pauseIndex',
     'cryo:indx:resume': 'resumeIndex',
     'cryo:indx:stat': 'getIndices',
-    'cryo:indx:normvalubypropval': 'normValuByPropVal',
-    'cryo:indx:normrecordsbypropval': 'normRecordsByPropVal',
-    'cryo:indx:rawrecordsbypropval': 'rawRecordsByPropVal'
+    'cryo:indx:normvalubypropval': 'queryNormValu',
+    'cryo:indx:normrecordsbypropval': 'queryNormRecords',
+    'cryo:indx:rawrecordsbypropval': 'queryRows'
 }
 
 class CryoCell(s_cell.Cell):
@@ -943,7 +943,7 @@ class CryoTankIndexer:
     Indices can be added and deleted asynchronously from the indexing thread via CryotankIndexer.addIndex and
     CryotankIndexer.delIndex.
 
-    Indexes can be queried with normValuByPropVal, normRecordsByPropVal, rawRecordsByPropVal.
+    Indexes can be queried with queryNormValu, queryNormRecords, queryRows.
 
     To harmonize with LMDB requirements, writing only occurs on a singular indexing thread.  Reading indices takes
     place in the caller's thread.  Both reading and writing index metadata (that is, information about which indices
@@ -1256,7 +1256,7 @@ class CryoTankIndexer:
                 if not curs.next():
                     return
 
-    def normValuByPropVal(self, prop, valu=None, exact=False):
+    def queryNormValu(self, prop, valu=None, exact=False):
         '''
         Query for normalized individual property values
 
@@ -1278,7 +1278,7 @@ class CryoTankIndexer:
                 raise s_exc.CorruptDatabase('Missing normalized record')
             yield offset, s_msgpack.un(rv)
 
-    def normRecordsByPropVal(self, prop, valu=None, exact=False):
+    def queryNormRecords(self, prop, valu=None, exact=False):
         '''
         Query for normalized property values grouped together in dicts
 
@@ -1312,7 +1312,7 @@ class CryoTankIndexer:
                         break
             yield offset, norm
 
-    def rawRecordsByPropVal(self, prop, valu=None, exact=False):
+    def queryRows(self, prop, valu=None, exact=False):
         '''
         Query for raw (i.e. from the cryotank itself) records
 

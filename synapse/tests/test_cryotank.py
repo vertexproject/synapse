@@ -219,12 +219,12 @@ class CryoTest(SynTest):
                 user.pauseIndex('woot:woot', 'prop1')
                 user.pauseIndex('woot:woot')
                 user.resumeIndex('woot:woot')
-                self.eq([(1, 'baz'), (0, 'foo')], list(user.normValuByPropVal('woot:woot', 'prop1')))
-                self.eq([(1, 'baz')], list(user.normValuByPropVal('woot:woot', 'prop1', valu='b')))
-                self.eq([], list(user.normValuByPropVal('woot:woot', 'prop1', valu='bz', timeout=10)))
-                self.eq([(1, {'prop1': 'baz'})], (list(user.normRecordsByPropVal('woot:woot', 'prop1', valu='b'))))
+                self.eq([(1, 'baz'), (0, 'foo')], list(user.queryNormValu('woot:woot', 'prop1')))
+                self.eq([(1, 'baz')], list(user.queryNormValu('woot:woot', 'prop1', valu='b')))
+                self.eq([], list(user.queryNormValu('woot:woot', 'prop1', valu='bz', timeout=10)))
+                self.eq([(1, {'prop1': 'baz'})], (list(user.queryNormRecords('woot:woot', 'prop1', valu='b'))))
                 self.eq([(1, s_msgpack.en(('baz', {'faz': 20})))],
-                        list(user.rawRecordsByPropVal('woot:woot', 'prop1', valu='b')))
+                        list(user.queryRows('woot:woot', 'prop1', valu='b')))
 
     def test_cryo_cell_daemon(self):
 
@@ -301,7 +301,7 @@ class CryoIndexTest(SynTest):
             self.raises(NoSuchIndx, idxr.delIndex, 'first')
             self.eq([], idxr.getIndices())
 
-            self.genraises(NoSuchIndx, idxr.normValuByPropVal, 'notanindex')
+            self.genraises(NoSuchIndx, idxr.queryNormValu, 'notanindex')
 
             # Check simple 1 record, 1 index index and retrieval
             waiter = self.initWaiter(tank)
@@ -311,7 +311,7 @@ class CryoIndexTest(SynTest):
             idxs = idxr.getIndices()
             self.eq(1, idxs[0]['nextoffset'])
             self.eq(1, idxs[0]['ngood'])
-            retn = list(idxr.normRecordsByPropVal('first'))
+            retn = list(idxr.queryNormRecords('first'))
             self.eq(1, len(retn))
             t = retn[0]
             self.eq(2, len(t))
@@ -328,7 +328,7 @@ class CryoIndexTest(SynTest):
             self.eq(2, idxs[0]['ngood'])
 
             # exact query
-            retn = list(idxr.rawRecordsByPropVal('first', valu=2345, exact=True))
+            retn = list(idxr.queryRows('first', valu=2345, exact=True))
             self.eq(1, len(retn))
             t = retn[0]
             self.eq(2, len(t))
@@ -344,23 +344,23 @@ class CryoIndexTest(SynTest):
             self.wait(waiter)
 
             # prefix search
-            retn = list(idxr.normValuByPropVal('second', valu='strin'))
+            retn = list(idxr.queryNormValu('second', valu='strin'))
             self.eq(retn, [(0, 'stringval'), (1, 'strinstrin')])
 
             # long value, exact
             waiter = self.initWaiter(tank)
             tank.puts([data3])
             self.wait(waiter)
-            retn = list(idxr.rawRecordsByPropVal('second', valu='strinstrin' * 20, exact=True))
+            retn = list(idxr.queryRows('second', valu='strinstrin' * 20, exact=True))
             self.eq(1, len(retn))
             self.eq(s_msgpack.un(retn[0][1]), data3)
 
             # long value with prefix
-            retn = list(idxr.rawRecordsByPropVal('second', valu='str'))
+            retn = list(idxr.queryRows('second', valu='str'))
             self.eq(3, len(retn))
 
             # long value with long prefix
-            self.genraises(s_exc.BadOperArg, idxr.normRecordsByPropVal, 'second', valu='strinstrin' * 15)
+            self.genraises(s_exc.BadOperArg, idxr.queryNormRecords, 'second', valu='strinstrin' * 15)
 
             # Bad data
             waiter = self.initWaiter(tank)
@@ -389,7 +389,7 @@ class CryoIndexTest(SynTest):
             waiter = self.initWaiter(tank)
             tank.puts([data4])
             self.wait(waiter)
-            retn = list(idxr.normValuByPropVal('first'))
+            retn = list(idxr.queryNormValu('first'))
             self.eq(retn, [(0, 1234), (1, 2345), (4, 9999), (2, 388383)])
 
             idxr.pauseIndex('first')
