@@ -5,7 +5,8 @@ import struct
 import logging
 import threading
 import contextlib
-from functools import partial
+from functools import partial, partialmethod, update_wrapper, wraps
+from inspect import signature
 from collections import defaultdict
 
 import lmdb  # type: ignore
@@ -224,6 +225,16 @@ class CryoTank(s_config.Config):
         '''
         return {'indx': self.items_indx, 'metrics': self.metrics_indx, 'stat': self.lmdb.stat()}
 
+_indexerCalls = {
+    'cryo:indx:add': 'addIndex',
+    'cryo:indx:del': 'delIndex',
+    'cryo:indx:pause': 'pauseIndex',
+    'cryo:indx:resume': 'resumeIndex',
+    'cryo:indx:stat': 'getIndices',
+    'cryo:indx:normvalubypropval': 'normValuByPropVal',
+    'cryo:indx:normrecordsbypropval': 'normRecordsByPropVal'
+}
+
 class CryoCell(s_cell.Cell):
 
     def postCell(self):
@@ -251,7 +262,7 @@ class CryoCell(s_cell.Cell):
         '''
         CryoCell message handlers.
         '''
-        return {
+        cryo_handlers = {
             'cryo:init': self._onCryoInit,
             'cryo:list': self._onCryoList,
             'cryo:last': self._onCryoLast,
@@ -260,14 +271,10 @@ class CryoCell(s_cell.Cell):
             'cryo:rows': self._onCryoRows,
             'cryo:slice': self._onCryoSlice,
             'cryo:metrics': self._onCryoMetrics,
-            'cryo:indx:add': partial(self._onCryoIndex, CryoTankIndexer.addIndex),
-            'cryo:indx:del': partial(self._onCryoIndex, CryoTankIndexer.delIndex),
-            'cryo:indx:pause': partial(self._onCryoIndex, CryoTankIndexer.pauseIndex),
-            'cryo:indx:resume': partial(self._onCryoIndex, CryoTankIndexer.resumeIndex),
-            'cryo:indx:stat': partial(self._onCryoIndex, CryoTankIndexer.getIndices),
-            'cryo:indx:normvalubypropval': partial(self._onCryoIndex, CryoTankIndexer.normValuByPropVal),
-            'cryo:indx:normrecordsbypropval': partial(self._onCryoIndex, CryoTankIndexer.normRecordsByPropVal)
         }
+        cryo_handlers.update({k: partial(self._onCryoIndex, getattr(CryoTankIndexer, v))
+                              for k, v in _indexerCalls.items()})
+        return cryo_handlers
 
     def genCryoTank(self, name, conf=None):
         '''
@@ -357,7 +364,7 @@ class CryoCell(s_cell.Cell):
                 chan.txwind(genr, 100, timeout=30)
                 return
             if isinstance(rv, Exception):
-                return chan.tx(rv)
+                return chan.tx(convert(rx))
 
             chan.tx(rv)
 
@@ -624,13 +631,17 @@ class CryoClient:
         ok, retn = self.sess.call(mesg, timeout=timeout)
         return s_common.reqok(ok, retn)
 
+    def _indexercall(self, name, cmd_str, signature, timeout=None, *args, **kwargs):
+        parms = {x.name: kwargs[x.name] for x in signature.parameters.values() if x.name is not 'self'}
+        parms['name'] = name
+        return self.sess.call((cmd_str, parms), timeout=timeout)
 
 # ----
 # TODO: could index faster maybe if ingest/normalize is separate thread from writing
-# TODO:  what to do with subprops returned from getTypeNorm
+# TODO: what to do with subprops returned from getTypeNorm
 
 class _MetaEntry:
-    ''' Describes a single index in the system. '''
+    ''' Describes a single CryoTank index in the system. '''
     def __init__(self, propname: str, syntype: str, datapaths) -> None:
         '''
         Makes a MetaEntry
@@ -659,13 +670,12 @@ class _MetaEntry:
                 'syntype': self.syntype,
                 'datapaths': tuple(d.path for d in self.datapaths)}
 
-
 # Big-endian 64-bit integer encoder
 _Int64be = struct.Struct('>Q')
 
 class _IndexMeta:
     '''
-    Manages persistence of index metadata with an in-memory copy
+    Manages persistence of CryoTank index metadata with an in-memory copy
 
     "Schema":
     b'indices' key has msgpack encoded dict of
@@ -692,7 +702,6 @@ class _IndexMeta:
         Returns:
             None
         '''
-
         self._dbenv = dbenv
 
         # The table in the database file (N.B. in LMDB speak, this is called a database)
@@ -874,6 +883,7 @@ def _inWorker(callback):
 
     (Just like inpool for the worker)
     '''
+    @wraps(callback)
     def wrap(self, *args, **kwargs):
         with s_threads.RetnWait() as retn:
             self._workq.put((retn, callback, (self, ) + args, kwargs))
@@ -1287,3 +1297,9 @@ class CryoTankIndexer:
             raise s_exc.BadOperArg(mesg='prefix search valu cannot exceed 128 characters')
         for offset, _, _, txn in self._iterrows(prop, valu, exact):
             yield next(self.cryotank.rows(offset, 1))
+
+# Add the indexer calls to CryoClient now that CryoTankIndexer is defined
+for k, v in _indexerCalls.items():
+    indexer_method = getattr(CryoTankIndexer, v)
+    method = partialmethod(CryoClient._indexercall, cmd_str=k, signature=signature(indexer_method))
+    setattr(CryoClient, v, method)
