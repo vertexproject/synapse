@@ -195,6 +195,35 @@ class CryoTest(SynTest):
                     self.len(2, metr)
                     self.nn(user.last('woot:hehe'))
 
+    def test_cryo_cell_indexing(self):
+
+        conf = {'bind': '127.0.0.1', 'host': 'localhost'}
+        with self.getTestDir() as dirn, s_cryotank.CryoCell(dirn, conf) as cell:
+
+            addr = cell.getCellAddr()
+            cuser = s_cell.CellUser(cell.genUserAuth('foo'))
+            with cuser.open(addr, timeout=2) as sess:
+                user = s_cryotank.CryoClient(sess)
+
+                # Setting the _chunksize to 1 forces iteration on the client
+                # side of puts, as well as the server-side.
+                user._chunksize = 1
+                user.puts('woot:woot', cryodata, timeout=2)
+
+                # Test index operations
+                self.raises(s_exc.RetnErr, user.getIndices, 'notpresent')
+                self.eq((), user.getIndices('woot:woot'))
+                user.addIndex('woot:woot', 'prop1', 'str', '0')
+                user.delIndex('woot:woot', 'prop1')
+                user.addIndex('woot:woot', 'prop1', 'str', '0')
+                user.pauseIndex('woot:woot', 'prop1')
+                user.pauseIndex('woot:woot')
+                user.resumeIndex('woot:woot')
+                self.eq([(1, 'baz'), (0, 'foo')], list(user.normValuByPropVal('woot:woot', 'prop1')))
+                self.eq([(1, 'baz')], list(user.normValuByPropVal('woot:woot', 'prop1', valu='b')))
+                self.eq([], list(user.normValuByPropVal('woot:woot', 'prop1', valu='bz', timeout=10)))
+                self.eq([(1, {'prop1': 'baz'})], (list(user.normRecordsByPropVal('woot:woot', 'prop1', valu='b'))))
+
     def test_cryo_cell_daemon(self):
 
         with self.getTestDir() as dirn:

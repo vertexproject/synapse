@@ -5,8 +5,8 @@ import struct
 import logging
 import threading
 import contextlib
-from functools import partial, partialmethod, update_wrapper, wraps
-from inspect import signature
+from functools import partial, partialmethod, wraps
+from inspect import signature, isgeneratorfunction
 from collections import defaultdict
 
 import lmdb  # type: ignore
@@ -351,22 +351,24 @@ class CryoCell(s_cell.Cell):
 
         with chan:
             if tank is None:
-                return chan.txfini(None)
+                return chan.tx((False, ('NoSuchName', {'name': name})))
             indexer = tank.indexer
             if indexer is None:
                 return chan.tx((False, ('IndexingDisabled', {'name': name})))
-            rv = subfunc(indexer, **mesg[1])
-            if rv is None:
-                chan.txfini(True)
-                return
+            try:
+                rv = subfunc(indexer, **mesg[1])
+            except Exception as e:
+                retn = s_common.getexcfo(e)
+                return chan.tx((False, retn))
+
             if isinstance(rv, types.GeneratorType):
+                chan.setq()
+                chan.tx((True, True))
                 genr = s_common.chunks(rv, 1000)
                 chan.txwind(genr, 100, timeout=30)
                 return
-            if isinstance(rv, Exception):
-                return chan.tx(convert(rx))
 
-            chan.tx(rv)
+            return chan.tx((True, rv))
 
     @s_glob.inpool
     def _onCryoSlice(self, chan, mesg):
@@ -631,13 +633,42 @@ class CryoClient:
         ok, retn = self.sess.call(mesg, timeout=timeout)
         return s_common.reqok(ok, retn)
 
-    def _indexercall(self, name, cmd_str, signature, timeout=None, *args, **kwargs):
-        parms = {x.name: kwargs[x.name] for x in signature.parameters.values() if x.name is not 'self'}
-        parms['name'] = name
-        return self.sess.call((cmd_str, parms), timeout=timeout)
+    @staticmethod
+    def _combineparms(name, *args, template_func, **kwargs):
+        parms = {}
+        sigparms = list(signature(template_func).parameters.values())[1:]  # skip the 'self' argument
+        if len(args) > len(sigparms):
+            raise TypeError('function takes %d positional arguments but %d were given' %
+                            (len(sigparms), len(args)))
+        for i, arg in enumerate(args):
+            parms[sigparms[i].name] = arg
 
-# ----
-# TODO: could index faster maybe if ingest/normalize is separate thread from writing
+        parms.update(kwargs)
+
+        parms['name'] = name
+        return parms
+
+    def _indexercall(self, name, *args, cmd_str, template_func, timeout=None, **kwargs):
+        '''
+        Handles all non-generator client indexer calls
+        '''
+        parms = CryoClient._combineparms(name, *args, template_func=template_func, **kwargs)
+        ok, retn = self.sess.call((cmd_str, parms), timeout=timeout)
+        return s_common.reqok(ok, retn)
+
+    def _indexercallgen(self, name, *args, cmd_str, template_func, timeout=None, **kwargs):
+        '''
+        Handles all generator client indexer calls
+        '''
+        parms = CryoClient._combineparms(name, *args, template_func=template_func, **kwargs)
+        with self.sess.task((cmd_str, parms), timeout=timeout) as chan:
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
+
+            for bloc in chan.rxwind(timeout=timeout):
+                for item in bloc:
+                    yield item
+
 # TODO: what to do with subprops returned from getTypeNorm
 
 class _MetaEntry:
@@ -1024,7 +1055,7 @@ class CryoTankIndexer:
                         continue
                     normval, _ = s_datamodel.getTypeNorm(idx.syntype, field)
                 except (s_exc.NoSuchType, s_exc.BadTypeValu):
-                    # logger.debug('Norm fail', exc_info=True)
+                    logger.debug('Norm fail', exc_info=True)
                     self._meta.progresses[iid]['nnormfail'] += 1
                     continue
                 self._meta.progresses[iid]['ngood'] += 1
@@ -1272,10 +1303,8 @@ class CryoTankIndexer:
                     iid = _iid_un(curkey[olen:])
                     # this is racy with the worker, but it is still safe
                     idx = self._meta.indices.get(iid)
-                    if idx is None:
-                        # Could be a deleted index
-                        continue
-                    norm[idx.propname] = s_msgpack.un(norm_enc)
+                    if idx is not None:
+                        norm[idx.propname] = s_msgpack.un(norm_enc)
                     if not curs.next():
                         break
             yield offset, norm
@@ -1301,5 +1330,6 @@ class CryoTankIndexer:
 # Add the indexer calls to CryoClient now that CryoTankIndexer is defined
 for k, v in _indexerCalls.items():
     indexer_method = getattr(CryoTankIndexer, v)
-    method = partialmethod(CryoClient._indexercall, cmd_str=k, signature=signature(indexer_method))
+    handler = CryoClient._indexercallgen if isgeneratorfunction(indexer_method) else CryoClient._indexercall
+    method = partialmethod(handler, cmd_str=k, template_func=indexer_method)
     setattr(CryoClient, v, method)
