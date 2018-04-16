@@ -1231,7 +1231,7 @@ class CryoTankIndexer:
 
         islarge = valu is not None and isinstance(valu, str) and len(valu) >= s_lmdb.LARGE_STRING_SIZE
         if islarge and not exact:
-            valu = valu[:s_lmdb.LARGE_STRING_SIZE]  # type: ignore
+            raise s_exc.BadOperArg(mesg='prefix search valu cannot exceed 128 characters')
 
         if islarge and exact:
             key = iidenc + s_lmdb.encodeValAsKey(valu)
@@ -1304,8 +1304,10 @@ class CryoTankIndexer:
                     if curkey[:olen] != offset_enc:
                         break
                     iid = _iid_un(curkey[olen:])
+
                     # this is racy with the worker, but it is still safe
                     idx = self._meta.indices.get(iid)
+
                     if idx is not None:
                         norm[idx.propname] = s_msgpack.un(norm_enc)
                     if not curs.next():
