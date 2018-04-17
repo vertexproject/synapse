@@ -1534,6 +1534,22 @@ class StormTest(SynTest):
             mesgs = results.get('mesgs')
             self.sorteq(mesgs, ['Log test messages', 'Query has [1] nodes'])
 
+    def test_storm_getopers(self):
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
+            nodes = core.eval('get:opers()')
+            opers = set()
+            for node in nodes:
+                _, pprop = s_tufo.ndef(node)
+                opers.add(pprop)
+            # Built in opers
+            self.isin('pivot', opers)
+            self.isin('lift', opers)
+            props = s_tufo.props(node)
+            # Nodes have a func which describes what object implements them
+            self.isinstance(props.get('func'), str)
+            # Nodes are ephemeral
+            self.none(node[0])
+
 class LimitTest(SynTest):
     def test_limit_default(self):
         # LimitHelper would normally be used with the kwlist arg limit,
