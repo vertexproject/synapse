@@ -371,7 +371,7 @@ class Configable:
 
 class Config(Configable, EventBus):
     '''
-    A EventBus classs which has the Configable mixin already added.
+    A EventBus class which has the Configable mixin already added.
     '''
     def __init__(self, opts=None, defs=()):
         EventBus.__init__(self)

@@ -1,13 +1,21 @@
 import struct
 import itertools
 
-import lmdb  # used for type resolution
+import xxhash  # type: ignore
 
 import synapse.lib.msgpack as s_msgpack
 
 STOR_FLAG_NOINDEX = 0x0001      # there is no byprop index for this prop
 STOR_FLAG_MULTIVAL = 0x0002     # this is a multi-value prop
 STOR_FLAG_DEFVAL = 0x0004       # Only set this if it doesn't exist
+
+# String vals of this size or larger will be truncated and hashed in index.  What this means is
+# that comparison on large string vals require retrieving the row from the main table
+LARGE_STRING_SIZE = 128
+
+# Smallest and largest values for an integer value.  Matches sqlite3
+MAX_INT_VAL = 2 ** 63 - 1
+MIN_INT_VAL = -1 * (2 ** 63)
 
 class Seqn:
     '''
@@ -441,3 +449,46 @@ class PropStor:
 
             for buid in burs.iternext_dup():
                 yield buid, penc, pval
+
+
+# Prefix to indicate that a v is an integer
+_INT_VAL_MARKER = 0
+
+# Prefix to indicate than a v is a string
+_STR_VAL_MARKER = b'\x01'
+
+# Precompiled struct of a byte then a big-endian 64-bit int
+_LeMarkerUintST = struct.Struct('>BQ')
+
+def encodeValAsKey(v, isprefix=False):
+    '''
+    Encode a value (int or str) as used in a key into bytes so that prefix searches on strings and range searches
+    on ints work.  The first encoded byte indicates
+
+    Integers are 8-byte little endian - MIN_INT_VAL (this ensures that all negative values sort before all nonnegative
+    values)
+
+    Strings are UTF-8 encoded NULL-terminated unless isprefix is True.  If string length > LARGE_STRING_SIZE, just the
+    first 128 bytes are written and a non-cryptographically hash is appended, and isprefix is disregarded.
+
+    Note that this scheme prevents interleaving of value types: all string encodings compare larger than all integer
+    encodings.
+
+    Args:
+        v (Union[str, int]: the value.
+        isprefix: whether to interpret v as a prefix.  If true, strings will not be appended with a NULL.
+    '''
+    if isinstance(v, int):
+        return _LeMarkerUintST.pack(_INT_VAL_MARKER, v - MIN_INT_VAL)
+    else:
+        v_enc = v.encode('utf8', errors='surrogatepass')
+        if len(v_enc) >= LARGE_STRING_SIZE:
+            if isprefix:
+                return _STR_VAL_MARKER + v_enc[:LARGE_STRING_SIZE] + b'\x00'
+            else:
+                return _STR_VAL_MARKER + v_enc[:LARGE_STRING_SIZE] + b'\x00' + xxhash.xxh64(v_enc).digest()
+
+        elif isprefix:
+            return _STR_VAL_MARKER + v_enc
+        else:
+            return _STR_VAL_MARKER + v_enc + b'\x00'
