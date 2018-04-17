@@ -1,6 +1,14 @@
 Changelog
 =========
 
+v0.0.51 - 2018-04-13
+--------------------
+
+## Enhancements
+- #719 - When doing a type norm for ``time``, include the ``valu`` being normed in the ``BadTypeValu``.
+- #720 - When a node is deleted using ``Cortex.delTufo()``, the node form, primary property, and current user scope are logged at the info level.  This also applies to nodes deleted via Storm and splices.
+- #721 - Add test showing that a ``splice`` contains the current user.
+
 v0.0.50 - 2018-04-08
 --------------------
 
