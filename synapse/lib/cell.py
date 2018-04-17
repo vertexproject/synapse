@@ -106,7 +106,7 @@ class Cell(s_config.Configable, s_net.Link, SessBoss):
         roots = self.vault.getRootCerts()
         SessBoss.__init__(self, auth, roots)
 
-        self.cellinfo = {}
+        self.cellinfo = {'type': '%s.%s' % (self.__class__.__module__, self.__class__.__name__)}
         self.cellauth = auth
         self.cellpool = None
         self.celluser = CellUser(auth, roots=roots)

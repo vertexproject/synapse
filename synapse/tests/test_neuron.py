@@ -396,6 +396,7 @@ class NeuronTest(SynTest):
 
                         ok, info = sess.call(('cell:get', {'name': 'cell00@localhost'}))
                         self.true(ok)
+                        self.eq(info['type'], 'synapse.lib.cell.Cell')
 
                         self.eq(info.get('addr'), cell.getCellAddr())
 
