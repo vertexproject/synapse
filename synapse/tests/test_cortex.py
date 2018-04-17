@@ -1631,15 +1631,14 @@ class CortexTest(SynTest):
             tufo1 = core1.getTufoByProp('strform', 'bar')
             self.none(tufo1)
 
-            # Tag a node in first core, assert it was formed and tagged in second core
+            # Tag a node in first core, ensure it does not get formed in the second core.
+            # This is because only node:add splices make nodes.
             core0.addTufoTag(tufo_before2, 'hehe')
             tufo1 = core1.getTufoByProp('strform', 'before2')
-            self.true(s_tufo.tagged(tufo1, 'hehe'))
-            self.false(s_tufo.tagged(tufo1, 'hoho'))
+            self.none(tufo1)
             core0.delTufoTag(tufo_before2, 'hehe')
             tufo1 = core1.getTufoByProp('strform', 'before2')
-            self.false(s_tufo.tagged(tufo1, 'hehe'))
-            self.false(s_tufo.tagged(tufo1, 'hoho'))
+            self.none(tufo1)
 
             # Add a complicated node which fires a bunch of autoadd nodes and
             # ensure they are populated in the second core
@@ -1668,6 +1667,39 @@ class CortexTest(SynTest):
             self.nn(core1.getTufoByProp('inet:user', 'user'))
             self.nn(core1.getTufoByProp('inet:fqdn', 'vertex.link'))
             self.nn(core1.getTufoByProp('inet:fqdn', 'link'))
+
+    def test_cortex_splices_user(self):
+        splices = []
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
+            def add_splice(mesg):
+                splice = mesg[1].get('mesg')
+                splices.append(splice)
+            core.on('splice', add_splice)
+
+            t0 = core.formTufoByProp('strform', 'hi')
+            t0 = core.setTufoProp(t0, 'baz', 123)
+            t0 = core.addTufoTag(t0, 'hello.gaiz')
+            t0 = core.delTufoTag(t0, 'hello.gaiz')
+
+            t0 = core.setTufoIval(t0, 'dude', (1, 2))
+            t0 = core.delTufoIval(t0, 'dude')
+
+            users = {splice[1].get('user') for splice in splices}
+            self.eq(users, {'root@localhost'})
+
+            with s_auth.runas('evil.haxx0r'):
+                t0 = core.delTufoProp(t0, 'baz')
+
+            users = {splice[1].get('user') for splice in splices}
+            self.eq(users, {'root@localhost', 'evil.haxx0r'})
+
+            with s_auth.runas('bob.grey@vertex.link'):
+                t0 = core.delTufo(t0)
+                self.none(t0)
+
+            users = {splice[1].get('user') for splice in splices}
+            self.eq(users, {'root@localhost', 'evil.haxx0r',
+                            'bob.grey@vertex.link'})
 
     def test_cortex_dict(self):
         core = s_cortex.openurl('ram://')
@@ -3420,7 +3452,7 @@ class CortexTest(SynTest):
                 wants = rcore._axonclient_wants([visihash, craphash, foobarhash])
                 self.len(0, wants)
 
-    def test_cortex_splices(self):
+    def test_cortex_splice_examples(self):
 
         with self.getRamCore() as core:
 
