@@ -1748,5 +1748,6 @@ class Runtime(Configable):
             None
         '''
         for oper, func in self.operfuncs.items():
-            node = s_tufo.ephem('oper', oper, func=str(func))
+            funcs = '%s.%s' % (func.__module__, func.__qualname__)
+            node = s_tufo.ephem('oper', oper, func=funcs)
             query.add(node)
