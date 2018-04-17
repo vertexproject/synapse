@@ -454,6 +454,7 @@ class Runtime(Configable):
         self.setOperFunc('jointags', self._stormOperJoinTags)
         self.setOperFunc('pivottags', self._stormOperPivotTags)
 
+        self.setOperFunc('get:opers', self._stormOperGetOpers)
         self.setOperFunc('get:tasks', self._stormOperGetTasks)
 
         self.setOperFunc('show:cols', self._stormOperShowCols)
@@ -1734,3 +1735,18 @@ class Runtime(Configable):
 
         nodes = query.take()
         [query.add(core.delTufoProp(n, prop)) for n in nodes]
+
+    def _stormOperGetOpers(self, query, oper):
+        '''
+        Get a list of the storm operators available to the current cortex.
+
+        Args:
+            query (s_storm.Query): Query object
+            oper ((str, dict)): Operator tufo
+
+        Returns:
+            None
+        '''
+        for oper, func in self.operfuncs.items():
+            node = s_tufo.ephem('oper', oper, func=str(func))
+            query.add(node)
