@@ -1058,7 +1058,7 @@ class CryoTankIndexer:
                         continue
                     normval, _ = s_datamodel.getTypeNorm(idx.syntype, field)
                 except (s_exc.NoSuchType, s_exc.BadTypeValu):
-                    logger.debug('Norm fail', exc_info=True)
+                    # logger.debug('Norm fail', exc_info=True)
                     self._meta.progresses[iid]['nnormfail'] += 1
                     continue
                 self._meta.progresses[iid]['ngood'] += 1
