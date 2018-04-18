@@ -6,6 +6,7 @@ import itertools
 import threading
 import collections
 
+import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
@@ -60,7 +61,24 @@ def reqiden(tufo):
         raise s_common.NoSuchTufo(iden=None)
     return tufo[0]
 
-class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
+class CoreApi:
+
+    def __init__(self, core, dmon):
+
+        # APIs that do perms enforcement
+        self.ask = core.ask
+        self.eval = core.eval
+        self.splices = core.splices
+
+        # APIs that need no perms enforcement
+        self.getTypeRepr = core.getTypeRepr
+        self.getPropRepr = core.getPropRepr
+
+        # allow on/off but no fire/dist
+        self.on = core.on
+        self.off = core.off
+
+class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware):
     '''
     Top level Cortex key/valu storage object.
     '''
@@ -68,10 +86,14 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         Runtime.__init__(self)
         EventBus.__init__(self)
 
+        s_telepath.Aware.__init__(self)
+
         logger.debug('Initializing Cortex')
 
         # Store the link tufo
         self._link = link
+
+        self.auth = None
 
         # Core modules and model related structs
         self.modules = [(ctor, modconf) for ctor, smod, modconf in s_modules.ctorlist]
@@ -80,19 +102,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.seedctors = {}
         self.modelrevlist = []
 
-        # Auth helpers
-        self._auth_perms = {}
-        self._auth_roles = s_cache.Cache(onmiss=self._onAuthRolesMiss)
-        self._auth_users = s_cache.Cache(onmiss=self._onAuthUsersMiss)
-        self._auth_rules = s_cache.Cache(onmiss=self._onAuthRulesMiss)
-
         # Tag Caches
         self._core_tags = s_cache.FixedCache(maxsize=10000, onmiss=self._getFormFunc('syn:tag'))
         self._core_tagforms = s_cache.FixedCache(maxsize=10000, onmiss=self._getFormFunc('syn:tagform'))
-
-        # BusRef for handling named Fifo objects
-        self._core_fifos = s_eventbus.BusRef(ctor=self._initCoreFifo)
-        self.onfini(self._core_fifos.fini)
 
         # we keep an in-ram set of "ephemeral" nodes which are runtime-only ( non-persistent )
         self.runt_forms = set()
@@ -133,7 +145,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self._initCoreSpliceHandlers()
         self._initCoreStatFuncs()
         self._initCoreTufosByHandlers()
-        self._initCoreFifoHandlers()
         self._initCoreNodeEventHandlers()
         self._initCoreStormOpers()
 
@@ -147,7 +158,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         # perm defs are also used to define trigger metadata
         # they must be loaded prior to triggers being loaded
-        self._initPermDefs()
+        #self._initPermDefs()
         # Load any syn:trigger nodes in the Cortex
         self._loadTrigNodes()
 
@@ -158,8 +169,23 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         # then set handlers and handle any config options which may have
         # need reacting to them.
         self._initCortexConfSetPre()
+
         logger.debug('Setting Cortex conf opts')
+
         self.setConfOpts(conf)
+
+        if self.getConfOpt('auth:en'):
+
+            dirn = self.getConfOpt('dir')
+            if dirn is None:
+                raise s_exc.ReqConfOpt(name='dir', mesg='auth:en=1 requires a cortex dir')
+
+            # TODO: get a nested auth config and pass it in...
+            path = s_common.gendir(dirn, 'auth')
+
+            self.auth = s_auth.Auth(path, conf=None)
+            self.onfini(self.auth.fini)
+
         self._initCortexConfSetPost()
 
         logger.debug('Loading coremodules from s_modules.ctorlist')
@@ -183,40 +209,27 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         # The iden of self.myfo is persistent
         logger.debug('Done starting up cortex %s', self.myfo[0])
 
-    def _initPermDefs(self):
-        permdefs = [
-            ('node:add', {'doc': 'Permission to add a node'}, (
-                ('form', {'doc': 'The form of node being modified'}),
-            )),
-            ('node:del', {'doc': 'Permission to delete a node'}, (
-                ('form', {'doc': 'The form of node being modified'}),
-            )),
-            ('node:tag:add', {'doc': 'Permission to add a tag to a node'}, (
-                ('form', {'doc': 'The form of node being modified'}),
-                ('tag', {'doc': 'The tag being removed from the node'}),
-            )),
-            ('node:tag:del', {'doc': 'Permission to delete a tag from a node'}, (
-                ('form', {'doc': 'The form of node being modified'}),
-                ('tag', {'doc': 'The tag being removed from the node'}),
-            )),
-            ('node:prop:set', {'doc': 'Permission to set a property on a node'}, (
-                ('form', {'doc': 'The form of node being modified'}),
-                ('prop', {'doc': 'The property name being set on the node'}),
-            )),
-            ('node:prop:del', {'doc': 'Permission to delete a property from a node'}, (
-                ('form', {'doc': 'The form of node being modified'}),
-                ('prop', {'doc': 'The property name being removed from the node'}),
-            )),
-            ('node:ival:set', {'doc': 'Permission to set an interval on a node'}, (
-                ('form', {'doc': 'The form of node being modified'}),
-                ('name', {'doc': 'The interval name being set on the node'}),
-            )),
-            ('node:ival:del', {'doc': 'Permission to delete an interval from a node'}, (
-                ('form', {'doc': 'The form of node being modified'}),
-                ('name', {'doc': 'The interval name being removed from the node'}),
-            )),
-        ]
-        self.addPermDefs(permdefs)
+    def getTeleApi(self, dmon):
+
+        if self.auth is None:
+            return self
+
+        return CoreApi(self, dmon)
+
+    def reqUserPerm(self, perm, name=None):
+
+        if self.auth is None:
+            return
+
+        if name is None:
+            name = s_auth.whoami()
+
+        user = self.auth.users.get(name)
+        if user is None:
+            raise s_exc.NoSuchUser(name=name)
+
+        if not user.allowed(perm):
+            raise s_exc.AuthDeny(perm=perm)
 
     def _initCoreSpliceHandlers(self):
         self.spliceact.act('node:add', self._actNodeAdd)
@@ -254,26 +267,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.initTufosBy('inet:cidr', self._tufosByInetCidr)
 
     def _initCoreNodeEventHandlers(self):
-        self.on('node:add', self._onAddFifo, form='syn:fifo')
-        self.on('node:del', self._onDelFifo, form='syn:fifo')
-        self.on('node:del', self._onDelAuthRole, form='syn:auth:role')
-        self.on('node:del', self._onDelAuthUser, form='syn:auth:user')
-        self.on('node:add', self._onAddAuthUserRole, form='syn:auth:userrole')
-        self.on('node:del', self._onDelAuthUserRole, form='syn:auth:userrole')
         self.on('node:del', self._onDelSynTag, form='syn:tag')
         self.on('node:form', self._onFormSynTag, form='syn:tag')
         self.on('node:add', self._loadTrigNodes, form='syn:trigger')
         self.on('node:del', self._loadTrigNodes, form='syn:trigger')
         self.on('node:prop:set', self._loadTrigNodes, form='syn:trigger')
-
-    def _initCoreFifoHandlers(self):
-        self.on('fifo:ack', self._onFifoAck)
-        self.on('fifo:sub', self._onFifoSub)
-
-    def _initCoreFifos(self):
-        for node in self.getTufosByProp('syn:fifo'):
-            name = node[1].get('syn:fifo:name')
-            self._core_fifos.gen(name)
 
     def _initCoreStormOpers(self):
         self.setOperFunc('stat', self._stormOperStat)
@@ -284,13 +282,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
         self.onConfOptSet('caching', self._onSetCaching)
 
     def _initCortexConfSetPost(self):
-        self._initCoreFifos()
-
-        # Setup the membranes conf handler and initialize membranes we may have
-        self.onConfOptSet('membranes', self._onSetMembranes)
-        valu = self.getConfOpt('membranes')
-        if valu:
-            self.fire('syn:conf:set:%s' % 'membranes', valu=valu)
 
         # It is not safe to load modules during SetConfOpts() since the path
         # value may not be set due to dictionary ordering, and there may be
@@ -402,149 +393,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             raise s_common.ReqConfOpt(name='dir', mesg='reqCorePath requires a cortex dir')
         return retn
 
-    def getCoreFifo(self, name):
-        '''
-        Return a Fifo object by name.
-
-        Args:
-            name (str): The :name of the syn:fifo node.
-
-        Notes:
-            This requires a syn:fifo node to have been created which has a
-            syn:fifo:name property equal to the called name.
-            This also increments the reference counter for the fifo, please call
-            fini on the object when done using it.
-
-        Returns:
-            s_fifo.Fifo: The Fifo object.
-
-        Raises:
-            NoSuchFifo: If there is no corresponding syn:fifo node in the Cortex.
-        '''
-        name = name.lower()
-        return self._core_fifos.gen(name)
-
-    def putCoreFifo(self, name, item):
-        '''
-        Add an item to a cortex fifo.
-
-        Args:
-            name (str): The syn:fifo:name of the fifo.
-            item (obj): The object to put in the fifo.
-        '''
-        name = name.lower()
-        self.reqperm(('fifo:put', {'name': name}))
-        fifo = self._core_fifos.get(name)
-        fifo.put(item)
-
-    def extCoreFifo(self, name, items):
-        '''
-        Add a list of items to a cortex fifo.
-
-        Args:
-            name (str): The name of the fifo
-            items (list): A list of items to add
-        '''
-        name = name.lower()
-        self.reqperm(('fifo:put', {'name': name}))
-        fifo = self._core_fifos.get(name)
-        [fifo.put(item) for item in items]
-
-    def ackCoreFifo(self, name, seqn):
-        '''
-        Acknowledge transmission of fifo items.
-
-        Args:
-            name (str): The syn:fifo:name of the fifo.
-            nseq (int): The next expected sequence.
-        '''
-        name = name.lower()
-        self.reqperm(('fifo:ack', {'name': name}))
-        fifo = self._core_fifos.get(name)
-        fifo.ack(seqn)
-
-    def _onFifoSub(self, mesg):
-        name = mesg[1].get('name')
-        xmit = self._getTeleFifoXmit(name)
-        self.subCoreFifo(name, xmit=xmit)
-
-    def _onFifoAck(self, mesg):
-        name = mesg[1].get('name')
-        seqn = mesg[1].get('seqn')
-        self.ackCoreFifo(name, seqn)
-
-    def _getTeleFifoXmit(self, name):
-
-        sock = s_scope.get('sock')
-        if sock is None:
-            return None
-
-        def xmit(qent):
-            sock.tx(('fifo:xmit', {'name': name, 'qent': qent}))
-
-        return xmit
-
-    def subCoreFifo(self, name, xmit=None):
-        '''
-        Provide an xmit function for a given core fifo.
-
-        Args:
-            name (str): The name of the fifo.
-            xmit (func): A fifo xmit func.
-
-        Notes:
-             If xmit is None, it is assumed that the caller is a remote
-             telepath client and the socket.tx function is used.
-        '''
-        name = name.lower()
-        self.reqperm(('fifo:sub', {'name': name}))
-        fifo = self._core_fifos.get(name)
-
-        if xmit is None:
-            xmit = self._getTeleFifoXmit(name)
-            s_telepath.reminder('fifo:sub', name=name)
-
-        fifo.resync(xmit=xmit)
-
-    def _initCoreFifo(self, name):
-        node = self.getTufoByProp('syn:fifo:name', name)
-        if node is None:
-            raise s_common.NoSuchFifo(name=name)
-
-        iden = node[1].get('syn:fifo')
-        path = self.reqCorePath('fifos', iden)
-        if not os.path.isdir(path):
-            os.makedirs(path, exist_ok=True)
-
-        conf = dict(self.getConfOpt('fifo:defs'))
-
-        conf['dir'] = path
-
-        # TODO default fifo config info in core config?
-        return s_fifo.Fifo(conf)
-
-    def _onAddFifo(self, mesg):
-
-        node = mesg[1].get('node')
-        name = node[1].get('syn:fifo:name')
-
-        self.getCoreFifo(name)
-
-    def _onDelFifo(self, mesg):
-
-        node = mesg[1].get('node')
-
-        iden = node[1].get('syn:fifo')
-        name = node[1].get('syn:fifo:name')
-
-        fifo = self._core_fifos.pop(name)
-        if fifo is not None:
-            fifo.fini()
-
-        path = self.getCorePath('fifos', iden)
-        if path is not None and os.path.isdir(path):
-            shutil.rmtree(path, ignore_errors=True)
-
     def getCoreTasks(self):
         '''
         Get a list of tasks which have been registered on the Cortex.
@@ -581,10 +429,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             ('autoadd', {'type': 'bool', 'asloc': 'autoadd', 'defval': 1,
                          'doc': 'Automatically add forms for props where type is form'}),
 
-            ('auth:en', {'type': 'bool', 'asloc': '_auth_en', 'defval': 0,
-                         'doc': 'Enable auth/perm enforcement for splicing/storm'}),
-
-            ('auth:url', {'type': 'inet:url', 'doc': 'Optional remote auth cortex (restart required)'}),
+            ('auth:en', {'type': 'bool', 'defval': 0,
+                         'doc': 'Enable auth/perm enforcement for splicing/storm (requires a cortex dir setting)'}),
 
             ('enforce', {'type': 'bool', 'asloc': 'enforce', 'defval': 1, 'doc': 'Enables data model enforcement'}),
             ('caching', {'type': 'bool', 'asloc': 'caching', 'defval': 0,
@@ -601,33 +447,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
                           'doc': 'Enables saving exceptions to the cortex as syn:log nodes'}),
             ('log:level', {'type': 'int', 'asloc': 'loglevel', 'defval': 0, 'doc': 'Filters log events to >= level'}),
             ('modules', {'defval': (), 'doc': 'An optional list of (pypath,conf) tuples for synapse modules to load'}),
-            ('membranes', {'defval': (), 'doc': 'An optional list of (name,rules) tuples to create Membranes with'}),
         )
         return confdefs
-
-    def addPermDefs(self, defs):
-        '''
-        Add a set of permission definitions for use with the cortex auth subsystem.
-
-        A perm definition tuple consists of:
-
-        (perm, info, fields)
-
-        ex:
-
-        ('node:add', {'doc': 'The permission to add nodes'}, (
-            ('form', {'doc': 'The form of the node being created'}),
-        )
-
-        Args:
-            defs (list):    A list of permission defs
-
-        Returns:
-            (None)
-
-        '''
-        for pdef in defs:
-            self._auth_perms[pdef[0]] = pdef
 
     def _loadTrigNodes(self, *args):
 
@@ -663,38 +484,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
     def _fireNodeTrig(self, node, perm):
         # this is called by the xact handler
         self._core_triggers.trigger(perm, node)
-
-    def getPermDef(self, name):
-        '''
-        Return a permission definition tuple for the given perm name.
-
-        Args:
-            name (str): The permission name
-
-        Returns:
-            (tuple):    A (name,info,fields) tuple for the perm.
-
-        '''
-        return self._auth_perms.get(name)
-
-    def reqPermDef(self, name):
-        '''
-        Require (or raise) a permission definition tuple
-
-        Args:
-            name (str): The permission name
-
-        Returns:
-            (tuple):    A (name,info,fields) tuple for the perm.
-
-        Raises:
-            (NoSuchPerm):   The permission name was not found
-
-        '''
-        retn = self._auth_perms.get(name)
-        if retn is None:
-            raise s_common.NoSuchPerm(perm=name)
-        return retn
 
     def _registerStore(self):
         '''
@@ -805,390 +594,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
 
         self.setModlVers(name, vers)
         return True
-
-    def getUserAuth(self, user):
-        '''
-        Get the auth information for the given user.
-
-        Args:
-            user (str): The user name
-
-        Returns:
-            (dict): The auth info dict
-
-        '''
-        return self._auth_users.get(user)
-
-    def getRoleAuth(self, role):
-        '''
-        Get the auth information for the given role.
-
-        Args:
-            role (str): The role name
-
-        Returns:
-            (dict): The auth info dict
-
-        '''
-        return self._auth_roles.get(user)
-
-    def reqperm(self, perm, user=None):
-        '''
-        Require a given permission (or raise AuthDeny)
-
-        Args:
-            perm ((str,dict)): A perm tuple
-            user (str): The user to check (or self)
-
-        Raises:
-            AuthDeny: The user is not allowed
-        '''
-        if user is None:
-            user = s_auth.whoami()
-
-        if not self.allowed(perm, user=user):
-            raise s_common.AuthDeny(perm=perm, user=user)
-
-    def allowed(self, perm, user=None):
-        '''
-        Returns True if the user is allowed the given perms/info.
-
-        Args:
-            perm (str): The permission tufo
-            user (str): The user name (or None for "current user")
-
-        Returns:
-            (bool):  True if the user is allowed
-
-        '''
-        if not self._auth_en:
-            return True
-
-        if user is None:
-            user = s_auth.whoami()
-
-        for ruls in self._auth_rules.get(user):
-            if ruls.allow(perm):
-                return True
-
-        logger.warning('perm denied: %r %r' % (user, perm))
-        return False
-
-    def getUserAuth(self, user):
-        '''
-        Return an auth dict for the given user.
-
-        Args:
-            user (str):  The user name
-
-        Returns:
-            (dict): The user auth dict
-        '''
-        return self._auth_users.get(user)
-
-    def getRoleAuth(self, role):
-        '''
-        Return an auth dict for the given role.
-
-        Args:
-            role (str):  The role name
-
-        Returns:
-            (dict): The role auth dict
-        '''
-        return self._auth_roles.get(role)
-
-    def _onAuthRolesMiss(self, role):
-        node = self.getTufoByProp('syn:auth:role', role)
-        if node is None:
-            raise s_common.NoSuchRole(role=role)
-
-        prop = 'syn:role:' + role + ':auth'
-        retn = self.getBlobValu(prop)
-        if retn is None:
-            return {}
-
-        return retn
-
-    def _onAuthRulesMiss(self, user):
-        # return a list of Rules() objects...
-        retn = []
-
-        auth = self.getUserAuth(user)
-        if auth is not None:
-            rules = auth.get('rules')
-            if rules is not None:
-                retn.append(s_auth.Rules(rules))
-
-        for role in self.getUserRoles(user):
-
-            auth = self.getRoleAuth(role)
-            if auth is None:
-                continue
-
-            rules = auth.get('rules')
-            if rules is None:
-                continue
-
-            retn.append(s_auth.Rules(rules))
-
-        return retn
-
-    def _onAuthUsersMiss(self, user):
-
-        node = self.getTufoByProp('syn:auth:user', user)
-        if node is None:
-            raise s_common.NoSuchUser(user=user)
-
-        prop = 'syn:user:' + user + ':auth'
-        retn = self.getBlobValu(prop)
-        if retn is None:
-            return {}
-
-        return retn
-
-    def _syncUserAuth(self, user, auth):
-        prop = 'syn:user:' + user + ':auth'
-        self.setBlobValu(prop, auth)
-
-    def _syncRoleAuth(self, role, auth):
-        prop = 'syn:role:' + role + ':auth'
-        self.setBlobValu(prop, auth)
-
-    def setUserRules(self, user, rules):
-        '''
-        Set the rules for a given user.
-
-        Args:
-            user (str): The user name
-            rules (list): The list of rule tuples
-
-        Returns:
-            (None)
-
-        '''
-        # this will be a ref to the cache dict
-        auth = self.getUserAuth(user)
-        auth['rules'] = rules
-
-        self._bumpAuthUser(user)
-        self._syncUserAuth(user, auth)
-
-    def getRoleRules(self, role):
-        '''
-        Get a list of rule tuples for the given role.
-
-        Args:
-            role (str): The role name
-
-        Returns:
-            (list): A list of rule tuples
-        '''
-        auth = self.getRoleAuth(role)
-        return list(auth.get('rules', ()))
-
-    def getUserRules(self, user):
-        '''
-        Get a list of rule tuples for the given user.
-
-        Args:
-            user (str): The user name
-
-        Returns:
-            (list): A list of rule tuples
-        '''
-        auth = self.getUserAuth(user)
-        return list(auth.get('rules', ()))
-
-    def setRoleRules(self, role, rules):
-        '''
-        Set the rules for a given role.  Rules are documented
-        in synapse.lib.auth.Rules.
-
-        Args:
-            role (str): The role name
-            rules (list): A list of rule tuples
-
-        Returns:
-            (None)
-
-        Raises:
-            (synapse.exc.BadRuleValu)
-        '''
-        auth = self.getRoleAuth(role)
-        if auth is None:
-            auth = {}
-
-        auth['rules'] = rules
-        self._syncRoleAuth(role, auth)
-
-    def getUserRoles(self, user):
-        '''
-        Get a list of the roles for the specified user.
-
-        Args:
-            user (str): The user name
-
-        Returns:
-            ([str,...]): The roles for the user
-        '''
-        nodes = self.getTufosByProp('syn:auth:userrole:user')
-        return [n[1].get('syn:auth:userrole:role') for n in nodes]
-
-    def getRoleUsers(self, role):
-        '''
-        Get a list of the users for the specified role.
-
-        Args:
-            role (str): The role name
-
-        Returns:
-            ([str,...]): The users for the role
-        '''
-        nodes = self.getTufosByProp('syn:auth:userrole:role')
-        return [n[1].get('syn:auth:userrole:user') for n in nodes]
-
-    def addUserRule(self, user, rule, indx=None):
-        '''
-        Add a rule tuple for the given user (optionally at index).
-
-        Args:
-            user (str): The user name
-            rule (tuple): The rule tuple
-            indx (int): The index at which to insert the rule
-
-        Returns:
-            (None)
-
-        NOTE: see synapse.lib.auth.Rules for rule tuple definition
-        '''
-        auth = self.getUserAuth(user)
-        if auth is None:
-            auth = {}
-
-        rules = list(auth.get('rules', ()))
-
-        if indx is None:
-            rules.append(rule)
-        else:
-            rules.insert(indx, rule)
-
-        auth['rules'] = rules
-        self._bumpAuthUser(user)
-        self._syncUserAuth(user, auth)
-
-    def delUserRule(self, user, indx):
-        '''
-        Delete a rule at index for the given user.
-
-        Args:
-            user (str): The user name
-            indx (int): The index of the rule to remove
-
-        Returns:
-            (None)
-
-        NOTE: see synapse.lib.auth.Rules for rule tuple definition
-        '''
-        auth = self.getUserAuth(user)
-        if auth is None:
-            auth = {}
-
-        rules = list(auth.get('rules', ()))
-        rules.pop(indx)
-
-        auth['rules'] = rules
-
-        self._bumpAuthUser(user)
-        self._syncUserAuth(user, auth)
-
-    def addRoleRule(self, role, rule, indx=None):
-        '''
-        Add a rule tuple for the given role (optionally at index).
-
-        Args:
-            role (str): The role name
-            rule (tuple): The rule tuple
-            indx (int): The index at which to insert the rule
-        '''
-        auth = self.getRoleAuth(role)
-        if auth is None:
-            auth = {}
-
-        rules = list(auth.get('rules', ()))
-
-        if indx is None:
-            rules.append(rule)
-        else:
-            rules.insert(indx, rule)
-
-        auth['rules'] = rules
-
-        self._bumpAuthRole(role)
-        self._syncRoleAuth(role, auth)
-
-    def _bumpAuthUser(self, user):
-        self._auth_rules.pop(user)
-        self._auth_users.pop(user)
-
-    def _bumpAuthRole(self, role):
-        self._auth_roles.pop(role)
-        for user in self.getRoleUsers(role):
-            self._bumpAuthUser(user)
-
-    def delRoleRule(self, role, indx):
-        '''
-        Delete a rule at index for the given role.
-
-        Args:
-            role (str): The role name
-            indx (int): The index of the rule to remove
-
-        Returns:
-            (None)
-        '''
-        auth = self.getRoleAuth(role)
-        if auth is None:
-            auth = {}
-
-        rules = list(auth.get('rules', ()))
-        rules.pop(indx)
-
-        auth['rules'] = rules
-
-        self._bumpAuthRole(role)
-        self._syncRoleAuth(role, auth)
-
-    def _onDelAuthRole(self, mesg):
-        role = mesg[1].get('valu')
-
-        self._bumpAuthRole(role)
-        self._syncRoleAuth(role, {})
-
-        # removing these will pop user rule caches
-        for userrole in self.getTufosByProp('syn:auth:userrole:role', role):
-            self.delTufo(userrole)
-
-    def _onDelAuthUser(self, mesg):
-        user = mesg[1].get('valu')
-
-        self._bumpAuthUser(user)
-        self._syncUserAuth(user, {})
-
-        for userrole in self.getTufosByProp('syn:auth:userrole:user', user):
-            self.delTufo(userrole)
-
-    def _onAddAuthUserRole(self, mesg):
-        node = mesg[1].get('node')
-        user = node[1].get('syn:auth:userrole:user')
-
-        self._bumpAuthUser(user)
-
-    def _onDelAuthUserRole(self, mesg):
-        node = mesg[1].get('node')
-        user = node[1].get('syn:auth:userrole:user')
-
-        self._bumpAuthUser(user)
 
     def _finiCoreMods(self):
         [modu.fini() for modu in self.coremods.values()]
@@ -1689,6 +1094,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             core.splice(mesg)
 
         '''
+        if self.auth is not None:
+            self.reqUserPerm(mesg)
+
         self.spliceact.react(mesg)
 
     @s_telepath.clientside
@@ -3806,84 +3214,3 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi):
             NoSuchName: If the key is not present in the store.
         '''
         return self.store.delBlobValu(key)
-
-    def _onSetMembranes(self, membranes):
-        for name, rules in membranes:
-            try:
-                self._initMembrane(name, rules)
-            except Exception as e:
-                logger.warning('failed to load membrane: %s' % (name,))
-                logger.exception(e)
-
-    def _initMembrane(self, name, rules):
-        membrane = self._core_membranes.get(name)
-        if membrane:
-            membrane.rules = s_auth.Rules(rules)
-            return
-
-        # Cause any fifo creation that needs to be done to occur
-        node = self.formTufoByProp('syn:fifo', (name,))
-
-        def fn(mesg):
-            return self.putCoreFifo(name, mesg)
-
-        membrane = s_membrane.Membrane(name, rules, fn)
-
-        def _filter_fn(mesg):
-            return membrane.filt(mesg[1]['mesg'])
-
-        self.on('splice', _filter_fn)
-
-        def _onfini():
-            self.off('splice', _filter_fn)
-
-        membrane.onfini(_onfini)
-        self._core_membranes[name] = membrane
-
-    def _delMembrane(self, name):
-        membrane = self._core_membranes.pop(name, None)
-        if not membrane:
-            raise s_common.NoSuchMembrane(megs='No membrane exists with the requested name',
-                                          name=name)
-
-        membrane.fini()
-        self.delTufoByProp('syn:fifo', (name,))
-
-    def addCoreMembrane(self, name, rules):
-        '''
-        Adds a Membrane filter to the Cortex.
-
-        Args:
-            name (str): The name of the Membrane.
-            rules (tuple): A tuple of (bool, event) tuples.
-
-        Examples:
-            core.addCoreMembrane('new_ipv4s', ((True, ('node:add', {'form': 'inet:ipv4'})),))
-
-        Notes:
-            All of the encapsulated splice events generated from the core will pass through the Membrane.
-            A fifo is created with the name "syn:membrane:" + name to persist the messages that pass the filter.
-
-        Returns:
-            None
-        '''
-        return self._initMembrane(name, rules)
-
-    def delCoreMembrane(self, name):
-        '''
-        Removes a Membrane filter from a Cortex.
-
-        Args:
-            name (str): The name of the Membrane.
-
-        Examples:
-            core.delCoreMembrane('new_ipv4s')
-
-        Notes:
-            The splice handler for the Membrane is unregistered.
-            The fifo is removed.
-
-        Returns:
-            None
-        '''
-        return self._delMembrane(name)

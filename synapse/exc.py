@@ -91,7 +91,6 @@ class DupTypeName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupFileName(SynErr): pass
 class BadFileExt(SynErr): pass
-class DupUserName(SynErr): pass
 class BadPropName(SynErr): pass
 class BadCoreName(SynErr): pass
 class BadCtorType(SynErr): pass
@@ -137,8 +136,9 @@ class TeleClientSide(SynErr): pass
 class HitStormLimit(SynErr): pass
 
 class DupOpt(Exception): pass
-class DupUser(Exception): pass
-class DupRole(Exception): pass
+
+class DupUserName(SynErr): pass
+class DupRoleName(SynErr): pass
 
 class IsRuntProp(SynErr): pass
 

@@ -22,6 +22,19 @@ class Blah:
     def __init__(self, woot):
         self.woot = woot
 
+class WokeApi:
+
+    def __init__(self, woke):
+        self.woke = woke
+
+    def hehe(self, x):
+        return x + 20
+
+class Woke(s_telepath.Aware):
+
+    def getTeleApi(self, dmon):
+        return WokeApi(self)
+
 class DaemonTest(SynTest):
 
     def test_daemon_error_unserializable(self):
@@ -294,3 +307,10 @@ class DaemonTest(SynTest):
         # ensure dmon cell processes are fini'd
         for celldir, proc in dmon.cellprocs.items():
             self.false(proc.is_alive())
+
+    def test_daemon_aware(self):
+
+        woke = Woke()
+        with s_daemon.Daemon() as dmon:
+            dmon.share('woke', woke)
+            self.true(isinstance(dmon.shared.get('woke'), WokeApi))

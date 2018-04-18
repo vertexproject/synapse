@@ -649,7 +649,7 @@ class SynTest(unittest.TestCase):
                 core.fini()
 
     @contextlib.contextmanager
-    def getDirCore(self):
+    def getDirCore(self, conf=None):
         '''
         Context manager to make a dir:/// cortex
 
@@ -657,7 +657,7 @@ class SynTest(unittest.TestCase):
             s_cores_common.Cortex: Dir backed Cortex
         '''
         with self.getTestDir() as dirn:
-            with s_cortex.fromdir(dirn) as core:
+            with s_cortex.fromdir(dirn, conf=conf) as core:
                 yield core
 
     @contextlib.contextmanager

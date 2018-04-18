@@ -1430,13 +1430,18 @@ class Runtime(Configable):
                         break
 
     def _stormOperAddNode(self, query, oper):
+
         args = oper[1].get('args')
         if len(args) != 2:
             raise s_common.BadSyntaxError(mesg='addnode(<form>,<valu>,[:<prop>=<pval>, ...])')
 
         kwlist = oper[1].get('kwlist')
 
+        form = args[0]
+        valu = args[1]
+
         core = self.getStormCore()
+        core.reqUserPerm(('node:add', {'form': form}))
 
         props = {}
         for k, v in kwlist:
@@ -1447,11 +1452,7 @@ class Runtime(Configable):
             prop = k[1:]
             props[prop] = v
 
-        node = self.formTufoByProp(args[0], args[1], **props)
-
-        # call set props if the node is not new...
-        if not node[1].get('.new'):
-            self.setTufoProps(node, **props)
+        node = self.formTufoByProp(form, valu, **props)
 
         query.add(node)
 
@@ -1463,6 +1464,10 @@ class Runtime(Configable):
         force, _ = core.getTypeNorm('bool', opts.get('force', 0))
 
         nodes = query.take()
+
+        forms = set([n[1].get('tufo:form') for n in nodes])
+        [core.reqUserPerm(('node:del', {'form': form})) for form in forms]
+
         if force:
             [core.delTufo(n) for n in nodes]
             return
@@ -1525,6 +1530,7 @@ class Runtime(Configable):
         for form, nodes in formnodes.items():
             props = formprops.get(form)
             if props:
+                [core.reqUserPerm(('node:prop:set', {'form': form, 'prop': prop})) for prop in props.keys()]
                 [core.setTufoProps(node, **props) for node in nodes]
 
     def _stormOperAllTag(self, query, oper):
@@ -1552,6 +1558,8 @@ class Runtime(Configable):
 
         nodes = query.data()
 
+        [core.reqUserPerm(('node:tag:add', {'tag': tag})) for tag in tags]
+
         for tag in tags:
             [core.addTufoTag(node, tag) for node in nodes]
 
@@ -1561,6 +1569,8 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         nodes = query.data()
+
+        [core.reqUserPerm(('node:tag:del', {'tag': tag})) for tag in tags]
 
         for tag in tags:
             [core.delTufoTag(node, tag) for node in nodes]
