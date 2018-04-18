@@ -222,6 +222,8 @@ class Auth(s_config.Config):
                     nenc = user.name.encode('utf8')
                     byts = s_msgpack.en(user._getAuthData())
 
+                    xact.put(nenc, byts, db=self._db_users)
+
     def _iterAuthDefs(self, xact, db):
 
         with xact.cursor(db=db) as curs:
@@ -578,17 +580,6 @@ class User(AuthBase):
                 return True
 
         return False
-
-    def delRole(self, name):
-        '''
-        Revoke a role from the user.
-
-        Args:
-            name (str): The name of the role to revoke.
-        '''
-        if self.roles.pop(name, None) is not None:
-            self._saveAuthData()
-            self._initAuthData()
 
     def addRole(self, name):
         '''
