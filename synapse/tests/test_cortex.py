@@ -2781,9 +2781,11 @@ class CortexTest(SynTest):
 
     def test_cortex_auth(self):
 
-        conf = {'auth:en': 1}
+        conf = {'auth:en': 1, 'auth:admin': 'rawr@vertex.link'}
 
         with self.getDirCore(conf=conf) as core:
+
+            self.true(core.auth.users.get('rawr@vertex.link').admin)
 
             visi = core.auth.addUser('visi@vertex.link')
             newb = core.auth.addUser('newb@vertex.link')
@@ -2852,6 +2854,14 @@ class CortexTest(SynTest):
                 self.len(0, core.splices([('node:add', {'form': 'inet:ipv4', 'valu': 0x01020304})]))
 
             self.nn(core.getTufoByProp('inet:ipv4', 0x01020304))
+
+            with s_auth.runas('rawr@vertex.link'):
+
+                retn = core.ask('inet:ipv4=1.2.3.4 delnode(force=1)')
+                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
+
+                retn = core.ask('inet:ipv4=1.2.3.4 sudo() delnode(force=1)')
+                self.none(retn['oplog'][-1].get('excinfo'))
 
     def test_cortex_formtufobytufo(self):
         with self.getRamCore() as core:

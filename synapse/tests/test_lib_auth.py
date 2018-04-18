@@ -104,6 +104,8 @@ class AuthTest(SynTest):
                 visi.addRule(('node:tag:del', {'tag': 'baz.faz'}))
 
                 root.setAdmin(True)
+                self.true(root.allowed(('node:add', {'form': 'inet:ipv4'})))
+                self.false(root.allowed(('node:add', {'form': 'inet:ipv4'}), elev=False))
 
                 self.true(root.admin)
                 self.false(visi.admin)

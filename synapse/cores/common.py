@@ -188,6 +188,15 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware)
             self.auth = s_auth.Auth(path, conf=None)
             self.onfini(self.auth.fini)
 
+            name = self.getConfOpt('auth:admin')
+            if name is not None:
+
+                user = self.auth.users.get(name)
+                if user is None:
+                    user = self.auth.addUser(name)
+
+                user.setAdmin(True)
+
         self._initCortexConfSetPost()
 
         logger.debug('Loading coremodules from s_modules.ctorlist')
@@ -218,7 +227,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware)
 
         return CoreApi(self, dmon)
 
-    def reqUserPerm(self, perm, name=None):
+    def reqUserPerm(self, perm, name=None, elev=True):
 
         if self.auth is None:
             return
@@ -230,7 +239,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware)
         if user is None:
             raise s_exc.NoSuchUser(name=name)
 
-        if not user.allowed(perm):
+        if not user.allowed(perm, elev=elev):
             raise s_exc.AuthDeny(perm=perm)
 
     def _initCoreSpliceHandlers(self):
@@ -424,31 +433,49 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware)
         confdefs = (
 
             ('dir', {'type': 'str',
-                        'doc': 'The cortex metadata directory'}),
+                'doc': 'The cortex metadata directory'}),
 
-            ('fifo:defs', {'defval': {}, 'doc': 'Config defaults for core fifos'}),
+            ('fifo:defs', {'defval': {},
+                'doc': 'Config defaults for core fifos'}),
 
             ('autoadd', {'type': 'bool', 'asloc': 'autoadd', 'defval': 1,
-                         'doc': 'Automatically add forms for props where type is form'}),
+                'doc': 'Automatically add forms for props where type is form'}),
 
             ('auth:en', {'type': 'bool', 'defval': 0,
-                         'doc': 'Enable auth/perm enforcement for splicing/storm (requires a cortex dir setting)'}),
+                'doc': 'Enable auth/perm enforcement for splicing/storm (requires a cortex dir setting)'}),
 
-            ('enforce', {'type': 'bool', 'asloc': 'enforce', 'defval': 1, 'doc': 'Enables data model enforcement'}),
+            ('auth:admin', {'type': 'str', 'defval': None,
+                'doc': 'Bootstrap the given user name as an admin.'}),
+
+            ('enforce', {'type': 'bool', 'asloc': 'enforce', 'defval': 1,
+                'doc': 'Enables data model enforcement'}),
+
             ('caching', {'type': 'bool', 'asloc': 'caching', 'defval': 0,
-                         'doc': 'Enables caching layer in the cortex'}),
+                'doc': 'Enables caching layer in the cortex'}),
+
             ('cache:maxsize', {'type': 'int', 'asloc': 'cache_maxsize', 'defval': 1000,
-                               'doc': 'Enables caching layer in the cortex'}),
-            ('rev:model', {'type': 'bool', 'defval': 1, 'doc': 'Set to 0 to disallow model version updates'}),
-            ('cellpool:conf', {'defval': None, 'doc': 'Allows cortex to be aware of a neuron cell pool'}),
+                'doc': 'Enables caching layer in the cortex'}),
+
+            ('rev:model', {'type': 'bool', 'defval': 1,
+                'doc': 'Set to 0 to disallow model version updates'}),
+
+            ('cellpool:conf', {'defval': None,
+                'doc': 'Allows cortex to be aware of a neuron cell pool'}),
+
             ('cellpool:timeout', {'defval': 30, 'type': 'int', 'asloc': 'cell_timeout',
-                                  'doc': 'Timeout for cellpool related operations'
-                                  }),
-            ('axon:name', {'defval': None, 'doc': 'Allows cortex to be aware of an axon blob store'}),
+                'doc': 'Timeout for cellpool related operations'}),
+
+            ('axon:name', {'defval': None,
+                'doc': 'Allows cortex to be aware of an axon blob store'}),
+
             ('log:save', {'type': 'bool', 'asloc': 'logsave', 'defval': 0,
-                          'doc': 'Enables saving exceptions to the cortex as syn:log nodes'}),
-            ('log:level', {'type': 'int', 'asloc': 'loglevel', 'defval': 0, 'doc': 'Filters log events to >= level'}),
-            ('modules', {'defval': (), 'doc': 'An optional list of (pypath,conf) tuples for synapse modules to load'}),
+                'doc': 'Enables saving exceptions to the cortex as syn:log nodes'}),
+
+            ('log:level', {'type': 'int', 'asloc': 'loglevel', 'defval': 0,
+                'doc': 'Filters log events to >= level'}),
+
+            ('modules', {'defval': (),
+                'doc': 'An optional list of (pypath,conf) tuples for synapse modules to load'}),
         )
         return confdefs
 

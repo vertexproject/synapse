@@ -400,9 +400,15 @@ class AuthBase:
             'rules': self.rules,
         }
 
-    def allowed(self, perm):
+    def allowed(self, perm, elev=True):
+        '''
+        Check if the user/role is allowed the given permission.
 
-        if self.admin:
+        Args:
+            perm ((str,dict)): A permission tuple.
+            elev (bool): If true, allow admin status.
+        '''
+        if self.admin and elev:
             return True
 
         func = self._may_funcs.get(perm[0])
@@ -555,13 +561,20 @@ class User(AuthBase):
 
             self.roles[name] = role
 
-    def allowed(self, perm):
+    def allowed(self, perm, elev=True):
+        '''
+        Check if a user is allowed the given permission.
 
-        if AuthBase.allowed(self, perm):
+        Args:
+            perm ((str,dict)): A permission tuple.
+            elev (bool): If true, allow admin status.
+        '''
+
+        if AuthBase.allowed(self, perm, elev=elev):
             return True
 
         for name, role in self.roles.items():
-            if role.allowed(perm):
+            if role.allowed(perm, elev=elev):
                 return True
 
         return False

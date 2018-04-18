@@ -190,6 +190,9 @@ class Query:
 
         self.canc = False
 
+        self.user = None
+        self.elev = False
+
         self.uniq = {}
         self.saved = {}
         self.touched = 0
@@ -458,6 +461,8 @@ class Runtime(Configable):
         self.setOperFunc('get:tasks', self._stormOperGetTasks)
 
         self.setOperFunc('show:cols', self._stormOperShowCols)
+
+        self.setOperFunc('sudo', self._stormOperSudo)
 
         # Cache compiled regex objects.
         self._rt_regexcache = s_cache.FixedCache(1024, regex.compile)
@@ -1215,6 +1220,25 @@ class Runtime(Configable):
 
         [query.add(t) for t in self.stormTufosBy('in', dstp, list(vals), limit=limt.get())]
 
+    def _stormOperSudo(self, query, oper):
+
+        core = self.getStormCore()
+        if core.auth is None:
+            return
+
+        name = query.user
+        if name is None:
+            name = s_auth.whoami()
+
+        user = core.auth.users.get(name)
+        if user is None:
+            raise s_exc.NoSuchUser(name=name)
+
+        if not user.admin:
+            raise s_exc.AuthDeny(mesg='sudo() user is not admin')
+
+        query.elev = True
+
     def _stormOperNextTag(self, query, oper):
         name = None
 
@@ -1377,7 +1401,7 @@ class Runtime(Configable):
         valu = args[1]
 
         core = self.getStormCore()
-        core.reqUserPerm(('node:add', {'form': form}))
+        core.reqUserPerm(('node:add', {'form': form}), elev=query.elev)
 
         props = {}
         for k, v in kwlist:
@@ -1402,7 +1426,7 @@ class Runtime(Configable):
         nodes = query.take()
 
         forms = set([n[1].get('tufo:form') for n in nodes])
-        [core.reqUserPerm(('node:del', {'form': form})) for form in forms]
+        [core.reqUserPerm(('node:del', {'form': form}), elev=query.elev) for form in forms]
 
         if force:
             [core.delTufo(n) for n in nodes]
@@ -1464,9 +1488,13 @@ class Runtime(Configable):
             raise s_common.BadSyntaxError(name=prop, mesg=mesg)
 
         for form, nodes in formnodes.items():
+
             props = formprops.get(form)
             if props:
-                [core.reqUserPerm(('node:prop:set', {'form': form, 'prop': prop})) for prop in props.keys()]
+                for prop in props.keys():
+                    perm = ('node:prop:set', {'form': form, 'prop': prop})
+                    core.reqUserPerm(perm, elev=query.elev)
+
                 [core.setTufoProps(node, **props) for node in nodes]
 
     def _stormOperAllTag(self, query, oper):
@@ -1494,7 +1522,9 @@ class Runtime(Configable):
 
         nodes = query.data()
 
-        [core.reqUserPerm(('node:tag:add', {'tag': tag})) for tag in tags]
+        for tag in tags:
+            perm = ('node:tag:add', {'tag': tag})
+            core.reqUserPerm(perm, elev=query.elev)
 
         for tag in tags:
             [core.addTufoTag(node, tag) for node in nodes]
@@ -1506,7 +1536,9 @@ class Runtime(Configable):
 
         nodes = query.data()
 
-        [core.reqUserPerm(('node:tag:del', {'tag': tag})) for tag in tags]
+        for tag in tags:
+            perm = ('node:tag:del', {'tag': tag})
+            core.reqUserPerm(perm, elev=query.elev)
 
         for tag in tags:
             [core.delTufoTag(node, tag) for node in nodes]
