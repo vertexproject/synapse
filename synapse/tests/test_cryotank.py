@@ -226,6 +226,9 @@ class CryoTest(SynTest):
                 self.eq([(1, s_msgpack.en(('baz', {'faz': 20})))],
                         list(user.queryRows('woot:woot', 'prop1', valu='b')))
 
+                user.init('woot:boring', {'noindex': True})
+                self.raises(s_exc.RetnErr, user.getIndices, 'woot:boring')
+
     def test_cryo_cell_daemon(self):
 
         with self.getTestDir() as dirn:
