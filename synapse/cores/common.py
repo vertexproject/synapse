@@ -62,7 +62,9 @@ def reqiden(tufo):
     return tufo[0]
 
 class CoreApi:
-
+    '''
+    A limited Cortex API which is shared when auth:en=1
+    '''
     def __init__(self, core, dmon):
 
         # APIs that do perms enforcement
