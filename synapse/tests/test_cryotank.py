@@ -195,6 +195,42 @@ class CryoTest(SynTest):
                     self.len(2, metr)
                     self.nn(user.last('woot:hehe'))
 
+    def test_cryo_cell_indexing(self):
+
+        conf = {'bind': '127.0.0.1', 'host': 'localhost'}
+        with self.getTestDir() as dirn, s_cryotank.CryoCell(dirn, conf) as cell:
+
+            addr = cell.getCellAddr()
+            cuser = s_cell.CellUser(cell.genUserAuth('foo'))
+            with cuser.open(addr, timeout=2) as sess:
+                user = s_cryotank.CryoClient(sess)
+
+                # Setting the _chunksize to 1 forces iteration on the client
+                # side of puts, as well as the server-side.
+                user._chunksize = 1
+                user.puts('woot:woot', cryodata, timeout=2)
+
+                # Test index operations
+                self.raises(s_exc.RetnErr, user.getIndices, 'notpresent')
+                self.eq((), user.getIndices('woot:woot'))
+                self.raises(s_exc.BadOperArg, user.addIndex, 'woot:woot', 'prop1', 'str', [])
+                user.addIndex('woot:woot', 'prop1', 'str', ['0'])
+                user.delIndex('woot:woot', 'prop1')
+                self.raises(s_exc.RetnErr, user.delIndex, 'woot:woot', 'noexist')
+                user.addIndex('woot:woot', 'prop1', 'str', ['0'])
+                user.pauseIndex('woot:woot', 'prop1')
+                user.pauseIndex('woot:woot')
+                user.resumeIndex('woot:woot')
+                self.eq([(1, 'baz'), (0, 'foo')], list(user.queryNormValu('woot:woot', 'prop1')))
+                self.eq([(1, 'baz')], list(user.queryNormValu('woot:woot', 'prop1', valu='b')))
+                self.eq([], list(user.queryNormValu('woot:woot', 'prop1', valu='bz', timeout=10)))
+                self.eq([(1, {'prop1': 'baz'})], (list(user.queryNormRecords('woot:woot', 'prop1', valu='b'))))
+                self.eq([(1, s_msgpack.en(('baz', {'faz': 20})))],
+                        list(user.queryRows('woot:woot', 'prop1', valu='b')))
+
+                user.init('woot:boring', {'noindex': True})
+                self.raises(s_exc.RetnErr, user.getIndices, 'woot:boring')
+
     def test_cryo_cell_daemon(self):
 
         with self.getTestDir() as dirn:
@@ -262,8 +298,8 @@ class CryoIndexTest(SynTest):
 
             # Simple index add/remove
             self.eq([], idxr.getIndices())
-            idxr.addIndex('first', 'int', 'foo')
-            self.raises(DupIndx, idxr.addIndex, 'first', 'int', 'foo')
+            idxr.addIndex('first', 'int', ['foo'])
+            self.raises(DupIndx, idxr.addIndex, 'first', 'int', ['foo'])
             idxs = idxr.getIndices()
             self.eq(idxs[0]['propname'], 'first')
             idxr.delIndex('first')
@@ -275,7 +311,7 @@ class CryoIndexTest(SynTest):
             # Check simple 1 record, 1 index index and retrieval
             waiter = self.initWaiter(tank)
             tank.puts([data1])
-            idxr.addIndex('first', 'int', 'foo')
+            idxr.addIndex('first', 'int', ['foo'])
             self.wait(waiter)
             idxs = idxr.getIndices()
             self.eq(1, idxs[0]['nextoffset'])
@@ -309,7 +345,7 @@ class CryoIndexTest(SynTest):
 
             # second index
             waiter = self.initWaiter(tank)
-            idxr.addIndex('second', 'str', 'bar')
+            idxr.addIndex('second', 'str', ['bar'])
             self.wait(waiter)
 
             # prefix search
@@ -336,9 +372,10 @@ class CryoIndexTest(SynTest):
             tank.puts([baddata])
             self.wait(waiter)
             idxs = idxr.getIndices()
-            self.eq(4, idxs[0]['nextoffset'])
-            self.eq(3, idxs[0]['ngood'])
-            self.eq(1, idxs[0]['nnormfail'])
+            idx = next(i for i in idxs if i['propname'] == 'first')
+            self.eq(4, idx['nextoffset'])
+            self.eq(3, idx['ngood'])
+            self.eq(1, idx['nnormfail'])
 
             waiter = self.initWaiter(tank)
             idxr.delIndex('second')
@@ -351,7 +388,7 @@ class CryoIndexTest(SynTest):
             idxr.delIndex('first')
             waiter = self.initWaiter(tank)
             self.wait(waiter)
-            idxr.addIndex('first', 'int', 'foo', 'foo2')
+            idxr.addIndex('first', 'int', ('foo', 'foo2'))
             waiter = self.initWaiter(tank)
             self.wait(waiter)
 
@@ -371,12 +408,14 @@ class CryoIndexTest(SynTest):
 
             waiter = self.initWaiter(tank)
             before_idxs = idxr.getIndices()
+            before_idx = next(i for i in before_idxs if i['propname'] == 'first')
             self.wait(waiter)
             waiter = self.initWaiter(tank)
             tank.puts([data1, data2, data3, data4] * 1000)
             self.wait(waiter)
             after_idxs = idxr.getIndices()
-            self.lt(before_idxs[0]['ngood'], after_idxs[0]['ngood'])
+            after_idx = next(i for i in after_idxs if i['propname'] == 'first')
+            self.lt(before_idx['ngood'], after_idx['ngood'])
 
     def test_cryotank_index_nest(self):
         with self.getTestDir() as dirn, s_cryotank.CryoTank(dirn) as tank:
@@ -388,7 +427,7 @@ class CryoIndexTest(SynTest):
                     }
                 }
             }
-            idxr.addIndex('key', 'str:lwr', 'hehe/haha/key')
+            idxr.addIndex('key', 'str:lwr', ['hehe/haha/key'])
             waiter = self.initWaiter(tank)
             self.wait(waiter)
             waiter = self.initWaiter(tank)
