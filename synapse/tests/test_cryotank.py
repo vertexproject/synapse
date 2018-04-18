@@ -372,9 +372,10 @@ class CryoIndexTest(SynTest):
             tank.puts([baddata])
             self.wait(waiter)
             idxs = idxr.getIndices()
-            self.eq(4, idxs[0]['nextoffset'])
-            self.eq(3, idxs[0]['ngood'])
-            self.eq(1, idxs[0]['nnormfail'])
+            idx = next(i for i in idxs if i['propname'] == 'first')
+            self.eq(4, idx['nextoffset'])
+            self.eq(3, idx['ngood'])
+            self.eq(1, idx['nnormfail'])
 
             waiter = self.initWaiter(tank)
             idxr.delIndex('second')
@@ -407,12 +408,14 @@ class CryoIndexTest(SynTest):
 
             waiter = self.initWaiter(tank)
             before_idxs = idxr.getIndices()
+            before_idx = next(i for i in before_idxs if i['propname'] == 'first')
             self.wait(waiter)
             waiter = self.initWaiter(tank)
             tank.puts([data1, data2, data3, data4] * 1000)
             self.wait(waiter)
             after_idxs = idxr.getIndices()
-            self.lt(before_idxs[0]['ngood'], after_idxs[0]['ngood'])
+            after_idx = next(i for i in after_idxs if i['propname'] == 'first')
+            self.lt(before_idx['ngood'], after_idx['ngood'])
 
     def test_cryotank_index_nest(self):
         with self.getTestDir() as dirn, s_cryotank.CryoTank(dirn) as tank:

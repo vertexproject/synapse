@@ -862,7 +862,7 @@ class _IndexMeta:
                 indices_enc = s_msgpack.en({'present': {}, 'deleting': []})
                 progress_enc = s_msgpack.en({})
             else:
-                raise s_exc.CorruptDatabase('missing meta information in index meta')
+                raise s_exc.CorruptDatabase('missing meta information in index meta')  # pragma: no cover
 
         indices = s_msgpack.un(indices_enc)
 
@@ -875,9 +875,11 @@ class _IndexMeta:
         # How far each index has progressed as well as statistics
         self.progresses = s_msgpack.un(progress_enc)
         if not all(p in self.indices for p in self.deleting):
-            raise s_exc.CorruptDatabase('index meta table: deleting entry with unrecognized property name')
+            raise s_exc.CorruptDatabase(
+                'index meta table: deleting entry with unrecognized property name')  # pragma: no cover
         if not all(p in self.indices for p in self.progresses):
-            raise s_exc.CorruptDatabase('index meta table: progress entry with unrecognized property name')
+            raise s_exc.CorruptDatabase(
+                'index meta table: progress entry with unrecognized property name')  # pragma: no cover
         if is_new_db:
             self.persist()
 
@@ -1127,7 +1129,7 @@ class CryoTankIndexer:
                         if k[:len(iid_enc)] != iid_enc:
                             break
                         if not curs.delete():
-                            raise s_exc.CorruptDatabase('delete failure')
+                            raise s_exc.CorruptDatabase('delete failure')  # pragma: no cover
 
                         txn.delete(offset_enc, iid_enc, db=self._normtbl)
                         left -= 1
@@ -1386,7 +1388,7 @@ class CryoTankIndexer:
         for (offset, offset_enc, iidenc, txn) in self._iterrows(prop, valu, exact):
             rv = txn.get(bytes(offset_enc) + iidenc, None, db=self._normtbl)
             if rv is None:
-                raise s_exc.CorruptDatabase('Missing normalized record')
+                raise s_exc.CorruptDatabase('Missing normalized record')  # pragma: no cover
             yield offset, s_msgpack.un(rv)
 
     def queryNormRecords(self, prop, valu=None, exact=False):
@@ -1409,7 +1411,7 @@ class CryoTankIndexer:
             olen = len(offset_enc)
             with txn.cursor(db=self._normtbl) as curs:
                 if not curs.set_range(offset_enc):
-                    raise s_exc.CorruptDatabase('Missing normalized record')
+                    raise s_exc.CorruptDatabase('Missing normalized record')  # pragma: no cover
                 while True:
                     curkey, norm_enc = curs.item()
                     if curkey[:olen] != offset_enc:
