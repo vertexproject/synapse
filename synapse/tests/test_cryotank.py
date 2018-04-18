@@ -213,9 +213,9 @@ class CryoTest(SynTest):
                 # Test index operations
                 self.raises(s_exc.RetnErr, user.getIndices, 'notpresent')
                 self.eq((), user.getIndices('woot:woot'))
-                user.addIndex('woot:woot', 'prop1', 'str', '0')
+                user.addIndex('woot:woot', 'prop1', 'str', ['0'])
                 user.delIndex('woot:woot', 'prop1')
-                user.addIndex('woot:woot', 'prop1', 'str', '0')
+                user.addIndex('woot:woot', 'prop1', 'str', ['0'])
                 user.pauseIndex('woot:woot', 'prop1')
                 user.pauseIndex('woot:woot')
                 user.resumeIndex('woot:woot')
@@ -293,8 +293,8 @@ class CryoIndexTest(SynTest):
 
             # Simple index add/remove
             self.eq([], idxr.getIndices())
-            idxr.addIndex('first', 'int', 'foo')
-            self.raises(DupIndx, idxr.addIndex, 'first', 'int', 'foo')
+            idxr.addIndex('first', 'int', ['foo'])
+            self.raises(DupIndx, idxr.addIndex, 'first', 'int', ['foo'])
             idxs = idxr.getIndices()
             self.eq(idxs[0]['propname'], 'first')
             idxr.delIndex('first')
@@ -306,7 +306,7 @@ class CryoIndexTest(SynTest):
             # Check simple 1 record, 1 index index and retrieval
             waiter = self.initWaiter(tank)
             tank.puts([data1])
-            idxr.addIndex('first', 'int', 'foo')
+            idxr.addIndex('first', 'int', ['foo'])
             self.wait(waiter)
             idxs = idxr.getIndices()
             self.eq(1, idxs[0]['nextoffset'])
@@ -340,7 +340,7 @@ class CryoIndexTest(SynTest):
 
             # second index
             waiter = self.initWaiter(tank)
-            idxr.addIndex('second', 'str', 'bar')
+            idxr.addIndex('second', 'str', ['bar'])
             self.wait(waiter)
 
             # prefix search
@@ -382,7 +382,7 @@ class CryoIndexTest(SynTest):
             idxr.delIndex('first')
             waiter = self.initWaiter(tank)
             self.wait(waiter)
-            idxr.addIndex('first', 'int', 'foo', 'foo2')
+            idxr.addIndex('first', 'int', ('foo', 'foo2'))
             waiter = self.initWaiter(tank)
             self.wait(waiter)
 
@@ -419,7 +419,7 @@ class CryoIndexTest(SynTest):
                     }
                 }
             }
-            idxr.addIndex('key', 'str:lwr', 'hehe/haha/key')
+            idxr.addIndex('key', 'str:lwr', ['hehe/haha/key'])
             waiter = self.initWaiter(tank)
             self.wait(waiter)
             waiter = self.initWaiter(tank)
