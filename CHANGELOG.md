@@ -1,6 +1,35 @@
 Changelog
 =========
 
+v0.0.51 - 2018-04-13
+--------------------
+
+## Enhancements
+- #719 - When doing a type norm for ``time``, include the ``valu`` being normed in the ``BadTypeValu``.
+- #720 - When a node is deleted using ``Cortex.delTufo()``, the node form, primary property, and current user scope are logged at the info level.  This also applies to nodes deleted via Storm and splices.
+- #721 - Add test showing that a ``splice`` contains the current user.
+
+v0.0.50 - 2018-04-08
+--------------------
+
+## New Features
+- #714 - ``inet:addr`` type was modified to represent a URL like format to represent tcp/udp/icmp clients and servers.  The ``inet:client`` and ``inet:server`` types were added, which are subs of the ``inet:addr`` type.
+- #714 - Added ``inet:servfile`` comp form.  This is the intersection of an ``inet:server`` and a ``file:bytes`` node.  It a file available from a given server over an arbitrary protocol.
+- #714 - Added ``inet:download`` guid form to represent an instance of a ``inet:client`` downloading an arbitrary ``file:bytes`` from a ``inet:server`` at some point in time.
+- #717 - Storm operators may now send status messages along with their results.  These messages are displayed after any nodes are printed.  This is a backwards-compatible change.  There are no built-in Storm operators which use this currently.
+
+## Enhancements
+- #709, #711, #712 - Move to CircleCi as a CI testrunner. Remove all Drone / Travis CI code.
+- #715 - Remove the automatic ``EventBus`` event propagation from a ``Cortex`` to a loaded ``CoreModule``. This has an unnecessary performance impact and is not needed for a ``CoreModule`` to subscribe to events from the ``Cortex``. A ``CoreModule`` implementation has a reference to the ``Cortex`` directly and can listen for the events as needed.
+- #717 - The ``SynTest.getDmonCore()`` API now sets the local scope variable ``syn:core`` to refer to the actual ``Cortex`` object which backs the ``Proxy`` object yielded by the API.  This allows test writers using that API to access the underlying ``Cortex`` to perform function calls which may not be possible to execute over the ``Proxy``.
+- #714 - Update the ``it:av:sig`` form to be the intersection of a ``it:prod:soft`` and a ``str:lwr``.  Previously, this was a ``sepr`` type containing an ``ou:alias`` but that does not account for an organization having multiple products.  The ``it:av:filehit`` also was changed from a ``sepr`` to a ``comp`` type since signature names are not safe to use in seprs as sepr character may appear in the names.  There are no migrations in place for these modeling changes.  Please reach out to Vertex Project on Slack if you have data using these forms that requires migration.
+- #714 - Update the ``synapse.models.inet.ipv6norm()`` (used for normalizing IPv6 types) now also returns a ``ipv4`` sub if the normalized address is in the IPv4 address space.
+- #718 - Remove the Storm vartree implementation. It was incomplete and will be replaced in the future with an implicit pivot syntax which will achieve the same effect in a cleaner fashion.
+
+## Bugs
+- #710 - Fix a test which was leaking a CellPool object which was attempting a reconnect loop which would never reconnect.
+- #716 - Normalize tags when calling ``Cortex.getTufosByTag`` or doing tag filtering in Storm.
+
 v0.0.49 - 2018-03-26
 --------------------
 V0.0.49 is primarily a bugfix release to address regressions and issues from v0.0.47.

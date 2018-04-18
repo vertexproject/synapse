@@ -1786,6 +1786,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware)
                 dostuff(tufo)
 
         '''
+        tag, _ = self.getTypeNorm('syn:tag', tag)
         prop = '#' + tag
         if form is None:
             return self.getTufosByProp(prop, limit=limit)
@@ -2343,8 +2344,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware)
             core.delTufo(foob)
 
         '''
-        form = tufo[1].get('tufo:form')
-        valu = tufo[1].get(form)
+        form, valu = s_tufo.ndef(tufo)
+        logger.info('Deleting tufo: [%s]/[%s] by [%s]', form, valu, s_auth.whoami())
 
         for name, tick in self.getTufoDsets(tufo):
             self.delTufoDset(tufo, name)

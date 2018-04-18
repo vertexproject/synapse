@@ -1633,7 +1633,6 @@ class InetModelTest(SynTest):
             self.eq(subs['ipv6'], '::ffff:1.2.3.4')
             self.none(subs.get('port'))
             self.none(subs.get('host'))
-            self.none(subs.get('fqdn'))
 
             # ipv4:port
             valu, subs = core.getTypeNorm('inet:addr', '1.2.3.4:80')
@@ -1643,7 +1642,6 @@ class InetModelTest(SynTest):
             self.eq(subs['ipv4'], 0x01020304)
             self.eq(subs['ipv6'], '::ffff:1.2.3.4')
             self.none(subs.get('host'))
-            self.none(subs.get('fqdn'))
 
             # DWIM IPv6...
             valu, subs = core.getTypeNorm('inet:addr', '1.2.3.4:80')
@@ -1653,7 +1651,6 @@ class InetModelTest(SynTest):
             self.eq(subs['ipv4'], 0x01020304)
             self.eq(subs['ipv6'], '::ffff:1.2.3.4')
             self.none(subs.get('host'))
-            self.none(subs.get('fqdn'))
 
             # ipv6 port
             valu, subs = core.getTypeNorm('inet:addr', '[FF::56]:99')
@@ -1663,7 +1660,6 @@ class InetModelTest(SynTest):
             self.eq(subs['proto'], 'tcp')
             self.none(subs.get('ipv4'))
             self.none(subs.get('host'))
-            self.none(subs.get('fqdn'))
 
             # unadorned syntax...
             valu, subs = core.getTypeNorm('inet:addr', 'FF::56')
@@ -1673,7 +1669,40 @@ class InetModelTest(SynTest):
             self.none(subs.get('ipv4'))
             self.none(subs.get('port'))
             self.none(subs.get('host'))
-            self.none(subs.get('fqdn'))
+
+            valu, subs = core.getTypeNorm('inet:addr', '[::ffff:1.2.3.4]:8080')
+            self.eq(valu, 'tcp://1.2.3.4:8080')
+            self.eq(subs['proto'], 'tcp')
+            self.eq(subs['ipv6'], '::ffff:1.2.3.4')
+            self.eq(subs['ipv4'], 16909060,)
+            self.eq(subs['port'], 8080)
+            self.none(subs.get('host'))
+            # Renorm the primary property (which no longer uses the ipv6 syntax
+            nvalu, nsubs = core.getTypeNorm('inet:addr', valu)
+            self.eq(nvalu, valu)
+            self.eq(nsubs, subs)
+
+            valu, subs = core.getTypeNorm('inet:addr', '::ffff:1.2.3.4')
+            self.eq(valu, 'tcp://1.2.3.4')
+            self.eq(subs['proto'], 'tcp')
+            self.eq(subs['ipv6'], '::ffff:1.2.3.4')
+            self.eq(subs['ipv4'], 16909060,)
+            self.none(subs.get('port'))
+            self.none(subs.get('host'))
+
+            host = s_common.guid('thx')
+            valu, subs = core.getTypeNorm('inet:addr', 'HosT://%s:1138/' % host)
+            self.eq(valu, 'host://%s:1138' % host)
+            self.eq(subs['proto'], 'host')
+            self.eq(subs['host'], host)
+            self.eq(subs['port'], 1138)
+            self.none(subs.get('ipv4'))
+            self.none(subs.get('ipv6'))
+
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'icmp://[FF::56]:99')
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'icmp://8.6.7.5:309')
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'tcp://8.6.7.256:309')
+            self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'giggles://float.down.here/')
 
             host = s_common.guid()
             node = core.formTufoByProp('inet:client', 'host://%s' % (host,))

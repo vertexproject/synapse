@@ -601,30 +601,6 @@ def parse_storm(text, off=0):
         if nextchar(text, off, '}'):
             break
 
-        # handle $foo.bar={<subquery>} syntax
-        if nextchar(text, off, '$'):
-
-            _, off = nom(text, off + 1, whites)
-            if not nextin(text, off, alphaset):
-                raise s_common.BadSyntaxError(msg='Set variables must start with an alpha char')
-            name, off = nom(text, off, setset)
-            _, off = nom(text, off, whites)
-
-            # set load syntax goes here...
-
-            if not nextchar(text, off, '='):
-                raise s_common.BadSyntaxError(msg='expected = at %d' % (off,))
-
-            _, off = nom(text, off + 1, whites)
-
-            if not nextchar(text, off, '{'):
-                raise s_common.BadSyntaxError('expected { at %d' % (off,))
-
-            opers, off = parse_stormsub(text, off)
-
-            ret.append(oper('set', name, opers))
-            continue
-
         # [ ] for node modification macro syntax
 
         # [ inet:fqdn=woot.com ]  == addnode(inet:fqdn,woot.com)

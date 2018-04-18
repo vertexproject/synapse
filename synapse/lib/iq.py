@@ -679,6 +679,7 @@ class SynTest(unittest.TestCase):
 
         s_scope.set('syn:test:link', link)
         s_scope.set('syn:cmd:core', prox)
+        s_scope.set('syn:core', core)
 
         try:
             yield prox

@@ -167,9 +167,9 @@ def ipv6norm(text):
     v6addr = ipaddress.IPv6Address(text)
     v4addr = v6addr.ipv4_mapped
     if v4addr is not None:
-        return '::ffff:%s' % (v4addr)
+        return '::ffff:%s' % (v4addr), {'ipv4': ipv4int(str(v4addr))}
 
-    return v6addr.compressed
+    return v6addr.compressed, {}
 
 class IPv6Type(DataType):
     def repr(self, valu):
@@ -177,7 +177,7 @@ class IPv6Type(DataType):
 
     def norm(self, valu, oldval=None):
         try:
-            return ipv6norm(valu), {}
+            return ipv6norm(valu)
         except Exception as e:
             self._raiseBadValu(valu)
 
@@ -256,7 +256,7 @@ class Srv6Type(DataType):
             self._raiseBadValu(valu, port=port)
 
         try:
-            host = ipv6norm(host)
+            host = ipv6norm(host)[0]
         except Exception as e:
             self._raiseBadValu(valu)
 
@@ -497,7 +497,7 @@ class AddrType(DataType):
         except BadTypeValu as e:
             pass
 
-        self._raiseBadValu(valu, mesg='inet:addr must be <tcp|udp|icmp>://<ipv4|ipv6|fqdn>[:port]/')
+        self._raiseBadValu(orig, mesg='inet:addr must be a <tcp|udp|icmp|host>://<ipv4|ipv6|guid>[:port]/')
 
 
 class InetMod(s_module.CoreModule):
@@ -509,7 +509,10 @@ class InetMod(s_module.CoreModule):
         self.onFormNode('inet:fqdn', self.onTufoFormFqdn)
         self.onFormNode('inet:passwd', self.onTufoFormPasswd)
 
-        self.on('node:prop:set', self.onSetFqdnSfx, prop='inet:fqdn:sfx')
+        self.core.on('node:prop:set', self.onSetFqdnSfx, prop='inet:fqdn:sfx')
+
+    def finiCoreModule(self):
+        self.core.off('node:prop:set', self.onSetFqdnSfx)
 
     def onTufoFormFqdn(self, form, valu, props, mesg):
         parts = valu.split('.', 1)

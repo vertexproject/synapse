@@ -65,6 +65,23 @@ class SynCmdCoreTest(SynTest):
             for term in terms:
                 self.nn(regex.search(term, outp))
 
+    def test_cmds_ask_mesgs(self):
+        with self.getDmonCore() as core:
+            real_core = s_scope.get('syn:core')
+            real_core.setOperFunc('test:mesg', mesg_cmd)
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            resp = cmdr.runCmdLine('ask [inet:ipv4=1.2.3.4] test:mesg()')
+            self.len(1, resp['data'])
+            self.len(2, resp['mesgs'])
+
+            outp.expect('Storm Status Messages:')
+            outp.expect('Log test messages')
+            outp.expect('Query has [1] nodes')
+            print('cli> ask [inet:ipv4=1.2.3.4] test:mesg()')
+            print(outp)
+
     def test_cmds_ask_tagtime(self):
 
         with self.getDmonCore() as core:
