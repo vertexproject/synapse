@@ -60,7 +60,7 @@ class CryoTank(s_config.Config):
 
     @staticmethod
     @s_config.confdef(name='cryotank')
-    def _crytotank_confdefs():
+    def _cryotank_confdefs():
         defs = (
             # from LMDB docs
             ('mapsize', {'type': 'int', 'doc': 'LMDB Mapsize value', 'defval': s_const.tebibyte}),
@@ -661,7 +661,7 @@ class CryoClient:
             name (str):  name of the Cryotank.
             prop (str):  the name of the property this will be stored as in the normalized record
             syntype (str):  the synapse type this will be interpreted as
-            datapaths(str):  datapath specs against which the raw record is run to extract a single field that is
+            datapaths(List[str]):  datapath specs against which the raw record is run to extract a single field that is
                 passed to the type normalizer.  These will be tried in order until one succeeds.  At least one must be
                 present.
             timeout (Optional[float]):  the maximum timeout for an ack
@@ -1255,7 +1255,7 @@ class CryoTankIndexer:
         Args:
             prop (str):  the name of the property this will be stored as in the normalized record
             syntype (str):  the synapse type this will be interpreted as
-            datapaths(str):  datapath specs against which the raw record is run to extract a single field that is
+            datapaths(List[str]):  datapath specs against which the raw record is run to extract a single field that is
                 passed to the type normalizer.  These will be tried in order until one succeeds.  At least one must be
                 present.
         Returns:
