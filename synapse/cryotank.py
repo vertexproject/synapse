@@ -661,14 +661,14 @@ class CryoClient:
             name (str):  name of the Cryotank.
             prop (str):  the name of the property this will be stored as in the normalized record
             syntype (str):  the synapse type this will be interpreted as
-            datapaths(List[str]):  datapath specs against which the raw record is run to extract a single field that is
-                passed to the type normalizer.  These will be tried in order until one succeeds.  At least one must be
-                present.
+            datapaths(Iterable[str]):  datapath specs against which the raw record is run to extract a single field
+                that is passed to the type normalizer.  These will be tried in order until one succeeds.  At least one
+                must be present.
             timeout (Optional[float]):  the maximum timeout for an ack
         Returns:
             None
         Note:
-            Additional datapaths will be tried if and only if prior datapaths are not present, and *not* if
+            Additional datapaths will only be tried if prior datapaths are not present, and *not* if
             the normalization fails.
         '''
         if not len(datapaths):
@@ -930,11 +930,11 @@ class _IndexMeta:
         Args:
             prop (str):  the name of the property this will be stored as in the normalized record
             syntype (str):  the synapse type this will be interpreted as
-            datapaths (str):  datapaths that will be tried in order.
+            datapaths (Iterable[str]):  datapaths that will be tried in order.
         Returns:
             None
         Note:
-            Additional datapaths will be tried if and only if prior datapaths are not present, and *not* if
+            Additional datapaths will only be tried if prior datapaths are not present, and *not* if
             the normalization fails.
         '''
         if self.iidFromProp(prop) is not None:
@@ -1257,13 +1257,13 @@ class CryoTankIndexer:
         Args:
             prop (str):  the name of the property this will be stored as in the normalized record
             syntype (str):  the synapse type this will be interpreted as
-            datapaths(List[str]):  datapath specs against which the raw record is run to extract a single field that is
-                passed to the type normalizer.  These will be tried in order until one succeeds.  At least one must be
-                present.
+            datapaths(Iterable[str]):  datapath specs against which the raw record is run to extract a single field
+                that is passed to the type normalizer.  These will be tried in order until one succeeds.  At least one
+                must be present.
         Returns:
             None
         Note:
-            Additional datapaths will be tried if and only if prior datapaths are not present, and *not* if
+            Additional datapaths will only be tried if prior datapaths are not present, and *not* if
             the normalization fails.
         '''
         return self._meta.addIndex(prop, syntype, datapaths)
