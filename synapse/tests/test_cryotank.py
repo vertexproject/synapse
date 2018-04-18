@@ -156,7 +156,7 @@ class CryoTest(SynTest):
                     listd = dict(user.list(timeout=3))
                     self.notin('woot:hehe', listd)
 
-                    self.none(user.last('woot:hehe', timeout=3))
+                    self.raises(s_exc.RetnErr, user.last, 'woot:hehe', timeout=3)
                     self.genraises(s_exc.RetnErr, user.metrics, 'woot:hehe', 0, 100, timeout=3)
 
                     # Adding data re-adds the tank
