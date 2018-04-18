@@ -213,8 +213,10 @@ class CryoTest(SynTest):
                 # Test index operations
                 self.raises(s_exc.RetnErr, user.getIndices, 'notpresent')
                 self.eq((), user.getIndices('woot:woot'))
+                self.raises(s_exc.BadOperArg, user.addIndex, 'woot:woot', 'prop1', 'str', [])
                 user.addIndex('woot:woot', 'prop1', 'str', ['0'])
                 user.delIndex('woot:woot', 'prop1')
+                self.raises(s_exc.RetnErr, user.delIndex, 'woot:woot', 'noexist')
                 user.addIndex('woot:woot', 'prop1', 'str', ['0'])
                 user.pauseIndex('woot:woot', 'prop1')
                 user.pauseIndex('woot:woot')
