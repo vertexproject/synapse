@@ -397,7 +397,11 @@ class AuthBase:
         Args:
             rule ((str,dict)): A rule tufo.
         '''
-        self.rules.remove(rule)
+        try:
+            self.rules.remove(rule)
+        except ValueError:
+            raise s_exc.NoSuchRule(rule=rule, name=self.name,
+                                   mesg='Rule does not exist')
         self._syncAuthData()
         self._initAuthData()
         return True

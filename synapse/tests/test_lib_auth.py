@@ -65,8 +65,8 @@ class AuthTest(SynTest):
                 self.true(auth.addUser('delme@vertex.link'))
                 self.true(auth.addRole('delmes'))
 
-                udel = auth.users.get('delme@vertex.link')
-                rdel = auth.roles.get('delmes')
+                udel = auth.users.get('delme@vertex.link')  # type: s_auth.User
+                rdel = auth.roles.get('delmes')  # type: s_auth.Role
 
                 self.true(udel.addRole('delmes'))
                 self.nn(udel.roles.get('delmes'))
@@ -87,13 +87,13 @@ class AuthTest(SynTest):
                 self.raises(s_exc.DupUserName, auth.addUser, 'visi@vertex.link')
                 self.raises(s_exc.DupRoleName, auth.addRole, 'ninjas')
 
-                root = auth.users.get('root@vertex.link')
+                root = auth.users.get('root@vertex.link')  # type: s_auth.User
                 self.nn(root)
 
-                visi = auth.users.get('visi@vertex.link')
+                visi = auth.users.get('visi@vertex.link')  # type: s_auth.User
                 self.nn(visi)
 
-                ninj = auth.roles.get('ninjas')
+                ninj = auth.roles.get('ninjas')  # type: s_auth.Role
                 self.nn(ninj)
 
                 self.false(visi.allowed(('node:add', {'form': 'inet:ipv4'})))
@@ -156,16 +156,22 @@ class AuthTest(SynTest):
 
                 visi.addRole('ninjas')
 
-            with s_auth.Auth(dirn) as auth:
+            with s_auth.Auth(dirn) as auth:  # type: s_auth.Auth
 
                 self.none(auth.users.get('delme@vertex.link'))
                 self.none(auth.roles.get('delmes'))
 
-                visi = auth.users.get('visi@vertex.link')
+                visi = auth.users.get('visi@vertex.link')  # type: s_auth.User
                 self.true(visi.allowed(('node:add', {'form': 'inet:ipv4'})))
 
                 self.nn(visi.roles.get('ninjas'))
                 self.true(visi.allowed(('node:add', {'form': 'inet:fqdn'})))
 
-                root = auth.users.get('root@vertex.link')
+                root = auth.users.get('root@vertex.link')  # type: s_auth.User
                 self.true(root.admin)
+
+                # These are destructive tests
+                erule = ('node:add', {'form': 'inet:ipv4'})
+                visi.delRule(erule)
+                self.false(visi.allowed(('node:add', {'form': 'inet:ipv4'})))
+                self.raises(s_exc.NoSuchRule, visi.delRule, erule)
