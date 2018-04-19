@@ -3,16 +3,15 @@ import lmdb
 import logging
 import contextlib
 
-logger = logging.getLogger(__name__)
-
 import synapse.exc as s_exc
 
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
-
 import synapse.lib.msgpack as s_msgpack
+
+logger = logging.getLogger(__name__)
 
 class Rules:
     '''
@@ -559,7 +558,7 @@ class User(AuthBase):
 
             role = self.auth.roles.get(name)
 
-            if role is None:
+            if role is None:  # pragma: no cover
                 logger.warning('user has non-existant role: %r' % (name,))
                 continue
 
