@@ -696,6 +696,7 @@ class SynTest(unittest.TestCase):
         s_scope.set('syn:test:link', link)
         s_scope.set('syn:cmd:core', prox)
         s_scope.set('syn:core', core)
+        s_scope.set('syn:dmon', dmon)
 
         try:
             yield prox
@@ -705,6 +706,10 @@ class SynTest(unittest.TestCase):
             prox.fini()
             core.fini()
             dmon.fini()
+            s_scope.pop('syn:dmon')
+            s_scope.pop('syn:core')
+            s_scope.pop('syn:cmd:core')
+            s_scope.pop('syn:test:link')
 
     @contextlib.contextmanager
     def getTestDir(self):
