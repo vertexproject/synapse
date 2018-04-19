@@ -83,6 +83,7 @@ class AuthTest(SynTest):
 
                 self.true(auth.delUser('delme@vertex.link'))
 
+                self.raises(s_exc.NoSuchUser, auth.delUser, 'delme@vertex.link')
                 self.raises(s_exc.DupUserName, auth.addUser, 'visi@vertex.link')
                 self.raises(s_exc.DupRoleName, auth.addRole, 'ninjas')
 
