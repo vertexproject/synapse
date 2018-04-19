@@ -51,6 +51,10 @@ class AuthTest(SynTest):
 
             with s_auth.Auth(dirn) as auth:
 
+                # Ensure our default lmdb size is correct
+                self.eq(auth.getConfOpt('lmdb:mapsize'),
+                        s_const.gigabyte)
+
                 self.none(auth.users.get('visi@vertex.link'))
                 self.none(auth.roles.get('ninjas'))
 

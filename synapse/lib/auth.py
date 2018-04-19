@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 import synapse.exc as s_exc
 
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 
@@ -126,11 +127,11 @@ class Auth(s_config.Config):
             for name, info in self._iterAuthDefs(xact, self._db_users):
                 self.users[name] = User(self, name, info)
 
-    def getConfDefs(self):
-        return (
+    def initConfDefs(self):
+        self.addConfDefs((
             ('lmdb:mapsize', {'type': 'int', 'defval': s_const.gigabyte,
                 'doc': 'Memory map size for the auth LMDB.'}),
-        )
+        ))
 
     def addUser(self, name):
         '''
