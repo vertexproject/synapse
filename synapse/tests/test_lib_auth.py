@@ -144,11 +144,13 @@ class AuthTest(SynTest):
                 self.true(ninj.allowed(('node:add', {'form': 'inet:fqdn'})))
                 self.false(visi.allowed(('node:add', {'form': 'inet:fqdn'})))
 
-                visi.addRole('ninjas')
+                self.true(visi.addRole('ninjas'))
                 self.true(visi.allowed(('node:add', {'form': 'inet:fqdn'})))
+                self.raises(NoSuchRole, visi.addRole, 'bladerunner')
 
-                visi.delRole('ninjas')
+                self.true(visi.delRole('ninjas'))
                 self.false(visi.allowed(('node:add', {'form': 'inet:fqdn'})))
+                self.false(visi.delRole('ninjas'))
 
                 visi.addRole('ninjas')
 

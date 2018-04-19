@@ -595,6 +595,7 @@ class User(AuthBase):
 
         self.roles[name] = role
         self._saveAuthData()
+        return True
 
     def delRole(self, name):
         '''
@@ -608,3 +609,4 @@ class User(AuthBase):
             return False
 
         self._saveAuthData()
+        return True
