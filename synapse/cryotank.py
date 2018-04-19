@@ -255,12 +255,12 @@ class CryoCell(s_cell.Cell):
         cryo_handlers = {
             'cryo:init': self._onCryoInit,
             'cryo:list': self._onCryoList,
-            'cryo:last': self._onCryoLast,
             'cryo:puts': self._onCryoPuts,
             'cryo:dele': self._onCryoDele,
-            'cryo:rows': self._onCryoRows,
-            'cryo:slice': self._onCryoSlice,
-            'cryo:metrics': self._onCryoMetrics,
+            'cryo:last': partial(self._onGeneric, CryoTank.last),
+            'cryo:rows': partial(self._onGeneric, CryoTank.rows),
+            'cryo:slice': partial(self._onGeneric, CryoTank.slice),
+            'cryo:metrics': partial(self._onGeneric, CryoTank.metrics),
         }
         indexer_calls = {
             'cryo:indx:add': CryoTankIndexer.addIndex,
@@ -274,6 +274,53 @@ class CryoCell(s_cell.Cell):
         }
         cryo_handlers.update({k: partial(self._onCryoIndex, v) for k, v in indexer_calls.items()})
         return cryo_handlers
+
+    def _standard_return(self, chan, subfunc, *args, **kwargs):
+        '''
+        Calls a function and returns the return value or exception back through the channel
+        '''
+        try:
+            rv = subfunc(*args, **kwargs)
+        except Exception as e:
+            retn = s_common.getexcfo(e)
+            return chan.tx((False, retn))
+
+        if isinstance(rv, types.GeneratorType):
+            chan.setq()
+            chan.tx((True, True))
+            genr = s_common.chunks(rv, 1000)
+            chan.txwind(genr, 100, timeout=30)
+            return
+
+        return chan.tx((True, rv))
+
+    @s_glob.inpool
+    def _onGeneric(self, method, chan, mesg):
+        '''
+        Generic handler that looks up tank in name field and passes it to method of cryotank
+        '''
+        cmdstr, kwargs = mesg
+        name = kwargs.pop('name')
+        tank = self.tanks.get(name)
+
+        with chan:
+            if tank is None:
+                return chan.tx((False, ('NoSuchName', {'name': name})))
+            return self._standard_return(chan, method, tank, **kwargs)
+
+    @s_glob.inpool
+    def _onCryoIndex(self, subfunc, chan, mesg):
+        cmdstr, kwargs = mesg
+        name = kwargs.pop('name')
+        tank = self.tanks.get(name)
+
+        with chan:
+            if tank is None:
+                return chan.tx((False, ('NoSuchName', {'name': name})))
+            indexer = tank.indexer
+            if indexer is None:
+                return chan.tx((False, ('IndexingDisabled', {'name': name})))
+            return self._standard_return(chan, subfunc, indexer, **kwargs)
 
     def genCryoTank(self, name, conf=None):
         '''
@@ -310,18 +357,6 @@ class CryoCell(s_cell.Cell):
         '''
         return [(name, tank.info()) for (name, tank) in self.tanks.items()]
 
-    def _onCryoLast(self, chan, mesg):
-
-        name = mesg[1].get('name')
-
-        with chan:
-
-            tank = self.tanks.get(name)
-            if tank is None:
-                return chan.txfini(None)
-
-            return chan.txfini(tank.last())
-
     def _onCryoList(self, chan, mesg):
         chan.txfini((True, self.getCryoList()))
 
@@ -331,83 +366,20 @@ class CryoCell(s_cell.Cell):
         name = mesg[1].get('name')
 
         logger.info('Deleting tank: %s' % (name,))
-
-        tank = self.tanks.pop(name)  # type: CryoTank
-        if tank is None:
-            return chan.txfini(False)
-
-        self.names.pop(name)
-
-        tank.fini()
-        shutil.rmtree(tank.path, ignore_errors=True)
-        return chan.txfini(True)
-
-    @s_glob.inpool
-    def _onCryoSlice(self, chan, mesg):
-
-        name = mesg[1].get('name')
-        offs = mesg[1].get('offs')
-        size = mesg[1].get('size')
-
         with chan:
 
-            tank = self.tanks.get(name)
+            tank = self.tanks.pop(name)  # type: CryoTank
             if tank is None:
-                return chan.tx((False, ('NoSuchName', {'name': name})))
+                return chan.tx((True, False))
 
-            chan.setq()
-            chan.tx((True, True))
+            self.names.pop(name)
 
-            genr = tank.slice(offs, size)
-            genr = s_common.chunks(genr, 100)
-
-            # 100 chunks of 100 in flight...
-            chan.txwind(genr, 100, timeout=30)
-
-    @s_glob.inpool
-    def _onCryoRows(self, chan, mesg):
-
-        name = mesg[1].get('name')
-        offs = mesg[1].get('offs')
-        size = mesg[1].get('size')
-
-        with chan:
-
-            tank = self.tanks.get(name)
-            if tank is None:
-                return chan.tx((False, ('NoSuchName', {'name': name})))
-
-            chan.setq()
-            chan.tx((True, True))
-
-            rows = tank.rows(offs, size=size)
-            genr = s_common.chunks(rows, 1000)
-
-            chan.txwind(genr, 100, timeout=30)
-
-    @s_glob.inpool
-    def _onCryoMetrics(self, chan, mesg):
-        name = mesg[1].get('name')
-        offs = mesg[1].get('offs')
-        size = mesg[1].get('size')
-
-        with chan:
-
-            tank = self.tanks.get(name)
-            if tank is None:
-                return chan.txfini((False, ('NoSuchName', {'name': name})))
-
-            chan.setq()
-            chan.tx((True, True))
-
-            metr = tank.metrics(offs, size=size)
-
-            genr = s_common.chunks(metr, 1000)
-            chan.txwind(genr, 100, timeout=30)
+            tank.fini()
+            shutil.rmtree(tank.path, ignore_errors=True)
+            return chan.tx((True, True))
 
     @s_glob.inpool
     def _onCryoPuts(self, chan, mesg):
-
         name = mesg[1].get('name')
 
         chan.setq()
@@ -425,49 +397,12 @@ class CryoCell(s_cell.Cell):
 
     @s_glob.inpool
     def _onCryoInit(self, chan, mesg):
-        name = mesg[1].get('name')
-        conf = mesg[1].get('conf')
-
         with chan:
 
-            tank = self.tanks.get(name)
+            tank = self.tanks.get(mesg[1].get('name'))
             if tank:
                 return chan.tx((True, False))
-
-            try:
-                self.genCryoTank(name, conf)
-                return chan.tx((True, True))
-
-            except Exception as e:
-                retn = s_common.getexcfo(e)
-                return chan.tx((False, retn))
-
-    @s_glob.inpool
-    def _onCryoIndex(self, subfunc, chan, mesg):
-        cmdstr, kwargs = mesg
-        name = kwargs.pop('name')
-        tank = self.tanks.get(name)
-
-        with chan:
-            if tank is None:
-                return chan.tx((False, ('NoSuchName', {'name': name})))
-            indexer = tank.indexer
-            if indexer is None:
-                return chan.tx((False, ('IndexingDisabled', {'name': name})))
-            try:
-                rv = subfunc(indexer, **kwargs)
-            except Exception as e:
-                retn = s_common.getexcfo(e)
-                return chan.tx((False, retn))
-
-            if isinstance(rv, types.GeneratorType):
-                chan.setq()
-                chan.tx((True, True))
-                genr = s_common.chunks(rv, 1000)
-                chan.txwind(genr, 100, timeout=30)
-                return
-
-            return chan.tx((True, rv))
+            return self._standard_return(chan, lambda **kwargs: bool(self.genCryoTank(**kwargs)), **mesg[1])
 
 class CryoClient:
     '''
@@ -479,6 +414,27 @@ class CryoClient:
         timeout (int): Connect timeout
     '''
     _chunksize = 10000
+
+    def _remotecall(self, name, cmd_str, timeout=None, **kwargs):
+        '''
+        Handles all non-generator remote calls
+        '''
+        kwargs['name'] = name
+        ok, retn = self.sess.call((cmd_str, kwargs), timeout=timeout)
+        return s_common.reqok(ok, retn)
+
+    def _genremotecall(self, name, cmd_str, timeout=None, **kwargs):
+        '''
+        Handles all generator function remote calls
+        '''
+        kwargs['name'] = name
+        with self.sess.task((cmd_str, kwargs), timeout=timeout) as chan:
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
+
+            for bloc in chan.rxwind(timeout=timeout):
+                for item in bloc:
+                    yield item
 
     def __init__(self, sess):
         self.sess = sess
@@ -515,7 +471,7 @@ class CryoClient:
         Returns:
             ((int, object)): The last entry index and object from the CryoTank.
         '''
-        return self.sess.call(('cryo:last', {'name': name}), timeout=timeout)
+        return self._remotecall(name, cmd_str='cryo:last', timeout=timeout)
 
     def delete(self, name, timeout=None):
         '''
@@ -528,7 +484,7 @@ class CryoClient:
         Returns:
             bool: True if the CryoTank was deleted, False if it was not deleted.
         '''
-        return self.sess.call(('cryo:dele', {'name': name}), timeout=timeout)
+        return self._remotecall(name, cmd_str='cryo:dele', timeout=timeout)
 
     def list(self, timeout=None):
         '''
@@ -556,15 +512,7 @@ class CryoClient:
         Yields:
             (int, obj): (indx, item) tuples for the sliced range.
         '''
-        mesg = ('cryo:slice', {'name': name, 'offs': offs, 'size': size})
-        with self.sess.task(mesg, timeout=timeout) as chan:
-
-            ok, retn = chan.next(timeout=timeout)
-            s_common.reqok(ok, retn)
-
-            for bloc in chan.rxwind(timeout=timeout):
-                for item in bloc:
-                    yield item
+        return self._genremotecall(name, offs=offs, size=size, cmd_str='cryo:slice', timeout=timeout)
 
     def rows(self, name, offs, size, timeout=None):
         '''
@@ -583,15 +531,7 @@ class CryoClient:
         Yields:
             (int, bytes): (indx, bytes) tuples for the rows in range.
         '''
-        mesg = ('cryo:rows', {'name': name, 'offs': offs, 'size': size})
-        with self.sess.task(mesg, timeout=timeout) as chan:
-
-            ok, retn = chan.next(timeout=timeout)
-            s_common.reqok(ok, retn)
-
-            for bloc in chan.rxwind(timeout=timeout):
-                for item in bloc:
-                    yield item
+        return self._genremotecall(name, offs=offs, size=size, cmd_str='cryo:rows', timeout=timeout)
 
     def metrics(self, name, offs, size=None, timeout=None):
         '''
@@ -605,15 +545,7 @@ class CryoClient:
         Returns:
             tuple: A tuple containing metrics tufos for the named CryoTank.
         '''
-        mesg = ('cryo:metrics', {'name': name, 'offs': offs, 'size': size})
-        with self.sess.task(mesg, timeout=timeout) as chan:
-
-            ok, retn = chan.next(timeout=timeout)
-            s_common.reqok(ok, retn)
-
-            for bloc in chan.rxwind(timeout=timeout):
-                for item in bloc:
-                    yield item
+        return self._genremotecall(name, offs=offs, size=size, cmd_str='cryo:metrics', timeout=timeout)
 
     def init(self, name, conf=None, timeout=None):
         '''
@@ -628,30 +560,7 @@ class CryoClient:
             True if the tank was created, False if the tank existed or
             there was an error during CryoTank creation.
         '''
-        mesg = ('cryo:init', {'name': name, 'conf': conf})
-        ok, retn = self.sess.call(mesg, timeout=timeout)
-        return s_common.reqok(ok, retn)
-
-    def _indexercall(self, name, cmd_str, timeout=None, **kwargs):
-        '''
-        Handles all non-generator client indexer calls
-        '''
-        kwargs['name'] = name
-        ok, retn = self.sess.call((cmd_str, kwargs), timeout=timeout)
-        return s_common.reqok(ok, retn)
-
-    def _indexercallgen(self, name, cmd_str, timeout=None, **kwargs):
-        '''
-        Handles all generator function client indexer calls
-        '''
-        kwargs['name'] = name
-        with self.sess.task((cmd_str, kwargs), timeout=timeout) as chan:
-            ok, retn = chan.next(timeout=timeout)
-            s_common.reqok(ok, retn)
-
-            for bloc in chan.rxwind(timeout=timeout):
-                for item in bloc:
-                    yield item
+        return self._remotecall(name, conf=conf, cmd_str='cryo:init', timeout=timeout)
 
     def addIndex(self, name, prop, syntype, datapaths, timeout=None):
         '''
@@ -674,8 +583,8 @@ class CryoClient:
         if not len(datapaths):
             raise s_exc.BadOperArg(mesg='datapaths must have at least one entry')
 
-        return self._indexercall(name, prop=prop, syntype=syntype, datapaths=datapaths, cmd_str='cryo:indx:add',
-                                 timeout=timeout)
+        return self._remotecall(name, prop=prop, syntype=syntype, datapaths=datapaths, cmd_str='cryo:indx:add',
+                                timeout=timeout)
 
     def delIndex(self, name, prop, timeout=None):
         '''
@@ -688,7 +597,7 @@ class CryoClient:
         Returns:
             None
         '''
-        return self._indexercall(name, prop=prop, cmd_str='cryo:indx:del', timeout=timeout)
+        return self._remotecall(name, prop=prop, cmd_str='cryo:indx:del', timeout=timeout)
 
     def pauseIndex(self, name, prop=None, timeout=None):
         '''
@@ -703,7 +612,7 @@ class CryoClient:
         Note:
             Pausing is not persistent.  Restarting the process will resume indexing.
         '''
-        return self._indexercall(name, prop=prop, cmd_str='cryo:indx:pause', timeout=timeout)
+        return self._remotecall(name, prop=prop, cmd_str='cryo:indx:pause', timeout=timeout)
 
     def resumeIndex(self, name, prop=None, timeout=None):
         '''
@@ -716,7 +625,7 @@ class CryoClient:
         Returns:
             None
         '''
-        return self._indexercall(name, prop=prop, cmd_str='cryo:indx:resume', timeout=timeout)
+        return self._remotecall(name, prop=prop, cmd_str='cryo:indx:resume', timeout=timeout)
 
     def getIndices(self, name, timeout=None):
         '''
@@ -728,7 +637,7 @@ class CryoClient:
         Returns:
             List[Dict[str: Any]]: all the indices with progress and statistics
         '''
-        return self._indexercall(name, cmd_str='cryo:indx:stat', timeout=timeout)
+        return self._remotecall(name, cmd_str='cryo:indx:stat', timeout=timeout)
 
     def queryNormValu(self, name, prop, valu=None, exact=False, timeout=None):
         '''
@@ -745,8 +654,8 @@ class CryoClient:
         Returns:
             Iterable[Tuple[int, Union[str, int]]]:  A generator of offset, normalized value tuples.
         '''
-        return self._indexercallgen(name, prop=prop, valu=valu, exact=exact, cmd_str='cryo:indx:querynormvalu',
-                                    timeout=timeout)
+        return self._genremotecall(name, prop=prop, valu=valu, exact=exact, cmd_str='cryo:indx:querynormvalu',
+                                   timeout=timeout)
 
     def queryNormRecords(self, name, prop, valu=None, exact=False, timeout=None):
         '''
@@ -763,8 +672,8 @@ class CryoClient:
         Returns:
             Iterable[Tuple[int, Dict[str, Union[str, int]]]]: A generator of offset, dictionary tuples
         '''
-        return self._indexercallgen(name, prop=prop, valu=valu, exact=exact, cmd_str='cryo:indx:querynormrecords',
-                                    timeout=timeout)
+        return self._genremotecall(name, prop=prop, valu=valu, exact=exact, cmd_str='cryo:indx:querynormrecords',
+                                   timeout=timeout)
 
     def queryRows(self, name, prop, valu=None, exact=False, timeout=None):
         '''
@@ -781,8 +690,8 @@ class CryoClient:
         Returns:
             Iterable[Tuple[int, bytes]]: A generator of tuple (offset, messagepack encoded) raw records
         '''
-        return self._indexercallgen(name, prop=prop, valu=valu, exact=exact, cmd_str='cryo:indx:queryrows',
-                                    timeout=timeout)
+        return self._genremotecall(name, prop=prop, valu=valu, exact=exact, cmd_str='cryo:indx:queryrows',
+                                   timeout=timeout)
 
 # TODO: what to do with subprops returned from getTypeNorm
 
