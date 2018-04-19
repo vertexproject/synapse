@@ -18,6 +18,7 @@ class AuthTest(SynTest):
 
         self.true(rulz.allow(('hehe:ha', {})))
         self.true(rulz.allow(('foo:bar', {'baz': 'faz'})))
+        self.false(rulz.allow(('foo:bar', {'gigles': 'clown'})))
 
         self.false(rulz.allow(('foo:bar', {'baz': 'wootwoot'})))
         self.false(rulz.allow(('newp:newp', {})))
@@ -108,6 +109,8 @@ class AuthTest(SynTest):
                 visi.addRule(('node:prop:set', {'form': 'inet:ipv4', 'prop': 'cc'}))
                 visi.addRule(('node:tag:add', {'tag': 'foo.bar'}))
                 visi.addRule(('node:tag:del', {'tag': 'baz.faz'}))
+                self.true(visi.allowed(('node:del', {'form': 'inet:ipv4'})))
+                self.true(visi.allowed(('node:prop:set', {'form': 'inet:ipv4', 'prop': 'cc'})))
 
                 root.setAdmin(True)
                 self.true(root.allowed(('node:add', {'form': 'inet:ipv4'})))
@@ -154,15 +157,57 @@ class AuthTest(SynTest):
                 self.false(visi.allowed(('node:add', {'form': 'inet:fqdn'})))
                 self.false(visi.delRole('ninjas'))
 
+                # star perm testing
+                na_star = ('node:add', {'form': '*'})
+                self.false(visi.allowed(('node:add', {'form': 'strform'})))
+                self.true(visi.addRule(na_star))
+                self.true(visi.allowed(('node:add', {'form': 'strform'})))
+                self.true(visi.delRule(na_star))
+                self.false(visi.allowed(('node:add', {'form': 'strform'})))
+
+                nd_star = ('node:del', {'form': '*', })
+                self.false(visi.allowed(('node:del', {'form': 'strform'})))
+                self.true(visi.addRule(nd_star))
+                self.true(visi.allowed(('node:del', {'form': 'strform'})))
+                self.true(visi.delRule(nd_star))
+                self.false(visi.allowed(('node:del', {'form': 'strform'})))
+
+                ns_star = ('node:prop:set', {'form': 'strform', 'prop': '*'})
+                self.false(visi.allowed(('node:prop:set', {'form': 'strform'})))
+                self.true(visi.addRule(ns_star))
+                self.true(visi.allowed(('node:prop:set', {'form': 'strform'})))
+                self.true(visi.delRule(ns_star))
+                self.false(visi.allowed(('node:set', {'form': 'strform'})))
+
                 visi.addRole('ninjas')
 
                 # Sad path testing
+                brules = [
+                    ('node:add', ['this', 'will', 'fail']),
+                    ('node:add', {}),
+                    ('node:add', {'hehe': 'haha'}),
+                    ('node:del', ['this', 'will', 'fail']),
+                    ('node:del', {}),
+                    ('node:del', {'hehe': 'haha'}),
+                    ('node:prop:set', ['this', 'will', 'fail']),
+                    ('node:prop:set', {}),
+                    ('node:prop:set', {'hehe': 'haha'}),
+                    ('node:prop:set', {'form': 'haha'}),
+                    ('node:prop:set', {'prop': 'haha'}),
+                    ('node:tag:add', ['this:will:fail']),
+                    ('node:tag:add', {}),
+                    ('node:tag:add', {'hehe:haha'}),
+                    ('node:tag:del', ['this:will:fail']),
+                    ('node:tag:del', {}),
+                    ('node:tag:del', {'hehe:haha'}),
+                ]
+                for rule in brules:
+                    with self.getLoggerStream('synapse.lib.auth', 'rule function error') as stream:
+                        self.false(visi.addRule(rule))
+                        self.true(stream.wait(1))
+
                 with self.getLoggerStream('synapse.lib.auth', 'no such rule func') as stream:
                     self.false(visi.addRule(('node:nonexistent', {'form': 'lulz'})))
-                    self.true(stream.wait(1))
-
-                with self.getLoggerStream('synapse.lib.auth', 'rule function error') as stream:
-                    self.false(visi.addRule(('node:add', ['this', 'will', 'fail'])))
                     self.true(stream.wait(1))
 
                 with self.getLoggerStream('synapse.lib.auth', 'unknown perm') as stream:

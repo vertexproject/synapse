@@ -474,23 +474,41 @@ class AuthBase:
 
     def _addNodeAdd(self, rule):
         form = rule[1].get('form')
+        if not form:
+            raise s_exc.BadRuleValu(key='form', valu=form,
+                                    mesg='node:add requires "form"')
         self._node_add[form] = True
 
     def _addNodeDel(self, rule):
         form = rule[1].get('form')
+        if not form:
+            raise s_exc.BadRuleValu(key='form', valu=form,
+                                    mesg='node:del requires "form"')
         self._node_del[form] = True
 
     def _addNodeSet(self, rule):
         form = rule[1].get('form')
         prop = rule[1].get('prop')
+        if not form:
+            raise s_exc.BadRuleValu(key='form', valu=form,
+                                    mesg='node:set:prop requires "form"')
+        if not prop:
+            raise s_exc.BadRuleValu(key='valu', valu=prop,
+                                    mesg='node:set:prop requires "prop"')
         self._node_set[(form, prop)] = True
 
     def _addTagAdd(self, rule):
         tag = rule[1].get('tag')
+        if not tag:
+            raise s_exc.BadRuleValu(key='tag', valu=tag,
+                                    mesg='node:tag:add requires "tag"')
         self._tag_add.add(tag)
 
     def _addTagDel(self, rule):
         tag = rule[1].get('tag')
+        if not tag:
+            raise s_exc.BadRuleValu(key='tag', valu=tag,
+                                    mesg='node:tag:del requires "tag"')
         self._tag_del.add(tag)
 
     #####################################################
@@ -554,9 +572,9 @@ class Role(AuthBase):
 class User(AuthBase):
 
     def _getAuthData(self):
-            info = AuthBase._getAuthData(self)
-            info['roles'] = list(self.roles.keys())
-            return info
+        info = AuthBase._getAuthData(self)
+        info['roles'] = list(self.roles.keys())
+        return info
 
     def _saveAuthData(self):
         info = self._getAuthData()
