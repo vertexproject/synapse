@@ -156,6 +156,15 @@ class AuthTest(SynTest):
 
                 visi.addRole('ninjas')
 
+                # Sad path testing
+                with self.getLoggerStream('synapse.lib.auth', 'no such rule func') as stream:
+                    self.false(visi.addRule(('node:nonexistent', {'form': 'lulz'})))
+                    self.true(stream.wait(1))
+
+                with self.getLoggerStream('synapse.lib.auth', 'rule function error') as stream:
+                    self.false(visi.addRule(('node:add', ['this', 'will', 'fail'])))
+                    self.true(stream.wait(1))
+
             with s_auth.Auth(dirn) as auth:  # type: s_auth.Auth
 
                 self.none(auth.users.get('delme@vertex.link'))

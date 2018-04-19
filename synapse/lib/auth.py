@@ -385,10 +385,12 @@ class AuthBase:
         Args:
             rule ((str,dict)): A rule tufo.
         '''
-        self._addRuleTufo(rule)
+        ret = self._addRuleTufo(rule)
+        if not ret:
+            return ret
         self.rules.append(rule)
         self._syncAuthData()
-        return True
+        return ret
 
     def delRule(self, rule):
         '''
@@ -459,13 +461,15 @@ class AuthBase:
         func = self._add_funcs.get(rule[0])
         if func is None:
             logger.warning('no such rule func: %r' % (rule,))
-            return
+            return False
 
         try:
             func(rule)
         except Exception as e:
             logger.exception('rule function error: %r' % (rule,))
+            return False
 
+        return True
     #####################################################
 
     def _addNodeAdd(self, rule):
