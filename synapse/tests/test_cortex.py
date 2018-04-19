@@ -2779,6 +2779,48 @@ class CortexTest(SynTest):
             self.nn(node[1].get('#foo'))
             self.nn(node[1].get('#baz'))
 
+    def test_cortex_auth_telepath(self):
+        conf = {'auth:en': 1, 'auth:admin': 'root@localhost'}
+        cafile = getTestPath('ca.crt')
+        keyfile = getTestPath('server.key')
+        certfile = getTestPath('server.crt')
+        userkey = getTestPath('user.key')
+        usercrt = getTestPath('user.crt')
+        rootkey = getTestPath('root.key')
+        rootcrt = getTestPath('root.crt')
+
+        with self.getDirCore(conf=conf) as core:
+            with s_daemon.Daemon() as dmon:
+                dmon.share('core', core)
+                link = dmon.listen('ssl://localhost:0/',
+                                   cafile=cafile,
+                                   keyfile=keyfile,
+                                   certfile=certfile,
+                                   )
+                port = link[1].get('port')
+                url = 'ssl://user@localhost/core'
+                user_prox = s_telepath.openurl(url,
+                                               port=port,
+                                               cafile=cafile,
+                                               keyfile=userkey,
+                                               certfile=usercrt
+                                               )  # type: s_cores_common.CoreApi
+                dmon.onfini(user_prox.fini)
+                root_prox = s_telepath.openurl(url,
+                                               port=port,
+                                               cafile=cafile,
+                                               keyfile=rootkey,
+                                               certfile=rootcrt
+                                               )  # type: s_cores_common.CoreApi
+                dmon.onfini(root_prox.fini)
+                self.gt(len(user_prox.getCoreMods()), 1)
+                self.raises(NoSuchMeth, user_prox.delRowsByProp, 'strform',)
+                self.raises(NoSuchUser, user_prox.eval, '[strform=pennywise]')
+
+                self.gt(len(root_prox.getCoreMods()), 1)
+                self.raises(NoSuchMeth, root_prox.delRowsByProp, 'strform',)
+                self.len(1, root_prox.eval('sudo() [strform=pennywise]'))
+
     def test_cortex_auth(self):
 
         conf = {'auth:en': 1, 'auth:admin': 'rawr@vertex.link'}

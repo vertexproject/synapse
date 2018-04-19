@@ -73,6 +73,7 @@ class CoreApi:
         self.splices = core.splices
 
         # APIs that need no perms enforcement
+        self.getCoreMods = core.getCoreMods
         self.getTypeRepr = core.getTypeRepr
         self.getPropRepr = core.getPropRepr
 
@@ -95,7 +96,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware)
         # Store the link tufo
         self._link = link
 
-        self.auth = None
+        self.auth = None  # type: s_auth.Auth
 
         # Core modules and model related structs
         self.modules = [(ctor, modconf) for ctor, smod, modconf in s_modules.ctorlist]
