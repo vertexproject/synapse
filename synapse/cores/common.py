@@ -183,7 +183,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware)
                 raise s_exc.ReqConfOpt(name='dir', mesg='auth:en=1 requires a cortex dir')
 
             # TODO: get a nested auth config and pass it in...
-            path = self.getCorePath('auth')
+            path = self.genCorePath('auth')
 
             self.auth = s_auth.Auth(path, conf=None)
             self.onfini(self.auth.fini)
@@ -369,6 +369,23 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware)
             (bool):  True if the property is a runtime node form.
         '''
         return prop in self.runt_forms
+
+    def genCorePath(self, *paths):
+        '''
+        Construct and create a path relative to the cortex metadata dir (or Raise).
+
+        Args:
+            *paths ([str,]): A set of path elements
+
+        Returns:
+            str: Full path to the directory.
+
+        Raises:
+            ReqConfOpt: If the cortex does not have a metadata directory.
+        '''
+        ret = self.reqCorePath(*paths)
+        s_common.gendir(ret)
+        return ret
 
     def getCorePath(self, *paths):
         '''
