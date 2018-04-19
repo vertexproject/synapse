@@ -110,6 +110,17 @@ class AuthTest(SynTest):
                 root.setAdmin(True)
                 self.true(root.allowed(('node:add', {'form': 'inet:ipv4'})))
                 self.false(root.allowed(('node:add', {'form': 'inet:ipv4'}), elev=False))
+                # Setting the admin flag to the same value is a no-op
+                root.setAdmin(True)
+                # We can twiddle the admin privs
+                root.setAdmin(False)
+                self.false(root.admin)
+                self.false(root.allowed(('node:add', {'form': 'inet:ipv4'})))
+                self.false(root.allowed(('node:add', {'form': 'inet:ipv4'}), elev=False))
+                # And setting back to true restores the previous behavior.
+                root.setAdmin(True)
+                self.true(root.allowed(('node:add', {'form': 'inet:ipv4'})))
+                self.false(root.allowed(('node:add', {'form': 'inet:ipv4'}), elev=False))
 
                 self.true(root.admin)
                 self.false(visi.admin)
