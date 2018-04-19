@@ -58,29 +58,30 @@ class AuthTest(SynTest):
                 self.none(auth.users.get('visi@vertex.link'))
                 self.none(auth.roles.get('ninjas'))
 
-                auth.addUser('root@vertex.link')
-                auth.addUser('visi@vertex.link')
-                auth.addRole('ninjas')
+                self.nn(auth.addUser('root@vertex.link'))
+                self.nn(auth.addUser('visi@vertex.link'))
+                self.nn(auth.addRole('ninjas'))
 
-                auth.addUser('delme@vertex.link')
-                auth.addRole('delmes')
+                self.true(auth.addUser('delme@vertex.link'))
+                self.true(auth.addRole('delmes'))
 
                 udel = auth.users.get('delme@vertex.link')
                 rdel = auth.roles.get('delmes')
 
-                udel.addRole('delmes')
+                self.true(udel.addRole('delmes'))
                 self.nn(udel.roles.get('delmes'))
 
-                udel.delRole('delmes')
+                self.true(udel.delRole('delmes'))
                 self.none(udel.roles.get('delmes'))
 
-                udel.addRole('delmes')
+                self.true(udel.addRole('delmes'))
                 self.nn(udel.roles.get('delmes'))
 
-                auth.delRole('delmes')
+                self.true(auth.delRole('delmes'))
                 self.none(udel.roles.get('delmes'))
+                self.raises(NoSuchRole, auth.delRole, 'delmes')
 
-                auth.delUser('delme@vertex.link')
+                self.true(auth.delUser('delme@vertex.link'))
 
                 self.raises(s_exc.DupUserName, auth.addUser, 'visi@vertex.link')
                 self.raises(s_exc.DupRoleName, auth.addRole, 'ninjas')
@@ -101,7 +102,7 @@ class AuthTest(SynTest):
                 self.false(visi.allowed(('node:tag:add', {'tag': 'hehe.haha'})))
                 self.false(visi.allowed(('node:tag:del', {'tag': 'hehe.haha'})))
 
-                visi.addRule(('node:add', {'form': 'inet:ipv4'}))
+                self.true(visi.addRule(('node:add', {'form': 'inet:ipv4'})))
                 visi.addRule(('node:del', {'form': 'inet:ipv4'}))
                 visi.addRule(('node:prop:set', {'form': 'inet:ipv4', 'prop': 'cc'}))
                 visi.addRule(('node:tag:add', {'tag': 'foo.bar'}))

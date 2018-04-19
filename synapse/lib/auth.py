@@ -172,6 +172,7 @@ class Auth(s_config.Config):
 
             uenc = name.encode('utf8')
             xact.delete(uenc, db=self._db_users)
+        return True
 
     def addRole(self, name):
         '''
@@ -223,6 +224,7 @@ class Auth(s_config.Config):
                     byts = s_msgpack.en(user._getAuthData())
 
                     xact.put(nenc, byts, db=self._db_users)
+        return True
 
     def _iterAuthDefs(self, xact, db):
 
@@ -368,11 +370,13 @@ class AuthBase:
 
     def setAdmin(self, admin):
 
+        admin = bool(admin)
         if admin == self.admin:
-            return
+            return admin
 
         self.admin = admin
         self._syncAuthData()
+        return admin
 
     def addRule(self, rule):
         '''
@@ -384,6 +388,7 @@ class AuthBase:
         self._addRuleTufo(rule)
         self.rules.append(rule)
         self._syncAuthData()
+        return True
 
     def delRule(self, rule):
         '''
@@ -395,6 +400,7 @@ class AuthBase:
         self.rules.remove(rule)
         self._syncAuthData()
         self._initAuthData()
+        return True
 
     def _getAuthData(self):
         return {
