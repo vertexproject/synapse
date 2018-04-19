@@ -15,7 +15,7 @@ from synapse.tests.common import *
 import logging
 logger = logging.getLogger(__name__)
 
-class Foo(s_eventbus.EventBus):
+class Foo(s_eventbus.EventBus, s_telepath.Aware):
 
     def bar(self, x, y):
         return x + y
