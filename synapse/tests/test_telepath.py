@@ -33,9 +33,6 @@ class Foo(s_eventbus.EventBus):
     def localthing(self, x):
         return self.echo(x)
 
-    def echo(self, x):
-        return x
-
 class TelePathTest(SynTest):
 
     def getFooServ(self):
