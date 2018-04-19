@@ -165,6 +165,14 @@ class AuthTest(SynTest):
                     self.false(visi.addRule(('node:add', ['this', 'will', 'fail'])))
                     self.true(stream.wait(1))
 
+                with self.getLoggerStream('synapse.lib.auth', 'unknown perm') as stream:
+                    self.false(visi.allowed(('node:nonexistent', {'form': 'inet:fqdn'})))
+                    self.true(stream.wait(1))
+
+                with self.getLoggerStream('synapse.lib.auth', 'AuthBase "may" func error') as stream:
+                    self.false(visi.allowed(('node:add', ['this', 'will', 'fail'])))
+                    self.true(stream.wait(1))
+
             with s_auth.Auth(dirn) as auth:  # type: s_auth.Auth
 
                 self.none(auth.users.get('delme@vertex.link'))
