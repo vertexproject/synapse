@@ -427,7 +427,7 @@ class AuthBase:
 
         func = self._may_funcs.get(perm[0])
         if func is None:
-            logger.warning('unkonwn perm: %r' % (perm,))
+            logger.warning('unknown perm: %r' % (perm,))
             return False
 
         try:
