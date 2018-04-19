@@ -321,7 +321,7 @@ class CryoIndexTest(SynTest):
             self.eq(2, len(t))
             self.eq(t[0], 0)
             self.eq(t[1], {'first': 1234})
-            # XXX Wait is this waiter waiting for?
+
             waiter = self.initWaiter(tank)
             self.wait(waiter)
 
@@ -340,7 +340,6 @@ class CryoIndexTest(SynTest):
             self.eq(t[0], 1)
             self.eq(s_msgpack.un(t[1]), data2)
 
-            # XXX Wait is this waiter waiting for?
             waiter = self.initWaiter(tank)
             self.wait(waiter)
 
@@ -382,7 +381,6 @@ class CryoIndexTest(SynTest):
             idxr.delIndex('second')
             self.wait(waiter)
 
-            # XXX Wait is this waiter waiting for?
             waiter = self.initWaiter(tank)
             self.wait(waiter)
 
