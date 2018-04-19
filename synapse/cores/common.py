@@ -183,7 +183,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware)
                 raise s_exc.ReqConfOpt(name='dir', mesg='auth:en=1 requires a cortex dir')
 
             # TODO: get a nested auth config and pass it in...
-            path = s_common.gendir(dirn, 'auth')
+            path = self.getCorePath('auth')
 
             self.auth = s_auth.Auth(path, conf=None)
             self.onfini(self.auth.fini)
