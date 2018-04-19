@@ -430,8 +430,9 @@ class AuthBase:
         self.info = self._getAuthData()
         self._saveAuthData()
 
-    def _saveAuthData(self):
-        raise NoSuchImpl('AuthBase._saveAuthData')
+    def _saveAuthData(self):  # pragma: no cover
+        raise s_exc.NoSuchImpl(name='_saveAuthData',
+                               mesg='_saveAuthData not implemented by AuthBase')
 
     def _initAuthData(self):
 
