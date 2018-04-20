@@ -177,15 +177,15 @@ class Plex(s_config.Config):
 
         return link
 
-    def modify(self, fino, flags):
+    def modify(self, sock, flags):
         '''
         Modify the epoll flags mask for the give file descriptor.
 
         Args:
-            fino (int): The file descriptor number.
+            socket (socket): The socket to modify
             flags (int): The epoll flags mask.
         '''
-        return self.epoll.modify(fino, flags)
+        return self.epoll.modify(sock, flags)
 
     def _setSockOpts(self, sock):
 
@@ -676,7 +676,6 @@ class SockLink(Link):
 
         self.plex = plex
         self.sock = sock
-        self.fino = sock.fileno()
 
         self.txbuf = b''
         self.txque = collections.deque() # (byts, info)
@@ -737,7 +736,7 @@ class SockLink(Link):
                 return
 
             self.flags |= selectors.EVENT_WRITE
-            self.plex.modify(self.fino, self.flags)
+            self.plex.modify(self.sock, self.flags)
 
     def _rxbytes(self, size):
         '''
@@ -818,7 +817,7 @@ class SockLink(Link):
                         self.fini()
                         return
                     self.flags &= ~selectors.EVENT_WRITE
-                    self.plex.modify(self.fino, self.flags)
+                    self.plex.modify(self.sock, self.flags)
                     return
 
                 self.txbuf = self.txque.popleft()
