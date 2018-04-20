@@ -59,7 +59,7 @@ class Plex(s_config.Config):
 
             try:
 
-                for (_, fino, events, _), mask in self.epoll.select(timeout=0.1):
+                for (_, fino, events, _), mask in self.epoll.select():
 
                     if self.isfini:
                         return
