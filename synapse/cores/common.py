@@ -61,12 +61,18 @@ def reqiden(tufo):
         raise s_common.NoSuchTufo(iden=None)
     return tufo[0]
 
-class CoreApi:
+class CoreApi(s_auth.AuthMixin):
     '''
     A limited Cortex API which is shared when auth:en=1
     '''
     def __init__(self, core, dmon):
+        '''
 
+        Args:
+            core (Cortex): Cortex being shared.
+            dmon (s_daemon.Daemon): A Daemon
+        '''
+        s_auth.AuthMixin.__init__(self, core.auth)
         # APIs that do perms enforcement
         self.ask = core.ask
         self.eval = core.eval

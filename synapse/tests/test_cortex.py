@@ -2821,6 +2821,16 @@ class CortexTest(SynTest):
                 self.raises(NoSuchMeth, root_prox.delRowsByProp, 'strform',)
                 self.len(1, root_prox.eval('sudo() [strform=pennywise]'))
 
+                self.len(1, root_prox.authGetUsers())
+                root = root_prox.authReqUser('root@localhost')
+                self.istufo(root)
+                user = root_prox.authAddUser('user@localhost')
+                self.istufo(user)
+                self.len(2, root_prox.authGetUsers())
+                self.raises(s_exc.AuthDeny, user_prox.authGetUsers)
+                root_prox.authAddAdmin('user@localhost')
+                self.len(2, user_prox.authGetUsers())
+
     def test_cortex_auth(self):
 
         conf = {'auth:en': 1, 'auth:admin': 'rawr@vertex.link'}

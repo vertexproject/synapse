@@ -1,6 +1,7 @@
 import os
 import lmdb
 import logging
+import functools
 import contextlib
 
 import synapse.exc as s_exc
@@ -92,6 +93,115 @@ def runas(user):
     with s_scope.enter({'syn:user': user}):
         yield
 
+def reqAdmin(f):
+    @functools.wraps(f)
+    def _f(*args, **kwargs):
+        auth = getattr(args[0], 'auth', None)  # type: s_auth.Auth
+        if not auth:
+            raise s_exc.ReqConfOpt(mesg='requires auth on local object')
+        uobj = auth.reqUser(whoami())
+        if not uobj.admin:
+            raise s_exc.AuthDeny(mesg='Operation requires admin',
+                                 name=f.__qualname__)
+        return f(*args, **kwargs)
+
+    return _f
+
+class AuthMixin:
+    def __init__(self, auth):
+        '''
+        A mixin that can be used to provide helpers around Auth objects.
+        All calls to the helper APIs require the current user in scope to be a
+        admin user.
+
+        Args:
+            auth (Auth):
+        '''
+        self.auth = auth
+
+    @reqAdmin
+    def authGetUsers(self):
+        return self.auth.getUsers()
+
+    @reqAdmin
+    def authGetRoles(self):
+        return self.auth.getRoles()
+
+    @reqAdmin
+    def authReqUser(self, name):
+        uobj = self.auth.reqUser(name)
+        ret = (name, uobj._getAuthData())
+        return ret
+
+    @reqAdmin
+    def authReqRole(self, name):
+        robj = self.auth.reqRole(name)
+        ret = (name, robj._getAuthData())
+        return ret
+
+    @reqAdmin
+    def authAddUser(self, name):
+        uobj = self.auth.addUser(name)
+        ret = (name, uobj._getAuthData())
+        return ret
+
+    @reqAdmin
+    def authDelUser(self, name):
+        self.auth.delUser(name)
+        return True
+
+    @reqAdmin
+    def authDelRole(self, name):
+        self.auth.delRole(name)
+        return True
+
+    @reqAdmin
+    def authAddRole(self, name):
+        robj = self.auth.addRole(name)
+        ret = (name, robj._getAuthData())
+        return ret
+
+    @reqAdmin
+    def authAddUserRule(self, name, rule):
+        uobj = self.auth.reqUser(name)
+        uobj.addRule(rule)
+        ret = (name, uobj._getAuthData())
+        return ret
+
+    @reqAdmin
+    def authDelUserRule(self, name, rule):
+        uobj = self.auth.reqUser(name)
+        uobj.delRule(rule)
+        ret = (name, uobj._getAuthData())
+        return ret
+
+    @reqAdmin
+    def authAddRoleRule(self, name, rule):
+        robj = self.auth.addRole(name)
+        robj.addRule(rule)
+        ret = (name, robj._getAuthData())
+        return ret
+
+    @reqAdmin
+    def authDelRoleRule(self, name, rule):
+        robj = self.auth.addRole(name)
+        robj.delRule(rule)
+        ret = (name, robj._getAuthData())
+        return ret
+
+    @reqAdmin
+    def authAddAdmin(self, name):
+        uobj = self.auth.reqUser(name)
+        uobj.setAdmin(True)
+        ret = (name, uobj._getAuthData())
+        return ret
+
+    @reqAdmin
+    def authDelAdmin(self, name):
+        uobj = self.auth.reqUser(name)
+        uobj.setAdmin(True)
+        ret = (name, uobj._getAuthData())
+        return ret
 
 class Auth(s_config.Config):
     '''
@@ -248,6 +358,50 @@ class Auth(s_config.Config):
 
     def _saveRoleInfo(self, role, info):
         self._saveAuthData(role, info, self._db_roles)
+
+    def getUsers(self):
+        '''
+
+        Returns:
+            list:
+        '''
+        return list(self.users.keys())
+
+    def getRoles(self):
+        '''
+
+        Returns:
+            list:
+        '''
+        return list(self.roles.keys())
+
+    def reqUser(self, user):
+        '''
+
+        Args:
+            user (str):
+
+        Returns:
+            User:
+        '''
+        user = self.users.get(user)
+        if not user:
+            raise s_exc.NoSuchUser(user=user)
+        return user
+
+    def reqRole(self, role):
+        '''
+
+        Args:
+            role (str):
+
+        Returns:
+            Role:
+        '''
+        role = self.roles.get(role)
+        if not role:
+            raise s_exc.NoSuchRole(role=role)
+        return role
 
 
 class TagTree:
