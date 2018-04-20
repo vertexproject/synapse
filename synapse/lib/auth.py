@@ -96,9 +96,9 @@ def runas(user):
 def reqAdmin(f):
     @functools.wraps(f)
     def _f(*args, **kwargs):
-        auth = getattr(args[0], 'auth', None)  # type: s_auth.Auth
+        auth = getattr(args[0], '_mxauth', None)  # type: s_auth.Auth
         if not auth:
-            raise s_exc.ReqConfOpt(mesg='requires auth on local object')
+            raise s_exc.ReqConfOpt(mesg='requires _mxauth on local object')
         uobj = auth.reqUser(whoami())
         if not uobj.admin:
             raise s_exc.AuthDeny(mesg='Operation requires admin',
@@ -117,89 +117,105 @@ class AuthMixin:
         Args:
             auth (Auth):
         '''
-        self.auth = auth
+        self._mxauth = auth
 
     @reqAdmin
     def authGetUsers(self):
-        return self.auth.getUsers()
+        return self._mxauth.getUsers()
 
     @reqAdmin
     def authGetRoles(self):
-        return self.auth.getRoles()
+        return self._mxauth.getRoles()
 
     @reqAdmin
     def authReqUser(self, name):
-        uobj = self.auth.reqUser(name)
+        uobj = self._mxauth.reqUser(name)
         ret = (name, uobj._getAuthData())
         return ret
 
     @reqAdmin
     def authReqRole(self, name):
-        robj = self.auth.reqRole(name)
+        robj = self._mxauth.reqRole(name)
         ret = (name, robj._getAuthData())
         return ret
 
     @reqAdmin
     def authAddUser(self, name):
-        uobj = self.auth.addUser(name)
+        uobj = self._mxauth.addUser(name)
         ret = (name, uobj._getAuthData())
         return ret
 
     @reqAdmin
     def authDelUser(self, name):
-        self.auth.delUser(name)
+        self._mxauth.delUser(name)
         return True
 
     @reqAdmin
     def authDelRole(self, name):
-        self.auth.delRole(name)
+        self._mxauth.delRole(name)
         return True
 
     @reqAdmin
     def authAddRole(self, name):
-        robj = self.auth.addRole(name)
+        robj = self._mxauth.addRole(name)
         ret = (name, robj._getAuthData())
         return ret
 
     @reqAdmin
     def authAddUserRule(self, name, rule):
-        uobj = self.auth.reqUser(name)
+        uobj = self._mxauth.reqUser(name)
         uobj.addRule(rule)
         ret = (name, uobj._getAuthData())
         return ret
 
     @reqAdmin
     def authDelUserRule(self, name, rule):
-        uobj = self.auth.reqUser(name)
+        uobj = self._mxauth.reqUser(name)
         uobj.delRule(rule)
         ret = (name, uobj._getAuthData())
         return ret
 
     @reqAdmin
     def authAddRoleRule(self, name, rule):
-        robj = self.auth.addRole(name)
+        robj = self._mxauth.reqRole(name)
         robj.addRule(rule)
         ret = (name, robj._getAuthData())
         return ret
 
     @reqAdmin
     def authDelRoleRule(self, name, rule):
-        robj = self.auth.addRole(name)
+        robj = self._mxauth.reqRole(name)
         robj.delRule(rule)
         ret = (name, robj._getAuthData())
         return ret
 
     @reqAdmin
     def authAddAdmin(self, name):
-        uobj = self.auth.reqUser(name)
+        uobj = self._mxauth.reqUser(name)
         uobj.setAdmin(True)
         ret = (name, uobj._getAuthData())
         return ret
 
     @reqAdmin
     def authDelAdmin(self, name):
-        uobj = self.auth.reqUser(name)
-        uobj.setAdmin(True)
+        uobj = self._mxauth.reqUser(name)
+        uobj.setAdmin(False)
+        ret = (name, uobj._getAuthData())
+        return ret
+
+    @reqAdmin
+    def authAddUserRole(self, name, role):
+        uobj = self._mxauth.reqUser(name)
+        robj = self._mxauth.reqRole(role)
+        uobj.addRole(role)
+        ret = (name, uobj._getAuthData())
+        return ret
+
+    @reqAdmin
+    def authDelUserRole(self, name, role):
+        uobj = self._mxauth.reqUser(name)
+        robj = self._mxauth.reqRole(role)
+        uobj.delRole(role)
         ret = (name, uobj._getAuthData())
         return ret
 

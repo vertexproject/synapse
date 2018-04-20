@@ -3,6 +3,17 @@ from synapse.tests.common import *
 
 import synapse.lib.auth as s_auth
 
+class TstAthMxn(s_auth.AuthMixin):
+    def __init__(self, dirn, root='root'):
+        auth = s_auth.Auth(dirn)
+        s_auth.AuthMixin.__init__(self, auth)
+        try:
+            root = auth.addUser(root)
+        except s_exc.DupUserName:
+            root = auth.reqUser(root)
+        finally:
+            root.setAdmin(True)
+
 class AuthTest(SynTest):
 
     def test_auth_rules(self):
@@ -217,7 +228,9 @@ class AuthTest(SynTest):
                 with self.getLoggerStream('synapse.lib.auth', 'AuthBase "may" func error') as stream:
                     self.false(visi.allowed(('node:add', ['this', 'will', 'fail'])))
                     self.true(stream.wait(1))
+                self.raises(s_exc.NoSuchRole, auth.reqRole, 'lolnewp')
 
+            # Ensure persistence of the auth data
             with s_auth.Auth(dirn) as auth:  # type: s_auth.Auth
 
                 self.none(auth.users.get('delme@vertex.link'))
@@ -237,3 +250,59 @@ class AuthTest(SynTest):
                 visi.delRule(erule)
                 self.false(visi.allowed(('node:add', {'form': 'inet:ipv4'})))
                 self.raises(s_exc.NoSuchRule, visi.delRule, erule)
+
+    def test_auth_mixin(self):
+        rname = 'pennywise'
+        uname = 'bob'
+        nrole = 'ninja'
+        rule1 = ('node:add', {'form': 'strform'})
+        with self.getTestDir() as dirn:
+            foo = TstAthMxn(dirn, root=rname)
+            # Test decorators
+            self.raises(s_exc.NoSuchUser, foo.authGetUsers)
+            s_scope.set('syn:user', uname)
+            self.raises(s_exc.NoSuchUser, foo.authGetUsers)
+            with s_scope.enter({'syn:user': rname}):
+                self.isin(rname, foo.authGetUsers())
+                self.eq(foo.authGetRoles(), [])
+                root = foo.authReqUser(rname)
+                self.istufo(root)
+                role = foo.authAddRole(nrole)
+                self.istufo(role)
+                self.eq(foo.authGetRoles(), [nrole])
+                role = foo.authAddRoleRule(nrole, rule1)
+                self.len(1, role[1].get('rules'))
+                root = foo.authAddUserRole(rname, nrole)
+                self.isin(nrole, root[1].get('roles'))
+                role = foo.authReqRole(nrole)
+
+                user = foo.authAddUser(uname)
+                user = foo.authAddUserRule(uname, rule1)
+                user = foo.authAddUserRole(uname, nrole)
+
+                user = foo.authAddUser('hatguy')
+                user = foo.authAddAdmin('hatguy')
+                self.true(user[1].get('admin'))
+                user = foo.authDelAdmin('hatguy')
+                self.false(user[1].get('admin'))
+
+                self.true(foo.authDelRoleRule(nrole, rule1))
+
+            # Now that we have the uname user we'll fail in a different way
+            s_scope.set('syn:user', uname)
+            self.raises(s_exc.AuthDeny, foo.authGetUsers)
+
+            s_scope.set('syn:user', rname)
+            self.true(foo.authDelUserRule(uname, rule1))
+            self.true(foo.authDelUserRole(uname, nrole))
+            self.true(foo.authDelUser(uname))
+            self.true(foo.authDelRole(nrole))
+            root = foo.authReqUser(rname)
+            self.eq(root[1].get('roles'), [])
+
+        class Broken(s_auth.AuthMixin):
+            def __init__(self):
+                pass
+
+        broke = Broken()
+        self.raises(s_exc.ReqConfOpt, broke.authGetUsers)
