@@ -95,3 +95,54 @@ class ModelSeenMixin:
         core.setTufoProps(node, **{'seen:min': 1000, 'seen:max': 1000})
         self.eq(node[1].get(minp), 0)
         self.eq(node[1].get(maxp), 1000)
+
+class TstMixin:
+    '''
+    Mixin for test helpers which are not available in SynTest directly
+    '''
+
+    @contextlib.contextmanager
+    def getSslCore(self, conf=None):
+        dconf = {'auth:en': 1, 'auth:admin': 'root@localhost'}
+        if conf:
+            conf.update(dconf)
+        conf = dconf
+        cafile = getTestPath('ca.crt')
+        keyfile = getTestPath('server.key')
+        certfile = getTestPath('server.crt')
+        userkey = getTestPath('user.key')
+        usercrt = getTestPath('user.crt')
+        rootkey = getTestPath('root.key')
+        rootcrt = getTestPath('root.crt')
+
+        with self.getDirCore(conf=conf) as core:
+            s_scope.set('syn:core', core)
+            with s_daemon.Daemon() as dmon:
+                s_scope.set('syn:dmon', dmon)
+                dmon.share('core', core)
+                link = dmon.listen('ssl://localhost:0/',
+                                   cafile=cafile,
+                                   keyfile=keyfile,
+                                   certfile=certfile,
+                                   )
+                s_scope.set('syn:test:link', link)
+                port = link[1].get('port')
+                url = 'ssl://user@localhost/core'
+                user_prox = s_telepath.openurl(url,
+                                               port=port,
+                                               cafile=cafile,
+                                               keyfile=userkey,
+                                               certfile=usercrt
+                                               )  # type: s_cores_common.CoreApi
+                root_prox = s_telepath.openurl(url,
+                                               port=port,
+                                               cafile=cafile,
+                                               keyfile=rootkey,
+                                               certfile=rootcrt
+                                               )  # type: s_cores_common.CoreApi
+
+                try:
+                    yield user_prox, root_prox
+                finally:
+                    user_prox.fini()
+                    root_prox.fini()
