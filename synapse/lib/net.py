@@ -101,7 +101,7 @@ class Plex(s_config.Config):
 
         poll = self.polls.pop(fino)
         if poll is not None:
-            self.epoll.unregister(fino)
+            self.epoll.unregister(sock)
 
         sock.close()
 
@@ -157,7 +157,7 @@ class Plex(s_config.Config):
         self.socks[fino] = sock
         self.polls[fino] = poll
 
-        self.epoll.register(fino, selectors.EVENT_READ | selectors.EVENT_WRITE)
+        self.epoll.register(sock, selectors.EVENT_READ)
         return sock.getsockname()
 
     def _initPlexSock(self, sock):
@@ -170,10 +170,10 @@ class Plex(s_config.Config):
 
         if self.socks.get(fino) is None:
             self.socks[fino] = sock
-            self.epoll.register(fino, link.flags)
+            self.epoll.register(sock, link.flags)
 
         else:
-            self.epoll.modify(fino, link.flags)
+            self.epoll.modify(sock, link.flags)
 
         return link
 
@@ -236,12 +236,13 @@ class Plex(s_config.Config):
         self.socks[fino] = sock
         self.polls[fino] = poll
 
-        self.epoll.register(fino, selectors.EVENT_WRITE)
-
         try:
             sock.connect(addr)
+            # This path won't be exercised on Linux
+            poll(2)
         except BlockingIOError as e:
-            pass
+            # This is the Linux path
+            self.epoll.register(sock, selectors.EVENT_WRITE)
 
 s_glob.plex = Plex()  # type: ignore
 
@@ -682,7 +683,7 @@ class SockLink(Link):
         self.txlock = threading.Lock()
 
         self.unpk = s_msgpack.Unpk()
-        self.flags = selectors.EVENT_READ | selectors.EVENT_WRITE
+        self.flags = selectors.EVENT_READ
 
         def fini():
             self.plex._finiPlexSock(self.sock)
@@ -749,8 +750,10 @@ class SockLink(Link):
             (bytes): The bytes (or None) if would block.
         '''
         try:
-
-            return self.sock.recv(size)
+            rv = self.sock.recv(size)
+            if rv == b'':
+                raise ConnectionError
+            return rv
 
         except ConnectionError as e:
             return ''
