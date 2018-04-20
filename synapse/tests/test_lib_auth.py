@@ -260,8 +260,9 @@ class AuthTest(SynTest):
             foo = TstAthMxn(dirn, root=rname)
             # Test decorators
             self.raises(s_exc.NoSuchUser, foo.authGetUsers)
-            s_scope.set('syn:user', uname)
-            self.raises(s_exc.NoSuchUser, foo.authGetUsers)
+            with s_scope.enter('syn:user', uname):
+                self.raises(s_exc.NoSuchUser, foo.authGetUsers)
+
             with s_scope.enter({'syn:user': rname}):
                 self.isin(rname, foo.authGetUsers())
                 self.eq(foo.authGetRoles(), [])
@@ -289,16 +290,16 @@ class AuthTest(SynTest):
                 self.true(foo.authDelRoleRule(nrole, rule1))
 
             # Now that we have the uname user we'll fail in a different way
-            s_scope.set('syn:user', uname)
-            self.raises(s_exc.AuthDeny, foo.authGetUsers)
+            with s_scope.enter('syn:user', uname):
+                self.raises(s_exc.AuthDeny, foo.authGetUsers)
 
-            s_scope.set('syn:user', rname)
-            self.true(foo.authDelUserRule(uname, rule1))
-            self.true(foo.authDelUserRole(uname, nrole))
-            self.true(foo.authDelUser(uname))
-            self.true(foo.authDelRole(nrole))
-            root = foo.authReqUser(rname)
-            self.eq(root[1].get('roles'), [])
+            with s_scope.enter('syn:user', rname):
+                self.true(foo.authDelUserRule(uname, rule1))
+                self.true(foo.authDelUserRole(uname, nrole))
+                self.true(foo.authDelUser(uname))
+                self.true(foo.authDelRole(nrole))
+                root = foo.authReqUser(rname)
+                self.eq(root[1].get('roles'), [])
 
         class Broken(s_auth.AuthMixin):
             def __init__(self):
