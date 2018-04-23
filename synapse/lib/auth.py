@@ -124,20 +124,23 @@ class AuthMixin:
         self._mxrtor = s_react.Reactor()
         self._mxrtor.act('auth:get:users', self.__authGetUsers)
         self._mxrtor.act('auth:get:roles', self.__authGetRoles)
-        self._mxrtor.act('auth:req:user', self.__authReqUser)
-        self._mxrtor.act('auth:req:role', self.__authReqRole)
+        # User actions
         self._mxrtor.act('auth:add:user', self.__authAddUser)
         self._mxrtor.act('auth:del:user', self.__authDelUser)
-        self._mxrtor.act('auth:del:role', self.__authDelRole)
-        self._mxrtor.act('auth:add:role', self.__authAddRole)
+        self._mxrtor.act('auth:req:user', self.__authReqUser)
         self._mxrtor.act('auth:add:urole', self.__authAddUserRole)
+        self._mxrtor.act('auth:add:urule', self.__authAddUserRule)
         self._mxrtor.act('auth:del:urole', self.__authDelUserRole)
         self._mxrtor.act('auth:del:urule', self.__authDelUserRule)
-        self._mxrtor.act('auth:add:urule', self.__authAddUserRule)
-        self._mxrtor.act('auth:add:rrule', self.__authAddRoleRule)
-        self._mxrtor.act('auth:del:rrule', self.__authDelRoleRule)
+        # User admin actions
         self._mxrtor.act('auth:add:admin', self.__authAddAdmin)
         self._mxrtor.act('auth:del:admin', self.__authDelAdmin)
+        # Role actions
+        self._mxrtor.act('auth:req:role', self.__authReqRole)
+        self._mxrtor.act('auth:add:role', self.__authAddRole)
+        self._mxrtor.act('auth:del:role', self.__authDelRole)
+        self._mxrtor.act('auth:add:rrule', self.__authAddRoleRule)
+        self._mxrtor.act('auth:del:rrule', self.__authDelRoleRule)
 
     def authReact(self, mesg):
         '''
