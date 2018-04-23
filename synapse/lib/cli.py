@@ -124,10 +124,11 @@ class Cmd:
                     opts[snam].extend(valu)
 
                 elif styp == 'enum':
-                    vals = synt[1].get('enum:vals')
+                    vals = swit[1].get('enum:vals')
                     valu, off = s_syntax.parse_cmd_string(text, off)
                     if valu not in vals:
-                        raise s_common.BadSyntaxError('%s (%s)' % (synt[0], '|'.join(vals)))
+                        raise s_common.BadSyntaxError(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
+                                                      text=text)
 
                     opts[snam] = valu
 
@@ -137,7 +138,8 @@ class Cmd:
                 continue
 
             if not args:
-                raise s_common.BadSyntaxError('trailing text: %s' % (text[off:],))
+                raise s_common.BadSyntaxError(mesg='trailing text: [%s]' % (text[off:],),
+                                              text=text)
 
             synt = args.popleft()
             styp = synt[1].get('type', 'valu')
