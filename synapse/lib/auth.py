@@ -102,10 +102,13 @@ def reqAdmin(f):
         auth = getattr(args[0], '_mxauth', None)  # type: s_auth.Auth
         if not auth:
             raise s_exc.ReqConfOpt(mesg='requires _mxauth on local object')
-        uobj = auth.reqUser(whoami())
+        uname = whoami()
+        uobj = auth.reqUser(uname)
         if not uobj.admin:
             raise s_exc.AuthDeny(mesg='Operation requires admin',
                                  name=f.__qualname__)
+        logger.info('Executing [%s][%s][%s] as [%s]',
+                    f.__qualname__, args, kwargs, uname)
         return f(*args, **kwargs)
 
     return _f
