@@ -260,7 +260,7 @@ class AuthTest(SynTest):
             foo = TstAthMxn(dirn, root=rname)
             # Test decorators
             self.raises(s_exc.NoSuchUser, foo.authGetUsers)
-            with s_scope.enter('syn:user', uname):
+            with s_scope.enter({'syn:user': uname}):
                 self.raises(s_exc.NoSuchUser, foo.authGetUsers)
 
             with s_scope.enter({'syn:user': rname}):
@@ -290,10 +290,10 @@ class AuthTest(SynTest):
                 self.true(foo.authDelRoleRule(nrole, rule1))
 
             # Now that we have the uname user we'll fail in a different way
-            with s_scope.enter('syn:user', uname):
+            with s_scope.enter({'syn:user': uname}):
                 self.raises(s_exc.AuthDeny, foo.authGetUsers)
 
-            with s_scope.enter('syn:user', rname):
+            with s_scope.enter({'syn:user': rname}):
                 self.true(foo.authDelUserRule(uname, rule1))
                 self.true(foo.authDelUserRole(uname, nrole))
                 self.true(foo.authDelUser(uname))
