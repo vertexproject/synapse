@@ -5,7 +5,10 @@ import functools
 import contextlib
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+import synapse.reactor as s_react
 
+import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
@@ -118,106 +121,184 @@ class AuthMixin:
             auth (Auth):
         '''
         self._mxauth = auth
+        self._mxrtor = s_react.Reactor()
+        self._mxrtor.act('auth:get:users', self.__authGetUsers)
+        self._mxrtor.act('auth:get:roles', self.__authGetRoles)
+        self._mxrtor.act('auth:req:user', self.__authReqUser)
+        self._mxrtor.act('auth:req:role', self.__authReqRole)
+        self._mxrtor.act('auth:add:user', self.__authAddUser)
+        self._mxrtor.act('auth:del:user', self.__authDelUser)
+        self._mxrtor.act('auth:del:role', self.__authDelRole)
+        self._mxrtor.act('auth:add:role', self.__authAddRole)
+        self._mxrtor.act('auth:add:urole', self.__authAddUserRole)
+        self._mxrtor.act('auth:del:urole', self.__authDelUserRole)
+        self._mxrtor.act('auth:del:urule', self.__authDelUserRule)
+        self._mxrtor.act('auth:add:urule', self.__authAddUserRule)
+        self._mxrtor.act('auth:add:rrule', self.__authAddRoleRule)
+        self._mxrtor.act('auth:del:rrule', self.__authDelRoleRule)
+        self._mxrtor.act('auth:add:admin', self.__authAddAdmin)
+        self._mxrtor.act('auth:del:admin', self.__authDelAdmin)
+
+    def authReact(self, mesg):
+        '''
+        General interface for interfacing with auth.
+
+        Args:
+            mesg:
+
+        Returns:
+            (bool, ((str, dict))): isok, retn tufo
+        '''
+        try:
+            isok, retn = self._mxrtor.react(mesg)
+        except Exception as e:
+            logger.exception('Failed to process mesg [%s]', mesg)
+            retn = s_common.getexcfo(e)
+            isok = False
+        finally:
+            return isok, retn
 
     @reqAdmin
-    def authGetUsers(self):
-        return self._mxauth.getUsers()
+    def __authGetUsers(self, mesg):
+        mname, mdict = mesg
+        users = self._mxauth.getUsers()
+        ret = (mname, {'users': users})
+        return True, ret
 
     @reqAdmin
-    def authGetRoles(self):
-        return self._mxauth.getRoles()
+    def __authGetRoles(self, mesg):
+        mname, mdict = mesg
+        roles = self._mxauth.getRoles()
+        ret = (mname, {'roles': roles})
+        return True, ret
 
     @reqAdmin
-    def authReqUser(self, name):
+    def __authReqUser(self, mesg):
+        mname, mdict = mesg
+        name = mdict.get('user')
         uobj = self._mxauth.reqUser(name)
-        ret = (name, uobj._getAuthData())
-        return ret
+        ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
+        return True, ret
 
     @reqAdmin
-    def authReqRole(self, name):
+    def __authReqRole(self, mesg):
+        mname, mdict = mesg
+        name = mdict.get('role')
         robj = self._mxauth.reqRole(name)
-        ret = (name, robj._getAuthData())
-        return ret
+        ret = s_tufo.tufo(mname, role=(name, robj._getAuthData()))
+        return True, ret
 
     @reqAdmin
-    def authAddUser(self, name):
+    def __authAddUser(self, mesg):
+        mname, mdict = mesg
+        name = mdict.get('user')
         uobj = self._mxauth.addUser(name)
-        ret = (name, uobj._getAuthData())
-        return ret
+        ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
+        return True, ret
 
     @reqAdmin
-    def authDelUser(self, name):
-        self._mxauth.delUser(name)
-        return True
+    def __authDelUser(self, mesg):
+        mname, mdict = mesg
+        name = mdict.get('user')
+        _ret = self._mxauth.delUser(name)
+        ret = s_tufo.tufo(mname, user=name, deleted=_ret)
+        return True, ret
 
     @reqAdmin
-    def authDelRole(self, name):
-        self._mxauth.delRole(name)
-        return True
+    def __authDelRole(self, mesg):
+        mname, mdict = mesg
+        name = mdict.get('role')
+        _ret = self._mxauth.delRole(name)
+        ret = s_tufo.tufo(mname, role=name, deleted=_ret)
+        return True, ret
 
     @reqAdmin
-    def authAddRole(self, name):
+    def __authAddRole(self, mesg):
+        mname, mdict = mesg
+        name = mdict.get('role')
         robj = self._mxauth.addRole(name)
-        ret = (name, robj._getAuthData())
-        return ret
+        ret = s_tufo.tufo(mname, role=(name, robj._getAuthData()))
+        return True, ret
 
     @reqAdmin
-    def authAddUserRule(self, name, rule):
+    def __authAddUserRule(self, mesg):
+        mname, mdict = mesg
+        name = mdict.get('user')
+        rule = mdict.get('rule')
         uobj = self._mxauth.reqUser(name)
         uobj.addRule(rule)
-        ret = (name, uobj._getAuthData())
-        return ret
+        ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
+        return True, ret
 
     @reqAdmin
-    def authDelUserRule(self, name, rule):
+    def __authDelUserRule(self, mesg):
+        mname, mdict = mesg
+        name = mdict.get('user')
+        rule = mdict.get('rule')
         uobj = self._mxauth.reqUser(name)
         uobj.delRule(rule)
-        ret = (name, uobj._getAuthData())
-        return ret
+        ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
+        return True, ret
 
     @reqAdmin
-    def authAddRoleRule(self, name, rule):
+    def __authAddRoleRule(self, mesg):
+        mname, mdict = mesg
+        name = mdict.get('role')
+        rule = mdict.get('rule')
         robj = self._mxauth.reqRole(name)
         robj.addRule(rule)
-        ret = (name, robj._getAuthData())
-        return ret
+        ret = s_tufo.tufo(mname, role=(name, robj._getAuthData()))
+        return True, ret
 
     @reqAdmin
-    def authDelRoleRule(self, name, rule):
+    def __authDelRoleRule(self, mesg):
+        mname, mdict = mesg
+        name = mdict.get('role')
+        rule = mdict.get('rule')
         robj = self._mxauth.reqRole(name)
         robj.delRule(rule)
-        ret = (name, robj._getAuthData())
-        return ret
+        ret = s_tufo.tufo(mname, role=(name, robj._getAuthData()))
+        return True, ret
 
     @reqAdmin
-    def authAddAdmin(self, name):
+    def __authAddAdmin(self, mesg):
+        mname, mdict = mesg
+        name = mdict.get('user')
         uobj = self._mxauth.reqUser(name)
         uobj.setAdmin(True)
-        ret = (name, uobj._getAuthData())
-        return ret
+        ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
+        return True, ret
 
     @reqAdmin
-    def authDelAdmin(self, name):
+    def __authDelAdmin(self, mesg):
+        mname, mdict = mesg
+        name = mdict.get('user')
         uobj = self._mxauth.reqUser(name)
         uobj.setAdmin(False)
-        ret = (name, uobj._getAuthData())
-        return ret
+        ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
+        return True, ret
 
     @reqAdmin
-    def authAddUserRole(self, name, role):
+    def __authAddUserRole(self, mesg):
+        mname, mdict = mesg
+        name = mdict.get('user')
+        role = mdict.get('role')
         uobj = self._mxauth.reqUser(name)
         robj = self._mxauth.reqRole(role)
         uobj.addRole(role)
-        ret = (name, uobj._getAuthData())
-        return ret
+        ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
+        return True, ret
 
     @reqAdmin
-    def authDelUserRole(self, name, role):
+    def __authDelUserRole(self, mesg):
+        mname, mdict = mesg
+        name = mdict.get('user')
+        role = mdict.get('role')
         uobj = self._mxauth.reqUser(name)
         robj = self._mxauth.reqRole(role)
         uobj.delRole(role)
-        ret = (name, uobj._getAuthData())
-        return ret
+        ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
+        return True, ret
 
 class Auth(s_config.Config):
     '''

@@ -1,7 +1,7 @@
 import lmdb
 from synapse.tests.common import *
-
 import synapse.lib.auth as s_auth
+import synapse.lib.tufo as s_tufo
 
 class TstAthMxn(s_auth.AuthMixin):
     def __init__(self, dirn, root='root'):
@@ -254,56 +254,182 @@ class AuthTest(SynTest):
     def test_auth_mixin(self):
         rname = 'pennywise'
         uname = 'bob'
+        hatguy = 'hatguy'
         nrole = 'ninja'
         rule1 = ('node:add', {'form': 'strform'})
         with self.getTestDir() as dirn:
             foo = TstAthMxn(dirn, root=rname)
             # Test decorators
-            self.raises(s_exc.NoSuchUser, foo.authGetUsers)
+            isok, retn = foo.authReact(s_tufo.tufo('auth:get:users'))
+            self.false(isok)
+            self.eq(retn[0], 'NoSuchUser')
+
             with s_scope.enter({'syn:user': uname}):
-                self.raises(s_exc.NoSuchUser, foo.authGetUsers)
+                isok, retn = foo.authReact(s_tufo.tufo('auth:get:users'))
+                self.false(isok)
+                self.eq(retn[0], 'NoSuchUser')
 
             with s_scope.enter({'syn:user': rname}):
-                self.isin(rname, foo.authGetUsers())
-                self.eq(foo.authGetRoles(), [])
-                root = foo.authReqUser(rname)
+                isok, retn = foo.authReact(s_tufo.tufo('auth:get:users'))
+                self.true(isok)
+                self.eq(retn[0], 'auth:get:users')
+                self.isin(rname, retn[1].get('users'))
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:get:roles'))
+                self.true(isok)
+                self.eq(retn[0], 'auth:get:roles')
+                self.eq(retn[1].get('roles'), [])
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:req:user',
+                                                       user=rname))
+                self.true(isok)
+                self.eq(retn[0], 'auth:req:user')
+                root = retn[1].get('user')
                 self.istufo(root)
-                role = foo.authAddRole(nrole)
+                self.eq(root[0], rname)
+                self.true(root[1].get('admin'))
+                self.eq(root[1].get('rules'), [])
+                self.eq(root[1].get('roles'), [])
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:add:role',
+                                                       role=nrole))
+                self.true(isok)
+                self.eq(retn[0], 'auth:add:role')
+                role = retn[1].get('role')
                 self.istufo(role)
-                self.eq(foo.authGetRoles(), [nrole])
-                role = foo.authAddRoleRule(nrole, rule1)
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:get:roles'))
+                self.eq(retn[1].get('roles'), [nrole])
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:add:rrule',
+                                                       role=nrole,
+                                                       rule=rule1))
+                self.true(isok)
+                self.eq(retn[0], 'auth:add:rrule')
+                role = retn[1].get('role')
                 self.len(1, role[1].get('rules'))
-                root = foo.authAddUserRole(rname, nrole)
+                self.eq(role[1].get('rules'), [rule1])
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:add:urole',
+                                                      role=nrole,
+                                                      user=rname))
+                self.true(isok)
+                self.eq(retn[0], 'auth:add:urole')
+                root = retn[1].get('user')
                 self.isin(nrole, root[1].get('roles'))
-                role = foo.authReqRole(nrole)
 
-                user = foo.authAddUser(uname)
-                user = foo.authAddUserRule(uname, rule1)
-                user = foo.authAddUserRole(uname, nrole)
+                isok, retn = foo.authReact(s_tufo.tufo('auth:req:role',
+                                                       role=nrole))
+                self.true(isok)
+                self.eq(retn[0], 'auth:req:role')
+                role = retn[1].get('role')
+                self.istufo(role)
 
-                user = foo.authAddUser('hatguy')
-                user = foo.authAddAdmin('hatguy')
-                self.true(user[1].get('admin'))
-                user = foo.authDelAdmin('hatguy')
+                isok, retn = foo.authReact(s_tufo.tufo('auth:add:user',
+                                                       user=uname))
+                self.true(isok)
+                self.eq(retn[0], 'auth:add:user')
+                user = retn[1].get('user')
+                self.istufo(user)
+                self.eq(user[0], uname)
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:add:urule',
+                                                      user=uname,
+                                                      rule=rule1))
+                self.true(isok)
+                self.eq(retn[0], 'auth:add:urule')
+                user = retn[1].get('user')
+                self.len(1, user[1].get('rules'))
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:add:urole',
+                                                        user=uname,
+                                                        role=nrole))
+                self.true(isok)
+                user = retn[1].get('user')
+                self.len(1, user[1].get('roles'))
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:add:user',
+                                                       user=hatguy))
+                self.true(isok)
+                user = retn[1].get('user')
+                self.eq(user[0], hatguy)
                 self.false(user[1].get('admin'))
 
-                self.true(foo.authDelRoleRule(nrole, rule1))
+                isok, retn = foo.authReact(s_tufo.tufo('auth:add:admin',
+                                                       user=hatguy))
+                self.true(isok)
+                self.eq(retn[0], 'auth:add:admin')
+                user = retn[1].get('user')
+                self.eq(user[0], hatguy)
+                self.true(user[1].get('admin'))
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:del:admin',
+                                                       user=hatguy))
+                self.true(isok)
+                self.eq(retn[0], 'auth:del:admin')
+                user = retn[1].get('user')
+                self.eq(user[0], hatguy)
+                self.false(user[1].get('admin'))
 
             # Now that we have the uname user we'll fail in a different way
             with s_scope.enter({'syn:user': uname}):
-                self.raises(s_exc.AuthDeny, foo.authGetUsers)
+                isok, retn = foo.authReact(s_tufo.tufo('auth:get:users'))
+                self.false(isok)
+                self.eq(retn[0], 'AuthDeny')
 
+            # Destructive testing
             with s_scope.enter({'syn:user': rname}):
-                self.true(foo.authDelUserRule(uname, rule1))
-                self.true(foo.authDelUserRole(uname, nrole))
-                self.true(foo.authDelUser(uname))
-                self.true(foo.authDelRole(nrole))
-                root = foo.authReqUser(rname)
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:del:rrule',
+                                                       role=nrole,
+                                                       rule=rule1,
+                                                       ))
+                self.true(isok)
+                self.eq(retn[0], 'auth:del:rrule')
+                role = retn[1].get('role')
+                self.len(0, role[1].get('rules'))
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:del:urule',
+                                                        user=uname,
+                                                        rule=rule1))
+                self.true(isok)
+                self.eq(retn[0], 'auth:del:urule')
+                user = retn[1].get('user')
+                self.len(0, user[1].get('rules'))
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:del:urole',
+                                                       user=uname,
+                                                       role=nrole))
+                self.true(isok)
+                self.eq(retn[0], 'auth:del:urole')
+                user = retn[1].get('user')
+                self.len(0, user[1].get('roles'))
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:del:user',
+                                                       user=uname))
+                self.true(isok)
+                self.eq(retn[0], 'auth:del:user')
+                self.eq(retn[1].get('user'), uname)
+                self.true(retn[1].get('deleted'))
+
+                isok, retn = foo.authReact(s_tufo.tufo('auth:del:role',
+                                                       role=nrole))
+                self.true(isok)
+                self.eq(retn[0], 'auth:del:role')
+                self.eq(retn[1].get('role'), nrole)
+                self.true(retn[1].get('deleted'))
+
+                isoke, retn = foo.authReact(s_tufo.tufo('auth:req:user',
+                                                        user=rname))
+                root = retn[1].get('user')
                 self.eq(root[1].get('roles'), [])
 
+        # Broken mixin use
         class Broken(s_auth.AuthMixin):
             def __init__(self):
                 pass
 
         broke = Broken()
-        self.raises(s_exc.ReqConfOpt, broke.authGetUsers)
+        isok, retn = broke.authReact(s_tufo.tufo('auth:get:users'))
+        self.false(isok)
+        self.eq(retn[0], 'AttributeError')
