@@ -61,7 +61,7 @@ def reqiden(tufo):
         raise s_common.NoSuchTufo(iden=None)
     return tufo[0]
 
-class CoreApi(s_auth.AuthMixin):
+class CoreApi:
     '''
     A limited Cortex API which is shared when auth:en=1
     '''
@@ -72,7 +72,9 @@ class CoreApi(s_auth.AuthMixin):
             core (Cortex): Cortex being shared.
             dmon (s_daemon.Daemon): A Daemon
         '''
-        s_auth.AuthMixin.__init__(self, core.auth)
+        # API for auth management
+        self.authReact = core.authReact
+
         # APIs that do perms enforcement
         self.ask = core.ask
         self.eval = core.eval
@@ -87,7 +89,8 @@ class CoreApi(s_auth.AuthMixin):
         self.on = core.on
         self.off = core.off
 
-class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware):
+class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
+             s_auth.AuthMixin):
     '''
     Top level Cortex key/valu storage object.
     '''
@@ -203,6 +206,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware)
                     user = self.auth.addUser(name)
 
                 user.setAdmin(True)
+        s_auth.AuthMixin.__init__(self, self.auth)
 
         self._initCortexConfSetPost()
 
