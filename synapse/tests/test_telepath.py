@@ -33,6 +33,12 @@ class Foo(s_eventbus.EventBus, s_telepath.Aware):
     def localthing(self, x):
         return self.echo(x)
 
+    def __newp(self, x):
+        return str(x)
+
+    def yep(self, x):
+        return self.__newp(x)
+
 class TelePathTest(SynTest):
 
     def getFooServ(self):
@@ -76,6 +82,10 @@ class TelePathTest(SynTest):
         self.eq(foo.bar(10, 20), 30)
         self.raises(NoSuchMeth, foo.faz, 10, 20)
         self.raises(SynErr, foo.baz, 10, 20)
+
+        # dundered methods are protected
+        self.eq(foo.yep(1), '1')
+        self.raises(NoSuchMeth, foo.__newp, 1)
 
         foo.fini()
         # We have fini'd the Proxy resources
