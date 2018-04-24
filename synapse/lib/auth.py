@@ -106,7 +106,7 @@ def reqAdmin(f):
         uobj = auth.reqUser(uname)
         if not uobj.admin:
             raise s_exc.AuthDeny(mesg='Operation requires admin',
-                                 name=f.__qualname__)
+                                 name=f.__qualname__, user=uname)
         logger.info('Executing [%s][%s][%s] as [%s]',
                     f.__qualname__, args, kwargs, uname)
         return f(*args, **kwargs)

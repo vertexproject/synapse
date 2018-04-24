@@ -56,14 +56,12 @@ class AuthCmd(s_cli.Cmd):
             return s_tufo.tufo(rtype, form=form, prop=prop)
         if form and not prop:
             return s_tufo.tufo(rtype, form=form)
-        if not(form or prop or tag):
-            return None
-        raise s_exc.BadSyntaxError(mesg='Failed to form rulefo',
-                                   form=form, prop=prop, tag=tag)
+        raise s_exc.BadSyntaxError(mesg='Unable to form rulefo',
+                                   prop=prop, form=form, tag=tag, rule=rtype)
 
     def getMsg(self, stub, name, typ, opts):
         if not name:
-            raise s_exc.BadSyntaxError(mesg='Addition requires a name')
+            raise s_exc.BadSyntaxError(mesg='Action requires a name')
         args = {typ: name}
         admin = opts.pop('admin', None)
         if admin and typ == 'user':
@@ -82,8 +80,8 @@ class AuthCmd(s_cli.Cmd):
                               **args)
             return msg
         mod = self.modmap.get(typ)
-        if not mod:
-            raise s_exc.BadSyntaxError(mesg='wut')
+        if not mod:  # pragma: no cover
+            raise s_exc.BadSyntaxError(mesg='Something went wrong')
         args['rule'] = rulefo
         msg = s_tufo.tufo(':'.join([stub, mod]),
                           **args)
@@ -122,7 +120,10 @@ class AuthCmd(s_cli.Cmd):
         if opts.get('json'):
             outp = json.dumps(retn, indent=2, sort_keys=True)
         else:
-            width, _ = shutil.get_terminal_size()
+            width, _ = shutil.get_terminal_size((120, 24))
+            if width == 0:
+                # In CI we may not have a tty available.
+                width = 120
             outp = pprint.pformat(retn, width=width)
         self.printf(outp)
         return retn
