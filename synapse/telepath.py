@@ -756,3 +756,11 @@ def getClientSides(item):
         retn[name] = path
 
     return retn
+
+class Aware:
+    '''
+    Allows an object to be "telepath aware" and expose a limited
+    api with possible permissions boundaries.
+    '''
+    def getTeleApi(self, dmon):
+        return self

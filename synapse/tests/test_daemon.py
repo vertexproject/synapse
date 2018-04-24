@@ -22,6 +22,23 @@ class Blah:
     def __init__(self, woot):
         self.woot = woot
 
+class WokeApi:
+
+    def __init__(self, woke):
+        self.woke = woke
+        self.hehe = self.woke.hehe
+
+class Woke(s_telepath.Aware):
+
+    def hehe(self, x):
+        return x * 20
+
+    def echo(self, x):
+        return x
+
+    def getTeleApi(self, dmon):
+        return WokeApi(self)
+
 class DaemonTest(SynTest):
 
     def test_daemon_error_unserializable(self):
@@ -294,3 +311,20 @@ class DaemonTest(SynTest):
         # ensure dmon cell processes are fini'd
         for celldir, proc in dmon.cellprocs.items():
             self.false(proc.is_alive())
+
+    def test_daemon_aware(self):
+
+        woke = Woke()
+        self.eq(woke.hehe(2), 40)
+        self.eq(woke.echo('echo'), 'echo')
+
+        with s_daemon.Daemon() as dmon:
+            link = dmon.listen('tcp://127.0.0.1:0/')
+            port = link[1].get('port')
+
+            dmon.share('woke', woke)
+            self.true(isinstance(dmon.shared.get('woke'), WokeApi))
+
+            with s_telepath.openurl('tcp://127.0.0.1:%s/woke' % port) as prox:
+                self.eq(prox.hehe(2), 40)
+                self.raises(NoSuchMeth, prox.echo, 'echo')

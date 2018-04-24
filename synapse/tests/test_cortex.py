@@ -989,131 +989,6 @@ class CortexBaseTest(SynTest):
 
 class CortexTest(SynTest):
 
-    def test_cortex_membrane(self):
-        name = 'testmembrane'
-        rules = (
-            (True, ('node:add', {'form': 'thing', 'valu': 'newp'})),
-            (False, ('node:add', {'form': 'thing'})),
-            (False, ('node:add', {'valu': 'newp'})),
-            (True, ('node:add', {})),
-
-            (True, ('node:del', {'form': 'thing'})),
-            (False, ('node:del', {})),
-
-            (True, ('y*', {})),
-            (False, ('z*', {}))
-        )
-        msgs = (
-            ('splice', {'mesg': ('node:add', {'form': 'thing'})}),
-            ('splice', {'mesg': ('node:add', {'valu': 'newp'})}),
-            ('splice', {'mesg': ('node:add', {'form': 'thing', 'valu': 'newp'})}),
-            ('splice', {'mesg': ('node:add', {})}),
-
-            ('splice', {'mesg': ('node:del', {'form': 'thing'})}),
-            ('splice', {'mesg': ('node:del', {'form': 'newp'})}),
-            ('splice', {'mesg': ('node:del', {})}),
-
-            ('splice', {'mesg': ('yeap', {})}),
-            ('splice', {'mesg': ('zillion', {})}),
-
-            ('splice', {'mesg': ('not-in-the-rules', {'hehe': 'haha'})}),
-        )
-        expected = [
-            ('node:add', {'form': 'thing', 'valu': 'newp'}),
-            ('node:add', {}),
-            ('node:del', {'form': 'thing'}),
-            ('yeap', {}),
-        ]
-
-        def run_tests(core, msgs, expected):
-            [core.dist(msg) for msg in msgs]
-
-            # subscribe to the membrane fifo and check the messages that made it through
-            actual = []
-            core.subCoreFifo(name, actual.append)
-
-            actual_msgs = [msg[2] for msg in actual]
-            self.eq(actual_msgs, expected)
-
-        # Add a membrane via Cortex API
-        with self.getTestDir() as dirn:
-            with s_cortex.openurl('dir:///' + dirn) as core:
-                core.addCoreMembrane(name, rules)
-                run_tests(core, msgs, expected)
-
-        # Add membranes via setting config opt
-        with self.getTestDir() as dirn:
-            with s_cortex.openurl('dir:///' + dirn) as core:
-                core.setConfOpt('membranes', ((name, rules),))
-                run_tests(core, msgs, expected)
-
-        # Add membranes via setting config opt at ctor time
-        with self.getTestDir() as dirn:
-            with s_cortex.openurl('dir:///' + dirn, conf={'membranes': ((name, rules),)}) as core:
-                run_tests(core, msgs, expected)
-
-        # Test missing and dup membranes
-        with self.getTestDir() as dirn:
-            with s_cortex.openurl('dir:///' + dirn) as core:
-
-                self.raises(NoSuchMembrane, core.delCoreMembrane, name)
-                core.addCoreMembrane(name, rules)
-
-                [core.dist(msg) for msg in msgs]
-                actual = []
-                core.subCoreFifo(name, actual.append)
-                actual_msgs = [msg[2] for msg in actual]
-                self.eq(actual_msgs, expected)
-
-                # Adding the membrane again should result in the same messages
-                [core.dist(msg) for msg in msgs]
-                core.addCoreMembrane(name, rules)
-                actual = []
-                core.subCoreFifo(name, actual.append)
-                actual_msgs = [msg[2] for msg in actual]
-                self.eq(actual_msgs, expected + expected)  # Now we have both of the sets of messages in order since we fired them twice
-
-                # Updating the rules should result in different messages
-                core.addCoreMembrane(name, [])
-                [core.dist(msg) for msg in msgs]
-                actual = []
-                core.subCoreFifo(name, actual.append)
-                actual_msgs = [msg[2] for msg in actual]
-                self.eq(actual_msgs, expected + expected)  # we still only have them twice even though we fired 3 times, since rules were set to []
-
-                # remove and re-add the membrane, subscribe again and make sure it is empty
-                fifo_dir = core.getCoreFifo(name).getConfOpt('dir')
-                self.gt(len(os.listdir(fifo_dir)), 0)  # did should be populated
-                self.none(core.delCoreMembrane(name))  # returns none
-                self.raises(FileNotFoundError, os.listdir, fifo_dir)  # should not exist
-                self.len(0, core.getTufosByProp('syn:fifo'))
-                self.raises(NoSuchFifo, core.getCoreFifo, name)  # should be removed
-                self.raises(AttributeError, core.subCoreFifo, name, actual.append)  # fifo is none
-                self.raises(NoSuchMembrane, core.delCoreMembrane, name)
-
-                core.addCoreMembrane(name, rules)
-                actual = []
-                core.subCoreFifo(name, actual.append)
-                actual_msgs = [msg[2] for msg in actual]
-                self.eq(actual_msgs, [])  # There should be no messages in the membrane yet
-
-                actual = []
-                core.subCoreFifo(name, actual.append)  # FIXME If I don't call subCoreFifo, I get no messages. If I call it again, I get all of the messages twice...
-                [core.dist(msg) for msg in msgs]
-                actual_msgs = [msg[2] for msg in actual]
-                self.eq(actual_msgs, expected)
-
-        # Test that a membrane survives restart
-        with self.getTestDir() as dirn:
-
-            with s_cortex.openurl('dir:///' + dirn) as core:
-                core.addCoreMembrane(name, rules)
-                run_tests(core, msgs, expected)
-
-            with s_cortex.openurl('dir:///' + dirn) as core:
-                core.addCoreMembrane(name, rules)
-                run_tests(core, msgs, expected + expected)
-
     def test_cortex_datamodel_runt_consistency(self):
         with self.getRamCore() as core:
 
@@ -2904,89 +2779,141 @@ class CortexTest(SynTest):
             self.nn(node[1].get('#foo'))
             self.nn(node[1].get('#baz'))
 
+    def test_cortex_auth_telepath(self):
+        conf = {'auth:en': 1, 'auth:admin': 'root@localhost'}
+        cafile = getTestPath('ca.crt')
+        keyfile = getTestPath('server.key')
+        certfile = getTestPath('server.crt')
+        userkey = getTestPath('user.key')
+        usercrt = getTestPath('user.crt')
+        rootkey = getTestPath('root.key')
+        rootcrt = getTestPath('root.crt')
+
+        with self.getDirCore(conf=conf) as core:
+            with s_daemon.Daemon() as dmon:
+                dmon.share('core', core)
+                link = dmon.listen('ssl://localhost:0/',
+                                   cafile=cafile,
+                                   keyfile=keyfile,
+                                   certfile=certfile,
+                                   )
+                port = link[1].get('port')
+                url = 'ssl://user@localhost/core'
+                user_prox = s_telepath.openurl(url,
+                                               port=port,
+                                               cafile=cafile,
+                                               keyfile=userkey,
+                                               certfile=usercrt
+                                               )  # type: s_cores_common.CoreApi
+                dmon.onfini(user_prox.fini)
+                root_prox = s_telepath.openurl(url,
+                                               port=port,
+                                               cafile=cafile,
+                                               keyfile=rootkey,
+                                               certfile=rootcrt
+                                               )  # type: s_cores_common.CoreApi
+                dmon.onfini(root_prox.fini)
+                self.gt(len(user_prox.getCoreMods()), 1)
+                self.raises(NoSuchMeth, user_prox.delRowsByProp, 'strform',)
+                self.raises(NoSuchUser, user_prox.eval, '[strform=pennywise]')
+
+                self.gt(len(root_prox.getCoreMods()), 1)
+                self.raises(NoSuchMeth, root_prox.delRowsByProp, 'strform',)
+                self.len(1, root_prox.eval('sudo() [strform=pennywise]'))
+
+                self.len(1, root_prox.authGetUsers())
+                root = root_prox.authReqUser('root@localhost')
+                self.istufo(root)
+                user = root_prox.authAddUser('user@localhost')
+                self.istufo(user)
+                self.len(2, root_prox.authGetUsers())
+                self.raises(s_exc.AuthDeny, user_prox.authGetUsers)
+                root_prox.authAddAdmin('user@localhost')
+                self.len(2, user_prox.authGetUsers())
+
     def test_cortex_auth(self):
 
-        with self.getRamCore() as core:
+        conf = {'auth:en': 1, 'auth:admin': 'rawr@vertex.link'}
 
-            core.formTufoByProp('syn:auth:user', 'visi@vertex.link')
-            core.formTufoByProp('syn:auth:user', 'fred@woot.com')
-            core.formTufoByProp('syn:auth:user', 'root@localhost')
+        with self.getDirCore(conf=conf) as core:
 
-            core.formTufoByProp('syn:auth:role', 'root')
-            core.formTufoByProp('syn:auth:role', 'newb')
+            self.true(core.auth.users.get('rawr@vertex.link').admin)
 
-            rule = (True, ('*', {}))
-            core.addRoleRule('root', rule)
-            core.addUserRule('root@localhost', rule)
-            core.addUserRule('root@localhost', (True, ('rm:me', {})))
+            visi = core.auth.addUser('visi@vertex.link')
+            newb = core.auth.addUser('newb@vertex.link')
 
-            self.nn(core.getRoleAuth('root'))
-            self.nn(core.getUserAuth('root@localhost'))
+            visi.addRule(('node:add', {'form': 'inet:ipv4'}))
+            visi.addRule(('node:del', {'form': 'inet:ipv4'}))
+            visi.addRule(('node:prop:set', {'form': 'inet:ipv4', 'prop': 'cc'}))
 
-            self.raises(NoSuchUser, core.getUserAuth, 'newp')
-            self.raises(NoSuchRole, core.getRoleAuth, 'newp')
+            visi.addRule(('node:tag:add', {'tag': 'foo'}))
+            visi.addRule(('node:tag:del', {'tag': 'foo'}))
 
-            self.eq(len(core.getUserRules('root@localhost')), 2)
+            with s_auth.runas('newp@fake.com'):
+                retn = core.ask('[ inet:ipv4=1.2.3.4 ]')
+                self.eq(retn['oplog'][-1]['excinfo']['err'], 'NoSuchUser')
 
-            core.delUserRule('root@localhost', 1)
-            self.eq(len(core.getUserRules('root@localhost')), 1)
-
-            rule = (True, ('node:add', {'form': 'inet:*'}))
-
-            core.addRoleRule('newb', rule)
-            self.eq(len(core.getRoleRules('newb')), 1)
-
-            core.delRoleRule('newb', 0)
-            self.eq(len(core.getRoleRules('newb')), 0)
-
-            core.setRoleRules('newb', ())
-            self.eq(len(core.getRoleRules('newb')), 0)
-
-            # test the short circuit before auth is enabled
-            core.reqperm(('node:add', {'form': 'inet:fqdn'}), user='newp')
-            self.true(core.allowed(('node:add', {'form': 'inet:fqdn'}), user='newp'))
-
-            core.setConfOpt('auth:en', 1)
-
-            self.raises(NoSuchUser, core.addUserRule, 'hehe', ('stuff', {}))
-            self.raises(NoSuchRole, core.addRoleRule, 'hehe', ('stuff', {}))
-
-            with s_auth.runas('fred@woot.com'):
-
-                self.false(core.allowed(('node:add', {'form': 'ou:org'})))
-
-                rule = (True, ('node:add', {'form': 'ou:org'}))
-                core.addUserRule('fred@woot.com', rule)
-
-                perm = ('node:add', {'form': 'ou:org'})
-                core.reqperm(perm)
-                self.true(core.allowed(perm))
-                self.eq(len(core.getUserRules('fred@woot.com')), 1)
-
-                core.setUserRules('fred@woot.com', ())
-                self.eq(len(core.getUserRules('fred@woot.com')), 0)
-
-                perm = ('node:add', {'form': 'ou:org'})
-                self.false(core.allowed(perm))
-                self.raises(AuthDeny, core.reqperm, perm)
-
-            with s_auth.runas('root@localhost'):
-                self.true(core.allowed(('fake', {})))
+            with s_auth.runas('newb@vertex.link'):
+                retn = core.ask('[ inet:ipv4=1.2.3.4 ]')
+                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
 
             with s_auth.runas('visi@vertex.link'):
+                retn = core.ask('[ inet:ipv4=1.2.3.4 ]')
+                self.eq(retn['data'][0][1].get('inet:ipv4'), 0x01020304)
 
-                self.false(core.allowed(('fake', {})))
+            with s_auth.runas('newb@vertex.link'):
+                retn = core.ask('inet:ipv4=1.2.3.4 delnode(force=1)')
+                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
 
-                node = core.formTufoByProp('syn:auth:userrole', ('visi@vertex.link', 'root'))
-                self.true(core.allowed(('fake', {})))
+            with s_auth.runas('newb@vertex.link'):
+                retn = core.ask('inet:ipv4=1.2.3.4 [ :cc=us ]')
+                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
 
-                core.delTufo(core.getTufoByProp('syn:auth:role', 'root'))
-                self.false(core.allowed(('fake', {})))
+            with s_auth.runas('visi@vertex.link'):
+                retn = core.ask('inet:ipv4=1.2.3.4 [ :cc=us ]')
+                self.eq(retn['data'][0][1].get('inet:ipv4:cc'), 'us')
 
-            core.delTufo(core.getTufoByProp('syn:auth:user', 'fred@woot.com'))
+            with s_auth.runas('newb@vertex.link'):
+                retn = core.ask('inet:ipv4=1.2.3.4 [ +#foo ]')
+                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
 
-            self.raises(NoSuchUser, core.addUserRule, 'fred@woot.com', ('stuff', {}))
-            self.raises(NoSuchRole, core.addRoleRule, 'root', ('stuff', {}))
+            with s_auth.runas('visi@vertex.link'):
+                retn = core.ask('inet:ipv4=1.2.3.4 [ +#foo ]')
+                self.nn(retn['data'][0][1].get('#foo'))
+
+            with s_auth.runas('newb@vertex.link'):
+                retn = core.ask('inet:ipv4=1.2.3.4 [ -#foo ]')
+                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
+
+            with s_auth.runas('visi@vertex.link'):
+                retn = core.ask('inet:ipv4=1.2.3.4 [ -#foo ]')
+                self.none(retn['data'][0][1].get('#foo'))
+
+            with s_auth.runas('newb@vertex.link'):
+                retn = core.ask('inet:ipv4=1.2.3.4 delnode(force=1)')
+                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
+
+            with s_auth.runas('visi@vertex.link'):
+                retn = core.ask('inet:ipv4=1.2.3.4 delnode(force=1)')
+                self.len(0, core.eval('inet:ipv4'))
+
+            with s_auth.runas('newb@vertex.link'):
+                self.len(1, core.splices([('node:add', {'form': 'inet:ipv4', 'valu': 0x01020304})]))
+
+            self.none(core.getTufoByProp('inet:ipv4', 0x01020304))
+
+            with s_auth.runas('visi@vertex.link'):
+                self.len(0, core.splices([('node:add', {'form': 'inet:ipv4', 'valu': 0x01020304})]))
+
+            self.nn(core.getTufoByProp('inet:ipv4', 0x01020304))
+
+            with s_auth.runas('rawr@vertex.link'):
+
+                retn = core.ask('inet:ipv4=1.2.3.4 delnode(force=1)')
+                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
+
+                retn = core.ask('inet:ipv4=1.2.3.4 sudo() delnode(force=1)')
+                self.none(retn['oplog'][-1].get('excinfo'))
 
     def test_cortex_formtufobytufo(self):
         with self.getRamCore() as core:
@@ -3011,186 +2938,6 @@ class CortexTest(SynTest):
             self.none(t1[1].get('strform:bar'))
             self.none(t1[1].get('strform:baz'))
             self.none(t1[1].get('strform:haha'))
-
-    def test_cortex_fifos_busref(self):
-        with self.getTestDir() as dirn:
-
-            url = 'dir:///' + dirn
-            with s_cortex.openurl(url) as core:
-                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
-                name = node[1].get('syn:fifo:name')
-
-                # refcount is set to 1 when the fifo is created (when the syn:fifo node is formed),
-                #   then incremented when getCoreFifo is called
-                fiforef_0 = core.getCoreFifo(name)
-                self.eq(2, fiforef_0._syn_refs)
-
-                # Add 3 more refs
-                fiforef_1 = core.getCoreFifo(name)
-                fiforef_2 = core.getCoreFifo(name)
-                fiforef_3 = core.getCoreFifo(name)
-                self.eq(5, fiforef_0._syn_refs)
-
-                # Begin to remove them
-                fiforef_3.fini()
-                self.eq(4, fiforef_0._syn_refs)
-                fiforef_2.fini()
-                self.eq(3, fiforef_0._syn_refs)
-                fiforef_1.fini()
-                self.eq(2, fiforef_0._syn_refs)
-
-            # refs are finied, but the fifo is not finid because not all of the refs were closed yet
-            self.false(fiforef_0.isfini)
-            fiforef_1.fini()
-            self.true(fiforef_0.isfini)
-            self.eq(0, fiforef_0._syn_refs)
-
-    def test_cortex_fifos(self):
-
-        with self.getTestDir() as dirn:
-
-            url = 'dir:///' + dirn
-            with s_cortex.openurl(url) as core:
-
-                self.raises(NoSuchFifo, core.getCoreFifo, '(haha)')
-
-                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
-                iden = node[1].get('syn:fifo')
-                name = node[1].get('syn:fifo:name')
-                desc = node[1].get('syn:fifo:desc')
-
-                self.eq(iden, 'adb4864c8e5f2a2a44b454981e731b8b')
-                self.eq(name, 'haha')
-                self.eq(desc, 'test fifo')
-
-                # Assert that the fifo dir was created by simply forming the syn:fifo node
-                path = core.getCorePath('fifos', iden)
-                self.true(os.path.isdir(path))
-
-                self.raises(NoSuchFifo, core.getCoreFifo, 'shouldntexist')
-
-                sent = []
-                core.subCoreFifo(name, sent.append)
-
-                core.putCoreFifo(name, 'foo')
-                core.putCoreFifo(name, 'bar')
-
-                self.len(2, sent)
-                self.eq(sent[0][2], 'foo')
-                self.eq(sent[1][2], 'bar')
-
-                core.ackCoreFifo(name, sent[0][0])
-
-                sent = []
-                core.subCoreFifo(name, sent.append)
-                self.len(1, sent)
-                self.eq(sent[0][2], 'bar')
-
-                with s_daemon.Daemon() as dmon:
-
-                    link = dmon.listen('tcp://127.0.0.1:0/')
-                    dmon.share('core', core)
-
-                    port = link[1].get('port')
-                    prox = s_telepath.openurl('tcp://127.0.0.1/core', port=port)
-
-                    data = []
-                    def fifoxmit(mesg):
-                        data.append(mesg)
-                        name = mesg[1].get('name')
-                        seqn = mesg[1].get('qent')[0]
-                        prox.fire('fifo:ack', seqn=seqn, name=name)
-
-                    prox.on('fifo:xmit', fifoxmit, name='haha')
-
-                    wait = prox.waiter(1, 'fifo:xmit')
-                    prox.subCoreFifo('haha')
-
-                    self.nn(wait.wait(timeout=1))
-
-                    self.len(1, data)
-
-                    wait = prox.waiter(2, 'fifo:xmit')
-                    ackwait = core.waiter(2, 'fifo:ack')
-
-                    core.extCoreFifo('haha', ('lulz', 'rofl'))
-
-                    self.nn(wait.wait(timeout=1))
-                    self.nn(ackwait.wait(timeout=1))
-
-                    self.len(3, data)
-
-                    waiter = prox.waiter(1, 'tele:sock:init')
-                    subwait = core.waiter(1, 'fifo:sub')
-
-                    prox._tele_sock.fini()
-
-                    self.nn(waiter.wait(timeout=1))
-                    self.nn(subwait.wait(timeout=1))
-
-                    waiter = prox.waiter(1, 'fifo:xmit')
-                    core.putCoreFifo('haha', 'zonk')
-                    self.nn(waiter.wait(timeout=1))
-
-                    self.len(4, data)
-
-                core.delTufo(node)
-
-                self.false(os.path.isdir(path))
-                self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
-
-    def test_cortex_fifos_fifodir(self):
-
-        def run_tests(node):
-            self.eq(node[1].get('syn:fifo'), 'adb4864c8e5f2a2a44b454981e731b8b')
-            self.eq(node[1].get('syn:fifo:name'), 'haha')
-            self.eq(node[1].get('syn:fifo:desc'), 'test fifo')
-            path = core.getCorePath('fifos', 'adb4864c8e5f2a2a44b454981e731b8b')
-            self.true(os.path.isdir(path))
-
-        with self.getTestDir() as dirn:
-            url = 'dir:///' + dirn
-
-            # create the fifo and put a message into it, close the cortex
-            with s_cortex.openurl(url) as core:
-                core.formTufoByProp('syn:fifo', '(FoO)')
-                core.formTufoByProp('syn:fifo', '(bAr)')
-                core.formTufoByProp('syn:fifo', '(BAz)')
-                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
-                run_tests(node)
-
-                core.getCoreFifo('haha')
-                core.getCoreFifo('haha')
-                fifo = core.getCoreFifo('haha')
-                self.eq(4, fifo._syn_refs)
-
-                core.putCoreFifo('haha', 'mymesg')
-
-            # make sure that the fifo still exists and is reloaded after the cortex was closed and reopened
-            with s_cortex.openurl(url) as core:
-                node = core.getTufoByProp('syn:fifo', '(haHA)')  # make sure that it is still there
-                run_tests(node)
-
-            # make sure that the fifo still works correctly after the cortex was closed and reopened
-            with s_cortex.openurl(url) as core:
-                fifo = core.getCoreFifo('haha')
-                self.eq(2, fifo._syn_refs)  # make sure that the old refs were cleaned up
-
-                actual = []
-                core.subCoreFifo('haha', actual.append)  # messages should persist
-                self.eq(2, fifo._syn_refs)  # calling subCoreFifo shouldn't incr refs
-
-                self.len(1, actual)
-                self.len(3, actual[0])
-                self.eq(actual[0][2], 'mymesg')  # make sure the original message survived
-
-                core.delTufo(node)
-
-            # make sure that the fifo is really removed after its node is removed
-            with s_cortex.openurl(url) as core:
-                self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
-                path = core.getCorePath('fifos', 'adb4864c8e5f2a2a44b454981e731b8b')
-                self.false(os.path.isdir(path))
 
     def test_cortex_universal_props(self):
         with self.getRamCore() as core:
@@ -3594,6 +3341,36 @@ class CortexTest(SynTest):
             core.splices(splices)
             self.eq(events, [])
             core.unlink(events.append)
+
+    def test_cortex_aware(self):
+
+        conf = {'auth:en': 1}
+
+        with self.getDirCore(conf=conf) as core:
+
+            with s_daemon.Daemon() as dmon:
+
+                link = dmon.listen('tcp://127.0.0.1:0/')
+                dmon.share('core', core)
+
+                port = link[1].get('port')
+
+                with s_telepath.openurl('tcp://127.0.0.1/core', port=port) as prox:
+
+                    self.raises(s_exc.NoSuchMeth, prox.getTufoByProp, 'inet:ipv4', 0x01020304)
+
+                    retn = prox.ask('[ inet:ipv4=1.2.3.4 ]')
+                    self.eq(retn['oplog'][-1]['excinfo']['err'], 'NoSuchUser')
+
+                    retn = prox.ask('inet:ipv4=1.2.3.4')
+                    self.len(0, retn['data'])
+
+                    self.raises(s_exc.NoSuchUser, prox.eval, '[ inet:ipv4=1.2.3.4 ]')
+
+                    msgs = [('node:add', {'form': 'inet:ipv4', 'valu': 0x01020304})]
+                    logs = prox.splices(msgs)
+
+                    self.eq(logs[0][1]['err'], 'NoSuchUser')
 
 class StorageTest(SynTest):
 

@@ -546,7 +546,7 @@ class SynTest(unittest.TestCase):
         core.addTufoProp('inet:fqdn', 'inctest', ptype='int', defval=0)
 
     @contextlib.contextmanager
-    def getAxonCore(self):
+    def getAxonCore(self, cortex_conf=None):
         '''
         Get a TstEnv instance which is preconfigured with a Neuron, Blob, Axon, Daemon and Cortex.
 
@@ -564,6 +564,9 @@ class SynTest(unittest.TestCase):
             * axon: The AxonCell.
             * blob: The BlobCell backing the Axon.
             * neuron: The Neuron.
+
+        Args:
+            cortex_conf (dict): Optional cortex config
 
         Yields:
             TstEnv: A TstEnv instance.
@@ -602,7 +605,7 @@ class SynTest(unittest.TestCase):
             axon_sess = axon_user.open((axonhost, axonport))
             axon_client = s_axon.AxonClient(axon_sess)
 
-            core = s_cortex.openurl('ram:///')
+            core = s_cortex.openurl('ram:///', conf=cortex_conf)
             self.addTstForms(core)
 
             cellpoolconf = {'host': neurhost, 'port': neurport, 'auth': s_common.enbase64(s_msgpack.en(axonauth))}
@@ -633,15 +636,18 @@ class SynTest(unittest.TestCase):
                 env.fini()
 
     @contextlib.contextmanager
-    def getRamCore(self):
+    def getRamCore(self, conf=None):
         '''
         Context manager to make a ram:/// cortex which has test models
         loaded into it.
 
+        Args:
+            conf (dict): Optional config
+
         Yields:
             s_cores_common.Cortex: Ram backed cortex with test models.
         '''
-        with s_cortex.openurl('ram:///') as core:
+        with s_cortex.openurl('ram:///', conf=conf) as core:
             self.addTstForms(core)
             try:
                 yield core
@@ -649,27 +655,37 @@ class SynTest(unittest.TestCase):
                 core.fini()
 
     @contextlib.contextmanager
-    def getDirCore(self):
+    def getDirCore(self, conf=None):
         '''
-        Context manager to make a dir:/// cortex
+        Context manager to make a dir:/// cortex which has test models
+        loaded into it.
+
+        Args:
+            conf (dict): Optional cortex config
 
         Yields:
             s_cores_common.Cortex: Dir backed Cortex
         '''
         with self.getTestDir() as dirn:
-            with s_cortex.fromdir(dirn) as core:
+            s_scope.set('dirn', dirn)
+            with s_cortex.fromdir(dirn, conf=conf) as core:
+                self.addTstForms(core)
                 yield core
 
     @contextlib.contextmanager
-    def getDmonCore(self):
+    def getDmonCore(self, conf=None):
         '''
-        Context manager to make a ram:/// cortex which has test models loaded into it and shared via daemon.
+        Context manager to make a ram:/// cortex which has test models
+        loaded into it and shared via daemon.
+
+        Args:
+            conf (dict): Optional cortex config
 
         Yields:
             s_cores_common.Cortex: A proxy object to the Ram backed cortex with test models.
         '''
         dmon = s_daemon.Daemon()
-        core = s_cortex.openurl('ram:///')
+        core = s_cortex.openurl('ram:///', conf=conf)
         self.addTstForms(core)
 
         link = dmon.listen('tcp://127.0.0.1:0/')
@@ -680,6 +696,7 @@ class SynTest(unittest.TestCase):
         s_scope.set('syn:test:link', link)
         s_scope.set('syn:cmd:core', prox)
         s_scope.set('syn:core', core)
+        s_scope.set('syn:dmon', dmon)
 
         try:
             yield prox
@@ -689,6 +706,10 @@ class SynTest(unittest.TestCase):
             prox.fini()
             core.fini()
             dmon.fini()
+            s_scope.pop('syn:dmon')
+            s_scope.pop('syn:core')
+            s_scope.pop('syn:cmd:core')
+            s_scope.pop('syn:test:link')
 
     @contextlib.contextmanager
     def getTestDir(self):

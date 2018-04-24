@@ -15,7 +15,7 @@ from synapse.tests.common import *
 import logging
 logger = logging.getLogger(__name__)
 
-class Foo(s_eventbus.EventBus):
+class Foo(s_eventbus.EventBus, s_telepath.Aware):
 
     def bar(self, x, y):
         return x + y
@@ -33,8 +33,11 @@ class Foo(s_eventbus.EventBus):
     def localthing(self, x):
         return self.echo(x)
 
-    def echo(self, x):
-        return x
+    def __newp(self, x):
+        return str(x)
+
+    def yep(self, x):
+        return self.__newp(x)
 
 class TelePathTest(SynTest):
 
@@ -79,6 +82,10 @@ class TelePathTest(SynTest):
         self.eq(foo.bar(10, 20), 30)
         self.raises(NoSuchMeth, foo.faz, 10, 20)
         self.raises(SynErr, foo.baz, 10, 20)
+
+        # dundered methods are protected
+        self.eq(foo.yep(1), '1')
+        self.raises(NoSuchMeth, foo.__newp, 1)
 
         foo.fini()
         # We have fini'd the Proxy resources
