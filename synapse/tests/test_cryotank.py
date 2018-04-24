@@ -289,7 +289,6 @@ class CryoIndexTest(SynTest):
         with self.getTestDir() as dirn, s_cryotank.CryoTank(dirn) as tank:
             idxr = tank.indexer
 
-            waiter = self.initWaiter(tank)
             data1 = {'foo': 1234, 'bar': 'stringval'}
             data2 = {'foo': 2345, 'baz': 4567, 'bar': 'strinstrin'}
             data3 = {'foo': 388383, 'bar': ('strinstrin' * 20)}
@@ -322,6 +321,7 @@ class CryoIndexTest(SynTest):
             self.eq(2, len(t))
             self.eq(t[0], 0)
             self.eq(t[1], {'first': 1234})
+
             waiter = self.initWaiter(tank)
             self.wait(waiter)
 
@@ -385,11 +385,11 @@ class CryoIndexTest(SynTest):
             self.wait(waiter)
 
             # Multiple datapaths
+            waiter = self.initWaiter(tank)
             idxr.delIndex('first')
-            waiter = self.initWaiter(tank)
             self.wait(waiter)
-            idxr.addIndex('first', 'int', ('foo', 'foo2'))
             waiter = self.initWaiter(tank)
+            idxr.addIndex('first', 'int', ('foo', 'foo2'))
             self.wait(waiter)
 
             waiter = self.initWaiter(tank)
@@ -398,12 +398,12 @@ class CryoIndexTest(SynTest):
             retn = list(idxr.queryNormValu('first'))
             self.eq(retn, [(0, 1234), (1, 2345), (4, 9999), (2, 388383)])
 
-            idxr.pauseIndex('first')
             waiter = self.initWaiter(tank)
+            idxr.pauseIndex('first')
             self.wait(waiter)
 
-            idxr.resumeIndex('first')
             waiter = self.initWaiter(tank)
+            idxr.resumeIndex('first')
             self.wait(waiter)
 
             waiter = self.initWaiter(tank)
@@ -427,8 +427,8 @@ class CryoIndexTest(SynTest):
                     }
                 }
             }
+            waiter = self.initWaiter(tank, 2)
             idxr.addIndex('key', 'str:lwr', ['hehe/haha/key'])
-            waiter = self.initWaiter(tank)
             self.wait(waiter)
             waiter = self.initWaiter(tank)
             tank.puts([item])

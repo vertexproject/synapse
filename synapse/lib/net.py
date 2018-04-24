@@ -1,7 +1,7 @@
 import os
-import select
 import socket
 import logging
+import selectors
 import threading
 import collections
 
@@ -21,7 +21,6 @@ The synapse.lib.net module implements async networking helpers.
 ( and will slowly replace synapse.lib.socket )
 '''
 
-
 class Plex(s_config.Config):
     '''
     A highly-efficient epoll based multi-plexor for sockets.
@@ -30,7 +29,7 @@ class Plex(s_config.Config):
 
         s_config.Config.__init__(self, conf)
 
-        self.epoll = select.epoll()
+        self.epoll = selectors.DefaultSelector()
 
         self.socks = {}
         self.links = {}
@@ -51,7 +50,7 @@ class Plex(s_config.Config):
     def _initPlexConf():
         return (
             ('pool:max', {'defval': 8, 'type': 'int',
-                'doc': 'The maximum number of threads in the thread pool'}),
+             'doc': 'The maximum number of threads in the thread pool'}),
         )
 
     def _runPollLoop(self):
@@ -60,7 +59,7 @@ class Plex(s_config.Config):
 
             try:
 
-                for fino, flags in self.epoll.poll(timeout=0.1):
+                for (_, fino, events, _), mask in self.epoll.select():
 
                     if self.isfini:
                         return
@@ -77,7 +76,7 @@ class Plex(s_config.Config):
 
                     try:
 
-                        poll(flags)
+                        poll(mask)
 
                     except Exception as e:
                         logger.exception('error during poll() callback')
@@ -102,7 +101,7 @@ class Plex(s_config.Config):
 
         poll = self.polls.pop(fino)
         if poll is not None:
-            self.epoll.unregister(fino)
+            self.epoll.unregister(sock)
 
         sock.close()
 
@@ -128,7 +127,7 @@ class Plex(s_config.Config):
 
         def poll(flags):
 
-            if not flags & select.EPOLLIN:
+            if not flags & selectors.EVENT_READ:
 
                 self._finiPlexSock(sock)
 
@@ -158,7 +157,7 @@ class Plex(s_config.Config):
         self.socks[fino] = sock
         self.polls[fino] = poll
 
-        self.epoll.register(fino, select.EPOLLIN | select.EPOLLERR | select.EPOLLET)
+        self.epoll.register(sock, selectors.EVENT_READ)
         return sock.getsockname()
 
     def _initPlexSock(self, sock):
@@ -171,22 +170,22 @@ class Plex(s_config.Config):
 
         if self.socks.get(fino) is None:
             self.socks[fino] = sock
-            self.epoll.register(fino, link.flags)
+            self.epoll.register(sock, link.flags)
 
         else:
-            self.epoll.modify(fino, link.flags)
+            self.epoll.modify(sock, link.flags)
 
         return link
 
-    def modify(self, fino, flags):
+    def modify(self, sock, flags):
         '''
         Modify the epoll flags mask for the give file descriptor.
 
         Args:
-            fino (int): The file descriptor number.
+            socket (socket): The socket to modify
             flags (int): The epoll flags mask.
         '''
-        return self.epoll.modify(fino, flags)
+        return self.epoll.modify(sock, flags)
 
     def _setSockOpts(self, sock):
 
@@ -221,17 +220,13 @@ class Plex(s_config.Config):
             retn = None
 
             errn = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-            if errn != 0 or flags & select.EPOLLERR:
-
+            if errn != 0:
                 ok = False
                 retn = errn
                 self._finiPlexSock(sock)
-
             else:
-
                 ok = True
                 retn = self._initPlexSock(sock)
-
             try:
                 onconn(ok, retn)
             except Exception as e:
@@ -241,14 +236,15 @@ class Plex(s_config.Config):
         self.socks[fino] = sock
         self.polls[fino] = poll
 
-        self.epoll.register(fino, select.EPOLLOUT | select.EPOLLERR)
-
         try:
             sock.connect(addr)
+            # This path won't be exercised on Linux
+            poll(2)
         except BlockingIOError as e:
-            pass
+            # This is the Linux path
+            self.epoll.register(sock, selectors.EVENT_WRITE)
 
-s_glob.plex = Plex()
+s_glob.plex = Plex()  # type: ignore
 
 class Link(s_eventbus.EventBus):
     '''
@@ -680,14 +676,13 @@ class SockLink(Link):
 
         self.plex = plex
         self.sock = sock
-        self.fino = sock.fileno()
 
         self.txbuf = b''
-        self.txque = collections.deque() #(byts, info)
+        self.txque = collections.deque() # (byts, info)
         self.txlock = threading.Lock()
 
         self.unpk = s_msgpack.Unpk()
-        self.flags = select.EPOLLIN | select.EPOLLERR | select.EPOLLET
+        self.flags = selectors.EVENT_READ
 
         def fini():
             self.plex._finiPlexSock(self.sock)
@@ -705,7 +700,7 @@ class SockLink(Link):
 
             txdone = False
 
-            if flags & select.EPOLLIN:
+            if flags & selectors.EVENT_READ:
 
                 self._rxloop()
 
@@ -714,11 +709,8 @@ class SockLink(Link):
 
                 txdone = True
 
-            if flags & select.EPOLLOUT and not txdone:
+            if flags & selectors.EVENT_WRITE and not txdone:
                 self._txloop()
-
-            if flags & select.EPOLLERR:
-                self.fini()
 
         except Exception as e:
             logger.exception('error during epoll event: %s for %r' % (e, self.sock))
@@ -740,11 +732,11 @@ class SockLink(Link):
 
             self.txque.append(byts)
 
-            if self.flags & select.EPOLLOUT:
+            if self.flags & selectors.EVENT_WRITE:
                 return
 
-            self.flags |= select.EPOLLOUT
-            self.plex.modify(self.fino, self.flags)
+            self.flags |= selectors.EVENT_WRITE
+            self.plex.modify(self.sock, self.flags)
 
     def _rxbytes(self, size):
         '''
@@ -757,8 +749,10 @@ class SockLink(Link):
             (bytes): The bytes (or None) if would block.
         '''
         try:
-
-            return self.sock.recv(size)
+            rv = self.sock.recv(size)
+            if rv == b'':
+                raise ConnectionError
+            return rv
 
         except ConnectionError as e:
             return ''
@@ -822,8 +816,8 @@ class SockLink(Link):
                     if self.istxfini:
                         self.fini()
                         return
-                    self.flags &= ~select.EPOLLOUT
-                    self.plex.modify(self.fino, self.flags)
+                    self.flags &= ~selectors.EVENT_WRITE
+                    self.plex.modify(self.sock, self.flags)
                     return
 
                 self.txbuf = self.txque.popleft()
