@@ -56,6 +56,19 @@ class AuthTest(SynTest):
 
         self.true(tree.get('foo'))
         self.true(tree.get('foo.bar'))
+        self.true(tree.get('foo.bar.baz'))
+        self.true(tree.get('foo.bar.baz.faz'))
+
+        tree.clear()
+        tree.add('foo.bar.baz')
+        self.false(tree.get('foo'))
+        self.true(tree.get('foo.bar.baz'))
+        # Wildcard takes precedence once it is added
+        tree.add('*')
+        self.true(tree.get('foo'))
+        self.true(tree.get('foo.bar.baz.faz'))
+
+        self.raises(s_exc.BadRuleValu, tree.add, 'hehe.haha.*')
 
     def test_auth_rbac(self):
 
@@ -167,6 +180,14 @@ class AuthTest(SynTest):
                 self.true(visi.delRole('ninjas'))
                 self.false(visi.allowed(('node:add', {'form': 'inet:fqdn'})))
                 self.false(visi.delRole('ninjas'))
+
+                self.false(visi.allowed(('node:tag:add', {'tag': 'oh.my'})))
+                self.true(visi.addRule(('node:tag:add', {'tag': '*'})))
+                self.true(visi.allowed(('node:tag:add', {'tag': 'foo.bar.yep'})))
+                self.true(visi.allowed(('node:tag:add', {'tag': 'oh.my'})))
+                self.true(visi.delRule(('node:tag:add', {'tag': '*'})))
+                self.false(visi.allowed(('node:tag:add', {'tag': 'oh.my'})))
+                self.true(visi.allowed(('node:tag:add', {'tag': 'foo.bar.yep'})))
 
                 # star perm testing
                 na_star = ('node:add', {'form': '*'})

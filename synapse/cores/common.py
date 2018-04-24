@@ -84,6 +84,7 @@ class CoreApi:
         self.getCoreMods = core.getCoreMods
         self.getTypeRepr = core.getTypeRepr
         self.getPropRepr = core.getPropRepr
+        self.getUnivProps = core.getUnivProps
 
         # allow on/off but no fire/dist
         self.on = core.on

@@ -506,7 +506,6 @@ class Auth(s_config.Config):
             raise s_exc.NoSuchRole(role=role)
         return role
 
-
 class TagTree:
     '''
     A tag-oriented hierarchical permissions tree.
@@ -529,6 +528,10 @@ class TagTree:
         Args:
             tag (str): The tag (with no #)
         '''
+        if len(tag) > 1 and '*' in tag:
+            raise s_exc.BadRuleValu(key='tag', valu=tag,
+                                    mesg='Tags >1 character cannot contain "*".')
+
         node = self.root
         for name in tag.split('.'):
 
@@ -551,6 +554,11 @@ class TagTree:
             return retn
 
         node = self.root
+        # Fast path for '*' perms
+        if '*' in node[1]:
+            self.cache[tag] = True
+            return True
+
         for name in tag.split('.'):
 
             step = node[1].get(name)

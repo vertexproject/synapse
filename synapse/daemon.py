@@ -723,7 +723,7 @@ class Daemon(EventBus, DmonConf):
 
                 func = getattr(item, meth, None)
                 if func is None:
-                    raise s_common.NoSuchMeth(meth)
+                    raise s_common.NoSuchMeth(meth=meth)
 
                 if getattr(func, '_tele_clientside', False):
                     name = s_reflect.getMethName(func)

@@ -5,9 +5,11 @@ import synapse.lib.reflect as s_reflect
 # Add our commands to the mixins registry
 s_mixins.addSynMixin('cmdr', 'synapse.eventbus.EventBus', 'synapse.cmds.common.GuidCmd')
 s_mixins.addSynMixin('cmdr', 'synapse.cores.common.Cortex', 'synapse.cmds.cortex.AskCmd')
-s_mixins.addSynMixin('cmdr', 'synapse.cores.common.CoreApi', 'synapse.cmds.cortex.AskCmd')
 s_mixins.addSynMixin('cmdr', 'synapse.lib.auth.AuthMixin', 'synapse.cmds.auth.AuthCmd')
 
+# CoreApi exposes a few APIs for cmdr/remote use in a authenticated fashion
+s_mixins.addSynMixin('cmdr', 'synapse.cores.common.CoreApi', 'synapse.cmds.cortex.AskCmd')
+s_mixins.addSynMixin('cmdr', 'synapse.cores.common.CoreApi', 'synapse.cmds.auth.AuthCmd')
 
 def getItemCmdr(item, outp=None, **opts):
     '''
