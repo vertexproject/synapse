@@ -11,10 +11,43 @@ import synapse.lib.cli as s_cli
 import synapse.lib.auth as s_auth
 import synapse.lib.tufo as s_tufo
 
-# XXX Docstrings
 class AuthCmd(s_cli.Cmd):
     '''
-    Implement helpers for managing AuthMixin instances
+    Helper for managing AuthMixin instances.
+
+    Examples:
+        # Get users
+        auth
+        # Get roles
+        auth --type role
+        # Get a specific user
+        auth --name root@localhost
+        # Make a user
+        auth --act add --name user@localhost
+        # Add a rule to a user
+        auth --act add --name user@localhost --rule node:tag:add --tag *
+        # Make a role
+        auth --act add --name creators --type role
+        # Add a rule to a role
+        auth --act add --name creators --type role --rule node:add --form strform
+        # Get a specific role details
+        auth --type role --name creators
+        # Grant a user a role
+        auth --act add --name user@localhost --role creators
+        # Grant a user admin
+        auth --act add --name user@localhost --admin
+        # Remove admin from a user
+        auth --act del --name user@localhost --admin
+        # Remove a role from a user
+        auth --act del --name user@localhost --role creators
+        # Remove a rule from a role
+        auth --act del --name creators --type role --rule node:add --form strform
+        # Remove a rule from a user
+        auth --act del --name user@localhost --rule node:tag:add --tag *
+        # Delete a role
+        auth --act del --name creators --type role
+        # Delete a user
+        auth --act del --name user@localhost
     '''
     _cmd_name = 'auth'
     _cmd_syntax = (
@@ -31,7 +64,7 @@ class AuthCmd(s_cli.Cmd):
         ('--tag', {'type': 'valu'}),
         ('--role', {'type': 'valu'}),
         ('--admin', {}),
-        ('--json', {'defval': False})
+        ('--json', {})
     )
     getmap = {'user': 'users',
               'role': 'roles'}
@@ -39,6 +72,11 @@ class AuthCmd(s_cli.Cmd):
               'role': 'role'}
     modmap = {'user': 'urule',
                'role': 'rrule'}
+
+    def __init__(self, cli, **opts):
+        s_cli.Cmd.__init__(self, cli, **opts)
+        s = '\n    '.join([str(stx) for stx in self._cmd_syntax])
+        self.__doc__ = '\n    '.join([self.__doc__, 'Command Syntax:\n', s])
 
     def formRulefo(self, opts):
         rtype = opts.pop('rule', None)

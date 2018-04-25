@@ -11,12 +11,12 @@ class SynCmdCoreTest(SynTest, TstMixin):
 
             outp = self.getTestOutp()
             cmdr = s_cmdr.getItemCmdr(rprox, outp=outp)
-            cmdr.runCmdLine('auth --type user --act get')
+            cmdr.runCmdLine('auth --type user')
             self.true(outp.expect('root@localhost'))
 
             outp = self.getTestOutp()
             cmdr = s_cmdr.getItemCmdr(rprox, outp=outp)
-            cmdr.runCmdLine('auth --type role --act get')
+            cmdr.runCmdLine('auth --type role')
             outp.expect("'roles': ()")
 
             # Get our user
