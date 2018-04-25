@@ -331,8 +331,11 @@ class AuthMixin:
 class Auth(s_config.Config):
     '''
     An authorization object which can help enforce cortex rules.
-    '''
 
+    Args:
+        dirn (str): Dictionry backing the Auth data.
+        conf (dict): Optional configuration data.
+    '''
     def __init__(self, dirn, conf=None):
 
         s_config.Config.__init__(self, opts=conf)
@@ -375,9 +378,11 @@ class Auth(s_config.Config):
             name (str): The user name.
 
         Returns:
-            (synapse.lib.auth.User): The newly created user.
-        '''
+            User: The newly created user.
 
+        Raises:
+            s_exc.DupUserName: If the user already exists.
+        '''
         with self.lenv.begin(write=True) as xact:
 
             if self.users.get(name) is not None:
@@ -400,6 +405,12 @@ class Auth(s_config.Config):
 
         Args:
             name (str): The user name to delete.
+
+        Returns:
+            True: True if the operation succeeded.
+
+        Raises:
+            s_exc.NoSuchUser: If the user did not exist.
         '''
         with self.lenv.begin(write=True) as xact:
 
@@ -419,7 +430,10 @@ class Auth(s_config.Config):
             name (str): The role name.
 
         Returns:
-            (synapse.lib.auth.Role): The newly created role.
+            Role: The newly created role.
+
+        Raises:
+            s_exc.DupRoleName: If the role already exists.
         '''
         with self.lenv.begin(write=True) as xact:
 
@@ -444,8 +458,13 @@ class Auth(s_config.Config):
 
         Args:
             name (str): The user name to delete.
-        '''
 
+        Returns:
+            True:
+
+        Raises:
+            s_exc.NoSuchRole: If the role does not exist.
+        '''
         with self.lenv.begin(write=True) as xact:
 
             role = self.roles.pop(name, None)
@@ -575,7 +594,16 @@ class TagTree:
     def get(self, tag):
         '''
         Get a tag status from the tree.
-        ( hierarchical permissions )
+
+        Args:
+            tag (str): Tag to get from the tree.
+
+        Notes:
+            If ``*`` has been added to the TagTree, this will
+            always return True.
+
+        Returns:
+            bool: True if the tag is in the tree, False otherwise.
         '''
         retn = self.cache.get(tag)
         if retn is not None:
@@ -613,7 +641,6 @@ class AuthBase:
     ('node:tag:del', {'tag': <tag>}),
 
     # * may be used to mean "any" for form/prop values.
-    # ( since tags are implemented as a perm tree, they do not need wild cards yet )
     '''
     def __init__(self, auth, name, info=None):
 
@@ -649,8 +676,6 @@ class AuthBase:
             'node:tag:del': self._mayTagDel,
         }
 
-        #self.permcache = s_cache.KeyCache(self._allowed)
-
         # tags are a tree.  so are the perms.
         self._tag_add = TagTree()
         self._tag_del = TagTree()
@@ -662,7 +687,15 @@ class AuthBase:
         self._initAuthData()
 
     def setAdmin(self, admin):
+        '''
+        Set the admin value to True/False.
 
+        Args:
+            admin (bool): Value to set the admin value too.
+
+        Returns:
+            bool: The current AuthBase admin value.
+        '''
         admin = bool(admin)
         if admin == self.admin:
             return admin
@@ -676,7 +709,10 @@ class AuthBase:
         Add an allow rule.
 
         Args:
-            rule ((str,dict)): A rule tufo.
+            rule ((str,dict)): A rule tufo to add.
+
+        Returns:
+            bool: True if the rule was added. False otherwise.
         '''
         ret = self._addRuleTufo(rule)
         if not ret:
@@ -690,7 +726,13 @@ class AuthBase:
         Remove an allow rule.
 
         Args:
-            rule ((str,dict)): A rule tufo.
+            rule ((str,dict)): A rule tufo to remove.
+
+        Returns:
+            True:
+
+        Raises:
+            s_exc.NoSuchRule: If the rule did not exist.
         '''
         try:
             self.rules.remove(rule)
@@ -714,6 +756,9 @@ class AuthBase:
         Args:
             perm ((str,dict)): A permission tuple.
             elev (bool): If true, allow admin status.
+
+        Returns:
+            bool: True if the permission is allowed. False otherwise.
         '''
         if self.admin and elev:
             return True
@@ -899,8 +944,10 @@ class User(AuthBase):
         Args:
             perm ((str,dict)): A permission tuple.
             elev (bool): If true, allow admin status.
-        '''
 
+        Returns:
+            bool: True if the permission is allowed. False otherwise.
+        '''
         if AuthBase.allowed(self, perm, elev=elev):
             return True
 
@@ -916,6 +963,12 @@ class User(AuthBase):
 
         Args:
             name (str): The name of the role to grant.
+
+        Returns:
+            True:
+
+        Raises:
+            s_exc.NoSuchRole: If the role does not exist.
         '''
         role = self.auth.roles.get(name)
         if role is None:
@@ -931,6 +984,9 @@ class User(AuthBase):
 
         Args:
             name (str): The name of the role to revoke.
+
+        Returns:
+            bool: True if the role was removed; False if the role was not on the user.
         '''
         role = self.roles.pop(name, None)
         if role is None:
