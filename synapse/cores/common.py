@@ -187,26 +187,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
 
         self.setConfOpts(conf)
 
-        if self.getConfOpt('auth:en'):
-
-            dirn = self.getConfOpt('dir')
-            if dirn is None:
-                raise s_exc.ReqConfOpt(name='dir', mesg='auth:en=1 requires a cortex dir')
-
-            # TODO: get a nested auth config and pass it in...
-            path = self.genCorePath('auth')
-
-            self.auth = s_auth.Auth(path, conf=None)
-            self.onfini(self.auth.fini)
-
-            name = self.getConfOpt('auth:admin')
-            if name is not None:
-
-                user = self.auth.users.get(name)
-                if user is None:
-                    user = self.auth.addUser(name)
-
-                user.setAdmin(True)
         s_auth.AuthMixin.__init__(self, self.auth)
 
         self._initCortexConfSetPost()
@@ -305,6 +285,11 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
         self.onConfOptSet('caching', self._onSetCaching)
 
     def _initCortexConfSetPost(self):
+
+        # Configure our auth data:
+        if self.getConfOpt('auth:en'):
+            self._onSetAuthEn({'auth:en': 1})
+        self.onConfOptSet('auth:en', self._onSetAuthEn)
 
         # It is not safe to load modules during SetConfOpts() since the path
         # value may not be set due to dictionary ordering, and there may be
@@ -881,6 +866,28 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
 
                 if atlim:
                     self._delCacheKey(ckey)
+
+    def _onSetAuthEn(self, conf):
+        if not conf:
+            return
+
+        dirn = self.getConfOpt('dir')
+        if dirn is None:
+            raise s_exc.ReqConfOpt(name='dir', mesg='auth:en=1 requires a cortex dir')
+
+        path = self.genCorePath('auth')
+
+        self.auth = s_auth.Auth(path)
+        self.onfini(self.auth.fini)
+
+        name = self.getConfOpt('auth:admin')
+        if name is not None:
+
+            user = self.auth.users.get(name)
+            if user is None:
+                user = self.auth.addUser(name)
+
+            user.setAdmin(True)
 
     def _onSetCellPoolConf(self, conf):
         auth = conf.get('auth')

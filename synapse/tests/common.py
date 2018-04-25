@@ -105,7 +105,8 @@ class TstMixin:
 
     @contextlib.contextmanager
     def getSslCore(self, conf=None, configure_roles=False):
-        dconf = {'auth:en': 1, 'auth:admin': 'root@localhost'}
+        dconf = {'auth:admin': 'root@localhost',
+                 'auth:en': 1, }
         if conf:
             conf.update(dconf)
         conf = dconf
