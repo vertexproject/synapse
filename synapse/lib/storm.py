@@ -5,6 +5,7 @@ import collections
 
 import regex
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.auth as s_auth
@@ -1235,7 +1236,8 @@ class Runtime(Configable):
             raise s_exc.NoSuchUser(name=name)
 
         if not user.admin:
-            raise s_exc.AuthDeny(mesg='sudo() user is not admin')
+            raise s_exc.AuthDeny(mesg='sudo() user is not admin',
+                                 user=name)
 
         query.elev = True
 

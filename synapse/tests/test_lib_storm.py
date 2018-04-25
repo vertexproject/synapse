@@ -6,7 +6,7 @@ import synapse.cores.common as s_cores_common
 
 from synapse.tests.common import *
 
-class StormTest(SynTest):
+class StormTest(SynTest, TstMixin):
 
     def test_storm_addxref(self):
         with self.getRamCore() as core:
@@ -1549,6 +1549,29 @@ class StormTest(SynTest):
             self.isinstance(props.get('func'), str)
             # Nodes are ephemeral
             self.none(node[0])
+
+    def test_storm_sudo(self):
+        with self.getRamCore() as core:  # type: s_cores_common.Cortex
+            # Sudo does nothing for a core without auth
+            nodes = core.eval('sudo() [inet:ipv4=1.2.3.4]')
+            self.len(1, nodes)
+            self.istufo(nodes[0])
+
+        with self.getSslCore(configure_roles=True) as proxies:
+            uprox, rprox = proxies  # type: s_cores_common.CoreApi, s_cores_common.CoreApi
+            # root user without sudo()
+            self.raises(s_exc.AuthDeny, rprox.eval, '[strform=haha]')
+            # root user with sudo
+            nodes = rprox.eval('sudo() [strform=haha]')
+            self.len(1, nodes)
+            self.istufo(nodes[0])
+
+            # user user with sudo() fails since he is not a admin
+            self.raises(s_exc.AuthDeny, uprox.eval, 'sudo() [strfrom=hehe]')
+
+            isok, retn = rprox.authReact(('auth:del:user', {'user': 'user@localhost'}))
+            self.true(isok)
+            self.raises(s_exc.NoSuchUser, uprox.eval, 'sudo() [strform=hehe]')
 
 class LimitTest(SynTest):
     def test_limit_default(self):

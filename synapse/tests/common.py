@@ -10,6 +10,7 @@ logging.basicConfig(level=loglevel,
                     format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]')
 
 import synapse.link as s_link
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.eventbus as s_eventbus
@@ -17,6 +18,7 @@ import synapse.telepath as s_telepath
 
 import synapse.cores.common as s_cores_common
 
+import synapse.lib.tufo as s_tufo
 import synapse.lib.scope as s_scope
 import synapse.lib.ingest as s_ingest
 import synapse.lib.output as s_output
@@ -102,7 +104,7 @@ class TstMixin:
     '''
 
     @contextlib.contextmanager
-    def getSslCore(self, conf=None):
+    def getSslCore(self, conf=None, configure_roles=False):
         dconf = {'auth:en': 1, 'auth:admin': 'root@localhost'}
         if conf:
             conf.update(dconf)
@@ -114,6 +116,24 @@ class TstMixin:
         usercrt = getTestPath('user.crt')
         rootkey = getTestPath('root.key')
         rootcrt = getTestPath('root.crt')
+
+        amesgs = (
+            ('auth:add:user', {'user': 'user@localhost'}),
+            ('auth:add:role', {'role': 'creator'}),
+            ('auth:add:rrule', {'role': 'creator',
+                                'rule': ('node:add',
+                                         {'form': '*'})
+                                }),
+            ('auth:add:rrule', {'role': 'creator',
+                                'rule': ('node:tag:add',
+                                         {'tag': '*'})
+                                }),
+            ('auth:add:rrule', {'role': 'creator',
+                                'rule': ('node:prop:set',
+                                         {'form': '*', 'prop': '*'})
+                                }),
+            ('auth:add:urole', {'user': 'user@localhost', 'role': 'creator'}),
+        )
 
         with self.getDirCore(conf=conf) as core:
             s_scope.set('syn:core', core)
@@ -140,6 +160,11 @@ class TstMixin:
                                                keyfile=rootkey,
                                                certfile=rootcrt
                                                )  # type: s_cores_common.CoreApi
+
+                if configure_roles:
+                    for mesg in amesgs:
+                        isok, retn = root_prox.authReact(mesg)
+                        s_common.reqok(isok, retn)
 
                 try:
                     yield user_prox, root_prox

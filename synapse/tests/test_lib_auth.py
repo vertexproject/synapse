@@ -205,11 +205,18 @@ class AuthTest(SynTest):
                 self.false(visi.allowed(('node:del', {'form': 'strform'})))
 
                 ns_star = ('node:prop:set', {'form': 'strform', 'prop': '*'})
-                self.false(visi.allowed(('node:prop:set', {'form': 'strform'})))
+                self.false(visi.allowed(('node:prop:set', {'form': 'strform', 'prop': 'hehe'})))
                 self.true(visi.addRule(ns_star))
-                self.true(visi.allowed(('node:prop:set', {'form': 'strform'})))
+                self.true(visi.allowed(('node:prop:set', {'form': 'strform', 'prop': 'hehe'})))
                 self.true(visi.delRule(ns_star))
-                self.false(visi.allowed(('node:set', {'form': 'strform'})))
+                self.false(visi.allowed(('node:set', {'form': 'strform', 'prop': 'hehe'})))
+
+                ns_double_star = ('node:prop:set', {'form': '*', 'prop': '*'})
+                self.false(visi.allowed(('node:prop:set', {'form': 'intform', 'prop': 'foo'})))
+                self.true(visi.addRule(ns_double_star))
+                self.true(visi.allowed(('node:prop:set', {'form': 'intform', 'prop': 'foo'})))
+                self.true(visi.delRule(ns_double_star))
+                self.false(visi.allowed(('node:set', {'form': 'intform', 'prop': 'foo'})))
 
                 visi.addRole('ninjas')
 

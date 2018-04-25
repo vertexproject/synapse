@@ -17,6 +17,8 @@ import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
+authver = (0, 0, 1)
+
 class Rules:
     '''
     Rules provides an abstraction for metadata
@@ -365,7 +367,9 @@ class Auth(s_config.Config):
             self.users[name] = user
 
             uenc = name.encode('utf8')
-            byts = s_msgpack.en(user._getAuthData())
+            data = user._getAuthData()
+            data['vers'] = authver
+            byts = s_msgpack.en(data)
 
             xact.put(uenc, byts, db=self._db_users)
             return user
@@ -407,6 +411,8 @@ class Auth(s_config.Config):
             self.roles[name] = role
 
             renc = name.encode('utf8')
+            data = role._getAuthData()
+            data['vers'] = authver
             byts = s_msgpack.en(role._getAuthData())
 
             xact.put(renc, byts, db=self._db_roles)
@@ -434,7 +440,9 @@ class Auth(s_config.Config):
                 role = user.roles.pop(name, None)
                 if role is not None:
                     nenc = user.name.encode('utf8')
-                    byts = s_msgpack.en(user._getAuthData())
+                    data = user._getAuthData()
+                    data['vers'] = authver
+                    byts = s_msgpack.en(data)
 
                     xact.put(nenc, byts, db=self._db_users)
         return True
@@ -450,7 +458,7 @@ class Auth(s_config.Config):
                 yield name, info
 
     def _saveAuthData(self, name, info, db):
-
+        info['vers'] = authver
         with self.lenv.begin(write=True) as xact:
             lkey = name.encode('utf8')
             lval = s_msgpack.en(info)
@@ -811,6 +819,9 @@ class AuthBase:
             return True
 
         if self._node_set.get((form, '*')):
+            return True
+
+        if self._node_set.get(('*', '*')):
             return True
 
         return False
