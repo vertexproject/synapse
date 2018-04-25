@@ -3252,6 +3252,7 @@ class CortexTest(SynTest):
                 'form': 'inet:fqdn',
                 'valu': 'vertex.link',
                 'tag': 'hehe.woah',
+                'ival': (1514764800000, 1546300800000),
             })
             node_tag_del_splice = ('node:tag:del', {
                 'form': 'inet:fqdn',
@@ -3309,6 +3310,8 @@ class CortexTest(SynTest):
             self.true(s_tufo.tagged(node, 'hehe'))
             self.true(s_tufo.tagged(node, 'hehe.haha'))
             self.true(s_tufo.tagged(node, 'hehe.woah'))
+            ival = s_tufo.ival(node, '#hehe.woah')
+            self.len(2, ival)
 
             core.splices((node_tag_del_splice,))
             node = core.getTufoByProp('inet:fqdn', 'vertex.link')

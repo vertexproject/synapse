@@ -1073,12 +1073,13 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
         tag = mesg[1].get('tag')
         form = mesg[1].get('form')
         valu = mesg[1].get('valu')
+        times = mesg[1].get('ival', ())
 
         node = self.getTufoByProp(form, valu)
         if not node:
             return
 
-        self.addTufoTag(node, tag)
+        self.addTufoTag(node, tag, times)
 
     def _actNodeTagDel(self, mesg):
 
@@ -1756,7 +1757,10 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
                 rows.append((dark, '_:*' + form + subprop, tick, tick))
 
                 xact.fire('node:tag:add', form=form, valu=valu, tag=subtag, node=tufo)
-                xact.spliced('node:tag:add', form=form, valu=valu, tag=subtag)
+                if ival:
+                    xact.spliced('node:tag:add', form=form, valu=valu, tag=subtag, ival=ival)
+                else:
+                    xact.spliced('node:tag:add', form=form, valu=valu, tag=subtag)
                 xact.trigger(tufo, 'node:tag:add', form=form, tag=subtag)
 
             self.addRows(rows)
