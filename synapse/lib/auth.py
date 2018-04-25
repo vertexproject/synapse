@@ -98,12 +98,32 @@ def runas(user):
     with s_scope.enter({'syn:user': user}):
         yield
 
-def reqAdmin(f):
+def reqAdmin(f, attr='auth'):
+    '''
+    A Decorator to wrap a function to require it to be executed in a admin user context.
+
+    Args:
+        f: Function being wrapped.
+        attr (str): Name of Auth local.
+
+    Notes:
+        This decorator should only be placed on methods on a class since it relies
+        on having access to a local instance of a Auth object.
+
+    Returns:
+        Function results.
+
+    Raises:
+        s_exc.ReqConfOpt: If the auth local is not found on the object.
+        s_exc.NoSuchUser: If the Auth local does not have a instance of the current user.
+        s_exc.AuthDeny: If the user in scope is not a admin user.
+    '''
     @functools.wraps(f)
     def _f(*args, **kwargs):
-        auth = getattr(args[0], '_mxauth', None)  # type: s_auth.Auth
+        auth = getattr(args[0], attr, None)  # type: s_auth.Auth
         if not auth:
-            raise s_exc.ReqConfOpt(mesg='requires _mxauth on local object')
+            raise s_exc.ReqConfOpt(mesg='requires attr on local object',
+                                   attr=attr)
         uname = whoami()
         uobj = auth.reqUser(uname)
         if not uobj.admin:
@@ -118,14 +138,14 @@ def reqAdmin(f):
 class AuthMixin:
     def __init__(self, auth):
         '''
-        A mixin that can be used to provide helpers around Auth objects.
-        All calls to the helper APIs require the current user in scope to be a
-        admin user.
+        A mixin that can be used to provide a helper for remote access to an
+        Auth object.  The API endpoint ``authReact()`` can be used to manipulate
+        the Auth object by only allowing admin users to perform actions.
 
         Args:
-            auth (Auth):
+            auth (Auth): An auth instance. This is set to ``self.auth``.
         '''
-        self._mxauth = auth
+        self.auth = auth
         self._mxrtor = s_react.Reactor()
         self._mxrtor.act('auth:get:users', self.__authGetUsers)
         self._mxrtor.act('auth:get:roles', self.__authGetRoles)
@@ -149,13 +169,13 @@ class AuthMixin:
 
     def authReact(self, mesg):
         '''
-        General interface for interfacing with auth.
+        General interface for interfacing with Auth via messages.
 
         Args:
-            mesg:
+            mesg ((str, dict)): A message we react too.
 
         Returns:
-            (bool, ((str, dict))): isok, retn tufo
+            (bool, ((str, dict))): isok, retn tuple.
         '''
         try:
             isok, retn = self._mxrtor.react(mesg)
@@ -169,14 +189,14 @@ class AuthMixin:
     @reqAdmin
     def __authGetUsers(self, mesg):
         mname, mdict = mesg
-        users = self._mxauth.getUsers()
+        users = self.auth.getUsers()
         ret = (mname, {'users': users})
         return True, ret
 
     @reqAdmin
     def __authGetRoles(self, mesg):
         mname, mdict = mesg
-        roles = self._mxauth.getRoles()
+        roles = self.auth.getRoles()
         ret = (mname, {'roles': roles})
         return True, ret
 
@@ -184,7 +204,7 @@ class AuthMixin:
     def __authReqUser(self, mesg):
         mname, mdict = mesg
         name = mdict.get('user')
-        uobj = self._mxauth.reqUser(name)
+        uobj = self.auth.reqUser(name)
         ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
         return True, ret
 
@@ -192,7 +212,7 @@ class AuthMixin:
     def __authReqRole(self, mesg):
         mname, mdict = mesg
         name = mdict.get('role')
-        robj = self._mxauth.reqRole(name)
+        robj = self.auth.reqRole(name)
         ret = s_tufo.tufo(mname, role=(name, robj._getAuthData()))
         return True, ret
 
@@ -200,7 +220,7 @@ class AuthMixin:
     def __authAddUser(self, mesg):
         mname, mdict = mesg
         name = mdict.get('user')
-        uobj = self._mxauth.addUser(name)
+        uobj = self.auth.addUser(name)
         ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
         return True, ret
 
@@ -208,7 +228,7 @@ class AuthMixin:
     def __authDelUser(self, mesg):
         mname, mdict = mesg
         name = mdict.get('user')
-        _ret = self._mxauth.delUser(name)
+        _ret = self.auth.delUser(name)
         ret = s_tufo.tufo(mname, user=name, deleted=_ret)
         return True, ret
 
@@ -216,7 +236,7 @@ class AuthMixin:
     def __authDelRole(self, mesg):
         mname, mdict = mesg
         name = mdict.get('role')
-        _ret = self._mxauth.delRole(name)
+        _ret = self.auth.delRole(name)
         ret = s_tufo.tufo(mname, role=name, deleted=_ret)
         return True, ret
 
@@ -224,7 +244,7 @@ class AuthMixin:
     def __authAddRole(self, mesg):
         mname, mdict = mesg
         name = mdict.get('role')
-        robj = self._mxauth.addRole(name)
+        robj = self.auth.addRole(name)
         ret = s_tufo.tufo(mname, role=(name, robj._getAuthData()))
         return True, ret
 
@@ -233,7 +253,7 @@ class AuthMixin:
         mname, mdict = mesg
         name = mdict.get('user')
         rule = mdict.get('rule')
-        uobj = self._mxauth.reqUser(name)
+        uobj = self.auth.reqUser(name)
         uobj.addRule(rule)
         ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
         return True, ret
@@ -243,7 +263,7 @@ class AuthMixin:
         mname, mdict = mesg
         name = mdict.get('user')
         rule = mdict.get('rule')
-        uobj = self._mxauth.reqUser(name)
+        uobj = self.auth.reqUser(name)
         uobj.delRule(rule)
         ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
         return True, ret
@@ -253,7 +273,7 @@ class AuthMixin:
         mname, mdict = mesg
         name = mdict.get('role')
         rule = mdict.get('rule')
-        robj = self._mxauth.reqRole(name)
+        robj = self.auth.reqRole(name)
         robj.addRule(rule)
         ret = s_tufo.tufo(mname, role=(name, robj._getAuthData()))
         return True, ret
@@ -263,7 +283,7 @@ class AuthMixin:
         mname, mdict = mesg
         name = mdict.get('role')
         rule = mdict.get('rule')
-        robj = self._mxauth.reqRole(name)
+        robj = self.auth.reqRole(name)
         robj.delRule(rule)
         ret = s_tufo.tufo(mname, role=(name, robj._getAuthData()))
         return True, ret
@@ -272,7 +292,7 @@ class AuthMixin:
     def __authAddAdmin(self, mesg):
         mname, mdict = mesg
         name = mdict.get('user')
-        uobj = self._mxauth.reqUser(name)
+        uobj = self.auth.reqUser(name)
         uobj.setAdmin(True)
         ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
         return True, ret
@@ -281,7 +301,7 @@ class AuthMixin:
     def __authDelAdmin(self, mesg):
         mname, mdict = mesg
         name = mdict.get('user')
-        uobj = self._mxauth.reqUser(name)
+        uobj = self.auth.reqUser(name)
         uobj.setAdmin(False)
         ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
         return True, ret
@@ -291,8 +311,8 @@ class AuthMixin:
         mname, mdict = mesg
         name = mdict.get('user')
         role = mdict.get('role')
-        uobj = self._mxauth.reqUser(name)
-        robj = self._mxauth.reqRole(role)
+        uobj = self.auth.reqUser(name)
+        robj = self.auth.reqRole(role)
         uobj.addRole(role)
         ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
         return True, ret
@@ -302,8 +322,8 @@ class AuthMixin:
         mname, mdict = mesg
         name = mdict.get('user')
         role = mdict.get('role')
-        uobj = self._mxauth.reqUser(name)
-        robj = self._mxauth.reqRole(role)
+        uobj = self.auth.reqUser(name)
+        robj = self.auth.reqRole(role)
         uobj.delRole(role)
         ret = s_tufo.tufo(mname, user=(name, uobj._getAuthData()))
         return True, ret
