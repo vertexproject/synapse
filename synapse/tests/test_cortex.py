@@ -17,6 +17,7 @@ import synapse.cores.lmdb as s_cores_lmdb
 import synapse.cores.common as s_cores_common
 import synapse.cores.storage as s_cores_storage
 
+import synapse.lib.iq as s_iq
 import synapse.lib.auth as s_auth
 import synapse.lib.tags as s_tags
 import synapse.lib.tufo as s_tufo
@@ -136,7 +137,7 @@ class CortexBaseTest(SynTest):
         with self.getTestDir() as path:
             fn = 'test.lmdb'
             fp = os.path.join(path, fn)
-            lmdb_url = 'lmdb:///%s' % fp
+            lmdb_url = 'lmdb:///%s?lmdb:mapsize=%d' % (fp, s_iq.TEST_MAP_SIZE)
 
             with s_cortex.openurl(lmdb_url) as core:
                 self.basic_core_expectations(core, 'lmdb')
@@ -3425,7 +3426,7 @@ class CortexTest(SynTest):
                 self.false(othercore.cellpool_ready)
                 self.false(othercore.axon_ready)
 
-                othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost, 'port': neurport + 1})
+                othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost, 'port': neurport + 99})
                 self.false(othercore.cellpool_ready)
                 self.false(othercore.axon_ready)
 
