@@ -134,7 +134,7 @@ def intify(x):
         (int):  The int value ( or None )
     '''
     try:
-        return int(x)
+        return int(x, 0)
     except (TypeError, ValueError) as e:
         return None
 

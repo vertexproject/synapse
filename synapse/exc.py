@@ -54,15 +54,12 @@ class NoSuchAlgo(SynErr): pass
 class NoSuchConf(SynErr): pass
 class NoSuchCtor(SynErr): pass
 class NoSuchFifo(SynErr): pass
-class NoSuchForm(SynErr): pass
 class NoSuchHash(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchStat(SynErr): pass
 class NoSuchImpl(SynErr): pass
 class NoSuchName(SynErr): pass
 class NoSuchTufo(SynErr): pass
-class NoSuchType(SynErr): pass
-class NoSuchProp(SynErr): pass
 class NoSuchOper(SynErr): pass
 class NoSuchCmpr(SynErr): pass
 class NoSuchCore(SynErr): pass
@@ -71,12 +68,26 @@ class NoSuchGetBy(SynErr): pass
 class NoSuchMembrane(SynErr): pass
 class MembraneExists(SynErr): pass
 
+
+class BadTypeDef(SynErr): pass
+class BadPropDef(SynErr): pass
+
 class NoSuchDecoder(SynErr): pass
 class NoSuchEncoder(SynErr): pass
 
-# layer / lift exceptions
+class NoSuchType(SynErr): pass
+class NoSuchForm(SynErr): pass
+class NoSuchProp(SynErr): pass
+
 class NoSuchLift(SynErr): pass
+class NoSuchStor(SynErr): pass
+
+class NoSuchFilt(SynErr): pass
 class BadLiftValu(SynErr): pass
+class BadLiftCmpr(SynErr): pass
+
+class ReadOnlyProp(SynErr): pass
+class ReadOnlyXact(SynErr): pass
 
 class BadOperArg(SynErr): pass
 class ReqConfOpt(SynErr): pass

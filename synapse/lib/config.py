@@ -5,56 +5,17 @@ import os
 import copy
 
 import synapse.common as s_common
-import synapse.datamodel as s_datamodel
+import synapse.eventbus as s_eventbus
+#import synapse.datamodel as s_datamodel
 
 import synapse.lib.reflect as s_reflect
-
-from synapse.eventbus import EventBus
-
-def confdef(name):
-    '''
-    A decorator used to flag configable definition functions.
-
-    The options returned by the decorated functions are automatically loaded
-    into the class upon initialization of the Configable mixin. This decorator
-    must be used AFTER a @staticmethod decorator for autodoc generation to
-    work properly.
-
-    Args:
-        name (str): Identifier for a given function. This is used to prevent
-                    reloading configable options multiple times in the case
-                    of multi-class inheritance or mixin use.
-
-    Examples:
-        Example class using the confdef decorator to define and (automatically
-        load) a set of options into a Configable class::
-
-            class Foo(s_config.Config):
-
-                @staticmethod
-                @s_config.confdef(name='foo')
-                def foodefs():
-                    defs = (
-                        ('fooval', {'type': 'int', 'doc': 'what is foo val?', 'defval': 99}),
-                        ('enabled', {'type': 'bool', 'doc': 'is thing enabled?', 'defval': 0}),
-                    )
-                    return defs
-    '''
-    def wrap(f):
-        f._syn_config = name
-        return f
-
-    return wrap
 
 class Configable:
     '''
     Config object base mixin to allow addition to objects which already inherit from the EventBus.
-
-    Notes:
-        The ``Config.__init__`` method should be called prior to the
-        setting any object locals which are Telepath Proxy objects,
-        otherwise the @confdef finder will fail.
     '''
+    confdefs = ()
+
     def __init__(self, opts=None, defs=()):
         self._conf_defs = {}
         self._conf_opts = {}
@@ -62,27 +23,12 @@ class Configable:
         self._syn_loaded_confs = set([])
 
         self.addConfDefs(defs)
-        self._loadDecoratedFuncs()
+        self.addConfDefs(self.confdefs)
 
         self.initConfDefs()
 
         if opts is not None:
             self.setConfOpts(opts)
-
-    def _loadDecoratedFuncs(self):
-        for name, meth in s_reflect.getItemLocals(self):
-            if not callable(meth):
-                continue
-            attr = getattr(meth, '_syn_config', None)
-            if attr is None:
-                continue
-            self._syn_confs.append((attr, meth))
-
-        for attr, meth in self._syn_confs:
-            if attr in self._syn_loaded_confs:
-                continue
-            self.addConfDefs(meth())
-            self._syn_loaded_confs.add(attr)
 
     def initConfDefs(self):
         '''
@@ -105,10 +51,6 @@ class Configable:
                     ('cache:expiretime', {'type': 'int', 'doc': 'Time to expire data', 'defval': 60})
                 )
                 item.addConfDefs(defs)
-
-        Notes:
-            This does not have to be explicitly called if the @confdef decorator is used to define the options for a
-            class.
 
         Returns:
             None
@@ -141,10 +83,6 @@ class Configable:
             defval, leaving the default object untouched::
 
                 item.addConfDef('foobars', defval=[], doc='A list of foobars we care about.')
-
-        Notes:
-            This does not have to be explicitly called if the @confdef decorator is used to define the options for a
-            class.
 
         Returns:
             None
@@ -369,10 +307,10 @@ class Configable:
 
         self.setConfOpts(conf)
 
-class Config(Configable, EventBus):
+class Config(Configable, s_eventbus.EventBus):
     '''
     A EventBus classs which has the Configable mixin already added.
     '''
     def __init__(self, opts=None, defs=()):
-        EventBus.__init__(self)
+        s_eventbus.EventBus.__init__(self)
         Configable.__init__(self, opts=opts, defs=defs)

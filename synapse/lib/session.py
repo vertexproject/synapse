@@ -49,6 +49,9 @@ class Curator(s_config.Config):
     '''
     The Curator class manages sessions.
     '''
+    confdefs = (
+        ('timeout', {'type': 'int', 'defval': 60 * 60, 'doc': 'Session timeout in seconds'}),
+    )
     def __init__(self, conf=None):
 
         if conf is None:
@@ -92,11 +95,3 @@ class Curator(s_config.Config):
 
         sess.tick = int(time.time())
         return sess
-
-    @staticmethod
-    @s_config.confdef('cura')
-    def _getCuraConf():
-        return (
-            #TODO: ('dir', {'type': 'str', 'doc': 'The directory to persist sess info'}),
-            ('timeout', {'type': 'int', 'defval': 60 * 60, 'doc': 'Session timeout in seconds'}),
-        )

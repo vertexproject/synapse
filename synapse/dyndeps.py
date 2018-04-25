@@ -85,10 +85,10 @@ def tryDynMod(name):
     '''
     Dynamically import a python module or exception.
     '''
-    try:
-        return importlib.import_module(name)
-    except ImportError as e:
-        raise s_common.NoSuchDyn(name=name)
+    #try:
+    return importlib.import_module(name)
+    #except ImportError as e:
+        #raise s_common.NoSuchDyn(name=name)
 
 def tryDynLocal(name):
     '''

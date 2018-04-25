@@ -18,7 +18,7 @@ import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.socket as s_socket
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.reflect as s_reflect
+#import synapse.lib.reflect as s_reflect
 
 logger = logging.getLogger(__name__)
 
@@ -257,17 +257,17 @@ class Proxy(s_eventbus.EventBus):
 
         self._tele_plex.on('link:sock:mesg', self._onLinkSockMesg)
 
-        self._raw_on('tele:yield:init', self._onTeleYieldInit)
-        self._raw_on('tele:yield:item', self._onTeleYieldItem)
-        self._raw_on('tele:yield:fini', self._onTeleYieldFini)
+        self.on('tele:yield:init', self._onTeleYieldInit)
+        self.on('tele:yield:item', self._onTeleYieldItem)
+        self.on('tele:yield:fini', self._onTeleYieldFini)
 
-        self._raw_on('tele:reminder', self._onTeleReminder)
+        #self._raw_on('tele:reminder', self._onTeleReminder)
 
-        self._raw_on('fifo:xmit', self._onFifoXmit)
-        self._raw_on('job:done', self._tele_boss.dist)
-        self._raw_on('sock:gzip', self._onSockGzip)
-        self._raw_on('tele:call', self._onTeleCall)
-        self._raw_on('tele:sock:init', self._onTeleSockInit)
+        #self._raw_on('fifo:xmit', self._onFifoXmit)
+        self.on('job:done', self._tele_boss.dist)
+        self.on('sock:gzip', self._onSockGzip)
+        #self.on('tele:call', self._onTeleCall)
+        #self.on('tele:sock:init', self._onTeleSockInit)
 
         self._tele_cthr = self.consume(self._tele_q)
 
@@ -278,7 +278,7 @@ class Proxy(s_eventbus.EventBus):
         self._tele_link = relay.link
         self._tele_yields = {}
         self._tele_csides = {}
-        self._tele_reflect = None
+        #self._tele_reflect = None
 
         # obj name is path minus leading "/"
         self._tele_name = relay.link[1].get('path')[1:]
@@ -291,14 +291,14 @@ class Proxy(s_eventbus.EventBus):
     def _onTeleReminder(self, mesg):
         self._tele_reminders.append(mesg[1].get('mesg'))
 
-    def _onFifoXmit(self, mesg):
+    #def _onFifoXmit(self, mesg):
 
         # a bit of magic specific to cortex proxy...
         # ( this will be made cleaner in neuron use case )
 
-        name = mesg[1].get('name')
-        seqn, nseq, item = mesg[1].get('qent')
-        self.call('fire', 'fifo:ack', name, seqn)
+        #name = mesg[1].get('name')
+        #seqn, nseq, item = mesg[1].get('qent')
+        #self.call('fire', 'fifo:ack', name, seqn)
 
     def _onTeleYieldInit(self, mesg):
         jid = mesg[1].get('jid')
@@ -329,53 +329,53 @@ class Proxy(s_eventbus.EventBus):
         if que is not None:
             que.done()
 
-    def _raw_on(self, name, func):
-        return s_eventbus.EventBus.on(self, name, func)
+    #def _raw_on(self, name, func):
+        #return s_eventbus.EventBus.on(self, name, func)
 
-    def _raw_off(self, name, func):
-        return s_eventbus.EventBus.off(self, name, func)
+    #def _raw_off(self, name, func):
+        #return s_eventbus.EventBus.off(self, name, func)
 
-    def on(self, evnt, func, **filts):
+    #def on(self, evnt, func, **filts):
 
         # create a separate record for each so the dmon
         # can potentially create an "any" filter for us
-        if evnt not in telelocal:
-            iden = s_common.guid()
-            filt = tuple(filts.items())
+        #if evnt not in telelocal:
+            ##iden = s_common.guid()
+            #filt = tuple(filts.items())
 
-            onit = (iden, filt)
+            #onit = (iden, filt)
 
-            okey = (evnt, func)
-            self._tele_ons[okey] = (iden, filt)
+            #okey = (evnt, func)
+            #self._tele_ons[okey] = (iden, filt)
 
-            job = self._txTeleJob('tele:on', ons=[(evnt, [onit])], name=self._tele_name)
-            self.syncjob(job)
+            #job = self._txTeleJob('tele:on', ons=[(evnt, [onit])], name=self._tele_name)
+            #self.syncjob(job)
 
-        return s_eventbus.EventBus.on(self, evnt, func, **filts)
+        #return s_eventbus.EventBus.on(self, evnt, func, **filts)
 
-    def off(self, name, func):
+    #def off(self, name, func):
 
-        ret = s_eventbus.EventBus.off(self, name, func)
-        if name in telelocal:
-            return ret
+        #ret = s_eventbus.EventBus.off(self, name, func)
+        #if name in telelocal:
+            #return ret
 
-        okey = (name, func)
-        onit = self._tele_ons.pop(okey, None)
-        if onit is None:
-            return ret
+        #okey = (name, func)
+        #onit = self._tele_ons.pop(okey, None)
+        #if onit is None:
+            #return ret
 
-        iden, filt = onit
-        job = self._txTeleJob('tele:off', evnt=name, iden=iden, name=self._tele_name)
-        self.syncjob(job)
+        #iden, filt = onit
+        #job = self._txTeleJob('tele:off', evnt=name, iden=iden, name=self._tele_name)
+        #self.syncjob(job)
 
-        return ret
+        #return ret
 
-    def fire(self, evntname, **info):
-        if evntname in telelocal:
-            return s_eventbus.EventBus.fire(self, evntname, **info)
+    #def fire(self, evntname, **info):
+        ##if evntname in telelocal:
+            #return s_eventbus.EventBus.fire(self, evntname, **info)
 
-        job = self.call('fire', evntname, **info)
-        return self.syncjob(job)
+        #job = self.call('fire', evntname, **info)
+        #return self.syncjob(job)
 
     def call(self, methname, *args, **kwargs):
         '''
@@ -409,22 +409,6 @@ class Proxy(s_eventbus.EventBus):
 
         '''
         return self._txTeleJob('tele:call', name=name, task=task, ondone=ondone)
-
-    def push(self, name, item):
-        '''
-        Push access to an object to the daemon, allowing other clients access.
-
-        Example:
-
-            prox = s_telepath.openurl('tcp://127.0.0.1/')
-            prox.push( 'bar', Bar() )
-
-        '''
-        csides = getClientSides(item)
-        reflect = s_reflect.getItemInfo(item)
-        job = self._txTeleJob('tele:push', name=name, reflect=reflect, csides=csides)
-        self._tele_pushed[name] = item
-        return self.syncjob(job)
 
     def _tx_call(self, task, ondone=None):
         return self._txTeleJob('tele:call', name=self._tele_name, task=task, ondone=ondone)
@@ -551,9 +535,6 @@ class Proxy(s_eventbus.EventBus):
 
         return self._tele_sock
 
-    def _syn_reflect(self):
-        return self._tele_reflect
-
     def _onTeleSockInit(self, mesg):
         '''
         Callback to allow the client to do anything neccesary after a Telepath
@@ -583,7 +564,7 @@ class Proxy(s_eventbus.EventBus):
         synack = teleSynAck(sock, name=name, sid=sid)
 
         self._tele_sid = synack.get('sess')
-        self._tele_reflect = synack.get('reflect')
+        #self._tele_reflect = synack.get('reflect')
 
         csides = synack.get('csides')
         if csides is not None:
@@ -675,84 +656,3 @@ def teleSynAck(sock, name=None, sid=None):
             raise s_common.BadMesgVers(myver=telever, hisver=vers)
 
     return synack
-
-def reminder(evnt, **info):
-    '''
-    May be used on server side to set a telepath reconnect reminder.
-
-    Args:
-        name (str): The event name to fire on reconnect
-        **info: The event metadata
-
-    Returns:
-        (bool): True if the telepath caller was notified.
-
-    NOTE:
-        This requests that the current telepath caller fire the given
-        event back to us in the event of a socket reconnect.
-    '''
-    sock = s_scope.get('sock')
-    if sock is None:
-        return False
-
-    mesg = (evnt, info)
-    sock.tx(('tele:reminder', {'mesg': mesg}))
-    return True
-
-def clientside(f):
-    '''
-    A function decorator which causes the given function to be run on
-    the telepath client side.
-
-    Args:
-        f: The function being decorated.
-
-    Notes:
-        A decorated function **must** use APIs within the function to access
-        object locals, variables, etc. In other words, the method must be able
-        to have **self** be a Telepath Proxy object.
-
-    Example:
-        A class with a decorated clientside function::
-
-            class Foob:
-                def __init__(self, data):
-                    self.locals = data
-
-                def getLocals():
-                    return self.locals
-
-                @s_telepath.clientside
-                def foo(self, bar):
-
-                    # We use an API to get data from self.locals instead
-                    # accessing it directly, since that would cause failures.
-                    object_locals = self.getLocals()
-
-                    # Now do stuff on the client side.
-                    dostuff(object_locals)
-
-    Returns:
-        The decorated function.
-    '''
-    f._tele_clientside = True
-    return f
-
-def getClientSides(item):
-    '''
-    Return a dict of name:path pairs for any clientside functions in item.
-    '''
-    retn = {}
-
-    for name, valu in s_reflect.getItemLocals(item):
-
-        if not getattr(valu, '_tele_clientside', False):
-            continue
-
-        path = s_reflect.getMethName(valu)
-        if path is None:
-            continue
-
-        retn[name] = path
-
-    return retn

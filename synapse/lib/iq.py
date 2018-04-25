@@ -40,7 +40,7 @@ import synapse.neuron as s_neuron
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
-import synapse.cores.common as s_cores_common
+#import synapse.cores.common as s_cores_common
 
 import synapse.lib.cell as s_cell
 import synapse.lib.scope as s_scope
@@ -379,51 +379,6 @@ class SynTest(unittest.TestCase):
         conn = psycopg2.connect(**dbinfo)
         return conn
 
-    def getPgCore(self, table='', persist=False, **opts):
-        '''
-        Get a Postgresql backed Cortex.
-
-        This will grab the SYN_TEST_PG_DB environmental variable, and use it to construct
-        a string to connect to a PSQL server and create a Cortex. By default, the Cortex
-        DB tables will be dropped when onfini() is called on the Cortex.
-
-        Some example values for this envar are shown below::
-
-            # From our .drone.yml file
-            root@database:5432/syn_test
-            # An example which may be used with a local docker image
-            # after having created the syn_test database
-            postgres:1234@localhost:5432/syn_test
-
-        Args:
-            table (str): The PSQL table name to use.  If the table name is not provided
-                         by URL or argument; a random table name will be created.
-            persist (bool): If set to True, keep the tables created by the Cortex creation.
-            opts: Additional options passed to openlink call.
-
-        Returns:
-            s_cores_common.Cortex: A PSQL backed cortex.
-
-        Raises:
-            unittest.SkipTest: if there is no SYN_TEST_PG_DB envar set.
-        '''
-        db = os.getenv('SYN_TEST_PG_DB')
-        if not db:  # pragma: no cover
-            raise unittest.SkipTest('no SYN_TEST_PG_DB envar')
-
-        if not table:
-            table = 'syn_test_%s' % s_common.guid()
-        core = s_cortex.openurl('postgres://%s/%s' % (db, table), **opts)
-
-        def droptable():
-            with core.getCoreXact() as xact:
-                xact.cursor.execute('DROP TABLE %s' % (table,))
-                xact.cursor.execute('DROP TABLE IF EXISTS %s' % (table + '_blob',))
-
-        if not persist:
-            core.onfini(droptable)
-        return core
-
     def getTestOutp(self):
         '''
         Get a Output instance with a expects() function.
@@ -633,31 +588,12 @@ class SynTest(unittest.TestCase):
                 env.fini()
 
     @contextlib.contextmanager
-    def getRamCore(self):
+    def getTestCore(self):
         '''
-        Context manager to make a ram:/// cortex which has test models
-        loaded into it.
-
-        Yields:
-            s_cores_common.Cortex: Ram backed cortex with test models.
-        '''
-        with s_cortex.openurl('ram:///') as core:
-            self.addTstForms(core)
-            try:
-                yield core
-            finally:
-                core.fini()
-
-    @contextlib.contextmanager
-    def getDirCore(self):
-        '''
-        Context manager to make a dir:/// cortex
-
-        Yields:
-            s_cores_common.Cortex: Dir backed Cortex
+        Return a simple test Cortex.
         '''
         with self.getTestDir() as dirn:
-            with s_cortex.fromdir(dirn) as core:
+            with s_cortex.Cortex(dirn) as core:
                 yield core
 
     @contextlib.contextmanager

@@ -1,5 +1,6 @@
 import json
 import base64
+import struct
 import logging
 import collections
 
@@ -9,6 +10,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 
+import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
@@ -20,109 +22,348 @@ logger = logging.getLogger(__name__)
 
 class Type:
 
-    def __init__(self, name, modl, info, opts):
-        self._type_name = name
-        self._type_modl = modl
-        self._type_info = info
-        self._type_opts = opts
+    _opt_defs = ()
 
-        self._reqTypeOpts()
+    def __init__(self, modl, name, info, opts):
+        '''
+        Construct a new Type object.
+
+        Args:
+            modl (synpase.datamodel.DataModel): The data model instance.
+            name (str): The name of the type.
+            info (dict): The type info (docs etc).
+            opts (dict): Options that are specific to the type.
+        '''
+        # these fields may be referenced by callers
+        self.modl = modl
+        self.name = name
+        self.info = info
+        self.form = None # this will reference a Form() if the type is a form
+
+        self.opts = dict(self._opt_defs)
+        self.opts.update(opts)
+
+        self._type_norms = {}   # python type to norm function map str: _norm_str
+        self._cmpr_ctors = {}   # cmpr string to filter function constructor map
+
+        #self._norm_cmpr = {}
+        #self._lift_cmpr = {}
+
         self.postTypeInit()
 
-    def addTypeNorm(self, typo, func):
+    def setFiltCtor(self, cmpr, func):
+        self._cmpr_ctors[cmpr] = func
+
+    def getFiltFunc(self, cmpr, text):
+        '''
+        Return a filter function for the given value and comparison.
+
+        Args:
+            cmpr (str): Comparison operator such as '='.
+            text (str): The query text to compare against.
+        '''
+        ctor = self._cmpr_ctors.get(cmpr)
+        if ctor is not None:
+            return ctor(text)
+
+        norm, info = self.norm(text)
+
+        #cmprfunc = s_cmpr.get(cmpr)
+        #if cmprfunc is None:
+            #raise s_exc.NoSuchCmpr(name=cmpr)
+
+        #def func(valu):
+            #s_cmpr.
+            #return cmprfunc(
+
+    def setNormFunc(self, typo, func):
         '''
         Register a normalizer function for a given python type.
+
+        Args:
+            typo (type): A python type/class to normalize.
+            func (function): A callback which normalizes a python value.
         '''
         self._type_norms[typo] = func
 
     def postTypeInit(self):
         pass
 
-    def _reqTypeOpts(self):
-        pass
-
-    def name(self):
-        return self._type_name
-
-    def info(self, name):
-        return self._type_info.get(name)
-
-    def opts(self):
-        return dict(self._type_opts)
-
-    def opt(self, name):
-        return self._type_opts.get(name)
-
-    def get(self, prop, defval=None):
-        '''
-        Retrieve a type info property from this type or parent types.
-
-        Example:
-
-            ex = item.get('doc')
-
-        '''
-        return self.modl.getTypeInfo(self.name, prop, defval=defval)
-
     def norm(self, valu):
+        '''
+        Normalize the value for a given type.
 
+        Args:
+            valu (obj): The value to normalize.
+
+        Returns:
+            ((obj,dict)): The normalized valu, info tuple.
+
+        Notes:
+            The info dictionary uses the following key conventions:
+                repr (str): The repr form of the normalized value.
+                subs (dict): The normalized sub-fields as name: valu entries.
+                toks (list): A list of seach tokens for the normalized value.
+                indx (bytes): The bytes to use in a btree index for the value.
+        '''
         func = self._type_norms.get(type(valu))
         if func is None:
-            raise NoTypeNorm(name=self._type_name, type=type(valu))
+            raise s_exc.NoSuchFunc(mesg='no norm for type: %r' % (type(valu),))
 
         return func(valu)
 
-    def repr(self, valu):
-        return str(valu)
+    def repr(self, norm):
+        return str(norm)
 
-    def adds(self, text):
+    def indx(self, norm):
         '''
-        Return a list of values to create from the given text.
+        Return the property index bytes for the given *normalized* value.
         '''
-        return (self.norm(text)[0], )
+        name = self.__class__.__name__
+        raise s_exc.NoSuchImpl(name='%s.indx' % name)
 
-    def lift(self, name, text, cmp='='):
-        '''
-        Return a lift operation tuple for the given query text.
-        '''
-        valu, infos = self.norm(text)
-        return ('prop:eq', (name, valu), {})
+    #def lift(self, form, prop, text, cmpr='='):
+        #'''
+        #Return a lift operation tuple for the given query text.
 
-    def clone(self, name, info, **opts):
+        #Args:
+            #form (synapse.datamodel.Form):
+            #text (str): The query value in text form.
+            #cmpr (str): The comparator name.
+
+        #Returns:
+            #(list): A list of (str, info) tuples for lift operation values.
+        #'''
+        #return self._lift(name, text, cmpr=cmpr)
+
+    def liftPropBy(self, formname, propname, valu, cmpr='='):
+        name = self.__class__.__name__
+        raise s_exc.NoSuchImpl(name='%s.liftPropBy' % name)
+
+    def merge(self, oldv, newv):
         '''
-        Extend this type for sub-type or prop construction.
+        Allow types to "merge" data from two sources based on value precidence.
+
+        Args:
+            valu (object): The current value.
+            newv (object): The updated value.
+
+        Returns:
+            (object): The merged value.
         '''
-        tifo = self._type_info.copy()
+        return newv
+
+    def extend(self, name, opts, info):
+        '''
+        Extend this type to construct a sub-type.
+
+        Args:
+            name (str): The name of the new sub-type.
+            opts (dict): The type options for the sub-type.
+            info (dict): The type info for the sub-type.
+
+        Returns:
+            (synapse.types.Type): A new sub-type instance.
+        '''
+        tifo = self.info.copy()
         tifo.update(info)
 
-        topt = self._type_opts.copy()
+        topt = self.opts.copy()
         topt.update(opts)
 
-        return self.__class__(name, self._type_modl, tifo, opts=topt)
+        return self.__class__(self.modl, name, tifo, topt)
+
+    def clone(self, opts):
+        '''
+        Create a new instance of this type with the specified options.
+
+        Args:
+            opts (dict): The type specific options for the new instance.
+        '''
+        topt = self.opts.copy()
+        topt.update(opts)
+        return self.__class__(self.modl, self.name, self.info, topt)
+
+    def stor(self, buid, prop, norm):
+        pass
+
+        # prepare a standard prop:set storage operation
+        #indx = prop.type.indx(norm)
+        #return (
+            #('prop:set', {
+                #'buid': buid,
+                #'form': prop.form.nenc,
+                #'prop': prop.nenc,
+
+    #def _lift(self, name, text, cmpr='='):
+        #name = self.__class__.__name__
+        #raise s_exc.NoSuchImpl(name='%s._lift' % name)
+
+    #def _norm(self, valu):
 
 class Str(Type):
 
     _opt_defs = {
-        'regex': None,
-        'lower': False,
+        ('regex', None),
+        ('lower', False),
     }
 
+    def postTypeInit(self):
+
+        self.regex = None
+
+        restr = self.opts.get('regex')
+        if restr is not None:
+            self.regex = re.compile(restr)
+
     def norm(self, valu):
-        return str(valu), {}
+
+        norm = str(valu)
+
+        if self.opts['lower']:
+            norm = norm.lower()
+
+        if self.regex is not None:
+            if self.regex.match(norm) is None:
+                raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='regex does not match')
+
+        return norm, {}
+
+    def indx(self, norm):
+        return norm.encode('utf8')
+
+    def liftPropBy(self, formname, propname, valu, cmpr='='):
+
+        norm, info = self.norm(valu)
+        indx = self.indx(norm)
+
+        return (
+            ('prop:eq', {
+                'form': formname.encode('utf8'),
+                'prop': propname.encode('utf8'),
+                'indx': indx,
+                'valu': norm,
+            }),
+        )
 
 class Int(Type):
 
-    #def postTypeInit(self):
-        #self.addTypeNorm(str, self._norm_str)
-        #self.addTypeNorm(str, self._norm_int)
+    _opt_defs = (
 
-    #def lift(self, text, cmp='='):
-        #if text.find(',') != -1:
+        ('size', 8),
 
-    #def adds(self, text):
-        #if text.find(','
+        ('fmt', '%d'),
 
-    def lift(self, name, text, cmp='='):
+        ('min', None),
+        ('max', None),
+
+        ('ismin', False),
+        ('ismax', False),
+
+#        ('fmt', {'cast': 'str', 'defval': '%d',
+#            'doc': 'Set to an integer compatible format string to control repr.'}),
+#
+#        ('size', {'cast': 'int', 'defval': 8,
+#            'doc': 'Set the storage size of the integer type in bytes.'}),
+#
+#        ('max', {'cast': 'int', 'defval': None,
+#            'doc': 'Set to a value to enforce maximum value for the type.'}),
+#
+#        ('min', {'cast': 'int', 'defval': None,
+#            'doc': 'Set to a value to enforce minimum value for the type.'}),
+#
+#        ('ismin', {'cast': 'bool', 'defval': False,
+#            'doc': 'Set to True to enable ismin behavior on value merge.'}),
+#
+#        ('ismax', {'cast': 'bool', 'defval': False,
+#            'doc': 'Set to True to enable ismax behavior on value merge.'}),
+    )
+
+    def postTypeInit(self):
+        #self.setFiltCtor('=', self._cmpr_eq)
+        #self.setFiltCtor('>=', self._cmpr_ge)
+        #self.setFiltCtor('<=', self._cmpr_le)
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+
+    def merge(self, oldv, newv):
+
+        if self.opts.get('ismin'):
+            return min(oldv, newv)
+
+        if self.opts.get('ismax'):
+            return max(oldv, newv)
+
+        return newv
+
+    def _cmpr_le(self, text):
+        norm = self.norm(text)[0]
+        def filt(valu):
+            return valu <= norm
+        return filt
+
+    def _cmpr_ge(self, text):
+
+        norm = self.norm(text)[0]
+        def filt(valu):
+            return valu >= norm
+
+        return filt
+
+    def _cmpr_eq(self, text):
+
+        if text.find(':') != -1:
+
+            minv, maxv = s_chop.intrange(text)
+
+            def filt(valu):
+                return valu >= minv and valu < maxv
+
+            return filt
+
+        norm = self.norm(text)[0]
+        def filt(valu):
+            return norm == valu
+
+        return filt
+
+    def _chopIntRange(self, text):
+        mins, maxs = text.split(':', 1)
+        minv = s_common.intify(mins)
+        maxv = s_common.intify(maxs)
+        return int(x, 0), int(y, 0)
+
+    def _lift_eq(self, text):
+
+        if text.find(':') != -1:
+
+            minv, maxv = s_chop.intrange(text)
+
+            vmin = struct.pack('>Q', int(smin, 0))
+            vmax = struct.pack('>Q', int(smax, 0))
+
+            return (('prop:range', {'vmin': vmin, 'vmax': vmax}),)
+
+        valu, infos = self.norm(text)
+        return ('prop:eq', {'valu': valu})
+
+    def _lift(self, name, text, cmpr='='):
+
+        if cmpr == '=':
+
+            if text.find(':') != -1:
+
+                smin, smax = text.split(':', 1)
+
+                vmin = struct.pack('>Q', int(smin, 0))
+                vmax = struct.pack('>Q', int(smax, 0))
+
+                return ('prop:range', {}), ((vmin, vmax), )
+
+            valu, infos = self.norm(text)
+            return ('prop:eq', (name, valu), {})
+
+        raise NoSuchLift(name=name, valu=text, cmpr=cmpr)
 
         if text.find(':') != -1:
             try:
@@ -140,187 +381,201 @@ class Int(Type):
 
         return Type.lift(self, name, text, cmp=cmp)
 
-    def norm(self, valu):
-        return int(valu, 0), {}
+    def _normPyStr(self, valu):
+        return self._normPyInt(int(valu, 0))
+
+    def _normPyInt(self, valu):
+        return valu, {}
+        ## TODO check min/max values
+
+    #def norm(self, valu):
+        #return int(valu, 0), {}
+
+    def indx(self, valu):
+        size = self.opts.get('size')
+        return valu.to_bytes(size, 'big')
 
 class Bool(Type):
 
     def postTypeInit(self):
-        self.addTypeNorm(str, self._norm_str)
-        self.addTypeNorm(int, self._norm_int)
-        self.addTypeNorm(bool, self._norm_int)
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(bool, self._normPyInt)
 
-    def _norm_str(self, valu):
+        #self.setCmprFunc('=', s_cmpr.eq)
 
-        valu = valu.lower()
-        if valu in ('true', 't', 'y', 'yes', '1', 'on'):
+    def indx(self, norm):
+        return norm.to_bytes(length=1, byteorder='big')
+
+    def _lift(self, name, text, cmpr='='):
+
+        if cmpr != '=':
+            raise BadTypeCmpr(name=self._type_name, cmpr=cmpr)
+
+        valu, info = self.norm(text)
+        indx = struct.pack('B', valu)
+        return ('prop:eq', (name, indx, valu), {})
+
+    def _stor(self, name, valu):
+        valu, info = self.norm(valu)
+        indx = struct.pack('B', valu)
+        return (name, indx, valu)
+
+    def _normPyStr(self, valu):
+
+        ival = s_common.intify(valu)
+        if ival is not None:
+            return int(bool(ival)), {}
+
+        if valu in ('true', 't', 'y', 'yes', 'on'):
             return 1, {}
 
-        if valu in ('false', 'f', 'n', 'no', '0', 'off'):
+        if valu in ('false', 'f', 'n', 'no', 'off'):
             return 0, {}
 
-        raise BadTypeValu(name=self._type_name, valu=valu)
+        raise s_exc.BadTypeValu(name=self._type_name, valu=valu)
 
-    def _norm_int(self, valu):
+    def _normPyInt(self, valu):
         return int(bool(valu)), {}
 
     def repr(self, valu):
         return repr(bool(valu))
 
+class Comp(Type):
+    pass
 
 class Guid(Type):
 
-    #def __init__(self, modl, name, **info):
-        #Type.__init__(self, modl, name, **info)
-        #self._guid_alias = info.get('alias')
-        # TODO figure out what to do about modl vs core issues
-        #self._getTufoByProp = getattr(modl, 'getTufoByProp', None)
-        #self._reqPropNorm = getattr(modl, 'reqPropNorm', None)
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(dict, self._normPyDict)
+        self.setNormFunc(list, self._normPyList)
+        self.setNormFunc(tuple, self._normPyList)
 
-    def norm(self, valu, oldval=None):
+    def _normPyStr(self, valu):
 
-        if isinstance(valu, dict):
-            vals = list(valu.items())
-            return self._norm_list(vals, oldval)
+        if valu == '*':
+            valu = s_common.guid()
+            return valu, {}
 
-        if isinstance(valu, (list, tuple)):
-            return self._norm_list(valu, oldval)
+        valu = valu.lower()
+        if not s_common.isguid(valu):
+            raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
-        if not isinstance(valu, str) or len(valu) < 1:
-            self._raiseBadValu(valu)
+        return valu, {}
 
-        return self._norm_str(valu, oldval)
+    def _normPyList(self, valu):
+        return s_common.guid(valu), {}
 
-    def _norm_str(self, text, oldval=None):
-        text = text.strip()
-        if not text:
-            self._raiseBadValu(text, mesg='No text left after strip().')
+    def _normPyDict(self, valu):
+        norm = s_common.guid(tuple(sorted(valu.items())))
+        return norm, {'subs': valu}
 
-        if text[0] == '(':
-            vals, off = s_syntax.parse_list(text)
-            if off != len(text):
-                self._raiseBadValu(text, off=off, vals=vals,
-                                   mesg='List parting for guid type did not consume all of the input text.')
-            return self._norm_list(vals, oldval)
+    def indx(self, norm):
+        return s_common.uhex(norm)
 
-        # generate me one.  we dont care.
-        if text == '*':
-            return s_common.guid(), {}
+#class LocPart(Type):
+    #def postTypeInit(
 
-        #if text[0] != '$':
-            ##retn = text.lower().replace('-', '')
-            #if not s_common.isguid(retn):
-                #self._raiseBadValu(text, mesg='Expected a 32 char guid string')
+class Loc(Type):
 
-            #return retn, {}
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
 
-        #node = self.modl.getTufoByProp('syn:alias', text)
-        #if node is not None:
-            #return node[1].get('syn:alias:iden'), {}
+    def _normPyStr(self, valu):
 
-        # TODO remove legacy model aliases
-        #if self._guid_alias is None:
-            #self._raiseBadValu(text, mesg='guid resolver syntax used with non-aliased guid')
+        valu = valu.lower().strip()
 
-        #if self._getTufoByProp is None:
-            #self._raiseBadValu(text, mesg='guid resolver syntax used with non-cortex modl')
+        norms = []
+        for part in valu.split():
+            part = ' '.join(part.split())
+            norms.append(part)
 
-        # ( sigh... eventually everything will be a cortex... )
-        #node = self._getTufoByProp(self._guid_alias, text[1:])
-        #if node is None:
-            #self._raiseBadValu(text, mesg='no result for guid resolver',
-                               #alias=self._guid_alias)
+        norm = '.'.join(norms)
+        return norm, {}
 
-        #iden = node[1].get(node[1].get('tufo:form'))
-        #return iden, {}
+    def indx(self, norm):
+        parts = norm.split('.')
+        valu = '\x00'.join(parts) + '\x00'
+        return valu.encode('utf8')
 
-    def _norm_list(self, valu, oldval=None):
+    def liftPropBy(self, formname, propname, text, cmpr='='):
 
-        if not valu:
-            self._raiseBadValu(valu=valu, mesg='No valus present in list to make a guid with')
+        norm, info = self.norm(text)
+        indx = self.indx(norm)
 
-        if not self.prop:
-            self._raiseBadValu(valu,
-                               mesg='Unable to norm a list for a guidtype which is not associated with a property.')
+        return (
+            ('prop:pref', {
+                'form': formname.encode('utf8'),
+                'prop': propname.encode('utf8'),
+                'indx': indx,
+            }),
+        )
 
-        vals = []
-        subs = {}
-
-        for kv in valu:
-            if not isinstance(kv, (list, tuple)) or not len(kv) == 2:
-                self._raiseBadValu(valu, kv=kv, mesg='Expected a list or tuple of length 2')
-
-            k, v = kv
-            fullprop = self.prop + ':' + k
-            try:
-                v, ssubs = self._reqPropNorm(fullprop, v)
-            except s_common.NoSuchProp:
-                logger.exception('Error while norming list of props for guid type.')
-                self._raiseBadValu(valu, prop=k, fullprop=fullprop,
-                                   mesg='Non-model property provided when making a stable guid.')
-            subs.update({':'.join([k, _k]): _v for _k, _v in ssubs.items()})
-            vals.append((k, v))
-
-        # Stable sort based on the property
-        vals.sort(key=lambda x: x[0])
-        valu = s_common.guid(valu=vals)
-        subs.update(vals)
-        return valu, subs
-
-class Fqdn(Type):
-    subprops = (
-        ('sfx', {'ptype': 'bool'}),
-        ('zone', {'ptype': 'bool'}),
-        ('domain', {'ptype': 'inet:fqdn'}),
-        ('host', {'ptype': 'str'}),
-    )
-
-    def norm(self, valu):
-
-        valu = valu.replace('[.]', '.')
-        if not fqdnre.match(valu):
-            self._raiseBadValu(valu)
-
-        try:
-            valu = valu.encode('idna').decode('utf8').lower()
-        except UnicodeError as e:
-            self._raiseBadValu(valu)
-
-        parts = valu.split('.', 1)
-        subs = {'host': parts[0]}
-
-        if len(parts) == 2:
-            subs['domain'] = parts[1]
-        else:
-            subs['sfx'] = 1
-
-        return valu, {'subs':subs}
-
-    def lift(self, name, text, cmp='='):
-
-        valu = text.strip().lower()
-        if not valu:
-            return None
-
-        indx = valu=[::-1]
-
-        if indx[-1] == '*':
-            return ('prop:pref', (name, indx[:-1]), {})
-
-        return ('prop:eq', (name, indx), {'indx': indx})
-
-        if valu[0] == '*':
-            indx = valu[::-1]
-            return ('prop:pref', (name, 
-
-    def repr(self, valu):
-        try:
-            return valu.encode('utf8').decode('idna')
-        except UnicodeError as e:
-            if len(valu) >= 4 and valu[0:4] == 'xn--':
-                logger.exception(msg='Failed to IDNA decode ACE prefixed inet:fqdn')
-                return valu
-            raise  # pragma: no cover
+#class Fqdn(Type):
+#
+#    def norm(self, valu):
+#
+#        valu = valu.replace('[.]', '.')
+#        if not fqdnre.match(valu):
+#            self._raiseBadValu(valu)
+#
+#        try:
+#            valu = valu.encode('idna').decode('utf8').lower()
+#        except UnicodeError as e:
+#            self._raiseBadValu(valu)
+#
+#        parts = valu.split('.', 1)
+#
+#        adds = []
+#        subs = {'host': parts[0]}
+#
+#        if len(parts) == 2:
+#            subs['domain'] = parts[1]
+#        else:
+#            subs['sfx'] = 1
+#
+#        return valu, {'subs':subs}
+#
+#    def indx(self, norm):
+#        return norm[::-1].encode('utf8')
+#
+#    def liftPropBy(self, formname, propname, text, cmpr='='):
+#
+#        valu = str(text).strip().lower()
+#        if not valu:
+#            return None
+#
+#        # did they request a prefix?
+#        if valu[0] == '*':
+#            indx = valu[1:][::-1].encode('utf8')
+#            return (
+#                ('prop:pref', {
+#                    'form': formname.encode('utf8'),
+#                    'prop': propname.encode('utf8'),
+#                    'indx': indx,
+#                }),
+#            )
+#
+#        indx = valu[::-1].encode('utf8')
+#
+#        return (
+#            ('prop:eq', {
+#                'form': formname.encode('utf8'),
+#                'prop': propname.encode('utf8'),
+#                'indx': indx,
+#                'valu': norm,
+#            }),
+#        )
+#
+#    def repr(self, valu):
+#        try:
+#            return valu.encode('utf8').decode('idna')
+#        except UnicodeError as e:
+#            if len(valu) >= 4 and valu[0:4] == 'xn--':
+#                logger.exception(msg='Failed to IDNA decode ACE prefixed inet:fqdn')
+#                return valu
+#            raise  # pragma: no cover
 
 class NDefType(Type):
 
@@ -329,6 +584,9 @@ class NDefType(Type):
         # TODO figure out what to do about modl vs core issues
         self._isTufoForm = getattr(modl, 'isTufoForm', None)
         self._getPropNorm = getattr(modl, 'getPropNorm', None)
+
+    def toks(self, norm):
+        return ((0, norm),)
 
     def norm(self, valu):
 
@@ -397,14 +655,13 @@ class StrType(Type):
         if restrip is not None:
             self.restrip = regex.compile(restrip)
 
-        frobintfmt = info.get('frob_int_fmt')
-        if frobintfmt is not None:
-            self.frobintfmt = frobintfmt
+    def toks(self, norm):
+        norm = norm.lower()
+        toks = set()
+        [toks.add(t) for t in norm.split()]
+        return [(1, t) for t in toks]
 
     def norm(self, valu, oldval=None):
-
-        if self.frobintfmt and isinstance(valu, int):
-            valu = self.frobintfmt % valu
 
         if not isinstance(valu, str):
             self._raiseBadValu(valu)
@@ -1036,9 +1293,6 @@ class TypeLib:
 
         if load:
             self.loadModModels()
-
-    #def addTypeDef(self, 
-    #def addPropDef(self, form, prop, 
 
     def _castCountry2CC(self, valu):
         valu = valu.replace('.', '').lower()

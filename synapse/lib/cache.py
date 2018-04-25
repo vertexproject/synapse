@@ -235,12 +235,15 @@ class FixedCache(EventBus):
 
             if valu is miss and self.onmiss:
                 valu = self.onmiss(key)
-                self.cache[key] = valu
-                self.fifo.append(key)
 
-                while len(self.fifo) > self.maxsize:
-                    nuk = self.fifo.popleft()
-                    self.cache.pop(nuk, None)
+                if valu is not miss:
+
+                    self.cache[key] = valu
+                    self.fifo.append(key)
+
+                    while len(self.fifo) > self.maxsize:
+                        nuk = self.fifo.popleft()
+                        self.cache.pop(nuk, None)
 
             if valu is miss:
                 return None

@@ -1,84 +1,154 @@
+import hashlib
+
 import synapse.common as s_common
 
-from synapse.lib.types import DataType
+#from synapse.lib.types import DataType
 from synapse.common import addpref, guid
+
+import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 
-class FileBaseType(DataType):
-    def norm(self, valu, oldval=None):
-        if not (isinstance(valu, str) and not valu.find('/') > -1):
-            self._raiseBadValu(valu)
+#class FileBaseType(DataType):
+#    def norm(self, valu, oldval=None):
+#        if not (isinstance(valu, str) and not valu.find('/') > -1):
+#            self._raiseBadValu(valu)
+#
+#        return valu.lower(), {}
+#
+#    def repr(self, valu):
+#        return valu
+#
+#class FilePathType(DataType):
+#    def norm(self, valu, oldval=None):
+#
+#        if not isinstance(valu, str):
+#            self._raiseBadValu(valu)
+#
+#        lead = ''
+#
+#        valu = valu.replace('\\', '/').lower()
+#        if valu and valu[0] == '/':
+#            lead = '/'
+#
+#        valu = valu.strip('/')
+#
+#        vals = [v for v in valu.split('/') if v]
+#
+#        fins = []
+#
+#        # canonicalize . and ..
+#        for v in vals:
+#            if v == '.':
+#                continue
+#
+#            if v == '..' and fins:
+#                fins.pop()
+#                continue
+#
+#            fins.append(v)
+#
+#        subs = {'dir': '', 'depth': len(fins)}
+#        valu = lead + ('/'.join(fins))
+#
+#        if fins:
+#            base = fins[-1]
+#            subs['base'] = base
+#
+#            pext = base.rsplit('.', 1)
+#            if len(pext) > 1:
+#                subs['ext'] = pext[1]
+#
+#            if len(fins) > 1:
+#                subs['dir'] = lead + ('/'.join(fins[:-1]))
+#
+#        return valu, subs
+#
+#class FileRawPathType(DataType):
+#    def norm(self, valu, oldval=None):
+#        if not isinstance(valu, str):
+#            self._raiseBadValu(valu)
+#
+#        subs = {}
+#
+#        subs['norm'], subsubs = self.tlib.getTypeNorm('file:path', valu)
+#        subs.update(addpref('norm', subsubs))
+#
+#        return valu, subs
 
-        return valu.lower(), {}
+class FileBytes(s_types.Type):
 
-    def repr(self, valu):
-        return valu
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(bytes, self._normPyBytes)
 
-class FilePathType(DataType):
-    def norm(self, valu, oldval=None):
+    def indx(self, valu):
+        return s_common.uhex(valu)
 
-        if not isinstance(valu, str):
-            self._raiseBadValu(valu)
+    def _normPyStr(self, valu):
 
-        lead = ''
+        if len(valu) != 64:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
-        valu = valu.replace('\\', '/').lower()
-        if valu and valu[0] == '/':
-            lead = '/'
+        s_common.uhex(norm)
 
-        valu = valu.strip('/')
+        norm = valu.lower()
+        return norm, {}
 
-        vals = [v for v in valu.split('/') if v]
+    def _normPyBytes(self, valu):
+        norm = hashlib.sha256(valu).hexdigest()
+        subs = {
+            'sha256': norm,
 
-        fins = []
+            'md5': hashlib.md5(valu).hexdigest(),
+            'sha1': hashlib.sha1(valu).hexdigest(),
+            'sha512': hashlib.sha512(valu).hexdigest(),
 
-        # canonicalize . and ..
-        for v in vals:
-            if v == '.':
-                continue
+            'size': len(valu),
+        }
+        return norm, {'subs': subs}
 
-            if v == '..' and fins:
-                fins.pop()
-                continue
+class FileModule(s_module.CoreModule):
 
-            fins.append(v)
-
-        subs = {'dir': '', 'depth': len(fins)}
-        valu = lead + ('/'.join(fins))
-
-        if fins:
-            base = fins[-1]
-            subs['base'] = base
-
-            pext = base.rsplit('.', 1)
-            if len(pext) > 1:
-                subs['ext'] = pext[1]
-
-            if len(fins) > 1:
-                subs['dir'] = lead + ('/'.join(fins[:-1]))
-
-        return valu, subs
-
-class FileRawPathType(DataType):
-    def norm(self, valu, oldval=None):
-        if not isinstance(valu, str):
-            self._raiseBadValu(valu)
-
-        subs = {}
-
-        subs['norm'], subsubs = self.tlib.getTypeNorm('file:path', valu)
-        subs.update(addpref('norm', subsubs))
-
-        return valu, subs
-
-class FileMod(s_module.CoreModule):
+    _mod_name = 'syn:files'
 
     def initCoreModule(self):
-        self.core.addSeedCtor('file:bytes:md5', self.seedFileMd5)
-        self.core.addSeedCtor('file:bytes:sha1', self.seedFileSha1)
+        pass
+        #self.core.addSeedCtor('file:bytes:md5', self.seedFileMd5)
+        #self.core.addSeedCtor('file:bytes:sha1', self.seedFileSha1)
         # sha256 / sha512 are good enough for now
-        self.core.addSeedCtor('file:bytes:sha256', self.seedFileGoodHash)
-        self.core.addSeedCtor('file:bytes:sha512', self.seedFileGoodHash)
+        #self.core.addSeedCtor('file:bytes:sha256', self.seedFileGoodHash)
+        #self.core.addSeedCtor('file:bytes:sha512', self.seedFileGoodHash)
+
+    def getModelDefs(self):
+        return (
+
+            ('files', {
+
+                'ctors': (
+
+                    ('file:bytes', 'synapse.models.files.FileBytes', {}, {
+                        'doc': 'The file bytes type with SHA256 based primary property.'}),
+
+                ),
+
+                'types': (
+                ),
+
+                'forms': (
+
+                    ('file:bytes', {}, (
+
+                        ('size', ('int', {}), {
+                            'doc': 'The file size in bytes.'}),
+
+                    )),
+                ),
+
+            }),
+        )
+
+
+###############################################################################
 
     def seedFileGoodHash(self, prop, valu, **props):
         '''

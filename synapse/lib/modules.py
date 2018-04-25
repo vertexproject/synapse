@@ -6,14 +6,23 @@ import logging
 import synapse.exc as s_exc
 import synapse.dyndeps as s_dyndeps
 
-logger = logging.getLogger(__name__)
+coremods = (
+    ('synapse.models.inet.InetModule', {}),
+    ('synapse.models.files.FileModule', {}),
+)
+
+#logger = logging.getLogger(__name__)
 
 # Python modules
-synmods = {}
-modlist = []
+#synmods = {}
+#modlist = []
 # Ctor modules
-ctors = {}
-ctorlist = []
+#ctors = {}
+#ctorlist = []
+
+
+############################################################################################
+# KILL FROM HERE DOWN
 
 def call(name, *args, **kwargs):
     '''

@@ -26,6 +26,10 @@ class Plex(s_config.Config):
     '''
     A highly-efficient epoll based multi-plexor for sockets.
     '''
+    confdefs = (
+        ('pool:max', {'defval': 8, 'type': 'int',
+            'doc': 'The maximum number of threads in the thread pool'}),
+    )
     def __init__(self, conf=None):
 
         s_config.Config.__init__(self, conf)
@@ -45,14 +49,6 @@ class Plex(s_config.Config):
         self.onfini(self.pool.fini)
 
         self.polls = {}
-
-    @staticmethod
-    @s_config.confdef(name='plex')
-    def _initPlexConf():
-        return (
-            ('pool:max', {'defval': 8, 'type': 'int',
-                'doc': 'The maximum number of threads in the thread pool'}),
-        )
 
     def _runPollLoop(self):
 

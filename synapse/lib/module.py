@@ -6,9 +6,8 @@ import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
 import synapse.lib.config as s_config
-import synapse.lib.reflect as s_reflect
-
-import synapse.cores.common as s_cores_common
+#import synapse.lib.reflect as s_reflect
+#import synapse.cores.common as s_cores_common
 
 MODEL_REV_FORMAT = '%Y%m%d%H%M'
 
@@ -43,7 +42,7 @@ def validate_revnumber(revision):
     except ValueError as e:
         raise s_common.BadRevValu(valu=revision, mesg='CoreModule model revision must be a timestamp.')
 
-class CoreModule(s_eventbus.EventBus, s_config.Configable):
+class CoreModule(s_config.Config):
     '''
     The CoreModule base class from which cortex modules must extend.
 
@@ -75,41 +74,24 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
           CoreModule instance using EventBus.link().
     '''
     _mod_name = None
-    _mod_iden = None
 
-    def __init__(self, core, conf):
-        s_eventbus.EventBus.__init__(self)
-        s_config.Configable.__init__(self)
+    def __init__(self, core, conf=None):
+        s_config.Config.__init__(self, opts=conf)
 
         if self._mod_name is None:
             self._mod_name = self.__class__.__name__
 
-        s_telepath.reqNotProxy(core)
-
-        self.core = core  # type: s_cores_common.Cortex
-        core.link(self.dist)
-
-        def fini():
-            core.unlink(self.dist)
-
-        self.onfini(fini)
+        self.core = core        # type: synapse.cortex.Cortex
+        self.model = core.model # type: synapse.datamodel.Model
 
         # check for decorated functions for model rev
-        self._syn_mrevs = []
+        #self._syn_mrevs = []
 
-        for name, meth in s_reflect.getItemLocals(self):
-            mrev = getattr(meth, '_syn_mrev', None)
-            if mrev is None:
-                continue
+    def getModelDefs(self):
+        return ()
 
-            name, vers = mrev
-            self._syn_mrevs.append((name, vers, meth))
-
-        self.initCoreModule()
-        self.setConfOpts(conf)
-        self.postCoreModule()
-        # Add the automatic fini handler
-        self.onfini(self.finiCoreModule)
+    def getModelRevs(self):
+        return ()
 
     def getModName(self):
         '''
@@ -150,38 +132,38 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
 
         return self.core.getCorePath('mods', name, *paths)
 
-    def getModProp(self, prop, defval=None):
-        '''
-        Retrieve a module property from the cortex storage layer.
+    #def getModProp(self, prop, defval=None):
+        #'''
+        #Retrieve a module property from the cortex storage layer.
 
-        Args:
-            prop (str): The property name
+        #Args:
+            #prop (str): The property name
 
-        Returns:
-            (obj): The int/str or None
-        '''
-        if self._mod_iden is None:
-            raise s_common.NoModIden(name=self._mod_name, ctor=self.__class__.__name__)
+        #Returns:
+            #(obj): The int/str or None
+        #'''
+        #if self._mod_iden is None:
+            #raise s_common.NoModIden(name=self._mod_name, ctor=self.__class__.__name__)
 
-        prop = '.:mod:' + self._mod_iden + '/' + prop
-        rows = self.core.getRowsByProp(prop, limit=1)
-        if not rows:
-            return defval
-        return rows[0][2]
+        #prop = '.:mod:' + self._mod_iden + '/' + prop
+        #rows = self.core.getRowsByProp(prop, limit=1)
+        #if not rows:
+            #return defval
+        #return rows[0][2]
 
-    def setModProp(self, prop, valu):
-        '''
-        Set a module property within the cortex storage layer.
+    #def setModProp(self, prop, valu):
+        ##'''
+        #Set a module property within the cortex storage layer.
 
-        Args:
-            prop (str): The property name.
-            valu (obj): A str/int valu.
-        '''
-        if self._mod_iden is None:
-            raise s_common.NoModIden(name=self._mod_name, ctor=self.__class__.__name__)
+        #Args:
+            #prop (str): The property name.
+            #valu (obj): A str/int valu.
+        #'''
+        #if self._mod_iden is None:
+            #raise s_common.NoModIden(name=self._mod_name, ctor=self.__class__.__name__)
 
-        prop = '.:mod:' + self._mod_iden + '/' + prop
-        self.core.setRowsByIdProp(self._mod_iden, prop, valu)
+        #prop = '.:mod:' + self._mod_iden + '/' + prop
+        #self.core.setRowsByIdProp(self._mod_iden, prop, valu)
 
     def reqModPath(self, *paths):
         '''
@@ -199,17 +181,17 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         name = self.getModName()
         return self.core.reqCorePath('mods', name, *paths)
 
-    def form(self, form, valu, **props):
-        '''
-        A module shortcut for core.formTufoByProp()
+    #def form(self, form, valu, **props):
+        #'''
+        #A module shortcut for core.formTufoByProp()
 
-        Args:
-            form (str): The node form to retrieve/create
-            valu (obj): The node value
-            **props:    Additional node properties
+        #Args:
+            #form (str): The node form to retrieve/create
+            #valu (obj): The node value
+            #**props:    Additional node properties
 
-        '''
-        return self.core.formTufoByProp(form, valu, **props)
+        #'''
+        #return self.core.formTufoByProp(form, valu, **props)
 
     def initCoreModule(self):
         '''
@@ -225,39 +207,39 @@ class CoreModule(s_eventbus.EventBus, s_config.Configable):
         '''
         pass
 
-    def postCoreModule(self):
-        '''
-        Module implementers may over-ride this method to initialize the module
-        *after* the configuration data has been loaded.
+    #def postCoreModule(self):
+        #'''
+        #Module implementers may over-ride this method to initialize the module
+        #*after* the configuration data has been loaded.
 
-        Returns:
-            None
-        '''
-        pass
+        #Returns:
+            #None
+        ##'''
+        #pass
 
-    def finiCoreModule(self):
-        '''
-        Module implementors may over-ride this method to automatically tear down
-        resources during fini()
-        '''
-        pass
+    #def finiCoreModule(self):
+        #'''
+        #Module implementors may over-ride this method to automatically tear down
+        #resources during Cortex.fini()
+        #'''
+        #pass
 
-    @staticmethod
-    def getBaseModels():
-        '''
-        Get a tuple containing name, model values associated with the CoreModule.
+    #@staticmethod
+    #def getBaseModels():
+        #'''
+        #Get a tuple containing name, model values associated with the CoreModule.
 
-        Any models which are returned by this function are considered revision 0 models for the name, and will be
-        automatically loaded into a Cortex if the model does not currently exist.
+        #Any models which are returned by this function are considered revision 0 models for the name, and will be
+        #automatically loaded into a Cortex if the model does not currently exist.
 
-        Note:
-            While this may return multiple tuples, internal Synapse convention is to define a single model in a
-            single CoreModule subclass in a single file, for consistency.
+        #Note:
+            ##While this may return multiple tuples, internal Synapse convention is to define a single model in a
+            #single CoreModule subclass in a single file, for consistency.
 
-        Returns:
-            ((str, dict)): A tuple containing name, model pairs.
-        '''
-        return ()
+        #Returns:
+            #((str, dict)): A tuple containing name, model pairs.
+        ##'''
+        #return ()
 
     def getModlRevs(self):
         '''

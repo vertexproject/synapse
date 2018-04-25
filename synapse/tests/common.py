@@ -15,7 +15,7 @@ import synapse.daemon as s_daemon
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
-import synapse.cores.common as s_cores_common
+#import synapse.cores.common as s_cores_common
 
 import synapse.lib.scope as s_scope
 import synapse.lib.ingest as s_ingest
