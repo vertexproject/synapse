@@ -7,7 +7,11 @@ Integration utilities for sqlite db pools.
 '''
 
 # turn on db cache sharing
-sqlite3.enable_shared_cache(1)
+try:
+    sqlite3.enable_shared_cache(1)
+except:
+    # Doesn't work on MacOS
+    pass
 
 def pool(size, path, **kwargs):
     '''

@@ -45,12 +45,17 @@ import synapse.cores.common as s_cores_common
 import synapse.data as s_data
 
 import synapse.lib.cell as s_cell
+import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)
+
+# Default LMDB map size for tests
+TEST_MAP_SIZE = s_const.gibibyte
+
 
 def objhierarchy(obj):
     '''
@@ -620,7 +625,7 @@ class SynTest(unittest.TestCase):
             neurhost, neurport = neur.getCellAddr()
 
             blobpath = s_common.gendir(dirn, 'blob')
-            blobconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
+            blobconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0, 'blob:mapsize': TEST_MAP_SIZE}
             blobauth = neur.genCellAuth('blob')
             s_msgpack.dumpfile(blobauth, os.path.join(blobpath, 'cell.auth'))
             blob = s_axon.BlobCell(blobpath, blobconf)
@@ -629,7 +634,8 @@ class SynTest(unittest.TestCase):
             axonpath = s_common.gendir(dirn, 'axon')
             axonauth = neur.genCellAuth('axon')
             s_msgpack.dumpfile(axonauth, os.path.join(axonpath, 'cell.auth'))
-            axonconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0, 'axon:blobs': ('blob@localhost',)}
+            axonconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0, 'axon:blobs': ('blob@localhost',),
+                        'axon:mapsize': TEST_MAP_SIZE}
             axon = s_axon.AxonCell(axonpath, axonconf)
             self.true(axon.cellpool.neurwait(timeout=3))
             axonhost, axonport = axon.getCellAddr()
@@ -979,6 +985,12 @@ class SynTest(unittest.TestCase):
         Assert X is equal to Y
         '''
         self.assertEqual(x, y)
+
+    def eqish(self, x, y, places=6):
+        '''
+        Assert X is equal to Y within places decimal places
+        '''
+        self.assertAlmostEqual(x, y, places)
 
     def ne(self, x, y):
         '''

@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import synapse.cryotank as s_cryotank
 
+import synapse.lib.iq as s_iq
 import synapse.lib.cell as s_cell
 import synapse.tools.cryo.cat as s_cryocat
 
@@ -26,7 +27,7 @@ class CryoCatTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            conf = {'bind': '127.0.0.1', 'host': 'localhost'}
+            conf = {'bind': '127.0.0.1', 'host': 'localhost', 'defvals': {'mapsize': s_iq.TEST_MAP_SIZE}}
 
             celldir = os.path.join(dirn, 'cell')
             authfp = os.path.join(dirn, 'user.auth')

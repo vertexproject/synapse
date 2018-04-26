@@ -106,7 +106,7 @@ class DmonConf:
 
         for celldir, proc in list(self.cellprocs.items()):
             proc.terminate()
-            proc.join(2)
+            proc.join(30)
 
         # reverse the ebus items to fini them in LIFO order
         for item in reversed(self._fini_items):

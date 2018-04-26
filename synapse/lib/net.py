@@ -23,7 +23,7 @@ The synapse.lib.net module implements async networking helpers.
 
 class Plex(s_config.Config):
     '''
-    A highly-efficient epoll based multi-plexor for sockets.
+    A highly-efficient selectors-based multi-plexor for sockets.
     '''
     def __init__(self, conf=None):
 
@@ -82,12 +82,14 @@ class Plex(s_config.Config):
                         logger.exception('error during poll() callback')
 
             except Exception as e:
+                if self.isfini:
+                    continue
                 logger.exception('plex thread error: %r' % (e,))
 
     def _onPlexFini(self):
 
         [l.fini() for l in list(self.links.values())]
-        [s.close() for s in list(self.socks.values())]
+        [self._finiPlexSock(s) for s in list(self.socks.values())]
 
         self.epoll.close()
 
@@ -194,12 +196,13 @@ class Plex(s_config.Config):
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         # enable TCP keep alives...
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-        # start sending a keep alives after 1 sec of inactivity
-        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1)
-        # send keep alives every 3 seconds once started
-        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
-        # close the socket after 5 failed keep alives (15 sec)
-        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
+        if hasattr(socket, 'TCP_KEEPIDLE'):
+            # start sending a keep alives after 1 sec of inactivity
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1)
+            # send keep alives every 3 seconds once started
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
+            # close the socket after 5 failed keep alives (15 sec)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
 
     def connect(self, addr, onconn):
         '''

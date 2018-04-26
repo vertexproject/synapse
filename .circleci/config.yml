@@ -60,7 +60,54 @@ test_steps:  &test_steps
     - store_artifacts:
         path: test-reports
 
+osx_test_steps:  &osx_test_steps
+  steps:
+      - checkout
+      - run:
+          name: install python3
+          command: |
+            brew upgrade python3
+      - run:
+          name: setup test packages
+          command: |
+            python3 -m pip install -U wheel pip pytest pytest-cov pycodestyle codecov
+
+      - run:
+          name: install synapse
+          command: |
+            python3 -m pip install -e .
+
+      - run:
+          name: run tests
+          command: |
+            mkdir test-reports
+            circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+
+      - run:
+          name: report coverage
+          command: |
+            if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${IMAGE_VERSION}node${CIRCLE_NODE_INDEX} --required; fi;
+
+      - store_test_results:
+          path: test-reports
+
+      - store_artifacts:
+          path: test-reports
+
+
 jobs:
+
+  osx36:
+    parallelism: 7
+    macos:
+      xcode: "9.3.0"
+
+    environment:
+      COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+
+    working_directory: ~/repo
+
+    <<: *osx_test_steps
 
   python36:
     parallelism: 3
@@ -101,6 +148,7 @@ workflows:
   version: 2
   run_tests:
     jobs:
+      - osx36
       - python36
       - python35
       - python34

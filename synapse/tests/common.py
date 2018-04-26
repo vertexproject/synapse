@@ -54,6 +54,8 @@ def checkLock(fd, timeout, wait=0.5):
     while True:
         try:
             fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
         except OSError as e:
             if e.errno == 11:
                 return True
