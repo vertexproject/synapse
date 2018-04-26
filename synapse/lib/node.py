@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -79,7 +83,7 @@ class Node:
             self.xact.warn('NoSuchProp', form=self.form.name, prop=name)
             return False
 
-        if not init and prop.info.get('ro'):
+        if prop.info.get('ro') and not init and not self.init:
             logger.warning('trying to set read only prop: %s' % (prop.full,))
             return False
 

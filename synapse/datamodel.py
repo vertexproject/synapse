@@ -85,12 +85,12 @@ class Prop:
             except Exception as e:
                 logger.exception('onset() error for %s' % (self.full,))
 
-    def lift(self, valu, cmpr='='):
+    def lift(self, xact, valu, cmpr='='):
         '''
         Lift nodes by the given property valu and comparator.
 
         Args:
-
+            xact (synapse.lib.xact.Xact): A Cortex transaction.
             valu (obj): A lift valu for the given property type.
             cmpr (str): An optional alternate comparator to specify.
 
@@ -98,7 +98,7 @@ class Prop:
 
             (tuple, synapse.lib.nodeNode): Tuples of (row, Node) pairs.
         '''
-        return self.type.liftPropBy(self.form.name, self.name, valu, cmpr=cmpr)
+        return self.type.liftByProp(xact, self, valu, cmpr=cmpr)
 
     def stor(self, buid, norm):
         '''
@@ -109,9 +109,6 @@ class Prop:
             buid (bytes): The binary GUID for the node.
             norm (obj): The normalized property value.
         '''
-        if self.info.get('ro'):
-            raise s_exc.ReadOnlyProp(name=self.full)
-
         # setup a standard prop:set stor operation
         sops = (
             ('node:prop:set', {
@@ -206,18 +203,11 @@ class Form:
             ('node:add', {'buid': buid, 'form': self.utf8name, 'valu': norm, 'indx': indx}),
         ]
 
-    def lift(self, valu, cmpr='='):
+    def lift(self, xact, valu, cmpr='='):
         '''
-        Retrieve a set of lift operations needed to retrieve nodes by this value.
-
-        Args:
-            valu (obj): A lift value compatible with the type.
-            cmpr (str): An optional alternate comparator.
-
-        Returns:
-            ([]): A list of lift operation tuples.
+        Perform a lift operation and yield row,Node tuples.
         '''
-        return self.type.liftPropBy(self.name, '', valu, cmpr=cmpr)
+        return self.type.liftByForm(xact, self, valu, cmpr=cmpr)
 
     def prop(self, name):
         '''
@@ -259,6 +249,10 @@ class Model:
 
         info = {'doc': 'The base GUID type.'}
         item = s_types.Guid(self, 'guid', info, {})
+        self.addBaseType(item)
+
+        info = {'doc': 'The base type for compound node fields.'}
+        item = s_types.Comp(self, 'comp', info, {})
         self.addBaseType(item)
 
         info = {'doc': 'The base geo political location type.'}

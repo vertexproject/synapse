@@ -51,7 +51,7 @@ class IPv4(s_types.Type):
     def repr(self, norm):
         return socket.inet_ntoa(self.indx(norm))
 
-    def liftPropBy(self, form, prop, text, cmpr='='):
+    def liftPropEq(self, fenc, penc, text):
 
         if text.find('/') != -1:
 
@@ -65,7 +65,7 @@ class IPv4(s_types.Type):
             mini = self.indx(minv)
             maxi = self.indx(minv + mask[1])
 
-            return (
+            lops = (
                 ('prop:range', {
                     'prop': prop.encode('utf8'),
                     'form': form.encode('utf8'),
@@ -73,9 +73,10 @@ class IPv4(s_types.Type):
                     'maxindx': self.indx(minv + mask[1] - 1)
                 }),
             )
+            return xact.lift(lops)
 
         norm, info = self.norm(text)
-        return (
+        lops = (
             ('prop:eq', {
                 'prop': prop.encode('utf8'),
                 'form': form.encode('utf8'),
@@ -83,6 +84,7 @@ class IPv4(s_types.Type):
                 'indx': self.indx(norm),
             }),
         )
+        return xact.lift(lops)
 
 class Fqdn(s_types.Type):
 
@@ -115,25 +117,22 @@ class Fqdn(s_types.Type):
     def indx(self, norm):
         return norm[::-1].encode('utf8')
 
-    #def _lift(self, name, text, cmpr='='):
-
-    #def liftFormBy(self, form, text, cmpr='='):
-    def liftPropBy(self, formname, propname, text, cmpr='='):
+    def liftPropEq(self, xact, fenc, penc, text):
 
         valu = str(text).strip().lower()
         if not valu:
-            return None
+            return
 
         if valu[0] == '*':
             indx = valu[1:][::-1].encode('utf8')
-            print(repr(indx))
-            return (
+            lops = (
                 ('prop:pref', {
-                    'form': formname.encode('utf8'),
-                    'prop': propname.encode('utf8'),
+                    'form': fenc,
+                    'prop': penc,
                     'indx': indx,
                 }),
             )
+            return xact.lift(lops)
 
         if valu.find('*') != -1:
             raise s_exc.BadLiftValu(valu=valu, mesg='Wild card may only appear at the beginning.')
@@ -141,14 +140,16 @@ class Fqdn(s_types.Type):
         norm, info = self.norm(valu)
         indx = valu[::-1].encode('utf8')
 
-        return (
+        lops = (
             ('prop:eq', {
-                'form': formname.encode('utf8'),
-                'prop': propname.encode('utf8'),
+                'form': fenc,
+                'prop': penc,
                 'indx': indx,
                 'valu': norm,
             }),
         )
+
+        return xact.lift(lops)
 
     def repr(self, valu):
         try:

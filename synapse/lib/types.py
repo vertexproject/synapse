@@ -46,8 +46,10 @@ class Type:
         self._type_norms = {}   # python type to norm function map str: _norm_str
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
 
-        #self._norm_cmpr = {}
-        #self._lift_cmpr = {}
+        self.liftcmpr = {
+            '=': self.liftPropEq,
+            '*in=': self.liftPropIn,
+        }
 
         self.postTypeInit()
 
@@ -122,24 +124,6 @@ class Type:
         name = self.__class__.__name__
         raise s_exc.NoSuchImpl(name='%s.indx' % name)
 
-    #def lift(self, form, prop, text, cmpr='='):
-        #'''
-        #Return a lift operation tuple for the given query text.
-
-        #Args:
-            #form (synapse.datamodel.Form):
-            #text (str): The query value in text form.
-            #cmpr (str): The comparator name.
-
-        #Returns:
-            #(list): A list of (str, info) tuples for lift operation values.
-        #'''
-        #return self._lift(name, text, cmpr=cmpr)
-
-    def liftPropBy(self, formname, propname, valu, cmpr='='):
-        name = self.__class__.__name__
-        raise s_exc.NoSuchImpl(name='%s.liftPropBy' % name)
-
     def merge(self, oldv, newv):
         '''
         Allow types to "merge" data from two sources based on value precidence.
@@ -184,22 +168,45 @@ class Type:
         topt.update(opts)
         return self.__class__(self.modl, self.name, self.info, topt)
 
-    def stor(self, buid, prop, norm):
-        pass
+    def liftByProp(self, xact, prop, valu, cmpr='='):
 
-        # prepare a standard prop:set storage operation
-        #indx = prop.type.indx(norm)
-        #return (
-            #('prop:set', {
-                #'buid': buid,
-                #'form': prop.form.nenc,
-                #'prop': prop.nenc,
+        func = self.liftcmpr.get(cmpr)
+        if func is None:
+            s_exc.BadLiftCmpr(cmpr=cmpr, type=self.name, prop=prop.full)
 
-    #def _lift(self, name, text, cmpr='='):
-        #name = self.__class__.__name__
-        #raise s_exc.NoSuchImpl(name='%s._lift' % name)
+        penc = prop.utf8name
+        fenc = prop.form.utf8name
+        return func(xact, fenc, penc, valu)
 
-    #def _norm(self, valu):
+    def liftByForm(self, xact, form, valu, cmpr='='):
+
+        func = self.liftcmpr.get(cmpr)
+        if func is None:
+            s_exc.BadLiftCmpr(cmpr=cmpr, type=self.name, form=form.name)
+
+        penc = b''
+        fenc = form.utf8name
+        return func(xact, fenc, penc, valu)
+
+    def liftPropIn(self, xact, fenc, penc, valu):
+
+        for item in valu:
+            for row, node in self.liftByProp(xact, fenc, penc, valu):
+                yield row, node
+
+    def liftPropEq(self, xact, fenc, penc, valu):
+
+        norm, info = self.norm(valu)
+        lops = (
+            ('prop:eq', {
+                'form': fenc,
+                'prop': penc,
+                'valu': norm,
+                'indx': self.indx(norm),
+            }),
+        )
+        return xact.lift(lops)
+
 
 class Str(Type):
 
@@ -231,20 +238,6 @@ class Str(Type):
 
     def indx(self, norm):
         return norm.encode('utf8')
-
-    def liftPropBy(self, formname, propname, valu, cmpr='='):
-
-        norm, info = self.norm(valu)
-        indx = self.indx(norm)
-
-        return (
-            ('prop:eq', {
-                'form': formname.encode('utf8'),
-                'prop': propname.encode('utf8'),
-                'indx': indx,
-                'valu': norm,
-            }),
-        )
 
 class Int(Type):
 
@@ -441,9 +434,6 @@ class Bool(Type):
     def repr(self, valu):
         return repr(bool(valu))
 
-class Comp(Type):
-    pass
-
 class Guid(Type):
 
     def postTypeInit(self):
@@ -499,18 +489,52 @@ class Loc(Type):
         valu = '\x00'.join(parts) + '\x00'
         return valu.encode('utf8')
 
-    def liftPropBy(self, formname, propname, text, cmpr='='):
+    def liftPropEq(self, xact, fenc, penc, text):
 
         norm, info = self.norm(text)
         indx = self.indx(norm)
 
-        return (
+        lops = (
             ('prop:pref', {
-                'form': formname.encode('utf8'),
-                'prop': propname.encode('utf8'),
+                'form': fenc,
+                'prop': penc,
                 'indx': indx,
             }),
         )
+
+        return xact.lift(lops)
+
+class Comp(Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+    def _normPyTuple(self, valu):
+
+        fields = self.opts.get('fields')
+        if len(fields) != len(valu):
+            raise s_exc.BadTypeValu(name=self.name, valu=valu)
+
+        subs = {}
+        norms = []
+
+        for i, (name, typename) in enumerate(fields):
+
+            _type = self.modl.type(typename)
+            if _type is None:
+                raise FIXME # we need a postModelInit()?
+
+            norm, info = _type.norm(valu[i])
+
+            subs[name] = norm
+            norms.append(norm)
+
+        norm = tuple(norms)
+        return norm, {'subs': subs}
+
+    def indx(self, norm):
+        return s_common.buid(norm)
 
 #class Fqdn(Type):
 #
@@ -540,7 +564,6 @@ class Loc(Type):
 #    def indx(self, norm):
 #        return norm[::-1].encode('utf8')
 #
-#    def liftPropBy(self, formname, propname, text, cmpr='='):
 #
 #        valu = str(text).strip().lower()
 #        if not valu:

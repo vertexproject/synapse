@@ -116,10 +116,15 @@ class Xact(s_eventbus.EventBus):
             full (str): The full property name.
             valu (obj): A lift compatible value for the type.
             cmpr (str): An optional alternate comparator.
+
+        Yields:
+            (synapse.lib.node.Node): Node instances.
         '''
         prop = self.model.prop(full)
-        lops = prop.lift(valu, cmpr=cmpr)
-        for row, node in self.lift(lops):
+        if prop is None:
+            raise s_exc.NoSuchProp(name=full)
+
+        for row, node in prop.lift(self, valu, cmpr=cmpr):
             yield node
 
     def addNode(self, name, valu, props=None):

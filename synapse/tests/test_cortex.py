@@ -40,6 +40,14 @@ testmodel = {
     'types': (
         ('faketype', ('testtype', {'foo': 10}), {
             'doc': 'A fake type.'}),
+
+        ('testlower', ('str', {'lower': True}), {}),
+
+        ('fakecomp', ('comp', {'fields': (
+                ('hehe', 'int'),
+                ('haha', 'testlower'))
+            }), {'doc': 'A fake comp type.'}),
+
     ),
 
     'forms': (
@@ -57,6 +65,11 @@ testmodel = {
 
             ('locprop', ('loc', {}), {
                 'defval': '??'}),
+        )),
+
+        ('fakecomp', {}, (
+            ('hehe', ('int', {}), {'ro': 1}),
+            ('haha', ('str', {}), {'ro': 1}),
         )),
     ),
 
@@ -127,6 +140,13 @@ class CortexTest(SynTest):
                 node.set('strprop', 'qwer')
                 node.set('locprop', 'us.va.reston')
 
+                node = xact.addNode('fakecomp', (33, 'THIRTY THREE'))
+
+                self.eq(node.get('hehe'), 33)
+                self.eq(node.get('haha'), 'thirty three')
+
+                self.false(node.set('hehe', 80))
+
             with core.xact() as xact:
 
                 # test loc prop prefix based lookup
@@ -134,6 +154,13 @@ class CortexTest(SynTest):
 
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef[1], 'one')
+
+                nodes = list(xact.getNodesBy('fakecomp', (33, 'thirty three')))
+
+                self.len(1, nodes)
+
+                self.eq(nodes[0].get('hehe'), 33)
+                self.eq(nodes[0].ndef[1], (33, 'thirty three'))
 
     #def test_cortex_onset(self):
 

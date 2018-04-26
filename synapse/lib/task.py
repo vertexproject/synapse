@@ -8,9 +8,10 @@ class Task(EventBus):
     A cancelable Task abstraction which operates much like a Future
     but with some additional features.
     '''
-    def __init__(self, iden=None):
+    def __init__(self):
 
         EventBus.__init__(self)
+        self.iden = s_common.guid()
 
         if iden is None:
             iden = s_common.guid()
@@ -18,56 +19,56 @@ class Task(EventBus):
         self.info = {}
         self.iden = iden
 
-        self.on('task:fini', self._onTaskFini)
+        #self.on('task:fini', self._onTaskFini)
 
-    def _onTaskFini(self, mesg):
+    #def _onTaskFini(self, mesg):
 
-        retn = mesg[1].get('retn')
-        if retn is not None:
-            self.fire('task:retn', task=self.iden, retn=retn)
+        #retn = mesg[1].get('retn')
+        #if retn is not None:
+            #self.fire('task:retn', task=self.iden, retn=retn)
 
-        self.fini()
+        #self.fini()
 
-    def get(self, prop, defval=None):
-        '''
-        Get a value from the info dict for the task.
-        Args:
-            prop (str): The name of the info value.
-            defval (obj):   The default value to return if not found
+    #def get(self, prop, defval=None):
+        #'''
+        #Get a value from the info dict for the task.
+        #Args:
+            #prop (str): The name of the info value.
+            #defval (obj):   The default value to return if not found
 
-        Returns:
-            (obj):  The object from the info dict (or None)
-        '''
-        return self.info.get(prop, defval)
+        #Returns:
+            #(obj):  The object from the info dict (or None)
+        #'''
+        #return self.info.get(prop, defval)
 
-    def set(self, prop, valu):
-        '''
-        Set a value in the info dict for the task.
+    #def set(self, prop, valu):
+        #'''
+        ##Set a value in the info dict for the task.
 
-        Args:
-            prop (str): The name of the info dict value
-            valu (obj): The value to set in the info dict
-        '''
-        self.info[prop] = valu
+        #Args:
+            #prop (str): The name of the info dict value
+            #valu (obj): The value to set in the info dict
+        #'''
+        #self.info[prop] = valu
 
-    def err(self, info):
-        '''
-        Fire an error return value for the task.
+    #def err(self, info):
+        #'''
+        #Fire an error return value for the task.
 
-        Args:
-            info (dict): Exception info dict (see synapse.common.excinfo )
-        '''
-        retn = (False, info)
-        self.fire('task:retn', task=self.iden, retn=retn)
+        #Args:
+            #info (dict): Exception info dict (see synapse.common.excinfo )
+        #'''
+        #retn = (False, info)
+        #self.fire('task:retn', task=self.iden, retn=retn)
 
-    def retn(self, valu):
-        '''
-        Fire a result return value for the task.
-        Args:
-            valu (obj): The return value
-        '''
-        retn = (True, valu)
-        self.fire('task:retn', task=self.iden, retn=retn)
+    #def retn(self, valu):
+        #'''
+        #Fire a result return value for the task.
+        #Args:
+            #valu (obj): The return value
+        #'''
+        #retn = (True, valu)
+        #self.fire('task:retn', task=self.iden, retn=retn)
 
     def onretn(self, func):
         '''
@@ -84,47 +85,47 @@ class Task(EventBus):
             return func(mesg[1].get('retn'))
         self.on('task:retn', prox)
 
-    def run(self):
-        '''
-        Execute the task.
-        '''
-        if not self.isfini:
-            self._task_run()
-            self.fini()
+    #def run(self):
+        #'''
+        #Execute the task.
+        #'''
+        #if not self.isfini:
+            #self._task_run()
+            #self.fini()
 
     def _task_run(self):  # pragma: no cover
         raise s_common.NoSuchImpl(name='_task_run')
 
-    def __call__(self):
-        self.run()
+    #def __call__(self):
+        #self.run()
 
-class CallTask(Task):
+#class CallTask(Task):
 
-    '''
-    An extension for a runnable task.
+    #'''
+    #An extension for a runnable task.
 
-    Args:
-        call ((func,[],{})): A tuple of call details.
-    '''
-    def __init__(self, call):
+    #Args:
+        #call ((func,[],{})): A tuple of call details.
+    #'''
+    #def __init__(self, call):
 
-        Task.__init__(self)
-        self._call = call
+        #Task.__init__(self)
+        #self._call = call
 
-    def _task_run(self):
+    #def _task_run(self):
 
-        func, args, kwargs = self._call
+        #func, args, kwargs = self._call
 
-        try:
+        #try:
 
-            valu = func(*args, **kwargs)
+            #valu = func(*args, **kwargs)
 
-            if isinstance(valu, types.GeneratorType):
-                for v in valu:
-                    self.retn(v)
+            #if isinstance(valu, types.GeneratorType):
+                #for v in valu:
+                    #self.retn(v)
 
-            else:
-                self.retn(valu)
+            ##else:
+                #self.retn(valu)
 
-        except Exception as e:
-            self.err(s_common.excinfo(e))
+        #except Exception as e:
+            #self.err(s_common.excinfo(e))
