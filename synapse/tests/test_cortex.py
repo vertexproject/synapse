@@ -3386,12 +3386,23 @@ class CortexTest(SynTest):
             with io.BytesIO(b'foobar') as fd:
                 self.istufo(uprox.formNodeByFd(fd, stor=False))
 
+            node = uprox.formTufoByProp('syn:trigger', '*', user='user@localhost',
+                                       on='node:add form=intform', run='[ #foo ]', en=1)
+            self.istufo(node)
+            node = uprox.eval('[intform=443]')[0]
+            self.true(s_tufo.tagged(node, 'foo'))
+
             # Destructive to the test state - run last
             isok, retn = rprox.authReact(('auth:del:user', {'user': 'user@localhost'}))
             self.true(isok)
-            msgs = [('node:add', {'form': 'intform', 'valu': 1})]
+            msgs = [('node:add', {'form': 'intform', 'valu': 100})]
             logs = uprox.splices(msgs)
             self.eq(logs[0][1]['err'], 'NoSuchUser')
+
+            logs = rprox.splices(msgs)
+            self.eq(logs, ())
+            node = rprox.eval('intform=100')[0]
+            self.false(s_tufo.tagged(node, 'foo'))
 
             # Tear down the proxies
             rprox.fini()

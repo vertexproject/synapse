@@ -172,7 +172,7 @@ class AuthMixin:
         General interface for interfacing with Auth via messages.
 
         Args:
-            mesg ((str, dict)): A message we react too.
+            mesg ((str, dict)): A message we react to.
 
         Returns:
             (bool, ((str, dict))): isok, retn tuple.
@@ -333,7 +333,7 @@ class Auth(s_config.Config):
     An authorization object which can help enforce cortex rules.
 
     Args:
-        dirn (str): Dictionry backing the Auth data.
+        dirn (str): Dictionary backing the Auth data.
         conf (dict): Optional configuration data.
     '''
     def __init__(self, dirn, conf=None):
@@ -460,7 +460,7 @@ class Auth(s_config.Config):
             name (str): The user name to delete.
 
         Returns:
-            True:
+            True: True if the operation succeeded.
 
         Raises:
             s_exc.NoSuchRole: If the role does not exist.
@@ -511,28 +511,34 @@ class Auth(s_config.Config):
 
     def getUsers(self):
         '''
+        Get a list of user names.
 
         Returns:
-            list:
+            list: List of user names.
         '''
         return list(self.users.keys())
 
     def getRoles(self):
         '''
+        Get a list of roles.
 
         Returns:
-            list:
+            list: List of role names.
         '''
         return list(self.roles.keys())
 
     def reqUser(self, user):
         '''
+        Get a user object.
 
         Args:
-            user (str):
+            user (str): Username to request.
 
         Returns:
-            User:
+            User: User object.
+
+        Raises:
+            s_exc.NoSuchUser: If the user does not exist.
         '''
         user = self.users.get(user)
         if not user:
@@ -541,12 +547,16 @@ class Auth(s_config.Config):
 
     def reqRole(self, role):
         '''
+        Get a role object.
 
         Args:
-            role (str):
+            role (str): Name of the role object to get.
 
         Returns:
-            Role:
+            Role: Role object.
+
+        Raises:
+            s_exc.NoSuchRole: If the role does not exist.
         '''
         role = self.roles.get(role)
         if not role:

@@ -88,7 +88,7 @@ def writeCerts(dirn):
         . ca.key
         . ca.pem
         . server.crt
-        . server.ke
+        . server.key
         . server.pem
         . root.crt
         . root.key
@@ -97,8 +97,8 @@ def writeCerts(dirn):
 
         The ca has signed all three certs.  The ``server.crt`` is for
         a server running on localhost. The ``root.crt`` and ``user.crt``
-         certs are both are user certs which can connect. They have the
-         common names "root@localhost" and "user@localhost", respectively.
+        certs are both are user certs which can connect. They have the
+        common names "root@localhost" and "user@localhost", respectively.
 
     Returns:
         None

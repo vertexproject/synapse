@@ -271,12 +271,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
         DataModel.__init__(self)
         self._addUnivProps()
 
-        # perm defs are also used to define trigger metadata
-        # they must be loaded prior to triggers being loaded
-        #self._initPermDefs()
-        # Load any syn:trigger nodes in the Cortex
-        self._loadTrigNodes()
-
         self.myfo = self.formTufoByProp('syn:core', 'self')
         self.isnew = self.myfo[1].get('.new', False)
 
@@ -292,6 +286,9 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
         s_auth.AuthMixin.__init__(self, self.auth)
 
         self._initCortexConfSetPost()
+
+        # Load any syn:trigger nodes in the Cortex
+        self._loadTrigNodes()
 
         logger.debug('Loading coremodules from s_modules.ctorlist')
         with self.getCoreXact() as xact:
@@ -551,9 +548,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
             ('dir', {'type': 'str',
                 'doc': 'The cortex metadata directory'}),
 
-            ('fifo:defs', {'defval': {},
-                'doc': 'Config defaults for core fifos'}),
-
             ('autoadd', {'type': 'bool', 'asloc': 'autoadd', 'defval': 1,
                 'doc': 'Automatically add forms for props where type is form'}),
 
@@ -622,7 +616,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
         user = tufo[1].get('syn:trigger:user')
 
         def func(node):
-            self.run(opers, data=(node,))
+            with s_auth.runas(user):
+                self.run(opers, data=(node,))
 
         self._core_triggers.add(func, perm)
 
@@ -2794,7 +2789,6 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
         iden, info = hset.guid()
         return self._formFileBytesNode(iden, info, data, stor, **props)
 
-    # @s_telepath.clientside
     def _formFileBytesNode(self, iden, info, data, stor=True, **props):
         perm = ('node:add', {'form': 'file:bytes'})
         self.reqUserPerm(perm)

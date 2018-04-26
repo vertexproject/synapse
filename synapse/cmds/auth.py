@@ -119,7 +119,8 @@ class AuthCmd(s_cli.Cmd):
             return msg
         mod = self.modmap.get(typ)
         if not mod:  # pragma: no cover
-            raise s_exc.BadSyntaxError(mesg='Something went wrong')
+            raise s_exc.BadSyntaxError(mesg='Unknown type encountered',
+                                       type=typ)
         args['rule'] = rulefo
         msg = s_tufo.tufo(':'.join([stub, mod]),
                           **args)
