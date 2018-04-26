@@ -3380,6 +3380,12 @@ class CortexTest(SynTest):
             self.raises(s_exc.AuthDeny, uprox.addDataModel, name, modl)
             rprox.addDataModel(name, modl)
             self.true(rprox.isDataModl(name))
+
+            # formNodeByBytes/formNodeByFd support used by pushfile
+            self.istufo(uprox.formNodeByBytes(b'woot', stor=False))
+            with io.BytesIO(b'foobar') as fd:
+                self.istufo(uprox.formNodeByFd(fd, stor=False))
+
             # Destructive to the test state - run last
             isok, retn = rprox.authReact(('auth:del:user', {'user': 'user@localhost'}))
             self.true(isok)

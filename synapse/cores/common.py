@@ -122,8 +122,25 @@ class CoreApi:
         self.on = self.core.on
         self.off = self.core.off
 
-    # def formNodeByBytes(self, byts, stor=True, **props):
-    # def formNodeByFd(self, fd, stor=True, **props):
+        # pushfile support
+        self._formFileBytesNode = self.core._formFileBytesNode
+
+    @s_telepath.clientside
+    def formNodeByBytes(self, byts, stor=True, **props):
+        hset = s_hashset.HashSet()
+        hset.update(byts)
+        iden, info = hset.guid()
+        return self._formFileBytesNode(iden, info, [byts], stor, **props)
+
+    @s_telepath.clientside
+    def formNodeByFd(self, fd, stor=True, **props):
+        hset = s_hashset.HashSet()
+        data = []
+        for byts in s_common.iterfd(fd):
+            hset.update(byts)
+            data.append(byts)
+        iden, info = hset.guid()
+        return self._formFileBytesNode(iden, info, data, stor, **props)
 
     # Methods which must be proxied
     def addTufoTag(self, tufo, tag, times=()):
@@ -2756,7 +2773,8 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
         '''
         hset = s_hashset.HashSet()
         hset.update(byts)
-        return self._formFileBytesNode(hset, [byts], stor, **props)
+        iden, info = hset.guid()
+        return self._formFileBytesNode(iden, info, [byts], stor, **props)
 
     @s_telepath.clientside
     def formNodeByFd(self, fd, stor=True, **props):
@@ -2773,11 +2791,13 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
         for byts in s_common.iterfd(fd):
             hset.update(byts)
             data.append(byts)
-        return self._formFileBytesNode(hset, data, stor, **props)
-
-    @s_telepath.clientside
-    def _formFileBytesNode(self, hset, data, stor=True, **props):
         iden, info = hset.guid()
+        return self._formFileBytesNode(iden, info, data, stor, **props)
+
+    # @s_telepath.clientside
+    def _formFileBytesNode(self, iden, info, data, stor=True, **props):
+        perm = ('node:add', {'form': 'file:bytes'})
+        self.reqUserPerm(perm)
         props.update(info)
         sha256 = s_common.uhex(info.get('sha256'))
 
