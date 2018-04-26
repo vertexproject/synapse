@@ -60,7 +60,7 @@ test_steps:  &test_steps
     - store_artifacts:
         path: test-reports
 
-osx_test_steps:  &test_steps
+osx_test_steps:  &osx_test_steps
   steps:
       - checkout
       - run:
@@ -104,7 +104,7 @@ jobs:
 
     working_directory: ~/repo
 
-    <<: *test_steps
+    <<: *osx_test_steps
 
   python36:
     parallelism: 3
