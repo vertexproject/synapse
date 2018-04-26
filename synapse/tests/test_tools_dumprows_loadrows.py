@@ -25,6 +25,7 @@ class DumpRowsTest(SynTest):
             f.write(json.dumps(d, indent=2, sort_keys=True).encode())
 
     def test_simple_use(self):
+        self.thisHostMustNot(platform='darwin')
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
             fp = os.path.join(temp, 'dumpfile.mpk')
@@ -147,6 +148,7 @@ class DumpRowsTest(SynTest):
                 self.eq(event_types, {'core:save:add:rows', 'syn:core:blob:set'})
 
     def test_dump_force(self):
+        self.thisHostMustNot(platform='darwin')
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
             fp = os.path.join(temp, 'dumpfile.mpk')
