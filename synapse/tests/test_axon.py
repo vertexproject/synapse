@@ -325,7 +325,9 @@ class AxonTest(SynTest):
                 s_axon.blocksize = s_const.kibibyte
                 self.raises(RetnErr, axon.locs, bbufhash, timeout=3)
                 genr = s_common.chunks(bbuf, s_axon.blocksize)
-                blob01wait = blob01.waiter(1, 'blob:clone:rows')
+                # It is possible that we may need multiple events captured
+                # to avoid a timing issue
+                blob01wait = blob01.waiter(2, 'blob:clone:rows')
                 self.eq(bbufhash, axon.upload(genr, timeout=3))
                 self.eq((), axon.wants([bbufhash], timeout=3))
 
@@ -351,7 +353,8 @@ class AxonTest(SynTest):
                     print('SIZE: %d/%d' % (size, len(bbuf)))
                     raise
 
-                self.nn(blob01wait.wait(3))
+                blob01wait.wait(3)
+                self.ne(blob01wait.events, [])
                 locs = axon.locs(bbufhash, timeout=3)
                 self.len(1, locs)
                 self.isin('blob00', locs[0][0])

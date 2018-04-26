@@ -125,7 +125,7 @@ class Configable:
 
     def getConfDef(self, name):
         '''
-        Get the defitition for a given
+        Get the definition for a given
 
         Args:
             name (str): Name to get the definition of.
@@ -309,7 +309,7 @@ class Configable:
 
 class Config(Configable, s_eventbus.EventBus):
     '''
-    A EventBus classs which has the Configable mixin already added.
+    A EventBus class which has the Configable mixin already added.
     '''
     def __init__(self, opts=None, defs=()):
         s_eventbus.EventBus.__init__(self)

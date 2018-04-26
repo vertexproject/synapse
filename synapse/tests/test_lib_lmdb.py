@@ -270,3 +270,29 @@ class LmdbTest(SynTest):
                 self.eq(retn[0], (buid2, [(rows[0][1], rows[0][2]), (rows[1][1], rows[1][2]), ]))
                 self.eq(retn[1], (buid2, [(rows[0][1], rows[0][2]), (rows[1][1], rows[1][2]), ]))  # FIXME do we really need this twice?
                 self.eq(retn[2], (buid3, ()))
+
+    def test_lmdb_encode(self):
+        pos_enc = s_lmdb.encodeValAsKey(42)
+        very_pos = s_lmdb.encodeValAsKey(42 * 1000000000)
+        neg_enc = s_lmdb.encodeValAsKey(-42)
+        zero_enc = s_lmdb.encodeValAsKey(0)
+        very_neg = s_lmdb.encodeValAsKey(-42 * 1000000000)
+        self.true(very_neg < neg_enc < zero_enc < pos_enc < very_pos)
+
+        sm_str = 'leet0'
+        med_str = 'leet0' * 10
+        long_str = 'leet0' * 200
+        very_long_str = 'leet0' * 300
+        sm_enc, med_enc, long_enc, very_long_enc = \
+            (s_lmdb.encodeValAsKey(x, isprefix=True) for x in (sm_str, med_str, long_str, very_long_str))
+        sm_enc2, med_enc2, long_enc2, very_long_enc2 = \
+            (s_lmdb.encodeValAsKey(x) for x in (sm_str, med_str, long_str, very_long_str))
+        self.true(very_long_enc2.startswith(long_enc))
+        self.true(long_enc2.startswith(med_enc))
+        self.true(med_enc2.startswith(sm_enc))
+        self.false(very_long_enc2.startswith(long_enc2))
+        self.false(long_enc2.startswith(med_enc2))
+        self.false(med_enc2.startswith(sm_enc2))
+        self.false(very_long_enc.startswith(long_enc2))
+        self.false(long_enc.startswith(med_enc2))
+        self.false(med_enc.startswith(sm_enc2))

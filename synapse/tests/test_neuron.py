@@ -396,11 +396,12 @@ class NeuronTest(SynTest):
 
                         ok, info = sess.call(('cell:get', {'name': 'cell00@localhost'}))
                         self.true(ok)
+                        self.eq(info['ctor'], 'synapse.lib.cell.Cell')
 
                         self.eq(info.get('addr'), cell.getCellAddr())
 
                     # he'll come up on a new port...
-                    with s_cell.Cell(path, conf) as cell:
+                    with TstCell(path, conf) as cell:
 
                         wait = pool.waiter(1, 'cell:add')
 
@@ -409,6 +410,10 @@ class NeuronTest(SynTest):
 
                         self.nn(wait.wait(timeout=3))
                         self.nn(pool.get('cell00@localhost'))
+
+                        ok, info = sess.call(('cell:get', {'name': 'cell00@localhost'}))
+                        self.true(ok)
+                        self.eq(info['ctor'], 'synapse.tests.test_neuron.TstCell')
 
                         mesg = ('cell:ping', {'data': 'hehe'})
                         self.eq(pool.get('cell00@localhost').call(mesg), 'hehe')
@@ -452,3 +457,5 @@ class NeuronTest(SynTest):
 
                     mesg = ('cell:ping', {'data': 'w00t!'})
                     self.eq(pool.get('woot@localhost').call(mesg), 'w00t!')
+
+                pool.fini()

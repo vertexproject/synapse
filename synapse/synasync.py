@@ -47,7 +47,7 @@ def newtask(meth, *args, **kwargs):
 
 class Boss(EventBus):
     '''
-    A Boss manages asynchonous jobs.
+    A Boss manages asynchronous jobs.
 
     ( If given a pool, he will execute them as well )
 
