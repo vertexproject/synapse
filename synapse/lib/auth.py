@@ -8,6 +8,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.reactor as s_react
 
+import synapse.lib.lmdb as s_lmdb
 import synapse.lib.tufo as s_tufo
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
@@ -366,7 +367,7 @@ class Auth(s_config.Config):
 
     def initConfDefs(self):
         self.addConfDefs((
-            ('lmdb:mapsize', {'type': 'int', 'defval': s_const.gigabyte,
+            ('lmdb:mapsize', {'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE,
                 'doc': 'Memory map size for the auth LMDB.'}),
         ))
 
@@ -642,6 +643,8 @@ class TagTree:
 
 class AuthBase:
     '''
+    Base class for implementing Auth rule checking.
+
     ('node:add', {'form': <form>}),
     ('node:del', {'form': <form>}),
 
