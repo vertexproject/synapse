@@ -75,6 +75,8 @@ class CoreApi:
         # Hold onto a reference to the core so we can
         # refer to it for any decorated functions.
         self.core = core
+        # Hold a ref to core.auth so we can use the reqAdmin decorator.
+        self.auth = core.auth
 
         # API for auth management
         self.authReact = self.core.authReact
@@ -85,15 +87,16 @@ class CoreApi:
         self.splices = self.core.splices
 
         # Metadata APIs that need no perms enforcement
-        self.getCoreMods = self.core.getCoreMods
-        self.getTypeRepr = self.core.getTypeRepr
-        self.getPropRepr = self.core.getPropRepr
-        self.getUnivProps = self.core.getUnivProps
         self.isDataModl = self.core.isDataModl
         self.isDataType = self.core.isDataType
-        self.getTypeNorm = self.core.getTypeNorm
+        self.getConfDefs = self.core.getConfDefs
+        self.getCoreMods = self.core.getCoreMods
         self.getPropNorm = self.core.getPropNorm
+        self.getPropRepr = self.core.getPropRepr
+        self.getTypeRepr = self.core.getTypeRepr
+        self.getTypeNorm = self.core.getTypeNorm
         self.getModelDict = self.core.getModelDict
+        self.getUnivProps = self.core.getUnivProps
 
         # getTufo
         self.getTufoByProp = self.core.getTufoByProp
@@ -166,7 +169,11 @@ class CoreApi:
 
     @s_auth.reqAdmin
     def addDataModel(self, name, modl):
-        self.core.addDataModel(name, modl)
+        return self.core.addDataModel(name, modl)
+
+    @s_auth.reqAdmin
+    def getConfOpts(self):
+        return self.core.getConfOpts()
 
 class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
              s_auth.AuthMixin):

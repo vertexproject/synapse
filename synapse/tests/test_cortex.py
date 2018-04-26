@@ -2779,70 +2779,6 @@ class CortexTest(SynTest):
             self.nn(node[1].get('#foo'))
             self.nn(node[1].get('#baz'))
 
-    def test_cortex_auth_telepath(self):
-        conf = {'auth:en': 1, 'auth:admin': 'root@localhost'}
-        cafile = getTestPath('ca.crt')
-        keyfile = getTestPath('server.key')
-        certfile = getTestPath('server.crt')
-        userkey = getTestPath('user.key')
-        usercrt = getTestPath('user.crt')
-        rootkey = getTestPath('root.key')
-        rootcrt = getTestPath('root.crt')
-
-        with self.getDirCore(conf=conf) as core:
-            with s_daemon.Daemon() as dmon:
-                dmon.share('core', core)
-                link = dmon.listen('ssl://localhost:0/',
-                                   cafile=cafile,
-                                   keyfile=keyfile,
-                                   certfile=certfile,
-                                   )
-                port = link[1].get('port')
-                url = 'ssl://user@localhost/core'
-                user_prox = s_telepath.openurl(url,
-                                               port=port,
-                                               cafile=cafile,
-                                               keyfile=userkey,
-                                               certfile=usercrt
-                                               )  # type: s_cores_common.CoreApi
-                dmon.onfini(user_prox.fini)
-                root_prox = s_telepath.openurl(url,
-                                               port=port,
-                                               cafile=cafile,
-                                               keyfile=rootkey,
-                                               certfile=rootcrt
-                                               )  # type: s_cores_common.CoreApi
-                dmon.onfini(root_prox.fini)
-                self.gt(len(user_prox.getCoreMods()), 1)
-                self.raises(NoSuchMeth, user_prox.delRowsByProp, 'strform',)
-                self.raises(NoSuchUser, user_prox.eval, '[strform=pennywise]')
-
-                self.gt(len(root_prox.getCoreMods()), 1)
-                self.raises(NoSuchMeth, root_prox.delRowsByProp, 'strform',)
-                self.len(1, root_prox.eval('sudo() [strform=pennywise]'))
-
-                isok, retn = root_prox.authReact(s_tufo.tufo('auth:get:users'))
-                self.eq(retn[1].get('users'), ('root@localhost',))
-                isok, retn = root_prox.authReact(s_tufo.tufo('auth:req:user', user='root@localhost'))
-                root = retn[1].get('user')
-                self.istufo(root)
-                self.eq(root[0], 'root@localhost')
-                isok, retn = root_prox.authReact(s_tufo.tufo('auth:add:user', user='user@localhost'))
-                user = retn[1].get('user')
-                self.istufo(user)
-                self.eq(user[0], 'user@localhost')
-                isok, retn = root_prox.authReact(s_tufo.tufo('auth:get:users'))
-                self.len(2, retn[1].get('users'))
-                isok, retn = user_prox.authReact(s_tufo.tufo('auth:get:users'))
-                self.false(isok)
-                self.eq(retn[0], 'AuthDeny')
-                isok, retn = root_prox.authReact(s_tufo.tufo('auth:add:admin', user='user@localhost'))
-                user = retn[1].get('user')
-                self.eq(user[0], 'user@localhost')
-                self.true(user[1].get('admin'))
-                isok, retn = user_prox.authReact(s_tufo.tufo('auth:get:users'))
-                self.len(2, retn[1].get('users'))
-
     def test_cortex_auth(self):
 
         conf = {'auth:en': 1, 'auth:admin': 'rawr@vertex.link'}
@@ -3358,34 +3294,102 @@ class CortexTest(SynTest):
             core.unlink(events.append)
 
     def test_cortex_aware(self):
+        with self.getSslCore(configure_roles=True) as proxies:
+            uprox, rprox = proxies  # type: s_cores_common.CoreApi, s_cores_common.CoreApi
 
-        conf = {'auth:en': 1}
+            # The core is inaccessible
+            self.raises(NoSuchMeth, uprox.delRowsByProp, 'strform', )
 
-        with self.getDirCore(conf=conf) as core:
+            self.gt(len(uprox.getCoreMods()), 1)
+            self.len(1, uprox.eval('[strform="bob grey"]'))
+            data = rprox.ask('sudo() [strform=pennywise] addtag(clown)')
+            self.len(1, data.get('data'))
 
-            with s_daemon.Daemon() as dmon:
+            node = rprox.getTufoByProp('strform', 'bob grey')
+            self.istufo(node)
+            nodes = rprox.getTufosByProp('strform')
+            self.len(2, nodes)
 
-                link = dmon.listen('tcp://127.0.0.1:0/')
-                dmon.share('core', core)
+            node = uprox.addTufoTags(node, ['alias'])
+            self.true(s_tufo.tagged(node, 'alias'))
 
-                port = link[1].get('port')
+            node = rprox.delTufoTag(node, 'alias')
+            self.false(s_tufo.tagged(node, 'alias'))
 
-                with s_telepath.openurl('tcp://127.0.0.1/core', port=port) as prox:
+            node = uprox.setTufoProp(node, 'foo', 'bar')
+            self.eq(node[1].get('strform:foo'), 'bar')
 
-                    self.raises(s_exc.NoSuchMeth, prox.getTufoByProp, 'inet:ipv4', 0x01020304)
+            # Splices can go in
+            msgs = [('node:add', {'form': 'intform', 'valu': 0})]
+            logs = uprox.splices(msgs)
+            self.len(0, logs)
+            node = rprox.getTufoByProp('intform', 0)
+            self.istufo(node)
 
-                    retn = prox.ask('[ inet:ipv4=1.2.3.4 ]')
-                    self.eq(retn['oplog'][-1]['excinfo']['err'], 'NoSuchUser')
+            iden = node[0]
+            # Can retrieve raw rows
+            rows = uprox.getRowsBy('range', 'intform', (-1, 1))
+            self.len(1, rows)
+            rows = uprox.getRowsByProp('intform')
+            self.len(1, rows)
+            rows = uprox.getRowsById(iden)
+            self.gt(len(rows), 1)
+            rows = uprox.getRowsByIdProp(iden, 'intform')
+            self.len(1, rows)
 
-                    retn = prox.ask('inet:ipv4=1.2.3.4')
-                    self.len(0, retn['data'])
+            # Can retrieve by getTufo APIs
+            node[1].pop('.new', None)
+            self.eq(node, uprox.getTufoByIden(iden))
+            self.eq((node,), uprox.getTufosByIdens((iden,)))
+            nodes = uprox.getTufosByTag('clown')
+            self.len(1, nodes)
 
-                    self.raises(s_exc.NoSuchUser, prox.eval, '[ inet:ipv4=1.2.3.4 ]')
+            nodes = uprox.getTufosBy('range', 'intform', (-1, 1))
+            self.len(1, nodes)
 
-                    msgs = [('node:add', {'form': 'inet:ipv4', 'valu': 0x01020304})]
-                    logs = prox.splices(msgs)
+            items = (('strform', 'a', {}),
+                     ('notaform', 2, {}),
+                     )
+            ret = rprox.formTufosByProps(items)
+            self.len(2, ret)
+            self.nn(ret[0][0])  # real node
+            self.none(ret[1][0])  # ephemeral node
 
-                    self.eq(logs[0][1]['err'], 'NoSuchUser')
+            # Metadata APIs
+            self.true(rprox.isDataModl('tst'))
+            self.true(rprox.isDataType('intform'))
+            self.isinstance(rprox.getConfDefs(), dict)
+            self.isinstance(rprox.getModelDict(), dict)
+            self.eq(rprox.getPropNorm('intform', '2')[0], 2)
+            self.eq(rprox.getPropRepr('intform', 2)[0], '2')
+            self.eq(rprox.getTypeNorm('intform', '2')[0], 2)
+            self.eq(rprox.getTypeRepr('intform', 2)[0], '2')
+            uniprops = rprox.getUnivProps()
+            self.isinstance(uniprops, tuple)
+
+            self.raises(s_exc.AuthDeny, uprox.getConfOpts)
+            self.isinstance(rprox.getConfOpts(), dict)
+
+            name, modl = 'woot', {
+                'forms': (
+                    ('hehe:haha', {'ptype': 'str'}, (
+                        ('hoho', {'ptype': 'str', 'req': 1}),
+                    )),
+                ),
+            }
+            self.raises(s_exc.AuthDeny, uprox.addDataModel, name, modl)
+            rprox.addDataModel(name, modl)
+            self.true(rprox.isDataModl(name))
+            # Destructive to the test state - run last
+            isok, retn = rprox.authReact(('auth:del:user', {'user': 'user@localhost'}))
+            self.true(isok)
+            msgs = [('node:add', {'form': 'intform', 'valu': 1})]
+            logs = uprox.splices(msgs)
+            self.eq(logs[0][1]['err'], 'NoSuchUser')
+
+            # Tear down the proxies
+            rprox.fini()
+            uprox.fini()
 
 class StorageTest(SynTest):
 

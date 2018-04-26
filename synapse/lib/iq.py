@@ -776,7 +776,25 @@ class SynTest(unittest.TestCase):
                                 'rule': ('node:prop:set',
                                          {'form': '*', 'prop': '*'})
                                 }),
+            ('auth:add:role', {'role': 'deleter'}),
+            ('auth:add:rrule', {'role': 'deleter',
+                                'rule': ('node:del',
+                                         {'form': '*'})
+                                }),
+            ('auth:add:rrule', {'role': 'deleter',
+                                'rule': ('node:del',
+                                         {'form': '*'})
+                                }),
+            ('auth:add:rrule', {'role': 'deleter',
+                                'rule': ('node:tag:del',
+                                         {'tag': '*'})
+                                }),
+            ('auth:add:rrule', {'role': 'deleter',
+                                'rule': ('node:prop:set',
+                                         {'form': '*', 'prop': '*'})
+                                }),
             ('auth:add:urole', {'user': 'user@localhost', 'role': 'creator'}),
+            ('auth:add:urole', {'user': 'user@localhost', 'role': 'deleter'}),
         )
 
         with self.getDirCore(conf=conf) as core:
