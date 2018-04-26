@@ -1,7 +1,10 @@
 import time
 import random
 
+from unittest.mock import patch
+
 import synapse.exc as s_exc
+import synapse.lib.iq as s_iq
 import synapse.lib.cell as s_cell
 import synapse.cryotank as s_cryotank
 import synapse.lib.msgpack as s_msgpack
@@ -17,10 +20,7 @@ class CryoTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            with s_cryotank.CryoTank(dirn) as tank:  # type: s_cryotank.CryoTank
-
-                # Default configable option
-                self.eq(tank.getConfOpt('mapsize'), s_const.tebibyte)
+            with s_cryotank.CryoTank(dirn, {'mapsize': s_iq.TEST_MAP_SIZE}) as tank:  # type: s_cryotank.CryoTank
 
                 info = tank.info()
                 self.eq(0, info.get('indx'))
@@ -90,6 +90,9 @@ class CryoTest(SynTest):
                 # We can still put a small item in though!
                 self.eq(tank.puts([(2, {'key': 'tinyitem'})]))
 
+    ''' Don't explicitly set the map size in each conf, since we're trying to test that the configuration actually
+    works. '''
+    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_iq.TEST_MAP_SIZE)
     def test_cryo_cell(self):
 
         with self.getTestDir() as dirn:
@@ -166,7 +169,7 @@ class CryoTest(SynTest):
                     self.len(1, metr)
 
                     # We can initialize a new tank directly with a custom map size
-                    self.true(user.init('weee:imthebest', {'mapsize': 5558675309}))
+                    self.true(user.init('weee:imthebest', {'mapsize': s_iq.TEST_MAP_SIZE // 2}))
                     self.false(user.init('woot:hehe'))
 
                     # error when we specify an invalid config option
@@ -197,7 +200,7 @@ class CryoTest(SynTest):
 
     def test_cryo_cell_indexing(self):
 
-        conf = {'bind': '127.0.0.1', 'host': 'localhost'}
+        conf = {'bind': '127.0.0.1', 'host': 'localhost', 'defvals': {'mapsize': s_iq.TEST_MAP_SIZE}}
         with self.getTestDir() as dirn, s_cryotank.CryoCell(dirn, conf) as cell:
 
             addr = cell.getCellAddr()
@@ -240,10 +243,11 @@ class CryoTest(SynTest):
             conf = {
                 'cells': [
                     (celldir, {'ctor': 'synapse.cryotank.CryoCell',
-                                'port': port,
-                                'host': 'localhost',
-                                'bind': '127.0.0.1',
-                                }),
+                               'port': port,
+                               'host': 'localhost',
+                               'bind': '127.0.0.1',
+                               'defvals': {'mapsize': s_iq.TEST_MAP_SIZE}
+                               }),
                 ],
             }
 
@@ -286,7 +290,7 @@ class CryoIndexTest(SynTest):
         self.nn(rv)
 
     def test_cryotank_index(self):
-        with self.getTestDir() as dirn, s_cryotank.CryoTank(dirn) as tank:
+        with self.getTestDir() as dirn, s_cryotank.CryoTank(dirn, {'mapsize': s_iq.TEST_MAP_SIZE}) as tank:
             idxr = tank.indexer
 
             data1 = {'foo': 1234, 'bar': 'stringval'}
@@ -315,14 +319,13 @@ class CryoIndexTest(SynTest):
             idxs = idxr.getIndices()
             self.eq(1, idxs[0]['nextoffset'])
             self.eq(1, idxs[0]['ngood'])
+            waiter = self.initWaiter(tank)
             retn = list(idxr.queryNormRecords('first'))
             self.eq(1, len(retn))
             t = retn[0]
             self.eq(2, len(t))
             self.eq(t[0], 0)
             self.eq(t[1], {'first': 1234})
-
-            waiter = self.initWaiter(tank)
             self.wait(waiter)
 
             waiter = self.initWaiter(tank)
@@ -333,6 +336,7 @@ class CryoIndexTest(SynTest):
             self.eq(2, idxs[0]['ngood'])
 
             # exact query
+            waiter = self.initWaiter(tank)
             retn = list(idxr.queryRows('first', valu=2345, exact=True))
             self.eq(1, len(retn))
             t = retn[0]
@@ -340,7 +344,6 @@ class CryoIndexTest(SynTest):
             self.eq(t[0], 1)
             self.eq(s_msgpack.un(t[1]), data2)
 
-            waiter = self.initWaiter(tank)
             self.wait(waiter)
 
             # second index
@@ -418,7 +421,7 @@ class CryoIndexTest(SynTest):
             self.lt(before_idx['ngood'], after_idx['ngood'])
 
     def test_cryotank_index_nest(self):
-        with self.getTestDir() as dirn, s_cryotank.CryoTank(dirn) as tank:
+        with self.getTestDir() as dirn, s_cryotank.CryoTank(dirn, {'mapsize': s_iq.TEST_MAP_SIZE}) as tank:
             idxr = tank.indexer
             item = {
                 'hehe': {

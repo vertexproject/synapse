@@ -1,5 +1,8 @@
+import sys
 import struct
 import itertools
+
+import synapse.lib.const as s_const
 
 import xxhash  # type: ignore
 
@@ -8,6 +11,12 @@ import synapse.lib.msgpack as s_msgpack
 STOR_FLAG_NOINDEX = 0x0001      # there is no byprop index for this prop
 STOR_FLAG_MULTIVAL = 0x0002     # this is a multi-value prop
 STOR_FLAG_DEFVAL = 0x0004       # Only set this if it doesn't exist
+
+if sys.platform == 'linux':
+    DEFAULT_MAP_SIZE = s_const.tebibyte
+else:
+    # For non-Linux system, use a smaller DB since one can't guarantee sparse file support
+    DEFAULT_MAP_SIZE = s_const.gibibyte
 
 # String vals of this size or larger will be truncated and hashed in index.  What this means is
 # that comparison on large string vals require retrieving the row from the main table

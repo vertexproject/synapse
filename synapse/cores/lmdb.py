@@ -7,6 +7,9 @@ from binascii import unhexlify
 from contextlib import contextmanager
 from threading import Lock
 
+import lmdb
+import xxhash
+
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
@@ -16,9 +19,7 @@ import synapse.cores.storage as s_cores_storage
 
 import synapse.lib.threads as s_threads
 import synapse.lib.msgpack as s_msgpack
-
-import lmdb
-import xxhash
+import synapse.lib.lmdb as s_lmdb
 
 logger = logging.getLogger(__name__)
 
@@ -339,16 +340,11 @@ class LmdbStorage(s_cores_storage.Storage):
         dbinfo = self._initDbInfo()
         dbname = dbinfo.get('name')
 
-        # Initial DB Size.  Must be < 2 GiB for 32-bit.  Can be big for 64-bit systems.  Will create
-        # a file of that size.  On Windows, will actually immediately take up that much
-        # disk space.
-        DEFAULT_MAP_SIZE = 512 * 1024 * 1024
-
         # _write_lock exists solely to hold off other threads' write transactions long enough to
         # potentially increase the map size.
         self._write_lock = Lock()
 
-        map_size = self._link[1].get('lmdb:mapsize', DEFAULT_MAP_SIZE)
+        map_size = self._link[1].get('lmdb:mapsize', s_lmdb.DEFAULT_MAP_SIZE)
         self._map_size, _ = s_datamodel.getTypeNorm('int', map_size)
         self._max_map_size = 2**46 if sys.maxsize > 2**32 else 2**30
 
