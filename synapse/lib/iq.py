@@ -110,7 +110,7 @@ def writeCerts(dirn):
         byts = s_data.get(fn)
         dst = os.path.join(dirn, fn)
         if not os.path.exists(dst):
-            with s_common.genfile() as fd:
+            with s_common.genfile(dst) as fd:
                 fd.write(byts)
 
 
