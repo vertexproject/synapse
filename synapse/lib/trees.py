@@ -5,6 +5,77 @@ potentially overlapping intervals from a point.
 
 #TODO make an n-dimentional implementation using
 # segment trees as well...
+class Tree:
+    '''
+    A simple step tree with deep and shallow access.
+    '''
+    def __init__(self):
+        self.root = [None, {}]
+
+    def put(self, path, valu):
+
+        node = self.root
+
+        for item in path:
+
+            step = node[1].get(item)
+            if step is None:
+                step = node[1][item] = [None, {}]
+
+            node = step
+
+        node[0] = valu
+
+    def first(self, path):
+        '''
+        Return the first non-None value in the path.
+        '''
+        node = self.root
+        for item in path:
+
+            step = node[1].get(item)
+            if step is None:
+                return None
+
+            if step[0] is not None:
+                return step[0]
+
+            node = step
+
+    def last(self, path):
+        '''
+        Return the last non-None value in the path.
+        '''
+        retn = None
+
+        node = self.root
+        for item in path:
+
+            step = node[1].get(item)
+            if step is None:
+                break
+
+            if step[0] is not None:
+                retn = step[0]
+
+            node = step
+
+        return retn
+
+    def get(self, path):
+        '''
+        Return the value for the node at the given path.
+        '''
+        node = self.root
+        for item in path:
+
+            step = node[1].get(item)
+            if step is None:
+                return None
+
+            node = step
+
+        return node[0]
 
 class IntervalTree:
     '''

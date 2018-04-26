@@ -93,7 +93,15 @@ class Xact(s_eventbus.EventBus):
         return node
 
     def getNodeByNdef(self, ndef):
+        '''
+        Return a single Node by (form,valu) tuple.
 
+        Args:
+            ndef ((str,obj)): A (form,valu) ndef tuple.
+
+        Returns:
+            (synapse.lib.node.Node): The Node or None.
+        '''
         node = self.nodesbyndef.get(ndef)
         if node is None:
             buid = s_common.buid(ndef)

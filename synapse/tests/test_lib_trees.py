@@ -36,3 +36,20 @@ class TreeTest(SynTest):
         self.eq(itree.get(-31), [])
         self.eq(itree.get(101), [])
         self.eq(itree.get(0xffffffff), [])
+
+    def test_tree_base(self):
+        tree = s_trees.Tree()
+        tree.put(('foo', 'bar'), 'hehe')
+        tree.put(('foo', 'bar', 'baz'), 'haha')
+
+        self.eq('hehe', tree.get(('foo', 'bar')))
+        self.eq('haha', tree.get(('foo', 'bar', 'baz')))
+        self.eq('hehe', tree.first(('foo', 'bar', 'baz')))
+
+        self.eq('hehe', tree.first(('foo', 'bar', 'baz')))
+
+        self.none(tree.get(('foo', 'bar', 'baz', 'faz')))
+        self.eq('haha', tree.last(('foo', 'bar', 'baz', 'faz')))
+
+        self.none(tree.get(('fake', 'newp')))
+        self.none(tree.first(('fake', 'newp')))

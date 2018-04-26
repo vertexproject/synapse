@@ -153,13 +153,13 @@ class Node:
         tick = s_common.now()
 
         #FIXME: join tags down...
-        sops = [
+        sops = (
             ('node:tag:add', {
                 'buid': self.buid,
                 'form': self.form.utf8name,
                 'tag': tag.encode('utf8'),
-            })
-        ]
+            }),
+        )
         self.xact.stor(sops)
 
     def delTag(self, tag):

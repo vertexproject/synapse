@@ -66,7 +66,13 @@ class View:
 class Cortex(s_service.Service):
     '''
     A Cortex implements the synapse hypergraph.
+
+    The bulk of the Cortex API lives on the Xact() object which can
+    be obtained by calling Cortex.xact() in a with block.  This allows
+    callers to manage transaction boundaries explicitly and dramatically
+    increases performance.
     '''
+
     confdefs = (
 
         ('auth:en', {'type': 'bool', 'defval': False,
@@ -177,16 +183,20 @@ class Cortex(s_service.Service):
 
     def addNodes(self, nodedefs):
         '''
-        Quickly add a list of nodes from node definition tuples.
+        Quickly add/modify a list of nodes from node definition tuples.
+        This API is the simplest/fastest way to add nodes, set node props,
+        and add tags to nodes remotely.
 
         Args:
+
             nodedefs (list): A list of node definition tuples. See below.
 
         A node definition tuple is defined as:
 
-        ( (form, valu), {'props':{}, 'tags':{})
+            ( (form, valu), {'props':{}, 'tags':{})
 
         The "props" or "tags" keys may be omitted.
+
         '''
         with self.xact(write=True) as xact:
             xact.addNodes(nodedefs)
