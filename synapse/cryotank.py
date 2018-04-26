@@ -1,9 +1,11 @@
 import os
+import types
 import shutil
 import struct
 import logging
 import threading
 import contextlib
+from functools import partial, wraps
 from collections import defaultdict
 
 import lmdb  # type: ignore
@@ -58,7 +60,7 @@ class CryoTank(s_config.Config):
 
     @staticmethod
     @s_config.confdef(name='cryotank')
-    def _crytotank_confdefs():
+    def _cryotank_confdefs():
         defs = (
             # from LMDB docs
             ('mapsize', {'type': 'int', 'doc': 'LMDB Mapsize value', 'defval': s_const.tebibyte}),
@@ -222,6 +224,7 @@ class CryoTank(s_config.Config):
         '''
         return {'indx': self.items_indx, 'metrics': self.metrics_indx, 'stat': self.lmdb.stat()}
 
+
 class CryoCell(s_cell.Cell):
 
     def postCell(self):
@@ -249,16 +252,75 @@ class CryoCell(s_cell.Cell):
         '''
         CryoCell message handlers.
         '''
-        return {
+        cryo_handlers = {
             'cryo:init': self._onCryoInit,
             'cryo:list': self._onCryoList,
-            'cryo:last': self._onCryoLast,
             'cryo:puts': self._onCryoPuts,
             'cryo:dele': self._onCryoDele,
-            'cryo:rows': self._onCryoRows,
-            'cryo:slice': self._onCryoSlice,
-            'cryo:metrics': self._onCryoMetrics,
+            'cryo:last': partial(self._onGeneric, CryoTank.last),
+            'cryo:rows': partial(self._onGeneric, CryoTank.rows),
+            'cryo:slice': partial(self._onGeneric, CryoTank.slice),
+            'cryo:metrics': partial(self._onGeneric, CryoTank.metrics),
         }
+        indexer_calls = {
+            'cryo:indx:add': CryoTankIndexer.addIndex,
+            'cryo:indx:del': CryoTankIndexer.delIndex,
+            'cryo:indx:pause': CryoTankIndexer.pauseIndex,
+            'cryo:indx:resume': CryoTankIndexer.resumeIndex,
+            'cryo:indx:stat': CryoTankIndexer.getIndices,
+            'cryo:indx:querynormvalu': CryoTankIndexer.queryNormValu,
+            'cryo:indx:querynormrecords': CryoTankIndexer.queryNormRecords,
+            'cryo:indx:queryrows': CryoTankIndexer.queryRows
+        }
+        cryo_handlers.update({k: partial(self._onCryoIndex, v) for k, v in indexer_calls.items()})
+        return cryo_handlers
+
+    def _standard_return(self, chan, subfunc, *args, **kwargs):
+        '''
+        Calls a function and returns the return value or exception back through the channel
+        '''
+        try:
+            rv = subfunc(*args, **kwargs)
+        except Exception as e:
+            retn = s_common.getexcfo(e)
+            return chan.tx((False, retn))
+
+        if isinstance(rv, types.GeneratorType):
+            chan.setq()
+            chan.tx((True, True))
+            genr = s_common.chunks(rv, 1000)
+            chan.txwind(genr, 100, timeout=30)
+            return
+
+        return chan.tx((True, rv))
+
+    @s_glob.inpool
+    def _onGeneric(self, method, chan, mesg):
+        '''
+        Generic handler that looks up tank in name field and passes it to method of cryotank
+        '''
+        cmdstr, kwargs = mesg
+        name = kwargs.pop('name')
+        tank = self.tanks.get(name)
+
+        with chan:
+            if tank is None:
+                return chan.tx((False, ('NoSuchName', {'name': name})))
+            return self._standard_return(chan, method, tank, **kwargs)
+
+    @s_glob.inpool
+    def _onCryoIndex(self, subfunc, chan, mesg):
+        cmdstr, kwargs = mesg
+        name = kwargs.pop('name')
+        tank = self.tanks.get(name)
+
+        with chan:
+            if tank is None:
+                return chan.tx((False, ('NoSuchName', {'name': name})))
+            indexer = tank.indexer
+            if indexer is None:
+                return chan.tx((False, ('IndexingDisabled', {'name': name})))
+            return self._standard_return(chan, subfunc, indexer, **kwargs)
 
     def genCryoTank(self, name, conf=None):
         '''
@@ -295,18 +357,6 @@ class CryoCell(s_cell.Cell):
         '''
         return [(name, tank.info()) for (name, tank) in self.tanks.items()]
 
-    def _onCryoLast(self, chan, mesg):
-
-        name = mesg[1].get('name')
-
-        with chan:
-
-            tank = self.tanks.get(name)
-            if tank is None:
-                return chan.txfini(None)
-
-            return chan.txfini(tank.last())
-
     def _onCryoList(self, chan, mesg):
         chan.txfini((True, self.getCryoList()))
 
@@ -316,83 +366,20 @@ class CryoCell(s_cell.Cell):
         name = mesg[1].get('name')
 
         logger.info('Deleting tank: %s' % (name,))
-
-        tank = self.tanks.pop(name)  # type: CryoTank
-        if tank is None:
-            return chan.txfini(False)
-
-        self.names.pop(name)
-
-        tank.fini()
-        shutil.rmtree(tank.path, ignore_errors=True)
-        return chan.txfini(True)
-
-    @s_glob.inpool
-    def _onCryoSlice(self, chan, mesg):
-
-        name = mesg[1].get('name')
-        offs = mesg[1].get('offs')
-        size = mesg[1].get('size')
-
         with chan:
 
-            tank = self.tanks.get(name)
+            tank = self.tanks.pop(name)  # type: CryoTank
             if tank is None:
-                return chan.tx((False, ('NoSuchName', {'name': name})))
+                return chan.tx((True, False))
 
-            chan.setq()
-            chan.tx((True, True))
+            self.names.pop(name)
 
-            genr = tank.slice(offs, size)
-            genr = s_common.chunks(genr, 100)
-
-            # 100 chunks of 100 in flight...
-            chan.txwind(genr, 100, timeout=30)
-
-    @s_glob.inpool
-    def _onCryoRows(self, chan, mesg):
-
-        name = mesg[1].get('name')
-        offs = mesg[1].get('offs')
-        size = mesg[1].get('size')
-
-        with chan:
-
-            tank = self.tanks.get(name)
-            if tank is None:
-                return chan.tx((False, ('NoSuchName', {'name': name})))
-
-            chan.setq()
-            chan.tx((True, True))
-
-            rows = tank.rows(offs, size=size)
-            genr = s_common.chunks(rows, 1000)
-
-            chan.txwind(genr, 100, timeout=30)
-
-    @s_glob.inpool
-    def _onCryoMetrics(self, chan, mesg):
-        name = mesg[1].get('name')
-        offs = mesg[1].get('offs')
-        size = mesg[1].get('size')
-
-        with chan:
-
-            tank = self.tanks.get(name)
-            if tank is None:
-                return chan.txfini((False, ('NoSuchName', {'name': name})))
-
-            chan.setq()
-            chan.tx((True, True))
-
-            metr = tank.metrics(offs, size=size)
-
-            genr = s_common.chunks(metr, 1000)
-            chan.txwind(genr, 100, timeout=30)
+            tank.fini()
+            shutil.rmtree(tank.path, ignore_errors=True)
+            return chan.tx((True, True))
 
     @s_glob.inpool
     def _onCryoPuts(self, chan, mesg):
-
         name = mesg[1].get('name')
 
         chan.setq()
@@ -410,22 +397,12 @@ class CryoCell(s_cell.Cell):
 
     @s_glob.inpool
     def _onCryoInit(self, chan, mesg):
-        name = mesg[1].get('name')
-        conf = mesg[1].get('conf')
-
         with chan:
 
-            tank = self.tanks.get(name)
+            tank = self.tanks.get(mesg[1].get('name'))
             if tank:
                 return chan.tx((True, False))
-
-            try:
-                self.genCryoTank(name, conf)
-                return chan.tx((True, True))
-
-            except Exception as e:
-                retn = s_common.getexcfo(e)
-                return chan.tx((False, retn))
+            return self._standard_return(chan, lambda **kwargs: bool(self.genCryoTank(**kwargs)), **mesg[1])
 
 class CryoClient:
     '''
@@ -437,6 +414,27 @@ class CryoClient:
         timeout (int): Connect timeout
     '''
     _chunksize = 10000
+
+    def _remotecall(self, name, cmd_str, timeout=None, **kwargs):
+        '''
+        Handles all non-generator remote calls
+        '''
+        kwargs['name'] = name
+        ok, retn = self.sess.call((cmd_str, kwargs), timeout=timeout)
+        return s_common.reqok(ok, retn)
+
+    def _genremotecall(self, name, cmd_str, timeout=None, **kwargs):
+        '''
+        Handles all generator function remote calls
+        '''
+        kwargs['name'] = name
+        with self.sess.task((cmd_str, kwargs), timeout=timeout) as chan:
+            ok, retn = chan.next(timeout=timeout)
+            s_common.reqok(ok, retn)
+
+            for bloc in chan.rxwind(timeout=timeout):
+                for item in bloc:
+                    yield item
 
     def __init__(self, sess):
         self.sess = sess
@@ -473,7 +471,7 @@ class CryoClient:
         Returns:
             ((int, object)): The last entry index and object from the CryoTank.
         '''
-        return self.sess.call(('cryo:last', {'name': name}), timeout=timeout)
+        return self._remotecall(name, cmd_str='cryo:last', timeout=timeout)
 
     def delete(self, name, timeout=None):
         '''
@@ -486,7 +484,7 @@ class CryoClient:
         Returns:
             bool: True if the CryoTank was deleted, False if it was not deleted.
         '''
-        return self.sess.call(('cryo:dele', {'name': name}), timeout=timeout)
+        return self._remotecall(name, cmd_str='cryo:dele', timeout=timeout)
 
     def list(self, timeout=None):
         '''
@@ -514,15 +512,7 @@ class CryoClient:
         Yields:
             (int, obj): (indx, item) tuples for the sliced range.
         '''
-        mesg = ('cryo:slice', {'name': name, 'offs': offs, 'size': size})
-        with self.sess.task(mesg, timeout=timeout) as chan:
-
-            ok, retn = chan.next(timeout=timeout)
-            s_common.reqok(ok, retn)
-
-            for bloc in chan.rxwind(timeout=timeout):
-                for item in bloc:
-                    yield item
+        return self._genremotecall(name, offs=offs, size=size, cmd_str='cryo:slice', timeout=timeout)
 
     def rows(self, name, offs, size, timeout=None):
         '''
@@ -541,15 +531,7 @@ class CryoClient:
         Yields:
             (int, bytes): (indx, bytes) tuples for the rows in range.
         '''
-        mesg = ('cryo:rows', {'name': name, 'offs': offs, 'size': size})
-        with self.sess.task(mesg, timeout=timeout) as chan:
-
-            ok, retn = chan.next(timeout=timeout)
-            s_common.reqok(ok, retn)
-
-            for bloc in chan.rxwind(timeout=timeout):
-                for item in bloc:
-                    yield item
+        return self._genremotecall(name, offs=offs, size=size, cmd_str='cryo:rows', timeout=timeout)
 
     def metrics(self, name, offs, size=None, timeout=None):
         '''
@@ -563,15 +545,7 @@ class CryoClient:
         Returns:
             tuple: A tuple containing metrics tufos for the named CryoTank.
         '''
-        mesg = ('cryo:metrics', {'name': name, 'offs': offs, 'size': size})
-        with self.sess.task(mesg, timeout=timeout) as chan:
-
-            ok, retn = chan.next(timeout=timeout)
-            s_common.reqok(ok, retn)
-
-            for bloc in chan.rxwind(timeout=timeout):
-                for item in bloc:
-                    yield item
+        return self._genremotecall(name, offs=offs, size=size, cmd_str='cryo:metrics', timeout=timeout)
 
     def init(self, name, conf=None, timeout=None):
         '''
@@ -586,17 +560,143 @@ class CryoClient:
             True if the tank was created, False if the tank existed or
             there was an error during CryoTank creation.
         '''
-        mesg = ('cryo:init', {'name': name, 'conf': conf})
-        ok, retn = self.sess.call(mesg, timeout=timeout)
-        return s_common.reqok(ok, retn)
+        return self._remotecall(name, conf=conf, cmd_str='cryo:init', timeout=timeout)
 
+    def addIndex(self, name, prop, syntype, datapaths, timeout=None):
+        '''
+        Add an index to the cryotank
 
-# ----
-# TODO: could index faster maybe if ingest/normalize is separate thread from writing
-# TODO:  what to do with subprops returned from getTypeNorm
+        Args:
+            name (str):  name of the Cryotank.
+            prop (str):  the name of the property this will be stored as in the normalized record
+            syntype (str):  the synapse type this will be interpreted as
+            datapaths(Iterable[str]):  datapath specs against which the raw record is run to extract a single field
+                that is passed to the type normalizer.  These will be tried in order until one succeeds.  At least one
+                must be present.
+            timeout (Optional[float]):  the maximum timeout for an ack
+        Returns:
+            None
+        Note:
+            Additional datapaths will only be tried if prior datapaths are not present, and *not* if
+            the normalization fails.
+        '''
+        if not len(datapaths):
+            raise s_exc.BadOperArg(mesg='datapaths must have at least one entry')
+
+        return self._remotecall(name, prop=prop, syntype=syntype, datapaths=datapaths, cmd_str='cryo:indx:add',
+                                timeout=timeout)
+
+    def delIndex(self, name, prop, timeout=None):
+        '''
+        Delete an index
+
+        Args:
+            name (str): name of the Cryotank
+            prop (str): the (normalized) property name
+            timeout (Optional[float]):  the maximum timeout for an ack
+        Returns:
+            None
+        '''
+        return self._remotecall(name, prop=prop, cmd_str='cryo:indx:del', timeout=timeout)
+
+    def pauseIndex(self, name, prop=None, timeout=None):
+        '''
+        Temporarily stop indexing one or all indices
+
+        Args:
+            name (str): name of the Cryotank
+            prop: (Optional[str]):  the index to stop indexing, or if None, indicate to stop all indices
+            timeout (Optional[float]):  the maximum timeout for an ack
+        Returns:
+            None
+        Note:
+            Pausing is not persistent.  Restarting the process will resume indexing.
+        '''
+        return self._remotecall(name, prop=prop, cmd_str='cryo:indx:pause', timeout=timeout)
+
+    def resumeIndex(self, name, prop=None, timeout=None):
+        '''
+        Undo a pauseIndex
+
+        Args:
+            name (str): name of the Cryotank
+            prop (Optional[str]):  the index to start indexing, or if None, indicate to resume all indices
+            timeout (Optional[float]):  the maximum timeout for an ack
+        Returns:
+            None
+        '''
+        return self._remotecall(name, prop=prop, cmd_str='cryo:indx:resume', timeout=timeout)
+
+    def getIndices(self, name, timeout=None):
+        '''
+        Get information about all the indices
+
+        Args:
+            name (str): name of the Cryotank
+            timeout (Optional[float]):  the maximum timeout for an ack
+        Returns:
+            List[Dict[str: Any]]: all the indices with progress and statistics
+        '''
+        return self._remotecall(name, cmd_str='cryo:indx:stat', timeout=timeout)
+
+    def queryNormValu(self, name, prop, valu=None, exact=False, timeout=None):
+        '''
+        Query for normalized individual property values
+
+        Args:
+            name (str):  name of the Cryotank
+            prop (str):  The name of the indexed property
+            valu (Optional[Union[int, str]]):  The normalized value.  If not present, all records with prop present,
+            sorted by prop will be returned.  It will be considered a prefix if exact is False.
+            exact (bool): Indicates that the result must match exactly.  Conversely, if False, indicates a prefix match.
+            timeout (Optional[float]):  the maximum timeout for an ack
+
+        Returns:
+            Iterable[Tuple[int, Union[str, int]]]:  A generator of offset, normalized value tuples.
+        '''
+        return self._genremotecall(name, prop=prop, valu=valu, exact=exact, cmd_str='cryo:indx:querynormvalu',
+                                   timeout=timeout)
+
+    def queryNormRecords(self, name, prop, valu=None, exact=False, timeout=None):
+        '''
+        Query for normalized property values grouped together in dicts
+
+        Args:
+            name (str):  name of the Cryotank
+            prop (str):  The name of the indexed property
+            valu (Optional[Union[int, str]]):  The normalized value.  If not present, all records with prop present,
+            sorted by prop will be returned.  It will be considered a prefix if exact is False.
+            exact (bool): Indicates that the result must match exactly.  Conversely, if False, indicates a prefix match.
+            timeout (Optional[float]):  the maximum timeout for an ack
+
+        Returns:
+            Iterable[Tuple[int, Dict[str, Union[str, int]]]]: A generator of offset, dictionary tuples
+        '''
+        return self._genremotecall(name, prop=prop, valu=valu, exact=exact, cmd_str='cryo:indx:querynormrecords',
+                                   timeout=timeout)
+
+    def queryRows(self, name, prop, valu=None, exact=False, timeout=None):
+        '''
+        Query for raw (i.e. from the cryotank itself) records
+
+        Args:
+            name (str):  name of the Cryotank
+            prop (str):  The name of the indexed property
+            valu (Optional[Union[int, str]]):  The normalized value.  If not present, all records with prop present,
+            sorted by prop will be returned.  It will be considered a prefix if exact is False.
+            exact (bool): Indicates that the result must match exactly.  Conversely, if False, indicates a prefix match.
+            timeout (Optional[float]): The maximum timeout for an ack
+
+        Returns:
+            Iterable[Tuple[int, bytes]]: A generator of tuple (offset, messagepack encoded) raw records
+        '''
+        return self._genremotecall(name, prop=prop, valu=valu, exact=exact, cmd_str='cryo:indx:queryrows',
+                                   timeout=timeout)
+
+# TODO: what to do with subprops returned from getTypeNorm
 
 class _MetaEntry:
-    ''' Describes a single index in the system. '''
+    ''' Describes a single CryoTank index in the system. '''
     def __init__(self, propname: str, syntype: str, datapaths) -> None:
         '''
         Makes a MetaEntry
@@ -625,13 +725,12 @@ class _MetaEntry:
                 'syntype': self.syntype,
                 'datapaths': tuple(d.path for d in self.datapaths)}
 
-
 # Big-endian 64-bit integer encoder
 _Int64be = struct.Struct('>Q')
 
 class _IndexMeta:
     '''
-    Manages persistence of index metadata with an in-memory copy
+    Manages persistence of CryoTank index metadata with an in-memory copy
 
     "Schema":
     b'indices' key has msgpack encoded dict of
@@ -658,7 +757,6 @@ class _IndexMeta:
         Returns:
             None
         '''
-
         self._dbenv = dbenv
 
         # The table in the database file (N.B. in LMDB speak, this is called a database)
@@ -673,7 +771,7 @@ class _IndexMeta:
                 indices_enc = s_msgpack.en({'present': {}, 'deleting': []})
                 progress_enc = s_msgpack.en({})
             else:
-                raise s_exc.CorruptDatabase('missing meta information in index meta')
+                raise s_exc.CorruptDatabase('missing meta information in index meta')  # pragma: no cover
 
         indices = s_msgpack.un(indices_enc)
 
@@ -686,9 +784,11 @@ class _IndexMeta:
         # How far each index has progressed as well as statistics
         self.progresses = s_msgpack.un(progress_enc)
         if not all(p in self.indices for p in self.deleting):
-            raise s_exc.CorruptDatabase('index meta table: deleting entry with unrecognized property name')
+            raise s_exc.CorruptDatabase(
+                'index meta table: deleting entry with unrecognized property name')  # pragma: no cover
         if not all(p in self.indices for p in self.progresses):
-            raise s_exc.CorruptDatabase('index meta table: progress entry with unrecognized property name')
+            raise s_exc.CorruptDatabase(
+                'index meta table: progress entry with unrecognized property name')  # pragma: no cover
         if is_new_db:
             self.persist()
 
@@ -732,28 +832,28 @@ class _IndexMeta:
         '''
         return next((k for k, idx in self.indices.items() if idx.propname == prop), None)
 
-    def addIndex(self, prop, syntype, datapath, *args):
+    def addIndex(self, prop, syntype, datapaths):
         '''
         Add an index to the cryotank
 
         Args:
             prop (str):  the name of the property this will be stored as in the normalized record
             syntype (str):  the synapse type this will be interpreted as
-            datapath (str):  the datapath spec against which the raw record is run to extract a single field
-        that is passed to the type normalizer.
-            *args (str):  additional datapaths that will be tried in order if the first isn't present.
+            datapaths (Iterable[str]):  datapaths that will be tried in order.
         Returns:
             None
         Note:
-            Additional datapaths will be tried iff prior datapaths are not present, and *not* if
+            Additional datapaths will only be tried if prior datapaths are not present, and *not* if
             the normalization fails.
         '''
         if self.iidFromProp(prop) is not None:
             raise s_exc.DupIndx(mesg='Index already exists', index=prop)
+        if not len(datapaths):
+            raise s_exc.BadOperArg(mesg='datapaths must have at least one entry')
 
         s_datamodel.tlib.reqDataType(syntype)
         iid = int.from_bytes(os.urandom(8), 'little')
-        self.indices[iid] = _MetaEntry(propname=prop, syntype=syntype, datapaths=(datapath,) + args)
+        self.indices[iid] = _MetaEntry(propname=prop, syntype=syntype, datapaths=datapaths)
         self.progresses[iid] = {'nextoffset': 0, 'ngood': 0, 'nnormfail': 0}
         self.persist()
 
@@ -840,6 +940,7 @@ def _inWorker(callback):
 
     (Just like inpool for the worker)
     '''
+    @wraps(callback)
     def wrap(self, *args, **kwargs):
         with s_threads.RetnWait() as retn:
             self._workq.put((retn, callback, (self, ) + args, kwargs))
@@ -937,7 +1038,7 @@ class CryoTankIndexer:
                         if k[:len(iid_enc)] != iid_enc:
                             break
                         if not curs.delete():
-                            raise s_exc.CorruptDatabase('delete failure')
+                            raise s_exc.CorruptDatabase('delete failure')  # pragma: no cover
 
                         txn.delete(offset_enc, iid_enc, db=self._normtbl)
                         left -= 1
@@ -1058,23 +1159,23 @@ class CryoTankIndexer:
                 stillworktodo = True
 
     @_inWorker
-    def addIndex(self, prop, syntype, datapath, *args):
+    def addIndex(self, prop, syntype, datapaths):
         '''
         Add an index to the cryotank
 
         Args:
             prop (str):  the name of the property this will be stored as in the normalized record
             syntype (str):  the synapse type this will be interpreted as
-            datapath (str):  the datapath spec against which the raw record is run to extract a single field
-        that is passed to the type normalizer.
-            *args (str):  additional datapaths that will be tried in order if the first isn't present.
+            datapaths(Iterable[str]):  datapath specs against which the raw record is run to extract a single field
+                that is passed to the type normalizer.  These will be tried in order until one succeeds.  At least one
+                must be present.
         Returns:
             None
         Note:
-            Additional datapaths will be tried if and only if prior datapaths are not present, and *not* if
+            Additional datapaths will only be tried if prior datapaths are not present, and *not* if
             the normalization fails.
         '''
-        return self._meta.addIndex(prop, syntype, datapath, args)
+        return self._meta.addIndex(prop, syntype, datapaths)
 
     @_inWorker
     def delIndex(self, prop):
@@ -1190,14 +1291,13 @@ class CryoTankIndexer:
 
         Returns:
             Iterable[Tuple[int, Union[str, int]]]:  A generator of offset, normalized value tuples.
-
         '''
         if not exact and valu is not None and isinstance(valu, str) and len(valu) >= s_lmdb.LARGE_STRING_SIZE:
             raise s_exc.BadOperArg(mesg='prefix search valu cannot exceed 128 characters')
         for (offset, offset_enc, iidenc, txn) in self._iterrows(prop, valu, exact):
             rv = txn.get(bytes(offset_enc) + iidenc, None, db=self._normtbl)
             if rv is None:
-                raise s_exc.CorruptDatabase('Missing normalized record')
+                raise s_exc.CorruptDatabase('Missing normalized record')  # pragma: no cover
             yield offset, s_msgpack.un(rv)
 
     def queryNormRecords(self, prop, valu=None, exact=False):
@@ -1220,7 +1320,7 @@ class CryoTankIndexer:
             olen = len(offset_enc)
             with txn.cursor(db=self._normtbl) as curs:
                 if not curs.set_range(offset_enc):
-                    raise s_exc.CorruptDatabase('Missing normalized record')
+                    raise s_exc.CorruptDatabase('Missing normalized record')  # pragma: no cover
                 while True:
                     curkey, norm_enc = curs.item()
                     if curkey[:olen] != offset_enc:

@@ -187,7 +187,7 @@ class Configable:
 
     def getConfDef(self, name):
         '''
-        Get the defitition for a given
+        Get the definition for a given
 
         Args:
             name (str): Name to get the definition of.
