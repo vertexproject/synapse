@@ -42,6 +42,8 @@ import synapse.telepath as s_telepath
 
 import synapse.cores.common as s_cores_common
 
+import synapse.data as s_data
+
 import synapse.lib.cell as s_cell
 import synapse.lib.scope as s_scope
 import synapse.lib.output as s_output
@@ -71,6 +73,44 @@ def objhierarchy(obj):
         return [objhierarchy(o) for o in obj]
     # Default case
     return type(obj)
+
+
+def writeCerts(dirn):
+    '''
+    Copy test SSL certs from synapse.data to a directory.
+
+    Args:
+        dirn (str): Path to write files too.
+
+    Notes:
+        Writes the following files to disk:
+        . ca.crt
+        . ca.key
+        . ca.pem
+        . server.crt
+        . server.ke
+        . server.pem
+        . root.crt
+        . root.key
+        . user.crt
+        . user.key
+
+        The ca has signed all three certs.  The ``server.crt`` is for
+        a server running on localhost. The ``root.crt`` and ``user.crt``
+         certs are both are user certs which can connect. They have the
+         common names "root@localhost" and "user@localhost", respectively.
+
+    Returns:
+        None
+    '''
+    fns = ('ca.crt', 'ca.key', 'ca.pem',
+           'server.crt', 'server.key', 'server.pem',
+           'root.crt', 'root.key', 'user.crt', 'user.key')
+    for fn in fns:
+        byts = s_data.get(fn)
+        with s_common.genfile(dirn, fn) as fd:
+            fd.write(byts)
+
 
 class TstEnv:
 
@@ -710,6 +750,78 @@ class SynTest(unittest.TestCase):
             s_scope.pop('syn:core')
             s_scope.pop('syn:cmd:core')
             s_scope.pop('syn:test:link')
+
+    @contextlib.contextmanager
+    def getSslCore(self, conf=None, configure_roles=False):
+        dconf = {'auth:admin': 'root@localhost',
+                 'auth:en': 1, }
+        if conf:
+            conf.update(dconf)
+        conf = dconf
+
+        amesgs = (
+            ('auth:add:user', {'user': 'user@localhost'}),
+            ('auth:add:role', {'role': 'creator'}),
+            ('auth:add:rrule', {'role': 'creator',
+                                'rule': ('node:add',
+                                         {'form': '*'})
+                                }),
+            ('auth:add:rrule', {'role': 'creator',
+                                'rule': ('node:tag:add',
+                                         {'tag': '*'})
+                                }),
+            ('auth:add:rrule', {'role': 'creator',
+                                'rule': ('node:prop:set',
+                                         {'form': '*', 'prop': '*'})
+                                }),
+            ('auth:add:urole', {'user': 'user@localhost', 'role': 'creator'}),
+        )
+
+        with self.getDirCore(conf=conf) as core:
+            s_scope.set('syn:core', core)
+            dirn = s_scope.get('dirn')
+            writeCerts(dirn)
+            cafile = os.path.join(dirn, 'ca.crt')
+            keyfile = os.path.join(dirn, 'server.key')
+            certfile = os.path.join(dirn, 'server.crt')
+            userkey = os.path.join(dirn, 'user.key')
+            usercrt = os.path.join(dirn, 'user.crt')
+            rootkey = os.path.join(dirn, 'root.key')
+            rootcrt = os.path.join(dirn, 'root.crt')
+            with s_daemon.Daemon() as dmon:
+                s_scope.set('syn:dmon', dmon)
+                dmon.share('core', core)
+                link = dmon.listen('ssl://localhost:0/',
+                                   cafile=cafile,
+                                   keyfile=keyfile,
+                                   certfile=certfile,
+                                   )
+                s_scope.set('syn:test:link', link)
+                port = link[1].get('port')
+                url = 'ssl://user@localhost/core'
+                user_prox = s_telepath.openurl(url,
+                                               port=port,
+                                               cafile=cafile,
+                                               keyfile=userkey,
+                                               certfile=usercrt
+                                               )  # type: s_cores_common.CoreApi
+                root_prox = s_telepath.openurl(url,
+                                               port=port,
+                                               cafile=cafile,
+                                               keyfile=rootkey,
+                                               certfile=rootcrt
+                                               )  # type: s_cores_common.CoreApi
+
+                if configure_roles:
+                    for mesg in amesgs:
+                        isok, retn = root_prox.authReact(mesg)
+                        s_common.reqok(isok, retn)
+
+                try:
+                    yield user_prox, root_prox
+                finally:
+                    user_prox.fini()
+                    root_prox.fini()
 
     @contextlib.contextmanager
     def getTestDir(self):

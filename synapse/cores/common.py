@@ -72,23 +72,101 @@ class CoreApi:
             core (Cortex): Cortex being shared.
             dmon (s_daemon.Daemon): A Daemon
         '''
+        # Hold onto a reference to the core so we can
+        # refer to it for any decorated functions.
+        self.core = core
+
         # API for auth management
-        self.authReact = core.authReact
+        self.authReact = self.core.authReact
 
         # APIs that do perms enforcement
-        self.ask = core.ask
-        self.eval = core.eval
-        self.splices = core.splices
+        self.ask = self.core.ask
+        self.eval = self.core.eval
+        self.splices = self.core.splices
 
-        # APIs that need no perms enforcement
-        self.getCoreMods = core.getCoreMods
-        self.getTypeRepr = core.getTypeRepr
-        self.getPropRepr = core.getPropRepr
-        self.getUnivProps = core.getUnivProps
+        # Metadata APIs that need no perms enforcement
+        self.getCoreMods = self.core.getCoreMods
+        self.getTypeRepr = self.core.getTypeRepr
+        self.getPropRepr = self.core.getPropRepr
+        self.getUnivProps = self.core.getUnivProps
+        self.isDataModl = self.core.isDataModl
+        self.isDataType = self.core.isDataType
+        self.getTypeNorm = self.core.getTypeNorm
+        self.getPropNorm = self.core.getPropNorm
+        self.getModelDict = self.core.getModelDict
+
+        # getTufo
+        self.getTufoByProp = self.core.getTufoByProp
+        self.getTufoByIden = self.core.getTufoByIden
+
+        # getTufos
+        self.getTufosBy = self.core.getTufosBy
+        self.getTufosByTag = self.core.getTufosByTag
+        self.getTufoByIden = self.core.getTufoByIden
+        self.getTufosByDark = self.core.getTufosByDark
+        self.getTufosByProp = self.core.getTufosByProp
+        self.getTufosByIdens = self.core.getTufosByIdens
+        self.getTufosByDset = self.core.getTufosByDset
+        self.getTufosByPropType = self.core.getTufosByPropType
+
+        # getRows
+        self.getRowsBy = self.core.getRowsBy
+        self.getRowsByProp = self.core.getRowsByProp
+        self.getRowsById = self.core.getRowsById
+        self.getRowsByIdProp = self.core.getRowsByIdProp
 
         # allow on/off but no fire/dist
-        self.on = core.on
-        self.off = core.off
+        self.on = self.core.on
+        self.off = self.core.off
+
+    # def formNodeByBytes(self, byts, stor=True, **props):
+    # def formNodeByFd(self, fd, stor=True, **props):
+
+    # Methods which must be proxied
+    def addTufoTag(self, tufo, tag, times=()):
+        perm = ('node:tag:add', {'tag': tag})
+        self.core.reqUserPerm(perm)
+        return self.core.addTufoTag(tufo, tag, times)
+
+    def addTufoTags(self, tufo, tags):
+        with self.core.getCoreXact():
+            [self.addTufoTag(tufo, tag) for tag in tags]
+            return tufo
+
+    def formTufosByProps(self, items):
+        retval = []
+
+        with self.core.getCoreXact() as xact:
+            for form, valu, props in items:
+                try:
+                    retval.append(self.formTufoByProp(form, valu, **props))
+                except Exception as e:
+                    excinfo = s_common.excinfo(e)
+                    excval = excinfo.pop('err')
+                    retval.append(s_tufo.ephem('syn:err', excval, **excinfo))
+
+        return tuple(retval)
+
+    def formTufoByProp(self, prop, valu, **props):
+        perm = ('node:add', {'form': prop})
+        self.core.reqUserPerm(perm)
+        return self.core.formTufoByProp(prop, valu, **props)
+
+    def delTufoTag(self, tufo, tag):
+        perm = ('node:tag:del', {'tag': tag})
+        self.core.reqUserPerm(perm)
+        return self.core.delTufoTag(tufo, tag)
+
+    def setTufoProp(self, tufo, prop, valu):
+        form, _ = s_tufo.ndef(tufo)
+        perm = ('node:prop:set', {'form': form,
+                                  'prop': prop})
+        self.core.reqUserPerm(perm)
+        return self.core.setTufoProp(tufo, prop, valu)
+
+    @s_auth.reqAdmin
+    def addDataModel(self, name, modl):
+        self.core.addDataModel(name, modl)
 
 class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
              s_auth.AuthMixin):

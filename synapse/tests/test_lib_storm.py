@@ -6,7 +6,7 @@ import synapse.cores.common as s_cores_common
 
 from synapse.tests.common import *
 
-class StormTest(SynTest, TstMixin):
+class StormTest(SynTest):
 
     def test_storm_addxref(self):
         with self.getRamCore() as core:

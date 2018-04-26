@@ -4,7 +4,7 @@ import synapse.lib.cmdr as s_cmdr
 
 from synapse.tests.common import *
 
-class SynCmdCoreTest(SynTest, TstMixin):
+class SynCmdCoreTest(SynTest):
     def test_cmds_auth(self):
         with self.getSslCore() as proxies:
             uprox, rprox = proxies  # type: s_cores_common.CoreApi, s_cores_common.CoreApi
