@@ -60,16 +60,15 @@ class SchedTest(SynTest):
         s = time.time()
 
         sched.persec(10, woot, 10, y='hehe')
-        evt.wait(timeout=0.5)
-
-        self.true(evt.is_set())
+        self.true(evt.wait(1))
 
         elapsed = time.time() - s
-        self.true(elapsed > 0.2 and elapsed < 0.3)
+        self.gt(elapsed, 0)
+        self.lt(elapsed, 1)
 
         self.eq(data['x'], 10)
         self.eq(data['y'], 'hehe')
-        self.eq(data['count'], 3)
+        self.ge(data['count'], 1)
 
         sched.fini()
 
