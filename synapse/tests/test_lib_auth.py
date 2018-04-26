@@ -1,11 +1,12 @@
 import lmdb
 from synapse.tests.common import *
+import synapse.lib.iq as s_iq
 import synapse.lib.auth as s_auth
 import synapse.lib.tufo as s_tufo
 
 class TstAthMxn(s_auth.AuthMixin):
     def __init__(self, dirn, root='root'):
-        auth = s_auth.Auth(dirn)
+        auth = s_auth.Auth(dirn, {'lmdb:mapsize': s_iq.TEST_MAP_SIZE})
         s_auth.AuthMixin.__init__(self, auth)
         try:
             root = auth.addUser(root)
@@ -74,11 +75,7 @@ class AuthTest(SynTest):
 
         with self.getTestDir() as dirn:
 
-            with s_auth.Auth(dirn) as auth:
-
-                # Ensure our default lmdb size is correct
-                self.eq(auth.getConfOpt('lmdb:mapsize'),
-                        s_const.gigabyte)
+            with s_auth.Auth(dirn, {'lmdb:mapsize': s_iq.TEST_MAP_SIZE}) as auth:
 
                 self.none(auth.users.get('visi@vertex.link'))
                 self.none(auth.roles.get('ninjas'))
@@ -259,7 +256,7 @@ class AuthTest(SynTest):
                 self.raises(s_exc.NoSuchRole, auth.reqRole, 'lolnewp')
 
             # Ensure persistence of the auth data
-            with s_auth.Auth(dirn) as auth:  # type: s_auth.Auth
+            with s_auth.Auth(dirn, {'lmdb:mapsize': s_iq.TEST_MAP_SIZE}) as auth:  # type: s_auth.Auth
 
                 self.none(auth.users.get('delme@vertex.link'))
                 self.none(auth.roles.get('delmes'))
