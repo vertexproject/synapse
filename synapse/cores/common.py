@@ -387,7 +387,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
 
         # Configure our auth data:
         if self.getConfOpt('auth:en'):
-            self._onSetAuthEn({'auth:en': 1})
+            self._onSetAuthEn(True)
         self.onConfOptSet('auth:en', self._onSetAuthEn)
 
         # It is not safe to load modules during SetConfOpts() since the path
