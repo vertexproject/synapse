@@ -108,8 +108,10 @@ def writeCerts(dirn):
            'root.crt', 'root.key', 'user.crt', 'user.key')
     for fn in fns:
         byts = s_data.get(fn)
-        with s_common.genfile(dirn, fn) as fd:
-            fd.write(byts)
+        dst = os.path.join(dirn, fn)
+        if not os.path.exists(dst):
+            with s_common.genfile() as fd:
+                fd.write(byts)
 
 
 class TstEnv:
