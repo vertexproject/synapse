@@ -244,9 +244,9 @@ class CryoCell(s_cell.Cell):
         super().initConfDefs()
         self.addConfDefs((
             ('defvals', {'defval': {},
-                'ex': '{mapsize: 1000000000}',
-                'doc': 'Default settings for cryotanks created by the cell.',
-                'asloc': 'tank_defaults'}),
+                         'ex': '{"mapsize": 1000000000}',
+                         'doc': 'Default settings for cryotanks created by the cell.',
+                         'asloc': 'tank_defaults'}),
         ))
 
     def finiCell(self):

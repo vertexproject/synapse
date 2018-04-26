@@ -833,11 +833,11 @@ class SynTest(unittest.TestCase):
         '''
         self.assertEqual(x, y)
 
-    def eqish(self, x, y):
+    def eqish(self, x, y, places=6):
         '''
-        Assert X is equal to Y within 6 decimal places
+        Assert X is equal to Y within places decimal places
         '''
-        self.assertAlmostEqual(x, y, 6)
+        self.assertAlmostEqual(x, y, places)
 
     def ne(self, x, y):
         '''
