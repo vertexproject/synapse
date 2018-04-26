@@ -57,8 +57,8 @@ def main(argv, outp=s_output.stdout):
         return 1
 
     if opts.ingest and not opts.jsonl and not opts.msgpack:
-            logger.error('Must specify exactly one of --jsonl or --msgpack if --ingest is specified')
-            return 1
+        logger.error('Must specify exactly one of --jsonl or --msgpack if --ingest is specified')
+        return 1
 
     authpath = s_common.genpath(opts.authfile)
 
