@@ -529,9 +529,6 @@ class Guid(Type):
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(dict, self._normPyDict)
-        self.setNormFunc(list, self._normPyList)
-        self.setNormFunc(tuple, self._normPyList)
 
     def _normPyStr(self, valu):
 
@@ -544,13 +541,6 @@ class Guid(Type):
             raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
         return valu, {}
-
-    def _normPyList(self, valu):
-        return s_common.guid(valu), {}
-
-    def _normPyDict(self, valu):
-        norm = s_common.guid(tuple(sorted(valu.items())))
-        return norm, {'subs': valu}
 
     def indx(self, norm):
         return s_common.uhex(norm)
