@@ -1,6 +1,18 @@
 Changelog
 =========
 
+v0.0.53 - 2018-04-27
+--------------------
+
+## Enhancements
+- #734 - Add a smaller default LMDB map size for lmdb databases which do not need to be large.
+
+## Bugs
+- #733 - Fix cryotank indexing test races.
+- #735 - Fix a race which can occur during ``synapse.lib.net.Plex`` teardown.
+- #736 - Fix neuron test race conditions.
+
+
 v0.0.52 - 2018-04-27
 --------------------
 
