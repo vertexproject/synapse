@@ -1,6 +1,29 @@
 Changelog
 =========
 
+v0.0.52 - 2018-04-27
+--------------------
+
+## Summary
+
+OSX Support is preliminary restored in this release.  Windows is still not supported, however we are aware of users successfully using Synapse under the Windows Subsystem for Linux (WSL) available in Windows 10.
+
+## New Features
+- #697, #722 - The ``CryoTank`` now supports selective field indexing using Synapse type normalization.  This allows for records to be retrieved based on indexed values.
+A remote API has been added for this and is available via the ``CryoClient`` for managing indexing on tanks managed by a ``CryoCell``.
+- #723 - Add a ``get:opers()`` command to Storm which allows the introspection of which registered storm operators are available to a ``Cortex``.
+- #725 - Added a``Cortex`` RBAC system for controlling node creation, deletion, property setting and tagging.  Currently, this is applicable to users using SSL to share out Cortexes, since user authentication is done via SSL certificate common name.  This does require explicit configuration to use. See ``synapse.lib.iq.SynTest.getSslCore()`` for a configuration example.  The RBAC interface can also be configured via cmdr.
+- #727 - Move from using ``select.Epoll()`` to ``selectors.DefaultSelector()`` for the global plex defined in ``synapse.lib.net``. This allows restoring OS X use of Synapse.
+
+## Enhancements
+- #724 - Add cell Ctor type when doing cell registration. This allows a  ``Neuron`` and ``CellPool`` to have awareness of what types of objects have registered with it.
+- #726 - Refactored ``CryoCell`` and ``CryoClient``.
+
+## Bugs
+- #728 - Fix a race condition in cryotank index testing.
+- #535, #730 - Fix Cmdr CLI loop for OSX.  Thanks @blackout for the bug report.
+- #731, #732 - Fix unittests so that they run on OSX.
+
 v0.0.51 - 2018-04-13
 --------------------
 
