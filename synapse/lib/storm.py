@@ -5,6 +5,7 @@ import collections
 
 import regex
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.auth as s_auth
@@ -189,6 +190,9 @@ class Query:
     def __init__(self, data=(), maxtime=None):
 
         self.canc = False
+
+        self.user = None
+        self.elev = False
 
         self.uniq = {}
         self.saved = {}
@@ -458,6 +462,8 @@ class Runtime(Configable):
         self.setOperFunc('get:tasks', self._stormOperGetTasks)
 
         self.setOperFunc('show:cols', self._stormOperShowCols)
+
+        self.setOperFunc('sudo', self._stormOperSudo)
 
         # Cache compiled regex objects.
         self._rt_regexcache = s_cache.FixedCache(1024, regex.compile)
@@ -1215,6 +1221,26 @@ class Runtime(Configable):
 
         [query.add(t) for t in self.stormTufosBy('in', dstp, list(vals), limit=limt.get())]
 
+    def _stormOperSudo(self, query, oper):
+
+        core = self.getStormCore()
+        if core.auth is None:
+            return
+
+        name = query.user
+        if name is None:
+            name = s_auth.whoami()
+
+        user = core.auth.users.get(name)
+        if user is None:
+            raise s_exc.NoSuchUser(name=name)
+
+        if not user.admin:
+            raise s_exc.AuthDeny(mesg='sudo() user is not admin',
+                                 user=name)
+
+        query.elev = True
+
     def _stormOperNextTag(self, query, oper):
         name = None
 
@@ -1366,13 +1392,18 @@ class Runtime(Configable):
                         break
 
     def _stormOperAddNode(self, query, oper):
+
         args = oper[1].get('args')
         if len(args) != 2:
             raise s_common.BadSyntaxError(mesg='addnode(<form>,<valu>,[:<prop>=<pval>, ...])')
 
         kwlist = oper[1].get('kwlist')
 
+        form = args[0]
+        valu = args[1]
+
         core = self.getStormCore()
+        core.reqUserPerm(('node:add', {'form': form}), elev=query.elev)
 
         props = {}
         for k, v in kwlist:
@@ -1383,11 +1414,7 @@ class Runtime(Configable):
             prop = k[1:]
             props[prop] = v
 
-        node = self.formTufoByProp(args[0], args[1], **props)
-
-        # call set props if the node is not new...
-        if not node[1].get('.new'):
-            self.setTufoProps(node, **props)
+        node = self.formTufoByProp(form, valu, **props)
 
         query.add(node)
 
@@ -1399,6 +1426,10 @@ class Runtime(Configable):
         force, _ = core.getTypeNorm('bool', opts.get('force', 0))
 
         nodes = query.take()
+
+        forms = set([n[1].get('tufo:form') for n in nodes])
+        [core.reqUserPerm(('node:del', {'form': form}), elev=query.elev) for form in forms]
+
         if force:
             [core.delTufo(n) for n in nodes]
             return
@@ -1459,8 +1490,13 @@ class Runtime(Configable):
             raise s_common.BadSyntaxError(name=prop, mesg=mesg)
 
         for form, nodes in formnodes.items():
+
             props = formprops.get(form)
             if props:
+                for prop in props.keys():
+                    perm = ('node:prop:set', {'form': form, 'prop': prop})
+                    core.reqUserPerm(perm, elev=query.elev)
+
                 [core.setTufoProps(node, **props) for node in nodes]
 
     def _stormOperAllTag(self, query, oper):
@@ -1489,6 +1525,10 @@ class Runtime(Configable):
         nodes = query.data()
 
         for tag in tags:
+            perm = ('node:tag:add', {'tag': tag})
+            core.reqUserPerm(perm, elev=query.elev)
+
+        for tag in tags:
             [core.addTufoTag(node, tag) for node in nodes]
 
     def _stormOperDelTag(self, query, oper):
@@ -1497,6 +1537,10 @@ class Runtime(Configable):
         core = self.getStormCore()
 
         nodes = query.data()
+
+        for tag in tags:
+            perm = ('node:tag:del', {'tag': tag})
+            core.reqUserPerm(perm, elev=query.elev)
 
         for tag in tags:
             [core.delTufoTag(node, tag) for node in nodes]

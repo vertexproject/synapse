@@ -42,6 +42,8 @@ import synapse.telepath as s_telepath
 
 import synapse.cores.common as s_cores_common
 
+import synapse.data as s_data
+
 import synapse.lib.cell as s_cell
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
@@ -76,6 +78,46 @@ def objhierarchy(obj):
         return [objhierarchy(o) for o in obj]
     # Default case
     return type(obj)
+
+
+def writeCerts(dirn):
+    '''
+    Copy test SSL certs from synapse.data to a directory.
+
+    Args:
+        dirn (str): Path to write files too.
+
+    Notes:
+        Writes the following files to disk:
+        . ca.crt
+        . ca.key
+        . ca.pem
+        . server.crt
+        . server.key
+        . server.pem
+        . root.crt
+        . root.key
+        . user.crt
+        . user.key
+
+        The ca has signed all three certs.  The ``server.crt`` is for
+        a server running on localhost. The ``root.crt`` and ``user.crt``
+        certs are both are user certs which can connect. They have the
+        common names "root@localhost" and "user@localhost", respectively.
+
+    Returns:
+        None
+    '''
+    fns = ('ca.crt', 'ca.key', 'ca.pem',
+           'server.crt', 'server.key', 'server.pem',
+           'root.crt', 'root.key', 'user.crt', 'user.key')
+    for fn in fns:
+        byts = s_data.get(fn)
+        dst = os.path.join(dirn, fn)
+        if not os.path.exists(dst):
+            with s_common.genfile(dst) as fd:
+                fd.write(byts)
+
 
 class TstEnv:
 
@@ -551,7 +593,7 @@ class SynTest(unittest.TestCase):
         core.addTufoProp('inet:fqdn', 'inctest', ptype='int', defval=0)
 
     @contextlib.contextmanager
-    def getAxonCore(self):
+    def getAxonCore(self, cortex_conf=None):
         '''
         Get a TstEnv instance which is preconfigured with a Neuron, Blob, Axon, Daemon and Cortex.
 
@@ -569,6 +611,9 @@ class SynTest(unittest.TestCase):
             * axon: The AxonCell.
             * blob: The BlobCell backing the Axon.
             * neuron: The Neuron.
+
+        Args:
+            cortex_conf (dict): Optional cortex config
 
         Yields:
             TstEnv: A TstEnv instance.
@@ -608,7 +653,7 @@ class SynTest(unittest.TestCase):
             axon_sess = axon_user.open((axonhost, axonport))
             axon_client = s_axon.AxonClient(axon_sess)
 
-            core = s_cortex.openurl('ram:///')
+            core = s_cortex.openurl('ram:///', conf=cortex_conf)
             self.addTstForms(core)
 
             cellpoolconf = {'host': neurhost, 'port': neurport, 'auth': s_common.enbase64(s_msgpack.en(axonauth))}
@@ -639,15 +684,18 @@ class SynTest(unittest.TestCase):
                 env.fini()
 
     @contextlib.contextmanager
-    def getRamCore(self):
+    def getRamCore(self, conf=None):
         '''
         Context manager to make a ram:/// cortex which has test models
         loaded into it.
 
+        Args:
+            conf (dict): Optional config
+
         Yields:
             s_cores_common.Cortex: Ram backed cortex with test models.
         '''
-        with s_cortex.openurl('ram:///') as core:
+        with s_cortex.openurl('ram:///', conf=conf) as core:
             self.addTstForms(core)
             try:
                 yield core
@@ -655,27 +703,37 @@ class SynTest(unittest.TestCase):
                 core.fini()
 
     @contextlib.contextmanager
-    def getDirCore(self):
+    def getDirCore(self, conf=None):
         '''
-        Context manager to make a dir:/// cortex
+        Context manager to make a dir:/// cortex which has test models
+        loaded into it.
+
+        Args:
+            conf (dict): Optional cortex config
 
         Yields:
             s_cores_common.Cortex: Dir backed Cortex
         '''
         with self.getTestDir() as dirn:
-            with s_cortex.fromdir(dirn) as core:
+            s_scope.set('dirn', dirn)
+            with s_cortex.fromdir(dirn, conf=conf) as core:
+                self.addTstForms(core)
                 yield core
 
     @contextlib.contextmanager
-    def getDmonCore(self):
+    def getDmonCore(self, conf=None):
         '''
-        Context manager to make a ram:/// cortex which has test models loaded into it and shared via daemon.
+        Context manager to make a ram:/// cortex which has test models
+        loaded into it and shared via daemon.
+
+        Args:
+            conf (dict): Optional cortex config
 
         Yields:
             s_cores_common.Cortex: A proxy object to the Ram backed cortex with test models.
         '''
         dmon = s_daemon.Daemon()
-        core = s_cortex.openurl('ram:///')
+        core = s_cortex.openurl('ram:///', conf=conf)
         self.addTstForms(core)
 
         link = dmon.listen('tcp://127.0.0.1:0/')
@@ -686,6 +744,7 @@ class SynTest(unittest.TestCase):
         s_scope.set('syn:test:link', link)
         s_scope.set('syn:cmd:core', prox)
         s_scope.set('syn:core', core)
+        s_scope.set('syn:dmon', dmon)
 
         try:
             yield prox
@@ -695,6 +754,100 @@ class SynTest(unittest.TestCase):
             prox.fini()
             core.fini()
             dmon.fini()
+            s_scope.pop('syn:dmon')
+            s_scope.pop('syn:core')
+            s_scope.pop('syn:cmd:core')
+            s_scope.pop('syn:test:link')
+
+    @contextlib.contextmanager
+    def getSslCore(self, conf=None, configure_roles=False):
+        dconf = {'auth:admin': 'root@localhost',
+                 'auth:en': 1, }
+        if conf:
+            conf.update(dconf)
+        conf = dconf
+
+        amesgs = (
+            ('auth:add:user', {'user': 'user@localhost'}),
+            ('auth:add:role', {'role': 'creator'}),
+            ('auth:add:rrule', {'role': 'creator',
+                                'rule': ('node:add',
+                                         {'form': '*'})
+                                }),
+            ('auth:add:rrule', {'role': 'creator',
+                                'rule': ('node:tag:add',
+                                         {'tag': '*'})
+                                }),
+            ('auth:add:rrule', {'role': 'creator',
+                                'rule': ('node:prop:set',
+                                         {'form': '*', 'prop': '*'})
+                                }),
+            ('auth:add:role', {'role': 'deleter'}),
+            ('auth:add:rrule', {'role': 'deleter',
+                                'rule': ('node:del',
+                                         {'form': '*'})
+                                }),
+            ('auth:add:rrule', {'role': 'deleter',
+                                'rule': ('node:del',
+                                         {'form': '*'})
+                                }),
+            ('auth:add:rrule', {'role': 'deleter',
+                                'rule': ('node:tag:del',
+                                         {'tag': '*'})
+                                }),
+            ('auth:add:rrule', {'role': 'deleter',
+                                'rule': ('node:prop:set',
+                                         {'form': '*', 'prop': '*'})
+                                }),
+            ('auth:add:urole', {'user': 'user@localhost', 'role': 'creator'}),
+            ('auth:add:urole', {'user': 'user@localhost', 'role': 'deleter'}),
+        )
+
+        with self.getDirCore(conf=conf) as core:
+            s_scope.set('syn:core', core)
+            dirn = s_scope.get('dirn')
+            writeCerts(dirn)
+            cafile = os.path.join(dirn, 'ca.crt')
+            keyfile = os.path.join(dirn, 'server.key')
+            certfile = os.path.join(dirn, 'server.crt')
+            userkey = os.path.join(dirn, 'user.key')
+            usercrt = os.path.join(dirn, 'user.crt')
+            rootkey = os.path.join(dirn, 'root.key')
+            rootcrt = os.path.join(dirn, 'root.crt')
+            with s_daemon.Daemon() as dmon:
+                s_scope.set('syn:dmon', dmon)
+                dmon.share('core', core)
+                link = dmon.listen('ssl://localhost:0/',
+                                   cafile=cafile,
+                                   keyfile=keyfile,
+                                   certfile=certfile,
+                                   )
+                s_scope.set('syn:test:link', link)
+                port = link[1].get('port')
+                url = 'ssl://user@localhost/core'
+                user_prox = s_telepath.openurl(url,
+                                               port=port,
+                                               cafile=cafile,
+                                               keyfile=userkey,
+                                               certfile=usercrt
+                                               )  # type: s_cores_common.CoreApi
+                root_prox = s_telepath.openurl(url,
+                                               port=port,
+                                               cafile=cafile,
+                                               keyfile=rootkey,
+                                               certfile=rootcrt
+                                               )  # type: s_cores_common.CoreApi
+
+                if configure_roles:
+                    for mesg in amesgs:
+                        isok, retn = root_prox.authReact(mesg)
+                        s_common.reqok(isok, retn)
+
+                try:
+                    yield user_prox, root_prox
+                finally:
+                    user_prox.fini()
+                    root_prox.fini()
 
     @contextlib.contextmanager
     def getTestDir(self):

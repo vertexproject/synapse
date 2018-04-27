@@ -723,7 +723,7 @@ class Daemon(EventBus, DmonConf):
 
                 func = getattr(item, meth, None)
                 if func is None:
-                    raise s_common.NoSuchMeth(meth)
+                    raise s_common.NoSuchMeth(meth=meth)
 
                 if getattr(func, '_tele_clientside', False):
                     name = s_reflect.getMethName(func)
@@ -836,6 +836,9 @@ class Daemon(EventBus, DmonConf):
         Returns:
             None
         '''
+        if isinstance(item, s_telepath.Aware):
+            item = item.getTeleApi(self)
+
         self.shared[name] = item
         self.reflect[name] = s_reflect.getItemInfo(item)
         self.csides[name] = s_telepath.getClientSides(item)

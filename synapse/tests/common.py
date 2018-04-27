@@ -10,6 +10,7 @@ logging.basicConfig(level=loglevel,
                     format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]')
 
 import synapse.link as s_link
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.eventbus as s_eventbus
@@ -17,6 +18,7 @@ import synapse.telepath as s_telepath
 
 import synapse.cores.common as s_cores_common
 
+import synapse.lib.tufo as s_tufo
 import synapse.lib.scope as s_scope
 import synapse.lib.ingest as s_ingest
 import synapse.lib.output as s_output
@@ -25,7 +27,7 @@ import synapse.lib.thishost as s_thishost
 
 from synapse.common import *
 
-from synapse.lib.iq import TstEnv, TstOutPut, SynTest, CmdGenerator
+from synapse.lib.iq import TstEnv, TstOutPut, SynTest, CmdGenerator, writeCerts
 
 # create the global multi-plexor *not* within a test
 # to avoid "leaked resource" when a test triggers creation
@@ -37,6 +39,8 @@ TstSSLInvalidClientCertErr = socket.error
 TstSSLConnectionResetErr = socket.error
 
 testdir = os.path.dirname(__file__)
+
+writeCerts(testdir)
 
 def getTestPath(*paths):
     return os.path.join(testdir, *paths)
