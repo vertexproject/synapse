@@ -235,9 +235,6 @@ class Str(Type):
 
         return norm, {}
 
-    def repr(self, valu):
-        return self.norm(valu)[0]
-
     def indx(self, norm):
         return norm.encode('utf8')
 

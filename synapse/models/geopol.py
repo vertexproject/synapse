@@ -6,8 +6,6 @@ class PolModule(s_module.CoreModule):
         return (
             ('pol', {
 
-                'ctors': (),
-
                 'types': (
 
                     ('pol:country',

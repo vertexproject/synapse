@@ -27,24 +27,16 @@ class GeoPolModelTest(s_t_common.SynTest):
             t = core.model.type('pol:iso2')
 
             self.eq(t.norm('Fo'), ('fo', {}))
-            self.eq(t.repr('Fo'), 'fo')
-
             self.raises(s_exc.BadTypeValu, t.norm, 'A')
-            self.raises(s_exc.BadTypeValu, t.repr, 'A')
             self.raises(s_exc.BadTypeValu, t.norm, 'asD')
-            self.raises(s_exc.BadTypeValu, t.repr, 'asD')
 
     def test_types_iso3(self):
         with self.getTestCore() as core:
             t = core.model.type('pol:iso3')
 
             self.eq(t.norm('Foo'), ('foo', {}))
-            self.eq(t.repr('Foo'), 'foo')
-
             self.raises(s_exc.BadTypeValu, t.norm, 'As')
-            self.raises(s_exc.BadTypeValu, t.repr, 'As')
             self.raises(s_exc.BadTypeValu, t.norm, 'asdF')
-            self.raises(s_exc.BadTypeValu, t.repr, 'asdF')
 
     def test_types_unextended(self):
         # The following types are subtypes that do not extend their base type
