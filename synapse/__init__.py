@@ -23,23 +23,19 @@ from synapse.lib.version import version, verstring
 
 # load all the synapse builtin modules
 # the built-in cortex modules...
+'''
 BASE_MODULES = (
     ('synapse.models.syn.SynMod', {}),
     ('synapse.models.dns.DnsMod', {}),
     ('synapse.models.orgs.OuMod', {}),
     ('synapse.models.base.BaseMod', {}),
     ('synapse.models.inet.InetMod', {}),
-    ('synapse.models.mime.MimeMod', {}),
     ('synapse.models.person.PsMod', {}),
     ('synapse.models.telco.TelMod', {}),
     ('synapse.models.files.FileMod', {}),
     ('synapse.models.geopol.PolMod', {}),
-    ('synapse.models.biology.BioMod', {}),
-    ('synapse.models.finance.FinMod', {}),
     ('synapse.models.infotech.ItMod', {}),
     ('synapse.models.media.MediaMod', {}),
-    ('synapse.models.money.MoneyMod', {}),
-    ('synapse.models.science.SciMod', {}),
     ('synapse.models.geospace.GeoMod', {}),
     ('synapse.models.gov.cn.GovCnMod', {}),
     ('synapse.models.gov.us.GovUsMod', {}),
@@ -47,9 +43,9 @@ BASE_MODULES = (
     ('synapse.models.crypto.CryptoMod', {}),
     ('synapse.models.language.LangMod', {}),
     ('synapse.models.temporal.TimeMod', {}),
-    ('synapse.models.chemistry.ChemMod', {}),
     ('synapse.models.gov.intl.GovIntlMod', {}),
 )
+'''
 
 ##############################################
 # setup glob here to avoid import loops...
