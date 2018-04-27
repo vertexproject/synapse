@@ -9,6 +9,7 @@ import synapse.dyndeps as s_dyndeps
 coremods = (
     ('synapse.models.inet.InetModule', {}),
     ('synapse.models.files.FileModule', {}),
+    ('synapse.models.geopol.PolModule', {}),
 )
 
 #logger = logging.getLogger(__name__)

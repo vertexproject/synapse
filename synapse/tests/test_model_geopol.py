@@ -1,35 +1,53 @@
-import synapse.cortex as s_cortex
+import synapse.exc as s_exc
+import synapse.tests.common as s_t_common
 
-from synapse.tests.common import *
 
-class GeopolModelTest(SynTest):
+class GeoPolModelTest(s_t_common.SynTest):
 
-    def test_model_geopol_iso2(self):
-        with self.getRamCore() as core:
-            self.eq(core.getTypeNorm('pol:iso2', 'FO'), ('fo', {}))
-            self.eq(core.getTypeParse('pol:iso2', 'FO'), ('fo', {}))
-            self.raises(BadTypeValu, core.getTypeNorm, 'pol:iso2', 'asdf')
-            self.raises(BadTypeValu, core.getTypeParse, 'pol:iso2', 'asdf')
+    def test_forms_country(self):
+        with self.getTestCore() as core:
+            formname = 'pol:country'
+            guid = 32 * '0'
+            flag_valu = 64 * 'f'
 
-    def test_model_geopol_iso3(self):
-        with self.getRamCore() as core:
-            self.eq(core.getTypeNorm('pol:iso3', 'FOO'), ('foo', {}))
-            self.eq(core.getTypeParse('pol:iso3', 'FOO'), ('foo', {}))
-            self.raises(BadTypeValu, core.getTypeNorm, 'pol:iso3', 'asdf')
-            self.raises(BadTypeValu, core.getTypeParse, 'pol:iso3', 'asdf')
+            input_props = {'flag': flag_valu, 'founded': 456, 'iso2': 'VI', 'iso3': 'VIS', 'isonum': 31337,
+                'name': 'Republic of Visi', 'tld': 'visi', 'pop': 123}
+            expected_props = {'flag': flag_valu, 'founded': 456, 'iso2': 'vi', 'iso3': 'vis', 'isonum': 31337,
+                'name': 'republic of visi', 'tld': 'visi', 'pop': 123}
+            expected_ndef = (formname, guid)
 
-    def test_model_geopol_isonum(self):
-        with self.getRamCore() as core:
-            self.eq(core.getTypeNorm('pol:isonum', 10), (10, {}))
-            self.eq(core.getTypeParse('pol:isonum', '10')[0], 10)
-            self.raises(BadTypeValu, core.getTypeNorm, 'pol:isonum', 'asdf')
-            self.raises(BadTypeValu, core.getTypeParse, 'pol:isonum', 'asdf')
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, guid, props=input_props)
 
-    def test_model_geopol_country(self):
-        with self.getRamCore() as core:
-            props = {'iso2': 'VI', 'iso3': 'VIS', 'isonum': 31337}
-            t0 = core.formTufoByProp('pol:country', guid(), name='Republic of Visi', **props)
-            self.eq(t0[1].get('pol:country:name'), 'republic of visi')
-            self.eq(t0[1].get('pol:country:iso2'), 'vi')
-            self.eq(t0[1].get('pol:country:iso3'), 'vis')
-            self.eq(t0[1].get('pol:country:isonum'), 31337)
+            self.eq(node.ndef, expected_ndef)
+            self.eq(node.props, expected_props)
+
+    def test_types_iso2(self):
+        with self.getTestCore() as core:
+            t = core.model.type('pol:iso2')
+
+            self.eq(t.norm('Fo'), ('fo', {}))
+            self.eq(t.repr('Fo'), 'fo')
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'A')
+            self.raises(s_exc.BadTypeValu, t.repr, 'A')
+            self.raises(s_exc.BadTypeValu, t.norm, 'asD')
+            self.raises(s_exc.BadTypeValu, t.repr, 'asD')
+
+    def test_types_iso3(self):
+        with self.getTestCore() as core:
+            t = core.model.type('pol:iso3')
+
+            self.eq(t.norm('Foo'), ('foo', {}))
+            self.eq(t.repr('Foo'), 'foo')
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'As')
+            self.raises(s_exc.BadTypeValu, t.repr, 'As')
+            self.raises(s_exc.BadTypeValu, t.norm, 'asdF')
+            self.raises(s_exc.BadTypeValu, t.repr, 'asdF')
+
+    def test_types_unextended(self):
+        # The following types are subtypes that do not extend their base type
+        with self.getTestCore() as core:
+            self.nn(core.model.type('pol:country'))  # guid
+            self.nn(core.model.type('pol:isonum'))  # int
