@@ -1,48 +1,38 @@
 import synapse.lib.module as s_module
 
-class LangMod(s_module.CoreModule):
+class LangModule(s_module.CoreModule):
 
-    @staticmethod
-    def getBaseModels():
-        modl = {
-            'types': (
-                # ('lang:code',{'subof','enum',...
-                ('lang:idiom', {'subof': 'str:txt', 'doc': 'A subcultural idiom'}),
-                ('lang:trans', {'subof': 'str:txt', 'doc': 'Raw text with a documented translation'}),
-            ),
+    def getModelDefs(self):
+        return (
+            ('lang', {
 
-            'forms': (
+                'types': (
 
-                ('lang:idiom', {}, (
-                    ('url', {'ptype': 'inet:url', 'doc': 'Authoritative URL for the idiom'}),
-                    ('desc:en', {'ptype': 'str:txt', 'doc': 'English description'}),
-                    # TODO etc...
-                )),
+                    ('lang:idiom',
+                        ('str', {}),  # TODO migrate to token-searchable type
+                        {'doc': 'A subcultural idiom.'}
+                    ),
 
-                ('lang:trans', {}, (
-                    ('text:en', {'ptype': 'str:txt', 'doc': 'English translation'}),
-                    ('desc:en', {'ptype': 'str:txt', 'doc': 'English description'}),
-                    # TODO etc...
-                )),
-            ),
+                    ('lang:trans',
+                        ('str', {}),  # TODO migrate to token-searchable type
+                        {'doc': 'Raw text with a documented translation.'}
+                    ),
 
-            'tags': (
+                ),
 
-                ('lang', {'props': {'doc': 'Tags which denote the presense of various language content'}}),
-                ('lang.zh', {'props': {'doc': 'Chinese Language Family'}}),
+                'forms': (
 
-                ('lang.zh.cn', {'props': {'doc': 'Simplified Chinese (Mainland China)'}}),
-                ('lang.zh.hk', {'props': {'doc': 'Cantonese Chinese (Hong Kong)'}}),
-                ('lang.zh.tw', {'props': {'doc': 'Traditional Chinese (Taiwan)'}}),
+                    ('lang:idiom', {}, (
+                        ('url', ('inet:url', {}), {'doc': 'Authoritative URL for the idiom.'}),  # FIXME implement inet:url
+                        ('desc:en', ('str', {}), {'doc': 'English description.'}),  # TODO migrate to token-searchable type
+                    )),
 
-                ('lang.en', {'props': {'doc': 'English Language Family'}}),
-                ('lang.en.uk', {'props': {'doc': 'Brittish English Language'}}),
-                ('lang.en.us', {'props': {'doc': 'US English Language'}}),
+                    ('lang:trans', {}, (
+                        ('text:en', ('str', {}), {'doc': 'English translation.'}),  # TODO migrate to token-searchable type
+                        ('desc:en', ('str', {}), {'doc': 'English description.'}),  # TODO migrate to token-searchable type
+                    )),
 
-                ('lang.ru', {'props': {'doc': 'Russian Language'}}),
+                ),
 
-                # FIXME etc...
-            ),
-        }
-        name = 'lang'
-        return ((name, modl), )
+            }),
+        )
