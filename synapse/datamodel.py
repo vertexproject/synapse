@@ -263,8 +263,8 @@ class Model:
         item = s_types.Loc(self, 'loc', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'The node type for a (form,valu) compound field.'}
-        item = s_types.Node(self, 'node', info, {})
+        info = {'doc': 'The node definition type for a (form,valu) compound field.'}
+        item = s_types.Ndef(self, 'ndef', info, {})
         self.addBaseType(item)
 
         info = {'doc': 'The nodeprop type for a (prop,valu) compound field.'}

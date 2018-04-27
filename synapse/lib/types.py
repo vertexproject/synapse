@@ -613,7 +613,7 @@ class Comp(Type):
     def indx(self, norm):
         return s_common.buid(norm)
 
-class Node(Type):
+class Ndef(Type):
 
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)

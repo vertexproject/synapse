@@ -77,7 +77,7 @@ testmodel = {
         )),
 
         ('testfoo', {}, (
-            ('bar', ('node', {}), {}),
+            ('bar', ('ndef', {}), {}),
             ('baz', ('nodeprop', {}), {}),
             ('tick', ('testtime', {}), {}),
         )),
