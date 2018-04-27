@@ -279,7 +279,7 @@ class NeuronTest(SynTest):
 
                 with user.open(addr, timeout=2) as sess:
                     sess._initiateSession()
-                    stream.wait(.1)
+                    self.true(stream.wait(2))
             stream.seek(0)
             self.isin('ProtoErr', stream.read())
 
@@ -327,7 +327,7 @@ class NeuronTest(SynTest):
                     next(sess._crypter._tx_sn)
 
                     sess.tx('Test message')
-                    stream.wait(.1)
+                    self.true(stream.wait(2))
 
             stream.seek(0)
             log_msgs = stream.read()
