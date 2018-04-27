@@ -280,8 +280,6 @@ class NeuronTest(SynTest):
                 with user.open(addr, timeout=2) as sess:
                     sess._initiateSession()
                     self.true(stream.wait(2))
-            stream.seek(0)
-            self.isin('ProtoErr', stream.read())
 
     def test_neuron_wrong_version(self):
         '''
@@ -314,7 +312,7 @@ class NeuronTest(SynTest):
 
             conf = {'bind': '127.0.0.1', 'host': 'localhost'}
 
-            with self.getLoggerStream('synapse.lib.cell', 'remote peer') as stream, s_cell.Cell(dirn, conf) as cell:
+            with self.getLoggerStream('synapse.lib.cell', 'Remote peer issued error') as stream, s_cell.Cell(dirn, conf) as cell:
 
                 user = cell.celluser
                 addr = cell.getCellAddr()
@@ -332,9 +330,6 @@ class NeuronTest(SynTest):
             stream.seek(0)
             log_msgs = stream.read()
             self.isin('out of sequence', log_msgs)
-
-            # Currently this fails due to fini killing the whole socket
-            self.isin('Remote peer issued error', log_msgs)
 
     def test_neuron_neuron(self):
 
