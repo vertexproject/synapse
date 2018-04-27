@@ -282,8 +282,8 @@ class CryoTest(SynTest):
             self.false(proc.is_alive())
 
 class CryoIndexTest(SynTest):
-    def initWaiter(self, tank, count=1):
-        return tank.waiter(count, 'cryotank:indexer:noworkleft')
+    def initWaiter(self, tank, operation):
+        return tank.waiter(1, 'cryotank:indexer:noworkleft:' + operation)
 
     def wait(self, waiter):
         rv = waiter.wait(s_cryotank.CryoTankIndexer.MAX_WAIT_S)
@@ -312,23 +312,23 @@ class CryoIndexTest(SynTest):
             self.genraises(NoSuchIndx, idxr.queryNormValu, 'notanindex')
 
             # Check simple 1 record, 1 index index and retrieval
-            waiter = self.initWaiter(tank)
+            waiter = self.initWaiter(tank, 'addIndex')
             tank.puts([data1])
             idxr.addIndex('first', 'int', ['foo'])
             self.wait(waiter)
+            waiter = self.initWaiter(tank, 'getIndices')
             idxs = idxr.getIndices()
+            self.wait(waiter)
             self.eq(1, idxs[0]['nextoffset'])
             self.eq(1, idxs[0]['ngood'])
-            waiter = self.initWaiter(tank)
             retn = list(idxr.queryNormRecords('first'))
             self.eq(1, len(retn))
             t = retn[0]
             self.eq(2, len(t))
             self.eq(t[0], 0)
             self.eq(t[1], {'first': 1234})
-            self.wait(waiter)
 
-            waiter = self.initWaiter(tank)
+            waiter = self.initWaiter(tank, 'None')
             tank.puts([data2])
             self.wait(waiter)
             idxs = idxr.getIndices()
@@ -336,7 +336,6 @@ class CryoIndexTest(SynTest):
             self.eq(2, idxs[0]['ngood'])
 
             # exact query
-            waiter = self.initWaiter(tank)
             retn = list(idxr.queryRows('first', valu=2345, exact=True))
             self.eq(1, len(retn))
             t = retn[0]
@@ -344,10 +343,8 @@ class CryoIndexTest(SynTest):
             self.eq(t[0], 1)
             self.eq(s_msgpack.un(t[1]), data2)
 
-            self.wait(waiter)
-
             # second index
-            waiter = self.initWaiter(tank)
+            waiter = self.initWaiter(tank, 'addIndex')
             idxr.addIndex('second', 'str', ['bar'])
             self.wait(waiter)
 
@@ -356,7 +353,7 @@ class CryoIndexTest(SynTest):
             self.eq(retn, [(0, 'stringval'), (1, 'strinstrin')])
 
             # long value, exact
-            waiter = self.initWaiter(tank)
+            waiter = self.initWaiter(tank, 'None')
             tank.puts([data3])
             self.wait(waiter)
             retn = list(idxr.queryRows('second', valu='strinstrin' * 20, exact=True))
@@ -371,7 +368,7 @@ class CryoIndexTest(SynTest):
             self.genraises(s_exc.BadOperArg, idxr.queryNormRecords, 'second', valu='strinstrin' * 15)
 
             # Bad data
-            waiter = self.initWaiter(tank)
+            waiter = self.initWaiter(tank, 'None')
             tank.puts([baddata])
             self.wait(waiter)
             idxs = idxr.getIndices()
@@ -380,40 +377,37 @@ class CryoIndexTest(SynTest):
             self.eq(3, idx['ngood'])
             self.eq(1, idx['nnormfail'])
 
-            waiter = self.initWaiter(tank)
+            waiter = self.initWaiter(tank, 'delIndex')
             idxr.delIndex('second')
             self.wait(waiter)
 
-            waiter = self.initWaiter(tank)
-            self.wait(waiter)
-
             # Multiple datapaths
-            waiter = self.initWaiter(tank)
+            waiter = self.initWaiter(tank, 'delIndex')
             idxr.delIndex('first')
             self.wait(waiter)
-            waiter = self.initWaiter(tank)
+            waiter = self.initWaiter(tank, 'addIndex')
             idxr.addIndex('first', 'int', ('foo', 'foo2'))
             self.wait(waiter)
 
-            waiter = self.initWaiter(tank)
+            waiter = self.initWaiter(tank, 'None')
             tank.puts([data4])
             self.wait(waiter)
             retn = list(idxr.queryNormValu('first'))
             self.eq(retn, [(0, 1234), (1, 2345), (4, 9999), (2, 388383)])
 
-            waiter = self.initWaiter(tank)
+            waiter = self.initWaiter(tank, 'pauseIndex')
             idxr.pauseIndex('first')
             self.wait(waiter)
 
-            waiter = self.initWaiter(tank)
+            waiter = self.initWaiter(tank, 'resumeIndex')
             idxr.resumeIndex('first')
             self.wait(waiter)
 
-            waiter = self.initWaiter(tank)
+            waiter = self.initWaiter(tank, 'getIndices')
             before_idxs = idxr.getIndices()
             before_idx = next(i for i in before_idxs if i['propname'] == 'first')
             self.wait(waiter)
-            waiter = self.initWaiter(tank)
+            waiter = self.initWaiter(tank, 'None')
             tank.puts([data1, data2, data3, data4] * 1000)
             self.wait(waiter)
             after_idxs = idxr.getIndices()
@@ -430,10 +424,10 @@ class CryoIndexTest(SynTest):
                     }
                 }
             }
-            waiter = self.initWaiter(tank, 2)
+            waiter = self.initWaiter(tank, 'addIndex')
             idxr.addIndex('key', 'str:lwr', ['hehe/haha/key'])
             self.wait(waiter)
-            waiter = self.initWaiter(tank)
+            waiter = self.initWaiter(tank, 'None')
             tank.puts([item])
             self.wait(waiter)
             idxs = idxr.getIndices()
