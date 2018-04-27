@@ -434,6 +434,97 @@ class Bool(Type):
     def repr(self, valu):
         return repr(bool(valu))
 
+class Time(Type):
+
+    _opt_defs = (
+        ('ismin', False),
+        ('ismax', False),
+    )
+
+    def postTypeInit(self):
+
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(str, self._normPyStr)
+
+        self.ismin = self.opts.get('ismin')
+        self.ismax = self.opts.get('ismax')
+
+    def _normPyStr(self, valu):
+
+        valu = valu.strip().lower()
+        if valu == 'now':
+            return self._normPyInt(s_common.now())
+
+        valu = s_time.parse(valu)
+        return self._normPyInt(valu)
+
+    def _normPyInt(self, valu):
+        return valu, {}
+
+    def merge(self, oldv, newv):
+
+        if self.ismin:
+            return min(oldv, newv)
+
+        if self.ismax:
+            return max(oldv, newv)
+
+        return newv
+
+    def repr(self, valu):
+        return s_time.repr(valu)
+
+    def indx(self, norm):
+        # offset to prevent pre-epoch negative values from
+        # wreaking havoc with the btree range indexing...
+        return (norm + 0x8000000000000000).to_bytes(8, 'big')
+
+    def _liftTimeRange(self, xact, fenc, penc, minv, maxv):
+        tick, info = self.norm(minv)
+        tock, info = self.norm(maxv)
+
+        lops = (
+            ('prop:range', {
+                'form': fenc,
+                'prop': penc,
+                'minindx': self.indx(tick),
+                'maxindx': self.indx(tock - 1),
+            }),
+        )
+
+        return xact.lift(lops)
+
+    def liftPropEq(self, xact, fenc, penc, valu):
+
+        # fancy pants time syntax...
+
+        valutype = type(valu)
+        if valutype == int:
+            return Type.liftPropEq(self, xact, fenc, penc, valu)
+
+        if valutype == str:
+
+            if not valu.strip().endswith('*'):
+                return Type.liftPropEq(self, xact, fenc, penc, valu)
+
+            # do a prefix syntax range based lift
+
+            valu = s_chop.digits(valu)
+            maxv = str(int(valu) + 1)
+            return self._liftTimeRange(xact, fenc, penc, valu, maxv)
+
+        if valutype in (list, tuple):
+
+            try:
+                minv, maxv = valu
+            except Exception as e:
+                mesg = 'Invalid time window has too many fields'
+                raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
+
+            return self._liftTimeRange(xact, fenc, penc, minv, maxv)
+
+        return Type.liftPropEq(self, xact, fenc, penc, valu)
+
 class Guid(Type):
 
     def postTypeInit(self):
@@ -463,9 +554,6 @@ class Guid(Type):
 
     def indx(self, norm):
         return s_common.uhex(norm)
-
-#class LocPart(Type):
-    #def postTypeInit(
 
 class Loc(Type):
 
@@ -536,178 +624,54 @@ class Comp(Type):
     def indx(self, norm):
         return s_common.buid(norm)
 
-#class Fqdn(Type):
-#
-#    def norm(self, valu):
-#
-#        valu = valu.replace('[.]', '.')
-#        if not fqdnre.match(valu):
-#            self._raiseBadValu(valu)
-#
-#        try:
-#            valu = valu.encode('idna').decode('utf8').lower()
-#        except UnicodeError as e:
-#            self._raiseBadValu(valu)
-#
-#        parts = valu.split('.', 1)
-#
-#        adds = []
-#        subs = {'host': parts[0]}
-#
-#        if len(parts) == 2:
-#            subs['domain'] = parts[1]
-#        else:
-#            subs['sfx'] = 1
-#
-#        return valu, {'subs':subs}
-#
-#    def indx(self, norm):
-#        return norm[::-1].encode('utf8')
-#
-#
-#        valu = str(text).strip().lower()
-#        if not valu:
-#            return None
-#
-#        # did they request a prefix?
-#        if valu[0] == '*':
-#            indx = valu[1:][::-1].encode('utf8')
-#            return (
-#                ('prop:pref', {
-#                    'form': formname.encode('utf8'),
-#                    'prop': propname.encode('utf8'),
-#                    'indx': indx,
-#                }),
-#            )
-#
-#        indx = valu[::-1].encode('utf8')
-#
-#        return (
-#            ('prop:eq', {
-#                'form': formname.encode('utf8'),
-#                'prop': propname.encode('utf8'),
-#                'indx': indx,
-#                'valu': norm,
-#            }),
-#        )
-#
-#    def repr(self, valu):
-#        try:
-#            return valu.encode('utf8').decode('idna')
-#        except UnicodeError as e:
-#            if len(valu) >= 4 and valu[0:4] == 'xn--':
-#                logger.exception(msg='Failed to IDNA decode ACE prefixed inet:fqdn')
-#                return valu
-#            raise  # pragma: no cover
+class Node(Type):
 
-class NDefType(Type):
+    def postTypeInit(self):
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
 
-    def __init__(self, modl, name, **info):
-        DataType.__init__(self, modl, name, **info)
-        # TODO figure out what to do about modl vs core issues
-        self._isTufoForm = getattr(modl, 'isTufoForm', None)
-        self._getPropNorm = getattr(modl, 'getPropNorm', None)
+    def _normPyTuple(self, valu):
+        try:
+            formname, formvalu = valu
+        except Exception as e:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
-    def toks(self, norm):
-        return ((0, norm),)
+        form = self.modl.form(formname)
+        if form is None:
+            raise s_exc.NoSuchForm(name=formname)
 
-    def norm(self, valu):
+        formnorm, info = form.type.norm(formvalu)
+        norm = (form.name, formnorm)
+        return norm, {'adds': (norm,)}
 
-        if isinstance(valu, (list, tuple)):
-            return self._norm_list(valu, oldval)
+    def indx(self, norm):
+        return s_common.buid(norm)
 
-        if not isinstance(valu, str) or len(valu) < 1:
-            self._raiseBadValu(valu)
+class NodeProp(Type):
 
-        return self._norm_str(valu, oldval)
+    def postTypeInit(self):
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
 
-    def _norm_str(self, text, oldval=None):
-        text = text.strip()
-        if not text:
-            self._raiseBadValu(text, mesg='No text left after strip().')
+    def _normPyTuple(self, valu):
+        try:
+            propname, propvalu = valu
+        except Exception as e:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
-        if text[0] == '(':
-            vals, off = s_syntax.parse_list(text)
-            if off != len(text):  # pragma: no cover
-                self._raiseBadValu(text, off=off, vals=vals,
-                                   mesg='List parting for ndef type did not consume all of the input text.')
-            return self._norm_list(vals, oldval)
+        prop = self.modl.prop(propname)
+        if prop is None:
+            raise s_exc.NoSuchProp(name=propname)
 
-        if not s_common.isguid(text):
-            self._raiseBadValu(text, mesg='Expected a 32 char guid string')
+        propnorm, info = prop.type.norm(propvalu)
+        return (prop.full, propnorm), {}
 
-        return text, {}
+    def indx(self, norm):
+        return s_common.buid(norm)
 
-    def _norm_list(self, valu, oldval=None):
-
-        if not valu:
-            self._raiseBadValu(valu=valu, mesg='No valus present in list to make a guid with')
-
-        form, fvalu = valu
-        if not self._isTufoForm(form):
-            self._raiseBadValu(valu=valu, form=form,
-                               mesg='Form is not a valid form.')
-
-        fvalu, _ = self._getPropNorm(form, fvalu)
-        retn = s_common.guid((form, fvalu))
-        subs = {'form': form}
-        return retn, subs
-
-class StrType(Type):
-
-    def __init__(self, modl, name, **info):
-        DataType.__init__(self, modl, name, **info)
-
-        self.regex = None
-        self.envals = None
-        self.restrip = None
-        self.frobintfmt = None
-
-        self.strip = info.get('strip', 0)
-        self.nullval = info.get('nullval')
-
-        enumstr = info.get('enums')
-        if enumstr is not None:
-            self.envals = enumstr.split(',')
-
-        regexp = info.get('regex')
-        if regexp is not None:
-            self.regex = regex.compile(regexp)
-
-        restrip = info.get('restrip')
-        if restrip is not None:
-            self.restrip = regex.compile(restrip)
-
-    def toks(self, norm):
-        norm = norm.lower()
-        toks = set()
-        [toks.add(t) for t in norm.split()]
-        return [(1, t) for t in toks]
-
-    def norm(self, valu, oldval=None):
-
-        if not isinstance(valu, str):
-            self._raiseBadValu(valu)
-
-        if self.info.get('lower'):
-            valu = valu.lower()
-
-        if valu == self.nullval:
-            return valu, {}
-
-        if self.restrip:
-            valu = self.restrip.sub('', valu)
-
-        if self.strip:
-            valu = valu.strip()
-
-        if self.envals is not None and valu not in self.envals:
-            self._raiseBadValu(valu, enums=self.info.get('enums'))
-
-        if self.regex is not None and not self.regex.match(valu):
-            self._raiseBadValu(valu, regex=self.info.get('regex'))
-
-        return valu, {}
+######################################################################
+# TODO FROM HERE DOWN....
+######################################################################
 
 class JsonType(Type):
 
@@ -724,437 +688,10 @@ class JsonType(Type):
         except Exception as e:
             self._raiseBadValu(valu, mesg='Unable to norm json string')
 
-class IntType(Type):
-
-    def __init__(self, modl, name, **info):
-        DataType.__init__(self, modl, name, **info)
-
-        self.fmt = info.get('fmt', '%d')
-        # self.modval = info.get('mod',None)
-        self.minval = info.get('min', None)
-        self.maxval = info.get('max', None)
-
-        self.ismin = info.get('ismin', False)
-        self.ismax = info.get('ismax', False)
-
-        # cache the min or max function to avoid cond logic
-        # during norm() for perf
-        self.minmax = None
-
-        if self.ismin:
-            self.minmax = min
-
-        elif self.ismax:
-            self.minmax = max
-
-    def repr(self, valu):
-        return self.fmt % valu
-
-    def norm(self, valu, oldval=None):
-
-        if isinstance(valu, str):
-            try:
-                valu = int(valu, 0)
-            except ValueError as e:
-                self._raiseBadValu(valu, mesg='Unable to cast valu to int')
-
-        if not isinstance(valu, int):
-            self._raiseBadValu(valu, mesg='Valu is not an int')
-
-        if valu < -9223372036854775808:
-            self._raiseBadValu(valu, mesg='Value less than 64bit signed integer minimum (-9223372036854775808)')
-        if valu > 9223372036854775807:
-            self._raiseBadValu(valu, mesg='Value greater than 64bit signed integer maximum (9223372036854775807)')
-
-        if oldval is not None and self.minmax:
-            valu = self.minmax(valu, oldval)
-
-        if self.minval is not None and valu < self.minval:
-            self._raiseBadValu(valu, minval=self.minval)
-
-        if self.maxval is not None and valu > self.maxval:
-            self._raiseBadValu(valu, maxval=self.maxval)
-
-        return valu, {}
-
-jsseps = (',', ':')
 
 def islist(x):
     return type(x) in (list, tuple)
 
-class MultiFieldType(Type):
-
-    def __init__(self, modl, name, **info):
-        DataType.__init__(self, modl, name, **info)
-        self.fields = None
-
-    def _norm_fields(self, valu):
-
-        fields = self._get_fields()
-
-        if len(valu) != len(fields):
-            self._raiseBadValu(valu, mesg='field count != %d' % (len(fields),))
-
-        vals = []
-        subs = {}
-
-        for valu, (name, item) in s_common.iterzip(valu, fields):
-
-            norm, fubs = item.norm(valu)
-
-            vals.append(norm)
-
-            subs[name] = norm
-            for fubk, fubv in fubs.items():
-                subs[name + ':' + fubk] = fubv
-
-        return vals, subs
-
-    def _get_fields(self):
-
-        if self.fields is None:
-
-            self.fields = []
-
-            # maintain legacy "fields=" syntax for a bit yet...
-            fields = self.info.get('fields')
-            if fields is not None:
-                if fields:
-                    for part in fields.split('|'):
-                        fname, ftype = part.split(',')
-                        fitem = self.modl.getTypeInst(ftype)
-                        if self.prop:
-                            _fitem = self._getPropType(ftype)
-                            if _fitem:
-                                fitem = _fitem
-                        self.fields.append((fname, fitem))
-
-                return self.fields
-
-            # process names= and types= info fields
-            fnames = []
-            ftypes = []
-
-            fnstr = self.info.get('names')
-            if fnstr:
-                fnames.extend(fnstr.split(','))
-
-            ftstr = self.info.get('types', '')
-            if ftstr:
-                ftypes.extend(ftstr.split(','))
-
-            self.flen = len(ftypes)
-
-            if len(fnames) != self.flen:
-                raise s_common.BadInfoValu(name='types', valu=ftstr, mesg='len(names) != len(types)')
-
-            for i in range(self.flen):
-                item = self.modl.getTypeInst(ftypes[i])
-                self.fields.append((fnames[i], item))
-
-        return self.fields
-
-def _splitpairs(text, sep0, sep1):
-    '''
-    Split parts via sep0 and then pairs by sep2
-    '''
-    for part in text.split(sep0):
-        k, v = part.split(sep1)
-        yield k.strip(), v.strip()
-
-class CompType(Type):
-
-    def __init__(self, modl, name, **info):
-        DataType.__init__(self, modl, name, **info)
-        self.fields = []
-        self.optfields = []
-
-        fstr = self.info.get('fields')
-        if fstr:
-
-            if fstr.find('=') != -1:
-                self.fields.extend(_splitpairs(fstr, ',', '='))
-
-            else:
-                self.fields.extend(_splitpairs(fstr, '|', ','))
-
-        self.fsize = len(self.fields)
-
-        ostr = self.info.get('optfields')
-        if ostr:
-            self.optfields.extend(_splitpairs(ostr, ',', '='))
-            # stabilize order to alphabetical since it effects
-            # the eventual guid generation
-            self.optfields.sort()
-
-    def _norm_str(self, text, oldval=None):
-
-        text = text.strip()
-
-        if not text:
-            self._raiseBadValu(text, mesg='No text left after strip().')
-
-        if text[0] != '(':
-            return self.modl.getTypeNorm('guid', text)
-
-        vals, off = s_syntax.parse_list(text)
-        if off != len(text):
-            self._raiseBadValu(text, off=off, vals=vals,
-                               mesg='List parting for comp type did not consume all of the input text.')
-
-        return self._norm_list(vals)
-
-    def _norm_list(self, valu, oldval=None):
-
-        opts = {}
-        subs = {}
-        retn = []
-
-        vlen = len(valu)
-
-        if vlen < self.fsize:
-            self._raiseBadValu(valu, mesg='Expected %d fields and got %d' % (self.fsize, len(valu)))
-
-        for k, v in valu[self.fsize:]:
-            opts[k] = v
-
-        vals = valu[:self.fsize]
-        for v, (name, tname) in s_common.iterzip(vals, self.fields):
-
-            # FIXME - this if/else is a artifact of typelib/datamodel separation
-            if self.prop:
-                if self.modl.isTufoProp(tname):
-                    norm, ssubs = self._getPropNorm(tname, v)
-                else:
-                    norm, ssubs = self.modl.getTypeNorm(tname, v)
-            else:
-                norm, ssubs = self.modl.getTypeNorm(tname, v)
-
-            subs[name] = norm
-            for subkey, subval in ssubs.items():
-                subs[name + ':' + subkey] = subval
-            retn.append(norm)
-
-        for name, tname in self.optfields:
-
-            v = opts.get(name)
-            if v is None:
-                continue
-
-            norm, ssubs = self.modl.getTypeNorm(tname, v)
-
-            subs[name] = norm
-            for subkey, subval in ssubs.items():
-                subs[name + ':' + subkey] = subval
-
-            retn.append((name, norm))
-
-        return s_common.guid(retn), subs
-
-    def _norm_dict(self, valu, oldval=None):
-
-        newv = []
-        for name, ftype in self.fields:
-
-            fval = valu.get(name)
-            if fval is None:
-                self._raiseBadValu(valu, mesg='missing field: %s' % (name,))
-
-            newv.append(fval)
-
-        for name, ftype in self.optfields:
-            fval = valu.get(name)
-            if fval is not None:
-                newv.append((name, fval))
-
-        return self._norm_list(newv)
-
-    def norm(self, valu, oldval=None):
-
-        # if it's already a guid, we have nothing to normalize...
-        if isinstance(valu, str):
-            return self._norm_str(valu, oldval=oldval)
-
-        if isinstance(valu, dict):
-            return self._norm_dict(valu, oldval=oldval)
-
-        if not islist(valu):
-            self._raiseBadValu(valu, mesg='Expected guid or list/tuple')
-
-        return self._norm_list(valu)
-
-class XrefType(Type):
-    '''
-    The XrefType allows linking a specific type of node to an inspecific
-    set of node forms.
-
-    Example Sub Type:
-
-        addType('foo:barrefs', subof='xref', source='bar,foo:bar')
-
-    '''
-
-    def __init__(self, modl, name, **info):
-        DataType.__init__(self, modl, name, **info)
-        self._sorc_type = None
-        self._sorc_name = None
-
-        sorc = info.get('source')
-
-        if sorc is not None:
-            parts = sorc.split(',')
-            if len(parts) != 2:
-                raise s_common.BadInfoValu(name='source', valu=sorc, mesg='expected source=<name>,<type>')
-
-            self._sorc_name = parts[0]
-            self._sorc_type = parts[1]
-
-    def norm(self, valu, oldval=None):
-
-        if isinstance(valu, str):
-            return self._norm_str(valu, oldval=oldval)
-
-        if not islist(valu):
-            self._raiseBadValu(valu, mesg='Expected guid, psv, or list')
-
-        return self._norm_list(valu, oldval=None)
-
-    def _norm_str(self, text, oldval=None):
-
-        text = text.strip()
-
-        if not text:
-            self._raiseBadValu(text, mesg='No text left after strip().')
-
-        if len(text) == 32 and text.find('=') == -1:
-            return self.modl.getTypeNorm('guid', text)
-
-        vals, off = s_syntax.parse_list(text)
-
-        if off != len(text):
-            self._raiseBadValu(text, off=off, vals=vals,
-                               mesg='List parting for comp type did not consume all of the input text.')
-
-        return self._norm_list(vals)
-
-    def _norm_list(self, valu, oldval=None):
-
-        if len(valu) != 2:
-            self._raiseBadValu(valu, mesg='xref type requires 2 fields')
-
-        valu, pvval = valu
-
-        pvval, pvsub = self.modl.getTypeNorm('propvalu', pvval)
-
-        tstr, tval = pvval.split('=', 1)
-
-        valu, vsub = self.modl.getTypeNorm(self._sorc_type, valu)
-        tval, tsub = self.modl.getTypeNorm(tstr, tval)
-
-        tndef = s_common.guid((tstr, tval))
-        iden = s_common.guid((valu, tstr, tval))
-
-        subs = {
-            self._sorc_name: valu,
-            'xref:node': tndef,
-            'xref': pvval,
-        }
-
-        for k, v in vsub.items():
-            k = self._sorc_name + ':' + k
-            subs[k] = v
-
-        for k, v in pvsub.items():
-            k = 'xref:' + k
-            subs[k] = v
-
-        return iden, subs
-
-class TimeType(Type):
-    # FIXME subfields for various time parts (year,month,etc)
-
-    def __init__(self, modl, name, **info):
-
-        DataType.__init__(self, modl, name, **info)
-
-        self.ismin = info.get('ismin', False)
-        self.ismax = info.get('ismax', False)
-
-        self.minmax = None
-
-        if self.ismin:
-            self.minmax = min
-
-        elif self.ismax:
-            self.minmax = max
-
-    def norm(self, valu, oldval=None):
-
-        subs = {}
-
-        # make the string into int form then apply our min/max
-        if isinstance(valu, str):
-            valu, subs = self._norm_str(valu, oldval=oldval)
-
-        if oldval is not None and self.minmax:
-            valu = self.minmax(valu, oldval)
-
-        return valu, subs
-
-    def _norm_str(self, text, oldval=None):
-        if text.strip().lower() == 'now':
-            return s_common.now(), {}
-        return s_time.parse(text), {}
-
-    def repr(self, valu):
-        return s_time.repr(valu)
-
-class SeprType(MultiFieldType):
-
-    def __init__(self, modl, name, **info):
-        MultiFieldType.__init__(self, modl, name, **info)
-        self.sepr = info.get('sep', ',')
-        self.reverse = info.get('reverse', 0)
-
-    def norm(self, valu, oldval=None):
-        subs = {}
-        reprs = []
-
-        if isinstance(valu, str):
-            valu = self._split_str(valu)
-
-        # only other possiblity should be that it was a list
-        for part, (name, tobj) in self._zipvals(valu):
-
-            if tobj == self:
-                norm, nsub = part, {}
-                reprs.append(norm)
-            else:
-                norm, nsub = tobj.norm(part)
-                reprs.append(tobj.repr(norm))
-
-            subs[name] = norm
-            for subn, subv in nsub.items():
-                subs['%s:%s' % (name, subn)] = subv
-
-        return self.sepr.join(reprs), subs
-
-    def _split_str(self, text):
-
-        fields = self._get_fields()
-
-        if self.reverse:
-            parts = text.rsplit(self.sepr, len(fields) - 1)
-        else:
-            parts = text.split(self.sepr, len(fields) - 1)
-
-        if len(parts) != len(fields):
-            self._raiseBadValu(text, sep=self.sepr, mesg='split: %d fields: %d' % (len(parts), len(fields)))
-
-        return parts
-
-    def _zipvals(self, vals):
-        return s_common.iterzip(vals, self._get_fields())
 
 tagre = regex.compile(r'^([\w]+\.)*[\w]+$')
 
@@ -1205,450 +742,3 @@ class PermType(Type):
         if off != len(valu):
             self._raiseBadValu(valu)
         return valu, {}
-
-class PropValuType(Type):
-    def __init__(self, modl, name, **info):
-        Type.__init__(self, modl, name, **info)
-
-    def norm(self, valu, oldval=None):
-        # if it's already a str, we'll need to split it into its two parts to norm.
-        if isinstance(valu, str):
-            return self._norm_str(valu, oldval=oldval)
-
-        if not islist(valu):
-            self._raiseBadValu(valu, mesg='Expected str or list/tuple.')
-
-        return self._norm_list(valu)
-
-    def _norm_str(self, text, oldval=None):
-
-        text = text.strip()
-
-        if not text:
-            self._raiseBadValu(text, mesg='No text left after strip().')
-
-        if '=' not in text:
-            self._raiseBadValu(text, mesg='PropValu is missing a =')
-
-        valu = text.split('=', 1)
-
-        return self._norm_list(valu)
-
-    def _norm_list(self, valu, oldval=None):
-        if len(valu) != 2:
-            self._raiseBadValu(valu=valu, mesg='PropValu requires two values to norm.')
-
-        prop, valu = valu
-
-        try:
-            nvalu, nsubs = self._reqPropNorm(prop, valu, oldval=oldval)
-        except (s_common.BadTypeValu, s_common.NoSuchProp) as e:
-            logger.exception('Failed to norm PropValu.')
-            self._raiseBadValu(valu, mesg='Unable to norm PropValu', prop=prop)
-
-        subs = {'prop': prop}
-        if isinstance(nvalu, str):
-            subs['strval'] = nvalu
-        else:
-            subs['intval'] = nvalu
-
-        nrepr = self._getPropRepr(prop, nvalu)
-        retv = '='.join([prop, nrepr])
-        return retv, subs
-
-
-class TypeLib:
-    '''
-    An extensible type library for use in cortex data models.
-    '''
-    def __init__(self, load=True):
-        self.types = {}
-        self.casts = {}
-        self.typeinfo = {}
-        self.typetree = {}
-        self.subscache = {}
-        self.modlnames = set()
-
-        # pend creation of subtypes for non-existant base types
-        # until the base type gets loaded.
-        self.pended = collections.defaultdict(list)
-
-        self.addType('str', ctor='synapse.lib.types.StrType', doc='The base string type')
-        self.addType('int', ctor='synapse.lib.types.IntType', doc='The base integer type')
-        self.addType('bool', ctor='synapse.lib.types.BoolType', doc='A boolean type')
-        self.addType('json', ctor='synapse.lib.types.JsonType', doc='A json type (stored as str)')
-
-        self.addType('guid', ctor='synapse.lib.types.GuidType', doc='A Globally Unique Identifier type')
-        self.addType('sepr', ctor='synapse.lib.types.SeprType',
-                     doc='A multi-field composite type which uses separated repr values')
-        self.addType('comp', ctor='synapse.lib.types.CompType',
-                     doc='A multi-field composite type which generates a stable guid from normalized fields')
-        self.addType('xref', ctor='synapse.lib.types.XrefType',
-                     doc='A multi-field composite type which can be used to link a known form to an unknown form')
-        self.addType('time', ctor='synapse.lib.types.TimeType',
-                     doc='Timestamp in milliseconds since epoch', ex='20161216084632')
-        self.addType('ndef', ctor='synapse.lib.types.NDefType',
-                     doc='The type used for normalizing node:ndef values.')
-
-        self.addType('syn:tag', ctor='synapse.lib.types.TagType', doc='A synapse tag', ex='foo.bar')
-        self.addType('syn:perm', ctor='synapse.lib.types.PermType', doc='A synapse permission string')
-        self.addType('syn:storm', ctor='synapse.lib.types.StormType', doc='A synapse storm query string')
-        self.addType('propvalu', ctor='synapse.lib.types.PropValuType', ex='foo:bar=1234',
-                     doc='An equal sign delimited property/valu combination.',)
-
-        # add base synapse types
-        self.addType('syn:core', subof='str')
-        self.addType('syn:prop', subof='str', regex=r'^([\w]+:)*([\w]+|\*)$', lower=1)
-        self.addType('syn:type', subof='str', regex=r'^([\w]+:)*[\w]+$', lower=1)
-        self.addType('syn:glob', subof='str', regex=r'^([\w]+:)*[\w]+:\*$', lower=1)
-
-        self.addType('int:min', subof='int', ismin=1)
-        self.addType('int:max', subof='int', ismax=1)
-
-        self.addType('str:lwr', subof='str', lower=1, strip=1)
-        self.addType('str:txt', subof='str', doc='Multi-line text or text blob.')
-        self.addType('str:hex', subof='str', frob_int_fmt='%x', regex=r'^[0-9a-f]+$', lower=1)
-
-        self.addTypeCast('country:2:cc', self._castCountry2CC)
-        self.addTypeCast('int:2:str10', self._castMakeInt10)
-        self.addTypeCast('make:guid', self._castMakeGuid)
-        self.addTypeCast('make:json', self._castMakeJson)
-
-        if load:
-            self.loadModModels()
-
-    def _castCountry2CC(self, valu):
-        valu = valu.replace('.', '').lower()
-        return s_l_iso3166.country2iso.get(valu)
-
-    def _castMakeGuid(self, valu):
-        return s_common.guid(valu)
-
-    def _castMakeJson(self, valu):
-        valu = json.dumps(valu, sort_keys=True, separators=(',', ':'))
-        return valu
-
-    def _castMakeInt10(self, valu):
-        if isinstance(valu, int):
-            valu = str(valu)
-            return valu
-        return valu
-
-    def getTypeInst(self, name):
-        '''
-        Return the Type instance for the given type name.
-
-        Example:
-
-            dtype = modl.getTypeInst('foo:bar')
-
-        NOTE: This API returns non-primitive objects and can not be
-              used over telepath RMI.
-        '''
-        return self.types.get(name)
-
-    def getTypeBases(self, name):
-        '''
-        Return a list of type inheritence names beginning with the base type.
-
-        Example:
-
-            for base in tlib.getTypeBases('foo:minval'):
-                print('base type: %s' % (name,))
-
-        '''
-        done = [name]
-
-        todo = self.typetree.get(name)
-        while todo is not None:
-            done.append(todo)
-            todo = self.typetree.get(todo)
-
-        done.reverse()
-        return done
-
-    def isSubType(self, name, base):
-        '''
-        Returns True if the given type name is a sub-type of the base name.
-
-        Example:
-
-            if modl.isSubType('foo','str'):
-                dostuff()
-
-        '''
-        key = (name, base)
-
-        ret = self.subscache.get(key)
-        if ret is None:
-            ret = base in self.getTypeBases(name)
-            self.subscache[key] = ret
-
-        return ret
-
-    def addDataModels(self, modtups):
-        '''
-        Load a list of (name,model) tuples.
-
-        Args:
-            modtups ([(str,dict)]): A list of (name,modl) tuples.
-
-        Returns:
-            (None)
-
-        NOTE: This API loads all types first and may therefor be used to
-              prevent type dependency ordering issues between multiple models.
-
-        '''
-        return self._addDataModels(modtups)
-
-    def addDataModel(self, name, modl):
-        return self.addDataModels([(name, modl)])
-
-    def isDataModl(self, name):
-        '''
-        Return True if the given data model name exists.
-
-        Args:
-            name (str): The name of the data model
-
-        Returns:
-            (boolean):  True if the model exists
-        '''
-        return name in self.modlnames
-
-    def _addDataModels(self, modtups):
-        for modname, moddict in modtups:
-            self.modlnames.add(modname)
-            # add all base types first to simplify deps
-            for name, info in moddict.get('types', ()):
-                try:
-                    self.addType(name, **info)
-                except Exception as e:
-                    logger.exception('type %s: %s' % (name, e))
-
-    def loadModModels(self):
-
-        dynmodls = s_modules.call_ctor('getBaseModels')
-
-        models = []
-        for name, modls, excp in dynmodls:
-            if not modls:
-                logger.warning('dyn model empty: %r %r' % (name, excp))
-                continue
-
-            models.extend(modls)
-
-        self.addDataModels(models)
-
-    def _bumpBasePend(self, name):
-        for name, info in self.pended.pop(name, ()):
-            try:
-                self.addType(name, **info)
-            except Exception as e:
-                logger.exception('pended: addType %s' % name)
-
-    def getType(self, name):
-        '''
-        Return the Type subclass for the given type name.
-        '''
-        return self.types.get(name)
-
-    def isType(self, name):
-        '''
-        Return boolean which is true if the given name is a data type.
-
-        Example:
-
-            if modl.isType('foo:bar'):
-                dostuff()
-
-        '''
-        return self.types.get(name) is not None
-
-    def reqDataType(self, name):
-        '''
-        Return a reference to the named DataType or raise NoSuchType.
-
-        Args:
-            name (str): Name of the type to get a reference for.
-
-        Returns:
-            DataType: Instance of a DataType for that name.
-
-        Raises:
-            NoSuchType: If the type is not valid.
-        '''
-        item = self.getDataType(name)
-        if item is None:
-            raise s_common.NoSuchType(name=name)
-        return item
-
-    def addType(self, name, **info):
-        '''
-        Add a type to the cached types.
-
-        Args:
-            name (str): Name of the type to add.
-            **info (dict): Type properties to include.
-
-        Example:
-            Add a new foo:bar type::
-
-                modl.addType('foo:bar', subof='str', doc='A foo bar.')
-
-        Raises:
-            DupTypeName: If the type already exists.
-
-        '''
-        if self.types.get(name) is not None:
-            raise s_common.DupTypeName(name=name)
-
-        ctor = info.get('ctor')
-        subof = info.get('subof')
-        if ctor is None and subof is None:
-            raise Exception('addType must have either ctor= or subof=')
-
-        if ctor is not None:
-            self.typeinfo[name] = info
-
-            try:
-                item = s_dyndeps.tryDynFunc(ctor, self, name, **info)
-                self.types[name] = item
-                self._bumpBasePend(name)
-                return True
-
-            except Exception as e:
-                logger.warning('failed to ctor type %s', name, exc_info=True)
-                logger.debug('failed to ctor type %s', name, exc_info=True)
-                self.typeinfo.pop(name, None)
-        try:
-
-            base = self.reqDataType(subof)
-            # inherit docs and examples from parent types
-            self.typeinfo[name] = info
-            item = base.extend(name, **info)
-
-            self.types[name] = item
-
-            self._bumpBasePend(name)
-            self.typetree[name] = subof
-            self.subscache.clear()
-            return True
-
-        except s_common.NoSuchType as e:
-            tnam = e.errinfo.get('name')
-            self.typeinfo.pop(name, None)
-            self.pended[tnam].append((name, info))
-            return False
-
-    #def getTypeDefs(self):
-        #'''
-        #Return a list of (name,info) tuples for all the types.
-
-        #Returns:
-            #([(name,info)]):    The loaded types
-        #'''
-        #return list(self.typeinfo.items())
-
-    def getTypeDef(self, name):
-        '''
-        Get the definition for a given type.
-
-        Args:
-            name (str): Name of the type to look up.
-
-        Examples:
-            Do stuff with the type definition of 'int'::
-
-                tdef = modl.getTypeDef('int')
-                dostuff(tdef)
-
-        Returns:
-            ((str, dict)): The type definition tufo. The str is the name of the type, and the dictionary are any type
-             options (ctor and subof values). If the name is not a registered type, this is None.
-        '''
-        info = self.typeinfo.get(name)
-        if info is None:
-            return None
-        return (name, info)
-
-    def getTypeInfo(self, name, prop, defval=None):
-        '''
-        A helper to return an info prop for the type or it's parents.
-
-        Example:
-
-            ex = modl.getTypeInfo('inet:tcp4','ex')
-
-        '''
-        todo = name
-        while todo is not None:
-
-            info = self.typeinfo.get(todo)
-            if info is None:
-                return defval
-
-            ret = info.get(prop)
-            if ret is not None:
-                return ret
-
-            todo = info.get('subof')
-
-        return defval
-
-    def getTypeNorm(self, name, valu, oldval=None):
-        '''
-        Normalize a type specific value in system mode.
-
-        Example:
-
-            fqdn,subs = modl.getTypeNorm('inet:fqdn','Foo.Com')
-
-        '''
-        return self.reqDataType(name).norm(valu, oldval=oldval)
-
-    def getTypeCast(self, name, valu):
-        '''
-        Use either a type or a registered "cast" name to normalize
-        the given input.
-
-        Example:
-
-            valu = modl.getTypeCast("foo:bar","hehe")
-
-        '''
-        func = self.casts.get(name)
-        if func is not None:
-            return func(valu)
-
-        return self.getTypeNorm(name, valu)[0]
-
-    def addTypeCast(self, name, func):
-        '''
-        Add a "cast" function to do normalization without
-        creating a complete type.
-        '''
-        self.casts[name] = func
-
-    def getTypeRepr(self, name, valu):
-        '''
-        Return the humon readable form of the given type value.
-
-        Example:
-
-            print( tlib.getTypeRepr('inet:ipv4', ipv4addr) )
-
-        '''
-        return self.reqDataType(name).repr(valu)
-
-    def getTypeParse(self, name, text):
-        '''
-        Parse input text for the given type into it's system form.
-
-        Example:
-
-            ipv4,subs = tlib.getTypeParse('inet:ipv4','1.2.3.4')
-
-        '''
-        return self.reqDataType(name).parse(text)

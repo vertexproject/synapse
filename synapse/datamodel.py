@@ -247,6 +247,10 @@ class Model:
         item = s_types.Bool(self, 'bool', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'A date/time value.'}
+        item = s_types.Time(self, 'time', info, {})
+        self.addBaseType(item)
+
         info = {'doc': 'The base GUID type.'}
         item = s_types.Guid(self, 'guid', info, {})
         self.addBaseType(item)
@@ -257,6 +261,14 @@ class Model:
 
         info = {'doc': 'The base geo political location type.'}
         item = s_types.Loc(self, 'loc', info, {})
+        self.addBaseType(item)
+
+        info = {'doc': 'The node type for a (form,valu) compound field.'}
+        item = s_types.Node(self, 'node', info, {})
+        self.addBaseType(item)
+
+        info = {'doc': 'The nodeprop type for a (prop,valu) compound field.'}
+        item = s_types.NodeProp(self, 'nodeprop', info, {})
         self.addBaseType(item)
 
     def _addTypeDecl(self, decl):

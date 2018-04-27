@@ -116,7 +116,7 @@ class Xact(s_eventbus.EventBus):
     def cursors(self, name):
         return [xact.cursor(db=layr.db(name)) for (layr, xact) in self.xacts]
 
-    def getNodesBy(self, full, valu, cmpr='='):
+    def getNodesBy(self, full, valu=None, cmpr='='):
         '''
         The main function for retrieving nodes by prop.
 
@@ -131,6 +131,20 @@ class Xact(s_eventbus.EventBus):
         prop = self.model.prop(full)
         if prop is None:
             raise s_exc.NoSuchProp(name=full)
+
+        if valu is None:
+
+            lops = (
+                ('prop', {
+                    'prop': prop.utf8name,
+                    'form': prop.form.utf8name,
+                }),
+            )
+
+            for row, node in self.lift(lops):
+                yield node
+
+            return
 
         for row, node in prop.lift(self, valu, cmpr=cmpr):
             yield node

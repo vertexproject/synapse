@@ -726,11 +726,10 @@ class Daemon(EventBus):
                 # handle generator returns specially
                 if isinstance(ret, types.GeneratorType):
 
-                    print('GENR FROM: %r' % (task,))
-
                     iden = s_common.guid()
 
                     txwait = threading.Event()
+
                     # start off set...
                     txwait.set()
 

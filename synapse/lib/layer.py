@@ -57,7 +57,6 @@ class Layer(s_config.Config):
             'tag': self._liftByTag,
             'tag:form': self._liftByTagForm,
 
-
             'prop': self._liftByProp,
             'prop:eq': self._liftByPropEq,
             'prop:pref': self._liftByPropPref,
@@ -329,15 +328,24 @@ class Layer(s_config.Config):
 
     def _liftByProp(self, xact, oper):
 
-        form = oper[1].get('form')
-        prop = oper[1].get('prop')
+        fenc = oper[1].get('form')
+        penc = oper[1].get('prop')
 
-        lkey = form + b'\x00' + prop + b'\x00'
+        pref = fenc + b'\x00' + penc + b'\x00'
+
+        size = len(pref)
 
         with xact.cursor(db=self._db_byprop) as curs:
 
-            if not curs.set_range(indx):
+            if not curs.set_range(pref):
                 return
+
+            for lkey, buid in curs.iternext():
+
+                if lkey[:size] != pref:
+                    break
+
+                yield (buid,)
 
     def _liftByPropEq(self, xact, oper):
 

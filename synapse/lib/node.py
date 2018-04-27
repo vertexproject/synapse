@@ -106,6 +106,14 @@ class Node:
             buid = s_common.buid((auto.name, norm))
             self.xact._addNodeFnib((auto, norm, info, buid))
 
+        # does the type think we have special auto nodes to add?
+        # ( used only for adds which do not meet the above block )
+        for autoname, autovalu in info.get('adds', ()):
+            auto = self.xact.model.form(autoname)
+            autonorm, autoinfo = auto.type.norm(autovalu)
+            buid = s_common.buid((auto.name, autonorm))
+            self.xact._addNodeFnib((auto, autovalu, autoinfo, buid))
+
         # do we need to set any sub props?
         subs = info.get('subs')
         if subs is not None:

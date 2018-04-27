@@ -43,11 +43,15 @@ testmodel = {
 
         ('testlower', ('str', {'lower': True}), {}),
 
+        ('testtime', ('time', {}), {}),
+
+        ('testfoo', ('str', {}), {}),
+        ('testauto', ('str', {}), {}),
+
         ('fakecomp', ('comp', {'fields': (
                 ('hehe', 'int'),
                 ('haha', 'testlower'))
             }), {'doc': 'A fake comp type.'}),
-
     ),
 
     'forms': (
@@ -71,6 +75,14 @@ testmodel = {
             ('hehe', ('int', {}), {'ro': 1}),
             ('haha', ('str', {}), {'ro': 1}),
         )),
+
+        ('testfoo', {}, (
+            ('bar', ('node', {}), {}),
+            ('baz', ('nodeprop', {}), {}),
+            ('tick', ('testtime', {}), {}),
+        )),
+
+        ('testauto', {}, ()),
     ),
 
 }
@@ -146,6 +158,49 @@ class CortexTest(SynTest):
                 self.eq(node.get('haha'), 'thirty three')
 
                 self.false(node.set('hehe', 80))
+
+                self.none(xact.getNodeByNdef(('testauto', 'autothis')))
+
+                props = {
+                    'bar': ('testauto', 'autothis'),
+                    'baz': ('faketype:strprop', 'WOOT'),
+                    'tick': '20160505',
+                }
+                node = xact.addNode('testfoo', 'woot', props=props)
+                self.eq(node.get('bar'), ('testauto', 'autothis'))
+                self.eq(node.get('baz'), ('faketype:strprop', 'woot'))
+                self.eq(node.get('tick'), 1462406400000)
+
+                nodes = list(xact.getNodesBy('testfoo:tick', '20160505'))
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('testfoo', 'woot'))
+
+                # add some time range bumper nodes
+                xact.addNode('testfoo', 'toolow', props={'tick': '2015'})
+                xact.addNode('testfoo', 'toohigh', props={'tick': '2018'})
+
+                # test a few time range syntax options...
+                nodes = list(xact.getNodesBy('testfoo:tick', '2016*'))
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('testfoo', 'woot'))
+
+                # test a few time range syntax options...
+                nodes = list(xact.getNodesBy('testfoo:tick', ('2016', '2017')))
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('testfoo', 'woot'))
+
+                nodes = list(xact.getNodesBy('testfoo:tick', ('2016', '2017')))
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('testfoo', 'woot'))
+
+                self.raises(s_exc.NoSuchForm, node.set, 'bar', ('newp:newp', 20))
+                self.raises(s_exc.NoSuchProp, node.set, 'baz', ('newp:newp', 20))
+
+                self.nn(xact.getNodeByNdef(('testauto', 'autothis')))
+
+                # test lifting by prop without value
+                nodes = list(xact.getNodesBy('testfoo:tick'))
+                self.len(3, nodes)
 
             with core.xact() as xact:
 
