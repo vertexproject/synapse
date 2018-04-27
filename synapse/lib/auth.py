@@ -367,7 +367,7 @@ class Auth(s_config.Config):
 
     def initConfDefs(self):
         self.addConfDefs((
-            ('lmdb:mapsize', {'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE,
+            ('lmdb:mapsize', {'type': 'int', 'defval': s_lmdb.DEFAULT_SMALL_MAP_SIZE,
                 'doc': 'Memory map size for the auth LMDB.'}),
         ))
 
