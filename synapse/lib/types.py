@@ -218,10 +218,9 @@ class Str(Type):
     def postTypeInit(self):
 
         self.regex = None
-
         restr = self.opts.get('regex')
         if restr is not None:
-            self.regex = re.compile(restr)
+            self.regex = regex.compile(restr)
 
     def norm(self, valu):
 
@@ -235,6 +234,9 @@ class Str(Type):
                 raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='regex does not match')
 
         return norm, {}
+
+    def repr(self, valu):
+        return self.norm(valu)[0]
 
     def indx(self, norm):
         return norm.encode('utf8')
