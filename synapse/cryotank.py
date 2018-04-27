@@ -1129,6 +1129,7 @@ class CryoTankIndexer:
         Runs as separate thread.
         '''
         stillworktodo = True
+        last_callback = 'None'
 
         while True:
             # Run the outstanding commands
@@ -1140,6 +1141,7 @@ class CryoTankIndexer:
                     retn, callback, args, kwargs = job
                     try:
                         if retn is not None:
+                            last_callback = callback.__name__
                             retn.retn(callback(*args, **kwargs))
                             recalc = True
                     except Exception as e:
@@ -1163,7 +1165,8 @@ class CryoTankIndexer:
             self._removeSome()
             if not rowcount and not self._meta.deleting:
                 if stillworktodo is True:
-                    self.cryotank.fire('cryotank:indexer:noworkleft')
+                    self.cryotank.fire('cryotank:indexer:noworkleft:' + last_callback)
+                    last_callback = 'None'
                     stillworktodo = False
             else:
                 stillworktodo = True
