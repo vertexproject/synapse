@@ -14,9 +14,11 @@ STOR_FLAG_DEFVAL = 0x0004       # Only set this if it doesn't exist
 
 if sys.platform == 'linux':
     DEFAULT_MAP_SIZE = s_const.tebibyte
+    DEFAULT_SMALL_MAP_SIZE = s_const.gibibyte
 else:
     # For non-Linux system, use a smaller DB since one can't guarantee sparse file support
     DEFAULT_MAP_SIZE = s_const.gibibyte
+    DEFAULT_SMALL_MAP_SIZE = s_const.mebibyte * 100
 
 # String vals of this size or larger will be truncated and hashed in index.  What this means is
 # that comparison on large string vals require retrieving the row from the main table
