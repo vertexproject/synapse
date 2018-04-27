@@ -218,10 +218,9 @@ class Str(Type):
     def postTypeInit(self):
 
         self.regex = None
-
         restr = self.opts.get('regex')
         if restr is not None:
-            self.regex = re.compile(restr)
+            self.regex = regex.compile(restr)
 
     def norm(self, valu):
 

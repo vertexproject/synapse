@@ -1,12 +1,11 @@
 import hashlib
 
+import synapse.exc as s_exc
 import synapse.common as s_common
-
-#from synapse.lib.types import DataType
-from synapse.common import addpref, guid
-
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
+#from synapse.lib.types import DataType
+from synapse.common import addpref, guid
 
 #class FileBaseType(DataType):
 #    def norm(self, valu, oldval=None):
@@ -89,7 +88,7 @@ class FileBytes(s_types.Type):
         if len(valu) != 64:
             raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
-        s_common.uhex(norm)
+        s_common.uhex(valu)
 
         norm = valu.lower()
         return norm, {}
