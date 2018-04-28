@@ -281,7 +281,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:ipv4', {}, (
                         ('asn', ('inet:asn', {}), {
-                            'defval': -1,
+                            'defval': 0,  # FIXME replace with nullval
                             'doc': 'The ASN to which the IPv4 address is currently assigned.'
                         }),
                         # FIXME implement geospace...
