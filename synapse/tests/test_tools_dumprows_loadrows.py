@@ -75,6 +75,7 @@ class DumpRowsTest(SynTest):
                 self.eq(event_types, {'core:save:add:rows'})
 
     def test_simple_compress(self):
+        self.thisHostMustNot(platform='darwin')
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
             fp = os.path.join(temp, 'dumpfile.mpk')
@@ -112,6 +113,7 @@ class DumpRowsTest(SynTest):
                 self.eq(event_types, {'core:save:add:rows'})
 
     def test_blob_dump(self):
+        self.thisHostMustNot(platform='darwin')
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
             fp = os.path.join(temp, 'dumpfile.mpk')
@@ -148,6 +150,7 @@ class DumpRowsTest(SynTest):
                 self.eq(event_types, {'core:save:add:rows', 'syn:core:blob:set'})
 
     def test_dump_force(self):
+        self.thisHostMustNot(platform='darwin')
         self.thisHostMustNot(platform='darwin')
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
@@ -225,6 +228,7 @@ class LoadRowsTest(SynTest):
             f.write(json.dumps(d, indent=2, sort_keys=True).encode())
 
     def test_savefile_load(self):
+        self.thisHostMustNot(platform='darwin')
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
             # Prepare a savefile to load from a ram core
@@ -250,6 +254,7 @@ class LoadRowsTest(SynTest):
                 self.eq(core.getBlobValu('foo:bar'), ('tufo', {'test': 'value'}))
 
     def test_dumprows_load(self):
+        self.thisHostMustNot(platform='darwin')
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
             # Make a sqlite cortex and the associated dupmfile for it
@@ -285,6 +290,7 @@ class LoadRowsTest(SynTest):
                 self.eq(core.getBlobValu('foo:bar'), ('tufo', {'test': 'value'}))
 
     def test_dumprows_load_compressed(self):
+        self.thisHostMustNot(platform='darwin')
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
             # Make a sqlite cortex and the associated dupmfile for it
