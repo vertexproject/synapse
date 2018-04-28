@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 
+
 class IPv4(s_types.Type):
     '''
     The base type for an IPv4 address.
@@ -173,414 +174,6 @@ class Email(s_types.Type):
 
     def indx(self, norm):
         return norm.encode('utf8')
-
-#def ipv4mask(ipv4, mask):
-    #return ipv4 & masks[mask]
-
-#def ipv4cidr(valu):
-    #_ipv4str, cidr = valu.split('/', 1)
-    #_ipv4addr = ipv4int(_ipv4str)
-    #mask = cidrmasks[int(cidr)]
-    #lowerbound = _ipv4addr & mask[0]
-    #return lowerbound, lowerbound + mask[1]
-
-#class IPv4Type(DataType):
-
-    #def norm(self, valu, oldval=None):
-        #if isinstance(valu, str):
-            #return self._norm_str(valu, oldval=oldval)
-
-# FIXME ipv6 stuff..
-    #v6addr = ipaddress.IPv6Address(text)
-    #v4addr = v6addr.ipv4_mapped
-    #if v4addr is not None:
-        #return '::ffff:%s' % (v4addr), {'ipv4': ipv4int(str(v4addr))}
-
-    #return v6addr.compressed, {}
-
-        #if not isinstance(valu, int):
-            #self._raiseBadValu(valu)
-
-        #return valu & 0xffffffff, {}
-    #def norm(self, valu, oldval=None):
-        #try:
-            #return ipv6norm(valu)
-        #except Exception as e:
-            #self._raiseBadValu(valu)
-
-    #def _norm_str(self, valu, oldval=None):
-        #if valu.isdigit():
-            #return int(valu, 0) & 0xffffffff, {}
-
-        #valu = valu.replace('[.]', '.')
-        #return ipv4int(valu), {}
-
-    #def repr(self, valu):
-        #return ipv4str(valu)
-
-
-#class FqdnType(DataType):
-    #subprops = (
-        #('sfx', {'ptype': 'bool'}),
-        #('zone', {'ptype': 'bool'}),
-        #('domain', {'ptype': 'inet:fqdn'}),
-        #('host', {'ptype': 'str'}),
-    #)
-
-    #def norm(self, valu, oldval=None):
-
-        #valu = valu.replace('[.]', '.')
-        #if not fqdnre.match(valu):
-            #self._raiseBadValu(valu)
-
-        #try:
-            #valu = valu.encode('idna').decode('utf8').lower()
-        #except UnicodeError as e:
-            #self._raiseBadValu(valu)
-
-        #parts = valu.split('.', 1)
-        #subs = {'host': parts[0]}
-        #if len(parts) == 2:
-            #subs['domain'] = parts[1]
-        #else:
-            #subs['sfx'] = 1
-
-        #return valu, subs
-
-    #def repr(self, valu):
-        #try:
-            #return valu.encode('utf8').decode('idna')
-        #except UnicodeError as e:
-            #if len(valu) >= 4 and valu[0:4] == 'xn--':
-                #logger.exception(msg='Failed to IDNA decode ACE prefixed inet:fqdn')
-                #return valu
-            #raise  # pragma: no cover
-
-#class Rfc2822Addr(DataType):
-    #'''
-    #An RFC 2822 compatible email address parser
-    #'''
-    #def norm(self, valu, oldval=None):
-
-        #if not isinstance(valu, str):
-            #self._raiseBadValu(valu, mesg='requires a string')
-
-        # remove quotes for normalized version
-        #valu = valu.replace('"', ' ').replace("'", ' ')
-        #valu = valu.strip().lower()
-        #valu = ' '.join(valu.split())
-
-        #subs = {}
-
-        #try:
-
-            #name, addr = email.utils.parseaddr(valu)
-
-        #except Exception as e: #pragma: no cover
-            # not sure we can ever really trigger this with a string as input
-            #self._raiseBadValu(valu, mesg='email.utils.parsaddr failed: %s' % (e,))
-
-        #if name:
-            #subs['name'] = name
-
-        #try:
-
-            #mail, ssub = self.tlib.getTypeNorm('inet:email', addr)
-            #subs['email'] = mail
-
-            #if name:
-                #valu = '%s <%s>' % (name, mail)
-
-            #else:
-                #valu = mail
-
-        #except BadTypeValu as e:
-            #pass # it's all good, we just dont have a valid email addr
-
-        #return valu, subs
-
-# RFC5952 compatible
-#def ipv6norm(text):
-    #'''
-    #Normalize an IPv6 address into RFC5952 canonical form.
-
-    #Example:
-
-        #text = ipv6norm(text)
-
-    #'''
-    # This used to use socket.inet_pton for normalizing
-    # ipv6 addresses. There's a bug in macOS where it
-    # doesn't abbreviate the zeroes properly. See RFC
-    # 5952 for IPv6 address text representation
-
-    #v6addr = ipaddress.IPv6Address(text)
-    #v4addr = v6addr.ipv4_mapped
-    #if v4addr is not None:
-        #return '::ffff:%s' % (v4addr)
-
-    #return v6addr.compressed
-
-#class IPv6Type(DataType):
-    #def repr(self, valu):
-        #return self.norm(valu)[0]
-
-    #def norm(self, valu, oldval=None):
-        #try:
-            #return ipv6norm(valu), {}
-        #except Exception as e:
-            #self._raiseBadValu(valu)
-
-# class HostPort(DataType):
-
-
-#class EmailType(DataType):
-    #subprops = (
-        #('user', {'ptype': 'inet:user'}),
-        #('fqdn', {'ptype': 'inet:fqdn'}),
-    #)
-
-    #def norm(self, valu, oldval=None):
-        #try:
-            #user, fqdn = valu.split('@', 1)
-            #user, _ = self.tlib.getTypeNorm('inet:user', user)
-            #fqdn, _ = self.tlib.getTypeNorm('inet:fqdn', fqdn)
-            #norm = ('%s@%s' % (user, fqdn)).lower()
-        #except ValueError as e:
-            #self._raiseBadValu(valu)
-        #return norm, {'user': user, 'fqdn': fqdn}
-
-    #def repr(self, valu):
-        #return valu
-
-#urlports = {
-#    'ftp': 21,
-#    'http': 80,
-#    'https': 443,
-#}
-#
-#class UrlType(DataType):
-#    subprops = (
-#        ('proto', {'ptype': 'str'}),
-#        ('path', {'ptype': 'str'}),
-#        ('fqdn', {'ptype': 'inet:fqdn'}),
-#        ('ipv4', {'ptype': 'inet:ipv4'}),
-#        ('ipv6', {'ptype': 'inet:ipv6'}),
-#        ('port', {'ptype': 'inet:port'}),
-#        ('user', {'ptype': 'inet:user'}),
-#        ('passwd', {'ptype': 'inet:passwd'}),
-#    )
-#
-#    def norm(self, valu, oldval=None):
-#        subs = {}
-#        respath = ''
-#        resauth = ''
-#
-#        if valu.find('://') == -1:
-#            self._raiseBadValu(valu)
-#
-#        proto, resloc = valu.split('://', 1)
-#
-#        parts = resloc.split('/', 1)
-#        if len(parts) == 2:
-#            resloc, respath = parts
-#
-#        if resloc.find('@') != -1:
-#            resauth, resloc = resloc.split('@', 1)
-#
-#            user = resauth
-#            passwd = None
-#
-#            if user.find(':') is not None:
-#                user, passwd = user.rsplit(':', 1)
-#
-#            if user:
-#                subs['user'] = user
-#
-#            if passwd:
-#                subs['passwd'] = passwd
-#
-#        port = None
-#        proto = proto.lower()
-#        hostpart = resloc.lower().replace('[.]', '.')
-#
-#        subs['proto'] = proto
-#
-#        host = hostpart
-#        if hostpart.find(':') != -1:
-#            host, portstr = hostpart.rsplit(':', 1)
-#            port = self.tlib.getTypeParse('inet:port', portstr)[0]
-#
-#        # use of exception handling logic here is fastest way to both
-#        # validate and convert the data...  normally wouldnt use....
-#
-#        ipv4 = None
-#        try:
-#
-#            ipv4 = ipv4int(host)
-#            subs['ipv4'] = ipv4
-#
-#        except BadTypeValu as e:
-#            pass
-#
-#        if ipv4 is None and fqdnre.match(host):
-#            subs['fqdn'] = host
-#
-#        # try for a default iana protocol lookup
-#        if port is None:
-#            port = s_l_iana.services.get(proto)
-#
-#        if port is not None:
-#            subs['port'] = port
-#
-#        if resauth:
-#            hostpart = '%s@%s' % (resauth, hostpart)
-#
-#        valu = '%s://%s/%s' % (proto, hostpart, respath)
-#        return valu, subs
-#
-#    def repr(self, valu):
-#        return valu
-#
-#class CidrType(DataType):
-#    def norm(self, valu, oldval=None):
-#        ipstr, maskstr = valu.split('/')
-#
-#        mask = int(maskstr)
-#        ipv4 = ipv4int(ipstr)
-#
-#        if mask > 32 or mask < 0:
-#            self._raiseBadValu(valu, mesg='Invalid CIDR Mask')
-#
-#        ipv4 = ipv4mask(ipv4, mask)
-#        valu = '%s/%d' % (ipv4str(ipv4), mask)
-#
-#        return valu, {'ipv4': ipv4, 'mask': mask}
-#
-#    def repr(self, valu):
-#        return valu
-
-#class AddrType(DataType):
-
-    #def norm(self, valu, oldval=None):
-
-        #subs = {}
-        #if valu.find('.') != -1:
-            #valu = valu.split(':')[-1]
-            #ipv4, subs = self.tlib.getTypeNorm('inet:ipv4', valu)
-            #subs['ipv4'] = ipv4
-
-            #valu = '::ffff:' + valu
-
-        #addr, _ = self.tlib.getTypeNorm('inet:ipv6', valu)
-        #return addr, subs
-
-# TO MERGE UPDATED INET:ADDR
-#        orig = valu
-#
-#        proto = 'tcp'
-#        if valu.find('://') != -1:
-#            proto, valu = valu.split('://', 1)
-#            proto = proto.lower()
-#
-#        if proto not in ('tcp', 'udp', 'icmp', 'host'):
-#            self._raiseBadValu(valu, mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
-#
-#        # strip any trailing /
-#        valu = valu.strip().strip('/')
-#
-#        subs = {'proto': proto}
-#
-#        # handle host proto
-#        if proto == 'host':
-#            if valu.find(':') != -1:
-#
-#                valu, portstr = valu.rsplit(':')
-#                subs['port'] = port = int(portstr, 0) & 0xffff
-#
-#                guid, _ = self.tlib.getTypeNorm('guid', valu)
-#                subs['host'] = guid
-#
-#                return 'host://%s:%d' % (guid, port), subs
-#
-#            guid, _ = self.tlib.getTypeNorm('guid', valu)
-#            subs['host'] = guid
-#            return 'host://%s' % (guid,), subs
-#
-#        # check for ipv6
-#        if valu.startswith('['): # "[" <ipv6> "]" [:port]
-#
-#            ipv6, v6sub = self.tlib.getTypeNorm('inet:ipv6', valu[1:].split(']', 1)[0])
-#            subs['ipv6'] = ipv6
-#
-#            text = '[%s]' % (ipv6,)
-#
-#            ipv4 = v6sub.get('ipv4')
-#            if ipv4 is not None:
-#                text = ipv4str(ipv4)
-#                subs['ipv4'] = ipv4
-#
-#            if valu.find(']:') != -1:
-#
-#                if proto not in ('tcp', 'udp'):
-#                    self._raiseBadValu(orig, mesg='IPv6 port syntax with non tcp/udp protocol')
-#
-#                subs['port'] = port = int(valu.rsplit(':', 1)[1], 0)
-#                text += ':%d' % (port,)
-#
-#            norm = '%s://%s' % (proto, text)
-#            return norm, subs
-#
-#        # check for DWIM ipv6 with no []s
-#        try:
-#
-#            ipv6, v6sub = self.tlib.getTypeNorm('inet:ipv6', valu)
-#            subs['ipv6'] = ipv6
-#
-#            text = '[%s]' % (ipv6,)
-#
-#            ipv4 = v6sub.get('ipv4')
-#            if ipv4 is not None:
-#                text = ipv4str(ipv4)
-#                subs['ipv4'] = ipv4
-#
-#            norm = proto + '://' + text
-#            return norm, subs
-#
-#        except BadTypeValu as e:
-#            pass
-#
-#        # check for a port
-#        port = None
-#        if valu.find(':') != -1:
-#
-#            if proto not in ('tcp', 'udp'):
-#                self._raiseBadValu(orig, mesg='IPv6 port syntax with non tcp/udp protocol')
-#
-#            valu, portstr = valu.rsplit(':', 1)
-#            subs['port'] = port = int(portstr, 0) & 0xffff
-#
-#        # check for ipv4
-#        try:
-#
-#            ipv4 = ipv4int(valu)
-#            ipv6 = '::ffff:%s' % (ipv4str(ipv4),)
-#
-#            text = ipv4str(ipv4)
-#
-#            subs['ipv4'] = ipv4
-#            subs['ipv6'] = ipv6
-#
-#            if port is not None:
-#                text += ':%d' % (port,)
-#
-#            norm = '%s://%s' % (proto, text)
-#            return norm, subs
-#
-#        except BadTypeValu as e:
-#            pass
-#
-#        self._raiseBadValu(orig, mesg='inet:addr must be a <tcp|udp|icmp|host>://<ipv4|ipv6|guid>[:port]/')
 
 class InetModule(s_module.CoreModule):
 
@@ -1845,3 +1438,411 @@ class InetModule(s_module.CoreModule):
         }
 
         return (('inet', modl),)
+
+#def ipv4mask(ipv4, mask):
+    #return ipv4 & masks[mask]
+
+#def ipv4cidr(valu):
+    #_ipv4str, cidr = valu.split('/', 1)
+    #_ipv4addr = ipv4int(_ipv4str)
+    #mask = cidrmasks[int(cidr)]
+    #lowerbound = _ipv4addr & mask[0]
+    #return lowerbound, lowerbound + mask[1]
+
+#class IPv4Type(DataType):
+
+    #def norm(self, valu, oldval=None):
+        #if isinstance(valu, str):
+            #return self._norm_str(valu, oldval=oldval)
+
+# FIXME ipv6 stuff..
+    #v6addr = ipaddress.IPv6Address(text)
+    #v4addr = v6addr.ipv4_mapped
+    #if v4addr is not None:
+        #return '::ffff:%s' % (v4addr), {'ipv4': ipv4int(str(v4addr))}
+
+    #return v6addr.compressed, {}
+
+        #if not isinstance(valu, int):
+            #self._raiseBadValu(valu)
+
+        #return valu & 0xffffffff, {}
+    #def norm(self, valu, oldval=None):
+        #try:
+            #return ipv6norm(valu)
+        #except Exception as e:
+            #self._raiseBadValu(valu)
+
+    #def _norm_str(self, valu, oldval=None):
+        #if valu.isdigit():
+            #return int(valu, 0) & 0xffffffff, {}
+
+        #valu = valu.replace('[.]', '.')
+        #return ipv4int(valu), {}
+
+    #def repr(self, valu):
+        #return ipv4str(valu)
+
+
+#class FqdnType(DataType):
+    #subprops = (
+        #('sfx', {'ptype': 'bool'}),
+        #('zone', {'ptype': 'bool'}),
+        #('domain', {'ptype': 'inet:fqdn'}),
+        #('host', {'ptype': 'str'}),
+    #)
+
+    #def norm(self, valu, oldval=None):
+
+        #valu = valu.replace('[.]', '.')
+        #if not fqdnre.match(valu):
+            #self._raiseBadValu(valu)
+
+        #try:
+            #valu = valu.encode('idna').decode('utf8').lower()
+        #except UnicodeError as e:
+            #self._raiseBadValu(valu)
+
+        #parts = valu.split('.', 1)
+        #subs = {'host': parts[0]}
+        #if len(parts) == 2:
+            #subs['domain'] = parts[1]
+        #else:
+            #subs['sfx'] = 1
+
+        #return valu, subs
+
+    #def repr(self, valu):
+        #try:
+            #return valu.encode('utf8').decode('idna')
+        #except UnicodeError as e:
+            #if len(valu) >= 4 and valu[0:4] == 'xn--':
+                #logger.exception(msg='Failed to IDNA decode ACE prefixed inet:fqdn')
+                #return valu
+            #raise  # pragma: no cover
+
+#class Rfc2822Addr(DataType):
+    #'''
+    #An RFC 2822 compatible email address parser
+    #'''
+    #def norm(self, valu, oldval=None):
+
+        #if not isinstance(valu, str):
+            #self._raiseBadValu(valu, mesg='requires a string')
+
+        # remove quotes for normalized version
+        #valu = valu.replace('"', ' ').replace("'", ' ')
+        #valu = valu.strip().lower()
+        #valu = ' '.join(valu.split())
+
+        #subs = {}
+
+        #try:
+
+            #name, addr = email.utils.parseaddr(valu)
+
+        #except Exception as e: #pragma: no cover
+            # not sure we can ever really trigger this with a string as input
+            #self._raiseBadValu(valu, mesg='email.utils.parsaddr failed: %s' % (e,))
+
+        #if name:
+            #subs['name'] = name
+
+        #try:
+
+            #mail, ssub = self.tlib.getTypeNorm('inet:email', addr)
+            #subs['email'] = mail
+
+            #if name:
+                #valu = '%s <%s>' % (name, mail)
+
+            #else:
+                #valu = mail
+
+        #except BadTypeValu as e:
+            #pass # it's all good, we just dont have a valid email addr
+
+        #return valu, subs
+
+# RFC5952 compatible
+#def ipv6norm(text):
+    #'''
+    #Normalize an IPv6 address into RFC5952 canonical form.
+
+    #Example:
+
+        #text = ipv6norm(text)
+
+    #'''
+    # This used to use socket.inet_pton for normalizing
+    # ipv6 addresses. There's a bug in macOS where it
+    # doesn't abbreviate the zeroes properly. See RFC
+    # 5952 for IPv6 address text representation
+
+    #v6addr = ipaddress.IPv6Address(text)
+    #v4addr = v6addr.ipv4_mapped
+    #if v4addr is not None:
+        #return '::ffff:%s' % (v4addr)
+
+    #return v6addr.compressed
+
+#class IPv6Type(DataType):
+    #def repr(self, valu):
+        #return self.norm(valu)[0]
+
+    #def norm(self, valu, oldval=None):
+        #try:
+            #return ipv6norm(valu), {}
+        #except Exception as e:
+            #self._raiseBadValu(valu)
+
+# class HostPort(DataType):
+
+
+#class EmailType(DataType):
+    #subprops = (
+        #('user', {'ptype': 'inet:user'}),
+        #('fqdn', {'ptype': 'inet:fqdn'}),
+    #)
+
+    #def norm(self, valu, oldval=None):
+        #try:
+            #user, fqdn = valu.split('@', 1)
+            #user, _ = self.tlib.getTypeNorm('inet:user', user)
+            #fqdn, _ = self.tlib.getTypeNorm('inet:fqdn', fqdn)
+            #norm = ('%s@%s' % (user, fqdn)).lower()
+        #except ValueError as e:
+            #self._raiseBadValu(valu)
+        #return norm, {'user': user, 'fqdn': fqdn}
+
+    #def repr(self, valu):
+        #return valu
+
+#urlports = {
+#    'ftp': 21,
+#    'http': 80,
+#    'https': 443,
+#}
+#
+#class UrlType(DataType):
+#    subprops = (
+#        ('proto', {'ptype': 'str'}),
+#        ('path', {'ptype': 'str'}),
+#        ('fqdn', {'ptype': 'inet:fqdn'}),
+#        ('ipv4', {'ptype': 'inet:ipv4'}),
+#        ('ipv6', {'ptype': 'inet:ipv6'}),
+#        ('port', {'ptype': 'inet:port'}),
+#        ('user', {'ptype': 'inet:user'}),
+#        ('passwd', {'ptype': 'inet:passwd'}),
+#    )
+#
+#    def norm(self, valu, oldval=None):
+#        subs = {}
+#        respath = ''
+#        resauth = ''
+#
+#        if valu.find('://') == -1:
+#            self._raiseBadValu(valu)
+#
+#        proto, resloc = valu.split('://', 1)
+#
+#        parts = resloc.split('/', 1)
+#        if len(parts) == 2:
+#            resloc, respath = parts
+#
+#        if resloc.find('@') != -1:
+#            resauth, resloc = resloc.split('@', 1)
+#
+#            user = resauth
+#            passwd = None
+#
+#            if user.find(':') is not None:
+#                user, passwd = user.rsplit(':', 1)
+#
+#            if user:
+#                subs['user'] = user
+#
+#            if passwd:
+#                subs['passwd'] = passwd
+#
+#        port = None
+#        proto = proto.lower()
+#        hostpart = resloc.lower().replace('[.]', '.')
+#
+#        subs['proto'] = proto
+#
+#        host = hostpart
+#        if hostpart.find(':') != -1:
+#            host, portstr = hostpart.rsplit(':', 1)
+#            port = self.tlib.getTypeParse('inet:port', portstr)[0]
+#
+#        # use of exception handling logic here is fastest way to both
+#        # validate and convert the data...  normally wouldnt use....
+#
+#        ipv4 = None
+#        try:
+#
+#            ipv4 = ipv4int(host)
+#            subs['ipv4'] = ipv4
+#
+#        except BadTypeValu as e:
+#            pass
+#
+#        if ipv4 is None and fqdnre.match(host):
+#            subs['fqdn'] = host
+#
+#        # try for a default iana protocol lookup
+#        if port is None:
+#            port = s_l_iana.services.get(proto)
+#
+#        if port is not None:
+#            subs['port'] = port
+#
+#        if resauth:
+#            hostpart = '%s@%s' % (resauth, hostpart)
+#
+#        valu = '%s://%s/%s' % (proto, hostpart, respath)
+#        return valu, subs
+#
+#    def repr(self, valu):
+#        return valu
+#
+#class CidrType(DataType):
+#    def norm(self, valu, oldval=None):
+#        ipstr, maskstr = valu.split('/')
+#
+#        mask = int(maskstr)
+#        ipv4 = ipv4int(ipstr)
+#
+#        if mask > 32 or mask < 0:
+#            self._raiseBadValu(valu, mesg='Invalid CIDR Mask')
+#
+#        ipv4 = ipv4mask(ipv4, mask)
+#        valu = '%s/%d' % (ipv4str(ipv4), mask)
+#
+#        return valu, {'ipv4': ipv4, 'mask': mask}
+#
+#    def repr(self, valu):
+#        return valu
+
+#class AddrType(DataType):
+
+    #def norm(self, valu, oldval=None):
+
+        #subs = {}
+        #if valu.find('.') != -1:
+            #valu = valu.split(':')[-1]
+            #ipv4, subs = self.tlib.getTypeNorm('inet:ipv4', valu)
+            #subs['ipv4'] = ipv4
+
+            #valu = '::ffff:' + valu
+
+        #addr, _ = self.tlib.getTypeNorm('inet:ipv6', valu)
+        #return addr, subs
+
+# TO MERGE UPDATED INET:ADDR
+#        orig = valu
+#
+#        proto = 'tcp'
+#        if valu.find('://') != -1:
+#            proto, valu = valu.split('://', 1)
+#            proto = proto.lower()
+#
+#        if proto not in ('tcp', 'udp', 'icmp', 'host'):
+#            self._raiseBadValu(valu, mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
+#
+#        # strip any trailing /
+#        valu = valu.strip().strip('/')
+#
+#        subs = {'proto': proto}
+#
+#        # handle host proto
+#        if proto == 'host':
+#            if valu.find(':') != -1:
+#
+#                valu, portstr = valu.rsplit(':')
+#                subs['port'] = port = int(portstr, 0) & 0xffff
+#
+#                guid, _ = self.tlib.getTypeNorm('guid', valu)
+#                subs['host'] = guid
+#
+#                return 'host://%s:%d' % (guid, port), subs
+#
+#            guid, _ = self.tlib.getTypeNorm('guid', valu)
+#            subs['host'] = guid
+#            return 'host://%s' % (guid,), subs
+#
+#        # check for ipv6
+#        if valu.startswith('['): # "[" <ipv6> "]" [:port]
+#
+#            ipv6, v6sub = self.tlib.getTypeNorm('inet:ipv6', valu[1:].split(']', 1)[0])
+#            subs['ipv6'] = ipv6
+#
+#            text = '[%s]' % (ipv6,)
+#
+#            ipv4 = v6sub.get('ipv4')
+#            if ipv4 is not None:
+#                text = ipv4str(ipv4)
+#                subs['ipv4'] = ipv4
+#
+#            if valu.find(']:') != -1:
+#
+#                if proto not in ('tcp', 'udp'):
+#                    self._raiseBadValu(orig, mesg='IPv6 port syntax with non tcp/udp protocol')
+#
+#                subs['port'] = port = int(valu.rsplit(':', 1)[1], 0)
+#                text += ':%d' % (port,)
+#
+#            norm = '%s://%s' % (proto, text)
+#            return norm, subs
+#
+#        # check for DWIM ipv6 with no []s
+#        try:
+#
+#            ipv6, v6sub = self.tlib.getTypeNorm('inet:ipv6', valu)
+#            subs['ipv6'] = ipv6
+#
+#            text = '[%s]' % (ipv6,)
+#
+#            ipv4 = v6sub.get('ipv4')
+#            if ipv4 is not None:
+#                text = ipv4str(ipv4)
+#                subs['ipv4'] = ipv4
+#
+#            norm = proto + '://' + text
+#            return norm, subs
+#
+#        except BadTypeValu as e:
+#            pass
+#
+#        # check for a port
+#        port = None
+#        if valu.find(':') != -1:
+#
+#            if proto not in ('tcp', 'udp'):
+#                self._raiseBadValu(orig, mesg='IPv6 port syntax with non tcp/udp protocol')
+#
+#            valu, portstr = valu.rsplit(':', 1)
+#            subs['port'] = port = int(portstr, 0) & 0xffff
+#
+#        # check for ipv4
+#        try:
+#
+#            ipv4 = ipv4int(valu)
+#            ipv6 = '::ffff:%s' % (ipv4str(ipv4),)
+#
+#            text = ipv4str(ipv4)
+#
+#            subs['ipv4'] = ipv4
+#            subs['ipv6'] = ipv6
+#
+#            if port is not None:
+#                text += ':%d' % (port,)
+#
+#            norm = '%s://%s' % (proto, text)
+#            return norm, subs
+#
+#        except BadTypeValu as e:
+#            pass
+#
+#        self._raiseBadValu(orig, mesg='inet:addr must be a <tcp|udp|icmp|host>://<ipv4|ipv6|guid>[:port]/')
