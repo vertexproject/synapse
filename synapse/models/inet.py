@@ -255,7 +255,9 @@ class InetModule(s_module.CoreModule):
                 'ctors': (
 
                     ('inet:ipv4', 'synapse.models.inet.IPv4', {}, {
-                        'doc': 'An IPv4 address.'}),
+                        'doc': 'An IPv4 address.',
+                        'ex': '1.2.3.4'
+                    }),
 
                     ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
                         'doc': 'A Fully Qualified Domain Name (FQDN).'}),
@@ -274,12 +276,26 @@ class InetModule(s_module.CoreModule):
 
                 ),
 
+                # NOTE: tcp4/udp4/tcp6/udp6 are going away
                 'forms': (
 
                     ('inet:ipv4', {}, (
+                        ('asn', ('inet:asn', {}), {
+                            'defval': -1,
+                            'doc': 'The ASN to which the IPv4 address is currently assigned.'
+                        }),
+                        # FIXME implement geospace...
+                        #('latlong', ('geo:latlong', {}), {
+                        #    'doc': 'The last known latitude/longitude for the node'
+                        #}),
                         ('loc', ('loc', {}), {
                             'defval': '??',
-                            'doc': 'The geo-political location string for the IPv4.'}),
+                            'doc': 'The geo-political location string for the IPv4.'
+                        }),
+                        ('type', ('str', {}), {
+                            'defval': '??',
+                            'doc': 'The type of IP address (e.g., private, multicast, etc.).'
+                        })
                     )),
 
                     ('inet:fqdn', {}, (
@@ -345,11 +361,6 @@ class InetModule(s_module.CoreModule):
                 ('inet:client', {
                     'subof': 'inet:addr',
                     'doc': 'A network client address.'}),
-
-                ('inet:ipv4', {
-                    'ctor': 'synapse.models.inet.IPv4Type',
-                    'doc': 'An IPv4 address.',
-                    'ex': '1.2.3.4'}),
 
                 ('inet:ipv6', {
                     'ctor': 'synapse.models.inet.IPv6Type',
@@ -689,17 +700,6 @@ class InetModule(s_module.CoreModule):
                         'doc': 'The client tcp/udp port.'}),
 
                 )),
-
-                ('inet:ipv4', {'ptype': 'inet:ipv4'}, [
-                    ('cc', {'ptype': 'pol:iso2', 'defval': '??',
-                        'doc': 'The country where the IPv4 address is currently located.'}),
-                    ('type', {'ptype': 'str', 'defval': '??',
-                        'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
-                    ('asn', {'ptype': 'inet:asn', 'defval': -1,
-                        'doc': 'The ASN to which the IPv4 address is currently assigned.'}),
-                    ('latlong', {'ptype': 'geo:latlong',
-                        'doc': 'The last known latitude/longitude for the node'}),
-                ]),
 
                 ('inet:cidr4', {'ptype': 'inet:cidr4'}, [
                     ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
