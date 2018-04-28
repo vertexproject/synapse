@@ -1,30 +1,20 @@
+# stdlib
 import socket
-import struct
-import hashlib
 import logging
 import ipaddress
 import email.utils
 
+# third party code
 import regex
 
+# custom code
 import synapse.exc as s_exc
-import synapse.common as s_common
-import synapse.datamodel as s_datamodel
-
-#import synapse.lib.tufo as s_tufo
-import synapse.lib.socket as s_socket
-import synapse.lookup.iana as s_l_iana
-
-#from synapse.exc import BadTypeValu
-#from synapse.lib.types import DataType
-
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
+import synapse.lookup.iana as s_l_iana
 
 logger = logging.getLogger(__name__)
-
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
-
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 
 class IPv4(s_types.Type):
@@ -1855,4 +1845,3 @@ class InetModule(s_module.CoreModule):
         }
 
         return (('inet', modl),)
-
