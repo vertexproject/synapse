@@ -670,12 +670,12 @@ class JsonType(Type):
             try:
                 return json.dumps(valu, sort_keys=True, separators=(',', ':')), {}
             except Exception as e:
-                self._raiseBadValu(valu, mesg='Unable to normalize object as json.')
+                raise s_exc.BadTypeValu(valu, mesg='Unable to normalize object as json.')
 
         try:
             return json.dumps(json.loads(valu), sort_keys=True, separators=(',', ':')), {}
         except Exception as e:
-            self._raiseBadValu(valu, mesg='Unable to norm json string')
+            raise s_exc.BadTypeValu(valu, mesg='Unable to norm json string')
 
 
 def islist(x):
@@ -704,7 +704,7 @@ class TagType(Type):
 
         retn = parts[0].lower()
         if not tagre.match(retn):
-            self._raiseBadValu(valu)
+            raise s_exc.BadTypeValu(valu)
 
         return retn, subs
 
@@ -714,7 +714,7 @@ class StormType(Type):
         try:
             s_syntax.parse(valu)
         except Exception as e:
-            self._raiseBadValu(valu)
+            raise s_exc.BadTypeValu(valu)
         return valu, {}
 
 class PermType(Type):
@@ -726,8 +726,8 @@ class PermType(Type):
         try:
             pnfo, off = s_syntax.parse_perm(valu)
         except Exception as e:
-            self._raiseBadValu(valu)
+            raise s_exc.BadTypeValu(valu)
 
         if off != len(valu):
-            self._raiseBadValu(valu)
+            raise s_exc.BadTypeValu(valu)
         return valu, {}

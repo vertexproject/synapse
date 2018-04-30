@@ -18,64 +18,29 @@ fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 
 
-class IPv4(s_types.Type):
-    '''
-    The base type for an IPv4 address.
-    '''
+class Email(s_types.Type):
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(int, self._normPyInt)
-
-    def _normPyInt(self, valu):
-        norm = valu & 0xffffffff
-        return norm, {}
 
     def _normPyStr(self, valu):
-        valu = valu.replace('[.]', '.')
-        byts = socket.inet_aton(valu)
-        norm = int.from_bytes(byts, 'big')
-        return self._normPyInt(norm)
+
+        user, fqdn = valu.split('@', 1)
+
+        fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
+        usernorm, userinfo = self.modl.type('inet:user').norm(user)
+
+        norm = '%s@%s' % (usernorm, fqdnnorm)
+        info = {
+            'subs': {
+                'fqdn': fqdnnorm,
+                'user': usernorm,
+            }
+        }
+        return norm, info
 
     def indx(self, norm):
-        return norm.to_bytes(4, 'big')
-
-    def repr(self, norm):
-        return socket.inet_ntoa(self.indx(norm))
-
-    def liftPropEq(self, fenc, penc, text):
-
-        if text.find('/') != -1:
-
-            addr, mask = text.split('/', 1)
-            norm, info = self.norm(addr)
-
-            mask = cidrmasks[int(mask)]
-
-            minv = norm & mask[0]
-
-            mini = self.indx(minv)
-            maxi = self.indx(minv + mask[1])
-
-            lops = (
-                ('prop:range', {
-                    'prop': prop.encode('utf8'),
-                    'form': form.encode('utf8'),
-                    'minindx': self.indx(minv),
-                    'maxindx': self.indx(minv + mask[1] - 1)
-                }),
-            )
-            return xact.lift(lops)
-
-        norm, info = self.norm(text)
-        lops = (
-            ('prop:eq', {
-                'prop': prop.encode('utf8'),
-                'form': form.encode('utf8'),
-                'valu': norm,
-                'indx': self.indx(norm),
-            }),
-        )
-        return xact.lift(lops)
+        return norm.encode('utf8')
 
 class Fqdn(s_types.Type):
 
@@ -86,12 +51,12 @@ class Fqdn(s_types.Type):
 
         valu = valu.replace('[.]', '.')
         if not fqdnre.match(valu):
-            self._raiseBadValu(valu)
+            raise s_exc.BadTypeValu(valu)
 
         try:
             valu = valu.encode('idna').decode('utf8').lower()
         except UnicodeError as e:
-            self._raiseBadValu(valu)
+            raise s_exc.BadTypeValu(valu)
 
         parts = valu.split('.', 1)
 
@@ -151,29 +116,64 @@ class Fqdn(s_types.Type):
                 return valu
             raise  # pragma: no cover
 
-class Email(s_types.Type):
-
+class IPv4(s_types.Type):
+    '''
+    The base type for an IPv4 address.
+    '''
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+
+    def _normPyInt(self, valu):
+        norm = valu & 0xffffffff
+        return norm, {}
 
     def _normPyStr(self, valu):
-
-        user, fqdn = valu.split('@', 1)
-
-        fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
-        usernorm, userinfo = self.modl.type('inet:user').norm(user)
-
-        norm = '%s@%s' % (usernorm, fqdnnorm)
-        info = {
-            'subs': {
-                'fqdn': fqdnnorm,
-                'user': usernorm,
-            }
-        }
-        return norm, info
+        valu = valu.replace('[.]', '.')
+        byts = socket.inet_aton(valu)
+        norm = int.from_bytes(byts, 'big')
+        return self._normPyInt(norm)
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.to_bytes(4, 'big')
+
+    def repr(self, norm):
+        return socket.inet_ntoa(self.indx(norm))
+
+    def liftPropEq(self, fenc, penc, text):
+
+        if text.find('/') != -1:
+
+            addr, mask = text.split('/', 1)
+            norm, info = self.norm(addr)
+
+            mask = cidrmasks[int(mask)]
+
+            minv = norm & mask[0]
+
+            mini = self.indx(minv)
+            maxi = self.indx(minv + mask[1])
+
+            lops = (
+                ('prop:range', {
+                    'prop': prop.encode('utf8'),
+                    'form': form.encode('utf8'),
+                    'minindx': self.indx(minv),
+                    'maxindx': self.indx(minv + mask[1] - 1)
+                }),
+            )
+            return xact.lift(lops)
+
+        norm, info = self.norm(text)
+        lops = (
+            ('prop:eq', {
+                'prop': prop.encode('utf8'),
+                'form': form.encode('utf8'),
+                'valu': norm,
+                'indx': self.indx(norm),
+            }),
+        )
+        return xact.lift(lops)
 
 class Url(s_types.Type):
     # FIXME implement
@@ -274,7 +274,8 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An e-mail address.'}),
 
                     ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
-                        'doc': 'A Fully Qualified Domain Name (FQDN).'}),
+                        'doc': 'A Fully Qualified Domain Name (FQDN).',
+                        'ex': 'vertex.link'}),
 
                     ('inet:ipv4', 'synapse.models.inet.IPv4', {}, {
                         'doc': 'An IPv4 address.',
@@ -290,14 +291,22 @@ class InetModule(s_module.CoreModule):
                 'types': (
 
                     ('inet:asn', ('int', {}), {
-                        'doc': 'An autonomous system number'}),
+                        'doc': 'An Autonomous System Number (ASN).'
+                    }),
 
                     ('inet:passwd', ('str', {}), {
-                        'doc': 'A password string.'}),
+                        'doc': 'A password string.'
+                    }),
 
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
                         'doc': 'A network port.',
-                        'ex': '80'}),
+                        'ex': '80'
+                    }),
+
+                    ('inet:wifi:ssid', ('str', {}), {
+                        'doc': 'A WiFi service set identifier (SSID) name.',
+                        'ex': 'The Vertex Project'
+                    }),
 
                     ('inet:user', ('str', {'lower': True}), {
                         'doc': 'A user name.'}),
@@ -307,21 +316,61 @@ class InetModule(s_module.CoreModule):
                 # NOTE: tcp4/udp4/tcp6/udp6 are going away
                 'forms': (
 
-                    ('inet:url', {}, (
-                        # FIXME implement ipv6
-                        #('ipv6', ('inet:ipv6', {}), {'ro': 1,
-                        #     'doc': 'The IPv6 address used in the URL.'}),
-                        ('ipv4', ('inet:ipv4', {}), {'ro': 1,
-                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
-                        ('fqdn', ('inet:fqdn', {}), {'ro': 1,
-                             'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
-                        ('port', ('inet:port', {}), {'ro': 1,
-                             'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
-                                 'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
-                        ('user', ('inet:user', {}), {'ro': 1,
-                             'doc': 'The optional username used to access the URL.'}),
-                        ('passwd', ('inet:passwd', {}), {'ro': 1,
-                             'doc': 'The optional password used to access the URL.'}),
+                    # FIXME implement
+                    #('inet:asn', {'ptype': 'inet:asn'}, (
+                    #    ('name', {'ptype': 'str:lwr', 'defval': '??',
+                    #        'doc': 'The name of the organization currently responsible for the ASN.'}),
+                    #    ('owner', {'ptype': 'ou:org',
+                    #        'doc': 'The guid of the organization currently responsible for the ASN.'}),
+                    #)),
+
+                    ('inet:email', {}, (
+
+                        ('user', ('inet:user', {}), {
+                            'ro': True,
+                            'doc': 'The username of the email address.'}),
+
+                        ('fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
+                            'doc': 'The domain of the email address.'}),
+                    )),
+
+                    ('inet:fqdn', {}, (
+
+                        ('created', ('time', {'ismin': True}), {
+                            'doc': 'The earliest known registration (creation) date for the fqdn.'
+                        }),
+
+                        ('domain', ('inet:fqdn', {}), {
+                            'doc': 'The parent domain for the FQDN.',
+                        }),
+
+                        ('expires', ('time', {'ismax': True}), {
+                            'doc': 'The current expiration date for the fqdn.'
+                        }),
+
+                        ('host', ('str', {'lower': True}), {
+                            'doc': 'The host part of the FQDN.',
+                        }),
+
+                        ('issuffix', ('bool', {}), {
+                            'doc': 'True if the FQDN is considered a suffix.',
+                            'defval': 0,
+                        }),
+
+                        ('iszone', ('bool', {}), {
+                            'doc': 'True if the FQDN is considered a zone.',
+                            'defval': 0,
+                        }),
+
+                        ('updated', ('time', {'ismax': True}), {
+                            'doc': 'The last known updated date for the fqdn.'
+                        }),
+
+                        ('zone', ('inet:fqdn', {}), {
+                            'doc': 'The zone level parent for this FQDN.',
+                        }),
+
                     )),
 
                     ('inet:ipv4', {}, (
@@ -343,44 +392,36 @@ class InetModule(s_module.CoreModule):
                         })
                     )),
 
-                    ('inet:fqdn', {}, (
 
-                        ('domain', ('inet:fqdn', {}), {
-                            'doc': 'The parent domain for the FQDN.',
-                        }),
+                    # FIXME implement
+                    #('inet:passwd', {'ptype': 'inet:passwd'}, [
+                    #    ('md5', {'ptype': 'hash:md5', 'ro': 1,
+                    #        'doc': 'The computed MD5 hash of the password.'}),
+                    #    ('sha1', {'ptype': 'hash:sha1', 'ro': 1,
+                    #        'doc': 'The computed SHA1 hash of the password.'}),
+                    #    ('sha256', {'ptype': 'hash:sha256', 'ro': 1,
+                    #        'doc': 'The computed SHA256 hash of the password.'}),
+                    #]),
 
-                        ('zone', ('inet:fqdn', {}), {
-                            'doc': 'The zone level parent for this FQDN.',
-                        }),
+                    # FIXME implement inet:wifi:ssid
 
-                        ('iszone', ('bool', {}), {
-                            'doc': 'True if the FQDN is considered a zone.',
-                            'defval': 0,
-                        }),
-
-                        ('issuffix', ('bool', {}), {
-                            'doc': 'True if the FQDN is considered a suffix.',
-                            'defval': 0,
-                        }),
-
-                        ('host', ('str', {'lower': True}), {
-                            'doc': 'The host part of the FQDN.',
-
-                        }),
-
+                    ('inet:url', {}, (
+                        # FIXME implement ipv6
+                        #('ipv6', ('inet:ipv6', {}), {'ro': 1,
+                        #     'doc': 'The IPv6 address used in the URL.'}),
+                        ('ipv4', ('inet:ipv4', {}), {'ro': 1,
+                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
+                        ('fqdn', ('inet:fqdn', {}), {'ro': 1,
+                             'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
+                        ('port', ('inet:port', {}), {'ro': 1,
+                             'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
+                                 'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
+                        ('user', ('inet:user', {}), {'ro': 1,
+                             'doc': 'The optional username used to access the URL.'}),
+                        ('passwd', ('inet:passwd', {}), {'ro': 1,
+                             'doc': 'The optional password used to access the URL.'}),
                     )),
 
-
-                    ('inet:email', {}, (
-
-                        ('user', ('inet:user', {}), {
-                            'ro': True,
-                            'doc': 'The email address user name.'}),
-
-                        ('fqdn', ('inet:fqdn', {}), {
-                            'ro': True,
-                            'doc': 'The email address FQDN.'}),
-                    )),
                 ),
             }),
         )

@@ -36,25 +36,11 @@
                     'doc': 'An IPv6 address and port.',
                     'ex': '[2607:f8b0:4004:809::200e]:80'}),
 
-                ('inet:wifi:ssid', {
-                    'subof': 'str',
-                    'doc': 'A WiFi service set identifier (SSID) name.',
-                    'ex': 'The Vertex Project'}),
 
                 ('inet:wifi:ap', {
                     'subof': 'comp',
                     'fields': 'ssid=inet:wifi:ssid,bssid=inet:mac',
                     'doc': 'An SSID/MAC address combination for a wireless access point.'}),
-
-                ('inet:email', {
-                    'ctor': 'synapse.models.inet.EmailType',
-                    'doc': 'An email address.',
-                    'ex': 'visi@vertex.link'}),
-
-                ('inet:fqdn', {
-                    'ctor': 'synapse.models.inet.FqdnType',
-                    'doc': 'A fully qualified domain name (FQDN).',
-                    'ex': 'vertex.link'}),
 
                 ('inet:cidr4', {
                     'ctor': 'synapse.models.inet.CidrType',
@@ -97,10 +83,6 @@
                     'subof': 'guid',
                     'doc': 'A network interface with a set of associated protocol addresses.'}),
 
-                ('inet:asn', {
-                    'subof': 'int',
-                    'doc': 'An Autonomous System Number (ASN).'}),
-
                 ('inet:user', {
                     'subof': 'str:lwr',
                     'doc': 'A username string.'}),
@@ -132,13 +114,6 @@
                 ('inet:flow', {
                     'subof': 'guid',
                     'doc': 'An individual network connection between a given source and destination.'}),
-
-                ('inet:port', {
-                    'subof': 'int',
-                    'min': 0,
-                    'max': 0xffff,
-                    'doc': 'A network port.',
-                    'ex': '80'}),
 
                 ('inet:mac', {
                     'subof': 'str',
@@ -418,13 +393,6 @@
                         'doc': 'The most recent known time the file was hosted at the URL.'}),
                 ]),
 
-                ('inet:asn', {'ptype': 'inet:asn'}, (
-                    ('name', {'ptype': 'str:lwr', 'defval': '??',
-                        'doc': 'The name of the organization currently responsible for the ASN.'}),
-                    ('owner', {'ptype': 'ou:org',
-                        'doc': 'The guid of the organization currently responsible for the ASN.'}),
-                )),
-
                 ('inet:asnet4', {'ptype': 'inet:asnet4'}, [
                      ('asn', {'ptype': 'inet:asn', 'ro': 1,
                          'doc': 'The Autonomous System Number (ASN) of the netblock.'}),
@@ -440,42 +408,10 @@
 
                 ('inet:group', {'ptype': 'inet:group'}, []),
 
-                ('inet:passwd', {'ptype': 'inet:passwd'}, [
-                    ('md5', {'ptype': 'hash:md5', 'ro': 1,
-                        'doc': 'The computed MD5 hash of the password.'}),
-                    ('sha1', {'ptype': 'hash:sha1', 'ro': 1,
-                        'doc': 'The computed SHA1 hash of the password.'}),
-                    ('sha256', {'ptype': 'hash:sha256', 'ro': 1,
-                        'doc': 'The computed SHA256 hash of the password.'}),
-                ]),
 
                 ('inet:mac', {'ptype': 'inet:mac'}, [
                     ('vendor', {'ptype': 'str', 'defval': '??',
                         'doc': 'The vendor associated with the 24-bit prefix of a MAC address.'}),
-                ]),
-
-                ('inet:fqdn', {'ptype': 'inet:fqdn'}, [
-                    ('sfx', {'ptype': 'bool', 'defval': 0,
-                        'doc': 'Set to 1 if the fqdn is considered a "suffix".'}),
-                    ('zone', {'ptype': 'bool', 'defval': 0,
-                        'doc': 'Set to 1 if the fqdn is a logical zone (under a suffix).'}),
-                    ('domain', {'ptype': 'inet:fqdn', 'ro': 1,
-                        'doc': 'The parent fqdn of the fqdn.'}),
-                    ('host', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The host portion of the fqdn.'}),
-                    ('created', {'ptype': 'time:min',
-                        'doc': 'The earliest known registration (creation) date for the fqdn.'}),
-                    ('updated', {'ptype': 'time:max',
-                        'doc': 'The last known updated date for the fqdn.'}),
-                    ('expires', {'ptype': 'time:max',
-                        'doc': 'The current expiration date for the fqdn.'}),
-                ]),
-
-                ('inet:email', {'ptype': 'inet:email'}, [
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
-                        'doc': 'The domain of the email address.'}),
-                    ('user', {'ptype': 'inet:user', 'ro': 1,
-                        'doc': 'The username of the email address.'}),
                 ]),
 
                 ('inet:tcp4', {'ptype': 'inet:srv4'}, [
@@ -621,8 +557,6 @@
                     ('bssid', {'ptype': 'inet:wifi:ssid',
                         'doc': 'The SSID for the wireless access point.'}),
                 ]),
-
-                ('inet:wifi:ssid', {}, []),
 
                 ('inet:web:acct', {'ptype': 'inet:web:acct'}, [
 
@@ -1142,44 +1076,6 @@
     #def repr(self, valu):
         #return ipv4str(valu)
 
-
-#class FqdnType(DataType):
-    #subprops = (
-        #('sfx', {'ptype': 'bool'}),
-        #('zone', {'ptype': 'bool'}),
-        #('domain', {'ptype': 'inet:fqdn'}),
-        #('host', {'ptype': 'str'}),
-    #)
-
-    #def norm(self, valu, oldval=None):
-
-        #valu = valu.replace('[.]', '.')
-        #if not fqdnre.match(valu):
-            #self._raiseBadValu(valu)
-
-        #try:
-            #valu = valu.encode('idna').decode('utf8').lower()
-        #except UnicodeError as e:
-            #self._raiseBadValu(valu)
-
-        #parts = valu.split('.', 1)
-        #subs = {'host': parts[0]}
-        #if len(parts) == 2:
-            #subs['domain'] = parts[1]
-        #else:
-            #subs['sfx'] = 1
-
-        #return valu, subs
-
-    #def repr(self, valu):
-        #try:
-            #return valu.encode('utf8').decode('idna')
-        #except UnicodeError as e:
-            #if len(valu) >= 4 and valu[0:4] == 'xn--':
-                #logger.exception(msg='Failed to IDNA decode ACE prefixed inet:fqdn')
-                #return valu
-            #raise  # pragma: no cover
-
 #class Rfc2822Addr(DataType):
     #'''
     #An RFC 2822 compatible email address parser
@@ -1254,28 +1150,6 @@
             #return ipv6norm(valu), {}
         #except Exception as e:
             #self._raiseBadValu(valu)
-
-# class HostPort(DataType):
-
-
-#class EmailType(DataType):
-    #subprops = (
-        #('user', {'ptype': 'inet:user'}),
-        #('fqdn', {'ptype': 'inet:fqdn'}),
-    #)
-
-    #def norm(self, valu, oldval=None):
-        #try:
-            #user, fqdn = valu.split('@', 1)
-            #user, _ = self.tlib.getTypeNorm('inet:user', user)
-            #fqdn, _ = self.tlib.getTypeNorm('inet:fqdn', fqdn)
-            #norm = ('%s@%s' % (user, fqdn)).lower()
-        #except ValueError as e:
-            #self._raiseBadValu(valu)
-        #return norm, {'user': user, 'fqdn': fqdn}
-
-    #def repr(self, valu):
-        #return valu
 
 #urlports = {
 #    'ftp': 21,

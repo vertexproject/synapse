@@ -186,7 +186,7 @@ class Xact(s_eventbus.EventBus):
 
             # maybe set some props...
             for name, valu in props.items():
-                node.set(prop, valu)
+                node.set(name, valu)
 
             return node
 
