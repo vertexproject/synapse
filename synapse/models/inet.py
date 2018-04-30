@@ -184,6 +184,91 @@ class Email(s_types.Type):
     def indx(self, norm):
         return norm.encode('utf8')
 
+class Url(s_types.Type):
+    # FIXME implement
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+
+    def indx(self, norm):
+        return norm.encode('utf8')
+
+    def _normPyStr(self, valu):
+        norm = valu
+        info = {
+            'subs': {}
+        }
+        return norm, info
+        '''
+        urlpath = None
+        urlauth = None
+        urlhost = None
+        urlport = None
+
+        if valu.find('://') == -1:
+            self._raiseBadValu(valu)
+
+        proto, resloc = valu.split('://', 1)
+
+        parts = resloc.split('/', 1)
+        if len(parts) == 2:
+            resloc, respath = parts
+
+        if resloc.find('@') != -1:
+            resauth, resloc = resloc.split('@', 1)
+
+            user = resauth
+            passwd = None
+
+            if user.find(':') is not None:
+                user, passwd = user.rsplit(':', 1)
+
+            if user:
+                subs['user'] = user
+
+            if passwd:
+                subs['passwd'] = passwd
+
+        port = None
+        proto = proto.lower()
+        hostpart = resloc.lower().replace('[.]', '.')
+
+        subs['proto'] = proto
+
+        host = hostpart
+        if hostpart.find(':') != -1:
+            host, portstr = hostpart.rsplit(':', 1)
+            port = self.tlib.getTypeParse('inet:port', portstr)[0]
+
+        # use of exception handling logic here is fastest way to both
+        # validate and convert the data...  normally wouldnt use....
+
+        ipv4 = None
+        try:
+
+            ipv4 = ipv4int(host)
+            subs['ipv4'] = ipv4
+
+        except BadTypeValu as e:
+            pass
+
+        if ipv4 is None and fqdnre.match(host):
+            subs['fqdn'] = host
+
+        # try for a default iana protocol lookup
+        if port is None:
+            port = s_l_iana.services.get(proto)
+
+        if port is not None:
+            subs['port'] = port
+
+        if resauth:
+            hostpart = '%s@%s' % (resauth, hostpart)
+
+        valu = '%s://%s/%s' % (proto, hostpart, respath)
+        return valu, subs
+        '''
+
 #def ipv4mask(ipv4, mask):
     #return ipv4 & masks[mask]
 
@@ -369,88 +454,6 @@ class Email(s_types.Type):
 #    'https': 443,
 #}
 #
-#class UrlType(DataType):
-#    subprops = (
-#        ('proto', {'ptype': 'str'}),
-#        ('path', {'ptype': 'str'}),
-#        ('fqdn', {'ptype': 'inet:fqdn'}),
-#        ('ipv4', {'ptype': 'inet:ipv4'}),
-#        ('ipv6', {'ptype': 'inet:ipv6'}),
-#        ('port', {'ptype': 'inet:port'}),
-#        ('user', {'ptype': 'inet:user'}),
-#        ('passwd', {'ptype': 'inet:passwd'}),
-#    )
-#
-#    def norm(self, valu, oldval=None):
-#        subs = {}
-#        respath = ''
-#        resauth = ''
-#
-#        if valu.find('://') == -1:
-#            self._raiseBadValu(valu)
-#
-#        proto, resloc = valu.split('://', 1)
-#
-#        parts = resloc.split('/', 1)
-#        if len(parts) == 2:
-#            resloc, respath = parts
-#
-#        if resloc.find('@') != -1:
-#            resauth, resloc = resloc.split('@', 1)
-#
-#            user = resauth
-#            passwd = None
-#
-#            if user.find(':') is not None:
-#                user, passwd = user.rsplit(':', 1)
-#
-#            if user:
-#                subs['user'] = user
-#
-#            if passwd:
-#                subs['passwd'] = passwd
-#
-#        port = None
-#        proto = proto.lower()
-#        hostpart = resloc.lower().replace('[.]', '.')
-#
-#        subs['proto'] = proto
-#
-#        host = hostpart
-#        if hostpart.find(':') != -1:
-#            host, portstr = hostpart.rsplit(':', 1)
-#            port = self.tlib.getTypeParse('inet:port', portstr)[0]
-#
-#        # use of exception handling logic here is fastest way to both
-#        # validate and convert the data...  normally wouldnt use....
-#
-#        ipv4 = None
-#        try:
-#
-#            ipv4 = ipv4int(host)
-#            subs['ipv4'] = ipv4
-#
-#        except BadTypeValu as e:
-#            pass
-#
-#        if ipv4 is None and fqdnre.match(host):
-#            subs['fqdn'] = host
-#
-#        # try for a default iana protocol lookup
-#        if port is None:
-#            port = s_l_iana.services.get(proto)
-#
-#        if port is not None:
-#            subs['port'] = port
-#
-#        if resauth:
-#            hostpart = '%s@%s' % (resauth, hostpart)
-#
-#        valu = '%s://%s/%s' % (proto, hostpart, respath)
-#        return valu, subs
-#
-#    def repr(self, valu):
-#        return valu
 #
 #class CidrType(DataType):
 #    def norm(self, valu, oldval=None):
@@ -671,27 +674,56 @@ class InetModule(s_module.CoreModule):
 
                 'ctors': (
 
-                    ('inet:ipv4', 'synapse.models.inet.IPv4', {}, {
-                        'doc': 'An IPv4 address.'}),
+                    ('inet:email', 'synapse.models.inet.Email', {}, {
+                        'doc': 'An e-mail address.'}),
 
                     ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
                         'doc': 'A Fully Qualified Domain Name (FQDN).'}),
 
-                    ('inet:email', 'synapse.models.inet.Email', {}, {
-                        'doc': 'An e-mail address.'}),
+                    ('inet:ipv4', 'synapse.models.inet.IPv4', {}, {
+                        'doc': 'An IPv4 address.'}),
+
+                    ('inet:url', 'synapse.models.inet.Url', {}, {
+                        'doc': 'A Universal Resource Locator (URL).',
+                        'ex': 'http://www.woot.com/files/index.html'}),
+
                 ),
 
                 'types': (
 
-                    ('inet:user', ('str', {'lower': True}), {
-                        'doc': 'A user name.'}),
-
                     ('inet:asn', ('int', {}), {
                         'doc': 'An autonomous system number'}),
+
+                    ('inet:passwd', ('str', {}), {
+                        'doc': 'A password string.'}),
+
+                    ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
+                        'doc': 'A network port.',
+                        'ex': '80'}),
+
+                    ('inet:user', ('str', {'lower': True}), {
+                        'doc': 'A user name.'}),
 
                 ),
 
                 'forms': (
+
+                    ('inet:url', {}, (
+                        # FIXME implement ipv6
+                        #('ipv6', ('inet:ipv6', {}), {'ro': 1,
+                        #     'doc': 'The IPv6 address used in the URL.'}),
+                        ('ipv4', ('inet:ipv4', {}), {'ro': 1,
+                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
+                        ('fqdn', ('inet:fqdn', {}), {'ro': 1,
+                             'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
+                        ('port', ('inet:port', {}), {'ro': 1,
+                             'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
+                                 'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
+                        ('user', ('inet:user', {}), {'ro': 1,
+                             'doc': 'The optional username used to access the URL.'}),
+                        ('passwd', ('inet:passwd', {}), {'ro': 1,
+                             'doc': 'The optional password used to access the URL.'}),
+                    )),
 
                     ('inet:ipv4', {}, (
                         ('loc', ('loc', {}), {
@@ -745,10 +777,6 @@ class InetModule(s_module.CoreModule):
     def getBaseModels():
         modl = {
             'types': (
-                ('inet:url', {
-                    'ctor': 'synapse.models.inet.UrlType',
-                    'doc': 'A Universal Resource Locator (URL).',
-                    'ex': 'http://www.woot.com/files/index.html'}),
 
                 ('inet:addr', {
                     'ctor': 'synapse.models.inet.AddrType',
@@ -1134,21 +1162,6 @@ class InetModule(s_module.CoreModule):
                         'doc': 'The last known latitude/longitude for the node'}),
                 ]),
 
-                ('inet:url', {'ptype': 'inet:url'}, [
-                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
-                         'doc': 'The IPv6 address used in the URL.'}),
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                         'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
-                         'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
-                    ('port', {'ptype': 'inet:port', 'ro': 1,
-                         'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
-                             'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
-                    ('user', {'ptype': 'inet:user', 'ro': 1,
-                         'doc': 'The optional username used to access the URL.'}),
-                    ('passwd', {'ptype': 'inet:passwd', 'ro': 1,
-                         'doc': 'The optional password used to access the URL.'}),
-                ]),
 
                 ('inet:urlredir', {}, [
                     ('src', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
@@ -1855,4 +1868,3 @@ class InetModule(s_module.CoreModule):
         }
 
         return (('inet', modl),)
-
