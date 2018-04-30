@@ -51,11 +51,6 @@
                     'doc': 'An email address.',
                     'ex': 'visi@vertex.link'}),
 
-                ('inet:fqdn', {
-                    'ctor': 'synapse.models.inet.FqdnType',
-                    'doc': 'A fully qualified domain name (FQDN).',
-                    'ex': 'vertex.link'}),
-
                 ('inet:cidr4', {
                     'ctor': 'synapse.models.inet.CidrType',
                     'doc': 'An IPv4 address block in Classless Inter-Domain Routing (CIDR) notation.',
@@ -452,23 +447,6 @@
                 ('inet:mac', {'ptype': 'inet:mac'}, [
                     ('vendor', {'ptype': 'str', 'defval': '??',
                         'doc': 'The vendor associated with the 24-bit prefix of a MAC address.'}),
-                ]),
-
-                ('inet:fqdn', {'ptype': 'inet:fqdn'}, [
-                    ('sfx', {'ptype': 'bool', 'defval': 0,
-                        'doc': 'Set to 1 if the fqdn is considered a "suffix".'}),
-                    ('zone', {'ptype': 'bool', 'defval': 0,
-                        'doc': 'Set to 1 if the fqdn is a logical zone (under a suffix).'}),
-                    ('domain', {'ptype': 'inet:fqdn', 'ro': 1,
-                        'doc': 'The parent fqdn of the fqdn.'}),
-                    ('host', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The host portion of the fqdn.'}),
-                    ('created', {'ptype': 'time:min',
-                        'doc': 'The earliest known registration (creation) date for the fqdn.'}),
-                    ('updated', {'ptype': 'time:max',
-                        'doc': 'The last known updated date for the fqdn.'}),
-                    ('expires', {'ptype': 'time:max',
-                        'doc': 'The current expiration date for the fqdn.'}),
                 ]),
 
                 ('inet:email', {'ptype': 'inet:email'}, [
@@ -1141,44 +1119,6 @@
 
     #def repr(self, valu):
         #return ipv4str(valu)
-
-
-#class FqdnType(DataType):
-    #subprops = (
-        #('sfx', {'ptype': 'bool'}),
-        #('zone', {'ptype': 'bool'}),
-        #('domain', {'ptype': 'inet:fqdn'}),
-        #('host', {'ptype': 'str'}),
-    #)
-
-    #def norm(self, valu, oldval=None):
-
-        #valu = valu.replace('[.]', '.')
-        #if not fqdnre.match(valu):
-            #self._raiseBadValu(valu)
-
-        #try:
-            #valu = valu.encode('idna').decode('utf8').lower()
-        #except UnicodeError as e:
-            #self._raiseBadValu(valu)
-
-        #parts = valu.split('.', 1)
-        #subs = {'host': parts[0]}
-        #if len(parts) == 2:
-            #subs['domain'] = parts[1]
-        #else:
-            #subs['sfx'] = 1
-
-        #return valu, subs
-
-    #def repr(self, valu):
-        #try:
-            #return valu.encode('utf8').decode('idna')
-        #except UnicodeError as e:
-            #if len(valu) >= 4 and valu[0:4] == 'xn--':
-                #logger.exception(msg='Failed to IDNA decode ACE prefixed inet:fqdn')
-                #return valu
-            #raise  # pragma: no cover
 
 #class Rfc2822Addr(DataType):
     #'''
