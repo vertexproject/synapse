@@ -347,17 +347,17 @@ class InetModule(s_module.CoreModule):
                     ('inet:fqdn', {}, (
                         # FIXME uncomment times when temporal is done
 
-                        #('created', ('time:min', {}), {
-                        #    'doc': 'The earliest known registration (creation) date for the fqdn.'
-                        #}),
+                        ('created', ('time', {'ismin': True}), {
+                            'doc': 'The earliest known registration (creation) date for the fqdn.'
+                        }),
 
                         ('domain', ('inet:fqdn', {}), {
                             'doc': 'The parent domain for the FQDN.',
                         }),
 
-                        #('expires', ('time:max', {}), {
-                        #    'doc': 'The current expiration date for the fqdn.'
-                        #}),
+                        ('expires', ('time', {'ismax': True}), {
+                            'doc': 'The current expiration date for the fqdn.'
+                        }),
 
                         ('host', ('str', {'lower': True}), {
                             'doc': 'The host part of the FQDN.',
@@ -374,9 +374,9 @@ class InetModule(s_module.CoreModule):
                             'defval': 0,
                         }),
 
-                        #('updated', ('time:max', {}), {
-                        #    'doc': 'The last known updated date for the fqdn.'
-                        #}),
+                        ('updated', ('time', {'ismax': True}), {
+                            'doc': 'The last known updated date for the fqdn.'
+                        }),
 
                         ('zone', ('inet:fqdn', {}), {
                             'doc': 'The zone level parent for this FQDN.',

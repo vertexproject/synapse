@@ -23,7 +23,6 @@ class InetModelTest(SynTest):
             self.eq(node.props, expected_props)
 
     def test_forms_fqdn(self):
-        # FIXME add times later
         formname = 'inet:fqdn'
         valu = 'api.vertex.link'
         expected_ndef = (formname, valu)
@@ -32,9 +31,10 @@ class InetModelTest(SynTest):
         with self.getTestCore() as core:
 
             # Demonstrate cascading formation
-            expected_props = {'domain': 'vertex.link', 'host': 'api', 'issuffix': 0, 'iszone': 0, 'zone': 'vertex.link'}
+            expected_props = {'created': 0, 'domain': 'vertex.link', 'expires': 1, 'host': 'api', 'issuffix': 0,
+                'iszone': 0, 'updated': 2, 'zone': 'vertex.link'}
             with core.xact(write=True) as xact:
-                node = xact.addNode(formname, valu)
+                node = xact.addNode(formname, valu, props={'created': 0, 'expires': 1, 'updated': 2})
             self.eq(node.ndef, expected_ndef)
             self.eq(node.props, expected_props)
 
@@ -65,7 +65,6 @@ class InetModelTest(SynTest):
 
     # Type Tests ===================================================================================
     def test_types_fqdn(self):
-        # FIXME add times later
         with self.getTestCore() as core:
             t = core.model.type('inet:fqdn')
 
