@@ -59,9 +59,62 @@ class InetModelTest(SynTest):
                 self.len(3, list(xact.getNodesBy(formname, '*')))
                 self.len(2, list(xact.getNodesBy(formname, '*.link')))
                 self.len(1, list(xact.getNodesBy(formname, '*.vertex.link')))
-                self.len(0, list(xact.getNodesBy(formname, 'nope.vertex.link')))
-                badgen = xact.getNodesBy(formname, 'nope.*.link')
+                badgen = xact.getNodesBy(formname, 'api.*.link')
                 self.raises(s_exc.BadLiftValu, list, badgen)
+
+    def test_forms_fqdn_suffix(self):
+        formname = 'inet:fqdn'
+        def iszone(node):
+            self.true(node.props.get('iszone') == 1 and node.props.get('issuffix') == 0)
+
+        def issuffix(node):
+            self.true(node.props.get('issuffix') == 1 and node.props.get('iszone') == 0)
+
+        def isboth(node):
+            self.true(node.props.get('iszone') == 1 and node.props.get('issuffix') == 1)
+
+        def isneither(node):
+            self.true(node.props.get('iszone') == 0 and node.props.get('issuffix') == 0)
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+
+                # Create some nodes and demonstrate zone/suffix behavior
+                # Only FQDNs of the lowest level should be suffix
+                # Only FQDNs whose domains are suffixes should be zones
+                n0 = xact.addNode(formname, 'abc.vertex.link')
+                n1 = xact.addNode(formname, 'def.vertex.link')
+                n2 = xact.addNode(formname, 'g.def.vertex.link')
+                n1 = xact.addNode(formname, 'def.vertex.link')  # form again to show g. should not make this a zone
+                n3 = xact.getNodeByNdef((formname, 'vertex.link'))
+                n4 = xact.getNodeByNdef((formname, 'link'))
+                isneither(n0)
+                isneither(n1)
+                isneither(n2)
+                iszone(n3)     # vertex.link should be a zone
+                issuffix(n4)   # link should be a suffix
+
+                # Make one of the FQDNs a suffix and make sure its children become zones
+                n3 = xact.addNode(formname, 'vertex.link', props={'issuffix': True})
+                isboth(n3)     # vertex.link should now be both because we made it a suffix
+                n0 = xact.getNodeByNdef((formname, 'abc.vertex.link'))
+                n1 = xact.getNodeByNdef((formname, 'def.vertex.link'))
+                n2 = xact.getNodeByNdef((formname, 'g.def.vertex.link'))
+                iszone(n0)     # now a zone because vertex.link is a suffix
+                iszone(n1)     # now a zone because vertex.link is a suffix
+                isneither(n2)  # still neither as parent is not a suffix
+
+                # Remove the FQDN's suffix status and make sure its children lose zone status
+                n3 = xact.addNode(formname, 'vertex.link', props={'issuffix': False})
+                iszone(n3)     # vertex.link should now be a zone becuase we removed its suffix status
+                n0 = xact.getNodeByNdef((formname, 'abc.vertex.link'))
+                n1 = xact.getNodeByNdef((formname, 'def.vertex.link'))
+                n2 = xact.getNodeByNdef((formname, 'g.def.vertex.link'))
+                n4 = xact.getNodeByNdef((formname, 'link'))
+                isneither(n0)  # loses zone status
+                isneither(n1)  # loses zone status
+                isneither(n2)  # stays the same
+                issuffix(n4)   # stays the same
 
     # Type Tests ===================================================================================
     def test_types_fqdn(self):
@@ -80,7 +133,6 @@ class InetModelTest(SynTest):
             self.eq(t.norm(fqdn), expected)
             self.eq(t.repr(ex_fqdn), fqdn)  # Calling repr on IDNA encoded domain should result in the unicode
             self.raises(UnicodeDecodeError, t.repr, fqdn)  # Can't repr unicode domain
-            self.eq(t.repr('www.xn--heilpdagogik-wiki-uqb.de'), 'www.heilpädagogik-wiki.de')
 
             # Demonstrate Invalid IDNA
             fqdn = 'xn--lskfjaslkdfjaslfj.link'
@@ -104,8 +156,6 @@ class InetModelTest(SynTest):
             # Demonstrate wrap-around
             self.eq(t.norm(0x00000000 - 1), (2**32 - 1, {}))
             self.eq(t.norm(0xFFFFFFFF + 1), (0, {}))
-
-    # Junk =========================================================================================
 
 
 class FIXME:
@@ -209,89 +259,6 @@ class FIXME:
             self.eq(core.getTypeRepr('inet:tcp6', '[0:0:0:0:0:0:0:1]:80'), '[::1]:80')
             self.eq(core.getTypeRepr('inet:tcp6', '[::1]:80'), '[::1]:80')
             self.eq(core.getTypeRepr('inet:tcp6', '[0:0:0:0:0:3:2:1]:5000'), '[::3:2:1]:5000')
-
-    def test_model_inet_fqdn_set_sfx(self):
-        with self.getRamCore() as core:
-            tufo = core.formTufoByProp('inet:fqdn', 'abc.dyndns.com') # abc.dyndns.com - zone=0 sfx=0, dyndns.com - zone=1 sfx=0, com - zone=0 sfx=1
-            self.eq(tufo[1].get('inet:fqdn:host'), 'abc')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0)
-            tufo = core.formTufoByProp('inet:fqdn', 'def.dyndns.com') # def.dyndns.com - zone=0 sfx=0
-            self.eq(tufo[1].get('inet:fqdn:host'), 'def')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0)
-            tufo = core.formTufoByProp('inet:fqdn', 'g.def.dyndns.com') # g.def.dyndns.com - zone=0 sfx=0, def.dyndns.com - zone=0 sfx=0
-            self.eq(tufo[1].get('inet:fqdn:host'), 'g')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'def.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0)
-            tufo = core.getTufoByProp('inet:fqdn', 'def.dyndns.com') # def.dyndns.com - zone=0 sfx=0 - adding g.def does not make def a zone
-            self.eq(tufo[1].get('inet:fqdn:host'), 'def')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0)
-            tufo = core.getTufoByProp('inet:fqdn', 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'dyndns')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 1)
-            tufo = core.getTufoByProp('inet:fqdn', 'com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'com')
-            self.eq(tufo[1].get('inet:fqdn:domain'), None)
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 1)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0)
-
-            # make dyndns.com a suffix
-            tufo = core.getTufoByProp('inet:fqdn', 'dyndns.com')
-            tufo = core.setTufoProp(tufo, 'sfx', 1)
-            self.eq(tufo[1].get('inet:fqdn:host'), 'dyndns')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 1)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 1) # should still be a zone after sfx set to 1
-
-            # assert that child fqdns are properly updated
-            tufo = core.getTufoByProp('inet:fqdn', 'abc.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'abc')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 1) # now a zone because dyndns.com is a suffix
-            tufo = core.getTufoByProp('inet:fqdn', 'def.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'def')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 1) # now a zone because dyndns.com is a suffix
-            tufo = core.getTufoByProp('inet:fqdn', 'g.def.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'g')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'def.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0) # should remain zone=0 sfx=0 because its parent is not a sfx
-
-            # make dyndns.com not a suffix
-            tufo = core.getTufoByProp('inet:fqdn', 'dyndns.com')
-            tufo = core.setTufoProp(tufo, 'sfx', 0)
-            self.eq(tufo[1].get('inet:fqdn:host'), 'dyndns')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 1) # should still be a zone after sfx set to 0
-
-            # assert that child fqdns are properly updated
-            tufo = core.getTufoByProp('inet:fqdn', 'abc.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'abc')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0) # no longer a zone because dyndns.com is not a sfx
-            tufo = core.getTufoByProp('inet:fqdn', 'def.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'def')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0) # no longer a zone because dyndns.com is not a sfx
-            tufo = core.getTufoByProp('inet:fqdn', 'g.def.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'g')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'def.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0) # should remain zone=0 sfx=0 because its parent is not a sfx
 
     def test_model_inet_cast_defang(self):
         with self.getRamCore() as core:
