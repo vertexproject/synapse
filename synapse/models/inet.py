@@ -345,7 +345,6 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:fqdn', {}, (
-                        # FIXME uncomment times when temporal is done
 
                         ('created', ('time', {'ismin': True}), {
                             'doc': 'The earliest known registration (creation) date for the fqdn.'
