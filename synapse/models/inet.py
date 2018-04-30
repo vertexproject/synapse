@@ -18,64 +18,29 @@ fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 
 
-class IPv4(s_types.Type):
-    '''
-    The base type for an IPv4 address.
-    '''
+class Email(s_types.Type):
+
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(int, self._normPyInt)
-
-    def _normPyInt(self, valu):
-        norm = valu & 0xffffffff
-        return norm, {}
 
     def _normPyStr(self, valu):
-        valu = valu.replace('[.]', '.')
-        byts = socket.inet_aton(valu)
-        norm = int.from_bytes(byts, 'big')
-        return self._normPyInt(norm)
+
+        user, fqdn = valu.split('@', 1)
+
+        fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
+        usernorm, userinfo = self.modl.type('inet:user').norm(user)
+
+        norm = '%s@%s' % (usernorm, fqdnnorm)
+        info = {
+            'subs': {
+                'fqdn': fqdnnorm,
+                'user': usernorm,
+            }
+        }
+        return norm, info
 
     def indx(self, norm):
-        return norm.to_bytes(4, 'big')
-
-    def repr(self, norm):
-        return socket.inet_ntoa(self.indx(norm))
-
-    def liftPropEq(self, fenc, penc, text):
-
-        if text.find('/') != -1:
-
-            addr, mask = text.split('/', 1)
-            norm, info = self.norm(addr)
-
-            mask = cidrmasks[int(mask)]
-
-            minv = norm & mask[0]
-
-            mini = self.indx(minv)
-            maxi = self.indx(minv + mask[1])
-
-            lops = (
-                ('prop:range', {
-                    'prop': prop.encode('utf8'),
-                    'form': form.encode('utf8'),
-                    'minindx': self.indx(minv),
-                    'maxindx': self.indx(minv + mask[1] - 1)
-                }),
-            )
-            return xact.lift(lops)
-
-        norm, info = self.norm(text)
-        lops = (
-            ('prop:eq', {
-                'prop': prop.encode('utf8'),
-                'form': form.encode('utf8'),
-                'valu': norm,
-                'indx': self.indx(norm),
-            }),
-        )
-        return xact.lift(lops)
+        return norm.encode('utf8')
 
 class Fqdn(s_types.Type):
 
@@ -151,29 +116,64 @@ class Fqdn(s_types.Type):
                 return valu
             raise  # pragma: no cover
 
-class Email(s_types.Type):
-
+class IPv4(s_types.Type):
+    '''
+    The base type for an IPv4 address.
+    '''
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+
+    def _normPyInt(self, valu):
+        norm = valu & 0xffffffff
+        return norm, {}
 
     def _normPyStr(self, valu):
-
-        user, fqdn = valu.split('@', 1)
-
-        fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
-        usernorm, userinfo = self.modl.type('inet:user').norm(user)
-
-        norm = '%s@%s' % (usernorm, fqdnnorm)
-        info = {
-            'subs': {
-                'fqdn': fqdnnorm,
-                'user': usernorm,
-            }
-        }
-        return norm, info
+        valu = valu.replace('[.]', '.')
+        byts = socket.inet_aton(valu)
+        norm = int.from_bytes(byts, 'big')
+        return self._normPyInt(norm)
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.to_bytes(4, 'big')
+
+    def repr(self, norm):
+        return socket.inet_ntoa(self.indx(norm))
+
+    def liftPropEq(self, fenc, penc, text):
+
+        if text.find('/') != -1:
+
+            addr, mask = text.split('/', 1)
+            norm, info = self.norm(addr)
+
+            mask = cidrmasks[int(mask)]
+
+            minv = norm & mask[0]
+
+            mini = self.indx(minv)
+            maxi = self.indx(minv + mask[1])
+
+            lops = (
+                ('prop:range', {
+                    'prop': prop.encode('utf8'),
+                    'form': form.encode('utf8'),
+                    'minindx': self.indx(minv),
+                    'maxindx': self.indx(minv + mask[1] - 1)
+                }),
+            )
+            return xact.lift(lops)
+
+        norm, info = self.norm(text)
+        lops = (
+            ('prop:eq', {
+                'prop': prop.encode('utf8'),
+                'form': form.encode('utf8'),
+                'valu': norm,
+                'indx': self.indx(norm),
+            }),
+        )
+        return xact.lift(lops)
 
 class Url(s_types.Type):
     # FIXME implement
