@@ -1,10 +1,24 @@
-# -*- coding: UTF-8 -*-
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 from synapse.tests.common import *
 
 class InetModelTest(SynTest):
+
+    def test_forms_ipv4(self):
+        formname = 'inet:ipv4'
+        valu_str = '1.2.3.4'
+        valu_int = 16909060
+        input_props = {'asn': 3, 'loc': 'us', 'type': 'cool'}
+        expected_props = {'asn': 3, 'loc': 'us', 'type': 'cool'}
+        expected_ndef = (formname, valu_int)
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu_str, props=input_props)
+
+            self.eq(node.ndef, expected_ndef)
+            self.eq(node.props, expected_props)
 
     def test_forms_url(self):
         # FIXME implement when porting the rest of the inet model
@@ -24,6 +38,21 @@ class InetModelTest(SynTest):
             node = core.formTufoByProp('inet:url', 'HTTP://1.2.3.4/')
             self.eq(node[1].get('inet:url:ipv4'), 0x01020304)
         '''
+
+    def test_types_ipv4(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:ipv4')
+            ip_int = 16909060
+            ip_str = '1.2.3.4'
+            ip_str_enfanged = '1[.]2[.]3[.]4'
+
+            self.eq(t.norm(ip_int), (ip_int, {}))
+            self.eq(t.norm(ip_str), (ip_int, {}))
+            self.eq(t.norm(ip_str_enfanged), (ip_int, {}))
+            self.eq(t.repr(ip_int), ip_str)
+
+            self.eq(t.norm(0x00000000 - 1), (4294967295, {}))
+            self.eq(t.norm(0xFFFFFFFF + 1), (0, {}))
 
     def test_model_inet_fqdn(self):
 
