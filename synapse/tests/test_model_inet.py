@@ -5,7 +5,9 @@ from synapse.tests.common import *
 
 class InetModelTest(SynTest):
 
+    # Form Tests ===================================================================================
     def test_forms_ipv4(self):
+        # FIXME add latlong later
         formname = 'inet:ipv4'
         valu_str = '1.2.3.4'
         valu_int = 16909060
@@ -19,6 +21,93 @@ class InetModelTest(SynTest):
 
             self.eq(node.ndef, expected_ndef)
             self.eq(node.props, expected_props)
+
+    def test_forms_fqdn(self):
+        # FIXME add times later
+        formname = 'inet:fqdn'
+        valu = 'api.vertex.link'
+        expected_ndef = (formname, valu)
+
+        # props: domain host issuffix iszone zone
+        with self.getTestCore() as core:
+
+            # Demonstrate cascading formation
+            expected_props = {'domain': 'vertex.link', 'host': 'api', 'issuffix': 0, 'iszone': 0, 'zone': 'vertex.link'}
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu)
+            self.eq(node.ndef, expected_ndef)
+            self.eq(node.props, expected_props)
+
+            nvalu = expected_props['domain']
+            expected_ndef = (formname, nvalu)
+            expected_props = {'domain': 'link', 'host': 'vertex', 'issuffix': 0, 'iszone': 1, 'zone': 'vertex.link'}
+            with core.xact() as xact:
+                node = xact.getNodeByNdef((formname, nvalu))
+            self.eq(node.ndef, expected_ndef)
+            self.eq(node.props, expected_props)
+
+            nvalu = expected_props['domain']
+            expected_ndef = (formname, nvalu)
+            expected_props = {'host': 'link', 'issuffix': 1, 'iszone': 0}
+            with core.xact() as xact:
+                node = xact.getNodeByNdef((formname, nvalu))
+            self.eq(node.ndef, expected_ndef)
+            self.eq(node.props, expected_props)
+
+            # Demonstrate wildcard
+            with core.xact() as xact:
+                self.len(3, list(xact.getNodesBy(formname, '*')))
+                self.len(2, list(xact.getNodesBy(formname, '*.link')))
+                self.len(1, list(xact.getNodesBy(formname, '*.vertex.link')))
+                self.len(0, list(xact.getNodesBy(formname, 'nope.vertex.link')))
+                badgen = xact.getNodesBy(formname, 'nope.*.link')
+                self.raises(s_exc.BadLiftValu, list, badgen)
+
+    # Type Tests ===================================================================================
+    def test_types_fqdn(self):
+        # FIXME add times later
+        with self.getTestCore() as core:
+            t = core.model.type('inet:fqdn')
+
+            fqdn = 'example.Vertex.link'
+            expected = ('example.vertex.link', {'subs': {'host': 'example', 'domain': 'vertex.link'}})
+            self.eq(t.norm(fqdn), expected)
+
+            # Demonstrate Valid IDNA
+            fqdn = 'tèst.èxamplè.link'
+            ex_fqdn = 'xn--tst-6la.xn--xampl-3raf.link'
+            expected = (ex_fqdn, {'subs': {'domain': 'xn--xampl-3raf.link', 'host': 'xn--tst-6la'}})
+            self.eq(t.norm(fqdn), expected)
+            self.eq(t.repr(ex_fqdn), fqdn)  # Calling repr on IDNA encoded domain should result in the unicode
+            self.raises(UnicodeDecodeError, t.repr, fqdn)  # Can't repr unicode domain
+
+            # Demonstrate Invalid IDNA
+            fqdn = 'xn--lskfjaslkdfjaslfj.link'
+            expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'link'}})
+            self.eq(t.norm(fqdn), expected)
+            self.eq(t.repr(fqdn), fqdn)  # UnicodeError raised and caught
+
+    def test_types_ipv4(self):
+        # FIXME add latlong later
+        with self.getTestCore() as core:
+            t = core.model.type('inet:ipv4')
+            ip_int = 16909060
+            ip_str = '1.2.3.4'
+            ip_str_enfanged = '1[.]2[.]3[.]4'
+
+            self.eq(t.norm(ip_int), (ip_int, {}))
+            self.eq(t.norm(ip_str), (ip_int, {}))
+            self.eq(t.norm(ip_str_enfanged), (ip_int, {}))
+            self.eq(t.repr(ip_int), ip_str)
+
+            # Demonstrate wrap-around
+            self.eq(t.norm(0x00000000 - 1), (2**32 - 1, {}))
+            self.eq(t.norm(0xFFFFFFFF + 1), (0, {}))
+
+    # Junk =========================================================================================
+
+
+class FIXME:
 
     def test_forms_url(self):
         # FIXME implement when porting the rest of the inet model
@@ -38,65 +127,6 @@ class InetModelTest(SynTest):
             node = core.formTufoByProp('inet:url', 'HTTP://1.2.3.4/')
             self.eq(node[1].get('inet:url:ipv4'), 0x01020304)
         '''
-
-    def test_types_ipv4(self):
-        with self.getTestCore() as core:
-            t = core.model.type('inet:ipv4')
-            ip_int = 16909060
-            ip_str = '1.2.3.4'
-            ip_str_enfanged = '1[.]2[.]3[.]4'
-
-            self.eq(t.norm(ip_int), (ip_int, {}))
-            self.eq(t.norm(ip_str), (ip_int, {}))
-            self.eq(t.norm(ip_str_enfanged), (ip_int, {}))
-            self.eq(t.repr(ip_int), ip_str)
-
-            self.eq(t.norm(0x00000000 - 1), (4294967295, {}))
-            self.eq(t.norm(0xFFFFFFFF + 1), (0, {}))
-
-    def test_model_inet_fqdn(self):
-
-        with self.getTestCore() as core:
-
-            with core.xact(write=True) as xact:
-
-                # check initial setup
-                node = xact.addNode('inet:fqdn', 'foo.bar.woot.com')
-
-                self.eq(node.get('iszone'), 0)
-                self.eq(node.get('domain'), 'bar.woot.com')
-
-                #print(repr(node.pack()))
-
-                #uppr = xact.addNode('inet:fqdn', 'bar.woot.com')
-                #uppr.set('iszone', True)
-
-                #node = xact.addNode('inet:fqdn', 'foo.bar.woot.com')
-                #print(repr(node.pack()))
-
-                #uppr = xact.addNode('inet:fqdn', 'bar.woot.com')
-                #uppr.set('iszone', False)
-
-                #node = xact.addNode('inet:fqdn', 'foo.bar.woot.com')
-                #print(repr(node.pack()))
-
-class FIXME:
-
-    def test_model_inet_fqdn(self):
-
-        with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:fqdn', 'com', sfx=1)
-            t1 = core.formTufoByProp('inet:fqdn', 'woot.com')
-
-            self.eq(t0[1].get('inet:fqdn:host'), 'com')
-            self.eq(t0[1].get('inet:fqdn:domain'), None)
-            self.eq(t0[1].get('inet:fqdn:sfx'), 1)
-            self.eq(t0[1].get('inet:fqdn:zone'), 0)
-
-            self.eq(t1[1].get('inet:fqdn:host'), 'woot')
-            self.eq(t1[1].get('inet:fqdn:domain'), 'com')
-            self.eq(t1[1].get('inet:fqdn:sfx'), 0)
-            self.eq(t1[1].get('inet:fqdn:zone'), 1)
 
     def test_model_inet_srv4_types(self):
         with self.getRamCore() as core:
@@ -178,71 +208,6 @@ class FIXME:
             self.eq(core.getTypeRepr('inet:tcp6', '[0:0:0:0:0:0:0:1]:80'), '[::1]:80')
             self.eq(core.getTypeRepr('inet:tcp6', '[::1]:80'), '[::1]:80')
             self.eq(core.getTypeRepr('inet:tcp6', '[0:0:0:0:0:3:2:1]:5000'), '[::3:2:1]:5000')
-
-    def test_model_inet_fqdn_unicode(self):
-
-        with self.getRamCore() as core:
-            prop = 'inet:fqdn'
-            idna_valu = 'xn--tst-6la.xn--xampl-3raf.link'
-            unicode_valu = 'tèst.èxamplè.link'
-            unicode_cap_valu = 'tèst.èxaMplè.link'
-            parents = (
-                    ('xn--xampl-3raf.link', {'inet:fqdn:host': 'xn--xampl-3raf', 'inet:fqdn:domain': 'link', 'inet:fqdn:zone': 1, 'inet:fqdn:sfx': 0}),
-                    ('link', {'inet:fqdn:host': 'link', 'inet:fqdn:domain': None, 'inet:fqdn:zone': 0, 'inet:fqdn:sfx': 1}),
-            )
-            idna_tufo = core.formTufoByProp(prop, idna_valu)
-            self.eq(idna_tufo[1].get('inet:fqdn:host'), 'xn--tst-6la')
-            self.eq(idna_tufo[1].get('inet:fqdn:domain'), 'xn--xampl-3raf.link')
-            self.eq(idna_tufo[1].get('inet:fqdn:zone'), 0)
-            self.eq(idna_tufo[1].get('inet:fqdn:sfx'), 0)
-
-            for parent_fqdn, parent_props in parents:
-                parent_tufo = core.getTufoByProp(prop, parent_fqdn)
-                for key in parent_props:
-                    self.eq(parent_tufo[1].get(key), parent_props[key])
-
-            idna_tufo = core.formTufoByProp(prop, idna_valu)
-            unicode_tufo = core.formTufoByProp(prop, unicode_valu)
-            unicode_cap_tufo = core.formTufoByProp(prop, unicode_cap_valu)
-            self.eq(unicode_tufo, idna_tufo)
-            self.eq(unicode_tufo, unicode_cap_tufo)
-
-        with self.getRamCore() as core:
-            prop = 'inet:web:acct'
-            valu = '%s/%s' % ('xn--tst-6la.xn--xampl-3raf.link', 'user')
-            tufo = core.formTufoByProp(prop, valu)
-            self.eq(tufo[1].get('inet:web:acct:site'), 'xn--tst-6la.xn--xampl-3raf.link')
-            self.eq(tufo[1].get('inet:web:acct'), 'tèst.èxamplè.link/user')
-            idna_valu = 'xn--tst-6la.xn--xampl-3raf.link'
-
-        with self.getRamCore() as core:
-            prop = 'inet:email'
-            valu = '%s@%s' % ('user', 'tèst.èxamplè.link')
-            tufo = core.formTufoByProp(prop, valu)
-            self.eq(tufo[1].get('inet:email:fqdn'), 'xn--tst-6la.xn--xampl-3raf.link')
-            self.eq(tufo[1].get('inet:email'), 'user@xn--tst-6la.xn--xampl-3raf.link')
-
-        with self.getRamCore() as core:
-            prop = 'inet:url'
-            valu = '%s://%s/%s' % ('https', 'xn--tst-6la.xn--xampl-3raf.link', 'things')
-            tufo = core.formTufoByProp(prop, valu)
-            self.eq(tufo[1].get('inet:url'), 'https://xn--tst-6la.xn--xampl-3raf.link/things') # hostpart is not normed in inet:url
-
-    def test_model_inet_fqdn_idna(self):
-
-        with self.getRamCore() as core:
-            prop = 'inet:fqdn'
-            valu = 'xn--lskfjaslkdfjaslfj.link'
-
-            tufo = core.formTufoByProp(prop, valu)
-            self.eq(tufo[1][prop], valu)
-
-            tufo = core.getTufoByProp(prop, valu)
-            self.eq(tufo[1][prop], valu)
-
-            # Catch invalid IDNA error and just return the raw data
-            self.eq(core.getTypeRepr(prop, tufo[1][prop]), valu)
-            self.eq(core.getPropRepr(prop, tufo[1][prop]), valu)
 
     def test_model_inet_fqdn_set_sfx(self):
         with self.getRamCore() as core:
