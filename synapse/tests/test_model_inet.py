@@ -22,6 +22,19 @@ class InetModelTest(SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.props, expected_props)
 
+    def test_forms_email(self):
+        formname = 'inet:email'
+        valu = 'UnitTest@Vertex.link'
+        expected_ndef = (formname, valu.lower())
+        expected_props = {'fqdn': 'vertex.link', 'user': 'unittest'}
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu)
+
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
     def test_forms_fqdn(self):
         formname = 'inet:fqdn'
         valu = 'api.vertex.link'
@@ -117,6 +130,14 @@ class InetModelTest(SynTest):
                 issuffix(n4)   # stays the same
 
     # Type Tests ===================================================================================
+    def test_types_email(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:email')
+
+            email = 'UnitTest@Vertex.link'
+            expected = ('unittest@vertex.link', {'subs': {'fqdn': 'vertex.link', 'user': 'unittest'}})
+            self.eq(t.norm(email), expected)
+
     def test_types_fqdn(self):
         with self.getTestCore() as core:
             t = core.model.type('inet:fqdn')
@@ -156,6 +177,15 @@ class InetModelTest(SynTest):
             # Demonstrate wrap-around
             self.eq(t.norm(0x00000000 - 1), (2**32 - 1, {}))
             self.eq(t.norm(0xFFFFFFFF + 1), (0, {}))
+
+    def test_types_unextended(self):
+        # The following types are subtypes that do not extend their base type
+        with self.getTestCore() as core:
+            self.nn(core.model.type('inet:asn'))  # int
+            self.nn(core.model.type('inet:passwd'))  # str
+            self.nn(core.model.type('inet:port'))  # int w/ min/max
+            self.nn(core.model.type('inet:wifi:ssid'))  # str
+            self.nn(core.model.type('inet:user'))  # str w/ lower
 
 
 class FIXME:

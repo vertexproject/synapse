@@ -291,14 +291,22 @@ class InetModule(s_module.CoreModule):
                 'types': (
 
                     ('inet:asn', ('int', {}), {
-                        'doc': 'An autonomous system number'}),
+                        'doc': 'An Autonomous System Number (ASN).'
+                    }),
 
                     ('inet:passwd', ('str', {}), {
-                        'doc': 'A password string.'}),
+                        'doc': 'A password string.'
+                    }),
 
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
                         'doc': 'A network port.',
-                        'ex': '80'}),
+                        'ex': '80'
+                    }),
+
+                    ('inet:wifi:ssid', ('str', {}), {
+                        'doc': 'A WiFi service set identifier (SSID) name.',
+                        'ex': 'The Vertex Project'
+                    }),
 
                     ('inet:user', ('str', {'lower': True}), {
                         'doc': 'A user name.'}),
@@ -308,40 +316,23 @@ class InetModule(s_module.CoreModule):
                 # NOTE: tcp4/udp4/tcp6/udp6 are going away
                 'forms': (
 
-                    ('inet:url', {}, (
-                        # FIXME implement ipv6
-                        #('ipv6', ('inet:ipv6', {}), {'ro': 1,
-                        #     'doc': 'The IPv6 address used in the URL.'}),
-                        ('ipv4', ('inet:ipv4', {}), {'ro': 1,
-                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
-                        ('fqdn', ('inet:fqdn', {}), {'ro': 1,
-                             'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
-                        ('port', ('inet:port', {}), {'ro': 1,
-                             'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
-                                 'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
-                        ('user', ('inet:user', {}), {'ro': 1,
-                             'doc': 'The optional username used to access the URL.'}),
-                        ('passwd', ('inet:passwd', {}), {'ro': 1,
-                             'doc': 'The optional password used to access the URL.'}),
-                    )),
+                    # FIXME implement
+                    #('inet:asn', {'ptype': 'inet:asn'}, (
+                    #    ('name', {'ptype': 'str:lwr', 'defval': '??',
+                    #        'doc': 'The name of the organization currently responsible for the ASN.'}),
+                    #    ('owner', {'ptype': 'ou:org',
+                    #        'doc': 'The guid of the organization currently responsible for the ASN.'}),
+                    #)),
 
-                    ('inet:ipv4', {}, (
-                        ('asn', ('inet:asn', {}), {
-                            'defval': 0,  # FIXME replace with nullval
-                            'doc': 'The ASN to which the IPv4 address is currently assigned.'
-                        }),
-                        # FIXME implement geospace...
-                        #('latlong', ('geo:latlong', {}), {
-                        #    'doc': 'The last known latitude/longitude for the node'
-                        #}),
-                        ('loc', ('loc', {}), {
-                            'defval': '??',
-                            'doc': 'The geo-political location string for the IPv4.'
-                        }),
-                        ('type', ('str', {}), {
-                            'defval': '??',
-                            'doc': 'The type of IP address (e.g., private, multicast, etc.).'
-                        })
+                    ('inet:email', {}, (
+
+                        ('user', ('inet:user', {}), {
+                            'ro': True,
+                            'doc': 'The username of the email address.'}),
+
+                        ('fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
+                            'doc': 'The domain of the email address.'}),
                     )),
 
                     ('inet:fqdn', {}, (
@@ -360,7 +351,6 @@ class InetModule(s_module.CoreModule):
 
                         ('host', ('str', {'lower': True}), {
                             'doc': 'The host part of the FQDN.',
-
                         }),
 
                         ('issuffix', ('bool', {}), {
@@ -383,17 +373,55 @@ class InetModule(s_module.CoreModule):
 
                     )),
 
-
-                    ('inet:email', {}, (
-
-                        ('user', ('inet:user', {}), {
-                            'ro': True,
-                            'doc': 'The email address user name.'}),
-
-                        ('fqdn', ('inet:fqdn', {}), {
-                            'ro': True,
-                            'doc': 'The email address FQDN.'}),
+                    ('inet:ipv4', {}, (
+                        ('asn', ('inet:asn', {}), {
+                            'defval': 0,  # FIXME replace with nullval
+                            'doc': 'The ASN to which the IPv4 address is currently assigned.'
+                        }),
+                        # FIXME implement geospace...
+                        #('latlong', ('geo:latlong', {}), {
+                        #    'doc': 'The last known latitude/longitude for the node'
+                        #}),
+                        ('loc', ('loc', {}), {
+                            'defval': '??',
+                            'doc': 'The geo-political location string for the IPv4.'
+                        }),
+                        ('type', ('str', {}), {
+                            'defval': '??',
+                            'doc': 'The type of IP address (e.g., private, multicast, etc.).'
+                        })
                     )),
+
+
+                    # FIXME implement
+                    #('inet:passwd', {'ptype': 'inet:passwd'}, [
+                    #    ('md5', {'ptype': 'hash:md5', 'ro': 1,
+                    #        'doc': 'The computed MD5 hash of the password.'}),
+                    #    ('sha1', {'ptype': 'hash:sha1', 'ro': 1,
+                    #        'doc': 'The computed SHA1 hash of the password.'}),
+                    #    ('sha256', {'ptype': 'hash:sha256', 'ro': 1,
+                    #        'doc': 'The computed SHA256 hash of the password.'}),
+                    #]),
+
+                    # FIXME implement inet:wifi:ssid
+
+                    ('inet:url', {}, (
+                        # FIXME implement ipv6
+                        #('ipv6', ('inet:ipv6', {}), {'ro': 1,
+                        #     'doc': 'The IPv6 address used in the URL.'}),
+                        ('ipv4', ('inet:ipv4', {}), {'ro': 1,
+                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
+                        ('fqdn', ('inet:fqdn', {}), {'ro': 1,
+                             'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
+                        ('port', ('inet:port', {}), {'ro': 1,
+                             'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
+                                 'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
+                        ('user', ('inet:user', {}), {'ro': 1,
+                             'doc': 'The optional username used to access the URL.'}),
+                        ('passwd', ('inet:passwd', {}), {'ro': 1,
+                             'doc': 'The optional password used to access the URL.'}),
+                    )),
+
                 ),
             }),
         )
