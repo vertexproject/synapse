@@ -20,6 +20,25 @@ class InetModelTest(SynTest):
             self.eq(node.ndef, expected_ndef)
             self.eq(node.props, expected_props)
 
+    def test_forms_url(self):
+        # FIXME implement when porting the rest of the inet model
+        pass
+
+        '''
+        with self.getRamCore() as core:
+            node = core.formTufoByProp('inet:url', 'HTTP://visi:hehe@www.vertex.link:9999/')
+            self.eq(node[1].get('inet:url:port'), 9999)
+            self.eq(node[1].get('inet:url:user'), 'visi')
+            self.eq(node[1].get('inet:url:passwd'), 'hehe')
+            self.eq(node[1].get('inet:url:fqdn'), 'www.vertex.link')
+
+            node = core.formTufoByProp('inet:url', 'HTTP://www.vertex.link/')
+            self.eq(node[1].get('inet:url:port'), 80)
+
+            node = core.formTufoByProp('inet:url', 'HTTP://1.2.3.4/')
+            self.eq(node[1].get('inet:url:ipv4'), 0x01020304)
+        '''
+
     def test_types_ipv4(self):
         with self.getTestCore() as core:
             t = core.model.type('inet:ipv4')

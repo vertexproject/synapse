@@ -175,6 +175,22 @@ class Email(s_types.Type):
     def indx(self, norm):
         return norm.encode('utf8')
 
+class Url(s_types.Type):
+    # FIXME implement
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+
+    def indx(self, norm):
+        return norm.encode('utf8')
+
+    def _normPyStr(self, valu):
+        norm = valu
+        info = {
+            'subs': {}
+        }
+        return norm, info
+
 class InetModule(s_module.CoreModule):
 
     def initCoreModule(self):
@@ -254,30 +270,59 @@ class InetModule(s_module.CoreModule):
 
                 'ctors': (
 
+                    ('inet:email', 'synapse.models.inet.Email', {}, {
+                        'doc': 'An e-mail address.'}),
+
+                    ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
+                        'doc': 'A Fully Qualified Domain Name (FQDN).'}),
+
                     ('inet:ipv4', 'synapse.models.inet.IPv4', {}, {
                         'doc': 'An IPv4 address.',
                         'ex': '1.2.3.4'
                     }),
 
-                    ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
-                        'doc': 'A Fully Qualified Domain Name (FQDN).'}),
+                    ('inet:url', 'synapse.models.inet.Url', {}, {
+                        'doc': 'A Universal Resource Locator (URL).',
+                        'ex': 'http://www.woot.com/files/index.html'}),
 
-                    ('inet:email', 'synapse.models.inet.Email', {}, {
-                        'doc': 'An e-mail address.'}),
                 ),
 
                 'types': (
 
-                    ('inet:user', ('str', {'lower': True}), {
-                        'doc': 'A user name.'}),
-
                     ('inet:asn', ('int', {}), {
                         'doc': 'An autonomous system number'}),
+
+                    ('inet:passwd', ('str', {}), {
+                        'doc': 'A password string.'}),
+
+                    ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
+                        'doc': 'A network port.',
+                        'ex': '80'}),
+
+                    ('inet:user', ('str', {'lower': True}), {
+                        'doc': 'A user name.'}),
 
                 ),
 
                 # NOTE: tcp4/udp4/tcp6/udp6 are going away
                 'forms': (
+
+                    ('inet:url', {}, (
+                        # FIXME implement ipv6
+                        #('ipv6', ('inet:ipv6', {}), {'ro': 1,
+                        #     'doc': 'The IPv6 address used in the URL.'}),
+                        ('ipv4', ('inet:ipv4', {}), {'ro': 1,
+                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
+                        ('fqdn', ('inet:fqdn', {}), {'ro': 1,
+                             'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
+                        ('port', ('inet:port', {}), {'ro': 1,
+                             'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
+                                 'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
+                        ('user', ('inet:user', {}), {'ro': 1,
+                             'doc': 'The optional username used to access the URL.'}),
+                        ('passwd', ('inet:passwd', {}), {'ro': 1,
+                             'doc': 'The optional password used to access the URL.'}),
+                    )),
 
                     ('inet:ipv4', {}, (
                         ('asn', ('inet:asn', {}), {

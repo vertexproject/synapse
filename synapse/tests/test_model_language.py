@@ -1,29 +1,40 @@
-from synapse.tests.common import *
+import synapse.exc as s_exc
+import synapse.tests.common as s_t_common
 
-class LangTest(SynTest):
+class LangModuleTest(s_t_common.SynTest):
 
-    def test_model_language_trans(self):
-        with self.getRamCore() as core:
+    def test_forms_idiom(self):
+        with self.getTestCore() as core:
+            formname = 'lang:idiom'
+            valu = 'arbitrary text 123'
 
-            self.nn(core.getTufoByProp('syn:type', 'lang:trans'))
-            self.nn(core.getTufoByProp('syn:form', 'lang:trans'))
+            input_props = {'url': 'https://vertex.link/', 'desc:en': 'Some English Desc'}
+            expected_props = {'url': 'https://vertex.link/', 'desc:en': 'Some English Desc'}
+            expected_ndef = (formname, valu)
 
-            props = {'text:en': 'Some English Text', 'desc:en': 'Some English Desc'}
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu, props=input_props)
 
-            node = core.formTufoByProp('lang:trans', 'Some Non English Text', **props)
-            self.eq(node[1].get('lang:trans:text:en'), 'Some English Text')
-            self.eq(node[1].get('lang:trans:desc:en'), 'Some English Desc')
+            self.eq(node.ndef, expected_ndef)
+            self.eq(node.props, expected_props)
 
-    def test_model_language_idiom(self):
-        with self.getRamCore() as core:
+    def test_forms_trans(self):
+        with self.getTestCore() as core:
+            formname = 'lang:trans'
+            valu = 'arbitrary text 123'
 
-            self.nn(core.getTufoByProp('syn:type', 'lang:idiom'))
-            self.nn(core.getTufoByProp('syn:form', 'lang:idiom'))
+            input_props = {'text:en': 'Some English Text', 'desc:en': 'Some English Desc'}
+            expected_props = {'text:en': 'Some English Text', 'desc:en': 'Some English Desc'}
+            expected_ndef = (formname, valu)
 
-            props = {'desc:en': 'Bawk Bawk', 'url': 'http://test.com/'}
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu, props=input_props)
 
-            node = core.formTufoByProp('lang:idiom', 'meat chicken', **props)
-            self.eq(node[1].get('lang:idiom:url'), 'http://test.com/')
-            self.eq(node[1].get('lang:idiom:desc:en'), 'Bawk Bawk')
+            self.eq(node.ndef, expected_ndef)
+            self.eq(node.props, expected_props)
 
-    #def test_model_language_tags(self):
+    def test_types_unextended(self):
+        # The following types are subtypes that do not extend their base type
+        with self.getTestCore() as core:
+            self.nn(core.model.type('lang:idiom'))  # str
+            self.nn(core.model.type('lang:trans'))  # str
