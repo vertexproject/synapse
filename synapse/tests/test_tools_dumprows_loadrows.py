@@ -151,7 +151,6 @@ class DumpRowsTest(SynTest):
 
     def test_dump_force(self):
         self.thisHostMustNot(platform='darwin')
-        self.thisHostMustNot(platform='darwin')
         outp = self.getTestOutp()
         with self.getTestDir() as temp:
             fp = os.path.join(temp, 'dumpfile.mpk')
