@@ -274,7 +274,8 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An e-mail address.'}),
 
                     ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
-                        'doc': 'A Fully Qualified Domain Name (FQDN).'}),
+                        'doc': 'A Fully Qualified Domain Name (FQDN).',
+                        'ex': 'vertex.link'}),
 
                     ('inet:ipv4', 'synapse.models.inet.IPv4', {}, {
                         'doc': 'An IPv4 address.',
@@ -344,18 +345,23 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:fqdn', {}, (
+                        # FIXME uncomment times when temporal is done
+
+                        #('created', ('time:min', {}), {
+                        #    'doc': 'The earliest known registration (creation) date for the fqdn.'
+                        #}),
 
                         ('domain', ('inet:fqdn', {}), {
                             'doc': 'The parent domain for the FQDN.',
                         }),
 
-                        ('zone', ('inet:fqdn', {}), {
-                            'doc': 'The zone level parent for this FQDN.',
-                        }),
+                        #('expires', ('time:max', {}), {
+                        #    'doc': 'The current expiration date for the fqdn.'
+                        #}),
 
-                        ('iszone', ('bool', {}), {
-                            'doc': 'True if the FQDN is considered a zone.',
-                            'defval': 0,
+                        ('host', ('str', {'lower': True}), {
+                            'doc': 'The host part of the FQDN.',
+
                         }),
 
                         ('issuffix', ('bool', {}), {
@@ -363,9 +369,17 @@ class InetModule(s_module.CoreModule):
                             'defval': 0,
                         }),
 
-                        ('host', ('str', {'lower': True}), {
-                            'doc': 'The host part of the FQDN.',
+                        ('iszone', ('bool', {}), {
+                            'doc': 'True if the FQDN is considered a zone.',
+                            'defval': 0,
+                        }),
 
+                        #('updated', ('time:max', {}), {
+                        #    'doc': 'The last known updated date for the fqdn.'
+                        #}),
+
+                        ('zone', ('inet:fqdn', {}), {
+                            'doc': 'The zone level parent for this FQDN.',
                         }),
 
                     )),
