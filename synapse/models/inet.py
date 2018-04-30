@@ -51,12 +51,12 @@ class Fqdn(s_types.Type):
 
         valu = valu.replace('[.]', '.')
         if not fqdnre.match(valu):
-            self._raiseBadValu(valu)
+            raise s_exc.BadTypeValu(valu)
 
         try:
             valu = valu.encode('idna').decode('utf8').lower()
         except UnicodeError as e:
-            self._raiseBadValu(valu)
+            raise s_exc.BadTypeValu(valu)
 
         parts = valu.split('.', 1)
 
