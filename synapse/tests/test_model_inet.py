@@ -19,8 +19,8 @@ class InetModelTest(SynTest):
             with core.xact(write=True) as xact:
                 node = xact.addNode(formname, valu_str, props=input_props)
 
-            self.eq(node.ndef, expected_ndef)
-            self.eq(node.props, expected_props)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
 
     def test_forms_fqdn(self):
         formname = 'inet:fqdn'
@@ -35,24 +35,24 @@ class InetModelTest(SynTest):
                 'iszone': 0, 'updated': 2, 'zone': 'vertex.link'}
             with core.xact(write=True) as xact:
                 node = xact.addNode(formname, valu, props={'created': 0, 'expires': 1, 'updated': 2})
-            self.eq(node.ndef, expected_ndef)
-            self.eq(node.props, expected_props)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
 
             nvalu = expected_props['domain']
             expected_ndef = (formname, nvalu)
             expected_props = {'domain': 'link', 'host': 'vertex', 'issuffix': 0, 'iszone': 1, 'zone': 'vertex.link'}
             with core.xact() as xact:
                 node = xact.getNodeByNdef((formname, nvalu))
-            self.eq(node.ndef, expected_ndef)
-            self.eq(node.props, expected_props)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
 
             nvalu = expected_props['domain']
             expected_ndef = (formname, nvalu)
             expected_props = {'host': 'link', 'issuffix': 1, 'iszone': 0}
             with core.xact() as xact:
                 node = xact.getNodeByNdef((formname, nvalu))
-            self.eq(node.ndef, expected_ndef)
-            self.eq(node.props, expected_props)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
 
             # Demonstrate wildcard
             with core.xact() as xact:
