@@ -10,6 +10,7 @@ coremods = (
     ('synapse.models.files.FileModule', {}),
     ('synapse.models.geopol.PolModule', {}),
     ('synapse.models.inet.InetModule', {}),
+    ('synapse.models.gov.cn.GovCnMod', {}),
     ('synapse.models.language.LangModule', {}),
 )
 

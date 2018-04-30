@@ -4,12 +4,21 @@ import synapse.lib.module as s_module
 class GovCnMod(s_module.CoreModule):
 
     @staticmethod
-    def getBaseModels():
+    def getModelDefs():
         modl = {
             'types': (
-                ('gov:cn:icp', {'subof': 'int', 'doc': 'A Chinese Internet Content Provider ID'}),
-                ('gov:cn:mucd', {'subof': 'int', 'doc': 'A Chinese PLA MUCD'}),
-                ('gov:cn:orgicp', {'subof': 'sepr', 'sep': '/', 'fields': 'org,ou:org|icp,gov:cn:icp'}),
+                ('gov:cn:icp',
+                    ('int', {}),
+                    {'doc': 'A Chinese Internet Content Provider ID'},
+                 ),
+                ('gov:cn:mucd',
+                    ('int', {}),
+                    {'doc': 'A Chinese PLA MUCD'},
+                 ),
+                ('gov:cn:orgicp',
+                    ('comp', {'fields': (('org', 'ou:org'), ('icp', 'gov:cn:icp'))}),
+                    {},
+                 ),
             ),
             'forms': (
                 ('gov:cn:icp', {}, ()),
@@ -28,4 +37,4 @@ class GovCnMod(s_module.CoreModule):
         name = 'Chinese PLA Unit %d' % (mucd,)
 
         iden = guid(('gov:cn:mucd', mucd))
-        self.form('ou:org', iden, name=name, alias='pla%d' % mucd)
+        self.form('ou:org', iden, name=name, alias='pla%d' % (mucd,))
