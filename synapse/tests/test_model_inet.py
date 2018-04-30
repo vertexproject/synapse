@@ -72,6 +72,7 @@ class InetModelTest(SynTest):
             fqdn = 'example.Vertex.link'
             expected = ('example.vertex.link', {'subs': {'host': 'example', 'domain': 'vertex.link'}})
             self.eq(t.norm(fqdn), expected)
+            self.raises(s_exc.BadTypeValu, t.norm, '!@#$%')
 
             # Demonstrate Valid IDNA
             fqdn = 'tèst.èxamplè.link'
@@ -80,6 +81,7 @@ class InetModelTest(SynTest):
             self.eq(t.norm(fqdn), expected)
             self.eq(t.repr(ex_fqdn), fqdn)  # Calling repr on IDNA encoded domain should result in the unicode
             self.raises(UnicodeDecodeError, t.repr, fqdn)  # Can't repr unicode domain
+            self.eq(t.repr('www.xn--heilpdagogik-wiki-uqb.de'), 'www.heilpädagogik-wiki.de')
 
             # Demonstrate Invalid IDNA
             fqdn = 'xn--lskfjaslkdfjaslfj.link'
@@ -528,19 +530,6 @@ class FIXME:
             nodes = core.eval('inet:whois:rec:fqdn=woot.com inet:whois:rec->inet:whois:recns:rec')
             self.eq(len(nodes), 1)
             self.eq(node[0], nodes[0][0])
-
-    def test_model_fqdn_punycode(self):
-
-        with self.getRamCore() as core:
-
-            node = core.formTufoByProp('inet:fqdn', 'www.xn--heilpdagogik-wiki-uqb.de')
-
-            fqdn = node[1].get('inet:fqdn')
-
-            self.eq(fqdn, 'www.xn--heilpdagogik-wiki-uqb.de')
-            self.eq(core.getTypeRepr('inet:fqdn', fqdn), 'www.heilpädagogik-wiki.de')
-
-            self.raises(BadTypeValu, core.getTypeNorm, 'inet:fqdn', '!@#$%')
 
     def test_model_inet_web_logon(self):
 
