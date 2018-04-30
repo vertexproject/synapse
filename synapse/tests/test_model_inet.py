@@ -6,6 +6,23 @@ from synapse.tests.common import *
 class InetModelTest(SynTest):
 
     # Form Tests ===================================================================================
+    def test_forms_cidr4(self):
+        formname = 'inet:cidr4'
+        valu = '192[.]168.1.123/24'
+        expected_props = {
+            'network': 3232235776,    # 192.168.1.0
+            'broadcast': 3232236031,  # 192.168.1.255
+            'mask': 24,
+        }
+        expected_ndef = (formname, '192.168.1.0/24')  # ndef is network/mask, not ip/mask
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu)
+
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
     def test_forms_ipv4(self):
         # FIXME add latlong later
         formname = 'inet:ipv4'
@@ -130,6 +147,37 @@ class InetModelTest(SynTest):
                 issuffix(n4)   # stays the same
 
     # Type Tests ===================================================================================
+    def test_types_cidr4(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:cidr4')
+
+            valu = '0/24'
+            expected = ('0.0.0.0/24', {'subs': {
+                'broadcast': 255,
+                'network': 0,
+                'mask': 24,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            valu = '192.168.1.101/24'
+            expected = ('192.168.1.0/24', {'subs': {
+                'broadcast': 3232236031,  # 192.168.1.255
+                'network': 3232235776,    # 192.168.1.0
+                'mask': 24,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            valu = '123.123.0.5/30'
+            expected = ('123.123.0.4/30', {'subs': {
+                'broadcast': 2071658503,  # 123.123.0.7
+                'network': 2071658500,    # 123.123.0.4
+                'mask': 30,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/-1')
+            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/33')
+
     def test_types_email(self):
         with self.getTestCore() as core:
             t = core.model.type('inet:email')

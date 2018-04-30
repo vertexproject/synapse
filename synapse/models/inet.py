@@ -18,6 +18,38 @@ fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 
 
+class Cidr4(s_types.Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+
+    def _normPyStr(self, valu):
+        ip_str, mask_str = valu.split('/', 1)
+
+        mask_int = int(mask_str)
+        if mask_int > 32 or mask_int < 0:
+            raise s_exc.BadTypeValu(valu, mesg='Invalid CIDR Mask')
+
+        ip_int = self.modl.type('inet:ipv4').norm(ip_str)[0]
+
+        mask = cidrmasks[mask_int]
+        network = ip_int & mask[0]
+        broadcast = network + mask[1] - 1
+        network_str = self.modl.type('inet:ipv4').repr(network)
+
+        norm = '{}/{}'.format(network_str, mask_int)
+        info = {
+            'subs': {
+                'broadcast': broadcast,
+                'mask': mask_int,
+                'network': network,
+            }
+        }
+        return norm, info
+
+    def indx(self, norm):
+        return norm.encode('utf8')
+
 class Email(s_types.Type):
 
     def postTypeInit(self):
@@ -270,6 +302,11 @@ class InetModule(s_module.CoreModule):
 
                 'ctors': (
 
+                    ('inet:cidr4', 'synapse.models.inet.Cidr4', {}, {
+                        'doc': 'An IPv4 address block in Classless Inter-Domain Routing (CIDR) notation.',
+                        'ex': '1.2.3.0/24'
+                    }),
+
                     ('inet:email', 'synapse.models.inet.Email', {}, {
                         'doc': 'An e-mail address.'}),
 
@@ -323,6 +360,25 @@ class InetModule(s_module.CoreModule):
                     #    ('owner', {'ptype': 'ou:org',
                     #        'doc': 'The guid of the organization currently responsible for the ASN.'}),
                     #)),
+
+                    ('inet:cidr4', {}, (
+
+                        ('broadcast', ('inet:ipv4', {}), {
+                            'ro': True,
+                            'doc': 'The broadcast IP address from the CIDR notation.'
+                        }),
+
+                        ('mask', ('int', {}), {
+                            'ro': True,
+                            'doc': 'The mask from the CIDR notation.'
+                        }),
+
+                        ('network', ('inet:ipv4', {}), {
+                            'ro': True,
+                            'doc': 'The network IP address from the CIDR notation.'
+                        }),
+
+                    )),
 
                     ('inet:email', {}, (
 

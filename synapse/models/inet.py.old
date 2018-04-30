@@ -42,11 +42,6 @@
                     'fields': 'ssid=inet:wifi:ssid,bssid=inet:mac',
                     'doc': 'An SSID/MAC address combination for a wireless access point.'}),
 
-                ('inet:cidr4', {
-                    'ctor': 'synapse.models.inet.CidrType',
-                    'doc': 'An IPv4 address block in Classless Inter-Domain Routing (CIDR) notation.',
-                    'ex': '1.2.3.0/24'}),
-
                 ('inet:urlredir', {
                     'subof': 'comp',
                     'fields': 'src=inet:url,dst=inet:url',
@@ -334,13 +329,6 @@
                         'doc': 'The client tcp/udp port.'}),
 
                 )),
-
-                ('inet:cidr4', {'ptype': 'inet:cidr4'}, [
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                        'doc': 'The IP address from the CIDR notation.'}),
-                    ('mask', {'ptype': 'int', 'ro': 1,
-                        'doc': 'The mask from the CIDR notation.'})
-                ]),
 
                 ('inet:ipv6', {'ptype': 'inet:ipv6'}, [
                     ('cc', {'ptype': 'pol:iso2', 'defval': '??',
@@ -1240,24 +1228,6 @@
 #    def repr(self, valu):
 #        return valu
 #
-#class CidrType(DataType):
-#    def norm(self, valu, oldval=None):
-#        ipstr, maskstr = valu.split('/')
-#
-#        mask = int(maskstr)
-#        ipv4 = ipv4int(ipstr)
-#
-#        if mask > 32 or mask < 0:
-#            self._raiseBadValu(valu, mesg='Invalid CIDR Mask')
-#
-#        ipv4 = ipv4mask(ipv4, mask)
-#        valu = '%s/%d' % (ipv4str(ipv4), mask)
-#
-#        return valu, {'ipv4': ipv4, 'mask': mask}
-#
-#    def repr(self, valu):
-#        return valu
-
 #class AddrType(DataType):
 
     #def norm(self, valu, oldval=None):
