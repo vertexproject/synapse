@@ -63,29 +63,56 @@ test_steps:  &test_steps
 osx_test_steps:  &osx_test_steps
   steps:
       - checkout
+
+      - restore_cache:
+          keys:
+          - v2-osx-pyvenv-{{ .Environment.CIRCLE_STAGE }}-{{ checksum "setup.py" }}-{{ checksum ".circleci/pyenv_osx.sh" }}
+
       - run:
-          name: install python3
+          name: pyenv install
           command: |
-            brew upgrade python3
+            . .circleci/pyenv_osx.sh
+
+      - save_cache:
+          paths:
+            - ~/.pyenv
+            - ~/.bash_profile
+          key: v2-osx-pyvenv-{{ .Environment.CIRCLE_STAGE }}-{{ checksum "setup.py" }}-{{ checksum ".circleci/pyenv_osx.sh" }}
+
+      - restore_cache:
+          keys:
+          - v2-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}-{{ checksum ".circleci/venv_osx.sh" }}
+
       - run:
-          name: setup test packages
+          name: venv setup
           command: |
-            python3 -m pip install -U wheel pip pytest pytest-cov pycodestyle codecov
+            . .circleci/venv_osx.sh
 
       - run:
           name: install synapse
           command: |
+            source ~/.bash_profile
+            pyenv shell syn36
             python3 -m pip install -e .
+
+      - save_cache:
+          paths:
+            - ~/.pyenv/versions
+          key: v2-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}-{{ checksum ".circleci/venv_osx.sh" }}
 
       - run:
           name: run tests
           command: |
+            source ~/.bash_profile
+            pyenv shell syn36
             mkdir test-reports
             circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
       - run:
           name: report coverage
           command: |
+            source ~/.bash_profile
+            pyenv shell syn36
             if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${IMAGE_VERSION}node${CIRCLE_NODE_INDEX} --required; fi;
 
       - store_test_results:
@@ -93,7 +120,6 @@ osx_test_steps:  &osx_test_steps
 
       - store_artifacts:
           path: test-reports
-
 
 jobs:
 

@@ -69,15 +69,12 @@ class ThreadsTest(SynTest):
             data['key'] = True
             return 1 / 0
 
-        with self.getLoggerStream('synapse.lib.threads') as stream:
+        with self.getLoggerStream('synapse.lib.threads', 'error running task for') as stream:
             with s_threads.Pool() as pool:
                 pool.call(breakstuff)
-                time.sleep(0.1)
+                self.true(stream.wait(2))
 
         self.true(data.get('key'))
-        stream.seek(0)
-        mesgs = stream.read()
-        self.isin('error running task for', mesgs)
 
     def test_threads_retnwait(self):
         with s_threads.RetnWait() as retn:
