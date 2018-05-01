@@ -32,14 +32,6 @@
                     'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
                     'ex': 'tcp://1.2.3.4:80'}),
 
-                ('inet:server', {
-                    'subof': 'inet:addr',
-                    'doc': 'A network server address.'}),
-
-                ('inet:client', {
-                    'subof': 'inet:addr',
-                    'doc': 'A network client address.'}),
-
                 ('inet:srv4', {
                     'ctor': 'synapse.models.inet.Srv4Type',
                     'doc': 'An IPv4 address and port.',
@@ -49,6 +41,20 @@
                     'ctor': 'synapse.models.inet.Srv6Type',
                     'doc': 'An IPv6 address and port.',
                     'ex': '[2607:f8b0:4004:809::200e]:80'}),
+
+                ('inet:rfc2822:addr', {
+                    'ctor': 'synapse.models.inet.Rfc2822Addr',
+                    'ex': '"Visi Kenshoto" <visi@vertex.link>',
+                    'doc': 'An RFC 2822 Address field.'}),
+
+                ('inet:server', {
+                    'subof': 'inet:addr',
+                    'doc': 'A network server address.'}),
+
+                ('inet:client', {
+                    'subof': 'inet:addr',
+                    'doc': 'A network client address.'}),
+
 
                 ('inet:wifi:ap', {
                     'subof': 'comp',
@@ -201,11 +207,6 @@
                     'subof': 'comp',
                     'fields': 'fqdn,inet:fqdn|email,inet:email',
                     'doc': 'An association between a domain and a registrant email address.'}),
-
-                ('inet:rfc2822:addr', {
-                    'ctor': 'synapse.models.inet.Rfc2822Addr',
-                    'ex': '"Visi Kenshoto" <visi@vertex.link>',
-                    'doc': 'An RFC 2822 Address field.'}),
 
                 ('inet:http:request', {
                     'subof': 'guid',
