@@ -331,6 +331,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An Autonomous System Number (ASN).'
                     }),
 
+                    ('inet:group', ('str', {}), {
+                        'doc': 'A group name string.'
+                    }),
+
                     ('inet:passwd', ('str', {}), {
                         'doc': 'A password string.'
                     }),
@@ -429,6 +433,8 @@ class InetModule(s_module.CoreModule):
 
                     )),
 
+                    ('inet:group', {}, ()),
+
                     ('inet:ipv4', {}, (
                         ('asn', ('inet:asn', {}), {
                             'defval': 0,  # FIXME replace with nullval
@@ -477,6 +483,8 @@ class InetModule(s_module.CoreModule):
                         ('passwd', ('inet:passwd', {}), {'ro': 1,
                              'doc': 'The optional password used to access the URL.'}),
                     )),
+
+                    ('inet:user', {}, ()),
 
                 ),
             }),

@@ -146,6 +146,12 @@ class InetModelTest(SynTest):
                 isneither(n2)  # stays the same
                 issuffix(n4)   # stays the same
 
+    def test_forms_unextended(self):
+        # The following forms do not extend their base type
+        with self.getTestCore() as core:
+            self.nn(core.model.form('inet:group'))  # str w/ lower
+            self.nn(core.model.form('inet:user'))  # str w/ lower
+
     # Type Tests ===================================================================================
     def test_types_cidr4(self):
         with self.getTestCore() as core:

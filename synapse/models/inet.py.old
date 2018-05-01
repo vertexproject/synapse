@@ -4,10 +4,6 @@
         modl = {
             'types': (
 
-                ('inet:group', {
-                    'subof': 'str:lwr',
-                    'doc': 'A group name string.'}),
-
                 ('inet:whois:rar', {
                     'subof': 'str:lwr',
                     'doc': 'A domain registrar.',
@@ -384,8 +380,6 @@
                      ('net4:max', {'ptype': 'inet:ipv4', 'ro': 1,
                          'doc': 'The last IPv4 in the range assigned to the ASN.'}),
                  ]),
-
-                ('inet:group', {'ptype': 'inet:group'}, []),
 
 
                 ('inet:mac', {'ptype': 'inet:mac'}, [
