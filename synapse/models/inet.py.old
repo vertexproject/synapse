@@ -40,11 +40,6 @@
                     'subof': 'inet:addr',
                     'doc': 'A network client address.'}),
 
-                ('inet:ipv6', {
-                    'ctor': 'synapse.models.inet.IPv6Type',
-                    'doc': 'An IPv6 address.',
-                    'ex': '2607:f8b0:4004:809::200e'}),
-
                 ('inet:srv4', {
                     'ctor': 'synapse.models.inet.Srv4Type',
                     'doc': 'An IPv4 address and port.',
@@ -318,15 +313,6 @@
                         'doc': 'The client tcp/udp port.'}),
 
                 )),
-
-                ('inet:ipv6', {'ptype': 'inet:ipv6'}, [
-                    ('cc', {'ptype': 'pol:iso2', 'defval': '??',
-                        'doc': 'The country where the IPv6 address is currently located.'}),
-                    ('asn', {'ptype': 'inet:asn', 'defval': -1,
-                        'doc': 'The ASN to which the IPv6 address is currently assigned.'}),
-                    ('latlong', {'ptype': 'geo:latlong',
-                        'doc': 'The last known latitude/longitude for the node'}),
-                ]),
 
                 ('inet:url', {'ptype': 'inet:url'}, [
                     ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
@@ -1002,40 +988,6 @@
 
         return (('inet', modl),)
 
-#class IPv4Type(DataType):
-
-    #def norm(self, valu, oldval=None):
-        #if isinstance(valu, str):
-            #return self._norm_str(valu, oldval=oldval)
-
-# FIXME ipv6 stuff..
-    #v6addr = ipaddress.IPv6Address(text)
-    #v4addr = v6addr.ipv4_mapped
-    #if v4addr is not None:
-        #return '::ffff:%s' % (v4addr), {'ipv4': ipv4int(str(v4addr))}
-
-    #return v6addr.compressed, {}
-
-        #if not isinstance(valu, int):
-            #self._raiseBadValu(valu)
-
-        #return valu & 0xffffffff, {}
-    #def norm(self, valu, oldval=None):
-        #try:
-            #return ipv6norm(valu)
-        #except Exception as e:
-            #self._raiseBadValu(valu)
-
-    #def _norm_str(self, valu, oldval=None):
-        #if valu.isdigit():
-            #return int(valu, 0) & 0xffffffff, {}
-
-        #valu = valu.replace('[.]', '.')
-        #return ipv4int(valu), {}
-
-    #def repr(self, valu):
-        #return ipv4str(valu)
-
 #class Rfc2822Addr(DataType):
     #'''
     #An RFC 2822 compatible email address parser
@@ -1078,38 +1030,6 @@
             #pass # it's all good, we just dont have a valid email addr
 
         #return valu, subs
-
-# RFC5952 compatible
-#def ipv6norm(text):
-    #'''
-    #Normalize an IPv6 address into RFC5952 canonical form.
-
-    #Example:
-
-        #text = ipv6norm(text)
-
-    #'''
-    # This used to use socket.inet_pton for normalizing
-    # ipv6 addresses. There's a bug in macOS where it
-    # doesn't abbreviate the zeroes properly. See RFC
-    # 5952 for IPv6 address text representation
-
-    #v6addr = ipaddress.IPv6Address(text)
-    #v4addr = v6addr.ipv4_mapped
-    #if v4addr is not None:
-        #return '::ffff:%s' % (v4addr)
-
-    #return v6addr.compressed
-
-#class IPv6Type(DataType):
-    #def repr(self, valu):
-        #return self.norm(valu)[0]
-
-    #def norm(self, valu, oldval=None):
-        #try:
-            #return ipv6norm(valu), {}
-        #except Exception as e:
-            #self._raiseBadValu(valu)
 
 #urlports = {
 #    'ftp': 21,
