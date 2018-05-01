@@ -331,7 +331,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
             raise s_exc.NoSuchUser(name=name)
 
         if not user.allowed(perm, elev=elev):
-            raise s_exc.AuthDeny(perm=perm)
+            raise s_exc.AuthDeny(perm=perm, user=name)
 
     def _initCoreSpliceHandlers(self):
         self.spliceact.act('node:add', self._actNodeAdd)
