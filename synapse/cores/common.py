@@ -328,7 +328,7 @@ class Cortex(EventBus, DataModel, Runtime, s_ingest.IngestApi, s_telepath.Aware,
 
         user = self.auth.users.get(name)
         if user is None:
-            raise s_exc.NoSuchUser(name=name)
+            raise s_exc.NoSuchUser(user=name)
 
         if not user.allowed(perm, elev=elev):
             raise s_exc.AuthDeny(perm=perm, user=name)
