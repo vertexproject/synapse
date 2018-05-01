@@ -1233,7 +1233,7 @@ class Runtime(Configable):
 
         user = core.auth.users.get(name)
         if user is None:
-            raise s_exc.NoSuchUser(name=name)
+            raise s_exc.NoSuchUser(user=name)
 
         if not user.admin:
             raise s_exc.AuthDeny(mesg='sudo() user is not admin',

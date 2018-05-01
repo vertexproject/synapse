@@ -417,7 +417,7 @@ class Auth(s_config.Config):
 
             user = self.users.pop(name, None)
             if user is None:
-                raise s_exc.NoSuchUser(name=name)
+                raise s_exc.NoSuchUser(user=name)
 
             uenc = name.encode('utf8')
             xact.delete(uenc, db=self._db_users)
