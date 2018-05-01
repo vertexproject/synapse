@@ -1008,16 +1008,6 @@
 
         return (('inet', modl),)
 
-#def ipv4mask(ipv4, mask):
-    #return ipv4 & masks[mask]
-
-#def ipv4cidr(valu):
-    #_ipv4str, cidr = valu.split('/', 1)
-    #_ipv4addr = ipv4int(_ipv4str)
-    #mask = cidrmasks[int(cidr)]
-    #lowerbound = _ipv4addr & mask[0]
-    #return lowerbound, lowerbound + mask[1]
-
 #class IPv4Type(DataType):
 
     #def norm(self, valu, oldval=None):
