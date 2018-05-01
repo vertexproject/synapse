@@ -8,10 +8,6 @@
                     'subof': 'str:lwr',
                     'doc': 'A group name string.'}),
 
-                ('inet:passwd', {
-                    'subof': 'str',
-                    'doc': 'A password string.'}),
-
                 ('inet:whois:rar', {
                     'subof': 'str:lwr',
                     'doc': 'A domain registrar.',
