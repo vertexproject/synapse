@@ -499,7 +499,6 @@ class FIXME:
 
     def test_model_inet_web_group(self):
         with self.getRamCore() as core:
-            from pprint import pprint
             iden = guid()
             node = core.formTufoByProp('inet:web:group',
                                        ('vertex.link', '1234'),
