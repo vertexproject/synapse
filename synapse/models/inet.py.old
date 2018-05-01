@@ -578,9 +578,6 @@
                     ('dob', {'ptype': 'time',
                         'doc': 'A self-declared date of birth for the account (if the account belongs to a person).'}),
 
-                    # ('gender',{'ptype':'inet:fqdn','ro':1}),
-                    # ('bio:bt',{'ptype':'wtf','doc':'The web account's self documented blood type'}),
-
                     ('realname', {'ptype': 'ps:name',
                         'doc': 'The localized version of the real name of the account owner / registrant.'}),
                     ('realname:en', {'ptype': 'ps:name',
