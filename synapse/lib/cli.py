@@ -1,5 +1,7 @@
+import os
 import json
 import time
+import atexit
 import signal
 import asyncio
 import threading
@@ -8,6 +10,7 @@ import collections
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
+import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.base as s_base
@@ -339,9 +342,21 @@ class Cli(s_eventbus.EventBus):
             # want to ignore the exception.
             pass
 
+        if readline.get_current_history_length() == 0:  # pragma: no cover
+            fp = s_common.gendir(os.path.expanduser('~'), '.syn',)
+            history_path = s_common.genpath(fp, '.cmdr_history')
+            # We have to ensure the file exists to use append mode
+            with s_common.genfile(history_path) as fd:
+                pass
+            try:
+                readline.read_history_file(history_path)
+            except IOError:
+                pass
+            atexit.register(readline.append_history_file, 1000, history_path)
+
         while not self.isfini:
 
-            # FIXME history / completion
+            # FIXME completion
 
             try:
                 task = None
