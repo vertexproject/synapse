@@ -39,6 +39,27 @@ class InetModelTest(SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.props, expected_props)
 
+    def test_forms_ipv6(self):
+        # FIXME add latlong later
+        formname = 'inet:ipv6'
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+
+                valu_str = '::fFfF:1.2.3.4'
+                expected_props = {'asn': 0, 'ipv4': 16909060, 'loc': '??'}
+                expected_ndef = (formname, valu_str.lower())
+                node = xact.addNode(formname, valu_str)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+                valu_str = '::1'
+                expected_props = {'asn': 0, 'loc': '??'}
+                expected_ndef = (formname, valu_str)
+                node = xact.addNode(formname, valu_str)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
     def test_forms_email(self):
         formname = 'inet:email'
         valu = 'UnitTest@Vertex.link'
@@ -231,6 +252,36 @@ class InetModelTest(SynTest):
             # Demonstrate wrap-around
             self.eq(t.norm(0x00000000 - 1), (2**32 - 1, {}))
             self.eq(t.norm(0xFFFFFFFF + 1), (0, {}))
+
+    def test_types_ipv6(self):
+        # FIXME add latlong later
+        with self.getTestCore() as core:
+            t = core.model.type('inet:ipv6')
+
+            self.eq(t.norm('::1'), ('::1', {}))
+            self.eq(t.norm('0:0:0:0:0:0:0:1'), ('::1', {}))
+            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), ('2001:db8::ff00:42:8329', {}))
+            self.raises(BadTypeValu, t.norm, 'newp')
+
+            # Specific examples given in RFC5952
+            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:0db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:db8::1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:db8::0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:0db8::1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:db8:0:0:1::1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:DB8:0:0:1::1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:DB8:0:0:1:0000:0000:1')[0], '2001:db8::1:0:0:1')
+            self.raises(BadTypeValu, t.norm, '::1::')
+            self.eq(t.norm('2001:0db8::0001')[0], '2001:db8::1')
+            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
+            self.eq(t.norm('2001:db8:0:1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
+            self.eq(t.norm('2001:0:0:1:0:0:0:1')[0], '2001:0:0:1::1')
+            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('::ffff:1.2.3.4')[0], '::ffff:1.2.3.4')
+            self.eq(t.norm('2001:db8::0:1')[0], '2001:db8::1')
+            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
+            self.eq(t.norm('2001:db8::')[0], '2001:db8::')
 
     def test_types_unextended(self):
         # The following types are subtypes that do not extend their base type

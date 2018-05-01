@@ -207,6 +207,31 @@ class IPv4(s_types.Type):
         )
         return xact.lift(lops)
 
+class IPv6(s_types.Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+
+    def indx(self, norm):
+        return ipaddress.IPv6Address(norm).packed
+
+    def _normPyStr(self, valu):
+
+        try:
+
+            v6 = ipaddress.IPv6Address(valu)
+            v4 = v6.ipv4_mapped
+
+            if v4 is not None:
+                v4_int = self.modl.type('inet:ipv4').norm(v4.compressed)[0]
+                v4_str = self.modl.type('inet:ipv4').repr(v4_int)
+                return '::ffff:%s' % (v4_str), {'subs': {'ipv4': v4_int}}
+
+            return ipaddress.IPv6Address(valu).compressed, {}
+
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu)
+
 class Url(s_types.Type):
     # FIXME implement
 
@@ -317,6 +342,11 @@ class InetModule(s_module.CoreModule):
                     ('inet:ipv4', 'synapse.models.inet.IPv4', {}, {
                         'doc': 'An IPv4 address.',
                         'ex': '1.2.3.4'
+                    }),
+
+                    ('inet:ipv6', 'synapse.models.inet.IPv6', {}, {
+                        'doc': 'An IPv6 address.',
+                        'ex': '2607:f8b0:4004:809::200e'
                     }),
 
                     ('inet:url', 'synapse.models.inet.Url', {}, {
@@ -436,24 +466,52 @@ class InetModule(s_module.CoreModule):
                     ('inet:group', {}, ()),
 
                     ('inet:ipv4', {}, (
+
                         ('asn', ('inet:asn', {}), {
                             'defval': 0,  # FIXME replace with nullval
                             'doc': 'The ASN to which the IPv4 address is currently assigned.'
                         }),
+
                         # FIXME implement geospace...
                         #('latlong', ('geo:latlong', {}), {
                         #    'doc': 'The last known latitude/longitude for the node'
                         #}),
+
                         ('loc', ('loc', {}), {
                             'defval': '??',
                             'doc': 'The geo-political location string for the IPv4.'
                         }),
+
                         ('type', ('str', {}), {
                             'defval': '??',
                             'doc': 'The type of IP address (e.g., private, multicast, etc.).'
                         })
+
                     )),
 
+                    ('inet:ipv6', {}, (
+
+                        ('asn', ('inet:asn', {}), {
+                            'defval': 0,  # FIXME replace with nullval
+                            'doc': 'The ASN to which the IPv6 address is currently assigned.'
+                        }),
+
+                        ('ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
+                            'doc': 'The mapped ipv4.'
+                        }),
+
+                        # FIXME implement geospace...
+                        #('latlong', ('geo:latlong', {}), {
+                        #    'doc': 'The last known latitude/longitude for the node'
+                        #}),
+
+                        ('loc', ('loc', {}), {
+                            'defval': '??',
+                            'doc': 'The geo-political location string for the IPv6.'
+                        }),
+
+                    )),
 
                     # FIXME implement
                     #('inet:passwd', {'ptype': 'inet:passwd'}, [
