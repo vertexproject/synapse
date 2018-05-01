@@ -66,7 +66,7 @@ osx_test_steps:  &osx_test_steps
 
       - restore_cache:
           keys:
-          - v2-osx-pyvenv-{{ .Environment.CIRCLE_STAGE }}-{{ checksum "setup.py" }}-{{ checksum ".circleci/pyenv_osx.sh" }}
+          - v3-osx-pyvenv-{{ .Environment.CIRCLE_STAGE }}-{{ checksum ".circleci/pyenv_osx.sh" }}
 
       - run:
           name: pyenv install
@@ -77,7 +77,7 @@ osx_test_steps:  &osx_test_steps
           paths:
             - ~/.pyenv
             - ~/.bash_profile
-          key: v2-osx-pyvenv-{{ .Environment.CIRCLE_STAGE }}-{{ checksum "setup.py" }}-{{ checksum ".circleci/pyenv_osx.sh" }}
+          key: v3-osx-pyvenv-{{ .Environment.CIRCLE_STAGE }}-{{ checksum ".circleci/pyenv_osx.sh" }}
 
       - restore_cache:
           keys:
