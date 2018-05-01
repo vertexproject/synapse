@@ -3,6 +3,33 @@
     def getBaseModels():
         modl = {
             'types': (
+
+                ('inet:group', {
+                    'subof': 'str:lwr',
+                    'doc': 'A group name string.'}),
+
+                ('inet:passwd', {
+                    'subof': 'str',
+                    'doc': 'A password string.'}),
+
+                ('inet:whois:rar', {
+                    'subof': 'str:lwr',
+                    'doc': 'A domain registrar.',
+                    'ex': 'godaddy, inc.'}),
+
+                ('inet:whois:reg', {
+                    'subof': 'str:lwr',
+                    'doc': 'A domain registrant.',
+                    'ex': 'woot hostmaster'}),
+
+                ('inet:mac', {
+                    'subof': 'str',
+                    'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$',
+                    'lower': 1,
+                    'nullval': '??',
+                    'doc': 'A 48-bit Media Access Control (MAC) address.',
+                    'ex': 'aa:bb:cc:dd:ee:ff'}),
+
                 ('inet:url', {
                     'ctor': 'synapse.models.inet.UrlType',
                     'doc': 'A Universal Resource Locator (URL).',
@@ -35,7 +62,6 @@
                     'ctor': 'synapse.models.inet.Srv6Type',
                     'doc': 'An IPv6 address and port.',
                     'ex': '[2607:f8b0:4004:809::200e]:80'}),
-
 
                 ('inet:wifi:ap', {
                     'subof': 'comp',
@@ -78,17 +104,6 @@
                     'subof': 'guid',
                     'doc': 'A network interface with a set of associated protocol addresses.'}),
 
-                ('inet:user', {
-                    'subof': 'str:lwr',
-                    'doc': 'A username string.'}),
-
-                ('inet:group', {
-                    'subof': 'str:lwr',
-                    'doc': 'A group name string.'}),
-
-                ('inet:passwd', {
-                    'subof': 'str',
-                    'doc': 'A password string.'}),
 
                 ('inet:tcp4', {
                     'subof': 'inet:srv4',
@@ -109,14 +124,6 @@
                 ('inet:flow', {
                     'subof': 'guid',
                     'doc': 'An individual network connection between a given source and destination.'}),
-
-                ('inet:mac', {
-                    'subof': 'str',
-                    'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$',
-                    'lower': 1,
-                    'nullval': '??',
-                    'doc': 'A 48-bit Media Access Control (MAC) address.',
-                    'ex': 'aa:bb:cc:dd:ee:ff'}),
 
                 ('inet:web:acct', {
                     'subof': 'sepr',
@@ -186,16 +193,6 @@
                     'sep': '/',
                     'fields': 'tcp4,inet:tcp4|cert,file:bytes',
                     'doc': 'An SSL certificate file served by an IPv4 TCP server.'}),
-
-                ('inet:whois:rar', {
-                    'subof': 'str:lwr',
-                    'doc': 'A domain registrar.',
-                    'ex': 'godaddy, inc.'}),
-
-                ('inet:whois:reg', {
-                    'subof': 'str:lwr',
-                    'doc': 'A domain registrant.',
-                    'ex': 'woot hostmaster'}),
 
                 ('inet:whois:rec', {
                     'subof': 'sepr',
@@ -391,8 +388,6 @@
                      ('net4:max', {'ptype': 'inet:ipv4', 'ro': 1,
                          'doc': 'The last IPv4 in the range assigned to the ASN.'}),
                  ]),
-
-                ('inet:user', {'ptype': 'inet:user'}, []),
 
                 ('inet:group', {'ptype': 'inet:group'}, []),
 

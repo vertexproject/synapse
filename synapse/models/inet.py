@@ -346,7 +346,7 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:user', ('str', {'lower': True}), {
-                        'doc': 'A user name.'}),
+                        'doc': 'A username string.'}),
 
                 ),
 
