@@ -15,6 +15,7 @@ import synapse.lib.output as s_output
 logger = logging.getLogger(__name__)
 
 TypeType = Union[str, int, Tuple['TypeType', ...]]  # type: ignore
+Tufo = Tuple[str, Dict[str, TypeType]]
 
 def membersFromCompSpec(c: str):
     if '=' in c:
@@ -25,26 +26,32 @@ def membersFromCompSpec(c: str):
         kvchar = ','
     return OrderedDict(((k, v) for k, v in (s.split(kvchar) for s in segments)))
 
-def convert_primary_property(core: s_common.Cortex, tufo) -> TypeType:
-    formname = tufo[0]['tufo:form']
+def convert_primary_property(core: s_common.Cortex, tufo: Tufo) -> TypeType:
+    formname = tufo[1]['tufo:form']
     parent_types = core.getTypeOfs(formname)
-    if 'sepr' in parent_types or 'conv' in parent_types:
+    logger.debug(f'convert_primary_property: {formname}, {parent_types}')
+    if 'sepr' in parent_types or 'comp' in parent_types:
         return convert_comp_primary_property(core, tufo)
-    _, val = convert_subprop(core, formname, formname, tufo[0][formname])
+    _, val = convert_subprop(core, formname, formname, tufo[1][formname])
     return val
 
-def convert_foreign_key(core: s_common.Cortex, comp_formname, comp_val) -> TypeType:
+def convert_foreign_key(core: s_common.Cortex, pivot_formname, pivot_fk: TypeType) -> TypeType:
     ''' Convert field that is a pivot to another node '''
-    new_val = convert_primary_property(comp_formname, comp_val)
+    logger.debug('convert_foreign_key: %s=%s', pivot_formname, pivot_fk)
+    pivot_tufo = core.getTufoByProp(pivot_formname, pivot_fk)
+    assert pivot_tufo
+    new_val = convert_primary_property(core, pivot_tufo)
     return new_val
 
 def convert_comp_primary_property(core, tufo) -> Tuple[Any, ...]:
     formname = tufo[1]['tufo:form']
-    compspec = core.getPropInfo(formname)
+    compspec = core.getPropInfo(formname, 'fields')
+    logger.debug('convert_comp_primary_property: %s, %s', formname, compspec)
     members_dict = membersFromCompSpec(compspec)
     retn = []
     for member in members_dict:
-        retn.append(convert_subprop(core, formname, member, tufo[1][member]))
+        _, val = convert_subprop(core, formname, member, tufo[1][f'{formname}:{member}'])
+        retn.append(val)
     return tuple(retn)
 
 # _TufoConvMap = {
@@ -53,8 +60,8 @@ def convert_comp_primary_property(core, tufo) -> Tuple[Any, ...]:
 # }
 
 def default_subprop_convert(core: s_common.Cortex, propname, proptype, val) -> TypeType:
-    if proptype in core.getTufoForms():
-        return convert_foreign_key(core, propname, proptype)
+    if proptype != propname and proptype in core.getTufoForms():
+        return convert_foreign_key(core, propname, val)
     return val
 
 def convert_subprop(core: s_common.Cortex, formname: str, propname: str, val: Union[str, int]) -> Tuple[str, TypeType]:
@@ -68,12 +75,12 @@ def convert_subprop(core: s_common.Cortex, formname: str, propname: str, val: Un
     #         break
     return newpropname, default_subprop_convert(core, propname, _type, val)
 
-def default_convert_tufo(core, tufo) -> Tuple[Tuple[str, TypeType], Dict[str, Any]]:
+def default_convert_tufo(core: s_common.Cortex, tufo: Tufo) -> Tuple[Tuple[str, TypeType], Dict[str, Any]]:
     _, oldprops = tufo
-    formname = tufo[0]['tufo:form']
+    formname = tufo[1]['tufo:form']
     props = {}
     tags = {}
-    propsmeta = core.getSubProps(formname)
+    propsmeta: List[Tuple[Any, ...]] = core.getSubProps(formname)
     pk = None
     for oldk, oldv in sorted(oldprops.items()):
         propmeta = next((x[1] for x in propsmeta if x[0] == oldk), {})
@@ -98,10 +105,10 @@ def default_convert_tufo(core, tufo) -> Tuple[Tuple[str, TypeType], Dict[str, An
     return ((formname, pk), {'props': props, 'tags': tags})
 
 
-def convert_tufo(core, tufo):
+def convert_tufo(core: s_common.Cortex, tufo: Tufo):
     # formname = tufo[0]['tufo:form']
     # handler = _TufoConvMap.get('formname', default_convert_node)
-    return default_convert_tufo(tufo)
+    return default_convert_tufo(core, tufo)
 
 
 def dumpCortex(core: s_common.Cortex, outdir: pathlib.Path, limit=None, forms=None):
@@ -118,7 +125,8 @@ def dumpCortex(core: s_common.Cortex, outdir: pathlib.Path, limit=None, forms=No
             tufos = core.getTufosByProp('tufo:form', fnam, limit=limit)
             after_query = time.time()
             for t in tufos:
-                f.write(s_msgpack.en(t))
+                newt = convert_tufo(core, t)
+                f.write(s_msgpack.en(newt))
             finish = time.time()
             if len(tufos):
                 logger.debug('Query time: %.2f, write time %.2f, total time %.2f, total/tufo %.4f',
