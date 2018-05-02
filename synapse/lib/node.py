@@ -80,7 +80,7 @@ class Node:
         '''
         prop = self.form.prop(name)
         if prop is None:
-            self.xact.warn('NoSuchProp', form=self.form.name, prop=name)
+            logger.warning(f'NoSuchProp: {name} ({self.form.name})')
             return False
 
         if prop.info.get('ro') and not init and not self.init:
