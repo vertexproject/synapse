@@ -15,6 +15,8 @@ import synapse.lookup.iana as s_l_iana
 
 logger = logging.getLogger(__name__)
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
+srv6re = regex.compile(r'^\[([a-f0-9:]+)\]:(\d+)$')
+
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 
 
@@ -233,7 +235,6 @@ class IPv6(s_types.Type):
             raise s_exc.BadTypeValu(valu)
 
 class Url(s_types.Type):
-    # FIXME implement
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
@@ -242,11 +243,105 @@ class Url(s_types.Type):
         return norm.encode('utf8')
 
     def _normPyStr(self, valu):
-        norm = valu
-        info = {
-            'subs': {}
-        }
-        return norm, info
+        orig = valu
+        subs = {}
+        proto = ''
+        authparts = None
+        hostparts = ''
+        pathpart = ''
+
+        # Protocol
+        try:
+            proto, valu = valu.split('://', 1)
+            proto = proto.lower()
+            subs['proto'] = proto
+        except Exception as e:
+            raise s_exc.BadTypeValu(orig, mesg='Invalid/Missing protocol')
+
+        # Resource Path
+        parts = valu.split('/', 1)
+        if len(parts) == 2:
+            valu, pathpart = parts
+            pathpart = '/{}'.format(pathpart)
+        subs['path'] = pathpart
+
+        # Optional User/Password
+        parts = valu.split('@', 1)
+        if len(parts) == 2:
+            authparts, valu = parts
+
+            userpass = authparts.split(':', 1)
+            subs['user'] = userpass[0]
+            if len(userpass) == 2:
+                subs['passwd'] = userpass[1]
+
+        # Host (FQDN, IPv4, or IPv6)
+        host = None
+        port = None
+
+        # Treat as IPv6 if starts with [ or contains multiple :
+        if valu.startswith('[') or valu.count(':') >= 2:
+            try:
+                match = srv6re.match(valu)
+                if match:
+                    valu, port = match.groups()
+
+                ipv6, ipv6_subs = self.modl.type('inet:ipv6').norm(valu)
+                subs['ipv6'] = ipv6
+
+                host = self.modl.type('inet:ipv6').repr(ipv6)
+                if match:
+                    host = '[{}]'.format(host)
+
+            except Exception as e:
+                pass
+
+        else:
+            # FQDN and IPv4 handle ports the same way
+            fqdnipv4_parts = valu.split(':', 1)
+            part = fqdnipv4_parts[0]
+            if len(fqdnipv4_parts) is 2:
+                port = fqdnipv4_parts[1]
+
+            # IPv4
+            try:
+                # Norm and repr to handle fangs
+                ipv4 = self.modl.type('inet:ipv4').norm(part)[0]
+                host = self.modl.type('inet:ipv4').repr(ipv4)
+                subs['ipv4'] = ipv4
+            except Exception as e:
+                pass
+
+            # FQDN
+            if host is None:
+                try:
+                    host = self.modl.type('inet:fqdn').norm(part)[0]
+                    subs['fqdn'] = host
+                except:
+                    pass
+
+        # Raise exception if there was no FQDN, IPv4, or IPv6
+        if host is None:
+            raise s_exc.BadTypeValu(orig, mesg='No valid host')
+
+        # Optional Port
+        if port is not None:
+            subs['port'] = self.modl.type('inet:port').norm(port)[0]
+        else:
+            # Look up default port for protocol, but don't add it back into the url
+            defport = s_l_iana.services.get(proto)
+            if defport:
+                subs['port'] = self.modl.type('inet:port').norm(defport)[0]
+
+        # Set up Normed URL
+        if authparts:
+            hostparts = '{}@'.format(authparts)
+        hostparts = '{}{}'.format(hostparts, host)
+        if port:
+            hostparts = '{}:{}'.format(hostparts, port)
+        norm = '{}://{}{}'.format(proto, hostparts, pathpart)
+
+        return norm, {'subs': subs}
 
 class InetModule(s_module.CoreModule):
 
@@ -385,6 +480,7 @@ class InetModule(s_module.CoreModule):
                 ),
 
                 # NOTE: tcp4/udp4/tcp6/udp6 are going away
+                # becomes inet:server/inet:client, which are both inet:addr
                 'forms': (
 
                     # FIXME implement
@@ -526,20 +622,23 @@ class InetModule(s_module.CoreModule):
                     # FIXME implement inet:wifi:ssid
 
                     ('inet:url', {}, (
-                        # FIXME implement ipv6
-                        #('ipv6', ('inet:ipv6', {}), {'ro': 1,
-                        #     'doc': 'The IPv6 address used in the URL.'}),
-                        ('ipv4', ('inet:ipv4', {}), {'ro': 1,
-                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
                         ('fqdn', ('inet:fqdn', {}), {'ro': 1,
                              'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
+                        ('ipv4', ('inet:ipv4', {}), {'ro': 1,
+                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
+                        ('ipv6', ('inet:ipv6', {}), {'ro': 1,
+                             'doc': 'The IPv6 address used in the URL.'}),
+                        ('passwd', ('inet:passwd', {}), {'ro': 1,
+                             'doc': 'The optional password used to access the URL.'}),
+                        ('path', ('str', {}), {'ro': 1,
+                             'doc': 'The path in the URL.'}),
                         ('port', ('inet:port', {}), {'ro': 1,
                              'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
                                  'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
+                        ('proto', ('str', {}), {'ro': 1,
+                             'doc': 'The protocol in the URL.'}),
                         ('user', ('inet:user', {}), {'ro': 1,
                              'doc': 'The optional username used to access the URL.'}),
-                        ('passwd', ('inet:passwd', {}), {'ro': 1,
-                             'doc': 'The optional password used to access the URL.'}),
                     )),
 
                     ('inet:user', {}, ()),

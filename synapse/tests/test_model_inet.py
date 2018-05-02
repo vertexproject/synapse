@@ -167,6 +167,19 @@ class InetModelTest(SynTest):
                 isneither(n2)  # stays the same
                 issuffix(n4)   # stays the same
 
+    def test_forms_url(self):
+        formname = 'inet:url'
+        valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
+        expected_ndef = (formname, valu)
+        expected_props = {'fqdn': 'vertex.link', 'passwd': 'hunter2', 'path': '/coolthings?a=1', 'port': 1337, 'proto': 'https', 'user': 'vertexmc'}
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu)
+
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
     def test_forms_unextended(self):
         # The following forms do not extend their base type
         with self.getTestCore() as core:
@@ -283,6 +296,121 @@ class InetModelTest(SynTest):
             self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
             self.eq(t.norm('2001:db8::')[0], '2001:db8::')
 
+    def test_types_url(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:url')
+
+            # No Host
+            self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')
+
+            # No Protocol
+            self.raises(s_exc.BadTypeValu, t.norm, 'wat')
+
+    def test_types_url_fqdn(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:url')
+
+            host = 'Vertex.Link'
+            norm_host = core.model.type('inet:fqdn').norm(host)[0]
+            repr_host = core.model.type('inet:fqdn').repr(norm_host)
+            self.eq(norm_host, 'vertex.link')
+            self.eq(repr_host, 'vertex.link')
+
+            self._test_types_url_behavior(t, 'fqdn', host, norm_host, repr_host)
+
+    def test_types_url_ipv4(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:url')
+
+            host = '192[.]168.1[.]1'
+            norm_host = core.model.type('inet:ipv4').norm(host)[0]
+            repr_host = core.model.type('inet:ipv4').repr(norm_host)
+            self.eq(norm_host, 3232235777)
+            self.eq(repr_host, '192.168.1.1')
+
+            self._test_types_url_behavior(t, 'ipv4', host, norm_host, repr_host)
+
+    def test_types_url_ipv6(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:url')
+
+            host = '::1'
+            norm_host = core.model.type('inet:ipv6').norm(host)[0]
+            repr_host = core.model.type('inet:ipv6').repr(norm_host)
+            self.eq(norm_host, '::1')
+            self.eq(repr_host, '::1')
+
+            self._test_types_url_behavior(t, 'ipv6', host, norm_host, repr_host)
+
+            # IPv6 Port Special Cases
+            weird = t.norm('http://::1:81/hehe')
+            self.eq(weird[1]['subs']['ipv6'], '::1:81')
+            self.eq(weird[1]['subs']['port'], 80)
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'http://0:0:0:0:0:0:0:0:81/')
+
+    def _test_types_url_behavior(self, t, htype, host, norm_host, repr_host):
+
+            # Handle IPv6 Port Brackets
+            host_port = host
+            repr_host_port = repr_host
+            if htype == 'ipv6':
+                host_port = '[{}]'.format(host)
+                repr_host_port = '[{}]'.format(repr_host)
+
+            # URL with auth and port.
+            url = 'https://user:password@{}:1234/a/b/c/'.format(host_port)
+            expected = ('https://user:password@{}:1234/a/b/c/'.format(repr_host_port), {'subs': {
+                'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 1234
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no port, but default port valu.
+            # Port should be in subs, but not normed URL.
+            url = 'https://user:password@{}/a/b/c/'.format(host)
+            expected = ('https://user:password@{}/a/b/c/'.format(repr_host), {'subs': {
+                'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 443
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no port and no default port valu.
+            # Port should not be in subs or normed URL.
+            url = 'arbitrary://user:password@{}/a/b/c/'.format(host)
+            expected = ('arbitrary://user:password@{}/a/b/c/'.format(repr_host), {'subs': {
+                'proto': 'arbitrary', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with user but no password.
+            # User should still be in URL and subs.
+            url = 'https://user@{}:1234/a/b/c/'.format(host_port)
+            expected = ('https://user@{}:1234/a/b/c/'.format(repr_host_port), {'subs': {
+                'proto': 'https', 'path': '/a/b/c/', 'user': 'user', htype: norm_host, 'port': 1234
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no user/password.
+            # User/Password should not be in URL or subs.
+            url = 'https://{}:1234/a/b/c/'.format(host_port)
+            expected = ('https://{}:1234/a/b/c/'.format(repr_host_port), {'subs': {
+                'proto': 'https', 'path': '/a/b/c/', htype: norm_host, 'port': 1234
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no path.
+            url = 'https://{}:1234'.format(host_port)
+            expected = ('https://{}:1234'.format(repr_host_port), {'subs': {
+                'proto': 'https', 'path': '', htype: norm_host, 'port': 1234
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no path or port or default port.
+            url = 'a://{}'.format(host)
+            expected = ('a://{}'.format(repr_host), {'subs': {
+                'proto': 'a', 'path': '', htype: norm_host
+            }})
+            self.eq(t.norm(url), expected)
+
     def test_types_unextended(self):
         # The following types are subtypes that do not extend their base type
         with self.getTestCore() as core:
@@ -291,7 +419,6 @@ class InetModelTest(SynTest):
             self.nn(core.model.type('inet:port'))  # int w/ min/max
             self.nn(core.model.type('inet:wifi:ssid'))  # str
             self.nn(core.model.type('inet:user'))  # str w/ lower
-
 
 class FIXME:
 
