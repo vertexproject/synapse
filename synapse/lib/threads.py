@@ -508,50 +508,46 @@ class RWWith:
     def __exit__(self, exclass, exc, tb):
         self.rwlock.release(self)
 
-def iCantWait(name=None):
-    '''
-    Mark the current thread as a no-wait thread.
+class SyncTask:
 
-    Any no-wait thread will raise MustNotWait on blocking calls
-    within synapse APIs to prevent deadlock bugs.
+    def __init__(self):
+        self.exc = None
+        self.valu = s_common.novalu
+        self.event = threading.Event()
 
-    Example:
+    def err(self, e):
+        self.exc = e
+        self.event.set()
 
-        iCantWait(name='FooThread')
+    def done(self, valu):
+        self.valu = valu
+        self.event.set()
 
-    '''
-    curthr = threading.currentThread()
-    curthr._syn_cantwait = True
+    def wait(self, timeout=None):
 
-    if name is not None:
-        curthr.name = name
+        if not self.event.wait(timeout=timeout):
+            raise s_exc.TimeOut()
 
-def iWillWait():
-    '''
-    Check if the current thread is a marked no-wait thead and raise MustNotWait.
+        if self.exc is not None:
+            raise self.exc
 
-    Example:
+        return self.valu
 
-        def doBlockingThing():
-            iWillWait()
-            waitForThing()
+    #def result(self):
 
-    '''
-    if getattr(threading.currentThread(), '_syn_cantwait', False):
-        name = threading.currentThread().name
-        raise s_common.MustNotWait(name)
+    #def __enter__(self):
 
-def iMayWait():
-    '''
-    Function for no-wait aware APIs to use while handling no-wait threads.
+    #def __exit__(self, err, cls, tb):
+        #self.evnt = None
 
-    Example:
+        #thrd = threading.currentThread()
 
-        def mayWaitThing():
-            if not iMayWait():
-                return False
+        #self._retn_exc = None
+        #self._retn_valu = None
 
-            waitForThing()
+        #self._retn_evnt = getattr(thrd, '_retn_evt', None)
+        #if self._retn_evnt is None:
+            #self._retn_evnt = thrd._retn_lock = threading.Event()
 
-    '''
-    return not getattr(threading.currentThread(), '_syn_cantwait', False)
+        # ensure the event is clear
+        #self._retn_evnt.clear()

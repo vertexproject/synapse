@@ -597,6 +597,12 @@ class SynTest(unittest.TestCase):
                 yield core
 
     @contextlib.contextmanager
+    def getTestDmon(self):
+        with self.getTestDir() as dirn:
+            with s_daemon.Daemon(dirn) as dmon:
+                yield dmon
+
+    @contextlib.contextmanager
     def getDmonCore(self):
         '''
         Context manager to make a ram:/// cortex which has test models loaded into it and shared via daemon.

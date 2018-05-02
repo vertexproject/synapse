@@ -79,6 +79,8 @@ class Layer(s_config.Config):
     #def addBuidTag(
     #def delBuidTag(
 
+    #def _fireEditThread(self):
+
     def _storNodeAdd(self, xact, mesg):
 
         buid = mesg[1].get('buid')

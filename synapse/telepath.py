@@ -3,656 +3,281 @@ An RMI framework for synapse.
 '''
 import time
 import zlib
+import asyncio
 import logging
 import threading
 import collections
 
 import synapse.glob as s_glob
-import synapse.link as s_link
-import synapse.synasync as s_async
 import synapse.common as s_common
-import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
 
-import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
-import synapse.lib.socket as s_socket
 import synapse.lib.msgpack as s_msgpack
-#import synapse.lib.reflect as s_reflect
+import synapse.lib.urlhelp as s_urlhelp
 
 logger = logging.getLogger(__name__)
 
-# telepath protocol version
-# ( compat breaks only at major ver )
-telever = (2, 0)
+televers = (3, 0)
 
-def openurl(url, **opts):
+class Aware:
     '''
-    Construct a Telepath Proxy from a URL.
-
-    Args:
-        url (str): A URL to parser into a link tufo.
-        **opts: Additional options which are added to the link tufo.
-
-    Examples:
-        Get a proxy object from a URL, call a function then close the object::
-
-            foo = openurl('tcp://1.2.3.4:90/foo')
-            foo.dostuff(30) # call remote method
-            foo.fini()
-
-        Get a proxy object as a context manager, which will result in the object being automatically closed::
-
-            with openurl('tcp://1.2.3.4:90/foo') as foo:
-                foo.dostuff(30)
-
-    Returns:
-        Proxy: A Proxy object for calling remote tasks.
+    The telepath.Aware mixin allows shared objects to
+    colaborate with the Daemon() which is sharing them.
     '''
-    #plex = opts.pop('plex',None)
-    #return openclass(Proxy,url,**opts)
-    link = s_link.chopLinkUrl(url)
-    link[1].update(opts)
+    def getTeleApi(self, dmon):
+        return self
 
-    return openlink(link)
-
-def openlink(link):
+class Task:
     '''
-    Construct a Telepath Proxy from a link tufo.
-
-    Args:
-        link ((str, dict)): A link dictionary.
-
-    Examples:
-        Get a proxy object, call a function then close the object::
-
-            foo = openlink(link)
-            foo.bar(20)
-            foo.fini()
-
-        Get a proxy object as a context manager, which will result in the object being automatically closed::
-
-            with openlink as foo:
-                foo.dostuff(30)
-
-    Returns:
-        Proxy: A Proxy object for calling remote tasks.
+    A telepath Task is used to internally track calls/responses.
     '''
-    # special case for dmon://fooname/ which refers to a
-    # named object within whatever dmon is currently in scope
-    if link[0] == 'dmon':
+    def __init__(self):
+        self.retn = None
+        self.iden = s_common.guid()
+        self.done = asyncio.Event()
 
-        dmon = s_scope.get('dmon')
-        if dmon is None:
-            raise s_common.NoSuchName(name='dmon', link=link, mesg='no dmon instance in current scope')
+    async def result(self):
+        await self.done.wait()
+        return s_common.result(self.retn)
 
-        # the "host" part is really a dmon local
-        host = link[1].get('host')
-        item = dmon.locs.get(host)
-        if item is None:
-            raise s_common.NoSuchName(name=host, link=link, mesg='dmon instance has no local with that name')
-
-        return item
-
-    relay = s_link.getLinkRelay(link)
-    name = link[1].get('path')[1:]
-
-    sock = relay.connect()
-
-    synack = teleSynAck(sock, name=name)
-
-    return Proxy(relay, sock=sock)
-
-def evalurl(url, **opts):
-    '''
-    Construct either a local object or a telepath proxy.
-
-    Args:
-        url (str): URL to evaluate
-        **opts: Additional options.
-
-    Notes:
-        This API enables the ctor:// protocol which uses ``eval()``.
-        It should **only** be used with trusted inputs!
-
-    Examples:
-        Get a remote object over a TCP connection:
-
-            item0 = evalurl('tcp://1.2.3.4:90/foo')
-
-        Get a local object via ctor:
-
-            item1 = evalurl('ctor://foo.bar.baz("woot",y=20)')
-
-    Returns:
-        object: A python object
-    '''
-    if url.find('://') == -1:
-        raise s_common.BadUrl(url)
-
-    scheme, therest = url.split('://', 1)
-    if scheme == 'ctor':
-        locs = opts.get('locs')
-        return s_dyndeps.runDynEval(therest, locs=locs)
-
-    return openurl(url, **opts)
-
-def isProxy(item):
-    '''
-    Check to see if a object is a telepath proxy object or not.
-
-    Args:
-        item (object): Object to inspect.
-
-    Returns:
-        bool: True if the object is a telepath object; otherwise False.
-    '''
-    return isinstance(item, Proxy)
-
-def reqIsProxy(item):
-    '''
-    Check if the item is a proxy and raise MustBeProxy if not.
-
-    Args:
-        item (obj): The object to test for being a telepath proxy
-
-    Returns:
-        (None)
-
-    Example:
-
-        reqIsProxy(foo)
-        # foo is def a proxy here...
-
-    '''
-    if not isProxy(item):
-        raise s_common.MustBeProxy(item=item)
-
-def reqNotProxy(item):
-    '''
-    Check if the item is a proxy and raise MustBeProxy if so.
-
-    Args:
-        item (obj): The object to test for being a telepath proxy
-
-    Returns:
-        (None)
-
-    Example:
-
-        reqNotProxy(foo)
-        # foo is def not a proxy here...
-
-    '''
-    if isProxy(item):
-        raise s_common.MustBeLocal(item=item)
+    def reply(self, retn):
+        self.retn = retn
+        self.done.set()
 
 class Method:
-
-    def __init__(self, proxy, meth):
-        self.meth = meth
-        self.cside = None
+    '''
+    The telepath Method is used to provide proxy method calls.
+    '''
+    def __init__(self, proxy, name):
+        self.name = name
         self.proxy = proxy
 
         # act as much like a bound method as possible...
-        self.__name__ = meth
+        self.__name__ = name
         self.__self__ = proxy
 
     def __call__(self, *args, **kwargs):
-
-        # check if we have a cached client-side function
-        if self.cside is not None:
-            return self.cside(self.proxy, *args, **kwargs)
-
-        ondone = kwargs.pop('ondone', None)
-        task = (self.meth, args, kwargs)
-
-        job = self.proxy._tx_call(task, ondone=ondone)
-        if ondone is not None:
-            return job
-
-        return self.proxy.syncjob(job)
-
-telelocal = set(['tele:sock:init',
-                 'tele:sock:runsockfini',
-                 'ebus:init',
-                 'fifo:xmit'])
+        return self.proxy.call(self.name, *args, **kwargs)
 
 class Proxy(s_eventbus.EventBus):
     '''
-    The telepath proxy provides "pythonic" access to remote objects.
+    A telepath Proxy is used to call remote APIs on a shared object.
 
-    ( you most likely want openurl() or openlink() )
+    Example:
 
-    NOTE:
+        import synpase.telepath as s_telepath
 
-        *all* locals in this class *must* have _tele_ prefixes to prevent
-        accidental deref of something with the same name in code using it
-        under the assumption it's something else....
+        # open the "foo" object shared in a dmon on localhost:3344
+
+        async def doFooThing():
+
+            proxy = await s_telepath.openurl('tcp://127.0.0.1:3344/foo')
+
+            valu = await proxy.getFooValu(x, y)
+
+    The proxy ( and openurl function ) may also be used from sync code:
+
+        proxy = s_telepath.openurl('tcp://127.0.0.1:3344/foo')
+
+        valu = proxy.getFooValu(x, y)
 
     '''
-    def __init__(self, relay, plex=None, sock=None):
+    def __init__(self, link, name):
 
-        s_eventbus.EventBus.__init__(self)
-        self.onfini(self._onProxyFini)
+        self.link = link
+        self.name = name
 
-        # NOTE: the _tele_ prefixes are designed to prevent accidental
-        #       derefs with overlapping names from working correctly
+        self.tasks = {}
+        #self.chans = {}
 
-        self._tele_sid = None
+        self.synack = None
+        self.syndone = asyncio.Event()
 
-        self._tele_q = s_queue.Queue()
-        self._tele_pushed = {}
+        self.timeout = None     # API call timeout default
 
-        # allow the server to give us events to fire back on
-        # reconnect so we can help re-init our server-side state
-        self._tele_reminders = []
+        self.handlers = {
+            'tele:syn': self._onTeleSyn,
+            'task:fini': self._onTaskFini,
+            'chan:init': self._onChanInit,
+            'chan:data': self._onChanData,
+            'chan:fini': self._onChanFini,
+        }
 
-        if plex is None:
-            plex = s_socket.Plex()
-            self.onfini(plex.fini)
-
-        self._tele_plex = plex
-        self._tele_boss = s_async.Boss()
-
-        self._tele_plex.on('link:sock:mesg', self._onLinkSockMesg)
-
-        self.on('tele:yield:init', self._onTeleYieldInit)
-        self.on('tele:yield:item', self._onTeleYieldItem)
-        self.on('tele:yield:fini', self._onTeleYieldFini)
-
-        #self._raw_on('tele:reminder', self._onTeleReminder)
-
-        #self._raw_on('fifo:xmit', self._onFifoXmit)
-        self.on('job:done', self._tele_boss.dist)
-        self.on('sock:gzip', self._onSockGzip)
-        #self.on('tele:call', self._onTeleCall)
-        #self.on('tele:sock:init', self._onTeleSockInit)
-
-        self._tele_cthr = self.consume(self._tele_q)
-
-        self._tele_ons = {}
-
-        self._tele_sock = None
-        self._tele_relay = relay    # LinkRelay()
-        self._tele_link = relay.link
-        self._tele_yields = {}
-        self._tele_csides = {}
-        #self._tele_reflect = None
-
-        # obj name is path minus leading "/"
-        self._tele_name = relay.link[1].get('path')[1:]
-
-        if sock is None:
-            sock = self._tele_relay.connect()
-
-        self._initTeleSock(sock=sock)
-
-    def _onTeleReminder(self, mesg):
-        self._tele_reminders.append(mesg[1].get('mesg'))
-
-    #def _onFifoXmit(self, mesg):
-
-        # a bit of magic specific to cortex proxy...
-        # ( this will be made cleaner in neuron use case )
-
-        #name = mesg[1].get('name')
-        #seqn, nseq, item = mesg[1].get('qent')
-        #self.call('fire', 'fifo:ack', name, seqn)
-
-    def _onTeleYieldInit(self, mesg):
-        jid = mesg[1].get('jid')
-        iden = mesg[1].get('iden')
-
-        que = s_queue.Queue()
-        self._tele_yields[iden] = que
-
-        def onfini():
-            self._tele_yields.pop(iden, None)
-            self._txTeleSock('tele:yield:fini', iden=iden)
-
-        que.onfini(onfini)
-        self._tele_boss.done(jid, que)
-
-    def _onTeleYieldItem(self, mesg):
-        iden = mesg[1].get('iden')
-        que = self._tele_yields.get(iden)
-        if que is None:
-            self._txTeleSock('tele:yield:fini', iden=iden)
-            return
-
-        que.put(mesg[1].get('item'))
-
-    def _onTeleYieldFini(self, mesg):
-        iden = mesg[1].get('iden')
-        que = self._tele_yields.get(iden)
-        if que is not None:
-            que.done()
-
-    #def _raw_on(self, name, func):
-        #return s_eventbus.EventBus.on(self, name, func)
-
-    #def _raw_off(self, name, func):
-        #return s_eventbus.EventBus.off(self, name, func)
-
-    #def on(self, evnt, func, **filts):
-
-        # create a separate record for each so the dmon
-        # can potentially create an "any" filter for us
-        #if evnt not in telelocal:
-            ##iden = s_common.guid()
-            #filt = tuple(filts.items())
-
-            #onit = (iden, filt)
-
-            #okey = (evnt, func)
-            #self._tele_ons[okey] = (iden, filt)
-
-            #job = self._txTeleJob('tele:on', ons=[(evnt, [onit])], name=self._tele_name)
-            #self.syncjob(job)
-
-        #return s_eventbus.EventBus.on(self, evnt, func, **filts)
-
-    #def off(self, name, func):
-
-        #ret = s_eventbus.EventBus.off(self, name, func)
-        #if name in telelocal:
-            #return ret
-
-        #okey = (name, func)
-        #onit = self._tele_ons.pop(okey, None)
-        #if onit is None:
-            #return ret
-
-        #iden, filt = onit
-        #job = self._txTeleJob('tele:off', evnt=name, iden=iden, name=self._tele_name)
-        #self.syncjob(job)
-
-        #return ret
-
-    #def fire(self, evntname, **info):
-        ##if evntname in telelocal:
-            #return s_eventbus.EventBus.fire(self, evntname, **info)
-
-        #job = self.call('fire', evntname, **info)
-        #return self.syncjob(job)
-
-    def call(self, methname, *args, **kwargs):
+    @s_glob.synchelp
+    async def call(self, name, *args, **kwargs):
         '''
-        Call a shared method as a job.
+        Call a remote method by name.
 
-        Example:
+        Args:
+            name (str): The name of the remote method.
+            *args: Arguments to the method call.
+            **kwargs: Keyword arguments to the method call.
 
-            job = proxy.call('getFooByBar',bar)
+        Most use cases will likely use the proxy methods directly:
 
-            # ... do other stuff ...
+        The following two are effectively the same:
 
-            ret = proxy.syncjob(job)
-
+            valu = proxy.getFooBar(x, y)
+            valu = proxy.call('getFooBar', x, y)
         '''
-        ondone = kwargs.pop('ondone', None)
 
-        task = (methname, args, kwargs)
-        return self._tx_call(task, ondone=ondone)
+        task = Task()
 
-    def callx(self, name, task, ondone=None):
-        '''
-        Call a method on a specific shared object as a job.
+        mesg = ('task:init', {
+                    'task': task.iden,
+                    'meth': name,
+                    'args': args,
+                    'kwargs': kwargs,
+        })
 
-        Example:
-
-            # task is (<method>,<args>,<kwargs>)
-            task = ('getFooByBar', (bar,), {} )
-
-            job = proxy.callx('woot',task)
-            ret = proxy.syncjob(job)
-
-        '''
-        return self._txTeleJob('tele:call', name=name, task=task, ondone=ondone)
-
-    def _tx_call(self, task, ondone=None):
-        return self._txTeleJob('tele:call', name=self._tele_name, task=task, ondone=ondone)
-
-    def syncjob(self, job, timeout=None):
-        '''
-        Wait on a given job and return/raise it's result.
-
-        Example:
-
-            job = proxy.call('woot', 10, bar=20)
-            ret = proxy.syncjob(job)
-
-        '''
-        self._waitTeleJob(job, timeout=timeout)
-        return s_async.jobret(job)
-
-    def _waitTeleJob(self, job, timeout=None):
-        # dont block the consumer thread, consume events
-        # until the job completes...
-        if threading.currentThread() == self._tele_cthr:
-            return self._fakeConsWait(job, timeout=timeout)
-
-        if not self._tele_boss.wait(job[0], timeout=timeout):
-            raise s_common.HitMaxTime()
-
-    def _fakeConsWait(self, job, timeout=None):
-        # a wait like function for the consumer thread
-        # which continues to consume events until a job
-        # has been completed.
-        maxtime = None
-        if timeout is not None:
-            maxtime = time.time() + timeout
-
-        while not job[1].get('done'):
-
-            if maxtime is not None and time.time() >= maxtime:
-                raise s_common.HitMaxTime()
-
-            mesg = self._tele_q.get()
-            self.dist(mesg)
-
-    def _initTeleSock(self, sock=None):
-
-        if sock is None:
-            sock = self._tele_relay.connect()
-
-        def sockfini():
-            # called by multiplexor... must not block
-            if not self.isfini:
-                s_glob.pool.call(self._runSockFini)
-
-        logger.debug('[%s] has sock [%s]', self, sock)
-
-        sock.onfini(sockfini)
-
-        self._teleSynAck(sock)
-
-        # add the sock to the multiplexor
-        self._tele_plex.addPlexSock(sock)
-
-        self._tele_sock = sock
-
-        # fire the remiders that the server wanted
-        for evntname, evntinfo in self._tele_reminders:
-            self.call('fire', evntname, **evntinfo)
-
-        # let client code do stuff on reconnect
-        self.fire('tele:sock:init', sock=sock)
-
-    def _onLinkSockMesg(self, event):
-        # MULTIPLEXOR: DO NOT BLOCK
-        mesg = event[1].get('mesg')
-        self._tele_q.put(mesg)
-
-    def _runSockFini(self):
-        if self.isfini:
-            return
-
-        self.fire('tele:sock:runsockfini')
-
-        try:
-            self._initTeleSock()
-        except s_common.LinkErr as e:
-            s_glob.sched.insec(1, self._runSockFini)
-
-    def _onTeleCall(self, mesg):
-        # dont block consumer thread... task pool
-        s_glob.pool.call(self._runTeleCall, mesg)
-
-    def _onSockGzip(self, mesg):
-        data = zlib.decompress(mesg[1].get('data'))
-        self.dist(s_msgpack.un(data))
-
-    def _runTeleCall(self, mesg):
-
-        jid = mesg[1].get('jid')
-        name = mesg[1].get('name')
-        task = mesg[1].get('task')
-        suid = mesg[1].get('suid')
-
-        retinfo = dict(suid=suid, jid=jid)
+        self.tasks[task.iden] = task
 
         try:
 
-            item = self._tele_pushed.get(name)
-            if item is None:
-                return self._txTeleSock('tele:retn', err='NoSuchObj', errmsg=name, **retinfo)
+            await self.link.tx(mesg)
+            return await task.result()
 
-            meth, args, kwargs = task
-            func = getattr(item, meth, None)
+        finally:
+
+            self.tasks.pop(task.iden, None)
+
+    async def handshake(self):
+
+        self.link.onrx(self._onLinkRx)
+
+        mesg = ('tele:syn', {
+            'vers': televers,
+            'name': self.name,
+        })
+
+        await self.link.tx(mesg)
+        await self.syndone.wait()
+
+        vers = self.synack[1].get('vers')
+        if vers[0] != televers[0]:
+            raise s_common.BadMesgVers(myver=televers, hisver=vers)
+
+        retn = self.synack[1].get('retn')
+
+        return s_common.result(retn)
+
+    async def _onLinkRx(self, mesg):
+        # handle a message on a link
+        try:
+
+            func = self.handlers.get(mesg[0])
             if func is None:
-                return self._txTeleSock('tele:retn', err='NoSuchMeth', errmsg=meth, **retinfo)
+                logger.warning('Proxy.onLinkRx: Invalid Message: %r' % (mesg,))
+                return
 
-            self._txTeleSock('tele:retn', ret=func(*args, **kwargs), **retinfo)
+            coro = func(mesg)
+            if asyncio.iscoroutine(coro):
+                self.link.plex.coroLoopTask(coro)
 
         except Exception as e:
-            retinfo.update(s_common.excinfo(e))
-            return self._txTeleSock('tele:retn', **retinfo)
+            logger.exception('Proxy.onLinkRx for %r' % (mesg,))
 
-    def _getTeleSock(self):
-        if self.isfini:
-            raise s_common.IsFini()
+    async def _onTeleSyn(self, mesg):
+        # handle a tele:syn message
+        self.synack = mesg
+        self.syndone.set()
 
-        return self._tele_sock
+    async def _onChanInit(self, mesg):
 
-    def _onTeleSockInit(self, mesg):
-        '''
-        Callback to allow the client to do anything neccesary after a Telepath
-        connection has been made with the remote.
+        # this happens when the server API returns a channel.
+        # (it is also considered a task:fini since we return)
+        chaniden = mesg[1].get('chan')
+        taskiden = mesg[1].get('task')
 
-        This is in response to a tele:sock:init event. This occurs during
-        startup of the Proxy object or during reconnection.
-        '''
-        sock = mesg[1].get('sock')
+        task = self.tasks.pop(taskiden, None)
+        if task is None:
+            return await self._sendChanFini(chaniden)
 
-        # Reset any on handlers which the Proxy has registered with the remote
-        eper = collections.defaultdict(list)
-        for (evnt, func), (iden, filt) in self._tele_ons.items():
-            eper[evnt].append((iden, filt))
+        chan = self.link.chan(chaniden)
+        task.reply((True, chan))
 
-        if eper:
-            job = self._txTeleJob('tele:on', ons=list(eper.items()), name=self._tele_name)
-            self.syncjob(job)
+    async def _onChanData(self, mesg):
 
-    def _teleSynAck(self, sock):
-        '''
-        Send a tele:syn to get a telepath session
-        '''
-        sid = self._tele_sid
-        name = self._tele_name
+        iden = mesg[1].get('chan')
 
-        synack = teleSynAck(sock, name=name, sid=sid)
+        chan = self.link.chans.get(iden)
+        if chan is None:
+            return await self._sendChanFini(iden)
 
-        self._tele_sid = synack.get('sess')
-        #self._tele_reflect = synack.get('reflect')
+        retn = mesg[1].get('retn')
+        chan.rx(retn)
 
-        csides = synack.get('csides')
-        if csides is not None:
-            self._tele_csides.update(csides)
+    async def _onChanFini(self, mesg):
+        # handle a chan:fini message
+        iden = mesg[1].get('chan')
 
-        hisopts = synack.get('opts', {})
+        chan = self.link.chans.pop(iden, None)
+        if chan is None:
+            return
 
-        if hisopts.get('sock:can:gzip'):
-            sock.set('sock:can:gzip', True)
+        chan.fini()
 
-    def _txTeleJob(self, msg, **msginfo):
-        '''
-        Transmit a message as a job ( add jid to mesg ) and return job.
-        '''
-        ondone = msginfo.pop('ondone', None)
-        job = self._tele_boss.initJob(ondone=ondone)
+    async def _sendChanFini(self, iden):
+        # send a chan:fini message without a chan.
+        await self.link.tx(
+            ('chan:fini', {'chan': iden}),
+        )
 
-        msginfo['jid'] = job[0]
-        self._txTeleSock(msg, **msginfo)
+    def _onTaskFini(self, mesg):
+        # handle task:fini message
+        iden = mesg[1].get('task')
 
-        return job
+        task = self.tasks.pop(iden, None)
+        if task is None:
+            print(repr(mesg))
+            logger.warning('task:fini for invalid task: %r' % (iden,))
+            return
 
-    def _txTeleSock(self, msg, **msginfo):
-        '''
-        Send a mesg over the socket and include our session id.
-        '''
-        msginfo['sid'] = self._tele_sid
-        sock = self._getTeleSock()
-        if sock is not None:
-            sock.tx((msg, msginfo))
-
-    def _onProxyFini(self):
-
-        [que.fini() for que in self._tele_yields.values()]
-
-        if self._tele_sock is not None:
-            self._tele_sock.fini()
-
-        self._tele_boss.fini()
+        retn = mesg[1].get('retn')
+        task.reply(retn)
 
     def __getattr__(self, name):
-        path = self._tele_csides.get(name)
-        if path is not None:
-            func = s_dyndeps.getDynMeth(path)
-            if func is None:
-                return None
-
-            meth = func.__get__(self)
-
-        else:
-            meth = Method(self, name)
-
+        meth = Method(self, name)
         setattr(self, name, meth)
         return meth
 
-    # some methods to avoid round trips...
-    def __bool__(self):
-        return True
+@s_glob.synchelp
+async def openurl(url, **opts):
+    '''
+    Open a URL to a remote telepath object.
 
-    def __eq__(self, obj):
-        return id(self) == id(obj)
+    Args:
+        url (str): A telepath URL.
+        **opts (dict): Telepath connect options.
 
-    def __ne__(self, obj):
-        return not self.__eq__(obj)
+    Returns:
+        (synapse.telepath.Proxy): A telepath proxy object.
 
-def teleSynAck(sock, name=None, sid=None):
+    The telepath proxy may then be used for sync or async calls:
 
-    synack = sock.get('tele:synack')
+        proxy = openurl(url)
+        value = proxy.getFooThing()
 
-    if synack is None:
+    ... or ...
 
-        opts = {'sock:can:gzip': 1}
-        info = {
-            'sid': sid,
-            'opts': opts,
-            'vers': telever,
-            'name': name,
-        }
+        proxy = await openurl(url)
+        valu = await proxy.getFooThing()
 
-        sock.tx(('tele:syn', info))
+    '''
+    info = s_urlhelp.chopurl(url)
+    info.update(opts)
 
-        done = next(sock.rx())
-        synack = done[1].get('ret')
+    host = info.get('host')
+    port = info.get('port')
+    name = info.get('path')[1:]
 
-        sock.set('tele:synack', synack)
+    #TODO SSL
 
-        vers = synack.get('vers', (0, 0))
-        if vers[0] != telever[0]:
-            raise s_common.BadMesgVers(myver=telever, hisver=vers)
+    link = await s_glob.plex.link(host, port)
 
-    return synack
+    prox = Proxy(link, name)
+
+    await prox.handshake()
+
+    return prox

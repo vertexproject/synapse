@@ -240,7 +240,7 @@ class Plex(s_config.Config):
             # This is the Linux path
             self.epoll.register(sock, selectors.EVENT_WRITE)
 
-s_glob.plex = Plex()  # type: ignore
+#s_glob.plex = Plex()  # type: ignore
 
 class Link(s_eventbus.EventBus):
     '''

@@ -601,3 +601,40 @@ def setlogging(mlogger, defval=None):
             raise ValueError('Invalid log level provided: {}'.format(log_level))
         logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
         mlogger.info('log level set to %s', log_level)
+
+################################################
+#
+# 0.1.0 stuff....
+#
+
+def result(retn):
+    '''
+    Return a value or raise an exception from a retn tuple.
+    '''
+    ok, valu = retn
+
+    if ok:
+        return valu
+
+    name, info = valu
+
+    ctor = getattr(s_exc, name, None)
+    if ctor is not None:
+        raise ctor(**info)
+
+    info['errx'] = name
+    raise SynErr(**info)
+
+def retnexc(e):
+    '''
+    Construct a retn tuple for the given exception.
+    '''
+    name = e.__class__.__name__
+    info = {}
+
+    if isinstance(e, SynErr):
+        info.update(e.items())
+    else:
+        info['mesg'] = str(e)
+
+    return (False, (name, info))

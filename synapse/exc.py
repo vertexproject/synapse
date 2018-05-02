@@ -26,6 +26,15 @@ class SynErr(Exception):
         '''
         return self.errinfo.get(name)
 
+##########################################################################
+class NoLinkRx(SynErr):
+    '''
+    No onrx() has been set for the link.
+    '''
+    pass
+
+##########################################################################
+
 class CliFini(SynErr):
     '''
     Raised when the CLI is to exit.
@@ -244,12 +253,12 @@ class BadEccExchange(CryptoErr):
     '''
     pass
 
-class RetnErr(SynErr):
-    '''
-    Raised when a call using the retn convention has failed.
-    '''
-    def __init__(self, retn):
-        SynErr.__init__(self, excn=retn[0], **retn[1])
+#class RetnErr(SynErr):
+    #'''
+    ##Raised when a call using the retn convention has failed.
+    #'''
+    #def __init__(self, retn):
+        #SynErr.__init__(self, excn=retn[0], **retn[1])
 
 class StepTimeout(SynErr):
     '''

@@ -12,6 +12,7 @@ import synapse.lib.xact as s_xact
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.config as s_config
+import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
 import synapse.lib.service as s_service
 
@@ -88,6 +89,7 @@ class Cortex(s_service.Service):
 
     def postSvcInit(self):
 
+        self.views = {}
         self.layers = []
         self.modules = {}
 
@@ -157,7 +159,21 @@ class Cortex(s_service.Service):
         Yields:
             ((str,dict)): Storm messages.
         '''
-        pass
+        if view is None:
+            view = self.view
+
+        parser = s_syntax.Parser(view, text)
+
+        query = parser.query()
+        for mesg in query.execute(view):
+            yield mesg
+
+        #except GeneratorExit as e:
+            #query
+
+        #except Exception as e:
+
+            #yield s_common.geterr(e)
 
     def getNodesBy(self, full, valu, cmpr='='):
         '''

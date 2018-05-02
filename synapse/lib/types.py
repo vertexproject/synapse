@@ -51,10 +51,24 @@ class Type:
             '*in=': self.liftPropIn,
         }
 
+        self.setCmprCtor('=', self._ctorCmprEq)
+
         self.postTypeInit()
 
-    def setFiltCtor(self, cmpr, func):
-        self._cmpr_ctors[cmpr] = func
+    def setCmprCtor(self, name, func):
+        self._cmpr_ctors[name] = func
+
+    def getCmprCtor(self, name):
+        return self._cmpr_ctors.get(name)
+
+    def _ctorCmprEq(self, text):
+        norm, info = self.norm(text)
+        def cmpr(valu):
+            return norm == valu
+        return cmpr
+
+    #def setFiltCtor(self, cmpr, func):
+        #self._cmpr_ctors[cmpr] = func
 
     def getFiltFunc(self, cmpr, text):
         '''
@@ -288,11 +302,25 @@ class Int(Type):
 
         return newv
 
-    def _cmpr_le(self, text):
-        norm = self.norm(text)[0]
-        def filt(valu):
-            return valu <= norm
-        return filt
+    #def runCmprFunc(self, x, y, cmpr='='):
+
+    def getCmprCtor(self, cmpr):
+        return self._cmpr_ctors.get(cmpr)
+
+    def cmprCtorEq(self, text):
+
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu == norm
+
+        return cmpr
+
+    #def _cmpr_le(self, text):
+        #norm = self.norm(text)[0]
+        #def filt(valu):
+            #return valu <= norm
+        #return filt
 
     def _cmpr_ge(self, text):
 

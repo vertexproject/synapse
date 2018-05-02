@@ -51,7 +51,7 @@ class IPv4(s_types.Type):
     def repr(self, norm):
         return socket.inet_ntoa(self.indx(norm))
 
-    def liftPropEq(self, fenc, penc, text):
+    def liftPropEq(self, xact, fenc, penc, text):
 
         if text.find('/') != -1:
 
@@ -67,8 +67,8 @@ class IPv4(s_types.Type):
 
             lops = (
                 ('prop:range', {
-                    'prop': prop.encode('utf8'),
-                    'form': form.encode('utf8'),
+                    'form': fenc,
+                    'prop': penc,
                     'minindx': self.indx(minv),
                     'maxindx': self.indx(minv + mask[1] - 1)
                 }),
@@ -78,8 +78,8 @@ class IPv4(s_types.Type):
         norm, info = self.norm(text)
         lops = (
             ('prop:eq', {
-                'prop': prop.encode('utf8'),
-                'form': form.encode('utf8'),
+                'form': fenc,
+                'prop': penc,
                 'valu': norm,
                 'indx': self.indx(norm),
             }),
@@ -726,6 +726,9 @@ class InetModule(s_module.CoreModule):
 
                     )),
 
+                    ('inet:user', {}, (
+                    )),
+
 
                     ('inet:email', {}, (
 
@@ -737,6 +740,7 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The email address FQDN.'}),
                     )),
+
                 ),
             }),
         )
@@ -1855,4 +1859,3 @@ class InetModule(s_module.CoreModule):
         }
 
         return (('inet', modl),)
-

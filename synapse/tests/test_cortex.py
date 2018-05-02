@@ -6,20 +6,6 @@ import synapse.lib.module as s_module
 
 from synapse.tests.common import *
 
-class CallBack:
-    '''
-    An easy to use test helper for *synchronous* callbacks.
-    '''
-    def __init__(self, retval=None):
-        self.args = None
-        self.kwargs = None
-        self.retval = retval
-
-    def __call__(self, *args, **kwargs):
-        self.args = args
-        self.kwargs = kwargs
-        return self.retval
-
 class TestType(s_types.Type):
 
     def postTypeInit(self):
