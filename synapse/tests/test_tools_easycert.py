@@ -136,5 +136,13 @@ class TestEasyCert(SynTest):
                 self.eq(s_easycert.main(argv, outp=outp), 0)
 
             outp = self.getTestOutp()
+            fname = 'pennywise@vertex.link.crt'
+            srcpath = s_common.genpath(tstpath, fname)
+            ftype = 'cas'
+            argv = ['--importfile', ftype, '--certdir', tstpath, srcpath]
+            with s_common.genfile(srcpath) as fd:
+                self.eq(s_easycert.main(argv, outp=outp), 0)
+
+            outp = self.getTestOutp()
             argv = ['--importfile', 'cas', '--certdir', tstpath, 'nope']
             self.raises(NoSuchFile, s_easycert.main, argv, outp=outp)

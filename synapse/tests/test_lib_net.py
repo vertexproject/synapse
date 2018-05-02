@@ -1,3 +1,4 @@
+import random
 import logging
 
 import synapse.lib.net as s_net
@@ -105,7 +106,6 @@ class NetTest(SynTest):
     def test_lib_net_link_repr(self):
         link = s_net.Link()
         rep = link.__repr__()
-        self.len(28, rep)
         self.true(rep.startswith('Link: None at 0x'))
 
     def test_lib_net_link_props(self):
@@ -352,7 +352,7 @@ class NetTest(SynTest):
         expected_msg = 'connect() onconn failed'
         with self.getLoggerStream('synapse.lib.net', expected_msg) as stream:
             with s_net.Plex() as plex:
-                plex.connect(('127.0.0.1', 0), None)
+                plex.connect(('127.0.0.1', 1), None)
                 self.true(stream.wait(10))
 
         stream.seek(0)
@@ -364,8 +364,9 @@ class NetTest(SynTest):
         with self.getLoggerStream('synapse.lib.net', expected_msg) as stream:
 
             with s_net.Plex() as plex:
-                addr = plex.listen(('127.0.0.1', 0), None)
-                plex.connect(addr, None)
+                port = random.randint(10000, 50000)
+                addr = plex.listen(('127.0.0.1', port), None)
+                plex.connect(addr, port)
                 self.true(stream.wait(10))
 
         stream.seek(0)
