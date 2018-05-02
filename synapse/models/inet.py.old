@@ -22,11 +22,6 @@
                     'doc': 'A 48-bit Media Access Control (MAC) address.',
                     'ex': 'aa:bb:cc:dd:ee:ff'}),
 
-                ('inet:url', {
-                    'ctor': 'synapse.models.inet.UrlType',
-                    'doc': 'A Universal Resource Locator (URL).',
-                    'ex': 'http://www.woot.com/files/index.html'}),
-
                 ('inet:addr', {
                     'ctor': 'synapse.models.inet.AddrType',
                     'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
@@ -314,22 +309,6 @@
                         'doc': 'The client tcp/udp port.'}),
 
                 )),
-
-                ('inet:url', {'ptype': 'inet:url'}, [
-                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
-                         'doc': 'The IPv6 address used in the URL.'}),
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                         'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
-                         'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
-                    ('port', {'ptype': 'inet:port', 'ro': 1,
-                         'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
-                             'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
-                    ('user', {'ptype': 'inet:user', 'ro': 1,
-                         'doc': 'The optional username used to access the URL.'}),
-                    ('passwd', {'ptype': 'inet:passwd', 'ro': 1,
-                         'doc': 'The optional password used to access the URL.'}),
-                ]),
 
                 ('inet:urlredir', {}, [
                     ('src', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
@@ -1032,95 +1011,6 @@
 
         #return valu, subs
 
-#urlports = {
-#    'ftp': 21,
-#    'http': 80,
-#    'https': 443,
-#}
-#
-#class UrlType(DataType):
-#    subprops = (
-#        ('proto', {'ptype': 'str'}),
-#        ('path', {'ptype': 'str'}),
-#        ('fqdn', {'ptype': 'inet:fqdn'}),
-#        ('ipv4', {'ptype': 'inet:ipv4'}),
-#        ('ipv6', {'ptype': 'inet:ipv6'}),
-#        ('port', {'ptype': 'inet:port'}),
-#        ('user', {'ptype': 'inet:user'}),
-#        ('passwd', {'ptype': 'inet:passwd'}),
-#    )
-#
-#    def norm(self, valu, oldval=None):
-#        subs = {}
-#        respath = ''
-#        resauth = ''
-#
-#        if valu.find('://') == -1:
-#            self._raiseBadValu(valu)
-#
-#        proto, resloc = valu.split('://', 1)
-#
-#        parts = resloc.split('/', 1)
-#        if len(parts) == 2:
-#            resloc, respath = parts
-#
-#        if resloc.find('@') != -1:
-#            resauth, resloc = resloc.split('@', 1)
-#
-#            user = resauth
-#            passwd = None
-#
-#            if user.find(':') is not None:
-#                user, passwd = user.rsplit(':', 1)
-#
-#            if user:
-#                subs['user'] = user
-#
-#            if passwd:
-#                subs['passwd'] = passwd
-#
-#        port = None
-#        proto = proto.lower()
-#        hostpart = resloc.lower().replace('[.]', '.')
-#
-#        subs['proto'] = proto
-#
-#        host = hostpart
-#        if hostpart.find(':') != -1:
-#            host, portstr = hostpart.rsplit(':', 1)
-#            port = self.tlib.getTypeParse('inet:port', portstr)[0]
-#
-#        # use of exception handling logic here is fastest way to both
-#        # validate and convert the data...  normally wouldnt use....
-#
-#        ipv4 = None
-#        try:
-#
-#            ipv4 = ipv4int(host)
-#            subs['ipv4'] = ipv4
-#
-#        except BadTypeValu as e:
-#            pass
-#
-#        if ipv4 is None and fqdnre.match(host):
-#            subs['fqdn'] = host
-#
-#        # try for a default iana protocol lookup
-#        if port is None:
-#            port = s_l_iana.services.get(proto)
-#
-#        if port is not None:
-#            subs['port'] = port
-#
-#        if resauth:
-#            hostpart = '%s@%s' % (resauth, hostpart)
-#
-#        valu = '%s://%s/%s' % (proto, hostpart, respath)
-#        return valu, subs
-#
-#    def repr(self, valu):
-#        return valu
-#
 #class AddrType(DataType):
 
     #def norm(self, valu, oldval=None):
