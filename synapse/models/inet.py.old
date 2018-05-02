@@ -4,6 +4,7 @@
         modl = {
             'types': (
 
+                TYPES that dont extend builtins =======================================================================
                 ('inet:whois:rar', {
                     'subof': 'str:lwr',
                     'doc': 'A domain registrar.',
@@ -14,6 +15,38 @@
                     'doc': 'A domain registrant.',
                     'ex': 'woot hostmaster'}),
 
+                ('inet:http:request', {
+                    'subof': 'guid',
+                    'doc': 'A single client HTTP request.',
+                }),
+
+                ('inet:download', {
+                    'subof': 'guid',
+                    'doc': 'An instance of a file downloaded from a server.',
+                }),
+
+                ('inet:iface', {
+                    'subof': 'guid',
+                    'doc': 'A network interface with a set of associated protocol addresses.'}),
+
+                ('inet:flow', {
+                    'subof': 'guid',
+                    'doc': 'An individual network connection between a given source and destination.'}),
+
+                ('inet:web:logon', {
+                    'subof': 'guid',
+                    'doc': 'An instance of an account authenticating to an Internet-based site or service.'}),
+
+                ('inet:web:action', {
+                    'subof': 'guid',
+                    'doc': 'An instance of an account performing an action at an Internet-based site or service.'}),
+
+                ('inet:web:chprofile', {
+                    'subof': 'guid',
+                    'doc': 'A change to a web account. Used to capture historical properties associated with '
+                        ' an account, as opposed to current data in the inet:web:acct node.'}),
+
+                TYPES that extend builtins ============================================================================
                 ('inet:mac', {
                     'subof': 'str',
                     'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$',
@@ -22,35 +55,7 @@
                     'doc': 'A 48-bit Media Access Control (MAC) address.',
                     'ex': 'aa:bb:cc:dd:ee:ff'}),
 
-                ('inet:addr', {
-                    'ctor': 'synapse.models.inet.AddrType',
-                    'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
-                    'ex': 'tcp://1.2.3.4:80'}),
-
-                ('inet:srv4', {
-                    'ctor': 'synapse.models.inet.Srv4Type',
-                    'doc': 'An IPv4 address and port.',
-                    'ex': '1.2.3.4:80'}),
-
-                ('inet:srv6', {
-                    'ctor': 'synapse.models.inet.Srv6Type',
-                    'doc': 'An IPv6 address and port.',
-                    'ex': '[2607:f8b0:4004:809::200e]:80'}),
-
-                ('inet:rfc2822:addr', {
-                    'ctor': 'synapse.models.inet.Rfc2822Addr',
-                    'ex': '"Visi Kenshoto" <visi@vertex.link>',
-                    'doc': 'An RFC 2822 Address field.'}),
-
-                ('inet:server', {
-                    'subof': 'inet:addr',
-                    'doc': 'A network server address.'}),
-
-                ('inet:client', {
-                    'subof': 'inet:addr',
-                    'doc': 'A network client address.'}),
-
-
+                TYPES of comp/sepr ====================================================================================
                 ('inet:wifi:ap', {
                     'subof': 'comp',
                     'fields': 'ssid=inet:wifi:ssid,bssid=inet:mac',
@@ -66,94 +71,6 @@
                     'subof': 'comp',
                     'fields': 'url=inet:url, file=file:bytes',
                     'doc': 'A file hosted at a specific Universal Resource Locator (URL).'}),
-
-                ('inet:net4', {
-                    'subof': 'sepr',
-                    'sep': '-',
-                    'fields': 'min,inet:ipv4|max,inet:ipv4',
-                    'doc': 'An IPv4 address range.',
-                    'ex': '1.2.3.4-1.2.3.20'}),
-
-                ('inet:net6', {
-                    'subof': 'sepr',
-                    'sep': '-',
-                    'fields': 'min,inet:ipv6|max,inet:ipv6',
-                    'doc': 'An IPv6 address range.',
-                    'ex': 'ff::00-ff::30'}),
-
-                ('inet:asnet4', {
-                    'subof': 'sepr',
-                    'sep': '/',
-                    'fields': 'asn,inet:asn|net4,inet:net4',
-                    'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
-                    'ex': '54959/1.2.3.4-1.2.3.20'}),
-
-                ('inet:iface', {
-                    'subof': 'guid',
-                    'doc': 'A network interface with a set of associated protocol addresses.'}),
-
-
-                ('inet:tcp4', {
-                    'subof': 'inet:srv4',
-                    'doc': 'A TCP server listening on an IPv4 address and port.'}),
-
-                ('inet:udp4', {
-                    'subof': 'inet:srv4',
-                    'doc': 'A UDP server listening on an IPv4 address and port.'}),
-
-                ('inet:tcp6', {
-                    'subof': 'inet:srv6',
-                    'doc': 'A TCP server listening on a specific IPv6 address and port.'}),
-
-                ('inet:udp6', {
-                    'subof': 'inet:srv6',
-                    'doc': 'A UDP server listening on a specific IPv6 address and port.'}),
-
-                ('inet:flow', {
-                    'subof': 'guid',
-                    'doc': 'An individual network connection between a given source and destination.'}),
-
-                ('inet:web:acct', {
-                    'subof': 'sepr',
-                    'sep': '/',
-                    'fields': 'site,inet:fqdn|user,inet:user',
-                    'doc': 'An account with a given Internet-based site or service.',
-                    'ex': 'twitter.com/invisig0th'}),
-
-                ('inet:web:logon', {
-                    'subof': 'guid',
-                    'doc': 'An instance of an account authenticating to an Internet-based site or service.'}),
-
-                ('inet:web:action', {
-                    'subof': 'guid',
-                    'doc': 'An instance of an account performing an action at an Internet-based site or service.'}),
-
-                ('inet:web:actref', {
-                    'subof': 'xref',
-                    'source': 'act,inet:web:action',
-                    'doc': 'A web action that references a given node.'}),
-
-                ('inet:web:chprofile', {
-                    'subof': 'guid',
-                    'doc': 'A change to a web account. Used to capture historical properties associated with '
-                        ' an account, as opposed to current data in the inet:web:acct node.'}),
-
-                ('inet:web:group', {
-                    'subof': 'sepr',
-                    'sep': '/',
-                    'fields': 'site,inet:fqdn|id,inet:group',
-                    'doc': 'A group hosted within or registered with a given Internet-based site or service.',
-                    'ex': 'somesite.com/mycoolgroup'}),
-
-                ('inet:web:post', {
-                    'subof': 'comp',
-                    'fields': 'acct,inet:web:acct|text,str:txt',
-                    'doc': 'A post made by a web account.'}),
-
-                ('inet:web:postref', {
-                    'subof': 'xref',
-                    'source': 'post,inet:web:post',
-                    'doc': 'A web post that references a given node.'}),
 
                 ('inet:web:file', {
                     'subof': 'comp',
@@ -176,18 +93,6 @@
                     'doc': 'A message sent from one web account to another web account.',
                     'ex': 'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'}),
 
-                ('inet:ssl:tcp4cert', {
-                    'subof': 'sepr',
-                    'sep': '/',
-                    'fields': 'tcp4,inet:tcp4|cert,file:bytes',
-                    'doc': 'An SSL certificate file served by an IPv4 TCP server.'}),
-
-                ('inet:whois:rec', {
-                    'subof': 'sepr',
-                    'sep': '@',
-                    'fields': 'fqdn,inet:fqdn|asof,time',
-                    'doc': 'A domain whois record'}),
-
                 ('inet:whois:recns', {
                     'subof': 'comp',
                     'fields': 'ns,inet:fqdn|rec,inet:whois:rec',
@@ -203,10 +108,6 @@
                     'fields': 'fqdn,inet:fqdn|email,inet:email',
                     'doc': 'An association between a domain and a registrant email address.'}),
 
-                ('inet:http:request', {
-                    'subof': 'guid',
-                    'doc': 'A single client HTTP request.',
-                }),
                 ('inet:http:resphead', {
                     'subof': 'comp',
                     'fields': 'response=inet:http:response,header=inet:http:header',
@@ -219,10 +120,116 @@
                     'doc': 'A file hosted on a server for access over a network protocol.',
                 }),
 
-                ('inet:download', {
-                    'subof': 'guid',
-                    'doc': 'An instance of a file downloaded from a server.',
-                }),
+                ('inet:web:post', {
+                    'subof': 'comp',
+                    'fields': 'acct,inet:web:acct|text,str:txt',
+                    'doc': 'A post made by a web account.'}),
+
+                ('inet:net4', {
+                    'subof': 'sepr',
+                    'sep': '-',
+                    'fields': 'min,inet:ipv4|max,inet:ipv4',
+                    'doc': 'An IPv4 address range.',
+                    'ex': '1.2.3.4-1.2.3.20'}),
+
+                ('inet:net6', {
+                    'subof': 'sepr',
+                    'sep': '-',
+                    'fields': 'min,inet:ipv6|max,inet:ipv6',
+                    'doc': 'An IPv6 address range.',
+                    'ex': 'ff::00-ff::30'}),
+
+                ('inet:asnet4', {
+                    'subof': 'sepr',
+                    'sep': '/',
+                    'fields': 'asn,inet:asn|net4,inet:net4',
+                    'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
+                    'ex': '54959/1.2.3.4-1.2.3.20'}),
+
+                ('inet:web:acct', {
+                    'subof': 'sepr',
+                    'sep': '/',
+                    'fields': 'site,inet:fqdn|user,inet:user',
+                    'doc': 'An account with a given Internet-based site or service.',
+                    'ex': 'twitter.com/invisig0th'}),
+
+                ('inet:web:group', {
+                    'subof': 'sepr',
+                    'sep': '/',
+                    'fields': 'site,inet:fqdn|id,inet:group',
+                    'doc': 'A group hosted within or registered with a given Internet-based site or service.',
+                    'ex': 'somesite.com/mycoolgroup'}),
+
+                ('inet:ssl:tcp4cert', {
+                    'subof': 'sepr',
+                    'sep': '/',
+                    'fields': 'tcp4,inet:tcp4|cert,file:bytes',
+                    'doc': 'An SSL certificate file served by an IPv4 TCP server.'}),
+
+                ('inet:whois:rec', {
+                    'subof': 'sepr',
+                    'sep': '@',
+                    'fields': 'fqdn,inet:fqdn|asof,time',
+                    'doc': 'A domain whois record'}),
+
+                TYPES that rely on xrefs ==============================================================================
+                ('inet:web:actref', {
+                    'subof': 'xref',
+                    'source': 'act,inet:web:action',
+                    'doc': 'A web action that references a given node.'}),
+
+                ('inet:web:postref', {
+                    'subof': 'xref',
+                    'source': 'post,inet:web:post',
+                    'doc': 'A web post that references a given node.'}),
+
+                TYPES that require ctor implementations ===============================================================
+                ('inet:addr', {
+                    'ctor': 'synapse.models.inet.AddrType',
+                    'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
+                    'ex': 'tcp://1.2.3.4:80'}),
+
+                ('inet:srv4', {
+                    'ctor': 'synapse.models.inet.Srv4Type',
+                    'doc': 'An IPv4 address and port.',
+                    'ex': '1.2.3.4:80'}),
+
+                ('inet:srv6', {
+                    'ctor': 'synapse.models.inet.Srv6Type',
+                    'doc': 'An IPv6 address and port.',
+                    'ex': '[2607:f8b0:4004:809::200e]:80'}),
+
+                ('inet:rfc2822:addr', {
+                    'ctor': 'synapse.models.inet.Rfc2822Addr',
+                    'ex': '"Visi Kenshoto" <visi@vertex.link>',
+                    'doc': 'An RFC 2822 Address field.'}),
+
+                TYPES that rely on ctor implementations ===============================================================
+                ('inet:server', {
+                    'subof': 'inet:addr',
+                    'doc': 'A network server address.'}),
+
+                ('inet:client', {
+                    'subof': 'inet:addr',
+                    'doc': 'A network client address.'}),
+
+                ('inet:tcp4', {
+                    'subof': 'inet:srv4',
+                    'doc': 'A TCP server listening on an IPv4 address and port.'}),
+
+                ('inet:udp4', {
+                    'subof': 'inet:srv4',
+                    'doc': 'A UDP server listening on an IPv4 address and port.'}),
+
+                ('inet:tcp6', {
+                    'subof': 'inet:srv6',
+                    'doc': 'A TCP server listening on a specific IPv6 address and port.'}),
+
+                ('inet:udp6', {
+                    'subof': 'inet:srv6',
+                    'doc': 'A UDP server listening on a specific IPv6 address and port.'}),
+
+                FORMS =========================================================================================================================================
 
                 ('inet:server', {}, (
                     ('proto', {'ptype': 'str:lwr', 'ro': 1,
