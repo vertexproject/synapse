@@ -202,7 +202,7 @@ class Xact(s_eventbus.EventBus):
 
             # maybe set some props...
             for name, valu in props.items():
-                node.set(prop, valu)
+                node.set(name, valu)
 
             return node
 
@@ -364,7 +364,7 @@ class Xact(s_eventbus.EventBus):
 
     def stor(self, sops):
         if not self.write:
-            raise XactReadOnly()
+            raise s_exc.ReadOnlyXact()
         self.layr._xactRunStors(self.xact, sops)
 
     def rows(self, lops):
