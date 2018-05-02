@@ -63,7 +63,7 @@ test_steps:  &test_steps
 jobs:
 
   python36:
-    parallelism: 3
+    parallelism: 7
     docker:
       - image: circleci/python:3.6
         environment:
