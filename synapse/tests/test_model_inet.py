@@ -167,6 +167,22 @@ class InetModelTest(SynTest):
                 isneither(n2)  # stays the same
                 issuffix(n4)   # stays the same
 
+    def test_forms_mac(self):
+        formname = 'inet:mac'
+        valu = '00:00:00:00:00:00'
+        expected_ndef = (formname, valu)
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+
+                node = xact.addNode(formname, valu)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, {'vendor': '??'})
+
+                node = xact.addNode(formname, valu, props={'vendor': 'Cool'})
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, {'vendor': 'Cool'})
+
     def test_forms_url(self):
         formname = 'inet:url'
         valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
@@ -297,6 +313,15 @@ class InetModelTest(SynTest):
             self.eq(t.norm('2001:db8::0:1')[0], '2001:db8::1')
             self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
             self.eq(t.norm('2001:db8::')[0], '2001:db8::')
+
+    def test_types_mac(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:mac')
+
+            self.eq(t.norm('00:00:00:00:00:00'), ('00:00:00:00:00:00', {}))
+            self.eq(t.norm('FF:ff:FF:ff:FF:ff'), ('ff:ff:ff:ff:ff:ff', {}))
+            self.raises(s_exc.BadTypeValu, t.norm, ' FF:ff:FF:ff:FF:ff ')
+            self.raises(s_exc.BadTypeValu, t.norm, 'GG:ff:FF:ff:FF:ff')
 
     def test_types_url(self):
         with self.getTestCore() as core:

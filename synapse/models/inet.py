@@ -461,6 +461,12 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A group name string.'
                     }),
 
+                    ('inet:mac', ('str', {'lower': True, 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$'}), {
+                        #'nullval': '??',  # FIXME this should not be here
+                        'doc': 'A 48-bit Media Access Control (MAC) address.',
+                        'ex': 'aa:bb:cc:dd:ee:ff'
+                    }),
+
                     ('inet:passwd', ('str', {}), {
                         'doc': 'A password string.'
                     }),
@@ -468,15 +474,6 @@ class InetModule(s_module.CoreModule):
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
                         'doc': 'A network port.',
                         'ex': '80'
-                    }),
-
-                    ('inet:wifi:ssid', ('str', {}), {
-                        'doc': 'A WiFi service set identifier (SSID) name.',
-                        'ex': 'The Vertex Project'
-                    }),
-
-                    ('inet:user', ('str', {'lower': True}), {
-                        'doc': 'A username string.'
                     }),
 
                     ('inet:whois:rar', ('str', {'lower': True}), {
@@ -487,6 +484,15 @@ class InetModule(s_module.CoreModule):
                     ('inet:whois:reg', ('str', {'lower': True}), {
                         'doc': 'A domain registrant.',
                         'ex': 'woot hostmaster'
+                    }),
+
+                    ('inet:wifi:ssid', ('str', {}), {
+                        'doc': 'A WiFi service set identifier (SSID) name.',
+                        'ex': 'The Vertex Project'
+                    }),
+
+                    ('inet:user', ('str', {'lower': True}), {
+                        'doc': 'A username string.'
                     }),
 
                 ),
@@ -620,6 +626,13 @@ class InetModule(s_module.CoreModule):
                         }),
 
                     )),
+
+                    ('inet:mac', {}, [
+                        ('vendor', ('str', {}), {
+                            'defval': '??',
+                            'doc': 'The vendor associated with the 24-bit prefix of a MAC address.'
+                        }),
+                    ]),
 
                     # FIXME implement
                     #('inet:passwd', {'ptype': 'inet:passwd'}, [

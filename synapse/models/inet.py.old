@@ -5,6 +5,7 @@
             'types': (
 
                 TYPES that dont extend builtins =======================================================================
+                # FIXME relies on it model
                 ('inet:http:request', {
                     'subof': 'guid',
                     'doc': 'A single client HTTP request.',
@@ -19,6 +20,7 @@
                     'subof': 'guid',
                     'doc': 'A network interface with a set of associated protocol addresses.'}),
 
+                # FIXME relies on it model
                 ('inet:flow', {
                     'subof': 'guid',
                     'doc': 'An individual network connection between a given source and destination.'}),
@@ -35,15 +37,6 @@
                     'subof': 'guid',
                     'doc': 'A change to a web account. Used to capture historical properties associated with '
                         ' an account, as opposed to current data in the inet:web:acct node.'}),
-
-                TYPES that extend builtins ============================================================================
-                ('inet:mac', {
-                    'subof': 'str',
-                    'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$',
-                    'lower': 1,
-                    'nullval': '??',
-                    'doc': 'A 48-bit Media Access Control (MAC) address.',
-                    'ex': 'aa:bb:cc:dd:ee:ff'}),
 
                 TYPES of comp/sepr ====================================================================================
                 ('inet:wifi:ap', {
@@ -343,12 +336,6 @@
                      ('net4:max', {'ptype': 'inet:ipv4', 'ro': 1,
                          'doc': 'The last IPv4 in the range assigned to the ASN.'}),
                  ]),
-
-
-                ('inet:mac', {'ptype': 'inet:mac'}, [
-                    ('vendor', {'ptype': 'str', 'defval': '??',
-                        'doc': 'The vendor associated with the 24-bit prefix of a MAC address.'}),
-                ]),
 
                 ('inet:tcp4', {'ptype': 'inet:srv4'}, [
                     ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
