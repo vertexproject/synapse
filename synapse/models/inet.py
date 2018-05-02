@@ -237,10 +237,6 @@ class IPv6(s_types.Type):
         except Exception as e:
             raise s_exc.BadTypeValu(valu)
 
-    '''
-    '''
-
-
 class Rfc2822Addr(s_types.Type):
     '''
     An RFC 2822 compatible email address parser
@@ -542,13 +538,16 @@ class InetModule(s_module.CoreModule):
                 # becomes inet:server/inet:client, which are both inet:addr
                 'forms': (
 
-                    # FIXME implement
-                    #('inet:asn', {'ptype': 'inet:asn'}, (
-                    #    ('name', {'ptype': 'str:lwr', 'defval': '??',
-                    #        'doc': 'The name of the organization currently responsible for the ASN.'}),
-                    #    ('owner', {'ptype': 'ou:org',
-                    #        'doc': 'The guid of the organization currently responsible for the ASN.'}),
-                    #)),
+                    ('inet:asn', ('inet:asn', {}), (
+                        ('name', ('str', {'lower': True}), {
+                            'defval': '??',
+                            'doc': 'The name of the organization currently responsible for the ASN.'
+                        }),
+                        # FIXME implement ou:org
+                        #('owner', ('ou:org', {}), {
+                        #    'doc': 'The guid of the organization currently responsible for the ASN.'
+                        #}),
+                    )),
 
                     ('inet:cidr4', {}, (
 

@@ -6,6 +6,33 @@ from synapse.tests.common import *
 class InetModelTest(SynTest):
 
     # Form Tests ===================================================================================
+    def test_forms_asn(self):
+        formname = 'inet:asn'
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+
+                valu = '123'
+                input_props = {
+                    'name': 'COOL',
+                    'owner': 32 * 'a'
+                }
+                expected_props = {
+                    'name': 'cool',
+                    # FIXME implement ou:org
+                }
+                expected_ndef = (formname, 123)
+                node = xact.addNode(formname, valu, props=input_props)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+                valu = '456'
+                expected_props = {'name': '??'}
+                expected_ndef = (formname, 456)
+                node = xact.addNode(formname, valu)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
     def test_forms_cidr4(self):
         formname = 'inet:cidr4'
         valu = '192[.]168.1.123/24'
