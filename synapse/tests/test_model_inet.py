@@ -185,6 +185,8 @@ class InetModelTest(SynTest):
         with self.getTestCore() as core:
             self.nn(core.model.form('inet:group'))  # str w/ lower
             self.nn(core.model.form('inet:user'))  # str w/ lower
+            self.nn(core.model.form('inet:whois:rar'))  # str w/ lower
+            self.nn(core.model.form('inet:whois:reg'))  # str w/ lower
 
     # Type Tests ===================================================================================
     def test_types_cidr4(self):
@@ -419,6 +421,8 @@ class InetModelTest(SynTest):
             self.nn(core.model.type('inet:port'))  # int w/ min/max
             self.nn(core.model.type('inet:wifi:ssid'))  # str
             self.nn(core.model.type('inet:user'))  # str w/ lower
+            self.nn(core.model.type('inet:whois:rar'))  # str w/ lower
+            self.nn(core.model.type('inet:whois:reg'))  # str w/ lower
 
 class FIXME:
 

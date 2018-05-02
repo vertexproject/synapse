@@ -5,16 +5,6 @@
             'types': (
 
                 TYPES that dont extend builtins =======================================================================
-                ('inet:whois:rar', {
-                    'subof': 'str:lwr',
-                    'doc': 'A domain registrar.',
-                    'ex': 'godaddy, inc.'}),
-
-                ('inet:whois:reg', {
-                    'subof': 'str:lwr',
-                    'doc': 'A domain registrant.',
-                    'ex': 'woot hostmaster'}),
-
                 ('inet:http:request', {
                     'subof': 'guid',
                     'doc': 'A single client HTTP request.',
@@ -774,10 +764,6 @@
                         'doc': 'The most recent known date the file was posted / submitted / associated'
                             'with the account.'}),
                 ]),
-
-                ('inet:whois:reg', {}, []),
-
-                ('inet:whois:rar', {}, []),
 
                 ('inet:whois:regmail', {'ptype': 'inet:whois:regmail'}, [
                     ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,

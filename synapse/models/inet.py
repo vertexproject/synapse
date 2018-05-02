@@ -476,7 +476,18 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:user', ('str', {'lower': True}), {
-                        'doc': 'A username string.'}),
+                        'doc': 'A username string.'
+                    }),
+
+                    ('inet:whois:rar', ('str', {'lower': True}), {
+                        'doc': 'A domain registrar.',
+                        'ex': 'godaddy, inc.'
+                    }),
+
+                    ('inet:whois:reg', ('str', {'lower': True}), {
+                        'doc': 'A domain registrant.',
+                        'ex': 'woot hostmaster'
+                    }),
 
                 ),
 
@@ -643,6 +654,10 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:user', {}, ()),
+
+                    ('inet:whois:rar', {}, ()),
+
+                    ('inet:whois:reg', {}, ()),
 
                 ),
             }),
