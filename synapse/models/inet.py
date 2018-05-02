@@ -39,7 +39,7 @@ class Cidr4(s_types.Type):
         broadcast = network + mask[1] - 1
         network_str = self.modl.type('inet:ipv4').repr(network)
 
-        norm = '{}/{}'.format(network_str, mask_int)
+        norm = f'{network_str}/{mask_int}'
         info = {
             'subs': {
                 'broadcast': broadcast,
@@ -64,7 +64,7 @@ class Email(s_types.Type):
         fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
         usernorm, userinfo = self.modl.type('inet:user').norm(user)
 
-        norm = '%s@%s' % (usernorm, fqdnnorm)
+        norm = f'{usernorm}@{fqdnnorm}'
         info = {
             'subs': {
                 'fqdn': fqdnnorm,
@@ -227,7 +227,7 @@ class IPv6(s_types.Type):
             if v4 is not None:
                 v4_int = self.modl.type('inet:ipv4').norm(v4.compressed)[0]
                 v4_str = self.modl.type('inet:ipv4').repr(v4_int)
-                return '::ffff:%s' % (v4_str), {'subs': {'ipv4': v4_int}}
+                return f'::ffff:{v4_str}', {'subs': {'ipv4': v4_int}}
 
             return ipaddress.IPv6Address(valu).compressed, {}
 
@@ -262,7 +262,7 @@ class Url(s_types.Type):
         parts = valu.split('/', 1)
         if len(parts) == 2:
             valu, pathpart = parts
-            pathpart = '/{}'.format(pathpart)
+            pathpart = f'/{pathpart}'
         subs['path'] = pathpart
 
         # Optional User/Password
@@ -291,7 +291,7 @@ class Url(s_types.Type):
 
                 host = self.modl.type('inet:ipv6').repr(ipv6)
                 if match:
-                    host = '[{}]'.format(host)
+                    host = f'[{host}]'
 
             except Exception as e:
                 pass
@@ -326,7 +326,8 @@ class Url(s_types.Type):
 
         # Optional Port
         if port is not None:
-            subs['port'] = self.modl.type('inet:port').norm(port)[0]
+            port = self.modl.type('inet:port').norm(port)[0]
+            subs['port'] = port
         else:
             # Look up default port for protocol, but don't add it back into the url
             defport = s_l_iana.services.get(proto)
@@ -335,11 +336,11 @@ class Url(s_types.Type):
 
         # Set up Normed URL
         if authparts:
-            hostparts = '{}@'.format(authparts)
-        hostparts = '{}{}'.format(hostparts, host)
-        if port:
-            hostparts = '{}:{}'.format(hostparts, port)
-        norm = '{}://{}{}'.format(proto, hostparts, pathpart)
+            hostparts = f'{authparts}@'
+        hostparts = f'{hostparts}{host}'
+        if port is not None:
+            hostparts = f'{hostparts}:{port}'
+        norm = f'{proto}://{hostparts}{pathpart}'
 
         return norm, {'subs': subs}
 

@@ -355,58 +355,58 @@ class InetModelTest(SynTest):
             host_port = host
             repr_host_port = repr_host
             if htype == 'ipv6':
-                host_port = '[{}]'.format(host)
-                repr_host_port = '[{}]'.format(repr_host)
+                host_port = f'[{host}]'
+                repr_host_port = f'[{repr_host}]'
 
             # URL with auth and port.
-            url = 'https://user:password@{}:1234/a/b/c/'.format(host_port)
-            expected = ('https://user:password@{}:1234/a/b/c/'.format(repr_host_port), {'subs': {
+            url = f'https://user:password@{host_port}:1234/a/b/c/'
+            expected = (f'https://user:password@{repr_host_port}:1234/a/b/c/', {'subs': {
                 'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 1234
             }})
             self.eq(t.norm(url), expected)
 
             # URL with no port, but default port valu.
             # Port should be in subs, but not normed URL.
-            url = 'https://user:password@{}/a/b/c/'.format(host)
-            expected = ('https://user:password@{}/a/b/c/'.format(repr_host), {'subs': {
+            url = f'https://user:password@{host}/a/b/c/'
+            expected = (f'https://user:password@{repr_host}/a/b/c/', {'subs': {
                 'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 443
             }})
             self.eq(t.norm(url), expected)
 
             # URL with no port and no default port valu.
             # Port should not be in subs or normed URL.
-            url = 'arbitrary://user:password@{}/a/b/c/'.format(host)
-            expected = ('arbitrary://user:password@{}/a/b/c/'.format(repr_host), {'subs': {
+            url = f'arbitrary://user:password@{host}/a/b/c/'
+            expected = (f'arbitrary://user:password@{repr_host}/a/b/c/', {'subs': {
                 'proto': 'arbitrary', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host
             }})
             self.eq(t.norm(url), expected)
 
             # URL with user but no password.
             # User should still be in URL and subs.
-            url = 'https://user@{}:1234/a/b/c/'.format(host_port)
-            expected = ('https://user@{}:1234/a/b/c/'.format(repr_host_port), {'subs': {
+            url = f'https://user@{host_port}:1234/a/b/c/'
+            expected = (f'https://user@{repr_host_port}:1234/a/b/c/', {'subs': {
                 'proto': 'https', 'path': '/a/b/c/', 'user': 'user', htype: norm_host, 'port': 1234
             }})
             self.eq(t.norm(url), expected)
 
             # URL with no user/password.
             # User/Password should not be in URL or subs.
-            url = 'https://{}:1234/a/b/c/'.format(host_port)
-            expected = ('https://{}:1234/a/b/c/'.format(repr_host_port), {'subs': {
+            url = f'https://{host_port}:1234/a/b/c/'
+            expected = (f'https://{repr_host_port}:1234/a/b/c/', {'subs': {
                 'proto': 'https', 'path': '/a/b/c/', htype: norm_host, 'port': 1234
             }})
             self.eq(t.norm(url), expected)
 
             # URL with no path.
-            url = 'https://{}:1234'.format(host_port)
-            expected = ('https://{}:1234'.format(repr_host_port), {'subs': {
+            url = f'https://{host_port}:1234'
+            expected = (f'https://{repr_host_port}:1234', {'subs': {
                 'proto': 'https', 'path': '', htype: norm_host, 'port': 1234
             }})
             self.eq(t.norm(url), expected)
 
             # URL with no path or port or default port.
-            url = 'a://{}'.format(host)
-            expected = ('a://{}'.format(repr_host), {'subs': {
+            url = f'a://{host}'
+            expected = (f'a://{repr_host}', {'subs': {
                 'proto': 'a', 'path': '', htype: norm_host
             }})
             self.eq(t.norm(url), expected)
