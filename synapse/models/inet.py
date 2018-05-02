@@ -635,7 +635,7 @@ class InetModule(s_module.CoreModule):
                         ('port', ('inet:port', {}), {'ro': 1,
                              'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
                                  'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
-                        ('proto', ('str', {}), {'ro': 1,
+                        ('proto', ('str', {'lower': True}), {'ro': 1,
                              'doc': 'The protocol in the URL.'}),
                         ('user', ('inet:user', {}), {'ro': 1,
                              'doc': 'The optional username used to access the URL.'}),
