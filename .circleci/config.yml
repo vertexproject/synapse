@@ -63,7 +63,7 @@ test_steps:  &test_steps
 jobs:
 
   python36:
-    parallelism: 3
+    parallelism: 7
     docker:
       - image: circleci/python:3.6
         environment:
@@ -74,33 +74,8 @@ jobs:
 
     <<: *test_steps
 
-  python35:
-    parallelism: 2
-    docker:
-      - image: circleci/python:3.5
-        environment:
-          IMAGE_VERSION: 3.5
-          RUN_SYNTAX: true
-
-    working_directory: ~/repo
-
-    <<: *test_steps
-
-  python34:
-    parallelism: 2
-    docker:
-      - image: circleci/python:3.4
-        environment:
-          IMAGE_VERSION: 3.4
-
-    working_directory: ~/repo
-
-    <<: *test_steps
-
 workflows:
   version: 2
   run_tests:
     jobs:
       - python36
-      - python35
-      - python34
