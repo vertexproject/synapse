@@ -59,10 +59,13 @@ class Email(s_types.Type):
 
     def _normPyStr(self, valu):
 
-        user, fqdn = valu.split('@', 1)
+        try:
+            user, fqdn = valu.split('@', 1)
 
-        fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
-        usernorm, userinfo = self.modl.type('inet:user').norm(user)
+            fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
+            usernorm, userinfo = self.modl.type('inet:user').norm(user)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu, mesg=e)
 
         norm = f'{usernorm}@{fqdnnorm}'
         info = {
@@ -233,6 +236,55 @@ class IPv6(s_types.Type):
 
         except Exception as e:
             raise s_exc.BadTypeValu(valu)
+
+    '''
+    '''
+
+
+class Rfc2822Addr(s_types.Type):
+    '''
+    An RFC 2822 compatible email address parser
+    '''
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+
+    def indx(self, norm):
+        return norm.encode('utf8')
+
+    def _normPyStr(self, valu):
+        if not isinstance(valu, str):
+            raise s_exc.BadTypeValu(valu, mesg='requires a string')
+
+        # remove quotes for normalized version
+        valu = valu.replace('"', ' ').replace("'", ' ')
+        valu = valu.strip().lower()
+        valu = ' '.join(valu.split())
+
+        try:
+            name, addr = email.utils.parseaddr(valu)
+        except Exception as e: # pragma: no cover
+            # not sure we can ever really trigger this with a string as input
+            raise s_exc.BadTypeValu(valu, mesg='email.utils.parsaddr failed: %s' % (e,))
+
+        subs = {}
+        if name:
+            subs['name'] = name
+
+        try:
+            data = self.modl.type('inet:email').norm(addr)
+            if len(data) is 2:
+                mail = data[0]
+
+            subs['email'] = mail
+            if name:
+                valu = '%s <%s>' % (name, mail)
+            else:
+                valu = mail
+        except s_exc.BadTypeValu as e:
+            pass # it's all good, we just dont have a valid email addr
+
+        return valu, {'subs': subs}
 
 class Url(s_types.Type):
 
@@ -445,9 +497,15 @@ class InetModule(s_module.CoreModule):
                         'ex': '2607:f8b0:4004:809::200e'
                     }),
 
+                    ('inet:rfc2822:addr', 'synapse.models.inet.Rfc2822Addr', {}, {
+                        'doc': 'An RFC 2822 Address field.',
+                        'ex': '"Visi Kenshoto" <visi@vertex.link>'
+                    }),
+
                     ('inet:url', 'synapse.models.inet.Url', {}, {
                         'doc': 'A Universal Resource Locator (URL).',
-                        'ex': 'http://www.woot.com/files/index.html'}),
+                        'ex': 'http://www.woot.com/files/index.html'
+                    }),
 
                 ),
 
@@ -619,6 +677,18 @@ class InetModule(s_module.CoreModule):
                     #    ('sha256', {'ptype': 'hash:sha256', 'ro': 1,
                     #        'doc': 'The computed SHA256 hash of the password.'}),
                     #]),
+
+                    ('inet:rfc2822:addr', {}, (
+                        # FIXME implement person
+                        #('name', ('ps:name', {}), {
+                        #    'ro': True,
+                        #    'doc': 'The name field parsed from an RFC 2822 address string.'
+                        #}),
+                        ('email', ('inet:email', {}), {
+                            'ro': True,
+                            'doc': 'The email field parsed from an RFC 2822 address string.'
+                        }),
+                    )),
 
                     # FIXME implement inet:wifi:ssid
 
