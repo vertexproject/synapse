@@ -666,7 +666,7 @@ class Hex(Type):
 
         if not valu:
             raise s_exc.BadTypeValu(valu=valu,
-                                    mesg='no valu left?')
+                                    mesg='No string left after stripping')
 
         if not self._regex.match(valu):
             raise s_exc.BadTypeValu(valu=valu,
@@ -677,8 +677,10 @@ class Hex(Type):
         return valu, {}
 
     def _normPyInt(self, valu):
+        if valu < 0:
+            raise s_exc.BadTypeValu(valu=valu, mesg='Hex cannot handle negative integers')
         valu = f'{valu:x}'
-        return self._normPyStr(valu)
+        return valu, {}
 
     def _normPyBytes(self, valu):
         return self._normPyInt(int.from_bytes(valu, 'big'))

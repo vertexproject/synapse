@@ -55,7 +55,7 @@ class CryptoModule(s_module.CoreModule):
                 ('hash:ntlm',
                  ('hex', {'width': 32}),
                  {
-                     'doc': 'A hex encoded Microsoft Windlws NTLM password hash',
+                     'doc': 'A hex encoded Microsoft Windows NTLM password hash',
                      'ex': ex_md5
                  }),
                 ('rsa:key',
@@ -80,13 +80,13 @@ class CryptoModule(s_module.CoreModule):
                     ('pub:exp', ('hex', {}), {'ro': 1,
                        'doc': 'The public exponent'}),
                     ('bits', ('int', {}),
-                     {'doc': 'The length of hte modulus in bits'}),
+                     {'doc': 'The length of the modulus in bits'}),
                     ('priv:exp', ('hex', {}),
                      {'doc': 'The private exponent'}),
                     ('priv:p', ('hex', {}),
-                     {'doc': 'One of the two private prime'}),
+                     {'doc': 'One of the two private primes.'}),
                     ('priv:q', ('hex', {}),
-                     {'doc': 'One of the two private prime'}),
+                     {'doc': 'One of the two private primes.'}),
                 ))
             )
         }
