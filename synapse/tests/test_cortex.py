@@ -38,6 +38,8 @@ testmodel = {
                 ('hehe', 'int'),
                 ('haha', 'testlower'))
             }), {'doc': 'A fake comp type.'}),
+        ('testhexa', ('hex', {}), {'doc': 'anywidth test hex type'}),
+        ('testhex4', ('hex', {'width': 4}), {'doc': 'width 4 test hex type'}),
     ),
 
     'forms': (
@@ -69,6 +71,8 @@ testmodel = {
         )),
 
         ('testauto', {}, ()),
+        ('testhexa', {}, ()),
+        ('testhex4', {}, ())
     ),
 
 }

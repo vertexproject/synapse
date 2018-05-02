@@ -1,9 +1,9 @@
+import hashlib
+
+import synapse.exc as s_exc
+import synapse.cortex as s_cortex
+
 import synapse.tests.common as s_test
-
-import unittest
-raise unittest.SkipTest('a conflict for epiphite ;)')
-
-from synapse.tests.common import *
 
 
 BITS = 2048
@@ -19,8 +19,56 @@ PRIVATE_PRIME_Q = 13850162267490459024197953390192367246939249215461967882818020
 HEXSTR_PRIVATE_PRIME_Q = 'c53b9c8dfb3dda04d16c7f779a02b3b8c7b44bf876dc88ad562778eafaded9ade882ccfb887761515a251c224761bef7207fa489e398041787cfbd155f1034a207d517f06bc76a044262484f82f0c6a887f776b1dce837408999d88dd33a96c7f80e23719e77a11075d337bf9cc47d7dbf98e341b81c23f165dd15ccfd2973ab'
 HEXSTR_RSA_KEY = 'abbd407f417fe8d6632aae1c6d09b271416bef9244e61f7c7c2856ddfde3ecf93cd50b3eaea5c9b8cb9bfb5a317bf50925ab500a06247ec2f3294891a8e62c317ee648f933ec1bf760a9d7e9a5ea4706b2a2c3f6376079114ddcc7a15d3fecf001458f22f0551802a25ef95cf464aabeb0514ea3849583bc09022730c44a2ff5f893fc6885add69c103d75114dd2f11436f617fbfb0af2978802aabf35483bbfcc470d50d6afb4283c1d06d2bf27efe9d7c09f226895633a46c3d77173bf0db8634299462b5f29629ad3b0470c76ddfd331ed0207d4dbd5fd44a2f66ca5f802ac0130e4a4bb2c149b5baa7a373188823ee21fe2950a76c818586919f7914453d/10001'
 
+TEST_MD5 = hashlib.md5(b'test').hexdigest()
+TEST_SHA1 = hashlib.sha1(b'test').hexdigest()
+TEST_SHA256 = hashlib.sha256(b'test').hexdigest()
+TEST_SHA384 = hashlib.sha384(b'test').hexdigest()
+TEST_SHA512 = hashlib.sha512(b'test').hexdigest()
 
-class CryptoModelTest(SynTest):
+class CryptoModelTest(s_test.SynTest):
+
+    def test_norm_lm_ntlm(self):
+        with self.getTestCore() as core:  # type: s_cortex.Cortex
+            lm = core.model.type('hash:lm')
+            valu, subs = lm.norm(TEST_MD5.upper())
+            self.eq(valu, TEST_MD5)
+            self.eq(subs, {})
+            self.raises(s_exc.BadTypeValu, lm.norm, TEST_SHA256)
+
+            ntlm = core.model.type('hash:ntlm')
+            valu, subs = lm.norm(TEST_MD5.upper())
+            self.eq(valu, TEST_MD5)
+            self.eq(subs, {})
+            self.raises(s_exc.BadTypeValu, ntlm.norm, TEST_SHA256)
+
+    def test_forms_crypto_simple(self):
+        with self.getTestCore() as core:  # type: s_cortex.Cortex
+            with core.xact(write=True) as xact:
+                # md5
+                node = xact.addNode('hash:md5', TEST_MD5.upper())
+                self.eq(node.ndef, ('hash:md5', TEST_MD5))
+                self.eq(node.props, {})
+                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:md5', TEST_SHA1)
+                # sha1
+                node = xact.addNode('hash:sha1', TEST_SHA1.upper())
+                self.eq(node.ndef, ('hash:sha1', TEST_SHA1))
+                self.eq(node.props, {})
+                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:sha1', TEST_SHA256)
+                # sha256
+                node = xact.addNode('hash:sha256', TEST_SHA256.upper())
+                self.eq(node.ndef, ('hash:sha256', TEST_SHA256))
+                self.eq(node.props, {})
+                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:sha256', TEST_SHA384)
+                # sha384
+                node = xact.addNode('hash:sha384', TEST_SHA384.upper())
+                self.eq(node.ndef, ('hash:sha384', TEST_SHA384))
+                self.eq(node.props, {})
+                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:sha384', TEST_SHA512)
+                # sha512
+                node = xact.addNode('hash:sha512', TEST_SHA512.upper())
+                self.eq(node.ndef, ('hash:sha512', TEST_SHA512))
+                self.eq(node.props, {})
+                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:sha512', TEST_MD5)
 
     def test_form_rsakey(self):
         prop = 'rsa:key'
@@ -31,14 +79,17 @@ class CryptoModelTest(SynTest):
             'priv:q': PRIVATE_PRIME_Q,
         }
         valu = (MODULUS, PUBLIC_EXPONENT)
-        tufo = ('', {})
-        with self.getRamCore() as core:
-            tufo = core.formTufoByProp(prop, valu, **props)
-        self.eq(tufo[1].get('tufo:form'), 'rsa:key')
-        self.eq(tufo[1].get('rsa:key'), HEXSTR_RSA_KEY)
-        self.eq(tufo[1].get('rsa:key:mod'), HEXSTR_MODULUS)
-        self.eq(tufo[1].get('rsa:key:bits'), BITS)
-        self.eq(tufo[1].get('rsa:key:pub:exp'), HEXSTR_PUBLIC_EXPONENT)
-        self.eq(tufo[1].get('rsa:key:priv:exp'), HEXSTR_PRIVATE_EXPONENT)
-        self.eq(tufo[1].get('rsa:key:priv:p'), HEXSTR_PRIVATE_PRIME_P)
-        self.eq(tufo[1].get('rsa:key:priv:q'), HEXSTR_PRIVATE_PRIME_Q)
+
+        with self.getTestCore() as core:  # type: s_cortex.Cortex
+            with core.xact(write=True) as xact:
+                node = xact.addNode(prop, valu, props)
+                node = node.pack()
+
+        self.eq(node[1].get('ndef')[1], (HEXSTR_MODULUS, HEXSTR_PUBLIC_EXPONENT))
+        nprops = node[1].get('props')
+        self.eq(nprops.get('mod'), HEXSTR_MODULUS)
+        self.eq(nprops.get('bits'), BITS)
+        self.eq(nprops.get('pub:exp'), HEXSTR_PUBLIC_EXPONENT)
+        self.eq(nprops.get('priv:exp'), HEXSTR_PRIVATE_EXPONENT)
+        self.eq(nprops.get('priv:p'), HEXSTR_PRIVATE_PRIME_P)
+        self.eq(nprops.get('priv:q'), HEXSTR_PRIVATE_PRIME_Q)

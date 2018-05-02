@@ -1,4 +1,5 @@
 import json
+import math
 import base64
 import struct
 import logging
@@ -640,6 +641,55 @@ class Comp(Type):
 
     def indx(self, norm):
         return s_common.buid(norm)
+
+class Hex(Type):
+    _opt_defs = (
+        ('width', 0),
+    )
+
+    def postTypeInit(self):
+        self._width = self.opts.get('width')
+        if self._width < 0:
+            # zero means no width check
+            raise s_exc.BadConfValu(name='width', valu=self._width,
+                                    mesg='Width must be > 0')
+        self._bsize = int(math.ceil(self._width / 2))
+        self._regex = regex.compile(r'^[0-9a-f]+$')
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(bytes, self._normPyBytes)
+
+    def _normPyStr(self, valu):
+        valu = valu.strip().lower()
+        if valu.startswith('0x'):
+            valu = valu[2:]
+
+        if not valu:
+            raise s_exc.BadTypeValu(valu=valu,
+                                    mesg='no valu left?')
+
+        if not self._regex.match(valu):
+            raise s_exc.BadTypeValu(valu=valu,
+                                    mesg='regex fail')
+        if self._width and len(valu) != self._width:
+            raise s_exc.BadTypeValu(valu=valu, reqwidth=self._width,
+                                    mesg='invalid width')
+        return valu, {}
+
+    def _normPyInt(self, valu):
+        valu = f'{valu:x}'
+        return self._normPyStr(valu)
+
+    def _normPyBytes(self, valu):
+        return self._normPyInt(int.from_bytes(valu, 'big'))
+
+    def indx(self, norm):
+        valu = int(norm, 16)
+        if self._width:
+            size = self._bsize
+        else:
+            size = int(math.ceil(len(norm) / 2))
+        return valu.to_bytes(size, 'big')
 
 class Ndef(Type):
 
