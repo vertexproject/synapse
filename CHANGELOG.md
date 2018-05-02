@@ -1,6 +1,17 @@
 Changelog
 =========
 
+v0.0.54 - 2018-05-01
+--------------------
+
+## Enhancements
+- #740, #746 - Made OSX test runners run faster by compiling Python 3.6.5 once using pyenv and then use a venv per branch.
+- #745 - Increase information included in the ``AuthDeny`` exception by ``Cortex.reqUserPerm()`` to include the username of the user who did not have the permission.
+
+## Bugs
+- #739 - The ``synapse.tools.easycert`` ``--importfile`` option was not properly parsing certificate paths.  This meant that real-world certificates were unable to be imported into a certstore.  This has been addressed.
+
+
 v0.0.53 - 2018-04-27
 --------------------
 
