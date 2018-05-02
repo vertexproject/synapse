@@ -1,3 +1,5 @@
+import copy
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -438,6 +440,54 @@ class InetModelTest(SynTest):
             }})
             self.eq(t.norm(url), expected)
 
+    def test_web_acct(self):
+        with self.getTestCore() as core:
+            formname = 'inet:web:acct'
+
+            # Type Tests
+            t = core.model.type(formname)
+
+            self.raises(s_exc.NoSuchFunc, t.norm, 'vertex.link/person1')  # No longer a sepr
+            self.eq(t.norm(('VerTex.linK', 'PerSon1')), (('vertex.link', 'person1'), {'subs': {'site': 'vertex.link', 'user': 'person1'}}))
+
+            # Form Tests
+            valu = ('blogs.Vertex.link', 'Brutus')
+            input_props = {
+                'avatar': 64 * 'a',
+                'dob': -64836547200000,
+                'email': 'brutus@vertex.link',
+                #'latlong': '0,0',  # FIXME implement
+                'loc': 'sol',
+                'name': 'ካሳር',
+                'name:en': 'brutus',
+                'occupation': 'jurist',
+                #'passwd': 'hunter2',  # FIXME implement
+                #'phone': '555-555-5555',  # FIXME implement
+                #'realname': 'Брут',  # FIXME implement
+                #'realname:en': 'brutus',  # FIXME implement
+                'seen:max': 1,
+                'seen:min': 2,
+                'signup': 3,
+                'signup:ipv4': 4,
+                'tagline': 'Taglines are not tags',
+                'url': 'https://blogs.vertex.link/',
+                'webpage': 'https://blogs.vertex.link/brutus',
+            }
+
+            expected_ndef = (formname, ('blogs.vertex.link', 'brutus'))
+            expected_props = copy.copy(input_props)
+            expected_props.update({
+                # FIXME add the other props later
+                'site': valu[0].lower(),
+                'user': valu[1].lower()
+            })
+
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu, props=input_props)
+
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
     def test_types_unextended(self):
         # The following types are subtypes that do not extend their base type
         with self.getTestCore() as core:
@@ -557,25 +607,6 @@ class FIXME:
 
             node = core.formTufoByProp('inet:url', 'HTTP://1.2.3.4/')
             self.eq(node[1].get('inet:url:ipv4'), 0x01020304)
-
-    def test_model_inet_web_acct(self):
-
-        with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:web:acct', 'vertex.link/person1',
-                                     **{'name': 'ካሳር',
-                                        'name:en': 'caesar',
-                                        'realname': 'Брут',    # uppercased Cyrllic
-                                        'realname:en': 'brutus',
-                                        })
-            self.eq(t0[1].get('inet:web:acct'), 'vertex.link/person1')
-            self.eq(t0[1].get('inet:web:acct:site'), 'vertex.link')
-            self.eq(t0[1].get('inet:web:acct:user'), 'person1')
-            t0 = core.setTufoProp(t0, 'loc', 'HAHA')
-            self.eq(t0[1].get('inet:web:acct:loc'), 'haha')
-            self.eq(t0[1].get('inet:web:acct:name'), 'ካሳር')
-            self.eq(t0[1].get('inet:web:acct:name:en'), 'caesar')
-            self.eq(t0[1].get('inet:web:acct:realname'), 'брут')  # lowercased Cyrllic
-            self.eq(t0[1].get('inet:web:acct:realname:en'), 'brutus')
 
     def test_model_inet_web_post(self):
 

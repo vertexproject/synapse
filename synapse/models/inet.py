@@ -476,6 +476,11 @@ class InetModule(s_module.CoreModule):
                         'ex': '80'
                     }),
 
+                    ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user'))}), {
+                            'doc': 'An account with a given Internet-based site or service.',
+                            'ex': 'twitter.com/invisig0th'
+                    }),
+
                     ('inet:whois:rar', ('str', {'lower': True}), {
                         'doc': 'A domain registrar.',
                         'ex': 'godaddy, inc.'
@@ -500,7 +505,6 @@ class InetModule(s_module.CoreModule):
                 # NOTE: tcp4/udp4/tcp6/udp6 are going away
                 # becomes inet:server/inet:client, which are both inet:addr
                 'forms': (
-
                     # FIXME implement
                     #('inet:asn', {'ptype': 'inet:asn'}, (
                     #    ('name', {'ptype': 'str:lwr', 'defval': '??',
@@ -508,6 +512,107 @@ class InetModule(s_module.CoreModule):
                     #    ('owner', {'ptype': 'ou:org',
                     #        'doc': 'The guid of the organization currently responsible for the ASN.'}),
                     #)),
+
+
+                    ('inet:web:acct', {}, (
+
+                        ('avatar', ('file:bytes', {}), {
+                            'doc': 'The file representing the avatar (e.g., profile picture) for the account.'
+                        }),
+
+                        ('dob', ('time', {}), {
+                            'doc': 'A self-declared date of birth for the account (if the account belongs to a person).'
+                        }),
+
+                        ('email', ('inet:email', {}), {
+                            'doc': 'The email address associated with the account.'
+                        }),
+
+                        # FIXME implement
+                        #('latlong', ('geo:latlong', {}), {
+                        #    'doc': 'The last known latitude/longitude for the node'
+                        #}),
+
+                        ('loc', ('loc', {}), {
+                            'doc': 'A self-declared location for the account.'
+                        }),
+
+                        ('name', ('inet:user', {}), {
+                            'doc': 'The localized name associated with the account (may be different from the '
+                                'account identifier, e.g., a display name).'
+                        }),
+
+                        ('name:en', ('inet:user', {}), {
+                            'doc': 'The English version of the name associated with the (may be different from '
+                                'the account identifier, e.g., a display name).'
+                        }),
+
+                        ('occupation', ('str', {'lower': True}), {
+                            'doc': 'A self-declared occupation for the account.'
+                        }),
+
+                        # FIXME implement
+                        #('passwd', ('inet:passwd', {}), {
+                        #    'doc': 'The current password for the account.'
+                        #})
+
+                        # FIXME implement
+                        #('phone', ('tel:phone', {}), {
+                        #    'doc': 'The phone number associated with the account.'
+                        #}),
+
+                        # FIXME implement
+                        #('realname', ('ps:name', {}), {
+                        #    'doc': 'The localized version of the real name of the account owner / registrant.'
+                        #}),
+
+                        # FIXME implement
+                        #('realname:en', ('ps:name', {}), {
+                        #    'doc': 'The English version of the real name of the account owner / registrant.'
+                        #}),
+
+                        ('seen:max', ('time', {'max': True}), {
+                            'doc': 'The most recent known date of activity for the account.'
+                        }),
+
+                        ('seen:min', ('time', {'min': True}), {
+                            'doc': 'The earliest known date of activity for the account.'
+                        }),
+
+                        ('signup', ('time', {}), {
+                            'doc': 'The date and time the account was registered.'
+                        }),
+
+                        ('signup:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The IPv4 address used to sign up for the account.'
+                        }),
+
+                        ('site', ('inet:fqdn', {}), {
+                            'ro': 1,
+                            'doc': 'The site or service associated with the account.'
+                        }),
+
+                        # FIXME was str:txt
+                        ('tagline', ('str', {}), {
+                            'doc': 'The text of the account status or tag line.'
+                        }),
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The service provider URL where the account is hosted.'
+                        }),
+
+                        ('user', ('inet:user', {}), {
+                            'ro': 1,
+                            'doc': 'The unique identifier for the account (may be different from the common '
+                                'name or display name).'
+                        }),
+
+                        ('webpage', ('inet:url', {}), {
+                            'doc': 'A related URL specified by the account (e.g., a personal or company web '
+                                 'page, blog, etc.).'
+                        }),
+
+                    )),
 
                     ('inet:cidr4', {}, (
 

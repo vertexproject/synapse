@@ -11,11 +11,13 @@
                     'doc': 'A single client HTTP request.',
                 }),
 
+                # FIXME relies on it model on inet:server
                 ('inet:download', {
                     'subof': 'guid',
                     'doc': 'An instance of a file downloaded from a server.',
                 }),
 
+                # FIXME relies on it, tel, geospace model
                 ('inet:iface', {
                     'subof': 'guid',
                     'doc': 'A network interface with a set of associated protocol addresses.'}),
@@ -25,14 +27,17 @@
                     'subof': 'guid',
                     'doc': 'An individual network connection between a given source and destination.'}),
 
+                # FIXME relies on inet:web:acct
                 ('inet:web:logon', {
                     'subof': 'guid',
                     'doc': 'An instance of an account authenticating to an Internet-based site or service.'}),
 
+                # FIXME relies on inet:web:acct
                 ('inet:web:action', {
                     'subof': 'guid',
                     'doc': 'An instance of an account performing an action at an Internet-based site or service.'}),
 
+                # FIXME relies on inet:web:acct and pv?
                 ('inet:web:chprofile', {
                     'subof': 'guid',
                     'doc': 'A change to a web account. Used to capture historical properties associated with '
@@ -128,13 +133,6 @@
                     'fields': 'asn,inet:asn|net4,inet:net4',
                     'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
                     'ex': '54959/1.2.3.4-1.2.3.20'}),
-
-                ('inet:web:acct', {
-                    'subof': 'sepr',
-                    'sep': '/',
-                    'fields': 'site,inet:fqdn|user,inet:user',
-                    'doc': 'An account with a given Internet-based site or service.',
-                    'ex': 'twitter.com/invisig0th'}),
 
                 ('inet:web:group', {
                     'subof': 'sepr',
@@ -480,68 +478,6 @@
                     ('bssid', {'ptype': 'inet:wifi:ssid',
                         'doc': 'The SSID for the wireless access point.'}),
                 ]),
-
-                ('inet:web:acct', {'ptype': 'inet:web:acct'}, [
-
-                    ('site', {'ptype': 'inet:fqdn', 'ro': 1,
-                        'doc': 'The site or service associated with the account.'}),
-
-                    ('user', {'ptype': 'inet:user', 'ro': 1,
-                        'doc': 'The unique identifier for the account (may be different from the common '
-                            'name or display name).'}),
-
-                    ('url', {'ptype': 'inet:url',
-                        'doc': 'The service provider URL where the account is hosted.'}),
-
-                    ('name', {'ptype': 'inet:user',
-                        'doc': 'The localized name associated with the account (may be different from the '
-                            'account identifier, e.g., a display name).'}),
-
-                    ('name:en', {'ptype': 'inet:user',
-                        'doc': 'The English version of the name associated with the (may be different from '
-                            'the account identifier, e.g., a display name).'}),
-
-                    ('avatar', {'ptype': 'file:bytes',
-                        'doc': 'The file representing the avatar (e.g., profile picture) for the account.'}),
-
-                    ('tagline', {'ptype': 'str:txt',
-                        'doc': 'The text of the account status or tag line.'}),
-
-                    ('webpage', {'ptype': 'inet:url',
-                        'doc': 'A related URL specified by the account (e.g., a personal or company web '
-                             'page, blog, etc.).'}),
-
-                    ('latlong', {'ptype': 'geo:latlong',
-                        'doc': 'The last known latitude/longitude for the node'}),
-
-                    ('loc', {'ptype': 'str:lwr',
-                        'doc': 'A self-declared location for the account.'}),
-
-                    ('occupation', {'ptype': 'str:lwr',
-                        'doc': 'A self-declared occupation for the account.'}),
-                    ('dob', {'ptype': 'time',
-                        'doc': 'A self-declared date of birth for the account (if the account belongs to a person).'}),
-
-                    ('realname', {'ptype': 'ps:name',
-                        'doc': 'The localized version of the real name of the account owner / registrant.'}),
-                    ('realname:en', {'ptype': 'ps:name',
-                        'doc': 'The English version of the real name of the account owner / registrant.'}),
-                    ('email', {'ptype': 'inet:email',
-                        'doc': 'The email address associated with the account.'}),
-                    ('phone', {'ptype': 'tel:phone',
-                        'doc': 'The phone number associated with the account.'}),
-                    ('signup', {'ptype': 'time',
-                        'doc': 'The date and time the account was registered.'}),
-                    ('signup:ipv4', {'ptype': 'inet:ipv4',
-                        'doc': 'The IPv4 address used to sign up for the account.'}),
-                    ('seen:min', {'ptype': 'time:min',
-                        'doc': 'The earliest known date of activity for the account.'}),
-                    ('seen:max', {'ptype': 'time:max',
-                        'doc': 'The most recent known date of activity for the account.'}),
-                    ('passwd', {'ptype': 'inet:passwd',
-                        'doc': 'The current password for the account.'})
-                ]),
-
                 ('inet:web:chprofile', {}, [
                     ('acct', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
                         'doc': 'The web account associated with the change.'}),
