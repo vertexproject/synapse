@@ -1,37 +1,10 @@
+import struct
+
+import synapse.exc as s_exc
 import synapse.lib.gis as s_gis
 import synapse.lib.types as s_types
-import synapse.lib.syntax as s_syntax
-
 import synapse.lib.module as s_module
-
-class LatLongType(s_types.DataType):
-
-    def norm(self, valu, oldval=None):
-
-        valu = valu.strip().lower()
-        if valu == '??':
-            return valu, {}
-
-        try:
-
-            lat, lon = valu.split(',', 1)
-
-            latv = float(lat.strip())
-            lonv = float(lon.strip())
-
-        except Exception as e:
-            self._raiseBadValu(valu, mesg='Invalid float format')
-
-        #TODO eventually support minutes / sec and N/S E/W syntax
-
-        if latv > 90 or latv < -90:
-            self._raiseBadValu(valu, mesg='Latitude may only be -90.0 to 90.0')
-
-        if lonv > 180 or lonv < -180:
-            self._raiseBadValu(valu, mesg='Longitude may only be -180.0 to 180.0')
-
-        norm = '%s,%s' % (latv, lonv)
-        return norm, {'lat': latv, 'lon': lonv}
+import synapse.lib.syntax as s_syntax
 
 units = {
     'mm': 1,
@@ -43,43 +16,94 @@ units = {
     'km': 1000000,
 }
 
-class DistType(s_types.DataType):
 
-    def norm(self, valu, oldval=None):
+class LatLong(s_types.Type):
+    # FIXME nothing uses these props
+    # FIXME should these be indexed as something other than a string?
 
-        if type(valu) == str:
-            return self._norm_str(valu)
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+
+    def _normPyStr(self, valu):
+
+        valu = valu.strip().lower()
+        if valu == '??':
+            return valu, {}
+
+        try:
+            latv, lonv = valu.split(',', 1)
+            latv, lonv = float(latv.strip()), float(lonv.strip())
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu, mesg='Invalid float format')
+
+        if latv > 90 or latv < -90:
+            raise s_exc.BadTypeValu(valu, mesg='Latitude may only be -90.0 to 90.0')
+        if lonv > 180 or lonv < -180:
+            raise s_exc.BadTypeValu(valu, mesg='Longitude may only be -180.0 to 180.0')
+
+        return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
+
+    def indx(self, valu):
+        # to unpack:
+        # latv, lonv = struct.unpack('>qq', norm)
+        # latv, lonv = latv / 10**8, lonv / 10**8
+        return struct.pack('>qq', int(valu[0] * 10**8), int(valu[1] * 10**8))
+
+    def repr(self, norm):
+        return f'{norm[0]},{norm[1]}'
+
+class GeoModule(s_module.CoreModule):
+
+    def getModelDefs(self):
+        return (
+            ('geo', {
+
+                'ctors': (
+
+                    ('geo:latlong', 'synapse.models.geospace.LatLong', {}, {
+                        'doc': 'A Lat/Long string specifying a point on Earth',
+                        'ex': '-12.45,56.78'
+                    }),
+
+                ),
+            }),
+        )
+
+'''
+class DistType(s_types.Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(str, self._normPyStr)
+
+    def _normPyInt(self, valu):
         return valu, {}
 
-    def _norm_str(self, text):
-
+    def _normPyStr(self, text):
         valu, off = s_syntax.parse_float(text, 0)
         unit, off = s_syntax.nom(text, off, s_syntax.alphaset)
 
         mult = units.get(unit.lower())
         if mult is None:
-            self._raiseBadValu(text, mesg='invalid/unknown dist unit: %s' % (unit,))
+            raise BadTypeValu(text, mesg='invalid/unknown dist unit: %s' % (unit,))
 
         return valu * mult, {}
 
-class GeoMod(s_module.CoreModule):
+class GeoModule(s_module.CoreModule):
 
     @staticmethod
     def getBaseModels():
         modl = {
             'types': (
-                ('geo:place', {'subof': 'guid', 'alias': 'geo:place:alias', 'doc': 'A GUID for a specific place'}),
                 ('geo:alias', {'subof': 'str:lwr', 'regex': '^[0-9a-z]+$', 'doc': 'An alias for the place GUID', 'ex': 'foobar'}),
-
-                ('geo:dist', {'ctor': 'synapse.models.geospace.DistType',
+                ('geo:dist', {'ctor': 'synapse.models.geospace.Dist',
                     'doc': 'A geographic distance (base unit is mm)', 'ex': '10 km'}),
-
+                ('geo:latlong', {'ctor': 'synapse.models.geospace.LatLong',
+                    'doc': 'A Lat/Long string specifying a point on Earth'}),
                 ('geo:nloc', {'subof': 'comp',
                     'fields': 'prop=syn:prop,ndef=ndef,latlong=geo:latlong,time=time',
                     'doc': 'Records a node latitude/longitude in space-time.'}),
-
-                ('geo:latlong', {'ctor': 'synapse.models.geospace.LatLongType',
-                    'doc': 'A Lat/Long string specifying a point on Earth'}),
+                ('geo:place', {'subof': 'guid', 'alias': 'geo:place:alias', 'doc': 'A GUID for a specific place'}),
             ),
 
             'forms': (
@@ -109,3 +133,4 @@ class GeoMod(s_module.CoreModule):
         }
         name = 'geo'
         return ((name, modl), )
+'''

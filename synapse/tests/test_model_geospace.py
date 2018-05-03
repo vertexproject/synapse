@@ -1,10 +1,42 @@
-import synapse.tests.common as s_test
+import synapse.exc as s_exc
+import synapse.tests.common as s_t_common
 
-import unittest
-raise unittest.SkipTest('FILE MODEL')
+class GeoTest(s_t_common.SynTest):
 
-class GeoTest(s_test.SynTest):
+    def test_latlong(self):
+        with self.getTestCore() as core:
+            t = core.model.type('geo:latlong')
 
+            self.eq(t.norm('0,-0'), ((0.0, -0.0), {'subs': {'lat': 0.0, 'lon': -0.0}}))
+            self.eq(t.norm('90,180'), ((90.0, 180.0), {'subs': {'lat': 90.0, 'lon': 180.0}}))
+            self.eq(t.norm('-90,-180'), ((-90.0, -180.0), {'subs': {'lat': -90.0, 'lon': -180.0}}))
+            self.raises(s_exc.BadTypeValu, t.norm, '-91,0')
+            self.raises(s_exc.BadTypeValu, t.norm, '91,0')
+            self.raises(s_exc.BadTypeValu, t.norm, '0,-181')
+            self.raises(s_exc.BadTypeValu, t.norm, '0,181')
+
+            # Demonstrate precision
+            self.eq(t.norm('12.345678,-12.345678'),
+                ((12.345678, -12.345678), {'subs': {'lat': 12.345678, 'lon': -12.345678}}))
+            self.eq(t.norm('12.3456789,-12.3456789'),
+                ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
+            self.eq(t.norm('12.34567890,-12.34567890'),
+                ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
+
+            self.eq(t.indx((0, 0)), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+            self.eq(t.indx((0, -0)), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+            self.eq(t.indx((0, 1)), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\xf5\xe1\x00')
+            self.eq(t.indx((0, -1)), b'\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xfa\n\x1f\x00')
+            self.eq(t.indx((-90, 180)), b'\xff\xff\xff\xfd\xe7\x8e\xe6\x00\x00\x00\x00\x040\xe24\x00')
+            self.eq(t.indx((90, -180)), b'\x00\x00\x00\x02\x18q\x1a\x00\xff\xff\xff\xfb\xcf\x1d\xcc\x00')
+            self.eq(t.indx((12.3456789, -12.3456789)), b'\x00\x00\x00\x00I\x96\x02\xd2\xff\xff\xff\xff\xb6i\xfd.')
+            self.eq(t.indx((12.34567890, -12.34567890)), b'\x00\x00\x00\x00I\x96\x02\xd2\xff\xff\xff\xff\xb6i\xfd.')
+
+            self.eq(t.repr((0, 0)), '0,0')
+            self.eq(t.repr((0, -0)), '0,0')
+            self.eq(t.repr((12.345678, -12.345678)), '12.345678,-12.345678')
+
+    '''
     def test_model_geospace_types_latlong(self):
 
         with self.getRamCore() as core:
@@ -49,3 +81,4 @@ class GeoTest(s_test.SynTest):
             self.eq(node[1].get('geo:nloc:prop'), 'mat:item:latlong')
             self.eq(node[1].get('geo:nloc:ndef'), '15533769b23efcb12d126a53f9b804ee')
             self.eq(node[1].get('geo:nloc:latlong'), '44.0429075,4.8828757')
+    '''

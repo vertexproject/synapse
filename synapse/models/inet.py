@@ -572,10 +572,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The ASN to which the IPv4 address is currently assigned.'
                         }),
 
-                        # FIXME implement geospace...
-                        #('latlong', ('geo:latlong', {}), {
-                        #    'doc': 'The last known latitude/longitude for the node'
-                        #}),
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The last known latitude/longitude for the node'
+                        }),
 
                         ('loc', ('loc', {}), {
                             'defval': '??',

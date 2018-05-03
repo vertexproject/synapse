@@ -10,6 +10,7 @@ coremods = (
     ('synapse.models.syn.SynModule', {}),
     ('synapse.models.base.BaseModule', {}),
     ('synapse.models.files.FileModule', {}),
+    ('synapse.models.geospace.GeoModule', {}),
     ('synapse.models.geopol.PolModule', {}),
     ('synapse.models.inet.InetModule', {}),
     ('synapse.models.material.MatModule', {}),

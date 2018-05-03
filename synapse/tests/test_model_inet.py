@@ -28,8 +28,8 @@ class InetModelTest(SynTest):
         formname = 'inet:ipv4'
         valu_str = '1.2.3.4'
         valu_int = 16909060
-        input_props = {'asn': 3, 'loc': 'us', 'type': 'cool'}
-        expected_props = {'asn': 3, 'loc': 'us', 'type': 'cool'}
+        input_props = {'asn': 3, 'loc': 'us', 'type': 'cool', 'latlong': '-50.12345, 150.56789'}
+        expected_props = {'asn': 3, 'loc': 'us', 'type': 'cool', 'latlong': (-50.12345, 150.56789)}
         expected_ndef = (formname, valu_int)
 
         with self.getTestCore() as core:
@@ -250,7 +250,6 @@ class InetModelTest(SynTest):
             self.eq(t.repr(fqdn), fqdn)  # UnicodeError raised and caught
 
     def test_types_ipv4(self):
-        # FIXME add latlong later
         with self.getTestCore() as core:
             t = core.model.type('inet:ipv4')
             ip_int = 16909060
