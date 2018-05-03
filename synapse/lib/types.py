@@ -3,6 +3,7 @@ import math
 import base64
 import struct
 import logging
+import binascii
 import collections
 
 import regex
@@ -653,11 +654,14 @@ class Hex(Type):
             # zero means no width check
             raise s_exc.BadConfValu(name='width', valu=self._width,
                                     mesg='Width must be > 0')
-        self._bsize = int(math.ceil(self._width / 2))
-        self._regex = regex.compile(r'^[0-9a-f]+$')
+        if self._width % 2 != 0:
+            raise s_exc.BadConfValu(name='width', valu=self._width,
+                                    mesg='Width must be a multiple of 2')
+        # self._regex = regex.compile(r'^[0-9a-f]+$')
         self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bytes, self._normPyBytes)
+        # TODO Implement a prefix search handler for a
+        # even number of characters
 
     def _normPyStr(self, valu):
         valu = valu.strip().lower()
@@ -668,30 +672,23 @@ class Hex(Type):
             raise s_exc.BadTypeValu(valu=valu,
                                     mesg='No string left after stripping')
 
-        if not self._regex.match(valu):
-            raise s_exc.BadTypeValu(valu=valu,
-                                    mesg='regex fail')
+        try:
+            # checks for valid hex width and does character
+            # checking in C without using regex
+            s_common.uhex(valu)
+        except binascii.Error as e:
+            raise s_exc.BadTypeValu(valu=valu, mesg=str(e))
+
         if self._width and len(valu) != self._width:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._width,
                                     mesg='invalid width')
         return valu, {}
 
-    def _normPyInt(self, valu):
-        if valu < 0:
-            raise s_exc.BadTypeValu(valu=valu, mesg='Hex cannot handle negative integers')
-        valu = f'{valu:x}'
-        return valu, {}
-
     def _normPyBytes(self, valu):
-        return self._normPyInt(int.from_bytes(valu, 'big'))
+        return self._normPyStr(s_common.ehex(valu))
 
     def indx(self, norm):
-        valu = int(norm, 16)
-        if self._width:
-            size = self._bsize
-        else:
-            size = int(math.ceil(len(norm) / 2))
-        return valu.to_bytes(size, 'big')
+        return s_common.uhex(norm)
 
 class Ndef(Type):
 

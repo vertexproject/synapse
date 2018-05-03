@@ -19,20 +19,23 @@ class TestTypes(s_test.SynTest):
             t = core.model.type('testhexa')
             # Test norming & index
             testvectors = [
-                ('C', 'c', b'\x0c'),
+                ('0C', '0c', b'\x0c'),
                 ('10', '10', b'\x10'),
-                ('10001', '10001', b'\x01\x00\x01'),
-                ('0x10001', '10001', b'\x01\x00\x01'),
-                ('FfF', 'fff', b'\x0f\xff'),
-                ('12A3e', '12a3e', b'\x01\x2a\x3e'),
-                (65537, '10001', b'\x01\x00\x01'),
-                (0, '0', b'\x00'),
-                (b'\x01\x00\x01', '10001', b'\x01\x00\x01'),
+                ('010001', '010001', b'\x01\x00\x01'),
+                ('0x010001', '010001', b'\x01\x00\x01'),
+                ('0FfF', '0fff', b'\x0f\xff'),
+                ('012A3e', '012a3e', b'\x01\x2a\x3e'),
+                (b'\x01\x00\x01', '010001', b'\x01\x00\x01'),
                 (b'\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\t\x98\xec\xf8B~',
                  'd41d8cd98f00b204e9800998ecf8427e',
                  b'\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\t\x98\xec\xf8B~'),
-                (-10, s_exc.BadTypeValu, None),
-                ('newp', s_exc.BadTypeValu, None)
+                ('C', s_exc.BadTypeValu, None),
+                ('FfF', s_exc.BadTypeValu, None),
+                ('10001', s_exc.BadTypeValu, None),
+                ('newp', s_exc.BadTypeValu, None),
+                (65537, s_exc.NoSuchFunc, None),
+                (0, s_exc.NoSuchFunc, None),
+                (-10, s_exc.NoSuchFunc, None),
             ]
 
             for v, n, b in testvectors:
@@ -44,21 +47,36 @@ class TestTypes(s_test.SynTest):
                 else:
                     self.raises(n, t.norm, v)
 
+            # width = 4
+            testvectors4 = [
+                ('12A4', '12a4', b'\x12\xa4'),
+                ('1001', '1001', b'\x10\x01'),
+                ('d41d', 'd41d', b'\xd4\x1d'),
+                (b'\x10\x01', '1001', b'\x10\x01'),
+                (b'\x00\x00', '0000', b'\x00\x00'),
+                ('01', s_exc.BadTypeValu, None),
+                ('010101', s_exc.BadTypeValu, None),
+                (b'\x10\x01\xff', s_exc.BadTypeValu, None),
+                (b'\xff', s_exc.BadTypeValu, None),
+            ]
             t = core.model.type('testhex4')
-            r, subs = t.norm('12A4')
-            self.eq(r, '12a4')
-            self.raises(s_exc.BadTypeValu, t.norm, '1234A')
-            self.eq(t.indx('1001'), b'\x10\x01')
-            self.eq(t.indx('d41d'), b'\xd4\x1d')
+            for v, n, b in testvectors4:
+                if isinstance(n, str):
+                    r, subs = t.norm(v)
+                    self.eq(r, n)
+                    self.eq(subs, {})
+                    self.eq(t.indx(r), b)
+                else:
+                    self.raises(n, t.norm, v)
 
             # Do some node creation and lifting
             # TODO - Do we have other lift operators to implement or test??
             with core.xact(write=True) as xact:  # type: s_xact.Xact
-                node = xact.addNode('testhexa', 0x10001)
-                self.eq(node.ndef[1], '10001')
+                node = xact.addNode('testhexa', '010001')
+                self.eq(node.ndef[1], '010001')
 
             with core.xact() as xact:  # type: s_xact.Xact
-                nodes = list(xact.getNodesBy('testhexa', '10001'))
+                nodes = list(xact.getNodesBy('testhexa', '010001'))
                 self.len(1, nodes)
 
 class FIXME(object):
