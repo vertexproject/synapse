@@ -29,7 +29,7 @@ def membersFromCompSpec(c: str):
 def convert_primary_property(core: s_common.Cortex, tufo: Tufo) -> TypeType:
     formname = tufo[1]['tufo:form']
     parent_types = core.getTypeOfs(formname)
-    # logger.debug(f'convert_primary_property: {formname}, {parent_types}')
+    logger.debug(f'convert_primary_property: {formname}, {parent_types}')
     if 'sepr' in parent_types or 'comp' in parent_types:
         return convert_comp_primary_property(core, tufo)
     _, val = convert_subprop(core, formname, formname, tufo[1][formname])
@@ -37,35 +37,44 @@ def convert_primary_property(core: s_common.Cortex, tufo: Tufo) -> TypeType:
 
 def convert_foreign_key(core: s_common.Cortex, pivot_formname, pivot_fk: TypeType) -> TypeType:
     ''' Convert field that is a pivot to another node '''
-    # logger.debug('convert_foreign_key: %s=%s', pivot_formname, pivot_fk)
+    logger.debug('convert_foreign_key: %s=%s', pivot_formname, pivot_fk)
     pivot_tufo = core.getTufoByProp(pivot_formname, pivot_fk)
-    assert pivot_tufo
+    if pivot_tufo is None:
+        logger.info('Missing pivot %s=%s', pivot_formname, pivot_fk)
+        return pivot_fk
     new_val = convert_primary_property(core, pivot_tufo)
     return new_val
 
 def convert_comp_primary_property(core, tufo) -> Tuple[Any, ...]:
     formname = tufo[1]['tufo:form']
     compspec = core.getPropInfo(formname, 'fields')
-    # logger.debug('convert_comp_primary_property: %s, %s', formname, compspec)
+    logger.debug('convert_comp_primary_property: %s, %s', formname, compspec)
     members_dict = membersFromCompSpec(compspec)
     retn = []
     for member in members_dict:
-        _, val = convert_subprop(core, formname, member, tufo[1][f'{formname}:{member}'])
+        full_member = f'{formname}:{member}'
+        _, val = convert_subprop(core, formname, full_member, tufo[1][full_member])
         retn.append(val)
     return tuple(retn)
 
-# _TufoConvMap = {
-#     'comp': convCompSeprTufo,
-#     'sepr': convCompSeprTufo
-# }
 
-def default_subprop_convert(core: s_common.Cortex, propname, proptype, val) -> TypeType:
-    if proptype != propname and proptype in core.getTufoForms():
-        return convert_foreign_key(core, propname, val)
+def default_subprop_convert(core: s_common.Cortex, subpropname, subproptype, val) -> TypeType:
+    logger.debug('default_subprop_convert : %s(type=%s)=%s', subpropname, subproptype, val)
+    if subproptype != subpropname and subproptype in core.getTufoForms():
+        return convert_foreign_key(core, subproptype, val)
     return val
 
+prop_renames = {
+    'inet:fqdn:zone': 'inet:fqdn:iszone',
+    'inet:fqdn:sfx': 'inet:fqdn:issuffix',
+    'inet:ipv4:cc': 'inet:ipv4:loc'
+}
+
+prop_special = {
+    'inet:web:logon:ipv4', ipv4_to_client
+}
+
 def convert_subprop(core: s_common.Cortex, formname: str, propname: str, val: Union[str, int]) -> Tuple[str, TypeType]:
-    newpropname = propname[len(formname) + 1:]
     _type = core.getPropTypeName(propname)
     # parent_types = core.getTypeOfs(formname)
     # for t in parent_types:
@@ -73,6 +82,10 @@ def convert_subprop(core: s_common.Cortex, formname: str, propname: str, val: Un
     #     if handler:
     #         return handler(val)
     #         break
+
+    newpropname = prop_renames.get(propname, propname)
+    newpropname = newpropname[len(formname) + 1:]
+
     return newpropname, default_subprop_convert(core, propname, _type, val)
 
 def default_convert_tufo(core: s_common.Cortex, tufo: Tufo) -> Tuple[Tuple[str, TypeType], Dict[str, Any]]:
