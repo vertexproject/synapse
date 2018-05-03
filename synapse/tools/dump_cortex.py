@@ -104,12 +104,10 @@ def default_convert_tufo(core: s_common.Cortex, tufo: Tufo) -> Tuple[Tuple[str, 
     assert pk is not None
     return ((formname, pk), {'props': props, 'tags': tags})
 
-
 def convert_tufo(core: s_common.Cortex, tufo: Tufo):
     # formname = tufo[0]['tufo:form']
     # handler = _TufoConvMap.get('formname', default_convert_node)
     return default_convert_tufo(core, tufo)
-
 
 def dumpCortex(core: s_common.Cortex, outdir: pathlib.Path, limit=None, forms=None):
     '''
@@ -125,8 +123,11 @@ def dumpCortex(core: s_common.Cortex, outdir: pathlib.Path, limit=None, forms=No
             tufos = core.getTufosByProp('tufo:form', fnam, limit=limit)
             after_query = time.time()
             for t in tufos:
-                newt = convert_tufo(core, t)
-                f.write(s_msgpack.en(newt))
+                try:
+                    newt = convert_tufo(core, t)
+                    f.write(s_msgpack.en(newt))
+                except Exception as e:
+                    logger.exception('failed to parse %s', t)
             finish = time.time()
             if len(tufos):
                 logger.debug('Query time: %.2f, write time %.2f, total time %.2f, total/tufo %.4f',
