@@ -22,63 +22,47 @@ class TestTypes(s_test.SynTest):
             modu = core.addCoreMods([('synapse.tests.test_cortex.TestModule', {})])
 
             t = core.model.type('testhexa')
-            # Test norming & index
+            # Test norming to index values
             testvectors = [
-                ('0C', '0c', b'\x0c'),
-                ('10', '10', b'\x10'),
-                ('010001', '010001', b'\x01\x00\x01'),
-                ('0x010001', '010001', b'\x01\x00\x01'),
-                ('0FfF', '0fff', b'\x0f\xff'),
-                ('012A3e', '012a3e', b'\x01\x2a\x3e'),
-                (b'\x01\x00\x01', '010001', b'\x01\x00\x01'),
+                ('0C', b'\x0c'),
+                ('0X010001', b'\x01\x00\x01'),
+                ('0FfF', b'\x0f\xff'),
+                ('f12A3e', b'\xf1\x2a\x3e'),
+                (b'\x01\x00\x01', b'\x01\x00\x01'),
                 (b'\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\t\x98\xec\xf8B~',
-                 'd41d8cd98f00b204e9800998ecf8427e',
                  b'\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\t\x98\xec\xf8B~'),
-                ('C', s_exc.BadTypeValu, None),
-                ('FfF', s_exc.BadTypeValu, None),
-                ('10001', s_exc.BadTypeValu, None),
-                ('newp', s_exc.BadTypeValu, None),
-                ('0x', s_exc.BadTypeValu, None),
-                ('', s_exc.BadTypeValu, None),
-                (b'', s_exc.BadTypeValu, None),
-                (65537, s_exc.NoSuchFunc, None),
-                (0, s_exc.NoSuchFunc, None),
-                (-10, s_exc.NoSuchFunc, None),
+                (65537, s_exc.NoSuchFunc),
             ]
 
-            for v, n, b in testvectors:
-                if isinstance(n, str):
+            for v, b in testvectors:
+                if isinstance(b, bytes):
                     r, subs = t.norm(v)
-                    self.eq(r, n)
+                    self.isinstance(r, str)
                     self.eq(subs, {})
                     self.eq(t.indx(r), b)
                 else:
-                    self.raises(n, t.norm, v)
+                    self.raises(b, t.norm, v)
 
             # width = 4
             testvectors4 = [
-                ('12A4', '12a4', b'\x12\xa4'),
-                ('1001', '1001', b'\x10\x01'),
-                ('d41d', 'd41d', b'\xd4\x1d'),
-                (b'\x10\x01', '1001', b'\x10\x01'),
-                (b'\x00\x00', '0000', b'\x00\x00'),
-                ('01', s_exc.BadTypeValu, None),
-                ('010101', s_exc.BadTypeValu, None),
-                (b'\x10\x01\xff', s_exc.BadTypeValu, None),
-                (b'\xff', s_exc.BadTypeValu, None),
+                ('d41d', b'\xd4\x1d'),
+                (b'\x10\x01', b'\x10\x01'),
+                ('01', s_exc.BadTypeValu),
+                ('010101', s_exc.BadTypeValu),
+                (b'\x10\x01\xff', s_exc.BadTypeValu),
+                (b'\xff', s_exc.BadTypeValu),
             ]
             t = core.model.type('testhex4')
-            for v, n, b in testvectors4:
-                if isinstance(n, str):
+            for v, b in testvectors4:
+                if isinstance(b, bytes):
                     r, subs = t.norm(v)
-                    self.eq(r, n)
+                    self.isinstance(r, str)
                     self.eq(subs, {})
                     self.eq(t.indx(r), b)
                 else:
-                    self.raises(n, t.norm, v)
+                    self.raises(b, t.norm, v)
 
             # Do some node creation and lifting
-            # TODO - Do we have other lift operators to implement or test??
             with core.xact(write=True) as xact:  # type: s_xact.Xact
                 node = xact.addNode('testhexa', '010001')
                 self.eq(node.ndef[1], '010001')
@@ -113,6 +97,9 @@ class TestTypes(s_test.SynTest):
                 nodes = list(xact.getNodesBy('testhexa', 'deadde*'))
                 self.len(1, nodes)
 
+                nodes = list(xact.getNodesBy('testhexa', 'b33f*'))
+                self.len(0, nodes)
+
             # Do some fancy prefix searches for testhex4
             valus = ['0000',
                      '0100',
@@ -132,6 +119,11 @@ class TestTypes(s_test.SynTest):
 
                 nodes = list(xact.getNodesBy('testhex4', '02*'))
                 self.len(1, nodes)
+
+                # You can ask for a longer prefix then allowed
+                # but you'll get no results
+                nodes = list(xact.getNodesBy('testhex4', '022020*'))
+                self.len(0, nodes)
 
 class FIXME(object):
     def test_datatype_basics(self):

@@ -1,9 +1,7 @@
 import json
-import math
 import base64
 import struct
 import logging
-import binascii
 import collections
 
 import regex
@@ -665,7 +663,7 @@ class Hex(Type):
         # Prefix searching is allowed with a '*'
         if isinstance(valu, str) and valu.endswith('*'):
             valu = valu.rstrip('*')
-            norm, info = self._normPyStr(valu, chksz=False)
+            norm = s_chop.hexstr(valu)
             lops = (
                 ('prop:pref', {
                     'form': fenc,
@@ -678,23 +676,10 @@ class Hex(Type):
         # Default case
         return Type.liftPropEq(self, xact, fenc, penc, valu)
 
-    def _normPyStr(self, valu, chksz=True):
-        valu = valu.strip().lower()
-        if valu.startswith('0x'):
-            valu = valu[2:]
+    def _normPyStr(self, valu):
+        valu = s_chop.hexstr(valu)
 
-        if not valu:
-            raise s_exc.BadTypeValu(valu=valu,
-                                    mesg='No string left after stripping')
-
-        try:
-            # checks for valid hex width and does character
-            # checking in C without using regex
-            s_common.uhex(valu)
-        except binascii.Error as e:
-            raise s_exc.BadTypeValu(valu=valu, mesg=str(e))
-
-        if self._size and chksz and len(valu) != self._size:
+        if self._size and len(valu) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size,
                                     mesg='invalid width')
         return valu, {}
