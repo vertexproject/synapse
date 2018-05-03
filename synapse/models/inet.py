@@ -249,8 +249,6 @@ class Rfc2822Addr(s_types.Type):
         return norm.encode('utf8')
 
     def _normPyStr(self, valu):
-        if not isinstance(valu, str):
-            raise s_exc.BadTypeValu(valu, mesg='requires a string')
 
         # remove quotes for normalized version
         valu = valu.replace('"', ' ').replace("'", ' ')
