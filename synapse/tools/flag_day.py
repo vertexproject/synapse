@@ -15,21 +15,31 @@ logger = logging.getLogger(__name__)
 def loadTufo(tufo):
     logger.debug(tufo)
 
-def convertField(oldval):
-    return oldval
+def convertField(formname, oldprop, oldval):
+    newprop = oldprop[len(formname) + 1:]
+    return {newprop: oldv}
 
-def translatePre010Tufo(oldtufo):
+def convertXrefs(core, prop, val):
+    pass
+
+def makeCompFromXRef(oldprop1, oldval1, oldprop2, oldval2):
+    pass
+
+
+def translatePre010Tufo(core, oldtufo):
     _, oldprops = oldtufo
     formname = oldprops['tufo:form']
     pk = convertField(oldprops[formname])
     props = {}
     tags = {}
-    for oldk, oldv in oldprops.items():
+    if 'xref' in core.getTypeOfs(formname):
+    for oldk, oldv in sorted(oldprops.items()):
         if oldk[0] == '#':
             tags[oldk[1:]] = oldv
+        elif any(oldk.startswith(x + ':' for x in oldxrefs)):
+            continue
         elif oldk.startswith(formname + ':'):
-            newprop = oldk[len(formname) + 1:]
-            props[newprop] = convertField(oldv)
+            props.update(convertField(formname, oldk, oldv))
         elif oldk == 'node:created':
             props['.created'] = oldv
         else:
@@ -46,7 +56,7 @@ def migrateCortex(core: s_common.Cortex, indir: pathlib.Path):
     for i, fn in enumerate(indir.glob('*.dump')):
         for j, oldtufo in enumerate(s_msgpack.iterfile(fn)):
             try:
-                newtufo = translatePre010Tufo(oldtufo)
+                newtufo = translatePre010Tufo(core, oldtufo)
             except Exception:
                 logger.exception('Translating failed on item %d in %s', j, fn)
             else:
