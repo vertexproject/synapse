@@ -17,43 +17,43 @@ class CryptoModule(s_module.CoreModule):
         modl = {
             'types': (
                 ('hash:md5',
-                 ('hex', {'width': 32}),
+                 ('hex', {'size': 32}),
                  {
                      'doc': 'A hex encodeded MD5 hash',
                      'ex': ex_md5
                  }),
                 ('hash:sha1',
-                 ('hex', {'width': 40}),
+                 ('hex', {'size': 40}),
                  {
                      'doc': 'A hex encoded SHA1 hash',
                      'ex': ex_sha1
                  }),
                 ('hash:sha256',
-                 ('hex', {'width': 64}),
+                 ('hex', {'size': 64}),
                  {
                      'doc': 'A hex encoded SHA256 hash',
                      'ex': ex_sha256
                  }),
                 ('hash:sha384',
-                 ('hex', {'width': 96}),
+                 ('hex', {'size': 96}),
                  {
                      'doc': 'A hex encoded SHA384 hash',
                      'ex': ex_sha384
                  }),
                 ('hash:sha512',
-                 ('hex', {'width': 128}),
+                 ('hex', {'size': 128}),
                  {
                      'doc': 'A hex encoded SHA512 hash',
                      'ex': ex_sha512
                  }),
                 ('hash:lm',
-                 ('hex', {'width': 32}),
+                 ('hex', {'size': 32}),
                  {
                      'doc': 'A hex encoded Microsoft Windows LM password hash',
                      'ex': ex_md5
                  }),
                 ('hash:ntlm',
-                 ('hex', {'width': 32}),
+                 ('hex', {'size': 32}),
                  {
                      'doc': 'A hex encoded Microsoft Windows NTLM password hash',
                      'ex': ex_md5

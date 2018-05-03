@@ -645,25 +645,41 @@ class Comp(Type):
 
 class Hex(Type):
     _opt_defs = (
-        ('width', 0),
+        ('size', 0),
     )
 
     def postTypeInit(self):
-        self._width = self.opts.get('width')
-        if self._width < 0:
+        self._size = self.opts.get('size')
+        if self._size < 0:
             # zero means no width check
-            raise s_exc.BadConfValu(name='width', valu=self._width,
-                                    mesg='Width must be > 0')
-        if self._width % 2 != 0:
-            raise s_exc.BadConfValu(name='width', valu=self._width,
-                                    mesg='Width must be a multiple of 2')
-        # self._regex = regex.compile(r'^[0-9a-f]+$')
+            raise s_exc.BadConfValu(name='size', valu=self._size,
+                                    mesg='Size must be > 0')
+        if self._size % 2 != 0:
+            raise s_exc.BadConfValu(name='size', valu=self._size,
+                                    mesg='Size must be a multiple of 2')
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(bytes, self._normPyBytes)
-        # TODO Implement a prefix search handler for a
-        # even number of characters
 
-    def _normPyStr(self, valu):
+    def liftPropEq(self, xact, fenc, penc, valu):
+
+        # Prefix searching is allowed with a '*'
+        if isinstance(valu, str) and valu.endswith('*'):
+            valu = valu.rstrip('*')
+            norm, info = self._normPyStr(valu, chksz=False)
+            # norm, info = Hex._normPyStr(self, valu)
+            lops = (
+                ('prop:pref', {
+                    'form': fenc,
+                    'prop': penc,
+                    'valu': norm,
+                    'indx': self.indx(norm),
+                }),
+            )
+            return xact.lift(lops)
+        # Default case
+        return Type.liftPropEq(self, xact, fenc, penc, valu)
+
+    def _normPyStr(self, valu, chksz=True):
         valu = valu.strip().lower()
         if valu.startswith('0x'):
             valu = valu[2:]
@@ -679,8 +695,8 @@ class Hex(Type):
         except binascii.Error as e:
             raise s_exc.BadTypeValu(valu=valu, mesg=str(e))
 
-        if self._width and len(valu) != self._width:
-            raise s_exc.BadTypeValu(valu=valu, reqwidth=self._width,
+        if self._size and chksz and len(valu) != self._size:
+            raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size,
                                     mesg='invalid width')
         return valu, {}
 

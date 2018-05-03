@@ -79,6 +79,52 @@ class TestTypes(s_test.SynTest):
                 nodes = list(xact.getNodesBy('testhexa', '010001'))
                 self.len(1, nodes)
 
+                nodes = list(xact.getNodesBy('testhexa', b'\x01\x00\x01'))
+                self.len(1, nodes)
+
+            # Do some fancy prefix searches for testhexa
+            valus = ['deadb33f',
+                     'deadb33fb33f',
+                     'deadb3b3',
+                     'deaddead',
+                     'DEADBEEF']
+            with core.xact(write=True) as xact:  # type: s_xact.Xact
+                for valu in valus:
+                    node = xact.addNode('testhexa', valu)
+
+            with core.xact() as xact:  # type: s_xact.Xact
+                nodes = list(xact.getNodesBy('testhexa', 'dead*'))
+                self.len(5, nodes)
+
+                nodes = list(xact.getNodesBy('testhexa', 'deadb3*'))
+                self.len(3, nodes)
+
+                nodes = list(xact.getNodesBy('testhexa', 'deadb33fb3*'))
+                self.len(1, nodes)
+
+                nodes = list(xact.getNodesBy('testhexa', 'deadde*'))
+                self.len(1, nodes)
+
+            # Do some fancy prefix searches for testhex4
+            valus = ['0000',
+                     '0100',
+                     '01ff',
+                     '0200',
+                     ]
+            with core.xact(write=True) as xact:  # type: s_xact.Xact
+                for valu in valus:
+                    node = xact.addNode('testhex4', valu)
+
+            with core.xact() as xact:  # type: s_xact.Xact
+                nodes = list(xact.getNodesBy('testhex4', '00*'))
+                self.len(1, nodes)
+
+                nodes = list(xact.getNodesBy('testhex4', '01*'))
+                self.len(2, nodes)
+
+                nodes = list(xact.getNodesBy('testhex4', '02*'))
+                self.len(1, nodes)
+
 class FIXME(object):
     def test_datatype_basics(self):
         tlib = s_types.TypeLib()
