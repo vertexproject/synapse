@@ -136,35 +136,12 @@ jobs:
     <<: *osx_test_steps
 
   python36:
-    parallelism: 3
+    parallelism: 7
     docker:
       - image: circleci/python:3.6
         environment:
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
           IMAGE_VERSION: 3.6
-
-    working_directory: ~/repo
-
-    <<: *test_steps
-
-  python35:
-    parallelism: 2
-    docker:
-      - image: circleci/python:3.5
-        environment:
-          IMAGE_VERSION: 3.5
-          RUN_SYNTAX: true
-
-    working_directory: ~/repo
-
-    <<: *test_steps
-
-  python34:
-    parallelism: 2
-    docker:
-      - image: circleci/python:3.4
-        environment:
-          IMAGE_VERSION: 3.4
 
     working_directory: ~/repo
 
@@ -176,5 +153,3 @@ workflows:
     jobs:
 #      - osx36
       - python36
-      - python35
-      - python34

@@ -144,46 +144,6 @@ class ItMod(s_module.CoreModule):
     def _onFormItDevStr(self, form, valu, props, mesg):
         props['it:dev:str:norm'] = valu.lower()
 
-    @s_module.modelrev('it', 201801041154)
-    def _revModl201801041154(self):
-
-        now = s_common.now()
-
-        # mark changed nodes with a dark row...
-        dvalu = 'it:201801041154'
-        dprop = '_:dark:syn:modl:rev'
-
-        idens = []
-
-        # carve registry keys to being lower case normalized
-        with self.core.getCoreXact():
-
-            # bulk cut over all it:dev:regval:key props
-            rows = self.core.getRowsByProp('it:dev:regval:key')
-
-            adds = [(i, p, v.lower(), t) for (i, p, v, t) in rows]
-            darks = [(i[::-1], dprop, dvalu, now) for (i, p, v, _) in rows]
-
-            self.core.delRowsByProp('it:dev:regval:key')
-
-            self.core.addRows(adds)
-            self.core.addRows(darks)
-
-            # bulk update the primary props
-            rows = self.core.getRowsByProp('it:dev:regkey')
-            adds = [(i, p, v.lower(), t) for (i, p, v, t) in rows]
-            darks = [(i[::-1], dprop, dvalu, now) for (i, p, v, _) in rows]
-
-            self.core.delRowsByProp('it:dev:regkey')
-
-            self.core.addRows(adds)
-            self.core.addRows(darks)
-
-            # iteratively update the node defs
-            for iden, prop, valu, tick in adds:
-                ndef = s_common.guid((prop, valu))
-                self.core.setRowsByIdProp(iden, 'node:ndef', ndef)
-
     def _onFormItSoftVer(self, form, valu, props, mesg):
         # Set the :software:name field
         if 'it:prod:softver:software:name' not in props:

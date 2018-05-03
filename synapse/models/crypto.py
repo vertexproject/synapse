@@ -14,10 +14,6 @@ ex_sha512 = 'ca74fe2ff2d03b29339ad7d08ba21d192077fece1715291c7b43c20c9136cd13278
 
 class CryptoMod(s_module.CoreModule):
 
-    @s_module.modelrev('crypto', 201708231712)
-    def _revModl201708231712(self):
-        pass # here from legacy for backward compat
-
     @staticmethod
     def getBaseModels():
         modl = {
