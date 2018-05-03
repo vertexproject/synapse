@@ -133,6 +133,9 @@ def intify(x):
     Returns:
         (int):  The int value ( or None )
     '''
+    if isinstance(x, int):
+        return x
+
     try:
         return int(x, 0)
     except (TypeError, ValueError) as e:
@@ -638,3 +641,15 @@ def retnexc(e):
         info['mesg'] = str(e)
 
     return (False, (name, info))
+
+def config(conf, confdefs):
+    '''
+    Initialize a config dict using the given confdef tuples.
+    '''
+    conf = conf.copy()
+
+    # for now just populate defval
+    for name, info in confdefs:
+        conf.setdefault(name, info.get('defval'))
+
+    return conf

@@ -53,7 +53,7 @@ class Xact(s_eventbus.EventBus):
 
         self.xacts.append((self.layr, self.xact))
 
-        # no locks needed, so avoid synapse.lib.cache.FixedCache
+        # no locks needed...
         self.nodefifo = collections.deque()
         self.nodesbyndef = {}
         self.nodesbybuid = {}
@@ -232,7 +232,7 @@ class Xact(s_eventbus.EventBus):
 
         # set all the properties with init=True
         for name, valu in props.items():
-            node.set(name, valu)
+            node.set(name, valu, init=True)
 
         # we are done initializing.
         node.init = False
@@ -350,13 +350,11 @@ class Xact(s_eventbus.EventBus):
             node = self.addNode(formname, formvalu, props=props)
 
             tags = forminfo.get('tags')
-            nodetags = node[1].get('tags')
-
             if tags is not None:
                 for tag, asof in tags.items():
-                    xact.addNodeTag(node, tag)
+                    node.addTag(tag)
 
-        return xact.deltas()
+        #return xact.deltas()
 
     def lift(self, lops):
         genr = self.rows(lops)

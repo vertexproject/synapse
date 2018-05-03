@@ -23,9 +23,15 @@ televers = (3, 0)
 class Aware:
     '''
     The telepath.Aware mixin allows shared objects to
-    colaborate with the Daemon() which is sharing them.
+    handle individual links managed by the Daemon.
     '''
-    def getTeleApi(self, dmon):
+    def getTeleApi(self, link, mesg):
+        '''
+        Return a shared object for this link.
+        Args:
+            link (synapse.lib.link.Link): A network link.
+            mesg ((str,dict)): The tele:syn handshake message.
+        '''
         return self
 
 class Task:
@@ -124,11 +130,10 @@ class Proxy(s_eventbus.EventBus):
 
         task = Task()
 
+        todo = (name, args, kwargs)
         mesg = ('task:init', {
                     'task': task.iden,
-                    'meth': name,
-                    'args': args,
-                    'kwargs': kwargs,
+                    'todo': todo,
         })
 
         self.tasks[task.iden] = task
@@ -142,11 +147,12 @@ class Proxy(s_eventbus.EventBus):
 
             self.tasks.pop(task.iden, None)
 
-    async def handshake(self):
+    async def handshake(self, auth=None):
 
         self.link.onrx(self._onLinkRx)
 
         mesg = ('tele:syn', {
+            'auth': auth,
             'vers': televers,
             'name': self.name,
         })
@@ -272,12 +278,21 @@ async def openurl(url, **opts):
     port = info.get('port')
     name = info.get('path')[1:]
 
+    auth = None
+
+    user = info.get('user')
+    if user is not None:
+        auth = (user, {
+            'passwd': info.get('passwd')
+        })
+
+    print('AUTH: %r' % (auth,))
     #TODO SSL
 
     link = await s_glob.plex.link(host, port)
 
     prox = Proxy(link, name)
 
-    await prox.handshake()
+    await prox.handshake(auth=auth)
 
     return prox

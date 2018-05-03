@@ -659,7 +659,11 @@ class Ndef(Type):
 
         formnorm, info = form.type.norm(formvalu)
         norm = (form.name, formnorm)
-        return norm, {'adds': (norm,)}
+
+        adds = (norm,)
+        subs = {'form': form.name}
+
+        return norm, {'adds': adds, 'subs': subs}
 
     def indx(self, norm):
         return s_common.buid(norm)

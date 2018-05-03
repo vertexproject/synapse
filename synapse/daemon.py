@@ -3,15 +3,16 @@ import json
 import yaml
 import types
 import asyncio
+import inspect
 import logging
 
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
+import synapse.cells as s_cells
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
-import synapse.registry as s_registry
 import synapse.telepath as s_telepath
 
 from synapse.eventbus import EventBus
@@ -20,16 +21,33 @@ import synapse.lib.urlhelp as s_urlhelp
 
 class Daemon(EventBus):
 
-    def __init__(self, dirn, conf=None):
+    confdefs = (
+
+        ('listen', {'defval': 'tcp://127.0.0.1:27492',
+            'doc': 'The default listen host/port'}),
+
+        ('modules', {'defval': (),
+            'doc': 'A list of python modules to import before Cell construction.'}),
+
+        #('hostname', {'defval':
+        #('ssl': {'defval': None,
+            #'doc': 'An SSL config dict with certfile/keyfile optional cacert.'}),
+    )
+
+    def __init__(self, dirn):
 
         EventBus.__init__(self)
 
-        self.dirn = dirn
+        self.dirn = s_common.gendir(dirn)
+
+        conf = self._loadDmonYaml()
+        self.conf = s_common.config(conf, self.confdefs)
+
+        self.mods = {}      # keep refs to mods we load ( mostly for testing )
         self.televers = s_telepath.televers
 
-        if self.dirn is not None:
-            self.dirn = s_common.gendir(dirn)
-
+        self.addr = None    # our main listen address
+        self.cells = {}     # all cells are shared.  not all shared are cells.
         self.shared = {}    # objects provided by daemon
 
         self.mesgfuncs = {
@@ -39,70 +57,116 @@ class Daemon(EventBus):
             'chan:fini': self._onChanFini,
         }
 
-        if self.dirn is not None:
-            self._loadDmonYaml()
-            self._loadSvcDir()
+        self._loadDmonConf()
+        self._loadDmonCells()
+
+        self.onfini(self._onDmonFini)
+
+        #self._loadDmonYaml()
+        #self._loadSvcDir()
+
+    def listen(self, url, **opts):
+        '''
+        Bind and listen on the given host/port with possible SSL.
+
+        Args:
+            host (str): A hostname or IP address.
+            port (int): The TCP port to bind.
+            ssl (ssl.SSLContext): An SSL context or None...
+        '''
+        info = s_urlhelp.chopurl(url, **opts)
+
+        host = info.get('host')
+        port = info.get('port')
+
+        # TODO: SSL
+        ssl = None
+
+        return s_glob.plex.listen(host, port, self._onLinkInit, ssl=ssl)
+
+    def share(self, name, item):
+        '''
+        Share an object via the telepath protocol.
+
+        Args:
+            name (str): Name of the shared object
+            item (object): The object to share over telepath.
+        '''
+        self.shared[name] = item
+
+    def _onDmonFini(self):
+        for name, cell in self.cells.items():
+            cell.fini()
+
+    def _getSslCtx(self):
+        return None
+        #info = self.conf.get('ssl')
+        ##if info is None:
+            #return None
+
+        #capath = s_common.genpath(self.dirn, 'ca.crt')
+        ##keypath = s_common.genpath(self.dirn, 'server.key')
+        #certpath = s_common.genpath(self.dirn, 'server.crt')
+
+        # TODO: build an ssl.SSLContext()
 
     def _loadDmonYaml(self):
-
         path = s_common.genpath(self.dirn, 'dmon.yaml')
-        if os.path.isfile(path):
-            conf = self._loadYamlPath(path)
-            self._loadDmonConf(conf)
+        return self._loadYamlPath(path)
 
-    def _loadSvcDir(self):
+    def _loadYamlPath(self, path):
+        if os.path.isfile(path):
+            with open(path, 'rb') as fd:
+                text = fd.read().decode('utf8')
+                return yaml.load(text)
+
+        logger.warning('config not found: %r' % (path,))
+        return {}
+
+    def _loadDmonCells(self):
 
         # load our services from a directory
 
-        path = s_common.gendir(self.dirn, 'services')
+        path = s_common.gendir(self.dirn, 'cells')
+
         for name in os.listdir(path):
 
             if name.startswith('.'):
                 continue
 
-            dirn = os.path.join(path, name)
-            path = os.path.join(dirn, 'service.yaml')
+            self.loadDmonCell(name)
 
-            if not os.path.exists(path):
-                raise s_exc.NoSuchFile(name=path)
+    def loadDmonCell(self, name):
 
-            conf = self.loadYamlPath(path)
+        dirn = s_common.gendir(self.dirn, 'cells', name)
 
-            kind = conf.get('type')
+        path = os.path.join(dirn, 'cell.yaml')
 
-            ctor = s_registry.getService(kind)
-            if ctor is None:
-                raise s_exc.NoSuchSvcType(name=kind)
+        if not os.path.exists(path):
+            raise s_exc.NoSuchFile(name=path)
 
-            subc = conf.get('config')
-            item = ctor(dirn, conf=subc)
+        conf = self._loadYamlPath(path)
 
-            self.share(name, item)
+        kind = conf.get('type')
 
-    def _loadYamlPath(self, path):
-        # load a yaml dmon config path
-        with open(path, 'rb') as fd:
-            byts = fd.read()
-            return yaml.load(byts.decode('utf8'))
+        #ctor = s_registry.getService(kind)
+        cell = s_cells.init(kind, dirn)
 
-    def _loadDmonConf(self, conf):
-        # process a dmon config dict.
+        self.share(name, cell)
+        self.cells[name] = cell
 
-        lisn = conf.get('listen')
-        if lisn is not None:
+    def _loadDmonConf(self):
 
-            url = lisn.get('url')
-
-            if url is not None:
-                opts = lisn.get('opts', {})
-                link = self.listen(url, **opts)
-
-        for name in conf.get('modules', ()):
+        # process per-conf elements...
+        for name in self.conf.get('modules', ()):
             try:
-                pymod = s_dyndeps.getDynMod(name)
+                self.mods[name] = s_dyndeps.getDynMod(name)
             except Exception as e:
-                mesg = 'dmon module error (%s): %s' % (name, e)
-                logger.exception(mesg)
+                logger.exception('dmon module error')
+
+        lisn = self.conf.get('listen')
+        if lisn is not None:
+            self.addr = self.listen(lisn)
 
     async def _onLinkInit(self, link):
 
@@ -157,12 +221,13 @@ class Daemon(EventBus):
             if item is None:
                 raise s_exc.NoSuchName(name=name)
 
+            if isinstance(item, s_telepath.Aware):
+                item = item.getTeleApi(link, mesg)
+
             link.set('dmon:item', item)
 
         except Exception as e:
-
-            logger.warning('tele:syn error')
-
+            logger.exception('tele:syn error')
             reply[1]['retn'] = s_common.retnexc(e)
 
         await link.tx(reply)
@@ -208,6 +273,12 @@ class Daemon(EventBus):
         finally:
             s_glob.sync(chan.txfini())
 
+    #await s_glob.exector(self.runGenrChan, task, todo)
+
+    def _runGenrChan(self, chan, genr):
+        for item in genr:
+            s_glob.sync(chan.tx(item))
+
     async def _onTaskInit(self, link, mesg):
 
         task = mesg[1].get('task')
@@ -223,30 +294,69 @@ class Daemon(EventBus):
 
             try:
 
-                name = mesg[1].get('meth')
+                name, args, kwargs = mesg[1].get('todo')
+
                 if name[0] == '_':
                     raise s_exc.NoSuchMeth(name=name)
 
-                args = mesg[1].get('args')
-                kwargs = mesg[1].get('kwargs')
-
                 meth = getattr(item, name, None)
                 if meth is None:
+                    print('NO SUCH METH: %s on %r' % (name, item))
                     raise s_exc.NoSuchMeth(name=name)
 
-                valu = meth(*args, **kwargs)
+                # do we get to dispatch it ourselves?
+                if asyncio.iscoroutinefunction(meth):
 
-                if isinstance(valu, types.AsyncGeneratorType):
-                    await self._feedAsyncGenrChan(link, task, valu)
+                    valu = await meth(*args, **kwargs)
+
+                    await link.tx(
+                        ('task:fini', {'task': task, 'retn': (True, valu)})
+                    )
+
                     return
+
+                if inspect.isasyncgenfunction(meth):
+
+                    chan = link.chan()
+                    try:
+                        await chan.init(task)
+
+                        async for item in meth(*args, **kwargs):
+                            await chan.tx(item)
+
+                        await chan.txfini()
+
+                    except Exception as e:
+
+                        await chan.txexc(e)
+
+                    finally:
+                        chan.fini()
+
+                    return
+
+                # the method isn't async :(
+                valu = await s_glob.executor(meth, *args, **kwargs)
 
                 if isinstance(valu, types.GeneratorType):
-                    self._feedGenrChan(link, task, valu)
-                    return
 
-                # await a coroutine if we got one
-                if asyncio.iscoroutine(valu):
-                    valu = await valu
+                    chan = link.chan()
+                    try:
+
+                        await chan.init(task)
+
+                        await s_glob.executor(self._runGenrChan, chan, valu)
+
+                        await chan.txfini()
+
+                    except Exception as e:
+                        await chan.txexc(e)
+                        await chan.txfini()
+
+                    finally:
+                        chan.fini()
+
+                    return
 
                 await link.tx(
                     ('task:fini', {'task': task, 'retn': (True, valu)})
@@ -264,36 +374,6 @@ class Daemon(EventBus):
                     ('task:fini', {'task': task, 'retn': retn})
                 )
 
-    def listen(self, url, **opts):
-        '''
-        Create and run a link server by url.
-
-        Example:
-
-            link = dmon.listen('tcp://127.0.0.1:8888')
-
-        Notes:
-
-            * Returns the parsed link tufo
-
-        '''
-        info = s_urlhelp.chopurl(url)
-        info.update(opts)
-
-        host = info.get('host')
-        port = info.get('port')
-
-        return s_glob.plex.listen(host, port, self._onLinkInit, ssl=None)
-
-    def share(self, name, item):
-        '''
-        Share an object via the telepath protocol.
-
-        Args:
-            name (str): Name of the shared object
-            item (object): The object to share over telepath.
-        '''
-        if isinstance(item, s_telepath.Aware):
-            item = item.getTeleApi()
-
-        self.shared[name] = item
+    def _getTestProxy(self, name):
+        host, port = self.addr
+        return s_telepath.openurl(f'tcp:///{name}', host=host, port=port)

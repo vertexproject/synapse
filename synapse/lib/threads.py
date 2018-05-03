@@ -9,7 +9,6 @@ from functools import wraps
 
 import synapse.common as s_common
 
-import synapse.lib.task as s_task
 import synapse.lib.queue as s_queue
 
 from synapse.eventbus import EventBus
@@ -152,37 +151,6 @@ def withlock(lock):
         return wrap
     return decor
 
-class cancelable:
-    '''
-    Use these to allow cancelation of blocking calls
-    (where possible) to shutdown threads.
-
-    Example:
-
-        with cancelable(sock.close):
-            byts = sock.recv(100)
-
-    '''
-
-    def __init__(self, func, *args, **kwargs):
-        self.func = func
-        self.args = args
-        self.kwargs = kwargs
-
-    def __call__(self):
-        try:
-            self.func(*self.args, **self.kwargs)
-        except Exception as e:
-            logger.exception('Error executing %s', self.func)
-
-    def __enter__(self):
-        current().cancels.append(self)
-        return self
-
-    def __exit__(self, exc, cls, tb):
-        current().cancels.pop()
-        return
-
 class Thread(threading.Thread, EventBus):
     '''
     A thread / EventBus to allow fini() etc.
@@ -196,18 +164,11 @@ class Thread(threading.Thread, EventBus):
         self.iden = s_common.guid()
         self.task = (func, args, kwargs)
 
-        self.cancels = []
-
-        self.onfini(self._onThrFini)
-
     def run(self):
         func, args, kwargs = self.task
         ret = func(*args, **kwargs)
         self.fire('thread:done', thread=self, ret=ret)
         self.fini()
-
-    def _onThrFini(self):
-        [cancel() for cancel in self.cancels]
 
 def worker(func, *args, **kwargs):
     '''
@@ -278,34 +239,6 @@ class Pool(EventBus):
         Call the given func(*args,**kwargs) in the pool.
         '''
         self._que_work((func, args, kwargs))
-
-    @contextlib.contextmanager
-    def task(self, func, *args, **kwargs):
-        '''
-        Call the given function in the pool with a task.
-
-        NOTE: Callers *must* use with-block syntax.
-
-        Example:
-
-            def foo(x):
-                dostuff()
-
-            def onretn(valu):
-                otherstuff()
-
-            with pool.task(foo, 10) as task:
-                task.onretn(onretn)
-
-            # the task is queued for execution *after* we
-            # leave the with block.
-        '''
-        call = (func, args, kwargs)
-        task = s_task.CallTask(call)
-
-        yield task
-
-        self._que_work((task.run, (), {}))
 
     def _que_work(self, work):
 

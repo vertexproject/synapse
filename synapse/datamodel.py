@@ -9,7 +9,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 
-import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
 
 logger = logging.getLogger(__name__)

@@ -1,21 +1,63 @@
-import lmdb
-from synapse.tests.common import *
-import synapse.lib.iq as s_iq
 import synapse.lib.auth as s_auth
-import synapse.lib.tufo as s_tufo
 
-class TstAthMxn(s_auth.AuthMixin):
-    def __init__(self, dirn, root='root'):
-        auth = s_auth.Auth(dirn, {'lmdb:mapsize': s_iq.TEST_MAP_SIZE})
-        s_auth.AuthMixin.__init__(self, auth)
-        try:
-            root = auth.addUser(root)
-        except s_exc.DupUserName:
-            root = auth.reqUser(root)
-        finally:
-            root.setAdmin(True)
+import synapse.tests.common as s_test
 
-class AuthTest(SynTest):
+class AuthTest(s_test.SynTest):
+
+    def test_auth_basics(self):
+
+        with self.getTestDir() as dirn:
+
+            with s_auth.Auth(dirn) as auth:
+
+                user = auth.addUser('visi')
+                user.setPasswd('secretsauce')
+                user.addRule(True, ('foo', 'bar'))
+
+                self.true(user.allowed(('foo', 'bar')))
+                self.false(user.allowed(('foo', )))
+                self.false(user.allowed(('foo', 'baz')))
+
+                role = auth.addRole('ninja')
+                role.addRule(True, ('baz',))
+                role.addRule(False, ('baz', 'faz'))
+
+                self.true(role.allowed(('baz',)))
+                self.true(role.allowed(('baz', 'bar')))
+                self.false(role.allowed(('baz', 'faz')))
+
+                ############################################
+                self.false(user.allowed(('baz',)))
+                self.false(user.allowed(('baz', 'faz')))
+                self.false(user.allowed(('baz', 'bar')))
+
+                user.addRole('ninja')
+
+                self.true(user.allowed(('baz',)))
+                self.true(user.allowed(('baz', 'bar')))
+                self.false(user.allowed(('baz', 'faz')))
+
+                user.delRole('ninja')
+
+                self.false(user.allowed(('baz',)))
+                self.false(user.allowed(('baz', 'faz')))
+                self.false(user.allowed(('baz', 'bar')))
+                ############################################
+
+            with s_auth.Auth(dirn) as auth:
+
+                user = auth.users.get('visi')
+                self.nn(user.shadow)
+
+                self.true(user.allowed(('foo', 'bar')))
+                self.false(user.allowed(('foo', )))
+                self.false(user.allowed(('foo', 'baz')))
+
+                self.false(user.allowed(('baz',)))
+                self.false(user.allowed(('baz', 'faz')))
+                self.false(user.allowed(('baz', 'bar')))
+
+class Newp:
 
     def test_auth_rules(self):
 

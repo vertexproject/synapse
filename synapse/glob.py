@@ -4,7 +4,6 @@ lock = threading.RLock()
 
 plex = None     # s_net.Plex()
 pool = None     # s_threads.Pool(maxsize=tmax)
-sched = None    # s_sched.Sched(pool=pool)
 
 def inpool(f):
     '''
@@ -23,7 +22,7 @@ def sync(coro, timeout=None):
 
 def synchelp(f):
     '''
-    The synchelp decorator allows the transparant execution of
+    The synchelp decorator allows the transparent execution of
     a coroutine using the global plex from a thread other than
     the event loop:
 
@@ -52,3 +51,9 @@ def synchelp(f):
         return coro
 
     return wrap
+
+async def executor(func, *args, **kwargs):
+    '''
+    Run the given function in an executor to the global loop.
+    '''
+    return await plex.executor(func, *args, **kwargs)

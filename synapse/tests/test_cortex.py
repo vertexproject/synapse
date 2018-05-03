@@ -97,6 +97,23 @@ class CortexTest(SynTest):
                 node = xact.addNode('inet:ipv4', '1.2.3.4')
                 self.eq(node.buid, func.args[0].buid)
 
+    def test_cortex_cell(self):
+
+        with self.getTestDmon(mirror='dmoncore') as dmon:
+
+            core = dmon.shared.get('core')
+
+            nodes = ((('inet:user', 'visi'), {}), )
+
+            core.addNodes(nodes)
+            nodes = list(core.getNodesBy('inet:user', 'visi'))
+
+            print('LOCAL: %r' % (nodes,))
+
+            proxy = dmon._getTestProxy('core')
+            nodes = list(proxy.getNodesBy('inet:user', 'visi'))
+            print(repr(nodes))
+
     def test_cortex_onset(self):
 
         with self.getTestCore() as core:

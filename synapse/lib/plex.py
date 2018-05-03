@@ -101,6 +101,18 @@ class Plex(s_eventbus.EventBus):
         task = self.coroToTask(coro)
         return task.result(timeout=timeout)
 
+    async def executor(self, func, *args, **kwargs):
+        '''
+        Execute a function in an executor thread.
+
+        Args:
+            todo ((func,args,kwargs)): A todo tuple.
+        '''
+        def syncfunc():
+            return func(*args, **kwargs)
+
+        return await self.loop.run_in_executor(None, syncfunc)
+
     async def _onAsyncFini(self):
         # async fini stuff here...
         return

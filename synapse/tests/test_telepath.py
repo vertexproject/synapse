@@ -13,6 +13,8 @@ import synapse.lib.link as s_link
 
 import synapse.tests.common as s_test
 
+class Boom: pass
+
 class Foo:
 
     def bar(self, x, y):
@@ -46,6 +48,41 @@ class Foo:
         for i in range(x):
             yield i
 
+    def boom(self):
+        return Boom()
+
+class TeleApi:
+
+    def __init__(self, item, link):
+        self.item = item
+        self.link = link
+
+    def getFooBar(self, x, y):
+        return x - y
+
+class TeleAware(s_telepath.Aware):
+
+    def getTeleApi(self, link, mesg):
+        return TeleApi(self, link)
+
+class TeleAuth(s_telepath.Aware):
+
+    def getTeleApi(self, link, mesg):
+
+        auth = mesg[1].get('auth')
+        if auth is None:
+            raise s_exc.AuthDeny()
+
+        user, info = auth
+
+        passwd = info.get('passwd')
+        if passwd != 'secretsauce':
+            raise s_exc.AuthDeny()
+
+        return self
+
+    def getFooBar(self, x, y):
+        return x + y
 
 class TeleTest(s_test.SynTest):
 
@@ -80,6 +117,34 @@ class TeleTest(s_test.SynTest):
             self.raises(s_exc.NoSuchMeth, prox.raze)
 
             self.raises(s_exc.NoSuchMeth, prox.fake)
+
+            self.raises(s_exc.SynErr, prox.boom)
+
+    def test_telepath_aware(self):
+
+        item = TeleAware()
+
+        with self.getTestDmon() as dmon:
+            dmon.share('woke', item)
+            proxy = dmon._getTestProxy('woke')
+            self.eq(10, proxy.getFooBar(20, 10))
+
+    def test_telepath_auth(self):
+
+        item = TeleAuth()
+        with self.getTestDmon() as dmon:
+            dmon.share('auth', item)
+            host, port = dmon.addr
+
+            url = 'tcp://localhost/auth'
+            self.raises(s_exc.AuthDeny, s_telepath.openurl, url, port=port)
+
+            url = 'tcp://visi@localhost/auth'
+            self.raises(s_exc.AuthDeny, s_telepath.openurl, url, port=port)
+
+            url = 'tcp://visi:secretsauce@localhost/auth'
+            with s_telepath.openurl(url, port=port) as proxy:
+                self.eq(17, proxy.getFooBar(10, 7))
 
     def test_telepath_server_badvers(self):
 

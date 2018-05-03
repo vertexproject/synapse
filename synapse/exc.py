@@ -282,7 +282,6 @@ class JobErr(Exception):
 
 class LinkTimeOut(SynErr): pass
 
-# TODO: steal these names back for synapse/lib/net.py (and deprecate old users)
 class LinkErr(SynErr):
 
     retry = False
