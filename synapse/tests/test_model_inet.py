@@ -24,6 +24,33 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.form('inet:whois:rar'))  # str w/ lower
             self.nn(core.model.form('inet:whois:reg'))  # str w/ lower
 
+    def test_asn(self):
+        formname = 'inet:asn'
+        with self.getTestCore() as core:
+
+            with core.xact(write=True) as xact:
+
+                valu = '123'
+                input_props = {
+                    'name': 'COOL',
+                    'owner': 32 * 'a'
+                }
+                expected_props = {
+                    'name': 'cool',
+                    # FIXME implement ou:org
+                }
+                expected_ndef = (formname, 123)
+                node = xact.addNode(formname, valu, props=input_props)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+                valu = '456'
+                expected_props = {'name': '??'}
+                expected_ndef = (formname, 456)
+                node = xact.addNode(formname, valu)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
     def test_cidr4(self):
         formname = 'inet:cidr4'
         with self.getTestCore() as core:
@@ -214,6 +241,7 @@ class InetModelTest(s_t_common.SynTest):
 
     def test_ipv4(self):
         formname = 'inet:ipv4'
+
         with self.getTestCore() as core:
 
             # Type Tests ======================================================
@@ -334,6 +362,33 @@ class InetModelTest(s_t_common.SynTest):
                 expected_props = {'fqdn': 'vertex.link', 'passwd': 'hunter2', 'path': '/coolthings?a=1', 'port': 1337, 'proto': 'https', 'user': 'vertexmc'}
 
                 node = xact.addNode(formname, valu)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+    def test_rfc2822_addr(self):
+        formname = 'inet:rfc2822:addr'
+        with self.getTestCore() as core:
+
+            # Type Tests ======================================================
+            t = core.model.type(formname)
+
+            self.eq(t.norm('FooBar'), ('foobar', {'subs': {}}))
+            self.eq(t.norm('visi@vertex.link'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
+            self.eq(t.norm('foo bar<visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
+            self.eq(t.norm('foo bar <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
+            self.eq(t.norm('"foo bar "   <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
+            self.eq(t.norm('<visi@vertex.link>'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
+
+            self.raises(s_exc.NoSuchFunc, t.norm, 20)
+
+            # Form Tests ======================================================
+            valu = '"UnitTest"    <UnitTest@Vertex.link>'
+            expected_ndef = (formname, 'unittest <unittest@vertex.link>')
+            expected_props = {'email': 'unittest@vertex.link'}   #FIXME add ps:name
+
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu)
+
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.props, expected_props)
 
@@ -1105,35 +1160,6 @@ class FIXME:
 
             self.eq(node[1].get('inet:urlredir:seen:min'), tick)
             self.eq(node[1].get('inet:urlredir:seen:max'), tock)
-
-    def test_model_inet_rfc2822_addr(self):
-
-        with self.getRamCore() as core:
-
-            self.raises(s_exc.BadTypeValu, core.formTufoByProp, 'inet:rfc2822:addr', 20)
-
-            n0 = core.formTufoByProp('inet:rfc2822:addr', 'FooBar')
-            n1 = core.formTufoByProp('inet:rfc2822:addr', 'visi@vertex.link')
-            n2 = core.formTufoByProp('inet:rfc2822:addr', 'foo bar<visi@vertex.link>')
-            n3 = core.formTufoByProp('inet:rfc2822:addr', 'foo bar <visi@vertex.link>')
-            n4 = core.formTufoByProp('inet:rfc2822:addr', '"foo bar "   <visi@vertex.link>')
-            n5 = core.formTufoByProp('inet:rfc2822:addr', '<visi@vertex.link>')
-
-            self.eq(n0[1].get('inet:rfc2822:addr'), 'foobar')
-            self.none(n0[1].get('inet:rfc2822:addr:name'))
-            self.none(n0[1].get('inet:rfc2822:addr:addr'))
-
-            self.eq(n1[1].get('inet:rfc2822:addr'), 'visi@vertex.link')
-            self.eq(n1[1].get('inet:rfc2822:addr:email'), 'visi@vertex.link')
-            self.none(n1[1].get('inet:rfc2822:addr:name'))
-
-            self.eq(n2[1].get('inet:rfc2822:addr'), 'foo bar <visi@vertex.link>')
-            self.eq(n2[1].get('inet:rfc2822:addr:name'), 'foo bar')
-            self.eq(n2[1].get('inet:rfc2822:addr:email'), 'visi@vertex.link')
-
-            self.eq(n2[0], n3[0])
-            self.eq(n2[0], n4[0])
-            self.eq(n1[0], n5[0])
 
     def test_model_inet_http(self):
 

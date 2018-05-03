@@ -774,13 +774,6 @@
                         'doc': 'The IPv4 address associated with the TCP server.'}),
                 ]),
 
-                ('inet:rfc2822:addr', {}, (
-                    ('name', {'ptype': 'ps:name', 'ro': 1,
-                        'doc': 'The name field parsed from an RFC 2822 address string.'}),
-                    ('email', {'ptype': 'inet:email', 'ro': 1,
-                        'doc': 'The email field parsed from an RFC 2822 address string.'}),
-                )),
-
                 ('inet:http:request', {}, (
 
                     ('flow', {'ptype': 'inet:flow',
@@ -883,49 +876,6 @@
         }
 
         return (('inet', modl),)
-
-#class Rfc2822Addr(DataType):
-    #'''
-    #An RFC 2822 compatible email address parser
-    #'''
-    #def norm(self, valu, oldval=None):
-
-        #if not isinstance(valu, str):
-            #self._raiseBadValu(valu, mesg='requires a string')
-
-        # remove quotes for normalized version
-        #valu = valu.replace('"', ' ').replace("'", ' ')
-        #valu = valu.strip().lower()
-        #valu = ' '.join(valu.split())
-
-        #subs = {}
-
-        #try:
-
-            #name, addr = email.utils.parseaddr(valu)
-
-        #except Exception as e: #pragma: no cover
-            # not sure we can ever really trigger this with a string as input
-            #self._raiseBadValu(valu, mesg='email.utils.parsaddr failed: %s' % (e,))
-
-        #if name:
-            #subs['name'] = name
-
-        #try:
-
-            #mail, ssub = self.tlib.getTypeNorm('inet:email', addr)
-            #subs['email'] = mail
-
-            #if name:
-                #valu = '%s <%s>' % (name, mail)
-
-            #else:
-                #valu = mail
-
-        #except BadTypeValu as e:
-            #pass # it's all good, we just dont have a valid email addr
-
-        #return valu, subs
 
 #class AddrType(DataType):
 
