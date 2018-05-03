@@ -1,16 +1,131 @@
 # -*- coding: UTF-8 -*-
 import base64
 
+import synapse.exc as s_exc
 import synapse.common as s_common
+
 import synapse.lib.types as s_types
+import synapse.lib.xact as s_xact
 
 import synapse.tests.common as s_test
 
-import unittest
-raise unittest.SkipTest('LIB TYPES')
+class TestTypes(s_test.SynTest):
 
-class Newp:
+    def test_hex_type(self):
 
+        # Bad configurations are not allowed for the type
+        self.raises(s_exc.BadConfValu, s_types.Hex, None, None, None, {'size': -1})
+        self.raises(s_exc.BadConfValu, s_types.Hex, None, None, None, {'size': 1})
+
+        with self.getTestCore() as core:
+            # fixme - getTestCore should have this dude loaded in him already!
+            modu = core.addCoreMods([('synapse.tests.test_cortex.TestModule', {})])
+
+            t = core.model.type('testhexa')
+            # Test norming to index values
+            testvectors = [
+                ('0C', b'\x0c'),
+                ('0X010001', b'\x01\x00\x01'),
+                ('0FfF', b'\x0f\xff'),
+                ('f12A3e', b'\xf1\x2a\x3e'),
+                (b'\x01\x00\x01', b'\x01\x00\x01'),
+                (b'\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\t\x98\xec\xf8B~',
+                 b'\xd4\x1d\x8c\xd9\x8f\x00\xb2\x04\xe9\x80\t\x98\xec\xf8B~'),
+                (65537, s_exc.NoSuchFunc),
+            ]
+
+            for v, b in testvectors:
+                if isinstance(b, bytes):
+                    r, subs = t.norm(v)
+                    self.isinstance(r, str)
+                    self.eq(subs, {})
+                    self.eq(t.indx(r), b)
+                else:
+                    self.raises(b, t.norm, v)
+
+            # width = 4
+            testvectors4 = [
+                ('d41d', b'\xd4\x1d'),
+                (b'\x10\x01', b'\x10\x01'),
+                ('01', s_exc.BadTypeValu),
+                ('010101', s_exc.BadTypeValu),
+                (b'\x10\x01\xff', s_exc.BadTypeValu),
+                (b'\xff', s_exc.BadTypeValu),
+            ]
+            t = core.model.type('testhex4')
+            for v, b in testvectors4:
+                if isinstance(b, bytes):
+                    r, subs = t.norm(v)
+                    self.isinstance(r, str)
+                    self.eq(subs, {})
+                    self.eq(t.indx(r), b)
+                else:
+                    self.raises(b, t.norm, v)
+
+            # Do some node creation and lifting
+            with core.xact(write=True) as xact:  # type: s_xact.Xact
+                node = xact.addNode('testhexa', '010001')
+                self.eq(node.ndef[1], '010001')
+
+            with core.xact() as xact:  # type: s_xact.Xact
+                nodes = list(xact.getNodesBy('testhexa', '010001'))
+                self.len(1, nodes)
+
+                nodes = list(xact.getNodesBy('testhexa', b'\x01\x00\x01'))
+                self.len(1, nodes)
+
+            # Do some fancy prefix searches for testhexa
+            valus = ['deadb33f',
+                     'deadb33fb33f',
+                     'deadb3b3',
+                     'deaddead',
+                     'DEADBEEF']
+            with core.xact(write=True) as xact:  # type: s_xact.Xact
+                for valu in valus:
+                    node = xact.addNode('testhexa', valu)
+
+            with core.xact() as xact:  # type: s_xact.Xact
+                nodes = list(xact.getNodesBy('testhexa', 'dead*'))
+                self.len(5, nodes)
+
+                nodes = list(xact.getNodesBy('testhexa', 'deadb3*'))
+                self.len(3, nodes)
+
+                nodes = list(xact.getNodesBy('testhexa', 'deadb33fb3*'))
+                self.len(1, nodes)
+
+                nodes = list(xact.getNodesBy('testhexa', 'deadde*'))
+                self.len(1, nodes)
+
+                nodes = list(xact.getNodesBy('testhexa', 'b33f*'))
+                self.len(0, nodes)
+
+            # Do some fancy prefix searches for testhex4
+            valus = ['0000',
+                     '0100',
+                     '01ff',
+                     '0200',
+                     ]
+            with core.xact(write=True) as xact:  # type: s_xact.Xact
+                for valu in valus:
+                    node = xact.addNode('testhex4', valu)
+
+            with core.xact() as xact:  # type: s_xact.Xact
+                nodes = list(xact.getNodesBy('testhex4', '00*'))
+                self.len(1, nodes)
+
+                nodes = list(xact.getNodesBy('testhex4', '01*'))
+                self.len(2, nodes)
+
+                nodes = list(xact.getNodesBy('testhex4', '02*'))
+                self.len(1, nodes)
+
+                # You can ask for a longer prefix then allowed
+                # but you'll get no results
+                nodes = list(xact.getNodesBy('testhex4', '022020*'))
+                self.len(0, nodes)
+
+class FIXME(object):
     def test_datatype_basics(self):
         tlib = s_types.TypeLib()
         self.true(tlib.isDataType('inet:url'))

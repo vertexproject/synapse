@@ -641,6 +641,55 @@ class Comp(Type):
     def indx(self, norm):
         return s_common.buid(norm)
 
+class Hex(Type):
+    _opt_defs = (
+        ('size', 0),
+    )
+
+    def postTypeInit(self):
+        self._size = self.opts.get('size')
+        if self._size < 0:
+            # zero means no width check
+            raise s_exc.BadConfValu(name='size', valu=self._size,
+                                    mesg='Size must be > 0')
+        if self._size % 2 != 0:
+            raise s_exc.BadConfValu(name='size', valu=self._size,
+                                    mesg='Size must be a multiple of 2')
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(bytes, self._normPyBytes)
+
+    def liftPropEq(self, xact, fenc, penc, valu):
+
+        # Prefix searching is allowed with a '*'
+        if isinstance(valu, str) and valu.endswith('*'):
+            valu = valu.rstrip('*')
+            norm = s_chop.hexstr(valu)
+            lops = (
+                ('prop:pref', {
+                    'form': fenc,
+                    'prop': penc,
+                    'valu': norm,
+                    'indx': self.indx(norm),
+                }),
+            )
+            return xact.lift(lops)
+        # Default case
+        return Type.liftPropEq(self, xact, fenc, penc, valu)
+
+    def _normPyStr(self, valu):
+        valu = s_chop.hexstr(valu)
+
+        if self._size and len(valu) != self._size:
+            raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size,
+                                    mesg='invalid width')
+        return valu, {}
+
+    def _normPyBytes(self, valu):
+        return self._normPyStr(s_common.ehex(valu))
+
+    def indx(self, norm):
+        return s_common.uhex(norm)
+
 class Ndef(Type):
 
     def postTypeInit(self):

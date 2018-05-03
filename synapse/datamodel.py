@@ -242,6 +242,10 @@ class Model:
         item = s_types.Str(self, 'str', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'The base hex type.'}
+        item = s_types.Hex(self, 'hex', info, {})
+        self.addBaseType(item)
+
         info = {'doc': 'The base boolean type.'}
         item = s_types.Bool(self, 'bool', info, {})
         self.addBaseType(item)
