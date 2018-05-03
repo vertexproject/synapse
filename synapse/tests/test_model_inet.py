@@ -194,13 +194,27 @@ class InetModelTest(SynTest):
                 isneither(n2)  # stays the same
                 issuffix(n4)   # stays the same
 
-    def test_forms_rfc2822_addr(self):
+    def test_rfc2822_addr(self):
         formname = 'inet:rfc2822:addr'
-        valu = '"UnitTest"    <UnitTest@Vertex.link>'
-        expected_ndef = (formname, 'unittest <unittest@vertex.link>')
-        expected_props = {'email': 'unittest@vertex.link'}   #FIXME add ps:name
-
         with self.getTestCore() as core:
+
+            # Type Tests
+            t = core.model.type(formname)
+
+            self.eq(t.norm('FooBar'), ('foobar', {'subs': {}}))
+            self.eq(t.norm('visi@vertex.link'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
+            self.eq(t.norm('foo bar<visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
+            self.eq(t.norm('foo bar <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
+            self.eq(t.norm('"foo bar "   <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
+            self.eq(t.norm('<visi@vertex.link>'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
+
+            self.raises(s_exc.NoSuchFunc, t.norm, 20)
+
+            # Form Tests
+            valu = '"UnitTest"    <UnitTest@Vertex.link>'
+            expected_ndef = (formname, 'unittest <unittest@vertex.link>')
+            expected_props = {'email': 'unittest@vertex.link'}   #FIXME add ps:name
+
             with core.xact(write=True) as xact:
                 node = xact.addNode(formname, valu)
 
@@ -335,19 +349,6 @@ class InetModelTest(SynTest):
             self.eq(t.norm('2001:db8::0:1')[0], '2001:db8::1')
             self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
             self.eq(t.norm('2001:db8::')[0], '2001:db8::')
-
-    def test_types_rfc2822_addr(self):
-        with self.getTestCore() as core:
-            t = core.model.type('inet:rfc2822:addr')
-
-            self.eq(t.norm('FooBar'), ('foobar', {'subs': {}}))
-            self.eq(t.norm('visi@vertex.link'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
-            self.eq(t.norm('foo bar<visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
-            self.eq(t.norm('foo bar <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
-            self.eq(t.norm('"foo bar "   <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
-            self.eq(t.norm('<visi@vertex.link>'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
-
-            self.raises(s_exc.NoSuchFunc, t.norm, 20)
 
     def test_types_url(self):
         with self.getTestCore() as core:
