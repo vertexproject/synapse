@@ -2,86 +2,127 @@ import copy
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.tests.common as s_t_common
 
-from synapse.tests.common import *
+class InetModelTest(s_t_common.SynTest):
 
-class InetModelTest(SynTest):
+    def test__unextended(self):
+        with self.getTestCore() as core:
 
-    # Form Tests ===================================================================================
-    def test_forms_cidr4(self):
+            # The following types are subtypes that do not extend their base type
+            self.nn(core.model.type('inet:asn'))  # int
+            self.nn(core.model.type('inet:passwd'))  # str
+            self.nn(core.model.type('inet:port'))  # int w/ min/max
+            self.nn(core.model.type('inet:wifi:ssid'))  # str
+            self.nn(core.model.type('inet:user'))  # str w/ lower
+            self.nn(core.model.type('inet:whois:rar'))  # str w/ lower
+            self.nn(core.model.type('inet:whois:reg'))  # str w/ lower
+
+            # The following forms do not extend their base type
+            self.nn(core.model.form('inet:group'))  # str w/ lower
+            self.nn(core.model.form('inet:user'))  # str w/ lower
+            self.nn(core.model.form('inet:whois:rar'))  # str w/ lower
+            self.nn(core.model.form('inet:whois:reg'))  # str w/ lower
+
+    def test_cidr4(self):
         formname = 'inet:cidr4'
-        valu = '192[.]168.1.123/24'
-        expected_props = {
-            'network': 3232235776,    # 192.168.1.0
-            'broadcast': 3232236031,  # 192.168.1.255
-            'mask': 24,
-        }
-        expected_ndef = (formname, '192.168.1.0/24')  # ndef is network/mask, not ip/mask
-
         with self.getTestCore() as core:
+
+            # Type Tests ======================================================
+            t = core.model.type('inet:cidr4')
+
+            valu = '0/24'
+            expected = ('0.0.0.0/24', {'subs': {
+                'broadcast': 255,
+                'network': 0,
+                'mask': 24,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            valu = '192.168.1.101/24'
+            expected = ('192.168.1.0/24', {'subs': {
+                'broadcast': 3232236031,  # 192.168.1.255
+                'network': 3232235776,    # 192.168.1.0
+                'mask': 24,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            valu = '123.123.0.5/30'
+            expected = ('123.123.0.4/30', {'subs': {
+                'broadcast': 2071658503,  # 123.123.0.7
+                'network': 2071658500,    # 123.123.0.4
+                'mask': 30,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/-1')
+            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/33')
+
+            # Form Tests ======================================================
+            valu = '192[.]168.1.123/24'
+            expected_props = {
+                'network': 3232235776,    # 192.168.1.0
+                'broadcast': 3232236031,  # 192.168.1.255
+                'mask': 24,
+            }
+            expected_ndef = (formname, '192.168.1.0/24')  # ndef is network/mask, not ip/mask
+
             with core.xact(write=True) as xact:
                 node = xact.addNode(formname, valu)
-
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.props, expected_props)
 
-    def test_forms_ipv4(self):
-        # FIXME add latlong later
-        formname = 'inet:ipv4'
-        valu_str = '1.2.3.4'
-        valu_int = 16909060
-        input_props = {'asn': 3, 'loc': 'us', 'type': 'cool'}
-        expected_props = {'asn': 3, 'loc': 'us', 'type': 'cool'}
-        expected_ndef = (formname, valu_int)
-
-        with self.getTestCore() as core:
-            with core.xact(write=True) as xact:
-                node = xact.addNode(formname, valu_str, props=input_props)
-
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
-
-    def test_forms_ipv6(self):
-        # FIXME add latlong later
-        formname = 'inet:ipv6'
-
-        with self.getTestCore() as core:
-            with core.xact(write=True) as xact:
-
-                valu_str = '::fFfF:1.2.3.4'
-                expected_props = {'asn': 0, 'ipv4': 16909060, 'loc': '??'}
-                expected_ndef = (formname, valu_str.lower())
-                node = xact.addNode(formname, valu_str)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
-
-                valu_str = '::1'
-                expected_props = {'asn': 0, 'loc': '??'}
-                expected_ndef = (formname, valu_str)
-                node = xact.addNode(formname, valu_str)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
-
-    def test_forms_email(self):
+    def test_email(self):
         formname = 'inet:email'
-        valu = 'UnitTest@Vertex.link'
-        expected_ndef = (formname, valu.lower())
-        expected_props = {'fqdn': 'vertex.link', 'user': 'unittest'}
-
         with self.getTestCore() as core:
+
+            # Type Tests ======================================================
+            t = core.model.type('inet:email')
+
+            email = 'UnitTest@Vertex.link'
+            expected = ('unittest@vertex.link', {'subs': {'fqdn': 'vertex.link', 'user': 'unittest'}})
+            self.eq(t.norm(email), expected)
+
+            # Form Tests ======================================================
+            valu = 'UnitTest@Vertex.link'
+            expected_ndef = (formname, valu.lower())
+            expected_props = {'fqdn': 'vertex.link', 'user': 'unittest'}
+
             with core.xact(write=True) as xact:
                 node = xact.addNode(formname, valu)
 
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.props, expected_props)
 
-    def test_forms_fqdn(self):
+    def test_fqdn(self):
         formname = 'inet:fqdn'
-        valu = 'api.vertex.link'
-        expected_ndef = (formname, valu)
-
-        # props: domain host issuffix iszone zone
         with self.getTestCore() as core:
+
+            # Type Tests ======================================================
+            t = core.model.type('inet:fqdn')
+
+            fqdn = 'example.Vertex.link'
+            expected = ('example.vertex.link', {'subs': {'host': 'example', 'domain': 'vertex.link'}})
+            self.eq(t.norm(fqdn), expected)
+            self.raises(s_exc.BadTypeValu, t.norm, '!@#$%')
+
+            # Demonstrate Valid IDNA
+            fqdn = 'tèst.èxamplè.link'
+            ex_fqdn = 'xn--tst-6la.xn--xampl-3raf.link'
+            expected = (ex_fqdn, {'subs': {'domain': 'xn--xampl-3raf.link', 'host': 'xn--tst-6la'}})
+            self.eq(t.norm(fqdn), expected)
+            self.eq(t.repr(ex_fqdn), fqdn)  # Calling repr on IDNA encoded domain should result in the unicode
+            self.raises(UnicodeDecodeError, t.repr, fqdn)  # Can't repr unicode domain
+
+            # Demonstrate Invalid IDNA
+            fqdn = 'xn--lskfjaslkdfjaslfj.link'
+            expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'link'}})
+            self.eq(t.norm(fqdn), expected)
+            self.eq(t.repr(fqdn), fqdn)  # UnicodeError raised and caught
+
+            # Form Tests ======================================================
+            valu = 'api.vertex.link'
+            expected_ndef = (formname, valu)
 
             # Demonstrate cascading formation
             expected_props = {'created': 0, 'domain': 'vertex.link', 'expires': 1, 'host': 'api', 'issuffix': 0,
@@ -99,10 +140,10 @@ class InetModelTest(SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.props, expected_props)
 
-            nvalu = expected_props['domain']
-            expected_ndef = (formname, nvalu)
-            expected_props = {'host': 'link', 'issuffix': 1, 'iszone': 0}
             with core.xact() as xact:
+                nvalu = expected_props['domain']
+                expected_ndef = (formname, nvalu)
+                expected_props = {'host': 'link', 'issuffix': 1, 'iszone': 0}
                 node = xact.getNodeByNdef((formname, nvalu))
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.props, expected_props)
@@ -115,8 +156,10 @@ class InetModelTest(SynTest):
                 badgen = xact.getNodesBy(formname, 'api.*.link')
                 self.raises(s_exc.BadLiftValu, list, badgen)
 
-    def test_forms_fqdn_suffix(self):
+    def test_fqdn_suffix(self):
+        # Demonstrate FQDN suffix/zone behavior
         formname = 'inet:fqdn'
+
         def iszone(node):
             self.true(node.props.get('iszone') == 1 and node.props.get('issuffix') == 0)
 
@@ -169,109 +212,11 @@ class InetModelTest(SynTest):
                 isneither(n2)  # stays the same
                 issuffix(n4)   # stays the same
 
-    def test_forms_mac(self):
-        formname = 'inet:mac'
-        valu = '00:00:00:00:00:00'
-        expected_ndef = (formname, valu)
-
+    def test_ipv4(self):
+        formname = 'inet:ipv4'
         with self.getTestCore() as core:
-            with core.xact(write=True) as xact:
 
-                node = xact.addNode(formname, valu)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, {'vendor': '??'})
-
-                node = xact.addNode(formname, valu, props={'vendor': 'Cool'})
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, {'vendor': 'Cool'})
-
-    def test_forms_url(self):
-        formname = 'inet:url'
-        valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
-        expected_ndef = (formname, valu)
-        expected_props = {'fqdn': 'vertex.link', 'passwd': 'hunter2', 'path': '/coolthings?a=1', 'port': 1337, 'proto': 'https', 'user': 'vertexmc'}
-
-        with self.getTestCore() as core:
-            with core.xact(write=True) as xact:
-                node = xact.addNode(formname, valu)
-
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
-
-    def test_forms_unextended(self):
-        # The following forms do not extend their base type
-        with self.getTestCore() as core:
-            self.nn(core.model.form('inet:group'))  # str w/ lower
-            self.nn(core.model.form('inet:user'))  # str w/ lower
-            self.nn(core.model.form('inet:whois:rar'))  # str w/ lower
-            self.nn(core.model.form('inet:whois:reg'))  # str w/ lower
-
-    # Type Tests ===================================================================================
-    def test_types_cidr4(self):
-        with self.getTestCore() as core:
-            t = core.model.type('inet:cidr4')
-
-            valu = '0/24'
-            expected = ('0.0.0.0/24', {'subs': {
-                'broadcast': 255,
-                'network': 0,
-                'mask': 24,
-            }})
-            self.eq(t.norm(valu), expected)
-
-            valu = '192.168.1.101/24'
-            expected = ('192.168.1.0/24', {'subs': {
-                'broadcast': 3232236031,  # 192.168.1.255
-                'network': 3232235776,    # 192.168.1.0
-                'mask': 24,
-            }})
-            self.eq(t.norm(valu), expected)
-
-            valu = '123.123.0.5/30'
-            expected = ('123.123.0.4/30', {'subs': {
-                'broadcast': 2071658503,  # 123.123.0.7
-                'network': 2071658500,    # 123.123.0.4
-                'mask': 30,
-            }})
-            self.eq(t.norm(valu), expected)
-
-            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/-1')
-            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/33')
-
-    def test_types_email(self):
-        with self.getTestCore() as core:
-            t = core.model.type('inet:email')
-
-            email = 'UnitTest@Vertex.link'
-            expected = ('unittest@vertex.link', {'subs': {'fqdn': 'vertex.link', 'user': 'unittest'}})
-            self.eq(t.norm(email), expected)
-
-    def test_types_fqdn(self):
-        with self.getTestCore() as core:
-            t = core.model.type('inet:fqdn')
-
-            fqdn = 'example.Vertex.link'
-            expected = ('example.vertex.link', {'subs': {'host': 'example', 'domain': 'vertex.link'}})
-            self.eq(t.norm(fqdn), expected)
-            self.raises(s_exc.BadTypeValu, t.norm, '!@#$%')
-
-            # Demonstrate Valid IDNA
-            fqdn = 'tèst.èxamplè.link'
-            ex_fqdn = 'xn--tst-6la.xn--xampl-3raf.link'
-            expected = (ex_fqdn, {'subs': {'domain': 'xn--xampl-3raf.link', 'host': 'xn--tst-6la'}})
-            self.eq(t.norm(fqdn), expected)
-            self.eq(t.repr(ex_fqdn), fqdn)  # Calling repr on IDNA encoded domain should result in the unicode
-            self.raises(UnicodeDecodeError, t.repr, fqdn)  # Can't repr unicode domain
-
-            # Demonstrate Invalid IDNA
-            fqdn = 'xn--lskfjaslkdfjaslfj.link'
-            expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'link'}})
-            self.eq(t.norm(fqdn), expected)
-            self.eq(t.repr(fqdn), fqdn)  # UnicodeError raised and caught
-
-    def test_types_ipv4(self):
-        # FIXME add latlong later
-        with self.getTestCore() as core:
+            # Type Tests ======================================================
             t = core.model.type('inet:ipv4')
             ip_int = 16909060
             ip_str = '1.2.3.4'
@@ -286,15 +231,29 @@ class InetModelTest(SynTest):
             self.eq(t.norm(0x00000000 - 1), (2**32 - 1, {}))
             self.eq(t.norm(0xFFFFFFFF + 1), (0, {}))
 
-    def test_types_ipv6(self):
-        # FIXME add latlong later
+            # Form Tests ======================================================
+            with core.xact(write=True) as xact:
+                valu_str = '1.2.3.4'
+                valu_int = 16909060
+                input_props = {'asn': 3, 'loc': 'us', 'type': 'cool'}  # FIXME add latlong later
+                expected_props = {'asn': 3, 'loc': 'us', 'type': 'cool'}
+                expected_ndef = (formname, valu_int)
+
+                node = xact.addNode(formname, valu_str, props=input_props)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+    def test_ipv6(self):
+        formname = 'inet:ipv6'
         with self.getTestCore() as core:
+
+            # Type Tests ======================================================
             t = core.model.type('inet:ipv6')
 
             self.eq(t.norm('::1'), ('::1', {}))
             self.eq(t.norm('0:0:0:0:0:0:0:1'), ('::1', {}))
             self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), ('2001:db8::ff00:42:8329', {}))
-            self.raises(BadTypeValu, t.norm, 'newp')
+            self.raises(s_exc.BadTypeValu, t.norm, 'newp')
 
             # Specific examples given in RFC5952
             self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
@@ -305,7 +264,7 @@ class InetModelTest(SynTest):
             self.eq(t.norm('2001:db8:0:0:1::1')[0], '2001:db8::1:0:0:1')
             self.eq(t.norm('2001:DB8:0:0:1::1')[0], '2001:db8::1:0:0:1')
             self.eq(t.norm('2001:DB8:0:0:1:0000:0000:1')[0], '2001:db8::1:0:0:1')
-            self.raises(BadTypeValu, t.norm, '::1::')
+            self.raises(s_exc.BadTypeValu, t.norm, '::1::')
             self.eq(t.norm('2001:0db8::0001')[0], '2001:db8::1')
             self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
             self.eq(t.norm('2001:db8:0:1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
@@ -316,8 +275,28 @@ class InetModelTest(SynTest):
             self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
             self.eq(t.norm('2001:db8::')[0], '2001:db8::')
 
-    def test_types_mac(self):
+            # Form Tests ======================================================
+            with core.xact(write=True) as xact:
+
+                valu_str = '::fFfF:1.2.3.4'
+                expected_props = {'asn': 0, 'ipv4': 16909060, 'loc': '??'}  # FIXME add latlong later
+                expected_ndef = (formname, valu_str.lower())
+                node = xact.addNode(formname, valu_str)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+                valu_str = '::1'
+                expected_props = {'asn': 0, 'loc': '??'}
+                expected_ndef = (formname, valu_str)
+                node = xact.addNode(formname, valu_str)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+    def test_mac(self):
+        formname = 'inet:mac'
         with self.getTestCore() as core:
+
+            # Type Tests ======================================================
             t = core.model.type('inet:mac')
 
             self.eq(t.norm('00:00:00:00:00:00'), ('00:00:00:00:00:00', {}))
@@ -325,17 +304,40 @@ class InetModelTest(SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, ' FF:ff:FF:ff:FF:ff ')
             self.raises(s_exc.BadTypeValu, t.norm, 'GG:ff:FF:ff:FF:ff')
 
-    def test_types_url(self):
+            # Form Tests ======================================================
+            with core.xact(write=True) as xact:
+                valu = '00:00:00:00:00:00'
+                expected_ndef = (formname, valu)
+
+                node = xact.addNode(formname, valu)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, {'vendor': '??'})
+
+                node = xact.addNode(formname, valu, props={'vendor': 'Cool'})
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, {'vendor': 'Cool'})
+
+    def test_url(self):
+        formname = 'inet:url'
         with self.getTestCore() as core:
+
+            # Type Tests ======================================================
             t = core.model.type('inet:url')
 
-            # No Host
-            self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')
+            self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')  # No Host
+            self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
 
-            # No Protocol
-            self.raises(s_exc.BadTypeValu, t.norm, 'wat')
+            # Form Tests ======================================================
+            with core.xact(write=True) as xact:
+                valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
+                expected_ndef = (formname, valu)
+                expected_props = {'fqdn': 'vertex.link', 'passwd': 'hunter2', 'path': '/coolthings?a=1', 'port': 1337, 'proto': 'https', 'user': 'vertexmc'}
 
-    def test_types_url_fqdn(self):
+                node = xact.addNode(formname, valu)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+    def test_url_fqdn(self):
         with self.getTestCore() as core:
             t = core.model.type('inet:url')
 
@@ -347,7 +349,7 @@ class InetModelTest(SynTest):
 
             self._test_types_url_behavior(t, 'fqdn', host, norm_host, repr_host)
 
-    def test_types_url_ipv4(self):
+    def test_url_ipv4(self):
         with self.getTestCore() as core:
             t = core.model.type('inet:url')
 
@@ -359,7 +361,7 @@ class InetModelTest(SynTest):
 
             self._test_types_url_behavior(t, 'ipv4', host, norm_host, repr_host)
 
-    def test_types_url_ipv6(self):
+    def test_url_ipv6(self):
         with self.getTestCore() as core:
             t = core.model.type('inet:url')
 
@@ -488,17 +490,6 @@ class InetModelTest(SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.props, expected_props)
 
-    def test_types_unextended(self):
-        # The following types are subtypes that do not extend their base type
-        with self.getTestCore() as core:
-            self.nn(core.model.type('inet:asn'))  # int
-            self.nn(core.model.type('inet:passwd'))  # str
-            self.nn(core.model.type('inet:port'))  # int w/ min/max
-            self.nn(core.model.type('inet:wifi:ssid'))  # str
-            self.nn(core.model.type('inet:user'))  # str w/ lower
-            self.nn(core.model.type('inet:whois:rar'))  # str w/ lower
-            self.nn(core.model.type('inet:whois:reg'))  # str w/ lower
-
 class FIXME:
 
     def test_model_inet_srv4_types(self):
@@ -549,14 +540,14 @@ class FIXME:
             self.eq(core.getTypeRepr('inet:srv4', 281474976710655), '255.255.255.255:65535')
 
             # Ensure bad input fails
-            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', '281474976710656')
-            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', 281474976710656)
-            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', '255.255.255.255:65536')
-            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', '255.255.255.255:-1')
-            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', -1)
-            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', '-1')
-            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', 'ruh roh')
-            self.raises(BadTypeValu, core.getTypeNorm, 'inet:srv4', '1.2.3.4:8080:9090')
+            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', '281474976710656')
+            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', 281474976710656)
+            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', '255.255.255.255:65536')
+            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', '255.255.255.255:-1')
+            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', -1)
+            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', '-1')
+            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', 'ruh roh')
+            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', '1.2.3.4:8080:9090')
 
     def test_model_inet_srv6_types(self):
         with self.getRamCore() as core:
@@ -747,7 +738,7 @@ class FIXME:
 
     def test_model_inet_ipv4_raise(self):
         with self.getRamCore() as core:
-            self.raises(BadTypeValu, core.formTufoByProp, 'inet:ipv4', 'lolololololol')
+            self.raises(s_exc.BadTypeValu, core.formTufoByProp, 'inet:ipv4', 'lolololololol')
 
     def test_model_inet_urlfile(self):
         with self.getRamCore() as core:
@@ -1003,10 +994,10 @@ class FIXME:
             self.none(subs.get('ipv4'))
             self.none(subs.get('ipv6'))
 
-            self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'icmp://[FF::56]:99')
-            self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'icmp://8.6.7.5:309')
-            self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'tcp://8.6.7.256:309')
-            self.raises(BadTypeValu, core.getTypeNorm, 'inet:addr', 'giggles://float.down.here/')
+            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:addr', 'icmp://[FF::56]:99')
+            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:addr', 'icmp://8.6.7.5:309')
+            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:addr', 'tcp://8.6.7.256:309')
+            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:addr', 'giggles://float.down.here/')
 
             host = s_common.guid()
             node = core.formTufoByProp('inet:client', 'host://%s' % (host,))
@@ -1119,7 +1110,7 @@ class FIXME:
 
         with self.getRamCore() as core:
 
-            self.raises(BadTypeValu, core.formTufoByProp, 'inet:rfc2822:addr', 20)
+            self.raises(s_exc.BadTypeValu, core.formTufoByProp, 'inet:rfc2822:addr', 20)
 
             n0 = core.formTufoByProp('inet:rfc2822:addr', 'FooBar')
             n1 = core.formTufoByProp('inet:rfc2822:addr', 'visi@vertex.link')
