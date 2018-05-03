@@ -18,6 +18,12 @@ class Xact(s_eventbus.EventBus):
     The Xact object contains the bulk of the Cortex API to
     facilitate performance through careful use of transaction
     boundaries.
+
+    Transactions produce the following EventBus events:
+
+    ('splice', {}),
+    ('log', {'level': 'mesg': })
+    ('print', {}),
     '''
 
     def __init__(self, core, layers, write=False):
@@ -47,7 +53,7 @@ class Xact(s_eventbus.EventBus):
 
         self.xacts.append((self.layr, self.xact))
 
-        # no locks needed, so avoid synapse.lib.cache.FixedCache
+        # no locks needed...
         self.nodefifo = collections.deque()
         self.nodesbyndef = {}
         self.nodesbybuid = {}
@@ -57,6 +63,16 @@ class Xact(s_eventbus.EventBus):
 
         self.onfini(self.stack.close)
         self.changelog = []
+
+    def printf(self, mesg):
+        self.fire('print', mesg=mesg)
+
+    def log(self, mesg, level='WARNING'):
+        self.fire('log', mesg=mesg, level=level)
+
+    def splice(self, name, **info):
+        info['time'] = s_common.now()
+        self.fire('splice', mesg=(name, info))
 
     def deltas(self):
         retn = self.changelog
@@ -216,7 +232,7 @@ class Xact(s_eventbus.EventBus):
 
         # set all the properties with init=True
         for name, valu in props.items():
-            node.set(name, valu)
+            node.set(name, valu, init=True)
 
         # we are done initializing.
         node.init = False
@@ -312,6 +328,21 @@ class Xact(s_eventbus.EventBus):
         #pass
 
     def addNodes(self, nodedefs):
+        '''
+        Add/merge nodes in bulk.
+
+        The addNodes API is designed for bulk adds which will
+        also set properties and add tags to existing nodes.
+        Nodes are specified as a list of the following tuples:
+
+            ( (form, valu), {'props':{}, 'tags':{}})
+
+        Args:
+            nodedefs (list): A list of nodedef tuples.
+
+        Returns:
+            (list): A list of xact messages.
+        '''
 
         for (formname, formvalu), forminfo in nodedefs:
 
@@ -319,13 +350,11 @@ class Xact(s_eventbus.EventBus):
             node = self.addNode(formname, formvalu, props=props)
 
             tags = forminfo.get('tags')
-            nodetags = node[1].get('tags')
-
             if tags is not None:
                 for tag, asof in tags.items():
-                    xact.addNodeTag(node, tag)
+                    node.addTag(tag)
 
-        return xact.deltas()
+        #return xact.deltas()
 
     def lift(self, lops):
         genr = self.rows(lops)

@@ -10,8 +10,6 @@ import regex
 
 import synapse.common as s_common
 
-import synapse.gene as s_gene
-
 import synapse.lib.scope as s_scope
 import synapse.lib.hashset as s_hashset
 import synapse.lib.datapath as s_datapath
@@ -323,8 +321,6 @@ class Ingest(EventBus):
         self._i_info = info
         self._i_axon = axon
 
-        self._i_glab = s_gene.GeneLab()
-
         self._tvar_cache = {}
         self._tvar_regex = regex.compile('{{(\w+)}}')
 
@@ -537,10 +533,6 @@ class Ingest(EventBus):
 
             self._ingMergScope(core, data, info, scope)
 
-            cond = info.get('cond')
-            if cond is not None and not self._isCondTrue(cond, scope):
-                return
-
             path = info.get('path')
 
             byts = data.valu(s_datapath.DataPath(path))
@@ -578,10 +570,6 @@ class Ingest(EventBus):
 
                 form = info.get('form')
                 self._ingMergScope(core, data, info, scope)
-
-                cond = info.get('cond')
-                if cond is not None and not self._isCondTrue(cond, scope):
-                    return
 
                 valu = self._get_prop(core, data, info, scope)
                 if valu is None:
@@ -635,20 +623,11 @@ class Ingest(EventBus):
 
             self._ingMergScope(core, data, info, scope)
 
-            cond = info.get('cond')
-            if cond is not None and not self._isCondTrue(cond, scope):
-                return
-
             self.fire('gest:prog', act='data')
 
             # extract files embedded within the data structure
             for flfo in info.get('files', ()):
                 self._ingFileInfo(core, data, flfo, scope)
-
-            for cond, cnfo in info.get('conds', ()):
-                if not self._isCondTrue(cond, scope):
-                    continue
-                self._ingDataInfo(core, data, cnfo, scope)
 
             # iterate and create any forms at our level
             for form, fnfo in info.get('forms', ()):
@@ -660,15 +639,7 @@ class Ingest(EventBus):
                 for base in data.iter(s_datapath.DataPath(path)):
                     self._ingDataInfo(core, base, tifo, scope)
 
-    def _isCondTrue(self, cond, scope):
-        expr = self._i_glab.getGeneExpr(cond)
-        return bool(expr(scope))
-
     def _iter_prop(self, core, data, info, scope):
-
-        cond = info.get('cond')
-        if cond is not None and not self._isCondTrue(cond, scope):
-            return
 
         path = info.get('iter')
 
@@ -698,10 +669,6 @@ class Ingest(EventBus):
         return ret
 
     def _get_prop(self, core, base, info, scope):
-
-        cond = info.get('cond')
-        if cond is not None and not self._isCondTrue(cond, scope):
-            return
 
         valu = info.get('value')
         if valu is not None:

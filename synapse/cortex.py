@@ -8,12 +8,12 @@ import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.cell as s_cell
 import synapse.lib.xact as s_xact
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
-import synapse.lib.config as s_config
+import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
-import synapse.lib.service as s_service
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +25,7 @@ which can be serialized with msgpack/json
 
 Example Node
 
-(<iden>, {
-
-    "ndef": (<form>, <valu>),
+( (<form>, <valu>), {
 
     "props": {
         <name>: <valu>,
@@ -63,7 +61,22 @@ class View:
         #self.dmon = dmon
         #self.core = core
 
-class Cortex(s_service.Service):
+class CoreApi(s_cell.CellApi):
+    '''
+    The CoreApi is exposed over telepath.
+    '''
+    #def __init__(self, core, link):
+        # pass through APIs
+        #self.getNodesBy = core.getNodesBy
+
+    def getNodesBy(self, full, valu, cmpr='='):
+        '''
+        Yield Node.pack() tuples which match the query.
+        '''
+        for node in self.cell.getNodesBy(full, valu, cmpr=cmpr):
+            yield node.pack()
+
+class Cortex(s_cell.Cell):
     '''
     A Cortex implements the synapse hypergraph.
 
@@ -72,7 +85,6 @@ class Cortex(s_service.Service):
     callers to manage transaction boundaries explicitly and dramatically
     increases performance.
     '''
-
     confdefs = (
 
         ('auth:en', {'type': 'bool', 'defval': False,
@@ -86,8 +98,13 @@ class Cortex(s_service.Service):
 
     )
 
-    def postSvcInit(self):
+    cellapi = CoreApi
 
+    def __init__(self, dirn):
+
+        s_cell.Cell.__init__(self, dirn)
+
+        self.views = {}
         self.layers = []
         self.modules = {}
 
@@ -100,11 +117,8 @@ class Cortex(s_service.Service):
 
         self.addCoreMods(s_modules.coremods)
 
-        mods = self.getConfOpt('modules')
+        mods = self.conf.get('modules')
         self.addCoreMods(mods)
-
-    #def getTeleApi(self, dmon):
-        #return CoreApi(dmon, self)
 
     def _initCoreDir(self):
 
@@ -120,9 +134,8 @@ class Cortex(s_service.Service):
                 yield deltas
 
     def openLayerName(self, name):
-        conf = self.getLayerConf(name)
-        path = s_common.genpath(self.dirn, 'layers', name)
-        return s_layer.Layer(path, conf=conf)
+        dirn = s_common.gendir(self.dirn, 'layers', name)
+        return s_layer.Layer(dirn)
 
     def getLayerConf(self, name):
         return {}
@@ -157,7 +170,38 @@ class Cortex(s_service.Service):
         Yields:
             ((str,dict)): Storm messages.
         '''
-        pass
+        if view is None:
+            view = self.view
+
+        parser = s_syntax.Parser(view, text)
+
+        query = parser.query()
+        for mesg in query.execute(view):
+            yield mesg
+
+        #except GeneratorExit as e:
+            #query
+
+        #except Exception as e:
+
+            #yield s_common.geterr(e)
+
+    def getNodeByNdef(self, ndef):
+        '''
+        Return a single Node() instance by (form,valu) tuple.
+        '''
+        name, valu = ndef
+
+        form = self.model.forms.get(name)
+        if form is None:
+            raise s_exc.NoSuchForm(name=name)
+
+        norm, info = form.type.norm(valu)
+
+        buid = s_common.buid((form.name, norm))
+
+        with self.xact() as xact:
+            return xact.getNodeByBuid(buid)
 
     def getNodesBy(self, full, valu, cmpr='='):
         '''
@@ -179,7 +223,8 @@ class Cortex(s_service.Service):
             core.getNodesBy('inet:ipv4', '1.2.3.0/24')
         '''
         with self.xact() as xact:
-            return xact.getNodesBy(full, valu, cmpr=cmpr)
+            for node in  xact.getNodesBy(full, valu, cmpr=cmpr):
+                yield node
 
     def addNodes(self, nodedefs):
         '''

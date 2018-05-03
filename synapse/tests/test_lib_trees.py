@@ -53,3 +53,14 @@ class TreeTest(SynTest):
 
         self.none(tree.get(('fake', 'newp')))
         self.none(tree.first(('fake', 'newp')))
+
+    def test_tree_last(self):
+
+        tree = s_trees.Tree()
+
+        tree.put(('foo', ), True)
+        tree.put(('foo', 'bar'), False)
+
+        self.true(tree.last(('foo', )))
+        self.true(tree.last(('foo', 'baz')))
+        self.false(tree.last(('foo', 'bar')))

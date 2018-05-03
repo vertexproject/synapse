@@ -1,5 +1,6 @@
 import synapse.common as s_common
 
+import synapse.lib.ast as s_ast
 import synapse.lib.time as s_time
 
 '''
@@ -586,6 +587,376 @@ def parse_stormsub(text, off=0):
     _, off = nom(text, off + 1, whites)
 
     return opers, off
+
+whitespace = set(' \t\n')
+
+varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+cmprset = set('!<>^=')
+
+alphanum = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+
+class Parser:
+
+    '''
+    must be quoted:  ,  )  =
+    must be quoted at beginning: . : # @ ( $ etc....
+    '''
+
+    def __init__(self, model, text, offs=0):
+
+        self.offs = offs
+        self.text = text.strip()
+        self.size = len(self.text)
+        self.model = model
+
+    def more(self):
+        return self.offs < self.size
+
+    def query(self):
+
+        self.ignore(whitespace)
+
+        query = s_ast.Query(self.model)
+
+        while self.more():
+
+            self.ignore(whitespace)
+
+            # if we are sub-query, time to go...
+            if self.nextstr('}'):
+                break
+
+            oper = self.oper()
+            if oper is None:
+                break
+
+            query.kids.append(oper)
+
+            self.ignore(whitespace)
+
+            #if self.nextstr('{'):
+                #self.offs += 1
+                #oper = self.query()
+
+        return query
+
+    def oper(self):
+
+        self.ignore(whitespace)
+
+        if self.nextstr('{'):
+            return self.subquery()
+
+        if self.nextchar() in ('+', '-'):
+            return self.filtoper()
+
+        name = self.noms(varset, ignore=whitespace)
+        if not name:
+            raise FIXME
+
+        kid0 = s_ast.Const(name)
+
+        #if self.nextstr('('):
+            #return self.calloper(name)
+
+        # we have a prop <cmpr> <valu>!
+        if self.nextchar() in cmprset:
+
+            cmpr = self.cmpr()
+            valu = self.valu()
+
+            kids = (kid0, cmpr, valu)
+            return s_ast.LiftPropBy(kids=kids)
+
+    def filtoper(self):
+
+        self.ignore(whitespace)
+        pref = self.nextchar()
+        if pref not in ('+', '-'):
+            raise FIXME
+
+        self.offs += 1
+
+        cond = self.cond()
+
+        kids = (
+            s_ast.Const(pref),
+            cond,
+        )
+        return s_ast.FiltOper(kids=kids)
+
+        #if self.nextstr('+'):
+            #return self.filtmust()
+
+        #if self.nextstr('-'):
+            #return self.filtcant()
+
+        #raise FIXME
+
+    def filtmust(self):
+        self.ignore(whitespace)
+        if self.nextchar() != '+':
+            raise FIXME
+
+        self.offs += 1
+        cond = self.cond()
+        return s_ast.FiltMust(cond)
+
+    def filtcant(self):
+        self.ignore(whitespace)
+        if self.nextchar() != '-':
+            raise FIXME
+
+        self.offs += 1
+        cond = self.cond()
+        return s_ast.FiltCant(cond)
+
+    def cond(self):
+        '''
+
+        :foo=20
+
+        #foo.bar
+
+        #foo.bar@2013
+
+        $var = 20
+
+        (:foo=10 and ( #foo or #bar ))
+
+        '''
+
+        self.ignore(whitespace)
+
+        #if self.nextstr('#'):
+        #if self.nextstr('$'):
+
+        #if self.nextstr('('):
+            # conditional expression
+
+        if self.nextstr(':'):
+
+            name = self.relprop()
+            if name is None:
+                raise FIXME
+
+            self.ignore(whitespace)
+            cmpr = self.cmpr()
+            if cmpr is None:
+                raise FIXME
+
+            self.ignore(whitespace)
+            valu = self.valu()
+            if valu is None:
+                raise FIXME
+
+            return s_ast.RelPropCond(kids=(name, cmpr, valu))
+
+            #if self.iscmpr(
+
+    def relprop(self):
+        '''
+        :foo:bar
+        '''
+
+        self.ignore(whitespace)
+
+        if self.nextchar() != ':':
+            raise FIXME
+
+        self.offs += 1
+
+        name = self.noms(varset)
+        if not name:
+            raise FIXME
+
+        return s_ast.RelProp(name)
+
+        # TODO if name.find('::') != -1:
+        # rel prop implicit pivot
+
+    def cmpr(self):
+
+        self.ignore(whitespace)
+
+        if self.nextchar() not in cmprset:
+            raise FIXME
+
+        if self.nextstr('*'):
+
+            text = self.expect('=')
+            if text is None:
+                raise FIXME
+
+            return s_ast.Const(text)
+
+        text = self.noms(cmprset)
+        #return s_ast.Cmpr(text)
+        return s_ast.Const(text)
+
+    def valu(self):
+
+        self.ignore(whitespace)
+
+        # a simple whitespace separated string
+        if self.nextchar() in alphanum:
+            text = self.noms(until=whitespace)
+            return s_ast.Const(text)
+
+        if self.nextstr(':'):
+            # relative property
+            pass
+
+        if self.nextstr('#'):
+            # tag time valu
+            pass
+
+        if self.nextstr('$'):
+            # scope variable
+            pass
+
+        if self.nextstr('"'):
+            text = self.quoted()
+            return s_ast.Const(text)
+
+        text = self.noms(until=whitespace)
+
+    def expect(self, text):
+
+        retn = ''
+
+        while self.more():
+
+            retn += self.slice(1)
+            if retn.endswith(text):
+                return retn
+
+        raise FIXME
+
+    def slice(self, size):
+
+        if self.offs + size > self.size:
+            raise FIXME
+
+        retn = text[self.offs:self.offs + size]
+
+        self.offs += size
+
+        return retn
+
+    def subquery(self):
+
+        self.ignore(whitespace)
+
+        if not self.nextstr('{'):
+            raise FOO
+
+        self.eat(1, ignore=whitespace)
+
+        subq = s_ast.SubQuery()
+
+        while self.more():
+
+            self.ignore(whitespace)
+
+            oper = self.oper()
+            if self.nextchar('}'):
+                break
+
+        self.eat(1, ignore=whitespace)
+        return subq
+
+    def statement(self):
+
+        self.ignore(whitespace)
+
+        # check for an edit block...
+        if self.nextstr('['):
+            return self.editblock()
+
+        if self.nextstr('->'):
+            # pivot with no source prop...
+            return self.formpivot()
+
+        if self.nextstr('<-'):
+            return self.formjoin()
+
+        if self.nextstr('#'):
+            return self.lifttag()
+
+        if self.nextstr('.'):
+            return self.liftuniv()
+
+        if self.nextchar() in ('+', '-'):
+            return self.filter()
+
+        name = self.noms(varset, ignore=whitespace)
+        if not name:
+            raise FIXME
+
+        if self.nextstr('('):
+            args, kwargs = self.callargs()
+            return s_storm.CallOper(name, args, kwargs)
+
+        if self.nextstr('*'):
+            # lift macro with by cmpr sytnax
+            pass
+
+        # we *must* now start with either a prop
+
+    def noms(self, chars=None, until=None, ignore=None):
+
+        if ignore is not None:
+            self.ignore(ignore)
+
+        rets = []
+
+        while self.more():
+
+            c = self.nextchar()
+            if until is not None and c in until:
+                break
+
+            if chars is not None and c not in chars:
+                break
+
+            self.offs += 1
+            rets.append(c)
+
+        if ignore is not None:
+            self.ignore(ignore)
+
+        return ''.join(rets)
+
+    #def editblock(self):
+    #def formpivot(self):
+    #def formjoin(self):
+    #def lifttag(self):
+    #def liftuniv(self):
+    #def filter(self):
+
+    def nextstr(self, text):
+
+        if not self.more():
+            return False
+
+        size = len(text)
+        subt = self.text[self.offs:self.offs + size]
+        return subt == text
+
+    def nextchar(self):
+        if not self.more():
+            return None
+        return self.text[self.offs]
+
+    def ignore(self, charset):
+        while self.nextchar() in charset:
+            self.offs += 1
+
+    def eat(self, size, ignore=None):
+        self.offs += size
+        if ignore is not None:
+            self.ignore(ignore)
 
 def parse_storm(text, off=0):
 

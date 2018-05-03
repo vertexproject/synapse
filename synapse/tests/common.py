@@ -9,7 +9,7 @@ loglevel = os.getenv('SYN_TEST_LOG_LEVEL', 'WARNING')
 logging.basicConfig(level=loglevel,
                     format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]')
 
-import synapse.link as s_link
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.eventbus as s_eventbus
@@ -25,7 +25,7 @@ import synapse.lib.thishost as s_thishost
 
 from synapse.common import *
 
-from synapse.lib.iq import TstEnv, TstOutPut, SynTest, CmdGenerator
+from synapse.lib.iq import TstEnv, TstOutPut, SynTest, CmdGenerator, writeCerts
 
 # create the global multi-plexor *not* within a test
 # to avoid "leaked resource" when a test triggers creation
@@ -37,6 +37,8 @@ TstSSLInvalidClientCertErr = socket.error
 TstSSLConnectionResetErr = socket.error
 
 testdir = os.path.dirname(__file__)
+
+writeCerts(testdir)
 
 def getTestPath(*paths):
     return os.path.join(testdir, *paths)
@@ -50,6 +52,8 @@ def checkLock(fd, timeout, wait=0.5):
     while True:
         try:
             fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
         except OSError as e:
             if e.errno == 11:
                 return True
@@ -95,3 +99,25 @@ class ModelSeenMixin:
         core.setTufoProps(node, **{'seen:min': 1000, 'seen:max': 1000})
         self.eq(node[1].get(minp), 0)
         self.eq(node[1].get(maxp), 1000)
+
+###########################################################################
+# 010 stuff
+
+class CallBack:
+    '''
+    An easy to use test helper for *synchronous* callbacks.
+    '''
+    def __init__(self, retval=None):
+        self.args = None
+        self.kwargs = None
+        self.retval = retval
+        self.event = threading.Event()
+
+    def __call__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.event.set()
+        return self.retval
+
+    def wait(self, timeout=None):
+        return self.event.wait(timeout=timeout)

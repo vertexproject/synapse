@@ -5,35 +5,36 @@ cortex construction.
 import os
 import lmdb
 import logging
-import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
-import synapse.datamodel as s_datamodel
 
-import synapse.lib.cache as s_cache
+import synapse.lib.cell as s_cell
 import synapse.lib.const as s_const
-import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
-class Layer(s_config.Config):
+#class LayerApi(s_cell.CellApi):
+
+class Layer(s_cell.Cell):
     '''
     A layer implements btree indexed storage for a cortex.
 
     TODO:
         metadata for layer contents (only specific type / tag)
     '''
-    def __init__(self, dirn, conf=None):
+    confdefs = (
+        ('lmdb:mapsize', {'type': 'int', 'defval': s_const.tebibyte}),
+    )
 
-        self.dirn = s_common.gendir(dirn)
-        s_config.Config.__init__(self, opts=conf)
+    def __init__(self, dirn):
+
+        s_cell.Cell.__init__(self, dirn)
 
         path = os.path.join(self.dirn, 'layer.lmdb')
 
-        mapsize = self.getConfOpt('lmdb:mapsize')
+        mapsize = self.conf.get('lmdb:mapsize')
 
         # TODO: why is writemap=True no faster?
         self.lenv = lmdb.open(path, max_dbs=128, map_size=mapsize)
@@ -78,6 +79,8 @@ class Layer(s_config.Config):
     # top level API for cortex bypass
     #def addBuidTag(
     #def delBuidTag(
+
+    #def _fireEditThread(self):
 
     def _storNodeAdd(self, xact, mesg):
 

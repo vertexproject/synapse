@@ -16,10 +16,19 @@ logger = logging.getLogger(__name__)
 LOG_LEVEL_CHOICES = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
 
 dmonyaml = '''
-listen:
+listen: tcp://127.0.0.1:0/
+
+# load python modules on startup
+# (allows extensions/modules to register)
+
+#modules:
+#   - foo.bar
+#   - baz.faz
+
+modules: []
 
     # default to localhost on an ephemeral port
-    url: tcp://localhost:0/
+    #url: tcp://localhost:0/
 
     # To generate SSL keys/certs check out:
     # python -m synapse.tools.easycert
@@ -49,6 +58,13 @@ def main(argv, outp=s_output.stdout):
     s_common.setlogging(logger, opts.log_level)
 
     dirn = s_common.gendir(opts.dir)
+    outp.printf('Beginning dmon from dir: %r' % (dirn,))
+
+    # since we're dmon main, register our certdir as global
+    certdir = s_common.gendir(dirn, 'certs')
+
+    # set the default certdir to the dmon certdir
+    s_certdir.defdir = certdir
 
     path = os.path.join(dirn, 'dmon.yaml')
     if not os.path.isfile(path):

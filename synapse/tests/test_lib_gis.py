@@ -20,12 +20,12 @@ class GisTest(SynTest):
     def test_lib_gis_haversine(self):
         px = (36.12, -86.67)
         py = (33.94, -118.40)
-        self.eq(s_gis.haversine(px, py), 2886448429.7648544)
+        self.eqish(s_gis.haversine(px, py), 2886448429.7648544)
 
         # Test haversinve value from rosetta code
         r = s_gis.haversine((36.12, -86.67), (33.94, -118.40), 6372.8)
         e = 2887.2599506071106
-        self.eq(r, e)
+        self.eqish(r, e)
 
         # Test against 1/4th of a unit sphere
         r = s_gis.haversine((45, 45), (-45, 45), 1.0)
@@ -82,7 +82,7 @@ class GisTest(SynTest):
         self.false(s_gis.near(point, dist, points))
 
     def test_lib_gis_dms2dec(self):
-        self.eq(s_gis.dms2dec(45, 46, 52), 45.78111111111111)
+        self.eqish(s_gis.dms2dec(45, 46, 52), 45.78111111111111)
 
     def test_lib_gis_bbox(self):
         lbox = s_gis.bbox(gchq[0], gchq[1], 1 * km)

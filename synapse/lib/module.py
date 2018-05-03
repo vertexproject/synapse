@@ -5,44 +5,7 @@ import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
-import synapse.lib.config as s_config
-#import synapse.lib.reflect as s_reflect
-#import synapse.cores.common as s_cores_common
-
-MODEL_REV_FORMAT = '%Y%m%d%H%M'
-
-def modelrev(name, vers):
-    '''
-    A decorator used to flag model revision functions.
-
-    Args:
-        name (str): Name of the model.
-        vers (int): Revision of the model. It is validated using validate_revnumber.
-    '''
-
-    def wrap(f):
-        f._syn_mrev = (name, vers)
-        return f
-
-    return wrap
-
-def validate_revnumber(revision):
-    '''
-    Validate a model revision number matches the time format '%Y%m%d%H%M'
-
-    Args:
-        revision (int): Revision to validate.
-
-    Raises:
-        BadRevValu: If the integer does not match the time format.
-    '''
-    try:
-        if revision != 0:
-            datetime.datetime.strptime(str(revision), MODEL_REV_FORMAT)
-    except ValueError as e:
-        raise s_common.BadRevValu(valu=revision, mesg='CoreModule model revision must be a timestamp.')
-
-class CoreModule(s_config.Config):
+class CoreModule:
     '''
     The CoreModule base class from which cortex modules must extend.
 
@@ -75,8 +38,11 @@ class CoreModule(s_config.Config):
     '''
     _mod_name = None
 
-    def __init__(self, core, conf=None):
-        s_config.Config.__init__(self, opts=conf)
+    confdefs = ()
+
+    def __init__(self, core, conf):
+
+        self.conf = s_common.config(conf, self.confdefs)
 
         if self._mod_name is None:
             self._mod_name = self.__class__.__name__

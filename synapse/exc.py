@@ -26,6 +26,15 @@ class SynErr(Exception):
         '''
         return self.errinfo.get(name)
 
+##########################################################################
+class NoLinkRx(SynErr):
+    '''
+    No onrx() has been set for the link.
+    '''
+    pass
+
+##########################################################################
+
 class CliFini(SynErr):
     '''
     Raised when the CLI is to exit.
@@ -108,7 +117,6 @@ class DupPropName(SynErr): pass
 class DupFileName(SynErr): pass
 class DupIndx (SynErr): pass
 class BadFileExt(SynErr): pass
-class DupUserName(SynErr): pass
 class BadPropName(SynErr): pass
 class BadCoreName(SynErr): pass
 class BadCtorType(SynErr): pass
@@ -154,8 +162,9 @@ class TeleClientSide(SynErr): pass
 class HitStormLimit(SynErr): pass
 
 class DupOpt(Exception): pass
-class DupUser(Exception): pass
-class DupRole(Exception): pass
+
+class DupUserName(SynErr): pass
+class DupRoleName(SynErr): pass
 
 class IsRuntProp(SynErr): pass
 
@@ -244,12 +253,12 @@ class BadEccExchange(CryptoErr):
     '''
     pass
 
-class RetnErr(SynErr):
-    '''
-    Raised when a call using the retn convention has failed.
-    '''
-    def __init__(self, retn):
-        SynErr.__init__(self, excn=retn[0], **retn[1])
+#class RetnErr(SynErr):
+    #'''
+    ##Raised when a call using the retn convention has failed.
+    #'''
+    #def __init__(self, retn):
+        #SynErr.__init__(self, excn=retn[0], **retn[1])
 
 class StepTimeout(SynErr):
     '''
@@ -273,7 +282,6 @@ class JobErr(Exception):
 
 class LinkTimeOut(SynErr): pass
 
-# TODO: steal these names back for synapse/lib/net.py (and deprecate old users)
 class LinkErr(SynErr):
 
     retry = False

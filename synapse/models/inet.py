@@ -690,6 +690,9 @@ class InetModule(s_module.CoreModule):
 
                     )),
 
+                    ('inet:user', {}, (
+                    )),
+
                     ('inet:email', {}, (
 
                         ('user', ('inet:user', {}), {

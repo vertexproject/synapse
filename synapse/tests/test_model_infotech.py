@@ -1,5 +1,8 @@
 from binascii import hexlify
 
+import unittest
+raise unittest.SkipTest('US GOV MODEL')
+
 import synapse.cortex as s_cortex
 
 import synapse.lib.tufo as s_tufo

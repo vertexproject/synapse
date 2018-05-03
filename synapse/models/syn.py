@@ -13,14 +13,10 @@ class SynMod(s_module.CoreModule):
 
             'types': (
                 ('syn:splice', {'subof': 'guid'}),
-                ('syn:auth:user', {'subof': 'str'}),
-                ('syn:auth:role', {'subof': 'str'}),
-                ('syn:auth:userrole', {'subof': 'comp', 'fields': 'user=syn:auth:user,role=syn:auth:role'}),
                 ('syn:tagform', {'subof': 'comp', 'fields': 'tag,syn:tag|form,syn:prop', 'ex': '(foo.bar,baz:faz)'}),
 
                 ('syn:alias', {'subof': 'str', 'regex': r'^\$[a-z_]+$',
                     'doc': 'A synapse guid alias', 'ex': '$visi'}),
-                ('syn:fifo', {'subof': 'comp', 'fields': 'name=str:lwr'}),
                 ('syn:ingest', {'subof': 'str:lwr'}),
                 ('syn:log', {'subof': 'guid'}),
 
@@ -44,32 +40,11 @@ class SynMod(s_module.CoreModule):
                         'doc': 'The GUID for the given alias name'}),
                 )),
 
-                ('syn:auth:user', {'local': 1}, (
-                    ('storm:limit:lift',
-                     {'ptype': 'int', 'defval': 10000, 'doc': 'The storm query lift limit for the user'}),
-                    ('storm:limit:time',
-                     {'ptype': 'int', 'defval': 120, 'doc': 'The storm query time limit for the user'}),
-                )),
-
-                ('syn:auth:role', {'local': 1}, (
-                    ('desc', {'ptype': 'str'}),
-                )),
-
-                ('syn:auth:userrole', {'local': 1}, (
-                    ('user', {'ptype': 'syn:auth:user'}),
-                    ('role', {'ptype': 'syn:auth:role'}),
-                )),
-
-                ('syn:fifo', {'ptype': 'syn:fifo', 'local': 1}, (
-                    ('name', {'ptype': 'str:lwr', 'doc': 'The fifo description'}),
-                    ('desc', {'ptype': 'str', 'doc': 'The fifo description'}),
-                )),
-
                 ('syn:trigger', {'ptype': 'guid', 'local': 1}, (
                     ('en', {'ptype': 'bool', 'defval': 0, 'doc': 'Is the trigger currently enabled'}),
                     ('on', {'ptype': 'syn:perm'}),
                     ('run', {'ptype': 'syn:storm'}),
-                    ('user', {'ptype': 'syn:auth:user'}),
+                    ('user', {'ptype': 'str'}),
                 )),
 
                 ('syn:core', {'doc': 'A node representing a unique Cortex'}, ()),

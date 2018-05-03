@@ -4,10 +4,14 @@ import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.neuron as s_neuron
 
+import synapse.lib.iq as s_iq
 import synapse.lib.cell as s_cell
 import synapse.lib.crypto.vault as s_vault
 
 from synapse.tests.common import *
+
+import unittest
+raise unittest.SkipTest('AXON DISABLE')
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +35,7 @@ class AxonTest(SynTest):
         with self.getTestDir() as dirn:
 
             path0 = os.path.join(dirn, 'blob0')
-            with s_axon.BlobStor(path0) as bst0:
+            with s_axon.BlobStor(path0, mapsize=s_iq.TEST_MAP_SIZE) as bst0:
 
                 tbuid = b'\x56' * 32
                 blobs = (
@@ -80,7 +84,7 @@ class AxonTest(SynTest):
 
                 path1 = os.path.join(dirn, 'blob1')
 
-                with s_axon.BlobStor(path1) as bst1:
+                with s_axon.BlobStor(path1, mapsize=s_iq.TEST_MAP_SIZE) as bst1:
 
                     bst1.addCloneRows(bst0.clone(0))
 
@@ -98,7 +102,7 @@ class AxonTest(SynTest):
         with self.getTestDir() as dirn:
 
             path0 = os.path.join(dirn, 'blob0')
-            with s_axon.BlobStor(path0) as bst0:
+            with s_axon.BlobStor(path0, mapsize=s_iq.TEST_MAP_SIZE) as bst0:
 
                 tbuid = b'\x56' * 32
                 blobs = (
@@ -124,7 +128,7 @@ class AxonTest(SynTest):
         with self.getTestDir() as dirn:
 
             path0 = os.path.join(dirn, 'blob0')
-            with s_axon.BlobStor(path0) as bst0:
+            with s_axon.BlobStor(path0, mapsize=s_iq.TEST_MAP_SIZE) as bst0:
 
                 tbuid = b'\x56' * 32
                 blobs = (
@@ -188,7 +192,7 @@ class AxonTest(SynTest):
                 authblob00 = neur.genCellAuth('blob00')
                 s_msgpack.dumpfile(authblob00, os.path.join(path, 'cell.auth'))
                 logger.debug('Bringing blob00 online')
-                conf = {'host': 'localhost', 'bind': '127.0.0.1'}
+                conf = {'host': 'localhost', 'bind': '127.0.0.1', 'blob:mapsize': s_iq.TEST_MAP_SIZE}
                 blob00 = s_axon.BlobCell(path, conf)
                 bref.put('blob00', blob00)
                 self.true(blob00.cellpool.neurwait(timeout=3))
@@ -225,6 +229,7 @@ class AxonTest(SynTest):
                     'host': 'localhost',
                     'bind': '127.0.0.1',
                     'axon:blobs': ('blob00@localhost',),
+                    'axon:mapsize': s_iq.TEST_MAP_SIZE,
                 }
                 logger.debug('Bringing axon00 online')
                 axon00 = s_axon.AxonCell(path, axonconf)
@@ -410,7 +415,7 @@ class AxonTest(SynTest):
                 # blob00 ############################################
                 path = s_common.gendir(dirn, 'blob00')
                 logger.debug('Bringing blob00 back online')
-                conf = {'host': 'localhost', 'bind': '127.0.0.1'}
+                conf = {'host': 'localhost', 'bind': '127.0.0.1', 'blob:mapsize': s_iq.TEST_MAP_SIZE}
                 blob00 = s_axon.BlobCell(path, conf)
                 bref.put('blob00', blob00)
                 self.true(blob00.cellpool.neurwait(timeout=3))
@@ -434,6 +439,7 @@ class AxonTest(SynTest):
                     'host': 'localhost',
                     'bind': '127.0.0.1',
                     'axon:blobs': ('blob00@localhost',),
+                    'axon:mapsize': s_iq.TEST_MAP_SIZE
                 }
                 logger.debug('Bringing axon00 online')
                 axon00 = s_axon.AxonCell(path, axonconf)

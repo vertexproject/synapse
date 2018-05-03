@@ -6,20 +6,6 @@ import synapse.lib.module as s_module
 
 from synapse.tests.common import *
 
-class CallBack:
-    '''
-    An easy to use test helper for *synchronous* callbacks.
-    '''
-    def __init__(self, retval=None):
-        self.args = None
-        self.kwargs = None
-        self.retval = retval
-
-    def __call__(self, *args, **kwargs):
-        self.args = args
-        self.kwargs = kwargs
-        return self.retval
-
 class TestType(s_types.Type):
 
     def postTypeInit(self):
@@ -52,6 +38,8 @@ testmodel = {
                 ('hehe', 'int'),
                 ('haha', 'testlower'))
             }), {'doc': 'A fake comp type.'}),
+        ('testhexa', ('hex', {}), {'doc': 'anysize test hex type'}),
+        ('testhex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
     ),
 
     'forms': (
@@ -83,6 +71,8 @@ testmodel = {
         )),
 
         ('testauto', {}, ()),
+        ('testhexa', {}, ()),
+        ('testhex4', {}, ())
     ),
 
 }
@@ -110,6 +100,23 @@ class CortexTest(SynTest):
 
                 node = xact.addNode('inet:ipv4', '1.2.3.4')
                 self.eq(node.buid, func.args[0].buid)
+
+    def test_cortex_cell(self):
+
+        with self.getTestDmon(mirror='dmoncore') as dmon:
+
+            core = dmon.shared.get('core')
+
+            nodes = ((('inet:user', 'visi'), {}), )
+
+            core.addNodes(nodes)
+            nodes = list(core.getNodesBy('inet:user', 'visi'))
+
+            print('LOCAL: %r' % (nodes,))
+
+            proxy = dmon._getTestProxy('core')
+            nodes = list(proxy.getNodesBy('inet:user', 'visi'))
+            print(repr(nodes))
 
     def test_cortex_onset(self):
 

@@ -20,12 +20,10 @@ if tornado.version_info < (3, 2, 2):  # pragma: no cover
 
 # setup glob here to avoid import loops...
 import synapse.glob as s_glob
-import synapse.lib.net as s_net
-import synapse.lib.sched as s_sched
+import synapse.lib.plex as s_plex
 import synapse.lib.threads as s_threads
 
 tmax = multiprocessing.cpu_count() * 8
 
-s_glob.plex = s_net.Plex()
+s_glob.plex = s_plex.Plex()
 s_glob.pool = s_threads.Pool(maxsize=tmax)
-s_glob.sched = s_sched.Sched(pool=s_glob.pool)

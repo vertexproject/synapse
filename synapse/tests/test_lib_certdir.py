@@ -20,9 +20,7 @@ class CertDirTest(SynTest):
         '''
         # create a temp folder and make it a cert dir
         with self.getTestDir() as dirname:
-            s_scope.set('testdir', dirname)
-            cdir = s_certdir.CertDir(path=dirname)
-            yield cdir
+            yield s_certdir.CertDir(path=dirname)
 
     def basic_assertions(self, cdir, cert, key, cacert=None):
         '''

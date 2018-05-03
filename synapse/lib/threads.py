@@ -9,7 +9,6 @@ from functools import wraps
 
 import synapse.common as s_common
 
-import synapse.lib.task as s_task
 import synapse.lib.queue as s_queue
 
 from synapse.eventbus import EventBus
@@ -152,37 +151,6 @@ def withlock(lock):
         return wrap
     return decor
 
-class cancelable:
-    '''
-    Use these to allow cancelation of blocking calls
-    (where possible) to shutdown threads.
-
-    Example:
-
-        with cancelable(sock.close):
-            byts = sock.recv(100)
-
-    '''
-
-    def __init__(self, func, *args, **kwargs):
-        self.func = func
-        self.args = args
-        self.kwargs = kwargs
-
-    def __call__(self):
-        try:
-            self.func(*self.args, **self.kwargs)
-        except Exception as e:
-            logger.exception('Error executing %s', self.func)
-
-    def __enter__(self):
-        current().cancels.append(self)
-        return self
-
-    def __exit__(self, exc, cls, tb):
-        current().cancels.pop()
-        return
-
 class Thread(threading.Thread, EventBus):
     '''
     A thread / EventBus to allow fini() etc.
@@ -196,18 +164,11 @@ class Thread(threading.Thread, EventBus):
         self.iden = s_common.guid()
         self.task = (func, args, kwargs)
 
-        self.cancels = []
-
-        self.onfini(self._onThrFini)
-
     def run(self):
         func, args, kwargs = self.task
         ret = func(*args, **kwargs)
         self.fire('thread:done', thread=self, ret=ret)
         self.fini()
-
-    def _onThrFini(self):
-        [cancel() for cancel in self.cancels]
 
 def worker(func, *args, **kwargs):
     '''
@@ -278,34 +239,6 @@ class Pool(EventBus):
         Call the given func(*args,**kwargs) in the pool.
         '''
         self._que_work((func, args, kwargs))
-
-    @contextlib.contextmanager
-    def task(self, func, *args, **kwargs):
-        '''
-        Call the given function in the pool with a task.
-
-        NOTE: Callers *must* use with-block syntax.
-
-        Example:
-
-            def foo(x):
-                dostuff()
-
-            def onretn(valu):
-                otherstuff()
-
-            with pool.task(foo, 10) as task:
-                task.onretn(onretn)
-
-            # the task is queued for execution *after* we
-            # leave the with block.
-        '''
-        call = (func, args, kwargs)
-        task = s_task.CallTask(call)
-
-        yield task
-
-        self._que_work((task.run, (), {}))
 
     def _que_work(self, work):
 
@@ -508,50 +441,46 @@ class RWWith:
     def __exit__(self, exclass, exc, tb):
         self.rwlock.release(self)
 
-def iCantWait(name=None):
-    '''
-    Mark the current thread as a no-wait thread.
+class SyncTask:
 
-    Any no-wait thread will raise MustNotWait on blocking calls
-    within synapse APIs to prevent deadlock bugs.
+    def __init__(self):
+        self.exc = None
+        self.valu = s_common.novalu
+        self.event = threading.Event()
 
-    Example:
+    def err(self, e):
+        self.exc = e
+        self.event.set()
 
-        iCantWait(name='FooThread')
+    def done(self, valu):
+        self.valu = valu
+        self.event.set()
 
-    '''
-    curthr = threading.currentThread()
-    curthr._syn_cantwait = True
+    def wait(self, timeout=None):
 
-    if name is not None:
-        curthr.name = name
+        if not self.event.wait(timeout=timeout):
+            raise s_exc.TimeOut()
 
-def iWillWait():
-    '''
-    Check if the current thread is a marked no-wait thead and raise MustNotWait.
+        if self.exc is not None:
+            raise self.exc
 
-    Example:
+        return self.valu
 
-        def doBlockingThing():
-            iWillWait()
-            waitForThing()
+    #def result(self):
 
-    '''
-    if getattr(threading.currentThread(), '_syn_cantwait', False):
-        name = threading.currentThread().name
-        raise s_common.MustNotWait(name)
+    #def __enter__(self):
 
-def iMayWait():
-    '''
-    Function for no-wait aware APIs to use while handling no-wait threads.
+    #def __exit__(self, err, cls, tb):
+        #self.evnt = None
 
-    Example:
+        #thrd = threading.currentThread()
 
-        def mayWaitThing():
-            if not iMayWait():
-                return False
+        #self._retn_exc = None
+        #self._retn_valu = None
 
-            waitForThing()
+        #self._retn_evnt = getattr(thrd, '_retn_evt', None)
+        #if self._retn_evnt is None:
+            #self._retn_evnt = thrd._retn_lock = threading.Event()
 
-    '''
-    return not getattr(threading.currentThread(), '_syn_cantwait', False)
+        # ensure the event is clear
+        #self._retn_evnt.clear()

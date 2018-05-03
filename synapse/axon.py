@@ -9,11 +9,9 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
-import synapse.lib.net as s_net
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
-import synapse.lib.config as s_config
 
 logger = logging.getLogger(__name__)
 

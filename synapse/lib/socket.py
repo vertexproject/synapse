@@ -594,12 +594,3 @@ def hostaddr(dest='8.8.8.8'):
     sock.close()
 
     return addr
-
-# make a plex and register an atexit handler.
-def _plex_ctor():
-    plex = Plex()
-    atexit.register(plex.fini)
-    return plex
-
-# add a Plex constructor to the global scope
-s_scope.ctor('plex', _plex_ctor)

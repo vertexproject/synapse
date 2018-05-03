@@ -12,8 +12,7 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.dyndeps as s_dyndeps
 
-import synapse.lib.tufo as s_tufo
-import synapse.lib.config as s_config
+import synapse.lib.const as s_const
 import synapse.lib.output as s_output
 import synapse.lib.reflect as s_reflect
 
@@ -36,10 +35,12 @@ obj_instance_confs = [
     ('synapse.lib.cell.Cell', {'bind': '127.0.0.1'}),
     ('synapse.cryotank.CryoCell', {'bind': '127.0.0.1'}),
     ('synapse.neuron.Neuron', {'bind': '127.0.0.1', 'port': 0}),
+    ('synapse.lib.auth.Auth', {'lmdb:mapsize': s_const.mebibyte})
 ]
 
 obj_instance_reqpath = [
     'synapse.lib.cell.Cell',
+    'synapse.lib.auth.Auth',
 ]
 
 descr = '''
