@@ -666,7 +666,6 @@ class Hex(Type):
         if isinstance(valu, str) and valu.endswith('*'):
             valu = valu.rstrip('*')
             norm, info = self._normPyStr(valu, chksz=False)
-            # norm, info = Hex._normPyStr(self, valu)
             lops = (
                 ('prop:pref', {
                     'form': fenc,

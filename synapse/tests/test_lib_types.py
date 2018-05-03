@@ -12,6 +12,11 @@ import synapse.tests.common as s_test
 class TestTypes(s_test.SynTest):
 
     def test_hex_type(self):
+
+        # Bad configurations are not allowed for the type
+        self.raises(s_exc.BadConfValu, s_types.Hex, None, None, None, {'size': -1})
+        self.raises(s_exc.BadConfValu, s_types.Hex, None, None, None, {'size': 1})
+
         with self.getTestCore() as core:
             # fixme - getTestCore should have this dude loaded in him already!
             modu = core.addCoreMods([('synapse.tests.test_cortex.TestModule', {})])
@@ -33,6 +38,9 @@ class TestTypes(s_test.SynTest):
                 ('FfF', s_exc.BadTypeValu, None),
                 ('10001', s_exc.BadTypeValu, None),
                 ('newp', s_exc.BadTypeValu, None),
+                ('0x', s_exc.BadTypeValu, None),
+                ('', s_exc.BadTypeValu, None),
+                (b'', s_exc.BadTypeValu, None),
                 (65537, s_exc.NoSuchFunc, None),
                 (0, s_exc.NoSuchFunc, None),
                 (-10, s_exc.NoSuchFunc, None),
