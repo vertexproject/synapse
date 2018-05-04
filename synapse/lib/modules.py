@@ -14,6 +14,6 @@ coremods = (
     ('synapse.models.inet.InetModule', {}),
     ('synapse.models.material.MatModule', {}),
     ('synapse.models.language.LangModule', {}),
-
+    ('synapse.models.crypto.CryptoModule', {}),
     ('synapse.models.gov.cn.GovCnModule', {}),
 )

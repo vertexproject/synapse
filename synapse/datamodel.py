@@ -242,8 +242,8 @@ class Model:
         item = s_types.Str(self, 'str', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'The base type for a synapse tag.'}
-        item = s_types.Tag(self, 'syn:tag', info, {})
+        info = {'doc': 'The base hex type.'}
+        item = s_types.Hex(self, 'hex', info, {})
         self.addBaseType(item)
 
         info = {'doc': 'The base boolean type.'}
@@ -256,6 +256,10 @@ class Model:
 
         info = {'doc': 'The base GUID type.'}
         item = s_types.Guid(self, 'guid', info, {})
+        self.addBaseType(item)
+
+        info = {'doc': 'The base type for a synapse tag.'}
+        item = s_types.Tag(self, 'syn:tag', info, {})
         self.addBaseType(item)
 
         info = {'doc': 'The base type for compound node fields.'}
