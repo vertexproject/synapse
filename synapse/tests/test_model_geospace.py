@@ -47,8 +47,12 @@ class GeoTest(s_t_common.SynTest):
             # Latlong Type Tests =====================================================================================
             t = core.model.type(formlatlon)
             self.eq(t.norm('0,-0'), ((0.0, 0.0), {'subs': {'lat': 0.0, 'lon': 0.0}}))
-            self.eq(t.norm('90,180'), ((90.0, 180.0), {'subs': {'lat': 90.0, 'lon': 180.0}}))
-            self.eq(t.norm('-90,-180'), ((-90.0, -180.0), {'subs': {'lat': -90.0, 'lon': -180.0}}))
+            self.eq(t.norm('89.999,179.999'), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
+            self.eq(t.norm('-89.999,-179.999'), ((-89.999, -179.999), {'subs': {'lat': -89.999, 'lon': -179.999}}))
+
+            self.eq(t.norm([89.999, 179.999]), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
+            self.eq(t.norm((89.999, 179.999)), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
+
             self.raises(s_exc.BadTypeValu, t.norm, '-91,0')
             self.raises(s_exc.BadTypeValu, t.norm, '91,0')
             self.raises(s_exc.BadTypeValu, t.norm, '0,-181')
@@ -62,39 +66,23 @@ class GeoTest(s_t_common.SynTest):
             self.eq(t.norm('12.34567890,-12.34567890'),
                 ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
 
-            self.eq(t.indx((0, 0)), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-            self.eq(t.indx((0, -0)), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-            self.eq(t.indx((0, 1)), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\xf5\xe1\x00')
-            self.eq(t.indx((0, -1)), b'\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xfa\n\x1f\x00')
-            self.eq(t.indx((-90, 180)), b'\xff\xff\xff\xfd\xe7\x8e\xe6\x00\x00\x00\x00\x040\xe24\x00')
-            self.eq(t.indx((90, -180)), b'\x00\x00\x00\x02\x18q\x1a\x00\xff\xff\xff\xfb\xcf\x1d\xcc\x00')
-            self.eq(t.indx((12.3456789, -12.3456789)), b'\x00\x00\x00\x00I\x96\x02\xd2\xff\xff\xff\xff\xb6i\xfd.')
-            self.eq(t.indx((12.34567890, -12.34567890)), b'\x00\x00\x00\x00I\x96\x02\xd2\xff\xff\xff\xff\xb6i\xfd.')
+            self.eq(t.indx((-90, -180)), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+            self.eq(t.indx((90, 180)), b'\x040\xe24\x00\x08a\xc4h\x00')
+
+            self.eq(t.indx((0, 0)), b'\x02\x18q\x1a\x00\x040\xe24\x00')
+            self.eq(t.indx((0, -0)), b'\x02\x18q\x1a\x00\x040\xe24\x00')
+            self.eq(t.indx((0, 1)), b'\x02\x18q\x1a\x00\x046\xd8\x15\x00')
+            self.eq(t.indx((0, -1)), b'\x02\x18q\x1a\x00\x04*\xecS\x00')
+            self.eq(t.indx((-90, 180)), b'\x00\x00\x00\x00\x00\x08a\xc4h\x00')
+            self.eq(t.indx((90, -180)), b'\x040\xe24\x00\x00\x00\x00\x00\x00')
+            self.eq(t.indx((12.3456789, -12.3456789)), b'\x02b\x07\x1c\xd2\x03\xe7L1.')
+            self.eq(t.indx((12.34567890, -12.34567890)), b'\x02b\x07\x1c\xd2\x03\xe7L1.')
 
             self.eq(t.repr((0, 0)), '0,0')
             self.eq(t.repr((0, -0)), '0,0')
             self.eq(t.repr((12.345678, -12.345678)), '12.345678,-12.345678')
 
     '''
-    def test_model_geospace_types_latlong(self):
-
-        with self.getRamCore() as core:
-
-            self.raises(BadTypeValu, core.getTypeNorm, 'geo:latlong', '91,100')
-            self.raises(BadTypeValu, core.getTypeNorm, 'geo:latlong', '-91,100')
-            self.raises(BadTypeValu, core.getTypeNorm, 'geo:latlong', '80,181')
-            self.raises(BadTypeValu, core.getTypeNorm, 'geo:latlong', '80,-181')
-            self.raises(BadTypeValu, core.getTypeNorm, 'geo:latlong', 'hehe,hoho')
-
-            valu, subs = core.getTypeNorm('geo:latlong', '-88.12345678,101.12345678')
-            self.eq(valu, '-88.12345678,101.12345678')
-
-            valu, subs = core.getTypeNorm('geo:latlong', '-88.02000000,101.1100000000')
-            self.eq(valu, '-88.02,101.11')
-
-            valu, subs = core.getTypeNorm('geo:latlong', '??')
-            self.eq(valu, '??')
-
     def test_model_geospace_types_dist(self):
 
         with self.getRamCore() as core:

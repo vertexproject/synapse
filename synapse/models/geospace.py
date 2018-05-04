@@ -63,9 +63,14 @@ class LatLong(s_types.Type):
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
 
     def _normPyStr(self, valu):
-        valu = valu.strip().split(',')
+        valu = tuple(valu.strip().split(','))
+        return self._normPyTuple(valu)
+
+    def _normPyTuple(self, valu):
         if len(valu) != 2:
             raise s_exc.BadTypeValu(valu, mesg='Valu must contain valid latitude,longitude')
 
@@ -78,7 +83,7 @@ class LatLong(s_types.Type):
         return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
 
     def indx(self, valu):
-        return struct.pack('>qq', int(valu[0] * Latitude.SCALE), int(valu[1] * Longitude.SCALE))
+        return self.modl.type('geo:latitude').indx(valu[0]) + self.modl.type('geo:longitude').indx(valu[1])
 
     def repr(self, norm):
         return f'{norm[0]},{norm[1]}'
@@ -100,7 +105,6 @@ class GeoModule(s_module.CoreModule):
             }),
         )
 
-'''
 class DistType(s_types.Type):
 
     def postTypeInit(self):
@@ -120,19 +124,12 @@ class DistType(s_types.Type):
 
         return valu * mult, {}
 
-class GeoModule(s_module.CoreModule):
+'''
 
-    @staticmethod
-    def getBaseModels():
-        modl = {
             'types': (
                 ('geo:alias', {'subof': 'str:lwr', 'regex': '^[0-9a-z]+$', 'doc': 'An alias for the place GUID', 'ex': 'foobar'}),
                 ('geo:dist', {'ctor': 'synapse.models.geospace.Dist',
                     'doc': 'A geographic distance (base unit is mm)', 'ex': '10 km'}),
-                ('geo:latitude', {'ctor': 'synapse.models.geospace.Latitude',}),
-                ('geo:longitude', {'ctor': 'synapse.models.geospace.Longitude',}),
-                ('geo:latlong', {'ctor': 'synapse.models.geospace.LatLong',
-                    'doc': 'A Lat/Long string specifying a point on Earth'}),
                 ('geo:nloc', {'subof': 'comp',
                     'fields': 'prop=syn:prop,ndef=ndef,latlong=geo:latlong,time=time',
                     'doc': 'Records a node latitude/longitude in space-time.'}),
@@ -163,7 +160,4 @@ class GeoModule(s_module.CoreModule):
 
                 ]),
             ),
-        }
-        name = 'geo'
-        return ((name, modl), )
 '''
