@@ -4,6 +4,7 @@ from synapse.tests.common import SynTest
 class CnGovTest(SynTest):
 
     def test_models_cngov_mucd(self):
+
         with self.getTestCore() as core:
             formname = 'gov:cn:mucd'
 

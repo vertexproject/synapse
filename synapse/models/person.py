@@ -54,60 +54,6 @@ class PsMod(s_module.CoreModule):
             node = self.core.formTufoByProp('ps:persona', None, guidname=valu, **props)
         return node
 
-    @s_module.modelrev('ps', 201802281621)
-    def _revModl201802281621(self):
-        '''
-        Combine ps:has* into ps:person:has
-        - Forms a new ps:person:has node for all of the old ps:has* nodes
-        - Applies the old node's tags to the new node
-        - Deletes the old node
-        - Deletes the syn:tagform nodes for the old form
-        - Adds dark row for each node, signifying that they were added by migration
-        '''
-        data = (
-            ('ps:hasuser', 'user', 'inet:user'),
-            ('ps:hashost', 'host', 'it:host'),
-            ('ps:hasalias', 'alias', 'ps:name'),
-            ('ps:hasphone', 'phone', 'tel:phone'),
-            ('ps:hasemail', 'email', 'inet:email'),
-            ('ps:haswebacct', 'web:acct', 'inet:web:acct'),
-        )
-        with self.core.getCoreXact() as xact:
-
-            for oldform, pname, ptype in data:
-                personkey = oldform + ':person'
-                newvalkey = oldform + ':' + pname
-                sminkey = oldform + ':seen:min'
-                smaxkey = oldform + ':seen:max'
-
-                for tufo in self.core.getTufosByProp(oldform):
-                    perval = tufo[1].get(personkey)
-                    newval = tufo[1].get(newvalkey)
-
-                    kwargs = {}
-                    smin = tufo[1].get(sminkey)
-                    if smin is not None:
-                        kwargs['seen:min'] = smin
-                    smax = tufo[1].get(smaxkey)
-                    if smax is not None:
-                        kwargs['seen:max'] = smax
-
-                    newfo = self.core.formTufoByProp('ps:person:has', (perval, (ptype, newval)), **kwargs)
-
-                    tags = s_tufo.tags(tufo, leaf=True)
-                    self.core.addTufoTags(newfo, tags)
-
-                    self.core.delTufo(tufo)
-
-                self.core.delTufosByProp('syn:tagform:form', oldform)
-
-            # Add dark rows to the ps:person:has
-            # It is safe to operate on all ps:person:has nodes as this point as none should exist
-            dvalu = 'ps:201802281621'
-            dprop = '_:dark:syn:modl:rev'
-            darks = [(i[::-1], dprop, dvalu, t) for (i, p, v, t) in self.core.getRowsByProp('ps:person:has')]
-            self.core.addRows(darks)
-
     @staticmethod
     def getBaseModels():
         modl = {

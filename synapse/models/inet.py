@@ -15,8 +15,42 @@ import synapse.lookup.iana as s_l_iana
 
 logger = logging.getLogger(__name__)
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
+srv6re = regex.compile(r'^\[([a-f0-9:]+)\]:(\d+)$')
+
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 
+
+class Cidr4(s_types.Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+
+    def _normPyStr(self, valu):
+        ip_str, mask_str = valu.split('/', 1)
+
+        mask_int = int(mask_str)
+        if mask_int > 32 or mask_int < 0:
+            raise s_exc.BadTypeValu(valu, mesg='Invalid CIDR Mask')
+
+        ip_int = self.modl.type('inet:ipv4').norm(ip_str)[0]
+
+        mask = cidrmasks[mask_int]
+        network = ip_int & mask[0]
+        broadcast = network + mask[1] - 1
+        network_str = self.modl.type('inet:ipv4').repr(network)
+
+        norm = f'{network_str}/{mask_int}'
+        info = {
+            'subs': {
+                'broadcast': broadcast,
+                'mask': mask_int,
+                'network': network,
+            }
+        }
+        return norm, info
+
+    def indx(self, norm):
+        return norm.encode('utf8')
 
 class Email(s_types.Type):
 
@@ -30,7 +64,7 @@ class Email(s_types.Type):
         fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
         usernorm, userinfo = self.modl.type('inet:user').norm(user)
 
-        norm = '%s@%s' % (usernorm, fqdnnorm)
+        norm = f'{usernorm}@{fqdnnorm}'
         info = {
             'subs': {
                 'fqdn': fqdnnorm,
@@ -175,8 +209,32 @@ class IPv4(s_types.Type):
         )
         return xact.lift(lops)
 
+class IPv6(s_types.Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+
+    def indx(self, norm):
+        return ipaddress.IPv6Address(norm).packed
+
+    def _normPyStr(self, valu):
+
+        try:
+
+            v6 = ipaddress.IPv6Address(valu)
+            v4 = v6.ipv4_mapped
+
+            if v4 is not None:
+                v4_int = self.modl.type('inet:ipv4').norm(v4.compressed)[0]
+                v4_str = self.modl.type('inet:ipv4').repr(v4_int)
+                return f'::ffff:{v4_str}', {'subs': {'ipv4': v4_int}}
+
+            return ipaddress.IPv6Address(valu).compressed, {}
+
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu)
+
 class Url(s_types.Type):
-    # FIXME implement
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
@@ -185,11 +243,106 @@ class Url(s_types.Type):
         return norm.encode('utf8')
 
     def _normPyStr(self, valu):
-        norm = valu
-        info = {
-            'subs': {}
-        }
-        return norm, info
+        orig = valu
+        subs = {}
+        proto = ''
+        authparts = None
+        hostparts = ''
+        pathpart = ''
+
+        # Protocol
+        try:
+            proto, valu = valu.split('://', 1)
+            proto = proto.lower()
+            subs['proto'] = proto
+        except Exception as e:
+            raise s_exc.BadTypeValu(orig, mesg='Invalid/Missing protocol')
+
+        # Resource Path
+        parts = valu.split('/', 1)
+        if len(parts) == 2:
+            valu, pathpart = parts
+            pathpart = f'/{pathpart}'
+        subs['path'] = pathpart
+
+        # Optional User/Password
+        parts = valu.split('@', 1)
+        if len(parts) == 2:
+            authparts, valu = parts
+
+            userpass = authparts.split(':', 1)
+            subs['user'] = userpass[0]
+            if len(userpass) == 2:
+                subs['passwd'] = userpass[1]
+
+        # Host (FQDN, IPv4, or IPv6)
+        host = None
+        port = None
+
+        # Treat as IPv6 if starts with [ or contains multiple :
+        if valu.startswith('[') or valu.count(':') >= 2:
+            try:
+                match = srv6re.match(valu)
+                if match:
+                    valu, port = match.groups()
+
+                ipv6, ipv6_subs = self.modl.type('inet:ipv6').norm(valu)
+                subs['ipv6'] = ipv6
+
+                host = self.modl.type('inet:ipv6').repr(ipv6)
+                if match:
+                    host = f'[{host}]'
+
+            except Exception as e:
+                pass
+
+        else:
+            # FQDN and IPv4 handle ports the same way
+            fqdnipv4_parts = valu.split(':', 1)
+            part = fqdnipv4_parts[0]
+            if len(fqdnipv4_parts) is 2:
+                port = fqdnipv4_parts[1]
+
+            # IPv4
+            try:
+                # Norm and repr to handle fangs
+                ipv4 = self.modl.type('inet:ipv4').norm(part)[0]
+                host = self.modl.type('inet:ipv4').repr(ipv4)
+                subs['ipv4'] = ipv4
+            except Exception as e:
+                pass
+
+            # FQDN
+            if host is None:
+                try:
+                    host = self.modl.type('inet:fqdn').norm(part)[0]
+                    subs['fqdn'] = host
+                except:
+                    pass
+
+        # Raise exception if there was no FQDN, IPv4, or IPv6
+        if host is None:
+            raise s_exc.BadTypeValu(orig, mesg='No valid host')
+
+        # Optional Port
+        if port is not None:
+            port = self.modl.type('inet:port').norm(port)[0]
+            subs['port'] = port
+        else:
+            # Look up default port for protocol, but don't add it back into the url
+            defport = s_l_iana.services.get(proto)
+            if defport:
+                subs['port'] = self.modl.type('inet:port').norm(defport)[0]
+
+        # Set up Normed URL
+        if authparts:
+            hostparts = f'{authparts}@'
+        hostparts = f'{hostparts}{host}'
+        if port is not None:
+            hostparts = f'{hostparts}:{port}'
+        norm = f'{proto}://{hostparts}{pathpart}'
+
+        return norm, {'subs': subs}
 
 class InetModule(s_module.CoreModule):
 
@@ -270,6 +423,11 @@ class InetModule(s_module.CoreModule):
 
                 'ctors': (
 
+                    ('inet:cidr4', 'synapse.models.inet.Cidr4', {}, {
+                        'doc': 'An IPv4 address block in Classless Inter-Domain Routing (CIDR) notation.',
+                        'ex': '1.2.3.0/24'
+                    }),
+
                     ('inet:email', 'synapse.models.inet.Email', {}, {
                         'doc': 'An e-mail address.'}),
 
@@ -282,6 +440,11 @@ class InetModule(s_module.CoreModule):
                         'ex': '1.2.3.4'
                     }),
 
+                    ('inet:ipv6', 'synapse.models.inet.IPv6', {}, {
+                        'doc': 'An IPv6 address.',
+                        'ex': '2607:f8b0:4004:809::200e'
+                    }),
+
                     ('inet:url', 'synapse.models.inet.Url', {}, {
                         'doc': 'A Universal Resource Locator (URL).',
                         'ex': 'http://www.woot.com/files/index.html'}),
@@ -292,6 +455,10 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:asn', ('int', {}), {
                         'doc': 'An Autonomous System Number (ASN).'
+                    }),
+
+                    ('inet:group', ('str', {}), {
+                        'doc': 'A group name string.'
                     }),
 
                     ('inet:passwd', ('str', {}), {
@@ -309,11 +476,12 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:user', ('str', {'lower': True}), {
-                        'doc': 'A user name.'}),
+                        'doc': 'A username string.'}),
 
                 ),
 
                 # NOTE: tcp4/udp4/tcp6/udp6 are going away
+                # becomes inet:server/inet:client, which are both inet:addr
                 'forms': (
 
                     # FIXME implement
@@ -323,6 +491,28 @@ class InetModule(s_module.CoreModule):
                     #    ('owner', {'ptype': 'ou:org',
                     #        'doc': 'The guid of the organization currently responsible for the ASN.'}),
                     #)),
+
+                    ('inet:cidr4', {}, (
+
+                        ('broadcast', ('inet:ipv4', {}), {
+                            'ro': True,
+                            'doc': 'The broadcast IP address from the CIDR notation.'
+                        }),
+
+                        ('mask', ('int', {}), {
+                            'ro': True,
+                            'doc': 'The mask from the CIDR notation.'
+                        }),
+
+                        ('network', ('inet:ipv4', {}), {
+                            'ro': True,
+                            'doc': 'The network IP address from the CIDR notation.'
+                        }),
+
+                    )),
+
+                    ('inet:user', {}, (
+                    )),
 
                     ('inet:email', {}, (
 
@@ -373,25 +563,55 @@ class InetModule(s_module.CoreModule):
 
                     )),
 
+                    ('inet:group', {}, ()),
+
                     ('inet:ipv4', {}, (
+
                         ('asn', ('inet:asn', {}), {
                             'defval': 0,  # FIXME replace with nullval
                             'doc': 'The ASN to which the IPv4 address is currently assigned.'
                         }),
+
                         # FIXME implement geospace...
                         #('latlong', ('geo:latlong', {}), {
                         #    'doc': 'The last known latitude/longitude for the node'
                         #}),
+
                         ('loc', ('loc', {}), {
                             'defval': '??',
                             'doc': 'The geo-political location string for the IPv4.'
                         }),
+
                         ('type', ('str', {}), {
                             'defval': '??',
                             'doc': 'The type of IP address (e.g., private, multicast, etc.).'
                         })
+
                     )),
 
+                    ('inet:ipv6', {}, (
+
+                        ('asn', ('inet:asn', {}), {
+                            'defval': 0,  # FIXME replace with nullval
+                            'doc': 'The ASN to which the IPv6 address is currently assigned.'
+                        }),
+
+                        ('ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
+                            'doc': 'The mapped ipv4.'
+                        }),
+
+                        # FIXME implement geospace...
+                        #('latlong', ('geo:latlong', {}), {
+                        #    'doc': 'The last known latitude/longitude for the node'
+                        #}),
+
+                        ('loc', ('loc', {}), {
+                            'defval': '??',
+                            'doc': 'The geo-political location string for the IPv6.'
+                        }),
+
+                    )),
 
                     # FIXME implement
                     #('inet:passwd', {'ptype': 'inet:passwd'}, [
@@ -406,22 +626,24 @@ class InetModule(s_module.CoreModule):
                     # FIXME implement inet:wifi:ssid
 
                     ('inet:url', {}, (
-                        # FIXME implement ipv6
-                        #('ipv6', ('inet:ipv6', {}), {'ro': 1,
-                        #     'doc': 'The IPv6 address used in the URL.'}),
-                        ('ipv4', ('inet:ipv4', {}), {'ro': 1,
-                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
                         ('fqdn', ('inet:fqdn', {}), {'ro': 1,
                              'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
+                        ('ipv4', ('inet:ipv4', {}), {'ro': 1,
+                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
+                        ('ipv6', ('inet:ipv6', {}), {'ro': 1,
+                             'doc': 'The IPv6 address used in the URL.'}),
+                        ('passwd', ('inet:passwd', {}), {'ro': 1,
+                             'doc': 'The optional password used to access the URL.'}),
+                        ('path', ('str', {}), {'ro': 1,
+                             'doc': 'The path in the URL.'}),
                         ('port', ('inet:port', {}), {'ro': 1,
                              'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
                                  'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
+                        ('proto', ('str', {'lower': True}), {'ro': 1,
+                             'doc': 'The protocol in the URL.'}),
                         ('user', ('inet:user', {}), {'ro': 1,
                              'doc': 'The optional username used to access the URL.'}),
-                        ('passwd', ('inet:passwd', {}), {'ro': 1,
-                             'doc': 'The optional password used to access the URL.'}),
                     )),
-
                 ),
             }),
         )

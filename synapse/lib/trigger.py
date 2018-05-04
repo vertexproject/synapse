@@ -1,15 +1,12 @@
 import logging
 
-import synapse.lib.cache as s_cache
-
 logger = logging.getLogger(__name__)
 
 class Triggers:
 
     def __init__(self):
         self._trig_list = []
-        self._trig_match = s_cache.MatchCache()
-        self._trig_byname = s_cache.Cache(onmiss=self._onTrigNameMiss)
+        raise FIXME
 
     def clear(self):
         '''

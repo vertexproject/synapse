@@ -124,10 +124,11 @@ class Cmd:
                     opts[snam].extend(valu)
 
                 elif styp == 'enum':
-                    vals = synt[1].get('enum:vals')
+                    vals = swit[1].get('enum:vals')
                     valu, off = s_syntax.parse_cmd_string(text, off)
                     if valu not in vals:
-                        raise s_common.BadSyntaxError('%s (%s)' % (synt[0], '|'.join(vals)))
+                        raise s_common.BadSyntaxError(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
+                                                      text=text)
 
                     opts[snam] = valu
 
@@ -137,7 +138,8 @@ class Cmd:
                 continue
 
             if not args:
-                raise s_common.BadSyntaxError('trailing text: %s' % (text[off:],))
+                raise s_common.BadSyntaxError(mesg='trailing text: [%s]' % (text[off:],),
+                                              text=text)
 
             synt = args.popleft()
             styp = synt[1].get('type', 'valu')
@@ -277,7 +279,15 @@ class Cli(s_eventbus.EventBus):
         Run commands from a user in an interactive fashion until fini() or EOFError is raised.
         '''
         import readline
-        readline.read_init_file()
+        try:
+            readline.read_init_file()
+        except OSError:
+            # from cpython 3.6 site.py:
+            # An OSError here could have many causes, but the most likely one
+            # is that there's no .inputrc file (or .editrc file in the case of
+            # Mac OS X + libedit) in the expected location.  In that case, we
+            # want to ignore the exception.
+            pass
 
         while not self.isfini:
 

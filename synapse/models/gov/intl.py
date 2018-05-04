@@ -1,6 +1,6 @@
 import synapse.lib.module as s_module
 
-class GovIntlMod(s_module.CoreModule):
+class GovIntlModule(s_module.CoreModule):
 
     def getModelDefs(self):
         modl = {

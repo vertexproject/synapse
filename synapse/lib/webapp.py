@@ -8,10 +8,8 @@ import tornado.web
 import tornado.ioloop
 import tornado.httpserver
 
-import synapse.synasync as s_async
 import synapse.common as s_common
 import synapse.daemon as s_daemon
-import synapse.lib.config as s_config
 
 from synapse.eventbus import EventBus
 
@@ -83,7 +81,7 @@ class BaseHand(tornado.web.RequestHandler):
         self.write(retinfo)
         self.finish()
 
-class WebApp(tornado.web.Application, s_daemon.DmonConf, s_config.Config):
+class WebApp(tornado.web.Application):
     '''
     The WebApp class allows easy publishing of python methods as HTTP APIs.
 
@@ -116,9 +114,6 @@ class WebApp(tornado.web.Application, s_daemon.DmonConf, s_config.Config):
         tornado.web.Application.__init__(self, **app_config)
         self.loop = tornado.ioloop.IOLoop()
         self.serv = tornado.httpserver.HTTPServer(self, **srv_config)
-
-        self.boss = s_async.Boss()
-        self.boss.runBossPool(boss_minsize, maxsize=boss_maxsize)
 
         self.iothr = self._runWappLoop()
 

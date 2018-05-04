@@ -12,9 +12,7 @@ import lmdb  # type: ignore
 
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
-import synapse.lib.const as s_const
 import synapse.lib.queue as s_queue
-import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 import synapse.lib.datapath as s_datapath
@@ -27,25 +25,29 @@ import synapse.datamodel as s_datamodel
 
 logger = logging.getLogger(__name__)
 
-class CryoTank(s_config.Config):
+class CryoTank(s_cell.Cell):
     '''
     A CryoTank implements a stream of structured data.
     '''
-    def __init__(self, dirn, conf=None):
-        s_config.Config.__init__(self, conf)
+    confdefs = (
+        ('mapsize', {'type': 'int', 'doc': 'LMDB mapsize value', 'defval': s_lmdb.DEFAULT_MAP_SIZE}),
+        ('noindex', {'type': 'bool', 'doc': 'Disable indexing', 'defval': 0}),
+    )
 
-        self.path = s_common.gendir(dirn)
+    def __init__(self, dirn):
 
-        path = s_common.gendir(self.path, 'cryo.lmdb')
+        s_cell.Cell.__init__(self, dirn)
 
-        mapsize = self.getConfOpt('mapsize')
+        path = s_common.gendir(self.dirn, 'cryo.lmdb')
+
+        mapsize = self.conf.get('mapsize')
         self.lmdb = lmdb.open(path, writemap=True, max_dbs=128)
         self.lmdb.set_mapsize(mapsize)
 
         self.lmdb_items = self.lmdb.open_db(b'items')
         self.lmdb_metrics = self.lmdb.open_db(b'metrics')
 
-        noindex = self.getConfOpt('noindex')
+        noindex = self.conf.get('noindex')
         self.indexer = None if noindex else CryoTankIndexer(self)
 
         with self.lmdb.begin() as xact:
@@ -57,16 +59,6 @@ class CryoTank(s_config.Config):
             self.lmdb.close()
 
         self.onfini(fini)
-
-    @staticmethod
-    @s_config.confdef(name='cryotank')
-    def _cryotank_confdefs():
-        defs = (
-            # from LMDB docs
-            ('mapsize', {'type': 'int', 'doc': 'LMDB Mapsize value', 'defval': s_const.tebibyte}),
-            ('noindex', {'type': 'bool', 'doc': 'Disable indexing', 'defval': 0}),
-        )
-        return defs
 
     def last(self):
         '''
@@ -242,6 +234,15 @@ class CryoCell(s_cell.Cell):
             tank = CryoTank(path, conf)
             self.tanks.put(name, tank)
 
+    def initConfDefs(self):
+        super().initConfDefs()
+        self.addConfDefs((
+            ('defvals', {'defval': {},
+                         'ex': '{"mapsize": 1000000000}',
+                         'doc': 'Default settings for cryotanks created by the cell.',
+                         'asloc': 'tank_defaults'}),
+        ))
+
     def finiCell(self):
         '''
         Fini handlers for the CryoCell
@@ -341,7 +342,10 @@ class CryoCell(s_cell.Cell):
         logger.info('Creating new tank: %s', name)
 
         path = self.getCellPath('tanks', iden)
-        tank = CryoTank(path, conf)
+        mergeconf = self.tank_defaults.copy()
+        if conf is not None:
+            mergeconf.update(conf)
+        tank = CryoTank(path, mergeconf)
 
         self.names.set(name, iden)
         self.confs.set(name, conf)
@@ -1119,6 +1123,7 @@ class CryoTankIndexer:
         Runs as separate thread.
         '''
         stillworktodo = True
+        last_callback = 'None'
 
         while True:
             # Run the outstanding commands
@@ -1130,6 +1135,7 @@ class CryoTankIndexer:
                     retn, callback, args, kwargs = job
                     try:
                         if retn is not None:
+                            last_callback = callback.__name__
                             retn.retn(callback(*args, **kwargs))
                             recalc = True
                     except Exception as e:
@@ -1153,7 +1159,8 @@ class CryoTankIndexer:
             self._removeSome()
             if not rowcount and not self._meta.deleting:
                 if stillworktodo is True:
-                    self.cryotank.fire('cryotank:indexer:noworkleft')
+                    self.cryotank.fire('cryotank:indexer:noworkleft:' + last_callback)
+                    last_callback = 'None'
                     stillworktodo = False
             else:
                 stillworktodo = True

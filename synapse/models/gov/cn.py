@@ -1,7 +1,7 @@
 from synapse.common import guid
 import synapse.lib.module as s_module
 
-class GovCnMod(s_module.CoreModule):
+class GovCnModule(s_module.CoreModule):
 
     def getModelDefs(self):
         modl = {

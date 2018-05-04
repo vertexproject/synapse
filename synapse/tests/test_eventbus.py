@@ -363,20 +363,6 @@ class EventBusTest(SynTest):
         self.len(2, l0)
         self.len(1, l1)
 
-        # onWith works across Telepath Proxy's and with filts
-        l2 = []
-
-        def onNodeForm(mesg):
-            l2.append(mesg)
-
-        with self.getDmonCore() as core:
-            with core.onWith('node:form', onNodeForm, form='strform'):
-                t0 = core.formTufoByProp('strform', 'hehe')
-                self.nn(t0)
-                t1 = core.formTufoByProp('intform', 1234)
-                self.nn(t1)
-        self.len(1, l2)
-
     def test_eventbus_busref_items(self):
 
         bref = s_eventbus.BusRef()

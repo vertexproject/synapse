@@ -13,14 +13,10 @@ class SynMod(s_module.CoreModule):
 
             'types': (
                 ('syn:splice', {'subof': 'guid'}),
-                ('syn:auth:user', {'subof': 'str'}),
-                ('syn:auth:role', {'subof': 'str'}),
-                ('syn:auth:userrole', {'subof': 'comp', 'fields': 'user=syn:auth:user,role=syn:auth:role'}),
                 ('syn:tagform', {'subof': 'comp', 'fields': 'tag,syn:tag|form,syn:prop', 'ex': '(foo.bar,baz:faz)'}),
 
                 ('syn:alias', {'subof': 'str', 'regex': r'^\$[a-z_]+$',
                     'doc': 'A synapse guid alias', 'ex': '$visi'}),
-                ('syn:fifo', {'subof': 'comp', 'fields': 'name=str:lwr'}),
                 ('syn:ingest', {'subof': 'str:lwr'}),
                 ('syn:log', {'subof': 'guid'}),
 
@@ -44,32 +40,11 @@ class SynMod(s_module.CoreModule):
                         'doc': 'The GUID for the given alias name'}),
                 )),
 
-                ('syn:auth:user', {'local': 1}, (
-                    ('storm:limit:lift',
-                     {'ptype': 'int', 'defval': 10000, 'doc': 'The storm query lift limit for the user'}),
-                    ('storm:limit:time',
-                     {'ptype': 'int', 'defval': 120, 'doc': 'The storm query time limit for the user'}),
-                )),
-
-                ('syn:auth:role', {'local': 1}, (
-                    ('desc', {'ptype': 'str'}),
-                )),
-
-                ('syn:auth:userrole', {'local': 1}, (
-                    ('user', {'ptype': 'syn:auth:user'}),
-                    ('role', {'ptype': 'syn:auth:role'}),
-                )),
-
-                ('syn:fifo', {'ptype': 'syn:fifo', 'local': 1}, (
-                    ('name', {'ptype': 'str:lwr', 'doc': 'The fifo description'}),
-                    ('desc', {'ptype': 'str', 'doc': 'The fifo description'}),
-                )),
-
                 ('syn:trigger', {'ptype': 'guid', 'local': 1}, (
                     ('en', {'ptype': 'bool', 'defval': 0, 'doc': 'Is the trigger currently enabled'}),
                     ('on', {'ptype': 'syn:perm'}),
                     ('run', {'ptype': 'syn:storm'}),
-                    ('user', {'ptype': 'syn:auth:user'}),
+                    ('user', {'ptype': 'str'}),
                 )),
 
                 ('syn:core', {'doc': 'A node representing a unique Cortex'}, ()),
@@ -140,117 +115,3 @@ class SynMod(s_module.CoreModule):
 
         name = 'syn'
         return ((name, modl),)
-
-    @s_module.modelrev('syn', 201709051630)
-    def _delOldModelNodes(self):
-        types = self.core.getRowsByProp('syn:type')
-        forms = self.core.getRowsByProp('syn:form')
-        props = self.core.getRowsByProp('syn:prop')
-        syncore = self.core.getRowsByProp('.:modl:vers:syn:core')
-
-        with self.core.getCoreXact():
-            [self.core.delRowsById(r[0]) for r in types]
-            [self.core.delRowsById(r[0]) for r in forms]
-            [self.core.delRowsById(r[0]) for r in props]
-            [self.core.delRowsById(r[0]) for r in syncore]
-
-    @s_module.modelrev('syn', 201709191412)
-    def _revModl201709191412(self):
-        '''
-        Migrate the XREF types to use the propvalu syntax.
-        '''
-        tick = s_common.now()
-        adds = []
-        dels = set()
-
-        nforms = set()
-
-        for form in self.core.getModelDict().get('forms'):
-            sforms = self.core.getTypeOfs(form)
-            if 'xref' in sforms:
-                nforms.add(form)
-
-        for ntyp in nforms:
-            nodes = self.core.getTufosByProp(ntyp)
-            xtyp = '{}:xtype'.format(ntyp)
-            xrefp = '{}:xref'.format(ntyp)
-            xrefpint = '{}:xref:intval'.format(ntyp)
-            xrefpstr = '{}:xref:strval'.format(ntyp)
-            xrefprop = '{}:xref:prop'.format(ntyp)
-            for node in nodes:
-                iden = node[0]
-                srcvtype = node[1].get(xtyp)
-                if srcvtype is None:
-                    # This is expensive node level introspection :(
-                    for prop, valu in s_tufo.props(node).items():
-                        if prop.startswith('xref:'):
-                            form = prop.split('xref:', 1)[1]
-                            if self.core.isTufoForm(form):
-                                srcvtype = form
-                                break
-                    if not srcvtype:
-                        raise s_common.NoSuchProp(iden=node[0], type=ntyp,
-                                                  mesg='Unable to find a xref prop which is a form for migrating a '
-                                                       'XREF node.')
-                srcprp = '{}:xref:{}'.format(ntyp, srcvtype)
-                srcv = node[1].get(srcprp)
-                valu, subs = self.core.getPropNorm(xrefp, [srcvtype, srcv])
-                adds.append((iden, xrefp, valu, tick))
-                adds.append((iden, xrefprop, srcvtype, tick))
-                if 'intval' in subs:
-                    adds.append((iden, xrefpint, subs.get('intval'), tick))
-                else:
-                    adds.append((iden, xrefpstr, subs.get('strval'), tick))
-                dels.add(srcprp)
-                dels.add(xtyp)
-        with self.core.getCoreXact():
-            self.core.addRows(adds)
-            for prop in dels:
-                self.core.delRowsByProp(prop)
-
-    @s_module.modelrev('syn', 201710191144)
-    def _revModl201710191144(self):
-        with self.core.getCoreXact():
-            now = s_common.now()
-            adds = []
-            logger.debug('Lifting tufo:form rows')
-            for i, _, v, t in self.core.store.getRowsByProp('tufo:form'):
-                adds.append((i, 'node:created', t, now),)
-            logger.debug('Deleting existing node:created rows')
-            self.core.store.delRowsByProp('node:created')
-            if adds:
-                tot = len(adds)
-                logger.debug('Adding {:,d} node:created rows'.format(tot))
-                i = 0
-                n = 100000
-                for chunk in s_common.chunks(adds, n):
-                    self.core.store.addRows(chunk)
-                    i = i + len(chunk)
-                    logger.debug('Loading {:,d} [{}%] rows into transaction'.format(i, int((i / tot) * 100)))
-        logger.debug('Finished adding node:created rows to the Cortex')
-
-    @s_module.modelrev('syn', 201711012123)
-    def _revModl201711012123(self):
-        now = s_common.now()
-        forms = sorted(self.core.getTufoForms())
-        nforms = len(forms)
-        for n, form in enumerate(forms):
-            adds = []
-            logger.debug('Computing node:ndef rows for [{}]'.format(form))
-            for i, p, v, t in self.core.store.getRowsByProp(form):
-                # This is quicker than going through the norm process
-                nv = s_common.guid((p, v))
-                adds.append((i, 'node:ndef', nv, now))
-
-            if adds:
-                tot = len(adds)
-                logger.debug('Adding {:,d} node:ndef rows for [{}]'.format(tot, form))
-                with self.core.getCoreXact() as xact:
-                    i = 0
-                    nt = 100000
-                    for chunk in s_common.chunks(adds, nt):
-                        self.core.store.addRows(chunk)
-                        i = i + len(chunk)
-                        logger.debug('Loading {:,d} [{}%] rows into transaction'.format(i, int((i / tot) * 100)))
-            logger.debug('Processed {:,d} [{}%] forms.'.format(n, int((n / nforms) * 100)))
-        logger.debug('Finished adding node:ndef rows to the Cortex')

@@ -3,6 +3,7 @@ from synapse.tests.common import SynTest
 class UsGovTest(SynTest):
 
     def test_models_usgov_cage(self):
+
         with self.getTestCore() as core:
             input_props = {
                 'street': '123 Main St',

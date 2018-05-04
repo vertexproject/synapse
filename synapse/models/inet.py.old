@@ -3,28 +3,29 @@
     def getBaseModels():
         modl = {
             'types': (
-                ('inet:url', {
-                    'ctor': 'synapse.models.inet.UrlType',
-                    'doc': 'A Universal Resource Locator (URL).',
-                    'ex': 'http://www.woot.com/files/index.html'}),
+
+                ('inet:whois:rar', {
+                    'subof': 'str:lwr',
+                    'doc': 'A domain registrar.',
+                    'ex': 'godaddy, inc.'}),
+
+                ('inet:whois:reg', {
+                    'subof': 'str:lwr',
+                    'doc': 'A domain registrant.',
+                    'ex': 'woot hostmaster'}),
+
+                ('inet:mac', {
+                    'subof': 'str',
+                    'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$',
+                    'lower': 1,
+                    'nullval': '??',
+                    'doc': 'A 48-bit Media Access Control (MAC) address.',
+                    'ex': 'aa:bb:cc:dd:ee:ff'}),
 
                 ('inet:addr', {
                     'ctor': 'synapse.models.inet.AddrType',
                     'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
                     'ex': 'tcp://1.2.3.4:80'}),
-
-                ('inet:server', {
-                    'subof': 'inet:addr',
-                    'doc': 'A network server address.'}),
-
-                ('inet:client', {
-                    'subof': 'inet:addr',
-                    'doc': 'A network client address.'}),
-
-                ('inet:ipv6', {
-                    'ctor': 'synapse.models.inet.IPv6Type',
-                    'doc': 'An IPv6 address.',
-                    'ex': '2607:f8b0:4004:809::200e'}),
 
                 ('inet:srv4', {
                     'ctor': 'synapse.models.inet.Srv4Type',
@@ -36,16 +37,24 @@
                     'doc': 'An IPv6 address and port.',
                     'ex': '[2607:f8b0:4004:809::200e]:80'}),
 
+                ('inet:rfc2822:addr', {
+                    'ctor': 'synapse.models.inet.Rfc2822Addr',
+                    'ex': '"Visi Kenshoto" <visi@vertex.link>',
+                    'doc': 'An RFC 2822 Address field.'}),
+
+                ('inet:server', {
+                    'subof': 'inet:addr',
+                    'doc': 'A network server address.'}),
+
+                ('inet:client', {
+                    'subof': 'inet:addr',
+                    'doc': 'A network client address.'}),
+
 
                 ('inet:wifi:ap', {
                     'subof': 'comp',
                     'fields': 'ssid=inet:wifi:ssid,bssid=inet:mac',
                     'doc': 'An SSID/MAC address combination for a wireless access point.'}),
-
-                ('inet:cidr4', {
-                    'ctor': 'synapse.models.inet.CidrType',
-                    'doc': 'An IPv4 address block in Classless Inter-Domain Routing (CIDR) notation.',
-                    'ex': '1.2.3.0/24'}),
 
                 ('inet:urlredir', {
                     'subof': 'comp',
@@ -83,17 +92,6 @@
                     'subof': 'guid',
                     'doc': 'A network interface with a set of associated protocol addresses.'}),
 
-                ('inet:user', {
-                    'subof': 'str:lwr',
-                    'doc': 'A username string.'}),
-
-                ('inet:group', {
-                    'subof': 'str:lwr',
-                    'doc': 'A group name string.'}),
-
-                ('inet:passwd', {
-                    'subof': 'str',
-                    'doc': 'A password string.'}),
 
                 ('inet:tcp4', {
                     'subof': 'inet:srv4',
@@ -114,14 +112,6 @@
                 ('inet:flow', {
                     'subof': 'guid',
                     'doc': 'An individual network connection between a given source and destination.'}),
-
-                ('inet:mac', {
-                    'subof': 'str',
-                    'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$',
-                    'lower': 1,
-                    'nullval': '??',
-                    'doc': 'A 48-bit Media Access Control (MAC) address.',
-                    'ex': 'aa:bb:cc:dd:ee:ff'}),
 
                 ('inet:web:acct', {
                     'subof': 'sepr',
@@ -192,16 +182,6 @@
                     'fields': 'tcp4,inet:tcp4|cert,file:bytes',
                     'doc': 'An SSL certificate file served by an IPv4 TCP server.'}),
 
-                ('inet:whois:rar', {
-                    'subof': 'str:lwr',
-                    'doc': 'A domain registrar.',
-                    'ex': 'godaddy, inc.'}),
-
-                ('inet:whois:reg', {
-                    'subof': 'str:lwr',
-                    'doc': 'A domain registrant.',
-                    'ex': 'woot hostmaster'}),
-
                 ('inet:whois:rec', {
                     'subof': 'sepr',
                     'sep': '@',
@@ -222,11 +202,6 @@
                     'subof': 'comp',
                     'fields': 'fqdn,inet:fqdn|email,inet:email',
                     'doc': 'An association between a domain and a registrant email address.'}),
-
-                ('inet:rfc2822:addr', {
-                    'ctor': 'synapse.models.inet.Rfc2822Addr',
-                    'ex': '"Visi Kenshoto" <visi@vertex.link>',
-                    'doc': 'An RFC 2822 Address field.'}),
 
                 ('inet:http:request', {
                     'subof': 'guid',
@@ -335,38 +310,6 @@
 
                 )),
 
-                ('inet:cidr4', {'ptype': 'inet:cidr4'}, [
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                        'doc': 'The IP address from the CIDR notation.'}),
-                    ('mask', {'ptype': 'int', 'ro': 1,
-                        'doc': 'The mask from the CIDR notation.'})
-                ]),
-
-                ('inet:ipv6', {'ptype': 'inet:ipv6'}, [
-                    ('cc', {'ptype': 'pol:iso2', 'defval': '??',
-                        'doc': 'The country where the IPv6 address is currently located.'}),
-                    ('asn', {'ptype': 'inet:asn', 'defval': -1,
-                        'doc': 'The ASN to which the IPv6 address is currently assigned.'}),
-                    ('latlong', {'ptype': 'geo:latlong',
-                        'doc': 'The last known latitude/longitude for the node'}),
-                ]),
-
-                ('inet:url', {'ptype': 'inet:url'}, [
-                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
-                         'doc': 'The IPv6 address used in the URL.'}),
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                         'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
-                         'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
-                    ('port', {'ptype': 'inet:port', 'ro': 1,
-                         'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
-                             'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
-                    ('user', {'ptype': 'inet:user', 'ro': 1,
-                         'doc': 'The optional username used to access the URL.'}),
-                    ('passwd', {'ptype': 'inet:passwd', 'ro': 1,
-                         'doc': 'The optional password used to access the URL.'}),
-                ]),
-
                 ('inet:urlredir', {}, [
                     ('src', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
                         'doc': 'The original/source URL before redirect'}),
@@ -403,10 +346,6 @@
                      ('net4:max', {'ptype': 'inet:ipv4', 'ro': 1,
                          'doc': 'The last IPv4 in the range assigned to the ASN.'}),
                  ]),
-
-                ('inet:user', {'ptype': 'inet:user'}, []),
-
-                ('inet:group', {'ptype': 'inet:group'}, []),
 
 
                 ('inet:mac', {'ptype': 'inet:mac'}, [
@@ -598,9 +537,6 @@
                         'doc': 'A self-declared occupation for the account.'}),
                     ('dob', {'ptype': 'time',
                         'doc': 'A self-declared date of birth for the account (if the account belongs to a person).'}),
-
-                    # ('gender',{'ptype':'inet:fqdn','ro':1}),
-                    # ('bio:bt',{'ptype':'wtf','doc':'The web account's self documented blood type'}),
 
                     ('realname', {'ptype': 'ps:name',
                         'doc': 'The localized version of the real name of the account owner / registrant.'}),
@@ -1032,50 +968,6 @@
 
         return (('inet', modl),)
 
-#def ipv4mask(ipv4, mask):
-    #return ipv4 & masks[mask]
-
-#def ipv4cidr(valu):
-    #_ipv4str, cidr = valu.split('/', 1)
-    #_ipv4addr = ipv4int(_ipv4str)
-    #mask = cidrmasks[int(cidr)]
-    #lowerbound = _ipv4addr & mask[0]
-    #return lowerbound, lowerbound + mask[1]
-
-#class IPv4Type(DataType):
-
-    #def norm(self, valu, oldval=None):
-        #if isinstance(valu, str):
-            #return self._norm_str(valu, oldval=oldval)
-
-# FIXME ipv6 stuff..
-    #v6addr = ipaddress.IPv6Address(text)
-    #v4addr = v6addr.ipv4_mapped
-    #if v4addr is not None:
-        #return '::ffff:%s' % (v4addr), {'ipv4': ipv4int(str(v4addr))}
-
-    #return v6addr.compressed, {}
-
-        #if not isinstance(valu, int):
-            #self._raiseBadValu(valu)
-
-        #return valu & 0xffffffff, {}
-    #def norm(self, valu, oldval=None):
-        #try:
-            #return ipv6norm(valu)
-        #except Exception as e:
-            #self._raiseBadValu(valu)
-
-    #def _norm_str(self, valu, oldval=None):
-        #if valu.isdigit():
-            #return int(valu, 0) & 0xffffffff, {}
-
-        #valu = valu.replace('[.]', '.')
-        #return ipv4int(valu), {}
-
-    #def repr(self, valu):
-        #return ipv4str(valu)
-
 #class Rfc2822Addr(DataType):
     #'''
     #An RFC 2822 compatible email address parser
@@ -1118,145 +1010,6 @@
             #pass # it's all good, we just dont have a valid email addr
 
         #return valu, subs
-
-# RFC5952 compatible
-#def ipv6norm(text):
-    #'''
-    #Normalize an IPv6 address into RFC5952 canonical form.
-
-    #Example:
-
-        #text = ipv6norm(text)
-
-    #'''
-    # This used to use socket.inet_pton for normalizing
-    # ipv6 addresses. There's a bug in macOS where it
-    # doesn't abbreviate the zeroes properly. See RFC
-    # 5952 for IPv6 address text representation
-
-    #v6addr = ipaddress.IPv6Address(text)
-    #v4addr = v6addr.ipv4_mapped
-    #if v4addr is not None:
-        #return '::ffff:%s' % (v4addr)
-
-    #return v6addr.compressed
-
-#class IPv6Type(DataType):
-    #def repr(self, valu):
-        #return self.norm(valu)[0]
-
-    #def norm(self, valu, oldval=None):
-        #try:
-            #return ipv6norm(valu), {}
-        #except Exception as e:
-            #self._raiseBadValu(valu)
-
-#urlports = {
-#    'ftp': 21,
-#    'http': 80,
-#    'https': 443,
-#}
-#
-#class UrlType(DataType):
-#    subprops = (
-#        ('proto', {'ptype': 'str'}),
-#        ('path', {'ptype': 'str'}),
-#        ('fqdn', {'ptype': 'inet:fqdn'}),
-#        ('ipv4', {'ptype': 'inet:ipv4'}),
-#        ('ipv6', {'ptype': 'inet:ipv6'}),
-#        ('port', {'ptype': 'inet:port'}),
-#        ('user', {'ptype': 'inet:user'}),
-#        ('passwd', {'ptype': 'inet:passwd'}),
-#    )
-#
-#    def norm(self, valu, oldval=None):
-#        subs = {}
-#        respath = ''
-#        resauth = ''
-#
-#        if valu.find('://') == -1:
-#            self._raiseBadValu(valu)
-#
-#        proto, resloc = valu.split('://', 1)
-#
-#        parts = resloc.split('/', 1)
-#        if len(parts) == 2:
-#            resloc, respath = parts
-#
-#        if resloc.find('@') != -1:
-#            resauth, resloc = resloc.split('@', 1)
-#
-#            user = resauth
-#            passwd = None
-#
-#            if user.find(':') is not None:
-#                user, passwd = user.rsplit(':', 1)
-#
-#            if user:
-#                subs['user'] = user
-#
-#            if passwd:
-#                subs['passwd'] = passwd
-#
-#        port = None
-#        proto = proto.lower()
-#        hostpart = resloc.lower().replace('[.]', '.')
-#
-#        subs['proto'] = proto
-#
-#        host = hostpart
-#        if hostpart.find(':') != -1:
-#            host, portstr = hostpart.rsplit(':', 1)
-#            port = self.tlib.getTypeParse('inet:port', portstr)[0]
-#
-#        # use of exception handling logic here is fastest way to both
-#        # validate and convert the data...  normally wouldnt use....
-#
-#        ipv4 = None
-#        try:
-#
-#            ipv4 = ipv4int(host)
-#            subs['ipv4'] = ipv4
-#
-#        except BadTypeValu as e:
-#            pass
-#
-#        if ipv4 is None and fqdnre.match(host):
-#            subs['fqdn'] = host
-#
-#        # try for a default iana protocol lookup
-#        if port is None:
-#            port = s_l_iana.services.get(proto)
-#
-#        if port is not None:
-#            subs['port'] = port
-#
-#        if resauth:
-#            hostpart = '%s@%s' % (resauth, hostpart)
-#
-#        valu = '%s://%s/%s' % (proto, hostpart, respath)
-#        return valu, subs
-#
-#    def repr(self, valu):
-#        return valu
-#
-#class CidrType(DataType):
-#    def norm(self, valu, oldval=None):
-#        ipstr, maskstr = valu.split('/')
-#
-#        mask = int(maskstr)
-#        ipv4 = ipv4int(ipstr)
-#
-#        if mask > 32 or mask < 0:
-#            self._raiseBadValu(valu, mesg='Invalid CIDR Mask')
-#
-#        ipv4 = ipv4mask(ipv4, mask)
-#        valu = '%s/%d' % (ipv4str(ipv4), mask)
-#
-#        return valu, {'ipv4': ipv4, 'mask': mask}
-#
-#    def repr(self, valu):
-#        return valu
 
 #class AddrType(DataType):
 

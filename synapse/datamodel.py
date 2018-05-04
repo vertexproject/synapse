@@ -9,7 +9,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 
-import synapse.lib.tags as s_tags
 import synapse.lib.types as s_types
 
 logger = logging.getLogger(__name__)
@@ -241,6 +240,10 @@ class Model:
 
         info = {'doc': 'The base string type.'}
         item = s_types.Str(self, 'str', info, {})
+        self.addBaseType(item)
+
+        info = {'doc': 'The base hex type.'}
+        item = s_types.Hex(self, 'hex', info, {})
         self.addBaseType(item)
 
         info = {'doc': 'The base boolean type.'}

@@ -6,6 +6,23 @@ from synapse.tests.common import *
 class InetModelTest(SynTest):
 
     # Form Tests ===================================================================================
+    def test_forms_cidr4(self):
+        formname = 'inet:cidr4'
+        valu = '192[.]168.1.123/24'
+        expected_props = {
+            'network': 3232235776,    # 192.168.1.0
+            'broadcast': 3232236031,  # 192.168.1.255
+            'mask': 24,
+        }
+        expected_ndef = (formname, '192.168.1.0/24')  # ndef is network/mask, not ip/mask
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu)
+
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
     def test_forms_ipv4(self):
         # FIXME add latlong later
         formname = 'inet:ipv4'
@@ -19,6 +36,27 @@ class InetModelTest(SynTest):
             with core.xact(write=True) as xact:
                 node = xact.addNode(formname, valu_str, props=input_props)
 
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+    def test_forms_ipv6(self):
+        # FIXME add latlong later
+        formname = 'inet:ipv6'
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+
+                valu_str = '::fFfF:1.2.3.4'
+                expected_props = {'asn': 0, 'ipv4': 16909060, 'loc': '??'}
+                expected_ndef = (formname, valu_str.lower())
+                node = xact.addNode(formname, valu_str)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+                valu_str = '::1'
+                expected_props = {'asn': 0, 'loc': '??'}
+                expected_ndef = (formname, valu_str)
+                node = xact.addNode(formname, valu_str)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.props, expected_props)
 
@@ -129,7 +167,57 @@ class InetModelTest(SynTest):
                 isneither(n2)  # stays the same
                 issuffix(n4)   # stays the same
 
+    def test_forms_url(self):
+        formname = 'inet:url'
+        valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
+        expected_ndef = (formname, valu)
+        expected_props = {'fqdn': 'vertex.link', 'passwd': 'hunter2', 'path': '/coolthings?a=1', 'port': 1337, 'proto': 'https', 'user': 'vertexmc'}
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu)
+
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+    def test_forms_unextended(self):
+        # The following forms do not extend their base type
+        with self.getTestCore() as core:
+            self.nn(core.model.form('inet:group'))  # str w/ lower
+            self.nn(core.model.form('inet:user'))  # str w/ lower
+
     # Type Tests ===================================================================================
+    def test_types_cidr4(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:cidr4')
+
+            valu = '0/24'
+            expected = ('0.0.0.0/24', {'subs': {
+                'broadcast': 255,
+                'network': 0,
+                'mask': 24,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            valu = '192.168.1.101/24'
+            expected = ('192.168.1.0/24', {'subs': {
+                'broadcast': 3232236031,  # 192.168.1.255
+                'network': 3232235776,    # 192.168.1.0
+                'mask': 24,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            valu = '123.123.0.5/30'
+            expected = ('123.123.0.4/30', {'subs': {
+                'broadcast': 2071658503,  # 123.123.0.7
+                'network': 2071658500,    # 123.123.0.4
+                'mask': 30,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/-1')
+            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/33')
+
     def test_types_email(self):
         with self.getTestCore() as core:
             t = core.model.type('inet:email')
@@ -178,6 +266,151 @@ class InetModelTest(SynTest):
             self.eq(t.norm(0x00000000 - 1), (2**32 - 1, {}))
             self.eq(t.norm(0xFFFFFFFF + 1), (0, {}))
 
+    def test_types_ipv6(self):
+        # FIXME add latlong later
+        with self.getTestCore() as core:
+            t = core.model.type('inet:ipv6')
+
+            self.eq(t.norm('::1'), ('::1', {}))
+            self.eq(t.norm('0:0:0:0:0:0:0:1'), ('::1', {}))
+            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), ('2001:db8::ff00:42:8329', {}))
+            self.raises(BadTypeValu, t.norm, 'newp')
+
+            # Specific examples given in RFC5952
+            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:0db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:db8::1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:db8::0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:0db8::1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:db8:0:0:1::1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:DB8:0:0:1::1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:DB8:0:0:1:0000:0000:1')[0], '2001:db8::1:0:0:1')
+            self.raises(BadTypeValu, t.norm, '::1::')
+            self.eq(t.norm('2001:0db8::0001')[0], '2001:db8::1')
+            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
+            self.eq(t.norm('2001:db8:0:1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
+            self.eq(t.norm('2001:0:0:1:0:0:0:1')[0], '2001:0:0:1::1')
+            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('::ffff:1.2.3.4')[0], '::ffff:1.2.3.4')
+            self.eq(t.norm('2001:db8::0:1')[0], '2001:db8::1')
+            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
+            self.eq(t.norm('2001:db8::')[0], '2001:db8::')
+
+    def test_types_url(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:url')
+
+            # No Host
+            self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')
+
+            # No Protocol
+            self.raises(s_exc.BadTypeValu, t.norm, 'wat')
+
+    def test_types_url_fqdn(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:url')
+
+            host = 'Vertex.Link'
+            norm_host = core.model.type('inet:fqdn').norm(host)[0]
+            repr_host = core.model.type('inet:fqdn').repr(norm_host)
+            self.eq(norm_host, 'vertex.link')
+            self.eq(repr_host, 'vertex.link')
+
+            self._test_types_url_behavior(t, 'fqdn', host, norm_host, repr_host)
+
+    def test_types_url_ipv4(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:url')
+
+            host = '192[.]168.1[.]1'
+            norm_host = core.model.type('inet:ipv4').norm(host)[0]
+            repr_host = core.model.type('inet:ipv4').repr(norm_host)
+            self.eq(norm_host, 3232235777)
+            self.eq(repr_host, '192.168.1.1')
+
+            self._test_types_url_behavior(t, 'ipv4', host, norm_host, repr_host)
+
+    def test_types_url_ipv6(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:url')
+
+            host = '::1'
+            norm_host = core.model.type('inet:ipv6').norm(host)[0]
+            repr_host = core.model.type('inet:ipv6').repr(norm_host)
+            self.eq(norm_host, '::1')
+            self.eq(repr_host, '::1')
+
+            self._test_types_url_behavior(t, 'ipv6', host, norm_host, repr_host)
+
+            # IPv6 Port Special Cases
+            weird = t.norm('http://::1:81/hehe')
+            self.eq(weird[1]['subs']['ipv6'], '::1:81')
+            self.eq(weird[1]['subs']['port'], 80)
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'http://0:0:0:0:0:0:0:0:81/')
+
+    def _test_types_url_behavior(self, t, htype, host, norm_host, repr_host):
+
+            # Handle IPv6 Port Brackets
+            host_port = host
+            repr_host_port = repr_host
+            if htype == 'ipv6':
+                host_port = f'[{host}]'
+                repr_host_port = f'[{repr_host}]'
+
+            # URL with auth and port.
+            url = f'https://user:password@{host_port}:1234/a/b/c/'
+            expected = (f'https://user:password@{repr_host_port}:1234/a/b/c/', {'subs': {
+                'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 1234
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no port, but default port valu.
+            # Port should be in subs, but not normed URL.
+            url = f'https://user:password@{host}/a/b/c/'
+            expected = (f'https://user:password@{repr_host}/a/b/c/', {'subs': {
+                'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 443
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no port and no default port valu.
+            # Port should not be in subs or normed URL.
+            url = f'arbitrary://user:password@{host}/a/b/c/'
+            expected = (f'arbitrary://user:password@{repr_host}/a/b/c/', {'subs': {
+                'proto': 'arbitrary', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with user but no password.
+            # User should still be in URL and subs.
+            url = f'https://user@{host_port}:1234/a/b/c/'
+            expected = (f'https://user@{repr_host_port}:1234/a/b/c/', {'subs': {
+                'proto': 'https', 'path': '/a/b/c/', 'user': 'user', htype: norm_host, 'port': 1234
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no user/password.
+            # User/Password should not be in URL or subs.
+            url = f'https://{host_port}:1234/a/b/c/'
+            expected = (f'https://{repr_host_port}:1234/a/b/c/', {'subs': {
+                'proto': 'https', 'path': '/a/b/c/', htype: norm_host, 'port': 1234
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no path.
+            url = f'https://{host_port}:1234'
+            expected = (f'https://{repr_host_port}:1234', {'subs': {
+                'proto': 'https', 'path': '', htype: norm_host, 'port': 1234
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no path or port or default port.
+            url = f'a://{host}'
+            expected = (f'a://{repr_host}', {'subs': {
+                'proto': 'a', 'path': '', htype: norm_host
+            }})
+            self.eq(t.norm(url), expected)
+
     def test_types_unextended(self):
         # The following types are subtypes that do not extend their base type
         with self.getTestCore() as core:
@@ -186,7 +419,6 @@ class InetModelTest(SynTest):
             self.nn(core.model.type('inet:port'))  # int w/ min/max
             self.nn(core.model.type('inet:wifi:ssid'))  # str
             self.nn(core.model.type('inet:user'))  # str w/ lower
-
 
 class FIXME:
 
@@ -394,7 +626,6 @@ class FIXME:
 
     def test_model_inet_web_group(self):
         with self.getRamCore() as core:
-            from pprint import pprint
             iden = guid()
             node = core.formTufoByProp('inet:web:group',
                                        ('vertex.link', '1234'),
