@@ -95,6 +95,9 @@ class GeoModule(s_module.CoreModule):
             ('geo', {
 
                 'ctors': (
+                    ('geo:dist', 'synapse.models.geospace.Dist', {}, {
+                        'doc': 'A geographic distance (base unit is mm)', 'ex': '10 km'
+                    }),
                     ('geo:latitude', 'synapse.models.geospace.Latitude', {}, {}),
                     ('geo:longitude', 'synapse.models.geospace.Longitude', {}, {}),
                     ('geo:latlong', 'synapse.models.geospace.LatLong', {}, {
@@ -105,7 +108,7 @@ class GeoModule(s_module.CoreModule):
             }),
         )
 
-class DistType(s_types.Type):
+class Dist(s_types.Type):
 
     def postTypeInit(self):
         self.setNormFunc(int, self._normPyInt)
@@ -120,7 +123,7 @@ class DistType(s_types.Type):
 
         mult = units.get(unit.lower())
         if mult is None:
-            raise BadTypeValu(text, mesg='invalid/unknown dist unit: %s' % (unit,))
+            raise s_exc.BadTypeValu(text, mesg='invalid/unknown dist unit: %s' % (unit,))
 
         return valu * mult, {}
 
@@ -128,8 +131,6 @@ class DistType(s_types.Type):
 
             'types': (
                 ('geo:alias', {'subof': 'str:lwr', 'regex': '^[0-9a-z]+$', 'doc': 'An alias for the place GUID', 'ex': 'foobar'}),
-                ('geo:dist', {'ctor': 'synapse.models.geospace.Dist',
-                    'doc': 'A geographic distance (base unit is mm)', 'ex': '10 km'}),
                 ('geo:nloc', {'subof': 'comp',
                     'fields': 'prop=syn:prop,ndef=ndef,latlong=geo:latlong,time=time',
                     'doc': 'Records a node latitude/longitude in space-time.'}),

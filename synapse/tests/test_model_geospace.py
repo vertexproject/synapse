@@ -82,19 +82,18 @@ class GeoTest(s_t_common.SynTest):
             self.eq(t.repr((0, -0)), '0,0')
             self.eq(t.repr((12.345678, -12.345678)), '12.345678,-12.345678')
 
-    '''
     def test_model_geospace_types_dist(self):
 
-        with self.getRamCore() as core:
+        formname = 'geo:dist'
+        with self.getTestCore() as core:
+            t = core.model.type(formname)
 
-            valu, subs = core.getTypeNorm('geo:dist', '11.2 km')
-            self.eq(valu, 11200000)
+            self.eq(t.norm('11.2 km'), (11200000.0, {}))
+            self.eq(t.norm(11200000), (11200000.0, {}))
 
-            valu, subs = core.getTypeNorm('geo:dist', 11200000)
-            self.eq(valu, 11200000)
+            self.raises(s_exc.BadTypeValu, t.norm, '1.3 pc')
 
-            self.raises(BadTypeValu, core.getTypeNorm, 'geo:dist', '1.3 pc')
-
+    '''
     def test_model_geospace_nloc(self):
 
         with self.getRamCore() as core:
