@@ -27,11 +27,19 @@ class CellApi:
         if func is None:
             raise s_exc.NoSuchName(name=name, mesg='no such cell command')
 
+defconf = '''
+# auth:en: False
+# auth:url: null
+
+'''
+
 class Cell(s_eventbus.EventBus, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
     '''
     cellapi = CellApi
+
+    celltype = 'cell'   # this should match synapse.cells
 
     # mirror these if you want the cell base features...
     confdefs = (
@@ -57,6 +65,7 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         self.cmds = {}
 
     def _loadCellYaml(self):
+
         path = os.path.join(self.dirn, 'cell.yaml')
 
         if os.path.isfile(path):
@@ -64,11 +73,16 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
                 text = fd.read().decode('utf8')
                 return yaml.load(text)
 
-        logger.warning('config not found: %r' % (path,))
-
         return {}
 
     #@endpoint
+
+    @staticmethod
+    def deploy(dirn):
+        '''
+        Initialize default Cell in the given dir.
+        '''
+        dirn = s_common.gendir(dirn)
 
     def getTeleApi(self, link, mesg):
 

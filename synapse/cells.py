@@ -2,10 +2,8 @@
 Constructors for the various cells.
 ( used for dmon config automation)
 '''
-#import synapse.axon as s_axon
+import synapse.exc as s_exc
 import synapse.cortex as s_cortex
-#import synapse.neuron as s_neuron
-#import synapse.cryotank as s_cryotank
 
 import synapse.lib.layer as s_layer
 
@@ -31,10 +29,15 @@ def init(name, dirn):
     return ctor(dirn)
 
 def deploy(name, dirn):
-
+    '''
+    Deploy a cell of the named type to the specified directory.
+    '''
     ctor = ctors.get(name)
     if ctor is None:
         raise s_exc.NoSuchName(name=name, mesg='No cell ctor by that name')
+
+    # Cell has a deploy static method (possibly per cell type)
+    ctor.deploy(dirn)
 
 #def cryo(dirn, conf=None):
     #return s_cryotank.CryoCell(dirn, conf=conf)

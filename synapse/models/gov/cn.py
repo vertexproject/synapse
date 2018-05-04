@@ -1,4 +1,3 @@
-from synapse.common import guid
 import synapse.lib.module as s_module
 
 class GovCnModule(s_module.CoreModule):
@@ -27,14 +26,3 @@ class GovCnModule(s_module.CoreModule):
         }
         name = 'gov:cn'
         return ((name, modl), )
-
-    def initCoreModule(self):
-        self.onNodeAdd(self.onAddMucd, form='gov:cn:mucd')
-
-    def onAddMucd(self, node):
-        mucd = node[1].get('gov:cn:mucd')
-
-        name = f'Chinese PLA Unit {mucd}'
-
-        iden = guid(('gov:cn:mucd', mucd))
-        self.form('ou:org', iden, name=name, alias=f'pla{mucd}')
