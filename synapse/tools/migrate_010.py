@@ -88,22 +88,34 @@ subprop_special = {
     'inet:web:logon:ipv4': ipv4_to_client
 }
 
+def ip_to_server(core, formname, propname, typename, val) -> (str, TypeType):
+    _, props = core.getTufoByProp(typename, val)
+    addr_propname = 'ipv' + typename[-1]
+    addr = props[typename + ':' + addr_propname]
+    port = props[typename + ':port']
+    return propname, '%s://%s:%s/' % (typename[5:8], addr, port)
+
+
+type_special = {
+    'inet:tcp4': ip_to_server,
+    'inet:tcp6': ip_to_server,
+    'inet:udp4': ip_to_server,
+    'inet:udp6': ip_to_server
+}
+
 def convert_subprop(core: s_common.Cortex, formname: str, propname: str, val: Union[str, int]) -> Tuple[str, TypeType]:
-    _type = core.getPropTypeName(propname)
-    # parent_types = core.getTypeOfs(formname)
-    # for t in parent_types:
-    #     handler = _SubpropConvMap.get(t)
-    #     if handler:
-    #         return handler(val)
-    #         break
+    typename = core.getPropTypeName(propname)
 
     if propname in subprop_special:
-        return subprop_special[propname](core, formname, propname, val)
+        return subprop_special[propname](core, formname, propname, typename, val)
+
+    if typename in type_special:
+        return type_special[typename](core, formname, propname, typename, val)
 
     newpropname = prop_renames.get(propname, propname)
     newpropname = newpropname[len(formname) + 1:]
 
-    return newpropname, default_subprop_convert(core, propname, _type, val)
+    return newpropname, default_subprop_convert(core, propname, typename, val)
 
 def default_convert_tufo(core: s_common.Cortex, tufo: Tufo) -> Tuple[Tuple[str, TypeType], Dict[str, Any]]:
     _, oldprops = tufo
