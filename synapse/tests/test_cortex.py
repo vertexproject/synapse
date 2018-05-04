@@ -155,7 +155,7 @@ class CortexTest(SynTest):
                 xact.addNode('faketype', 'two')
 
                 # modify default vals on initial node
-                node.set('intprop', 100)
+                node.set('intprop', 21)
                 node.set('strprop', 'qwer')
                 node.set('locprop', 'us.va.reston')
 
