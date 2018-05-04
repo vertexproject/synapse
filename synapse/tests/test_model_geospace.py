@@ -4,10 +4,37 @@ import synapse.tests.common as s_t_common
 class GeoTest(s_t_common.SynTest):
 
     def test_latlong(self):
-        with self.getTestCore() as core:
-            t = core.model.type('geo:latlong')
+        formlat = 'geo:latitude'
+        formlon = 'geo:longitude'
+        formlatlon = 'geo:latlong'
 
-            self.eq(t.norm('0,-0'), ((0.0, -0.0), {'subs': {'lat': 0.0, 'lon': -0.0}}))
+        with self.getTestCore() as core:
+
+            # Latitude Type Tests =====================================================================================
+            t = core.model.type(formlat)
+            self.raises(s_exc.BadTypeValu, t.norm, '-90.1')
+            self.eq(t.norm('-90')[0], -90.0)
+            self.eq(t.norm('-12.345678901234567890')[0], -12.3456789)
+            self.eq(t.norm('-0')[0], 0.0)
+            self.eq(t.norm('0')[0], 0.0)
+            self.eq(t.norm('12.345678901234567890')[0], 12.3456789)
+            self.eq(t.norm('90')[0], 90.0)
+            self.raises(s_exc.BadTypeValu, t.norm, '90.1')
+
+            # Longitude Type Tests =====================================================================================
+            t = core.model.type(formlon)
+            self.raises(s_exc.BadTypeValu, t.norm, '-180.1')
+            self.eq(t.norm('-180')[0], -180.0)
+            self.eq(t.norm('-12.345678901234567890')[0], -12.3456789)
+            self.eq(t.norm('-0')[0], 0.0)
+            self.eq(t.norm('0')[0], 0.0)
+            self.eq(t.norm('12.345678901234567890')[0], 12.3456789)
+            self.eq(t.norm('180')[0], 180.0)
+            self.raises(s_exc.BadTypeValu, t.norm, '180.1')
+
+            # Latlong Type Tests =====================================================================================
+            t = core.model.type(formlatlon)
+            self.eq(t.norm('0,-0'), ((0.0, 0.0), {'subs': {'lat': 0.0, 'lon': 0.0}}))
             self.eq(t.norm('90,180'), ((90.0, 180.0), {'subs': {'lat': 90.0, 'lon': 180.0}}))
             self.eq(t.norm('-90,-180'), ((-90.0, -180.0), {'subs': {'lat': -90.0, 'lon': -180.0}}))
             self.raises(s_exc.BadTypeValu, t.norm, '-91,0')

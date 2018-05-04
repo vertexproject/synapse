@@ -31,6 +31,8 @@ class Latitude(s_types.Type):
         if valu > 90.0 or valu < -90.0:
             raise s_exc.BadTypeValu(valu, mesg='Latitude may only be -90.0 to 90.0')
 
+        valu = int(valu * Latitude.SCALE) / Latitude.SCALE
+
         return valu, {}
 
     def indx(self, norm):
@@ -50,14 +52,14 @@ class Longitude(s_types.Type):
         if valu > 180.0 or valu < -180.0:
             raise s_exc.BadTypeValu(valu, mesg='Longitude may only be -180.0 to 180.0')
 
+        valu = int(valu * Longitude.SCALE) / Longitude.SCALE
+
         return valu, {}
 
     def indx(self, norm):
         return ((norm * Longitude.SCALE) + Longitude.SPACE).to_bytes(5, 'big')
 
 class LatLong(s_types.Type):
-    # FIXME nothing uses these props
-    # FIXME should these be indexed as something other than a string?
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
@@ -76,10 +78,7 @@ class LatLong(s_types.Type):
         return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
 
     def indx(self, valu):
-        # to unpack:
-        # latv, lonv = struct.unpack('>qq', norm)
-        # latv, lonv = latv / 10**8, lonv / 10**8
-        return struct.pack('>qq', int(valu[0] * 10**8), int(valu[1] * 10**8))
+        return struct.pack('>qq', int(valu[0] * Latitude.SCALE), int(valu[1] * Longitude.SCALE))
 
     def repr(self, norm):
         return f'{norm[0]},{norm[1]}'
@@ -93,12 +92,10 @@ class GeoModule(s_module.CoreModule):
                 'ctors': (
                     ('geo:latitude', 'synapse.models.geospace.Latitude', {}, {}),
                     ('geo:longitude', 'synapse.models.geospace.Longitude', {}, {}),
-
                     ('geo:latlong', 'synapse.models.geospace.LatLong', {}, {
                         'doc': 'A Lat/Long string specifying a point on Earth',
                         'ex': '-12.45,56.78'
                     }),
-
                 ),
             }),
         )
