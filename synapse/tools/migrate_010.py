@@ -81,7 +81,7 @@ prop_renames = {
     'inet:ipv4:cc': 'inet:ipv4:loc'
 }
 
-def ipv4_to_client(core, formname, propname, val) -> (str, TypeType):
+def ipv4_to_client(core, formname, propname, typename, val) -> (str, TypeType):
     return 'client', str(val)
 
 subprop_special = {
