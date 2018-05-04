@@ -286,7 +286,6 @@ async def openurl(url, **opts):
             'passwd': info.get('passwd')
         })
 
-    print('AUTH: %r' % (auth,))
     #TODO SSL
 
     link = await s_glob.plex.link(host, port)

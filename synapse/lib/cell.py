@@ -73,8 +73,6 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
                 text = fd.read().decode('utf8')
                 return yaml.load(text)
 
-        logger.warning('config not found: %r' % (path,))
-
         return {}
 
     #@endpoint
