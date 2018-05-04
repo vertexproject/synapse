@@ -1,248 +1,426 @@
-# -*- coding: UTF-8 -*-
+import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.time as s_time
-import synapse.lib.tufo as s_tufo
-import synapse.lib.types as s_types
-
 
 from synapse.tests.common import *
 
 class InetModelTest(SynTest):
 
-    def test_model_type_inet_url(self):
-        tlib = s_types.TypeLib()
-
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:url', 'newp')
-        self.eq(tlib.getTypeNorm('inet:url', 'http://WoOt.com/HeHe')[0], 'http://woot.com/HeHe')
-        self.eq(tlib.getTypeNorm('inet:url', 'HTTP://WoOt.com/HeHe')[0], 'http://woot.com/HeHe')
-        self.eq(tlib.getTypeNorm('inet:url', 'HttP://Visi:Secret@WoOt.com/HeHe&foo=10')[0],
-                'http://Visi:Secret@woot.com/HeHe&foo=10')
-
-        self.raises(BadTypeValu, tlib.getTypeParse, 'inet:url', 'newp')
-        self.eq(tlib.getTypeParse('inet:url', 'http://WoOt.com/HeHe')[0], 'http://woot.com/HeHe')
-        self.eq(tlib.getTypeParse('inet:url', 'HTTP://WoOt.com/HeHe')[0], 'http://woot.com/HeHe')
-        self.eq(tlib.getTypeParse('inet:url', 'HttP://Visi:Secret@WoOt.com/HeHe&foo=10')[0],
-                'http://Visi:Secret@woot.com/HeHe&foo=10')
-
-        self.eq(tlib.getTypeRepr('inet:url', 'http://woot.com/HeHe'), 'http://woot.com/HeHe')
-
-    def test_model_typeinet_ipv4(self):
-        tlib = s_types.TypeLib()
-
-        self.eq(tlib.getTypeNorm('inet:ipv4', 0x01020304)[0], 0x01020304)
-        self.eq(tlib.getTypeNorm('inet:ipv4', '0x01020304')[0], 0x01020304)
-        self.eq(tlib.getTypeParse('inet:ipv4', '1.2.3.4')[0], 0x01020304)
-        self.eq(tlib.getTypeRepr('inet:ipv4', 0x01020304), '1.2.3.4')
-
-    def tes_model_type_inet_tcp4(self):
-        tlib = s_types.TypeLib()
-
-        self.eq(tlib.getTypeNorm('inet:tcp4', '1.2.3.4:2')[0], 0x010203040002)
-        self.eq(tlib.getTypeNorm('inet:tcp4', 0x010203040002)[0], 0x010203040002)
-
-        self.raises(BadTypeValu, tlib.getTypeParse, 'inet:tcp4', 'newp')
-        self.eq(tlib.getTypeParse('inet:tcp4', '1.2.3.4:2')[0], 0x010203040002)
-
-        self.eq(tlib.getTypeRepr('inet:tcp4', 0x010203040002), '1.2.3.4:2')
-
-    def test_model_type_inet_udp4(self):
-        tlib = s_types.TypeLib()
-
-        self.eq(tlib.getTypeNorm('inet:udp4', '1.2.3.4:2')[0], 0x010203040002)
-        self.eq(tlib.getTypeNorm('inet:udp4', 0x010203040002)[0], 0x010203040002)
-
-        self.raises(BadTypeValu, tlib.getTypeParse, 'inet:udp4', 'newp')
-        self.eq(tlib.getTypeParse('inet:udp4', '1.2.3.4:2')[0], 0x010203040002)
-
-        self.eq(tlib.getTypeRepr('inet:udp4', 0x010203040002), '1.2.3.4:2')
-
-    def test_model_type_inet_port(self):
-        tlib = s_types.TypeLib()
-
-        self.raises(BadTypeValu, tlib.getTypeParse, 'inet:port', '70000')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:port', 0xffffffff)
-
-        self.eq(tlib.getTypeNorm('inet:port', 20)[0], 20)
-
-    def test_model_type_inet_mac(self):
-        tlib = s_types.TypeLib()
-
-        self.raises(BadTypeValu, tlib.getTypeParse, 'inet:mac', 'newp')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:mac', 'newp')
-
-        self.eq(tlib.getTypeNorm('inet:mac', 'FF:FF:FF:FF:FF:FF')[0], 'ff:ff:ff:ff:ff:ff')
-        self.eq(tlib.getTypeParse('inet:mac', 'FF:FF:FF:FF:FF:FF')[0], 'ff:ff:ff:ff:ff:ff')
-        self.eq(tlib.getTypeRepr('inet:mac', 'ff:ff:ff:ff:ff:ff'), 'ff:ff:ff:ff:ff:ff')
-
-    def test_model_type_inet_email(self):
-        tlib = s_types.TypeLib()
-
-        self.raises(BadTypeValu, tlib.getTypeParse, 'inet:email', 'newp')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:email', 'newp')
-
-        self.eq(tlib.getTypeParse('inet:email', 'ViSi@Woot.Com')[0], 'visi@woot.com')
-
-        self.eq(tlib.getTypeNorm('inet:email', 'ViSi@Woot.Com')[0], 'visi@woot.com')
-
-        self.eq(tlib.getTypeRepr('inet:email', 'visi@woot.com'), 'visi@woot.com')
-
-    def test_model_type_inet_ipv6(self):
-        tlib = s_types.TypeLib()
-
-        self.raises(BadTypeValu, tlib.getTypeParse, 'inet:ipv6', 'newp')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:srv6', 'newp')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:srv6', '[fffffffffffffffffffffffff::2]:80')
-
-        self.eq(tlib.getTypeParse('inet:ipv6', 'AF:00::02')[0], 'af::2')
-        self.eq(tlib.getTypeNorm('inet:ipv6', 'AF:00::02')[0], 'af::2')
-        self.eq(tlib.getTypeRepr('inet:ipv6', 'af::2'), 'af::2')
-
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8::1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
-
-        # Specific examples given in RFC5952
-        # Section 1
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:0db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8::1:0:0:1')[0], '2001:db8::1:0:0:1')
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8::0:1:0:0:1')[0], '2001:db8::1:0:0:1')
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:0db8::1:0:0:1')[0], '2001:db8::1:0:0:1')
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:1::1')[0], '2001:db8::1:0:0:1')
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:DB8:0:0:1::1')[0], '2001:db8::1:0:0:1')
-
-        # Section 2.1
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:DB8:0:0:1:0000:0000:1')[0], '2001:db8::1:0:0:1')
-
-        # Section 2.2
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:ipv6', '::1::')
-
-        # Section 4.1
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:0db8::0001')[0], '2001:db8::1')
-
-        # Section 4.2.1
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
-
-        # Section 4.2.2
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8:0:1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
-
-        # Section 4.2.3
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:0:0:1:0:0:0:1')[0], '2001:0:0:1::1')
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
-
-        self.eq(tlib.getTypeNorm('inet:ipv6', '::ffff:1.2.3.4')[0], '::ffff:1.2.3.4')
-
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8::0:1')[0], '2001:db8::1')
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
-
-        self.eq(tlib.getTypeNorm('inet:ipv6', '2001:db8::')[0], '2001:db8::')
-
-        self.eq(tlib.getTypeRepr('inet:srv6', '[af::2]:80'), '[af::2]:80')
-        self.eq(tlib.getTypeParse('inet:srv6', '[AF:00::02]:80')[0], '[af::2]:80')
-        self.eq(tlib.getTypeNorm('inet:srv6', '[AF:00::02]:80')[0], '[af::2]:80')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:srv6', '[AF:00::02]:999999')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:srv6', '[AF:00::02]:-1')
-
-    def test_model_type_inet_cidr(self):
-        tlib = s_types.TypeLib()
-
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:cidr4', '1.2.3.0/33')
-        self.raises(BadTypeValu, tlib.getTypeNorm, 'inet:cidr4', '1.2.3.0/-1')
-
-        self.eq(tlib.getTypeNorm('inet:cidr4', '1.2.3.0/24'), ('1.2.3.0/24', {'ipv4': 16909056, 'mask': 24}))
-        self.eq(tlib.getTypeRepr('inet:cidr4', '1.2.3.0/24'), '1.2.3.0/24')
-
-    def test_model_inet_email(self):
-        with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:email', 'visi@vertex.link')
-            self.eq(t0[1].get('inet:email:user'), 'visi')
-            self.eq(t0[1].get('inet:email:fqdn'), 'vertex.link')
-
-    def test_model_inet_passwd(self):
-        with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:passwd', 'secret')
-            self.eq(t0[1].get('inet:passwd:md5'), '5ebe2294ecd0e0f08eab7690d2a6ee69')
-            self.eq(t0[1].get('inet:passwd:sha1'), 'e5e9fa1ba31ecd1ae84f75caaa474f3a663f05f4')
-            self.eq(t0[1].get('inet:passwd:sha256'), '2bb80d537b1da3e38bd30361aa855686bde0eacd7162fef6a25fe97bf527a25b')
-
-    def test_model_inet_mac(self):
-        with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:mac', '00:01:02:03:04:05')
-            self.eq(t0[1].get('inet:mac:vendor'), '??')
-
-            t1 = core.formTufoByProp('inet:mac', 'FF:ee:dd:cc:bb:aa', vendor='woot')
-            self.eq(t1[1].get('inet:mac'), 'ff:ee:dd:cc:bb:aa')
-            self.eq(t1[1].get('inet:mac:vendor'), 'woot')
-
-    def test_model_inet_ipv4(self):
-
-        with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:ipv4', '16909060')
-            self.eq(t0[1].get('inet:ipv4'), 0x01020304)
-            self.eq(t0[1].get('inet:ipv4:asn'), -1)
-
-            self.raises(BadTypeValu, core.formTufoByProp, 'inet:ipv4', [])
-
-    def test_model_inet_ipv6(self):
-
-        with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:ipv6', '0:0:0:0:0:0:0:1')
-            self.eq(t0[1].get('inet:ipv6'), '::1')
-            self.eq(t0[1].get('inet:ipv6:asn'), -1)
-
-            self.eq(core.getTypeRepr('inet:ipv6', '0:0:0:0:0:0:0:1'), '::1')
-            self.eq(core.getTypeRepr('inet:ipv6', '::1'), '::1')
-
-    def test_model_inet_cidr4(self):
-
-        with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:cidr4', '1.2.3.4/24')
-
-            self.eq(t0[1].get('inet:cidr4'), '1.2.3.0/24')
-            self.eq(t0[1].get('inet:cidr4:mask'), 24)
-            self.eq(t0[1].get('inet:cidr4:ipv4'), 0x01020300)
-
-    def test_model_inet_asnet4(self):
-
-        with self.getRamCore() as core:
-
-            t0 = core.formTufoByProp('inet:asnet4', '54959/1.2.3.4-5.6.7.8')
-
-            self.eq(t0[1].get('inet:asnet4:asn'), 54959)
-            self.eq(t0[1].get('inet:asnet4:net4'), '1.2.3.4-5.6.7.8')
-            self.eq(t0[1].get('inet:asnet4:net4:min'), 0x01020304)
-            self.eq(t0[1].get('inet:asnet4:net4:max'), 0x05060708)
-
-            self.nn(core.getTufoByProp('inet:asn', 54959))
-            self.nn(core.getTufoByProp('inet:ipv4', 0x01020304))
-            self.nn(core.getTufoByProp('inet:ipv4', 0x05060708))
-
-            o1 = core.formTufoByProp('ou:org', '*', alias='vertex')
-            _, o1pprop = s_tufo.ndef(o1)
-            t1 = core.formTufoByProp('inet:asn', 12345)
-            self.none(t1[1].get('inet:asn:owner'))
-            t1 = core.setTufoProps(t1, owner='$vertex')
-            self.eq(t1[1].get('inet:asn:owner'), o1pprop)
-            # TODO: Uncomment when we have a global alias resolver in place.
-            # self.nn(core.getTufoByProp('ou:alias', 'vertex'))
-            t2 = core.formTufoByProp('inet:asn', 12346, owner='$vertex')
-            self.eq(t2[1].get('inet:asn:owner'), o1pprop)
-            # Lift asn's by owner with guid resolver syntax
-            nodes = core.eval('inet:asn:owner=$vertex')
-            self.eq(len(nodes), 2)
-
-    def test_model_inet_fqdn(self):
-        with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:fqdn', 'com', sfx=1)
-            t1 = core.formTufoByProp('inet:fqdn', 'woot.com')
-
-            self.eq(t0[1].get('inet:fqdn:host'), 'com')
-            self.eq(t0[1].get('inet:fqdn:domain'), None)
-            self.eq(t0[1].get('inet:fqdn:sfx'), 1)
-            self.eq(t0[1].get('inet:fqdn:zone'), 0)
-
-            self.eq(t1[1].get('inet:fqdn:host'), 'woot')
-            self.eq(t1[1].get('inet:fqdn:domain'), 'com')
-            self.eq(t1[1].get('inet:fqdn:sfx'), 0)
-            self.eq(t1[1].get('inet:fqdn:zone'), 1)
+    # Form Tests ===================================================================================
+    def test_forms_cidr4(self):
+        formname = 'inet:cidr4'
+        valu = '192[.]168.1.123/24'
+        expected_props = {
+            'network': 3232235776,    # 192.168.1.0
+            'broadcast': 3232236031,  # 192.168.1.255
+            'mask': 24,
+        }
+        expected_ndef = (formname, '192.168.1.0/24')  # ndef is network/mask, not ip/mask
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu)
+
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+    def test_forms_ipv4(self):
+        # FIXME add latlong later
+        formname = 'inet:ipv4'
+        valu_str = '1.2.3.4'
+        valu_int = 16909060
+        input_props = {'asn': 3, 'loc': 'us', 'type': 'cool'}
+        expected_props = {'asn': 3, 'loc': 'us', 'type': 'cool'}
+        expected_ndef = (formname, valu_int)
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu_str, props=input_props)
+
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+    def test_forms_ipv6(self):
+        # FIXME add latlong later
+        formname = 'inet:ipv6'
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+
+                valu_str = '::fFfF:1.2.3.4'
+                expected_props = {'asn': 0, 'ipv4': 16909060, 'loc': '??'}
+                expected_ndef = (formname, valu_str.lower())
+                node = xact.addNode(formname, valu_str)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+                valu_str = '::1'
+                expected_props = {'asn': 0, 'loc': '??'}
+                expected_ndef = (formname, valu_str)
+                node = xact.addNode(formname, valu_str)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+    def test_forms_email(self):
+        formname = 'inet:email'
+        valu = 'UnitTest@Vertex.link'
+        expected_ndef = (formname, valu.lower())
+        expected_props = {'fqdn': 'vertex.link', 'user': 'unittest'}
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu)
+
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+    def test_forms_fqdn(self):
+        formname = 'inet:fqdn'
+        valu = 'api.vertex.link'
+        expected_ndef = (formname, valu)
+
+        # props: domain host issuffix iszone zone
+        with self.getTestCore() as core:
+
+            # Demonstrate cascading formation
+            expected_props = {'created': 0, 'domain': 'vertex.link', 'expires': 1, 'host': 'api', 'issuffix': 0,
+                'iszone': 0, 'updated': 2, 'zone': 'vertex.link'}
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu, props={'created': 0, 'expires': 1, 'updated': 2})
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+            nvalu = expected_props['domain']
+            expected_ndef = (formname, nvalu)
+            expected_props = {'domain': 'link', 'host': 'vertex', 'issuffix': 0, 'iszone': 1, 'zone': 'vertex.link'}
+            with core.xact() as xact:
+                node = xact.getNodeByNdef((formname, nvalu))
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+            nvalu = expected_props['domain']
+            expected_ndef = (formname, nvalu)
+            expected_props = {'host': 'link', 'issuffix': 1, 'iszone': 0}
+            with core.xact() as xact:
+                node = xact.getNodeByNdef((formname, nvalu))
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+            # Demonstrate wildcard
+            with core.xact() as xact:
+                self.len(3, list(xact.getNodesBy(formname, '*')))
+                self.len(2, list(xact.getNodesBy(formname, '*.link')))
+                self.len(1, list(xact.getNodesBy(formname, '*.vertex.link')))
+                badgen = xact.getNodesBy(formname, 'api.*.link')
+                self.raises(s_exc.BadLiftValu, list, badgen)
+
+    def test_forms_fqdn_suffix(self):
+        formname = 'inet:fqdn'
+        def iszone(node):
+            self.true(node.props.get('iszone') == 1 and node.props.get('issuffix') == 0)
+
+        def issuffix(node):
+            self.true(node.props.get('issuffix') == 1 and node.props.get('iszone') == 0)
+
+        def isboth(node):
+            self.true(node.props.get('iszone') == 1 and node.props.get('issuffix') == 1)
+
+        def isneither(node):
+            self.true(node.props.get('iszone') == 0 and node.props.get('issuffix') == 0)
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+
+                # Create some nodes and demonstrate zone/suffix behavior
+                # Only FQDNs of the lowest level should be suffix
+                # Only FQDNs whose domains are suffixes should be zones
+                n0 = xact.addNode(formname, 'abc.vertex.link')
+                n1 = xact.addNode(formname, 'def.vertex.link')
+                n2 = xact.addNode(formname, 'g.def.vertex.link')
+                n1 = xact.addNode(formname, 'def.vertex.link')  # form again to show g. should not make this a zone
+                n3 = xact.getNodeByNdef((formname, 'vertex.link'))
+                n4 = xact.getNodeByNdef((formname, 'link'))
+                isneither(n0)
+                isneither(n1)
+                isneither(n2)
+                iszone(n3)     # vertex.link should be a zone
+                issuffix(n4)   # link should be a suffix
+
+                # Make one of the FQDNs a suffix and make sure its children become zones
+                n3 = xact.addNode(formname, 'vertex.link', props={'issuffix': True})
+                isboth(n3)     # vertex.link should now be both because we made it a suffix
+                n0 = xact.getNodeByNdef((formname, 'abc.vertex.link'))
+                n1 = xact.getNodeByNdef((formname, 'def.vertex.link'))
+                n2 = xact.getNodeByNdef((formname, 'g.def.vertex.link'))
+                iszone(n0)     # now a zone because vertex.link is a suffix
+                iszone(n1)     # now a zone because vertex.link is a suffix
+                isneither(n2)  # still neither as parent is not a suffix
+
+                # Remove the FQDN's suffix status and make sure its children lose zone status
+                n3 = xact.addNode(formname, 'vertex.link', props={'issuffix': False})
+                iszone(n3)     # vertex.link should now be a zone becuase we removed its suffix status
+                n0 = xact.getNodeByNdef((formname, 'abc.vertex.link'))
+                n1 = xact.getNodeByNdef((formname, 'def.vertex.link'))
+                n2 = xact.getNodeByNdef((formname, 'g.def.vertex.link'))
+                n4 = xact.getNodeByNdef((formname, 'link'))
+                isneither(n0)  # loses zone status
+                isneither(n1)  # loses zone status
+                isneither(n2)  # stays the same
+                issuffix(n4)   # stays the same
+
+    def test_forms_url(self):
+        formname = 'inet:url'
+        valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
+        expected_ndef = (formname, valu)
+        expected_props = {'fqdn': 'vertex.link', 'passwd': 'hunter2', 'path': '/coolthings?a=1', 'port': 1337, 'proto': 'https', 'user': 'vertexmc'}
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu)
+
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.props, expected_props)
+
+    def test_forms_unextended(self):
+        # The following forms do not extend their base type
+        with self.getTestCore() as core:
+            self.nn(core.model.form('inet:group'))  # str w/ lower
+            self.nn(core.model.form('inet:user'))  # str w/ lower
+
+    # Type Tests ===================================================================================
+    def test_types_cidr4(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:cidr4')
+
+            valu = '0/24'
+            expected = ('0.0.0.0/24', {'subs': {
+                'broadcast': 255,
+                'network': 0,
+                'mask': 24,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            valu = '192.168.1.101/24'
+            expected = ('192.168.1.0/24', {'subs': {
+                'broadcast': 3232236031,  # 192.168.1.255
+                'network': 3232235776,    # 192.168.1.0
+                'mask': 24,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            valu = '123.123.0.5/30'
+            expected = ('123.123.0.4/30', {'subs': {
+                'broadcast': 2071658503,  # 123.123.0.7
+                'network': 2071658500,    # 123.123.0.4
+                'mask': 30,
+            }})
+            self.eq(t.norm(valu), expected)
+
+            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/-1')
+            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/33')
+
+    def test_types_email(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:email')
+
+            email = 'UnitTest@Vertex.link'
+            expected = ('unittest@vertex.link', {'subs': {'fqdn': 'vertex.link', 'user': 'unittest'}})
+            self.eq(t.norm(email), expected)
+
+    def test_types_fqdn(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:fqdn')
+
+            fqdn = 'example.Vertex.link'
+            expected = ('example.vertex.link', {'subs': {'host': 'example', 'domain': 'vertex.link'}})
+            self.eq(t.norm(fqdn), expected)
+            self.raises(s_exc.BadTypeValu, t.norm, '!@#$%')
+
+            # Demonstrate Valid IDNA
+            fqdn = 'tèst.èxamplè.link'
+            ex_fqdn = 'xn--tst-6la.xn--xampl-3raf.link'
+            expected = (ex_fqdn, {'subs': {'domain': 'xn--xampl-3raf.link', 'host': 'xn--tst-6la'}})
+            self.eq(t.norm(fqdn), expected)
+            self.eq(t.repr(ex_fqdn), fqdn)  # Calling repr on IDNA encoded domain should result in the unicode
+            self.raises(UnicodeDecodeError, t.repr, fqdn)  # Can't repr unicode domain
+
+            # Demonstrate Invalid IDNA
+            fqdn = 'xn--lskfjaslkdfjaslfj.link'
+            expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'link'}})
+            self.eq(t.norm(fqdn), expected)
+            self.eq(t.repr(fqdn), fqdn)  # UnicodeError raised and caught
+
+    def test_types_ipv4(self):
+        # FIXME add latlong later
+        with self.getTestCore() as core:
+            t = core.model.type('inet:ipv4')
+            ip_int = 16909060
+            ip_str = '1.2.3.4'
+            ip_str_enfanged = '1[.]2[.]3[.]4'
+
+            self.eq(t.norm(ip_int), (ip_int, {}))
+            self.eq(t.norm(ip_str), (ip_int, {}))
+            self.eq(t.norm(ip_str_enfanged), (ip_int, {}))
+            self.eq(t.repr(ip_int), ip_str)
+
+            # Demonstrate wrap-around
+            self.eq(t.norm(0x00000000 - 1), (2**32 - 1, {}))
+            self.eq(t.norm(0xFFFFFFFF + 1), (0, {}))
+
+    def test_types_ipv6(self):
+        # FIXME add latlong later
+        with self.getTestCore() as core:
+            t = core.model.type('inet:ipv6')
+
+            self.eq(t.norm('::1'), ('::1', {}))
+            self.eq(t.norm('0:0:0:0:0:0:0:1'), ('::1', {}))
+            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), ('2001:db8::ff00:42:8329', {}))
+            self.raises(BadTypeValu, t.norm, 'newp')
+
+            # Specific examples given in RFC5952
+            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:0db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:db8::1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:db8::0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:0db8::1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:db8:0:0:1::1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:DB8:0:0:1::1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('2001:DB8:0:0:1:0000:0000:1')[0], '2001:db8::1:0:0:1')
+            self.raises(BadTypeValu, t.norm, '::1::')
+            self.eq(t.norm('2001:0db8::0001')[0], '2001:db8::1')
+            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
+            self.eq(t.norm('2001:db8:0:1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
+            self.eq(t.norm('2001:0:0:1:0:0:0:1')[0], '2001:0:0:1::1')
+            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
+            self.eq(t.norm('::ffff:1.2.3.4')[0], '::ffff:1.2.3.4')
+            self.eq(t.norm('2001:db8::0:1')[0], '2001:db8::1')
+            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
+            self.eq(t.norm('2001:db8::')[0], '2001:db8::')
+
+    def test_types_url(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:url')
+
+            # No Host
+            self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')
+
+            # No Protocol
+            self.raises(s_exc.BadTypeValu, t.norm, 'wat')
+
+    def test_types_url_fqdn(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:url')
+
+            host = 'Vertex.Link'
+            norm_host = core.model.type('inet:fqdn').norm(host)[0]
+            repr_host = core.model.type('inet:fqdn').repr(norm_host)
+            self.eq(norm_host, 'vertex.link')
+            self.eq(repr_host, 'vertex.link')
+
+            self._test_types_url_behavior(t, 'fqdn', host, norm_host, repr_host)
+
+    def test_types_url_ipv4(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:url')
+
+            host = '192[.]168.1[.]1'
+            norm_host = core.model.type('inet:ipv4').norm(host)[0]
+            repr_host = core.model.type('inet:ipv4').repr(norm_host)
+            self.eq(norm_host, 3232235777)
+            self.eq(repr_host, '192.168.1.1')
+
+            self._test_types_url_behavior(t, 'ipv4', host, norm_host, repr_host)
+
+    def test_types_url_ipv6(self):
+        with self.getTestCore() as core:
+            t = core.model.type('inet:url')
+
+            host = '::1'
+            norm_host = core.model.type('inet:ipv6').norm(host)[0]
+            repr_host = core.model.type('inet:ipv6').repr(norm_host)
+            self.eq(norm_host, '::1')
+            self.eq(repr_host, '::1')
+
+            self._test_types_url_behavior(t, 'ipv6', host, norm_host, repr_host)
+
+            # IPv6 Port Special Cases
+            weird = t.norm('http://::1:81/hehe')
+            self.eq(weird[1]['subs']['ipv6'], '::1:81')
+            self.eq(weird[1]['subs']['port'], 80)
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'http://0:0:0:0:0:0:0:0:81/')
+
+    def _test_types_url_behavior(self, t, htype, host, norm_host, repr_host):
+
+            # Handle IPv6 Port Brackets
+            host_port = host
+            repr_host_port = repr_host
+            if htype == 'ipv6':
+                host_port = f'[{host}]'
+                repr_host_port = f'[{repr_host}]'
+
+            # URL with auth and port.
+            url = f'https://user:password@{host_port}:1234/a/b/c/'
+            expected = (f'https://user:password@{repr_host_port}:1234/a/b/c/', {'subs': {
+                'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 1234
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no port, but default port valu.
+            # Port should be in subs, but not normed URL.
+            url = f'https://user:password@{host}/a/b/c/'
+            expected = (f'https://user:password@{repr_host}/a/b/c/', {'subs': {
+                'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 443
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no port and no default port valu.
+            # Port should not be in subs or normed URL.
+            url = f'arbitrary://user:password@{host}/a/b/c/'
+            expected = (f'arbitrary://user:password@{repr_host}/a/b/c/', {'subs': {
+                'proto': 'arbitrary', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with user but no password.
+            # User should still be in URL and subs.
+            url = f'https://user@{host_port}:1234/a/b/c/'
+            expected = (f'https://user@{repr_host_port}:1234/a/b/c/', {'subs': {
+                'proto': 'https', 'path': '/a/b/c/', 'user': 'user', htype: norm_host, 'port': 1234
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no user/password.
+            # User/Password should not be in URL or subs.
+            url = f'https://{host_port}:1234/a/b/c/'
+            expected = (f'https://{repr_host_port}:1234/a/b/c/', {'subs': {
+                'proto': 'https', 'path': '/a/b/c/', htype: norm_host, 'port': 1234
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no path.
+            url = f'https://{host_port}:1234'
+            expected = (f'https://{repr_host_port}:1234', {'subs': {
+                'proto': 'https', 'path': '', htype: norm_host, 'port': 1234
+            }})
+            self.eq(t.norm(url), expected)
+
+            # URL with no path or port or default port.
+            url = f'a://{host}'
+            expected = (f'a://{repr_host}', {'subs': {
+                'proto': 'a', 'path': '', htype: norm_host
+            }})
+            self.eq(t.norm(url), expected)
+
+    def test_types_unextended(self):
+        # The following types are subtypes that do not extend their base type
+        with self.getTestCore() as core:
+            self.nn(core.model.type('inet:asn'))  # int
+            self.nn(core.model.type('inet:passwd'))  # str
+            self.nn(core.model.type('inet:port'))  # int w/ min/max
+            self.nn(core.model.type('inet:wifi:ssid'))  # str
+            self.nn(core.model.type('inet:user'))  # str w/ lower
+
+class FIXME:
 
     def test_model_inet_srv4_types(self):
         with self.getRamCore() as core:
@@ -324,154 +502,6 @@ class InetModelTest(SynTest):
             self.eq(core.getTypeRepr('inet:tcp6', '[0:0:0:0:0:0:0:1]:80'), '[::1]:80')
             self.eq(core.getTypeRepr('inet:tcp6', '[::1]:80'), '[::1]:80')
             self.eq(core.getTypeRepr('inet:tcp6', '[0:0:0:0:0:3:2:1]:5000'), '[::3:2:1]:5000')
-
-    def test_model_inet_fqdn_unicode(self):
-
-        with self.getRamCore() as core:
-            prop = 'inet:fqdn'
-            idna_valu = 'xn--tst-6la.xn--xampl-3raf.link'
-            unicode_valu = 'tèst.èxamplè.link'
-            unicode_cap_valu = 'tèst.èxaMplè.link'
-            parents = (
-                    ('xn--xampl-3raf.link', {'inet:fqdn:host': 'xn--xampl-3raf', 'inet:fqdn:domain': 'link', 'inet:fqdn:zone': 1, 'inet:fqdn:sfx': 0}),
-                    ('link', {'inet:fqdn:host': 'link', 'inet:fqdn:domain': None, 'inet:fqdn:zone': 0, 'inet:fqdn:sfx': 1}),
-            )
-            idna_tufo = core.formTufoByProp(prop, idna_valu)
-            self.eq(idna_tufo[1].get('inet:fqdn:host'), 'xn--tst-6la')
-            self.eq(idna_tufo[1].get('inet:fqdn:domain'), 'xn--xampl-3raf.link')
-            self.eq(idna_tufo[1].get('inet:fqdn:zone'), 0)
-            self.eq(idna_tufo[1].get('inet:fqdn:sfx'), 0)
-
-            for parent_fqdn, parent_props in parents:
-                parent_tufo = core.getTufoByProp(prop, parent_fqdn)
-                for key in parent_props:
-                    self.eq(parent_tufo[1].get(key), parent_props[key])
-
-            idna_tufo = core.formTufoByProp(prop, idna_valu)
-            unicode_tufo = core.formTufoByProp(prop, unicode_valu)
-            unicode_cap_tufo = core.formTufoByProp(prop, unicode_cap_valu)
-            self.eq(unicode_tufo, idna_tufo)
-            self.eq(unicode_tufo, unicode_cap_tufo)
-
-        with self.getRamCore() as core:
-            prop = 'inet:web:acct'
-            valu = '%s/%s' % ('xn--tst-6la.xn--xampl-3raf.link', 'user')
-            tufo = core.formTufoByProp(prop, valu)
-            self.eq(tufo[1].get('inet:web:acct:site'), 'xn--tst-6la.xn--xampl-3raf.link')
-            self.eq(tufo[1].get('inet:web:acct'), 'tèst.èxamplè.link/user')
-            idna_valu = 'xn--tst-6la.xn--xampl-3raf.link'
-
-        with self.getRamCore() as core:
-            prop = 'inet:email'
-            valu = '%s@%s' % ('user', 'tèst.èxamplè.link')
-            tufo = core.formTufoByProp(prop, valu)
-            self.eq(tufo[1].get('inet:email:fqdn'), 'xn--tst-6la.xn--xampl-3raf.link')
-            self.eq(tufo[1].get('inet:email'), 'user@xn--tst-6la.xn--xampl-3raf.link')
-
-        with self.getRamCore() as core:
-            prop = 'inet:url'
-            valu = '%s://%s/%s' % ('https', 'xn--tst-6la.xn--xampl-3raf.link', 'things')
-            tufo = core.formTufoByProp(prop, valu)
-            self.eq(tufo[1].get('inet:url'), 'https://xn--tst-6la.xn--xampl-3raf.link/things') # hostpart is not normed in inet:url
-
-    def test_model_inet_fqdn_idna(self):
-
-        with self.getRamCore() as core:
-            prop = 'inet:fqdn'
-            valu = 'xn--lskfjaslkdfjaslfj.link'
-
-            tufo = core.formTufoByProp(prop, valu)
-            self.eq(tufo[1][prop], valu)
-
-            tufo = core.getTufoByProp(prop, valu)
-            self.eq(tufo[1][prop], valu)
-
-            # Catch invalid IDNA error and just return the raw data
-            self.eq(core.getTypeRepr(prop, tufo[1][prop]), valu)
-            self.eq(core.getPropRepr(prop, tufo[1][prop]), valu)
-
-    def test_model_inet_fqdn_set_sfx(self):
-        with self.getRamCore() as core:
-            tufo = core.formTufoByProp('inet:fqdn', 'abc.dyndns.com') # abc.dyndns.com - zone=0 sfx=0, dyndns.com - zone=1 sfx=0, com - zone=0 sfx=1
-            self.eq(tufo[1].get('inet:fqdn:host'), 'abc')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0)
-            tufo = core.formTufoByProp('inet:fqdn', 'def.dyndns.com') # def.dyndns.com - zone=0 sfx=0
-            self.eq(tufo[1].get('inet:fqdn:host'), 'def')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0)
-            tufo = core.formTufoByProp('inet:fqdn', 'g.def.dyndns.com') # g.def.dyndns.com - zone=0 sfx=0, def.dyndns.com - zone=0 sfx=0
-            self.eq(tufo[1].get('inet:fqdn:host'), 'g')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'def.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0)
-            tufo = core.getTufoByProp('inet:fqdn', 'def.dyndns.com') # def.dyndns.com - zone=0 sfx=0 - adding g.def does not make def a zone
-            self.eq(tufo[1].get('inet:fqdn:host'), 'def')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0)
-            tufo = core.getTufoByProp('inet:fqdn', 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'dyndns')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 1)
-            tufo = core.getTufoByProp('inet:fqdn', 'com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'com')
-            self.eq(tufo[1].get('inet:fqdn:domain'), None)
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 1)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0)
-
-            # make dyndns.com a suffix
-            tufo = core.getTufoByProp('inet:fqdn', 'dyndns.com')
-            tufo = core.setTufoProp(tufo, 'sfx', 1)
-            self.eq(tufo[1].get('inet:fqdn:host'), 'dyndns')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 1)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 1) # should still be a zone after sfx set to 1
-
-            # assert that child fqdns are properly updated
-            tufo = core.getTufoByProp('inet:fqdn', 'abc.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'abc')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 1) # now a zone because dyndns.com is a suffix
-            tufo = core.getTufoByProp('inet:fqdn', 'def.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'def')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 1) # now a zone because dyndns.com is a suffix
-            tufo = core.getTufoByProp('inet:fqdn', 'g.def.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'g')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'def.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0) # should remain zone=0 sfx=0 because its parent is not a sfx
-
-            # make dyndns.com not a suffix
-            tufo = core.getTufoByProp('inet:fqdn', 'dyndns.com')
-            tufo = core.setTufoProp(tufo, 'sfx', 0)
-            self.eq(tufo[1].get('inet:fqdn:host'), 'dyndns')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 1) # should still be a zone after sfx set to 0
-
-            # assert that child fqdns are properly updated
-            tufo = core.getTufoByProp('inet:fqdn', 'abc.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'abc')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0) # no longer a zone because dyndns.com is not a sfx
-            tufo = core.getTufoByProp('inet:fqdn', 'def.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'def')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0) # no longer a zone because dyndns.com is not a sfx
-            tufo = core.getTufoByProp('inet:fqdn', 'g.def.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:host'), 'g')
-            self.eq(tufo[1].get('inet:fqdn:domain'), 'def.dyndns.com')
-            self.eq(tufo[1].get('inet:fqdn:sfx'), 0)
-            self.eq(tufo[1].get('inet:fqdn:zone'), 0) # should remain zone=0 sfx=0 because its parent is not a sfx
 
     def test_model_inet_cast_defang(self):
         with self.getRamCore() as core:
@@ -596,7 +626,6 @@ class InetModelTest(SynTest):
 
     def test_model_inet_web_group(self):
         with self.getRamCore() as core:
-            from pprint import pprint
             iden = guid()
             node = core.formTufoByProp('inet:web:group',
                                        ('vertex.link', '1234'),
@@ -709,19 +738,6 @@ class InetModelTest(SynTest):
             nodes = core.eval('inet:whois:rec:fqdn=woot.com inet:whois:rec->inet:whois:recns:rec')
             self.eq(len(nodes), 1)
             self.eq(node[0], nodes[0][0])
-
-    def test_model_fqdn_punycode(self):
-
-        with self.getRamCore() as core:
-
-            node = core.formTufoByProp('inet:fqdn', 'www.xn--heilpdagogik-wiki-uqb.de')
-
-            fqdn = node[1].get('inet:fqdn')
-
-            self.eq(fqdn, 'www.xn--heilpdagogik-wiki-uqb.de')
-            self.eq(core.getTypeRepr('inet:fqdn', fqdn), 'www.heilpädagogik-wiki.de')
-
-            self.raises(BadTypeValu, core.getTypeNorm, 'inet:fqdn', '!@#$%')
 
     def test_model_inet_web_logon(self):
 
@@ -849,778 +865,6 @@ class InetModelTest(SynTest):
             self.nn(core.getTufoByProp('inet:user', 'user'))
             self.nn(core.getTufoByProp('inet:fqdn', 'vertex.link'))
             self.nn(core.getTufoByProp('inet:fqdn', 'link'))
-
-    def test_model_inet_201706121318(self):
-
-        iden0 = guid()
-        iden1 = guid()
-        tick = now()
-        rows = (
-            (iden0, 'tufo:form', 'inet:url', tick),
-            (iden0, 'inet:url', 'http://www.woot.com/', tick),
-            (iden1, 'tufo:form', 'inet:url', tick),
-            (iden1, 'inet:url', 'http://1.2.3.4/', tick),
-        )
-
-        data = {}
-        with s_cortex.openstore('ram:///') as stor:
-
-            # force model migration callbacks
-            stor.setModlVers('inet', 0)
-
-            def addrows(mesg):
-                stor.addRows(rows)
-                data['added'] = True
-            stor.on('modl:vers:rev', addrows, name='inet', vers=201706121318)
-
-            with s_cortex.fromstore(stor) as core:
-                self.true(data.get('added'))
-
-                t0 = core.getTufoByIden(iden0)
-                self.eq(t0[1].get('inet:url:fqdn'), 'www.woot.com')
-
-                t1 = core.getTufoByIden(iden1)
-                self.eq(t1[1].get('inet:url:ipv4'), 0x01020304)
-
-    def test_model_inet_201706201837(self):
-
-        data = {}
-        iden0 = guid()
-        iden1 = guid()
-        tick = now()
-        rows = [
-            (iden0, 'tufo:form', 'inet:tcp4', tick),
-            (iden0, 'inet:tcp4', '1.2.3.4:80', tick),
-            (iden1, 'tufo:form', 'inet:udp4', tick),
-            (iden1, 'inet:udp4', '1.2.3.4:443', tick),
-        ]
-
-        with s_cortex.openstore('ram:///') as stor:
-
-            # force model migration callbacks
-            stor.setModlVers('inet', 0)
-
-            def addrows(mesg):
-                stor.addRows(rows)
-                data['added'] = True
-            stor.on('modl:vers:rev', addrows, name='inet', vers=201706201837)
-
-            with s_cortex.fromstore(stor) as core:
-
-                t1 = core.getTufoByIden(iden0)
-                self.eq(t1[1].get('inet:tcp4:port'), 80)
-                self.eq(t1[1].get('inet:tcp4:ipv4'), 0x01020304)
-
-                t2 = core.getTufoByIden(iden1)
-                self.eq(t2[1].get('inet:udp4:port'), 443)
-                self.eq(t2[1].get('inet:udp4:ipv4'), 0x01020304)
-
-    def test_model_inet_201709181501(self):
-        data = {}
-        iden0 = guid()
-        tick = now()
-        rows = [
-            (iden0, 'tufo:form', 'inet:whois:rec', tick),
-            (iden0, 'inet:whois:rec', 'vertex.link@2017/09/18 15:01:00.000', tick),  # 1505746860000,
-            (iden0, 'inet:whois:rec:fqdn', 'vertex.link', tick),
-            (iden0, 'inet:whois:rec:asof', 1505746860000, tick),
-            (iden0, 'inet:whois:rec:ns1', 'ns1.vertex.link', tick),
-            (iden0, 'inet:whois:rec:ns2', 'ns2.vertex.link', tick),
-            (iden0, 'inet:whois:rec:ns3', 'ns3.vertex.link', tick),
-            (iden0, 'inet:whois:rec:ns4', 'ns4.vertex.link', tick),
-        ]
-
-        with s_cortex.openstore('ram:///') as stor:
-
-            # force model migration callbacks
-            stor.setModlVers('inet', 0)
-
-            def addrows(mesg):
-                stor.addRows(rows)
-                data['added'] = True
-            stor.on('modl:vers:rev', addrows, name='inet', vers=201709181501)
-
-            with s_cortex.fromstore(stor) as core:
-
-                t_guid, _ = core.getTypeNorm('inet:whois:recns', ['ns1.vertex.link',
-                                                                  'vertex.link@2017/09/18 15:01:00.000'])
-
-                node = core.eval('inet:whois:rec')[0]
-                self.notin('inet:whois:rec:ns1', node[1])
-                self.notin('inet:whois:rec:ns2', node[1])
-                self.notin('inet:whois:rec:ns3', node[1])
-                self.notin('inet:whois:rec:ns4', node[1])
-
-                nodes = core.eval('inet:whois:recns')
-                self.eq(len(nodes), 4)
-
-                nodes = core.eval('inet:whois:recns={}'.format(t_guid))
-                self.eq(len(nodes), 1)
-                node = nodes[0]
-                self.eq(node[1].get('inet:whois:recns:ns'), 'ns1.vertex.link')
-                self.eq(node[1].get('inet:whois:recns:rec:fqdn'), 'vertex.link')
-                self.eq(node[1].get('inet:whois:recns:rec:asof'), 1505746860000)
-
-    def test_model_inet_201709271521(self):
-        # There is a lot to look at here.
-        # Note that `inet:follows` is completely missing tagforms, these should be created.
-        # Note that `inet:netmemb` is missing one tagform, these should be created.
-
-        N = 2
-        adds = []
-
-        def _addTag(tag, form):
-            tick = now()
-            iden = guid()
-            tlib = s_types.TypeLib()
-            form_valu, _ = tlib.getTypeNorm('syn:tagform', (tag, form))
-            return [
-                (iden, 'syn:tagform:title', '??', tick),
-                (iden, 'syn:tagform', form_valu, tick),
-                (iden, 'tufo:form', 'syn:tagform', tick),
-                (iden, 'syn:tagform:tag', tag, tick),
-                (iden, 'syn:tagform:form', form, tick),
-                (iden, 'syn:tagform:doc', '??', tick),
-            ]
-
-        for i in range(N):
-            user = 'pennywise%d' % i
-            iden = guid()
-            dark_iden = iden[::-1]
-            tick = now()
-            adds.extend([
-                (iden, 'tufo:form', 'inet:netuser', tick),
-                (iden, 'inet:netuser', 'vertex.link/' + user, tick),
-                (iden, 'inet:netuser:site', 'vertex.link', tick),
-                (iden, 'inet:netuser:user', user, tick),
-                (iden, 'inet:netuser:dob', 1337, tick),
-                (iden, 'inet:netuser:url', 'https://vertex.link/url', tick),
-                (iden, 'inet:netuser:webpage', 'https://vertex.link/webpage', tick),
-                (iden, 'inet:netuser:avatar', 'd41d8cd98f00b204e9800998ecf8427e', tick),
-                (iden, 'inet:netuser:tagline', 'a tagline', tick),
-                (iden, 'inet:netuser:occupation', 'entertainer', tick),
-                (iden, 'inet:netuser:name', 'my name', tick),
-                (iden, 'inet:netuser:realname', 'my real name', tick),
-                (iden, 'inet:netuser:email', 'email@vertex.link', tick),
-                (iden, 'inet:netuser:phone', '17035551212', tick),
-                (iden, 'inet:netuser:signup', 7331, tick),
-                (iden, 'inet:netuser:signup:ipv4', 0x01020304, tick),
-                (iden, 'inet:netuser:passwd', 'hunter2', tick),
-                (iden, 'inet:netuser:seen:min', 0, tick),
-                (iden, 'inet:netuser:seen:max', 1, tick),
-                (iden, '#hehe.hoho', tick, tick),
-                (iden, '#hehe', tick, tick),
-                (dark_iden, '_:*inet:netuser#hehe.hoho', tick, tick),
-                (dark_iden, '_:*inet:netuser#hehe', tick, tick),
-            ])
-        adds.extend(_addTag('hehe.hoho', 'inet:netuser'))
-        adds.extend(_addTag('hehe', 'inet:netuser'))
-
-        for i in range(N):
-            group = 'group%d' % i
-            iden = guid()
-            dark_iden = iden[::-1]
-            tick = now()
-            adds.extend([
-                (iden, 'tufo:form', 'inet:netgroup', tick),
-                (iden, 'inet:netgroup', 'vertex.link/' + group, tick),
-                (iden, 'inet:netgroup:site', 'vertex.link', tick),
-                (iden, 'inet:netgroup:name', group, tick),
-                (iden, 'inet:netgroup:desc', 'hehe', tick),
-                (iden, 'inet:netgroup:url', 'https://vertex.link/url', tick),
-                (iden, 'inet:netgroup:webpage', 'https://vertex.link/webpage', tick),
-                (iden, 'inet:netgroup:avatar', 'd41d8cd98f00b204e9800998ecf8427e', tick),
-                (iden, '#hehe.hoho', tick, tick),
-                (iden, '#hehe', tick, tick),
-                (dark_iden, '_:*inet:netgroup#hehe.hoho', tick, tick),
-                (dark_iden, '_:*inet:netgroup#hehe', tick, tick),
-            ])
-        adds.extend(_addTag('hehe.hoho', 'inet:netgroup'))
-        adds.extend(_addTag('hehe', 'inet:netgroup'))
-
-        iden = guid()
-        acct1 = 'vertex.link/person1'
-        acct2 = 'vertex.link/person2'
-        follow_valu = '4ebc93255f8582a9d6c38dbba952dc9b'
-        dark_iden = iden[::-1]
-        tick = now()
-        adds.extend([
-            (iden, 'tufo:form', 'inet:follows', tick),
-            (iden, 'inet:follows', follow_valu, tick),
-            (iden, 'inet:follows:follower', acct1, tick),
-            (iden, 'inet:follows:followee', acct2, tick),
-            (iden, 'inet:follows:seen:min', 0, tick),
-            (iden, 'inet:follows:seen:max', 1, tick),
-            (iden, '#hehe.hoho', tick, tick),
-            (iden, '#hehe', tick, tick),
-            (dark_iden, '_:*inet:follows#hehe.hoho', tick, tick),
-            (dark_iden, '_:*inet:follows#hehe', tick, tick),
-        ])
-        # NOTE: we do not add the tagform here on purpose to make sure the dark rows migrate
-
-        iden = guid()
-        webmemb_valu = '7d8675f29b54cf71e3c36d4448aaa842'
-        dark_iden = iden[::-1]
-        tick = now()
-        adds.extend([
-            (iden, 'tufo:form', 'inet:netmemb', tick),
-            (iden, 'inet:netmemb', webmemb_valu, tick),
-            (iden, 'inet:netmemb:user', 'vertex.link/person1', tick),
-            (iden, 'inet:netmemb:group', 'vertex.link/group0', tick),
-            (iden, 'inet:netmemb:title', 'a title', tick),
-            (iden, 'inet:netmemb:joined', 123, tick),
-            (iden, 'inet:netmemb:seen:min', 0, tick),
-            (iden, 'inet:netmemb:seen:max', 1, tick),
-            (iden, '#hehe.hoho.haha', tick, tick),
-            (iden, '#hehe.hoho', tick, tick),
-            (iden, '#hehe', tick, tick),
-            (dark_iden, '_:*inet:netmemb#hehe.hoho.haha', tick, tick),
-            (dark_iden, '_:*inet:netmemb#hehe.hoho', tick, tick),
-            (dark_iden, '_:*inet:netmemb#hehe', tick, tick),
-        ])
-        adds.extend(_addTag('hehe.hoho.haha', 'inet:netmemb'))
-        # hehe.hoho is missing for some unknown reason
-        adds.extend(_addTag('hehe', 'inet:netmemb'))
-
-        iden = guid()
-        webpost_valu = '19abe9969d6712318370f7c4d943f8ea'
-        dark_iden = iden[::-1]
-        tick = now()
-        adds.extend([
-            (iden, 'tufo:form', 'inet:netpost', tick),
-            (iden, 'inet:netpost', webpost_valu, tick),
-            (iden, 'inet:netpost:netuser', 'vertex.link/person1', tick),
-            (iden, 'inet:netpost:netuser:site', 'vertex.link', tick),
-            (iden, 'inet:netpost:netuser:user', 'person1', tick),
-            (iden, 'inet:netpost:text', 'my cool post', tick),
-            (iden, 'inet:netpost:replyto', '0' * 32, tick),
-            (iden, 'inet:netpost:url', 'https://vertex.link/blog/1', tick),
-            (iden, 'inet:netpost:file', 'd41d8cd98f00b204e9800998ecf8427e', tick),
-            (iden, 'inet:netpost:time', 12345, tick),
-            (iden, '#hehe.hoho', tick, tick),
-            (iden, '#hehe', tick, tick),
-            (dark_iden, '_:*inet:netpost#hehe.hoho', tick, tick),
-            (dark_iden, '_:*inet:netpost#hehe', tick, tick),
-        ])
-        adds.extend(_addTag('hehe.hoho', 'inet:netpost'))
-        adds.extend(_addTag('hehe', 'inet:netpost'))
-
-        iden = guid()
-        webfile_valu = '1f91e1492718d2cbccae1f27c54409ed'
-        dark_iden = iden[::-1]
-        tick = now()
-        adds.extend([
-            (iden, 'tufo:form', 'inet:netfile', tick),
-            (iden, 'inet:netfile', webfile_valu, tick),
-            (iden, 'inet:netfile:file', '0' * 32, tick),
-            (iden, 'inet:netfile:netuser', 'vertex.link/person1', tick),
-            (iden, 'inet:netfile:netuser:site', 'vertex.link', tick),
-            (iden, 'inet:netfile:netuser:user', 'person1', tick),
-            (iden, 'inet:netfile:name', 'my cool file', tick),
-            (iden, 'inet:netfile:posted', 123456, tick),
-            (iden, 'inet:netfile:ipv4', 0, tick),
-            (iden, 'inet:netfile:ipv6', '::1', tick),
-            (iden, 'inet:netfile:seen:min', 0, tick),
-            (iden, 'inet:netfile:seen:max', 1, tick),
-            (iden, '#hehe.hoho', tick, tick),
-            (iden, '#hehe', tick, tick),
-            (dark_iden, '_:*inet:netfile#hehe.hoho', tick, tick),
-            (dark_iden, '_:*inet:netfile#hehe', tick, tick),
-        ])
-        adds.extend(_addTag('hehe.hoho', 'inet:netfile'))
-        adds.extend(_addTag('hehe', 'inet:netfile'))
-
-        iden = guid()
-        imgof_valu = 'b873597b32ce4adb836d8d4aae1831f6'
-        dark_iden = iden[::-1]
-        tick = now()
-        adds.extend([
-            (iden, 'tufo:form', 'file:imgof', tick),
-            (iden, 'file:imgof', imgof_valu, tick),
-            (iden, 'file:imgof:file', '0' * 32, tick),
-            (iden, 'file:imgof:xref', 'inet:netuser=vertex.link/person1', tick),
-            (iden, 'file:imgof:xref:prop', 'inet:netuser', tick),
-            (iden, 'file:imgof:xref:strval', 'vertex.link/person1', tick),
-            (iden, '#hehe.hoho', tick, tick),
-            (iden, '#hehe', tick, tick),
-            (dark_iden, '_:*file:imgof#hehe.hoho', tick, tick),
-            (dark_iden, '_:*file:imgof#hehe', tick, tick),
-        ])
-        adds.extend(_addTag('hehe.hoho', 'file:imgof'))
-        adds.extend(_addTag('hehe', 'file:imgof'))
-
-        iden = guid()
-        txtref_valu = 'c10d26ad2467bb72320ad1fc501ec40b'
-        dark_iden = iden[::-1]
-        tick = now()
-        adds.extend([
-            (iden, 'tufo:form', 'file:txtref', tick),
-            (iden, 'file:txtref', txtref_valu, tick),
-            (iden, 'file:txtref:file', '0' * 32, tick),
-            (iden, 'file:txtref:xref', 'inet:netgroup=vertex.link/group0', tick),
-            (iden, 'file:txtref:xref:prop', 'inet:netgroup', tick),
-            (iden, 'file:txtref:xref:strval', 'vertex.link/group0', tick),
-            (iden, '#hehe.hoho', tick, tick),
-            (iden, '#hehe', tick, tick),
-            (dark_iden, '_:*file:txtref#hehe.hoho', tick, tick),
-            (dark_iden, '_:*file:txtref#hehe', tick, tick),
-        ])
-        adds.extend(_addTag('hehe.hoho', 'file:txtref'))
-        adds.extend(_addTag('hehe', 'file:txtref'))
-
-        iden = guid()
-        dark_iden = iden[::-1]
-        tick = now()
-        adds.extend([
-            (iden, 'ps:hasnetuser:netuser', 'vertex.link/heheman', tick),
-            (iden, 'ps:hasnetuser:person', '00000000000000000000000000000000', tick),
-            (iden, 'tufo:form', 'ps:hasnetuser', tick),
-            (iden, 'ps:hasnetuser', '00000000000000000000000000000000/vertex.link/heheman', tick),
-            (iden, '#hehe.hoho', tick, tick),
-            (iden, '#hehe', tick, tick),
-            (dark_iden, '_:*ps:hasnetuser#hehe.hoho', tick, tick),
-            (dark_iden, '_:*ps:hasnetuser#hehe', tick, tick),
-        ])
-        adds.extend(_addTag('hehe.hoho', 'ps:hasnetuser'))
-        adds.extend(_addTag('hehe', 'ps:hasnetuser'))
-
-        iden = guid()
-        dark_iden = iden[::-1]
-        tick = now()
-        adds.extend([
-            (iden, 'ou:hasnetuser:netuser', 'vertex.link/heheman', tick),
-            (iden, 'ou:hasnetuser:org', '00000000000000000000000000000000', tick),
-            (iden, 'tufo:form', 'ou:hasnetuser', tick),
-            (iden, 'ou:hasnetuser', '4016087db1b71ecc56db535a5ee9e86e', tick),
-            (iden, '#hehe.hoho', tick, tick),
-            (iden, '#hehe', tick, tick),
-            (dark_iden, '_:*ou:hasnetuser#hehe.hoho', tick, tick),
-            (dark_iden, '_:*ou:hasnetuser#hehe', tick, tick),
-        ])
-        adds.extend(_addTag('hehe.hoho', 'ou:hasnetuser'))
-        adds.extend(_addTag('hehe', 'ou:hasnetuser'))
-
-        # inet:web:logon is already in the inet:web:logon space but needs to account for the netuser move
-        iden = guid()
-        tick = now()
-        adds.extend([
-            (iden, 'inet:web:logon', 'cf672b42e342f49d6afee00341de1ebd', tick),
-            (iden, 'inet:web:logon:netuser', 'vertex.link/pennywise', tick),
-            (iden, 'inet:web:logon:netuser:site', 'vertex.link', tick),
-            (iden, 'inet:web:logon:netuser:user', 'pennywise', tick),
-            (iden, 'inet:web:logon:ipv4', 16909060, tick),
-            (iden, 'inet:web:logon:time', 1505001600000, tick),
-            (iden, 'tufo:form', 'inet:web:logon', tick),
-            (iden, '#hehe.hoho', tick, tick),
-            (iden, '#hehe', tick, tick),
-            (dark_iden, '_:*inet:web:logon#hehe.hoho', tick, tick),
-            (dark_iden, '_:*inet:web:logon#hehe', tick, tick),
-        ])
-        adds.extend(_addTag('hehe.hoho', 'inet:web:logon'))
-        adds.extend(_addTag('hehe', 'inet:web:logon'))
-
-        with s_cortex.openstore('ram:///') as stor:
-
-            # force model migration callbacks
-            stor.setModlVers('inet', 0)
-
-            def addrows(mesg):
-                stor.addRows(adds)
-            stor.on('modl:vers:rev', addrows, name='inet', vers=201709271521)
-
-            with s_cortex.fromstore(stor) as core:
-
-                # inet:netuser -> inet:web:acct
-                # assert that the correct number of users and groups were migrated
-                tufos = core.getTufosByProp('inet:web:acct')
-                self.len(N, tufos)
-
-                # check that properties were correctly migrated and tags were not damaged
-                tufo = core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise0')
-                self.eq(tufo[1]['tufo:form'], 'inet:web:acct')
-                self.eq(tufo[1]['inet:web:acct'], 'vertex.link/pennywise0')
-                self.eq(tufo[1]['inet:web:acct:user'], 'pennywise0')
-                self.eq(tufo[1]['inet:web:acct:site'], 'vertex.link')
-                self.eq(tufo[1]['inet:web:acct:url'], 'https://vertex.link/url')
-                self.eq(tufo[1]['inet:web:acct:webpage'], 'https://vertex.link/webpage')
-                self.eq(tufo[1]['inet:web:acct:avatar'], 'd41d8cd98f00b204e9800998ecf8427e')
-                self.eq(tufo[1]['inet:web:acct:tagline'], 'a tagline')
-                self.eq(tufo[1]['inet:web:acct:occupation'], 'entertainer')
-                self.eq(tufo[1]['inet:web:acct:name'], 'my name')
-                self.eq(tufo[1]['inet:web:acct:realname'], 'my real name')
-                self.eq(tufo[1]['inet:web:acct:email'], 'email@vertex.link')
-                self.eq(tufo[1]['inet:web:acct:phone'], '17035551212')
-                self.eq(tufo[1]['inet:web:acct:signup'], 7331)
-                self.eq(tufo[1]['inet:web:acct:signup:ipv4'], 16909060)
-                self.eq(tufo[1]['inet:web:acct:passwd'], 'hunter2')
-                self.eq(tufo[1]['inet:web:acct:seen:min'], 0)
-                self.eq(tufo[1]['inet:web:acct:seen:max'], 1)
-
-                # check that tags were correctly migrated
-                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
-                self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:netuser'))
-                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:acct'))
-                self.len(0, core.getRowsByProp('_:*inet:netuser#hehe.hoho'))
-                self.len(0, core.getRowsByProp('_:*inet:netuser#hehe'))
-                self.len(2, core.getRowsByProp('_:*inet:web:acct#hehe.hoho'))
-                self.len(2, core.getRowsByProp('_:*inet:web:acct#hehe'))
-
-                # assert that no old data remains
-                tufos = core.getTufosByProp('inet:netuser')
-                self.len(0, tufos)
-                rows = core.getJoinByProp('inet:netuser')
-                self.len(0, rows)
-
-                # inet:netgroup -> inet:web:group
-                # assert that the correct number of users and groups were migrated
-                tufos = core.getTufosByProp('inet:web:group')
-                self.len(N, tufos)
-
-                # check that properties were correctly migrated and tags were not damaged
-                tufo = core.getTufoByProp('inet:web:group', 'vertex.link/group0')
-                self.eq(tufo[1]['tufo:form'], 'inet:web:group')
-                self.eq(tufo[1]['inet:web:group'], 'vertex.link/group0')
-                self.eq(tufo[1]['inet:web:group:site'], 'vertex.link')
-                self.eq(tufo[1]['inet:web:group:id'], 'group0')
-                self.eq(tufo[1]['inet:web:group:desc'], 'hehe')
-                self.eq(tufo[1]['inet:web:group:url'], 'https://vertex.link/url')
-                self.eq(tufo[1]['inet:web:group:webpage'], 'https://vertex.link/webpage')
-                self.eq(tufo[1]['inet:web:group:avatar'], 'd41d8cd98f00b204e9800998ecf8427e')
-
-                # check that tags were correctly migrated
-                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
-                self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:netgroup'))
-                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:group'))
-                self.len(0, core.getRowsByProp('_:*inet:netgroup#hehe.hoho'))
-                self.len(0, core.getRowsByProp('_:*inet:netgroup#hehe'))
-                self.len(2, core.getRowsByProp('_:*inet:web:group#hehe.hoho'))
-                self.len(2, core.getRowsByProp('_:*inet:web:group#hehe'))
-
-                # assert that no old data remains
-                tufos = core.getTufosByProp('inet:netgroup')
-                self.len(0, tufos)
-                rows = core.getJoinByProp('inet:netgroup')
-                self.len(0, rows)
-
-                # inet:netmemb -> inet:web:memb
-                # assert that the correct number of users and groups were migrated
-                tufos = core.getTufosByProp('inet:web:memb')
-                self.len(1, tufos)
-
-                # check that properties were correctly migrated and tags were not damaged
-                tufo = core.getTufoByProp('inet:web:memb', webmemb_valu)
-                self.eq(tufo[1]['tufo:form'], 'inet:web:memb')
-                self.eq(tufo[1]['inet:web:memb'], webmemb_valu)
-                self.eq(tufo[1]['inet:web:memb:acct'], 'vertex.link/person1')
-                self.eq(tufo[1]['inet:web:memb:group'], 'vertex.link/group0')
-                self.eq(tufo[1]['inet:web:memb:title'], 'a title')
-                self.eq(tufo[1]['inet:web:memb:joined'], 123)
-                self.eq(tufo[1]['inet:web:memb:seen:min'], 0)
-                self.eq(tufo[1]['inet:web:memb:seen:max'], 1)
-
-                # check that tags were correctly migrated
-                self.eq(['hehe', 'hehe.hoho', 'hehe.hoho.haha'], sorted(s_tufo.tags(tufo)))
-                self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:netmemb'))
-                self.len(3, core.getRowsByProp('syn:tagform:form', 'inet:web:memb'))  # NOTE: the middle tagform was created
-                self.len(0, core.getRowsByProp('_:*inet:netmemb#hehe.hoho'))
-                self.len(0, core.getRowsByProp('_:*inet:netmemb#hehe'))
-                self.len(1, core.getRowsByProp('_:*inet:web:memb#hehe.hoho.haha'))
-                self.len(1, core.getRowsByProp('_:*inet:web:memb#hehe.hoho'))
-                self.len(1, core.getRowsByProp('_:*inet:web:memb#hehe'))
-
-                # assert that no old data remains
-                tufos = core.getTufosByProp('inet:netmemb')
-                self.len(0, tufos)
-                rows = core.getJoinByProp('inet:netmemb')
-                self.len(0, rows)
-
-                # inet:follows -> inet:web:follows
-                # assert that the correct number of follow relationships were migrated
-                tufos = core.getTufosByProp('inet:web:follows')
-                self.len(1, tufos)
-
-                # check that properties were correctly migrated and tags were not damaged
-                tufo = core.getTufoByProp('inet:web:follows', follow_valu)
-                self.eq(tufo[1]['tufo:form'], 'inet:web:follows')
-                self.eq(tufo[1]['inet:web:follows'], follow_valu)
-                self.eq(tufo[1]['inet:web:follows:follower'], acct1)
-                self.eq(tufo[1]['inet:web:follows:followee'], acct2)
-                self.eq(tufo[1]['inet:web:follows:seen:min'], 0)
-                self.eq(tufo[1]['inet:web:follows:seen:max'], 1)
-
-                # check that tags were correctly migrated
-                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
-                # NOTE: we try to create missing tagforms
-                self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:follows'))
-                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:follows'))
-                self.len(0, core.getRowsByProp('_:*inet:follows#hehe.hoho'))
-                self.len(0, core.getRowsByProp('_:*inet:follows#hehe'))
-                self.len(1, core.getRowsByProp('_:*inet:web:follows#hehe.hoho'))
-                self.len(1, core.getRowsByProp('_:*inet:web:follows#hehe'))
-
-                # assert that no old data remains
-                tufos = core.getTufosByProp('inet:follows')
-                self.len(0, tufos)
-                rows = core.getJoinByProp('inet:follows')
-                self.len(0, rows)
-
-                # inet:netpost -> inet:web:post
-                # assert that the correct number of users and groups were migrated
-                tufos = core.getTufosByProp('inet:web:post')
-                self.len(1, tufos)
-
-                # check that properties were correctly migrated and tags were not damaged
-                tufo = core.getTufoByProp('inet:web:post', webpost_valu)
-                self.eq(tufo[1]['tufo:form'], 'inet:web:post')
-                self.eq(tufo[1]['inet:web:post'], webpost_valu)
-                self.eq(tufo[1]['inet:web:post:acct'], 'vertex.link/person1')
-                self.eq(tufo[1]['inet:web:post:acct:site'], 'vertex.link')
-                self.eq(tufo[1]['inet:web:post:acct:user'], 'person1')
-                self.eq(tufo[1]['inet:web:post:text'], 'my cool post')
-                self.eq(tufo[1]['inet:web:post:replyto'], '0' * 32)
-                self.eq(tufo[1]['inet:web:post:url'], 'https://vertex.link/blog/1')
-                self.eq(tufo[1]['inet:web:post:file'], 'd41d8cd98f00b204e9800998ecf8427e')
-                self.eq(tufo[1]['inet:web:post:time'], 12345)
-
-                # check that tags were correctly migrated
-                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
-                self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:netpost'))
-                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:post'))
-                self.len(0, core.getRowsByProp('_:*inet:netpost#hehe.hoho'))
-                self.len(0, core.getRowsByProp('_:*inet:netpost#hehe'))
-                self.len(1, core.getRowsByProp('_:*inet:web:post#hehe.hoho'))
-                self.len(1, core.getRowsByProp('_:*inet:web:post#hehe'))
-
-                # assert that no old data remains
-                tufos = core.getTufosByProp('inet:netpost')
-                self.len(0, tufos)
-                rows = core.getJoinByProp('inet:netpost')
-                self.len(0, rows)
-
-                # inet:netfile -> inet:web:file
-                # assert that the correct number of users and groups were migrated
-                tufos = core.getTufosByProp('inet:web:file')
-                self.len(1, tufos)
-
-                # check that properties were correctly migrated and tags were not damaged
-                tufo = core.getTufoByProp('inet:web:file', webfile_valu)
-                self.eq(tufo[1]['tufo:form'], 'inet:web:file')
-                self.eq(tufo[1]['inet:web:file'], webfile_valu)
-                self.eq(tufo[1]['inet:web:file:acct'], 'vertex.link/person1')
-                self.eq(tufo[1]['inet:web:file:acct:site'], 'vertex.link')
-                self.eq(tufo[1]['inet:web:file:acct:user'], 'person1')
-                self.eq(tufo[1]['inet:web:file:file'], '0' * 32)
-                self.eq(tufo[1]['inet:web:file:name'], 'my cool file')
-                self.eq(tufo[1]['inet:web:file:posted'], 123456)
-                self.eq(tufo[1]['inet:web:file:ipv4'], 0)
-                self.eq(tufo[1]['inet:web:file:ipv6'], '::1')
-                self.eq(tufo[1]['inet:web:file:seen:min'], 0)
-                self.eq(tufo[1]['inet:web:file:seen:max'], 1)
-
-                # check that tags were correctly migrated
-                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
-                self.len(0, core.getRowsByProp('syn:tagform:form', 'inet:netfile'))
-                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:file'))
-                self.len(0, core.getRowsByProp('_:*inet:netfile#hehe.hoho'))
-                self.len(0, core.getRowsByProp('_:*inet:netfile#hehe'))
-                self.len(1, core.getRowsByProp('_:*inet:web:file#hehe.hoho'))
-                self.len(1, core.getRowsByProp('_:*inet:web:file#hehe'))
-
-                # assert that no old data remains
-                tufos = core.getTufosByProp('inet:netfile')
-                self.len(0, tufos)
-                rows = core.getJoinByProp('inet:netfile')
-                self.len(0, rows)
-
-                # file:imgof
-                # assert that the correct number of users and groups were migrated
-                tufos = core.getTufosByProp('file:imgof')
-                self.len(1, tufos)
-
-                # check that properties were correctly migrated and tags were not damaged
-                new_imgof_valu = 'fd415d0895e9ce466d8292c3d55c6bf5'  # NOTE: valu changes because we change the prop name
-                tufo = core.getTufoByProp('file:imgof', new_imgof_valu)
-                self.eq(tufo[1]['tufo:form'], 'file:imgof')
-                self.eq(tufo[1]['file:imgof'], new_imgof_valu)
-                self.eq(tufo[1]['file:imgof:file'], '0' * 32)
-                self.eq(tufo[1]['file:imgof:xref'], 'inet:web:acct=vertex.link/person1')
-                self.eq(tufo[1]['file:imgof:xref:prop'], 'inet:web:acct')
-                self.eq(tufo[1]['file:imgof:xref:strval'], 'vertex.link/person1')
-
-                # check that tags were correctly migrated
-                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
-                self.len(2, core.getRowsByProp('syn:tagform:form', 'file:imgof'))
-                self.len(1, core.getRowsByProp('_:*file:imgof#hehe.hoho'))
-                self.len(1, core.getRowsByProp('_:*file:imgof#hehe'))  # NOTE: dark rows should stay the same
-
-                # assert that no old data remains
-                tufos = core.getTufosByProp('file:imgof', imgof_valu)
-                self.len(0, tufos)
-
-                # file:txtref
-                # assert that the correct number of users and groups were migrated
-                tufos = core.getTufosByProp('file:txtref')
-                self.len(1, tufos)
-
-                # check that properties were correctly migrated and tags were not damaged
-                new_txtref_valu = 'd4f8fbb792d127422a0dc788588f8f7a'  # NOTE: valu changes because we change the prop name
-                tufo = core.getTufoByProp('file:txtref', new_txtref_valu)
-                self.eq(tufo[1]['tufo:form'], 'file:txtref')
-                self.eq(tufo[1]['file:txtref'], new_txtref_valu)
-                self.eq(tufo[1]['file:txtref:file'], '0' * 32)
-                self.eq(tufo[1]['file:txtref:xref'], 'inet:web:group=vertex.link/group0')
-                self.eq(tufo[1]['file:txtref:xref:prop'], 'inet:web:group')
-                self.eq(tufo[1]['file:txtref:xref:strval'], 'vertex.link/group0')
-
-                # check that tags were correctly migrated
-                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
-                self.len(2, core.getRowsByProp('syn:tagform:form', 'file:txtref'))
-                self.len(1, core.getRowsByProp('_:*file:txtref#hehe.hoho'))
-                self.len(1, core.getRowsByProp('_:*file:txtref#hehe'))  # NOTE: dark rows should stay the same
-
-                # assert that no old data remains
-                tufos = core.getTufosByProp('file:txtref', txtref_valu)
-                self.len(0, tufos)
-
-                # ps:hasnetuser -> ps:haswebacct
-                # assert that the correct number of users and groups were migrated
-                tufos = core.getTufosByProp('ps:haswebacct')
-                self.len(1, tufos)
-
-                # check that properties were correctly migrated and tags were not damaged
-                tufo = core.getTufoByProp('ps:haswebacct', '00000000000000000000000000000000/vertex.link/heheman')
-                self.eq(tufo[1]['tufo:form'], 'ps:haswebacct')
-                self.eq(tufo[1]['ps:haswebacct'], '00000000000000000000000000000000/vertex.link/heheman')
-                self.eq(tufo[1]['ps:haswebacct:acct'], 'vertex.link/heheman')
-                self.eq(tufo[1]['ps:haswebacct:person'], '00000000000000000000000000000000')
-
-                # check that tags were correctly migrated
-                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
-                self.len(0, core.getRowsByProp('syn:tagform:form', 'ps:hasnetuser'))
-                self.len(2, core.getRowsByProp('syn:tagform:form', 'ps:haswebacct'))
-                self.len(0, core.getRowsByProp('_:*ps:hasnetuser#hehe.hoho'))
-                self.len(0, core.getRowsByProp('_:*ps:hasnetuser#hehe'))
-                self.len(1, core.getRowsByProp('_:*ps:haswebacct#hehe.hoho'))
-                self.len(1, core.getRowsByProp('_:*ps:haswebacct#hehe'))
-
-                # assert that no old data remains
-                tufos = core.getTufosByProp('ps:hasnetuser')
-                self.len(0, tufos)
-                rows = core.getJoinByProp('ps:hasnetuser')
-                self.len(0, rows)
-
-                # ou:hasnetuser -> ou:haswebacct
-                # assert that the correct number of users and groups were migrated
-                tufos = core.getTufosByProp('ou:haswebacct')
-                self.len(1, tufos)
-
-                # check that properties were correctly migrated and tags were not damaged
-                tufo = core.getTufoByProp('ou:haswebacct', '4016087db1b71ecc56db535a5ee9e86e')
-                self.eq(tufo[1]['tufo:form'], 'ou:haswebacct')
-                self.eq(tufo[1]['ou:haswebacct'], '4016087db1b71ecc56db535a5ee9e86e')
-                self.eq(tufo[1]['ou:haswebacct:acct'], 'vertex.link/heheman')
-                self.eq(tufo[1]['ou:haswebacct:org'], '00000000000000000000000000000000')
-
-                # check that tags were correctly migrated
-                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
-                self.len(0, core.getRowsByProp('syn:tagform:form', 'ou:hasnetuser'))
-                self.len(2, core.getRowsByProp('syn:tagform:form', 'ou:haswebacct'))
-                self.len(0, core.getRowsByProp('_:*ou:hasnetuser#hehe.hoho'))
-                self.len(0, core.getRowsByProp('_:*ou:hasnetuser#hehe'))
-                self.len(1, core.getRowsByProp('_:*ou:haswebacct#hehe.hoho'))
-                self.len(1, core.getRowsByProp('_:*ou:haswebacct#hehe'))
-
-                # assert that no old data remains
-                tufos = core.getTufosByProp('ou:hasnetuser')
-                self.len(0, tufos)
-                rows = core.getJoinByProp('ou:hasnetuser')
-                self.len(0, rows)
-
-                # ensure inet:web:logon:netuser was moved over
-                tufo = core.getTufoByProp('inet:web:logon')
-                self.eq(tufo[1].get('tufo:form'), 'inet:web:logon')
-                self.eq(tufo[1].get('inet:web:logon:acct'), 'vertex.link/pennywise')
-                self.eq(tufo[1].get('inet:web:logon:acct:site'), 'vertex.link')
-                self.eq(tufo[1].get('inet:web:logon:acct:user'), 'pennywise')
-                self.notin('inet:web:logon:netuser', tufo[1])
-                self.notin('inet:web:logon:netuser:site', tufo[1])
-                self.notin('inet:web:logon:netuser:user', tufo[1])
-
-                # check that tags were correctly migrated
-                self.eq(['hehe', 'hehe.hoho'], sorted(s_tufo.tags(tufo)))
-                self.len(2, core.getRowsByProp('syn:tagform:form', 'inet:web:logon'))
-                self.len(1, core.getRowsByProp('_:*inet:web:logon#hehe.hoho'))
-                self.len(1, core.getRowsByProp('_:*inet:web:logon#hehe'))
-
-    def test_model_inet_201710111553(self):
-
-        adds = []
-
-        iden, tick = guid(), now()
-        adds.extend([
-            (iden, 'tufo:form', 'inet:web:acct', tick),
-            (iden, 'inet:web:acct', 'vertex.link/pennywise1', tick),
-            (iden, 'inet:web:acct:site', 'vertex.link', tick),
-            (iden, 'inet:web:acct:user', 'pennywise', tick),
-            (iden, 'inet:web:acct:occupation', 'EnterTainEr', tick),
-        ])
-
-        iden, tick = guid(), now()
-        adds.extend([
-            (iden, 'tufo:form', 'inet:web:acct', tick),
-            (iden, 'inet:web:acct', 'vertex.link/pennywise2', tick),
-            (iden, 'inet:web:acct:site', 'vertex.link', tick),
-            (iden, 'inet:web:acct:user', 'pennywise', tick),
-            (iden, 'inet:web:acct:occupation', 'entertainer', tick),
-        ])
-
-        with s_cortex.openstore('ram:///') as stor:
-
-            stor.setModlVers('inet', 0)
-            def addrows(mesg):
-                stor.addRows(adds)
-            stor.on('modl:vers:rev', addrows, name='inet', vers=201710111553)
-
-            with s_cortex.fromstore(stor) as core:
-
-                tufo = core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise1')
-                self.eq(tufo[1]['tufo:form'], 'inet:web:acct')
-                self.eq(tufo[1]['inet:web:acct'], 'vertex.link/pennywise1')
-                self.eq(tufo[1]['inet:web:acct:occupation'], 'entertainer')
-
-                tufo = core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise2')
-                self.eq(tufo[1]['tufo:form'], 'inet:web:acct')
-                self.eq(tufo[1]['inet:web:acct'], 'vertex.link/pennywise2')
-                self.eq(tufo[1]['inet:web:acct:occupation'], 'entertainer')
-
-    def test_model_inet_201802131725(self):
-
-        data = {}
-        iden0 = guid()
-        tick = now()
-        rows = [
-            (iden0, 'tufo:form', 'inet:web:group', tick),
-            (iden0, 'inet:web:group', 'vertex.link/1234', tick),
-            (iden0, 'inet:web:group:site', 'vertex.link', tick),
-            (iden0, 'inet:web:group:name', '1234', tick),
-        ]
-
-        with s_cortex.openstore('ram:///') as stor:
-            # force model migration callbacks
-            stor.setModlVers('inet', 201802131724)
-
-            def addrows(mesg):
-                stor.addRows(rows)
-                data['added'] = True
-            stor.on('modl:vers:rev', addrows, name='inet', vers=201802131725)
-
-            with s_cortex.fromstore(stor) as core:
-                t1 = core.getTufoByIden(iden0)
-                self.none(t1[1].get('inet:web:group:name'))
-                self.eq(t1[1].get('inet:web:group:id'), '1234')
-                self.nn(core.getTufoByProp('inet:group', '1234'))
-                vals = [v for v, t in core.getTufoDarkValus(t1, 'syn:modl:rev')]
-                self.isin('inet:201802131725', vals)
 
     def test_model_inet_addr(self):
         with self.getRamCore() as core:
@@ -1914,8 +1158,3 @@ class InetModelTest(SynTest):
             self.eq(resp[1]['inet:http:response:body'], body)
 
             ridn = resp[1].get('inet:http:response')
-
-            node = core.formTufoByProp('inet:http:resphead', (ridn, ('server', 'my web server')))
-            self.eq(node[1].get('inet:http:resphead:response'), ridn)
-            self.eq(node[1].get('inet:http:resphead:header:name'), 'server')
-            self.eq(node[1].get('inet:http:resphead:header:value'), 'my web server')

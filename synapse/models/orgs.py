@@ -21,62 +21,6 @@ class OuMod(s_module.CoreModule):
             node = self.core.formTufoByProp('ou:org', guid(), alias=valu, **props)
         return node
 
-    @s_module.modelrev('ou', 201802281621)
-    def _revModl201802281621(self):
-        '''
-        Combine ou:has* into ou:org:has
-        - Forms a new ou:org:has node for all of the old ou:has* nodes
-        - Applies the old node's tags to the new node
-        - Deletes the old node
-        - Deletes the syn:tagform nodes for the old form
-        - Adds dark row for each node, signifying that they were added by migration
-        - NOTE: does not migrate ou:hasalias
-        '''
-        data = (
-            ('ou:hasfile', 'file', 'file:bytes'),
-            ('ou:hasfqdn', 'fqdn', 'inet:fqdn'),
-            ('ou:hasipv4', 'ipv4', 'inet:ipv4'),
-            ('ou:hashost', 'host', 'it:host'),
-            ('ou:hasemail', 'email', 'inet:email'),
-            ('ou:hasphone', 'phone', 'tel:phone'),
-            ('ou:haswebacct', 'web:acct', 'inet:web:acct'),
-        )
-        with self.core.getCoreXact() as xact:
-
-            for oldform, pname, ptype in data:
-                orgkey = oldform + ':org'
-                newvalkey = oldform + ':' + pname
-                sminkey = oldform + ':seen:min'
-                smaxkey = oldform + ':seen:max'
-
-                for tufo in self.core.getTufosByProp(oldform):
-                    orgval = tufo[1].get(orgkey)
-                    newval = tufo[1].get(newvalkey)
-
-                    kwargs = {}
-                    smin = tufo[1].get(sminkey)
-                    if smin is not None:
-                        kwargs['seen:min'] = smin
-                    smax = tufo[1].get(smaxkey)
-                    if smax is not None:
-                        kwargs['seen:max'] = smax
-
-                    newfo = self.core.formTufoByProp('ou:org:has', (orgval, (ptype, newval)), **kwargs)
-
-                    tags = s_tufo.tags(tufo, leaf=True)
-                    self.core.addTufoTags(newfo, tags)
-
-                    self.core.delTufo(tufo)
-
-                self.core.delTufosByProp('syn:tagform:form', oldform)
-
-            # Add dark rows to the ou:org:has
-            # It is safe to operate on all ou:org:has nodes as this point as none should exist
-            dvalu = 'ou:201802281621'
-            dprop = '_:dark:syn:modl:rev'
-            darks = [(i[::-1], dprop, dvalu, t) for (i, p, v, t) in self.core.getRowsByProp('ou:org:has')]
-            self.core.addRows(darks)
-
     @staticmethod
     def getBaseModels():
         modl = {

@@ -1,6 +1,5 @@
-import synapse.cortex as s_cortex
-
-from synapse.tests.common import *
+import unittest
+raise unittest.SkipTest()
 
 class InetModelTest(SynTest):
 

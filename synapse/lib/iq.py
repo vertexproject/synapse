@@ -32,7 +32,6 @@ import contextlib
 import collections
 
 import synapse.axon as s_axon
-import synapse.link as s_link
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
@@ -40,7 +39,7 @@ import synapse.neuron as s_neuron
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
-import synapse.cores.common as s_cores_common
+#import synapse.cores.common as s_cores_common
 
 import synapse.data as s_data
 
@@ -48,6 +47,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.output as s_output
+import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
 
@@ -55,7 +55,6 @@ logger = logging.getLogger(__name__)
 
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
-
 
 def objhierarchy(obj):
     '''
@@ -352,6 +351,9 @@ class SynTest(unittest.TestCase):
         '''
         return TestSteps(names)
 
+    def skip(self, mesg):
+        raise unittest.SkipTest(mesg)
+
     def skipIfNoInternet(self):  # pragma: no cover
         '''
         Allow skipping a test if SYN_TEST_SKIP_INTERNET envar is set.
@@ -371,105 +373,6 @@ class SynTest(unittest.TestCase):
         '''
         if bool(int(os.getenv('SYN_TEST_SKIP_LONG', 0))):
             raise unittest.SkipTest('SYN_TEST_SKIP_LONG envar set')
-
-    def getPgConn(self):
-        '''
-        Get a psycopg2 connection object.
-
-        The PG database connected to is derived from the SYN_TEST_PG_DB
-        environmental variable.
-
-        Returns:
-            psycopg2.connection: Raw psycopg2 connection object.
-
-        '''
-        db = os.getenv('SYN_TEST_PG_DB')
-        if not db:  # pragma: no cover
-            raise unittest.SkipTest('no SYN_TEST_PG_DB envar')
-        try:
-            import psycopg2
-        except ImportError:  # pragma: no cover
-            raise unittest.SkipTest('psycopg2 not installed.')
-
-        url = 'postgres://%s' % db
-        link = s_link.chopLinkUrl(url)
-
-        def _initDbInfo(link):
-
-            dbinfo = {}
-
-            path = link[1].get('path')
-            if path:
-                parts = [p for p in path.split('/') if p]
-                if parts:
-                    dbinfo['database'] = parts[0]
-
-            host = link[1].get('host')
-            if host is not None:
-                dbinfo['host'] = host
-
-            port = link[1].get('port')
-            if port is not None:
-                dbinfo['port'] = port
-
-            user = link[1].get('user')
-            if user is not None:
-                dbinfo['user'] = user
-
-            passwd = link[1].get('passwd')
-            if passwd is not None:
-                dbinfo['password'] = passwd
-
-            return dbinfo
-
-        dbinfo = _initDbInfo(link)
-        conn = psycopg2.connect(**dbinfo)
-        return conn
-
-    def getPgCore(self, table='', persist=False, **opts):
-        '''
-        Get a Postgresql backed Cortex.
-
-        This will grab the SYN_TEST_PG_DB environmental variable, and use it to construct
-        a string to connect to a PSQL server and create a Cortex. By default, the Cortex
-        DB tables will be dropped when onfini() is called on the Cortex.
-
-        Some example values for this envar are shown below::
-
-            # From our .drone.yml file
-            root@database:5432/syn_test
-            # An example which may be used with a local docker image
-            # after having created the syn_test database
-            postgres:1234@localhost:5432/syn_test
-
-        Args:
-            table (str): The PSQL table name to use.  If the table name is not provided
-                         by URL or argument; a random table name will be created.
-            persist (bool): If set to True, keep the tables created by the Cortex creation.
-            opts: Additional options passed to openlink call.
-
-        Returns:
-            s_cores_common.Cortex: A PSQL backed cortex.
-
-        Raises:
-            unittest.SkipTest: if there is no SYN_TEST_PG_DB envar set.
-        '''
-        db = os.getenv('SYN_TEST_PG_DB')
-        if not db:  # pragma: no cover
-            raise unittest.SkipTest('no SYN_TEST_PG_DB envar')
-
-        if not table:
-            table = 'syn_test_%s' % s_common.guid()
-        core = s_cortex.openurl('postgres://%s/%s' % (db, table), **opts)
-
-        def droptable():
-            with core.getCoreXact() as xact:
-                xact.cursor.execute('DROP TABLE %s' % (table,))
-                xact.cursor.execute('DROP TABLE IF EXISTS %s' % (table + '_blob',))
-
-        if not persist:
-            core.onfini(droptable)
-        return core
 
     def getTestOutp(self):
         '''
@@ -508,89 +411,6 @@ class SynTest(unittest.TestCase):
         for k, v in props.items():
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
-
-    @staticmethod
-    def addTstForms(core):
-        '''
-        Add test forms to the cortex.
-
-        Args:
-            core (s_cores_common.Cortex): Core to prep.
-
-        Returns:
-            None
-        '''
-        # Some custom type machinations for later test use
-        modl = {
-            'types': (
-                ('strform', {'subof': 'str'},),
-                ('intform', {'subof': 'int'},),
-                ('default_foo', {'subof': 'str'},),
-                ('guidform', {'subof': 'guid'},),
-                ('pvsub', {'subof': 'str'}),
-                ('compfqdn', {'subof': 'comp', 'fields': 'guid=guid,fqdn=inet:fqdn'}),
-            ),
-            'forms': (
-                (
-                    'strform', {'ptype': 'strform', 'doc': 'A test str form'},
-                    (
-                        ('foo', {'ptype': 'str'}),
-                        ('bar', {'ptype': 'str'}),
-                        ('baz', {'ptype': 'int'}),
-                    )
-                ),
-                (
-                    'intform', {'ptype': 'intform'},  # purposely missing doc
-                    (
-                        ('foo', {'ptype': 'str'}),
-                        ('baz', {'ptype': 'int'}),
-                    )
-                ),
-                (
-                    'default_foo', {'ptype': 'str'},
-                    (
-                        ('p0', {'ptype': 'int'}),
-                    )
-                ),
-                (
-                    'guidform', {'ptype': 'guidform'},
-                    (
-                        ('foo', {'ptype': 'str'}),
-                        ('baz', {'ptype': 'int'}),
-                        ('faz', {'ptype': 'int', 'ro': 1}),
-                    )
-                ),
-                (
-                    'pvsub', {'ptype': 'pvsub'},
-                    (
-                        ('xref', {'ptype': 'propvalu', 'ro': 1, }),
-                        ('xref:intval', {'ptype': 'int', 'ro': 1, }),
-                        ('xref:strval', {'ptype': 'str', 'ro': 1}),
-                        ('xref:prop', {'ptype': 'str', 'ro': 1}),
-                    )
-                ),
-                (
-                    'pvform', {'ptype': 'propvalu'},
-                    (
-                        ('intval', {'ptype': 'int', 'ro': 1, }),
-                        ('strval', {'ptype': 'str', 'ro': 1}),
-                        ('prop', {'ptype': 'str', 'ro': 1}),
-                    )
-                ),
-                (
-                    'compfqdn', {'ptype': 'compfqdn'},
-                    (
-                        ('guid', {'ptype': 'guid', 'ro': 1}),
-                        ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1}),
-                        ('seen:min', {'ptype': 'time:min'}),
-                        ('seen:max', {'ptype': 'time:max'}),
-                    )
-                ),
-
-            )
-        }
-        core.addDataModel('tst', modl)
-        core.addTufoProp('inet:fqdn', 'inctest', ptype='int', defval=0)
 
     @contextlib.contextmanager
     def getAxonCore(self, cortex_conf=None):
@@ -684,41 +504,29 @@ class SynTest(unittest.TestCase):
                 env.fini()
 
     @contextlib.contextmanager
-    def getRamCore(self, conf=None):
+    def getTestCore(self, mirror='testcore'):
         '''
-        Context manager to make a ram:/// cortex which has test models
-        loaded into it.
-
-        Args:
-            conf (dict): Optional config
-
-        Yields:
-            s_cores_common.Cortex: Ram backed cortex with test models.
+        Return a simple test Cortex.
         '''
-        with s_cortex.openurl('ram:///', conf=conf) as core:
-            self.addTstForms(core)
-            try:
+        with self.getTestDir(mirror=mirror) as dirn:
+            with s_cortex.Cortex(dirn) as core:
                 yield core
-            finally:
-                core.fini()
 
     @contextlib.contextmanager
-    def getDirCore(self, conf=None):
-        '''
-        Context manager to make a dir:/// cortex which has test models
-        loaded into it.
+    def getTestDmon(self, mirror='dmontest'):
 
-        Args:
-            conf (dict): Optional cortex config
+        with self.getTestDir(mirror=mirror) as dirn:
 
-        Yields:
-            s_cores_common.Cortex: Dir backed Cortex
-        '''
-        with self.getTestDir() as dirn:
-            s_scope.set('dirn', dirn)
-            with s_cortex.fromdir(dirn, conf=conf) as core:
-                self.addTstForms(core)
-                yield core
+            certdir = s_certdir.defdir
+
+            with s_daemon.Daemon(dirn) as dmon:
+
+                # act like synapse.tools.dmon...
+                s_certdir.defdir = s_common.genpath(dirn, 'certs')
+
+                yield dmon
+
+                s_certdir.defdir = certdir
 
     @contextlib.contextmanager
     def getDmonCore(self, conf=None):
@@ -850,7 +658,7 @@ class SynTest(unittest.TestCase):
                     root_prox.fini()
 
     @contextlib.contextmanager
-    def getTestDir(self):
+    def getTestDir(self, mirror=None):
         '''
         Get a temporary directory for test purposes.
         This destroys the directory afterwards.
@@ -859,12 +667,25 @@ class SynTest(unittest.TestCase):
             str: The path to a temporary directory.
         '''
         tempdir = tempfile.mkdtemp()
+
         try:
-            yield tempdir
-        except:  # pragma: no cover
-            raise
+
+            if mirror is not None:
+                srcpath = self.getTestFilePath(mirror)
+                dstpath = os.path.join(tempdir, 'mirror')
+                shutil.copytree(srcpath, dstpath)
+                yield dstpath
+
+            else:
+                yield tempdir
+
         finally:
             shutil.rmtree(tempdir, ignore_errors=True)
+
+    def getTestFilePath(self, *names):
+        import synapse.tests.common
+        path = os.path.dirname(synapse.tests.common.__file__)
+        return os.path.join(path, 'files', *names)
 
     @contextlib.contextmanager
     def getLoggerStream(self, logname, mesg=''):

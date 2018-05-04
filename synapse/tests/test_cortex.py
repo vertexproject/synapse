@@ -1,1306 +1,231 @@
-import io
-import os
-import gzip
-import hashlib
-import binascii
-import tempfile
-import unittest
-
-import synapse.axon as s_axon
-import synapse.link as s_link
+import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.cortex as s_cortex
-import synapse.daemon as s_daemon
-import synapse.telepath as s_telepath
 
-import synapse.cores.lmdb as s_cores_lmdb
-import synapse.cores.common as s_cores_common
-import synapse.cores.storage as s_cores_storage
-
-import synapse.lib.iq as s_iq
-import synapse.lib.auth as s_auth
-import synapse.lib.tags as s_tags
-import synapse.lib.tufo as s_tufo
 import synapse.lib.types as s_types
-import synapse.lib.threads as s_threads
-import synapse.lib.version as s_version
+import synapse.lib.module as s_module
 
 from synapse.tests.common import *
 
-class FakeType(s_types.IntType):
-    pass
+class TestType(s_types.Type):
 
-import synapse.lib.module as s_module
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
 
-class CoreTestModule(s_module.CoreModule):
+    def _normPyStr(self, valu):
+        return valu.lower(), {}
+
+    def indx(self, norm):
+        return norm.encode('utf8')
+
+testmodel = {
+
+    'ctors': (
+        ('testtype', 'synapse.tests.test_cortex.TestType', {}, {}),
+    ),
+
+    'types': (
+        ('faketype', ('testtype', {'foo': 10}), {
+            'doc': 'A fake type.'}),
+
+        ('testlower', ('str', {'lower': True}), {}),
+
+        ('testtime', ('time', {}), {}),
+
+        ('testfoo', ('str', {}), {}),
+        ('testauto', ('str', {}), {}),
+
+        ('fakecomp', ('comp', {'fields': (
+                ('hehe', 'int'),
+                ('haha', 'testlower'))
+            }), {'doc': 'A fake comp type.'}),
+        ('testhexa', ('hex', {}), {'doc': 'anysize test hex type'}),
+        ('testhex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
+    ),
+
+    'forms': (
+
+        ('faketype', {}, (
+
+            ('intprop', ('int', {'min': 20, 'max': 30}), {
+                'defval': 20}),
+
+            ('strprop', ('str', {'lower': 1}), {
+                'defval': 'asdf'}),
+
+            ('guidprop', ('guid', {'lower': 1}), {
+                'defval': '*'}),
+
+            ('locprop', ('loc', {}), {
+                'defval': '??'}),
+        )),
+
+        ('fakecomp', {}, (
+            ('hehe', ('int', {}), {'ro': 1}),
+            ('haha', ('str', {}), {'ro': 1}),
+        )),
+
+        ('testfoo', {}, (
+            ('bar', ('ndef', {}), {}),
+            ('baz', ('nodeprop', {}), {}),
+            ('tick', ('testtime', {}), {}),
+        )),
+
+        ('testauto', {}, ()),
+        ('testhexa', {}, ()),
+        ('testhex4', {}, ())
+    ),
+
+}
+
+class TestModule(s_module.CoreModule):
 
     def initCoreModule(self):
+        pass
 
-        self.added = []
-        self.deled = []
-
-        def formipv4(form, valu, props, mesg):
-            props['inet:ipv4:asn'] = 10
-
-        self.onFormNode('inet:ipv4', formipv4)
-        self.addConfDef('foobar', defval=False, asloc='foobar')
-
-        self.onNodeAdd(self.added.append, form='ou:org')
-        self.onNodeDel(self.deled.append, form='ou:org')
-
-    @staticmethod
-    def getBaseModels():
+    def getModelDefs(self):
         return (
-            ('test', {
-                'types': (
-                    ('test:type1', {'subof': 'str'}),
-                    ('test:type2', {'subof': 'str'}),
-                ),
-            }),
+            ('test', testmodel),
         )
-
-    @s_module.modelrev('test', 201707200101)
-    def _testRev0(self):
-        self.core.formTufoByProp('inet:fqdn', 'rev0.com')
-
-    @s_module.modelrev('test', 201707210101)
-    def _testRev1(self):
-        self.core.formTufoByProp('inet:fqdn', 'rev1.com')
-
-class CoreTestDataModelModuleV0(s_module.CoreModule):
-
-    @staticmethod
-    def getBaseModels():
-        modl = {
-            'types': (
-                ('foo:bar', {'subof': 'str', 'doc': 'A foo bar!'}),
-            ),
-            'forms': (
-                ('foo:bar', {}, (
-
-                )),
-            ),
-        }
-        name = 'test'
-        return ((name, modl),)
-
-class CoreTestDataModelModuleV1(s_module.CoreModule):
-
-    @staticmethod
-    def getBaseModels():
-        modl = {
-            'types': (
-                ('foo:bar', {'subof': 'str', 'doc': 'A foo bar!'}),
-            ),
-            'forms': (
-                ('foo:bar', {}, (
-                    ('duck', {'defval': 'mallard', 'ptype': 'str', 'doc': 'Duck value!'}),
-                )),
-            ),
-        }
-        name = 'test'
-        return ((name, modl),)
-
-    @s_module.modelrev('test', 201707210101)
-    def _testRev1(self):
-        '''
-        This revision adds the 'duck' property to our foo:bar nodes with its default value.
-        '''
-        rows = []
-        tick = s_common.now()
-        for iden, p, v, t in self.core.getRowsByProp('foo:bar'):
-            rows.append((iden, 'foo:bar:duck', 'mallard', tick))
-        self.core.addRows(rows)
-
-##############################################################################
-# Test Cortex's backed by different storage layers
-#
-# These are broken out to facilitate easy testing of issues which may be
-# related to a specific storage layer implementation, so the entire CortexTest
-# test suite does not have to be run at once.
-#
-# Additional tests may be added to the basic_core_expectations function to
-# run them across all Cortex types.
-##############################################################################
-
-class CortexBaseTest(SynTest):
-    def test_cortex_ram(self):
-        with s_cortex.openurl('ram://') as core:
-            self.true(hasattr(core.link, '__call__'))
-            self.basic_core_expectations(core, 'ram')
-
-    def test_cortex_sqlite3(self):
-        with s_cortex.openurl('sqlite:///:memory:') as core:
-            self.basic_core_expectations(core, 'sqlite')
-
-    def test_cortex_lmdb(self):
-        with self.getTestDir() as path:
-            fn = 'test.lmdb'
-            fp = os.path.join(path, fn)
-            lmdb_url = 'lmdb:///%s?lmdb:mapsize=%d' % (fp, s_iq.TEST_MAP_SIZE)
-
-            with s_cortex.openurl(lmdb_url) as core:
-                self.basic_core_expectations(core, 'lmdb')
-
-            # Test load an existing db
-            core = s_cortex.openurl(lmdb_url)
-            self.false(core.isnew)
-
-    def test_cortex_postgres(self):
-        with self.getPgCore() as core:
-            self.basic_core_expectations(core, 'postgres')
-
-    def basic_core_expectations(self, core, storetype):
-        '''
-        Run basic tests against a Cortex instance.
-
-        This should be a minimal test too ensure that a Storage and Cortex combination is working properly.
-
-        Args:
-            core (s_cores_common.Cortex): Cortex instance to test.
-            storetype (str): String to check the getStoreType api against.
-        '''
-        self.eq(core.getStoreType(), storetype)
-        self.addTstForms(core)
-        self.runcore(core)
-        self.runjson(core)
-        self.runrange(core)
-        self.runtufobydefault(core)
-        self.runidens(core)
-        self.rundsets(core)
-        self.runsnaps(core)
-        self.rundarks(core)
-        self.runblob(core)
-        # runstore should be run last as it may do destructive actions to data in the Cortex.
-        self.runstore(core)
-
-    def rundsets(self, core):
-        tufo = core.formTufoByProp('intform', 1)
-        core.addTufoDset(tufo, 'violet')
-
-        self.eq(len(core.eval('dset(violet)')), 1)
-        self.eq(len(core.getTufosByDset('violet')), 1)
-        self.eq(core.getTufoDsets(tufo)[0][0], 'violet')
-
-        core.delTufoDset(tufo, 'violet')
-
-        self.eq(len(core.getTufosByDset('violet')), 0)
-        self.eq(len(core.getTufoDsets(tufo)), 0)
-
-    def rundarks(self, core):
-
-        tufo = core.formTufoByProp('intform', 1)
-        core.addTufoDark(tufo, 'hidden', 'color')
-        # Duplicate call for code coverage.
-        core.addTufoDark(tufo, 'hidden', 'color')
-
-        self.eq(len(core.getTufosByDark('hidden', 'color')), 1)
-        self.eq(len(core.getTufosByDark('hidden')), 1)
-        self.eq(len(core.getTufosByDark('hidden', 'secret')), 0)
-        self.eq(len(core.getTufosByDark('knight')), 0)
-
-        self.eq(len(core.getTufosBy('dark', 'hidden', 'color')), 1)
-        self.eq(core.getTufoDarkNames(tufo)[0][0], 'hidden')
-        self.eq(core.getTufoDarkValus(tufo, 'hidden')[0][0], 'color')
-
-        core.delTufoDark(tufo, 'hidden', 'color')
-
-        self.eq(core.getTufoDarkNames(tufo), [])
-        self.eq(len(core.getTufosByDark('hidden', 'color')), 0)
-        self.eq(len(core.getTufosBy('dark', 'hidden', 'color')), 0)
-        self.eq(len(core.getTufoDarkValus(tufo, 'hidden')), 0)
-
-    def runsnaps(self, core):
-
-        with core.getCoreXact():
-            for i in range(1500):
-                tufo = core.formTufoByProp('intform', i)
-                core.addTufoDset(tufo, 'zzzz')
-                core.addTufoDark(tufo, 'animal', 'duck')
-
-        #############################################
-
-        answ = core.snapTufosByProp('intform', valu=100)
-
-        self.eq(answ.get('count'), 1)
-        self.eq(answ.get('tufos')[0][1].get('intform'), 100)
-
-        #############################################
-
-        answ = core.snapTufosByProp('intform')
-        snap = answ.get('snap')
-
-        core.finiSnap(snap)
-        self.none(core.getSnapNext(snap))
-
-        #############################################
-
-        answ = core.snapTufosByProp('intform')
-
-        res = []
-
-        snap = answ.get('snap')
-        tufs = answ.get('tufos')
-
-        self.eq(answ.get('count'), 1500)
-
-        while tufs:
-            res.extend(tufs)
-            tufs = core.getSnapNext(snap)
-
-        self.eq(len(res), 1500)
-        self.none(core.getSnapNext(snap))
-
-        #############################################
-
-        answ = core.snapTufosByDset('zzzz')
-
-        res = []
-
-        snap = answ.get('snap')
-        tufs = answ.get('tufos')
-
-        self.eq(answ.get('count'), 1500)
-
-        while tufs:
-            res.extend(tufs)
-            tufs = core.getSnapNext(snap)
-
-        self.eq(len(res), 1500)
-        self.none(core.getSnapNext(snap))
-
-        #############################################
-
-        answ = core.snapTufosByDark('animal', 'duck')
-
-        res = []
-
-        snap = answ.get('snap')
-        tufs = answ.get('tufos')
-
-        self.eq(answ.get('count'), 1500)
-
-        while tufs:
-            res.extend(tufs)
-            tufs = core.getSnapNext(snap)
-
-        self.eq(len(res), 1500)
-        self.none(core.getSnapNext(snap))
-
-        answ = core.snapTufosByDark('animal')
-
-        res = []
-
-        snap = answ.get('snap')
-        tufs = answ.get('tufos')
-
-        self.eq(answ.get('count'), 1500)
-
-        while tufs:
-            res.extend(tufs)
-            tufs = core.getSnapNext(snap)
-
-        self.eq(len(res), 1500)
-        self.none(core.getSnapNext(snap))
-
-        answ = core.snapTufosByDark('plant', 'tree')
-
-        snap = answ.get('snap')
-        tufs = answ.get('tufos')
-
-        self.eq(answ.get('count'), 0)
-        self.eq(len(tufs), 0)
-        self.none(core.getSnapNext(snap))
-
-        # Cleanup dark properties added during this test
-        for i in range(1500):
-            tufo = core.getTufoByProp('intform', i)
-            core.delTufoDark(tufo, 'animal', 'duck')
-
-    def runidens(self, core):
-        t0 = core.formTufoByProp('inet:ipv4', 0)
-        t1 = core.formTufoByProp('inet:ipv4', 0x01020304)
-        t2 = core.formTufoByProp('inet:ipv4', 0x7f000001)
-
-        # re-form to ditch things like .new=1
-        t0 = core.formTufoByProp('inet:ipv4', 0)
-        t1 = core.formTufoByProp('inet:ipv4', 0x01020304)
-        t2 = core.formTufoByProp('inet:ipv4', 0x7f000001)
-
-        idens = [t0[0], t1[0], t2[0]]
-        self.sorteq(core.getTufosByIdens(idens), [t0, t1, t2])
-        # Expect an empty list of idens to return an empty list.
-        self.eq(core.getTufosByIdens([]), [])
-
-    def runcore(self, core):
-
-        id1 = guid()
-        id2 = guid()
-        id3 = guid()
-        id4 = guid()
-
-        rows = [
-            (id1, 'foo', 'bar', 30),
-            (id1, 'baz', 'faz1', 30),
-            (id1, 'gronk', 80, 30),
-
-            (id2, 'foo', 'bar', 99),
-            (id2, 'baz', 'faz2', 99),
-            (id2, 'gronk', 90, 99),
-
-            (id3, 'a', 'a', 99),
-            (id3, 'b', 'b', 99),
-            (id3, 'c', 90, 99),
-
-            (id4, 'lolint', 80, 30),
-            (id4, 'lolstr', 'hehe', 30),
-
-        ]
-
-        core.addRows(rows)
-
-        tufo = core.getTufoByProp('baz', 'faz1')
-
-        self.eq(len(core.getRowsByIdProp(id1, 'baz')), 1)
-        self.eq(len(core.getRowsByIdProp(id1, 'baz', 'faz1')), 1)
-        self.eq(len(core.getRowsByIdProp(id1, 'baz', 'faz2')), 0)
-        self.eq(len(core.getRowsByIdProp(id1, 'gronk', 80)), 1)
-        self.eq(len(core.getRowsByIdProp(id1, 'gronk', 8080)), 0)
-
-        self.eq(tufo[0], id1)
-        self.eq(tufo[1].get('foo'), 'bar')
-        self.eq(tufo[1].get('baz'), 'faz1')
-        self.eq(tufo[1].get('gronk'), 80)
-
-        self.eq(core.getSizeByProp('foo:newp'), 0)
-        self.eq(len(core.getRowsByProp('foo:newp')), 0)
-
-        self.eq(core.getSizeByProp('foo'), 2)
-        self.eq(core.getSizeByProp('baz', valu='faz1'), 1)
-        self.eq(core.getSizeByProp('foo', mintime=80, maxtime=100), 1)
-
-        self.eq(len(core.getRowsByProp('foo')), 2)
-        self.eq(len(core.getRowsByProp('foo', valu='bar')), 2)
-
-        self.eq(len(core.getRowsByProp('baz')), 2)
-        self.eq(len(core.getRowsByProp('baz', valu='faz1')), 1)
-        self.eq(len(core.getRowsByProp('baz', valu='faz2')), 1)
-
-        self.eq(len(core.getRowsByProp('gronk', valu=90)), 1)
-
-        self.eq(len(core.getRowsById(id1)), 3)
-
-        self.eq(len(core.getJoinByProp('baz')), 6)
-        self.eq(len(core.getJoinByProp('baz', valu='faz1')), 3)
-        self.eq(len(core.getJoinByProp('baz', valu='faz2')), 3)
-
-        self.eq(len(core.getRowsByProp('baz', mintime=0, maxtime=80)), 1)
-        self.eq(len(core.getJoinByProp('baz', mintime=0, maxtime=80)), 3)
-
-        self.eq(len(core.getRowsByProp('baz', limit=1)), 1)
-        self.eq(len(core.getJoinByProp('baz', limit=1)), 3)
-
-        core.setRowsByIdProp(id4, 'lolstr', 'haha')
-        self.eq(len(core.getRowsByProp('lolstr', 'hehe')), 0)
-        self.eq(len(core.getRowsByProp('lolstr', 'haha')), 1)
-
-        core.setRowsByIdProp(id4, 'lolint', 99)
-        self.eq(len(core.getRowsByProp('lolint', 80)), 0)
-        self.eq(len(core.getRowsByProp('lolint', 99)), 1)
-
-        # Run delRowsByIdProp without the valu set
-        core.delRowsByIdProp(id4, 'lolint')
-        core.delRowsByIdProp(id4, 'lolstr')
-
-        self.eq(len(core.getRowsByProp('lolint')), 0)
-        self.eq(len(core.getRowsByProp('lolstr')), 0)
-
-        # Now run delRowsByIdProp with valu set
-        core.setRowsByIdProp(id4, 'lolstr', 'haha')
-        core.setRowsByIdProp(id4, 'lolint', 99)
-
-        core.delRowsByIdProp(id4, 'lolint', 80)
-        self.eq(len(core.getRowsByProp('lolint', 99)), 1)
-        core.delRowsByIdProp(id4, 'lolint', 99)
-        self.eq(len(core.getRowsByProp('lolint', 99)), 0)
-
-        core.delRowsByIdProp(id4, 'lolstr', 'hehe')
-        self.eq(len(core.getRowsByProp('lolstr', 'haha')), 1)
-        core.delRowsByIdProp(id4, 'lolstr', 'haha')
-        self.eq(len(core.getRowsByProp('lolstr', 'haha')), 0)
-
-        core.delRowsById(id1)
-
-        self.eq(len(core.getRowsById(id1)), 0)
-
-        self.eq(len(core.getRowsByProp('b', valu='b')), 1)
-        core.delRowsByProp('b', valu='b')
-        self.eq(len(core.getRowsByProp('b', valu='b')), 0)
-
-        self.eq(len(core.getRowsByProp('a', valu='a')), 1)
-        core.delJoinByProp('c', valu=90)
-        self.eq(len(core.getRowsByProp('a', valu='a')), 0)
-
-        def formtufo(event):
-            props = event[1].get('props')
-            props['woot'] = 'woot'
-
-        def formfqdn(event):
-            fqdn = event[1].get('valu')
-            event[1]['props']['inet:fqdn:sfx'] = fqdn.split('.')[-1]
-            event[1]['props']['inet:fqdn:inctest'] = 0
-
-        core.on('node:form', formtufo)
-        core.on('node:form', formfqdn, form='inet:fqdn')
-
-        tufo = core.formTufoByProp('inet:fqdn', 'woot.com')
-
-        self.eq(tufo[1].get('inet:fqdn:sfx'), 'com')
-        self.eq(tufo[1].get('woot'), 'woot')
-
-        self.eq(tufo[1].get('inet:fqdn:inctest'), 0)
-
-        tufo = core.incTufoProp(tufo, 'inctest')
-
-        self.eq(tufo[1].get('inet:fqdn:inctest'), 1)
-
-        tufo = core.incTufoProp(tufo, 'inctest', incval=-1)
-
-        self.eq(tufo[1].get('inet:fqdn:inctest'), 0)
-
-        bigstr = binascii.hexlify(os.urandom(80000)).decode('utf8')
-        tufo = core.formTufoByProp('strform', 'foo', bar=bigstr)
-
-        self.eq(tufo[1].get('strform'), 'foo')
-        self.eq(tufo[1].get('strform:bar'), bigstr)
-
-        self.eq(len(core.getTufosByProp('strform:bar', valu=bigstr)), 1)
-
-        tufo = core.formTufoByProp('strform', 'haha', foo='bar', bar='faz')
-        self.eq(tufo[1].get('strform'), 'haha')
-        self.eq(tufo[1].get('strform:foo'), 'bar')
-        self.eq(tufo[1].get('strform:bar'), 'faz')
-
-        tufo = core.delTufoProp(tufo, 'foo')
-        self.none(tufo[1].get('strform:foo'))
-
-        self.eq(len(core.eval('strform:foo')), 0)
-        self.eq(len(core.eval('strform:bar')), 2)
-
-        # Calling formTufoByProp twice with different props will
-        # smash the most recent props in that are valid to set
-        tufo = core.formTufoByProp('strform', 'haha', foo='foo', bar='bar')
-        self.eq(tufo[1].get('strform'), 'haha')
-        self.eq(tufo[1].get('strform:foo'), 'foo')
-        self.eq(tufo[1].get('strform:bar'), 'bar')
-
-        # Ensure we can store data at the boundary of 64 bit integers
-        node = core.formTufoByProp('intform', -9223372036854775808)
-        self.nn(node)
-        core.delTufo(node)
-        node = core.formTufoByProp('intform', 9223372036854775807)
-        self.nn(node)
-        core.delTufo(node)
-        self.raises(BadTypeValu, core.formTufoByProp, 'intform', -9223372036854775809)
-        self.raises(BadTypeValu, core.formTufoByProp, 'intform', 9223372036854775808)
-
-        # Disable on() events registered in the test.
-        core.off('node:form', formtufo)
-        core.off('node:form', formfqdn)
-
-    def runrange(self, core):
-
-        rows = [
-            (guid(), 'rg', 10, 99),
-            (guid(), 'rg', 30, 99),
-        ]
-
-        core.addRows(rows)
-
-        self.eq(core.getSizeBy('range', 'rg', (0, 20)), 1)
-        self.eq(core.getRowsBy('range', 'rg', (0, 20))[0][2], 10)
-
-        # range is inclusive of `min`, exclusive of `max`
-        self.eq(core.getSizeBy('range', 'rg', (9, 11)), 1)
-        self.eq(core.getSizeBy('range', 'rg', (10, 12)), 1)
-        self.eq(core.getSizeBy('range', 'rg', (8, 10)), 0)
-
-        self.eq(core.getSizeBy('ge', 'rg', 20), 1)
-        self.eq(core.getRowsBy('ge', 'rg', 20)[0][2], 30)
-        self.eq(len(core.getRowsBy('ge', 'rg', 10)), 2)
-        self.eq(len(core.getRowsBy('ge', 'rg', 20)), 1)
-        self.eq(len(core.getRowsBy('gt', 'rg', 31)), 0)
-        self.eq(len(core.getRowsBy('gt', 'rg', 10)), 1)
-        self.eq(len(core.getRowsBy('gt', 'rg', 9)), 2)
-        self.eq(core.getRowsBy('gt', 'rg', 20)[0][2], 30)
-
-        self.eq(core.getSizeBy('le', 'rg', 20), 1)
-        self.eq(core.getRowsBy('le', 'rg', 20)[0][2], 10)
-        self.eq(len(core.getRowsBy('le', 'rg', 10)), 1)
-        self.eq(len(core.getRowsBy('le', 'rg', 30)), 2)
-        self.eq(len(core.getRowsBy('lt', 'rg', 31)), 2)
-        self.eq(len(core.getRowsBy('lt', 'rg', 11)), 1)
-        self.eq(len(core.getRowsBy('lt', 'rg', 10)), 0)
-        self.eq(len(core.getRowsBy('lt', 'rg', 9)), 0)
-        self.eq(core.getRowsBy('lt', 'rg', 20)[0][2], 10)
-
-        rows = [
-            (guid(), 'rg', -42, 99),
-            (guid(), 'rg', -1, 99),
-            (guid(), 'rg', 0, 99),
-            (guid(), 'rg', 1, 99),
-            (guid(), 'rg', s_cores_lmdb.MIN_INT_VAL, 99),
-            (guid(), 'rg', s_cores_lmdb.MAX_INT_VAL, 99),
-        ]
-        core.addRows(rows)
-        self.eq(core.getSizeBy('range', 'rg', (s_cores_lmdb.MIN_INT_VAL + 1, -42)), 0)
-        self.eq(core.getSizeBy('range', 'rg', (s_cores_lmdb.MIN_INT_VAL, -42)), 1)
-        self.eq(core.getSizeBy('le', 'rg', -42), 2)
-        self.eq(core.getSizeBy('range', 'rg', (-42, 0)), 2)
-        self.eq(core.getSizeBy('range', 'rg', (-1, 2)), 3)
-        self.eq(core.getSizeBy('le', 'rg', 0), 4)
-        self.eq(core.getSizeBy('ge', 'rg', 30), 2)
-        self.eq(core.getSizeBy('ge', 'rg', s_cores_lmdb.MAX_INT_VAL), 1)
-
-        # TODO: Need to implement lt for all the cores
-        # self.eq(core.getSizeBy('lt', 'rg', -42), 1)
-        # self.eq(core.getSizeBy('lt', 'rg', 0), 3)
-        # TODO: This is broken for RAM and SQLite
-        # self.eq(core.getSizeBy('ge', 'rg', -1, limit=3), 3)
-
-    def runjson(self, core):
-
-        thing = {
-            'foo': {
-                'bar': 10,
-                'baz': 'faz',
-                'blah': [99, 100],
-                'gronk': [99, 100],
-            },
-            'x': 10,
-            'y': 20,
-        }
-
-        core.addJsonItem('hehe', thing)
-
-        thing['x'] = 40
-        thing['x'] = 50
-
-        core.addJsonItem('hehe', thing)
-
-        for iden, item in core.getJsonItems('hehe:foo:bar', valu='faz'):
-
-            self.eq(item['foo']['blah'][0], 99)
-
-    def runblob(self, core):
-        # Do we have default cortex blob values?
-        self.true(core.hasBlobValu('syn:core:created'))
-        cvers = core.getBlobValu('syn:core:synapse:version')
-        self.eq(cvers, s_version.version)
-
-        kvs = (
-            ('syn:meta', 1),
-            ('foobar:thing', 'a string',),
-            ('storage:sekrit', {'oh': 'my!', 'key': (1, 2)}),
-            ('syn:bytes', b'0xdeadb33f'),
-            ('knight:weight', 1.234),
-            ('knight:saidni', False),
-            ('knight:has:fleshwound', True),
-            ('knight:has:current_queue', None),
-        )
-
-        # Basic store / retrieve tests
-        for k, v in kvs:
-            r = core.setBlobValu(k, v)
-            self.eq(v, r)
-            self.true(core.hasBlobValu(k))
-        for k, v in kvs:
-            self.eq(core.getBlobValu(k), v)
-
-        # Missing a value
-        self.false(core.hasBlobValu('syn:totallyfake'))
-
-        # getkeys
-        keys = core.getBlobKeys()
-        self.isinstance(keys, list)
-        self.isin('syn:core:created', keys)
-        self.isin('syn:meta', keys)
-        self.isin('knight:has:current_queue', keys)
-        self.notin('totally-false', keys)
-
-        # update a value and get the updated value back
-        self.eq(core.getBlobValu('syn:meta'), 1)
-        core.setBlobValu('syn:meta', 2)
-        self.eq(core.getBlobValu('syn:meta'), 2)
-
-        # msgpack'd output expected
-        testv = [1, 2, 3]
-        core.setBlobValu('test:list', testv)
-        self.eq(core.getBlobValu('test:list'), tuple(testv))
-
-        # Cannot store invalid items
-        for obj in [object, set(testv), self.eq]:
-            self.raises(TypeError, core.setBlobValu, 'test:bad', obj)
-
-        # Ensure that trying to get a value which doesn't exist returns None.
-        self.true(core.getBlobValu('test:bad') is None)
-        # but does work is a default value is provided!
-        self.eq(core.getBlobValu('test:bad', 123456), 123456)
-
-        # Ensure we can delete items from the store
-        self.eq(core.delBlobValu('test:list'), tuple(testv))
-        self.false(core.hasBlobValu('test:list'))
-        self.eq(core.getBlobValu('test:list'), None)
-        # And deleting a value which doesn't exist raises a NoSuchName
-        self.raises(NoSuchName, core.delBlobValu, 'test:deleteme')
-
-    def runstore(self, core):
-        '''
-        Run generic storage layer tests on the core.store object
-        '''
-
-        # Ensure that genStoreRows() is implemented and generates boundary rows based on idens.
-        rows = []
-        tick = now()
-        newrows = [
-            ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
-            ('00000000000000000000000000000000', 'inet:asn', 1, tick),
-            ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
-            ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
-            ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
-            ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick)
-        ]
-        core.addRows(newrows)
-        for _rows in core.store.genStoreRows(slicebytes=2):
-            rows.extend(_rows)
-        # A default cortex may have a few thousand rows in it - ensure we get at least 1000 rows here.
-        self.gt(len(rows), 1000)
-        self.isinstance(rows[0], tuple)
-        self.eq(len(rows[0]), 4)
-        # Sort rows by idens
-        rows.sort(key=lambda x: x[0])
-        bottom_rows = rows[:3]
-        bottom_rows.sort(key=lambda x: x[1])
-        self.eq(bottom_rows, [
-            ('00000000000000000000000000000000', 'inet:asn', 1, tick),
-            ('00000000000000000000000000000000', 'inet:asn:name', 'Lagavulin Internet Co.', tick),
-            ('00000000000000000000000000000000', 'tufo:form', 'inet:asn', tick),
-        ])
-        top_rows = rows[-3:]
-        top_rows.sort(key=lambda x: x[1])
-        self.eq(top_rows, [
-            ('ffffffffffffffffffffffffffffffff', 'inet:asn', 200, tick),
-            ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick),
-            ('ffffffffffffffffffffffffffffffff', 'tufo:form', 'inet:asn', tick),
-        ])
-
-        # form some nodes for doing in-place prop updates on with store.updateProperty()
-        nodes = [core.formTufoByProp('inet:tcp4', '10.1.2.{}:80'.format(i)) for i in range(10)]
-        ret = core.store.updateProperty('inet:tcp4:port', 'inet:tcp4:gatenumber')
-        self.eq(ret, 10)
-
-        # Ensure prop and propvalu indexes are updated
-        self.len(10, core.getRowsByProp('inet:tcp4:gatenumber'))
-        self.len(10, core.getRowsByProp('inet:tcp4:gatenumber', 80))
-        self.len(0, core.getRowsByProp('inet:tcp4:port'))
-        self.len(0, core.getRowsByProp('inet:tcp4:port', 80))
-
-        # Join operations typically involving pivoting by iden so this ensures that iden based indexes are updated
-        unodes = core.getTufosByProp('inet:tcp4:gatenumber')
-        self.len(10, unodes)
-        for node in unodes:
-            self.isin('node:created', node[1])
-            self.isin('inet:tcp4', node[1])
-            self.isin('inet:tcp4:ipv4', node[1])
-            self.isin('inet:tcp4:gatenumber', node[1])
-            self.notin('inet:tcp4:port', node[1])
-
-        # Do a updatePropertValu call to replace a named property with another valu
-        unodes = core.getTufosByProp('tufo:form', 'inet:tcp4')
-        self.len(10, unodes)
-        n = core.store.updatePropertyValu('tufo:form', 'inet:tcp4', 'inet:stateful4')
-        self.eq(n, 10)
-        unodes = core.getTufosByProp('tufo:form', 'inet:tcp4')
-        self.len(0, unodes)
-        unodes = core.getTufosByProp('inet:tcp4')
-        self.len(10, unodes)
-        for node in unodes:
-            self.eq(node[1].get('tufo:form'), 'inet:stateful4')
-            self.isin('inet:tcp4', node[1])
-        unodes = core.getTufosByProp('tufo:form', 'inet:stateful4')
-        self.len(10, unodes)
-        for node in unodes:
-            self.eq(node[1].get('tufo:form'), 'inet:stateful4')
-            self.isin('inet:tcp4', node[1])
-
-    def runtufobydefault(self, core):
-        # Failures should be expected for unknown names
-        self.raises(NoSuchGetBy, core.getTufosBy, 'clowns', 'inet:ipv4', 0x01020304)
-
-        # BY IN
-        fooa = core.formTufoByProp('default_foo', 'bar', p0=4)
-        foob = core.formTufoByProp('default_foo', 'baz', p0=5)
-        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4])), 1)
-
-        fooc = core.formTufoByProp('default_foo', 'faz', p0=5)
-        food = core.formTufoByProp('default_foo', 'haz', p0=6)
-        fooe = core.formTufoByProp('default_foo', 'gaz', p0=7)
-        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [5])), 2)
-        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4, 5])), 3)
-        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4, 5, 6, 7], limit=4)), 4)
-        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4, 5, 6, 7], limit=1)), 1)
-        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [4, 5, 6, 7], limit=0)), 0)
-        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [5], limit=1)), 1)
-        self.eq(len(core.getTufosBy('in', 'default_foo:p0', [], limit=1)), 0)
-
-        # By IN requiring type normalization
-        foof = core.formTufoByProp('inet:ipv4', '10.2.3.6')
-
-        self.eq(len(core.getTufosBy('in', 'inet:ipv4', [0x0a020306])), 1)
-        self.eq(len(core.getTufosBy('in', 'inet:ipv4', [0x0a020305, 0x0a020307])), 0)
-        self.eq(len(core.getTufosBy('in', 'inet:ipv4', [0x0a020305, 0x0a020306, 0x0a020307])), 1)
-        self.eq(len(core.getTufosBy('in', 'inet:ipv4', ['10.2.3.6'])), 1)
-        self.eq(len(core.getTufosBy('in', 'inet:ipv4', ['10.2.3.5', '10.2.3.7'])), 0)
-        self.eq(len(core.getTufosBy('in', 'inet:ipv4', ['10.2.3.5', '10.2.3.6', '10.2.3.7'])), 1)
-
-        # By IN using COMP type nodes
-        nmb1 = core.formTufoByProp('inet:web:memb', '(vertex.link/pennywise,vertex.link/eldergods)')
-        nmb2 = core.formTufoByProp('inet:web:memb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))
-        nmb3 = core.formTufoByProp('inet:web:memb', ['vertex.link/pennywise', 'vertex.link/clowns'])
-
-        self.eq(len(core.getTufosBy('in', 'inet:web:memb', ['(vertex.link/pennywise,vertex.link/eldergods)'])), 1)
-        self.eq(len(core.getTufosBy('in', 'inet:web:memb:group', ['vertex.link/eldergods'])), 2)
-        self.eq(len(core.getTufosBy('in', 'inet:web:memb:group', ['vertex.link/eldergods'])), 2)
-        self.eq(len(core.getTufosBy('in', 'inet:web:memb:group', ['vertex.link/eldergods', 'vertex.link/clowns'])), 3)
-        self.eq(len(core.getTufosBy('in', 'inet:web:memb', ['(vertex.link/pennywise,vertex.link/eldergods)', ('vertex.link/pennywise', 'vertex.link/clowns')])), 2)
-
-        # By LT/LE/GE/GT
-        self.eq(len(core.getTufosBy('lt', 'default_foo:p0', 6)), 3)
-        self.eq(len(core.getTufosBy('le', 'default_foo:p0', 6)), 4)
-        self.eq(len(core.getTufosBy('le', 'default_foo:p0', 7)), 5)
-        self.eq(len(core.getTufosBy('gt', 'default_foo:p0', 6)), 1)
-        self.eq(len(core.getTufosBy('ge', 'default_foo:p0', 6)), 2)
-        self.eq(len(core.getTufosBy('ge', 'default_foo:p0', 5)), 4)
-        # By LT/LE/GE/GT with limits
-        self.len(1, core.getTufosBy('lt', 'default_foo:p0', 6, limit=1))
-        self.len(1, core.getTufosBy('le', 'default_foo:p0', 6, limit=1))
-        self.len(1, core.getTufosBy('le', 'default_foo:p0', 7, limit=1))
-        self.len(1, core.getTufosBy('gt', 'default_foo:p0', 6, limit=1))
-        self.len(1, core.getTufosBy('ge', 'default_foo:p0', 6, limit=1))
-        self.len(1, core.getTufosBy('ge', 'default_foo:p0', 5, limit=1))
-        self.len(0, core.getTufosBy('lt', 'default_foo:p0', 6, limit=0))
-        self.len(0, core.getTufosBy('le', 'default_foo:p0', 6, limit=0))
-        self.len(0, core.getTufosBy('le', 'default_foo:p0', 7, limit=0))
-        self.len(0, core.getTufosBy('gt', 'default_foo:p0', 6, limit=0))
-        self.len(0, core.getTufosBy('ge', 'default_foo:p0', 6, limit=0))
-        self.len(0, core.getTufosBy('ge', 'default_foo:p0', 5, limit=0))
-
-        # By LT/LE/GE/GT requiring type normalization
-        foog = core.formTufoByProp('inet:ipv4', '10.2.3.5')
-        fooh = core.formTufoByProp('inet:ipv4', '10.2.3.7')
-        fooi = core.formTufoByProp('inet:ipv4', '10.2.3.8')
-        fooj = core.formTufoByProp('inet:ipv4', '10.2.3.9')
-
-        self.eq(len(core.getTufosBy('lt', 'inet:ipv4', 0x0a020306)), 1)
-        self.eq(len(core.getTufosBy('le', 'inet:ipv4', 0x0a020306)), 2)
-        self.eq(len(core.getTufosBy('le', 'inet:ipv4', 0x0a020307)), 3)
-        self.eq(len(core.getTufosBy('gt', 'inet:ipv4', 0x0a020306)), 3)
-        self.eq(len(core.getTufosBy('ge', 'inet:ipv4', 0x0a020306)), 4)
-        self.eq(len(core.getTufosBy('ge', 'inet:ipv4', 0x0a020305)), 5)
-
-        self.eq(len(core.getTufosBy('lt', 'inet:ipv4', '10.2.3.6')), 1)
-        self.eq(len(core.getTufosBy('le', 'inet:ipv4', '10.2.3.6')), 2)
-        self.eq(len(core.getTufosBy('le', 'inet:ipv4', '10.2.3.7')), 3)
-        self.eq(len(core.getTufosBy('gt', 'inet:ipv4', '10.2.3.6')), 3)
-        self.eq(len(core.getTufosBy('ge', 'inet:ipv4', '10.2.3.6')), 4)
-        self.eq(len(core.getTufosBy('ge', 'inet:ipv4', '10.2.3.5')), 5)
-
-        # By RANGE
-        t0 = core.formTufoByProp('intform', 10)
-        tufs = core.getTufosBy('range', 'intform', (5, 15))
-        self.eq(len(tufs), 1)
-        self.eq(tufs[0][0], t0[0])
-        self.len(0, core.getTufosBy('range', 'intform', (5, 15), limit=0))
-        # Do a range lift requiring prop normalization (using a built-in data type) to work
-        t2 = core.formTufoByProp('inet:ipv4', '1.2.3.3')
-        tufs = core.getTufosBy('range', 'inet:ipv4', (0x01020301, 0x01020309))
-        self.eq(len(tufs), 1)
-        self.eq(t2[0], tufs[0][0])
-        tufs = core.getTufosBy('range', 'inet:ipv4', ('1.2.3.1', '1.2.3.9'))
-        self.eq(len(tufs), 1)
-        self.eq(t2[0], tufs[0][0])
-        # RANGE test cleanup
-        for tufo in [t0, t2]:
-            if tufo[1].get('.new'):
-                core.delTufo(tufo)
-
-        # By HAS - the valu is dropped by the _tufosByHas handler.
-        self.eq(len(core.getTufosBy('has', 'default_foo:p0', valu=None)), 5)
-        self.eq(len(core.getTufosBy('has', 'default_foo:p0', valu=5)), 5)
-        self.eq(len(core.getTufosBy('has', 'default_foo', valu='foo')), 5)
-        self.eq(len(core.getTufosBy('has', 'default_foo', valu='knight')), 5)
-
-        self.eq(len(core.getTufosBy('has', 'inet:ipv4', valu=None)), 5)
-        self.eq(len(core.getTufosBy('has', 'syn:tag', valu=None)), 0)
-
-        self.len(1, core.getTufosBy('has', 'default_foo', valu='knight', limit=1))
-        self.len(0, core.getTufosBy('has', 'default_foo', valu='knight', limit=0))
-
-        # By TAG
-        core.addTufoTag(fooa, 'color.white')
-        core.addTufoTag(fooa, 'color.black')
-        core.addTufoTag(foog, 'color.green')
-        core.addTufoTag(foog, 'color.blue')
-        core.addTufoTag(fooh, 'color.green')
-        core.addTufoTag(fooh, 'color.red')
-        core.addTufoTag(fooi, 'color.white')
-
-        self.eq(len(core.getTufosBy('tag', 'inet:ipv4', 'color')), 3)
-        self.eq(len(core.getTufosBy('tag', None, 'color')), 4)
-        self.eq(len(core.getTufosBy('tag', 'default_foo', 'color.white')), 1)
-        self.eq(len(core.getTufosBy('tag', 'default_foo', 'color.black')), 1)
-        self.eq(len(core.getTufosBy('tag', 'inet:ipv4', 'color.green')), 2)
-        self.eq(len(core.getTufosBy('tag', 'inet:ipv4', 'color.white')), 1)
-        self.eq(len(core.getTufosBy('tag', None, 'color.white')), 2)
-        self.len(1, core.getTufosBy('tag', None, 'color.white', limit=1))
-        self.len(0, core.getTufosBy('tag', None, 'color.white', limit=0))
-
-        # By EQ
-        self.eq(len(core.getTufosBy('eq', 'default_foo', 'bar')), 1)
-        self.eq(len(core.getTufosBy('eq', 'default_foo', 'blah')), 0)
-        self.eq(len(core.getTufosBy('eq', 'default_foo:p0', 5)), 2)
-        self.eq(len(core.getTufosBy('eq', 'inet:ipv4', 0x0a020306)), 1)
-        self.eq(len(core.getTufosBy('eq', 'inet:ipv4', '10.2.3.6')), 1)
-        self.eq(len(core.getTufosBy('eq', 'inet:ipv4:asn', -1)), 5)
-        self.eq(len(core.getTufosBy('eq', 'inet:ipv4', 0x0)), 0)
-        self.eq(len(core.getTufosBy('eq', 'inet:ipv4', '0.0.0.0')), 0)
-        self.eq(len(core.getTufosBy('eq', 'inet:web:memb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
-        self.eq(len(core.getTufosBy('eq', 'inet:web:memb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
-        self.len(1, core.getTufosBy('eq', 'inet:ipv4:asn', -1, limit=1))
-        self.len(0, core.getTufosBy('eq', 'inet:ipv4:asn', -1, limit=0))
-
-        # By TYPE - this requires data model introspection
-        fook = core.formTufoByProp('inet:dns:a', 'derry.vertex.link/10.2.3.6')
-        fool = core.formTufoByProp('inet:url', 'https://derry.vertex.link/clowntown.html', ipv4='10.2.3.6')
-        # self.eq(len(core.getTufosBy('type', 'inet:ipv4', None)), 7)
-        self.eq(len(core.getTufosBy('type', 'inet:ipv4', '10.2.3.6')), 3)
-        self.eq(len(core.getTufosBy('type', 'inet:ipv4', 0x0a020306)), 3)
-        self.len(1, core.getTufosBy('type', 'inet:ipv4', '10.2.3.6', limit=1))
-        self.len(0, core.getTufosBy('type', 'inet:ipv4', '10.2.3.6', limit=0))
-
-        # By TYPE using COMP nodes
-        self.eq(len(core.getTufosBy('type', 'inet:web:memb', '(vertex.link/pennywise,vertex.link/eldergods)')), 1)
-        self.eq(len(core.getTufosBy('type', 'inet:web:memb', ('vertex.link/invisig0th', 'vertex.link/eldergods'))), 1)
-        self.eq(len(core.getTufosBy('type', 'inet:web:acct', 'vertex.link/invisig0th')), 2)
-
-        # BY CIDR
-        tlib = s_types.TypeLib()
-
-        ipint, _ = tlib.getTypeParse('inet:ipv4', '192.168.0.1')
-        ipa = core.formTufoByProp('inet:ipv4', ipint)
-        ipint, _ = tlib.getTypeParse('inet:ipv4', '192.168.255.254')
-        ipa = core.formTufoByProp('inet:ipv4', ipint)
-
-        ipint, _ = tlib.getTypeParse('inet:ipv4', '192.167.255.254')
-        ipb = core.formTufoByProp('inet:ipv4', ipint)
-
-        ips = ['10.2.1.%d' % d for d in range(1, 33)]
-        for ip in ips:
-            ipint, _ = tlib.getTypeParse('inet:ipv4', ip)
-            ipc = core.formTufoByProp('inet:ipv4', ipint)
-
-        # Validate the content we get from cidr lookups is correctly bounded
-        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.4/32')
-        self.eq(len(nodes), 1)
-        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
-        self.eq(test_repr, '10.2.1.4')
-
-        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.4/31')
-        self.eq(len(nodes), 2)
-        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
-        self.eq(test_repr, '10.2.1.4')
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
-        self.eq(test_repr, '10.2.1.5')
-
-        # 10.2.1.1/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
-        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/30')
-        self.eq(len(nodes), 3)
-        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
-        self.eq(test_repr, '10.2.1.1')
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
-        self.eq(test_repr, '10.2.1.3')
-
-        # 10.2.1.2/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
-        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.2/30')
-        self.eq(len(nodes), 3)
-        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
-        self.eq(test_repr, '10.2.1.1')
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
-        self.eq(test_repr, '10.2.1.3')
-
-        # 10.2.1.1/29 is 10.2.1.0 -> 10.2.1.7 but we don't have 10.2.1.0 in the core
-        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/29')
-        self.eq(len(nodes), 7)
-        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
-        self.eq(test_repr, '10.2.1.1')
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
-        self.eq(test_repr, '10.2.1.7')
-
-        # 10.2.1.8/29 is 10.2.1.8 -> 10.2.1.15
-        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.8/29')
-        self.eq(len(nodes), 8)
-        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
-        self.eq(test_repr, '10.2.1.8')
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
-        self.eq(test_repr, '10.2.1.15')
-        # Ensure limits are respected
-        self.len(1, core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.8/29', limit=1))
-        self.len(0, core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.8/29', limit=0))
-
-        # 10.2.1.1/28 is 10.2.1.0 -> 10.2.1.15 but we don't have 10.2.1.0 in the core
-        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '10.2.1.1/28')
-        self.eq(len(nodes), 15)
-        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
-        self.eq(test_repr, '10.2.1.1')
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
-        self.eq(test_repr, '10.2.1.15')
-
-        # 192.168.0.0/16 is 192.168.0.0 -> 192.168.255.255 but we only have two nodes in this range
-        nodes = core.getTufosBy('inet:cidr', 'inet:ipv4', '192.168.0.0/16')
-        self.eq(len(nodes), 2)
-        nodes.sort(key=lambda x: x[1].get('inet:ipv4'))
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[0][1].get('inet:ipv4'))
-        self.eq(test_repr, '192.168.0.1')
-        test_repr = core.getTypeRepr('inet:ipv4', nodes[-1][1].get('inet:ipv4'))
-        self.eq(test_repr, '192.168.255.254')
-
-##############################################################################
-# Test Cortex APIs which are not exercised in the CortexBaseTests.
-#
-# This is appropriate for things which are not going to be storage-layer
-# dependent.
-##############################################################################
 
 class CortexTest(SynTest):
 
-    def test_cortex_datamodel_runt_consistency(self):
-        with self.getRamCore() as core:
-
-            uniprops = core.getUnivProps()
-
-            nodes = core.getTufosByProp('syn:form')
-            for node in nodes:
-                self.isin('syn:form:ptype', node[1])
-                if 'syn:form:doc' in node[1]:
-                    self.isinstance(node[1].get('syn:form:doc'), str)
-                if 'syn:form:local' in node[1]:
-                    self.isinstance(node[1].get('syn:form:local'), int)
-
-            nodes = core.getTufosByProp('syn:prop')
-            for node in nodes:
-                prop = node[1].get('syn:prop')
-                if prop not in uniprops:
-                    self.isin('syn:prop:form', node[1])
-
-                if 'syn:prop:glob' in node[1]:
-                    continue
-                self.isin('syn:prop:req', node[1])
-                self.isin('syn:prop:ptype', node[1])
-                if 'syn:prop:doc' in node[1]:
-                    self.isinstance(node[1].get('syn:prop:doc'), str)
-                if 'syn:prop:base' in node[1]:
-                    self.isinstance(node[1].get('syn:prop:base'), str)
-                if 'syn:prop:title' in node[1]:
-                    self.isinstance(node[1].get('syn:prop:title'), str)
-                if 'syn:prop:defval' in node[1]:
-                    dv = node[1].get('syn:prop:defval')
-                    if dv is None:
-                        continue
-                    self.true(s_common.canstor(dv))
-
-            # Some nodes are local, some are not
-            node = core.getTufoByProp('syn:form', 'inet:ipv4')
-            self.eq(node[1].get('syn:form:local'), None)
-            node = core.getTufoByProp('syn:form', 'syn:splice')
-            self.eq(node[1].get('syn:form:local'), 1)
-
-            # Check a few specific nodes
-            node = core.getTufoByProp('syn:prop', 'inet:ipv4')
-            self.isin('syn:prop:doc', node[1])
-            self.isin('syn:prop:base', node[1])
-            self.notin('syn:prop:relname', node[1])
-            node = core.getTufoByProp('syn:prop', 'inet:ipv4:type')
-            self.isin('syn:prop:doc', node[1])
-            self.isin('syn:prop:base', node[1])
-            self.isin('syn:prop:relname', node[1])
-
-            # universal prop nodes
-            node = core.getTufoByProp('syn:prop', 'node:ndef')
-            self.eq(node[1].get('syn:prop:univ'), 1)
-            # The node:ndef value is a stable guid :)
-            self.eq(node[1].get('node:ndef'), 'd20cb4873e36db4670073169f87abc32')
-
-            # Ensure things bubbled up during node / datamodel creation
-            self.eq(core.getPropInfo('strform', 'doc'), 'A test str form')
-            self.eq(core.getPropInfo('intform', 'doc'), 'The base integer type')
-            self.eq(core.getTufoByProp('syn:prop', 'strform')[1].get('syn:prop:doc'), 'A test str form')
-            self.eq(core.getTufoByProp('syn:prop', 'intform')[1].get('syn:prop:doc'), 'The base integer type')
-
-    def test_pg_encoding(self):
-        with self.getPgCore() as core:
-            res = core.store.select('SHOW SERVER_ENCODING')[0][0]
-            self.eq(res, 'UTF8')
-
-    def test_cortex_choptag(self):
-        t0 = tuple(s_cortex.choptag('foo'))
-        t1 = tuple(s_cortex.choptag('foo.bar'))
-        t2 = tuple(s_cortex.choptag('foo.bar.baz'))
-
-        self.eq(t0, ('foo',))
-        self.eq(t1, ('foo', 'foo.bar'))
-        self.eq(t2, ('foo', 'foo.bar', 'foo.bar.baz'))
-
-    def test_cortex_tufo_tag(self):
-        with self.getRamCore() as core:
-            foob = core.formTufoByProp('strform', 'bar', foo='faz')
-            core.addTufoTag(foob, 'zip.zap')
-
-            self.nn(foob[1].get('#zip'))
-            self.nn(foob[1].get('#zip.zap'))
-
-            self.eq(len(core.getTufosByTag('zip', form='strform')), 1)
-            self.eq(len(core.getTufosByTag('zip.zap', form='strform')), 1)
-
-            core.delTufoTag(foob, 'zip')
-
-            self.none(foob[1].get('#zip'))
-            self.none(foob[1].get('#zip.zap'))
-
-            self.eq(len(core.getTufosByTag('zip', form='strform')), 0)
-            self.eq(len(core.getTufosByTag('zip.zap', form='strform')), 0)
-
-    def test_cortex_tufo_setprops(self):
-        with self.getRamCore() as core:
-            foob = core.formTufoByProp('strform', 'bar', foo='faz')
-            self.eq(foob[1].get('strform:foo'), 'faz')
-            core.setTufoProps(foob, foo='zap')
-            core.setTufoProps(foob, bar='zap')
+    def test_cortex_onadd(self):
 
-            self.eq(len(core.getTufosByProp('strform:foo', valu='zap')), 1)
-            self.eq(len(core.getTufosByProp('strform:bar', valu='zap')), 1)
+        with self.getTestCore() as core:
 
-            # Try using setprops with an built-in model which type subprops
-            t0 = core.formTufoByProp('inet:web:acct', 'vertex.link/pennywise')
-            self.notin('inet:web:acct:email', t0[1])
-            props = {'email': 'pennywise@vertex.link'}
-            core.setTufoProps(t0, **props)
-            self.isin('inet:web:acct:email', t0[1])
-            t1 = core.getTufoByProp('inet:email', 'pennywise@vertex.link')
-            self.nn(t1)
+            with core.xact(write=True) as xact:
 
-            # Trying settufoprops on a ro prop doens't change anything
-            self.eq(t0[1].get('inet:web:acct:user'), 'pennywise')
-            t0 = core.setTufoProps(t0, user='ninja')
-            self.eq(t0[1].get('inet:web:acct:user'), 'pennywise')
+                func = CallBack()
+                core.model.form('inet:ipv4').onAdd(func)
 
-            # Try forming a node from its normalize value and then setting
-            # ro props after the fact. Also ensure those secondary props which
-            # may trigger autoadds are generating the autoadds and do not retain
-            # those non-model seconadry props.
-            core.addDataModels([
-                ('test:foo', {
-                    'forms': (
-                        ('test:roprop', {'ptype': 'guid'}, (
-                            ('hehe', {'ptype': 'int', 'ro': 1}),
-                        )),
-                    ),
-                })
-            ])
+                node = xact.addNode('inet:ipv4', '1.2.3.4')
+                self.eq(node.buid, func.args[0].buid)
 
-            # Ensure that splices for changes on ro properties on a node are reflected
-            node = core.formTufoByProp('test:roprop', '*')
+    def test_cortex_cell(self):
 
-            self.nn(node[1].get('test:roprop'))
-            self.none(node[1].get('test:roprop:hehe'))
+        with self.getTestDmon(mirror='dmoncore') as dmon:
 
-            node = core.setTufoProps(node, hehe=10)
-            self.eq(node[1].get('test:roprop:hehe'), 10)
+            core = dmon.shared.get('core')
 
-            node = core.setTufoProps(node, hehe=20)
-            self.eq(node[1].get('test:roprop:hehe'), 10)
+            nodes = ((('inet:user', 'visi'), {}), )
 
-    def test_cortex_tufo_pop(self):
-        with self.getRamCore() as core:
-            foo0 = core.formTufoByProp('strform', 'bar', foo='faz')
-            foo1 = core.formTufoByProp('strform', 'baz', foo='faz')
+            core.addNodes(nodes)
+            nodes = list(core.getNodesBy('inet:user', 'visi'))
 
-            self.eq(2, len(core.popTufosByProp('strform:foo', valu='faz')))
-            self.eq(0, len(core.getTufosByProp('strform')))
+            proxy = dmon._getTestProxy('core')
+            nodes = list(proxy.getNodesBy('inet:user', 'visi'))
 
-    def test_cortex_tufo_setprop(self):
-        with self.getRamCore() as core:
-            foob = core.formTufoByProp('strform', 'bar', foo='faz')
-            self.eq(foob[1].get('strform:foo'), 'faz')
+    def test_cortex_tags(self):
 
-            core.setTufoProp(foob, 'foo', 'zap')
+        with self.getTestCore() as core:
 
-            self.eq(len(core.getTufosByProp('strform:foo', valu='zap')), 1)
+            with core.xact(write=True) as xact:
+                xact.addNode('inet:ipv4', '1.2.3.4')
 
-    def test_cortex_tufo_list(self):
+    def test_cortex_onset(self):
 
-        with self.getRamCore() as core:
-            foob = core.formTufoByProp('strform', 'bar', foo='faz')
+        with self.getTestCore() as core:
 
-            core.addTufoList(foob, 'hehe', 1, 2, 3)
+            with core.xact(write=True) as xact:
 
-            self.nn(foob[1].get('tufo:list:hehe'))
+                func = CallBack()
+                core.model.prop('inet:ipv4:loc').onSet(func)
 
-            vals = core.getTufoList(foob, 'hehe')
-            vals.sort()
+                node = xact.addNode('inet:ipv4', '1.2.3.4')
+                node.set('loc', 'US.  VA')
 
-            self.eq(tuple(vals), (1, 2, 3))
+                self.eq(func.args[0].buid, node.buid)
+                self.eq(func.args[1], '??')
 
-            core.delTufoListValu(foob, 'hehe', 2)
+    def test_cortex_base_types(self):
 
-            vals = core.getTufoList(foob, 'hehe')
-            vals.sort()
+        with self.getTestCore() as core:
 
-            self.eq(tuple(vals), (1, 3))
+            with core.xact(write=True) as xact:
 
-    def test_cortex_tufo_del(self):
+                node = xact.addNode('faketype', 'one')
 
-        with self.getRamCore() as core:
-            foob = core.formTufoByProp('strform', 'bar', foo='faz')
+                self.eq(node.get('intprop'), 20)
+                self.eq(node.get('locprop'), '??')
+                self.eq(node.get('strprop'), 'asdf')
 
-            self.nn(core.getTufoByProp('strform', valu='bar'))
-            self.nn(core.getTufoByProp('strform:foo', valu='faz'))
+                self.true(s_common.isguid(node.get('guidprop')))
 
-            core.addTufoList(foob, 'blahs', 'blah1')
-            core.addTufoList(foob, 'blahs', 'blah2')
+                # add another node with default vals
+                xact.addNode('faketype', 'two')
 
-            blahs = core.getTufoList(foob, 'blahs')
+                # modify default vals on initial node
+                node.set('intprop', 21)
+                node.set('strprop', 'qwer')
+                node.set('locprop', 'us.va.reston')
 
-            self.eq(len(blahs), 2)
+                node = xact.addNode('fakecomp', (33, 'THIRTY THREE'))
 
-            core.delTufoByProp('strform', 'bar')
+                self.eq(node.get('hehe'), 33)
+                self.eq(node.get('haha'), 'thirty three')
 
-            self.none(core.getTufoByProp('strform', valu='bar'))
-            self.none(core.getTufoByProp('strform:foo', valu='faz'))
+                self.false(node.set('hehe', 80))
 
-            blahs = core.getTufoList(foob, 'blahs')
-            self.eq(len(blahs), 0)
+                self.none(xact.getNodeByNdef(('testauto', 'autothis')))
 
-    def test_cortex_ramhost(self):
-        core0 = s_cortex.openurl('ram:///foobar')
-        core1 = s_cortex.openurl('ram:///foobar')
-        self.eq(id(core0), id(core1))
+                props = {
+                    'bar': ('testauto', 'autothis'),
+                    'baz': ('faketype:strprop', 'WOOT'),
+                    'tick': '20160505',
+                }
+                node = xact.addNode('testfoo', 'woot', props=props)
+                self.eq(node.get('bar'), ('testauto', 'autothis'))
+                self.eq(node.get('baz'), ('faketype:strprop', 'woot'))
+                self.eq(node.get('tick'), 1462406400000)
 
-        core0.fini()
+                nodes = list(xact.getNodesBy('testfoo:tick', '20160505'))
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('testfoo', 'woot'))
 
-        core0 = s_cortex.openurl('ram:///foobar')
-        core1 = s_cortex.openurl('ram:///bazfaz')
+                # add some time range bumper nodes
+                xact.addNode('testfoo', 'toolow', props={'tick': '2015'})
+                xact.addNode('testfoo', 'toohigh', props={'tick': '2018'})
 
-        self.ne(id(core0), id(core1))
+                # test a few time range syntax options...
+                nodes = list(xact.getNodesBy('testfoo:tick', '2016*'))
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('testfoo', 'woot'))
 
-        core0.fini()
-        core1.fini()
+                # test a few time range syntax options...
+                nodes = list(xact.getNodesBy('testfoo:tick', ('2016', '2017')))
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('testfoo', 'woot'))
 
-        core0 = s_cortex.openurl('ram:///')
-        core1 = s_cortex.openurl('ram:///')
+                nodes = list(xact.getNodesBy('testfoo:tick', ('2016', '2017')))
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('testfoo', 'woot'))
 
-        self.ne(id(core0), id(core1))
+                self.raises(s_exc.NoSuchForm, node.set, 'bar', ('newp:newp', 20))
+                self.raises(s_exc.NoSuchProp, node.set, 'baz', ('newp:newp', 20))
 
-        core0.fini()
-        core1.fini()
+                self.nn(xact.getNodeByNdef(('testauto', 'autothis')))
 
-        core0 = s_cortex.openurl('ram://')
-        core1 = s_cortex.openurl('ram://')
+                # test lifting by prop without value
+                nodes = list(xact.getNodesBy('testfoo:tick'))
+                self.len(3, nodes)
 
-        self.ne(id(core0), id(core1))
+            with core.xact() as xact:
 
-        core0.fini()
-        core1.fini()
+                # test loc prop prefix based lookup
+                nodes = list(xact.getNodesBy('faketype:locprop', 'us.va'))
 
-    def test_cortex_savefd(self):
-        fd = io.BytesIO()
-        core0 = s_cortex.openurl('ram://', savefd=fd)
-        self.addTstForms(core0)
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef[1], 'one')
 
-        self.true(core0.isnew)
-        myfo0 = core0.myfo[0]
+                nodes = list(xact.getNodesBy('fakecomp', (33, 'thirty three')))
 
-        created = core0.getBlobValu('syn:core:created')
+                self.len(1, nodes)
 
-        t0 = core0.formTufoByProp('strform', 'one', foo='faz')
-        t1 = core0.formTufoByProp('strform', 'two', foo='faz')
+                self.eq(nodes[0].get('hehe'), 33)
+                self.eq(nodes[0].ndef[1], (33, 'thirty three'))
 
-        core0.setTufoProps(t0, foo='gronk')
-
-        core0.delTufoByProp('strform', 'two')
-        # Try persisting an blob store value
-        core0.setBlobValu('syn:test', 1234)
-        self.eq(core0.getBlobValu('syn:test'), 1234)
-        core0.fini()
-
-        fd.seek(0)
-
-        core1 = s_cortex.openurl('ram://', savefd=fd)
-
-        self.false(core1.isnew)
-        myfo1 = core1.myfo[0]
-        self.eq(myfo0, myfo1)
-
-        self.none(core1.getTufoByProp('strform', 'two'))
-
-        t0 = core1.getTufoByProp('strform', 'one')
-        self.nn(t0)
-
-        self.eq(t0[1].get('strform:foo'), 'gronk')
-
-        # Retrieve the stored blob value
-        self.eq(core1.getBlobValu('syn:test'), 1234)
-        self.eq(core1.getBlobValu('syn:core:created'), created)
-
-        # Persist a value which will be overwritten by a storage layer event
-        core1.setBlobValu('syn:core:sqlite:version', -2)
-        core1.hasBlobValu('syn:core:sqlite:version')
-
-        fd.seek(0)
-        time.sleep(1)
-
-        core2 = s_cortex.openurl('sqlite:///:memory:', savefd=fd)
-
-        self.false(core2.isnew)
-        myfo2 = core2.myfo[0]
-        self.eq(myfo0, myfo2)
-
-        self.none(core2.getTufoByProp('strform', 'two'))
-
-        t0 = core2.getTufoByProp('strform', 'one')
-        self.nn(t0)
-
-        self.eq(t0[1].get('strform:foo'), 'gronk')
-
-        # blobstores persist across storage types with savefiles
-        self.eq(core2.getBlobValu('syn:test'), 1234)
-        self.eq(core2.getBlobValu('syn:core:created'), created)
-        # Ensure that storage layer values may trump whatever was in a savefile
-        self.ge(core2.getBlobValu('syn:core:sqlite:version'), 0)
-
-        core2.fini()
-
-        fd.seek(0)
-
-        # Ensure the storage layer init events persisted across savefile reload
-        core3 = s_cortex.openurl('ram://', savefd=fd)
-        self.ge(core3.hasBlobValu('syn:core:sqlite:version'), 0)
+#FIXME THIS ALL GOES AWAY #################################################
+class FIXME:
 
     def test_cortex_stats(self):
         rows = [
@@ -2782,87 +1707,87 @@ class CortexTest(SynTest):
 
     def test_cortex_auth(self):
 
-        conf = {'auth:en': 1, 'auth:admin': 'rawr@vertex.link'}
+        with self.getRamCore() as core:
 
-        with self.getDirCore(conf=conf) as core:
+            core.formTufoByProp('syn:auth:user', 'visi@vertex.link')
+            core.formTufoByProp('syn:auth:user', 'fred@woot.com')
+            core.formTufoByProp('syn:auth:user', 'root@localhost')
 
-            self.true(core.auth.users.get('rawr@vertex.link').admin)
+            core.formTufoByProp('syn:auth:role', 'root')
+            core.formTufoByProp('syn:auth:role', 'newb')
 
-            visi = core.auth.addUser('visi@vertex.link')
-            newb = core.auth.addUser('newb@vertex.link')
+            rule = (True, ('*', {}))
+            core.addRoleRule('root', rule)
+            core.addUserRule('root@localhost', rule)
+            core.addUserRule('root@localhost', (True, ('rm:me', {})))
 
-            visi.addRule(('node:add', {'form': 'inet:ipv4'}))
-            visi.addRule(('node:del', {'form': 'inet:ipv4'}))
-            visi.addRule(('node:prop:set', {'form': 'inet:ipv4', 'prop': 'cc'}))
+            self.nn(core.getRoleAuth('root'))
+            self.nn(core.getUserAuth('root@localhost'))
 
-            visi.addRule(('node:tag:add', {'tag': 'foo'}))
-            visi.addRule(('node:tag:del', {'tag': 'foo'}))
+            self.raises(NoSuchUser, core.getUserAuth, 'newp')
+            self.raises(NoSuchRole, core.getRoleAuth, 'newp')
 
-            with s_auth.runas('newp@fake.com'):
-                retn = core.ask('[ inet:ipv4=1.2.3.4 ]')
-                self.eq(retn['oplog'][-1]['excinfo']['err'], 'NoSuchUser')
+            self.eq(len(core.getUserRules('root@localhost')), 2)
 
-            with s_auth.runas('newb@vertex.link'):
-                retn = core.ask('[ inet:ipv4=1.2.3.4 ]')
-                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
+            core.delUserRule('root@localhost', 1)
+            self.eq(len(core.getUserRules('root@localhost')), 1)
 
-            with s_auth.runas('visi@vertex.link'):
-                retn = core.ask('[ inet:ipv4=1.2.3.4 ]')
-                self.eq(retn['data'][0][1].get('inet:ipv4'), 0x01020304)
+            rule = (True, ('node:add', {'form': 'inet:*'}))
 
-            with s_auth.runas('newb@vertex.link'):
-                retn = core.ask('inet:ipv4=1.2.3.4 delnode(force=1)')
-                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
+            core.addRoleRule('newb', rule)
+            self.eq(len(core.getRoleRules('newb')), 1)
 
-            with s_auth.runas('newb@vertex.link'):
-                retn = core.ask('inet:ipv4=1.2.3.4 [ :cc=us ]')
-                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
+            core.delRoleRule('newb', 0)
+            self.eq(len(core.getRoleRules('newb')), 0)
 
-            with s_auth.runas('visi@vertex.link'):
-                retn = core.ask('inet:ipv4=1.2.3.4 [ :cc=us ]')
-                self.eq(retn['data'][0][1].get('inet:ipv4:cc'), 'us')
+            core.setRoleRules('newb', ())
+            self.eq(len(core.getRoleRules('newb')), 0)
 
-            with s_auth.runas('newb@vertex.link'):
-                retn = core.ask('inet:ipv4=1.2.3.4 [ +#foo ]')
-                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
+            # test the short circuit before auth is enabled
+            core.reqperm(('node:add', {'form': 'inet:fqdn'}), user='newp')
+            self.true(core.allowed(('node:add', {'form': 'inet:fqdn'}), user='newp'))
 
-            with s_auth.runas('visi@vertex.link'):
-                retn = core.ask('inet:ipv4=1.2.3.4 [ +#foo ]')
-                self.nn(retn['data'][0][1].get('#foo'))
+            core.setConfOpt('auth:en', 1)
 
-            with s_auth.runas('newb@vertex.link'):
-                retn = core.ask('inet:ipv4=1.2.3.4 [ -#foo ]')
-                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
+            self.raises(NoSuchUser, core.addUserRule, 'hehe', ('stuff', {}))
+            self.raises(NoSuchRole, core.addRoleRule, 'hehe', ('stuff', {}))
 
-            with s_auth.runas('visi@vertex.link'):
-                retn = core.ask('inet:ipv4=1.2.3.4 [ -#foo ]')
-                self.none(retn['data'][0][1].get('#foo'))
+            with s_auth.runas('fred@woot.com'):
 
-            with s_auth.runas('newb@vertex.link'):
-                retn = core.ask('inet:ipv4=1.2.3.4 delnode(force=1)')
-                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
+                self.false(core.allowed(('node:add', {'form': 'ou:org'})))
 
-            with s_auth.runas('visi@vertex.link'):
-                retn = core.ask('inet:ipv4=1.2.3.4 delnode(force=1)')
-                self.len(0, core.eval('inet:ipv4'))
+                rule = (True, ('node:add', {'form': 'ou:org'}))
+                core.addUserRule('fred@woot.com', rule)
 
-            with s_auth.runas('newb@vertex.link'):
-                self.len(1, core.splices([('node:add', {'form': 'inet:ipv4', 'valu': 0x01020304})]))
+                perm = ('node:add', {'form': 'ou:org'})
+                core.reqperm(perm)
+                self.true(core.allowed(perm))
+                self.eq(len(core.getUserRules('fred@woot.com')), 1)
 
-            self.none(core.getTufoByProp('inet:ipv4', 0x01020304))
+                core.setUserRules('fred@woot.com', ())
+                self.eq(len(core.getUserRules('fred@woot.com')), 0)
+
+                perm = ('node:add', {'form': 'ou:org'})
+                self.false(core.allowed(perm))
+                self.raises(AuthDeny, core.reqperm, perm)
+
+            with s_auth.runas('root@localhost'):
+                self.true(core.allowed(('fake', {})))
 
             with s_auth.runas('visi@vertex.link'):
-                self.len(0, core.splices([('node:add', {'form': 'inet:ipv4', 'valu': 0x01020304})]))
 
-            self.nn(core.getTufoByProp('inet:ipv4', 0x01020304))
+                self.false(core.allowed(('fake', {})))
 
-            with s_auth.runas('rawr@vertex.link'):
+                node = core.formTufoByProp('syn:auth:userrole', ('visi@vertex.link', 'root'))
+                self.true(core.allowed(('fake', {})))
 
-                retn = core.ask('inet:ipv4=1.2.3.4 delnode(force=1)')
-                self.eq(retn['oplog'][-1]['excinfo']['err'], 'AuthDeny')
+                core.delTufo(core.getTufoByProp('syn:auth:role', 'root'))
+                self.false(core.allowed(('fake', {})))
 
-                retn = core.ask('inet:ipv4=1.2.3.4 sudo() delnode(force=1)')
-                self.none(retn['oplog'][-1].get('excinfo'))
+            core.delTufo(core.getTufoByProp('syn:auth:user', 'fred@woot.com'))
+
+            self.raises(NoSuchUser, core.addUserRule, 'fred@woot.com', ('stuff', {}))
+            self.raises(NoSuchRole, core.addRoleRule, 'root', ('stuff', {}))
 
     def test_cortex_formtufobytufo(self):
         with self.getRamCore() as core:
@@ -2887,6 +1812,186 @@ class CortexTest(SynTest):
             self.none(t1[1].get('strform:bar'))
             self.none(t1[1].get('strform:baz'))
             self.none(t1[1].get('strform:haha'))
+
+    def test_cortex_fifos_busref(self):
+        with self.getTestDir() as dirn:
+
+            url = 'dir:///' + dirn
+            with s_cortex.openurl(url) as core:
+                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
+                name = node[1].get('syn:fifo:name')
+
+                # refcount is set to 1 when the fifo is created (when the syn:fifo node is formed),
+                #   then incremented when getCoreFifo is called
+                fiforef_0 = core.getCoreFifo(name)
+                self.eq(2, fiforef_0._syn_refs)
+
+                # Add 3 more refs
+                fiforef_1 = core.getCoreFifo(name)
+                fiforef_2 = core.getCoreFifo(name)
+                fiforef_3 = core.getCoreFifo(name)
+                self.eq(5, fiforef_0._syn_refs)
+
+                # Begin to remove them
+                fiforef_3.fini()
+                self.eq(4, fiforef_0._syn_refs)
+                fiforef_2.fini()
+                self.eq(3, fiforef_0._syn_refs)
+                fiforef_1.fini()
+                self.eq(2, fiforef_0._syn_refs)
+
+            # refs are finied, but the fifo is not finid because not all of the refs were closed yet
+            self.false(fiforef_0.isfini)
+            fiforef_1.fini()
+            self.true(fiforef_0.isfini)
+            self.eq(0, fiforef_0._syn_refs)
+
+    def test_cortex_fifos(self):
+
+        with self.getTestDir() as dirn:
+
+            url = 'dir:///' + dirn
+            with s_cortex.openurl(url) as core:
+
+                self.raises(NoSuchFifo, core.getCoreFifo, '(haha)')
+
+                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
+                iden = node[1].get('syn:fifo')
+                name = node[1].get('syn:fifo:name')
+                desc = node[1].get('syn:fifo:desc')
+
+                self.eq(iden, 'adb4864c8e5f2a2a44b454981e731b8b')
+                self.eq(name, 'haha')
+                self.eq(desc, 'test fifo')
+
+                # Assert that the fifo dir was created by simply forming the syn:fifo node
+                path = core.getCorePath('fifos', iden)
+                self.true(os.path.isdir(path))
+
+                self.raises(NoSuchFifo, core.getCoreFifo, 'shouldntexist')
+
+                sent = []
+                core.subCoreFifo(name, sent.append)
+
+                core.putCoreFifo(name, 'foo')
+                core.putCoreFifo(name, 'bar')
+
+                self.len(2, sent)
+                self.eq(sent[0][2], 'foo')
+                self.eq(sent[1][2], 'bar')
+
+                core.ackCoreFifo(name, sent[0][0])
+
+                sent = []
+                core.subCoreFifo(name, sent.append)
+                self.len(1, sent)
+                self.eq(sent[0][2], 'bar')
+
+                with s_daemon.Daemon() as dmon:
+
+                    link = dmon.listen('tcp://127.0.0.1:0/')
+                    dmon.share('core', core)
+
+                    port = link[1].get('port')
+                    prox = s_telepath.openurl('tcp://127.0.0.1/core', port=port)
+
+                    data = []
+                    def fifoxmit(mesg):
+                        data.append(mesg)
+                        name = mesg[1].get('name')
+                        seqn = mesg[1].get('qent')[0]
+                        prox.fire('fifo:ack', seqn=seqn, name=name)
+
+                    prox.on('fifo:xmit', fifoxmit, name='haha')
+
+                    wait = prox.waiter(1, 'fifo:xmit')
+                    prox.subCoreFifo('haha')
+
+                    self.nn(wait.wait(timeout=1))
+
+                    self.len(1, data)
+
+                    wait = prox.waiter(2, 'fifo:xmit')
+                    ackwait = core.waiter(2, 'fifo:ack')
+
+                    core.extCoreFifo('haha', ('lulz', 'rofl'))
+
+                    self.nn(wait.wait(timeout=1))
+                    self.nn(ackwait.wait(timeout=1))
+
+                    self.len(3, data)
+
+                    waiter = prox.waiter(1, 'tele:sock:init')
+                    subwait = core.waiter(1, 'fifo:sub')
+
+                    prox._tele_sock.fini()
+
+                    self.nn(waiter.wait(timeout=1))
+                    self.nn(subwait.wait(timeout=1))
+
+                    waiter = prox.waiter(1, 'fifo:xmit')
+                    core.putCoreFifo('haha', 'zonk')
+                    self.nn(waiter.wait(timeout=1))
+
+                    self.len(4, data)
+
+                core.delTufo(node)
+
+                self.false(os.path.isdir(path))
+                self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
+
+    def test_cortex_fifos_fifodir(self):
+
+        def run_tests(node):
+            self.eq(node[1].get('syn:fifo'), 'adb4864c8e5f2a2a44b454981e731b8b')
+            self.eq(node[1].get('syn:fifo:name'), 'haha')
+            self.eq(node[1].get('syn:fifo:desc'), 'test fifo')
+            path = core.getCorePath('fifos', 'adb4864c8e5f2a2a44b454981e731b8b')
+            self.true(os.path.isdir(path))
+
+        with self.getTestDir() as dirn:
+            url = 'dir:///' + dirn
+
+            # create the fifo and put a message into it, close the cortex
+            with s_cortex.openurl(url) as core:
+                core.formTufoByProp('syn:fifo', '(FoO)')
+                core.formTufoByProp('syn:fifo', '(bAr)')
+                core.formTufoByProp('syn:fifo', '(BAz)')
+                node = core.formTufoByProp('syn:fifo', '(haHA)', desc='test fifo')
+                run_tests(node)
+
+                core.getCoreFifo('haha')
+                core.getCoreFifo('haha')
+                fifo = core.getCoreFifo('haha')
+                self.eq(4, fifo._syn_refs)
+
+                core.putCoreFifo('haha', 'mymesg')
+
+            # make sure that the fifo still exists and is reloaded after the cortex was closed and reopened
+            with s_cortex.openurl(url) as core:
+                node = core.getTufoByProp('syn:fifo', '(haHA)')  # make sure that it is still there
+                run_tests(node)
+
+            # make sure that the fifo still works correctly after the cortex was closed and reopened
+            with s_cortex.openurl(url) as core:
+                fifo = core.getCoreFifo('haha')
+                self.eq(2, fifo._syn_refs)  # make sure that the old refs were cleaned up
+
+                actual = []
+                core.subCoreFifo('haha', actual.append)  # messages should persist
+                self.eq(2, fifo._syn_refs)  # calling subCoreFifo shouldn't incr refs
+
+                self.len(1, actual)
+                self.len(3, actual[0])
+                self.eq(actual[0][2], 'mymesg')  # make sure the original message survived
+
+                core.delTufo(node)
+
+            # make sure that the fifo is really removed after its node is removed
+            with s_cortex.openurl(url) as core:
+                self.raises(NoSuchFifo, core.getCoreFifo, 'haha')
+                path = core.getCorePath('fifos', 'adb4864c8e5f2a2a44b454981e731b8b')
+                self.false(os.path.isdir(path))
 
     def test_cortex_universal_props(self):
         with self.getRamCore() as core:
@@ -3121,7 +2226,7 @@ class CortexTest(SynTest):
                 self.false(othercore.cellpool_ready)
                 self.false(othercore.axon_ready)
 
-                othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost, 'port': neurport + 99})
+                othercore.setConfOpt('cellpool:conf', {'auth': axonauth, 'host': neurhost, 'port': neurport + 1})
                 self.false(othercore.cellpool_ready)
                 self.false(othercore.axon_ready)
 
@@ -3189,7 +2294,6 @@ class CortexTest(SynTest):
                 'form': 'inet:fqdn',
                 'valu': 'vertex.link',
                 'tag': 'hehe.woah',
-                'ival': (1514764800000, 1546300800000),
             })
             node_tag_del_splice = ('node:tag:del', {
                 'form': 'inet:fqdn',
@@ -3247,8 +2351,6 @@ class CortexTest(SynTest):
             self.true(s_tufo.tagged(node, 'hehe'))
             self.true(s_tufo.tagged(node, 'hehe.haha'))
             self.true(s_tufo.tagged(node, 'hehe.woah'))
-            ival = s_tufo.ival(node, '#hehe.woah')
-            self.len(2, ival)
 
             core.splices((node_tag_del_splice,))
             node = core.getTufoByProp('inet:fqdn', 'vertex.link')
@@ -3294,122 +2396,7 @@ class CortexTest(SynTest):
             self.eq(events, [])
             core.unlink(events.append)
 
-    def test_cortex_aware(self):
-        with self.getSslCore(configure_roles=True) as proxies:
-            uprox, rprox = proxies  # type: s_cores_common.CoreApi, s_cores_common.CoreApi
-
-            # The core is inaccessible
-            self.raises(NoSuchMeth, uprox.delRowsByProp, 'strform', )
-
-            self.gt(len(uprox.getCoreMods()), 1)
-            self.len(1, uprox.eval('[strform="bob grey"]'))
-            data = rprox.ask('sudo() [strform=pennywise] addtag(clown)')
-            self.len(1, data.get('data'))
-
-            node = rprox.getTufoByProp('strform', 'bob grey')
-            self.istufo(node)
-            nodes = rprox.getTufosByProp('strform')
-            self.len(2, nodes)
-
-            node = uprox.addTufoTags(node, ['alias'])
-            self.true(s_tufo.tagged(node, 'alias'))
-
-            node = rprox.delTufoTag(node, 'alias')
-            self.false(s_tufo.tagged(node, 'alias'))
-
-            node = uprox.setTufoProp(node, 'foo', 'bar')
-            self.eq(node[1].get('strform:foo'), 'bar')
-
-            # Splices can go in
-            msgs = [('node:add', {'form': 'intform', 'valu': 0})]
-            logs = uprox.splices(msgs)
-            self.len(0, logs)
-            node = rprox.getTufoByProp('intform', 0)
-            self.istufo(node)
-
-            iden = node[0]
-            # Can retrieve raw rows
-            rows = uprox.getRowsBy('range', 'intform', (-1, 1))
-            self.len(1, rows)
-            rows = uprox.getRowsByProp('intform')
-            self.len(1, rows)
-            rows = uprox.getRowsById(iden)
-            self.gt(len(rows), 1)
-            rows = uprox.getRowsByIdProp(iden, 'intform')
-            self.len(1, rows)
-
-            # Can retrieve by getTufo APIs
-            node[1].pop('.new', None)
-            self.eq(node, uprox.getTufoByIden(iden))
-            self.eq((node,), uprox.getTufosByIdens((iden,)))
-            nodes = uprox.getTufosByTag('clown')
-            self.len(1, nodes)
-
-            nodes = uprox.getTufosBy('range', 'intform', (-1, 1))
-            self.len(1, nodes)
-
-            items = (('strform', 'a', {}),
-                     ('notaform', 2, {}),
-                     )
-            ret = rprox.formTufosByProps(items)
-            self.len(2, ret)
-            self.nn(ret[0][0])  # real node
-            self.none(ret[1][0])  # ephemeral node
-
-            # Metadata APIs
-            self.true(rprox.isDataModl('tst'))
-            self.true(rprox.isDataType('intform'))
-            self.isinstance(rprox.getConfDefs(), dict)
-            self.isinstance(rprox.getModelDict(), dict)
-            self.eq(rprox.getPropNorm('intform', '2')[0], 2)
-            self.eq(rprox.getPropRepr('intform', 2)[0], '2')
-            self.eq(rprox.getTypeNorm('intform', '2')[0], 2)
-            self.eq(rprox.getTypeRepr('intform', 2)[0], '2')
-            uniprops = rprox.getUnivProps()
-            self.isinstance(uniprops, tuple)
-
-            self.raises(s_exc.AuthDeny, uprox.getConfOpts)
-            self.isinstance(rprox.getConfOpts(), dict)
-
-            name, modl = 'woot', {
-                'forms': (
-                    ('hehe:haha', {'ptype': 'str'}, (
-                        ('hoho', {'ptype': 'str', 'req': 1}),
-                    )),
-                ),
-            }
-            self.raises(s_exc.AuthDeny, uprox.addDataModel, name, modl)
-            rprox.addDataModel(name, modl)
-            self.true(rprox.isDataModl(name))
-
-            # formNodeByBytes/formNodeByFd support used by pushfile
-            self.istufo(uprox.formNodeByBytes(b'woot', stor=False))
-            with io.BytesIO(b'foobar') as fd:
-                self.istufo(uprox.formNodeByFd(fd, stor=False))
-
-            node = uprox.formTufoByProp('syn:trigger', '*', user='user@localhost',
-                                       on='node:add form=intform', run='[ #foo ]', en=1)
-            self.istufo(node)
-            node = uprox.eval('[intform=443]')[0]
-            self.true(s_tufo.tagged(node, 'foo'))
-
-            # Destructive to the test state - run last
-            isok, retn = rprox.authReact(('auth:del:user', {'user': 'user@localhost'}))
-            self.true(isok)
-            msgs = [('node:add', {'form': 'intform', 'valu': 100})]
-            logs = uprox.splices(msgs)
-            self.eq(logs[0][1]['err'], 'NoSuchUser')
-
-            logs = rprox.splices(msgs)
-            self.eq(logs, ())
-            node = rprox.eval('intform=100')[0]
-            self.false(s_tufo.tagged(node, 'foo'))
-
-            # Tear down the proxies
-            rprox.fini()
-            uprox.fini()
-
-class StorageTest(SynTest):
+class FIXME:
 
     def test_nonexist_ctor(self):
         self.raises(NoSuchImpl, s_cortex.openstore, 'delaylinememory:///')

@@ -26,6 +26,15 @@ class SynErr(Exception):
         '''
         return self.errinfo.get(name)
 
+##########################################################################
+class NoLinkRx(SynErr):
+    '''
+    No onrx() has been set for the link.
+    '''
+    pass
+
+##########################################################################
+
 class CliFini(SynErr):
     '''
     Raised when the CLI is to exit.
@@ -54,15 +63,12 @@ class NoSuchAlgo(SynErr): pass
 class NoSuchConf(SynErr): pass
 class NoSuchCtor(SynErr): pass
 class NoSuchFifo(SynErr): pass
-class NoSuchForm(SynErr): pass
 class NoSuchHash(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchStat(SynErr): pass
 class NoSuchImpl(SynErr): pass
 class NoSuchName(SynErr): pass
 class NoSuchTufo(SynErr): pass
-class NoSuchType(SynErr): pass
-class NoSuchProp(SynErr): pass
 class NoSuchOper(SynErr): pass
 class NoSuchCmpr(SynErr): pass
 class NoSuchCore(SynErr): pass
@@ -72,8 +78,26 @@ class NoSuchGetBy(SynErr): pass
 class NoSuchMembrane(SynErr): pass
 class MembraneExists(SynErr): pass
 
+
+class BadTypeDef(SynErr): pass
+class BadPropDef(SynErr): pass
+
 class NoSuchDecoder(SynErr): pass
 class NoSuchEncoder(SynErr): pass
+
+class NoSuchType(SynErr): pass
+class NoSuchForm(SynErr): pass
+class NoSuchProp(SynErr): pass
+
+class NoSuchLift(SynErr): pass
+class NoSuchStor(SynErr): pass
+
+class NoSuchFilt(SynErr): pass
+class BadLiftValu(SynErr): pass
+class BadLiftCmpr(SynErr): pass
+
+class ReadOnlyProp(SynErr): pass
+class ReadOnlyXact(SynErr): pass
 
 class BadOperArg(SynErr): pass
 class ReqConfOpt(SynErr): pass
@@ -229,12 +253,12 @@ class BadEccExchange(CryptoErr):
     '''
     pass
 
-class RetnErr(SynErr):
-    '''
-    Raised when a call using the retn convention has failed.
-    '''
-    def __init__(self, retn):
-        SynErr.__init__(self, excn=retn[0], **retn[1])
+#class RetnErr(SynErr):
+    #'''
+    ##Raised when a call using the retn convention has failed.
+    #'''
+    #def __init__(self, retn):
+        #SynErr.__init__(self, excn=retn[0], **retn[1])
 
 class StepTimeout(SynErr):
     '''
@@ -258,7 +282,6 @@ class JobErr(Exception):
 
 class LinkTimeOut(SynErr): pass
 
-# TODO: steal these names back for synapse/lib/net.py (and deprecate old users)
 class LinkErr(SynErr):
 
     retry = False

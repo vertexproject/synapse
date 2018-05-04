@@ -10,6 +10,9 @@ import synapse.lib.crypto.vault as s_vault
 
 from synapse.tests.common import *
 
+import unittest
+raise unittest.SkipTest('AXON DISABLE')
+
 logger = logging.getLogger(__name__)
 
 # This causes blocks which are not homogeneous when sliced in kibibyte lengths

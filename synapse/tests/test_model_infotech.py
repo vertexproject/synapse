@@ -1,5 +1,8 @@
 from binascii import hexlify
 
+import unittest
+raise unittest.SkipTest('US GOV MODEL')
+
 import synapse.cortex as s_cortex
 
 import synapse.lib.tufo as s_tufo
@@ -571,55 +574,3 @@ class InfoTechTest(SynTest):
             self.eq(node[1].get('it:auth:passwdhash:hash:ntlm'), s_m_crypto.ex_md5)
 
             self.raises(BadTypeValu, core.formTufoByProp, 'it:auth:passwdhash', {'salt': 'asdf', 'hash:md5': s_m_crypto.ex_md5})
-
-    def test_model_infotech_201801041154(self):
-
-        tick = now()
-        regv = guid()
-        iden0 = guid()
-        iden1 = guid()
-
-        ndef0 = guid(('it:dev:regkey', 'FooBar'))
-        ndef1 = guid(('it:dev:regval', regv))
-
-        rows = [
-            (iden0, 'tufo:form', 'it:dev:regkey', tick),
-            (iden0, 'it:dev:regkey', 'FooBar', tick),
-            (iden0, 'node:ndef', ndef0, tick),
-
-            (iden1, 'tufo:form', 'it:dev:regval', tick),
-            (iden1, 'it:dev:regval', regv, tick),
-            (iden1, 'it:dev:regval:key', 'FooBar', tick),
-            (iden1, 'it:dev:regval:int', 20, tick),
-            (iden1, 'node:ndef', ndef1, tick),
-        ]
-
-        with s_cortex.openstore('ram:///') as stor:
-
-            # force model migration callbacks
-            stor.setModlVers('it', 0)
-
-            def addrows(mesg):
-                stor.addRows(rows)
-
-            stor.on('modl:vers:rev', addrows, name='it', vers=201801041154)
-
-            with s_cortex.fromstore(stor) as core:
-
-                node = core.getTufoByProp('it:dev:regkey', 'foobar')
-
-                self.nn(node)
-                self.eq(node[0], iden0)
-                self.eq(node[1].get('it:dev:regkey'), 'foobar')
-                self.eq(node[1].get('node:ndef'), guid(('it:dev:regkey', 'foobar')))
-
-                node = core.getTufoByProp('it:dev:regval:key', 'foobar')
-
-                self.nn(node)
-                self.eq(node[0], iden1)
-                self.eq(node[1].get('it:dev:regval'), regv)
-                self.eq(node[1].get('it:dev:regval:key'), 'foobar')
-                self.eq(node[1].get('node:ndef'), ndef1)
-
-                nodes = core.getTufosByDark('syn:modl:rev', 'it:201801041154')
-                self.len(2, nodes)

@@ -9,11 +9,9 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
-import synapse.lib.net as s_net
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
-import synapse.lib.config as s_config
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +181,14 @@ class BlobStor(s_eventbus.EventBus):
 
 class BlobCell(s_cell.Cell):
 
+    confdefs = (
+        ('blob:mapsize', {'type': 'int', 'defval': s_const.tebibyte * 10,
+            'doc': 'The maximum size of the LMDB memory map'}),
+
+        ('blob:cloneof', {'defval': None,
+            'doc': 'The name of a blob cell to clone from'}),
+    )
+
     def postCell(self):
 
         if self.neuraddr is None:
@@ -306,21 +312,19 @@ class BlobCell(s_cell.Cell):
 
             chan.txwind(genr(), 10, timeout=30)
 
-    @staticmethod
-    @s_config.confdef(name='blob')
-    def _getBlobConfDefs():
-        return (
-            ('blob:mapsize', {'type': 'int', 'defval': s_const.tebibyte * 10,
-                'doc': 'The maximum size of the LMDB memory map'}),
-
-            ('blob:cloneof', {'defval': None,
-                'doc': 'The name of a blob cell to clone from'}),
-        )
-
 class AxonCell(s_cell.Cell):
     '''
     An Axon acts as an indexer and manages access to BlobCell bytes.
     '''
+
+    confdefs = (
+        ('axon:mapsize', {'type': 'int', 'defval': s_const.tebibyte,
+            'doc': 'The maximum size of the LMDB memory map'}),
+
+        ('axon:blobs', {'req': True,
+            'doc': 'A list of cell names in a neuron cluster'}),
+    )
+
     def postCell(self):
 
         if self.cellpool is None:
@@ -617,17 +621,6 @@ class AxonCell(s_cell.Cell):
                     self._addFileLoc(xact, buid, sha256, len(byts), name)
 
             return chan.txok(len(todo))
-
-    @staticmethod
-    @s_config.confdef(name='axon')
-    def _getAxonConfDefs():
-        return (
-            ('axon:mapsize', {'type': 'int', 'defval': s_const.tebibyte,
-                'doc': 'The maximum size of the LMDB memory map'}),
-
-            ('axon:blobs', {'req': True,
-                'doc': 'A list of cell names in a neuron cluster'}),
-        )
 
 class AxonClient:
 

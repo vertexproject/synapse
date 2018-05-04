@@ -1,7 +1,9 @@
+import synapse.tests.common as s_test
 
-from synapse.tests.common import *
+import unittest
+raise unittest.SkipTest('FILE MODEL')
 
-class GeoTest(SynTest):
+class GeoTest(s_test.SynTest):
 
     def test_model_geospace_types_latlong(self):
 

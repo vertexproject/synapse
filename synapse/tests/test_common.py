@@ -165,3 +165,15 @@ class CommonTest(SynTest):
         gen = hehe()
         spin(gen)
         self.eq(data, [c for c in s])
+
+    def test_common_config(self):
+
+        confdefs = (
+            ('foo', {'defval': 20}),
+            ('bar', {'defval': 30}),
+        )
+
+        conf = s_common.config({'foo': 80}, confdefs)
+
+        self.eq(80, conf.get('foo'))
+        self.eq(30, conf.get('bar'))

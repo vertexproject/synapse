@@ -4,6 +4,9 @@ import synapse.lib.cmdr as s_cmdr
 
 from synapse.tests.common import *
 
+import unittest
+raise unittest.SkipTest()
+
 class SynCmdCoreTest(SynTest):
     def test_cmds_auth(self):
         with self.getSslCore() as proxies:

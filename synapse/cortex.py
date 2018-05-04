@@ -1,225 +1,357 @@
-import os
-import json
+#import os
+#import json
+
 import logging
-'''
-A synapse cortex is a data storage and indexing abstraction
-which is designed to be used as a prop/valu index on various
-storage backings.
 
-Most fundamentally, a cortex instance contains rows of:
-<id> | <prop> | <valu> | <time>
-
-and is expected to provide indexed access to rows, allow bulk
-insertion, and provide for atomic deconfliction if needed.
-
-'''
-import synapse.link as s_link
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
-import synapse.telepath as s_telepath
+import synapse.eventbus as s_eventbus
+import synapse.datamodel as s_datamodel
 
-import synapse.cores.ram
-import synapse.cores.lmdb
-import synapse.cores.common
-import synapse.cores.sqlite
-import synapse.cores.storage
-import synapse.cores.postgres
-
-import synapse.cores.common as s_cores_common
+import synapse.lib.cell as s_cell
+import synapse.lib.xact as s_xact
+import synapse.lib.const as s_const
+import synapse.lib.layer as s_layer
+import synapse.lib.syntax as s_syntax
+import synapse.lib.modules as s_modules
 
 logger = logging.getLogger(__name__)
 
-storectors = {
-    'lmdb': synapse.cores.lmdb.LmdbStorage,
-    'sqlite': synapse.cores.sqlite.SqliteStorage,
-    'ram': synapse.cores.ram.RamStorage,
-    'postgres': synapse.cores.postgres.PsqlStorage,
-}
+'''
+A Cortex implements the synapse hypergraph object.
 
-def _initDirCore(link, conf, sconf):
-    return fromdir(link[1].get('path'), conf=conf)
+Many Cortex APIs operate on nodes which consist of primitive data structures
+which can be serialized with msgpack/json
 
-corctors = {
-    'dir': _initDirCore,
-    'lmdb': synapse.cores.lmdb.initLmdbCortex,
-    'sqlite': synapse.cores.sqlite.initSqliteCortex,
-    'ram': synapse.cores.ram.initRamCortex,
-    'postgres': synapse.cores.postgres.initPsqlCortex,
-}
+Example Node
 
-def fromdir(path, conf=None):
+( (<form>, <valu>), {
+
+    "props": {
+        <name>: <valu>,
+        ...
+    },
+    "tags": {
+
+        "#foo": <time>,
+        "#foo.bar": <time>,
+    },
+})
+'''
+
+class View:
     '''
-    Initialize a cortex from a directory.
+    A view represents a cortex as seen from a specific set of layers.
 
-    Args:
-        path (str): The path to the directory
-        conf (dict): An optional set of config info
-
-    Returns:
-        (synapse.cores.common.Cortex)
+    The view class is used to implement Copy-On-Write layers as well as
+    interact with a subset of the layers configured in a Cortex.
     '''
-    if conf is None:
-        conf = {}
+    def __init__(self, core, layers):
+        self.core = core
+        self.layers = layers
 
-    path = s_common.genpath(path)
-    os.makedirs(path, exist_ok=True)
+    def xact(self, write=False):
+        return s_xact.Xact(self.core, self.layers, write=write)
 
-    conf['dir'] = path
+#class CoreApi:
+    #'''
+    #Implement our synapse.telepath aware API endpoint.
+    #'''
+    #def __init__(self, dmon, core):
+        #self.dmon = dmon
+        #self.core = core
 
-    corepath = os.path.join(path, 'core.db')
-
-    confpath = os.path.join(path, 'config.json')
-    if not os.path.isfile(confpath):
-        with open(confpath, 'wb') as fd:
-            fd.write(b'{\n}')
-
-    with open(confpath, 'r', encoding='utf8') as fd:
-        text = fd.read()
-        conf.update(json.loads(text))
-
-    #TODO config option for lmdb?
-    return openurl('sqlite:///%s' % (corepath,), conf=conf)
-
-def fromstore(stor, **conf):
+class CoreApi(s_cell.CellApi):
     '''
-    Create and return a Cortex for the given Storage layer object.
-
-    Args:
-        stor (Storage): A synapse.cores.storage.Storage instance.
-        conf (dict):    A cortex config dictionary
-
-    Returns:
-        (synapse.cores.common.Cortex):  The Cortex hypergraph instance.
-
+    The CoreApi is exposed over telepath.
     '''
-    return synapse.cores.common.Cortex(None, stor, **conf)
+    #def __init__(self, core, link):
+        # pass through APIs
+        #self.getNodesBy = core.getNodesBy
 
-def openstore(url, storconf=None, **opts):
+    def getNodesBy(self, full, valu, cmpr='='):
+        '''
+        Yield Node.pack() tuples which match the query.
+        '''
+        for node in self.cell.getNodesBy(full, valu, cmpr=cmpr):
+            yield node.pack()
+
+class Cortex(s_cell.Cell):
     '''
-    Opens or creates a Cortex Storage object by URL.
+    A Cortex implements the synapse hypergraph.
 
-    This does not attempt to open Storage objects over telepath.
-
-    Args:
-        url (str): URL which is parsed in order to connect to.
-        storconf (dict): Configable options passed to the storage layer.
-        **opts (dict): Additional options added to the link tufo from the
-            parsed URL.
-
-    Example:
-        Opening a object and adding a row::
-
-            tick = s_common.now()
-            url = 'sqlite:///./derry.db'
-            store = openstore(url)
-            store.addRows([('1234', 'syn:test', 'what', tick)])
-
-    Returns:
-        synapse.cores.storage.Storage: A storage object implementing a specific backend.
-
-    Raises:
-        NoSuchImpl: If the requested protocol has no storage implementation.
+    The bulk of the Cortex API lives on the Xact() object which can
+    be obtained by calling Cortex.xact() in a with block.  This allows
+    callers to manage transaction boundaries explicitly and dramatically
+    increases performance.
     '''
-    if not storconf:
-        storconf = {}
+    confdefs = (
 
-    link = s_link.chopLinkUrl(url)
-    link[1].update(opts)
+        ('auth:en', {'type': 'bool', 'defval': False,
+            'doc': 'Set to True to enable cortex permissions enforcement.'}),
 
-    ctor = storectors.get(link[0])
-    if ctor is None:
-        raise s_common.NoSuchImpl(name=link[0], mesg='No storage ctor registered for {}'.format(link[0]))
+        ('layer:lmdb:mapsize', {'type': 'int', 'defval': s_const.tebibyte,
+            'doc': 'The default size for a new LMDB layer map.'}),
 
-    return ctor(link, **storconf)
+        ('modules', {'type': 'list', 'defval': (),
+            'doc': 'A list of (ctor, conf) modules to load.'}),
+    )
 
-def openurl(url, conf=None, storconf=None, **opts):
-    '''
-    Construct or reference a cortex by url.
+    cellapi = CoreApi
 
-    This will open a cortex if there is a registered handler for the URL
-    otherwise it will attempt to connect to the URL via Telepath.
+    def __init__(self, dirn):
 
-    If telepath is used, any configable options passed via openurl will
-    not be automatically set.
+        s_cell.Cell.__init__(self, dirn)
 
-    Args:
-        url (str): URL which is parsed in order to connect to.
-        conf (dict): Configable options passed to the Cortex.
-        storconf (dict): Configable options passed to the storage layer.
-        **opts (dict): Additional options added to the link tufo from the
-            parsed URL.
+        self.views = {}
+        self.layers = []
+        self.modules = {}
 
-    Examples:
-        Open up a ram backed cortex::
+        # initialize any cortex directory structures
+        self._initCoreDir()
 
-            core = openurl('ram:///')
+        # these may be used directly
+        self.model = s_datamodel.Model()
+        self.view = View(self, self.layers)
 
-        Open up a remote cortex over telepath::
+        self.addCoreMods(s_modules.coremods)
 
-            core = openurl('tcp://1.2.3.4:10000/core)
+        mods = self.conf.get('modules')
+        self.addCoreMods(mods)
 
-    Notes:
-        The following handlers are registered by default:
-            * ram://
-            * sqlite:///<db>
-            * lmdb:///<db>
-            * postgres://[[<passwd>:]<user>@][<host>]/[<db>][/<table>]
+    def _initCoreDir(self):
 
-        For SQL databases, the default table name is "syncortex"
+        # each cortex has a default write layer...
+        path = s_common.gendir(self.dirn, 'layers', 'default')
 
-    Returns:
-        s_cores_common.Cortex: Cortex object or a telepath proxy for a Cortex.
-    '''
+        layr = self.openLayerName('default')
+        self.layers.append(layr)
 
-    # Todo
-    #   auditfd=<fd>
-    #   auditfile=<filename>
+    def splices(self, msgs):
+        with self.view.xact(write=True) as xact:
+            for deltas in xact.splices(msgs):
+                yield deltas
 
-    if not conf:
-        conf = {}
-    if not storconf:
-        storconf = {}
+    def openLayerName(self, name):
+        dirn = s_common.gendir(self.dirn, 'layers', name)
+        return s_layer.Layer(dirn)
 
-    link = s_link.chopLinkUrl(url)
+    def getLayerConf(self, name):
+        return {}
 
-    link[1].update(opts)
-    return openlink(link, conf, storconf)
+    def getForkView(self, iden):
+        pass
 
-def openlink(link, conf=None, storconf=None,):
-    '''
-    Open a cortex via a link tuple.
-    '''
-    ctor = corctors.get(link[0])
-    if ctor is None:
-        return s_telepath.openlink(link)
+    def newForkView(self):
+        pass
 
-    return ctor(link, conf, storconf)
+    def eval(self, text):
+        '''
+        Evaluate a storm query and yield Nodes only.
+        '''
+        for mesg in self.storm(text):
 
-def choptag(tag):
-    '''
-    Chop a tag into hierarchal levels.
-    '''
-    parts = tag.split('.')
-    return ['.'.join(parts[:x + 1]) for x in range(len(parts))]
+            if mesg[0] != 'node':
+                continue
 
-def _ctor_cortex(conf):
-    url = conf.pop('url', None)
-    if url is None:
-        raise s_common.BadInfoValu(name='url', valu=None, mesg='cortex ctor requires "url":<url> option')
+            yield mesg[1].get('node')
 
-    core = openurl(url, conf=conf)
+    def storm(self, text, vars=None, user=None, view=None):
+        '''
+        Evaluate a storm query and yield result messages.
 
-    return core
+        Args:
+            text (str): A storm query.
+            vars (dict): A set of input variables.
+            user (str): The user to run as (or s_auth.whoami())
+            view (str): An optional view guid.
 
-s_dyndeps.addDynAlias('syn:cortex', _ctor_cortex)
+        Yields:
+            ((str,dict)): Storm messages.
+        '''
+        if view is None:
+            view = self.view
 
-if __name__ == '__main__':  # pragma: no cover
-    import sys
+        parser = s_syntax.Parser(view, text)
 
-    import synapse.lib.cmdr as s_cmdr
+        query = parser.query()
+        for mesg in query.execute(view):
+            yield mesg
 
-    core = openurl(sys.argv[1])
+        #except GeneratorExit as e:
+            #query
 
-    cmdr = s_cmdr.getItemCmdr(core)
+        #except Exception as e:
 
-    cmdr.runCmdLoop()
+            #yield s_common.geterr(e)
+
+    def getNodeByNdef(self, ndef):
+        '''
+        Return a single Node() instance by (form,valu) tuple.
+        '''
+        name, valu = ndef
+
+        form = self.model.forms.get(name)
+        if form is None:
+            raise s_exc.NoSuchForm(name=name)
+
+        norm, info = form.type.norm(valu)
+
+        buid = s_common.buid((form.name, norm))
+
+        with self.xact() as xact:
+            return xact.getNodeByBuid(buid)
+
+    def getNodesBy(self, full, valu, cmpr='='):
+        '''
+        Get nodes by a property value or lift syntax.
+
+        Args:
+            full (str): The full name of a property <form>:<prop>.
+            valu (obj): A value that the type knows how to lift by.
+            cmpr (str): The comparison operator you are lifting by.
+
+        Some node property types allow special syntax here.
+
+        Examples:
+
+            # simple lift by property equality
+            core.getNodesBy('file:bytes:size', 20)
+
+            # The inet:ipv4 type knows about cidr syntax
+            core.getNodesBy('inet:ipv4', '1.2.3.0/24')
+        '''
+        with self.xact() as xact:
+            for node in  xact.getNodesBy(full, valu, cmpr=cmpr):
+                yield node
+
+    def addNodes(self, nodedefs):
+        '''
+        Quickly add/modify a list of nodes from node definition tuples.
+        This API is the simplest/fastest way to add nodes, set node props,
+        and add tags to nodes remotely.
+
+        Args:
+
+            nodedefs (list): A list of node definition tuples. See below.
+
+        A node definition tuple is defined as:
+
+            ( (form, valu), {'props':{}, 'tags':{})
+
+        The "props" or "tags" keys may be omitted.
+
+        '''
+        with self.xact(write=True) as xact:
+            xact.addNodes(nodedefs)
+            return xact.deltas()
+
+    def xact(self, write=False):
+        '''
+        Return a transaction object for the default view.
+
+        Args:
+            write (bool): Set to True for a write transaction.
+
+        Returns:
+            (synapse.lib.xact.Xact)
+
+        NOTE: This must be used in a with block.
+        '''
+        return self.view.xact(write=write)
+
+    def addCoreMods(self, mods):
+        '''
+        Add a list of (name,conf) module tuples to the cortex.
+        '''
+        revs = []
+
+        mdefs = []
+        added = []
+
+        for ctor in mods:
+
+            modu = self._loadCoreModule(ctor)
+            if modu is None:
+                continue
+
+            added.append(modu)
+
+            # does the module carry have a data model?
+            mdef = modu.getModelDefs()
+            if mdef is not None:
+                mdefs.extend(mdef)
+
+        # add all data models at once.
+        self.model.addDataModels(mdefs)
+
+        # now that we've loaded all their models
+        # we can call their init functions
+        for  modu in added:
+            modu.initCoreModule()
+
+            # vers is expected in time format
+            #for vers, func in modu.getModelRevs():
+                #tick = s_time.parse(vers)
+
+            #for name, modl in modu.getBaseModels():
+
+                ## make sure the module's modl dict is loaded
+                #if not self.isDataModl(name):
+                    #toadd.append((name, modl))
+
+                ## set the model version to 0 if it's -1
+                #if self.getModlVers(name) == -1:
+                    #isnew.add(name)
+                    #self.setModlVers(name, 0)
+
+            # group up versions by name so we can get max
+            #for name, vers, func in modu.getModlRevs():
+                #maxvers[name].append(vers)
+
+                #revs.append((vers, name, func))
+
+        #if toadd:
+            #self.addDataModels(toadd)
+
+        # if we didn't have it at all, forward wind...
+        #for name, vals in maxvers.items():
+            #if name in isnew:
+                #self.setModlVers(name, max(vals))
+
+        #revs.sort()
+
+        #for vers, name, func in revs:
+            #self.revModlVers(name, vers, func)
+
+    def loadCoreModule(self, ctor, conf=None):
+        '''
+        Load a cortex module with the given ctor and conf.
+
+        Args:
+            ctor (str): The python module class path
+            conf (dict):Config dictionary for the module
+        '''
+        if conf is None:
+            conf = {}
+
+        modu = self._loadCoreModule(ctor)
+
+        mdefs = modu.getModelDefs()
+        self.model.addDataModels(mdefs)
+
+        modu.initCoreModule()
+
+    def _loadCoreModule(self, ctor):
+
+        try:
+
+            modu = s_dyndeps.tryDynFunc(ctor, self)
+
+            self.modules[ctor] = modu
+
+            return modu
+
+        except Exception as e:
+            logger.exception('mod load fail: %s' % (ctor,))
+            return None

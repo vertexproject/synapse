@@ -1,10 +1,10 @@
-from synapse.tests.common import *
+import synapse.tests.common as s_test
 
-class CnGovTest(SynTest):
+class CnGovTest(s_test.SynTest):
 
     def test_models_cngov_mucd(self):
-        with self.getRamCore() as core:
-            node = core.formTufoByProp('gov:cn:mucd', 61786)
 
-            self.nn(node)
-            self.nn(core.getTufoByProp('ou:org:name', 'chinese pla unit 61786'))
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                icp = xact.addNode('gov:cn:icp', 12345)
+                mucd = xact.addNode('gov:cn:mucd', 61786)

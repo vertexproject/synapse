@@ -12,9 +12,7 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.dyndeps as s_dyndeps
 
-import synapse.lib.tufo as s_tufo
 import synapse.lib.const as s_const
-import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 import synapse.lib.reflect as s_reflect
 

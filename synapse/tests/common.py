@@ -9,16 +9,14 @@ loglevel = os.getenv('SYN_TEST_LOG_LEVEL', 'WARNING')
 logging.basicConfig(level=loglevel,
                     format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]')
 
-import synapse.link as s_link
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
-import synapse.cores.common as s_cores_common
+#import synapse.cores.common as s_cores_common
 
-import synapse.lib.tufo as s_tufo
 import synapse.lib.scope as s_scope
 import synapse.lib.ingest as s_ingest
 import synapse.lib.output as s_output
@@ -101,3 +99,25 @@ class ModelSeenMixin:
         core.setTufoProps(node, **{'seen:min': 1000, 'seen:max': 1000})
         self.eq(node[1].get(minp), 0)
         self.eq(node[1].get(maxp), 1000)
+
+###########################################################################
+# 010 stuff
+
+class CallBack:
+    '''
+    An easy to use test helper for *synchronous* callbacks.
+    '''
+    def __init__(self, retval=None):
+        self.args = None
+        self.kwargs = None
+        self.retval = retval
+        self.event = threading.Event()
+
+    def __call__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.event.set()
+        return self.retval
+
+    def wait(self, timeout=None):
+        return self.event.wait(timeout=timeout)

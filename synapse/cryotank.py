@@ -13,7 +13,6 @@ import lmdb  # type: ignore
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.queue as s_queue
-import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 import synapse.lib.datapath as s_datapath
@@ -26,25 +25,29 @@ import synapse.datamodel as s_datamodel
 
 logger = logging.getLogger(__name__)
 
-class CryoTank(s_config.Config):
+class CryoTank(s_cell.Cell):
     '''
     A CryoTank implements a stream of structured data.
     '''
-    def __init__(self, dirn, conf=None):
-        s_config.Config.__init__(self, conf)
+    confdefs = (
+        ('mapsize', {'type': 'int', 'doc': 'LMDB mapsize value', 'defval': s_lmdb.DEFAULT_MAP_SIZE}),
+        ('noindex', {'type': 'bool', 'doc': 'Disable indexing', 'defval': 0}),
+    )
 
-        self.path = s_common.gendir(dirn)
+    def __init__(self, dirn):
 
-        path = s_common.gendir(self.path, 'cryo.lmdb')
+        s_cell.Cell.__init__(self, dirn)
 
-        mapsize = self.getConfOpt('mapsize')
+        path = s_common.gendir(self.dirn, 'cryo.lmdb')
+
+        mapsize = self.conf.get('mapsize')
         self.lmdb = lmdb.open(path, writemap=True, max_dbs=128)
         self.lmdb.set_mapsize(mapsize)
 
         self.lmdb_items = self.lmdb.open_db(b'items')
         self.lmdb_metrics = self.lmdb.open_db(b'metrics')
 
-        noindex = self.getConfOpt('noindex')
+        noindex = self.conf.get('noindex')
         self.indexer = None if noindex else CryoTankIndexer(self)
 
         with self.lmdb.begin() as xact:
@@ -56,15 +59,6 @@ class CryoTank(s_config.Config):
             self.lmdb.close()
 
         self.onfini(fini)
-
-    @staticmethod
-    @s_config.confdef(name='cryotank')
-    def _cryotank_confdefs():
-        defs = (
-            ('mapsize', {'type': 'int', 'doc': 'LMDB mapsize value', 'defval': s_lmdb.DEFAULT_MAP_SIZE}),
-            ('noindex', {'type': 'bool', 'doc': 'Disable indexing', 'defval': 0}),
-        )
-        return defs
 
     def last(self):
         '''

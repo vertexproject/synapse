@@ -13,6 +13,9 @@ from synapse.tests.common import *
 
 logger = logging.getLogger(__name__)
 
+import unittest
+raise unittest.SkipTest()
+
 class IqTest(SynTest):
     def test_iq_syntest_helpers(self):
         # Execute all of the test helpers here
