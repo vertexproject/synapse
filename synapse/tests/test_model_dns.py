@@ -2,49 +2,90 @@ import synapse.common as s_common
 
 import synapse.tests.common as s_test
 
-import unittest
-raise unittest.SkipTest('DNS MODEL')
-
 class DnsModelTest(s_test.SynTest):
+    def test_forms_dns_simple(self):
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                # inet:dns:a
+                node = xact.addNode('inet:dns:a', ('hehe.com', '1.2.3.4'))
+                self.eq(node.ndef[1], ('hehe.com', 0x01020304))
+                props = node.props
+                self.eq(props.get('fqdn'), 'hehe.com')
+                self.eq(props.get('ipv4'), 0x01020304)
 
-    def test_model_dns_a(self):
-        with self.getRamCore() as core:
+                node = xact.addNode('inet:dns:a', ('www.\u0915\u0949\u092e.com', '1.2.3.4'))
+                self.eq(node.ndef[1], ('www.xn--11b4c3d.com', 0x01020304))
+                props = node.props
+                self.eq(props.get('fqdn'), 'www.xn--11b4c3d.com')
+                self.eq(props.get('ipv4'), 0x01020304)
 
-            t0 = core.formTufoByProp('inet:dns:a', 'WOOT.com/1.2.3.4')
-            self.eq(t0[1].get('inet:dns:a'), 'woot.com/1.2.3.4')
-            self.eq(t0[1].get('inet:dns:a:fqdn'), 'woot.com')
-            self.eq(t0[1].get('inet:dns:a:ipv4'), 0x01020304)
+                # inet:dns:aaaa
+                node = xact.addNode('inet:dns:aaaa', ('localhost', '::1'))
+                self.eq(node.ndef[1], ('localhost', '::1'))
+                props = node.props
+                self.eq(props.get('fqdn'), 'localhost')
+                self.eq(props.get('ipv6'), '::1')
 
-            t1 = core.formTufoByProp('inet:dns:a', ('foo.com', 0x05060708))
-            self.eq(t1[1].get('inet:dns:a'), 'foo.com/5.6.7.8')
-            self.eq(t1[1].get('inet:dns:a:fqdn'), 'foo.com')
-            self.eq(t1[1].get('inet:dns:a:ipv4'), 0x05060708)
+                node = xact.addNode('inet:dns:aaaa', ('hehe.com', '2001:0db8:85a3:0000:0000:8a2e:0370:7334'))
+                self.eq(node.ndef[1], ('hehe.com', '2001:db8:85a3::8a2e:370:7334'))
+                props = node.props
+                self.eq(props.get('fqdn'), 'hehe.com')
+                self.eq(props.get('ipv6'), '2001:db8:85a3::8a2e:370:7334')
 
-            t2 = core.formTufoByProp('inet:dns:a', 'www.\u0915\u0949\u092e/1.2.3.4')
-            self.eq(t2[1].get('inet:dns:a'), 'www.\u0915\u0949\u092e/1.2.3.4')
-            self.eq(t2[1].get('inet:dns:a:fqdn'), 'www.xn--11b4c3d')
-            self.eq(t2[1].get('inet:dns:a:ipv4'), 0x01020304)
+                # inet:dns:rev
+                node = xact.addNode('inet:dns:rev', ('1.2.3.4', 'bebe.com'))
+                self.eq(node.ndef[1], (0x01020304, 'bebe.com'))
+                props = node.props
+                self.eq(props.get('ipv4'), 0x01020304)
+                self.eq(props.get('fqdn'), 'bebe.com')
 
-    def test_model_dns_aaaa(self):
-        with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:dns:aaaa', 'WOOT.com/FF::56')
-            self.eq(t0[1].get('inet:dns:aaaa'), 'woot.com/ff::56')
-            self.eq(t0[1].get('inet:dns:aaaa:fqdn'), 'woot.com')
-            self.eq(t0[1].get('inet:dns:aaaa:ipv6'), 'ff::56')
+                # inet:dns:rev6
+                node = xact.addNode('inet:dns:rev6', ('FF::56', 'bebe.com'))
+                self.eq(node.ndef[1], ('ff::56', 'bebe.com'))
+                props = node.props
+                self.eq(props.get('ipv6'), 'ff::56')
+                self.eq(props.get('fqdn'), 'bebe.com')
 
-    def test_model_dns_ns(self):
-        with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:dns:ns', 'WOOT.com/ns.yermom.com')
-            self.eq(t0[1].get('inet:dns:ns'), 'woot.com/ns.yermom.com')
-            self.eq(t0[1].get('inet:dns:ns:zone'), 'woot.com')
-            self.eq(t0[1].get('inet:dns:ns:ns'), 'ns.yermom.com')
+                # inet:dns:ns
+                node = xact.addNode('inet:dns:ns', ('haha.com', 'ns1.haha.com'))
+                self.eq(node.ndef[1], ('haha.com', 'ns1.haha.com'))
+                props = node.props
+                self.eq(props.get('zone'), 'haha.com')
+                self.eq(props.get('ns'), 'ns1.haha.com')
 
-    def test_model_dns_rev(self):
-        with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:dns:rev', '1.002.3.4/WOOT.com')
-            self.eq(t0[1].get('inet:dns:rev'), '1.2.3.4/woot.com')
-            self.eq(t0[1].get('inet:dns:rev:ipv4'), 0x01020304)
-            self.eq(t0[1].get('inet:dns:rev:fqdn'), 'woot.com')
+                # inet:dns:cname
+                node = xact.addNode('inet:dns:cname', ('HAHA.vertex.link', 'vertex.link'))
+                self.eq(node.ndef[1], ('haha.vertex.link', 'vertex.link'))
+                props = node.props
+                self.eq(props.get('fqdn'), 'haha.vertex.link')
+                self.eq(props.get('cname'), 'vertex.link')
+
+                # inet:dns:mx
+                node = xact.addNode('inet:dns:mx', ('vertex.link', 'mail.vertex.link'))
+                self.eq(node.ndef[1], ('vertex.link', 'mail.vertex.link'))
+                props = node.props
+                self.eq(props.get('fqdn'), 'vertex.link')
+                self.eq(props.get('mx'), 'mail.vertex.link')
+
+                # inet:dns:soa
+                nprops = {'fqdn': 'haha.vertex.link',
+                          'email': 'pennywise@vertex.link',
+                          'ns': 'ns1.vertex.link'}
+                # FIXME - missing stable guid generation???
+                node = xact.addNode('inet:dns:soa', '*', nprops)
+                props = node.props
+                self.eq(props.get('fqdn'), 'haha.vertex.link')
+                self.eq(props.get('email'), 'pennywise@vertex.link')
+                self.eq(props.get('ns'), 'ns1.vertex.link')
+
+                # inet:dns:txt
+                node = xact.addNode('inet:dns:txt', ('clowns.vertex.link', 'we all float down here'))
+                self.eq(node.ndef[1], ('clowns.vertex.link', 'we all float down here'))
+                props = node.props
+                self.eq(props.get('fqdn'), 'clowns.vertex.link')
+                self.eq(props.get('txt'), 'we all float down here')
+
+class FIXME:
 
     def test_model_dns_look(self):
         with self.getRamCore() as core:
@@ -113,12 +154,6 @@ class DnsModelTest(s_test.SynTest):
             # Ensure our autoadds are made
             self.nn(core.getTufoByProp('inet:tcp4', '1.2.3.6:53'))
             self.nn(core.getTufoByProp('inet:udp4', '1.2.3.7:8080'))
-
-    def test_model_dns_rev6(self):
-        with self.getRamCore() as core:
-            node = core.formTufoByProp('inet:dns:rev6', '2607:f8b0:4004:809::200e/vertex.link')
-            self.eq(node[1].get('inet:dns:rev6:fqdn'), 'vertex.link')
-            self.eq(node[1].get('inet:dns:rev6:ipv6'), '2607:f8b0:4004:809::200e')
 
     def test_model_dns_req(self):
 

@@ -11,6 +11,7 @@ coremods = (
     ('synapse.models.files.FileModule', {}),
     ('synapse.models.geopol.PolModule', {}),
     ('synapse.models.inet.InetModule', {}),
+    ('synapse.models.dns.DnsModule', {}),
     ('synapse.models.material.MatModule', {}),
     ('synapse.models.language.LangModule', {}),
     ('synapse.models.crypto.CryptoModule', {}),
