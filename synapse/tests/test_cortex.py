@@ -112,11 +112,15 @@ class CortexTest(SynTest):
             core.addNodes(nodes)
             nodes = list(core.getNodesBy('inet:user', 'visi'))
 
-            print('LOCAL: %r' % (nodes,))
-
             proxy = dmon._getTestProxy('core')
             nodes = list(proxy.getNodesBy('inet:user', 'visi'))
-            print(repr(nodes))
+
+    def test_cortex_tags(self):
+
+        with self.getTestCore() as core:
+
+            with core.xact(write=True) as xact:
+                xact.addNode('inet:ipv4', '1.2.3.4')
 
     def test_cortex_onset(self):
 
@@ -136,10 +140,6 @@ class CortexTest(SynTest):
     def test_cortex_base_types(self):
 
         with self.getTestCore() as core:
-
-            modu = core.addCoreMods([('synapse.tests.test_cortex.TestModule', {})])
-
-            #core.model.addDataModels([('test', mdef)])
 
             with core.xact(write=True) as xact:
 

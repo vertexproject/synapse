@@ -95,7 +95,6 @@ class Cortex(s_cell.Cell):
 
         ('modules', {'type': 'list', 'defval': (),
             'doc': 'A list of (ctor, conf) modules to load.'}),
-
     )
 
     cellapi = CoreApi
@@ -270,9 +269,9 @@ class Cortex(s_cell.Cell):
         mdefs = []
         added = []
 
-        for ctor, conf in mods:
+        for ctor in mods:
 
-            modu = self._loadCoreModule(ctor, conf)
+            modu = self._loadCoreModule(ctor)
             if modu is None:
                 continue
 
@@ -336,18 +335,18 @@ class Cortex(s_cell.Cell):
         if conf is None:
             conf = {}
 
-        modu = self._loadCoreModule(ctor, conf)
+        modu = self._loadCoreModule(ctor)
 
         mdefs = modu.getModelDefs()
         self.model.addDataModels(mdefs)
 
         modu.initCoreModule()
 
-    def _loadCoreModule(self, ctor, conf):
+    def _loadCoreModule(self, ctor):
 
         try:
 
-            modu = s_dyndeps.tryDynFunc(ctor, self, conf)
+            modu = s_dyndeps.tryDynFunc(ctor, self)
 
             self.modules[ctor] = modu
 

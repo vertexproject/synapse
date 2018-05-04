@@ -155,8 +155,15 @@ class Node:
         Returns:
             (bool): True if the tag was newly added.
         '''
-        if self.tags.get(tag) is not None:
+        #node = self.xact.addNode('syn:tag', tag)
+        # get the normalized tag value from the node
+        norm, info = self.xact.model.types('syn:tag').norm(tag)
+
+        if self.tags.get(norm) is not None:
             return False
+
+        # time to confirm that the tag exists...
+        tagnode = self.xact.getNodeByNdef(('syn:tag', norm))
 
         tick = s_common.now()
 
