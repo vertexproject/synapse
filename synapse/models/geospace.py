@@ -17,6 +17,44 @@ units = {
 }
 
 
+class Latitude(s_types.Type):
+    SCALE = 10**8  # ~1mm resolution
+    SPACE = 90 * 10**8
+
+    def norm(self, valu):
+
+        try:
+            valu = float(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu, mesg='Invalid float format')
+
+        if valu > 90.0 or valu < -90.0:
+            raise s_exc.BadTypeValu(valu, mesg='Latitude may only be -90.0 to 90.0')
+
+        return valu, {}
+
+    def indx(self, norm):
+        return ((norm * Latitude.SCALE) + Latitude.SPACE).to_bytes(5, 'big')
+
+class Longitude(s_types.Type):
+    SCALE = 10**8  # ~1mm resolution
+    SPACE = 180 * 10**8
+
+    def norm(self, valu):
+
+        try:
+            valu = float(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu, mesg='Invalid float format')
+
+        if valu > 180.0 or valu < -180.0:
+            raise s_exc.BadTypeValu(valu, mesg='Longitude may only be -180.0 to 180.0')
+
+        return valu, {}
+
+    def indx(self, norm):
+        return ((norm * Longitude.SCALE) + Longitude.SPACE).to_bytes(5, 'big')
+
 class LatLong(s_types.Type):
     # FIXME nothing uses these props
     # FIXME should these be indexed as something other than a string?
