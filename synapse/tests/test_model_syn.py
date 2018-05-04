@@ -1,20 +1,21 @@
-import unittest
-raise unittest.SkipTest()
+import synapse.tests.common as s_test
 
-class SynModelTest(SynTest):
+class SynModelTest(s_test.SynTest):
 
-    def test_model_syn_alias(self):
+    def test_model_syn_tag(self):
 
-        with s_cortex.openurl('ram:///') as core:
+        with self.getTestCore() as core:
 
-            self.eq(core.getTypeNorm('syn:alias', '$foo')[0], '$foo')
-            self.raises(BadTypeValu, core.getTypeNorm, 'syn:alias', 'asdf')
-            self.raises(BadTypeValu, core.getTypeNorm, 'syn:alias', '$foo bar')
+            with core.xact(write=True) as xact:
 
-            orgn = core.formTufoByProp('ou:org', '*')
+                node = xact.addNode('syn:tag', 'foo.bar.baz')
 
-            iden = orgn[1].get('ou:org')
-            node = core.formTufoByProp('syn:alias', '$foo', iden=iden)
+                self.eq(node.get('up'), 'foo.bar')
+                self.eq(node.get('depth'), 3)
+                self.eq(node.get('base'), 'baz')
 
-            orgp = core.getTufoByProp('ou:org', '$foo')
-            self.eq(orgn[1].get('ou:org'), orgp[1].get('ou:org'))
+                node = xact.getNodeByNdef(('syn:tag', 'foo.bar'))
+                self.nn(node)
+
+                node = xact.getNodeByNdef(('syn:tag', 'foo'))
+                self.nn(node)

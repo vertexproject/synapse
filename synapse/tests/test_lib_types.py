@@ -1,13 +1,95 @@
 # -*- coding: UTF-8 -*-
 import base64
 
+import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.datamodel as s_datamodel
+
 import synapse.lib.types as s_types
 
 import synapse.tests.common as s_test
 
-import unittest
-raise unittest.SkipTest('LIB TYPES')
+class TypesTest(s_test.SynTest):
+
+    def test_types_int(self):
+
+        model = s_datamodel.Model()
+
+        # test base types that Model snaps in...
+        valu, info = model.type('int').norm('100')
+        self.eq(valu, 100)
+
+        valu, info = model.type('int').norm('0x20')
+        self.eq(valu, 32)
+
+        byts = s_common.uhex('0000000001020304')
+        self.eq(model.type('int').indx(0x01020304), byts)
+
+        minmax = model.type('int').clone({'min': 10, 'max': 30})
+        self.eq(20, minmax.norm(20)[0])
+        self.raises(s_exc.BadTypeValu, minmax.norm, 9)
+        self.raises(s_exc.BadTypeValu, minmax.norm, 31)
+
+        ismin = model.type('int').clone({'ismin': True})
+        self.eq(20, ismin.merge(20, 30))
+
+        ismin = model.type('int').clone({'ismax': True})
+        self.eq(30, ismin.merge(20, 30))
+
+    def test_types_str(self):
+
+        model = s_datamodel.Model()
+
+        lowr = model.type('str').clone({'lower': True})
+        self.eq('foo', lowr.norm('FOO')[0])
+
+        regx = model.type('str').clone({'regex': '^[a-f][0-9]+$'})
+        self.eq('a333', regx.norm('a333')[0])
+        self.raises(s_exc.BadTypeValu, regx.norm, 'A333')
+
+        regl = model.type('str').clone({'regex': '^[a-f][0-9]+$', 'lower': True})
+        self.eq('a333', regl.norm('a333')[0])
+        self.eq('a333', regl.norm('A333')[0])
+
+        self.eq(b'haha', model.type('str').indx('haha'))
+        byts = s_common.uhex('e2889e')
+        self.eq(byts, model.type('str').indx('∞'))
+
+    def test_type_guid(self):
+
+        model = s_datamodel.Model()
+
+        guid = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+        self.eq(guid.lower(), model.type('guid').norm(guid)[0])
+        self.raises(s_exc.BadTypeValu, model.type('guid').norm, 'visi')
+
+        guid = model.type('guid').norm('*')[0]
+        self.len(32, guid)
+
+    def test_type_time(self):
+        model = s_datamodel.Model()
+        self.skip('TODO BASE TIME TEST')
+
+    def test_type_syntag(self):
+
+        model = s_datamodel.Model()
+        tagtype = model.type('syn:tag')
+
+        self.eq('foo.bar', tagtype.norm('FOO.BAR')[0])
+        self.eq('foo.bar', tagtype.norm('#foo.bar')[0])
+        self.eq('foo.bar', tagtype.norm('foo   .   bar')[0])
+
+        tag, info = tagtype.norm('foo')
+        subs = info.get('subs')
+        self.none(subs.get('up'))
+        self.eq('foo', subs.get('base'))
+        self.eq(1, subs.get('depth'))
+
+        tag, info = tagtype.norm('foo.bar')
+        subs = info.get('subs')
+        self.eq('foo', subs.get('up'))
+
+        self.raises(s_exc.BadTypeValu, tagtype.norm, '@#R)(Y')
 
 class Newp:
 

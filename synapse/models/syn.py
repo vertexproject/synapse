@@ -6,6 +6,35 @@ import synapse.lib.module as s_module
 
 logger = logging.getLogger(__name__)
 
+class SynModule(s_module.CoreModule):
+
+    def getModelDefs(self):
+
+        return (('syn', {
+
+            'forms': (
+
+                ('syn:tag', {}, (
+
+                    ('up', ('syn:tag', {}), {'ro': 1,
+                        'doc': 'The parent tag for the tag.'}),
+
+                    ('doc', ('str', {}), {'defval': '',
+                        'doc': 'A short definition for the tag.'}),
+
+                    ('depth', ('int', {}), {'ro': 1,
+                        'doc': 'How deep the tag is in the hierarchy.'}),
+
+                    ('title', ('str', {}), {'defval': '',
+                        'doc': 'A display title for the tag.'}),
+
+                    ('base', ('str', {}), {'ro': 1,
+                        'doc': 'The tag base name. Eg baz for foo.bar.baz'}),
+                )),
+
+            ),
+        }),)
+
 class SynMod(s_module.CoreModule):
     @staticmethod
     def getBaseModels():
