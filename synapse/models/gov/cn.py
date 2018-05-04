@@ -3,8 +3,7 @@ import synapse.lib.module as s_module
 
 class GovCnMod(s_module.CoreModule):
 
-    @staticmethod
-    def getModelDefs():
+    def getModelDefs(self):
         modl = {
             'types': (
                 ('gov:cn:icp',
@@ -15,10 +14,11 @@ class GovCnMod(s_module.CoreModule):
                     ('int', {}),
                     {'doc': 'A Chinese PLA MUCD'},
                  ),
-                ('gov:cn:orgicp',
-                    ('comp', {'fields': (('org', 'ou:org'), ('icp', 'gov:cn:icp'))}),
-                    {},
-                 ),
+              # FIXME 010 - needs orgs
+              #  ('gov:cn:orgicp',
+              #      ('comp', {'fields': (('org', 'ou:org'), ('icp', 'gov:cn:icp'))}),
+              #      {},
+              #   ),
             ),
             'forms': (
                 ('gov:cn:icp', {}, ()),
@@ -34,7 +34,7 @@ class GovCnMod(s_module.CoreModule):
     def onAddMucd(self, node):
         mucd = node[1].get('gov:cn:mucd')
 
-        name = 'Chinese PLA Unit %d' % (mucd,)
+        name = f'Chinese PLA Unit {mucd}'
 
         iden = guid(('gov:cn:mucd', mucd))
-        self.form('ou:org', iden, name=name, alias='pla%d' % (mucd,))
+        self.form('ou:org', iden, name=name, alias=f'pla{mucd}')

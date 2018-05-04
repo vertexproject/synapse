@@ -2,11 +2,10 @@ import synapse.lib.module as s_module
 
 class GovIntlMod(s_module.CoreModule):
 
-    @staticmethod
-    def getBaseModels():
+    def getModelDefs(self):
         modl = {
             'types': (
-                ('gov:intl:un:m49', {'subof': 'int', 'doc': 'UN M4 Numeric Country Code'}),
+                ('gov:intl:un:m49', ('int', {'min': 1, 'max': 999}), {'doc': 'UN M49 Numeric Country Code'}),
             ),
         }
         name = 'gov:intl'

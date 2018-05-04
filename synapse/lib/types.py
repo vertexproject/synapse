@@ -377,8 +377,13 @@ class Int(Type):
         return self._normPyInt(int(valu, 0))
 
     def _normPyInt(self, valu):
+        if self.opts.get('min') and self.opts.get('min') >= valu:
+            return (self.opts.get('min'), {})
+
+        if self.opts.get('max') and self.opts.get('max') <= valu:
+            return (self.opts.get('max'), {})
+
         return valu, {}
-        ## TODO check min/max values
 
     #def norm(self, valu):
         #return int(valu, 0), {}

@@ -11,6 +11,8 @@ coremods = (
     ('synapse.models.geopol.PolModule', {}),
     ('synapse.models.inet.InetModule', {}),
     ('synapse.models.gov.cn.GovCnMod', {}),
+    ('synapse.models.gov.us.GovUsMod', {}),
+    ('synapse.models.gov.intl.GovIntlMod', {}),
     ('synapse.models.language.LangModule', {}),
 )
 
