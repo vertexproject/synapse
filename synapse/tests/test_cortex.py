@@ -115,13 +115,6 @@ class CortexTest(SynTest):
             proxy = dmon._getTestProxy('core')
             nodes = list(proxy.getNodesBy('inet:user', 'visi'))
 
-    def test_cortex_tags(self):
-
-        with self.getTestCore() as core:
-
-            with core.xact(write=True) as xact:
-                xact.addNode('inet:ipv4', '1.2.3.4')
-
     def test_cortex_onset(self):
 
         with self.getTestCore() as core:
