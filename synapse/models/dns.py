@@ -5,31 +5,39 @@ class DnsModule(s_module.CoreModule):
         modl = {
             'types': (
                 ('inet:dns:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ipv4', 'inet:ipv4'))}), {
-                    'doc': 'The result of a DNS A record lookup.'
+                    'doc': 'The result of a DNS A record lookup.',
+                    'ex': '(vertex.link,1.2.3.4)',
                 }),
                 ('inet:dns:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ipv6', 'inet:ipv6'))}), {
-                    'doc': 'The result of a DNS AAAA record lookup.'
+                    'doc': 'The result of a DNS AAAA record lookup.',
+                    'ex': '(vertex.link,2607:f8b0:4004:809::200e)',
                 }),
                 ('inet:dns:rev', ('comp', {'fields': (('ipv4', 'inet:ipv4'), ('fqdn', 'inet:fqdn'))}), {
-                    'doc': 'The transformed result of a DNS PTR record lookup.'
+                    'doc': 'The transformed result of a DNS PTR record lookup.',
+                    'ex': '(1.2.3.4,vertex.link)',
                 }),
                 ('inet:dns:rev6', ('comp', {'fields': (('ipv6', 'inet:ipv6'), ('fqdn', 'inet:fqdn'))}), {
-                    'doc': 'The transformed result of a DNS PTR record for an IPv6 address.'
+                    'doc': 'The transformed result of a DNS PTR record for an IPv6 address.',
+                    'ex': '(2607:f8b0:4004:809::200e,vertex.link)',
                 }),
                 ('inet:dns:ns', ('comp', {'fields': (('zone', 'inet:fqdn'), ('ns', 'inet:fqdn'))}), {
-                    'doc': 'The result of a DNS NS record lookup.'
+                    'doc': 'The result of a DNS NS record lookup.',
+                    'ex': '(vertex.link,ns.dnshost.com)'
                 }),
                 ('inet:dns:cname', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('cname', 'inet:fqdn'))}), {
-                    'doc': 'The result of a DNS CNAME record lookup.'
+                    'doc': 'The result of a DNS CNAME record lookup.',
+                    'ex': '(foo.vertex.link,vertex.link)',
                 }),
                 ('inet:dns:mx', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('mx', 'inet:fqdn'))}), {
-                    'doc': 'The result of a DNS MX record lookup.'
+                    'doc': 'The result of a DNS MX record lookup.',
+                    'ex': '(vertex.link,mail.vertex.link)',
                 }),
                 ('inet:dns:soa', ('guid', {}), {
                     'doc': 'The result of a DNS SOA record lookup.'
                 }),
                 ('inet:dns:txt', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('txt', 'str'))}), {
-                    'doc': 'The result of a DNS MX record lookup.'
+                    'doc': 'The result of a DNS MX record lookup.',
+                    'ex': '(hehe.vertex.link,"fancy TXT record")',
                 }),
             ),
             'forms': (
@@ -56,7 +64,7 @@ class DnsModule(s_module.CoreModule):
                 )),
                 ('inet:dns:rev6', {}, (
                     ('ipv6', ('inet:ipv6', {}), {'ro': 1,
-                         'doc': 'The IPv4 address queried for its DNS PTR record.'}),
+                         'doc': 'The IPv6 address queried for its DNS PTR record.'}),
                     ('fqdn', ('inet:fqdn', {}), {'ro': 1,
                          'doc': 'The domain returned in the PTR record.'}),
                     # FIXME - add Seen:min / seen:max
