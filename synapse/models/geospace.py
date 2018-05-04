@@ -63,21 +63,15 @@ class LatLong(s_types.Type):
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
-
-        valu = valu.strip().lower()
-        if valu == '??':
-            return valu, {}
+        valu = valu.strip().split(',')
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(valu, mesg='Valu must contain valid latitude,longitude')
 
         try:
-            latv, lonv = valu.split(',', 1)
-            latv, lonv = float(latv.strip()), float(lonv.strip())
+            latv = self.modl.type('geo:latitude').norm(valu[0])[0]
+            lonv = self.modl.type('geo:longitude').norm(valu[1])[0]
         except Exception as e:
-            raise s_exc.BadTypeValu(valu, mesg='Invalid float format')
-
-        if latv > 90 or latv < -90:
-            raise s_exc.BadTypeValu(valu, mesg='Latitude may only be -90.0 to 90.0')
-        if lonv > 180 or lonv < -180:
-            raise s_exc.BadTypeValu(valu, mesg='Longitude may only be -180.0 to 180.0')
+            raise s_exc.BadTypeValu(valu, mesg=e)
 
         return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
 
@@ -97,6 +91,8 @@ class GeoModule(s_module.CoreModule):
             ('geo', {
 
                 'ctors': (
+                    ('geo:latitude', 'synapse.models.geospace.Latitude', {}, {}),
+                    ('geo:longitude', 'synapse.models.geospace.Longitude', {}, {}),
 
                     ('geo:latlong', 'synapse.models.geospace.LatLong', {}, {
                         'doc': 'A Lat/Long string specifying a point on Earth',
@@ -136,6 +132,8 @@ class GeoModule(s_module.CoreModule):
                 ('geo:alias', {'subof': 'str:lwr', 'regex': '^[0-9a-z]+$', 'doc': 'An alias for the place GUID', 'ex': 'foobar'}),
                 ('geo:dist', {'ctor': 'synapse.models.geospace.Dist',
                     'doc': 'A geographic distance (base unit is mm)', 'ex': '10 km'}),
+                ('geo:latitude', {'ctor': 'synapse.models.geospace.Latitude',}),
+                ('geo:longitude', {'ctor': 'synapse.models.geospace.Longitude',}),
                 ('geo:latlong', {'ctor': 'synapse.models.geospace.LatLong',
                     'doc': 'A Lat/Long string specifying a point on Earth'}),
                 ('geo:nloc', {'subof': 'comp',
