@@ -4,7 +4,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 '''
-Shared primitive routines for chopping up strings into values.
+Shared primitive routines for chopping up strings and values.
 '''
 def intstr(text):
     return int(text, 0)
@@ -15,6 +15,14 @@ def intrange(text):
 
 def digits(text):
     return ''.join([c for c in text if c.isdigit()])
+
+def mergeRanges(x, y):
+    '''
+    Merge two ranges into one.
+    '''
+    minv = min(*x, *y)
+    maxv = max(*x, *y)
+    return (minv, maxv)
 
 def hexstr(text):
     '''

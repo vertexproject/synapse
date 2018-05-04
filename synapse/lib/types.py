@@ -221,6 +221,72 @@ class Type:
         )
         return xact.lift(lops)
 
+    def _liftByPref(self, xact, fenc, penc, indx):
+        # a helper for Type subclass use...
+        lops = (
+            ('prop:pref', {
+                'form': fenc,
+                'prop': penc,
+                'indx': indx,
+            }),
+        )
+        return xact.lift(lops)
+
+
+tagre = regex.compile(r'^([\w]+\.)*[\w]+$')
+
+class Tag(Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+
+    def liftPropEq(self, xact, fenc, penc, text):
+
+        valu = text.lower().strip()
+
+        if not text.endswith('*'):
+            return Type.liftPropEq(self, xact, fenc, penc, text)
+
+        norm, _ = self.norm(valu.strip('*'))
+
+        indx = self.indx(norm)
+        return self._liftByPref(xact, fenc, penc, indx)
+
+    def _liftByPref(self, xact, fenc, penc, indx):
+        # a helper for Type subclass use...
+        lops = (
+            ('prop:pref', {
+                'form': fenc,
+                'prop': penc,
+                'indx': indx,
+            }),
+        )
+        return xact.lift(lops)
+
+    def _normPyStr(self, text):
+
+        valu = text.lower().strip('#').strip()
+        parts = valu.split('@', 1)
+
+        valu = parts[0]
+        toks = [v.strip() for v in valu.split('.')]
+
+        subs = {
+            'base': toks[-1],
+            'depth': len(toks),
+        }
+
+        norm = '.'.join(toks)
+        if not tagre.match(norm):
+            raise s_exc.BadTypeValu(valu=text)
+
+        if len(toks) > 1:
+            subs['up'] = '.'.join(toks[:-1])
+
+        return norm, {'subs': subs}
+
+    def indx(self, norm):
+        return norm.encode('utf8')
 
 class Str(Type):
 
@@ -289,6 +355,9 @@ class Int(Type):
         #self.setFiltCtor('=', self._cmpr_eq)
         #self.setFiltCtor('>=', self._cmpr_ge)
         #self.setFiltCtor('<=', self._cmpr_le)
+        self.minval = self.opts.get('min')
+        self.maxval = self.opts.get('max')
+
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
@@ -405,11 +474,16 @@ class Int(Type):
         return self._normPyInt(int(valu, 0))
 
     def _normPyInt(self, valu):
-        return valu, {}
-        ## TODO check min/max values
 
-    #def norm(self, valu):
-        #return int(valu, 0), {}
+        if self.minval is not None and valu < self.minval:
+            mesg = f'value is below min={self.minval}'
+            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+        if self.maxval is not None and valu > self.maxval:
+            mesg = f'value is below max={self.maxval}'
+            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+        return valu, {}
 
     def indx(self, valu):
         size = self.opts.get('size')
@@ -460,6 +534,63 @@ class Bool(Type):
 
     def repr(self, valu):
         return repr(bool(valu))
+
+'''
+class Range(Type):
+
+    _opt_defs = (
+        ('min', None),
+        ('max', None),
+        ('type', 'int'),
+    )
+
+    def postTypeInit(self):
+
+        base = self.opts.get('type')
+        self.base = self.modl.type(base).clone(self.opts)
+
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyIter)
+        self.setNormFunc(tuple, self._normPyIter)
+
+    def _normPyIter(self, valu)
+
+        minv, maxv = valu
+        tmin = self.opts.get(
+
+        x, _ = self.base.norm(valu[0])
+        y, _ = self.base.norm(valu[1])
+
+        return (min(
+
+    def _normPyStr(self, valu):
+
+        if valu.find('-'):
+
+            # inclusive range....
+            mins, maxs = valu.split('-', 1)
+
+            minv = int(self.baseint.norm(strmin)[0])
+            maxv = int(self.baseint.norm(strmax)[0])
+
+        if valu.find(':'):
+            # max exclusive (slice) range.
+            strmin, strmax = valu.split(':', 1)
+            minv, _ = self.modl.
+
+    def merge(self, oldv, newv):
+
+        minv = min(*oldv, *newv)
+        if self.tmin is not None:
+            minv = max(minv, self.tmin)
+
+        maxv = max(*oldv, *newv)
+        tmax = self.opts.get('max')
+        if tmax is not None:
+            maxv = max(maxv, tmax)
+
+        return (minv, maxv)
+'''
 
 class Time(Type):
 
@@ -761,33 +892,6 @@ class JsonType(Type):
 
 def islist(x):
     return type(x) in (list, tuple)
-
-
-tagre = regex.compile(r'^([\w]+\.)*[\w]+$')
-
-class TagType(Type):
-
-    def norm(self, valu, oldval=None):
-
-        parts = valu.split('@', 1)
-
-        subs = {}
-
-        if len(parts) == 2:
-            strs = parts[1].split('-')
-            tims = [self.modl.getTypeNorm('time', s)[0] for s in strs]
-
-            tmin = min(tims)
-            tmax = max(tims)
-
-            subs['seen:min'] = tmin
-            subs['seen:max'] = tmax
-
-        retn = parts[0].lower()
-        if not tagre.match(retn):
-            raise s_exc.BadTypeValu(valu)
-
-        return retn, subs
 
 class StormType(Type):
 

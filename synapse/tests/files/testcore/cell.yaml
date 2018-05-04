@@ -1,0 +1,2 @@
+modules:
+    - synapse.tests.test_cortex.TestModule

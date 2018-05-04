@@ -112,11 +112,8 @@ class CortexTest(SynTest):
             core.addNodes(nodes)
             nodes = list(core.getNodesBy('inet:user', 'visi'))
 
-            print('LOCAL: %r' % (nodes,))
-
             proxy = dmon._getTestProxy('core')
             nodes = list(proxy.getNodesBy('inet:user', 'visi'))
-            print(repr(nodes))
 
     def test_cortex_onset(self):
 
@@ -137,10 +134,6 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            modu = core.addCoreMods([('synapse.tests.test_cortex.TestModule', {})])
-
-            #core.model.addDataModels([('test', mdef)])
-
             with core.xact(write=True) as xact:
 
                 node = xact.addNode('faketype', 'one')
@@ -155,7 +148,7 @@ class CortexTest(SynTest):
                 xact.addNode('faketype', 'two')
 
                 # modify default vals on initial node
-                node.set('intprop', 100)
+                node.set('intprop', 21)
                 node.set('strprop', 'qwer')
                 node.set('locprop', 'us.va.reston')
 
