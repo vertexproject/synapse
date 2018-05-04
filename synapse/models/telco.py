@@ -1,10 +1,11 @@
 import logging
 
-import synapse.common as s_common
+import synapse.exc as s_exc
+
+import synapse.lib.types as s_types
+import synapse.lib.module as s_module
 
 import synapse.lookup.phonenum as s_l_phone
-from synapse.lib.types import DataType
-import synapse.lib.module as s_module
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,7 @@ intls = (
     ('us', '1', '011', 10),
 )
 
+# Fixme What do we want to do with these typecasters?
 def genTelLocCast(iso2, cc, idd, size):
     '''
     Generate a generic phone canonicalizer for numbers which
@@ -59,38 +61,63 @@ def genTelLocCast(iso2, cc, idd, size):
 def digits(text):
     return ''.join([c for c in text if c.isdigit()])
 
-class PhoneType(DataType):
-    def norm(self, valu, oldval=None):
+def chop_imei(imei):
+    valu = int(imei)
+    tac = int(imei[0:8])
+    snr = int(imei[8:14])
+    cd = int(imei[14:15])
+    return valu, {'subs': {'tac': tac, 'serial': snr, 'cd': cd}}
 
-        if isinstance(valu, str):
-            valu = int(digits(valu))
+class Phone(s_types.Type):
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
 
+    def _normPyStr(self, valu):
+        digs = digits(valu)
+        if not digs:
+            raise s_exc.BadTypeValu(valu=valu,
+                                    mesg='requires a digit string')
         subs = {}
         try:
-            valu = int(valu)
-            info = s_l_phone.getPhoneInfo(valu)
+            info = s_l_phone.getPhoneInfo(int(digs))
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=valu,
+                                    mesg='Failed to get phone info')
+        cc = info.get('cc')
+        if cc is not None:
+            subs['cc'] = cc
+        # TODO prefix based validation?
+        return digs, {'subs': subs}
 
-            cc = info.get('cc')
-            if cc is not None:
-                subs['cc'] = cc
+    def _normPyInt(self, valu):
+        if valu < 1:
+            raise s_exc.BadTypeValu(valu=valu,
+                                    mesg='phone int must be greater than 0')
+        return self._normPyStr(str(valu))
 
-            # TODO prefix based validation?
-            return valu, subs
+    def indx(self, valu):
+        '''
 
-        except TypeError as e:
-            self._raiseBadValu(valu)
+        Args:
+            valu (str): Value to encode
+
+        Returns:
+            bytes: Encoded value
+        '''
+        return valu.encode('utf8')
 
     def repr(self, valu):
-        text = str(valu)
-
         # FIXME implement more geo aware reprs
-        if text[0] == '1':
-            area = text[1:4]
-            pref = text[4:7]
-            numb = text[7:11]
+        # XXX geo-aware reprs are practically a function of cc which
+        # XXX the raw value may only have after doing a s_l_phone lookup
+        if valu[0] == '1':  # FIXME Length check
+            area = valu[1:4]
+            pref = valu[4:7]
+            numb = valu[7:11]
             return '+1 (%s) %s-%s' % (area, pref, numb)
 
-        return '+' + text
+        return '+' + valu
 
 def imeicsum(text):
     '''
@@ -113,20 +140,54 @@ def imeicsum(text):
 
     return str(chek)
 
-class ImeiType(DataType):
-    '''
-    https://en.wikipedia.org/wiki/International_Mobile_Equipment_Identity
-    '''
+class Imsi(s_types.Type):
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
 
-    def norm(self, valu, oldval=None):
+    def _normPyStr(self, valu):
+        digs = digits(valu)
+        if not digs:
+            raise s_exc.BadTypeValu(valu=valu,
+                                    mesg='requires a digit string')
+        return self._normPyInt(int(digs))
 
-        # TODO: support pre 2004 "old" imei format
-        if isinstance(valu, str):
-            digs = digits(valu)
-            if not digs:
-                self._raiseBadValu(valu, mesg='requires a digit string')
-            valu = int(digs)
+    def _normPyInt(self, valu):
+        imsi = str(valu)
+        ilen = len(imsi)
+        if ilen > 15:
+            raise s_exc.BadTypeValu(valu=valu,
+                                    mesg='invalid imsi len: %d' % (ilen,))
 
+        mcc = int(imsi[0:3])
+        # TODO full imsi analysis tree
+        return valu, {'subs': {'mcc': mcc}}
+
+    def indx(self, valu):
+        '''
+
+        Args:
+            valu (int):
+
+        Returns:
+            bytes:
+        '''
+        return valu.to_bytes(8, byteorder='big')
+
+# TODO: support pre 2004 "old" imei format
+class Imei(s_types.Type):
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+
+    def _normPyStr(self, valu):
+        digs = digits(valu)
+        if not digs:
+            raise s_exc.BadTypeValu(valu=valu,
+                                    mesg='requires a digit string')
+        return self._normPyInt(int(digs))
+
+    def _normPyInt(self, valu):
         imei = str(valu)
         ilen = len(imei)
 
@@ -134,41 +195,128 @@ class ImeiType(DataType):
         # lets add it for consistency...
         if ilen == 14:
             imei += imeicsum(imei)
-            return self._norm_imei(imei)
+            return chop_imei(imei)
 
         # if we *have* our check digit, lets check it
         elif ilen == 15:
             if imeicsum(imei) != imei[-1]:
-                self._raiseBadValu(valu, mesg='invalid imei checksum byte')
-            return self._norm_imei(imei)
+                raise s_exc.BadTypeValu(valu=valu,
+                                        mesg='invalid imei checksum byte')
+            return chop_imei(imei)
 
-        self._raiseBadValu(valu)
+        raise s_exc.BadTypeValu(valu=valu,
+                                mesg='Failed to norm IMEI')
 
-    def _norm_imei(self, imei):
-        valu = int(imei)
-        tac = int(imei[0:8])
-        snr = int(imei[8:14])
-        cd = int(imei[14:15])
-        return valu, {'tac': tac, 'serial': snr, 'cd': cd}
+    def indx(self, valu):
+        '''
 
-class ImsiType(DataType):
+        Args:
+            valu (int):
 
-    def norm(self, valu, oldval=None):
+        Returns:
+            bytes:
+        '''
+        return valu.to_bytes(7, byteorder='big')
 
-        if isinstance(valu, str):
-            digs = digits(valu)
-            if not digs:
-                self._raiseBadValu(valu, mesg='requires a digit string')
-            valu = int(digs)
+class TelcoModule(s_module.CoreModule):
+    def getModelDefs(self):
+        modl = {
+            'ctors': (
+                ('tel:mob:imei', 'synapse.models.telco.Imei', {}, {
+                    'doc': 'An International Mobile Equipment Id',
+                    'ex': '490154203237518',
+                }),
+                ('tel:mob:imsi', 'synapse.models.telco.Imsi', {}, {
+                    'doc': 'An International Mobile Subscriber Id',
+                    'ex': '310150123456789',
+                }),
+                ('tel:phone', 'synapse.models.telco.Phone', {}, {
+                    'doc': 'A phone number',
+                    'ex': '+15558675309',
+                }),
 
-        imsi = str(valu)
-        ilen = len(imsi)
-        if ilen > 15:
-            self._raiseBadValu(valu, mesg='invalid imsi len: %d' % (ilen,))
+            ),
+            'types': (
+                ('tel:mob:tac', ('int', {}), {
+                    'doc': 'A mobile Type Allocation Code',
+                    'ex': '49015420',
+                }),
+                ('tel:mob:imid', ('comp', {'fields': (('imei', 'tel:mob:imei'), ('imsi', 'tel:mob:imsi'))}), {
+                    'doc': 'Fused knowledge of an IMEI/IMSI used together.',
+                    'ex': '(490154203237518, 310150123456789)',
+                }),
+                ('tel:mob:imsiphone', ('comp', {'fields': (('imsi', 'tel:mob:imsi'), ('phone', 'tel:phone'))}), {
+                    'doc': 'Fused knowledge of an IMSI assigned phone number.',
+                    'ex': '(310150123456789, "+7(495) 124-59-83")',
+                }),
 
-        mcc = int(imsi[0:3])
-        # TODO full imsi analysis tree
-        return valu, {'mcc': mcc}
+            ),
+            'forms': (
+                ('tel:phone', {}, (
+                    ('cc', ('pol:iso2', {}), {
+                        'doc': 'The countrycode associated with the number.',
+                        'defval': '??',
+                    }),
+                )),
+                ('tel:mob:tac', {}, (
+                    # FIXME need org model
+                    # ('org', ('ou:org', {}), {
+                    #     'doc': 'The org guid for the manufacturer',
+                    # }),
+                    ('manu', ('str', {'lower': 1}), {
+                        'doc': 'The TAC manufacturer name',
+                        'defval': '??',
+                    }),
+                    ('model', ('str', {'lower': 1}), {
+                        'doc': 'The TAC model name',
+                        'defval': '??',
+                    }),
+                    ('internal', ('str', {'lower': 1}), {
+                        'doc': 'The TAC internal model name',
+                        'defval': '??',
+                    }),
+                )),
+                ('tel:mob:imei', {}, (
+                    ('tac', ('tel:mob:tac', {}), {
+                        'ro': 1,
+                        'doc': 'The Type Allocate Code within the IMEI'
+                    }),
+                    ('serial', ('int', {}), {
+                        'ro': 1,
+                        'doc': 'The serial number within the IMEI',
+                    })
+                )),
+                ('tel:mob:imsi', {}, (
+                    ('mcc', ('int', {}), {
+                        'ro': 1,
+                        'doc': 'The Mobile Country Code.',
+                    }),
+                )),
+                ('tel:mob:imid', {}, (
+                    ('imei', ('tel:mob:imei', {}), {
+                        'ro': 1,
+                        'doc': 'The IMEI for the phone hardware.'
+                    }),
+                    ('imsi', ('tel:mob:imsi', {}), {
+                        'ro': 1,
+                        'doc': 'The IMSI for the phone subscriber.'
+                    }),
+                )),
+                ('tel:mob:imsiphone', {}, (
+                    ('phone', ('tel:phone', {}), {
+                        'ro': 1,
+                        'doc': 'The phone number assigned to the IMSI.'
+                    }),
+                    ('imsi', ('tel:mob:imsi', {}), {
+                        'ro': 1,
+                        'doc': 'The IMSI with the assigned phone number.'
+                    }),
+                )),
+
+            )
+        }
+        name = 'tel'
+        return ((name, modl),)
 
 class TelMod(s_module.CoreModule):
 
@@ -182,83 +330,15 @@ class TelMod(s_module.CoreModule):
     def getBaseModels():
         modl = {
             'types': (
-
-                ('tel:phone', {'ctor': 'synapse.models.telco.PhoneType'}),
-
-                ('tel:mob:tac', {'subof': 'int',
-                                 'doc': 'A mobile Type Allocation Code'}),
-
-                ('tel:mob:imei', {'ctor': 'synapse.models.telco.ImeiType',
-                                  'doc': 'An International Mobile Equipment Id'}),
-
-                ('tel:mob:imsi', {'ctor': 'synapse.models.telco.ImsiType',
-                                  'doc': 'An International Mobile Subscriber Id'}),
-
-                ('tel:mob:imid', {
-                    'subof': 'comp',
-                    'fields': 'imei=tel:mob:imei,imsi=tel:mob:imsi',
-                    'doc': 'Fused knowledge of an IMEI/IMSI used together.'}),
-
-                ('tel:mob:imsiphone', {
-                    'subof': 'comp',
-                    'fields': 'imsi=tel:mob:imsi,phone=tel:phone',
-                    'doc': 'Fused knowledge of an IMSI assigned phone number.'}),
-
                 # TODO: mcc, meid
-
             ),
 
             'forms': (
-
-                ('tel:phone', {'ptype': 'tel:phone'}, [
-                    ('cc', {'ptype': 'pol:iso2', 'defval': '??'}),
-                ]),
 
                 ('tel:prefix', {'ptype': 'tel:phone'}, [
                     ('cc', {'ptype': 'pol:iso2', 'defval': '??'}),
                     ('tag', {'ptype': 'syn:tag'}),
                 ]),
-
-                ('tel:mob:tac', {}, [
-
-                    ('org', {'ptype': 'ou:org',
-                             'doc': 'The org guid for the manufacturer'}),
-
-                    ('manu', {'ptype': 'str:lwr', 'defval': '??',
-                              'doc': 'The TAC manufacturer name'}),
-
-                    ('model', {'ptype': 'str:lwr', 'defval': '??',
-                               'doc': 'The TAC model name'}),
-
-                    ('internal', {'ptype': 'str:lwr', 'defval': '??',
-                                  'doc': 'The TAC internal model name'}),
-                ]),
-
-                ('tel:mob:imei', {}, [
-                    ('tac', {'ptype': 'tel:mob:tac', 'doc': 'The Type Allocate Code within the IMEI'}),
-                    ('serial', {'ptype': 'int', 'doc': 'The serial number within the IMEI'}),
-                ]),
-
-                ('tel:mob:imsi', {}, [
-                    ('mcc', {'ptype': 'int', 'doc': 'The Mobile Country Code'}),
-                ]),
-
-                ('tel:mob:imid', {}, [
-                    ('imei', {'ptype': 'tel:mob:imei',
-                        'doc': 'The IMEI for the phone hardware.'}),
-                    ('imsi', {'ptype': 'tel:mob:imsi',
-                        'doc': 'The IMSI for the phone subscriber.'}),
-                ]),
-
-                ('tel:mob:imsiphone', {}, (
-
-                    ('imsi', {'ptype': 'tel:mob:imsi',
-                        'doc': 'The IMSI with the assigned phone number.'}),
-
-                    ('phone', {'ptype': 'tel:phone',
-                        'doc': 'The phone number assigned to the IMSI.'}),
-                )),
-
             ),
         }
         name = 'tel'

@@ -1,27 +1,90 @@
-import synapse.lib.types as s_types
+import synapse.exc as s_exc
+import synapse.tests.common as s_test
 
-import unittest
-raise unittest.SkipTest()
 
-from synapse.tests.common import *
+class TelcoModelTest(s_test.SynTest):
+    def test_telco_simple(self):
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                # tel:mob:tac
+                props = {'manu': 'Acme Corp',
+                         'model': 'eYephone 9000',
+                         'internal': 'spYphone 9000',
+                         # 'org': '',  FIXME: Add when ou:org is ported
+                         }
+                node = xact.addNode('tel:mob:tac', 1, props)
+                self.eq(node.ndef[1], 1)
+                # self.eq(node.get('org'), '')  FIXME: Add when ou:org is ported
+                self.eq(node.get('manu'), 'acme corp')
+                self.eq(node.get('model'), 'eyephone 9000')
+                self.eq(node.get('internal'), 'spyphone 9000')
+                # defvals
+                node = xact.addNode('tel:mob:tac', 2)
+                self.eq(node.get('manu'), '??')
+                self.eq(node.get('model'), '??')
+                self.eq(node.get('internal'), '??')
 
-class TelcoTest(SynTest):
+                # tel:mob:imid
+                node = xact.addNode('tel:mob:imid', (490154203237518, 310150123456789))
+                self.eq(node.ndef[1], (490154203237518, 310150123456789))
+                self.eq(node.get('imei'), 490154203237518)
+                self.eq(node.get('imsi'), 310150123456789)
 
-    def test_model_type_phone(self):
-        tlib = s_types.TypeLib()
-        prop = 'tel:phone'
+                # tel:mob:imsiphone
+                node = xact.addNode('tel:mob:imsiphone', (310150123456789, '+7(495) 124-59-83'))
+                self.eq(node.ndef[1], (310150123456789, '74951245983'))
+                self.eq(node.get('imsi'), 310150123456789)
+                self.eq(node.get('phone'), '74951245983')
 
-        self.eq(tlib.getTypeNorm(prop, 1234567890)[0], 1234567890)
-        self.eq(tlib.getTypeParse(prop, '123 456 7890')[0], 1234567890)
+    def test_telco_imei(self):
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                # proper value
+                node = xact.addNode('tel:mob:imei', '490154203237518')
+                self.eq(node.ndef[1], 490154203237518)
+                self.eq(node.get('serial'), 323751)
+                self.eq(node.get('tac'), 49015420)
+                # One without the check bit (it gets added)
+                node = xact.addNode('tel:mob:imei', '39015420323751')
+                self.eq(node.ndef[1], 390154203237519)
+                # Invalid checksum
+                self.raises(s_exc.BadTypeValu, xact.addNode, 'tel:mob:imei', 490154203237519)
+                self.raises(s_exc.BadTypeValu, xact.addNode, 'tel:mob:imei', '20')
+                self.raises(s_exc.BadTypeValu, xact.addNode, 'tel:mob:imei', 'hehe')
 
-        self.eq(tlib.getTypeRepr(prop, 12345678901), '+1 (234) 567-8901')
-        self.eq(tlib.getTypeRepr(prop, 9999999999), '+9999999999')
+    def test_telco_imsi(self):
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode('tel:mob:imsi', '310150123456789')
+                self.eq(node.ndef[1], 310150123456789)
+                self.eq(node.get('mcc'), 310)
+                self.raises(s_exc.BadTypeValu, xact.addNode, 'tel:mob:imsi', 'hehe')
+                self.raises(s_exc.BadTypeValu, xact.addNode, 'tel:mob:imsi', 1111111111111111)
 
-    def test_model_telco_phone(self):
-        with self.getRamCore() as core:
-            node = core.formTufoByProp('tel:phone', '+1 (703) 555-1212')
-            self.eq(node[1].get('tel:phone'), 17035551212)
-            self.eq(node[1].get('tel:phone:cc'), 'us')
+    def test_telco_phone(self):
+        with self.getTestCore() as core:
+            t = core.model.type('tel:phone')
+            norm, subs = t.norm('123 456 7890')
+            self.eq(norm, '1234567890')
+            self.eq(subs, {'subs': {'cc': 'us'}})
+
+            norm, subs = t.norm(1234567890)
+            self.eq(norm, '1234567890')
+            self.eq(subs, {'subs': {'cc': 'us'}})
+
+            norm, subs = t.norm('+1911')
+            self.eq(norm, '1911')
+            self.eq(subs, {'subs': {'cc': 'us'}})
+
+            self.eq(t.repr('12345678901'), '+1 (234) 567-8901')
+            self.eq(t.repr('9999999999'), '+9999999999')
+
+            with core.xact(write=True) as xact:
+                node = xact.addNode('tel:phone', '+1 (703) 555-1212')
+                self.eq(node.ndef[1], '17035551212')
+                self.eq(node.get('cc'), 'us')
+
+class Fixme:
 
     def test_model_telco_cast_loc_us(self):
         with self.getRamCore() as core:
@@ -35,62 +98,3 @@ class TelcoTest(SynTest):
 
             self.eq(core.getTypeCast('tel:loc:us', '7(495) 124-59-83'), 74951245983)
             self.eq(core.getTypeCast('tel:loc:us', '+7(495) 124-59-83'), 74951245983)
-
-    def test_model_telco_imei(self):
-
-        with self.getRamCore() as core:
-
-            # a perfect one...
-            valu, subs = core.getTypeNorm('tel:mob:imei', '490154203237518')
-            self.eq(valu, 490154203237518)
-
-            # invalid checksum bit
-            self.raises(BadTypeValu, core.getTypeNorm, 'tel:mob:imei', '490154203237519')
-
-            # one without it's check bit ( gets check bit added )
-            valu, subs = core.getTypeNorm('tel:mob:imei', '49015420323751')
-            self.eq(valu, 490154203237518)
-
-            node = core.formTufoByProp('tel:mob:imei', 49015420323751)
-            self.eq(node[1].get('tel:mob:imei'), 490154203237518)
-            self.eq(node[1].get('tel:mob:imei:tac'), 49015420)
-            self.eq(node[1].get('tel:mob:imei:serial'), 323751)
-
-            self.raises(BadTypeValu, core.formTufoByProp, 'tel:mob:imei', 20)
-            self.raises(BadTypeValu, core.formTufoByProp, 'tel:mob:imei', 'hehe')
-
-    def test_model_telco_imsi(self):
-
-        with self.getRamCore() as core:
-
-            node = core.formTufoByProp('tel:mob:imsi', 310150123456789)
-            self.eq(node[1].get('tel:mob:imsi'), 310150123456789)
-            self.eq(node[1].get('tel:mob:imsi:mcc'), 310)
-
-            node = core.formTufoByProp('tel:mob:imsi', '310150123456789')
-            self.eq(node[1].get('tel:mob:imsi'), 310150123456789)
-            self.eq(node[1].get('tel:mob:imsi:mcc'), 310)
-
-            # < 15 digits
-            self.raises(BadTypeValu, core.formTufoByProp, 'tel:mob:imsi', 'hehe')
-            self.raises(BadTypeValu, core.formTufoByProp, 'tel:mob:imsi', 1111111111111111)
-
-    def test_model_telco_imid(self):
-        with self.getRamCore() as core:
-            node = core.formTufoByProp('tel:mob:imid', (490154203237518, 310150123456789))
-            self.eq(node[1].get('tel:mob:imid:imsi'), 310150123456789)
-            self.eq(node[1].get('tel:mob:imid:imei'), 490154203237518)
-
-            self.nn(core.getTufoByProp('tel:mob:imei', 490154203237518))
-            self.nn(core.getTufoByProp('tel:mob:imsi', 310150123456789))
-
-    def test_model_telco_imsiphone(self):
-
-        with self.getRamCore() as core:
-
-            node = core.formTufoByProp('tel:mob:imsiphone', (310150123456789, '+7(495) 124-59-83'))
-            self.eq(node[1].get('tel:mob:imsiphone:imsi'), 310150123456789)
-            self.eq(node[1].get('tel:mob:imsiphone:phone'), 74951245983)
-
-            self.nn(core.getTufoByProp('tel:phone', 74951245983))
-            self.nn(core.getTufoByProp('tel:mob:imsi', 310150123456789))
