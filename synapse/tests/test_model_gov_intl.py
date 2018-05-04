@@ -1,30 +1,22 @@
 
 import synapse.exc as s_exc
-import synapse.lib.module as s_module
 
 from synapse.tests.common import SynTest
 
-testmodel = {
+testmodel = (
+    (
+        'test',
+        {
+            'types': (
+                ('fakem49', ('gov:intl:un:m49', {}), {'doc': 'A fake int type.'}),
+            ),
 
-    'types': (
-        ('fakem49', ('gov:intl:un:m49', {}), {'doc': 'A fake int type.'}),
+            'forms': (
+                ('fakem49', {}, ()),
+            ),
+        }
     ),
-
-    'forms': (
-        ('fakem49', {}, ()),
-    ),
-
-}
-
-class TestModule(s_module.CoreModule):
-
-    def initCoreModule(self):
-        pass
-
-    def getModelDefs(self):
-        return (
-            ('test', testmodel),
-        )
+)
 
 class IntlGovTest(SynTest):
 
@@ -32,7 +24,7 @@ class IntlGovTest(SynTest):
 
         with self.getTestCore() as core:
 
-            core.addCoreMods(['synapse.tests.test_model_gov_intl.TestModule'])
+            core.model.addDataModels(testmodel)
 
             formname = 'fakem49'
             expected_ndef = (formname, 17)
