@@ -145,11 +145,15 @@ def default_convert_tufo(core: s_common.Cortex, tufo: Tufo) -> Tuple[Tuple[str, 
             # logger.debug('Skipping propname %s', oldk)
             pass
     assert pk is not None
-    return ((formname, pk), {'props': props, 'tags': tags})
+
+    retn = ((formname, pk), {'props': props})
+    if tags:
+        retn[1]['tags'] = tags
+
+    return retn
+
 
 def convert_tufo(core: s_common.Cortex, tufo: Tufo):
-    # formname = tufo[0]['tufo:form']
-    # handler = _TufoConvMap.get('formname', default_convert_node)
     return default_convert_tufo(core, tufo)
 
 
@@ -204,7 +208,7 @@ def migrateInto010(core: s_common.Cortex, outdir: pathlib.Path, limit=None, form
                              after_query - start, finish - after_query, finish - start, (finish - start) / len(tufos))
             logger.info('(%3d/%3d) Dumped %d %s tufos', i + 1, len(forms or formlist), len(tufos), fnam)
 
-def main(argv: List[str], outp: Optional[s_output.OutPut]=None):
+def main(argv: List[str], outp: Optional[s_output.OutPut]=None):  # pragma: no cover
     p = argparse.ArgumentParser()
     p.add_argument('cortex', help='telepath URL for a cortex to be dumped')
     p.add_argument('outdir', help='directory in which to place dump files')
