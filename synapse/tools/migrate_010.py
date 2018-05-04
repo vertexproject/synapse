@@ -4,8 +4,6 @@ import pathlib
 import time
 from collections import OrderedDict
 
-from typing import Optional, List, Any, Union, Tuple, Dict, cast
-
 import synapse.cortex as s_cortex
 import synapse.cores.common as s_common
 
@@ -14,10 +12,7 @@ import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
 
-TypeType = Union[str, int, Tuple['TypeType', ...]]  # type: ignore
-Tufo = Tuple[str, Dict[str, TypeType]]
-
-def membersFromCompSpec(c: str):
+def members_from_comp_spec(c):
     if '=' in c:
         segments = c.split(',')
         kvchar = '='
@@ -26,16 +21,14 @@ def membersFromCompSpec(c: str):
         kvchar = ','
     return OrderedDict(((k, v) for k, v in (s.split(kvchar) for s in segments)))
 
-
 def inet_web_post(core, formname, pkval):
     return pkval
-
 
 primary_prop_special = {
     'inet:web:post': inet_web_post
 }
 
-def convert_primary_property(core: s_common.Cortex, tufo: Tufo) -> TypeType:
+def convert_primary_property(core, tufo):
     formname = tufo[1]['tufo:form']
     parent_types = core.getTypeOfs(formname)
     # logger.debug(f'convert_primary_property: {formname}, {parent_types}')
@@ -46,7 +39,7 @@ def convert_primary_property(core: s_common.Cortex, tufo: Tufo) -> TypeType:
     _, val = convert_subprop(core, formname, formname, tufo[1][formname])
     return val
 
-def convert_foreign_key(core: s_common.Cortex, pivot_formname, pivot_fk: TypeType) -> TypeType:
+def convert_foreign_key(core, pivot_formname, pivot_fk):
     ''' Convert field that is a pivot to another node '''
     # logger.debug('convert_foreign_key: %s=%s', pivot_formname, pivot_fk)
     pivot_tufo = core.getTufoByProp(pivot_formname, pivot_fk)
@@ -56,20 +49,20 @@ def convert_foreign_key(core: s_common.Cortex, pivot_formname, pivot_fk: TypeTyp
     new_val = convert_primary_property(core, pivot_tufo)
     return new_val
 
-def convert_comp_primary_property(core, tufo) -> Tuple[Any, ...]:
+def convert_comp_primary_property(core, tufo):
     formname = tufo[1]['tufo:form']
     compspec = core.getPropInfo(formname, 'fields')
     # logger.debug('convert_comp_primary_property: %s, %s', formname, compspec)
-    members_dict = membersFromCompSpec(compspec)
+    members_dict = members_from_comp_spec(compspec)
     retn = []
     for member in members_dict:
-        full_member = f'{formname}:{member}'
+        full_member = '%s:%s' % (formname, member)
         _, val = convert_subprop(core, formname, full_member, tufo[1][full_member])
         retn.append(val)
     return tuple(retn)
 
 
-def default_subprop_convert(core: s_common.Cortex, subpropname, subproptype, val) -> TypeType:
+def default_subprop_convert(core, subpropname, subproptype, val):
     # logger.debug('default_subprop_convert : %s(type=%s)=%s', subpropname, subproptype, val)
     if subproptype != subpropname and subproptype in core.getTufoForms():
         return convert_foreign_key(core, subproptype, val)
@@ -81,14 +74,14 @@ prop_renames = {
     'inet:ipv4:cc': 'inet:ipv4:loc'
 }
 
-def ipv4_to_client(core, formname, propname, typename, val) -> (str, TypeType):
-    return 'client', str(val)
+def ipv4_to_client(core, formname, propname, typename, val):
+    return 'client', 'tcp://%s/' % val
 
 subprop_special = {
     'inet:web:logon:ipv4': ipv4_to_client
 }
 
-def ip_to_server(core, formname, propname, typename, val) -> (str, TypeType):
+def ip_to_server(core, formname, propname, typename, val):
     _, props = core.getTufoByProp(typename, val)
     addr_propname = 'ipv' + typename[-1]
     addr = props[typename + ':' + addr_propname]
@@ -103,7 +96,7 @@ type_special = {
     'inet:udp6': ip_to_server
 }
 
-def convert_subprop(core: s_common.Cortex, formname: str, propname: str, val: Union[str, int]) -> Tuple[str, TypeType]:
+def convert_subprop(core, formname, propname, val):
     typename = core.getPropTypeName(propname)
 
     if propname in subprop_special:
@@ -117,12 +110,12 @@ def convert_subprop(core: s_common.Cortex, formname: str, propname: str, val: Un
 
     return newpropname, default_subprop_convert(core, propname, typename, val)
 
-def default_convert_tufo(core: s_common.Cortex, tufo: Tufo) -> Tuple[Tuple[str, TypeType], Dict[str, Any]]:
+def default_convert_tufo(core, tufo):
     _, oldprops = tufo
-    formname = cast(str, tufo[1]['tufo:form'])
+    formname = tufo[1]['tufo:form']
     props = {}
     tags = {}
-    propsmeta: List[Tuple[Any, ...]] = core.getSubProps(formname)
+    propsmeta = core.getSubProps(formname)
     pk = None
     for oldk, oldv in sorted(oldprops.items()):
         propmeta = next((x[1] for x in propsmeta if x[0] == oldk), {})
@@ -152,10 +145,8 @@ def default_convert_tufo(core: s_common.Cortex, tufo: Tufo) -> Tuple[Tuple[str, 
 
     return retn
 
-
-def convert_tufo(core: s_common.Cortex, tufo: Tufo):
+def convert_tufo(core, tufo):
     return default_convert_tufo(core, tufo)
-
 
 # Topologically sorted comp types that are form types that have other comp types as elements.  The beginning of the
 # list has more dependencies than the end.
@@ -179,7 +170,7 @@ def _formsortkey(fnam):
         idx = 9999
     return (idx, fnam)
 
-def migrateInto010(core: s_common.Cortex, outdir: pathlib.Path, limit=None, forms=None, tag=None):
+def migrateInto010(core, outdir, limit=None, forms=None, tag=None):
     '''
     Sucks all *tufos* out of a < .0.1.0 cortex, migrates the schema, then dumps to a directory with one file per form,
     suitable for ingesting into a > .0.1.0 cortex.
@@ -208,7 +199,7 @@ def migrateInto010(core: s_common.Cortex, outdir: pathlib.Path, limit=None, form
                              after_query - start, finish - after_query, finish - start, (finish - start) / len(tufos))
             logger.info('(%3d/%3d) Dumped %d %s tufos', i + 1, len(forms or formlist), len(tufos), fnam)
 
-def main(argv: List[str], outp: Optional[s_output.OutPut]=None):  # pragma: no cover
+def main(argv, outp=None):  # pragma: no cover
     p = argparse.ArgumentParser()
     p.add_argument('cortex', help='telepath URL for a cortex to be dumped')
     p.add_argument('outdir', help='directory in which to place dump files')
