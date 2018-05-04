@@ -36,7 +36,7 @@ class Latitude(s_types.Type):
         return valu, {}
 
     def indx(self, norm):
-        return ((norm * Latitude.SCALE) + Latitude.SPACE).to_bytes(5, 'big')
+        return int(norm * Latitude.SCALE + Latitude.SPACE).to_bytes(5, 'big')
 
 class Longitude(s_types.Type):
     SCALE = 10**8  # ~1mm resolution
@@ -57,7 +57,7 @@ class Longitude(s_types.Type):
         return valu, {}
 
     def indx(self, norm):
-        return ((norm * Longitude.SCALE) + Longitude.SPACE).to_bytes(5, 'big')
+        return int(norm * Longitude.SCALE + Longitude.SPACE).to_bytes(5, 'big')
 
 class LatLong(s_types.Type):
 

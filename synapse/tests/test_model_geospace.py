@@ -21,6 +21,12 @@ class GeoTest(s_t_common.SynTest):
             self.eq(t.norm('90')[0], 90.0)
             self.raises(s_exc.BadTypeValu, t.norm, '90.1')
 
+            self.eq(t.indx(-90), b'\x00\x00\x00\x00\x00')  # index starts at 0 and goes to 9000000000
+            self.eq(t.indx(-12.34567890123456789), b'\x01\xce\xdb\x17-')
+            self.eq(t.indx(0), b'\x02\x18q\x1a\x00')
+            self.eq(t.indx(12.34567890123456789), b'\x02b\x07\x1c\xd2')
+            self.eq(t.indx(90), b'\x040\xe24\x00')
+
             # Longitude Type Tests =====================================================================================
             t = core.model.type(formlon)
             self.raises(s_exc.BadTypeValu, t.norm, '-180.1')
@@ -31,6 +37,12 @@ class GeoTest(s_t_common.SynTest):
             self.eq(t.norm('12.345678901234567890')[0], 12.3456789)
             self.eq(t.norm('180')[0], 180.0)
             self.raises(s_exc.BadTypeValu, t.norm, '180.1')
+
+            self.eq(t.indx(-180), b'\x00\x00\x00\x00\x00')  # index starts at 0 and goes to 18000000000
+            self.eq(t.indx(-12.34567890123456789), b'\x03\xe7L1-')
+            self.eq(t.indx(0), b'\x040\xe24\x00')
+            self.eq(t.indx(12.34567890123456789), b'\x04zx6\xd2')
+            self.eq(t.indx(180), b'\x08a\xc4h\x00')
 
             # Latlong Type Tests =====================================================================================
             t = core.model.type(formlatlon)
