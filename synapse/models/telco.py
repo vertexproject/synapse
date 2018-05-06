@@ -86,7 +86,7 @@ class Phone(s_types.Type):
                                     mesg='Failed to get phone info')
         cc = info.get('cc')
         if cc is not None:
-            subs['cc'] = cc
+            subs['loc'] = cc
         # TODO prefix based validation?
         return digs, {'subs': subs}
 
@@ -239,7 +239,7 @@ class TelcoModule(s_module.CoreModule):
                     'ex': '310150123456789',
                 }),
                 ('tel:phone', 'synapse.models.telco.Phone', {}, {
-                    'doc': 'A phone number',
+                    'doc': 'A phone number.',
                     'ex': '+15558675309',
                 }),
 
@@ -261,8 +261,8 @@ class TelcoModule(s_module.CoreModule):
             ),
             'forms': (
                 ('tel:phone', {}, (
-                    ('cc', ('pol:iso2', {}), {
-                        'doc': 'The countrycode associated with the number.',
+                    ('loc', ('loc', {}), {
+                        'doc': 'The location associated with the number.',
                         'defval': '??',
                     }),
                 )),

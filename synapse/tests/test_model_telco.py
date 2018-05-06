@@ -66,15 +66,15 @@ class TelcoModelTest(s_test.SynTest):
             t = core.model.type('tel:phone')
             norm, subs = t.norm('123 456 7890')
             self.eq(norm, '1234567890')
-            self.eq(subs, {'subs': {'cc': 'us'}})
+            self.eq(subs, {'subs': {'loc': 'us'}})
 
             norm, subs = t.norm(1234567890)
             self.eq(norm, '1234567890')
-            self.eq(subs, {'subs': {'cc': 'us'}})
+            self.eq(subs, {'subs': {'loc': 'us'}})
 
             norm, subs = t.norm('+1911')
             self.eq(norm, '1911')
-            self.eq(subs, {'subs': {'cc': 'us'}})
+            self.eq(subs, {'subs': {'loc': 'us'}})
 
             self.eq(t.repr('12345678901'), '+1 (234) 567-8901')
             self.eq(t.repr('9999999999'), '+9999999999')
@@ -85,7 +85,7 @@ class TelcoModelTest(s_test.SynTest):
             with core.xact(write=True) as xact:
                 node = xact.addNode('tel:phone', '+1 (703) 555-1212')
                 self.eq(node.ndef[1], '17035551212')
-                self.eq(node.get('cc'), 'us')
+                self.eq(node.get('loc'), 'us')
                 node = xact.addNode('tel:phone', '+1 (703) 555-2424')
                 # Exact search
                 nodes = list(xact.getNodesBy('tel:phone', 17035552424))
