@@ -79,6 +79,9 @@ class TelcoModelTest(s_test.SynTest):
             self.eq(t.repr('12345678901'), '+1 (234) 567-8901')
             self.eq(t.repr('9999999999'), '+9999999999')
 
+            self.raises(s_exc.BadTypeValu, t.norm, -1)
+            self.raises(s_exc.BadTypeValu, t.norm, '+()*')
+
             with core.xact(write=True) as xact:
                 node = xact.addNode('tel:phone', '+1 (703) 555-1212')
                 self.eq(node.ndef[1], '17035551212')

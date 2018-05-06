@@ -81,7 +81,7 @@ class Phone(s_types.Type):
         subs = {}
         try:
             info = s_l_phone.getPhoneInfo(int(digs))
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             raise s_exc.BadTypeValu(valu=valu,
                                     mesg='Failed to get phone info')
         cc = info.get('cc')
