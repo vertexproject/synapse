@@ -86,6 +86,14 @@ class TelcoModelTest(s_test.SynTest):
                 node = xact.addNode('tel:phone', '+1 (703) 555-1212')
                 self.eq(node.ndef[1], '17035551212')
                 self.eq(node.get('cc'), 'us')
+                node = xact.addNode('tel:phone', '+1 (703) 555-2424')
+                # Exact search
+                nodes = list(xact.getNodesBy('tel:phone', 17035552424))
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef[1], '17035552424')
+                # Prefix search
+                nodes = list(xact.getNodesBy('tel:phone', '1703555*'))
+                self.len(2, nodes)
 
 class Fixme:
 
