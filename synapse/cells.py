@@ -2,12 +2,16 @@
 Constructors for the various cells.
 ( used for dmon config automation)
 '''
+import yaml
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 
+import synapse.lib.auth as s_auth
 import synapse.lib.layer as s_layer
 
 ctors = {
+    'auth': s_auth.Auth,
     'layer': s_layer.Layer,
     'cortex': s_cortex.Cortex,
 }
@@ -28,7 +32,7 @@ def init(name, dirn):
 
     return ctor(dirn)
 
-def deploy(name, dirn):
+def deploy(name, dirn, boot=None):
     '''
     Deploy a cell of the named type to the specified directory.
     '''
@@ -36,17 +40,14 @@ def deploy(name, dirn):
     if ctor is None:
         raise s_exc.NoSuchName(name=name, mesg='No cell ctor by that name')
 
+    if boot is None:
+        boot = {}
+
+    boot['type'] = name
+
+    # create the boot.yaml
+    with s_common.genfile(dirn, 'boot.yaml') as fd:
+        fd.write(yaml.safe_dump(boot).encode('utf8'))
+
     # Cell has a deploy static method (possibly per cell type)
     ctor.deploy(dirn)
-
-#def cryo(dirn, conf=None):
-    #return s_cryotank.CryoCell(dirn, conf=conf)
-
-#def axon(dirn, conf=None):
-    #return s_axon.AxonCell(dirn, conf=conf)
-
-#def blob(dirn, conf=None):
-    #return s_axon.BlobCell(dirn, conf=conf)
-
-#def neuron(dirn, conf=None):
-    #return s_neuron.Neuron(dirn, conf=conf)
