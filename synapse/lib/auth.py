@@ -135,14 +135,11 @@ class Auth(s_cell.Cell):
 
         with self.lenv.begin() as xact:
 
-            roles = {}
             for name, info in self._iterAuthDefs(xact, self._db_roles):
-                roles[name] = (name, info)
-                self.roles[name] = Role(name, info, auth=self)
+                self.roles[name] = Role(self, name, info)
 
             for name, info in self._iterAuthDefs(xact, self._db_users):
-                userroles = [roles.get(n) for n in info.get('roles')]
-                self.users[name] = User(name, info, userroles, auth=self)
+                self.users[name] = User(self, name, info)
 
     def initCellAuth(self):
         # we *are* the auth...
@@ -172,7 +169,10 @@ class Auth(s_cell.Cell):
             if self.users.get(name) is not None:
                 raise s_exc.DupUserName(name=name)
 
-            user = User(name, {}, (), auth=self)
+            if self.roles.get(name) is not None:
+                raise s_exc.DupUserName(name=name)
+
+            user = User(self, name, {})
             self.users[name] = user
 
             uenc = name.encode('utf8')
@@ -224,8 +224,11 @@ class Auth(s_cell.Cell):
             if self.roles.get(name) is not None:
                 raise s_exc.DupRoleName(name=name)
 
+            if self.users.get(name) is not None:
+                raise s_exc.DupRoleName(name=name)
+
             # Role() does rdef validation
-            role = Role(name, {}, auth=self)
+            role = Role(self, name, {})
             self.roles[name] = role
 
             renc = name.encode('utf8')
@@ -351,13 +354,14 @@ class Role:
     '''
     A Role within the auth system.
     '''
-    def __init__(self, name, info, auth=None):
+    def __init__(self, auth, name, info):
 
         # it is ok for callers to access these...
         self.name = name
         self.info = info
         self.auth = auth
 
+        info.setdefault('type', self.__class__.__name__.lower())
         info.setdefault('rules', ())
         info.setdefault('admin', False)
 
@@ -376,8 +380,6 @@ class Role:
         Returns:
             bool: The current AuthBase admin value.
         '''
-        self.reqauth()
-
         admin = bool(admin)
         if admin == self.admin:
             return admin
@@ -389,19 +391,22 @@ class Role:
 
         return admin
 
-    def addRule(self, allow, path):
+    def addRule(self, rule, indx=None):
         '''
         Add an allow rule.
 
         Args:
             rule (bool, tuple): Add an allow/deny and path tuple.
+            indx (int): The index for where to insert the rule.
 
         Returns:
             bool: True if the rule was added. False otherwise.
         '''
-        self.reqauth()
+        if indx:
+            self.rules.insert(indx, rule)
+        else:
+            self.rules.append(rule)
 
-        self.rules.append((allow, path))
         self.info['rules'] = tuple(self.rules)
 
         self.initRuleTree()
@@ -414,12 +419,12 @@ class Role:
         for allowed, path in self.rules:
             self.ruletree.put(path, allowed)
 
-    def delRule(self, rule):
+    def delRule(self, indx):
         '''
         Remove an allow rule.
 
         Args:
-            rule ((str,dict)): A rule tufo to remove.
+            indx (int): The rule number to remove.
 
         Returns:
             True:
@@ -427,17 +432,16 @@ class Role:
         Raises:
             s_exc.NoSuchRule: If the rule did not exist.
         '''
-        self.reqauth()
-
         try:
-            self.rules.remove(rule)
-        except ValueError:
-            raise s_exc.NoSuchRule(rule=rule, name=self.name,
-                                   mesg='Rule does not exist')
+            self.rules.pop(indx)
+        except IndexError:
+            mesg = 'Rule index invalid'
+            raise s_exc.NoSuchRule(mesg=mesg)
 
+        self.info['rules'] = tuple(self.rules)
         self.initRuleTree()
-        self._saveAuthData()
 
+        self.save()
         return True
 
     def allowed(self, perm, elev=True):
@@ -456,25 +460,21 @@ class Role:
 
         return self.ruletree.last(perm)
 
-    def reqauth(self):
-        if self.auth is None:
-            raise s_exc.ReadOnly()
-
     def save(self):
         self.auth._saveRoleInfo(self.name, self.info)
 
 class User(Role):
 
-    def __init__(self, name, info, roles, auth=None):
+    def __init__(self, auth, name, info):
 
-        Role.__init__(self, name, info, auth=auth)
+        Role.__init__(self, auth, name, info)
         self.info.setdefault('roles', ())
 
         self.roles = {}
+        self.locked = self.info.get('locked', False)
 
-        for rolename, roleinfo in roles:
-            role = Role(rolename, roleinfo, auth=auth)
-            self.roles[rolename] = role
+        for name in self.info.get('roles'):
+            self.roles[name] = self.auth.roles.get(name)
 
         self.shadow = info.get('shadow')
 
@@ -483,9 +483,11 @@ class User(Role):
 
     def tryPasswd(self, passwd):
 
-        if passwd is None:
+        if self.locked:
+            return False
 
-            raise s_exc.AuthDeny()
+        if passwd is None:
+            return False
 
         if self.shadow is None:
             return False
@@ -498,15 +500,17 @@ class User(Role):
 
     def setPasswd(self, passwd):
 
-        if self.auth is None:
-            raise s_exc.ReadOnly()
-
         salt = s_common.guid()
         hashed = s_common.guid((salt, passwd))
 
         self.shadow = (salt, hashed)
         self.info['shadow'] = self.shadow
 
+        self.save()
+
+    def setLocked(self, locked):
+        self.locked = locked
+        self.info['locked'] = locked
         self.save()
 
     def allowed(self, perm, elev=True):
@@ -520,6 +524,9 @@ class User(Role):
         Returns:
             bool: True if the permission is allowed. False otherwise.
         '''
+        if self.locked:
+            return False
+
         if Role.allowed(self, perm, elev=elev):
             return True
 
@@ -542,8 +549,6 @@ class User(Role):
         Raises:
             s_exc.NoSuchRole: If the role does not exist.
         '''
-        self.reqauth()
-
         role = self.auth.roles.get(name)
         if role is None:
             raise s_exc.NoSuchRole(name=name)
@@ -564,8 +569,6 @@ class User(Role):
         Returns:
             bool: True if the role was removed; False if the role was not on the user.
         '''
-        self.reqauth()
-
         role = self.roles.pop(name, None)
         if role is None:
             return False

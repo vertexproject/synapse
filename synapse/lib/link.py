@@ -1,3 +1,4 @@
+import socket
 import asyncio
 import threading
 
@@ -22,15 +23,26 @@ class Link(s_eventbus.EventBus):
         self.reader = reader
         self.writer = writer
 
+        self.sock = self.writer.get_extra_info('socket')
+
+        # disable nagle ( to minimize latency for small xmit )
+        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        # enable TCP keep alives...
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        if hasattr(socket, 'TCP_KEEPIDLE'):
+            # start sending a keep alives after 3 sec of inactivity
+            self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 3)
+            # send keep alives every 3 seconds once started
+            self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
+            # close the socket after 5 failed keep alives (15 sec)
+            self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
+
         self.info = {}
         self.chans = {}
 
         self.unpk = s_msgpack.Unpk()
         self.txque = asyncio.Queue(maxsize=1000)
         self.rxfunc = None
-
-        self.txevent = asyncio.Event()
-        self.txclear = threading.Event()
 
         self.onfini(self.writer.close)
 
