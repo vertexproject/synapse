@@ -82,7 +82,7 @@ class GeoTest(s_t_common.SynTest):
             self.eq(t.repr((0, -0)), '0,0')
             self.eq(t.repr((12.345678, -12.345678)), '12.345678,-12.345678')
 
-    def test_model_geospace_types_dist(self):
+    def test_dist(self):
 
         formname = 'geo:dist'
         with self.getTestCore() as core:
@@ -93,9 +93,9 @@ class GeoTest(s_t_common.SynTest):
 
             self.raises(s_exc.BadTypeValu, t.norm, '1.3 pc')
 
-    '''
-    def test_model_geospace_nloc(self):
-
+    def test_nloc(self):
+        pass  # FIXME can't test until syn:prop is done
+        '''
         with self.getRamCore() as core:
 
             item = core.formTufoByProp('mat:item', '7ea768402eae63c9378f4e3805f4d0d3')
@@ -107,4 +107,4 @@ class GeoTest(s_t_common.SynTest):
             self.eq(node[1].get('geo:nloc:prop'), 'mat:item:latlong')
             self.eq(node[1].get('geo:nloc:ndef'), '15533769b23efcb12d126a53f9b804ee')
             self.eq(node[1].get('geo:nloc:latlong'), '44.0429075,4.8828757')
-    '''
+        '''
