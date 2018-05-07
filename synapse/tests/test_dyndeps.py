@@ -33,5 +33,5 @@ class DynDepsTest(s_test.SynTest):
         self.raises(NoSuchDyn, s_dyndeps.tryDynLocal, 'sys.newpnewp')
 
     def test_dyndeps_meth(self):
-        self.nn(s_dyndeps.getDynMeth('synapse.telepath.Proxy.on'))
-        self.none(s_dyndeps.getDynMeth('synapse.telepath.Proxy.newp'))
+        self.nn(s_dyndeps.getDynMeth('synapse.eventbus.EventBus.fini'))
+        self.none(s_dyndeps.getDynMeth('synapse.eventbus.EventBus.newp'))

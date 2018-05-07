@@ -1,6 +1,7 @@
 import types
 import asyncio
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,14 @@ import synapse.tests.common as s_test
 class Boom: pass
 
 class Foo:
+
+    def __init__(self):
+        self.genrwait = threading.Event()
+        self.retnwait = threading.Event()
+        self.genrexited = False
+
+    def iAmLoop(self):
+        return s_glob.plex.iAmLoop()
 
     def bar(self, x, y):
         return x + y
@@ -50,6 +59,21 @@ class Foo:
 
     def boom(self):
         return Boom()
+
+    def genrexit(self):
+
+        try:
+
+            yield 1000
+            self.genrwait.wait(timeout=2)
+            yield 2000
+            yield 3000
+
+        except GeneratorExit as e:
+            self.genrexited = True
+
+        finally:
+            self.retnwait.set()
 
 class TeleApi:
 
@@ -98,6 +122,8 @@ class TeleTest(s_test.SynTest):
             # called via synchelp...
             prox = s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
 
+            self.false(prox.iAmLoop())
+
             # check a standard return value
             self.eq(30, prox.bar(10, 20))
 
@@ -106,12 +132,12 @@ class TeleTest(s_test.SynTest):
 
             # check a generator return channel
             genr = prox.genr()
-            self.true(isinstance(genr, s_link.Chan))
+            self.true(isinstance(genr, s_telepath.Genr))
             self.eq((10, 20, 30), tuple(genr))
 
             # check an async generator return channel
             genr = prox.corogenr(3)
-            self.true(isinstance(genr, s_link.Chan))
+            self.true(isinstance(genr, s_telepath.Genr))
             self.eq((0, 1, 2), tuple(genr))
 
             self.raises(s_exc.NoSuchMeth, prox.raze)
