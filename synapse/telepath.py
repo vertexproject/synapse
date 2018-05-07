@@ -1,19 +1,14 @@
 '''
 An RMI framework for synapse.
 '''
-import time
-import zlib
+import os
+import yaml
 import asyncio
 import logging
-import threading
-import collections
 
 import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
 
-import synapse.lib.scope as s_scope
-import synapse.lib.msgpack as s_msgpack
 import synapse.lib.urlhelp as s_urlhelp
 
 logger = logging.getLogger(__name__)
@@ -51,22 +46,124 @@ class Task:
         self.retn = retn
         self.done.set()
 
+import synapse.lib.coro as s_coro
+
+class Share(s_coro.Fini):
+    '''
+    The telepath client side of a dynamically shared object.
+    '''
+    def __init__(self, proxy, iden):
+        s_coro.Fini.__init__(self)
+        self.iden = iden
+        self.proxy = proxy
+
+        self.proxy.shares[iden] = self
+
+        self.txfini = True
+        self.onfini(self._txShareFini)
+
+    async def _txShareFini(self):
+
+        self.proxy.shares.pop(self.iden, None)
+
+        if not self.txfini:
+            return
+
+        mesg = ('share:fini', {'share': self.iden})
+        await self.proxy.link.tx(mesg)
+
+    async def _onShareData(self, data):
+        print(f'share:data with no handler: {data!r}')
+
+    def __getattr__(self, name):
+        meth = Method(self.proxy, name, share=self.iden)
+        setattr(self, name, meth)
+        return meth
+
+class Genr(Share):
+
+    def __init__(self, proxy, iden):
+        Share.__init__(self, proxy, iden)
+        self.queue = s_coro.Queue()
+        self.onfini(self.queue.fini)
+
+    async def _onShareData(self, data):
+        self.queue.put(data)
+
+    async def __aiter__(self):
+
+        try:
+
+            while not self.isfini:
+
+                for retn in self.queue.slice():
+                    if retn is None:
+                        return
+
+                    yield s_common.result(retn)
+
+        finally:
+            await self.fini()
+
+    def __iter__(self):
+        try:
+            while not self.isfini:
+
+                for retn in s_glob.sync(self.queue.slice()):
+
+                    if retn is None:
+                        return
+
+                    yield s_common.result(retn)
+
+        finally:
+            s_glob.sync(self.fini())
+
+class With(Share):
+
+    def __init__(self, proxy, iden):
+        Share.__init__(self, proxy, iden)
+        # a with is optimized to already be entered.
+        # so a fini() with no enter causes exit with error.
+        self.entered = True # local to synapse.lib.coro.Fini()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc, cls, tb):
+        await self.teleexit(exc is not None)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc, cls, tb):
+        return s_glob.sync(self.__aexit__(exc, cls, tb))
+
+sharetypes = {
+    'share': Share,
+    'genr': Genr,
+    'with': With,
+}
+
 class Method:
     '''
     The telepath Method is used to provide proxy method calls.
     '''
-    def __init__(self, proxy, name):
+    def __init__(self, proxy, name, share=None):
         self.name = name
+        self.share = None
         self.proxy = proxy
 
         # act as much like a bound method as possible...
         self.__name__ = name
         self.__self__ = proxy
 
-    def __call__(self, *args, **kwargs):
-        return self.proxy.call(self.name, *args, **kwargs)
+    @s_glob.synchelp
+    async def __call__(self, *args, **kwargs):
+        todo = (self.name, args, kwargs)
+        return await self.proxy.task(todo, name=self.share)
 
-class Proxy(s_eventbus.EventBus):
+class Proxy(s_coro.Fini):
     '''
     A telepath Proxy is used to call remote APIs on a shared object.
 
@@ -95,7 +192,7 @@ class Proxy(s_eventbus.EventBus):
         self.name = name
 
         self.tasks = {}
-        #self.chans = {}
+        self.shares = {}
 
         self.synack = None
         self.syndone = asyncio.Event()
@@ -105,12 +202,36 @@ class Proxy(s_eventbus.EventBus):
         self.handlers = {
             'tele:syn': self._onTeleSyn,
             'task:fini': self._onTaskFini,
-            'chan:init': self._onChanInit,
-            'chan:data': self._onChanData,
-            'chan:fini': self._onChanFini,
+            'share:data': self._onShareData,
+            'share:fini': self._onShareFini,
         }
 
-    @s_glob.synchelp
+        def fini():
+            for item in list(self.shares.values()):
+                s_glob.sync(share.fini())
+        self.link.onfini(fini)
+
+    async def _onShareFini(self, mesg):
+
+        iden = mesg[1].get('share')
+        share = self.shares.get(iden)
+        if share is None:
+            return
+
+        share.txfini = False
+        await share.fini()
+
+    async def _onShareData(self, mesg):
+
+        data = mesg[1].get('data')
+        iden = mesg[1].get('share')
+
+        share = self.shares.get(iden)
+        if share is None:
+            return
+
+        await share._onShareData(data)
+
     async def call(self, name, *args, **kwargs):
         '''
         Call a remote method by name.
@@ -127,13 +248,17 @@ class Proxy(s_eventbus.EventBus):
             valu = proxy.getFooBar(x, y)
             valu = proxy.call('getFooBar', x, y)
         '''
+        todo = (name, args, kwargs)
+        return await self.task(todo)
+
+    async def task(self, todo, name=None):
 
         task = Task()
 
-        todo = (name, args, kwargs)
         mesg = ('task:init', {
                     'task': task.iden,
                     'todo': todo,
+                    'name': name,
         })
 
         self.tasks[task.iden] = task
@@ -169,7 +294,9 @@ class Proxy(s_eventbus.EventBus):
         return s_common.result(retn)
 
     async def _onLinkRx(self, mesg):
+
         # handle a message on a link
+
         try:
 
             func = self.handlers.get(mesg[0])
@@ -177,9 +304,7 @@ class Proxy(s_eventbus.EventBus):
                 logger.warning('Proxy.onLinkRx: Invalid Message: %r' % (mesg,))
                 return
 
-            coro = func(mesg)
-            if asyncio.iscoroutine(coro):
-                self.link.plex.coroLoopTask(coro)
+            await func(mesg)
 
         except Exception as e:
             logger.exception('Proxy.onLinkRx for %r' % (mesg,))
@@ -214,39 +339,54 @@ class Proxy(s_eventbus.EventBus):
         retn = mesg[1].get('retn')
         chan.rx(retn)
 
-    async def _onChanFini(self, mesg):
-        # handle a chan:fini message
-        iden = mesg[1].get('chan')
-
-        chan = self.link.chans.pop(iden, None)
-        if chan is None:
-            return
-
-        chan.fini()
-
-    async def _sendChanFini(self, iden):
-        # send a chan:fini message without a chan.
+    async def _txShareExc(self, iden):
+        # send a share:fini for an unhandled share.
         await self.link.tx(
-            ('chan:fini', {'chan': iden}),
+            ('share:fini', {'share': iden, 'isexc': True})
         )
 
-    def _onTaskFini(self, mesg):
+    async def _onTaskFini(self, mesg):
         # handle task:fini message
         iden = mesg[1].get('task')
 
         task = self.tasks.pop(iden, None)
         if task is None:
-            print(repr(mesg))
             logger.warning('task:fini for invalid task: %r' % (iden,))
             return
 
         retn = mesg[1].get('retn')
-        task.reply(retn)
+
+        # fast path errors...
+        if not retn[0]:
+            return task.reply(retn)
+
+        # check for special return types
+        retntype = mesg[1].get('type')
+        if retntype is not None:
+            ctor = sharetypes.get(retntype, Share)
+            retn = (True, ctor(self, retn[1]))
+
+        return task.reply(retn)
 
     def __getattr__(self, name):
         meth = Method(self, name)
         setattr(self, name, meth)
         return meth
+
+def alias(name):
+    '''
+    Resolve a telpath alias via ~/.syn/aliases.yaml
+    '''
+    path = s_common.getSynPath('aliases.yaml')
+    if not os.path.isfile(path):
+        return None
+
+    text = open(path, 'r').read()
+    if not text:
+        return None
+
+    conf = yaml.load(text)
+    return conf.get(name)
 
 @s_glob.synchelp
 async def openurl(url, **opts):
@@ -271,6 +411,9 @@ async def openurl(url, **opts):
         valu = await proxy.getFooThing()
 
     '''
+    if url.find('://') == -1:
+        url = alias(url)
+
     info = s_urlhelp.chopurl(url)
     info.update(opts)
 

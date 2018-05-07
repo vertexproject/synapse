@@ -21,7 +21,7 @@ class Xact(s_eventbus.EventBus):
 
     Transactions produce the following EventBus events:
 
-    ('splice', {}),
+    (...any splice...)
     ('log', {'level': 'mesg': })
     ('print', {}),
     '''
@@ -33,6 +33,7 @@ class Xact(s_eventbus.EventBus):
         self.tick = s_common.now()
         self.stack = contextlib.ExitStack()
 
+        self.user = None
         self.core = core
         self.model = core.model
 
@@ -61,18 +62,37 @@ class Xact(s_eventbus.EventBus):
         self.buidcurs = self.cursors('bybuid')
         [self.stack.enter_context(c) for c in self.buidcurs]
 
+        # keep a cache so bulk is *fast*
+        self.permcache = {}
+
         self.onfini(self.stack.close)
         self.changelog = []
+
+    def allowed(self, *args):
+
+        # a user will be set by auth subsystem if enabled
+        if self.user is None:
+            return True
+
+        valu = self.permcache.get(args)
+        if valu is not None:
+            return valu
+
+        perm = args
+
+        # expand tag perms...
+        if args[0] in ('node:tag:add', 'node:tag:del'):
+            perm = (perm[0],) + tuple(perm[1].split('.'))
+
+        valu = self.user.allowed(perm)
+        self.permcache[args] = valu
+        return valu
 
     def printf(self, mesg):
         self.fire('print', mesg=mesg)
 
     def log(self, mesg, level='WARNING'):
         self.fire('log', mesg=mesg, level=level)
-
-    def splice(self, name, **info):
-        info['time'] = s_common.now()
-        self.fire('splice', mesg=(name, info))
 
     def deltas(self):
         retn = self.changelog
@@ -202,6 +222,7 @@ class Xact(s_eventbus.EventBus):
 
             # maybe set some props...
             for name, valu in props.items():
+                #TODO: node.merge(name, valu)
                 node.set(name, valu)
 
             return node
@@ -215,6 +236,7 @@ class Xact(s_eventbus.EventBus):
         node.ndef = (form.name, norm)
 
         sops = form.stor(buid, norm)
+
         self.stor(sops)
 
         self._addNodeCache(node)
@@ -240,6 +262,17 @@ class Xact(s_eventbus.EventBus):
         form.wasAdded(node)
 
         return node
+
+    def splice(self, name, **info):
+
+        user = '?'
+        if self.user is not None:
+            user = self.user.name
+
+        info['user'] = user
+        info['time'] = s_common.now()
+
+        return (name, info)
 
     #########################################################################
     # splice action handlers

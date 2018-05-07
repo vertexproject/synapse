@@ -300,10 +300,16 @@ def listdir(*paths, glob=None):
     return retn
 
 def gendir(*paths, **opts):
+
     mode = opts.get('mode', 0o700)
     path = genpath(*paths)
+
+    if os.path.islink(path):
+        path = os.readlink(path)
+
     if not os.path.isdir(path):
         os.makedirs(path, mode=mode, exist_ok=True)
+
     return path
 
 def reqdir(*paths):
@@ -609,6 +615,16 @@ def setlogging(mlogger, defval=None):
 #
 # 0.1.0 stuff....
 #
+
+syndir = os.getenv('SYN_DIR')
+if syndir is None:
+    syndir = '~/.syn'
+
+def getSynPath(*paths):
+    return genpath(syndir, *paths)
+
+def getSynDir(*paths):
+    return gendir(syndir, *paths)
 
 def result(retn):
     '''
