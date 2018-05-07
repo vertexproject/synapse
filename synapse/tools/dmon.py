@@ -9,14 +9,19 @@ import synapse.common as s_common
 import synapse.daemon as s_daemon
 
 import synapse.lib.output as s_output
+import synapse.lib.certdir as s_certdir
 import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)
 
 LOG_LEVEL_CHOICES = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
 
+dmonpath = os.getenv('SYN_DMON_PATH')
+if dmonpath is None:
+    dmonpath = s_common.genpath('~/.syn/dmon')
+
 dmonyaml = '''
-listen: tcp://127.0.0.1:0/
+listen: tcp://127.0.0.1:27429/
 
 # load python modules on startup
 # (allows extensions/modules to register)
@@ -47,7 +52,7 @@ modules: []
 def getArgParser():
     p = argparse.ArgumentParser()
     p.add_argument('--log-level', choices=LOG_LEVEL_CHOICES, help='specify the log level', type=str.upper)
-    p.add_argument('dir', help='The daemon directory for services and configuration')
+    p.add_argument('dmonpath', nargs='?', default=dmonpath, help='The dmon directory path. Defaults to ~/.syn/dmon or SYN_DMON_PATH.')
     return p
 
 def main(argv, outp=s_output.stdout):
@@ -57,8 +62,8 @@ def main(argv, outp=s_output.stdout):
 
     s_common.setlogging(logger, opts.log_level)
 
-    dirn = s_common.gendir(opts.dir)
-    outp.printf('Beginning dmon from dir: %r' % (dirn,))
+    dirn = s_common.gendir(opts.dmonpath)
+    outp.printf(f'Beginning dmon from {dirn}')
 
     # since we're dmon main, register our certdir as global
     certdir = s_common.gendir(dirn, 'certs')
@@ -72,7 +77,9 @@ def main(argv, outp=s_output.stdout):
         with open(path, 'wb') as fd:
             fd.write(dmonyaml.encode('utf8'))
 
-    with s_daemon.Daemon(opts.dir) as dmon:
+    with s_daemon.Daemon(opts.dmonpath) as dmon:
+        host, port = dmon.addr
+        outp.printf(f'dmon listening on: {host}:{port}')
         dmon.main()
 
 if __name__ == '__main__':
