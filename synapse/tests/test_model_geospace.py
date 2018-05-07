@@ -94,17 +94,14 @@ class GeoTest(s_t_common.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, '1.3 pc')
 
     def test_nloc(self):
-        pass  # FIXME can't test until syn:prop is done
-        '''
-        with self.getRamCore() as core:
 
-            item = core.formTufoByProp('mat:item', '7ea768402eae63c9378f4e3805f4d0d3')
+        formname = 'geo:nloc'
+        with self.getTestCore() as core:
+            t = core.model.type(formname)
 
-            valu = ('mat:item:latlong', item[1].get('node:ndef'), '44.0429075,4.8828757', '20160403')
+            ndef = ('inet:ipv4', '0.0.0.0')
+            latlong = ('0.000000000', '0')
+            stamp = -0
 
-            node = core.formTufoByProp('geo:nloc', valu)
-            self.eq(node[1].get('geo:nloc:time'), 1459641600000)
-            self.eq(node[1].get('geo:nloc:prop'), 'mat:item:latlong')
-            self.eq(node[1].get('geo:nloc:ndef'), '15533769b23efcb12d126a53f9b804ee')
-            self.eq(node[1].get('geo:nloc:latlong'), '44.0429075,4.8828757')
-        '''
+            data = t.norm((ndef, latlong, stamp))
+            self.eq(data, ((('inet:ipv4', 0), (0.0, 0.0), -0), {'subs': {'ndef': ('inet:ipv4', 0), 'latlong': (0.0, 0.0), 'time': 0}}))

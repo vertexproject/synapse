@@ -128,7 +128,7 @@ class GeoModule(s_module.CoreModule):
                     ('geo:alias', ('str', {'lower': True, 'regex': '^[0-9a-z]+$'}), {
                         'doc': 'An alias for the place GUID', 'ex': 'foobar'
                     }),
-                    ('geo:nloc', ('comp', {'fields': (('prop', 'syn:prop'), ('ndef', 'ndef'), ('latlong', 'geo:latlong'), ('time', 'time'))}), {
+                    ('geo:nloc', ('comp', {'fields': (('ndef', 'ndef'), ('latlong', 'geo:latlong'), ('time', 'time'))}), {
                         'doc': 'Records a node latitude/longitude in space-time.'
                     }),
                     ('geo:place', ('guid', {'alias': True, 'regex': '^[0-9a-z]+$'}), {
@@ -140,11 +140,6 @@ class GeoModule(s_module.CoreModule):
 
                 'forms': (
                     ('geo:nloc', {}, (
-                        #('prop', ('syn:prop', {}), {
-                        #    'ro': 1,
-                        #    'req': 1,
-                        #    'doc': 'The latlong property name on the original node'
-                        #}),
                         ('ndef', ('ndef', {}), {
                             'ro': 1,
                             'req': 1,

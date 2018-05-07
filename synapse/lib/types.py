@@ -795,15 +795,8 @@ class Hex(Type):
         if isinstance(valu, str) and valu.endswith('*'):
             valu = valu.rstrip('*')
             norm = s_chop.hexstr(valu)
-            lops = (
-                ('prop:pref', {
-                    'form': fenc,
-                    'prop': penc,
-                    'valu': norm,
-                    'indx': self.indx(norm),
-                }),
-            )
-            return xact.lift(lops)
+            indx = self.indx(norm)
+            return self._liftByPref(xact, fenc, penc, indx)
         # Default case
         return Type.liftPropEq(self, xact, fenc, penc, valu)
 
