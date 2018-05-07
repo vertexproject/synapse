@@ -200,6 +200,8 @@ class NotEnoughFree(SynErr):
     '''
     pass
 
+class NotInWith(SynErr): pass
+
 class AxonErr(SynErr): pass
 class AxonIsRo(AxonErr): pass
 class AxonIsClone(AxonErr): pass

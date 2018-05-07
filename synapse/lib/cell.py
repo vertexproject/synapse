@@ -13,25 +13,154 @@ logger = logging.getLogger(__name__)
 '''
 Base classes for the synapse "cell" microservice architecture.
 '''
+def adminapi(f):
+
+    def func(*args, **kwargs):
+
+        if args[0].user is None:
+            raise s_exc.AuthDeny()
+
+        if not args[0].user.admin:
+            raise s_exc.AuthDeny()
+
+        return f(*args, **kwargs)
+
+    return func
+
 class CellApi:
 
     def __init__(self, cell, link):
         self.cell = cell
         self.link = link
+        self.user = link.get('cell:user')
 
-    def runCellCmd(self, name, line):
+    @adminapi
+    def addAuthUser(self, name):
+        self.cell.auth.addUser(name)
+
+    @adminapi
+    def addAuthRole(self, name):
+        self.cell.auth.addRole(name)
+
+    @adminapi
+    def addAuthRule(self, name, rule, indx=None):
+        item = self._getAuthItem(name)
+        return item.addRule(rule, indx=indx)
+
+    @adminapi
+    def delAuthRule(self, name, indx):
+        item = self._getAuthItem(name)
+        return item.delRule(indx)
+
+    @adminapi
+    def setAuthAdmin(self, name, admin):
         '''
-        Execute a cell cmdline
+        Set the admin status of the given user/role.
         '''
-        func = self.cell.cmds.get(name)
-        if func is None:
-            raise s_exc.NoSuchName(name=name, mesg='no such cell command')
+        item = self._getAuthItem(name)
+        item.setAdmin(admin)
 
-defconf = '''
-# auth:en: False
-# auth:url: null
+    @adminapi
+    def setUserPasswd(self, name, passwd):
+        user = self.cell.auth.users.get(name)
+        if user is None:
+            raise s_exc.NoSuchUser(user=name)
 
-'''
+        user.setPasswd(passwd)
+
+    @adminapi
+    def setUserLocked(self, name, locked):
+        user = self.cell.auth.users.get(name)
+        if user is None:
+            raise s_exc.NoSuchUser(user=name)
+
+        user.setLocked(locked)
+
+    @adminapi
+    def addUserRole(self, username, rolename):
+        user = self.cell.auth.users.get(username)
+        if user is None:
+            raise s_exc.NoSuchUser(user=username)
+
+        role = self.cell.auth.roles.get(rolename)
+        if role is None:
+            raise s_exc.NoSuchRole(role=rolename)
+
+        user.addRole(rolename)
+
+    @adminapi
+    def delUserRole(self, username, rolename):
+
+        user = self.cell.auth.users.get(username)
+        if user is None:
+            raise s_exc.NoSuchUser(user=username)
+
+        role = self.cell.auth.roles.get(rolename)
+        if role is None:
+            raise s_exc.NoSuchRole(role=rolename)
+
+        user.delRole(rolename)
+
+    @adminapi
+    def getAuthInfo(self, name):
+        '''
+        An admin only API endpoint for getting user info.
+        '''
+        item = self._getAuthItem(name)
+        if item is None:
+            return None
+
+        return self._getAuthInfo(item)
+
+    def _getAuthItem(self, name):
+        # return user or role by name.
+        user = self.cell.auth.users.get(name)
+        if user is not None:
+            return user
+
+        role = self.cell.auth.roles.get(name)
+        if role is not None:
+            return role
+
+        raise s_exc.NoSuchName(name=name)
+
+    def _getAuthInfo(self, role):
+
+        authtype = role.info.get('type')
+        info = {
+            'type': authtype,
+            'admin': role.admin,
+            'rules': role.info.get('rules', ()),
+        }
+
+        # delayed import.  dep loop.
+        if authtype == 'user':
+
+            roles = []
+            info['roles'] = roles
+
+            for userrole in role.roles.values():
+                roles.append(self._getAuthInfo(userrole))
+
+        return (role.name, info)
+
+bootdefs = (
+
+    #('cell:name', {
+        #'doc': 'Set the log/display name for this cell.'}),
+
+    ('auth:en', {'defval': False,
+        'doc': 'Set to True to enable auth for this cortex.'}),
+
+    #('auth:required', {'defval': True,
+        #'doc': 'If auth is enabled, allow non-auth connections.  Cell must manage perms.'})
+
+    #('auth:url', {'defval': None,
+        #'doc': 'Set to a telepath URL to use a remote Auth Cell.'}),
+
+    ('auth:admin', {'defval': None,
+        'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
+)
 
 class Cell(s_eventbus.EventBus, s_telepath.Aware):
     '''
@@ -39,17 +168,7 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
     '''
     cellapi = CellApi
 
-    celltype = 'cell'   # this should match synapse.cells
-
-    # mirror these if you want the cell base features...
-    confdefs = (
-        ('auth:en', {'defval': False,
-            'doc': 'Set to True to enable auth for this cortex.'}),
-        ('auth:url', {'defval': None,
-            'doc': 'Set to a telepath URL to use a remote Auth Cell.'}),
-        ('auth:admin', {'defval': None,
-            'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
-    )
+    confdefs = ()
 
     def __init__(self, dirn):
 
@@ -59,14 +178,47 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
 
         self.auth = None
 
-        conf = self._loadCellYaml()
+        boot = self._loadCellYaml('boot.yaml')
+        self.boot = s_common.config(boot, bootdefs)
+
+        conf = self._loadCellYaml('cell.yaml')
         self.conf = s_common.config(conf, self.confdefs)
 
         self.cmds = {}
 
-    def _loadCellYaml(self):
+        self.cellname = self.boot.get('cell:name')
+        if self.cellname is None:
+            self.cellname = self.__class__.__name__
 
-        path = os.path.join(self.dirn, 'cell.yaml')
+        self._initCellAuth()
+
+    def _initCellAuth(self):
+
+        if not self.boot.get('auth:en'):
+            return
+
+        # runtime import.  dep loop.
+        import synapse.cells as s_cells
+
+        authdir = s_common.gendir(self.dirn, 'auth')
+        self.auth = s_cells.init('auth', authdir)
+
+        admin = self.boot.get('auth:admin')
+        if admin is not None:
+
+            name, passwd = admin.split(':')
+
+            user = self.auth.users.get(name)
+            if user is None:
+                user = self.auth.addUser(name)
+                logger.warning(f'adding admin user: {name} to {self.cellname}')
+
+            user.setAdmin(True)
+            user.setPasswd(passwd)
+
+    def _loadCellYaml(self, *path):
+
+        path = os.path.join(self.dirn, *path)
 
         if os.path.isfile(path):
             with open(path, 'rb') as fd:
@@ -75,30 +227,55 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
 
         return {}
 
-    #@endpoint
-
     @staticmethod
     def deploy(dirn):
-        '''
-        Initialize default Cell in the given dir.
-        '''
-        dirn = s_common.gendir(dirn)
+        # sub-classes may over-ride to do deploy initialization
+        pass
 
     def getTeleApi(self, link, mesg):
 
-        # handle unified cell auth here
-        #if self.auth is not None:
-            #await
+        if self.auth is None:
+            return self.cellapi(self, link)
 
+        user = self._getCellUser(link, mesg)
+        if user is None:
+            raise s_exc.AuthDeny()
+
+        link.set('cell:user', user)
         return self.cellapi(self, link)
+
+    def _getCellUser(self, link, mesg):
+
+        # with SSL a valid client cert sets ssl:user
+        name = link.get('ssl:user')
+        if name is not None:
+            return self.auth.users.get(name)
+
+        # fall back on user/passwd
+        auth = mesg[1].get('auth')
+        if auth is None:
+            return None
+
+        name, info = auth
+
+        user = self.auth.users.get(name)
+        if user is None:
+            return None
+
+        # passwd None always fails...
+        passwd = info.get('passwd')
+        if not user.tryPasswd(passwd):
+            raise s_exc.AuthDeny()
+
+        return user
 
     def initCellAuth(self):
 
-        valu = self.conf.get('auth:en')
+        valu = self.boot.get('auth:en')
         if not valu:
             return
 
-        url = self.conf.get('auth:url')
+        url = self.boot.get('auth:url')
         if url is not None:
             self.auth = s_telepath.openurl(url)
             return
@@ -110,7 +287,7 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         self.auth = s_auth.Auth(dirn)
 
         # let them hard code an initial admin user:passwd
-        admin = self.conf.get('auth:admin')
+        admin = self.boot.get('auth:admin')
         if admin is not None:
             name, passwd = admin.split(':', 1)
 
@@ -126,13 +303,3 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         Add a Cmdr() command to the cell.
         '''
         self.cmds[name] = func
-
-    #def getCellDir(
-    #def getCellPath(
-
-    #def runCellCmd(self, name, line):
-        ##func = self.cmds.get(name)
-        #if func is None:
-            ##raise s_exc.NoSuchName(name=name, mesg='no such cell command')
-
-        #return func(line)
