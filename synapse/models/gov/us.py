@@ -1,28 +1,28 @@
 import synapse.lib.module as s_module
 
-class GovUsMod(s_module.CoreModule):
+class GovUsModule(s_module.CoreModule):
 
-    @staticmethod
-    def getBaseModels():
+    def getModelDefs(self):
         modl = {
             'types': (
-                ('gov:us:ssn', {'subof': 'int', 'doc': 'A US Social Security Number (SSN)'}),
-                ('gov:us:zip', {'subof': 'int', 'doc': 'A US Zip Code'}),
-                ('gov:us:cage', {'subof': 'str', 'lower': 1, 'doc': 'A Commercial and Government Entity (CAGE) code'}),
+                ('gov:us:ssn', ('int', {}), {'doc': 'A US Social Security Number (SSN)'}),
+                ('gov:us:zip', ('int', {}), {'doc': 'A US Zip Code'}),
+                ('gov:us:cage', ('str', {'lower': True}), {'doc': 'A Commercial and Government Entity (CAGE) code'}),
             ),
 
             'forms': (
                 ('gov:us:cage', {}, (
-                    ('name0', {'ptype': 'ou:name', 'doc': 'The name of the organization'}),
-                    ('name1', {'ptype': 'str:lwr', 'doc': 'Name Part 1'}),
-                    ('street', {'ptype': 'str:lwr'}),
-                    ('city', {'ptype': 'str:lwr'}),
-                    ('state', {'ptype': 'str:lwr'}),
-                    ('zip', {'ptype': 'gov:us:zip'}),
-                    ('cc', {'ptype': 'pol:iso2'}),
-                    ('country', {'ptype': 'str:lwr'}),
-                    ('phone0', {'ptype': 'tel:phone'}),
-                    ('phone1', {'ptype': 'tel:phone'}),
+                    # FIXME 010 - need orgs ('name0', ('ou:name', {}), {'doc': 'The name of the organization'}),
+                    ('name1', ('str', {'lower': True}), {'doc': 'Name Part 1'}),
+                    ('street', ('str', {'lower': True}), {}),
+                    ('city', ('str', {'lower': True}), {}),
+                    ('state', ('str', {'lower': True}), {}),
+                    ('zip', ('gov:us:zip', {}), {}),
+                    ('cc', ('pol:iso2', {}), {}),
+                    ('country', ('str', {'lower': True}), {}),
+                    # FIXME 010 - need telco model
+                    # ('phone0', ('tel:phone', {}), {}),
+                    # ('phone1', ('tel:phone', {}), {}),
                 )),
 
                 ('gov:us:ssn', {}, []),

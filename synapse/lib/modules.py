@@ -18,4 +18,6 @@ coremods = (
     'synapse.models.language.LangModule',
     'synapse.models.crypto.CryptoModule',
     'synapse.models.gov.cn.GovCnModule',
+    'synapse.models.gov.us.GovUsModule',
+    'synapse.models.gov.intl.GovIntlModule',
 )
