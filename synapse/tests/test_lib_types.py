@@ -99,8 +99,6 @@ class TypesTest(s_test.SynTest):
         self.raises(s_exc.BadConfValu, s_types.Hex, None, None, None, {'size': 1})
 
         with self.getTestCore() as core:
-            # fixme - getTestCore should have this dude loaded in him already!
-            modu = core.addCoreMods([('synapse.tests.test_cortex.TestModule', {})])
 
             t = core.model.type('testhexa')
             # Test norming to index values
