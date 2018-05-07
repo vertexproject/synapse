@@ -46,7 +46,7 @@ def printuser(user):
 
 def main(argv):
 
-    pars = argparse.ArgumentParser('synapse.tools.celluser', description=desc)
+    pars = argparse.ArgumentParser('synapse.tools.cellauth', description=desc)
 
     pars.add_argument('--debug', action='store_true', help='Show debug traceback on error.')
     pars.add_argument('--adduser', action='store_true', help='Add the named user to the cortex.')
