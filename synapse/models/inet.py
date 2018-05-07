@@ -573,7 +573,7 @@ class InetModule(s_module.CoreModule):
                         }),
 
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The last known latitude/longitude for the node'
+                            'doc': 'The best known latitude/longitude for the node'
                         }),
 
                         ('loc', ('loc', {}), {
