@@ -393,12 +393,18 @@ class InetModelTest(s_t_common.SynTest):
             # Form Tests ======================================================
             valu = '"UnitTest"    <UnitTest@Vertex.link>'
             expected_ndef = (formname, 'unittest <unittest@vertex.link>')
-
             with core.xact(write=True) as xact:
                 node = xact.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('email'), 'unittest@vertex.link')
                 #FIXME add ps:name
+
+                xact.addNode(formname, '"UnitTest1')
+                xact.addNode(formname, '"UnitTest12')
+
+                self.len(3, list(xact.getNodesBy(formname, 'unittest', cmpr='^=')))
+                self.len(2, list(xact.getNodesBy(formname, 'unittest1', cmpr='^=')))
+                self.len(1, list(xact.getNodesBy(formname, 'unittest12', cmpr='^=')))
 
     def test_url_fqdn(self):
         with self.getTestCore() as core:
