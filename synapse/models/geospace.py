@@ -131,11 +131,10 @@ class GeoModule(s_module.CoreModule):
                     ('geo:nloc', ('comp', {'fields': (('ndef', 'ndef'), ('latlong', 'geo:latlong'), ('time', 'time'))}), {
                         'doc': 'Records a node latitude/longitude in space-time.'
                     }),
-                    ('geo:place', ('guid', {'alias': True, 'regex': '^[0-9a-z]+$'}), {
-                        'doc': 'An alias for the place GUID', 'ex': 'foobar'
-                    }),
                     # FIXME implement geo:place when guid aliases are available
-                    #('geo:place', {'subof': 'guid', 'alias': 'geo:place:alias', 'doc': 'A GUID for a specific place'}),
+                    #('geo:place', ('guid', {'alias': True, 'regex': '^[0-9a-z]+$'}), {
+                    #    'doc': 'An alias for the place GUID', 'ex': 'foobar'
+                    #}),
                 ),
 
                 'forms': (
