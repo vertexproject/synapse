@@ -752,10 +752,11 @@ class SqliteStorage(s_cores_storage.Storage):
             list: List of tuples, each containing an iden, property, value and timestamp.
         '''
         gsize = kwargs.get('gsize', 10000)
-        i = self.selectiter(self._q_getrows)
+        i = ((i, p, sv if iv is None else iv, t) for i, p, iv, sv, t in self.selectiter(self._q_getrows))
+
         return s_common.chunks(i, gsize)
 
-    def getSize(self, prop, valu, limit=None):
+    def getSize(self):
         q = self._q_getsize
         return self.select(q)[0][0]
 

@@ -1,6 +1,7 @@
 import pathlib
 import tempfile
 
+import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.lib.iq as s_iq
 import synapse.lib.msgpack as s_msgpack
@@ -16,7 +17,8 @@ class Migrate010Test(s_iq.SynTest):
 
     def test_basic(self):
         self.maxDiff = None
-        with self.getTestDir() as dirn, self.getRamCore() as core:
+        with self.getTestDir() as dirn, s_cortex.openurl('sqlite:///:memory:') as core:
+            # with self.getTestDir() as dirn, self.getRamCore() as core:
 
             dirn = pathlib.Path(dirn)
 

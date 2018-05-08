@@ -42,7 +42,7 @@ class Migrator:
         self.skip_stage1 = bool(stage1_fn)
         assert tmpdir or stage1_fn
         if stage1_fn is None:
-            with tempfile.NamedTemporaryFile(prefix='stage1', suffix='.lmdb', delete=True, dir=tmpdir) as fh:
+            with tempfile.NamedTemporaryFile(prefix='stage1_', suffix='.lmdb', delete=True, dir=tmpdir) as fh:
                 stage1_fn = fh.name
             logger.info('Creating stage 1 file at %s.  Delete when migration deemed successful.', stage1_fn)
 
