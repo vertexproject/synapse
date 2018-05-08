@@ -16,7 +16,8 @@ class LangModuleTest(s_t_common.SynTest):
                 node = xact.addNode(formname, valu, props=input_props)
 
             self.eq(node.ndef, expected_ndef)
-            self.eq(node.props, expected_props)
+            for prop, valu in expected_props.items():
+                self.eq(node.get(prop), valu)
 
     def test_forms_trans(self):
         with self.getTestCore() as core:
@@ -31,7 +32,8 @@ class LangModuleTest(s_t_common.SynTest):
                 node = xact.addNode(formname, valu, props=input_props)
 
             self.eq(node.ndef, expected_ndef)
-            self.eq(node.props, expected_props)
+            for prop, valu in expected_props.items():
+                self.eq(node.get(prop), valu)
 
     def test_types_unextended(self):
         # The following types are subtypes that do not extend their base type

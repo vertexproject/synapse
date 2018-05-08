@@ -107,13 +107,13 @@ class Phone(s_types.Type):
         '''
         return valu.encode('utf8')
 
-    def liftPropEq(self, xact, fenc, penc, valu):
+    def indxByEq(self, valu):
         if isinstance(valu, str) and valu.endswith('*'):
             norm, _ = self._normPyStr(valu)
-            indx = self.indx(norm)
-            return self._liftByPref(xact, fenc, penc, indx)
-
-        return s_types.Type.liftPropEq(self, xact, fenc, penc, valu)
+            return (
+                ('pref', self.indx(norm)),
+            )
+        return s_types.Type.indxByEq(self, valu)
 
     def repr(self, valu):
         # FIXME implement more geo aware reprs

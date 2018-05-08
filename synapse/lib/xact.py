@@ -168,21 +168,8 @@ class Xact(s_eventbus.EventBus):
         if prop is None:
             raise s_exc.NoSuchProp(name=full)
 
-        if valu is None:
-
-            lops = (
-                ('prop', {
-                    'prop': prop.utf8name,
-                    'form': prop.form.utf8name,
-                }),
-            )
-
-            for row, node in self.lift(lops):
-                yield node
-
-            return
-
-        for row, node in prop.lift(self, valu, cmpr=cmpr):
+        lops = prop.getLiftOps(valu, cmpr=cmpr)
+        for row, node in self.getLiftNodes(lops):
             yield node
 
     def addNode(self, name, valu, props=None):
@@ -255,6 +242,10 @@ class Xact(s_eventbus.EventBus):
         # set all the properties with init=True
         for name, valu in props.items():
             node.set(name, valu, init=True)
+
+        # set our global properties
+        tick = s_common.now()
+        node.set('.created', tick)
 
         # we are done initializing.
         node.init = False
@@ -357,9 +348,6 @@ class Xact(s_eventbus.EventBus):
         buid = s_common.buid((form.name, norm))
         return form, norm, info, buid
 
-    #def delNode(self, node):
-        #pass
-
     def addNodes(self, nodedefs):
         '''
         Add/merge nodes in bulk.
@@ -387,18 +375,18 @@ class Xact(s_eventbus.EventBus):
                 for tag, asof in tags.items():
                     node.addTag(tag)
 
-        #return xact.deltas()
-
-    def lift(self, lops):
-        genr = self.rows(lops)
-        return self.join(genr)
-
     def stor(self, sops):
         if not self.write:
             raise s_exc.ReadOnlyXact()
+
         self.layr._xactRunStors(self.xact, sops)
 
-    def rows(self, lops):
+    def getLiftNodes(self, lops):
+        genr = self.getLiftRows(lops)
+        return self.getRowNodes(genr)
+
+    #def rows(self, lops):
+    def getLiftRows(self, lops):
         '''
         Yield row tuples from a series of lift operations.
 
@@ -415,7 +403,8 @@ class Xact(s_eventbus.EventBus):
             for row in layr._xactRunLifts(xact, lops):
                 yield row
 
-    def join(self, rows):
+    #def join(self, rows):
+    def getRowNodes(self, rows):
         '''
         Join a row generator into (row, Node()) tuples.
 

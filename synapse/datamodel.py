@@ -38,6 +38,8 @@ class Prop:
         self.utf8name = self.name.encode('utf8')
         self.utf8full = self.full.encode('utf8')
 
+        self.pref = self.form.utf8name + b'\x00' + self.utf8name + b'\x00'
+
         self.type = self.modl.getTypeClone(typedef)
 
         self.form.props[name] = self
@@ -84,20 +86,18 @@ class Prop:
             except Exception as e:
                 logger.exception('onset() error for %s' % (self.full,))
 
-    def lift(self, xact, valu, cmpr='='):
-        '''
-        Lift nodes by the given property valu and comparator.
+    def getLiftOps(self, valu, cmpr='='):
 
-        Args:
-            xact (synapse.lib.xact.Xact): A Cortex transaction.
-            valu (obj): A lift valu for the given property type.
-            cmpr (str): An optional alternate comparator to specify.
+        if valu is None:
+            iops = (('pref', b''),)
+            return (
+                ('indx', ('byprop', self.pref, iops)),
+            )
 
-        Yields:
-
-            (tuple, synapse.lib.nodeNode): Tuples of (row, Node) pairs.
-        '''
-        return self.type.liftByProp(xact, self, valu, cmpr=cmpr)
+        iops = self.type.getIndxOps(valu, cmpr=cmpr)
+        return (
+            ('indx', ('byprop', self.pref, iops)),
+        )
 
     def stor(self, buid, norm):
         '''
@@ -135,6 +135,34 @@ class Prop:
 
         return func
 
+class Univ:
+    '''
+    A property-like object that can lift without Form().
+    '''
+    def __init__(self, modl, name, typedef, propinfo):
+        self.name = name
+        self.type = modl.getTypeClone(typedef)
+
+        self.pref = name.encode('utf8') + b'\x00'
+
+        self.utf8name = self.name.encode('utf8')
+        self.utf8full = self.full.encode('utf8')
+
+        self.type = self.modl.getTypeClone(typedef)
+
+    def getLiftOps(self, valu, cmpr='='):
+
+        if valu is None:
+            iops = (
+                ('pref', b''),
+            )
+        else:
+            iops = self.type.getIndxOps(valu)
+
+        return (
+            ('indx', ('byuniv', self.pref, iops)),
+        )
+
 class Form:
     '''
     The Form class implements data model logic for a node form.
@@ -153,6 +181,8 @@ class Form:
 
         self.type.form = self
 
+        # pre-compute our byprop table prefix
+        self.pref = name.encode('utf8') + b'\x00\x00'
         self.utf8name = name.encode('utf8')
 
         self.props = {}     # name: Prop()
@@ -202,11 +232,20 @@ class Form:
             ('node:add', {'buid': buid, 'form': self.utf8name, 'valu': norm, 'indx': indx}),
         ]
 
-    def lift(self, xact, valu, cmpr='='):
+    def getLiftOps(self, valu, cmpr='='):
         '''
-        Perform a lift operation and yield row,Node tuples.
+        Get a set of lift operations for use with an Xact.
         '''
-        return self.type.liftByForm(xact, self, valu, cmpr=cmpr)
+        if valu is None:
+            iops = (('pref', b''),)
+            return (
+                ('indx', ('byprop', self.pref, iops)),
+            )
+
+        iops = self.type.getIndxOps(valu, cmpr=cmpr)
+        return (
+            ('indx', ('byprop', self.pref, iops)),
+        )
 
     def prop(self, name):
         '''
@@ -228,6 +267,7 @@ class Model:
         self.types = {} # name: Type()
         self.forms = {} # name: Form()
         self.props = {} # (form,name): Prop() and full: Prop()
+        self.univs = [] # (name, typeinfo, propinfo)
 
         self.propsbytype = collections.defaultdict(list) # name: Prop()
 
@@ -277,6 +317,12 @@ class Model:
         info = {'doc': 'The nodeprop type for a (prop,valu) compound field.'}
         item = s_types.NodeProp(self, 'nodeprop', info, {})
         self.addBaseType(item)
+
+        self.univs.extend((
+            ('created', ('time', {}), {'ro': 1,
+                'doc': 'The time the node was created in the cortex.',
+            }),
+        ))
 
     def _addTypeDecl(self, decl):
 
@@ -358,11 +404,19 @@ class Model:
                 self.forms[formname] = form
                 self.props[formname] = form
 
+                for univname, typedef, univinfo in self.univs:
+
+                    prop = Prop(self, form, '.' + univname, typedef, univinfo)
+
+                    full = f'{formname}.{univname}'
+                    self.props[full] = prop
+                    self.props[(formname, univname)] = prop
+
                 for propname, typedef, propinfo in propdefs:
 
                     prop = Prop(self, form, propname, typedef, propinfo)
 
-                    full = '%s:%s' % (formname, propname)
+                    full = f'{formname}:{propname}'
                     self.props[full] = prop
                     self.props[(formname, propname)] = prop
 

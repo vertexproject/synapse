@@ -21,7 +21,8 @@ class InetModelTest(SynTest):
                 node = xact.addNode(formname, valu)
 
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                for prop, valu in expected_props.items():
+                    self.eq(node.get(prop), valu)
 
     def test_forms_ipv4(self):
         # FIXME add latlong later
@@ -37,7 +38,8 @@ class InetModelTest(SynTest):
                 node = xact.addNode(formname, valu_str, props=input_props)
 
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                for prop, valu in expected_props.items():
+                    self.eq(node.get(prop), valu)
 
     def test_forms_ipv6(self):
         # FIXME add latlong later
@@ -51,14 +53,16 @@ class InetModelTest(SynTest):
                 expected_ndef = (formname, valu_str.lower())
                 node = xact.addNode(formname, valu_str)
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                for prop, valu in expected_props.items():
+                    self.eq(node.get(prop), valu)
 
                 valu_str = '::1'
                 expected_props = {'asn': 0, 'loc': '??'}
                 expected_ndef = (formname, valu_str)
                 node = xact.addNode(formname, valu_str)
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                for prop, valu in expected_props.items():
+                    self.eq(node.get(prop), valu)
 
     def test_forms_email(self):
         formname = 'inet:email'
@@ -71,7 +75,8 @@ class InetModelTest(SynTest):
                 node = xact.addNode(formname, valu)
 
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                for prop, valu in expected_props.items():
+                    self.eq(node.get(prop), valu)
 
     def test_forms_fqdn(self):
         formname = 'inet:fqdn'
@@ -87,7 +92,8 @@ class InetModelTest(SynTest):
             with core.xact(write=True) as xact:
                 node = xact.addNode(formname, valu, props={'created': 0, 'expires': 1, 'updated': 2})
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                for prop, valu in expected_props.items():
+                    self.eq(node.get(prop), valu)
 
             nvalu = expected_props['domain']
             expected_ndef = (formname, nvalu)
@@ -95,7 +101,8 @@ class InetModelTest(SynTest):
             with core.xact() as xact:
                 node = xact.getNodeByNdef((formname, nvalu))
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                for prop, valu in expected_props.items():
+                    self.eq(node.get(prop), valu)
 
             nvalu = expected_props['domain']
             expected_ndef = (formname, nvalu)
@@ -103,7 +110,8 @@ class InetModelTest(SynTest):
             with core.xact() as xact:
                 node = xact.getNodeByNdef((formname, nvalu))
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                for prop, valu in expected_props.items():
+                    self.eq(node.get(prop), valu)
 
             # Demonstrate wildcard
             with core.xact() as xact:
@@ -116,16 +124,16 @@ class InetModelTest(SynTest):
     def test_forms_fqdn_suffix(self):
         formname = 'inet:fqdn'
         def iszone(node):
-            self.true(node.props.get('iszone') == 1 and node.props.get('issuffix') == 0)
+            self.true(node.get('iszone') == 1 and node.get('issuffix') == 0)
 
         def issuffix(node):
-            self.true(node.props.get('issuffix') == 1 and node.props.get('iszone') == 0)
+            self.true(node.get('issuffix') == 1 and node.get('iszone') == 0)
 
         def isboth(node):
-            self.true(node.props.get('iszone') == 1 and node.props.get('issuffix') == 1)
+            self.true(node.get('iszone') == 1 and node.get('issuffix') == 1)
 
         def isneither(node):
-            self.true(node.props.get('iszone') == 0 and node.props.get('issuffix') == 0)
+            self.true(node.get('iszone') == 0 and node.get('issuffix') == 0)
 
         with self.getTestCore() as core:
             with core.xact(write=True) as xact:
@@ -178,7 +186,8 @@ class InetModelTest(SynTest):
                 node = xact.addNode(formname, valu)
 
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                for prop, valu in expected_props.items():
+                    self.eq(node.get(prop), valu)
 
     def test_forms_unextended(self):
         # The following forms do not extend their base type
