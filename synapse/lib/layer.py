@@ -5,6 +5,7 @@ cortex construction.
 import os
 import lmdb
 import logging
+import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -16,6 +17,14 @@ import synapse.lib.msgpack as s_msgpack
 logger = logging.getLogger(__name__)
 
 #class LayerApi(s_cell.CellApi):
+
+class Encoder(collections.defaultdict):
+    def __missing__(self, name):
+        return name.encode('utf8') + b'\x00'
+
+class Utf8er(collections.defaultdict):
+    def __missing__(self, name):
+        return name.encode('utf8')
 
 class Layer(s_cell.Cell):
     '''
@@ -41,14 +50,12 @@ class Layer(s_cell.Cell):
 
         self.dbs = {}
 
-        self.initdb('grafts') # <seqn>=<valu>
+        self.utf8 = Utf8er()
+        self.encoder = Encoder()
 
         self.bybuid = self.initdb('bybuid') # <buid><prop>=<valu>
-
         self.byprop = self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
         self.byuniv = self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
-
-        #self.initdb('grafts')
 
         self.indxfunc = {
             'eq': self._rowsByEq,
@@ -57,70 +64,75 @@ class Layer(s_cell.Cell):
         }
 
         self._lift_funcs = {
-
-            'indx': self.liftByIndx,
-
+            'indx': self._liftByIndx,
         }
 
         self._stor_funcs = {
-
-            'node:add': self._storNodeAdd,
-            'node:del': self._storNodeDel,
-
-            'node:prop:set': self._storNodePropSet,
-            'node:univ:set': self._storNodeUnivSet,
-            'node:univ:del': self._storNodeUnivDel,
-
-            'node:tag:add': self._storNodeTagAdd,
-            'node:tag:del': self._storNodeTagDel,
+            'prop:set': self._storPropSet,
+            'prop:del': self._storPropDel,
         }
 
-    # top level API for cortex bypass
-    #def addBuidTag(
-    #def delBuidTag(
+    def _storPropSet(self, xact, oper):
 
-    #def _fireEditThread(self):
+        _, (buid, form, prop, valu, indx, info) = oper
 
-    def _storNodeAdd(self, xact, mesg):
+        fenc = self.encoder[form]
+        penc = self.encoder[prop]
 
-        buid = mesg[1].get('buid')
-        fenc = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-        indx = mesg[1].get('indx')
+        univ = info.get('univ')
 
-        # primary property gets stored a bit specially...
-        lkey = buid + b'*' + fenc
+        # special case for setting primary property
+        if prop:
+            bpkey = buid + self.utf8[prop]
+        else:
+            bpkey = buid + b'*' + self.utf8[form]
 
-        byts = s_msgpack.en((valu, indx))
-        xact.put(lkey, byts, db=self.bybuid)
+        bpval = s_msgpack.en((valu, indx))
 
-        lkey = fenc + b'\x00\x00' + indx
+        pvpref = fenc + penc
+        pvvalu = s_msgpack.en((buid,))
 
-        byts = s_msgpack.en((buid,))
-        xact.put(lkey, byts, dupdata=True, db=self.byprop)
+        byts = xact.replace(bpkey, bpval, db=self.bybuid)
+        if byts is not None:
 
-    def _storNodeDel(self, xact, mesg):
-        buid = mesg[1].get('buid')
-        xact.delete(buid, db=self._db_nodes)
+            oldv, oldi = s_msgpack.un(byts)
 
-    def _storNodeTagAdd(self, xact, mesg):
+            xact.delete(pvpref + oldi, pvvalu, db=self.byprop)
 
-        buid = mesg[1].get('buid')
-        valu = mesg[1].get('valu')
+            if univ:
+                unkey = penc + oldi
+                xact.delete(unkey, pvvalu, db=self.byuniv)
 
-        tag = mesg[1].get('tag')
-        form = mesg[1].get('form')
+        xact.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
 
-        return self._xactNodeTagAdd(xact, buid, form, tag, valu)
+        if univ:
+            xact.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
 
-    def _storNodeTagDel(self, xact, mesg):
+    def _storPropDel(self, xact, oper):
 
-        buid = mesg[1].get('buid')
+        _, (buid, form, prop, info) = oper
 
-        tag = mesg[1].get('tag')
-        form = mesg[1].get('form')
+        fenc = self.encoder[form]
+        penc = self.encoder[prop]
 
-        return self._xactNodeTagDel(buid, form, tag)
+        if prop:
+            bpkey = buid + self.utf8[prop]
+        else:
+            bpkey = buid + b'*' + self.utf8[form]
+
+        univ = info.get('univ')
+
+        byts = xact.pop(bpkey, db=self.bybuid)
+        if byts is None:
+            return
+
+        oldv, oldi = s_msgpack.un(byts)
+
+        pvvalu = s_msgpack.en((buid,))
+        xact.delete(fenc + penc + oldi, pvvalu, db=self.byprop)
+
+        if univ:
+            xact.delete(penc + oldi, pvvalu, db=self.byuniv)
 
     def db(self, name):
         return self.dbs.get(name)
@@ -129,104 +141,6 @@ class Layer(s_cell.Cell):
         db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
         self.dbs[name] = db
         return db
-
-    def _storNodePropSet(self, xact, mesg):
-
-        buid = mesg[1].get('buid')
-        valu = mesg[1].get('valu')
-        indx = mesg[1].get('indx')
-
-        fenc = mesg[1].get('form')
-        penc = mesg[1].get('prop')
-
-        return self._xactPropSet(xact, buid, fenc, penc, valu, indx)
-
-    def _storNodeUnivSet(self, xact, mesg):
-        # set a universal property (same as normal, with non-form index)
-
-        buid = mesg[1].get('buid')
-        valu = mesg[1].get('valu')
-        indx = mesg[1].get('indx')
-
-        fenc = mesg[1].get('form')
-        penc = mesg[1].get('prop')
-
-        oval = self._xactPropSet(xact, buid, fenc, penc, valu, indx)
-        if oval is not None:
-
-            oldv, oldi = oval
-
-            if oldi is not None:
-                lkey = penc + b'\x00' + oldi
-                xact.delete(lkey, buid, db=self.byuniv)
-
-        lkey = fenc + b'\x00' + penc + b'\x00' + indx
-
-        lval = s_msgpack.en((buid,))
-        xact.put(lkey, lval, dupdata=True, db=self.byuniv)
-
-    def _storNodeUnivDel(self, xact, mesg):
-        buid = mesg[1].get('buid')
-        fenc = mesg[1].get('form')
-        penc = mesg[1].get('prop')
-
-        oval = self._xactPropDel(xact, buid, fenc, penc)
-        if oval is None:
-            return
-
-        oldv, oldi = oval
-        if oldi is not None:
-            lkey = penc + b'\x00' + oldi
-            xact.delete(lkey, buid, db=self.byuniv)
-
-    def _xactPropSet(self, xact, buid, fenc, penc, valu, indx):
-
-        lkey = buid + penc
-        lval = s_msgpack.en((valu, indx))
-        pref = fenc + b'\x00' + penc + b'\x00'
-
-        oval = None
-        byts = xact.replace(lkey, lval, db=self.bybuid)
-
-        if byts is not None:
-            oval = s_msgpack.un(byts)
-
-            oldv, oldi = oval
-            if oldi is not None:
-                oldk = pref + oldi
-                xact.delete(oldk, buid, db=self.byprop)
-
-        if indx is not None:
-            lkey = pref + indx
-            lval = s_msgpack.en((buid,))
-            xact.put(lkey, lval, dupdata=True, db=self.byprop)
-
-        return oval
-
-    def _xactPropDel(self, xact, buid, fenc, penc):
-
-        lkey = buid + penc
-
-        byts = xact.pop(lkey, db=self.bybuid)
-        if byts is None:
-            return None
-
-        oldv, oldi = s_msgpack.un(byts)
-
-        if oldi is not None:
-            oldk = fenc + b'\x00' + penc + b'\x00'
-            xact.delete(oldk, buid, db=self.byprop)
-
-        return (oldv, oldi)
-
-    def stor(self, sops):
-        '''
-        Execute a series of stor operations using a single transaction.
-
-        NOTE: This API is mostly for testing and special case use.
-        '''
-        with self.lenv.begin(write=True) as xact:
-            self._xactRunStors(xact, sops)
 
     def _xactRunLifts(self, xact, lops):
         for oper in lops:
@@ -242,8 +156,7 @@ class Layer(s_cell.Cell):
                 raise s_exc.NoSuchStor(name=oper[0])
             func(xact, oper)
 
-    def liftByIndx(self, xact, oper):
-
+    def _liftByIndx(self, xact, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))
         # indx opers:  ('eq', <indx>)  ('pref', <indx>) ('range', (<indx>, <indx>)
         name, pref, iops = oper[1]
