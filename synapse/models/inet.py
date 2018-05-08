@@ -207,6 +207,13 @@ class Rfc2822Addr(s_types.Type):
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+        self.indxcmpr['^='] = self.indxByPref
+
+    def indxByPref(self, valu):
+        norm, info = self.norm(valu)
+        return (
+            ('pref', norm.encode('utf8')),
+        )
 
     def indx(self, norm):
         return norm.encode('utf8')
