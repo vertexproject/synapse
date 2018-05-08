@@ -4,7 +4,6 @@ import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.neuron as s_neuron
 
-import synapse.lib.iq as s_iq
 import synapse.lib.cell as s_cell
 import synapse.lib.crypto.vault as s_vault
 

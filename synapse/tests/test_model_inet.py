@@ -519,7 +519,13 @@ class InetModelTest(s_t_common.SynTest):
             t = core.model.type(formname)
 
             self.raises(s_exc.NoSuchFunc, t.norm, 'vertex.link/person1')  # No longer a sepr
-            self.eq(t.norm(('VerTex.linK', 'PerSon1')), (('vertex.link', 'person1'), {'subs': {'site': 'vertex.link', 'user': 'person1'}}))
+            enorm = ('vertex.link', 'person1')
+            edata = {'subs': {'user': 'person1',
+                              'site': 'vertex.link',
+                              'site:host': 'vertex',
+                              'site:domain': 'link', },
+                     'adds': []}
+            self.eq(t.norm(('VerTex.linK', 'PerSon1')), (enorm, edata))
 
             # Form Tests
             valu = ('blogs.Vertex.link', 'Brutus')

@@ -267,10 +267,9 @@ class TelcoModule(s_module.CoreModule):
                     }),
                 )),
                 ('tel:mob:tac', {}, (
-                    # FIXME need org model
-                    # ('org', ('ou:org', {}), {
-                    #     'doc': 'The org guid for the manufacturer',
-                    # }),
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org guid for the manufacturer',
+                    }),
                     ('manu', ('str', {'lower': 1}), {
                         'doc': 'The TAC manufacturer name',
                         'defval': '??',

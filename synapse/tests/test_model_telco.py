@@ -1,4 +1,6 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
+
 import synapse.tests.common as s_test
 
 
@@ -7,10 +9,11 @@ class TelcoModelTest(s_test.SynTest):
         with self.getTestCore() as core:
             with core.xact(write=True) as xact:
                 # tel:mob:tac
+                oguid = s_common.guid()
                 props = {'manu': 'Acme Corp',
                          'model': 'eYephone 9000',
                          'internal': 'spYphone 9000',
-                         # 'org': '',  FIXME: Add when ou:org is ported
+                         'org': oguid,
                          }
                 node = xact.addNode('tel:mob:tac', 1, props)
                 self.eq(node.ndef[1], 1)
@@ -18,6 +21,7 @@ class TelcoModelTest(s_test.SynTest):
                 self.eq(node.get('manu'), 'acme corp')
                 self.eq(node.get('model'), 'eyephone 9000')
                 self.eq(node.get('internal'), 'spyphone 9000')
+                self.eq(node.get('org'), oguid)
                 # defvals
                 node = xact.addNode('tel:mob:tac', 2)
                 self.eq(node.get('manu'), '??')

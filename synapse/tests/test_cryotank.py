@@ -4,7 +4,6 @@ import random
 from unittest.mock import patch
 
 import synapse.exc as s_exc
-import synapse.lib.iq as s_iq
 import synapse.lib.cell as s_cell
 import synapse.cryotank as s_cryotank
 import synapse.lib.msgpack as s_msgpack

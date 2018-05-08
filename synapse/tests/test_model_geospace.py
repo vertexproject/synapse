@@ -104,4 +104,13 @@ class GeoTest(s_t_common.SynTest):
             stamp = -0
 
             data = t.norm((ndef, latlong, stamp))
-            self.eq(data, ((('inet:ipv4', 0), (0.0, 0.0), -0), {'subs': {'ndef': ('inet:ipv4', 0), 'latlong': (0.0, 0.0), 'time': 0}}))
+            enorm = (('inet:ipv4', 0), (0.0, 0.0), -0)
+            edata = {'subs': {'time': 0,
+                              'ndef': ('inet:ipv4', 0),
+                              'ndef:form': 'inet:ipv4',
+                              'latlong': (0.0, 0.0),
+                              'latlong:lat': 0.0,
+                              'latlong:lon': 0.0},
+                     'adds': [('inet:ipv4', 0), ],
+                     }
+            self.eq(data, (enorm, edata))
