@@ -45,8 +45,6 @@ class OuModule(s_module.CoreModule):
                 ('ou:conference', ('guid', {}), {
                     'doc': 'A conference with a name and sponsoring org.',
                 })
-
-
             ),
             'forms': (
                 ('ou:org', {}, (
