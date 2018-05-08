@@ -62,3 +62,15 @@ def repr(tick, pack=False):
     if pack:
         return '%d%.2d%.2d%.2d%.2d%.2d%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
     return '%d/%.2d/%.2d %.2d:%.2d:%.2d.%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
+
+def ival(*times):
+
+    times = [t for t in times if t is not None]
+
+    minv = min(times)
+    maxv = max(times)
+
+    if minv == maxv:
+        maxv += 1
+
+    return (minv, maxv)

@@ -40,9 +40,21 @@ testmodel = {
             }), {'doc': 'A fake comp type.'}),
         ('testhexa', ('hex', {}), {'doc': 'anysize test hex type'}),
         ('testhex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
+
+        ('pivtarg', ('str', {}), {}),
+        ('pivcomp', ('comp', {'fields': (('targ', 'pivtarg'), ('lulz', 'str'))}), {}),
     ),
 
     'forms': (
+
+        ('pivtarg', {}, (
+            ('name', ('str', {}), {}),
+        )),
+
+        ('pivcomp', {}, (
+            ('lulz', ('str', {}), {}),
+            ('targ', ('pivtarg', {}), {}),
+        )),
 
         ('faketype', {}, (
 
@@ -115,7 +127,7 @@ class CortexTest(SynTest):
             proxy = dmon._getTestProxy('core')
             nodes = list(proxy.getNodesBy('inet:user', 'visi'))
 
-    def test_cortex_onset(self):
+    def test_cortex_onsetdel(self):
 
         with self.getTestCore() as core:
 
@@ -130,6 +142,66 @@ class CortexTest(SynTest):
                 self.eq(func.args[0].buid, node.buid)
                 self.eq(func.args[1], '??')
 
+                func = CallBack()
+                core.model.prop('inet:ipv4:loc').onDel(func)
+
+                node.delete('loc')
+
+                self.eq(func.args[0].buid, node.buid)
+                self.eq(func.args[1], 'us.va')
+
+                self.none(node.get('loc'))
+
+            with core.xact() as xact:
+                node = xact.addNode('inet:ipv4', '1.2.3.4')
+                self.none(node.get('loc'))
+
+    def test_cortex_tags(self):
+
+        with self.getTestCore() as core:
+
+            with core.xact(write=True) as xact:
+
+                xact.addNode('faketype', 'newp')
+
+                node = xact.addNode('faketype', 'one')
+                node.addTag('foo.bar', ('2016', '2017'))
+
+                self.eq((1451606400000, 1483228800000), node.getTag('foo.bar', ('2016', '2017')))
+
+                node1 = xact.addNode('fakecomp', (10, 'hehe'))
+                node1.addTag('foo.bar')
+
+                self.nn(xact.getNodeByNdef(('syn:tag', 'foo')))
+                self.nn(xact.getNodeByNdef(('syn:tag', 'foo.bar')))
+
+            with core.xact() as xact:
+
+                node = xact.getNodeByNdef(('faketype', 'one'))
+
+                self.true(node.hasTag('foo'))
+                self.true(node.hasTag('foo.bar'))
+
+                self.raises(s_exc.NoSuchForm, list, xact.getNodesBy('noway#foo.bar'))
+
+                self.len(2, list(xact.getNodesBy('#foo.bar')))
+                self.len(1, list(xact.getNodesBy('faketype#foo.bar')))
+
+            with core.xact(write=True) as xact:
+
+                node = xact.addNode('faketype', 'one')
+
+                node.delTag('foo')
+
+                self.false(node.hasTag('foo'))
+                self.false(node.hasTag('foo.bar'))
+
+            with core.xact() as xact:
+
+                node = xact.addNode('faketype', 'one')
+                self.false(node.hasTag('foo'))
+                self.false(node.hasTag('foo.bar'))
+
     def test_cortex_base_types(self):
 
         with self.getTestCore() as core:
@@ -138,6 +210,9 @@ class CortexTest(SynTest):
 
                 node = xact.addNode('faketype', 'one')
                 self.nn(node.get('.created'))
+
+                nodes = list(xact.getNodesBy('.created', '2010', cmpr='>='))
+                print(repr(nodes))
 
                 self.eq(node.get('intprop'), 20)
                 self.eq(node.get('locprop'), '??')
@@ -207,6 +282,7 @@ class CortexTest(SynTest):
             with core.xact() as xact:
 
                 node = xact.addNode('faketype', 'one')
+                self.eq(node.get('intprop'), 21)
                 self.nn(node.get('.created'))
 
                 nodes = list(xact.getNodesBy('testfoo', 'too', cmpr='^='))
@@ -224,6 +300,23 @@ class CortexTest(SynTest):
 
                 self.eq(nodes[0].get('hehe'), 33)
                 self.eq(nodes[0].ndef[1], (33, 'thirty three'))
+
+    def test_cortex_pivprop(self):
+
+        with self.getTestCore() as core:
+
+            with core.xact(write=True) as xact:
+
+                pivc = xact.addNode('pivcomp', ('woot', 'rofl'))
+                self.eq(pivc.get('targ'), 'woot')
+
+                pivt = xact.getNodeByNdef(('pivtarg', 'woot'))
+                pivt.set('name', 'visi')
+                self.nn(pivt)
+
+            with core.xact() as xact:
+                pivc = xact.getNodeByNdef(('pivcomp', ('woot', 'rofl')))
+                self.eq(pivc.get('targ::name'), 'visi')
 
 #FIXME THIS ALL GOES AWAY #################################################
 class FIXME:
@@ -286,6 +379,7 @@ class FIXME:
             self.eq(evts[0][1]['oldv'], 'lol')
 
     def test_cortex_tags(self):
+
         core = s_cortex.openurl('ram://')
         core.setConfOpt('caching', 1)
 

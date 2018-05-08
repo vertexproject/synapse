@@ -5,6 +5,8 @@ logger = logging.getLogger(__name__)
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.chop as s_chop
+
 class Node:
     '''
     A Cortex hypergraph node.
@@ -62,8 +64,7 @@ class Node:
             (tuple): An (iden, info) node tuple.
         '''
         iden = s_common.ehex(self.buid)
-        return (iden, {
-            'ndef': self.ndef,
+        return (self.ndef, {
             'tags': self.tags,
             'props': self.props,
         })
@@ -97,7 +98,8 @@ class Node:
         if curv == norm:
             return False
 
-        sops = prop.stor(self.buid, norm)
+        sops = prop.getSetOps(self.buid, norm)
+        #sops = prop.stor(self.buid, norm)
         self.xact.stor(sops)
 
         self.props[prop.name] = norm
@@ -145,52 +147,119 @@ class Node:
         Returns:
             (obj): The secondary property value or None.
         '''
+        if name.find('::') != -1:
+
+            name, text = name.split('::', 1)
+
+            prop = self.form.props.get(name)
+            if prop is None:
+                raise s_exc.NoSuchProp(prop=name, form=self.form.name)
+
+            valu = self.props.get(name, s_common.novalu)
+            if valu is s_common.novalu:
+                return None
+
+            form = self.xact.model.form(prop.type.name)
+            if form is None:
+                raise s_exc.NoSuchForm(form=prop.type.name)
+
+            node = self.xact.getNodeByNdef((form.name, valu))
+            return node.get(text)
+
+        if name[0] == '#':
+            return self.tags.get(name)
+
         return self.props.get(name)
 
-    def addTag(self, tag):
-        '''
-        Add a tag to the Node.
+    def delete(self, name):
 
-        Args:
-            tag (str): A tag str with no leading #.
-
-        Returns:
-            (bool): True if the tag was newly added.
-        '''
-        #node = self.xact.addNode('syn:tag', tag)
-        # get the normalized tag value from the node
-        tagtype = self.xact.model.types.get('syn:tag')
-        norm, info = tagtype.norm(tag)
-
-        if self.tags.get(norm) is not None:
+        prop = self.form.prop(name)
+        if prop is None:
+            self.xact.warn('NoSuchProp', form=self.form.name, prop=name)
             return False
 
-        # time to confirm that the tag exists...
-        tagnode = self.xact.getNodeByNdef(('syn:tag', norm))
+        if prop.info.get('ro') and not init and not self.init:
+            logger.warning('trying to set read only prop: %s' % (prop.full,))
+            return False
 
-        tick = s_common.now()
-        import struct
-        indx = struct.pack('>Q', tick)
-
-        #FIXME: join tags down...
-
-        sops = (
-            ('node:univ:set', {
-                'buid': self.buid,
-                'form': self.form.utf8name,
-                'prop': b'#' + tag.encode('utf8'),
-                'valu': tick,
-                'indx': indx,
-            }),
-        )
+        sops = prop.getDelOps(self.buid)
         self.xact.stor(sops)
+
+        curv = self.props.pop(name, None)
+        prop.wasDel(self, curv)
+
+    def hasTag(self, name):
+        name = s_chop.tag(name)
+        return name in self.tags
+
+    def getTag(self, name, defval=None):
+        name = s_chop.tag(name)
+        return self.tags.get(name, defval)
+
+    def addTag(self, tag, valu=None):
+
+        name = s_chop.tag(tag)
+
+        if not self.xact.allowed('node:tag:add', name):
+            raise s_exc.AuthDeny()
+
+        parts = name.rsplit('.', 1)
+        if len(parts) > 1:
+            self._addTagRaw(parts[0], None)
+
+        self._addTagRaw(name, valu)
+
+    def _addTagRaw(self, name, valu):
+
+        node = self.xact.addNode('syn:tag', name)
+
+        ivaltype = self.xact.model.type('ival')
+        norm, info = ivaltype.norm(valu)
+
+        curv = self.tags.get(name, s_common.novalu)
+        if curv == norm:
+            return
+
+        info = {'univ': True}
+        indx = ivaltype.indx(norm)
+        sops = (
+            ('prop:set', (self.buid, self.form.name, '#' + name, valu, indx, info)),
+        )
+
+        self.tags[name] = norm
+        self.xact.stor(sops)
+
+        if curv is s_common.novalu:
+            #TODO: splice
+            pass
+
+        return True
 
     def delTag(self, tag):
         '''
         Delete a tag from the node.
         '''
-        valu = self.tags.get(tag)
-        if valu is None:
+        name = s_chop.tag(tag)
+
+        if not self.xact.allowed('node:tag:del', name):
+            raise s_exc.AuthDeny()
+
+        curv = self.tags.pop(name, s_common.novalu)
+        if curv is s_common.novalu:
             return False
 
-        #TODO: remove the tag
+        pref = name + '.'
+
+        subtags = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
+        subtags.sort(reverse=True)
+
+        info = {'univ': True}
+        sops = []
+
+        for sublen, subtag in subtags:
+            self.tags.pop(subtag, None)
+            sops.append(('prop:del', (self.buid, self.form.name, '#' + subtag, info)))
+
+        sops.append(('prop:del', (self.buid, self.form.name, '#' + name, info)))
+
+        self.xact.stor(sops)
