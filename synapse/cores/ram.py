@@ -227,4 +227,7 @@ class RamStorage(s_cores_storage.Storage):
         for iden, rows in self.rowsbyid.items():
             yield list(rows)
 
+    def getSize(self):
+        return len(self.rowsbyid)
+
 ramcores = {}

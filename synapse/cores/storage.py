@@ -725,6 +725,12 @@ class Storage(s_config.Config):
         for rows in self._genStoreRows(**kwargs):
             yield rows
 
+    def getSize(self):
+        '''
+        Returns the total number of raw rows.
+        '''
+        raise s_common.NoSuchImpl(name='getRowsCount', mesg='Store does not implement getSize')
+
     def _loadUpdateProperty(self, mesg):
         oldprop = mesg[1].get('oldprop')
         newprop = mesg[1].get('newprop')
