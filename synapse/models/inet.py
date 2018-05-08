@@ -96,8 +96,6 @@ class Fqdn(s_types.Type):
             raise s_exc.BadTypeValu(valu)
 
         parts = valu.split('.', 1)
-
-        adds = []
         subs = {'host': parts[0]}
 
         if len(parts) == 2:
@@ -132,6 +130,7 @@ class Fqdn(s_types.Type):
                 return valu
             raise  # pragma: no cover
 
+
 class IPv4(s_types.Type):
     '''
     The base type for an IPv4 address.
@@ -159,7 +158,7 @@ class IPv4(s_types.Type):
     def indxByEq(self, valu):
 
         if type(valu) == str and valu.find('/') != -1:
-            addr, mask = text.split('/', 1)
+            addr, mask = valu.split('/', 1)
             norm, info = self.norm(addr)
 
             mask = cidrmasks[int(mask)]
@@ -200,6 +199,7 @@ class IPv6(s_types.Type):
         except Exception as e:
             raise s_exc.BadTypeValu(valu)
 
+
 class Rfc2822Addr(s_types.Type):
     '''
     An RFC 2822 compatible email address parser
@@ -229,7 +229,7 @@ class Rfc2822Addr(s_types.Type):
 
         try:
             name, addr = email.utils.parseaddr(valu)
-        except Exception as e: # pragma: no cover
+        except Exception as e:  # pragma: no cover
             # not sure we can ever really trigger this with a string as input
             raise s_exc.BadTypeValu(valu, mesg='email.utils.parsaddr failed: %s' % (e,))
 
@@ -248,7 +248,7 @@ class Rfc2822Addr(s_types.Type):
             else:
                 valu = mail
         except s_exc.BadTypeValu as e:
-            pass # it's all good, we just dont have a valid email addr
+            pass  # it's all good, we just dont have a valid email addr
 
         return valu, {'subs': subs}
 
