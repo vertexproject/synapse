@@ -35,21 +35,18 @@ class InetModelTest(s_t_common.SynTest):
                     'name': 'COOL',
                     'owner': 32 * 'a'
                 }
-                expected_props = {
-                    'name': 'cool',
-                    # FIXME implement ou:org
-                }
                 expected_ndef = (formname, 123)
                 node = xact.addNode(formname, valu, props=input_props)
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                self.eq(node.get('name'), 'cool')
+                # FIXME add ou:org
 
                 valu = '456'
-                expected_props = {'name': '??'}
                 expected_ndef = (formname, 456)
                 node = xact.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                self.eq(node.get('name'), '??')
+                # FIXME add ou:org
 
     def test_cidr4(self):
         formname = 'inet:cidr4'
@@ -87,17 +84,14 @@ class InetModelTest(s_t_common.SynTest):
 
             # Form Tests ======================================================
             valu = '192[.]168.1.123/24'
-            expected_props = {
-                'network': 3232235776,    # 192.168.1.0
-                'broadcast': 3232236031,  # 192.168.1.255
-                'mask': 24,
-            }
             expected_ndef = (formname, '192.168.1.0/24')  # ndef is network/mask, not ip/mask
 
             with core.xact(write=True) as xact:
                 node = xact.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                self.eq(node.get('network'), 3232235776)  # 192.168.1.0
+                self.eq(node.get('broadcast'), 3232236031)  # 192.168.1.255
+                self.eq(node.get('mask'), 24)
 
     def test_email(self):
         formname = 'inet:email'
@@ -113,13 +107,12 @@ class InetModelTest(s_t_common.SynTest):
             # Form Tests ======================================================
             valu = 'UnitTest@Vertex.link'
             expected_ndef = (formname, valu.lower())
-            expected_props = {'fqdn': 'vertex.link', 'user': 'unittest'}
 
             with core.xact(write=True) as xact:
                 node = xact.addNode(formname, valu)
-
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                self.eq(node.get('fqdn'), 'vertex.link')
+                self.eq(node.get('user'), 'unittest')
 
     def test_fqdn(self):
         formname = 'inet:fqdn'
@@ -152,28 +145,37 @@ class InetModelTest(s_t_common.SynTest):
             expected_ndef = (formname, valu)
 
             # Demonstrate cascading formation
-            expected_props = {'created': 0, 'domain': 'vertex.link', 'expires': 1, 'host': 'api', 'issuffix': 0,
-                'iszone': 0, 'updated': 2, 'zone': 'vertex.link'}
             with core.xact(write=True) as xact:
                 node = xact.addNode(formname, valu, props={'created': 0, 'expires': 1, 'updated': 2})
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                self.eq(node.get('created'), 0)
+                self.eq(node.get('domain'), 'vertex.link')
+                self.eq(node.get('expires'), 1)
+                self.eq(node.get('host'), 'api')
+                self.eq(node.get('issuffix'), 0)
+                self.eq(node.get('iszone'), 0)
+                self.eq(node.get('updated'), 2)
+                self.eq(node.get('zone'), 'vertex.link')
 
-            nvalu = expected_props['domain']
-            expected_ndef = (formname, nvalu)
-            expected_props = {'domain': 'link', 'host': 'vertex', 'issuffix': 0, 'iszone': 1, 'zone': 'vertex.link'}
             with core.xact() as xact:
-                node = xact.getNodeByNdef((formname, nvalu))
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
-
-            with core.xact() as xact:
-                nvalu = expected_props['domain']
+                nvalu = 'vertex.link'
                 expected_ndef = (formname, nvalu)
-                expected_props = {'host': 'link', 'issuffix': 1, 'iszone': 0}
                 node = xact.getNodeByNdef((formname, nvalu))
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                self.eq(node.get('domain'), 'link')
+                self.eq(node.get('host'), 'vertex')
+                self.eq(node.get('issuffix'), 0)
+                self.eq(node.get('iszone'), 1)
+                self.eq(node.get('zone'), 'vertex.link')
+
+            with core.xact() as xact:
+                nvalu = 'link'
+                expected_ndef = (formname, nvalu)
+                node = xact.getNodeByNdef((formname, nvalu))
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.get('host'), 'link')
+                self.eq(node.get('issuffix'), 1)
+                self.eq(node.get('iszone'), 0)
 
             # Demonstrate wildcard
             with core.xact() as xact:
@@ -188,16 +190,16 @@ class InetModelTest(s_t_common.SynTest):
         formname = 'inet:fqdn'
 
         def iszone(node):
-            self.true(node.props.get('iszone') == 1 and node.props.get('issuffix') == 0)
+            self.true(node.get('iszone') == 1 and node.get('issuffix') == 0)
 
         def issuffix(node):
-            self.true(node.props.get('issuffix') == 1 and node.props.get('iszone') == 0)
+            self.true(node.get('issuffix') == 1 and node.get('iszone') == 0)
 
         def isboth(node):
-            self.true(node.props.get('iszone') == 1 and node.props.get('issuffix') == 1)
+            self.true(node.get('iszone') == 1 and node.get('issuffix') == 1)
 
         def isneither(node):
-            self.true(node.props.get('iszone') == 0 and node.props.get('issuffix') == 0)
+            self.true(node.get('iszone') == 0 and node.get('issuffix') == 0)
 
         with self.getTestCore() as core:
             with core.xact(write=True) as xact:
@@ -264,12 +266,14 @@ class InetModelTest(s_t_common.SynTest):
                 valu_str = '1.2.3.4'
                 valu_int = 16909060
                 input_props = {'asn': 3, 'loc': 'us', 'type': 'cool', 'latlong': '-50.12345, 150.56789'}
-                expected_props = {'asn': 3, 'loc': 'us', 'type': 'cool', 'latlong': (-50.12345, 150.56789)}
                 expected_ndef = (formname, valu_int)
 
                 node = xact.addNode(formname, valu_str, props=input_props)
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                self.eq(node.get('asn'), 3)
+                self.eq(node.get('loc'), 'us')
+                self.eq(node.get('type'), 'cool')
+                self.eq(node.get('latlong'), (-50.12345, 150.56789))
 
     def test_ipv6(self):
         formname = 'inet:ipv6'
@@ -311,14 +315,17 @@ class InetModelTest(s_t_common.SynTest):
                 expected_ndef = (formname, valu_str.lower())
                 node = xact.addNode(formname, valu_str)
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                self.eq(node.get('asn'), 0)
+                self.eq(node.get('ipv4'), 16909060)
+                self.eq(node.get('loc'), '??')
 
                 valu_str = '::1'
                 expected_props = {'asn': 0, 'loc': '??'}
                 expected_ndef = (formname, valu_str)
                 node = xact.addNode(formname, valu_str)
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                self.eq(node.get('asn'), 0)
+                self.eq(node.get('loc'), '??')
 
     def test_mac(self):
         formname = 'inet:mac'
@@ -339,11 +346,11 @@ class InetModelTest(s_t_common.SynTest):
 
                 node = xact.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, {'vendor': '??'})
+                self.eq(node.get('vendor'), '??')
 
                 node = xact.addNode(formname, valu, props={'vendor': 'Cool'})
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, {'vendor': 'Cool'})
+                self.eq(node.get('vendor'), 'Cool')
 
     def test_url(self):
         formname = 'inet:url'
@@ -359,11 +366,14 @@ class InetModelTest(s_t_common.SynTest):
             with core.xact(write=True) as xact:
                 valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
                 expected_ndef = (formname, valu)
-                expected_props = {'fqdn': 'vertex.link', 'passwd': 'hunter2', 'path': '/coolthings?a=1', 'port': 1337, 'proto': 'https', 'user': 'vertexmc'}
-
                 node = xact.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                self.eq(node.get('fqdn'), 'vertex.link')
+                self.eq(node.get('passwd'), 'hunter2')
+                self.eq(node.get('path'), '/coolthings?a=1')
+                self.eq(node.get('port'), 1337)
+                self.eq(node.get('proto'), 'https')
+                self.eq(node.get('user'), 'vertexmc')
 
     def test_rfc2822_addr(self):
         formname = 'inet:rfc2822:addr'
@@ -384,13 +394,12 @@ class InetModelTest(s_t_common.SynTest):
             # Form Tests ======================================================
             valu = '"UnitTest"    <UnitTest@Vertex.link>'
             expected_ndef = (formname, 'unittest <unittest@vertex.link>')
-            expected_props = {'email': 'unittest@vertex.link'}   #FIXME add ps:name
 
             with core.xact(write=True) as xact:
                 node = xact.addNode(formname, valu)
-
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                self.eq(node.get('email'), 'unittest@vertex.link')
+                #FIXME add ps:name
 
     def test_url_fqdn(self):
         with self.getTestCore() as core:
@@ -541,9 +550,8 @@ class InetModelTest(s_t_common.SynTest):
 
             with core.xact(write=True) as xact:
                 node = xact.addNode(formname, valu, props=input_props)
-
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.props, expected_props)
+                [self.eq(node.get(k), expected_props[k]) for k in expected_props]
 
 class FIXME:
 
