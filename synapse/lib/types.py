@@ -46,9 +46,10 @@ class Type:
         self._type_norms = {}   # python type to norm function map str: _norm_str
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
 
-        self.liftcmpr = {
-            '=': self.liftPropEq,
-            '*in=': self.liftPropIn,
+        self.indxcmpr = {
+            '=': self.indxByEq,
+            '*in=': self.indxByIn,
+            '*range=': self.indxByRange,
         }
 
         self.setCmprCtor('=', self._ctorCmprEq)
@@ -67,8 +68,41 @@ class Type:
             return norm == valu
         return cmpr
 
-    #def setFiltCtor(self, cmpr, func):
-        #self._cmpr_ctors[cmpr] = func
+    def indxByEq(self, valu):
+        norm, info = self.norm(valu)
+        indx = self.indx(norm)
+        return (
+            ('eq', indx),
+        )
+
+    def indxByIn(self, vals):
+
+        opers = []
+        if type(vals) not in (list, tuple):
+            raise s_exc.BadCmprValu(valu=vals, cmpr='*in=')
+
+        for valu in vals:
+            opers.extend(self.getIndxOpers(valu))
+
+        return opers
+
+    def indxByRange(self, valu):
+
+        if type(valu) not in (list, tuple):
+            raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
+
+        if len(valu) != 2:
+            raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
+
+        minv, _ = self.norm(valu[0])
+        maxv, _ = self.norm(valu[1])
+
+        mini = self.indx(minv)
+        maxi = self.indx(maxv)
+
+        return (
+            ('range', (mini, maxi)),
+        )
 
     def getFiltFunc(self, cmpr, text):
         '''
@@ -117,10 +151,7 @@ class Type:
 
         Notes:
             The info dictionary uses the following key conventions:
-                repr (str): The repr form of the normalized value.
                 subs (dict): The normalized sub-fields as name: valu entries.
-                toks (list): A list of seach tokens for the normalized value.
-                indx (bytes): The bytes to use in a btree index for the value.
         '''
         func = self._type_norms.get(type(valu))
         if func is None:
@@ -182,56 +213,21 @@ class Type:
         topt.update(opts)
         return self.__class__(self.modl, self.name, self.info, topt)
 
-    def liftByProp(self, xact, prop, valu, cmpr='='):
+    def getIndxOps(self, valu, cmpr='='):
+        '''
+        Return a list of index operation tuples to lift values in a table.
 
-        func = self.liftcmpr.get(cmpr)
+        Valid index operations include:
+            ('eq', <indx>)
+            ('pref', <indx>)
+            ('range', (<minindx>, <maxindx>))
+        '''
+        func = self.indxcmpr.get(cmpr)
+
         if func is None:
-            s_exc.BadLiftCmpr(cmpr=cmpr, type=self.name, prop=prop.full)
+            raise s_exc.NoSuchCmpr(type=self.name, cmpr=cmpr)
 
-        penc = prop.utf8name
-        fenc = prop.form.utf8name
-        return func(xact, fenc, penc, valu)
-
-    def liftByForm(self, xact, form, valu, cmpr='='):
-
-        func = self.liftcmpr.get(cmpr)
-        if func is None:
-            s_exc.BadLiftCmpr(cmpr=cmpr, type=self.name, form=form.name)
-
-        penc = b''
-        fenc = form.utf8name
-        return func(xact, fenc, penc, valu)
-
-    def liftPropIn(self, xact, fenc, penc, valu):
-
-        for item in valu:
-            for row, node in self.liftByProp(xact, fenc, penc, valu):
-                yield row, node
-
-    def liftPropEq(self, xact, fenc, penc, valu):
-
-        norm, info = self.norm(valu)
-        lops = (
-            ('prop:eq', {
-                'form': fenc,
-                'prop': penc,
-                'valu': norm,
-                'indx': self.indx(norm),
-            }),
-        )
-        return xact.lift(lops)
-
-    def _liftByPref(self, xact, fenc, penc, indx):
-        # a helper for Type subclass use...
-        lops = (
-            ('prop:pref', {
-                'form': fenc,
-                'prop': penc,
-                'indx': indx,
-            }),
-        )
-        return xact.lift(lops)
-
+        return func(valu)
 
 tagre = regex.compile(r'^([\w]+\.)*[\w]+$')
 
@@ -239,29 +235,13 @@ class Tag(Type):
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+        self.indxcmpr['^='] = self.indxByPref
 
-    def liftPropEq(self, xact, fenc, penc, text):
-
-        valu = text.lower().strip()
-
-        if not text.endswith('*'):
-            return Type.liftPropEq(self, xact, fenc, penc, text)
-
-        norm, _ = self.norm(valu.strip('*'))
-
-        indx = self.indx(norm)
-        return self._liftByPref(xact, fenc, penc, indx)
-
-    def _liftByPref(self, xact, fenc, penc, indx):
-        # a helper for Type subclass use...
-        lops = (
-            ('prop:pref', {
-                'form': fenc,
-                'prop': penc,
-                'indx': indx,
-            }),
+    def indxByPref(self, valu):
+        norm, info = self.norm(valu)
+        return (
+            ('pref', norm.encode('utf8')),
         )
-        return xact.lift(lops)
 
     def _normPyStr(self, text):
 
@@ -301,6 +281,18 @@ class Str(Type):
         restr = self.opts.get('regex')
         if restr is not None:
             self.regex = regex.compile(restr)
+
+        self.indxcmpr['^='] = self.indxByPref
+
+    def indxByPref(self, valu):
+
+        # doesnt have to be normable...
+        if self.opts.get('lower'):
+            valu = valu.lower()
+
+        return (
+            ('pref', valu.encode('utf8')),
+        )
 
     def norm(self, valu):
 
@@ -352,9 +344,6 @@ class Int(Type):
     )
 
     def postTypeInit(self):
-        #self.setFiltCtor('=', self._cmpr_eq)
-        #self.setFiltCtor('>=', self._cmpr_ge)
-        #self.setFiltCtor('<=', self._cmpr_le)
         self.minval = self.opts.get('min')
         self.maxval = self.opts.get('max')
 
@@ -371,11 +360,6 @@ class Int(Type):
 
         return newv
 
-    #def runCmprFunc(self, x, y, cmpr='='):
-
-    def getCmprCtor(self, cmpr):
-        return self._cmpr_ctors.get(cmpr)
-
     def cmprCtorEq(self, text):
 
         norm, info = self.norm(text)
@@ -384,91 +368,6 @@ class Int(Type):
             return valu == norm
 
         return cmpr
-
-    #def _cmpr_le(self, text):
-        #norm = self.norm(text)[0]
-        #def filt(valu):
-            #return valu <= norm
-        #return filt
-
-    def _cmpr_ge(self, text):
-
-        norm = self.norm(text)[0]
-        def filt(valu):
-            return valu >= norm
-
-        return filt
-
-    def _cmpr_eq(self, text):
-
-        if text.find(':') != -1:
-
-            minv, maxv = s_chop.intrange(text)
-
-            def filt(valu):
-                return valu >= minv and valu < maxv
-
-            return filt
-
-        norm = self.norm(text)[0]
-        def filt(valu):
-            return norm == valu
-
-        return filt
-
-    def _chopIntRange(self, text):
-        mins, maxs = text.split(':', 1)
-        minv = s_common.intify(mins)
-        maxv = s_common.intify(maxs)
-        return int(x, 0), int(y, 0)
-
-    def _lift_eq(self, text):
-
-        if text.find(':') != -1:
-
-            minv, maxv = s_chop.intrange(text)
-
-            vmin = struct.pack('>Q', int(smin, 0))
-            vmax = struct.pack('>Q', int(smax, 0))
-
-            return (('prop:range', {'vmin': vmin, 'vmax': vmax}),)
-
-        valu, infos = self.norm(text)
-        return ('prop:eq', {'valu': valu})
-
-    def _lift(self, name, text, cmpr='='):
-
-        if cmpr == '=':
-
-            if text.find(':') != -1:
-
-                smin, smax = text.split(':', 1)
-
-                vmin = struct.pack('>Q', int(smin, 0))
-                vmax = struct.pack('>Q', int(smax, 0))
-
-                return ('prop:range', {}), ((vmin, vmax), )
-
-            valu, infos = self.norm(text)
-            return ('prop:eq', (name, valu), {})
-
-        raise NoSuchLift(name=name, valu=text, cmpr=cmpr)
-
-        if text.find(':') != -1:
-            try:
-
-                smin, smax = text.split(':', 1)
-
-                vmin = struct.pack('>Q', int(smin, 0))
-                vmax = struct.pack('>Q', int(smax, 0))
-
-                return ('prop:range', (name, (vmin, vmax)), {})
-
-            except Exception as e:
-                logger.exception(e)
-                raise s_exc.BadLiftValu(name=name, text=text)
-
-        return Type.lift(self, name, text, cmp=cmp)
 
     def _normPyStr(self, valu):
         return self._normPyInt(int(valu, 0))
@@ -496,24 +395,8 @@ class Bool(Type):
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bool, self._normPyInt)
 
-        #self.setCmprFunc('=', s_cmpr.eq)
-
     def indx(self, norm):
         return norm.to_bytes(length=1, byteorder='big')
-
-    def _lift(self, name, text, cmpr='='):
-
-        if cmpr != '=':
-            raise BadTypeCmpr(name=self._type_name, cmpr=cmpr)
-
-        valu, info = self.norm(text)
-        indx = struct.pack('B', valu)
-        return ('prop:eq', (name, indx, valu), {})
-
-    def _stor(self, name, valu):
-        valu, info = self.norm(valu)
-        indx = struct.pack('B', valu)
-        return (name, indx, valu)
 
     def _normPyStr(self, valu):
 
@@ -534,63 +417,6 @@ class Bool(Type):
 
     def repr(self, valu):
         return repr(bool(valu))
-
-'''
-class Range(Type):
-
-    _opt_defs = (
-        ('min', None),
-        ('max', None),
-        ('type', 'int'),
-    )
-
-    def postTypeInit(self):
-
-        base = self.opts.get('type')
-        self.base = self.modl.type(base).clone(self.opts)
-
-        self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(list, self._normPyIter)
-        self.setNormFunc(tuple, self._normPyIter)
-
-    def _normPyIter(self, valu)
-
-        minv, maxv = valu
-        tmin = self.opts.get(
-
-        x, _ = self.base.norm(valu[0])
-        y, _ = self.base.norm(valu[1])
-
-        return (min(
-
-    def _normPyStr(self, valu):
-
-        if valu.find('-'):
-
-            # inclusive range....
-            mins, maxs = valu.split('-', 1)
-
-            minv = int(self.baseint.norm(strmin)[0])
-            maxv = int(self.baseint.norm(strmax)[0])
-
-        if valu.find(':'):
-            # max exclusive (slice) range.
-            strmin, strmax = valu.split(':', 1)
-            minv, _ = self.modl.
-
-    def merge(self, oldv, newv):
-
-        minv = min(*oldv, *newv)
-        if self.tmin is not None:
-            minv = max(minv, self.tmin)
-
-        maxv = max(*oldv, *newv)
-        tmax = self.opts.get('max')
-        if tmax is not None:
-            maxv = max(maxv, tmax)
-
-        return (minv, maxv)
-'''
 
 class Time(Type):
 
@@ -637,51 +463,21 @@ class Time(Type):
         # wreaking havoc with the btree range indexing...
         return (norm + 0x8000000000000000).to_bytes(8, 'big')
 
-    def _liftTimeRange(self, xact, fenc, penc, minv, maxv):
-        tick, info = self.norm(minv)
-        tock, info = self.norm(maxv)
-
-        lops = (
-            ('prop:range', {
-                'form': fenc,
-                'prop': penc,
-                'minindx': self.indx(tick),
-                'maxindx': self.indx(tock - 1),
-            }),
+    def _indxTimeRange(self, mint, maxt):
+        minv, _ = self.norm(mint)
+        maxv, _ = self.norm(maxt)
+        return (
+            ('range', (self.indx(minv), self.indx(maxv))),
         )
 
-        return xact.lift(lops)
+    def indxByEq(self, valu):
 
-    def liftPropEq(self, xact, fenc, penc, valu):
-
-        # fancy pants time syntax...
-
-        valutype = type(valu)
-        if valutype == int:
-            return Type.liftPropEq(self, xact, fenc, penc, valu)
-
-        if valutype == str:
-
-            if not valu.strip().endswith('*'):
-                return Type.liftPropEq(self, xact, fenc, penc, valu)
-
-            # do a prefix syntax range based lift
-
+        if type(valu) == str and valu.endswith('*'):
             valu = s_chop.digits(valu)
             maxv = str(int(valu) + 1)
-            return self._liftTimeRange(xact, fenc, penc, valu, maxv)
+            return self._indxTimeRange(valu, maxv)
 
-        if valutype in (list, tuple):
-
-            try:
-                minv, maxv = valu
-            except Exception as e:
-                mesg = 'Invalid time window has too many fields'
-                raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
-
-            return self._liftTimeRange(xact, fenc, penc, minv, maxv)
-
-        return Type.liftPropEq(self, xact, fenc, penc, valu)
+        return Type.indxByEq(self, valu)
 
 class Guid(Type):
 
@@ -725,20 +521,14 @@ class Loc(Type):
         valu = '\x00'.join(parts) + '\x00'
         return valu.encode('utf8')
 
-    def liftPropEq(self, xact, fenc, penc, text):
+    def indxByEq(self, valu):
 
-        norm, info = self.norm(text)
+        norm, info = self.norm(valu)
         indx = self.indx(norm)
 
-        lops = (
-            ('prop:pref', {
-                'form': fenc,
-                'prop': penc,
-                'indx': indx,
-            }),
+        return (
+            ('pref', indx),
         )
-
-        return xact.lift(lops)
 
 class Comp(Type):
 
@@ -789,23 +579,15 @@ class Hex(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(bytes, self._normPyBytes)
 
-    def liftPropEq(self, xact, fenc, penc, valu):
-
-        # Prefix searching is allowed with a '*'
+    def indxByEq(self, valu):
         if isinstance(valu, str) and valu.endswith('*'):
             valu = valu.rstrip('*')
             norm = s_chop.hexstr(valu)
-            lops = (
-                ('prop:pref', {
-                    'form': fenc,
-                    'prop': penc,
-                    'valu': norm,
-                    'indx': self.indx(norm),
-                }),
+            return (
+                ('pref', self.indx(norm)),
             )
-            return xact.lift(lops)
-        # Default case
-        return Type.liftPropEq(self, xact, fenc, penc, valu)
+
+        return Type.indxByEq(self, valu)
 
     def _normPyStr(self, valu):
         valu = s_chop.hexstr(valu)
