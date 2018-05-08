@@ -15,15 +15,6 @@ import synapse.lib.msgpack as s_msgpack
 logger = logging.getLogger(__name__)
 
 
-# TODO:
-# comp types with optional -> guid
-
-# .created -> into props
-
-# rather than setting the tags to the current tag prop valu, please reconstruct them as intervals (min,max) or None
-# based on the <# and ># properties if present.  If no ># or <# props are present, a value of None is fine
-
-
 # Topologically sorted comp and sepr types that are form types that have other comp types as elements.  The beginning
 # of the list has more dependencies than the end.
 _comp_and_sepr_forms = [
@@ -187,7 +178,7 @@ class Migrator:
                 if not rv:
                     break  # end of table
 
-    def inet_web_post(self, formname, pkval):
+    def just_guid(self, formname, pkval):
         return pkval
 
     def is_sepr(self, formname):
@@ -205,7 +196,9 @@ class Migrator:
         return tuple(retn)
 
     primary_prop_special = {
-        'inet:web:post': inet_web_post
+        'inet:web:post': just_guid,
+        'it:dev:regval': just_guid,
+        'inet:dns:soa': just_guid
     }
 
     def convert_primary(self, props):
@@ -308,7 +301,15 @@ class Migrator:
         for oldk, oldv in sorted(oldprops.items()):
             propmeta = next((x[1] for x in propsmeta if x[0] == oldk), {})
             if oldk[0] == '#':
-                tags[oldk[1:]] = oldv
+                tags[oldk[1:]] = None
+            elif oldk[0] == '>':
+                start, end = tags.get(oldk[2:], (None, None)) or (None, None)
+                start = oldv
+                tags[oldk[2:]] = (start, end)
+            elif oldk[0] == '<':
+                start, end = tags.get(oldk[2:], (None, None)) or (None, None)
+                end = oldv
+                tags[oldk[2:]] = (start, end)
             elif oldk == formname:
                 pk = self.convert_primary(oldprops)
             elif propmeta.get('ro', False):

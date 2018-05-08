@@ -77,11 +77,15 @@ class Migrate010Test(s_iq.SynTest):
             tufo = core.formTufoByProp('inet:web:logon', '*', acct='vertex.link/pennywise', time=s_common.now(),
                                        ipv4=0x01020304)
             core.addTufoTag(tufo, 'test')
+            core.addTufoTag(tufo, 'hehe.haha@2016-2017')
             fh = tempfile.TemporaryFile(dir=dirn)
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('inet:web:logon', fh)
             self.eq(len(nodes), 1)
             self.eq(nodes[0][1]['props']['client'], 'tcp://16909060/')
+            tags = nodes[0][1]['tags']
+            self.eq(tags['test'], None)
+            self.eq(tags['hehe.haha'], (1451606400000, 1483228800000))
 
             core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'knock knock'), time='20141217010101')
             fh = tempfile.TemporaryFile(dir=dirn)
