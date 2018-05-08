@@ -123,7 +123,8 @@ class Type:
             #raise s_exc.NoSuchCmpr(name=cmpr)
 
         #def func(valu):
-            #s_cmpr.
+
+                #s_cmpr.
             #return cmprfunc(
 
     def setNormFunc(self, typo, func):
