@@ -122,11 +122,6 @@ class Type:
         #if cmprfunc is None:
             #raise s_exc.NoSuchCmpr(name=cmpr)
 
-        #def func(valu):
-
-                #s_cmpr.
-            #return cmprfunc(
-
     def setNormFunc(self, typo, func):
         '''
         Register a normalizer function for a given python type.

@@ -43,10 +43,8 @@ class Layer(s_cell.Cell):
 
         self.initdb('grafts') # <seqn>=<valu>
 
-        #self._db_nodes = self.initdb('nodes') # <buid>=(<form>,<valu>)
         self.bybuid = self.initdb('bybuid') # <buid><prop>=<valu>
 
-        #self._db_bytag = self.initdb('bytag', dupsort=True) # <tag>00<indx>=<buid>
         self.byprop = self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
         self.byuniv = self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
 
@@ -61,14 +59,6 @@ class Layer(s_cell.Cell):
         self._lift_funcs = {
 
             'indx': self.liftByIndx,
-
-            #'tag': self._liftByTag,
-            #'tag:form': self._liftByTagForm,
-
-            #'prop': self._liftByProp,
-            #'prop:eq': self._liftByPropEq,
-            #'prop:pref': self._liftByPropPref,
-            #'prop:range': self._liftByPropRange,
 
         }
 

@@ -99,26 +99,6 @@ class Prop:
             ('indx', ('byprop', self.pref, iops)),
         )
 
-    #def lift(self, xact, valu, cmpr='='):
-        #'''
-        #Lift nodes by the given property valu and comparator.
-
-        #Args:
-            #xact (synapse.lib.xact.Xact): A Cortex transaction.
-            #valu (obj): A lift valu for the given property type.
-            #cmpr (str): An optional alternate comparator to specify.
-
-        #Yields:
-
-            #(tuple, synapse.lib.nodeNode): Tuples of (row, Node) pairs.
-        #'''
-        #rops = self.type.getRowOps(valu, cmpr=cmpr)
-        #lops = (
-            #('rows', ('byprop', self.fullpref, rops)),
-        #)
-        #return xact.lift(lops)
-        ##return self.type.liftByProp(xact, self, valu, cmpr=cmpr)
-
     def stor(self, buid, norm):
         '''
         Retrieve a set of storage operations needed to set this property to
@@ -163,8 +143,6 @@ class Univ:
         self.name = name
         self.type = modl.getTypeClone(typedef)
 
-        #self.full = '%s:%s' % (form.name, name)
-        #self.onsets = []
         self.pref = name.encode('utf8') + b'\x00'
 
         self.utf8name = self.name.encode('utf8')
