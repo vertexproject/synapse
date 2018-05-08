@@ -56,6 +56,9 @@ class TypesTest(s_test.SynTest):
         byts = s_common.uhex('e2889e')
         self.eq(byts, model.type('str').indx('∞'))
 
+        strp = model.type('str').clone({'strip': True})
+        self.eq('foo', strp.norm('  foo \t')[0])
+
     def test_type_guid(self):
 
         model = s_datamodel.Model()
