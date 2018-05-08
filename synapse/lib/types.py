@@ -562,7 +562,6 @@ class Comp(Type):
             norms.append(norm)
 
             for k, v in info.get('subs', {}).items():
-                # FIXME Remember which string join operation is fasted
                 subs[f'{name}:{k}'] = v
             adds.extend(info.get('adds', ()))
 
