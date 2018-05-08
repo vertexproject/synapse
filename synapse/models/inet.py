@@ -210,9 +210,11 @@ class Rfc2822Addr(s_types.Type):
         self.indxcmpr['^='] = self.indxByPref
 
     def indxByPref(self, valu):
-        norm, info = self.norm(valu)
+        valu = valu.replace('"', ' ').replace("'", ' ')
+        valu = valu.strip().lower()
+        valu = ' '.join(valu.split())
         return (
-            ('pref', norm.encode('utf8')),
+            ('pref', valu.encode('utf8')),
         )
 
     def indx(self, norm):
