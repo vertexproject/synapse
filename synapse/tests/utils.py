@@ -1,23 +1,21 @@
 # -*- coding: utf-8 -*-
-"""
-synapse - iq.py
-Created on 10/21/17.
-
-The IQ module contains the core test helper code used in Synapse.
+'''
+This contains the core test helper code used in Synapse.
 
 This gives the opportunity for third-party users of Synapse to test their
 code using some of the same of the same helpers used to test Synapse.
 
-The core class, synapse.lib.iq.SynTest is a subclass of unittest.TestCase,
+The core class, synapse.tests.utils.SynTest is a subclass of unittest.TestCase,
 with several wrapper functions to allow for easier calls to assert* functions,
-with less typing.  There are also Synapse specific helpers, to load both Ram
-and PSQL Cortexes.
+with less typing.  There are also Synapse specific helpers, to load Cortexes and
+whole both multi-component environments into memory.
 
 Since SynTest is built from unittest.TestCase, the use of SynTest is
 compatible with the unittest, nose and pytest frameworks.  This does not lock
 users into a particular test framework; while at the same time allowing base
 use to be invoked via the built-in Unittest library.
-"""
+'''
+
 import io
 import os
 import sys
@@ -46,6 +44,8 @@ import synapse.data as s_data
 import synapse.lib.cell as s_cell
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
+import synapse.lib.types as s_types
+import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
@@ -55,29 +55,6 @@ logger = logging.getLogger(__name__)
 
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
-
-def objhierarchy(obj):
-    '''
-    Return the type hierarchy of an an object.
-    Dictionary objects have their key values preserved.
-
-    This function exists for debugging purposes.
-    '''
-    # Known objects we want to return fast on
-    if isinstance(obj, (str, int, float, bytes, types.GeneratorType)):
-        return type(obj)
-    # Iterables we care about
-    if isinstance(obj, collections.Iterable):
-        if isinstance(obj, dict):
-            return {k: objhierarchy(v) for k, v in obj.items()}
-        if isinstance(obj, set):
-            return {objhierarchy(o) for o in obj}
-        if isinstance(obj, tuple):
-            return tuple([objhierarchy(o) for o in obj])
-        return [objhierarchy(o) for o in obj]
-    # Default case
-    return type(obj)
-
 
 def writeCerts(dirn):
     '''
@@ -117,6 +94,86 @@ def writeCerts(dirn):
             with s_common.genfile(dst) as fd:
                 fd.write(byts)
 
+class TestType(s_types.Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+
+    def _normPyStr(self, valu):
+        return valu.lower(), {}
+
+    def indx(self, norm):
+        return norm.encode('utf8')
+
+testmodel = {
+
+    'ctors': (
+        ('testtype', 'synapse.tests.utils.TestType', {}, {}),
+    ),
+
+    'types': (
+        ('testtype10', ('testtype', {'foo': 10}), {
+            'doc': 'A fake type.'}),
+
+        ('testlower', ('str', {'lower': True}), {}),
+
+        ('testtime', ('time', {}), {}),
+
+        ('teststr', ('str', {}), {}),
+        ('testauto', ('str', {}), {}),
+
+        ('testcomp', ('comp', {'fields': (
+                ('hehe', 'int'),
+                ('haha', 'testlower'))
+            }), {'doc': 'A fake comp type.'}),
+        ('testhexa', ('hex', {}), {'doc': 'anysize test hex type'}),
+        ('testhex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
+    ),
+
+    'forms': (
+
+        ('testtype10', {}, (
+
+            ('intprop', ('int', {'min': 20, 'max': 30}), {
+                'defval': 20}),
+
+            ('strprop', ('str', {'lower': 1}), {
+                'defval': 'asdf'}),
+
+            ('guidprop', ('guid', {'lower': 1}), {
+                'defval': '*'}),
+
+            ('locprop', ('loc', {}), {
+                'defval': '??'}),
+        )),
+
+        ('testcomp', {}, (
+            ('hehe', ('int', {}), {'ro': 1}),
+            ('haha', ('str', {}), {'ro': 1}),
+        )),
+
+        ('teststr', {}, (
+            ('bar', ('ndef', {}), {}),
+            ('baz', ('nodeprop', {}), {}),
+            ('tick', ('testtime', {}), {}),
+        )),
+
+        ('testauto', {}, ()),
+        ('testhexa', {}, ()),
+        ('testhex4', {}, ())
+    ),
+
+}
+
+class TestModule(s_module.CoreModule):
+
+    def initCoreModule(self):
+        pass
+
+    def getModelDefs(self):
+        return (
+            ('test', testmodel),
+        )
 
 class TstEnv:
 
@@ -337,6 +394,7 @@ class StreamEvent(io.StringIO, threading.Event):
         if self.mesg and self.mesg in s:
             self.set()
 
+
 class SynTest(unittest.TestCase):
 
     def getTestWait(self, bus, size, *evts):
@@ -509,13 +567,16 @@ class SynTest(unittest.TestCase):
         Return a simple test Cortex.
         '''
         with self.getTestDir(mirror=mirror) as dirn:
+            s_scope.set('dirn', dirn)
             with s_cortex.Cortex(dirn) as core:
                 yield core
+            s_scope.pop('dirn')
 
     @contextlib.contextmanager
     def getTestDmon(self, mirror='dmontest'):
 
         with self.getTestDir(mirror=mirror) as dirn:
+            s_scope.set('dirn', dirn)
 
             certdir = s_certdir.defdir
 
@@ -527,6 +588,8 @@ class SynTest(unittest.TestCase):
                 yield dmon
 
                 s_certdir.defdir = certdir
+
+            s_scope.pop('dirn')
 
     @contextlib.contextmanager
     def getDmonCore(self, conf=None):
@@ -801,6 +864,53 @@ class SynTest(unittest.TestCase):
             for key, valu in old_data.items():
                 os.environ[key] = valu
 
+    @contextlib.contextmanager
+    def redirectStdin(self, new_stdin):
+        '''
+        Temporary replace stdin.
+
+        Args:
+            new_stdin(file-like object):  file-like object.
+
+        Examples:
+            inp = io.StringIO('stdin stuff\nanother line\n')
+            with self.redirectStdin(inp):
+                main()
+
+            Here's a way to use this for code that's expecting the stdin buffer to have bytes.
+            inp = Mock()
+            inp.buffer = io.BytesIO(b'input data')
+            with self.redirectStdin(inp):
+                main()
+
+        Returns:
+            None
+        '''
+        old_stdin = sys.stdin
+        sys.stdin = new_stdin
+        yield
+        sys.stdin = old_stdin
+
+    def genraises(self, exc, gfunc, *args, **kwargs):
+        '''
+        Helper to validate that a generator function will throw an exception.
+
+        Args:
+            exc: Exception class to catch
+            gfunc: Generator function to call.
+            *args: Args passed to the generator function.
+            **kwargs: Kwargs passed to the generator function.
+
+        Notes:
+            Wrap a generator function in a list() call and execute that in a
+            bound local using ``self.raises(exc, boundlocal)``. The ``list()``
+            will consume the generator until complete or an exception occurs.
+        '''
+        def testfunc():
+            return list(gfunc(*args, **kwargs))
+
+        self.raises(exc, testfunc)
+
     def eq(self, x, y):
         '''
         Assert X is equal to Y
@@ -929,51 +1039,3 @@ class SynTest(unittest.TestCase):
         self.len(2, obj)
         self.isinstance(obj[0], (type(None), str))
         self.isinstance(obj[1], dict)
-
-    @contextlib.contextmanager
-    def redirectStdin(self, new_stdin):
-        '''
-        Temporary replace stdin.
-
-        Args:
-            new_stdin(file-like object):  file-like object.
-
-        Examples:
-            inp = io.StringIO('stdin stuff\nanother line\n')
-            with self.redirectStdin(inp):
-                main()
-
-            Here's a way to use this for code that's expecting the stdin buffer to have bytes.
-            inp = Mock()
-            inp.buffer = io.BytesIO(b'input data')
-            with self.redirectStdin(inp):
-                main()
-
-
-        Returns:
-            None
-        '''
-        old_stdin = sys.stdin
-        sys.stdin = new_stdin
-        yield
-        sys.stdin = old_stdin
-
-    def genraises(self, exc, gfunc, *args, **kwargs):
-        '''
-        Helper to validate that a generator function will throw an exception.
-
-        Args:
-            exc: Exception class to catch
-            gfunc: Generator function to call.
-            *args: Args passed to the generator function.
-            **kwargs: Kwargs passed to the generator function.
-
-        Notes:
-            Wrap a generator function in a list() call and execute that in a
-            bound local using ``self.raises(exc, boundlocal)``. The ``list()``
-            will consume the generator until complete or an exception occurs.
-        '''
-        def testfunc():
-            return list(gfunc(*args, **kwargs))
-
-        self.raises(exc, testfunc)

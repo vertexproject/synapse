@@ -25,7 +25,8 @@ import synapse.lib.thishost as s_thishost
 
 from synapse.common import *
 
-from synapse.lib.iq import TstEnv, TstOutPut, SynTest, CmdGenerator, writeCerts
+from synapse.tests.utils import CmdGenerator, SynTest, TstEnv, TstOutPut,\
+    TEST_MAP_SIZE, writeCerts
 
 # create the global multi-plexor *not* within a test
 # to avoid "leaked resource" when a test triggers creation
