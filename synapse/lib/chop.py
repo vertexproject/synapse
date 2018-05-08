@@ -58,3 +58,10 @@ def hexstr(text):
     except binascii.Error as e:
         raise s_exc.BadTypeValu(valu=text, mesg=str(e))
     return text
+
+def onespace(text):
+    return ' '.join(text.split())
+
+def tag(text):
+    text = text.lower().strip('#').strip()
+    return '.'.join([onespace(t) for t in text.split('.')])

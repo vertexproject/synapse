@@ -6,6 +6,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
 
@@ -152,18 +153,68 @@ class Xact(s_eventbus.EventBus):
     def cursors(self, name):
         return [xact.cursor(db=layr.db(name)) for (layr, xact) in self.xacts]
 
+    def _getNodesByTag(self, name, valu=None, cmpr='='):
+
+        # TODO interval indexing for valu... and @=
+        name = s_chop.tag(name)
+        pref = b'#' + name.encode('utf8') + b'\x00'
+
+        iops = (('pref', b''), )
+        lops = (
+            ('indx', ('byuniv', pref, iops)),
+        )
+
+        for row, node in self.getLiftNodes(lops):
+            yield node
+
+    def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
+
+        form = self.model.form(name)
+        if form is None:
+            raise s_exc.NoSuchForm(form=name)
+
+        # TODO interval indexing for valu... and @=
+
+        tag = s_chop.tag(tag)
+
+        # maybe use Encoder here?
+        fenc = form.name.encode('utf8') + b'\x00'
+        tenc = b'#' + tag.encode('utf8') + b'\x00'
+
+        pref = fenc + tenc
+
+        iops = (('pref', b''), )
+
+        lops = (
+            ('indx', ('byprop', fenc + tenc, iops)),
+        )
+
+        for row, node in self.getLiftNodes(lops):
+            yield node
+
     def getNodesBy(self, full, valu=None, cmpr='='):
         '''
         The main function for retrieving nodes by prop.
 
         Args:
-            full (str): The full property name.
+            full (str): The property/tag name.
             valu (obj): A lift compatible value for the type.
             cmpr (str): An optional alternate comparator.
 
         Yields:
             (synapse.lib.node.Node): Node instances.
         '''
+        if full.startswith('#'):
+            return self._getNodesByTag(full, valu=valu, cmpr=cmpr)
+
+        if full.find('#') != -1:
+            form, tag = full.split('#', 1)
+            return self._getNodesByFormTag(form, tag, valu=valu, cmpr=cmpr)
+
+        return self._getNodesByProp(full, valu=valu, cmpr=cmpr)
+
+    def _getNodesByProp(self, full, valu=None, cmpr='='):
+
         prop = self.model.prop(full)
         if prop is None:
             raise s_exc.NoSuchProp(name=full)
@@ -183,10 +234,6 @@ class Xact(s_eventbus.EventBus):
         '''
         fnib = self._getNodeFnib(name, valu)
         return self._addNodeFnib(fnib, props=props)
-
-    def pend(self, name, **info):
-        evnt = (name, info)
-        self.tofire.append(evnt)
 
     def _addNodeFnib(self, fnib, props=None):
 
@@ -222,7 +269,7 @@ class Xact(s_eventbus.EventBus):
         node.form = form
         node.ndef = (form.name, norm)
 
-        sops = form.stor(buid, norm)
+        sops = form.getSetOps(buid, norm)
 
         self.stor(sops)
 
@@ -385,7 +432,6 @@ class Xact(s_eventbus.EventBus):
         genr = self.getLiftRows(lops)
         return self.getRowNodes(genr)
 
-    #def rows(self, lops):
     def getLiftRows(self, lops):
         '''
         Yield row tuples from a series of lift operations.
@@ -403,7 +449,6 @@ class Xact(s_eventbus.EventBus):
             for row in layr._xactRunLifts(xact, lops):
                 yield row
 
-    #def join(self, rows):
     def getRowNodes(self, rows):
         '''
         Join a row generator into (row, Node()) tuples.
