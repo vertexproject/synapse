@@ -44,16 +44,6 @@
                         ' an account, as opposed to current data in the inet:web:acct node.'}),
 
                 TYPES of comp/sepr ====================================================================================
-                ('inet:wifi:ap', {
-                    'subof': 'comp',
-                    'fields': 'ssid=inet:wifi:ssid,bssid=inet:mac',
-                    'doc': 'An SSID/MAC address combination for a wireless access point.'}),
-
-                ('inet:urlredir', {
-                    'subof': 'comp',
-                    'fields': 'src=inet:url,dst=inet:url',
-                    'doc': 'A URL that redirects to another URL, such as via a URL shortening service or an HTTP 302 response.',
-                    'ex': '(http://foo.com/,http://bar.com/)'}),
 
                 ('inet:urlfile', {
                     'subof': 'comp',
@@ -180,11 +170,6 @@
                     'doc': 'An IPv6 address and port.',
                     'ex': '[2607:f8b0:4004:809::200e]:80'}),
 
-                ('inet:rfc2822:addr', {
-                    'ctor': 'synapse.models.inet.Rfc2822Addr',
-                    'ex': '"Visi Kenshoto" <visi@vertex.link>',
-                    'doc': 'An RFC 2822 Address field.'}),
-
                 TYPES that rely on ctor implementations ===============================================================
                 ('inet:server', {
                     'subof': 'inet:addr',
@@ -297,21 +282,6 @@
                         'doc': 'The client tcp/udp port.'}),
 
                 )),
-
-                ('inet:urlredir', {}, [
-                    ('src', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
-                        'doc': 'The original/source URL before redirect'}),
-                    ('src:fqdn', {'ptype': 'inet:fqdn',
-                        'doc': 'The FQDN within the src URL (if present)'}),
-                    ('dst', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
-                        'doc': 'The redirected/destination URL'}),
-                    ('dst:fqdn', {'ptype': 'inet:fqdn',
-                        'doc': 'The FQDN within the dst URL (if present)'}),
-                    ('seen:min', {'ptype': 'time:min',
-                        'doc': 'The earliest known time the URL redirect was active.'}),
-                    ('seen:max', {'ptype': 'time:max',
-                        'doc': 'The last known time the URL redirect was active.'}),
-                ]),
 
                 ('inet:urlfile', {'ptype': 'inet:urlfile'}, [
                     ('url', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
@@ -472,12 +442,6 @@
                         'doc': 'The IMSI of the interface.'}),
                 )),
 
-                ('inet:wifi:ap', {}, [
-                    ('ssid', {'ptype': 'inet:wifi:ssid',
-                        'doc': 'The SSID for the wireless access point.'}),
-                    ('bssid', {'ptype': 'inet:wifi:ssid',
-                        'doc': 'The SSID for the wireless access point.'}),
-                ]),
                 ('inet:web:chprofile', {}, [
                     ('acct', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
                         'doc': 'The web account associated with the change.'}),
