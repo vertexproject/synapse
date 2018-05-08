@@ -17,15 +17,13 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:org', ('guid', {}), {
                     'doc': 'A GUID for a human organization such as a company or military unit',
-                    'ex': '',  # FIXME Add example
                 }),
                 ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z]+$'}), {
-                    'doc': 'An alias for the org GUID',  # FIXME: How is this actually an alias?
+                    'doc': 'An alias for the org GUID',
                     'ex': 'vertexproject',
                 }),
                 ('ou:hasalias', ('comp', {'fields': (('org', 'ou:org'), ('alias', 'ou:alias'))}), {
-                    'doc': '',
-                    'ex': '', # FIXME
+                    'doc': 'The knowledge that an organization has an alias.',
                 }),
                 ('ou:name', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'The formal name of an organization',
@@ -33,25 +31,19 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:suborg', ('comp', {'fields': (('org', 'ou:org'), ('sub', 'ou:org'))}), {
                     'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.',
-                    'ex': '', # FIXME add example??
                 }),
                 ('ou:org:has', ('comp', {'fields': (('org', 'ou:org'), ('node', 'ndef'))}), {
                     'doc': 'An org owns, controls, or has exclusive use of an object or resource, '
                            'potentially during a specific period of time.',
-                    'ex': '',  # FIXME add example
                 }),
                 ('ou:user', ('comp', {'fields': (('org', 'ou:org'), ('user', 'inet:user'))}), {
                     'doc': 'A user name within an organization',
-                    'ex': '',  # FIXME add example
                 }),
-
                 ('ou:meet', ('guid', {}), {
                     'doc': 'A informal meeting of people which has no title or sponsor.  See also: ou:conference.',
-                    'ex': '',  # FIXME
                 }),
                 ('ou:conference', ('guid', {}), {
                     'doc': 'A conference with a name and sponsoring org.',
-                    'ex': '',  # FIXME
                 })
 
 
@@ -62,25 +54,25 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Location for an organization'
                     }),
                     ('name', ('ou:name', {}), {
-                        'doc': '',
+                        'doc': 'The localized name of an organization.',
                     }),
                     ('name:en', ('ou:name', {}), {
-                        'doc': '',
+                        'doc': 'The English name of an organization.',
                     }),
                     ('alias', ('ou:alias', {}), {
-                        'doc': ''  # FIXME how is this populated???
+                        'doc': 'The default alias for an organization'
                     }),
                     ('phone', ('tel:phone', {}), {
                         'doc': 'The primary phone number for the organization.',
                     }),
                     ('sic', ('ou:sic', {}), {
-                        'doc': '',
+                        'doc': 'The Standard Industrial Classification code for the organization.',
                     }),
                     ('naics', ('ou:naics', {}), {
-                        'doc': '',
+                        'doc': 'The North American Industry Classification System code for the organization.',
                     }),
                     ('us:cage', ('gov:us:cage', {}), {
-                        'doc': 'A Commercial and Government Entity (CAGE) code',
+                        'doc': 'The Commercial and Government Entity (CAGE) code for the organization.',
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary url for the organization.',
@@ -89,11 +81,11 @@ class OuModule(s_module.CoreModule):
                 ('ou:hasalias', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': '',  # FIXME
+                        'doc': 'Org guid',
                     }),
                     ('alias', ('ou:alias', {}), {
                         'ro': True,
-                        'doc': '',  # FIXME
+                        'doc': 'Alias for the organization',
                     }),
                     # FIXME Add seen:min and seen:max
                 )),
@@ -106,8 +98,7 @@ class OuModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The sub org which owned by the org.',
                     }),
-                    # TODO: Should min be 0 or 1?
-                    ('perc', ('int', {'min': 1, 'max': 100}), {
+                    ('perc', ('int', {'min': 0, 'max': 100}), {
                         'doc': 'The optional percentage of sub which is owned by org',
                     }),
                     ('current', ('bool', {}), {
@@ -138,11 +129,11 @@ class OuModule(s_module.CoreModule):
                 ('ou:user', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': '',  # Fixme
+                        'doc': 'Org guid',
                     }),
                     ('user', ('inet:user', {}), {
                         'ro': True,
-                        'doc': '',  # Fixme
+                        'doc': 'The username associated with the organization',
                     }),
                 )),
                 ('ou:meet', {}, (
@@ -239,9 +230,6 @@ class Fixme:
                     ('end', {'ptype': 'time:max'}),
                     ('title', {'ptype': 'str:lwr', 'defval': '??'}),
                 ]),
-
-                ('ou:owns', {'ptype': 'sepr', 'sep': '/', 'fields': 'owner,ou:org|owned,ou:org'}, [
-                ]),  # FIXME does this become an ou:org:has?
 
                 ('ou:meet:attendee', {}, (
                     ('meet', {'ptype': 'ou:meet', 'req': 1, 'ro': 1,

@@ -2,9 +2,8 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.common as s_test
 
-# TODO
-# 1. prefix lift tests for orgs via the industry code types
-# 2. ou:conference:name req prop
+# FIXME
+# 1. ou:conference:name req prop
 
 class OuModelTest(s_test.SynTest):
 
@@ -53,7 +52,7 @@ class OuModelTest(s_test.SynTest):
                     'sic': '0119',
                     'naics': 541715,
                     'url': 'http://www.arrowinc.link',
-                    'us:cage': '7qe71'  # fixme us:cage
+                    'us:cage': '7qe71'
                 }
                 node = xact.addNode('ou:org', guid0, oprops)
                 self.eq(node.ndef[1], guid0),
@@ -79,7 +78,7 @@ class OuModelTest(s_test.SynTest):
                 self.eq(node.get('perc'), 50)
                 self.eq(node.get('current'), 1)
                 self.raises(s_exc.BadTypeValu, node.set, 'perc', 101)
-                self.raises(s_exc.BadTypeValu, node.set, 'perc', 0)
+                self.raises(s_exc.BadTypeValu, node.set, 'perc', -1)
 
                 # ou:user
                 node = xact.addNode('ou:user', (guid0, 'arrowman'))
