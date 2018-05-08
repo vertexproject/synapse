@@ -98,7 +98,7 @@ class Migrator:
         for rows in self.core.store.genStoreRows(gsize=10000):
             rowcount += len(rows)
             now = time.time()
-            if last_update + 60 < now:
+            if last_update + 60 < now:  # pragma: no cover
                 last_update = now
                 percent_complete = rowcount / totalrows * 100
                 timeperrow = (now - start_time) / rowcount
@@ -118,11 +118,6 @@ class Migrator:
                 assert consumed == added
 
         logger.info('Stage 1 complete.')
-
-    def get_row_count(self, tbl):
-        with self.dbenv.begin() as txn, txn.cursor(tbl) as curs:
-            curs.first()
-            return sum(1 for _ in curs.iternext(keys=False, values=False))
 
     def write_node_to_file(self, node):
         self.outfh.write(s_msgpack.en(node))
@@ -153,7 +148,7 @@ class Migrator:
                 for enc_iden in curs.iternext_dup():
                     props = self.get_props(enc_iden, txn)
                     node = self.convert_props(props)
-                    txn.put(props[formname].encode('utf8'), s_msgpack.en(node), db=self.comp_tbl)
+                    txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl)
                     self.write_node_to_file(node)
 
         logger.debug('Finished processing comp nodes')
@@ -215,8 +210,8 @@ class Migrator:
 
     def convert_comp_secondary(self, formname, propval):
         ''' Convert secondary prop that is a comp type '''
-        with self.dbenv.begin(db=self.iden_tbl) as txn:
-            comp_enc = txn.get(formname, db=self.comp_tbl)
+        with self.dbenv.begin(db=self.comp_tbl) as txn:
+            comp_enc = txn.get(propval.encode('utf8'), db=self.comp_tbl)
             if comp_enc is None:
                 raise Exception('guid accessed before determined')
             return s_msgpack.un(comp_enc)

@@ -49,6 +49,7 @@ class Migrate010Test(s_iq.SynTest):
 
             fh = tempfile.TemporaryFile(dir=dirn)
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            now = s_common.now()
 
             nodes = self.get_formfile('ps:contact', fh)
             self.eq(len(nodes), 1)
@@ -65,7 +66,7 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(len(node[0]), 2)
             self.eq(node[0], ('inet:web:acct', ('twitter.com', 'ironman')))
 
-            props = {'a': 'WOOT.com/1.002.3.4', 'rcode': 0, 'time': s_common.now(), 'ipv4': '5.5.5.5',
+            props = {'a': 'WOOT.com/1.002.3.4', 'rcode': 0, 'time': now, 'ipv4': '5.5.5.5',
                      'udp4': '8.8.8.8:80'}
             core.formTufoByProp('inet:dns:look', '*', **props)
             fh = tempfile.TemporaryFile(dir=dirn)
@@ -74,7 +75,7 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(len(look_nodes), 1)
             self.eq(look_nodes[0][1]['props']['inet:dns:look:udp4'], 'udp://134744072:80/')
 
-            tufo = core.formTufoByProp('inet:web:logon', '*', acct='vertex.link/pennywise', time=s_common.now(),
+            tufo = core.formTufoByProp('inet:web:logon', '*', acct='vertex.link/pennywise', time=now,
                                        ipv4=0x01020304)
             core.addTufoTag(tufo, 'test')
             core.addTufoTag(tufo, 'hehe.haha@2016-2017')
@@ -94,3 +95,14 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(len(nodes), 1)
             # Make sure the primary val is a guid
             self.eq(len(nodes[0][0][1]), 32)
+
+            node = core.formTufoByProp('it:exec:reg:get', '*', host=s_common.guid(), reg=['foo/bar', ('int', 20)],
+                                       exe=s_common.guid(), proc=s_common.guid(), time=now)
+            fh = tempfile.TemporaryFile(dir=dirn)
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            nodes = self.get_formfile('it:exec:reg:get', fh)
+            self.eq(len(nodes), 1)
+            reg = nodes[0][1]['props']['reg']
+            self.eq(type(reg), tuple)
+            self.eq(len(reg), 2)
+            self.eq(reg[0], 'it:dev:regval')
