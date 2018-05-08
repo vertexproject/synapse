@@ -24,6 +24,7 @@ class Node:
 
         self.tags = {}
         self.props = {}
+        self.univs = {}
 
         # self.buid may be None during
         # initial node construction...
@@ -39,13 +40,14 @@ class Node:
 
         for prop, valu in props:
 
+            p0 = prop[0]
             # check for primary property
-            if prop[0] == '*':
+            if p0 == '*':
                 self.ndef = (prop[1:], valu)
                 continue
 
             # check for tag encoding
-            if prop[0] == '#':
+            if p0 == '#':
                 self.tags[prop[1:]] = valu
                 continue
 
@@ -157,7 +159,8 @@ class Node:
         '''
         #node = self.xact.addNode('syn:tag', tag)
         # get the normalized tag value from the node
-        norm, info = self.xact.model.types('syn:tag').norm(tag)
+        tagtype = self.xact.model.types.get('syn:tag')
+        norm, info = tagtype.norm(tag)
 
         if self.tags.get(norm) is not None:
             return False
@@ -166,13 +169,18 @@ class Node:
         tagnode = self.xact.getNodeByNdef(('syn:tag', norm))
 
         tick = s_common.now()
+        import struct
+        indx = struct.pack('>Q', tick)
 
         #FIXME: join tags down...
+
         sops = (
-            ('node:tag:add', {
+            ('node:univ:set', {
                 'buid': self.buid,
                 'form': self.form.utf8name,
-                'tag': tag.encode('utf8'),
+                'prop': b'#' + tag.encode('utf8'),
+                'valu': tick,
+                'indx': indx,
             }),
         )
         self.xact.stor(sops)

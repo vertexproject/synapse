@@ -110,39 +110,18 @@ class Fqdn(s_types.Type):
     def indx(self, norm):
         return norm[::-1].encode('utf8')
 
-    def liftPropEq(self, xact, fenc, penc, text):
-
-        valu = str(text).strip().lower()
-        if not valu:
-            return
+    def indxByEq(self, valu):
 
         if valu[0] == '*':
             indx = valu[1:][::-1].encode('utf8')
-            lops = (
-                ('prop:pref', {
-                    'form': fenc,
-                    'prop': penc,
-                    'indx': indx,
-                }),
+            return (
+                ('pref', indx),
             )
-            return xact.lift(lops)
 
         if valu.find('*') != -1:
             raise s_exc.BadLiftValu(valu=valu, mesg='Wild card may only appear at the beginning.')
 
-        norm, info = self.norm(valu)
-        indx = valu[::-1].encode('utf8')
-
-        lops = (
-            ('prop:eq', {
-                'form': fenc,
-                'prop': penc,
-                'indx': indx,
-                'valu': norm,
-            }),
-        )
-
-        return xact.lift(lops)
+        return s_types.Type.indxByEq(self, valu)
 
     def repr(self, valu):
         try:
@@ -177,10 +156,9 @@ class IPv4(s_types.Type):
     def repr(self, norm):
         return socket.inet_ntoa(self.indx(norm))
 
-    def liftPropEq(self, fenc, penc, text):
+    def indxByEq(self, valu):
 
-        if text.find('/') != -1:
-
+        if type(valu) == str and valu.find('/') != -1:
             addr, mask = text.split('/', 1)
             norm, info = self.norm(addr)
 
@@ -191,26 +169,11 @@ class IPv4(s_types.Type):
             mini = self.indx(minv)
             maxi = self.indx(minv + mask[1])
 
-            lops = (
-                ('prop:range', {
-                    'prop': prop.encode('utf8'),
-                    'form': form.encode('utf8'),
-                    'minindx': self.indx(minv),
-                    'maxindx': self.indx(minv + mask[1] - 1)
-                }),
+            return (
+                ('range', (mini, maxi)),
             )
-            return xact.lift(lops)
 
-        norm, info = self.norm(text)
-        lops = (
-            ('prop:eq', {
-                'prop': prop.encode('utf8'),
-                'form': form.encode('utf8'),
-                'valu': norm,
-                'indx': self.indx(norm),
-            }),
-        )
-        return xact.lift(lops)
+        return s_types.Type.indxByEq(self, valu)
 
 class IPv6(s_types.Type):
 

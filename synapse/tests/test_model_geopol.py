@@ -20,7 +20,8 @@ class GeoPolModelTest(s_t_common.SynTest):
                 node = xact.addNode(formname, guid, props=input_props)
 
             self.eq(node.ndef, expected_ndef)
-            [self.eq(node.get(k), expected_props[k]) for k in expected_props]
+            for prop, valu in expected_props.items():
+                self.eq(node.get(prop), valu)
 
     def test_types_iso2(self):
         with self.getTestCore() as core:

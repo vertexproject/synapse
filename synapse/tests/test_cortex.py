@@ -137,6 +137,7 @@ class CortexTest(SynTest):
             with core.xact(write=True) as xact:
 
                 node = xact.addNode('faketype', 'one')
+                self.nn(node.get('.created'))
 
                 self.eq(node.get('intprop'), 20)
                 self.eq(node.get('locprop'), '??')
@@ -185,11 +186,12 @@ class CortexTest(SynTest):
                 self.eq(nodes[0].ndef, ('testfoo', 'woot'))
 
                 # test a few time range syntax options...
-                nodes = list(xact.getNodesBy('testfoo:tick', ('2016', '2017')))
+                nodes = list(xact.getNodesBy('testfoo:tick', ('2016', '2017'), cmpr='*range='))
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('testfoo', 'woot'))
 
-                nodes = list(xact.getNodesBy('testfoo:tick', ('2016', '2017')))
+                #nodes = list(xact.getNodesBy('testfoo:tick', ('2016', '2017')))
+                nodes = list(xact.getNodesBy('testfoo:tick', ('2016', '2017'), cmpr='*range='))
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('testfoo', 'woot'))
 
@@ -203,6 +205,12 @@ class CortexTest(SynTest):
                 self.len(3, nodes)
 
             with core.xact() as xact:
+
+                node = xact.addNode('faketype', 'one')
+                self.nn(node.get('.created'))
+
+                nodes = list(xact.getNodesBy('testfoo', 'too', cmpr='^='))
+                self.len(2, nodes)
 
                 # test loc prop prefix based lookup
                 nodes = list(xact.getNodesBy('faketype:locprop', 'us.va'))

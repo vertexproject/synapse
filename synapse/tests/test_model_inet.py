@@ -148,7 +148,6 @@ class InetModelTest(s_t_common.SynTest):
             with core.xact(write=True) as xact:
                 node = xact.addNode(formname, valu, props={'created': 0, 'expires': 1, 'updated': 2})
                 self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('created'), 0)
                 self.eq(node.get('domain'), 'vertex.link')
                 self.eq(node.get('expires'), 1)
                 self.eq(node.get('host'), 'api')

@@ -30,4 +30,5 @@ class UsGovTest(SynTest):
                 n0 = xact.addNode(formname, valu.upper(), input_props)
 
             self.eq(n0.ndef, expected_ndef)
-            self.eq(n0.props, expected_props)
+            for prop, valu in expected_props.items():
+                self.eq(n0.get(prop), valu)
