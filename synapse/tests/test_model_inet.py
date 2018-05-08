@@ -15,12 +15,20 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.type('inet:port'))  # int w/ min/max
             self.nn(core.model.type('inet:wifi:ssid'))  # str
             self.nn(core.model.type('inet:user'))  # str w/ lower
+            self.nn(core.model.type('inet:urlredir'))  # comp
+            self.nn(core.model.type('inet:web:acct'))  # comp
+            self.nn(core.model.type('inet:wifi:ap'))  # comp
+            self.nn(core.model.type('inet:wifi:ssid'))  # str
             self.nn(core.model.type('inet:whois:rar'))  # str w/ lower
             self.nn(core.model.type('inet:whois:reg'))  # str w/ lower
 
             # The following forms do not extend their base type
             self.nn(core.model.form('inet:group'))  # str w/ lower
             self.nn(core.model.form('inet:user'))  # str w/ lower
+            self.nn(core.model.form('inet:urlredir'))  # comp
+            self.nn(core.model.form('inet:web:acct'))  # comp
+            self.nn(core.model.form('inet:wifi:ap'))  # comp
+            self.nn(core.model.form('inet:wifi:ssid'))  # str
             self.nn(core.model.form('inet:whois:rar'))  # str w/ lower
             self.nn(core.model.form('inet:whois:reg'))  # str w/ lower
 
@@ -510,59 +518,6 @@ class InetModelTest(s_t_common.SynTest):
                 'proto': 'a', 'path': '', htype: norm_host
             }})
             self.eq(t.norm(url), expected)
-
-    def test_web_acct(self):
-        with self.getTestCore() as core:
-            formname = 'inet:web:acct'
-
-            # Type Tests
-            t = core.model.type(formname)
-
-            self.raises(s_exc.NoSuchFunc, t.norm, 'vertex.link/person1')  # No longer a sepr
-            enorm = ('vertex.link', 'person1')
-            edata = {'subs': {'user': 'person1',
-                              'site': 'vertex.link',
-                              'site:host': 'vertex',
-                              'site:domain': 'link', },
-                     'adds': []}
-            self.eq(t.norm(('VerTex.linK', 'PerSon1')), (enorm, edata))
-
-            # Form Tests
-            valu = ('blogs.Vertex.link', 'Brutus')
-            input_props = {
-                'avatar': 64 * 'a',
-                'dob': -64836547200000,
-                'email': 'brutus@vertex.link',
-                #'latlong': '0,0',  # FIXME implement
-                'loc': 'sol',
-                'name': 'ካሳር',
-                'name:en': 'brutus',
-                'occupation': 'jurist',
-                #'passwd': 'hunter2',  # FIXME implement
-                #'phone': '555-555-5555',  # FIXME implement
-                #'realname': 'Брут',  # FIXME implement
-                #'realname:en': 'brutus',  # FIXME implement
-                'seen:max': 1,
-                'seen:min': 2,
-                'signup': 3,
-                'signup:ipv4': 4,
-                'tagline': 'Taglines are not tags',
-                'url': 'https://blogs.vertex.link/',
-                'webpage': 'https://blogs.vertex.link/brutus',
-            }
-
-            expected_ndef = (formname, ('blogs.vertex.link', 'brutus'))
-            expected_props = copy.copy(input_props)
-            expected_props.update({
-                # FIXME add the other props later
-                'site': valu[0].lower(),
-                'user': valu[1].lower()
-            })
-
-            with core.xact(write=True) as xact:
-                node = xact.addNode(formname, valu, props=input_props)
-                self.eq(node.ndef, expected_ndef)
-                [self.eq(node.get(k), expected_props[k]) for k in expected_props]
 
 class FIXME:
 
