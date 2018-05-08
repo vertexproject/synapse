@@ -1,37 +1,9 @@
-import synapse.lib.gis as s_gis
+import struct
+
+import synapse.exc as s_exc
 import synapse.lib.types as s_types
-import synapse.lib.syntax as s_syntax
-
 import synapse.lib.module as s_module
-
-class LatLongType(s_types.DataType):
-
-    def norm(self, valu, oldval=None):
-
-        valu = valu.strip().lower()
-        if valu == '??':
-            return valu, {}
-
-        try:
-
-            lat, lon = valu.split(',', 1)
-
-            latv = float(lat.strip())
-            lonv = float(lon.strip())
-
-        except Exception as e:
-            self._raiseBadValu(valu, mesg='Invalid float format')
-
-        #TODO eventually support minutes / sec and N/S E/W syntax
-
-        if latv > 90 or latv < -90:
-            self._raiseBadValu(valu, mesg='Latitude may only be -90.0 to 90.0')
-
-        if lonv > 180 or lonv < -180:
-            self._raiseBadValu(valu, mesg='Longitude may only be -180.0 to 180.0')
-
-        norm = '%s,%s' % (latv, lonv)
-        return norm, {'lat': latv, 'lon': lonv}
+import synapse.lib.syntax as s_syntax
 
 units = {
     'mm': 1,
@@ -43,69 +15,154 @@ units = {
     'km': 1000000,
 }
 
-class DistType(s_types.DataType):
+class Dist(s_types.Type):
 
-    def norm(self, valu, oldval=None):
+    def postTypeInit(self):
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(str, self._normPyStr)
 
-        if type(valu) == str:
-            return self._norm_str(valu)
+    def _normPyInt(self, valu):
         return valu, {}
 
-    def _norm_str(self, text):
-
+    def _normPyStr(self, text):
         valu, off = s_syntax.parse_float(text, 0)
         unit, off = s_syntax.nom(text, off, s_syntax.alphaset)
 
         mult = units.get(unit.lower())
         if mult is None:
-            self._raiseBadValu(text, mesg='invalid/unknown dist unit: %s' % (unit,))
+            raise s_exc.BadTypeValu(text, mesg='invalid/unknown dist unit: %s' % (unit,))
 
         return valu * mult, {}
 
-class GeoMod(s_module.CoreModule):
 
-    @staticmethod
-    def getBaseModels():
-        modl = {
-            'types': (
-                ('geo:place', {'subof': 'guid', 'alias': 'geo:place:alias', 'doc': 'A GUID for a specific place'}),
-                ('geo:alias', {'subof': 'str:lwr', 'regex': '^[0-9a-z]+$', 'doc': 'An alias for the place GUID', 'ex': 'foobar'}),
+class Latitude(s_types.Type):
+    SCALE = 10**8  # ~1mm resolution
+    SPACE = 90 * 10**8
 
-                ('geo:dist', {'ctor': 'synapse.models.geospace.DistType',
-                    'doc': 'A geographic distance (base unit is mm)', 'ex': '10 km'}),
+    def norm(self, valu):
 
-                ('geo:nloc', {'subof': 'comp',
-                    'fields': 'prop=syn:prop,ndef=ndef,latlong=geo:latlong,time=time',
-                    'doc': 'Records a node latitude/longitude in space-time.'}),
+        try:
+            valu = float(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu, mesg='Invalid float format')
 
-                ('geo:latlong', {'ctor': 'synapse.models.geospace.LatLongType',
-                    'doc': 'A Lat/Long string specifying a point on Earth'}),
-            ),
+        if valu > 90.0 or valu < -90.0:
+            raise s_exc.BadTypeValu(valu, mesg='Latitude may only be -90.0 to 90.0')
 
-            'forms': (
+        valu = int(valu * Latitude.SCALE) / Latitude.SCALE
 
-                ('geo:place', {'ptype': 'geo:place'}, [
-                    ('alias', {'ptype': 'geo:alias'}),
-                    ('name', {'ptype': 'str', 'lower': 1, 'doc': 'The name of the place'}),
-                    ('latlong', {'ptype': 'geo:latlong', 'defval': '??', 'doc': 'The location of the place'}),
-                ]),
+        return valu, {}
 
-                ('geo:nloc', {}, [
+    def indx(self, norm):
+        return int(norm * Latitude.SCALE + Latitude.SPACE).to_bytes(5, 'big')
 
-                    ('prop', {'ptype': 'syn:prop', 'ro': 1, 'req': 1,
-                        'doc': 'The latlong property name on the original node'}),
+class LatLong(s_types.Type):
 
-                    ('ndef', {'ptype': 'ndef', 'ro': 1, 'req': 1,
-                        'doc': 'The node with location in geo/time'}),
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
 
-                    ('latlong', {'ptype': 'geo:latlong', 'ro': 1, 'req': 1,
-                        'doc': 'The latitude/longitude the node was observed'}),
+    def _normPyStr(self, valu):
+        valu = tuple(valu.strip().split(','))
+        return self._normPyTuple(valu)
 
-                    ('time', {'ptype': 'time', 'ro': 1, 'req': 1,
-                        'doc': 'The time the node was observed at location'}),
+    def _normPyTuple(self, valu):
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(valu, mesg='Valu must contain valid latitude,longitude')
 
-                ]),
-            ),
-        }
-        name = 'geo'
-        return ((name, modl), )
+        try:
+            latv = self.modl.type('geo:latitude').norm(valu[0])[0]
+            lonv = self.modl.type('geo:longitude').norm(valu[1])[0]
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu, mesg=e)
+
+        return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
+
+    def indx(self, valu):
+        return self.modl.type('geo:latitude').indx(valu[0]) + self.modl.type('geo:longitude').indx(valu[1])
+
+    def repr(self, norm):
+        return f'{norm[0]},{norm[1]}'
+
+class Longitude(s_types.Type):
+    SCALE = 10**8  # ~1mm resolution
+    SPACE = 180 * 10**8
+
+    def norm(self, valu):
+
+        try:
+            valu = float(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu, mesg='Invalid float format')
+
+        if valu > 180.0 or valu < -180.0:
+            raise s_exc.BadTypeValu(valu, mesg='Longitude may only be -180.0 to 180.0')
+
+        valu = int(valu * Longitude.SCALE) / Longitude.SCALE
+
+        return valu, {}
+
+    def indx(self, norm):
+        return int(norm * Longitude.SCALE + Longitude.SPACE).to_bytes(5, 'big')
+
+class GeoModule(s_module.CoreModule):
+
+    def getModelDefs(self):
+        return (
+            ('geo', {
+
+                'ctors': (
+                    ('geo:dist', 'synapse.models.geospace.Dist', {}, {
+                        'doc': 'A geographic distance (base unit is mm)', 'ex': '10 km'
+                    }),
+                    ('geo:latitude', 'synapse.models.geospace.Latitude', {}, {}),
+                    ('geo:longitude', 'synapse.models.geospace.Longitude', {}, {}),
+                    ('geo:latlong', 'synapse.models.geospace.LatLong', {}, {
+                        'doc': 'A Lat/Long string specifying a point on Earth',
+                        'ex': '-12.45,56.78'
+                    }),
+                ),
+
+                'types': (
+                    ('geo:alias', ('str', {'lower': True, 'regex': '^[0-9a-z]+$'}), {
+                        'doc': 'An alias for the place GUID', 'ex': 'foobar'
+                    }),
+                    ('geo:nloc', ('comp', {'fields': (('ndef', 'ndef'), ('latlong', 'geo:latlong'), ('time', 'time'))}), {
+                        'doc': 'Records a node latitude/longitude in space-time.'
+                    }),
+                    ('geo:place', ('guid', {'alias': True, 'regex': '^[0-9a-z]+$'}), {
+                        'doc': 'An alias for the place GUID', 'ex': 'foobar'
+                    }),
+                    # FIXME implement geo:place when guid aliases are available
+                    #('geo:place', {'subof': 'guid', 'alias': 'geo:place:alias', 'doc': 'A GUID for a specific place'}),
+                ),
+
+                'forms': (
+                    ('geo:nloc', {}, (
+                        ('ndef', ('ndef', {}), {
+                            'ro': 1,
+                            'req': 1,
+                            'doc': 'The node with location in geo/time'
+                        }),
+                        ('latlong', ('geo:latlong', {}), {
+                            'ro': 1,
+                            'req': 1,
+                            'doc': 'The latitude/longitude the node was observed'
+                        }),
+                        ('time', ('time', {}), {
+                            'ro': 1,
+                            'req': 1,
+                            'doc': 'The time the node was observed at location'
+                        }),
+                    )),
+
+                    # FIXME implement geo:place when guid aliases are available
+                    #('geo:place', {'ptype': 'geo:place'}, [
+                    #    ('alias', {'ptype': 'geo:alias'}),
+                    #    ('name', {'ptype': 'str', 'lower': 1, 'doc': 'The name of the place'}),
+                    #    ('latlong', {'ptype': 'geo:latlong', 'defval': '??', 'doc': 'The location of the place'}),
+                    #]),
+                )
+            }),
+        )

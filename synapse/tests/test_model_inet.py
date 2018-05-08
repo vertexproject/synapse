@@ -263,8 +263,8 @@ class InetModelTest(s_t_common.SynTest):
             with core.xact(write=True) as xact:
                 valu_str = '1.2.3.4'
                 valu_int = 16909060
-                input_props = {'asn': 3, 'loc': 'us', 'type': 'cool'}  # FIXME add latlong later
-                expected_props = {'asn': 3, 'loc': 'us', 'type': 'cool'}
+                input_props = {'asn': 3, 'loc': 'us', 'type': 'cool', 'latlong': '-50.12345, 150.56789'}
+                expected_props = {'asn': 3, 'loc': 'us', 'type': 'cool', 'latlong': (-50.12345, 150.56789)}
                 expected_ndef = (formname, valu_int)
 
                 node = xact.addNode(formname, valu_str, props=input_props)

@@ -759,7 +759,7 @@ class Comp(Type):
 
             _type = self.modl.type(typename)
             if _type is None:
-                raise FIXME # we need a postModelInit()?
+                raise Exception('we need a postModelInit()?') # FIXME
 
             norm, info = _type.norm(valu[i])
 
