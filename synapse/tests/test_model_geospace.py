@@ -1,51 +1,107 @@
-import synapse.tests.common as s_test
+import synapse.exc as s_exc
+import synapse.tests.common as s_t_common
 
-import unittest
-raise unittest.SkipTest('FILE MODEL')
+class GeoTest(s_t_common.SynTest):
 
-class GeoTest(s_test.SynTest):
+    def test_latlong(self):
+        formlat = 'geo:latitude'
+        formlon = 'geo:longitude'
+        formlatlon = 'geo:latlong'
 
-    def test_model_geospace_types_latlong(self):
+        with self.getTestCore() as core:
 
-        with self.getRamCore() as core:
+            # Latitude Type Tests =====================================================================================
+            t = core.model.type(formlat)
+            self.raises(s_exc.BadTypeValu, t.norm, '-90.1')
+            self.eq(t.norm('-90')[0], -90.0)
+            self.eq(t.norm('-12.345678901234567890')[0], -12.3456789)
+            self.eq(t.norm('-0')[0], 0.0)
+            self.eq(t.norm('0')[0], 0.0)
+            self.eq(t.norm('12.345678901234567890')[0], 12.3456789)
+            self.eq(t.norm('90')[0], 90.0)
+            self.raises(s_exc.BadTypeValu, t.norm, '90.1')
 
-            self.raises(BadTypeValu, core.getTypeNorm, 'geo:latlong', '91,100')
-            self.raises(BadTypeValu, core.getTypeNorm, 'geo:latlong', '-91,100')
-            self.raises(BadTypeValu, core.getTypeNorm, 'geo:latlong', '80,181')
-            self.raises(BadTypeValu, core.getTypeNorm, 'geo:latlong', '80,-181')
-            self.raises(BadTypeValu, core.getTypeNorm, 'geo:latlong', 'hehe,hoho')
+            self.eq(t.indx(-90), b'\x00\x00\x00\x00\x00')  # index starts at 0 and goes to 9000000000
+            self.eq(t.indx(-12.34567890123456789), b'\x01\xce\xdb\x17-')
+            self.eq(t.indx(0), b'\x02\x18q\x1a\x00')
+            self.eq(t.indx(12.34567890123456789), b'\x02b\x07\x1c\xd2')
+            self.eq(t.indx(90), b'\x040\xe24\x00')
 
-            valu, subs = core.getTypeNorm('geo:latlong', '-88.12345678,101.12345678')
-            self.eq(valu, '-88.12345678,101.12345678')
+            # Longitude Type Tests =====================================================================================
+            t = core.model.type(formlon)
+            self.raises(s_exc.BadTypeValu, t.norm, '-180.1')
+            self.eq(t.norm('-180')[0], -180.0)
+            self.eq(t.norm('-12.345678901234567890')[0], -12.3456789)
+            self.eq(t.norm('-0')[0], 0.0)
+            self.eq(t.norm('0')[0], 0.0)
+            self.eq(t.norm('12.345678901234567890')[0], 12.3456789)
+            self.eq(t.norm('180')[0], 180.0)
+            self.raises(s_exc.BadTypeValu, t.norm, '180.1')
 
-            valu, subs = core.getTypeNorm('geo:latlong', '-88.02000000,101.1100000000')
-            self.eq(valu, '-88.02,101.11')
+            self.eq(t.indx(-180), b'\x00\x00\x00\x00\x00')  # index starts at 0 and goes to 18000000000
+            self.eq(t.indx(-12.34567890123456789), b'\x03\xe7L1-')
+            self.eq(t.indx(0), b'\x040\xe24\x00')
+            self.eq(t.indx(12.34567890123456789), b'\x04zx6\xd2')
+            self.eq(t.indx(180), b'\x08a\xc4h\x00')
 
-            valu, subs = core.getTypeNorm('geo:latlong', '??')
-            self.eq(valu, '??')
+            # Latlong Type Tests =====================================================================================
+            t = core.model.type(formlatlon)
+            self.eq(t.norm('0,-0'), ((0.0, 0.0), {'subs': {'lat': 0.0, 'lon': 0.0}}))
+            self.eq(t.norm('89.999,179.999'), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
+            self.eq(t.norm('-89.999,-179.999'), ((-89.999, -179.999), {'subs': {'lat': -89.999, 'lon': -179.999}}))
 
-    def test_model_geospace_types_dist(self):
+            self.eq(t.norm([89.999, 179.999]), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
+            self.eq(t.norm((89.999, 179.999)), ((89.999, 179.999), {'subs': {'lat': 89.999, 'lon': 179.999}}))
 
-        with self.getRamCore() as core:
+            self.raises(s_exc.BadTypeValu, t.norm, '-91,0')
+            self.raises(s_exc.BadTypeValu, t.norm, '91,0')
+            self.raises(s_exc.BadTypeValu, t.norm, '0,-181')
+            self.raises(s_exc.BadTypeValu, t.norm, '0,181')
 
-            valu, subs = core.getTypeNorm('geo:dist', '11.2 km')
-            self.eq(valu, 11200000)
+            # Demonstrate precision
+            self.eq(t.norm('12.345678,-12.345678'),
+                ((12.345678, -12.345678), {'subs': {'lat': 12.345678, 'lon': -12.345678}}))
+            self.eq(t.norm('12.3456789,-12.3456789'),
+                ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
+            self.eq(t.norm('12.34567890,-12.34567890'),
+                ((12.3456789, -12.3456789), {'subs': {'lat': 12.3456789, 'lon': -12.3456789}}))
 
-            valu, subs = core.getTypeNorm('geo:dist', 11200000)
-            self.eq(valu, 11200000)
+            self.eq(t.indx((-90, -180)), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+            self.eq(t.indx((90, 180)), b'\x040\xe24\x00\x08a\xc4h\x00')
 
-            self.raises(BadTypeValu, core.getTypeNorm, 'geo:dist', '1.3 pc')
+            self.eq(t.indx((0, 0)), b'\x02\x18q\x1a\x00\x040\xe24\x00')
+            self.eq(t.indx((0, -0)), b'\x02\x18q\x1a\x00\x040\xe24\x00')
+            self.eq(t.indx((0, 1)), b'\x02\x18q\x1a\x00\x046\xd8\x15\x00')
+            self.eq(t.indx((0, -1)), b'\x02\x18q\x1a\x00\x04*\xecS\x00')
+            self.eq(t.indx((-90, 180)), b'\x00\x00\x00\x00\x00\x08a\xc4h\x00')
+            self.eq(t.indx((90, -180)), b'\x040\xe24\x00\x00\x00\x00\x00\x00')
+            self.eq(t.indx((12.3456789, -12.3456789)), b'\x02b\x07\x1c\xd2\x03\xe7L1.')
+            self.eq(t.indx((12.34567890, -12.34567890)), b'\x02b\x07\x1c\xd2\x03\xe7L1.')
 
-    def test_model_geospace_nloc(self):
+            self.eq(t.repr((0, 0)), '0,0')
+            self.eq(t.repr((0, -0)), '0,0')
+            self.eq(t.repr((12.345678, -12.345678)), '12.345678,-12.345678')
 
-        with self.getRamCore() as core:
+    def test_dist(self):
 
-            item = core.formTufoByProp('mat:item', '7ea768402eae63c9378f4e3805f4d0d3')
+        formname = 'geo:dist'
+        with self.getTestCore() as core:
+            t = core.model.type(formname)
 
-            valu = ('mat:item:latlong', item[1].get('node:ndef'), '44.0429075,4.8828757', '20160403')
+            self.eq(t.norm('11.2 km'), (11200000.0, {}))
+            self.eq(t.norm(11200000), (11200000.0, {}))
 
-            node = core.formTufoByProp('geo:nloc', valu)
-            self.eq(node[1].get('geo:nloc:time'), 1459641600000)
-            self.eq(node[1].get('geo:nloc:prop'), 'mat:item:latlong')
-            self.eq(node[1].get('geo:nloc:ndef'), '15533769b23efcb12d126a53f9b804ee')
-            self.eq(node[1].get('geo:nloc:latlong'), '44.0429075,4.8828757')
+            self.raises(s_exc.BadTypeValu, t.norm, '1.3 pc')
+
+    def test_nloc(self):
+
+        formname = 'geo:nloc'
+        with self.getTestCore() as core:
+            t = core.model.type(formname)
+
+            ndef = ('inet:ipv4', '0.0.0.0')
+            latlong = ('0.000000000', '0')
+            stamp = -0
+
+            data = t.norm((ndef, latlong, stamp))
+            self.eq(data, ((('inet:ipv4', 0), (0.0, 0.0), -0), {'subs': {'ndef': ('inet:ipv4', 0), 'latlong': (0.0, 0.0), 'time': 0}}))
