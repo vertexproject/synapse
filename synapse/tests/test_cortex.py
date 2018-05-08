@@ -6,99 +6,6 @@ import synapse.lib.module as s_module
 
 from synapse.tests.common import *
 
-class TestType(s_types.Type):
-
-    def postTypeInit(self):
-        self.setNormFunc(str, self._normPyStr)
-
-    def _normPyStr(self, valu):
-        return valu.lower(), {}
-
-    def indx(self, norm):
-        return norm.encode('utf8')
-
-testmodel = {
-
-    'ctors': (
-        ('testtype', 'synapse.tests.test_cortex.TestType', {}, {}),
-    ),
-
-    'types': (
-        ('faketype', ('testtype', {'foo': 10}), {
-            'doc': 'A fake type.'}),
-
-        ('testlower', ('str', {'lower': True}), {}),
-
-        ('testtime', ('time', {}), {}),
-
-        ('testfoo', ('str', {}), {}),
-        ('testauto', ('str', {}), {}),
-
-        ('fakecomp', ('comp', {'fields': (
-                ('hehe', 'int'),
-                ('haha', 'testlower'))
-            }), {'doc': 'A fake comp type.'}),
-        ('testhexa', ('hex', {}), {'doc': 'anysize test hex type'}),
-        ('testhex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
-
-        ('pivtarg', ('str', {}), {}),
-        ('pivcomp', ('comp', {'fields': (('targ', 'pivtarg'), ('lulz', 'str'))}), {}),
-    ),
-
-    'forms': (
-
-        ('pivtarg', {}, (
-            ('name', ('str', {}), {}),
-        )),
-
-        ('pivcomp', {}, (
-            ('lulz', ('str', {}), {}),
-            ('targ', ('pivtarg', {}), {}),
-        )),
-
-        ('faketype', {}, (
-
-            ('intprop', ('int', {'min': 20, 'max': 30}), {
-                'defval': 20}),
-
-            ('strprop', ('str', {'lower': 1}), {
-                'defval': 'asdf'}),
-
-            ('guidprop', ('guid', {'lower': 1}), {
-                'defval': '*'}),
-
-            ('locprop', ('loc', {}), {
-                'defval': '??'}),
-        )),
-
-        ('fakecomp', {}, (
-            ('hehe', ('int', {}), {'ro': 1}),
-            ('haha', ('str', {}), {'ro': 1}),
-        )),
-
-        ('testfoo', {}, (
-            ('bar', ('ndef', {}), {}),
-            ('baz', ('nodeprop', {}), {}),
-            ('tick', ('testtime', {}), {}),
-        )),
-
-        ('testauto', {}, ()),
-        ('testhexa', {}, ()),
-        ('testhex4', {}, ())
-    ),
-
-}
-
-class TestModule(s_module.CoreModule):
-
-    def initCoreModule(self):
-        pass
-
-    def getModelDefs(self):
-        return (
-            ('test', testmodel),
-        )
-
 class CortexTest(SynTest):
 
     def test_cortex_onadd(self):
@@ -162,14 +69,14 @@ class CortexTest(SynTest):
 
             with core.xact(write=True) as xact:
 
-                xact.addNode('faketype', 'newp')
+                xact.addNode('teststr', 'newp')
 
-                node = xact.addNode('faketype', 'one')
+                node = xact.addNode('teststr', 'one')
                 node.addTag('foo.bar', ('2016', '2017'))
 
                 self.eq((1451606400000, 1483228800000), node.getTag('foo.bar', ('2016', '2017')))
 
-                node1 = xact.addNode('fakecomp', (10, 'hehe'))
+                node1 = xact.addNode('testcomp', (10, 'hehe'))
                 node1.addTag('foo.bar')
 
                 self.nn(xact.getNodeByNdef(('syn:tag', 'foo')))
@@ -177,7 +84,7 @@ class CortexTest(SynTest):
 
             with core.xact() as xact:
 
-                node = xact.getNodeByNdef(('faketype', 'one'))
+                node = xact.getNodeByNdef(('teststr', 'one'))
 
                 self.true(node.hasTag('foo'))
                 self.true(node.hasTag('foo.bar'))
@@ -185,11 +92,11 @@ class CortexTest(SynTest):
                 self.raises(s_exc.NoSuchForm, list, xact.getNodesBy('noway#foo.bar'))
 
                 self.len(2, list(xact.getNodesBy('#foo.bar')))
-                self.len(1, list(xact.getNodesBy('faketype#foo.bar')))
+                self.len(1, list(xact.getNodesBy('teststr#foo.bar')))
 
             with core.xact(write=True) as xact:
 
-                node = xact.addNode('faketype', 'one')
+                node = xact.addNode('teststr', 'one')
 
                 node.delTag('foo')
 
@@ -198,7 +105,7 @@ class CortexTest(SynTest):
 
             with core.xact() as xact:
 
-                node = xact.addNode('faketype', 'one')
+                node = xact.addNode('teststr', 'one')
                 self.false(node.hasTag('foo'))
                 self.false(node.hasTag('foo.bar'))
 
@@ -208,7 +115,7 @@ class CortexTest(SynTest):
 
             with core.xact(write=True) as xact:
 
-                node = xact.addNode('faketype', 'one')
+                node = xact.addNode('testtype10', 'one')
                 self.nn(node.get('.created'))
 
                 nodes = list(xact.getNodesBy('.created', '2010', cmpr='>='))
@@ -221,14 +128,14 @@ class CortexTest(SynTest):
                 self.true(s_common.isguid(node.get('guidprop')))
 
                 # add another node with default vals
-                xact.addNode('faketype', 'two')
+                xact.addNode('testtype10', 'two')
 
                 # modify default vals on initial node
                 node.set('intprop', 21)
                 node.set('strprop', 'qwer')
                 node.set('locprop', 'us.va.reston')
 
-                node = xact.addNode('fakecomp', (33, 'THIRTY THREE'))
+                node = xact.addNode('testcomp', (33, 'THIRTY THREE'))
 
                 self.eq(node.get('hehe'), 33)
                 self.eq(node.get('haha'), 'thirty three')
@@ -239,36 +146,35 @@ class CortexTest(SynTest):
 
                 props = {
                     'bar': ('testauto', 'autothis'),
-                    'baz': ('faketype:strprop', 'WOOT'),
+                    'baz': ('testtype10:strprop', 'WOOT'),
                     'tick': '20160505',
                 }
-                node = xact.addNode('testfoo', 'woot', props=props)
+                node = xact.addNode('teststr', 'woot', props=props)
                 self.eq(node.get('bar'), ('testauto', 'autothis'))
-                self.eq(node.get('baz'), ('faketype:strprop', 'woot'))
+                self.eq(node.get('baz'), ('testtype10:strprop', 'woot'))
                 self.eq(node.get('tick'), 1462406400000)
 
-                nodes = list(xact.getNodesBy('testfoo:tick', '20160505'))
+                nodes = list(xact.getNodesBy('teststr:tick', '20160505'))
                 self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('testfoo', 'woot'))
+                self.eq(nodes[0].ndef, ('teststr', 'woot'))
 
                 # add some time range bumper nodes
-                xact.addNode('testfoo', 'toolow', props={'tick': '2015'})
-                xact.addNode('testfoo', 'toohigh', props={'tick': '2018'})
+                xact.addNode('teststr', 'toolow', props={'tick': '2015'})
+                xact.addNode('teststr', 'toohigh', props={'tick': '2018'})
 
                 # test a few time range syntax options...
-                nodes = list(xact.getNodesBy('testfoo:tick', '2016*'))
+                nodes = list(xact.getNodesBy('teststr:tick', '2016*'))
                 self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('testfoo', 'woot'))
+                self.eq(nodes[0].ndef, ('teststr', 'woot'))
 
                 # test a few time range syntax options...
-                nodes = list(xact.getNodesBy('testfoo:tick', ('2016', '2017'), cmpr='*range='))
+                nodes = list(xact.getNodesBy('teststr:tick', ('2016', '2017'), cmpr='*range='))
                 self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('testfoo', 'woot'))
+                self.eq(nodes[0].ndef, ('teststr', 'woot'))
 
-                #nodes = list(xact.getNodesBy('testfoo:tick', ('2016', '2017')))
-                nodes = list(xact.getNodesBy('testfoo:tick', ('2016', '2017'), cmpr='*range='))
+                nodes = list(xact.getNodesBy('teststr:tick', ('2016', '2017'), cmpr='*range='))
                 self.len(1, nodes)
-                self.eq(nodes[0].ndef, ('testfoo', 'woot'))
+                self.eq(nodes[0].ndef, ('teststr', 'woot'))
 
                 self.raises(s_exc.NoSuchForm, node.set, 'bar', ('newp:newp', 20))
                 self.raises(s_exc.NoSuchProp, node.set, 'baz', ('newp:newp', 20))
@@ -276,25 +182,26 @@ class CortexTest(SynTest):
                 self.nn(xact.getNodeByNdef(('testauto', 'autothis')))
 
                 # test lifting by prop without value
-                nodes = list(xact.getNodesBy('testfoo:tick'))
+                nodes = list(xact.getNodesBy('teststr:tick'))
                 self.len(3, nodes)
 
             with core.xact() as xact:
 
-                node = xact.addNode('faketype', 'one')
+                node = xact.addNode('testtype10', 'one')
                 self.eq(node.get('intprop'), 21)
+
                 self.nn(node.get('.created'))
 
-                nodes = list(xact.getNodesBy('testfoo', 'too', cmpr='^='))
+                nodes = list(xact.getNodesBy('teststr', 'too', cmpr='^='))
                 self.len(2, nodes)
 
                 # test loc prop prefix based lookup
-                nodes = list(xact.getNodesBy('faketype:locprop', 'us.va'))
+                nodes = list(xact.getNodesBy('testtype10:locprop', 'us.va'))
 
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef[1], 'one')
 
-                nodes = list(xact.getNodesBy('fakecomp', (33, 'thirty three')))
+                nodes = list(xact.getNodesBy('testcomp', (33, 'thirty three')))
 
                 self.len(1, nodes)
 

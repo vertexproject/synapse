@@ -12,6 +12,9 @@ class UsGovTest(SynTest):
                 'zip': 12345,
                 'cc': 'US',
                 'country': 'United States of America',
+                'phone0': '17035551212',
+                'phone1': 17035551213,
+                'name0': 'Kent Labs',
             }
             expected_props = {
                 'street': '123 main st',
@@ -20,13 +23,14 @@ class UsGovTest(SynTest):
                 'zip': 12345,
                 'cc': 'us',
                 'country': 'united states of america',
+                'phone0': '17035551212',
+                'phone1': '17035551213',
+                'name0': 'kent labs',
             }
             formname = 'gov:us:cage'
             valu = '7qe71'
             expected_ndef = (formname, valu)
             with core.xact(write=True) as xact:
-                # FIXME  - 010 need phones
-                # n0 = xact.addNode('gov:us:cage', '7QE71', {'phone0': 17035551212})
                 n0 = xact.addNode(formname, valu.upper(), input_props)
 
             self.eq(n0.ndef, expected_ndef)

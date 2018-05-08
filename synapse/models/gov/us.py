@@ -12,7 +12,7 @@ class GovUsModule(s_module.CoreModule):
 
             'forms': (
                 ('gov:us:cage', {}, (
-                    # FIXME 010 - need orgs ('name0', ('ou:name', {}), {'doc': 'The name of the organization'}),
+                    ('name0', ('ou:name', {}), {'doc': 'The name of the organization'}),
                     ('name1', ('str', {'lower': True}), {'doc': 'Name Part 1'}),
                     ('street', ('str', {'lower': True}), {}),
                     ('city', ('str', {'lower': True}), {}),
@@ -20,9 +20,8 @@ class GovUsModule(s_module.CoreModule):
                     ('zip', ('gov:us:zip', {}), {}),
                     ('cc', ('pol:iso2', {}), {}),
                     ('country', ('str', {'lower': True}), {}),
-                    # FIXME 010 - need telco model
-                    # ('phone0', ('tel:phone', {}), {}),
-                    # ('phone1', ('tel:phone', {}), {}),
+                    ('phone0', ('tel:phone', {}), {}),
+                    ('phone1', ('tel:phone', {}), {}),
                 )),
 
                 ('gov:us:ssn', {}, []),

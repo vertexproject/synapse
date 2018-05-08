@@ -267,6 +267,7 @@ class Str(Type):
     _opt_defs = {
         ('regex', None),
         ('lower', False),
+        ('strip', False),
     }
 
     def postTypeInit(self):
@@ -284,6 +285,10 @@ class Str(Type):
         if self.opts.get('lower'):
             valu = valu.lower()
 
+        # Only strip the left side of the string for prefix match
+        if self.opts.get('strip'):
+            valu = valu.lstrip()
+
         return (
             ('pref', valu.encode('utf8')),
         )
@@ -294,6 +299,9 @@ class Str(Type):
 
         if self.opts['lower']:
             norm = norm.lower()
+
+        if self.opts['strip']:
+            norm = norm.strip()
 
         if self.regex is not None:
             if self.regex.match(norm) is None:
@@ -578,6 +586,7 @@ class Comp(Type):
             raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
         subs = {}
+        adds = []
         norms = []
 
         for i, (name, typename) in enumerate(fields):
@@ -591,8 +600,12 @@ class Comp(Type):
             subs[name] = norm
             norms.append(norm)
 
+            for k, v in info.get('subs', {}).items():
+                subs[f'{name}:{k}'] = v
+            adds.extend(info.get('adds', ()))
+
         norm = tuple(norms)
-        return norm, {'subs': subs}
+        return norm, {'subs': subs, 'adds': adds}
 
     def indx(self, norm):
         return s_common.buid(norm)

@@ -1,9 +1,186 @@
 from synapse.common import guid
 
-import synapse.lib.tufo as s_tufo
 import synapse.lib.module as s_module
 
-class OuMod(s_module.CoreModule):
+
+class OuModule(s_module.CoreModule):
+    def getModelDefs(self):
+        modl = {
+            'types': (
+                ('ou:sic', ('str', {'regex': r'^[0-9]{4}$'}), {
+                    'doc': 'The four digit Standard Industrial Classification Code.',
+                    'ex': '0111',
+                }),
+                ('ou:naics', ('str', {'regex': r'^[1-9][0-9]{4}[0-9]?$'}), {
+                    'doc': 'The five or six digit North American Industry Classification System code.',
+                    'ex': '541715',
+                }),
+                ('ou:org', ('guid', {}), {
+                    'doc': 'A GUID for a human organization such as a company or military unit',
+                }),
+                ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z]+$'}), {
+                    'doc': 'An alias for the org GUID',
+                    'ex': 'vertexproject',
+                }),
+                ('ou:hasalias', ('comp', {'fields': (('org', 'ou:org'), ('alias', 'ou:alias'))}), {
+                    'doc': 'The knowledge that an organization has an alias.',
+                }),
+                ('ou:name', ('str', {'lower': True, 'strip': True}), {
+                    'doc': 'The formal name of an organization',
+                    'ex': 'acme corporation',
+                }),
+                ('ou:suborg', ('comp', {'fields': (('org', 'ou:org'), ('sub', 'ou:org'))}), {
+                    'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.',
+                }),
+                ('ou:org:has', ('comp', {'fields': (('org', 'ou:org'), ('node', 'ndef'))}), {
+                    'doc': 'An org owns, controls, or has exclusive use of an object or resource, '
+                           'potentially during a specific period of time.',
+                }),
+                ('ou:user', ('comp', {'fields': (('org', 'ou:org'), ('user', 'inet:user'))}), {
+                    'doc': 'A user name within an organization',
+                }),
+                ('ou:meet', ('guid', {}), {
+                    'doc': 'A informal meeting of people which has no title or sponsor.  See also: ou:conference.',
+                }),
+                ('ou:conference', ('guid', {}), {
+                    'doc': 'A conference with a name and sponsoring org.',
+                })
+            ),
+            'forms': (
+                ('ou:org', {}, (
+                    ('loc', ('loc', {}), {
+                        'doc': 'Location for an organization'
+                    }),
+                    ('name', ('ou:name', {}), {
+                        'doc': 'The localized name of an organization.',
+                    }),
+                    ('name:en', ('ou:name', {}), {
+                        'doc': 'The English name of an organization.',
+                    }),
+                    ('alias', ('ou:alias', {}), {
+                        'doc': 'The default alias for an organization'
+                    }),
+                    ('phone', ('tel:phone', {}), {
+                        'doc': 'The primary phone number for the organization.',
+                    }),
+                    ('sic', ('ou:sic', {}), {
+                        'doc': 'The Standard Industrial Classification code for the organization.',
+                    }),
+                    ('naics', ('ou:naics', {}), {
+                        'doc': 'The North American Industry Classification System code for the organization.',
+                    }),
+                    ('us:cage', ('gov:us:cage', {}), {
+                        'doc': 'The Commercial and Government Entity (CAGE) code for the organization.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The primary url for the organization.',
+                    }),
+                )),
+                ('ou:hasalias', {}, (
+                    ('org', ('ou:org', {}), {
+                        'ro': True,
+                        'doc': 'Org guid',
+                    }),
+                    ('alias', ('ou:alias', {}), {
+                        'ro': True,
+                        'doc': 'Alias for the organization',
+                    }),
+                    # FIXME Add seen:min and seen:max
+                )),
+                ('ou:suborg', {}, (
+                    ('org', ('ou:org', {}), {
+                        'ro': True,
+                        'doc': 'The org which owns the sub organization',
+                    }),
+                    ('sub', ('ou:org', {}), {
+                        'ro': True,
+                        'doc': 'The sub org which owned by the org.',
+                    }),
+                    ('perc', ('int', {'min': 0, 'max': 100}), {
+                        'doc': 'The optional percentage of sub which is owned by org',
+                    }),
+                    ('current', ('bool', {}), {
+                        'doc': 'Bool indicating if the suborg relationship still current.',
+                    }),
+                    # FIXME Add seen:min and seen:max to indicate beginning
+                    # and end dates of the suborg relationship
+                )),
+                ('ou:org:has', {}, (
+                    ('org', ('ou:org', {}), {
+                        'ro': True,
+                        'doc': 'The org who owns or controls the object or resource.',
+                    }),
+                    ('node', ('ndef', {}), {
+                        'ro': True,
+                        'doc': 'The object or resource that is owned or controlled by the org.',
+                    }),
+                    ('node:form', ('str', {}), {
+                        'ro': True,
+                        'doc': 'The form of the object or resource that is owned or controlled by the org.',
+                    }),
+                    # FIXME Add seen:min and seen:max
+                    # ('seen:min', {'ptype': 'time:min',
+                    #               'doc': 'The earliest known time when the org owned or controlled the resource.'}),
+                    # ('seen:max', {'ptype': 'time:max',
+                    #               'doc': 'The most recent known time when the org owned or controlled the resource.'}),
+                )),
+                ('ou:user', {}, (
+                    ('org', ('ou:org', {}), {
+                        'ro': True,
+                        'doc': 'Org guid',
+                    }),
+                    ('user', ('inet:user', {}), {
+                        'ro': True,
+                        'doc': 'The username associated with the organization',
+                    }),
+                )),
+                ('ou:meet', {}, (
+                    ('name', ('str', {'lower': True}), {
+                        'doc': 'A human friendly name for the meeting.',
+                    }),
+                    ('start', ('time', {}), {
+                        'doc': 'The date / time the meet starts.',
+                    }),
+                    ('end', ('time', {}), {
+                        'doc': 'The date / time the meet ends.',
+                    }),
+                    # FIXME Needs geospatial model
+                    # ('place', ('geo:place', ()), {
+                    #     'doc': 'The geo:place node where the meet was held.',
+                    # }),
+                )),
+                ('ou:conference', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org which created/managed the conference.',
+                    }),
+                    ('name', ('str', {'lower': True, 'req': True}), {
+                        'doc': 'The full name of the conference.',
+                        'ex': 'decfon 2017',
+                    }),
+                    ('base', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The base name which is shared by all conference instances.',
+                        'ex': 'defcon',
+                    }),
+                    ('start', ('time', {}), {
+                        'doc': 'The conference start date / time.',
+                    }),
+                    ('end', ('time', {}), {
+                        'doc': 'The conference end date / time.',
+                    }),
+                    # FIXME Needs geospatial model
+                    # ('place', ('geo:place', ()), {
+                    #     'doc': 'The geo:place node where the conference was held.',
+                    # }),
+                    # TODO: prefix optimized geo political location
+                )),
+            )
+        }
+
+        name = 'ou'
+        return ((name, modl),)
+
+# FIXME: What do we want to do with seedCtors?
+class Fixme:
 
     def initCoreModule(self):
         self.core.addSeedCtor('ou:org:name', self.seedOrgName)
@@ -25,47 +202,16 @@ class OuMod(s_module.CoreModule):
     def getBaseModels():
         modl = {
             'types': (
-                ('ou:org', {'subof': 'guid', 'alias': 'ou:org:alias',
-                            'doc': 'A GUID for a human organization such as a company or military unit'}),
-                ('ou:user', {'subof': 'sepr', 'sep': '/', 'fields': 'org,ou:org|user,inet:user',
-                             'doc': 'A user name within an organization'}),
-                ('ou:alias',
-                 {'subof': 'str:lwr', 'regex': '^[0-9a-z]+$', 'doc': 'An alias for the org GUID', 'ex': 'vertexproj'}),
-
-                ('ou:name', {'subof': 'str:lwr'}),
-                ('ou:sic', {'subof': 'int', 'doc': 'Standard Industrial Classification Code'}),
-                ('ou:naics', {'subof': 'int', 'doc': 'North American Industry Classification System'}),
-
-                ('ou:suborg', {
-                    'subof': 'comp',
-                    'fields': 'org,ou:org|sub,ou:org',
-                    'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.'}),
 
                 ('ou:member', {
                     'subof': 'comp',
                     'fields': 'org,ou:org|person,ps:person',
                     'doc': 'A person who is (or was) a member of an organization.'}),
 
-                ('ou:hasalias', {'subof': 'comp', 'fields': 'org=ou:org,alias=ou:alias'}),
-
-                ('ou:org:has', {
-                    'subof': 'xref',
-                    'source': 'org,ou:org',
-                    'doc': 'An org owns, controls, or has exclusive use of an object or resource,'
-                        'potentially during a specific period of time.'}),
-
-                ('ou:meet', {
-                    'subof': 'guid',
-                    'doc': 'A informal meeting of people which has no title or sponsor.  See also: ou:conference.'}),
-
                 ('ou:meet:attendee', {
                     'subof': 'comp',
                     'fields': 'meet=ou:meet,person=ps:person',
                     'doc': 'Represents a person attending a meeting represented by an ou:meet node.'}),
-
-                ('ou:conference', {
-                    'subof': 'guid',
-                    'doc': 'A conference with a name and sponsoring org.'}),
 
                 ('ou:conference:attendee', {
                     'subof': 'comp',
@@ -75,32 +221,6 @@ class OuMod(s_module.CoreModule):
 
             'forms': (
 
-                ('ou:org', {'ptype': 'ou:org'}, [
-                    ('cc', {'ptype': 'pol:iso2'}),
-                    ('name', {'ptype': 'ou:name'}),
-                    ('name:en', {'ptype': 'ou:name'}),
-                    ('alias', {'ptype': 'ou:alias'}),
-                    ('phone', {'ptype': 'tel:phone', 'doc': 'The primary phone number for the organization'}),
-                    ('sic', {'ptype': 'ou:sic'}),
-                    ('naics', {'ptype': 'ou:naics'}),
-                    ('us:cage', {'ptype': 'gov:us:cage'}),
-                    ('url', {'ptype': 'inet:url'}),
-                ]),
-
-                ('ou:suborg', {}, [
-                    ('org', {'ptype': 'ou:org', 'doc': 'The org which owns sub'}),
-                    ('sub', {'ptype': 'ou:org', 'doc': 'The the sub which is owned by org'}),
-                    ('perc', {'ptype': 'int', 'doc': 'The optional percentage of sub which is owned by org'}),
-                    ('current', {'ptype': 'bool', 'defval': 1, 'doc': 'Is the suborg relationship still current'}),
-                    ('seen:min', {'ptype': 'time:min', 'doc': 'The optional time the suborg relationship began'}),
-                    ('seen:max', {'ptype': 'time:max', 'doc': 'The optional time the suborg relationship ended'}),
-                ]),
-
-                ('ou:user', {}, [
-                    ('org', {'ptype': 'ou:org'}),
-                    ('user', {'ptype': 'inet:user'}),
-                ]),
-
                 ('ou:member', {}, [
                     ('org', {'ptype': 'ou:org', 'ro': 1}),
                     ('person', {'ptype': 'ps:person', 'ro': 1}),
@@ -108,42 +228,6 @@ class OuMod(s_module.CoreModule):
                     ('end', {'ptype': 'time:max'}),
                     ('title', {'ptype': 'str:lwr', 'defval': '??'}),
                 ]),
-
-                ('ou:owns', {'ptype': 'sepr', 'sep': '/', 'fields': 'owner,ou:org|owned,ou:org'}, [
-                ]),  # FIXME does this become an ou:org:has?
-
-                ('ou:hasalias', {'ptype': 'ou:hasalias'}, (
-                    ('org', {'ptype': 'ou:org'}),
-                    ('alias', {'ptype': 'ou:alias'}),
-                    ('seen:min', {'ptype': 'time:min'}),
-                    ('seen:max', {'ptype': 'time:max'}),
-                )),
-
-                ('ou:org:has', {}, [
-                    ('org', {'ptype': 'ou:org', 'ro': 1, 'req': 1,
-                        'doc': 'The org who owns or controls the object or resource.'}),
-                    ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
-                        'doc': 'The object or resource (prop=valu) that is owned or controlled by the org.'}),
-                    ('xref:node', {'ptype': 'ndef', 'ro': 1, 'req': 1,
-                        'doc': 'The ndef of the node that is owned or controlled by the org.'}),
-                    ('xref:prop', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The property (form) of the object or resource that is owned or controlled by the org.'}),
-                    ('seen:min', {'ptype': 'time:min',
-                        'doc': 'The earliest known time when the org owned or controlled the resource.'}),
-                    ('seen:max', {'ptype': 'time:max',
-                        'doc': 'The most recent known time when the org owned or controlled the resource.'}),
-                ]),
-
-                ('ou:meet', {}, (
-                    ('name', {'ptype': 'str:lwr',
-                        'doc': 'A human friendly name for the meeting.'}),
-                    ('start', {'ptype': 'time',
-                        'doc': 'The date / time the meet starts.'}),
-                    ('end', {'ptype': 'time',
-                        'doc': 'The date / time the meet ends.'}),
-                    ('place', {'ptype': 'geo:place',
-                        'doc': 'The geo:place node where the meet was held.'}),
-                )),
 
                 ('ou:meet:attendee', {}, (
                     ('meet', {'ptype': 'ou:meet', 'req': 1, 'ro': 1,
@@ -154,22 +238,6 @@ class OuMod(s_module.CoreModule):
                         'doc': 'An optional property to annotate when the person arrived.'}),
                     ('departed', {'ptype': 'time',
                         'doc': 'An optional property to annotate when the person departed.'}),
-                )),
-
-                ('ou:conference', {}, (
-                    ('org', {'ptype': 'ou:org',
-                        'doc': 'The org which created/managed the conference.'}),
-                    ('name', {'ptype': 'str:lwr', 'req': 1, 'ex': 'defcon 2017',
-                        'doc': 'The full name of the conference.'}),
-                    ('base', {'ptype': 'str:lwr', 'ex': 'defcon',
-                        'doc': 'The base name which is shared by all conference instances.'}),
-                    ('start', {'ptype': 'time',
-                        'doc': 'The conference start date / time.'}),
-                    ('end', {'ptype': 'time',
-                        'doc': 'The conference end date / time.'}),
-                    ('place', {'ptype': 'geo:place',
-                        'doc': 'The geo:place node where the conference was held.'}),
-                    # TODO: prefix optimized geo political location
                 )),
 
                 ('ou:conference:attendee', {}, (

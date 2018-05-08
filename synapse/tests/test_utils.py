@@ -1,23 +1,29 @@
 # -*- coding: utf-8 -*-
 """
-synapse - test_lib_iq.py.py
+synapse - test_utils.py.py
 Created on 10/21/17.
 
-Test for synapse.lib.iq classes
+Test for synapse.tests.utils classes
 """
+import os
+import time
+import logging
 import synapse.glob as s_glob
 
-import synapse.lib.iq as s_iq
+import synapse.exc as s_exc
+import synapse.common as s_common
+import synapse.eventbus as s_eventbus
 
-from synapse.tests.common import *
+import synapse.lib.output as s_output
+
+import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
 
-import unittest
-raise unittest.SkipTest()
 
-class IqTest(SynTest):
-    def test_iq_syntest_helpers(self):
+class TestUtils(s_test.SynTest):
+    def test_syntest_helpers(self):
         # Execute all of the test helpers here
         self.len(2, (1, 2))
 
@@ -90,49 +96,41 @@ class IqTest(SynTest):
         outp = self.getTestOutp()
         self.isinstance(outp, s_output.OutPut)
 
-        # Cortex helpers
+        # FIXME - Test Fix Cortex helper tests
+        # # Cortex helpers
+        #
+        # with self.getRamCore() as core:
+        #     self.isinstance(core, s_cores_common.Cortex)
+        #     self.nn(core.getTufoByProp('syn:form', 'guidform'))
+        #     waiter = self.getTestWait(core, 1, 'node:add')
+        #     core.formTufoByProp('strform', 'oh hai')
+        #     self.len(1, waiter.wait())
+        #
+        # with self.getDmonCore() as core:
+        #     self.isinstance(core, s_telepath.Proxy)
+        #     self.nn(core.getTufoByProp('syn:form', 'guidform'))
+        #
+        # with self.getDirCore() as core:
+        #     self.isinstance(core, s_cores_common.Cortex)
+        #     opt = core.getConfOpt('dir')
+        #     self.true(os.path.isdir(opt))
 
-        with self.getRamCore() as core:
-            self.isinstance(core, s_cores_common.Cortex)
-            self.nn(core.getTufoByProp('syn:form', 'guidform'))
-            waiter = self.getTestWait(core, 1, 'node:add')
-            core.formTufoByProp('strform', 'oh hai')
-            self.len(1, waiter.wait())
-
-        with self.getDmonCore() as core:
-            self.isinstance(core, s_telepath.Proxy)
-            self.nn(core.getTufoByProp('syn:form', 'guidform'))
-
-        with self.getDirCore() as core:
-            self.isinstance(core, s_cores_common.Cortex)
-            opt = core.getConfOpt('dir')
-            self.true(os.path.isdir(opt))
-
-    def test_iq_syntest_psql(self):
-        core = self.getPgCore()
-        self.isinstance(core, s_cores_common.Cortex)
-        self.nn(core.getTufoByProp('syn:form', 'syn:core'))
-        core.fini()
-
-        conn = self.getPgConn()
-        self.eq(conn.closed, 0)
-
-    def test_iq_syntest_logstream(self):
-        with self.getLoggerStream('synapse.tests.test_lib_iq') as stream:
+    def test_syntest_logstream(self):
+        with self.getLoggerStream('synapse.tests.test_utils') as stream:
             logger.error('ruh roh i am a error message')
         stream.seek(0)
         mesgs = stream.read()
         self.isin('ruh roh', mesgs)
 
-    def test_iq_syntest_logstream_event(self):
+    def test_syntest_logstream_event(self):
 
-        @firethread
+        @s_common.firethread
         def logathing():
             time.sleep(0.01)
             logger.error('StreamEvent Test Message')
 
         logger.error('notthere')
-        with self.getLoggerStream('synapse.tests.test_lib_iq', 'Test Message') as stream:
+        with self.getLoggerStream('synapse.tests.test_utils', 'Test Message') as stream:
             thr = logathing()
             self.true(stream.wait(10))
             thr.join()
@@ -142,7 +140,7 @@ class IqTest(SynTest):
         self.isin('StreamEvent Test Message', mesgs)
         self.notin('notthere', mesgs)
 
-    def test_iq_syntest_envars(self):
+    def test_syntest_envars(self):
         os.environ['foo'] = '1'
         os.environ['bar'] = '2'
 
@@ -156,20 +154,21 @@ class IqTest(SynTest):
         self.eq(os.environ.get('bar'), '2')
         self.none(os.environ.get('baz'))
 
-    def test_iq_outp(self):
-        outp = TstOutPut()
+    def test_outp(self):
+        outp = s_t_utils.TstOutPut()
         outp.printf('Test message #1!')
         outp.expect('#1')
         self.raises(Exception, outp.expect, 'oh my')
 
-    def test_iq_testenv(self):
-        core = s_cortex.openurl('ram://')
-        with TstEnv() as env:
+    def test_testenv(self):
+        ebus = s_eventbus.EventBus()
+
+        with s_t_utils.TstEnv() as env:
             foo = 'foo'
-            env.add('core', core, True)
+            env.add('ebus', ebus, True)
             env.add('foo', foo)
 
-            self.true(env.core is core)
+            self.true(env.ebus is ebus)
             self.true(env.foo is foo)
 
             def blah():
@@ -177,35 +176,17 @@ class IqTest(SynTest):
 
             self.raises(AttributeError, blah)
 
-        self.true(core.isfini)
-
-    def test_common_hierarchy(self):
-        blob = (10, 'hehe')
-        e = (type(10), type('hehe'))
-        r = s_iq.objhierarchy(blob)
-        self.eq(r, e)
-
-        tufo = (None, {'woah': 'dude', 'hehe': 1, 'haha': set(['1', '2']), 'foo': ['bar', 'baz']})
-
-        e = (type(None), {'woah': type(''), 'hehe': type(0),
-                          'haha': set([type('')]), 'foo': [type(''), type('')]},)
-        r = s_iq.objhierarchy(tufo)
-        self.eq(r, e)
-
-        tufo = (None, {'gen': (i for i in range(1))})
-        e = (type(None), {'gen': types.GeneratorType})
-        r = s_iq.objhierarchy(tufo)
-        self.eq(r, e)
+        self.true(ebus.isfini)
 
     def test_cmdg_simple_sequence(self):
-        cmdg = CmdGenerator(['foo', 'bar'])
+        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'])
         self.eq(cmdg(), 'foo')
         self.eq(cmdg(), 'bar')
         self.eq(cmdg(), 'quit')
         self.eq(cmdg(), 'quit')
 
     def test_cmdg_evnt(self):
-        cmdg = CmdGenerator(['foo', 'bar'], on_end='spam')
+        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end='spam')
         self.eq(cmdg(), 'foo')
         self.eq(cmdg(), 'bar')
         self.eq(cmdg(), 'spam')
@@ -214,14 +195,14 @@ class IqTest(SynTest):
         self.eq(cmdg(), 'spam')
 
     def test_cmdg_end_actions(self):
-        cmdg = CmdGenerator(['foo', 'bar'], on_end='spam')
+        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end='spam')
         self.eq(cmdg(), 'foo')
         self.eq(cmdg(), 'bar')
         self.eq(cmdg(), 'spam')
         self.eq(cmdg(), 'spam')
 
     def test_cmdg_end_exception(self):
-        cmdg = CmdGenerator(['foo', 'bar'], on_end=EOFError)
+        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end=EOFError)
         self.eq(cmdg(), 'foo')
         self.eq(cmdg(), 'bar')
         with self.raises(EOFError) as cm:
@@ -229,7 +210,7 @@ class IqTest(SynTest):
         self.assertIn('No further actions', str(cm.exception))
 
     def test_cmdg_end_exception_unknown(self):
-        cmdg = CmdGenerator(['foo', 'bar'], on_end=1)
+        cmdg = s_t_utils.CmdGenerator(['foo', 'bar'], on_end=1)
         self.eq(cmdg(), 'foo')
         self.eq(cmdg(), 'bar')
         with self.raises(Exception) as cm:
@@ -244,7 +225,7 @@ class IqTest(SynTest):
 
         names = ['hehe', 'haha', 'ohmy']
         tsteps = self.getTestSteps(names)
-        self.isinstance(tsteps, s_iq.TestSteps)
+        self.isinstance(tsteps, s_t_utils.TestSteps)
 
         tsteps.done('hehe')
         self.true(tsteps.wait('hehe', 1))
@@ -253,7 +234,7 @@ class IqTest(SynTest):
         self.true(tsteps.wait('haha', 1))
 
         s_glob.pool.call(setStep, 0.2, tsteps, 'ohmy')
-        self.raises(StepTimeout, tsteps.wait, 'ohmy', 0.01)
+        self.raises(s_exc.StepTimeout, tsteps.wait, 'ohmy', 0.01)
         self.true(tsteps.wait('ohmy', 1))
 
         # use the waitall api
@@ -265,7 +246,7 @@ class IqTest(SynTest):
         self.true(tsteps.waitall(1))
 
         tsteps = self.getTestSteps(names)
-        self.raises(StepTimeout, tsteps.waitall, 0.1)
+        self.raises(s_exc.StepTimeout, tsteps.waitall, 0.1)
 
         # Use the step() api
         tsteps = self.getTestSteps(names)
@@ -273,9 +254,9 @@ class IqTest(SynTest):
         self.true(tsteps.step('hehe', 'haha', 1))
 
         tsteps = self.getTestSteps(names)
-        self.raises(StepTimeout, tsteps.step, 'hehe', 'haha', 0.01)
+        self.raises(s_exc.StepTimeout, tsteps.step, 'hehe', 'haha', 0.01)
 
-    def test_lib_iq_istufo(self):
+    def test_istufo(self):
         node = (None, {})
         self.istufo(node)
         node = ('1234', {})

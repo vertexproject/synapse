@@ -6,7 +6,6 @@ from unittest.mock import Mock
 
 import synapse.cryotank as s_cryotank
 
-import synapse.lib.iq as s_iq
 import synapse.lib.cell as s_cell
 import synapse.tools.cryo.cat as s_cryocat
 
