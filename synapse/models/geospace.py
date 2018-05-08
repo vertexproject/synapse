@@ -1,5 +1,6 @@
-import struct
-
+# stdlib
+# third party code
+# custom code
 import synapse.exc as s_exc
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
@@ -33,7 +34,6 @@ class Dist(s_types.Type):
             raise s_exc.BadTypeValu(text, mesg='invalid/unknown dist unit: %s' % (unit,))
 
         return valu * mult, {}
-
 
 class Latitude(s_types.Type):
     SCALE = 10**8  # ~1mm resolution
