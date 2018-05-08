@@ -32,8 +32,14 @@ class Prop:
         self.form = form
         self.type = None
 
+        self.storinfo = {
+            'univ': name.startswith('.')
+        }
+
         self.full = '%s:%s' % (form.name, name)
+
         self.onsets = []
+        self.ondels = []
 
         self.utf8name = self.name.encode('utf8')
         self.utf8full = self.full.encode('utf8')
@@ -64,13 +70,30 @@ class Prop:
         Args:
             func (function): A prop set callback.
 
-        The callback is called with the current transaction,
-        the node, and the old property value (or None).
+        The callback is called within the current transaction,
+        with the node, and the old property value (or None).
 
-        def func(xact, node, oldv):
+        def func(node, oldv):
             dostuff()
         '''
         self.onsets.append(func)
+
+    def onDel(self, func):
+        '''
+        Add a callback for deleting this property.
+
+        The callback is executed after the property is deleted.
+
+        Args:
+            func (function): A prop del callback.
+
+        The callback is called within the current transaction,
+        with the node, and the old property value (or None).
+
+        def func(node, oldv):
+            dostuff()
+        '''
+        self.ondels.append(func)
 
     def wasSet(self, node, oldv):
         '''
@@ -86,6 +109,13 @@ class Prop:
             except Exception as e:
                 logger.exception('onset() error for %s' % (self.full,))
 
+    def wasDel(self, node, oldv):
+        for func in self.ondels:
+            try:
+                func(node, oldv)
+            except Exception as e:
+                logger.exception('ondel() error for %s' % (self.full,))
+
     def getLiftOps(self, valu, cmpr='='):
 
         if valu is None:
@@ -99,27 +129,16 @@ class Prop:
             ('indx', ('byprop', self.pref, iops)),
         )
 
-    def stor(self, buid, norm):
-        '''
-        Retrieve a set of storage operations needed to set this property to
-        the given pre-normalized value.
-
-        Args:
-            buid (bytes): The binary GUID for the node.
-            norm (obj): The normalized property value.
-        '''
-        # setup a standard prop:set stor operation
-        sops = (
-            ('node:prop:set', {
-                'buid': buid,
-                'form': self.form.utf8name,
-                'prop': self.utf8name,
-                'valu': norm,
-                'indx': self.type.indx(norm),
-            }),
+    def getSetOps(self, buid, norm):
+        indx = self.type.indx(norm)
+        return (
+            ('prop:set', (buid, self.form.name, self.name, norm, indx, self.storinfo)),
         )
 
-        return sops
+    def getDelOps(self, buid):
+        return (
+            ('prop:del', (buid, self.form.name, self.name, self.storinfo)),
+        )
 
     def filt(self, text, cmpr='='):
         '''
@@ -140,15 +159,11 @@ class Univ:
     A property-like object that can lift without Form().
     '''
     def __init__(self, modl, name, typedef, propinfo):
+        self.modl = modl
         self.name = name
         self.type = modl.getTypeClone(typedef)
-
+        self.info = propinfo
         self.pref = name.encode('utf8') + b'\x00'
-
-        self.utf8name = self.name.encode('utf8')
-        self.utf8full = self.full.encode('utf8')
-
-        self.type = self.modl.getTypeClone(typedef)
 
     def getLiftOps(self, valu, cmpr='='):
 
@@ -216,21 +231,16 @@ class Form:
             except Exception as e:
                 logger.exception('error on onadd for %s' % (self.name,))
 
-    def stor(self, buid, norm):
-        '''
-        Ask for the storage operations needed to add a node by value.
-
-        Args:
-            buid (bytes): The buid for the node to create.
-            norm (obj): The normalized value for the primary property.
-
-        Returns:
-            (list): A list of storage operation tuples.
-        '''
+    def getSetOps(self, buid, norm):
         indx = self.type.indx(norm)
-        return [
-            ('node:add', {'buid': buid, 'form': self.utf8name, 'valu': norm, 'indx': indx}),
-        ]
+        return (
+            ('prop:set', (buid, self.name, '', norm, indx, {})),
+        )
+
+    def getDelOps(self, buid):
+        return (
+            ('prop:del', (buid, self.name, '', {})),
+        )
 
     def getLiftOps(self, valu, cmpr='='):
         '''
@@ -267,7 +277,12 @@ class Model:
         self.types = {} # name: Type()
         self.forms = {} # name: Form()
         self.props = {} # (form,name): Prop() and full: Prop()
-        self.univs = [] # (name, typeinfo, propinfo)
+
+        self.univs = (
+            ('created', ('time', {}), {'ro': 1,
+                'doc': 'The time the node was created in the cortex.',
+            }),
+        )
 
         self.propsbytype = collections.defaultdict(list) # name: Prop()
 
@@ -294,6 +309,10 @@ class Model:
         item = s_types.Time(self, 'time', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'A time window/interval.'}
+        item = s_types.Ival(self, 'ival', info, {})
+        self.addBaseType(item)
+
         info = {'doc': 'The base GUID type.'}
         item = s_types.Guid(self, 'guid', info, {})
         self.addBaseType(item)
@@ -318,11 +337,9 @@ class Model:
         item = s_types.NodeProp(self, 'nodeprop', info, {})
         self.addBaseType(item)
 
-        self.univs.extend((
-            ('created', ('time', {}), {'ro': 1,
-                'doc': 'The time the node was created in the cortex.',
-            }),
-        ))
+        for name, typedef, propinfo in self.univs:
+            name = '.' + name
+            self.props[name] = Univ(self, name, typedef, propinfo)
 
     def _addTypeDecl(self, decl):
 

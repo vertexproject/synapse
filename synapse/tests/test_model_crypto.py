@@ -84,15 +84,16 @@ class CryptoModelTest(s_test.SynTest):
         valu = (HEXSTR_MODULUS, HEXSTR_PUBLIC_EXPONENT)
 
         with self.getTestCore() as core:  # type: s_cortex.Cortex
-            with core.xact(write=True) as xact:
-                node = xact.addNode(prop, valu, props)
-                node = node.pack()
 
-        self.eq(node[1].get('ndef')[1], (HEXSTR_MODULUS, HEXSTR_PUBLIC_EXPONENT))
-        nprops = node[1].get('props')
-        self.eq(nprops.get('mod'), HEXSTR_MODULUS)
-        self.eq(nprops.get('bits'), BITS)
-        self.eq(nprops.get('pub:exp'), HEXSTR_PUBLIC_EXPONENT)
-        self.eq(nprops.get('priv:exp'), HEXSTR_PRIVATE_EXPONENT)
-        self.eq(nprops.get('priv:p'), HEXSTR_PRIVATE_PRIME_P)
-        self.eq(nprops.get('priv:q'), HEXSTR_PRIVATE_PRIME_Q)
+            with core.xact(write=True) as xact:
+
+                node = xact.addNode(prop, valu, props)
+
+                self.eq(node.ndef[1], (HEXSTR_MODULUS, HEXSTR_PUBLIC_EXPONENT))
+
+                self.eq(node.get('mod'), HEXSTR_MODULUS)
+                self.eq(node.get('bits'), BITS)
+                self.eq(node.get('pub:exp'), HEXSTR_PUBLIC_EXPONENT)
+                self.eq(node.get('priv:exp'), HEXSTR_PRIVATE_EXPONENT)
+                self.eq(node.get('priv:p'), HEXSTR_PRIVATE_PRIME_P)
+                self.eq(node.get('priv:q'), HEXSTR_PRIVATE_PRIME_Q)

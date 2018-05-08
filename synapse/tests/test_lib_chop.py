@@ -8,6 +8,12 @@ class ChopTest(s_test.SynTest):
     def test_chop_digits(self):
         self.eq(s_chop.digits('a1b2c3'), '123')
 
+    def test_chop_onespace(self):
+        self.eq('foo bar baz', s_chop.onespace('foo   bar baz'))
+
+    def test_chop_tag(self):
+        self.eq('foo.bar.ba z', s_chop.tag('#foo  .bar.  BA Z'))
+
     def test_chop_intrange(self):
         self.eq(s_chop.intrange('20:30'), (20, 30))
 

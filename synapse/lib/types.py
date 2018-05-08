@@ -1,4 +1,5 @@
 import json
+import types
 import base64
 import struct
 import logging
@@ -242,9 +243,6 @@ class Tag(Type):
     def _normPyStr(self, text):
 
         valu = text.lower().strip('#').strip()
-        parts = valu.split('@', 1)
-
-        valu = parts[0]
         toks = [v.strip() for v in valu.split('.')]
 
         subs = {
@@ -483,6 +481,47 @@ class Time(Type):
 
         return Type.indxByEq(self, valu)
 
+class Ival(Type):
+
+    def postTypeInit(self):
+        self.timetype = self.modl.type('time')
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyIter)
+        self.setNormFunc(tuple, self._normPyIter)
+        self.setNormFunc(None.__class__, self._normPyNone)
+
+    def _normPyNone(self, valu):
+        # none is an ok interval (unknown...)
+        return valu, {}
+
+    def _normPyInt(self, valu):
+        return (valu, valu + 1), {}
+
+    def _normPyStr(self, valu):
+        norm, info = self.timetype.norm(valu)
+        # until we support 2013+2years syntax...
+        return (norm, norm + 1), {}
+
+    def _normPyIter(self, valu):
+
+        vals = [self.timetype.norm(v)[0] for v in valu]
+        if len(vals) == 1:
+            vals.append(vals[0] + 1)
+
+        norm = (min(vals), max(vals))
+        return norm, {}
+
+    def indx(self, norm):
+
+        if norm is None:
+            return b''
+
+        indx = self.timetype.indx(norm[0])
+        indx += self.timetype.indx(norm[1])
+
+        return indx
+
 class Guid(Type):
 
     def postTypeInit(self):
@@ -513,7 +552,7 @@ class Loc(Type):
         valu = valu.lower().strip()
 
         norms = []
-        for part in valu.split():
+        for part in valu.split('.'):
             part = ' '.join(part.split())
             norms.append(part)
 

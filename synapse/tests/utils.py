@@ -128,6 +128,9 @@ testmodel = {
             }), {'doc': 'A fake comp type.'}),
         ('testhexa', ('hex', {}), {'doc': 'anysize test hex type'}),
         ('testhex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
+
+        ('pivtarg', ('str', {}), {}),
+        ('pivcomp', ('comp', {'fields': (('targ', 'pivtarg'), ('lulz', 'str'))}), {}),
     ),
 
     'forms': (
@@ -160,9 +163,17 @@ testmodel = {
 
         ('testauto', {}, ()),
         ('testhexa', {}, ()),
-        ('testhex4', {}, ())
-    ),
+        ('testhex4', {}, ()),
 
+        ('pivtarg', {}, (
+            ('name', ('str', {}), {}),
+        )),
+
+        ('pivcomp', {}, (
+            ('lulz', ('str', {}), {}),
+            ('targ', ('pivtarg', {}), {}),
+        )),
+    ),
 }
 
 class TestModule(s_module.CoreModule):
