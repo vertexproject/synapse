@@ -32,6 +32,7 @@ class TypesTest(s_test.SynTest):
 
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': None})
+        self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': ('inet:ipv4', {})})  # inet is not loaded yet
 
     def test_types_int(self):
 
@@ -55,6 +56,11 @@ class TypesTest(s_test.SynTest):
         self.eq(t.indx(1), b'\x80\x00\x00\x00\x00\x00\x00\x01')
         self.eq(t.indx(2**63 - 1), b'\xff\xff\xff\xff\xff\xff\xff\xff')
         self.raises(OverflowError, t.indx, 2**63)
+
+        # Test merge
+        self.eq(30, t.merge(20, 30))
+        self.eq(20, t.merge(30, 20))
+        self.eq(20, t.merge(20, 20))
 
         # Test min and max
         minmax = model.type('int').clone({'min': 10, 'max': 30})

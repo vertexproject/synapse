@@ -315,35 +315,16 @@ class Str(Type):
 class Int(Type):
 
     _opt_defs = (
-
-        ('size', 8),
+        ('size', 8),  # Set the storage size of the integer type in bytes.
         ('signed', True),
 
-        ('fmt', '%d'),
+        ('fmt', '%d'),  # Set to an integer compatible format string to control repr.
 
-        ('min', None),
-        ('max', None),
+        ('min', None),  # Set to a value to enforce minimum value for the type.
+        ('max', None),  # Set to a value to enforce maximum value for the type.
 
-        ('ismin', False),
-        ('ismax', False),
-
-#        ('fmt', {'cast': 'str', 'defval': '%d',
-#            'doc': 'Set to an integer compatible format string to control repr.'}),
-#
-#        ('size', {'cast': 'int', 'defval': 8,
-#            'doc': 'Set the storage size of the integer type in bytes.'}),
-#
-#        ('max', {'cast': 'int', 'defval': None,
-#            'doc': 'Set to a value to enforce maximum value for the type.'}),
-#
-#        ('min', {'cast': 'int', 'defval': None,
-#            'doc': 'Set to a value to enforce minimum value for the type.'}),
-#
-#        ('ismin', {'cast': 'bool', 'defval': False,
-#            'doc': 'Set to True to enable ismin behavior on value merge.'}),
-#
-#        ('ismax', {'cast': 'bool', 'defval': False,
-#            'doc': 'Set to True to enable ismax behavior on value merge.'}),
+        ('ismin', False),  # Set to True to enable ismin behavior on value merge.
+        ('ismax', False),  # Set to True to enable ismax behavior on value merge.
     )
 
     def postTypeInit(self):
@@ -515,9 +496,11 @@ class Range(Type):
         if not(type(tdef) is tuple and len(tdef) is 2):
             raise s_exc.BadTypeDef(self.opts)
 
-        self.tdef = self.modl.type(tdef[0]).clone(tdef[1])
-        if not self.tdef:
-            raise Exception('VISI SAID THIS COULDNT HAPPEN')
+        try:
+            self.tdef = self.modl.type(tdef[0]).clone(tdef[1])
+        except Exception as e:
+            logger.exception('tdef invalid or unavailable')
+            raise s_exc.BadTypeDef(self.opts, mesg='tdef invalid or unavailable')
 
         self.setNormFunc(tuple, self._normPyTuple)
 
