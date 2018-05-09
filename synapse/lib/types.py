@@ -492,24 +492,24 @@ class Range(Type):
     }
 
     def postTypeInit(self):
-        tdef = self.opts.get('type')
-        if not(type(tdef) is tuple and len(tdef) is 2):
+        subtype = self.opts.get('type')
+        if not(type(subtype) is tuple and len(subtype) is 2):
             raise s_exc.BadTypeDef(self.opts)
 
         try:
-            self.tdef = self.modl.type(tdef[0]).clone(tdef[1])
+            self.subtype = self.modl.type(subtype[0]).clone(subtype[1])
         except Exception as e:
-            logger.exception('tdef invalid or unavailable')
-            raise s_exc.BadTypeDef(self.opts, mesg='tdef invalid or unavailable')
+            logger.exception('subtype invalid or unavailable')
+            raise s_exc.BadTypeDef(self.opts, mesg='subtype invalid or unavailable')
 
         self.setNormFunc(tuple, self._normPyTuple)
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
-            raise s_exc.BadTypeValu(valu, mesg=f'Must be a 2-tuple of type {self.tdef.name}')
+            raise s_exc.BadTypeValu(valu, mesg=f'Must be a 2-tuple of type {self.subtype.name}')
 
-        minv = self.tdef.norm(valu[0])[0]
-        maxv = self.tdef.norm(valu[1])[0]
+        minv = self.subtype.norm(valu[0])[0]
+        maxv = self.subtype.norm(valu[1])[0]
 
         if minv > maxv:
             raise s_exc.BadTypeValu(valu, mesg='minval cannot be greater than maxval')
@@ -517,10 +517,10 @@ class Range(Type):
         return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
 
     def indx(self, norm):
-        return self.tdef.indx(norm[0]) + self.tdef.indx(norm[1])
+        return self.subtype.indx(norm[0]) + self.subtype.indx(norm[1])
 
     def repr(self, norm):
-        return (self.tdef.repr(norm[0]), self.tdef.repr(norm[1]))
+        return (self.subtype.repr(norm[0]), self.subtype.repr(norm[1]))
 
 
 class Ival(Type):
