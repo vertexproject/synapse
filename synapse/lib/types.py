@@ -481,6 +481,44 @@ class Time(Type):
 
         return Type.indxByEq(self, valu)
 
+
+class Range(Type):
+
+    _opt_defs = {
+        ('subtype', None),
+    }
+
+    def postTypeInit(self):
+        self.subtype = self.opts.get('subtype')
+        if not self.subtype:
+            raise s_exc.BadTypeDef()
+
+        self.setNormFunc(tuple, self._normPyTuple)
+
+    def _normPyTuple(self, valu):
+        if len(valu) is not 2:
+            raise s_exc.BadTypeValu(valu, mesg=f'Must be a 2-tuple of type {self.subtype}')
+
+        t = self.modl.type(self.subtype)
+        v0 = t.norm(valu[0])[0]
+        v1 = t.norm(valu[1])[0]
+
+        if v0 > v1:
+            minv, maxv = v1, v0
+        else:
+            minv, maxv = v0, v1
+
+        return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
+
+    def indx(self, norm):
+        t = self.modl.type(self.subtype)
+        return t.indx(norm[0]) + t.indx(norm[1])
+
+    def repr(self, norm):
+        t = self.modl.type(self.subtype)
+        return (t.repr(norm[0]), t.repr(norm[1]))
+
+
 class Ival(Type):
 
     def postTypeInit(self):

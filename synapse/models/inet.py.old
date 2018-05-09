@@ -103,13 +103,6 @@
                     'fields': 'acct,inet:web:acct|text,str:txt',
                     'doc': 'A post made by a web account.'}),
 
-                ('inet:net4', {
-                    'subof': 'sepr',
-                    'sep': '-',
-                    'fields': 'min,inet:ipv4|max,inet:ipv4',
-                    'doc': 'An IPv4 address range.',
-                    'ex': '1.2.3.4-1.2.3.20'}),
-
                 ('inet:net6', {
                     'subof': 'sepr',
                     'sep': '-',

@@ -11,6 +11,7 @@ class InetModelTest(s_t_common.SynTest):
 
             # The following types are subtypes that do not extend their base type
             self.nn(core.model.type('inet:asn'))  # int
+            self.nn(core.model.type('inet:net4'))  # range
             self.nn(core.model.type('inet:passwd'))  # str
             self.nn(core.model.type('inet:port'))  # int w/ min/max
             self.nn(core.model.type('inet:wifi:ssid'))  # str

@@ -12,6 +12,31 @@ import synapse.tests.common as s_test
 
 class TypesTest(s_test.SynTest):
 
+    def test_types_range(self):
+        model = s_datamodel.Model()
+        t = model.type('range')
+
+        self.raises(s_exc.NoSuchFunc, t.norm, 1)
+        self.raises(s_exc.NoSuchFunc, t.norm, '1')
+        self.raises(s_exc.BadTypeValu, t.norm, (1,))
+
+        norm, info = t.norm((0, 0))
+        self.eq(norm, (0, 0))
+        self.eq(info['subs']['min'], 0)
+        self.eq(info['subs']['max'], 0)
+
+        norm, info = t.norm((-10, 0xFF))
+        self.eq(norm, (-10, 255))
+        self.eq(info['subs']['min'], -10)
+        self.eq(info['subs']['max'], 255)
+
+        norm, info = t.norm((10, -0xFF))
+        self.eq(norm, (-255, 10))
+        self.eq(info['subs']['min'], -255)
+        self.eq(info['subs']['max'], 10)
+
+        print(t.indx((1, -1)))  # FIXME we need to solve indexing negative integers
+
     def test_types_int(self):
 
         model = s_datamodel.Model()
