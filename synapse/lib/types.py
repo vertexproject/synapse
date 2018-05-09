@@ -317,6 +317,7 @@ class Int(Type):
     _opt_defs = (
 
         ('size', 8),
+        ('signed', True),
 
         ('fmt', '%d'),
 
@@ -346,8 +347,27 @@ class Int(Type):
     )
 
     def postTypeInit(self):
-        self.minval = self.opts.get('min')
-        self.maxval = self.opts.get('max')
+        self._size = self.opts.get('size')
+        self._signed = self.opts.get('signed')
+        minval = self.opts.get('min')
+        maxval = self.opts.get('max')
+
+        minmin, maxmax = -2 ** ((self._size * 8) - 1), 2 ** ((self._size * 8) - 1) - 1
+        if minval is None:
+            minval = minmin
+        if maxval is None:
+            maxval = maxmax
+        if minval < minmin or maxval > maxmax or maxval < minval:
+            raise s_exc.BadTypeDef()
+
+        if not self._signed:
+            self._indx_offset = 0
+            self.minval = 0
+            self.maxval = min(2 * maxval, maxval)
+        else:
+            self.minval = max(minmin, minval)
+            self.maxval = min(maxmax, maxval)
+            self._indx_offset = maxmax + 1
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
@@ -381,14 +401,13 @@ class Int(Type):
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
 
         if self.maxval is not None and valu > self.maxval:
-            mesg = f'value is below max={self.maxval}'
+            mesg = f'value is above max={self.maxval}'
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
 
         return valu, {}
 
     def indx(self, valu):
-        size = self.opts.get('size')
-        return valu.to_bytes(size, 'big')
+        return (valu + self._indx_offset).to_bytes(self._size, 'big')
 
 class Bool(Type):
 
