@@ -292,37 +292,38 @@ class InetModelTest(s_t_common.SynTest):
             # Type Tests ======================================================
             t = core.model.type('inet:ipv6')
 
-            self.eq(t.norm('::1'), ('::1', {}))
-            self.eq(t.norm('0:0:0:0:0:0:0:1'), ('::1', {}))
-            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), ('2001:db8::ff00:42:8329', {}))
+            self.eq(t.norm('::1'), (1, {}))
+            self.eq(t.norm('0:0:0:0:0:0:0:1'), (1, {}))
+            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), (42540766411282592856904265327123268393, {}))
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
 
             # Specific examples given in RFC5952
-            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('2001:0db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('2001:db8::1:0:0:1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('2001:db8::0:1:0:0:1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('2001:0db8::1:0:0:1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('2001:db8:0:0:1::1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('2001:DB8:0:0:1::1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('2001:DB8:0:0:1:0000:0000:1')[0], '2001:db8::1:0:0:1')
+            example = 42540766411282592856904266426630537217
+            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], example)
+            self.eq(t.norm('2001:0db8:0:0:1:0:0:1')[0], example)
+            self.eq(t.norm('2001:db8::1:0:0:1')[0], example)
+            self.eq(t.norm('2001:db8::0:1:0:0:1')[0], example)
+            self.eq(t.norm('2001:0db8::1:0:0:1')[0], example)
+            self.eq(t.norm('2001:db8:0:0:1::1')[0], example)
+            self.eq(t.norm('2001:DB8:0:0:1::1')[0], example)
+            self.eq(t.norm('2001:DB8:0:0:1:0000:0000:1')[0], example)
             self.raises(s_exc.BadTypeValu, t.norm, '::1::')
-            self.eq(t.norm('2001:0db8::0001')[0], '2001:db8::1')
-            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
-            self.eq(t.norm('2001:db8:0:1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
-            self.eq(t.norm('2001:0:0:1:0:0:0:1')[0], '2001:0:0:1::1')
-            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('::ffff:1.2.3.4')[0], '::ffff:1.2.3.4')
-            self.eq(t.norm('2001:db8::0:1')[0], '2001:db8::1')
-            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
-            self.eq(t.norm('2001:db8::')[0], '2001:db8::')
+            self.eq(t.norm('2001:0db8::0001')[0], 42540766411282592856903984951653826561)
+            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], 42540766411282592856903984951653957633)
+            self.eq(t.norm('2001:db8:0:1:1:1:1:1')[0], 42540766411282592875351010504635121665)
+            self.eq(t.norm('2001:0:0:1:0:0:0:1')[0], 42540488161975842778997100499009798145)
+            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], example)
+            self.eq(t.norm('::ffff:1.2.3.4')[0], 0xFFFF01020304)
+            self.eq(t.norm('2001:db8::0:1')[0], 42540766411282592856903984951653826561)
+            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], 42540766411282592856903984951653957633)
+            self.eq(t.norm('2001:db8::')[0], 42540766411282592856903984951653826560)
 
             # Form Tests ======================================================
             with core.xact(write=True) as xact:
 
                 valu_str = '::fFfF:1.2.3.4'
                 expected_props = {'asn': 0, 'ipv4': 16909060, 'loc': '??'}  # FIXME add latlong later
-                expected_ndef = (formname, valu_str.lower())
+                expected_ndef = (formname, 0xFfFf01020304)
                 node = xact.addNode(formname, valu_str)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('asn'), 0)
@@ -331,7 +332,7 @@ class InetModelTest(s_t_common.SynTest):
 
                 valu_str = '::1'
                 expected_props = {'asn': 0, 'loc': '??'}
-                expected_ndef = (formname, valu_str)
+                expected_ndef = (formname, 1)
                 node = xact.addNode(formname, valu_str)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('asn'), 0)
