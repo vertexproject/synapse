@@ -1,17 +1,54 @@
-import io
-
-import synapse.daemon as s_daemon
-import synapse.telepath as s_telepath
-
-import synapse.lib.tufo as s_tufo
-import synapse.lib.hashset as s_hashset
+import synapse.exc as s_exc
 
 import synapse.tests.common as s_test
 
-import unittest
-raise unittest.SkipTest('FILE MODEL')
+class FileTest(s_test.SynTest):
 
-class FileModelTest(s_test.SynTest):
+    def test_model_file_types(self):
+
+        with self.getTestCore() as core:
+
+            base = core.model.type('file:base')
+            path = core.model.type('file:path')
+
+            norm, info = base.norm('FOO.EXE')
+            subs = info.get('subs')
+
+            self.eq('foo.exe', norm)
+            self.eq('exe', subs.get('ext'))
+
+            self.raises(s_exc.BadTypeValu, base.norm, 'foo/bar.exe')
+
+            norm, info = path.norm('c:\\Windows\\System32\\calc.exe')
+
+            self.eq(norm, 'c:/windows/system32/calc.exe')
+            self.eq(info['subs']['dir'], 'c:/windows/system32')
+            self.eq(info['subs']['base'], 'calc.exe')
+
+            with core.xact(write=True) as xact:
+
+                node = xact.addNode('file:path', '/foo/bar/baz.exe')
+
+                self.eq(node.get('base'), 'baz.exe')
+                self.nn(xact.getNodeByNdef(('file:path', '/foo/bar')))
+
+                node0 = xact.addNode('file:bytes', 'hex:56565656')
+                node1 = xact.addNode('file:bytes', 'base64:VlZWVg==')
+                node2 = xact.addNode('file:bytes', b'VVVV')
+
+                self.eq(node0.ndef, node1.ndef)
+                self.eq(node1.ndef, node2.ndef)
+
+                self.nn(node0.get('md5'))
+                self.nn(node0.get('sha1'))
+                self.nn(node0.get('sha256'))
+                self.nn(node0.get('sha384'))
+                self.nn(node0.get('sha512'))
+
+                fake = xact.addNode('file:bytes', '*')
+                self.true(fake.ndef[1].startswith('guid:'))
+
+class Newp:
 
     def test_model_file_bytes(self):
         with self.getRamCore() as core:

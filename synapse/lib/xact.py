@@ -8,6 +8,7 @@ import synapse.eventbus as s_eventbus
 
 import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
+import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,7 @@ class Xact(s_eventbus.EventBus):
         self.user = None
         self.core = core
         self.model = core.model
+        self.layers = layers
 
         self.write = write
 
@@ -56,9 +58,10 @@ class Xact(s_eventbus.EventBus):
         self.xacts.append((self.layr, self.xact))
 
         # no locks needed...
-        self.nodefifo = collections.deque()
-        self.nodesbyndef = {}
-        self.nodesbybuid = {}
+        #self.nodefifo = collections.deque()
+        #self.nodesbyndef = {}
+        #self.nodesbybuid = {}
+        self.buidcache = s_cache.FixedCache(self._getNodeByBuid, size=100000)
 
         self.buidcurs = self.cursors('bybuid')
         [self.stack.enter_context(c) for c in self.buidcurs]
@@ -99,19 +102,6 @@ class Xact(s_eventbus.EventBus):
         retn = self.changelog
         self.changelog = []
 
-    def _addNodeCache(self, node):
-
-        self.nodesbybuid[node.buid] = node
-        self.nodesbyndef[node.ndef] = node
-
-        self.nodefifo.append(node)
-
-        # transaction cache at 10k for now...
-        while len(self.nodefifo) > 10000:
-            node = self.nodefifo.popleft()
-            self.nodesbybuid.pop(node.buid, None)
-            self.nodesbyndef.pop(node.ndef, None)
-
     def getNodeByBuid(self, buid):
         '''
         Retrieve a node tuple by binary id.
@@ -123,11 +113,9 @@ class Xact(s_eventbus.EventBus):
             ((str,dict)): The node tuple or None.
 
         '''
-        node = self.nodesbybuid.get(buid)
-        if node is None:
-            node = self._getNodeByBuid(buid)
-
-        return node
+        node = self.buidcache.get(buid)
+        if node is not s_common.novalu:
+            return node
 
     def getNodeByNdef(self, ndef):
         '''
@@ -139,12 +127,8 @@ class Xact(s_eventbus.EventBus):
         Returns:
             (synapse.lib.node.Node): The Node or None.
         '''
-        node = self.nodesbyndef.get(ndef)
-        if node is None:
-            buid = s_common.buid(ndef)
-            node = self._getNodeByBuid(buid)
-
-        return node
+        buid = s_common.buid(ndef)
+        return self.getNodeByBuid(buid)
 
     def cursor(self, name):
         db = self.layr.db(name)
@@ -232,8 +216,13 @@ class Xact(s_eventbus.EventBus):
             valu (obj): The value for the node.
             props (dict): Optional secondary properties for the node.
         '''
-        fnib = self._getNodeFnib(name, valu)
-        return self._addNodeFnib(fnib, props=props)
+        try:
+            fnib = self._getNodeFnib(name, valu)
+            return self._addNodeFnib(fnib, props=props)
+        except Exception as e:
+            mesg = f'{name} {valu!r} {props!r}'
+            logger.exception(mesg)
+            raise
 
     def _addNodeFnib(self, fnib, props=None):
 
@@ -273,7 +262,7 @@ class Xact(s_eventbus.EventBus):
 
         self.stor(sops)
 
-        self._addNodeCache(node)
+        self.buidcache.put(buid, node)
 
         # update props with any subs from form value
         subs = info.get('subs')
@@ -415,6 +404,10 @@ class Xact(s_eventbus.EventBus):
         for (formname, formvalu), forminfo in nodedefs:
 
             props = forminfo.get('props')
+
+            # remove any universal created props...
+            props.pop('.created', None)
+
             node = self.addNode(formname, formvalu, props=props)
 
             tags = forminfo.get('tags')
@@ -483,10 +476,8 @@ class Xact(s_eventbus.EventBus):
                     yield prop, valu
 
     def _getNodeByBuid(self, buid):
-
         node = s_node.Node(self, buid)
         if node.ndef is None:
-            return None
+            return s_common.novalu
 
-        self._addNodeCache(node)
         return node

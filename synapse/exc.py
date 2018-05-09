@@ -78,7 +78,6 @@ class NoSuchGetBy(SynErr): pass
 class NoSuchMembrane(SynErr): pass
 class MembraneExists(SynErr): pass
 
-
 class BadTypeDef(SynErr): pass
 class BadPropDef(SynErr): pass
 

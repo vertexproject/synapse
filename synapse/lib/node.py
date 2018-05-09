@@ -43,6 +43,7 @@ class Node:
         for prop, valu in props:
 
             p0 = prop[0]
+
             # check for primary property
             if p0 == '*':
                 self.ndef = (prop[1:], valu)
@@ -203,15 +204,17 @@ class Node:
         if not self.xact.allowed('node:tag:add', name):
             raise s_exc.AuthDeny()
 
+        curv = self.tags.get(name, s_common.novalu)
+        if curv is not s_common.novalu:
+            return
+
         parts = name.rsplit('.', 1)
-        if len(parts) > 1:
+        if len(parts) > 1 and not self.hasTag(parts[0]):
             self._addTagRaw(parts[0], None)
 
         self._addTagRaw(name, valu)
 
     def _addTagRaw(self, name, valu):
-
-        node = self.xact.addNode('syn:tag', name)
 
         ivaltype = self.xact.model.type('ival')
         norm, info = ivaltype.norm(valu)
@@ -219,6 +222,8 @@ class Node:
         curv = self.tags.get(name, s_common.novalu)
         if curv == norm:
             return
+
+        node = self.xact.addNode('syn:tag', name)
 
         info = {'univ': True}
         indx = ivaltype.indx(norm)

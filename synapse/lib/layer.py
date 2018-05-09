@@ -72,6 +72,28 @@ class Layer(s_cell.Cell):
             'prop:del': self._storPropDel,
         }
 
+    def getBuidProps(self, buid):
+
+        props = []
+        with self.lenv.begin() as xact:
+
+            with xact.cursor() as curs:
+
+                if not curs.set_range(buid):
+                    return props
+
+                for lkey, lval in curs.iternext():
+
+                    if lkey[:32] != buid:
+                        break
+
+                    prop = lkey[32:].decode('utf8')
+                    valu, indx = s_msgpack.un(lval)
+                    props.append((prop, valu))
+
+                    #yield prop, valu
+        return props
+
     def _storPropSet(self, xact, oper):
 
         _, (buid, form, prop, valu, indx, info) = oper
