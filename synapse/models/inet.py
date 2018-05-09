@@ -481,6 +481,11 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An Autonomous System Number (ASN).'
                     }),
 
+                    ('inet:asnet4', ('comp', {'fields': (('asn', 'inet:asn'), ('net4', 'inet:net4'))}), {
+                        'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
+                        'ex': '(54959, ("1.2.3.4", "1.2.3.20"))',
+                    }),
+
                     ('inet:net4', ('range', {'subtype': 'inet:ipv4'}), {
                         'doc': 'An IPv4 address range.',
                         'ex': '("1.2.3.4", "1.2.3.20")'
@@ -509,6 +514,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A URL that redirects to another URL, such as via a URL shortening service or an HTTP 302 response.',
                         'ex': '(http://foo.com/,http://bar.com/)'
                     }),
+
                     ('inet:user', ('str', {'lower': True}), {
                         'doc': 'A username string.'
                     }),
@@ -552,6 +558,25 @@ class InetModule(s_module.CoreModule):
                         #('owner', ('ou:org', {}), {
                         #    'doc': 'The guid of the organization currently responsible for the ASN.'
                         #}),
+                    )),
+
+                    ('inet:asnet4', ('inet:asnet4', {}), (
+                        ('asn', ('inet:asn', {}), {
+                            'ro': 1,
+                            'doc': 'The Autonomous System Number (ASN) of the netblock.'
+                        }),
+                        ('net4', ('inet:net4', {}), {
+                            'ro': 1,
+                            'doc': 'The IPv4 address range assigned to the ASN.'
+                        }),
+                        ('net4:min', ('inet:ipv4', {}), {
+                            'ro': 1,
+                            'doc': 'The first IPv4 in the range assigned to the ASN.'
+                        }),
+                        ('net4:max', ('inet:ipv4', {}), {
+                            'ro': 1,
+                            'doc': 'The last IPv4 in the range assigned to the ASN.'
+                        }),
                     )),
 
                     ('inet:cidr4', {}, (

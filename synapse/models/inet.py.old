@@ -110,13 +110,6 @@
                     'doc': 'An IPv6 address range.',
                     'ex': 'ff::00-ff::30'}),
 
-                ('inet:asnet4', {
-                    'subof': 'sepr',
-                    'sep': '/',
-                    'fields': 'asn,inet:asn|net4,inet:net4',
-                    'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
-                    'ex': '54959/1.2.3.4-1.2.3.20'}),
-
                 ('inet:web:group', {
                     'subof': 'sepr',
                     'sep': '/',
@@ -286,17 +279,6 @@
                     ('seen:max', {'ptype': 'time:max',
                         'doc': 'The most recent known time the file was hosted at the URL.'}),
                 ]),
-
-                ('inet:asnet4', {'ptype': 'inet:asnet4'}, [
-                     ('asn', {'ptype': 'inet:asn', 'ro': 1,
-                         'doc': 'The Autonomous System Number (ASN) of the netblock.'}),
-                     ('net4', {'ptype': 'inet:net4', 'ro': 1,
-                         'doc': 'The IPv4 address range assigned to the ASN.'}),
-                     ('net4:min', {'ptype': 'inet:ipv4', 'ro': 1,
-                         'doc': 'The first IPv4 in the range assigned to the ASN.'}),
-                     ('net4:max', {'ptype': 'inet:ipv4', 'ro': 1,
-                         'doc': 'The last IPv4 in the range assigned to the ASN.'}),
-                 ]),
 
                 ('inet:tcp4', {'ptype': 'inet:srv4'}, [
                     ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
