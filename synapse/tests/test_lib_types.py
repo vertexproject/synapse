@@ -26,8 +26,12 @@ class TypesTest(s_test.SynTest):
         self.eq(norm, (-10, 255))
         self.eq(info['subs']['min'], -10)
         self.eq(info['subs']['max'], 255)
+        self.eq(t.repr((-10, 0xFF)), ('-10', '255'))
 
         self.eq(t.indx((0, (2**63) - 1)), b'\x80\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff')
+
+        # Invalid Config
+        self.raises(s_exc.BadTypeDef, model.type('range').clone, {'subtype': None})
 
     def test_types_int(self):
 
@@ -93,6 +97,9 @@ class TypesTest(s_test.SynTest):
         self.eq(int128.indx(0), b'\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
         self.eq(int128.indx(-2**127), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
         self.raises(OverflowError, int8.indx, 2**128)
+
+        # Invalid Config
+        self.raises(s_exc.BadTypeDef, model.type('int').clone, {'min': 100, 'max': 1})
 
     def test_types_str(self):
 

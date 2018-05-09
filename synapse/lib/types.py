@@ -358,7 +358,7 @@ class Int(Type):
         if maxval is None:
             maxval = maxmax
         if minval < minmin or maxval > maxmax or maxval < minval:
-            raise s_exc.BadTypeDef()
+            raise s_exc.BadTypeDef(self.opts)
 
         if not self._signed:
             self._indx_offset = 0
@@ -510,7 +510,7 @@ class Range(Type):
     def postTypeInit(self):
         self.subtype = self.opts.get('subtype')
         if not self.subtype:
-            raise s_exc.BadTypeDef()
+            raise s_exc.BadTypeDef(self.opts)
 
         self.setNormFunc(tuple, self._normPyTuple)
 
