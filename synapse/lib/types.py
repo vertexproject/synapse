@@ -365,9 +365,9 @@ class Int(Type):
             self.minval = 0
             self.maxval = min(2 * maxval, maxval)
         else:
+            self._indx_offset = maxmax + 1
             self.minval = max(minmin, minval)
             self.maxval = min(maxmax, maxval)
-            self._indx_offset = maxmax + 1
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
@@ -519,13 +519,11 @@ class Range(Type):
             raise s_exc.BadTypeValu(valu, mesg=f'Must be a 2-tuple of type {self.subtype}')
 
         t = self.modl.type(self.subtype)
-        v0 = t.norm(valu[0])[0]
-        v1 = t.norm(valu[1])[0]
+        minv = t.norm(valu[0])[0]
+        maxv = t.norm(valu[1])[0]
 
-        if v0 > v1:
-            minv, maxv = v1, v0
-        else:
-            minv, maxv = v0, v1
+        if minv > maxv:
+            raise s_exc.BadTypeValu(valu, mesg='minval cannot be greater than maxval')
 
         return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
 

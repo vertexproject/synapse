@@ -1,14 +1,10 @@
-# -*- coding: UTF-8 -*-
-import base64
-
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.xact as s_xact
+import synapse.lib.types as s_types
+import synapse.tests.common as s_test
 import synapse.datamodel as s_datamodel
 
-import synapse.lib.types as s_types
-import synapse.lib.xact as s_xact
-
-import synapse.tests.common as s_test
 
 class TypesTest(s_test.SynTest):
 
@@ -19,6 +15,7 @@ class TypesTest(s_test.SynTest):
         self.raises(s_exc.NoSuchFunc, t.norm, 1)
         self.raises(s_exc.NoSuchFunc, t.norm, '1')
         self.raises(s_exc.BadTypeValu, t.norm, (1,))
+        self.raises(s_exc.BadTypeValu, t.norm, (1, -1))
 
         norm, info = t.norm((0, 0))
         self.eq(norm, (0, 0))
@@ -30,12 +27,7 @@ class TypesTest(s_test.SynTest):
         self.eq(info['subs']['min'], -10)
         self.eq(info['subs']['max'], 255)
 
-        norm, info = t.norm((10, -0xFF))
-        self.eq(norm, (-255, 10))
-        self.eq(info['subs']['min'], -255)
-        self.eq(info['subs']['max'], 10)
-
-        print(t.indx((1, -1)))  # FIXME we need to solve indexing negative integers
+        self.eq(t.indx((0, (2**63) - 1)), b'\x80\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff')
 
     def test_types_int(self):
 
