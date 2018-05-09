@@ -347,20 +347,23 @@ class Int(Type):
     )
 
     def postTypeInit(self):
-        self._size = self.opts.get('size')
-        self._signed = self.opts.get('signed')
+        self.size = self.opts.get('size')
+        self.signed = self.opts.get('signed')
         minval = self.opts.get('min')
         maxval = self.opts.get('max')
 
-        minmin, maxmax = -2 ** ((self._size * 8) - 1), 2 ** ((self._size * 8) - 1) - 1
+        minmin = -2 ** ((self.size * 8) - 1)
         if minval is None:
             minval = minmin
+
+        maxmax = 2 ** ((self.size * 8) - 1) - 1
         if maxval is None:
             maxval = maxmax
+
         if minval < minmin or maxval > maxmax or maxval < minval:
             raise s_exc.BadTypeDef(self.opts)
 
-        if not self._signed:
+        if not self.signed:
             self._indx_offset = 0
             self.minval = 0
             self.maxval = min(2 * maxval, maxval)
@@ -407,7 +410,7 @@ class Int(Type):
         return valu, {}
 
     def indx(self, valu):
-        return (valu + self._indx_offset).to_bytes(self._size, 'big')
+        return (valu + self._indx_offset).to_bytes(self.size, 'big')
 
 class Bool(Type):
 
@@ -504,23 +507,26 @@ class Time(Type):
 class Range(Type):
 
     _opt_defs = {
-        ('subtype', None),
+        ('type', None),
     }
 
     def postTypeInit(self):
-        self.subtype = self.opts.get('subtype')
-        if not self.subtype:
+        tdef = self.opts.get('type')
+        if not(type(tdef) is tuple and len(tdef) is 2):
             raise s_exc.BadTypeDef(self.opts)
+
+        self.tdef = self.modl.type(tdef[0]).clone(tdef[1])
+        if not self.tdef:
+            raise Exception('VISI SAID THIS COULDNT HAPPEN')
 
         self.setNormFunc(tuple, self._normPyTuple)
 
     def _normPyTuple(self, valu):
-        if len(valu) is not 2:
-            raise s_exc.BadTypeValu(valu, mesg=f'Must be a 2-tuple of type {self.subtype}')
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(valu, mesg=f'Must be a 2-tuple of type {self.tdef.name}')
 
-        t = self.modl.type(self.subtype)
-        minv = t.norm(valu[0])[0]
-        maxv = t.norm(valu[1])[0]
+        minv = self.tdef.norm(valu[0])[0]
+        maxv = self.tdef.norm(valu[1])[0]
 
         if minv > maxv:
             raise s_exc.BadTypeValu(valu, mesg='minval cannot be greater than maxval')
@@ -528,12 +534,10 @@ class Range(Type):
         return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
 
     def indx(self, norm):
-        t = self.modl.type(self.subtype)
-        return t.indx(norm[0]) + t.indx(norm[1])
+        return self.tdef.indx(norm[0]) + self.tdef.indx(norm[1])
 
     def repr(self, norm):
-        t = self.modl.type(self.subtype)
-        return (t.repr(norm[0]), t.repr(norm[1]))
+        return (self.tdef.repr(norm[0]), self.tdef.repr(norm[1]))
 
 
 class Ival(Type):

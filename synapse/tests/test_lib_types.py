@@ -31,7 +31,7 @@ class TypesTest(s_test.SynTest):
         self.eq(t.indx((0, (2**63) - 1)), b'\x80\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff')
 
         # Invalid Config
-        self.raises(s_exc.BadTypeDef, model.type('range').clone, {'subtype': None})
+        self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': None})
 
     def test_types_int(self):
 
@@ -50,7 +50,9 @@ class TypesTest(s_test.SynTest):
 
         # Index tests
         self.eq(t.indx(-2**63), b'\x00\x00\x00\x00\x00\x00\x00\x00')
+        self.eq(t.indx(-1), b'\x7f\xff\xff\xff\xff\xff\xff\xff')
         self.eq(t.indx(0), b'\x80\x00\x00\x00\x00\x00\x00\x00')
+        self.eq(t.indx(1), b'\x80\x00\x00\x00\x00\x00\x00\x01')
         self.eq(t.indx(2**63 - 1), b'\xff\xff\xff\xff\xff\xff\xff\xff')
         self.raises(OverflowError, t.indx, 2**63)
 

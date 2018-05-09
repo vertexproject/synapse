@@ -293,7 +293,8 @@ class Model:
         item = s_types.Int(self, 'int', info, {})
         self.addBaseType(item)
 
-        item = s_types.Range(self, 'range', {'doc': 'A base range type.'}, {'subtype': 'int'})
+        info = {'doc': 'A base range type.'}
+        item = s_types.Range(self, 'range', info, {'type': ('int', {})})
         self.addBaseType(item)
 
         info = {'doc': 'The base string type.'}

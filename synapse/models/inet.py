@@ -486,7 +486,7 @@ class InetModule(s_module.CoreModule):
                         'ex': '(54959, ("1.2.3.4", "1.2.3.20"))',
                     }),
 
-                    ('inet:net4', ('range', {'subtype': 'inet:ipv4'}), {
+                    ('inet:net4', ('range', {'type': ('inet:ipv4', {})}), {
                         'doc': 'An IPv4 address range.',
                         'ex': '("1.2.3.4", "1.2.3.20")'
                     }),
