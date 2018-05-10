@@ -36,11 +36,6 @@
                 TYPES of comp/sepr ====================================================================================
 
 
-                ('inet:web:file', {
-                    'subof': 'comp',
-                    'fields': 'acct,inet:web:acct|file,file:bytes',
-                    'doc': 'A file posted by a web account.'}),
-
                 ('inet:web:memb', {
                     'subof': 'comp',
                     'fields': 'acct,inet:web:acct|group,inet:web:group',
@@ -498,31 +493,6 @@
                         'doc': 'The earliest known date when the account was a member of the group.'}),
                     ('seen:max', {'ptype': 'time:max',
                         'doc': 'The most recent known date when the account was a member of the group.'}),
-                ]),
-
-                ('inet:web:file', {}, [
-                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
-                        'doc': 'The account that owns or is associated with the file.'}),
-                    ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1,
-                        'doc': 'The site or service associated with the account.'}),
-                    ('acct:user', {'ptype': 'inet:user', 'ro': 1,
-                        'doc': 'The unique identifier for the account.'}),
-                    ('file', {'ptype': 'file:bytes', 'ro': 1, 'req': 1,
-                        'doc': 'The file owned by or associated with the account.'}),
-                    ('name', {'ptype': 'file:base',
-                        'doc': 'The name of the file owned by or associated with the account.'}),
-                    ('posted', {'ptype': 'time',
-                        'doc': 'The date and time the file was posted / submitted.'}),
-                    ('ipv4', {'ptype': 'inet:ipv4',
-                        'doc': 'The source IPv4 address used to post or submit the file.'}),
-                    ('ipv6', {'ptype': 'inet:ipv6',
-                        'doc': 'The source IPv6 address used to post or submit the file.'}),
-                    ('seen:min', {'ptype': 'time:min',
-                        'doc': 'The earliest known date the file was posted / submitted / associated '
-                            'with the account.'}),
-                    ('seen:max', {'ptype': 'time:max',
-                        'doc': 'The most recent known date the file was posted / submitted / associated'
-                            'with the account.'}),
                 ]),
 
                 ('inet:whois:regmail', {'ptype': 'inet:whois:regmail'}, [

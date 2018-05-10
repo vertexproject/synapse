@@ -532,6 +532,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An instance of an account performing an action at an Internet-based site or service.'
                     }),
 
+                    ('inet:web:file', ('comp', {'fields': (('acct', 'inet:web:acct'), ('file', 'file:bytes'))}), {
+                        'doc': 'A file posted by a web account.'
+                    }),
+
                     ('inet:web:follows', ('comp', {'fields': (('follower', 'inet:web:acct'), ('followee', 'inet:web:acct'))}), {
                         'doc': 'A web account follows or is connected to another web account.'
                     }),
@@ -926,6 +930,38 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('ipv6', ('inet:ipv6', {}), {
                             'doc': 'The source IPv6 address of the action.'
+                        }),
+                    )),
+
+                    ('inet:web:file', {}, (
+                        ('acct', ('inet:web:acct', {}), {
+                            'ro': 1,
+                            'doc': 'The account that owns or is associated with the file.'
+                        }),
+                        ('acct:site', ('inet:fqdn', {}), {
+                            'ro': 1,
+                            'doc': 'The site or service associated with the account.'
+                        }),
+                        ('acct:user', ('inet:user', {}), {
+                            'ro': 1,
+                            'doc': 'The unique identifier for the account.'
+                        }),
+                        ('file', ('file:bytes', {}), {
+                            'ro': 1,
+                            'doc': 'The file owned by or associated with the account.'
+                        }),
+                        # FIXME missing file:base
+                        #('name', ('file:base', {}), {
+                        #    'doc': 'The name of the file owned by or associated with the account.'
+                        #}),
+                        ('posted', ('time', {}), {
+                            'doc': 'The date and time the file was posted / submitted.'
+                        }),
+                        ('ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The source IPv4 address used to post or submit the file.'
+                        }),
+                        ('ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The source IPv6 address used to post or submit the file.'
                         }),
                     )),
 

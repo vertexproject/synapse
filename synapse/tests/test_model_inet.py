@@ -2,6 +2,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.common as s_t_common
 
+
 class InetModelTest(s_t_common.SynTest):
 
     def test__unextended(self):
@@ -18,6 +19,7 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.type('inet:urlredir'))  # comp
             self.nn(core.model.type('inet:web:acct'))  # comp
             self.nn(core.model.type('inet:web:action'))  # guid
+            self.nn(core.model.type('inet:web:file'))  # comp
             self.nn(core.model.type('inet:web:follows'))  # comp
             self.nn(core.model.type('inet:web:logon'))  # guid
             self.nn(core.model.type('inet:web:post'))  # comp
@@ -34,6 +36,7 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.form('inet:urlredir'))  # comp
             self.nn(core.model.form('inet:web:acct'))  # comp
             self.nn(core.model.form('inet:web:action'))  # guid
+            self.nn(core.model.form('inet:web:file'))  # comp
             self.nn(core.model.form('inet:web:follows'))  # comp
             self.nn(core.model.form('inet:web:logon'))  # guid
             self.nn(core.model.form('inet:web:post'))  # comp
