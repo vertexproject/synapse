@@ -1,5 +1,3 @@
-import copy
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.common as s_t_common
@@ -16,6 +14,7 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.type('inet:passwd'))  # str
             self.nn(core.model.type('inet:port'))  # int w/ min/max
             self.nn(core.model.type('inet:user'))  # str w/ lower
+            self.nn(core.model.type('inet:urlfile'))  # comp
             self.nn(core.model.type('inet:urlredir'))  # comp
             self.nn(core.model.type('inet:web:acct'))  # comp
             self.nn(core.model.type('inet:web:follows'))  # comp
@@ -29,6 +28,7 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.form('inet:asnet4'))  # comp
             self.nn(core.model.form('inet:group'))  # str w/ lower
             self.nn(core.model.form('inet:user'))  # str w/ lower
+            self.nn(core.model.form('inet:urlfile'))  # comp
             self.nn(core.model.form('inet:urlredir'))  # comp
             self.nn(core.model.form('inet:web:acct'))  # comp
             self.nn(core.model.form('inet:web:follows'))  # comp

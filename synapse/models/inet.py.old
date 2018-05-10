@@ -45,10 +45,6 @@
 
                 TYPES of comp/sepr ====================================================================================
 
-                ('inet:urlfile', {
-                    'subof': 'comp',
-                    'fields': 'url=inet:url, file=file:bytes',
-                    'doc': 'A file hosted at a specific Universal Resource Locator (URL).'}),
 
                 ('inet:web:file', {
                     'subof': 'comp',
@@ -259,17 +255,6 @@
                         'doc': 'The client tcp/udp port.'}),
 
                 )),
-
-                ('inet:urlfile', {'ptype': 'inet:urlfile'}, [
-                    ('url', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
-                        'doc': 'The URL where the file was hosted.'}),
-                    ('file', {'ptype': 'file:bytes', 'ro': 1, 'req': 1,
-                        'doc': 'The file that was hosted at the URL.'}),
-                    ('seen:min', {'ptype': 'time:min',
-                        'doc': 'The earliest known time the file was hosted at the URL.'}),
-                    ('seen:max', {'ptype': 'time:max',
-                        'doc': 'The most recent known time the file was hosted at the URL.'}),
-                ]),
 
                 ('inet:tcp4', {'ptype': 'inet:srv4'}, [
                     ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,

@@ -510,6 +510,10 @@ class InetModule(s_module.CoreModule):
                         'ex': '80'
                     }),
 
+                    ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
+                        'doc': 'A file hosted at a specific Universal Resource Locator (URL).'
+                    }),
+
                     ('inet:urlredir', ('comp', {'fields': (('src', 'inet:url'), ('dst', 'inet:url'))}), {
                         'doc': 'A URL that redirects to another URL, such as via a URL shortening service or an HTTP 302 response.',
                         'ex': '(http://foo.com/,http://bar.com/)'
@@ -914,6 +918,17 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:user', {}, ()),
+
+                    ('inet:urlfile', {}, (
+                        ('url', ('inet:url', {}), {
+                            'ro': 1,
+                            'doc': 'The URL where the file was hosted.'
+                        }),
+                        ('file', ('file:bytes', {}), {
+                            'ro': 1,
+                            'doc': 'The file that was hosted at the URL.'
+                        }),
+                    )),
 
                     ('inet:urlredir', {}, (
                         ('src', ('inet:url', {}), {
