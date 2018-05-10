@@ -88,10 +88,8 @@ class Migrate010Test(s_iq.SynTest):
             nodes = self.get_formfile('inet:web:logon', fh)
             self.eq(len(nodes), 2)
             node1, node2 = nodes
-            if node2[1]['props']['acct'][-1] == 2:
+            if node1[1]['props']['acct'][1][-1] == '2':
                 node1, node2 = node2, node1
-            self.eq(node1[1]['props']['client'], 'tcp://1.2.3.4/')
-            self.eq(node2[1]['props']['client'], 'tcp://[::ffff:1.2.3.4]/')
             tags = node1[1]['tags']
             self.eq(tags['test'], (None, None))
             self.eq(tags['hehe.haha'], (1451606400000, 1483228800000))
@@ -122,10 +120,32 @@ class Migrate010Test(s_iq.SynTest):
             hset = s_hashset.HashSet()
             hset.update(b'visi')
             valu, props = hset.guid()
-            core.formTufoByProp('file:bytes', valu, **props)
-            core.formTufoByProp('file:bytes', s_common.guid(), size=42)
+            tufo1 = core.formTufoByProp('file:bytes', valu, **props)
+            tufo2 = core.formTufoByProp('file:bytes', s_common.guid(), size=42)
 
             fh = tempfile.TemporaryFile(dir=dirn)
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
-            nodes = self.get_formfile('file:bytes', fh)
-            self.eq(nodes, [])
+            node1, node2 = self.get_formfile('file:bytes', fh)
+            if node1[1]['props']['size'] == 42:
+                node1, node2 = node2, node1
+
+            self.notin('sha256', node1[1]['props'])
+            self.notin('sha256', node2[1]['props'])
+            self.true(node1[0][1].startswith('sha256:'))
+            self.true(node2[0][1].startswith('guid:'))
+
+    def test_bigval(self):
+        with self.getTestDir() as dirn, self.getRamCore() as core:
+
+            hset = s_hashset.HashSet()
+            hset.update(b'visi')
+            valu, props = hset.guid()
+            for i in range(1000):
+                core.formTufoByProp('ps:contact', s_common.guid(), title=str(i), address='x' * (512 + i))
+
+            fh = tempfile.TemporaryFile(dir=dirn)
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            nodes = self.get_formfile('ps:contact', fh)
+            self.len(1000, nodes)
+            for n in nodes:
+                self.len(512 + int(n[1]['props']['title']), n[1]['props']['address'])

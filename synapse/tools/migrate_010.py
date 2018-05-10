@@ -124,6 +124,7 @@ class Migrator:
             enci = _enc_iden(i)
             val = s_msgpack.en((p, v))
             if len(val) > MAX_VAL_LEN:
+                # import ipdb; ipdb.set_trace()
                 next_val_enc = self.next_val.to_bytes(8, 'big')
                 bigvals.append((next_val_enc, val))
                 val = next_val_enc
@@ -134,9 +135,8 @@ class Migrator:
             try:
                 consumed, added = icurs.putmulti(idens)
                 assert consumed == added
-                consumed, added = vcurs.putmulti(bigvals, append=True)
+                consumed, added = vcurs.putmulti(bigvals)
                 assert consumed == added
-                self.next_val += added
             except lmdb.BadValuSizeError as e:
                 import ipdb; ipdb.set_trace()
                 raise
@@ -240,6 +240,8 @@ class Migrator:
             while True:
                 props = {}
                 for pv_enc in curs.iternext_dup():
+                    if len(pv_enc) == 8:
+                        pv_enc = txn.get(pv_enc, db=self.valu_tbl)
                     p, v = s_msgpack.un(pv_enc)
                     # Skip dark rows or forms we've already done
                     if p[0] == '.' or p[0] == '_' or p == 'tufo:form' and v in comp_forms:
@@ -257,8 +259,8 @@ class Migrator:
 
         logger.info('Stage 2 complete in %.1fs.', time.time() - start_time)
 
-    def just_guid(self, formname, pkval):
-        return pkval
+    def just_guid(self, formname, props):
+        return None, props[formname]
 
     def is_sepr(self, formname):
         return formname in self.seprs
@@ -274,23 +276,30 @@ class Migrator:
             retn.append((valdict[field]))
         return tuple(retn)
 
+    def convert_file_bytes(self, formname, props):
+        sha256 = props.get(formname + ':sha256')
+        if sha256 is None:
+            return None, 'guid:' + props[formname]
+        return [formname + ':sha256'], 'sha256:' + sha256
+
     primary_prop_special = {
         'inet:web:post': just_guid,
         'it:dev:regval': just_guid,
-        'inet:dns:soa': just_guid
+        'inet:dns:soa': just_guid,
+        'file:bytes': convert_file_bytes
     }
 
     def convert_primary(self, props):
         formname = props['tufo:form']
         pkval = props[formname]
         if formname in self.primary_prop_special:
-            return self.primary_prop_special[formname](self, formname, props[formname])
+            return self.primary_prop_special[formname](self, formname, props)
         if self.is_comp(formname):
-            return self.convert_comp_primary(props)
+            return None, self.convert_comp_primary(props)
         if self.is_sepr(formname):
-            return self.convert_sepr(formname, pkval)
+            return None, self.convert_sepr(formname, pkval)
         _, val = self.convert_subprop(formname, formname, pkval)
-        return val
+        return None, val
 
     def convert_comp_secondary(self, formname, propval):
         ''' Convert secondary prop that is a comp type '''
@@ -388,8 +397,11 @@ class Migrator:
         tags = {}
         propsmeta = self.core.getSubProps(formname)
         pk = None
+        skipfields = set()
         for oldk, oldv in sorted(oldprops.items()):
             propmeta = next((x[1] for x in propsmeta if x[0] == oldk), {})
+            if oldk in skipfields:
+                continue
             if oldk[0] == '#':
                 tags[oldk[1:]] = (None, None)
             elif oldk[0] == '>':
@@ -401,7 +413,9 @@ class Migrator:
                 end = oldv
                 tags[oldk[2:]] = (start, end)
             elif oldk == formname:
-                pk = self.convert_primary(oldprops)
+                newskipfields, pk = self.convert_primary(oldprops)
+                if newskipfields:
+                    skipfields.update(newskipfields)
             elif oldk in self.subs:
                 # Skip if a sub to a comp or sepr that's another secondary property
                 continue
