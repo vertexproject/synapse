@@ -18,6 +18,7 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.type('inet:urlredir'))  # comp
             self.nn(core.model.type('inet:web:acct'))  # comp
             self.nn(core.model.type('inet:web:follows'))  # comp
+            self.nn(core.model.type('inet:web:logon'))  # guid
             self.nn(core.model.type('inet:web:post'))  # comp
             self.nn(core.model.type('inet:wifi:ap'))  # comp
             self.nn(core.model.type('inet:wifi:ssid'))  # str
@@ -32,6 +33,7 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.form('inet:urlredir'))  # comp
             self.nn(core.model.form('inet:web:acct'))  # comp
             self.nn(core.model.form('inet:web:follows'))  # comp
+            self.nn(core.model.form('inet:web:logon'))  # guid
             self.nn(core.model.form('inet:web:post'))  # comp
             self.nn(core.model.form('inet:wifi:ap'))  # comp
             self.nn(core.model.form('inet:wifi:ssid'))  # str

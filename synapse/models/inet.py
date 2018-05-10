@@ -532,6 +532,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A web account follows or is connected to another web account.'
                     }),
 
+                    ('inet:web:logon', ('guid', {}), {
+                        'doc': 'An instance of an account authenticating to an Internet-based site or service.'
+                    }),
+
                     ('inet:web:post', ('comp', {'fields': (('acct', 'inet:web:acct'), ('text', 'str'))}), {
                         'doc': 'A post made by a web account.'
                     }),
@@ -899,6 +903,33 @@ class InetModule(s_module.CoreModule):
                             'ro': 1,
                             'doc': 'The account followed by an account.'
                         }),
+                    )),
+
+                    ('inet:web:logon', {}, (
+                        ('acct', ('inet:web:acct', {}), {
+                            'ro': 1,
+                            'doc': 'The web account associated with the logon event.'
+                        }),
+                        ('acct:site', ('inet:fqdn', {}), {
+                            'ro': 1,
+                            'doc': 'The site or service associated with the account.'
+                        }),
+                        ('acct:user', ('inet:user', {}), {
+                            'ro': 1,
+                            'doc': 'The unique identifier for the account.'
+                        }),
+                        ('time', ('time', {}), {
+                            'doc': 'The date and time the account logged into the service.'
+                        }),
+                        ('ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The source IPv4 address of the logon.'
+                        }),
+                        ('ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The source IPv6 address of the logon.'
+                        }),
+                        ('logout', ('time', {}), {
+                            'doc': 'The date and time the account logged out of the service.'
+                        })
                     )),
 
                     ('inet:web:post', {}, (
