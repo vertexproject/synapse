@@ -788,7 +788,6 @@ class InetModule(s_module.CoreModule):
                     ('inet:urlredir', {}, (
                         ('src', ('inet:url', {}), {
                             'ro': 1,
-                            'req': 1,
                             'doc': 'The original/source URL before redirect'
                         }),
                         ('src:fqdn', ('inet:fqdn', {}), {
@@ -796,7 +795,6 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('dst', ('inet:url', {}), {
                             'ro': 1,
-                            'req': 1,
                             'doc': 'The redirected/destination URL'
                         }),
                         ('dst:fqdn', ('inet:fqdn', {}), {
@@ -908,7 +906,6 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:action', {}, (
                         ('act', ('str', {'lower': True}), {
-                            'req': 1,
                             'doc': 'The action performed by the account.'
                         }),
                         ('acct', ('inet:web:acct', {}), {
