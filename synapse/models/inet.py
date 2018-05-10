@@ -558,6 +558,11 @@ class InetModule(s_module.CoreModule):
                         'ex': 'godaddy, inc.'
                     }),
 
+                    ('inet:whois:rec', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('asof', 'time'))}), {
+                        'doc': 'A domain whois record'
+                    }),
+
+
                     ('inet:whois:reg', ('str', {'lower': True}), {
                         'doc': 'A domain registrant.',
                         'ex': 'woot hostmaster'
@@ -1088,6 +1093,37 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:whois:rar', {}, ()),
+
+                    ('inet:whois:rec', {}, (
+                        ('fqdn', ('inet:fqdn', {}), {
+                            'ro': 1,
+                            'doc': 'The domain associated with the whois record.'
+                        }),
+                        ('asof', ('time', {}), {
+                            'ro': 1,
+                            'doc': 'The date of the whois record.'
+                        }),
+                        ('text', ('str', {'lower': True}), {
+                            'doc': 'The full text of the whois record.'
+                        }),
+                        ('created', ('time', {}), {
+                            'doc': 'The "created" time from the whois record.'
+                        }),
+                        ('updated', ('time', {}), {
+                            'doc': 'The "last updated" time from the whois record.'
+                        }),
+                        ('expires', ('time', {}), {
+                            'doc': 'The "expires" time from the whois record.'
+                        }),
+                        ('registrar', ('inet:whois:rar', {}), {
+                            'defval': '??',
+                            'doc': 'The registrar name from the whois record.'
+                        }),
+                        ('registrant', ('inet:whois:reg', {}), {
+                            'defval': '??',
+                            'doc': 'The registrant name from the whois record.'
+                        }),
+                    )),
 
                     ('inet:whois:reg', {}, ()),
 

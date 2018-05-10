@@ -89,11 +89,6 @@
                     'fields': 'tcp4,inet:tcp4|cert,file:bytes',
                     'doc': 'An SSL certificate file served by an IPv4 TCP server.'}),
 
-                ('inet:whois:rec', {
-                    'subof': 'sepr',
-                    'sep': '@',
-                    'fields': 'fqdn,inet:fqdn|asof,time',
-                    'doc': 'A domain whois record'}),
 
                 TYPES that rely on xrefs ==============================================================================
                 ('inet:web:actref', {
@@ -462,25 +457,6 @@
                         'doc': 'The earliest known date the registrant email was associated with the domain.'}),
                     ('seen:max', {'ptype': 'time:max',
                         'doc': 'The most recent known date the registrant email was associated with the domain.'}),
-                ]),
-
-                ('inet:whois:rec', {'ptype': 'inet:whois:rec'}, [
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,
-                        'doc': 'The domain associated with the whois record.'}),
-                    ('asof', {'ptype': 'time', 'ro': 1, 'req': 1,
-                        'doc': 'The date of the whois record.'}),
-                    ('text', {'ptype': 'str:lwr',
-                        'doc': 'The full text of the whois record.'}),
-                    ('created', {'ptype': 'time',
-                        'doc': 'The "created" time from the whois record.'}),
-                    ('updated', {'ptype': 'time',
-                        'doc': 'The "last updated" time from the whois record.'}),
-                    ('expires', {'ptype': 'time',
-                        'doc': 'The "expires" time from the whois record.'}),
-                    ('registrar', {'ptype': 'inet:whois:rar', 'defval': '??',
-                        'doc': 'The registrar name from the whois record.'}),
-                    ('registrant', {'ptype': 'inet:whois:reg', 'defval': '??',
-                        'doc': 'The registrant name from the whois record.'}),
                 ]),
 
                 ('inet:whois:recns', {}, [

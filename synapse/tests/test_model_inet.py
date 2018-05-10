@@ -27,6 +27,7 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.type('inet:wifi:ap'))  # comp
             self.nn(core.model.type('inet:wifi:ssid'))  # str
             self.nn(core.model.type('inet:whois:rar'))  # str w/ lower
+            self.nn(core.model.type('inet:whois:rec'))  # comp
             self.nn(core.model.type('inet:whois:reg'))  # str w/ lower
 
             # The following forms do not extend their base type
@@ -45,6 +46,7 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.form('inet:wifi:ap'))  # comp
             self.nn(core.model.form('inet:wifi:ssid'))  # str
             self.nn(core.model.form('inet:whois:rar'))  # str w/ lower
+            self.nn(core.model.form('inet:whois:rec'))  # comp
             self.nn(core.model.form('inet:whois:reg'))  # str w/ lower
 
     def test_asn(self):
