@@ -17,7 +17,7 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.type('inet:urlfile'))  # comp
             self.nn(core.model.type('inet:urlredir'))  # comp
             self.nn(core.model.type('inet:web:acct'))  # comp
-            self.nn(core.model.type('inet:web:action'))  # comp
+            self.nn(core.model.type('inet:web:action'))  # guid
             self.nn(core.model.type('inet:web:follows'))  # comp
             self.nn(core.model.type('inet:web:logon'))  # guid
             self.nn(core.model.type('inet:web:post'))  # comp
@@ -33,7 +33,7 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.form('inet:urlfile'))  # comp
             self.nn(core.model.form('inet:urlredir'))  # comp
             self.nn(core.model.form('inet:web:acct'))  # comp
-            self.nn(core.model.form('inet:web:action'))  # comp
+            self.nn(core.model.form('inet:web:action'))  # guid
             self.nn(core.model.form('inet:web:follows'))  # comp
             self.nn(core.model.form('inet:web:logon'))  # guid
             self.nn(core.model.form('inet:web:post'))  # comp
@@ -624,49 +624,6 @@ class FIXME:
             self.eq(node[1].get('inet:whois:regmail:email'), 'visi@vertex.link')
             self.eq(node[1].get('inet:whois:regmail:fqdn'), 'woot.com')
 
-    def test_model_inet_url_fields(self):
-        with self.getRamCore() as core:
-            node = core.formTufoByProp('inet:url', 'HTTP://visi:hehe@www.vertex.link:9999/')
-            self.eq(node[1].get('inet:url:port'), 9999)
-            self.eq(node[1].get('inet:url:user'), 'visi')
-            self.eq(node[1].get('inet:url:passwd'), 'hehe')
-            self.eq(node[1].get('inet:url:fqdn'), 'www.vertex.link')
-
-            node = core.formTufoByProp('inet:url', 'HTTP://www.vertex.link/')
-            self.eq(node[1].get('inet:url:port'), 80)
-
-            node = core.formTufoByProp('inet:url', 'HTTP://1.2.3.4/')
-            self.eq(node[1].get('inet:url:ipv4'), 0x01020304)
-
-    def test_model_inet_web_post(self):
-
-        with self.getRamCore() as core:
-            node0 = core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'knock knock'), time='20141217010101')
-            iden = node0[1].get('inet:web:post')
-
-            node1 = core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'whos there'),
-                                        time='20141217010102', replyto=iden)
-
-            self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/visi'))
-
-            self.eq(node0[1].get('inet:web:post:acct:user'), 'visi')
-            self.eq(node1[1].get('inet:web:post:acct:user'), 'visi')
-
-            self.eq(node0[1].get('inet:web:post:acct:site'), 'vertex.link')
-            self.eq(node1[1].get('inet:web:post:acct:site'), 'vertex.link')
-
-            self.eq(node0[1].get('inet:web:post'), node1[1].get('inet:web:post:replyto'))
-            self.none(node0[1].get('inet:web:post:repost'))
-            self.none(node1[1].get('inet:web:post:repost'))
-
-            repost = node1[1].get('inet:web:post')
-            node2 = core.formTufoByProp('inet:web:post', ('vertex.link/pennywise', 'whos there'),
-                                        time='201710091541', repost=repost)
-            self.eq(node2[1].get('inet:web:post:acct'), 'vertex.link/pennywise')
-            self.eq(node2[1].get('inet:web:post:text'), 'whos there')
-            self.eq(node2[1].get('inet:web:post:repost'), repost)
-            self.none(node2[1].get('inet:web:replyto'))
-
     def test_model_inet_postref(self):
         with self.getRamCore() as core:
 
@@ -762,40 +719,6 @@ class FIXME:
             self.nn(core.getTufoByProp('inet:ipv4', '1.2.3.4'))
             self.nn(core.getTufoByProp('inet:ipv6', '::1'))
 
-    def test_model_inet_web_follows(self):
-
-        with self.getRamCore() as core:
-
-            props = {'seen:min': '20501217', 'seen:max': '20501217'}
-            node = core.formTufoByProp('inet:web:follows', ('VERTEX.link/visi', 'vertex.LINK/hehe'), **props)
-
-            self.nn(node)
-            self.eq(node[1].get('inet:web:follows:follower'), 'vertex.link/visi')
-            self.eq(node[1].get('inet:web:follows:followee'), 'vertex.link/hehe')
-            self.eq(node[1].get('inet:web:follows:seen:min'), 2554848000000)
-            self.eq(node[1].get('inet:web:follows:seen:max'), 2554848000000)
-
-    def test_model_inet_ipv4_raise(self):
-        with self.getRamCore() as core:
-            self.raises(s_exc.BadTypeValu, core.formTufoByProp, 'inet:ipv4', 'lolololololol')
-
-    def test_model_inet_urlfile(self):
-        with self.getRamCore() as core:
-
-            url = 'HTTP://visi:hehe@www.vertex.link:9999/'
-            fguid = 32 * 'a'
-            node = core.formTufoByProp('inet:urlfile', (url, fguid), **{'seen:min': 0, 'seen:max': 1})
-
-            self.eq(node[1].get('inet:urlfile:file'), 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
-            self.eq(node[1].get('inet:urlfile:url'), 'http://visi:hehe@www.vertex.link:9999/')
-            self.eq(node[1].get('inet:urlfile:seen:min'), 0)
-            self.eq(node[1].get('inet:urlfile:seen:max'), 1)
-
-            self.none(node[1].get('inet:urlfile:url:port'))
-            self.none(node[1].get('inet:urlfile:url:proto'))
-            self.none(node[1].get('inet:urlfile:url:user'))
-            self.none(node[1].get('inet:urlfile:url:passwd'))
-
     def test_model_whois_contact(self):
         with self.getRamCore() as core:
 
@@ -828,63 +751,6 @@ class FIXME:
             nodes = core.eval('inet:whois:rec:fqdn=woot.com inet:whois:rec->inet:whois:recns:rec')
             self.eq(len(nodes), 1)
             self.eq(node[0], nodes[0][0])
-
-    def test_model_inet_web_logon(self):
-
-        with self.getRamCore() as core:
-            tick = now()
-
-            t0 = core.formTufoByProp('inet:web:logon', '*', acct='vertex.link/pennywise', time=tick)
-            self.nn(t0)
-
-            self.eq(t0[1].get('inet:web:logon:time'), tick)
-            self.eq(t0[1].get('inet:web:logon:acct'), 'vertex.link/pennywise')
-            self.eq(t0[1].get('inet:web:logon:acct:user'), 'pennywise')
-            self.eq(t0[1].get('inet:web:logon:acct:site'), 'vertex.link')
-
-            # Pivot from an inet:web:acct to the inet:web:logon forms via storm
-            self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise'))
-            nodes = core.eval('inet:web:acct=vertex.link/pennywise inet:web:acct -> inet:web:logon:acct')
-            self.eq(len(nodes), 1)
-
-            t0 = core.setTufoProps(t0, ipv4=0x01020304, logout=tick + 1, ipv6='0:0:0:0:0:0:0:1')
-            self.eq(t0[1].get('inet:web:logon:ipv4'), 0x01020304)
-            self.eq(t0[1].get('inet:web:logon:logout'), tick + 1)
-            self.eq(t0[1].get('inet:web:logon:logout') - t0[1].get('inet:web:logon:time'), 1)
-            self.eq(t0[1].get('inet:web:logon:ipv6'), '::1')
-
-    def test_model_inet_web_action(self):
-
-        with self.getRamCore() as core:
-            tick = now()
-
-            t0 = core.formTufoByProp('inet:web:action', '*', act='didathing', acct='vertex.link/pennywise', time=tick)
-            self.nn(t0)
-
-            self.eq(t0[1].get('inet:web:action:time'), tick)
-            self.eq(t0[1].get('inet:web:action:acct'), 'vertex.link/pennywise')
-            self.eq(t0[1].get('inet:web:action:acct:user'), 'pennywise')
-            self.eq(t0[1].get('inet:web:action:acct:site'), 'vertex.link')
-            self.eq(t0[1].get('inet:web:action:act'), 'didathing')
-
-            # Pivot from an inet:web:acct to the inet:web:action forms via storm
-            self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/pennywise'))
-            nodes = core.eval('inet:web:acct=vertex.link/pennywise inet:web:acct -> inet:web:action:acct')
-            self.eq(len(nodes), 1)
-
-            t0 = core.setTufoProps(t0, ipv4=0x01020304, ipv6='0:0:0:0:0:0:0:1', acct='vertex.link/user2')
-            self.eq(t0[1].get('inet:web:action:ipv4'), 0x01020304)
-            self.eq(t0[1].get('inet:web:action:ipv6'), '::1')
-            self.eq(t0[1].get('inet:web:action:acct'), 'vertex.link/pennywise')
-            self.eq(t0[1].get('inet:web:action:acct:user'), 'pennywise')
-            self.eq(t0[1].get('inet:web:action:acct:site'), 'vertex.link')
-
-            d = {'key': 1, 'valu': ['oh', 'my']}
-            t0 = core.setTufoProps(t0, info=d)
-            self.eq(json.loads(t0[1].get('inet:web:action:info')), d)
-
-            self.raises(PropNotFound, core.formTufoByProp, 'inet:web:action', '*', acct='vertex.link/pennywise', time=tick)
-            self.raises(PropNotFound, core.formTufoByProp, 'inet:web:action', '*', act='didathing', time=tick)
 
     def test_model_inet_web_actref(self):
         with self.getRamCore() as core:
@@ -1086,15 +952,6 @@ class FIXME:
             self.eq(node[1].get('inet:download:client:proto'), 'tcp')
             self.eq(node[1].get('inet:download:client:ipv4'), 0x05060708)
 
-    def test_model_inet_wifi(self):
-        with self.getRamCore() as core:
-            node = core.formTufoByProp('inet:wifi:ssid', 'hehe haha')
-            self.eq(node[1].get('inet:wifi:ssid'), 'hehe haha')
-
-            node = core.formTufoByProp('inet:wifi:ap', ('lololol', '01:02:03:04:05:06'))
-            self.eq(node[1].get('inet:wifi:ap:ssid'), 'lololol')
-            self.eq(node[1].get('inet:wifi:ap:bssid'), '01:02:03:04:05:06')
-
     def test_model_inet_iface(self):
 
         with self.getRamCore() as core:
@@ -1122,28 +979,6 @@ class FIXME:
             self.nn(core.getTufoByProp('inet:wifi:ssid', node[1].get('inet:iface:wifi:ssid')))
             self.nn(core.getTufoByProp('tel:mob:imei', node[1].get('inet:iface:mob:imei')))
             self.nn(core.getTufoByProp('tel:mob:imsi', node[1].get('inet:iface:mob:imsi')))
-
-    def test_model_inet_urlredir(self):
-
-        with self.getRamCore() as core:
-
-            tick = s_time.parse('20161217')
-            tock = s_time.parse('20170216')
-
-            props = {'seen:min': tick, 'seen:max': tock}
-            node = core.formTufoByProp('inet:urlredir', ('http://foo.com/', 'http://bar.com/'), **props)
-
-            self.nn(core.getTufoByProp('inet:url', 'http://foo.com/'))
-            self.nn(core.getTufoByProp('inet:url', 'http://bar.com/'))
-
-            self.eq(node[1].get('inet:urlredir:src'), 'http://foo.com/')
-            self.eq(node[1].get('inet:urlredir:src:fqdn'), 'foo.com')
-
-            self.eq(node[1].get('inet:urlredir:dst'), 'http://bar.com/')
-            self.eq(node[1].get('inet:urlredir:dst:fqdn'), 'bar.com')
-
-            self.eq(node[1].get('inet:urlredir:seen:min'), tick)
-            self.eq(node[1].get('inet:urlredir:seen:max'), tock)
 
     def test_model_inet_http(self):
 
