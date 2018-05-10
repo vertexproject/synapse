@@ -143,7 +143,7 @@ class SqliteStorage(s_cores_storage.Storage):
     _t_getrows_by_iden_prop_strval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND strval={{VALU}}'
 
     _t_getrows_by_iden_range = 'SELECT * FROM {{TABLE}} WHERE iden >= {{LOWERBOUND}} and iden < {{UPPERBOUND}}'
-    _t_getrows = 'SELECT * FROM {{TABLE}}'
+    _t_getrows = 'SELECT * FROM {{TABLE}} LIMIT -1 OFFSET {{OFFSET}}'
     _t_getiden_max = 'SELECT MAX(iden) FROM {{TABLE}}'
     _t_getiden_min = 'SELECT MIN(iden) FROM {{TABLE}}'
 
@@ -748,11 +748,14 @@ class SqliteStorage(s_cores_storage.Storage):
 
             * gsize: The number of bytes to use when generating the iden
               prefix values.  This defaults to 4.
+            * offset: Skip the first offset rows
         Returns:
             list: List of tuples, each containing an iden, property, value and timestamp.
         '''
         gsize = kwargs.get('gsize', 10000)
-        i = ((i, p, sv if iv is None else iv, t) for i, p, iv, sv, t in self.selectiter(self._q_getrows))
+        offset = kwargs.get('offset', 0)
+        i = ((i, p, sv if iv is None else iv, t) for i, p, iv, sv, t in self.selectiter(self._q_getrows,
+                                                                                        offset=offset))
 
         return s_common.chunks(i, gsize)
 

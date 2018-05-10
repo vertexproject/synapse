@@ -15,8 +15,7 @@ import synapse.models.inet as s_inet
 logger = logging.getLogger(__name__)
 
 # TODO
-# file:bytes.  use existing guid if not sha256, else use sha256, keep secondaries
-# file:base -> filepath if backslash in them
+# file:base -> filepath if backslash in them (?? separate the last part out?)
 # inet:flow -> inetserver/inetclient
 # file:txtref, file:imgof -> both turn into file:ref comp: (file:bytes, ndef)
 #     secondary prop: type ("image", "text")
@@ -134,9 +133,9 @@ class Migrator:
         with txn.cursor(self.iden_tbl) as icurs, txn.cursor(self.valu_tbl) as vcurs:
             try:
                 consumed, added = icurs.putmulti(idens)
-                assert consumed == added
+                assert consumed == added == len(rows)
                 consumed, added = vcurs.putmulti(bigvals)
-                assert consumed == added
+                assert consumed == added == len(bigvals)
             except lmdb.BadValuSizeError as e:
                 import ipdb; ipdb.set_trace()
                 raise
@@ -153,7 +152,7 @@ class Migrator:
         rowcount = 0
         last_rowcount = 0
 
-        for rows in self.core.store.genStoreRows(gsize=10000):
+        for rows in self.core.store.genStoreRows(gsize=10000, offset=offset):
             lenrows = len(rows)
             if limit is not None and rowcount >= limit:
                 break
@@ -167,14 +166,8 @@ class Migrator:
                 last_rowcount = rowcount
                 logger.info('%02.2f%% complete.  Estimated completion in %ds', percent_complete, estimate)
 
-            if offset >= rowcount:
-                continue
-
             if limit is not None and rowcount > limit:
                 rows = rows[:(limit - rowcount + lenrows)]
-            if rowcount - lenrows < offset < rowcount:
-                chunk_offset = offset - rowcount + lenrows
-                rows = rows[chunk_offset:]
 
             with self.dbenv.begin(write=True) as txn:
                 self._write_props(txn, rows)
