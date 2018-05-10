@@ -11,6 +11,7 @@ coremods = (
     'synapse.models.orgs.OuModule',
     'synapse.models.syn.SynModule',
     'synapse.models.base.BaseModule',
+    'synapse.models.person.PsModule',
     'synapse.models.files.FileModule',
     'synapse.models.geospace.GeoModule',
     'synapse.models.geopol.PolModule',
