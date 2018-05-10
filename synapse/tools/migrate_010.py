@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # file:txtref, file:imgof -> both turn into file:ref comp: (file:bytes, ndef)
 #     secondary prop: type ("image", "text")
 # seen:min, seen:max into universal interval prop.  (If missing, make minimal valid interval)
+# ps:name, reverse order, remove comma, remove all subproperties on ps:name form (*not* type)
 
 
 # Topologically sorted comp and sepr types that are form types that have other comp types as elements.  The beginning
@@ -56,6 +57,7 @@ class Migrator:
         assert limit is None or offset < limit
         self.limit = limit
         self.offset = offset
+        self.next_val = 0
 
         if stage1_fn is None:
             with tempfile.NamedTemporaryFile(prefix='stage1_', suffix='.lmdb', delete=True, dir=tmpdir) as fh:
@@ -75,6 +77,7 @@ class Migrator:
         self.iden_tbl = self.dbenv.open_db(key=b'idens', dupsort=True)  # iden -> row
         self.form_tbl = self.dbenv.open_db(key=b'forms', dupsort=True)  # formname -> iden
         self.comp_tbl = self.dbenv.open_db(key=b'comp')  # guid -> comp tuple
+        self.valu_tbl = self.dbenv.open_db(key=b'vals', integerkey=True)
         self.outfh = outfh
         self._precalc_types()
 
@@ -108,6 +111,35 @@ class Migrator:
         if not self.skip_stage1:
             self.do_stage1()
         self.do_stage2()
+
+    def _write_props(self, txn, rows):
+        MAX_VAL_LEN = 511
+        #     kvs = [(_enc_iden(i), s_msgpack.en((p, v))) for i, p, v, _ in rows]
+        #     rowi = (x for x in kvs if len(x[1] <= MAX_VAL_LEN))
+        #     validi = (x.get(), (range(self.next_val, self.next_val + 1000000),
+
+        idens = []
+        bigvals = []
+        for i, p, v, _ in rows:
+            enci = _enc_iden(i)
+            val = s_msgpack.en((p, v))
+            if len(val) > MAX_VAL_LEN:
+                next_val_enc = self.next_val.to_bytes(8, 'big')
+                bigvals.append((next_val_enc, val))
+                val = next_val_enc
+                self.next_val += 1
+            idens.append((enci, val))
+
+        with txn.cursor(self.iden_tbl) as icurs, txn.cursor(self.valu_tbl) as vcurs:
+            try:
+                consumed, added = icurs.putmulti(idens)
+                assert consumed == added
+                consumed, added = vcurs.putmulti(bigvals, append=True)
+                assert consumed == added
+                self.next_val += added
+            except lmdb.BadValuSizeError as e:
+                import ipdb; ipdb.set_trace()
+                raise
 
     def do_stage1(self):
         offset = self.offset
@@ -145,16 +177,7 @@ class Migrator:
                 rows = rows[chunk_offset:]
 
             with self.dbenv.begin(write=True) as txn:
-                rowi = ((_enc_iden(i), s_msgpack.en((p, v))) for i, p, v, _ in rows)
-                # Nic tmp
-                rowi = list(rowi)
-                with txn.cursor(self.iden_tbl) as curs:
-                    try:
-                        consumed, added = curs.putmulti(rowi)
-                    except lmdb.BadValuSizeError as e:
-                        import ipdb; ipdb.set_trace()
-                        raise
-                assert consumed == added == len(rows)
+                self._write_props(txn, rows)
 
                 # if prop is tufo:form, and form is a comp, add to form->iden table
                 compi = ((v.encode('utf8'), _enc_iden(i)) for i, p, v, _ in rows

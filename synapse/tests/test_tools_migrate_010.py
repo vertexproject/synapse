@@ -4,8 +4,8 @@ import tempfile
 import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.lib.iq as s_iq
+import synapse.lib.hashset as s_hashset
 import synapse.lib.msgpack as s_msgpack
-
 import synapse.tools.migrate_010 as s_migrate
 
 class Migrate010Test(s_iq.SynTest):
@@ -114,3 +114,18 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(type(reg), tuple)
             self.eq(len(reg), 2)
             self.eq(reg[0], 'it:dev:regval')
+
+    def test_filebytes(self):
+        self.maxDiff = None
+        with self.getTestDir() as dirn, self.getRamCore() as core:
+
+            hset = s_hashset.HashSet()
+            hset.update(b'visi')
+            valu, props = hset.guid()
+            core.formTufoByProp('file:bytes', valu, **props)
+            core.formTufoByProp('file:bytes', s_common.guid(), size=42)
+
+            fh = tempfile.TemporaryFile(dir=dirn)
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            nodes = self.get_formfile('file:bytes', fh)
+            self.eq(nodes, [])
