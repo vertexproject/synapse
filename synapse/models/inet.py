@@ -528,6 +528,10 @@ class InetModule(s_module.CoreModule):
                             'ex': 'twitter.com/invisig0th'
                     }),
 
+                    ('inet:web:action', ('guid', {}), {
+                        'doc': 'An instance of an account performing an action at an Internet-based site or service.'
+                    }),
+
                     ('inet:web:follows', ('comp', {'fields': (('follower', 'inet:web:acct'), ('followee', 'inet:web:acct'))}), {
                         'doc': 'A web account follows or is connected to another web account.'
                     }),
@@ -793,7 +797,6 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:user', {}, ()),
 
-
                     ('inet:web:acct', {}, (
 
                         ('avatar', ('file:bytes', {}), {
@@ -892,6 +895,38 @@ class InetModule(s_module.CoreModule):
                                  'page, blog, etc.).'
                         }),
 
+                    )),
+
+                    ('inet:web:action', {}, (
+                        ('act', ('str', {'lower': True}), {
+                            'req': 1,
+                            'doc': 'The action performed by the account.'
+                        }),
+                        ('acct', ('inet:web:acct', {}), {
+                            'ro': 1,
+                            'doc': 'The web account associated with the action.'
+                        }),
+                        ('acct:site', ('inet:fqdn', {}), {
+                            'ro': 1,
+                            'doc': 'The site or service associated with the account.'
+                        }),
+                        ('acct:user', ('inet:user', {}), {
+                            'ro': 1,
+                            'doc': 'The unique identifier for the account.'
+                        }),
+                        # FIXME missing json
+                        #('info', ('json', {}), {
+                        #    'doc': 'Any other data associated with the action.'
+                        #}),
+                        ('time', ('time', {}), {
+                            'doc': 'The date and time the account performed the action.'
+                        }),
+                        ('ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The source IPv4 address of the action.'
+                        }),
+                        ('ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The source IPv6 address of the action.'
+                        }),
                     )),
 
                     ('inet:web:follows', {}, (
