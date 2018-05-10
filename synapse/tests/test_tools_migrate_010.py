@@ -84,22 +84,17 @@ class Migrate010Test(s_iq.SynTest):
             core.formTufoByProp('inet:web:logon', '*', acct='vertex.link/pennywise2', time=now,
                                 ipv6='::ffff:1.2.3.4')
             fh = tempfile.TemporaryFile(dir=dirn)
-            import ipdb; ipdb.set_trace()
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('inet:web:logon', fh)
             self.eq(len(nodes), 2)
             node1, node2 = nodes
-            if node1[1]['props']['acct'][-1] == 2:
+            if node2[1]['props']['acct'][-1] == 2:
                 node1, node2 = node2, node1
             self.eq(node1[1]['props']['client'], 'tcp://1.2.3.4/')
             self.eq(node2[1]['props']['client'], 'tcp://[::ffff:1.2.3.4]/')
             tags = node1[1]['tags']
-            self.eq(tags['test'], None)
+            self.eq(tags['test'], (None, None))
             self.eq(tags['hehe.haha'], (1451606400000, 1483228800000))
-
-
-
-
 
             core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'knock knock'), time='20141217010101')
             fh = tempfile.TemporaryFile(dir=dirn)
