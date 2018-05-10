@@ -75,20 +75,31 @@ class Migrate010Test(s_iq.SynTest):
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             look_nodes = self.get_formfile('inet:dns:look', fh)
             self.eq(len(look_nodes), 1)
-            self.eq(look_nodes[0][1]['props']['inet:dns:look:udp4'], 'udp://134744072:80/')
+            self.eq(look_nodes[0][1]['props']['inet:dns:look:udp4'], 'udp://8.8.8.8:80/')
 
             tufo = core.formTufoByProp('inet:web:logon', '*', acct='vertex.link/pennywise', time=now,
                                        ipv4=0x01020304)
             core.addTufoTag(tufo, 'test')
             core.addTufoTag(tufo, 'hehe.haha@2016-2017')
+            core.formTufoByProp('inet:web:logon', '*', acct='vertex.link/pennywise2', time=now,
+                                ipv6='::ffff:1.2.3.4')
             fh = tempfile.TemporaryFile(dir=dirn)
+            import ipdb; ipdb.set_trace()
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('inet:web:logon', fh)
-            self.eq(len(nodes), 1)
-            self.eq(nodes[0][1]['props']['client'], 'tcp://16909060/')
-            tags = nodes[0][1]['tags']
+            self.eq(len(nodes), 2)
+            node1, node2 = nodes
+            if node1[1]['props']['acct'][-1] == 2:
+                node1, node2 = node2, node1
+            self.eq(node1[1]['props']['client'], 'tcp://1.2.3.4/')
+            self.eq(node2[1]['props']['client'], 'tcp://[::ffff:1.2.3.4]/')
+            tags = node1[1]['tags']
             self.eq(tags['test'], None)
             self.eq(tags['hehe.haha'], (1451606400000, 1483228800000))
+
+
+
+
 
             core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'knock knock'), time='20141217010101')
             fh = tempfile.TemporaryFile(dir=dirn)

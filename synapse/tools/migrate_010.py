@@ -3,16 +3,24 @@ import logging
 import pathlib
 import argparse
 import tempfile
-from binascii import unhexlify
+from binascii import unhexlify, hexlify
 
 import lmdb  # type: ignore
 
 import synapse.cortex as s_cortex
-# import synapse.cores.common as s_common
+import synapse.lib.lmdb as s_lmdb
 import synapse.lib.msgpack as s_msgpack
-# import synapse.lib.output as s_output
+import synapse.models.inet as s_inet
 
 logger = logging.getLogger(__name__)
+
+# TODO
+# file:bytes.  use existing guid if not sha256, else use sha256, keep secondaries
+# file:base -> filepath if backslash in them
+# inet:flow -> inetserver/inetclient
+# file:txtref, file:imgof -> both turn into file:ref comp: (file:bytes, ndef)
+#     secondary prop: type ("image", "text")
+# seen:min, seen:max into universal interval prop.  (If missing, make minimal valid interval)
 
 
 # Topologically sorted comp and sepr types that are form types that have other comp types as elements.  The beginning
@@ -31,22 +39,30 @@ _comp_and_sepr_forms = [
 def _enc_iden(iden):
     return unhexlify(iden)
 
+
+class ConsistencyError(Exception):
+    pass
+
 class Migrator:
     '''
     Sucks all rows out of a < .0.1.0 cortex, into a temporary LMDB database, migrates the schema, then dumps to new
     file suitable for ingesting into a >= .0.1.0 cortex.
     '''
-    def __init__(self, core, outfh, tmpdir=None, stage1_fn=None):
+    def __init__(self, core, outfh, tmpdir=None, stage1_fn=None, offset=0, limit=None):
         self.core = core
         self.dbenv = None
         self.skip_stage1 = bool(stage1_fn)
         assert tmpdir or stage1_fn
+        assert limit is None or offset < limit
+        self.limit = limit
+        self.offset = offset
+
         if stage1_fn is None:
             with tempfile.NamedTemporaryFile(prefix='stage1_', suffix='.lmdb', delete=True, dir=tmpdir) as fh:
                 stage1_fn = fh.name
             logger.info('Creating stage 1 file at %s.  Delete when migration deemed successful.', stage1_fn)
 
-        map_size = 1000000000
+        map_size = s_lmdb.DEFAULT_MAP_SIZE
         self.dbenv = lmdb.Environment(stage1_fn,
                                       map_size=map_size,
                                       subdir=False,
@@ -63,24 +79,30 @@ class Migrator:
         self._precalc_types()
 
     def _precalc_types(self):
-        ''' Precalculate which types are sepr and which are comps '''
+        ''' Precalculate which types are sepr and which are comps, and which are subs of comps '''
         seprs = []
         comps = []
+        subs = []
         for formname in self.core.getTufoForms():
             parents = self.core.getTypeOfs(formname)
             if 'sepr' in parents:
                 seprs.append(formname)
             if 'comp' in parents:
                 comps.append(formname)
-            for subpropname, _ in self.core.getSubProps(formname):
-                parents = self.core.getTypeOfs(subpropname)
+            subpropnameprops = self.core.getSubProps(formname)
+            subpropnames = [x[0] for x in subpropnameprops]
+            for subpropname, subpropprops in subpropnameprops:
+                parents = self.core.getTypeOfs(subpropprops['ptype'])
                 if 'sepr' in parents:
                     seprs.append(subpropname)
                 if 'comp' in parents:
                     comps.append(subpropname)
+                if ('comp' in parents) or ('sepr' in parents):
+                    subs.extend(x for x in subpropnames if x.startswith(subpropname + ':'))
 
         self.seprs = set(seprs)
         self.comps = set(comps)
+        self.subs = set(subs)
 
     def migrate(self):
         if not self.skip_stage1:
@@ -88,36 +110,67 @@ class Migrator:
         self.do_stage2()
 
     def do_stage1(self):
+        offset = self.offset
+        limit = self.limit
         start_time = time.time()
         last_update = start_time
         logger.debug('Getting row count')
-        totalrows = self.core.store.getSize()
+        # totalrows = self.core.store.getSize()
+        totalrows = 1041328134  # nic tmp to speed up debugging
         logger.debug('Total row count is %d', totalrows)
         rowcount = 0
+        last_rowcount = 0
 
         for rows in self.core.store.genStoreRows(gsize=10000):
-            rowcount += len(rows)
+            lenrows = len(rows)
+            if limit is not None and rowcount >= limit:
+                break
+            rowcount += lenrows
             now = time.time()
             if last_update + 60 < now:  # pragma: no cover
-                last_update = now
                 percent_complete = rowcount / totalrows * 100
-                timeperrow = (now - start_time) / rowcount
+                timeperrow = (now - last_update) / (rowcount - last_rowcount)
                 estimate = int((totalrows - rowcount) * timeperrow)
+                last_update = now
+                last_rowcount = rowcount
                 logger.info('%02.2f%% complete.  Estimated completion in %ds', percent_complete, estimate)
+
+            if offset >= rowcount:
+                continue
+
+            if limit is not None and rowcount > limit:
+                rows = rows[:(limit - rowcount + lenrows)]
+            if rowcount - lenrows < offset < rowcount:
+                chunk_offset = offset - rowcount + lenrows
+                rows = rows[chunk_offset:]
+
             with self.dbenv.begin(write=True) as txn:
                 rowi = ((_enc_iden(i), s_msgpack.en((p, v))) for i, p, v, _ in rows)
+                # Nic tmp
+                rowi = list(rowi)
                 with txn.cursor(self.iden_tbl) as curs:
-                    consumed, added = curs.putmulti(rowi)
+                    try:
+                        consumed, added = curs.putmulti(rowi)
+                    except lmdb.BadValuSizeError as e:
+                        import ipdb; ipdb.set_trace()
+                        raise
                 assert consumed == added == len(rows)
 
                 # if prop is tufo:form, and form is a comp, add to form->iden table
                 compi = ((v.encode('utf8'), _enc_iden(i)) for i, p, v, _ in rows
                          if p == 'tufo:form' and self.is_comp(v))
+                # Nic tmp
+                compi = list(compi)
                 with txn.cursor(self.form_tbl) as curs:
-                    consumed, added = curs.putmulti(compi)
+                    try:
+                        consumed, added = curs.putmulti(compi)
+                    except lmdb.BadValSizeError as e:
+                        import ipdb; ipdb.set_trace()
+                        raise
+
                 assert consumed == added
 
-        logger.info('Stage 1 complete.')
+        logger.info('Stage 1 complete in %.1fs.', time.time() - start_time)
 
     def write_node_to_file(self, node):
         self.outfh.write(s_msgpack.en(node))
@@ -128,7 +181,7 @@ class Migrator:
         '''
         with txn.cursor(self.iden_tbl) as curs:
             if not curs.set_key(enc_iden):
-                raise Exception('missing iden')
+                raise ConsistencyError('missing iden', hexlify(s_msgpack.un(enc_iden)))
             props = {}
             for pv_enc in curs.iternext_dup():
                 p, v = s_msgpack.un(pv_enc)
@@ -136,6 +189,7 @@ class Migrator:
             return props
 
     def do_stage2(self):
+        start_time = time.time()
         comp_forms = [f for f in reversed(_comp_and_sepr_forms) if self.is_comp(f)]
 
         # Do the comp forms
@@ -146,10 +200,13 @@ class Migrator:
                     continue
                 logger.debug('processing nodes from %s', formname)
                 for enc_iden in curs.iternext_dup():
-                    props = self.get_props(enc_iden, txn)
-                    node = self.convert_props(props)
-                    txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl)
-                    self.write_node_to_file(node)
+                    try:
+                        props = self.get_props(enc_iden, txn)
+                        node = self.convert_props(props)
+                        txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl)
+                        self.write_node_to_file(node)
+                    except Exception:
+                        logger.exception('Failed on processing node of form %s', formname)
 
         logger.debug('Finished processing comp nodes')
 
@@ -168,10 +225,14 @@ class Migrator:
                     props[p] = v
                 else:
                     rv = curs.next()
-                    self.write_node_to_file(self.convert_props(props))
-
+                    try:
+                        self.write_node_to_file(self.convert_props(props))
+                    except Exception:
+                        logger.exception('Failed on processing node with props: %s', props)
                 if not rv:
                     break  # end of table
+
+        logger.info('Stage 2 complete in %.1fs.', time.time() - start_time)
 
     def just_guid(self, formname, pkval):
         return pkval
@@ -213,7 +274,7 @@ class Migrator:
         with self.dbenv.begin(db=self.comp_tbl) as txn:
             comp_enc = txn.get(propval.encode('utf8'), db=self.comp_tbl)
             if comp_enc is None:
-                raise Exception('guid accessed before determined')
+                raise ConsistencyError('guid accessed before determined')
             return s_msgpack.un(comp_enc)
 
     def convert_foreign_key(self, pivot_formname, pivot_fk):
@@ -253,24 +314,35 @@ class Migrator:
     }
 
     def ipv4_to_client(self, formname, propname, typename, val):
-        return 'client', 'tcp://%s/' % val
+        return 'client', 'tcp://%s/' % s_inet.ipv4str(val)
+
+    def ipv6_to_client(self, formname, propname, typename, val):
+        return 'client', 'tcp://[%s]/' % val
 
     subprop_special = {
-        'inet:web:logon:ipv4': ipv4_to_client
+        'inet:web:logon:ipv4': ipv4_to_client,
+        'inet:web:logon:ipv6': ipv6_to_client
     }
 
-    def ip_to_server(self, formname, propname, typename, val):
+    def ipv4_to_server(self, formname, propname, typename, val):
+        _, props = self.core.getTufoByProp(typename, val)
+        addr_propname = 'ipv' + typename[-1]
+        addr = s_inet.ipv4str(props[typename + ':' + addr_propname])
+        port = props[typename + ':port']
+        return propname, '%s://%s:%s/' % (typename[5:8], addr, port)
+
+    def ipv6_to_server(self, formname, propname, typename, val):
         _, props = self.core.getTufoByProp(typename, val)
         addr_propname = 'ipv' + typename[-1]
         addr = props[typename + ':' + addr_propname]
         port = props[typename + ':port']
-        return propname, '%s://%s:%s/' % (typename[5:8], addr, port)
+        return propname, '%s://[%s]:%s/' % (typename[5:8], addr, port)
 
     type_special = {
-        'inet:tcp4': ip_to_server,
-        'inet:tcp6': ip_to_server,
-        'inet:udp4': ip_to_server,
-        'inet:udp6': ip_to_server
+        'inet:tcp4': ipv4_to_server,
+        'inet:tcp6': ipv6_to_server,
+        'inet:udp4': ipv4_to_server,
+        'inet:udp6': ipv6_to_server
     }
 
     def convert_subprop(self, formname, propname, val):
@@ -296,19 +368,19 @@ class Migrator:
         for oldk, oldv in sorted(oldprops.items()):
             propmeta = next((x[1] for x in propsmeta if x[0] == oldk), {})
             if oldk[0] == '#':
-                tags[oldk[1:]] = None
+                tags[oldk[1:]] = (None, None)
             elif oldk[0] == '>':
-                start, end = tags.get(oldk[2:], (None, None)) or (None, None)
+                start, end = tags.get(oldk[2:], (None, None))
                 start = oldv
                 tags[oldk[2:]] = (start, end)
             elif oldk[0] == '<':
-                start, end = tags.get(oldk[2:], (None, None)) or (None, None)
+                start, end = tags.get(oldk[2:], (None, None))
                 end = oldv
                 tags[oldk[2:]] = (start, end)
             elif oldk == formname:
                 pk = self.convert_primary(oldprops)
-            elif propmeta.get('ro', False):
-                # logger.debug('Skipping readonly propname %s', oldk)
+            elif oldk in self.subs:
+                # Skip if a sub to a comp or sepr that's another secondary property
                 continue
             elif 'defval' in propmeta and oldv == propmeta['defval']:
                 # logger.debug('Skipping field %s with default value', oldk)
@@ -321,7 +393,8 @@ class Migrator:
             else:
                 # logger.debug('Skipping propname %s', oldk)
                 pass
-        assert pk is not None
+        if pk is None:
+            raise ConsistencyError(oldprops)
 
         retn = ((formname, pk), {'props': props})
         if tags:
@@ -335,9 +408,8 @@ def main(argv, outp=None):  # pragma: no cover
     p.add_argument('outfile', help='file to dump to')
     p.add_argument('--verbose', '-v', action='count', help='Verbose output')
     p.add_argument('--stage-1', help='Start at stage 2 with stage 1 file')
-    # p.add_argument('--limit', action='store', type=int, help='max number of tufos per form', default=None)
-    # p.add_argument('--form', nargs='+', help='which formnames to dump', default=None)
-    # p.add_argument('--tag', help='limit dumping to one tag', default=None)
+    p.add_argument('--limit', action='store', type=int, help='last row number to process', default=None)
+    p.add_argument('--offset', action='store', type=int, help='start offset of row to process', default=0)
     opts = p.parse_args(argv)
     if opts.verbose is not None:
         if opts.verbose > 1:
@@ -347,7 +419,8 @@ def main(argv, outp=None):  # pragma: no cover
 
     fh = open(opts.outfile, 'wb')
     with s_cortex.openurl(opts.cortex, conf={'caching': True, 'cache:maxsize': 1000000}) as core:
-        m = Migrator(core, fh, tmpdir=pathlib.Path(opts.outfile).parent, stage1_fn=opts.stage_1)
+        m = Migrator(core, fh, tmpdir=pathlib.Path(opts.outfile).parent, stage1_fn=opts.stage_1,
+                     offset=opts.offset, limit=opts.limit)
         m.migrate()
     return 0
 
