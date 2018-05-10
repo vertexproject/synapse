@@ -737,6 +737,59 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:url', {}, (
+                        ('fqdn', ('inet:fqdn', {}), {'ro': 1,
+                             'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
+                        ('ipv4', ('inet:ipv4', {}), {'ro': 1,
+                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
+                        ('ipv6', ('inet:ipv6', {}), {'ro': 1,
+                             'doc': 'The IPv6 address used in the URL.'}),
+                        ('passwd', ('inet:passwd', {}), {'ro': 1,
+                             'doc': 'The optional password used to access the URL.'}),
+                        ('path', ('str', {}), {'ro': 1,
+                             'doc': 'The path in the URL.'}),
+                        ('port', ('inet:port', {}), {'ro': 1,
+                             'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
+                                 'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
+                        ('proto', ('str', {'lower': True}), {'ro': 1,
+                             'doc': 'The protocol in the URL.'}),
+                        ('user', ('inet:user', {}), {'ro': 1,
+                             'doc': 'The optional username used to access the URL.'}),
+                    )),
+
+                    ('inet:urlfile', {}, (
+                        ('url', ('inet:url', {}), {
+                            'ro': 1,
+                            'doc': 'The URL where the file was hosted.'
+                        }),
+                        ('file', ('file:bytes', {}), {
+                            'ro': 1,
+                            'doc': 'The file that was hosted at the URL.'
+                        }),
+                    )),
+
+                    ('inet:urlredir', {}, (
+                        ('src', ('inet:url', {}), {
+                            'ro': 1,
+                            'req': 1,
+                            'doc': 'The original/source URL before redirect'
+                        }),
+                        ('src:fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The FQDN within the src URL (if present)'
+                        }),
+                        ('dst', ('inet:url', {}), {
+                            'ro': 1,
+                            'req': 1,
+                            'doc': 'The redirected/destination URL'
+                        }),
+                        ('dst:fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The FQDN within the dst URL (if present)'
+                        }),
+                    )),
+
+                    ('inet:user', {}, ()),
+
+
                     ('inet:web:acct', {}, (
 
                         ('avatar', ('file:bytes', {}), {
@@ -896,58 +949,6 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:wifi:ssid', {}, []),
-
-                    ('inet:url', {}, (
-                        ('fqdn', ('inet:fqdn', {}), {'ro': 1,
-                             'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
-                        ('ipv4', ('inet:ipv4', {}), {'ro': 1,
-                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
-                        ('ipv6', ('inet:ipv6', {}), {'ro': 1,
-                             'doc': 'The IPv6 address used in the URL.'}),
-                        ('passwd', ('inet:passwd', {}), {'ro': 1,
-                             'doc': 'The optional password used to access the URL.'}),
-                        ('path', ('str', {}), {'ro': 1,
-                             'doc': 'The path in the URL.'}),
-                        ('port', ('inet:port', {}), {'ro': 1,
-                             'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
-                                 'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
-                        ('proto', ('str', {'lower': True}), {'ro': 1,
-                             'doc': 'The protocol in the URL.'}),
-                        ('user', ('inet:user', {}), {'ro': 1,
-                             'doc': 'The optional username used to access the URL.'}),
-                    )),
-
-                    ('inet:user', {}, ()),
-
-                    ('inet:urlfile', {}, (
-                        ('url', ('inet:url', {}), {
-                            'ro': 1,
-                            'doc': 'The URL where the file was hosted.'
-                        }),
-                        ('file', ('file:bytes', {}), {
-                            'ro': 1,
-                            'doc': 'The file that was hosted at the URL.'
-                        }),
-                    )),
-
-                    ('inet:urlredir', {}, (
-                        ('src', ('inet:url', {}), {
-                            'ro': 1,
-                            'req': 1,
-                            'doc': 'The original/source URL before redirect'
-                        }),
-                        ('src:fqdn', ('inet:fqdn', {}), {
-                            'doc': 'The FQDN within the src URL (if present)'
-                        }),
-                        ('dst', ('inet:url', {}), {
-                            'ro': 1,
-                            'req': 1,
-                            'doc': 'The redirected/destination URL'
-                        }),
-                        ('dst:fqdn', ('inet:fqdn', {}), {
-                            'doc': 'The FQDN within the dst URL (if present)'
-                        }),
-                    )),
 
                 ),
             }),
