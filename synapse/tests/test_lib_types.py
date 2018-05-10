@@ -130,6 +130,16 @@ class TypesTest(s_test.SynTest):
 
         strp = model.type('str').clone({'strip': True})
         self.eq('foo', strp.norm('  foo \t')[0])
+        self.eq(b'foo  bar', strp.indxByPref(' foo  bar')[0][1])
+        self.eq(b'foo  bar ', strp.indxByPref(' foo  bar ')[0][1])
+
+        onespace = model.type('str').clone({'onespace': True})
+        self.eq('foo', onespace.norm('  foo\t')[0])
+        self.eq('hehe haha', onespace.norm('hehe    haha')[0])
+        self.eq(b'foo', onespace.indxByPref(' foo')[0][1])
+        self.eq(b'foo bar', onespace.indxByPref(' foo  bar')[0][1])
+        self.eq(b'foo bar', onespace.indxByPref(' foo  bar ')[0][1])
+        self.eq(b'foo ba', onespace.indxByPref(' foo  ba')[0][1])
 
     def test_type_guid(self):
 
