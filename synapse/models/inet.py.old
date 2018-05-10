@@ -34,13 +34,10 @@
                         ' an account, as opposed to current data in the inet:web:acct node.'}),
 
                 TYPES of comp/sepr ====================================================================================
-
-
                 ('inet:web:memb', {
                     'subof': 'comp',
                     'fields': 'acct,inet:web:acct|group,inet:web:group',
                     'doc': 'A web account that is a member of a web group.'}),
-
 
                 ('inet:web:mesg', {
                     'subof': 'comp',
@@ -69,12 +66,14 @@
                     'doc': 'An instance of an HTTP header within a specific HTTP response.',
                 }),
 
+                # needs inet:server
                 ('inet:servfile', {
                     'subof': 'comp',
                     'fields': 'server=inet:server,file=file:bytes',
                     'doc': 'A file hosted on a server for access over a network protocol.',
                 }),
 
+                # Figure out ipv6 range first
                 ('inet:net6', {
                     'subof': 'sepr',
                     'sep': '-',
@@ -83,12 +82,12 @@
                     'ex': 'ff::00-ff::30'}),
 
 
+                # Needs inet:tcp4
                 ('inet:ssl:tcp4cert', {
                     'subof': 'sepr',
                     'sep': '/',
                     'fields': 'tcp4,inet:tcp4|cert,file:bytes',
                     'doc': 'An SSL certificate file served by an IPv4 TCP server.'}),
-
 
                 TYPES that rely on xrefs ==============================================================================
                 ('inet:web:actref', {
