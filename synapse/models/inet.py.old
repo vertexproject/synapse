@@ -60,10 +60,6 @@
                     'fields': 'acct,inet:web:acct|group,inet:web:group',
                     'doc': 'A web account that is a member of a web group.'}),
 
-                ('inet:web:follows', {
-                    'subof': 'comp',
-                    'fields': 'follower,inet:web:acct|followee,inet:web:acct',
-                    'doc': 'A web account follows or is connected to another web account.'}),
 
                 ('inet:web:mesg', {
                     'subof': 'comp',
@@ -574,17 +570,6 @@
                         'doc': 'The text of the message.'}),
                     ('file', {'ptype': 'file:bytes',
                         'doc': 'The file attached to or sent with the message.'}),
-                ]),
-
-                ('inet:web:follows', {}, [
-                    ('follower', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
-                        'doc': 'The account following an account.'}),
-                    ('followee', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
-                        'doc': 'The account followed by an account.'}),
-                    ('seen:min', {'ptype': 'time:min',
-                        'doc': 'The earliest known date when the "follows" relationship existed.'}),
-                    ('seen:max', {'ptype': 'time:max',
-                        'doc': 'The most recent known date when the "follows" relationship existed.'}),
                 ]),
 
                 ('inet:web:memb', {}, [

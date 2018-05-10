@@ -524,6 +524,10 @@ class InetModule(s_module.CoreModule):
                             'ex': 'twitter.com/invisig0th'
                     }),
 
+                    ('inet:web:follows', ('comp', {'fields': (('follower', 'inet:web:acct'), ('followee', 'inet:web:acct'))}), {
+                        'doc': 'A web account follows or is connected to another web account.'
+                    }),
+
                     ('inet:whois:rar', ('str', {'lower': True}), {
                         'doc': 'A domain registrar.',
                         'ex': 'godaddy, inc.'
@@ -823,6 +827,17 @@ class InetModule(s_module.CoreModule):
                                  'page, blog, etc.).'
                         }),
 
+                    )),
+
+                    ('inet:web:follows', {}, (
+                        ('follower', ('inet:web:acct', {}), {
+                            'ro': 1,
+                            'doc': 'The account following an account.'
+                        }),
+                        ('followee', ('inet:web:acct', {}), {
+                            'ro': 1,
+                            'doc': 'The account followed by an account.'
+                        }),
                     )),
 
                     ('inet:whois:rar', {}, ()),

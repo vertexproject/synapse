@@ -19,6 +19,7 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.type('inet:user'))  # str w/ lower
             self.nn(core.model.type('inet:urlredir'))  # comp
             self.nn(core.model.type('inet:web:acct'))  # comp
+            self.nn(core.model.type('inet:web:follows'))  # comp
             self.nn(core.model.type('inet:wifi:ap'))  # comp
             self.nn(core.model.type('inet:wifi:ssid'))  # str
             self.nn(core.model.type('inet:whois:rar'))  # str w/ lower
@@ -30,6 +31,7 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.form('inet:user'))  # str w/ lower
             self.nn(core.model.form('inet:urlredir'))  # comp
             self.nn(core.model.form('inet:web:acct'))  # comp
+            self.nn(core.model.form('inet:web:follows'))  # comp
             self.nn(core.model.form('inet:wifi:ap'))  # comp
             self.nn(core.model.form('inet:wifi:ssid'))  # str
             self.nn(core.model.form('inet:whois:rar'))  # str w/ lower
