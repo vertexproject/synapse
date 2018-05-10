@@ -1,5 +1,4 @@
 import os
-import time
 import socket
 import logging
 import selectors
@@ -56,13 +55,22 @@ class Plex(s_config.Config):
 
     def _runPollLoop(self):
 
-        fems = []
+        '''
+        If you wait on a select() with no sockets in the list the method 
+        returns immediately.  This is probably a good thing else you could end 
+        up in a select() that would *never* stop blocking.  As such, for the 
+        exceptional case where we enter the select() with no sockets in the 
+        list, we add a dummy socket to allow for a call to select().
+        '''
+        dummySocket = socket.socket()
+        # Register the dummy socket that will never trigger.
+        self.epoll.register(dummySocket, selectors.EVENT_READ)
+
         while not self.isfini:
 
             try:
 
-                fems = self.epoll.select()
-                for (_, fino, events, _), mask in fems:
+                for (_, fino, events, _), mask in self.epoll.select():
 
                     if self.isfini:
                         return
@@ -89,8 +97,8 @@ class Plex(s_config.Config):
                     continue
                 logger.exception('plex thread error: %r' % (e,))
 
-            if not fems:
-                time.sleep(0.035)
+        # Unregister the dummy socket that will never trigger.
+        self.epoll.unregister(dummySocket)
 
     def _onPlexFini(self):
 
