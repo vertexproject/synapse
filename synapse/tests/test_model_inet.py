@@ -21,6 +21,7 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.type('inet:web:action'))  # guid
             self.nn(core.model.type('inet:web:file'))  # comp
             self.nn(core.model.type('inet:web:follows'))  # comp
+            self.nn(core.model.type('inet:web:group'))  # comp
             self.nn(core.model.type('inet:web:logon'))  # guid
             self.nn(core.model.type('inet:web:post'))  # comp
             self.nn(core.model.type('inet:wifi:ap'))  # comp
@@ -38,6 +39,7 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.form('inet:web:action'))  # guid
             self.nn(core.model.form('inet:web:file'))  # comp
             self.nn(core.model.form('inet:web:follows'))  # comp
+            self.nn(core.model.form('inet:web:group'))  # comp
             self.nn(core.model.form('inet:web:logon'))  # guid
             self.nn(core.model.form('inet:web:post'))  # comp
             self.nn(core.model.form('inet:wifi:ap'))  # comp
@@ -673,54 +675,6 @@ class FIXME:
 
             self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/visi'))
             self.nn(core.getTufoByProp('inet:web:group', 'vertex.link/kenshoto'))
-
-    def test_model_inet_web_group(self):
-        with self.getRamCore() as core:
-            iden = guid()
-            node = core.formTufoByProp('inet:web:group',
-                                       ('vertex.link', '1234'),
-                                       **{'name': 'brjálaður muffins',
-                                          'name:en': 'crazy cupcakes',
-                                          'url': 'http://vertex.link/g/1234',
-                                          'desc': 'Crazy cupcakes players union',
-                                          'avatar': iden,
-                                          'webpage': 'http://muffinman.com/hehe',
-                                          'loc': 'Reykjavík',
-                                          'latlong': '64.0788707,-21.8369301',
-                                          'signup': '2016',
-                                          'signup:ipv4': '1.2.3.4',
-                                          'signup:ipv6': '0:0:0:0:0:0:0:1',
-                                          'seen:min': '2016',
-                                          'seen:max': '2018'
-                                          })
-            self.nn(node)
-            _, pprop = s_tufo.ndef(node)
-            self.eq(pprop, 'vertex.link/1234')
-            props = s_tufo.props(node)
-            self.eq(props.get('avatar'), iden)
-            self.eq(props.get('desc'), 'Crazy cupcakes players union')
-            self.eq(props.get('id'), '1234')
-            self.eq(props.get('latlong'), '64.0788707,-21.8369301')
-            self.eq(props.get('loc'), 'reykjavík')
-            self.eq(props.get('name'), 'brjálaður muffins')
-            self.eq(props.get('name:en'), 'crazy cupcakes')
-            self.eq(props.get('seen:max'), 1514764800000,)
-            self.eq(props.get('seen:min'), 1451606400000,)
-            self.eq(props.get('signup'), 1451606400000,)
-            self.eq(props.get('signup:ipv4'), 16909060)
-            self.eq(props.get('signup:ipv6'), '::1')
-            self.eq(props.get('site'), 'vertex.link')
-            self.eq(props.get('url'), 'http://vertex.link/g/1234')
-            self.eq(props.get('webpage'), 'http://muffinman.com/hehe')
-            # Validate autoadds
-            self.nn(core.getTufoByProp('inet:group', '1234'))
-            self.nn(core.getTufoByProp('inet:group', 'crazy cupcakes'))
-            self.nn(core.getTufoByProp('inet:group', 'brjálaður muffins'))
-            self.nn(core.getTufoByProp('inet:fqdn', 'vertex.link'))
-            self.nn(core.getTufoByProp('inet:fqdn', 'muffinman.com'))
-            self.nn(core.getTufoByProp('file:bytes', iden))
-            self.nn(core.getTufoByProp('inet:ipv4', '1.2.3.4'))
-            self.nn(core.getTufoByProp('inet:ipv6', '::1'))
 
     def test_model_whois_contact(self):
         with self.getRamCore() as core:

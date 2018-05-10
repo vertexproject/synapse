@@ -540,6 +540,11 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A web account follows or is connected to another web account.'
                     }),
 
+                    ('inet:web:group', ('comp', {'fields': (('site', 'inet:fqdn'), ('id', 'inet:group'))}), {
+                        'doc': 'A group hosted within or registered with a given Internet-based site or service.',
+                        'ex': 'somesite.com/mycoolgroup'
+                    }),
+
                     ('inet:web:logon', ('guid', {}), {
                         'doc': 'An instance of an account authenticating to an Internet-based site or service.'
                     }),
@@ -975,6 +980,54 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The account followed by an account.'
                         }),
                     )),
+
+                    ('inet:web:group', {}, (
+                        ('site', ('inet:fqdn', {}), {
+                            'ro': 1,
+                            'doc': 'The site or service associated with the group.'
+                        }),
+                        ('id', ('inet:group', {}), {
+                            'ro': 1,
+                            'doc': 'The site-specific unique identifier for the group (may be different from '
+                                'the common name or display name).'
+                        }),
+                        ('name', ('inet:group', {}), {
+                            'doc': 'The localized name associated with the group (may be different from '
+                                'the account identifier, e.g., a display name).'
+                        }),
+                        ('name:en', ('inet:group', {}), {
+                            'doc': 'The English version of the name associated with the group (may be different '
+                                'from the localized name).'
+                        }),
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The service provider URL where the group is hosted.'
+                        }),
+                        ('avatar', ('file:bytes', {}), {
+                            'doc': 'The file representing the avatar (e.g., profile picture) for the group.'
+                        }),
+                        ('desc', ('str', {}), {  # FIXME was str:txt
+                            'doc': 'The text of the description of the group.'
+                        }),
+                        ('webpage', ('inet:url', {}), {
+                            'doc': 'A related URL specified by the group (e.g., primary web site, etc.).'
+                        }),
+                        ('loc', ('str', {'lower': True}), {
+                            'doc': 'A self-declared location for the group.'
+                        }),
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The last known latitude/longitude for the node'
+                        }),
+                        ('signup', ('time', {}), {
+                            'doc': 'The date and time the group was created on the site.'
+                        }),
+                        ('signup:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The IPv4 address used to create the group.'
+                        }),
+                        ('signup:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The IPv6 address used to create the group.'
+                        }),
+                    )),
+
 
                     ('inet:web:logon', {}, (
                         ('acct', ('inet:web:acct', {}), {

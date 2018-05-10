@@ -82,12 +82,6 @@
                     'doc': 'An IPv6 address range.',
                     'ex': 'ff::00-ff::30'}),
 
-                ('inet:web:group', {
-                    'subof': 'sepr',
-                    'sep': '/',
-                    'fields': 'site,inet:fqdn|id,inet:group',
-                    'doc': 'A group hosted within or registered with a given Internet-based site or service.',
-                    'ex': 'somesite.com/mycoolgroup'}),
 
                 ('inet:ssl:tcp4cert', {
                     'subof': 'sepr',
@@ -414,42 +408,6 @@
                         'doc': 'The normed value of the form that was referenced, if the value is an integer.'}),
                     ('xref:strval', {'ptype': 'str', 'ro': 1,
                         'doc': 'The normed value of the form that was referenced, if the value is a string.'}),
-                ]),
-
-                ('inet:web:group', {}, [
-                    ('site', {'ptype': 'inet:fqdn', 'ro': 1,
-                         'doc': 'The site or service associated with the group.'}),
-                    ('id', {'ptype': 'inet:group', 'ro': 1,
-                         'doc': 'The site-specific unique identifier for the group (may be different from '
-                              'the common name or display name).'}),
-                    ('name', {'ptype': 'inet:group',
-                         'doc': 'The localized name associated with the group (may be different from '
-                              'the account identifier, e.g., a display name).'}),
-                    ('name:en', {'ptype': 'inet:group',
-                         'doc': 'The English version of the name associated with the group (may be different '
-                              'from the localized name).'}),
-                    ('url', {'ptype': 'inet:url',
-                         'doc': 'The service provider URL where the group is hosted.'}),
-                    ('avatar', {'ptype': 'file:bytes',
-                         'doc': 'The file representing the avatar (e.g., profile picture) for the group.'}),
-                    ('desc', {'ptype': 'str:txt',
-                         'doc': 'The text of the description of the group.'}),
-                    ('webpage', {'ptype': 'inet:url',
-                         'doc': 'A related URL specified by the group (e.g., primary web site, etc.).'}),
-                    ('loc', {'ptype': 'str:lwr',
-                         'doc': 'A self-declared location for the group.'}),
-                    ('latlong', {'ptype': 'geo:latlong',
-                         'doc': 'The last known latitude/longitude for the node'}),
-                    ('signup', {'ptype': 'time',
-                         'doc': 'The date and time the group was created on the site.'}),
-                    ('signup:ipv4', {'ptype': 'inet:ipv4',
-                         'doc': 'The IPv4 address used to create the group.'}),
-                    ('signup:ipv6', {'ptype': 'inet:ipv6',
-                         'doc': 'The IPv6 address used to create the group.'}),
-                    ('seen:min', {'ptype': 'time:min',
-                         'doc': 'The earliest known date of activity for the group.'}),
-                    ('seen:max', {'ptype': 'time:max',
-                         'doc': 'The most recent known date of activity for the group.'}),
                 ]),
 
                 ('inet:web:postref', {}, [
