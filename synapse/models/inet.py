@@ -528,6 +528,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A web account follows or is connected to another web account.'
                     }),
 
+                    ('inet:web:post', ('comp', {'fields': (('acct', 'inet:web:acct'), ('text', 'str'))}), {
+                        'doc': 'A post made by a web account.'
+                    }),
+
                     ('inet:whois:rar', ('str', {'lower': True}), {
                         'doc': 'A domain registrar.',
                         'ex': 'godaddy, inc.'
@@ -837,6 +841,40 @@ class InetModule(s_module.CoreModule):
                         ('followee', ('inet:web:acct', {}), {
                             'ro': 1,
                             'doc': 'The account followed by an account.'
+                        }),
+                    )),
+
+                    ('inet:web:post', {}, (
+                        ('acct', ('inet:web:acct', {}), {
+                            'ro': 1,
+                            'doc': 'The web account that made the post.'
+                        }),
+                        ('text', ('str', {}), {  # FIXME was str:txt
+                            'ro': 1,
+                            'doc': 'The text of the post.'
+                        }),
+                        ('acct:site', ('inet:fqdn', {}), {
+                            'ro': 1,
+                            'doc': 'The site or service associated with the account.'
+                        }),
+                        ('acct:user', ('inet:user', {}), {
+                            'ro': 1,
+                            'doc': 'The unique identifier for the account.'
+                        }),
+                        ('time', ('time', {}), {
+                            'doc': 'The date and time that the post was made.'
+                        }),
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL where the post is published / visible.'
+                        }),
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The file that was attached to the post.'
+                        }),
+                        ('replyto', ('inet:web:post', {}), {
+                            'doc': 'The post that this post is in reply to.'
+                        }),
+                        ('repost', ('inet:web:post', {}), {
+                            'doc': 'The original post that this is a repost of.'
                         }),
                     )),
 

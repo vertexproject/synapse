@@ -94,11 +94,6 @@
                     'doc': 'A file hosted on a server for access over a network protocol.',
                 }),
 
-                ('inet:web:post', {
-                    'subof': 'comp',
-                    'fields': 'acct,inet:web:acct|text,str:txt',
-                    'doc': 'A post made by a web account.'}),
-
                 ('inet:net6', {
                     'subof': 'sepr',
                     'sep': '-',
@@ -521,27 +516,6 @@
                          'doc': 'The earliest known date of activity for the group.'}),
                     ('seen:max', {'ptype': 'time:max',
                          'doc': 'The most recent known date of activity for the group.'}),
-                ]),
-
-                ('inet:web:post', {}, [
-                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
-                        'doc': 'The web account that made the post.'}),
-                    ('text', {'ptype': 'str:txt', 'ro': 1,
-                        'doc': 'The text of the post.'}),
-                    ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1,
-                        'doc': 'The site or service associated with the account.'}),
-                    ('acct:user', {'ptype': 'inet:user', 'ro': 1,
-                        'doc': 'The unique identifier for the account.'}),
-                    ('time', {'ptype': 'time',
-                        'doc': 'The date and time that the post was made.'}),
-                    ('url', {'ptype': 'inet:url',
-                        'doc': 'The URL where the post is published / visible.'}),
-                    ('file', {'ptype': 'file:bytes',
-                        'doc': 'The file that was attached to the post.'}),
-                    ('replyto', {'ptype': 'inet:web:post',
-                        'doc': 'The post that this post is in reply to.'}),
-                    ('repost', {'ptype': 'inet:web:post',
-                        'doc': 'The original post that this is a repost of.'}),
                 ]),
 
                 ('inet:web:postref', {}, [
