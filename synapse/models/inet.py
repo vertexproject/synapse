@@ -716,10 +716,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The mapped ipv4.'
                         }),
 
-                        # FIXME implement geospace...
-                        #('latlong', ('geo:latlong', {}), {
-                        #    'doc': 'The last known latitude/longitude for the node'
-                        #}),
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The last known latitude/longitude for the node'
+                        }),
 
                         ('loc', ('loc', {}), {
                             'defval': '??',
@@ -758,23 +757,39 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:url', {}, (
-                        ('fqdn', ('inet:fqdn', {}), {'ro': 1,
-                             'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'}),
-                        ('ipv4', ('inet:ipv4', {}), {'ro': 1,
-                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'}),
-                        ('ipv6', ('inet:ipv6', {}), {'ro': 1,
-                             'doc': 'The IPv6 address used in the URL.'}),
-                        ('passwd', ('inet:passwd', {}), {'ro': 1,
-                             'doc': 'The optional password used to access the URL.'}),
-                        ('path', ('str', {}), {'ro': 1,
-                             'doc': 'The path in the URL.'}),
-                        ('port', ('inet:port', {}), {'ro': 1,
-                             'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
-                                 'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
-                        ('proto', ('str', {'lower': True}), {'ro': 1,
-                             'doc': 'The protocol in the URL.'}),
-                        ('user', ('inet:user', {}), {'ro': 1,
-                             'doc': 'The optional username used to access the URL.'}),
+                        ('fqdn', ('inet:fqdn', {}), {
+                            'ro': 1,
+                            'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'
+                        }),
+                        ('ipv4', ('inet:ipv4', {}), {
+                            'ro': 1,
+                            'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'
+                        }),
+                        ('ipv6', ('inet:ipv6', {}), {
+                            'ro': 1,
+                            'doc': 'The IPv6 address used in the URL.'
+                        }),
+                        ('passwd', ('inet:passwd', {}), {
+                            'ro': 1,
+                            'doc': 'The optional password used to access the URL.'
+                        }),
+                        ('path', ('str', {}), {
+                            'ro': 1,
+                            'doc': 'The path in the URL.'
+                        }),
+                        ('port', ('inet:port', {}), {
+                            'ro': 1,
+                            'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
+                                   'URLs prefixed with https will be set to port 443 unless otherwise specified.'
+                        }),
+                        ('proto', ('str', {'lower': True}), {
+                            'ro': 1,
+                            'doc': 'The protocol in the URL.'
+                        }),
+                        ('user', ('inet:user', {}), {
+                            'ro': 1,
+                            'doc': 'The optional username used to access the URL.'
+                        }),
                     )),
 
                     ('inet:urlfile', {}, (
