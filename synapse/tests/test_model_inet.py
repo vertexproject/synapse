@@ -64,14 +64,13 @@ class InetModelTest(s_t_common.SynTest):
                 node = xact.addNode(formname, valu, props=input_props)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('name'), 'cool')
-                # FIXME add ou:org
+                self.eq(node.get('owner'), 32 * 'a')
 
                 valu = '456'
                 expected_ndef = (formname, 456)
                 node = xact.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('name'), '??')
-                # FIXME add ou:org
 
     def test_cidr4(self):
         formname = 'inet:cidr4'

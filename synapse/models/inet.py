@@ -587,10 +587,9 @@ class InetModule(s_module.CoreModule):
                             'defval': '??',
                             'doc': 'The name of the organization currently responsible for the ASN.'
                         }),
-                        # FIXME implement ou:org
-                        #('owner', ('ou:org', {}), {
-                        #    'doc': 'The guid of the organization currently responsible for the ASN.'
-                        #}),
+                        ('owner', ('ou:org', {}), {
+                            'doc': 'The guid of the organization currently responsible for the ASN.'
+                        }),
                     )),
 
                     ('inet:asnet4', ('inet:asnet4', {}), (
