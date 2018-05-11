@@ -268,6 +268,7 @@ class Str(Type):
         ('regex', None),
         ('lower', False),
         ('strip', False),
+        ('onespace', False),
     }
 
     def postTypeInit(self):
@@ -289,6 +290,9 @@ class Str(Type):
         if self.opts.get('strip'):
             valu = valu.lstrip()
 
+        if self.opts.get('onespace'):
+            valu = s_chop.onespace(valu)
+
         return (
             ('pref', valu.encode('utf8')),
         )
@@ -302,6 +306,9 @@ class Str(Type):
 
         if self.opts['strip']:
             norm = norm.strip()
+
+        if self.opts['onespace']:
+            norm = s_chop.onespace(norm)
 
         if self.regex is not None:
             if self.regex.match(norm) is None:
