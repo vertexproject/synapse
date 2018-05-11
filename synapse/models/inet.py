@@ -252,6 +252,34 @@ class Rfc2822Addr(s_types.Type):
 
         return valu, {'subs': subs}
 
+class Srv4(s_types.Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+    def _normPyStr(self, valu):
+        parts = valu.split(':', 1)
+        return self._normPyTuple(parts)
+
+    def _normPyTuple(self, valu):
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(valu)
+
+        ipv4, port = valu
+        ipv4 = self.modl.type('inet:ipv4').norm(ipv4)[0]
+        port = self.modl.type('inet:port').norm(port)[0]
+
+        return (ipv4, port), {'subs': {'ipv4': ipv4, 'port': port}}
+
+    def indx(self, norm):
+        return (norm[0] << 16 | norm[1]).to_bytes(6, 'big')
+
+    def repr(self, norm):
+        ipv4 = self.modl.type('inet:ipv4').repr(norm[0])
+        port = self.modl.type('inet:port').repr(norm[1])
+        return f'{ipv4}:{port}'
+
 class Url(s_types.Type):
 
     def postTypeInit(self):
@@ -466,6 +494,11 @@ class InetModule(s_module.CoreModule):
                     ('inet:rfc2822:addr', 'synapse.models.inet.Rfc2822Addr', {}, {
                         'doc': 'An RFC 2822 Address field.',
                         'ex': '"Visi Kenshoto" <visi@vertex.link>'
+                    }),
+
+                    ('inet:srv4', 'synapse.models.inet.Srv4', {}, {
+                        'doc': 'An IPv4 address and port.',
+                        'ex': '1.2.3.4:80'
                     }),
 
                     ('inet:url', 'synapse.models.inet.Url', {}, {
@@ -909,7 +942,7 @@ class InetModule(s_module.CoreModule):
                             'ro': 1,
                             'doc': 'The unique identifier for the account (may be different from the common '
                                    'name or display name).'
-                        })
+                        }),
 
                         ('webpage', ('inet:url', {}), {
                             'doc': 'A related URL specified by the account (e.g., a personal or company web '

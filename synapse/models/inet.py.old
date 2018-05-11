@@ -106,11 +106,6 @@
                     'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
                     'ex': 'tcp://1.2.3.4:80'}),
 
-                ('inet:srv4', {
-                    'ctor': 'synapse.models.inet.Srv4Type',
-                    'doc': 'An IPv4 address and port.',
-                    'ex': '1.2.3.4:80'}),
-
                 ('inet:srv6', {
                     'ctor': 'synapse.models.inet.Srv6Type',
                     'doc': 'An IPv6 address and port.',
@@ -125,18 +120,22 @@
                     'subof': 'inet:addr',
                     'doc': 'A network client address.'}),
 
+                # FIXME becoming inet:client/inet:server
                 ('inet:tcp4', {
                     'subof': 'inet:srv4',
                     'doc': 'A TCP server listening on an IPv4 address and port.'}),
 
+                # FIXME becoming inet:client/inet:server
                 ('inet:udp4', {
                     'subof': 'inet:srv4',
                     'doc': 'A UDP server listening on an IPv4 address and port.'}),
 
+                # FIXME becoming inet:client/inet:server
                 ('inet:tcp6', {
                     'subof': 'inet:srv6',
                     'doc': 'A TCP server listening on a specific IPv6 address and port.'}),
 
+                # FIXME becoming inet:client/inet:server
                 ('inet:udp6', {
                     'subof': 'inet:srv6',
                     'doc': 'A UDP server listening on a specific IPv6 address and port.'}),
@@ -229,6 +228,7 @@
 
                 )),
 
+                # FIXME becoming inet:client/inet:server
                 ('inet:tcp4', {'ptype': 'inet:srv4'}, [
                     ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
                         'doc': 'The IPv4 address of the TCP server.'}),
@@ -236,6 +236,7 @@
                         'doc': 'The port of the IPv4 TCP server.'}),
                 ]),
 
+                # FIXME becoming inet:client/inet:server
                 ('inet:udp4', {'ptype': 'inet:srv4'}, [
                     ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
                         'doc': 'The IPv4 address of the UDP server.'}),
@@ -243,6 +244,7 @@
                         'doc': 'The port of the IPv4 UDP server.'}),
                 ]),
 
+                # FIXME becoming inet:client/inet:server
                 ('inet:tcp6', {'ptype': 'inet:srv6'}, [
                     ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
                         'doc': 'The IPv6 address of the TCP server.'}),
@@ -250,6 +252,7 @@
                         'doc': 'The port of the IPv6 TCP server.'}),
                 ]),
 
+                # FIXME becoming inet:client/inet:server
                 ('inet:udp6', {'ptype': 'inet:srv6'}, [
                     ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
                         'doc': 'The IPv6 address of the UDP server.'}),

@@ -374,6 +374,32 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('vendor'), 'Cool')
 
+    def test_srv4(self):
+        formname = 'inet:srv4'
+
+        with self.getTestCore() as core:
+
+            # Type Tests ======================================================
+            t = core.model.type(formname)
+
+            expected = ((16909060, 80), {'subs': {'ipv4': 16909060, 'port': 80}})
+            self.eq(t.norm('1.2.3.4:80'), expected)
+            self.eq(t.norm('1[.]2.3[.]4:80'), expected)
+            self.eq(t.norm(('1.2.3.4', '80')), expected)
+            self.eq(t.norm(('1.2[.]3.4', '80')), expected)
+            self.eq(t.norm((16909060, 80)), expected)
+
+            expected = '1.2.3.4:80'
+            self.eq(t.repr((16909060, 80)), expected)
+
+            self.eq(t.indx((0, 0)), 6 * b'\x00')
+            self.eq(t.indx((0x08080808, 80)), b'\x08\x08\x08\x08\x00P')
+            self.eq(t.indx((0x01020304, 8443)), b'\x01\x02\x03\x04 \xfb')
+            self.eq(t.indx((0xFFFFFFFF, 2**16 - 1)), 6 * b'\xff')
+
+            self.raises(s_exc.BadTypeValu, t.norm, (0xFFFFFFFF, -1))
+            self.raises(s_exc.BadTypeValu, t.norm, (0xFFFFFFFF, 2**16))
+
     def test_url(self):
         formname = 'inet:url'
         with self.getTestCore() as core:
