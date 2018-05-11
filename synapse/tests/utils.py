@@ -122,10 +122,12 @@ testmodel = {
         ('teststr', ('str', {}), {}),
         ('testauto', ('str', {}), {}),
 
+        ('testint128', ('int', {'size': 16}), {}),
+
         ('testcomp', ('comp', {'fields': (
-                ('hehe', 'int'),
-                ('haha', 'testlower'))
-            }), {'doc': 'A fake comp type.'}),
+            ('hehe', 'int'),
+            ('haha', 'testlower'))
+        }), {'doc': 'A fake comp type.'}),
         ('testhexa', ('hex', {}), {'doc': 'anysize test hex type'}),
         ('testhex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
 
@@ -134,6 +136,7 @@ testmodel = {
     ),
 
     'forms': (
+        ('testint128', {}, ()),
 
         ('testtype10', {}, (
 

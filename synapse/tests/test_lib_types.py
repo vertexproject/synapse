@@ -1,3 +1,5 @@
+import msgpack
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.xact as s_xact
@@ -108,6 +110,11 @@ class TypesTest(s_test.SynTest):
 
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('int').clone, {'min': 100, 'max': 1})
+
+        # Demonstrate that 128bit int cannot be stored as an int in LMDB
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:  # type: s_xact.Xact
+                self.raises(msgpack.exceptions.PackOverflowError, xact.addNode, 'testint128', 2**127 - 1)
 
     def test_types_str(self):
 
