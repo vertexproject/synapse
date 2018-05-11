@@ -15,6 +15,9 @@ import synapse.models.inet as s_inet
 logger = logging.getLogger(__name__)
 
 # TODO
+# debug output to file
+# make new cortex with ea tags + 100 of each form
+# parallelize stage2
 # file:base -> filepath if backslash in them (?? separate the last part out?)
 # inet:flow -> inetserver/inetclient
 # file:txtref, file:imgof -> both turn into file:ref comp: (file:bytes, ndef)
@@ -38,7 +41,6 @@ _comp_and_sepr_forms = [
 
 def _enc_iden(iden):
     return unhexlify(iden)
-
 
 class ConsistencyError(Exception):
     pass
@@ -85,7 +87,8 @@ class Migrator:
         seprs = []
         comps = []
         subs = []
-        for formname in self.core.getTufoForms():
+        forms = self.core.getTufoForms()
+        for formname in forms:
             parents = self.core.getTypeOfs(formname)
             if 'sepr' in parents:
                 seprs.append(formname)
@@ -99,7 +102,7 @@ class Migrator:
                     seprs.append(subpropname)
                 if 'comp' in parents:
                     comps.append(subpropname)
-                if ('comp' in parents) or ('sepr' in parents):
+                if ('comp' in parents) or ('sepr' in parents) or subpropprops['ptype'] in forms:
                     subs.extend(x for x in subpropnames if x.startswith(subpropname + ':'))
 
         self.seprs = set(seprs)
@@ -275,13 +278,6 @@ class Migrator:
             return None, 'guid:' + props[formname]
         return [formname + ':sha256'], 'sha256:' + sha256
 
-    primary_prop_special = {
-        'inet:web:post': just_guid,
-        'it:dev:regval': just_guid,
-        'inet:dns:soa': just_guid,
-        'file:bytes': convert_file_bytes
-    }
-
     def convert_primary(self, props):
         formname = props['tufo:form']
         pkval = props[formname]
@@ -316,7 +312,7 @@ class Migrator:
     def convert_comp_primary(self, props):
         formname = props['tufo:form']
         compspec = self.core.getPropInfo(formname, 'fields')
-        logger.debug('convert_comp_primary_property: %s, %s', formname, compspec)
+        # logger.debug('convert_comp_primary_property: %s, %s', formname, compspec)
         t = self.core.getPropType(formname)
         members = [x[0] for x in t.fields]
         retn = []
@@ -335,7 +331,15 @@ class Migrator:
     prop_renames = {
         'inet:fqdn:zone': 'inet:fqdn:iszone',
         'inet:fqdn:sfx': 'inet:fqdn:issuffix',
-        'inet:ipv4:cc': 'inet:ipv4:loc'
+        'inet:ipv4:cc': 'inet:ipv4:loc',
+        'inet:flow:dst:tcp4': 'inet:flow:dst',
+        'inet:flow:dst:tcp4': 'inet:flow:dst',
+        'inet:flow:dst:udp4': 'inet:flow:dst',
+        'inet:flow:dst:tcp6': 'inet:flow:dst',
+        'inet:flow:src:udp6': 'inet:flow:src',
+        'inet:flow:src:udp4': 'inet:flow:src',
+        'inet:flow:src:tcp6': 'inet:flow:src',
+        'inet:flow:src:udp6': 'inet:flow:src'
     }
 
     def ipv4_to_client(self, formname, propname, typename, val):
@@ -343,11 +347,6 @@ class Migrator:
 
     def ipv6_to_client(self, formname, propname, typename, val):
         return 'client', 'tcp://[%s]/' % val
-
-    subprop_special = {
-        'inet:web:logon:ipv4': ipv4_to_client,
-        'inet:web:logon:ipv6': ipv6_to_client
-    }
 
     def ipv4_to_server(self, formname, propname, typename, val):
         _, props = self.core.getTufoByProp(typename, val)
@@ -372,15 +371,19 @@ class Migrator:
 
     def convert_subprop(self, formname, propname, val):
         typename = self.core.getPropTypeName(propname)
+        converted = False
 
         if propname in self.subprop_special:
-            return self.subprop_special[propname](self, formname, propname, typename, val)
-
-        if typename in self.type_special:
-            return self.type_special[typename](self, formname, propname, typename, val)
+            propname, val = self.subprop_special[propname](self, formname, propname, typename, val)
+            converted = True
+        elif typename in self.type_special:
+            propname, val = self.type_special[typename](self, formname, propname, typename, val)
+            converted = True
 
         newpropname = self.prop_renames.get(propname, propname)
         newpropname = newpropname[len(formname) + 1:]
+        if converted:
+            return newpropname, val
 
         return newpropname, self.default_subprop_convert(propname, typename, val)
 
@@ -432,6 +435,27 @@ class Migrator:
 
         return retn
 
+    primary_prop_special = {
+        'inet:web:post': just_guid,
+        'it:dev:regval': just_guid,
+        'inet:dns:soa': just_guid,
+        'file:bytes': convert_file_bytes
+    }
+
+    subprop_special = {
+        'inet:web:logon:ipv4': ipv4_to_client,
+        'inet:web:logon:ipv6': ipv6_to_client,
+        # 'inet:flow:dest:tcp4': foo,
+        # 'inet:flow:dest:tcp4': foo,
+        # 'inet:flow:dest:udp6': foo,
+        # 'inet:flow:dest:udp6': foo,
+        # 'inet:flow:src:tcp4': foo,
+        # 'inet:flow:src:tcp4': foo,
+        # 'inet:flow:src:udp6': foo,
+        # 'inet:flow:src:udp6': foo,
+    }
+
+
 def main(argv, outp=None):  # pragma: no cover
     p = argparse.ArgumentParser()
     p.add_argument('cortex', help='telepath URL for a cortex to be dumped')
@@ -441,15 +465,18 @@ def main(argv, outp=None):  # pragma: no cover
     p.add_argument('--limit', action='store', type=int, help='last row number to process', default=None)
     p.add_argument('--offset', action='store', type=int, help='start offset of row to process', default=0)
     opts = p.parse_args(argv)
+
     if opts.verbose is not None:
         if opts.verbose > 1:
-            logger.setLevel(logging.DEBUG)
+            # logger.setLevel(logging.DEBUG)
+            fh = logging.FileHandler(opts.outfile + '.log')
+            fh.setLevel(logging.DEBUG)
         elif opts.verbose > 0:
             logger.setLevel(logging.INFO)
 
     fh = open(opts.outfile, 'wb')
     with s_cortex.openurl(opts.cortex, conf={'caching': True, 'cache:maxsize': 1000000}) as core:
-        m = Migrator(core, fh, tmpdir=pathlib.Path(opts.outfile).parent, stage1_fn=opts.stage_1,
+        m = Migrator(core, fh, tmpdir=opts.soutfile.parent, stage1_fn=opts.stage_1,
                      offset=opts.offset, limit=opts.limit)
         m.migrate()
     return 0

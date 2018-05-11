@@ -75,7 +75,7 @@ class Migrate010Test(s_iq.SynTest):
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             look_nodes = self.get_formfile('inet:dns:look', fh)
             self.eq(len(look_nodes), 1)
-            self.eq(look_nodes[0][1]['props']['inet:dns:look:udp4'], 'udp://8.8.8.8:80/')
+            self.eq(look_nodes[0][1]['props']['udp4'], 'udp://8.8.8.8:80/')
 
             tufo = core.formTufoByProp('inet:web:logon', '*', acct='vertex.link/pennywise', time=now,
                                        ipv4=0x01020304)
@@ -120,8 +120,8 @@ class Migrate010Test(s_iq.SynTest):
             hset = s_hashset.HashSet()
             hset.update(b'visi')
             valu, props = hset.guid()
-            tufo1 = core.formTufoByProp('file:bytes', valu, **props)
-            tufo2 = core.formTufoByProp('file:bytes', s_common.guid(), size=42)
+            core.formTufoByProp('file:bytes', valu, **props)
+            core.formTufoByProp('file:bytes', s_common.guid(), size=42)
 
             fh = tempfile.TemporaryFile(dir=dirn)
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
@@ -149,3 +149,22 @@ class Migrate010Test(s_iq.SynTest):
             self.len(1000, nodes)
             for n in nodes:
                 self.len(512 + int(n[1]['props']['title']), n[1]['props']['address'])
+
+    def test_flow(self):
+        self.maxDiff = None
+        with self.getTestDir() as dirn, self.getRamCore() as core:
+            props = {
+                'dst:tcp4': '1.2.3.4:80',
+                'dst:udp4': '2.3.4.5:80',
+                'src:tcp6': '[0:0:0:0:0:3:2:1]:443',
+                'src:udp6': '[1:0:0:0:0:3:3:3]:80'
+            }
+            core.formTufoByProp('inet:flow', s_common.guid(), **props)
+
+            fh = tempfile.TemporaryFile(dir=dirn)
+            m = s_migrate.Migrator(core, fh, tmpdir=dirn)
+            m.migrate()
+            nodes = self.get_formfile('inet:flow', fh)
+            # FIXME: is this correct?  Not sure what to do when tcp and udp and v4 and v6 are provided
+            self.eq(nodes[0][1]['props']['dst'], 'udp://2.3.4.5:80/')
+            self.eq(nodes[0][1]['props']['src'], 'udp://[1::3:3:3]:80/')
