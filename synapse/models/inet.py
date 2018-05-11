@@ -745,11 +745,10 @@ class InetModule(s_module.CoreModule):
                     #]),
 
                     ('inet:rfc2822:addr', {}, (
-                        # FIXME implement person
-                        #('name', ('ps:name', {}), {
-                        #    'ro': True,
-                        #    'doc': 'The name field parsed from an RFC 2822 address string.'
-                        #}),
+                        ('name', ('ps:name', {}), {
+                            'ro': True,
+                            'doc': 'The name field parsed from an RFC 2822 address string.'
+                        }),
                         ('email', ('inet:email', {}), {
                             'ro': True,
                             'doc': 'The email field parsed from an RFC 2822 address string.'
@@ -836,10 +835,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The email address associated with the account.'
                         }),
 
-                        # FIXME implement
-                        #('latlong', ('geo:latlong', {}), {
-                        #    'doc': 'The last known latitude/longitude for the node'
-                        #}),
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The last known latitude/longitude for the node'
+                        }),
 
                         ('loc', ('loc', {}), {
                             'doc': 'A self-declared location for the account.'
@@ -859,25 +857,22 @@ class InetModule(s_module.CoreModule):
                             'doc': 'A self-declared occupation for the account.'
                         }),
 
-                        # FIXME implement
-                        #('passwd', ('inet:passwd', {}), {
-                        #    'doc': 'The current password for the account.'
-                        #})
+                        ('passwd', ('inet:passwd', {}), {
+                            'doc': 'The current password for the account.'
+                        })
 
                         # FIXME implement
                         #('phone', ('tel:phone', {}), {
                         #    'doc': 'The phone number associated with the account.'
                         #}),
 
-                        # FIXME implement
-                        #('realname', ('ps:name', {}), {
-                        #    'doc': 'The localized version of the real name of the account owner / registrant.'
-                        #}),
+                        ('realname', ('ps:name', {}), {
+                            'doc': 'The localized version of the real name of the account owner / registrant.'
+                        }),
 
-                        # FIXME implement
-                        #('realname:en', ('ps:name', {}), {
-                        #    'doc': 'The English version of the real name of the account owner / registrant.'
-                        #}),
+                        ('realname:en', ('ps:name', {}), {
+                            'doc': 'The English version of the real name of the account owner / registrant.'
+                        }),
 
                         ('seen:max', ('time', {'max': True}), {
                             'doc': 'The most recent known date of activity for the account.'
@@ -1004,15 +999,15 @@ class InetModule(s_module.CoreModule):
                         ('id', ('inet:group', {}), {
                             'ro': 1,
                             'doc': 'The site-specific unique identifier for the group (may be different from '
-                                'the common name or display name).'
+                                   'the common name or display name).'
                         }),
                         ('name', ('inet:group', {}), {
                             'doc': 'The localized name associated with the group (may be different from '
-                                'the account identifier, e.g., a display name).'
+                                   'the account identifier, e.g., a display name).'
                         }),
                         ('name:en', ('inet:group', {}), {
                             'doc': 'The English version of the name associated with the group (may be different '
-                                'from the localized name).'
+                                   'from the localized name).'
                         }),
                         ('url', ('inet:url', {}), {
                             'doc': 'The service provider URL where the group is hosted.'
@@ -1042,7 +1037,6 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The IPv6 address used to create the group.'
                         }),
                     )),
-
 
                     ('inet:web:logon', {}, (
                         ('acct', ('inet:web:acct', {}), {

@@ -420,7 +420,7 @@ class InetModelTest(s_t_common.SynTest):
                 node = xact.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('email'), 'unittest@vertex.link')
-                #FIXME add ps:name
+                self.eq(node.get('name'), 'unittest')
 
                 xact.addNode(formname, '"UnitTest1')
                 xact.addNode(formname, '"UnitTest12')
