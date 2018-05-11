@@ -859,7 +859,7 @@ class InetModule(s_module.CoreModule):
 
                         ('passwd', ('inet:passwd', {}), {
                             'doc': 'The current password for the account.'
-                        })
+                        }),
 
                         # FIXME implement
                         #('phone', ('tel:phone', {}), {
