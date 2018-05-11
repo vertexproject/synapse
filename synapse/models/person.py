@@ -143,7 +143,7 @@ class PsModule(s_module.CoreModule):
                     #               'doc': 'The most recent known time when the person owned or controlled the resource.'}),
                 )),
                 ('ps:persona:has', {}, (
-                    ('persona', ('ps:person', {}), {
+                    ('persona', ('ps:persona', {}), {
                         'ro': True,
                         'doc': 'The persona who owns or controls the object or resource.',
                     }),

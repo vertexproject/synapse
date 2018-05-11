@@ -37,7 +37,6 @@ class ChopTest(s_test.SynTest):
                 self.raises(e, s_chop.hexstr, v)
 
     def test_chop_onespace(self):
-        print('')
         ivs = ['asdfasdf  asdfasdf ',
                'asdfasdf ',
                'asdf',

@@ -99,20 +99,20 @@ class OuModule(s_module.CoreModule):
                 ('ou:member', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': '',
+                        'doc': 'The GUID of the org the person is a member of.',
                     }),
                     ('person', ('ps:person', {}), {
                         'ro': True,
-                        'doc': '',
+                        'doc': 'The GUID of the person that is a member of an org.',
                     }),
                     ('title', ('str', {'lower': True, 'strip': True}), {
-                        'doc': ''
+                        'doc': 'The persons normalized title.'
                     }),
-                    ('start', ('time', {}), {
-                        'doc': '',
+                    ('start', ('time:min', {}), {
+                        'doc': 'Earliest known association of the person with the org.',
                     }),
-                    ('end', ('time', {}), {
-                        'doc': '',
+                    ('end', ('time:max', {}), {
+                        'doc': 'Most recent known association of the person with the org.',
                     })
                 )),
                 ('ou:suborg', {}, (
