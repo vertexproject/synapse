@@ -180,7 +180,7 @@ class IPv6(s_types.Type):
         self.setNormFunc(str, self._normPyStr)
 
     def indx(self, norm):
-        return ipaddress.IPv6Address(norm).packed
+        return norm.to_bytes(16, 'big')
 
     def _normPyStr(self, valu):
 
@@ -188,13 +188,15 @@ class IPv6(s_types.Type):
 
             v6 = ipaddress.IPv6Address(valu)
             v4 = v6.ipv4_mapped
+            norm = int.from_bytes(v6.packed, 'big')
+            subs = {}
 
             if v4 is not None:
                 v4_int = self.modl.type('inet:ipv4').norm(v4.compressed)[0]
                 v4_str = self.modl.type('inet:ipv4').repr(v4_int)
-                return f'::ffff:{v4_str}', {'subs': {'ipv4': v4_int}}
+                subs['subs'] = {'ipv4': v4_int}
 
-            return ipaddress.IPv6Address(valu).compressed, {}
+            return norm, subs
 
         except Exception as e:
             raise s_exc.BadTypeValu(valu)
