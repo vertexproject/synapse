@@ -562,7 +562,6 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A domain whois record'
                     }),
 
-
                     ('inet:whois:reg', ('str', {'lower': True}), {
                         'doc': 'A domain registrant.',
                         'ex': 'woot hostmaster'
@@ -910,7 +909,7 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:web:action', {}, (
-                        ('act', ('str', {'lower': True}), {
+                        ('act', ('str', {'lower': True, 'strip': True}), {
                             'doc': 'The action performed by the account.'
                         }),
                         ('acct', ('inet:web:acct', {}), {
