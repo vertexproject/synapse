@@ -108,10 +108,10 @@ class OuModule(s_module.CoreModule):
                     ('title', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The persons normalized title.'
                     }),
-                    ('start', ('time:min', {}), {
+                    ('start', ('time', {'ismin': True}), {
                         'doc': 'Earliest known association of the person with the org.',
                     }),
-                    ('end', ('time:max', {}), {
+                    ('end', ('time', {'ismax': True}), {
                         'doc': 'Most recent known association of the person with the org.',
                     })
                 )),
