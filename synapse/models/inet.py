@@ -335,7 +335,7 @@ class Url(s_types.Type):
                 try:
                     host = self.modl.type('inet:fqdn').norm(part)[0]
                     subs['fqdn'] = host
-                except:
+                except Exception as e:
                     pass
 
         # Raise exception if there was no FQDN, IPv4, or IPv6
@@ -496,7 +496,7 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:mac', ('str', {'lower': True, 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$'}), {
-                        #'nullval': '??',  # FIXME this should not be here
+                        # 'nullval': '??',  # FIXME this should not be here
                         'doc': 'A 48-bit Media Access Control (MAC) address.',
                         'ex': 'aa:bb:cc:dd:ee:ff'
                     }),
@@ -515,7 +515,8 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:urlredir', ('comp', {'fields': (('src', 'inet:url'), ('dst', 'inet:url'))}), {
-                        'doc': 'A URL that redirects to another URL, such as via a URL shortening service or an HTTP 302 response.',
+                        'doc': 'A URL that redirects to another URL, such as via a URL shortening service '
+                               'or an HTTP 302 response.',
                         'ex': '(http://foo.com/,http://bar.com/)'
                     }),
 
@@ -524,8 +525,8 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user'))}), {
-                            'doc': 'An account with a given Internet-based site or service.',
-                            'ex': 'twitter.com/invisig0th'
+                        'doc': 'An account with a given Internet-based site or service.',
+                        'ex': 'twitter.com/invisig0th'
                     }),
 
                     ('inet:web:action', ('guid', {}), {
@@ -845,12 +846,12 @@ class InetModule(s_module.CoreModule):
 
                         ('name', ('inet:user', {}), {
                             'doc': 'The localized name associated with the account (may be different from the '
-                                'account identifier, e.g., a display name).'
+                                   'account identifier, e.g., a display name).'
                         }),
 
                         ('name:en', ('inet:user', {}), {
                             'doc': 'The English version of the name associated with the (may be different from '
-                                'the account identifier, e.g., a display name).'
+                                   'the account identifier, e.g., a display name).'
                         }),
 
                         ('occupation', ('str', {'lower': True}), {
@@ -907,12 +908,12 @@ class InetModule(s_module.CoreModule):
                         ('user', ('inet:user', {}), {
                             'ro': 1,
                             'doc': 'The unique identifier for the account (may be different from the common '
-                                'name or display name).'
-                        }),
+                                   'name or display name).'
+                        })
 
                         ('webpage', ('inet:url', {}), {
                             'doc': 'A related URL specified by the account (e.g., a personal or company web '
-                                 'page, blog, etc.).'
+                                   'page, blog, etc.).'
                         }),
 
                     )),
