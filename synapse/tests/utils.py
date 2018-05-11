@@ -481,6 +481,46 @@ class SynTest(unittest.TestCase):
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
+    def get_form_test_data(self, core, formname):
+        t = core.model.type(formname)
+        f = core.model.form(formname)
+
+        valu_repr = t.info.get('ex')
+        valu_norm = t.norm(valu_repr)[0]
+        expected_ndef = (formname, valu_norm)
+
+        input_props = {}
+        expected_props = {}
+        for pname in f.props:
+
+            # Skip univs
+            if pname.startswith('.'):
+                continue
+
+            prop = f.prop(pname)
+            ex_repr = prop.info.get('ex', prop.type.info.get('ex', prop.type.opts.get('ex')))
+            if ex_repr is not None:
+                ex_norm = prop.type.norm(ex_repr)[0]
+                input_props[pname] = ex_repr
+                expected_props[pname] = ex_norm
+            else:
+                raise Exception(f'There is no example for {pname}')
+
+        return valu_repr, input_props, expected_ndef, expected_props
+
+    def perform_basic_form_assertions(self, core, formname):
+        valu_repr, input_props, expected_ndef, expected_props = self.get_form_test_data(core, formname)
+
+        with core.xact(write=True) as xact:
+            node = xact.addNode(formname, valu_repr, props=input_props)
+
+        self.eq(node.ndef, expected_ndef)
+        for prop, valu in node.props.items():
+            # Skip univs
+            if prop.startswith('.'):
+                continue
+            self.eq(expected_props.get(prop), valu, f'prop: {prop}')
+
     @contextlib.contextmanager
     def getAxonCore(self, cortex_conf=None):
         '''
@@ -922,11 +962,11 @@ class SynTest(unittest.TestCase):
 
         self.raises(exc, testfunc)
 
-    def eq(self, x, y):
+    def eq(self, x, y, mesg=None):
         '''
         Assert X is equal to Y
         '''
-        self.assertEqual(x, y)
+        self.assertEqual(x, y, mesg)
 
     def eqish(self, x, y, places=6):
         '''

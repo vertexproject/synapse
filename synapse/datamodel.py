@@ -289,7 +289,7 @@ class Model:
         self._type_pends = collections.defaultdict(list)
 
         # add the primitive base types
-        info = {'doc': 'The base 64 bit signed integer type.'}
+        info = {'doc': 'The base 64 bit signed integer type.', 'ex': 0}
         item = s_types.Int(self, 'int', info, {})
         self.addBaseType(item)
 
@@ -297,7 +297,7 @@ class Model:
         item = s_types.Range(self, 'range', info, {'type': ('int', {})})
         self.addBaseType(item)
 
-        info = {'doc': 'The base string type.'}
+        info = {'doc': 'The base string type.', 'ex': 'a string'}
         item = s_types.Str(self, 'str', info, {})
         self.addBaseType(item)
 
@@ -309,7 +309,7 @@ class Model:
         item = s_types.Bool(self, 'bool', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'A date/time value.'}
+        info = {'doc': 'A date/time value.', 'ex': 0}
         item = s_types.Time(self, 'time', info, {})
         self.addBaseType(item)
 

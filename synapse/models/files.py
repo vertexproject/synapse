@@ -126,7 +126,9 @@ class FileModule(s_module.CoreModule):
                 'ctors': (
 
                     ('file:bytes', 'synapse.models.files.FileBytes', {}, {
-                        'doc': 'The file bytes type with SHA256 based primary property.'}),
+                        'doc': 'The file bytes type with SHA256 based primary property.',
+                        'ex': 'abababababababababababababababababababababababababababababababab'
+                    }),
 
                 ),
 
