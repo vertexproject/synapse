@@ -1,5 +1,5 @@
-import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.exc as s_exc
 import synapse.tests.common as s_t_common
 
 
@@ -210,6 +210,7 @@ class InetModelTest(s_t_common.SynTest):
 
     def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
+
         formname = 'inet:fqdn'
 
         def iszone(node):
@@ -329,6 +330,10 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm('2001:db8::0:1')[0], '2001:db8::1')
             self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
             self.eq(t.norm('2001:db8::')[0], '2001:db8::')
+
+            self.eq(t.norm(0)[0], '::')
+            self.eq(t.norm(1)[0], '::1')
+            self.eq(t.norm(2**128 - 1)[0], 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
 
             # Form Tests ======================================================
             with core.xact(write=True) as xact:
@@ -503,6 +508,7 @@ class InetModelTest(s_t_common.SynTest):
             # Handle IPv6 Port Brackets
             host_port = host
             repr_host_port = repr_host
+
             if htype == 'ipv6':
                 host_port = f'[{host}]'
                 repr_host_port = f'[{repr_host}]'
@@ -565,6 +571,7 @@ class FIXME:
     def test_model_inet_srv4_types(self):
         with self.getRamCore() as core:
             t0 = core.formTufoByProp('inet:tcp4', '8.8.8.8:80')
+
             form, pprop = s_tufo.ndef(t0)
             self.eq(pprop, 8830587502672)
             self.eq(t0[1].get('inet:tcp4:port'), 80)
@@ -576,6 +583,7 @@ class FIXME:
             self.eq(t1[1].get('inet:tcp4:ipv4'), core.getTypeNorm('inet:ipv4', '1.2.3.4')[0])
 
             t2 = core.formTufoByProp('inet:udp4', '8.8.8.8:80')
+
             form, pprop = s_tufo.ndef(t2)
             self.eq(pprop, 8830587502672)
             self.eq(t2[1].get('inet:udp4:port'), 80)
@@ -592,6 +600,7 @@ class FIXME:
             self.eq(t4[1].get('inet:udp4:ipv4'), core.getTypeNorm('inet:ipv4', '1.2.3.4')[0])
 
             # Ensure boundaries are observed
+
             for i in ['0', 0, '0.0.0.0:0']:
                 valu, subs = core.getTypeNorm('inet:srv4', i)
                 self.eq(valu, 0)
@@ -622,18 +631,21 @@ class FIXME:
     def test_model_inet_srv6_types(self):
         with self.getRamCore() as core:
             t0 = core.formTufoByProp('inet:tcp6', '[0:0:0:0:0:0:0:1]:80')
+
             form, pprop = s_tufo.ndef(t0)
             self.eq(pprop, '[::1]:80')
             self.eq(t0[1].get('inet:tcp6:port'), 80)
             self.eq(t0[1].get('inet:tcp6:ipv6'), '::1')
 
             t1 = core.formTufoByProp('inet:tcp6', '[0:0:0:0:0:3:2:1]:443')
+
             form, pprop = s_tufo.ndef(t1)
             self.eq(pprop, '[::3:2:1]:443')
             self.eq(t1[1].get('inet:tcp6:port'), 443)
             self.eq(t1[1].get('inet:tcp6:ipv6'), '::3:2:1')
 
             t2 = core.formTufoByProp('inet:udp6', '[0:0:0:0:0:3:2:1]:5000')
+
             form, pprop = s_tufo.ndef(t2)
             self.eq(pprop, '[::3:2:1]:5000')
             self.eq(t2[1].get('inet:udp6:port'), 5000)
@@ -723,6 +735,7 @@ class FIXME:
         with self.getRamCore() as core:
 
             node = core.formTufoByProp('inet:whois:rec', 'woot.com@20501217')
+
             form, pprop = s_tufo.ndef(node)
             node = core.formTufoByProp('inet:whois:recns', ['ns1.woot.com', pprop])
             self.eq(node[1].get('inet:whois:recns:ns'), 'ns1.woot.com')

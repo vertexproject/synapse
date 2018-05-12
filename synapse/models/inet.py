@@ -177,13 +177,13 @@ class IPv4(s_types.Type):
 class IPv6(s_types.Type):
 
     def postTypeInit(self):
+        self.setNormFunc(int, self._normPyStr)
         self.setNormFunc(str, self._normPyStr)
 
     def indx(self, norm):
         return ipaddress.IPv6Address(norm).packed
 
     def _normPyStr(self, valu):
-
         try:
 
             v6 = ipaddress.IPv6Address(valu)
