@@ -280,6 +280,42 @@ class Srv4(s_types.Type):
         port = self.modl.type('inet:port').repr(norm[1])
         return f'{ipv4}:{port}'
 
+class Srv6(s_types.Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+    def _normPyStr(self, valu):
+        if not valu.startswith('['):
+            raise s_exc.BadTypeValu(valu, mesg='inet:srv6 must start with [')
+
+        match = srv6re.match(valu)
+        if not match:
+            raise s_exc.BadTypeValu(valu, mesg='no inet:srv6 found')
+
+        return self._normPyTuple(match.groups())
+
+    def _normPyTuple(self, valu):
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(valu, mesg='must be 2 length tuple')
+
+        ipv6, port = valu
+        ipv6 = self.modl.type('inet:ipv6').norm(ipv6)[0]
+        port = self.modl.type('inet:port').norm(port)[0]
+
+        return (ipv6, port), {'subs': {'ipv6': ipv6, 'port': port}}
+
+    def indx(self, norm):
+        ipv6_int = int.from_bytes(ipaddress.IPv6Address(norm[0]).packed, 'big')
+        return (ipv6_int << 16 | norm[1]).to_bytes(18, 'big')
+
+    def repr(self, norm):
+        ipv6 = self.modl.type('inet:ipv6').repr(norm[0])
+        port = self.modl.type('inet:port').repr(norm[1])
+        return f'[{ipv6}]:{port}'
+
+
 class Url(s_types.Type):
 
     def postTypeInit(self):
@@ -499,6 +535,11 @@ class InetModule(s_module.CoreModule):
                     ('inet:srv4', 'synapse.models.inet.Srv4', {}, {
                         'doc': 'An IPv4 address and port.',
                         'ex': '1.2.3.4:80'
+                    }),
+
+                    ('inet:srv6', 'synapse.models.inet.Srv6', {}, {
+                        'doc': 'An IPv6 address and port.',
+                        'ex': '[2607:f8b0:4004:809::200e]:80',
                     }),
 
                     ('inet:url', 'synapse.models.inet.Url', {}, {

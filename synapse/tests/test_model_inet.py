@@ -402,8 +402,31 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.indx((0x01020304, 8443)), b'\x01\x02\x03\x04 \xfb')
             self.eq(t.indx((0xFFFFFFFF, 2**16 - 1)), 6 * b'\xff')
 
+            self.raises(s_exc.BadTypeValu, t.norm, (0, 1, 2))
             self.raises(s_exc.BadTypeValu, t.norm, (0xFFFFFFFF, -1))
             self.raises(s_exc.BadTypeValu, t.norm, (0xFFFFFFFF, 2**16))
+
+    def test_srv6(self):
+        formname = 'inet:srv6'
+
+        with self.getTestCore() as core:
+
+            # Type Tests ======================================================
+            t = core.model.type(formname)
+
+            valu = '[::1]:2'
+            expected = (('::1', 2), {'subs': {'ipv6': '::1', 'port': 2}})
+            self.eq(t.norm(valu), expected)
+            self.eq(t.repr(expected[0]), valu)
+            self.eq(t.indx(expected[0]), 15 * b'\x00' + b'\x01' + b'\x00\x02')
+
+            self.eq(t.indx((0, 0)), 18 * b'\x00')
+            self.eq(t.indx((0, 65535)), 16 * b'\x00' + b'\xff\xff')
+            self.eq(t.indx((2**128 - 1, 65535)), 18 * b'\xff')
+
+            self.raises(s_exc.BadTypeValu, t.norm, (0, 1, 2))
+            self.raises(s_exc.BadTypeValu, t.norm, 'ok')
+            self.raises(s_exc.BadTypeValu, t.norm, '[ok')
 
     def test_url(self):
         formname = 'inet:url'

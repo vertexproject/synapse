@@ -106,11 +106,6 @@
                     'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
                     'ex': 'tcp://1.2.3.4:80'}),
 
-                ('inet:srv6', {
-                    'ctor': 'synapse.models.inet.Srv6Type',
-                    'doc': 'An IPv6 address and port.',
-                    'ex': '[2607:f8b0:4004:809::200e]:80'}),
-
                 TYPES that rely on ctor implementations ===============================================================
                 ('inet:server', {
                     'subof': 'inet:addr',
