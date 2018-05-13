@@ -15,8 +15,7 @@ import synapse.models.inet as s_inet
 logger = logging.getLogger(__name__)
 
 # TODO
-# debug output to file
-# make new cortex with ea tags + 100 of each form
+# Add config file to allow additional coremodules
 # parallelize stage2
 # file:base -> filepath if backslash in them (?? separate the last part out?)
 # inet:flow -> inetserver/inetclient
@@ -50,14 +49,11 @@ class Migrator:
     Sucks all rows out of a < .0.1.0 cortex, into a temporary LMDB database, migrates the schema, then dumps to new
     file suitable for ingesting into a >= .0.1.0 cortex.
     '''
-    def __init__(self, core, outfh, tmpdir=None, stage1_fn=None, offset=0, limit=None):
+    def __init__(self, core, outfh, tmpdir=None, stage1_fn=None):
         self.core = core
         self.dbenv = None
         self.skip_stage1 = bool(stage1_fn)
         assert tmpdir or stage1_fn
-        assert limit is None or offset < limit
-        self.limit = limit
-        self.offset = offset
         self.next_val = 0
 
         if stage1_fn is None:
@@ -116,9 +112,6 @@ class Migrator:
 
     def _write_props(self, txn, rows):
         MAX_VAL_LEN = 511
-        #     kvs = [(_enc_iden(i), s_msgpack.en((p, v))) for i, p, v, _ in rows]
-        #     rowi = (x for x in kvs if len(x[1] <= MAX_VAL_LEN))
-        #     validi = (x.get(), (range(self.next_val, self.next_val + 1000000),
 
         idens = []
         bigvals = []
@@ -126,7 +119,6 @@ class Migrator:
             enci = _enc_iden(i)
             val = s_msgpack.en((p, v))
             if len(val) > MAX_VAL_LEN:
-                # import ipdb; ipdb.set_trace()
                 next_val_enc = self.next_val.to_bytes(8, 'big')
                 bigvals.append((next_val_enc, val))
                 val = next_val_enc
@@ -134,31 +126,26 @@ class Migrator:
             idens.append((enci, val))
 
         with txn.cursor(self.iden_tbl) as icurs, txn.cursor(self.valu_tbl) as vcurs:
-            try:
-                consumed, added = icurs.putmulti(idens)
-                assert consumed == added == len(rows)
-                consumed, added = vcurs.putmulti(bigvals)
-                assert consumed == added == len(bigvals)
-            except lmdb.BadValuSizeError as e:
-                import ipdb; ipdb.set_trace()
-                raise
+            consumed, added = icurs.putmulti(idens)
+            if consumed != added or added != len(rows):
+                raise ConsistencyError('Failure writing to Db.  consumed %d != added %d != len(rows) %d',
+                                       consumed, added, len(rows))
+            consumed, added = vcurs.putmulti(bigvals)
+            if consumed != added:
+                raise ConsistencyError('Failure writing to Db.  consumed %d != added %d',
+                                       consumed, added)
 
     def do_stage1(self):
-        offset = self.offset
-        limit = self.limit
         start_time = time.time()
         last_update = start_time
         logger.debug('Getting row count')
-        # totalrows = self.core.store.getSize()
-        totalrows = 1041328134  # nic tmp to speed up debugging
+        totalrows = self.core.store.getSize()
         logger.debug('Total row count is %d', totalrows)
         rowcount = 0
         last_rowcount = 0
 
-        for rows in self.core.store.genStoreRows(gsize=10000, offset=offset):
+        for rows in self.core.store.genStoreRows(gsize=10000):
             lenrows = len(rows)
-            if limit is not None and rowcount >= limit:
-                break
             rowcount += lenrows
             now = time.time()
             if last_update + 60 < now:  # pragma: no cover
@@ -169,9 +156,6 @@ class Migrator:
                 last_rowcount = rowcount
                 logger.info('%02.2f%% complete.  Estimated completion in %ds', percent_complete, estimate)
 
-            if limit is not None and rowcount > limit:
-                rows = rows[:(limit - rowcount + lenrows)]
-
             with self.dbenv.begin(write=True) as txn:
                 self._write_props(txn, rows)
 
@@ -181,13 +165,10 @@ class Migrator:
                 # Nic tmp
                 compi = list(compi)
                 with txn.cursor(self.form_tbl) as curs:
-                    try:
                         consumed, added = curs.putmulti(compi)
-                    except lmdb.BadValSizeError as e:
-                        import ipdb; ipdb.set_trace()
-                        raise
-
-                assert consumed == added
+                        if consumed != added:
+                            raise ConsistencyError('Failure writing to Db.  consumed %d != added %d',
+                                                   consumed, added)
 
         logger.info('Stage 1 complete in %.1fs.', time.time() - start_time)
 
@@ -203,6 +184,10 @@ class Migrator:
                 raise ConsistencyError('missing iden', hexlify(s_msgpack.un(enc_iden)))
             props = {}
             for pv_enc in curs.iternext_dup():
+                if len(pv_enc) == 8:
+                    pv_enc = txn.get(pv_enc, db=self.valu_tbl)
+                    if pv_enc is None:
+                        raise ConsistencyError('Missing big val')
                 p, v = s_msgpack.un(pv_enc)
                 props[p] = v
             return props
@@ -212,12 +197,12 @@ class Migrator:
         comp_forms = [f for f in reversed(_comp_and_sepr_forms) if self.is_comp(f)]
 
         # Do the comp forms
-        for formname in comp_forms:
+        for i, formname in enumerate(comp_forms):
             with self.dbenv.begin(write=True, db=self.form_tbl) as txn:
                 curs = txn.cursor(self.form_tbl)
                 if not curs.set_key(formname.encode('utf8')):
                     continue
-                logger.debug('processing nodes from %s', formname)
+                logger.info('Stage 2a: (%3d/%3d) processing nodes from %s', i + 1, len(comp_forms), formname)
                 for enc_iden in curs.iternext_dup():
                     try:
                         props = self.get_props(enc_iden, txn)
@@ -225,15 +210,35 @@ class Migrator:
                         txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl)
                         self.write_node_to_file(node)
                     except Exception:
-                        logger.exception('Failed on processing node of form %s', formname)
+                        logger.debug('Failed on processing node of form %s', formname, exc_info=True)
 
-        logger.debug('Finished processing comp nodes')
+        comp_node_time = time.time()
+        logger.debug('Finished processing comp nodes in %.1fs', comp_node_time - start_time)
 
         # Do all the non-comp forms
+        iden_first = 0
+        iden_last = 2 ** 128 - 1
+        prev_update = comp_node_time
+        prev_iden = iden_first
         with self.dbenv.begin(db=self.iden_tbl) as txn:
             curs = txn.cursor(self.iden_tbl)
-            curs.first()
+            if not curs.set_range(iden_first.to_bytes(16, 'big')):
+                raise Exception('no data!')
             while True:
+                iden_int = int.from_bytes(curs.key(), 'big')
+                if iden_int > iden_last:
+                    break
+
+                now = time.time()
+                if prev_update + 60 < now:  # pragma: no cover
+                    percent_complete = (iden_int - iden_first) / (iden_last - iden_first) * 100.0
+                    timeperiden = (now - prev_update) / (iden_int / prev_iden)
+                    estimate = int((iden_last - iden_int) * timeperiden)
+                    logger.info('Stage 2 %02.2f%% complete.  Estimated completion in %ds', percent_complete, estimate)
+
+                    prev_update = now
+                    prev_iden = iden_int
+
                 props = {}
                 for pv_enc in curs.iternext_dup():
                     if len(pv_enc) == 8:
@@ -249,9 +254,9 @@ class Migrator:
                     try:
                         self.write_node_to_file(self.convert_props(props))
                     except Exception:
-                        logger.exception('Failed on processing node with props: %s', props)
+                        logger.debug('Failed on processing node with props: %s', props, exc_info=True)
                 if not rv:
-                    break  # end of table
+                    break  # end of data
 
         logger.info('Stage 2 complete in %.1fs.', time.time() - start_time)
 
@@ -311,7 +316,6 @@ class Migrator:
 
     def convert_comp_primary(self, props):
         formname = props['tufo:form']
-        compspec = self.core.getPropInfo(formname, 'fields')
         # logger.debug('convert_comp_primary_property: %s, %s', formname, compspec)
         t = self.core.getPropType(formname)
         members = [x[0] for x in t.fields]
@@ -462,8 +466,6 @@ def main(argv, outp=None):  # pragma: no cover
     p.add_argument('outfile', help='file to dump to')
     p.add_argument('--verbose', '-v', action='count', help='Verbose output')
     p.add_argument('--stage-1', help='Start at stage 2 with stage 1 file')
-    p.add_argument('--limit', action='store', type=int, help='last row number to process', default=None)
-    p.add_argument('--offset', action='store', type=int, help='start offset of row to process', default=0)
     opts = p.parse_args(argv)
 
     if opts.verbose is not None:
@@ -476,8 +478,7 @@ def main(argv, outp=None):  # pragma: no cover
 
     fh = open(opts.outfile, 'wb')
     with s_cortex.openurl(opts.cortex, conf={'caching': True, 'cache:maxsize': 1000000}) as core:
-        m = Migrator(core, fh, tmpdir=opts.soutfile.parent, stage1_fn=opts.stage_1,
-                     offset=opts.offset, limit=opts.limit)
+        m = Migrator(core, fh, tmpdir=pathlib.Path(opts.outfile).parent, stage1_fn=opts.stage_1)
         m.migrate()
     return 0
 
