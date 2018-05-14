@@ -193,6 +193,28 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.get('fqdn'), 'vertex.link')
                 self.eq(node.get('user'), 'unittest')
 
+    def test_download(self):
+        formname = 'inet:download'
+        input_props = {
+            'time': 0,
+            'file': 64 * 'b',
+            'fqdn': 'vertex.link',
+            'client': 'tcp://127.0.0.1:45654',
+            'server': 'tcp://1.2.3.4:80'
+        }
+        expected_props = {  # FIXME fill in src/dst later
+            'time': 0,
+            'file': 64 * 'b',
+            'fqdn': 'vertex.link',
+            'client': 'tcp://127.0.0.1:45654',
+            'server': 'tcp://1.2.3.4:80'
+        }
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, 32 * 'a', props=input_props)
+                self.eq(node.ndef, (formname, 32 * 'a'))
+                [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
+
     def test_flow(self):
         formname = 'inet:flow'
         input_props = {

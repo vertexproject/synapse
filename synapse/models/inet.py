@@ -569,6 +569,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A network client address.'
                     }),
 
+                    ('inet:download', ('guid', {}), {
+                        'doc': 'An instance of a file downloaded from a server.',
+                    }),
+
                     ('inet:net4', ('range', {'type': ('inet:ipv4', {})}), {
                         'doc': 'An IPv4 address range.',
                         'ex': '("1.2.3.4", "1.2.3.20")'
@@ -740,6 +744,56 @@ class InetModule(s_module.CoreModule):
                         #}),
                         ('port', ('inet:port', {}), {
                             'doc': 'The client tcp/udp port.'
+                        }),
+                    )),
+
+                    ('inet:download', {}, (
+                        ('time', ('time', {}), {
+                            'doc': 'The time the file was downloaded.'
+                        }),
+                        ('fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The FQDN used to resolve the server.'
+                        }),
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The file that was downloaded.'
+                        }),
+
+                        ('server', ('inet:server', {}), {
+                            'doc': 'The inet:addr of the server.'
+                        }),
+                        #('server:host', ('it:host', {}), {
+                        #    'doc': 'The it:host node for the server.'
+                        #}),
+                        ('server:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The IPv4 of the server.'
+                        }),
+                        ('server:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The IPv6 of the server.'
+                        }),
+                        ('server:port', ('inet:port', {}), {
+                            'doc': 'The server tcp/udp port.'
+                        }),
+                        ('server:proto', ('str', {'lower': True}), {
+                            'doc': 'The server network layer protocol.'
+                        }),
+
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The inet:addr of the client.'
+                        }),
+                        #('client:host', ('it:host', {}), {
+                        #    'doc': 'The it:host node for the client.'
+                        #}),
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The IPv4 of the client.'
+                        }),
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The IPv6 of the client.'
+                        }),
+                        ('client:port', ('inet:port', {}), {
+                            'doc': 'The client tcp/udp port.'
+                        }),
+                        ('client:proto', ('str', {'lower': True}), {
+                            'doc': 'The client network layer protocol.'
                         }),
                     )),
 

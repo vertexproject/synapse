@@ -1,432 +1,380 @@
 '''
-    @staticmethod
-    def getBaseModels():
-        modl = {
-            'types': (
-
-                TYPES that dont extend builtins =======================================================================
-                # FIXME relies on it model
-                ('inet:http:request', {
-                    'subof': 'guid',
-                    'doc': 'A single client HTTP request.',
-                }),
-
-                # FIXME relies on it model on inet:server
-                ('inet:download', {
-                    'subof': 'guid',
-                    'doc': 'An instance of a file downloaded from a server.',
-                }),
-
-                # FIXME relies on it, tel, geospace model
-                ('inet:iface', {
-                    'subof': 'guid',
-                    'doc': 'A network interface with a set of associated protocol addresses.'}),
-
-                # FIXME relies on inet:web:acct and pv?
-                ('inet:web:chprofile', {
-                    'subof': 'guid',
-                    'doc': 'A change to a web account. Used to capture historical properties associated with '
-                        ' an account, as opposed to current data in the inet:web:acct node.'}),
-
-                TYPES of comp/sepr ====================================================================================
-                ('inet:web:memb', {
-                    'subof': 'comp',
-                    'fields': 'acct,inet:web:acct|group,inet:web:group',
-                    'doc': 'A web account that is a member of a web group.'}),
-
-                ('inet:web:mesg', {
-                    'subof': 'comp',
-                    'fields': 'from,inet:web:acct|to,inet:web:acct|time,time',
-                    'doc': 'A message sent from one web account to another web account.',
-                    'ex': 'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'}),
-
-                ('inet:whois:recns', {
-                    'subof': 'comp',
-                    'fields': 'ns,inet:fqdn|rec,inet:whois:rec',
-                    'doc': 'A nameserver associated with a domain whois record.'}),
-
-                ('inet:whois:contact', {
-                    'subof': 'comp',
-                    'fields': 'rec,inet:whois:rec|type,str:lwr',
-                    'doc': 'An individual contact from a domain whois record.'}),
-
-                ('inet:whois:regmail', {
-                    'subof': 'comp',
-                    'fields': 'fqdn,inet:fqdn|email,inet:email',
-                    'doc': 'An association between a domain and a registrant email address.'}),
-
-                ('inet:http:resphead', {
-                    'subof': 'comp',
-                    'fields': 'response=inet:http:response,header=inet:http:header',
-                    'doc': 'An instance of an HTTP header within a specific HTTP response.',
-                }),
-
-                # needs inet:server
-                ('inet:servfile', {
-                    'subof': 'comp',
-                    'fields': 'server=inet:server,file=file:bytes',
-                    'doc': 'A file hosted on a server for access over a network protocol.',
-                }),
-
-                # Figure out ipv6 range first
-                ('inet:net6', {
-                    'subof': 'sepr',
-                    'sep': '-',
-                    'fields': 'min,inet:ipv6|max,inet:ipv6',
-                    'doc': 'An IPv6 address range.',
-                    'ex': 'ff::00-ff::30'}),
-
-                # Needs inet:tcp4
-                ('inet:ssl:tcp4cert', {
-                    'subof': 'sepr',
-                    'sep': '/',
-                    'fields': 'tcp4,inet:tcp4|cert,file:bytes',
-                    'doc': 'An SSL certificate file served by an IPv4 TCP server.'}),
-
-                TYPES that rely on xrefs ==============================================================================
-                ('inet:web:actref', {
-                    'subof': 'xref',
-                    'source': 'act,inet:web:action',
-                    'doc': 'A web action that references a given node.'}),
-
-                ('inet:web:postref', {
-                    'subof': 'xref',
-                    'source': 'post,inet:web:post',
-                    'doc': 'A web post that references a given node.'}),
-
-                FORMS ==================================================================================================
-                ('inet:servfile', {}, (
-                    ('file', {'ptype': 'file:bytes', 'req': 1, 'ro': 1,
-                        'doc': 'The file hosted by the server.'}),
-                    ('server', {'ptype': 'inet:server', 'req': 1, 'ro': 1,
-                        'doc': 'The inet:addr of the server.'}),
-                    ('server:proto', {'ptype': 'str:lwr', 'ro': 1,
-                        'doc': 'The network protocol of the server.'}),
-                    ('server:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                        'doc': 'The IPv4 of the server.'}),
-                    ('server:ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
-                        'doc': 'The IPv6 of the server.'}),
-                    ('server:host', {'ptype': 'it:host', 'ro': 1,
-                        'doc': 'The it:host node for the server.'}),
-                    ('server:port', {'ptype': 'inet:port',
-                        'doc': 'The server tcp/udp port.'}),
-                    ('seen:min', {'ptype': 'time:min',
-                        'doc': 'The earliest known time file was hosted on the server.'}),
-                    ('seen:max', {'ptype': 'time:max',
-                        'doc': 'The last known time the file was hosted on the server.'}),
-                )),
-
-                ('inet:download', {}, (
-
-                    ('time', {'ptype': 'time',
-                        'doc': 'The time the file was downloaded.'}),
-
-                    ('fqdn', {'ptype': 'inet:fqdn',
-                        'doc': 'The FQDN used to resolve the server.'}),
-
-                    ('file', {'ptype': 'file:bytes',
-                        'doc': 'The file that was downloaded.'}),
-
-                    ('server', {'ptype': 'inet:server',
-                        'doc': 'The inet:addr of the server.'}),
-                    ('server:proto', {'ptype': 'str:lwr',
-                        'doc': 'The server network layer protocol.'}),
-                    ('server:ipv4', {'ptype': 'inet:ipv4',
-                        'doc': 'The IPv4 of the server.'}),
-                    ('server:ipv6', {'ptype': 'inet:ipv6',
-                        'doc': 'The IPv6 of the server.'}),
-                    ('server:host', {'ptype': 'it:host',
-                        'doc': 'The it:host node for the server.'}),
-                    ('server:port', {'ptype': 'inet:port',
-                        'doc': 'The server tcp/udp port.'}),
-
-                    ('client', {'ptype': 'inet:client',
-                        'doc': 'The inet:addr of the client.'}),
-                    ('client:proto', {'ptype': 'str:lwr',
-                        'doc': 'The client network layer protocol.'}),
-                    ('client:ipv4', {'ptype': 'inet:ipv4',
-                        'doc': 'The IPv4 of the client.'}),
-                    ('client:ipv6', {'ptype': 'inet:ipv6',
-                        'doc': 'The IPv6 of the client.'}),
-                    ('client:host', {'ptype': 'it:host',
-                        'doc': 'The it:host node for the client.'}),
-                    ('client:port', {'ptype': 'inet:port',
-                        'doc': 'The client tcp/udp port.'}),
-
-                )),
-
-                ('inet:iface', {}, (
-                    ('latlong', {'ptype': 'geo:latlong',
-                        'doc': 'The last known latitude/longitude for the node'}),
-                    ('host', {'ptype': 'it:host',
-                        'doc': 'The guid of the host the interface is associated with.'}),
-                    ('type', {'ptype': 'str:lwr',
-                        'doc': 'The free-form interface type'}),
-                    ('mac', {'ptype': 'inet:mac',
-                        'doc': 'The ethernet (MAC) address of the interface.'}),
-                    ('ipv4', {'ptype': 'inet:ipv4',
-                        'doc': 'The IPv4 address of the interface.'}),
-                    ('ipv6', {'ptype': 'inet:ipv6',
-                        'doc': 'The IPv6 address of the interface.'}),
-                    ('phone', {'ptype': 'tel:phone',
-                        'doc': 'The telephone number of the interface.'}),
-                    ('wifi:ssid', {'ptype': 'inet:wifi:ssid',
-                        'doc': 'The wifi SSID of the interface.'}),
-                    ('wifi:bssid', {'ptype': 'inet:mac',
-                        'doc': 'The wifi BSSID of the interface.'}),
-                    ('mob:imei', {'ptype': 'tel:mob:imei',
-                        'doc': 'The IMEI of the interface.'}),
-                    ('mob:imsi', {'ptype': 'tel:mob:imsi',
-                        'doc': 'The IMSI of the interface.'}),
-                )),
-
-                ('inet:web:chprofile', {}, [
-                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
-                        'doc': 'The web account associated with the change.'}),
-                    ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1,
-                        'doc': 'The site or service associated with the account.'}),
-                    ('acct:user', {'ptype': 'inet:user', 'ro': 1,
-                        'doc': 'The unique identifier for the account.'}),
-                    ('ipv4', {'ptype': 'inet:ipv4',
-                        'doc': 'The source IPv4 address used to make the account change.'}),
-                    ('ipv6', {'ptype': 'inet:ipv6',
-                        'doc': 'The source IPv6 address used to make the account change.'}),
-                    ('time', {'ptype': 'time',
-                        'doc': 'The date and time when the account change occurred.'}),
-                    ('pv', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
-                        'doc': 'The prop=valu of the account property that was changed. Valu should be '
-                            'the old / original value, while the new value should be updated on the '
-                            'inet:web:acct form.'}),
-                    ('pv:prop', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The property that was changed.'}),
-                    ('pv:intval', {'ptype': 'int', 'ro': 1,
-                        'doc': 'The normed value of the property (specified by pv), if the property is an integer.'}),
-                    ('pv:strval', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The normed value of the property (specified by pv), if the property is a string.'}),
-                ]),
-
-                ('inet:web:actref', {}, [
-                    ('act', {'ptype': 'inet:web:action', 'ro': 1, 'req': 1,
-                        'doc': 'The action that references the given node.'}),
-                    ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
-                        'doc': 'The prop=valu that is referenced as part of the action.'}),
-                    ('xref:prop', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The property (form) of the referenced object, as specified by the propvalu.'}),
-                    ('xref:intval', {'ptype': 'int', 'ro': 1,
-                        'doc': 'The normed value of the form that was referenced, if the value is an integer.'}),
-                    ('xref:strval', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The normed value of the form that was referenced, if the value is a string.'}),
-                ]),
-
-                ('inet:web:postref', {}, [
-                    ('post', {'ptype': 'inet:web:post', 'ro': 1, 'req': 1,
-                        'doc': 'The web post that references the given node.'}),
-                    ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
-                        'doc': 'The prop=valu that is referenced by the post.'}),
-                    ('xref:prop', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The property (form) of the referenced object, as specified by the propvalu.'}),
-                    ('xref:intval', {'ptype': 'int', 'ro': 1,
-                        'doc': 'The normed value of the form that was referenced, if the value is an integer.'}),
-                    ('xref:strval', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The normed value of the form that was referenced, if the value is a string.'}),
-                ]),
-
-                ('inet:web:mesg', {}, [
-                    ('from', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
-                        'doc': 'The web account that sent the message.'}),
-                    ('to', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
-                        'doc': 'The web account that received the message.'}),
-                    ('time', {'ptype': 'time', 'ro': 1, 'req': 1,
-                        'doc': 'The date and time at which the message was sent.'}),
-                    ('url', {'ptype': 'inet:url',
-                        'doc': 'The URL where the message is posted / visible.'}),
-                    ('text', {'ptype': 'str:txt',
-                        'doc': 'The text of the message.'}),
-                    ('file', {'ptype': 'file:bytes',
-                        'doc': 'The file attached to or sent with the message.'}),
-                ]),
-
-                ('inet:web:memb', {}, [
-                    ('acct', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
-                        'doc': 'The account that is a member of the group.'}),
-                    ('group', {'ptype': 'inet:web:group', 'ro': 1, 'req': 1,
-                        'doc': 'The group that the account is a member of.'}),
-                    ('title', {'ptype': 'str:lwr',
-                        'doc': 'The title or status of the member (e.g., admin, new member, etc.).'}),
-                    ('joined', {'ptype': 'time',
-                        'doc': 'The date / time the account joined the group.'}),
-                    ('seen:min', {'ptype': 'time:min',
-                        'doc': 'The earliest known date when the account was a member of the group.'}),
-                    ('seen:max', {'ptype': 'time:max',
-                        'doc': 'The most recent known date when the account was a member of the group.'}),
-                ]),
-
-                ('inet:whois:regmail', {'ptype': 'inet:whois:regmail'}, [
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,
-                        'doc': 'The domain associated with the registrant email address.'}),
-                    ('email', {'ptype': 'inet:email', 'ro': 1, 'req': 1,
-                        'doc': 'The registrant email address associated with the domain.'}),
-                    ('seen:min', {'ptype': 'time:min',
-                        'doc': 'The earliest known date the registrant email was associated with the domain.'}),
-                    ('seen:max', {'ptype': 'time:max',
-                        'doc': 'The most recent known date the registrant email was associated with the domain.'}),
-                ]),
-
-                ('inet:whois:recns', {}, [
-                    ('ns', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,
-                        'doc': 'A nameserver for a domain as listed in the domain whois record.'}),
-                    ('rec', {'ptype': 'inet:whois:rec', 'ro': 1, 'req': 1,
-                        'doc': 'The whois record containing the nameserver data.'}),
-                    ('rec:fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
-                        'doc': 'The domain associated with the whois record.'}),
-                    ('rec:asof', {'ptype': 'time', 'ro': 1,
-                        'doc': 'The date of the whois record.'}),
-                ]),
-
-                ('inet:whois:contact', {}, [
-                    ('rec', {'ptype': 'inet:whois:rec', 'ro': 1, 'req': 1,
-                        'doc': 'The whois record containing the contact data.'}),
-                    ('rec:fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
-                        'doc': 'The domain associated with the whois record.'}),
-                    ('rec:asof', {'ptype': 'time', 'ro': 1,
-                        'doc': 'The date of the whois record.'}),
-                    ('type', {'ptype': 'str:lwr',
-                        'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).'}),
-                    ('id', {'ptype': 'str:lwr',
-                        'doc': 'The ID associated with the contact.'}),
-                    ('name', {'ptype': 'str:lwr',
-                        'doc': 'The name of the contact.'}),
-                    ('email', {'ptype': 'inet:email',
-                        'doc': 'The email address of the contact.'}),
-                    ('orgname', {'ptype': 'ou:name',
-                        'doc': 'The name of the contact organization.'}),
-                    ('address', {'ptype': 'str:lwr',
-                        'doc': 'The content of the street address field(s) of the contract.'}),  # FIXME street address type
-                    ('city', {'ptype': 'str:lwr',
-                        'doc': 'The content of the city field of the contact.'}),
-                    # ('zip',{'ptype':'str:lwr'}),
-                    ('state', {'ptype': 'str:lwr',
-                        'doc': 'The content of the state field of the contact.'}),
-                    ('country', {'ptype': 'pol:iso2',
-                        'doc': 'The two-letter country code of the contact.'}),
-                    ('phone', {'ptype': 'tel:phone',
-                        'doc': 'The content of the phone field of the contact.'}),
-                    ('fax', {'ptype': 'tel:phone',
-                        'doc': 'The content of the fax field of the contact.'}),
-                    ('url', {'ptype': 'inet:url',
-                        'doc': 'The URL specified for the contact'}),
-                    ('whois:fqdn', {'ptype': 'inet:fqdn',
-                        'doc': 'The whois server FQDN for the given contact (most likely a registrar).'}),
-                ]),
-
-                ('inet:ssl:tcp4cert', {'ptype': 'inet:ssl:tcp4cert'}, [
-                    ('tcp4', {'ptype': 'inet:tcp4', 'ro': 1, 'req': 1,  # FIXME make server
-                        'doc': 'The IPv4 TCP server where the certificate was observed.'}),
-                    ('cert', {'ptype': 'file:bytes', 'ro': 1, 'req': 1,
-                        'doc': 'The SSL certificate.'}),
-                    ('tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                        'doc': 'The IPv4 address associated with the TCP server.'}),
-                ]),
-
-                ('inet:http:request', {}, (
-
-                    ('flow', {'ptype': 'inet:flow',
-                        'doc': 'The inet:flow which contained the HTTP request.'}),
-
-                    ('host', {'ptype': 'it:host',
-                        'doc': 'The it:host which sent the HTTP request.'}),
-
-                    ('time', {'ptype': 'time',
-                        'doc': 'The time that the HTTP request was sent.'}),
-
-                    # HTTP protocol specific fields...
-                    ('method', {'ptype': 'str',
-                        'doc': 'The HTTP request method string.'}),
-
-                    ('path', {'ptype': 'str',
-                        'doc': 'The requested HTTP path (without query parameters).'}),
-
-                    ('query', {'ptype': 'str',
-                        'doc': 'The HTTP query string which optionally folows the path.'}),
-
-                    ('body', {'ptype': 'file:bytes',
-                        'doc': 'The body of the HTTP request.'})
-                )),
-
-                ('inet:http:response', {}, (
-
-                    ('flow', {'ptype': 'inet:flow',
-                        'doc': 'The inet:flow which contained the HTTP response.'}),
-
-                    ('host', {'ptype': 'it:host',
-                        'doc': 'The it:host which sent the HTTP response.'}),
-
-                    ('time', {'ptype': 'time',
-                        'doc': 'The time that the HTTP response was sent.'}),
-
-                    ('request', {'ptype': 'inet:http:request',
-                        'doc': 'The HTTP request which caused the response.'}),
-
-                    # HTTP response protocol fields....
-                    ('code', {'ptype': 'int',
-                        'doc': 'The HTTP response code.'}),
-
-                    ('reason', {'ptype': 'str',
-                        'doc': 'The HTTP response reason string.'}),
-
-                    ('body', {'ptype': 'file:bytes',
-                        'doc': 'The HTTP response body data.'}),
-
-                )),
-
-                ('inet:http:header', {}, (
-
-                    ('name', {'ptype': 'str:lwr', 'ro': 1,
-                        'doc': 'The name of the HTTP header.'}),
-
-                    ('value', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The value of the HTTP header.'}),
-                )),
-
-                ('inet:http:param', {}, (
-
-                    ('name', {'ptype': 'str:lwr', 'ro': 1,
-                        'doc': 'The name of the HTTP query parameter.'}),
-
-                    ('value', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The value of the HTTP query parameter.'}),
-                )),
-
-                ('inet:http:reqhead', {}, (
-
-                    ('request', {'ptype': 'inet:http:request', 'ro': 1,
-                        'doc': 'The HTTP request which contained the header.'}),
-
-                    ('header', {'ptype': 'inet:http:header', 'ro': 1,
-                        'doc': 'The HTTP header contained in the request.'}),
-
-                    ('header:name', {'ptype': 'str:lwr', 'ro': 1,
-                        'doc': 'The HTTP header name'}),
-
-                    ('header:value', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The HTTP header value.'}),
-                )),
-
-                ('inet:http:reqparam', {}, (
-
-                    ('request', {'ptype': 'inet:http:request', 'ro': 1,
-                        'doc': 'The HTTP request which contained the header.'}),
-
-                    ('param', {'ptype': 'inet:http:header', 'ro': 1,
-                        'doc': 'The HTTP query parameter contained in the request.'}),
-
-                    ('param:name', {'ptype': 'str:lwr', 'ro': 1,
-                        'doc': 'The HTTP query parameter name'}),
-
-                    ('param:value', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The HTTP query parameter value.'}),
-                )),
-            )
-        }
-
-        return (('inet', modl),)
+TYPES that dont extend builtins =======================================================================
+# FIXME relies on it model
+('inet:http:request', {
+    'subof': 'guid',
+    'doc': 'A single client HTTP request.',
+}),
+
+# FIXME relies on it, tel, geospace model
+('inet:iface', {
+    'subof': 'guid',
+    'doc': 'A network interface with a set of associated protocol addresses.'}),
+
+# FIXME relies on inet:web:acct and pv?
+('inet:web:chprofile', {
+    'subof': 'guid',
+    'doc': 'A change to a web account. Used to capture historical properties associated with '
+        ' an account, as opposed to current data in the inet:web:acct node.'}),
+
+TYPES of comp/sepr ====================================================================================
+('inet:web:memb', {
+    'subof': 'comp',
+    'fields': 'acct,inet:web:acct|group,inet:web:group',
+    'doc': 'A web account that is a member of a web group.'}),
+
+('inet:web:mesg', {
+    'subof': 'comp',
+    'fields': 'from,inet:web:acct|to,inet:web:acct|time,time',
+    'doc': 'A message sent from one web account to another web account.',
+    'ex': 'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'}),
+
+('inet:whois:recns', {
+    'subof': 'comp',
+    'fields': 'ns,inet:fqdn|rec,inet:whois:rec',
+    'doc': 'A nameserver associated with a domain whois record.'}),
+
+('inet:whois:contact', {
+    'subof': 'comp',
+    'fields': 'rec,inet:whois:rec|type,str:lwr',
+    'doc': 'An individual contact from a domain whois record.'}),
+
+('inet:whois:regmail', {
+    'subof': 'comp',
+    'fields': 'fqdn,inet:fqdn|email,inet:email',
+    'doc': 'An association between a domain and a registrant email address.'}),
+
+('inet:http:resphead', {
+    'subof': 'comp',
+    'fields': 'response=inet:http:response,header=inet:http:header',
+    'doc': 'An instance of an HTTP header within a specific HTTP response.',
+}),
+
+# needs inet:server
+('inet:servfile', {
+    'subof': 'comp',
+    'fields': 'server=inet:server,file=file:bytes',
+    'doc': 'A file hosted on a server for access over a network protocol.',
+}),
+
+# Figure out ipv6 range first
+('inet:net6', {
+    'subof': 'sepr',
+    'sep': '-',
+    'fields': 'min,inet:ipv6|max,inet:ipv6',
+    'doc': 'An IPv6 address range.',
+    'ex': 'ff::00-ff::30'}),
+
+# Needs inet:tcp4
+('inet:ssl:tcp4cert', {
+    'subof': 'sepr',
+    'sep': '/',
+    'fields': 'tcp4,inet:tcp4|cert,file:bytes',
+    'doc': 'An SSL certificate file served by an IPv4 TCP server.'}),
+
+TYPES that rely on xrefs ==============================================================================
+('inet:web:actref', {
+    'subof': 'xref',
+    'source': 'act,inet:web:action',
+    'doc': 'A web action that references a given node.'}),
+
+('inet:web:postref', {
+    'subof': 'xref',
+    'source': 'post,inet:web:post',
+    'doc': 'A web post that references a given node.'}),
+
+FORMS ==================================================================================================
+('inet:servfile', {}, (
+    ('file', {'ptype': 'file:bytes', 'req': 1, 'ro': 1,
+        'doc': 'The file hosted by the server.'}),
+    ('server', {'ptype': 'inet:server', 'req': 1, 'ro': 1,
+        'doc': 'The inet:addr of the server.'}),
+    ('server:proto', {'ptype': 'str:lwr', 'ro': 1,
+        'doc': 'The network protocol of the server.'}),
+    ('server:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
+        'doc': 'The IPv4 of the server.'}),
+    ('server:ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
+        'doc': 'The IPv6 of the server.'}),
+    ('server:host', {'ptype': 'it:host', 'ro': 1,
+        'doc': 'The it:host node for the server.'}),
+    ('server:port', {'ptype': 'inet:port',
+        'doc': 'The server tcp/udp port.'}),
+    ('seen:min', {'ptype': 'time:min',
+        'doc': 'The earliest known time file was hosted on the server.'}),
+    ('seen:max', {'ptype': 'time:max',
+        'doc': 'The last known time the file was hosted on the server.'}),
+)),
+
+
+('inet:iface', {}, (
+    ('latlong', {'ptype': 'geo:latlong',
+        'doc': 'The last known latitude/longitude for the node'}),
+    ('host', {'ptype': 'it:host',
+        'doc': 'The guid of the host the interface is associated with.'}),
+    ('type', {'ptype': 'str:lwr',
+        'doc': 'The free-form interface type'}),
+    ('mac', {'ptype': 'inet:mac',
+        'doc': 'The ethernet (MAC) address of the interface.'}),
+    ('ipv4', {'ptype': 'inet:ipv4',
+        'doc': 'The IPv4 address of the interface.'}),
+    ('ipv6', {'ptype': 'inet:ipv6',
+        'doc': 'The IPv6 address of the interface.'}),
+    ('phone', {'ptype': 'tel:phone',
+        'doc': 'The telephone number of the interface.'}),
+    ('wifi:ssid', {'ptype': 'inet:wifi:ssid',
+        'doc': 'The wifi SSID of the interface.'}),
+    ('wifi:bssid', {'ptype': 'inet:mac',
+        'doc': 'The wifi BSSID of the interface.'}),
+    ('mob:imei', {'ptype': 'tel:mob:imei',
+        'doc': 'The IMEI of the interface.'}),
+    ('mob:imsi', {'ptype': 'tel:mob:imsi',
+        'doc': 'The IMSI of the interface.'}),
+)),
+
+('inet:web:chprofile', {}, [
+    ('acct', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
+        'doc': 'The web account associated with the change.'}),
+    ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1,
+        'doc': 'The site or service associated with the account.'}),
+    ('acct:user', {'ptype': 'inet:user', 'ro': 1,
+        'doc': 'The unique identifier for the account.'}),
+    ('ipv4', {'ptype': 'inet:ipv4',
+        'doc': 'The source IPv4 address used to make the account change.'}),
+    ('ipv6', {'ptype': 'inet:ipv6',
+        'doc': 'The source IPv6 address used to make the account change.'}),
+    ('time', {'ptype': 'time',
+        'doc': 'The date and time when the account change occurred.'}),
+    ('pv', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
+        'doc': 'The prop=valu of the account property that was changed. Valu should be '
+            'the old / original value, while the new value should be updated on the '
+            'inet:web:acct form.'}),
+    ('pv:prop', {'ptype': 'str', 'ro': 1,
+        'doc': 'The property that was changed.'}),
+    ('pv:intval', {'ptype': 'int', 'ro': 1,
+        'doc': 'The normed value of the property (specified by pv), if the property is an integer.'}),
+    ('pv:strval', {'ptype': 'str', 'ro': 1,
+        'doc': 'The normed value of the property (specified by pv), if the property is a string.'}),
+]),
+
+('inet:web:actref', {}, [
+    ('act', {'ptype': 'inet:web:action', 'ro': 1, 'req': 1,
+        'doc': 'The action that references the given node.'}),
+    ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
+        'doc': 'The prop=valu that is referenced as part of the action.'}),
+    ('xref:prop', {'ptype': 'str', 'ro': 1,
+        'doc': 'The property (form) of the referenced object, as specified by the propvalu.'}),
+    ('xref:intval', {'ptype': 'int', 'ro': 1,
+        'doc': 'The normed value of the form that was referenced, if the value is an integer.'}),
+    ('xref:strval', {'ptype': 'str', 'ro': 1,
+        'doc': 'The normed value of the form that was referenced, if the value is a string.'}),
+]),
+
+('inet:web:postref', {}, [
+    ('post', {'ptype': 'inet:web:post', 'ro': 1, 'req': 1,
+        'doc': 'The web post that references the given node.'}),
+    ('xref', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
+        'doc': 'The prop=valu that is referenced by the post.'}),
+    ('xref:prop', {'ptype': 'str', 'ro': 1,
+        'doc': 'The property (form) of the referenced object, as specified by the propvalu.'}),
+    ('xref:intval', {'ptype': 'int', 'ro': 1,
+        'doc': 'The normed value of the form that was referenced, if the value is an integer.'}),
+    ('xref:strval', {'ptype': 'str', 'ro': 1,
+        'doc': 'The normed value of the form that was referenced, if the value is a string.'}),
+]),
+
+('inet:web:mesg', {}, [
+    ('from', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
+        'doc': 'The web account that sent the message.'}),
+    ('to', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
+        'doc': 'The web account that received the message.'}),
+    ('time', {'ptype': 'time', 'ro': 1, 'req': 1,
+        'doc': 'The date and time at which the message was sent.'}),
+    ('url', {'ptype': 'inet:url',
+        'doc': 'The URL where the message is posted / visible.'}),
+    ('text', {'ptype': 'str:txt',
+        'doc': 'The text of the message.'}),
+    ('file', {'ptype': 'file:bytes',
+        'doc': 'The file attached to or sent with the message.'}),
+]),
+
+('inet:web:memb', {}, [
+    ('acct', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
+        'doc': 'The account that is a member of the group.'}),
+    ('group', {'ptype': 'inet:web:group', 'ro': 1, 'req': 1,
+        'doc': 'The group that the account is a member of.'}),
+    ('title', {'ptype': 'str:lwr',
+        'doc': 'The title or status of the member (e.g., admin, new member, etc.).'}),
+    ('joined', {'ptype': 'time',
+        'doc': 'The date / time the account joined the group.'}),
+    ('seen:min', {'ptype': 'time:min',
+        'doc': 'The earliest known date when the account was a member of the group.'}),
+    ('seen:max', {'ptype': 'time:max',
+        'doc': 'The most recent known date when the account was a member of the group.'}),
+]),
+
+('inet:whois:regmail', {'ptype': 'inet:whois:regmail'}, [
+    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,
+        'doc': 'The domain associated with the registrant email address.'}),
+    ('email', {'ptype': 'inet:email', 'ro': 1, 'req': 1,
+        'doc': 'The registrant email address associated with the domain.'}),
+    ('seen:min', {'ptype': 'time:min',
+        'doc': 'The earliest known date the registrant email was associated with the domain.'}),
+    ('seen:max', {'ptype': 'time:max',
+        'doc': 'The most recent known date the registrant email was associated with the domain.'}),
+]),
+
+('inet:whois:recns', {}, [
+    ('ns', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,
+        'doc': 'A nameserver for a domain as listed in the domain whois record.'}),
+    ('rec', {'ptype': 'inet:whois:rec', 'ro': 1, 'req': 1,
+        'doc': 'The whois record containing the nameserver data.'}),
+    ('rec:fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
+        'doc': 'The domain associated with the whois record.'}),
+    ('rec:asof', {'ptype': 'time', 'ro': 1,
+        'doc': 'The date of the whois record.'}),
+]),
+
+('inet:whois:contact', {}, [
+    ('rec', {'ptype': 'inet:whois:rec', 'ro': 1, 'req': 1,
+        'doc': 'The whois record containing the contact data.'}),
+    ('rec:fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
+        'doc': 'The domain associated with the whois record.'}),
+    ('rec:asof', {'ptype': 'time', 'ro': 1,
+        'doc': 'The date of the whois record.'}),
+    ('type', {'ptype': 'str:lwr',
+        'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).'}),
+    ('id', {'ptype': 'str:lwr',
+        'doc': 'The ID associated with the contact.'}),
+    ('name', {'ptype': 'str:lwr',
+        'doc': 'The name of the contact.'}),
+    ('email', {'ptype': 'inet:email',
+        'doc': 'The email address of the contact.'}),
+    ('orgname', {'ptype': 'ou:name',
+        'doc': 'The name of the contact organization.'}),
+    ('address', {'ptype': 'str:lwr',
+        'doc': 'The content of the street address field(s) of the contract.'}),  # FIXME street address type
+    ('city', {'ptype': 'str:lwr',
+        'doc': 'The content of the city field of the contact.'}),
+    # ('zip',{'ptype':'str:lwr'}),
+    ('state', {'ptype': 'str:lwr',
+        'doc': 'The content of the state field of the contact.'}),
+    ('country', {'ptype': 'pol:iso2',
+        'doc': 'The two-letter country code of the contact.'}),
+    ('phone', {'ptype': 'tel:phone',
+        'doc': 'The content of the phone field of the contact.'}),
+    ('fax', {'ptype': 'tel:phone',
+        'doc': 'The content of the fax field of the contact.'}),
+    ('url', {'ptype': 'inet:url',
+        'doc': 'The URL specified for the contact'}),
+    ('whois:fqdn', {'ptype': 'inet:fqdn',
+        'doc': 'The whois server FQDN for the given contact (most likely a registrar).'}),
+]),
+
+('inet:ssl:tcp4cert', {'ptype': 'inet:ssl:tcp4cert'}, [
+    ('tcp4', {'ptype': 'inet:tcp4', 'ro': 1, 'req': 1,  # FIXME make server
+        'doc': 'The IPv4 TCP server where the certificate was observed.'}),
+    ('cert', {'ptype': 'file:bytes', 'ro': 1, 'req': 1,
+        'doc': 'The SSL certificate.'}),
+    ('tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
+        'doc': 'The IPv4 address associated with the TCP server.'}),
+]),
+
+('inet:http:request', {}, (
+
+    ('flow', {'ptype': 'inet:flow',
+        'doc': 'The inet:flow which contained the HTTP request.'}),
+
+    ('host', {'ptype': 'it:host',
+        'doc': 'The it:host which sent the HTTP request.'}),
+
+    ('time', {'ptype': 'time',
+        'doc': 'The time that the HTTP request was sent.'}),
+
+    # HTTP protocol specific fields...
+    ('method', {'ptype': 'str',
+        'doc': 'The HTTP request method string.'}),
+
+    ('path', {'ptype': 'str',
+        'doc': 'The requested HTTP path (without query parameters).'}),
+
+    ('query', {'ptype': 'str',
+        'doc': 'The HTTP query string which optionally folows the path.'}),
+
+    ('body', {'ptype': 'file:bytes',
+        'doc': 'The body of the HTTP request.'})
+)),
+
+('inet:http:response', {}, (
+
+    ('flow', {'ptype': 'inet:flow',
+        'doc': 'The inet:flow which contained the HTTP response.'}),
+
+    ('host', {'ptype': 'it:host',
+        'doc': 'The it:host which sent the HTTP response.'}),
+
+    ('time', {'ptype': 'time',
+        'doc': 'The time that the HTTP response was sent.'}),
+
+    ('request', {'ptype': 'inet:http:request',
+        'doc': 'The HTTP request which caused the response.'}),
+
+    # HTTP response protocol fields....
+    ('code', {'ptype': 'int',
+        'doc': 'The HTTP response code.'}),
+
+    ('reason', {'ptype': 'str',
+        'doc': 'The HTTP response reason string.'}),
+
+    ('body', {'ptype': 'file:bytes',
+        'doc': 'The HTTP response body data.'}),
+
+)),
+
+('inet:http:header', {}, (
+
+    ('name', {'ptype': 'str:lwr', 'ro': 1,
+        'doc': 'The name of the HTTP header.'}),
+
+    ('value', {'ptype': 'str', 'ro': 1,
+        'doc': 'The value of the HTTP header.'}),
+)),
+
+('inet:http:param', {}, (
+
+    ('name', {'ptype': 'str:lwr', 'ro': 1,
+        'doc': 'The name of the HTTP query parameter.'}),
+
+    ('value', {'ptype': 'str', 'ro': 1,
+        'doc': 'The value of the HTTP query parameter.'}),
+)),
+
+('inet:http:reqhead', {}, (
+
+    ('request', {'ptype': 'inet:http:request', 'ro': 1,
+        'doc': 'The HTTP request which contained the header.'}),
+
+    ('header', {'ptype': 'inet:http:header', 'ro': 1,
+        'doc': 'The HTTP header contained in the request.'}),
+
+    ('header:name', {'ptype': 'str:lwr', 'ro': 1,
+        'doc': 'The HTTP header name'}),
+
+    ('header:value', {'ptype': 'str', 'ro': 1,
+        'doc': 'The HTTP header value.'}),
+)),
+
+('inet:http:reqparam', {}, (
+
+    ('request', {'ptype': 'inet:http:request', 'ro': 1,
+        'doc': 'The HTTP request which contained the header.'}),
+
+    ('param', {'ptype': 'inet:http:header', 'ro': 1,
+        'doc': 'The HTTP query parameter contained in the request.'}),
+
+    ('param:name', {'ptype': 'str:lwr', 'ro': 1,
+        'doc': 'The HTTP query parameter name'}),
+
+    ('param:value', {'ptype': 'str', 'ro': 1,
+        'doc': 'The HTTP query parameter value.'}),
+)),
+'''
