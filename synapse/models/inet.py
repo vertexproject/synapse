@@ -412,13 +412,21 @@ class InetModule(s_module.CoreModule):
             node.set('zone', fqdn)
             return
 
-        # we are *not* a zone and were...
+        # we are not a zone...
+
         domain = node.get('domain')
         if not domain:
-            node.set('zone', None)
+            node.delete('zone')
+            return
 
         parent = node.snap.getNodeByNdef(('inet:fqdn', domain))
-        node.set('zone', parent.get('zone'))
+
+        zone = parent.get('zone')
+        if zone is None:
+            node.delete('zone')
+            return
+
+        node.set('zone', zone)
 
     def _onSetFqdnZone(self, node, oldv):
 

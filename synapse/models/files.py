@@ -51,6 +51,9 @@ class FilePath(s_types.Type):
 
     def _normPyStr(self, valu):
 
+        if len(valu) == 0:
+            return '', {}
+
         lead = ''
         if valu[0] == '/':
             lead = '/'
@@ -106,37 +109,40 @@ class FileBytes(s_types.Type):
             # we're ok with un-adorned sha256s
             if len(valu) == 64 and s_common.uhex(valu):
                 valu = valu.lower()
-                return f'sha256:{valu}', {}
+                subs = {'sha256': valu}
+                return f'sha256:{valu}', {'subs': subs}
 
             raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
-        kind, valu = valu.split(':')
+        kind, kval = valu.split(':', 1)
 
         if kind == 'base64':
-            byts = base64.b64decode(valu)
+            byts = base64.b64decode(kval)
             return self._normPyBytes(byts)
 
-        valu = valu.lower()
+        kval = kval.lower()
 
         if kind == 'hex':
-            byts = s_common.uhex(valu)
+            byts = s_common.uhex(kval)
             return self._normPyBytes(byts)
 
         if kind == 'guid':
 
-            valu = valu.lower()
-            if not s_common.isguid(valu):
+            kval = kval.lower()
+            if not s_common.isguid(kval):
                 raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
-            return f'guid:{valu}', {}
+            return f'guid:{kval}', {}
 
         if kind == 'sha256':
 
-            if len(valu) != 64:
+            if len(kval) != 64:
                 raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
-            s_common.uhex(valu)
-            return f'sha256:{valu}', {}
+            s_common.uhex(kval)
+
+            subs = {'sha256': kval}
+            return f'sha256:{kval}', {'subs': subs}
 
         raise s_exc.BadTypeValu(name=self.name, valu=valu)
 

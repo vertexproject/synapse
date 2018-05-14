@@ -110,6 +110,7 @@ class Snap(s_eventbus.EventBus):
         self.fire('print', mesg=mesg)
 
     def warn(self, mesg, **info):
+        logger.warning(mesg)
         self.fire('warn', mesg=mesg, **info)
 
     def getNodeByBuid(self, buid):
@@ -459,7 +460,7 @@ class Snap(s_eventbus.EventBus):
             #self.bulk = True
             #self.bulksops = []
 
-        yield
+        yield None
 
         #if mine:
             #self.bulk = False
