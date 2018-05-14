@@ -560,6 +560,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A network client address.'
                     }),
 
+                    ('inet:server', ('inet:addr', {}), {
+                        'doc': 'A network server address.'
+                    }),
+
                     ('inet:asn', ('int', {}), {
                         'doc': 'An Autonomous System Number (ASN).'
                     }),
@@ -665,6 +669,29 @@ class InetModule(s_module.CoreModule):
                 # NOTE: tcp4/udp4/tcp6/udp6 are going away
                 # becomes inet:server/inet:client, which are both inet:addr
                 'forms': (
+
+                    ('inet:server', {}, (
+                        ('proto', ('str', {'lower': True}), {
+                            'ro': 1,
+                            'doc': 'The network protocol of the server.'
+                        }),
+                        ('ipv4', ('inet:ipv4', {}), {
+                            'ro': 1,
+                            'doc': 'The IPv4 of the server.'
+                        }),
+                        ('ipv6', ('inet:ipv6', {}), {
+                            'ro': 1,
+                            'doc': 'The IPv6 of the server.'
+                        }),
+                        # FIXME port it:host
+                        #('host', ('it:host', {}), {
+                        #    'ro': 1,
+                        #    'doc': 'The it:host node for the server.'
+                        #}),
+                        ('port', ('inet:port', {}), {
+                            'doc': 'The server tcp/udp port.'
+                        }),
+                    )),
 
                     ('inet:client', {}, (
                         ('proto', ('str', {'lower': True}), {

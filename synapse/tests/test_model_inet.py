@@ -77,34 +77,32 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm('host://vertex.link:1337'), (f'host://{hstr}:1337', {'subs': {'host': hstr, 'port': 1337}}))
             self.raises(OSError, t.norm, 'vertex.link')  # must use host proto
 
-    def test_client(self):
-        formname = 'inet:client'
+    def test_client_server(self):
+        data = (
+            ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
+                'ipv4': 2130706433,
+                'port': 12345
+            }),
+            ('tcp://127.0.0.1', 'tcp://127.0.0.1', {
+                'ipv4': 2130706433,
+            }),
+            ('tcp://[::1]:12345', 'tcp://[::1]:12345', {
+                'ipv6': '::1',
+                'port': 12345
+            }),
+            ('host://vertex.link:12345', 'host://ffa3e574aa219e553e1b2fc1ccd0180f:12345', {
+                #'host': 'ffa3e574aa219e553e1b2fc1ccd0180f',  # FIXME add it:host
+                'port': 12345
+            }),
+        )
+
         with self.getTestCore() as core:
-
             with core.xact(write=True) as xact:
-
-                data = (
-                    ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
-                        'ipv4': 2130706433,
-                        'port': 12345
-                    }),
-                    ('tcp://127.0.0.1', 'tcp://127.0.0.1', {
-                        'ipv4': 2130706433,
-                    }),
-                    ('tcp://[::1]:12345', 'tcp://[::1]:12345', {
-                        'ipv6': '::1',
-                        'port': 12345
-                    }),
-                    ('host://vertex.link:12345', 'host://ffa3e574aa219e553e1b2fc1ccd0180f:12345', {
-                        #'host': 'ffa3e574aa219e553e1b2fc1ccd0180f',  # FIXME add it:host
-                        'port': 12345
-                    }),
-                )
-
-                for valu, expected_valu, expected_props in data:
-                    node = xact.addNode(formname, valu)
-                    self.eq(node.ndef, (formname, expected_valu))
-                    [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
+                for formname in ('inet:client', 'inet:server'):
+                    for valu, expected_valu, expected_props in data:
+                        node = xact.addNode(formname, valu)
+                        self.eq(node.ndef, (formname, expected_valu))
+                        [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
 
     def test_asn(self):
         formname = 'inet:asn'

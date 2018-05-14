@@ -102,10 +102,6 @@
 
                 TYPES that require ctor implementations ===============================================================
                 TYPES that rely on ctor implementations ===============================================================
-                ('inet:server', {
-                    'subof': 'inet:addr',
-                    'doc': 'A network server address.'}),
-
                 # FIXME becoming inet:client/inet:server
                 ('inet:tcp4', {
                     'subof': 'inet:srv4',
@@ -128,18 +124,6 @@
 
                 FORMS ==================================================================================================
 
-                ('inet:server', {}, (
-                    ('proto', {'ptype': 'str:lwr', 'ro': 1,
-                        'doc': 'The network protocol of the server.'}),
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                        'doc': 'The IPv4 of the server.'}),
-                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
-                        'doc': 'The IPv6 of the server.'}),
-                    ('host', {'ptype': 'it:host', 'ro': 1,
-                        'doc': 'The it:host node for the server.'}),
-                    ('port', {'ptype': 'inet:port',
-                        'doc': 'The server tcp/udp port.'}),
-                )),
 
                 ('inet:servfile', {}, (
                     ('file', {'ptype': 'file:bytes', 'req': 1, 'ro': 1,
