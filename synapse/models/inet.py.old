@@ -106,10 +106,6 @@
                     'subof': 'inet:addr',
                     'doc': 'A network server address.'}),
 
-                ('inet:client', {
-                    'subof': 'inet:addr',
-                    'doc': 'A network client address.'}),
-
                 # FIXME becoming inet:client/inet:server
                 ('inet:tcp4', {
                     'subof': 'inet:srv4',
@@ -143,19 +139,6 @@
                         'doc': 'The it:host node for the server.'}),
                     ('port', {'ptype': 'inet:port',
                         'doc': 'The server tcp/udp port.'}),
-                )),
-
-                ('inet:client', {}, (
-                    ('proto', {'ptype': 'str:lwr', 'ro': 1,
-                        'doc': 'The network protocol of the client.'}),
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                        'doc': 'The IPv4 of the client.'}),
-                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
-                        'doc': 'The IPv6 of the client.'}),
-                    ('host', {'ptype': 'it:host', 'ro': 1,
-                        'doc': 'The it:host node for the client.'}),
-                    ('port', {'ptype': 'inet:port',
-                        'doc': 'The client tcp/udp port.'}),
                 )),
 
                 ('inet:servfile', {}, (

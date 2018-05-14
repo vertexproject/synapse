@@ -26,6 +26,9 @@ class Addr(s_types.Type):
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
 
+    def indx(self, norm):
+        return norm.encode('utf-8')
+
     def _getPort(self, valu):
         port = None
         parts = valu.split(':', 1)
@@ -553,6 +556,10 @@ class InetModule(s_module.CoreModule):
 
                 'types': (
 
+                    ('inet:client', ('inet:addr', {}), {
+                        'doc': 'A network client address.'
+                    }),
+
                     ('inet:asn', ('int', {}), {
                         'doc': 'An Autonomous System Number (ASN).'
                     }),
@@ -659,7 +666,30 @@ class InetModule(s_module.CoreModule):
                 # becomes inet:server/inet:client, which are both inet:addr
                 'forms': (
 
-                    ('inet:asn', ('inet:asn', {}), (
+                    ('inet:client', {}, (
+                        ('proto', ('str', {'lower': True}), {
+                            'ro': 1,
+                            'doc': 'The network protocol of the client.'
+                        }),
+                        ('ipv4', ('inet:ipv4', {}), {
+                            'ro': 1,
+                            'doc': 'The IPv4 of the client.'
+                        }),
+                        ('ipv6', ('inet:ipv6', {}), {
+                            'ro': 1,
+                            'doc': 'The IPv6 of the client.'
+                        }),
+                        # FIXME port it:host
+                        #('host', ('it:host', {}), {
+                        #    'ro': 1,
+                        #    'doc': 'The it:host node for the client.'
+                        #}),
+                        ('port', ('inet:port', {}), {
+                            'doc': 'The client tcp/udp port.'
+                        }),
+                    )),
+
+                    ('inet:asn', {}, (
                         ('name', ('str', {'lower': True}), {
                             'defval': '??',
                             'doc': 'The name of the organization currently responsible for the ASN.'
@@ -669,7 +699,7 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    ('inet:asnet4', ('inet:asnet4', {}), (
+                    ('inet:asnet4', {}, (
                         ('asn', ('inet:asn', {}), {
                             'ro': 1,
                             'doc': 'The Autonomous System Number (ASN) of the netblock.'
