@@ -81,7 +81,6 @@
                     'doc': 'An IPv6 address range.',
                     'ex': 'ff::00-ff::30'}),
 
-
                 # Needs inet:tcp4
                 ('inet:ssl:tcp4cert', {
                     'subof': 'sepr',
@@ -102,10 +101,6 @@
 
                 TYPES that require ctor implementations ===============================================================
                 TYPES that rely on ctor implementations ===============================================================
-                # FIXME becoming inet:client/inet:server
-                ('inet:tcp4', {
-                    'subof': 'inet:srv4',
-                    'doc': 'A TCP server listening on an IPv4 address and port.'}),
 
                 # FIXME becoming inet:client/inet:server
                 ('inet:udp4', {
@@ -186,14 +181,6 @@
                 )),
 
                 # FIXME becoming inet:client/inet:server
-                ('inet:tcp4', {'ptype': 'inet:srv4'}, [
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                        'doc': 'The IPv4 address of the TCP server.'}),
-                    ('port', {'ptype': 'inet:port', 'ro': 1,
-                        'doc': 'The port of the IPv4 TCP server.'}),
-                ]),
-
-                # FIXME becoming inet:client/inet:server
                 ('inet:udp4', {'ptype': 'inet:srv4'}, [
                     ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
                         'doc': 'The IPv4 address of the UDP server.'}),
@@ -232,7 +219,7 @@
                     ('dst:txbytes', {'ptype': 'int',
                         'doc': 'The number of bytes sent by the destination host / process / file.'}),
 
-                    ('dst:tcp4', {'ptype': 'inet:tcp4',
+                    ('dst:tcp4', {'ptype': 'inet:tcp4',  # FIXME make server
                         'doc': 'The destination IPv4 address / port for an IPv4 TCP connection.'}),
                     ('dst:tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
                         'doc': 'The destination IPv4 address.'}),
@@ -269,7 +256,7 @@
                     ('src:txbytes', {'ptype': 'int',
                         'doc': 'The number of bytes sent by the source host / process / file.'}),
 
-                    ('src:tcp4', {'ptype': 'inet:tcp4',
+                    ('src:tcp4', {'ptype': 'inet:tcp4',  # FIXME make client
                         'doc': 'The source IPv4 address / port for an IPv4 TCP connection.'}),
                     ('src:tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
                         'doc': 'The source IPv4 address.'}),
@@ -466,7 +453,7 @@
                 ]),
 
                 ('inet:ssl:tcp4cert', {'ptype': 'inet:ssl:tcp4cert'}, [
-                    ('tcp4', {'ptype': 'inet:tcp4', 'ro': 1, 'req': 1,
+                    ('tcp4', {'ptype': 'inet:tcp4', 'ro': 1, 'req': 1,  # FIXME make server
                         'doc': 'The IPv4 TCP server where the certificate was observed.'}),
                     ('cert', {'ptype': 'file:bytes', 'ro': 1, 'req': 1,
                         'doc': 'The SSL certificate.'}),

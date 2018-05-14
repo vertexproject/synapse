@@ -597,97 +597,6 @@ class InetModelTest(s_t_common.SynTest):
 
 class FIXME:
 
-    def test_model_inet_srv4_types(self):
-        with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:tcp4', '8.8.8.8:80')
-
-            form, pprop = s_tufo.ndef(t0)
-            self.eq(pprop, 8830587502672)
-            self.eq(t0[1].get('inet:tcp4:port'), 80)
-            self.eq(t0[1].get('inet:tcp4:ipv4'), core.getTypeNorm('inet:ipv4', '8.8.8.8')[0])
-
-            # 1.2.3.4:8443
-            t1 = core.formTufoByProp('inet:tcp4', 1108152164603)
-            self.eq(t1[1].get('inet:tcp4:port'), 8443)
-            self.eq(t1[1].get('inet:tcp4:ipv4'), core.getTypeNorm('inet:ipv4', '1.2.3.4')[0])
-
-            t2 = core.formTufoByProp('inet:udp4', '8.8.8.8:80')
-
-            form, pprop = s_tufo.ndef(t2)
-            self.eq(pprop, 8830587502672)
-            self.eq(t2[1].get('inet:udp4:port'), 80)
-            self.eq(t2[1].get('inet:udp4:ipv4'), core.getTypeNorm('inet:ipv4', '8.8.8.8')[0])
-
-            # 1.2.3.4:8443
-            t3 = core.formTufoByProp('inet:udp4', 1108152164603)
-            self.eq(t3[1].get('inet:udp4:port'), 8443)
-            self.eq(t3[1].get('inet:udp4:ipv4'), core.getTypeNorm('inet:ipv4', '1.2.3.4')[0])
-
-            # 1.2.3.4:8443
-            t4 = core.formTufoByProp('inet:udp4', '1108152164603')
-            self.eq(t4[1].get('inet:udp4:port'), 8443)
-            self.eq(t4[1].get('inet:udp4:ipv4'), core.getTypeNorm('inet:ipv4', '1.2.3.4')[0])
-
-            # Ensure boundaries are observed
-
-            for i in ['0', 0, '0.0.0.0:0']:
-                valu, subs = core.getTypeNorm('inet:srv4', i)
-                self.eq(valu, 0)
-                self.eq(subs.get('port'), 0)
-                self.eq(subs.get('ipv4'), 0)
-
-            for i in ['281474976710655', 281474976710655, '255.255.255.255:65535']:
-                valu, subs = core.getTypeNorm('inet:srv4', i)
-                self.eq(valu, 281474976710655)
-                self.eq(subs.get('port'), 0xFFFF)
-                self.eq(subs.get('ipv4'), 0xFFFFFFFF)
-
-            # Repr works as expected
-            self.eq(core.getTypeRepr('inet:srv4', 0), '0.0.0.0:0')
-            self.eq(core.getTypeRepr('inet:srv4', 1108152164603), '1.2.3.4:8443')
-            self.eq(core.getTypeRepr('inet:srv4', 281474976710655), '255.255.255.255:65535')
-
-            # Ensure bad input fails
-            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', '281474976710656')
-            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', 281474976710656)
-            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', '255.255.255.255:65536')
-            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', '255.255.255.255:-1')
-            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', -1)
-            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', '-1')
-            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', 'ruh roh')
-            self.raises(s_exc.BadTypeValu, core.getTypeNorm, 'inet:srv4', '1.2.3.4:8080:9090')
-
-    def test_model_inet_srv6_types(self):
-        with self.getRamCore() as core:
-            t0 = core.formTufoByProp('inet:tcp6', '[0:0:0:0:0:0:0:1]:80')
-
-            form, pprop = s_tufo.ndef(t0)
-            self.eq(pprop, '[::1]:80')
-            self.eq(t0[1].get('inet:tcp6:port'), 80)
-            self.eq(t0[1].get('inet:tcp6:ipv6'), '::1')
-
-            t1 = core.formTufoByProp('inet:tcp6', '[0:0:0:0:0:3:2:1]:443')
-
-            form, pprop = s_tufo.ndef(t1)
-            self.eq(pprop, '[::3:2:1]:443')
-            self.eq(t1[1].get('inet:tcp6:port'), 443)
-            self.eq(t1[1].get('inet:tcp6:ipv6'), '::3:2:1')
-
-            t2 = core.formTufoByProp('inet:udp6', '[0:0:0:0:0:3:2:1]:5000')
-
-            form, pprop = s_tufo.ndef(t2)
-            self.eq(pprop, '[::3:2:1]:5000')
-            self.eq(t2[1].get('inet:udp6:port'), 5000)
-            self.eq(t2[1].get('inet:udp6:ipv6'), '::3:2:1')
-
-            self.eq(core.getTypeRepr('inet:tcp6', '[0:0:0:0:0:0:0:1]:80'), '[::1]:80')
-            self.eq(core.getTypeRepr('inet:tcp6', '[::1]:80'), '[::1]:80')
-            self.eq(core.getTypeRepr('inet:tcp6', '[0:0:0:0:0:3:2:1]:5000'), '[::3:2:1]:5000')
-
-    def test_model_inet_cast_defang(self):
-        with self.getRamCore() as core:
-            self.eq(core.getTypeCast('inet:defang', '1[.]2[.]3[.]4'), '1.2.3.4')
-
     def test_model_inet_whoisemail(self):
         with self.getRamCore() as core:
             node = core.formTufoByProp('inet:whois:regmail', ('WOOT.COM', 'visi@vertex.LINK'))
@@ -1077,5 +986,3 @@ class FIXME:
             self.eq(resp[1]['inet:http:response:code'], 31337)
             self.eq(resp[1]['inet:http:response:reason'], 'too leet')
             self.eq(resp[1]['inet:http:response:body'], body)
-
-            ridn = resp[1].get('inet:http:response')
