@@ -1,3 +1,8 @@
+# FIXME
+# "it:*" - inet:client, inet:server, inet:flow, inet:http:request
+# "nullvals" - inet:mac, inet:ipv4, inet:ipv6
+# "file:*" - inet:passwd, inet:web:file
+
 # stdlib
 import socket
 import logging
@@ -573,11 +578,6 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An instance of a file downloaded from a server.',
                     }),
 
-                    ('inet:net4', ('range', {'type': ('inet:ipv4', {})}), {
-                        'doc': 'An IPv4 address range.',
-                        'ex': '("1.2.3.4", "1.2.3.20")'
-                    }),
-
                     ('inet:group', ('str', {}), {
                         'doc': 'A group name string.'
                     }),
@@ -586,10 +586,19 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An individual network connection between a given source and destination.'
                     }),
 
+                    ('inet:http:request', ('guid', {}), {
+                        'doc': 'A single client HTTP request.',
+                    }),
+
                     ('inet:mac', ('str', {'lower': True, 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$'}), {
                         # 'nullval': '??',  # FIXME this should not be here
                         'doc': 'A 48-bit Media Access Control (MAC) address.',
                         'ex': 'aa:bb:cc:dd:ee:ff'
+                    }),
+
+                    ('inet:net4', ('range', {'type': ('inet:ipv4', {})}), {
+                        'doc': 'An IPv4 address range.',
+                        'ex': '("1.2.3.4", "1.2.3.20")'
                     }),
 
                     ('inet:passwd', ('str', {}), {
@@ -1113,10 +1122,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The current password for the account.'
                         }),
 
-                        # FIXME implement
-                        #('phone', ('tel:phone', {}), {
-                        #    'doc': 'The phone number associated with the account.'
-                        #}),
+                        ('phone', ('tel:phone', {}), {
+                            'doc': 'The phone number associated with the account.'
+                        }),
 
                         ('realname', ('ps:name', {}), {
                             'doc': 'The localized version of the real name of the account owner / registrant.'
@@ -1147,7 +1155,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The site or service associated with the account.'
                         }),
 
-                        # FIXME was str:txt
+                        # NOTE was str:txt
                         ('tagline', ('str', {}), {
                             'doc': 'The text of the account status or tag line.'
                         }),
@@ -1267,7 +1275,7 @@ class InetModule(s_module.CoreModule):
                         ('avatar', ('file:bytes', {}), {
                             'doc': 'The file representing the avatar (e.g., profile picture) for the group.'
                         }),
-                        ('desc', ('str', {}), {  # FIXME was str:txt
+                        ('desc', ('str', {}), {  # NOTE was str:txt
                             'doc': 'The text of the description of the group.'
                         }),
                         ('webpage', ('inet:url', {}), {
@@ -1322,7 +1330,7 @@ class InetModule(s_module.CoreModule):
                             'ro': 1,
                             'doc': 'The web account that made the post.'
                         }),
-                        ('text', ('str', {}), {  # FIXME was str:txt
+                        ('text', ('str', {}), {  # NOTE was str:txt
                             'ro': 1,
                             'doc': 'The text of the post.'
                         }),

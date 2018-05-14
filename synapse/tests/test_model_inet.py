@@ -172,27 +172,6 @@ class InetModelTest(s_t_common.SynTest):
                         self.eq(node.ndef, (formname, expected_valu))
                         [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
 
-    def test_email(self):
-        formname = 'inet:email'
-        with self.getTestCore() as core:
-
-            # Type Tests ======================================================
-            t = core.model.type(formname)
-
-            email = 'UnitTest@Vertex.link'
-            expected = ('unittest@vertex.link', {'subs': {'fqdn': 'vertex.link', 'user': 'unittest'}})
-            self.eq(t.norm(email), expected)
-
-            # Form Tests ======================================================
-            valu = 'UnitTest@Vertex.link'
-            expected_ndef = (formname, valu.lower())
-
-            with core.xact(write=True) as xact:
-                node = xact.addNode(formname, valu)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('fqdn'), 'vertex.link')
-                self.eq(node.get('user'), 'unittest')
-
     def test_download(self):
         formname = 'inet:download'
         input_props = {
@@ -214,6 +193,27 @@ class InetModelTest(s_t_common.SynTest):
                 node = xact.addNode(formname, 32 * 'a', props=input_props)
                 self.eq(node.ndef, (formname, 32 * 'a'))
                 [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
+
+    def test_email(self):
+        formname = 'inet:email'
+        with self.getTestCore() as core:
+
+            # Type Tests ======================================================
+            t = core.model.type(formname)
+
+            email = 'UnitTest@Vertex.link'
+            expected = ('unittest@vertex.link', {'subs': {'fqdn': 'vertex.link', 'user': 'unittest'}})
+            self.eq(t.norm(email), expected)
+
+            # Form Tests ======================================================
+            valu = 'UnitTest@Vertex.link'
+            expected_ndef = (formname, valu.lower())
+
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, valu)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.get('fqdn'), 'vertex.link')
+                self.eq(node.get('user'), 'unittest')
 
     def test_flow(self):
         formname = 'inet:flow'
