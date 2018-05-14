@@ -2,6 +2,7 @@ import json
 import types
 import base64
 import struct
+import xxhash
 import logging
 import collections
 
@@ -57,6 +58,16 @@ class Type:
 
         self.postTypeInit()
 
+    def _getIndxChop(self, indx):
+
+        # cut down an index value to 256 bytes...
+        if len(indx) <= 256:
+            return indx
+
+        base = indx[:248]
+        sufx = xxhash.xxh64(indx).digest()
+        return base + sufx
+
     def setCmprCtor(self, name, func):
         self._cmpr_ctors[name] = func
 
@@ -75,6 +86,13 @@ class Type:
         return (
             ('eq', indx),
         )
+
+    def getStorIndx(self, norm):
+        indx = self.indx(norm)
+        if len(indx) <= 256:
+            return indx
+
+        return self._getIndxChop(indx)
 
     def indxByIn(self, vals):
 
@@ -247,7 +265,7 @@ class Tag(Type):
 
         subs = {
             'base': toks[-1],
-            'depth': len(toks),
+            'depth': len(toks) - 1,
         }
 
         norm = '.'.join(toks)

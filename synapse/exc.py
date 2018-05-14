@@ -112,6 +112,7 @@ class BadConfValu(SynErr):
 class BadRevValu(SynErr): pass
 class BadFifoSeq(SynErr): pass
 class BadTypeValu(SynErr): pass
+class BadIndxValu(SynErr): pass
 class DupTypeName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupFileName(SynErr): pass

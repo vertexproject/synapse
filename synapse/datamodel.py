@@ -130,7 +130,7 @@ class Prop:
         )
 
     def getSetOps(self, buid, norm):
-        indx = self.type.indx(norm)
+        indx = self.type.getStorIndx(norm)
         return (
             ('prop:set', (buid, self.form.name, self.name, norm, indx, self.storinfo)),
         )
@@ -232,7 +232,7 @@ class Form:
                 logger.exception('error on onadd for %s' % (self.name,))
 
     def getSetOps(self, buid, norm):
-        indx = self.type.indx(norm)
+        indx = self.type.getStorIndx(norm)
         return (
             ('prop:set', (buid, self.name, '', norm, indx, {})),
         )

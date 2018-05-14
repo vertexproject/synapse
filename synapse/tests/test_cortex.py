@@ -20,6 +20,17 @@ class CortexTest(SynTest):
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
                 self.eq(node.buid, func.args[0].buid)
 
+    def test_cortex_indxchop(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap(write=True) as snap:
+                valu = 'a' * 257
+                node = snap.addNode('teststr', valu)
+
+                nodes = list(snap.getNodesBy('teststr', 'aa', cmpr='^='))
+                self.len(1, nodes)
+
     def test_cortex_cell(self):
 
         with self.getTestDmon(mirror='dmoncore') as dmon:

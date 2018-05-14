@@ -44,17 +44,12 @@ class PsModule(s_module.CoreModule):
                 ('ps:tokn', {}, ()),
                 ('ps:name', {}, ()),
                 ('ps:person', {}, (
-                    # FIXME aliases?
-                    # ('guidname', ('str', {'lower': True}), {
-                    #     'doc': 'The GUID resolver alias for this person',
-                    # }),
                     ('dob', ('time', {}), {
                         'doc': 'The Date of Birth (DOB) if known.',
                     }),
-                    # FIXME need file:bytes
-                    # ('img', ('file:bytes', {}), {
-                    #     'doc': 'The primary image of a person.'
-                    # }),
+                    ('img', ('file:bytes', {}), {
+                        'doc': 'The primary image of a person.'
+                    }),
                     ('nick', ('inet:user', {}), {
                         'doc': 'A username commonly used by the person',
                     }),

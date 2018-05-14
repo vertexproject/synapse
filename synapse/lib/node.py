@@ -87,15 +87,7 @@ class Node:
             logger.warning('NoSuchProp: %s (%s)', name, self.form.name)
             return False
 
-        if prop.info.get('ro') and not init and not self.init:
-            logger.warning('trying to set read only prop: %s' % (prop.full,))
-            return False
-
         curv = self.props.get(name)
-        #if curv is not None and not init and not prop.info.get('rw'):
-        if curv is not None and not init and prop.info.get('ro'):
-            # not setting a set-once prop unless we are init...
-            return False
 
         # normalize the property value...
         norm, info = prop.type.norm(valu)
@@ -103,6 +95,18 @@ class Node:
         # do we already have the value?
         if curv == norm:
             return False
+
+        if curv is not None and not init:
+
+            if prop.info.get('ro'):
+                # not setting a set-once prop unless we are init...
+                logger.warning('trying to set read only prop: %s is: %r new: %r' % (prop.full, curv, norm))
+                return False
+
+            # check for type specific merging...
+            norm = prop.type.merge(curv, norm)
+            if curv == norm:
+                return False
 
         sops = prop.getSetOps(self.buid, norm)
 

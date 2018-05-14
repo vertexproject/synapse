@@ -135,6 +135,10 @@ class Layer(s_cell.Cell):
 
         _, (buid, form, prop, valu, indx, info) = oper
 
+        if len(indx) > 256: # max index size...
+            mesg = 'index bytes are too large'
+            raise s_exc.BadIndxValu(mesg=mesg, prop=prop, valu=valu)
+
         fenc = self.encoder[form]
         penc = self.encoder[prop]
 
