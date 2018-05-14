@@ -29,6 +29,9 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The formal name of an organization',
                     'ex': 'acme corporation',
                 }),
+                ('ou:member', ('comp', {'fields': (('org', 'ou:org'), ('person', 'ps:person'))}), {
+                    'doc': 'A person who is (or was) a member of an organization.',
+                }),
                 ('ou:suborg', ('comp', {'fields': (('org', 'ou:org'), ('sub', 'ou:org'))}), {
                     'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.',
                 }),
@@ -42,9 +45,15 @@ class OuModule(s_module.CoreModule):
                 ('ou:meet', ('guid', {}), {
                     'doc': 'A informal meeting of people which has no title or sponsor.  See also: ou:conference.',
                 }),
+                ('ou:meet:attendee', ('comp', {'fields': (('meet', 'ou:meet'), ('person', 'ps:person'))}), {
+                    'doc': 'Represents a person attending a meeting represented by an ou:meet node.',
+                }),
                 ('ou:conference', ('guid', {}), {
                     'doc': 'A conference with a name and sponsoring org.',
-                })
+                }),
+                ('ou:conference:attendee', ('comp', {'fields': (('conference', 'ou:conference'), ('person', 'ps:person'))}), {
+                    'doc': 'Represents a person attending a conference represented by an ou:conference node.',
+                }),
             ),
             'forms': (
                 ('ou:org', {}, (
@@ -86,6 +95,25 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Alias for the organization',
                     }),
                     # FIXME Add seen:min and seen:max
+                )),
+                ('ou:member', {}, (
+                    ('org', ('ou:org', {}), {
+                        'ro': True,
+                        'doc': 'The GUID of the org the person is a member of.',
+                    }),
+                    ('person', ('ps:person', {}), {
+                        'ro': True,
+                        'doc': 'The GUID of the person that is a member of an org.',
+                    }),
+                    ('title', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The persons normalized title.'
+                    }),
+                    ('start', ('time', {'ismin': True}), {
+                        'doc': 'Earliest known association of the person with the org.',
+                    }),
+                    ('end', ('time', {'ismax': True}), {
+                        'doc': 'Most recent known association of the person with the org.',
+                    })
                 )),
                 ('ou:suborg', {}, (
                     ('org', ('ou:org', {}), {
@@ -149,6 +177,22 @@ class OuModule(s_module.CoreModule):
                     #     'doc': 'The geo:place node where the meet was held.',
                     # }),
                 )),
+                ('ou:meet:attendee', {}, (
+                    ('meet', ('ou:meet', {}), {
+                        'ro': True,
+                        'doc': 'The meeting which was attended.',
+                    }),
+                    ('person', ('ps:person', {}), {
+                        'ro': True,
+                        'doc': 'The person who attended the meeting.',
+                    }),
+                    ('arrived', ('time', {}), {
+                        'doc': 'The time when a person arrived to the meeting.',
+                    }),
+                    ('departed', ('time', {}), {
+                        'doc': 'The time when a person departed from the meeting.',
+                    }),
+                )),
                 ('ou:conference', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which created/managed the conference.',
@@ -173,6 +217,28 @@ class OuModule(s_module.CoreModule):
                     # }),
                     # TODO: prefix optimized geo political location
                 )),
+                ('ou:conference:attendee', {}, (
+                    ('conference', ('ou:conference', {}), {
+                        'ro': True,
+                        'doc': 'The conference which was attended.',
+                    }),
+                    ('person', ('ps:person', {}), {
+                        'ro': True,
+                        'doc': 'The person who attended the conference.',
+                    }),
+                    ('arrived', ('time', {}), {
+                        'doc': 'The time when a person arrived to the conference.',
+                    }),
+                    ('departed', ('time', {}), {
+                        'doc': 'The time when a person departed from the conference.',
+                    }),
+                    ('role:staff', ('bool', {}), {
+                        'doc': 'The person worked as staff at the conference.',
+                    }),
+                    ('role:speaker', ('bool', {}), {
+                        'doc': 'The person was a speaker or presenter at the conference.',
+                    }),
+                 )),
             )
         }
 
@@ -197,65 +263,3 @@ class Fixme:
         if node is None:
             node = self.core.formTufoByProp('ou:org', guid(), alias=valu, **props)
         return node
-
-    @staticmethod
-    def getBaseModels():
-        modl = {
-            'types': (
-
-                ('ou:member', {
-                    'subof': 'comp',
-                    'fields': 'org,ou:org|person,ps:person',
-                    'doc': 'A person who is (or was) a member of an organization.'}),
-
-                ('ou:meet:attendee', {
-                    'subof': 'comp',
-                    'fields': 'meet=ou:meet,person=ps:person',
-                    'doc': 'Represents a person attending a meeting represented by an ou:meet node.'}),
-
-                ('ou:conference:attendee', {
-                    'subof': 'comp',
-                    'fields': 'conference=ou:conference,person=ps:person',
-                    'doc': 'Represents a person attending a conference represented by an ou:conference node.'}),
-            ),
-
-            'forms': (
-
-                ('ou:member', {}, [
-                    ('org', {'ptype': 'ou:org', 'ro': 1}),
-                    ('person', {'ptype': 'ps:person', 'ro': 1}),
-                    ('start', {'ptype': 'time:min'}),
-                    ('end', {'ptype': 'time:max'}),
-                    ('title', {'ptype': 'str:lwr', 'defval': '??'}),
-                ]),
-
-                ('ou:meet:attendee', {}, (
-                    ('meet', {'ptype': 'ou:meet', 'req': 1, 'ro': 1,
-                        'doc': 'The meeting which was attended.'}),
-                    ('person', {'ptype': 'ps:person', 'req': 1, 'ro': 1,
-                        'doc': 'The person who attended the meet.'}),
-                    ('arrived', {'ptype': 'time',
-                        'doc': 'An optional property to annotate when the person arrived.'}),
-                    ('departed', {'ptype': 'time',
-                        'doc': 'An optional property to annotate when the person departed.'}),
-                )),
-
-                ('ou:conference:attendee', {}, (
-                    ('conference', {'ptype': 'ou:conference', 'req': 1, 'ro': 1,
-                        'doc': 'The conference which was attended.'}),
-                    ('person', {'ptype': 'ps:person', 'req': 1, 'ro': 1,
-                        'doc': 'The person who attended the conference.'}),
-                    ('arrived', {'ptype': 'time',
-                        'doc': 'An optional property to annotate when the person arrived.'}),
-                    ('departed', {'ptype': 'time',
-                        'doc': 'An optional property to annotate when the person departed.'}),
-                    ('role:staff', {'ptype': 'bool',
-                        'doc': 'The person worked as staff at the conference.'}),
-                    ('role:speaker', {'ptype': 'bool',
-                        'doc': 'The person was a speaker/presenter at the conference.'}),
-                )),
-
-            ),
-        }
-        name = 'ou'
-        return ((name, modl), )

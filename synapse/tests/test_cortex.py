@@ -130,7 +130,6 @@ class CortexTest(SynTest):
                 self.nn(node.get('.created'))
 
                 nodes = list(snap.getNodesBy('.created', '2010', cmpr='>='))
-                print(repr(nodes))
 
                 self.eq(node.get('intprop'), 20)
                 self.eq(node.get('locprop'), '??')

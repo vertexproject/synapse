@@ -1,69 +1,136 @@
-import synapse.lib.types as s_types
+import synapse.exc as s_exc
+import synapse.common as s_common
 
-import unittest
-raise unittest.SkipTest()
+import synapse.tests.common as s_test
 
-from synapse.tests.common import *
+class PsModelTest(s_test.SynTest):
+    def test_ps_simple(self):
 
-class PersonTest(SynTest, ModelSeenMixin):
+        person0 = s_common.guid()
+        persona0 = s_common.guid()
 
-    def test_model_ps_has(self):
-        with self.getRamCore() as core:
-            person_guid = 32 * '0'
-            person_tufo = core.formTufoByProp('ps:person', person_guid, name='Kenshoto,Invisigoth')
-            personval = person_tufo[1].get('ps:person')
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode('ps:tokn', ' BOB ')
+                self.eq(node.ndef[1], 'bob')
 
-            node = core.formTufoByProp('ps:person:has', (personval, ('inet:fqdn', 'vertex.link')))
-            self.ge(node[1].get('node:created'), 1519852535218)
-            self.eq(node[1].get('ps:person:has'), '03870dc800bc21c7c594a900ae65f5cb')
-            self.eq(node[1].get('ps:person:has:person'), personval)
-            self.eq(node[1].get('ps:person:has:xref'), 'inet:fqdn=vertex.link')
-            self.eq(node[1].get('ps:person:has:xref:prop'), 'inet:fqdn')
-            self.eq(node[1].get('ps:person:has:xref:node'), '42366d896b947b97e7f3b1afeb9433a3')
+                node = snap.addNode('ps:name', ' robert GREY  the\t3rd  ')
+                self.eq(node.ndef[1], 'robert grey the 3rd')
 
-            self.none(core.getTufoByProp('node:ndef', '42366d896b947b97e7f3b1afeb9433a3'))  # Not automatically formed
-            core.formTufoByProp('inet:fqdn', 'vertex.link')
-            fqdnfo = core.getTufoByProp('node:ndef', '42366d896b947b97e7f3b1afeb9433a3')
-            self.eq(fqdnfo[1].get('inet:fqdn'), 'vertex.link')
+                person_props = {
+                    'dob': '1971',
+                    'nick': 'pennywise',
+                    'name': 'robert clown grey',
+                    # 'img': ''  # fixme file:bytes
+                    # 'guidname': '', # fixme guid aliases
+                    'name:sur': 'grey',
+                    'name:middle': 'clown',
+                    'name:given': 'robert',
+                    'name:en:sur': 'grey',
+                    'name:en:middle': 'clown',
+                    'name:en:given': 'robert',
+                }
+                node = snap.addNode('ps:person', person0, person_props)
+                self.eq(node.ndef[1], person0)
+                self.eq(node.get('dob'), 31536000000)
+                self.eq(node.get('nick'), 'pennywise')
+                self.eq(node.get('name'), 'robert clown grey')
+                self.eq(node.get('name:sur'), 'grey')
+                self.eq(node.get('name:middle'), 'clown')
+                self.eq(node.get('name:given'), 'robert')
+                self.eq(node.get('name:en:sur'), 'grey')
+                self.eq(node.get('name:en:middle'), 'clown')
+                self.eq(node.get('name:en:given'), 'robert')
+                # self.eq(node.get('img'), '')  # fixme file:bytes
+                # self.eq(node.get('guidname'), '')  # fixme guid aliases
+
+                persona_props = {
+                    'dob': '2000',
+                    'nick': 'acid burn',
+                    'name': 'Эммануэль брат Гольдштейн',
+                    # 'img': ''  # fixme file:bytes
+                    # 'guidname': '', # fixme guid aliases
+                    'name:sur': 'Гольдштейн',
+                    'name:middle': 'брат',
+                    'name:given': 'эммануэль',
+                    'name:en': 'emmanuel brother goldstein',
+                    'name:en:sur': 'goldstein',
+                    'name:en:middle': 'brother',
+                    'name:en:given': 'emmanuel',
+                }
+                node = snap.addNode('ps:persona', persona0, persona_props)
+                self.eq(node.ndef[1], persona0)
+                self.eq(node.get('dob'), 946684800000)
+                self.eq(node.get('nick'), 'acid burn')
+                self.eq(node.get('name'), 'эммануэль брат гольдштейн')
+                self.eq(node.get('name:sur'), 'гольдштейн')
+                self.eq(node.get('name:middle'), 'брат')
+                self.eq(node.get('name:given'), 'эммануэль')
+                self.eq(node.get('name:en'), 'emmanuel brother goldstein')
+                self.eq(node.get('name:en:sur'), 'goldstein')
+                self.eq(node.get('name:en:middle'), 'brother')
+                self.eq(node.get('name:en:given'), 'emmanuel')
+                # self.eq(node.get('img'), '')  # fixme file:bytes
+                # self.eq(node.get('guidname'), '')  # fixme guid aliases
+
+                node = snap.addNode('ps:person:has', (person0, ('teststr', 'sewer map')))
+                self.eq(node.ndef[1], (person0, ('teststr', 'sewer map')))
+                self.eq(node.get('person'), person0)
+                self.eq(node.get('node'), ('teststr', 'sewer map'))
+                self.eq(node.get('node:form'), 'teststr')
+
+                node = snap.addNode('ps:persona:has', (persona0, ('teststr', 'the gibson')))
+                self.eq(node.ndef[1], (persona0, ('teststr', 'the gibson')))
+                self.eq(node.get('persona'), persona0)
+                self.eq(node.get('node'), ('teststr', 'the gibson'))
+                self.eq(node.get('node:form'), 'teststr')
+
+                org0 = s_common.guid()
+                con0 = s_common.guid()
+                cprops = {
+                    'org': org0,
+                    'asof': '20080414',
+                    'person': person0,
+                    'name': 'Tony  Stark',
+                    'title': 'CEO',
+                    'orgname': 'Stark Industries, INC',
+                    # 'img': '',  # fixme file:bytes
+                    'user': 'ironman',
+                    'web:acct': ('twitter.com', 'ironman'),
+                    'dob': '1976-12-17',
+                    'url': 'https://starkindustries.com/',
+                    'email': 'tony.stark@gmail.com',
+                    'email:work': 'tstark@starkindustries.com',
+                    'phone': '12345678910',
+                    'phone:fax': '12345678910',
+                    'phone:work': '12345678910',
+                    'address': '1 Iron Suit Drive, San Francisco, CA, 22222, USA',
+                }
+
+                node = snap.addNode('ps:contact', con0, cprops)
+                self.eq(node.ndef[1], con0)
+                self.eq(node.get('org'), org0)
+                self.eq(node.get('asof'), 1208131200000)
+                self.eq(node.get('person'), person0)
+                self.eq(node.get('name'), 'tony stark')
+                self.eq(node.get('title'), 'ceo')
+                self.eq(node.get('orgname'), 'stark industries, inc')
+                self.eq(node.get('user'), 'ironman')
+                self.eq(node.get('web:acct'), ('twitter.com', 'ironman'))
+                self.eq(node.get('dob'), 219628800000)
+                self.eq(node.get('url'), 'https://starkindustries.com/')
+                self.eq(node.get('email'), 'tony.stark@gmail.com')
+                self.eq(node.get('email:work'), 'tstark@starkindustries.com')
+                self.eq(node.get('phone'), '12345678910')
+                self.eq(node.get('phone:fax'), '12345678910')
+                self.eq(node.get('phone:work'), '12345678910')
+                self.eq(node.get('address'), '1 iron suit drive, san francisco, ca, 22222, usa')
+
+class Fixme():
 
     def test_model_person(self):
 
         with self.getRamCore() as core:
-            dob = core.getTypeParse('time', '19700101000000001')
-            node = core.formTufoByProp('ps:person', guid(), dob=dob[0],
-                                       name='Kenshoto,Invisigoth')
-            self.eq(node[1].get('ps:person:dob'), 1)
-            self.eq(node[1].get('ps:person:name'), 'kenshoto,invisigoth')
-            self.eq(node[1].get('ps:person:name:sur'), 'kenshoto')
-            self.eq(node[1].get('ps:person:name:given'), 'invisigoth')
-            self.none(node[1].get('ps:person:name:middle'))
-
-            node = core.formTufoByProp('ps:person', guid(), dob=dob[0],
-                                       name='Kenshoto,Invisigoth,Ninja')
-            self.eq(node[1].get('ps:person:name'), 'kenshoto,invisigoth,ninja')
-            self.eq(node[1].get('ps:person:name:sur'), 'kenshoto')
-            self.eq(node[1].get('ps:person:name:given'), 'invisigoth')
-            self.eq(node[1].get('ps:person:name:middle'), 'ninja')
-
-            node = core.formTufoByProp('ps:person', guid(), dob=dob[0],
-                                       name='Kenshoto,Invisigoth,Ninja,Gray')
-            self.eq(node[1].get('ps:person:name'), 'kenshoto,invisigoth,ninja,gray')
-            self.eq(node[1].get('ps:person:name:sur'), 'kenshoto')
-            self.eq(node[1].get('ps:person:name:given'), 'invisigoth')
-            self.eq(node[1].get('ps:person:name:middle'), 'ninja')
-
-            node = core.formTufoByProp('ps:person', guid(),
-                                       **{'name': 'Гольдштейн, Эммануэль, брат',
-                                          'name:en': 'Goldstein, Emmanuel, Brother',
-                                          })
-            self.eq(node[1].get('ps:person:name'), 'гольдштейн,эммануэль,брат')
-            self.eq(node[1].get('ps:person:name:sur'), 'гольдштейн')
-            self.eq(node[1].get('ps:person:name:given'), 'эммануэль')
-            self.eq(node[1].get('ps:person:name:middle'), 'брат')
-            self.eq(node[1].get('ps:person:name:en'), 'goldstein,emmanuel,brother')
-            self.eq(node[1].get('ps:person:name:en:sur'), 'goldstein')
-            self.eq(node[1].get('ps:person:name:en:given'), 'emmanuel')
-            self.eq(node[1].get('ps:person:name:en:middle'), 'brother')
 
             node = core.formTufoByProp('ps:person:guidname', 'person123', name='cool')
             person = node[1].get('ps:person')
@@ -76,41 +143,6 @@ class PersonTest(SynTest, ModelSeenMixin):
     def test_model_persona(self):
 
         with self.getRamCore() as core:
-            dob = core.getTypeParse('time', '19700101000000001')
-            node = core.formTufoByProp('ps:persona', guid(), dob=dob[0],
-                                       name='Kenshoto,Invisigoth')
-            self.eq(node[1].get('ps:persona:dob'), 1)
-            self.eq(node[1].get('ps:persona:name'), 'kenshoto,invisigoth')
-            self.eq(node[1].get('ps:persona:name:sur'), 'kenshoto')
-            self.eq(node[1].get('ps:persona:name:given'), 'invisigoth')
-            self.none(node[1].get('ps:persona:name:middle'))
-
-            node = core.formTufoByProp('ps:persona', guid(), dob=dob[0],
-                                       name='Kenshoto,Invisigoth,Ninja')
-            self.eq(node[1].get('ps:persona:name'), 'kenshoto,invisigoth,ninja')
-            self.eq(node[1].get('ps:persona:name:sur'), 'kenshoto')
-            self.eq(node[1].get('ps:persona:name:given'), 'invisigoth')
-            self.eq(node[1].get('ps:persona:name:middle'), 'ninja')
-
-            node = core.formTufoByProp('ps:persona', guid(), dob=dob[0],
-                                       name='Kenshoto,Invisigoth,Ninja,Gray')
-            self.eq(node[1].get('ps:persona:name'), 'kenshoto,invisigoth,ninja,gray')
-            self.eq(node[1].get('ps:persona:name:sur'), 'kenshoto')
-            self.eq(node[1].get('ps:persona:name:given'), 'invisigoth')
-            self.eq(node[1].get('ps:persona:name:middle'), 'ninja')
-
-            node = core.formTufoByProp('ps:persona', guid(),
-                                       **{'name': 'Гольдштейн, Эммануэль, брат',
-                                          'name:en': 'Goldstein, Emmanuel, Brother',
-                                          })
-            self.eq(node[1].get('ps:persona:name'), 'гольдштейн,эммануэль,брат')
-            self.eq(node[1].get('ps:persona:name:sur'), 'гольдштейн')
-            self.eq(node[1].get('ps:persona:name:given'), 'эммануэль')
-            self.eq(node[1].get('ps:persona:name:middle'), 'брат')
-            self.eq(node[1].get('ps:persona:name:en'), 'goldstein,emmanuel,brother')
-            self.eq(node[1].get('ps:persona:name:en:sur'), 'goldstein')
-            self.eq(node[1].get('ps:persona:name:en:given'), 'emmanuel')
-            self.eq(node[1].get('ps:persona:name:en:middle'), 'brother')
 
             node = core.formTufoByProp('ps:persona:guidname', 'persona456', name='cool')
             persona = node[1].get('ps:persona')
@@ -119,74 +151,3 @@ class PersonTest(SynTest, ModelSeenMixin):
             self.eq(node[1].get('ps:persona'), persona)
             self.eq(node[1].get('ps:persona:guidname'), 'persona456')
             self.eq(node[1].get('ps:persona:name'), 'cool')
-
-    def test_model_person_tokn(self):
-        with self.getRamCore() as core:
-            node = core.formTufoByProp('ps:tokn', 'Invisigoth')
-            self.eq(node[1].get('ps:tokn'), 'invisigoth')
-
-    def test_model_person_name(self):
-        with self.getRamCore() as core:
-            node = core.formTufoByProp('ps:name', 'Kenshoto,Invisigoth')
-
-            self.eq(node[1].get('ps:name:sur'), 'kenshoto')
-            self.eq(node[1].get('ps:name:given'), 'invisigoth')
-
-            self.nn(core.getTufoByProp('ps:tokn', 'kenshoto'))
-            self.nn(core.getTufoByProp('ps:tokn', 'invisigoth'))
-
-    def test_model_person_2(self):
-
-        with self.getRamCore() as core:
-            node = core.formTufoByProp('ps:name', 'Kenshoto,Invisigoth')
-
-            self.eq(node[1].get('ps:name'), 'kenshoto,invisigoth')
-            self.eq(node[1].get('ps:name:sur'), 'kenshoto')
-            self.eq(node[1].get('ps:name:given'), 'invisigoth')
-
-            self.nn(core.getTufoByProp('ps:tokn', 'kenshoto'))
-            self.nn(core.getTufoByProp('ps:tokn', 'invisigoth'))
-
-    def test_model_person_contact(self):
-
-        with self.getRamCore() as core:
-
-            info = {
-                'org': '*',
-                'person': '*',
-
-                'name': 'Stark,Tony',
-
-                'title': 'CEO',
-                'orgname': 'Stark Industries, INC',
-
-                'user': 'ironman',
-                'web:acct': 'twitter.com/ironman',
-
-                'dob': '1976-12-17',
-                'url': 'https://starkindustries.com/',
-
-                'email': 'tony.stark@gmail.com',
-                'email:work': 'tstark@starkindustries.com',
-
-                'phone': '12345678910',
-                'phone:fax': '12345678910',
-                'phone:work': '12345678910',
-
-                'address': '1 Iron Suit Drive, San Francisco, CA, 22222, USA',
-            }
-
-            node = core.formTufoByProp('ps:contact', info)
-
-            self.nn(core.getTufoByProp('ou:org', node[1].get('ps:contact:org')))
-            self.nn(core.getTufoByProp('ps:person', node[1].get('ps:contact:person')))
-            self.nn(core.getTufoByProp('inet:url', node[1].get('ps:contact:url')))
-            self.nn(core.getTufoByProp('inet:user', node[1].get('ps:contact:user')))
-            self.nn(core.getTufoByProp('inet:email', node[1].get('ps:contact:email')))
-            self.nn(core.getTufoByProp('inet:email', node[1].get('ps:contact:email:work')))
-            self.nn(core.getTufoByProp('inet:web:acct', node[1].get('ps:contact:web:acct')))
-            self.nn(core.getTufoByProp('tel:phone', node[1].get('ps:contact:phone')))
-            self.nn(core.getTufoByProp('tel:phone', node[1].get('ps:contact:phone:fax')))
-            self.nn(core.getTufoByProp('tel:phone', node[1].get('ps:contact:phone:work')))
-
-            self.eq(node[1].get('ps:contact:address'), '1 iron suit drive, san francisco, ca, 22222, usa')

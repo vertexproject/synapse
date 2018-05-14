@@ -44,16 +44,6 @@
                         ' an account, as opposed to current data in the inet:web:acct node.'}),
 
                 TYPES of comp/sepr ====================================================================================
-                ('inet:wifi:ap', {
-                    'subof': 'comp',
-                    'fields': 'ssid=inet:wifi:ssid,bssid=inet:mac',
-                    'doc': 'An SSID/MAC address combination for a wireless access point.'}),
-
-                ('inet:urlredir', {
-                    'subof': 'comp',
-                    'fields': 'src=inet:url,dst=inet:url',
-                    'doc': 'A URL that redirects to another URL, such as via a URL shortening service or an HTTP 302 response.',
-                    'ex': '(http://foo.com/,http://bar.com/)'}),
 
                 ('inet:urlfile', {
                     'subof': 'comp',
@@ -113,26 +103,12 @@
                     'fields': 'acct,inet:web:acct|text,str:txt',
                     'doc': 'A post made by a web account.'}),
 
-                ('inet:net4', {
-                    'subof': 'sepr',
-                    'sep': '-',
-                    'fields': 'min,inet:ipv4|max,inet:ipv4',
-                    'doc': 'An IPv4 address range.',
-                    'ex': '1.2.3.4-1.2.3.20'}),
-
                 ('inet:net6', {
                     'subof': 'sepr',
                     'sep': '-',
                     'fields': 'min,inet:ipv6|max,inet:ipv6',
                     'doc': 'An IPv6 address range.',
                     'ex': 'ff::00-ff::30'}),
-
-                ('inet:asnet4', {
-                    'subof': 'sepr',
-                    'sep': '/',
-                    'fields': 'asn,inet:asn|net4,inet:net4',
-                    'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
-                    'ex': '54959/1.2.3.4-1.2.3.20'}),
 
                 ('inet:web:group', {
                     'subof': 'sepr',
@@ -179,11 +155,6 @@
                     'ctor': 'synapse.models.inet.Srv6Type',
                     'doc': 'An IPv6 address and port.',
                     'ex': '[2607:f8b0:4004:809::200e]:80'}),
-
-                ('inet:rfc2822:addr', {
-                    'ctor': 'synapse.models.inet.Rfc2822Addr',
-                    'ex': '"Visi Kenshoto" <visi@vertex.link>',
-                    'doc': 'An RFC 2822 Address field.'}),
 
                 TYPES that rely on ctor implementations ===============================================================
                 ('inet:server', {
@@ -298,21 +269,6 @@
 
                 )),
 
-                ('inet:urlredir', {}, [
-                    ('src', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
-                        'doc': 'The original/source URL before redirect'}),
-                    ('src:fqdn', {'ptype': 'inet:fqdn',
-                        'doc': 'The FQDN within the src URL (if present)'}),
-                    ('dst', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
-                        'doc': 'The redirected/destination URL'}),
-                    ('dst:fqdn', {'ptype': 'inet:fqdn',
-                        'doc': 'The FQDN within the dst URL (if present)'}),
-                    ('seen:min', {'ptype': 'time:min',
-                        'doc': 'The earliest known time the URL redirect was active.'}),
-                    ('seen:max', {'ptype': 'time:max',
-                        'doc': 'The last known time the URL redirect was active.'}),
-                ]),
-
                 ('inet:urlfile', {'ptype': 'inet:urlfile'}, [
                     ('url', {'ptype': 'inet:url', 'ro': 1, 'req': 1,
                         'doc': 'The URL where the file was hosted.'}),
@@ -323,17 +279,6 @@
                     ('seen:max', {'ptype': 'time:max',
                         'doc': 'The most recent known time the file was hosted at the URL.'}),
                 ]),
-
-                ('inet:asnet4', {'ptype': 'inet:asnet4'}, [
-                     ('asn', {'ptype': 'inet:asn', 'ro': 1,
-                         'doc': 'The Autonomous System Number (ASN) of the netblock.'}),
-                     ('net4', {'ptype': 'inet:net4', 'ro': 1,
-                         'doc': 'The IPv4 address range assigned to the ASN.'}),
-                     ('net4:min', {'ptype': 'inet:ipv4', 'ro': 1,
-                         'doc': 'The first IPv4 in the range assigned to the ASN.'}),
-                     ('net4:max', {'ptype': 'inet:ipv4', 'ro': 1,
-                         'doc': 'The last IPv4 in the range assigned to the ASN.'}),
-                 ]),
 
                 ('inet:tcp4', {'ptype': 'inet:srv4'}, [
                     ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
@@ -472,12 +417,6 @@
                         'doc': 'The IMSI of the interface.'}),
                 )),
 
-                ('inet:wifi:ap', {}, [
-                    ('ssid', {'ptype': 'inet:wifi:ssid',
-                        'doc': 'The SSID for the wireless access point.'}),
-                    ('bssid', {'ptype': 'inet:wifi:ssid',
-                        'doc': 'The SSID for the wireless access point.'}),
-                ]),
                 ('inet:web:chprofile', {}, [
                     ('acct', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
                         'doc': 'The web account associated with the change.'}),

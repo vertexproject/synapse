@@ -66,6 +66,18 @@ class OuModelTest(s_test.SynTest):
                 self.eq(node.get('url'), 'http://www.arrowinc.link')
                 self.eq(node.get('us:cage'), '7qe71')
 
+                person0 = s_common.guid()
+                mprops = {
+                    'title': 'Dancing Clown',
+                    'start': '2001',
+                    'end': '2010',
+                }
+                node = snap.addNode('ou:member', (guid0, person0), mprops)
+                self.eq(node.ndef[1], (guid0, person0))
+                self.eq(node.get('title'), 'dancing clown')
+                self.eq(node.get('start'), 978307200000)
+                self.eq(node.get('end'), 1262304000000)
+
                 # ou:suborg
                 guid1 = s_common.guid()
                 subprops = {
@@ -109,7 +121,7 @@ class OuModelTest(s_test.SynTest):
                 mprops = {
                     'name': 'Working Lunch',
                     'start': '201604011200',
-                    'end': '201604011300'
+                    'end': '201604011300',
                     # 'place': '', # FIXME geospatial
                 }
                 node = snap.addNode('ou:meet', m0, mprops)
@@ -117,6 +129,15 @@ class OuModelTest(s_test.SynTest):
                 self.eq(node.get('name'), 'working lunch')
                 self.eq(node.get('start'), 1459512000000)
                 self.eq(node.get('end'), 1459515600000)
+
+                mprops = {
+                    'arrived': '201604011201',
+                    'departed': '201604011259',
+                }
+                node = snap.addNode('ou:meet:attendee', (m0, person0), mprops)
+                self.eq(node.ndef[1], (m0, person0))
+                self.eq(node.get('arrived'), 1459512060000)
+                self.eq(node.get('departed'), 1459515540000)
 
                 # ou:conference
                 c0 = s_common.guid()
@@ -135,6 +156,19 @@ class OuModelTest(s_test.SynTest):
                 self.eq(node.get('org'), guid0)
                 self.eq(node.get('start'), 1519862400000)
                 self.eq(node.get('end'), 1520035200000)
+
+                cprops = {
+                    'arrived': '201803010800',
+                    'departed': '201803021500',
+                    'role:staff': False,
+                    'role:speaker': True,
+                }
+                node = snap.addNode('ou:conference:attendee', (c0, person0), cprops)
+                self.eq(node.ndef[1], (c0, person0))
+                self.eq(node.get('arrived'), 1519891200000)
+                self.eq(node.get('departed'), 1520002800000)
+                self.eq(node.get('role:staff'), 0)
+                self.eq(node.get('role:speaker'), 1)
 
     def test_ou_code_prefixes(self):
         guid0 = s_common.guid()

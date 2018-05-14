@@ -94,6 +94,7 @@ class NoSuchStor(SynErr): pass
 class NoSuchFilt(SynErr): pass
 class BadLiftValu(SynErr): pass
 class BadLiftCmpr(SynErr): pass
+class BadCmprValu(SynErr): pass
 
 class ReadOnlyProp(SynErr): pass
 class ReadOnlySnap(SynErr): pass

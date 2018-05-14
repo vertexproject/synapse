@@ -96,8 +96,6 @@ class Fqdn(s_types.Type):
             raise s_exc.BadTypeValu(valu)
 
         parts = valu.split('.', 1)
-
-        adds = []
         subs = {'host': parts[0]}
 
         if len(parts) == 2:
@@ -132,6 +130,7 @@ class Fqdn(s_types.Type):
                 return valu
             raise  # pragma: no cover
 
+
 class IPv4(s_types.Type):
     '''
     The base type for an IPv4 address.
@@ -159,7 +158,7 @@ class IPv4(s_types.Type):
     def indxByEq(self, valu):
 
         if type(valu) == str and valu.find('/') != -1:
-            addr, mask = text.split('/', 1)
+            addr, mask = valu.split('/', 1)
             norm, info = self.norm(addr)
 
             mask = cidrmasks[int(mask)]
@@ -200,6 +199,7 @@ class IPv6(s_types.Type):
         except Exception as e:
             raise s_exc.BadTypeValu(valu)
 
+
 class Rfc2822Addr(s_types.Type):
     '''
     An RFC 2822 compatible email address parser
@@ -229,7 +229,7 @@ class Rfc2822Addr(s_types.Type):
 
         try:
             name, addr = email.utils.parseaddr(valu)
-        except Exception as e: # pragma: no cover
+        except Exception as e:  # pragma: no cover
             # not sure we can ever really trigger this with a string as input
             raise s_exc.BadTypeValu(valu, mesg='email.utils.parsaddr failed: %s' % (e,))
 
@@ -248,7 +248,7 @@ class Rfc2822Addr(s_types.Type):
             else:
                 valu = mail
         except s_exc.BadTypeValu as e:
-            pass # it's all good, we just dont have a valid email addr
+            pass  # it's all good, we just dont have a valid email addr
 
         return valu, {'subs': subs}
 
@@ -481,6 +481,16 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An Autonomous System Number (ASN).'
                     }),
 
+                    ('inet:asnet4', ('comp', {'fields': (('asn', 'inet:asn'), ('net4', 'inet:net4'))}), {
+                        'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
+                        'ex': '(54959, ("1.2.3.4", "1.2.3.20"))',
+                    }),
+
+                    ('inet:net4', ('range', {'type': ('inet:ipv4', {})}), {
+                        'doc': 'An IPv4 address range.',
+                        'ex': '("1.2.3.4", "1.2.3.20")'
+                    }),
+
                     ('inet:group', ('str', {}), {
                         'doc': 'A group name string.'
                     }),
@@ -500,6 +510,15 @@ class InetModule(s_module.CoreModule):
                         'ex': '80'
                     }),
 
+                    ('inet:urlredir', ('comp', {'fields': (('src', 'inet:url'), ('dst', 'inet:url'))}), {
+                        'doc': 'A URL that redirects to another URL, such as via a URL shortening service or an HTTP 302 response.',
+                        'ex': '(http://foo.com/,http://bar.com/)'
+                    }),
+
+                    ('inet:user', ('str', {'lower': True}), {
+                        'doc': 'A username string.'
+                    }),
+
                     ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user'))}), {
                             'doc': 'An account with a given Internet-based site or service.',
                             'ex': 'twitter.com/invisig0th'
@@ -515,13 +534,13 @@ class InetModule(s_module.CoreModule):
                         'ex': 'woot hostmaster'
                     }),
 
+                    ('inet:wifi:ap', ('comp', {'fields': (('ssid', 'inet:wifi:ssid'), ('bssid', 'inet:mac'))}), {
+                        'doc': 'An SSID/MAC address combination for a wireless access point.'
+                    }),
+
                     ('inet:wifi:ssid', ('str', {}), {
                         'doc': 'A WiFi service set identifier (SSID) name.',
                         'ex': 'The Vertex Project'
-                    }),
-
-                    ('inet:user', ('str', {'lower': True}), {
-                        'doc': 'A username string.'
                     }),
 
                 ),
@@ -541,104 +560,23 @@ class InetModule(s_module.CoreModule):
                         #}),
                     )),
 
-                    ('inet:web:acct', {}, (
-
-                        ('avatar', ('file:bytes', {}), {
-                            'doc': 'The file representing the avatar (e.g., profile picture) for the account.'
-                        }),
-
-                        ('dob', ('time', {}), {
-                            'doc': 'A self-declared date of birth for the account (if the account belongs to a person).'
-                        }),
-
-                        ('email', ('inet:email', {}), {
-                            'doc': 'The email address associated with the account.'
-                        }),
-
-                        # FIXME implement
-                        #('latlong', ('geo:latlong', {}), {
-                        #    'doc': 'The last known latitude/longitude for the node'
-                        #}),
-
-                        ('loc', ('loc', {}), {
-                            'doc': 'A self-declared location for the account.'
-                        }),
-
-                        ('name', ('inet:user', {}), {
-                            'doc': 'The localized name associated with the account (may be different from the '
-                                'account identifier, e.g., a display name).'
-                        }),
-
-                        ('name:en', ('inet:user', {}), {
-                            'doc': 'The English version of the name associated with the (may be different from '
-                                'the account identifier, e.g., a display name).'
-                        }),
-
-                        ('occupation', ('str', {'lower': True}), {
-                            'doc': 'A self-declared occupation for the account.'
-                        }),
-
-                        # FIXME implement
-                        #('passwd', ('inet:passwd', {}), {
-                        #    'doc': 'The current password for the account.'
-                        #})
-
-                        # FIXME implement
-                        #('phone', ('tel:phone', {}), {
-                        #    'doc': 'The phone number associated with the account.'
-                        #}),
-
-                        # FIXME implement
-                        #('realname', ('ps:name', {}), {
-                        #    'doc': 'The localized version of the real name of the account owner / registrant.'
-                        #}),
-
-                        # FIXME implement
-                        #('realname:en', ('ps:name', {}), {
-                        #    'doc': 'The English version of the real name of the account owner / registrant.'
-                        #}),
-
-                        ('seen:max', ('time', {'max': True}), {
-                            'doc': 'The most recent known date of activity for the account.'
-                        }),
-
-                        ('seen:min', ('time', {'min': True}), {
-                            'doc': 'The earliest known date of activity for the account.'
-                        }),
-
-                        ('signup', ('time', {}), {
-                            'doc': 'The date and time the account was registered.'
-                        }),
-
-                        ('signup:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The IPv4 address used to sign up for the account.'
-                        }),
-
-                        ('site', ('inet:fqdn', {}), {
+                    ('inet:asnet4', ('inet:asnet4', {}), (
+                        ('asn', ('inet:asn', {}), {
                             'ro': 1,
-                            'doc': 'The site or service associated with the account.'
+                            'doc': 'The Autonomous System Number (ASN) of the netblock.'
                         }),
-
-                        # FIXME was str:txt
-                        ('tagline', ('str', {}), {
-                            'doc': 'The text of the account status or tag line.'
-                        }),
-
-                        ('url', ('inet:url', {}), {
-                            'doc': 'The service provider URL where the account is hosted.'
-                        }),
-
-                        ('user', ('inet:user', {}), {
+                        ('net4', ('inet:net4', {}), {
                             'ro': 1,
-                            'doc': 'The unique identifier for the account (may be different from the common '
-                                'name or display name).'
+                            'doc': 'The IPv4 address range assigned to the ASN.'
                         }),
-
-                        ('webpage', ('inet:url', {}), {
-                            'doc': 'A related URL specified by the account (e.g., a personal or company web '
-                                 'page, blog, etc.).'
+                        ('net4:min', ('inet:ipv4', {}), {
+                            'ro': 1,
+                            'doc': 'The first IPv4 in the range assigned to the ASN.'
                         }),
-
+                        ('net4:max', ('inet:ipv4', {}), {
+                            'ro': 1,
+                            'doc': 'The last IPv4 in the range assigned to the ASN.'
+                        }),
                     )),
 
                     ('inet:cidr4', {}, (
@@ -658,9 +596,6 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The network IP address from the CIDR notation.'
                         }),
 
-                    )),
-
-                    ('inet:user', {}, (
                     )),
 
                     ('inet:email', {}, (
@@ -790,7 +725,120 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    # FIXME implement inet:wifi:ssid
+                    ('inet:web:acct', {}, (
+
+                        ('avatar', ('file:bytes', {}), {
+                            'doc': 'The file representing the avatar (e.g., profile picture) for the account.'
+                        }),
+
+                        ('dob', ('time', {}), {
+                            'doc': 'A self-declared date of birth for the account (if the account belongs to a person).'
+                        }),
+
+                        ('email', ('inet:email', {}), {
+                            'doc': 'The email address associated with the account.'
+                        }),
+
+                        # FIXME implement
+                        #('latlong', ('geo:latlong', {}), {
+                        #    'doc': 'The last known latitude/longitude for the node'
+                        #}),
+
+                        ('loc', ('loc', {}), {
+                            'doc': 'A self-declared location for the account.'
+                        }),
+
+                        ('name', ('inet:user', {}), {
+                            'doc': 'The localized name associated with the account (may be different from the '
+                                'account identifier, e.g., a display name).'
+                        }),
+
+                        ('name:en', ('inet:user', {}), {
+                            'doc': 'The English version of the name associated with the (may be different from '
+                                'the account identifier, e.g., a display name).'
+                        }),
+
+                        ('occupation', ('str', {'lower': True}), {
+                            'doc': 'A self-declared occupation for the account.'
+                        }),
+
+                        # FIXME implement
+                        #('passwd', ('inet:passwd', {}), {
+                        #    'doc': 'The current password for the account.'
+                        #})
+
+                        # FIXME implement
+                        #('phone', ('tel:phone', {}), {
+                        #    'doc': 'The phone number associated with the account.'
+                        #}),
+
+                        # FIXME implement
+                        #('realname', ('ps:name', {}), {
+                        #    'doc': 'The localized version of the real name of the account owner / registrant.'
+                        #}),
+
+                        # FIXME implement
+                        #('realname:en', ('ps:name', {}), {
+                        #    'doc': 'The English version of the real name of the account owner / registrant.'
+                        #}),
+
+                        ('seen:max', ('time', {'max': True}), {
+                            'doc': 'The most recent known date of activity for the account.'
+                        }),
+
+                        ('seen:min', ('time', {'min': True}), {
+                            'doc': 'The earliest known date of activity for the account.'
+                        }),
+
+                        ('signup', ('time', {}), {
+                            'doc': 'The date and time the account was registered.'
+                        }),
+
+                        ('signup:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The IPv4 address used to sign up for the account.'
+                        }),
+
+                        ('site', ('inet:fqdn', {}), {
+                            'ro': 1,
+                            'doc': 'The site or service associated with the account.'
+                        }),
+
+                        # FIXME was str:txt
+                        ('tagline', ('str', {}), {
+                            'doc': 'The text of the account status or tag line.'
+                        }),
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The service provider URL where the account is hosted.'
+                        }),
+
+                        ('user', ('inet:user', {}), {
+                            'ro': 1,
+                            'doc': 'The unique identifier for the account (may be different from the common '
+                                'name or display name).'
+                        }),
+
+                        ('webpage', ('inet:url', {}), {
+                            'doc': 'A related URL specified by the account (e.g., a personal or company web '
+                                 'page, blog, etc.).'
+                        }),
+
+                    )),
+
+                    ('inet:whois:rar', {}, ()),
+
+                    ('inet:whois:reg', {}, ()),
+
+                    ('inet:wifi:ap', {}, (
+                        ('ssid', ('inet:wifi:ssid', {}), {
+                            'doc': 'The SSID for the wireless access point.'
+                        }),
+                        ('bssid', ('inet:mac', {}), {
+                            'doc': 'The MAC address for the wireless access point.'
+                        }),
+                    )),
+
+                    ('inet:wifi:ssid', {}, []),
 
                     ('inet:url', {}, (
                         ('fqdn', ('inet:fqdn', {}), {'ro': 1,
@@ -814,9 +862,24 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:user', {}, ()),
 
-                    ('inet:whois:rar', {}, ()),
-
-                    ('inet:whois:reg', {}, ()),
+                    ('inet:urlredir', {}, (
+                        ('src', ('inet:url', {}), {
+                            'ro': 1,
+                            'req': 1,
+                            'doc': 'The original/source URL before redirect'
+                        }),
+                        ('src:fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The FQDN within the src URL (if present)'
+                        }),
+                        ('dst', ('inet:url', {}), {
+                            'ro': 1,
+                            'req': 1,
+                            'doc': 'The redirected/destination URL'
+                        }),
+                        ('dst:fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The FQDN within the dst URL (if present)'
+                        }),
+                    )),
 
                 ),
             }),

@@ -4,7 +4,6 @@ import synapse.lib.chop as s_chop
 import synapse.tests.common as s_test
 
 class ChopTest(s_test.SynTest):
-
     def test_chop_digits(self):
         self.eq(s_chop.digits('a1b2c3'), '123')
 
@@ -40,3 +39,21 @@ class ChopTest(s_test.SynTest):
                 self.eq(s_chop.hexstr(v), e)
             else:
                 self.raises(e, s_chop.hexstr, v)
+
+    def test_chop_onespace(self):
+        ivs = ['asdfasdf  asdfasdf ',
+               'asdfasdf ',
+               'asdf',
+               '  asdfasdf  ',
+               ' asdf  asdf    asdf \t \t asdf asdf   ',
+               ' '
+               ]
+        evs = ['asdfasdf asdfasdf',
+               'asdfasdf',
+               'asdf',
+               'asdfasdf',
+               'asdf asdf asdf asdf asdf',
+               '']
+        for iv, ev in zip(ivs, evs):
+            rv = s_chop.onespace(iv)
+            self.eq(rv, ev)

@@ -1,41 +1,114 @@
-# -*- coding: UTF-8 -*-
-import base64
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
-import synapse.lib.types as s_types
 import synapse.lib.snap as s_snap
+import synapse.lib.types as s_types
 
 import synapse.tests.common as s_test
 
 class TypesTest(s_test.SynTest):
 
+    def test_types_range(self):
+        model = s_datamodel.Model()
+        t = model.type('range')
+
+        self.raises(s_exc.NoSuchFunc, t.norm, 1)
+        self.raises(s_exc.NoSuchFunc, t.norm, '1')
+        self.raises(s_exc.BadTypeValu, t.norm, (1,))
+        self.raises(s_exc.BadTypeValu, t.norm, (1, -1))
+
+        norm, info = t.norm((0, 0))
+        self.eq(norm, (0, 0))
+        self.eq(info['subs']['min'], 0)
+        self.eq(info['subs']['max'], 0)
+
+        norm, info = t.norm((-10, 0xFF))
+        self.eq(norm, (-10, 255))
+        self.eq(info['subs']['min'], -10)
+        self.eq(info['subs']['max'], 255)
+        self.eq(t.repr((-10, 0xFF)), ('-10', '255'))
+
+        self.eq(t.indx((0, (2**63) - 1)), b'\x80\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff')
+
+        # Invalid Config
+        self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': None})
+        self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': ('inet:ipv4', {})})  # inet is not loaded yet
+
     def test_types_int(self):
 
         model = s_datamodel.Model()
+        t = model.type('int')
+
+        # test ranges
+        self.nn(t.norm(-2**63))
+        self.raises(s_exc.BadTypeValu, t.norm, (-2**63) - 1)
+        self.nn(t.norm(2**63 - 1))
+        self.raises(s_exc.BadTypeValu, t.norm, 2**63)
 
         # test base types that Model snaps in...
-        valu, info = model.type('int').norm('100')
-        self.eq(valu, 100)
+        self.eq(t.norm('100')[0], 100)
+        self.eq(t.norm('0x20')[0], 32)
 
-        valu, info = model.type('int').norm('0x20')
-        self.eq(valu, 32)
+        # Index tests
+        self.eq(t.indx(-2**63), b'\x00\x00\x00\x00\x00\x00\x00\x00')
+        self.eq(t.indx(-1), b'\x7f\xff\xff\xff\xff\xff\xff\xff')
+        self.eq(t.indx(0), b'\x80\x00\x00\x00\x00\x00\x00\x00')
+        self.eq(t.indx(1), b'\x80\x00\x00\x00\x00\x00\x00\x01')
+        self.eq(t.indx(2**63 - 1), b'\xff\xff\xff\xff\xff\xff\xff\xff')
+        self.raises(OverflowError, t.indx, 2**63)
 
-        byts = s_common.uhex('0000000001020304')
-        self.eq(model.type('int').indx(0x01020304), byts)
+        # Test merge
+        self.eq(30, t.merge(20, 30))
+        self.eq(20, t.merge(30, 20))
+        self.eq(20, t.merge(20, 20))
 
+        # Test min and max
         minmax = model.type('int').clone({'min': 10, 'max': 30})
         self.eq(20, minmax.norm(20)[0])
         self.raises(s_exc.BadTypeValu, minmax.norm, 9)
         self.raises(s_exc.BadTypeValu, minmax.norm, 31)
-
         ismin = model.type('int').clone({'ismin': True})
         self.eq(20, ismin.merge(20, 30))
-
         ismin = model.type('int').clone({'ismax': True})
         self.eq(30, ismin.merge(20, 30))
+
+        # Test unsigned
+        uint64 = model.type('int').clone({'signed': False})
+        self.eq(uint64.norm(0)[0], 0)
+        self.eq(uint64.norm(-0)[0], 0)
+        self.raises(s_exc.BadTypeValu, uint64.norm, -1)
+        self.eq(uint64.indx(0), b'\x00\x00\x00\x00\x00\x00\x00\x00')
+        self.eq(uint64.indx(2**63), b'\x80\x00\x00\x00\x00\x00\x00\x00')
+        self.eq(uint64.indx((2 * 2**63) - 1), b'\xff\xff\xff\xff\xff\xff\xff\xff')
+        self.raises(OverflowError, uint64.indx, 2 * 2**63)
+
+        # Test size, 8bit signed
+        int8 = model.type('int').clone({'size': 1})
+        self.eq(int8.norm(127)[0], 127)
+        self.eq(int8.norm(0)[0], 0)
+        self.eq(int8.norm(-128)[0], -128)
+        self.raises(s_exc.BadTypeValu, int8.norm, 128)
+        self.raises(s_exc.BadTypeValu, int8.norm, -129)
+        self.eq(int8.indx(127), b'\xff')
+        self.eq(int8.indx(0), b'\x80')
+        self.eq(int8.indx(-128), b'\x00')
+        self.raises(OverflowError, int8.indx, 128)
+
+        # Test size, 128bit signed
+        int128 = model.type('int').clone({'size': 16})
+        self.eq(int128.norm(2**127 - 1)[0], 170141183460469231731687303715884105727)
+        self.eq(int128.norm(0)[0], 0)
+        self.eq(int128.norm(-2**127)[0], -170141183460469231731687303715884105728)
+        self.raises(s_exc.BadTypeValu, int128.norm, 170141183460469231731687303715884105728)
+        self.raises(s_exc.BadTypeValu, int128.norm, -170141183460469231731687303715884105729)
+        self.eq(int128.indx(2**127 - 1), b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff')
+        self.eq(int128.indx(0), b'\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+        self.eq(int128.indx(-2**127), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+        self.raises(OverflowError, int8.indx, 2**128)
+
+        # Invalid Config
+        self.raises(s_exc.BadTypeDef, model.type('int').clone, {'min': 100, 'max': 1})
 
     def test_types_str(self):
 
@@ -58,6 +131,16 @@ class TypesTest(s_test.SynTest):
 
         strp = model.type('str').clone({'strip': True})
         self.eq('foo', strp.norm('  foo \t')[0])
+        self.eq(b'foo  bar', strp.indxByPref(' foo  bar')[0][1])
+        self.eq(b'foo  bar ', strp.indxByPref(' foo  bar ')[0][1])
+
+        onespace = model.type('str').clone({'onespace': True})
+        self.eq('foo', onespace.norm('  foo\t')[0])
+        self.eq('hehe haha', onespace.norm('hehe    haha')[0])
+        self.eq(b'foo', onespace.indxByPref(' foo')[0][1])
+        self.eq(b'foo bar', onespace.indxByPref(' foo  bar')[0][1])
+        self.eq(b'foo bar', onespace.indxByPref(' foo  bar ')[0][1])
+        self.eq(b'foo ba', onespace.indxByPref(' foo  ba')[0][1])
 
     def test_type_guid(self):
 

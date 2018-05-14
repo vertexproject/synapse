@@ -268,6 +268,7 @@ class Str(Type):
         ('regex', None),
         ('lower', False),
         ('strip', False),
+        ('onespace', False),
     }
 
     def postTypeInit(self):
@@ -289,6 +290,9 @@ class Str(Type):
         if self.opts.get('strip'):
             valu = valu.lstrip()
 
+        if self.opts.get('onespace'):
+            valu = s_chop.onespace(valu)
+
         return (
             ('pref', valu.encode('utf8')),
         )
@@ -303,6 +307,9 @@ class Str(Type):
         if self.opts['strip']:
             norm = norm.strip()
 
+        if self.opts['onespace']:
+            norm = s_chop.onespace(norm)
+
         if self.regex is not None:
             if self.regex.match(norm) is None:
                 raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='regex does not match')
@@ -315,39 +322,43 @@ class Str(Type):
 class Int(Type):
 
     _opt_defs = (
+        ('size', 8),  # Set the storage size of the integer type in bytes.
+        ('signed', True),
 
-        ('size', 8),
+        ('fmt', '%d'),  # Set to an integer compatible format string to control repr.
 
-        ('fmt', '%d'),
+        ('min', None),  # Set to a value to enforce minimum value for the type.
+        ('max', None),  # Set to a value to enforce maximum value for the type.
 
-        ('min', None),
-        ('max', None),
-
-        ('ismin', False),
-        ('ismax', False),
-
-#        ('fmt', {'cast': 'str', 'defval': '%d',
-#            'doc': 'Set to an integer compatible format string to control repr.'}),
-#
-#        ('size', {'cast': 'int', 'defval': 8,
-#            'doc': 'Set the storage size of the integer type in bytes.'}),
-#
-#        ('max', {'cast': 'int', 'defval': None,
-#            'doc': 'Set to a value to enforce maximum value for the type.'}),
-#
-#        ('min', {'cast': 'int', 'defval': None,
-#            'doc': 'Set to a value to enforce minimum value for the type.'}),
-#
-#        ('ismin', {'cast': 'bool', 'defval': False,
-#            'doc': 'Set to True to enable ismin behavior on value merge.'}),
-#
-#        ('ismax', {'cast': 'bool', 'defval': False,
-#            'doc': 'Set to True to enable ismax behavior on value merge.'}),
+        ('ismin', False),  # Set to True to enable ismin behavior on value merge.
+        ('ismax', False),  # Set to True to enable ismax behavior on value merge.
     )
 
     def postTypeInit(self):
-        self.minval = self.opts.get('min')
-        self.maxval = self.opts.get('max')
+        self.size = self.opts.get('size')
+        self.signed = self.opts.get('signed')
+        minval = self.opts.get('min')
+        maxval = self.opts.get('max')
+
+        minmin = -2 ** ((self.size * 8) - 1)
+        if minval is None:
+            minval = minmin
+
+        maxmax = 2 ** ((self.size * 8) - 1) - 1
+        if maxval is None:
+            maxval = maxmax
+
+        if minval < minmin or maxval > maxmax or maxval < minval:
+            raise s_exc.BadTypeDef(self.opts)
+
+        if not self.signed:
+            self._indx_offset = 0
+            self.minval = 0
+            self.maxval = min(2 * maxval, maxval)
+        else:
+            self._indx_offset = maxmax + 1
+            self.minval = max(minmin, minval)
+            self.maxval = min(maxmax, maxval)
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
@@ -381,14 +392,13 @@ class Int(Type):
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
 
         if self.maxval is not None and valu > self.maxval:
-            mesg = f'value is below max={self.maxval}'
+            mesg = f'value is above max={self.maxval}'
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
 
         return valu, {}
 
     def indx(self, valu):
-        size = self.opts.get('size')
-        return valu.to_bytes(size, 'big')
+        return (valu + self._indx_offset).to_bytes(self.size, 'big')
 
 class Bool(Type):
 
@@ -480,6 +490,45 @@ class Time(Type):
             return self._indxTimeRange(valu, maxv)
 
         return Type.indxByEq(self, valu)
+
+
+class Range(Type):
+
+    _opt_defs = {
+        ('type', None),
+    }
+
+    def postTypeInit(self):
+        subtype = self.opts.get('type')
+        if not(type(subtype) is tuple and len(subtype) is 2):
+            raise s_exc.BadTypeDef(self.opts)
+
+        try:
+            self.subtype = self.modl.type(subtype[0]).clone(subtype[1])
+        except Exception as e:
+            logger.exception('subtype invalid or unavailable')
+            raise s_exc.BadTypeDef(self.opts, mesg='subtype invalid or unavailable')
+
+        self.setNormFunc(tuple, self._normPyTuple)
+
+    def _normPyTuple(self, valu):
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(valu, mesg=f'Must be a 2-tuple of type {self.subtype.name}')
+
+        minv = self.subtype.norm(valu[0])[0]
+        maxv = self.subtype.norm(valu[1])[0]
+
+        if minv > maxv:
+            raise s_exc.BadTypeValu(valu, mesg='minval cannot be greater than maxval')
+
+        return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
+
+    def indx(self, norm):
+        return self.subtype.indx(norm[0]) + self.subtype.indx(norm[1])
+
+    def repr(self, norm):
+        return (self.subtype.repr(norm[0]), self.subtype.repr(norm[1]))
+
 
 class Ival(Type):
 
