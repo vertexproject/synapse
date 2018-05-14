@@ -57,22 +57,31 @@ class InetModelTest(s_t_common.SynTest):
             # Proto defaults to tcp
             self.eq(t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060}}))
             self.eq(t.norm('1.2.3.4:80'), ('tcp://1.2.3.4:80', {'subs': {'port': 80, 'ipv4': 16909060}}))
+            self.raises(s_exc.BadTypeValu, t.norm, 'https://192.168.1.1:80')  # bad proto
 
             # IPv4
             self.eq(t.norm('tcp://1.2.3.4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060}}))
             self.eq(t.norm('udp://1.2.3.4:80'), ('udp://1.2.3.4:80', {'subs': {'port': 80, 'ipv4': 16909060}}))
+            self.eq(t.norm('tcp://1[.]2.3[.]4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060}}))
+            self.raises(s_exc.BadTypeValu, t.norm, 'tcp://1.2.3.4:-1')
+            self.raises(s_exc.BadTypeValu, t.norm, 'tcp://1.2.3.4:66000')
+
+            '''
+            self.eq(t.indx((0, 0)), 6 * b'\x00')
+            self.eq(t.indx((0x08080808, 80)), b'\x08\x08\x08\x08\x00P')
+            self.eq(t.indx((0x01020304, 8443)), b'\x01\x02\x03\x04 \xfb')
+            self.eq(t.indx((0xFFFFFFFF, 2**16 - 1)), 6 * b'\xff')
+            '''
 
             # IPv6
             self.eq(t.norm('icmp://::1'), ('icmp://::1', {'subs': {'ipv6': '::1'}}))
             self.eq(t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'subs': {'ipv6': '::1', 'port': 2}}))
+            self.raises(s_exc.BadTypeValu, t.norm, 'tcp://[::1')  # bad ipv6 w/ port
 
             # Host
             hstr = 'ffa3e574aa219e553e1b2fc1ccd0180f'
             self.eq(t.norm('host://vertex.link'), (f'host://{hstr}', {'subs': {'host': hstr}}))
             self.eq(t.norm('host://vertex.link:1337'), (f'host://{hstr}:1337', {'subs': {'host': hstr, 'port': 1337}}))
-
-            self.raises(s_exc.BadTypeValu, t.norm, 'https://192.168.1.1:80')  # bad proto
-            self.raises(s_exc.BadTypeValu, t.norm, 'tcp://[::1')  # bad ipv6 w/ port
             self.raises(OSError, t.norm, 'vertex.link')  # must use host proto
 
             with core.xact(write=True) as xact:
@@ -407,55 +416,6 @@ class InetModelTest(s_t_common.SynTest):
                 node = xact.addNode(formname, valu, props={'vendor': 'Cool'})
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('vendor'), 'Cool')
-
-    def test_srv4(self):
-        formname = 'inet:srv4'
-
-        with self.getTestCore() as core:
-
-            # Type Tests ======================================================
-            t = core.model.type(formname)
-
-            expected = ((16909060, 80), {'subs': {'ipv4': 16909060, 'port': 80}})
-            self.eq(t.norm('1.2.3.4:80'), expected)
-            self.eq(t.norm('1[.]2.3[.]4:80'), expected)
-            self.eq(t.norm(('1.2.3.4', '80')), expected)
-            self.eq(t.norm(('1.2[.]3.4', '80')), expected)
-            self.eq(t.norm((16909060, 80)), expected)
-
-            expected = '1.2.3.4:80'
-            self.eq(t.repr((16909060, 80)), expected)
-
-            self.eq(t.indx((0, 0)), 6 * b'\x00')
-            self.eq(t.indx((0x08080808, 80)), b'\x08\x08\x08\x08\x00P')
-            self.eq(t.indx((0x01020304, 8443)), b'\x01\x02\x03\x04 \xfb')
-            self.eq(t.indx((0xFFFFFFFF, 2**16 - 1)), 6 * b'\xff')
-
-            self.raises(s_exc.BadTypeValu, t.norm, (0, 1, 2))
-            self.raises(s_exc.BadTypeValu, t.norm, (0xFFFFFFFF, -1))
-            self.raises(s_exc.BadTypeValu, t.norm, (0xFFFFFFFF, 2**16))
-
-    def test_srv6(self):
-        formname = 'inet:srv6'
-
-        with self.getTestCore() as core:
-
-            # Type Tests ======================================================
-            t = core.model.type(formname)
-
-            valu = '[::1]:2'
-            expected = (('::1', 2), {'subs': {'ipv6': '::1', 'port': 2}})
-            self.eq(t.norm(valu), expected)
-            self.eq(t.repr(expected[0]), valu)
-            self.eq(t.indx(expected[0]), 15 * b'\x00' + b'\x01' + b'\x00\x02')
-
-            self.eq(t.indx((0, 0)), 18 * b'\x00')
-            self.eq(t.indx((0, 65535)), 16 * b'\x00' + b'\xff\xff')
-            self.eq(t.indx((2**128 - 1, 65535)), 18 * b'\xff')
-
-            self.raises(s_exc.BadTypeValu, t.norm, (0, 1, 2))
-            self.raises(s_exc.BadTypeValu, t.norm, 'ok')
-            self.raises(s_exc.BadTypeValu, t.norm, '[ok')
 
     def test_url(self):
         formname = 'inet:url'
