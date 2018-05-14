@@ -12,8 +12,8 @@ class LangModuleTest(s_t_common.SynTest):
             expected_props = {'url': 'https://vertex.link/', 'desc:en': 'Some English Desc'}
             expected_ndef = (formname, valu)
 
-            with core.xact(write=True) as xact:
-                node = xact.addNode(formname, valu, props=input_props)
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
 
             self.eq(node.ndef, expected_ndef)
             for prop, valu in expected_props.items():
@@ -28,8 +28,8 @@ class LangModuleTest(s_t_common.SynTest):
             expected_props = {'text:en': 'Some English Text', 'desc:en': 'Some English Desc'}
             expected_ndef = (formname, valu)
 
-            with core.xact(write=True) as xact:
-                node = xact.addNode(formname, valu, props=input_props)
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
 
             self.eq(node.ndef, expected_ndef)
             for prop, valu in expected_props.items():

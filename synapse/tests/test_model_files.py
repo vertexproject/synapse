@@ -25,16 +25,16 @@ class FileTest(s_test.SynTest):
             self.eq(info['subs']['dir'], 'c:/windows/system32')
             self.eq(info['subs']['base'], 'calc.exe')
 
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
 
-                node = xact.addNode('file:path', '/foo/bar/baz.exe')
+                node = snap.addNode('file:path', '/foo/bar/baz.exe')
 
                 self.eq(node.get('base'), 'baz.exe')
-                self.nn(xact.getNodeByNdef(('file:path', '/foo/bar')))
+                self.nn(snap.getNodeByNdef(('file:path', '/foo/bar')))
 
-                node0 = xact.addNode('file:bytes', 'hex:56565656')
-                node1 = xact.addNode('file:bytes', 'base64:VlZWVg==')
-                node2 = xact.addNode('file:bytes', b'VVVV')
+                node0 = snap.addNode('file:bytes', 'hex:56565656')
+                node1 = snap.addNode('file:bytes', 'base64:VlZWVg==')
+                node2 = snap.addNode('file:bytes', b'VVVV')
 
                 self.eq(node0.ndef, node1.ndef)
                 self.eq(node1.ndef, node2.ndef)
@@ -42,10 +42,9 @@ class FileTest(s_test.SynTest):
                 self.nn(node0.get('md5'))
                 self.nn(node0.get('sha1'))
                 self.nn(node0.get('sha256'))
-                self.nn(node0.get('sha384'))
                 self.nn(node0.get('sha512'))
 
-                fake = xact.addNode('file:bytes', '*')
+                fake = snap.addNode('file:bytes', '*')
                 self.true(fake.ndef[1].startswith('guid:'))
 
 class Newp:

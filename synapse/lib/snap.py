@@ -13,11 +13,11 @@ import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
-class Xact(s_eventbus.EventBus):
+class Snap(s_eventbus.EventBus):
     '''
-    A Transaction across multiple Cortex layers.
+    A "snapshot" is a transaction across multiple Cortex layers.
 
-    The Xact object contains the bulk of the Cortex API to
+    The Snap object contains the bulk of the Cortex API to
     facilitate performance through careful use of transaction
     boundaries.
 
@@ -40,37 +40,51 @@ class Xact(s_eventbus.EventBus):
         self.model = core.model
         self.layers = layers
 
+        self.bulk = False
+        self.bulksops = []
+
+        self.splices = []
+
         self.write = write
 
         self.xacts = []
 
         # do the last (possibly write) first for locking
-        self.layr = layers[-1]
-        self.xact = self.layr.xact(write=write)
-
-        self.stack.enter_context(self.xact)
+        self.xact = layers[-1].xact(write=write)
 
         for layr in layers[:-1]:
-            xact = layr.lenv.xact()
-            self.stack.enter_context(xact)
-            self.xacts.append((layr, xact))
+            self.xacts.append(layr.xact())
 
-        self.xacts.append((self.layr, self.xact))
+        self.xacts.append(self.xact)
 
-        # no locks needed...
-        #self.nodefifo = collections.deque()
-        #self.nodesbyndef = {}
-        #self.nodesbybuid = {}
+        self.tagcache = s_cache.FixedCache(self._addTagNode, size=10000)
         self.buidcache = s_cache.FixedCache(self._getNodeByBuid, size=100000)
-
-        self.buidcurs = self.cursors('bybuid')
-        [self.stack.enter_context(c) for c in self.buidcurs]
 
         # keep a cache so bulk is *fast*
         self.permcache = {}
 
         self.onfini(self.stack.close)
         self.changelog = []
+
+        def fini():
+
+            if self.exitok:
+
+                for x in self.xacts:
+                    try:
+                        x.commit()
+                    except Exception as e:
+                        logger.exception('commit error for layer xact')
+
+            else:
+
+                for x in self.xacts:
+                    try:
+                        x.abort()
+                    except Exception as e:
+                        logger.exception('abort error for layer xact')
+
+        self.onfini(fini)
 
     def allowed(self, *args):
 
@@ -95,12 +109,8 @@ class Xact(s_eventbus.EventBus):
     def printf(self, mesg):
         self.fire('print', mesg=mesg)
 
-    def log(self, mesg, level='WARNING'):
-        self.fire('log', mesg=mesg, level=level)
-
-    def deltas(self):
-        retn = self.changelog
-        self.changelog = []
+    def warn(self, mesg, **info):
+        self.fire('warn', mesg=mesg, **info)
 
     def getNodeByBuid(self, buid):
         '''
@@ -113,9 +123,7 @@ class Xact(s_eventbus.EventBus):
             ((str,dict)): The node tuple or None.
 
         '''
-        node = self.buidcache.get(buid)
-        if node is not s_common.novalu:
-            return node
+        return self.buidcache.get(buid)
 
     def getNodeByNdef(self, ndef):
         '''
@@ -129,13 +137,6 @@ class Xact(s_eventbus.EventBus):
         '''
         buid = s_common.buid(ndef)
         return self.getNodeByBuid(buid)
-
-    def cursor(self, name):
-        db = self.layr.db(name)
-        return self.xact.cursor(db=db)
-
-    def cursors(self, name):
-        return [xact.cursor(db=layr.db(name)) for (layr, xact) in self.xacts]
 
     def _getNodesByTag(self, name, valu=None, cmpr='='):
 
@@ -216,13 +217,25 @@ class Xact(s_eventbus.EventBus):
             valu (obj): The value for the node.
             props (dict): Optional secondary properties for the node.
         '''
-        try:
-            fnib = self._getNodeFnib(name, valu)
-            return self._addNodeFnib(fnib, props=props)
-        except Exception as e:
-            mesg = f'{name} {valu!r} {props!r}'
-            logger.exception(mesg)
-            raise
+        with self.bulkload():
+
+            try:
+                fnib = self._getNodeFnib(name, valu)
+                return self._addNodeFnib(fnib, props=props)
+            except Exception as e:
+                mesg = f'{name} {valu!r} {props!r}'
+                logger.exception(mesg)
+                raise
+
+    def addTagNode(self, name):
+        '''
+        Ensure that the given syn:tag node exists.
+        '''
+        self.tagcache.get(name)
+
+    def _addTagNode(self, name):
+        self.addNode('syn:tag', name)
+        return True
 
     def _addNodeFnib(self, fnib, props=None):
 
@@ -259,8 +272,9 @@ class Xact(s_eventbus.EventBus):
         node.ndef = (form.name, norm)
 
         sops = form.getSetOps(buid, norm)
-
         self.stor(sops)
+
+        self.splice('node:add', ndef=node.ndef)
 
         self.buidcache.put(buid, node)
 
@@ -288,6 +302,11 @@ class Xact(s_eventbus.EventBus):
 
         form.wasAdded(node)
 
+        # now we must fire all his prop sets
+        for name, valu in node.props.items():
+            prop = node.form.props.get(name)
+            prop.wasSet(node, None)
+
         return node
 
     def splice(self, name, **info):
@@ -298,6 +317,11 @@ class Xact(s_eventbus.EventBus):
 
         info['user'] = user
         info['time'] = s_common.now()
+
+        self.fire(name, **info)
+
+        mesg = (name, info)
+        self.splices.append(mesg)
 
         return (name, info)
 
@@ -400,26 +424,47 @@ class Xact(s_eventbus.EventBus):
         Returns:
             (list): A list of xact messages.
         '''
+        with self.bulkload():
 
-        for (formname, formvalu), forminfo in nodedefs:
+            for (formname, formvalu), forminfo in nodedefs:
 
-            props = forminfo.get('props')
+                props = forminfo.get('props')
 
-            # remove any universal created props...
-            props.pop('.created', None)
+                # remove any universal created props...
+                if props is not None:
+                    props.pop('.created', None)
 
-            node = self.addNode(formname, formvalu, props=props)
+                node = self.addNode(formname, formvalu, props=props)
 
-            tags = forminfo.get('tags')
-            if tags is not None:
-                for tag, asof in tags.items():
-                    node.addTag(tag)
+                tags = forminfo.get('tags')
+                if tags is not None:
+                    for tag, asof in tags.items():
+                        node.addTag(tag)
 
     def stor(self, sops):
         if not self.write:
-            raise s_exc.ReadOnlyXact()
+            raise s_exc.ReadOnlySnap()
 
-        self.layr._xactRunStors(self.xact, sops)
+        if self.bulk:
+            self.bulksops.extend(sops)
+            return
+
+        self.xact.stor(sops)
+
+    @contextlib.contextmanager
+    def bulkload(self):
+
+        #mine = not self.bulk
+        #if mine:
+            #self.bulk = True
+            #self.bulksops = []
+
+        yield
+
+        #if mine:
+            #self.bulk = False
+            #self.stor(self.bulksops)
+            #self.bulksops = []
 
     def getLiftNodes(self, lops):
         genr = self.getLiftRows(lops)
@@ -438,9 +483,8 @@ class Xact(s_eventbus.EventBus):
         Yields:
             (tuple): (buid, ...) rows.
         '''
-        for layr, xact in self.xacts:
-            for row in layr._xactRunLifts(xact, lops):
-                yield row
+        for xact in self.xacts:
+            yield from xact.getLiftRows(lops)
 
     def getRowNodes(self, rows):
         '''
@@ -460,24 +504,13 @@ class Xact(s_eventbus.EventBus):
             yield row, node
 
     def _getBuidProps(self, buid):
-
-        for curs in self.buidcurs:
-
-            if curs.set_range(buid):
-
-                for lkey, lval in curs.iternext():
-
-                    if lkey[:32] != buid:
-                        break
-
-                    prop = lkey[32:].decode('utf8')
-                    valu, indx = s_msgpack.un(lval)
-
-                    yield prop, valu
+        props = []
+        [props.extend(x.getBuidProps(buid)) for x in self.xacts]
+        return props
 
     def _getNodeByBuid(self, buid):
         node = s_node.Node(self, buid)
         if node.ndef is None:
-            return s_common.novalu
+            return None
 
         return node

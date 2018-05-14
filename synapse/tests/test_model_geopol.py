@@ -8,7 +8,7 @@ class GeoPolModelTest(s_t_common.SynTest):
         with self.getTestCore() as core:
             formname = 'pol:country'
             guid = 32 * '0'
-            flag_valu = 64 * 'f'
+            flag_valu = 'sha256:' + 64 * 'f'
 
             input_props = {'flag': flag_valu, 'founded': 456, 'iso2': 'VI', 'iso3': 'VIS', 'isonum': 31337,
                 'name': 'Republic of Visi', 'tld': 'visi', 'pop': 123}
@@ -16,8 +16,8 @@ class GeoPolModelTest(s_t_common.SynTest):
                 'name': 'republic of visi', 'tld': 'visi', 'pop': 123}
             expected_ndef = (formname, guid)
 
-            with core.xact(write=True) as xact:
-                node = xact.addNode(formname, guid, props=input_props)
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, guid, props=input_props)
 
             self.eq(node.ndef, expected_ndef)
             for prop, valu in expected_props.items():

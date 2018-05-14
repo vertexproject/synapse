@@ -102,6 +102,12 @@ class FileBytes(s_types.Type):
             return norm, {}
 
         if valu.find(':') == -1:
+
+            # we're ok with un-adorned sha256s
+            if len(valu) == 64 and s_common.uhex(valu):
+                valu = valu.lower()
+                return f'sha256:{valu}', {}
+
             raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
         kind, valu = valu.split(':')
@@ -144,7 +150,6 @@ class FileBytes(s_types.Type):
             'md5': hashlib.md5(valu).hexdigest(),
             'sha1': hashlib.sha1(valu).hexdigest(),
             'sha256': sha256,
-            'sha384': hashlib.sha384(valu).hexdigest(),
             'sha512': hashlib.sha512(valu).hexdigest(),
             'size': len(valu),
         }

@@ -41,7 +41,7 @@ class OuModelTest(s_test.SynTest):
             t = core.model.type('ou:alias')
             self.raises(s_exc.BadTypeValu, t.norm, 'asdf.asdf.asfd')
 
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
                 guid0 = s_common.guid()
                 oprops = {
                     'loc': 'US.CA',
@@ -54,7 +54,7 @@ class OuModelTest(s_test.SynTest):
                     'url': 'http://www.arrowinc.link',
                     'us:cage': '7qe71'
                 }
-                node = xact.addNode('ou:org', guid0, oprops)
+                node = snap.addNode('ou:org', guid0, oprops)
                 self.eq(node.ndef[1], guid0),
                 self.eq(node.get('loc'), 'us.ca')
                 self.eq(node.get('name'), '\u21f1\u21f2 inc.')
@@ -73,7 +73,7 @@ class OuModelTest(s_test.SynTest):
                     'current': True,
                     # Fixme - seen:min / seen:max
                 }
-                node = xact.addNode('ou:suborg', (guid0, guid1), subprops)
+                node = snap.addNode('ou:suborg', (guid0, guid1), subprops)
                 self.eq(node.ndef[1], (guid0, guid1))
                 self.eq(node.get('perc'), 50)
                 self.eq(node.get('current'), 1)
@@ -81,26 +81,26 @@ class OuModelTest(s_test.SynTest):
                 self.raises(s_exc.BadTypeValu, node.set, 'perc', -1)
 
                 # ou:user
-                node = xact.addNode('ou:user', (guid0, 'arrowman'))
+                node = snap.addNode('ou:user', (guid0, 'arrowman'))
                 self.eq(node.ndef[1], (guid0, 'arrowman'))
                 self.eq(node.get('org'), guid0)
                 self.eq(node.get('user'), 'arrowman')
 
                 # ou:haslias
-                node = xact.addNode('ou:hasalias', (guid0, 'EVILCORP'))
+                node = snap.addNode('ou:hasalias', (guid0, 'EVILCORP'))
                 self.eq(node.ndef[1], (guid0, 'evilcorp'))
                 self.eq(node.get('alias'), 'evilcorp')
                 self.eq(node.get('org'), guid0)
 
                 # ou:org:has
                 # FIXME this should be a test form eventually
-                node = xact.addNode('ou:org:has', (guid0, ('teststr', 'pretty floral bonnet')))
+                node = snap.addNode('ou:org:has', (guid0, ('teststr', 'pretty floral bonnet')))
                 self.eq(node.ndef[1], (guid0, ('teststr', 'pretty floral bonnet')))
                 self.eq(node.get('org'), guid0)
                 self.eq(node.get('node'), ('teststr', 'pretty floral bonnet'))
                 self.eq(node.get('node:form'), 'teststr')
                 # FIXME This is an autoadds test and should be tested elsewhere
-                nodes = list(xact.getNodesBy('teststr', 'pretty floral bonnet'))
+                nodes = list(snap.getNodesBy('teststr', 'pretty floral bonnet'))
                 self.len(1, nodes)
                 # FIXME seen:min / seen:max
 
@@ -112,7 +112,7 @@ class OuModelTest(s_test.SynTest):
                     'end': '201604011300'
                     # 'place': '', # FIXME geospatial
                 }
-                node = xact.addNode('ou:meet', m0, mprops)
+                node = snap.addNode('ou:meet', m0, mprops)
                 self.eq(node.ndef[1], m0)
                 self.eq(node.get('name'), 'working lunch')
                 self.eq(node.get('start'), 1459512000000)
@@ -128,7 +128,7 @@ class OuModelTest(s_test.SynTest):
                     'end': '20180303',
                     # 'place': '', # FIXME geospatial
                 }
-                node = xact.addNode('ou:conference', c0, cprops)
+                node = snap.addNode('ou:conference', c0, cprops)
                 self.eq(node.ndef[1], c0)
                 self.eq(node.get('name'), 'arrowcon 2018')
                 self.eq(node.get('base'), 'arrowcon')
@@ -152,25 +152,25 @@ class OuModelTest(s_test.SynTest):
                     'sic': '0134'}
         }
         with self.getTestCore() as core:
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
                 for g, props in omap.items():
-                    node = xact.addNode('ou:org', g, props)
-                nodes = list(xact.getNodesBy('ou:org:sic', '01', cmpr='^='))
+                    node = snap.addNode('ou:org', g, props)
+                nodes = list(snap.getNodesBy('ou:org:sic', '01', cmpr='^='))
                 self.len(3, nodes)
 
-                nodes = list(xact.getNodesBy('ou:org:sic', '011', cmpr='^='))
+                nodes = list(snap.getNodesBy('ou:org:sic', '011', cmpr='^='))
                 self.len(2, nodes)
 
-                nodes = list(xact.getNodesBy('ou:org:naics', '22', cmpr='^='))
+                nodes = list(snap.getNodesBy('ou:org:naics', '22', cmpr='^='))
                 self.len(4, nodes)
 
-                nodes = list(xact.getNodesBy('ou:org:naics', '221', cmpr='^='))
+                nodes = list(snap.getNodesBy('ou:org:naics', '221', cmpr='^='))
                 self.len(4, nodes)
 
-                nodes = list(xact.getNodesBy('ou:org:naics', '2211', cmpr='^='))
+                nodes = list(snap.getNodesBy('ou:org:naics', '2211', cmpr='^='))
                 self.len(3, nodes)
 
-                nodes = list(xact.getNodesBy('ou:org:naics', '22112', cmpr='^='))
+                nodes = list(snap.getNodesBy('ou:org:naics', '22112', cmpr='^='))
                 self.len(2, nodes)
 
 class FIXME:

@@ -96,7 +96,7 @@ class BadLiftValu(SynErr): pass
 class BadLiftCmpr(SynErr): pass
 
 class ReadOnlyProp(SynErr): pass
-class ReadOnlyXact(SynErr): pass
+class ReadOnlySnap(SynErr): pass
 
 class BadOperArg(SynErr): pass
 class ReqConfOpt(SynErr): pass

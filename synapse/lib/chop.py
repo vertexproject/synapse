@@ -68,3 +68,12 @@ def onespace(text):
 def tag(text):
     text = text.lower().strip('#').strip()
     return '.'.join([onespace(t) for t in text.split('.')])
+
+@s_cache.memoize(size=10000)
+def tags(norm):
+    '''
+    Divide a normalized tag string into hierarchical layers.
+    '''
+    # this is ugly for speed....
+    parts = norm.split('.')
+    return ['.'.join(parts[:i]) for i in range(1, len(parts) + 1)]

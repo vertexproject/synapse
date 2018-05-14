@@ -926,6 +926,12 @@ class SynTest(unittest.TestCase):
         '''
         Assert X is equal to Y
         '''
+        if type(x) == list:
+            x = tuple(x)
+
+        if type(y) == list:
+            y = tuple(y)
+
         self.assertEqual(x, y)
 
     def eqish(self, x, y, places=6):

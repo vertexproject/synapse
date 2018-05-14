@@ -6,16 +6,16 @@ class SynModelTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
 
-                node = xact.addNode('syn:tag', 'foo.bar.baz')
+                node = snap.addNode('syn:tag', 'foo.bar.baz')
 
                 self.eq(node.get('up'), 'foo.bar')
                 self.eq(node.get('depth'), 3)
                 self.eq(node.get('base'), 'baz')
 
-                node = xact.getNodeByNdef(('syn:tag', 'foo.bar'))
+                node = snap.getNodeByNdef(('syn:tag', 'foo.bar'))
                 self.nn(node)
 
-                node = xact.getNodeByNdef(('syn:tag', 'foo'))
+                node = snap.getNodeByNdef(('syn:tag', 'foo'))
                 self.nn(node)

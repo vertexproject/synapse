@@ -51,27 +51,27 @@ class CryptoModelTest(s_test.SynTest):
 
     def test_forms_crypto_simple(self):
         with self.getTestCore() as core:  # type: s_cortex.Cortex
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
                 # md5
-                node = xact.addNode('hash:md5', TEST_MD5.upper())
+                node = snap.addNode('hash:md5', TEST_MD5.upper())
                 self.eq(node.ndef, ('hash:md5', TEST_MD5))
-                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:md5', TEST_SHA1)
+                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:md5', TEST_SHA1)
                 # sha1
-                node = xact.addNode('hash:sha1', TEST_SHA1.upper())
+                node = snap.addNode('hash:sha1', TEST_SHA1.upper())
                 self.eq(node.ndef, ('hash:sha1', TEST_SHA1))
-                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:sha1', TEST_SHA256)
+                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:sha1', TEST_SHA256)
                 # sha256
-                node = xact.addNode('hash:sha256', TEST_SHA256.upper())
+                node = snap.addNode('hash:sha256', TEST_SHA256.upper())
                 self.eq(node.ndef, ('hash:sha256', TEST_SHA256))
-                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:sha256', TEST_SHA384)
+                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:sha256', TEST_SHA384)
                 # sha384
-                node = xact.addNode('hash:sha384', TEST_SHA384.upper())
+                node = snap.addNode('hash:sha384', TEST_SHA384.upper())
                 self.eq(node.ndef, ('hash:sha384', TEST_SHA384))
-                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:sha384', TEST_SHA512)
+                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:sha384', TEST_SHA512)
                 # sha512
-                node = xact.addNode('hash:sha512', TEST_SHA512.upper())
+                node = snap.addNode('hash:sha512', TEST_SHA512.upper())
                 self.eq(node.ndef, ('hash:sha512', TEST_SHA512))
-                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:sha512', TEST_MD5)
+                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:sha512', TEST_MD5)
 
     def test_form_rsakey(self):
         prop = 'rsa:key'
@@ -85,9 +85,9 @@ class CryptoModelTest(s_test.SynTest):
 
         with self.getTestCore() as core:  # type: s_cortex.Cortex
 
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
 
-                node = xact.addNode(prop, valu, props)
+                node = snap.addNode(prop, valu, props)
 
                 self.eq(node.ndef[1], (HEXSTR_MODULUS, HEXSTR_PUBLIC_EXPONENT))
 

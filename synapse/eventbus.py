@@ -41,6 +41,10 @@ class EventBus(object):
         self.finievt = None
         self.finlock = finlock
 
+        self.exitok = None
+        self.entered = False
+        self.exitinfo = None
+
         self._syn_funcs = collections.defaultdict(list)
 
         self._syn_refs = 1  # one ref for the ctor
@@ -49,9 +53,12 @@ class EventBus(object):
         self._fini_atexit = False
 
     def __enter__(self):
+        self.entered = True
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc, cls, tb):
+        self.exitok = cls is None
+        self.exitinfo = (cls, exc, tb)
         self.fini()
 
     def incref(self):

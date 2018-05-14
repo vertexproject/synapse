@@ -9,7 +9,7 @@ import synapse.eventbus as s_eventbus
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.cell as s_cell
-import synapse.lib.xact as s_xact
+import synapse.lib.snap as s_snap
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.syntax as s_syntax
@@ -50,25 +50,13 @@ class View:
         self.core = core
         self.layers = layers
 
-    def xact(self, write=False):
-        return s_xact.Xact(self.core, self.layers, write=write)
-
-#class CoreApi:
-    #'''
-    #Implement our synapse.telepath aware API endpoint.
-    #'''
-    #def __init__(self, dmon, core):
-        #self.dmon = dmon
-        #self.core = core
+    def snap(self, write=False):
+        return s_snap.Snap(self.core, self.layers, write=write)
 
 class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed over telepath.
     '''
-    #def __init__(self, core, link):
-        # pass through APIs
-        #self.getNodesBy = core.getNodesBy
-
     def getNodesBy(self, full, valu, cmpr='='):
         '''
         Yield Node.pack() tuples which match the query.
@@ -81,7 +69,7 @@ class Cortex(s_cell.Cell):
     A Cortex implements the synapse hypergraph.
 
     The bulk of the Cortex API lives on the Xact() object which can
-    be obtained by calling Cortex.xact() in a with block.  This allows
+    be obtained by calling Cortex.snap() in a with block.  This allows
     callers to manage transaction boundaries explicitly and dramatically
     increases performance.
     '''
@@ -128,8 +116,8 @@ class Cortex(s_cell.Cell):
         self.layers.append(layr)
 
     def splices(self, msgs):
-        with self.view.xact(write=True) as xact:
-            for deltas in xact.splices(msgs):
+        with self.view.snap(write=True) as snap:
+            for deltas in snap.splices(msgs):
                 yield deltas
 
     def openLayerName(self, name):
@@ -199,8 +187,8 @@ class Cortex(s_cell.Cell):
 
         buid = s_common.buid((form.name, norm))
 
-        with self.xact() as xact:
-            return xact.getNodeByBuid(buid)
+        with self.snap() as snap:
+            return snap.getNodeByBuid(buid)
 
     def getNodesBy(self, full, valu, cmpr='='):
         '''
@@ -221,8 +209,8 @@ class Cortex(s_cell.Cell):
             # The inet:ipv4 type knows about cidr syntax
             core.getNodesBy('inet:ipv4', '1.2.3.0/24')
         '''
-        with self.xact() as xact:
-            for node in  xact.getNodesBy(full, valu, cmpr=cmpr):
+        with self.snap() as snap:
+            for node in  snap.getNodesBy(full, valu, cmpr=cmpr):
                 yield node
 
     def addNodes(self, nodedefs):
@@ -242,11 +230,10 @@ class Cortex(s_cell.Cell):
         The "props" or "tags" keys may be omitted.
 
         '''
-        with self.xact(write=True) as xact:
-            xact.addNodes(nodedefs)
-            return xact.deltas()
+        with self.snap(write=True) as snap:
+            snap.addNodes(nodedefs)
 
-    def xact(self, write=False):
+    def snap(self, write=False):
         '''
         Return a transaction object for the default view.
 
@@ -254,11 +241,11 @@ class Cortex(s_cell.Cell):
             write (bool): Set to True for a write transaction.
 
         Returns:
-            (synapse.lib.xact.Xact)
+            (synapse.lib.snap.Snap)
 
         NOTE: This must be used in a with block.
         '''
-        return self.view.xact(write=write)
+        return self.view.snap(write=write)
 
     def addCoreMods(self, mods):
         '''
