@@ -84,9 +84,6 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm('host://vertex.link:1337'), (f'host://{hstr}:1337', {'subs': {'host': hstr, 'port': 1337}}))
             self.raises(OSError, t.norm, 'vertex.link')  # must use host proto
 
-            with core.xact(write=True) as xact:
-                pass
-
     def test_asn(self):
         formname = 'inet:asn'
         with self.getTestCore() as core:
