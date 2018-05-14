@@ -8,21 +8,21 @@ class BaseTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
 
                 props = {
                     'name': 'FOO BAR',
                     'type': 'osint',
                 }
 
-                sorc = xact.addNode('source', '*', props=props)
+                sorc = snap.addNode('source', '*', props=props)
 
                 self.eq(sorc.get('type'), 'osint')
                 self.eq(sorc.get('name'), 'foo bar')
 
                 valu = (sorc.ndef[1], ('inet:fqdn', 'woot.com'))
 
-                seen = xact.addNode('seen', valu)
+                seen = snap.addNode('seen', valu)
 
                 self.eq(seen.get('source'), sorc.ndef[1])
                 self.eq(seen.get('node'), ('inet:fqdn', 'woot.com'))

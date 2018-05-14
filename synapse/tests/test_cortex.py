@@ -12,12 +12,12 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
 
                 func = CallBack()
                 core.model.form('inet:ipv4').onAdd(func)
 
-                node = xact.addNode('inet:ipv4', '1.2.3.4')
+                node = snap.addNode('inet:ipv4', '1.2.3.4')
                 self.eq(node.buid, func.args[0].buid)
 
     def test_cortex_cell(self):
@@ -38,12 +38,12 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
 
                 func = CallBack()
                 core.model.prop('inet:ipv4:loc').onSet(func)
 
-                node = xact.addNode('inet:ipv4', '1.2.3.4')
+                node = snap.addNode('inet:ipv4', '1.2.3.4')
                 node.set('loc', 'US.  VA')
 
                 self.eq(func.args[0].buid, node.buid)
@@ -59,53 +59,53 @@ class CortexTest(SynTest):
 
                 self.none(node.get('loc'))
 
-            with core.xact() as xact:
-                node = xact.addNode('inet:ipv4', '1.2.3.4')
+            with core.snap() as snap:
+                node = snap.addNode('inet:ipv4', '1.2.3.4')
                 self.none(node.get('loc'))
 
     def test_cortex_tags(self):
 
         with self.getTestCore() as core:
 
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
 
-                xact.addNode('teststr', 'newp')
+                snap.addNode('teststr', 'newp')
 
-                node = xact.addNode('teststr', 'one')
+                node = snap.addNode('teststr', 'one')
                 node.addTag('foo.bar', ('2016', '2017'))
 
                 self.eq((1451606400000, 1483228800000), node.getTag('foo.bar', ('2016', '2017')))
 
-                node1 = xact.addNode('testcomp', (10, 'hehe'))
+                node1 = snap.addNode('testcomp', (10, 'hehe'))
                 node1.addTag('foo.bar')
 
-                self.nn(xact.getNodeByNdef(('syn:tag', 'foo')))
-                self.nn(xact.getNodeByNdef(('syn:tag', 'foo.bar')))
+                self.nn(snap.getNodeByNdef(('syn:tag', 'foo')))
+                self.nn(snap.getNodeByNdef(('syn:tag', 'foo.bar')))
 
-            with core.xact() as xact:
+            with core.snap() as snap:
 
-                node = xact.getNodeByNdef(('teststr', 'one'))
+                node = snap.getNodeByNdef(('teststr', 'one'))
 
                 self.true(node.hasTag('foo'))
                 self.true(node.hasTag('foo.bar'))
 
-                self.raises(s_exc.NoSuchForm, list, xact.getNodesBy('noway#foo.bar'))
+                self.raises(s_exc.NoSuchForm, list, snap.getNodesBy('noway#foo.bar'))
 
-                self.len(2, list(xact.getNodesBy('#foo.bar')))
-                self.len(1, list(xact.getNodesBy('teststr#foo.bar')))
+                self.len(2, list(snap.getNodesBy('#foo.bar')))
+                self.len(1, list(snap.getNodesBy('teststr#foo.bar')))
 
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
 
-                node = xact.addNode('teststr', 'one')
+                node = snap.addNode('teststr', 'one')
 
                 node.delTag('foo')
 
                 self.false(node.hasTag('foo'))
                 self.false(node.hasTag('foo.bar'))
 
-            with core.xact() as xact:
+            with core.snap() as snap:
 
-                node = xact.addNode('teststr', 'one')
+                node = snap.addNode('teststr', 'one')
                 self.false(node.hasTag('foo'))
                 self.false(node.hasTag('foo.bar'))
 
@@ -113,12 +113,23 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
+                node = snap.addNode('testtype10', 'one')
+                node.set('intprop', 21)
 
-                node = xact.addNode('testtype10', 'one')
+            with core.snap() as snap:
+                node = snap.getNodeByNdef(('testtype10', 'one'))
+                self.nn(node)
+                self.eq(node.get('intprop'), 21)
+
+        with self.getTestCore() as core:
+
+            with core.snap(write=True) as snap:
+
+                node = snap.addNode('testtype10', 'one')
                 self.nn(node.get('.created'))
 
-                nodes = list(xact.getNodesBy('.created', '2010', cmpr='>='))
+                nodes = list(snap.getNodesBy('.created', '2010', cmpr='>='))
 
                 self.eq(node.get('intprop'), 20)
                 self.eq(node.get('locprop'), '??')
@@ -127,80 +138,80 @@ class CortexTest(SynTest):
                 self.true(s_common.isguid(node.get('guidprop')))
 
                 # add another node with default vals
-                xact.addNode('testtype10', 'two')
+                snap.addNode('testtype10', 'two')
 
                 # modify default vals on initial node
                 node.set('intprop', 21)
                 node.set('strprop', 'qwer')
                 node.set('locprop', 'us.va.reston')
 
-                node = xact.addNode('testcomp', (33, 'THIRTY THREE'))
+                node = snap.addNode('testcomp', (33, 'THIRTY THREE'))
 
                 self.eq(node.get('hehe'), 33)
                 self.eq(node.get('haha'), 'thirty three')
 
                 self.false(node.set('hehe', 80))
 
-                self.none(xact.getNodeByNdef(('testauto', 'autothis')))
+                self.none(snap.getNodeByNdef(('testauto', 'autothis')))
 
                 props = {
                     'bar': ('testauto', 'autothis'),
                     'baz': ('testtype10:strprop', 'WOOT'),
                     'tick': '20160505',
                 }
-                node = xact.addNode('teststr', 'woot', props=props)
+                node = snap.addNode('teststr', 'woot', props=props)
                 self.eq(node.get('bar'), ('testauto', 'autothis'))
                 self.eq(node.get('baz'), ('testtype10:strprop', 'woot'))
                 self.eq(node.get('tick'), 1462406400000)
 
-                nodes = list(xact.getNodesBy('teststr:tick', '20160505'))
+                nodes = list(snap.getNodesBy('teststr:tick', '20160505'))
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('teststr', 'woot'))
 
                 # add some time range bumper nodes
-                xact.addNode('teststr', 'toolow', props={'tick': '2015'})
-                xact.addNode('teststr', 'toohigh', props={'tick': '2018'})
+                snap.addNode('teststr', 'toolow', props={'tick': '2015'})
+                snap.addNode('teststr', 'toohigh', props={'tick': '2018'})
 
                 # test a few time range syntax options...
-                nodes = list(xact.getNodesBy('teststr:tick', '2016*'))
+                nodes = list(snap.getNodesBy('teststr:tick', '2016*'))
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('teststr', 'woot'))
 
                 # test a few time range syntax options...
-                nodes = list(xact.getNodesBy('teststr:tick', ('2016', '2017'), cmpr='*range='))
+                nodes = list(snap.getNodesBy('teststr:tick', ('2016', '2017'), cmpr='*range='))
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('teststr', 'woot'))
 
-                nodes = list(xact.getNodesBy('teststr:tick', ('2016', '2017'), cmpr='*range='))
+                nodes = list(snap.getNodesBy('teststr:tick', ('2016', '2017'), cmpr='*range='))
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('teststr', 'woot'))
 
-                self.raises(s_exc.NoSuchForm, node.set, 'bar', ('newp:newp', 20))
-                self.raises(s_exc.NoSuchProp, node.set, 'baz', ('newp:newp', 20))
+                self.false(node.set('newp:newp', 20))
 
-                self.nn(xact.getNodeByNdef(('testauto', 'autothis')))
+                self.nn(snap.getNodeByNdef(('testauto', 'autothis')))
 
                 # test lifting by prop without value
-                nodes = list(xact.getNodesBy('teststr:tick'))
+                nodes = list(snap.getNodesBy('teststr:tick'))
                 self.len(3, nodes)
 
-            with core.xact() as xact:
+            with core.snap(write=True) as snap:
 
-                node = xact.addNode('testtype10', 'one')
+                node = snap.addNode('testtype10', 'one')
+                print(repr(node.pack()))
                 self.eq(node.get('intprop'), 21)
 
                 self.nn(node.get('.created'))
 
-                nodes = list(xact.getNodesBy('teststr', 'too', cmpr='^='))
+                nodes = list(snap.getNodesBy('teststr', 'too', cmpr='^='))
                 self.len(2, nodes)
 
                 # test loc prop prefix based lookup
-                nodes = list(xact.getNodesBy('testtype10:locprop', 'us.va'))
+                nodes = list(snap.getNodesBy('testtype10:locprop', 'us.va'))
 
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef[1], 'one')
 
-                nodes = list(xact.getNodesBy('testcomp', (33, 'thirty three')))
+                nodes = list(snap.getNodesBy('testcomp', (33, 'thirty three')))
 
                 self.len(1, nodes)
 
@@ -211,17 +222,17 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
 
-                pivc = xact.addNode('pivcomp', ('woot', 'rofl'))
+                pivc = snap.addNode('pivcomp', ('woot', 'rofl'))
                 self.eq(pivc.get('targ'), 'woot')
 
-                pivt = xact.getNodeByNdef(('pivtarg', 'woot'))
+                pivt = snap.getNodeByNdef(('pivtarg', 'woot'))
                 pivt.set('name', 'visi')
                 self.nn(pivt)
 
-            with core.xact() as xact:
-                pivc = xact.getNodeByNdef(('pivcomp', ('woot', 'rofl')))
+            with core.snap() as snap:
+                pivc = snap.getNodeByNdef(('pivcomp', ('woot', 'rofl')))
                 self.eq(pivc.get('targ::name'), 'visi')
 
 #FIXME THIS ALL GOES AWAY #################################################
@@ -1095,7 +1106,7 @@ class FIXME:
                 # node:created rows are not sent with the splice and will be created by the target core
                 self.ge(tufo1[1]['node:created'], tufo0[1]['node:created'])
 
-    def test_cortex_xact_deadlock(self):
+    def test_cortex_snap_deadlock(self):
         N = 100
         fd = tempfile.NamedTemporaryFile()
         evnt = threading.Event()
@@ -2402,7 +2413,7 @@ class FIXME:
     def test_nonexist_ctor(self):
         self.raises(NoSuchImpl, s_cortex.openstore, 'delaylinememory:///')
 
-    def test_storage_xact_spliced(self):
+    def test_storage_snap_spliced(self):
 
         # Ensure that spliced events don't get fired through a
         # StoreXct without a Cortex
@@ -2414,10 +2425,10 @@ class FIXME:
         with s_cortex.openstore('ram:///') as store:
             store.on('foo', foo)
             store.on('splice', foo)
-            with store.getCoreXact() as xact:
-                xact.fire('foo', key='valu')
-                xact.fire('bar', key='valu')
-                xact.spliced('foo', key='valu')
+            with store.getCoreXact() as snap:
+                snap.fire('foo', key='valu')
+                snap.fire('bar', key='valu')
+                snap.spliced('foo', key='valu')
         self.eq(eventd, {'foo': 1})
 
     def test_storage_confopts(self):

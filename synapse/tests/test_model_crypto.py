@@ -13,7 +13,7 @@ HEXSTR_MODULUS = 'abbd407f417fe8d6632aae1c6d09b271416bef9244e61f7c7c2856ddfde3ec
                  'b0af2978802aabf35483bbfcc470d50d6afb4283c1d06d2bf27efe9d7c09f226895633a46c3d77173bf0db8634299462b5f' \
                  '29629ad3b0470c76ddfd331ed0207d4dbd5fd44a2f66ca5f802ac0130e4a4bb2c149b5baa7a373188823ee21fe2950a76c8' \
                  '18586919f7914453d'
-HEXSTR_PUBLIC_EXPONENT = '010001'
+HEXSTR_PUBLIC_EXPONENT = 10001
 HEXSTR_PRIVATE_EXPONENT = '9db58a80120f3b2b7d1f998a231b8f916fa985f4456f2a24f0033f5a56a7b35b61e0a695e65dfab3c7ceb2f0ad' \
                           '968e7bdaeac9f29a97730ce5add8a5627c14c3532c7880d88c8f56099f8ed65275a4c9e2cb93b70c3d7c904677' \
                           '639fac7962c537f5bfaf2f12859d0dacb7c403ee59da0922715bba0a6f5202d7c653833e39715f04664c2396c4' \
@@ -51,27 +51,27 @@ class CryptoModelTest(s_test.SynTest):
 
     def test_forms_crypto_simple(self):
         with self.getTestCore() as core:  # type: s_cortex.Cortex
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
                 # md5
-                node = xact.addNode('hash:md5', TEST_MD5.upper())
+                node = snap.addNode('hash:md5', TEST_MD5.upper())
                 self.eq(node.ndef, ('hash:md5', TEST_MD5))
-                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:md5', TEST_SHA1)
+                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:md5', TEST_SHA1)
                 # sha1
-                node = xact.addNode('hash:sha1', TEST_SHA1.upper())
+                node = snap.addNode('hash:sha1', TEST_SHA1.upper())
                 self.eq(node.ndef, ('hash:sha1', TEST_SHA1))
-                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:sha1', TEST_SHA256)
+                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:sha1', TEST_SHA256)
                 # sha256
-                node = xact.addNode('hash:sha256', TEST_SHA256.upper())
+                node = snap.addNode('hash:sha256', TEST_SHA256.upper())
                 self.eq(node.ndef, ('hash:sha256', TEST_SHA256))
-                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:sha256', TEST_SHA384)
+                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:sha256', TEST_SHA384)
                 # sha384
-                node = xact.addNode('hash:sha384', TEST_SHA384.upper())
+                node = snap.addNode('hash:sha384', TEST_SHA384.upper())
                 self.eq(node.ndef, ('hash:sha384', TEST_SHA384))
-                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:sha384', TEST_SHA512)
+                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:sha384', TEST_SHA512)
                 # sha512
-                node = xact.addNode('hash:sha512', TEST_SHA512.upper())
+                node = snap.addNode('hash:sha512', TEST_SHA512.upper())
                 self.eq(node.ndef, ('hash:sha512', TEST_SHA512))
-                self.raises(s_exc.BadTypeValu, xact.addNode, 'hash:sha512', TEST_MD5)
+                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:sha512', TEST_MD5)
 
     def test_form_rsakey(self):
         prop = 'rsa:key'
@@ -85,9 +85,9 @@ class CryptoModelTest(s_test.SynTest):
 
         with self.getTestCore() as core:  # type: s_cortex.Cortex
 
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
 
-                node = xact.addNode(prop, valu, props)
+                node = snap.addNode(prop, valu, props)
 
                 self.eq(node.ndef[1], (HEXSTR_MODULUS, HEXSTR_PUBLIC_EXPONENT))
 

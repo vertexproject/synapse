@@ -30,8 +30,8 @@ class UsGovTest(SynTest):
             formname = 'gov:us:cage'
             valu = '7qe71'
             expected_ndef = (formname, valu)
-            with core.xact(write=True) as xact:
-                n0 = xact.addNode(formname, valu.upper(), input_props)
+            with core.snap(write=True) as snap:
+                n0 = snap.addNode(formname, valu.upper(), input_props)
 
             self.eq(n0.ndef, expected_ndef)
             for prop, valu in expected_props.items():

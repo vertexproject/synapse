@@ -13,9 +13,9 @@ class Node:
 
     NOTE: This object is for local Cortex use during a single Xact.
     '''
-    def __init__(self, xact, buid):
+    def __init__(self, snap, buid):
 
-        self.xact = xact
+        self.snap = snap
 
         self.buid = buid
         self.init = False   # True if the node is being added.
@@ -34,15 +34,16 @@ class Node:
             self._loadNodeData()
 
         if self.ndef is not None:
-            self.form = self.xact.model.form(self.ndef[0])
+            self.form = self.snap.model.form(self.ndef[0])
 
     def _loadNodeData(self):
 
-        props = list(self.xact._getBuidProps(self.buid))
+        props = list(self.snap._getBuidProps(self.buid))
 
         for prop, valu in props:
 
             p0 = prop[0]
+
             # check for primary property
             if p0 == '*':
                 self.ndef = (prop[1:], valu)
@@ -90,33 +91,39 @@ class Node:
             logger.warning('trying to set read only prop: %s' % (prop.full,))
             return False
 
+        curv = self.props.get(name)
+        #if curv is not None and not init and not prop.info.get('rw'):
+        if curv is not None and not init and prop.info.get('ro'):
+            # not setting a set-once prop unless we are init...
+            return False
+
         # normalize the property value...
         norm, info = prop.type.norm(valu)
 
         # do we already have the value?
-        curv = self.props.get(name)
         if curv == norm:
             return False
 
         sops = prop.getSetOps(self.buid, norm)
-        #sops = prop.stor(self.buid, norm)
-        self.xact.stor(sops)
+
+        self.snap.stor(sops)
+        self.snap.splice('prop:set', ndef=self.ndef, prop=prop.name, valu=norm, oldv=curv)
 
         self.props[prop.name] = norm
 
         # do we have any auto nodes to add?
-        auto = self.xact.model.form(prop.type.name)
+        auto = self.snap.model.form(prop.type.name)
         if auto is not None:
             buid = s_common.buid((auto.name, norm))
-            self.xact._addNodeFnib((auto, norm, info, buid))
+            self.snap._addNodeFnib((auto, norm, info, buid))
 
         # does the type think we have special auto nodes to add?
         # ( used only for adds which do not meet the above block )
         for autoname, autovalu in info.get('adds', ()):
-            auto = self.xact.model.form(autoname)
+            auto = self.snap.model.form(autoname)
             autonorm, autoinfo = auto.type.norm(autovalu)
             buid = s_common.buid((auto.name, autonorm))
-            self.xact._addNodeFnib((auto, autovalu, autoinfo, buid))
+            self.snap._addNodeFnib((auto, autovalu, autoinfo, buid))
 
         # do we need to set any sub props?
         subs = info.get('subs')
@@ -159,11 +166,11 @@ class Node:
             if valu is s_common.novalu:
                 return None
 
-            form = self.xact.model.form(prop.type.name)
+            form = self.snap.model.form(prop.type.name)
             if form is None:
                 raise s_exc.NoSuchForm(form=prop.type.name)
 
-            node = self.xact.getNodeByNdef((form.name, valu))
+            node = self.snap.getNodeByNdef((form.name, valu))
             return node.get(text)
 
         if name[0] == '#':
@@ -175,7 +182,7 @@ class Node:
 
         prop = self.form.prop(name)
         if prop is None:
-            self.xact.warn('NoSuchProp', form=self.form.name, prop=name)
+            self.snap.warn('NoSuchProp', form=self.form.name, prop=name)
             return False
 
         if prop.info.get('ro') and not init and not self.init:
@@ -183,7 +190,7 @@ class Node:
             return False
 
         sops = prop.getDelOps(self.buid)
-        self.xact.stor(sops)
+        self.snap.stor(sops)
 
         curv = self.props.pop(name, None)
         prop.wasDel(self, curv)
@@ -196,43 +203,54 @@ class Node:
         name = s_chop.tag(name)
         return self.tags.get(name, defval)
 
-    def addTag(self, tag, valu=None):
+    def addTag(self, tag, valu=(None, None)):
 
         name = s_chop.tag(tag)
 
-        if not self.xact.allowed('node:tag:add', name):
+        if not self.snap.allowed('node:tag:add', name):
             raise s_exc.AuthDeny()
 
-        parts = name.rsplit('.', 1)
-        if len(parts) > 1:
-            self._addTagRaw(parts[0], None)
+        if valu != (None, None):
+            valu = self.snap.model.type('ival').norm(valu)[0]
 
-        self._addTagRaw(name, valu)
-
-    def _addTagRaw(self, name, valu):
-
-        node = self.xact.addNode('syn:tag', name)
-
-        ivaltype = self.xact.model.type('ival')
-        norm, info = ivaltype.norm(valu)
-
-        curv = self.tags.get(name, s_common.novalu)
-        if curv == norm:
+        curv = self.tags.get(name)
+        if curv == valu:
             return
 
+        if curv is not None:
+            # merge tag and move along...
+            return
+
+        tags = s_chop.tags(name)
+        for tag in tags[:-1]:
+
+            if self.tags.get(tag) is not None:
+                continue
+
+            self._addTagRaw(tag, (None, None))
+
+        self._addTagRaw(tags[-1], valu)
+
+    def _addTagRaw(self, name, norm):
+
+        # these are cached based on norm...
+        self.snap.addTagNode(name)
+
         info = {'univ': True}
-        indx = ivaltype.indx(norm)
+        if norm == (None, None):
+            indx = b'\x00'
+        else:
+            indx = self.snap.model.types['ival'].indx(norm)
+
         sops = (
-            ('prop:set', (self.buid, self.form.name, '#' + name, valu, indx, info)),
+            ('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),
         )
 
         self.tags[name] = norm
-        self.xact.stor(sops)
+        self.snap.stor(sops)
 
-        if curv is s_common.novalu:
-            #TODO: splice
-            pass
-
+        # TODO: fire an onTagAdd handler...
+        self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
         return True
 
     def delTag(self, tag):
@@ -241,7 +259,7 @@ class Node:
         '''
         name = s_chop.tag(tag)
 
-        if not self.xact.allowed('node:tag:del', name):
+        if not self.snap.allowed('node:tag:del', name):
             raise s_exc.AuthDeny()
 
         curv = self.tags.pop(name, s_common.novalu)
@@ -262,4 +280,5 @@ class Node:
 
         sops.append(('prop:del', (self.buid, self.form.name, '#' + name, info)))
 
-        self.xact.stor(sops)
+        self.snap.stor(sops)
+        self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=name)

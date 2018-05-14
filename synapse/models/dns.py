@@ -46,49 +46,42 @@ class DnsModule(s_module.CoreModule):
                         'doc': 'The domain queried for its DNS A record.'}),
                     ('ipv4', ('inet:ipv4', {}), {'ro': 1,
                         'doc': 'The IPv4 address returned in the A record.'}),
-                    # FIXME - add Seen:min / seen:max
                 )),
                 ('inet:dns:aaaa', {}, (
                     ('fqdn', ('inet:fqdn', {}), {'ro': 1,
                          'doc': 'The domain queried for its DNS AAAA record.'}),
                     ('ipv6', ('inet:ipv6', {}), {'ro': 1,
                          'doc': 'The IPv6 address returned in the AAAA record.'}),
-                    # FIXME - add Seen:min / seen:max
                 )),
                 ('inet:dns:rev', {}, (
                     ('ipv4', ('inet:ipv4', {}), {'ro': 1,
                          'doc': 'The IPv4 address queried for its DNS PTR record.'}),
                     ('fqdn', ('inet:fqdn', {}), {'ro': 1,
                          'doc': 'The domain returned in the PTR record.'}),
-                    # FIXME - add Seen:min / seen:max
                 )),
                 ('inet:dns:rev6', {}, (
                     ('ipv6', ('inet:ipv6', {}), {'ro': 1,
                          'doc': 'The IPv6 address queried for its DNS PTR record.'}),
                     ('fqdn', ('inet:fqdn', {}), {'ro': 1,
                          'doc': 'The domain returned in the PTR record.'}),
-                    # FIXME - add Seen:min / seen:max
                 )),
                 ('inet:dns:ns', {}, (
                     ('zone', ('inet:fqdn', {}), {'ro': 1,
                          'doc': 'The domain queried for its DNS NS record.'}),
                     ('ns', ('inet:fqdn', {}), {'ro': 1,
                          'doc': 'The domain returned in the NS record.'}),
-                    # FIXME - add Seen:min / seen:max
                 )),
                 ('inet:dns:cname', {}, (
                     ('fqdn', ('inet:fqdn', {}), {'ro': 1,
                          'doc': 'The domain queried for its CNAME record.'}),
                     ('cname', ('inet:fqdn', {}), {'ro': 1,
                          'doc': 'The domain returned in the CNAME record.'}),
-                    # FIXME - add Seen:min / seen:max
                 )),
                 ('inet:dns:mx', {}, (
                     ('fqdn', ('inet:fqdn', {}), {'ro': 1,
                          'doc': 'The domain queried for its MX record.'}),
                     ('mx', ('inet:fqdn', {}), {'ro': 1,
                          'doc': 'The domain returned in the MX record.'}),
-                    # FIXME - add Seen:min / seen:max
                 )),
                 ('inet:dns:soa', {}, (
                     ('fqdn', ('inet:fqdn', {}), {'ro': 1,
@@ -97,14 +90,12 @@ class DnsModule(s_module.CoreModule):
                          'doc': 'The domain (MNAME) returned in the SOA record.'}),
                     ('email', ('inet:email', {}), {'ro': 1,
                          'doc': 'The email address (RNAME) returned in the SOA record.'}),
-                    # FIXME - add Seen:min / seen:max
                 )),
                 ('inet:dns:txt', {}, (
                     ('fqdn', ('inet:fqdn', {}), {'ro': 1,
                          'doc': 'The domain queried for its TXT record.'}),
                     ('txt', ('str', {}), {'ro': 1,
                          'doc': 'The string returned in the TXT record.'}),
-                    # FIXME - add Seen:min / seen:max
                 )),
             )
         }

@@ -282,6 +282,9 @@ class Model:
             ('created', ('time', {}), {'ro': 1,
                 'doc': 'The time the node was created in the cortex.',
             }),
+            ('seen', ('ival', {}), {
+                'doc': 'The time interval for first/last observation of the node.',
+            }),
         )
 
         self.propsbytype = collections.defaultdict(list) # name: Prop()
@@ -433,7 +436,12 @@ class Model:
                     self.props[full] = prop
                     self.props[(formname, univname)] = prop
 
-                for propname, typedef, propinfo in propdefs:
+                for propdef in propdefs:
+
+                    if len(propdef) != 3:
+                        raise s_exc.BadPropDef(valu=propdef)
+
+                    propname, typedef, propinfo = propdef
 
                     prop = Prop(self, form, propname, typedef, propinfo)
 
