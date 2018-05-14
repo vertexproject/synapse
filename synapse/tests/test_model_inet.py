@@ -49,6 +49,35 @@ class InetModelTest(s_t_common.SynTest):
             self.nn(core.model.form('inet:whois:rec'))  # comp
             self.nn(core.model.form('inet:whois:reg'))  # str w/ lower
 
+    def test_addr(self):
+        formname = 'inet:addr'
+        with self.getTestCore() as core:
+            t = core.model.type(formname)
+
+            # Proto defaults to tcp
+            self.eq(t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060}}))
+            self.eq(t.norm('1.2.3.4:80'), ('tcp://1.2.3.4:80', {'subs': {'port': 80, 'ipv4': 16909060}}))
+
+            # IPv4
+            self.eq(t.norm('tcp://1.2.3.4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060}}))
+            self.eq(t.norm('udp://1.2.3.4:80'), ('udp://1.2.3.4:80', {'subs': {'port': 80, 'ipv4': 16909060}}))
+
+            # IPv6
+            self.eq(t.norm('icmp://::1'), ('icmp://::1', {'subs': {'ipv6': '::1'}}))
+            self.eq(t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'subs': {'ipv6': '::1', 'port': 2}}))
+
+            # Host
+            hstr = 'ffa3e574aa219e553e1b2fc1ccd0180f'
+            self.eq(t.norm('host://vertex.link'), (f'host://{hstr}', {'subs': {'host': hstr}}))
+            self.eq(t.norm('host://vertex.link:1337'), (f'host://{hstr}:1337', {'subs': {'host': hstr, 'port': 1337}}))
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'https://192.168.1.1:80')  # bad proto
+            self.raises(s_exc.BadTypeValu, t.norm, 'tcp://[::1')  # bad ipv6 w/ port
+            self.raises(OSError, t.norm, 'vertex.link')  # must use host proto
+
+            with core.xact(write=True) as xact:
+                pass
+
     def test_asn(self):
         formname = 'inet:asn'
         with self.getTestCore() as core:
@@ -77,7 +106,7 @@ class InetModelTest(s_t_common.SynTest):
         with self.getTestCore() as core:
 
             # Type Tests ======================================================
-            t = core.model.type('inet:cidr4')
+            t = core.model.type(formname)
 
             valu = '0/24'
             expected = ('0.0.0.0/24', {'subs': {
@@ -122,7 +151,7 @@ class InetModelTest(s_t_common.SynTest):
         with self.getTestCore() as core:
 
             # Type Tests ======================================================
-            t = core.model.type('inet:email')
+            t = core.model.type(formname)
 
             email = 'UnitTest@Vertex.link'
             expected = ('unittest@vertex.link', {'subs': {'fqdn': 'vertex.link', 'user': 'unittest'}})
@@ -143,7 +172,7 @@ class InetModelTest(s_t_common.SynTest):
         with self.getTestCore() as core:
 
             # Type Tests ======================================================
-            t = core.model.type('inet:fqdn')
+            t = core.model.type(formname)
 
             fqdn = 'example.Vertex.link'
             expected = ('example.vertex.link', {'subs': {'host': 'example', 'domain': 'vertex.link'}})
@@ -271,7 +300,7 @@ class InetModelTest(s_t_common.SynTest):
         with self.getTestCore() as core:
 
             # Type Tests ======================================================
-            t = core.model.type('inet:ipv4')
+            t = core.model.type(formname)
             ip_int = 16909060
             ip_str = '1.2.3.4'
             ip_str_enfanged = '1[.]2[.]3[.]4'
@@ -304,7 +333,7 @@ class InetModelTest(s_t_common.SynTest):
         with self.getTestCore() as core:
 
             # Type Tests ======================================================
-            t = core.model.type('inet:ipv6')
+            t = core.model.type(formname)
 
             self.eq(t.norm('::1'), ('::1', {}))
             self.eq(t.norm('0:0:0:0:0:0:0:1'), ('::1', {}))
@@ -359,7 +388,7 @@ class InetModelTest(s_t_common.SynTest):
         with self.getTestCore() as core:
 
             # Type Tests ======================================================
-            t = core.model.type('inet:mac')
+            t = core.model.type(formname)
 
             self.eq(t.norm('00:00:00:00:00:00'), ('00:00:00:00:00:00', {}))
             self.eq(t.norm('FF:ff:FF:ff:FF:ff'), ('ff:ff:ff:ff:ff:ff', {}))
@@ -433,7 +462,7 @@ class InetModelTest(s_t_common.SynTest):
         with self.getTestCore() as core:
 
             # Type Tests ======================================================
-            t = core.model.type('inet:url')
+            t = core.model.type(formname)
 
             self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')  # No Host
             self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol

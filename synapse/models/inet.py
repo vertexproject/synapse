@@ -9,6 +9,7 @@ import regex
 
 # custom code
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lookup.iana as s_l_iana
@@ -18,6 +19,76 @@ fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 srv6re = regex.compile(r'^\[([a-f0-9:]+)\]:(\d+)$')
 
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
+
+
+class Addr(s_types.Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+
+    def _getPort(self, valu):
+        port = None
+        parts = valu.split(':', 1)
+        if len(parts) == 2:
+            valu, port = parts
+            port = self.modl.type('inet:port').norm(port)[0]
+            return valu, port, f':{port}'
+        return valu, None, ''
+
+    def _normPyStr(self, valu):
+        orig = valu
+        subs = {}
+
+        proto = 'tcp'
+        parts = valu.split('://', 1)
+        if len(parts) == 2:
+            proto, valu = parts
+
+        if proto not in ('tcp', 'udp', 'icmp', 'host'):
+            raise s_exc.BadTypeValu(orig, mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
+
+        # Treat as host if proto is host
+        if proto == 'host':
+
+            valu, port, pstr = self._getPort(valu)
+            if port:
+                subs['port'] = port
+
+            host = s_common.guid(valu)
+            subs['host'] = host
+
+            return f'host://{host}{pstr}', {'subs': subs}
+
+        # Treat as IPv6 if starts with [ or contains multiple :
+        if valu.startswith('['):
+            match = srv6re.match(valu)
+            if match:
+                ipv6, port = match.groups()
+
+                ipv6 = self.modl.type('inet:ipv6').norm(ipv6)[0]
+                port = self.modl.type('inet:port').norm(port)[0]
+                subs['ipv6'] = ipv6
+                subs['port'] = port
+
+                return f'{proto}://[{ipv6}]:{port}', {'subs': subs}
+
+            raise s_exc.BadTypeValu(orig, mesg='invalid IPv6 w/ port')
+
+        elif valu.count(':') >= 2:
+            ipv6 = self.modl.type('inet:ipv6').norm(valu)[0]
+            subs['ipv6'] = ipv6
+            return f'{proto}://{ipv6}', {'subs': subs}
+
+        # Otherwise treat as IPv4
+        valu, port, pstr = self._getPort(valu)
+        if port:
+            subs['port'] = port
+
+        ipv4 = self.modl.type('inet:ipv4').norm(valu)[0]
+        ipv4_repr = self.modl.type('inet:ipv4').repr(ipv4)
+        subs['ipv4'] = ipv4
+
+        return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs}
 
 
 class Cidr4(s_types.Type):
@@ -504,6 +575,11 @@ class InetModule(s_module.CoreModule):
             ('inet', {
 
                 'ctors': (
+
+                    ('inet:addr', 'synapse.models.inet.Addr', {}, {
+                        'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
+                        'ex': 'tcp://1.2.3.4:80'
+                    }),
 
                     ('inet:cidr4', 'synapse.models.inet.Cidr4', {}, {
                         'doc': 'An IPv4 address block in Classless Inter-Domain Routing (CIDR) notation.',
