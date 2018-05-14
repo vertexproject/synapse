@@ -28,11 +28,6 @@ logger = logging.getLogger(__name__)
 # file:txtref, file:imgof -> both turn into file:ref comp: (file:bytes, ndef)
 #     secondary prop: type ("image", "text")
 # ps:name, reverse order, remove comma, remove all subproperties on ps:name form (*not* type)
-# throw all syn:tagform nodes on the floor
-# throw syn:tag:depth subprop on the floor
-# drop file:path:ext subprop
-# tel:phone:cc -> tel:phone:loc
-# drop ps:name:{middle,sur}
 # ps:image ( another in the xrefs reconstruction guys ) should get merged into being a file:imgof=(<file>, <node>)
 #   which is still a guid node, so you can just make the ndef ('ps:person', <oldguid>)
 #   where oldguid is the :person prop
@@ -213,6 +208,13 @@ class Migrator:
         'syn:tagform',
     ))
 
+    secondary_props_to_drop = set ((
+        'syn:tag:depth',
+        'ps:name:middle',
+        'ps:name:sur',
+        'file:path:ext'
+    ))
+
     def do_stage2(self):
         start_time = time.time()
         comp_forms = [f for f in reversed(_comp_and_sepr_forms) if self.is_comp(f)]
@@ -374,7 +376,8 @@ class Migrator:
         'inet:flow:src:udp6': 'inet:flow:src',
         'inet:flow:src:udp4': 'inet:flow:src',
         'inet:flow:src:tcp6': 'inet:flow:src',
-        'inet:flow:src:udp6': 'inet:flow:src'
+        'inet:flow:src:udp6': 'inet:flow:src',
+        'tel:phone:cc', 'tel:phone:loc'
     }
 
     def ipv4_to_client(self, formname, propname, typename, val):
@@ -426,7 +429,6 @@ class Migrator:
         formname = oldprops['tufo:form']
         if formname in self.forms_to_drop:
             return None
-
         props = {}
         tags = {}
         propsmeta = self.core.getSubProps(formname)
@@ -435,6 +437,8 @@ class Migrator:
         for oldk, oldv in sorted(oldprops.items()):
             propmeta = next((x[1] for x in propsmeta if x[0] == oldk), {})
             if oldk in skipfields:
+                continue
+            if oldk in self.secondary_props_to_drop:
                 continue
             if oldk[0] == '#':
                 tags[oldk[1:]] = (None, None)
@@ -481,7 +485,7 @@ class Migrator:
     }
 
     secondary_prop_special = {
-            # 'file:bytes': convert_file_bytes_secondary
+        # 'file:bytes': convert_file_bytes_secondary
         }
 
     subprop_special = {

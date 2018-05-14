@@ -71,6 +71,11 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(len(node[0]), 2)
             self.eq(node[0], ('inet:web:acct', ('twitter.com', 'ironman')))
 
+            # test that secondary prop drop works
+            nodes = self.get_formfile('ps:name', fh)
+            self.eq(len(nodes), 1)
+            self.notin('middle', nodes[0][1]['props'])
+
             # Uncomment when file:bytes lookaside working
             # self.eq(node[1]['props']['avatar'], ('inet:netuser:avatar', ('file:bytes', 'foo')))
 
