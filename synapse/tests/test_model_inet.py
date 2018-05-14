@@ -194,6 +194,30 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.ndef, (formname, 32 * 'a'))
                 [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
 
+    def test_http_request(self):
+        formname = 'inet:http:request'
+        input_props = {
+            'time': 0,
+            'flow': 32 * 'f',
+            'method': 'gEt',
+            'path': '/woot/hehe/',
+            'query': 'hoho=1&qaz=bar',
+            'body': 64 * 'b'
+        }
+        expected_props = {  # FIXME fill in src/dst later
+            'time': 0,
+            'flow': 32 * 'f',
+            'method': 'gEt',
+            'path': '/woot/hehe/',
+            'query': 'hoho=1&qaz=bar',
+            'body': 64 * 'b'
+        }
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, 32 * 'a', props=input_props)
+                self.eq(node.ndef, (formname, 32 * 'a'))
+                [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
+
     def test_email(self):
         formname = 'inet:email'
         with self.getTestCore() as core:

@@ -919,6 +919,30 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:group', {}, ()),
 
+                    ('inet:http:request', {}, (
+                        ('flow', ('inet:flow', {}), {
+                            'doc': 'The inet:flow which contained the HTTP request.'
+                        }),
+                        #('host', ('it:host', {}), {  # FIXME
+                        #    'doc': 'The it:host which sent the HTTP request.'
+                        #}),
+                        ('time', ('time', {}), {
+                            'doc': 'The time that the HTTP request was sent.'
+                        }),
+                        ('method', ('str', {}), {
+                            'doc': 'The HTTP request method string.'
+                        }),
+                        ('path', ('str', {}), {
+                            'doc': 'The requested HTTP path (without query parameters).'
+                        }),
+                        ('query', ('str', {}), {
+                            'doc': 'The HTTP query string which optionally folows the path.'
+                        }),
+                        ('body', ('file:bytes', {}), {
+                            'doc': 'The body of the HTTP request.'
+                        }),
+                    )),
+
                     ('inet:ipv4', {}, (
 
                         ('asn', ('inet:asn', {}), {

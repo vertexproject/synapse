@@ -1,10 +1,6 @@
 '''
 TYPES that dont extend builtins =======================================================================
-# FIXME relies on it model
-('inet:http:request', {
-    'subof': 'guid',
-    'doc': 'A single client HTTP request.',
-}),
+
 
 # FIXME relies on it, tel, geospace model
 ('inet:iface', {
@@ -278,31 +274,6 @@ FORMS ==========================================================================
     ('tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
         'doc': 'The IPv4 address associated with the TCP server.'}),
 ]),
-
-('inet:http:request', {}, (
-
-    ('flow', {'ptype': 'inet:flow',
-        'doc': 'The inet:flow which contained the HTTP request.'}),
-
-    ('host', {'ptype': 'it:host',
-        'doc': 'The it:host which sent the HTTP request.'}),
-
-    ('time', {'ptype': 'time',
-        'doc': 'The time that the HTTP request was sent.'}),
-
-    # HTTP protocol specific fields...
-    ('method', {'ptype': 'str',
-        'doc': 'The HTTP request method string.'}),
-
-    ('path', {'ptype': 'str',
-        'doc': 'The requested HTTP path (without query parameters).'}),
-
-    ('query', {'ptype': 'str',
-        'doc': 'The HTTP query string which optionally folows the path.'}),
-
-    ('body', {'ptype': 'file:bytes',
-        'doc': 'The body of the HTTP request.'})
-)),
 
 ('inet:http:response', {}, (
 
