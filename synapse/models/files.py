@@ -1,78 +1,92 @@
+import base64
 import hashlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
-#from synapse.lib.types import DataType
 from synapse.common import addpref, guid
 
-#class FileBaseType(DataType):
-#    def norm(self, valu, oldval=None):
-#        if not (isinstance(valu, str) and not valu.find('/') > -1):
-#            self._raiseBadValu(valu)
-#
-#        return valu.lower(), {}
-#
-#    def repr(self, valu):
-#        return valu
-#
-#class FilePathType(DataType):
-#    def norm(self, valu, oldval=None):
-#
-#        if not isinstance(valu, str):
-#            self._raiseBadValu(valu)
-#
-#        lead = ''
-#
-#        valu = valu.replace('\\', '/').lower()
-#        if valu and valu[0] == '/':
-#            lead = '/'
-#
-#        valu = valu.strip('/')
-#
-#        vals = [v for v in valu.split('/') if v]
-#
-#        fins = []
-#
-#        # canonicalize . and ..
-#        for v in vals:
-#            if v == '.':
-#                continue
-#
-#            if v == '..' and fins:
-#                fins.pop()
-#                continue
-#
-#            fins.append(v)
-#
-#        subs = {'dir': '', 'depth': len(fins)}
-#        valu = lead + ('/'.join(fins))
-#
-#        if fins:
-#            base = fins[-1]
-#            subs['base'] = base
-#
-#            pext = base.rsplit('.', 1)
-#            if len(pext) > 1:
-#                subs['ext'] = pext[1]
-#
-#            if len(fins) > 1:
-#                subs['dir'] = lead + ('/'.join(fins[:-1]))
-#
-#        return valu, subs
-#
-#class FileRawPathType(DataType):
-#    def norm(self, valu, oldval=None):
-#        if not isinstance(valu, str):
-#            self._raiseBadValu(valu)
-#
-#        subs = {}
-#
-#        subs['norm'], subsubs = self.tlib.getTypeNorm('file:path', valu)
-#        subs.update(addpref('norm', subsubs))
-#
-#        return valu, subs
+class FileBase(s_types.Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.indxcmpr['^='] = self.indxByPref
+
+    def indxByPref(self, valu):
+        valu = valu.strip().lower().replace('\\', '/')
+        indx = valu.encode('utf8')
+        return (
+            ('pref', indx),
+        )
+
+    def _normPyStr(self, valu):
+
+        norm = valu.strip().lower().replace('\\', '/')
+        if norm.find('/') != -1:
+            mesg = 'file:base may not contain /'
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
+
+        subs = {}
+        if norm.find('.') != -1:
+            subs['ext'] = norm.rsplit('.', 1)[1]
+
+        return norm, {'subs': subs}
+
+    def indx(self, norm):
+        return norm.encode('utf8')
+
+class FilePath(s_types.Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.indxcmpr['^='] = self.indxByPref
+
+    def indxByPref(self, valu):
+        valu = value.strip().lower().replace('\\', '/')
+        indx = valu.encode('utf8')
+        return (
+            ('pref', indx),
+        )
+
+    def _normPyStr(self, valu):
+
+        if len(valu) == 0:
+            return '', {}
+
+        lead = ''
+        if valu[0] == '/':
+            lead = '/'
+
+        valu = valu.strip().lower().replace('\\', '/').strip('/')
+        if not valu:
+            return ''
+
+        path = []
+
+        for part in valu.split('/'):
+
+            if part == '.':
+                continue
+
+            if part == '..':
+                if len(path):
+                    path.pop()
+
+                continue
+
+            path.append(part)
+
+        fullpath = lead + '/'.join(path)
+
+        subs = {'base': path[-1]}
+        if len(path) > 1:
+            subs['dir'] = lead + '/'.join(path[:-1])
+
+        return fullpath, {'subs': subs}
+
+    def indx(self, norm):
+        return norm.encode('utf8')
 
 class FileBytes(s_types.Type):
 
@@ -80,28 +94,69 @@ class FileBytes(s_types.Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(bytes, self._normPyBytes)
 
-    def indx(self, valu):
-        return s_common.uhex(valu)
+    def indx(self, norm):
+        return norm.encode('utf8')
 
     def _normPyStr(self, valu):
 
-        if len(valu) != 64:
+        if valu == '*':
+            guid = s_common.guid()
+            norm = f'guid:{guid}'
+            return norm, {}
+
+        if valu.find(':') == -1:
+
+            # we're ok with un-adorned sha256s
+            if len(valu) == 64 and s_common.uhex(valu):
+                valu = valu.lower()
+                subs = {'sha256': valu}
+                return f'sha256:{valu}', {'subs': subs}
+
             raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
-        s_common.uhex(valu)
+        kind, kval = valu.split(':', 1)
 
-        norm = valu.lower()
-        return norm, {}
+        if kind == 'base64':
+            byts = base64.b64decode(kval)
+            return self._normPyBytes(byts)
+
+        kval = kval.lower()
+
+        if kind == 'hex':
+            byts = s_common.uhex(kval)
+            return self._normPyBytes(byts)
+
+        if kind == 'guid':
+
+            kval = kval.lower()
+            if not s_common.isguid(kval):
+                raise s_exc.BadTypeValu(name=self.name, valu=valu)
+
+            return f'guid:{kval}', {}
+
+        if kind == 'sha256':
+
+            if len(kval) != 64:
+                raise s_exc.BadTypeValu(name=self.name, valu=valu)
+
+            s_common.uhex(kval)
+
+            subs = {'sha256': kval}
+            return f'sha256:{kval}', {'subs': subs}
+
+        raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
     def _normPyBytes(self, valu):
-        norm = hashlib.sha256(valu).hexdigest()
-        subs = {
-            'sha256': norm,
 
+        sha256 = hashlib.sha256(valu).hexdigest()
+
+        norm = f'sha256:{sha256}'
+
+        subs = {
             'md5': hashlib.md5(valu).hexdigest(),
             'sha1': hashlib.sha1(valu).hexdigest(),
+            'sha256': sha256,
             'sha512': hashlib.sha512(valu).hexdigest(),
-
             'size': len(valu),
         }
         return norm, {'subs': subs}
@@ -128,6 +183,13 @@ class FileModule(s_module.CoreModule):
                     ('file:bytes', 'synapse.models.files.FileBytes', {}, {
                         'doc': 'The file bytes type with SHA256 based primary property.'}),
 
+                    ('file:base', 'synapse.models.files.FileBase', {}, {
+                        'doc': 'A file name with no path.',
+                        'ex': 'woot.exe'}),
+
+                    ('file:path', 'synapse.models.files.FilePath', {}, {
+                        'doc': 'A normalized file path.',
+                        'ex': 'c:/windows/system32/calc.exe'}),
                 ),
 
                 'types': (
@@ -140,7 +202,56 @@ class FileModule(s_module.CoreModule):
                         ('size', ('int', {}), {
                             'doc': 'The file size in bytes.'}),
 
+                        ('md5', ('hash:md5', {}), {'ro': 1,
+                            'doc': 'The md5 hash of the file.'}),
+
+                        ('sha1', ('hash:sha1', {}), {'ro': 1,
+                            'doc': 'The sha1 hash of the file.'}),
+
+                        ('sha256', ('hash:sha256', {}), {'ro': 1,
+                            'doc': 'The sha256 hash of the file.'}),
+
+                        ('sha512', ('hash:sha512', {}), {'ro': 1,
+                            'doc': 'The sha512 hash of the file.'}),
+
+                        ('name', ('file:base', {}), {
+                              'doc': 'The best known base name for the file.'}),
+
+                        ('mime', ('str', {'lower': 1}), {'defval': '??',
+                              'doc': 'The MIME type of the file.'}),
+
+                        ('mime:x509:cn', ('str', {}), {
+                            'doc': 'The Common Name (CN) attribute of the x509 Subject.'}),
+
+                        ('mime:pe:size', ('int', {}), {
+                            'doc': 'The size of the executable file according to the PE file header.'}),
+
+                        ('mime:pe:imphash', ('guid', {}), {
+                            'doc': 'The PE import hash of the file as calculated by Vivisect; this method excludes '
+                                'imports referenced as ordinals and may fail to calculate an import hash for files '
+                                'that use ordinals.'}),
+
+                        ('mime:pe:compiled', ('time', {}), {
+                            'doc': 'The compile time of the file according to the PE header.'}),
+
                     )),
+
+                    ('file:base', {}, (
+                        ('ext', ('str', {}), {'ro': 1,
+                            'doc': 'The file extension (if any).'}),
+                    )),
+
+                    ('file:path', {}, (
+                        ('dir', ('file:path', {}), {'ro': 1,
+                            'doc': 'The parent directory.'}),
+
+                        ('base', ('file:path', {}), {'ro': 1,
+                            'doc': 'The file base name.'}),
+
+                        ('base:ext', ('str', {}), {'ro': 1,
+                            'doc': 'The file extension.'}),
+                    )),
+
                 ),
 
             }),
@@ -256,55 +367,6 @@ class FileModule(s_module.CoreModule):
                              'if the value is a string.'}),
                 ]),
 
-                ('file:path', {}, (
-                    ('dir', {'ptype': 'file:path', 'ro': 1,
-                         'doc': 'The parent directory of the file path.'}),
-                    ('ext', {'ptype': 'str:lwr', 'ro': 1,
-                         'doc': 'The file extension of the file name, (if present); for example: exe, bat, py, docx.'}),
-                    ('base', {'ptype': 'file:base', 'ro': 1,
-                          'doc': 'The final component of the file path. Can be a file name (if present) or the final '
-                              'directory.'}),
-                )),
-
-                ('file:base', {'ptype': 'file:base'}, (
-                )),
-
-                ('file:bytes', {'ptype': 'file:bytes'}, (
-                    ('size', {'ptype': 'int', 'ro': 1,
-                        'doc': 'The size of the file in bytes.'}),
-                    ('md5', {'ptype': 'hash:md5', 'ro': 1,
-                        'doc': 'The md5 hash of the file.'}),
-                    ('sha1', {'ptype': 'hash:sha1', 'ro': 1,
-                        'doc': 'The sha1 hash of the file.'}),
-                    ('sha256', {'ptype': 'hash:sha256', 'ro': 1,
-                        'doc': 'The sha256 hash of the file.'}),
-                    ('sha512', {'ptype': 'hash:sha512', 'ro': 1,
-                        'doc': 'The sha512 hash of the file.'}),
-                    ('name', {'ptype': 'file:base',
-                          'doc': 'The name of the file. Because a given set of bytes can have any number of '
-                              'arbitrary names, this field is used for display purposes only.'}),
-                    ('mime', {'ptype': 'str', 'defval': '??',
-                          'doc': 'The MIME type of the file.'}),
-
-                    # FIXME could another model define props for this form?
-                    ('mime:x509:cn', {'ptype': 'str', 'ro': 1,
-                        'doc': 'The Common Name (CN) attribute of the x509 Subject.'}),
-
-                    ('mime:pe:size', {'ptype': 'int', 'ro': 1,
-                        'doc': 'The size of the executable file according to the file headers.'}),
-                    ('mime:pe:imphash', {'ptype': 'guid', 'ro': 1,
-                        'doc': 'The PE import hash of the file as calculated by Vivisect; this method excludes '
-                            'imports referenced as ordinals and may fail to calculate an import hash for files '
-                            'that use ordinals.'}),
-                    ('mime:pe:compiled', {'ptype': 'time', 'ro': 1,
-                        'doc': 'The compile time of the file according to the PE header.'}),
-
-                    # once we have dark prop based text token indexes...
-                    # ('mime:pe:imports',{'ptype':'time','doc':'Compile time from the PE header'}),
-
-                    ('mime:*', {'glob': 1,
-                        'doc': 'Namespace for high-value mime details'})
-                )),
 
                 ('file:subfile', {'ptype': 'file:sub'}, (
                     ('parent', {'ptype': 'file:bytes', 'ro': 1,

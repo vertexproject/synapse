@@ -78,7 +78,6 @@ class NoSuchGetBy(SynErr): pass
 class NoSuchMembrane(SynErr): pass
 class MembraneExists(SynErr): pass
 
-
 class BadTypeDef(SynErr): pass
 class BadPropDef(SynErr): pass
 
@@ -98,7 +97,7 @@ class BadLiftCmpr(SynErr): pass
 class BadCmprValu(SynErr): pass
 
 class ReadOnlyProp(SynErr): pass
-class ReadOnlyXact(SynErr): pass
+class ReadOnlySnap(SynErr): pass
 
 class BadOperArg(SynErr): pass
 class ReqConfOpt(SynErr): pass

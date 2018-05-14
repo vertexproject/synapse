@@ -9,8 +9,11 @@ import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.eventbus as s_eventbus
 
 import synapse.lib.cell as s_cell
+import synapse.lib.lmdb as s_lmdb
+import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
@@ -25,6 +28,59 @@ class Encoder(collections.defaultdict):
 class Utf8er(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8')
+
+class Xact(s_eventbus.EventBus):
+    '''
+    A Layer transaction which encapsulates the storage implementation.
+    '''
+    def __init__(self, layr, write=False):
+
+        s_eventbus.EventBus.__init__(self)
+
+        self.layr = layr
+        self.write = write
+
+        self.xact = layr.lenv.begin(write=write)
+
+        self.buidcurs = self.xact.cursor(db=layr.bybuid)
+        self.buidcache = s_cache.FixedCache(self._getBuidProps, size=10000)
+
+    def splices(self, msgs):
+        self.layr.splicelog.save(self.xact, msgs)
+
+    def stor(self, sops):
+        self.layr._xactRunStors(self.xact, sops)
+
+    def getLiftRows(self, lops):
+        for row in self.layr._xactRunLifts(self.xact, lops):
+            yield row
+
+    def abort(self):
+        self.xact.abort()
+
+    def commit(self):
+        self.xact.commit()
+
+    def getBuidProps(self, buid):
+        return self.buidcache.get(buid)
+
+    def _getBuidProps(self, buid):
+
+        props = []
+
+        if not self.buidcurs.set_range(buid):
+            return props
+
+        for lkey, lval in self.buidcurs.iternext():
+
+            if lkey[:32] != buid:
+                break
+
+            prop = lkey[32:].decode('utf8')
+            valu, indx = s_msgpack.un(lval)
+            props.append((prop, valu))
+
+        return props
 
 class Layer(s_cell.Cell):
     '''
@@ -56,6 +112,9 @@ class Layer(s_cell.Cell):
         self.bybuid = self.initdb('bybuid') # <buid><prop>=<valu>
         self.byprop = self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
         self.byuniv = self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
+
+        self.splices = self.initdb('splices')
+        self.splicelog = s_lmdb.Seqn(self.lenv, b'splices')
 
         self.indxfunc = {
             'eq': self._rowsByEq,
@@ -220,4 +279,4 @@ class Layer(s_cell.Cell):
         '''
         Return a transaction object for the layer.
         '''
-        return self.lenv.begin(write=write)
+        return Xact(self, write=write)
