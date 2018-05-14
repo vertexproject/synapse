@@ -590,6 +590,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A single client HTTP request.',
                     }),
 
+                    ('inet:iface', ('guid', {}), {
+                        'doc': 'A network interface with a set of associated protocol addresses.'
+                    }),
+
                     ('inet:mac', ('str', {'lower': True, 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$'}), {
                         # 'nullval': '??',  # FIXME this should not be here
                         'doc': 'A 48-bit Media Access Control (MAC) address.',
@@ -940,6 +944,42 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('body', ('file:bytes', {}), {
                             'doc': 'The body of the HTTP request.'
+                        }),
+                    )),
+
+                    ('inet:iface', {}, (
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The last known latitude/longitude for the node'
+                        }),
+                        #('host', ('it:host', {}), {
+                        #    'doc': 'The guid of the host the interface is associated with.'
+                        #}),
+                        ('type', ('str', {'lower': True}), {
+                            'doc': 'The free-form interface type.'
+                        }),
+                        ('mac', ('inet:mac', {}), {
+                            'doc': 'The ethernet (MAC) address of the interface.'
+                        }),
+                        ('ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The IPv4 address of the interface.'
+                        }),
+                        ('ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The IPv6 address of the interface.'
+                        }),
+                        ('phone', ('tel:phone', {}), {
+                            'doc': 'The telephone number of the interface.'
+                        }),
+                        ('wifi:ssid', ('inet:wifi:ssid', {}), {
+                            'doc': 'The wifi SSID of the interface.'
+                        }),
+                        ('wifi:bssid', ('inet:mac', {}), {
+                            'doc': 'The wifi BSSID of the interface.'
+                        }),
+                        ('mob:imei', ('tel:mob:imei', {}), {
+                            'doc': 'The IMEI of the interface.'
+                        }),
+                        ('mob:imsi', ('tel:mob:imsi', {}), {
+                            'doc': 'The IMSI of the interface.'
                         }),
                     )),
 

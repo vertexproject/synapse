@@ -1,12 +1,4 @@
 '''
-TYPES that dont extend builtins =======================================================================
-
-
-# FIXME relies on it, tel, geospace model
-('inet:iface', {
-    'subof': 'guid',
-    'doc': 'A network interface with a set of associated protocol addresses.'}),
-
 # FIXME relies on inet:web:acct and pv?
 ('inet:web:chprofile', {
     'subof': 'guid',
@@ -99,32 +91,6 @@ FORMS ==========================================================================
         'doc': 'The earliest known time file was hosted on the server.'}),
     ('seen:max', {'ptype': 'time:max',
         'doc': 'The last known time the file was hosted on the server.'}),
-)),
-
-
-('inet:iface', {}, (
-    ('latlong', {'ptype': 'geo:latlong',
-        'doc': 'The last known latitude/longitude for the node'}),
-    ('host', {'ptype': 'it:host',
-        'doc': 'The guid of the host the interface is associated with.'}),
-    ('type', {'ptype': 'str:lwr',
-        'doc': 'The free-form interface type'}),
-    ('mac', {'ptype': 'inet:mac',
-        'doc': 'The ethernet (MAC) address of the interface.'}),
-    ('ipv4', {'ptype': 'inet:ipv4',
-        'doc': 'The IPv4 address of the interface.'}),
-    ('ipv6', {'ptype': 'inet:ipv6',
-        'doc': 'The IPv6 address of the interface.'}),
-    ('phone', {'ptype': 'tel:phone',
-        'doc': 'The telephone number of the interface.'}),
-    ('wifi:ssid', {'ptype': 'inet:wifi:ssid',
-        'doc': 'The wifi SSID of the interface.'}),
-    ('wifi:bssid', {'ptype': 'inet:mac',
-        'doc': 'The wifi BSSID of the interface.'}),
-    ('mob:imei', {'ptype': 'tel:mob:imei',
-        'doc': 'The IMEI of the interface.'}),
-    ('mob:imsi', {'ptype': 'tel:mob:imsi',
-        'doc': 'The IMSI of the interface.'}),
 )),
 
 ('inet:web:chprofile', {}, [

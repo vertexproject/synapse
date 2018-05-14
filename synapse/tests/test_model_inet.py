@@ -388,6 +388,36 @@ class InetModelTest(s_t_common.SynTest):
                 isneither(n2)  # stays the same
                 issuffix(n4)   # stays the same
 
+    def test_iface(self):
+        formname = 'inet:iface'
+        input_props = {
+            'host': 32 * 'c',
+            'ipv6': 'ff::00',
+            'ipv4': '1.2.3.4',
+            'phone': 12345678910,
+            'mac': 'ff:00:ff:00:ff:00',
+            'wifi:ssid': 'hehe haha',
+            'wifi:bssid': '00:ff:00:ff:00:ff',
+            'mob:imei': 123456789012347,
+            'mob:imsi': 12345678901234,
+        }
+        expected_props = {
+            # FIXME add host
+            'ipv6': 'ff::',
+            'ipv4': 16909060,
+            'phone': '12345678910',
+            'mac': 'ff:00:ff:00:ff:00',
+            'wifi:ssid': 'hehe haha',
+            'wifi:bssid': '00:ff:00:ff:00:ff',
+            'mob:imei': 123456789012347,
+            'mob:imsi': 12345678901234,
+        }
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, 32 * 'a', props=input_props)
+                self.eq(node.ndef, (formname, 32 * 'a'))
+                [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
+
     def test_ipv4(self):
         formname = 'inet:ipv4'
 
@@ -953,34 +983,6 @@ class FIXME:
             self.eq(node[1].get('inet:download:server:ipv4'), 0x01020304)
             self.eq(node[1].get('inet:download:client:proto'), 'tcp')
             self.eq(node[1].get('inet:download:client:ipv4'), 0x05060708)
-
-    def test_model_inet_iface(self):
-
-        with self.getRamCore() as core:
-
-            info = {
-                'host': '*',
-                'ipv6': 'ff::00',
-                'ipv4': '1.2.3.4',
-                'phone': 12345678910,
-                'mac': 'ff:00:ff:00:ff:00',
-                'wifi:ssid': 'hehe haha',
-                'wifi:bssid': '00:ff:00:ff:00:ff',
-                'mob:imei': 12345678901234,
-                'mob:imsi': 12345678901234,
-            }
-
-            node = core.formTufoByProp('inet:iface', info)
-
-            self.nn(core.getTufoByProp('it:host', node[1].get('inet:iface:host')))
-            self.nn(core.getTufoByProp('inet:mac', node[1].get('inet:iface:mac')))
-            self.nn(core.getTufoByProp('inet:ipv4', node[1].get('inet:iface:ipv4')))
-            self.nn(core.getTufoByProp('inet:ipv6', node[1].get('inet:iface:ipv6')))
-            self.nn(core.getTufoByProp('tel:phone', node[1].get('inet:iface:phone')))
-            self.nn(core.getTufoByProp('inet:mac', node[1].get('inet:iface:wifi:bssid')))
-            self.nn(core.getTufoByProp('inet:wifi:ssid', node[1].get('inet:iface:wifi:ssid')))
-            self.nn(core.getTufoByProp('tel:mob:imei', node[1].get('inet:iface:mob:imei')))
-            self.nn(core.getTufoByProp('tel:mob:imsi', node[1].get('inet:iface:mob:imsi')))
 
     def test_model_inet_http(self):
 
