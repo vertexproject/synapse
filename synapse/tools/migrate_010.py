@@ -209,12 +209,18 @@ class Migrator:
                 props[p] = v
             return props
 
+    forms_to_drop = set((
+        'syn:tagform',
+    ))
+
     def do_stage2(self):
         start_time = time.time()
         comp_forms = [f for f in reversed(_comp_and_sepr_forms) if self.is_comp(f)]
 
         # Do the comp forms
         for i, formname in enumerate(comp_forms):
+            if formname in self.forms_to_drop:
+                continue
             with self.dbenv.begin(write=True, db=self.form_tbl) as txn:
                 curs = txn.cursor(self.form_tbl)
                 if not curs.set_key(formname.encode('utf8')):
@@ -224,6 +230,8 @@ class Migrator:
                     try:
                         props = self.get_props(enc_iden, txn)
                         node = self.convert_props(props)
+                        if node is None:
+                            continue
                         txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl)
                         self.write_node_to_file(node)
                     except Exception:
@@ -269,7 +277,9 @@ class Migrator:
                 else:
                     rv = curs.next()
                     try:
-                        self.write_node_to_file(self.convert_props(props))
+                        node = self.convert_props(props)
+                        if node is not None:
+                            self.write_node_to_file(node)
                     except Exception:
                         logger.debug('Failed on processing node with props: %s', props, exc_info=True)
                 if not rv:
@@ -414,6 +424,9 @@ class Migrator:
 
     def convert_props(self, oldprops):
         formname = oldprops['tufo:form']
+        if formname in self.forms_to_drop:
+            return None
+
         props = {}
         tags = {}
         propsmeta = self.core.getSubProps(formname)
@@ -483,7 +496,6 @@ class Migrator:
         # 'inet:flow:src:udp6': foo,
         # 'inet:flow:src:udp6': foo,
     }
-
 
 def main(argv, outp=None):  # pragma: no cover
     p = argparse.ArgumentParser()

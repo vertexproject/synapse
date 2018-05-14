@@ -99,6 +99,8 @@ class Migrate010Test(s_iq.SynTest):
             tags = node1[1]['tags']
             self.eq(tags['test'], (None, None))
             self.eq(tags['hehe.haha'], (1451606400000, 1483228800000))
+            nodes = self.get_formfile('syn:tagform', fh)
+            self.eq(nodes, [])
 
             core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'knock knock'), time='20141217010101')
             fh = tempfile.TemporaryFile(dir=dirn)
