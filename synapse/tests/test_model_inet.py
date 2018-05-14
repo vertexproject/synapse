@@ -39,7 +39,7 @@ class InetModelTest(s_t_common.SynTest):
         formname = 'inet:asn'
         with self.getTestCore() as core:
 
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
 
                 valu = '123'
                 input_props = {
@@ -47,14 +47,14 @@ class InetModelTest(s_t_common.SynTest):
                     'owner': 32 * 'a'
                 }
                 expected_ndef = (formname, 123)
-                node = xact.addNode(formname, valu, props=input_props)
+                node = snap.addNode(formname, valu, props=input_props)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('name'), 'cool')
                 # FIXME add ou:org
 
                 valu = '456'
                 expected_ndef = (formname, 456)
-                node = xact.addNode(formname, valu)
+                node = snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('name'), '??')
                 # FIXME add ou:org
@@ -97,8 +97,8 @@ class InetModelTest(s_t_common.SynTest):
             valu = '192[.]168.1.123/24'
             expected_ndef = (formname, '192.168.1.0/24')  # ndef is network/mask, not ip/mask
 
-            with core.xact(write=True) as xact:
-                node = xact.addNode(formname, valu)
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('network'), 3232235776)  # 192.168.1.0
                 self.eq(node.get('broadcast'), 3232236031)  # 192.168.1.255
@@ -119,8 +119,8 @@ class InetModelTest(s_t_common.SynTest):
             valu = 'UnitTest@Vertex.link'
             expected_ndef = (formname, valu.lower())
 
-            with core.xact(write=True) as xact:
-                node = xact.addNode(formname, valu)
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('fqdn'), 'vertex.link')
                 self.eq(node.get('user'), 'unittest')
@@ -156,8 +156,8 @@ class InetModelTest(s_t_common.SynTest):
             expected_ndef = (formname, valu)
 
             # Demonstrate cascading formation
-            with core.xact(write=True) as xact:
-                node = xact.addNode(formname, valu, props={'created': 0, 'expires': 1, 'updated': 2})
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props={'created': 0, 'expires': 1, 'updated': 2})
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('domain'), 'vertex.link')
                 self.eq(node.get('expires'), 1)
@@ -167,10 +167,10 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.get('updated'), 2)
                 self.eq(node.get('zone'), 'vertex.link')
 
-            with core.xact() as xact:
+            with core.snap() as snap:
                 nvalu = 'vertex.link'
                 expected_ndef = (formname, nvalu)
-                node = xact.getNodeByNdef((formname, nvalu))
+                node = snap.getNodeByNdef((formname, nvalu))
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('domain'), 'link')
                 self.eq(node.get('host'), 'vertex')
@@ -178,21 +178,21 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.get('iszone'), 1)
                 self.eq(node.get('zone'), 'vertex.link')
 
-            with core.xact() as xact:
+            with core.snap() as snap:
                 nvalu = 'link'
                 expected_ndef = (formname, nvalu)
-                node = xact.getNodeByNdef((formname, nvalu))
+                node = snap.getNodeByNdef((formname, nvalu))
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('host'), 'link')
                 self.eq(node.get('issuffix'), 1)
                 self.eq(node.get('iszone'), 0)
 
             # Demonstrate wildcard
-            with core.xact() as xact:
-                self.len(3, list(xact.getNodesBy(formname, '*')))
-                self.len(2, list(xact.getNodesBy(formname, '*.link')))
-                self.len(1, list(xact.getNodesBy(formname, '*.vertex.link')))
-                badgen = xact.getNodesBy(formname, 'api.*.link')
+            with core.snap() as snap:
+                self.len(3, list(snap.getNodesBy(formname, '*')))
+                self.len(2, list(snap.getNodesBy(formname, '*.link')))
+                self.len(1, list(snap.getNodesBy(formname, '*.vertex.link')))
+                badgen = snap.getNodesBy(formname, 'api.*.link')
                 self.raises(s_exc.BadLiftValu, list, badgen)
 
     def test_fqdn_suffix(self):
@@ -212,17 +212,17 @@ class InetModelTest(s_t_common.SynTest):
             self.true(node.get('iszone') == 0 and node.get('issuffix') == 0)
 
         with self.getTestCore() as core:
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
 
                 # Create some nodes and demonstrate zone/suffix behavior
                 # Only FQDNs of the lowest level should be suffix
                 # Only FQDNs whose domains are suffixes should be zones
-                n0 = xact.addNode(formname, 'abc.vertex.link')
-                n1 = xact.addNode(formname, 'def.vertex.link')
-                n2 = xact.addNode(formname, 'g.def.vertex.link')
-                n1 = xact.addNode(formname, 'def.vertex.link')  # form again to show g. should not make this a zone
-                n3 = xact.getNodeByNdef((formname, 'vertex.link'))
-                n4 = xact.getNodeByNdef((formname, 'link'))
+                n0 = snap.addNode(formname, 'abc.vertex.link')
+                n1 = snap.addNode(formname, 'def.vertex.link')
+                n2 = snap.addNode(formname, 'g.def.vertex.link')
+                n1 = snap.addNode(formname, 'def.vertex.link')  # form again to show g. should not make this a zone
+                n3 = snap.getNodeByNdef((formname, 'vertex.link'))
+                n4 = snap.getNodeByNdef((formname, 'link'))
                 isneither(n0)
                 isneither(n1)
                 isneither(n2)
@@ -230,22 +230,22 @@ class InetModelTest(s_t_common.SynTest):
                 issuffix(n4)   # link should be a suffix
 
                 # Make one of the FQDNs a suffix and make sure its children become zones
-                n3 = xact.addNode(formname, 'vertex.link', props={'issuffix': True})
+                n3 = snap.addNode(formname, 'vertex.link', props={'issuffix': True})
                 isboth(n3)     # vertex.link should now be both because we made it a suffix
-                n0 = xact.getNodeByNdef((formname, 'abc.vertex.link'))
-                n1 = xact.getNodeByNdef((formname, 'def.vertex.link'))
-                n2 = xact.getNodeByNdef((formname, 'g.def.vertex.link'))
+                n0 = snap.getNodeByNdef((formname, 'abc.vertex.link'))
+                n1 = snap.getNodeByNdef((formname, 'def.vertex.link'))
+                n2 = snap.getNodeByNdef((formname, 'g.def.vertex.link'))
                 iszone(n0)     # now a zone because vertex.link is a suffix
                 iszone(n1)     # now a zone because vertex.link is a suffix
                 isneither(n2)  # still neither as parent is not a suffix
 
                 # Remove the FQDN's suffix status and make sure its children lose zone status
-                n3 = xact.addNode(formname, 'vertex.link', props={'issuffix': False})
+                n3 = snap.addNode(formname, 'vertex.link', props={'issuffix': False})
                 iszone(n3)     # vertex.link should now be a zone becuase we removed its suffix status
-                n0 = xact.getNodeByNdef((formname, 'abc.vertex.link'))
-                n1 = xact.getNodeByNdef((formname, 'def.vertex.link'))
-                n2 = xact.getNodeByNdef((formname, 'g.def.vertex.link'))
-                n4 = xact.getNodeByNdef((formname, 'link'))
+                n0 = snap.getNodeByNdef((formname, 'abc.vertex.link'))
+                n1 = snap.getNodeByNdef((formname, 'def.vertex.link'))
+                n2 = snap.getNodeByNdef((formname, 'g.def.vertex.link'))
+                n4 = snap.getNodeByNdef((formname, 'link'))
                 isneither(n0)  # loses zone status
                 isneither(n1)  # loses zone status
                 isneither(n2)  # stays the same
@@ -272,13 +272,13 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm(0xFFFFFFFF + 1), (0, {}))
 
             # Form Tests ======================================================
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
                 valu_str = '1.2.3.4'
                 valu_int = 16909060
                 input_props = {'asn': 3, 'loc': 'us', 'type': 'cool', 'latlong': '-50.12345, 150.56789'}
                 expected_ndef = (formname, valu_int)
 
-                node = xact.addNode(formname, valu_str, props=input_props)
+                node = snap.addNode(formname, valu_str, props=input_props)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('asn'), 3)
                 self.eq(node.get('loc'), 'us')
@@ -318,12 +318,12 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm('2001:db8::')[0], '2001:db8::')
 
             # Form Tests ======================================================
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
 
                 valu_str = '::fFfF:1.2.3.4'
                 expected_props = {'asn': 0, 'ipv4': 16909060, 'loc': '??'}  # FIXME add latlong later
                 expected_ndef = (formname, valu_str.lower())
-                node = xact.addNode(formname, valu_str)
+                node = snap.addNode(formname, valu_str)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('asn'), 0)
                 self.eq(node.get('ipv4'), 16909060)
@@ -332,7 +332,7 @@ class InetModelTest(s_t_common.SynTest):
                 valu_str = '::1'
                 expected_props = {'asn': 0, 'loc': '??'}
                 expected_ndef = (formname, valu_str)
-                node = xact.addNode(formname, valu_str)
+                node = snap.addNode(formname, valu_str)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('asn'), 0)
                 self.eq(node.get('loc'), '??')
@@ -350,15 +350,15 @@ class InetModelTest(s_t_common.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, 'GG:ff:FF:ff:FF:ff')
 
             # Form Tests ======================================================
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
                 valu = '00:00:00:00:00:00'
                 expected_ndef = (formname, valu)
 
-                node = xact.addNode(formname, valu)
+                node = snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('vendor'), '??')
 
-                node = xact.addNode(formname, valu, props={'vendor': 'Cool'})
+                node = snap.addNode(formname, valu, props={'vendor': 'Cool'})
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('vendor'), 'Cool')
 
@@ -373,10 +373,10 @@ class InetModelTest(s_t_common.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
 
             # Form Tests ======================================================
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
                 valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
                 expected_ndef = (formname, valu)
-                node = xact.addNode(formname, valu)
+                node = snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('fqdn'), 'vertex.link')
                 self.eq(node.get('passwd'), 'hunter2')
@@ -404,18 +404,18 @@ class InetModelTest(s_t_common.SynTest):
             # Form Tests ======================================================
             valu = '"UnitTest"    <UnitTest@Vertex.link>'
             expected_ndef = (formname, 'unittest <unittest@vertex.link>')
-            with core.xact(write=True) as xact:
-                node = xact.addNode(formname, valu)
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('email'), 'unittest@vertex.link')
                 #FIXME add ps:name
 
-                xact.addNode(formname, '"UnitTest1')
-                xact.addNode(formname, '"UnitTest12')
+                snap.addNode(formname, '"UnitTest1')
+                snap.addNode(formname, '"UnitTest12')
 
-                self.len(3, list(xact.getNodesBy(formname, 'unittest', cmpr='^=')))
-                self.len(2, list(xact.getNodesBy(formname, 'unittest1', cmpr='^=')))
-                self.len(1, list(xact.getNodesBy(formname, 'unittest12', cmpr='^=')))
+                self.len(3, list(snap.getNodesBy(formname, 'unittest', cmpr='^=')))
+                self.len(2, list(snap.getNodesBy(formname, 'unittest1', cmpr='^=')))
+                self.len(1, list(snap.getNodesBy(formname, 'unittest12', cmpr='^=')))
 
     def test_url_fqdn(self):
         with self.getTestCore() as core:
@@ -521,6 +521,59 @@ class InetModelTest(s_t_common.SynTest):
                 'proto': 'a', 'path': '', htype: norm_host
             }})
             self.eq(t.norm(url), expected)
+
+    def test_web_acct(self):
+        with self.getTestCore() as core:
+            formname = 'inet:web:acct'
+
+            # Type Tests
+            t = core.model.type(formname)
+
+            self.raises(s_exc.NoSuchFunc, t.norm, 'vertex.link/person1')  # No longer a sepr
+            enorm = ('vertex.link', 'person1')
+            edata = {'subs': {'user': 'person1',
+                              'site': 'vertex.link',
+                              'site:host': 'vertex',
+                              'site:domain': 'link', },
+                     'adds': []}
+            self.eq(t.norm(('VerTex.linK', 'PerSon1')), (enorm, edata))
+
+            # Form Tests
+            valu = ('blogs.Vertex.link', 'Brutus')
+            input_props = {
+                'avatar': 'sha256:' + 64 * 'a',
+                'dob': -64836547200000,
+                'email': 'brutus@vertex.link',
+                #'latlong': '0,0',  # FIXME implement
+                'loc': 'sol',
+                'name': 'ካሳር',
+                'name:en': 'brutus',
+                'occupation': 'jurist',
+                #'passwd': 'hunter2',  # FIXME implement
+                #'phone': '555-555-5555',  # FIXME implement
+                #'realname': 'Брут',  # FIXME implement
+                #'realname:en': 'brutus',  # FIXME implement
+                'seen:max': 1,
+                'seen:min': 2,
+                'signup': 3,
+                'signup:ipv4': 4,
+                'tagline': 'Taglines are not tags',
+                'url': 'https://blogs.vertex.link/',
+                'webpage': 'https://blogs.vertex.link/brutus',
+            }
+
+            expected_ndef = (formname, ('blogs.vertex.link', 'brutus'))
+            expected_props = copy.copy(input_props)
+            expected_props.update({
+                # FIXME add the other props later
+                'site': valu[0].lower(),
+                'user': valu[1].lower()
+            })
+
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.eq(node.ndef, expected_ndef)
+                [self.eq(node.get(k), expected_props[k]) for k in expected_props]
 
 class FIXME:
 

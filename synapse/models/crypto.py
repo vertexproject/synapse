@@ -44,7 +44,7 @@ class CryptoModule(s_module.CoreModule):
                     'doc': 'A hex encoded Microsoft Windows NTLM password hash',
                     'ex': ex_md5
                 }),
-                ('rsa:key', ('comp', {'fields': (('mod', 'hex'), ('pub:exp', 'hex')), }), {
+                ('rsa:key', ('comp', {'fields': (('mod', 'hex'), ('pub:exp', 'int')), }), {
                     'doc': 'An RSA keypair modulus and public exponent.'
                 }),
             ),
@@ -57,7 +57,7 @@ class CryptoModule(s_module.CoreModule):
                 ('rsa:key', {}, (
                     ('mod', ('hex', {}), {'ro': 1,
                        'doc': 'The RSA key modulus.'}),
-                    ('pub:exp', ('hex', {}), {'ro': 1,
+                    ('pub:exp', ('int', {}), {'ro': 1,
                        'doc': 'The public exponent'}),
                     ('bits', ('int', {}),
                      {'doc': 'The length of the modulus in bits'}),

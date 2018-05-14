@@ -380,7 +380,7 @@ class InetModule(s_module.CoreModule):
             return
 
         # almost certainly in the cache anyway....
-        parent = node.xact.getNodeByNdef(('inet:fqdn', domain))
+        parent = node.snap.getNodeByNdef(('inet:fqdn', domain))
 
         if parent.get('issuffix'):
             node.set('iszone', True)
@@ -400,7 +400,7 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
 
         issuffix = node.get('issuffix')
-        for child in node.xact.getNodesBy('inet:fqdn:domain', fqdn):
+        for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
             child.set('iszone', issuffix)
 
     def _onSetFqdnIsZone(self, node, oldv):
@@ -412,20 +412,28 @@ class InetModule(s_module.CoreModule):
             node.set('zone', fqdn)
             return
 
-        # we are *not* a zone and were...
+        # we are not a zone...
+
         domain = node.get('domain')
         if not domain:
-            node.set('zone', None)
+            node.delete('zone')
+            return
 
-        parent = node.xact.getNodeByNdef(('inet:fqdn', domain))
-        node.set('zone', parent.get('zone'))
+        parent = node.snap.getNodeByNdef(('inet:fqdn', domain))
+
+        zone = parent.get('zone')
+        if zone is None:
+            node.delete('zone')
+            return
+
+        node.set('zone', zone)
 
     def _onSetFqdnZone(self, node, oldv):
 
         fqdn = node.ndef[1]
         zone = node.get('zone')
 
-        for child in node.xact.getNodesBy('inet:fqdn:domain', fqdn):
+        for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
 
             # if they are their own zone level, skip
             if child.get('iszone'):

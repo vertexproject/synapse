@@ -1,10 +1,11 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.xact as s_xact
-import synapse.lib.types as s_types
-import synapse.tests.common as s_test
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.snap as s_snap
+import synapse.lib.types as s_types
+
+import synapse.tests.common as s_test
 
 class TypesTest(s_test.SynTest):
 
@@ -243,15 +244,15 @@ class TypesTest(s_test.SynTest):
                     self.raises(b, t.norm, v)
 
             # Do some node creation and lifting
-            with core.xact(write=True) as xact:  # type: s_xact.Xact
-                node = xact.addNode('testhexa', '010001')
+            with core.snap(write=True) as snap:  # type: s_snap.Snap
+                node = snap.addNode('testhexa', '010001')
                 self.eq(node.ndef[1], '010001')
 
-            with core.xact() as xact:  # type: s_xact.Xact
-                nodes = list(xact.getNodesBy('testhexa', '010001'))
+            with core.snap() as snap:  # type: s_snap.Snap
+                nodes = list(snap.getNodesBy('testhexa', '010001'))
                 self.len(1, nodes)
 
-                nodes = list(xact.getNodesBy('testhexa', b'\x01\x00\x01'))
+                nodes = list(snap.getNodesBy('testhexa', b'\x01\x00\x01'))
                 self.len(1, nodes)
 
             # Do some fancy prefix searches for testhexa
@@ -260,24 +261,24 @@ class TypesTest(s_test.SynTest):
                      'deadb3b3',
                      'deaddead',
                      'DEADBEEF']
-            with core.xact(write=True) as xact:  # type: s_xact.Xact
+            with core.snap(write=True) as snap:  # type: s_snap.Snap
                 for valu in valus:
-                    node = xact.addNode('testhexa', valu)
+                    node = snap.addNode('testhexa', valu)
 
-            with core.xact() as xact:  # type: s_xact.Xact
-                nodes = list(xact.getNodesBy('testhexa', 'dead*'))
+            with core.snap() as snap:  # type: s_snap.Snap
+                nodes = list(snap.getNodesBy('testhexa', 'dead*'))
                 self.len(5, nodes)
 
-                nodes = list(xact.getNodesBy('testhexa', 'deadb3*'))
+                nodes = list(snap.getNodesBy('testhexa', 'deadb3*'))
                 self.len(3, nodes)
 
-                nodes = list(xact.getNodesBy('testhexa', 'deadb33fb3*'))
+                nodes = list(snap.getNodesBy('testhexa', 'deadb33fb3*'))
                 self.len(1, nodes)
 
-                nodes = list(xact.getNodesBy('testhexa', 'deadde*'))
+                nodes = list(snap.getNodesBy('testhexa', 'deadde*'))
                 self.len(1, nodes)
 
-                nodes = list(xact.getNodesBy('testhexa', 'b33f*'))
+                nodes = list(snap.getNodesBy('testhexa', 'b33f*'))
                 self.len(0, nodes)
 
             # Do some fancy prefix searches for testhex4
@@ -286,21 +287,21 @@ class TypesTest(s_test.SynTest):
                      '01ff',
                      '0200',
                      ]
-            with core.xact(write=True) as xact:  # type: s_xact.Xact
+            with core.snap(write=True) as snap:  # type: s_snap.Snap
                 for valu in valus:
-                    node = xact.addNode('testhex4', valu)
+                    node = snap.addNode('testhex4', valu)
 
-            with core.xact() as xact:  # type: s_xact.Xact
-                nodes = list(xact.getNodesBy('testhex4', '00*'))
+            with core.snap() as snap:  # type: s_snap.Snap
+                nodes = list(snap.getNodesBy('testhex4', '00*'))
                 self.len(1, nodes)
 
-                nodes = list(xact.getNodesBy('testhex4', '01*'))
+                nodes = list(snap.getNodesBy('testhex4', '01*'))
                 self.len(2, nodes)
 
-                nodes = list(xact.getNodesBy('testhex4', '02*'))
+                nodes = list(snap.getNodesBy('testhex4', '02*'))
                 self.len(1, nodes)
 
                 # You can ask for a longer prefix then allowed
                 # but you'll get no results
-                nodes = list(xact.getNodesBy('testhex4', '022020*'))
+                nodes = list(snap.getNodesBy('testhex4', '022020*'))
                 self.len(0, nodes)

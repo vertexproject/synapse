@@ -8,10 +8,10 @@ class CnGovTest(SynTest):
         with self.getTestCore() as core:
             formname = 'gov:cn:mucd'
 
-            with core.xact(write=True) as xact:
+            with core.snap(write=True) as snap:
 
-                n0 = xact.addNode('gov:cn:mucd', 61786)
-                n1 = xact.addNode('gov:cn:icp', 12345678)
+                n0 = snap.addNode('gov:cn:mucd', 61786)
+                n1 = snap.addNode('gov:cn:icp', 12345678)
 
             self.eq(n0.ndef, ('gov:cn:mucd', 61786))
             self.eq(n1.ndef, ('gov:cn:icp', 12345678))

@@ -3,6 +3,8 @@ import binascii
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.cache as s_cache
+
 '''
 Shared primitive routines for chopping up strings and values.
 '''
@@ -62,6 +64,16 @@ def hexstr(text):
 def onespace(text):
     return ' '.join(text.split())
 
+@s_cache.memoize(size=10000)
 def tag(text):
     text = text.lower().strip('#').strip()
     return '.'.join([onespace(t) for t in text.split('.')])
+
+@s_cache.memoize(size=10000)
+def tags(norm):
+    '''
+    Divide a normalized tag string into hierarchical layers.
+    '''
+    # this is ugly for speed....
+    parts = norm.split('.')
+    return ['.'.join(parts[:i]) for i in range(1, len(parts) + 1)]

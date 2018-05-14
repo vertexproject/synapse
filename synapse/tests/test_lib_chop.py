@@ -7,6 +7,10 @@ class ChopTest(s_test.SynTest):
     def test_chop_digits(self):
         self.eq(s_chop.digits('a1b2c3'), '123')
 
+    def test_chop_tags(self):
+        tags = s_chop.tags('foo.bar.baz')
+        self.eq(tags, ('foo', 'foo.bar', 'foo.bar.baz'))
+
     def test_chop_onespace(self):
         self.eq('foo bar baz', s_chop.onespace('foo   bar baz'))
 

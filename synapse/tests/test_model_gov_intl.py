@@ -28,9 +28,9 @@ class IntlGovTest(SynTest):
 
             formname = 'fakem49'
             expected_ndef = (formname, 17)
-            with core.xact(write=True) as xact:
-                self.raises(s_exc.BadTypeValu, xact.addNode, formname, 3417)
-                self.raises(s_exc.BadTypeValu, xact.addNode, formname, 0)
-                n0 = xact.addNode(formname, 17)
+            with core.snap(write=True) as snap:
+                self.raises(s_exc.BadTypeValu, snap.addNode, formname, 3417)
+                self.raises(s_exc.BadTypeValu, snap.addNode, formname, 0)
+                n0 = snap.addNode(formname, 17)
 
             self.eq(n0.ndef, expected_ndef)

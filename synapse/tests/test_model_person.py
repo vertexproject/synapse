@@ -10,11 +10,11 @@ class PsModelTest(s_test.SynTest):
         persona0 = s_common.guid()
 
         with self.getTestCore() as core:
-            with core.xact(write=True) as xact:
-                node = xact.addNode('ps:tokn', ' BOB ')
+            with core.snap(write=True) as snap:
+                node = snap.addNode('ps:tokn', ' BOB ')
                 self.eq(node.ndef[1], 'bob')
 
-                node = xact.addNode('ps:name', ' robert GREY  the\t3rd  ')
+                node = snap.addNode('ps:name', ' robert GREY  the\t3rd  ')
                 self.eq(node.ndef[1], 'robert grey the 3rd')
 
                 person_props = {
@@ -30,7 +30,7 @@ class PsModelTest(s_test.SynTest):
                     'name:en:middle': 'clown',
                     'name:en:given': 'robert',
                 }
-                node = xact.addNode('ps:person', person0, person_props)
+                node = snap.addNode('ps:person', person0, person_props)
                 self.eq(node.ndef[1], person0)
                 self.eq(node.get('dob'), 31536000000)
                 self.eq(node.get('nick'), 'pennywise')
@@ -58,7 +58,7 @@ class PsModelTest(s_test.SynTest):
                     'name:en:middle': 'brother',
                     'name:en:given': 'emmanuel',
                 }
-                node = xact.addNode('ps:persona', persona0, persona_props)
+                node = snap.addNode('ps:persona', persona0, persona_props)
                 self.eq(node.ndef[1], persona0)
                 self.eq(node.get('dob'), 946684800000)
                 self.eq(node.get('nick'), 'acid burn')
@@ -73,13 +73,13 @@ class PsModelTest(s_test.SynTest):
                 # self.eq(node.get('img'), '')  # fixme file:bytes
                 # self.eq(node.get('guidname'), '')  # fixme guid aliases
 
-                node = xact.addNode('ps:person:has', (person0, ('teststr', 'sewer map')))
+                node = snap.addNode('ps:person:has', (person0, ('teststr', 'sewer map')))
                 self.eq(node.ndef[1], (person0, ('teststr', 'sewer map')))
                 self.eq(node.get('person'), person0)
                 self.eq(node.get('node'), ('teststr', 'sewer map'))
                 self.eq(node.get('node:form'), 'teststr')
 
-                node = xact.addNode('ps:persona:has', (persona0, ('teststr', 'the gibson')))
+                node = snap.addNode('ps:persona:has', (persona0, ('teststr', 'the gibson')))
                 self.eq(node.ndef[1], (persona0, ('teststr', 'the gibson')))
                 self.eq(node.get('persona'), persona0)
                 self.eq(node.get('node'), ('teststr', 'the gibson'))
@@ -107,7 +107,7 @@ class PsModelTest(s_test.SynTest):
                     'address': '1 Iron Suit Drive, San Francisco, CA, 22222, USA',
                 }
 
-                node = xact.addNode('ps:contact', con0, cprops)
+                node = snap.addNode('ps:contact', con0, cprops)
                 self.eq(node.ndef[1], con0)
                 self.eq(node.get('org'), org0)
                 self.eq(node.get('asof'), 1208131200000)
