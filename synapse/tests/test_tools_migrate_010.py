@@ -22,6 +22,9 @@ class Migrate010Test(s_iq.SynTest):
 
             dirn = pathlib.Path(dirn)
 
+            file_tufo = core.formTufoByProp('file:bytes', s_common.guid())
+            core.formTufoByProp('inet:web:acct', 'twitter.com/ironman', avatar=file_tufo[1]['node:ndef'])
+
             info = {
                 'org': '*',
                 'person': '*',
@@ -67,6 +70,9 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(type(node), tuple)
             self.eq(len(node[0]), 2)
             self.eq(node[0], ('inet:web:acct', ('twitter.com', 'ironman')))
+
+            # Uncomment when file:bytes lookaside working
+            # self.eq(node[1]['props']['avatar'], ('inet:netuser:avatar', ('file:bytes', 'foo')))
 
             props = {'a': 'WOOT.com/1.002.3.4', 'rcode': 0, 'time': now, 'ipv4': '5.5.5.5',
                      'udp4': '8.8.8.8:80'}
@@ -129,7 +135,7 @@ class Migrate010Test(s_iq.SynTest):
             if node1[1]['props']['size'] == 42:
                 node1, node2 = node2, node1
 
-            self.notin('sha256', node1[1]['props'])
+            self.isin('sha256', node1[1]['props'])
             self.notin('sha256', node2[1]['props'])
             self.true(node1[0][1].startswith('sha256:'))
             self.true(node2[0][1].startswith('guid:'))

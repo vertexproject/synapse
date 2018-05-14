@@ -15,15 +15,32 @@ import synapse.models.inet as s_inet
 logger = logging.getLogger(__name__)
 
 # TODO
+# seen:min, seen:max into universal interval prop.  (If missing, make minimal valid interval)
+# for each field of type derived from xref, must look up
 # Add config file to allow additional coremodules
 # parallelize stage2
 # file:base -> filepath if backslash in them (?? separate the last part out?)
+# * fix the file:base to only include the last part
+# # add a corresponding file:path with the correct normalized path
+# # copy any tags on the former to the latter
+# # if a secondary prop, just normalize and use the last part
 # inet:flow -> inetserver/inetclient
 # file:txtref, file:imgof -> both turn into file:ref comp: (file:bytes, ndef)
 #     secondary prop: type ("image", "text")
-# seen:min, seen:max into universal interval prop.  (If missing, make minimal valid interval)
 # ps:name, reverse order, remove comma, remove all subproperties on ps:name form (*not* type)
-
+# throw all syn:tagform nodes on the floor
+# throw syn:tag:depth subprop on the floor
+# drop file:path:ext subprop
+# tel:phone:cc -> tel:phone:loc
+# drop ps:name:{middle,sur}
+# ps:image ( another in the xrefs reconstruction guys ) should get merged into being a file:imgof=(<file>, <node>)
+#   which is still a guid node, so you can just make the ndef ('ps:person', <oldguid>)
+#   where oldguid is the :person prop
+# Bugs:
+# 'inet:web:acct:avatar' seems to still be just a guid
+# ps:person:has may have missed comp conversion
+# inet:ssl:tcp4cert needs to be renamed to:   inet:ssl:servercert
+# ou:org:has seems to have escaped comp/xref reconstruction
 
 # Topologically sorted comp and sepr types that are form types that have other comp types as elements.  The beginning
 # of the list has more dependencies than the end.
@@ -281,7 +298,7 @@ class Migrator:
         sha256 = props.get(formname + ':sha256')
         if sha256 is None:
             return None, 'guid:' + props[formname]
-        return [formname + ':sha256'], 'sha256:' + sha256
+        return None, 'sha256:' + sha256
 
     def convert_primary(self, props):
         formname = props['tufo:form']
@@ -311,6 +328,10 @@ class Migrator:
 
         if self.is_sepr(pivot_formname):
             return self.convert_sepr(pivot_formname, pivot_fk)
+
+        special_func = self.secondary_prop_special.get(pivot_formname)
+        if special_func:
+            return special_func(pivot_formname, pivot_fk)
 
         return pivot_fk
 
@@ -445,6 +466,10 @@ class Migrator:
         'inet:dns:soa': just_guid,
         'file:bytes': convert_file_bytes
     }
+
+    secondary_prop_special = {
+            # 'file:bytes': convert_file_bytes_secondary
+        }
 
     subprop_special = {
         'inet:web:logon:ipv4': ipv4_to_client,
