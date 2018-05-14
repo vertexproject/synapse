@@ -578,6 +578,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A group name string.'
                     }),
 
+                    ('inet:flow', ('guid', {}), {
+                        'doc': 'An individual network connection between a given source and destination.'
+                    }),
+
                     ('inet:mac', ('str', {'lower': True, 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$'}), {
                         # 'nullval': '??',  # FIXME this should not be here
                         'doc': 'A 48-bit Media Access Control (MAC) address.',
@@ -748,6 +752,68 @@ class InetModule(s_module.CoreModule):
                         ('fqdn', ('inet:fqdn', {}), {
                             'ro': True,
                             'doc': 'The domain of the email address.'}),
+                    )),
+
+                    ('inet:flow', {}, (
+                        ('time', ('time', {}), {
+                            'doc': 'The time the network connection was initiated.'
+                        }),
+                        ('duration', ('int', {}), {
+                            'doc': 'The duration of the flow in seconds.'
+                        }),
+                        ('from', ('guid', {}), {
+                            'doc': 'The ingest source file/iden. Used for reparsing.'
+                        }),
+
+                        # FIXME port src/dst
+                        #('dst:host', {'ptype': 'it:host',
+                        #    'doc': 'The guid of the destination host.'}),
+                        #('dst:proc', {'ptype': 'it:exec:proc',
+                        #    'doc': 'The guid of the destination process.'}),
+                        #('dst:exe', {'ptype': 'file:bytes',
+                        #    'doc': 'The file (executable) that received the connection.'}),
+                        #('dst:txbytes', {'ptype': 'int',
+                        #    'doc': 'The number of bytes sent by the destination host / process / file.'}),
+                        #('src:host', {'ptype': 'it:host',
+                        #    'doc': 'The guid of the source host.'}),
+                        #('src:proc', {'ptype': 'it:exec:proc',
+                        #    'doc': 'The guid of the source process.'}),
+                        #('src:exe', {'ptype': 'file:bytes',
+                        #    'doc': 'The file (executable) that created the connection.'}),
+                        #('src:txbytes', {'ptype': 'int',
+                        #    'doc': 'The number of bytes sent by the source host / process / file.'}),
+
+                        ('server', ('inet:server', {}), {
+                            'doc': 'The destination address / port for a connection.'
+                        }),
+                        ('server:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The destination IPv4 address.'
+                        }),
+                        ('server:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The destination IPv6 address.'
+                        }),
+                        ('server:port', ('inet:port', {}), {
+                            'doc': 'The destination port.'
+                        }),
+                        ('server:proto', ('str', {'lower': True}), {
+                            'doc': 'The destination port.'
+                        }),
+
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The source address / port for a connection.'
+                        }),
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The source IPv4 address.'
+                        }),
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The source IPv6 address.'
+                        }),
+                        ('client:port', ('inet:port', {}), {
+                            'doc': 'The source port.'
+                        }),
+                        ('client:proto', ('str', {'lower': True}), {
+                            'doc': 'The source port.'
+                        }),
                     )),
 
                     ('inet:fqdn', {}, (

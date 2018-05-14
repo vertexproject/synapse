@@ -22,11 +22,6 @@
                     'subof': 'guid',
                     'doc': 'A network interface with a set of associated protocol addresses.'}),
 
-                # FIXME relies on it model
-                ('inet:flow', {
-                    'subof': 'guid',
-                    'doc': 'An individual network connection between a given source and destination.'}),
-
                 # FIXME relies on inet:web:acct and pv?
                 ('inet:web:chprofile', {
                     'subof': 'guid',
@@ -99,27 +94,7 @@
                     'source': 'post,inet:web:post',
                     'doc': 'A web post that references a given node.'}),
 
-                TYPES that require ctor implementations ===============================================================
-                TYPES that rely on ctor implementations ===============================================================
-
-                # FIXME becoming inet:client/inet:server
-                ('inet:udp4', {
-                    'subof': 'inet:srv4',
-                    'doc': 'A UDP server listening on an IPv4 address and port.'}),
-
-                # FIXME becoming inet:client/inet:server
-                ('inet:tcp6', {
-                    'subof': 'inet:srv6',
-                    'doc': 'A TCP server listening on a specific IPv6 address and port.'}),
-
-                # FIXME becoming inet:client/inet:server
-                ('inet:udp6', {
-                    'subof': 'inet:srv6',
-                    'doc': 'A UDP server listening on a specific IPv6 address and port.'}),
-
                 FORMS ==================================================================================================
-
-
                 ('inet:servfile', {}, (
                     ('file', {'ptype': 'file:bytes', 'req': 1, 'ro': 1,
                         'doc': 'The file hosted by the server.'}),
@@ -178,114 +153,6 @@
                     ('client:port', {'ptype': 'inet:port',
                         'doc': 'The client tcp/udp port.'}),
 
-                )),
-
-                # FIXME becoming inet:client/inet:server
-                ('inet:udp4', {'ptype': 'inet:srv4'}, [
-                    ('ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                        'doc': 'The IPv4 address of the UDP server.'}),
-                    ('port', {'ptype': 'inet:port', 'ro': 1,
-                        'doc': 'The port of the IPv4 UDP server.'}),
-                ]),
-
-                # FIXME becoming inet:client/inet:server
-                ('inet:tcp6', {'ptype': 'inet:srv6'}, [
-                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
-                        'doc': 'The IPv6 address of the TCP server.'}),
-                    ('port', {'ptype': 'inet:port', 'ro': 1,
-                        'doc': 'The port of the IPv6 TCP server.'}),
-                ]),
-
-                # FIXME becoming inet:client/inet:server
-                ('inet:udp6', {'ptype': 'inet:srv6'}, [
-                    ('ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
-                        'doc': 'The IPv6 address of the UDP server.'}),
-                    ('port', {'ptype': 'inet:port', 'ro': 1,
-                        'doc': 'The port of the IPv6 UDP server.'}),
-                ]),
-
-                ('inet:flow', {}, (
-                    ('time', {'ptype': 'time',
-                        'doc': 'The time the network connection was initiated.'}),
-                    ('duration', {'ptype': 'int',
-                        'doc': 'The duration of the flow in seconds.'}),
-
-                    ('dst:host', {'ptype': 'it:host',
-                        'doc': 'The guid of the destination host.'}),
-                    ('dst:proc', {'ptype': 'it:exec:proc',
-                        'doc': 'The guid of the destination process.'}),
-                    ('dst:exe', {'ptype': 'file:bytes',
-                        'doc': 'The file (executable) that received the connection.'}),
-                    ('dst:txbytes', {'ptype': 'int',
-                        'doc': 'The number of bytes sent by the destination host / process / file.'}),
-
-                    ('dst:tcp4', {'ptype': 'inet:tcp4',  # FIXME make server
-                        'doc': 'The destination IPv4 address / port for an IPv4 TCP connection.'}),
-                    ('dst:tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                        'doc': 'The destination IPv4 address.'}),
-                    ('dst:tcp4:port', {'ptype': 'inet:port', 'ro': 1,
-                        'doc': 'The destination IPv4 port.'}),
-
-                    ('dst:udp4', {'ptype': 'inet:udp4',
-                        'doc': 'The destination IPv4 address / port for an IPv4 UDP connection.'}),
-                    ('dst:udp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                        'doc': 'The destination IPv4 address.'}),
-                    ('dst:udp4:port', {'ptype': 'inet:port', 'ro': 1,
-                        'doc': 'The destination IPv4 port.'}),
-
-                    ('dst:tcp6', {'ptype': 'inet:tcp6',
-                        'doc': 'The destination IPv6 address / port for an IPv6 TCP connection.'}),
-                    ('dst:tcp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
-                        'doc': 'The destination IPv6 address.'}),
-                    ('dst:tcp6:port', {'ptype': 'inet:port', 'ro': 1,
-                        'doc': 'The destination IPv6 port.'}),
-
-                    ('dst:udp6', {'ptype': 'inet:udp6',
-                        'doc': 'The destination IPv6 address / port for an IPv6 UDP connection.'}),
-                    ('dst:udp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
-                        'doc': 'The destination IPv6 address.'}),
-                    ('dst:udp6:port', {'ptype': 'inet:port', 'ro': 1,
-                        'doc': 'The destination IPv6 port.'}),
-
-                    ('src:host', {'ptype': 'it:host',
-                        'doc': 'The guid of the source host.'}),
-                    ('src:proc', {'ptype': 'it:exec:proc',
-                        'doc': 'The guid of the source process.'}),
-                    ('src:exe', {'ptype': 'file:bytes',
-                        'doc': 'The file (executable) that created the connection.'}),
-                    ('src:txbytes', {'ptype': 'int',
-                        'doc': 'The number of bytes sent by the source host / process / file.'}),
-
-                    ('src:tcp4', {'ptype': 'inet:tcp4',  # FIXME make client
-                        'doc': 'The source IPv4 address / port for an IPv4 TCP connection.'}),
-                    ('src:tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                        'doc': 'The source IPv4 address.'}),
-                    ('src:tcp4:port', {'ptype': 'inet:port', 'ro': 1,
-                        'doc': 'The source IPv4 port.'}),
-
-                    ('src:udp4', {'ptype': 'inet:udp4',
-                        'doc': 'The source IPv4 address / port for an IPv4 UDP connection.'}),
-                    ('src:udp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-                        'doc': 'The source IPv4 address.'}),
-                    ('src:udp4:port', {'ptype': 'inet:port', 'ro': 1,
-                        'doc': 'The source IPv4 port.'}),
-
-                    ('src:tcp6', {'ptype': 'inet:tcp6',
-                        'doc': 'The source IPv6 address / port for an IPv6 TCP connection.'}),
-                    ('src:tcp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
-                        'doc': 'The source IPv6 address.'}),
-                    ('src:tcp6:port', {'ptype': 'inet:port', 'ro': 1,
-                        'doc': 'The source IPv6 port.'}),
-
-                    ('src:udp6', {'ptype': 'inet:udp6',
-                        'doc': 'The source IPv6 address / port for an IPv6 UDP connection.'}),
-                    ('src:udp6:ipv6', {'ptype': 'inet:ipv6', 'ro': 1,
-                        'doc': 'The source IPv6 address.'}),
-                    ('src:udp6:port', {'ptype': 'inet:port', 'ro': 1,
-                        'doc': 'The source IPv6 port.'}),
-
-                    ('from', {'ptype': 'guid',
-                        'doc': 'The ingest source file/iden. Used for reparsing.'}),
                 )),
 
                 ('inet:iface', {}, (

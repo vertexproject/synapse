@@ -77,33 +77,6 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm('host://vertex.link:1337'), (f'host://{hstr}:1337', {'subs': {'host': hstr, 'port': 1337}}))
             self.raises(OSError, t.norm, 'vertex.link')  # must use host proto
 
-    def test_client_server(self):
-        data = (
-            ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
-                'ipv4': 2130706433,
-                'port': 12345
-            }),
-            ('tcp://127.0.0.1', 'tcp://127.0.0.1', {
-                'ipv4': 2130706433,
-            }),
-            ('tcp://[::1]:12345', 'tcp://[::1]:12345', {
-                'ipv6': '::1',
-                'port': 12345
-            }),
-            ('host://vertex.link:12345', 'host://ffa3e574aa219e553e1b2fc1ccd0180f:12345', {
-                #'host': 'ffa3e574aa219e553e1b2fc1ccd0180f',  # FIXME add it:host
-                'port': 12345
-            }),
-        )
-
-        with self.getTestCore() as core:
-            with core.xact(write=True) as xact:
-                for formname in ('inet:client', 'inet:server'):
-                    for valu, expected_valu, expected_props in data:
-                        node = xact.addNode(formname, valu)
-                        self.eq(node.ndef, (formname, expected_valu))
-                        [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
-
     def test_asn(self):
         formname = 'inet:asn'
         with self.getTestCore() as core:
@@ -172,6 +145,33 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.get('broadcast'), 3232236031)  # 192.168.1.255
                 self.eq(node.get('mask'), 24)
 
+    def test_client_server(self):
+        data = (
+            ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
+                'ipv4': 2130706433,
+                'port': 12345
+            }),
+            ('tcp://127.0.0.1', 'tcp://127.0.0.1', {
+                'ipv4': 2130706433,
+            }),
+            ('tcp://[::1]:12345', 'tcp://[::1]:12345', {
+                'ipv6': '::1',
+                'port': 12345
+            }),
+            ('host://vertex.link:12345', 'host://ffa3e574aa219e553e1b2fc1ccd0180f:12345', {
+                #'host': 'ffa3e574aa219e553e1b2fc1ccd0180f',  # FIXME add it:host
+                'port': 12345
+            }),
+        )
+
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                for formname in ('inet:client', 'inet:server'):
+                    for valu, expected_valu, expected_props in data:
+                        node = xact.addNode(formname, valu)
+                        self.eq(node.ndef, (formname, expected_valu))
+                        [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
+
     def test_email(self):
         formname = 'inet:email'
         with self.getTestCore() as core:
@@ -192,6 +192,28 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('fqdn'), 'vertex.link')
                 self.eq(node.get('user'), 'unittest')
+
+    def test_flow(self):
+        formname = 'inet:flow'
+        input_props = {
+            'time': 0,
+            'duration': 1,
+            'from': 32 * 'b',
+            'client': 'tcp://127.0.0.1:45654',
+            'server': 'tcp://1.2.3.4:80'
+        }
+        expected_props = {  # FIXME fill in src/dst later
+            'time': 0,
+            'duration': 1,
+            'from': 32 * 'b',
+            'client': 'tcp://127.0.0.1:45654',
+            'server': 'tcp://1.2.3.4:80'
+        }
+        with self.getTestCore() as core:
+            with core.xact(write=True) as xact:
+                node = xact.addNode(formname, 32 * 'a', props=input_props)
+                self.eq(node.ndef, (formname, 32 * 'a'))
+                [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
 
     def test_fqdn(self):
         formname = 'inet:fqdn'
