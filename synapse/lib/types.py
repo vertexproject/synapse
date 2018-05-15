@@ -88,7 +88,11 @@ class Type:
         )
 
     def getStorIndx(self, norm):
+
         indx = self.indx(norm)
+        if indx is None:
+            return b''
+
         if len(indx) <= 256:
             return indx
 

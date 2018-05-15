@@ -186,7 +186,7 @@ class TypesTest(s_test.SynTest):
         subs = info.get('subs')
         self.none(subs.get('up'))
         self.eq('foo', subs.get('base'))
-        self.eq(1, subs.get('depth'))
+        self.eq(0, subs.get('depth'))
 
         tag, info = tagtype.norm('foo.bar')
         subs = info.get('subs')
