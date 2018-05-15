@@ -2,7 +2,6 @@ import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-# import synapse.datamodel as s_datamodel
 
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module

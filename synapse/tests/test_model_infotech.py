@@ -343,6 +343,7 @@ class InfotechModelTest(s_test.SynTest):
                 pipe = 'pipe\\mynamedpipe'
                 user = 'serviceadmin'
                 pid = 20
+                key = 'HKEY_LOCAL_MACHINE\\Foo\\Bar'
                 ipv4 = 0x01020304
                 ipv6 = 'ff::1'
 
@@ -527,34 +528,37 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('path:base'), 'yourfiles.rar')
                 self.eq(node.get('path:ext'), 'rar')
 
-                # rprops = {
-                #     'host': host,
-                #     'proc': proc,
-                #     'exe': exe,
-                #     'time': tick
-                # }
-                # forms = ('it:exec:reg:get',
-                #          'it:exec:reg:set',
-                #          'it:exec:reg:del',
-                #          )
-                # valus = (('reg:str', 'oh my'),
-                #          ('reg:int', 20),
-                #          ('reg:bytes', fbyts),
-                #          )
-                # for form in forms:
-                #     for ekey, valu in valus:
-                #         rk0 = s_common.guid()
-                #         regval = (key, valu)
-                #         rprops['reg'] = regval
-                #         node = snap.addNode(form, rk0, rprops)
-                #         self.eq(node.ndef[1], rk0)
-                #         self.eq(node.get('host'), host)
-                #         self.eq(node.get('proc'), proc)
-                #         self.eq(node.get('exe'), exe)
-                #         self.eq(node.get('time'), tick)
-                #         self.eq(node.get('reg'), regval)
-                #         self.eq(node.get('reg:key'), key)
-                #         self.eq(node.get(ekey), valu)
+                # FIXME - This test would be cleaner with stable guid generation
+                rprops = {
+                    'host': host,
+                    'proc': proc,
+                    'exe': exe,
+                    'time': tick,
+                    'reg': '*',
+                    'reg:key': key,
+                }
+                forms = ('it:exec:reg:get',
+                         'it:exec:reg:set',
+                         'it:exec:reg:del',
+                         )
+                valus = (('reg:str', 'oh my'),
+                         ('reg:int', 20),
+                         ('reg:bytes', fbyts),
+                         )
+                for form in forms:
+                    for ekey, valu in valus:
+                        rk0 = s_common.guid()
+                        nprops = rprops.copy()
+                        nprops[ekey] = valu
+                        node = snap.addNode(form, rk0, nprops)
+                        self.eq(node.ndef[1], rk0)
+                        self.eq(node.get('host'), host)
+                        self.eq(node.get('proc'), proc)
+                        self.eq(node.get('exe'), exe)
+                        self.eq(node.get('time'), tick)
+                        self.nn(node.get('reg'))
+                        self.eq(node.get('reg:key'), key)
+                        self.eq(node.get(ekey), valu)
 
 class OldInfoTechTst:
     def test_model_infotech_software(self):
