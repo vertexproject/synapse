@@ -23,8 +23,8 @@ class Migrate010Test(s_iq.SynTest):
             dirn = pathlib.Path(dirn)
 
             file_tufo = core.formTufoByProp('file:bytes', s_common.guid())
-            core.formTufoByProp('inet:web:acct', 'twitter.com/ironman', avatar=file_tufo[1]['node:ndef'])
-
+            core.formTufoByProp('inet:web:acct', 'twitter.com/ironman', avatar=file_tufo[1]['node:ndef'],
+                                **{'seen:min': 1000, 'seen:max': 2000})
             info = {
                 'org': '*',
                 'person': '*',
@@ -70,6 +70,7 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(type(node), tuple)
             self.eq(len(node[0]), 2)
             self.eq(node[0], ('inet:web:acct', ('twitter.com', 'ironman')))
+            self.eq(node[1]['props']['.seen'], (1000, 2000))
 
             # test that secondary prop drop works
             nodes = self.get_formfile('ps:name', fh)

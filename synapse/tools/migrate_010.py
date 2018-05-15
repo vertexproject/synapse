@@ -15,7 +15,6 @@ import synapse.models.inet as s_inet
 logger = logging.getLogger(__name__)
 
 # TODO
-# seen:min, seen:max into universal interval prop.  (If missing, make minimal valid interval)
 # for each field of type derived from xref, must look up
 # Add config file to allow additional coremodules
 # parallelize stage2
@@ -34,7 +33,6 @@ logger = logging.getLogger(__name__)
 # Bugs:
 # 'inet:web:acct:avatar' seems to still be just a guid
 # ps:person:has may have missed comp conversion
-# inet:ssl:tcp4cert needs to be renamed to:   inet:ssl:servercert
 # ou:org:has seems to have escaped comp/xref reconstruction
 
 # Topologically sorted comp and sepr types that are form types that have other comp types as elements.  The beginning
@@ -208,7 +206,7 @@ class Migrator:
         'syn:tagform',
     ))
 
-    secondary_props_to_drop = set ((
+    secondary_props_to_drop = set((
         'syn:tag:depth',
         'ps:name:middle',
         'ps:name:sur',
@@ -341,9 +339,9 @@ class Migrator:
         if self.is_sepr(pivot_formname):
             return self.convert_sepr(pivot_formname, pivot_fk)
 
-        special_func = self.secondary_prop_special.get(pivot_formname)
-        if special_func:
-            return special_func(pivot_formname, pivot_fk)
+        # special_func = self.secondary_prop_special.get(pivot_formname)
+        # if special_func:
+        #     return special_func(pivot_formname, pivot_fk)
 
         return pivot_fk
 
@@ -377,7 +375,8 @@ class Migrator:
         'inet:flow:src:udp4': 'inet:flow:src',
         'inet:flow:src:tcp6': 'inet:flow:src',
         'inet:flow:src:udp6': 'inet:flow:src',
-        'tel:phone:cc', 'tel:phone:loc'
+        'tel:phone:cc': 'tel:phone:loc',
+        'inet:ssl:tcp4cert': 'inet:ssl:servercert'
     }
 
     def ipv4_to_client(self, formname, propname, typename, val):
@@ -461,7 +460,10 @@ class Migrator:
                 # logger.debug('Skipping field %s with default value', oldk)
                 continue
             elif oldk.startswith(formname + ':'):
-                new_pname, newv = self.convert_subprop(formname, oldk, oldv)
+                if oldk[len(formname) + 1:] in ('seen:min', 'seen:max'):
+                    new_pname, newv = self.handle_seen(oldk, oldv, props)
+                else:
+                    new_pname, newv = self.convert_subprop(formname, oldk, oldv)
                 props[new_pname] = newv
             elif oldk == 'node:created':
                 props['.created'] = oldv
@@ -484,9 +486,21 @@ class Migrator:
         'file:bytes': convert_file_bytes
     }
 
-    secondary_prop_special = {
-        # 'file:bytes': convert_file_bytes_secondary
-        }
+    # secondary_prop_type_special = {
+    #     # 'file:bytes': convert_file_bytes_secondary
+    #     }
+
+    def handle_seen(self, propname, propval, newprops):
+        seenmin, seenmax = newprops.get('.seen', (None, None))
+        if propname.endswith(':min'):
+            seenmin = propval
+        if propname.endswith(':max'):
+            seenmax = propval
+        if seenmax is None:
+            seenmax = seenmin + 1
+        if seenmin is None:
+            seenmin = seenmax - 1
+        return '.seen', (seenmin, seenmax)
 
     subprop_special = {
         'inet:web:logon:ipv4': ipv4_to_client,
