@@ -15,6 +15,7 @@ import synapse.models.inet as s_inet
 logger = logging.getLogger(__name__)
 
 # TODO
+# check model version before begin migration
 # for each field of type derived from xref, must look up
 # Add config file to allow additional coremodules
 # parallelize stage2
@@ -30,8 +31,9 @@ logger = logging.getLogger(__name__)
 # ps:image ( another in the xrefs reconstruction guys ) should get merged into being a file:imgof=(<file>, <node>)
 #   which is still a guid node, so you can just make the ndef ('ps:person', <oldguid>)
 #   where oldguid is the :person prop
+# `it:exec:bind:tcp` and `it:exec:bind:udp` will become `it:exec:bind` which has a `server` prop which is going to be a
+# `inet:addr`
 # Bugs:
-# 'inet:web:acct:avatar' seems to still be just a guid
 # ps:person:has may have missed comp conversion
 # ou:org:has seems to have escaped comp/xref reconstruction
 
@@ -87,12 +89,15 @@ class Migrator:
         self.valu_tbl = self.dbenv.open_db(key=b'vals', integerkey=True)
         self.outfh = outfh
         self._precalc_types()
+        self.first_forms = [f for f in reversed(_comp_and_sepr_forms) if self.is_comp(f)] + ['file:bytes', ]
 
     def _precalc_types(self):
         ''' Precalculate which types are sepr and which are comps, and which are subs of comps '''
         seprs = []
         comps = []
         subs = []
+        filebytes = []
+        xrefs = []
         forms = self.core.getTufoForms()
         for formname in forms:
             parents = self.core.getTypeOfs(formname)
@@ -100,6 +105,10 @@ class Migrator:
                 seprs.append(formname)
             if 'comp' in parents:
                 comps.append(formname)
+            if 'file:bytes' in parents:
+                filebytes.append(formname)
+            if 'xref' in parents:
+                xrefs.append(formname)
             subpropnameprops = self.core.getSubProps(formname)
             subpropnames = [x[0] for x in subpropnameprops]
             for subpropname, subpropprops in subpropnameprops:
@@ -111,16 +120,21 @@ class Migrator:
                 if ('comp' in parents) or ('sepr' in parents) or subpropprops['ptype'] in forms:
                     subs.extend(x for x in subpropnames if x.startswith(subpropname + ':'))
 
+        self.filebytes = set(filebytes)
         self.seprs = set(seprs)
         self.comps = set(comps)
         self.subs = set(subs)
+        self.xrefs = set(xrefs)
 
     def migrate(self):
+        ''' Convenience function to do both stages '''
         if not self.skip_stage1:
             self.do_stage1()
-        self.do_stage2()
+        self.do_stage2a()
+        self.do_stage2b()
 
     def _write_props(self, txn, rows):
+        ''' Emit propbags to the migration DB '''
         MAX_VAL_LEN = 511
 
         idens = []
@@ -146,6 +160,9 @@ class Migrator:
                                        consumed, added)
 
     def do_stage1(self):
+        '''
+        Do the first stage: suck all the data out of a cortex into an intermediate LMDB DB
+        '''
         start_time = time.time()
         last_update = start_time
         logger.debug('Getting row count')
@@ -171,9 +188,7 @@ class Migrator:
 
                 # if prop is tufo:form, and form is a comp, add to form->iden table
                 compi = ((v.encode('utf8'), _enc_iden(i)) for i, p, v, _ in rows
-                         if p == 'tufo:form' and self.is_comp(v))
-                # Nic tmp
-                compi = list(compi)
+                         if p == 'tufo:form' and (self.is_comp(v) or v == 'file:bytes'))
                 with txn.cursor(self.form_tbl) as curs:
                         consumed, added = curs.putmulti(compi)
                         if consumed != added:
@@ -185,22 +200,16 @@ class Migrator:
     def write_node_to_file(self, node):
         self.outfh.write(s_msgpack.en(node))
 
-    def get_props(self, enc_iden, txn):
-        '''
-        Get all the props from lmdb for an iden
-        '''
-        with txn.cursor(self.iden_tbl) as curs:
-            if not curs.set_key(enc_iden):
-                raise ConsistencyError('missing iden', hexlify(s_msgpack.un(enc_iden)))
-            props = {}
-            for pv_enc in curs.iternext_dup():
-                if len(pv_enc) == 8:
-                    pv_enc = txn.get(pv_enc, db=self.valu_tbl)
-                    if pv_enc is None:
-                        raise ConsistencyError('Missing big val')
-                p, v = s_msgpack.un(pv_enc)
-                props[p] = v
-            return props
+    def _get_props_from_cursor(self, txn, curs):
+        props = {}
+        for pv_enc in curs.iternext_dup():
+            if len(pv_enc) == 8:
+                pv_enc = txn.get(pv_enc, db=self.valu_tbl)
+                if pv_enc is None:
+                    raise ConsistencyError('Missing big val')
+            p, v = s_msgpack.un(pv_enc)
+            props[p] = v
+        return props
 
     forms_to_drop = set((
         'syn:tagform',
@@ -210,40 +219,58 @@ class Migrator:
         'syn:tag:depth',
         'ps:name:middle',
         'ps:name:sur',
-        'file:path:ext'
+        'ps:name:given'
     ))
 
-    def do_stage2(self):
+    def do_stage2a(self):
+        '''
+        Do the first part of the second stage:  take all the data out of the intermediate DB and emit to a flat file
+        '''
         start_time = time.time()
-        comp_forms = [f for f in reversed(_comp_and_sepr_forms) if self.is_comp(f)]
 
         # Do the comp forms
-        for i, formname in enumerate(comp_forms):
+        for i, formname in enumerate(self.first_forms):
             if formname in self.forms_to_drop:
                 continue
             with self.dbenv.begin(write=True, db=self.form_tbl) as txn:
                 curs = txn.cursor(self.form_tbl)
                 if not curs.set_key(formname.encode('utf8')):
                     continue
-                logger.info('Stage 2a: (%3d/%3d) processing nodes from %s', i + 1, len(comp_forms), formname)
+                logger.info('Stage 2a: (%3d/%3d) processing nodes from %s', i + 1, len(self.first_forms), formname)
                 for enc_iden in curs.iternext_dup():
                     try:
-                        props = self.get_props(enc_iden, txn)
+                        with txn.cursor(self.iden_tbl) as curs:
+                            if not curs.set_key(enc_iden):
+                                raise ConsistencyError('missing iden', hexlify(s_msgpack.un(enc_iden)))
+                            props = self._get_props_from_cursor(txn, curs)
                         node = self.convert_props(props)
                         if node is None:
                             continue
-                        txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl)
+                        if formname == 'file:bytes':
+                            logger.debug('Putting file:bytes side ref of %s->%s', props['node:ndef'], node[0])
+                            if not txn.put(props['node:ndef'].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl):
+                                raise ConsistencyError('put failure')
+                            if not txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl):
+                                raise ConsistencyError('put failure')
+                        else:
+                            txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl)
                         self.write_node_to_file(node)
                     except Exception:
+                        import ipdb; ipdb.set_trace()
                         logger.debug('Failed on processing node of form %s', formname, exc_info=True)
 
         comp_node_time = time.time()
-        logger.debug('Finished processing comp nodes in %.1fs', comp_node_time - start_time)
+        logger.debug('Stage 2a complete in %.1fs', comp_node_time - start_time)
 
+    def do_stage2b(self):
+        '''
+        Do the rest (the non-comp) forms
+        '''
         # Do all the non-comp forms
+        start_time = time.time()
         iden_first = 0
         iden_last = 2 ** 128 - 1
-        prev_update = comp_node_time
+        prev_update = time.time()
         prev_iden = iden_first
         with self.dbenv.begin(db=self.iden_tbl) as txn:
             curs = txn.cursor(self.iden_tbl)
@@ -257,25 +284,20 @@ class Migrator:
                 now = time.time()
                 if prev_update + 60 < now:  # pragma: no cover
                     percent_complete = (iden_int - iden_first) / (iden_last - iden_first) * 100.0
-                    timeperiden = (now - prev_update) / (iden_int / prev_iden)
+                    try:
+                        timeperiden = (now - prev_update) / (iden_int / prev_iden)
+                    except ZeroDivisionError:
+                        timeperiden = 0.0
                     estimate = int((iden_last - iden_int) * timeperiden)
                     logger.info('Stage 2 %02.2f%% complete.  Estimated completion in %ds', percent_complete, estimate)
 
                     prev_update = now
                     prev_iden = iden_int
 
-                props = {}
-                for pv_enc in curs.iternext_dup():
-                    if len(pv_enc) == 8:
-                        pv_enc = txn.get(pv_enc, db=self.valu_tbl)
-                    p, v = s_msgpack.un(pv_enc)
-                    # Skip dark rows or forms we've already done
-                    if p[0] == '.' or p[0] == '_' or p == 'tufo:form' and v in comp_forms:
-                        rv = curs.next_nodup()
-                        break
-                    props[p] = v
-                else:
-                    rv = curs.next()
+                props = self._get_props_from_cursor(txn, curs)
+                rv = curs.next()
+                formname = props.get('tufo:form')
+                if not (formname is None or formname in self.first_forms):
                     try:
                         node = self.convert_props(props)
                         if node is not None:
@@ -285,7 +307,7 @@ class Migrator:
                 if not rv:
                     break  # end of data
 
-        logger.info('Stage 2 complete in %.1fs.', time.time() - start_time)
+        logger.info('Stage 2b complete in %.1fs.', time.time() - start_time)
 
     def just_guid(self, formname, props):
         return None, props[formname]
@@ -300,6 +322,7 @@ class Migrator:
         t = self.core.getPropType(propname)
         retn = []
         valdict = t.norm(propval)[1]
+        # TODO: do we have any sepr fields that need special conversion?
         for field in (x[0] for x in t._get_fields()):
             retn.append((valdict[field]))
         return tuple(retn)
@@ -310,6 +333,15 @@ class Migrator:
             return None, 'guid:' + props[formname]
         return None, 'sha256:' + sha256
 
+    def convert_xref(self, propname, propval, props):
+        t = self.core.getPropType(propname)
+        sourceval = props[propname + ':' + t._sorc_name]
+        destprop = props[propname + ':xref:prop']
+        destval = props.get(propname + ':xref:intval', props.get(propname + ':xref:strval'))
+        _, source_final = self.convert_subprop(t._sorc_type, t._sorc_type, sourceval)
+        dest_final = self.convert_foreign_key(destprop, destval)
+        return (source_final, (destprop, dest_final))
+
     def convert_primary(self, props):
         formname = props['tufo:form']
         pkval = props[formname]
@@ -319,6 +351,8 @@ class Migrator:
             return None, self.convert_comp_primary(props)
         if self.is_sepr(formname):
             return None, self.convert_sepr(formname, pkval)
+        if formname in self.xrefs:
+            return None, self.convert_xref(formname, pkval, props)
         _, val = self.convert_subprop(formname, formname, pkval)
         return None, val
 
@@ -330,18 +364,23 @@ class Migrator:
                 raise ConsistencyError('guid accessed before determined')
             return s_msgpack.un(comp_enc)
 
+    def convert_filebytes_secondary(self, formname, propval):
+        ''' Convert secondary prop that is a filebytes type '''
+        with self.dbenv.begin(db=self.comp_tbl) as txn:
+            comp_enc = txn.get(propval.encode('utf8'), db=self.comp_tbl)
+            if comp_enc is None:
+                import ipdb; ipdb.set_trace()
+                raise ConsistencyError('ndef accessed before determined')
+            return s_msgpack.un(comp_enc)[1]
+
     def convert_foreign_key(self, pivot_formname, pivot_fk):
         ''' Convert secondary prop that is a pivot to another node '''
-        # logger.debug('convert_foreign_key: %s=%s', pivot_formname, pivot_fk)
+        if pivot_formname in self.filebytes:
+            return self.convert_filebytes_secondary(pivot_formname, pivot_fk)
         if self.is_comp(pivot_formname):
             return self.convert_comp_secondary(pivot_formname, pivot_fk)
-
         if self.is_sepr(pivot_formname):
             return self.convert_sepr(pivot_formname, pivot_fk)
-
-        # special_func = self.secondary_prop_special.get(pivot_formname)
-        # if special_func:
-        #     return special_func(pivot_formname, pivot_fk)
 
         return pivot_fk
 
@@ -462,6 +501,9 @@ class Migrator:
             elif oldk.startswith(formname + ':'):
                 if oldk[len(formname) + 1:] in ('seen:min', 'seen:max'):
                     new_pname, newv = self.handle_seen(oldk, oldv, props)
+                elif formname in self.xrefs:
+                    # skip all non-seed secondary props in xrefs
+                    continue
                 else:
                     new_pname, newv = self.convert_subprop(formname, oldk, oldv)
                 props[new_pname] = newv
@@ -485,10 +527,6 @@ class Migrator:
         'inet:dns:soa': just_guid,
         'file:bytes': convert_file_bytes
     }
-
-    # secondary_prop_type_special = {
-    #     # 'file:bytes': convert_file_bytes_secondary
-    #     }
 
     def handle_seen(self, propname, propval, newprops):
         seenmin, seenmax = newprops.get('.seen', (None, None))

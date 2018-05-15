@@ -22,8 +22,9 @@ class Migrate010Test(s_iq.SynTest):
 
             dirn = pathlib.Path(dirn)
 
-            file_tufo = core.formTufoByProp('file:bytes', s_common.guid())
-            core.formTufoByProp('inet:web:acct', 'twitter.com/ironman', avatar=file_tufo[1]['node:ndef'],
+            file_guid = s_common.guid()
+            file_tufo = core.formTufoByProp('file:bytes', file_guid)
+            core.formTufoByProp('inet:web:acct', 'twitter.com/ironman', avatar=file_guid,
                                 **{'seen:min': 1000, 'seen:max': 2000})
             info = {
                 'org': '*',
@@ -77,8 +78,7 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(len(nodes), 1)
             self.notin('middle', nodes[0][1]['props'])
 
-            # Uncomment when file:bytes lookaside working
-            # self.eq(node[1]['props']['avatar'], ('inet:netuser:avatar', ('file:bytes', 'foo')))
+            self.eq(node[1]['props']['avatar'], 'guid:' + file_guid)
 
             props = {'a': 'WOOT.com/1.002.3.4', 'rcode': 0, 'time': now, 'ipv4': '5.5.5.5',
                      'udp4': '8.8.8.8:80'}
@@ -108,13 +108,22 @@ class Migrate010Test(s_iq.SynTest):
             nodes = self.get_formfile('syn:tagform', fh)
             self.eq(nodes, [])
 
-            core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'knock knock'), time='20141217010101')
+            wp_tufo = core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'knock knock'), time='20141217010101')
+            wpf_tufo = core.formTufoByProp('inet:web:postref',
+                                (wp_tufo[1]['inet:web:post'], ('file:bytes', file_tufo[1]['file:bytes'])))
             fh = tempfile.TemporaryFile(dir=dirn)
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('inet:web:post', fh)
             self.eq(len(nodes), 1)
             # Make sure the primary val is a guid
             self.eq(len(nodes[0][0][1]), 32)
+
+            fh = tempfile.TemporaryFile(dir=dirn)
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            nodes = self.get_formfile('inet:web:postref', fh)
+            self.eq(len(nodes), 1)
+            self.eq(nodes[0][0], ('inet:web:postref',
+                                  (wp_tufo[1]['inet:web:post'], ('file:bytes', 'guid:' + file_guid))))
 
             node = core.formTufoByProp('it:exec:reg:get', '*', host=s_common.guid(), reg=['foo/bar', ('int', 20)],
                                        exe=s_common.guid(), proc=s_common.guid(), time=now)
