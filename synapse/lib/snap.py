@@ -304,7 +304,7 @@ class Snap(s_eventbus.EventBus):
         form.wasAdded(node)
 
         # now we must fire all his prop sets
-        for name, valu in node.props.items():
+        for name, valu in list(node.props.items()):
             prop = node.form.props.get(name)
             prop.wasSet(node, None)
 
