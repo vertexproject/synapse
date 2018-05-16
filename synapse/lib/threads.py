@@ -142,15 +142,6 @@ class RetnWait:
             self._retn_evnt.clear()
             self._retn_evnt = None
 
-def withlock(lock):
-    def decor(f):
-        @wraps(f)
-        def wrap(*args, **kwargs):
-            with lock:
-                return f(*args, **kwargs)
-        return wrap
-    return decor
-
 class Thread(threading.Thread, EventBus):
     '''
     A thread / EventBus to allow fini() etc.
@@ -177,9 +168,6 @@ def worker(func, *args, **kwargs):
     thr = Thread(func, *args, **kwargs)
     thr.start()
     return thr
-
-def newtask(func, *args, **kwargs):
-    return (func, args, kwargs)
 
 class Pool(EventBus):
     '''

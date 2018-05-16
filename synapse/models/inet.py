@@ -209,7 +209,6 @@ class Fqdn(s_types.Type):
                 return valu
             raise  # pragma: no cover
 
-
 class IPv4(s_types.Type):
     '''
     The base type for an IPv4 address.
@@ -217,6 +216,9 @@ class IPv4(s_types.Type):
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
+
+    # TODO add :ipv4=1.2.3.0/24 cmpr
+    #def _ctorCmprEq(self, valu):
 
     def _normPyInt(self, valu):
         norm = valu & 0xffffffff
@@ -337,7 +339,7 @@ class Url(s_types.Type):
         self.setNormFunc(str, self._normPyStr)
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        norm.encode('utf8')
 
     def _normPyStr(self, valu):
         orig = valu
@@ -495,14 +497,14 @@ class InetModule(s_module.CoreModule):
 
         domain = node.get('domain')
         if not domain:
-            node.delete('zone')
+            node.pop('zone')
             return
 
         parent = node.snap.getNodeByNdef(('inet:fqdn', domain))
 
         zone = parent.get('zone')
         if zone is None:
-            node.delete('zone')
+            node.pop('zone')
             return
 
         node.set('zone', zone)
