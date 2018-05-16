@@ -15,11 +15,6 @@
     'ex': 'ff::00-ff::30'}),
 
 ========== TYPES of comp/sepr =====================================================================
-('inet:whois:contact', {
-    'subof': 'comp',
-    'fields': 'rec,inet:whois:rec|type,str:lwr',
-    'doc': 'An individual contact from a domain whois record.'}),
-
 ('inet:http:resphead', {
     'subof': 'comp',
     'fields': 'response=inet:http:response,header=inet:http:header',
@@ -121,42 +116,6 @@ FORMS ==========================================================================
         'doc': 'The normed value of the form that was referenced, if the value is an integer.'}),
     ('xref:strval', {'ptype': 'str', 'ro': 1,
         'doc': 'The normed value of the form that was referenced, if the value is a string.'}),
-]),
-
-('inet:whois:contact', {}, [
-    ('rec', {'ptype': 'inet:whois:rec', 'ro': 1, 'req': 1,
-        'doc': 'The whois record containing the contact data.'}),
-    ('rec:fqdn', {'ptype': 'inet:fqdn', 'ro': 1,
-        'doc': 'The domain associated with the whois record.'}),
-    ('rec:asof', {'ptype': 'time', 'ro': 1,
-        'doc': 'The date of the whois record.'}),
-    ('type', {'ptype': 'str:lwr',
-        'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).'}),
-    ('id', {'ptype': 'str:lwr',
-        'doc': 'The ID associated with the contact.'}),
-    ('name', {'ptype': 'str:lwr',
-        'doc': 'The name of the contact.'}),
-    ('email', {'ptype': 'inet:email',
-        'doc': 'The email address of the contact.'}),
-    ('orgname', {'ptype': 'ou:name',
-        'doc': 'The name of the contact organization.'}),
-    ('address', {'ptype': 'str:lwr',
-        'doc': 'The content of the street address field(s) of the contract.'}),  # FIXME street address type
-    ('city', {'ptype': 'str:lwr',
-        'doc': 'The content of the city field of the contact.'}),
-    # ('zip',{'ptype':'str:lwr'}),
-    ('state', {'ptype': 'str:lwr',
-        'doc': 'The content of the state field of the contact.'}),
-    ('country', {'ptype': 'pol:iso2',
-        'doc': 'The two-letter country code of the contact.'}),
-    ('phone', {'ptype': 'tel:phone',
-        'doc': 'The content of the phone field of the contact.'}),
-    ('fax', {'ptype': 'tel:phone',
-        'doc': 'The content of the fax field of the contact.'}),
-    ('url', {'ptype': 'inet:url',
-        'doc': 'The URL specified for the contact'}),
-    ('whois:fqdn', {'ptype': 'inet:fqdn',
-        'doc': 'The whois server FQDN for the given contact (most likely a registrar).'}),
 ]),
 
 ('inet:ssl:tcp4cert', {'ptype': 'inet:ssl:tcp4cert'}, [

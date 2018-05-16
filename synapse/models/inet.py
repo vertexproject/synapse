@@ -681,6 +681,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A post made by a web account.'
                     }),
 
+                    ('inet:whois:contact', ('comp', {'fields': (('rec', 'inet:whois:rec'), ('type', ('str', {'lower': True})))}), {
+                        'doc': 'An individual contact from a domain whois record.'
+                    }),
+
                     ('inet:whois:rar', ('str', {'lower': True}), {
                         'doc': 'A domain registrar.',
                         'ex': 'godaddy, inc.'
@@ -1385,6 +1389,57 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('repost', ('inet:web:post', {}), {
                             'doc': 'The original post that this is a repost of.'
+                        }),
+                    )),
+
+                    ('inet:whois:contact', {}, (
+                        ('rec', ('inet:whois:rec', {}), {
+                            'doc': 'The whois record containing the contact data.'
+                        }),
+                        ('rec:fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The domain associated with the whois record.'
+                        }),
+                        ('rec:asof', ('time', {}), {
+                            'doc': 'The date of the whois record.'
+                        }),
+                        ('type', ('str', {'lower': True}), {
+                            'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).'
+                        }),
+                        ('id', ('str', {'lower': True}), {
+                            'doc': 'The ID associated with the contact.'
+                        }),
+                        ('name', ('str', {'lower': True}), {
+                            'doc': 'The name of the contact.'
+                        }),
+                        ('email', ('inet:email', {}), {
+                            'doc': 'The email address of the contact.'
+                        }),
+                        ('orgname', ('ou:name', {}), {
+                            'doc': 'The name of the contact organization.'
+                        }),
+                        ('address', ('str', {'lower': True}), {
+                            'doc': 'The content of the street address field(s) of the contact.'
+                        }),
+                        ('city', ('str', {'lower': True}), {
+                            'doc': 'The content of the city field of the contact.'
+                        }),
+                        ('state', ('str', {'lower': True}), {
+                            'doc': 'The content of the state field of the contact.'
+                        }),
+                        ('country', ('pol:iso2', {}), {
+                            'doc': 'The two-letter country code of the contact.'
+                        }),
+                        ('phone', ('tel:phone', {}), {
+                            'doc': 'The content of the phone field of the contact.'
+                        }),
+                        ('fax', ('tel:phone', {}), {
+                            'doc': 'The content of the fax field of the contact.'
+                        }),
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL specified for the contact'
+                        }),
+                        ('whois:fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The whois server FQDN for the given contact (most likely a registrar).'
                         }),
                     )),
 

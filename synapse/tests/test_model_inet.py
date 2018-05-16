@@ -785,6 +785,47 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_whois_contact(self):
+        formname = 'inet:whois:contact'
+        valu = (('vertex.link', '@2015'), 'regiStrar')
+        input_props = {
+            'id': 'ID',
+            'name': 'NAME',
+            'email': 'unittest@vertex.link',
+            'orgname': 'unittest org',
+            'address': '1234 Not Real Road',
+            'city': 'Faketown',
+            'state': 'Stateland',
+            'country': 'US',
+            'phone': '555-555-5555',
+            'fax': '555-555-5556',
+            'url': 'https://vertex.link/contact',
+            'whois:fqdn': 'vertex.link'
+        }
+        expected_props = {
+            'rec': ('vertex.link', 1420070400000),
+            'rec:asof': 1420070400000,
+            'rec:fqdn': 'vertex.link',
+            'type': 'registrar',
+            'id': 'id',
+            'name': 'name',
+            'email': 'unittest@vertex.link',
+            'orgname': 'unittest org',
+            'address': '1234 not real road',
+            'city': 'faketown',
+            'state': 'stateland',
+            'country': 'us',
+            'phone': '5555555555',
+            'fax': '5555555556',
+            'url': 'https://vertex.link/contact',
+            'whois:fqdn': 'vertex.link'
+        }
+        expected_ndef = (formname, (('vertex.link', 1420070400000), 'registrar'))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_whois_recns(self):
         formname = 'inet:whois:recns'
         valu = ('ns1.woot.com', ('woot.com', '@20501217'))
