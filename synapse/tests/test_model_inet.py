@@ -514,29 +514,6 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('vendor'), 'Cool')
 
-    def test_url(self):
-        formname = 'inet:url'
-        with self.getTestCore() as core:
-
-            # Type Tests ======================================================
-            t = core.model.type(formname)
-
-            self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')  # No Host
-            self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
-
-            # Form Tests ======================================================
-            with core.snap(write=True) as snap:
-                valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
-                expected_ndef = (formname, valu)
-                node = snap.addNode(formname, valu)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('fqdn'), 'vertex.link')
-                self.eq(node.get('passwd'), 'hunter2')
-                self.eq(node.get('path'), '/coolthings?a=1')
-                self.eq(node.get('port'), 1337)
-                self.eq(node.get('proto'), 'https')
-                self.eq(node.get('user'), 'vertexmc')
-
     def test_rfc2822_addr(self):
         formname = 'inet:rfc2822:addr'
         with self.getTestCore() as core:
@@ -568,6 +545,45 @@ class InetModelTest(s_t_common.SynTest):
                 self.len(3, list(snap.getNodesBy(formname, 'unittest', cmpr='^=')))
                 self.len(2, list(snap.getNodesBy(formname, 'unittest1', cmpr='^=')))
                 self.len(1, list(snap.getNodesBy(formname, 'unittest12', cmpr='^=')))
+
+    def test_servfile(self):
+        formname = 'inet:servfile'
+        valu = ('tcp://127.0.0.1:4040', 'sha256:' + 64 * 'f')
+        expected_props = {
+            # FIXME no subs
+            'server': 'tcp://127.0.0.1:4040',
+            'server:port': 4040,
+            'server:ipv4': 2130706433,
+            'file': 'sha256:' + 64 * 'f'
+        }
+        expected_ndef = (formname, tuple(item.lower() for item in valu))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_url(self):
+        formname = 'inet:url'
+        with self.getTestCore() as core:
+
+            # Type Tests ======================================================
+            t = core.model.type(formname)
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')  # No Host
+            self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
+
+            # Form Tests ======================================================
+            with core.snap(write=True) as snap:
+                valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
+                expected_ndef = (formname, valu)
+                node = snap.addNode(formname, valu)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.get('fqdn'), 'vertex.link')
+                self.eq(node.get('passwd'), 'hunter2')
+                self.eq(node.get('path'), '/coolthings?a=1')
+                self.eq(node.get('port'), 1337)
+                self.eq(node.get('proto'), 'https')
+                self.eq(node.get('user'), 'vertexmc')
 
     def test_url_fqdn(self):
         with self.getTestCore() as core:

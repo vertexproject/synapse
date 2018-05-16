@@ -628,6 +628,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A network server address.'
                     }),
 
+                    ('inet:servfile', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
+                        'doc': 'A file hosted on a server for access over a network protocol.',
+                    }),
+
                     ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
                         'doc': 'A file hosted at a specific Universal Resource Locator (URL).'
                     }),
@@ -1090,6 +1094,36 @@ class InetModule(s_module.CoreModule):
                         #    'doc': 'The it:host node for the server.'
                         #}),
                         ('port', ('inet:port', {}), {
+                            'doc': 'The server tcp/udp port.'
+                        }),
+                    )),
+
+                    ('inet:servfile', {}, (
+                        ('file', ('file:bytes', {}), {
+                            'ro': 1,
+                            'doc': 'The file hosted by the server.'
+                        }),
+                        ('server', ('inet:server', {}), {
+                            'ro': 1,
+                            'doc': 'The inet:addr of the server.'
+                        }),
+                        ('server:proto', ('str', {'lower': True}), {
+                            'ro': 1,
+                            'doc': 'The network protocol of the server.'
+                        }),
+                        ('server:ipv4', ('inet:ipv4', {}), {
+                            'ro': 1,
+                            'doc': 'The IPv4 of the server.'
+                        }),
+                        ('server:ipv6', ('inet:ipv6', {}), {
+                            'ro': 1,
+                            'doc': 'The IPv6 of the server.'
+                        }),
+                        ('server:host', ('it:host', {}), {
+                            'ro': 1,
+                            'doc': 'The it:host node for the server.'
+                        }),
+                        ('server:port', ('inet:port', {}), {
                             'doc': 'The server tcp/udp port.'
                         }),
                     )),
