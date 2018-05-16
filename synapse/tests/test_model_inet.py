@@ -9,15 +9,9 @@ import synapse.tests.common as s_t_common
 class InetModelTest(s_t_common.SynTest):
 
     def test__forms_tested(self):
-        skips = (
-            'inet:whois:rar',  # It is a (str, {'lower': True) with no props
-            'inet:whois:reg',  # It is a (str, {'lower': True) with no props
-        )
 
         untested_forms = []
         for name in [form[0] for form in s_m_inet.InetModule.getModelDefs(None)[0][1]['forms']]:
-            if name in skips:
-                continue
 
             tname = 'test_' + name.split('inet:', 1)[1].replace(':', '_')
             if not hasattr(self, tname):
@@ -902,6 +896,26 @@ class InetModelTest(s_t_common.SynTest):
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_whois_rar(self):
+        formname = 'inet:whois:rar'
+        valu = 'cool Registrar '
+        expected_props = {}
+        expected_ndef = (formname, 'cool registrar ')
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_whois_reg(self):
+        formname = 'inet:whois:reg'
+        valu = 'cool Registrant '
+        expected_props = {}
+        expected_ndef = (formname, 'cool registrant ')
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
     def test_whois_recns(self):
