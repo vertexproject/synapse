@@ -600,7 +600,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An HTTP protocol header key/value.',
                     }),
 
-                    ('inet:http:param', ('comp', {'fields': (('name', 'str'), ('value', 'str'))}), {
+                    ('inet:http:param', ('comp', {'fields': (('name', ('str', {'lower': True})), ('value', 'str'))}), {
                         'doc': 'An HTTP request path query parameter.',
                     }),
 
