@@ -596,8 +596,32 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A group name string.'
                     }),
 
+                    ('inet:http:header', ('comp', {'fields': (('name', ('str', {'lower': True})), ('value', 'str'))}), {
+                        'doc': 'An HTTP protocol header key/value.',
+                    }),
+
+                    ('inet:http:param', ('comp', {'fields': (('name', 'str'), ('value', 'str'))}), {
+                        'doc': 'An HTTP request path query parameter.',
+                    }),
+
+                    ('inet:http:reqhead', ('comp', {'fields': (('request', 'inet:http:request'), ('header', 'inet:http:header'))}), {
+                        'doc': 'An instance of an HTTP header within a specific HTTP request.',
+                    }),
+
+                    ('inet:http:reqparam', ('comp', {'fields': (('request', 'inet:http:request'), ('param', 'inet:http:param'))}), {
+                        'doc': 'An instance of an HTTP request parameter within a specific HTTP requst.',
+                    }),
+
                     ('inet:http:request', ('guid', {}), {
-                        'doc': 'A single client HTTP request.',
+                        'doc': 'A single client http request.',
+                    }),
+
+                    ('inet:http:response', ('guid', {}), {
+                        'doc': 'A server response to a client HTTP request.',
+                    }),
+
+                    ('inet:http:resphead', ('comp', {'fields': (('response', 'inet:http:response'), ('header', 'inet:http:header'))}), {
+                        'doc': 'An instance of an HTTP header within a specific HTTP response.',
                     }),
 
                     ('inet:iface', ('guid', {}), {
@@ -952,13 +976,73 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:group', {}, ()),
 
+                    ('inet:http:header', {}, (
+                        ('name', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The name of the HTTP header.'
+                        }),
+                        ('value', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The value of the HTTP header.'
+                        }),
+                    )),
+
+                    ('inet:http:param', {}, (
+                        ('name', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The name of the HTTP query parameter.'
+                        }),
+                        ('value', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The value of the HTTP query parameter.'
+                        }),
+                    )),
+
+                    ('inet:http:reqhead', {}, (
+                        ('request', ('inet:http:request', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP request which contained the header.'
+                        }),
+                        ('header', ('inet:http:header', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP header contained in the request.'
+                        }),
+                        ('header:name', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The HTTP header name'
+                        }),
+                        ('header:value', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP header value.'
+                        }),
+                    )),
+
+                    ('inet:http:reqparam', {}, (
+                        ('request', ('inet:http:request', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP request which contained the header.'
+                        }),
+                        ('param', ('inet:http:header', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP query parameter contained in the request.'
+                        }),
+                        ('param:name', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The HTTP query parameter name'
+                        }),
+                        ('param:value', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP query parameter value.'
+                        }),
+                    )),
+
                     ('inet:http:request', {}, (
                         ('flow', ('inet:flow', {}), {
                             'doc': 'The inet:flow which contained the HTTP request.'
                         }),
-                        #('host', ('it:host', {}), {  # FIXME
-                        #    'doc': 'The it:host which sent the HTTP request.'
-                        #}),
+                        ('host', ('it:host', {}), {
+                            'doc': 'The it:host which sent the HTTP request.'
+                        }),
                         ('time', ('time', {}), {
                             'doc': 'The time that the HTTP request was sent.'
                         }),
@@ -976,13 +1060,56 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:http:response', {}, (
+                        ('flow', ('inet:flow', {}), {
+                            'doc': 'The inet:flow which contained the HTTP response.'
+                        }),
+                        ('host', ('it:host', {}), {
+                            'doc': 'The it:host which sent the HTTP response.'
+                        }),
+                        ('time', ('time', {}), {
+                            'doc': 'The time that the HTTP response was sent.'
+                        }),
+                        ('request', ('inet:http:request', {}), {
+                            'doc': 'The HTTP request which caused the response.'
+                        }),
+                        ('code', ('int', {}), {
+                            'doc': 'The HTTP response code.'
+                        }),
+                        ('reason', ('str', {}), {
+                            'doc': 'The HTTP response reason string.'
+                        }),
+                        ('body', ('file:bytes', {}), {
+                            'doc': 'The HTTP response body data.'
+                        }),
+                    )),
+
+                    ('inet:http:resphead', {}, (
+                        ('response', ('inet:http:response', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP response which contained the header.'
+                        }),
+                        ('header', ('inet:http:header', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP header contained in the response.'
+                        }),
+                        ('header:name', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The HTTP header name'
+                        }),
+                        ('header:value', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP header value.'
+                        }),
+                    )),
+
                     ('inet:iface', {}, (
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The last known latitude/longitude for the node'
                         }),
-                        #('host', ('it:host', {}), {
-                        #    'doc': 'The guid of the host the interface is associated with.'
-                        #}),
+                        ('host', ('it:host', {}), {
+                            'doc': 'The guid of the host the interface is associated with.'
+                        }),
                         ('type', ('str', {'lower': True}), {
                             'doc': 'The free-form interface type.'
                         }),
@@ -1100,27 +1227,27 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:servfile', {}, (
                         ('file', ('file:bytes', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The file hosted by the server.'
                         }),
                         ('server', ('inet:server', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The inet:addr of the server.'
                         }),
                         ('server:proto', ('str', {'lower': True}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The network protocol of the server.'
                         }),
                         ('server:ipv4', ('inet:ipv4', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The IPv4 of the server.'
                         }),
                         ('server:ipv6', ('inet:ipv6', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The IPv6 of the server.'
                         }),
                         ('server:host', ('it:host', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The it:host node for the server.'
                         }),
                         ('server:port', ('inet:port', {}), {

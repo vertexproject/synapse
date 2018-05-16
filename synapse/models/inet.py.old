@@ -15,12 +15,6 @@
     'ex': 'ff::00-ff::30'}),
 
 ========== TYPES of comp/sepr =====================================================================
-('inet:http:resphead', {
-    'subof': 'comp',
-    'fields': 'response=inet:http:response,header=inet:http:header',
-    'doc': 'An instance of an HTTP header within a specific HTTP response.',
-}),
-
 # needs inet:server
 ('inet:ssl:tcp4cert', {
     'subof': 'sepr',
@@ -100,57 +94,4 @@ FORMS ==========================================================================
         'doc': 'The IPv4 address associated with the TCP server.'}),
 ]),
 
-('inet:http:response', {}, (
-    ('flow', {'ptype': 'inet:flow',
-        'doc': 'The inet:flow which contained the HTTP response.'}),
-    ('host', {'ptype': 'it:host',
-        'doc': 'The it:host which sent the HTTP response.'}),
-    ('time', {'ptype': 'time',
-        'doc': 'The time that the HTTP response was sent.'}),
-    ('request', {'ptype': 'inet:http:request',
-        'doc': 'The HTTP request which caused the response.'}),
-    ('code', {'ptype': 'int',
-        'doc': 'The HTTP response code.'}),
-    ('reason', {'ptype': 'str',
-        'doc': 'The HTTP response reason string.'}),
-    ('body', {'ptype': 'file:bytes',
-        'doc': 'The HTTP response body data.'}),
-
-)),
-
-('inet:http:header', {}, (
-    ('name', {'ptype': 'str:lwr', 'ro': 1,
-        'doc': 'The name of the HTTP header.'}),
-    ('value', {'ptype': 'str', 'ro': 1,
-        'doc': 'The value of the HTTP header.'}),
-)),
-
-('inet:http:param', {}, (
-    ('name', {'ptype': 'str:lwr', 'ro': 1,
-        'doc': 'The name of the HTTP query parameter.'}),
-    ('value', {'ptype': 'str', 'ro': 1,
-        'doc': 'The value of the HTTP query parameter.'}),
-)),
-
-('inet:http:reqhead', {}, (
-    ('request', {'ptype': 'inet:http:request', 'ro': 1,
-        'doc': 'The HTTP request which contained the header.'}),
-    ('header', {'ptype': 'inet:http:header', 'ro': 1,
-        'doc': 'The HTTP header contained in the request.'}),
-    ('header:name', {'ptype': 'str:lwr', 'ro': 1,
-        'doc': 'The HTTP header name'}),
-    ('header:value', {'ptype': 'str', 'ro': 1,
-        'doc': 'The HTTP header value.'}),
-)),
-
-('inet:http:reqparam', {}, (
-    ('request', {'ptype': 'inet:http:request', 'ro': 1,
-        'doc': 'The HTTP request which contained the header.'}),
-    ('param', {'ptype': 'inet:http:header', 'ro': 1,
-        'doc': 'The HTTP query parameter contained in the request.'}),
-    ('param:name', {'ptype': 'str:lwr', 'ro': 1,
-        'doc': 'The HTTP query parameter name'}),
-    ('param:value', {'ptype': 'str', 'ro': 1,
-        'doc': 'The HTTP query parameter value.'}),
-)),
 '''
