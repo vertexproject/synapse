@@ -221,56 +221,6 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, 32 * 'a', props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_web_memb(self):
-        formname = 'inet:web:memb'
-        valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'kenshoto'))
-        input_props = {'joined': 2554848000000, 'title': 'Cool'}
-        expected_props = {
-            'joined': 2554848000000,
-            'title': 'cool',
-            'acct': ('vertex.link', 'visi'),
-            'group': ('vertex.link', 'kenshoto'),
-        }
-        expected_ndef = (formname, (('vertex.link', 'visi'), ('vertex.link', 'kenshoto')))
-        with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
-                node = snap.addNode(formname, valu, props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
-    def test_web_mesg(self):
-        formname = 'inet:web:mesg'
-        valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'vertexmc'), 0)
-        input_props = {
-            'url': 'https://vertex.link/messages/0',
-            'text': 'a cool Message',
-            'file': 'sha256:' + 64 * 'F'
-        }
-        expected_props = {
-            'url': 'https://vertex.link/messages/0',
-            'text': 'a cool Message',
-            'file': 'sha256:' + 64 * 'f'
-        }
-        expected_ndef = (formname, (('vertex.link', 'visi'), ('vertex.link', 'vertexmc'), 0))
-        with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
-                node = snap.addNode(formname, valu, props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
-    def test_whois_recns(self):
-        formname = 'inet:whois:recns'
-        valu = ('ns1.woot.com', ('woot.com', '@20501217'))
-        expected_props = {
-            'ns': 'ns1.woot.com',
-            'rec': ('woot.com', 2554848000000),
-            'rec:fqdn': 'woot.com',
-            'rec:asof': 2554848000000,
-        }
-        expected_ndef = (formname, ('ns1.woot.com', ('woot.com', 2554848000000)))
-        with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
-                node = snap.addNode(formname, valu)
-                self.checkNode(node, (expected_ndef, expected_props))
-
     def test_email(self):
         formname = 'inet:email'
         with self.getTestCore() as core:
@@ -798,6 +748,57 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu, props=input_props)
                 self.eq(node.ndef, expected_ndef)
                 [self.eq(node.get(k), expected_props[k]) for k in expected_props]
+
+    def test_web_memb(self):
+        formname = 'inet:web:memb'
+        valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'kenshoto'))
+        input_props = {'joined': 2554848000000, 'title': 'Cool'}
+        expected_props = {
+            'joined': 2554848000000,
+            'title': 'cool',
+            'acct': ('vertex.link', 'visi'),
+            'group': ('vertex.link', 'kenshoto'),
+        }
+        expected_ndef = (formname, (('vertex.link', 'visi'), ('vertex.link', 'kenshoto')))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_web_mesg(self):
+        formname = 'inet:web:mesg'
+        valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'vertexmc'), 0)
+        input_props = {
+            'url': 'https://vertex.link/messages/0',
+            'text': 'a cool Message',
+            'file': 'sha256:' + 64 * 'F'
+        }
+        expected_props = {
+            'url': 'https://vertex.link/messages/0',
+            'text': 'a cool Message',
+            'file': 'sha256:' + 64 * 'f'
+        }
+        expected_ndef = (formname, (('vertex.link', 'visi'), ('vertex.link', 'vertexmc'), 0))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_whois_recns(self):
+        formname = 'inet:whois:recns'
+        valu = ('ns1.woot.com', ('woot.com', '@20501217'))
+        expected_props = {
+            'ns': 'ns1.woot.com',
+            'rec': ('woot.com', 2554848000000),
+            'rec:fqdn': 'woot.com',
+            'rec:asof': 2554848000000,
+        }
+        expected_ndef = (formname, ('ns1.woot.com', ('woot.com', 2554848000000)))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
+
 
 class FIXME:
 
