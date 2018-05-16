@@ -1433,10 +1433,9 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The file owned by or associated with the account.'
                         }),
-                        # FIXME missing file:base
-                        #('name', ('file:base', {}), {
-                        #    'doc': 'The name of the file owned by or associated with the account.'
-                        #}),
+                        ('name', ('file:base', {}), {
+                            'doc': 'The name of the file owned by or associated with the account.'
+                        }),
                         ('posted', ('time', {}), {
                             'doc': 'The date and time the file was posted / submitted.'
                         }),

@@ -10,7 +10,7 @@ class InetModelTest(s_t_common.SynTest):
 
     def test__forms_tested(self):
         skips = (
-            'inet:user',
+            'inet:user',  # It is a str with no props
         )
 
         untested_forms = []
@@ -55,25 +55,42 @@ class InetModelTest(s_t_common.SynTest):
     def test_asn(self):
         formname = 'inet:asn'
         with self.getTestCore() as core:
-
             with core.snap(write=True) as snap:
 
                 valu = '123'
+                expected_ndef = (formname, 123)
                 input_props = {
                     'name': 'COOL',
                     'owner': 32 * 'a'
                 }
-                expected_ndef = (formname, 123)
+                expected_props = {
+                    'name': 'cool',
+                    'owner': 32 * 'a',
+                }
                 node = snap.addNode(formname, valu, props=input_props)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('name'), 'cool')
-                self.eq(node.get('owner'), 32 * 'a')
+                self.checkNode(node, (expected_ndef, expected_props))
 
                 valu = '456'
                 expected_ndef = (formname, 456)
+                expected_props = {'name': '??'}
                 node = snap.addNode(formname, valu)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('name'), '??')
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_asnet4(self):
+        formname = 'inet:asnet4'
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+
+                valu = ('54959', ('1.2.3.4', '5.6.7.8'))
+                expected_ndef = (formname, (54959, (16909060, 84281096)))
+                expected_props = {
+                    'net4:min': 16909060,
+                    'net4': (16909060, 84281096),
+                    'net4:max': 84281096,
+                    'asn': 54959,
+                }
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
 
     def test_cidr4(self):
         formname = 'inet:cidr4'
