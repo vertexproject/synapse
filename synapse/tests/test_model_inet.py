@@ -221,6 +221,22 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, 32 * 'a', props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_web_memb(self):
+        formname = 'inet:web:memb'
+        valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'kenshoto'))
+        input_props = {'joined': 2554848000000, 'title': 'Cool'}
+        expected_props = {
+            'joined': 2554848000000,
+            'title': 'cool',
+            'acct': ('vertex.link', 'visi'),
+            'group': ('vertex.link', 'kenshoto'),
+        }
+        expected_ndef = (formname, (('vertex.link', 'visi'), ('vertex.link', 'kenshoto')))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_email(self):
         formname = 'inet:email'
         with self.getTestCore() as core:
@@ -790,21 +806,6 @@ class FIXME:
 
             self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/visi'))
             self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/hehe'))
-
-    def test_model_inet_web_memb(self):
-
-        with self.getRamCore() as core:
-
-            node = core.formTufoByProp('inet:web:memb', ('VERTEX.link/visi', 'vertex.LINK/kenshoto'), joined='20501217')
-
-            self.nn(node)
-
-            self.eq(node[1].get('inet:web:memb:joined'), 2554848000000)
-            self.eq(node[1].get('inet:web:memb:acct'), 'vertex.link/visi')
-            self.eq(node[1].get('inet:web:memb:group'), 'vertex.link/kenshoto')
-
-            self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/visi'))
-            self.nn(core.getTufoByProp('inet:web:group', 'vertex.link/kenshoto'))
 
     def test_model_whois_contact(self):
         with self.getRamCore() as core:

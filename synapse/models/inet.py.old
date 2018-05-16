@@ -6,10 +6,6 @@
         ' an account, as opposed to current data in the inet:web:acct node.'}),
 
 TYPES of comp/sepr ====================================================================================
-('inet:web:memb', {
-    'subof': 'comp',
-    'fields': 'acct,inet:web:acct|group,inet:web:group',
-    'doc': 'A web account that is a member of a web group.'}),
 
 ('inet:web:mesg', {
     'subof': 'comp',
@@ -157,21 +153,6 @@ FORMS ==========================================================================
         'doc': 'The text of the message.'}),
     ('file', {'ptype': 'file:bytes',
         'doc': 'The file attached to or sent with the message.'}),
-]),
-
-('inet:web:memb', {}, [
-    ('acct', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
-        'doc': 'The account that is a member of the group.'}),
-    ('group', {'ptype': 'inet:web:group', 'ro': 1, 'req': 1,
-        'doc': 'The group that the account is a member of.'}),
-    ('title', {'ptype': 'str:lwr',
-        'doc': 'The title or status of the member (e.g., admin, new member, etc.).'}),
-    ('joined', {'ptype': 'time',
-        'doc': 'The date / time the account joined the group.'}),
-    ('seen:min', {'ptype': 'time:min',
-        'doc': 'The earliest known date when the account was a member of the group.'}),
-    ('seen:max', {'ptype': 'time:max',
-        'doc': 'The most recent known date when the account was a member of the group.'}),
 ]),
 
 ('inet:whois:regmail', {'ptype': 'inet:whois:regmail'}, [

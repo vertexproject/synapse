@@ -666,6 +666,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An instance of an account authenticating to an Internet-based site or service.'
                     }),
 
+                    ('inet:web:memb', ('comp', {'fields': (('acct', 'inet:web:acct'), ('group', 'inet:web:group'))}), {
+                        'doc': 'A web account that is a member of a web group.'
+                    }),
+
                     ('inet:web:post', ('comp', {'fields': (('acct', 'inet:web:acct'), ('text', 'str'))}), {
                         'doc': 'A post made by a web account.'
                     }),
@@ -1395,6 +1399,21 @@ class InetModule(s_module.CoreModule):
                         ('logout', ('time', {}), {
                             'doc': 'The date and time the account logged out of the service.'
                         })
+                    )),
+
+                    ('inet:web:memb', {}, (
+                        ('acct', ('inet:web:acct', {}), {
+                            'doc': 'The account that is a member of the group.'
+                        }),
+                        ('group', ('inet:web:group', {}), {
+                            'doc': 'The group that the account is a member of.'
+                        }),
+                        ('title', ('str', {'lower': True}), {
+                            'doc': 'The title or status of the member (e.g., admin, new member, etc.).'
+                        }),
+                        ('joined', ('time', {}), {
+                            'doc': 'The date / time the account joined the group.'
+                        }),
                     )),
 
                     ('inet:web:post', {}, (
