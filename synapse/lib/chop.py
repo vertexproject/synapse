@@ -66,8 +66,12 @@ def onespace(text):
 
 @s_cache.memoize(size=10000)
 def tag(text):
+    return '.'.join(tagpath(text))
+
+@s_cache.memoize(size=10000)
+def tagpath(text):
     text = text.lower().strip('#').strip()
-    return '.'.join([onespace(t) for t in text.split('.')])
+    return [onespace(t) for t in text.split('.')]
 
 @s_cache.memoize(size=10000)
 def tags(norm):

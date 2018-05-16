@@ -35,6 +35,12 @@ class CellApi:
         self.link = link
         self.user = link.get('cell:user')
 
+    def getCellType(self):
+        return self.cell.getCellType()
+
+    async def fini(self):
+        return
+
     @adminapi
     def addAuthUser(self, name):
         self.cell.auth.addUser(name)
@@ -156,9 +162,6 @@ bootdefs = (
     #('auth:required', {'defval': True,
         #'doc': 'If auth is enabled, allow non-auth connections.  Cell must manage perms.'})
 
-    #('auth:url', {'defval': None,
-        #'doc': 'Set to a telepath URL to use a remote Auth Cell.'}),
-
     ('auth:admin', {'defval': None,
         'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
 )
@@ -245,6 +248,9 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
 
         link.set('cell:user', user)
         return self.cellapi(self, link)
+
+    def getCellType(self):
+        return self.__class__.__name__.lower()
 
     def _getCellUser(self, link, mesg):
 

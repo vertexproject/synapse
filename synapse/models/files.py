@@ -193,9 +193,14 @@ class FileModule(s_module.CoreModule):
                     ('file:path', 'synapse.models.files.FilePath', {}, {
                         'doc': 'A normalized file path.',
                         'ex': 'c:/windows/system32/calc.exe'}),
+
                 ),
 
                 'types': (
+
+                    ('file:imgof', ('comp', {'fields': (('file', 'file:bytes'), ('node', 'ndef'))}), {
+                        'doc': 'A file that contains an image of the specififed node.'}),
+
                 ),
 
                 'forms': (
@@ -255,6 +260,14 @@ class FileModule(s_module.CoreModule):
                             'doc': 'The file extension.'}),
                     )),
 
+                    ('file:imgof', {}, (
+                        ('file', ('file:bytes', {}), {'ro': 1,
+                            'doc': 'The file containing the image.'}),
+                        ('node', ('ndef', {}), {'ro': 1,
+                            'doc': 'The node which is pictured.'}),
+                        ('node:form', ('str', {}), {'ro': 1,
+                            'doc': 'The form of node pictured.'}),
+                    )),
                 ),
 
             }),

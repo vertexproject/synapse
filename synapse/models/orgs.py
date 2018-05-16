@@ -58,7 +58,7 @@ class OuModule(s_module.CoreModule):
             'forms': (
                 ('ou:org', {}, (
                     ('loc', ('loc', {}), {
-                        'doc': 'Location for an organization'
+                        'doc': 'Location for an organization.'
                     }),
                     ('name', ('ou:name', {}), {
                         'doc': 'The localized name of an organization.',

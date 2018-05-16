@@ -28,6 +28,8 @@ class Node:
         self.props = {}
         self.univs = {}
 
+        self.runt = {}  # a runtime info dict for things like storm
+
         # self.buid may be None during
         # initial node construction...
         if self.buid is not None:
@@ -87,15 +89,10 @@ class Node:
             logger.warning('NoSuchProp: %s (%s)', name, self.form.name)
             return False
 
-        if prop.info.get('ro') and not init and not self.init:
-            logger.warning('trying to set read only prop: %s' % (prop.full,))
-            return False
+        if not self.snap.allowed('prop:set', self.form.name, prop.name):
+            raise s_exc.AuthDeny()
 
         curv = self.props.get(name)
-        #if curv is not None and not init and not prop.info.get('rw'):
-        if curv is not None and not init and prop.info.get('ro'):
-            # not setting a set-once prop unless we are init...
-            return False
 
         # normalize the property value...
         norm, info = prop.type.norm(valu)
@@ -103,6 +100,18 @@ class Node:
         # do we already have the value?
         if curv == norm:
             return False
+
+        if curv is not None and not init:
+
+            if prop.info.get('ro'):
+                # not setting a set-once prop unless we are init...
+                self.snap.warn(f'trying to set read-only prop which is already set: {prop.full}')
+                return False
+
+            # check for type specific merging...
+            norm = prop.type.merge(curv, norm)
+            if curv == norm:
+                return False
 
         sops = prop.getSetOps(self.buid, norm)
 
@@ -178,15 +187,19 @@ class Node:
 
         return self.props.get(name)
 
-    def delete(self, name):
-
+    def pop(self, name, init=False):
+        '''
+        '''
         prop = self.form.prop(name)
         if prop is None:
             self.snap.warn('NoSuchProp', form=self.form.name, prop=name)
             return False
 
+        if not self.snap.allowed('prop:del', self.form.name, prop.name):
+            raise s_exc.AuthDeny()
+
         if prop.info.get('ro') and not init and not self.init:
-            logger.warning('trying to set read only prop: %s' % (prop.full,))
+            self.snap.warn('trying to pop() a read-only prop!')
             return False
 
         sops = prop.getDelOps(self.buid)
@@ -205,13 +218,15 @@ class Node:
 
     def addTag(self, tag, valu=(None, None)):
 
-        name = s_chop.tag(tag)
+        path = s_chop.tagpath(tag)
 
-        if not self.snap.allowed('node:tag:add', name):
-            raise s_exc.AuthDeny(mesg='Not allowed to add a tag.')
+        if not self.snap.allowed('tag:add', *path):
+            raise s_exc.AuthDeny(mesg='Not allowed to add a tag.', tag=tag)
 
         if valu != (None, None):
             valu = self.snap.model.type('ival').norm(valu)[0]
+
+        name = '.'.join(path)
 
         curv = self.tags.get(name)
         if curv == valu:
@@ -257,10 +272,12 @@ class Node:
         '''
         Delete a tag from the node.
         '''
-        name = s_chop.tag(tag)
+        path = s_chop.tagpath(tag)
 
-        if not self.snap.allowed('node:tag:del', name):
-            raise s_exc.AuthDeny(mesg='Not allowed to delete a tag.')
+        if not self.snap.allowed('tag:del', *path):
+            raise s_exc.AuthDeny(mesg='Not allowed to delete a tag.', tag=tag)
+
+        name = '.'.join(path)
 
         curv = self.tags.pop(name, s_common.novalu)
         if curv is s_common.novalu:

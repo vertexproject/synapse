@@ -166,6 +166,9 @@ class Plex(s_eventbus.EventBus):
         except Exception as e:
             logger.exception('_linkRxLoop Error!')
 
+        finally:
+            await self.executor(link.fini)
+
     async def _linkTxLoop(self, link):
 
         try:
@@ -180,7 +183,12 @@ class Plex(s_eventbus.EventBus):
                 await link.writer.drain()
 
         except Exception as e:
-            logger.exception('_linkRxLoop Error!')
+            logger.exception('_linkTxLoop Error!')
+
+        finally:
+
+            link.writer.close()
+            await self.executor(link.fini)
 
     def _runIoLoop(self):
 

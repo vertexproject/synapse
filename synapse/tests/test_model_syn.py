@@ -11,7 +11,7 @@ class SynModelTest(s_test.SynTest):
                 node = snap.addNode('syn:tag', 'foo.bar.baz')
 
                 self.eq(node.get('up'), 'foo.bar')
-                self.eq(node.get('depth'), 3)
+                self.eq(node.get('depth'), 2)
                 self.eq(node.get('base'), 'baz')
 
                 node = snap.getNodeByNdef(('syn:tag', 'foo.bar'))

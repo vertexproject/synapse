@@ -373,6 +373,7 @@ class Daemon(EventBus):
             items = {None: item}
             link.set('dmon:items', items)
 
+            @s_glob.synchelp
             async def fini():
 
                 items = list(link.get('dmon:items').values())
@@ -381,7 +382,7 @@ class Daemon(EventBus):
                     try:
                         await item.fini()
                     except Exception as e:
-                        logger.exception()
+                        logger.exception(f'item fini error: {e}')
 
             link.onfini(fini)
 

@@ -1,88 +1,38 @@
-import synapse.eventbus as s_eventbus
+import synapse.lib.cli as s_cli
 
-import synapse.lib.output as s_output
+import synapse.cmds.cortex as s_cmds_cortex
 
-class Quit(Exception): pass
+cmdsbycell = {
+    'cortex': (
+        s_cmds_cortex.AskCmd,
+    ),
+}
 
-class Cmdr(s_eventbus.EventBus):
+def getItemCmdr(cell, outp=None, **opts):
     '''
-    A cmdline interface to a telepath Service.
+    Construct and return a cmdr for the given remote cell.
+
+    Example:
+
+        cmdr = getItemCmdr(foo)
+
     '''
-    def __init__(self, prox, outp=s_output.stdout):
+    cmdr = s_cli.Cli(cell, outp=outp)
+    typename = cell.getCellType()
 
-        s_eventbus.EventBus.__init__(self)
+    for ctor in cmdsbycell.get(typename, ()):
+        cmdr.addCmdClass(ctor)
 
-        self.prox = prox
-        self.outp = outp
+    return cmdr
 
-        self.localcmds = {
-            'quit': self._runCmdQuit,
-        }
+def runItemCmdr(item, outp=None, **opts):
+    '''
+    Create a cmdr for the given item and run the cmd loop.
 
-        name = prox.getSvcType()
-        self.prompt = '%s> ' % name
+    Example:
 
-    def _runCmdQuit(self, line):
-        self.printf('signing off...')
-        raise Quit()
+        runItemCmdr(foo)
 
-    def getCmdInput(self):
-        '''
-        Get the input string to parse.
-
-        Returns:
-            (str): A command line string to process.
-        '''
-        return input(self.prompt).strip()
-
-    def printf(self, mesg, addnl=True):
-        return self.outp.printf(mesg, addnl=addnl)
-
-    def runCmdLoop(self):
-        '''
-        Run a command loop from stdin.
-        '''
-        import readline
-        readline.read_init_file()
-
-        while not self.isfini:
-
-            # FIXME history / completion
-
-            try:
-
-                line = self.getCmdInput()
-                if not line:
-                    continue
-
-                self.runCmdLine(line)
-
-            except KeyboardInterrupt as e:
-                self.printf('<ctrl-c>')
-
-            except (Quit, EOFError) as e:
-                self.fini()
-
-            except Exception as e:
-                s = traceback.format_exc()
-                self.printf(s)
-
-    def runCmdLine(self, line):
-        '''
-        Run a single command line.
-
-        Args:
-            line (str): Line to execute.
-        '''
-        name = line.split(None, 1)[0]
-
-        func = self.localcmds.get(name)
-        if func is not None:
-            return func(line)
-
-        # optimal generator syntax for a proxy call...
-        for text in self.prox.runSvcCmd(line):
-        #with self.prox.runSvcCmd(line) as outp:
-            #for text in outp:
-            print('TEXT: %r' % (text,))
-            self.printf(text)
+    '''
+    cmdr = getItemCmdr(item, outp=outp, **opts)
+    cmdr.runCmdLoop()
