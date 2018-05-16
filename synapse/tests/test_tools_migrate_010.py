@@ -133,7 +133,9 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(len(nodes), 1)
 
             # imgof
-            core.formTufoByProp('file:imgof', (file_guid, ('ps:person', (contact_tufo[1]['ps:contact:person']))))
+
+            person_guid = contact_tufo[1]['ps:contact:person']
+            core.formTufoByProp('file:imgof', (file_guid, ('ps:person', person_guid)))
             fh = tempfile.TemporaryFile(dir=dirn)
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('file:ref', fh)
@@ -141,7 +143,15 @@ class Migrate010Test(s_iq.SynTest):
             node = nodes[0]
             self.eq(node[1]['props']['type'], 'image')
             ndef = node[0]
-            self.eq(ndef, ('file:ref', ('guid:' + file_guid, ('ps:person', contact_tufo[1]['ps:contact:person']))))
+            self.eq(ndef, ('file:ref', ('guid:' + file_guid, ('ps:person', person_guid))))
+
+            # ps:person:has
+            core.formTufoByProp('ps:person:has', (person_guid, ('file:bytes', file_guid)))
+            fh = tempfile.TemporaryFile(dir=dirn)
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            nodes = self.get_formfile('ps:person:has', fh)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('ps:person:has', (person_guid, ('file:bytes', 'guid:' + file_guid))))
 
     def test_filebytes(self):
         self.maxDiff = None

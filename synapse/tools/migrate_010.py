@@ -83,7 +83,7 @@ class Migrator:
         self.valu_tbl = self.dbenv.open_db(key=b'vals', integerkey=True)
         self.outfh = outfh
         self._precalc_types()
-        self.first_forms = [f for f in reversed(_comp_and_sepr_forms) if self.is_comp(f)] + ['file:bytes', ]
+        self.first_forms = ['file:bytes', ] + [f for f in reversed(_comp_and_sepr_forms) if self.is_comp(f)]
 
     def _precalc_types(self):
         ''' Precalculate which types are sepr and which are comps, and which are subs of comps '''
@@ -241,7 +241,7 @@ class Migrator:
                         if node is None:
                             continue
                         if formname == 'file:bytes':
-                            logger.debug('Putting file:bytes side ref of %s->%s', props['node:ndef'], node[0])
+                            # logger.debug('Putting file:bytes side ref of %s->%s', props['node:ndef'], node[0])
                             if not txn.put(props['node:ndef'].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl):
                                 raise ConsistencyError('put failure')
                             if not txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl):
@@ -249,7 +249,9 @@ class Migrator:
                         else:
                             txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl)
                         self.write_node_to_file(node)
-                    except Exception:
+                    # nic tmp
+                    # except Exception:
+                    except ZeroDivisionError:
                         import ipdb; ipdb.set_trace()
                         logger.debug('Failed on processing node of form %s', formname, exc_info=True)
 
@@ -296,7 +298,9 @@ class Migrator:
                         node = self.convert_props(props)
                         if node is not None:
                             self.write_node_to_file(node)
-                    except Exception:
+                    # Nic tmp
+                    # except Exception:
+                    except ZeroDivisionError:
                         logger.debug('Failed on processing node with props: %s', props, exc_info=True)
                 if not rv:
                     break  # end of data
@@ -332,6 +336,8 @@ class Migrator:
         sourceval = props[propname + ':' + t._sorc_name]
         destprop = props[propname + ':xref:prop']
         destval = props.get(propname + ':xref:intval', props.get(propname + ':xref:strval'))
+        if destval is None:
+            destval = props[propname + ':xref'].split('=', 1)[1]
         source_final = self.convert_foreign_key(t._sorc_type, sourceval)
         dest_final = self.convert_foreign_key(destprop, destval)
         return (source_final, (destprop, dest_final))
@@ -355,6 +361,7 @@ class Migrator:
         with self.dbenv.begin(db=self.comp_tbl) as txn:
             comp_enc = txn.get(propval.encode('utf8'), db=self.comp_tbl)
             if comp_enc is None:
+                import ipdb; ipdb.set_trace()
                 raise ConsistencyError('guid accessed before determined')
             return s_msgpack.un(comp_enc)[1]
 
