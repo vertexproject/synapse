@@ -188,6 +188,7 @@ class InetModelTest(s_t_common.SynTest):
             'file': 'sha256:' + 64 * 'b',
             'fqdn': 'vertex.link',
             'client': 'tcp://127.0.0.1:45654',
+            'client:ipv4': 'shouldnt be none',
             'server': 'tcp://1.2.3.4:80'
         }
         with self.getTestCore() as core:
@@ -214,11 +215,11 @@ class InetModelTest(s_t_common.SynTest):
             'query': 'hoho=1&qaz=bar',
             'body': 'sha256:' + 64 * 'b'
         }
+        expected_ndef = (formname, 32 * 'a')
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, 32 * 'a', props=input_props)
-                self.eq(node.ndef, (formname, 32 * 'a'))
-                [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
+                self.checkNode(node, (expected_ndef, expected_props))
 
     def test_email(self):
         formname = 'inet:email'
