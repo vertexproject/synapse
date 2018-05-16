@@ -12,6 +12,8 @@ class InetModelTest(s_t_common.SynTest):
         skips = (
             'inet:group',  # It is a str with no props
             'inet:user',  # It is a str with no props
+            'inet:whois:rar',  # It is a (str, {'lower': True) with no props
+            'inet:whois:reg',  # It is a (str, {'lower': True) with no props
         )
 
         untested_forms = []
