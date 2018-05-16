@@ -110,6 +110,9 @@ class Cortex(s_cell.Cell):
 
         ('modules', {'type': 'list', 'defval': (),
             'doc': 'A list of (ctor, conf) modules to load.'}),
+
+        ('layers', {'type': 'list', 'defval': (),
+            'doc': 'A list of layer paths to load.'}),
     )
 
     cellapi = CoreApi
@@ -121,6 +124,11 @@ class Cortex(s_cell.Cell):
         self.views = {}
         self.layers = []
         self.modules = {}
+
+        # load any configured external layers
+        for path in self.conf.get('layers'):
+            logger.warning('loading external layer: %r' % (path,))
+            self.layers.append(s_layer.opendir(path))
 
         # initialize any cortex directory structures
         self._initCoreDir()
@@ -149,7 +157,7 @@ class Cortex(s_cell.Cell):
 
     def openLayerName(self, name):
         dirn = s_common.gendir(self.dirn, 'layers', name)
-        return s_layer.Layer(dirn)
+        return s_layer.opendir(dirn)
 
     def getLayerConf(self, name):
         return {}

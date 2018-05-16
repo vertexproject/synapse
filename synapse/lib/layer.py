@@ -5,6 +5,7 @@ cortex construction.
 import os
 import lmdb
 import logging
+import threading
 import collections
 
 import synapse.exc as s_exc
@@ -284,3 +285,20 @@ class Layer(s_cell.Cell):
         Return a transaction object for the layer.
         '''
         return Xact(self, write=write)
+
+openlayers = {}
+
+def opendir(*path):
+    '''
+    Since a layer may not be opened twice, use the existing.
+    '''
+    path = s_common.genpath(*path)
+
+    layr = openlayers.get(path)
+    if layr is not None:
+        return layr
+
+    layr = Layer(path)
+    openlayers[path] = layr
+
+    return layr
