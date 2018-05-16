@@ -20,6 +20,7 @@ def main(argv):
     pars.add_argument('dmonpath', nargs='?', default=s_dmon.dmonpath,
                         help='The synapse.tools.dmon directory where the cell will be deployed.')
 
+    pars.add_argument('--listen', action='store', help='URL for the daemon to listen too')
     pars.add_argument('--auth', action='store_true', help='Enable the cell auth subsystem.')
     pars.add_argument('--admin', help='Set the initial <user>:<passwd> as an admin (enables --auth).')
 
@@ -29,6 +30,14 @@ def main(argv):
     if os.path.isdir(dirn):
         print(f'cell directory already exists: {dirn}')
         return
+
+    dmon = {}
+    if opts.listen:
+        dmon['listen'] = opts.listen
+
+    if dmon:
+        dmon.setdefault('modules', [])
+        s_common.yamlsave(dmon, opts.dmonpath, 'dmon.yaml')
 
     boot = {
         'cell:name': opts.cellname,
