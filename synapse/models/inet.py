@@ -677,7 +677,7 @@ class InetModule(s_module.CoreModule):
                         'ex': 'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'
                     }),
 
-                    ('inet:web:post', ('comp', {'fields': (('acct', 'inet:web:acct'), ('text', 'str'))}), {
+                    ('inet:web:post', ('guid', {}), {
                         'doc': 'A post made by a web account.'
                     }),
 
