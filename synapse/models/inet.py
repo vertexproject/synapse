@@ -805,11 +805,10 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The IPv6 of the client.'
                         }),
-                        # FIXME port it:host
-                        #('host', ('it:host', {}), {
-                        #    'ro': True,
-                        #    'doc': 'The it:host node for the client.'
-                        #}),
+                        ('host', ('it:host', {}), {
+                            'ro': True,
+                            'doc': 'The it:host node for the client.'
+                        }),
                         ('port', ('inet:port', {}), {
                             'doc': 'The client tcp/udp port.'
                         }),
@@ -829,9 +828,9 @@ class InetModule(s_module.CoreModule):
                         ('server', ('inet:server', {}), {
                             'doc': 'The inet:addr of the server.'
                         }),
-                        #('server:host', ('it:host', {}), {
-                        #    'doc': 'The it:host node for the server.'
-                        #}),
+                        ('server:host', ('it:host', {}), {
+                            'doc': 'The it:host node for the server.'
+                        }),
                         ('server:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The IPv4 of the server.'
                         }),
@@ -848,9 +847,9 @@ class InetModule(s_module.CoreModule):
                         ('client', ('inet:client', {}), {
                             'doc': 'The inet:addr of the client.'
                         }),
-                        #('client:host', ('it:host', {}), {
-                        #    'doc': 'The it:host node for the client.'
-                        #}),
+                        ('client:host', ('it:host', {}), {
+                            'doc': 'The it:host node for the client.'
+                        }),
                         ('client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The IPv4 of the client.'
                         }),
@@ -1215,11 +1214,10 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The IPv6 of the server.'
                         }),
-                        # FIXME port it:host
-                        #('host', ('it:host', {}), {
-                        #    'ro': True,
-                        #    'doc': 'The it:host node for the server.'
-                        #}),
+                        ('host', ('it:host', {}), {
+                            'ro': True,
+                            'doc': 'The it:host node for the server.'
+                        }),
                         ('port', ('inet:port', {}), {
                             'doc': 'The server tcp/udp port.'
                         }),

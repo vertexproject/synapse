@@ -11,6 +11,7 @@ class InetModelTest(s_t_common.SynTest):
         with self.getTestCore() as core:
 
             # FIXME - write tests for the following:
+            # all of the http forms/types
             self.nn(core.model.form('inet:asnet4'))  # comp
             self.nn(core.model.form('inet:group'))  # str w/ lower
             self.nn(core.model.form('inet:user'))  # str w/ lower
@@ -139,7 +140,7 @@ class InetModelTest(s_t_common.SynTest):
                 'port': 12345
             }),
             ('host://vertex.link:12345', 'host://ffa3e574aa219e553e1b2fc1ccd0180f:12345', {
-                #'host': 'ffa3e574aa219e553e1b2fc1ccd0180f',  # FIXME add it:host
+                'host': 'ffa3e574aa219e553e1b2fc1ccd0180f',
                 'port': 12345
             }),
         )
@@ -149,8 +150,7 @@ class InetModelTest(s_t_common.SynTest):
                 for formname in ('inet:client', 'inet:server'):
                     for valu, expected_valu, expected_props in data:
                         node = snap.addNode(formname, valu)
-                        self.eq(node.ndef, (formname, expected_valu))
-                        [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
+                        self.checkNode(node, ((formname, expected_valu), expected_props))
 
     def test_download(self):
         formname = 'inet:download'
@@ -172,8 +172,7 @@ class InetModelTest(s_t_common.SynTest):
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, 32 * 'a', props=input_props)
-                self.eq(node.ndef, (formname, 32 * 'a'))
-                [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
+                self.checkNode(node, ((formname, 32 * 'a'), expected_props))
 
     def test_http_request(self):
         formname = 'inet:http:request'
@@ -213,12 +212,13 @@ class InetModelTest(s_t_common.SynTest):
             # Form Tests ======================================================
             valu = 'UnitTest@Vertex.link'
             expected_ndef = (formname, valu.lower())
-
+            expected_props = {
+                'fqdn': 'vertex.link',
+                'user': 'unittest',
+            }
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, valu)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('fqdn'), 'vertex.link')
-                self.eq(node.get('user'), 'unittest')
+                self.checkNode(node, (expected_ndef, expected_props))
 
     def test_flow(self):
         formname = 'inet:flow'
@@ -713,15 +713,15 @@ class InetModelTest(s_t_common.SynTest):
                 'avatar': 'sha256:' + 64 * 'a',
                 'dob': -64836547200000,
                 'email': 'brutus@vertex.link',
-                #'latlong': '0,0',  # FIXME implement
+                'latlong': '0,0',
                 'loc': 'sol',
                 'name': 'ካሳር',
                 'name:en': 'brutus',
                 'occupation': 'jurist',
-                #'passwd': 'hunter2',  # FIXME implement
-                #'phone': '555-555-5555',  # FIXME implement
-                #'realname': 'Брут',  # FIXME implement
-                #'realname:en': 'brutus',  # FIXME implement
+                'passwd': 'hunter2',
+                'phone': '555-555-5555',
+                'realname': 'Брут',
+                'realname:en': 'brutus',
                 'signup': 3,
                 'signup:ipv4': 4,
                 'tagline': 'Taglines are not tags',
@@ -732,9 +732,11 @@ class InetModelTest(s_t_common.SynTest):
             expected_ndef = (formname, ('blogs.vertex.link', 'brutus'))
             expected_props = copy.copy(input_props)
             expected_props.update({
-                # FIXME add the other props later
                 'site': valu[0].lower(),
-                'user': valu[1].lower()
+                'user': valu[1].lower(),
+                'latlong': (0.0, 0.0),
+                'phone': '5555555555',
+                'realname': 'брут',
             })
 
             with core.snap(write=True) as snap:
