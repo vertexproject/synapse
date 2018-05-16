@@ -188,7 +188,7 @@ class InetModelTest(s_t_common.SynTest):
             'file': 'sha256:' + 64 * 'b',
             'fqdn': 'vertex.link',
             'client': 'tcp://127.0.0.1:45654',
-            'client:ipv4': 'shouldnt be none',
+            'client:ipv4': 2130706433,
             'server': 'tcp://1.2.3.4:80'
         }
         with self.getTestCore() as core:
