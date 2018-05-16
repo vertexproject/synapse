@@ -136,7 +136,6 @@ class Migrate010Test(s_iq.SynTest):
             person_guid = contact_tufo[1]['ps:contact:person']
             core.formTufoByProp('file:imgof', (file_guid, ('ps:person', person_guid)))
             fh = tempfile.TemporaryFile(dir=dirn)
-            import ipdb; ipdb.set_trace()
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('file:ref', fh)
             self.len(1, nodes)
@@ -208,6 +207,5 @@ class Migrate010Test(s_iq.SynTest):
             m = s_migrate.Migrator(core, fh, tmpdir=dirn)
             m.migrate()
             nodes = self.get_formfile('inet:flow', fh)
-            # FIXME: is this correct?  Not sure what to do when tcp and udp and v4 and v6 are provided
-            self.eq(nodes[0][1]['props']['dst'], 'udp://2.3.4.5:80/')
-            self.eq(nodes[0][1]['props']['src'], 'udp://[1::3:3:3]:80/')
+            self.eq(nodes[0][1]['props']['dst'], 'tcp://1.2.3.4:80/')
+            self.eq(nodes[0][1]['props']['src'], 'tcp://[::3:2:1]:443/')

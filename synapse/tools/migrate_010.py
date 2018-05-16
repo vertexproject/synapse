@@ -25,12 +25,9 @@ debug_on_error = False
 # # add a corresponding file:path with the correct normalized path
 # # copy any tags on the former to the latter
 # # if a secondary prop, just normalize and use the last part
-# inet:flow -> inetserver/inetclient
 # ps:name, reverse order, remove comma, remove all subproperties on ps:name form (*not* type)
 # `it:exec:bind:tcp` and `it:exec:bind:udp` will become `it:exec:bind` which has a `server` prop which is going to be a
 # `inet:addr`
-# Bugs:
-# ou:org:has seems to have escaped comp/xref reconstruction
 
 # Topologically sorted comp and sepr types that are form types that have other comp types as elements.  The beginning
 # of the list has more dependencies than the end.
@@ -50,6 +47,14 @@ def _enc_iden(iden):
 
 class ConsistencyError(Exception):
     pass
+
+def _special_sort_key(t):
+    '''
+    For processing secondary properties in order, always processing tcp after udp, and v4 after v6
+    '''
+    k, v = t
+    k = k.replace('tcp', chr(127) + 'tcp', 1)
+    return (k.replace('v4', chr(127) + 'v4', 1), v)
 
 class Migrator:
     '''
@@ -485,7 +490,7 @@ class Migrator:
         propsmeta = self.core.getSubProps(formname)
         pk = None
         skipfields = set()
-        for oldk, oldv in sorted(oldprops.items()):
+        for oldk, oldv in sorted(oldprops.items(), key=_special_sort_key):
             propmeta = next((x[1] for x in propsmeta if x[0] == oldk), {})
             if oldk in skipfields:
                 continue
