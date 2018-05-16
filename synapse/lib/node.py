@@ -140,7 +140,7 @@ class Node:
 
             for subname, subvalu in subs.items():
 
-                full = prop.name + ':' + name
+                full = prop.name + ':' + subname
 
                 subprop = self.form.prop(full)
                 if subprop is None:
