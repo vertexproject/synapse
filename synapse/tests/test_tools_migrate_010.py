@@ -51,7 +51,7 @@ class Migrate010Test(s_iq.SynTest):
                 'address': '1 Iron Suit Drive, San Francisco, CA, 22222, USA',
             }
 
-            core.formTufoByProp('ps:contact', info)
+            contact_tufo = core.formTufoByProp('ps:contact', info)
 
             fh = tempfile.TemporaryFile(dir=dirn)
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
@@ -109,7 +109,7 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(nodes, [])
 
             wp_tufo = core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'knock knock'), time='20141217010101')
-            wpf_tufo = core.formTufoByProp('inet:web:postref',
+            core.formTufoByProp('inet:web:postref',
                                 (wp_tufo[1]['inet:web:post'], ('file:bytes', file_tufo[1]['file:bytes'])))
             fh = tempfile.TemporaryFile(dir=dirn)
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
@@ -131,10 +131,17 @@ class Migrate010Test(s_iq.SynTest):
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('it:exec:reg:get', fh)
             self.eq(len(nodes), 1)
-            reg = nodes[0][1]['props']['reg']
-            self.eq(type(reg), tuple)
-            self.eq(len(reg), 2)
-            self.eq(reg[0], 'it:dev:regval')
+
+            # imgof
+            core.formTufoByProp('file:imgof', (file_guid, ('ps:person', (contact_tufo[1]['ps:contact:person']))))
+            fh = tempfile.TemporaryFile(dir=dirn)
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            nodes = self.get_formfile('file:ref', fh)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node[1]['props']['type'], 'image')
+            ndef = node[0]
+            self.eq(ndef, ('file:ref', ('guid:' + file_guid, ('ps:person', contact_tufo[1]['ps:contact:person']))))
 
     def test_filebytes(self):
         self.maxDiff = None

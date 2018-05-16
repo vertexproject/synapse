@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 # TODO
 # check model version before begin migration
-# for each field of type derived from xref, must look up
 # Add config file to allow additional coremodules
 # parallelize stage2
 # file:base -> filepath if backslash in them (?? separate the last part out?)
@@ -25,12 +24,7 @@ logger = logging.getLogger(__name__)
 # # copy any tags on the former to the latter
 # # if a secondary prop, just normalize and use the last part
 # inet:flow -> inetserver/inetclient
-# file:txtref, file:imgof -> both turn into file:ref comp: (file:bytes, ndef)
-#     secondary prop: type ("image", "text")
 # ps:name, reverse order, remove comma, remove all subproperties on ps:name form (*not* type)
-# ps:image ( another in the xrefs reconstruction guys ) should get merged into being a file:imgof=(<file>, <node>)
-#   which is still a guid node, so you can just make the ndef ('ps:person', <oldguid>)
-#   where oldguid is the :person prop
 # `it:exec:bind:tcp` and `it:exec:bind:udp` will become `it:exec:bind` which has a `server` prop which is going to be a
 # `inet:addr`
 # Bugs:
@@ -338,7 +332,7 @@ class Migrator:
         sourceval = props[propname + ':' + t._sorc_name]
         destprop = props[propname + ':xref:prop']
         destval = props.get(propname + ':xref:intval', props.get(propname + ':xref:strval'))
-        _, source_final = self.convert_subprop(t._sorc_type, t._sorc_type, sourceval)
+        source_final = self.convert_foreign_key(t._sorc_type, sourceval)
         dest_final = self.convert_foreign_key(destprop, destval)
         return (source_final, (destprop, dest_final))
 
@@ -362,7 +356,7 @@ class Migrator:
             comp_enc = txn.get(propval.encode('utf8'), db=self.comp_tbl)
             if comp_enc is None:
                 raise ConsistencyError('guid accessed before determined')
-            return s_msgpack.un(comp_enc)
+            return s_msgpack.un(comp_enc)[1]
 
     def convert_filebytes_secondary(self, formname, propval):
         ''' Convert secondary prop that is a filebytes type '''
@@ -445,6 +439,11 @@ class Migrator:
         'inet:udp6': ipv6_to_server
     }
 
+    form_renames = {
+        'file:txtref': 'file:ref',
+        'file:imgof': 'file:ref',
+    }
+
     def convert_subprop(self, formname, propname, val):
         typename = self.core.getPropTypeName(propname)
         converted = False
@@ -514,6 +513,14 @@ class Migrator:
                 pass
         if pk is None:
             raise ConsistencyError(oldprops)
+
+        if formname == 'file:txtref':
+            props['type'] = 'text'
+        elif formname == 'file:imgof':
+            props['type'] = 'image'
+
+        if formname in self.form_renames:
+            formname = self.form_renames[formname]
 
         retn = ((formname, pk), {'props': props})
         if tags:
