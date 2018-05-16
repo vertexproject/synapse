@@ -2,6 +2,7 @@ import json
 import types
 import base64
 import struct
+import xxhash
 import logging
 import collections
 
@@ -54,8 +55,22 @@ class Type:
         }
 
         self.setCmprCtor('=', self._ctorCmprEq)
+        self.setCmprCtor('!=', self._ctorCmprNe)
+        self.setCmprCtor('~=', self._ctorCmprRe)
+        self.setCmprCtor('^=', self._ctorCmprPref)
+        self.setCmprCtor('*in=', self._ctorCmprIn)
 
         self.postTypeInit()
+
+    def _getIndxChop(self, indx):
+
+        # cut down an index value to 256 bytes...
+        if len(indx) <= 256:
+            return indx
+
+        base = indx[:248]
+        sufx = xxhash.xxh64(indx).digest()
+        return base + sufx
 
     def setCmprCtor(self, name, func):
         self._cmpr_ctors[name] = func
@@ -69,12 +84,47 @@ class Type:
             return norm == valu
         return cmpr
 
+    def _ctorCmprNe(self, text):
+        norm, info = self.norm(text)
+        def cmpr(valu):
+            return norm != valu
+        return cmpr
+
+    def _ctorCmprPref(self, valu):
+        text = str(valu)
+        def cmpr(valu):
+            return self.repr(valu).startswith(text)
+        return cmpr
+
+    def _ctorCmprRe(self, text):
+        regx = regex.compile(text)
+        def cmpr(valu):
+            return regx.match(self.repr(valu)) is not None
+        return cmpr
+
+    def _ctorCmprIn(self, vals):
+        norms = [self.norm(v)[0] for v in vals]
+        def cmpr(valu):
+            return valu in norms
+        return cmpr
+
     def indxByEq(self, valu):
         norm, info = self.norm(valu)
         indx = self.indx(norm)
         return (
             ('eq', indx),
         )
+
+    def getStorIndx(self, norm):
+
+        indx = self.indx(norm)
+        if indx is None:
+            return b''
+
+        if len(indx) <= 256:
+            return indx
+
+        return self._getIndxChop(indx)
 
     def indxByIn(self, vals):
 
@@ -247,7 +297,7 @@ class Tag(Type):
 
         subs = {
             'base': toks[-1],
-            'depth': len(toks),
+            'depth': len(toks) - 1,
         }
 
         norm = '.'.join(toks)
@@ -335,8 +385,10 @@ class Int(Type):
     )
 
     def postTypeInit(self):
+
         self.size = self.opts.get('size')
         self.signed = self.opts.get('signed')
+
         minval = self.opts.get('min')
         maxval = self.opts.get('max')
 

@@ -659,10 +659,7 @@ def result(retn):
     info['errx'] = name
     raise SynErr(**info)
 
-def retnexc(e):
-    '''
-    Construct a retn tuple for the given exception.
-    '''
+def err(e):
     name = e.__class__.__name__
     info = {}
 
@@ -671,7 +668,13 @@ def retnexc(e):
     else:
         info['mesg'] = str(e)
 
-    return (False, (name, info))
+    return (name, info)
+
+def retnexc(e):
+    '''
+    Construct a retn tuple for the given exception.
+    '''
+    return (False, err(e))
 
 def config(conf, confdefs):
     '''

@@ -8,11 +8,11 @@ def main(argv):
         print('usage: python -m synapse.tools.cmdr <url>')
         return -1
 
-    prox = s_telepath.openurl(argv[1])
+    item = s_telepath.openurl(argv[1])
 
-    with s_cmdr.Cmdr(prox) as cmdr:
-        cmdr.onfini(prox.fini)
-        cmdr.runCmdLoop()
+    cmdr = s_cmdr.getItemCmdr(item)
+
+    cmdr.runCmdLoop()
 
 if __name__ == '__main__':  # pragma: no cover
     import sys

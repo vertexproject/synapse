@@ -21,6 +21,8 @@ starset = varset.union({'*'})
 tagfilt = varset.union({'#', '*'})
 alphaset = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
+mustquote = set(' \t\n),=]}')
+
 # this may be used to meh() potentially unquoted values
 valmeh = whites.union({'(', ')', '=', ',', '[', ']', '{', '}'})
 
@@ -588,10 +590,11 @@ def parse_stormsub(text, off=0):
 
     return opers, off
 
+tagterm = set('),@ \t\n')
 whitespace = set(' \t\n')
 
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-cmprset = set('!<>^=')
+cmprset = set('!<>^~=')
 
 alphanum = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 
@@ -602,12 +605,14 @@ class Parser:
     must be quoted at beginning: . : # @ ( $ etc....
     '''
 
-    def __init__(self, model, text, offs=0):
+    def __init__(self, view, text, offs=0):
 
         self.offs = offs
         self.text = text.strip()
         self.size = len(self.text)
-        self.model = model
+
+        self.view = view
+        self.model = view.model
 
     def more(self):
         return self.offs < self.size
@@ -616,19 +621,34 @@ class Parser:
 
         self.ignore(whitespace)
 
-        query = s_ast.Query(self.model)
+        query = s_ast.Query(self.view)
 
-        while self.more():
+        while True:
 
             self.ignore(whitespace)
+
+            if not self.more():
+                break
 
             # if we are sub-query, time to go...
             if self.nextstr('}'):
                 break
 
+            # edit operations...
+            if self.nextstr('['):
+
+                self.offs += 1
+
+                self.ignore(whitespace)
+                while not self.nextstr(']'):
+                    oper = self.editoper()
+                    query.kids.append(oper)
+                    self.ignore(whitespace)
+
+                self.offs += 1
+                continue
+
             oper = self.oper()
-            if oper is None:
-                break
 
             query.kids.append(oper)
 
@@ -640,21 +660,225 @@ class Parser:
 
         return query
 
-    def oper(self):
+    def editoper(self):
 
         self.ignore(whitespace)
+
+        if self.nextstr(':'):
+            return self.editpropset()
+
+        if self.nextstr('#'):
+            return self.edittagadd()
+
+        if self.nextstr('-:'):
+            return self.editpropdel()
+
+        if self.nextstr('-#'):
+            return self.edittagdel()
+
+        if self.nextstr('-'):
+            return self.editnodedel()
+
+        return self.editnodeadd()
+
+        raise FIXME
+
+    def editnodeadd(self):
+        '''
+        foo:bar = hehe
+        '''
+
+        self.ignore(whitespace)
+
+        absp = self.absprop()
+
+        self.ignore(whitespace)
+
+        if not self.nextstr('='):
+            raise FIXME
+
+        self.offs += 1
+
+        self.ignore(whitespace)
+
+        valu = self.valu()
+
+        return s_ast.EditNodeAdd(kids=(absp, valu))
+
+    def editnodedel(self):
+        '''
+        -foo:bar
+        '''
+        self.ignore(whitespace)
+
+        if not self.nextstr('-'):
+            raise FIXME
+
+        self.offs += 1
+
+        absp = self.absprop()
+        return s_ast.EditNodeDel(kids=(absp,))
+
+    def editpropset(self):
+        '''
+        :foo=10
+        '''
+
+        self.ignore(whitespace)
+
+        if not self.nextstr(':'):
+            raise FIXME
+
+        relp = self.relprop()
+        self.ignore(whitespace)
+
+        if not self.nextstr('='):
+            raise FIXME
+
+        self.offs += 1
+        self.ignore(whitespace)
+
+        valu = self.valu()
+        return s_ast.EditPropSet(kids=(relp, valu))
+
+    def editpropdel(self):
+
+        self.ignore(whitespace)
+
+        if not self.nextstr('-:'):
+            raise FIXME
+
+        self.offs += 1
+
+        relp = self.relprop()
+        return s_ast.EditPropDel(kids=(relp,))
+
+    def edittagadd(self):
+
+        self.ignore(whitespace)
+
+        if not self.nextstr('#'):
+            raise FIXME
+
+        tag = self.tag()
+        self.ignore(whitespace)
+
+        if self.nextstr('@'):
+            raise FIXME
+
+        return s_ast.EditTagAdd(kids=(tag,))
+
+    def edittagdel(self):
+
+        self.ignore(whitespace)
+
+        if not self.nextstr('-#'):
+            raise FIXME
+
+        self.offs += 1
+        tag = self.tag()
+
+        return s_ast.EditTagDel(kids=(tag,))
+
+    def formpivot(self):
+
+        self.ignore(whitespace)
+
+        if not self.nextstr('->'):
+            raise FIXME
+
+        self.offs += 2
+        self.ignore(whitespace)
+
+        prop = self.absprop()
+        return s_ast.FormPivot(kids=(prop,))
+
+    def formjoin(self):
+
+        self.ignore(whitespace)
+
+        if not self.nextstr('<-'):
+            raise FIXME
+
+        self.offs += 2
+        self.ignore(whitespace)
+
+        prop = self.absprop()
+        return s_ast.FormPivot(kids=(prop,), isjoin=True)
+
+    def proppivot(self, prop):
+        '''
+        :foo:bar -> baz:faz
+        '''
+        self.ignore(whitespace)
+        if not self.nextstr('->'):
+            raise FIXME
+
+        self.offs += 2
+        self.ignore(whitespace)
+
+        dest = self.absprop()
+        return s_ast.PropPivot(kids=(prop, dest))
+
+    def propjoin(self, prop):
+        '''
+        :foo:bar <- baz:faz
+        '''
+        self.ignore(whitespace)
+        if not self.nextstr('<-'):
+            raise FIXME
+
+        self.offs += 2
+        self.ignore(whitespace)
+
+        dest = self.absprop()
+        return s_ast.PropPivot(kids=(prop, dest), isjoin=True)
+
+    def oper(self):
+        '''
+        '''
+
+        self.ignore(whitespace)
+
+        if not self.more():
+            raise FIXME
 
         if self.nextstr('{'):
             return self.subquery()
 
-        if self.nextchar() in ('+', '-'):
+        # some syntax elements prior to a prop/oper name...
+        if self.nextstr('->'):
+            return self.formpivot()
+
+        if self.nextstr('<-'):
+            return self.formjoin()
+
+        # $foo= here *will* be var assignment
+
+        char = self.nextchar()
+
+        if char in ('+', '-'):
             return self.filtoper()
 
-        name = self.noms(varset, ignore=whitespace)
-        if not name:
-            raise FIXME
+        if char == '#':
+            return self.liftbytag()
 
-        kid0 = s_ast.Const(name)
+        # :foo:bar relative property
+        if char == ':':
+
+            prop = self.relprop()
+
+            # :foo=10 here could be assignment...
+
+            self.ignore(whitespace)
+            if self.nextstr('->'):
+                return self.proppivot(prop)
+
+            if self.nextstr('<-'):
+                return self.propjoin(prop)
+
+        text = self.noms(varset, ignore=whitespace)
+        name = s_ast.Const(text)
 
         #if self.nextstr('('):
             #return self.calloper(name)
@@ -662,15 +886,51 @@ class Parser:
         # we have a prop <cmpr> <valu>!
         if self.nextchar() in cmprset:
 
+            # TODO: check for :: pivot syntax and raise
+
             cmpr = self.cmpr()
             valu = self.valu()
 
-            kids = (kid0, cmpr, valu)
+            kids = (name, cmpr, valu)
             return s_ast.LiftPropBy(kids=kids)
+
+        # operator call() syntax
+        if self.nextchar() == '(':
+            args = self.callargs()
+            return s_ast.CallOper(name, args)
+
+        # ok.. after <name> we have no cmpr no call()
+        # if we're a property, we're all set...
+        return s_ast.LiftProp(kids=(name,))
+
+    def liftbytag(self):
+
+        self.ignore(whitespace)
+
+        tag = self.tag()
+
+        self.ignore(whitespace)
+
+        if self.nextstr('@='):
+            raise FIXME
+
+        return s_ast.LiftTag(kids=(tag,))
+
+    def callargs(self):
+
+        self.ignore(whitespace)
+
+        if self.nextchar() != '(':
+            raise FIXME
+
+        self.offs += 1
+
+        # check for keyword args? --foo? cmdline?
 
     def filtoper(self):
 
         self.ignore(whitespace)
+
         pref = self.nextchar()
         if pref not in ('+', '-'):
             raise FIXME
@@ -685,36 +945,12 @@ class Parser:
         )
         return s_ast.FiltOper(kids=kids)
 
-        #if self.nextstr('+'):
-            #return self.filtmust()
-
-        #if self.nextstr('-'):
-            #return self.filtcant()
-
-        #raise FIXME
-
-    def filtmust(self):
-        self.ignore(whitespace)
-        if self.nextchar() != '+':
-            raise FIXME
-
-        self.offs += 1
-        cond = self.cond()
-        return s_ast.FiltMust(cond)
-
-    def filtcant(self):
-        self.ignore(whitespace)
-        if self.nextchar() != '-':
-            raise FIXME
-
-        self.offs += 1
-        cond = self.cond()
-        return s_ast.FiltCant(cond)
-
     def cond(self):
         '''
 
         :foo=20
+        :foo:bar=$baz
+        :foo:bar=:foo:baz
 
         #foo.bar
 
@@ -728,11 +964,8 @@ class Parser:
 
         self.ignore(whitespace)
 
-        #if self.nextstr('#'):
-        #if self.nextstr('$'):
-
-        #if self.nextstr('('):
-            # conditional expression
+        if self.nextstr('('):
+            return self.condexpr()
 
         if self.nextstr(':'):
 
@@ -752,13 +985,86 @@ class Parser:
 
             return s_ast.RelPropCond(kids=(name, cmpr, valu))
 
+        if self.nextstr('#'):
+
+            tag = self.tag()
+
+            self.ignore(whitespace)
+
+            if not self.nextstr('@='):
+                return s_ast.TagCond(kids=(tag,))
+
+        # only remaining option is form name...
+        #nme = self.
+
+            # tag time window...
+
+        #if self.nextstr('.'):
+        #if self.nextstr('$'):
+            # var
+
+        raise FIXME
+
             #if self.iscmpr(
+
+    def condexpr(self):
+
+        self.ignore(whitespace)
+
+        if not self.nextstr('('):
+            raise FIXME
+
+        self.offs += 1
+
+        cond = self.cond()
+
+        while True:
+
+            self.ignore(whitespace)
+
+            if self.nextchar() == ')':
+                self.offs += 1
+                return cond
+
+            if self.nextstr('and'):
+                self.offs += 3
+                othr = self.cond()
+                cond = s_ast.AndCond(kids=(cond, othr))
+                continue
+
+            if self.nextstr('or'):
+                self.offs += 2
+                othr = self.cond()
+                cond = s_ast.OrCond(kids=(cond, othr))
+                continue
+
+            if self.nextstr('not'):
+                self.offs += 3
+                othr = self.cond()
+                cond = s_ast.NotCond(kids=(cond, othr))
+                continue
+
+            raise FIXME
+
+    def absprop(self):
+        '''
+        foo:bar
+        '''
+        self.ignore(whitespace)
+
+        name = self.noms(varset)
+        if not name:
+            raise FIXME
+
+        if self.model.prop(name) is None:
+            raise s_exc.NoSuchProp(name=name)
+
+        return s_ast.AbsProp(name)
 
     def relprop(self):
         '''
         :foo:bar
         '''
-
         self.ignore(whitespace)
 
         if self.nextchar() != ':':
@@ -779,9 +1085,6 @@ class Parser:
 
         self.ignore(whitespace)
 
-        if self.nextchar() not in cmprset:
-            raise FIXME
-
         if self.nextstr('*'):
 
             text = self.expect('=')
@@ -789,6 +1092,9 @@ class Parser:
                 raise FIXME
 
             return s_ast.Const(text)
+
+        if self.nextchar() not in cmprset:
+            raise FIXME
 
         text = self.noms(cmprset)
         #return s_ast.Cmpr(text)
@@ -800,49 +1106,62 @@ class Parser:
 
         # a simple whitespace separated string
         if self.nextchar() in alphanum:
-            text = self.noms(until=whitespace)
+            text = self.noms(until=mustquote)
             return s_ast.Const(text)
 
+        if self.nextstr('('):
+            kids = self.valulist()
+            # FIXME Value() ctor convention...
+            return s_ast.List(None, kids=kids)
+
         if self.nextstr(':'):
-            # relative property
-            pass
+            prop = self.relprop()
+            return s_ast.RelPropValue(kids=(prop,))
 
         if self.nextstr('#'):
-            # tag time valu
-            pass
+            tag = self.tag()
+            return s_ast.TagPropValue(kids=(tag,))
 
         if self.nextstr('$'):
-            # scope variable
-            pass
+            var = self.var()
+            return s_ast.VarValue(kids=(var,))
 
         if self.nextstr('"'):
             text = self.quoted()
             return s_ast.Const(text)
 
-        text = self.noms(until=whitespace)
-
-    def expect(self, text):
-
-        retn = ''
-
-        while self.more():
-
-            retn += self.slice(1)
-            if retn.endswith(text):
-                return retn
-
         raise FIXME
 
-    def slice(self, size):
+    def valulist(self):
 
-        if self.offs + size > self.size:
+        self.ignore(whitespace)
+
+        if not self.nextstr('('):
             raise FIXME
 
-        retn = text[self.offs:self.offs + size]
+        self.offs += 1
 
-        self.offs += size
+        vals = []
 
-        return retn
+        while True:
+
+            self.ignore(whitespace)
+
+            if self.nextstr(')'):
+                self.offs += 1
+                return vals
+
+            vals.append(self.valu())
+            self.ignore(whitespace)
+
+            if self.nextstr(')'):
+                self.offs += 1
+                return vals
+
+            if not self.nextstr(','):
+                raise FIXME
+
+            self.offs += 1
 
     def subquery(self):
 
@@ -866,43 +1185,55 @@ class Parser:
         self.eat(1, ignore=whitespace)
         return subq
 
-    def statement(self):
+    def tag(self):
 
         self.ignore(whitespace)
 
-        # check for an edit block...
-        if self.nextstr('['):
-            return self.editblock()
-
-        if self.nextstr('->'):
-            # pivot with no source prop...
-            return self.formpivot()
-
-        if self.nextstr('<-'):
-            return self.formjoin()
-
-        if self.nextstr('#'):
-            return self.lifttag()
-
-        if self.nextstr('.'):
-            return self.liftuniv()
-
-        if self.nextchar() in ('+', '-'):
-            return self.filter()
-
-        name = self.noms(varset, ignore=whitespace)
-        if not name:
+        if not self.nextchar() == '#':
             raise FIXME
 
-        if self.nextstr('('):
-            args, kwargs = self.callargs()
-            return s_storm.CallOper(name, args, kwargs)
+        self.offs += 1
 
-        if self.nextstr('*'):
-            # lift macro with by cmpr sytnax
-            pass
+        self.ignore(whitespace)
 
-        # we *must* now start with either a prop
+        # a bit odd, but the tag could require quoting...
+        #if self.nextchar() == '"':
+
+        text = self.noms(until=tagterm)
+
+        return s_ast.Tag(text)
+
+    ###########################################################################
+    # parsing helpers from here down...
+
+    def expect(self, text):
+
+        retn = ''
+
+        offs = self.offs
+
+        while offs < len(self.text):
+
+            retn += self.text[offs]
+
+            offs += 1
+
+            if retn.endswith(text):
+                self.offs = offs
+                return retn
+
+        raise FIXME
+
+    #def slice(self, size):
+
+        #if self.offs + size > self.size:
+            #raise FIXME
+
+        #retn = self.text[self.offs:self.offs + size]
+
+        #self.offs += size
+
+        #return retn
 
     def noms(self, chars=None, until=None, ignore=None):
 
@@ -927,13 +1258,6 @@ class Parser:
             self.ignore(ignore)
 
         return ''.join(rets)
-
-    #def editblock(self):
-    #def formpivot(self):
-    #def formjoin(self):
-    #def lifttag(self):
-    #def liftuniv(self):
-    #def filter(self):
 
     def nextstr(self, text):
 

@@ -112,6 +112,7 @@ class BadConfValu(SynErr):
 class BadRevValu(SynErr): pass
 class BadFifoSeq(SynErr): pass
 class BadTypeValu(SynErr): pass
+class BadIndxValu(SynErr): pass
 class DupTypeName(SynErr): pass
 class DupPropName(SynErr): pass
 class DupFileName(SynErr): pass
@@ -234,14 +235,9 @@ class CellUserErr(SynErr):
     '''
     pass
 
-class BadAtomFile(SynErr):
-    '''
-    Raised when there is a internal issue with an atomfile.
-    '''
-    pass
-
 class IsFini(SynErr): pass
 class TimeOut(SynErr): pass
+class Canceled(SynErr): pass
 
 class CryptoErr(SynErr):
     '''

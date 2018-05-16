@@ -29,6 +29,8 @@ class Prop:
         self.name = name
         self.info = info
 
+        self.isform = False     # for quick Prop()/Form() detection
+
         self.form = form
         self.type = None
 
@@ -130,7 +132,7 @@ class Prop:
         )
 
     def getSetOps(self, buid, norm):
-        indx = self.type.indx(norm)
+        indx = self.type.getStorIndx(norm)
         return (
             ('prop:set', (buid, self.form.name, self.name, norm, indx, self.storinfo)),
         )
@@ -186,7 +188,10 @@ class Form:
 
         self.modl = modl
         self.name = name
+        self.full = name    # so a Form() can act like a Prop().
         self.info = info
+
+        self.isform = True
 
         self.onadds = []
 
@@ -232,7 +237,7 @@ class Form:
                 logger.exception('error on onadd for %s' % (self.name,))
 
     def getSetOps(self, buid, norm):
-        indx = self.type.indx(norm)
+        indx = self.type.getStorIndx(norm)
         return (
             ('prop:set', (buid, self.name, '', norm, indx, {})),
         )
