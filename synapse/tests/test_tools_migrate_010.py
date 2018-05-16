@@ -133,10 +133,10 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(len(nodes), 1)
 
             # imgof
-
             person_guid = contact_tufo[1]['ps:contact:person']
             core.formTufoByProp('file:imgof', (file_guid, ('ps:person', person_guid)))
             fh = tempfile.TemporaryFile(dir=dirn)
+            import ipdb; ipdb.set_trace()
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('file:ref', fh)
             self.len(1, nodes)
@@ -146,12 +146,15 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(ndef, ('file:ref', ('guid:' + file_guid, ('ps:person', person_guid))))
 
             # ps:person:has
-            core.formTufoByProp('ps:person:has', (person_guid, ('file:bytes', file_guid)))
+            core.formTufoByProp('ps:person:has', (person_guid, ('file:bytes', file_guid)),
+                                **{'seen:min': 1000, 'seen:max': 2000})
+
             fh = tempfile.TemporaryFile(dir=dirn)
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('ps:person:has', fh)
             self.len(1, nodes)
             self.eq(nodes[0][0], ('ps:person:has', (person_guid, ('file:bytes', 'guid:' + file_guid))))
+            self.eq(nodes[0][1]['props']['.seen'], (1000, 2000))
 
     def test_filebytes(self):
         self.maxDiff = None

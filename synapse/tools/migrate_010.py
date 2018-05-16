@@ -30,7 +30,6 @@ debug_on_error = False
 # `it:exec:bind:tcp` and `it:exec:bind:udp` will become `it:exec:bind` which has a `server` prop which is going to be a
 # `inet:addr`
 # Bugs:
-# ps:person:has may have missed comp conversion
 # ou:org:has seems to have escaped comp/xref reconstruction
 
 # Topologically sorted comp and sepr types that are form types that have other comp types as elements.  The beginning
@@ -114,7 +113,7 @@ class Migrator:
                 if 'comp' in parents:
                     comps.append(subpropname)
                 if ('comp' in parents) or ('sepr' in parents) or subpropprops['ptype'] in forms:
-                    subs.extend(x for x in subpropnames if x.startswith(subpropname + ':'))
+                    subs.extend(x for x in subpropnames if x.startswith(subpropname + ':') and ':seen:' not in x)
 
         self.filebytes = set(filebytes)
         self.seprs = set(seprs)
@@ -246,7 +245,7 @@ class Migrator:
                             # logger.debug('Putting file:bytes side ref of %s->%s', props['node:ndef'], node[0])
                             if not txn.put(props['node:ndef'].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl):
                                 raise ConsistencyError('put failure')
-                            logger.debug('Putting file:bytes side ref of %s->%s', props[formname], node[0])
+                            # logger.debug('Putting file:bytes side ref of %s->%s', props[formname], node[0])
                             if not txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl):
                                 raise ConsistencyError('put failure')
                         else:
