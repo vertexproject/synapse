@@ -2,6 +2,7 @@ import os
 import sys
 import argparse
 
+import synapse.exc as s_exc
 import synapse.cells as s_cells
 import synapse.common as s_common
 
@@ -20,7 +21,8 @@ def main(argv):
     pars.add_argument('dmonpath', nargs='?', default=s_dmon.dmonpath,
                         help='The synapse.tools.dmon directory where the cell will be deployed.')
 
-    pars.add_argument('--listen', action='store', help='URL for the daemon to listen too')
+    pars.add_argument('--listen', action='store', help='URL for the daemon to listen to (only set if the dmon.yaml '
+                                                       'does not exist).')
     pars.add_argument('--auth', action='store_true', help='Enable the cell auth subsystem.')
     pars.add_argument('--admin', help='Set the initial <user>:<passwd> as an admin (enables --auth).')
 
@@ -37,7 +39,11 @@ def main(argv):
 
     if dmon:
         dmon.setdefault('modules', [])
-        s_common.yamlsave(dmon, opts.dmonpath, 'dmon.yaml')
+        dmon_fp = os.path.join(opts.dmonpath, 'dmon.yaml')
+        if os.path.exists(dmon_fp):
+            raise s_exc.SynErr(mesg='Cannot smash existing dmon.yaml file.',
+                               file=dmon_fp)
+        s_common.yamlsave(dmon, dmon_fp)
 
     boot = {
         'cell:name': opts.cellname,
