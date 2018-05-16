@@ -13,11 +13,9 @@ class PsModule(s_module.CoreModule):
                     'doc': 'An arbitrary, lower spaced string with normalized whitespace.',
                     'ex': 'robert grey'
                 }),
-                # FIXME - 00x ps model supported guid alias 'ps:person:guidname'
                 ('ps:person', ('guid', {}), {
                     'doc': 'A GUID for a person.',
                 }),
-                # FIXME - 00x ps model supported guid alias 'ps:persona:guidname'
                 ('ps:persona', ('guid', {}), {
                     'doc': 'A GUID for a suspected person.',
                 }),
@@ -29,10 +27,6 @@ class PsModule(s_module.CoreModule):
                     'doc': 'A persona owns, controls, or has exclusive use of an object or'
                            ' resource, potentially during a specific period of time.'
                 }),
-                # FIXME requires file:bytes
-                # ('ps:image', ('comp', {'fields': (('person', 'ps:person'), ('image', 'file:bytes'))}), {
-                #     'doc': 'An image of a given person',
-                # }),
                 ('ps:contact', ('guid', {}), {
                     'doc': 'A GUID for a contact info record',
                 }),

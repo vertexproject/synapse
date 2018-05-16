@@ -29,6 +29,8 @@ class Prop:
         self.name = name
         self.info = info
 
+        self.isform = False     # for quick Prop()/Form() detection
+
         self.form = form
         self.type = None
 
@@ -186,7 +188,10 @@ class Form:
 
         self.modl = modl
         self.name = name
+        self.full = name    # so a Form() can act like a Prop().
         self.info = info
+
+        self.isform = True
 
         self.onadds = []
 

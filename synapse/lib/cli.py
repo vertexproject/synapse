@@ -239,7 +239,6 @@ class Cli(s_eventbus.EventBus):
         if not prompt:
             prompt = self.cmdprompt
 
-        self.fire('cli:getinput')
         return get_input(prompt)
 
     def printf(self, mesg, addnl=True):
@@ -279,6 +278,7 @@ class Cli(s_eventbus.EventBus):
         Run commands from a user in an interactive fashion until fini() or EOFError is raised.
         '''
         import readline
+
         try:
             readline.read_init_file()
         except OSError:
@@ -392,8 +392,7 @@ class CmdHelp(Cmd):
 
         # if they didn't specify one, just show the list
         if not cmds:
-            cmds = self._cmd_cli.getCmdNames()
-            cmds.sort()
+            cmds = sorted(self._cmd_cli.getCmdNames())
 
             padsize = max([len(n) for n in cmds])
 

@@ -235,14 +235,9 @@ class CellUserErr(SynErr):
     '''
     pass
 
-class BadAtomFile(SynErr):
-    '''
-    Raised when there is a internal issue with an atomfile.
-    '''
-    pass
-
 class IsFini(SynErr): pass
 class TimeOut(SynErr): pass
+class Canceled(SynErr): pass
 
 class CryptoErr(SynErr):
     '''

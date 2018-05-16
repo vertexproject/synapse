@@ -55,6 +55,10 @@ class Type:
         }
 
         self.setCmprCtor('=', self._ctorCmprEq)
+        self.setCmprCtor('!=', self._ctorCmprNe)
+        self.setCmprCtor('~=', self._ctorCmprRe)
+        self.setCmprCtor('^=', self._ctorCmprPref)
+        self.setCmprCtor('*in=', self._ctorCmprIn)
 
         self.postTypeInit()
 
@@ -78,6 +82,30 @@ class Type:
         norm, info = self.norm(text)
         def cmpr(valu):
             return norm == valu
+        return cmpr
+
+    def _ctorCmprNe(self, text):
+        norm, info = self.norm(text)
+        def cmpr(valu):
+            return norm != valu
+        return cmpr
+
+    def _ctorCmprPref(self, valu):
+        text = str(valu)
+        def cmpr(valu):
+            return self.repr(valu).startswith(text)
+        return cmpr
+
+    def _ctorCmprRe(self, text):
+        regx = regex.compile(text)
+        def cmpr(valu):
+            return regx.match(self.repr(valu)) is not None
+        return cmpr
+
+    def _ctorCmprIn(self, vals):
+        norms = [self.norm(v)[0] for v in vals]
+        def cmpr(valu):
+            return valu in norms
         return cmpr
 
     def indxByEq(self, valu):
@@ -357,8 +385,10 @@ class Int(Type):
     )
 
     def postTypeInit(self):
+
         self.size = self.opts.get('size')
         self.signed = self.opts.get('signed')
+
         minval = self.opts.get('min')
         maxval = self.opts.get('max')
 

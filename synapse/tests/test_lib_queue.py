@@ -163,28 +163,3 @@ class QueueTest(SynTest):
 
         self.true(q.isfini)
         self.eq(data, results)
-
-    def test_queue_getn(self):
-        q = s_queue.Queue()
-        data = [0, 1, 2, 3, 4]
-
-        [q.put(d) for d in data]
-
-        for i in range(5):
-            retn = q.getn()
-            self.true(retn[0])
-            self.eq(retn[1], i)
-
-        retn = q.getn(0.01)
-        self.false(retn[0])
-        self.eq(retn[1][0], 'TimeOut')
-
-        q.done()
-        retn = q.getn(0.01)
-        self.false(retn[0])
-        self.eq(retn[1][0], 'IsFini')
-        self.true(q.isfini)
-
-        retn = q.getn(0.01)
-        self.false(retn[0])
-        self.eq(retn[1][0], 'IsFini')

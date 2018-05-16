@@ -49,9 +49,14 @@ class View:
     def __init__(self, core, layers):
         self.core = core
         self.layers = layers
+        self.model = core.model
 
     def snap(self, write=False):
         return s_snap.Snap(self.core, self.layers, write=write)
+
+    def getStormQuery(self, text):
+        parser = s_syntax.Parser(self, text)
+        return parser.query()
 
 class CoreApi(s_cell.CellApi):
     '''
@@ -63,6 +68,28 @@ class CoreApi(s_cell.CellApi):
         '''
         for node in self.cell.getNodesBy(full, valu, cmpr=cmpr):
             yield node.pack()
+
+    def addNodes(self, nodes):
+        with self.cell.snap(write=True) as snap:
+            snap.setUser(self.user)
+            for node in snap.addNodes(nodes):
+                yield node.pack()
+
+    def eval(self, text, opts=None):
+
+        query = self.cell.view.getStormQuery(text)
+        query.setUser(self.user)
+
+        for node in query.evaluate():
+            yield node
+
+    def storm(self, text, opts=None):
+
+        query = self.cell.view.getStormQuery(text)
+        query.setUser(self.user)
+
+        for mesg in query.execute():
+            yield mesg
 
 class Cortex(s_cell.Cell):
     '''
@@ -133,18 +160,15 @@ class Cortex(s_cell.Cell):
     def newForkView(self):
         pass
 
-    def eval(self, text):
+    def eval(self, text, opts=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
-        for mesg in self.storm(text):
+        query = self.view.getStormQuery(text)
+        for node in query.evaluate():
+            yield node
 
-            if mesg[0] != 'node':
-                continue
-
-            yield mesg[1].get('node')
-
-    def storm(self, text, vars=None, user=None, view=None):
+    def storm(self, text, opts=None):
         '''
         Evaluate a storm query and yield result messages.
 
@@ -157,21 +181,9 @@ class Cortex(s_cell.Cell):
         Yields:
             ((str,dict)): Storm messages.
         '''
-        if view is None:
-            view = self.view
-
-        parser = s_syntax.Parser(view, text)
-
-        query = parser.query()
-        for mesg in query.execute(view):
+        query = self.view.getStormQuery(text)
+        for mesg in query.execute():
             yield mesg
-
-        #except GeneratorExit as e:
-            #query
-
-        #except Exception as e:
-
-            #yield s_common.geterr(e)
 
     def getNodeByNdef(self, ndef):
         '''
@@ -231,7 +243,7 @@ class Cortex(s_cell.Cell):
 
         '''
         with self.snap(write=True) as snap:
-            snap.addNodes(nodedefs)
+            yield from snap.addNodes(nodedefs)
 
     def snap(self, write=False):
         '''
@@ -276,40 +288,6 @@ class Cortex(s_cell.Cell):
         # we can call their init functions
         for  modu in added:
             modu.initCoreModule()
-
-            # vers is expected in time format
-            #for vers, func in modu.getModelRevs():
-                #tick = s_time.parse(vers)
-
-            #for name, modl in modu.getBaseModels():
-
-                ## make sure the module's modl dict is loaded
-                #if not self.isDataModl(name):
-                    #toadd.append((name, modl))
-
-                ## set the model version to 0 if it's -1
-                #if self.getModlVers(name) == -1:
-                    #isnew.add(name)
-                    #self.setModlVers(name, 0)
-
-            # group up versions by name so we can get max
-            #for name, vers, func in modu.getModlRevs():
-                #maxvers[name].append(vers)
-
-                #revs.append((vers, name, func))
-
-        #if toadd:
-            #self.addDataModels(toadd)
-
-        # if we didn't have it at all, forward wind...
-        #for name, vals in maxvers.items():
-            #if name in isnew:
-                #self.setModlVers(name, max(vals))
-
-        #revs.sort()
-
-        #for vers, name, func in revs:
-            #self.revModlVers(name, vers, func)
 
     def loadCoreModule(self, ctor, conf=None):
         '''
