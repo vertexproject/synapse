@@ -688,6 +688,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A domain whois record'
                     }),
 
+                    ('inet:whois:recns', ('comp', {'fields': (('ns', 'inet:fqdn'), ('rec', 'inet:whois:rec'))}), {
+                        'doc': 'A nameserver associated with a domain whois record.'
+                    }),
+
                     ('inet:whois:reg', ('str', {'lower': True}), {
                         'doc': 'A domain registrant.',
                         'ex': 'woot hostmaster'
@@ -1507,6 +1511,22 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The registrant name from the whois record.'
                         }),
                     )),
+
+                    ('inet:whois:recns', {}, [
+                        ('ns', ('inet:fqdn', {}), {
+                            'doc': 'A nameserver for a domain as listed in the domain whois record.'
+                        }),
+                        ('rec', ('inet:whois:rec', {}), {
+                            'doc': 'The whois record containing the nameserver data.'
+                        }),
+                        ('rec:fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The domain associated with the whois record.'
+                        }),
+                        ('rec:asof', ('time', {}), {
+                            'doc': 'The date of the whois record.'
+                        }),
+                    ]),
+
 
                     ('inet:whois:reg', {}, ()),
 

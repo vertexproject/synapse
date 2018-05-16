@@ -256,6 +256,21 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_whois_recns(self):
+        formname = 'inet:whois:recns'
+        valu = ('ns1.woot.com', ('woot.com', '@20501217'))
+        expected_props = {
+            'ns': 'ns1.woot.com',
+            'rec': ('woot.com', 2554848000000),
+            'rec:fqdn': 'woot.com',
+            'rec:asof': 2554848000000,
+        }
+        expected_ndef = (formname, ('ns1.woot.com', ('woot.com', 2554848000000)))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_email(self):
         formname = 'inet:email'
         with self.getTestCore() as core:
