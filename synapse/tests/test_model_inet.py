@@ -248,16 +248,17 @@ class InetModelTest(s_t_common.SynTest):
             'time': 0,
             'duration': 1,
             'from': 32 * 'b',
-            'client': 'tcp://127.0.0.1:45654',
-            'server': 'tcp://1.2.3.4:80'
+            'src': 'tcp://127.0.0.1:45654',
+            'dst': 'tcp://1.2.3.4:80'
         }
         expected_props = {  # FIXME fill in src/dst later
             'time': 0,
             'duration': 1,
             'from': 32 * 'b',
-            'client': 'tcp://127.0.0.1:45654',
-            'server': 'tcp://1.2.3.4:80'
+            'src': 'tcp://127.0.0.1:45654',
+            'dst': 'tcp://1.2.3.4:80'
         }
+        # FIXME subs
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, 32 * 'a', props=input_props)

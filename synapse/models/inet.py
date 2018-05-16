@@ -875,35 +875,35 @@ class InetModule(s_module.CoreModule):
                         #('src:txbytes', {'ptype': 'int',
                         #    'doc': 'The number of bytes sent by the source host / process / file.'}),
 
-                        ('server', ('inet:server', {}), {
+                        ('dst', ('inet:addr', {}), {
                             'doc': 'The destination address / port for a connection.'
                         }),
-                        ('server:ipv4', ('inet:ipv4', {}), {
+                        ('dst:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The destination IPv4 address.'
                         }),
-                        ('server:ipv6', ('inet:ipv6', {}), {
+                        ('dst:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The destination IPv6 address.'
                         }),
-                        ('server:port', ('inet:port', {}), {
+                        ('dst:port', ('inet:port', {}), {
                             'doc': 'The destination port.'
                         }),
-                        ('server:proto', ('str', {'lower': True}), {
+                        ('dst:proto', ('str', {'lower': True}), {
                             'doc': 'The destination port.'
                         }),
 
-                        ('client', ('inet:client', {}), {
+                        ('src', ('inet:client', {}), {
                             'doc': 'The source address / port for a connection.'
                         }),
-                        ('client:ipv4', ('inet:ipv4', {}), {
+                        ('src:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The source IPv4 address.'
                         }),
-                        ('client:ipv6', ('inet:ipv6', {}), {
+                        ('src:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The source IPv6 address.'
                         }),
-                        ('client:port', ('inet:port', {}), {
+                        ('src:port', ('inet:port', {}), {
                             'doc': 'The source port.'
                         }),
-                        ('client:proto', ('str', {'lower': True}), {
+                        ('src:proto', ('str', {'lower': True}), {
                             'doc': 'The source port.'
                         }),
                     )),
