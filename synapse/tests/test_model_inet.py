@@ -1,34 +1,28 @@
 import copy
 
-import synapse.common as s_common
 import synapse.exc as s_exc
+import synapse.common as s_common
+import synapse.models.inet as s_m_inet
 import synapse.tests.common as s_t_common
 
 
 class InetModelTest(s_t_common.SynTest):
 
-    def test__unextended(self):
-        with self.getTestCore() as core:
+    def test__forms_tested(self):
+        skips = (
+            'inet:user',
+        )
 
-            # FIXME - write tests for the following:
-            # all of the http forms/types
-            self.nn(core.model.form('inet:asnet4'))  # comp
-            self.nn(core.model.form('inet:group'))  # str w/ lower
-            self.nn(core.model.form('inet:user'))  # str w/ lower
-            self.nn(core.model.form('inet:urlfile'))  # comp
-            self.nn(core.model.form('inet:urlredir'))  # comp
-            self.nn(core.model.form('inet:web:acct'))  # comp
-            self.nn(core.model.form('inet:web:action'))  # guid
-            self.nn(core.model.form('inet:web:file'))  # comp
-            self.nn(core.model.form('inet:web:follows'))  # comp
-            self.nn(core.model.form('inet:web:group'))  # comp
-            self.nn(core.model.form('inet:web:logon'))  # guid
-            self.nn(core.model.form('inet:web:post'))  # comp
-            self.nn(core.model.form('inet:wifi:ap'))  # comp
-            self.nn(core.model.form('inet:wifi:ssid'))  # str
-            self.nn(core.model.form('inet:whois:rar'))  # str w/ lower
-            self.nn(core.model.form('inet:whois:rec'))  # comp
-            self.nn(core.model.form('inet:whois:reg'))  # str w/ lower
+        untested_forms = []
+        for name in [form[0] for form in s_m_inet.InetModule.getModelDefs(None)[0][1]['forms']]:
+            if name in skips:
+                continue
+
+            tname = 'test_' + name.split('inet:', 1)[1].replace(':', '_')
+            if not hasattr(self, tname):
+                untested_forms.append(name)
+
+        self.len(0, untested_forms, msg=f'The following forms are missing tests: {untested_forms}')
 
     def test_addr(self):
         formname = 'inet:addr'
@@ -126,7 +120,8 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.get('broadcast'), 3232236031)  # 192.168.1.255
                 self.eq(node.get('mask'), 24)
 
-    def test_client_server(self):
+    def test_client(self):
+        formname = 'inet:client'
         data = (
             ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
                 'ipv4': 2130706433,
@@ -147,10 +142,35 @@ class InetModelTest(s_t_common.SynTest):
 
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
-                for formname in ('inet:client', 'inet:server'):
-                    for valu, expected_valu, expected_props in data:
-                        node = snap.addNode(formname, valu)
-                        self.checkNode(node, ((formname, expected_valu), expected_props))
+                for valu, expected_valu, expected_props in data:
+                    node = snap.addNode(formname, valu)
+                    self.checkNode(node, ((formname, expected_valu), expected_props))
+
+    def test_server(self):
+        formname = 'inet:server'
+        data = (
+            ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
+                'ipv4': 2130706433,
+                'port': 12345
+            }),
+            ('tcp://127.0.0.1', 'tcp://127.0.0.1', {
+                'ipv4': 2130706433,
+            }),
+            ('tcp://[::1]:12345', 'tcp://[::1]:12345', {
+                'ipv6': '::1',
+                'port': 12345
+            }),
+            ('host://vertex.link:12345', 'host://ffa3e574aa219e553e1b2fc1ccd0180f:12345', {
+                'host': 'ffa3e574aa219e553e1b2fc1ccd0180f',
+                'port': 12345
+            }),
+        )
+
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                for valu, expected_valu, expected_props in data:
+                    node = snap.addNode(formname, valu)
+                    self.checkNode(node, ((formname, expected_valu), expected_props))
 
     def test_download(self):
         formname = 'inet:download'
