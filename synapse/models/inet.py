@@ -718,8 +718,6 @@ class InetModule(s_module.CoreModule):
 
                 ),
 
-                # NOTE: tcp4/udp4/tcp6/udp6 are going away
-                # becomes inet:server/inet:client, which are both inet:addr
                 'forms': (
 
                     ('inet:asn', {}, (
@@ -734,43 +732,54 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:asnet4', {}, (
                         ('asn', ('inet:asn', {}), {
+                            'ro': True,
                             'doc': 'The Autonomous System Number (ASN) of the netblock.'
                         }),
                         ('net4', ('inet:net4', {}), {
+                            'ro': True,
                             'doc': 'The IPv4 address range assigned to the ASN.'
                         }),
                         ('net4:min', ('inet:ipv4', {}), {
+                            'ro': True,
                             'doc': 'The first IPv4 in the range assigned to the ASN.'
                         }),
                         ('net4:max', ('inet:ipv4', {}), {
+                            'ro': True,
                             'doc': 'The last IPv4 in the range assigned to the ASN.'
                         }),
                     )),
 
                     ('inet:cidr4', {}, (
                         ('broadcast', ('inet:ipv4', {}), {
+                            'ro': True,
                             'doc': 'The broadcast IP address from the CIDR notation.'
                         }),
                         ('mask', ('int', {}), {
+                            'ro': True,
                             'doc': 'The mask from the CIDR notation.'
                         }),
                         ('network', ('inet:ipv4', {}), {
+                            'ro': True,
                             'doc': 'The network IP address from the CIDR notation.'
                         }),
                     )),
 
                     ('inet:client', {}, (
                         ('proto', ('str', {'lower': True}), {
+                            'ro': True,
                             'doc': 'The network protocol of the client.'
                         }),
                         ('ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
                             'doc': 'The IPv4 of the client.'
                         }),
                         ('ipv6', ('inet:ipv6', {}), {
+                            'ro': True,
                             'doc': 'The IPv6 of the client.'
                         }),
                         # FIXME port it:host
                         #('host', ('it:host', {}), {
+                        #    'ro': True,
                         #    'doc': 'The it:host node for the client.'
                         #}),
                         ('port', ('inet:port', {}), {
@@ -830,9 +839,10 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:email', {}, (
                         ('user', ('inet:user', {}), {
+                            'ro': True,
                             'doc': 'The username of the email address.'}),
-
                         ('fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The domain of the email address.'}),
                     )),
 
@@ -864,33 +874,43 @@ class InetModule(s_module.CoreModule):
                         #('src:txbytes', {'ptype': 'int',
                         #    'doc': 'The number of bytes sent by the source host / process / file.'}),
                         ('dst', ('inet:addr', {}), {
+                            'ro': True,
                             'doc': 'The destination address / port for a connection.'
                         }),
                         ('dst:ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
                             'doc': 'The destination IPv4 address.'
                         }),
                         ('dst:ipv6', ('inet:ipv6', {}), {
+                            'ro': True,
                             'doc': 'The destination IPv6 address.'
                         }),
                         ('dst:port', ('inet:port', {}), {
+                            'ro': True,
                             'doc': 'The destination port.'
                         }),
                         ('dst:proto', ('str', {'lower': True}), {
+                            'ro': True,
                             'doc': 'The destination port.'
                         }),
-                        ('src', ('inet:client', {}), {
+                        ('src', ('inet:addr', {}), {
+                            'ro': True,
                             'doc': 'The source address / port for a connection.'
                         }),
                         ('src:ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
                             'doc': 'The source IPv4 address.'
                         }),
                         ('src:ipv6', ('inet:ipv6', {}), {
+                            'ro': True,
                             'doc': 'The source IPv6 address.'
                         }),
                         ('src:port', ('inet:port', {}), {
+                            'ro': True,
                             'doc': 'The source port.'
                         }),
                         ('src:proto', ('str', {'lower': True}), {
+                            'ro': True,
                             'doc': 'The source port.'
                         }),
                     )),
@@ -900,12 +920,14 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The earliest known registration (creation) date for the fqdn.'
                         }),
                         ('domain', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The parent domain for the FQDN.',
                         }),
                         ('expires', ('time', {'ismax': True}), {
                             'doc': 'The current expiration date for the fqdn.'
                         }),
                         ('host', ('str', {'lower': True}), {
+                            'ro': True,
                             'doc': 'The host part of the FQDN.',
                         }),
                         ('issuffix', ('bool', {}), {
@@ -1030,35 +1052,41 @@ class InetModule(s_module.CoreModule):
 
                     # FIXME implement
                     #('inet:passwd', {'ptype': 'inet:passwd'}, [
-                    #    ('md5', {'ptype': 'hash:md5', 'ro': 1,
+                    #    ('md5', {'ptype': 'hash:md5', 'ro': True,
                     #        'doc': 'The computed MD5 hash of the password.'}),
-                    #    ('sha1', {'ptype': 'hash:sha1', 'ro': 1,
+                    #    ('sha1', {'ptype': 'hash:sha1', 'ro': True,
                     #        'doc': 'The computed SHA1 hash of the password.'}),
-                    #    ('sha256', {'ptype': 'hash:sha256', 'ro': 1,
+                    #    ('sha256', {'ptype': 'hash:sha256', 'ro': True,
                     #        'doc': 'The computed SHA256 hash of the password.'}),
                     #]),
 
                     ('inet:rfc2822:addr', {}, (
                         ('name', ('ps:name', {}), {
+                            'ro': True,
                             'doc': 'The name field parsed from an RFC 2822 address string.'
                         }),
                         ('email', ('inet:email', {}), {
+                            'ro': True,
                             'doc': 'The email field parsed from an RFC 2822 address string.'
                         }),
                     )),
 
                     ('inet:server', {}, (
                         ('proto', ('str', {'lower': True}), {
+                            'ro': True,
                             'doc': 'The network protocol of the server.'
                         }),
                         ('ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
                             'doc': 'The IPv4 of the server.'
                         }),
                         ('ipv6', ('inet:ipv6', {}), {
+                            'ro': True,
                             'doc': 'The IPv6 of the server.'
                         }),
                         # FIXME port it:host
                         #('host', ('it:host', {}), {
+                        #    'ro': True,
                         #    'doc': 'The it:host node for the server.'
                         #}),
                         ('port', ('inet:port', {}), {
@@ -1068,49 +1096,61 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:url', {}, (
                         ('fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'
                         }),
                         ('ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'
                         }),
                         ('ipv6', ('inet:ipv6', {}), {
+                            'ro': True,
                             'doc': 'The IPv6 address used in the URL.'
                         }),
                         ('passwd', ('inet:passwd', {}), {
+                            'ro': True,
                             'doc': 'The optional password used to access the URL.'
                         }),
                         ('path', ('str', {}), {
+                            'ro': True,
                             'doc': 'The path in the URL.'
                         }),
                         ('port', ('inet:port', {}), {
+                            'ro': True,
                             'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
                                    'URLs prefixed with https will be set to port 443 unless otherwise specified.'
                         }),
                         ('proto', ('str', {'lower': True}), {
+                            'ro': True,
                             'doc': 'The protocol in the URL.'
                         }),
                         ('user', ('inet:user', {}), {
+                            'ro': True,
                             'doc': 'The optional username used to access the URL.'
                         }),
                     )),
 
                     ('inet:urlfile', {}, (
                         ('url', ('inet:url', {}), {
+                            'ro': True,
                             'doc': 'The URL where the file was hosted.'
                         }),
                         ('file', ('file:bytes', {}), {
+                            'ro': True,
                             'doc': 'The file that was hosted at the URL.'
                         }),
                     )),
 
                     ('inet:urlredir', {}, (
                         ('src', ('inet:url', {}), {
+                            'ro': True,
                             'doc': 'The original/source URL before redirect'
                         }),
                         ('src:fqdn', ('inet:fqdn', {}), {
                             'doc': 'The FQDN within the src URL (if present)'
                         }),
                         ('dst', ('inet:url', {}), {
+                            'ro': True,
                             'doc': 'The redirected/destination URL'
                         }),
                         ('dst:fqdn', ('inet:fqdn', {}), {
@@ -1159,14 +1199,6 @@ class InetModule(s_module.CoreModule):
                         ('realname:en', ('ps:name', {}), {
                             'doc': 'The English version of the real name of the account owner / registrant.'
                         }),
-                        ('seen:max', ('time', {'max': True}), {
-                            'doc': 'The most recent known date of activity for the account.'
-                        }),
-
-                        ('seen:min', ('time', {'min': True}), {
-                            'doc': 'The earliest known date of activity for the account.'
-                        }),
-
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the account was registered.'
                         }),
@@ -1174,6 +1206,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The IPv4 address used to sign up for the account.'
                         }),
                         ('site', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('tagline', ('str', {}), {
@@ -1183,6 +1216,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The service provider URL where the account is hosted.'
                         }),
                         ('user', ('inet:user', {}), {
+                            'ro': True,
                             'doc': 'The unique identifier for the account (may be different from the common '
                                    'name or display name).'
                         }),
@@ -1197,12 +1231,15 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The action performed by the account.'
                         }),
                         ('acct', ('inet:web:acct', {}), {
+                            'ro': True,
                             'doc': 'The web account associated with the action.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
+                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         # FIXME missing json
@@ -1222,15 +1259,19 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:file', {}, (
                         ('acct', ('inet:web:acct', {}), {
+                            'ro': True,
                             'doc': 'The account that owns or is associated with the file.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
+                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('file', ('file:bytes', {}), {
+                            'ro': True,
                             'doc': 'The file owned by or associated with the account.'
                         }),
                         # FIXME missing file:base
@@ -1250,18 +1291,22 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:follows', {}, (
                         ('follower', ('inet:web:acct', {}), {
+                            'ro': True,
                             'doc': 'The account following an account.'
                         }),
                         ('followee', ('inet:web:acct', {}), {
+                            'ro': True,
                             'doc': 'The account followed by an account.'
                         }),
                     )),
 
                     ('inet:web:group', {}, (
                         ('site', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The site or service associated with the group.'
                         }),
                         ('id', ('inet:group', {}), {
+                            'ro': True,
                             'doc': 'The site-specific unique identifier for the group (may be different from '
                                    'the common name or display name).'
                         }),
@@ -1304,12 +1349,15 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:logon', {}, (
                         ('acct', ('inet:web:acct', {}), {
+                            'ro': True,
                             'doc': 'The web account associated with the logon event.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
+                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('time', ('time', {}), {
@@ -1328,9 +1376,11 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:memb', {}, (
                         ('acct', ('inet:web:acct', {}), {
+                            'ro': True,
                             'doc': 'The account that is a member of the group.'
                         }),
                         ('group', ('inet:web:group', {}), {
+                            'ro': True,
                             'doc': 'The group that the account is a member of.'
                         }),
                         ('title', ('str', {'lower': True}), {
@@ -1343,12 +1393,15 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:mesg', {}, [
                         ('from', ('inet:web:acct', {}), {
+                            'ro': True,
                             'doc': 'The web account that sent the message.'
                         }),
                         ('to', ('inet:web:acct', {}), {
+                            'ro': True,
                             'doc': 'The web account that received the message.'
                         }),
                         ('time', ('time', {}), {
+                            'ro': True,
                             'doc': 'The date and time at which the message was sent.'
                         }),
                         ('url', ('inet:url', {}), {
@@ -1364,15 +1417,19 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:post', {}, (
                         ('acct', ('inet:web:acct', {}), {
+                            'ro': True,
                             'doc': 'The web account that made the post.'
                         }),
                         ('text', ('str', {}), {
+                            'ro': True,
                             'doc': 'The text of the post.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
+                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('time', ('time', {}), {
@@ -1394,12 +1451,15 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:whois:contact', {}, (
                         ('rec', ('inet:whois:rec', {}), {
+                            'ro': True,
                             'doc': 'The whois record containing the contact data.'
                         }),
                         ('rec:fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The domain associated with the whois record.'
                         }),
                         ('rec:asof', ('time', {}), {
+                            'ro': True,
                             'doc': 'The date of the whois record.'
                         }),
                         ('type', ('str', {'lower': True}), {
@@ -1447,9 +1507,11 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:whois:rec', {}, (
                         ('fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The domain associated with the whois record.'
                         }),
                         ('asof', ('time', {}), {
+                            'ro': True,
                             'doc': 'The date of the whois record.'
                         }),
                         ('text', ('str', {'lower': True}), {
@@ -1476,15 +1538,19 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:whois:recns', {}, [
                         ('ns', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'A nameserver for a domain as listed in the domain whois record.'
                         }),
                         ('rec', ('inet:whois:rec', {}), {
+                            'ro': True,
                             'doc': 'The whois record containing the nameserver data.'
                         }),
                         ('rec:fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The domain associated with the whois record.'
                         }),
                         ('rec:asof', ('time', {}), {
+                            'ro': True,
                             'doc': 'The date of the whois record.'
                         }),
                     ]),
@@ -1494,9 +1560,11 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:whois:regmail', {}, (
                         ('fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The domain associated with the registrant email address.'
                         }),
                         ('email', ('inet:email', {}), {
+                            'ro': True,
                             'doc': 'The registrant email address associated with the domain.'
                         }),
                     )),

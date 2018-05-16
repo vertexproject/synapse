@@ -728,8 +728,6 @@ class InetModelTest(s_t_common.SynTest):
                 #'phone': '555-555-5555',  # FIXME implement
                 #'realname': 'Брут',  # FIXME implement
                 #'realname:en': 'brutus',  # FIXME implement
-                'seen:max': 1,
-                'seen:min': 2,
                 'signup': 3,
                 'signup:ipv4': 4,
                 'tagline': 'Taglines are not tags',
@@ -748,7 +746,7 @@ class InetModelTest(s_t_common.SynTest):
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, valu, props=input_props)
                 self.eq(node.ndef, expected_ndef)
-                [self.eq(node.get(k), expected_props[k]) for k in expected_props]
+                self.checkNode(node, (expected_ndef, expected_props))
 
     def test_web_memb(self):
         formname = 'inet:web:memb'
