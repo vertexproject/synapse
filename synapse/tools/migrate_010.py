@@ -14,6 +14,8 @@ import synapse.models.inet as s_inet
 
 logger = logging.getLogger(__name__)
 
+debug_on_error = False
+
 # TODO
 # check model version before begin migration
 # Add config file to allow additional coremodules
@@ -244,15 +246,16 @@ class Migrator:
                             # logger.debug('Putting file:bytes side ref of %s->%s', props['node:ndef'], node[0])
                             if not txn.put(props['node:ndef'].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl):
                                 raise ConsistencyError('put failure')
+                            logger.debug('Putting file:bytes side ref of %s->%s', props[formname], node[0])
                             if not txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl):
                                 raise ConsistencyError('put failure')
                         else:
                             txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl)
                         self.write_node_to_file(node)
-                    # nic tmp
-                    # except Exception:
-                    except ZeroDivisionError:
-                        import ipdb; ipdb.set_trace()
+                    except Exception:
+                        if debug_on_error:
+                            import ipdb
+                            ipdb.set_trace()
                         logger.debug('Failed on processing node of form %s', formname, exc_info=True)
 
         comp_node_time = time.time()
@@ -298,9 +301,10 @@ class Migrator:
                         node = self.convert_props(props)
                         if node is not None:
                             self.write_node_to_file(node)
-                    # Nic tmp
-                    # except Exception:
-                    except ZeroDivisionError:
+                    except Exception:
+                        if debug_on_error:
+                            import ipdb
+                            ipdb.set_trace()
                         logger.debug('Failed on processing node with props: %s', props, exc_info=True)
                 if not rv:
                     break  # end of data
@@ -361,7 +365,9 @@ class Migrator:
         with self.dbenv.begin(db=self.comp_tbl) as txn:
             comp_enc = txn.get(propval.encode('utf8'), db=self.comp_tbl)
             if comp_enc is None:
-                import ipdb; ipdb.set_trace()
+                if debug_on_error:
+                    import ipdb
+                    ipdb.set_trace()
                 raise ConsistencyError('guid accessed before determined')
             return s_msgpack.un(comp_enc)[1]
 
@@ -370,7 +376,9 @@ class Migrator:
         with self.dbenv.begin(db=self.comp_tbl) as txn:
             comp_enc = txn.get(propval.encode('utf8'), db=self.comp_tbl)
             if comp_enc is None:
-                import ipdb; ipdb.set_trace()
+                if debug_on_error:
+                    import ipdb;
+                    ipdb.set_trace()
                 raise ConsistencyError('ndef accessed before determined')
             return s_msgpack.un(comp_enc)[1]
 
@@ -568,12 +576,17 @@ class Migrator:
     }
 
 def main(argv, outp=None):  # pragma: no cover
+    global debug_on_error
     p = argparse.ArgumentParser()
     p.add_argument('cortex', help='telepath URL for a cortex to be dumped')
     p.add_argument('outfile', help='file to dump to')
     p.add_argument('--verbose', '-v', action='count', help='Verbose output')
+    p.add_argument('--debug', action='store_true', help='open pdb on exception')
     p.add_argument('--stage-1', help='Start at stage 2 with stage 1 file')
     opts = p.parse_args(argv)
+
+    if opts.debug:
+        debug_on_error = True
 
     if opts.verbose is not None:
         if opts.verbose > 1:
