@@ -697,6 +697,10 @@ class InetModule(s_module.CoreModule):
                         'ex': 'woot hostmaster'
                     }),
 
+                    ('inet:whois:regmail', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
+                        'doc': 'An association between a domain and a registrant email address.'
+                    }),
+
                     ('inet:wifi:ap', ('comp', {'fields': (('ssid', 'inet:wifi:ssid'), ('bssid', 'inet:mac'))}), {
                         'doc': 'An SSID/MAC address combination for a wireless access point.'
                     }),
@@ -1529,6 +1533,15 @@ class InetModule(s_module.CoreModule):
 
 
                     ('inet:whois:reg', {}, ()),
+
+                    ('inet:whois:regmail', {}, (
+                        ('fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The domain associated with the registrant email address.'
+                        }),
+                        ('email', ('inet:email', {}), {
+                            'doc': 'The registrant email address associated with the domain.'
+                        }),
+                    )),
 
                     ('inet:wifi:ap', {}, (
                         ('ssid', ('inet:wifi:ssid', {}), {

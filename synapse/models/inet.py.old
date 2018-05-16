@@ -20,11 +20,6 @@
     'fields': 'rec,inet:whois:rec|type,str:lwr',
     'doc': 'An individual contact from a domain whois record.'}),
 
-('inet:whois:regmail', {
-    'subof': 'comp',
-    'fields': 'fqdn,inet:fqdn|email,inet:email',
-    'doc': 'An association between a domain and a registrant email address.'}),
-
 ('inet:http:resphead', {
     'subof': 'comp',
     'fields': 'response=inet:http:response,header=inet:http:header',
@@ -126,17 +121,6 @@ FORMS ==========================================================================
         'doc': 'The normed value of the form that was referenced, if the value is an integer.'}),
     ('xref:strval', {'ptype': 'str', 'ro': 1,
         'doc': 'The normed value of the form that was referenced, if the value is a string.'}),
-]),
-
-('inet:whois:regmail', {'ptype': 'inet:whois:regmail'}, [
-    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,
-        'doc': 'The domain associated with the registrant email address.'}),
-    ('email', {'ptype': 'inet:email', 'ro': 1, 'req': 1,
-        'doc': 'The registrant email address associated with the domain.'}),
-    ('seen:min', {'ptype': 'time:min',
-        'doc': 'The earliest known date the registrant email was associated with the domain.'}),
-    ('seen:max', {'ptype': 'time:max',
-        'doc': 'The most recent known date the registrant email was associated with the domain.'}),
 ]),
 
 ('inet:whois:contact', {}, [

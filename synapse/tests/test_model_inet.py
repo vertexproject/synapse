@@ -799,6 +799,19 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_whois_regmail(self):
+        formname = 'inet:whois:regmail'
+        valu = ('wOOt.Com', 'visi@vertex.LINK')
+        expected_props = {
+            'fqdn': 'woot.com',
+            'email': 'visi@vertex.link',
+            # FIXME no subs
+        }
+        expected_ndef = (formname, tuple(item.lower() for item in valu))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
 
 class FIXME:
 
