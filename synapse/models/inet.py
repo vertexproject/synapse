@@ -670,6 +670,11 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A web account that is a member of a web group.'
                     }),
 
+                    ('inet:web:mesg', ('comp', {'fields': (('from', 'inet:web:acct'), ('to', 'inet:web:acct'), ('time', 'time'))}), {
+                        'doc': 'A message sent from one web account to another web account.',
+                        'ex': 'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'
+                    }),
+
                     ('inet:web:post', ('comp', {'fields': (('acct', 'inet:web:acct'), ('text', 'str'))}), {
                         'doc': 'A post made by a web account.'
                     }),
@@ -1414,6 +1419,27 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The date / time the account joined the group.'
                         }),
                     )),
+
+                    ('inet:web:mesg', {}, [
+                        ('from', ('inet:web:acct', {}), {
+                            'doc': 'The web account that sent the message.'
+                        }),
+                        ('to', ('inet:web:acct', {}), {
+                            'doc': 'The web account that received the message.'
+                        }),
+                        ('time', ('time', {}), {
+                            'doc': 'The date and time at which the message was sent.'
+                        }),
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL where the message is posted / visible.'
+                        }),
+                        ('text', ('str', {}), {
+                            'doc': 'The text of the message.'
+                        }),
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The file attached to or sent with the message.'
+                        }),
+                    ]),
 
                     ('inet:web:post', {}, (
                         ('acct', ('inet:web:acct', {}), {

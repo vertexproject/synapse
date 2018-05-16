@@ -6,11 +6,6 @@
         ' an account, as opposed to current data in the inet:web:acct node.'}),
 
 TYPES of comp/sepr ====================================================================================
-('inet:web:mesg', {
-    'subof': 'comp',
-    'fields': 'from,inet:web:acct|to,inet:web:acct|time,time',
-    'doc': 'A message sent from one web account to another web account.',
-    'ex': 'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'}),
 
 ('inet:whois:recns', {
     'subof': 'comp',
@@ -137,21 +132,6 @@ FORMS ==========================================================================
         'doc': 'The normed value of the form that was referenced, if the value is an integer.'}),
     ('xref:strval', {'ptype': 'str', 'ro': 1,
         'doc': 'The normed value of the form that was referenced, if the value is a string.'}),
-]),
-
-('inet:web:mesg', {}, [
-    ('from', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
-        'doc': 'The web account that sent the message.'}),
-    ('to', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
-        'doc': 'The web account that received the message.'}),
-    ('time', {'ptype': 'time', 'ro': 1, 'req': 1,
-        'doc': 'The date and time at which the message was sent.'}),
-    ('url', {'ptype': 'inet:url',
-        'doc': 'The URL where the message is posted / visible.'}),
-    ('text', {'ptype': 'str:txt',
-        'doc': 'The text of the message.'}),
-    ('file', {'ptype': 'file:bytes',
-        'doc': 'The file attached to or sent with the message.'}),
 ]),
 
 ('inet:whois:regmail', {'ptype': 'inet:whois:regmail'}, [

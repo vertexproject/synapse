@@ -237,6 +237,25 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_web_mesg(self):
+        formname = 'inet:web:mesg'
+        valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'vertexmc'), 0)
+        input_props = {
+            'url': 'https://vertex.link/messages/0',
+            'text': 'a cool Message',
+            'file': 'sha256:' + 64 * 'F'
+        }
+        expected_props = {
+            'url': 'https://vertex.link/messages/0',
+            'text': 'a cool Message',
+            'file': 'sha256:' + 64 * 'f'
+        }
+        expected_ndef = (formname, (('vertex.link', 'visi'), ('vertex.link', 'vertexmc'), 0))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_email(self):
         formname = 'inet:email'
         with self.getTestCore() as core:
