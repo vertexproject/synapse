@@ -18,10 +18,11 @@ def adminapi(f):
     def func(*args, **kwargs):
 
         if args[0].user is None:
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='User not provided.')
 
         if not args[0].user.admin:
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='User is not an admin.',
+                                 user=args[0].user.name)
 
         return f(*args, **kwargs)
 
@@ -239,7 +240,8 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
 
         user = self._getCellUser(link, mesg)
         if user is None:
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='Unable to find cell user.',
+                                 user=mesg[1].get('auth')[0])
 
         link.set('cell:user', user)
         return self.cellapi(self, link)
@@ -265,7 +267,8 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         # passwd None always fails...
         passwd = info.get('passwd')
         if not user.tryPasswd(passwd):
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='Invalid password',
+                                 user=user.name)
 
         return user
 

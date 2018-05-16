@@ -208,7 +208,7 @@ class Node:
         name = s_chop.tag(tag)
 
         if not self.snap.allowed('node:tag:add', name):
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='Not allowed to add a tag.')
 
         if valu != (None, None):
             valu = self.snap.model.type('ival').norm(valu)[0]
@@ -260,7 +260,7 @@ class Node:
         name = s_chop.tag(tag)
 
         if not self.snap.allowed('node:tag:del', name):
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='Not allowed to delete a tag.')
 
         curv = self.tags.pop(name, s_common.novalu)
         if curv is s_common.novalu:
