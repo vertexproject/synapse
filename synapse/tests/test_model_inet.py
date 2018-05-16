@@ -10,29 +10,7 @@ class InetModelTest(s_t_common.SynTest):
     def test__unextended(self):
         with self.getTestCore() as core:
 
-            # The following types are subtypes that do not extend their base type
-            self.nn(core.model.type('inet:asn'))  # int
-            self.nn(core.model.type('inet:asnet4'))  # comp
-            self.nn(core.model.type('inet:net4'))  # range
-            self.nn(core.model.type('inet:passwd'))  # str
-            self.nn(core.model.type('inet:port'))  # int w/ min/max
-            self.nn(core.model.type('inet:user'))  # str w/ lower
-            self.nn(core.model.type('inet:urlfile'))  # comp
-            self.nn(core.model.type('inet:urlredir'))  # comp
-            self.nn(core.model.type('inet:web:acct'))  # comp
-            self.nn(core.model.type('inet:web:action'))  # guid
-            self.nn(core.model.type('inet:web:file'))  # comp
-            self.nn(core.model.type('inet:web:follows'))  # comp
-            self.nn(core.model.type('inet:web:group'))  # comp
-            self.nn(core.model.type('inet:web:logon'))  # guid
-            self.nn(core.model.type('inet:web:post'))  # comp
-            self.nn(core.model.type('inet:wifi:ap'))  # comp
-            self.nn(core.model.type('inet:wifi:ssid'))  # str
-            self.nn(core.model.type('inet:whois:rar'))  # str w/ lower
-            self.nn(core.model.type('inet:whois:rec'))  # comp
-            self.nn(core.model.type('inet:whois:reg'))  # str w/ lower
-
-            # The following forms do not extend their base type
+            # FIXME - write tests for the following:
             self.nn(core.model.form('inet:asnet4'))  # comp
             self.nn(core.model.form('inet:group'))  # str w/ lower
             self.nn(core.model.form('inet:user'))  # str w/ lower
@@ -536,29 +514,6 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('vendor'), 'Cool')
 
-    def test_url(self):
-        formname = 'inet:url'
-        with self.getTestCore() as core:
-
-            # Type Tests ======================================================
-            t = core.model.type(formname)
-
-            self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')  # No Host
-            self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
-
-            # Form Tests ======================================================
-            with core.snap(write=True) as snap:
-                valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
-                expected_ndef = (formname, valu)
-                node = snap.addNode(formname, valu)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('fqdn'), 'vertex.link')
-                self.eq(node.get('passwd'), 'hunter2')
-                self.eq(node.get('path'), '/coolthings?a=1')
-                self.eq(node.get('port'), 1337)
-                self.eq(node.get('proto'), 'https')
-                self.eq(node.get('user'), 'vertexmc')
-
     def test_rfc2822_addr(self):
         formname = 'inet:rfc2822:addr'
         with self.getTestCore() as core:
@@ -590,6 +545,45 @@ class InetModelTest(s_t_common.SynTest):
                 self.len(3, list(snap.getNodesBy(formname, 'unittest', cmpr='^=')))
                 self.len(2, list(snap.getNodesBy(formname, 'unittest1', cmpr='^=')))
                 self.len(1, list(snap.getNodesBy(formname, 'unittest12', cmpr='^=')))
+
+    def test_servfile(self):
+        formname = 'inet:servfile'
+        valu = ('tcp://127.0.0.1:4040', 'sha256:' + 64 * 'f')
+        expected_props = {
+            # FIXME no subs
+            'server': 'tcp://127.0.0.1:4040',
+            'server:port': 4040,
+            'server:ipv4': 2130706433,
+            'file': 'sha256:' + 64 * 'f'
+        }
+        expected_ndef = (formname, tuple(item.lower() for item in valu))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_url(self):
+        formname = 'inet:url'
+        with self.getTestCore() as core:
+
+            # Type Tests ======================================================
+            t = core.model.type(formname)
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')  # No Host
+            self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
+
+            # Form Tests ======================================================
+            with core.snap(write=True) as snap:
+                valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
+                expected_ndef = (formname, valu)
+                node = snap.addNode(formname, valu)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.get('fqdn'), 'vertex.link')
+                self.eq(node.get('passwd'), 'hunter2')
+                self.eq(node.get('path'), '/coolthings?a=1')
+                self.eq(node.get('port'), 1337)
+                self.eq(node.get('proto'), 'https')
+                self.eq(node.get('user'), 'vertexmc')
 
     def test_url_fqdn(self):
         with self.getTestCore() as core:
@@ -728,8 +722,6 @@ class InetModelTest(s_t_common.SynTest):
                 #'phone': '555-555-5555',  # FIXME implement
                 #'realname': 'Брут',  # FIXME implement
                 #'realname:en': 'brutus',  # FIXME implement
-                'seen:max': 1,
-                'seen:min': 2,
                 'signup': 3,
                 'signup:ipv4': 4,
                 'tagline': 'Taglines are not tags',
@@ -748,7 +740,7 @@ class InetModelTest(s_t_common.SynTest):
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, valu, props=input_props)
                 self.eq(node.ndef, expected_ndef)
-                [self.eq(node.get(k), expected_props[k]) for k in expected_props]
+                self.checkNode(node, (expected_ndef, expected_props))
 
     def test_web_memb(self):
         formname = 'inet:web:memb'
@@ -780,6 +772,47 @@ class InetModelTest(s_t_common.SynTest):
             'file': 'sha256:' + 64 * 'f'
         }
         expected_ndef = (formname, (('vertex.link', 'visi'), ('vertex.link', 'vertexmc'), 0))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_whois_contact(self):
+        formname = 'inet:whois:contact'
+        valu = (('vertex.link', '@2015'), 'regiStrar')
+        input_props = {
+            'id': 'ID',
+            'name': 'NAME',
+            'email': 'unittest@vertex.link',
+            'orgname': 'unittest org',
+            'address': '1234 Not Real Road',
+            'city': 'Faketown',
+            'state': 'Stateland',
+            'country': 'US',
+            'phone': '555-555-5555',
+            'fax': '555-555-5556',
+            'url': 'https://vertex.link/contact',
+            'whois:fqdn': 'vertex.link'
+        }
+        expected_props = {
+            'rec': ('vertex.link', 1420070400000),
+            'rec:asof': 1420070400000,
+            'rec:fqdn': 'vertex.link',
+            'type': 'registrar',
+            'id': 'id',
+            'name': 'name',
+            'email': 'unittest@vertex.link',
+            'orgname': 'unittest org',
+            'address': '1234 not real road',
+            'city': 'faketown',
+            'state': 'stateland',
+            'country': 'us',
+            'phone': '5555555555',
+            'fax': '5555555556',
+            'url': 'https://vertex.link/contact',
+            'whois:fqdn': 'vertex.link'
+        }
+        expected_ndef = (formname, (('vertex.link', 1420070400000), 'registrar'))
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, valu, props=input_props)
