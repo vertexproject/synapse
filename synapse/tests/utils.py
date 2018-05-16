@@ -408,6 +408,11 @@ class StreamEvent(io.StringIO, threading.Event):
 
 class SynTest(unittest.TestCase):
 
+    def checkNode(self, node, expected):
+        ex_ndef, ex_props = expected
+        self.eq(node.ndef, ex_ndef)
+        [self.eq(node.get(k), v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
+
     def getTestWait(self, bus, size, *evts):
         return s_eventbus.Waiter(bus, size, *evts)
 
@@ -922,7 +927,7 @@ class SynTest(unittest.TestCase):
 
         self.raises(exc, testfunc)
 
-    def eq(self, x, y):
+    def eq(self, x, y, msg=None):
         '''
         Assert X is equal to Y
         '''
@@ -932,7 +937,7 @@ class SynTest(unittest.TestCase):
         if type(y) == list:
             y = tuple(y)
 
-        self.assertEqual(x, y)
+        self.assertEqual(x, y, msg=msg)
 
     def eqish(self, x, y, places=6):
         '''
