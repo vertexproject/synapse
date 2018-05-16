@@ -243,8 +243,10 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
 
         user = self._getCellUser(link, mesg)
         if user is None:
+            _auth = mesg[1].get('auth')
+            user = _auth[0] if _auth else None
             raise s_exc.AuthDeny(mesg='Unable to find cell user.',
-                                 user=mesg[1].get('auth')[0])
+                                 user=user)
 
         link.set('cell:user', user)
         return self.cellapi(self, link)
