@@ -79,7 +79,10 @@ class FilePath(s_types.Type):
 
         fullpath = lead + '/'.join(path)
 
-        subs = {'base': path[-1]}
+        base = path[-1]
+        subs = {'base': base}
+        if '.' in base:
+            subs['ext'] = base.rsplit('.', 1)[1]
         if len(path) > 1:
             subs['dir'] = lead + '/'.join(path[:-1])
 

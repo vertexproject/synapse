@@ -622,11 +622,39 @@ class Loc(Type):
             ('pref', indx),
         )
 
+# FIXME Add tests for FieldHelper sad paths
+class FieldHelper(collections.defaultdict):
+    '''
+    Helper for Comp types. Performs Type lookup/creation upon first use.
+    '''
+    def __init__(self, modl, fields):
+        collections.defaultdict.__init__(self)
+        self.modl = modl
+        self.fields = {name: tname for name, tname in fields}
+
+    def __missing__(self, key):
+        val = self.fields.get(key)
+        if not val:
+            raise s_exc.BadTypeDef(valu=key, mesg='unconfigured field requested')
+        if isinstance(val, str):
+            _type = self.modl.type(val)
+            if not _type:
+                raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
+        else:
+            # val is a type, opts pair
+            tname, opts = val
+            basetype = self.modl.type(tname)
+            if not basetype:
+                raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
+            _type = basetype.clone(opts)
+        return _type
+
 class Comp(Type):
 
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
+        self.tcache = FieldHelper(self.modl, self.opts.get('fields', ()))
 
     def _normPyTuple(self, valu):
 
@@ -639,10 +667,7 @@ class Comp(Type):
         norms = []
 
         for i, (name, typename) in enumerate(fields):
-
-            _type = self.modl.type(typename)
-            if _type is None:
-                raise Exception('we need a postModelInit()?') # FIXME
+            _type = self.tcache[name]
 
             norm, info = _type.norm(valu[i])
 
