@@ -25,7 +25,6 @@ debug_on_error = False
 # # add a corresponding file:path with the correct normalized path
 # # copy any tags on the former to the latter
 # # if a secondary prop, just normalize and use the last part
-# ps:name, reverse order, remove comma, remove all subproperties on ps:name form (*not* type)
 # `it:exec:bind:tcp` and `it:exec:bind:udp` will become `it:exec:bind` which has a `server` prop which is going to be a
 # `inet:addr`
 
@@ -315,6 +314,10 @@ class Migrator:
 
         logger.info('Stage 2b complete in %.1fs.', time.time() - start_time)
 
+    def convert_ps_name(self, formname, propname, typename, val):
+        lastname, firstname = val.split(',', 1)
+        return propname, firstname + ' ' + lastname
+
     def just_guid(self, formname, props):
         return None, props[formname]
 
@@ -455,7 +458,8 @@ class Migrator:
         'inet:tcp4': ipv4_to_server,
         'inet:tcp6': ipv6_to_server,
         'inet:udp4': ipv4_to_server,
-        'inet:udp6': ipv6_to_server
+        'inet:udp6': ipv6_to_server,
+        'ps:name': convert_ps_name
     }
 
     form_renames = {
@@ -551,7 +555,7 @@ class Migrator:
         'inet:web:post': just_guid,
         'it:dev:regval': just_guid,
         'inet:dns:soa': just_guid,
-        'file:bytes': convert_file_bytes
+        'file:bytes': convert_file_bytes,
     }
 
     def handle_seen(self, propname, propval, newprops):

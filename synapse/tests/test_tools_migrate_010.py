@@ -64,6 +64,7 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(len(node[0]), 2)
             self.eq(node[0][0], 'ps:contact')
             self.eq(node[1]['props']['title'], 'ceo')
+            self.eq(node[1]['props']['name'], 'tony stark')
 
             acct_nodes = self.get_formfile('inet:web:acct', fh)
             self.eq(len(acct_nodes), 1)
