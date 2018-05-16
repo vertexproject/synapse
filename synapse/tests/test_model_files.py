@@ -41,6 +41,8 @@ class FileTest(s_test.SynTest):
                 node = snap.addNode('file:path', '/foo/bar/baz.exe')
 
                 self.eq(node.get('base'), 'baz.exe')
+                self.eq(node.get('base:ext'), 'exe')
+                self.eq(node.get('dir'), '/foo/bar')
                 self.nn(snap.getNodeByNdef(('file:path', '/foo/bar')))
 
                 node0 = snap.addNode('file:bytes', 'hex:56565656')
