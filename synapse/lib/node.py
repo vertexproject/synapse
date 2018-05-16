@@ -90,7 +90,8 @@ class Node:
             return False
 
         if not self.snap.allowed('prop:set', self.form.name, prop.name):
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='Not allowed to set a property.',
+                                 form=self.form.name, prop=prop.name)
 
         curv = self.props.get(name)
 
@@ -196,7 +197,8 @@ class Node:
             return False
 
         if not self.snap.allowed('prop:del', self.form.name, prop.name):
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='Not allowed to delete a property.',
+                                 form=self.form.name, prop=prop.name)
 
         if prop.info.get('ro') and not init and not self.init:
             self.snap.warn('trying to pop() a read-only prop!')

@@ -18,7 +18,7 @@ def adminapi(f):
     def func(*args, **kwargs):
 
         if args[0].user is None:
-            raise s_exc.AuthDeny(mesg='User not provided.')
+            raise s_exc.AuthDeny(mesg='Auth not enabled.')
 
         if not args[0].user.admin:
             raise s_exc.AuthDeny(mesg='User is not an admin.',
