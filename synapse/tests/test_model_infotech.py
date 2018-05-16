@@ -18,7 +18,6 @@ class InfotechModelTest(s_test.SynTest):
             with core.snap(write=True) as snap:
                 node = snap.addNode('it:hostname', 'Bobs Computer')
                 self.eq(node.ndef[1], 'bobs computer')
-                # FIXME add test for it:host
                 host0 = s_common.guid()
                 hprops = {
                     'name': 'Bobs laptop',
@@ -111,6 +110,7 @@ class InfotechModelTest(s_test.SynTest):
                 node = snap.addNode('it:prod:softver', ver0, vprops)
 
                 self.eq(node.ndef[1], ver0)
+                self.eq(node.get('arch'), 'amd64')
                 self.eq(node.get('software'), prod0)
                 self.eq(node.get('software:name'), 'balloon maker')
                 self.eq(node.get('vers'), 'V1.0.1-beta+exp.sha.5114f85')
@@ -122,6 +122,11 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('semver:pre'), 'beta')
                 self.eq(node.get('semver:build'), 'exp.sha.5114f85')
                 self.eq(node.get('url'), url1)
+                # callback node creation checks
+                nodes = list(snap.getNodesBy('it:dev:str', 'V1.0.1-beta+exp.sha.5114f85'))
+                self.len(1, nodes)
+                nodes = list(snap.getNodesBy('it:dev:str', 'amd64'))
+                self.len(1, nodes)
 
                 host0 = s_common.guid()
                 node = snap.addNode('it:hostsoft', (host0, ver0))

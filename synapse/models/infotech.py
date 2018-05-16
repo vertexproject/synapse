@@ -196,7 +196,7 @@ class ItModule(s_module.CoreModule):
                    'doc': 'A version of a software product which is present on a given host.',
                 }),
                 ('it:av:sig', ('comp', {'fields': (('soft', 'it:prod:soft'), ('name', ('str', {'lower': True})))}), {
-                   'doc': 'A signature name A signature name within the namespace of an antivirus engine name.'
+                   'doc': 'A signature name within the namespace of an antivirus engine name.'
                 }),
                 ('it:av:filehit', ('comp', {'fields': (('file', 'file:bytes'), ('sig', 'it:av:sig'))}), {
                     'doc': 'A file that triggered an alert on a specific antivirus signature.',
@@ -479,9 +479,9 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The specific file containing code that created the named pipe. May or may not be the same :exe specified in :proc, if present.',
                     }),
                     ('time', ('time', {}), {
-                        'doc': 'The time the mutex was created.',
+                        'doc': 'The time the named pipe was created.',
                     }),
-                    ('name', ('it:dev:mutex', {}), {
+                    ('name', ('it:dev:pipe', {}), {
                         'doc': 'The named pipe string.',
                     }),
                 )),
@@ -503,7 +503,7 @@ class ItModule(s_module.CoreModule):
                     }),
                     # FIXME Needs inet:addr
                     # ('client', ('inet:addr', {}), {
-                    #     'doc': 'The address of hte client during the URL retrieval.'
+                    #     'doc': 'The address of the client during the URL retrieval.'
                     # })
                     # FIXME - Break out inet:addr subs!
                 )),
@@ -723,13 +723,13 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:exec:reg:set', {}, (
                     ('proc', ('it:exec:proc', {}), {
-                        'doc': 'The main process executing code that wrote to the registry..',
+                        'doc': 'The main process executing code that wrote to the registry.',
                     }),
                     ('host', ('it:host', {}), {
-                        'doc': 'The host running the process that wrote to the registry.. Typically the same host referenced in :proc, if present.',
+                        'doc': 'The host running the process that wrote to the registry. Typically the same host referenced in :proc, if present.',
                     }),
                     ('exe', ('file:bytes', {}), {
-                        'doc': 'The specific file containing code that wrote to the registry.. May or may not be the same :exe referenced in :proc, if present.',
+                        'doc': 'The specific file containing code that wrote to the registry. May or may not be the same :exe referenced in :proc, if present.',
                     }),
                     ('time', ('time', {}), {
                         'doc': 'The time the registry was written to.',
