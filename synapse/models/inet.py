@@ -1231,7 +1231,6 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The site or service associated with the account.'
                         }),
 
-                        # NOTE was str:txt
                         ('tagline', ('str', {}), {
                             'doc': 'The text of the account status or tag line.'
                         }),
@@ -1351,7 +1350,7 @@ class InetModule(s_module.CoreModule):
                         ('avatar', ('file:bytes', {}), {
                             'doc': 'The file representing the avatar (e.g., profile picture) for the group.'
                         }),
-                        ('desc', ('str', {}), {  # NOTE was str:txt
+                        ('desc', ('str', {}), {
                             'doc': 'The text of the description of the group.'
                         }),
                         ('webpage', ('inet:url', {}), {
@@ -1421,7 +1420,7 @@ class InetModule(s_module.CoreModule):
                             'ro': 1,
                             'doc': 'The web account that made the post.'
                         }),
-                        ('text', ('str', {}), {  # NOTE was str:txt
+                        ('text', ('str', {}), {
                             'ro': 1,
                             'doc': 'The text of the post.'
                         }),
