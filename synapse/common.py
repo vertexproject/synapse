@@ -18,6 +18,7 @@ import traceback
 import contextlib
 import collections
 
+import yaml
 import regex
 
 import synapse.exc as s_exc
@@ -333,6 +334,20 @@ def jssave(js, *paths):
     path = genpath(*paths)
     with io.open(path, 'wb') as fd:
         fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
+
+def yamlload(*paths):
+    with genfile(*paths) as fd:
+        byts = fd.read()
+        if not byts:
+            return None
+        return yaml.safe_load(byts.decode('utf8'))
+
+def yamlsave(obj, *paths):
+    path = genpath(*paths)
+    with genfile(path) as fd:
+        s = yaml.safe_dump(obj, allow_unicode=False, default_flow_style=False,
+                           default_style='', explicit_start=True, explicit_end=True)
+        fd.write(s.encode('utf8'))
 
 def verstr(vtup):
     '''
