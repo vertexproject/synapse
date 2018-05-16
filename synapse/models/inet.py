@@ -1,7 +1,5 @@
 # FIXME
-# "it:*" - inet:client, inet:server, inet:flow, inet:http:request
 # "nullvals" - inet:mac, inet:ipv4, inet:ipv6
-# "file:*" - inet:passwd, inet:web:file
 
 # stdlib
 import socket
