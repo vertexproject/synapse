@@ -63,7 +63,7 @@ class CortexTest(SynTest):
                 func = CallBack()
                 core.model.prop('inet:ipv4:loc').onDel(func)
 
-                node.delete('loc')
+                node.pop('loc')
 
                 self.eq(func.args[0].buid, node.buid)
                 self.eq(func.args[1], 'us.va')

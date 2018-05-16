@@ -250,6 +250,7 @@ class CliTest(SynTest):
                 cli.on('cli:getinput', _onGetInput)
                 cli.runCmdLoop()
                 self.eq(cli.isfini, True)
+
         self.true(outp.expect('<ctrl-c>'))
 
     def test_cli_cmd_loop(self):

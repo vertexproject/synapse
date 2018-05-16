@@ -239,6 +239,7 @@ class Cli(s_eventbus.EventBus):
         if not prompt:
             prompt = self.cmdprompt
 
+        self.fire('cli:getinput')
         return get_input(prompt)
 
     def printf(self, mesg, addnl=True):
