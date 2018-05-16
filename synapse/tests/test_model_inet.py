@@ -947,6 +947,16 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_wifi_ssid(self):
+        formname = 'inet:wifi:ssid'
+        valu = 'The Best SSID '
+        expected_props = {}
+        expected_ndef = (formname, valu)
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
+
 class FIXME:
 
     def test_model_inet_whoisemail(self):
