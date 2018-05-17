@@ -1304,6 +1304,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The original/source URL before redirect'
                         }),
                         ('src:fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The FQDN within the src URL (if present)'
                         }),
                         ('dst', ('inet:url', {}), {
@@ -1311,6 +1312,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The redirected/destination URL'
                         }),
                         ('dst:fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The FQDN within the dst URL (if present)'
                         }),
                     )),
