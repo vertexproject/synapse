@@ -1307,44 +1307,6 @@ class InetModelTest(s_t_common.SynTest):
 
 class FIXME:
 
-    def test_model_inet_postref(self):
-        with self.getRamCore() as core:
-
-            fnod = core.formTufoByProp('file:bytes', 'd41d8cd98f00b204e9800998ecf8427e')
-            pnod = core.formTufoByProp('inet:web:post', ('vertex.link/user1', 'txt about a file'))
-
-            fiden = fnod[1].get('file:bytes')
-            piden = pnod[1].get('inet:web:post')
-
-            pr0 = core.formTufoByProp('inet:web:postref', (piden, ('file:bytes', fiden)))
-            pr1 = core.formTufoByProp('inet:web:postref', '(%s,file:bytes=%s)' % (piden, fiden))
-
-            self.eq(pr0[0], pr1[0])
-            self.eq(pr0[1].get('inet:web:postref:post'), piden)
-            self.eq(pr0[1].get('inet:web:postref:xref'), 'file:bytes=' + fiden)
-            self.eq(pr0[1].get('inet:web:postref:xref:prop'), 'file:bytes')
-            self.eq(pr0[1].get('inet:web:postref:xref:strval'), fiden)
-            self.eq(pr0[1].get('inet:web:postref:xref:intval'), None)
-
-    def test_model_inet_web_actref(self):
-        with self.getRamCore() as core:
-
-            fnod = core.formTufoByProp('file:bytes', 'd41d8cd98f00b204e9800998ecf8427e')
-            anod = core.formTufoByProp('inet:web:action', '*', act='laughed', acct='vertex.link/user1')
-
-            fiden = fnod[1].get('file:bytes')
-            aiden = anod[1].get('inet:web:action')
-
-            ar0 = core.formTufoByProp('inet:web:actref', (aiden, ('file:bytes', fiden)))
-            ar1 = core.formTufoByProp('inet:web:actref', '(%s,file:bytes=%s)' % (aiden, fiden))
-
-            self.eq(ar0[0], ar1[0])
-            self.eq(ar0[1].get('inet:web:actref:act'), aiden)
-            self.eq(ar0[1].get('inet:web:actref:xref'), 'file:bytes=' + fiden)
-            self.eq(ar0[1].get('inet:web:actref:xref:prop'), 'file:bytes')
-            self.eq(ar0[1].get('inet:web:actref:xref:strval'), fiden)
-            self.eq(ar0[1].get('inet:web:actref:xref:intval'), None)
-
     def test_model_inet_chprofile(self):
         with self.getRamCore() as core:
             t0 = core.formTufoByProp('inet:web:chprofile', '*', acct='vertex.link/pennywise', ipv4='1.2.3.4',
@@ -1369,29 +1331,3 @@ class FIXME:
 
             # We require the account to be present
             self.raises(PropNotFound, core.formTufoByProp, 'inet:web:chprofile', '*')
-
-    def test_model_inet_postref_postmissingprops(self):
-        with self.getRamCore() as core:
-
-            postref_tufo = core.formTufoByProp('inet:web:postref', (('vertex.link/user', 'mypost 0.0.0.0'), ('inet:ipv4', 0)))
-            self.nn(core.getTufoByProp('inet:web:post', ('vertex.link/user', 'mypost 0.0.0.0')))
-
-            self.eq(postref_tufo[1]['tufo:form'], 'inet:web:postref')
-            self.eq(postref_tufo[1]['inet:web:postref'], '804ec63392f4ea031bb3fd004dee209d')
-            self.eq(postref_tufo[1]['inet:web:postref:post'], '68bc4607f0518963165536921d6e86fa')
-            self.eq(postref_tufo[1]['inet:web:postref:xref'], 'inet:ipv4=0.0.0.0')
-            self.eq(postref_tufo[1]['inet:web:postref:xref:prop'], 'inet:ipv4')
-            self.eq(postref_tufo[1]['inet:web:postref:xref:intval'], 0)
-
-            post_tufo = core.formTufoByProp('inet:web:post', ('vertex.link/user', 'mypost 0.0.0.0'))
-            # Ensure we got the deconflicted node that was already made, not a new node
-            self.notin('.new', post_tufo[1])
-            self.eq(post_tufo[1]['inet:web:post'], postref_tufo[1]['inet:web:postref:post'])
-            # Ensure that subs on the autoadd node are formed properly
-            self.eq(post_tufo[1].get('inet:web:post:acct'), 'vertex.link/user')
-            self.eq(post_tufo[1].get('inet:web:post:text'), 'mypost 0.0.0.0')
-            # Ensure multiple subs were made into nodes
-            self.nn(core.getTufoByProp('inet:web:acct', 'vertex.link/user'))
-            self.nn(core.getTufoByProp('inet:user', 'user'))
-            self.nn(core.getTufoByProp('inet:fqdn', 'vertex.link'))
-            self.nn(core.getTufoByProp('inet:fqdn', 'link'))
