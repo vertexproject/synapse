@@ -1359,8 +1359,14 @@ class InetModule(s_module.CoreModule):
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the account was registered.'
                         }),
-                        ('signup:ipv4', ('inet:ipv4', {}), {
+                        ('signup:client', ('inet:client', {}), {
+                            'doc': 'The client address used to sign up for the account.'
+                        }),
+                        ('signup:client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The IPv4 address used to sign up for the account.'
+                        }),
+                        ('signup:client:ipv6', ('inet:ipv4', {}), {
+                            'doc': 'The IPv6 address used to sign up for the account.'
                         }),
                         ('site', ('inet:fqdn', {}), {
                             'ro': True,
@@ -1501,13 +1507,13 @@ class InetModule(s_module.CoreModule):
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the group was created on the site.'
                         }),
-                        ('client', ('inet:client', {}), {
+                        ('signup:client', ('inet:client', {}), {
                             'doc': 'The client address used to create the group.'
                         }),
-                        ('client:ipv4', ('inet:ipv4', {}), {
+                        ('signup:client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The IPv4 address used to create the group.'
                         }),
-                        ('client:ipv6', ('inet:ipv6', {}), {
+                        ('signup:client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The IPv6 address used to create the group.'
                         }),
                     )),

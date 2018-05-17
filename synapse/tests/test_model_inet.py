@@ -902,7 +902,7 @@ class InetModelTest(s_t_common.SynTest):
                 'realname': 'Брут',
                 'realname:en': 'brutus',
                 'signup': 3,
-                'signup:ipv4': 4,
+                'signup:client': '0.0.0.4',
                 'tagline': 'Taglines are not tags',
                 'url': 'https://blogs.vertex.link/',
                 'webpage': 'https://blogs.vertex.link/brutus',
@@ -916,6 +916,8 @@ class InetModelTest(s_t_common.SynTest):
                 'latlong': (0.0, 0.0),
                 'phone': '5555555555',
                 'realname': 'брут',
+                'signup:client': 'tcp://0.0.0.4',
+                'signup:client:ipv4': 4,
             })
 
             with core.snap(write=True) as snap:
@@ -998,7 +1000,7 @@ class InetModelTest(s_t_common.SynTest):
             'loc': 'the internet',
             'latlong': '0,0',
             'signup': 0,
-            'client': '0.0.0.0',
+            'signup:client': '0.0.0.0',
         }
         expected_props = {
             'site': valu[0],
@@ -1012,8 +1014,8 @@ class InetModelTest(s_t_common.SynTest):
             'loc': 'the internet',
             'latlong': (0.0, 0.0),
             'signup': 0,
-            'client': 'tcp://0.0.0.0',
-            'client:ipv4': 0
+            'signup:client': 'tcp://0.0.0.0',
+            'signup:client:ipv4': 0
         }
         expected_ndef = (formname, valu)
         with self.getTestCore() as core:
