@@ -262,7 +262,7 @@ class Snap(s_eventbus.EventBus):
 
         # time for the perms check...
         if not self.allowed('node:add', form.name):
-            raise s_exc.AuthDeny(mesg='Not allowed to add a node.',
+            raise s_exc.AuthDeny(mesg='Not allowed to add the node.',
                                  form=form.name)
 
         # lets build a node...
