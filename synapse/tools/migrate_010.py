@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 # TODO
 # check model version before begin migration
 # push tmp scripts to kudu gitlab
-# Add config file to allow additional coremodules
 
 # Topologically sorted comp and sepr types that are form types that have other comp types as elements.  The beginning
 # of the list has more dependencies than the end.
@@ -307,7 +306,7 @@ class Migrator:
         valdict = t.norm(propval)[1]
         for field in (x[0] for x in t._get_fields()):
             oldval = valdict[field]
-            full_member = '%s:%s' % (formname, field)
+            full_member = '%s:%s' % (propname, field)
             _, val = self.convert_subprop(formname, full_member, oldval, props)
             retn.append(val)
 
@@ -457,6 +456,7 @@ class Migrator:
         'inet:ipv4:cc': 'inet:ipv4:loc',
         'tel:phone:cc': 'tel:phone:loc',
         'ou:org:cc': 'ou:org:loc',
+        'inet:web:acct:client': 'inet:web:acct:signup:client',
         'inet:dns:look:ipv4': 'inet:dns:look:client',
         'inet:dns:look:tcp4': 'inet:dns:look:server',
         'inet:dns:look:udp4': 'inet:dns:look:server',
@@ -497,7 +497,9 @@ class Migrator:
         'ps:person:guidname',
         'ps:persona:guidname',
         'inet:web:action:info',
+        'inet:web:action:ipv4',
         'inet:ssl:tcp4cert:file',
+        'inet:ssl:tcp4cert:cert',
         'inet:ssl:tcp4cert:tcp4',
         'ps:image:person',
         'ps:image:file',
@@ -640,7 +642,10 @@ class Migrator:
 
     subprop_special = {
         'inet:web:logon:ipv4': ipv4_to_client,
-        'inet:web:logon:ipv6': ipv6_to_client,
+        'inet:web:logon:ipv4': ipv4_to_client,
+        'inet:web:action:ipv6': ipv4_to_client,
+        'inet:web:action:ipv6': ipv6_to_client,
+        'inet:web:acct:signup:ipv4': ipv4_to_client,
         'inet:dns:look:ipv4': ipv4_to_client,
         'it:exec:bind:tcp:ipv4': ip_with_port_to_server,
         'it:exec:bind:tcp:ipv6': ip_with_port_to_server,

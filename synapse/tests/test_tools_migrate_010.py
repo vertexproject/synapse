@@ -26,7 +26,7 @@ class Migrate010Test(s_iq.SynTest):
             file_guid = s_common.guid()
             file_tufo = core.formTufoByProp('file:bytes', file_guid)
             core.formTufoByProp('inet:web:acct', 'twitter.com/ironman', avatar=file_guid,
-                                **{'seen:min': 1000, 'seen:max': 2000})
+                                **{'seen:min': 1000, 'seen:max': 2000, 'signup:ipv4': '1.2.3.4'})
             info = {
                 'org': '*',
                 'person': '*',
@@ -83,14 +83,15 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(node[1]['props']['avatar'], 'guid:' + file_guid)
 
             props = {'a': 'WOOT.com/1.002.3.4', 'rcode': 0, 'time': now, 'ipv4': '5.5.5.5',
-                     'udp4': '8.8.8.8:80'}
-            core.formTufoByProp('inet:dns:look', '*', **props)
+                     'udp4': '8.8.8.8:80', 'ns': 'foo.org/blah.info', 'ns:ns': 'blah.info'}
+            tufo = core.formTufoByProp('inet:dns:look', '*', **props)
             fh = tempfile.TemporaryFile(dir=dirn)
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             look_nodes = self.get_formfile('inet:dns:look', fh)
             self.eq(len(look_nodes), 1)
             self.eq(look_nodes[0][1]['props']['client'], 'tcp://5.5.5.5')
             self.eq(look_nodes[0][1]['props']['server'], 'udp://8.8.8.8:80')
+            self.eq(look_nodes[0][1]['props']['ns'], ('foo.org', 'blah.info'))
 
             nodes = self.get_formfile('inet:server', fh)
             self.eq(len(nodes), 1)
