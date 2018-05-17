@@ -981,6 +981,41 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_web_group(self):
+        formname = 'inet:web:group'
+        valu = ('vertex.link', 'CoolGroup')
+        input_props = {
+            'name': 'The coolest group',
+            'name:en': 'The coolest group (in english)',
+            'url': 'https://vertex.link/CoolGroup',
+            'avatar': 64 * 'f',
+            'desc': 'a Really cool group',
+            'webpage': 'https://vertex.link/CoolGroup/page',
+            'loc': 'the internet',
+            'latlong': '0,0',
+            'signup': 0,
+            'signup:ipv4': 0
+        }
+        expected_props = {
+            'site': valu[0],
+            'id': valu[1],
+            'name': 'The coolest group',
+            'name:en': 'The coolest group (in english)',
+            'url': 'https://vertex.link/CoolGroup',
+            'avatar': 'sha256:' + 64 * 'f',
+            'desc': 'a Really cool group',
+            'webpage': 'https://vertex.link/CoolGroup/page',
+            'loc': 'the internet',
+            'latlong': (0.0, 0.0),
+            'signup': 0,
+            'signup:ipv4': 0
+        }
+        expected_ndef = (formname, valu)
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_web_memb(self):
         formname = 'inet:web:memb'
         valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'kenshoto'))
