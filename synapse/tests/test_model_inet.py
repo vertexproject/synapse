@@ -442,6 +442,32 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, (32 * 'a', ('cool', 'Cooler')), props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_http_response(self):
+        formname = 'inet:http:response'
+        input_props = {
+            'flow': 32 * 'f',
+            'host': 32 * 'c',
+            'time': 0,
+            'request': 32 * 'a',
+            'code': '401',
+            'reason': 'newp',
+            'body': 64 * 'b'
+        }
+        expected_props = {
+            'flow': 32 * 'f',
+            'host': 32 * 'c',
+            'time': 0,
+            'request': 32 * 'a',
+            'code': 401,
+            'reason': 'newp',
+            'body': 'sha256:' + 64 * 'b'
+        }
+        expected_ndef = (formname, 32 * 'd')
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, 32 * 'd', props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_iface(self):
         formname = 'inet:iface'
         input_props = {
