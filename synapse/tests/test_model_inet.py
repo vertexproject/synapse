@@ -232,21 +232,42 @@ class InetModelTest(s_t_common.SynTest):
             'duration': 1,
             'from': 32 * 'b',
             'src': 'tcp://127.0.0.1:45654',
-            'dst': 'tcp://1.2.3.4:80'
+            'src:host': 32 * 'b',
+            'src:proc': 32 * 'c',
+            'src:exe': 64 * 'd',
+            'src:txbytes': 1,
+            'dst': 'tcp://1.2.3.4:80',
+            'dst:host': 32 * 'e',
+            'dst:proc': 32 * 'f',
+            'dst:exe': 64 * '0',
+            'dst:txbytes': 2
         }
         expected_props = {
             'time': 0,
             'duration': 1,
             'from': 32 * 'b',
             'src': 'tcp://127.0.0.1:45654',
-            'dst': 'tcp://1.2.3.4:80'
+            'src:port': 45654,
+            'src:proto': 'tcp',
+            'src:ipv4': 2130706433,
+            'src:host': 32 * 'b',
+            'src:proc': 32 * 'c',
+            'src:exe': 'sha256:' + 64 * 'd',
+            'src:txbytes': 1,
+            'dst': 'tcp://1.2.3.4:80',
+            'dst:port': 80,
+            'dst:proto': 'tcp',
+            'dst:ipv4': 16909060,
+            'dst:host': 32 * 'e',
+            'dst:proc': 32 * 'f',
+            'dst:exe': 'sha256:' + 64 * '0',
+            'dst:txbytes': 2
         }
-        # FIXME subs
+        expected_ndef = (formname, 32 * 'a')
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, 32 * 'a', props=input_props)
-                self.eq(node.ndef, (formname, 32 * 'a'))
-                [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
+                self.checkNode(node, (expected_ndef, expected_props))
 
     def test_fqdn(self):
         formname = 'inet:fqdn'
