@@ -90,7 +90,8 @@ class Node:
             return False
 
         if not self.snap.allowed('prop:set', self.form.name, prop.name):
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='Not allowed to set the property.',
+                                 form=self.form.name, prop=prop.name)
 
         curv = self.props.get(name)
 
@@ -202,7 +203,8 @@ class Node:
             return False
 
         if not self.snap.allowed('prop:del', self.form.name, prop.name):
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='Not allowed to delete the property.',
+                                 form=self.form.name, prop=prop.name)
 
         if prop.info.get('ro') and not init and not self.init:
             self.snap.warn('trying to pop a read-only prop!')
@@ -227,7 +229,7 @@ class Node:
         path = s_chop.tagpath(tag)
 
         if not self.snap.allowed('tag:add', *path):
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='Not allowed to add the tag.', tag=tag)
 
         if valu != (None, None):
             valu = self.snap.model.type('ival').norm(valu)[0]
@@ -281,7 +283,7 @@ class Node:
         path = s_chop.tagpath(tag)
 
         if not self.snap.allowed('tag:del', *path):
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='Not allowed to delete the tag.', tag=tag)
 
         name = '.'.join(path)
 

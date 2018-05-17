@@ -1,7 +1,5 @@
 # FIXME
-# "it:*" - inet:client, inet:server, inet:flow, inet:http:request
 # "nullvals" - inet:mac, inet:ipv4, inet:ipv6
-# "file:*" - inet:passwd, inet:web:file
 
 # stdlib
 import socket
@@ -605,16 +603,40 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An instance of a file downloaded from a server.',
                     }),
 
-                    ('inet:group', ('str', {}), {
-                        'doc': 'A group name string.'
-                    }),
-
                     ('inet:flow', ('guid', {}), {
                         'doc': 'An individual network connection between a given source and destination.'
                     }),
 
+                    ('inet:group', ('str', {}), {
+                        'doc': 'A group name string.'
+                    }),
+
+                    ('inet:http:header', ('comp', {'fields': (('name', ('str', {'lower': True})), ('value', 'str'))}), {
+                        'doc': 'An HTTP protocol header key/value.',
+                    }),
+
+                    ('inet:http:param', ('comp', {'fields': (('name', ('str', {'lower': True})), ('value', 'str'))}), {
+                        'doc': 'An HTTP request path query parameter.',
+                    }),
+
+                    ('inet:http:reqhead', ('comp', {'fields': (('request', 'inet:http:request'), ('header', 'inet:http:header'))}), {
+                        'doc': 'An instance of an HTTP header within a specific HTTP request.',
+                    }),
+
+                    ('inet:http:reqparam', ('comp', {'fields': (('request', 'inet:http:request'), ('param', 'inet:http:param'))}), {
+                        'doc': 'An instance of an HTTP request parameter within a specific HTTP requst.',
+                    }),
+
                     ('inet:http:request', ('guid', {}), {
-                        'doc': 'A single client HTTP request.',
+                        'doc': 'A single client http request.',
+                    }),
+
+                    ('inet:http:response', ('guid', {}), {
+                        'doc': 'A server response to a client HTTP request.',
+                    }),
+
+                    ('inet:http:resphead', ('comp', {'fields': (('response', 'inet:http:response'), ('header', 'inet:http:header'))}), {
+                        'doc': 'An instance of an HTTP header within a specific HTTP response.',
                     }),
 
                     ('inet:iface', ('guid', {}), {
@@ -648,6 +670,10 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:server', ('inet:addr', {}), {
                         'doc': 'A network server address.'
+                    }),
+
+                    ('inet:servfile', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
+                        'doc': 'A file hosted on a server for access over a network protocol.',
                     }),
 
                     ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
@@ -699,9 +725,12 @@ class InetModule(s_module.CoreModule):
                         'ex': 'twitter.com/invisig0th|twitter.com/gobbles|20041012130220'
                     }),
 
-                    #('inet:web:post', ('comp', {'fields': (('acct', 'inet:web:acct'), ('text', 'str'))}), {
                     ('inet:web:post', ('guid', {}), {
                         'doc': 'A post made by a web account.'
+                    }),
+
+                    ('inet:whois:contact', ('comp', {'fields': (('rec', 'inet:whois:rec'), ('type', ('str', {'lower': True})))}), {
+                        'doc': 'An individual contact from a domain whois record.'
                     }),
 
                     ('inet:whois:rar', ('str', {'lower': True}), {
@@ -751,19 +780,19 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:asnet4', {}, (
                         ('asn', ('inet:asn', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The Autonomous System Number (ASN) of the netblock.'
                         }),
                         ('net4', ('inet:net4', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The IPv4 address range assigned to the ASN.'
                         }),
                         ('net4:min', ('inet:ipv4', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The first IPv4 in the range assigned to the ASN.'
                         }),
                         ('net4:max', ('inet:ipv4', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The last IPv4 in the range assigned to the ASN.'
                         }),
                     )),
@@ -773,12 +802,10 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The broadcast IP address from the CIDR notation.'
                         }),
-
                         ('mask', ('int', {}), {
                             'ro': True,
                             'doc': 'The mask from the CIDR notation.'
                         }),
-
                         ('network', ('inet:ipv4', {}), {
                             'ro': True,
                             'doc': 'The network IP address from the CIDR notation.'
@@ -787,22 +814,21 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:client', {}, (
                         ('proto', ('str', {'lower': True}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The network protocol of the client.'
                         }),
                         ('ipv4', ('inet:ipv4', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The IPv4 of the client.'
                         }),
                         ('ipv6', ('inet:ipv6', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The IPv6 of the client.'
                         }),
-                        # FIXME port it:host
-                        #('host', ('it:host', {}), {
-                        #    'ro': 1,
-                        #    'doc': 'The it:host node for the client.'
-                        #}),
+                        ('host', ('it:host', {}), {
+                            'ro': True,
+                            'doc': 'The it:host node for the client.'
+                        }),
                         ('port', ('inet:port', {}), {
                             'doc': 'The client tcp/udp port.'
                         }),
@@ -839,9 +865,9 @@ class InetModule(s_module.CoreModule):
                         ('client', ('inet:client', {}), {
                             'doc': 'The inet:addr of the client.'
                         }),
-                        #('client:host', ('it:host', {}), {
-                        #    'doc': 'The it:host node for the client.'
-                        #}),
+                        ('client:host', ('it:host', {}), {
+                            'doc': 'The it:host node for the client.'
+                        }),
                         ('client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The IPv4 of the client.'
                         }),
@@ -857,28 +883,28 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:email', {}, (
-
                         ('user', ('inet:user', {}), {
                             'ro': True,
                             'doc': 'The username of the email address.'}),
-
                         ('fqdn', ('inet:fqdn', {}), {
                             'ro': True,
                             'doc': 'The domain of the email address.'}),
                     )),
 
                     ('inet:flow', {}, (
-                        ('time', ('time', {}), {
-                            'doc': 'The time the network connection was initiated.'
-                        }),
-                        ('duration', ('int', {}), {
-                            'doc': 'The duration of the flow in seconds.'
-                        }),
-                        ('from', ('guid', {}), {
-                            'doc': 'The ingest source file/iden. Used for reparsing.'
-                        }),
 
-                        # FIXME port src/dst
+                        ('time', ('time', {}), {
+                            'doc': 'The time the network connection was initiated.'}),
+
+                        ('duration', ('int', {}), {
+                            'doc': 'The duration of the flow in seconds.'}),
+
+                        ('from', ('guid', {}), {
+                            'doc': 'The ingest source file/iden. Used for reparsing.'}),
+
+                        ('dst', ('inet:server', {}), {'ro': 1,
+                            'doc': 'The destination address / port for a connection.'}),
+
                         ('dst:host', ('it:host', {}), {
                             'doc': 'The guid of the destination host.'}),
 
@@ -902,9 +928,6 @@ class InetModule(s_module.CoreModule):
 
                         ('src:txbytes', ('int', {}), {'ro': 1,
                             'doc': 'The number of bytes sent by the source host / process / file.'}),
-
-                        ('dst', ('inet:server', {}), {'ro': 1,
-                            'doc': 'The destination address / port for a connection.'}),
 
                         ('dst:ipv4', ('inet:ipv4', {}), {'ro': 1,
                             'doc': 'The destination IPv4 address.'}),
@@ -932,56 +955,108 @@ class InetModule(s_module.CoreModule):
 
                         ('src:proto', ('str', {'lower': True}), {'ro': 1,
                             'doc': 'The source port.'}),
-
                     )),
 
                     ('inet:fqdn', {}, (
-
                         ('created', ('time', {'ismin': True}), {
                             'doc': 'The earliest known registration (creation) date for the fqdn.'
                         }),
-
                         ('domain', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The parent domain for the FQDN.',
                         }),
-
                         ('expires', ('time', {'ismax': True}), {
                             'doc': 'The current expiration date for the fqdn.'
                         }),
-
                         ('host', ('str', {'lower': True}), {
+                            'ro': True,
                             'doc': 'The host part of the FQDN.',
                         }),
-
                         ('issuffix', ('bool', {}), {
                             'doc': 'True if the FQDN is considered a suffix.',
                             'defval': 0,
                         }),
-
                         ('iszone', ('bool', {}), {
                             'doc': 'True if the FQDN is considered a zone.',
                             'defval': 0,
                         }),
-
                         ('updated', ('time', {'ismax': True}), {
                             'doc': 'The last known updated date for the fqdn.'
                         }),
-
                         ('zone', ('inet:fqdn', {}), {
                             'doc': 'The zone level parent for this FQDN.',
                         }),
-
                     )),
 
                     ('inet:group', {}, ()),
+
+                    ('inet:http:header', {}, (
+                        ('name', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The name of the HTTP header.'
+                        }),
+                        ('value', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The value of the HTTP header.'
+                        }),
+                    )),
+
+                    ('inet:http:param', {}, (
+                        ('name', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The name of the HTTP query parameter.'
+                        }),
+                        ('value', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The value of the HTTP query parameter.'
+                        }),
+                    )),
+
+                    ('inet:http:reqhead', {}, (
+                        ('request', ('inet:http:request', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP request which contained the header.'
+                        }),
+                        ('header', ('inet:http:header', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP header contained in the request.'
+                        }),
+                        ('header:name', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The HTTP header name'
+                        }),
+                        ('header:value', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP header value.'
+                        }),
+                    )),
+
+                    ('inet:http:reqparam', {}, (
+                        ('request', ('inet:http:request', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP request which contained the header.'
+                        }),
+                        ('param', ('inet:http:header', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP query parameter contained in the request.'
+                        }),
+                        ('param:name', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The HTTP query parameter name'
+                        }),
+                        ('param:value', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP query parameter value.'
+                        }),
+                    )),
 
                     ('inet:http:request', {}, (
                         ('flow', ('inet:flow', {}), {
                             'doc': 'The inet:flow which contained the HTTP request.'
                         }),
-                        #('host', ('it:host', {}), {  # FIXME
-                        #    'doc': 'The it:host which sent the HTTP request.'
-                        #}),
+                        ('host', ('it:host', {}), {
+                            'doc': 'The it:host which sent the HTTP request.'
+                        }),
                         ('time', ('time', {}), {
                             'doc': 'The time that the HTTP request was sent.'
                         }),
@@ -999,13 +1074,56 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:http:response', {}, (
+                        ('flow', ('inet:flow', {}), {
+                            'doc': 'The inet:flow which contained the HTTP response.'
+                        }),
+                        ('host', ('it:host', {}), {
+                            'doc': 'The it:host which sent the HTTP response.'
+                        }),
+                        ('time', ('time', {}), {
+                            'doc': 'The time that the HTTP response was sent.'
+                        }),
+                        ('request', ('inet:http:request', {}), {
+                            'doc': 'The HTTP request which caused the response.'
+                        }),
+                        ('code', ('int', {}), {
+                            'doc': 'The HTTP response code.'
+                        }),
+                        ('reason', ('str', {}), {
+                            'doc': 'The HTTP response reason string.'
+                        }),
+                        ('body', ('file:bytes', {}), {
+                            'doc': 'The HTTP response body data.'
+                        }),
+                    )),
+
+                    ('inet:http:resphead', {}, (
+                        ('response', ('inet:http:response', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP response which contained the header.'
+                        }),
+                        ('header', ('inet:http:header', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP header contained in the response.'
+                        }),
+                        ('header:name', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The HTTP header name'
+                        }),
+                        ('header:value', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP header value.'
+                        }),
+                    )),
+
                     ('inet:iface', {}, (
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The last known latitude/longitude for the node'
                         }),
-                        #('host', ('it:host', {}), {
-                        #    'doc': 'The guid of the host the interface is associated with.'
-                        #}),
+                        ('host', ('it:host', {}), {
+                            'doc': 'The guid of the host the interface is associated with.'
+                        }),
                         ('type', ('str', {'lower': True}), {
                             'doc': 'The free-form interface type.'
                         }),
@@ -1036,49 +1154,38 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:ipv4', {}, (
-
                         ('asn', ('inet:asn', {}), {
-                            'defval': 0,  # FIXME replace with nullval
+                            'defval': 0,  # TODO replace with nullval
                             'doc': 'The ASN to which the IPv4 address is currently assigned.'
                         }),
-
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The best known latitude/longitude for the node'
                         }),
-
                         ('loc', ('loc', {}), {
                             'defval': '??',
                             'doc': 'The geo-political location string for the IPv4.'
                         }),
-
                         ('type', ('str', {}), {
                             'defval': '??',
                             'doc': 'The type of IP address (e.g., private, multicast, etc.).'
                         })
-
                     )),
 
                     ('inet:ipv6', {}, (
-
                         ('asn', ('inet:asn', {}), {
-                            'defval': 0,  # FIXME replace with nullval
+                            'defval': 0,  # TODO replace with nullval
                             'doc': 'The ASN to which the IPv6 address is currently assigned.'
                         }),
-
                         ('ipv4', ('inet:ipv4', {}), {
-                            'ro': True,
                             'doc': 'The mapped ipv4.'
                         }),
-
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The last known latitude/longitude for the node'
                         }),
-
                         ('loc', ('loc', {}), {
                             'defval': '??',
                             'doc': 'The geo-political location string for the IPv6.'
                         }),
-
                     )),
 
                     ('inet:mac', {}, [
@@ -1119,8 +1226,6 @@ class InetModule(s_module.CoreModule):
 
                     )),
 
-                    #TODO ('inet:banner'
-
                     ('inet:rfc2822:addr', {}, (
                         ('name', ('ps:name', {}), {
                             'ro': True,
@@ -1134,87 +1239,118 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:server', {}, (
                         ('proto', ('str', {'lower': True}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The network protocol of the server.'
                         }),
                         ('ipv4', ('inet:ipv4', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The IPv4 of the server.'
                         }),
                         ('ipv6', ('inet:ipv6', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The IPv6 of the server.'
                         }),
-                        # FIXME port it:host
-                        #('host', ('it:host', {}), {
-                        #    'ro': 1,
-                        #    'doc': 'The it:host node for the server.'
-                        #}),
+                        ('host', ('it:host', {}), {
+                            'ro': True,
+                            'doc': 'The it:host node for the server.'
+                        }),
                         ('port', ('inet:port', {}), {
+                            'doc': 'The server tcp/udp port.'
+                        }),
+                    )),
+
+                    ('inet:servfile', {}, (
+                        ('file', ('file:bytes', {}), {
+                            'ro': True,
+                            'doc': 'The file hosted by the server.'
+                        }),
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The inet:addr of the server.'
+                        }),
+                        ('server:proto', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The network protocol of the server.'
+                        }),
+                        ('server:ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
+                            'doc': 'The IPv4 of the server.'
+                        }),
+                        ('server:ipv6', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The IPv6 of the server.'
+                        }),
+                        ('server:host', ('it:host', {}), {
+                            'ro': True,
+                            'doc': 'The it:host node for the server.'
+                        }),
+                        ('server:port', ('inet:port', {}), {
                             'doc': 'The server tcp/udp port.'
                         }),
                     )),
 
                     ('inet:url', {}, (
                         ('fqdn', ('inet:fqdn', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'
                         }),
                         ('ipv4', ('inet:ipv4', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'
                         }),
                         ('ipv6', ('inet:ipv6', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The IPv6 address used in the URL.'
                         }),
                         ('passwd', ('inet:passwd', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The optional password used to access the URL.'
                         }),
                         ('path', ('str', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The path in the URL.'
                         }),
                         ('port', ('inet:port', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
                                    'URLs prefixed with https will be set to port 443 unless otherwise specified.'
                         }),
                         ('proto', ('str', {'lower': True}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The protocol in the URL.'
                         }),
                         ('user', ('inet:user', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The optional username used to access the URL.'
                         }),
                     )),
 
                     ('inet:urlfile', {}, (
                         ('url', ('inet:url', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The URL where the file was hosted.'
                         }),
                         ('file', ('file:bytes', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The file that was hosted at the URL.'
                         }),
                     )),
 
                     ('inet:urlredir', {}, (
                         ('src', ('inet:url', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The original/source URL before redirect'
                         }),
                         ('src:fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The FQDN within the src URL (if present)'
                         }),
                         ('dst', ('inet:url', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The redirected/destination URL'
                         }),
                         ('dst:fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The FQDN within the dst URL (if present)'
                         }),
                     )),
@@ -1222,97 +1358,75 @@ class InetModule(s_module.CoreModule):
                     ('inet:user', {}, ()),
 
                     ('inet:web:acct', {}, (
-
                         ('avatar', ('file:bytes', {}), {
                             'doc': 'The file representing the avatar (e.g., profile picture) for the account.'
                         }),
-
                         ('dob', ('time', {}), {
                             'doc': 'A self-declared date of birth for the account (if the account belongs to a person).'
                         }),
-
                         ('email', ('inet:email', {}), {
                             'doc': 'The email address associated with the account.'
                         }),
-
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The last known latitude/longitude for the node'
                         }),
-
                         ('loc', ('loc', {}), {
                             'doc': 'A self-declared location for the account.'
                         }),
-
                         ('name', ('inet:user', {}), {
                             'doc': 'The localized name associated with the account (may be different from the '
                                    'account identifier, e.g., a display name).'
                         }),
-
                         ('name:en', ('inet:user', {}), {
                             'doc': 'The English version of the name associated with the (may be different from '
                                    'the account identifier, e.g., a display name).'
                         }),
-
                         ('occupation', ('str', {'lower': True}), {
                             'doc': 'A self-declared occupation for the account.'
                         }),
-
                         ('passwd', ('inet:passwd', {}), {
                             'doc': 'The current password for the account.'
                         }),
-
                         ('phone', ('tel:phone', {}), {
                             'doc': 'The phone number associated with the account.'
                         }),
-
                         ('realname', ('ps:name', {}), {
                             'doc': 'The localized version of the real name of the account owner / registrant.'
                         }),
-
                         ('realname:en', ('ps:name', {}), {
                             'doc': 'The English version of the real name of the account owner / registrant.'
                         }),
-
-                        ('seen:max', ('time', {'max': True}), {
-                            'doc': 'The most recent known date of activity for the account.'
-                        }),
-
-                        ('seen:min', ('time', {'min': True}), {
-                            'doc': 'The earliest known date of activity for the account.'
-                        }),
-
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the account was registered.'
                         }),
-
-                        ('signup:ipv4', ('inet:ipv4', {}), {
+                        ('signup:client', ('inet:client', {}), {
+                            'doc': 'The client address used to sign up for the account.'
+                        }),
+                        ('signup:client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The IPv4 address used to sign up for the account.'
                         }),
-
+                        ('signup:client:ipv6', ('inet:ipv4', {}), {
+                            'doc': 'The IPv6 address used to sign up for the account.'
+                        }),
                         ('site', ('inet:fqdn', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
-
                         ('tagline', ('str', {}), {
                             'doc': 'The text of the account status or tag line.'
                         }),
-
                         ('url', ('inet:url', {}), {
                             'doc': 'The service provider URL where the account is hosted.'
                         }),
-
                         ('user', ('inet:user', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The unique identifier for the account (may be different from the common '
                                    'name or display name).'
                         }),
-
                         ('webpage', ('inet:url', {}), {
                             'doc': 'A related URL specified by the account (e.g., a personal or company web '
                                    'page, blog, etc.).'
                         }),
-
                     )),
 
                     ('inet:web:action', {}, (
@@ -1320,78 +1434,83 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The action performed by the account.'
                         }),
                         ('acct', ('inet:web:acct', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The web account associated with the action.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('time', ('time', {}), {
                             'doc': 'The date and time the account performed the action.'
                         }),
-                        ('ipv4', ('inet:ipv4', {}), {
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The source client address of the action.'
+                        }),
+                        ('client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The source IPv4 address of the action.'
                         }),
-                        ('ipv6', ('inet:ipv6', {}), {
+                        ('client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The source IPv6 address of the action.'
                         }),
                     )),
 
                     ('inet:web:file', {}, (
                         ('acct', ('inet:web:acct', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The account that owns or is associated with the file.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('file', ('file:bytes', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The file owned by or associated with the account.'
                         }),
-                        # FIXME missing file:base
-                        #('name', ('file:base', {}), {
-                        #    'doc': 'The name of the file owned by or associated with the account.'
-                        #}),
+                        ('name', ('file:base', {}), {
+                            'doc': 'The name of the file owned by or associated with the account.'
+                        }),
                         ('posted', ('time', {}), {
                             'doc': 'The date and time the file was posted / submitted.'
                         }),
-                        ('ipv4', ('inet:ipv4', {}), {
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The source client address used to post or submit the file.'
+                        }),
+                        ('client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The source IPv4 address used to post or submit the file.'
                         }),
-                        ('ipv6', ('inet:ipv6', {}), {
+                        ('client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The source IPv6 address used to post or submit the file.'
                         }),
                     )),
 
                     ('inet:web:follows', {}, (
                         ('follower', ('inet:web:acct', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The account following an account.'
                         }),
                         ('followee', ('inet:web:acct', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The account followed by an account.'
                         }),
                     )),
 
                     ('inet:web:group', {}, (
                         ('site', ('inet:fqdn', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The site or service associated with the group.'
                         }),
                         ('id', ('inet:group', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The site-specific unique identifier for the group (may be different from '
                                    'the common name or display name).'
                         }),
@@ -1424,38 +1543,41 @@ class InetModule(s_module.CoreModule):
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the group was created on the site.'
                         }),
-                        ('signup:ipv4', ('inet:ipv4', {}), {
+                        ('signup:client', ('inet:client', {}), {
+                            'doc': 'The client address used to create the group.'
+                        }),
+                        ('signup:client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The IPv4 address used to create the group.'
                         }),
-                        ('signup:ipv6', ('inet:ipv6', {}), {
+                        ('signup:client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The IPv6 address used to create the group.'
                         }),
                     )),
 
                     ('inet:web:logon', {}, (
                         ('acct', ('inet:web:acct', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The web account associated with the logon event.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('time', ('time', {}), {'ro': 1,
                             'doc': 'The date and time the account logged into the service.'
                         }),
-                        ('client', ('inet:client', {}), {'ro': 1,
-                            'doc': 'The inet client address used to logon.'
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The source address of the logon.'
                         }),
-                        ('client:ipv4', ('inet:ipv4', {}), {'ro': 1,
-                            'doc': 'The client IPv4 address of the logon.'
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The source IPv4 address of the logon.'
                         }),
-                        ('client:ipv6', ('inet:ipv6', {}), {'ro': 1,
-                            'doc': 'The client IPv6 address of the logon.'
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The source IPv6 address of the logon.'
                         }),
                         ('logout', ('time', {}), {'ro': 1,
                             'doc': 'The date and time the account logged out of the service.'
@@ -1464,9 +1586,11 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:memb', {}, (
                         ('acct', ('inet:web:acct', {}), {
+                            'ro': True,
                             'doc': 'The account that is a member of the group.'
                         }),
                         ('group', ('inet:web:group', {}), {
+                            'ro': True,
                             'doc': 'The group that the account is a member of.'
                         }),
                         ('title', ('str', {'lower': True}), {
@@ -1479,12 +1603,15 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:mesg', {}, [
                         ('from', ('inet:web:acct', {}), {
+                            'ro': True,
                             'doc': 'The web account that sent the message.'
                         }),
                         ('to', ('inet:web:acct', {}), {
+                            'ro': True,
                             'doc': 'The web account that received the message.'
                         }),
                         ('time', ('time', {}), {
+                            'ro': True,
                             'doc': 'The date and time at which the message was sent.'
                         }),
                         ('url', ('inet:url', {}), {
@@ -1500,20 +1627,20 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:post', {}, (
                         ('acct', ('inet:web:acct', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The web account that made the post.'
                         }),
-                        ('text', ('str', {}), {
-                            'ro': 1,
-                            'doc': 'The text of the post.'
-                        }),
                         ('acct:site', ('inet:fqdn', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The unique identifier for the account.'
+                        }),
+                        ('text', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The text of the post.'
                         }),
                         ('time', ('time', {}), {
                             'doc': 'The date and time that the post was made.'
@@ -1532,15 +1659,69 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:whois:contact', {}, (
+                        ('rec', ('inet:whois:rec', {}), {
+                            'ro': True,
+                            'doc': 'The whois record containing the contact data.'
+                        }),
+                        ('rec:fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
+                            'doc': 'The domain associated with the whois record.'
+                        }),
+                        ('rec:asof', ('time', {}), {
+                            'ro': True,
+                            'doc': 'The date of the whois record.'
+                        }),
+                        ('type', ('str', {'lower': True}), {
+                            'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).'
+                        }),
+                        ('id', ('str', {'lower': True}), {
+                            'doc': 'The ID associated with the contact.'
+                        }),
+                        ('name', ('str', {'lower': True}), {
+                            'doc': 'The name of the contact.'
+                        }),
+                        ('email', ('inet:email', {}), {
+                            'doc': 'The email address of the contact.'
+                        }),
+                        ('orgname', ('ou:name', {}), {
+                            'doc': 'The name of the contact organization.'
+                        }),
+                        ('address', ('str', {'lower': True}), {
+                            'doc': 'The content of the street address field(s) of the contact.'
+                        }),
+                        ('city', ('str', {'lower': True}), {
+                            'doc': 'The content of the city field of the contact.'
+                        }),
+                        ('state', ('str', {'lower': True}), {
+                            'doc': 'The content of the state field of the contact.'
+                        }),
+                        ('country', ('pol:iso2', {}), {
+                            'doc': 'The two-letter country code of the contact.'
+                        }),
+                        ('phone', ('tel:phone', {}), {
+                            'doc': 'The content of the phone field of the contact.'
+                        }),
+                        ('fax', ('tel:phone', {}), {
+                            'doc': 'The content of the fax field of the contact.'
+                        }),
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL specified for the contact'
+                        }),
+                        ('whois:fqdn', ('inet:fqdn', {}), {
+                            'doc': 'The whois server FQDN for the given contact (most likely a registrar).'
+                        }),
+                    )),
+
                     ('inet:whois:rar', {}, ()),
 
                     ('inet:whois:rec', {}, (
                         ('fqdn', ('inet:fqdn', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The domain associated with the whois record.'
                         }),
                         ('asof', ('time', {}), {
-                            'ro': 1,
+                            'ro': True,
                             'doc': 'The date of the whois record.'
                         }),
                         ('text', ('str', {'lower': True}), {
@@ -1567,15 +1748,19 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:whois:recns', {}, [
                         ('ns', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'A nameserver for a domain as listed in the domain whois record.'
                         }),
                         ('rec', ('inet:whois:rec', {}), {
+                            'ro': True,
                             'doc': 'The whois record containing the nameserver data.'
                         }),
                         ('rec:fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The domain associated with the whois record.'
                         }),
                         ('rec:asof', ('time', {}), {
+                            'ro': True,
                             'doc': 'The date of the whois record.'
                         }),
                     ]),
@@ -1585,9 +1770,11 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:whois:regmail', {}, (
                         ('fqdn', ('inet:fqdn', {}), {
+                            'ro': True,
                             'doc': 'The domain associated with the registrant email address.'
                         }),
                         ('email', ('inet:email', {}), {
+                            'ro': True,
                             'doc': 'The registrant email address associated with the domain.'
                         }),
                     )),

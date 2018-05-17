@@ -413,6 +413,10 @@ class SynTest(unittest.TestCase):
         self.eq(node.ndef, ex_ndef)
         [self.eq(node.get(k), v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
 
+        diff = {prop for prop in (set(node.props) - set(ex_props)) if not prop.startswith('.')}
+        if diff:
+            logger.warning('form(%s): untested properties: %s', node.form.name, diff)
+
     def getTestWait(self, bus, size, *evts):
         return s_eventbus.Waiter(bus, size, *evts)
 
@@ -951,11 +955,11 @@ class SynTest(unittest.TestCase):
         '''
         self.assertNotEqual(x, y)
 
-    def true(self, x):
+    def true(self, x, msg=None):
         '''
         Assert X is True
         '''
-        self.assertTrue(x)
+        self.assertTrue(x, msg=msg)
 
     def false(self, x):
         '''
@@ -1036,11 +1040,11 @@ class SynTest(unittest.TestCase):
         '''
         self.assertLessEqual(x, y)
 
-    def len(self, x, obj):
+    def len(self, x, obj, msg=None):
         '''
         Assert that the length of an object is equal to X
         '''
-        self.eq(x, len(obj))
+        self.eq(x, len(obj), msg=msg)
 
     def istufo(self, obj):
         '''
