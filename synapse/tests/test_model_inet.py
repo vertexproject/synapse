@@ -953,7 +953,7 @@ class InetModelTest(s_t_common.SynTest):
         input_props = {
             'name': 'Cool',
             'posted': 0,
-            'ipv4': 0
+            'client': '::1'
         }
         expected_props = {
             'acct': ('vertex.link', 'vertexmc'),
@@ -962,7 +962,8 @@ class InetModelTest(s_t_common.SynTest):
             'file': 'sha256:' + 64 * 'f',
             'name': 'cool',
             'posted': 0,
-            'ipv4': 0
+            'client': 'tcp://::1',
+            'client:ipv6': '::1'
         }
         expected_ndef = (formname, (valu[0], 'sha256:' + valu[1]))
         with self.getTestCore() as core:

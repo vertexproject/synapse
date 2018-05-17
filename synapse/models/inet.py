@@ -1440,11 +1440,13 @@ class InetModule(s_module.CoreModule):
                         ('posted', ('time', {}), {
                             'doc': 'The date and time the file was posted / submitted.'
                         }),
-                        # FIXME inet:client
-                        ('ipv4', ('inet:ipv4', {}), {
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The source client address used to post or submit the file.'
+                        }),
+                        ('client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The source IPv4 address used to post or submit the file.'
                         }),
-                        ('ipv6', ('inet:ipv6', {}), {
+                        ('client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The source IPv6 address used to post or submit the file.'
                         }),
                     )),
