@@ -265,9 +265,7 @@ class Daemon(EventBus):
 
     def _loadYamlPath(self, path):
         if os.path.isfile(path):
-            with open(path, 'rb') as fd:
-                text = fd.read().decode('utf8')
-                return yaml.load(text)
+            return s_common.yamlload(path)
 
         logger.warning('config not found: %r' % (path,))
         return {}
