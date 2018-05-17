@@ -636,12 +636,22 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('vendor'), 'Cool')
 
+    def test_net4(self):
+        tname = 'inet:net4'
+        with self.getTestCore() as core:
+            # Type Tests ======================================================
+            t = core.model.type(tname)
+
+            valu = ('1.2.3.4', '5.6.7.8')
+            expected = ((16909060, 84281096), {'subs': {'min': 16909060, 'max': 84281096}})
+            self.eq(t.norm(valu), expected)
+
     def test_port(self):
-        formname = 'inet:port'
+        tname = 'inet:port'
         with self.getTestCore() as core:
 
             # Type Tests ======================================================
-            t = core.model.type(formname)
+            t = core.model.type(tname)
             self.raises(s_exc.BadTypeValu, t.norm, -1)
             self.eq(t.norm(0), (0, {}))
             self.eq(t.norm(1), (1, {}))
