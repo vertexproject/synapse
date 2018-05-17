@@ -405,7 +405,11 @@ class Snap(s_eventbus.EventBus):
         if form is None:
             raise s_exc.NoSuchForm(name=name)
 
-        norm, info = form.type.norm(valu)
+        try:
+            norm, info = form.type.norm(valu)
+        except Exception as e:
+            raise s_exc.BadPropValu(prop=form.name, valu=valu)
+
         buid = s_common.buid((form.name, norm))
         return form, norm, info, buid
 

@@ -86,7 +86,7 @@ class Node:
         '''
         prop = self.form.prop(name)
         if prop is None:
-            logger.warning('NoSuchProp: %s (%s)', name, self.form.name)
+            logger.warning(f'NoSuchProp: "{name}" ({self.form.name})')
             return False
 
         if not self.snap.allowed('prop:set', self.form.name, prop.name):
@@ -95,7 +95,10 @@ class Node:
         curv = self.props.get(name)
 
         # normalize the property value...
-        norm, info = prop.type.norm(valu)
+        try:
+            norm, info = prop.type.norm(valu)
+        except Exception as e:
+            raise s_exc.BadPropValu(name=prop.full, valu=valu)
 
         # do we already have the value?
         if curv == norm:
@@ -153,6 +156,9 @@ class Node:
         if not self.init:
             prop.wasSet(self, curv)
 
+    def has(self, name):
+        return name in self.props
+
     def get(self, name):
         '''
         Return a secondary property value from the Node.
@@ -192,14 +198,14 @@ class Node:
         '''
         prop = self.form.prop(name)
         if prop is None:
-            self.snap.warn('NoSuchProp', form=self.form.name, prop=name)
+            self.snap.warn(f'NoSuchProp: "{name}" {self.form.name}')
             return False
 
         if not self.snap.allowed('prop:del', self.form.name, prop.name):
             raise s_exc.AuthDeny()
 
         if prop.info.get('ro') and not init and not self.init:
-            self.snap.warn('trying to pop() a read-only prop!')
+            self.snap.warn('trying to pop a read-only prop!')
             return False
 
         sops = prop.getDelOps(self.buid)

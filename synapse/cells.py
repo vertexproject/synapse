@@ -6,6 +6,7 @@ import yaml
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.cryotank as s_cryotank
 
 import synapse.lib.auth as s_auth
 import synapse.lib.layer as s_layer
@@ -14,6 +15,7 @@ ctors = {
     'auth': s_auth.Auth,
     'layer': s_layer.Layer,
     'cortex': s_cortex.Cortex,
+    'cryocell': s_cryotank.CryoCell,
 }
 
 def add(name, ctor):

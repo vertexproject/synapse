@@ -340,6 +340,7 @@ class Daemon(EventBus):
             logger.exception('Dmon.onLinkMesg Handler: %r' % (mesg,))
 
     async def _onShareFini(self, link, mesg):
+
         iden = mesg[1].get('share')
         share = link.get('dmon:items').get(iden)
         if share is None:
@@ -391,65 +392,6 @@ class Daemon(EventBus):
             reply[1]['retn'] = s_common.retnexc(e)
 
         await link.tx(reply)
-
-    @s_glob.synchelp
-    async def _txGenrData(self, link, iden, retn):
-        mesg = ('genr:data', {
-                    'genr': iden,
-                    'data': retn})
-        await link.tx(mesg)
-
-    @s_glob.inpool
-    def _poolGenrLoop(self, link, iden, genr):
-        genrs = link.get('dmon:genrs')
-        try:
-
-            for item in genr:
-
-                if genrs.get(iden) is None:
-                    genr.close()
-                    return
-
-                self._txGenrData(link, iden, (True, item))
-
-            self._txGenrData(link, iden, None)
-
-        # this will only happen if they injected the
-        # genr:exit, so we dont need to do anything.
-        except GeneratorExit as e:
-            return
-
-        except Exception as e:
-            retn = s_common.retnexc(e)
-            self._txGenrData(link, iden, retn)
-
-        finally:
-            genrs.pop(iden, None)
-
-    async def _coroGenrLoop(self, link, iden, genr):
-        genrs = link.get('dmon:genrs')
-        try:
-
-            async for item in genr:
-
-                if genrs.get(iden) is None:
-                    genr.close()
-                    return
-
-                retn = (True, item)
-                await self._txGenrData(link, iden, retn)
-
-            await self._txGenrData(link, iden, None)
-
-        except GeneratorExit as e:
-            pass
-
-        except Exception as e:
-            retn = s_common.retnexc(e)
-            await self._txGenrData(link, iden, retn)
-
-        finally:
-            genrs.pop(iden, None)
 
     async def _runTodoMeth(self, link, meth, args, kwargs):
 
