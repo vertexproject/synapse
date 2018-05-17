@@ -592,7 +592,7 @@ def parse_stormsub(text, off=0):
 
     return opers, off
 
-tagterm = set('),@ \t\n')
+tagterm = set(')]},@ \t\n')
 whitespace = set(' \t\n')
 
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')

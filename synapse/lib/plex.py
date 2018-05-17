@@ -188,7 +188,7 @@ class Plex(s_eventbus.EventBus):
         finally:
 
             link.writer.close()
-            await self.executor(link.fini)
+            s_glob.inpool(link.fini)()
 
     def _runIoLoop(self):
 
