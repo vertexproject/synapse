@@ -1,11 +1,4 @@
 '''
-========== Can't do yet ===========================================================================
-# FIXME relies on inet:web:acct and pv?
-('inet:web:chprofile', {
-    'subof': 'guid',
-    'doc': 'A change to a web account. Used to capture historical properties associated with '
-        ' an account, as opposed to current data in the inet:web:acct node.'}),
-
 # FIXME Figure out ipv6 range first
 ('inet:net6', {
     'subof': 'sepr',
@@ -14,29 +7,4 @@
     'doc': 'An IPv6 address range.',
     'ex': 'ff::00-ff::30'}),
 
-FORMS ==================================================================================================
-('inet:web:chprofile', {}, [
-    ('acct', {'ptype': 'inet:web:acct', 'ro': 1, 'req': 1,
-        'doc': 'The web account associated with the change.'}),
-    ('acct:site', {'ptype': 'inet:fqdn', 'ro': 1,
-        'doc': 'The site or service associated with the account.'}),
-    ('acct:user', {'ptype': 'inet:user', 'ro': 1,
-        'doc': 'The unique identifier for the account.'}),
-    ('ipv4', {'ptype': 'inet:ipv4',
-        'doc': 'The source IPv4 address used to make the account change.'}),
-    ('ipv6', {'ptype': 'inet:ipv6',
-        'doc': 'The source IPv6 address used to make the account change.'}),
-    ('time', {'ptype': 'time',
-        'doc': 'The date and time when the account change occurred.'}),
-    ('pv', {'ptype': 'propvalu', 'ro': 1, 'req': 1,
-        'doc': 'The prop=valu of the account property that was changed. Valu should be '
-            'the old / original value, while the new value should be updated on the '
-            'inet:web:acct form.'}),
-    ('pv:prop', {'ptype': 'str', 'ro': 1,
-        'doc': 'The property that was changed.'}),
-    ('pv:intval', {'ptype': 'int', 'ro': 1,
-        'doc': 'The normed value of the property (specified by pv), if the property is an integer.'}),
-    ('pv:strval', {'ptype': 'str', 'ro': 1,
-        'doc': 'The normed value of the property (specified by pv), if the property is a string.'}),
-]),
 '''
