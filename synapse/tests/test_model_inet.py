@@ -1064,6 +1064,9 @@ class InetModelTest(s_t_common.SynTest):
             'file': 'sha256:' + 64 * 'F'
         }
         expected_props = {
+            'to': ('vertex.link', 'vertexmc'),
+            'from': ('vertex.link', 'visi'),
+            'time': 0,
             'url': 'https://vertex.link/messages/0',
             'text': 'a cool Message',
             'file': 'sha256:' + 64 * 'f'
