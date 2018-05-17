@@ -943,11 +943,11 @@ class SynTest(unittest.TestCase):
 
         self.assertEqual(x, y, msg=msg)
 
-    def eqish(self, x, y, places=6):
+    def eqish(self, x, y, places=6, msg=None):
         '''
         Assert X is equal to Y within places decimal places
         '''
-        self.assertAlmostEqual(x, y, places)
+        self.assertAlmostEqual(x, y, places, msg=msg)
 
     def ne(self, x, y):
         '''
@@ -961,23 +961,23 @@ class SynTest(unittest.TestCase):
         '''
         self.assertTrue(x, msg=msg)
 
-    def false(self, x):
+    def false(self, x, msg=None):
         '''
         Assert X is False
         '''
-        self.assertFalse(x)
+        self.assertFalse(x, msg=msg)
 
-    def nn(self, x):
+    def nn(self, x, msg=None):
         '''
         Assert X is not None
         '''
-        self.assertIsNotNone(x)
+        self.assertIsNotNone(x, msg=msg)
 
-    def none(self, x):
+    def none(self, x, msg=None):
         '''
         Assert X is None
         '''
-        self.assertIsNone(x)
+        self.assertIsNone(x, msg=msg)
 
     def noprop(self, info, prop):
         '''
@@ -992,53 +992,53 @@ class SynTest(unittest.TestCase):
         '''
         return self.assertRaises(*args, **kwargs)
 
-    def sorteq(self, x, y):
+    def sorteq(self, x, y, msg=None):
         '''
         Assert two sorted sequences are the same.
         '''
-        return self.eq(sorted(x), sorted(y))
+        return self.eq(sorted(x), sorted(y), msg=msg)
 
-    def isinstance(self, obj, cls):
+    def isinstance(self, obj, cls, msg=None):
         '''
         Assert a object is the instance of a given class or tuple of classes.
         '''
-        self.assertIsInstance(obj, cls)
+        self.assertIsInstance(obj, cls, msg=msg)
 
-    def isin(self, member, container):
+    def isin(self, member, container, msg=None):
         '''
         Assert a member is inside of a container.
         '''
-        self.assertIn(member, container)
+        self.assertIn(member, container, msg=msg)
 
-    def notin(self, member, container):
+    def notin(self, member, container, msg=None):
         '''
         Assert a member is not inside of a container.
         '''
-        self.assertNotIn(member, container)
+        self.assertNotIn(member, container, msg=msg)
 
-    def gt(self, x, y):
+    def gt(self, x, y, msg=None):
         '''
         Assert that X is greater than Y
         '''
-        self.assertGreater(x, y)
+        self.assertGreater(x, y, msg=msg)
 
-    def ge(self, x, y):
+    def ge(self, x, y, msg=None):
         '''
         Assert that X is greater than or equal to Y
         '''
-        self.assertGreaterEqual(x, y)
+        self.assertGreaterEqual(x, y, msg=msg)
 
-    def lt(self, x, y):
+    def lt(self, x, y, msg=None):
         '''
         Assert that X is less than Y
         '''
-        self.assertLess(x, y)
+        self.assertLess(x, y, msg=msg)
 
-    def le(self, x, y):
+    def le(self, x, y, msg=None):
         '''
         Assert that X is less than or equal to Y
         '''
-        self.assertLessEqual(x, y)
+        self.assertLessEqual(x, y, msg=msg)
 
     def len(self, x, obj, msg=None):
         '''
