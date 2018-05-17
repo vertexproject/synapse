@@ -14,8 +14,6 @@ import synapse.models.inet as s_inet
 
 logger = logging.getLogger(__name__)
 
-debug_on_error = False
-
 # TODO
 # check model version before begin migration
 # Add config file to allow additional coremodules
@@ -25,19 +23,6 @@ debug_on_error = False
 # # add a corresponding file:path with the correct normalized path
 # # copy any tags on the former to the latter
 # # if a secondary prop, just normalize and use the last part
-# `it:exec:bind:tcp` and `it:exec:bind:udp` will become `it:exec:bind` which has a `server` prop which is going to be a
-# `inet:addr`
-
-# convert inet:tcp4/udp4/tcp4/tcp6 *forms* to inet:server
-
-#bugs
-# also still have a tcp4cert coming through:
-#     inet:ssl:tcp4cert (90628211016123, '54ea7ab864b13087972a63c5f22fb2b1') {'cert':
-#             'sha256:6657db14db3331f4fe8a1d53d06e0660ef7d7bbabf4a5c738d68755fdf022c0b', 'tcp4':
-#             'tcp://82.109.6.83:443/'}
-#     which seems like a comp reconstruction failture
-# Getting tons of NoSuchProp: ""  (inet:web:logon)
-# ( nodes coming out with a "" key in the props dict )
 
 # Topologically sorted comp and sepr types that are form types that have other comp types as elements.  The beginning
 # of the list has more dependencies than the end.
@@ -221,26 +206,6 @@ class Migrator:
             props[p] = v
         return props
 
-    forms_to_drop = set((
-        'syn:tagform',
-    ))
-
-    secondary_props_to_drop = set((
-        'syn:tag:depth',
-        'ps:name:middle',
-        'ps:name:sur',
-        'ps:name:given',
-        'inet:tcp4:ipv4',
-        'inet:tcp4:port',
-        'inet:udp4:ipv4',
-        'inet:udp4:port',
-        'inet:tcp6:ipv6',
-        'inet:tcp6:port',
-        'inet:udp6:ipv6',
-        'inet:udp6:port',
-        'inet:cidr4:ipv4'
-    ))
-
     def do_stage2a(self):
         '''
         Do the first part of the second stage:  take all the data out of the intermediate DB and emit to a flat file
@@ -276,9 +241,6 @@ class Migrator:
                             txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl)
                         self.write_node_to_file(node)
                     except Exception:
-                        if debug_on_error:
-                            import ipdb
-                            ipdb.set_trace()
                         logger.debug('Failed on processing node of form %s', formname, exc_info=True)
 
         comp_node_time = time.time()
@@ -325,9 +287,6 @@ class Migrator:
                         if node is not None:
                             self.write_node_to_file(node)
                     except Exception:
-                        if debug_on_error:
-                            import ipdb
-                            ipdb.set_trace()
                         logger.debug('Failed on processing node with props: %s', props, exc_info=True)
                 if not rv:
                     break  # end of data
@@ -335,11 +294,11 @@ class Migrator:
         logger.info('Stage 2b complete in %.1fs.', time.time() - start_time)
 
     def convert_ps_name(self, formname, propname, typename, val, props):
-        lastname, firstname = val.split(',', 1)
-        return propname, firstname + ' ' + lastname
+        names = val.split(',', 1)
+        return propname, ' '.join(reversed(names))
 
     def just_guid(self, formname, props):
-        return None, props[formname]
+        return props[formname]
 
     def is_sepr(self, formname):
         return formname in self.seprs
@@ -347,20 +306,23 @@ class Migrator:
     def is_comp(self, formname):
         return formname in self.comps
 
-    def convert_sepr(self, propname, propval):
+    def convert_sepr(self, formname, propname, propval, props):
         t = self.core.getPropType(propname)
         retn = []
         valdict = t.norm(propval)[1]
-        # TODO: do we have any sepr fields that need special conversion?
         for field in (x[0] for x in t._get_fields()):
-            retn.append((valdict[field]))
+            oldval = valdict[field]
+            full_member = '%s:%s' % (formname, field)
+            _, val = self.convert_subprop(formname, full_member, oldval, props)
+            retn.append(val)
+
         return tuple(retn)
 
     def convert_file_bytes(self, formname, props):
         sha256 = props.get(formname + ':sha256')
         if sha256 is None:
-            return None, 'guid:' + props[formname]
-        return None, 'sha256:' + sha256
+            return 'guid:' + props[formname]
+        return 'sha256:' + sha256
 
     def convert_xref(self, propname, propval, props):
         t = self.core.getPropType(propname)
@@ -369,8 +331,8 @@ class Migrator:
         destval = props.get(propname + ':xref:intval', props.get(propname + ':xref:strval'))
         if destval is None:
             destval = props[propname + ':xref'].split('=', 1)[1]
-        source_final = self.convert_foreign_key(t._sorc_type, sourceval)
-        dest_final = self.convert_foreign_key(destprop, destval)
+        source_final = self.convert_foreign_key(propname, t._sorc_type, sourceval)
+        dest_final = self.convert_foreign_key(propname, destprop, destval)
         return (source_final, (destprop, dest_final))
 
     def convert_primary(self, props):
@@ -379,22 +341,19 @@ class Migrator:
         if formname in self.primary_prop_special:
             return self.primary_prop_special[formname](self, formname, props)
         if self.is_comp(formname):
-            return None, self.convert_comp_primary(props)
+            return self.convert_comp_primary(props)
         if self.is_sepr(formname):
-            return None, self.convert_sepr(formname, pkval)
+            return self.convert_sepr(formname, formname, pkval, props)
         if formname in self.xrefs:
-            return None, self.convert_xref(formname, pkval, props)
+            return self.convert_xref(formname, pkval, props)
         _, val = self.convert_subprop(formname, formname, pkval, props)
-        return None, val
+        return val
 
     def convert_comp_secondary(self, formname, propval):
         ''' Convert secondary prop that is a comp type '''
         with self.dbenv.begin(db=self.comp_tbl) as txn:
             comp_enc = txn.get(propval.encode('utf8'), db=self.comp_tbl)
             if comp_enc is None:
-                if debug_on_error:
-                    import ipdb
-                    ipdb.set_trace()
                 raise ConsistencyError('guid accessed before determined')
             return s_msgpack.un(comp_enc)[1]
 
@@ -403,20 +362,17 @@ class Migrator:
         with self.dbenv.begin(db=self.comp_tbl) as txn:
             comp_enc = txn.get(propval.encode('utf8'), db=self.comp_tbl)
             if comp_enc is None:
-                if debug_on_error:
-                    import ipdb
-                    ipdb.set_trace()
                 raise ConsistencyError('ndef accessed before determined')
             return s_msgpack.un(comp_enc)[1]
 
-    def convert_foreign_key(self, pivot_formname, pivot_fk):
+    def convert_foreign_key(self, formname, pivot_formname, pivot_fk):
         ''' Convert secondary prop that is a pivot to another node '''
         if pivot_formname in self.filebytes:
             return self.convert_filebytes_secondary(pivot_formname, pivot_fk)
         if self.is_comp(pivot_formname):
             return self.convert_comp_secondary(pivot_formname, pivot_fk)
         if self.is_sepr(pivot_formname):
-            return self.convert_sepr(pivot_formname, pivot_fk)
+            return self.convert_sepr(formname, pivot_formname, pivot_fk, None)
 
         return pivot_fk
 
@@ -432,30 +388,29 @@ class Migrator:
             retn.append(val)
         return tuple(retn)
 
-    def default_subprop_convert(self, subpropname, subproptype, val):
+    def default_subprop_convert(self, formname, subpropname, subproptype, val):
         # logger.debug('default_subprop_convert : %s(type=%s)=%s', subpropname, subproptype, val)
         if subproptype != subpropname and subproptype in self.core.getTufoForms():
-            return self.convert_foreign_key(subproptype, val)
+            return self.convert_foreign_key(formname, subproptype, val)
         return val
 
-    def ipv4_to_client(self, formname, propname, typename, val):
+    def ipv4_to_client(self, formname, propname, typename, val, props):
         return formname + ':client', 'tcp://%s' % s_inet.ipv4str(val)
 
-    def ipv6_to_client(self, formname, propname, typename, val):
+    def ipv6_to_client(self, formname, propname, typename, val, props):
         return formname + ':client', 'tcp://[%s]' % val
 
-    def convert_inet_tcp_udp_primary(self, formname, props):
-        return None, 'pk'
+    def convert_inet_xxp_primary(self, formname, props):
+        oldpkval = props[formname]
+        _, newpkval = self.xxp_to_server(formname, formname, formname, oldpkval, props)
+        return newpkval
 
     def xxp_to_server(self, formname, propname, typename, val, props):
-        addr_propname = 'ipv' + typename[-1]
         if typename[-1] == '4':
-            addr = s_inet.ipv4str(props[propname + ':' + addr_propname])
+            addrport = self.core.getTypeRepr('inet:srv4', val)
         else:
-            addr = '[%s]' % (props[propname + ':' + addr_propname], )
-        port = props[propname + ':port']
-        print('xxp_to_server: ', formname, addr, port)
-        return None, '%s://%s:%s' % (typename[5:8], addr, port)
+            addrport = val
+        return None, '%s://%s' % (typename[5:8], addrport)
 
     type_special = {
         'inet:tcp4': xxp_to_server,
@@ -468,6 +423,7 @@ class Migrator:
     form_renames = {
         'file:txtref': 'file:ref',
         'file:imgof': 'file:ref',
+        'ps:image': 'file:ref',
         'it:exec:bind:tcp': 'it:exec:bind',
         'it:exec:bind:udp': 'it:exec:bind',
         'inet:tcp4': 'inet:server',
@@ -494,14 +450,49 @@ class Migrator:
         'inet:flow:src:udp6': 'inet:flow:src',
         'inet:flow:src:tcp4': 'inet:flow:src',
         'inet:flow:src:tcp6': 'inet:flow:src',
+        'file:bytes:mime:pe:timestamp': 'file:bytes:mime:pe:compiled',
+        'it:exec:bind:tcp:ipv4': 'it:exec:bind:tcp:server',
+        'it:exec:bind:tcp:ipv6': 'it:exec:bind:tcp:server',
+        'it:exec:bind:udp:ipv4': 'it:exec:bind:tcp:server',
+        'it:exec:bind:udp:ipv6': 'it:exec:bind:tcp:server',
     }
+
+    forms_to_drop = set((
+        'syn:tagform',
+    ))
+
+    secondary_props_to_drop = set((
+        'syn:tag:depth',
+        'ps:name:middle',
+        'ps:name:sur',
+        'ps:name:given',
+        'inet:tcp4:ipv4',
+        'inet:tcp4:port',
+        'inet:udp4:ipv4',
+        'inet:udp4:port',
+        'inet:tcp6:ipv6',
+        'inet:tcp6:port',
+        'inet:udp6:ipv6',
+        'inet:udp6:port',
+        'inet:cidr4:ipv4',
+        'file:path:ext',
+        'ps:person:guidname',
+        'ps:persona:guidname',
+        'inet:web:action:info',
+        'inet:ssl:tcp4cert:file',
+        'inet:ssl:tcp4cert:tcp4',
+        'ps:image:person',
+        'ps:image:file',
+        'it:exec:bind:tcp:port',
+        'it:exec:bind:udp:port'
+    ))
 
     def convert_subprop(self, formname, propname, val, props):
         typename = self.core.getPropTypeName(propname)
         converted = False
 
         if propname in self.subprop_special:
-            propname, val = self.subprop_special[propname](self, formname, propname, typename, val)
+            propname, val = self.subprop_special[propname](self, formname, propname, typename, val, props)
             converted = True
         elif typename in self.type_special:
             newpropname, val = self.type_special[typename](self, formname, propname, typename, val, props)
@@ -514,7 +505,7 @@ class Migrator:
         if converted:
             return newpropname, val
 
-        return newpropname, self.default_subprop_convert(propname, typename, val)
+        return newpropname, self.default_subprop_convert(formname, propname, typename, val)
 
     def convert_props(self, oldprops):
         formname = oldprops['tufo:form']
@@ -524,11 +515,8 @@ class Migrator:
         tags = {}
         propsmeta = self.core.getSubProps(formname)
         pk = None
-        skipfields = set()
         for oldk, oldv in sorted(oldprops.items(), key=_special_sort_key):
             propmeta = next((x[1] for x in propsmeta if x[0] == oldk), {})
-            if oldk in skipfields:
-                continue
             if oldk in self.secondary_props_to_drop:
                 continue
             if oldk[0] == '#':
@@ -542,9 +530,7 @@ class Migrator:
                 end = oldv
                 tags[oldk[2:]] = (start, end)
             elif oldk == formname:
-                newskipfields, pk = self.convert_primary(oldprops)
-                if newskipfields:
-                    skipfields.update(newskipfields)
+                pk = self.convert_primary(oldprops)
             elif oldk in self.subs:
                 # Skip if a sub to a comp or sepr that's another secondary property
                 continue
@@ -572,9 +558,13 @@ class Migrator:
             props['type'] = 'text'
         elif formname == 'file:imgof':
             props['type'] = 'image'
+        elif formname == 'ps:image':
+            props['type'] = 'image'
 
         if formname in self.form_renames:
             formname = self.form_renames[formname]
+
+        assert '' not in props
 
         retn = ((formname, pk), {'props': props})
         if tags:
@@ -582,18 +572,29 @@ class Migrator:
 
         return retn
 
+    def convert_ps_image(self, formname, props):
+        '''
+        Transform ps:image into a file:ref
+        '''
+        person, file = self.convert_sepr(formname, formname, props[formname], props)
+        return (file, ('ps:person', person))
+
     primary_prop_special = {
         'inet:web:post': just_guid,
         'it:dev:regval': just_guid,
         'inet:dns:soa': just_guid,
         'file:bytes': convert_file_bytes,
-        'inet:udp4': convert_inet_tcp_udp_primary,
-        'inet:udp6': convert_inet_tcp_udp_primary,
-        'inet:tcp4': convert_inet_tcp_udp_primary,
-        'inet:tcp6': convert_inet_tcp_udp_primary,
+        'inet:udp4': convert_inet_xxp_primary,
+        'inet:udp6': convert_inet_xxp_primary,
+        'inet:tcp4': convert_inet_xxp_primary,
+        'inet:tcp6': convert_inet_xxp_primary,
+        'ps:image': convert_ps_image,
     }
 
     def handle_seen(self, propname, propval, newprops):
+        '''
+        :seen:min, :seen:max -> .seen = (min, max)
+        '''
         seenmin, seenmax = newprops.get('.seen', (None, None))
         if propname.endswith(':min'):
             seenmin = propval
@@ -605,24 +606,36 @@ class Migrator:
             seenmin = seenmax - 1
         return '.seen', (seenmin, seenmax)
 
+    def ip_with_port_to_server(self, formname, propname, typename, val, props):
+        port = props.get(formname + ':port')
+        if propname[-1] == '4':
+            if port is not None:
+                val = (val << 16) + port
+            addrport = self.core.getTypeRepr('inet:srv4', val)
+        else:
+            if port is None:
+                addrport = '[' + val + ']'
+            else:
+                addrport = '[%s]:%s' % (val, port)
+        return propname, '%s://%s' % (formname[-3:], addrport)
+
     subprop_special = {
         'inet:web:logon:ipv4': ipv4_to_client,
         'inet:web:logon:ipv6': ipv6_to_client,
-        'inet:dns:look:ipv4': ipv4_to_client
+        'inet:dns:look:ipv4': ipv4_to_client,
+        'it:exec:bind:tcp:ipv4': ip_with_port_to_server,
+        'it:exec:bind:tcp:ipv6': ip_with_port_to_server,
+        'it:exec:bind:udp:ipv4': ip_with_port_to_server,
+        'it:exec:bind:udp:ipv6': ip_with_port_to_server,
     }
 
 def main(argv, outp=None):  # pragma: no cover
-    global debug_on_error
     p = argparse.ArgumentParser()
     p.add_argument('cortex', help='telepath URL for a cortex to be dumped')
     p.add_argument('outfile', help='file to dump to')
     p.add_argument('--verbose', '-v', action='count', help='Verbose output')
-    p.add_argument('--debug', action='store_true', help='open pdb on exception')
     p.add_argument('--stage-1', help='Start at stage 2 with stage 1 file')
     opts = p.parse_args(argv)
-
-    if opts.debug:
-        debug_on_error = True
 
     if opts.verbose is not None:
         if opts.verbose > 1:

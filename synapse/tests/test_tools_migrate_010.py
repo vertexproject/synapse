@@ -92,6 +92,10 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(look_nodes[0][1]['props']['client'], 'tcp://5.5.5.5')
             self.eq(look_nodes[0][1]['props']['server'], 'udp://8.8.8.8:80')
 
+            nodes = self.get_formfile('inet:server', fh)
+            self.eq(len(nodes), 1)
+            self.eq(nodes[0][0], ('inet:server', 'udp://8.8.8.8:80'))
+
             tufo = core.formTufoByProp('inet:web:logon', '*', acct='vertex.link/pennywise', time=now,
                                        ipv4=0x01020304)
             core.addTufoTag(tufo, 'test')
@@ -135,7 +139,7 @@ class Migrate010Test(s_iq.SynTest):
             nodes = self.get_formfile('it:exec:reg:get', fh)
             self.eq(len(nodes), 1)
 
-            # imgof
+            # file:imgof
             person_guid = contact_tufo[1]['ps:contact:person']
             core.formTufoByProp('file:imgof', (file_guid, ('ps:person', person_guid)))
             fh = tempfile.TemporaryFile(dir=dirn)
@@ -150,13 +154,21 @@ class Migrate010Test(s_iq.SynTest):
             # ps:person:has
             core.formTufoByProp('ps:person:has', (person_guid, ('file:bytes', file_guid)),
                                 **{'seen:min': 1000, 'seen:max': 2000})
-
             fh = tempfile.TemporaryFile(dir=dirn)
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('ps:person:has', fh)
             self.len(1, nodes)
             self.eq(nodes[0][0], ('ps:person:has', (person_guid, ('file:bytes', 'guid:' + file_guid))))
             self.eq(nodes[0][1]['props']['.seen'], (1000, 2000))
+
+            # ps:image
+            core.formTufoByProp('ps:image', person_guid + '/' + file_guid)
+            fh = tempfile.TemporaryFile(dir=dirn)
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            nodes = self.get_formfile('file:ref', fh)
+            self.len(2, nodes)
+            # Just verify that the ps:image conversion looks like the file:imgof conversion above
+            self.eq(nodes[0][0], nodes[1][0])
 
     def test_filebytes(self):
         self.maxDiff = None
@@ -178,6 +190,14 @@ class Migrate010Test(s_iq.SynTest):
             self.notin('sha256', node2[1]['props'])
             self.true(node1[0][1].startswith('sha256:'))
             self.true(node2[0][1].startswith('guid:'))
+
+            # inet:ssl:tcp4cert
+            core.formTufoByProp('inet:ssl:tcp4cert', '5.5.5.5:80/' + valu)
+            fh = tempfile.TemporaryFile(dir=dirn)
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            nodes = self.get_formfile('inet:ssl:cert', fh)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('inet:ssl:cert', ('tcp://5.5.5.5:80', node1[0][1])))
 
     def test_bigval(self):
         with self.getTestDir() as dirn, self.getRamCore() as core:
@@ -213,3 +233,22 @@ class Migrate010Test(s_iq.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][1]['props']['dst'], 'tcp://1.2.3.4:80')
             self.eq(nodes[0][1]['props']['src'], 'tcp://[::3:2:1]:443')
+
+    def test_it_exec_bind(self):
+        self.maxDiff = None
+        with self.getTestDir() as dirn, self.getRamCore() as core:
+            host1 = s_common.guid()
+            host2 = s_common.guid()
+
+            core.formTufoByProp('it:exec:bind:tcp', '*', host=host1, port=80, ipv4='1.2.3.4')
+            core.formTufoByProp('it:exec:bind:udp', '*', host=host2, port=81, ipv6='::1')
+            fh = tempfile.TemporaryFile(dir=dirn)
+            m = s_migrate.Migrator(core, fh, tmpdir=dirn)
+            m.migrate()
+            nodes = self.get_formfile('it:exec:bind', fh)
+            self.len(2, nodes)
+            node1, node2 = nodes
+            if node2[1]['props']['host'] == host1:
+                node2, node1 = node1, node2
+            self.eq(node1[1]['props']['server'], 'tcp://1.2.3.4:80')
+            self.eq(node2[1]['props']['server'], 'udp://[::1]:81')
