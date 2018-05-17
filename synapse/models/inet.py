@@ -53,6 +53,7 @@ class Addr(s_types.Type):
 
         if proto not in ('tcp', 'udp', 'icmp', 'host'):
             raise s_exc.BadTypeValu(orig, mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
+        subs['proto'] = proto
 
         valu = valu.strip().strip('/')
 
@@ -654,6 +655,11 @@ class InetModule(s_module.CoreModule):
                         'ex': '(1.2.3.4, 1.2.3.20)'
                     }),
 
+                    ('inet:net6', ('range', {'type': ('inet:ipv6', {})}), {
+                        'doc': 'An IPv6 address range.',
+                        'ex': "('ff::00', 'ff::30')"
+                    }),
+
                     ('inet:passwd', ('str', {}), {
                         'doc': 'A password string.'
                     }),
@@ -699,6 +705,15 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An instance of an account performing an action at an Internet-based site or service.'
                     }),
 
+                    ('inet:web:actref', ('comp', {'fields': (('act', 'inet:web:action'), ('node', 'ndef'))}), {
+                        'doc': 'A web action that references a given node.'
+                    }),
+
+                    ('inet:web:chprofile', ('guid', {}), {
+                        'doc': 'A change to a web account. Used to capture historical properties associated with '
+                               ' an account, as opposed to current data in the inet:web:acct node.'
+                    }),
+
                     ('inet:web:file', ('comp', {'fields': (('acct', 'inet:web:acct'), ('file', 'file:bytes'))}), {
                         'doc': 'A file posted by a web account.'
                     }),
@@ -727,6 +742,10 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:post', ('guid', {}), {
                         'doc': 'A post made by a web account.'
+                    }),
+
+                    ('inet:web:postref', ('comp', {'fields': (('post', 'inet:web:post'), ('node', 'ndef'))}), {
+                        'doc': 'A web post that references a given node.'
                     }),
 
                     ('inet:whois:contact', ('comp', {'fields': (('rec', 'inet:whois:rec'), ('type', ('str', {'lower': True})))}), {
@@ -892,69 +911,85 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:flow', {}, (
-
                         ('time', ('time', {}), {
-                            'doc': 'The time the network connection was initiated.'}),
-
+                            'doc': 'The time the network connection was initiated.'
+                        }),
                         ('duration', ('int', {}), {
-                            'doc': 'The duration of the flow in seconds.'}),
-
+                            'doc': 'The duration of the flow in seconds.'
+                        }),
                         ('from', ('guid', {}), {
-                            'doc': 'The ingest source file/iden. Used for reparsing.'}),
-
-                        ('dst', ('inet:server', {}), {'ro': 1,
-                            'doc': 'The destination address / port for a connection.'}),
-
+                            'doc': 'The ingest source file/iden. Used for reparsing.'
+                        }),
+                        ('dst', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The destination address / port for a connection.'
+                        }),
+                        ('dst:ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
+                            'doc': 'The destination IPv4 address.'
+                        }),
+                        ('dst:ipv6', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The destination IPv6 address.'
+                        }),
+                        ('dst:port', ('inet:port', {}), {
+                            'ro': True,
+                            'doc': 'The destination port.'
+                        }),
+                        ('dst:proto', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The destination port.'
+                        }),
                         ('dst:host', ('it:host', {}), {
-                            'doc': 'The guid of the destination host.'}),
-
+                            'doc': 'The guid of the destination host.'
+                        }),
                         ('dst:proc', ('it:exec:proc', {}), {
-                            'doc': 'The guid of the destination process.'}),
-
-                        ('dst:exe', ('file:bytes', {}), {'ro': 1,
-                            'doc': 'The file (executable) that received the connection.'}),
-
-                        ('dst:txbytes', ('int', {}), {'ro': 1,
-                            'doc': 'The number of bytes sent by the destination host / process / file.'}),
-
-                        ('src:host', ('it:host', {}), {'ro': 1,
-                            'doc': 'The guid of the source host.'}),
-
-                        ('src:proc', ('it:exec:proc', {}), {'ro': 1,
-                            'doc': 'The guid of the source process.'}),
-
-                        ('src:exe', ('file:bytes', {}), {'ro': 1,
-                            'doc': 'The file (executable) that created the connection.'}),
-
-                        ('src:txbytes', ('int', {}), {'ro': 1,
-                            'doc': 'The number of bytes sent by the source host / process / file.'}),
-
-                        ('dst:ipv4', ('inet:ipv4', {}), {'ro': 1,
-                            'doc': 'The destination IPv4 address.'}),
-
-                        ('dst:ipv6', ('inet:ipv6', {}), {'ro': 1,
-                            'doc': 'The destination IPv6 address.'}),
-
-                        ('dst:port', ('inet:port', {}), {'ro': 1,
-                            'doc': 'The destination port.'}),
-
-                        ('dst:proto', ('str', {'lower': True}), {'ro': 1,
-                            'doc': 'The destination port.'}),
-
-                        ('src', ('inet:client', {}), {'ro': 1,
-                            'doc': 'The source address / port for a connection.'}),
-
-                        ('src:ipv4', ('inet:ipv4', {}), {'ro': 1,
-                            'doc': 'The source IPv4 address.'}),
-
-                        ('src:ipv6', ('inet:ipv6', {}), {'ro': 1,
-                            'doc': 'The source IPv6 address.'}),
-
-                        ('src:port', ('inet:port', {}), {'ro': 1,
-                            'doc': 'The source port.'}),
-
-                        ('src:proto', ('str', {'lower': True}), {'ro': 1,
-                            'doc': 'The source port.'}),
+                            'doc': 'The guid of the destination process.'
+                        }),
+                        ('dst:exe', ('file:bytes', {}), {
+                            'ro': True,
+                            'doc': 'The file (executable) that received the connection.'
+                        }),
+                        ('dst:txbytes', ('int', {}), {
+                            'ro': True,
+                            'doc': 'The number of bytes sent by the destination host / process / file.'
+                        }),
+                        ('src', ('inet:client', {}), {
+                            'ro': True,
+                            'doc': 'The source address / port for a connection.'
+                        }),
+                        ('src:ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
+                            'doc': 'The source IPv4 address.'
+                        }),
+                        ('src:ipv6', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The source IPv6 address.'
+                        }),
+                        ('src:port', ('inet:port', {}), {
+                            'ro': True,
+                            'doc': 'The source port.'
+                        }),
+                        ('src:proto', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The source port.'
+                        }),
+                        ('src:host', ('it:host', {}), {
+                            'ro': True,
+                            'doc': 'The guid of the source host.'
+                        }),
+                        ('src:proc', ('it:exec:proc', {}), {
+                            'ro': True,
+                            'doc': 'The guid of the source process.'
+                        }),
+                        ('src:exe', ('file:bytes', {}), {
+                            'ro': True,
+                            'doc': 'The file (executable) that created the connection.'
+                        }),
+                        ('src:txbytes', ('int', {}), {
+                            'ro': True,
+                            'doc': 'The number of bytes sent by the source host / process / file.'
+                        }),
                     )),
 
                     ('inet:fqdn', {}, (
@@ -1074,6 +1109,25 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:http:resphead', {}, (
+                        ('response', ('inet:http:response', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP response which contained the header.'
+                        }),
+                        ('header', ('inet:http:header', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP header contained in the response.'
+                        }),
+                        ('header:name', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The HTTP header name'
+                        }),
+                        ('header:value', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP header value.'
+                        }),
+                    )),
+
                     ('inet:http:response', {}, (
                         ('flow', ('inet:flow', {}), {
                             'doc': 'The inet:flow which contained the HTTP response.'
@@ -1095,25 +1149,6 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('body', ('file:bytes', {}), {
                             'doc': 'The HTTP response body data.'
-                        }),
-                    )),
-
-                    ('inet:http:resphead', {}, (
-                        ('response', ('inet:http:response', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP response which contained the header.'
-                        }),
-                        ('header', ('inet:http:header', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP header contained in the response.'
-                        }),
-                        ('header:name', ('str', {'lower': True}), {
-                            'ro': True,
-                            'doc': 'The HTTP header name'
-                        }),
-                        ('header:value', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP header value.'
                         }),
                     )),
 
@@ -1188,42 +1223,49 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    ('inet:mac', {}, [
+                    ('inet:mac', {}, (
                         ('vendor', ('str', {}), {
                             'defval': '??',
                             'doc': 'The vendor associated with the 24-bit prefix of a MAC address.'
                         }),
-                    ]),
-
-                    ('inet:passwd', ('str', {}), (
-
-                        ('md5', ('hash:md5', {}), {'ro': 1,
-                            'doc': 'The MD5 hash of the password.'}),
-
-                        ('sha1', ('hash:sha1', {}), {'ro': 1,
-                            'doc': 'The SHA1 hash of the password.'}),
-
-                        ('sha256', ('hash:sha256', {}), {'ro': 1,
-                            'doc': 'The SHA256 hash of the password.'}),
                     )),
 
-                    ('inet:ssl:cert', ('inet:ssl:cert', {}), (
+                    ('inet:passwd', {}, (
+                        ('md5', ('hash:md5', {}), {
+                            'ro': True,
+                            'doc': 'The MD5 hash of the password.'
+                        }),
+                        ('sha1', ('hash:sha1', {}), {
+                            'ro': True,
+                            'doc': 'The SHA1 hash of the password.'
+                        }),
+                        ('sha256', ('hash:sha256', {}), {
+                            'ro': True,
+                            'doc': 'The SHA256 hash of the password.'
+                        }),
+                    )),
 
-                        ('file', ('file:bytes', {}), {'ro': True,
-                            'doc': 'The file bytes for the SSL certificate.'}),
-
-                        ('server', ('inet:server', {}), {'ro': True,
-                            'doc': 'The file bytes for the SSL certificate.'}),
-
-                        ('server:ipv4', ('inet:ipv4', {}), {'ro': True,
-                            'doc': 'The SSL server IPv4 address.'}),
-
-                        ('server:ipv6', ('inet:ipv6', {}), {'ro': True,
-                            'doc': 'The SSL server IPv6 address.'}),
-
-                        ('server:port', ('inet:port', {}), {'ro': True,
-                            'doc': 'The SSL server listening port.'}),
-
+                    ('inet:ssl:cert', {}, (
+                        ('file', ('file:bytes', {}), {
+                            'ro': True,
+                            'doc': 'The file bytes for the SSL certificate.'
+                        }),
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The file bytes for the SSL certificate.'
+                        }),
+                        ('server:ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
+                            'doc': 'The SSL server IPv4 address.'
+                        }),
+                        ('server:ipv6', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The SSL server IPv6 address.'
+                        }),
+                        ('server:port', ('inet:port', {}), {
+                            'ro': True,
+                            'doc': 'The SSL server listening port.'
+                        }),
                     )),
 
                     ('inet:rfc2822:addr', {}, (
@@ -1459,6 +1501,57 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:web:actref', {}, (
+                        ('act', ('inet:web:action', {}), {
+                            'ro': True,
+                            'doc': 'The action that references the given node.'
+                        }),
+                        ('node', ('ndef', {}), {
+                            'ro': True,
+                            'doc': 'The ndef that is referenced as part of the action.'
+                        }),
+                        ('node:form', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The form of node that is referenced as part of the action.'
+                        }),
+                    )),
+
+                    ('inet:web:chprofile', {}, (
+                        ('acct', ('inet:web:acct', {}), {
+                            'ro': True,
+                            'doc': 'The web account associated with the change.'
+                        }),
+                        ('acct:site', ('inet:fqdn', {}), {
+                            'ro': True,
+                            'doc': 'The site or service associated with the account.'
+                        }),
+                        ('acct:user', ('inet:user', {}), {
+                            'ro': True,
+                            'doc': 'The unique identifier for the account.'
+                        }),
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The source address used to make the account change.'
+                        }),
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The source IPv4 address used to make the account change.'
+                        }),
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The source IPv6 address used to make the account change.'
+                        }),
+                        ('time', ('time', {}), {
+                            'doc': 'The date and time when the account change occurred.'
+                        }),
+                        ('pv', ('nodeprop', {}), {
+                            'ro': True,
+                            'doc': 'The prop=valu of the account property that was changed. Valu should be '
+                                   'the old / original value, while the new value should be updated on the '
+                                   'inet:web:acct form.'}),
+                        ('pv:prop', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The property that was changed.'
+                        }),
+                    )),
+
                     ('inet:web:file', {}, (
                         ('acct', ('inet:web:acct', {}), {
                             'ro': True,
@@ -1567,7 +1660,8 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
-                        ('time', ('time', {}), {'ro': 1,
+                        ('time', ('time', {}), {
+                            'ro': True,
                             'doc': 'The date and time the account logged into the service.'
                         }),
                         ('client', ('inet:client', {}), {
@@ -1579,7 +1673,8 @@ class InetModule(s_module.CoreModule):
                         ('client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The source IPv6 address of the logon.'
                         }),
-                        ('logout', ('time', {}), {'ro': 1,
+                        ('logout', ('time', {}), {
+                            'ro': True,
                             'doc': 'The date and time the account logged out of the service.'
                         })
                     )),
@@ -1601,7 +1696,7 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    ('inet:web:mesg', {}, [
+                    ('inet:web:mesg', {}, (
                         ('from', ('inet:web:acct', {}), {
                             'ro': True,
                             'doc': 'The web account that sent the message.'
@@ -1623,7 +1718,7 @@ class InetModule(s_module.CoreModule):
                         ('file', ('file:bytes', {}), {
                             'doc': 'The file attached to or sent with the message.'
                         }),
-                    ]),
+                    )),
 
                     ('inet:web:post', {}, (
                         ('acct', ('inet:web:acct', {}), {
@@ -1656,6 +1751,21 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('repost', ('inet:web:post', {}), {
                             'doc': 'The original post that this is a repost of.'
+                        }),
+                    )),
+
+                    ('inet:web:postref', {}, (
+                        ('post', ('inet:web:post', {}), {
+                            'ro': True,
+                            'doc': 'The web post that references the given node.'
+                        }),
+                        ('node', ('ndef', {}), {
+                            'ro': True,
+                            'doc': 'The ndef that is referenced as part of the web post.'
+                        }),
+                        ('node:form', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The form of node that is referenced as part of the web post.'
                         }),
                     )),
 
@@ -1746,7 +1856,7 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    ('inet:whois:recns', {}, [
+                    ('inet:whois:recns', {}, (
                         ('ns', ('inet:fqdn', {}), {
                             'ro': True,
                             'doc': 'A nameserver for a domain as listed in the domain whois record.'
@@ -1763,8 +1873,7 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The date of the whois record.'
                         }),
-                    ]),
-
+                    )),
 
                     ('inet:whois:reg', {}, ()),
 
@@ -1788,7 +1897,7 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    ('inet:wifi:ssid', {}, []),
+                    ('inet:wifi:ssid', {}, ()),
 
                 ),
             }),
