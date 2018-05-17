@@ -955,11 +955,11 @@ class SynTest(unittest.TestCase):
         '''
         self.assertNotEqual(x, y)
 
-    def true(self, x):
+    def true(self, x, msg=None):
         '''
         Assert X is True
         '''
-        self.assertTrue(x)
+        self.assertTrue(x, msg=msg)
 
     def false(self, x):
         '''
@@ -1040,11 +1040,11 @@ class SynTest(unittest.TestCase):
         '''
         self.assertLessEqual(x, y)
 
-    def len(self, x, obj):
+    def len(self, x, obj, msg=None):
         '''
         Assert that the length of an object is equal to X
         '''
-        self.eq(x, len(obj))
+        self.eq(x, len(obj), msg=msg)
 
     def istufo(self, obj):
         '''
