@@ -1501,11 +1501,13 @@ class InetModule(s_module.CoreModule):
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the group was created on the site.'
                         }),
-                        # FIXME inet:client
-                        ('signup:ipv4', ('inet:ipv4', {}), {
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The client address used to create the group.'
+                        }),
+                        ('client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The IPv4 address used to create the group.'
                         }),
-                        ('signup:ipv6', ('inet:ipv6', {}), {
+                        ('client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The IPv6 address used to create the group.'
                         }),
                     )),

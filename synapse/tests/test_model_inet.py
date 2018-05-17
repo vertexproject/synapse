@@ -998,7 +998,7 @@ class InetModelTest(s_t_common.SynTest):
             'loc': 'the internet',
             'latlong': '0,0',
             'signup': 0,
-            'signup:ipv4': 0
+            'client': '0.0.0.0',
         }
         expected_props = {
             'site': valu[0],
@@ -1012,7 +1012,8 @@ class InetModelTest(s_t_common.SynTest):
             'loc': 'the internet',
             'latlong': (0.0, 0.0),
             'signup': 0,
-            'signup:ipv4': 0
+            'client': 'tcp://0.0.0.0',
+            'client:ipv4': 0
         }
         expected_ndef = (formname, valu)
         with self.getTestCore() as core:
