@@ -1027,7 +1027,7 @@ class InetModelTest(s_t_common.SynTest):
         input_props = {
             'acct': ('vertex.link', 'vertexmc'),
             'time': 0,
-            'ipv4': 0,
+            'client': '::',
             'logout': 1,
         }
         expected_props = {
@@ -1035,7 +1035,8 @@ class InetModelTest(s_t_common.SynTest):
             'acct:site': 'vertex.link',
             'acct:user': 'vertexmc',
             'time': 0,
-            'ipv4': 0,
+            'client': 'tcp://::',
+            'client:ipv6': '::',
             'logout': 1,
         }
         expected_ndef = (formname, valu)

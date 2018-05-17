@@ -1528,11 +1528,13 @@ class InetModule(s_module.CoreModule):
                         ('time', ('time', {}), {
                             'doc': 'The date and time the account logged into the service.'
                         }),
-                        # FIXME inet:client
-                        ('ipv4', ('inet:ipv4', {}), {
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The source address of the logon.'
+                        }),
+                        ('client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The source IPv4 address of the logon.'
                         }),
-                        ('ipv6', ('inet:ipv6', {}), {
+                        ('client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The source IPv6 address of the logon.'
                         }),
                         ('logout', ('time', {}), {
