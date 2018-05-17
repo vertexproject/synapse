@@ -530,33 +530,38 @@ class InetModelTest(s_t_common.SynTest):
 
     def test_iface(self):
         formname = 'inet:iface'
+        valu = 32 * 'a'
         input_props = {
+            'latlong': '0,0',
             'host': 32 * 'c',
-            'ipv6': 'ff::00',
-            'ipv4': '1.2.3.4',
-            'phone': 12345678910,
+            'type': 'Cool',
             'mac': 'ff:00:ff:00:ff:00',
+            'ipv4': '1.2.3.4',
+            'ipv6': 'ff::00',
+            'phone': 12345678910,
             'wifi:ssid': 'hehe haha',
             'wifi:bssid': '00:ff:00:ff:00:ff',
             'mob:imei': 123456789012347,
             'mob:imsi': 12345678901234,
         }
         expected_props = {
-            # FIXME add host
-            'ipv6': 'ff::',
-            'ipv4': 16909060,
-            'phone': '12345678910',
+            'latlong': (0.0, 0.0),
+            'host': 32 * 'c',
+            'type': 'cool',
             'mac': 'ff:00:ff:00:ff:00',
+            'ipv4': 16909060,
+            'ipv6': 'ff::',
+            'phone': '12345678910',
             'wifi:ssid': 'hehe haha',
             'wifi:bssid': '00:ff:00:ff:00:ff',
             'mob:imei': 123456789012347,
             'mob:imsi': 12345678901234,
         }
+        expected_ndef = (formname, valu)
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
-                node = snap.addNode(formname, 32 * 'a', props=input_props)
-                self.eq(node.ndef, (formname, 32 * 'a'))
-                [self.eq(node.get(k), v) for (k, v) in expected_props.items()]
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
 
     def test_ipv4(self):
         formname = 'inet:ipv4'
