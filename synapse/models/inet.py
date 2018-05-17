@@ -677,6 +677,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An instance of an account performing an action at an Internet-based site or service.'
                     }),
 
+                    ('inet:web:actref', ('comp', {'fields': (('act', 'inet:web:action'), ('node', 'ndef'))}), {
+                        'doc': 'A web action that references a given node.'
+                    }),
+
                     ('inet:web:file', ('comp', {'fields': (('acct', 'inet:web:acct'), ('file', 'file:bytes'))}), {
                         'doc': 'A file posted by a web account.'
                     }),
@@ -705,6 +709,10 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:post', ('guid', {}), {
                         'doc': 'A post made by a web account.'
+                    }),
+
+                    ('inet:web:postref', ('comp', {'fields': (('post', 'inet:web:post'), ('node', 'ndef'))}), {
+                        'doc': 'A web post that references a given node.'
                     }),
 
                     ('inet:whois:contact', ('comp', {'fields': (('rec', 'inet:whois:rec'), ('type', ('str', {'lower': True})))}), {
@@ -1423,6 +1431,21 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:web:actref', {}, [
+                        ('act', ('inet:web:action', {}), {
+                            'ro': True,
+                            'doc': 'The action that references the given node.'
+                        }),
+                        ('node', ('ndef', {}), {
+                            'ro': True,
+                            'doc': 'The ndef that is referenced as part of the action.'
+                        }),
+                        ('node:form', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The form of node that is referenced as part of the action.'
+                        }),
+                    ]),
+
                     ('inet:web:file', {}, (
                         ('acct', ('inet:web:acct', {}), {
                             'ro': True,
@@ -1622,6 +1645,21 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The original post that this is a repost of.'
                         }),
                     )),
+
+                    ('inet:web:postref', {}, [
+                        ('post', ('inet:web:post', {}), {
+                            'ro': True,
+                            'doc': 'The web post that references the given node.'
+                        }),
+                        ('node', ('ndef', {}), {
+                            'ro': True,
+                            'doc': 'The ndef that is referenced as part of the web post.'
+                        }),
+                        ('node:form', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The form of node that is referenced as part of the web post.'
+                        }),
+                    ]),
 
                     ('inet:whois:contact', {}, (
                         ('rec', ('inet:whois:rec', {}), {

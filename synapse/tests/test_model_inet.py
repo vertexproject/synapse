@@ -949,6 +949,21 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_web_actref(self):
+        formname = 'inet:web:actref'
+        valu = (32 * 'a', ('inet:ipv4', '0.0.0.1'))
+        input_props = {}
+        expected_props = {
+            'act': 32 * 'a',
+            'node': ('inet:ipv4', 1),
+            'node:form': 'inet:ipv4',
+        }
+        expected_ndef = (formname, (32 * 'a', ('inet:ipv4', 1)))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_web_file(self):
         formname = 'inet:web:file'
         valu = (('vertex.link', 'vertexmc'), 64 * 'f')
@@ -1109,6 +1124,21 @@ class InetModelTest(s_t_common.SynTest):
             'repost': 32 * 'c',
         }
         expected_ndef = (formname, valu)
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_web_postref(self):
+        formname = 'inet:web:postref'
+        valu = (32 * 'a', ('inet:ipv4', '0.0.0.1'))
+        input_props = {}
+        expected_props = {
+            'post': 32 * 'a',
+            'node': ('inet:ipv4', 1),
+            'node:form': 'inet:ipv4',
+        }
+        expected_ndef = (formname, (32 * 'a', ('inet:ipv4', 1)))
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, valu, props=input_props)
