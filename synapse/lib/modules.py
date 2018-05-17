@@ -13,6 +13,7 @@ coremods = (
     'synapse.models.base.BaseModule',
     'synapse.models.person.PsModule',
     'synapse.models.files.FileModule',
+    'synapse.models.infotech.ItModule',
     'synapse.models.geospace.GeoModule',
     'synapse.models.geopol.PolModule',
     'synapse.models.telco.TelcoModule',

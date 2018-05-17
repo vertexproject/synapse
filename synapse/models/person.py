@@ -13,11 +13,9 @@ class PsModule(s_module.CoreModule):
                     'doc': 'An arbitrary, lower spaced string with normalized whitespace.',
                     'ex': 'robert grey'
                 }),
-                # FIXME - 00x ps model supported guid alias 'ps:person:guidname'
                 ('ps:person', ('guid', {}), {
                     'doc': 'A GUID for a person.',
                 }),
-                # FIXME - 00x ps model supported guid alias 'ps:persona:guidname'
                 ('ps:persona', ('guid', {}), {
                     'doc': 'A GUID for a suspected person.',
                 }),
@@ -29,10 +27,6 @@ class PsModule(s_module.CoreModule):
                     'doc': 'A persona owns, controls, or has exclusive use of an object or'
                            ' resource, potentially during a specific period of time.'
                 }),
-                # FIXME requires file:bytes
-                # ('ps:image', ('comp', {'fields': (('person', 'ps:person'), ('image', 'file:bytes'))}), {
-                #     'doc': 'An image of a given person',
-                # }),
                 ('ps:contact', ('guid', {}), {
                     'doc': 'A GUID for a contact info record',
                 }),
@@ -44,17 +38,12 @@ class PsModule(s_module.CoreModule):
                 ('ps:tokn', {}, ()),
                 ('ps:name', {}, ()),
                 ('ps:person', {}, (
-                    # FIXME aliases?
-                    # ('guidname', ('str', {'lower': True}), {
-                    #     'doc': 'The GUID resolver alias for this person',
-                    # }),
                     ('dob', ('time', {}), {
                         'doc': 'The Date of Birth (DOB) if known.',
                     }),
-                    # FIXME need file:bytes
-                    # ('img', ('file:bytes', {}), {
-                    #     'doc': 'The primary image of a person.'
-                    # }),
+                    ('img', ('file:bytes', {}), {
+                        'doc': 'The primary image of a person.'
+                    }),
                     ('nick', ('inet:user', {}), {
                         'doc': 'A username commonly used by the person',
                     }),
@@ -187,10 +176,9 @@ class PsModule(s_module.CoreModule):
                     ('title', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The job/org title listed for this contact.',
                     }),
-                    # FIXME requires file:bytes
-                    # ('photo', ('file:bytes', {}), {
-                    #     'doc': 'The photo listed for this contact.',
-                    # }),
+                    ('photo', ('file:bytes', {}), {
+                        'doc': 'The photo listed for this contact.',
+                    }),
                     ('orgname', ('ou:name', {}), {
                         'doc': 'The listed org/company name for this contact.',
                     }),
@@ -212,7 +200,9 @@ class PsModule(s_module.CoreModule):
                     ('email:work', ('inet:email', {}), {
                         'doc': 'The work email address for this contact.'
                     }),
-                    # FIXME - Should we have a `address:loc` or `loc` property as well?
+                    ('loc', ('loc', {}), {
+                        'doc': 'Best known contact geopolitical location.'
+                    }),
                     ('address', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The free-form address listed for the contact',
                     }),

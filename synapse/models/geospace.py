@@ -125,16 +125,13 @@ class GeoModule(s_module.CoreModule):
                 ),
 
                 'types': (
-                    ('geo:alias', ('str', {'lower': True, 'regex': '^[0-9a-z]+$'}), {
-                        'doc': 'An alias for the place GUID', 'ex': 'foobar'
-                    }),
+
                     ('geo:nloc', ('comp', {'fields': (('ndef', 'ndef'), ('latlong', 'geo:latlong'), ('time', 'time'))}), {
                         'doc': 'Records a node latitude/longitude in space-time.'
                     }),
-                    # FIXME implement geo:place when guid aliases are available
-                    #('geo:place', ('guid', {'alias': True, 'regex': '^[0-9a-z]+$'}), {
-                    #    'doc': 'An alias for the place GUID', 'ex': 'foobar'
-                    #}),
+
+                    ('geo:place', ('guid', {}), {
+                        'doc': 'A GUID for a geographic place.'}),
                 ),
 
                 'forms': (
@@ -156,12 +153,17 @@ class GeoModule(s_module.CoreModule):
                         }),
                     )),
 
-                    # FIXME implement geo:place when guid aliases are available
-                    #('geo:place', {'ptype': 'geo:place'}, [
-                    #    ('alias', {'ptype': 'geo:alias'}),
-                    #    ('name', {'ptype': 'str', 'lower': 1, 'doc': 'The name of the place'}),
-                    #    ('latlong', {'ptype': 'geo:latlong', 'defval': '??', 'doc': 'The location of the place'}),
-                    #]),
+                    ('geo:place', {}, (
+
+                        ('name', ('str', {'lower': 1, 'onespace': 1}), {
+                            'doc': 'The name of the place.'}),
+
+                        ('loc', ('loc', {}), {
+                            'doc': 'The geo-political location string for the node.'}),
+
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The lat/long position for the place.'}),
+                    )),
                 )
             }),
         )

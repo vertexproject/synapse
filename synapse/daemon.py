@@ -265,9 +265,7 @@ class Daemon(EventBus):
 
     def _loadYamlPath(self, path):
         if os.path.isfile(path):
-            with open(path, 'rb') as fd:
-                text = fd.read().decode('utf8')
-                return yaml.load(text)
+            return s_common.yamlload(path)
 
         logger.warning('config not found: %r' % (path,))
         return {}
@@ -340,6 +338,7 @@ class Daemon(EventBus):
             logger.exception('Dmon.onLinkMesg Handler: %r' % (mesg,))
 
     async def _onShareFini(self, link, mesg):
+
         iden = mesg[1].get('share')
         share = link.get('dmon:items').get(iden)
         if share is None:
@@ -373,6 +372,7 @@ class Daemon(EventBus):
             items = {None: item}
             link.set('dmon:items', items)
 
+            @s_glob.synchelp
             async def fini():
 
                 items = list(link.get('dmon:items').values())
@@ -381,7 +381,7 @@ class Daemon(EventBus):
                     try:
                         await item.fini()
                     except Exception as e:
-                        logger.exception()
+                        logger.exception(f'item fini error: {e}')
 
             link.onfini(fini)
 
@@ -390,65 +390,6 @@ class Daemon(EventBus):
             reply[1]['retn'] = s_common.retnexc(e)
 
         await link.tx(reply)
-
-    @s_glob.synchelp
-    async def _txGenrData(self, link, iden, retn):
-        mesg = ('genr:data', {
-                    'genr': iden,
-                    'data': retn})
-        await link.tx(mesg)
-
-    @s_glob.inpool
-    def _poolGenrLoop(self, link, iden, genr):
-        genrs = link.get('dmon:genrs')
-        try:
-
-            for item in genr:
-
-                if genrs.get(iden) is None:
-                    genr.close()
-                    return
-
-                self._txGenrData(link, iden, (True, item))
-
-            self._txGenrData(link, iden, None)
-
-        # this will only happen if they injected the
-        # genr:exit, so we dont need to do anything.
-        except GeneratorExit as e:
-            return
-
-        except Exception as e:
-            retn = s_common.retnexc(e)
-            self._txGenrData(link, iden, retn)
-
-        finally:
-            genrs.pop(iden, None)
-
-    async def _coroGenrLoop(self, link, iden, genr):
-        genrs = link.get('dmon:genrs')
-        try:
-
-            async for item in genr:
-
-                if genrs.get(iden) is None:
-                    genr.close()
-                    return
-
-                retn = (True, item)
-                await self._txGenrData(link, iden, retn)
-
-            await self._txGenrData(link, iden, None)
-
-        except GeneratorExit as e:
-            pass
-
-        except Exception as e:
-            retn = s_common.retnexc(e)
-            await self._txGenrData(link, iden, retn)
-
-        finally:
-            genrs.pop(iden, None)
 
     async def _runTodoMeth(self, link, meth, args, kwargs):
 

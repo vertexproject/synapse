@@ -1,5 +1,4 @@
 import os
-import yaml
 import logging
 
 import synapse.exc as s_exc
@@ -18,10 +17,11 @@ def adminapi(f):
     def func(*args, **kwargs):
 
         if args[0].user is None:
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='Auth not enabled.')
 
         if not args[0].user.admin:
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='User is not an admin.',
+                                 user=args[0].user.name)
 
         return f(*args, **kwargs)
 
@@ -33,6 +33,12 @@ class CellApi:
         self.cell = cell
         self.link = link
         self.user = link.get('cell:user')
+
+    def getCellType(self):
+        return self.cell.getCellType()
+
+    async def fini(self):
+        return
 
     @adminapi
     def addAuthUser(self, name):
@@ -155,9 +161,6 @@ bootdefs = (
     #('auth:required', {'defval': True,
         #'doc': 'If auth is enabled, allow non-auth connections.  Cell must manage perms.'})
 
-    #('auth:url', {'defval': None,
-        #'doc': 'Set to a telepath URL to use a remote Auth Cell.'}),
-
     ('auth:admin', {'defval': None,
         'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
 )
@@ -221,9 +224,7 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         path = os.path.join(self.dirn, *path)
 
         if os.path.isfile(path):
-            with open(path, 'rb') as fd:
-                text = fd.read().decode('utf8')
-                return yaml.load(text)
+            return s_common.yamlload(path)
 
         return {}
 
@@ -239,10 +240,16 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
 
         user = self._getCellUser(link, mesg)
         if user is None:
-            raise s_exc.AuthDeny()
+            _auth = mesg[1].get('auth')
+            user = _auth[0] if _auth else None
+            raise s_exc.AuthDeny(mesg='Unable to find cell user.',
+                                 user=user)
 
         link.set('cell:user', user)
         return self.cellapi(self, link)
+
+    def getCellType(self):
+        return self.__class__.__name__.lower()
 
     def _getCellUser(self, link, mesg):
 
@@ -265,7 +272,8 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         # passwd None always fails...
         passwd = info.get('passwd')
         if not user.tryPasswd(passwd):
-            raise s_exc.AuthDeny()
+            raise s_exc.AuthDeny(mesg='Invalid password',
+                                 user=user.name)
 
         return user
 

@@ -52,9 +52,9 @@ class TelcoModelTest(s_test.SynTest):
                 node = snap.addNode('tel:mob:imei', '39015420323751')
                 self.eq(node.ndef[1], 390154203237519)
                 # Invalid checksum
-                self.raises(s_exc.BadTypeValu, snap.addNode, 'tel:mob:imei', 490154203237519)
-                self.raises(s_exc.BadTypeValu, snap.addNode, 'tel:mob:imei', '20')
-                self.raises(s_exc.BadTypeValu, snap.addNode, 'tel:mob:imei', 'hehe')
+                self.raises(s_exc.BadPropValu, snap.addNode, 'tel:mob:imei', 490154203237519)
+                self.raises(s_exc.BadPropValu, snap.addNode, 'tel:mob:imei', '20')
+                self.raises(s_exc.BadPropValu, snap.addNode, 'tel:mob:imei', 'hehe')
 
     def test_telco_imsi(self):
         with self.getTestCore() as core:
@@ -62,8 +62,8 @@ class TelcoModelTest(s_test.SynTest):
                 node = snap.addNode('tel:mob:imsi', '310150123456789')
                 self.eq(node.ndef[1], 310150123456789)
                 self.eq(node.get('mcc'), 310)
-                self.raises(s_exc.BadTypeValu, snap.addNode, 'tel:mob:imsi', 'hehe')
-                self.raises(s_exc.BadTypeValu, snap.addNode, 'tel:mob:imsi', 1111111111111111)
+                self.raises(s_exc.BadPropValu, snap.addNode, 'tel:mob:imsi', 'hehe')
+                self.raises(s_exc.BadPropValu, snap.addNode, 'tel:mob:imsi', 1111111111111111)
 
     def test_telco_phone(self):
         with self.getTestCore() as core:

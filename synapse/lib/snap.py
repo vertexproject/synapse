@@ -36,6 +36,8 @@ class Snap(s_eventbus.EventBus):
         self.stack = contextlib.ExitStack()
 
         self.user = None
+        self.elevated = False
+
         self.core = core
         self.model = core.model
         self.layers = layers
@@ -43,9 +45,11 @@ class Snap(s_eventbus.EventBus):
         self.bulk = False
         self.bulksops = []
 
+        self.runt = {}
         self.splices = []
 
-        self.write = write
+        self.debug = False      # Set to true to enable debug output.
+        self.write = write      # True when the snap has a write lock on a layer.
 
         self.xacts = []
 
@@ -59,9 +63,6 @@ class Snap(s_eventbus.EventBus):
 
         self.tagcache = s_cache.FixedCache(self._addTagNode, size=10000)
         self.buidcache = s_cache.FixedCache(self._getNodeByBuid, size=100000)
-
-        # keep a cache so bulk is *fast*
-        self.permcache = {}
 
         self.onfini(self.stack.close)
         self.changelog = []
@@ -86,25 +87,18 @@ class Snap(s_eventbus.EventBus):
 
         self.onfini(fini)
 
+    def setUser(self, user):
+        self.user = user
+
+    @s_cache.memoize(size=1000)
     def allowed(self, *args):
 
         # a user will be set by auth subsystem if enabled
         if self.user is None:
             return True
 
-        valu = self.permcache.get(args)
-        if valu is not None:
-            return valu
-
-        perm = args
-
-        # expand tag perms...
-        if args[0] in ('node:tag:add', 'node:tag:del'):
-            perm = (perm[0],) + tuple(perm[1].split('.'))
-
-        valu = self.user.allowed(perm)
-        self.permcache[args] = valu
-        return valu
+        #TODO elevated()
+        return self.user.allowed(args)
 
     def printf(self, mesg):
         self.fire('print', mesg=mesg)
@@ -190,6 +184,8 @@ class Snap(s_eventbus.EventBus):
         Yields:
             (synapse.lib.node.Node): Node instances.
         '''
+        if self.debug: self.printf(f'get nodes by: {full} {cmpr} {valu!r}')
+
         if full.startswith('#'):
             return self._getNodesByTag(full, valu=valu, cmpr=cmpr)
 
@@ -264,6 +260,11 @@ class Snap(s_eventbus.EventBus):
 
             return node
 
+        # time for the perms check...
+        if not self.allowed('node:add', form.name):
+            raise s_exc.AuthDeny(mesg='Not allowed to add the node.',
+                                 form=form.name)
+
         # lets build a node...
         node = s_node.Node(self, None)
 
@@ -304,7 +305,7 @@ class Snap(s_eventbus.EventBus):
         form.wasAdded(node)
 
         # now we must fire all his prop sets
-        for name, valu in node.props.items():
+        for name, valu in tuple(node.props.items()):
             prop = node.form.props.get(name)
             prop.wasSet(node, None)
 
@@ -405,7 +406,11 @@ class Snap(s_eventbus.EventBus):
         if form is None:
             raise s_exc.NoSuchForm(name=name)
 
-        norm, info = form.type.norm(valu)
+        try:
+            norm, info = form.type.norm(valu)
+        except Exception as e:
+            raise s_exc.BadPropValu(prop=form.name, valu=valu)
+
         buid = s_common.buid((form.name, norm))
         return form, norm, info, buid
 
@@ -442,8 +447,12 @@ class Snap(s_eventbus.EventBus):
                     for tag, asof in tags.items():
                         node.addTag(tag)
 
+                yield node
+
     def stor(self, sops):
+
         if not self.write:
+            # jump up to a write xact
             raise s_exc.ReadOnlySnap()
 
         if self.bulk:

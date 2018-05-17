@@ -2,7 +2,6 @@
 An RMI framework for synapse.
 '''
 import os
-import yaml
 import asyncio
 import logging
 
@@ -381,11 +380,7 @@ def alias(name):
     if not os.path.isfile(path):
         return None
 
-    text = open(path, 'r').read()
-    if not text:
-        return None
-
-    conf = yaml.load(text)
+    conf = s_common.yamlload(path)
     return conf.get(name)
 
 @s_glob.synchelp

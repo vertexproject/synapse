@@ -2,6 +2,7 @@ import json
 import types
 import base64
 import struct
+import xxhash
 import logging
 import collections
 
@@ -13,7 +14,6 @@ import synapse.dyndeps as s_dyndeps
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
-import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
 import synapse.lib.msgpack as s_msgpack
 
@@ -54,8 +54,22 @@ class Type:
         }
 
         self.setCmprCtor('=', self._ctorCmprEq)
+        self.setCmprCtor('!=', self._ctorCmprNe)
+        self.setCmprCtor('~=', self._ctorCmprRe)
+        self.setCmprCtor('^=', self._ctorCmprPref)
+        self.setCmprCtor('*in=', self._ctorCmprIn)
 
         self.postTypeInit()
+
+    def _getIndxChop(self, indx):
+
+        # cut down an index value to 256 bytes...
+        if len(indx) <= 256:
+            return indx
+
+        base = indx[:248]
+        sufx = xxhash.xxh64(indx).digest()
+        return base + sufx
 
     def setCmprCtor(self, name, func):
         self._cmpr_ctors[name] = func
@@ -69,12 +83,47 @@ class Type:
             return norm == valu
         return cmpr
 
+    def _ctorCmprNe(self, text):
+        norm, info = self.norm(text)
+        def cmpr(valu):
+            return norm != valu
+        return cmpr
+
+    def _ctorCmprPref(self, valu):
+        text = str(valu)
+        def cmpr(valu):
+            return self.repr(valu).startswith(text)
+        return cmpr
+
+    def _ctorCmprRe(self, text):
+        regx = regex.compile(text)
+        def cmpr(valu):
+            return regx.match(self.repr(valu)) is not None
+        return cmpr
+
+    def _ctorCmprIn(self, vals):
+        norms = [self.norm(v)[0] for v in vals]
+        def cmpr(valu):
+            return valu in norms
+        return cmpr
+
     def indxByEq(self, valu):
         norm, info = self.norm(valu)
         indx = self.indx(norm)
         return (
             ('eq', indx),
         )
+
+    def getStorIndx(self, norm):
+
+        indx = self.indx(norm)
+        if indx is None:
+            return b''
+
+        if len(indx) <= 256:
+            return indx
+
+        return self._getIndxChop(indx)
 
     def indxByIn(self, vals):
 
@@ -247,7 +296,7 @@ class Tag(Type):
 
         subs = {
             'base': toks[-1],
-            'depth': len(toks),
+            'depth': len(toks) - 1,
         }
 
         norm = '.'.join(toks)
@@ -335,8 +384,10 @@ class Int(Type):
     )
 
     def postTypeInit(self):
+
         self.size = self.opts.get('size')
         self.signed = self.opts.get('signed')
+
         minval = self.opts.get('min')
         maxval = self.opts.get('max')
 
@@ -509,7 +560,16 @@ class Range(Type):
             logger.exception('subtype invalid or unavailable')
             raise s_exc.BadTypeDef(self.opts, mesg='subtype invalid or unavailable')
 
+        self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(tuple, self._normPyTuple)
+
+    def _normPyStr(self, valu):
+        # take a default shot at foo-bar syntax
+        try:
+            return self._normPyTuple(valu.split('-', 1))
+        except Exception as e:
+            mesg = 'invalid range string'
+            raise s_exc.BadTypeValu(valu, mesg)
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
@@ -622,11 +682,39 @@ class Loc(Type):
             ('pref', indx),
         )
 
+# FIXME Add tests for FieldHelper sad paths
+class FieldHelper(collections.defaultdict):
+    '''
+    Helper for Comp types. Performs Type lookup/creation upon first use.
+    '''
+    def __init__(self, modl, fields):
+        collections.defaultdict.__init__(self)
+        self.modl = modl
+        self.fields = {name: tname for name, tname in fields}
+
+    def __missing__(self, key):
+        val = self.fields.get(key)
+        if not val:
+            raise s_exc.BadTypeDef(valu=key, mesg='unconfigured field requested')
+        if isinstance(val, str):
+            _type = self.modl.type(val)
+            if not _type:
+                raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
+        else:
+            # val is a type, opts pair
+            tname, opts = val
+            basetype = self.modl.type(tname)
+            if not basetype:
+                raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
+            _type = basetype.clone(opts)
+        return _type
+
 class Comp(Type):
 
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
+        self.tcache = FieldHelper(self.modl, self.opts.get('fields', ()))
 
     def _normPyTuple(self, valu):
 
@@ -639,10 +727,7 @@ class Comp(Type):
         norms = []
 
         for i, (name, typename) in enumerate(fields):
-
-            _type = self.modl.type(typename)
-            if _type is None:
-                raise Exception('we need a postModelInit()?') # FIXME
+            _type = self.tcache[name]
 
             norm, info = _type.norm(valu[i])
 
@@ -744,54 +829,7 @@ class NodeProp(Type):
             raise s_exc.NoSuchProp(name=propname)
 
         propnorm, info = prop.type.norm(propvalu)
-        return (prop.full, propnorm), {}
+        return (prop.full, propnorm), {'subs': {'prop': prop.full}}
 
     def indx(self, norm):
         return s_common.buid(norm)
-
-######################################################################
-# TODO FROM HERE DOWN....
-######################################################################
-
-class JsonType(Type):
-
-    def norm(self, valu, oldval=None):
-
-        if not isinstance(valu, str):
-            try:
-                return json.dumps(valu, sort_keys=True, separators=(',', ':')), {}
-            except Exception as e:
-                raise s_exc.BadTypeValu(valu, mesg='Unable to normalize object as json.')
-
-        try:
-            return json.dumps(json.loads(valu), sort_keys=True, separators=(',', ':')), {}
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu, mesg='Unable to norm json string')
-
-
-def islist(x):
-    return type(x) in (list, tuple)
-
-class StormType(Type):
-
-    def norm(self, valu, oldval=None):
-        try:
-            s_syntax.parse(valu)
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu)
-        return valu, {}
-
-class PermType(Type):
-    '''
-    Enforce that the permission string and options are known.
-    '''
-    def norm(self, valu, oldval=None):
-
-        try:
-            pnfo, off = s_syntax.parse_perm(valu)
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu)
-
-        if off != len(valu):
-            raise s_exc.BadTypeValu(valu)
-        return valu, {}

@@ -20,19 +20,27 @@ class CortexTest(SynTest):
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
                 self.eq(node.buid, func.args[0].buid)
 
+    def test_cortex_indxchop(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap(write=True) as snap:
+                valu = 'a' * 257
+                node = snap.addNode('teststr', valu)
+
+                nodes = list(snap.getNodesBy('teststr', 'aa', cmpr='^='))
+                self.len(1, nodes)
+
     def test_cortex_cell(self):
 
         with self.getTestDmon(mirror='dmoncore') as dmon:
 
-            core = dmon.shared.get('core')
+            core = dmon._getTestProxy('core')
 
             nodes = ((('inet:user', 'visi'), {}), )
 
-            core.addNodes(nodes)
+            nodes = list(core.addNodes(nodes))
             nodes = list(core.getNodesBy('inet:user', 'visi'))
-
-            proxy = dmon._getTestProxy('core')
-            nodes = list(proxy.getNodesBy('inet:user', 'visi'))
 
     def test_cortex_onsetdel(self):
 
@@ -52,7 +60,7 @@ class CortexTest(SynTest):
                 func = CallBack()
                 core.model.prop('inet:ipv4:loc').onDel(func)
 
-                node.delete('loc')
+                node.pop('loc')
 
                 self.eq(func.args[0].buid, node.buid)
                 self.eq(func.args[1], 'us.va')
@@ -234,6 +242,30 @@ class CortexTest(SynTest):
             with core.snap() as snap:
                 pivc = snap.getNodeByNdef(('pivcomp', ('woot', 'rofl')))
                 self.eq(pivc.get('targ::name'), 'visi')
+
+    def test_cortex_storm(self):
+
+        with self.getTestCore() as core:
+
+            # test some edit syntax
+            for node in core.eval('[ testcomp=(10, haha) #foo.bar -#foo.bar ]'):
+                self.nn(node.getTag('foo'))
+                self.none(node.getTag('foo.bar'))
+
+            for node in core.eval('[ teststr="foo bar" :tick=2018]'):
+                self.eq(1514764800000, node.get('tick'))
+                self.eq('foo bar', node.ndef[1])
+
+            for node in core.eval('teststr="foo bar" [ -:tick ]'):
+                self.none(node.get('tick'))
+
+            for node in core.eval('[ pivcomp=(foo,bar) ] -> pivtarg'):
+                self.eq(node.ndef[0], 'pivtarg')
+                self.eq(node.ndef[1], 'foo')
+
+            for node in core.eval('pivcomp=(foo,bar) :targ -> pivtarg'):
+                self.eq(node.ndef[0], 'pivtarg')
+                self.eq(node.ndef[1], 'foo')
 
 #FIXME THIS ALL GOES AWAY #################################################
 class FIXME:

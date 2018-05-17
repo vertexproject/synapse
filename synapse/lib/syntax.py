@@ -1,3 +1,5 @@
+
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
@@ -20,6 +22,8 @@ propset = set(':abcdefghijklmnopqrstuvwxyz_0123456789')
 starset = varset.union({'*'})
 tagfilt = varset.union({'#', '*'})
 alphaset = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+
+mustquote = set(' \t\n),=]}')
 
 # this may be used to meh() potentially unquoted values
 valmeh = whites.union({'(', ')', '=', ',', '[', ']', '{', '}'})
@@ -588,10 +592,12 @@ def parse_stormsub(text, off=0):
 
     return opers, off
 
+tagterm = set('),@ \t\n')
 whitespace = set(' \t\n')
 
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-cmprset = set('!<>^=')
+cmprset = set('!<>^~=')
+cmprstart = set('*!<>^~=')
 
 alphanum = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 
@@ -602,12 +608,22 @@ class Parser:
     must be quoted at beginning: . : # @ ( $ etc....
     '''
 
-    def __init__(self, model, text, offs=0):
+    def __init__(self, view, text, offs=0):
 
         self.offs = offs
         self.text = text.strip()
         self.size = len(self.text)
-        self.model = model
+
+        self.view = view
+        self.model = view.model
+
+    def _raiseSyntaxError(self, mesg):
+        at = self.text[self.offs:self.offs + 12]
+        raise s_exc.BadStormSyntax(mesg=mesg, at=at, text=self.text, offs=self.offs)
+
+    def _raiseSyntaxExpects(self, text):
+        mesg = 'expected: %s' % (text,)
+        self._raiseSyntaxError(mesg)
 
     def more(self):
         return self.offs < self.size
@@ -616,19 +632,34 @@ class Parser:
 
         self.ignore(whitespace)
 
-        query = s_ast.Query(self.model)
+        query = s_ast.Query(self.view)
 
-        while self.more():
+        while True:
 
             self.ignore(whitespace)
+
+            if not self.more():
+                break
 
             # if we are sub-query, time to go...
             if self.nextstr('}'):
                 break
 
+            # edit operations...
+            if self.nextstr('['):
+
+                self.offs += 1
+
+                self.ignore(whitespace)
+                while not self.nextstr(']'):
+                    oper = self.editoper()
+                    query.kids.append(oper)
+                    self.ignore(whitespace)
+
+                self.offs += 1
+                continue
+
             oper = self.oper()
-            if oper is None:
-                break
 
             query.kids.append(oper)
 
@@ -640,40 +671,270 @@ class Parser:
 
         return query
 
-    def oper(self):
+    def editoper(self):
 
         self.ignore(whitespace)
+
+        if self.nextstr(':'):
+            return self.editpropset()
+
+        if self.nextstr('#'):
+            return self.edittagadd()
+
+        if self.nextstr('-:'):
+            return self.editpropdel()
+
+        if self.nextstr('-#'):
+            return self.edittagdel()
+
+        if self.nextstr('-'):
+            return self.editnodedel()
+
+        return self.editnodeadd()
+
+    def editnodeadd(self):
+        '''
+        foo:bar = hehe
+        '''
+
+        self.ignore(whitespace)
+
+        absp = self.absprop()
+
+        self.ignore(whitespace)
+
+        if not self.nextstr('='):
+            self._raiseSyntaxExpects('=')
+
+        self.offs += 1
+
+        self.ignore(whitespace)
+
+        valu = self.valu()
+
+        return s_ast.EditNodeAdd(kids=(absp, valu))
+
+    def editnodedel(self):
+        '''
+        -foo:bar
+        '''
+        self.ignore(whitespace)
+
+        self.nextmust('-')
+
+        absp = self.absprop()
+        return s_ast.EditNodeDel(kids=(absp,))
+
+    def nextmust(self, text):
+
+        if not self.nextstr(text):
+            raise self._raiseSyntaxExpects(text)
+
+        self.offs += len(text)
+
+    def editpropset(self):
+        '''
+        :foo=10
+        '''
+
+        self.ignore(whitespace)
+
+        if not self.nextstr(':'):
+            self._raiseSyntaxExpects(':')
+
+        relp = self.relprop()
+        self.ignore(whitespace)
+
+        self.nextmust('=')
+
+        self.ignore(whitespace)
+
+        valu = self.valu()
+        return s_ast.EditPropSet(kids=(relp, valu))
+
+    def editpropdel(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('-')
+
+        relp = self.relprop()
+        return s_ast.EditPropDel(kids=(relp,))
+
+    def edittagadd(self):
+
+        self.ignore(whitespace)
+
+        tag = self.tag()
+
+        self.ignore(whitespace)
+
+        # TODO
+        #if self.nextstr('@'):
+
+        return s_ast.EditTagAdd(kids=(tag,))
+
+    def edittagdel(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('-')
+
+        tag = self.tag()
+
+        return s_ast.EditTagDel(kids=(tag,))
+
+    def formpivot(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('->')
+
+        self.ignore(whitespace)
+
+        prop = self.absprop()
+        return s_ast.FormPivot(kids=(prop,))
+
+    def formjoin(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('<-')
+
+        self.ignore(whitespace)
+
+        prop = self.absprop()
+        return s_ast.FormPivot(kids=(prop,), isjoin=True)
+
+    def proppivot(self, prop):
+        '''
+        :foo:bar -> baz:faz
+        '''
+        pval = s_ast.RelPropValue(None, kids=(prop,))
+
+        self.ignore(whitespace)
+
+        self.nextmust('->')
+
+        self.ignore(whitespace)
+
+        dest = self.absprop()
+        return s_ast.PropPivot(kids=(pval, dest))
+
+    def propjoin(self, prop):
+        '''
+        :foo:bar <- baz:faz
+        '''
+        pval = s_ast.RelPropValue(None, kids=(prop,))
+
+        self.ignore(whitespace)
+
+        self.nextmust('<-')
+
+        self.ignore(whitespace)
+
+        dest = self.absprop()
+        return s_ast.PropPivot(kids=(pval, dest), isjoin=True)
+
+    def oper(self):
+        '''
+        '''
+
+        self.ignore(whitespace)
+
+        if not self.more():
+            self._raiseSyntaxError('unexpected end of query text')
 
         if self.nextstr('{'):
             return self.subquery()
 
-        if self.nextchar() in ('+', '-'):
+        # some syntax elements prior to a prop/oper name...
+        if self.nextstr('->'):
+            return self.formpivot()
+
+        if self.nextstr('<-'):
+            return self.formjoin()
+
+        #if self.nextstr('-+>'):
+            #self.formjoinout()
+
+        #if self.nextstr('<+-'):
+            #self.formjoinin()
+
+        # $foo= here *will* be var assignment
+
+        char = self.nextchar()
+
+        if char in ('+', '-'):
             return self.filtoper()
 
-        name = self.noms(varset, ignore=whitespace)
-        if not name:
-            raise FIXME
+        if char == '#':
+            return self.liftbytag()
 
-        kid0 = s_ast.Const(name)
+        # :foo:bar relative property
+        if char == ':':
 
-        #if self.nextstr('('):
-            #return self.calloper(name)
+            prop = self.relprop()
+
+            # :foo=10 here could be assignment...
+
+            self.ignore(whitespace)
+            if self.nextstr('->'):
+                return self.proppivot(prop)
+
+            if self.nextstr('<-'):
+                return self.propjoin(prop)
+
+        text = self.noms(varset, ignore=whitespace)
+        name = s_ast.Const(text)
+
+        if self.nextstr('('):
+            return self.calloper(name)
 
         # we have a prop <cmpr> <valu>!
         if self.nextchar() in cmprset:
 
+            # TODO: check for :: pivot syntax and raise
+
             cmpr = self.cmpr()
             valu = self.valu()
 
-            kids = (kid0, cmpr, valu)
+            kids = (name, cmpr, valu)
             return s_ast.LiftPropBy(kids=kids)
+
+        # ok.. after <name> we have no cmpr no call()
+        # if we're a property, we're all set...
+        return s_ast.LiftProp(kids=(name,))
+
+    def liftbytag(self):
+
+        self.ignore(whitespace)
+
+        tag = self.tag()
+
+        self.ignore(whitespace)
+
+        #TODO
+        #if self.nextstr('@='):
+
+        return s_ast.LiftTag(kids=(tag,))
+
+    def callargs(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('(')
+        # TODO
+
+        # check for keyword args? --foo? cmdline?
 
     def filtoper(self):
 
         self.ignore(whitespace)
+
         pref = self.nextchar()
         if pref not in ('+', '-'):
-            raise FIXME
+            self._raiseSyntaxError('expected: + or -')
 
         self.offs += 1
 
@@ -685,36 +946,13 @@ class Parser:
         )
         return s_ast.FiltOper(kids=kids)
 
-        #if self.nextstr('+'):
-            #return self.filtmust()
-
-        #if self.nextstr('-'):
-            #return self.filtcant()
-
-        #raise FIXME
-
-    def filtmust(self):
-        self.ignore(whitespace)
-        if self.nextchar() != '+':
-            raise FIXME
-
-        self.offs += 1
-        cond = self.cond()
-        return s_ast.FiltMust(cond)
-
-    def filtcant(self):
-        self.ignore(whitespace)
-        if self.nextchar() != '-':
-            raise FIXME
-
-        self.offs += 1
-        cond = self.cond()
-        return s_ast.FiltCant(cond)
-
     def cond(self):
         '''
 
+        :foo
         :foo=20
+        :foo:bar=$baz
+        :foo:bar=:foo:baz
 
         #foo.bar
 
@@ -728,70 +966,124 @@ class Parser:
 
         self.ignore(whitespace)
 
-        #if self.nextstr('#'):
-        #if self.nextstr('$'):
-
-        #if self.nextstr('('):
-            # conditional expression
+        if self.nextstr('('):
+            return self.condexpr()
 
         if self.nextstr(':'):
 
             name = self.relprop()
-            if name is None:
-                raise FIXME
 
             self.ignore(whitespace)
+
+            if self.nextchar() not in cmprstart:
+                return s_ast.HasRelPropCond(kids=(name,))
+
             cmpr = self.cmpr()
-            if cmpr is None:
-                raise FIXME
 
             self.ignore(whitespace)
             valu = self.valu()
-            if valu is None:
-                raise FIXME
 
             return s_ast.RelPropCond(kids=(name, cmpr, valu))
 
-            #if self.iscmpr(
+        if self.nextstr('#'):
+
+            tag = self.tag()
+
+            self.ignore(whitespace)
+
+            if not self.nextstr('@='):
+                return s_ast.TagCond(kids=(tag,))
+
+        # only remaining option is form name...
+        #nme = self.
+
+            # tag time window...
+
+        #if self.nextstr('.'):
+        #if self.nextstr('$'):
+            # var
+
+        self._raiseSyntaxError('un-recognized conditional')
+
+    def condexpr(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('(')
+
+        cond = self.cond()
+
+        while True:
+
+            self.ignore(whitespace)
+
+            if self.nextchar() == ')':
+                self.offs += 1
+                return cond
+
+            if self.nextstr('and'):
+                self.offs += 3
+                othr = self.cond()
+                cond = s_ast.AndCond(kids=(cond, othr))
+                continue
+
+            if self.nextstr('or'):
+                self.offs += 2
+                othr = self.cond()
+                cond = s_ast.OrCond(kids=(cond, othr))
+                continue
+
+            if self.nextstr('not'):
+                self.offs += 3
+                othr = self.cond()
+                cond = s_ast.NotCond(kids=(cond, othr))
+                continue
+
+            self._raiseSyntaxError('un-recognized condition expression')
+
+    def absprop(self):
+        '''
+        foo:bar
+        '''
+        self.ignore(whitespace)
+
+        name = self.noms(varset)
+
+        if self.model.prop(name) is None:
+            self._raiseSyntaxError(f'no such property: {name!r}')
+
+        return s_ast.AbsProp(name)
 
     def relprop(self):
         '''
         :foo:bar
         '''
-
         self.ignore(whitespace)
 
-        if self.nextchar() != ':':
-            raise FIXME
-
-        self.offs += 1
+        self.nextmust(':')
 
         name = self.noms(varset)
         if not name:
-            raise FIXME
+            self._raiseBadSyntax('empty relative property name')
 
         return s_ast.RelProp(name)
-
-        # TODO if name.find('::') != -1:
-        # rel prop implicit pivot
 
     def cmpr(self):
 
         self.ignore(whitespace)
 
-        if self.nextchar() not in cmprset:
-            raise FIXME
-
         if self.nextstr('*'):
 
             text = self.expect('=')
             if text is None:
-                raise FIXME
+                raise self._raiseSyntaxError('comparison with * but not =')
 
             return s_ast.Const(text)
 
+        if self.nextchar() not in cmprset:
+            self._raiseSyntaxError('expected valid comparison char')
+
         text = self.noms(cmprset)
-        #return s_ast.Cmpr(text)
         return s_ast.Const(text)
 
     def valu(self):
@@ -800,49 +1092,84 @@ class Parser:
 
         # a simple whitespace separated string
         if self.nextchar() in alphanum:
-            text = self.noms(until=whitespace)
+            text = self.noms(until=mustquote)
             return s_ast.Const(text)
 
+        if self.nextstr('('):
+            kids = self.valulist()
+            # TODO Value() ctor convention...
+            return s_ast.List(None, kids=kids)
+
         if self.nextstr(':'):
-            # relative property
-            pass
+            prop = self.relprop()
+            return s_ast.RelPropValue(kids=(prop,))
 
         if self.nextstr('#'):
-            # tag time valu
-            pass
+            tag = self.tag()
+            return s_ast.TagPropValue(kids=(tag,))
 
         if self.nextstr('$'):
-            # scope variable
-            pass
+            var = self.var()
+            return s_ast.VarValue(kids=(var,))
 
         if self.nextstr('"'):
             text = self.quoted()
             return s_ast.Const(text)
 
-        text = self.noms(until=whitespace)
+        self._raiseSyntaxError('unrecognized value prefix')
 
-    def expect(self, text):
+    def quoted(self):
 
-        retn = ''
+        self.ignore(whitespace)
 
-        while self.more():
+        self.nextmust('"')
 
-            retn += self.slice(1)
-            if retn.endswith(text):
-                return retn
+        text = ''
 
-        raise FIXME
+        offs = self.offs
+        while offs < self.size:
 
-    def slice(self, size):
+            c = self.text[offs]
+            offs += 1
 
-        if self.offs + size > self.size:
-            raise FIXME
+            if c == '"':
 
-        retn = text[self.offs:self.offs + size]
+                self.offs = offs
+                return text
 
-        self.offs += size
+            if c == '\\':
+                text += self.text[offs]
+                offs += 1
+                continue
 
-        return retn
+            text += c
+
+        self._raiseSytaxError('unexpected end of query text')
+
+    def valulist(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('(')
+
+        vals = []
+
+        while True:
+
+            self.ignore(whitespace)
+
+            if self.nextstr(')'):
+                self.offs += 1
+                return vals
+
+            vals.append(self.valu())
+            self.ignore(whitespace)
+
+            if self.nextstr(')'):
+                self.offs += 1
+                return vals
+
+            self.nextmust(',')
 
     def subquery(self):
 
@@ -866,43 +1193,41 @@ class Parser:
         self.eat(1, ignore=whitespace)
         return subq
 
-    def statement(self):
+    def tag(self):
 
         self.ignore(whitespace)
 
-        # check for an edit block...
-        if self.nextstr('['):
-            return self.editblock()
+        self.nextmust('#')
 
-        if self.nextstr('->'):
-            # pivot with no source prop...
-            return self.formpivot()
+        self.ignore(whitespace)
 
-        if self.nextstr('<-'):
-            return self.formjoin()
+        # a bit odd, but the tag could require quoting...
+        #if self.nextchar() == '"':
 
-        if self.nextstr('#'):
-            return self.lifttag()
+        text = self.noms(until=tagterm)
 
-        if self.nextstr('.'):
-            return self.liftuniv()
+        return s_ast.Tag(text)
 
-        if self.nextchar() in ('+', '-'):
-            return self.filter()
+    ###########################################################################
+    # parsing helpers from here down...
 
-        name = self.noms(varset, ignore=whitespace)
-        if not name:
-            raise FIXME
+    def expect(self, text):
 
-        if self.nextstr('('):
-            args, kwargs = self.callargs()
-            return s_storm.CallOper(name, args, kwargs)
+        retn = ''
 
-        if self.nextstr('*'):
-            # lift macro with by cmpr sytnax
-            pass
+        offs = self.offs
 
-        # we *must* now start with either a prop
+        while offs < len(self.text):
+
+            retn += self.text[offs]
+
+            offs += 1
+
+            if retn.endswith(text):
+                self.offs = offs
+                return retn
+
+        raise self._raiseSyntaxExpects(text)
 
     def noms(self, chars=None, until=None, ignore=None):
 
@@ -927,13 +1252,6 @@ class Parser:
             self.ignore(ignore)
 
         return ''.join(rets)
-
-    #def editblock(self):
-    #def formpivot(self):
-    #def formjoin(self):
-    #def lifttag(self):
-    #def liftuniv(self):
-    #def filter(self):
 
     def nextstr(self, text):
 
@@ -990,7 +1308,7 @@ def parse_storm(text, off=0):
                     break
 
                 if off == len(text):
-                    raise s_common.BadSyntaxError(mesg='unexpected end of text in edit mode')
+                    raise s_common.BadSyntaxError(mesg='unexpected end of query text in edit mode')
 
                 if nextstr(text, off, '+#'):
                     valu, off = parse_valu(text, off + 2)
