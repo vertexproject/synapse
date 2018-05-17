@@ -8,7 +8,14 @@ import synapse.tests.common as s_t_common
 
 class InetModelTest(s_t_common.SynTest):
 
-    def test__forms_tested(self):
+    def test__untested_model_elements(self):
+        untested_types = []
+        for name in [typ[0] for typ in s_m_inet.InetModule.getModelDefs(None)[0][1]['types']]:
+
+            tname = 'test_' + name.split('inet:', 1)[1].replace(':', '_')
+            if not hasattr(self, tname):
+                untested_types.append(name)
+
         untested_forms = []
         for name in [form[0] for form in s_m_inet.InetModule.getModelDefs(None)[0][1]['forms']]:
 
@@ -16,7 +23,7 @@ class InetModelTest(s_t_common.SynTest):
             if not hasattr(self, tname):
                 untested_forms.append(name)
 
-        self.len(0, untested_forms, msg=f'The following forms are missing tests: {untested_forms}')
+        self.eq(0, len(untested_types) + len(untested_forms), msg=f'Untested model elements: types({untested_types}), forms({untested_forms})')
 
     def test_addr(self):
         formname = 'inet:addr'
