@@ -654,6 +654,11 @@ class InetModule(s_module.CoreModule):
                         'ex': '(1.2.3.4, 1.2.3.20)'
                     }),
 
+                    ('inet:net6', ('range', {'type': ('inet:ipv6', {})}), {
+                        'doc': 'An IPv6 address range.',
+                        'ex': "('ff::00', 'ff::30')"
+                    }),
+
                     ('inet:passwd', ('str', {}), {
                         'doc': 'A password string.'
                     }),

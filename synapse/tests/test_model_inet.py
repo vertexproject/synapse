@@ -680,6 +680,20 @@ class InetModelTest(s_t_common.SynTest):
             expected = ((16909060, 84281096), {'subs': {'min': 16909060, 'max': 84281096}})
             self.eq(t.norm(valu), expected)
 
+            self.raises(s_exc.BadTypeValu, t.norm, (valu[1], valu[0]))
+
+    def test_net6(self):
+        tname = 'inet:net6'
+        with self.getTestCore() as core:
+            # Type Tests ======================================================
+            t = core.model.type(tname)
+
+            valu = ('0:0:0:0:0:0:0:0', '::Ff')
+            expected = (('::', '::ff'), {'subs': {'min': '::', 'max': '::ff'}})
+            self.eq(t.norm(valu), expected)
+
+            self.raises(s_exc.BadTypeValu, t.norm, (valu[1], valu[0]))
+
     def test_port(self):
         tname = 'inet:port'
         with self.getTestCore() as core:
