@@ -921,6 +921,29 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_web_action(self):
+        formname = 'inet:web:action'
+        valu = 32 * 'a'
+        input_props = {
+            'act': 'Did a Thing',
+            'acct': ('vertex.link', 'vertexmc'),
+            'time': 0,
+            'ipv4': 0
+        }
+        expected_props = {
+            'act': 'did a thing',
+            'acct': ('vertex.link', 'vertexmc'),
+            'acct:site': 'vertex.link',
+            'acct:user': 'vertexmc',
+            'time': 0,
+            'ipv4': 0
+        }
+        expected_ndef = (formname, valu)
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_web_memb(self):
         formname = 'inet:web:memb'
         valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'kenshoto'))
