@@ -1016,6 +1016,29 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_web_logon(self):
+        formname = 'inet:web:logon'
+        valu = 32 * 'a'
+        input_props = {
+            'acct': ('vertex.link', 'vertexmc'),
+            'time': 0,
+            'ipv4': 0,
+            'logout': 1,
+        }
+        expected_props = {
+            'acct': ('vertex.link', 'vertexmc'),
+            'acct:site': 'vertex.link',
+            'acct:user': 'vertexmc',
+            'time': 0,
+            'ipv4': 0,
+            'logout': 1,
+        }
+        expected_ndef = (formname, valu)
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_web_memb(self):
         formname = 'inet:web:memb'
         valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'kenshoto'))
