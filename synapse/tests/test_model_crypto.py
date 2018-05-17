@@ -55,23 +55,23 @@ class CryptoModelTest(s_test.SynTest):
                 # md5
                 node = snap.addNode('hash:md5', TEST_MD5.upper())
                 self.eq(node.ndef, ('hash:md5', TEST_MD5))
-                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:md5', TEST_SHA1)
+                self.raises(s_exc.BadPropValu, snap.addNode, 'hash:md5', TEST_SHA1)
                 # sha1
                 node = snap.addNode('hash:sha1', TEST_SHA1.upper())
                 self.eq(node.ndef, ('hash:sha1', TEST_SHA1))
-                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:sha1', TEST_SHA256)
+                self.raises(s_exc.BadPropValu, snap.addNode, 'hash:sha1', TEST_SHA256)
                 # sha256
                 node = snap.addNode('hash:sha256', TEST_SHA256.upper())
                 self.eq(node.ndef, ('hash:sha256', TEST_SHA256))
-                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:sha256', TEST_SHA384)
+                self.raises(s_exc.BadPropValu, snap.addNode, 'hash:sha256', TEST_SHA384)
                 # sha384
                 node = snap.addNode('hash:sha384', TEST_SHA384.upper())
                 self.eq(node.ndef, ('hash:sha384', TEST_SHA384))
-                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:sha384', TEST_SHA512)
+                self.raises(s_exc.BadPropValu, snap.addNode, 'hash:sha384', TEST_SHA512)
                 # sha512
                 node = snap.addNode('hash:sha512', TEST_SHA512.upper())
                 self.eq(node.ndef, ('hash:sha512', TEST_SHA512))
-                self.raises(s_exc.BadTypeValu, snap.addNode, 'hash:sha512', TEST_MD5)
+                self.raises(s_exc.BadPropValu, snap.addNode, 'hash:sha512', TEST_MD5)
 
     def test_form_rsakey(self):
         prop = 'rsa:key'

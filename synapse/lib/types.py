@@ -14,7 +14,6 @@ import synapse.dyndeps as s_dyndeps
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
-import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
 import synapse.lib.msgpack as s_msgpack
 
@@ -561,7 +560,16 @@ class Range(Type):
             logger.exception('subtype invalid or unavailable')
             raise s_exc.BadTypeDef(self.opts, mesg='subtype invalid or unavailable')
 
+        self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(tuple, self._normPyTuple)
+
+    def _normPyStr(self, valu):
+        # take a default shot at foo-bar syntax
+        try:
+            return self._normPyTuple(valu.split('-', 1))
+        except Exception as e:
+            mesg = 'invalid range string'
+            raise s_exc.BadTypeValu(valu, mesg)
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
@@ -825,50 +833,3 @@ class NodeProp(Type):
 
     def indx(self, norm):
         return s_common.buid(norm)
-
-######################################################################
-# TODO FROM HERE DOWN....
-######################################################################
-
-class JsonType(Type):
-
-    def norm(self, valu, oldval=None):
-
-        if not isinstance(valu, str):
-            try:
-                return json.dumps(valu, sort_keys=True, separators=(',', ':')), {}
-            except Exception as e:
-                raise s_exc.BadTypeValu(valu, mesg='Unable to normalize object as json.')
-
-        try:
-            return json.dumps(json.loads(valu), sort_keys=True, separators=(',', ':')), {}
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu, mesg='Unable to norm json string')
-
-
-def islist(x):
-    return type(x) in (list, tuple)
-
-class StormType(Type):
-
-    def norm(self, valu, oldval=None):
-        try:
-            s_syntax.parse(valu)
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu)
-        return valu, {}
-
-class PermType(Type):
-    '''
-    Enforce that the permission string and options are known.
-    '''
-    def norm(self, valu, oldval=None):
-
-        try:
-            pnfo, off = s_syntax.parse_perm(valu)
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu)
-
-        if off != len(valu):
-            raise s_exc.BadTypeValu(valu)
-        return valu, {}

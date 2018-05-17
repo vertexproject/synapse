@@ -1,5 +1,4 @@
 import os
-import yaml
 import logging
 
 import synapse.exc as s_exc
@@ -225,9 +224,7 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         path = os.path.join(self.dirn, *path)
 
         if os.path.isfile(path):
-            with open(path, 'rb') as fd:
-                text = fd.read().decode('utf8')
-                return yaml.load(text)
+            return s_common.yamlload(path)
 
         return {}
 

@@ -102,8 +102,7 @@ class Layer(s_cell.Cell):
 
         mapsize = self.conf.get('lmdb:mapsize')
 
-        # TODO: why is writemap=True no faster?
-        self.lenv = lmdb.open(path, max_dbs=128, map_size=mapsize)
+        self.lenv = lmdb.open(path, max_dbs=128, map_size=mapsize, writemap=True)
 
         self.dbs = {}
 

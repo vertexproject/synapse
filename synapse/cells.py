@@ -2,10 +2,10 @@
 Constructors for the various cells.
 ( used for dmon config automation)
 '''
-import yaml
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.cryotank as s_cryotank
 
 import synapse.lib.auth as s_auth
 import synapse.lib.layer as s_layer
@@ -14,6 +14,7 @@ ctors = {
     'auth': s_auth.Auth,
     'layer': s_layer.Layer,
     'cortex': s_cortex.Cortex,
+    'cryocell': s_cryotank.CryoCell,
 }
 
 def add(name, ctor):
@@ -46,8 +47,7 @@ def deploy(name, dirn, boot=None):
     boot['type'] = name
 
     # create the boot.yaml
-    with s_common.genfile(dirn, 'boot.yaml') as fd:
-        fd.write(yaml.safe_dump(boot).encode('utf8'))
+    s_common.yamlsave(boot, dirn, 'boot.yaml')
 
     # Cell has a deploy static method (possibly per cell type)
     ctor.deploy(dirn)
