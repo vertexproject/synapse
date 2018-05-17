@@ -14,14 +14,6 @@
     'doc': 'An IPv6 address range.',
     'ex': 'ff::00-ff::30'}),
 
-========== TYPES of comp/sepr =====================================================================
-# needs inet:server
-('inet:ssl:tcp4cert', {
-    'subof': 'sepr',
-    'sep': '/',
-    'fields': 'tcp4,inet:tcp4|cert,file:bytes',
-    'doc': 'An SSL certificate file served by an IPv4 TCP server.'}),
-
 TYPES that rely on xrefs ==============================================================================
 ('inet:web:actref', {
     'subof': 'xref',
@@ -84,14 +76,4 @@ FORMS ==========================================================================
     ('xref:strval', {'ptype': 'str', 'ro': 1,
         'doc': 'The normed value of the form that was referenced, if the value is a string.'}),
 ]),
-
-('inet:ssl:tcp4cert', {'ptype': 'inet:ssl:tcp4cert'}, [
-    ('tcp4', {'ptype': 'inet:tcp4', 'ro': 1, 'req': 1,  # FIXME make server
-        'doc': 'The IPv4 TCP server where the certificate was observed.'}),
-    ('cert', {'ptype': 'file:bytes', 'ro': 1, 'req': 1,
-        'doc': 'The SSL certificate.'}),
-    ('tcp4:ipv4', {'ptype': 'inet:ipv4', 'ro': 1,
-        'doc': 'The IPv4 address associated with the TCP server.'}),
-]),
-
 '''
