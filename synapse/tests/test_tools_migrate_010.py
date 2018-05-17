@@ -7,6 +7,7 @@ import synapse.lib.iq as s_iq
 import synapse.lib.hashset as s_hashset
 import synapse.lib.msgpack as s_msgpack
 import synapse.tools.migrate_010 as s_migrate
+s_migrate.debug_on_error = False
 
 class Migrate010Test(s_iq.SynTest):
 
@@ -88,7 +89,8 @@ class Migrate010Test(s_iq.SynTest):
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             look_nodes = self.get_formfile('inet:dns:look', fh)
             self.eq(len(look_nodes), 1)
-            self.eq(look_nodes[0][1]['props']['udp4'], 'udp://8.8.8.8:80/')
+            self.eq(look_nodes[0][1]['props']['client'], 'tcp://5.5.5.5')
+            self.eq(look_nodes[0][1]['props']['server'], 'udp://8.8.8.8:80')
 
             tufo = core.formTufoByProp('inet:web:logon', '*', acct='vertex.link/pennywise', time=now,
                                        ipv4=0x01020304)
@@ -208,5 +210,6 @@ class Migrate010Test(s_iq.SynTest):
             m = s_migrate.Migrator(core, fh, tmpdir=dirn)
             m.migrate()
             nodes = self.get_formfile('inet:flow', fh)
-            self.eq(nodes[0][1]['props']['dst'], 'tcp://1.2.3.4:80/')
-            self.eq(nodes[0][1]['props']['src'], 'tcp://[::3:2:1]:443/')
+            self.len(1, nodes)
+            self.eq(nodes[0][1]['props']['dst'], 'tcp://1.2.3.4:80')
+            self.eq(nodes[0][1]['props']['src'], 'tcp://[::3:2:1]:443')

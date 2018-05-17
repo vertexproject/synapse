@@ -28,6 +28,17 @@ debug_on_error = False
 # `it:exec:bind:tcp` and `it:exec:bind:udp` will become `it:exec:bind` which has a `server` prop which is going to be a
 # `inet:addr`
 
+# convert inet:tcp4/udp4/tcp4/tcp6 *forms* to inet:server
+
+#bugs
+# also still have a tcp4cert coming through:
+#     inet:ssl:tcp4cert (90628211016123, '54ea7ab864b13087972a63c5f22fb2b1') {'cert':
+#             'sha256:6657db14db3331f4fe8a1d53d06e0660ef7d7bbabf4a5c738d68755fdf022c0b', 'tcp4':
+#             'tcp://82.109.6.83:443/'}
+#     which seems like a comp reconstruction failture
+# Getting tons of NoSuchProp: ""  (inet:web:logon)
+# ( nodes coming out with a "" key in the props dict )
+
 # Topologically sorted comp and sepr types that are form types that have other comp types as elements.  The beginning
 # of the list has more dependencies than the end.
 _comp_and_sepr_forms = [
@@ -218,7 +229,16 @@ class Migrator:
         'syn:tag:depth',
         'ps:name:middle',
         'ps:name:sur',
-        'ps:name:given'
+        'ps:name:given',
+        'inet:tcp4:ipv4',
+        'inet:tcp4:port',
+        'inet:udp4:ipv4',
+        'inet:udp4:port',
+        'inet:tcp6:ipv6',
+        'inet:tcp6:port',
+        'inet:udp6:ipv6',
+        'inet:udp6:port',
+        'inet:cidr4:ipv4'
     ))
 
     def do_stage2a(self):
@@ -314,7 +334,7 @@ class Migrator:
 
         logger.info('Stage 2b complete in %.1fs.', time.time() - start_time)
 
-    def convert_ps_name(self, formname, propname, typename, val):
+    def convert_ps_name(self, formname, propname, typename, val, props):
         lastname, firstname = val.split(',', 1)
         return propname, firstname + ' ' + lastname
 
@@ -364,7 +384,7 @@ class Migrator:
             return None, self.convert_sepr(formname, pkval)
         if formname in self.xrefs:
             return None, self.convert_xref(formname, pkval, props)
-        _, val = self.convert_subprop(formname, formname, pkval)
+        _, val = self.convert_subprop(formname, formname, pkval, props)
         return None, val
 
     def convert_comp_secondary(self, formname, propval):
@@ -384,7 +404,7 @@ class Migrator:
             comp_enc = txn.get(propval.encode('utf8'), db=self.comp_tbl)
             if comp_enc is None:
                 if debug_on_error:
-                    import ipdb;
+                    import ipdb
                     ipdb.set_trace()
                 raise ConsistencyError('ndef accessed before determined')
             return s_msgpack.un(comp_enc)[1]
@@ -408,7 +428,7 @@ class Migrator:
         retn = []
         for member in members:
             full_member = '%s:%s' % (formname, member)
-            _, val = self.convert_subprop(formname, full_member, props[full_member])
+            _, val = self.convert_subprop(formname, full_member, props[full_member], props)
             retn.append(val)
         return tuple(retn)
 
@@ -418,56 +438,65 @@ class Migrator:
             return self.convert_foreign_key(subproptype, val)
         return val
 
-    prop_renames = {
-        'inet:fqdn:zone': 'inet:fqdn:iszone',
-        'inet:fqdn:sfx': 'inet:fqdn:issuffix',
-        'inet:ipv4:cc': 'inet:ipv4:loc',
-        'inet:flow:dst:tcp4': 'inet:flow:dst',
-        'inet:flow:dst:tcp4': 'inet:flow:dst',
-        'inet:flow:dst:udp4': 'inet:flow:dst',
-        'inet:flow:dst:tcp6': 'inet:flow:dst',
-        'inet:flow:src:udp6': 'inet:flow:src',
-        'inet:flow:src:udp4': 'inet:flow:src',
-        'inet:flow:src:tcp6': 'inet:flow:src',
-        'inet:flow:src:udp6': 'inet:flow:src',
-        'tel:phone:cc': 'tel:phone:loc',
-        'inet:ssl:tcp4cert': 'inet:ssl:servercert'
-    }
-
     def ipv4_to_client(self, formname, propname, typename, val):
-        return 'client', 'tcp://%s/' % s_inet.ipv4str(val)
+        return formname + ':client', 'tcp://%s' % s_inet.ipv4str(val)
 
     def ipv6_to_client(self, formname, propname, typename, val):
-        return 'client', 'tcp://[%s]/' % val
+        return formname + ':client', 'tcp://[%s]' % val
 
-    def ipv4_to_server(self, formname, propname, typename, val):
-        _, props = self.core.getTufoByProp(typename, val)
-        addr_propname = 'ipv' + typename[-1]
-        addr = s_inet.ipv4str(props[typename + ':' + addr_propname])
-        port = props[typename + ':port']
-        return propname, '%s://%s:%s/' % (typename[5:8], addr, port)
+    def convert_inet_tcp_udp_primary(self, formname, props):
+        return None, 'pk'
 
-    def ipv6_to_server(self, formname, propname, typename, val):
-        _, props = self.core.getTufoByProp(typename, val)
+    def xxp_to_server(self, formname, propname, typename, val, props):
         addr_propname = 'ipv' + typename[-1]
-        addr = props[typename + ':' + addr_propname]
-        port = props[typename + ':port']
-        return propname, '%s://[%s]:%s/' % (typename[5:8], addr, port)
+        if typename[-1] == '4':
+            addr = s_inet.ipv4str(props[propname + ':' + addr_propname])
+        else:
+            addr = '[%s]' % (props[propname + ':' + addr_propname], )
+        port = props[propname + ':port']
+        print('xxp_to_server: ', formname, addr, port)
+        return None, '%s://%s:%s' % (typename[5:8], addr, port)
 
     type_special = {
-        'inet:tcp4': ipv4_to_server,
-        'inet:tcp6': ipv6_to_server,
-        'inet:udp4': ipv4_to_server,
-        'inet:udp6': ipv6_to_server,
-        'ps:name': convert_ps_name
+        'inet:tcp4': xxp_to_server,
+        'inet:tcp6': xxp_to_server,
+        'inet:udp4': xxp_to_server,
+        'inet:udp6': xxp_to_server,
+        'ps:name': convert_ps_name,
     }
 
     form_renames = {
         'file:txtref': 'file:ref',
         'file:imgof': 'file:ref',
+        'it:exec:bind:tcp': 'it:exec:bind',
+        'it:exec:bind:udp': 'it:exec:bind',
+        'inet:tcp4': 'inet:server',
+        'inet:tcp6': 'inet:server',
+        'inet:udp4': 'inet:server',
+        'inet:udp4': 'inet:server',
+        'inet:ssl:tcp4cert': 'inet:ssl:cert',
     }
 
-    def convert_subprop(self, formname, propname, val):
+    prop_renames = {
+        'inet:fqdn:zone': 'inet:fqdn:iszone',
+        'inet:fqdn:sfx': 'inet:fqdn:issuffix',
+        'inet:ipv4:cc': 'inet:ipv4:loc',
+        'tel:phone:cc': 'tel:phone:loc',
+        'ou:org:cc': 'ou:org:loc',
+        'inet:dns:look:ipv4': 'inet:dns:look:client',
+        'inet:dns:look:tcp4': 'inet:dns:look:server',
+        'inet:dns:look:udp4': 'inet:dns:look:server',
+        'inet:flow:dst:udp4': 'inet:flow:dst',
+        'inet:flow:dst:udp6': 'inet:flow:dst',
+        'inet:flow:dst:tcp4': 'inet:flow:dst',
+        'inet:flow:dst:tcp6': 'inet:flow:dst',
+        'inet:flow:src:udp4': 'inet:flow:src',
+        'inet:flow:src:udp6': 'inet:flow:src',
+        'inet:flow:src:tcp4': 'inet:flow:src',
+        'inet:flow:src:tcp6': 'inet:flow:src',
+    }
+
+    def convert_subprop(self, formname, propname, val, props):
         typename = self.core.getPropTypeName(propname)
         converted = False
 
@@ -475,7 +504,9 @@ class Migrator:
             propname, val = self.subprop_special[propname](self, formname, propname, typename, val)
             converted = True
         elif typename in self.type_special:
-            propname, val = self.type_special[typename](self, formname, propname, typename, val)
+            newpropname, val = self.type_special[typename](self, formname, propname, typename, val, props)
+            if newpropname is not None:
+                propname = newpropname
             converted = True
 
         newpropname = self.prop_renames.get(propname, propname)
@@ -527,7 +558,7 @@ class Migrator:
                     # skip all non-seed secondary props in xrefs
                     continue
                 else:
-                    new_pname, newv = self.convert_subprop(formname, oldk, oldv)
+                    new_pname, newv = self.convert_subprop(formname, oldk, oldv, oldprops)
                 props[new_pname] = newv
             elif oldk == 'node:created':
                 props['.created'] = oldv
@@ -556,6 +587,10 @@ class Migrator:
         'it:dev:regval': just_guid,
         'inet:dns:soa': just_guid,
         'file:bytes': convert_file_bytes,
+        'inet:udp4': convert_inet_tcp_udp_primary,
+        'inet:udp6': convert_inet_tcp_udp_primary,
+        'inet:tcp4': convert_inet_tcp_udp_primary,
+        'inet:tcp6': convert_inet_tcp_udp_primary,
     }
 
     def handle_seen(self, propname, propval, newprops):
@@ -573,14 +608,7 @@ class Migrator:
     subprop_special = {
         'inet:web:logon:ipv4': ipv4_to_client,
         'inet:web:logon:ipv6': ipv6_to_client,
-        # 'inet:flow:dest:tcp4': foo,
-        # 'inet:flow:dest:tcp4': foo,
-        # 'inet:flow:dest:udp6': foo,
-        # 'inet:flow:dest:udp6': foo,
-        # 'inet:flow:src:tcp4': foo,
-        # 'inet:flow:src:tcp4': foo,
-        # 'inet:flow:src:udp6': foo,
-        # 'inet:flow:src:udp6': foo,
+        'inet:dns:look:ipv4': ipv4_to_client
     }
 
 def main(argv, outp=None):  # pragma: no cover
