@@ -806,9 +806,12 @@ class InetModelTest(s_t_common.SynTest):
     def test_servfile(self):
         formname = 'inet:servfile'
         valu = ('tcp://127.0.0.1:4040', 'sha256:' + 64 * 'f')
+        input_props = {
+            'server:host': 32 * 'a'
+        }
         expected_props = {
-            # FIXME no subs
             'server': 'tcp://127.0.0.1:4040',
+            'server:host': 32 * 'a',
             'server:port': 4040,
             'server:proto': 'tcp',
             'server:ipv4': 2130706433,
@@ -817,7 +820,7 @@ class InetModelTest(s_t_common.SynTest):
         expected_ndef = (formname, tuple(item.lower() for item in valu))
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
-                node = snap.addNode(formname, valu)
+                node = snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
     def test_ssl_cert(self):
