@@ -176,10 +176,9 @@ class PsModule(s_module.CoreModule):
                     ('title', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The job/org title listed for this contact.',
                     }),
-                    # FIXME requires file:bytes
-                    # ('photo', ('file:bytes', {}), {
-                    #     'doc': 'The photo listed for this contact.',
-                    # }),
+                    ('photo', ('file:bytes', {}), {
+                        'doc': 'The photo listed for this contact.',
+                    }),
                     ('orgname', ('ou:name', {}), {
                         'doc': 'The listed org/company name for this contact.',
                     }),
@@ -201,7 +200,9 @@ class PsModule(s_module.CoreModule):
                     ('email:work', ('inet:email', {}), {
                         'doc': 'The work email address for this contact.'
                     }),
-                    # FIXME - Should we have a `address:loc` or `loc` property as well?
+                    ('loc', ('loc', {}), {
+                        'doc': 'Best known contact geopolitical location.'
+                    }),
                     ('address', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The free-form address listed for the contact',
                     }),

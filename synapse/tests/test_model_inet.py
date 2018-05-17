@@ -44,7 +44,7 @@ class InetModelTest(s_t_common.SynTest):
             hstr = 'ffa3e574aa219e553e1b2fc1ccd0180f'
             self.eq(t.norm('host://vertex.link'), (f'host://{hstr}', {'subs': {'host': hstr}}))
             self.eq(t.norm('host://vertex.link:1337'), (f'host://{hstr}:1337', {'subs': {'host': hstr, 'port': 1337}}))
-            self.raises(OSError, t.norm, 'vertex.link')  # must use host proto
+            self.raises(s_exc.BadTypeValu, t.norm, 'vertex.link')  # must use host proto
 
     def test_asn(self):
         formname = 'inet:asn'
@@ -203,6 +203,32 @@ class InetModelTest(s_t_common.SynTest):
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_ssl_cert(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap(write=True) as snap:
+
+                node = snap.addNode('inet:ssl:cert', ('tcp://1.2.3.4:443', 'guid:abcdabcdabcdabcdabcdabcdabcdabcd'))
+
+                self.eq(node.get('file'), 'guid:abcdabcdabcdabcdabcdabcdabcdabcd')
+                self.eq(node.get('server'), 'tcp://1.2.3.4:443')
+
+                self.eq(node.get('server:port'), 443)
+                self.eq(node.get('server:ipv4'), 0x01020304)
+
+    def test_passwd(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap(write=True) as snap:
+
+                node = snap.addNode('inet:passwd', '2Cool4u')
+                self.eq(node.ndef[1], '2Cool4u')
+                self.eq('91112d75297841c12ca655baafc05104', node.get('md5'))
+                self.eq('2984ab44774294be9f7a369bbd73b52021bf0bb4', node.get('sha1'))
+                self.eq('62c7174a99ff0afd4c828fc779d2572abc2438415e3ca9769033d4a36479b14f', node.get('sha256'))
 
     def test_flow(self):
         formname = 'inet:flow'

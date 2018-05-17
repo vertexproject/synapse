@@ -198,7 +198,7 @@ class FileModule(s_module.CoreModule):
 
                 'types': (
 
-                    ('file:imgof', ('comp', {'fields': (('file', 'file:bytes'), ('node', 'ndef'))}), {
+                    ('file:ref', ('comp', {'fields': (('file', 'file:bytes'), ('node', 'ndef'))}), {
                         'doc': 'A file that contains an image of the specififed node.'}),
 
                 ),
@@ -249,6 +249,21 @@ class FileModule(s_module.CoreModule):
                             'doc': 'The file extension (if any).'}),
                     )),
 
+                    ('file:ref', {}, (
+
+                        ('file', ('file:bytes', {}), {'ro': 1,
+                            'doc': 'The file that refers to a node.'}),
+
+                        ('node', ('ndef', {}), {'ro': 1,
+                            'doc': 'The node referenced by the file.'}),
+
+                        ('node:form', ('str', {}), {'ro': 1,
+                            'doc': 'The form of node which is referenced.'}),
+
+                        ('type', ('str', {'lower': 1}), {
+                            'doc': 'A convention based name for the type of reference.'}),
+                    )),
+
                     ('file:path', {}, (
                         ('dir', ('file:path', {}), {'ro': 1,
                             'doc': 'The parent directory.'}),
@@ -258,15 +273,6 @@ class FileModule(s_module.CoreModule):
 
                         ('base:ext', ('str', {}), {'ro': 1,
                             'doc': 'The file extension.'}),
-                    )),
-
-                    ('file:imgof', {}, (
-                        ('file', ('file:bytes', {}), {'ro': 1,
-                            'doc': 'The file containing the image.'}),
-                        ('node', ('ndef', {}), {'ro': 1,
-                            'doc': 'The node which is pictured.'}),
-                        ('node:form', ('str', {}), {'ro': 1,
-                            'doc': 'The form of node pictured.'}),
                     )),
                 ),
 

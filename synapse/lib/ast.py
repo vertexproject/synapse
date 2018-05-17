@@ -118,7 +118,7 @@ class Query(AstNode):
         return any(o.iswrite for o in self.kids)
 
     def cancel(self):
-        pass
+        self.canceled = True
 
     def execute(self):
 
@@ -306,7 +306,7 @@ class PropPivot(PivotOper):
 
         #self.isform = snap.model.forms.get(name) is not None
 
-        self.prop = self.nap.model.props.get(name)
+        self.prop = self.snap.model.props.get(name)
         if self.prop is None:
             raise s_exc.NoSuchProp(name=name)
 
@@ -376,6 +376,14 @@ class TagCond(Cond):
     def evaluate(self, node):
         return node.tags.get(self.tagname) is not None
 
+class HasRelPropCond(Cond):
+
+    def prepare(self):
+        self.propname = self.kids[0].value()
+
+    def evaluate(self, node):
+        return node.has(self.propname)
+
 class RelPropCond(Cond):
     '''
     :foo:bar <cmpr> <value>
@@ -425,9 +433,7 @@ class RelPropCond(Cond):
 
         prop = node.form.props.get(self.propname)
 
-        # TODO: make this behavior optional
         if prop is None:
-            raise FIXME_or_log
             return False
 
         valu = node.get(prop.name)

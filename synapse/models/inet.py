@@ -3,6 +3,7 @@
 
 # stdlib
 import socket
+import hashlib
 import logging
 import ipaddress
 import email.utils
@@ -52,6 +53,8 @@ class Addr(s_types.Type):
 
         if proto not in ('tcp', 'udp', 'icmp', 'host'):
             raise s_exc.BadTypeValu(orig, mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
+
+        valu = valu.strip().strip('/')
 
         # Treat as host if proto is host
         if proto == 'host':
@@ -223,8 +226,14 @@ class IPv4(s_types.Type):
         return norm, {}
 
     def _normPyStr(self, valu):
+
         valu = valu.replace('[.]', '.')
-        byts = socket.inet_aton(valu)
+
+        try:
+            byts = socket.inet_aton(valu)
+        except OSError as e:
+            raise s_exc.BadTypeValu(type=self.name, valu=valu)
+
         norm = int.from_bytes(byts, 'big')
         return self._normPyInt(norm)
 
@@ -448,6 +457,14 @@ class InetModule(s_module.CoreModule):
         self.model.prop('inet:fqdn:zone').onSet(self._onSetFqdnZone)
         self.model.prop('inet:fqdn:iszone').onSet(self._onSetFqdnIsZone)
         self.model.prop('inet:fqdn:issuffix').onSet(self._onSetFqdnIsSuffix)
+        self.model.form('inet:passwd').onAdd(self._onAddPasswd)
+
+    def _onAddPasswd(self, node):
+
+        byts = node.ndef[1].encode('utf8')
+        node.set('md5', hashlib.md5(byts).hexdigest())
+        node.set('sha1', hashlib.sha1(byts).hexdigest())
+        node.set('sha256', hashlib.sha256(byts).hexdigest())
 
     def _onAddFqdn(self, node):
 
@@ -575,7 +592,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:asnet4', ('comp', {'fields': (('asn', 'inet:asn'), ('net4', 'inet:net4'))}), {
                         'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
-                        'ex': '(54959, ("1.2.3.4", "1.2.3.20"))',
+                        'ex': '(54959, (1.2.3.4, 1.2.3.20))',
                     }),
 
                     ('inet:client', ('inet:addr', {}), {
@@ -634,11 +651,16 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:net4', ('range', {'type': ('inet:ipv4', {})}), {
                         'doc': 'An IPv4 address range.',
-                        'ex': '("1.2.3.4", "1.2.3.20")'
+                        'ex': '(1.2.3.4, 1.2.3.20)'
                     }),
 
                     ('inet:passwd', ('str', {}), {
                         'doc': 'A password string.'
+                    }),
+
+                    ('inet:ssl:cert', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
+                        'doc': 'An SSL certificate file served by a server.',
+                        'ex': '(1.2.3.4:443, guid:ff....fff)',
                     }),
 
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
@@ -870,72 +892,69 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:flow', {}, (
+
                         ('time', ('time', {}), {
-                            'doc': 'The time the network connection was initiated.'
-                        }),
+                            'doc': 'The time the network connection was initiated.'}),
+
                         ('duration', ('int', {}), {
-                            'doc': 'The duration of the flow in seconds.'
-                        }),
+                            'doc': 'The duration of the flow in seconds.'}),
+
                         ('from', ('guid', {}), {
-                            'doc': 'The ingest source file/iden. Used for reparsing.'
-                        }),
-                        # FIXME port src/dst
-                        #('dst:host', {'ptype': 'it:host',
-                        #    'doc': 'The guid of the destination host.'}),
-                        #('dst:proc', {'ptype': 'it:exec:proc',
-                        #    'doc': 'The guid of the destination process.'}),
-                        #('dst:exe', {'ptype': 'file:bytes',
-                        #    'doc': 'The file (executable) that received the connection.'}),
-                        #('dst:txbytes', {'ptype': 'int',
-                        #    'doc': 'The number of bytes sent by the destination host / process / file.'}),
-                        #('src:host', {'ptype': 'it:host',
-                        #    'doc': 'The guid of the source host.'}),
-                        #('src:proc', {'ptype': 'it:exec:proc',
-                        #    'doc': 'The guid of the source process.'}),
-                        #('src:exe', {'ptype': 'file:bytes',
-                        #    'doc': 'The file (executable) that created the connection.'}),
-                        #('src:txbytes', {'ptype': 'int',
-                        #    'doc': 'The number of bytes sent by the source host / process / file.'}),
-                        ('dst', ('inet:addr', {}), {
-                            'ro': True,
-                            'doc': 'The destination address / port for a connection.'
-                        }),
-                        ('dst:ipv4', ('inet:ipv4', {}), {
-                            'ro': True,
-                            'doc': 'The destination IPv4 address.'
-                        }),
-                        ('dst:ipv6', ('inet:ipv6', {}), {
-                            'ro': True,
-                            'doc': 'The destination IPv6 address.'
-                        }),
-                        ('dst:port', ('inet:port', {}), {
-                            'ro': True,
-                            'doc': 'The destination port.'
-                        }),
-                        ('dst:proto', ('str', {'lower': True}), {
-                            'ro': True,
-                            'doc': 'The destination port.'
-                        }),
-                        ('src', ('inet:addr', {}), {
-                            'ro': True,
-                            'doc': 'The source address / port for a connection.'
-                        }),
-                        ('src:ipv4', ('inet:ipv4', {}), {
-                            'ro': True,
-                            'doc': 'The source IPv4 address.'
-                        }),
-                        ('src:ipv6', ('inet:ipv6', {}), {
-                            'ro': True,
-                            'doc': 'The source IPv6 address.'
-                        }),
-                        ('src:port', ('inet:port', {}), {
-                            'ro': True,
-                            'doc': 'The source port.'
-                        }),
-                        ('src:proto', ('str', {'lower': True}), {
-                            'ro': True,
-                            'doc': 'The source port.'
-                        }),
+                            'doc': 'The ingest source file/iden. Used for reparsing.'}),
+
+                        ('dst', ('inet:server', {}), {'ro': 1,
+                            'doc': 'The destination address / port for a connection.'}),
+
+                        ('dst:host', ('it:host', {}), {
+                            'doc': 'The guid of the destination host.'}),
+
+                        ('dst:proc', ('it:exec:proc', {}), {
+                            'doc': 'The guid of the destination process.'}),
+
+                        ('dst:exe', ('file:bytes', {}), {'ro': 1,
+                            'doc': 'The file (executable) that received the connection.'}),
+
+                        ('dst:txbytes', ('int', {}), {'ro': 1,
+                            'doc': 'The number of bytes sent by the destination host / process / file.'}),
+
+                        ('src:host', ('it:host', {}), {'ro': 1,
+                            'doc': 'The guid of the source host.'}),
+
+                        ('src:proc', ('it:exec:proc', {}), {'ro': 1,
+                            'doc': 'The guid of the source process.'}),
+
+                        ('src:exe', ('file:bytes', {}), {'ro': 1,
+                            'doc': 'The file (executable) that created the connection.'}),
+
+                        ('src:txbytes', ('int', {}), {'ro': 1,
+                            'doc': 'The number of bytes sent by the source host / process / file.'}),
+
+                        ('dst:ipv4', ('inet:ipv4', {}), {'ro': 1,
+                            'doc': 'The destination IPv4 address.'}),
+
+                        ('dst:ipv6', ('inet:ipv6', {}), {'ro': 1,
+                            'doc': 'The destination IPv6 address.'}),
+
+                        ('dst:port', ('inet:port', {}), {'ro': 1,
+                            'doc': 'The destination port.'}),
+
+                        ('dst:proto', ('str', {'lower': True}), {'ro': 1,
+                            'doc': 'The destination port.'}),
+
+                        ('src', ('inet:client', {}), {'ro': 1,
+                            'doc': 'The source address / port for a connection.'}),
+
+                        ('src:ipv4', ('inet:ipv4', {}), {'ro': 1,
+                            'doc': 'The source IPv4 address.'}),
+
+                        ('src:ipv6', ('inet:ipv6', {}), {'ro': 1,
+                            'doc': 'The source IPv6 address.'}),
+
+                        ('src:port', ('inet:port', {}), {'ro': 1,
+                            'doc': 'The source port.'}),
+
+                        ('src:proto', ('str', {'lower': True}), {'ro': 1,
+                            'doc': 'The source port.'}),
                     )),
 
                     ('inet:fqdn', {}, (
@@ -1176,15 +1195,36 @@ class InetModule(s_module.CoreModule):
                         }),
                     ]),
 
-                    # FIXME implement
-                    #('inet:passwd', {'ptype': 'inet:passwd'}, [
-                    #    ('md5', {'ptype': 'hash:md5', 'ro': True,
-                    #        'doc': 'The computed MD5 hash of the password.'}),
-                    #    ('sha1', {'ptype': 'hash:sha1', 'ro': True,
-                    #        'doc': 'The computed SHA1 hash of the password.'}),
-                    #    ('sha256', {'ptype': 'hash:sha256', 'ro': True,
-                    #        'doc': 'The computed SHA256 hash of the password.'}),
-                    #]),
+                    ('inet:passwd', ('str', {}), (
+
+                        ('md5', ('hash:md5', {}), {'ro': 1,
+                            'doc': 'The MD5 hash of the password.'}),
+
+                        ('sha1', ('hash:sha1', {}), {'ro': 1,
+                            'doc': 'The SHA1 hash of the password.'}),
+
+                        ('sha256', ('hash:sha256', {}), {'ro': 1,
+                            'doc': 'The SHA256 hash of the password.'}),
+                    )),
+
+                    ('inet:ssl:cert', ('inet:ssl:cert', {}), (
+
+                        ('file', ('file:bytes', {}), {'ro': True,
+                            'doc': 'The file bytes for the SSL certificate.'}),
+
+                        ('server', ('inet:server', {}), {'ro': True,
+                            'doc': 'The file bytes for the SSL certificate.'}),
+
+                        ('server:ipv4', ('inet:ipv4', {}), {'ro': True,
+                            'doc': 'The SSL server IPv4 address.'}),
+
+                        ('server:ipv6', ('inet:ipv6', {}), {'ro': True,
+                            'doc': 'The SSL server IPv6 address.'}),
+
+                        ('server:port', ('inet:port', {}), {'ro': True,
+                            'doc': 'The SSL server listening port.'}),
+
+                    )),
 
                     ('inet:rfc2822:addr', {}, (
                         ('name', ('ps:name', {}), {
@@ -1405,10 +1445,6 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
-                        # FIXME missing json
-                        #('info', ('json', {}), {
-                        #    'doc': 'Any other data associated with the action.'
-                        #}),
                         ('time', ('time', {}), {
                             'doc': 'The date and time the account performed the action.'
                         }),
@@ -1531,7 +1567,7 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
-                        ('time', ('time', {}), {
+                        ('time', ('time', {}), {'ro': 1,
                             'doc': 'The date and time the account logged into the service.'
                         }),
                         ('client', ('inet:client', {}), {
@@ -1543,7 +1579,7 @@ class InetModule(s_module.CoreModule):
                         ('client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The source IPv6 address of the logon.'
                         }),
-                        ('logout', ('time', {}), {
+                        ('logout', ('time', {}), {'ro': 1,
                             'doc': 'The date and time the account logged out of the service.'
                         })
                     )),

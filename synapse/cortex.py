@@ -69,33 +69,48 @@ class CoreApi(s_cell.CellApi):
         for node in self.cell.getNodesBy(full, valu, cmpr=cmpr):
             yield node.pack()
 
+    async def fini(self):
+        pass
+
     def addNodes(self, nodes):
+
         with self.cell.snap(write=True) as snap:
             snap.setUser(self.user)
-            for node in snap.addNodes(nodes):
-                yield node.pack()
+            yield from snap.addNodes(nodes)
 
     def eval(self, text, opts=None):
 
         query = self.cell.view.getStormQuery(text)
         query.setUser(self.user)
 
-        for node in query.evaluate():
-            yield node
+        try:
+
+            for node in query.evaluate():
+                yield node.pack()
+
+        except Exception as e:
+            logger.warning(f'exception during storm eval: {e}')
+            query.cancel()
 
     def storm(self, text, opts=None):
 
         query = self.cell.view.getStormQuery(text)
         query.setUser(self.user)
 
-        for mesg in query.execute():
-            yield mesg
+        try:
+
+            for mesg in query.execute():
+                yield mesg
+
+        except Exception as e:
+            logger.warning(f'exception during storm: {e}')
+            query.cancel()
 
 class Cortex(s_cell.Cell):
     '''
     A Cortex implements the synapse hypergraph.
 
-    The bulk of the Cortex API lives on the Xact() object which can
+    The bulk of the Cortex API lives on the Snap() object which can
     be obtained by calling Cortex.snap() in a with block.  This allows
     callers to manage transaction boundaries explicitly and dramatically
     increases performance.

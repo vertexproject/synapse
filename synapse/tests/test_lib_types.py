@@ -14,7 +14,7 @@ class TypesTest(s_test.SynTest):
         t = model.type('range')
 
         self.raises(s_exc.NoSuchFunc, t.norm, 1)
-        self.raises(s_exc.NoSuchFunc, t.norm, '1')
+        self.raises(s_exc.BadTypeValu, t.norm, '1')
         self.raises(s_exc.BadTypeValu, t.norm, (1,))
         self.raises(s_exc.BadTypeValu, t.norm, (1, -1))
 
@@ -22,6 +22,8 @@ class TypesTest(s_test.SynTest):
         self.eq(norm, (0, 0))
         self.eq(info['subs']['min'], 0)
         self.eq(info['subs']['max'], 0)
+
+        self.eq((10, 20), t.norm('10-20')[0])
 
         norm, info = t.norm((-10, 0xFF))
         self.eq(norm, (-10, 255))

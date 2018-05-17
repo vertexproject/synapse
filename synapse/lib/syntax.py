@@ -595,6 +595,7 @@ whitespace = set(' \t\n')
 
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 cmprset = set('!<>^~=')
+cmprstart = set('*!<>^~=')
 
 alphanum = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 
@@ -810,6 +811,8 @@ class Parser:
         '''
         :foo:bar -> baz:faz
         '''
+        pval = s_ast.RelPropValue(None, kids=(prop,))
+
         self.ignore(whitespace)
         if not self.nextstr('->'):
             raise FIXME
@@ -818,7 +821,7 @@ class Parser:
         self.ignore(whitespace)
 
         dest = self.absprop()
-        return s_ast.PropPivot(kids=(prop, dest))
+        return s_ast.PropPivot(kids=(pval, dest))
 
     def propjoin(self, prop):
         '''
@@ -880,8 +883,8 @@ class Parser:
         text = self.noms(varset, ignore=whitespace)
         name = s_ast.Const(text)
 
-        #if self.nextstr('('):
-            #return self.calloper(name)
+        if self.nextstr('('):
+            return self.calloper(name)
 
         # we have a prop <cmpr> <valu>!
         if self.nextchar() in cmprset:
@@ -893,11 +896,6 @@ class Parser:
 
             kids = (name, cmpr, valu)
             return s_ast.LiftPropBy(kids=kids)
-
-        # operator call() syntax
-        if self.nextchar() == '(':
-            args = self.callargs()
-            return s_ast.CallOper(name, args)
 
         # ok.. after <name> we have no cmpr no call()
         # if we're a property, we're all set...
@@ -948,6 +946,7 @@ class Parser:
     def cond(self):
         '''
 
+        :foo
         :foo=20
         :foo:bar=$baz
         :foo:bar=:foo:baz
@@ -974,14 +973,14 @@ class Parser:
                 raise FIXME
 
             self.ignore(whitespace)
+
+            if self.nextchar() not in cmprstart:
+                return s_ast.HasRelPropCond(kids=(name,))
+
             cmpr = self.cmpr()
-            if cmpr is None:
-                raise FIXME
 
             self.ignore(whitespace)
             valu = self.valu()
-            if valu is None:
-                raise FIXME
 
             return s_ast.RelPropCond(kids=(name, cmpr, valu))
 
@@ -1129,6 +1128,36 @@ class Parser:
         if self.nextstr('"'):
             text = self.quoted()
             return s_ast.Const(text)
+
+        raise FIXME
+
+    def quoted(self):
+
+        self.ignore(whitespace)
+        if not self.nextstr('"'):
+            raise FIXME
+
+        self.offs += 1
+
+        text = ''
+
+        offs = self.offs
+        while offs < self.size:
+
+            c = self.text[offs]
+            offs += 1
+
+            if c == '"':
+
+                self.offs = offs
+                return text
+
+            if c == '\\':
+                text += self.text[offs]
+                offs += 1
+                continue
+
+            text += c
 
         raise FIXME
 
