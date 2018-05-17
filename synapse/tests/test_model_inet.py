@@ -636,6 +636,20 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('vendor'), 'Cool')
 
+    def test_port(self):
+        formname = 'inet:port'
+        with self.getTestCore() as core:
+
+            # Type Tests ======================================================
+            t = core.model.type(formname)
+            self.raises(s_exc.BadTypeValu, t.norm, -1)
+            self.eq(t.norm(0), (0, {}))
+            self.eq(t.norm(1), (1, {}))
+            self.eq(t.norm('2'), (2, {}))
+            self.eq(t.norm('0xF'), (15, {}))
+            self.eq(t.norm(65535), (65535, {}))
+            self.raises(s_exc.BadTypeValu, t.norm, 65536)
+
     def test_rfc2822_addr(self):
         formname = 'inet:rfc2822:addr'
         with self.getTestCore() as core:
