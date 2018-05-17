@@ -53,6 +53,7 @@ class Addr(s_types.Type):
 
         if proto not in ('tcp', 'udp', 'icmp', 'host'):
             raise s_exc.BadTypeValu(orig, mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
+        subs['proto'] = proto
 
         valu = valu.strip().strip('/')
 

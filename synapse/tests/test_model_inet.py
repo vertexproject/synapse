@@ -39,26 +39,26 @@ class InetModelTest(s_t_common.SynTest):
             t = core.model.type(formname)
 
             # Proto defaults to tcp
-            self.eq(t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060}}))
-            self.eq(t.norm('1.2.3.4:80'), ('tcp://1.2.3.4:80', {'subs': {'port': 80, 'ipv4': 16909060}}))
+            self.eq(t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060, 'proto': 'tcp'}}))
+            self.eq(t.norm('1.2.3.4:80'), ('tcp://1.2.3.4:80', {'subs': {'port': 80, 'ipv4': 16909060, 'proto': 'tcp'}}))
             self.raises(s_exc.BadTypeValu, t.norm, 'https://192.168.1.1:80')  # bad proto
 
             # IPv4
-            self.eq(t.norm('tcp://1.2.3.4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060}}))
-            self.eq(t.norm('udp://1.2.3.4:80'), ('udp://1.2.3.4:80', {'subs': {'port': 80, 'ipv4': 16909060}}))
-            self.eq(t.norm('tcp://1[.]2.3[.]4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060}}))
+            self.eq(t.norm('tcp://1.2.3.4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060, 'proto': 'tcp'}}))
+            self.eq(t.norm('udp://1.2.3.4:80'), ('udp://1.2.3.4:80', {'subs': {'port': 80, 'ipv4': 16909060, 'proto': 'udp'}}))
+            self.eq(t.norm('tcp://1[.]2.3[.]4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060, 'proto': 'tcp'}}))
             self.raises(s_exc.BadTypeValu, t.norm, 'tcp://1.2.3.4:-1')
             self.raises(s_exc.BadTypeValu, t.norm, 'tcp://1.2.3.4:66000')
 
             # IPv6
-            self.eq(t.norm('icmp://::1'), ('icmp://::1', {'subs': {'ipv6': '::1'}}))
-            self.eq(t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'subs': {'ipv6': '::1', 'port': 2}}))
+            self.eq(t.norm('icmp://::1'), ('icmp://::1', {'subs': {'ipv6': '::1', 'proto': 'icmp'}}))
+            self.eq(t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'subs': {'ipv6': '::1', 'port': 2, 'proto': 'tcp'}}))
             self.raises(s_exc.BadTypeValu, t.norm, 'tcp://[::1')  # bad ipv6 w/ port
 
             # Host
             hstr = 'ffa3e574aa219e553e1b2fc1ccd0180f'
-            self.eq(t.norm('host://vertex.link'), (f'host://{hstr}', {'subs': {'host': hstr}}))
-            self.eq(t.norm('host://vertex.link:1337'), (f'host://{hstr}:1337', {'subs': {'host': hstr, 'port': 1337}}))
+            self.eq(t.norm('host://vertex.link'), (f'host://{hstr}', {'subs': {'host': hstr, 'proto': 'host'}}))
+            self.eq(t.norm('host://vertex.link:1337'), (f'host://{hstr}:1337', {'subs': {'host': hstr, 'port': 1337, 'proto': 'host'}}))
             self.raises(s_exc.BadTypeValu, t.norm, 'vertex.link')  # must use host proto
 
     def test_asn(self):
@@ -151,18 +151,22 @@ class InetModelTest(s_t_common.SynTest):
         data = (
             ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
                 'ipv4': 2130706433,
-                'port': 12345
+                'port': 12345,
+                'proto': 'tcp',
             }),
             ('tcp://127.0.0.1', 'tcp://127.0.0.1', {
                 'ipv4': 2130706433,
+                'proto': 'tcp',
             }),
             ('tcp://[::1]:12345', 'tcp://[::1]:12345', {
                 'ipv6': '::1',
-                'port': 12345
+                'port': 12345,
+                'proto': 'tcp',
             }),
             ('host://vertex.link:12345', 'host://ffa3e574aa219e553e1b2fc1ccd0180f:12345', {
                 'host': 'ffa3e574aa219e553e1b2fc1ccd0180f',
-                'port': 12345
+                'port': 12345,
+                'proto': 'host',
             }),
         )
 
@@ -181,16 +185,18 @@ class InetModelTest(s_t_common.SynTest):
             'client': 'tcp://127.0.0.1:45654',
             'server': 'tcp://1.2.3.4:80'
         }
-        expected_props = {  # FIXME fill in src/dst later
+        expected_props = {
             'time': 0,
             'file': 'sha256:' + 64 * 'b',
             'fqdn': 'vertex.link',
             'client': 'tcp://127.0.0.1:45654',
             'client:ipv4': 2130706433,
             'client:port': 45654,
+            'client:proto': 'tcp',
             'server': 'tcp://1.2.3.4:80',
             'server:ipv4': 16909060,
             'server:port': 80,
+            'server:proto': 'tcp',
         }
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
@@ -751,18 +757,22 @@ class InetModelTest(s_t_common.SynTest):
         data = (
             ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
                 'ipv4': 2130706433,
-                'port': 12345
+                'port': 12345,
+                'proto': 'tcp',
             }),
             ('tcp://127.0.0.1', 'tcp://127.0.0.1', {
                 'ipv4': 2130706433,
+                'proto': 'tcp',
             }),
             ('tcp://[::1]:12345', 'tcp://[::1]:12345', {
                 'ipv6': '::1',
-                'port': 12345
+                'port': 12345,
+                'proto': 'tcp',
             }),
             ('host://vertex.link:12345', 'host://ffa3e574aa219e553e1b2fc1ccd0180f:12345', {
                 'host': 'ffa3e574aa219e553e1b2fc1ccd0180f',
-                'port': 12345
+                'port': 12345,
+                'proto': 'host',
             }),
         )
 
@@ -779,6 +789,7 @@ class InetModelTest(s_t_common.SynTest):
             # FIXME no subs
             'server': 'tcp://127.0.0.1:4040',
             'server:port': 4040,
+            'server:proto': 'tcp',
             'server:ipv4': 2130706433,
             'file': 'sha256:' + 64 * 'f'
         }
