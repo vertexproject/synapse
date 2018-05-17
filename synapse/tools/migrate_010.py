@@ -16,13 +16,8 @@ logger = logging.getLogger(__name__)
 
 # TODO
 # check model version before begin migration
+# push tmp scripts to kudu gitlab
 # Add config file to allow additional coremodules
-# parallelize stage2
-# file:base -> filepath if backslash in them (?? separate the last part out?)
-# * fix the file:base to only include the last part
-# # add a corresponding file:path with the correct normalized path
-# # copy any tags on the former to the latter
-# # if a secondary prop, just normalize and use the last part
 
 # Topologically sorted comp and sepr types that are form types that have other comp types as elements.  The beginning
 # of the list has more dependencies than the end.
@@ -220,7 +215,7 @@ class Migrator:
                 curs = txn.cursor(self.form_tbl)
                 if not curs.set_key(formname.encode('utf8')):
                     continue
-                logger.info('Stage 2a: (%3d/%3d) processing nodes from %s', i + 1, len(self.first_forms), formname)
+                logger.info('Stage 2a: (%2d/%2d) processing nodes from %s', i + 1, len(self.first_forms), formname)
                 for enc_iden in curs.iternext_dup():
                     try:
                         with txn.cursor(self.iden_tbl) as curs:
@@ -412,12 +407,35 @@ class Migrator:
             addrport = val
         return None, '%s://%s' % (typename[5:8], addrport)
 
+    def check_file_base_primary(self, formname, props):
+        pk = props[formname]
+        if '\\' not in pk:
+            return props[formname]
+        _, new_pk = self.check_file_base(formname, formname, formname, pk, props)
+
+        # Make a file:path node with the same tags
+
+        ndef = ('file:path', self.core.getTypeRepr('file:path', pk.replace('\\', '/')))
+        propscopy = props.copy()
+        propscopy[formname] = new_pk
+        template = self.convert_props(propscopy)
+        new_node = (ndef, {'props': {'.created': template[1]['props']['.created']},
+                           'tags': template[1].get('tags', {})})
+
+        self.write_node_to_file(new_node)
+
+        return new_pk
+
+    def check_file_base(self, formname, propname, typename, val, props):
+        return None, val.rsplit('\\', 1)[-1]
+
     type_special = {
         'inet:tcp4': xxp_to_server,
         'inet:tcp6': xxp_to_server,
         'inet:udp4': xxp_to_server,
         'inet:udp6': xxp_to_server,
         'ps:name': convert_ps_name,
+        'file:base': check_file_base
     }
 
     form_renames = {
@@ -589,6 +607,7 @@ class Migrator:
         'inet:tcp4': convert_inet_xxp_primary,
         'inet:tcp6': convert_inet_xxp_primary,
         'ps:image': convert_ps_image,
+        'file:base': check_file_base_primary,
     }
 
     def handle_seen(self, propname, propval, newprops):

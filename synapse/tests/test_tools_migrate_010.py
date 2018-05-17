@@ -227,8 +227,7 @@ class Migrate010Test(s_iq.SynTest):
             core.formTufoByProp('inet:flow', s_common.guid(), **props)
 
             fh = tempfile.TemporaryFile(dir=dirn)
-            m = s_migrate.Migrator(core, fh, tmpdir=dirn)
-            m.migrate()
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('inet:flow', fh)
             self.len(1, nodes)
             self.eq(nodes[0][1]['props']['dst'], 'tcp://1.2.3.4:80')
@@ -243,8 +242,7 @@ class Migrate010Test(s_iq.SynTest):
             core.formTufoByProp('it:exec:bind:tcp', '*', host=host1, port=80, ipv4='1.2.3.4')
             core.formTufoByProp('it:exec:bind:udp', '*', host=host2, port=81, ipv6='::1')
             fh = tempfile.TemporaryFile(dir=dirn)
-            m = s_migrate.Migrator(core, fh, tmpdir=dirn)
-            m.migrate()
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('it:exec:bind', fh)
             self.len(2, nodes)
             node1, node2 = nodes
@@ -252,3 +250,23 @@ class Migrate010Test(s_iq.SynTest):
                 node2, node1 = node1, node2
             self.eq(node1[1]['props']['server'], 'tcp://1.2.3.4:80')
             self.eq(node2[1]['props']['server'], 'udp://[::1]:81')
+
+    def test_file_base(self):
+        '''
+        A file:base with a backslash shall be corrected and a new file:path node shall be added
+        with the same tags.
+        '''
+        self.maxDiff = None
+        with self.getTestDir() as dirn, self.getRamCore() as core:
+            tufo = core.formTufoByProp('file:base', '%temp%\\bar.exe')
+            core.addTufoTag(tufo, 'test')
+            fh = tempfile.TemporaryFile(dir=dirn)
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            nodes = self.get_formfile('file:base', fh)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('file:base', 'bar.exe'))
+            self.eq(nodes[0][1]['tags'], {'test': (None, None)})
+            nodes = self.get_formfile('file:path', fh)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('file:path', '%temp%/bar.exe'))
+            self.eq(nodes[0][1]['tags'], {'test': (None, None)})
