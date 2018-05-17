@@ -565,7 +565,6 @@ class InetModelTest(s_t_common.SynTest):
 
     def test_ipv4(self):
         formname = 'inet:ipv4'
-
         with self.getTestCore() as core:
 
             # Type Tests ======================================================
@@ -584,18 +583,24 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm(0xFFFFFFFF + 1), (0, {}))
 
             # Form Tests ======================================================
+            input_props = {
+                'asn': 3,
+                'loc': 'uS',
+                'type': 'cool',
+                'latlong': '-50.12345, 150.56789'
+            }
+            expected_props = {
+                'asn': 3,
+                'loc': 'us',
+                'type': 'cool',
+                'latlong': (-50.12345, 150.56789),
+            }
+            valu_str = '1.2.3.4'
+            valu_int = 16909060
+            expected_ndef = (formname, valu_int)
             with core.snap(write=True) as snap:
-                valu_str = '1.2.3.4'
-                valu_int = 16909060
-                input_props = {'asn': 3, 'loc': 'us', 'type': 'cool', 'latlong': '-50.12345, 150.56789'}
-                expected_ndef = (formname, valu_int)
-
                 node = snap.addNode(formname, valu_str, props=input_props)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('asn'), 3)
-                self.eq(node.get('loc'), 'us')
-                self.eq(node.get('type'), 'cool')
-                self.eq(node.get('latlong'), (-50.12345, 150.56789))
+                self.checkNode(node, (expected_ndef, expected_props))
 
     def test_ipv6(self):
         formname = 'inet:ipv6'
@@ -637,20 +642,25 @@ class InetModelTest(s_t_common.SynTest):
             with core.snap(write=True) as snap:
 
                 valu_str = '::fFfF:1.2.3.4'
+                input_props = {'latlong': '0,2', 'loc': 'cool'}
+                expected_props = {
+                    'asn': 0,
+                    'ipv4': 16909060,
+                    'loc': 'cool',
+                    'latlong': (0.0, 2.0),
+                }
                 expected_ndef = (formname, valu_str.lower())
-                node = snap.addNode(formname, valu_str, props={'latlong': '0,2'})
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('asn'), 0)
-                self.eq(node.get('ipv4'), 16909060)
-                self.eq(node.get('loc'), '??')
-                self.eq(node.get('latlong'), (0.0, 2.0))
+                node = snap.addNode(formname, valu_str, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
 
                 valu_str = '::1'
+                expected_props = {
+                    'asn': 0,
+                    'loc': '??',
+                }
                 expected_ndef = (formname, valu_str)
                 node = snap.addNode(formname, valu_str)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('asn'), 0)
-                self.eq(node.get('loc'), '??')
+                self.checkNode(node, (expected_ndef, expected_props))
 
     def test_mac(self):
         formname = 'inet:mac'
@@ -706,6 +716,16 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm(valu), expected)
 
             self.raises(s_exc.BadTypeValu, t.norm, (valu[1], valu[0]))
+
+    def test_passwd(self):
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+
+                node = snap.addNode('inet:passwd', '2Cool4u')
+                self.eq(node.ndef[1], '2Cool4u')
+                self.eq('91112d75297841c12ca655baafc05104', node.get('md5'))
+                self.eq('2984ab44774294be9f7a369bbd73b52021bf0bb4', node.get('sha1'))
+                self.eq('62c7174a99ff0afd4c828fc779d2572abc2438415e3ca9769033d4a36479b14f', node.get('sha256'))
 
     def test_port(self):
         tname = 'inet:port'
@@ -786,9 +806,12 @@ class InetModelTest(s_t_common.SynTest):
     def test_servfile(self):
         formname = 'inet:servfile'
         valu = ('tcp://127.0.0.1:4040', 'sha256:' + 64 * 'f')
+        input_props = {
+            'server:host': 32 * 'a'
+        }
         expected_props = {
-            # FIXME no subs
             'server': 'tcp://127.0.0.1:4040',
+            'server:host': 32 * 'a',
             'server:port': 4040,
             'server:proto': 'tcp',
             'server:ipv4': 2130706433,
@@ -797,7 +820,7 @@ class InetModelTest(s_t_common.SynTest):
         expected_ndef = (formname, tuple(item.lower() for item in valu))
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
-                node = snap.addNode(formname, valu)
+                node = snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
     def test_ssl_cert(self):
@@ -813,18 +836,6 @@ class InetModelTest(s_t_common.SynTest):
 
                 self.eq(node.get('server:port'), 443)
                 self.eq(node.get('server:ipv4'), 0x01020304)
-
-    def test_passwd(self):
-
-        with self.getTestCore() as core:
-
-            with core.snap(write=True) as snap:
-
-                node = snap.addNode('inet:passwd', '2Cool4u')
-                self.eq(node.ndef[1], '2Cool4u')
-                self.eq('91112d75297841c12ca655baafc05104', node.get('md5'))
-                self.eq('2984ab44774294be9f7a369bbd73b52021bf0bb4', node.get('sha1'))
-                self.eq('62c7174a99ff0afd4c828fc779d2572abc2438415e3ca9769033d4a36479b14f', node.get('sha256'))
 
     def test_url(self):
         formname = 'inet:url'
@@ -1343,16 +1354,6 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_whois_reg(self):
-        formname = 'inet:whois:reg'
-        valu = 'cool Registrant '
-        expected_props = {}
-        expected_ndef = (formname, 'cool registrant ')
-        with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
-                node = snap.addNode(formname, valu)
-                self.checkNode(node, (expected_ndef, expected_props))
-
     def test_whois_rec(self):
         formname = 'inet:whois:rec'
         valu = ('woot.com', '@20501217')
@@ -1395,25 +1396,24 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_whois_reg(self):
+        formname = 'inet:whois:reg'
+        valu = 'cool Registrant '
+        expected_props = {}
+        expected_ndef = (formname, 'cool registrant ')
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_whois_regmail(self):
         formname = 'inet:whois:regmail'
         valu = ('wOOt.Com', 'visi@vertex.LINK')
         expected_props = {
             'fqdn': 'woot.com',
             'email': 'visi@vertex.link',
-            # FIXME no subs
         }
         expected_ndef = (formname, tuple(item.lower() for item in valu))
-        with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
-                node = snap.addNode(formname, valu)
-                self.checkNode(node, (expected_ndef, expected_props))
-
-    def test_wifi_ssid(self):
-        formname = 'inet:wifi:ssid'
-        valu = 'The Best SSID '
-        expected_props = {}
-        expected_ndef = (formname, valu)
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, valu)
@@ -1426,6 +1426,16 @@ class InetModelTest(s_t_common.SynTest):
             'ssid': valu[0],
             'bssid': valu[1]
         }
+        expected_ndef = (formname, valu)
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_wifi_ssid(self):
+        formname = 'inet:wifi:ssid'
+        valu = 'The Best SSID '
+        expected_props = {}
         expected_ndef = (formname, valu)
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
