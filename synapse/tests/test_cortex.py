@@ -40,7 +40,18 @@ class CortexTest(SynTest):
             nodes = ((('inet:user', 'visi'), {}), )
 
             nodes = list(core.addNodes(nodes))
+            self.len(1, nodes)
+
             nodes = list(core.getNodesBy('inet:user', 'visi'))
+            self.len(1, nodes)
+            self.eq('visi', nodes[0][0][1])
+
+            opts = {'ndefs': [('inet:user', 'visi')]}
+
+            nodes = list(core.eval('', opts=opts))
+
+            self.len(1, nodes)
+            self.eq('visi', nodes[0][0][1])
 
     def test_cortex_onsetdel(self):
 
@@ -266,6 +277,12 @@ class CortexTest(SynTest):
             for node in core.eval('pivcomp=(foo,bar) :targ -> pivtarg'):
                 self.eq(node.ndef[0], 'pivtarg')
                 self.eq(node.ndef[1], 'foo')
+
+            ndef = ('testcomp', (10, 'haha'))
+            opts = {'ndefs': (ndef,)}
+
+            for node in core.eval('[-#foo]', opts=opts):
+                self.none(node.getTag('foo'))
 
 #FIXME THIS ALL GOES AWAY #################################################
 class FIXME:

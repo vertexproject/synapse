@@ -73,6 +73,7 @@ class CoreApi(s_cell.CellApi):
         pass
 
     def addNodes(self, nodes):
+
         with self.cell.snap(write=True) as snap:
             snap.setUser(self.user)
             for node in snap.addNodes(nodes):
@@ -82,6 +83,12 @@ class CoreApi(s_cell.CellApi):
 
         query = self.cell.view.getStormQuery(text)
         query.setUser(self.user)
+
+        if opts is not None:
+            query.opts.update(opts)
+
+        if self.cell.conf.get('storm:log'):
+            logger.warning('STORM EVAL (%s): %s' % (self.user, text))
 
         try:
 
@@ -96,6 +103,12 @@ class CoreApi(s_cell.CellApi):
 
         query = self.cell.view.getStormQuery(text)
         query.setUser(self.user)
+
+        if opts is not None:
+            query.opts.update(opts)
+
+        if self.cell.conf.get('storm:log'):
+            logger.warning('STORM (%s): %s' % (self.user, text))
 
         try:
 
@@ -117,9 +130,6 @@ class Cortex(s_cell.Cell):
     '''
     confdefs = (
 
-        ('auth:en', {'type': 'bool', 'defval': False,
-            'doc': 'Set to True to enable cortex permissions enforcement.'}),
-
         ('layer:lmdb:mapsize', {'type': 'int', 'defval': s_const.tebibyte,
             'doc': 'The default size for a new LMDB layer map.'}),
 
@@ -128,6 +138,13 @@ class Cortex(s_cell.Cell):
 
         ('layers', {'type': 'list', 'defval': (),
             'doc': 'A list of layer paths to load.'}),
+
+        ('storm:log', {'type': 'bool', 'defval': False,
+            'doc': 'Log storm queries via system logger.'}),
+
+        #('storm:save', {'type': 'bool', 'defval': False,
+            #'doc': 'Archive storm queries for audit trail.'}),
+
     )
 
     cellapi = CoreApi
@@ -188,6 +205,10 @@ class Cortex(s_cell.Cell):
         Evaluate a storm query and yield Nodes only.
         '''
         query = self.view.getStormQuery(text)
+
+        if opts is not None:
+            query.opts.update(opts)
+
         for node in query.evaluate():
             yield node
 
@@ -205,6 +226,10 @@ class Cortex(s_cell.Cell):
             ((str,dict)): Storm messages.
         '''
         query = self.view.getStormQuery(text)
+
+        if opts is not None:
+            query.opts.update(opts)
+
         for mesg in query.execute():
             yield mesg
 

@@ -478,6 +478,9 @@ class User(Role):
 
         self.shadow = info.get('shadow')
 
+    def __str__(self):
+        return self.name
+
     def save(self):
         self.auth._saveUserInfo(self.name, self.info)
 
