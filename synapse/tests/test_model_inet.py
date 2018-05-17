@@ -1,9 +1,13 @@
 import copy
+import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.models.inet as s_m_inet
 import synapse.tests.common as s_t_common
+
+ENFORCE_MODEL_COVERAGE = True  # TODO: replace with envvar when we decide upon a convention
+logger = logging.getLogger(__name__)
 
 
 class InetModelTest(s_t_common.SynTest):
@@ -23,7 +27,11 @@ class InetModelTest(s_t_common.SynTest):
             if not hasattr(self, tname):
                 untested_forms.append(name)
 
-        self.eq(0, len(untested_types) + len(untested_forms), msg=f'Untested model elements: types({untested_types}), forms({untested_forms})')
+        if (len(untested_types) + len(untested_forms)) > 0:
+            msg = f'Untested model elements: types({untested_types}), forms({untested_forms})'
+            if ENFORCE_MODEL_COVERAGE is True:
+                raise AssertionError(msg)
+            logger.warning(msg)
 
     def test_addr(self):
         formname = 'inet:addr'
