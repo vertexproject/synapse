@@ -9,7 +9,6 @@ import synapse.tests.common as s_t_common
 class InetModelTest(s_t_common.SynTest):
 
     def test__forms_tested(self):
-
         untested_forms = []
         for name in [form[0] for form in s_m_inet.InetModule.getModelDefs(None)[0][1]['forms']]:
 
@@ -931,7 +930,7 @@ class InetModelTest(s_t_common.SynTest):
             'act': 'Did a Thing',
             'acct': ('vertex.link', 'vertexmc'),
             'time': 0,
-            'ipv4': 0
+            'client': '0.0.0.0'
         }
         expected_props = {
             'act': 'did a thing',
@@ -939,7 +938,8 @@ class InetModelTest(s_t_common.SynTest):
             'acct:site': 'vertex.link',
             'acct:user': 'vertexmc',
             'time': 0,
-            'ipv4': 0
+            'client': 'tcp://0.0.0.0',
+            'client:ipv4': 0
         }
         expected_ndef = (formname, valu)
         with self.getTestCore() as core:

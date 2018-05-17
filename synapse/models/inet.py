@@ -1406,11 +1406,13 @@ class InetModule(s_module.CoreModule):
                         ('time', ('time', {}), {
                             'doc': 'The date and time the account performed the action.'
                         }),
-                        # FIXME inet:client
-                        ('ipv4', ('inet:ipv4', {}), {
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The source client address of the action.'
+                        }),
+                        ('client:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The source IPv4 address of the action.'
                         }),
-                        ('ipv6', ('inet:ipv6', {}), {
+                        ('client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The source IPv6 address of the action.'
                         }),
                     )),
