@@ -565,7 +565,6 @@ class InetModelTest(s_t_common.SynTest):
 
     def test_ipv4(self):
         formname = 'inet:ipv4'
-
         with self.getTestCore() as core:
 
             # Type Tests ======================================================
@@ -584,18 +583,24 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm(0xFFFFFFFF + 1), (0, {}))
 
             # Form Tests ======================================================
+            input_props = {
+                'asn': 3,
+                'loc': 'uS',
+                'type': 'cool',
+                'latlong': '-50.12345, 150.56789'
+            }
+            expected_props = {
+                'asn': 3,
+                'loc': 'us',
+                'type': 'cool',
+                'latlong': (-50.12345, 150.56789),
+            }
+            valu_str = '1.2.3.4'
+            valu_int = 16909060
+            expected_ndef = (formname, valu_int)
             with core.snap(write=True) as snap:
-                valu_str = '1.2.3.4'
-                valu_int = 16909060
-                input_props = {'asn': 3, 'loc': 'us', 'type': 'cool', 'latlong': '-50.12345, 150.56789'}
-                expected_ndef = (formname, valu_int)
-
                 node = snap.addNode(formname, valu_str, props=input_props)
-                self.eq(node.ndef, expected_ndef)
-                self.eq(node.get('asn'), 3)
-                self.eq(node.get('loc'), 'us')
-                self.eq(node.get('type'), 'cool')
-                self.eq(node.get('latlong'), (-50.12345, 150.56789))
+                self.checkNode(node, (expected_ndef, expected_props))
 
     def test_ipv6(self):
         formname = 'inet:ipv6'
