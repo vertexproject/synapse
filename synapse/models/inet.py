@@ -1245,29 +1245,6 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    ('inet:ssl:cert', {}, (
-                        ('file', ('file:bytes', {}), {
-                            'ro': True,
-                            'doc': 'The file bytes for the SSL certificate.'
-                        }),
-                        ('server', ('inet:server', {}), {
-                            'ro': True,
-                            'doc': 'The file bytes for the SSL certificate.'
-                        }),
-                        ('server:ipv4', ('inet:ipv4', {}), {
-                            'ro': True,
-                            'doc': 'The SSL server IPv4 address.'
-                        }),
-                        ('server:ipv6', ('inet:ipv6', {}), {
-                            'ro': True,
-                            'doc': 'The SSL server IPv6 address.'
-                        }),
-                        ('server:port', ('inet:port', {}), {
-                            'ro': True,
-                            'doc': 'The SSL server listening port.'
-                        }),
-                    )),
-
                     ('inet:rfc2822:addr', {}, (
                         ('name', ('ps:name', {}), {
                             'ro': True,
@@ -1328,6 +1305,29 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('server:port', ('inet:port', {}), {
                             'doc': 'The server tcp/udp port.'
+                        }),
+                    )),
+
+                    ('inet:ssl:cert', {}, (
+                        ('file', ('file:bytes', {}), {
+                            'ro': True,
+                            'doc': 'The file bytes for the SSL certificate.'
+                        }),
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The file bytes for the SSL certificate.'
+                        }),
+                        ('server:ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
+                            'doc': 'The SSL server IPv4 address.'
+                        }),
+                        ('server:ipv6', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The SSL server IPv6 address.'
+                        }),
+                        ('server:port', ('inet:port', {}), {
+                            'ro': True,
+                            'doc': 'The SSL server listening port.'
                         }),
                     )),
 
