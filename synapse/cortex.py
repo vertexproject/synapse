@@ -73,10 +73,10 @@ class CoreApi(s_cell.CellApi):
         pass
 
     def addNodes(self, nodes):
-
         with self.cell.snap(write=True) as snap:
             snap.setUser(self.user)
-            yield from snap.addNodes(nodes)
+            for node in snap.addNodes(nodes):
+                yield node.pack()
 
     def eval(self, text, opts=None):
 
