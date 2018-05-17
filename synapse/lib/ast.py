@@ -312,10 +312,7 @@ class PropPivot(PivotOper):
 
     def run(self, nodes):
 
-        # TODO magical pivot to dest form only...
-
         # TODO if we are pivoting to a form, use ndef!
-        #if self.isform:
 
         for node in nodes:
 

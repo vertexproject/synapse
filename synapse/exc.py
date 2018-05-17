@@ -156,6 +156,7 @@ class BadPropValu(SynErr): pass
 class BadPySource(Exception): pass
 
 class BadRuleSyntax(SynErr): pass
+class BadStormSyntax(SynErr): pass
 class BadSyntaxError(SynErr): pass
 
 class TeleClientSide(SynErr): pass
