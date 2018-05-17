@@ -106,7 +106,8 @@ class Query(AstNode):
 
         self.user = None
         self.view = view
-        self.opts = {}  # query options (which may be upated at runtime)
+
+        self.opts = {}
 
         self.tick = None
         self.canceled = False
@@ -128,6 +129,12 @@ class Query(AstNode):
 
         return chan
 
+    def getInput(self, snap):
+        for ndef in self.opts.get('ndefs', ()):
+            node = snap.getNodeByNdef(ndef)
+            if node is not None:
+                yield node
+
     def evaluate(self):
         with self._getQuerySnap() as snap:
             for node in self._runQueryLoop(snap):
@@ -145,7 +152,8 @@ class Query(AstNode):
         self.optimize()
 
         # turtles all the way down...
-        genr = ()
+        genr = self.getInput(snap)
+
         for oper in self.kids:
             genr = oper.run(genr)
 
