@@ -1354,16 +1354,6 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_whois_reg(self):
-        formname = 'inet:whois:reg'
-        valu = 'cool Registrant '
-        expected_props = {}
-        expected_ndef = (formname, 'cool registrant ')
-        with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
-                node = snap.addNode(formname, valu)
-                self.checkNode(node, (expected_ndef, expected_props))
-
     def test_whois_rec(self):
         formname = 'inet:whois:rec'
         valu = ('woot.com', '@20501217')
@@ -1406,25 +1396,24 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_whois_reg(self):
+        formname = 'inet:whois:reg'
+        valu = 'cool Registrant '
+        expected_props = {}
+        expected_ndef = (formname, 'cool registrant ')
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_whois_regmail(self):
         formname = 'inet:whois:regmail'
         valu = ('wOOt.Com', 'visi@vertex.LINK')
         expected_props = {
             'fqdn': 'woot.com',
             'email': 'visi@vertex.link',
-            # FIXME no subs
         }
         expected_ndef = (formname, tuple(item.lower() for item in valu))
-        with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
-                node = snap.addNode(formname, valu)
-                self.checkNode(node, (expected_ndef, expected_props))
-
-    def test_wifi_ssid(self):
-        formname = 'inet:wifi:ssid'
-        valu = 'The Best SSID '
-        expected_props = {}
-        expected_ndef = (formname, valu)
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, valu)
@@ -1437,6 +1426,16 @@ class InetModelTest(s_t_common.SynTest):
             'ssid': valu[0],
             'bssid': valu[1]
         }
+        expected_ndef = (formname, valu)
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_wifi_ssid(self):
+        formname = 'inet:wifi:ssid'
+        valu = 'The Best SSID '
+        expected_props = {}
         expected_ndef = (formname, valu)
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
