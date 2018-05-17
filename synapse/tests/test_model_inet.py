@@ -680,6 +680,9 @@ class InetModelTest(s_t_common.SynTest):
             expected = ((16909060, 84281096), {'subs': {'min': 16909060, 'max': 84281096}})
             self.eq(t.norm(valu), expected)
 
+            valu = '1.2.3.4-5.6.7.8'
+            self.eq(t.norm(valu), expected)
+
             self.raises(s_exc.BadTypeValu, t.norm, (valu[1], valu[0]))
 
     def test_net6(self):
@@ -690,6 +693,9 @@ class InetModelTest(s_t_common.SynTest):
 
             valu = ('0:0:0:0:0:0:0:0', '::Ff')
             expected = (('::', '::ff'), {'subs': {'min': '::', 'max': '::ff'}})
+            self.eq(t.norm(valu), expected)
+
+            valu = '0:0:0:0:0:0:0:0-::Ff'
             self.eq(t.norm(valu), expected)
 
             self.raises(s_exc.BadTypeValu, t.norm, (valu[1], valu[0]))
