@@ -830,6 +830,19 @@ class InetModelTest(s_t_common.SynTest):
             }})
             self.eq(t.norm(url), expected)
 
+    def test_urlfile(self):
+        formname = 'inet:urlfile'
+        valu = ('https://vertex.link/a_cool_program.exe', 64 * 'f')
+        expected_props = {
+            'url': 'https://vertex.link/a_cool_program.exe',
+            'file': 'sha256:' + 64 * 'f',
+        }
+        expected_ndef = (formname, (valu[0], 'sha256:' + valu[1]))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_user(self):
         formname = 'inet:user'
         valu = 'cool User '
