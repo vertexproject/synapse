@@ -822,7 +822,6 @@ class InetModule(s_module.CoreModule):
                         ('file', ('file:bytes', {}), {
                             'doc': 'The file that was downloaded.'
                         }),
-
                         ('server', ('inet:server', {}), {
                             'doc': 'The inet:addr of the server.'
                         }),
@@ -841,7 +840,6 @@ class InetModule(s_module.CoreModule):
                         ('server:proto', ('str', {'lower': True}), {
                             'doc': 'The server network layer protocol.'
                         }),
-
                         ('client', ('inet:client', {}), {
                             'doc': 'The inet:addr of the client.'
                         }),
@@ -1138,7 +1136,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:ipv4', {}, (
                         ('asn', ('inet:asn', {}), {
-                            'defval': 0,  # FIXME replace with nullval
+                            'defval': 0,  # TODO replace with nullval
                             'doc': 'The ASN to which the IPv4 address is currently assigned.'
                         }),
                         ('latlong', ('geo:latlong', {}), {
@@ -1156,7 +1154,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:ipv6', {}, (
                         ('asn', ('inet:asn', {}), {
-                            'defval': 0,  # FIXME replace with nullval
+                            'defval': 0,  # TODO replace with nullval
                             'doc': 'The ASN to which the IPv6 address is currently assigned.'
                         }),
                         ('ipv4', ('inet:ipv4', {}), {
@@ -1408,6 +1406,7 @@ class InetModule(s_module.CoreModule):
                         ('time', ('time', {}), {
                             'doc': 'The date and time the account performed the action.'
                         }),
+                        # FIXME inet:client
                         ('ipv4', ('inet:ipv4', {}), {
                             'doc': 'The source IPv4 address of the action.'
                         }),
@@ -1439,6 +1438,7 @@ class InetModule(s_module.CoreModule):
                         ('posted', ('time', {}), {
                             'doc': 'The date and time the file was posted / submitted.'
                         }),
+                        # FIXME inet:client
                         ('ipv4', ('inet:ipv4', {}), {
                             'doc': 'The source IPv4 address used to post or submit the file.'
                         }),
@@ -1497,6 +1497,7 @@ class InetModule(s_module.CoreModule):
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the group was created on the site.'
                         }),
+                        # FIXME inet:client
                         ('signup:ipv4', ('inet:ipv4', {}), {
                             'doc': 'The IPv4 address used to create the group.'
                         }),
@@ -1521,6 +1522,7 @@ class InetModule(s_module.CoreModule):
                         ('time', ('time', {}), {
                             'doc': 'The date and time the account logged into the service.'
                         }),
+                        # FIXME inet:client
                         ('ipv4', ('inet:ipv4', {}), {
                             'doc': 'The source IPv4 address of the logon.'
                         }),
