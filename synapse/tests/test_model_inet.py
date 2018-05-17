@@ -944,6 +944,29 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_web_file(self):
+        formname = 'inet:web:file'
+        valu = (('vertex.link', 'vertexmc'), 64 * 'f')
+        input_props = {
+            'name': 'Cool',
+            'posted': 0,
+            'ipv4': 0
+        }
+        expected_props = {
+            'acct': ('vertex.link', 'vertexmc'),
+            'acct:site': 'vertex.link',
+            'acct:user': 'vertexmc',
+            'file': 'sha256:' + 64 * 'f',
+            'name': 'cool',
+            'posted': 0,
+            'ipv4': 0
+        }
+        expected_ndef = (formname, (valu[0], 'sha256:' + valu[1]))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_web_memb(self):
         formname = 'inet:web:memb'
         valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'kenshoto'))
