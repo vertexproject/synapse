@@ -1580,10 +1580,6 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The web account that made the post.'
                         }),
-                        ('text', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The text of the post.'
-                        }),
                         ('acct:site', ('inet:fqdn', {}), {
                             'ro': True,
                             'doc': 'The site or service associated with the account.'
@@ -1591,6 +1587,10 @@ class InetModule(s_module.CoreModule):
                         ('acct:user', ('inet:user', {}), {
                             'ro': True,
                             'doc': 'The unique identifier for the account.'
+                        }),
+                        ('text', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The text of the post.'
                         }),
                         ('time', ('time', {}), {
                             'doc': 'The date and time that the post was made.'

@@ -1074,6 +1074,35 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_web_post(self):
+        formname = 'inet:web:post'
+        valu = 32 * 'a'
+        input_props = {
+            'acct': ('vertex.link', 'vertexmc'),
+            'text': 'my cooL POST',
+            'time': 0,
+            'url': 'https://vertex.link/mypost',
+            'file': 64 * 'f',
+            'replyto': 32 * 'b',
+            'repost': 32 * 'c',
+        }
+        expected_props = {
+            'acct': ('vertex.link', 'vertexmc'),
+            'acct:site': 'vertex.link',
+            'acct:user': 'vertexmc',
+            'text': 'my cooL POST',
+            'time': 0,
+            'url': 'https://vertex.link/mypost',
+            'file': 'sha256:' + 64 * 'f',
+            'replyto': 32 * 'b',
+            'repost': 32 * 'c',
+        }
+        expected_ndef = (formname, valu)
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_whois_contact(self):
         formname = 'inet:whois:contact'
         valu = (('vertex.link', '@2015'), 'regiStrar')
