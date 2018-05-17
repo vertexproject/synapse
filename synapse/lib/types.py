@@ -829,7 +829,7 @@ class NodeProp(Type):
             raise s_exc.NoSuchProp(name=propname)
 
         propnorm, info = prop.type.norm(propvalu)
-        return (prop.full, propnorm), {}
+        return (prop.full, propnorm), {'subs': {'prop': prop.full}}
 
     def indx(self, norm):
         return s_common.buid(norm)
