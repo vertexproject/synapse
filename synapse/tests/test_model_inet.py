@@ -398,7 +398,7 @@ class InetModelTest(s_t_common.SynTest):
             'query': 'hoho=1&qaz=bar',
             'body': 64 * 'b'
         }
-        expected_props = {  # FIXME fill in src/dst later
+        expected_props = {
             'time': 0,
             'flow': 32 * 'f',
             'method': 'gEt',
@@ -410,6 +410,21 @@ class InetModelTest(s_t_common.SynTest):
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, 32 * 'a', props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_http_reqparam(self):
+        formname = 'inet:http:reqparam'
+        input_props = {}
+        expected_props = {
+            'request': 32 * 'a',
+            'param': ('cool', 'Cooler'),
+            'param:name': 'cool',
+            'param:value': 'Cooler',
+        }
+        expected_ndef = (formname, (32 * 'a', ('cool', 'Cooler')))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, (32 * 'a', ('cool', 'Cooler')), props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
     def test_iface(self):
