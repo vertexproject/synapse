@@ -300,6 +300,7 @@ class InetModelTest(s_t_common.SynTest):
             expected_ndef = (formname, valu)
 
             # Demonstrate cascading formation
+            # FIXME use checkNode
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, valu, props={'created': 0, 'expires': 1, 'updated': 2})
                 self.eq(node.ndef, expected_ndef)
@@ -432,30 +433,6 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_http_request(self):
-        formname = 'inet:http:request'
-        input_props = {
-            'time': 0,
-            'flow': 32 * 'f',
-            'method': 'gEt',
-            'path': '/woot/hehe/',
-            'query': 'hoho=1&qaz=bar',
-            'body': 64 * 'b'
-        }
-        expected_props = {
-            'time': 0,
-            'flow': 32 * 'f',
-            'method': 'gEt',
-            'path': '/woot/hehe/',
-            'query': 'hoho=1&qaz=bar',
-            'body': 'sha256:' + 64 * 'b'
-        }
-        expected_ndef = (formname, 32 * 'a')
-        with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
-                node = snap.addNode(formname, 32 * 'a', props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
     def test_http_reqhead(self):
         formname = 'inet:http:reqhead'
         input_props = {}
@@ -484,6 +461,30 @@ class InetModelTest(s_t_common.SynTest):
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, (32 * 'a', ('cool', 'Cooler')), props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_http_request(self):
+        formname = 'inet:http:request'
+        input_props = {
+            'time': 0,
+            'flow': 32 * 'f',
+            'method': 'gEt',
+            'path': '/woot/hehe/',
+            'query': 'hoho=1&qaz=bar',
+            'body': 64 * 'b'
+        }
+        expected_props = {
+            'time': 0,
+            'flow': 32 * 'f',
+            'method': 'gEt',
+            'path': '/woot/hehe/',
+            'query': 'hoho=1&qaz=bar',
+            'body': 'sha256:' + 64 * 'b'
+        }
+        expected_ndef = (formname, 32 * 'a')
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, 32 * 'a', props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
     def test_http_resphead(self):

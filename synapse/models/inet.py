@@ -1109,6 +1109,25 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:http:resphead', {}, (
+                        ('response', ('inet:http:response', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP response which contained the header.'
+                        }),
+                        ('header', ('inet:http:header', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP header contained in the response.'
+                        }),
+                        ('header:name', ('str', {'lower': True}), {
+                            'ro': True,
+                            'doc': 'The HTTP header name'
+                        }),
+                        ('header:value', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The HTTP header value.'
+                        }),
+                    )),
+
                     ('inet:http:response', {}, (
                         ('flow', ('inet:flow', {}), {
                             'doc': 'The inet:flow which contained the HTTP response.'
@@ -1130,25 +1149,6 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('body', ('file:bytes', {}), {
                             'doc': 'The HTTP response body data.'
-                        }),
-                    )),
-
-                    ('inet:http:resphead', {}, (
-                        ('response', ('inet:http:response', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP response which contained the header.'
-                        }),
-                        ('header', ('inet:http:header', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP header contained in the response.'
-                        }),
-                        ('header:name', ('str', {'lower': True}), {
-                            'ro': True,
-                            'doc': 'The HTTP header name'
-                        }),
-                        ('header:value', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP header value.'
                         }),
                     )),
 
