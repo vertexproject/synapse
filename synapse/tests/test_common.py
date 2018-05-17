@@ -1,7 +1,6 @@
 from synapse.tests.common import *
 
 class CommonTest(SynTest):
-
     def test_common_vertup(self):
         self.eq(vertup('1.3.30'), (1, 3, 30))
         self.true(vertup('30.40.50') > (9, 0))
@@ -177,3 +176,23 @@ class CommonTest(SynTest):
 
         self.eq(80, conf.get('foo'))
         self.eq(30, conf.get('bar'))
+
+    def test_common_yaml(self):
+        obj = [{'key': 1,
+                'key2': [1, 2, 3],
+                'key3': True,
+                'key4': 'some str',
+                'key5': {
+                    'oh': 'my',
+                    'we all': 'float down here'
+                }, },
+               'duck',
+               False,
+               'zero',
+               0.1,
+               ]
+        with self.getTestDir() as dirn:
+            s_common.yamlsave(obj, dirn, 'test.yaml')
+            robj = s_common.yamlload(dirn, 'test.yaml')
+
+            self.eq(obj, robj)
