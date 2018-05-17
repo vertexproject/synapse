@@ -967,6 +967,20 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_web_follows(self):
+        formname = 'inet:web:follows'
+        valu = (('vertex.link', 'vertexmc'), ('example.com', 'aUser'))
+        input_props = {}
+        expected_props = {
+            'follower': ('vertex.link', 'vertexmc'),
+            'followee': ('example.com', 'auser'),
+        }
+        expected_ndef = (formname, (('vertex.link', 'vertexmc'), ('example.com', 'auser')))
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(formname, valu, props=input_props)
+                self.checkNode(node, (expected_ndef, expected_props))
+
     def test_web_memb(self):
         formname = 'inet:web:memb'
         valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'kenshoto'))
