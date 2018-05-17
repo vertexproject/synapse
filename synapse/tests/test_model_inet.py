@@ -173,7 +173,10 @@ class InetModelTest(s_t_common.SynTest):
             'fqdn': 'vertex.link',
             'client': 'tcp://127.0.0.1:45654',
             'client:ipv4': 2130706433,
-            'server': 'tcp://1.2.3.4:80'
+            'client:port': 45654,
+            'server': 'tcp://1.2.3.4:80',
+            'server:ipv4': 16909060,
+            'server:port': 80,
         }
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
