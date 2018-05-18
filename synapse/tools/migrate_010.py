@@ -263,7 +263,7 @@ class Migrator:
                 if prev_update + 60 < now:  # pragma: no cover
                     percent_complete = (iden_int - iden_first) / (iden_last - iden_first) * 100.0
                     try:
-                        timeperiden = (now - prev_update) / (iden_int / prev_iden)
+                        timeperiden = (now - prev_update) / (iden_int - prev_iden)
                     except ZeroDivisionError:
                         timeperiden = 0.0
                     estimate = int((iden_last - iden_int) * timeperiden)
@@ -663,9 +663,10 @@ def main(argv, outp=None):  # pragma: no cover
 
     if opts.verbose is not None:
         if opts.verbose > 1:
-            # logger.setLevel(logging.DEBUG)
+            logger.setLevel(logging.DEBUG)
             fh = logging.FileHandler(opts.outfile + '.log')
             fh.setLevel(logging.DEBUG)
+            logger.addHandler(fh)
         elif opts.verbose > 0:
             logger.setLevel(logging.INFO)
 
