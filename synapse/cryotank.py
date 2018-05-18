@@ -119,7 +119,7 @@ class CryoTank(s_cell.Cell):
             seqn (iden, offs): An iden / offset pair to record.
 
         Returns:
-            int: The index that the item storage began at.
+            int: The ending offset of the items or seqn.
         '''
         itembyts = [s_msgpack.en(i) for i in items]
 
@@ -128,12 +128,12 @@ class CryoTank(s_cell.Cell):
 
         with self.lenv.begin(db=self.lenv_items, write=True) as xact:
 
-            retn = self.items_indx
-
             todo = []
             for byts in itembyts:
                 todo.append((struct.pack('>Q', self.items_indx), byts))
                 self.items_indx += 1
+
+            retn = self.items_indx
 
             with xact.cursor() as curs:
                 curs.putmulti(todo, append=True)
@@ -291,8 +291,7 @@ class CryoApi(s_cell.CellApi):
 
     def puts(self, name, items, seqn=None):
         tank = self.cell.init(name)
-        tank.puts(items, seqn=seqn)
-        return True
+        return tank.puts(items, seqn=seqn)
 
     def offset(self, name, iden):
         tank = self.cell.init(name)

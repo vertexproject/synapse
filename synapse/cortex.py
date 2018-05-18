@@ -198,7 +198,7 @@ class Cortex(s_cell.Cell):
         self.cryothread = self._runCryoLoop()
 
         def fini():
-            self.cryothread.join()
+            self.cryothread.join(timeout=8)
 
         self.onfini(fini)
 
@@ -238,7 +238,7 @@ class Cortex(s_cell.Cell):
 
             except Exception as e:
                 online = False
-                logger.warning(f'splice cryotank offline: {e}')
+                logger.exception('splice cryotank offline')
                 wake.wait(timeout=2)
 
     def setDataFunc(self, name, func):
