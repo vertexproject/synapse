@@ -1,10 +1,9 @@
 import synapse.lib.module as s_module
 
 
-class MediaMod(s_module.CoreModule):
+class MediaModule(s_module.CoreModule):
 
     def getModelDefs(self):
-
         name = 'media'
 
         ctors = ()
@@ -38,7 +37,6 @@ class MediaMod(s_module.CoreModule):
                     'ex': '20161201180433',
                 }),
                 ('org', ('ou:alias', {}), {
-                    'defval': '??',
                     'doc': 'The org alias which published the news',
                     'ex': 'microsoft',
                 }),
