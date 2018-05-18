@@ -50,12 +50,13 @@ class Migrator:
     Sucks all rows out of a < .0.1.0 cortex, into a temporary LMDB database, migrates the schema, then dumps to new
     file suitable for ingesting into a >= .0.1.0 cortex.
     '''
-    def __init__(self, core, outfh, tmpdir=None, stage1_fn=None):
+    def __init__(self, core, outfh, tmpdir=None, stage1_fn=None, rejects_fh=None):
         self.core = core
         self.dbenv = None
         self.skip_stage1 = bool(stage1_fn)
         assert tmpdir or stage1_fn
         self.next_val = 0
+        self.rejects_fh = rejects_fh
 
         if stage1_fn is None:
             with tempfile.NamedTemporaryFile(prefix='stage1_', suffix='.lmdb', delete=True, dir=tmpdir) as fh:
@@ -216,6 +217,7 @@ class Migrator:
                     continue
                 logger.info('Stage 2a: (%2d/%2d) processing nodes from %s', i + 1, len(self.first_forms), formname)
                 for enc_iden in curs.iternext_dup():
+                    props = None
                     try:
                         with txn.cursor(self.iden_tbl) as curs:
                             if not curs.set_key(enc_iden):
@@ -225,10 +227,8 @@ class Migrator:
                         if node is None:
                             continue
                         if formname == 'file:bytes':
-                            # logger.debug('Putting file:bytes side ref of %s->%s', props['node:ndef'], node[0])
                             if not txn.put(props['node:ndef'].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl):
                                 raise ConsistencyError('put failure')
-                            # logger.debug('Putting file:bytes side ref of %s->%s', props[formname], node[0])
                             if not txn.put(props[formname].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl):
                                 raise ConsistencyError('put failure')
                         else:
@@ -236,6 +236,8 @@ class Migrator:
                         self.write_node_to_file(node)
                     except Exception:
                         logger.debug('Failed on processing node of form %s', formname, exc_info=True)
+                        if props is not None and self.rejects_fh is not None:
+                            self.rejects_fh.write(s_msgpack.en(props))
 
         comp_node_time = time.time()
         logger.debug('Stage 2a complete in %.1fs', comp_node_time - start_time)
@@ -282,6 +284,8 @@ class Migrator:
                             self.write_node_to_file(node)
                     except Exception:
                         logger.debug('Failed on processing node with props: %s', props, exc_info=True)
+                        if self.rejects_fh is not None:
+                            self.rejects_fh.write(s_msgpack.en(props))
                 if not rv:
                     break  # end of data
 
@@ -413,7 +417,6 @@ class Migrator:
         _, new_pk = self.check_file_base(formname, formname, formname, pk, props)
 
         # Make a file:path node with the same tags
-
         ndef = ('file:path', self.core.getTypeRepr('file:path', pk.replace('\\', '/')))
         propscopy = props.copy()
         propscopy[formname] = new_pk
@@ -572,7 +575,7 @@ class Migrator:
                 # logger.debug('Skipping propname %s', oldk)
                 pass
         if pk is None:
-            raise ConsistencyError(oldprops)
+            raise ConsistencyError('Missing pk', oldprops)
 
         if formname == 'file:txtref':
             props['type'] = 'text'
@@ -642,11 +645,12 @@ class Migrator:
 
     subprop_special = {
         'inet:web:logon:ipv4': ipv4_to_client,
-        'inet:web:logon:ipv4': ipv4_to_client,
-        'inet:web:action:ipv6': ipv4_to_client,
+        'inet:web:logon:ipv6': ipv6_to_client,
+        'inet:web:action:ipv4': ipv4_to_client,
         'inet:web:action:ipv6': ipv6_to_client,
         'inet:web:acct:signup:ipv4': ipv4_to_client,
         'inet:dns:look:ipv4': ipv4_to_client,
+        'inet:dns:look:ipv6': ipv6_to_client,
         'it:exec:bind:tcp:ipv4': ip_with_port_to_server,
         'it:exec:bind:tcp:ipv6': ip_with_port_to_server,
         'it:exec:bind:udp:ipv4': ip_with_port_to_server,
@@ -664,15 +668,17 @@ def main(argv, outp=None):  # pragma: no cover
     if opts.verbose is not None:
         if opts.verbose > 1:
             logger.setLevel(logging.DEBUG)
-            fh = logging.FileHandler(opts.outfile + '.log')
-            fh.setLevel(logging.DEBUG)
-            logger.addHandler(fh)
         elif opts.verbose > 0:
             logger.setLevel(logging.INFO)
 
+    fh = logging.FileHandler(opts.outfile + '.log')
+    fh.setLevel(logging.DEBUG)
+    logger.addHandler(fh)
+
     fh = open(opts.outfile, 'wb')
+    rejects_fh = open(opts.outfile + '.rejects', 'wb')
     with s_cortex.openurl(opts.cortex, conf={'caching': True, 'cache:maxsize': 1000000}) as core:
-        m = Migrator(core, fh, tmpdir=pathlib.Path(opts.outfile).parent, stage1_fn=opts.stage_1)
+        m = Migrator(core, fh, tmpdir=pathlib.Path(opts.outfile).parent, stage1_fn=opts.stage_1, rejects_fh=rejects_fh)
         m.migrate()
     return 0
 
