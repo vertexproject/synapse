@@ -1,11 +1,10 @@
-#import os
-#import json
-
 import logging
+import threading
 
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
+import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.cell as s_cell
@@ -14,6 +13,7 @@ import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
+import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,9 @@ class View:
         self.layers = layers
         self.model = core.model
 
+        # our "top" layer is "us"
+        self.layer = self.layers[-1]
+
     def snap(self, write=False):
         return s_snap.Snap(self.core, self.layers, write=write)
 
@@ -78,6 +81,12 @@ class CoreApi(s_cell.CellApi):
             snap.setUser(self.user)
             for node in snap.addNodes(nodes):
                 yield node.pack()
+
+    def addData(self, name, items):
+
+        with self.cell.snap(write=True) as snap:
+            snap.setUser(self.user)
+            snap.addData(name, items)
 
     def eval(self, text, opts=None):
 
@@ -142,6 +151,9 @@ class Cortex(s_cell.Cell):
         ('storm:log', {'type': 'bool', 'defval': False,
             'doc': 'Log storm queries via system logger.'}),
 
+        ('splice:cryotank', {'type': 'str', 'defval': None,
+            'doc': 'A telepath URL for a cryotank used to archive splices.'}),
+
         #('storm:save', {'type': 'bool', 'defval': False,
             #'doc': 'Archive storm queries for audit trail.'}),
 
@@ -156,6 +168,7 @@ class Cortex(s_cell.Cell):
         self.views = {}
         self.layers = []
         self.modules = {}
+        self.datafuncs = {}
 
         # load any configured external layers
         for path in self.conf.get('layers'):
@@ -173,6 +186,75 @@ class Cortex(s_cell.Cell):
 
         mods = self.conf.get('modules')
         self.addCoreMods(mods)
+
+        self._initCryoLoop()
+
+    def _initCryoLoop(self):
+
+        tankurl = self.conf.get('splice:cryotank')
+        if tankurl is None:
+            return
+
+        self.cryothread = self._runCryoLoop()
+
+        def fini():
+            self.cryothread.join(timeout=8)
+
+        self.onfini(fini)
+
+    @s_common.firethread
+    def _runCryoLoop(self):
+
+        online = False
+        tankurl = self.conf.get('splice:cryotank')
+
+        layr = self.layers[-1]
+        wake = threading.Event()
+
+        self.onfini(wake.set)
+
+        while not self.isfini:
+
+            try:
+
+                with s_telepath.openurl(tankurl) as tank:
+
+                    if not online:
+                        online = True
+                        logger.warning('splice cryotank: online')
+
+                    offs = tank.offset(self.iden)
+
+                    while not self.isfini:
+
+                        items = list(layr.getSpliceLog(offs, 10000))
+
+                        if not len(items):
+                            layr.spliced.clear()
+                            layr.spliced.wait(timeout=1)
+                            continue
+
+                        offs = tank.puts(items, seqn=(self.iden, offs))
+
+            except Exception as e:
+                online = False
+                logger.exception('splice cryotank offline')
+                wake.wait(timeout=2)
+
+    def setDataFunc(self, name, func):
+        '''
+        Set a data ingest function.
+
+        def func(snap, items):
+            loaditems...
+        '''
+        self.datafuncs[name] = func
+
+    def getDataFunc(self, name):
+        '''
+        Get a data ingest function.
+        '''
+        return self.datafuncs.get(name)
 
     def _initCoreDir(self):
 
@@ -292,6 +374,13 @@ class Cortex(s_cell.Cell):
         '''
         with self.snap(write=True) as snap:
             yield from snap.addNodes(nodedefs)
+
+    def addData(self, name, items):
+        '''
+        Add data via a named ingest handler.
+        '''
+        with self.snap(write=True) as snap:
+            snap.addData(name, items)
 
     def snap(self, write=False):
         '''

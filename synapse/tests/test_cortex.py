@@ -20,6 +20,22 @@ class CortexTest(SynTest):
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
                 self.eq(node.buid, func.args[0].buid)
 
+    def test_cortex_adddata(self):
+
+        data = ('foo', 'bar', 'baz')
+
+        with self.getTestCore() as core:
+
+            core.addData('com.test.record', data)
+
+            vals = []
+            for node in core.eval('teststr'):
+                vals.append(node.ndef[1])
+
+            vals.sort()
+
+            self.eq(vals, ('bar', 'baz', 'foo'))
+
     def test_cortex_indxchop(self):
 
         with self.getTestCore() as core:
@@ -32,6 +48,8 @@ class CortexTest(SynTest):
                 self.len(1, nodes)
 
     def test_cortex_cell(self):
+
+        data = ('foo', 'bar', 'baz')
 
         with self.getTestDmon(mirror='dmoncore') as dmon:
 
@@ -52,6 +70,8 @@ class CortexTest(SynTest):
 
             self.len(1, nodes)
             self.eq('visi', nodes[0][0][1])
+
+            core.addData('com.test.record', data)
 
     def test_cortex_onsetdel(self):
 
@@ -283,6 +303,20 @@ class CortexTest(SynTest):
 
             for node in core.eval('[-#foo]', opts=opts):
                 self.none(node.getTag('foo'))
+
+            def wind(func, text):
+                return list(func(text))
+
+            self.raises(s_exc.NoSuchOpt, wind, core.eval, '%foo=asdf')
+            self.raises(s_exc.BadOptValu, wind, core.eval, '%limit=asdf')
+
+            self.len(2, list(core.eval(('[ teststr=foo teststr=bar ]'))))
+            self.len(1, list(core.eval(('teststr %limit=1'))))
+
+            opts = {'vars': {'foo': 'bar'}}
+
+            for node in core.eval('teststr=$foo', opts=opts):
+                self.eq('bar', node.ndef[1])
 
 #FIXME THIS ALL GOES AWAY #################################################
 class FIXME:

@@ -241,7 +241,16 @@ class Daemon(EventBus):
             name (str): Name of the shared object
             item (object): The object to share over telepath.
         '''
-        self.shared[name] = item
+
+        try:
+
+            if isinstance(item, s_telepath.Aware):
+                item.onTeleShare(self, name)
+
+            self.shared[name] = item
+
+        except Exception as e:
+            logger.exception(f'onTeleShare() error for: {name}')
 
     def _onDmonFini(self):
         for name, cell in self.cells.items():
@@ -363,6 +372,16 @@ class Daemon(EventBus):
             name = mesg[1].get('name')
 
             item = self.shared.get(name)
+
+            # allow a telepath aware object a shot at dynamic share names
+            if item is None and name.find('/') != -1:
+
+                path = name.split('/')
+
+                base = self.shared.get(path[0])
+                if base is not None and isinstance(base, s_telepath.Aware):
+                    item = base.onTeleOpen(link, path)
+
             if item is None:
                 raise s_exc.NoSuchName(name=name)
 

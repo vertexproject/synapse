@@ -57,6 +57,7 @@ class NoSuchOpt(SynErr): pass
 class NoSuchDir(SynErr): pass
 class NoSuchDyn(SynErr): pass
 class NoSuchSeq(SynErr): pass
+class NoSuchVar(SynErr): pass
 class NoRevPath(SynErr): pass
 class NoRevAllow(SynErr): pass
 class NoSuchAlgo(SynErr): pass
@@ -152,6 +153,9 @@ class BadMesgResp(Exception): pass
 class BadSpliceMesg(SynErr):
     '''The splice message was invalid'''
     pass
+
+class BadOptValu(SynErr): pass
+
 class BadPropValu(SynErr): pass
 class BadPySource(Exception): pass
 

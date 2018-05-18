@@ -2,6 +2,8 @@ import sys
 import struct
 import itertools
 
+import synapse.common as s_common
+
 import synapse.lib.const as s_const
 
 import xxhash  # type: ignore
@@ -103,6 +105,46 @@ class Seqn:
                 indx = struct.unpack('>Q', lkey)[0]
                 valu = s_msgpack.un(lval)
                 yield indx, valu
+
+    def slice(self, xact, offs, size):
+
+        imax = size - 1
+
+        for i, item in enumerate(self.iter(xact, offs)):
+
+            yield item
+
+            if i == imax:
+                break
+
+class Offs:
+
+    def __init__(self, lenv, db):
+        self.db = db
+        self.lenv = lenv
+
+    def get(self, iden):
+        with self.lenv.begin() as xact:
+            return self.xget(xact, iden)
+
+    def set(self, iden, offs):
+        with self.lenv.begin(write=True) as xact:
+            return self.xset(xact, iden, offs)
+
+    def xget(self, xact, iden):
+
+        buid = s_common.uhex(iden)
+
+        byts = xact.get(buid, db=self.db)
+        if byts is None:
+            return 0
+
+        return int.from_bytes(byts, byteorder='big')
+
+    def xset(self, xact, iden, offs):
+        buid = s_common.uhex(iden)
+        byts = offs.to_bytes(length=8, byteorder='big')
+        xact.put(buid, byts, db=self.db)
 
 class Metrics:
     '''

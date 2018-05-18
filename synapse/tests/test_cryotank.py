@@ -4,9 +4,10 @@ import random
 from unittest.mock import patch
 
 import synapse.exc as s_exc
-import synapse.lib.cell as s_cell
+import synapse.common as s_common
 import synapse.cryotank as s_cryotank
 
+import synapse.lib.cell as s_cell
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.common as s_test
@@ -44,16 +45,44 @@ class CryoTest(s_test.SynTest):
                 self.eq(3, prox.last('foo')[0])
                 self.eq('baz', prox.last('foo')[1][0])
 
+                iden = s_common.guid()
+                self.eq(0, prox.offset('foo', iden))
+
+                items = list(prox.slice('foo', 0, 1000, iden=iden))
+                self.eq(0, prox.offset('foo', iden))
+
+                items = list(prox.slice('foo', 4, 1000, iden=iden))
+                self.eq(4, prox.offset('foo', iden))
+
+            # test the direct tank share....
+            with dmon._getTestProxy('cryo00/foo') as prox:
+
+                items = list(prox.slice(1, 3))
+
+                self.eq(items[0][1][0], 'baz')
+
+                self.len(4, list(prox.slice(0, 9999)))
+
+                prox.puts(cryodata)
+
+                self.len(6, list(prox.slice(0, 9999)))
+
                 # test offset storage and updating
-                iden = 'asdf'
+                iden = s_common.guid()
+                self.eq(0, prox.offset(iden))
+                self.eq(2, prox.puts(cryodata, seqn=(iden, 0)))
+                self.eq(2, prox.offset(iden))
 
-                self.none(prox.offset('foo', 'asdf'))
+            # test the new open share
+            with dmon._getTestProxy('cryo00/lulz') as prox:
 
-                items = list(prox.slice('foo', 0, 1000, iden='asdf'))
-                self.eq(0, prox.offset('foo', 'asdf'))
+                self.len(0, list(prox.slice(0, 9999)))
 
-                items = list(prox.slice('foo', 4, 1000, iden='asdf'))
-                self.eq(4, prox.offset('foo', 'asdf'))
+                prox.puts(cryodata)
+
+                self.len(2, list(prox.slice(0, 9999)))
+
+                self.len(1, list(prox.metrics(0)))
 
 # FIXME remove before 0.1.0
 

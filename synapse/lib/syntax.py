@@ -595,11 +595,17 @@ def parse_stormsub(text, off=0):
 tagterm = set(')]},@ \t\n')
 whitespace = set(' \t\n')
 
+optset = set('abcdefghijklmnopqrstuvwxyz')
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 cmprset = set('!<>^~=')
 cmprstart = set('*!<>^~=')
 
 alphanum = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+
+optcast = {
+    'limit': int,
+    'uniq': bool,
+}
 
 class Parser:
 
@@ -622,8 +628,7 @@ class Parser:
         raise s_exc.BadStormSyntax(mesg=mesg, at=at, text=self.text, offs=self.offs)
 
     def _raiseSyntaxExpects(self, text):
-        mesg = 'expected: %s' % (text,)
-        self._raiseSyntaxError(mesg)
+        self._raiseSyntaxError(f'expected: {text}')
 
     def more(self):
         return self.offs < self.size
@@ -644,6 +649,32 @@ class Parser:
             # if we are sub-query, time to go...
             if self.nextstr('}'):
                 break
+
+            # parse a query option: %foo=10
+            if self.nextstr('%'):
+
+                self.offs += 1
+
+                self.ignore(whitespace)
+                name = self.noms(optset)
+
+                self.ignore(whitespace)
+                self.nextmust('=')
+
+                valu = self.noms(alphanum)
+
+                cast = optcast.get(name)
+                if cast is None:
+                    raise s_exc.NoSuchOpt(name=name)
+
+                try:
+                    valu = cast(valu)
+                except Exception as e:
+                    raise s_exc.BadOptValu(name=name, valu=valu)
+
+                query.opts[name] = valu
+
+                continue
 
             # edit operations...
             if self.nextstr('['):
@@ -1109,14 +1140,28 @@ class Parser:
             return s_ast.TagPropValue(kids=(tag,))
 
         if self.nextstr('$'):
-            var = self.var()
-            return s_ast.VarValue(kids=(var,))
+            varn = self.varname()
+            return s_ast.VarValue(None, kids=(varn,))
 
         if self.nextstr('"'):
             text = self.quoted()
             return s_ast.Const(text)
 
         self._raiseSyntaxError('unrecognized value prefix')
+
+    def varname(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('$')
+
+        self.ignore(whitespace)
+
+        name = self.noms(alphanum)
+        if not name:
+            self._raiseSyntaxError('expected variable name')
+
+        return s_ast.Const(name)
 
     def quoted(self):
 

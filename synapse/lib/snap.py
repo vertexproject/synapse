@@ -45,6 +45,9 @@ class Snap(s_eventbus.EventBus):
         self.bulk = False
         self.bulksops = []
 
+        # variables used by the storm runtime
+        self.vars = {}
+
         self.runt = {}
         self.splices = []
 
@@ -71,6 +74,9 @@ class Snap(s_eventbus.EventBus):
 
             if self.exitok:
 
+                if self.write and self.splices:
+                    self.xact.splices(self.splices)
+
                 for x in self.xacts:
                     try:
                         x.commit()
@@ -86,6 +92,12 @@ class Snap(s_eventbus.EventBus):
                         logger.exception('abort error for layer xact')
 
         self.onfini(fini)
+
+    def setOffset(self, iden, offs):
+        return self.xact.setOffset(iden, offs)
+
+    def getOffset(self, iden, offs):
+        return self.xact.getOffset(iden, offs)
 
     def setUser(self, user):
         self.user = user
@@ -223,6 +235,14 @@ class Snap(s_eventbus.EventBus):
                 mesg = f'{name} {valu!r} {props!r}'
                 logger.exception(mesg)
                 raise
+
+    def addData(self, name, items):
+
+        func = self.core.getDataFunc(name)
+        if func is None:
+            raise s_exc.NoSuchName(name=name)
+
+        func(self, items)
 
     def addTagNode(self, name):
         '''
