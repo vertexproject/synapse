@@ -703,6 +703,7 @@ class Range(Type):
 class Str(Type):
 
     _opt_defs = (
+        ('enums', None),
         ('regex', None),
         ('lower', False),
         ('strip', False),
@@ -715,6 +716,11 @@ class Str(Type):
         restr = self.opts.get('regex')
         if restr is not None:
             self.regex = regex.compile(restr)
+
+        self.envals = None
+        enumstr = self.opts.get('enums')
+        if enumstr is not None:
+            self.envals = enumstr.split(',')
 
         self.indxcmpr['^='] = self.indxByPref
 
@@ -747,6 +753,11 @@ class Str(Type):
 
         if self.opts['onespace']:
             norm = s_chop.onespace(norm)
+
+        if self.envals is not None:
+            if norm not in self.envals:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, enums=self.info.get('enums'),
+                                        mesg='Value not in enums')
 
         if self.regex is not None:
             if self.regex.match(norm) is None:
