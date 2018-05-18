@@ -5,7 +5,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
-from synapse.common import addpref, guid
 
 class FileBase(s_types.Type):
 
