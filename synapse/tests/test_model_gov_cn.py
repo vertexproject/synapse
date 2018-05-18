@@ -1,21 +1,20 @@
+import synapse.common as s_common
+import synapse.tests.common as s_test
 
-from synapse.tests.common import SynTest
-
-class CnGovTest(SynTest):
+class CnGovTest(s_test.SynTest):
 
     def test_models_cngov_mucd(self):
 
         with self.getTestCore() as core:
-            formname = 'gov:cn:mucd'
 
             with core.snap(write=True) as snap:
+                org0 = s_common.guid()
+                props = {
+                    'org': org0
+                }
+                node = snap.addNode('gov:cn:icp', 12345678, props)
+                self.eq(node.ndef[1], 12345678)
+                self.eq(node.get('org'), org0)
 
-                n0 = snap.addNode('gov:cn:mucd', 61786)
-                n1 = snap.addNode('gov:cn:icp', 12345678)
-
-            self.eq(n0.ndef, ('gov:cn:mucd', 61786))
-            self.eq(n1.ndef, ('gov:cn:icp', 12345678))
-
-            # FIXME 010 - after orgs add test to make sure the pla org was created
-
-            # FIXME 010 - after orgs add tests for gov:cn:orgicp
+                node = snap.addNode('gov:cn:mucd', 61786)
+                self.eq(node.ndef[1], 61786)

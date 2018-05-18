@@ -16,28 +16,31 @@ class PsModelTest(s_test.SynTest):
 
                 node = snap.addNode('ps:name', ' robert GREY  the\t3rd  ')
                 self.eq(node.ndef[1], 'robert grey the 3rd')
-
+                file0 = 'sha256:' + 64 * '0'
                 person_props = {
                     'dob': '1971',
+                    'img': file0,
                     'nick': 'pennywise',
-                    'name': 'robert clown grey',
-                    # 'img': ''  # fixme file:bytes
                     # 'guidname': '', # fixme guid aliases
+                    'name': 'robert clown grey',
                     'name:sur': 'grey',
                     'name:middle': 'clown',
                     'name:given': 'robert',
+                    'name:en': 'robert clown grey',
                     'name:en:sur': 'grey',
                     'name:en:middle': 'clown',
                     'name:en:given': 'robert',
                 }
                 node = snap.addNode('ps:person', person0, person_props)
                 self.eq(node.ndef[1], person0)
+                self.eq(node.get('img'), file0)
                 self.eq(node.get('dob'), 31536000000)
                 self.eq(node.get('nick'), 'pennywise')
                 self.eq(node.get('name'), 'robert clown grey')
                 self.eq(node.get('name:sur'), 'grey')
                 self.eq(node.get('name:middle'), 'clown')
                 self.eq(node.get('name:given'), 'robert')
+                self.eq(node.get('name:en'), 'robert clown grey')
                 self.eq(node.get('name:en:sur'), 'grey')
                 self.eq(node.get('name:en:middle'), 'clown')
                 self.eq(node.get('name:en:given'), 'robert')
@@ -46,10 +49,10 @@ class PsModelTest(s_test.SynTest):
 
                 persona_props = {
                     'dob': '2000',
+                    'img': file0,
                     'nick': 'acid burn',
-                    'name': 'Эммануэль брат Гольдштейн',
-                    # 'img': ''  # fixme file:bytes
                     # 'guidname': '', # fixme guid aliases
+                    'name': 'Эммануэль брат Гольдштейн',
                     'name:sur': 'Гольдштейн',
                     'name:middle': 'брат',
                     'name:given': 'эммануэль',
@@ -60,6 +63,7 @@ class PsModelTest(s_test.SynTest):
                 }
                 node = snap.addNode('ps:persona', persona0, persona_props)
                 self.eq(node.ndef[1], persona0)
+                self.eq(node.get('img'), file0)
                 self.eq(node.get('dob'), 946684800000)
                 self.eq(node.get('nick'), 'acid burn')
                 self.eq(node.get('name'), 'эммануэль брат гольдштейн')
