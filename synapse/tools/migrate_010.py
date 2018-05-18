@@ -14,10 +14,6 @@ import synapse.models.inet as s_inet
 
 logger = logging.getLogger(__name__)
 
-# TODO
-# check model version before begin migration
-# push tmp scripts to kudu gitlab
-
 # Topologically sorted comp and sepr types that are form types that have other comp types as elements.  The beginning
 # of the list has more dependencies than the end.
 _comp_and_sepr_forms = [
