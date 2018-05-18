@@ -136,8 +136,10 @@ class Plex(s_eventbus.EventBus):
         '''
         Initialize the ioloop for the given link.
         '''
-        self.loop.create_task(self._linkRxLoop(link))
-        self.loop.create_task(self._linkTxLoop(link))
+        self.addLoopCoro(self._linkRxLoop(link))
+
+    def addLoopCoro(self, coro):
+        asyncio.run_coroutine_threadsafe(coro, self.loop)
 
     def coroLoopTask(self, coro):
         '''
@@ -168,27 +170,6 @@ class Plex(s_eventbus.EventBus):
 
         finally:
             await self.executor(link.fini)
-
-    async def _linkTxLoop(self, link):
-
-        try:
-
-            while True:
-
-                byts = await link.txque.get()
-                if byts is None:
-                    return
-
-                link.writer.write(byts)
-                await link.writer.drain()
-
-        except Exception as e:
-            logger.exception('_linkTxLoop Error!')
-
-        finally:
-
-            link.writer.close()
-            s_glob.pool.call(link.fini)
 
     def _runIoLoop(self):
 

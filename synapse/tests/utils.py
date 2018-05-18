@@ -179,7 +179,11 @@ testmodel = {
 class TestModule(s_module.CoreModule):
 
     def initCoreModule(self):
-        pass
+        self.core.setDataFunc('com.test.record', self.addTestRecords)
+
+    def addTestRecords(self, snap, items):
+        for name in items:
+            snap.addNode('teststr', name)
 
     def getModelDefs(self):
         return (

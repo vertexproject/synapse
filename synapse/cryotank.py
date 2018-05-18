@@ -26,10 +26,26 @@ import synapse.datamodel as s_datamodel
 
 logger = logging.getLogger(__name__)
 
+class TankApi(s_cell.CellApi):
+
+    def slice(self, size, offs, iden=None):
+        yield from self.cell.slice(size, offs, iden=iden)
+
+    def puts(self, items, seqn=None):
+        return self.cell.puts(items, seqn=seqn)
+
+    def metrics(self, offs, size=None):
+        yield from self.cell.metrics(offs, size=size)
+
+    def offset(self, iden):
+        return self.cell.getOffset(iden)
+
 class CryoTank(s_cell.Cell):
     '''
     A CryoTank implements a stream of structured data.
     '''
+    cellapi = TankApi
+
     confdefs = (
         ('mapsize', {'type': 'int', 'doc': 'LMDB mapsize value', 'defval': s_lmdb.DEFAULT_MAP_SIZE}),
         ('noindex', {'type': 'bool', 'doc': 'Disable indexing', 'defval': 0}),
@@ -44,7 +60,7 @@ class CryoTank(s_cell.Cell):
 
         #TODO remove legacy config argument
 
-        path = s_common.gendir(self.dirn, 'cryo.lmdb')
+        path = s_common.gendir(self.dirn, 'tank.lmdb')
 
         mapsize = self.conf.get('mapsize')
 
@@ -53,7 +69,9 @@ class CryoTank(s_cell.Cell):
 
         self.lenv_items = self.lenv.open_db(b'items')
         self.lenv_metrics = self.lenv.open_db(b'metrics')
-        self.lenv_offsets = self.lenv.open_db(b'offsets')
+
+        offsdb = self.lenv.open_db(b'offsets')
+        self.offs = s_lmdb.Offs(self.lenv, offsdb)
 
         noindex = self.conf.get('noindex')
         self.indexer = None if noindex else CryoTankIndexer(self)
@@ -69,24 +87,14 @@ class CryoTank(s_cell.Cell):
         self.onfini(fini)
 
     def getOffset(self, iden):
+        return self.offs.get(iden)
 
-        buid = iden.encode('utf8')
+    def setOffset(self, iden, offs):
+        return self.offs.set(iden, offs)
 
-        with self.lenv.begin() as xact:
-
-            lval = xact.get(buid, db=self.lenv_offsets)
-            if lval is None:
-                return None
-
-            return int.from_bytes(lval, byteorder='big')
-
-    def setOffset(self, iden, offset):
-
+    def _xactSetOffset(self, xact, iden, offset):
         buid = iden.encode('utf8')
         valu = offset.to_bytes(length=8, byteorder='big')
-
-        with self.lenv.begin(write=True) as xact:
-            xact.put(buid, valu, db=self.lenv_offsets)
 
     def last(self):
         '''
@@ -102,12 +110,13 @@ class CryoTank(s_cell.Cell):
                 indx = struct.unpack('>Q', curs.key())[0]
                 return indx, s_msgpack.un(curs.value())
 
-    def puts(self, items):
+    def puts(self, items, seqn=None):
         '''
         Add the structured data from items to the CryoTank.
 
         Args:
             items (list):  A list of objects to store in the CryoTank.
+            seqn (iden, offs): An iden / offset pair to record.
 
         Returns:
             int: The index that the item storage began at.
@@ -138,6 +147,12 @@ class CryoTank(s_cell.Cell):
 
                 info = {'time': tick, 'count': len(items), 'size': bytesize, 'took': took}
                 curs.put(lkey, s_msgpack.en(info), append=True)
+
+            if seqn is not None:
+                iden, offset = seqn
+                nextoff = offset + len(items)
+                self.offs.xset(xact, iden, nextoff)
+                retn = nextoff
 
         self.fire('cryotank:puts', numrecords=len(itembyts))
 
@@ -274,9 +289,9 @@ class CryoApi(s_cell.CellApi):
         tank = self.cell.init(name)
         return tank.last()
 
-    def puts(self, name, items):
+    def puts(self, name, items, seqn=None):
         tank = self.cell.init(name)
-        tank.puts(items)
+        tank.puts(items, seqn=seqn)
         return True
 
     def offset(self, name, iden):
@@ -307,12 +322,16 @@ class CryoCell(s_cell.Cell):
     def __init__(self, dirn):
 
         s_cell.Cell.__init__(self, dirn)
-        path = s_common.gendir(self.dirn, 'cell.lmdb')
+
+        path = s_common.gendir(self.dirn, 'cryo.lmdb')
+
+        self.dmon = None
+        self.sharename = None
 
         self.kvstor = s_kv.KvStor(path)
 
-        self.names = self.kvstor.getKvDict('cell:dict:cryo:names')
-        self.confs = self.kvstor.getKvDict('cell:dict:cryo:confs')
+        self.names = self.kvstor.getKvDict('cryo:names')
+        self.confs = self.kvstor.getKvDict('cryo:confs')
 
         self.tanks = s_eventbus.BusRef()
 
@@ -322,11 +341,14 @@ class CryoCell(s_cell.Cell):
 
             logger.info('Bringing tank [%s][%s] online', name, iden)
 
-            path = s_genpath(self.dirn, 'tanks', iden)
+            path = s_common.genpath(self.dirn, 'tanks', iden)
 
             conf = self.confs.get(name)
             tank = CryoTank(path, conf)
             self.tanks.put(name, tank)
+
+    def onTeleOpen(self, link, path):
+        return self.init(path[1])
 
     def init(self, name, conf=None):
         '''
