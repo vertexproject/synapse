@@ -122,13 +122,14 @@ class OuModelTest(s_test.SynTest):
                     'name': 'Working Lunch',
                     'start': '201604011200',
                     'end': '201604011300',
-                    # 'place': '', # FIXME geospatial
+                    'place': 32 * 'a',
                 }
                 node = snap.addNode('ou:meet', m0, mprops)
                 self.eq(node.ndef[1], m0)
                 self.eq(node.get('name'), 'working lunch')
                 self.eq(node.get('start'), 1459512000000)
                 self.eq(node.get('end'), 1459515600000)
+                self.eq(node.get('place'), 32 * 'a')
 
                 mprops = {
                     'arrived': '201604011201',
