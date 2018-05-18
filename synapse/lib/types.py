@@ -1,25 +1,20 @@
-import json
-import types
-import base64
-import struct
-import xxhash
+# stdlib
 import logging
 import collections
 
+# third party code
 import regex
+import xxhash
 
+# custom code
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.dyndeps as s_dyndeps
-
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
-import synapse.lib.modules as s_modules
-import synapse.lib.msgpack as s_msgpack
-
-import synapse.lookup.iso3166 as s_l_iso3166
 
 logger = logging.getLogger(__name__)
+tagre = regex.compile(r'^([\w]+\.)*[\w]+$')
+
 
 class Type:
 
@@ -79,30 +74,35 @@ class Type:
 
     def _ctorCmprEq(self, text):
         norm, info = self.norm(text)
+
         def cmpr(valu):
             return norm == valu
         return cmpr
 
     def _ctorCmprNe(self, text):
         norm, info = self.norm(text)
+
         def cmpr(valu):
             return norm != valu
         return cmpr
 
     def _ctorCmprPref(self, valu):
         text = str(valu)
+
         def cmpr(valu):
             return self.repr(valu).startswith(text)
         return cmpr
 
     def _ctorCmprRe(self, text):
         regx = regex.compile(text)
+
         def cmpr(valu):
             return regx.match(self.repr(valu)) is not None
         return cmpr
 
     def _ctorCmprIn(self, vals):
         norms = [self.norm(v)[0] for v in vals]
+
         def cmpr(valu):
             return valu in norms
         return cmpr
@@ -275,98 +275,165 @@ class Type:
 
         return func(valu)
 
-tagre = regex.compile(r'^([\w]+\.)*[\w]+$')
 
-class Tag(Type):
+class Bool(Type):
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
-        self.indxcmpr['^='] = self.indxByPref
-
-    def indxByPref(self, valu):
-        norm, info = self.norm(valu)
-        return (
-            ('pref', norm.encode('utf8')),
-        )
-
-    def _normPyStr(self, text):
-
-        valu = text.lower().strip('#').strip()
-        toks = [v.strip() for v in valu.split('.')]
-
-        subs = {
-            'base': toks[-1],
-            'depth': len(toks) - 1,
-        }
-
-        norm = '.'.join(toks)
-        if not tagre.match(norm):
-            raise s_exc.BadTypeValu(valu=text)
-
-        if len(toks) > 1:
-            subs['up'] = '.'.join(toks[:-1])
-
-        return norm, {'subs': subs}
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(bool, self._normPyInt)
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.to_bytes(length=1, byteorder='big')
 
-class Str(Type):
+    def _normPyStr(self, valu):
 
-    _opt_defs = {
-        ('regex', None),
-        ('lower', False),
-        ('strip', False),
-        ('onespace', False),
-    }
+        ival = s_common.intify(valu)
+        if ival is not None:
+            return int(bool(ival)), {}
+
+        if valu in ('true', 't', 'y', 'yes', 'on'):
+            return 1, {}
+
+        if valu in ('false', 'f', 'n', 'no', 'off'):
+            return 0, {}
+
+        raise s_exc.BadTypeValu(name=self._type_name, valu=valu)
+
+    def _normPyInt(self, valu):
+        return int(bool(valu)), {}
+
+    def repr(self, valu):
+        return repr(bool(valu))
+
+
+class Comp(Type):
 
     def postTypeInit(self):
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+        self.tcache = FieldHelper(self.modl, self.opts.get('fields', ()))
 
-        self.regex = None
-        restr = self.opts.get('regex')
-        if restr is not None:
-            self.regex = regex.compile(restr)
+    def _normPyTuple(self, valu):
 
-        self.indxcmpr['^='] = self.indxByPref
+        fields = self.opts.get('fields')
+        if len(fields) != len(valu):
+            raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
-    def indxByPref(self, valu):
+        subs = {}
+        adds = []
+        norms = []
 
-        # doesnt have to be normable...
-        if self.opts.get('lower'):
-            valu = valu.lower()
+        for i, (name, typename) in enumerate(fields):
+            _type = self.tcache[name]
 
-        # Only strip the left side of the string for prefix match
-        if self.opts.get('strip'):
-            valu = valu.lstrip()
+            norm, info = _type.norm(valu[i])
 
-        if self.opts.get('onespace'):
-            valu = s_chop.onespace(valu)
+            subs[name] = norm
+            norms.append(norm)
 
-        return (
-            ('pref', valu.encode('utf8')),
-        )
+            for k, v in info.get('subs', {}).items():
+                subs[f'{name}:{k}'] = v
+            adds.extend(info.get('adds', ()))
 
-    def norm(self, valu):
-
-        norm = str(valu)
-
-        if self.opts['lower']:
-            norm = norm.lower()
-
-        if self.opts['strip']:
-            norm = norm.strip()
-
-        if self.opts['onespace']:
-            norm = s_chop.onespace(norm)
-
-        if self.regex is not None:
-            if self.regex.match(norm) is None:
-                raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='regex does not match')
-
-        return norm, {}
+        norm = tuple(norms)
+        return norm, {'subs': subs, 'adds': adds}
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return s_common.buid(norm)
+
+
+# FIXME Add tests for FieldHelper sad paths
+class FieldHelper(collections.defaultdict):
+    '''
+    Helper for Comp types. Performs Type lookup/creation upon first use.
+    '''
+    def __init__(self, modl, fields):
+        collections.defaultdict.__init__(self)
+        self.modl = modl
+        self.fields = {name: tname for name, tname in fields}
+
+    def __missing__(self, key):
+        val = self.fields.get(key)
+        if not val:
+            raise s_exc.BadTypeDef(valu=key, mesg='unconfigured field requested')
+        if isinstance(val, str):
+            _type = self.modl.type(val)
+            if not _type:
+                raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
+        else:
+            # val is a type, opts pair
+            tname, opts = val
+            basetype = self.modl.type(tname)
+            if not basetype:
+                raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
+            _type = basetype.clone(opts)
+        return _type
+
+
+class Guid(Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+
+    def _normPyStr(self, valu):
+
+        if valu == '*':
+            valu = s_common.guid()
+            return valu, {}
+
+        valu = valu.lower()
+        if not s_common.isguid(valu):
+            raise s_exc.BadTypeValu(name=self.name, valu=valu)
+
+        return valu, {}
+
+    def indx(self, norm):
+        return s_common.uhex(norm)
+
+
+class Hex(Type):
+
+    _opt_defs = (
+        ('size', 0),
+    )
+
+    def postTypeInit(self):
+        self._size = self.opts.get('size')
+        if self._size < 0:
+            # zero means no width check
+            raise s_exc.BadConfValu(name='size', valu=self._size,
+                                    mesg='Size must be > 0')
+        if self._size % 2 != 0:
+            raise s_exc.BadConfValu(name='size', valu=self._size,
+                                    mesg='Size must be a multiple of 2')
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(bytes, self._normPyBytes)
+
+    def indxByEq(self, valu):
+        if isinstance(valu, str) and valu.endswith('*'):
+            valu = valu.rstrip('*')
+            norm = s_chop.hexstr(valu)
+            return (
+                ('pref', self.indx(norm)),
+            )
+
+        return Type.indxByEq(self, valu)
+
+    def _normPyStr(self, valu):
+        valu = s_chop.hexstr(valu)
+
+        if self._size and len(valu) != self._size:
+            raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size,
+                                    mesg='invalid width')
+        return valu, {}
+
+    def _normPyBytes(self, valu):
+        return self._normPyStr(s_common.ehex(valu))
+
+    def indx(self, norm):
+        return s_common.uhex(norm)
+
 
 class Int(Type):
 
@@ -451,35 +518,279 @@ class Int(Type):
     def indx(self, valu):
         return (valu + self._indx_offset).to_bytes(self.size, 'big')
 
-class Bool(Type):
+
+class Ival(Type):
+
+    def postTypeInit(self):
+        self.timetype = self.modl.type('time')
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyIter)
+        self.setNormFunc(tuple, self._normPyIter)
+        self.setNormFunc(None.__class__, self._normPyNone)
+
+    def _normPyNone(self, valu):
+        # none is an ok interval (unknown...)
+        return valu, {}
+
+    def _normPyInt(self, valu):
+        return (valu, valu + 1), {}
+
+    def _normPyStr(self, valu):
+        norm, info = self.timetype.norm(valu)
+        # until we support 2013+2years syntax...
+        return (norm, norm + 1), {}
+
+    def _normPyIter(self, valu):
+
+        vals = [self.timetype.norm(v)[0] for v in valu]
+        if len(vals) == 1:
+            vals.append(vals[0] + 1)
+
+        norm = (min(vals), max(vals))
+        return norm, {}
+
+    def indx(self, norm):
+
+        if norm is None:
+            return b''
+
+        indx = self.timetype.indx(norm[0])
+        indx += self.timetype.indx(norm[1])
+
+        return indx
+
+
+class Loc(Type):
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(int, self._normPyInt)
-        self.setNormFunc(bool, self._normPyInt)
-
-    def indx(self, norm):
-        return norm.to_bytes(length=1, byteorder='big')
 
     def _normPyStr(self, valu):
 
-        ival = s_common.intify(valu)
-        if ival is not None:
-            return int(bool(ival)), {}
+        valu = valu.lower().strip()
 
-        if valu in ('true', 't', 'y', 'yes', 'on'):
-            return 1, {}
+        norms = []
+        for part in valu.split('.'):
+            part = ' '.join(part.split())
+            norms.append(part)
 
-        if valu in ('false', 'f', 'n', 'no', 'off'):
-            return 0, {}
+        norm = '.'.join(norms)
+        return norm, {}
 
-        raise s_exc.BadTypeValu(name=self._type_name, valu=valu)
+    def indx(self, norm):
+        parts = norm.split('.')
+        valu = '\x00'.join(parts) + '\x00'
+        return valu.encode('utf8')
 
-    def _normPyInt(self, valu):
-        return int(bool(valu)), {}
+    def indxByEq(self, valu):
 
-    def repr(self, valu):
-        return repr(bool(valu))
+        norm, info = self.norm(valu)
+        indx = self.indx(norm)
+
+        return (
+            ('pref', indx),
+        )
+
+
+class Ndef(Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+    def _normPyTuple(self, valu):
+        try:
+            formname, formvalu = valu
+        except Exception as e:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu)
+
+        form = self.modl.form(formname)
+        if form is None:
+            raise s_exc.NoSuchForm(name=formname)
+
+        formnorm, info = form.type.norm(formvalu)
+        norm = (form.name, formnorm)
+
+        adds = (norm,)
+        subs = {'form': form.name}
+
+        return norm, {'adds': adds, 'subs': subs}
+
+    def indx(self, norm):
+        return s_common.buid(norm)
+
+
+class NodeProp(Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+    def _normPyStr(self, valu):
+        try:
+            return self._normPyTuple(valu.split('=', 1))
+        except Exception as e:
+            mesg = 'invalid nodeprop string'
+            raise s_exc.BadTypeValu(valu, mesg)
+
+    def _normPyTuple(self, valu):
+        try:
+            propname, propvalu = valu
+        except Exception as e:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu)
+
+        prop = self.modl.prop(propname)
+        if prop is None:
+            raise s_exc.NoSuchProp(name=propname)
+
+        propnorm, info = prop.type.norm(propvalu)
+        return (prop.full, propnorm), {'subs': {'prop': prop.full}}
+
+    def indx(self, norm):
+        return s_common.buid(norm)
+
+
+class Range(Type):
+
+    _opt_defs = (
+        ('type', None),
+    )
+
+    def postTypeInit(self):
+        subtype = self.opts.get('type')
+        if not(type(subtype) is tuple and len(subtype) is 2):
+            raise s_exc.BadTypeDef(self.opts)
+
+        try:
+            self.subtype = self.modl.type(subtype[0]).clone(subtype[1])
+        except Exception as e:
+            logger.exception('subtype invalid or unavailable')
+            raise s_exc.BadTypeDef(self.opts, mesg='subtype invalid or unavailable')
+
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+    def _normPyStr(self, valu):
+        # take a default shot at foo-bar syntax
+        try:
+            return self._normPyTuple(valu.split('-', 1))
+        except Exception as e:
+            mesg = 'invalid range string'
+            raise s_exc.BadTypeValu(valu, mesg)
+
+    def _normPyTuple(self, valu):
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(valu, mesg=f'Must be a 2-tuple of type {self.subtype.name}')
+
+        minv = self.subtype.norm(valu[0])[0]
+        maxv = self.subtype.norm(valu[1])[0]
+
+        if minv > maxv:
+            raise s_exc.BadTypeValu(valu, mesg='minval cannot be greater than maxval')
+
+        return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
+
+    def indx(self, norm):
+        return self.subtype.indx(norm[0]) + self.subtype.indx(norm[1])
+
+    def repr(self, norm):
+        return (self.subtype.repr(norm[0]), self.subtype.repr(norm[1]))
+
+
+class Str(Type):
+
+    _opt_defs = (
+        ('regex', None),
+        ('lower', False),
+        ('strip', False),
+        ('onespace', False),
+    )
+
+    def postTypeInit(self):
+
+        self.regex = None
+        restr = self.opts.get('regex')
+        if restr is not None:
+            self.regex = regex.compile(restr)
+
+        self.indxcmpr['^='] = self.indxByPref
+
+    def indxByPref(self, valu):
+
+        # doesnt have to be normable...
+        if self.opts.get('lower'):
+            valu = valu.lower()
+
+        # Only strip the left side of the string for prefix match
+        if self.opts.get('strip'):
+            valu = valu.lstrip()
+
+        if self.opts.get('onespace'):
+            valu = s_chop.onespace(valu)
+
+        return (
+            ('pref', valu.encode('utf8')),
+        )
+
+    def norm(self, valu):
+
+        norm = str(valu)
+
+        if self.opts['lower']:
+            norm = norm.lower()
+
+        if self.opts['strip']:
+            norm = norm.strip()
+
+        if self.opts['onespace']:
+            norm = s_chop.onespace(norm)
+
+        if self.regex is not None:
+            if self.regex.match(norm) is None:
+                raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='regex does not match')
+
+        return norm, {}
+
+    def indx(self, norm):
+        return norm.encode('utf8')
+
+
+class Tag(Type):
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.indxcmpr['^='] = self.indxByPref
+
+    def indxByPref(self, valu):
+        norm, info = self.norm(valu)
+        return (
+            ('pref', norm.encode('utf8')),
+        )
+
+    def _normPyStr(self, text):
+
+        valu = text.lower().strip('#').strip()
+        toks = [v.strip() for v in valu.split('.')]
+
+        subs = {
+            'base': toks[-1],
+            'depth': len(toks) - 1,
+        }
+
+        norm = '.'.join(toks)
+        if not tagre.match(norm):
+            raise s_exc.BadTypeValu(valu=text)
+
+        if len(toks) > 1:
+            subs['up'] = '.'.join(toks[:-1])
+
+        return norm, {'subs': subs}
+
+    def indx(self, norm):
+        return norm.encode('utf8')
+
 
 class Time(Type):
 
@@ -541,295 +852,3 @@ class Time(Type):
             return self._indxTimeRange(valu, maxv)
 
         return Type.indxByEq(self, valu)
-
-
-class Range(Type):
-
-    _opt_defs = {
-        ('type', None),
-    }
-
-    def postTypeInit(self):
-        subtype = self.opts.get('type')
-        if not(type(subtype) is tuple and len(subtype) is 2):
-            raise s_exc.BadTypeDef(self.opts)
-
-        try:
-            self.subtype = self.modl.type(subtype[0]).clone(subtype[1])
-        except Exception as e:
-            logger.exception('subtype invalid or unavailable')
-            raise s_exc.BadTypeDef(self.opts, mesg='subtype invalid or unavailable')
-
-        self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(tuple, self._normPyTuple)
-
-    def _normPyStr(self, valu):
-        # take a default shot at foo-bar syntax
-        try:
-            return self._normPyTuple(valu.split('-', 1))
-        except Exception as e:
-            mesg = 'invalid range string'
-            raise s_exc.BadTypeValu(valu, mesg)
-
-    def _normPyTuple(self, valu):
-        if len(valu) != 2:
-            raise s_exc.BadTypeValu(valu, mesg=f'Must be a 2-tuple of type {self.subtype.name}')
-
-        minv = self.subtype.norm(valu[0])[0]
-        maxv = self.subtype.norm(valu[1])[0]
-
-        if minv > maxv:
-            raise s_exc.BadTypeValu(valu, mesg='minval cannot be greater than maxval')
-
-        return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
-
-    def indx(self, norm):
-        return self.subtype.indx(norm[0]) + self.subtype.indx(norm[1])
-
-    def repr(self, norm):
-        return (self.subtype.repr(norm[0]), self.subtype.repr(norm[1]))
-
-
-class Ival(Type):
-
-    def postTypeInit(self):
-        self.timetype = self.modl.type('time')
-        self.setNormFunc(int, self._normPyInt)
-        self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(list, self._normPyIter)
-        self.setNormFunc(tuple, self._normPyIter)
-        self.setNormFunc(None.__class__, self._normPyNone)
-
-    def _normPyNone(self, valu):
-        # none is an ok interval (unknown...)
-        return valu, {}
-
-    def _normPyInt(self, valu):
-        return (valu, valu + 1), {}
-
-    def _normPyStr(self, valu):
-        norm, info = self.timetype.norm(valu)
-        # until we support 2013+2years syntax...
-        return (norm, norm + 1), {}
-
-    def _normPyIter(self, valu):
-
-        vals = [self.timetype.norm(v)[0] for v in valu]
-        if len(vals) == 1:
-            vals.append(vals[0] + 1)
-
-        norm = (min(vals), max(vals))
-        return norm, {}
-
-    def indx(self, norm):
-
-        if norm is None:
-            return b''
-
-        indx = self.timetype.indx(norm[0])
-        indx += self.timetype.indx(norm[1])
-
-        return indx
-
-class Guid(Type):
-
-    def postTypeInit(self):
-        self.setNormFunc(str, self._normPyStr)
-
-    def _normPyStr(self, valu):
-
-        if valu == '*':
-            valu = s_common.guid()
-            return valu, {}
-
-        valu = valu.lower()
-        if not s_common.isguid(valu):
-            raise s_exc.BadTypeValu(name=self.name, valu=valu)
-
-        return valu, {}
-
-    def indx(self, norm):
-        return s_common.uhex(norm)
-
-class Loc(Type):
-
-    def postTypeInit(self):
-        self.setNormFunc(str, self._normPyStr)
-
-    def _normPyStr(self, valu):
-
-        valu = valu.lower().strip()
-
-        norms = []
-        for part in valu.split('.'):
-            part = ' '.join(part.split())
-            norms.append(part)
-
-        norm = '.'.join(norms)
-        return norm, {}
-
-    def indx(self, norm):
-        parts = norm.split('.')
-        valu = '\x00'.join(parts) + '\x00'
-        return valu.encode('utf8')
-
-    def indxByEq(self, valu):
-
-        norm, info = self.norm(valu)
-        indx = self.indx(norm)
-
-        return (
-            ('pref', indx),
-        )
-
-# FIXME Add tests for FieldHelper sad paths
-class FieldHelper(collections.defaultdict):
-    '''
-    Helper for Comp types. Performs Type lookup/creation upon first use.
-    '''
-    def __init__(self, modl, fields):
-        collections.defaultdict.__init__(self)
-        self.modl = modl
-        self.fields = {name: tname for name, tname in fields}
-
-    def __missing__(self, key):
-        val = self.fields.get(key)
-        if not val:
-            raise s_exc.BadTypeDef(valu=key, mesg='unconfigured field requested')
-        if isinstance(val, str):
-            _type = self.modl.type(val)
-            if not _type:
-                raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
-        else:
-            # val is a type, opts pair
-            tname, opts = val
-            basetype = self.modl.type(tname)
-            if not basetype:
-                raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
-            _type = basetype.clone(opts)
-        return _type
-
-class Comp(Type):
-
-    def postTypeInit(self):
-        self.setNormFunc(list, self._normPyTuple)
-        self.setNormFunc(tuple, self._normPyTuple)
-        self.tcache = FieldHelper(self.modl, self.opts.get('fields', ()))
-
-    def _normPyTuple(self, valu):
-
-        fields = self.opts.get('fields')
-        if len(fields) != len(valu):
-            raise s_exc.BadTypeValu(name=self.name, valu=valu)
-
-        subs = {}
-        adds = []
-        norms = []
-
-        for i, (name, typename) in enumerate(fields):
-            _type = self.tcache[name]
-
-            norm, info = _type.norm(valu[i])
-
-            subs[name] = norm
-            norms.append(norm)
-
-            for k, v in info.get('subs', {}).items():
-                subs[f'{name}:{k}'] = v
-            adds.extend(info.get('adds', ()))
-
-        norm = tuple(norms)
-        return norm, {'subs': subs, 'adds': adds}
-
-    def indx(self, norm):
-        return s_common.buid(norm)
-
-class Hex(Type):
-    _opt_defs = (
-        ('size', 0),
-    )
-
-    def postTypeInit(self):
-        self._size = self.opts.get('size')
-        if self._size < 0:
-            # zero means no width check
-            raise s_exc.BadConfValu(name='size', valu=self._size,
-                                    mesg='Size must be > 0')
-        if self._size % 2 != 0:
-            raise s_exc.BadConfValu(name='size', valu=self._size,
-                                    mesg='Size must be a multiple of 2')
-        self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(bytes, self._normPyBytes)
-
-    def indxByEq(self, valu):
-        if isinstance(valu, str) and valu.endswith('*'):
-            valu = valu.rstrip('*')
-            norm = s_chop.hexstr(valu)
-            return (
-                ('pref', self.indx(norm)),
-            )
-
-        return Type.indxByEq(self, valu)
-
-    def _normPyStr(self, valu):
-        valu = s_chop.hexstr(valu)
-
-        if self._size and len(valu) != self._size:
-            raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size,
-                                    mesg='invalid width')
-        return valu, {}
-
-    def _normPyBytes(self, valu):
-        return self._normPyStr(s_common.ehex(valu))
-
-    def indx(self, norm):
-        return s_common.uhex(norm)
-
-class Ndef(Type):
-
-    def postTypeInit(self):
-        self.setNormFunc(list, self._normPyTuple)
-        self.setNormFunc(tuple, self._normPyTuple)
-
-    def _normPyTuple(self, valu):
-        try:
-            formname, formvalu = valu
-        except Exception as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu)
-
-        form = self.modl.form(formname)
-        if form is None:
-            raise s_exc.NoSuchForm(name=formname)
-
-        formnorm, info = form.type.norm(formvalu)
-        norm = (form.name, formnorm)
-
-        adds = (norm,)
-        subs = {'form': form.name}
-
-        return norm, {'adds': adds, 'subs': subs}
-
-    def indx(self, norm):
-        return s_common.buid(norm)
-
-class NodeProp(Type):
-
-    def postTypeInit(self):
-        self.setNormFunc(list, self._normPyTuple)
-        self.setNormFunc(tuple, self._normPyTuple)
-
-    def _normPyTuple(self, valu):
-        try:
-            propname, propvalu = valu
-        except Exception as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu)
-
-        prop = self.modl.prop(propname)
-        if prop is None:
-            raise s_exc.NoSuchProp(name=propname)
-
-        propnorm, info = prop.type.norm(propvalu)
-        return (prop.full, propnorm), {'subs': {'prop': prop.full}}
-
-    def indx(self, norm):
-        return s_common.buid(norm)
