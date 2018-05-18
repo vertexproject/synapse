@@ -21,10 +21,9 @@ class MatModule(s_module.CoreModule):
 
                     ('name', ('str', {'lower': True}), {'doc': 'The human readable name of the material item'}),
 
-                    # FIXME - 010 after geospace
-                    # ('latlong', ('geo:latlong', {}), {'doc': 'The last known lat/long location of the node'}),
+                    ('latlong', ('geo:latlong', {}), {'doc': 'The last known lat/long location of the node'}),
 
-                    # FIXME add baseline things like dimensions / mass / etc?
+                    # TODO add baseline things like dimensions / mass / etc?
                 )),
 
                 ('mat:spec', {}, (

@@ -3,36 +3,43 @@ import synapse.lib.module as s_module
 class LangModule(s_module.CoreModule):
 
     def getModelDefs(self):
-        return (
-            ('lang', {
+        name = 'lang'
 
-                'types': (
+        ctors = ()
 
-                    ('lang:idiom',
-                        ('str', {}),  # TODO migrate to token-searchable type
-                        {'doc': 'A subcultural idiom.'}
-                    ),
+        forms = (
+            ('lang:idiom', {}, (
+                ('url', ('inet:url', {}), {
+                    'doc': 'Authoritative URL for the idiom.'
+                }),
+                ('desc:en', ('str', {}), {
+                    'doc': 'English description.'
+                }),
+            )),
 
-                    ('lang:trans',
-                        ('str', {}),  # TODO migrate to token-searchable type
-                        {'doc': 'Raw text with a documented translation.'}
-                    ),
+            ('lang:trans', {}, (
+                ('text:en', ('str', {}), {
+                    'doc': 'English translation.'
+                }),
+                ('desc:en', ('str', {}), {
+                    'doc': 'English description.'
+                }),
+            )),
+        )
 
-                ),
+        types = (
+            ('lang:idiom', ('str', {}), {
+                'doc': 'A subcultural idiom.'
+            }),
 
-                'forms': (
-
-                    ('lang:idiom', {}, (
-                        ('url', ('inet:url', {}), {'doc': 'Authoritative URL for the idiom.'}),  # FIXME implement inet:url
-                        ('desc:en', ('str', {}), {'doc': 'English description.'}),  # TODO migrate to token-searchable type
-                    )),
-
-                    ('lang:trans', {}, (
-                        ('text:en', ('str', {}), {'doc': 'English translation.'}),  # TODO migrate to token-searchable type
-                        ('desc:en', ('str', {}), {'doc': 'English description.'}),  # TODO migrate to token-searchable type
-                    )),
-
-                ),
-
+            ('lang:trans', ('str', {}), {
+                'doc': 'Raw text with a documented translation.'
             }),
         )
+
+        modldef = (name, {
+            'ctors': ctors,
+            'forms': forms,
+            'types': types,
+        })
+        return (modldef, )

@@ -1,43 +1,64 @@
 import synapse.lib.module as s_module
 
-class MediaMod(s_module.CoreModule):
 
-    @staticmethod
-    def getBaseModels():
-        modl = {
-            'types': (
-                ('media:news', {'subof': 'guid', 'doc': 'A GUID for a news article or report'}),
-                # TODO types and forms...
-                # ('media:doi',{}),
-                # ('media:isbn',{}),
-                # ('media:issn',{}),
-            ),
+class MediaModule(s_module.CoreModule):
 
-            'forms': (
-                ('media:news', {'ptype': 'media:news', 'doc': 'A published news item, report, or article GUID'}, [
-                    ('url', {'ptype': 'inet:url', 'doc': 'The (optional) URL where the news was published',
-                             'ex': 'http://cnn.com/news/mars-lander.html'}),
-                    ('url:fqdn', {'ptype': 'inet:fqdn', 'doc': 'The FQDN within the news URL', 'ex': 'cnn.com'}),
-
-                    # ('doi',{'ptype':'media:issn','doc':'The (optional) ISSN number for the news publication'})
-                    # ('issn',{'ptype':'media:issn','doc':'The (optional) ISSN number for the news publication'})
-
-                    ('file',
-                     {'ptype': 'file:bytes', 'doc': 'The (optional) file blob containing or published as the news'}),
-
-                    ('title', {'ptype': 'str:lwr', 'doc': 'Title/Headline for the news', 'defval': '??',
-                               'ex': 'mars lander reaches mars'}),
-                    ('summary', {'ptype': 'str:lwr', 'defval': '??', 'doc': 'A brief summary of the news item',
-                                 'ex': 'lorum ipsum'}),
-                    ('published', {'ptype': 'time', 'defval': 0, 'doc': 'The date the news item was published',
-                                   'ex': '20161201180433'}),
-
-                    ('org', {'ptype': 'ou:alias', 'defval': '??', 'doc': 'The org alias which published the news',
-                             'ex': 'microsoft'}),
-                    ('author', {'ptype': 'ps:name', 'defval': '?,?', 'doc': 'The free-form author of the news',
-                                'ex': 'stark,anthony'}),
-                ]),
-            ),
-        }
+    def getModelDefs(self):
         name = 'media'
-        return ((name, modl), )
+
+        ctors = ()
+
+        forms = (
+            ('media:news', {}, (
+                ('url', ('inet:url', {}), {
+                    'doc': 'The (optional) URL where the news was published',
+                    'ex': 'http://cnn.com/news/mars-lander.html',
+                }),
+                ('url:fqdn', ('inet:fqdn', {}), {
+                    'doc': 'The FQDN within the news URL',
+                    'ex': 'cnn.com',
+                }),
+                ('file', ('file:bytes', {}), {
+                    'doc': 'The (optional) file blob containing or published as the news',
+                }),
+                ('title', ('str', {'lower': True}), {
+                    'defval': '??',
+                    'doc': 'Title/Headline for the news',
+                    'ex': 'mars lander reaches mars',
+                }),
+                ('summary', ('str', {}), {
+                    'defval': '??',
+                    'doc': 'A brief summary of the news item',
+                    'ex': 'lorum ipsum',
+                }),
+                ('published', ('time', {}), {
+                    'defval': 0,
+                    'doc': 'The date the news item was published',
+                    'ex': '20161201180433',
+                }),
+                ('org', ('ou:alias', {}), {
+                    'doc': 'The org alias which published the news',
+                    'ex': 'microsoft',
+                }),
+                ('author', ('ps:name', {}), {
+                    'defval': '?,?',
+                    'doc': 'The free-form author of the news',
+                    'ex': 'stark,anthony'
+                }),
+                # ('doi',{'ptype':'media:issn','doc':'The (optional) ISSN number for the news publication'})
+                # ('issn',{'ptype':'media:issn','doc':'The (optional) ISSN number for the news publication'})
+            )),
+        )
+
+        types = (
+            ('media:news', ('guid', {}), {
+                'doc': 'A GUID for a news article or report'
+            }),
+        )
+
+        modldef = (name, {
+            'ctors': ctors,
+            'forms': forms,
+            'types': types,
+        })
+        return (modldef, )

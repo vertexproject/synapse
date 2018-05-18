@@ -20,31 +20,25 @@ import io
 import os
 import sys
 import time
-import types
 import shutil
 import logging
 import tempfile
 import unittest
 import threading
 import contextlib
-import collections
 
 import synapse.axon as s_axon
+import synapse.data as s_data
+import synapse.lib.cell as s_cell
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.neuron as s_neuron
-import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
-
-#import synapse.cores.common as s_cores_common
-
-import synapse.data as s_data
-
-import synapse.lib.cell as s_cell
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
+import synapse.eventbus as s_eventbus
+import synapse.telepath as s_telepath
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
@@ -123,9 +117,9 @@ testmodel = {
         ('testauto', ('str', {}), {}),
 
         ('testcomp', ('comp', {'fields': (
-                ('hehe', 'int'),
-                ('haha', 'testlower'))
-            }), {'doc': 'A fake comp type.'}),
+            ('hehe', 'int'),
+            ('haha', 'testlower'))
+        }), {'doc': 'A fake comp type.'}),
         ('testhexa', ('hex', {}), {'doc': 'anysize test hex type'}),
         ('testhex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
 

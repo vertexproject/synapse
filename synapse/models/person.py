@@ -219,22 +219,3 @@ class Fixme:
             # trigger GUID auto-creation
             node = self.core.formTufoByProp('ps:persona', None, guidname=valu, **props)
         return node
-
-    @staticmethod
-    def getBaseModels():
-        modl = {
-            'types': (
-
-
-
-
-            ),
-
-            'forms': (
-
-
-
-            ),
-        }
-        name = 'ps'
-        return ((name, modl), )
