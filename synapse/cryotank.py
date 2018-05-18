@@ -92,10 +92,6 @@ class CryoTank(s_cell.Cell):
     def setOffset(self, iden, offs):
         return self.offs.set(iden, offs)
 
-    def _xactSetOffset(self, xact, iden, offset):
-        buid = iden.encode('utf8')
-        valu = offset.to_bytes(length=8, byteorder='big')
-
     def last(self):
         '''
         Return the last item stored in this CryoTank.

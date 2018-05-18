@@ -57,7 +57,7 @@ class Xact(s_eventbus.EventBus):
     def setOffset(self, iden, offs):
         return self.layr.offs.xset(self.xact, iden, offs)
 
-    def getOffset(self, iden, offs):
+    def getOffset(self, iden):
         return self.layr.offs.xget(self.xact, iden)
 
     def getSpliceLog(self, offs, size):
