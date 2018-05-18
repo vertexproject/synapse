@@ -125,11 +125,6 @@ class PsModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The form of the object or resource that is owned or controlled by the person.',
                     }),
-                    # FIXME Add seen:min and seen:max
-                    # ('seen:min', {'ptype': 'time:min',
-                    #               'doc': 'The earliest known time when the person owned or controlled the resource.'}),
-                    # ('seen:max', {'ptype': 'time:max',
-                    #               'doc': 'The most recent known time when the person owned or controlled the resource.'}),
                 )),
                 ('ps:persona:has', {}, (
                     ('persona', ('ps:persona', {}), {
@@ -144,11 +139,6 @@ class PsModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The form of the object or resource that is owned or controlled by the persona.',
                     }),
-                    # FIXME Add seen:min and seen:max
-                    # ('seen:min', {'ptype': 'time:min',
-                    #               'doc': 'The earliest known time when the person owned or controlled the resource.'}),
-                    # ('seen:max', {'ptype': 'time:max',
-                    #               'doc': 'The most recent known time when the person owned or controlled the resource.'}),
                 )),
                 # FIXME requires file:bytes
                 # ('ps:image', {}, (
