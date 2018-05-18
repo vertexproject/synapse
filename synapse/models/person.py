@@ -139,16 +139,6 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The form of the object or resource that is owned or controlled by the persona.',
                     }),
                 )),
-                # FIXME requires file:bytes
-                # ('ps:image', {}, (
-                #     ('person', ('ps:person', {}), {
-                #         'doc': '',
-                #     }),
-                #     ('image', ('file:bytes', {}), {
-                #         'doc': '',
-                #     }),
-                # # FIXME add an optional bounding box
-                # )),
                 ('ps:contact', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The ou:org GUID which owns this contact.',
