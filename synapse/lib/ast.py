@@ -149,6 +149,10 @@ class Query(AstNode):
 
         self.init(snap)
 
+        varz = self.opts.get('vars')
+        if varz is not None:
+            snap.vars.update(varz)
+
         self.optimize()
 
         # turtles all the way down...
@@ -231,8 +235,6 @@ class LiftProp(LiftOper):
     def lift(self):
         name = self.kids[0].value()
         for node in self.snap.getNodesBy(name):
-            # init the node "vars" runtime data...
-            node.runt['vars'] = {}
             yield node
 
 class LiftPropBy(LiftOper):
@@ -244,8 +246,6 @@ class LiftPropBy(LiftOper):
         valu = self.kids[2].value()
 
         for node in self.snap.getNodesBy(name, valu, cmpr=cmpr):
-            # init the node "vars" runtime data...
-            node.runt['vars'] = {}
             yield node
 
 class PivotOper(Oper):
@@ -483,8 +483,6 @@ class Cmpr(AstNode):
     def repr(self):
         return 'Cmpr: %r' % (self.text,)
 
-#class Variable(AstNode):
-
 class Value(AstNode):
 
     def __init__(self, valu, kids=()):
@@ -523,10 +521,27 @@ class RelPropValue(Value):
         self.propname = self.kids[0].value()
 
     def value(self, node=None):
-        if node is None:
-            raise FIXME
-
         return node.get(self.propname)
+
+class VarValue(Value):
+
+    def prepare(self):
+        self.name = self.kids[0].value()
+
+    def value(self, node=None):
+
+        # if we have a node, use his vars...
+        if node is not None:
+            valu = node.vars.get(self.name, s_common.novalu)
+            if valu is not s_common.novalu:
+                return valu
+
+        # if not, try for storm query vars...
+        valu = self.snap.vars.get(self.name, s_common.novalu)
+        if valu is not s_common.novalu:
+            return valu
+
+        raise s_exc.NoSuchVar(name=self.name)
 
 class AbsProp(Value):
 

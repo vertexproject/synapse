@@ -326,6 +326,12 @@ class TypesTest(s_test.SynTest):
         self.eq(b'foo bar', onespace.indxByPref(' foo  bar ')[0][1])
         self.eq(b'foo ba', onespace.indxByPref(' foo  ba')[0][1])
 
+        enums = model.type('str').clone({'enums': 'hehe,haha,zork'})
+        self.eq('hehe', enums.norm('hehe')[0])
+        self.eq('haha', enums.norm('haha')[0])
+        self.eq('zork', enums.norm('zork')[0])
+        self.raises(s_exc.BadTypeValu, enums.norm, 'zing')
+
     def test_syntag(self):
 
         model = s_datamodel.Model()

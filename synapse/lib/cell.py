@@ -181,6 +181,18 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
 
         self.auth = None
 
+        # each cell has a guid
+        path = s_common.genpath(dirn, 'cell.guid')
+
+        # generate a guid file if needed
+        if not os.path.isfile(path):
+            with open(path, 'w') as fd:
+                fd.write(s_common.guid())
+
+        # read our guid file
+        with open(path, 'r') as fd:
+            self.iden = fd.read().strip()
+
         boot = self._loadCellYaml('boot.yaml')
         self.boot = s_common.config(boot, bootdefs)
 

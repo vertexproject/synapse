@@ -40,6 +40,7 @@ class Xact(s_eventbus.EventBus):
 
         self.layr = layr
         self.write = write
+        self.spliced = False
 
         self.xact = layr.lenv.begin(write=write)
 
@@ -47,7 +48,21 @@ class Xact(s_eventbus.EventBus):
         self.buidcache = s_cache.FixedCache(self._getBuidProps, size=10000)
 
     def splices(self, msgs):
+        '''
+        Save the given splices to the splice log.
+        '''
+        self.spliced = True
         self.layr.splicelog.save(self.xact, msgs)
+
+    def setOffset(self, iden, offs):
+        return self.layr.offs.xset(self.xact, iden, offs)
+
+    def getOffset(self, iden):
+        return self.layr.offs.xget(self.xact, iden)
+
+    def getSpliceLog(self, offs, size):
+        for i, mesg in self.layr.splicelog.slice(self.xact, offs, size):
+            yield mesg
 
     def stor(self, sops):
         self.layr._xactRunStors(self.xact, sops)
@@ -61,6 +76,8 @@ class Xact(s_eventbus.EventBus):
 
     def commit(self):
         self.xact.commit()
+        if self.spliced:
+            self.layr.spliced.set()
 
     def getBuidProps(self, buid):
         return self.buidcache.get(buid)
@@ -113,6 +130,12 @@ class Layer(s_cell.Cell):
         self.byprop = self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
         self.byuniv = self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
 
+        offsdb = self.initdb('offsets')
+        self.offs = s_lmdb.Offs(self.lenv, offsdb)
+
+        self.spliced = threading.Event()
+        self.onfini(self.spliced.set)
+
         self.splices = self.initdb('splices')
         self.splicelog = s_lmdb.Seqn(self.lenv, b'splices')
 
@@ -130,6 +153,16 @@ class Layer(s_cell.Cell):
             'prop:set': self._storPropSet,
             'prop:del': self._storPropDel,
         }
+
+    def getOffset(self, iden):
+        return self.offs.get(iden)
+
+    def setOffset(self, iden, offs):
+        return self.offs.set(iden, offs)
+
+    def getSpliceLog(self, offs, size):
+        with self.xact() as xact:
+            yield from xact.getSpliceLog(offs, size)
 
     def _storPropSet(self, xact, oper):
 

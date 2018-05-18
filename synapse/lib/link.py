@@ -2,6 +2,7 @@ import socket
 import asyncio
 import threading
 
+import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
@@ -78,7 +79,8 @@ class Link(s_eventbus.EventBus):
             raise s_exc.NoLinkRx()
 
         byts = s_msgpack.en(mesg)
-        await self.txque.put(byts)
+        self.writer.write(byts)
+        await self.writer.drain()
 
         return True
 
@@ -106,12 +108,6 @@ class Link(s_eventbus.EventBus):
     async def _onAsyncFini(self):
         # any async fini stuff here...
         self.writer.close()
-
-    #def rxfini(self):
-        #self.isrxfini = True
-
-    #def txfini(self):
-        #self.istxfini = True
 
     def get(self, name, defval=None):
         '''
