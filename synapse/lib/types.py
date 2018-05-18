@@ -630,10 +630,11 @@ class NodeProp(Type):
 
     def _normPyStr(self, valu):
         try:
-            return self._normPyTuple(valu.split('=', 1))
+            valu = valu.split('=', 1)
         except Exception as e:
-            mesg = 'invalid nodeprop string'
-            raise s_exc.BadTypeValu(valu, mesg)
+            raise s_exc.BadTypeValu(valu, mesg='invalid nodeprop string')
+
+        return self._normPyTuple(valu)
 
     def _normPyTuple(self, valu):
         try:
@@ -673,12 +674,12 @@ class Range(Type):
         self.setNormFunc(tuple, self._normPyTuple)
 
     def _normPyStr(self, valu):
-        # take a default shot at foo-bar syntax
         try:
-            return self._normPyTuple(valu.split('-', 1))
+            valu = valu.split('-', 1)
         except Exception as e:
-            mesg = 'invalid range string'
-            raise s_exc.BadTypeValu(valu, mesg)
+            raise s_exc.BadTypeValu(valu, mesg='invalid range string')
+
+        return self._normPyTuple(valu)
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
