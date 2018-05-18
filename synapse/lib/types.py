@@ -292,13 +292,14 @@ class Bool(Type):
         if ival is not None:
             return int(bool(ival)), {}
 
-        if valu in ('true', 't', 'y', 'yes', 'on'):
+        sval = valu.lower().strip()
+        if sval in ('true', 't', 'y', 'yes', 'on'):
             return 1, {}
 
-        if valu in ('false', 'f', 'n', 'no', 'off'):
+        if sval in ('false', 'f', 'n', 'no', 'off'):
             return 0, {}
 
-        raise s_exc.BadTypeValu(name=self._type_name, valu=valu)
+        raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
     def _normPyInt(self, valu):
         return int(bool(valu)), {}

@@ -12,7 +12,30 @@ class TypesTest(s_test.SynTest):
         self.skip('Implement base type test')
 
     def test_bool(self):
-        self.skip('Implement base bool test')
+        model = s_datamodel.Model()
+        t = model.type('bool')
+
+        self.eq(t.norm(-1), (1, {}))
+        self.eq(t.norm(0), (0, {}))
+        self.eq(t.norm(1), (1, {}))
+        self.eq(t.norm(2), (1, {}))
+        self.eq(t.norm(True), (1, {}))
+        self.eq(t.norm(False), (0, {}))
+
+        self.eq(t.norm('-1'), (1, {}))
+        self.eq(t.norm('0'), (0, {}))
+        self.eq(t.norm('1'), (1, {}))
+
+        for s in ('trUe', 'T', 'y', ' YES', 'On '):
+            self.eq(t.norm(s), (1, {}))
+
+        for s in ('faLSe', 'F', 'n', 'NO', 'Off '):
+            self.eq(t.norm(s), (0, {}))
+
+        self.raises(s_exc.BadTypeValu, t.norm, 'a')
+
+        self.eq(t.repr(1), 'True')
+        self.eq(t.repr(0), 'False')
 
     def test_comp(self):
         self.skip('Implement base comp test')
