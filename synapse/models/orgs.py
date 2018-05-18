@@ -94,7 +94,6 @@ class OuModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'Alias for the organization',
                     }),
-                    # FIXME Add seen:min and seen:max
                 )),
                 ('ou:member', {}, (
                     ('org', ('ou:org', {}), {
@@ -130,8 +129,6 @@ class OuModule(s_module.CoreModule):
                     ('current', ('bool', {}), {
                         'doc': 'Bool indicating if the suborg relationship still current.',
                     }),
-                    # FIXME Add seen:min and seen:max to indicate beginning
-                    # and end dates of the suborg relationship
                 )),
                 ('ou:org:has', {}, (
                     ('org', ('ou:org', {}), {
@@ -146,11 +143,6 @@ class OuModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The form of the object or resource that is owned or controlled by the org.',
                     }),
-                    # FIXME Add seen:min and seen:max
-                    # ('seen:min', {'ptype': 'time:min',
-                    #               'doc': 'The earliest known time when the org owned or controlled the resource.'}),
-                    # ('seen:max', {'ptype': 'time:max',
-                    #               'doc': 'The most recent known time when the org owned or controlled the resource.'}),
                 )),
                 ('ou:user', {}, (
                     ('org', ('ou:org', {}), {
