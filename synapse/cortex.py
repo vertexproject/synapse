@@ -61,38 +61,6 @@ class View:
         parser = s_syntax.Parser(self, text)
         return parser.query()
 
-class Feed(s_eventbus.EventBus):
-
-    def __init__(self, core, iden, info):
-        self.iden = iden
-        self.core = core
-        self.info = info
-
-    #@s_threads.firethread
-    def _runFeedLoop(self):
-
-        online = True
-
-        name = self.info.get('name')
-        logger.warning(f'Feed Init: {name}')
-
-        while not self.isfini:
-
-            try:
-
-                cryourl = self.info.get('cryo')
-                tankname = self.info.get('tank')
-
-                with s_telepath.openurl(url) as cryo:
-
-                    online = True
-
-            except Exception as e:
-
-                if online:
-                    online = False
-                    logger.exception(f'Feed Offline: {name}')
-
 class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed over telepath.
