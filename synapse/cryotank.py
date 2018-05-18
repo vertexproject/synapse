@@ -322,7 +322,7 @@ class CryoCell(s_cell.Cell):
 
             logger.info('Bringing tank [%s][%s] online', name, iden)
 
-            path = s_genpath(self.dirn, 'tanks', iden)
+            path = s_common.genpath(self.dirn, 'tanks', iden)
 
             conf = self.confs.get(name)
             tank = CryoTank(path, conf)
