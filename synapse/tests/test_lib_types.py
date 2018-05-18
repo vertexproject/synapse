@@ -2,6 +2,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.types as s_types
 import synapse.tests.common as s_test
+import synapse.tests.utils as s_utils
 import synapse.datamodel as s_datamodel
 
 
@@ -234,7 +235,13 @@ class TypesTest(s_test.SynTest):
         self.skip('Implement base ndef test')
 
     def test_nodeprop(self):
-        self.skip('Implement base nodeprop test')
+        model = s_datamodel.Model()
+        model.addDataModels([('test', s_utils.testmodel)])
+        t = model.type('nodeprop')
+
+        expected = (('teststr', 'This is a sTring'), {'subs': {'prop': 'teststr'}})
+        self.eq(t.norm('teststr=This is a sTring'), expected)
+        self.eq(t.norm(('teststr', 'This is a sTring')), expected)
 
     def test_range(self):
         model = s_datamodel.Model()

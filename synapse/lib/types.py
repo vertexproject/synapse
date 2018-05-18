@@ -343,7 +343,6 @@ class Comp(Type):
         return s_common.buid(norm)
 
 
-# FIXME Add tests for FieldHelper sad paths
 class FieldHelper(collections.defaultdict):
     '''
     Helper for Comp types. Performs Type lookup/creation upon first use.
