@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.tests.common as s_test
@@ -5,6 +6,21 @@ import synapse.tests.common as s_test
 class DnsModelTest(s_test.SynTest):
     def test_forms_dns_simple(self):
         with self.getTestCore() as core:
+            # enum values on inet:dns:type
+            t = core.model.type('inet:dns:type')
+            self.eq('soa', t.norm(' SOA ')[0])
+            self.eq('ns', t.norm('ns')[0])
+            self.eq('mx', t.norm('mx')[0])
+            self.eq('a', t.norm('a')[0])
+            self.eq('aaaa', t.norm('aaaa')[0])
+            self.eq('txt', t.norm('txt')[0])
+            self.eq('srv', t.norm('srv')[0])
+            self.eq('ptr', t.norm('ptr')[0])
+            self.eq('cname', t.norm('cname')[0])
+            self.eq('hinfo', t.norm('hinfo')[0])
+            self.eq('isdn', t.norm('isdn')[0])
+            self.raises(s_exc.BadTypeValu, t.norm, 'newpnotreal')
+
             with core.snap(write=True) as snap:
                 # inet:dns:a
                 node = snap.addNode('inet:dns:a', ('hehe.com', '1.2.3.4'))
@@ -70,6 +86,24 @@ class DnsModelTest(s_test.SynTest):
                 self.eq(node.ndef[1], ('clowns.vertex.link', 'we all float down here'))
                 self.eq(node.get('fqdn'), 'clowns.vertex.link')
                 self.eq(node.get('txt'), 'we all float down here')
+
+                # inet:dns:req
+                addr0 = 'tcp://1.2.3.4:8080'
+                addr1 = 'tcp://[::1]:2'
+                node = snap.addNode('inet:dns:req', (addr0, 'vertex.link', ' A '))
+                self.eq(node.ndef[1], (addr0, 'vertex.link', 'a'))
+                self.eq(node.get('client'), addr0)
+                self.eq(node.get('client:ipv4'), 0x01020304)
+                self.eq(node.get('fqdn'), 'vertex.link')
+                self.eq(node.get('type'), 'a')
+
+                node = snap.addNode('inet:dns:req', (addr1, 'vertex.link', 'aaaa'))
+                self.eq(node.ndef[1], (addr1, 'vertex.link', 'aaaa'))
+                self.eq(node.get('client'), addr1)
+                self.eq(node.get('client:ipv6'), '::1')
+                self.eq(node.get('fqdn'), 'vertex.link')
+                self.eq(node.get('type'), 'aaaa')
+
 
 class FIXME:
 
@@ -140,21 +174,3 @@ class FIXME:
             # Ensure our autoadds are made
             self.nn(core.getTufoByProp('inet:tcp4', '1.2.3.6:53'))
             self.nn(core.getTufoByProp('inet:udp4', '1.2.3.7:8080'))
-
-    def test_model_dns_req(self):
-
-        with self.getRamCore() as core:
-
-            now = s_common.now()
-            node = core.formTufoByProp('inet:dns:req', ('1.2.3.4', 'VERTEX.link', 'A'), **{'seen:min': now, 'seen:max': now})
-            self.eq(node[1].get('inet:dns:req:type'), 'a')
-            self.eq(node[1].get('inet:dns:req:client'), 'tcp://1.2.3.4')
-            self.eq(node[1].get('inet:dns:req:client:ipv4'), 0x01020304)
-            self.eq(node[1].get('inet:dns:req:fqdn'), 'vertex.link')
-            self.eq(node[1].get('inet:dns:req:seen:min'), now)
-            self.eq(node[1].get('inet:dns:req:seen:max'), now)
-
-            newnow = s_common.now() + 100
-            node = core.setTufoProps(node, **{'seen:min': newnow, 'seen:max': newnow})
-            self.eq(node[1].get('inet:dns:req:seen:min'), now)
-            self.eq(node[1].get('inet:dns:req:seen:max'), newnow)

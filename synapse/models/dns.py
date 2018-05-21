@@ -39,6 +39,13 @@ class DnsModule(s_module.CoreModule):
                     'doc': 'The result of a DNS MX record lookup.',
                     'ex': '(hehe.vertex.link,"fancy TXT record")',
                 }),
+                ('inet:dns:type', ('str', {'lower': True, 'strip': True, 'enums': 'soa,ns,mx,a,aaaa,txt,srv,ptr,cname,hinfo,isdn'}), {
+                   'doc': 'A DNS Request type enum.'
+                }),
+                ('inet:dns:req',
+                 ('comp', {'fields': (('client', 'inet:client'), ('fqdn', 'inet:fqdn'), ('type', 'inet:dns:type'))}), {
+                     'doc': 'A fused DNS request record.'
+                 }),
             ),
             'forms': (
                 ('inet:dns:a', {}, (
@@ -97,6 +104,30 @@ class DnsModule(s_module.CoreModule):
                     ('txt', ('str', {}), {'ro': 1,
                          'doc': 'The string returned in the TXT record.'}),
                 )),
+                ('inet:dns:req', {}, (
+                    # FIXME break out client subs for ipv4/ipv6
+                    ('client', ('inet:client', {}), {
+                        'ro': True,
+                        'doc': 'The inet:addr which requested the FQDN',
+                    }),
+                    ('client:ipv4', ('inet:ipv4', {}), {
+                        'ro': True,
+                        'doc': 'The IPv4 of the client.',
+                    }),
+                    ('client:ipv6', ('inet:ipv6', {}), {
+                        'ro': True,
+                        'doc': 'The IPv6 of the client.',
+                    }),
+                    ('fqdn', ('inet:fqdn', {}), {
+                        'ro': True,
+                        'doc': 'The requested FQDN',
+                    }),
+                    ('type', ('inet:dns:type', {}), {
+                        'ro': True,
+                        'doc': 'The type of DNS record requested.'
+                    }),
+
+                )),
             )
         }
         omodl = {
@@ -104,33 +135,9 @@ class DnsModule(s_module.CoreModule):
                 ('inet:dns:look', {
                     'subof': 'guid',
                     'doc': 'The instance (point-in-time) result of a DNS record lookup.'}),
-
-                ('inet:dns:type', {'subof': 'str', 'lower': 1,
-                    'enums': 'soa,ns,mx,a,aaaa,txt,srv,ptr,cname,hinfo,isdn',
-                    'doc': 'A DNS request type enum'}),
-
-                ('inet:dns:req', {'subof': 'comp', 'fields': 'client=inet:client,fqdn=inet:fqdn,type=inet:dns:type',
-                    'doc': 'A fused DNS request record'}),
             ),
 
             'forms': (
-
-                ('inet:dns:req', {'doc': 'Fused knowledge of a DNS request origin'}, [
-                    ('client', {'ptype': 'inet:client', 'ro': 1, 'req': 1,
-                        'doc': 'The inet:addr which requested the FQDN'}),
-                    ('client:ipv4', {'ptype': 'inet:ipv4',
-                        'doc': 'The IPv4 of the client.'}),
-                    ('client:ipv6', {'ptype': 'inet:ipv6',
-                        'doc': 'The IPv6 of the client.'}),
-                    ('fqdn', {'ptype': 'inet:fqdn', 'ro': 1, 'req': 1,
-                        'doc': 'The requested FQDN'}),
-                    ('type', {'ptype': 'inet:dns:type', 'ro': 1, 'req': 1,
-                        'doc': 'The type of DNS record requested'}),
-                    ('seen:min', {'ptype': 'time:min',
-                        'doc': 'The earliest observed time that the address made the specified request.'}),
-                    ('seen:max', {'ptype': 'time:max',
-                        'doc': 'The most recent observed time that the address made the specified request.'}),
-                ]),
 
                 ('inet:dns:look', {'ptype': 'inet:dns:look', 'doc': 'Instance knowledge of a DNS record lookup.'}, [
 
