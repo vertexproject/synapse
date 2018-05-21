@@ -250,7 +250,7 @@ class Daemon(EventBus):
             self.shared[name] = item
 
         except Exception as e:
-            logger.exception('onTeleShare() error for: {name}')
+            logger.exception(f'onTeleShare() error for: {name}')
 
     def _onDmonFini(self):
         for name, cell in self.cells.items():

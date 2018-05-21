@@ -15,6 +15,7 @@ coremods = (
     'synapse.models.files.FileModule',
     'synapse.models.infotech.ItModule',
     'synapse.models.geospace.GeoModule',
+    'synapse.models.media.MediaModule',
     'synapse.models.geopol.PolModule',
     'synapse.models.telco.TelcoModule',
     'synapse.models.inet.InetModule',
