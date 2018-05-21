@@ -36,6 +36,7 @@ class Snap(s_eventbus.EventBus):
         self.stack = contextlib.ExitStack()
 
         self.user = None
+        self.strict = True
         self.elevated = False
 
         self.core = core
@@ -229,12 +230,18 @@ class Snap(s_eventbus.EventBus):
         with self.bulkload():
 
             try:
+
                 fnib = self._getNodeFnib(name, valu)
                 return self._addNodeFnib(fnib, props=props)
+
             except Exception as e:
+
                 mesg = f'{name} {valu!r} {props!r}'
                 logger.exception(mesg)
-                raise
+                if self.strict:
+                    raise
+
+                return None
 
     def addFeedData(self, name, items, seqn=None):
 
@@ -292,8 +299,10 @@ class Snap(s_eventbus.EventBus):
 
         # time for the perms check...
         if not self.allowed('node:add', form.name):
-            raise s_exc.AuthDeny(mesg='Not allowed to add the node.',
-                                 form=form.name)
+
+            if self.strict:
+                mesg = 'Not allowed to add the node.'
+                raise s_exc.AuthDeny(mesg=mesg, form=form.name)
 
         # lets build a node...
         node = s_node.Node(self, None)
@@ -321,13 +330,13 @@ class Snap(s_eventbus.EventBus):
         for name, valu in form.defvals.items():
             props.setdefault(name, valu)
 
-        # set all the properties with init=True
+        # set all system generated properties with init=True
         for name, valu in props.items():
             node.set(name, valu, init=True)
 
         # set our global properties
         tick = s_common.now()
-        node.set('.created', tick)
+        node.set('.created', tick, init=True)
 
         # we are done initializing.
         node.init = False

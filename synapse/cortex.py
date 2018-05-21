@@ -85,6 +85,7 @@ class CoreApi(s_cell.CellApi):
     def addFeedData(self, name, items, seqn=None):
 
         with self.cell.snap(write=True) as snap:
+            snap.strict = False
             snap.setUser(self.user)
             return snap.addFeedData(name, items, seqn=seqn)
 
@@ -319,14 +320,7 @@ class Cortex(s_cell.Cell):
 
                         datas = [i[1] for i in items]
 
-                        with self.snap(write=True) as snap:
-
-                            snap.addFeedData(typename, datas)
-
-                            nextoff = items[-1][0] + 1
-                            snap.setOffset(iden, nextoff)
-
-                            offs = nextoff
+                        offs = core.addFeedData(typename, datas, seqn=(iden, offs))
 
             except Exception as e:
                 logger.warning(f'feed error: {e}')
@@ -621,6 +615,7 @@ class Cortex(s_cell.Cell):
             (int): The next expected offset (or None) if seqn is None.
         '''
         with self.snap(write=True) as snap:
+            snap.strict = False
             return snap.addFeedData(name, items, seqn=seqn)
 
     def getFeedOffs(self, iden):

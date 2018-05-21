@@ -86,8 +86,9 @@ class OuModelTest(s_test.SynTest):
                 self.eq(node.ndef[1], (guid0, guid1))
                 self.eq(node.get('perc'), 50)
                 self.eq(node.get('current'), 1)
-                self.false(node.set('perc', -1))
-                self.false(node.set('perc', 101))
+
+                self.raises(s_exc.BadPropValu, node.set, 'perc', -1)
+                self.raises(s_exc.BadPropValu, node.set, 'perc', 101)
 
                 # ou:user
                 node = snap.addNode('ou:user', (guid0, 'arrowman'))
