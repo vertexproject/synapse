@@ -359,6 +359,8 @@ class Cortex(s_cell.Cell):
                             layr.spliced.wait(timeout=1)
                             continue
 
+                        logger.warning('tanking splices: %d' % (len(items),))
+
                         offs = tank.puts(items, seqn=(self.iden, offs))
 
             except Exception as e:
