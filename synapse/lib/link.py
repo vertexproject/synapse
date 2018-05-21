@@ -9,6 +9,7 @@ import synapse.eventbus as s_eventbus
 
 import synapse.lib.queue as s_queue
 import synapse.lib.msgpack as s_msgpack
+import logging
 
 class Link(s_eventbus.EventBus):
     '''
@@ -45,7 +46,6 @@ class Link(s_eventbus.EventBus):
         self.txque = asyncio.Queue(maxsize=1000)
         self.rxfunc = None
 
-        self.onfini(self.writer.close)
 
         def fini():
 
