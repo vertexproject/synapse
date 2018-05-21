@@ -1042,8 +1042,6 @@ class Parser:
 
         return s_ast.AbsPropCond(kids=(prop, cmpr, valu))
 
-        self._raiseSyntaxError('un-recognized conditional')
-
     def condexpr(self):
 
         self.ignore(whitespace)
