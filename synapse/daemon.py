@@ -117,7 +117,10 @@ class Genr(Share):
                     except Exception as e:
                         retn = s_common.retnexc(e)
                         mesg = ('share:data', {'share': self.iden, 'data': retn})
-                        s_glob.sync(self.link.tx(mesg))
+                        try:
+                            s_glob.sync(self.link.tx(mesg))
+                        except Exception as e:
+                            logger.exception('Failure in communicating exception')
                         break
                     if self.isfini:
                         break
@@ -127,7 +130,7 @@ class Genr(Share):
                     try:
                         s_glob.sync(self.link.tx(mesg))
                     except Exception as e:
-                        logger.exception('Failure in communicating exception')
+                        logger.exception('Failure in sending data')
                         break
             finally:
                 self.item.close()
