@@ -678,6 +678,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A network server address.'
                     }),
 
+                    ('inet:banner', ('comp', {'fields': (('server', 'inet:server'), ('text', 'it:dev:str'))}), {
+                        'doc': 'A network protocol banner string presented by a server.',
+                    }),
+
                     ('inet:servfile', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
                         'doc': 'A file hosted on a server for access over a network protocol.',
                     }),
@@ -1276,6 +1280,24 @@ class InetModule(s_module.CoreModule):
                         ('port', ('inet:port', {}), {
                             'doc': 'The server tcp/udp port.'
                         }),
+                    )),
+
+                    ('inet:banner', {}, (
+
+                        ('server', ('inet:server', {}), {'ro': 1,
+                            'doc': 'The server which presented the banner string.'}),
+
+                        ('server:ipv4', ('inet:ipv4', {}), {'ro': 1,
+                            'doc': 'The IPv4 address of the server.'}),
+
+                        ('server:ipv6', ('inet:ipv6', {}), {'ro': 1,
+                            'doc': 'The IPv6 address of the server.'}),
+
+                        ('server:port', ('inet:port', {}), {'ro': 1,
+                            'doc': 'The network port.'}),
+
+                        ('text', ('it:dev:str', {}), {'ro': 1,
+                            'doc': 'The banner text.'}),
                     )),
 
                     ('inet:servfile', {}, (

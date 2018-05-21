@@ -1441,3 +1441,19 @@ class InetModelTest(s_t_common.SynTest):
             with core.snap(write=True) as snap:
                 node = snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_banner(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap(write=True) as snap:
+
+                node = snap.addNode('inet:banner', ('tcp://1.2.3.4:443', 'Hi There'))
+
+                self.eq('Hi There', node.get('text'))
+
+                self.eq(443, node.get('server:port'))
+                self.eq(0x01020304, node.get('server:ipv4'))
+
+                strn = snap.getNodeByNdef(('it:dev:str', 'Hi There'))
+                self.nn(strn)
