@@ -154,7 +154,7 @@ class Cortex(s_cell.Cell):
         ('storm:log', {'type': 'bool', 'defval': False,
             'doc': 'Log storm queries via system logger.'}),
 
-        ('splice:push', {'type': 'str', 'defval': None,
+        ('splice:sync', {'type': 'str', 'defval': None,
             'doc': 'A telepath URL for an upstream cortex.'}),
 
         ('splice:cryotank', {'type': 'str', 'defval': None,
@@ -213,7 +213,7 @@ class Cortex(s_cell.Cell):
 
     def _initPushLoop(self):
 
-        if self.conf.get('splice:push') is None:
+        if self.conf.get('splice:sync') is None:
             return
 
         self._runPushLoop()
@@ -221,17 +221,17 @@ class Cortex(s_cell.Cell):
     @s_common.firethread
     def _runPushLoop(self):
 
-        url = self.conf.get('splice:push')
+        url = self.conf.get('splice:sync')
 
         iden = self.getCellIden()
 
-        logger.warning(f'push loop init: {url}')
+        logger.warning(f'sync loop init: {url}')
 
         while not self.isfini:
 
             try:
 
-                url = self.conf.get('splice:push')
+                url = self.conf.get('splice:sync')
 
                 with s_telepath.openurl(url) as core:
 
@@ -249,7 +249,7 @@ class Cortex(s_cell.Cell):
                         offs = core.addFeedData('syn.splice', items, seqn=(iden, offs))
 
             except Exception as e:
-                logger.warning(f'push error: {e}')
+                logger.warning(f'sync error: {e}')
                 self.cellfini.wait(timeout=1)
 
     def _initCryoLoop(self):
