@@ -330,7 +330,7 @@ class Snap(s_eventbus.EventBus):
         for name, valu in form.defvals.items():
             props.setdefault(name, valu)
 
-        # set all system generated properties with init=True
+        # set all the properties with init=True
         for name, valu in props.items():
             node.set(name, valu, init=True)
 

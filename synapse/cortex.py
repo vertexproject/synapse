@@ -217,7 +217,11 @@ class Cortex(s_cell.Cell):
         if self.conf.get('splice:sync') is None:
             return
 
-        self._runPushLoop()
+        thrd = self._runPushLoop()
+        def fini():
+            return thrd.join(timeout=8)
+
+        self.onfini(fini)
 
     @s_common.firethread
     def _runPushLoop(self):
@@ -276,7 +280,7 @@ class Cortex(s_cell.Cell):
         if not feeds:
             return
 
-        for feed in self.conf.get('feeds'):
+        for feed in feeds:
 
             # do some validation before we fire threads...
             typename = feed.get('type')
@@ -296,7 +300,7 @@ class Cortex(s_cell.Cell):
         url = feed.get('cryotank')
         typename = feed.get('type')
 
-        logger.warning('feed loop init: {_type} @ {url}')
+        logger.warning(f'feed loop init: {typename} @ {url}')
 
         while not self.isfini:
 
@@ -320,7 +324,7 @@ class Cortex(s_cell.Cell):
 
                         datas = [i[1] for i in items]
 
-                        offs = core.addFeedData(typename, datas, seqn=(iden, offs))
+                        offs = self.addFeedData(typename, datas, seqn=(iden, offs))
 
             except Exception as e:
                 logger.warning(f'feed error: {e}')
@@ -333,8 +337,6 @@ class Cortex(s_cell.Cell):
         tankurl = self.conf.get('splice:cryotank')
 
         layr = self.layers[-1]
-
-        self.onfini(wake.set)
 
         while not self.isfini:
 
