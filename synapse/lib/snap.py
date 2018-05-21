@@ -36,6 +36,7 @@ class Snap(s_eventbus.EventBus):
         self.stack = contextlib.ExitStack()
 
         self.user = None
+        self.strict = True
         self.elevated = False
 
         self.core = core
@@ -229,20 +230,38 @@ class Snap(s_eventbus.EventBus):
         with self.bulkload():
 
             try:
+
                 fnib = self._getNodeFnib(name, valu)
                 return self._addNodeFnib(fnib, props=props)
+
             except Exception as e:
+
                 mesg = f'{name} {valu!r} {props!r}'
                 logger.exception(mesg)
-                raise
+                if self.strict:
+                    raise
 
-    def addData(self, name, items):
+                return None
 
-        func = self.core.getDataFunc(name)
+    def addFeedData(self, name, items, seqn=None):
+
+        func = self.core.getFeedFunc(name)
         if func is None:
             raise s_exc.NoSuchName(name=name)
 
+        logger.warning(f'adding feed data ({name}): {len(items)}')
+
         func(self, items)
+
+        if seqn is not None:
+
+            iden, offs = seqn
+
+            nextoff = offs + len(items)
+
+            self.setOffset(iden, nextoff)
+
+            return nextoff
 
     def addTagNode(self, name):
         '''
@@ -282,8 +301,10 @@ class Snap(s_eventbus.EventBus):
 
         # time for the perms check...
         if not self.allowed('node:add', form.name):
-            raise s_exc.AuthDeny(mesg='Not allowed to add the node.',
-                                 form=form.name)
+
+            if self.strict:
+                mesg = 'Not allowed to add the node.'
+                raise s_exc.AuthDeny(mesg=mesg, form=form.name)
 
         # lets build a node...
         node = s_node.Node(self, None)
@@ -317,7 +338,7 @@ class Snap(s_eventbus.EventBus):
 
         # set our global properties
         tick = s_common.now()
-        node.set('.created', tick)
+        node.set('.created', tick, init=True)
 
         # we are done initializing.
         node.init = False
@@ -332,7 +353,9 @@ class Snap(s_eventbus.EventBus):
         return node
 
     def splice(self, name, **info):
-
+        '''
+        Construct and log a splice record to be saved on commit().
+        '''
         user = '?'
         if self.user is not None:
             user = self.user.name
@@ -346,77 +369,6 @@ class Snap(s_eventbus.EventBus):
         self.splices.append(mesg)
 
         return (name, info)
-
-    #########################################################################
-    # splice action handlers
-    def _actNodeAdd(self, mesg):
-
-        name = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-        props = mesg[1].get('props')
-
-        form, norm, info, buid = self._getNodeFnib(name, valu)
-
-        if props is None:
-            props = {}
-
-        self.addNode(formname, formvalu, props=props)
-
-    def _actNodeSet(self, mesg):
-
-        name = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-        props = mesg[1].get('props')
-
-        form, norm, info, buid = self._getNodeFnib(name, valu)
-
-        node = self.getNodeByBuid(buid)
-        if node is None:
-            return
-
-        if props is None:
-            return
-
-        for name, valu in props.items():
-            node.set(name, valu)
-
-    def _actNodeDel(self, mesg):
-
-        name = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-
-        form, norm, info, buid = self._getNodeFnib(name, valu)
-
-        node = self.getNodeByBuid(buid)
-        self.delNode(node)
-
-    def _actNodeTagAdd(self, mesg):
-
-        tag = mesg[1].get('tag')
-        name = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-
-        form, norm, info, buid = self._getNodeFnib(name, valu)
-
-        node = self.getNodeByBuid(buid)
-        if node is None:
-            return
-
-        node.addTag(tag)
-
-    def _actNodeTagDel(self, mesg):
-
-        tag = mesg[1].get('tag')
-        name = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-
-        form, norm, info, buid = self._getNodeFnib(name, valu)
-
-        node = self.getNodeByBuid(buid)
-        if node is None:
-            return
-
-        node.delTag(tag)
 
     #########################################################################
 
@@ -484,17 +436,7 @@ class Snap(s_eventbus.EventBus):
     @contextlib.contextmanager
     def bulkload(self):
 
-        #mine = not self.bulk
-        #if mine:
-            #self.bulk = True
-            #self.bulksops = []
-
         yield None
-
-        #if mine:
-            #self.bulk = False
-            #self.stor(self.bulksops)
-            #self.bulksops = []
 
     def getLiftNodes(self, lops):
         genr = self.getLiftRows(lops)

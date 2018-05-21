@@ -1,8 +1,8 @@
 import os
 import logging
+import threading
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
@@ -36,6 +36,9 @@ class CellApi:
 
     def getCellType(self):
         return self.cell.getCellType()
+
+    def getCellIden(self):
+        return self.cell.getCellIden()
 
     async def fini(self):
         return
@@ -179,6 +182,9 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
 
         self.dirn = s_common.gendir(dirn)
 
+        self.cellfini = threading.Event()
+        self.onfini(self.cellfini.set)
+
         self.auth = None
 
         # each cell has a guid
@@ -262,6 +268,9 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
 
     def getCellType(self):
         return self.__class__.__name__.lower()
+
+    def getCellIden(self):
+        return self.iden
 
     def _getCellUser(self, link, mesg):
 

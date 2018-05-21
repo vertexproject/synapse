@@ -173,7 +173,7 @@ testmodel = {
 class TestModule(s_module.CoreModule):
 
     def initCoreModule(self):
-        self.core.setDataFunc('com.test.record', self.addTestRecords)
+        self.core.setFeedFunc('com.test.record', self.addTestRecords)
 
     def addTestRecords(self, snap, items):
         for name in items:

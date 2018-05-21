@@ -87,20 +87,35 @@ class Node:
         '''
         prop = self.form.prop(name)
         if prop is None:
-            logger.warning(f'NoSuchProp: "{name}" ({self.form.name})')
+
+            if self.snap.strict:
+                raise s_exc.NoSuchProp(name=name)
+
+            self.snap.warn(f'NoSuchProp: name={name}')
             return False
 
-        if not self.snap.allowed('prop:set', self.form.name, prop.name):
-            raise s_exc.AuthDeny(mesg='Not allowed to set the property.',
-                                 form=self.form.name, prop=prop.name)
+        if not init and not self.snap.allowed('prop:set', self.form.name, prop.name):
+
+            if self.snap.strict:
+                mesg = 'Not allowed to set the property.'
+                raise s_exc.AuthDeny(mesg=mesg, form=self.form.name, prop=prop.name)
+
+            return False
 
         curv = self.props.get(name)
 
         # normalize the property value...
         try:
+
             norm, info = prop.type.norm(valu)
+
         except Exception as e:
-            raise s_exc.BadPropValu(name=prop.full, valu=valu)
+
+            if self.snap.strict:
+                raise s_exc.BadPropValu(name=prop.full, valu=valu)
+
+            self.snap.warn(f'BadPropValu: name={prop.full} valu={valu!r}')
+            return False
 
         # do we already have the value?
         if curv == norm:
@@ -109,8 +124,12 @@ class Node:
         if curv is not None and not init:
 
             if prop.info.get('ro'):
+
+                if self.snap.strict:
+                    raise s_exc.ReadOnlyProp(name=prop.full)
+
                 # not setting a set-once prop unless we are init...
-                self.snap.warn(f'trying to set read-only prop which is already set: {prop.full}')
+                self.snap.warn(f'ReadOnlyProp: name={prop.full}')
                 return False
 
             # check for type specific merging...
@@ -199,17 +218,33 @@ class Node:
         '''
         '''
         prop = self.form.prop(name)
+
         if prop is None:
-            self.snap.warn(f'NoSuchProp: "{name}" {self.form.name}')
+
+            if self.snap.strict:
+                raise s_exc.NoSuchProp(name=name)
+
+            self.snap.warn(f'NoSuchProp: name={name}')
             return False
 
-        if not self.snap.allowed('prop:del', self.form.name, prop.name):
-            raise s_exc.AuthDeny(mesg='Not allowed to delete the property.',
-                                 form=self.form.name, prop=prop.name)
+        if not init:
 
-        if prop.info.get('ro') and not init and not self.init:
-            self.snap.warn('trying to pop a read-only prop!')
-            return False
+            if not self.snap.allowed('prop:del', self.form.name, prop.name):
+
+                if self.snap.strict:
+                    mesg = 'Not allowed to delete the property.'
+                    raise s_exc.AuthDeny(mesg=mesg, prop=prop.full)
+
+                self.snap.warn(f'AuthDeny: prop:set {prop.full}')
+                return False
+
+            if prop.info.get('ro'):
+
+                if self.snap.strict:
+                    raise s_exc.ReadOnlyProp(name=prop.full)
+
+                self.snap.warn(f'ReadOnlyProp: {prop.full}')
+                return False
 
         sops = prop.getDelOps(self.buid)
         self.snap.stor(sops)
@@ -230,7 +265,12 @@ class Node:
         path = s_chop.tagpath(tag)
 
         if not self.snap.allowed('tag:add', *path):
-            raise s_exc.AuthDeny(mesg='Not allowed to add the tag.', tag=tag)
+
+            if self.snap.strict:
+                mesg = 'Not allowed to add the tag.'
+                raise s_exc.AuthDeny(mesg, tag=tag)
+
+            self.snap.warn(f'AuthDeny: tag:add {tag}')
 
         if valu != (None, None):
             valu = self.snap.model.type('ival').norm(valu)[0]
@@ -277,14 +317,22 @@ class Node:
         self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
         return True
 
-    def delTag(self, tag):
+    def delTag(self, tag, init=False):
         '''
         Delete a tag from the node.
         '''
         path = s_chop.tagpath(tag)
 
-        if not self.snap.allowed('tag:del', *path):
-            raise s_exc.AuthDeny(mesg='Not allowed to delete the tag.', tag=tag)
+        if not init:
+
+            if not self.snap.allowed('tag:del', *path):
+
+                if self.snap.strict:
+                    mesg = 'Not allowed to delete the tag.'
+                    raise s_exc.AuthDeny(mesg=mesg, tag=tag)
+
+                self.snap.warn('AuthDeny: tag:del {tag}')
+                return False
 
         name = '.'.join(path)
 

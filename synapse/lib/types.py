@@ -712,6 +712,9 @@ class Str(Type):
 
     def postTypeInit(self):
 
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyStr)
+
         self.regex = None
         restr = self.opts.get('regex')
         if restr is not None:
@@ -741,7 +744,7 @@ class Str(Type):
             ('pref', valu.encode('utf8')),
         )
 
-    def norm(self, valu):
+    def _normPyStr(self, valu):
 
         norm = str(valu)
 
