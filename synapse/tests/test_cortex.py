@@ -26,7 +26,7 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            core.addData('com.test.record', data)
+            core.addFeedData('com.test.record', data)
 
             vals = []
             for node in core.eval('teststr'):
@@ -71,7 +71,7 @@ class CortexTest(SynTest):
             self.len(1, nodes)
             self.eq('visi', nodes[0][0][1])
 
-            core.addData('com.test.record', data)
+            core.addFeedData('com.test.record', data)
 
     def test_cortex_onsetdel(self):
 
@@ -317,6 +317,52 @@ class CortexTest(SynTest):
 
             for node in core.eval('teststr=$foo', opts=opts):
                 self.eq('bar', node.ndef[1])
+
+    def test_cortex_feed_splice(self):
+
+        iden = s_common.guid()
+
+        with self.getTestCore() as core:
+
+            offs = core.getFeedOffs(iden)
+            self.eq(0, offs)
+
+            mesg = ('node:add', {'ndef': ('teststr', 'foo')})
+            offs = core.addFeedData('syn.splice', [mesg], seqn=(iden, offs))
+
+            self.eq(1, offs)
+
+            with core.snap() as snap:
+                node = snap.getNodeByNdef(('teststr', 'foo'))
+                self.nn(node)
+
+            mesg = ('prop:set', {'ndef': ('teststr', 'foo'), 'prop': 'tick', 'valu': 200})
+            offs = core.addFeedData('syn.splice', [mesg], seqn=(iden, offs))
+
+            with core.snap() as snap:
+                node = snap.getNodeByNdef(('teststr', 'foo'))
+                self.eq(200, node.get('tick'))
+
+            mesg = ('prop:del', {'ndef': ('teststr', 'foo'), 'prop': 'tick'})
+            offs = core.addFeedData('syn.splice', [mesg], seqn=(iden, offs))
+
+            with core.snap() as snap:
+                node = snap.getNodeByNdef(('teststr', 'foo'))
+                self.none(node.get('tick'))
+
+            mesg = ('tag:add', {'ndef': ('teststr', 'foo'), 'tag': 'bar', 'valu': (200, 300)})
+            offs = core.addFeedData('syn.splice', [mesg], seqn=(iden, offs))
+
+            with core.snap() as snap:
+                node = snap.getNodeByNdef(('teststr', 'foo'))
+                self.eq((200, 300), node.getTag('bar'))
+
+            mesg = ('tag:del', {'ndef': ('teststr', 'foo'), 'tag': 'bar'})
+            offs = core.addFeedData('syn.splice', [mesg], seqn=(iden, offs))
+
+            with core.snap() as snap:
+                node = snap.getNodeByNdef(('teststr', 'foo'))
+                self.none(node.getTag('bar'))
 
 #FIXME THIS ALL GOES AWAY #################################################
 class FIXME:

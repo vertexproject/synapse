@@ -33,8 +33,8 @@ Example Node
     },
     "tags": {
 
-        "#foo": <time>,
-        "#foo.bar": <time>,
+        "foo": <time>,
+        "foo.bar": <time>,
     },
 })
 '''
@@ -61,38 +61,6 @@ class View:
         parser = s_syntax.Parser(self, text)
         return parser.query()
 
-class Feed(s_eventbus.EventBus):
-
-    def __init__(self, core, iden, info):
-        self.iden = iden
-        self.core = core
-        self.info = info
-
-    #@s_threads.firethread
-    def _runFeedLoop(self):
-
-        online = True
-
-        name = self.info.get('name')
-        logger.warning(f'Feed Init: {name}')
-
-        while not self.isfini:
-
-            try:
-
-                cryourl = self.info.get('cryo')
-                tankname = self.info.get('tank')
-
-                with s_telepath.openurl(url) as cryo:
-
-                    online = True
-
-            except Exception as e:
-
-                if online:
-                    online = False
-                    logger.exception(f'Feed Offline: {name}')
-
 class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed over telepath.
@@ -114,11 +82,14 @@ class CoreApi(s_cell.CellApi):
             for node in snap.addNodes(nodes):
                 yield node.pack()
 
-    def addData(self, name, items):
+    def addFeedData(self, name, items, seqn=None):
 
         with self.cell.snap(write=True) as snap:
             snap.setUser(self.user)
-            snap.addData(name, items)
+            return snap.addFeedData(name, items, seqn=seqn)
+
+    def getFeedOffs(self, iden):
+        return self.cell.layer.getOffset(iden)
 
     def eval(self, text, opts=None):
 
@@ -175,7 +146,7 @@ class Cortex(s_cell.Cell):
             'doc': 'The default size for a new LMDB layer map.'}),
 
         ('modules', {'type': 'list', 'defval': (),
-            'doc': 'A list of (ctor, conf) modules to load.'}),
+            'doc': 'A list of module classes to load.'}),
 
         ('layers', {'type': 'list', 'defval': (),
             'doc': 'A list of layer paths to load.'}),
@@ -183,8 +154,14 @@ class Cortex(s_cell.Cell):
         ('storm:log', {'type': 'bool', 'defval': False,
             'doc': 'Log storm queries via system logger.'}),
 
+        ('splice:push', {'type': 'str', 'defval': None,
+            'doc': 'A telepath URL for an upstream cortex.'}),
+
         ('splice:cryotank', {'type': 'str', 'defval': None,
             'doc': 'A telepath URL for a cryotank used to archive splices.'}),
+
+        ('feeds', {'type': 'list', 'defval': (),
+            'doc': 'A list of feed dictionaries.'}),
 
         #('storm:save', {'type': 'bool', 'defval': False,
             #'doc': 'Archive storm queries for audit trail.'}),
@@ -200,7 +177,18 @@ class Cortex(s_cell.Cell):
         self.views = {}
         self.layers = []
         self.modules = {}
-        self.datafuncs = {}
+        self.feedfuncs = {}
+
+        self.splicers = {
+            'node:add': self._onFeedNodeAdd,
+            'node:del': self._onFeedNodeDel,
+            'prop:set': self._onFeedPropSet,
+            'prop:del': self._onFeedPropDel,
+            'tag:add': self._onFeedTagAdd,
+            'tag:del': self._onFeedTagDel,
+        }
+
+        self.setFeedFunc('syn.splice', self._addSynSplice)
 
         # load any configured external layers
         for path in self.conf.get('layers'):
@@ -220,6 +208,49 @@ class Cortex(s_cell.Cell):
         self.addCoreMods(mods)
 
         self._initCryoLoop()
+        self._initPushLoop()
+        self._initFeedLoops()
+
+    def _initPushLoop(self):
+
+        if self.conf.get('splice:push') is None:
+            return
+
+        self._runPushLoop()
+
+    @s_common.firethread
+    def _runPushLoop(self):
+
+        url = self.conf.get('splice:push')
+
+        iden = self.getCellIden()
+
+        logger.warning(f'push loop init: {url}')
+
+        while not self.isfini:
+
+            try:
+
+                url = self.conf.get('splice:push')
+
+                with s_telepath.openurl(url) as core:
+
+                    # use our iden as the feed iden
+                    offs = core.getFeedOffs(iden)
+
+                    while not self.isfini:
+
+                        items = list(self.layer.getSpliceLog(offs, 10000))
+
+                        if not items:
+                            self.cellfini.wait(timeout=1)
+                            continue
+
+                        offs = core.addFeedData('syn.splice', items, seqn=(iden, offs))
+
+            except Exception as e:
+                logger.warning(f'push error: {e}')
+                self.cellfini.wait(timeout=1)
 
     def _initCryoLoop(self):
 
@@ -234,6 +265,73 @@ class Cortex(s_cell.Cell):
 
         self.onfini(fini)
 
+    def _initFeedLoops(self):
+        '''
+        feeds:
+            - cryotank: tcp://cryo.vertex.link/cryo00/tank01
+              type: syn.splice
+        '''
+        feeds = self.conf.get('feeds', ())
+        if not feeds:
+            return
+
+        for feed in self.conf.get('feeds'):
+
+            # do some validation before we fire threads...
+            typename = feed.get('type')
+            if self.getFeedFunc(typename) is None:
+                raise s_exc.NoSuchType(name=typename)
+
+            thrd = self._runFeedLoop(feed)
+
+            def fini():
+                thrd.join(timeout=2)
+
+            self.onfini(fini)
+
+    @s_common.firethread
+    def _runFeedLoop(self, feed):
+
+        url = feed.get('cryotank')
+        typename = feed.get('type')
+
+        logger.warning('feed loop init: {_type} @ {url}')
+
+        while not self.isfini:
+
+            try:
+
+                url = feed.get('cryotank')
+
+                with s_telepath.openurl(url) as tank:
+
+                    iden = tank.getCellIden()
+
+                    offs = self.layer.getOffset(iden)
+
+                    while not self.isfini:
+
+                        items = list(tank.slice(offs, 1000))
+
+                        if not items:
+                            self.cellfini.wait(timeout=2)
+                            continue
+
+                        datas = [i[1] for i in items]
+
+                        with self.snap(write=True) as snap:
+
+                            snap.addFeedData(typename, datas)
+
+                            nextoff = items[-1][0] + 1
+                            snap.setOffset(iden, nextoff)
+
+                            offs = nextoff
+
+            except Exception as e:
+                logger.warning(f'feed error: {e}')
+                self.cellfini.wait(timeout=1)
+
     @s_common.firethread
     def _runCryoLoop(self):
 
@@ -241,7 +339,6 @@ class Cortex(s_cell.Cell):
         tankurl = self.conf.get('splice:cryotank')
 
         layr = self.layers[-1]
-        wake = threading.Event()
 
         self.onfini(wake.set)
 
@@ -271,30 +368,134 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 online = False
                 logger.warning(f'splice cryotank offline: {e}')
-                wake.wait(timeout=2)
+                self.cellfini.wait(timeout=2)
 
-    def setDataFunc(self, name, func):
+    def setFeedFunc(self, name, func):
         '''
         Set a data ingest function.
 
         def func(snap, items):
             loaditems...
         '''
-        self.datafuncs[name] = func
+        self.feedfuncs[name] = func
 
-    def getDataFunc(self, name):
+    def getFeedFunc(self, name):
         '''
         Get a data ingest function.
         '''
-        return self.datafuncs.get(name)
+        return self.feedfuncs.get(name)
+
+    def _addSynNode(self, snap, items):
+
+        for item in items:
+
+            try:
+
+                form, valu = item[0]
+                tags = item[1].get('tags')
+                props = item[1].get('props')
+
+                node = snap.addNode(form, valu, props)
+
+                for name, valu in tags.items():
+                    node.addTag(name, valu=valu)
+
+            except Exception as e:
+                snap.warn(f'_addSynNode: {e}')
+
+    def _addSynSplice(self, snap, items):
+
+        for item in items:
+
+            func = self.splicers.get(item[0])
+
+            if func is None:
+                snap.warn(f'no such splice: {item!r}')
+                continue
+
+            try:
+                func(snap, item)
+            except Exception as e:
+                logger.exception('splice error')
+                snap.warn(f'splice error: {e}')
+
+    def _onFeedNodeAdd(self, snap, mesg):
+
+        ndef = mesg[1].get('ndef')
+
+        if ndef is None:
+            snap.warn(f'Invalid Splice: {mesg!r}')
+            return
+
+        snap.addNode(*ndef)
+
+    def _onFeedNodeDel(self, snap, mesg):
+
+        ndef = mesg[1].get('ndef')
+
+        node = snap.getNodeByNdef(ndef)
+        if node is None:
+            return
+
+        node.delete()
+
+    def _onFeedPropSet(self, snap, mesg):
+
+        ndef = mesg[1].get('ndef')
+        name = mesg[1].get('prop')
+        valu = mesg[1].get('valu')
+
+        node = snap.getNodeByNdef(ndef)
+        if node is None:
+            return
+
+        node.set(name, valu)
+
+    def _onFeedPropDel(self, snap, mesg):
+
+        ndef = mesg[1].get('ndef')
+        name = mesg[1].get('prop')
+
+        node = snap.getNodeByNdef(ndef)
+        if node is None:
+            return
+
+        node.pop(name)
+
+    def _onFeedTagAdd(self, snap, mesg):
+
+        ndef = mesg[1].get('ndef')
+
+        tag = mesg[1].get('tag')
+        valu = mesg[1].get('valu')
+
+        node = snap.getNodeByNdef(ndef)
+        if node is None:
+            return
+
+        node.addTag(tag, valu=valu)
+
+    def _onFeedTagDel(self, snap, mesg):
+
+        ndef = mesg[1].get('ndef')
+        tag = mesg[1].get('tag')
+
+        node = snap.getNodeByNdef(ndef)
+        if node is None:
+            return
+
+        node.delTag(tag)
+
+    #def _addSynUndo(self, snap, items):
+        # TODO apply splices in reverse
 
     def _initCoreDir(self):
 
         # each cortex has a default write layer...
         path = s_common.gendir(self.dirn, 'layers', 'default')
 
-        layr = self.openLayerName('default')
-        self.layers.append(layr)
+        self.layer = self.openLayerName('default')
+        self.layers.append(self.layer)
 
     def splices(self, msgs):
         with self.view.snap(write=True) as snap:
@@ -407,12 +608,23 @@ class Cortex(s_cell.Cell):
         with self.snap(write=True) as snap:
             yield from snap.addNodes(nodedefs)
 
-    def addData(self, name, items):
+    def addFeedData(self, name, items, seqn=None):
         '''
-        Add data via a named ingest handler.
+        Add data using a feed/parser function.
+
+        Args:
+            name (str): The name of the feed record format.
+            items (list): A list of items to ingest.
+            seqn ((str,int)): An (iden, offs) tuple for this feed chunk.
+
+        Returns:
+            (int): The next expected offset (or None) if seqn is None.
         '''
         with self.snap(write=True) as snap:
-            snap.addData(name, items)
+            return snap.addFeedData(name, items, seqn=seqn)
+
+    def getFeedOffs(self, iden):
+        return self.layer.getOffset(iden)
 
     def snap(self, write=False):
         '''

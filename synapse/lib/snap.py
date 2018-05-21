@@ -237,13 +237,23 @@ class Snap(s_eventbus.EventBus):
                 logger.exception(mesg)
                 raise
 
-    def addData(self, name, items):
+    def addFeedData(self, name, items, seqn=None):
 
-        func = self.core.getDataFunc(name)
+        func = self.core.getFeedFunc(name)
         if func is None:
             raise s_exc.NoSuchName(name=name)
 
         func(self, items)
+
+        if seqn is not None:
+
+            iden, offs = seqn
+
+            nextoff = offs + len(items)
+
+            self.setOffset(iden, nextoff)
+
+            return nextoff
 
     def addTagNode(self, name):
         '''
@@ -333,7 +343,9 @@ class Snap(s_eventbus.EventBus):
         return node
 
     def splice(self, name, **info):
-
+        '''
+        Construct and log a splice record to be saved on commit().
+        '''
         user = '?'
         if self.user is not None:
             user = self.user.name
@@ -347,77 +359,6 @@ class Snap(s_eventbus.EventBus):
         self.splices.append(mesg)
 
         return (name, info)
-
-    #########################################################################
-    # splice action handlers
-    def _actNodeAdd(self, mesg):
-
-        name = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-        props = mesg[1].get('props')
-
-        form, norm, info, buid = self._getNodeFnib(name, valu)
-
-        if props is None:
-            props = {}
-
-        self.addNode(formname, formvalu, props=props)
-
-    def _actNodeSet(self, mesg):
-
-        name = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-        props = mesg[1].get('props')
-
-        form, norm, info, buid = self._getNodeFnib(name, valu)
-
-        node = self.getNodeByBuid(buid)
-        if node is None:
-            return
-
-        if props is None:
-            return
-
-        for name, valu in props.items():
-            node.set(name, valu)
-
-    def _actNodeDel(self, mesg):
-
-        name = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-
-        form, norm, info, buid = self._getNodeFnib(name, valu)
-
-        node = self.getNodeByBuid(buid)
-        self.delNode(node)
-
-    def _actNodeTagAdd(self, mesg):
-
-        tag = mesg[1].get('tag')
-        name = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-
-        form, norm, info, buid = self._getNodeFnib(name, valu)
-
-        node = self.getNodeByBuid(buid)
-        if node is None:
-            return
-
-        node.addTag(tag)
-
-    def _actNodeTagDel(self, mesg):
-
-        tag = mesg[1].get('tag')
-        name = mesg[1].get('form')
-        valu = mesg[1].get('valu')
-
-        form, norm, info, buid = self._getNodeFnib(name, valu)
-
-        node = self.getNodeByBuid(buid)
-        if node is None:
-            return
-
-        node.delTag(tag)
 
     #########################################################################
 

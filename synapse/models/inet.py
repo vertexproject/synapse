@@ -1806,7 +1806,7 @@ class InetModule(s_module.CoreModule):
                         ('state', ('str', {'lower': True}), {
                             'doc': 'The content of the state field of the contact.'
                         }),
-                        ('country', ('pol:iso2', {}), {
+                        ('country', ('str', {'lower': True}), {
                             'doc': 'The two-letter country code of the contact.'
                         }),
                         ('phone', ('tel:phone', {}), {

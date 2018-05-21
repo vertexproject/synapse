@@ -100,7 +100,8 @@ class Node:
         try:
             norm, info = prop.type.norm(valu)
         except Exception as e:
-            raise s_exc.BadPropValu(name=prop.full, valu=valu)
+            logger.warning(f'norm error ({prop.full}): {e}')
+            return False
 
         # do we already have the value?
         if curv == norm:
@@ -110,7 +111,6 @@ class Node:
 
             if prop.info.get('ro'):
                 # not setting a set-once prop unless we are init...
-                self.snap.warn(f'trying to set read-only prop which is already set: {prop.full}')
                 return False
 
             # check for type specific merging...
