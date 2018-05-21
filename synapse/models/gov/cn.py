@@ -13,16 +13,16 @@ class GovCnModule(s_module.CoreModule):
                     ('int', {}),
                     {'doc': 'A Chinese PLA MUCD'},
                  ),
-              # FIXME 010 - needs orgs
-              #  ('gov:cn:orgicp',
-              #      ('comp', {'fields': (('org', 'ou:org'), ('icp', 'gov:cn:icp'))}),
-              #      {},
-              #   ),
             ),
             'forms': (
-                ('gov:cn:icp', {}, ()),
+                ('gov:cn:icp', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org with the Internet Content Provider ID.',
+                    }),
+                )),
+                # TODO - Add 'org' as a secondary property to mcud?
                 ('gov:cn:mucd', {}, ()),
-            ),
+            )
         }
         name = 'gov:cn'
         return ((name, modl), )

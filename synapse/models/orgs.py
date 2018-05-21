@@ -164,10 +164,9 @@ class OuModule(s_module.CoreModule):
                     ('end', ('time', {}), {
                         'doc': 'The date / time the meet ends.',
                     }),
-                    # FIXME Needs geospatial model
-                    # ('place', ('geo:place', ()), {
-                    #     'doc': 'The geo:place node where the meet was held.',
-                    # }),
+                    ('place', ('geo:place', ()), {
+                        'doc': 'The geo:place node where the meet was held.',
+                    }),
                 )),
                 ('ou:meet:attendee', {}, (
                     ('meet', ('ou:meet', {}), {
@@ -203,11 +202,9 @@ class OuModule(s_module.CoreModule):
                     ('end', ('time', {}), {
                         'doc': 'The conference end date / time.',
                     }),
-                    # FIXME Needs geospatial model
-                    # ('place', ('geo:place', ()), {
-                    #     'doc': 'The geo:place node where the conference was held.',
-                    # }),
-                    # TODO: prefix optimized geo political location
+                    ('place', ('geo:place', ()), {
+                        'doc': 'The geo:place node where the conference was held.',
+                    }),
                 )),
                 ('ou:conference:attendee', {}, (
                     ('conference', ('ou:conference', {}), {

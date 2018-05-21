@@ -17,7 +17,6 @@ class TelcoModelTest(s_test.SynTest):
                          }
                 node = snap.addNode('tel:mob:tac', 1, props)
                 self.eq(node.ndef[1], 1)
-                # self.eq(node.get('org'), '')  FIXME: Add when ou:org is ported
                 self.eq(node.get('manu'), 'acme corp')
                 self.eq(node.get('model'), 'eyephone 9000')
                 self.eq(node.get('internal'), 'spyphone 9000')
