@@ -296,6 +296,15 @@ class CortexTest(SynTest):
                 self.eq(node.ndef[0], 'pivtarg')
                 self.eq(node.ndef[1], 'foo')
 
+            nodes = [n.pack() for n in core.eval('teststr="foo bar" +teststr')]
+            self.len(1, nodes)
+
+            nodes = [n.pack() for n in core.eval('teststr="foo bar" -teststr:tick')]
+            self.len(1, nodes)
+
+            nodes = [n.pack() for n in core.eval('teststr="foo bar" +teststr="foo bar" [ :tick=2015 ] +teststr:tick=2015')]
+            self.len(1, nodes)
+
             ndef = ('testcomp', (10, 'haha'))
             opts = {'ndefs': (ndef,)}
 

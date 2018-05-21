@@ -985,6 +985,9 @@ class Parser:
         :foo:bar=$baz
         :foo:bar=:foo:baz
 
+        foo:bar
+        foo:bar:baz=20
+
         #foo.bar
 
         #foo.bar@2013
@@ -1025,16 +1028,19 @@ class Parser:
             if not self.nextstr('@='):
                 return s_ast.TagCond(kids=(tag,))
 
-        # only remaining option is form name...
-        #nme = self.
+        prop = self.absprop()
 
-            # tag time window...
+        self.ignore(whitespace)
 
-        #if self.nextstr('.'):
-        #if self.nextstr('$'):
-            # var
+        if self.nextchar() not in cmprstart:
+            return s_ast.HasAbsPropCond(kids=(prop,))
 
-        self._raiseSyntaxError('un-recognized conditional')
+        cmpr = self.cmpr()
+
+        self.ignore(whitespace)
+        valu = self.valu()
+
+        return s_ast.AbsPropCond(kids=(prop, cmpr, valu))
 
     def condexpr(self):
 

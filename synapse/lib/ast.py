@@ -389,6 +389,100 @@ class HasRelPropCond(Cond):
     def evaluate(self, node):
         return node.has(self.propname)
 
+class HasAbsPropCond(Cond):
+
+    def prepare(self):
+
+        propfull = self.kids[0].value()
+
+        # our AbsProp kid would raise if NoSuchProp.
+        self.prop = self.snap.model.props.get(propfull)
+
+        if self.prop.isform:
+            self.propname = None
+            self.formname = self.prop.name
+        else:
+            self.propname = self.prop.name
+            self.formname = self.prop.form.name
+
+    def evaluate(self, node):
+
+        if node.form.name != self.formname:
+            return False
+
+        if self.propname is None:
+            return True
+
+        return node.has(self.propname)
+
+class AbsPropCond(Cond):
+
+    def prepare(self):
+
+        self.constval = None
+
+        propfull = self.kids[0].value()
+        self.prop = self.snap.model.props.get(propfull)
+
+        if self.prop.isform:
+            self.propname = None
+            self.formname = self.prop.name
+        else:
+            self.propname = self.prop.name
+            self.formname = self.prop.form.name
+
+        self.cmprname = self.kids[1].value()
+
+        self.isconst = isinstance(self.kids[2], Const)
+
+        if self.isconst:
+            self.constval = self.kids[2].value()
+
+        self.cmprcache = {}
+
+    def _getCmprFunc(self, prop, node):
+
+        if self.isconst:
+
+            name = prop.type.name
+
+            func = self.cmprcache.get(name)
+            if func is not None:
+                return func
+
+            ctor = prop.type.getCmprCtor(self.cmprname)
+            if ctor is None:
+                raise s_exc.NoSuchCmpr(name=self.cmprname, type=prop.type.name)
+
+            func = ctor(self.constval)
+            self.cmprcache[name] = func
+            return func
+
+        # dynamic vs dynamic comparison... no cacheing...
+        valu = self.kids[2].value(node=node)
+
+        ctor = prop.type.getCmprCtor(self.cmprname)
+        if ctor is None:
+            raise s_exc.NoSuchCmpr(name=self.cmprname, type=prop.type.name)
+
+        return ctor(valu)
+
+    def evaluate(self, node):
+
+        if node.form.name != self.formname:
+            return False
+
+        if self.prop.isform:
+            valu = node.ndef[1]
+
+        else:
+            valu = node.get(self.propname)
+            if valu is None:
+                return False
+
+        cmpr = self._getCmprFunc(self.prop, node)
+        return cmpr(valu)
+
 class RelPropCond(Cond):
     '''
     :foo:bar <cmpr> <value>
@@ -402,6 +496,7 @@ class RelPropCond(Cond):
         self.cmprname = self.kids[1].value()
 
         self.isconst = isinstance(self.kids[2], Const)
+
         if self.isconst:
             self.constval = self.kids[2].value()
 
