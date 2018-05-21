@@ -78,9 +78,16 @@ class CoreApi(s_cell.CellApi):
     def addNodes(self, nodes):
 
         with self.cell.snap(write=True) as snap:
+
+            snap.strict = False
             snap.setUser(self.user)
+
             for node in snap.addNodes(nodes):
-                yield node.pack()
+
+                if node is not None:
+                    node = node.pack()
+
+                yield node
 
     def addFeedData(self, name, items, seqn=None):
 
@@ -364,9 +371,11 @@ class Cortex(s_cell.Cell):
                         offs = tank.puts(items, seqn=(self.iden, offs))
 
             except Exception as e:
+
                 online = False
                 logger.exception('splice cryotank offline')
-                wake.wait(timeout=2)
+
+                self.cellfini.wait(timeout=2)
 
     def setFeedFunc(self, name, func):
         '''
@@ -604,6 +613,7 @@ class Cortex(s_cell.Cell):
 
         '''
         with self.snap(write=True) as snap:
+            snap.strict = False
             yield from snap.addNodes(nodedefs)
 
     def addFeedData(self, name, items, seqn=None):

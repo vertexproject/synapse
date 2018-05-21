@@ -436,17 +436,7 @@ class Snap(s_eventbus.EventBus):
     @contextlib.contextmanager
     def bulkload(self):
 
-        #mine = not self.bulk
-        #if mine:
-            #self.bulk = True
-            #self.bulksops = []
-
         yield None
-
-        #if mine:
-            #self.bulk = False
-            #self.stor(self.bulksops)
-            #self.bulksops = []
 
     def getLiftNodes(self, lops):
         genr = self.getLiftRows(lops)
