@@ -16,11 +16,11 @@ class BaseModule(s_module.CoreModule):
             'types': (
 
                 ('source', ('guid', {}), {
-                    'doc': 'An Autonomous System Number (ASN).'
-                }),
+                    'doc': 'A data source unique identifier.'}),
 
                 ('seen', ('comp', {'fields': (('source', 'source'), ('node', 'ndef'))}), {
                     'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
+
             ),
 
             'forms': (

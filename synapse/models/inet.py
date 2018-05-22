@@ -176,7 +176,7 @@ class Fqdn(s_types.Type):
         except UnicodeError as e:
             raise s_exc.BadTypeValu(valu)
 
-        parts = valu.split('.', 1)
+        parts = valu.strip('.').split('.', 1)
         subs = {'host': parts[0]}
 
         if len(parts) == 2:
@@ -273,7 +273,11 @@ class IPv6(s_types.Type):
         return ipaddress.IPv6Address(norm).packed
 
     def _normPyStr(self, valu):
+
         try:
+
+            if type(valu) == str and valu.find(':') == -1:
+                valu = '::ffff:' + valu
 
             v6 = ipaddress.IPv6Address(valu)
             v4 = v6.ipv4_mapped

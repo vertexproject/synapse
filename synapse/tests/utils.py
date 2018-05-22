@@ -124,7 +124,7 @@ testmodel = {
         ('testhex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
 
         ('pivtarg', ('str', {}), {}),
-        ('pivcomp', ('comp', {'fields': (('targ', 'pivtarg'), ('lulz', 'str'))}), {}),
+        ('pivcomp', ('comp', {'fields': (('targ', 'pivtarg'), ('lulz', 'teststr'))}), {}),
     ),
 
     'forms': (
@@ -164,8 +164,9 @@ testmodel = {
         )),
 
         ('pivcomp', {}, (
-            ('lulz', ('str', {}), {}),
+            ('lulz', ('teststr', {}), {}),
             ('targ', ('pivtarg', {}), {}),
+            ('tick', ('time', {}), {}),
         )),
     ),
 }

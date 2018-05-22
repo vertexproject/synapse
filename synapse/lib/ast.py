@@ -254,6 +254,55 @@ class PivotOper(Oper):
         Oper.__init__(self, kids=kids)
         self.isjoin = isjoin
 
+class PivotOut(PivotOper):
+
+    def prepare(self):
+        pass
+
+    def run(self, nodes):
+
+        for node in nodes:
+
+            if self.isjoin:
+                yield node
+
+            for name, valu in node.props.items():
+
+                prop = node.form.props.get(name)
+
+                if prop is None:
+                    # this should be impossible
+                    logger.warning(f'node prop is not form prop: {node.form.name} {name}')
+                    continue
+
+                form = self.snap.model.forms.get(prop.type.name)
+                if form is None:
+                    continue
+
+                pivo = self.snap.getNodeByNdef((form.name, valu))
+                if pivo is None:
+                    continue
+
+                yield pivo
+
+class PivotIn(PivotOper):
+
+    def prepare(self):
+        pass
+
+    def run(self, nodes):
+
+        for node in nodes:
+
+            if self.isjoin:
+                yield node
+
+            name, valu = node.ndef
+
+            for prop in self.snap.model.propsbytype.get(name, ()):
+                for pivo in self.snap.getNodesBy(prop.full, valu):
+                    yield pivo
+
 class FormPivot(PivotOper):
 
     def prepare(self):

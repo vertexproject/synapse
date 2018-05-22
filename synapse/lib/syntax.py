@@ -815,6 +815,36 @@ class Parser:
 
         return s_ast.EditTagDel(kids=(tag,))
 
+    def formpivotin(self):
+        '''
+        <- *
+        '''
+
+        self.ignore(whitespace)
+
+        self.nextmust('<-')
+
+        self.ignore(whitespace)
+
+        self.nextmust('*')
+
+        return s_ast.PivotIn()
+
+    def formjoinin(self):
+        '''
+        <+- *
+        '''
+
+        self.ignore(whitespace)
+
+        self.nextmust('<+-')
+
+        self.ignore(whitespace)
+
+        self.nextmust('*')
+
+        return s_ast.PivotIn(isjoin=True)
+
     def formpivot(self):
 
         self.ignore(whitespace)
@@ -823,6 +853,11 @@ class Parser:
 
         self.ignore(whitespace)
 
+        # check for pivot out syntax
+        if self.nextchar() == '*':
+            self.offs += 1
+            return s_ast.PivotOut()
+
         prop = self.absprop()
         return s_ast.FormPivot(kids=(prop,))
 
@@ -830,9 +865,14 @@ class Parser:
 
         self.ignore(whitespace)
 
-        self.nextmust('<-')
+        self.nextmust('-+>')
 
         self.ignore(whitespace)
+
+        # check for pivot out syntax
+        if self.nextchar() == '*':
+            self.offs += 1
+            return s_ast.PivotOut(isjoin=True)
 
         prop = self.absprop()
         return s_ast.FormPivot(kids=(prop,), isjoin=True)
@@ -883,14 +923,14 @@ class Parser:
         if self.nextstr('->'):
             return self.formpivot()
 
-        if self.nextstr('<-'):
+        if self.nextstr('-+>'):
             return self.formjoin()
 
-        #if self.nextstr('-+>'):
-            #self.formjoinout()
+        if self.nextstr('<-'):
+            return self.formpivotin()
 
-        #if self.nextstr('<+-'):
-            #self.formjoinin()
+        if self.nextstr('<+-'):
+            return self.formjoinin()
 
         # $foo= here *will* be var assignment
 
@@ -917,6 +957,9 @@ class Parser:
                 return self.propjoin(prop)
 
         text = self.noms(varset, ignore=whitespace)
+        if not text:
+            self._raiseSyntaxError('unknown query syntax')
+
         name = s_ast.Const(text)
 
         if self.nextstr('('):

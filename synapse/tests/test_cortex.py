@@ -296,6 +296,17 @@ class CortexTest(SynTest):
                 self.eq(node.ndef[0], 'pivtarg')
                 self.eq(node.ndef[1], 'foo')
 
+            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -> pivtarg')])
+
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('pivtarg', 'foo'))
+
+            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -+> pivtarg')])
+
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('pivtarg', 'foo'))
+
             nodes = [n.pack() for n in core.eval('teststr="foo bar" +teststr')]
             self.len(1, nodes)
 
@@ -388,3 +399,33 @@ class CortexTest(SynTest):
 
                 self.false(node.set('newpnewp', 10))
                 self.false(node.set('tick', (20, 30)))
+
+    def test_cortex_pivot_inout(self):
+
+        with self.getTestCore() as core:
+
+            list(core.eval('[ pivcomp=(foo,bar) :tick=2018 ]'))
+
+            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -> *')])
+
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('pivtarg', 'foo'))
+            self.eq(nodes[1][0], ('teststr', 'bar'))
+
+            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -+> *')])
+
+            self.len(3, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('pivtarg', 'foo'))
+            self.eq(nodes[2][0], ('teststr', 'bar'))
+
+            nodes = sorted([n.pack() for n in core.eval('teststr=bar <- *')])
+
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+
+            nodes = sorted([n.pack() for n in core.eval('teststr=bar <+- *')])
+
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('teststr', 'bar'))

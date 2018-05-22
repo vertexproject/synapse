@@ -117,13 +117,15 @@ class LmdbTest(SynTest):
             metr = s_lmdb.Metrics(lenv)
             self.eq(metr.stat(), {})
 
-            self.eq(str(metr.indx), 'count(0)')
+            self.eq(0, metr.indx)
+
             with lenv.begin(write=True) as xact:
                 metr.inc(xact, 'woot', 20)
                 metr.inc(xact, 'woot', 20)
                 metr.record(xact, {'hehe': 10, 'haha': 20})
                 metr.record(xact, {'hehe': 20, 'haha': 30})
-            self.eq(str(metr.indx), 'count(2)')
+
+            self.eq(2, metr.indx)
 
             lenv.sync()
             lenv.close()
@@ -142,11 +144,11 @@ class LmdbTest(SynTest):
 
                 self.len(0, list(metr.iter(xact, 1234567890)))
 
-            self.eq(str(metr.indx), 'count(2)')
+            self.eq(2, metr.indx)
             with lenv.begin(write=True) as xact:
                 metr.record(xact, {'hehe': 30, 'haha': 20})
                 metr.record(xact, {'hehe': 40, 'haha': 30})
-            self.eq(str(metr.indx), 'count(4)')
+            self.eq(4, metr.indx)
 
             with lenv.begin(write=False) as xact:
                 retn = list(metr.iter(xact, 0))
