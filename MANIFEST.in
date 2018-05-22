@@ -1,1 +1,2 @@
 include synapse/data/*.mpk
+graft synapse/tests/files
