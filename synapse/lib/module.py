@@ -23,8 +23,8 @@ class CoreModule:
                                      self.getModName().lower())
         self._confpath = os.path.join(self._modpath, 'conf.yaml')
         conf = {}
-        if os.path.exists(self._modpath):
-            conf = s_common.yamlload(self._modpath)
+        if os.path.isfile(self._confpath):
+            conf = s_common.yamlload(self._confpath)
         self.conf = s_common.config(conf, self.confdefs)
 
     def getModelDefs(self):
