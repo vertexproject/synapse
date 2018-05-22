@@ -388,3 +388,13 @@ class CortexTest(SynTest):
 
                 self.false(node.set('newpnewp', 10))
                 self.false(node.set('tick', (20, 30)))
+
+    def test_cortex_getcoremods(self):
+        with self.getTestCore() as core:
+            mods = core.getCoreMods()
+            self.isin('synapse.tests.utils.TestModule', mods)
+
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            with dmon._getTestProxy('core', user='root', passwd='root') as core:
+                mods = core.getCoreMods()
+                self.isin('synapse.tests.utils.TestModule', mods)
