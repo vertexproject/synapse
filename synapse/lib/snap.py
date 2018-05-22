@@ -249,7 +249,7 @@ class Snap(s_eventbus.EventBus):
         if func is None:
             raise s_exc.NoSuchName(name=name)
 
-        logger.warning(f'adding feed data ({name}): {len(items)}')
+        logger.warning(f'adding feed data ({name}): {len(items)} {seqn!r}')
 
         func(self, items)
 

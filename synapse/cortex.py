@@ -259,7 +259,11 @@ class Cortex(s_cell.Cell):
                             self.cellfini.wait(timeout=1)
                             continue
 
-                        logger.warning('splice push: %d' % (len(items),))
+                        size = len(items)
+                        indx = self.layer.splicelog.indx
+                        perc = float(offs) / float(indx) * 100.0
+
+                        logger.warning('splice push: %d %d/%d (%.2f%%)' % (size, offs, indx, perc))
 
                         offs = core.addFeedData('syn.splice', items, seqn=(iden, offs))
 
