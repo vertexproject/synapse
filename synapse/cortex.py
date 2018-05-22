@@ -518,7 +518,10 @@ class Cortex(s_cell.Cell):
         return s_layer.opendir(dirn)
 
     def getCoreMods(self):
-        return sorted(self.modules.keys())
+        ret = []
+        for modname, mod in sorted(self.modules.items(), key=lambda x: x[0]):
+            ret.append((modname, mod.conf))
+        return ret
 
     def getLayerConf(self, name):
         return {}

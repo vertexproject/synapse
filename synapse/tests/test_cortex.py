@@ -393,4 +393,5 @@ class CortexTest(SynTest):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             with dmon._getTestProxy('core', user='root', passwd='root') as core:
                 mods = core.getCoreMods()
+                mods = {k: v for k, v in mods}
                 self.isin('synapse.tests.utils.TestModule', mods)
