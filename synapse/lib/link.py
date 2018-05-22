@@ -1,5 +1,8 @@
 import socket
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -42,6 +45,7 @@ class Link(s_eventbus.EventBus):
         self.unpk = s_msgpack.Unpk()
         self.txque = asyncio.Queue(maxsize=1000)
         self.rxfunc = None
+        self.isconnected = True
 
         def fini():
 
@@ -71,12 +75,22 @@ class Link(s_eventbus.EventBus):
         '''
         Async transmit routine which will wait for writer drain().
         '''
+        if not self.isconnected:
+            logger.debug('Attempt to transmit on disconnected link')
+            return False
+
         if self.rxfunc is None:
             raise s_exc.NoLinkRx()
 
         byts = s_msgpack.en(mesg)
-        self.writer.write(byts)
-        await self.writer.drain()
+        try:
+            self.writer.write(byts)
+            await self.writer.drain()
+        except ConnectionError as e:
+            self.isconnected = False
+            einfo = s_common.retnexc(e)
+            logger.debug('link.tx connection trouble %s', einfo)
+            return False
 
         return True
 

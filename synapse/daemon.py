@@ -39,10 +39,20 @@ class Share(s_coro.Fini):
 
         async def fini():
             items.pop(self.iden, None)
-            self.item
+            self._closeflush()
 
         self.onfini(fini)
         items[self.iden] = self
+
+    def _closeflush(self):
+        '''
+        Close the generator and cycle it once so any contained GeneratorExit handlers run
+        '''
+        self.item.close()
+        try:
+            next(self.item)
+        except StopIteration:
+            pass
 
     async def _runShareLoop(self):
         return
@@ -117,28 +127,18 @@ class Genr(Share):
                     except Exception as e:
                         retn = s_common.retnexc(e)
                         mesg = ('share:data', {'share': self.iden, 'data': retn})
-                        try:
-                            s_glob.sync(self.link.tx(mesg))
-                        except Exception as e:
-                            logger.exception('Failure in communicating exception')
-                        break
-                    if self.isfini:
+                        s_glob.sync(self.link.tx(mesg))
                         break
 
                     retn = (True, item)
                     mesg = ('share:data', {'share': self.iden, 'data': retn})
-                    try:
-                        s_glob.sync(self.link.tx(mesg))
-                    except Exception as e:
-                        logger.exception('Failure in sending data')
+                    if not s_glob.sync(self.link.tx(mesg)):
+                        self._closeflush()
+                        logger.debug('Failure in sending data')
                         break
             finally:
-                self.item.close()
                 mesg = ('share:data', {'share': self.iden, 'data': None})
-                try:
-                    s_glob.sync(self.link.tx(mesg))
-                except Exception as e:
-                    logger.exception('Failure in sending end-of-transmission')
+                s_glob.sync(self.link.tx(mesg))
 
         await s_glob.executor(syncloop)
 
