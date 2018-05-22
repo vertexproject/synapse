@@ -585,16 +585,13 @@ class SynTest(unittest.TestCase):
         Return a simple test Cortex.
         '''
         with self.getTestDir(mirror=mirror) as dirn:
-            s_scope.set('dirn', dirn)
             with s_cortex.Cortex(dirn) as core:
                 yield core
-            s_scope.pop('dirn')
 
     @contextlib.contextmanager
     def getTestDmon(self, mirror='dmontest'):
 
         with self.getTestDir(mirror=mirror) as dirn:
-            s_scope.set('dirn', dirn)
 
             certdir = s_certdir.defdir
 
@@ -606,8 +603,6 @@ class SynTest(unittest.TestCase):
                 yield dmon
 
                 s_certdir.defdir = certdir
-
-            s_scope.pop('dirn')
 
     @contextlib.contextmanager
     def getDmonCore(self, conf=None):
@@ -767,12 +762,15 @@ class SynTest(unittest.TestCase):
                     srcpath = self.getTestFilePath(mirror)
                 dstpath = os.path.join(tempdir, 'mirror')
                 shutil.copytree(srcpath, dstpath)
+                s_scope.set('dirn', dstpath)
                 yield dstpath
 
             else:
+                s_scope.set('dirn', tempdir)
                 yield tempdir
 
         finally:
+            s_scope.pop('dirn')
             shutil.rmtree(tempdir, ignore_errors=True)
 
     def getTestFilePath(self, *names):
