@@ -21,7 +21,7 @@ class CoreModule:
         # will create directories. We do not need that behavior by default.
         self._modpath = os.path.join(self.core.dirn,
                                      'mods',
-                                     self.getModName().lower())
+                                     self.getModName())
         self._confpath = os.path.join(self._modpath, 'conf.yaml')
         conf = {}
         if os.path.isfile(self._confpath):
@@ -65,7 +65,7 @@ class CoreModule:
 
     def getModName(self):
         '''
-        Return the name of this module.
+        Return the lowercased name of this module.
 
         Notes:
             This pulls the ``mod_name`` attribute on the class. This allows
@@ -75,9 +75,10 @@ class CoreModule:
         Returns:
             (str): The module name.
         '''
-        if self.mod_name is None:
-            return self.__class__.__name__
-        return self.mod_name
+        ret = self.mod_name
+        if ret is None:
+            ret = self.__class__.__name__
+        return ret.lower()
 
     def getModPath(self, *paths):
         '''
