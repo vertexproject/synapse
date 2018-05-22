@@ -14,6 +14,7 @@ import synapse.models.inet as s_inet
 
 logger = logging.getLogger(__name__)
 
+
 # Topologically sorted comp and sepr types that are form types that have other comp types as elements.  The beginning
 # of the list has more dependencies than the end.
 _comp_and_sepr_forms = [
@@ -75,7 +76,7 @@ class Migrator:
         self.valu_tbl = self.dbenv.open_db(key=b'vals', integerkey=True)
         self.outfh = outfh
         self._precalc_types()
-        self.first_forms = ['file:bytes', ] + [f for f in reversed(_comp_and_sepr_forms) if self.is_comp(f)]
+        self.first_forms = ['file:bytes'] + [f for f in reversed(_comp_and_sepr_forms) if self.is_comp(f)]
 
     def _precalc_types(self):
         ''' Precalculate which types are sepr and which are comps, and which are subs of comps '''
@@ -375,6 +376,8 @@ class Migrator:
         # logger.debug('convert_comp_primary_property: %s, %s', formname, compspec)
         t = self.core.getPropType(formname)
         members = [x[0] for x in t.fields]
+        if formname == 'inet:dns:soa':
+            members = ['ns', 'email']
         retn = []
         for member in members:
             full_member = '%s:%s' % (formname, member)
@@ -601,7 +604,6 @@ class Migrator:
     primary_prop_special = {
         'inet:web:post': just_guid,
         'it:dev:regval': just_guid,
-        'inet:dns:soa': just_guid,
         'file:bytes': convert_file_bytes,
         'inet:udp4': convert_inet_xxp_primary,
         'inet:udp6': convert_inet_xxp_primary,

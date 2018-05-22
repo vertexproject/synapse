@@ -271,3 +271,24 @@ class Migrate010Test(s_iq.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][0], ('file:path', '%temp%/bar.exe'))
             self.eq(nodes[0][1]['tags'], {'test': (None, None)})
+
+    def test_ipv4(self):
+        self.maxDiff = None
+        with self.getTestDir() as dirn, self.getRamCore() as core:
+            tufo = core.formTufoByProp('inet:ipv4', '5.5.5.5')
+            core.addTufoTag(tufo, 'test')
+            fh = tempfile.TemporaryFile(dir=dirn)
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            nodes = self.get_formfile('inet:ipv4', fh)
+            self.len(1, nodes)
+            self.eq(nodes[0][1]['tags'], {'test': (None, None)})
+
+    def test_inet_dns_soa(self):
+        self.maxDiff = None
+        with self.getTestDir() as dirn, self.getRamCore() as core:
+            core.formTufoByProp('inet:dns:soa', s_common.guid(), ns='foo.bar.com', email='bob@foo.bar.com')
+            fh = tempfile.TemporaryFile(dir=dirn)
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            nodes = self.get_formfile('inet:dns:soa', fh)
+            self.eq(len(nodes), 1)
+            self.eq(nodes[0][0], ('inet:dns:soa', ('foo.bar.com', 'bob@foo.bar.com')))
