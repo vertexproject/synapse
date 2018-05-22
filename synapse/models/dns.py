@@ -32,7 +32,7 @@ class DnsModule(s_module.CoreModule):
                     'doc': 'The result of a DNS MX record lookup.',
                     'ex': '(vertex.link,mail.vertex.link)',
                 }),
-                ('inet:dns:soa', ('guid', {}), {
+                ('inet:dns:soa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ns', 'inet:fqdn'), ('email', 'inet:email'))}), {
                     'doc': 'The result of a DNS SOA record lookup.'
                 }),
                 ('inet:dns:txt', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('txt', 'str'))}), {

@@ -1,6 +1,7 @@
 import logging
 import threading
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.eventbus as s_eventbus
@@ -261,6 +262,12 @@ class Cortex(s_cell.Cell):
                         if not items:
                             self.cellfini.wait(timeout=1)
                             continue
+
+                        size = len(items)
+                        indx = self.layer.splicelog.indx
+                        perc = float(offs) / float(indx) * 100.0
+
+                        logger.warning('splice push: %d %d/%d (%.2f%%)' % (size, offs, indx, perc))
 
                         offs = core.addFeedData('syn.splice', items, seqn=(iden, offs))
 

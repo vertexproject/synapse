@@ -44,9 +44,7 @@ class Seqn:
         self.db = lenv.open_db(name)
 
         with lenv.begin() as xact:
-
-            indx = self.nextindx(xact)
-            self.indx = itertools.count(indx)
+            self.indx = self.nextindx(xact)
 
     def save(self, xact, items):
         '''
@@ -60,13 +58,21 @@ class Seqn:
             None
         '''
         rows = []
+        indx = self.indx
+
         for item in items:
+
             byts = s_msgpack.en(item)
-            lkey = struct.pack('>Q', next(self.indx))
+
+            lkey = struct.pack('>Q', indx)
+            indx += 1
+
             rows.append((lkey, byts))
 
         with xact.cursor(db=self.db) as curs:
             curs.putmulti(rows, append=True)
+
+        self.indx = indx
 
     def nextindx(self, xact):
         '''
@@ -172,13 +178,11 @@ class Metrics:
 
                 self.info[name] = valu
 
-            indx = 0
+            self.indx = 0
 
             curs = xact.cursor(db=self._db_history)
             if curs.last():
-                indx = struct.unpack('>Q', curs.key())[0] + 1
-
-            self.indx = itertools.count(indx)
+                self.indx = struct.unpack('>Q', curs.key())[0] + 1
 
     def inc(self, xact, prop, step=1):
         '''
@@ -248,7 +252,8 @@ class Metrics:
         Returns:
             None
         '''
-        indx = struct.pack('>Q', next(self.indx))
+        indx = struct.pack('>Q', self.indx)
+        self.indx += 1
         sample = s_msgpack.en(info)
         xact.put(indx, sample, db=self._db_history, append=True)
 
