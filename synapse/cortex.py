@@ -519,7 +519,7 @@ class Cortex(s_cell.Cell):
 
     def getCoreMods(self):
         ret = []
-        for modname, mod in sorted(self.modules.items(), key=lambda x: x[0]):
+        for modname, mod in self.modules.items():
             ret.append((modname, mod.conf))
         return ret
 

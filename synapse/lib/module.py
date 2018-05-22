@@ -10,6 +10,7 @@ class CoreModule:
     '''
 
     confdefs = ()
+    mod_name = None
 
     def __init__(self, core):
 
@@ -67,16 +68,16 @@ class CoreModule:
         Return the name of this module.
 
         Notes:
-            This pulls the ``_mod_name`` attribute on the class. This allows
+            This pulls the ``mod_name`` attribute on the class. This allows
             an implementer to set a arbitrary name for the module.  If this
             attribute is not set, it defaults to ``self.__class__.__name__``.
 
         Returns:
             (str): The module name.
         '''
-        if hasattr(self, '_mod_name'):
-            return self._mod_name
-        return self.__class__.__name__
+        if self.mod_name is None:
+            return self.__class__.__name__
+        return self.mod_name
 
     def getModPath(self, *paths):
         '''
