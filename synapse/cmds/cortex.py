@@ -64,10 +64,12 @@ class AskCmd(s_cli.Cmd):
             if mesg[0] == 'warn':
                 warn = mesg[1].get('mesg')
                 self.printf(f'WARNING: {warn}')
+                continue
 
             if mesg[0] == 'node':
                 node = mesg[1]
                 self.printf(repr(node))
+                continue
 
             self.printf(repr(mesg))
 
