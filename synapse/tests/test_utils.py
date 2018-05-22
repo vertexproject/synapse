@@ -93,6 +93,14 @@ class TestUtils(s_test.SynTest):
             self.true(os.path.isdir(fdir))
         self.false(os.path.isdir(fdir))
 
+        # try mirroring an arbitrary direcotry
+        with self.getTestDir() as fdir1:
+            with s_common.genfile(fdir1, 'hehe.haha') as fd:
+                fd.write('hehe'.encode())
+            with self.getTestDir(fdir1) as fdir2:
+                with s_common.genfile(fdir2, 'hehe.haha') as fd:
+                    self.eq(fd.read(), 'hehe'.encode())
+
         outp = self.getTestOutp()
         self.isinstance(outp, s_output.OutPut)
 

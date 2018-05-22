@@ -586,16 +586,13 @@ class SynTest(unittest.TestCase):
         Return a simple test Cortex.
         '''
         with self.getTestDir(mirror=mirror) as dirn:
-            s_scope.set('dirn', dirn)
             with s_cortex.Cortex(dirn) as core:
                 yield core
-            s_scope.pop('dirn')
 
     @contextlib.contextmanager
     def getTestDmon(self, mirror='dmontest'):
 
         with self.getTestDir(mirror=mirror) as dirn:
-            s_scope.set('dirn', dirn)
 
             certdir = s_certdir.defdir
 
@@ -607,8 +604,6 @@ class SynTest(unittest.TestCase):
                 yield dmon
 
                 s_certdir.defdir = certdir
-
-            s_scope.pop('dirn')
 
     @contextlib.contextmanager
     def getDmonCore(self, conf=None):
@@ -745,7 +740,16 @@ class SynTest(unittest.TestCase):
         Get a temporary directory for test purposes.
         This destroys the directory afterwards.
 
-        Yields:
+        Args:
+            mirror (str): A directory to mirror into the test directory.
+
+        Notes:
+            If the ``mirror`` argument is a directory, that directory will be
+            copied to the test directory. If it is not a directory, the helper
+            ``getTestFilePath`` is used to get the test directory under the
+            ``synapse/tests/files/`` directory.
+
+        Returns:
             str: The path to a temporary directory.
         '''
         tempdir = tempfile.mkdtemp()
@@ -753,15 +757,21 @@ class SynTest(unittest.TestCase):
         try:
 
             if mirror is not None:
-                srcpath = self.getTestFilePath(mirror)
+                if os.path.isdir(mirror):
+                    srcpath = mirror
+                else:
+                    srcpath = self.getTestFilePath(mirror)
                 dstpath = os.path.join(tempdir, 'mirror')
                 shutil.copytree(srcpath, dstpath)
+                s_scope.set('dirn', dstpath)
                 yield dstpath
 
             else:
+                s_scope.set('dirn', tempdir)
                 yield tempdir
 
         finally:
+            s_scope.pop('dirn')
             shutil.rmtree(tempdir, ignore_errors=True)
 
     def getTestFilePath(self, *names):

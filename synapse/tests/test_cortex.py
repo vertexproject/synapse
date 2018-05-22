@@ -400,6 +400,16 @@ class CortexTest(SynTest):
                 self.false(node.set('newpnewp', 10))
                 self.false(node.set('tick', (20, 30)))
 
+    def test_cortex_getcoremods(self):
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:
+                mods = core.getCoreMods()
+                mods = {k: v for k, v in mods}
+                conf = mods.get('synapse.tests.utils.TestModule')
+                self.nn(conf)
+                self.eq(conf.get('key'), 'valu')
+
     def test_cortex_pivot_inout(self):
 
         with self.getTestCore() as core:
