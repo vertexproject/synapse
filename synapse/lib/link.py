@@ -1,9 +1,7 @@
 import socket
 import asyncio
-import threading
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
@@ -44,8 +42,6 @@ class Link(s_eventbus.EventBus):
         self.unpk = s_msgpack.Unpk()
         self.txque = asyncio.Queue(maxsize=1000)
         self.rxfunc = None
-
-        self.onfini(self.writer.close)
 
         def fini():
 
