@@ -300,8 +300,8 @@ class PivotIn(PivotOper):
             name, valu = node.ndef
 
             for prop in self.snap.model.propsbytype.get(name, ()):
-                for node in self.snap.getNodesBy(prop.full, valu):
-                    yield node
+                for pivo in self.snap.getNodesBy(prop.full, valu):
+                    yield pivo
 
 class FormPivot(PivotOper):
 
