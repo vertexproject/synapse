@@ -108,7 +108,6 @@ class DnsModule(s_module.CoreModule):
                          'doc': 'The string returned in the TXT record.'}),
                 )),
                 ('inet:dns:req', {}, (
-                    # FIXME break out client subs for ipv4/ipv6
                     ('client', ('inet:client', {}), {
                         'ro': True,
                         'doc': 'The inet:addr which requested the FQDN',
