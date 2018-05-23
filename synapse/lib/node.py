@@ -272,7 +272,7 @@ class Node:
         for name, valu in self.props.items():
 
             rval = self.form.props[name].type.repr(valu)
-            if rval == valu:
+            if rval is None:
                 continue
 
             reps[name] = rval
