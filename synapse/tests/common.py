@@ -9,6 +9,7 @@ loglevel = os.getenv('SYN_TEST_LOG_LEVEL', 'WARNING')
 logging.basicConfig(level=loglevel,
                     format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]')
 
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon

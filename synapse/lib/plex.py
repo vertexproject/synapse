@@ -169,7 +169,7 @@ class Plex(s_eventbus.EventBus):
             logger.exception('_linkRxLoop Error!')
 
         finally:
-            await self.executor(link.fini)
+            await link.fini()
 
     def _runIoLoop(self):
 
