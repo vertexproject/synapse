@@ -36,7 +36,6 @@ class Cmd:
         cmd --help
     '''
     name = 'cmd'
-    #brief = 'A one line description of the command.'
 
     def __init__(self, text):
         self.opts = None
