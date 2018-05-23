@@ -84,10 +84,6 @@ class AstNode:
         return self.__class__.__name__
 
     def init(self, snap):
-
-        self._init(snap)
-
-    def init(self, snap):
         self.snap = snap
         [k.init(snap) for k in self.kids]
         self.prepare()
@@ -189,6 +185,8 @@ class Query(AstNode):
         try:
 
             count = 0
+            dorepr = self.opts.get('repr')
+
             with self._getQuerySnap() as snap:
 
                 tick = s_common.now()
@@ -197,7 +195,7 @@ class Query(AstNode):
                 snap.link(chan.put)
 
                 for node in self._runQueryLoop(snap):
-                    chan.put(('node', node.pack()))
+                    chan.put(('node', node.pack(dorepr=dorepr)))
                     count += 1
 
         except Exception as e:
@@ -215,6 +213,27 @@ class Oper(AstNode):
 
 class SubQuery(Oper):
     pass
+
+class CmdOper(Oper):
+
+    def prepare(self):
+
+        name = self.kids[0].value()
+        text = self.kids[1].value()
+
+        ctor = self.snap.core.getStormCmd(name)
+
+        if ctor is None:
+            mesg = 'Storm command not found.'
+            raise s_exc.NoSuchName(name=name, mesg=mesg)
+
+        self.scmd = ctor(text)
+        self.scmd.reqValidOpts(self.snap)
+
+    def run(self, genr):
+        # we only actually run or do anything if parser was ok
+        if not self.scmd.pars.exited:
+            yield from self.scmd.runStormCmd(self.snap, genr)
 
 class LiftOper(Oper):
 

@@ -600,6 +600,7 @@ varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
 cmprset = set('!<>^~=')
 cmprstart = set('*!<>^~=')
 
+cmdset = set('abcdefghijklmnopqrstuvwxyz1234567890.')
 alphanum = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 
 optcast = {
@@ -649,6 +650,34 @@ class Parser:
             # if we are sub-query, time to go...
             if self.nextstr('}'):
                 break
+
+            # | <command> syntax...
+            if self.nextstr('|'):
+
+                self.offs += 1
+
+                # trailing | case...
+                self.ignore(whitespace)
+                if not self.more():
+                    break
+
+                # switch to command interpreter...
+                name = self.cmdname()
+                text = self.cmdtext()
+
+                oper = s_ast.CmdOper(kids=(name, text))
+                query.kids.append(oper)
+
+                # command is last query text case...
+                if not self.more():
+                    break
+
+                # back to storm mode...
+                if self.nextstr('|'):
+                    self.offs += 1
+                    continue
+
+                self._raiseSyntaxError('expected | or end of input for cmd')
 
             # parse a query option: %foo=10
             if self.nextstr('%'):
@@ -956,14 +985,22 @@ class Parser:
             if self.nextstr('<-'):
                 return self.propjoin(prop)
 
-        text = self.noms(varset, ignore=whitespace)
-        if not text:
+        name = self.noms(varset, ignore=whitespace)
+        if not name:
             self._raiseSyntaxError('unknown query syntax')
 
-        name = s_ast.Const(text)
+        if self.model.props.get(name) is None:
 
-        if self.nextstr('('):
-            return self.calloper(name)
+            if self.view.core.getStormCmd(name) is not None:
+
+                text = self.cmdtext()
+                self.ignore(whitespace)
+
+                # eat a trailing | from a command at the beginning
+                if self.nextstr('|'):
+                    self.offs += 1
+
+                return s_ast.CmdOper(kids=(s_ast.Const(name), text))
 
         # we have a prop <cmpr> <valu>!
         if self.nextchar() in cmprset:
@@ -973,12 +1010,11 @@ class Parser:
             cmpr = self.cmpr()
             valu = self.valu()
 
-            kids = (name, cmpr, valu)
+            kids = (s_ast.Const(name), cmpr, valu)
             return s_ast.LiftPropBy(kids=kids)
 
-        # ok.. after <name> we have no cmpr no call()
-        # if we're a property, we're all set...
-        return s_ast.LiftProp(kids=(name,))
+        # lift by
+        return s_ast.LiftProp(kids=(s_ast.Const(name),))
 
     def liftbytag(self):
 
@@ -1211,6 +1247,27 @@ class Parser:
             self._raiseSyntaxError('expected variable name')
 
         return s_ast.Const(name)
+
+    def cmdname(self):
+
+        self.ignore(whitespace)
+
+        name = self.noms(cmdset)
+        if not name:
+            self._raiseSyntaxError(f'expected cmd name')
+
+        return s_ast.Const(name)
+
+    def cmdtext(self):
+        '''
+        --bar baz faz
+
+        Terminated by unescaped |
+        '''
+        # TODO: pipe escape syntax...
+        self.ignore(whitespace)
+        text = self.noms(until='|').strip()
+        return s_ast.Const(text)
 
     def quoted(self):
 

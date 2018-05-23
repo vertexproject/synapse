@@ -47,7 +47,7 @@ class Xact(s_eventbus.EventBus):
         self.buidcurs = self.xact.cursor(db=layr.bybuid)
         self.buidcache = s_cache.FixedCache(self._getBuidProps, size=10000)
 
-    def splices(self, msgs):
+    def save(self, msgs):
         '''
         Save the given splices to the splice log.
         '''
@@ -59,10 +59,6 @@ class Xact(s_eventbus.EventBus):
 
     def getOffset(self, iden):
         return self.layr.offs.xget(self.xact, iden)
-
-    def getSpliceLog(self, offs, size):
-        for i, mesg in self.layr.splicelog.slice(self.xact, offs, size):
-            yield mesg
 
     def stor(self, sops):
         self.layr._xactRunStors(self.xact, sops)
@@ -136,7 +132,7 @@ class Layer(s_cell.Cell):
         self.spliced = threading.Event()
         self.onfini(self.spliced.set)
 
-        self.splices = self.initdb('splices')
+        self.splicedb = self.initdb('splices')
         self.splicelog = s_lmdb.Seqn(self.lenv, b'splices')
 
         self.indxfunc = {
@@ -160,9 +156,10 @@ class Layer(s_cell.Cell):
     def setOffset(self, iden, offs):
         return self.offs.set(iden, offs)
 
-    def getSpliceLog(self, offs, size):
-        with self.xact() as xact:
-            yield from xact.getSpliceLog(offs, size)
+    def splices(self, offs, size):
+        with self.lenv.begin() as xact:
+            for i, mesg in self.splicelog.slice(xact, offs, size):
+                yield mesg
 
     def _storPropSet(self, xact, oper):
 

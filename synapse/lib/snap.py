@@ -76,7 +76,7 @@ class Snap(s_eventbus.EventBus):
             if self.exitok:
 
                 if self.write and self.splices:
-                    self.xact.splices(self.splices)
+                    self.xact.save(self.splices)
 
                 for x in self.xacts:
                     try:

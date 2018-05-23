@@ -11,6 +11,7 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.cell as s_cell
 import synapse.lib.snap as s_snap
 import synapse.lib.const as s_const
+import synapse.lib.storm as s_storm
 import synapse.lib.layer as s_layer
 import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
@@ -104,27 +105,37 @@ class CoreApi(s_cell.CellApi):
     def getFeedOffs(self, iden):
         return self.cell.layer.getOffset(iden)
 
+    def count(self, text, opts=None):
+        '''
+        Count the number of nodes which result from a storm query.
+
+        Args:
+            text (str): Storm query text.
+            opts (dict): Storm query options.
+
+        Returns:
+            (int): The number of nodes resulting from the query.
+        '''
+        query = self._getStormQuery(text, opts=opts)
+        return sum((1 for n in query.evaluate()))
+
     def eval(self, text, opts=None):
-
-        query = self.cell.view.getStormQuery(text)
-        query.setUser(self.user)
-
-        if opts is not None:
-            query.opts.update(opts)
-
-        if self.cell.conf.get('storm:log'):
-            logger.warning('STORM EVAL (%s): %s' % (self.user, text))
+        '''
+        Evalute a storm query and yield packed nodes.
+        '''
+        query = self._getStormQuery(text, opts=opts)
+        dorepr = query.opts.get('repr')
 
         try:
 
             for node in query.evaluate():
-                yield node.pack()
+                yield node.pack(dorepr=dorepr)
 
         except Exception as e:
             logger.warning(f'exception during storm eval: {e}')
             query.cancel()
 
-    def storm(self, text, opts=None):
+    def _getStormQuery(self, text, opts=None):
 
         query = self.cell.view.getStormQuery(text)
         query.setUser(self.user)
@@ -135,6 +146,14 @@ class CoreApi(s_cell.CellApi):
         if self.cell.conf.get('storm:log'):
             logger.warning('STORM (%s): %s' % (self.user, text))
 
+        return query
+
+    def storm(self, text, opts=None):
+        '''
+        Execute a storm query and yield messages.
+        '''
+        query = self._getStormQuery(text, opts=opts)
+
         try:
 
             for mesg in query.execute():
@@ -143,6 +162,13 @@ class CoreApi(s_cell.CellApi):
         except Exception as e:
             logger.warning(f'exception during storm: {e}')
             query.cancel()
+
+    @s_cell.adminapi
+    def splices(self, offs, size):
+        '''
+        Return the list of splices at the given offset.
+        '''
+        yield from self.cell.layer.splices(offs, size)
 
 class Cortex(s_cell.Cell):
     '''
@@ -192,6 +218,11 @@ class Cortex(s_cell.Cell):
         self.modules = {}
         self.feedfuncs = {}
 
+        self.stormcmds = {}
+
+        self.addStormCmd(s_storm.HelpCmd)
+        self.addStormCmd(s_storm.LimitCmd)
+
         self.splicers = {
             'node:add': self._onFeedNodeAdd,
             'node:del': self._onFeedNodeDel,
@@ -223,6 +254,18 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    def addStormCmd(self, ctor):
+        '''
+        Add a synapse.lib.storm.Cmd class to the cortex.
+        '''
+        self.stormcmds[ctor.name] = ctor
+
+    def getStormCmd(self, name):
+        return self.stormcmds.get(name)
+
+    def getStormCmds(self):
+        return list(self.stormcmds.items())
 
     def _initPushLoop(self):
 
@@ -257,7 +300,7 @@ class Cortex(s_cell.Cell):
 
                     while not self.isfini:
 
-                        items = list(self.layer.getSpliceLog(offs, 10000))
+                        items = list(self.layer.splices(offs, 10000))
 
                         if not items:
                             self.cellfini.wait(timeout=1)
@@ -272,7 +315,7 @@ class Cortex(s_cell.Cell):
                         offs = core.addFeedData('syn.splice', items, seqn=(iden, offs))
 
             except Exception as e:
-                logger.warning(f'sync error: {e}')
+                logger.exception('sync error')
                 self.cellfini.wait(timeout=1)
 
     def _initCryoLoop(self):
@@ -370,7 +413,7 @@ class Cortex(s_cell.Cell):
 
                     while not self.isfini:
 
-                        items = list(layr.getSpliceLog(offs, 10000))
+                        items = list(layr.splices(offs, 10000))
 
                         if not len(items):
                             layr.spliced.clear()
@@ -514,11 +557,6 @@ class Cortex(s_cell.Cell):
 
         self.layer = self.openLayerName('default')
         self.layers.append(self.layer)
-
-    def splices(self, msgs):
-        with self.view.snap(write=True) as snap:
-            for deltas in snap.splices(msgs):
-                yield deltas
 
     def openLayerName(self, name):
         dirn = s_common.gendir(self.dirn, 'layers', name)
