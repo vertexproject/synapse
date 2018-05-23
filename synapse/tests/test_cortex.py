@@ -82,7 +82,10 @@ class CortexTest(SynTest):
         with self.getTestCore() as core:
 
             msgs = list(core.storm('|help'))
-            self.printed(msgs, 'help: List commands and show help output for them.')
+            self.printed(msgs, 'help: List available commands and a brief description for each.')
+
+            msgs = list(core.storm('help'))
+            self.printed(msgs, 'help: List available commands and a brief description for each.')
 
             list(core.eval('[ inet:user=visi inet:user=whippit ]'))
 
@@ -442,6 +445,20 @@ class CortexTest(SynTest):
                 conf = mods.get('synapse.tests.utils.TestModule')
                 self.nn(conf)
                 self.eq(conf.get('key'), 'valu')
+
+    def test_cortex_cell_splices(self):
+
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+
+            pconf = {'user': 'root', 'passwd': 'root'}
+
+            with dmon._getTestProxy('core', **pconf) as core:
+
+                self.len(0, list(core.splices(0, 1000)))
+
+                list(core.eval('[ teststr=foo ]'))
+
+                self.ge(len(list(core.splices(0, 1000))), 2)
 
     def test_cortex_pivot_inout(self):
 

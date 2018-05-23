@@ -123,8 +123,8 @@ class CoreApi(s_cell.CellApi):
         '''
         Evalute a storm query and yield packed nodes.
         '''
-        dorepr = opts.get('repr', False)
         query = self._getStormQuery(text, opts=opts)
+        dorepr = query.opts.get('repr')
 
         try:
 
@@ -162,6 +162,13 @@ class CoreApi(s_cell.CellApi):
         except Exception as e:
             logger.warning(f'exception during storm: {e}')
             query.cancel()
+
+    @s_cell.adminapi
+    def splices(self, offs, size):
+        '''
+        Return the list of splices at the given offset.
+        '''
+        yield from self.cell.layer.splices(offs, size)
 
 class Cortex(s_cell.Cell):
     '''
@@ -293,7 +300,7 @@ class Cortex(s_cell.Cell):
 
                     while not self.isfini:
 
-                        items = list(self.layer.getSpliceLog(offs, 10000))
+                        items = list(self.layer.splices(offs, 10000))
 
                         if not items:
                             self.cellfini.wait(timeout=1)
@@ -308,7 +315,7 @@ class Cortex(s_cell.Cell):
                         offs = core.addFeedData('syn.splice', items, seqn=(iden, offs))
 
             except Exception as e:
-                logger.warning(f'sync error: {e}')
+                logger.exception('sync error')
                 self.cellfini.wait(timeout=1)
 
     def _initCryoLoop(self):
@@ -406,7 +413,7 @@ class Cortex(s_cell.Cell):
 
                     while not self.isfini:
 
-                        items = list(layr.getSpliceLog(offs, 10000))
+                        items = list(layr.splices(offs, 10000))
 
                         if not len(items):
                             layr.spliced.clear()

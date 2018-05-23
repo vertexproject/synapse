@@ -985,14 +985,22 @@ class Parser:
             if self.nextstr('<-'):
                 return self.propjoin(prop)
 
-        text = self.noms(varset, ignore=whitespace)
-        if not text:
+        name = self.noms(varset, ignore=whitespace)
+        if not name:
             self._raiseSyntaxError('unknown query syntax')
 
-        name = s_ast.Const(text)
+        if self.model.props.get(name) is None:
 
-        if self.nextstr('('):
-            return self.calloper(name)
+            if self.view.core.getStormCmd(name) is not None:
+
+                text = self.cmdtext()
+                self.ignore(whitespace)
+
+                # eat a trailing | from a command at the beginning
+                if self.nextstr('|'):
+                    self.offs += 1
+
+                return s_ast.CmdOper(kids=(s_ast.Const(name), text))
 
         # we have a prop <cmpr> <valu>!
         if self.nextchar() in cmprset:
@@ -1002,12 +1010,11 @@ class Parser:
             cmpr = self.cmpr()
             valu = self.valu()
 
-            kids = (name, cmpr, valu)
+            kids = (s_ast.Const(name), cmpr, valu)
             return s_ast.LiftPropBy(kids=kids)
 
-        # ok.. after <name> we have no cmpr no call()
-        # if we're a property, we're all set...
-        return s_ast.LiftProp(kids=(name,))
+        # lift by
+        return s_ast.LiftProp(kids=(s_ast.Const(name),))
 
     def liftbytag(self):
 

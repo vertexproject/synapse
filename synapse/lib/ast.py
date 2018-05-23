@@ -145,8 +145,6 @@ class Query(AstNode):
 
         self.init(snap)
 
-        isrepr = self.opts.get('repr')
-
         varz = self.opts.get('vars')
         if varz is not None:
             snap.vars.update(varz)
