@@ -469,7 +469,7 @@ class Daemon(EventBus):
                         await valu._runShareLoop()
                     finally:
                         await valu.fini()
-                s_glob.plex.coroToTask(spinshareloop())
+                s_glob.plex.coroLoopTask(spinshareloop())
 
         except Exception as e:
 

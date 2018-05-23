@@ -7,7 +7,7 @@ import synapse.tests.common as s_test
 
 class CoroTest(s_test.SynTest):
 
-    @s_test.run_sync
+    @s_glob.synchelp
     async def test_coro_fini(self):
 
         event = asyncio.Event()

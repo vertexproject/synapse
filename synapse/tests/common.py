@@ -123,11 +123,3 @@ class CallBack:
 
     def wait(self, timeout=None):
         return self.event.wait(timeout=timeout)
-
-def run_sync(coro):
-    '''
-    Decorator that wraps an async test so that it runs synchronously
-    '''
-    def wrapper(*args, **kwargs):
-        s_glob.sync(coro(*args, **kwargs))
-    return wrapper

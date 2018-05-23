@@ -90,10 +90,7 @@ class Plex(s_eventbus.EventBus):
 
         NOTE: This API *is* thread safe
         '''
-        if self.iAmLoop():
-            return asyncio.ensure_future(coro, loop=self.loop)
-        else:
-            return asyncio.run_coroutine_threadsafe(coro, loop=self.loop)
+        return asyncio.run_coroutine_threadsafe(coro, loop=self.loop)
 
     def coroToSync(self, coro, timeout=None):
         '''
