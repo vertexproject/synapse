@@ -17,10 +17,9 @@ import synapse.lib.lmdb as s_lmdb
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
-
-#class LayerApi(s_cell.CellApi):
 
 class Encoder(collections.defaultdict):
     def __missing__(self, name):
@@ -46,6 +45,7 @@ class Xact(s_eventbus.EventBus):
 
         self.buidcurs = self.xact.cursor(db=layr.bybuid)
         self.buidcache = s_cache.FixedCache(self._getBuidProps, size=10000)
+        self.tid = s_threads.iden()
 
     def splices(self, msgs):
         '''
@@ -72,9 +72,13 @@ class Xact(s_eventbus.EventBus):
             yield row
 
     def abort(self):
+        # aborting on a write transaction on a different thread than it was created is fatal
+        assert(not self.write or self.tid == s_threads.iden())
         self.xact.abort()
 
     def commit(self):
+        # committing on a write transaction on a different thread than it was created is fatal
+        assert(not self.write or self.tid == s_threads.iden())
         self.xact.commit()
         if self.spliced:
             self.layr.spliced.set()
@@ -245,7 +249,9 @@ class Layer(s_cell.Cell):
                 yield item
 
     def _xactRunStors(self, xact, sops):
-        #Execute a series of storage operations.
+        '''
+        Execute a series of storage operations.
+        '''
         for oper in sops:
             func = self._stor_funcs.get(oper[0])
             if func is None:

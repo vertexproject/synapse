@@ -214,9 +214,9 @@ class Proxy(s_coro.Fini):
             'share:fini': self._onShareFini,
         }
 
-        def fini():
+        async def fini():
             for item in list(self.shares.values()):
-                s_glob.sync(item.fini())
+                await item.fini()
         self.link.onfini(fini)
 
     async def _onShareFini(self, mesg):

@@ -39,20 +39,9 @@ class Share(s_coro.Fini):
 
         async def fini():
             items.pop(self.iden, None)
-            self._closeflush()
 
         self.onfini(fini)
         items[self.iden] = self
-
-    def _closeflush(self):
-        '''
-        Close the generator and cycle it once so any contained GeneratorExit handlers run
-        '''
-        self.item.close()
-        try:
-            next(self.item)
-        except StopIteration:
-            pass
 
     async def _runShareLoop(self):
         return
@@ -133,10 +122,10 @@ class Genr(Share):
                     retn = (True, item)
                     mesg = ('share:data', {'share': self.iden, 'data': retn})
                     if not s_glob.sync(self.link.tx(mesg)):
-                        self._closeflush()
                         logger.debug('Failure in sending data')
                         break
             finally:
+                self.item.close()
                 mesg = ('share:data', {'share': self.iden, 'data': None})
                 s_glob.sync(self.link.tx(mesg))
 
