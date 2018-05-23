@@ -108,7 +108,7 @@ class Genr(Share):
         # automatically begin yielding
         def syncloop():
             try:
-                while True:
+                while not self.isfini:
                     try:
                         item = next(self.item)
                     except StopIteration:
@@ -328,7 +328,6 @@ class Daemon(EventBus):
     async def _onLinkMesg(self, link, mesg):
 
         try:
-
             func = self.mesgfuncs.get(mesg[0])
             if func is None:
                 logger.exception('Dmon.onLinkMesg Invalid: %.80r' % (mesg,))
@@ -463,12 +462,14 @@ class Daemon(EventBus):
             mesg = self._getTaskFiniMesg(task, valu)
             await link.tx(mesg)
 
-            # if it's a Share() give it a shot to run..
+            # if it's a Share(), spin off the share loop
             if isinstance(valu, Share):
-                try:
-                    await valu._runShareLoop()
-                finally:
-                    await valu.fini()
+                async def spinshareloop():
+                    try:
+                        await valu._runShareLoop()
+                    finally:
+                        await valu.fini()
+                s_glob.plex.coroToTask(spinshareloop())
 
         except Exception as e:
 

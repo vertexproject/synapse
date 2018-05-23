@@ -81,7 +81,7 @@ class Share(s_coro.Fini):
         await self.proxy.link.tx(mesg)
 
     async def _onShareData(self, data):
-        print(f'share:data with no handler: {data!r}')
+        logger.warning(f'share:data with no handler: {data!r}')
 
     def __getattr__(self, name):
         meth = Method(self.proxy, name, share=self.iden)
