@@ -130,8 +130,7 @@ class DnsModelTest(s_test.SynTest):
         fqdn0 = 'woot.com'
         fqdn1 = 'haha.com'
         email0 = 'pennywise@vertex.ninja'
-        from pprint import pprint
-        print()
+
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
                 # test a base set of props once
@@ -183,6 +182,13 @@ class DnsModelTest(s_test.SynTest):
                 self.eq(node.get('aaaa'), (fqdn0, ip1))
                 self.eq(node.get('aaaa:fqdn'), fqdn0)
                 self.eq(node.get('aaaa:ipv6'), ip1)
+                # rev6 record
+                props = {'rev6': (ip1, fqdn0),
+                         }
+                node = snap.addNode('inet:dns:look', '*', props)
+                self.eq(node.get('rev6'), (ip1, fqdn0))
+                self.eq(node.get('rev6:ipv6'), ip1)
+                self.eq(node.get('rev6:fqdn'), fqdn0)
                 # cname record
                 props = {'cname': (fqdn0, fqdn1),
                          }

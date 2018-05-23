@@ -203,7 +203,7 @@ class DnsModule(s_module.CoreModule):
                     }),
                     ('rev:ipv4', ('inet:ipv4', {}), {
                         'ro': True,
-                        'doc': 'The IPv4 address queried for its PRT record.',
+                        'doc': 'The IPv4 address queried for its PTR record.',
                     }),
                     ('rev:fqdn', ('inet:fqdn', {}), {
                         'ro': True,
@@ -220,6 +220,18 @@ class DnsModule(s_module.CoreModule):
                     ('aaaa:ipv6', ('inet:ipv6', {}), {
                         'ro': True,
                         'doc': 'The IPv6 address returned in the AAAA record.',
+                    }),
+                    ('rev6', ('inet:dns:rev6', {}), {
+                        'ro': True,
+                        'doc': 'The DNS PTR record returned by the lookup of a IPv6 address.',
+                    }),
+                    ('rev6:ipv6', ('inet:ipv6', {}), {
+                        'ro': True,
+                        'doc': 'The IPv6 address queried for its PTR record.',
+                    }),
+                    ('rev6:fqdn', ('inet:fqdn', {}), {
+                        'ro': True,
+                        'doc': 'The domain returned in the PTR record.',
                     }),
                     ('cname', ('inet:dns:cname', {}), {
                         'ro': True,
