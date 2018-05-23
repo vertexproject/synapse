@@ -17,8 +17,8 @@ def le(x, y):
 def gt(x, y):
     return x > y
 
-def gt(x, y):
-    return x > y
+def lt(x, y):
+    return x < y
 
 # additionally, some comparator strings
 # (which includes a bit of storm syntax knowledge)

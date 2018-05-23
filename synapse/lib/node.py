@@ -60,18 +60,23 @@ class Node:
             # otherwise, it's a regular property!
             self.props[prop] = valu
 
-    def pack(self):
+    def pack(self, dorepr=False):
         '''
         Return the serializable/packed version of the node.
 
         Returns:
             (tuple): An (iden, info) node tuple.
         '''
-        iden = s_common.ehex(self.buid)
-        return (self.ndef, {
+        node = (self.ndef, {
             'tags': self.tags,
             'props': self.props,
         })
+
+        if dorepr:
+            node[1]['repr'] = self.repr()
+            node[1]['reprs'] = self.reprs()
+
+        return node
 
     def set(self, name, valu, init=False):
         '''
@@ -251,6 +256,28 @@ class Node:
 
         curv = self.props.pop(name, None)
         prop.wasDel(self, curv)
+
+    def repr(self, name=None):
+
+        if name is None:
+            return self.form.type.repr(self.ndef[1])
+
+        valu = self.props.get(name)
+        return self.form.props[name].type.repr(valu)
+
+    def reprs(self):
+
+        reps = {}
+
+        for name, valu in self.props.items():
+
+            rval = self.form.props[name].type.repr(valu)
+            if rval is None:
+                continue
+
+            reps[name] = rval
+
+        return reps
 
     def hasTag(self, name):
         name = s_chop.tag(name)

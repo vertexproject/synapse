@@ -115,7 +115,7 @@ class Phone(s_types.Type):
             )
         return s_types.Type.indxByEq(self, valu)
 
-    def repr(self, valu):
+    def repr(self, valu, defval=None):
         # FIXME implement more geo aware reprs
         # XXX geo-aware reprs are practically a function of cc which
         # XXX the raw value may only have after doing a s_l_phone lookup

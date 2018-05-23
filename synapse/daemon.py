@@ -480,6 +480,7 @@ class Daemon(EventBus):
                 ('task:fini', {'task': task, 'retn': retn})
             )
 
-    def _getTestProxy(self, name):
+    def _getTestProxy(self, name, **kwargs):
         host, port = self.addr
-        return s_telepath.openurl(f'tcp:///{name}', host=host, port=port)
+        kwargs.update({'host': host, 'port': port})
+        return s_telepath.openurl(f'tcp:///{name}', **kwargs)

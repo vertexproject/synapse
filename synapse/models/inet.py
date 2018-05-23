@@ -176,7 +176,7 @@ class Fqdn(s_types.Type):
         except UnicodeError as e:
             raise s_exc.BadTypeValu(valu)
 
-        parts = valu.split('.', 1)
+        parts = valu.strip('.').split('.', 1)
         subs = {'host': parts[0]}
 
         if len(parts) == 2:
@@ -202,14 +202,19 @@ class Fqdn(s_types.Type):
 
         return s_types.Type.indxByEq(self, valu)
 
-    def repr(self, valu):
+    def repr(self, valu, defval=None):
+
         try:
-            return valu.encode('utf8').decode('idna')
+
+            text = valu.encode('utf8').decode('idna')
+            if text != valu:
+                return text
+
         except UnicodeError as e:
-            if len(valu) >= 4 and valu[0:4] == 'xn--':
-                logger.exception(msg='Failed to IDNA decode ACE prefixed inet:fqdn')
-                return valu
-            raise  # pragma: no cover
+            logger.exception('Failed to IDNA decode ACE prefixed inet:fqdn')
+
+        return defval
+
 
 class IPv4(s_types.Type):
     '''
@@ -241,7 +246,7 @@ class IPv4(s_types.Type):
     def indx(self, norm):
         return norm.to_bytes(4, 'big')
 
-    def repr(self, norm):
+    def repr(self, norm, defval=None):
         return socket.inet_ntoa(self.indx(norm))
 
     def indxByEq(self, valu):
@@ -273,7 +278,11 @@ class IPv6(s_types.Type):
         return ipaddress.IPv6Address(norm).packed
 
     def _normPyStr(self, valu):
+
         try:
+
+            if type(valu) == str and valu.find(':') == -1:
+                valu = '::ffff:' + valu
 
             v6 = ipaddress.IPv6Address(valu)
             v4 = v6.ipv4_mapped
@@ -393,10 +402,9 @@ class Url(s_types.Type):
                 if match:
                     valu, port = match.groups()
 
-                ipv6, ipv6_subs = self.modl.type('inet:ipv6').norm(valu)
-                subs['ipv6'] = ipv6
+                host, ipv6_subs = self.modl.type('inet:ipv6').norm(valu)
+                subs['ipv6'] = host
 
-                host = self.modl.type('inet:ipv6').repr(ipv6)
                 if match:
                     host = f'[{host}]'
 
@@ -444,11 +452,12 @@ class Url(s_types.Type):
         # Set up Normed URL
         if authparts:
             hostparts = f'{authparts}@'
+
         hostparts = f'{hostparts}{host}'
         if port is not None:
             hostparts = f'{hostparts}:{port}'
-        norm = f'{proto}://{hostparts}{pathpart}'
 
+        norm = f'{proto}://{hostparts}{pathpart}'
         return norm, {'subs': subs}
 
 class InetModule(s_module.CoreModule):

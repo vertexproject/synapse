@@ -59,11 +59,8 @@ class DnsModelTest(s_test.SynTest):
                 self.eq(node.get('mx'), 'mail.vertex.link')
 
                 # inet:dns:soa
-                nprops = {'fqdn': 'haha.vertex.link',
-                          'email': 'pennywise@vertex.link',
-                          'ns': 'ns1.vertex.link'}
-                # FIXME - missing stable guid generation???
-                node = snap.addNode('inet:dns:soa', '*', nprops)
+                valu = ('haha.vertex.link', 'ns1.vertex.link', 'pennywise@vertex.link')
+                node = snap.addNode('inet:dns:soa', valu)
                 self.eq(node.get('fqdn'), 'haha.vertex.link')
                 self.eq(node.get('email'), 'pennywise@vertex.link')
                 self.eq(node.get('ns'), 'ns1.vertex.link')

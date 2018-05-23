@@ -73,6 +73,42 @@ class CortexTest(SynTest):
 
             core.addFeedData('com.test.record', data)
 
+            # test the remote storm result counting API
+            self.eq(0, core.count('pivtarg'))
+            self.eq(1, core.count('inet:user'))
+
+    def test_cortex_stormcmd(self):
+
+        with self.getTestCore() as core:
+
+            msgs = list(core.storm('|help'))
+            self.printed(msgs, 'help: List available commands and a brief description for each.')
+
+            msgs = list(core.storm('help'))
+            self.printed(msgs, 'help: List available commands and a brief description for each.')
+
+            list(core.eval('[ inet:user=visi inet:user=whippit ]'))
+
+            self.len(2, list(core.eval('inet:user')))
+
+            # test cmd as last text syntax
+            self.len(1, list(core.eval('inet:user | limit 1')))
+
+            # test cmd and trailing pipe syntax
+            self.len(1, list(core.eval('inet:user | limit 1|')))
+
+            # test cmd and trailing pipe and whitespace syntax
+            self.len(1, list(core.eval('inet:user | limit 1    |     ')))
+
+            # test cmd and trailing pipe and whitespace syntax
+            self.len(2, list(core.eval('inet:user | limit 10 | [ #foo.bar ]')))
+            self.len(1, list(core.eval('inet:user | limit 10 | +inet:user=visi')))
+
+            # test invalid option sytnax
+            msgs = list(core.storm('inet:user | limit --woot'))
+            self.printed(msgs, 'usage: limit [-h] count')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+
     def test_cortex_onsetdel(self):
 
         with self.getTestCore() as core:
@@ -296,6 +332,17 @@ class CortexTest(SynTest):
                 self.eq(node.ndef[0], 'pivtarg')
                 self.eq(node.ndef[1], 'foo')
 
+            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -> pivtarg')])
+
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('pivtarg', 'foo'))
+
+            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -+> pivtarg')])
+
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('pivtarg', 'foo'))
+
             nodes = [n.pack() for n in core.eval('teststr="foo bar" +teststr')]
             self.len(1, nodes)
 
@@ -388,3 +435,80 @@ class CortexTest(SynTest):
 
                 self.false(node.set('newpnewp', 10))
                 self.false(node.set('tick', (20, 30)))
+
+    def test_cortex_getcoremods(self):
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:
+                mods = core.getCoreMods()
+                mods = {k: v for k, v in mods}
+                conf = mods.get('synapse.tests.utils.TestModule')
+                self.nn(conf)
+                self.eq(conf.get('key'), 'valu')
+
+    def test_cortex_cell_splices(self):
+
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+
+            pconf = {'user': 'root', 'passwd': 'root'}
+
+            with dmon._getTestProxy('core', **pconf) as core:
+
+                self.len(0, list(core.splices(0, 1000)))
+
+                list(core.eval('[ teststr=foo ]'))
+
+                self.ge(len(list(core.splices(0, 1000))), 2)
+
+    def test_cortex_pivot_inout(self):
+
+        with self.getTestCore() as core:
+
+            list(core.eval('[ pivcomp=(foo,bar) :tick=2018 ]'))
+
+            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -> *')])
+
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('pivtarg', 'foo'))
+            self.eq(nodes[1][0], ('teststr', 'bar'))
+
+            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -+> *')])
+
+            self.len(3, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('pivtarg', 'foo'))
+            self.eq(nodes[2][0], ('teststr', 'bar'))
+
+            nodes = sorted([n.pack() for n in core.eval('teststr=bar <- *')])
+
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+
+            nodes = sorted([n.pack() for n in core.eval('teststr=bar <+- *')])
+
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('teststr', 'bar'))
+
+    def test_cortex_node_repr(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap(write=True) as snap:
+
+                node = snap.addNode('inet:ipv4', 0x01020304)
+                self.eq('1.2.3.4', node.repr())
+
+                node = snap.addNode('inet:dns:a', ('woot.com', 0x01020304))
+                self.eq('1.2.3.4', node.repr('ipv4'))
+
+    def test_cortex_coverage(self):
+
+        # misc tests to increase code coverage
+        with self.getTestCore() as core:
+
+            node = (('teststr', 'foo'), {})
+
+            list(core.addNodes((node,)))
+
+            self.nn(core.getNodeByNdef(('teststr', 'foo')))
