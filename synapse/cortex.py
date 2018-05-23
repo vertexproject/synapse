@@ -67,6 +67,10 @@ class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed over telepath.
     '''
+    @s_cell.adminapi
+    def getCoreMods(self):
+        return self.cell.getCoreMods()
+
     def getNodesBy(self, full, valu, cmpr='='):
         '''
         Yield Node.pack() tuples which match the query.
@@ -550,6 +554,12 @@ class Cortex(s_cell.Cell):
     def openLayerName(self, name):
         dirn = s_common.gendir(self.dirn, 'layers', name)
         return s_layer.opendir(dirn)
+
+    def getCoreMods(self):
+        ret = []
+        for modname, mod in self.modules.items():
+            ret.append((modname, mod.conf))
+        return ret
 
     def getLayerConf(self, name):
         return {}
