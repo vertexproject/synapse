@@ -7,23 +7,21 @@ import synapse.tests.common as s_test
 
 class CoroTest(s_test.SynTest):
 
-    def test_coro_fini(self):
+    @s_test.run_sync
+    async def test_coro_fini(self):
 
-        async def test():
+        event = asyncio.Event()
+        async def setit():
+            event.set()
 
-            event = asyncio.Event()
-            async def setit():
-                event.set()
+        f = s_coro.Fini()
+        async with f as f:
+            f.onfini(setit)
 
-            f = s_coro.Fini()
-            async with f as f:
-                f.onfini(setit)
+        self.true(f.isfini)
+        self.true(event.is_set())
+        self.false(f._isExitExc())
 
-            self.true(f.isfini)
-            self.true(event.is_set())
-            self.false(f._isExitExc())
-
-        s_glob.sync(test())
 
     def test_coro_queue(self):
 

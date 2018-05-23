@@ -9,6 +9,7 @@ loglevel = os.getenv('SYN_TEST_LOG_LEVEL', 'WARNING')
 logging.basicConfig(level=loglevel,
                     format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]')
 
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
@@ -122,3 +123,11 @@ class CallBack:
 
     def wait(self, timeout=None):
         return self.event.wait(timeout=timeout)
+
+def run_sync(coro):
+    '''
+    Decorator that wraps an async test so that it runs synchronously
+    '''
+    def wrapper(*args, **kwargs):
+        s_glob.sync(coro(*args, **kwargs))
+    return wrapper
