@@ -600,6 +600,7 @@ varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
 cmprset = set('!<>^~=')
 cmprstart = set('*!<>^~=')
 
+cmdset = set('abcdefghijklmnopqrstuvwxyz1234567890.')
 alphanum = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 
 optcast = {
@@ -649,6 +650,34 @@ class Parser:
             # if we are sub-query, time to go...
             if self.nextstr('}'):
                 break
+
+            # | <command> syntax...
+            if self.nextstr('|'):
+
+                self.offs += 1
+
+                # trailing | case...
+                self.ignore(whitespace)
+                if not self.more():
+                    break
+
+                # switch to command interpreter...
+                name = self.cmdname()
+                text = self.cmdtext()
+
+                oper = s_ast.CmdOper(kids=(name, text))
+                query.kids.append(oper)
+
+                # command is last query text case...
+                if not self.more():
+                    break
+
+                # back to storm mode...
+                if self.nextstr('|'):
+                    self.offs += 1
+                    continue
+
+                self._raiseSyntaxError('expected | or end of input for cmd')
 
             # parse a query option: %foo=10
             if self.nextstr('%'):
@@ -1211,6 +1240,27 @@ class Parser:
             self._raiseSyntaxError('expected variable name')
 
         return s_ast.Const(name)
+
+    def cmdname(self):
+
+        self.ignore(whitespace)
+
+        name = self.noms(cmdset)
+        if not name:
+            self._raiseSyntaxError(f'expected cmd name')
+
+        return s_ast.Const(name)
+
+    def cmdtext(self):
+        '''
+        --bar baz faz
+
+        Terminated by unescaped |
+        '''
+        # TODO: pipe escape syntax...
+        self.ignore(whitespace)
+        text = self.noms(until='|').strip()
+        return s_ast.Const(text)
 
     def quoted(self):
 

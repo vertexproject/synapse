@@ -419,6 +419,15 @@ class SynTest(unittest.TestCase):
     def getTestWait(self, bus, size, *evts):
         return s_eventbus.Waiter(bus, size, *evts)
 
+    def printed(self, msgs, text):
+        # a helper for testing storm print message output
+        for mesg in msgs:
+            if mesg[0] == 'print':
+                if mesg[1].get('mesg') == text:
+                    return
+
+        raise Exception('print output not found: %r' % (text,))
+
     def getTestSteps(self, names):
         '''
         Return a TestSteps instance for the given step names.

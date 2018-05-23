@@ -73,6 +73,39 @@ class CortexTest(SynTest):
 
             core.addFeedData('com.test.record', data)
 
+            # test the remote storm result counting API
+            self.eq(0, core.count('pivtarg'))
+            self.eq(1, core.count('inet:user'))
+
+    def test_cortex_stormcmd(self):
+
+        with self.getTestCore() as core:
+
+            msgs = list(core.storm('|help'))
+            self.printed(msgs, 'help: List commands and show help output for them.')
+
+            list(core.eval('[ inet:user=visi inet:user=whippit ]'))
+
+            self.len(2, list(core.eval('inet:user')))
+
+            # test cmd as last text syntax
+            self.len(1, list(core.eval('inet:user | limit 1')))
+
+            # test cmd and trailing pipe syntax
+            self.len(1, list(core.eval('inet:user | limit 1|')))
+
+            # test cmd and trailing pipe and whitespace syntax
+            self.len(1, list(core.eval('inet:user | limit 1    |     ')))
+
+            # test cmd and trailing pipe and whitespace syntax
+            self.len(2, list(core.eval('inet:user | limit 10 | [ #foo.bar ]')))
+            self.len(1, list(core.eval('inet:user | limit 10 | +inet:user=visi')))
+
+            # test invalid option sytnax
+            msgs = list(core.storm('inet:user | limit --woot'))
+            self.printed(msgs, 'usage: limit [-h] count')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+
     def test_cortex_onsetdel(self):
 
         with self.getTestCore() as core:
@@ -429,3 +462,26 @@ class CortexTest(SynTest):
             self.len(2, nodes)
             self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
             self.eq(nodes[1][0], ('teststr', 'bar'))
+
+    def test_cortex_node_repr(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap(write=True) as snap:
+
+                node = snap.addNode('inet:ipv4', 0x01020304)
+                self.eq('1.2.3.4', node.repr())
+
+                node = snap.addNode('inet:dns:a', ('woot.com', 0x01020304))
+                self.eq('1.2.3.4', node.repr('ipv4'))
+
+    def test_cortex_coverage(self):
+
+        # misc tests to increase code coverage
+        with self.getTestCore() as core:
+
+            node = (('teststr', 'foo'), {})
+
+            list(core.addNodes((node,)))
+
+            self.nn(core.getNodeByNdef(('teststr', 'foo')))

@@ -205,8 +205,12 @@ class Type:
 
         return func(valu)
 
-    def repr(self, norm):
-        return str(norm)
+    def repr(self, norm, defval=None):
+        '''
+        Return a printable representation for the value.  For types which need no
+        display processing, the normalized value should be returned.
+        '''
+        return defval
 
     def indx(self, norm):
         '''
@@ -304,9 +308,8 @@ class Bool(Type):
     def _normPyInt(self, valu):
         return int(bool(valu)), {}
 
-    def repr(self, valu):
+    def repr(self, valu, defval=None):
         return repr(bool(valu))
-
 
 class Comp(Type):
 
@@ -339,6 +342,28 @@ class Comp(Type):
 
         norm = tuple(norms)
         return norm, {'subs': subs, 'adds': adds}
+
+    def repr(self, valu, defval=None):
+
+        vals = []
+        fields = self.opts.get('fields')
+
+        hit = False
+        for valu, (name, typename) in zip(valu, fields):
+
+            # if any of our comp fields need repr we do too...
+            rval = self.modl.types[typename].repr(valu)
+
+            if rval is not None:
+                hit = True
+                vals.append(rval)
+            else:
+                vals.append(valu)
+
+        if hit:
+            return tuple(vals)
+
+        return defval
 
     def indx(self, norm):
         return s_common.buid(norm)
@@ -696,9 +721,15 @@ class Range(Type):
     def indx(self, norm):
         return self.subtype.indx(norm[0]) + self.subtype.indx(norm[1])
 
-    def repr(self, norm):
-        return (self.subtype.repr(norm[0]), self.subtype.repr(norm[1]))
+    def repr(self, norm, defval=None):
 
+        subx = self.subtype.repr(norm[0])
+        suby = self.subtype.repr(norm[1])
+
+        if subx is not None:
+            return (subx, suby)
+
+        return defval
 
 class Str(Type):
 
@@ -844,7 +875,7 @@ class Time(Type):
 
         return newv
 
-    def repr(self, valu):
+    def repr(self, valu, defval=None):
         return s_time.repr(valu)
 
     def indx(self, norm):
