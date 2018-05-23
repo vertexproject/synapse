@@ -7,16 +7,11 @@ import synapse.lib.storm as s_storm
 
 class AskCmd(s_cli.Cmd):
     '''
-    Execute a query.
+    Execute a storm query.
 
     Examples:
 
-        ask <query>          optional: --debug --[props|raw]
-
-        ask --raw            inet:ipv4=1.2.3.4
-        ask --debug          inet:ipv4=1.2.3.4
-        ask --hide-tags      inet:ipv4=1.2.3.4
-        ask --hide-props     inet:ipv4=1.2.3.4
+        ask inet:ipv4=1.2.3.4
     '''
 
     _cmd_name = 'ask'
