@@ -104,73 +104,119 @@ class DnsModelTest(s_test.SynTest):
                 self.eq(node.get('fqdn'), 'vertex.link')
                 self.eq(node.get('type'), 'aaaa')
 
+    # The inet:dns:look form has a large number of properties on it,
+    # its worth testing them separately.
+    def test_froms_dns_look(self):
+        tick = s_common.now()
+        proc0 = s_common.guid()
+        host0 = s_common.guid()
+        file0 = 'sha256:' + 'a' * 64
+        rcode = 0
+        addr0 = 'tcp://1.2.3.4:8080/'
+        addr1 = 'udp://[::1]:53/'
 
-class FIXME:
+        bprops = {
+            'time': tick,
+            'client': addr0,
+            'server': addr1,
+            'proc': proc0,
+            'exe': file0,
+            'host': host0,
+            'rcode': rcode,
+        }
 
-    def test_model_dns_look(self):
-        with self.getRamCore() as core:
-
-            tick = now()
-
-            props = {'a': 'WOOT.com/1.002.3.4', 'rcode': 0, 'time': tick, 'ipv4': '5.5.5.5', 'udp4': '8.8.8.8:80'}
-            t0 = core.formTufoByProp('inet:dns:look', '*', **props)
-            self.eq(t0[1].get('inet:dns:look:rcode'), 0)
-            self.eq(t0[1].get('inet:dns:look:ipv4'), 0x05050505)
-            self.eq(t0[1].get('inet:dns:look:udp4'), 0x080808080050)
-            self.eq(t0[1].get('inet:dns:look:time'), tick)
-            self.eq(t0[1].get('inet:dns:look:a'), 'woot.com/1.2.3.4')
-            self.eq(t0[1].get('inet:dns:look:a:fqdn'), 'woot.com')
-            self.eq(t0[1].get('inet:dns:look:a:ipv4'), 0x01020304)
-
-            t0 = core.formTufoByProp('inet:dns:look', '*', ns='WOOT.com/ns.yermom.com', time=tick)
-            self.eq(t0[1].get('inet:dns:look:time'), tick)
-            self.eq(t0[1].get('inet:dns:look:ns'), 'woot.com/ns.yermom.com')
-            self.eq(t0[1].get('inet:dns:look:ns:ns'), 'ns.yermom.com')
-            self.eq(t0[1].get('inet:dns:look:ns:zone'), 'woot.com')
-
-            t0 = core.formTufoByProp('inet:dns:look', '*', rev='1.2.3.4/WOOT.com', time=tick)
-            self.eq(t0[1].get('inet:dns:look:time'), tick)
-            self.eq(t0[1].get('inet:dns:look:rev'), '1.2.3.4/woot.com')
-            self.eq(t0[1].get('inet:dns:look:rev:fqdn'), 'woot.com')
-            self.eq(t0[1].get('inet:dns:look:rev:ipv4'), 0x01020304)
-
-            t0 = core.formTufoByProp('inet:dns:look', '*', aaaa='WOOT.com/FF::56', time=tick)
-            self.eq(t0[1].get('inet:dns:look:time'), tick)
-            self.eq(t0[1].get('inet:dns:look:aaaa'), 'woot.com/ff::56')
-            self.eq(t0[1].get('inet:dns:look:aaaa:fqdn'), 'woot.com')
-            self.eq(t0[1].get('inet:dns:look:aaaa:ipv6'), 'ff::56')
-
-            # test host execution lookup record
-            exe = s_common.guid()
-            host = s_common.guid()
-            proc = s_common.guid()
-
-            valu = {'host': host, 'proc': proc, 'exe': exe, 'a:fqdn': 'blah.com'}
-            t0 = core.formTufoByProp('inet:dns:look', valu)
-            self.eq(t0[1].get('inet:dns:look:exe'), exe)
-            self.eq(t0[1].get('inet:dns:look:host'), host)
-            self.eq(t0[1].get('inet:dns:look:proc'), proc)
-            self.eq(t0[1].get('inet:dns:look:a:fqdn'), 'blah.com')
-
-            self.nn(core.getTufoByProp('file:bytes', exe))
-            self.nn(core.getTufoByProp('it:host', host))
-            self.nn(core.getTufoByProp('it:exec:proc', proc))
-
-            # Ensure tcp4/udp4 values are broken out
-            valu = {'time': tick,
-                    'a': 'vertex.link/8.8.8.8',
-                    'tcp4': '1.2.3.6:53',
-                    'udp4': '1.2.3.7:8080'}
-            t0 = core.formTufoByProp('inet:dns:look', valu)
-            self.eq(t0[1].get('inet:dns:look:a:fqdn'), 'vertex.link')
-            self.eq(t0[1].get('inet:dns:look:a:ipv4'), 0x08080808)
-            self.eq(core.getTypeRepr('inet:tcp4', t0[1].get('inet:dns:look:tcp4')), '1.2.3.6:53')
-            self.eq(core.getTypeRepr('inet:udp4', t0[1].get('inet:dns:look:udp4')), '1.2.3.7:8080')
-            # Ensure the tertiary props for tcp4/udp4 are broken out
-            self.eq(t0[1].get('inet:dns:look:tcp4:ipv4'), 0x01020306)
-            self.eq(t0[1].get('inet:dns:look:tcp4:port'), 53)
-            self.eq(t0[1].get('inet:dns:look:udp4:ipv4'), 0x01020307)
-            self.eq(t0[1].get('inet:dns:look:udp4:port'), 8080)
-            # Ensure our autoadds are made
-            self.nn(core.getTufoByProp('inet:tcp4', '1.2.3.6:53'))
-            self.nn(core.getTufoByProp('inet:udp4', '1.2.3.7:8080'))
+        ip0 = 0x01010101
+        ip1 = '::2'
+        fqdn0 = 'woot.com'
+        fqdn1 = 'haha.com'
+        email0 = 'pennywise@vertex.ninja'
+        from pprint import pprint
+        print()
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                # test a base set of props once
+                node = snap.addNode('inet:dns:look', '*', bprops)
+                self.true(s_common.isguid(node.ndef[1]))
+                self.eq(node.get('exe'), file0)
+                self.eq(node.get('time'), tick)
+                self.eq(node.get('host'), host0)
+                self.eq(node.get('proc'), proc0)
+                self.eq(node.get('client:port'), 8080)
+                self.eq(node.get('client:ipv4'), 0x01020304)
+                self.eq(node.get('client'), 'tcp://1.2.3.4:8080')
+                self.eq(node.get('server:port'), 53)
+                self.eq(node.get('server:ipv6'), '::1')
+                self.eq(node.get('server'), 'udp://[::1]:53')
+                # swap client / server props and ensure the ipv4/ipv6 props
+                # are set when they were not in the previous node
+                props = bprops.copy()
+                props['client'] = addr1
+                props['server'] = addr0
+                node = snap.addNode('inet:dns:look', '*', props)
+                self.eq(node.get('server:ipv4'), 0x01020304)
+                self.eq(node.get('client:ipv6'), '::1')
+                # a record
+                props = {'a': (fqdn0, ip0),
+                         }
+                node = snap.addNode('inet:dns:look', '*', props)
+                self.eq(node.get('a'), (fqdn0, ip0))
+                self.eq(node.get('a:fqdn'), fqdn0)
+                self.eq(node.get('a:ipv4'), ip0)
+                # ns record
+                props = {'ns': (fqdn0, fqdn1),
+                         }
+                node = snap.addNode('inet:dns:look', '*', props)
+                self.eq(node.get('ns'), (fqdn0, fqdn1))
+                self.eq(node.get('ns:zone'), fqdn0)
+                self.eq(node.get('ns:ns'), fqdn1)
+                # rev record
+                props = {'rev': (ip0, fqdn0),
+                         }
+                node = snap.addNode('inet:dns:look', '*', props)
+                self.eq(node.get('rev'), (ip0, fqdn0))
+                self.eq(node.get('rev:ipv4'), ip0)
+                self.eq(node.get('rev:fqdn'), fqdn0)
+                # aaaa record
+                props = {'aaaa': (fqdn0, ip1),
+                         }
+                node = snap.addNode('inet:dns:look', '*', props)
+                self.eq(node.get('aaaa'), (fqdn0, ip1))
+                self.eq(node.get('aaaa:fqdn'), fqdn0)
+                self.eq(node.get('aaaa:ipv6'), ip1)
+                # cname record
+                props = {'cname': (fqdn0, fqdn1),
+                         }
+                node = snap.addNode('inet:dns:look', '*', props)
+                self.eq(node.get('cname'), (fqdn0, fqdn1))
+                self.eq(node.get('cname:fqdn'), fqdn0)
+                self.eq(node.get('cname:cname'), fqdn1)
+                # mx record
+                props = {'mx': (fqdn0, fqdn1)}
+                node = snap.addNode('inet:dns:look', '*', props)
+                self.eq(node.get('mx'), (fqdn0, fqdn1))
+                self.eq(node.get('mx:fqdn'), fqdn0)
+                self.eq(node.get('mx:mx'), fqdn1)
+                # soa record
+                props = {'soa': (fqdn0, fqdn1, email0),
+                         'soa:serial': 1,
+                         'soa:refresh': 2,
+                         'soa:retry': 3,
+                         'soa:expire': 4,
+                         'soa:min': 5,
+                         }
+                node = snap.addNode('inet:dns:look', '*', props)
+                self.eq(node.get('soa'), (fqdn0, fqdn1, email0))
+                self.eq(node.get('soa:fqdn'), fqdn0)
+                self.eq(node.get('soa:ns'), fqdn1)
+                self.eq(node.get('soa:email'), email0)
+                self.eq(node.get('soa:serial'), 1)
+                self.eq(node.get('soa:refresh'), 2)
+                self.eq(node.get('soa:retry'), 3)
+                self.eq(node.get('soa:expire'), 4)
+                self.eq(node.get('soa:min'), 5)
+                # txt record
+                props = {'txt': (fqdn0, 'Oh my!')}
+                node = snap.addNode('inet:dns:look', '*', props)
+                self.eq(node.get('txt'), (fqdn0, 'Oh my!'))
+                self.eq(node.get('txt:fqdn'), fqdn0)
+                self.eq(node.get('txt:txt'), 'Oh my!')
