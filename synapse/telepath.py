@@ -195,6 +195,7 @@ class Proxy(s_coro.Fini):
 
     '''
     def __init__(self, link, name):
+        super().__init__()
 
         self.link = link
         self.name = name
@@ -217,7 +218,13 @@ class Proxy(s_coro.Fini):
         async def fini():
             for item in list(self.shares.values()):
                 await item.fini()
-        self.link.onfini(fini)
+            for name, task in list(self.tasks.items()):
+                task.reply((False, (('IsFini', {}))))
+                del self.tasks[name]
+            await self.link.fini()
+
+        self.onfini(fini)
+        self.link.onfini(self.fini)
 
     async def _onShareFini(self, mesg):
 
