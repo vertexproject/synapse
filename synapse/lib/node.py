@@ -1,11 +1,13 @@
+# stdlib
 import logging
+# third party code
+# custom code
+import synapse.exc as s_exc
+import synapse.common as s_common
+import synapse.lib.chop as s_chop
 
 logger = logging.getLogger(__name__)
 
-import synapse.exc as s_exc
-import synapse.common as s_common
-
-import synapse.lib.chop as s_chop
 
 class Node:
     '''
@@ -18,7 +20,7 @@ class Node:
         self.snap = snap
 
         self.buid = buid
-        self.init = False   # True if the node is being added.
+        self.init = False  # True if the node is being added.
 
         # if set, the node is complete.
         self.ndef = None
@@ -29,7 +31,7 @@ class Node:
         self.univs = {}
 
         self.vars = {}  # runtime storm variables
-        #self.runt = {}  # a runtime info dict for things like storm
+        # self.runt = {}  # a runtime info dict for things like storm
 
         # self.buid may be None during
         # initial node construction...

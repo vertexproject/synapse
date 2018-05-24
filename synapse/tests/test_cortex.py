@@ -1,26 +1,22 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.tests.common as s_t_common
 
-import synapse.lib.types as s_types
-import synapse.lib.module as s_module
+class CortexTest(s_t_common.SynTest):
 
-from synapse.tests.common import *
-
-class CortexTest(SynTest):
-
-    def test_cortex_onadd(self):
+    def test_onadd(self):
 
         with self.getTestCore() as core:
 
             with core.snap(write=True) as snap:
 
-                func = CallBack()
+                func = s_t_common.CallBack()
                 core.model.form('inet:ipv4').onAdd(func)
 
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
                 self.eq(node.buid, func.args[0].buid)
 
-    def test_cortex_adddata(self):
+    def test_adddata(self):
 
         data = ('foo', 'bar', 'baz')
 
@@ -36,18 +32,18 @@ class CortexTest(SynTest):
 
             self.eq(vals, ('bar', 'baz', 'foo'))
 
-    def test_cortex_indxchop(self):
+    def test_indxchop(self):
 
         with self.getTestCore() as core:
 
             with core.snap(write=True) as snap:
                 valu = 'a' * 257
-                node = snap.addNode('teststr', valu)
+                snap.addNode('teststr', valu)
 
                 nodes = list(snap.getNodesBy('teststr', 'aa', cmpr='^='))
                 self.len(1, nodes)
 
-    def test_cortex_cell(self):
+    def test_cell(self):
 
         data = ('foo', 'bar', 'baz')
 
@@ -77,7 +73,7 @@ class CortexTest(SynTest):
             self.eq(0, core.count('pivtarg'))
             self.eq(1, core.count('inet:user'))
 
-    def test_cortex_stormcmd(self):
+    def test_stormcmd(self):
 
         with self.getTestCore() as core:
 
@@ -109,13 +105,13 @@ class CortexTest(SynTest):
             self.printed(msgs, 'usage: limit [-h] count')
             self.len(0, [m for m in msgs if m[0] == 'node'])
 
-    def test_cortex_onsetdel(self):
+    def test_onsetdel(self):
 
         with self.getTestCore() as core:
 
             with core.snap(write=True) as snap:
 
-                func = CallBack()
+                func = s_t_common.CallBack()
                 core.model.prop('inet:ipv4:loc').onSet(func)
 
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
@@ -124,7 +120,7 @@ class CortexTest(SynTest):
                 self.eq(func.args[0].buid, node.buid)
                 self.eq(func.args[1], '??')
 
-                func = CallBack()
+                func = s_t_common.CallBack()
                 core.model.prop('inet:ipv4:loc').onDel(func)
 
                 node.pop('loc')
@@ -138,7 +134,7 @@ class CortexTest(SynTest):
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
                 self.none(node.get('loc'))
 
-    def test_cortex_tags(self):
+    def test_tags(self):
 
         with self.getTestCore() as core:
 
@@ -184,7 +180,7 @@ class CortexTest(SynTest):
                 self.false(node.hasTag('foo'))
                 self.false(node.hasTag('foo.bar'))
 
-    def test_cortex_base_types(self):
+    def test_base_types(self):
 
         with self.getTestCore() as core:
 
@@ -291,7 +287,7 @@ class CortexTest(SynTest):
                 self.eq(nodes[0].get('hehe'), 33)
                 self.eq(nodes[0].ndef[1], (33, 'thirty three'))
 
-    def test_cortex_pivprop(self):
+    def test_pivprop(self):
 
         with self.getTestCore() as core:
 
@@ -308,7 +304,7 @@ class CortexTest(SynTest):
                 pivc = snap.getNodeByNdef(('pivcomp', ('woot', 'rofl')))
                 self.eq(pivc.get('targ::name'), 'visi')
 
-    def test_cortex_storm(self):
+    def test_storm(self):
 
         with self.getTestCore() as core:
 
@@ -349,7 +345,8 @@ class CortexTest(SynTest):
             nodes = [n.pack() for n in core.eval('teststr="foo bar" -teststr:tick')]
             self.len(1, nodes)
 
-            nodes = [n.pack() for n in core.eval('teststr="foo bar" +teststr="foo bar" [ :tick=2015 ] +teststr:tick=2015')]
+            qstr = 'teststr="foo bar" +teststr="foo bar" [ :tick=2015 ] +teststr:tick=2015'
+            nodes = [n.pack() for n in core.eval(qstr)]
             self.len(1, nodes)
 
             ndef = ('testcomp', (10, 'haha'))
@@ -372,7 +369,7 @@ class CortexTest(SynTest):
             for node in core.eval('teststr=$foo', opts=opts):
                 self.eq('bar', node.ndef[1])
 
-    def test_cortex_feed_splice(self):
+    def test_feed_splice(self):
 
         iden = s_common.guid()
 
@@ -418,7 +415,7 @@ class CortexTest(SynTest):
                 node = snap.getNodeByNdef(('teststr', 'foo'))
                 self.none(node.getTag('bar'))
 
-    def test_cortex_strict(self):
+    def test_strict(self):
 
         with self.getTestCore() as core:
 
@@ -436,7 +433,7 @@ class CortexTest(SynTest):
                 self.false(node.set('newpnewp', 10))
                 self.false(node.set('tick', (20, 30)))
 
-    def test_cortex_getcoremods(self):
+    def test_getcoremods(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
             with dmon._getTestProxy('core', **pconf) as core:
@@ -446,7 +443,7 @@ class CortexTest(SynTest):
                 self.nn(conf)
                 self.eq(conf.get('key'), 'valu')
 
-    def test_cortex_cell_splices(self):
+    def test_cell_splices(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
@@ -460,7 +457,7 @@ class CortexTest(SynTest):
 
                 self.ge(len(list(core.splices(0, 1000))), 2)
 
-    def test_cortex_pivot_inout(self):
+    def test_pivot_inout(self):
 
         with self.getTestCore() as core:
 
@@ -490,7 +487,7 @@ class CortexTest(SynTest):
             self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
             self.eq(nodes[1][0], ('teststr', 'bar'))
 
-    def test_cortex_node_repr(self):
+    def test_node_repr(self):
 
         with self.getTestCore() as core:
 
@@ -502,7 +499,7 @@ class CortexTest(SynTest):
                 node = snap.addNode('inet:dns:a', ('woot.com', 0x01020304))
                 self.eq('1.2.3.4', node.repr('ipv4'))
 
-    def test_cortex_coverage(self):
+    def test_coverage(self):
 
         # misc tests to increase code coverage
         with self.getTestCore() as core:
