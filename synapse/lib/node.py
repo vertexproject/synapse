@@ -197,33 +197,31 @@ class Node:
         Returns:
             (obj): The secondary property value or None.
         '''
-        if name.find('::') != -1:
+        parts = name.split('::', 1)
 
-            name, text = name.split('::', 1)
+        if len(parts) is 1:
+            name = parts[0]
+            if name.startswith('#'):
+                return self.tags.get(name)
+            return self.props.get(name)
 
-            prop = self.form.props.get(name)
-            if prop is None:
-                raise s_exc.NoSuchProp(prop=name, form=self.form.name)
+        name, text = parts
+        prop = self.form.props.get(name)
+        if prop is None:
+            raise s_exc.NoSuchProp(prop=name, form=self.form.name)
 
-            valu = self.props.get(name, s_common.novalu)
-            if valu is s_common.novalu:
-                return None
+        valu = self.props.get(name, s_common.novalu)
+        if valu is s_common.novalu:
+            return None
 
-            form = self.snap.model.form(prop.type.name)
-            if form is None:
-                raise s_exc.NoSuchForm(form=prop.type.name)
+        form = self.snap.model.form(prop.type.name)
+        if form is None:
+            raise s_exc.NoSuchForm(form=prop.type.name)
 
-            node = self.snap.getNodeByNdef((form.name, valu))
-            return node.get(text)
-
-        if name[0] == '#':
-            return self.tags.get(name)
-
-        return self.props.get(name)
+        node = self.snap.getNodeByNdef((form.name, valu))
+        return node.get(text)
 
     def pop(self, name, init=False):
-        '''
-        '''
         prop = self.form.prop(name)
 
         if prop is None:
