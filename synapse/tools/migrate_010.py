@@ -642,6 +642,8 @@ class Migrator:
         return propname, '%s://%s' % (formname[-3:], addrport)
 
     subprop_special = {
+        'inet:exec:url:ipv4': ipv4_to_client,
+        'inet:exec:url:ipv6': ipv6_to_client,
         'inet:web:logon:ipv4': ipv4_to_client,
         'inet:web:logon:ipv6': ipv6_to_client,
         'inet:web:action:ipv4': ipv4_to_client,
