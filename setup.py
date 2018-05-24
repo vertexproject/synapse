@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='synapse',
-    version='0.1.0',
+    version='0.1.0-alpha',
     description='Synapse Distributed Key-Value Hypergraph Analysis Framework',
     author='Invisigoth Kenshoto',
     author_email='invisigoth.kenshoto@gmail.com',
