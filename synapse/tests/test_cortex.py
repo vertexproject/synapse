@@ -1,12 +1,8 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.tests.common as s_tests
 
-import synapse.lib.types as s_types
-import synapse.lib.module as s_module
-
-from synapse.tests.common import *
-
-class CortexTest(SynTest):
+class CortexTest(s_tests.SynTest):
 
     def test_cortex_onadd(self):
 
@@ -14,7 +10,7 @@ class CortexTest(SynTest):
 
             with core.snap(write=True) as snap:
 
-                func = CallBack()
+                func = s_tests.CallBack()
                 core.model.form('inet:ipv4').onAdd(func)
 
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
@@ -42,7 +38,7 @@ class CortexTest(SynTest):
 
             with core.snap(write=True) as snap:
                 valu = 'a' * 257
-                node = snap.addNode('teststr', valu)
+                snap.addNode('teststr', valu)
 
                 nodes = list(snap.getNodesBy('teststr', 'aa', cmpr='^='))
                 self.len(1, nodes)
@@ -115,7 +111,7 @@ class CortexTest(SynTest):
 
             with core.snap(write=True) as snap:
 
-                func = CallBack()
+                func = s_tests.CallBack()
                 core.model.prop('inet:ipv4:loc').onSet(func)
 
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
@@ -124,7 +120,7 @@ class CortexTest(SynTest):
                 self.eq(func.args[0].buid, node.buid)
                 self.eq(func.args[1], '??')
 
-                func = CallBack()
+                func = s_tests.CallBack()
                 core.model.prop('inet:ipv4:loc').onDel(func)
 
                 node.pop('loc')
@@ -349,7 +345,8 @@ class CortexTest(SynTest):
             nodes = [n.pack() for n in core.eval('teststr="foo bar" -teststr:tick')]
             self.len(1, nodes)
 
-            nodes = [n.pack() for n in core.eval('teststr="foo bar" +teststr="foo bar" [ :tick=2015 ] +teststr:tick=2015')]
+            nodes = [n.pack() for n in core.eval(
+                'teststr="foo bar" +teststr="foo bar" [ :tick=2015 ] +teststr:tick=2015')]
             self.len(1, nodes)
 
             ndef = ('testcomp', (10, 'haha'))
