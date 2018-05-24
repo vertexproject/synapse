@@ -195,7 +195,7 @@ class Proxy(s_coro.Fini):
 
     '''
     def __init__(self, link, name):
-        super().__init__()
+        s_coro.Fini.__init__(self)
 
         self.link = link
         self.name = name
