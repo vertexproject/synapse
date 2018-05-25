@@ -530,6 +530,5 @@ class CortexTest(s_tests.SynTest):
                 # Now change asn in the "higher" layer
                 changed_node = (('inet:ipv4', 1), {'props': {'asn': 43}})
                 nodes = list(core.addNodes([changed_node]))
-                import ipdb; ipdb.set_trace()
                 nodes = list(core.getNodesBy('inet:ipv4:asn', 42))
                 self.len(0, nodes)
