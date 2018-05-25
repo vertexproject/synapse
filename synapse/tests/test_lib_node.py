@@ -129,3 +129,9 @@ class NodeTest(s_t_common.SynTest):
                 self.true(node.hasTag('#cool'))
                 self.false(node.hasTag('notcool'))
                 self.false(node.hasTag('#notcool'))
+
+                # Demonstrate that valu is only applied at the level that addTag is called
+                node.addTag('cool.beans.abc', valu=(1, 8))
+                self.eq(node.getTag('cool.beans.abc'), (1, 8))
+                self.eq(node.getTag('cool.beans'), (None, None))
+                self.eq(node.getTag('cool'), (-5, 0))  # from above
