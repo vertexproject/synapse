@@ -26,6 +26,7 @@ import tempfile
 import unittest
 import threading
 import contextlib
+from typing import Dict, Any
 
 import synapse.axon as s_axon
 import synapse.data as s_data
@@ -590,11 +591,18 @@ class SynTest(unittest.TestCase):
                 env.fini()
 
     @contextlib.contextmanager
-    def getTestCore(self, mirror='testcore'):
+    def getTestCore(self, mirror='testcore', conf: Dict[str, Any] = None):
         '''
         Return a simple test Cortex.
+
+        Args:
+           conf:  additional configuration entries.  Combined with contents from mirror.
         '''
         with self.getTestDir(mirror=mirror) as dirn:
+            if conf is not None:
+                oldconf = s_common.yamlload(dirn, 'cell.yaml')
+                s_common.yamlsave({**oldconf, **conf}, dirn, 'cell.yaml')
+
             with s_cortex.Cortex(dirn) as core:
                 yield core
 
