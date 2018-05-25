@@ -308,19 +308,25 @@ class Node:
         if curv == valu:
             return
 
-        if curv is not None:
-            # merge tag and move along...
+        elif curv is None:
+            tags = s_chop.tags(name)
+            for tag in tags[:-1]:
+
+                if self.tags.get(tag) is not None:
+                    continue
+
+                self._addTagRaw(tag, (None, None))
+
+            self._addTagRaw(tags[-1], valu)
             return
 
-        tags = s_chop.tags(name)
-        for tag in tags[:-1]:
+        indx = self.snap.model.types['ival'].indx(valu)
+        info = {'univ': True}
+        self._setTagProp(name, valu, indx, info)
 
-            if self.tags.get(tag) is not None:
-                continue
-
-            self._addTagRaw(tag, (None, None))
-
-        self._addTagRaw(tags[-1], valu)
+    def _setTagProp(self, name, norm, indx, info):
+        self.tags[name] = norm
+        self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),))
 
     def _addTagRaw(self, name, norm):
 
@@ -333,12 +339,7 @@ class Node:
         else:
             indx = self.snap.model.types['ival'].indx(norm)
 
-        sops = (
-            ('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),
-        )
-
-        self.tags[name] = norm
-        self.snap.stor(sops)
+        self._setTagProp(name, norm, indx, info)
 
         # TODO: fire an onTagAdd handler...
         self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)

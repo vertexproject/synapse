@@ -115,8 +115,15 @@ class NodeTest(s_t_common.SynTest):
             with core.snap(write=True) as snap:
                 node = snap.addNode(form, valu, props=props)
 
+                # Add a tag
                 node.addTag('cool', valu=(1, 2))
+                self.eq(node.getTag('cool'), (1, 2))
                 node.addTag('cool', valu=(1, 2))  # Add again
+                self.eq(node.getTag('cool'), (1, 2))
+                node.addTag('cool', valu=(1, 3))  # Add again with different valu
+                self.eq(node.getTag('cool'), (1, 3))
+                node.addTag('cool', valu=(-5, 0))  # Add again with different valu
+                self.eq(node.getTag('cool'), (-5, 0))  # Does not merge, overwrites
 
                 self.true(node.hasTag('cool'))
                 self.true(node.hasTag('#cool'))
