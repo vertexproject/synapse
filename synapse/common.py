@@ -23,6 +23,8 @@ import regex
 
 import synapse.exc as s_exc
 
+from synapse.exc import *
+
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
