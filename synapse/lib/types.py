@@ -543,6 +543,9 @@ class Int(Type):
     def indx(self, valu):
         return (valu + self._indx_offset).to_bytes(self.size, 'big')
 
+    def repr(self, norm, defval=None):
+        return str(norm)
+
 
 class Ival(Type):
 

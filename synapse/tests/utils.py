@@ -99,10 +99,22 @@ class TestType(s_types.Type):
     def indx(self, norm):
         return norm.encode('utf8')
 
+class ThreeType(s_types.Type):
+
+    def norm(self, valu):
+        return 3, {'subs': {'three': 3}}
+
+    def repr(self, valu):
+        return '3'
+
+    def indx(self, norm):
+        return '3'.encode('utf8')
+
 testmodel = {
 
     'ctors': (
         ('testtype', 'synapse.tests.utils.TestType', {}, {}),
+        ('testthreetype', 'synapse.tests.utils.ThreeType', {}, {}),
     ),
 
     'types': (
@@ -155,6 +167,9 @@ testmodel = {
             ('tick', ('testtime', {}), {}),
         )),
 
+        ('testthreetype', {}, (
+            ('three', ('int', {}), {}),
+        )),
         ('testauto', {}, ()),
         ('testhexa', {}, ()),
         ('testhex4', {}, ()),

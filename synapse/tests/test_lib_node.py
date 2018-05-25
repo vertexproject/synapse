@@ -80,6 +80,45 @@ class NodeTest(s_t_common.SynTest):
                 self.raises(s_exc.NoSuchProp, node.get, 'neat::tick')  # implicit pivot from neat (not a prop) to tick
                 self.raises(s_exc.NoSuchForm, node.get, 'tick::tick')  # implicit pivot from neat to tick (not a form)
                 self.none(node.get('bar::bar'))  # implicit piviot from bar to bar
-    '''
-    To Test: set (finish), pop, repr, reprs, hasTag, getTag, addTag, delTag
-    '''
+
+    def test_pop(self):
+        raise NotImplementedError()
+
+    def test_repr(self):
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+
+                form = 'teststr'
+                valu = 'cool'
+                props = {'tick': 12345}
+                node = snap.addNode(form, valu, props=props)
+                self.none(node.repr())
+                self.eq(node.repr('tick'), '1970/01/01 00:00:12.345')
+
+                form = 'testthreetype'
+                valu = 'cool'
+                node = snap.addNode(form, valu)
+                self.eq(node.repr(), '3')
+                reprs = {k: v for (k, v) in node.reprs().items() if not k.startswith('.')}
+                self.eq(reprs.get('three'), '3')
+
+    def test_tags(self):
+        # addTag
+        # hasTag
+        # getTag
+        # delTag
+        form = 'teststr'
+        valu = 'cool'
+        props = {'tick': 12345}
+
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(form, valu, props=props)
+
+                node.addTag('cool', valu=(1, 2))
+                node.addTag('cool', valu=(1, 2))  # Add again
+
+                self.true(node.hasTag('cool'))
+                self.true(node.hasTag('#cool'))
+                self.false(node.hasTag('notcool'))
+                self.false(node.hasTag('#notcool'))
