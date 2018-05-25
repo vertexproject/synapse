@@ -1,6 +1,6 @@
 import logging
 import contextlib
-import collections
+from typing import Optional
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -9,7 +9,7 @@ import synapse.eventbus as s_eventbus
 import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
-import synapse.lib.msgpack as s_msgpack
+import synapse.datamodel as s_datamodel
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class Snap(s_eventbus.EventBus):
         self.elevated = False
 
         self.core = core
-        self.model = core.model
+        self.model: s_datamodel.Model = core.model
         self.layers = layers
 
         self.bulk = False
@@ -110,7 +110,7 @@ class Snap(s_eventbus.EventBus):
         if self.user is None:
             return True
 
-        #TODO elevated()
+        # TODO elevated()
         return self.user.allowed(args)
 
     def printf(self, mesg):
@@ -174,8 +174,6 @@ class Snap(s_eventbus.EventBus):
         fenc = form.name.encode('utf8') + b'\x00'
         tenc = b'#' + tag.encode('utf8') + b'\x00'
 
-        pref = fenc + tenc
-
         iops = (('pref', b''), )
 
         lops = (
@@ -210,13 +208,27 @@ class Snap(s_eventbus.EventBus):
 
     def _getNodesByProp(self, full, valu=None, cmpr='='):
 
-        prop = self.model.prop(full)
+        prop: Optional[s_datamodel.Prop] = self.model.prop(full)
         if prop is None:
             raise s_exc.NoSuchProp(name=full)
 
         lops = prop.getLiftOps(valu, cmpr=cmpr)
-        for row, node in self.getLiftNodes(lops):
-            yield node
+
+        # We might actually lift nodes for which the comparison matches on lower layers, but doesn't on upper layers.
+        # We re-filter the nodes to catch these.
+
+        # FIXME: having to check type is awkward
+        if len(self.layers) > 1 and isinstance(prop, s_datamodel.Prop):
+            filt = prop.filt(text=valu, cmpr=cmpr)
+        else:
+            filt = None
+
+        # FIXME:  having to pack is awkward
+
+        if filt:
+            return (node for _, node in self.getLiftNodes(lops) if filt(node.pack()))
+        else:
+            return (node for _, node in self.getLiftNodes(lops))
 
     def addNode(self, name, valu, props=None):
         '''
@@ -283,18 +295,17 @@ class Snap(s_eventbus.EventBus):
             props = {}
 
         # store an original copy of the props for the splice.
-        orig = props.copy()
+        # orig = props.copy()
 
         sops = []
 
-        init = False
         node = self.getNodeByBuid(buid)
 
         if node is not None:
 
             # maybe set some props...
             for name, valu in props.items():
-                #TODO: node.merge(name, valu)
+                # TODO: node.merge(name, valu)
                 node.set(name, valu)
 
             return node

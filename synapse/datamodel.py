@@ -146,12 +146,12 @@ class Prop:
         '''
         Construct a filter function for nodes by property.
         '''
-        typefilt = self.type().filt(text, cmpr=cmpr)
+        typefilt = self.type.getFiltFunc(text=text, cmpr=cmpr)
         if typefilt is None:
             return
 
         def func(node):
-            valu = node[1]['props'].get(self._prop_name)
+            valu = node[1]['props'].get(self.name)
             return typefilt(valu)
 
         return func
