@@ -41,13 +41,15 @@ class NodeTest(s_t_common.SynTest):
                 self.false(node.set('tick', 12345))
                 self.raises(s_exc.NoSuchProp, node.set, 'notreal', 12345)
 
-                # FIXME do these
-                # Strict mode disabled
-                # no perms
-                # readonly prop
-                # merge
-                # auto adds / subprops
-                # wasset event
+                with self.getTestDir() as dirn:
+                    with s_auth.Auth(dirn) as auth:
+                        user = auth.addUser('hatguy2')
+                        snap.setUser(user)
+
+                        self.raises(s_exc.AuthDeny, node.set, 'tick', 1)
+                        snap.strict = False
+                        self.false(node.set('tick', 1))
+                        snap.strict = True
 
     def test_has(self):
         form = 'teststr'
@@ -104,10 +106,6 @@ class NodeTest(s_t_common.SynTest):
                 self.eq(reprs.get('three'), '3')
 
     def test_tags(self):
-        # addTag
-        # hasTag
-        # getTag
-        # delTag
         form = 'teststr'
         valu = 'cool'
         props = {'tick': 12345}
