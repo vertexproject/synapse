@@ -157,7 +157,7 @@ class Plex(s_eventbus.EventBus):
         Arrange for the function to be called after a given delay.
 
         Args:
-            when (float): Time to delay the function call for.
+            delay (float): Time to delay the function call for.
             func: Function to call.
 
         Notes:
@@ -182,7 +182,7 @@ class Plex(s_eventbus.EventBus):
         def _func():
             self.loop.call_later(delay, func)
 
-        return self.callSoonSafe(_func)
+        self.callSoonSafe(_func)
 
     def callAt(self, when, func):
         '''
@@ -224,8 +224,8 @@ class Plex(s_eventbus.EventBus):
         Get the current loop time.
 
         Notes:
-            This is the loop's monotomic time. It is not a substitute for
-            ``time.time``.
+            This is the loop's monotonically increasing time. It is not a
+            substitute for ``time.time``.
 
         Returns:
             float: The current loop time.
