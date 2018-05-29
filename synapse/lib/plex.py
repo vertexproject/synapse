@@ -20,7 +20,7 @@ class Plex(s_eventbus.EventBus):
 
         s_eventbus.EventBus.__init__(self)
 
-        self.loop = asyncio.new_event_loop()
+        self.loop = asyncio.new_event_loop()  # type: asyncio.AbstractEventLoop
 
         self.links = {}
 
@@ -151,6 +151,86 @@ class Plex(s_eventbus.EventBus):
 
     def callSoonSafe(self, func):
         return self.loop.call_soon_threadsafe(func)
+
+    def callLater(self, delay, func):
+        '''
+        Arrange for the function to be called after a given delay.
+
+        Args:
+            when (float): Time to delay the function call for.
+            func: Function to call.
+
+        Notes:
+            This API is thread safe, as it wraps the underlying ``call_later()``
+            via ``call_soon_threadsafe()``. Functions requiring args or kwargs
+            should be wrapped via ``functools.partial()``.
+
+        Examples:
+            Call a function with a 5 second delay:
+
+                s_glob.plex.callLater(5, func)
+
+            Call a wrapped function using functools.partial:
+
+                import functools
+                partial = functools.partial(someFunc, someArg, key=2)
+                s_glob.plex.callAt(5, partial)
+
+        Returns:
+            None
+        '''
+        def _func():
+            self.loop.call_later(delay, func)
+
+        return self.callSoonSafe(_func)
+
+    def callAt(self, when, func):
+        '''
+        Arrange for the function to be called at a later time.  The time
+        reference for this is the IOLoop's time.
+
+        Args:
+            when (float): Time to call the function at.
+            func: Function to call.
+
+        Notes:
+            This API is thread safe, as it wraps the underlying ``call_at()``
+            via ``call_soon_threadsafe()``. Functions requiring args or kwargs
+            should be wrapped via ``functools.partial()``.
+
+        Examples:
+            Call a function 60 seconds from the current loop time:
+
+                t0 = s_glob.plex.time()
+                s_glob.plex.callAt(t0 + 60, func)
+
+            Call a wrapped function using functools.partial:
+
+                import functools
+                partial = functools.partial(someFunc, someArg, key=2)
+                t0 = s_glob.plex.time()
+                s_glob.plex.callAt(t0 + 60, partial)
+
+        Returns:
+            None
+        '''
+        def _func():
+            self.loop.call_at(when, func)
+
+        self.callSoonSafe(_func)
+
+    def time(self):
+        '''
+        Get the current loop time.
+
+        Notes:
+            This is the loop's monotomic time. It is not a substitute for
+            ``time.time``.
+
+        Returns:
+            float: The current loop time.
+        '''
+        return self.loop.time()
 
     async def _linkRxLoop(self, link):
 
