@@ -20,14 +20,18 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
+openlayers = {}
+
 
 class Encoder(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8') + b'\x00'
 
+
 class Utf8er(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8')
+
 
 class Xact(s_eventbus.EventBus):
     '''
@@ -99,6 +103,7 @@ class Xact(s_eventbus.EventBus):
             props.append((prop, valu))
 
         return props
+
 
 class Layer(s_cell.Cell):
     '''
@@ -320,8 +325,6 @@ class Layer(s_cell.Cell):
         Return a transaction object for the layer.
         '''
         return Xact(self, write=write)
-
-openlayers = {}
 
 def opendir(*path):
     '''
