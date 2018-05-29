@@ -39,6 +39,8 @@ class Snap(s_eventbus.EventBus):
         self.strict = True
         self.elevated = False
 
+        self.permcache = None
+
         self.core = core
         self.model = core.model
         self.layers = layers
@@ -101,17 +103,36 @@ class Snap(s_eventbus.EventBus):
         return self.xact.getOffset(iden, offs)
 
     def setUser(self, user):
-        self.user = user
 
-    @s_cache.memoize(size=1000)
+        # If user is set to None, clear and remove the permcache
+        if user is None:
+            self.user = None
+            if self.permcache is not None:
+                self.permcache.clear()
+            self.permcache = None
+            return
+
+        # If the user is set to something, but self.user is already set,
+        # replace the user and clear the cache
+        elif self.user is not None:
+            self.user = user
+            if self.permcache is not None:
+                self.permcache.clear()
+
+        # If the user is set to something, and self.user is not already set,
+        # add the user and set up the cache
+        else:
+            self.user = user
+            self.permcache = s_cache.FixedCache(self.user.allowed, size=1000)
+
     def allowed(self, *args):
-
         # a user will be set by auth subsystem if enabled
         if self.user is None:
             return True
 
-        #TODO elevated()
-        return self.user.allowed(args)
+        else:
+            #TODO elevated()
+            return self.permcache.get(args)
 
     def printf(self, mesg):
         self.fire('print', mesg=mesg)
