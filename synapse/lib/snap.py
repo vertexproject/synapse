@@ -1,17 +1,15 @@
 import logging
 import contextlib
-import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
-
 import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
-import synapse.lib.msgpack as s_msgpack
+import synapse.eventbus as s_eventbus
 
 logger = logging.getLogger(__name__)
+
 
 class Snap(s_eventbus.EventBus):
     '''
@@ -117,7 +115,7 @@ class Snap(s_eventbus.EventBus):
             return True
 
         else:
-            #TODO elevated()
+            # TODO elevated()
             return self.permcache.get(args)
 
     def printf(self, mesg):
@@ -181,8 +179,6 @@ class Snap(s_eventbus.EventBus):
         fenc = form.name.encode('utf8') + b'\x00'
         tenc = b'#' + tag.encode('utf8') + b'\x00'
 
-        pref = fenc + tenc
-
         iops = (('pref', b''), )
 
         lops = (
@@ -204,7 +200,8 @@ class Snap(s_eventbus.EventBus):
         Yields:
             (synapse.lib.node.Node): Node instances.
         '''
-        if self.debug: self.printf(f'get nodes by: {full} {cmpr} {valu!r}')
+        if self.debug:
+            self.printf(f'get nodes by: {full} {cmpr} {valu!r}')
 
         if full.startswith('#'):
             return self._getNodesByTag(full, valu=valu, cmpr=cmpr)
@@ -289,19 +286,14 @@ class Snap(s_eventbus.EventBus):
         if props is None:
             props = {}
 
-        # store an original copy of the props for the splice.
-        orig = props.copy()
-
         sops = []
 
-        init = False
         node = self.getNodeByBuid(buid)
-
         if node is not None:
 
             # maybe set some props...
             for name, valu in props.items():
-                #TODO: node.merge(name, valu)
+                # TODO: node.merge(name, valu)
                 node.set(name, valu)
 
             return node
