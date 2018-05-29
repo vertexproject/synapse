@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.lib.auth as s_auth
 import synapse.tests.common as s_t_common
 
 class NodeTest(s_t_common.SynTest):
@@ -136,5 +137,22 @@ class NodeTest(s_t_common.SynTest):
                 self.eq(node.getTag('cool.beans'), (None, None))
                 self.eq(node.getTag('cool'), (-5, 0))  # from above
 
-                snap.setUser('fake')
-                node.addTag('newp', valu=(1, 8))
+                with self.getTestDir() as dirn:
+                    with s_auth.Auth(dirn) as auth:
+                        user = auth.addUser('hatguy')
+                        snap.setUser(user)
+
+                        self.raises(s_exc.AuthDeny, node.set, 'tick', 1)
+                        snap.strict = False
+                        self.false(node.set('tick', 1))
+                        snap.strict = True
+
+                        self.raises(s_exc.AuthDeny, node.addTag, 'newp')
+                        snap.strict = False
+                        self.false(node.addTag('newp'))
+                        snap.strict = True
+
+                        self.raises(s_exc.AuthDeny, node.delTag, 'newp')
+                        snap.strict = False
+                        self.false(node.delTag('newp'))
+                        snap.strict = True

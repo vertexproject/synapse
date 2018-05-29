@@ -298,6 +298,7 @@ class Node:
                 raise s_exc.AuthDeny(mesg, tag=tag)
 
             self.snap.warn(f'AuthDeny: tag:add {tag}')
+            return False
 
         if valu != (None, None):
             valu = self.snap.model.type('ival').norm(valu)[0]
