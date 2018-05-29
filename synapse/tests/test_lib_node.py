@@ -114,6 +114,8 @@ class NodeTest(s_t_common.SynTest):
 
         with self.getTestCore() as core:
             with core.snap(write=True) as snap:
+                self.true(snap.strict)
+
                 node = snap.addNode(form, valu, props=props)
 
                 # Add a tag
@@ -137,6 +139,11 @@ class NodeTest(s_t_common.SynTest):
                 self.eq(node.getTag('cool.beans'), (None, None))
                 self.eq(node.getTag('cool'), (-5, 0))  # from above
 
+                self.raises(s_exc.NoSuchProp, node.pop, 'nope')
+                snap.strict = False
+                self.false(node.pop('nope'))
+                snap.strict = True
+
                 with self.getTestDir() as dirn:
                     with s_auth.Auth(dirn) as auth:
                         user = auth.addUser('hatguy')
@@ -155,4 +162,9 @@ class NodeTest(s_t_common.SynTest):
                         self.raises(s_exc.AuthDeny, node.delTag, 'newp')
                         snap.strict = False
                         self.false(node.delTag('newp'))
+                        snap.strict = True
+
+                        self.raises(s_exc.AuthDeny, node.pop, 'tick')
+                        snap.strict = False
+                        self.false(node.pop('tick'))
                         snap.strict = True
