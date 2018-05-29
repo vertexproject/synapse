@@ -39,6 +39,7 @@ class NodeTest(s_t_common.SynTest):
                 node = snap.addNode(form, valu, props=props)
 
                 self.false(node.set('tick', 12345))
+                self.none(node.set('tick', 123456))
                 self.raises(s_exc.NoSuchProp, node.set, 'notreal', 12345)
 
                 with self.getTestDir() as dirn:
@@ -85,7 +86,29 @@ class NodeTest(s_t_common.SynTest):
                 self.none(node.get('bar::bar'))  # implicit piviot from bar to bar
 
     def test_pop(self):
-        raise NotImplementedError()
+        form = 'teststr'
+        valu = 'cool'
+        props = {'tick': 12345}
+
+        with self.getTestCore() as core:
+            with core.snap(write=True) as snap:
+                node = snap.addNode(form, valu, props=props)
+                node.addTag('cool', valu=(1, 2))
+
+                self.raises(s_exc.NoSuchProp, node.pop, 'nope')
+                snap.strict = False
+                self.false(node.pop('nope'))
+                snap.strict = True
+
+                with self.getTestDir() as dirn:
+                    with s_auth.Auth(dirn) as auth:
+                        user = auth.addUser('hatguy')
+                        snap.setUser(user)
+
+                        self.raises(s_exc.AuthDeny, node.pop, 'tick')
+                        snap.strict = False
+                        self.false(node.pop('tick'))
+                        snap.strict = True
 
     def test_repr(self):
         with self.getTestCore() as core:
@@ -146,11 +169,6 @@ class NodeTest(s_t_common.SynTest):
                     with s_auth.Auth(dirn) as auth:
                         user = auth.addUser('hatguy')
                         snap.setUser(user)
-
-                        self.raises(s_exc.AuthDeny, node.set, 'tick', 1)
-                        snap.strict = False
-                        self.false(node.set('tick', 1))
-                        snap.strict = True
 
                         self.raises(s_exc.AuthDeny, node.addTag, 'newp')
                         snap.strict = False
