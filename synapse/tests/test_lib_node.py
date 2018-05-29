@@ -135,3 +135,6 @@ class NodeTest(s_t_common.SynTest):
                 self.eq(node.getTag('cool.beans.abc'), (1, 8))
                 self.eq(node.getTag('cool.beans'), (None, None))
                 self.eq(node.getTag('cool'), (-5, 0))  # from above
+
+                snap.setUser('fake')
+                node.addTag('newp', valu=(1, 8))
