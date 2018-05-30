@@ -412,11 +412,11 @@ class Snap(s_eventbus.EventBus):
                     props.pop('.created', None)
 
                 node = self.addNode(formname, formvalu, props=props)
-
-                tags = forminfo.get('tags')
-                if tags is not None:
-                    for tag, asof in tags.items():
-                        node.addTag(tag)
+                if node is not None:
+                    tags = forminfo.get('tags')
+                    if tags is not None:
+                        for tag, asof in tags.items():
+                            node.addTag(tag, valu=asof)
 
                 yield node
 

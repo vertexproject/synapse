@@ -646,7 +646,7 @@ class Cortex(s_cell.Cell):
             core.getNodesBy('inet:ipv4', '1.2.3.0/24')
         '''
         with self.snap() as snap:
-            for node in  snap.getNodesBy(full, valu, cmpr=cmpr):
+            for node in snap.getNodesBy(full, valu, cmpr=cmpr):
                 yield node
 
     def addNodes(self, nodedefs):
