@@ -42,6 +42,12 @@ class NodeTest(s_t_common.SynTest):
                 self.none(node.set('tick', 123456))
                 self.raises(s_exc.NoSuchProp, node.set, 'notreal', 12345)
 
+                ronode = snap.addNode('testcomp', (1, 's'))
+                self.raises(s_exc.ReadOnlyProp, ronode.set, 'hehe', 2)
+                snap.strict = False
+                self.false(ronode.set('hehe', 3))
+                snap.strict = True
+
                 with self.getTestDir() as dirn:
                     with s_auth.Auth(dirn) as auth:
                         user = auth.addUser('hatguy2')
@@ -98,6 +104,12 @@ class NodeTest(s_t_common.SynTest):
                 self.raises(s_exc.NoSuchProp, node.pop, 'nope')
                 snap.strict = False
                 self.false(node.pop('nope'))
+                snap.strict = True
+
+                ronode = snap.addNode('testcomp', (1, 's'))
+                self.raises(s_exc.ReadOnlyProp, ronode.pop, 'hehe')
+                snap.strict = False
+                self.false(ronode.pop('hehe'))
                 snap.strict = True
 
                 with self.getTestDir() as dirn:
