@@ -146,7 +146,7 @@ def addpref(pref, info):
     '''
     Add the given prefix to all elements in the info dict.
     '''
-    return {'%s:%s' % (pref, k): v for (k, v) in info.items()}
+    return {f'{pref}:{k}': v for (k, v) in info.items()}
 
 def tufo(typ, **kwargs):
     return (typ, kwargs)
