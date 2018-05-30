@@ -1,22 +1,21 @@
+# stdlib
 import os
 import csv
 import json
 import codecs
 import logging
-
 import xml.etree.ElementTree as x_etree
-
+# third party code
 import regex
-
+# custom code
+import synapse.exc as s_exc
 import synapse.common as s_common
-
 import synapse.lib.scope as s_scope
+import synapse.eventbus as s_eventbus
 import synapse.lib.hashset as s_hashset
 import synapse.lib.datapath as s_datapath
 import synapse.lib.encoding as s_encoding
 import synapse.lib.filepath as s_filepath
-
-from synapse.eventbus import EventBus
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +178,7 @@ def iterdata(fd, close_fd=True, **opts):
 
     fmtr = fmtyielders.get(fmt)
     if fmtr is None:
-        raise s_common.NoSuchImpl(name=fmt, knowns=fmtyielders.keys())
+        raise s_exc.NoSuchImpl(name=fmt, knowns=fmtyielders.keys())
 
     for item in fmtr(fd, opts):
         yield item
@@ -291,7 +290,7 @@ class IngestApi:
 
         gest = self._gest_cache.get(name)
         if gest is None:
-            raise s_common.NoSuchTufo(prop='syn:ingest', valu=name)
+            raise s_exc.NoSuchTufo(prop='syn:ingest', valu=name)
 
         gest.ingest(self._gest_core, data=data)
 
@@ -311,12 +310,12 @@ class IngestApi:
     #def addGestPath(self, name, path):
     #def addGestBytes(self, name, byts):
 
-class Ingest(EventBus):
+class Ingest(s_eventbus.EventBus):
     '''
     An Ingest allows modular data acquisition and cortex loading.
     '''
     def __init__(self, info, axon=None):
-        EventBus.__init__(self)
+        s_eventbus.EventBus.__init__(self)
         self._i_res = {}
         self._i_info = info
         self._i_axon = axon

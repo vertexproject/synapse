@@ -1,3 +1,4 @@
+# stdlib
 import io
 import os
 import sys
@@ -18,15 +19,19 @@ import traceback
 import contextlib
 import collections
 
+# third party code
 import yaml
 import regex
 
+# custom code
 import synapse.exc as s_exc
-
-from synapse.exc import *
-
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
+
+
+class NoValu:
+    pass
+
 
 major = sys.version_info.major
 minor = sys.version_info.minor
@@ -35,9 +40,10 @@ micro = sys.version_info.micro
 majmin = (major, minor)
 version = (major, minor, micro)
 
-class NoValu: pass
+guidre = regex.compile('^[0-9a-f]{32}$')
 
 novalu = NoValu()
+
 
 def now():
     '''
@@ -120,7 +126,6 @@ def uhex(text):
     '''
     return binascii.unhexlify(text)
 
-guidre = regex.compile('^[0-9a-f]{32}$')
 def isguid(text):
     return guidre.match(text) is not None
 
@@ -171,13 +176,13 @@ def genpath(*paths):
 def reqpath(*paths):
     path = genpath(*paths)
     if not os.path.isfile(path):
-        raise NoSuchFile(path)
+        raise s_exc.NoSuchFile(path)
     return path
 
 def reqfile(*paths, **opts):
     path = genpath(*paths)
     if not os.path.isfile(path):
-        raise NoSuchFile(path)
+        raise s_exc.NoSuchFile(path)
     opts.setdefault('mode', 'rb')
     return io.open(path, **opts)
 
@@ -316,7 +321,7 @@ def gendir(*paths, **opts):
 def reqdir(*paths):
     path = genpath(*paths)
     if not os.path.isdir(path):
-        raise NoSuchDir(path=path)
+        raise s_exc.NoSuchDir(path=path)
     return path
 
 def jsload(*paths):
@@ -383,7 +388,7 @@ def getexcfo(e):
         'src': src
     }
 
-    if isinstance(e, SynErr):
+    if isinstance(e, s_exc.SynErr):
         retd['syn:err'] = e.errinfo
 
     return (e.__class__.__name__, retd)
@@ -393,7 +398,7 @@ def reqok(ok, retn):
     Raise exception from retn if not ok.
     '''
     if not ok:
-        raise RetnErr(retn)
+        raise s_exc.RetnErr(retn)
     return retn
 
 def excinfo(e):
@@ -409,7 +414,7 @@ def excinfo(e):
         'errline': line,
     }
 
-    if isinstance(e, SynErr):
+    if isinstance(e, s_exc.SynErr):
         ret['errinfo'] = e.errinfo
 
     return ret
@@ -528,7 +533,7 @@ def reqStorDict(x):
     '''
     for k, v in x.items():
         if not canstor(v):
-            raise BadStorValu(name=k, valu=v)
+            raise s_exc.BadStorValu(name=k, valu=v)
 
 def firethread(f):
     '''
@@ -563,7 +568,7 @@ def reqstor(name, valu):
         BadPropValu if the value is not Cortex storable.
     '''
     if not canstor(valu):
-        raise BadPropValu(name=name, valu=valu)
+        raise s_exc.BadPropValu(name=name, valu=valu)
     return valu
 
 def rowstotufos(rows):
@@ -657,13 +662,13 @@ def result(retn):
         raise ctor(**info)
 
     info['errx'] = name
-    raise SynErr(**info)
+    raise s_exc.SynErr(**info)
 
 def err(e):
     name = e.__class__.__name__
     info = {}
 
-    if isinstance(e, SynErr):
+    if isinstance(e, s_exc.SynErr):
         info.update(e.items())
     else:
         info['mesg'] = str(e)

@@ -1,3 +1,4 @@
+# stdlib
 import gc
 import atexit
 import signal
@@ -5,9 +6,10 @@ import logging
 import threading
 import contextlib
 import collections
-
+# third party code
+# custom code
+import synapse.exc as s_exc
 import synapse.common as s_common
-
 import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)
@@ -541,7 +543,7 @@ class BusRef(EventBus):
             name (str): The name/iden of the EventBus instance.
         '''
         if self.ctor is None:
-            raise s_common.NoSuchCtor(name=name, mesg='BusRef.gen() requires ctor')
+            raise s_exc.NoSuchCtor(name=name, mesg='BusRef.gen() requires ctor')
 
         with self.lock:
 

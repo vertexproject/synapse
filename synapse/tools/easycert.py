@@ -1,8 +1,9 @@
+# stdlib
 import sys
 import argparse
-
-import synapse.common as s_common
-
+# third party code
+# custom code
+import synapse.exc as s_exc
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 
@@ -86,7 +87,7 @@ def main(argv, outp=None):
         cdir.genUserCert(opts.name, signas=opts.signas, outp=outp)
         return 0
 
-    except s_common.DupFileName as e:
+    except s_exc.DupFileName as e:
         outp.printf('file exists: %s' % (e.errinfo.get('path'),))
         return -1
 

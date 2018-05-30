@@ -1,6 +1,8 @@
+# stdlib
 import logging
-
-import synapse.common as s_common
+# third party code
+# custom code
+import synapse.exc as s_exc
 import synapse.eventbus as s_eventbus
 
 logger = logging.getLogger(__name__)
@@ -113,7 +115,7 @@ class Revisioner(s_eventbus.EventBus):
             nver = step[1]
 
         if not path or path[-1][1] != self.maxver:
-            raise s_common.NoRevPath(vers=vers, maxver=self.maxver, path=path)
+            raise s_exc.NoRevPath(vers=vers, maxver=self.maxver, path=path)
 
         return path
 

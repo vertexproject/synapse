@@ -1,5 +1,8 @@
-from synapse.tests.common import *
-
+# stdlib
+# third party code
+# custom code
+import synapse.exc as s_exc
+import synapse.tests.common as s_test
 import synapse.lib.revision as s_revision
 
 class Revr(s_revision.Revisioner):
@@ -12,7 +15,7 @@ class Revr(s_revision.Revisioner):
     def _addBarInfo(self, x, y=10):
         x['bar'] = 20
 
-class RevTest(SynTest):
+class RevTest(s_test.SynTest):
 
     def test_revision_er(self):
 
@@ -45,7 +48,7 @@ class RevTest(SynTest):
 
         self.eq(revr.chop('1.2.3'), (1, 2, 3))
         self.eq(revr.repr((1, 2, 3)), '1.2.3')
-        self.raises(NoRevPath, genexc)
+        self.raises(s_exc.NoRevPath, genexc)
 
         # Ensure messages were fired and captured by our handler
         self.len(2, mesgs)

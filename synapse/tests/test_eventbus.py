@@ -1,13 +1,18 @@
+# stdlib
+import os
+import sys
+import time
 import signal
 import multiprocessing
-
+# third party code
+# custom code
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
+import synapse.tests.common as s_test
 import synapse.lib.threads as s_threads
 
-from synapse.tests.common import *
-
-@firethread
+@s_common.firethread
 def send_sig(pid, sig):
     '''
     Sent a signal to a process.
@@ -43,7 +48,7 @@ def block_processing(evt1, evt2):
     bus.main()
     sys.exit(137)
 
-class EventBusTest(SynTest):
+class EventBusTest(s_test.SynTest):
 
     def test_eventbus_basics(self):
         bus = s_eventbus.EventBus()
@@ -210,7 +215,7 @@ class EventBusTest(SynTest):
             ebus.on('log', logs.append)
 
             try:
-                raise s_common.NoSuchObj(name='hehe')
+                raise s_exc.NoSuchObj(name='hehe')
             except Exception as e:
                 ebus.exc(e)
 
@@ -272,7 +277,7 @@ class EventBusTest(SynTest):
     def test_eventbus_busref_gen(self):
 
         with s_eventbus.BusRef() as refs:
-            self.raises(NoSuchCtor, refs.gen, 'woot')
+            self.raises(s_exc.NoSuchCtor, refs.gen, 'woot')
 
         def ctor(name):
             return s_eventbus.EventBus()

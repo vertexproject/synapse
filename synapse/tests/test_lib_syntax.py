@@ -1,8 +1,11 @@
-from synapse.tests.common import *
-
+# stdlib
+# third party code
+# custom code
+import synapse.exc as s_exc
+import synapse.tests.common as s_test
 import synapse.lib.syntax as s_syntax
 
-class StormSyntaxTest(SynTest):
+class StormSyntaxTest(s_test.SynTest):
 
     def test_storm_syntax_basic(self):
         insts = s_syntax.parse('foo("lol",bar=20) baz(10,faz="lol")')
@@ -154,10 +157,10 @@ class StormSyntaxTest(SynTest):
         self.eq(s_syntax.parse_int(' -0.2 ', 0), (-0.2, 6))
         self.eq(s_syntax.parse_int(' -0.0 ', 0), (0.0, 6))
 
-        self.raises(BadSyntaxError, s_syntax.parse_int, '0x', 0)
-        self.raises(BadSyntaxError, s_syntax.parse_int, 'asdf', 0)
-        self.raises(BadSyntaxError, s_syntax.parse_int, '0xzzzz', 0)
-        self.raises(BadSyntaxError, s_syntax.parse_int, '0bbbbb', 0)
+        self.raises(s_exc.BadSyntaxError, s_syntax.parse_int, '0x', 0)
+        self.raises(s_exc.BadSyntaxError, s_syntax.parse_int, 'asdf', 0)
+        self.raises(s_exc.BadSyntaxError, s_syntax.parse_int, '0xzzzz', 0)
+        self.raises(s_exc.BadSyntaxError, s_syntax.parse_int, '0bbbbb', 0)
 
     def test_lib_syntax_float(self):
 
@@ -175,8 +178,8 @@ class StormSyntaxTest(SynTest):
         self.eq(s_syntax.parse_float(' -0.2 ', 0), (-0.2, 6))
         self.eq(s_syntax.parse_float(' -0.0 ', 0), (0.0, 6))
 
-        self.raises(BadSyntaxError, s_syntax.parse_float, 'asdf', 0)
-        self.raises(BadSyntaxError, s_syntax.parse_float, '1.asdf', 0)
+        self.raises(s_exc.BadSyntaxError, s_syntax.parse_float, 'asdf', 0)
+        self.raises(s_exc.BadSyntaxError, s_syntax.parse_float, '1.asdf', 0)
 
     def test_lib_syntax_term(self):
-        self.raises(BadSyntaxError, s_syntax.parse, '}')
+        self.raises(s_exc.BadSyntaxError, s_syntax.parse, '}')

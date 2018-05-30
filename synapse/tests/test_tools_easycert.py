@@ -1,10 +1,14 @@
-from synapse.tests.common import *
-
+# stdlib
+import os
+# third party code
+# custom code
+import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.tests.common as s_test
 import synapse.tools.easycert as s_easycert
 
 
-class TestEasyCert(SynTest):
+class TestEasyCert(s_test.SynTest):
 
     def make_testca(self, path):
         '''
@@ -145,4 +149,4 @@ class TestEasyCert(SynTest):
 
             outp = self.getTestOutp()
             argv = ['--importfile', 'cas', '--certdir', tstpath, 'nope']
-            self.raises(NoSuchFile, s_easycert.main, argv, outp=outp)
+            self.raises(s_exc.NoSuchFile, s_easycert.main, argv, outp=outp)

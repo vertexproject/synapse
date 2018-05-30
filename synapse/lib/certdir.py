@@ -1,8 +1,10 @@
+# stdlib
 import os
 import shutil
-
+# third party code
 from OpenSSL import crypto
-
+# custom code
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 defdir = os.getenv('SYN_CERT_DIR')
@@ -219,15 +221,15 @@ class CertDir:
         '''
         ucert = self.getUserCert(name)
         if not ucert:
-            raise s_common.NoSuchFile('missing User cert')
+            raise s_exc.NoSuchFile('missing User cert')
 
         cacert = self._loadCertPath(self._getCaPath(ucert))
         if not cacert:
-            raise s_common.NoSuchFile('missing CA cert')
+            raise s_exc.NoSuchFile('missing CA cert')
 
         ukey = self.getUserKey(name)
         if not ukey:
-            raise s_common.NoSuchFile('missing User private key')
+            raise s_exc.NoSuchFile('missing User private key')
 
         ccert = crypto.PKCS12()
         ccert.set_friendlyname(name.encode('utf-8'))
@@ -650,7 +652,7 @@ class CertDir:
             None
         '''
         if not os.path.isfile(path):
-            raise s_common.NoSuchFile('File does not exist')
+            raise s_exc.NoSuchFile('File does not exist')
 
         fname = os.path.split(path)[1]
         parts = fname.rsplit('.', 1)
@@ -658,12 +660,12 @@ class CertDir:
 
         if not ext or ext not in ('crt', 'key', 'p12'):
             mesg = 'importFile only supports .crt, .key, .p12 extensions'
-            raise s_common.BadFileExt(mesg=mesg,
+            raise s_exc.BadFileExt(mesg=mesg,
                                       ext=ext)
 
         newpath = s_common.genpath(self.certdir, mode, fname)
         if os.path.isfile(newpath):
-            raise s_common.FileExists('File already exists')
+            raise s_exc.FileExists('File already exists')
 
         shutil.copy(path, newpath)
         if outp is not None:
@@ -825,7 +827,7 @@ class CertDir:
 
     def _checkDupFile(self, path):
         if os.path.isfile(path):
-            raise s_common.DupFileName(path=path)
+            raise s_exc.DupFileName(path=path)
 
     def _genBasePkeyCert(self, name, pkey=None):
 

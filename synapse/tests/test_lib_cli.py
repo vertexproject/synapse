@@ -1,6 +1,10 @@
+# stdlib
+import unittest.mock as mock
+# third party code
+# custom code
+import synapse.exc as s_exc
 import synapse.lib.cli as s_cli
-
-from synapse.tests.common import *
+import synapse.tests.common as s_test
 
 class TstThrowCmd(s_cli.Cmd):
     '''
@@ -21,7 +25,7 @@ class TstThrowKeyboard(s_cli.Cmd):
         raise KeyboardInterrupt('TstThrowKeyboard')
 
 
-class CliTest(SynTest):
+class CliTest(s_test.SynTest):
 
     def test_cli_prompt(self):
         outp = self.getTestOutp()
@@ -152,7 +156,7 @@ class CliTest(SynTest):
             opts = quit.getCmdOpts('quit --bar woah')
             self.eq(opts.get('bar'), 'woah')
 
-            self.raises(BadSyntaxError, quit.getCmdOpts, 'quit --bar woah this is too much text')
+            self.raises(s_exc.BadSyntaxError, quit.getCmdOpts, 'quit --bar woah this is too much text')
 
     def test_cli_opts_parse_list(self):
 
@@ -190,8 +194,8 @@ class CliTest(SynTest):
             self.eq(opts.get('bar'), 'foo')
             opts = quit.getCmdOpts('quit --bar baz')
             self.eq(opts.get('bar'), 'baz')
-            self.raises(BadSyntaxError, quit.getCmdOpts, 'quit --bar')
-            self.raises(BadSyntaxError, quit.getCmdOpts, 'quit --bar bar')
+            self.raises(s_exc.BadSyntaxError, quit.getCmdOpts, 'quit --bar')
+            self.raises(s_exc.BadSyntaxError, quit.getCmdOpts, 'quit --bar bar')
 
     def test_cli_opts_parse_kwlist(self):
 
@@ -208,7 +212,7 @@ class CliTest(SynTest):
 
     def test_cli_cmd_loop_quit(self):
         outp = self.getTestOutp()
-        cmdg = CmdGenerator(['help', 'quit'])
+        cmdg = s_test.CmdGenerator(['help', 'quit'])
 
         with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
             with s_cli.Cli(None, outp) as cli:
@@ -218,7 +222,7 @@ class CliTest(SynTest):
 
     def test_cli_cmd_loop_eof(self):
         outp = self.getTestOutp()
-        cmdg = CmdGenerator(['help'], on_end=EOFError)
+        cmdg = s_test.CmdGenerator(['help'], on_end=EOFError)
         with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
             with s_cli.Cli(None, outp) as cli:
                 cli.runCmdLoop()
@@ -227,7 +231,7 @@ class CliTest(SynTest):
 
     def test_cli_cmd_loop_bad_input(self):
         outp = self.getTestOutp()
-        cmdg = CmdGenerator([1234], on_end=EOFError)
+        cmdg = s_test.CmdGenerator([1234], on_end=EOFError)
         with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
             with s_cli.Cli(None, outp) as cli:
                 cli.runCmdLoop()
@@ -236,7 +240,7 @@ class CliTest(SynTest):
 
     def test_cli_cmd_loop_keyint(self):
         outp = self.getTestOutp()
-        cmdg = CmdGenerator(['help'], on_end=KeyboardInterrupt)
+        cmdg = s_test.CmdGenerator(['help'], on_end=KeyboardInterrupt)
 
         data = {'count': 0}
 
@@ -255,7 +259,7 @@ class CliTest(SynTest):
 
     def test_cli_cmd_loop(self):
         outp = self.getTestOutp()
-        cmdg = CmdGenerator(['help',
+        cmdg = s_test.CmdGenerator(['help',
                              'locs',
                              '',
                              '    ',

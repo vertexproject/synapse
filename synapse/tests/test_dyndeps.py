@@ -1,7 +1,8 @@
-from synapse.tests.common import *
-
+# stdlib
+# third party code
+# custom code
+import synapse.exc as s_exc
 import synapse.dyndeps as s_dyndeps
-
 import synapse.tests.common as s_test
 
 hehe = 'woot'
@@ -29,8 +30,8 @@ class DynDepsTest(s_test.SynTest):
         self.eq(foo.bar(), 'baz')
 
     def test_dyndeps_nosuchdyn(self):
-        self.raises(NoSuchDyn, s_dyndeps.tryDynMod, 'newpnewp')
-        self.raises(NoSuchDyn, s_dyndeps.tryDynLocal, 'sys.newpnewp')
+        self.raises(s_exc.NoSuchDyn, s_dyndeps.tryDynMod, 'newpnewp')
+        self.raises(s_exc.NoSuchDyn, s_dyndeps.tryDynLocal, 'sys.newpnewp')
 
     def test_dyndeps_meth(self):
         self.nn(s_dyndeps.getDynMeth('synapse.eventbus.EventBus.fini'))

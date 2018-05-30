@@ -1,10 +1,13 @@
+# stdlib
 import os
 import queue
 import fnmatch
 import tarfile
 import zipfile
 import tempfile
-
+# third party code
+# custom code
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 # 10 MB
@@ -191,7 +194,7 @@ class FpFile(object):
 
             if self.maxidx != partlen:
                 self.close()
-                raise s_common.NoSuchPath(path=os.path.join(*self.pparts))
+                raise s_exc.NoSuchPath(path=os.path.join(*self.pparts))
 
         # if end of the path we're finished
         if self.maxidx == partlen:
@@ -398,7 +401,7 @@ class FpTar(FpFile):
 
         if maxpath is None:
             self.close()
-            raise s_common.NoSuchPath(path=os.path.join(*self.pparts))
+            raise s_exc.NoSuchPath(path=os.path.join(*self.pparts))
         self.maxidx = cidx
 
         # if the max path is a dir, we're finished
@@ -407,7 +410,7 @@ class FpTar(FpFile):
 
             if self.maxidx != partlen:
                 self.close()
-                raise s_common.NoSuchPath(path=os.path.join(*self.pparts))
+                raise s_exc.NoSuchPath(path=os.path.join(*self.pparts))
 
         # if end of the path we're finished
         if self.maxidx == partlen:
@@ -464,7 +467,7 @@ def _pathClass(*paths):
     '''
     path = s_common.genpath(*paths)
     if not os.path.exists(path):
-        raise s_common.NoSuchPath(path=path)
+        raise s_exc.NoSuchPath(path=path)
 
     if os.path.isdir(path):
         return path_ctors.get('fs.reg.file')
@@ -546,7 +549,7 @@ def parsePaths(*paths):
             except queue.Empty as e:
                 break
 
-    except s_common.NoSuchPath as e:
+    except s_exc.NoSuchPath as e:
         return
 
 def parsePath(*paths):
@@ -574,7 +577,7 @@ def parsePath(*paths):
             if nbase:
                 oldbases.append(base)
 
-    except s_common.NoSuchPath as e:
+    except s_exc.NoSuchPath as e:
         return None
     finally:
         [b.close() for b in oldbases]
@@ -605,10 +608,10 @@ def openfiles(*paths, **kwargs):
             if not reqd:
                 continue
             fpath.close()
-            raise s_common.NoSuchPath(path=fpath.path())
+            raise s_exc.NoSuchPath(path=fpath.path())
         yield FpOpener(fpath)
     if nopaths and reqd:
-        raise s_common.NoSuchPath(path='/'.join(paths))
+        raise s_exc.NoSuchPath(path='/'.join(paths))
 
 def openfile(*paths, **kwargs):
     '''
@@ -633,12 +636,12 @@ def openfile(*paths, **kwargs):
 
     if not fpath:
         if reqd:
-            raise s_common.NoSuchPath(path='/'.join(paths))
+            raise s_exc.NoSuchPath(path='/'.join(paths))
         return None
     if not fpath.isfile():
         if reqd:
             fpath.close()
-            raise s_common.NoSuchPath(path=fpath.path())
+            raise s_exc.NoSuchPath(path=fpath.path())
         return None
 
     return FpOpener(fpath)

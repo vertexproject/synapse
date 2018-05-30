@@ -15,7 +15,7 @@ compatible with the unittest, nose and pytest frameworks.  This does not lock
 users into a particular test framework; while at the same time allowing base
 use to be invoked via the built-in Unittest library.
 '''
-
+# stdlib
 import io
 import os
 import sys
@@ -26,7 +26,9 @@ import tempfile
 import unittest
 import threading
 import contextlib
-
+# third party code
+# custom code
+import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.data as s_data
 import synapse.lib.cell as s_cell
@@ -285,8 +287,7 @@ class TestSteps:
             StepTimeout: on wait timeout
         '''
         if not self.steps[step].wait(timeout=timeout):
-            raise s_common.StepTimeout(mesg='timeout waiting for step',
-                                       step=step)
+            raise s_exc.StepTimeout(mesg='timeout waiting for step', step=step)
         return True
 
     def step(self, done, wait, timeout=None):

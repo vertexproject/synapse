@@ -1,10 +1,11 @@
+# stdlib
 import json
 import traceback
 import collections
-
-import synapse.common as s_common
+# third party code
+# custom code
+import synapse.exc as s_exc
 import synapse.eventbus as s_eventbus
-
 import synapse.lib.mixins as s_mixins
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
@@ -127,7 +128,7 @@ class Cmd:
                     vals = swit[1].get('enum:vals')
                     valu, off = s_syntax.parse_cmd_string(text, off)
                     if valu not in vals:
-                        raise s_common.BadSyntaxError(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
+                        raise s_exc.BadSyntaxError(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
                                                       text=text)
 
                     opts[snam] = valu
@@ -138,7 +139,7 @@ class Cmd:
                 continue
 
             if not args:
-                raise s_common.BadSyntaxError(mesg='trailing text: [%s]' % (text[off:],),
+                raise s_exc.BadSyntaxError(mesg='trailing text: [%s]' % (text[off:],),
                                               text=text)
 
             synt = args.popleft()
@@ -309,7 +310,7 @@ class Cli(s_eventbus.EventBus):
             except KeyboardInterrupt as e:
                 self.printf('<ctrl-c>')
 
-            except (s_common.CliFini, EOFError) as e:
+            except (s_exc.CliFini, EOFError) as e:
                 self.fini()
 
             except Exception as e:
@@ -346,7 +347,7 @@ class Cli(s_eventbus.EventBus):
 
             ret = cmdo.runCmdLine(line)
 
-        except s_common.CliFini as e:
+        except s_exc.CliFini as e:
             self.fini()
 
         except KeyboardInterrupt as e:
@@ -372,7 +373,7 @@ class CmdQuit(Cmd):
 
     def runCmdOpts(self, opts):
         self.printf('o/')
-        raise s_common.CliFini()
+        raise s_exc.CliFini()
 
 class CmdHelp(Cmd):
     '''

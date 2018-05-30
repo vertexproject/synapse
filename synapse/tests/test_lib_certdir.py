@@ -1,14 +1,16 @@
+# stdlib
 import os
 from contextlib import contextmanager
-
+# third party code
 from OpenSSL import crypto, SSL
-
+# custom code
+import synapse.exc as s_exc
 import synapse.common as s_common
-from synapse.tests.common import *
+import synapse.tests.common as s_test
 import synapse.lib.certdir as s_certdir
 
 
-class CertDirTest(SynTest):
+class CertDirTest(s_test.SynTest):
 
     @contextmanager
     def getCertDir(self):
@@ -70,7 +72,7 @@ class CertDirTest(SynTest):
             # Generate a separate CA that did not sign the certificate
             try:
                 cdir.genCaCert('otherca')
-            except DupFileName:
+            except s_exc.DupFileName:
                 pass
 
             # OpenSSL should NOT be able to verify the certificate if its CA is not loaded
@@ -270,7 +272,7 @@ class CertDirTest(SynTest):
 
             # Generate a self-signed user keypair =============================
             cdir.genUserCert(username_unsigned)
-            self.raises(NoSuchFile, cdir.genClientCert, username_unsigned)
+            self.raises(s_exc.NoSuchFile, cdir.genClientCert, username_unsigned)
 
             # Test that all the methods for loading the certificates work
             self.isinstance(cdir.getUserCert(username_unsigned), crypto.X509)
@@ -314,11 +316,11 @@ class CertDirTest(SynTest):
 
             # Test missing files for generating a client cert
             os.remove(base + '/users/' + username + '.key')
-            self.raises(NoSuchFile, cdir.genClientCert, username)  # user key
+            self.raises(s_exc.NoSuchFile, cdir.genClientCert, username)  # user key
             os.remove(base + '/cas/' + caname + '.crt')
-            self.raises(NoSuchFile, cdir.genClientCert, username)  # ca crt
+            self.raises(s_exc.NoSuchFile, cdir.genClientCert, username)  # ca crt
             os.remove(base + '/users/' + username + '.crt')
-            self.raises(NoSuchFile, cdir.genClientCert, username)  # user crt
+            self.raises(s_exc.NoSuchFile, cdir.genClientCert, username)  # user crt
 
     def test_certdir_hosts_sans(self):
         with self.getCertDir() as cdir:  # type: s_certdir.CertDir
@@ -412,12 +414,12 @@ class CertDirTest(SynTest):
 
                 # File doesn't exist
                 fpath = s_common.genpath(testpath, 'not_real.crt')
-                self.raises(NoSuchFile, cdir.importFile, fpath, 'cas')
+                self.raises(s_exc.NoSuchFile, cdir.importFile, fpath, 'cas')
 
                 # File has unsupported extension
                 fpath = s_common.genpath(testpath, 'coolpic.bmp')
                 with s_common.genfile(fpath) as fd:
-                    self.raises(BadFileExt, cdir.importFile, fpath, 'cas')
+                    self.raises(s_exc.BadFileExt, cdir.importFile, fpath, 'cas')
 
                 tests = (
                     ('cas', 'coolca.crt'),
@@ -438,7 +440,7 @@ class CertDirTest(SynTest):
                         fd.seek(0)
 
                         # Make sure the file is not there
-                        self.raises(NoSuchFile, s_common.reqfile, dstpath)
+                        self.raises(s_exc.NoSuchFile, s_common.reqfile, dstpath)
 
                         # Import it and make sure it exists
                         self.none(cdir.importFile(srcpath, ftype))
@@ -446,7 +448,7 @@ class CertDirTest(SynTest):
                             self.eq(dstfd.read(), b'arbitrary data')
 
                         # Make sure it can't be overwritten
-                        self.raises(FileExists, cdir.importFile, srcpath, ftype)
+                        self.raises(s_exc.FileExists, cdir.importFile, srcpath, ftype)
 
     def test_certdir_valUserCert(self):
         with self.getCertDir() as cdir:  # type: s_certdir.CertDir

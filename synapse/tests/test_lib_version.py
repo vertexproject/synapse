@@ -2,12 +2,15 @@
 synapse - test_lib_version.py
 Created on 10/6/17.
 """
-
+# stdlib
+# third party code
+# custom code
+import synapse.exc as s_exc
+import synapse.tests.common as s_test
 import synapse.lib.version as s_version
 
-from synapse.tests.common import *
 
-class VersionTest(SynTest):
+class VersionTest(s_test.SynTest):
 
     def test_version_basics(self):
         self.eq(s_version.mask20.bit_length(), 20)
@@ -92,7 +95,7 @@ class VersionTest(SynTest):
         s = s_version.fmtVersion(2016, 2, 'sp3', 'RC1')
         self.eq(s, '2016.2.sp3.rc1')
 
-        self.raises(BadTypeValu, s_version.fmtVersion)
+        self.raises(s_exc.BadTypeValu, s_version.fmtVersion)
 
     def test_version_extract_parts(self):
         data = (

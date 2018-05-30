@@ -1,14 +1,18 @@
+# stdlib
+import os
+import hashlib
+# third party code
 import cryptography.hazmat.primitives.hashes as c_hashes
 import cryptography.hazmat.primitives.kdf.hkdf as c_hkdf
-import cryptography.hazmat.primitives.asymmetric.ec as c_ec
-
 from cryptography.hazmat.backends import default_backend
-
+import cryptography.hazmat.primitives.asymmetric.ec as c_ec
+# custom code
+import synapse.exc as s_exc
+import synapse.lib.const as s_const
+import synapse.tests.common as s_test
 import synapse.lib.crypto.ecc as s_ecc
 
-from synapse.tests.common import *
-
-class EccTest(SynTest):
+class EccTest(s_test.SynTest):
 
     def test_lib_crypto_ecc_keys(self):
 
@@ -79,8 +83,8 @@ class EccTest(SynTest):
         )
         prkdiff = s_ecc.PriKey(_pkd)
         pbkdiff = prkdiff.public()
-        self.raises(BadEccExchange, spvk1.exchange, pbkdiff)
-        self.raises(BadEccExchange, prkdiff.exchange, spbk1)
+        self.raises(s_exc.BadEccExchange, spvk1.exchange, pbkdiff)
+        self.raises(s_exc.BadEccExchange, prkdiff.exchange, spbk1)
 
         # Do a demonstrative ephemeral exchange
         epvk1 = s_ecc.PriKey.generate()
