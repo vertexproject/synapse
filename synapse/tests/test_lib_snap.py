@@ -4,6 +4,24 @@ import synapse.tests.common as s_t_common
 
 class SnapTest(s_t_common.SynTest):
 
+    def test_stor(self):
+        with self.getTestCore() as core:
+
+            # Readonly
+            with core.snap(write=False) as snap:
+                self.raises(s_exc.ReadOnlySnap, snap.stor, [])
+
+            # Bulk
+            with core.snap(write=True) as snap:
+                snap.bulk = True
+                self.eq(snap.bulksops, ())
+
+                self.none(snap.stor((1,)))
+                self.eq(snap.bulksops, (1,))
+
+                self.none(snap.stor((2,)))
+                self.eq(snap.bulksops, (1, 2,))
+
     def test_addNode_noperms(self):
         form = 'teststr'
         valu = 'cool'
