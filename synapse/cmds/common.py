@@ -1,6 +1,8 @@
-import synapse.common as s_common
-
+# stdlib
+# third party code
+# custom code
 import synapse.lib.cli as s_cli
+import synapse.common as s_common
 
 class GuidCmd(s_cli.Cmd):
     '''

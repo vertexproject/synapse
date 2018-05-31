@@ -1,9 +1,8 @@
-import json
+# stdlib
 import pprint
-
+# third party code
+# custom code
 import synapse.lib.cli as s_cli
-import synapse.lib.tufo as s_tufo
-import synapse.lib.storm as s_storm
 
 class AskCmd(s_cli.Cmd):
     '''
@@ -12,14 +11,25 @@ class AskCmd(s_cli.Cmd):
     Examples:
 
         ask inet:ipv4=1.2.3.4
+
+    Optional Arguments:
+        --hide-tags Do not print tags
+        --hide-props: Do not print properties
+        --raw: Print the nodes in their raw format
+            (overrides --hide-tags and --hide-props)
+        --debug: Display cmd debug information along with nodes in raw format
+            (overrides --hide-tags, --hide-props and raw)
+
+    Arguments:
+        query: The storm query
     '''
 
     _cmd_name = 'ask'
     _cmd_syntax = (
-        ('--debug', {}),
         ('--hide-tags', {}),
         ('--hide-props', {}),
         ('--raw', {}),
+        ('--debug', {}),
         ('query', {'type': 'glob'}),
     )
 
@@ -56,7 +66,6 @@ class AskCmd(s_cli.Cmd):
 
             if mesg[0] == 'node':
                 node = mesg[1]
-                #self.printf(repr(node))
 
                 formname = node[0][0]
 

@@ -1,10 +1,11 @@
+# stdlib
 import json
 import traceback
 import collections
-
+# third party code
+# custom code
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
-
 import synapse.lib.mixins as s_mixins
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
