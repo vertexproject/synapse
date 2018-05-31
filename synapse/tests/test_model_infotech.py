@@ -350,9 +350,10 @@ class InfotechModelTest(s_test.SynTest):
                 pid = 20
                 key = 'HKEY_LOCAL_MACHINE\\Foo\\Bar'
                 ipv4 = 0x01020304
-                ipv6 = 'ff::1'
+                ipv6 = '::1'
 
-                svr = f'tcp://1.2.3.4:{port}/'
+                addr4 = f'tcp://1.2.3.4:{port}'
+                addr6 = f'udp://[::1]:{port}'
                 url = 'http://www.google.com/sekrit.html'
                 raw_path = r'c:\Windows\System32\rar.exe'
                 norm_path = r'c:/windows/system32/rar.exe'
@@ -423,6 +424,7 @@ class InfotechModelTest(s_test.SynTest):
                     'exe': exe,
                     'time': tick,
                     'url': url,
+                    'client': addr4,
                 }
                 node = snap.addNode('it:exec:url', u0, uprops)
                 self.eq(node.ndef[1], u0)
@@ -431,7 +433,17 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('host'), host)
                 self.eq(node.get('time'), tick)
                 self.eq(node.get('url'), url)
-                # FIXME - Add tests for client props once inet:addr is available.
+                self.eq(node.get('client'), addr4)
+                self.eq(node.get('client:ipv4'), ipv4)
+                self.eq(node.get('client:port'), port)
+
+                u1 = s_common.guid()
+                uprops['client'] = addr6
+                node = snap.addNode('it:exec:url', u1, uprops)
+                self.eq(node.ndef[1], u1)
+                self.eq(node.get('client'), addr6)
+                self.eq(node.get('client:ipv6'), ipv6)
+                self.eq(node.get('client:port'), port)
 
                 b0 = s_common.guid()
                 bprops = {
@@ -439,6 +451,7 @@ class InfotechModelTest(s_test.SynTest):
                     'host': host,
                     'exe': exe,
                     'time': tick,
+                    'server': addr4
                 }
                 node = snap.addNode('it:exec:bind', b0, bprops)
                 self.eq(node.ndef[1], b0)
@@ -446,7 +459,17 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('proc'), proc)
                 self.eq(node.get('host'), host)
                 self.eq(node.get('time'), tick)
-                # FIXME - Add tests for server props once inet:addr is available.
+                self.eq(node.get('server'), addr4)
+                self.eq(node.get('server:ipv4'), ipv4)
+                self.eq(node.get('server:port'), port)
+
+                b1 = s_common.guid()
+                bprops['server'] = addr6
+                node = snap.addNode('it:exec:bind', b1, bprops)
+                self.eq(node.ndef[1], b1)
+                self.eq(node.get('server'), addr6)
+                self.eq(node.get('server:ipv6'), ipv6)
+                self.eq(node.get('server:port'), port)
 
                 faprops = {
                     'exe': exe,

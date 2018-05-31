@@ -31,7 +31,6 @@ class Fini:
 
         self.isfini = True
 
-        coros = []
         for fini in self.finis:
 
             try:

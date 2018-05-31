@@ -504,11 +504,18 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that was requested.',
                     }),
-                    # FIXME Needs inet:addr
-                    # ('client', ('inet:addr', {}), {
-                    #     'doc': 'The address of the client during the URL retrieval.'
-                    # })
-                    # FIXME - Break out inet:addr subs!
+                    ('client', ('inet:client', {}), {
+                        'doc': 'The address of the client during the URL retrieval.'
+                    }),
+                    ('client:ipv4', ('inet:ipv4', {}), {
+                        'doc': 'The IPv4 of the client during the URL retrieval..'
+                    }),
+                    ('client:ipv6', ('inet:ipv6', {}), {
+                        'doc': 'The IPv6 of the client during the URL retrieval..'
+                    }),
+                    ('client:port', ('inet:port', {}), {
+                        'doc': 'The client port during the URL retrieval..'
+                    }),
                 )),
                 ('it:exec:bind', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -523,11 +530,18 @@ class ItModule(s_module.CoreModule):
                     ('time', ('time', {}), {
                         'doc': 'The time the port was bound.',
                     }),
-                    # FIXME Needs inet:addr
-                    # ('server', ('inet:addr', {}), {
-                    #     'doc': 'The address of the host when binding the port.'
-                    # })
-                    # FIXME - Break out inet:addr subs!
+                    ('server', ('inet:server', {}), {
+                        'doc': 'The inet:addr of the server when binding the port.'
+                    }),
+                    ('server:ipv4', ('inet:ipv4', {}), {
+                        'doc': 'The IPv4 address specified to bind().'
+                    }),
+                    ('server:ipv6', ('inet:ipv6', {}), {
+                        'doc': 'The IPv6 address specified to bind().'
+                    }),
+                    ('server:port', ('inet:port', {}), {
+                        'doc': 'The bound (listening) TCP port.'
+                    }),
                 )),
                 ('it:fs:file', {}, (
                     ('host', ('it:host', {}), {

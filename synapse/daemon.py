@@ -1,10 +1,7 @@
 import os
 import sys
-import json
-import yaml
 import types
 import asyncio
-import inspect
 import logging
 
 logger = logging.getLogger(__name__)
@@ -39,9 +36,9 @@ class Share(s_coro.Fini):
         self.entered = False
 
         items = link.get('dmon:items')
+
         async def fini():
             items.pop(self.iden, None)
-            self.item
 
         self.onfini(fini)
         items[self.iden] = self
@@ -109,32 +106,28 @@ class Genr(Share):
     async def _runShareLoop(self):
 
         # automatically begin yielding
-
         def syncloop():
-
             try:
-
-                for item in self.item:
-
-                    if self.isfini:
-                        self.item.close()
+                while not self.isfini:
+                    try:
+                        item = next(self.item)
+                    except StopIteration:
+                        break
+                    except Exception as e:
+                        retn = s_common.retnexc(e)
+                        mesg = ('share:data', {'share': self.iden, 'data': retn})
+                        s_glob.sync(self.link.tx(mesg))
                         break
 
                     retn = (True, item)
                     mesg = ('share:data', {'share': self.iden, 'data': retn})
-                    s_glob.sync(self.link.tx(mesg))
-
-            except Exception as e:
-
-                retn = s_common.retnexc(e)
-                mesg = ('share:data', {'share': self.iden, 'data': retn})
-                s_glob.sync(self.link.tx(mesg))
-
+                    if not s_glob.sync(self.link.tx(mesg)):
+                        logger.debug('Failure in sending data')
+                        break
             finally:
-
+                self.item.close()
                 mesg = ('share:data', {'share': self.iden, 'data': None})
                 s_glob.sync(self.link.tx(mesg))
-                s_glob.sync(self.fini())
 
         await s_glob.executor(syncloop)
 
@@ -335,16 +328,15 @@ class Daemon(EventBus):
     async def _onLinkMesg(self, link, mesg):
 
         try:
-
             func = self.mesgfuncs.get(mesg[0])
             if func is None:
-                logger.exception('Dmon.onLinkMesg Invalid: %r' % (mesg,))
+                logger.exception('Dmon.onLinkMesg Invalid: %.80r' % (mesg,))
                 return
 
             await func(link, mesg)
 
         except Exception as e:
-            logger.exception('Dmon.onLinkMesg Handler: %r' % (mesg,))
+            logger.exception('Dmon.onLinkMesg Handler: %.80r' % (mesg,))
 
     async def _onShareFini(self, link, mesg):
 
@@ -470,9 +462,14 @@ class Daemon(EventBus):
             mesg = self._getTaskFiniMesg(task, valu)
             await link.tx(mesg)
 
-            # if it's a Share() give it a shot to run..
+            # if it's a Share(), spin off the share loop
             if isinstance(valu, Share):
-                await valu._runShareLoop()
+                async def spinshareloop():
+                    try:
+                        await valu._runShareLoop()
+                    finally:
+                        await valu.fini()
+                s_glob.plex.coroLoopTask(spinshareloop())
 
         except Exception as e:
 

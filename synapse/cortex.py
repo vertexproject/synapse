@@ -363,6 +363,7 @@ class Cortex(s_cell.Cell):
 
         url = feed.get('cryotank')
         typename = feed.get('type')
+        fsize = feed.get('size', 1000)
 
         logger.warning(f'feed loop init: {typename} @ {url}')
 
@@ -380,7 +381,7 @@ class Cortex(s_cell.Cell):
 
                     while not self.isfini:
 
-                        items = list(tank.slice(offs, 1000))
+                        items = list(tank.slice(offs, fsize))
 
                         if not items:
                             self.cellfini.wait(timeout=2)

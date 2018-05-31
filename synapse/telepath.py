@@ -81,7 +81,7 @@ class Share(s_coro.Fini):
         await self.proxy.link.tx(mesg)
 
     async def _onShareData(self, data):
-        print(f'share:data with no handler: {data!r}')
+        logger.warning(f'share:data with no handler: {data!r}')
 
     def __getattr__(self, name):
         meth = Method(self.proxy, name, share=self.iden)
@@ -195,6 +195,7 @@ class Proxy(s_coro.Fini):
 
     '''
     def __init__(self, link, name):
+        s_coro.Fini.__init__(self)
 
         self.link = link
         self.name = name
@@ -214,10 +215,16 @@ class Proxy(s_coro.Fini):
             'share:fini': self._onShareFini,
         }
 
-        def fini():
+        async def fini():
             for item in list(self.shares.values()):
-                s_glob.sync(item.fini())
-        self.link.onfini(fini)
+                await item.fini()
+            for name, task in list(self.tasks.items()):
+                task.reply((False, (('IsFini', {}))))
+                del self.tasks[name]
+            await self.link.fini()
+
+        self.onfini(fini)
+        self.link.onfini(self.fini)
 
     async def _onShareFini(self, mesg):
 

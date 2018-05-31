@@ -1,20 +1,24 @@
 import socket
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
 
+import synapse.lib.coro as s_coro
 import synapse.lib.queue as s_queue
 import synapse.lib.msgpack as s_msgpack
 
-class Link(s_eventbus.EventBus):
+class Link(s_coro.Fini):
     '''
     A Link() is created for each Plex sock.
     '''
     def __init__(self, plex, reader, writer):
 
-        s_eventbus.EventBus.__init__(self)
+        s_coro.Fini.__init__(self)
 
         self.plex = plex
         self.iden = s_common.guid()
@@ -43,12 +47,10 @@ class Link(s_eventbus.EventBus):
         self.txque = asyncio.Queue(maxsize=1000)
         self.rxfunc = None
 
-        def fini():
+        async def fini():
 
-            [c.fini() for c in list(self.chans.values())]
-
-            coro = self._onAsyncFini()
-            self.plex.coroToSync(coro)
+            [await c.fini() for c in self.chans.values()]
+            self.writer.close()
 
         self.onfini(fini)
 
@@ -59,7 +61,7 @@ class Link(s_eventbus.EventBus):
 
         chan = Chan(self, iden)
 
-        def fini():
+        async def fini():
             self.chans.pop(iden, None)
 
         chan.onfini(fini)
@@ -71,12 +73,22 @@ class Link(s_eventbus.EventBus):
         '''
         Async transmit routine which will wait for writer drain().
         '''
+        if self.isfini:
+            logger.debug('Attempt to transmit on disconnected link')
+            return False
+
         if self.rxfunc is None:
             raise s_exc.NoLinkRx()
 
         byts = s_msgpack.en(mesg)
-        self.writer.write(byts)
-        await self.writer.drain()
+        try:
+            self.writer.write(byts)
+            await self.writer.drain()
+        except ConnectionError as e:
+            await self.fini()
+            einfo = s_common.retnexc(e)
+            logger.debug('link.tx connection trouble %s', einfo)
+            return False
 
         return True
 
@@ -101,10 +113,6 @@ class Link(s_eventbus.EventBus):
         self.rxfunc = func
         self.plex.initLinkLoop(self)
 
-    async def _onAsyncFini(self):
-        # any async fini stuff here...
-        self.writer.close()
-
     def get(self, name, defval=None):
         '''
         Get a property from the Link info.
@@ -123,12 +131,12 @@ class Link(s_eventbus.EventBus):
         '''
         return self.unpk.feed(byts)
 
-class Chan(s_eventbus.EventBus):
+class Chan(s_coro.Fini):
     '''
     An on-going data channel in a Link.
     '''
     def __init__(self, link, iden):
-        s_eventbus.EventBus.__init__(self)
+        s_coro.Fini.__init__(self)
 
         self.link = link
         self.iden = iden
@@ -200,4 +208,4 @@ class Chan(s_eventbus.EventBus):
                 yield s_common.result(retn)
 
         finally:
-            self.fini()
+            s_glob.sync(self.fini())
