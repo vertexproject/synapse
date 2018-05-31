@@ -274,3 +274,12 @@ class TestUtils(s_test.SynTest):
         self.raises(AssertionError, self.istufo, (None, {}, {}))
         self.raises(AssertionError, self.istufo, (1234, set()))
         self.raises(AssertionError, self.istufo, (None, set()))
+
+    def test_getTestCell(self):
+        with self.getTestDir() as dirn:
+            boot = {'auth:en': True}
+            conf = {'test': 1}
+            cortex = self.getTestCell(dirn, 'cortex', boot, conf)
+            self.eq(os.path.join(dirn, 'cortex'), cortex.dirn)
+            self.eq(cortex.conf.get('test'), 1)
+            self.eq(cortex.boot.get('auth:en'), True)
