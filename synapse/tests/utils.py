@@ -628,6 +628,7 @@ class SynTest(unittest.TestCase):
 
     @contextlib.contextmanager
     def getDmonCore(self, conf=None):
+        # FIXME broken
         '''
         Context manager to make a ram:/// cortex which has test models
         loaded into it and shared via daemon.

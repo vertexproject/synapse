@@ -104,7 +104,6 @@ class AskCmd(s_cli.Cmd):
 
                 count = mesg[1].get('count')
                 pers = float(count) / float(took / 1000)
-                self.printf('')
                 self.printf('complete. %d nodes in %d ms (%d/sec).' % (count, took, pers))
 
                 continue

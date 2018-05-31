@@ -1,13 +1,67 @@
+# stdlib
+# third party code
 import regex
-
+# custom code
 import synapse.lib.cmdr as s_cmdr
+import synapse.tests.common as s_test
 
-from synapse.tests.common import *
 
-import unittest
-raise unittest.SkipTest()
+class CmdCoreTest(s_test.SynTest):
 
-class SynCmdCoreTest(SynTest):
+    def test_ask(self):
+        help_msg = 'Execute a storm query.'
+        with self.getTestCore() as core:
+            with core.snap() as snap:
+                valu = 'abcd'
+                snap.addNode('teststr', valu)
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('help ask')
+            outp.expect(help_msg)
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask')
+            outp.expect(help_msg)
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask teststr=b')
+            outp.expect('complete. 0 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask teststr=abcd')
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --debug teststr=abcd')
+            outp.expect("('init',")
+            outp.expect("('node',")
+            outp.expect("('fini',")
+            outp.expect("tick")
+            outp.expect("tock")
+            outp.expect("took")
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --debug teststr=zzz')
+            outp.expect("('init',")
+            self.false(outp.expect("('node',", throw=False))
+            outp.expect("('fini',")
+            outp.expect("tick")
+            outp.expect("tock")
+            outp.expect("took")
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --raw teststr=abcd')
+
+
+'''
+class SynCmdCoreTest(s_test.SynTest):
 
     def test_cmds_ask(self):
         with self.getDmonCore() as core:
@@ -168,3 +222,4 @@ class SynCmdCoreTest(SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('ask')
             self.nn(regex.search('Examples:', str(outp)))
+'''
