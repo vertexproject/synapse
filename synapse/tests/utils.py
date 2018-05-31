@@ -29,6 +29,7 @@ import contextlib
 
 import synapse.axon as s_axon
 import synapse.data as s_data
+import synapse.cells as s_cells
 import synapse.lib.cell as s_cell
 import synapse.common as s_common
 import synapse.cortex as s_cortex
@@ -1083,3 +1084,35 @@ class SynTest(unittest.TestCase):
         self.len(2, obj)
         self.isinstance(obj[0], (type(None), str))
         self.isinstance(obj[1], dict)
+
+    def getTestCell(self, dirn, name, boot=None, conf=None):
+        '''
+        Get an instance of a Cell with specific boot and configuration data.
+
+        Args:
+            dirn (str): The directory the celldir is made in.
+            name (str): The name of the cell to make. This must be a
+            registered cell name in ``s_cells.ctors.``
+            boot (dict): Optional boot data. This is saved to ``boot.yaml``
+            for the cell to load.
+            conf (dict): Optional configuration data. This is saved to
+            ``cell.yaml`` for the Cell to load.
+
+        Examples:
+
+            Get a test Cortex cell:
+
+                conf = {'key': 'value'}
+                boot = {'cell:name': 'TestCell'}
+                cell = getTestCell(someDirectory, 'cortex', conf, boot)
+
+        Returns:
+            s_cell.Cell: A Cell instance.
+        '''
+        cdir = os.path.join(dirn, name)
+        s_common.makedirs(cdir)
+        if boot:
+            s_common.yamlsave(boot, cdir, 'boot.yaml')
+        if conf:
+            s_common.yamlsave(conf, cdir, 'cell.yaml')
+        return s_cells.init(name, cdir)
