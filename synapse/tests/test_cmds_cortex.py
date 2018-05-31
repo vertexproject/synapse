@@ -95,15 +95,6 @@ class CmdCoreTest(s_test.SynTest):
 '''
 class SynCmdCoreTest(s_test.SynTest):
 
-    def test_cmds_ask(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('inet:email', 'visi@vertex.link')
-            resp = cmdr.runCmdLine('ask inet:email="visi@vertex.link"')
-            self.len(1, resp['data'])
-            self.true(outp.expect('visi@vertex.link'))
-
     def test_cmds_ask_showcols(self):
         with self.getDmonCore() as core:
             core.formTufoByProp('inet:email', 'visi@vertex.link')
@@ -125,34 +116,6 @@ class SynCmdCoreTest(s_test.SynTest):
             self.len(4, resp['data'])
             result = [mesg.strip() for mesg in outp.mesgs]
             self.eq(result, ['z@a.vertex.link', 'a@vertex.link', 'vertexmc@vertex.link', 'visi@vertex.link', '(4 results)'])
-
-    def test_cmds_ask_debug(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('inet:email', 'visi@vertex.link')
-            resp = cmdr.runCmdLine('ask --debug inet:email="visi@vertex.link"')
-            self.len(1, resp['data'])
-
-            outp = str(outp)
-            terms = ('oplog', 'took', 'options', 'limits')
-
-            for term in terms:
-                self.nn(regex.search(term, outp))
-
-    def test_cmds_ask_props(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('inet:email', 'visi@vertex.link')
-            resp = cmdr.runCmdLine('ask --props inet:email="visi@vertex.link"')
-            self.len(1, resp['data'])
-
-            outp = str(outp)
-            terms = ('fqdn = vertex.link', 'user = visi')
-
-            for term in terms:
-                self.nn(regex.search(term, outp))
 
     def test_cmds_ask_mesgs(self):
         with self.getDmonCore() as core:
@@ -220,19 +183,6 @@ class SynCmdCoreTest(s_test.SynTest):
             for term in terms:
                 self.nn(regex.search(term, outp))
 
-    def test_cmds_ask_raw(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('inet:email', 'visi@vertex.link')
-            resp = cmdr.runCmdLine('ask --raw inet:email="visi@vertex.link"')
-            self.len(1, resp['data'])
-
-            outp = str(outp)
-            terms = ('"tufo:form": "inet:email"', '"inet:email:user": "visi"')
-            for term in terms:
-                self.nn(regex.search(term, outp))
-
     def test_cmds_ask_multilift(self):
         with self.getDmonCore() as core:
             outp = self.getTestOutp()
@@ -247,11 +197,4 @@ class SynCmdCoreTest(s_test.SynTest):
 
             for term in terms:
                 self.nn(regex.search(term, outp))
-
-    def test_cmds_ask_noopts(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            cmdr.runCmdLine('ask')
-            self.nn(regex.search('Examples:', str(outp)))
 '''
