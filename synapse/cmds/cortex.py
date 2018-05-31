@@ -8,20 +8,23 @@ class AskCmd(s_cli.Cmd):
     '''
     Execute a storm query.
 
-    Examples:
+    Syntax:
+        ask <query>
 
-        ask inet:ipv4=1.2.3.4
+    Arguments:
+        query: The storm query
 
     Optional Arguments:
-        --hide-tags Do not print tags
-        --hide-props: Do not print properties
+        --hide-tags: Do not print tags
+        --hide-props: Do not print secondary properties
         --raw: Print the nodes in their raw format
             (overrides --hide-tags and --hide-props)
         --debug: Display cmd debug information along with nodes in raw format
             (overrides --hide-tags, --hide-props and raw)
 
-    Arguments:
-        query: The storm query
+    Examples:
+        ask inet:ipv4=1.2.3.4
+        ask --debug inet:ipv4=1.2.3.4
     '''
 
     _cmd_name = 'ask'
