@@ -10,7 +10,7 @@ class PsModelTest(s_test.SynTest):
         persona0 = s_common.guid()
 
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 node = snap.addNode('ps:tokn', ' BOB ')
                 self.eq(node.ndef[1], 'bob')
 

@@ -7,7 +7,7 @@ class CnGovTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 org0 = s_common.guid()
                 props = {
                     'org': org0

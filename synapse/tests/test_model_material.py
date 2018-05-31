@@ -7,7 +7,7 @@ class MatTest(SynTest):
 
     def test_model_mat_spec_item(self):
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 n0_guid = guid()
                 node0 = snap.addNode('mat:spec', n0_guid, props={'name': 'F16 Fighter Jet'})
                 n1_guid = guid()

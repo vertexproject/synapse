@@ -8,7 +8,7 @@ class BaseTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 props = {
                     'name': 'FOO BAR',

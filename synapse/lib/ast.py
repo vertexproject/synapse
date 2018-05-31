@@ -176,7 +176,7 @@ class Query(AstNode):
 
     def _getQuerySnap(self):
         write = self.isWrite()
-        snap = self.view.snap(write=write)
+        snap = self.view.snap()
         snap.setUser(self.user)
         return snap
 
@@ -803,7 +803,7 @@ if __name__ == '__main__':
 
     with s_cortex.Cortex('shit') as core:
 
-        with core.snap(write=True) as snap:
+        with core.snap() as snap:
             node = snap.addNode('inet:email', 'visi@vertex.link')
             node.addTag('foo')
             #node = snap.addNode('inet:ipv4', '1.2.3.4')

@@ -12,7 +12,7 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 func = CallBack()
                 core.model.form('inet:ipv4').onAdd(func)
@@ -40,7 +40,7 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 valu = 'a' * 257
                 node = snap.addNode('teststr', valu)
 
@@ -113,7 +113,7 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 func = CallBack()
                 core.model.prop('inet:ipv4:loc').onSet(func)
@@ -142,7 +142,7 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 snap.addNode('teststr', 'newp')
 
@@ -169,7 +169,7 @@ class CortexTest(SynTest):
                 self.len(2, list(snap.getNodesBy('#foo.bar')))
                 self.len(1, list(snap.getNodesBy('teststr#foo.bar')))
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 node = snap.addNode('teststr', 'one')
 
@@ -188,7 +188,7 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 node = snap.addNode('testtype10', 'one')
                 node.set('intprop', 21)
 
@@ -199,7 +199,7 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 node = snap.addNode('testtype10', 'one')
                 self.nn(node.get('.created'))
@@ -267,7 +267,7 @@ class CortexTest(SynTest):
                 nodes = list(snap.getNodesBy('teststr:tick'))
                 self.len(3, nodes)
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 node = snap.addNode('testtype10', 'one')
                 print(repr(node.pack()))
@@ -295,7 +295,7 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 pivc = snap.addNode('pivcomp', ('woot', 'rofl'))
                 self.eq(pivc.get('targ'), 'woot')
@@ -422,7 +422,7 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 node = snap.addNode('teststr', 'foo')
 
@@ -464,7 +464,7 @@ class CortexTest(SynTest):
             form.onDel(onNodeDel)
             form.props.get('tick').onDel(onPropDel)
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 targ = snap.addNode('pivtarg', 'foo')
                 pivo = snap.addNode('pivcomp', ('foo', 'bar'))
@@ -609,7 +609,7 @@ class CortexTest(SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 node = snap.addNode('inet:ipv4', 0x01020304)
                 self.eq('1.2.3.4', node.repr())
