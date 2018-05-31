@@ -28,7 +28,7 @@ def main(argv):
     pars.add_argument('--admin', help='Set the initial <user>:<passwd> as an admin (enables --auth).')
     pars.add_argument('--module', action='store', help='An additional module to load. This can be used to initialize '
                                                        'third party module code which may register additional Cells.')
-    pars.add_argument('--cells', action='store_true')
+    pars.add_argument('--cells', action='store_true', help='Print registered cell types and exit.')
 
     opts = pars.parse_args(argv)
 
