@@ -1,8 +1,8 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.tests.common as s_t_common
+import synapse.tests.common as s_test
 
-class CortexTest(s_t_common.SynTest):
+class CortexTest(s_test.SynTest):
 
     def test_onadd(self):
 
@@ -10,7 +10,7 @@ class CortexTest(s_t_common.SynTest):
 
             with core.snap(write=True) as snap:
 
-                func = s_t_common.CallBack()
+                func = s_test.CallBack()
                 core.model.form('inet:ipv4').onAdd(func)
 
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
@@ -111,7 +111,7 @@ class CortexTest(s_t_common.SynTest):
 
             with core.snap(write=True) as snap:
 
-                func = s_t_common.CallBack()
+                func = s_test.CallBack()
                 core.model.prop('inet:ipv4:loc').onSet(func)
 
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
@@ -120,7 +120,7 @@ class CortexTest(s_t_common.SynTest):
                 self.eq(func.args[0].buid, node.buid)
                 self.eq(func.args[1], '??')
 
-                func = s_t_common.CallBack()
+                func = s_test.CallBack()
                 core.model.prop('inet:ipv4:loc').onDel(func)
 
                 node.pop('loc')
