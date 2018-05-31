@@ -123,7 +123,8 @@ class DelNodeCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('--sudo', help='Activate elevated admin privs if allowed.')
+        forcehelp = 'Force delete even if it causes broken references (requires admin).'
+        pars.add_argument('--force', default=False, action='store_true', help=forcehelp)
         return pars
 
     def runStormCmd(self, snap, genr):
@@ -131,11 +132,13 @@ class DelNodeCmd(Cmd):
         # a bit odd, but we need to be detected as a generator
         yield from ()
 
-        if self.opts.sudo:
-            snap.elevated = True
+        if self.opts.force:
+            if snap.user is not None and not snap.user.admin:
+                mesg = '--force requires admin privs.'
+                return self._onAuthDeny(mesg)
 
         for node in genr:
-            node.delete()
+            node.delete(force=self.opts.force)
 
 class SudoCmd(Cmd):
     '''

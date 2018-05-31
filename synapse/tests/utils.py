@@ -125,6 +125,9 @@ testmodel = {
 
         ('pivtarg', ('str', {}), {}),
         ('pivcomp', ('comp', {'fields': (('targ', 'pivtarg'), ('lulz', 'teststr'))}), {}),
+
+        ('cycle0', ('str', {}), {}),
+        ('cycle1', ('str', {}), {}),
     ),
 
     'forms': (
@@ -142,6 +145,14 @@ testmodel = {
 
             ('locprop', ('loc', {}), {
                 'defval': '??'}),
+        )),
+
+        ('cycle0', ('cycle0', {}), (
+            ('cycle1', ('cycle1', {}), {}),
+        )),
+
+        ('cycle1', ('cycle1', {}), (
+            ('cycle0', ('cycle0', {}), {}),
         )),
 
         ('testcomp', {}, (

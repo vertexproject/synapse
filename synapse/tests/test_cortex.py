@@ -511,6 +511,9 @@ class CortexTest(SynTest):
 
             with dmon._getTestProxy('core', **pconf) as core:
 
+                list(core.eval('sudo | [ cycle0=foo :cycle1=bar ]'))
+                list(core.eval('sudo | [ cycle1=bar :cycle0=foo ]'))
+
                 list(core.eval('sudo | [ teststr=foo +#lol ]'))
 
                 # no perms and not elevated...
@@ -526,6 +529,10 @@ class CortexTest(SynTest):
                 core.addAuthRule('root', rule)
 
                 self.len(0, list(core.eval('teststr=foo | delnode')))
+
+                self.raises(s_exc.CantDelNode, list, core.eval('cycle0=foo | delnode'))
+
+                self.len(0, list(core.eval('cycle0=foo | delnode --force')))
 
     def test_cortex_sudo(self):
 

@@ -358,7 +358,7 @@ class Node:
         self.snap.stor(sops)
         self.snap.splice('tag:del', ndef=self.ndef, tag=name, valu=curv)
 
-    def delete(self):
+    def delete(self, force=False):
         '''
         Delete a node from the cortex.
 
@@ -399,9 +399,11 @@ class Node:
                 return self.snap._onAuthDeny('Not allowed to delete node with tag {tag}.')
 
         # check for any nodes which reference us...
-        if any(self.snap._getNodesByType(formname, formvalu, addform=False)):
-            mesg = 'Other nodes still refer to this node.'
-            return self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
+        if not force:
+
+            if any(self.snap._getNodesByType(formname, formvalu, addform=False)):
+                mesg = 'Other nodes still refer to this node.'
+                return self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 
         for size, tag in sorted(tags, reverse=True):
             self.delTag(tag, init=True)

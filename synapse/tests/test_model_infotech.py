@@ -84,6 +84,7 @@ class InfotechModelTest(s_test.SynTest):
                     'desc': "Pennywise's patented balloon blower upper",
                     'desc:short': 'Balloon blower',
                     'author:org': org0,
+                    'author:email': 'pennywise@vertex.link',
                     'author:acct': acct0,
                     'author:person': person0,
                     'url': url0,
@@ -95,6 +96,7 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('desc:short'), 'balloon blower')
                 self.eq(node.get('author:org'), org0)
                 self.eq(node.get('author:acct'), acct0)
+                self.eq(node.get('author:email'), 'pennywise@vertex.link')
                 self.eq(node.get('author:person'), person0)
                 self.eq(node.get('url'), url0)
 
