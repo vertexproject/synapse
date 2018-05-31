@@ -93,14 +93,16 @@ class Xact(s_eventbus.EventBus):
             yield row
 
     def abort(self):
-        # aborting on a write transaction on a different thread than it was created is fatal
-        assert(not self.write or self.tid == s_threads.iden())
+
+        if self.tid != s_threads.iden():
+            raise s_exc.BadThreadIden()
+
         self.xact.abort()
 
     def commit(self):
 
-        # committing on a write transaction on a different thread than it was created is fatal
-        assert(not self.write or self.tid == s_threads.iden())
+        if self.tid != s_threads.iden():
+            raise s_exc.BadThreadIden()
 
         if self.splices:
             self.layr.splicelog.save(self.xact, self.splices)

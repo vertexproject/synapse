@@ -81,6 +81,7 @@ class MembraneExists(SynErr): pass
 
 class BadTypeDef(SynErr): pass
 class BadPropDef(SynErr): pass
+class BadThreadIden(SynErr): pass
 
 class NoSuchDecoder(SynErr): pass
 class NoSuchEncoder(SynErr): pass

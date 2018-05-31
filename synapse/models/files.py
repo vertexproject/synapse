@@ -388,14 +388,6 @@ class FileModule(s_module.CoreModule):
                              'if the value is a string.'}),
                 ]),
 
-                #('file:filepath', {}, [
-                    #('path',
-                    #('path:dir',
-                    #('path:base'
-                    #('path:base:ext'
-                    #('file'
-                #]),
-
 
                 ('file:subfile', {'ptype': 'file:sub'}, (
                     ('parent', {'ptype': 'file:bytes', 'ro': 1,
