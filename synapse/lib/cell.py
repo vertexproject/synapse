@@ -246,8 +246,8 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
 
         return {}
 
-    @staticmethod
-    def deploy(dirn):
+    @classmethod
+    def deploy(cls, dirn):
         # sub-classes may over-ride to do deploy initialization
         pass
 
