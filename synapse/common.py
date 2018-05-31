@@ -153,9 +153,6 @@ def addpref(pref, info):
     '''
     return {f'{pref}:{k}': v for (k, v) in info.items()}
 
-def tufo(typ, **kwargs):
-    return (typ, kwargs)
-
 def vertup(vstr):
     '''
     Convert a version string to a tuple.
