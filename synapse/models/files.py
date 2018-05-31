@@ -267,7 +267,7 @@ class FileModule(s_module.CoreModule):
                         ('dir', ('file:path', {}), {'ro': 1,
                             'doc': 'The parent directory.'}),
 
-                        ('base', ('file:path', {}), {'ro': 1,
+                        ('base', ('file:base', {}), {'ro': 1,
                             'doc': 'The file base name.'}),
 
                         ('base:ext', ('str', {}), {'ro': 1,
@@ -387,6 +387,14 @@ class FileModule(s_module.CoreModule):
                          'doc': 'The value of the property of the referenced object, as specified by the propvalu, '
                              'if the value is a string.'}),
                 ]),
+
+                #('file:filepath', {}, [
+                    #('path',
+                    #('path:dir',
+                    #('path:base'
+                    #('path:base:ext'
+                    #('file'
+                #]),
 
 
                 ('file:subfile', {'ptype': 'file:sub'}, (

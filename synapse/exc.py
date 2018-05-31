@@ -137,6 +137,7 @@ class BadCoreStore(SynErr):
     '''The storage layer has encountered an error'''
     pass
 
+class CantDelNode(SynErr): pass
 class CantDelProp(SynErr): pass
 class CantSetProp(SynErr): pass
 

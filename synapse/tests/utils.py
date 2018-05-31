@@ -164,8 +164,8 @@ testmodel = {
         )),
 
         ('pivcomp', {}, (
-            ('lulz', ('teststr', {}), {}),
             ('targ', ('pivtarg', {}), {}),
+            ('lulz', ('teststr', {}), {}),
             ('tick', ('time', {}), {}),
         )),
     ),

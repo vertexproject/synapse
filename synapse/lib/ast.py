@@ -115,6 +115,10 @@ class Query(AstNode):
         return any(o.iswrite for o in self.kids)
 
     def cancel(self):
+
+        if self.snap is not None:
+            self.snap.cancel()
+
         self.canceled = True
 
     def execute(self):

@@ -101,13 +101,52 @@ class LimitCmd(Cmd):
 
     def runStormCmd(self, snap, genr):
 
-        count = 0
+        for count, item in enumerate(genr):
 
-        for item in genr:
-
-            yield item
-
-            count += 1
             if count >= self.opts.count:
                 snap.printf(f'limit reached: {self.opts.count}')
                 break
+
+            yield item
+
+class DelNodeCmd(Cmd):
+    '''
+    Delete nodes produced by the previous query logic.
+
+    (no nodes are returned)
+
+    Example
+
+        inet:fqdn=vertex.link | delnode
+    '''
+    name = 'delnode'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('--sudo', help='Activate elevated admin privs if allowed.')
+        return pars
+
+    def runStormCmd(self, snap, genr):
+
+        # a bit odd, but we need to be detected as a generator
+        yield from ()
+
+        if self.opts.sudo:
+            snap.elevated = True
+
+        for node in genr:
+            node.delete()
+
+class SudoCmd(Cmd):
+    '''
+    Use admin priviliges to bypass standard query permissions.
+
+    Example:
+
+        sudo | [ inet:fqdn=vertex.link ]
+    '''
+    name = 'sudo'
+
+    def runStormCmd(self, snap, genr):
+        snap.elevated = True
+        yield from genr

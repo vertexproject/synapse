@@ -19,7 +19,6 @@ setset = set('.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 timeset = set('01234567890')
 propset = set(':abcdefghijklmnopqrstuvwxyz_0123456789')
-starset = varset.union({'*'})
 tagfilt = varset.union({'#', '*'})
 alphaset = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
@@ -738,7 +737,7 @@ class Parser:
         if self.nextstr(':'):
             return self.editpropset()
 
-        if self.nextstr('#'):
+        if self.nextstr('+#'):
             return self.edittagadd()
 
         if self.nextstr('-:'):
@@ -824,6 +823,8 @@ class Parser:
     def edittagadd(self):
 
         self.ignore(whitespace)
+
+        self.nextmust('+')
 
         tag = self.tag()
 
@@ -1003,7 +1004,7 @@ class Parser:
                 return s_ast.CmdOper(kids=(s_ast.Const(name), text))
 
         # we have a prop <cmpr> <valu>!
-        if self.nextchar() in cmprset:
+        if self.nextchar() in cmprstart:
 
             # TODO: check for :: pivot syntax and raise
 
