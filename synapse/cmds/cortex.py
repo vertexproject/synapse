@@ -41,32 +41,16 @@ class AskCmd(s_cli.Cmd):
             return
 
         core = self.getCmdItem()
-
         stormopts = {'repr': True}
-
         self.printf('')
 
         for mesg in core.storm(text, opts=stormopts):
 
             if opts.get('debug'):
                 self.printf(pprint.pformat(mesg))
-                continue
 
-            if mesg[0] == 'init':
-                continue
-
-            if mesg[0] == 'print':
-                self.printf(mesg[1].get('mesg'))
-                continue
-
-            if mesg[0] == 'warn':
-                warn = mesg[1].get('mesg')
-                self.printf(f'WARNING: {warn}')
-                continue
-
-            if mesg[0] == 'node':
+            elif mesg[0] == 'node':
                 node = mesg[1]
-
                 formname = node[0][0]
 
                 formvalu = node[1].get('repr')
@@ -95,10 +79,10 @@ class AskCmd(s_cli.Cmd):
                     for name, valu in sorted(node[1]['tags'].items()):
                         self.printf(f'        #{name} = {valu}')
 
-                continue
+            elif mesg[0] == 'init':
+                pass
 
-            if mesg[0] == 'fini':
-
+            elif mesg[0] == 'fini':
                 took = mesg[1].get('took')
                 took = max(took, 1)
 
@@ -108,4 +92,12 @@ class AskCmd(s_cli.Cmd):
 
                 continue
 
-            self.printf(repr(mesg))
+            elif mesg[0] == 'print':
+                self.printf(mesg[1].get('mesg'))
+
+            elif mesg[0] == 'warn':
+                warn = mesg[1].get('mesg')
+                self.printf(f'WARNING: {warn}')
+
+            else:
+                self.printf(repr(mesg))

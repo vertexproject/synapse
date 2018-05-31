@@ -13,7 +13,8 @@ class CmdCoreTest(s_test.SynTest):
         with self.getTestCore() as core:
             with core.snap() as snap:
                 valu = 'abcd'
-                snap.addNode('teststr', valu)
+                node = snap.addNode('teststr', valu, props={'tick': 123})
+                node.addTag('cool')
 
             outp = self.getTestOutp()
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
@@ -24,16 +25,6 @@ class CmdCoreTest(s_test.SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('ask')
             outp.expect(help_msg)
-
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            cmdr.runCmdLine('ask teststr=b')
-            outp.expect('complete. 0 nodes')
-
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            cmdr.runCmdLine('ask teststr=abcd')
-            outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
@@ -57,8 +48,49 @@ class CmdCoreTest(s_test.SynTest):
 
             outp = self.getTestOutp()
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            cmdr.runCmdLine('ask --raw teststr=abcd')
+            cmdr.runCmdLine('ask teststr=b')
+            outp.expect('complete. 0 nodes')
 
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask teststr=abcd')
+            outp.expect(':tick = 1970/01/01 00:00:00.123')
+            outp.expect('#cool = (None, None)')
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --hide-tags teststr=abcd')
+            outp.expect(':tick = 1970/01/01 00:00:00.123')
+            self.false(outp.expect('#cool = (None, None)', throw=False))
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --hide-props teststr=abcd')
+            self.false(outp.expect(':tick = 1970/01/01 00:00:00.123', throw=False))
+            outp.expect('#cool = (None, None)')
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --hide-tags --hide-props teststr=abcd')
+            self.false(outp.expect(':tick = 1970/01/01 00:00:00.123', throw=False))
+            self.false(outp.expect('#cool = (None, None)', throw=False))
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --raw teststr=abcd')
+            outp.expect("'tick': 123")
+            outp.expect("{'tags': {'cool': (None, None)}")
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --bad')
+            outp.expect('Traceback')
+            outp.expect('BadStormSyntax')
 
 '''
 class SynCmdCoreTest(s_test.SynTest):
