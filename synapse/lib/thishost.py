@@ -1,6 +1,8 @@
+# stdlib
 import ctypes
 import socket
-
+# third party code
+# custom code
 import synapse.lib.thisplat as s_thisplat
 
 hostinfo = s_thisplat.initHostInfo()
@@ -22,3 +24,19 @@ def get(prop):
 
     '''
     return hostinfo.get(prop)
+
+def hostaddr(dest='8.8.8.8'):
+    '''
+    Retrieve the ipv4 address for this host ( optionally as seen from dest ).
+    Example:
+        addr = s_socket.hostaddr()
+    '''
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    # doesn't actually send any packets!
+    sock.connect((dest, 80))
+    addr, port = sock.getsockname()
+
+    sock.close()
+
+    return addr
