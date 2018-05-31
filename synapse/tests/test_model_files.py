@@ -36,7 +36,7 @@ class FileTest(s_test.SynTest):
             self.eq(info['subs']['dir'], 'c:/windows/system32')
             self.eq(info['subs']['base'], 'calc.exe')
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 node = snap.addNode('file:path', '/foo/bar/baz.exe')
 

@@ -33,6 +33,9 @@ class FixedCache:
         self.size = size
         self.fifo = collections.deque()
 
+    def pop(self, key):
+        return self.cache.pop(key, None)
+
     def put(self, key, val):
 
         self.cache[key] = val

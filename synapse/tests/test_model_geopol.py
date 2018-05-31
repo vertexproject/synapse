@@ -16,7 +16,7 @@ class GeoPolModelTest(s_t_common.SynTest):
                 'name': 'republic of visi', 'tld': 'visi', 'pop': 123}
             expected_ndef = (formname, guid)
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 node = snap.addNode(formname, guid, props=input_props)
 
             self.eq(node.ndef, expected_ndef)

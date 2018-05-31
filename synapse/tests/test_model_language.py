@@ -12,7 +12,7 @@ class LangModuleTest(s_t_common.SynTest):
             expected_props = {'url': 'https://vertex.link/', 'desc:en': 'Some English Desc'}
             expected_ndef = (formname, valu)
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 node = snap.addNode(formname, valu, props=input_props)
 
             self.eq(node.ndef, expected_ndef)
@@ -28,7 +28,7 @@ class LangModuleTest(s_t_common.SynTest):
             expected_props = {'text:en': 'Some English Text', 'desc:en': 'Some English Desc'}
             expected_ndef = (formname, valu)
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 node = snap.addNode(formname, valu, props=input_props)
 
             self.eq(node.ndef, expected_ndef)

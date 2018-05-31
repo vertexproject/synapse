@@ -81,6 +81,7 @@ class MembraneExists(SynErr): pass
 
 class BadTypeDef(SynErr): pass
 class BadPropDef(SynErr): pass
+class BadThreadIden(SynErr): pass
 
 class NoSuchDecoder(SynErr): pass
 class NoSuchEncoder(SynErr): pass
@@ -137,6 +138,7 @@ class BadCoreStore(SynErr):
     '''The storage layer has encountered an error'''
     pass
 
+class CantDelNode(SynErr): pass
 class CantDelProp(SynErr): pass
 class CantSetProp(SynErr): pass
 

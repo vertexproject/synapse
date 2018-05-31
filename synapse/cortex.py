@@ -56,8 +56,8 @@ class View:
         # our "top" layer is "us"
         self.layer = self.layers[-1]
 
-    def snap(self, write=False):
-        return s_snap.Snap(self.core, self.layers, write=write)
+    def snap(self):
+        return s_snap.Snap(self.core, self.layers)
 
     def getStormQuery(self, text):
         parser = s_syntax.Parser(self, text)
@@ -83,7 +83,7 @@ class CoreApi(s_cell.CellApi):
 
     def addNodes(self, nodes):
 
-        with self.cell.snap(write=True) as snap:
+        with self.cell.snap() as snap:
 
             snap.strict = False
             snap.setUser(self.user)
@@ -97,7 +97,7 @@ class CoreApi(s_cell.CellApi):
 
     def addFeedData(self, name, items, seqn=None):
 
-        with self.cell.snap(write=True) as snap:
+        with self.cell.snap() as snap:
             snap.strict = False
             snap.setUser(self.user)
             return snap.addFeedData(name, items, seqn=seqn)
@@ -134,6 +134,7 @@ class CoreApi(s_cell.CellApi):
         except Exception as e:
             logger.warning(f'exception during storm eval: {e}')
             query.cancel()
+            raise
 
     def _getStormQuery(self, text, opts=None):
 
@@ -221,7 +222,9 @@ class Cortex(s_cell.Cell):
         self.stormcmds = {}
 
         self.addStormCmd(s_storm.HelpCmd)
+        self.addStormCmd(s_storm.SudoCmd)
         self.addStormCmd(s_storm.LimitCmd)
+        self.addStormCmd(s_storm.DelNodeCmd)
 
         self.splicers = {
             'node:add': self._onFeedNodeAdd,
@@ -389,7 +392,7 @@ class Cortex(s_cell.Cell):
                         offs = self.addFeedData(typename, datas, seqn=(iden, offs))
 
             except Exception as e:
-                logger.warning(f'feed error: {e}')
+                logger.exception('feed error')
                 self.cellfini.wait(timeout=1)
 
     @s_common.firethread
@@ -668,7 +671,7 @@ class Cortex(s_cell.Cell):
         The "props" or "tags" keys may be omitted.
 
         '''
-        with self.snap(write=True) as snap:
+        with self.snap() as snap:
             snap.strict = False
             yield from snap.addNodes(nodedefs)
 
@@ -684,14 +687,14 @@ class Cortex(s_cell.Cell):
         Returns:
             (int): The next expected offset (or None) if seqn is None.
         '''
-        with self.snap(write=True) as snap:
+        with self.snap() as snap:
             snap.strict = False
             return snap.addFeedData(name, items, seqn=seqn)
 
     def getFeedOffs(self, iden):
         return self.layer.getOffset(iden)
 
-    def snap(self, write=False):
+    def snap(self):
         '''
         Return a transaction object for the default view.
 
@@ -703,7 +706,7 @@ class Cortex(s_cell.Cell):
 
         NOTE: This must be used in a with block.
         '''
-        return self.view.snap(write=write)
+        return self.view.snap()
 
     def addCoreMods(self, mods):
         '''
