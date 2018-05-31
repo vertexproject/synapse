@@ -5,6 +5,7 @@ import argparse
 import synapse.exc as s_exc
 import synapse.cells as s_cells
 import synapse.common as s_common
+import synapse.dyndeps as s_dyndeps
 
 import synapse.tools.dmon as s_dmon
 
@@ -25,8 +26,22 @@ def main(argv):
                                                        'does not exist).')
     pars.add_argument('--auth', action='store_true', help='Enable the cell auth subsystem.')
     pars.add_argument('--admin', help='Set the initial <user>:<passwd> as an admin (enables --auth).')
+    pars.add_argument('--module', action='store', help='An additional module to load. This can be used to initialize '
+                                                       'third party module code which may register additional Cells.')
+    pars.add_argument('--cells', action='store_true')
 
     opts = pars.parse_args(argv)
+
+    if opts.module:
+        mod = s_dyndeps.tryDynMod(opts.module)
+        print(f'Loaded {opts.module}@{mod}')
+
+    if opts.cells:
+        print('Registered cells:')
+        for cname, cpath in s_cells.getCells():
+            # print(f'[{cname}] {cpath:^12}')
+            print(f'{cname:<10} {cpath:>10}')
+        return 0
 
     dirn = s_common.genpath(opts.dmonpath, 'cells', opts.cellname)
     if os.path.isdir(dirn):
