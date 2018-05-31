@@ -21,7 +21,7 @@ class DnsModelTest(s_test.SynTest):
             self.eq('isdn', t.norm('isdn')[0])
             self.raises(s_exc.BadTypeValu, t.norm, 'newpnotreal')
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 # inet:dns:a
                 node = snap.addNode('inet:dns:a', ('hehe.com', '1.2.3.4'))
                 self.eq(node.ndef[1], ('hehe.com', 0x01020304))
@@ -132,7 +132,7 @@ class DnsModelTest(s_test.SynTest):
         email0 = 'pennywise@vertex.ninja'
 
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 # test a base set of props once
                 node = snap.addNode('inet:dns:look', '*', bprops)
                 self.true(s_common.isguid(node.ndef[1]))

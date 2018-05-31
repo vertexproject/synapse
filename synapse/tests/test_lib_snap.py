@@ -7,12 +7,8 @@ class SnapTest(s_t_common.SynTest):
     def test_stor(self):
         with self.getTestCore() as core:
 
-            # Readonly
-            with core.snap(write=False) as snap:
-                self.raises(s_exc.ReadOnlySnap, snap.stor, [])
-
             # Bulk
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 snap.bulk = True
                 self.eq(snap.bulksops, ())
 
@@ -27,7 +23,7 @@ class SnapTest(s_t_common.SynTest):
         valu = 'cool'
 
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 with self.getTestDir() as dirn:
                     with s_auth.Auth(dirn) as auth:
                         user = auth.addUser('hatguy')
@@ -42,7 +38,7 @@ class SnapTest(s_t_common.SynTest):
 
     def test_addNodes(self):
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 ndefs = ()
                 self.len(0, list(snap.addNodes(ndefs)))
 
@@ -82,7 +78,7 @@ class SnapTest(s_t_common.SynTest):
                         snap.strict = False
                         ndefs = (
                             (('teststr', 'foo'), {}, ),   # allowed
-                            (('testauto', 'bar'), {}, ),  # not allowed but will show up because strict=False
+                            (('testauto', 'bar'), {}, ),  # not allowed, still won't go through even if strict is false
                             (('testtime', 'baz'), {}, ),   # invalid
                             (('teststr', 'faz'), {}, ),   # allowed
                         )
@@ -90,6 +86,6 @@ class SnapTest(s_t_common.SynTest):
                         result = list(snap.addNodes(ndefs))
                         self.len(4, result)
                         self.nn(snap.getNodeByNdef(('teststr', 'foo')))
-                        self.nn(snap.getNodeByNdef(('testauto', 'bar')))
+                        self.none(snap.getNodeByNdef(('testauto', 'bar')))
                         self.none(snap.getNodeByNdef(('testtime', 'baz')))
                         self.nn(snap.getNodeByNdef(('teststr', 'faz')))

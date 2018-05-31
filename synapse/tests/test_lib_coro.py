@@ -22,7 +22,6 @@ class CoroTest(s_test.SynTest):
         self.true(event.is_set())
         self.false(f._isExitExc())
 
-
     def test_coro_queue(self):
 
         async def init():

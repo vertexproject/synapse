@@ -6,7 +6,7 @@ class SynModelTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 node = snap.addNode('syn:tag', 'foo.bar.baz')
 

@@ -8,7 +8,7 @@ class CortexTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 func = s_test.CallBack()
                 core.model.form('inet:ipv4').onAdd(func)
@@ -36,7 +36,7 @@ class CortexTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 valu = 'a' * 257
                 snap.addNode('teststr', valu)
 
@@ -97,7 +97,7 @@ class CortexTest(s_test.SynTest):
             self.len(1, list(core.eval('inet:user | limit 1    |     ')))
 
             # test cmd and trailing pipe and whitespace syntax
-            self.len(2, list(core.eval('inet:user | limit 10 | [ #foo.bar ]')))
+            self.len(2, list(core.eval('inet:user | limit 10 | [ +#foo.bar ]')))
             self.len(1, list(core.eval('inet:user | limit 10 | +inet:user=visi')))
 
             # test invalid option sytnax
@@ -109,7 +109,7 @@ class CortexTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 func = s_test.CallBack()
                 core.model.prop('inet:ipv4:loc').onSet(func)
@@ -138,7 +138,7 @@ class CortexTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 snap.addNode('teststr', 'newp')
 
@@ -165,7 +165,7 @@ class CortexTest(s_test.SynTest):
                 self.len(2, list(snap.getNodesBy('#foo.bar')))
                 self.len(1, list(snap.getNodesBy('teststr#foo.bar')))
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 node = snap.addNode('teststr', 'one')
 
@@ -184,7 +184,7 @@ class CortexTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 node = snap.addNode('testtype10', 'one')
                 node.set('intprop', 21)
 
@@ -195,7 +195,7 @@ class CortexTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 node = snap.addNode('testtype10', 'one')
                 self.nn(node.get('.created'))
@@ -263,7 +263,7 @@ class CortexTest(s_test.SynTest):
                 nodes = list(snap.getNodesBy('teststr:tick'))
                 self.len(3, nodes)
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 node = snap.addNode('testtype10', 'one')
                 print(repr(node.pack()))
@@ -291,7 +291,7 @@ class CortexTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 pivc = snap.addNode('pivcomp', ('woot', 'rofl'))
                 self.eq(pivc.get('targ'), 'woot')
@@ -309,7 +309,7 @@ class CortexTest(s_test.SynTest):
         with self.getTestCore() as core:
 
             # test some edit syntax
-            for node in core.eval('[ testcomp=(10, haha) #foo.bar -#foo.bar ]'):
+            for node in core.eval('[ testcomp=(10, haha) +#foo.bar -#foo.bar ]'):
                 self.nn(node.getTag('foo'))
                 self.none(node.getTag('foo.bar'))
 
@@ -419,7 +419,7 @@ class CortexTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 node = snap.addNode('teststr', 'foo')
 
@@ -443,7 +443,129 @@ class CortexTest(s_test.SynTest):
                 self.nn(conf)
                 self.eq(conf.get('key'), 'valu')
 
-    def test_cell_splices(self):
+    def test_cortex_delnode(self):
+
+        data = {}
+
+        def onPropDel(node, oldv):
+            data['prop:del'] = True
+            self.eq(oldv, 100)
+
+        def onNodeDel(node):
+            data['node:del'] = True
+
+        with self.getTestCore() as core:
+
+            form = core.model.forms.get('teststr')
+
+            form.onDel(onNodeDel)
+            form.props.get('tick').onDel(onPropDel)
+
+            with core.snap() as snap:
+
+                targ = snap.addNode('pivtarg', 'foo')
+                pivo = snap.addNode('pivcomp', ('foo', 'bar'))
+
+                self.raises(s_exc.CantDelNode, targ.delete)
+
+                tstr = snap.addNode('teststr', 'baz')
+                tstr.set('tick', 100)
+
+                buid = tstr.buid
+
+                tstr.delete()
+
+                self.true(data.get('prop:del'))
+                self.true(data.get('node:del'))
+
+                # confirm that the snap cache is clear
+                self.none(snap.getNodeByBuid(tstr.buid))
+                self.none(snap.getNodeByNdef(('teststr', 'baz')))
+
+            with core.snap() as snap:
+
+                # test that secondary props are gone at the row level...
+                prop = snap.model.prop('teststr:tick')
+                lops = prop.getLiftOps(100)
+                self.len(0, list(snap.getLiftRows(lops)))
+
+                # test that primary prop is gone at the row level...
+                prop = snap.model.prop('teststr')
+                lops = prop.getLiftOps('baz')
+                self.len(0, list(snap.getLiftRows(lops)))
+
+                # check that buid rows are gone...
+                self.len(0, list(snap._getBuidProps(buid)))
+
+                # final top level API check
+                self.none(snap.getNodeByNdef(('teststr', 'baz')))
+
+    def test_cortex_delnode_perms(self):
+
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+
+            pconf = {'user': 'root', 'passwd': 'root'}
+
+            with dmon._getTestProxy('core', **pconf) as core:
+
+                list(core.eval('sudo | [ cycle0=foo :cycle1=bar ]'))
+                list(core.eval('sudo | [ cycle1=bar :cycle0=foo ]'))
+
+                list(core.eval('sudo | [ teststr=foo +#lol ]'))
+
+                # no perms and not elevated...
+                self.raises(s_exc.AuthDeny, list, core.eval('teststr=foo | delnode'))
+
+                rule = (True, ('node:del',))
+                core.addAuthRule('root', rule)
+
+                # should still deny because node has tag we can't delete
+                self.raises(s_exc.AuthDeny, list, core.eval('teststr=foo | delnode'))
+
+                rule = (True, ('tag:del', 'lol'))
+                core.addAuthRule('root', rule)
+
+                self.len(0, list(core.eval('teststr=foo | delnode')))
+
+                self.raises(s_exc.CantDelNode, list, core.eval('cycle0=foo | delnode'))
+
+                self.len(0, list(core.eval('cycle0=foo | delnode --force')))
+
+    def test_cortex_sudo(self):
+
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+
+            pconf = {'user': 'root', 'passwd': 'root'}
+
+            with dmon._getTestProxy('core', **pconf) as core:
+
+                self.raises(s_exc.AuthDeny, list, core.eval('[ inet:ipv4=1.2.3.4 ]'))
+
+                nodes = list(core.eval('sudo | [ inet:ipv4=1.2.3.4 ]'))
+                self.len(1, nodes)
+
+    def test_cortex_snap_cancel(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+                snap.cancel()
+                self.raises(s_exc.Canceled, snap.getNodeByNdef, ('teststr', 'foo'))
+
+            with core.snap() as snap:
+
+                snap.addNode('teststr', 'foo')
+                snap.addNode('teststr', 'bar')
+
+                genr = snap.getNodesBy('teststr')
+
+                self.nn(next(genr))
+
+                snap.cancel()
+
+                self.raises(s_exc.Canceled, next, genr)
+
+    def test_cortex_cell_splices(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
@@ -453,7 +575,7 @@ class CortexTest(s_test.SynTest):
 
                 self.len(0, list(core.splices(0, 1000)))
 
-                list(core.eval('[ teststr=foo ]'))
+                list(core.eval('sudo | [ teststr=foo ]'))
 
                 self.ge(len(list(core.splices(0, 1000))), 2)
 
@@ -491,7 +613,7 @@ class CortexTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 node = snap.addNode('inet:ipv4', 0x01020304)
                 self.eq('1.2.3.4', node.repr())

@@ -39,7 +39,7 @@ class OuModelTest(s_test.SynTest):
             t = core.model.type('ou:alias')
             self.raises(s_exc.BadTypeValu, t.norm, 'asdf.asdf.asfd')
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 guid0 = s_common.guid()
                 oprops = {
                     'loc': 'US.CA',
@@ -182,7 +182,7 @@ class OuModelTest(s_test.SynTest):
                     'sic': '0134'}
         }
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 for g, props in omap.items():
                     node = snap.addNode('ou:org', g, props)
                 nodes = list(snap.getNodesBy('ou:org:sic', '01', cmpr='^='))

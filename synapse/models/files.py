@@ -267,7 +267,7 @@ class FileModule(s_module.CoreModule):
                         ('dir', ('file:path', {}), {'ro': 1,
                             'doc': 'The parent directory.'}),
 
-                        ('base', ('file:path', {}), {'ro': 1,
+                        ('base', ('file:base', {}), {'ro': 1,
                             'doc': 'The file base name.'}),
 
                         ('base:ext', ('str', {}), {'ro': 1,

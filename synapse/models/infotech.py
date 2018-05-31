@@ -311,13 +311,16 @@ class ItModule(s_module.CoreModule):
                         'doc': 'A short description of the software.',
                     }),
                     ('author:org', ('ou:org', {}), {
-                        'doc': 'Organization responsible for the software.',
+                        'doc': 'Organization which authored the software',
                     }),
                     ('author:acct', ('inet:web:acct', {}), {
-                        'doc': 'Web user responsible for the software.',
+                        'doc': 'Web account of the software author.',
+                    }),
+                    ('author:email', ('inet:email', {}), {
+                        'doc': 'Email address of the sofware author.',
                     }),
                     ('author:person', ('ps:person', {}), {
-                        'doc': 'Person responsible for the software.',
+                        'doc': 'Person who authored the software.',
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'URL relevant for the software.',

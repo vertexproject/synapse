@@ -10,7 +10,7 @@ class NodeTest(s_t_common.SynTest):
         props = {'tick': 12345}
 
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 node = snap.addNode(form, valu, props=props)
 
                 iden, info = node.pack()
@@ -34,7 +34,7 @@ class NodeTest(s_t_common.SynTest):
         props = {'tick': 12345}
 
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 self.true(snap.strict)  # Following assertions based on snap.strict being true
                 node = snap.addNode(form, valu, props=props)
 
@@ -64,7 +64,7 @@ class NodeTest(s_t_common.SynTest):
         props = {'tick': 12345}
 
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 node = snap.addNode(form, valu, props=props)
 
                 self.true(node.has('tick'))
@@ -78,7 +78,7 @@ class NodeTest(s_t_common.SynTest):
         props = {'tick': 12345}
 
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 node = snap.addNode(form, valu, props=props)
                 node.addTag('cool', valu=(1, 2))
 
@@ -97,7 +97,7 @@ class NodeTest(s_t_common.SynTest):
         props = {'tick': 12345}
 
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 node = snap.addNode(form, valu, props=props)
                 node.addTag('cool', valu=(1, 2))
 
@@ -124,7 +124,7 @@ class NodeTest(s_t_common.SynTest):
 
     def test_repr(self):
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 form = 'teststr'
                 valu = 'cool'
@@ -146,7 +146,7 @@ class NodeTest(s_t_common.SynTest):
         props = {'tick': 12345}
 
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 self.true(snap.strict)
 
                 node = snap.addNode(form, valu, props=props)

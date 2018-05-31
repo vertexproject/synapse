@@ -102,12 +102,8 @@ class Node:
             return False
 
         if not init and not self.snap.allowed('prop:set', self.form.name, prop.name):
-
-            if self.snap.strict:
-                mesg = 'Not allowed to set the property.'
-                raise s_exc.AuthDeny(mesg=mesg, form=self.form.name, prop=prop.name)
-
-            return False
+            mesg = 'Not allowed to set the property.'
+            return self.snap._onAuthDeny(mesg, form=self.form.name, prop=prop.name)
 
         curv = self.props.get(name)
 
@@ -117,12 +113,8 @@ class Node:
             norm, info = prop.type.norm(valu)
 
         except Exception as e:
-
-            if self.snap.strict:
-                raise s_exc.BadPropValu(name=prop.full, valu=valu)
-
-            self.snap.warn(f'BadPropValu: name={prop.full} valu={valu!r}')
-            return False
+            mesg = f'Bad property value: {prop.full}={valu!r}'
+            return self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, valu=valu)
 
         # do we already have the value?
         if curv == norm:
@@ -223,38 +215,29 @@ class Node:
 
     def pop(self, name, init=False):
         prop = self.form.prop(name)
-
         if prop is None:
-
-            if self.snap.strict:
-                raise s_exc.NoSuchProp(name=name)
-
-            self.snap.warn(f'NoSuchProp: name={name}')
-            return False
+            mesg = f'No such property.'
+            return self.snap._raiseOnStrict(s_exc.NoSuchProp, mesg, name=name)
 
         if not init:
 
             if not self.snap.allowed('prop:del', self.form.name, prop.name):
-
-                if self.snap.strict:
-                    mesg = 'Not allowed to delete the property.'
-                    raise s_exc.AuthDeny(mesg=mesg, prop=prop.full)
-
-                self.snap.warn(f'AuthDeny: prop:set {prop.full}')
-                return False
+                mesg = 'Not allowed to delete the property.'
+                return self.snap._onAuthDeny(mesg, prop=prop.full)
 
             if prop.info.get('ro'):
+                mesg = 'Property is read-only.'
+                return self.snap._raiseOnStrict(s_exc.ReadOnlyProp, mesg, name=prop.full)
 
-                if self.snap.strict:
-                    raise s_exc.ReadOnlyProp(name=prop.full)
-
-                self.snap.warn(f'ReadOnlyProp: {prop.full}')
-                return False
+        curv = self.props.pop(name, s_common.novalu)
+        if curv is s_common.novalu:
+            return False
 
         sops = prop.getDelOps(self.buid)
         self.snap.stor(sops)
 
-        curv = self.props.pop(name, None)
+        self.snap.splice('prop:del', ndef=self.ndef, prop=prop.name, valu=curv)
+
         prop.wasDel(self, curv)
 
     def repr(self, name=None):
@@ -292,13 +275,8 @@ class Node:
         path = s_chop.tagpath(tag)
 
         if not self.snap.allowed('tag:add', *path):
-
-            if self.snap.strict:
-                mesg = 'Not allowed to add the tag.'
-                raise s_exc.AuthDeny(mesg, tag=tag)
-
-            self.snap.warn(f'AuthDeny: tag:add {tag}')
-            return False
+            mesg = 'Not allowed to add the tag.'
+            return self.snap._onAuthDeny(mesg, tag=tag)
 
         if valu != (None, None):
             valu = self.snap.model.type('ival').norm(valu)[0]
@@ -355,13 +333,8 @@ class Node:
         if not init:
 
             if not self.snap.allowed('tag:del', *path):
-
-                if self.snap.strict:
-                    mesg = 'Not allowed to delete the tag.'
-                    raise s_exc.AuthDeny(mesg=mesg, tag=tag)
-
-                self.snap.warn('AuthDeny: tag:del {tag}')
-                return False
+                mesg = 'Not allowed to delete the tag.'
+                return self.snap._onAuthDeny(mesg, tag=tag)
 
         name = '.'.join(path)
 
@@ -384,4 +357,66 @@ class Node:
         sops.append(('prop:del', (self.buid, self.form.name, '#' + name, info)))
 
         self.snap.stor(sops)
-        self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=name)
+        self.snap.splice('tag:del', ndef=self.ndef, tag=name, valu=curv)
+
+    def delete(self, force=False):
+        '''
+        Delete a node from the cortex.
+
+        The following tear-down operations occur in order:
+
+            * validate that you have permissions to delete the node
+            * validate that you have permissions to delete all tags
+            * validate that there are no remaining references to the node.
+
+            * delete all the tags (bottom up)
+                * fire onDelTag() handlers
+                * delete tag properties from storage
+                * log tag:del splices
+
+            * delete all secondary properties
+                * fire onDelProp handler
+                * delete secondary property from storage
+                * log prop:del splices
+
+            * delete the primary property
+                * fire onDel handlers for the node
+                * delete primary property from storage
+                * log node:del splices
+        '''
+
+        formname, formvalu = self.ndef
+
+        # check permissions
+        if not self.snap.allowed('node:del', formname):
+            return self.snap._onAuthDeny('Not allowed to delete the node.')
+
+        tags = [(len(t), t) for t in self.tags.keys()]
+
+        # check for tag permissions
+        for size, tag in tags:
+            tagpath = s_chop.tagpath(tag)
+            if not self.snap.allowed('tag:del', *tagpath):
+                return self.snap._onAuthDeny('Not allowed to delete node with tag {tag}.')
+
+        # check for any nodes which reference us...
+        if not force:
+
+            if any(self.snap._getNodesByType(formname, formvalu, addform=False)):
+                mesg = 'Other nodes still refer to this node.'
+                return self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
+
+        for size, tag in sorted(tags, reverse=True):
+            self.delTag(tag, init=True)
+
+        for name in list(self.props.keys()):
+            self.pop(name, init=True)
+
+        sops = self.form.getDelOps(self.buid)
+
+        self.snap.stor(sops)
+        self.snap.splice('node:del', ndef=self.ndef)
+
+        self.snap.buidcache.pop(self.buid)
+
+        self.form.wasDeleted(self)
