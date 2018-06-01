@@ -1,105 +1,56 @@
+# vim:set ft=gitignore:
+
+# Git / Editor / Coverage / Linter
+.git
+.idea
+*.swo
+*.swp
+html/
+htmlcov/
+.coverage
+.coverage.*
+.coveragerc
+coverage.xml
+*,cover
+cover/
+.pytest_cache/
+.tox/
+.cache
+nosetests.xml
+.mypy_cache/
+
+# Synapse
+docs/*
+CHANGELOG.md
+Dockerfile
+MANIFEST.in
+synapse/tests
+
+# Python
 **/*.pyc
 **/__pycache__
 build
-.cache
-.coverage
-coverage
-.coveragerc
 dist
-.git
-htmlcov
-.idea
 *.egg-info
 .eggs
-*.swo
-*.swp
-
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*.swp
-
-# sphinx build dir
-docs/_build
-# sphinx API doc dir
-docs/synapse/api
-docs/synapse/datamodel.rst
-docs/synapse/configables.rst
-
-# C extensions
-*.so
-
-# Distribution / packaging
+eggs/
+*.egg
+venv
+.python-version
 .Python
 env/
-build/
 develop-eggs/
-dist/
 downloads/
-eggs/
-.eggs/
 lib64/
 parts/
 sdist/
 var/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
+.installed.cfg
 *.spec
-
-# Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-.pytest_cache/
-htmlcov/
-html/
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*,cover
-cover/
-
-# Translations
 *.mo
 *.pot
-
-# Django stuff:
 *.log
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
 target/
-
-# pyvenv
-venv
-
-# pyenv
-.python-version
-
-# PyCharm files.
-.idea/
-
-# vim
-*.swo
-*.swp
-
-# Linter files
-.mypy_cache/
-
-# Test certs which are dropped to disk by tests.common from synapse.data.
-synapse/tests/ca.*
-synapse/tests/server.*
-synapse/tests/root.*
-synapse/tests/user.*
