@@ -18,6 +18,9 @@ def intrange(text):
 def digits(text):
     return ''.join([c for c in text if c.isdigit()])
 
+def printables(text):
+    return ''.join([c for c in text if c.isprintable()])
+
 def mergeRanges(x, y):
     '''
     Merge two ranges into one.
