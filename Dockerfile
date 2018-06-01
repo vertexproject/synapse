@@ -16,7 +16,10 @@ COPY . /root/git/synapse/
 
 RUN cd /root/git/synapse && \
     # Install Synapse
-    python setup.py develop
+    python setup.py develop && \
+    # Create the dmon directory
+    mkdir -p /syndata && cd /syndata && \
+    python -m synapse.tools.deploy --listen tcp://0.0.0.0:47322 cortex core dmon_dir
 
 VOLUME /syndata
 VOLUME /root/git/synapse
