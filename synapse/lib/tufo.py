@@ -2,6 +2,8 @@
 Some common utility functions for dealing with tufos.
 '''
 
+# FIXME do not delete until all functionality is ported to Node
+
 def tufo(name, **props):
     '''
     Convenience / syntax sugar for tufo construction.
