@@ -9,7 +9,6 @@ import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
-import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.trees as s_trees
 import synapse.lib.msgpack as s_msgpack
