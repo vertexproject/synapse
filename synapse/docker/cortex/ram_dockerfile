@@ -1,8 +1,0 @@
-# vim:set ft=dockerfile:
-FROM vertexproject/synapse:latest
-
-# docker build -t vertexproject/core_ram -f ~/git/synapse/synapse/docker/cortex/ram_dockerfile ~/git/synapse
-
-COPY ./synapse/docker/cortex/ram_dmon.json /syndata/dmon.json
-
-ENTRYPOINT ["python", "-m", "synapse.tools.dmon", "/syndata/dmon.json"]
