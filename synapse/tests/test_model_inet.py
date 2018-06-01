@@ -910,7 +910,7 @@ class InetModelTest(s_t_common.SynTest):
 
     def _test_types_url_behavior(self, t, htype, host, norm_host, repr_host):
 
-            # Handle IPv6 Port Brackets
+        # Handle IPv6 Port Brackets
         host_port = host
         repr_host_port = repr_host
 
