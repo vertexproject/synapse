@@ -21,7 +21,6 @@ base_synaspe_dir = os.path.split(synapse.__file__)[0]
 dir_skips = ('/tests',
              '/tools',
              '/__pycache__',
-             'synapse/docker',
              )
 
 fn_skips = ('__init__.py',
