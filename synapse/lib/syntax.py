@@ -1,8 +1,6 @@
-
 import synapse.exc as s_exc
-import synapse.common as s_common
-
 import synapse.lib.ast as s_ast
+import synapse.common as s_common
 import synapse.lib.time as s_time
 
 '''
@@ -86,20 +84,20 @@ def parse_int(text, off, trim=True):
     if nextstr(text, off, '0x'):
         valu, off = nom(text, off + 2, hexset)
         if not valu:
-            raise s_common.BadSyntaxError(at=off, mesg='0x expected hex')
+            raise s_exc.BadSyntaxError(at=off, mesg='0x expected hex')
         valu = int(valu, 16)
 
     elif nextstr(text, off, '0b'):
         valu, off = nom(text, off + 2, binset)
         if not valu:
-            raise s_common.BadSyntaxError(at=off, mesg='0b expected bits')
+            raise s_exc.BadSyntaxError(at=off, mesg='0b expected bits')
         valu = int(valu, 2)
 
     else:
 
         valu, off = nom(text, off, decset)
         if not valu:
-            raise s_common.BadSyntaxError(at=off, mesg='expected digits')
+            raise s_exc.BadSyntaxError(at=off, mesg='expected digits')
 
         if not nextchar(text, off, '.'):
             valu = int(valu)
@@ -124,14 +122,14 @@ def parse_float(text, off, trim=True):
 
     digs, off = nom(text, off, decset)
     if not digs:
-        raise s_common.BadSyntaxError(at=off, mesg='expected digits')
+        raise s_exc.BadSyntaxError(at=off, mesg='expected digits')
 
     valu += digs
 
     if nextchar(text, off, '.'):
         frac, off = nom(text, off + 1, decset)
         if not frac:
-            raise s_common.BadSyntaxError(at=off, mesg='expected .<digits>')
+            raise s_exc.BadSyntaxError(at=off, mesg='expected .<digits>')
 
         valu = valu + '.' + frac
 
@@ -151,7 +149,7 @@ def parse_list(text, off=0, trim=True):
     '''
 
     if not nextchar(text, off, '('):
-        raise s_common.BadSyntaxError(at=off, mesg='expected open paren for list')
+        raise s_exc.BadSyntaxError(at=off, mesg='expected open paren for list')
 
     off += 1
 
@@ -183,11 +181,11 @@ def parse_list(text, off=0, trim=True):
             return valus, off + 1
 
         if not nextchar(text, off, ','):
-            raise s_common.BadSyntaxError(at=off, text=text, mesg='expected comma in list')
+            raise s_exc.BadSyntaxError(at=off, text=text, mesg='expected comma in list')
 
         off += 1
 
-    raise s_common.BadSyntaxError(at=off, mesg='unexpected and of text during list')
+    raise s_exc.BadSyntaxError(at=off, mesg='unexpected and of text during list')
 
 def parse_cmd_string(text, off, trim=True):
     '''
@@ -207,7 +205,7 @@ def parse_cmd_string(text, off, trim=True):
 def parse_string(text, off, trim=True):
 
     if text[off] not in ('"', "'"): # lulz...
-        raise s_common.BadSyntaxError(expected='String Literal', at=off)
+        raise s_exc.BadSyntaxError(expected='String Literal', at=off)
 
     quot = text[off]
 
@@ -354,7 +352,7 @@ def parse_ques(text, off=0, trim=True):
     name, off = nom(text, off, varset, trim=True)
 
     if not name:
-        raise s_common.BadSyntaxError(text=text, off=off, mesg='expected name')
+        raise s_exc.BadSyntaxError(text=text, off=off, mesg='expected name')
 
     ques['cmp'] = 'has'
     ques['prop'] = name
@@ -395,7 +393,7 @@ def parse_ques(text, off=0, trim=True):
                 return ques, off
 
             if not nextchar(text, off, '='):
-                raise s_common.BadSyntaxError(text=text, off=off, mesg='expected equals for by syntax')
+                raise s_exc.BadSyntaxError(text=text, off=off, mesg='expected equals for by syntax')
 
             _, off = nom(text, off + 1, whites)
 
@@ -459,7 +457,7 @@ def parse_cmd_kwarg(text, off=0):
     _, off = nom(text, off, whites)
 
     if not nextchar(text, off, '='):
-        raise s_common.BadSyntaxError(expected='= for kwarg ' + prop, at=off)
+        raise s_exc.BadSyntaxError(expected='= for kwarg ' + prop, at=off)
 
     _, off = nom(text, off + 1, whites)
 
@@ -503,7 +501,7 @@ def parse_oper(text, off=0):
     _, off = nom(text, off, whites)
 
     if not nextchar(text, off, '('):
-        raise s_common.BadSyntaxError(expected='( for operator ' + name, at=off)
+        raise s_exc.BadSyntaxError(expected='( for operator ' + name, at=off)
 
     off += 1
 
@@ -528,7 +526,7 @@ def parse_oper(text, off=0):
             inst[1]['args'].append(valu)
 
         if not nextin(text, off, [',', ')']):
-            raise s_common.BadSyntaxError(mesg='Unexpected Token: ' + text[off], at=off)
+            raise s_exc.BadSyntaxError(mesg='Unexpected Token: ' + text[off], at=off)
 
         if nextchar(text, off, ','):
             off += 1
@@ -542,7 +540,7 @@ def parse_perm(text, off=0):
 
     name, off = nom(text, off, varset)
     if not name:
-        raise s_common.BadSyntaxError(mesg='perm str expected name')
+        raise s_exc.BadSyntaxError(mesg='perm str expected name')
 
     retn = (name, {})
 
@@ -555,13 +553,13 @@ def parse_perm(text, off=0):
         _, off = nom(text, off, whites)
 
         if not nextchar(text, off, '='):
-            raise s_common.BadSyntaxError(mesg='perm opt expected =')
+            raise s_exc.BadSyntaxError(mesg='perm opt expected =')
 
         _, off = nom(text, off + 1, whites)
 
         valu, off = parse_valu(text, off)
         if not isinstance(valu, str):
-            raise s_common.BadSyntaxError(mesg='perm opt %s= expected string' % meta)
+            raise s_exc.BadSyntaxError(mesg='perm opt %s= expected string' % meta)
 
         _, off = nom(text, off, whites)
 
@@ -578,14 +576,14 @@ def parse_stormsub(text, off=0):
     _, off = nom(text, off, whites)
 
     if not nextchar(text, off, '{'):
-        raise s_common.BadSyntaxError('expected { at %d' % (off,))
+        raise s_exc.BadSyntaxError('expected { at %d' % (off,))
 
     _, off = nom(text, off + 1, whites)
 
     opers, off = parse_storm(text, off)
 
     if not nextchar(text, off, '}'):
-        raise s_common.BadSyntaxError('expected } at %d' % (off,))
+        raise s_exc.BadSyntaxError('expected } at %d' % (off,))
 
     _, off = nom(text, off + 1, whites)
 
@@ -1460,7 +1458,7 @@ def parse_storm(text, off=0):
                     break
 
                 if off == len(text):
-                    raise s_common.BadSyntaxError(mesg='unexpected end of query text in edit mode')
+                    raise s_exc.BadSyntaxError(mesg='unexpected end of query text in edit mode')
 
                 if nextstr(text, off, '+#'):
                     valu, off = parse_valu(text, off + 2)
@@ -1485,11 +1483,11 @@ def parse_storm(text, off=0):
                 # otherwise, it should be a prop=valu (maybe relative)
                 prop, off = nom(text, off, propset)
                 if not prop:
-                    raise s_common.BadSyntaxError(mesg='edit macro expected prop=valu syntax')
+                    raise s_exc.BadSyntaxError(mesg='edit macro expected prop=valu syntax')
 
                 _, off = nom(text, off, whites)
                 if not nextchar(text, off, '='):
-                    raise s_common.BadSyntaxError(mesg='edit macro expected prop=valu syntax')
+                    raise s_exc.BadSyntaxError(mesg='edit macro expected prop=valu syntax')
 
                 valu, off = parse_valu(text, off + 1)
                 if prop[0] == ':':
@@ -1556,12 +1554,12 @@ def parse_storm(text, off=0):
         if text[off] == '&':
 
             if len(ret) == 0:
-                raise s_common.BadSyntaxError(mesg='logical and with no previous operator')
+                raise s_exc.BadSyntaxError(mesg='logical and with no previous operator')
 
             prev = ret[-1]
 
             if prev[0] != 'filt':
-                raise s_common.BadSyntaxError(mesg='prev oper must be filter not: %r' % prev)
+                raise s_exc.BadSyntaxError(mesg='prev oper must be filter not: %r' % prev)
 
             mode = prev[1].get('mode')
             inst, off = parse_macro_filt(text, off + 1, mode=mode)
@@ -1577,12 +1575,12 @@ def parse_storm(text, off=0):
         if text[off] == '|':
 
             if len(ret) == 0:
-                raise s_common.BadSyntaxError(mesg='logical or with no previous operator')
+                raise s_exc.BadSyntaxError(mesg='logical or with no previous operator')
 
             prev = ret[-1]
 
             if prev[0] != 'filt':
-                raise s_common.BadSyntaxError(mesg='prev oper must be filter not: %r' % prev)
+                raise s_exc.BadSyntaxError(mesg='prev oper must be filter not: %r' % prev)
 
             mode = prev[1].get('mode')
             inst, off = parse_macro_filt(text, off + 1, mode=mode)
@@ -1661,6 +1659,6 @@ def parse(text, off=0):
     '''
     retn, off = parse_storm(text, off=off)
     if off != len(text):
-        raise s_common.BadSyntaxError('trailing text: %s' % (text[off:],))
+        raise s_exc.BadSyntaxError('trailing text: %s' % (text[off:],))
 
     return retn

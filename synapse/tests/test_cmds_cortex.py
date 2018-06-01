@@ -1,22 +1,99 @@
+
+
 import regex
 
 import synapse.lib.cmdr as s_cmdr
+import synapse.tests.common as s_test
 
-from synapse.tests.common import *
 
-import unittest
-raise unittest.SkipTest()
+class CmdCoreTest(s_test.SynTest):
 
-class SynCmdCoreTest(SynTest):
+    def test_ask(self):
+        help_msg = 'Execute a storm query.'
+        with self.getTestCore() as core:
+            with core.snap() as snap:
+                valu = 'abcd'
+                node = snap.addNode('teststr', valu, props={'tick': 123})
+                node.addTag('cool')
 
-    def test_cmds_ask(self):
-        with self.getDmonCore() as core:
             outp = self.getTestOutp()
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('inet:email', 'visi@vertex.link')
-            resp = cmdr.runCmdLine('ask inet:email="visi@vertex.link"')
-            self.len(1, resp['data'])
-            self.true(outp.expect('visi@vertex.link'))
+            cmdr.runCmdLine('help ask')
+            outp.expect(help_msg)
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask')
+            outp.expect(help_msg)
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --debug teststr=abcd')
+            outp.expect("('init',")
+            outp.expect("('node',")
+            outp.expect("('fini',")
+            outp.expect("tick")
+            outp.expect("tock")
+            outp.expect("took")
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --debug teststr=zzz')
+            outp.expect("('init',")
+            self.false(outp.expect("('node',", throw=False))
+            outp.expect("('fini',")
+            outp.expect("tick")
+            outp.expect("tock")
+            outp.expect("took")
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask teststr=b')
+            outp.expect('complete. 0 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask teststr=abcd')
+            outp.expect(':tick = 1970/01/01 00:00:00.123')
+            outp.expect('#cool = (None, None)')
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --hide-tags teststr=abcd')
+            outp.expect(':tick = 1970/01/01 00:00:00.123')
+            self.false(outp.expect('#cool = (None, None)', throw=False))
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --hide-props teststr=abcd')
+            self.false(outp.expect(':tick = 1970/01/01 00:00:00.123', throw=False))
+            outp.expect('#cool = (None, None)')
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --hide-tags --hide-props teststr=abcd')
+            self.false(outp.expect(':tick = 1970/01/01 00:00:00.123', throw=False))
+            self.false(outp.expect('#cool = (None, None)', throw=False))
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --raw teststr=abcd')
+            outp.expect("'tick': 123")
+            outp.expect("{'tags': {'cool': (None, None)}")
+            outp.expect('complete. 1 nodes')
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask --bad')
+            outp.expect('Traceback')
+            outp.expect('BadStormSyntax')
+
+'''
+class SynCmdCoreTest(s_test.SynTest):
 
     def test_cmds_ask_showcols(self):
         with self.getDmonCore() as core:
@@ -39,34 +116,6 @@ class SynCmdCoreTest(SynTest):
             self.len(4, resp['data'])
             result = [mesg.strip() for mesg in outp.mesgs]
             self.eq(result, ['z@a.vertex.link', 'a@vertex.link', 'vertexmc@vertex.link', 'visi@vertex.link', '(4 results)'])
-
-    def test_cmds_ask_debug(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('inet:email', 'visi@vertex.link')
-            resp = cmdr.runCmdLine('ask --debug inet:email="visi@vertex.link"')
-            self.len(1, resp['data'])
-
-            outp = str(outp)
-            terms = ('oplog', 'took', 'options', 'limits')
-
-            for term in terms:
-                self.nn(regex.search(term, outp))
-
-    def test_cmds_ask_props(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('inet:email', 'visi@vertex.link')
-            resp = cmdr.runCmdLine('ask --props inet:email="visi@vertex.link"')
-            self.len(1, resp['data'])
-
-            outp = str(outp)
-            terms = ('fqdn = vertex.link', 'user = visi')
-
-            for term in terms:
-                self.nn(regex.search(term, outp))
 
     def test_cmds_ask_mesgs(self):
         with self.getDmonCore() as core:
@@ -134,19 +183,6 @@ class SynCmdCoreTest(SynTest):
             for term in terms:
                 self.nn(regex.search(term, outp))
 
-    def test_cmds_ask_raw(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('inet:email', 'visi@vertex.link')
-            resp = cmdr.runCmdLine('ask --raw inet:email="visi@vertex.link"')
-            self.len(1, resp['data'])
-
-            outp = str(outp)
-            terms = ('"tufo:form": "inet:email"', '"inet:email:user": "visi"')
-            for term in terms:
-                self.nn(regex.search(term, outp))
-
     def test_cmds_ask_multilift(self):
         with self.getDmonCore() as core:
             outp = self.getTestOutp()
@@ -161,10 +197,4 @@ class SynCmdCoreTest(SynTest):
 
             for term in terms:
                 self.nn(regex.search(term, outp))
-
-    def test_cmds_ask_noopts(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            cmdr.runCmdLine('ask')
-            self.nn(regex.search('Examples:', str(outp)))
+'''

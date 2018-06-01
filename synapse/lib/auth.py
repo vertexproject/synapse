@@ -1,12 +1,13 @@
+
 import os
-import lmdb
 import logging
 import functools
 import contextlib
 
+import lmdb
+
 import synapse.exc as s_exc
 import synapse.common as s_common
-
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.scope as s_scope

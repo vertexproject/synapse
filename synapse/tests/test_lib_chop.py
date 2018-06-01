@@ -11,9 +11,6 @@ class ChopTest(s_test.SynTest):
         tags = s_chop.tags('foo.bar.baz')
         self.eq(tags, ('foo', 'foo.bar', 'foo.bar.baz'))
 
-    def test_chop_onespace(self):
-        self.eq('foo bar baz', s_chop.onespace('foo   bar baz'))
-
     def test_chop_tag(self):
         self.eq('foo.bar.ba z', s_chop.tag('#foo  .bar.  BA Z'))
 
@@ -41,19 +38,24 @@ class ChopTest(s_test.SynTest):
                 self.raises(e, s_chop.hexstr, v)
 
     def test_chop_onespace(self):
-        ivs = ['asdfasdf  asdfasdf ',
-               'asdfasdf ',
-               'asdf',
-               '  asdfasdf  ',
-               ' asdf  asdf    asdf \t \t asdf asdf   ',
-               ' '
-               ]
-        evs = ['asdfasdf asdfasdf',
-               'asdfasdf',
-               'asdf',
-               'asdfasdf',
-               'asdf asdf asdf asdf asdf',
-               '']
-        for iv, ev in zip(ivs, evs):
+        tvs = [
+            ('asdfasdf  asdfasdf ', 'asdfasdf asdfasdf'),
+            ('asdfasdf ', 'asdfasdf'),
+            ('asdf', 'asdf'),
+            ('  asdfasdf  ', 'asdfasdf'),
+            (' asdf  asdf    asdf \t \t asdf asdf   ', 'asdf asdf asdf asdf asdf'),
+            (' ', ''),
+            ('foo   bar baz', 'foo bar baz'),
+        ]
+        for iv, ev in tvs:
             rv = s_chop.onespace(iv)
+            self.eq(rv, ev)
+
+    def test_chop_printables(self):
+        tvs = [
+            ('hehe haha', 'hehe haha'),
+            ('hehe\u200bhaha\u200b ', 'hehehaha ')
+        ]
+        for iv, ev in tvs:
+            rv = s_chop.printables(iv)
             self.eq(rv, ev)
