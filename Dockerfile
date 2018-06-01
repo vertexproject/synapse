@@ -1,16 +1,18 @@
 # vim:set ft=dockerfile:
 FROM vertexproject/synapse-base-image:py36
 
-ENV SYN_DMON_LOG_LEVEL="WARNING"
+# Copy Synapse Code
+COPY . /root/git/synapse/
 
-COPY . /root/git/synapse
-RUN mkdir /syndata \
- && cd /root/git/synapse && python setup.py install \
- && cp synapse/docker/cortex/ram_dmon.json /syndata/dmon.json
+RUN cd /root/git/synapse && \
+    # Install Synapse
+    python setup.py develop && \
+    # Create Dmon directory
+    mkdir -p /syndata && cd /syndata && \
+    python -m synapse.tools.deploy --listen tcp://0.0.0.0:47322 cortex core core_dmon_dir
 
 VOLUME /syndata
 VOLUME /root/git/synapse
 
-WORKDIR /root/git/synapse
 EXPOSE 47322
-ENTRYPOINT ["python", "-m", "synapse.tools.dmon", "/syndata/dmon.json"]
+ENTRYPOINT ["python", "-m", "synapse.tools.dmon", "/syndata/core_dmon_dir"]
