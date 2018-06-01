@@ -1,7 +1,7 @@
-# stdlib
+
 import hashlib
 import logging
-# third party code
+
 import cryptography.hazmat.primitives.hashes as c_hashes
 import cryptography.hazmat.primitives.kdf.hkdf as c_hkdf
 import cryptography.hazmat.primitives.asymmetric.ec as c_ec
@@ -9,7 +9,7 @@ import cryptography.hazmat.primitives.serialization as c_ser
 import cryptography.hazmat.primitives.asymmetric.utils as c_utils
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
-# custom code
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 

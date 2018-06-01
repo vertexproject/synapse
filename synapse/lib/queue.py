@@ -1,8 +1,6 @@
-# stdlib
 import threading
 import collections
-# third party code
-# custom code
+
 import synapse.exc as s_exc
 import synapse.eventbus as s_eventbus
 

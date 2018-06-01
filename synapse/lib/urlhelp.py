@@ -1,6 +1,3 @@
-# stdlib
-# third party code
-# custom code
 import synapse.exc as s_exc
 
 def chopurl(url):

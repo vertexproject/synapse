@@ -1,8 +1,8 @@
-# stdlib
+
 import sys
 import argparse
-# third party code
-# custom code
+
+
 import synapse.exc as s_exc
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir

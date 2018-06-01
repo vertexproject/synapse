@@ -1,12 +1,11 @@
 '''
 An RMI framework for synapse.
 '''
-# stdlib
+
 import os
 import asyncio
 import logging
-# third party code
-# custom code
+
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common

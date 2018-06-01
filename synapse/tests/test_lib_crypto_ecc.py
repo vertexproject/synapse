@@ -1,12 +1,12 @@
-# stdlib
+
 import os
 import hashlib
-# third party code
+
 import cryptography.hazmat.primitives.hashes as c_hashes
 import cryptography.hazmat.primitives.kdf.hkdf as c_hkdf
 from cryptography.hazmat.backends import default_backend
 import cryptography.hazmat.primitives.asymmetric.ec as c_ec
-# custom code
+
 import synapse.exc as s_exc
 import synapse.lib.const as s_const
 import synapse.tests.common as s_test

@@ -1,9 +1,8 @@
-# stdlib
+
 import json
 import traceback
 import collections
-# third party code
-# custom code
+
 import synapse.exc as s_exc
 import synapse.eventbus as s_eventbus
 import synapse.lib.mixins as s_mixins

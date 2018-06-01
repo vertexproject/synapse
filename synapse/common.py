@@ -1,4 +1,4 @@
-# stdlib
+
 import io
 import os
 import sys
@@ -19,11 +19,11 @@ import traceback
 import contextlib
 import collections
 
-# third party code
+
 import yaml
 import regex
 
-# custom code
+
 import synapse.exc as s_exc
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack

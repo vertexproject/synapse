@@ -1,10 +1,10 @@
-# stdlib
+
 import os
 import hashlib
 import binascii
-# third party code
+
 from cryptography.hazmat.backends import default_backend
-# custom code
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.common as s_test

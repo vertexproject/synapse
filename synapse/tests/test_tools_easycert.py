@@ -1,7 +1,7 @@
-# stdlib
+
 import os
-# third party code
-# custom code
+
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.common as s_test

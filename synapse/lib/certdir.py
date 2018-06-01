@@ -1,9 +1,9 @@
-# stdlib
+
 import os
 import shutil
-# third party code
+
 from OpenSSL import crypto
-# custom code
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 

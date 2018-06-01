@@ -1,11 +1,11 @@
-# stdlib
+
 import os
 import logging
 import functools
 import contextlib
-# third party code
+
 import lmdb
-# custom code
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.cell as s_cell

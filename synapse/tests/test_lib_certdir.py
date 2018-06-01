@@ -1,9 +1,9 @@
-# stdlib
+
 import os
 from contextlib import contextmanager
-# third party code
+
 from OpenSSL import crypto, SSL
-# custom code
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.common as s_test

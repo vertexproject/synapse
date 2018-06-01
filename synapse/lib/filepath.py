@@ -1,12 +1,11 @@
-# stdlib
+
 import os
 import queue
 import fnmatch
 import tarfile
 import zipfile
 import tempfile
-# third party code
-# custom code
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 

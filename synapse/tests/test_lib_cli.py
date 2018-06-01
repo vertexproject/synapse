@@ -1,7 +1,7 @@
-# stdlib
+
 import unittest.mock as mock
-# third party code
-# custom code
+
+
 import synapse.exc as s_exc
 import synapse.lib.cli as s_cli
 import synapse.tests.common as s_test

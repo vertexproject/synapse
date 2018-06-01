@@ -1,7 +1,5 @@
-# stdlib
 import base64
-# third party code
-# custom code
+
 import synapse.exc as s_exc
 
 def _de_base64(item, **opts):

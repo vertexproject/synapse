@@ -1,7 +1,5 @@
-# stdlib
 import pprint
-# third party code
-# custom code
+
 import synapse.lib.cli as s_cli
 
 class AskCmd(s_cli.Cmd):

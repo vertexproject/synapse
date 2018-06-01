@@ -1,13 +1,13 @@
-# stdlib
+
 import os
 import csv
 import json
 import codecs
 import logging
 import xml.etree.ElementTree as x_etree
-# third party code
+
 import regex
-# custom code
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.scope as s_scope

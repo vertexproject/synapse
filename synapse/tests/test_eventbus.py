@@ -1,11 +1,11 @@
-# stdlib
+
 import os
 import sys
 import time
 import signal
 import multiprocessing
-# third party code
-# custom code
+
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus

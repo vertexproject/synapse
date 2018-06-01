@@ -1,6 +1,3 @@
-# stdlib
-# third party code
-# custom code
 import synapse.exc as s_exc
 import synapse.tests.common as s_test
 import synapse.lib.revision as s_revision

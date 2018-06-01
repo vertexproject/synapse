@@ -1,12 +1,12 @@
-# stdlib
+
 import logging
 import collections
 
-# third party code
+
 import regex
 import xxhash
 
-# custom code
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.chop as s_chop

@@ -1,6 +1,3 @@
-# stdlib
-# third party code
-# custom code
 import synapse.exc as s_exc
 import synapse.dyndeps as s_dyndeps
 import synapse.tests.common as s_test

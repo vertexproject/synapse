@@ -1,7 +1,7 @@
-# stdlib
-# third party code
+
+
 import regex
-# custom code
+
 import synapse.lib.cmdr as s_cmdr
 import synapse.tests.common as s_test
 
