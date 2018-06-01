@@ -1,25 +1,38 @@
-import json
+# stdlib
 import pprint
-
+# third party code
+# custom code
 import synapse.lib.cli as s_cli
-import synapse.lib.tufo as s_tufo
-import synapse.lib.storm as s_storm
 
 class AskCmd(s_cli.Cmd):
     '''
     Execute a storm query.
 
-    Examples:
+    Syntax:
+        ask <query>
 
+    Arguments:
+        query: The storm query
+
+    Optional Arguments:
+        --hide-tags: Do not print tags
+        --hide-props: Do not print secondary properties
+        --raw: Print the nodes in their raw format
+            (overrides --hide-tags and --hide-props)
+        --debug: Display cmd debug information along with nodes in raw format
+            (overrides --hide-tags, --hide-props and raw)
+
+    Examples:
         ask inet:ipv4=1.2.3.4
+        ask --debug inet:ipv4=1.2.3.4
     '''
 
     _cmd_name = 'ask'
     _cmd_syntax = (
-        ('--debug', {}),
         ('--hide-tags', {}),
         ('--hide-props', {}),
         ('--raw', {}),
+        ('--debug', {}),
         ('query', {'type': 'glob'}),
     )
 
@@ -31,33 +44,16 @@ class AskCmd(s_cli.Cmd):
             return
 
         core = self.getCmdItem()
-
         stormopts = {'repr': True}
-
         self.printf('')
 
         for mesg in core.storm(text, opts=stormopts):
 
             if opts.get('debug'):
                 self.printf(pprint.pformat(mesg))
-                continue
 
-            if mesg[0] == 'init':
-                continue
-
-            if mesg[0] == 'print':
-                self.printf(mesg[1].get('mesg'))
-                continue
-
-            if mesg[0] == 'warn':
-                warn = mesg[1].get('mesg')
-                self.printf(f'WARNING: {warn}')
-                continue
-
-            if mesg[0] == 'node':
+            elif mesg[0] == 'node':
                 node = mesg[1]
-                #self.printf(repr(node))
-
                 formname = node[0][0]
 
                 formvalu = node[1].get('repr')
@@ -86,18 +82,25 @@ class AskCmd(s_cli.Cmd):
                     for name, valu in sorted(node[1]['tags'].items()):
                         self.printf(f'        #{name} = {valu}')
 
-                continue
+            elif mesg[0] == 'init':
+                pass
 
-            if mesg[0] == 'fini':
-
+            elif mesg[0] == 'fini':
                 took = mesg[1].get('took')
                 took = max(took, 1)
 
                 count = mesg[1].get('count')
                 pers = float(count) / float(took / 1000)
-                self.printf('')
                 self.printf('complete. %d nodes in %d ms (%d/sec).' % (count, took, pers))
 
                 continue
 
-            self.printf(repr(mesg))
+            elif mesg[0] == 'print':
+                self.printf(mesg[1].get('mesg'))
+
+            elif mesg[0] == 'warn':
+                warn = mesg[1].get('mesg')
+                self.printf(f'WARNING: {warn}')
+
+            else:
+                self.printf(repr(mesg))
