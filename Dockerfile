@@ -1,4 +1,11 @@
 # vim:set ft=dockerfile:
+
+# To Build:
+#   docker build -t synapse:localdev .
+
+# To Run:
+#   docker run -it -p 47322:47322 synapse:localdev
+
 FROM vertexproject/synapse-base-image:py36
 
 # Copy Synapse Code
