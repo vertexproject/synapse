@@ -17,7 +17,6 @@ setup(
     include_package_data=True,
 
     install_requires=[
-        'tornado>=3.2.2,<5.0.0',
         'pyOpenSSL>=16.2.0,<18.0.0',
         'msgpack==0.5.1',
         'xxhash>=1.0.1,<2.0.0',
