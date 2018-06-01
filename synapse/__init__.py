@@ -1,16 +1,16 @@
 '''
 The synapse distributed key-value hypergraph analysis framework.
 '''
-# stdlib
+
 import sys
 if (sys.version_info.major, sys.version_info.minor) < (3, 6):  # pragma: no cover
     raise Exception('synapse is not supported on Python versions < 3.6')
 import multiprocessing
-# third party code
+
 import msgpack
 if msgpack.version != (0, 5, 1):  # pragma: no cover
     raise Exception('synapse requires msgpack == 0.5.1')
-# custom code
+
 import synapse.glob as s_glob  # setup glob here to avoid import loops...
 import synapse.lib.plex as s_plex
 import synapse.lib.threads as s_threads

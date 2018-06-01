@@ -1,17 +1,17 @@
 # FIXME
 # "nullvals" - inet:mac, inet:ipv4, inet:ipv6
 
-# stdlib
+
 import socket
 import hashlib
 import logging
 import ipaddress
 import email.utils
 
-# third party code
+
 import regex
 
-# custom code
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.chop as s_chop

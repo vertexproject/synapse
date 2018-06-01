@@ -1,10 +1,8 @@
 import logging
-import threading
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
-import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
@@ -15,9 +13,9 @@ import synapse.lib.storm as s_storm
 import synapse.lib.layer as s_layer
 import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
-import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
+
 
 '''
 A Cortex implements the synapse hypergraph object.
@@ -651,7 +649,7 @@ class Cortex(s_cell.Cell):
             core.getNodesBy('inet:ipv4', '1.2.3.0/24')
         '''
         with self.snap() as snap:
-            for node in  snap.getNodesBy(full, valu, cmpr=cmpr):
+            for node in snap.getNodesBy(full, valu, cmpr=cmpr):
                 yield node
 
     def addNodes(self, nodedefs):

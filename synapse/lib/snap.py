@@ -1,17 +1,15 @@
 import logging
 import contextlib
-import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
-
 import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
-import synapse.lib.msgpack as s_msgpack
+import synapse.eventbus as s_eventbus
 
 logger = logging.getLogger(__name__)
+
 
 class Snap(s_eventbus.EventBus):
     '''
@@ -38,6 +36,8 @@ class Snap(s_eventbus.EventBus):
         self.strict = True
         self.elevated = False
         self.canceled = False
+
+        self.permcache = s_cache.FixedCache({}, size=1000)
 
         self.core = core
         self.model = core.model
@@ -128,11 +128,15 @@ class Snap(s_eventbus.EventBus):
         return self.xact.getOffset(iden, offs)
 
     def setUser(self, user):
+
         self.user = user
+        self.permcache.clear()
+        self.permcache.callback = {}
 
-    @s_cache.memoize(size=1000)
+        if self.user is not None:
+            self.permcache.callback = self.user.allowed
+
     def allowed(self, *args):
-
         # a user will be set by auth subsystem if enabled
         if self.user is None:
             return True
@@ -201,8 +205,6 @@ class Snap(s_eventbus.EventBus):
         fenc = form.name.encode('utf8') + b'\x00'
         tenc = b'#' + tag.encode('utf8') + b'\x00'
 
-        pref = fenc + tenc
-
         iops = (('pref', b''), )
 
         lops = (
@@ -224,7 +226,8 @@ class Snap(s_eventbus.EventBus):
         Yields:
             (synapse.lib.node.Node): Node instances.
         '''
-        if self.debug: self.printf(f'get nodes by: {full} {cmpr} {valu!r}')
+        if self.debug:
+            self.printf(f'get nodes by: {full} {cmpr} {valu!r}')
 
         # special handling for by type (*type=) here...
         if cmpr == '*type=':
@@ -334,14 +337,12 @@ class Snap(s_eventbus.EventBus):
 
         sops = []
 
-        init = False
         node = self.getNodeByBuid(buid)
-
         if node is not None:
 
             # maybe set some props...
             for name, valu in props.items():
-                #TODO: node.merge(name, valu)
+                # TODO: node.merge(name, valu)
                 node.set(name, valu)
 
             return node
@@ -471,11 +472,11 @@ class Snap(s_eventbus.EventBus):
                     props.pop('.created', None)
 
                 node = self.addNode(formname, formvalu, props=props)
-
-                tags = forminfo.get('tags')
-                if tags is not None:
-                    for tag, asof in tags.items():
-                        node.addTag(tag)
+                if node is not None:
+                    tags = forminfo.get('tags')
+                    if tags is not None:
+                        for tag, asof in tags.items():
+                            node.addTag(tag, valu=asof)
 
                 yield node
 

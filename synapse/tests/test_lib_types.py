@@ -287,7 +287,7 @@ class TypesTest(s_test.SynTest):
         self.eq(info['subs']['min'], -10)
         self.eq(info['subs']['max'], 255)
 
-        self.none(t.repr((-10, 0xFF)))
+        self.eq(t.repr((-10, 0xFF)), ('-10', '255'))
 
         self.eq(t.indx((0, (2**63) - 1)), b'\x80\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff')
 

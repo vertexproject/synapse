@@ -1,6 +1,6 @@
 import base64
 
-import synapse.common as s_common
+import synapse.exc as s_exc
 
 def _de_base64(item, **opts):
 
@@ -57,7 +57,7 @@ def decode(name, byts, **opts):
 
         func = decoders.get(name)
         if func is None:
-            raise s_common.NoSuchDecoder(name=name)
+            raise s_exc.NoSuchDecoder(name=name)
 
         byts = func(byts, **opts)
 
@@ -73,7 +73,7 @@ def encode(name, item, **opts):
 
         func = encoders.get(name)
         if func is None:
-            raise s_common.NoSuchEncoder(name=name)
+            raise s_exc.NoSuchEncoder(name=name)
 
         item = func(item, **opts)
 

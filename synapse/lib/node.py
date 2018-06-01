@@ -1,11 +1,11 @@
 import logging
 
-logger = logging.getLogger(__name__)
-
 import synapse.exc as s_exc
 import synapse.common as s_common
-
 import synapse.lib.chop as s_chop
+
+logger = logging.getLogger(__name__)
+
 
 class Node:
     '''
@@ -18,7 +18,7 @@ class Node:
         self.snap = snap
 
         self.buid = buid
-        self.init = False   # True if the node is being added.
+        self.init = False  # True if the node is being added.
 
         # if set, the node is complete.
         self.ndef = None
@@ -29,7 +29,7 @@ class Node:
         self.univs = {}
 
         self.vars = {}  # runtime storm variables
-        #self.runt = {}  # a runtime info dict for things like storm
+        # self.runt = {}  # a runtime info dict for things like storm
 
         # self.buid may be None during
         # initial node construction...
@@ -187,33 +187,31 @@ class Node:
         Returns:
             (obj): The secondary property value or None.
         '''
-        if name.find('::') != -1:
+        parts = name.split('::', 1)
 
-            name, text = name.split('::', 1)
+        if len(parts) is 1:
+            name = parts[0]
+            if name.startswith('#'):
+                return self.tags.get(name)
+            return self.props.get(name)
 
-            prop = self.form.props.get(name)
-            if prop is None:
-                raise s_exc.NoSuchProp(prop=name, form=self.form.name)
+        name, text = parts
+        prop = self.form.props.get(name)
+        if prop is None:
+            raise s_exc.NoSuchProp(prop=name, form=self.form.name)
 
-            valu = self.props.get(name, s_common.novalu)
-            if valu is s_common.novalu:
-                return None
+        valu = self.props.get(name, s_common.novalu)
+        if valu is s_common.novalu:
+            return None
 
-            form = self.snap.model.form(prop.type.name)
-            if form is None:
-                raise s_exc.NoSuchForm(form=prop.type.name)
+        form = self.snap.model.form(prop.type.name)
+        if form is None:
+            raise s_exc.NoSuchForm(form=prop.type.name)
 
-            node = self.snap.getNodeByNdef((form.name, valu))
-            return node.get(text)
-
-        if name[0] == '#':
-            return self.tags.get(name)
-
-        return self.props.get(name)
+        node = self.snap.getNodeByNdef((form.name, valu))
+        return node.get(text)
 
     def pop(self, name, init=False):
-        '''
-        '''
         prop = self.form.prop(name)
         if prop is None:
             mesg = f'No such property.'
@@ -287,19 +285,25 @@ class Node:
         if curv == valu:
             return
 
-        if curv is not None:
-            # merge tag and move along...
+        elif curv is None:
+            tags = s_chop.tags(name)
+            for tag in tags[:-1]:
+
+                if self.tags.get(tag) is not None:
+                    continue
+
+                self._addTagRaw(tag, (None, None))
+
+            self._addTagRaw(tags[-1], valu)
             return
 
-        tags = s_chop.tags(name)
-        for tag in tags[:-1]:
+        indx = self.snap.model.types['ival'].indx(valu)
+        info = {'univ': True}
+        self._setTagProp(name, valu, indx, info)
 
-            if self.tags.get(tag) is not None:
-                continue
-
-            self._addTagRaw(tag, (None, None))
-
-        self._addTagRaw(tags[-1], valu)
+    def _setTagProp(self, name, norm, indx, info):
+        self.tags[name] = norm
+        self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),))
 
     def _addTagRaw(self, name, norm):
 
@@ -312,12 +316,7 @@ class Node:
         else:
             indx = self.snap.model.types['ival'].indx(norm)
 
-        sops = (
-            ('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),
-        )
-
-        self.tags[name] = norm
-        self.snap.stor(sops)
+        self._setTagProp(name, norm, indx, info)
 
         # TODO: fire an onTagAdd handler...
         self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)

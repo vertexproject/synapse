@@ -1,8 +1,6 @@
-# stdlib
 import ctypes
 import socket
-# third party code
-# custom code
+
 import synapse.lib.thisplat as s_thisplat
 
 hostinfo = s_thisplat.initHostInfo()

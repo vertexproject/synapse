@@ -27,6 +27,8 @@ import unittest
 import threading
 import contextlib
 
+
+import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.data as s_data
 import synapse.cells as s_cells
@@ -100,10 +102,22 @@ class TestType(s_types.Type):
     def indx(self, norm):
         return norm.encode('utf8')
 
+class ThreeType(s_types.Type):
+
+    def norm(self, valu):
+        return 3, {'subs': {'three': 3}}
+
+    def repr(self, valu):
+        return '3'
+
+    def indx(self, norm):
+        return '3'.encode('utf8')
+
 testmodel = {
 
     'ctors': (
         ('testtype', 'synapse.tests.utils.TestType', {}, {}),
+        ('testthreetype', 'synapse.tests.utils.ThreeType', {}, {}),
     ),
 
     'types': (
@@ -167,6 +181,9 @@ testmodel = {
             ('tick', ('testtime', {}), {}),
         )),
 
+        ('testthreetype', {}, (
+            ('three', ('int', {}), {}),
+        )),
         ('testauto', {}, ()),
         ('testhexa', {}, ()),
         ('testhex4', {}, ()),
@@ -282,8 +299,7 @@ class TestSteps:
             StepTimeout: on wait timeout
         '''
         if not self.steps[step].wait(timeout=timeout):
-            raise s_common.StepTimeout(mesg='timeout waiting for step',
-                                       step=step)
+            raise s_exc.StepTimeout(mesg='timeout waiting for step', step=step)
         return True
 
     def step(self, done, wait, timeout=None):
