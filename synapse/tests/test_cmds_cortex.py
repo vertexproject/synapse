@@ -92,6 +92,12 @@ class CmdCoreTest(s_test.SynTest):
             outp.expect('Traceback')
             outp.expect('BadStormSyntax')
 
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('ask newpz')
+            outp.expect('err')
+            outp.expect('NoSuchProp')
+
 '''
 class SynCmdCoreTest(s_test.SynTest):
 

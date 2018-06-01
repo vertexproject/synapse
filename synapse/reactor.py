@@ -35,7 +35,7 @@ class Reactor:
         '''
         self.actfuncs[name] = func
 
-    def react(self, mesg, name=None):
+    def react(self, mesg, name=None, opts=None):
         '''
         Dispatch to the handler and return his response.
 
@@ -54,4 +54,6 @@ class Reactor:
         if func is None:
             raise s_exc.NoSuchAct(name=name)
 
-        return func(mesg)
+        if opts is None:
+            return func(mesg)
+        return func(mesg, opts=opts)
