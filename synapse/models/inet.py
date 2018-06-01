@@ -14,6 +14,7 @@ import regex
 # custom code
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lookup.iana as s_l_iana
@@ -234,6 +235,7 @@ class IPv4(s_types.Type):
     def _normPyStr(self, valu):
 
         valu = valu.replace('[.]', '.')
+        valu = s_chop.printables(valu)
 
         try:
             byts = socket.inet_aton(valu)
@@ -281,8 +283,10 @@ class IPv6(s_types.Type):
 
         try:
 
-            if type(valu) == str and valu.find(':') == -1:
-                valu = '::ffff:' + valu
+            if type(valu) == str:
+                valu = s_chop.printables(valu)
+                if valu.find(':') == -1:
+                    valu = '::ffff:' + valu
 
             v6 = ipaddress.IPv6Address(valu)
             v4 = v6.ipv4_mapped
