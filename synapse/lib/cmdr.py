@@ -1,5 +1,7 @@
+# stdlib
+# third party code
+# custom code
 import synapse.lib.cli as s_cli
-
 import synapse.cmds.cortex as s_cmds_cortex
 
 cmdsbycell = {
