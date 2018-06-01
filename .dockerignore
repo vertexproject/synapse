@@ -2,6 +2,8 @@
 
 # Git / Editor / Coverage / Linter
 .git
+.gitignore
+.dockerignore
 .idea
 *.swo
 *.swp
@@ -19,8 +21,14 @@ cover/
 nosetests.xml
 .mypy_cache/
 
+# CI
+.appveyor.yml
+.bumpversion.cfg
+.circleci
+.pyup.yml
+
 # Synapse
-docs/*
+docs/
 CHANGELOG.md
 Dockerfile
 MANIFEST.in
