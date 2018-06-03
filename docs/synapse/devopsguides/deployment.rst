@@ -42,9 +42,10 @@ The following commands assume your Synapse checkout will be in '~/synapse'::
     $ cd synapse
     $ sudo python3 setup.py develop
 
-An exemplar dmon configuration file is located at synapse/docker/cortex/sqlite_dmon.json::
+An exemplar dmon configuration file can be generated using the deploy tool::
 
-    $ python3 -m synapse.tools.dmon synapse/docker/cortex/sqlite_dmon.json
+    $ python -m synapse.tools.deploy --listen tcp://0.0.0.0:47322 cortex core dmon_dir
+    $ python -m synapse.tools.dmon dmon_dir
 
 Docker
 ######
@@ -68,118 +69,19 @@ This image is intended to serve 2 functions
 
 - build
     ::
+        $ docker build -t vertexproject/synapse:localdev <synapse_dir>
 
-        $ docker build -t vertexproject/synapse -f <synapse_dir>/synapse/docker/synapse_dockerfile <synapse_dir>
+- run a core on port 43722 (ephemeral storage)
+    ::
+        $ docker run -it -p47322:47322 vertexproject/synapse:localdev
+
+- generate a dmon dir and map it in
+    ::
+        $ python -m synapse.tools.deploy --listen tcp://0.0.0.0:47322 cortex core dmon_dir
+        $ docker run -it -p47322:47322 -v "$(pwd)"/dmon_dir:/syndata/dmon_dir vertexproject/synapse:localdev
 
 - volumes
-    - /syndata is exposed by default
+    - ``/root/git/synapse`` and ``/syndata`` are exposed by default
 
 - ports
     - no ports are exposed by default
-
-Cortex image - Postgresql
-~~~~~~~~~~~~~~~~~~~~~~~~~
-This image will provide a synapse daemon config driven cortex backed into a postgres(9.5) database
-by default.
-It is the general image used for experimentation as it can also be easily configured to start
-additional Cortexes with alternate storage backings as well.  By default each Cortex image is
-configured to expose a Cortex object.
-
-- build
-    ::
-
-        $ docker build -t vertexproject/core_pg -f <synapse_dir>/synapse/docker/cortex/postgres_9.5_dockerfile <synapse_dir>
-
-- volumes
-    - /syndata
-    - /var/lib/postgresql/data for postgres data
-- ports
-    - 47322 - listener in the default /syndata/dmon.json
-    - 5432 - for postgres
-- use
-    - /syndata/dmon.json is the synapse dmon conf file used by the image.  This can be modified or mapped in at container startup::
-
-        $ docker run vertexproject/core_pg
-
-Start Docker Cortex
-~~~~~~~~~~~~~~~~~~~
-Start a container using the Posgresql Cortex image just created::
-
-    $ docker run vertexproject/core_pg
-
-General Cortex Use
-##################
-Connecting to a Cortex will be a variant of::
-
-    import synapse.telepath as s_telepath
-
-    host = '172.17.0.2'
-    port = 47322
-
-    core = s_telepath.openurl( 'tcp:///core', host=host, port=port)
-
-At this point 'core' is a proxy object to the Cortex being shared by the Synapse daemon running in the Docker container.
-
-The normal Cortex apis can now be called::
-
-    # make sure proxy is working normally...
-    # this should return *something*
-    forms = core.getTufosByProp('syn:core')
-
-    # create an fqdn and store it
-    fqdn = 'woot.com'
-    new_tufo = core.formTufoByProp('fqdn', fqdn)
-
-    # retrieve the shiny new fqdn
-    ret_tufo = core.getTufosByProp('fqdn', fqdn)[0]
-
-    print('formed, stored and retrieved a form: %r' % (new_tufo[0] == ret_tufo[0],))
-
-Other Cortex Docker images
---------------------------
-The other Docker images listed below are simpler examples of running a more basic Cortex without Postgresql.
-
-core_ram
-########
-Provides a synapse daemon config driven cortex backed into ram.
-
-- build
-    ::
-
-        $ docker build -t vertexproject/core_ram -f <synapse_dir>/synapse/docker/cortex/ram_dockerfile <synapse_dir>
-
-- volumes
-    - /syndata
-
-- ports
-    - 47322 - listener in the default /syndata/dmon.json
-
-- use
-    - /syndata/dmon.json is the synapse dmon conf file used by the image.  This can be modified or mapped in at container startup
-
-    ::
-
-        $ docker run vertexproject/core_ram
-
-core_sqlite
-###########
-Provides a synapse daemon config driven cortex backed into a sqlite database by default.
-
-- build
-    ::
-
-        $ docker build -t vertexproject/core_sqlite -f <synapse_dir>/synapse/docker/cortex/sqlite_dockerfile <synapse_dir>
-
-- volumes
-    - /syndata
-
-- ports
-    - 47322 - listener in the default /syndata/dmon.json
-
-- use
-    - /syndata/dmon.json is the synapse dmon conf file used by the image.  This can be modified or mapped in at container startup
-
-    ::
-
-        $ docker run vertexproject/core_sqlite
-
