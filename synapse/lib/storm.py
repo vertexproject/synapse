@@ -1,5 +1,11 @@
 import shlex
+import logging
 import argparse
+
+import synapse.exc as s_exc
+import synapse.common as s_common
+
+logger = logging.getLogger(__name__)
 
 class Parser(argparse.ArgumentParser):
 
@@ -153,3 +159,87 @@ class SudoCmd(Cmd):
     def runStormCmd(self, snap, genr):
         snap.elevated = True
         yield from genr
+
+class TaskCmd(Cmd):
+    '''
+    Queue a node for consumption by a persistent task queue.
+
+    Tasking nodes to a single service:
+
+        ask < some lift > | task fooService
+
+    Additional keyword args may be provided, as pairs, to the task:
+
+        ask < some lift > | task -k arg1 valu1 -k arg2 valu2 fooService
+
+    It is possible to provide multiple named tasks for a single node at once:
+
+        ask < some lift > | task fooService barService
+
+    The packaged data which is sent to the queue will contain the following data:
+    - "node": The packed version of the Node. This is None there are no prior
+    nodes in the Storm pipeline.
+    - "tid": A task identifier. This is a randomly generated guid.  All events
+    created from a single instance of this will have the same task identifier.
+    - "tick": The system time when the task was fired.
+    - "user": The user that fired the task. It may be None if authentication
+    is not enabled on the Cortex.
+    - "kwargs": A dictionary of additional keyword arguments provided by the
+    user at runtime. These are left as strings for a downstream consumer to
+    use.
+
+    This command will not function if the Cortex is not configured for a task
+    queuing endpoint.  The Cortex is only responsible for shipping the data to
+    the queue. It is not responsible for managing any downstream consumers of
+    that queue.
+    '''
+
+    name = 'task'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('name', nargs='*',
+                          help='Name of the task to fire.')
+        pars.add_argument('-k', '--kwarg', action='append', default=[], nargs=2,
+                          help='Additional keyword & value string arguments to include in the task message.')
+        return pars
+
+    def runStormCmd(self, snap, genr):
+        # Is tasking even enabled on this Cortex?
+        if snap.core.tqueue is None:
+            raise s_exc.NoSuchConf(mesg='Cortex is not configured for tasking.')
+
+        tid = s_common.guid()
+        user = snap.user
+        yielded = False
+
+        # Get a unique list of names.
+        names = list(set(self.opts.name))
+        kwargs = {k: v for k, v in self.opts.kwarg}
+
+        mesg = {
+            'tid': tid,
+            'user': user,
+            'kwargs': kwargs,
+            'tick': s_common.now(),
+        }
+
+        for node in genr:
+            yielded = True
+            # Replace the node key
+            mesg['node'] = node.pack()
+            for name in names:
+                snap.core.tqueue.put((name, mesg))
+
+            # Pass the node up to the next generator.
+            yield node
+
+        # Allow a empty task to be fired
+        if not yielded:
+            mesg['node'] = None
+            for name in names:
+                snap.core.tqueue.put((name, mesg))
+
+        # The "what we did"
+        for name in names:
+            snap.printf(f'Fired task [{tid}][{name}]')

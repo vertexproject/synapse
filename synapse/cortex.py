@@ -11,8 +11,10 @@ import synapse.lib.snap as s_snap
 import synapse.lib.const as s_const
 import synapse.lib.storm as s_storm
 import synapse.lib.layer as s_layer
+import synapse.lib.queue as s_queue
 import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
+import synapse.lib.persist as s_persist
 
 logger = logging.getLogger(__name__)
 
@@ -218,9 +220,11 @@ class Cortex(s_cell.Cell):
         self.feedfuncs = {}
 
         self.stormcmds = {}
+        self.tqueue = None  # type: s_queue.Queue
 
         self.addStormCmd(s_storm.HelpCmd)
         self.addStormCmd(s_storm.SudoCmd)
+        self.addStormCmd(s_storm.TaskCmd)
         self.addStormCmd(s_storm.LimitCmd)
         self.addStormCmd(s_storm.DelNodeCmd)
 
@@ -255,6 +259,7 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+        self._initTaskLoop()
 
     def addStormCmd(self, ctor):
         '''
@@ -267,6 +272,27 @@ class Cortex(s_cell.Cell):
 
     def getStormCmds(self):
         return list(self.stormcmds.items())
+
+    def _initTaskLoop(self):
+        if self.conf.get('task:queue') is None:
+            return
+
+        self.tqueue = s_queue.Queue()
+        self.onfini(self.tqueue.done)
+        thrd = self._runTaskLoop()
+        def fini():
+            return thrd.join(timeout=8)
+        self.onfini(fini)
+
+    @s_common.firethread
+    def _runTaskLoop(self):
+        while not self.isfini:
+            try:
+                tconf = self.conf.get('task:queue')
+                s_persist.run(self, tconf)
+            except Exception as e:
+                logger.exception('task sync error')
+                self.cellfini.wait(timeout=1)
 
     def _initPushLoop(self):
 
