@@ -424,7 +424,10 @@ async def openurl(url, **opts):
 
     '''
     if url.find('://') == -1:
-        url = alias(url)
+        newurl = alias(url)
+        if newurl is None:
+            raise s_exc.BadUrl(f':// not found in [{url}] and no alias found!')
+        url = newurl
 
     info = s_urlhelp.chopurl(url)
     info.update(opts)

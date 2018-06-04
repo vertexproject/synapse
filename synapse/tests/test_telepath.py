@@ -119,6 +119,8 @@ class TeleTest(s_test.SynTest):
             addr = dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
 
+            self.raises(s_exc.BadUrl, s_telepath.openurl, 'noscheme/foo')
+
             # called via synchelp...
             prox = s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
 
