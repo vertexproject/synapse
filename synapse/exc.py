@@ -50,8 +50,6 @@ class AuthDeny(SynErr): pass
 class NoSuchMod(SynErr): pass
 class NoModIden(SynErr): pass
 
-class NoCertKey(SynErr): pass
-
 class NoSuchAct(SynErr): pass
 class NoSuchOpt(SynErr): pass
 class NoSuchDir(SynErr): pass

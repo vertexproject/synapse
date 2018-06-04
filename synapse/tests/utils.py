@@ -1112,6 +1112,17 @@ class SynTest(unittest.TestCase):
         self.isinstance(obj[0], (type(None), str))
         self.isinstance(obj[1], dict)
 
+    @contextlib.contextmanager
+    def getTestConfDir(self, name, boot=None, conf=None):
+        with self.getTestDir() as dirn:
+            cdir = os.path.join(dirn, name)
+            s_common.makedirs(cdir)
+            if boot:
+                s_common.yamlsave(boot, cdir, 'boot.yaml')
+            if conf:
+                s_common.yamlsave(conf, cdir, 'cell.yaml')
+            yield dirn
+
     def getTestCell(self, dirn, name, boot=None, conf=None):
         '''
         Get an instance of a Cell with specific boot and configuration data.
@@ -1143,3 +1154,4 @@ class SynTest(unittest.TestCase):
         if conf:
             s_common.yamlsave(conf, cdir, 'cell.yaml')
         return s_cells.init(name, cdir)
+

@@ -1,13 +1,11 @@
 import sys
 import struct
-import itertools
+
+import xxhash  # type: ignore
 
 import synapse.common as s_common
 
 import synapse.lib.const as s_const
-
-import xxhash  # type: ignore
-
 import synapse.lib.msgpack as s_msgpack
 
 STOR_FLAG_NOINDEX = 0x0001      # there is no byprop index for this prop

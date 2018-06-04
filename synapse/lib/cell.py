@@ -1,6 +1,7 @@
 import os
 import logging
 import threading
+from typing import Any, Tuple
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -174,7 +175,7 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
     '''
     cellapi = CellApi
 
-    confdefs = ()
+    confdefs: Tuple[Any, ...] = ()
 
     def __init__(self, dirn):
 
@@ -299,6 +300,9 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         return user
 
     def initCellAuth(self):
+
+        # To avoid import cycle
+        import synapse.lib.auth as s_auth
 
         valu = self.boot.get('auth:en')
         if not valu:
