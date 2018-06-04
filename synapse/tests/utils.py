@@ -27,7 +27,6 @@ import unittest
 import threading
 import contextlib
 
-
 import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.data as s_data
