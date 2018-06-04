@@ -4,6 +4,7 @@ import threading
 from typing import Any, Tuple
 
 import synapse.exc as s_exc
+import synapse.lib.auth as s_auth
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
