@@ -38,7 +38,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    #'sphinx.ext.napoleon',  # TODO - Uncomment this line when we are ready to cut over style types.
+    'sphinx.ext.napoleon',
 ]
 
 # # Napoleon settings # TODO - Uncomment these napoleon settings when we are ready to cover over style types.
@@ -353,6 +353,8 @@ def run_apidoc(_):
     main(['-M', '-o', 'synapse/api', '../'])
 
 def run_autodoc(_):
+    # FIXME - Make Autodoc work with 010
+    return
     import synapse.tools.autodoc as s_autodoc
     s_autodoc.main(['--doc-model', '--savefile', 'synapse/datamodel.rst'])
 
