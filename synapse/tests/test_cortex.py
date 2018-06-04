@@ -544,6 +544,16 @@ class CortexTest(s_test.SynTest):
                 nodes = list(core.eval('sudo | [ inet:ipv4=1.2.3.4 ]'))
                 self.len(1, nodes)
 
+                core.addAuthUser('foo')
+                core.setUserPasswd('foo', 'bar')
+
+        # Ensure a non-admin user, using sudo, still fails when they
+        # have elevated themselves
+        pconf = {'user': 'foo', 'passwd': 'bar'}
+        with dmon._getTestProxy('core', **pconf) as core:
+            q = 'sudo | [ inet:ipv4=1.2.3.5 ]'
+            self.genraises(s_exc.AuthDeny, core.eval, q)
+
     def test_cortex_snap_cancel(self):
 
         with self.getTestCore() as core:
