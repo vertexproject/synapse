@@ -14,7 +14,6 @@ import synapse.models.inet as s_inet
 
 logger = logging.getLogger(__name__)
 
-
 # Topologically sorted comp and sepr types that are form types that have other comp types as elements.  The beginning
 # of the list has more dependencies than the end.
 _comp_and_sepr_forms = [
@@ -48,6 +47,20 @@ class Migrator:
     file suitable for ingesting into a >= .0.1.0 cortex.
     '''
     def __init__(self, core, outfh, tmpdir=None, stage1_fn=None, rejects_fh=None):
+        '''
+        Create a migrator.
+
+        Args:
+            core (synapse.cores.common.Cortex): 0.0.55 cortex to export from
+            outfh (IO['bin']): file handle opened for binary to push messagepacked data into
+            tmpdir (Optional[str]):  location to write stage 1 LMDB database.  Please note that /tmp on Linux might
+                *not* a good location since it is usually mounted tmpfs with not enough space.  This parameter is not
+                used if stage1_fn parameter is specified.
+            stage1_fn (Optional[str]):   Skips stage1 altogether and starts with existing stage 1 DB.
+            rejects_fh (Optional[IO['bin']]):  file handle in which to place the nodes that couldn't be migrated.  If
+                not provided, no rejects file will be used.
+        '''
+
         self.core = core
         self.dbenv = None
         self.skip_stage1 = bool(stage1_fn)
@@ -79,7 +92,9 @@ class Migrator:
         self.first_forms = ['file:bytes'] + [f for f in reversed(_comp_and_sepr_forms) if self.is_comp(f)]
 
     def _precalc_types(self):
-        ''' Precalculate which types are sepr and which are comps, and which are subs of comps '''
+        '''
+        Precalculate which types are sepr and which are comps, and which are subs of comps
+        '''
         seprs = []
         comps = []
         subs = []
@@ -114,14 +129,18 @@ class Migrator:
         self.xrefs = set(xrefs)
 
     def migrate(self):
-        ''' Convenience function to do both stages '''
+        '''
+        Convenience function to do both stages
+        '''
         if not self.skip_stage1:
             self.do_stage1()
         self.do_stage2a()
         self.do_stage2b()
 
     def _write_props(self, txn, rows):
-        ''' Emit propbags to the migration DB '''
+        '''
+        Emit propbags to the migration DB
+        '''
         MAX_VAL_LEN = 511
 
         idens = []
@@ -200,7 +219,8 @@ class Migrator:
 
     def do_stage2a(self):
         '''
-        Do the first part of the second stage:  take all the data out of the intermediate DB and emit to a flat file
+        Do the first part of the second stage:  take all the data out of the intermediate DB and emit to a flat file,
+        just for the "first forms", all the seprs and comps and those that are migrated to comps.
         '''
         start_time = time.time()
 
@@ -345,7 +365,9 @@ class Migrator:
         return val
 
     def convert_comp_secondary(self, formname, propval):
-        ''' Convert secondary prop that is a comp type '''
+        '''
+        Convert secondary prop that is a comp type
+        '''
         with self.dbenv.begin(db=self.comp_tbl) as txn:
             comp_enc = txn.get(propval.encode('utf8'), db=self.comp_tbl)
             if comp_enc is None:
@@ -353,7 +375,9 @@ class Migrator:
             return s_msgpack.un(comp_enc)[1]
 
     def convert_filebytes_secondary(self, formname, propval):
-        ''' Convert secondary prop that is a filebytes type '''
+        '''
+        Convert secondary prop that is a filebytes type
+        '''
         with self.dbenv.begin(db=self.comp_tbl) as txn:
             comp_enc = txn.get(propval.encode('utf8'), db=self.comp_tbl)
             if comp_enc is None:
@@ -361,7 +385,9 @@ class Migrator:
             return s_msgpack.un(comp_enc)[1]
 
     def convert_foreign_key(self, formname, pivot_formname, pivot_fk):
-        ''' Convert secondary prop that is a pivot to another node '''
+        '''
+        Convert secondary prop that is a pivot to another node
+        '''
         if pivot_formname in self.filebytes:
             return self.convert_filebytes_secondary(pivot_formname, pivot_fk)
         if self.is_comp(pivot_formname):
@@ -658,7 +684,8 @@ class Migrator:
     }
 
 def main(argv, outp=None):  # pragma: no cover
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(description='''Command line tool to export a Synapse Cortex v. 0.0.5 to a mpk file
+ for importation into a 0.1.0 cortex''')
     p.add_argument('cortex', help='telepath URL for a cortex to be dumped')
     p.add_argument('outfile', help='file to dump to')
     p.add_argument('--verbose', '-v', action='count', help='Verbose output')
