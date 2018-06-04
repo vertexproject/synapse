@@ -1092,6 +1092,20 @@ class SynTest(unittest.TestCase):
         '''
         self.eq(x, len(obj), msg=msg)
 
+    def isnode(self, obj):
+        '''
+        Check to see if an object is a packed Node.
+        '''
+        self.isinstance(obj, tuple)
+        self.len(2, obj)
+        # ndef - we can't validate the second half of the ndef though
+        self.isinstance(obj[0], tuple)
+        self.len(2, obj[0])
+        self.isinstance(obj[0][0], str)
+        # props / tags bag
+        self.isinstance(obj[1].get('props'), dict)
+        self.isinstance(obj[1].get('tags'), dict)
+
     def istufo(self, obj):
         '''
         Check to see if an object is a tufo.
