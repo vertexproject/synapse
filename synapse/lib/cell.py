@@ -8,9 +8,6 @@ import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
-# Avoid import cycle
-# import synapse.lib.auth as s_auth
-
 logger = logging.getLogger(__name__)
 
 '''
@@ -303,6 +300,9 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         return user
 
     def initCellAuth(self):
+
+        # To avoid import cycle
+        import synapse.lib.auth as s_auth
 
         valu = self.boot.get('auth:en')
         if not valu:

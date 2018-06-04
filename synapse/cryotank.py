@@ -1133,7 +1133,7 @@ class CryoTankIndexer:
             exact: Indicates that the result must match exactly.  Conversely, if False, indicates a prefix match.
 
         Returns:
-            : A generator of offset, dictionary tuples
+            A generator of offset, dictionary tuples
         '''
         if not exact and valu is not None and isinstance(valu, str) and len(valu) >= s_lmdb.LARGE_STRING_SIZE:
             raise s_exc.BadOperArg(mesg='prefix search valu cannot exceed 128 characters')
