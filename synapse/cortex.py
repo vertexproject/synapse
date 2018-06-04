@@ -208,9 +208,10 @@ class Cortex(s_cell.Cell):
 
     cellapi = CoreApi
 
-    def __init__(self, dirn):
+    def __init__(self, dirn, conf={}):
 
         s_cell.Cell.__init__(self, dirn)
+        self.conf.update(conf)
 
         self.views = {}
         self.layers = []

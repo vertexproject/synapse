@@ -4,6 +4,31 @@ import synapse.tests.common as s_test
 
 class CortexTest(s_test.SynTest):
 
+    def test_splice_sync(self):
+        with self.getTestDmon(mirror='dmoncore') as dst_dmon:
+            name = 'core'
+            host, port = dst_dmon.addr
+            dst_core = dst_dmon.shared.get(name)
+            dst_core_addr = f'tcp://{host}:{port}/{name}'
+
+            # Spin up a source core configured to send splices to dst core
+            conf = {'splice:sync': dst_core_addr}
+            with self.getTestCore(conf=conf) as src_core:
+
+                # Form a node and make sure that it exists
+                with src_core.snap() as snap:
+                    snap.addNode('teststr', 'teehee')
+                    self.nn(snap.getNodeByNdef(('teststr', 'teehee')))
+
+                import time; time.sleep(3)  # FIXME wait on event
+
+            # Now that the src core is closed, make sure that the node exists
+            # in the dst core without creating it
+            with dst_core.snap() as snap:
+                snap.addNode('teststr', 'teehee2')
+                self.nn(snap.getNodeByNdef(('teststr', 'teehee2')))
+                self.nn(snap.getNodeByNdef(('teststr', 'teehee')))
+
     def test_onadd(self):
 
         with self.getTestCore() as core:

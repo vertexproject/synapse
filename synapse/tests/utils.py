@@ -617,12 +617,12 @@ class SynTest(unittest.TestCase):
                 env.fini()
 
     @contextlib.contextmanager
-    def getTestCore(self, mirror='testcore'):
+    def getTestCore(self, conf={}, mirror='testcore'):
         '''
         Return a simple test Cortex.
         '''
         with self.getTestDir(mirror=mirror) as dirn:
-            with s_cortex.Cortex(dirn) as core:
+            with s_cortex.Cortex(dirn, conf=conf) as core:
                 yield core
 
     @contextlib.contextmanager
