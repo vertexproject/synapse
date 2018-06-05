@@ -7,6 +7,7 @@ import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.cell as s_cell
+import synapse.lib.lmdb as s_lmdb
 import synapse.lib.snap as s_snap
 import synapse.lib.const as s_const
 import synapse.lib.storm as s_storm
@@ -181,7 +182,7 @@ class Cortex(s_cell.Cell):
     confdefs = (
 
         ('layer:lmdb:mapsize', {
-            'type': 'int', 'defval': s_const.tebibyte,
+            'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE,
             'doc': 'The default size for a new LMDB layer map.'
         }),
 
