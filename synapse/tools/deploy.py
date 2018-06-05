@@ -92,4 +92,4 @@ def _main():  # pragma: no cover
     main(sys.argv[1:])
 
 if __name__ == '__main__':  # pragma: no cover
-    _main()
+    sys.exit(_main())
