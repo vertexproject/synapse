@@ -1,5 +1,6 @@
 import unittest
 raise unittest.SkipTest()
+# FIXME broken because no configable
 
 import synapse.tools.autodoc as s_autodoc
 

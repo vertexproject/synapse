@@ -7,7 +7,7 @@ import synapse.tests.common as s_test
 class TelcoModelTest(s_test.SynTest):
     def test_telco_simple(self):
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 # tel:mob:tac
                 oguid = s_common.guid()
                 props = {'manu': 'Acme Corp',
@@ -41,7 +41,7 @@ class TelcoModelTest(s_test.SynTest):
 
     def test_telco_imei(self):
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 # proper value
                 node = snap.addNode('tel:mob:imei', '490154203237518')
                 self.eq(node.ndef[1], 490154203237518)
@@ -57,7 +57,7 @@ class TelcoModelTest(s_test.SynTest):
 
     def test_telco_imsi(self):
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 node = snap.addNode('tel:mob:imsi', '310150123456789')
                 self.eq(node.ndef[1], 310150123456789)
                 self.eq(node.get('mcc'), 310)
@@ -85,7 +85,7 @@ class TelcoModelTest(s_test.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, -1)
             self.raises(s_exc.BadTypeValu, t.norm, '+()*')
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 node = snap.addNode('tel:phone', '+1 (703) 555-1212')
                 self.eq(node.ndef[1], '17035551212')
                 self.eq(node.get('loc'), 'us')

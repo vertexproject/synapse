@@ -1,3 +1,4 @@
+
 import io
 import os
 import sys
@@ -18,15 +19,19 @@ import traceback
 import contextlib
 import collections
 
+
 import yaml
 import regex
 
+
 import synapse.exc as s_exc
-
-from synapse.exc import *
-
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
+
+
+class NoValu:
+    pass
+
 
 major = sys.version_info.major
 minor = sys.version_info.minor
@@ -35,10 +40,10 @@ micro = sys.version_info.micro
 majmin = (major, minor)
 version = (major, minor, micro)
 
-class NoValu:
-    pass
+guidre = regex.compile('^[0-9a-f]{32}$')
 
 novalu = NoValu()
+
 
 def now():
     '''
@@ -121,7 +126,6 @@ def uhex(text):
     '''
     return binascii.unhexlify(text)
 
-guidre = regex.compile('^[0-9a-f]{32}$')
 def isguid(text):
     return guidre.match(text) is not None
 
@@ -147,10 +151,7 @@ def addpref(pref, info):
     '''
     Add the given prefix to all elements in the info dict.
     '''
-    return {'%s:%s' % (pref, k): v for (k, v) in info.items()}
-
-def tufo(typ, **kwargs):
-    return (typ, kwargs)
+    return {f'{pref}:{k}': v for (k, v) in info.items()}
 
 def vertup(vstr):
     '''

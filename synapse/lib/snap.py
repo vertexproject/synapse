@@ -1,17 +1,15 @@
 import logging
 import contextlib
-from typing import Optional
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
-
 import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
-import synapse.datamodel as s_datamodel
+import synapse.eventbus as s_eventbus
 
 logger = logging.getLogger(__name__)
+
 
 class Snap(s_eventbus.EventBus):
     '''
@@ -32,15 +30,17 @@ class Snap(s_eventbus.EventBus):
 
         s_eventbus.EventBus.__init__(self)
 
-        self.tick = s_common.now()
         self.stack = contextlib.ExitStack()
 
         self.user = None
         self.strict = True
         self.elevated = False
+        self.canceled = False
+
+        self.permcache = s_cache.FixedCache({}, size=1000)
 
         self.core = core
-        self.model: s_datamodel.Model = core.model
+        self.model = core.model
         self.layers = layers
 
         self.bulk = False
@@ -50,20 +50,14 @@ class Snap(s_eventbus.EventBus):
         self.vars = {}
 
         self.runt = {}
-        self.splices = []
 
         self.debug = False      # Set to true to enable debug output.
-        self.write = write      # True when the snap has a write lock on a layer.
+        self.write = False      # True when the snap has a write lock on a layer.
 
-        self.xacts = []
+        self.wtick = None       # Last time we wrote ( used by tick() to commit/release )
 
-        # do the last (possibly write) first for locking
-        self.xact = layers[-1].xact(write=write)
-
-        for layr in layers[:-1]:
-            self.xacts.append(layr.xact())
-
-        self.xacts.append(self.xact)
+        self.xact = None
+        self.xacts = [l.xact() for l in layers]
 
         self.tagcache = s_cache.FixedCache(self._addTagNode, size=10000)
         self.buidcache = s_cache.FixedCache(self._getNodeByBuid, size=100000)
@@ -74,9 +68,6 @@ class Snap(s_eventbus.EventBus):
         def fini():
 
             if self.exitok:
-
-                if self.write and self.splices:
-                    self.xact.save(self.splices)
 
                 for x in self.xacts:
                     try:
@@ -94,24 +85,63 @@ class Snap(s_eventbus.EventBus):
 
         self.onfini(fini)
 
+    def cancel(self):
+        self.canceled = True
+
+    def tick(self):
+        '''
+        The time-checking tick counter for the snap.
+
+        This should be called frequently while routines do their work
+        to ensure write timeouts and maximum snap duration is enforced.
+
+        NOTE: tick() may commit() a current write transaction to release the
+              writer lock.  As such, it should only be called at positions where
+              model coherence is ensured.
+        '''
+        if self.canceled:
+            raise s_exc.Canceled()
+
+        # TODO give up write lock if wtick is too long ago...
+
+    def writeable(self):
+        '''
+        Ensure that the snap() is writable and record our write tick.
+        '''
+        self.wtick = s_common.now()
+
+        if self.write:
+            return True
+
+        self.xacts[-1].decref()
+
+        self.xact = self.layers[-1].xact(write=True)
+
+        self.write = True
+        self.xacts[-1] = self.xact
+
     def setOffset(self, iden, offs):
+        self.writeable()
         return self.xact.setOffset(iden, offs)
 
     def getOffset(self, iden, offs):
         return self.xact.getOffset(iden, offs)
 
     def setUser(self, user):
+
         self.user = user
+        self.permcache.clear()
+        self.permcache.callback = {}
 
-    @s_cache.memoize(size=1000)
+        if self.user is not None:
+            self.permcache.callback = self.user.allowed
+
     def allowed(self, *args):
-
         # a user will be set by auth subsystem if enabled
         if self.user is None:
             return True
 
-        # TODO elevated()
-        return self.user.allowed(args)
+        return self.user.allowed(args, elev=self.elevated)
 
     def printf(self, mesg):
         self.fire('print', mesg=mesg)
@@ -131,6 +161,7 @@ class Snap(s_eventbus.EventBus):
             ((str,dict)): The node tuple or None.
 
         '''
+        self.tick()
         return self.buidcache.get(buid)
 
     def getNodeByNdef(self, ndef):
@@ -195,7 +226,12 @@ class Snap(s_eventbus.EventBus):
         Yields:
             (synapse.lib.node.Node): Node instances.
         '''
-        if self.debug: self.printf(f'get nodes by: {full} {cmpr} {valu!r}')
+        if self.debug:
+            self.printf(f'get nodes by: {full} {cmpr} {valu!r}')
+
+        # special handling for by type (*type=) here...
+        if cmpr == '*type=':
+            return self._getNodesByType(full, valu=valu)
 
         if full.startswith('#'):
             return self._getNodesByTag(full, valu=valu, cmpr=cmpr)
@@ -208,27 +244,32 @@ class Snap(s_eventbus.EventBus):
 
     def _getNodesByProp(self, full, valu=None, cmpr='='):
 
-        prop: Optional[s_datamodel.Prop] = self.model.prop(full)
+        prop = self.model.prop(full)
         if prop is None:
             raise s_exc.NoSuchProp(name=full)
 
         lops = prop.getLiftOps(valu, cmpr=cmpr)
+        for row, node in self.getLiftNodes(lops):
+            yield node
 
-        # We might actually lift nodes for which the comparison matches on lower layers, but doesn't on upper layers.
-        # We re-filter the nodes to catch these.
+    def _getNodesByType(self, name, valu=None, addform=True):
 
-        # FIXME: having to check type is awkward
-        if len(self.layers) > 1 and isinstance(prop, s_datamodel.Prop):
-            filt = prop.filt(text=valu, cmpr=cmpr)
-        else:
-            filt = None
+        _type = self.model.types.get(name)
+        if _type is None:
+            raise s_exc.NoSuchType(name=name)
 
-        # FIXME:  having to pack is awkward
+        lops = []
 
-        if filt:
-            return (node for _, node in self.getLiftNodes(lops) if filt(node.pack()))
-        else:
-            return (node for _, node in self.getLiftNodes(lops))
+        if addform:
+            form = self.model.forms.get(name)
+            if form is not None:
+                lops.extend(form.getLiftOps(valu))
+
+        for prop in self.model.getPropsByType(name):
+            lops.extend(prop.getLiftOps(valu))
+
+        for row, node in self.getLiftNodes(lops):
+            yield node
 
     def addNode(self, name, valu, props=None):
         '''
@@ -294,13 +335,9 @@ class Snap(s_eventbus.EventBus):
         if props is None:
             props = {}
 
-        # store an original copy of the props for the splice.
-        # orig = props.copy()
-
         sops = []
 
         node = self.getNodeByBuid(buid)
-
         if node is not None:
 
             # maybe set some props...
@@ -312,10 +349,7 @@ class Snap(s_eventbus.EventBus):
 
         # time for the perms check...
         if not self.allowed('node:add', form.name):
-
-            if self.strict:
-                mesg = 'Not allowed to add the node.'
-                raise s_exc.AuthDeny(mesg=mesg, form=form.name)
+            return self._onAuthDeny('Not allowed to add the node.', form=form.name)
 
         # lets build a node...
         node = s_node.Node(self, None)
@@ -363,6 +397,20 @@ class Snap(s_eventbus.EventBus):
 
         return node
 
+    def _onAuthDeny(self, mesg, **info):
+
+        if self.strict:
+            raise s_exc.AuthDeny(mesg=mesg, **info)
+
+        self.warn(f'AuthDeny: {mesg} {info!r}')
+        return False
+
+    def _raiseOnStrict(self, ctor, mesg, **info):
+        self.warn(f'{ctor.__name__}: {mesg} {info!r}')
+        if self.strict:
+            raise ctor(mesg=mesg, **info)
+        return False
+
     def splice(self, name, **info):
         '''
         Construct and log a splice record to be saved on commit().
@@ -377,7 +425,7 @@ class Snap(s_eventbus.EventBus):
         self.fire(name, **info)
 
         mesg = (name, info)
-        self.splices.append(mesg)
+        self.xact.splices.append(mesg)
 
         return (name, info)
 
@@ -424,19 +472,17 @@ class Snap(s_eventbus.EventBus):
                     props.pop('.created', None)
 
                 node = self.addNode(formname, formvalu, props=props)
-
-                tags = forminfo.get('tags')
-                if tags is not None:
-                    for tag, asof in tags.items():
-                        node.addTag(tag)
+                if node is not None:
+                    tags = forminfo.get('tags')
+                    if tags is not None:
+                        for tag, asof in tags.items():
+                            node.addTag(tag, valu=asof)
 
                 yield node
 
     def stor(self, sops):
 
-        if not self.write:
-            # jump up to a write xact
-            raise s_exc.ReadOnlySnap()
+        self.writeable()
 
         if self.bulk:
             self.bulksops.extend(sops)
@@ -467,7 +513,8 @@ class Snap(s_eventbus.EventBus):
             (tuple): (buid, ...) rows.
         '''
         for xact in self.xacts:
-            yield from xact.getLiftRows(lops)
+            with xact.incref():
+                yield from xact.getLiftRows(lops)
 
     def getRowNodes(self, rows):
         '''
@@ -488,6 +535,7 @@ class Snap(s_eventbus.EventBus):
 
     def _getBuidProps(self, buid):
         props = []
+        # this is essentially atomic and doesn't need xact.incref
         [props.extend(x.getBuidProps(buid)) for x in self.xacts]
         return props
 

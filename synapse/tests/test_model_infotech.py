@@ -15,7 +15,7 @@ import synapse.tests.common as s_test
 class InfotechModelTest(s_test.SynTest):
     def test_it_forms_simple(self):
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 node = snap.addNode('it:hostname', 'Bobs Computer')
                 self.eq(node.ndef[1], 'bobs computer')
                 host0 = s_common.guid()
@@ -72,7 +72,7 @@ class InfotechModelTest(s_test.SynTest):
     def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 # it:prod:soft
                 prod0 = s_common.guid()
                 org0 = s_common.guid()
@@ -84,6 +84,7 @@ class InfotechModelTest(s_test.SynTest):
                     'desc': "Pennywise's patented balloon blower upper",
                     'desc:short': 'Balloon blower',
                     'author:org': org0,
+                    'author:email': 'pennywise@vertex.link',
                     'author:acct': acct0,
                     'author:person': person0,
                     'url': url0,
@@ -95,6 +96,7 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('desc:short'), 'balloon blower')
                 self.eq(node.get('author:org'), org0)
                 self.eq(node.get('author:acct'), acct0)
+                self.eq(node.get('author:email'), 'pennywise@vertex.link')
                 self.eq(node.get('author:person'), person0)
                 self.eq(node.get('url'), url0)
 
@@ -190,7 +192,7 @@ class InfotechModelTest(s_test.SynTest):
 
     def test_it_form_callbacks(self):
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 # it:dev:str kicks out the :norm property on him when he is made
                 node = snap.addNode('it:dev:str', 'evil RAT')
                 self.eq(node.ndef[1], 'evil RAT')
@@ -338,7 +340,7 @@ class InfotechModelTest(s_test.SynTest):
     def test_it_forms_hostexec(self):
         # forms related to the host execution model
         with self.getTestCore() as core:
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 exe = 'sha256:' + 'a' * 64
                 port = 80
                 tick = s_common.now()

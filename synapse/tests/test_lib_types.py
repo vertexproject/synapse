@@ -103,7 +103,7 @@ class TypesTest(s_test.SynTest):
                     self.raises(b, t.norm, v)
 
             # Do some node creation and lifting
-            with core.snap(write=True) as snap:  # type: s_snap.Snap
+            with core.snap() as snap:  # type: s_snap.Snap
                 node = snap.addNode('testhexa', '010001')
                 self.eq(node.ndef[1], '010001')
 
@@ -120,7 +120,7 @@ class TypesTest(s_test.SynTest):
                      'deadb3b3',
                      'deaddead',
                      'DEADBEEF']
-            with core.snap(write=True) as snap:  # type: s_snap.Snap
+            with core.snap() as snap:  # type: s_snap.Snap
                 for valu in valus:
                     node = snap.addNode('testhexa', valu)
 
@@ -146,7 +146,7 @@ class TypesTest(s_test.SynTest):
                      '01ff',
                      '0200',
                      ]
-            with core.snap(write=True) as snap:  # type: s_snap.Snap
+            with core.snap() as snap:  # type: s_snap.Snap
                 for valu in valus:
                     node = snap.addNode('testhex4', valu)
 
@@ -287,7 +287,7 @@ class TypesTest(s_test.SynTest):
         self.eq(info['subs']['min'], -10)
         self.eq(info['subs']['max'], 255)
 
-        self.none(t.repr((-10, 0xFF)))
+        self.eq(t.repr((-10, 0xFF)), ('-10', '255'))
 
         self.eq(t.indx((0, (2**63) - 1)), b'\x80\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff')
 

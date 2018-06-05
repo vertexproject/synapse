@@ -28,8 +28,11 @@ import threading
 import contextlib
 from typing import Dict, Any
 
+
+import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.data as s_data
+import synapse.cells as s_cells
 import synapse.lib.cell as s_cell
 import synapse.common as s_common
 import synapse.cortex as s_cortex
@@ -100,10 +103,22 @@ class TestType(s_types.Type):
     def indx(self, norm):
         return norm.encode('utf8')
 
+class ThreeType(s_types.Type):
+
+    def norm(self, valu):
+        return 3, {'subs': {'three': 3}}
+
+    def repr(self, valu):
+        return '3'
+
+    def indx(self, norm):
+        return '3'.encode('utf8')
+
 testmodel = {
 
     'ctors': (
         ('testtype', 'synapse.tests.utils.TestType', {}, {}),
+        ('testthreetype', 'synapse.tests.utils.ThreeType', {}, {}),
     ),
 
     'types': (
@@ -126,6 +141,9 @@ testmodel = {
 
         ('pivtarg', ('str', {}), {}),
         ('pivcomp', ('comp', {'fields': (('targ', 'pivtarg'), ('lulz', 'teststr'))}), {}),
+
+        ('cycle0', ('str', {}), {}),
+        ('cycle1', ('str', {}), {}),
     ),
 
     'forms': (
@@ -145,6 +163,14 @@ testmodel = {
                 'defval': '??'}),
         )),
 
+        ('cycle0', ('cycle0', {}), (
+            ('cycle1', ('cycle1', {}), {}),
+        )),
+
+        ('cycle1', ('cycle1', {}), (
+            ('cycle0', ('cycle0', {}), {}),
+        )),
+
         ('testcomp', {}, (
             ('hehe', ('int', {}), {'ro': 1}),
             ('haha', ('str', {}), {'ro': 1}),
@@ -156,6 +182,9 @@ testmodel = {
             ('tick', ('testtime', {}), {}),
         )),
 
+        ('testthreetype', {}, (
+            ('three', ('int', {}), {}),
+        )),
         ('testauto', {}, ()),
         ('testhexa', {}, ()),
         ('testhex4', {}, ()),
@@ -165,8 +194,8 @@ testmodel = {
         )),
 
         ('pivcomp', {}, (
-            ('lulz', ('teststr', {}), {}),
             ('targ', ('pivtarg', {}), {}),
+            ('lulz', ('teststr', {}), {}),
             ('tick', ('time', {}), {}),
         )),
     ),
@@ -271,8 +300,7 @@ class TestSteps:
             StepTimeout: on wait timeout
         '''
         if not self.steps[step].wait(timeout=timeout):
-            raise s_common.StepTimeout(mesg='timeout waiting for step',
-                                       step=step)
+            raise s_exc.StepTimeout(mesg='timeout waiting for step', step=step)
         return True
 
     def step(self, done, wait, timeout=None):
@@ -1091,3 +1119,47 @@ class SynTest(unittest.TestCase):
         self.len(2, obj)
         self.isinstance(obj[0], (type(None), str))
         self.isinstance(obj[1], dict)
+
+    @contextlib.contextmanager
+    def getTestConfDir(self, name, boot=None, conf=None):
+        with self.getTestDir() as dirn:
+            cdir = os.path.join(dirn, name)
+            s_common.makedirs(cdir)
+            if boot:
+                s_common.yamlsave(boot, cdir, 'boot.yaml')
+            if conf:
+                s_common.yamlsave(conf, cdir, 'cell.yaml')
+            yield dirn
+
+    def getTestCell(self, dirn, name, boot=None, conf=None):
+        '''
+        Get an instance of a Cell with specific boot and configuration data.
+
+        Args:
+            dirn (str): The directory the celldir is made in.
+            name (str): The name of the cell to make. This must be a
+            registered cell name in ``s_cells.ctors.``
+            boot (dict): Optional boot data. This is saved to ``boot.yaml``
+            for the cell to load.
+            conf (dict): Optional configuration data. This is saved to
+            ``cell.yaml`` for the Cell to load.
+
+        Examples:
+
+            Get a test Cortex cell:
+
+                conf = {'key': 'value'}
+                boot = {'cell:name': 'TestCell'}
+                cell = getTestCell(someDirectory, 'cortex', conf, boot)
+
+        Returns:
+            s_cell.Cell: A Cell instance.
+        '''
+        cdir = os.path.join(dirn, name)
+        s_common.makedirs(cdir)
+        if boot:
+            s_common.yamlsave(boot, cdir, 'boot.yaml')
+        if conf:
+            s_common.yamlsave(conf, cdir, 'cell.yaml')
+        return s_cells.init(name, cdir)
+

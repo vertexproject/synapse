@@ -6,6 +6,7 @@ import os
 import lmdb
 import logging
 import threading
+import contextlib
 import collections
 
 import synapse.exc as s_exc
@@ -20,14 +21,18 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
+openlayers = {}
+
 
 class Encoder(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8') + b'\x00'
 
+
 class Utf8er(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8')
+
 
 class Xact(s_eventbus.EventBus):
     '''
@@ -40,6 +45,7 @@ class Xact(s_eventbus.EventBus):
         self.layr = layr
         self.write = write
         self.spliced = False
+        self.splices = []
 
         self.xact = layr.lenv.begin(write=write)
 
@@ -47,12 +53,35 @@ class Xact(s_eventbus.EventBus):
         self.buidcache = s_cache.FixedCache(self._getBuidProps, size=10000)
         self.tid = s_threads.iden()
 
-    def save(self, msgs):
+        # our constructor gets a ref!
+        self.refs = 1
+
+    @contextlib.contextmanager
+    def incref(self):
         '''
-        Save the given splices to the splice log.
+        A reference count context manager for the Xact.
+
+        This API is *not* thread safe and is meant only for use
+        in determining when generators running within one thread
+        are complete.
         '''
-        self.spliced = True
-        self.layr.splicelog.save(self.xact, msgs)
+        self.refs += 1
+
+        yield
+
+        self.decref()
+
+    def decref(self):
+        '''
+        Decrement the reference count for the Xact.
+
+        This API is *not* thread safe and is meant only for use
+        in determining when generators running within one thread
+        are complete.
+        '''
+        self.refs -= 1
+        if self.refs == 0:
+            self.commit()
 
     def setOffset(self, iden, offs):
         return self.layr.offs.xset(self.xact, iden, offs)
@@ -68,15 +97,24 @@ class Xact(s_eventbus.EventBus):
             yield row
 
     def abort(self):
-        # aborting on a write transaction on a different thread than it was created is fatal
-        assert(not self.write or self.tid == s_threads.iden())
+
+        if self.tid != s_threads.iden():
+            raise s_exc.BadThreadIden()
+
         self.xact.abort()
 
     def commit(self):
-        # committing on a write transaction on a different thread than it was created is fatal
-        assert(not self.write or self.tid == s_threads.iden())
+
+        if self.tid != s_threads.iden():
+            raise s_exc.BadThreadIden()
+
+        if self.splices:
+            self.layr.splicelog.save(self.xact, self.splices)
+
         self.xact.commit()
-        if self.spliced:
+
+        # wake any splice waiters...
+        if self.splices:
             self.layr.spliced.set()
 
     def getBuidProps(self, buid):
@@ -99,6 +137,7 @@ class Xact(s_eventbus.EventBus):
             props.append((prop, valu))
 
         return props
+
 
 class Layer(s_cell.Cell):
     '''
@@ -320,8 +359,6 @@ class Layer(s_cell.Cell):
         Return a transaction object for the layer.
         '''
         return Xact(self, write=write)
-
-openlayers = {}
 
 def opendir(*path):
     '''

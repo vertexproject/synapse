@@ -21,6 +21,16 @@ ctors = {
 def add(name, ctor):
     '''
     Add a Cell() constructor alias.
+
+    Args:
+        name (str): Name of the cell alias.
+        ctor: Function used to create the Cell().
+
+    Notes:
+        Third party modules which implement ``synapse.lib.cell.Cell`` classes
+        should import ``synapse.cells`` and register an alias and class path
+        for their ``Cell`` using this function.  This can be done in a module
+        ``__init__.py`` file.
     '''
     ctors[name] = ctor
 
@@ -52,3 +62,12 @@ def deploy(name, dirn, boot=None):
 
     # Cell has a deploy static method (possibly per cell type)
     ctor.deploy(dirn)
+
+def getCells():
+    '''
+    Get a list of registered cell aliases and their fully qualified paths.
+    '''
+    ret = []
+    for alias, ctor in ctors.items():
+        ret.append((alias, '.'.join([ctor.__module__, ctor.__qualname__])))
+    return ret

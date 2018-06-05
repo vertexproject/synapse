@@ -1,13 +1,14 @@
 '''
 An RMI framework for synapse.
 '''
+
 import os
 import asyncio
 import logging
 
+import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
-
 import synapse.lib.urlhelp as s_urlhelp
 
 logger = logging.getLogger(__name__)
@@ -302,7 +303,7 @@ class Proxy(s_coro.Fini):
 
         vers = self.synack[1].get('vers')
         if vers[0] != televers[0]:
-            raise s_common.BadMesgVers(myver=televers, hisver=vers)
+            raise s_exc.BadMesgVers(myver=televers, hisver=vers)
 
         retn = self.synack[1].get('retn')
 
@@ -423,7 +424,10 @@ async def openurl(url, **opts):
 
     '''
     if url.find('://') == -1:
-        url = alias(url)
+        newurl = alias(url)
+        if newurl is None:
+            raise s_exc.BadUrl(f':// not found in [{url}] and no alias found!')
+        url = newurl
 
     info = s_urlhelp.chopurl(url)
     info.update(opts)

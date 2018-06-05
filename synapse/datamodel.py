@@ -194,6 +194,7 @@ class Form:
         self.isform = True
 
         self.onadds = []
+        self.ondels = []
 
         self.type = modl.types.get(name)
         if self.type is None:
@@ -226,6 +227,9 @@ class Form:
         '''
         self.onadds.append(func)
 
+    def onDel(self, func):
+        self.ondels.append(func)
+
     def wasAdded(self, node):
         '''
         Fire the onAdd() callbacks for node creation.
@@ -235,6 +239,16 @@ class Form:
                 func(node)
             except Exception as e:
                 logger.exception('error on onadd for %s' % (self.name,))
+
+    def wasDeleted(self, node):
+        '''
+        Fire the onDel() callbacks for node deletion.
+        '''
+        for func in self.ondels:
+            try:
+                func(node)
+            except Exception as e:
+                logger.exception('error on onadel for %s' % (self.name,))
 
     def getSetOps(self, buid, norm):
         indx = self.type.getStorIndx(norm)
@@ -282,6 +296,7 @@ class Model:
         self.types = {} # name: Type()
         self.forms = {} # name: Form()
         self.props = {} # (form,name): Prop() and full: Prop()
+        self.formabbr = {} # name: [Form(), ... ]
 
         self.univs = (
             ('created', ('time', {}), {'ro': 1,
@@ -352,6 +367,11 @@ class Model:
         for name, typedef, propinfo in self.univs:
             name = '.' + name
             self.props[name] = Univ(self, name, typedef, propinfo)
+
+    def getPropsByType(self, name):
+        props = self.propsbytype.get(name, ())
+        # TODO order props based on score...
+        return props
 
     def _addTypeDecl(self, decl):
 

@@ -51,7 +51,7 @@ class CryptoModelTest(s_test.SynTest):
 
     def test_forms_crypto_simple(self):
         with self.getTestCore() as core:  # type: s_cortex.Cortex
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
                 # md5
                 node = snap.addNode('hash:md5', TEST_MD5.upper())
                 self.eq(node.ndef, ('hash:md5', TEST_MD5))
@@ -85,7 +85,7 @@ class CryptoModelTest(s_test.SynTest):
 
         with self.getTestCore() as core:  # type: s_cortex.Cortex
 
-            with core.snap(write=True) as snap:
+            with core.snap() as snap:
 
                 node = snap.addNode(prop, valu, props)
 

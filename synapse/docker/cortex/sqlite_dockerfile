@@ -1,8 +1,0 @@
-# vim:set ft=dockerfile:
-FROM vertexproject/synapse:latest
-
-# docker build -t vertexproject/core_sqlite -f ~/git/synapse/synapse/docker/cortex/sqlite_dockerfile ~/git/synapse
-
-COPY ./synapse/docker/cortex/sqlite_dmon.json /syndata/dmon.json
-
-ENTRYPOINT ["python", "-m", "synapse.tools.dmon", "/syndata/dmon.json"]

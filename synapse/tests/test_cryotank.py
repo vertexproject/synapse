@@ -1,13 +1,9 @@
-import time
-import random
-
 from unittest.mock import patch
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cryotank as s_cryotank
 
-import synapse.lib.cell as s_cell
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.common as s_test
@@ -18,6 +14,7 @@ cryodata = (('foo', {'bar': 10}), ('baz', {'faz': 20}))
 
 class CryoTest(s_test.SynTest):
 
+    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
     def test_cryo_cell(self):
 
         with self.getTestDmon(mirror='cryodmon') as dmon:
@@ -84,45 +81,36 @@ class CryoTest(s_test.SynTest):
 
                 self.len(1, list(prox.metrics(0)))
 
-# FIXME remove before 0.1.0
+    def test_cryo_cell_indexing(self):
 
-class Newp:
-
-    def newp_cryo_cell_indexing(self):
-
-        conf = {'bind': '127.0.0.1', 'host': 'localhost', 'defvals': {'mapsize': s_test.TEST_MAP_SIZE}}
-        with self.getTestDir() as dirn, s_cryotank.CryoCell(dirn, conf) as cell:
-
-            addr = cell.getCellAddr()
-            cuser = s_cell.CellUser(cell.genUserAuth('foo'))
-            with cuser.open(addr, timeout=2) as sess:
-                user = s_cryotank.CryoClient(sess)
-
+        # conf = {'defvals': {'mapsize': s_test.TEST_MAP_SIZE}}
+        with self.getTestDmon(mirror='cryodmon') as dmon:
+            with dmon._getTestProxy('cryo00') as ccell, dmon._getTestProxy('cryo00/woot:woot') as tank:
                 # Setting the _chunksize to 1 forces iteration on the client
                 # side of puts, as well as the server-side.
-                user._chunksize = 1
-                user.puts('woot:woot', cryodata, timeout=2)
+                tank._chunksize = 1
+                tank.puts(cryodata)
 
                 # Test index operations
-                self.raises(s_exc.RetnErr, user.getIndices, 'notpresent')
-                self.eq((), user.getIndices('woot:woot'))
-                self.raises(s_exc.BadOperArg, user.addIndex, 'woot:woot', 'prop1', 'str', [])
-                user.addIndex('woot:woot', 'prop1', 'str', ['0'])
-                user.delIndex('woot:woot', 'prop1')
-                self.raises(s_exc.RetnErr, user.delIndex, 'woot:woot', 'noexist')
-                user.addIndex('woot:woot', 'prop1', 'str', ['0'])
-                user.pauseIndex('woot:woot', 'prop1')
-                user.pauseIndex('woot:woot')
-                user.resumeIndex('woot:woot')
-                self.eq([(1, 'baz'), (0, 'foo')], list(user.queryNormValu('woot:woot', 'prop1')))
-                self.eq([(1, 'baz')], list(user.queryNormValu('woot:woot', 'prop1', valu='b')))
-                self.eq([], list(user.queryNormValu('woot:woot', 'prop1', valu='bz', timeout=10)))
-                self.eq([(1, {'prop1': 'baz'})], (list(user.queryNormRecords('woot:woot', 'prop1', valu='b'))))
+                self.eq((), tank.getIndices())
+                self.raises(s_exc.BadOperArg, tank.addIndex, 'prop1', 'str', [])
+                tank.addIndex('prop1', 'str', ['0'])
+                tank.delIndex('prop1')
+                self.raises(s_exc.NoSuchIndx, tank.delIndex, 'noexist')
+                tank.addIndex('prop1', 'str', ['0'])
+                tank.pauseIndex('prop1')
+                tank.pauseIndex()
+                tank.resumeIndex()
+                self.eq([(1, 'baz'), (0, 'foo')], list(tank.queryNormValu('prop1')))
+                self.eq([(1, 'baz')], list(tank.queryNormValu('prop1', valu='b')))
+                self.eq([], list(tank.queryNormValu('prop1', valu='bz')))
+                self.eq([(1, {'prop1': 'baz'})], (list(tank.queryNormRecords('prop1', valu='b'))))
                 self.eq([(1, s_msgpack.en(('baz', {'faz': 20})))],
-                        list(user.queryRows('woot:woot', 'prop1', valu='b')))
+                        list(tank.queryRows('prop1', valu='b')))
 
-                user.init('woot:boring', {'noindex': True})
-                self.raises(s_exc.RetnErr, user.getIndices, 'woot:boring')
+                ccell.init('woot:boring', {'noindex': True})
+                with dmon._getTestProxy('cryo00/woot:boring') as tank2:
+                    self.eq([], tank2.getIndices())
 
 class CryoIndexTest(s_test.SynTest):
 
@@ -133,9 +121,9 @@ class CryoIndexTest(s_test.SynTest):
         rv = waiter.wait(s_cryotank.CryoTankIndexer.MAX_WAIT_S)
         self.nn(rv)
 
-    def newp_cryotank_index(self):
-
-        with self.getTestDir() as dirn, s_cryotank.CryoTank(dirn, {'mapsize': s_test.TEST_MAP_SIZE}) as tank:
+    def test_cryotank_index(self):
+        conf = {'mapsize': s_test.TEST_MAP_SIZE}
+        with self.getTestConfDir(name='CryoTank', conf=conf) as dirn, s_cryotank.CryoTank(dirn) as tank:
 
             idxr = tank.indexer
 
@@ -148,14 +136,14 @@ class CryoIndexTest(s_test.SynTest):
             # Simple index add/remove
             self.eq([], idxr.getIndices())
             idxr.addIndex('first', 'int', ['foo'])
-            self.raises(DupIndx, idxr.addIndex, 'first', 'int', ['foo'])
+            self.raises(s_exc.DupIndx, idxr.addIndex, 'first', 'int', ['foo'])
             idxs = idxr.getIndices()
             self.eq(idxs[0]['propname'], 'first')
             idxr.delIndex('first')
-            self.raises(NoSuchIndx, idxr.delIndex, 'first')
+            self.raises(s_exc.NoSuchIndx, idxr.delIndex, 'first')
             self.eq([], idxr.getIndices())
 
-            self.genraises(NoSuchIndx, idxr.queryNormValu, 'notanindex')
+            self.genraises(s_exc.NoSuchIndx, idxr.queryNormValu, 'notanindex')
 
             # Check simple 1 record, 1 index index and retrieval
             waiter = self.initWaiter(tank, 'addIndex')
@@ -260,8 +248,9 @@ class CryoIndexTest(s_test.SynTest):
             after_idx = next(i for i in after_idxs if i['propname'] == 'first')
             self.lt(before_idx['ngood'], after_idx['ngood'])
 
-    def newp_cryotank_index_nest(self):
-        with self.getTestDir() as dirn, s_cryotank.CryoTank(dirn, {'mapsize': s_test.TEST_MAP_SIZE}) as tank:
+    def test_cryotank_index_nest(self):
+        conf = {'mapsize': s_test.TEST_MAP_SIZE}
+        with self.getTestConfDir(name='CryoTank', conf=conf) as dirn, s_cryotank.CryoTank(dirn) as tank:
             idxr = tank.indexer
             item = {
                 'hehe': {
@@ -271,7 +260,7 @@ class CryoIndexTest(s_test.SynTest):
                 }
             }
             waiter = self.initWaiter(tank, 'addIndex')
-            idxr.addIndex('key', 'str:lwr', ['hehe/haha/key'])
+            idxr.addIndex('key', 'str', ['hehe/haha/key'])
             self.wait(waiter)
             waiter = self.initWaiter(tank, 'None')
             tank.puts([item])

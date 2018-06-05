@@ -2,7 +2,6 @@ import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.version as s_version
@@ -90,11 +89,11 @@ class ItModule(s_module.CoreModule):
             valu, info = self.core.model.type('it:semver').norm(valu)
             subs = info.get('subs')
             return valu, subs
-        except s_common.BadTypeValu:
+        except s_exc.BadTypeValu:
             # Try doing version part extraction by noming through the string
             subs = s_version.parseVersionParts(valu)
             if subs is None:
-                raise s_common.BadTypeValu(valu=valu,
+                raise s_exc.BadTypeValu(valu=valu,
                                            mesg='Unable to brute force version parts out of the string')
             if subs:
                 valu = s_version.packVersion(subs.get('major'),
@@ -310,13 +309,16 @@ class ItModule(s_module.CoreModule):
                         'doc': 'A short description of the software.',
                     }),
                     ('author:org', ('ou:org', {}), {
-                        'doc': 'Organization responsible for the software.',
+                        'doc': 'Organization which authored the software',
                     }),
                     ('author:acct', ('inet:web:acct', {}), {
-                        'doc': 'Web user responsible for the software.',
+                        'doc': 'Web account of the software author.',
+                    }),
+                    ('author:email', ('inet:email', {}), {
+                        'doc': 'Email address of the sofware author.',
                     }),
                     ('author:person', ('ps:person', {}), {
-                        'doc': 'Person responsible for the software.',
+                        'doc': 'Person who authored the software.',
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'URL relevant for the software.',

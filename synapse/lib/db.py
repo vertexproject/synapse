@@ -1,10 +1,10 @@
 import threading
 
+import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
-
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
+import synapse.eventbus as s_eventbus
 
 class Xact(s_eventbus.EventBus):
     '''
@@ -33,7 +33,7 @@ class Xact(s_eventbus.EventBus):
         '''
         while not self.lockd:
             if self.isfini:
-                raise s_common.IsFini()
+                raise s_exc.IsFini()
 
             self.lockd = self.pool.wlock.acquire(timeout=1)
 
@@ -73,7 +73,7 @@ class Xact(s_eventbus.EventBus):
             Cursor: see DB API
         '''
         if self.isfini:
-            raise s_common.IsFini()
+            raise s_exc.IsFini()
 
         return self.curs.execute(*args)
 

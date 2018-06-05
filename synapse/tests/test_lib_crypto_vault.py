@@ -1,10 +1,15 @@
-import hashlib
+
+import os
+import threading
 import multiprocessing
 
-import synapse.lib.crypto.ecc as s_ecc
-import synapse.lib.crypto.vault as s_vault
 
-from synapse.tests.common import *
+import synapse.exc as s_exc
+import synapse.common as s_common
+import synapse.tests.common as s_test
+import synapse.lib.crypto.ecc as s_ecc
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.crypto.vault as s_vault
 
 def addUserToVault(evt1, evt2, fp, user):
     '''
@@ -21,7 +26,7 @@ def addUserToVault(evt1, evt2, fp, user):
         vlt.genUserCert(user)
     evt2.set()
 
-class VaultTest(SynTest):
+class VaultTest(s_test.SynTest):
     def test_lib_crypto_vault_cert(self):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'vault.lmdb')
@@ -64,7 +69,7 @@ class VaultTest(SynTest):
             self.none(tstcert.getkey())
             self.isinstance(tstcert.public(), s_ecc.PubKey)
             # attempting to sign data with that cert fails though
-            self.raises(NoCertKey, tstcert.sign, ncert, haha=1)
+            self.raises(s_exc.NoCertKey, tstcert.sign, ncert, haha=1)
 
             # Tear down our vaults
             newvault.fini()
@@ -192,7 +197,7 @@ class VaultTest(SynTest):
 
             user = 'pennywise@vertex.link'
 
-            func = firethread(addUserToVault)
+            func = s_common.firethread(addUserToVault)
 
             # Fire a thread which makes a user cert in the vault after one
             # thread already obtains the advisory lock and threading.lock.

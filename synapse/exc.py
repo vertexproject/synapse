@@ -50,8 +50,6 @@ class AuthDeny(SynErr): pass
 class NoSuchMod(SynErr): pass
 class NoModIden(SynErr): pass
 
-class NoCertKey(SynErr): pass
-
 class NoSuchAct(SynErr): pass
 class NoSuchOpt(SynErr): pass
 class NoSuchDir(SynErr): pass
@@ -81,6 +79,7 @@ class MembraneExists(SynErr): pass
 
 class BadTypeDef(SynErr): pass
 class BadPropDef(SynErr): pass
+class BadThreadIden(SynErr): pass
 
 class NoSuchDecoder(SynErr): pass
 class NoSuchEncoder(SynErr): pass
@@ -137,6 +136,7 @@ class BadCoreStore(SynErr):
     '''The storage layer has encountered an error'''
     pass
 
+class CantDelNode(SynErr): pass
 class CantDelProp(SynErr): pass
 class CantSetProp(SynErr): pass
 

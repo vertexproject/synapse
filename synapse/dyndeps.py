@@ -1,5 +1,6 @@
 import importlib
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 def getDynMod(name):
@@ -55,20 +56,20 @@ def tryDynMod(name):
     try:
         return importlib.import_module(name)
     except ModuleNotFoundError as e:
-        raise s_common.NoSuchDyn(name=name)
+        raise s_exc.NoSuchDyn(name=name)
 
 def tryDynLocal(name):
     '''
     Dynamically import a module and return a module local or raise an exception.
     '''
     if name.find('.') == -1:
-        raise s_common.NoSuchDyn(name=name)
+        raise s_exc.NoSuchDyn(name=name)
 
     modname, objname = name.rsplit('.', 1)
     mod = tryDynMod(modname)
     item = getattr(mod, objname, s_common.novalu)
     if item is s_common.novalu:
-        raise s_common.NoSuchDyn(name=name)
+        raise s_exc.NoSuchDyn(name=name)
     return item
 
 def tryDynFunc(name, *args, **kwargs):
@@ -88,5 +89,5 @@ def runDynTask(task):
     '''
     func = getDynLocal(task[0])
     if func is None:
-        raise s_common.NoSuchFunc(name=task[0])
+        raise s_exc.NoSuchFunc(name=task[0])
     return func(*task[1], **task[2])

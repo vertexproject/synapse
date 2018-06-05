@@ -1,0 +1,7 @@
+# Example docker-compose file for a temporary core listening on port 47322
+version: '3'
+services:
+    core:
+        build: .
+        ports:
+            - "47322:47322"

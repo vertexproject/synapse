@@ -1,3 +1,4 @@
+
 import hashlib
 import logging
 
@@ -6,13 +7,14 @@ import cryptography.hazmat.primitives.kdf.hkdf as c_hkdf
 import cryptography.hazmat.primitives.asymmetric.ec as c_ec
 import cryptography.hazmat.primitives.serialization as c_ser
 import cryptography.hazmat.primitives.asymmetric.utils as c_utils
-
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 logger = logging.getLogger(__name__)
+
 
 class PriKey:
     '''
@@ -63,7 +65,7 @@ class PriKey:
         try:
             return self.priv.exchange(c_ec.ECDH(), pubkey.publ)
         except ValueError as e:
-            raise s_common.BadEccExchange(mesg=str(e))
+            raise s_exc.BadEccExchange(mesg=str(e))
 
     def public(self):
         '''

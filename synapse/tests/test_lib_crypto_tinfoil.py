@@ -1,13 +1,17 @@
+
+import os
 import hashlib
 import binascii
 
 from cryptography.hazmat.backends import default_backend
 
+import synapse.exc as s_exc
+import synapse.common as s_common
+import synapse.tests.common as s_test
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.crypto.tinfoil as s_tinfoil
 
-from synapse.tests.common import *
-
-class TinFoilTest(SynTest):
+class TinFoilTest(s_test.SynTest):
 
     def test_lib_crypto_tnfl_base(self):
 
@@ -123,8 +127,8 @@ class TinFoilTest(SynTest):
                 binascii.unhexlify(b'3303e226461e38f0f36988e441825e19'))
 
     def test_lib_crypto_tnfl_cryptseq(self):
-        txk = buid()
-        rxk = buid()
+        txk = s_common.buid()
+        rxk = s_common.buid()
 
         crypter1 = s_tinfoil.CryptSeq(rxk, txk)
         crypter2 = s_tinfoil.CryptSeq(txk, rxk)
@@ -140,8 +144,8 @@ class TinFoilTest(SynTest):
         self.eq(str(crypter2._rx_sn), 'count(1)')
         self.eq(mesg, pt)
 
-        self.raises(CryptoErr, crypter1.decrypt, ct)
+        self.raises(s_exc.CryptoErr, crypter1.decrypt, ct)
         self.eq(str(crypter1._rx_sn), 'count(0)')
 
-        self.raises(CryptoErr, crypter2.decrypt, ct)
+        self.raises(s_exc.CryptoErr, crypter2.decrypt, ct)
         self.eq(str(crypter2._rx_sn), 'count(2)')  # even though we fail, we've incremented the seqn valu
