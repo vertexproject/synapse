@@ -16,7 +16,7 @@ FROM vertexproject/synapse-base-image:py36
 
 ENV SYN_DMON_LOG_LEVEL="WARNING"
 COPY . /root/git/synapse/
-RUN \
+RUN set -ex && \
     # Install Synapse
     cd /root/git/synapse && \
     python setup.py develop && \
