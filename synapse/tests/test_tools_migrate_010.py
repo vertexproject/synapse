@@ -54,8 +54,8 @@ class Migrate010Test(s_iq.SynTest):
 
             contact_tufo = core.formTufoByProp('ps:contact', info)
 
-            fh = tempfile.TemporaryFile(dir=dirn)
-            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            fh = tempfile.TemporaryFile(dir=str(dirn))
+            s_migrate.Migrator(core, fh, tmpdir=str(dirn)).migrate()
             now = s_common.now()
 
             nodes = self.get_formfile('ps:contact', fh)
@@ -85,7 +85,7 @@ class Migrate010Test(s_iq.SynTest):
             props = {'a': 'WOOT.com/1.002.3.4', 'rcode': 0, 'time': now, 'ipv4': '5.5.5.5',
                      'udp4': '8.8.8.8:80', 'ns': 'foo.org/blah.info', 'ns:ns': 'blah.info'}
             tufo = core.formTufoByProp('inet:dns:look', '*', **props)
-            fh = tempfile.TemporaryFile(dir=dirn)
+            fh = tempfile.TemporaryFile(dir=str(dirn))
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             look_nodes = self.get_formfile('inet:dns:look', fh)
             self.eq(len(look_nodes), 1)
@@ -103,7 +103,7 @@ class Migrate010Test(s_iq.SynTest):
             core.addTufoTag(tufo, 'hehe.haha@2016-2017')
             core.formTufoByProp('inet:web:logon', '*', acct='vertex.link/pennywise2', time=now,
                                 ipv6='::ffff:1.2.3.4')
-            fh = tempfile.TemporaryFile(dir=dirn)
+            fh = tempfile.TemporaryFile(dir=str(dirn))
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('inet:web:logon', fh)
             self.eq(len(nodes), 2)
@@ -119,14 +119,14 @@ class Migrate010Test(s_iq.SynTest):
             wp_tufo = core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'knock knock'), time='20141217010101')
             core.formTufoByProp('inet:web:postref',
                                 (wp_tufo[1]['inet:web:post'], ('file:bytes', file_tufo[1]['file:bytes'])))
-            fh = tempfile.TemporaryFile(dir=dirn)
+            fh = tempfile.TemporaryFile(dir=str(dirn))
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('inet:web:post', fh)
             self.eq(len(nodes), 1)
             # Make sure the primary val is a guid
             self.eq(len(nodes[0][0][1]), 32)
 
-            fh = tempfile.TemporaryFile(dir=dirn)
+            fh = tempfile.TemporaryFile(dir=str(dirn))
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('inet:web:postref', fh)
             self.eq(len(nodes), 1)
@@ -135,7 +135,7 @@ class Migrate010Test(s_iq.SynTest):
 
             node = core.formTufoByProp('it:exec:reg:get', '*', host=s_common.guid(), reg=['foo/bar', ('int', 20)],
                                        exe=s_common.guid(), proc=s_common.guid(), time=now)
-            fh = tempfile.TemporaryFile(dir=dirn)
+            fh = tempfile.TemporaryFile(dir=str(dirn))
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('it:exec:reg:get', fh)
             self.eq(len(nodes), 1)
@@ -143,7 +143,7 @@ class Migrate010Test(s_iq.SynTest):
             # file:imgof
             person_guid = contact_tufo[1]['ps:contact:person']
             core.formTufoByProp('file:imgof', (file_guid, ('ps:person', person_guid)))
-            fh = tempfile.TemporaryFile(dir=dirn)
+            fh = tempfile.TemporaryFile(dir=str(dirn))
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('file:ref', fh)
             self.len(1, nodes)
@@ -155,7 +155,7 @@ class Migrate010Test(s_iq.SynTest):
             # ps:person:has
             core.formTufoByProp('ps:person:has', (person_guid, ('file:bytes', file_guid)),
                                 **{'seen:min': 1000, 'seen:max': 2000})
-            fh = tempfile.TemporaryFile(dir=dirn)
+            fh = tempfile.TemporaryFile(dir=str(dirn))
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('ps:person:has', fh)
             self.len(1, nodes)
@@ -164,7 +164,7 @@ class Migrate010Test(s_iq.SynTest):
 
             # ps:image
             core.formTufoByProp('ps:image', person_guid + '/' + file_guid)
-            fh = tempfile.TemporaryFile(dir=dirn)
+            fh = tempfile.TemporaryFile(dir=str(dirn))
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('file:ref', fh)
             self.len(2, nodes)
