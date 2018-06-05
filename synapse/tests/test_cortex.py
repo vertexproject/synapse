@@ -16,8 +16,12 @@ class CortexTest(s_test.SynTest):
             tank_addr = f'tcp://{host}:{port}/{name}'
 
             # Spin up a source core configured to send splices to dst core
-            conf = {'splice:cryotank': tank_addr}
-            with self.getTestCore(conf=conf) as src_core:
+            with self.getTestDir() as dirn:
+                conf = {
+                    'splice:cryotank': tank_addr,
+                    'modules': ('synapse.tests.utils.TestModule',),
+                }
+                src_core = self.getTestCell(dirn, 'cortex', conf=conf)
 
                 # Form a node and make sure that it exists
                 with src_core.snap() as snap:
@@ -26,6 +30,8 @@ class CortexTest(s_test.SynTest):
 
                 waiter = src_core.waiter(1, 'splice:cryotank:sent')
                 waiter.wait(timeout=10)
+                src_core.fini()
+                src_core.waitfini()
 
             # Now that the src core is closed, make sure that the splice exists in the tank
             tank = tankcell.tanks.get(name)
@@ -61,8 +67,12 @@ class CortexTest(s_test.SynTest):
             dst_core_addr = f'tcp://{host}:{port}/{name}'
 
             # Spin up a source core configured to send splices to dst core
-            conf = {'splice:sync': dst_core_addr}
-            with self.getTestCore(conf=conf) as src_core:
+            with self.getTestDir() as dirn:
+                conf = {
+                    'splice:sync': dst_core_addr,
+                    'modules': ('synapse.tests.utils.TestModule',),
+                }
+                src_core = self.getTestCell(dirn, 'cortex', conf=conf)
 
                 # Form a node and make sure that it exists
                 with src_core.snap() as snap:
@@ -71,6 +81,8 @@ class CortexTest(s_test.SynTest):
 
                 waiter = src_core.waiter(1, 'splice:sync:sent')
                 waiter.wait(timeout=10)
+                src_core.fini()
+                src_core.waitfini()
 
             # Now that the src core is closed, make sure that the node exists
             # in the dst core without creating it
