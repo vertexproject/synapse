@@ -180,29 +180,45 @@ class Cortex(s_cell.Cell):
     '''
     confdefs = (
 
-        ('layer:lmdb:mapsize', {'type': 'int', 'defval': s_const.tebibyte,
-            'doc': 'The default size for a new LMDB layer map.'}),
+        ('layer:lmdb:mapsize', {
+            'type': 'int', 'defval': s_const.tebibyte,
+            'doc': 'The default size for a new LMDB layer map.'
+        }),
 
-        ('modules', {'type': 'list', 'defval': (),
-            'doc': 'A list of module classes to load.'}),
+        ('modules', {
+            'type': 'list', 'defval': (),
+            'doc': 'A list of module classes to load.'
+        }),
 
-        ('layers', {'type': 'list', 'defval': (),
-            'doc': 'A list of layer paths to load.'}),
+        ('layers', {
+            'type': 'list', 'defval': (),
+            'doc': 'A list of layer paths to load.'
+        }),
 
-        ('storm:log', {'type': 'bool', 'defval': False,
-            'doc': 'Log storm queries via system logger.'}),
+        ('storm:log', {
+            'type': 'bool', 'defval': False,
+            'doc': 'Log storm queries via system logger.'
+        }),
 
-        ('splice:sync', {'type': 'str', 'defval': None,
-            'doc': 'A telepath URL for an upstream cortex.'}),
+        ('splice:sync', {
+            'type': 'str', 'defval': None,
+            'doc': 'A telepath URL for an upstream cortex.'
+        }),
 
-        ('splice:cryotank', {'type': 'str', 'defval': None,
-            'doc': 'A telepath URL for a cryotank used to archive splices.'}),
+        ('splice:cryotank', {
+            'type': 'str', 'defval': None,
+            'doc': 'A telepath URL for a cryotank used to archive splices.'
+        }),
 
-        ('feeds', {'type': 'list', 'defval': (),
-            'doc': 'A list of feed dictionaries.'}),
+        ('feeds', {
+            'type': 'list', 'defval': (),
+            'doc': 'A list of feed dictionaries.'
+        }),
 
-        #('storm:save', {'type': 'bool', 'defval': False,
-            #'doc': 'Archive storm queries for audit trail.'}),
+        # ('storm:save', {
+        #     'type': 'bool', 'defval': False,
+        #     'doc': 'Archive storm queries for audit trail.'
+        # }),
 
     )
 

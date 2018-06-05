@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 '''
 This contains the core test helper code used in Synapse.
 
@@ -1153,4 +1152,3 @@ class SynTest(unittest.TestCase):
         if conf:
             s_common.yamlsave(conf, cdir, 'cell.yaml')
         return s_cells.init(name, cdir)
-
