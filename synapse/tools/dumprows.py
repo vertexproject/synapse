@@ -47,7 +47,6 @@ preset_args = {
 }
 DUMP_MEGS = 4
 
-
 def dump_rows(outp, fd, store, compress=False, genrows_kwargs=None):
     outp.printf('Starting row dump')
     if not genrows_kwargs:
@@ -61,8 +60,28 @@ def dump_rows(outp, fd, store, compress=False, genrows_kwargs=None):
     tick = time.time()
 
     for rows in store.genStoreRows(**kwargs):
-        for row in rows:
-            fd.write(s_msgpack.en(row))
+        j += len(rows)
+        i += len(rows)
+        tufo = s_tufo.tufo('core:save:add:rows', rows=rows)
+        if compress:
+            tufo[1]['rows'] = gzip.compress(s_msgpack.en(rows), 9)
+        byts = s_msgpack.en(tufo)
+        bufs.append(byts)
+        cur_bytes += len(byts)
+        if cur_bytes > s_const.mebibyte * DUMP_MEGS:
+            fd.write(b''.join([byts for byts in bufs]))
+            outp.printf('Stored {} rows, total {} rows'.format(j, i))
+            bufs = []
+            cur_bytes = 0
+            j = 0
+    # There still may be rows we need too write out.
+    if bufs:
+        fd.write(b''.join([byts for byts in bufs]))
+        outp.printf('Stored {} rows, total {} rows'.format(j, i))
+        bufs = []
+    tock = time.time()
+    outp.printf('Done dumping rows - took {} seconds.'.format(tock - tick))
+    outp.printf('Dumped {} rows'.format(i))
 
 def dump_blobs(outp, fd, store):
     i = 0

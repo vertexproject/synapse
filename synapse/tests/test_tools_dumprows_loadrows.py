@@ -56,22 +56,22 @@ class DumpRowsTest(SynTest):
                 self.eq(evt[1].get('synapse:cortex:revstore'), False)
                 self.eq(evt[1].get('python:version'), version)
                 self.isin('synapse:version', evt[1])
-                evt = next(gen)
-                self.eq(evt[0], 'core:save:add:rows')
-                self.isin('rows', evt[1])
-                rows = evt[1].get('rows')
+                first_data = next(gen)
+                self.eq(first_data[0], 'core:save:add:rows')
+                self.isin('rows', first_data[1])
+                rows = first_data[1].get('rows')
                 self.isinstance(rows, tuple)
                 self.isinstance(rows[0], tuple)
                 self.eq(len(rows[0]), 4)
                 # Expensive but worth checking
                 event_types = set()
-                event_types.add(evt[0])
+                event_types.add(first_data[0])
                 total_rows = 0
                 for evt in gen:
                     event_types.add(evt[0])
                     if 'rows' in evt[1]:
                         total_rows = total_rows + len(evt[1].get('rows'))
-                self.gt(total_rows, 1000)
+                self.gt(total_rows + len(first_data[1]['rows']), 1000)
                 self.eq(event_types, {'core:save:add:rows'})
 
     def test_simple_compress(self):

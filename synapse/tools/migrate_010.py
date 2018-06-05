@@ -7,8 +7,11 @@ from binascii import unhexlify, hexlify
 
 import lmdb  # type: ignore
 
+
 import synapse.cortex as s_cortex
+import synapse.common as s_common
 import synapse.lib.lmdb as s_lmdb
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.models.inet as s_inet
 
@@ -51,7 +54,7 @@ class Migrator:
         Create a migrator.
 
         Args:
-            core (synapse.cores.common.Cortex): 0.0.55 cortex to export from
+            core (synapse.cores.common.Cortex): 0.0.x *local* cortex to export from
             outfh (IO['bin']): file handle opened for binary to push messagepacked data into
             tmpdir (Optional[str]):  location to write stage 1 LMDB database.  Please note that /tmp on Linux might
                 *not* a good location since it is usually mounted tmpfs with not enough space.  This parameter is not
@@ -686,17 +689,13 @@ class Migrator:
 def main(argv, outp=None):  # pragma: no cover
     p = argparse.ArgumentParser(description='''Command line tool to export a Synapse Cortex v. 0.0.5 to a mpk file
  for importation into a 0.1.0 cortex''')
-    p.add_argument('cortex', help='telepath URL for a cortex to be dumped')
+    p.add_argument('cortex', help='URL to a *local* cortex to be dumped')
     p.add_argument('outfile', help='file to dump to')
-    p.add_argument('--verbose', '-v', action='count', help='Verbose output')
     p.add_argument('--stage-1', help='Start at stage 2 with stage 1 file')
+    p.add_argument('--log-level', choices=s_const.LOG_LEVEL_CHOICES, help='specify the log level', type=str.upper)
     opts = p.parse_args(argv)
 
-    if opts.verbose is not None:
-        if opts.verbose > 1:
-            logger.setLevel(logging.DEBUG)
-        elif opts.verbose > 0:
-            logger.setLevel(logging.INFO)
+    s_common.setlogging(logger, opts.log_level)
 
     fh = logging.FileHandler(opts.outfile + '.log')
     fh.setLevel(logging.DEBUG)
