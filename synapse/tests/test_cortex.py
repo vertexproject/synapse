@@ -1,8 +1,57 @@
+from unittest.mock import patch
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.common as s_test
 
+
 class CortexTest(s_test.SynTest):
+
+    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
+    def test_splice_cryo(self):
+        with self.getTestDmon(mirror='cryodmon') as dst_dmon:
+            name = 'cryo00'
+            host, port = dst_dmon.addr
+            tankcell = dst_dmon.shared.get(name)
+            tank_addr = f'tcp://{host}:{port}/{name}'
+
+            # Spin up a source core configured to send splices to dst core
+            conf = {'splice:cryotank': tank_addr}
+            with self.getTestCore(conf=conf) as src_core:
+
+                # Form a node and make sure that it exists
+                with src_core.snap() as snap:
+                    snap.addNode('teststr', 'teehee')
+                    self.nn(snap.getNodeByNdef(('teststr', 'teehee')))
+
+                waiter = src_core.waiter(1, 'splice:cryotank:sent')
+                waiter.wait(timeout=10)
+
+            # Now that the src core is closed, make sure that the splice exists in the tank
+            tank = tankcell.tanks.get(name)
+            slices = list(tank.slice(0, 1000))
+            self.len(2, slices)
+
+            data = slices[0]
+            self.eq(data[0], 0)
+            self.isinstance(data[1], tuple)
+            self.len(2, data[1])
+            self.eq(data[1][0], 'node:add')
+            self.eq(data[1][1].get('ndef'), ('teststr', 'teehee'))
+            self.eq(data[1][1].get('user'), '?')
+            self.ge(data[1][1].get('time'), 0)
+
+            data = slices[1]
+            self.eq(data[0], 1)
+            self.isinstance(data[1], tuple)
+            self.len(2, data[1])
+            self.eq(data[1][0], 'prop:set')
+            self.eq(data[1][1].get('ndef'), ('teststr', 'teehee'))
+            self.eq(data[1][1].get('prop'), '.created')
+            self.ge(data[1][1].get('valu'), 0)
+            self.none(data[1][1].get('oldv'))
+            self.eq(data[1][1].get('user'), '?')
+            self.ge(data[1][1].get('time'), 0)
 
     def test_splice_sync(self):
         with self.getTestDmon(mirror='dmoncore') as dst_dmon:
@@ -20,7 +69,8 @@ class CortexTest(s_test.SynTest):
                     snap.addNode('teststr', 'teehee')
                     self.nn(snap.getNodeByNdef(('teststr', 'teehee')))
 
-                import time; time.sleep(3)  # FIXME wait on event
+                waiter = src_core.waiter(1, 'splice:sync:sent')
+                waiter.wait(timeout=10)
 
             # Now that the src core is closed, make sure that the node exists
             # in the dst core without creating it

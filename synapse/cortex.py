@@ -315,6 +315,7 @@ class Cortex(s_cell.Cell):
                         logger.warning('splice push: %d %d/%d (%.2f%%)', size, offs, indx, perc)
 
                         offs = core.addFeedData('syn.splice', items, seqn=(iden, offs))
+                        self.fire('splice:sync:sent')  # FIXME better name
 
             except Exception as e:
                 logger.exception('sync error')
@@ -399,6 +400,7 @@ class Cortex(s_cell.Cell):
 
         online = False
         tankurl = self.conf.get('splice:cryotank')
+        tankname = tankurl.split('/')[3]  # FIXME find better way to get tank name
 
         layr = self.layers[-1]
 
@@ -412,7 +414,7 @@ class Cortex(s_cell.Cell):
                         online = True
                         logger.warning('splice cryotank: online')
 
-                    offs = tank.offset(self.iden)
+                    offs = tank.offset(tankname, self.iden)
 
                     while not self.isfini:
 
@@ -425,7 +427,8 @@ class Cortex(s_cell.Cell):
 
                         logger.warning('tanking splices: %d', len(items))
 
-                        offs = tank.puts(items, seqn=(self.iden, offs))
+                        offs = tank.puts(tankname, items, seqn=(self.iden, offs))
+                        self.fire('splice:cryotank:sent')  # FIXME better name
 
             except Exception as e:
 
