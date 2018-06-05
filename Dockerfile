@@ -14,6 +14,7 @@
 
 FROM vertexproject/synapse-base-image:py36
 
+ENV SYN_DMON_LOG_LEVEL="WARNING"
 COPY . /root/git/synapse/
 RUN \
     # Install Synapse
@@ -25,5 +26,7 @@ RUN \
 
 VOLUME /syndata
 VOLUME /root/git/synapse
+WORKDIR /root/git/synapse
+EXPOSE 47322
 
 ENTRYPOINT ["python", "-m", "synapse.tools.dmon", "/syndata/dmon_dir"]

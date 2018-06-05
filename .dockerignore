@@ -31,8 +31,6 @@ nosetests.xml
 docs/
 CHANGELOG.md
 Dockerfile
-MANIFEST.in
-synapse/tests
 
 # Python
 **/*.pyc
