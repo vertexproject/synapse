@@ -60,7 +60,7 @@ def deploy(name, dirn, boot=None):
     # create the boot.yaml
     s_common.yamlsave(boot, dirn, 'boot.yaml')
 
-    # Cell has a deploy static method (possibly per cell type)
+    # Cell has a deploy class method (possibly per cell type)
     ctor.deploy(dirn)
 
 def getCells():
