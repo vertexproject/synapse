@@ -13,7 +13,7 @@ class Node:
 
     NOTE: This object is for local Cortex use during a single Xact.
     '''
-    def __init__(self, snap, buid):
+    def __init__(self, snap, buid=None, layrprop=None):
 
         self.snap = snap
 
@@ -34,14 +34,14 @@ class Node:
         # self.buid may be None during
         # initial node construction...
         if self.buid is not None:
-            self._loadNodeData()
+            self._loadNodeData(layrprop)
 
         if self.ndef is not None:
             self.form = self.snap.model.form(self.ndef[0])
 
-    def _loadNodeData(self):
+    def _loadNodeData(self, layrprop=None):
 
-        props = list(self.snap._getBuidProps(self.buid))
+        props = list(self.snap._getBuidProps(self.buid, layrprop))
 
         for prop, valu in props:
 

@@ -4,9 +4,9 @@ An API to assist with the creation and enforcement of cortex data models.
 import regex
 import logging
 import collections
+from typing import Union, Tuple
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 
 import synapse.lib.types as s_types
@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 hexre = regex.compile('^[0-9a-z]+$')
 propre = regex.compile('^[0-9a-z:_]+$')
 
-import synapse.lib.types as s_types
+OpsT = Tuple[str, Tuple[str, ...]]
+PropOrFormT = Union['Prop', 'Form']
 
 class Prop:
     '''
@@ -276,7 +277,7 @@ class Form:
             ('indx', ('byprop', self.pref, iops)),
         )
 
-    def prop(self, name):
+    def prop(self, name: str) -> Union[Prop, 'Form']:
         '''
         Return a secondary property for this form by relative prop name.
 

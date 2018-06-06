@@ -1,15 +1,21 @@
 import logging
 import contextlib
+from typing import Any, Iterable, Optional, Tuple, Dict, List
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.eventbus as s_eventbus
+import synapse.datamodel as s_datamodel
+
 import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
-import synapse.eventbus as s_eventbus
 
 logger = logging.getLogger(__name__)
 
+NodeT = Tuple[bytes, Dict[str, Any]]
+RowT = Tuple[Any, ...] # FIXME: improve
+LayrPropT = Tuple[int, str]  # layer idx, property name
 
 class Snap(s_eventbus.EventBus):
     '''
@@ -249,7 +255,7 @@ class Snap(s_eventbus.EventBus):
             raise s_exc.NoSuchProp(name=full)
 
         lops = prop.getLiftOps(valu, cmpr=cmpr)
-        for row, node in self.getLiftNodes(lops):
+        for row, node in self.getLiftNodes(lops, prop):
             yield node
 
     def _getNodesByType(self, name, valu=None, addform=True):
@@ -495,11 +501,11 @@ class Snap(s_eventbus.EventBus):
 
         yield None
 
-    def getLiftNodes(self, lops):
+    def getLiftNodes(self, lops: s_datamodel.OpsT, prop: Optional[s_datamodel.PropOrFormT] = None):
         genr = self.getLiftRows(lops)
-        return self.getRowNodes(genr)
+        return self.getRowNodes(genr, prop)
 
-    def getLiftRows(self, lops):
+    def getLiftRows(self, lops: s_datamodel.OpsT) -> Iterable[Tuple[int, RowT]]:
         '''
         Yield row tuples from a series of lift operations.
 
@@ -510,13 +516,14 @@ class Snap(s_eventbus.EventBus):
             lops (list): A list of lift operations.
 
         Yields:
-            (tuple): (buid, ...) rows.
+            (tuple): (layer_indx, (buid, ...)) rows.
         '''
-        for xact in self.xacts:
+        for layer_idx, xact in enumerate(self.xacts):
             with xact.incref():
-                yield from xact.getLiftRows(lops)
+                yield from ((layer_idx, x) for x in xact.getLiftRows(lops))
 
-    def getRowNodes(self, rows):
+    def getRowNodes(self, rows: Iterable[Tuple[int, RowT]], prop: Optional[s_datamodel.PropOrFormT] = None) \
+            -> Iterable[Tuple[RowT, NodeT]]:
         '''
         Join a row generator into (row, Node()) tuples.
 
@@ -524,23 +531,37 @@ class Snap(s_eventbus.EventBus):
         valu is the buid of a node.
 
         Args:
-            rows (iterable): A generator if (buid, ...) tuples.
+            rows: A generator of (layer_idx, (buid, ...)) tuples.
+            layrprop:  Context necessary for filters to work across layers
 
         Yields:
             (tuple): (row, node)
         '''
-        for row in rows:
-            node = self.getNodeByBuid(row[0])
-            yield row, node
+        for layeridx, row in rows:
+            if prop is None:
+                node = self.getNodeByBuid(row[0])
+            else:
+                # Bypass snap buidcache for now
+                self.tick()
+                node = self._getNodeByBuid(row[0], (layeridx, prop.name))
+            if node is not None:
+                yield row, node
 
-    def _getBuidProps(self, buid):
-        props = []
-        # this is essentially atomic and doesn't need xact.incref
-        [props.extend(x.getBuidProps(buid)) for x in self.xacts]
+    def _getBuidProps(self, buid: bytes, layrprop: Optional[LayrPropT] = None) -> List[Tuple[str, Any]]:
+        props: List[Tuple[str, Any]] = []  # FIXME: why is this a list and not a dict?
+        origlayer, propname = layrprop or (None, None)
+        # this is essentially atomic and doesn't need xact.incref FIXME: still?
+        for layeridx, x in enumerate(self.xacts):
+            layerprops = x._getBuidProps(buid)  # FIXME:  weird xact buidcache interaction
+            props.extend(layerprops)
+            # We mark this node to drop iff we see the prop set in this layer *and* we're looking at the props from a
+            # higher (i.e. closer to write, higher idx) layer.
+            if layrprop is not None and layeridx > origlayer and any(propname == p[0] for p in layerprops):
+                return []
         return props
 
-    def _getNodeByBuid(self, buid):
-        node = s_node.Node(self, buid)
+    def _getNodeByBuid(self, buid: bytes, layrprop: Optional[LayrPropT] = None) -> Optional[s_node.Node]:
+        node = s_node.Node(self, buid, layrprop)
         if node.ndef is None:
             return None
 
