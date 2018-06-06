@@ -1,5 +1,7 @@
 import pprint
 
+import synapse.reactor as s_reactor
+
 import synapse.lib.cli as s_cli
 
 class StormCmd(s_cli.Cmd):
@@ -102,3 +104,111 @@ class StormCmd(s_cli.Cmd):
 
             else:
                 self.printf(repr(mesg))
+
+class QueueCmd(s_cli.Cmd):
+    '''
+    Manage Cortex queues.
+
+    Syntax:
+        queue <arguments>
+
+    Keyword Arguments:
+        --act: Queue configuration action to take - `add`, `del`, `set`, `get`.
+        defaults to `act`.
+        --name: Name of the queue to work with. Optional with the `get` action.
+        --type: Type of the queue to create or set.
+        --desc: Description of the queue (for end users).
+        --url: URL used to connect to the queue.
+
+    Examples:
+        # Add a queue
+        queue --act add --name qt1 --type cryotank --desc "A queue" --url tcp://1.2.3.4:8080/cryo/qt1:1
+        # List the details for the queue "qt1"
+        queue --name qt1
+        # List all queue details
+        queue
+        # Set the url for qt1
+        queue --act set --name qt1 --url tcp://1.2.3.4:8080/cryo/qt1:2
+        # Set the description for qt1
+        queue --act set --name qt1 --desc "A really cool queue!"
+        # Delete a queue
+        queue --act del --name qt1
+    '''
+    _cmd_name = 'queue'
+    _cmd_syntax = (
+        ('--act', {'type': 'enum',
+                   'defval': 'get',
+                   'enum:vals': ('add', 'del', 'set', 'get')}),
+        ('--name', {'type': 'valu'}),
+        ('--type', {'type': 'valu'}),
+        ('--desc', {'type': 'valu'}),
+        ('--url', {'type': 'valu'}),
+    )
+
+    def __init__(self, cli, **opts):
+        s_cli.Cmd.__init__(self, cli, **opts)
+
+        self.reac = s_reactor.Reactor()
+        self.reac.act('add', self._onAdd)
+        self.reac.act('del', self._onDel)
+        self.reac.act('get', self._onGet)
+        self.reac.act('set', self._onSet)
+
+    def _onAdd(self, mesg):
+        act, opts = mesg
+        core = self.getCmdItem()
+
+        name = opts.get('name')
+        info = {}
+        if not name:
+            self.printf('--name required to add queue.')
+            return
+        for key in ('type', 'url', 'desc'):
+            valu = opts.get(key)
+            if not valu:
+                self.printf(f'--{key} required to add queue.')
+                return
+            info[key] = valu
+        conf = (name, info)
+        core.addQueue(conf)
+        self.printf(f'Added queue conf [{conf}.]')
+
+    def _onDel(self, mesg):
+        act, opts = mesg
+        core = self.getCmdItem()
+
+        name = opts.get('name')
+        self.printf('D')
+        ret = core.delQueue(name)
+        if ret:
+            self.printf(f'Deleted queue [{name}].')
+        else:
+            self.printf(f'Queue does not exist [{name}].')
+
+    def _onGet(self, mesg):
+        act, opts = mesg
+        core = self.getCmdItem()
+
+        name = opts.get('name')
+        if name:
+            queues = [core.getQueue(name)]
+        else:
+            queues = core.getQueues()
+        self.printf('Configured queues:')
+        for conf in queues:
+            self.printf(pprint.pformat(conf))
+
+    def _onSet(self, mesg):
+        act, opts = mesg
+        core = self.getCmdItem()
+
+        name = opts.get('name')
+        for key in ('type', 'url', 'desc'):
+            valu = opts.get(key)
+            if valu:
+                core.setQueueKey(name, key, valu)
+                self.printf(f'Set queue [{name}] key [{key}] to [{valu}]')
+
+    def runCmdOpts(self, opts):
+        act = opts.get('act')
+        self.reac.react((act, opts))

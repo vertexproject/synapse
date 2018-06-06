@@ -146,6 +146,23 @@ class KvLook:
             valu = s_msgpack.un(lval)
             yield prop, valu
 
+    def pop(self, prop):
+        '''
+        Pop a property from the KvLook.
+
+        Args:
+            prop (str): The property name.
+
+        Returns:
+            object: The object stored in the KvLook, or None if the object was not present.
+        '''
+        valu = self.get(prop, None)
+
+        lkey = self.iden + prop.encode('utf8')
+        self.stor.delKvProp(lkey)
+
+        return valu
+
     def getraw(self, lkey):
         '''
         Retrieve a value directly by bytes.

@@ -89,6 +89,67 @@ class CmdCoreTest(s_test.SynTest):
             outp.expect('Traceback')
             outp.expect('BadStormSyntax')
 
+    def test_queue(self):
+        with self.getTestDmon('dmoncoreauth') as dmon:
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:  # type: s_cortex.CortexApi
+
+                outp = self.getTestOutp()
+                cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                line = 'queue --act add --name qt1 --url tcp://1.2.3.4:80/cryo/qt1 --desc "test tank" --type cryotank'
+                cmdr.runCmdLine(line)
+                outp.expect('Added queue conf')
+                outp.expect('qt1')
+
+                # Get all queues
+                outp = self.getTestOutp()
+                cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                line = 'queue'
+                cmdr.runCmdLine(line)
+                outp.expect('Configured queues')
+                outp.expect('qt1')
+
+                # Get a single queue
+                outp = self.getTestOutp()
+                cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                line = 'queue --name qt1'
+                cmdr.runCmdLine(line)
+                outp.expect('Configured queues')
+                outp.expect('qt1')
+
+                # Set a valu
+                outp = self.getTestOutp()
+                cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                line = 'queue --act set --name qt1 --url tcp://1.2.3.4:443/cryo01/qt1:2'
+                cmdr.runCmdLine(line)
+                outp.expect('Set queue [qt1] key [url] to [tcp://1.2.3.4:443/cryo01/qt1:2]')
+
+                # Delete a queue
+                outp = self.getTestOutp()
+                cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                line = 'queue --act del --name qt1'
+                cmdr.runCmdLine(line)
+                outp.expect('Deleted queue [qt1]')
+
+                outp = self.getTestOutp()
+                cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                line = 'queue --act del --name qt1'
+                cmdr.runCmdLine(line)
+                outp.expect('Queue does not exist')
+
+                # Sad path tests
+                outp = self.getTestOutp()
+                cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                line = 'queue --act add --url tcp://1.2.3.4:80/cryo/qt1'
+                cmdr.runCmdLine(line)
+                outp.expect('--name required to add queue')
+
+                outp = self.getTestOutp()
+                cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                line = 'queue --act add --name qt2 --url tcp://1.2.3.4:80/cryo/qt1'
+                cmdr.runCmdLine(line)
+                outp.expect('--type required to add queue')
+
 '''
 class SynCmdCoreTest(s_test.SynTest):
 
