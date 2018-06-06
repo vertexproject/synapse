@@ -633,7 +633,7 @@ class CortexTest(s_test.SynTest):
 
             self.nn(core.getNodeByNdef(('teststr', 'foo')))
 
-    def test_cortex_lift_layers(self):
+    def test_cortex_lift_layers_bad_filter(self):
         '''
         Test a two layer cortex where a lift operation gives the wrong result
         '''
@@ -653,3 +653,24 @@ class CortexTest(s_test.SynTest):
                 nodes = list(core.addNodes([changed_node]))
                 nodes = list(core.getNodesBy('inet:ipv4:asn', 42))
                 self.len(0, nodes)
+
+    def test_cortex_lift_layers_dup(self):
+        '''
+        Test a two layer cortex where a lift operation gives the same node twice
+        '''
+        with self.getTestCore() as core1:
+            node = (('inet:ipv4', 1), {'props': {'asn': 42}})
+            nodes_core1 = list(core1.addNodes([node]))
+
+            layerfn = os.path.join(core1.dirn, 'layers', 'default')
+            with self.getTestCore(conf={'layers': [layerfn]}) as core:
+                # Basic sanity check
+                nodes = list(core.getNodesBy('inet:ipv4', 1))
+                self.len(1, nodes)
+                self.eq(nodes_core1[0].pack(), nodes[0].pack())
+
+                # Now set asn in the "higher" layer to the same
+                changed_node = (('inet:ipv4', 1), {'props': {'asn': 42}})
+                nodes = list(core.addNodes([changed_node]))
+                nodes = list(core.getNodesBy('inet:ipv4:asn', 42))
+                self.len(1, nodes)
