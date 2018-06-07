@@ -242,8 +242,9 @@ class Snap(s_eventbus.EventBus):
         if full.startswith('#'):
             return self._getNodesByTag(full, valu=valu, cmpr=cmpr)
 
-        if full.find('#') != -1:
-            form, tag = full.split('#', 1)
+        fields = full.split('#', 1)
+        if len(fields) > 1:
+            form, tag = fields
             return self._getNodesByFormTag(form, tag, valu=valu, cmpr=cmpr)
 
         return self._getNodesByProp(full, valu=valu, cmpr=cmpr)
@@ -489,7 +490,9 @@ class Snap(s_eventbus.EventBus):
     def stor(self, sops):
 
         self.writeable()
-        self.buidcache.pop(sops[0][1][0])
+        # FIXME:  is there a type for sops?
+        buid = sops[0][1][0]
+        self.buidcache.pop(buid)
 
         if self.bulk:
             self.bulksops.extend(sops)
