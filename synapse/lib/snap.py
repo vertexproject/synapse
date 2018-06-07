@@ -489,6 +489,7 @@ class Snap(s_eventbus.EventBus):
     def stor(self, sops):
 
         self.writeable()
+        self.buidcache.pop(sops[0][1][0])
 
         if self.bulk:
             self.bulksops.extend(sops)
