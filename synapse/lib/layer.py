@@ -156,6 +156,8 @@ class Xact(s_eventbus.EventBus):
 
         _, (buid, form, prop, valu, indx, info) = oper
 
+        self.buidcache.pop(buid)
+
         if len(indx) > 256: # max index size...
             mesg = 'index bytes are too large'
             raise s_exc.BadIndxValu(mesg=mesg, prop=prop, valu=valu)
@@ -195,6 +197,8 @@ class Xact(s_eventbus.EventBus):
     def _storPropDel(self, oper):
 
         _, (buid, form, prop, info) = oper
+
+        self.buidcache.pop(buid)
 
         fenc = self.layr.encoder[form]
         penc = self.layr.encoder[prop]

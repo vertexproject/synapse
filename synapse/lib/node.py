@@ -4,6 +4,8 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.chop as s_chop
 
+from typing import Any, Iterable, Tuple
+
 logger = logging.getLogger(__name__)
 
 
@@ -13,7 +15,7 @@ class Node:
 
     NOTE: This object is for local Cortex use during a single Xact.
     '''
-    def __init__(self, snap, buid=None, layrprop=None):
+    def __init__(self, snap, buid=None, rawprops: Iterable[Tuple[str, Any]] = None) -> None:
 
         self.snap = snap
 
@@ -33,17 +35,15 @@ class Node:
 
         # self.buid may be None during
         # initial node construction...
-        if self.buid is not None:
-            self._loadNodeData(layrprop)
+        if rawprops is not None:
+            self._loadNodeData(rawprops)
 
         if self.ndef is not None:
             self.form = self.snap.model.form(self.ndef[0])
 
-    def _loadNodeData(self, layrprop=None):
+    def _loadNodeData(self, rawprops):
 
-        props = self.snap._getBuidProps(self.buid, layrprop)
-
-        for prop, valu in props.items():
+        for prop, valu in rawprops:
 
             p0 = prop[0]
 

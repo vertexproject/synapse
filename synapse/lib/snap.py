@@ -1,6 +1,6 @@
 import logging
 import contextlib
-from typing import Any, Iterable, Optional, Tuple, Dict, List
+from typing import Any, Iterable, Optional, Tuple, Dict
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -505,7 +505,9 @@ class Snap(s_eventbus.EventBus):
 
         yield None
 
-    def getLiftNodes(self, lops: s_datamodel.OpsT, prop: Optional[s_datamodel.PropOrFormT] = None):
+    def getLiftNodes(self,
+                     lops: s_datamodel.OpsT,
+                     prop: Optional[s_datamodel.PropOrFormT] = None):
         genr = self.getLiftRows(lops)
         return self.getRowNodes(genr, prop)
 
@@ -526,7 +528,9 @@ class Snap(s_eventbus.EventBus):
             with xact.incref():
                 yield from ((layer_idx, x) for x in xact.getLiftRows(lops))
 
-    def getRowNodes(self, rows: Iterable[Tuple[int, RowT]], prop: Optional[s_datamodel.PropOrFormT] = None) \
+    def getRowNodes(self,
+                    rows: Iterable[Tuple[int, RowT]],
+                    prop: Optional[s_datamodel.PropOrFormT] = None) \
             -> Iterable[Tuple[RowT, NodeT]]:
         '''
         Join a row generator into (row, Node()) tuples.
@@ -545,28 +549,22 @@ class Snap(s_eventbus.EventBus):
             if prop is None:
                 node = self.getNodeByBuid(row[0])
             else:
-                # Bypass snap buidcache for now
                 self.tick()
                 node = self._getNodeByBuid(row[0], (layeridx, prop.name))
             if node is not None:
                 yield row, node
 
-    def _getBuidProps(self, buid: bytes, layrprop: Optional[LayrPropT] = None) -> Dict[str, Any]:
-        props: Dict[str, Any] = {}  # FIXME: why is this a list and not a dict?
+    def _getNodeByBuid(self, buid: bytes, layrprop: Optional[LayrPropT] = None) -> Optional[s_node.Node]:
+        props: Dict[str, Any] = {}
         origlayer, propname = layrprop or (None, None)
         # this is essentially atomic and doesn't need xact.incref FIXME: still?
         for layeridx, x in enumerate(self.xacts):
-            layerprops = x.getBuidProps(buid)  # FIXME:  weird xact buidcache interaction
+            layerprops = x.getBuidProps(buid)
             # We mark this node to drop iff we see the prop set in this layer *and* we're looking at the props from a
             # higher (i.e. closer to write, higher idx) layer.
             if layrprop is not None and layeridx > origlayer and any(propname == p[0] for p in layerprops):
-                return {}
+                return None
             props.update(layerprops)
-        return props
 
-    def _getNodeByBuid(self, buid: bytes, layrprop: Optional[LayrPropT] = None) -> Optional[s_node.Node]:
-        node = s_node.Node(self, buid, layrprop)
-        if node.ndef is None:
-            return None
-
-        return node
+        node = s_node.Node(self, buid, props.items())
+        return None if node.ndef is None else node
