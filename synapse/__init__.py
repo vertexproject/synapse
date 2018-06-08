@@ -11,7 +11,7 @@ if sys.maxsize < 9223372036854775807:  # pragma: no cover
     raise Exception('synapse is only supported on 64 bit architectures')
 
 import lmdb
-if tuple([int(x) for x in lmdb.__version__.split('.')]) < (0, 94):
+if tuple([int(x) for x in lmdb.__version__.split('.')]) < (0, 94): # pragma: no cover
     raise Exception('synapse is only supported on with PyLMDB >= 0.94')
 
 import multiprocessing
