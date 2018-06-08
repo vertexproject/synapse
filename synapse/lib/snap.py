@@ -545,25 +545,31 @@ class Snap(s_eventbus.EventBus):
         Yields:
             (tuple): (row, node)
         '''
-        for layeridx, row in rows:
+        for origlayer, row in rows:
+            props: Dict[str, Any] = {}
+            buid = row[0]
             if prop is None:
-                node = self.getNodeByBuid(row[0])
+                node = self.getNodeByBuid(buid)
             else:
                 self.tick()
-                node = self._getNodeByBuid(row[0], (layeridx, prop.name))
-            if node is not None:
-                yield row, node
+                for layeridx, x in enumerate(self.xacts):
+                    layerprops = x.getBuidProps(buid)
+                    # We mark this node to drop iff we see the prop set in this layer *and* we're looking at the props
+                    # from a higher (i.e. closer to write, higher idx) layer.
+                    if prop is not None and layeridx > origlayer and prop.name in layerprops:
+                        props = {}
+                        break
+                    props.update(layerprops)
+                node = s_node.Node(self, buid, props.items()) if props else None
+            if node is None or node.ndef is None:
+                continue
+            yield row, node
 
-    def _getNodeByBuid(self, buid: bytes, layrprop: Optional[LayrPropT] = None) -> Optional[s_node.Node]:
+    def _getNodeByBuid(self, buid: bytes) -> Optional[s_node.Node]:
         props: Dict[str, Any] = {}
-        origlayer, propname = layrprop or (None, None)
         # this is essentially atomic and doesn't need xact.incref FIXME: still?
         for layeridx, x in enumerate(self.xacts):
             layerprops = x.getBuidProps(buid)
-            # We mark this node to drop iff we see the prop set in this layer *and* we're looking at the props from a
-            # higher (i.e. closer to write, higher idx) layer.
-            if layrprop is not None and layeridx > origlayer and any(propname == p[0] for p in layerprops):
-                return None
             props.update(layerprops)
 
         node = s_node.Node(self, buid, props.items())
