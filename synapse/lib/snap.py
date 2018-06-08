@@ -1,6 +1,5 @@
 import logging
 import contextlib
-from typing import Any, Iterable, Optional, Tuple, Dict
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -12,10 +11,6 @@ import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 
 logger = logging.getLogger(__name__)
-
-NodeT = Tuple[bytes, Dict[str, Any]]
-RowT = Tuple[Any, ...] # FIXME: improve
-LayrPropT = Tuple[int, str]  # layer idx, property name
 
 class Snap(s_eventbus.EventBus):
     '''
@@ -505,13 +500,11 @@ class Snap(s_eventbus.EventBus):
 
         yield None
 
-    def getLiftNodes(self,
-                     lops: s_datamodel.OpsT,
-                     prop: Optional[s_datamodel.PropOrFormT] = None):
+    def getLiftNodes(self, lops, prop=None):
         genr = self.getLiftRows(lops)
         return self.getRowNodes(genr, prop)
 
-    def getLiftRows(self, lops: s_datamodel.OpsT) -> Iterable[Tuple[int, RowT]]:
+    def getLiftRows(self, lops: s_datamodel.OpsT):
         '''
         Yield row tuples from a series of lift operations.
 
@@ -528,10 +521,7 @@ class Snap(s_eventbus.EventBus):
             with xact.incref():
                 yield from ((layer_idx, x) for x in xact.getLiftRows(lops))
 
-    def getRowNodes(self,
-                    rows: Iterable[Tuple[int, RowT]],
-                    prop: Optional[s_datamodel.PropOrFormT] = None) \
-            -> Iterable[Tuple[RowT, NodeT]]:
+    def getRowNodes(self, rows, prop=None):
         '''
         Join a row generator into (row, Node()) tuples.
 
@@ -546,7 +536,7 @@ class Snap(s_eventbus.EventBus):
             (tuple): (row, node)
         '''
         for origlayer, row in rows:
-            props: Dict[str, Any] = {}
+            props = {}
             buid = row[0]
             if prop is None:
                 node = self.getNodeByBuid(buid)
@@ -565,8 +555,8 @@ class Snap(s_eventbus.EventBus):
                 continue
             yield row, node
 
-    def _getNodeByBuid(self, buid: bytes) -> Optional[s_node.Node]:
-        props: Dict[str, Any] = {}
+    def _getNodeByBuid(self, buid):
+        props = {}
         # this is essentially atomic and doesn't need xact.incref FIXME: still?
         for layeridx, x in enumerate(self.xacts):
             layerprops = x.getBuidProps(buid)

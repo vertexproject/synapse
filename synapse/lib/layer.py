@@ -20,8 +20,6 @@ import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 
-from typing import Dict, Any
-
 logger = logging.getLogger(__name__)
 openlayers = {}
 
@@ -134,9 +132,9 @@ class Xact(s_eventbus.EventBus):
     def getBuidProps(self, buid):
         return self.buidcache.get(buid)
 
-    def _getBuidProps(self, buid: bytes) -> Dict[str, Any]:
+    def _getBuidProps(self, buid: bytes):
 
-        props: Dict[str, Any] = {}
+        props = {}
 
         if not self.buidcurs.set_range(buid):
             return props
