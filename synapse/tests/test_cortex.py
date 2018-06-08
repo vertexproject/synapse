@@ -495,7 +495,7 @@ class CortexTest(s_test.SynTest):
                 self.len(0, list(snap.getLiftRows(lops)))
 
                 # check that buid rows are gone...
-                self.len(0, list(snap._getBuidProps(buid)))
+                self.len(0, snap._getBuidProps(buid))
 
                 # final top level API check
                 self.none(snap.getNodeByNdef(('teststr', 'baz')))

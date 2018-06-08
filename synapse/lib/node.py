@@ -41,9 +41,9 @@ class Node:
 
     def _loadNodeData(self, layrprop=None):
 
-        props = list(self.snap._getBuidProps(self.buid, layrprop))
+        props = self.snap._getBuidProps(self.buid, layrprop)
 
-        for prop, valu in props:
+        for prop, valu in props.items():
 
             p0 = prop[0]
 

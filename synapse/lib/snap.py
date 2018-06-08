@@ -551,17 +551,17 @@ class Snap(s_eventbus.EventBus):
             if node is not None:
                 yield row, node
 
-    def _getBuidProps(self, buid: bytes, layrprop: Optional[LayrPropT] = None) -> List[Tuple[str, Any]]:
-        props: List[Tuple[str, Any]] = []  # FIXME: why is this a list and not a dict?
+    def _getBuidProps(self, buid: bytes, layrprop: Optional[LayrPropT] = None) -> Dict[str, Any]:
+        props: Dict[str, Any] = {}  # FIXME: why is this a list and not a dict?
         origlayer, propname = layrprop or (None, None)
         # this is essentially atomic and doesn't need xact.incref FIXME: still?
         for layeridx, x in enumerate(self.xacts):
-            layerprops = x._getBuidProps(buid)  # FIXME:  weird xact buidcache interaction
-            props.extend(layerprops)
+            layerprops = x.getBuidProps(buid)  # FIXME:  weird xact buidcache interaction
             # We mark this node to drop iff we see the prop set in this layer *and* we're looking at the props from a
             # higher (i.e. closer to write, higher idx) layer.
             if layrprop is not None and layeridx > origlayer and any(propname == p[0] for p in layerprops):
-                return []
+                return {}
+            props.update(layerprops)
         return props
 
     def _getNodeByBuid(self, buid: bytes, layrprop: Optional[LayrPropT] = None) -> Optional[s_node.Node]:

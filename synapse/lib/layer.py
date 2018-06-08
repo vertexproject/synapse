@@ -134,9 +134,9 @@ class Xact(s_eventbus.EventBus):
     def getBuidProps(self, buid):
         return self.buidcache.get(buid)
 
-    def _getBuidProps(self, buid: bytes) -> Dict[bytes, Dict[str, Any]]:
+    def _getBuidProps(self, buid: bytes) -> Dict[str, Any]:
 
-        props = []
+        props: Dict[str, Any] = {}
 
         if not self.buidcurs.set_range(buid):
             return props
@@ -148,7 +148,7 @@ class Xact(s_eventbus.EventBus):
 
             prop = lkey[32:].decode('utf8')
             valu, indx = s_msgpack.un(lval)
-            props.append((prop, valu))
+            props[prop] = valu
 
         return props
 
