@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 '''
 This contains the core test helper code used in Synapse.
 
@@ -15,7 +14,6 @@ compatible with the unittest, nose and pytest frameworks.  This does not lock
 users into a particular test framework; while at the same time allowing base
 use to be invoked via the built-in Unittest library.
 '''
-
 import io
 import os
 import sys
@@ -26,7 +24,6 @@ import tempfile
 import unittest
 import threading
 import contextlib
-
 
 import synapse.exc as s_exc
 import synapse.axon as s_axon
@@ -1111,6 +1108,17 @@ class SynTest(unittest.TestCase):
         self.len(2, obj)
         self.isinstance(obj[0], (type(None), str))
         self.isinstance(obj[1], dict)
+
+    @contextlib.contextmanager
+    def getTestConfDir(self, name, boot=None, conf=None):
+        with self.getTestDir() as dirn:
+            cdir = os.path.join(dirn, name)
+            s_common.makedirs(cdir)
+            if boot:
+                s_common.yamlsave(boot, cdir, 'boot.yaml')
+            if conf:
+                s_common.yamlsave(conf, cdir, 'cell.yaml')
+            yield dirn
 
     def getTestCell(self, dirn, name, boot=None, conf=None):
         '''
