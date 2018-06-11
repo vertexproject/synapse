@@ -521,7 +521,7 @@ class Snap(s_eventbus.EventBus):
             with xact.incref():
                 yield from ((layer_idx, x) for x in xact.getLiftRows(lops))
 
-    def getRowNodes(self, rows, prop=None):
+    def getRowNodes(self, rows, proportag=None):
         '''
         Join a row generator into (row, Node()) tuples.
 
@@ -530,7 +530,7 @@ class Snap(s_eventbus.EventBus):
 
         Args:
             rows: A generator of (layer_idx, (buid, ...)) tuples.
-            layrprop:  Context necessary for filters to work across layers
+            proportag (Optional[Tuple[str, str]]):  {'props','tags'}, propname or tagname.  Used
 
         Yields:
             (tuple): (row, node)
@@ -549,11 +549,11 @@ class Snap(s_eventbus.EventBus):
                     if prop is not None and layeridx > origlayer and prop.name in layerprops:
                         props = {}
                         break
+                    # TODO:  here is where to merge intervals (instead of last-one wins)
                     props.update(layerprops)
                 node = s_node.Node(self, buid, props.items()) if props else None
-            if node is None or node.ndef is None:
-                continue
-            yield row, node
+            if node is not None and node.ndef is not None:
+                yield row, node
 
     def _getNodeByBuid(self, buid):
         props = {}
