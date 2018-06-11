@@ -110,6 +110,8 @@ class SnapTest(s_t_common.SynTest):
                 self.eq(nodes_core1[0].pack(), nodes[0].pack())
                 nodes = list(snap.getNodesBy('inet:ipv4#woot', 1))
                 self.len(1, nodes)
+                nodes = list(snap.getNodesBy('inet:ipv4#woot', 99))
+                self.len(0, nodes)
 
                 # Now change asn in the "higher" layer
                 changed_node = (('inet:ipv4', 1), {'props': {'asn': 43, '.seen': (3, 4)}, 'tags': {'woot': (3, 4)}})
@@ -122,9 +124,12 @@ class SnapTest(s_t_common.SynTest):
                 nodes = list(snap.getNodesBy('inet:ipv4.seen', 1))
                 self.len(0, nodes)
 
-                # Lookup by tag
+                # Lookup by formtag
                 nodes = list(snap.getNodesBy('inet:ipv4#woot', 1))
-                # FIXME: fails.  Gotta implement for tags
+                self.len(0, nodes)
+
+                # Lookup by tag
+                nodes = list(snap.getNodesBy('#woot', 1))
                 self.len(0, nodes)
 
     def test_cortex_lift_layers_dup(self):

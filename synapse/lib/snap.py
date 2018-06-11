@@ -65,6 +65,7 @@ class Snap(s_eventbus.EventBus):
 
         self.onfini(self.stack.close)
         self.changelog = []
+        self.tagtype = core.model.type('ival')
 
         def fini():
 
@@ -184,12 +185,16 @@ class Snap(s_eventbus.EventBus):
         name = s_chop.tag(name)
         pref = b'#' + name.encode('utf8') + b'\x00'
 
-        iops = (('pref', b''), )
+        if valu is None:
+            iops = (('pref', b''), )
+        else:
+            iops = self.tagtype.getIndxOps(valu, cmpr)
+
         lops = (
             ('indx', ('byuniv', pref, iops)),
         )
 
-        for row, node in self.getLiftNodes(lops):
+        for row, node in self.getLiftNodes(lops, None if valu is None else '#' + name):
             yield node
 
     def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
@@ -206,13 +211,16 @@ class Snap(s_eventbus.EventBus):
         fenc = form.name.encode('utf8') + b'\x00'
         tenc = b'#' + tag.encode('utf8') + b'\x00'
 
-        iops = (('pref', b''), )
+        if valu is None:
+            iops = (('pref', b''), )
+        else:
+            iops = self.tagtype.getIndxOps(valu, cmpr)
 
         lops = (
             ('indx', ('byprop', fenc + tenc, iops)),
         )
 
-        for row, node in self.getLiftNodes(lops):
+        for row, node in self.getLiftNodes(lops, None if valu is None else '#' + tag):
             yield node
 
     def getNodesBy(self, full, valu=None, cmpr='='):
@@ -251,7 +259,7 @@ class Snap(s_eventbus.EventBus):
             raise s_exc.NoSuchProp(name=full)
 
         lops = prop.getLiftOps(valu, cmpr=cmpr)
-        for row, node in self.getLiftNodes(lops, prop):
+        for row, node in self.getLiftNodes(lops, prop.name):
             yield node
 
     def _getNodesByType(self, name, valu=None, addform=True):
@@ -500,9 +508,9 @@ class Snap(s_eventbus.EventBus):
 
         yield None
 
-    def getLiftNodes(self, lops, prop=None):
+    def getLiftNodes(self, lops, rawprop=None):
         genr = self.getLiftRows(lops)
-        return self.getRowNodes(genr, prop)
+        return self.getRowNodes(genr, rawprop)
 
     def getLiftRows(self, lops: s_datamodel.OpsT):
         '''
@@ -521,7 +529,7 @@ class Snap(s_eventbus.EventBus):
             with xact.incref():
                 yield from ((layer_idx, x) for x in xact.getLiftRows(lops))
 
-    def getRowNodes(self, rows, proportag=None):
+    def getRowNodes(self, rows, rawprop=None):
         '''
         Join a row generator into (row, Node()) tuples.
 
@@ -530,27 +538,32 @@ class Snap(s_eventbus.EventBus):
 
         Args:
             rows: A generator of (layer_idx, (buid, ...)) tuples.
-            proportag (Optional[Tuple[str, str]]):  {'props','tags'}, propname or tagname.  Used
-
+            rawprop(Optional[str]):  "raw" propname i.e. if a tag, starts with "#".  Used for filtering so that
+            any time the filtering property or tag is present in the layer, we skip it if we're asking from a higher
+            layer than the row was from (and hence, we'll presumable get/have gotten the row when that layer is lifted.
         Yields:
             (tuple): (row, node)
         '''
         for origlayer, row in rows:
             props = {}
             buid = row[0]
-            if prop is None:
+            if rawprop is None:
                 node = self.getNodeByBuid(buid)
             else:
                 self.tick()
-                for layeridx, x in enumerate(self.xacts):
+                # Evaluate layers top-down to more quickly abort if we've found a higher layer with the property set
+                for layeridx in range(len(self.xacts) - 1, -1, -1):
+                    x = self.xacts[layeridx]
                     layerprops = x.getBuidProps(buid)
                     # We mark this node to drop iff we see the prop set in this layer *and* we're looking at the props
                     # from a higher (i.e. closer to write, higher idx) layer.
-                    if prop is not None and layeridx > origlayer and prop.name in layerprops:
+                    if rawprop is not None and layeridx > origlayer and rawprop in layerprops:
                         props = {}
                         break
                     # TODO:  here is where to merge intervals (instead of last-one wins)
-                    props.update(layerprops)
+                    for k, v in layerprops.items():
+                        if k not in props:
+                            props[k] = v
                 node = s_node.Node(self, buid, props.items()) if props else None
             if node is not None and node.ndef is not None:
                 yield row, node
