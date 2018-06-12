@@ -46,9 +46,10 @@ class StormCmd(s_cli.Cmd):
         self.reac.act('print', self._onPrint)
         self.reac.act('warn', self._onWarn)
 
-    def _onNode(self, mesg, opts={}):
+    def _onNode(self, mesg):
 
         node = mesg[1]
+        opts = node[1].pop('_opts', {})
         formname = node[0][0]
 
         formvalu = node[1].get('repr')
@@ -77,10 +78,10 @@ class StormCmd(s_cli.Cmd):
             for name, valu in sorted(node[1]['tags'].items()):
                 self.printf(f'        #{name} = {valu}')
 
-    def _onInit(self, mesg, opts=None):
+    def _onInit(self, mesg):
         pass
 
-    def _onFini(self, mesg, opts=None):
+    def _onFini(self, mesg):
         took = mesg[1].get('took')
         took = max(took, 1)
 
@@ -88,10 +89,10 @@ class StormCmd(s_cli.Cmd):
         pers = float(count) / float(took / 1000)
         self.printf('complete. %d nodes in %d ms (%d/sec).' % (count, took, pers))
 
-    def _onPrint(self, mesg, opts=None):
+    def _onPrint(self, mesg):
         self.printf(mesg[1].get('mesg'))
 
-    def _onWarn(self, mesg, opts=None):
+    def _onWarn(self, mesg):
         warn = mesg[1].get('mesg')
         self.printf(f'WARNING: {warn}')
 
@@ -112,7 +113,11 @@ class StormCmd(s_cli.Cmd):
                 self.printf(pprint.pformat(mesg))
 
             else:
+                if mesg[0] == 'node':
+                    # Tuck the opts into the node dictionary since
+                    # they control node metadata display
+                    mesg[1][1]['_opts'] = opts
                 try:
-                    self.reac.react(mesg, opts=opts)
+                    self.reac.react(mesg)
                 except s_exc.NoSuchAct as e:
                     self.printf(repr(mesg))

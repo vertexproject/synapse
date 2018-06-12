@@ -42,9 +42,13 @@ class Cmd:
         '''
         Run a line of command input for this command.
 
-        Example:
+        Args:
+            line (str): Line to execute
 
-            foo.runCmdLine('foo --opt baz woot.com')
+        Examples:
+            Run the foo command with some arguments:
+
+                foo.runCmdLine('foo --opt baz woot.com')
 
         '''
         opts = self.getCmdOpts(line)
@@ -60,9 +64,16 @@ class Cmd:
         '''
         Use the _cmd_syntax def to split/parse/normalize the cmd line.
 
-        NOTE: This is implemented indepedent of argparse (et.al) due to
-              the need for syntax aware argument splitting.
-              ( also, allows different split per command type )
+        Args:
+            text (str): Command to process.
+
+        Notes:
+            This is implemented independent of argparse (et.al) due to the
+            need for syntax aware argument splitting. Also, allows different
+            split per command type
+
+        Returns:
+            dict: An opts dictionary.
         '''
         off = 0
 
@@ -188,6 +199,18 @@ class Cmd:
 
     def printf(self, mesg, addnl=True):
         return self._cmd_cli.printf(mesg, addnl=addnl)
+
+    def runCmdOpts(self, opts):
+        '''
+        Perform the command actions. Must be implemented by Cmd implementers.
+
+        Args:
+            opts (dict): Options dictionary.
+
+        '''
+        raise s_exc.NoSuchImpl(mesg='runCmdOpts must be implemented by subclasses.',
+                               name='runCmdOpts')
+
 
 class Cli(s_eventbus.EventBus):
     '''
