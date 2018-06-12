@@ -5,12 +5,12 @@ import synapse.lib.cli as s_cli
 import synapse.reactor as s_reactor
 
 
-class AskCmd(s_cli.Cmd):
+class StormCmd(s_cli.Cmd):
     '''
     Execute a storm query.
 
     Syntax:
-        ask <query>
+        storm <query>
 
     Arguments:
         query: The storm query
@@ -24,11 +24,11 @@ class AskCmd(s_cli.Cmd):
             (overrides --hide-tags, --hide-props and raw)
 
     Examples:
-        ask inet:ipv4=1.2.3.4
-        ask --debug inet:ipv4=1.2.3.4
+        storm inet:ipv4=1.2.3.4
+        storm --debug inet:ipv4=1.2.3.4
     '''
 
-    _cmd_name = 'ask'
+    _cmd_name = 'storm'
     _cmd_syntax = (
         ('--hide-tags', {}),
         ('--hide-props', {}),
