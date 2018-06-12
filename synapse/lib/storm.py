@@ -219,6 +219,7 @@ class QueueCmd(Cmd):
                 s_persist.queue(conf, pnodes)
             except Exception as e:
                 logger.exception('Failed to queue %s nodes to [%s].', plen, name)
+                snap.warn(f'queue error: {e}')
             else:
                 cnt += plen
             finally:

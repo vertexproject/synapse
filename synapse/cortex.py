@@ -184,10 +184,6 @@ class CoreApi(s_cell.CellApi):
         return self.cell.setQueueKey(name, key, valu)
 
     @s_cell.adminapi
-    def popQueueKey(self, name, key):
-        return self.cell.popQueueKey(name, key)
-
-    @s_cell.adminapi
     def getQueues(self):
         return self.cell.getQueues()
 
@@ -230,9 +226,6 @@ class Cortex(s_cell.Cell):
 
         ('feeds', {'type': 'list', 'defval': (),
             'doc': 'A list of feed dictionaries.'}),
-
-        ('queue:endpoints', {'type': 'list', 'defval': (),
-            'doc': 'A list of queue endpoint dictionaries the cortex can send nodes to.'})
 
         #('storm:save', {'type': 'bool', 'defval': False,
             #'doc': 'Archive storm queries for audit trail.'}),
