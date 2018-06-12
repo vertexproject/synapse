@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.tests.common as s_test
 
@@ -544,6 +545,16 @@ class CortexTest(s_test.SynTest):
                 nodes = list(core.eval('sudo | [ inet:ipv4=1.2.3.4 ]'))
                 self.len(1, nodes)
 
+                core.addAuthUser('foo')
+                core.setUserPasswd('foo', 'bar')
+
+        # Ensure a non-admin user, using sudo, still fails when they
+        # have elevated themselves
+        pconf = {'user': 'foo', 'passwd': 'bar'}
+        with dmon._getTestProxy('core', **pconf) as core:
+            q = 'sudo | [ inet:ipv4=1.2.3.5 ]'
+            self.genraises(s_exc.AuthDeny, core.eval, q)
+
     def test_cortex_snap_cancel(self):
 
         with self.getTestCore() as core:
@@ -631,3 +642,35 @@ class CortexTest(s_test.SynTest):
             list(core.addNodes((node,)))
 
             self.nn(core.getNodeByNdef(('teststr', 'foo')))
+
+    def test_queues(self):
+        # Test for queueing management APIS for a Cortex
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:  # type: s_cortex.CortexApi
+                conf = ('qt1', {'url': 'tcp://1.2.3.4:8080/cryo/qt1',
+                                'type': 'cryotank',
+                                'desc': 'A test queue'
+                })
+                core.addQueue(conf)
+                self.eq(conf, core.getQueue('qt1'))
+                confs = core.getQueues()
+                self.len(1, confs)
+                self.eq(confs, (conf,))
+                self.true(core.setQueueKey('qt1', 'desc', 'A new desc.'))
+                self.eq('A new desc.', core.getQueue('qt1')[1].get('desc'))
+                descs = core.getQueueDescs()
+                self.len(1, descs)
+                # Only these keys are allowed out
+                keys = {'desc', 'type'}
+                for name, info in descs:
+                    self.eq(keys, set(info.keys()))
+
+                # Cannot smash an existing queue by name
+                self.raises(s_exc.BadConfValu, core.addQueue, conf)
+                # Delete the queue
+                self.true(core.delQueue('qt1'))
+                self.none(core.getQueue('qt1'))
+                confs = core.getQueues()
+                self.len(0, confs)
+                self.false(core.delQueue('qt1'))

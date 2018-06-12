@@ -1,5 +1,12 @@
 import shlex
+import logging
 import argparse
+
+import synapse.exc as s_exc
+import synapse.common as s_common
+import synapse.lib.persist as s_persist
+
+logger = logging.getLogger(__name__)
 
 class Parser(argparse.ArgumentParser):
 
@@ -44,8 +51,8 @@ class Cmd:
         self.pars = self.getArgParser()
 
     @classmethod
-    def getCmdBrief(clas):
-        return clas.__doc__.strip().split('\n')[0]
+    def getCmdBrief(cls):
+        return cls.__doc__.strip().split('\n')[0]
 
     def getCmdArgv(self):
         return shlex.split(self.text)
@@ -142,7 +149,7 @@ class DelNodeCmd(Cmd):
 
 class SudoCmd(Cmd):
     '''
-    Use admin priviliges to bypass standard query permissions.
+    Use admin privileges to bypass standard query permissions.
 
     Example:
 
@@ -153,3 +160,71 @@ class SudoCmd(Cmd):
     def runStormCmd(self, snap, genr):
         snap.elevated = True
         yield from genr
+
+class QueueCmd(Cmd):
+    '''
+    Send nodes in the query to a named persistent queue.
+
+    This can also be used to get a list of named endpoints and their
+    descriptions.  This does return all of the nodes lifted in the
+    current query.
+
+    Example:
+
+        # Get a list of named queues and their descriptions
+        queue --list
+        # Lift some nodes and send the to the queue named qt1
+        inet:fqdn=vertex.link | queue qt1
+    '''
+    name = 'queue'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+
+        pars.add_argument('name', nargs='?', type=str, default=None,
+                          help='Name of the queue to place nodes into.')
+        pars.add_argument('-l', '--list', default=False, action='store_true',
+                         help='List queues registered with the Cortex. No nodes will be queued if this option is '
+                              'used.')
+        pars.add_argument('-s', '--size', default=1000, type=int,
+                          help='Number of nodes to consume at a time.')
+        return pars
+
+    def runStormCmd(self, snap, genr):
+        if self.opts.list:
+            descs = snap.core.getQueueDescs()
+            if descs:
+                snap.printf('The following queues are configured for the current Cortex.')
+                for k, v in descs:
+                    desc = v.get('desc', 'No description available.')
+                    qtyp = v.get('type')
+                    # XXX justify the fields here?
+                    snap.printf(f'[{k}] - [{qtyp}] - {desc}')
+            else:
+                snap.printf('No queues are configured for the current Cortex.')
+            yield from genr
+            return
+
+        name = self.opts.name
+        conf = snap.core.queueConfs.get(name)
+        if not conf:
+            raise s_exc.NoSuchConf(mesg='Cortex is not configured for queuing to the specified endpoint.',
+                                   name=name)
+        cnt = 0
+        for nodes in s_common.chunks(genr, size=self.opts.size):
+            pnodes = [node.pack() for node in nodes]
+            plen = len(pnodes)
+            logger.debug('Queueing %s nodes to [%s]', plen, name)
+            try:
+                s_persist.queue(conf, pnodes)
+            except Exception as e:
+                logger.exception('Failed to queue %s nodes to [%s].', plen, name)
+                snap.warn(f'queue error: {e}')
+            else:
+                cnt += plen
+            finally:
+                for node in nodes:
+                    yield node
+
+        # The "what we did"
+        snap.printf(f'Queued [{cnt}] nodes to [{name}]')

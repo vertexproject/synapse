@@ -6,13 +6,16 @@ import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.kv as s_kv
 import synapse.lib.cell as s_cell
 import synapse.lib.snap as s_snap
 import synapse.lib.const as s_const
 import synapse.lib.storm as s_storm
 import synapse.lib.layer as s_layer
+import synapse.lib.queue as s_queue
 import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
+import synapse.lib.persist as s_persist
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +172,29 @@ class CoreApi(s_cell.CellApi):
         '''
         yield from self.cell.layer.splices(offs, size)
 
+    def getQueueDescs(self):
+        return self.cell.getQueueDescs()
+
+    @s_cell.adminapi
+    def addQueue(self, conf):
+        return self.cell.addQueue(conf)
+
+    @s_cell.adminapi
+    def setQueueKey(self, name, key, valu):
+        return self.cell.setQueueKey(name, key, valu)
+
+    @s_cell.adminapi
+    def getQueues(self):
+        return self.cell.getQueues()
+
+    @s_cell.adminapi
+    def getQueue(self, name):
+        return self.cell.getQueue(name)
+
+    @s_cell.adminapi
+    def delQueue(self, name):
+        return self.cell.delQueue(name)
+
 class Cortex(s_cell.Cell):
     '''
     A Cortex implements the synapse hypergraph.
@@ -222,6 +248,7 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.HelpCmd)
         self.addStormCmd(s_storm.SudoCmd)
         self.addStormCmd(s_storm.LimitCmd)
+        self.addStormCmd(s_storm.QueueCmd)
         self.addStormCmd(s_storm.DelNodeCmd)
 
         self.splicers = {
@@ -234,6 +261,12 @@ class Cortex(s_cell.Cell):
         }
 
         self.setFeedFunc('syn.splice', self._addSynSplice)
+
+        # Create our cortex local KVStore
+        self.kvstor = s_kv.KvStor(s_common.genpath(self.dirn, 'cortex.lmdb'))
+        self.onfini(self.kvstor.fini)
+        # Initialize our queue kvdict
+        self.queueConfs = self.kvstor.getKvLook('cortex:queues')
 
         # load any configured external layers
         for path in self.conf.get('layers'):
@@ -767,3 +800,112 @@ class Cortex(s_cell.Cell):
         except Exception as e:
             logger.exception('mod load fail: %s' % (ctor,))
             return None
+
+    # Get all queue descriptions (safe for storm users)
+    def getQueueDescs(self):
+        '''
+        Get tufos containing only metadata for queues configured by the Cortex.
+
+        Returns:
+            list: A list of tufos.
+        '''
+        ret = []
+        desckeys = ['type', 'desc']
+        for name, conf in self.queueConfs.items():
+            v = conf[1]
+            [v.pop(_key) for _key in list(v.keys()) if _key not in desckeys]
+            ret.append((name, v))
+        return ret
+
+    # Add a specific queue with a whole conf tufo
+    def addQueue(self, conf):
+        '''
+        Add a queue endpoint to the Cortex.
+
+        Args:
+            conf ((str, dict)): A tufo with the name of the queue as the iden, and
+
+        Returns:
+            True: After adding the queue.
+
+        Examples:
+            Add a queue config:
+
+                name = 'qt1'
+                info = {'desc': 'A queue', 'type': 'cryotank', 'url': 'tcp://.../cryo/qt1'}
+                conf = (name, info)
+                core.addQueue(conf)
+
+        Raises:
+            s_exc.BadConfValu: If the queue already exists.
+        '''
+        name = conf[0]
+        s_persist.validate(conf)
+        econf = self.queueConfs.get(name)
+        if econf:
+            raise s_exc.BadConfValu(mesg='Cannot overwrite an exist queue by name with addQueue().',
+                                    name=name)
+        self.queueConfs.set(name, conf)
+        logger.info('Added queue [%s]', conf)
+        return True
+
+    # Update a specific key in a conf
+    def setQueueKey(self, name, key, valu):
+        '''
+        Set a specific key in a queue config.
+
+        Args:
+            name (str): Name of the queue.
+            key (str): Name of the key to set.
+            valu: Value to set in the config tufo.
+
+        Returns:
+            True: True if the configuration is valid.
+
+        Raises:
+            s_exc.BadConfValu: If the configuration is invalid after updating it.
+        '''
+        conf = self.queueConfs.get(name)
+        conf[1][key] = valu
+        s_persist.validate(conf)
+        self.queueConfs.set(name, conf)
+        logger.info('Set key for queue: [%s][%s][%s]', name, key, valu)
+        return True
+
+    def getQueue(self, name):
+        '''
+        Get a single queue configuration.
+
+        Args:
+            name (str): Name of the queue configuration to retrieve.
+
+        Returns:
+            ((str, dict)): A configuration tufo for the queue.
+        '''
+        return self.queueConfs.get(name)
+
+    # Get all queues
+    def getQueues(self):
+        '''
+        Get all queues configured for this Cortex.
+
+        Returns:
+            list: A list of all configured queues for this cortex.
+        '''
+        return [v for k, v in self.queueConfs.items()]
+
+    def delQueue(self, name):
+        '''
+        Remove a queue.
+
+        Args:
+            name (str): Name of the queue to remove.
+
+        Returns:
+            bool: True if the queue was removed.  False if the queue does not exist.
+        '''
+        conf = self.queueConfs.pop(name)
+        logger.info('Deleted queue: [%s]', conf)
+        if conf:
+            return True
+        return False
