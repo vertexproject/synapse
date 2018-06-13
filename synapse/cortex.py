@@ -448,24 +448,6 @@ class Cortex(s_cell.Cell):
         '''
         return self.feedfuncs.get(name)
 
-    def _addSynNode(self, snap, items):
-
-        for item in items:
-
-            try:
-
-                form, valu = item[0]
-                tags = item[1].get('tags')
-                props = item[1].get('props')
-
-                node = snap.addNode(form, valu, props)
-
-                for name, valu in tags.items():
-                    node.addTag(name, valu=valu)
-
-            except Exception as e:
-                snap.warn(f'_addSynNode: {e}')
-
     def _addSynSplice(self, snap, items):
 
         for item in items:

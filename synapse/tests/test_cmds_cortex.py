@@ -1,4 +1,3 @@
-
 import synapse.lib.cmdr as s_cmdr
 import synapse.tests.common as s_test
 
@@ -17,6 +16,11 @@ class CmdCoreTest(s_test.SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('help storm')
             outp.expect(help_msg)
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('storm help')
+            outp.expect('For detailed help on any command')
 
             outp = self.getTestOutp()
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
@@ -89,6 +93,13 @@ class CmdCoreTest(s_test.SynTest):
             outp.expect('Traceback')
             outp.expect('BadStormSyntax')
 
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('storm newpz')
+            outp.expect('err')
+            outp.expect('NoSuchProp')
+
+# FIXME incorporate these into storm tests
 '''
 class SynCmdCoreTest(s_test.SynTest):
 
