@@ -12,8 +12,7 @@ class CortexTest(s_test.SynTest):
         with self.getTestDmon(mirror='cryodmon') as dst_dmon:
             name = 'cryo00'
             host, port = dst_dmon.addr
-            tankcell = dst_dmon.shared.get(name)
-            tank_addr = f'tcp://{host}:{port}/{name}'
+            tank_addr = f'tcp://{host}:{port}/{name}/tank:blahblah'
 
             # Spin up a source core configured to send splices to dst core
             with self.getTestDir() as dirn:
@@ -34,7 +33,8 @@ class CortexTest(s_test.SynTest):
                 src_core.waitfini()
 
             # Now that the src core is closed, make sure that the splice exists in the tank
-            tank = tankcell.tanks.get(name)
+            tankcell = dst_dmon.shared.get(name)
+            tank = tankcell.tanks.get('tank:blahblah')
             slices = list(tank.slice(0, 1000))
             self.len(2, slices)
 
