@@ -1,5 +1,3 @@
-import types
-import asyncio
 import logging
 import threading
 
@@ -7,14 +5,12 @@ logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
-import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
-
-import synapse.lib.link as s_link
 
 import synapse.tests.common as s_test
 
-class Boom: pass
+class Boom:
+    pass
 
 class Foo:
 
@@ -37,9 +33,6 @@ class Foo:
 
     def speed(self):
         return
-
-    def echo(self, x):
-        return x
 
     def genr(self):
         yield 10
@@ -121,16 +114,21 @@ class TeleTest(s_test.SynTest):
 
             self.raises(s_exc.BadUrl, s_telepath.openurl, 'noscheme/foo')
 
+            print('a')
+
             # called via synchelp...
             prox = s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
 
             self.false(prox.iAmLoop())
+            print('a')
 
             # check a standard return value
             self.eq(30, prox.bar(10, 20))
+            print('a')
 
             # check a coroutine return value
             self.eq(25, prox.corovalu(10, 5))
+            print('a')
 
             # check a generator return channel
             genr = prox.genr()
