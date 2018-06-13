@@ -90,14 +90,18 @@ class Type:
         text = str(valu)
 
         def cmpr(valu):
-            return self.repr(valu).startswith(text)
+            vtxt = self.repr(valu, defval=valu)
+            return vtxt.startswith(text)
+
         return cmpr
 
     def _ctorCmprRe(self, text):
         regx = regex.compile(text)
 
         def cmpr(valu):
-            return regx.match(self.repr(valu)) is not None
+            vtxt = self.repr(valu, defval=valu)
+            return regx.match(vtxt) is not None
+
         return cmpr
 
     def _ctorCmprIn(self, vals):
@@ -545,7 +549,6 @@ class Int(Type):
 
     def repr(self, norm, defval=None):
         return str(norm)
-
 
 class Ival(Type):
 
