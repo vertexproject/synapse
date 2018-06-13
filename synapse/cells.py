@@ -3,6 +3,7 @@ Constructors for the various cells.
 ( used for dmon config automation)
 '''
 import synapse.exc as s_exc
+import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.cryotank as s_cryotank
@@ -16,6 +17,9 @@ ctors = {
     'cortex': s_cortex.Cortex,
     'cryocell': s_cryotank.CryoCell,
     'cryotank': s_cryotank.CryoTank,
+    'blobcell': s_cryotank.CryoCell,
+    'axon': s_axon.Axon,
+    'blobstor': s_axon.BlobStor
 }
 
 def add(name, ctor):
