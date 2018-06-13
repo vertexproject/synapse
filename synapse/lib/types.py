@@ -571,12 +571,17 @@ class Ival(Type):
 
     def _normPyIter(self, valu):
 
-        vals = [self.timetype.norm(v)[0] for v in valu]
+        vals = [self.timetype.norm(v)[0] for v in valu if v is not None]
         if len(vals) == 1:
             vals.append(vals[0] + 1)
 
         norm = (min(vals), max(vals))
         return norm, {}
+
+    def merge(self, oldv, newv):
+        mint = min(oldv[0], newv[0])
+        maxt = max(oldv[1], newv[1])
+        return (mint, maxt)
 
     def indx(self, norm):
 
@@ -588,6 +593,10 @@ class Ival(Type):
 
         return indx
 
+    def repr(self, norm, defval=None):
+        mint = self.timetype.repr(norm[0])
+        maxt = self.timetype.repr(norm[1])
+        return (mint, maxt)
 
 class Loc(Type):
 
