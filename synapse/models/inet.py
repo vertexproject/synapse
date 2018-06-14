@@ -1230,21 +1230,18 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:ipv4', {}, (
-                        ('asn', ('inet:asn', {}), {
-                            'defval': 0,  # TODO replace with nullval
-                            'doc': 'The ASN to which the IPv4 address is currently assigned.'
-                        }),
+
+                        ('asn', ('inet:asn', {}), {'defval': 0,  # TODO replace with nullval
+                            'doc': 'The ASN to which the IPv4 address is currently assigned.'}),
+
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The best known latitude/longitude for the node'
-                        }),
-                        ('loc', ('loc', {}), {
-                            'defval': '??',
-                            'doc': 'The geo-political location string for the IPv4.'
-                        }),
-                        ('type', ('str', {}), {
-                            'defval': '??',
-                            'doc': 'The type of IP address (e.g., private, multicast, etc.).'
-                        })
+                            'doc': 'The best known latitude/longitude for the node' }),
+
+                        ('loc', ('loc', {}), {'defval': '??',
+                            'doc': 'The geo-political location string for the IPv4.' }),
+
+                        ('type', ('str', {}), { 'defval': '??',
+                            'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
                     )),
 
                     ('inet:ipv6', {}, (
