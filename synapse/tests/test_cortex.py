@@ -1,11 +1,59 @@
+import threading
 from unittest.mock import patch
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
+
 import synapse.tests.common as s_test
 
-
 class CortexTest(s_test.SynTest):
+
+    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
+    def test_feed_conf(self):
+        with self.getTestDmon(mirror='cryodmon') as dst_dmon:
+            name = 'cryo00'
+            tname = 'tank:blahblah'
+            host, port = dst_dmon.addr
+            tank_addr = f'tcp://{host}:{port}/{name}/{tname}'
+
+            recs = ['a', 'b', 'c']
+
+            conf = {
+                'feeds': [
+                    {'type': 'com.test.record',
+                     'cryotank': tank_addr,
+                     'size': 1,
+                     }
+                ],
+                'modules': ('synapse.tests.utils.TestModule',),
+            }
+
+            # initialize the tank and get his iden
+            with s_telepath.openurl(tank_addr) as tank:
+                iden = tank.getCellIden()
+
+            # Spin up a source core configured to eat data from the cryotank
+            with self.getTestDir() as dirn:
+
+                with self.getTestCell(dirn, 'cortex', conf=conf) as core:
+
+                    waiter = core.waiter(3, 'core:feed:loop')
+
+                    with s_telepath.openurl(tank_addr) as tank:
+                        tank.puts(recs)
+                    # self.true(evt.wait(3))
+                    self.true(waiter.wait(4))
+
+                    offs = core.layer.getOffset(iden)
+                    self.eq(offs, 3)
+                    mesgs = [mesg for mesg in core.storm('teststr') if mesg[0] == 'node']
+                    self.len(3, mesgs)
+
+            with self.getTestDir() as dirn:
+                # Sad path testing
+                conf['feeds'][0]['type'] = 'com.clown'
+                self.raises(s_exc.NoSuchType, self.getTestCell, dirn, 'cortex', conf=conf)
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
     def test_splice_cryo(self):
@@ -22,13 +70,13 @@ class CortexTest(s_test.SynTest):
                 }
                 src_core = self.getTestCell(dirn, 'cortex', conf=conf)
 
+                waiter = src_core.waiter(1, 'core:splice:cryotank:sent')
                 # Form a node and make sure that it exists
                 with src_core.snap() as snap:
                     snap.addNode('teststr', 'teehee')
                     self.nn(snap.getNodeByNdef(('teststr', 'teehee')))
 
-                waiter = src_core.waiter(1, 'splice:cryotank:sent')
-                waiter.wait(timeout=10)
+                self.true(waiter.wait(timeout=10))
                 src_core.fini()
                 src_core.waitfini()
 
@@ -65,6 +113,12 @@ class CortexTest(s_test.SynTest):
             host, port = dst_dmon.addr
             dst_core = dst_dmon.shared.get(name)
             dst_core_addr = f'tcp://{host}:{port}/{name}'
+            evt = threading.Event()
+
+            def onAdd(node):
+                evt.set()
+
+            dst_core.model.form('teststr').onAdd(onAdd)
 
             # Spin up a source core configured to send splices to dst core
             with self.getTestDir() as dirn:
@@ -72,24 +126,21 @@ class CortexTest(s_test.SynTest):
                     'splice:sync': dst_core_addr,
                     'modules': ('synapse.tests.utils.TestModule',),
                 }
-                src_core = self.getTestCell(dirn, 'cortex', conf=conf)
+                with self.getTestCell(dirn, 'cortex', conf=conf) as src_core:
+                    # Form a node and make sure that it exists
+                    waiter = src_core.waiter(1, 'core:splice:sync:sent')
+                    with src_core.snap() as snap:
+                        snap.addNode('teststr', 'teehee')
+                        self.nn(snap.getNodeByNdef(('teststr', 'teehee')))
 
-                # Form a node and make sure that it exists
-                with src_core.snap() as snap:
-                    snap.addNode('teststr', 'teehee')
-                    self.nn(snap.getNodeByNdef(('teststr', 'teehee')))
+                    self.true(waiter.wait(timeout=10))
 
-                waiter = src_core.waiter(1, 'splice:sync:sent')
-                waiter.wait(timeout=10)
-                src_core.fini()
-                src_core.waitfini()
-
+            self.true(evt.wait(3))
             # Now that the src core is closed, make sure that the node exists
             # in the dst core without creating it
             with dst_core.snap() as snap:
-                snap.addNode('teststr', 'teehee2')
-                self.nn(snap.getNodeByNdef(('teststr', 'teehee2')))
-                self.nn(snap.getNodeByNdef(('teststr', 'teehee')))
+                node = snap.getNodeByNdef(('teststr', 'teehee'))
+                self.eq(node.ndef, ('teststr', 'teehee'))
 
     def test_onadd(self):
 

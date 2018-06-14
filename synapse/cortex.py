@@ -331,9 +331,9 @@ class Cortex(s_cell.Cell):
                         logger.warning('splice push: %d %d/%d (%.2f%%)', size, offs, indx, perc)
 
                         offs = core.addFeedData('syn.splice', items, seqn=(iden, offs))
-                        self.fire('splice:sync:sent')  # FIXME better name
+                        self.fire('core:splice:sync:sent')
 
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.exception('sync error')
                 self.cellfini.wait(timeout=1)
 
@@ -398,7 +398,6 @@ class Cortex(s_cell.Cell):
                     while not self.isfini:
 
                         items = list(tank.slice(offs, fsize))
-
                         if not items:
                             self.cellfini.wait(timeout=2)
                             continue
@@ -406,8 +405,9 @@ class Cortex(s_cell.Cell):
                         datas = [i[1] for i in items]
 
                         offs = self.addFeedData(typename, datas, seqn=(iden, offs))
+                        self.fire('core:feed:loop')
 
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.exception('feed error')
                 self.cellfini.wait(timeout=1)
 
@@ -443,9 +443,9 @@ class Cortex(s_cell.Cell):
                         logger.warning('tanking splices: %d', len(items))
 
                         offs = tank.puts(items, seqn=(self.iden, offs))
-                        self.fire('splice:cryotank:sent')  # FIXME better name
+                        self.fire('core:splice:cryotank:sent')
 
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
 
                 online = False
                 logger.exception('splice cryotank offline')
