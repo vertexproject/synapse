@@ -162,6 +162,8 @@ class ReIndexCmd(Cmd):
 
         foo:bar | reindex --subs
 
+    NOTE: This is mostly for model updates and migrations.
+          Use with caution and be very sure of what you are doing.
     '''
     name = 'reindex'
 
@@ -172,6 +174,11 @@ class ReIndexCmd(Cmd):
 
     def runStormCmd(self, snap, genr):
 
+        if snap.user is not None and not snap.user.admin:
+            snap.warn('reindex requires an admin')
+            return
+
+        snap.elevated = True
         for node in genr:
 
             form, valu = node.ndef
