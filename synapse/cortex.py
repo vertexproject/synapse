@@ -7,6 +7,7 @@ import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.cell as s_cell
+import synapse.lib.lmdb as s_lmdb
 import synapse.lib.snap as s_snap
 import synapse.lib.const as s_const
 import synapse.lib.storm as s_storm
@@ -130,7 +131,7 @@ class CoreApi(s_cell.CellApi):
                 yield node.pack(dorepr=dorepr)
 
         except Exception as e:
-            logger.warning(f'exception during storm eval: {e}')
+            logger.warning('exception during storm eval: %s', e)
             query.cancel()
             raise
 
@@ -143,7 +144,7 @@ class CoreApi(s_cell.CellApi):
             query.opts.update(opts)
 
         if self.cell.conf.get('storm:log'):
-            logger.warning('STORM (%s): %s' % (self.user, text))
+            logger.warning('STORM (%s): %s', self.user, text)
 
         return query
 
@@ -159,7 +160,7 @@ class CoreApi(s_cell.CellApi):
                 yield mesg
 
         except Exception as e:
-            logger.warning(f'exception during storm: {e}')
+            logger.warning('exception during storm: %s', e)
             query.cancel()
 
     @s_cell.adminapi
@@ -180,29 +181,45 @@ class Cortex(s_cell.Cell):
     '''
     confdefs = (
 
-        ('layer:lmdb:mapsize', {'type': 'int', 'defval': s_const.tebibyte,
-            'doc': 'The default size for a new LMDB layer map.'}),
+        ('layer:lmdb:mapsize', {
+            'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE,
+            'doc': 'The default size for a new LMDB layer map.'
+        }),
 
-        ('modules', {'type': 'list', 'defval': (),
-            'doc': 'A list of module classes to load.'}),
+        ('modules', {
+            'type': 'list', 'defval': (),
+            'doc': 'A list of module classes to load.'
+        }),
 
-        ('layers', {'type': 'list', 'defval': (),
-            'doc': 'A list of layer paths to load.'}),
+        ('layers', {
+            'type': 'list', 'defval': (),
+            'doc': 'A list of layer paths to load.'
+        }),
 
-        ('storm:log', {'type': 'bool', 'defval': False,
-            'doc': 'Log storm queries via system logger.'}),
+        ('storm:log', {
+            'type': 'bool', 'defval': False,
+            'doc': 'Log storm queries via system logger.'
+        }),
 
-        ('splice:sync', {'type': 'str', 'defval': None,
-            'doc': 'A telepath URL for an upstream cortex.'}),
+        ('splice:sync', {
+            'type': 'str', 'defval': None,
+            'doc': 'A telepath URL for an upstream cortex.'
+        }),
 
-        ('splice:cryotank', {'type': 'str', 'defval': None,
-            'doc': 'A telepath URL for a cryotank used to archive splices.'}),
+        ('splice:cryotank', {
+            'type': 'str', 'defval': None,
+            'doc': 'A telepath URL for a cryotank used to archive splices.'
+        }),
 
-        ('feeds', {'type': 'list', 'defval': (),
-            'doc': 'A list of feed dictionaries.'}),
+        ('feeds', {
+            'type': 'list', 'defval': (),
+            'doc': 'A list of feed dictionaries.'
+        }),
 
-        #('storm:save', {'type': 'bool', 'defval': False,
-            #'doc': 'Archive storm queries for audit trail.'}),
+        # ('storm:save', {
+        #     'type': 'bool', 'defval': False,
+        #     'doc': 'Archive storm queries for audit trail.'
+        # }),
 
     )
 
@@ -237,7 +254,7 @@ class Cortex(s_cell.Cell):
 
         # load any configured external layers
         for path in self.conf.get('layers'):
-            logger.warning('loading external layer: %r' % (path,))
+            logger.warning('loading external layer: %r', path)
             self.layers.append(s_layer.opendir(path))
 
         # initialize any cortex directory structures
@@ -286,7 +303,7 @@ class Cortex(s_cell.Cell):
 
         iden = self.getCellIden()
 
-        logger.warning(f'sync loop init: {url}')
+        logger.warning('sync loop init: %s', url)
 
         while not self.isfini:
 
@@ -311,11 +328,12 @@ class Cortex(s_cell.Cell):
                         indx = self.layer.splicelog.indx
                         perc = float(offs) / float(indx) * 100.0
 
-                        logger.warning('splice push: %d %d/%d (%.2f%%)' % (size, offs, indx, perc))
+                        logger.warning('splice push: %d %d/%d (%.2f%%)', size, offs, indx, perc)
 
                         offs = core.addFeedData('syn.splice', items, seqn=(iden, offs))
+                        self.fire('core:splice:sync:sent')
 
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.exception('sync error')
                 self.cellfini.wait(timeout=1)
 
@@ -363,7 +381,7 @@ class Cortex(s_cell.Cell):
         typename = feed.get('type')
         fsize = feed.get('size', 1000)
 
-        logger.warning(f'feed loop init: {typename} @ {url}')
+        logger.warning('feed loop init: %s @ %s', typename, url)
 
         while not self.isfini:
 
@@ -380,7 +398,6 @@ class Cortex(s_cell.Cell):
                     while not self.isfini:
 
                         items = list(tank.slice(offs, fsize))
-
                         if not items:
                             self.cellfini.wait(timeout=2)
                             continue
@@ -388,8 +405,9 @@ class Cortex(s_cell.Cell):
                         datas = [i[1] for i in items]
 
                         offs = self.addFeedData(typename, datas, seqn=(iden, offs))
+                        self.fire('core:feed:loop')
 
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.exception('feed error')
                 self.cellfini.wait(timeout=1)
 
@@ -422,11 +440,12 @@ class Cortex(s_cell.Cell):
                             layr.spliced.wait(timeout=1)
                             continue
 
-                        logger.warning('tanking splices: %d' % (len(items),))
+                        logger.warning('tanking splices: %d', len(items))
 
                         offs = tank.puts(items, seqn=(self.iden, offs))
+                        self.fire('core:splice:cryotank:sent')
 
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
 
                 online = False
                 logger.exception('splice cryotank offline')
