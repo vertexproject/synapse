@@ -272,14 +272,23 @@ class Node:
 
         path = s_chop.tagpath(tag)
 
+        name = '.'.join(path)
+
+        tagnode = self.snap.addTagNode(name)
+
+        # implement tag renames...
+        isnow = tagnode.get('isnow')
+        if isnow:
+            self.snap.warn(f'tag {name} is now {isnow}')
+            name = isnow
+            path = isnow.split('.')
+
         if not self.snap.allowed('tag:add', *path):
             mesg = 'Not allowed to add the tag.'
             return self.snap._onAuthDeny(mesg, tag=tag)
 
         if valu != (None, None):
             valu = self.snap.model.type('ival').norm(valu)[0]
-
-        name = '.'.join(path)
 
         curv = self.tags.get(name)
         if curv == valu:

@@ -320,11 +320,10 @@ class Snap(s_eventbus.EventBus):
         '''
         Ensure that the given syn:tag node exists.
         '''
-        self.tagcache.get(name)
+        return self.tagcache.get(name)
 
     def _addTagNode(self, name):
-        self.addNode('syn:tag', name)
-        return True
+        return self.addNode('syn:tag', name)
 
     def _addNodeFnib(self, fnib, props=None):
 
