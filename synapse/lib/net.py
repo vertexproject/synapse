@@ -846,7 +846,6 @@ class LinkDisp:
 
         disp = LinkDisp(func):
         chan.onrx(disp.rx)
-
     '''
 
     def __init__(self, func):

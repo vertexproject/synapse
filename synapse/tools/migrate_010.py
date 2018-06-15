@@ -30,6 +30,17 @@ _comp_and_sepr_forms = [
     'inet:dns:soa', 'inet:dns:rev6', 'inet:dns:rev', 'inet:dns:req', 'inet:dns:ns', 'inet:dns:mx',
     'inet:dns:cname', 'inet:dns:aaaa', 'inet:dns:a', 'inet:asnet4', 'geo:nloc', 'file:subfile']
 
+_subs_to_save = [
+    'ou:org:name:en',
+    'ps:person:name:en',
+    'ps:person:name:sur',
+    'ps:person:name:given',
+    'ps:person:name:middle',
+    'ps:persona:name:en',
+    'ps:persona:name:sur',
+    'ps:persona:name:given',
+    'ps:persona:name:middle']
+
 def _enc_iden(iden):
     return unhexlify(iden)
 
@@ -128,7 +139,7 @@ class Migrator:
         self.filebytes = set(filebytes)
         self.seprs = set(seprs)
         self.comps = set(comps)
-        self.subs = set(subs)
+        self.subs = set(subs) - set(_subs_to_save)
         self.xrefs = set(xrefs)
 
     def migrate(self):
@@ -311,10 +322,6 @@ class Migrator:
 
         logger.info('Stage 2b complete in %.1fs.', time.time() - start_time)
 
-    def convert_ps_name(self, formname, propname, typename, val, props):
-        names = val.split(',', 1)
-        return propname, ' '.join(reversed(names))
-
     def just_guid(self, formname, props):
         return props[formname]
 
@@ -464,7 +471,6 @@ class Migrator:
         'inet:tcp6': xxp_to_server,
         'inet:udp4': xxp_to_server,
         'inet:udp6': xxp_to_server,
-        'ps:name': convert_ps_name,
         'file:base': check_file_base
     }
 
@@ -544,6 +550,8 @@ class Migrator:
 
         if propname in self.subprop_special:
             propname, val = self.subprop_special[propname](self, formname, propname, typename, val, props)
+            if propname is None:
+                return None, None
             converted = True
         elif typename in self.type_special:
             newpropname, val = self.type_special[typename](self, formname, propname, typename, val, props)
@@ -596,6 +604,8 @@ class Migrator:
                     continue
                 else:
                     new_pname, newv = self.convert_subprop(formname, oldk, oldv, oldprops)
+                    if new_pname is None:
+                        continue
                 props[new_pname] = newv
             elif oldk == 'node:created':
                 props['.created'] = oldv
@@ -670,6 +680,16 @@ class Migrator:
                 addrport = '[%s]:%s' % (val, port)
         return propname, '%s://%s' % (formname[-3:], addrport)
 
+    def name_en_to_altname(self, formname, propname, typename, val, props):
+        node = (('ps:altname', (props[formname], val)),)
+        self.write_node_to_file(node)
+        return None, None
+
+    def ou_name_en_to_altname(self, formname, propname, typename, val, props):
+        node = (('ou:altname', (props[formname], val)),)
+        self.write_node_to_file(node)
+        return None, None
+
     subprop_special = {
         'inet:exec:url:ipv4': ipv4_to_client,
         'inet:exec:url:ipv6': ipv6_to_client,
@@ -684,6 +704,9 @@ class Migrator:
         'it:exec:bind:tcp:ipv6': ip_with_port_to_server,
         'it:exec:bind:udp:ipv4': ip_with_port_to_server,
         'it:exec:bind:udp:ipv6': ip_with_port_to_server,
+        'ps:person:name:en': name_en_to_altname,
+        'ps:persona:name:en': name_en_to_altname,
+        'ou:org:name:en': ou_name_en_to_altname,
     }
 
 def main(argv, outp=None):  # pragma: no cover

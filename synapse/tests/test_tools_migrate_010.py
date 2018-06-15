@@ -7,7 +7,6 @@ import synapse.lib.iq as s_iq
 import synapse.lib.hashset as s_hashset
 import synapse.lib.msgpack as s_msgpack
 import synapse.tools.migrate_010 as s_migrate
-s_migrate.debug_on_error = False
 
 class Migrate010Test(s_iq.SynTest):
 
@@ -65,7 +64,7 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(len(node[0]), 2)
             self.eq(node[0][0], 'ps:contact')
             self.eq(node[1]['props']['title'], 'ceo')
-            self.eq(node[1]['props']['name'], 'tony stark')
+            self.eq(node[1]['props']['name'], 'stark,tony')
 
             acct_nodes = self.get_formfile('inet:web:acct', fh)
             self.eq(len(acct_nodes), 1)
@@ -82,8 +81,15 @@ class Migrate010Test(s_iq.SynTest):
 
             self.eq(node[1]['props']['avatar'], 'guid:' + file_guid)
 
-            props = {'a': 'WOOT.com/1.002.3.4', 'rcode': 0, 'time': now, 'ipv4': '5.5.5.5',
-                     'udp4': '8.8.8.8:80', 'ns': 'foo.org/blah.info', 'ns:ns': 'blah.info'}
+            props = {
+                'a': 'WOOT.com/1.002.3.4',
+                'rcode': 0,
+                'time': now,
+                'ipv4': '5.5.5.5',
+                'udp4': '8.8.8.8:80',
+                'ns': 'foo.org/blah.info',
+                'ns:ns': 'blah.info'
+            }
             tufo = core.formTufoByProp('inet:dns:look', '*', **props)
             fh = tempfile.TemporaryFile(dir=str(dirn))
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
@@ -292,3 +298,22 @@ class Migrate010Test(s_iq.SynTest):
             nodes = self.get_formfile('inet:dns:soa', fh)
             self.eq(len(nodes), 1)
             self.eq(nodes[0][0], ('inet:dns:soa', ('foo.bar.com', 'bob@foo.bar.com')))
+
+    def test_ps_person(self):
+        self.maxDiff = None
+        with self.getTestDir() as dirn, self.getRamCore() as core:
+            props = {
+                'name': 'Gnaeus Pompeius Magnus',
+                'name:given': 'Gnaeus',
+                'name:en': 'Pompey the Great'
+            }
+            core.formTufoByProp('ps:person', s_common.guid(), **props)
+            fh = tempfile.TemporaryFile(dir=dirn)
+            m = s_migrate.Migrator(core, fh, tmpdir=dirn)
+            m.migrate()
+            nodes = self.get_formfile('ps:person', fh)
+            self.len(1, nodes)
+            self.isin('name:given', nodes[0][1]['props'])
+            self.notin('name:en', nodes[0][1]['props'])
+            nodes = self.get_formfile('ps:altname', fh)
+            self.len(1, nodes)
