@@ -1,4 +1,5 @@
 import os
+import time
 import socket
 import logging
 import selectors
@@ -55,11 +56,13 @@ class Plex(s_config.Config):
 
     def _runPollLoop(self):
 
+        fems = []
         while not self.isfini:
 
             try:
 
-                for (_, fino, events, _), mask in self.epoll.select():
+                fems = self.epoll.select()
+                for (_, fino, events, _), mask in fems:
 
                     if self.isfini:
                         return
@@ -85,6 +88,9 @@ class Plex(s_config.Config):
                 if self.isfini:
                     continue
                 logger.exception('plex thread error: %r' % (e,))
+
+            if not fems:
+                time.sleep(0.035)
 
     def _onPlexFini(self):
 

@@ -1,6 +1,13 @@
 Changelog
 =========
 
+v0.0.55 - 2018-05-09
+--------------------
+
+## Bugs
+- #769 - Add a ``time.sleep()`` call in the ``synapse.lib.net.Plex._runPollLoop`` loop which is executed when no events obtained from the selector. This prevents CPU usage from spiking on systems without Epoll enabled (mainly OSX).
+
+
 v0.0.54 - 2018-05-01
 --------------------
 
