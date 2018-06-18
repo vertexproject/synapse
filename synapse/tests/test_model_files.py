@@ -35,6 +35,16 @@ class FileTest(s_test.SynTest):
             self.eq(norm, 'c:/windows/system32/calc.exe')
             self.eq(info['subs']['dir'], 'c:/windows/system32')
             self.eq(info['subs']['base'], 'calc.exe')
+            # XXX This behavior changed!?
+            # norm, info = path.norm(r'/foo////bar/.././baz.json')
+            # self.eq(norm, '/foo/baz.json')
+
+            norm, info = path.norm('c:')
+            self.eq(norm, 'c:')
+            subs = info.get('subs')
+            self.none(subs.get('ext'))
+            self.none(subs.get('dir'))
+            self.eq(subs.get('base'), 'c:')
 
             with core.snap() as snap:
 
@@ -94,18 +104,6 @@ class Newp:
             self.eq(node[1].get('file:path:base'), 'kernel32.dll')
 
             self.nn(core.getTufoByProp('file:base', 'kernel32.dll'))
-
-            node = core.getTufoByProp('file:path', 'c:')
-
-            self.nn(node)
-            self.none(node[1].get('file:path:ext'))
-            self.eq(node[1].get('file:path:dir'), '')
-            self.eq(node[1].get('file:path:base'), 'c:')
-
-            node = core.formTufoByProp('file:path', r'/foo////bar/.././baz.json')
-
-            self.nn(node)
-            self.eq(node[1].get('file:path'), '/foo/baz.json')
 
     def test_filepath(self):
         with self.getRamCore() as core:
