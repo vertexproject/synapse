@@ -109,3 +109,11 @@ class FileTest(s_test.SynTest):
                 self.eq(node.get('parent'), node1.ndef[1])
                 self.eq(node.get('child'), node2.ndef[1])
                 self.eq(node.get('name'), 'embed.bin')
+
+                fp = 'C:\\www\\woah\\really\\sup.exe'
+                node = snap.addNode('file:pseen', (node0.ndef[1], fp))
+                self.eq(node.get('file'), node0.ndef[1])
+                self.eq(node.get('path'), 'c:/www/woah/really/sup.exe')
+                self.eq(node.get('path:dir'), 'c:/www/woah/really')
+                self.eq(node.get('path:base'), 'sup.exe')
+                self.eq(node.get('path:base:ext'), 'exe')

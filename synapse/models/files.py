@@ -189,6 +189,10 @@ class FileModule(s_module.CoreModule):
                 ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
                     'doc': 'A parent file that fully contains the specified child file.',
                 }),
+                # XXX I'm not beholden to this name at all
+                ('file:pseen', ('comp', {'fields': (('file', 'file:bytes'), ('path', 'file:path'))}), {
+                    'doc': 'The fused knowledge of the association of a file:bytes node and a file:path.',
+                }),
 
             ),
 
@@ -251,6 +255,29 @@ class FileModule(s_module.CoreModule):
 
                     ('type', ('str', {'lower': 1}), {
                         'doc': 'A convention based name for the type of reference.'}),
+                )),
+
+                ('file:pseen', {}, (
+                    ('file', ('file:bytes', {}), {
+                        'ro': True,
+                        'doc': '',
+                    }),
+                    ('path', ('file:path', {}), {
+                        'ro': True,
+                        'doc': '',
+                    }),
+                    ('path:dir', ('file:path', {}), {
+                        'ro': True,
+                        'doc': '',
+                    }),
+                    ('path:base', ('file:base', {}), {
+                        'ro': True,
+                        'doc': '',
+                    }),
+                    ('path:base:ext', ('str', {}), {
+                        'ro': True,
+                        'doc': '',
+                    }),
                 )),
 
                 ('file:subfile', {}, (
