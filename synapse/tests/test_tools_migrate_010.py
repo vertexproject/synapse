@@ -91,16 +91,17 @@ class Migrate010Test(s_iq.SynTest):
                 'ipv4': '5.5.5.5',
                 'udp4': '8.8.8.8:80',
                 'ns': 'foo.org/blah.info',
-                'ns:ns': 'blah.info'
+                'ns:ns': 'blah.info',
+                'ns:zone': 'foo.org'
             }
             tufo = core.formTufoByProp('inet:dns:look', '*', **props)
             fh = tempfile.TemporaryFile(dir=str(dirn))
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
-            look_nodes = self.get_formfile('inet:dns:look', fh)
+            look_nodes = self.get_formfile('inet:dns:request', fh)
             self.eq(len(look_nodes), 1)
-            self.eq(look_nodes[0][1]['props']['client'], 'tcp://5.5.5.5')
             self.eq(look_nodes[0][1]['props']['server'], 'udp://8.8.8.8:80')
-            self.eq(look_nodes[0][1]['props']['ns'], ('foo.org', 'blah.info'))
+            self.eq(look_nodes[0][1]['props']['resp:ns'], ('foo.org', 'blah.info'))
+            self.eq(look_nodes[0][1]['props']['query'], ('tcp://5.5.5.5', 'foo.org', 0))
 
             nodes = self.get_formfile('inet:server', fh)
             self.eq(len(nodes), 1)

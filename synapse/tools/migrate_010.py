@@ -520,7 +520,8 @@ class Migrator:
         'inet:udp4': 'inet:server',
         'inet:udp4': 'inet:server',
         'inet:ssl:tcp4cert': 'inet:ssl:cert',
-        'inet:dns:req': 'inet:dns:query'
+        'inet:dns:req': 'inet:dns:query',
+        'inet:dns:look': 'inet:dns:request'
     }
 
     prop_renames = {
@@ -533,6 +534,15 @@ class Migrator:
         'inet:dns:look:ipv4': 'inet:dns:look:client',
         'inet:dns:look:tcp4': 'inet:dns:look:server',
         'inet:dns:look:udp4': 'inet:dns:look:server',
+
+        'inet:dns:look:ns': 'inet:dns:look:resp:ns',
+        'inet:dns:look:rev': 'inet:dns:look:resp:rev',
+        'inet:dns:look:aaaa': 'inet:dns:look:resp:rev6',
+        'inet:dns:look:cname': 'inet:dns:look:resp:cname',
+        'inet:dns:look:mx': 'inet:dns:look:resp:mx',
+        'inet:dns:look:soa': 'inet:dns:look:resp:soa',
+        'inet:dns:look:txt': 'inet:dns:look:resp:txt',
+
         'inet:flow:dst:udp4': 'inet:flow:dst',
         'inet:flow:dst:udp6': 'inet:flow:dst',
         'inet:flow:dst:tcp4': 'inet:flow:dst',
@@ -577,7 +587,8 @@ class Migrator:
         'ps:image:person',
         'ps:image:file',
         'it:exec:bind:tcp:port',
-        'it:exec:bind:udp:port'
+        'it:exec:bind:udp:port',
+        'inet:dns:look:rcode'
     ))
 
     def convert_subprop(self, formname, propname, val, props):
@@ -728,6 +739,27 @@ class Migrator:
         self.write_node_to_file(node)
         return None, None
 
+    def dns_look_ipv4_to_query(self, formname, propname, typename, val, props):
+        client = 'tcp://%s' % s_inet.ipv4str(val)
+        query_name_fields = {
+            'inet:dns:look:a:fqdn',
+            'inet:dns:look:ns:zone',
+            'inet:dns:look:rev:fqdn',
+            'inet:dns:look:cname:fqdn',
+            'inet:dns:look:mx:fqdn',
+            'inet:dns:look:soa:fqdn',
+            'inet:dns:look:txt:fqdn'
+        }
+        name = None
+        for f in query_name_fields:
+            name = props.get(f)
+            if name is not None:
+                break
+        else:
+            name = '<unknown>'
+        dnstype = props.get('inet:dns:look:rcode', 1)
+        return 'inet:dns:look:query', (client, name, dnstype)
+
     subprop_special = {
         'inet:exec:url:ipv4': ipv4_to_client,
         'inet:exec:url:ipv6': ipv6_to_client,
@@ -736,8 +768,7 @@ class Migrator:
         'inet:web:action:ipv4': ipv4_to_client,
         'inet:web:action:ipv6': ipv6_to_client,
         'inet:web:acct:signup:ipv4': ipv4_to_client,
-        'inet:dns:look:ipv4': ipv4_to_client,
-        'inet:dns:look:ipv6': ipv6_to_client,
+        'inet:dns:look:ipv4': dns_look_ipv4_to_query,
         'it:exec:bind:tcp:ipv4': ip_with_port_to_server,
         'it:exec:bind:tcp:ipv6': ip_with_port_to_server,
         'it:exec:bind:udp:ipv4': ip_with_port_to_server,
