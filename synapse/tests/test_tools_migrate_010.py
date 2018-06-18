@@ -85,7 +85,6 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(node[1]['props']['avatar'], 'guid:' + file_guid)
 
             props = {
-                'a': 'WOOT.com/1.002.3.4',
                 'rcode': 0,
                 'time': now,
                 'ipv4': '5.5.5.5',
@@ -331,3 +330,15 @@ class Migrate010Test(s_iq.SynTest):
             nodes = self.get_formfile('inet:dns:query', fh)
             self.len(1, nodes)
             self.eq(nodes[0][0], ('inet:dns:query', ('tcp://1.2.3.4', 'vertex.link', 28)))
+
+    def test_subfile(self):
+        g1 = s_common.guid()
+        g2 = s_common.guid()
+        with self.getTestDir() as dirn, self.getRamCore() as core:
+            core.formTufoByProp('file:subfile', (g1, g2), name='hehe.txt')
+            fh = tempfile.TemporaryFile(dir=dirn)
+            m = s_migrate.Migrator(core, fh, tmpdir=dirn)
+            m.migrate()
+            nodes = self.get_formfile('file:subfile', fh)
+            self.len(1, nodes)
+            self.eq(nodes[0][0][1], ('guid:' + g1, 'guid:' + g2))

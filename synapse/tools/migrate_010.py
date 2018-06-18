@@ -12,6 +12,7 @@ import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
+import synapse.lib.types as s_types
 import synapse.lib.msgpack as s_msgpack
 import synapse.models.inet as s_inet
 
@@ -129,11 +130,12 @@ class Migrator:
         xrefs = []
         forms = self.core.getTufoForms()
         for formname in forms:
+            t = self.core.getPropType(formname)
             parents = self.core.getTypeOfs(formname)
-            if 'sepr' in parents:
+            if 'sepr' in parents or isinstance(t, s_types.SeprType):
                 seprs.append(formname)
                 seprfields.extend(('%s:%s' % (formname, field) for field in self._get_sepr_fields(formname)))
-            if 'comp' in parents:
+            if 'comp' in parents or isinstance(t, s_types.CompType):
                 comps.append(formname)
                 compfields.extend(('%s:%s' % (formname, field) for field in self._get_comp_fields(formname)))
             if 'file:bytes' in parents:
