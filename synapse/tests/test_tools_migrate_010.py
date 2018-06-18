@@ -54,7 +54,8 @@ class Migrate010Test(s_iq.SynTest):
             contact_tufo = core.formTufoByProp('ps:contact', info)
 
             fh = tempfile.TemporaryFile(dir=str(dirn))
-            s_migrate.Migrator(core, fh, tmpdir=str(dirn)).migrate()
+            m = s_migrate.Migrator(core, fh, tmpdir=str(dirn))
+            m.migrate()
             now = s_common.now()
 
             nodes = self.get_formfile('ps:contact', fh)
@@ -72,6 +73,8 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(type(node), tuple)
             self.eq(len(node[0]), 2)
             self.eq(node[0], ('inet:web:acct', ('twitter.com', 'ironman')))
+            # Verify that redundant secondary props of seprs aren't included
+            self.notin('site', node[1]['props'])
             self.eq(node[1]['props']['.seen'], (1000, 2000))
 
             # test that secondary prop drop works
@@ -317,3 +320,13 @@ class Migrate010Test(s_iq.SynTest):
             self.notin('name:en', nodes[0][1]['props'])
             nodes = self.get_formfile('ps:altname', fh)
             self.len(1, nodes)
+
+    def test_dns_query(self):
+        with self.getTestDir() as dirn, self.getRamCore() as core:
+            core.formTufoByProp('inet:dns:req', ('1.2.3.4', 'VERTEX.link', 'AAAA'))
+            fh = tempfile.TemporaryFile(dir=dirn)
+            m = s_migrate.Migrator(core, fh, tmpdir=dirn)
+            m.migrate()
+            nodes = self.get_formfile('inet:dns:query', fh)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('inet:dns:query', ('tcp://1.2.3.4', 'vertex.link', 28)))

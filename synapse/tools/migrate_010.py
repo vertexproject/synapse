@@ -105,11 +105,24 @@ class Migrator:
         self._precalc_types()
         self.first_forms = ['file:bytes'] + [f for f in reversed(_comp_and_sepr_forms) if self.is_comp(f)]
 
+    def _get_comp_fields(self, formname):
+        '''
+        Returns the fields for a comp type
+        '''
+        t = self.core.getPropType(formname)
+        return [x[0] for x in t.fields]
+
+    def _get_sepr_fields(self, formname):
+        t = self.core.getPropType(formname)
+        return [x[0] for x in t._get_fields()]
+
     def _precalc_types(self):
         '''
         Precalculate which types are sepr and which are comps, and which are subs of comps
         '''
         seprs = []
+        seprfields = []
+        compfields = []
         comps = []
         subs = []
         filebytes = []
@@ -119,8 +132,10 @@ class Migrator:
             parents = self.core.getTypeOfs(formname)
             if 'sepr' in parents:
                 seprs.append(formname)
+                seprfields.extend(('%s:%s' % (formname, field) for field in self._get_sepr_fields(formname)))
             if 'comp' in parents:
                 comps.append(formname)
+                compfields.extend(('%s:%s' % (formname, field) for field in self._get_comp_fields(formname)))
             if 'file:bytes' in parents:
                 filebytes.append(formname)
             if 'xref' in parents:
@@ -141,6 +156,8 @@ class Migrator:
         self.comps = set(comps)
         self.subs = set(subs) - set(_subs_to_save)
         self.xrefs = set(xrefs)
+        self.seprfields = set(seprfields)
+        self.compfields = set(compfields)
 
     def migrate(self):
         '''
@@ -466,12 +483,30 @@ class Migrator:
     def check_file_base(self, formname, propname, typename, val, props):
         return None, val.rsplit('\\', 1)[-1]
 
+    dns_enums = {
+        'soa': 6,
+        'ns': 2,
+        'mx': 15,
+        'a': 1,
+        'aaaa': 28,
+        'txt': 16,
+        'srv': 33,
+        'ptr': 12,
+        'cname': 5,
+        'hinfo': 13,
+        'isdn': 20,
+    }
+
+    def convert_dns_type(self, formname, propname, typename, val, props):
+        return None, self.dns_enums.get(val, 1)
+
     type_special = {
         'inet:tcp4': xxp_to_server,
         'inet:tcp6': xxp_to_server,
         'inet:udp4': xxp_to_server,
         'inet:udp6': xxp_to_server,
-        'file:base': check_file_base
+        'file:base': check_file_base,
+        'inet:dns:type': convert_dns_type
     }
 
     form_renames = {
@@ -485,6 +520,7 @@ class Migrator:
         'inet:udp4': 'inet:server',
         'inet:udp4': 'inet:server',
         'inet:ssl:tcp4cert': 'inet:ssl:cert',
+        'inet:dns:req': 'inet:dns:query'
     }
 
     prop_renames = {
@@ -577,6 +613,8 @@ class Migrator:
         for oldk, oldv in sorted(oldprops.items(), key=_special_sort_key):
             propmeta = next((x[1] for x in propsmeta if x[0] == oldk), {})
             if oldk in self.secondary_props_to_drop:
+                continue
+            if oldk in self.compfields or oldk in self.seprfields:
                 continue
             if oldk[0] == '#':
                 tags[oldk[1:]] = (None, None)
