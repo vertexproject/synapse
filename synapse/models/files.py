@@ -166,140 +166,123 @@ class FileBytes(s_types.Type):
 class FileModule(s_module.CoreModule):
 
     def getModelDefs(self):
-        return (
-
-            ('files', {
-
-                'ctors': (
-
-                    ('file:bytes', 'synapse.models.files.FileBytes', {}, {
-                        'doc': 'The file bytes type with SHA256 based primary property.'}),
-
-                    ('file:base', 'synapse.models.files.FileBase', {}, {
-                        'doc': 'A file name with no path.',
-                        'ex': 'woot.exe'}),
-
-                    ('file:path', 'synapse.models.files.FilePath', {}, {
-                        'doc': 'A normalized file path.',
-                        'ex': 'c:/windows/system32/calc.exe'}),
-
-                ),
-
-                'types': (
-
-                    ('file:ref', ('comp', {'fields': (('file', 'file:bytes'), ('node', 'ndef'))}), {
-                        'doc': 'A file that contains an image of the specififed node.'}),
-
-                    ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
-                        'doc': 'A parent file that fully contains the specified child file.',
-                    }),
-
-                ),
-
-                'forms': (
-
-                    ('file:bytes', {}, (
-
-                        ('size', ('int', {}), {
-                            'doc': 'The file size in bytes.'}),
-
-                        ('md5', ('hash:md5', {}), {'ro': 1,
-                            'doc': 'The md5 hash of the file.'}),
-
-                        ('sha1', ('hash:sha1', {}), {'ro': 1,
-                            'doc': 'The sha1 hash of the file.'}),
-
-                        ('sha256', ('hash:sha256', {}), {'ro': 1,
-                            'doc': 'The sha256 hash of the file.'}),
-
-                        ('sha512', ('hash:sha512', {}), {'ro': 1,
-                            'doc': 'The sha512 hash of the file.'}),
-
-                        ('name', ('file:base', {}), {
-                              'doc': 'The best known base name for the file.'}),
-
-                        ('mime', ('str', {'lower': 1}), {'defval': '??',
-                              'doc': 'The MIME type of the file.'}),
-
-                        ('mime:x509:cn', ('str', {}), {
-                            'doc': 'The Common Name (CN) attribute of the x509 Subject.'}),
-
-                        ('mime:pe:size', ('int', {}), {
-                            'doc': 'The size of the executable file according to the PE file header.'}),
-
-                        ('mime:pe:imphash', ('guid', {}), {
-                            'doc': 'The PE import hash of the file as calculated by Vivisect; this method excludes '
-                                'imports referenced as ordinals and may fail to calculate an import hash for files '
-                                'that use ordinals.'}),
-
-                        ('mime:pe:compiled', ('time', {}), {
-                            'doc': 'The compile time of the file according to the PE header.'}),
-
-                    )),
-
-                    ('file:base', {}, (
-                        ('ext', ('str', {}), {'ro': 1,
-                            'doc': 'The file extension (if any).'}),
-                    )),
-
-                    ('file:ref', {}, (
-
-                        ('file', ('file:bytes', {}), {'ro': 1,
-                            'doc': 'The file that refers to a node.'}),
-
-                        ('node', ('ndef', {}), {'ro': 1,
-                            'doc': 'The node referenced by the file.'}),
-
-                        ('node:form', ('str', {}), {'ro': 1,
-                            'doc': 'The form of node which is referenced.'}),
-
-                        ('type', ('str', {'lower': 1}), {
-                            'doc': 'A convention based name for the type of reference.'}),
-                    )),
-
-                    ('file:subfile', {}, (
-                        ('parent', ('file:bytes', {}), {
-                            'ro': True,
-                            'doc': 'The parent file containing the child file.',
-                        }),
-                        ('child', ('file:bytes', {}), {
-                            'ro': True,
-                            'doc': 'The child file contained in the parent file.',
-                        }),
-                        ('name', ('file:base', {}), {
-                            'doc': 'The name of the child file. Because a given set of bytes '
-                                   'can have any number of arbitrary names, this field is '
-                                   'used for display purposes only.'
-                        })
-                    )),
-
-                    ('file:path', {}, (
-                        ('dir', ('file:path', {}), {'ro': 1,
-                            'doc': 'The parent directory.'}),
-
-                        ('base', ('file:base', {}), {'ro': 1,
-                            'doc': 'The file base name.'}),
-
-                        ('base:ext', ('str', {}), {'ro': 1,
-                            'doc': 'The file extension.'}),
-                    )),
-                ),
-
-            }),
-        )
-
-    @staticmethod
-    def getBaseModels():
         modl = {
-            'types': (
+            'ctors': (
 
-                ('file:rawpath', {
-                    'ctor': 'synapse.models.files.FileRawPathType',
-                    'doc': 'A raw file path in its default (non-normalized) form. Can consist of a directory '
-                        'path, a path and file name, or a file name.'}),
+                ('file:bytes', 'synapse.models.files.FileBytes', {}, {
+                    'doc': 'The file bytes type with SHA256 based primary property.'}),
+
+                ('file:base', 'synapse.models.files.FileBase', {}, {
+                    'doc': 'A file name with no path.',
+                    'ex': 'woot.exe'}),
+
+                ('file:path', 'synapse.models.files.FilePath', {}, {
+                    'doc': 'A normalized file path.',
+                    'ex': 'c:/windows/system32/calc.exe'}),
 
             ),
 
+            'types': (
+
+                ('file:ref', ('comp', {'fields': (('file', 'file:bytes'), ('node', 'ndef'))}), {
+                    'doc': 'A file that contains an image of the specififed node.'}),
+
+                ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
+                    'doc': 'A parent file that fully contains the specified child file.',
+                }),
+
+            ),
+
+            'forms': (
+
+                ('file:bytes', {}, (
+
+                    ('size', ('int', {}), {
+                        'doc': 'The file size in bytes.'}),
+
+                    ('md5', ('hash:md5', {}), {'ro': 1,
+                                               'doc': 'The md5 hash of the file.'}),
+
+                    ('sha1', ('hash:sha1', {}), {'ro': 1,
+                                                 'doc': 'The sha1 hash of the file.'}),
+
+                    ('sha256', ('hash:sha256', {}), {'ro': 1,
+                                                     'doc': 'The sha256 hash of the file.'}),
+
+                    ('sha512', ('hash:sha512', {}), {'ro': 1,
+                                                     'doc': 'The sha512 hash of the file.'}),
+
+                    ('name', ('file:base', {}), {
+                        'doc': 'The best known base name for the file.'}),
+
+                    ('mime', ('str', {'lower': 1}), {'defval': '??',
+                                                     'doc': 'The MIME type of the file.'}),
+
+                    ('mime:x509:cn', ('str', {}), {
+                        'doc': 'The Common Name (CN) attribute of the x509 Subject.'}),
+
+                    ('mime:pe:size', ('int', {}), {
+                        'doc': 'The size of the executable file according to the PE file header.'}),
+
+                    ('mime:pe:imphash', ('guid', {}), {
+                        'doc': 'The PE import hash of the file as calculated by Vivisect; this method excludes '
+                               'imports referenced as ordinals and may fail to calculate an import hash for files '
+                               'that use ordinals.'}),
+
+                    ('mime:pe:compiled', ('time', {}), {
+                        'doc': 'The compile time of the file according to the PE header.'}),
+
+                )),
+
+                ('file:base', {}, (
+                    ('ext', ('str', {}), {'ro': 1,
+                                          'doc': 'The file extension (if any).'}),
+                )),
+
+                ('file:ref', {}, (
+
+                    ('file', ('file:bytes', {}), {'ro': 1,
+                                                  'doc': 'The file that refers to a node.'}),
+
+                    ('node', ('ndef', {}), {'ro': 1,
+                                            'doc': 'The node referenced by the file.'}),
+
+                    ('node:form', ('str', {}), {'ro': 1,
+                                                'doc': 'The form of node which is referenced.'}),
+
+                    ('type', ('str', {'lower': 1}), {
+                        'doc': 'A convention based name for the type of reference.'}),
+                )),
+
+                ('file:subfile', {}, (
+                    ('parent', ('file:bytes', {}), {
+                        'ro': True,
+                        'doc': 'The parent file containing the child file.',
+                    }),
+                    ('child', ('file:bytes', {}), {
+                        'ro': True,
+                        'doc': 'The child file contained in the parent file.',
+                    }),
+                    ('name', ('file:base', {}), {
+                        'doc': 'The name of the child file. Because a given set of bytes '
+                               'can have any number of arbitrary names, this field is '
+                               'used for display purposes only.'
+                    })
+                )),
+
+                ('file:path', {}, (
+                    ('dir', ('file:path', {}), {'ro': 1,
+                                                'doc': 'The parent directory.'}),
+
+                    ('base', ('file:base', {}), {'ro': 1,
+                                                 'doc': 'The file base name.'}),
+
+                    ('base:ext', ('str', {}), {'ro': 1,
+                                               'doc': 'The file extension.'}),
+                )),
+            ),
+
         }
+
         name = 'file'
-        return ((name, modl), )
+        return ((name, modl),)
