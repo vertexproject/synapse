@@ -397,6 +397,15 @@ class ItModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The signature that the file triggered on.'
                     }),
+                    ('sig:name', ('str', {'lower': True}), {
+                        'ro': True,
+                        'doc': 'The signature name.',
+                    }),
+                    ('sig:soft', ('it:prod:soft', {}), {
+                        'ro': True,
+                        'doc': 'The anti-virus product which contains the signature.',
+                    }),
+
                 )),
                 ('it:auth:passwdhash', {}, (
                     ('salt', ('hex', {}), {
