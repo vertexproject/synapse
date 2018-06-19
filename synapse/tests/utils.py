@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 '''
 This contains the core test helper code used in Synapse.
 
@@ -27,7 +26,6 @@ import unittest
 import threading
 import contextlib
 from typing import Dict, Any
-
 
 import synapse.exc as s_exc
 import synapse.axon as s_axon
@@ -1162,4 +1160,3 @@ class SynTest(unittest.TestCase):
         if conf:
             s_common.yamlsave(conf, cdir, 'cell.yaml')
         return s_cells.init(name, cdir)
-
