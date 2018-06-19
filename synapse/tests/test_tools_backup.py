@@ -7,14 +7,14 @@ import synapse.tools.backup as s_backup
 
 class BackupTest(s_test.SynTest):
 
-    def dirset(self, dir, skipfns):
+    def dirset(self, sdir, skipfns):
         ret = set()
-        for fdir, _, fns in os.walk(dir):
+        for fdir, _, fns in os.walk(sdir):
             for fn in fns:
                 if fn in skipfns:
                     continue
                 fp = os.path.join(fdir, fn)
-                fp = fp[len(dir):]
+                fp = fp[len(sdir):]
                 ret.add(fp)
         return ret
 
