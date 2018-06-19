@@ -154,6 +154,8 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.ndef[1], (f'sha256:{file0}', (prod1, 'Bar.BAZ.faZ'.lower())))
                 self.eq(node.get('file'), f'sha256:{file0}')
                 self.eq(node.get('sig'), (prod1, 'Bar.BAZ.faZ'.lower()))
+                self.eq(node.get('sig:name'), 'bar.baz.faz')
+                self.eq(node.get('sig:soft'), prod1)
 
                 # Test 'vers' semver brute forcing
                 testvectors = [
