@@ -29,6 +29,7 @@ class FileTest(s_test.SynTest):
             self.eq('exe', subs.get('ext'))
 
             self.raises(s_exc.BadTypeValu, base.norm, 'foo/bar.exe')
+            self.raises(s_exc.BadTypeValu, base.norm, '/haha')
 
             norm, info = path.norm('c:\\Windows\\System32\\calc.exe')
 
@@ -45,6 +46,13 @@ class FileTest(s_test.SynTest):
             self.none(subs.get('ext'))
             self.none(subs.get('dir'))
             self.eq(subs.get('base'), 'c:')
+
+            norm, info = path.norm('/foo')
+            self.eq(norm, '/foo')
+            subs = info.get('subs')
+            self.none(subs.get('ext'))
+            self.none(subs.get('dir'))
+            self.eq(subs.get('base'), 'foo')
 
             with core.snap() as snap:
 
@@ -75,55 +83,3 @@ class FileTest(s_test.SynTest):
                 self.eq(node.get('parent'), node1.ndef[1])
                 self.eq(node.get('child'), node2.ndef[1])
                 self.eq(node.get('name'), 'embed.bin')
-
-class Newp:
-
-    def test_model_filepath_complex(self):
-        with self.getRamCore() as core:
-
-            node = core.formTufoByProp('file:path', '/Foo/Bar/Baz.exe')
-
-            self.nn(node)
-            self.eq(node[1].get('file:path:dir'), '/foo/bar')
-            self.eq(node[1].get('file:path:ext'), 'exe')
-            self.eq(node[1].get('file:path:base'), 'baz.exe')
-
-            node = core.getTufoByProp('file:path', '/foo')
-
-            self.nn(node)
-            self.none(node[1].get('file:path:ext'))
-
-            self.eq(node[1].get('file:path:dir'), '')
-            self.eq(node[1].get('file:path:base'), 'foo')
-
-            node = core.formTufoByProp('file:path', r'c:\Windows\system32\Kernel32.dll')
-
-            self.nn(node)
-            self.eq(node[1].get('file:path:dir'), 'c:/windows/system32')
-            self.eq(node[1].get('file:path:ext'), 'dll')
-            self.eq(node[1].get('file:path:base'), 'kernel32.dll')
-
-            self.nn(core.getTufoByProp('file:base', 'kernel32.dll'))
-
-    def test_filepath(self):
-        with self.getRamCore() as core:
-
-            core.formTufoByProp('file:path', '/foo/bar/baz/faz/')
-
-            self.nn(core.getTufoByProp('file:path', '/foo/bar/baz/faz'))
-            self.nn(core.getTufoByProp('file:base', 'faz'))
-            self.nn(core.getTufoByProp('file:path', '/foo/bar/baz'))
-            self.nn(core.getTufoByProp('file:base', 'baz'))
-            self.nn(core.getTufoByProp('file:path', '/foo/bar'))
-            self.nn(core.getTufoByProp('file:base', 'bar'))
-            self.nn(core.getTufoByProp('file:path', '/foo'))
-            self.nn(core.getTufoByProp('file:base', 'foo'))
-            self.none(core.getTufoByProp('file:base', ''))
-
-    def test_filebase(self):
-        with self.getRamCore() as core:
-
-            core.formTufoByProp('file:base', 'baz.quux')
-            self.nn(core.getTufoByProp('file:base', 'baz.quux'))
-
-            self.raises(BadTypeValu, core.formTufoByProp, 'file:base', '/haha')
