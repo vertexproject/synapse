@@ -1,7 +1,6 @@
 import os
 import logging
 import threading
-from typing import Any, Tuple
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -178,7 +177,7 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
     '''
     cellapi = CellApi
 
-    confdefs: Tuple[Any, ...] = ()
+    confdefs = ()
 
     def __init__(self, dirn):
 

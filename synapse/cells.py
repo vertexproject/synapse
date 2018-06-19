@@ -17,7 +17,6 @@ ctors = {
     'cortex': s_cortex.Cortex,
     'cryocell': s_cryotank.CryoCell,
     'cryotank': s_cryotank.CryoTank,
-    'blobcell': s_cryotank.CryoCell,
     'axon': s_axon.Axon,
     'blobstor': s_axon.BlobStor
 }
