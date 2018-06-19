@@ -2,41 +2,75 @@ import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 
 class PsModule(s_module.CoreModule):
+
+    def initCoreModule(self):
+        self.model.prop('ps:person:name').onSet(self._onSetPersonName)
+
+    def _onSetPersonName(self, node, oldv):
+        pers = node.ndef[1]
+        name = node.get('name')
+        node.snap.addNode('ps:altname', (pers, name))
+
     def getModelDefs(self):
         modl = {
             'types': (
+
                 ('ps:tokn', ('str', {'lower': True, 'strip': True}), {
-                    'doc': 'A single name element (potentially given or sur).',
-                    'ex': 'robert'
-                }),
+                    'ex': 'robert',
+                    'doc': 'A single name element (potentially given or sur).'}),
+
                 ('ps:name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'An arbitrary, lower spaced string with normalized whitespace.',
-                    'ex': 'robert grey'
-                }),
+                    'ex': 'robert grey',
+                    'doc': 'An arbitrary, lower spaced string with normalized whitespace.'}),
+
+                ('ps:altname', ('comp', {'fields': (('person', 'ps:person'), ('name', 'ps:name'))}), {
+                    'doc': 'A known alternate name for a person.'}),
+
                 ('ps:person', ('guid', {}), {
-                    'doc': 'A GUID for a person.',
-                }),
+                    'doc': 'A GUID for a person.'}),
+
                 ('ps:persona', ('guid', {}), {
-                    'doc': 'A GUID for a suspected person.',
-                }),
+                    'doc': 'A GUID for a suspected person.'}),
+
                 ('ps:person:has', ('comp', {'fields': (('person', 'ps:person'), ('node', 'ndef'))}), {
                     'doc': 'A person owns, controls, or has exclusive use of an object or'
-                           ' resource, potentially during a specific period of time.'
-                }),
+                           ' resource, potentially during a specific period of time.'}),
+
                 ('ps:persona:has', ('comp', {'fields': (('persona', 'ps:persona'), ('node', 'ndef'))}), {
                     'doc': 'A persona owns, controls, or has exclusive use of an object or'
-                           ' resource, potentially during a specific period of time.'
-                }),
+                           ' resource, potentially during a specific period of time.'}),
+
                 ('ps:contact', ('guid', {}), {
-                    'doc': 'A GUID for a contact info record',
-                }),
+                    'doc': 'A GUID for a contact info record'}),
 
                 # FIXME add wireless elemements like NMEI and IMEI once modeled - pre 010 item
 
             ),
+
             'forms': (
                 ('ps:tokn', {}, ()),
                 ('ps:name', {}, ()),
+
+                ('ps:altname', {}, (
+
+                    ('person', ('ps:person', {}), {
+                        'ro': True,
+                        'doc': 'The person guid with the alt name.'}),
+
+                    ('name', ('ps:name', {}), {
+                        'ro': True,
+                        'doc': 'The name associated with the person.'}),
+
+                    ('name:sur', ('ps:tokn', {}), {
+                        'doc': 'The surname part of name.'}),
+
+                    ('name:middle', ('ps:tokn', {}), {
+                        'doc': 'The middle name part of name.'}),
+
+                    ('name:given', ('ps:tokn', {}), {
+                        'doc': 'The given part of name.'}),
+                )),
+
                 ('ps:person', {}, (
                     ('dob', ('time', {}), {
                         'doc': 'The Date of Birth (DOB) if known.',
@@ -58,18 +92,6 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('name:given', ('ps:tokn', {}), {
                         'doc': 'The given name of the person'
-                    }),
-                    ('name:en', ('ps:name', {}), {
-                        'doc': 'The English version of the name for the person.',
-                    }),
-                    ('name:en:sur', ('ps:tokn', {}), {
-                        'doc': 'The English version of the surname of the person'
-                    }),
-                    ('name:en:middle', ('ps:tokn', {}), {
-                        'doc': 'The English version of the middle name of the person'
-                    }),
-                    ('name:en:given', ('ps:tokn', {}), {
-                        'doc': 'The English version of the given name of the person'
                     }),
                 )),
                 ('ps:persona', {}, (
@@ -97,18 +119,6 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('name:given', ('ps:tokn', {}), {
                         'doc': 'The given name of the suspected person.'
-                    }),
-                    ('name:en', ('ps:name', {}), {
-                        'doc': 'The English version of the name for the person.',
-                    }),
-                    ('name:en:sur', ('ps:tokn', {}), {
-                        'doc': 'The English version of the surname of the suspected person.'
-                    }),
-                    ('name:en:middle', ('ps:tokn', {}), {
-                        'doc': 'The English version of the middle name of the suspected person.'
-                    }),
-                    ('name:en:given', ('ps:tokn', {}), {
-                        'doc': 'The English version of the given name of the suspected person.'
                     }),
                 )),
                 ('ps:person:has', {}, (

@@ -5,7 +5,23 @@ import synapse.tests.common as s_test
 
 class OuModelTest(s_test.SynTest):
 
+    def test_ou_altname(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                node = snap.addNode('ou:org', '*')
+
+                node.set('name', 'foo')
+                node.set('name', 'bar')
+
+                nodes = list(snap.getNodesBy('ou:altname:org', node.ndef[1]))
+                self.len(2, nodes)
+                self.eq(list(sorted([n.get('name') for n in nodes])), ('bar', 'foo'))
+
     def test_ou_simple(self):
+
         with self.getTestCore() as core:
             # type norming first
             # ou:name
@@ -44,7 +60,6 @@ class OuModelTest(s_test.SynTest):
                 oprops = {
                     'loc': 'US.CA',
                     'name': '\u21f1\u21f2 Inc.',
-                    'name:en': ' Arrow inc.',
                     'alias': 'arrow',
                     'phone': '+15555555555',
                     'sic': '0119',
@@ -56,7 +71,6 @@ class OuModelTest(s_test.SynTest):
                 self.eq(node.ndef[1], guid0),
                 self.eq(node.get('loc'), 'us.ca')
                 self.eq(node.get('name'), '\u21f1\u21f2 inc.')
-                self.eq(node.get('name:en'), 'arrow inc.')
                 self.eq(node.get('alias'), 'arrow')
                 self.eq(node.get('phone'), '15555555555')
                 self.eq(node.get('sic'), '0119')

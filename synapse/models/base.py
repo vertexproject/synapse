@@ -21,13 +21,21 @@ class BaseModule(s_module.CoreModule):
                 ('seen', ('comp', {'fields': (('source', 'source'), ('node', 'ndef'))}), {
                     'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
 
+                ('verb', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'An extesible digraph edge type name.'}),
+
+                ('edge', ('comp', {'fields': (('n1', 'ndef'), ('verb', 'verb'), ('n2', 'ndef'))}), {
+                    'doc': 'An extensible digraph edge like node allowing linking of any two nodes using a verb.'}),
+
             ),
 
             'forms': (
 
                 ('source', {}, (
+
                     ('name', ('str', {'lower': True}), {
                         'doc': 'A human friendly name for the source.'}),
+
                     ('type', ('str', {'lower': True}), {
                         'doc': 'An optional type field used to group sources.'}),
                 )),
@@ -40,13 +48,6 @@ class BaseModule(s_module.CoreModule):
                     ('node', ('ndef', {}), {'ro': 1,
                         'doc': 'The node which was observed by or received from the source.'}),
 
-                    #('node:form', ('str', {'lower': True}), {'ro': 1,
-                        #'doc': 'The form of the observed node.'}),
-
-                    #('time:min', {'ptype': 'time:min',
-                        #'doc': 'An optional earliest time the data in the node was observed by the source.'}),
-                    #('time:max', {'ptype': 'time:max',
-                        #'doc': 'An optional most recent time the data in the node was observed by the source.'}),
                 )),
 
                 #('record', {}, (
