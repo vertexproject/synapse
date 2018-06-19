@@ -1,44 +1,50 @@
 import synapse.lib.module as s_module
 
 class DnsModule(s_module.CoreModule):
+
     def getModelDefs(self):
+
         modl = {
+
             'types': (
+
                 ('inet:dns:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ipv4', 'inet:ipv4'))}), {
-                    'doc': 'The result of a DNS A record lookup.',
                     'ex': '(vertex.link,1.2.3.4)',
-                }),
+                    'doc': 'The result of a DNS A record lookup.'}),
+
                 ('inet:dns:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ipv6', 'inet:ipv6'))}), {
-                    'doc': 'The result of a DNS AAAA record lookup.',
                     'ex': '(vertex.link,2607:f8b0:4004:809::200e)',
-                }),
+                    'doc': 'The result of a DNS AAAA record lookup.'}),
+
                 ('inet:dns:rev', ('comp', {'fields': (('ipv4', 'inet:ipv4'), ('fqdn', 'inet:fqdn'))}), {
-                    'doc': 'The transformed result of a DNS PTR record lookup.',
                     'ex': '(1.2.3.4,vertex.link)',
-                }),
+                    'doc': 'The transformed result of a DNS PTR record lookup.'}),
+
                 ('inet:dns:rev6', ('comp', {'fields': (('ipv6', 'inet:ipv6'), ('fqdn', 'inet:fqdn'))}), {
-                    'doc': 'The transformed result of a DNS PTR record for an IPv6 address.',
                     'ex': '(2607:f8b0:4004:809::200e,vertex.link)',
-                }),
+                    'doc': 'The transformed result of a DNS PTR record for an IPv6 address.'}),
+
                 ('inet:dns:ns', ('comp', {'fields': (('zone', 'inet:fqdn'), ('ns', 'inet:fqdn'))}), {
-                    'doc': 'The result of a DNS NS record lookup.',
-                    'ex': '(vertex.link,ns.dnshost.com)'
-                }),
+                    'ex': '(vertex.link,ns.dnshost.com)',
+                    'doc': 'The result of a DNS NS record lookup.'}),
+
                 ('inet:dns:cname', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('cname', 'inet:fqdn'))}), {
-                    'doc': 'The result of a DNS CNAME record lookup.',
                     'ex': '(foo.vertex.link,vertex.link)',
-                }),
+                    'doc': 'The result of a DNS CNAME record lookup.'}),
+
                 ('inet:dns:mx', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('mx', 'inet:fqdn'))}), {
-                    'doc': 'The result of a DNS MX record lookup.',
                     'ex': '(vertex.link,mail.vertex.link)',
-                }),
+                    'doc': 'The result of a DNS MX record lookup.'}),
+
                 ('inet:dns:soa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ns', 'inet:fqdn'), ('email', 'inet:email'))}), {
-                    'doc': 'The result of a DNS SOA record lookup.'
-                }),
+                    'doc': 'The result of a DNS SOA record lookup.'}),
+
                 ('inet:dns:txt', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('txt', 'str'))}), {
-                    'doc': 'The result of a DNS MX record lookup.',
                     'ex': '(hehe.vertex.link,"fancy TXT record")',
-                }),
+                    'doc': 'The result of a DNS MX record lookup.'}),
+
+                ('inet:dns:type', ('int', {}), {
+                    'doc': 'A DNS query/answer type integer.'}),
 
                 ('inet:dns:name', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'A DNS query name string.  Likely an FQDN but not always.'}),
@@ -49,10 +55,10 @@ class DnsModule(s_module.CoreModule):
                         'doc': 'A DNS query unique to a given client.'}),
 
                 ('inet:dns:request', ('guid', {}), {
-                    'doc': 'A single instance of a DNS resolver request.'}),
+                    'doc': 'A single instance of a DNS resolver request and optional reply info.'}),
 
-                ('inet:dns:reply', ('guid', {}), {
-                    'doc': 'A reply to an inet:dns:request.'}),
+                ('inet:dns:answer', ('guid', {}), {
+                    'doc': 'A single answer from within a DNS reply.'}),
             ),
 
             'forms': (
@@ -124,11 +130,12 @@ class DnsModule(s_module.CoreModule):
                 ('inet:dns:request', {}, (
 
                     ('time', ('time', {}), {}),
+
                     ('query', ('inet:dns:query', {}), {}),
 
                     ('server', ('inet:server', {}), {}),
 
-                    ('rcode', ('int', {}), {
+                    ('reply:code', ('int', {}), {
                         'doc': 'The DNS server response code.'}),
 
                     ('exe', ('file:bytes', {}), {
@@ -142,36 +149,36 @@ class DnsModule(s_module.CoreModule):
 
                 )),
 
-                ('inet:dns:reply', {}, (
+                ('inet:dns:answer', {}, (
 
                     ('ttl', ('int', {}), {}),
                     ('request', ('inet:dns:request', {}), {}),
 
-                    ('a', ('inet:dns:a', {}), { 'ro': True,
+                    ('a', ('inet:dns:a', {}), {'ro': True,
                         'doc': 'The DNS A record returned by the lookup.',
                     }),
-                    ('ns', ('inet:dns:ns', {}), { 'ro': True,
+                    ('ns', ('inet:dns:ns', {}), {'ro': True,
                         'doc': 'The DNS NS record returned by the lookup.',
                     }),
-                    ('rev', ('inet:dns:rev', {}), { 'ro': True,
+                    ('rev', ('inet:dns:rev', {}), {'ro': True,
                         'doc': 'The DNS PTR record returned by the lookup.',
                     }),
-                    ('aaaa', ('inet:dns:aaaa', {}), { 'ro': True,
+                    ('aaaa', ('inet:dns:aaaa', {}), {'ro': True,
                         'doc': 'The DNS AAAA record returned by the lookup.',
                     }),
-                    ('rev6', ('inet:dns:rev6', {}), { 'ro': True,
+                    ('rev6', ('inet:dns:rev6', {}), {'ro': True,
                         'doc': 'The DNS PTR record returned by the lookup of a IPv6 address.',
                     }),
-                    ('cname', ('inet:dns:cname', {}), { 'ro': True,
+                    ('cname', ('inet:dns:cname', {}), {'ro': True,
                         'doc': 'The DNS CNAME record returned by the lookup',
                     }),
-                    ('mx', ('inet:dns:mx', {}), { 'ro': True,
+                    ('mx', ('inet:dns:mx', {}), {'ro': True,
                         'doc': 'The DNS MX record returned by the lookup.',
                     }),
-                    ('soa', ('inet:dns:soa', {}), { 'ro': True,
+                    ('soa', ('inet:dns:soa', {}), {'ro': True,
                         'doc': 'The domain queried for its SOA record.',
                     }),
-                    ('txt', ('inet:dns:txt', {}), { 'ro': True,
+                    ('txt', ('inet:dns:txt', {}), {'ro': True,
                         'doc': 'The DNS TXT record returned by the lookup.',
                     }),
                 )),

@@ -145,7 +145,7 @@ class Node:
         auto = self.snap.model.form(prop.type.name)
         if auto is not None:
             buid = s_common.buid((auto.name, norm))
-            self.snap._addNodeFnib((auto, norm, info, buid))
+            self.snap._addNodeFnib((auto, norm, info, buid), syst=True)
 
         # does the type think we have special auto nodes to add?
         # ( used only for adds which do not meet the above block )
@@ -153,7 +153,7 @@ class Node:
             auto = self.snap.model.form(autoname)
             autonorm, autoinfo = auto.type.norm(autovalu)
             buid = s_common.buid((auto.name, autonorm))
-            self.snap._addNodeFnib((auto, autovalu, autoinfo, buid))
+            self.snap._addNodeFnib((auto, autovalu, autoinfo, buid), syst=True)
 
         # do we need to set any sub props?
         subs = info.get('subs')

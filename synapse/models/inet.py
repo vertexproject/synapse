@@ -312,7 +312,7 @@ class IPv6(s_types.Type):
             v6 = ipaddress.IPv6Address(valu)
             v4 = v6.ipv4_mapped
 
-            subs = {'type', getAddrType(v6)}
+            subs = {'type': getAddrType(v6)}
 
             if v4 is not None:
                 v4_int = self.modl.type('inet:ipv4').norm(v4.compressed)[0]
@@ -1235,12 +1235,12 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The ASN to which the IPv4 address is currently assigned.'}),
 
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The best known latitude/longitude for the node' }),
+                            'doc': 'The best known latitude/longitude for the node'}),
 
                         ('loc', ('loc', {}), {'defval': '??',
-                            'doc': 'The geo-political location string for the IPv4.' }),
+                            'doc': 'The geo-political location string for the IPv4.'}),
 
-                        ('type', ('str', {}), { 'defval': '??',
+                        ('type', ('str', {}), {'defval': '??',
                             'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
                     )),
 
