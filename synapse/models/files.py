@@ -59,7 +59,7 @@ class FilePath(s_types.Type):
 
         valu = valu.strip().lower().replace('\\', '/').strip('/')
         if not valu:
-            return ''
+            return '', {}
 
         path = []
         vals = [v for v in valu.split('/') if v]
