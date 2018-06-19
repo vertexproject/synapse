@@ -4,10 +4,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.chop as s_chop
 
-from typing import Any, Iterable, Tuple
-
 logger = logging.getLogger(__name__)
-
 
 class Node:
     '''
@@ -15,7 +12,7 @@ class Node:
 
     NOTE: This object is for local Cortex use during a single Xact.
     '''
-    def __init__(self, snap, buid=None, rawprops: Iterable[Tuple[str, Any]] = None) -> None:
+    def __init__(self, snap, buid=None, rawprops=None):
 
         self.snap = snap
 

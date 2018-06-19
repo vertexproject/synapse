@@ -16,9 +16,6 @@ logger = logging.getLogger(__name__)
 hexre = regex.compile('^[0-9a-z]+$')
 propre = regex.compile('^[0-9a-z:_]+$')
 
-OpsT = Tuple[str, Tuple[str, ...]]
-PropOrFormT = Union['Prop', 'Form']
-
 class Prop:
     '''
     The Prop class represents a property defined within the data model.
@@ -277,7 +274,7 @@ class Form:
             ('indx', ('byprop', self.pref, iops)),
         )
 
-    def prop(self, name: str) -> Union[Prop, 'Form']:
+    def prop(self, name: str):
         '''
         Return a secondary property for this form by relative prop name.
 

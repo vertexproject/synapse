@@ -25,7 +25,6 @@ import tempfile
 import unittest
 import threading
 import contextlib
-from typing import Dict, Any
 
 import synapse.exc as s_exc
 import synapse.axon as s_axon
@@ -617,7 +616,7 @@ class SynTest(unittest.TestCase):
                 env.fini()
 
     @contextlib.contextmanager
-    def getTestCore(self, mirror='testcore', conf: Dict[str, Any] = None):
+    def getTestCore(self, mirror='testcore', conf=None):
         '''
         Return a simple test Cortex.
 

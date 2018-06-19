@@ -512,7 +512,7 @@ class Snap(s_eventbus.EventBus):
         genr = self.getLiftRows(lops)
         return self.getRowNodes(genr, rawprop)
 
-    def getLiftRows(self, lops: s_datamodel.OpsT):
+    def getLiftRows(self, lops):
         '''
         Yield row tuples from a series of lift operations.
 
