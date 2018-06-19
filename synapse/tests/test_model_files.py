@@ -36,9 +36,9 @@ class FileTest(s_test.SynTest):
             self.eq(norm, 'c:/windows/system32/calc.exe')
             self.eq(info['subs']['dir'], 'c:/windows/system32')
             self.eq(info['subs']['base'], 'calc.exe')
-            # XXX This behavior changed!?
-            # norm, info = path.norm(r'/foo////bar/.././baz.json')
-            # self.eq(norm, '/foo/baz.json')
+
+            norm, info = path.norm(r'/foo////bar/.././baz.json')
+            self.eq(norm, '/foo/baz.json')
 
             norm, info = path.norm('c:')
             self.eq(norm, 'c:')

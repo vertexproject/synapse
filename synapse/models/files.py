@@ -62,9 +62,8 @@ class FilePath(s_types.Type):
             return ''
 
         path = []
-
-        for part in valu.split('/'):
-
+        vals = [v for v in valu.split('/') if v]
+        for part in vals:
             if part == '.':
                 continue
 
