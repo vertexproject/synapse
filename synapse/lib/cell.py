@@ -317,7 +317,7 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
 
         dirn = s_common.gendir(self.dirn, 'auth')
 
-        self.auth = s_auth.Auth(dirn)
+        self.auth = s_auth.Auth(dirn)  # FIXME this is not imported, but would cause circular import
 
         # let them hard code an initial admin user:passwd
         admin = self.boot.get('auth:admin')
