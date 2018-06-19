@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.tests.common as s_test
 
@@ -9,11 +10,17 @@ class FileTest(s_test.SynTest):
         # test that sha256: form kicks out a sha256 sub.
         with self.getTestCore() as core:
             valu = 'sha256:' + ('a' * 64)
-            norm, info = core.model.type('file:bytes').norm(valu)
+            fbyts = core.model.type('file:bytes')
+            norm, info = fbyts.norm(valu)
             self.eq(info['subs']['sha256'], 'a' * 64)
 
-            norm, info = core.model.type('file:bytes').norm('b' * 64)
+            norm, info = fbyts.norm('b' * 64)
             self.eq(info['subs']['sha256'], 'b' * 64)
+
+            self.raises(s_exc.BadTypeValu, fbyts.norm, s_common.guid())
+            self.raises(s_exc.BadTypeValu, fbyts.norm, 'guid:0101')
+            self.raises(s_exc.BadTypeValu, fbyts.norm, 'helo:moto')
+            self.raises(s_exc.BadTypeValu, fbyts.norm, f'sha256:{s_common.guid()}')
 
     def test_model_file_types(self):
 
