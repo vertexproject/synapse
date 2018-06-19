@@ -42,7 +42,7 @@ class FilePath(s_types.Type):
         self.indxcmpr['^='] = self.indxByPref
 
     def indxByPref(self, valu):
-        valu = value.strip().lower().replace('\\', '/')
+        valu = valu.strip().lower().replace('\\', '/')
         indx = valu.encode('utf8')
         return (
             ('pref', indx),
