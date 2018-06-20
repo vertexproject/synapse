@@ -1,6 +1,5 @@
 import synapse.exc as s_exc
 import synapse.lib.ast as s_ast
-import synapse.common as s_common
 import synapse.lib.time as s_time
 
 '''
@@ -532,6 +531,7 @@ def parse_oper(text, off=0):
             off += 1
 
 def parse_perm(text, off=0):
+    # FIXME dead?
     '''
     Parse a permission string
         <name> [<opt>=<match>...]
@@ -1029,6 +1029,7 @@ class Parser:
         return s_ast.LiftTag(kids=(tag,))
 
     def callargs(self):
+        # FIXME dead?
 
         self.ignore(whitespace)
 
