@@ -237,9 +237,12 @@ class Cortex(s_cell.Cell):
         self.stormcmds = {}
 
         self.addStormCmd(s_storm.HelpCmd)
+        self.addStormCmd(s_storm.SpinCmd)
         self.addStormCmd(s_storm.SudoCmd)
         self.addStormCmd(s_storm.LimitCmd)
         self.addStormCmd(s_storm.DelNodeCmd)
+        self.addStormCmd(s_storm.MoveTagCmd)
+        self.addStormCmd(s_storm.ReIndexCmd)
 
         self.splicers = {
             'node:add': self._onFeedNodeAdd,
@@ -564,6 +567,9 @@ class Cortex(s_cell.Cell):
     def openLayerName(self, name):
         dirn = s_common.gendir(self.dirn, 'layers', name)
         return s_layer.opendir(dirn)
+
+    def getCoreMod(self, name):
+        return self.modules.get(name)
 
     def getCoreMods(self):
         ret = []

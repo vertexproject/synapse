@@ -23,18 +23,21 @@ class SnapTest(s_t_common.SynTest):
         valu = 'cool'
 
         with self.getTestCore() as core:
+
             with core.snap() as snap:
+
                 with self.getTestDir() as dirn:
+
                     with s_auth.Auth(dirn) as auth:
+
                         user = auth.addUser('hatguy')
                         snap.setUser(user)
 
                         self.true(snap.strict)  # Following assertions based on snap.strict being true
                         self.raises(s_exc.AuthDeny, snap.addNode, form, valu)
 
-                        # User can still create the node even if not allowed if snap is not in strict mode
                         snap.strict = False
-                        self.nn(snap.addNode(form, valu))
+                        self.none(snap.addNode(form, valu))
 
     def test_addNodes(self):
         with self.getTestCore() as core:

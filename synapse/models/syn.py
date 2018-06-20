@@ -19,6 +19,9 @@ class SynModule(s_module.CoreModule):
                     ('up', ('syn:tag', {}), {'ro': 1,
                         'doc': 'The parent tag for the tag.'}),
 
+                    ('isnow', ('syn:tag', {}), {
+                        'doc': 'Set to an updated tag if the tag has been renamed.'}),
+
                     ('doc', ('str', {}), {'defval': '',
                         'doc': 'A short definition for the tag.'}),
 
