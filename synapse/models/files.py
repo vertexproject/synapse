@@ -189,8 +189,7 @@ class FileModule(s_module.CoreModule):
                 ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
                     'doc': 'A parent file that fully contains the specified child file.',
                 }),
-                # XXX I'm not beholden to this name at all
-                ('file:pseen', ('comp', {'fields': (('file', 'file:bytes'), ('path', 'file:path'))}), {
+                ('file:filepath', ('comp', {'fields': (('file', 'file:bytes'), ('path', 'file:path'))}), {
                     'doc': 'The fused knowledge of the association of a file:bytes node and a file:path.',
                 }),
 
@@ -257,26 +256,26 @@ class FileModule(s_module.CoreModule):
                         'doc': 'A convention based name for the type of reference.'}),
                 )),
 
-                ('file:pseen', {}, (
+                ('file:filepath', {}, (
                     ('file', ('file:bytes', {}), {
                         'ro': True,
-                        'doc': '',
+                        'doc': 'The file seen at a path.',
                     }),
                     ('path', ('file:path', {}), {
                         'ro': True,
-                        'doc': '',
+                        'doc': 'The path a file was seen at.',
                     }),
                     ('path:dir', ('file:path', {}), {
                         'ro': True,
-                        'doc': '',
+                        'doc': 'The parent directory.',
                     }),
                     ('path:base', ('file:base', {}), {
                         'ro': True,
-                        'doc': '',
+                        'doc': 'The name of the file.',
                     }),
                     ('path:base:ext', ('str', {}), {
                         'ro': True,
-                        'doc': '',
+                        'doc': 'The extension of the file name.',
                     }),
                 )),
 
