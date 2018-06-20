@@ -194,7 +194,7 @@ class Snap(s_eventbus.EventBus):
             ('indx', ('byuniv', pref, iops)),
         )
 
-        for row, node in self.getLiftNodes(lops, None if valu is None else '#' + name):
+        for row, node in self.getLiftNodes(lops, '#' + name):
             yield node
 
     def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
@@ -220,7 +220,7 @@ class Snap(s_eventbus.EventBus):
             ('indx', ('byprop', fenc + tenc, iops)),
         )
 
-        for row, node in self.getLiftNodes(lops, None if valu is None else '#' + tag):
+        for row, node in self.getLiftNodes(lops, '#' + tag):
             yield node
 
     def getNodesBy(self, full, valu=None, cmpr='='):
@@ -268,18 +268,17 @@ class Snap(s_eventbus.EventBus):
         if _type is None:
             raise s_exc.NoSuchType(name=name)
 
-        lops = []
-
         if addform:
             form = self.model.forms.get(name)
             if form is not None:
-                lops.extend(form.getLiftOps(valu))
+                lops = form.getLiftOps(valu)
+                for row, node in self.getLiftNodes(lops, '*' + form.name):
+                    yield node
 
         for prop in self.model.getPropsByType(name):
-            lops.extend(prop.getLiftOps(valu))
-
-        for row, node in self.getLiftNodes(lops):
-            yield node
+            lops = prop.getLiftOps(valu)
+            for row, node in self.getLiftNodes(lops, prop):
+                yield node
 
     def addNode(self, name, valu, props=None, syst=False):
         '''
@@ -493,9 +492,6 @@ class Snap(s_eventbus.EventBus):
     def stor(self, sops):
 
         self.writeable()
-        # FIXME:  is there a type for sops?
-        buid = sops[0][1][0]
-        self.buidcache.pop(buid)
 
         if self.bulk:
             self.bulksops.extend(sops)
@@ -508,7 +504,7 @@ class Snap(s_eventbus.EventBus):
 
         yield None
 
-    def getLiftNodes(self, lops, rawprop=None):
+    def getLiftNodes(self, lops, rawprop):
         genr = self.getLiftRows(lops)
         return self.getRowNodes(genr, rawprop)
 
@@ -529,7 +525,7 @@ class Snap(s_eventbus.EventBus):
             with xact.incref():
                 yield from ((layer_idx, x) for x in xact.getLiftRows(lops))
 
-    def getRowNodes(self, rows, rawprop=None):
+    def getRowNodes(self, rows, rawprop):
         '''
         Join a row generator into (row, Node()) tuples.
 
@@ -547,30 +543,28 @@ class Snap(s_eventbus.EventBus):
         for origlayer, row in rows:
             props = {}
             buid = row[0]
-            if rawprop is None:
-                node = self.getNodeByBuid(buid)
-            else:
-                self.tick()
-                # Evaluate layers top-down to more quickly abort if we've found a higher layer with the property set
-                for layeridx in range(len(self.xacts) - 1, -1, -1):
-                    x = self.xacts[layeridx]
-                    layerprops = x.getBuidProps(buid)
-                    # We mark this node to drop iff we see the prop set in this layer *and* we're looking at the props
-                    # from a higher (i.e. closer to write, higher idx) layer.
-                    if rawprop is not None and layeridx > origlayer and rawprop in layerprops:
-                        props = {}
-                        break
-                    # TODO:  here is where to merge intervals (instead of last-one wins)
-                    for k, v in layerprops.items():
-                        if k not in props:
-                            props[k] = v
-                node = s_node.Node(self, buid, props.items()) if props else None
-            if node is not None and node.ndef is not None:
+            self.tick()
+            # Evaluate layers top-down to more quickly abort if we've found a higher layer with the property set
+            for layeridx in range(len(self.xacts) - 1, -1, -1):
+                x = self.xacts[layeridx]
+                layerprops = x.getBuidProps(buid)
+                # We mark this node to drop iff we see the prop set in this layer *and* we're looking at the props
+                # from a higher (i.e. closer to write, higher idx) layer.
+                if layeridx > origlayer and rawprop in layerprops:
+                    props = {}
+                    break
+                for k, v in layerprops.items():
+                    if k not in props:
+                        props[k] = v
+            if not props:
+                continue
+            node = s_node.Node(self, buid, props.items())
+            if node.ndef is not None:
                 yield row, node
 
     def _getNodeByBuid(self, buid):
         props = {}
-        # this is essentially atomic and doesn't need xact.incref FIXME: still?
+        # this is essentially atomic and doesn't need xact.incref
         for layeridx, x in enumerate(self.xacts):
             layerprops = x.getBuidProps(buid)
             props.update(layerprops)

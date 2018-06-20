@@ -6,7 +6,6 @@ import synapse.tests.common as s_t_common
 class SnapTest(s_t_common.SynTest):
 
     def test_stor(self):
-        self.skip('FIXME: stor buid issue')
         with self.getTestCore() as core:
 
             # Bulk

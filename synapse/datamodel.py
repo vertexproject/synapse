@@ -4,7 +4,6 @@ An API to assist with the creation and enforcement of cortex data models.
 import regex
 import logging
 import collections
-from typing import Union, Tuple
 
 import synapse.exc as s_exc
 import synapse.dyndeps as s_dyndeps

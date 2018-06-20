@@ -23,7 +23,6 @@ import synapse.lib.threads as s_threads
 logger = logging.getLogger(__name__)
 openlayers = {}
 
-
 class Encoder(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8') + b'\x00'
@@ -132,7 +131,7 @@ class Xact(s_eventbus.EventBus):
     def getBuidProps(self, buid):
         return self.buidcache.get(buid)
 
-    def _getBuidProps(self, buid: bytes):
+    def _getBuidProps(self, buid):
 
         props = {}
 
@@ -154,8 +153,6 @@ class Xact(s_eventbus.EventBus):
 
         _, (buid, form, prop, valu, indx, info) = oper
 
-        self.buidcache.pop(buid)
-
         if len(indx) > 256: # max index size...
             mesg = 'index bytes are too large'
             raise s_exc.BadIndxValu(mesg=mesg, prop=prop, valu=valu)
@@ -166,10 +163,14 @@ class Xact(s_eventbus.EventBus):
         univ = info.get('univ')
 
         # special case for setting primary property
-        if prop:
-            bpkey = buid + self.layr.utf8[prop]
-        else:
-            bpkey = buid + b'*' + self.layr.utf8[form]
+        if not prop:
+            prop = '*' + form
+
+        bpkey = buid + self.layr.utf8[prop]
+
+        cacheval = self.buidcache.cache.get(buid)
+        if cacheval is not None:
+            cacheval[prop] = valu
 
         bpval = s_msgpack.en((valu, indx))
 
