@@ -82,6 +82,7 @@ class StormTest(s_test_common.SynTest):
 
             mesgs = list(core.storm('teststr=newp | count'))
             prints = [mesg for mesg in mesgs if mesg[0] == 'print']
-            self.len(0, prints)
+            self.len(1, prints)
+            self.eq(prints[0][1].get('mesg'), 'Counted 0 nodes.')
             nodes = [mesg for mesg in mesgs if mesg[0] == 'node']
             self.len(0, nodes)

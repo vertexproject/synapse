@@ -288,9 +288,8 @@ class CountCmd(Cmd):
 
     def runStormCmd(self, snap, genr):
 
-        i = None
+        i = 0
         for i, node in enumerate(genr, 1):
             yield node
 
-        if i:
-            snap.printf(f'Counted {i} nodes.')
+        snap.printf(f'Counted {i} nodes.')
