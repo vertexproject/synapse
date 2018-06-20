@@ -14,7 +14,6 @@ compatible with the unittest, nose and pytest frameworks.  This does not lock
 users into a particular test framework; while at the same time allowing base
 use to be invoked via the built-in Unittest library.
 '''
-
 import io
 import os
 import sys
