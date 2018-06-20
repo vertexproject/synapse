@@ -30,53 +30,37 @@ def u64(x):
 
 class AxonTest(s_test.SynTest):
 
-    def test_axon_blob(self):
+    def test_blobstor(self):
 
         with self.getTestDir() as dirn:
 
             path0 = os.path.join(dirn, 'blob0')
             with s_axon.BlobStor(path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst0:
 
-                tbuid = b'\x56' * 32
+                data1 = b'asdfqwerhehehaha'
+
+                hash1 = hashlib.sha256(data1).digest()
                 blobs = (
-                    (tbuid + u64(0), b'asdf'),
-                    (tbuid + u64(1), b'qwer'),
-                    (tbuid + u64(2), b'hehe'),
-                    (tbuid + u64(3), b'haha'),
+                    (hash1, (0, data1[0:4])),
+                    (hash1, (1, data1[4:8])),
+                    (hash1, (2, data1[8:12])),
+                    (hash1, (3, data1[12:16])),
                 )
 
                 bst0.save(blobs)
 
-                retn = b''.join(bst0.load(tbuid))
-                self.eq(retn, b'asdfqwerhehehaha')
-
-                # Order doesn't matter since we're indexed chunks
-                buid2 = b'\x01' * 32
-                blobs = (
-                    (buid2 + u64(3), b'sale'),
-                    (buid2 + u64(1), b'b33f'),
-                    (buid2 + u64(0), b'dead'),
-                    (buid2 + u64(2), b'f0re'),
-                )
-
-                # We do not have bytes for buid2 yet
-                bl = []
-                for byts in bst0.load(buid2):
-                    bl.append(byts)
-                self.eq(bl, [])
-
-                bst0.save(blobs)
-                retn = b''.join(bst0.load(buid2))
-                self.eq(retn, b'deadb33ff0resale')
+                retn = b''.join(bst0.load(hash1))
+                self.eq(retn, data1)
 
                 # We can store and retrieve an empty string
-                buid3 = b'\x02' * 32
+                data = b''
+                hash2 = hashlib.sha256(data).digest()
                 blobs = (
-                    (buid3 + u64(0), b''),
+                    (hash2, (0, data)),
                 )
                 bst0.save(blobs)
                 bl = []
-                for byts in bst0.load(buid3):
+                for byts in bst0.load(hash2):
                     bl.append(byts)
                 self.eq(bl, [b''])
                 retn = b''.join(bl)
@@ -86,18 +70,16 @@ class AxonTest(s_test.SynTest):
 
                 with s_axon.BlobStor(path1, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst1:
 
-                    bst1.addCloneRows(bst0.clone(0))
+                    bst1._consume_clone_data(bst0.clone(0))
 
-                    retn = b''.join(bst1.load(tbuid))
-                    self.eq(retn, b'asdfqwerhehehaha')
-                    retn = b''.join(bst1.load(buid2))
-                    self.eq(retn, b'deadb33ff0resale')
-                    retn = b''.join(bst0.load(buid3))
+                    retn = b''.join(bst1.load(hash1))
+                    self.eq(retn, data1)
+                    retn = b''.join(bst1.load(hash2))
                     self.eq(retn, b'')
 
-                    bst1.addCloneRows([])  # Empty addCloneRows call for coverage
+                    bst1._consume_clone_data([])
 
-    def test_axon_blob_stat(self):
+    def test_blobstor_stat(self):
 
         with self.getTestDir() as dirn:
 
@@ -123,7 +105,7 @@ class AxonTest(s_test.SynTest):
                 stats = bst0.stat()
                 self.eq(stats, {'bytes': 1012, 'blocks': 4})
 
-    def test_axon_blob_metrics(self):
+    def test_blobstor_metrics(self):
 
         with self.getTestDir() as dirn:
 
@@ -165,80 +147,27 @@ class AxonTest(s_test.SynTest):
                 for took in tooks:
                     self.lt(took, 10000)
 
-    def test_axon_cell(self):
-        # implement as many tests as possible in this one
-        # since it *has* to use a neuron to work correctly
+    def test_axon(self):
 
-        # put all the things that need fini() into a BusRef...
         with contextlib.ExitStack() as ctxs:
+
             dmon = ctxs.enter_context(self.getTestDmon(mirror='axondmon00'))
             axon = ctxs.enter_context(dmon._getTestProxy('axon00'))
             blobstor0 = ctxs.enter_context(dmon._getTestProxy('blobstor00'))
 
-            retn = blobstor0.stats()
-            self.eq(retn, {})  # Nothing there yet
+            retn = blobstor0.stat()
+            self.eq({}, blobstor0.stat())  # Nothing there yet
 
-            # FIXME: tmp
-            return
-
-            # blob01 ############################################
-            path = s_common.gendir(dirn, 'blob01')
-            authblob01 = neur.genCellAuth('blob01')
-            s_msgpack.dumpfile(authblob01, os.path.join(path, 'cell.auth'))
-
-            blob01conf = dict(conf)
-            blob01conf['blob:cloneof'] = 'blob00@localhost'
-            logger.debug('Bringing blob01 online')
-            blob01 = s_axon.BlobCell(path, blob01conf)
-            bref.put('blob01', blob01)
-            self.true(blob01.cellpool.neurwait(timeout=3))
-            blob01sess = user.open(blob01.getCellAddr(), timeout=3)
-            bref.put('blob01sess', blob01sess)
-            blob01wait = blob01.waiter(1, 'blob:clone:rows')
-
-            # axon00 ############################################
-            path = s_common.gendir(dirn, 'axon00')
-            authaxon00 = neur.genCellAuth('axon00')
-            s_msgpack.dumpfile(authaxon00, os.path.join(path, 'cell.auth'))
-            axonconf = {
-                'host': 'localhost',
-                'bind': '127.0.0.1',
-                'axon:blobs': ('blob00@localhost',),
-                'axon:mapsize': s_test.TEST_MAP_SIZE,
-            }
-            logger.debug('Bringing axon00 online')
-            axon00 = s_axon.AxonCell(path, axonconf)
-            bref.put('axon00', axon00)
-            self.true(axon00.cellpool.neurwait(timeout=3))
-            #####################################################
-
-            sess = user.open(axon00.getCellAddr(), timeout=3)
-            bref.put('sess', sess)
-
-            # wait for the axon to have blob00
-            ready = False
-
-            for i in range(30):
-
-                if axon00.blobs.items():
-                    ready = True
-                    break
-
-                time.sleep(0.1)
-
-            self.true(ready)
-
-            axon = s_axon.AxonClient(sess)
-            blob = s_axon.BlobClient(blob00sess)
-            blob01c = s_axon.BlobClient(blob01sess)
-
-            self.eq((), tuple(axon.metrics()))
-            self.eq((), tuple(blob.metrics()))
+            self.eq((), list(axon.metrics()))
+            self.eq((), list(blobstor0.metrics()))
 
             self.len(1, axon.wants([asdfhash]))
 
             # Asking for bytes prior to the bytes being present raises
-            self.genraises(RetnErr, axon.bytes, asdfhash, timeout=3)
+            self.genraises(s_exc.NoSuchFile, axon.bytes, asdfhash)
+
+            # FIXME: tmp
+            return
 
             self.eq(1, axon.save([b'asdfasdf'], timeout=3))
 
