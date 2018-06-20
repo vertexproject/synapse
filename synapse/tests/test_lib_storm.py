@@ -68,3 +68,20 @@ class StormTest(s_test_common.SynTest):
             with core.snap() as snap:
                 node = snap.getNodeByNdef(('inet:ipv4', 0x7f000001))
                 self.eq('loopback', node.get('type'))
+
+    def test_storm_count(self):
+
+        with self.getTestCore() as core:
+            self.len(2, list(core.eval('[ teststr=foo teststr=bar ]')))
+            mesgs = list(core.storm('teststr=foo teststr=bar | count |  [+#test.tag]'))
+            nodes = [mesg for mesg in mesgs if mesg[0] == 'node']
+            self.len(2, nodes)
+            prints = [mesg for mesg in mesgs if mesg[0] == 'print']
+            self.len(1, prints)
+            self.eq(prints[0][1].get('mesg'), 'Counted 2 nodes.')
+
+            mesgs = list(core.storm('teststr=newp | count'))
+            prints = [mesg for mesg in mesgs if mesg[0] == 'print']
+            self.len(0, prints)
+            nodes = [mesg for mesg in mesgs if mesg[0] == 'node']
+            self.len(0, nodes)
