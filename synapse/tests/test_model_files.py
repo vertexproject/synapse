@@ -76,7 +76,7 @@ class FileTest(s_test.SynTest):
                 nodes = list(snap.getNodesBy('file:base', 'baz', cmpr='^='))
                 self.len(1, nodes)
                 self.eq(node.get('base'), nodes[0].ndef[1])
-     
+
                 node = snap.addNode('file:path', '/')
                 self.none(node.get('base'))
                 self.none(node.get('base:ext'))
@@ -88,7 +88,7 @@ class FileTest(s_test.SynTest):
                 self.none(node.get('base:ext'))
                 self.none(node.get('dir'))
                 self.eq(node.ndef[1], '')
-                
+
                 node0 = snap.addNode('file:bytes', 'hex:56565656')
                 node1 = snap.addNode('file:bytes', 'base64:VlZWVg==')
                 node2 = snap.addNode('file:bytes', b'VVVV')
@@ -109,3 +109,11 @@ class FileTest(s_test.SynTest):
                 self.eq(node.get('parent'), node1.ndef[1])
                 self.eq(node.get('child'), node2.ndef[1])
                 self.eq(node.get('name'), 'embed.bin')
+
+                fp = 'C:\\www\\woah\\really\\sup.exe'
+                node = snap.addNode('file:filepath', (node0.ndef[1], fp))
+                self.eq(node.get('file'), node0.ndef[1])
+                self.eq(node.get('path'), 'c:/www/woah/really/sup.exe')
+                self.eq(node.get('path:dir'), 'c:/www/woah/really')
+                self.eq(node.get('path:base'), 'sup.exe')
+                self.eq(node.get('path:base:ext'), 'exe')
