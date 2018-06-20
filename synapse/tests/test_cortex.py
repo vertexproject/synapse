@@ -573,9 +573,16 @@ class CortexTest(s_test.SynTest):
 
     def test_getcoremods(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+
             pconf = {'user': 'root', 'passwd': 'root'}
-            with dmon._getTestProxy('core', **pconf) as core:
-                mods = core.getCoreMods()
+
+            core = dmon.shared.get('core')
+            self.nn(core.getCoreMod('synapse.tests.utils.TestModule'))
+
+            with dmon._getTestProxy('core', **pconf) as prox:
+
+                mods = prox.getCoreMods()
+
                 mods = {k: v for k, v in mods}
                 conf = mods.get('synapse.tests.utils.TestModule')
                 self.nn(conf)
