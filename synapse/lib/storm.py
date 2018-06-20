@@ -274,3 +274,22 @@ class SpinCmd(Cmd):
         for node in genr:
             pass
 
+class CountCmd(Cmd):
+    '''
+    Iterate through query results, and print the resulting number of nodes
+    which were lifted. This does yield the nodes counted.
+
+    Example:
+
+        foo:bar:size=20 | count
+
+    '''
+    name = 'count'
+
+    def runStormCmd(self, snap, genr):
+
+        i = 0
+        for i, node in enumerate(genr, 1):
+            yield node
+
+        snap.printf(f'Counted {i} nodes.')
