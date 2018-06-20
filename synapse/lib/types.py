@@ -90,14 +90,18 @@ class Type:
         text = str(valu)
 
         def cmpr(valu):
-            return self.repr(valu).startswith(text)
+            vtxt = self.repr(valu, defval=valu)
+            return vtxt.startswith(text)
+
         return cmpr
 
     def _ctorCmprRe(self, text):
         regx = regex.compile(text)
 
         def cmpr(valu):
-            return regx.match(self.repr(valu)) is not None
+            vtxt = self.repr(valu, defval=valu)
+            return regx.match(vtxt) is not None
+
         return cmpr
 
     def _ctorCmprIn(self, vals):
@@ -546,7 +550,6 @@ class Int(Type):
     def repr(self, norm, defval=None):
         return str(norm)
 
-
 class Ival(Type):
     '''
     An interval, i.e. a range, of times
@@ -574,12 +577,17 @@ class Ival(Type):
 
     def _normPyIter(self, valu):
 
-        vals = [self.timetype.norm(v)[0] for v in valu]
+        vals = [self.timetype.norm(v)[0] for v in valu if v is not None]
         if len(vals) == 1:
             vals.append(vals[0] + 1)
 
         norm = (min(vals), max(vals))
         return norm, {}
+
+    def merge(self, oldv, newv):
+        mint = min(oldv[0], newv[0])
+        maxt = max(oldv[1], newv[1])
+        return (mint, maxt)
 
     def indx(self, norm):
 
@@ -591,6 +599,10 @@ class Ival(Type):
 
         return indx
 
+    def repr(self, norm, defval=None):
+        mint = self.timetype.repr(norm[0])
+        maxt = self.timetype.repr(norm[1])
+        return (mint, maxt)
 
 class Loc(Type):
 

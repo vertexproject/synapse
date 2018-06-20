@@ -30,3 +30,9 @@ WORKDIR /root/git/synapse
 EXPOSE 47322
 
 ENTRYPOINT ["python", "-m", "synapse.tools.dmon", "/syndata/dmon_dir"]
+# Optional entry point that can be used to run commands via cron
+# See https://github.com/vertexproject/cron-docker-image/tree/master/debian
+# for notes on its usage.
+# ENTRYPOINT ["/root/git/synapse/synapse/docker/start-cron.sh"]
+# Example command:
+# docker run --rm -it --entrypoint /root/git/synapse/synapse/docker/start-cron.sh <imagename> "\* \* \* \* \* date >> /var/log/cron.log 2>&1"

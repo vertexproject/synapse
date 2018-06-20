@@ -281,7 +281,7 @@ class Snap(s_eventbus.EventBus):
         for row, node in self.getLiftNodes(lops):
             yield node
 
-    def addNode(self, name, valu, props=None):
+    def addNode(self, name, valu, props=None, syst=False):
         '''
         Add a node by form name and value with optional props.
 
@@ -295,7 +295,7 @@ class Snap(s_eventbus.EventBus):
             try:
 
                 fnib = self._getNodeFnib(name, valu)
-                return self._addNodeFnib(fnib, props=props)
+                return self._addNodeFnib(fnib, props=props, syst=syst)
 
             except Exception as e:
 
@@ -330,13 +330,12 @@ class Snap(s_eventbus.EventBus):
         '''
         Ensure that the given syn:tag node exists.
         '''
-        self.tagcache.get(name)
+        return self.tagcache.get(name)
 
     def _addTagNode(self, name):
-        self.addNode('syn:tag', name)
-        return True
+        return self.addNode('syn:tag', name, syst=True)
 
-    def _addNodeFnib(self, fnib, props=None):
+    def _addNodeFnib(self, fnib, props=None, syst=False):
 
         # add a node via (form, norm, info, buid)
 
@@ -358,8 +357,9 @@ class Snap(s_eventbus.EventBus):
             return node
 
         # time for the perms check...
-        if not self.allowed('node:add', form.name):
-            return self._onAuthDeny('Not allowed to add the node.', form=form.name)
+        if not syst and not self.allowed('node:add', form.name):
+            self._onAuthDeny('Not allowed to add the node.', form=form.name)
+            return None
 
         # lets build a node...
         node = s_node.Node(self, None)
