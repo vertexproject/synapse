@@ -6,14 +6,13 @@ import synapse.lib.chop as s_chop
 
 logger = logging.getLogger(__name__)
 
-
 class Node:
     '''
     A Cortex hypergraph node.
 
     NOTE: This object is for local Cortex use during a single Xact.
     '''
-    def __init__(self, snap, buid):
+    def __init__(self, snap, buid=None, rawprops=None):
 
         self.snap = snap
 
@@ -33,17 +32,15 @@ class Node:
 
         # self.buid may be None during
         # initial node construction...
-        if self.buid is not None:
-            self._loadNodeData()
+        if rawprops is not None:
+            self._loadNodeData(rawprops)
 
         if self.ndef is not None:
             self.form = self.snap.model.form(self.ndef[0])
 
-    def _loadNodeData(self):
+    def _loadNodeData(self, rawprops):
 
-        props = list(self.snap._getBuidProps(self.buid))
-
-        for prop, valu in props:
+        for prop, valu in rawprops:
 
             p0 = prop[0]
 

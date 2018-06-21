@@ -3,13 +3,14 @@ import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.eventbus as s_eventbus
+import synapse.datamodel as s_datamodel
+
 import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
-import synapse.eventbus as s_eventbus
 
 logger = logging.getLogger(__name__)
-
 
 class Snap(s_eventbus.EventBus):
     '''
@@ -64,6 +65,7 @@ class Snap(s_eventbus.EventBus):
 
         self.onfini(self.stack.close)
         self.changelog = []
+        self.tagtype = core.model.type('ival')
 
         def fini():
 
@@ -183,12 +185,16 @@ class Snap(s_eventbus.EventBus):
         name = s_chop.tag(name)
         pref = b'#' + name.encode('utf8') + b'\x00'
 
-        iops = (('pref', b''), )
+        if valu is None:
+            iops = (('pref', b''), )
+        else:
+            iops = self.tagtype.getIndxOps(valu, cmpr)
+
         lops = (
             ('indx', ('byuniv', pref, iops)),
         )
 
-        for row, node in self.getLiftNodes(lops):
+        for row, node in self.getLiftNodes(lops, '#' + name):
             yield node
 
     def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
@@ -205,13 +211,16 @@ class Snap(s_eventbus.EventBus):
         fenc = form.name.encode('utf8') + b'\x00'
         tenc = b'#' + tag.encode('utf8') + b'\x00'
 
-        iops = (('pref', b''), )
+        if valu is None:
+            iops = (('pref', b''), )
+        else:
+            iops = self.tagtype.getIndxOps(valu, cmpr)
 
         lops = (
             ('indx', ('byprop', fenc + tenc, iops)),
         )
 
-        for row, node in self.getLiftNodes(lops):
+        for row, node in self.getLiftNodes(lops, '#' + tag):
             yield node
 
     def getNodesBy(self, full, valu=None, cmpr='='):
@@ -236,8 +245,9 @@ class Snap(s_eventbus.EventBus):
         if full.startswith('#'):
             return self._getNodesByTag(full, valu=valu, cmpr=cmpr)
 
-        if full.find('#') != -1:
-            form, tag = full.split('#', 1)
+        fields = full.split('#', 1)
+        if len(fields) > 1:
+            form, tag = fields
             return self._getNodesByFormTag(form, tag, valu=valu, cmpr=cmpr)
 
         return self._getNodesByProp(full, valu=valu, cmpr=cmpr)
@@ -249,7 +259,7 @@ class Snap(s_eventbus.EventBus):
             raise s_exc.NoSuchProp(name=full)
 
         lops = prop.getLiftOps(valu, cmpr=cmpr)
-        for row, node in self.getLiftNodes(lops):
+        for row, node in self.getLiftNodes(lops, prop.name):
             yield node
 
     def _getNodesByType(self, name, valu=None, addform=True):
@@ -258,18 +268,17 @@ class Snap(s_eventbus.EventBus):
         if _type is None:
             raise s_exc.NoSuchType(name=name)
 
-        lops = []
-
         if addform:
             form = self.model.forms.get(name)
             if form is not None:
-                lops.extend(form.getLiftOps(valu))
+                lops = form.getLiftOps(valu)
+                for row, node in self.getLiftNodes(lops, '*' + form.name):
+                    yield node
 
         for prop in self.model.getPropsByType(name):
-            lops.extend(prop.getLiftOps(valu))
-
-        for row, node in self.getLiftNodes(lops):
-            yield node
+            lops = prop.getLiftOps(valu)
+            for row, node in self.getLiftNodes(lops, prop):
+                yield node
 
     def addNode(self, name, valu, props=None, syst=False):
         '''
@@ -326,9 +335,9 @@ class Snap(s_eventbus.EventBus):
         return self.addNode('syn:tag', name, syst=True)
 
     def _addNodeFnib(self, fnib, props=None, syst=False):
-
-        # add a node via (form, norm, info, buid)
-
+        '''
+        Add a node via (form, norm, info, buid)
+        '''
         form, norm, info, buid = fnib
 
         if props is None:
@@ -495,9 +504,9 @@ class Snap(s_eventbus.EventBus):
 
         yield None
 
-    def getLiftNodes(self, lops):
+    def getLiftNodes(self, lops, rawprop):
         genr = self.getLiftRows(lops)
-        return self.getRowNodes(genr)
+        return self.getRowNodes(genr, rawprop)
 
     def getLiftRows(self, lops):
         '''
@@ -510,13 +519,13 @@ class Snap(s_eventbus.EventBus):
             lops (list): A list of lift operations.
 
         Yields:
-            (tuple): (buid, ...) rows.
+            (tuple): (layer_indx, (buid, ...)) rows.
         '''
-        for xact in self.xacts:
+        for layer_idx, xact in enumerate(self.xacts):
             with xact.incref():
-                yield from xact.getLiftRows(lops)
+                yield from ((layer_idx, x) for x in xact.getLiftRows(lops))
 
-    def getRowNodes(self, rows):
+    def getRowNodes(self, rows, rawprop):
         '''
         Join a row generator into (row, Node()) tuples.
 
@@ -524,24 +533,47 @@ class Snap(s_eventbus.EventBus):
         valu is the buid of a node.
 
         Args:
-            rows (iterable): A generator if (buid, ...) tuples.
-
+            rows: A generator of (layer_idx, (buid, ...)) tuples.
+            rawprop(str):  "raw" propname i.e. if a tag, starts with "#".  Used for filtering so that we skip the props
+                for a buid if we're asking from a higher layer than the row was from (and hence, we'll presumable
+                get/have gotten the row when that layer is lifted.
         Yields:
             (tuple): (row, node)
         '''
-        for row in rows:
-            node = self.getNodeByBuid(row[0])
-            yield row, node
+        for origlayer, row in rows:
+            props = {}
+            buid = row[0]
+            node = self.buidcache.cache.get(buid)
+            self.tick()
+            # Evaluate layers top-down to more quickly abort if we've found a higher layer with the property set
+            for layeridx in range(len(self.xacts) - 1, -1, -1):
+                x = self.xacts[layeridx]
+                layerprops = x.getBuidProps(buid)
+                # We mark this node to drop iff we see the prop set in this layer *and* we're looking at the props
+                # from a higher (i.e. closer to write, higher idx) layer.
+                if layeridx > origlayer and rawprop in layerprops:
+                    props = None
+                    break
+                if node is None:
+                    for k, v in layerprops.items():
+                        if k not in props:
+                            props[k] = v
+            if props is None:
+                continue
+            if node is None:
+                node = s_node.Node(self, buid, props.items())
+                if node and node.ndef is not None:
+                    self.buidcache.put(buid, node)
 
-    def _getBuidProps(self, buid):
-        props = []
-        # this is essentially atomic and doesn't need xact.incref
-        [props.extend(x.getBuidProps(buid)) for x in self.xacts]
-        return props
+            if node.ndef is not None:
+                yield row, node
 
     def _getNodeByBuid(self, buid):
-        node = s_node.Node(self, buid)
-        if node.ndef is None:
-            return None
+        props = {}
+        # this is essentially atomic and doesn't need xact.incref
+        for layeridx, x in enumerate(self.xacts):
+            layerprops = x.getBuidProps(buid)
+            props.update(layerprops)
 
-        return node
+        node = s_node.Node(self, buid, props.items())
+        return None if node.ndef is None else node

@@ -551,6 +551,9 @@ class Int(Type):
         return str(norm)
 
 class Ival(Type):
+    '''
+    An interval, i.e. a range, of times
+    '''
 
     def postTypeInit(self):
         self.timetype = self.modl.type('time')

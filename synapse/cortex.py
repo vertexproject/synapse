@@ -298,6 +298,7 @@ class Cortex(s_cell.Cell):
             return
 
         thrd = self._runPushLoop()
+
         def fini():
             return thrd.join(timeout=8)
 
@@ -557,13 +558,13 @@ class Cortex(s_cell.Cell):
 
         node.delTag(tag)
 
-    #def _addSynUndo(self, snap, items):
+    # def _addSynUndo(self, snap, items):
         # TODO apply splices in reverse
 
     def _initCoreDir(self):
 
         # each cortex has a default write layer...
-        path = s_common.gendir(self.dirn, 'layers', 'default')
+        s_common.gendir(self.dirn, 'layers', 'default')
 
         self.layer = self.openLayerName('default')
         self.layers.append(self.layer)
@@ -729,8 +730,6 @@ class Cortex(s_cell.Cell):
         '''
         Add a list of (name,conf) module tuples to the cortex.
         '''
-        revs = []
-
         mdefs = []
         added = []
 
@@ -752,7 +751,7 @@ class Cortex(s_cell.Cell):
 
         # now that we've loaded all their models
         # we can call their init functions
-        for  modu in added:
+        for modu in added:
             modu.initCoreModule()
 
     def loadCoreModule(self, ctor, conf=None):

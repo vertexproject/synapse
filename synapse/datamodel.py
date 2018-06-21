@@ -6,7 +6,6 @@ import logging
 import collections
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 
 import synapse.lib.types as s_types
@@ -15,8 +14,6 @@ logger = logging.getLogger(__name__)
 
 hexre = regex.compile('^[0-9a-z]+$')
 propre = regex.compile('^[0-9a-z:_]+$')
-
-import synapse.lib.types as s_types
 
 class Prop:
     '''
@@ -146,12 +143,12 @@ class Prop:
         '''
         Construct a filter function for nodes by property.
         '''
-        typefilt = self.type().filt(text, cmpr=cmpr)
+        typefilt = self.type.getFiltFunc(text=text, cmpr=cmpr)
         if typefilt is None:
             return
 
         def func(node):
-            valu = node[1]['props'].get(self._prop_name)
+            valu = node[1]['props'].get(self.name)
             return typefilt(valu)
 
         return func
@@ -276,7 +273,7 @@ class Form:
             ('indx', ('byprop', self.pref, iops)),
         )
 
-    def prop(self, name):
+    def prop(self, name: str):
         '''
         Return a secondary property for this form by relative prop name.
 
