@@ -10,6 +10,7 @@ import lmdb  # type: ignore
 
 import synapse.cortex as s_cortex
 import synapse.common as s_common
+import synapse.lib.modules as s_modules
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
 import synapse.lib.types as s_types
@@ -821,6 +822,7 @@ def main(argv, outp=None):  # pragma: no cover
     p.add_argument('outfile', help='file to dump to')
     p.add_argument('--stage-1', help='Start at stage 2 with stage 1 file')
     p.add_argument('--log-level', choices=s_const.LOG_LEVEL_CHOICES, help='specify the log level', type=str.upper)
+    p.add_argument('--extra-module', nargs='+', help='name of an extra module to load')
     opts = p.parse_args(argv)
 
     s_common.setlogging(logger, opts.log_level)
@@ -828,6 +830,9 @@ def main(argv, outp=None):  # pragma: no cover
     fh = logging.FileHandler(opts.outfile + '.log')
     fh.setLevel(logging.DEBUG)
     logger.addHandler(fh)
+
+    for modname in opts.extra_module:
+        s_modules.load(modname)
 
     fh = open(opts.outfile, 'wb')
     rejects_fh = open(opts.outfile + '.rejects', 'wb')
