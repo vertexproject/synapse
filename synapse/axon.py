@@ -6,7 +6,6 @@ import logging
 import random
 import hashlib
 import itertools
-import mmap
 import tempfile
 
 import synapse.exc as s_exc
@@ -137,16 +136,11 @@ class BlobStor(s_cell.Cell):
 
         def saveit():
             nonlocal hashes, bytzfh
-            bytzfh.flush()
+            bytzfh.seek(0)
             sha256 = hashing.digest()
+            # FIXME: limit val to 2**32
             # FIXME: check if already stored
-            try:
-                with mmap.mmap(bytzfh.fileno(), 0) as mm:
-                    xact.put(sha256, mm[:], db=self._blob_bytes)
-            except ValueError as e:
-                if e.args != ('cannot mmap an empty file', ):
-                    raise
-                xact.put(sha256, b'', db=self._blob_bytes)
+            xact.put(sha256, bytzfh.read(), db=self._blob_bytes)
             bytzfh.close()
             oldbytesfh, bytzfh = bytzfh, None
             del oldbytesfh
@@ -157,7 +151,7 @@ class BlobStor(s_cell.Cell):
             if chunknum == 0:
                 if bytzfh is not None:
                     saveit()
-                bytzfh = tempfile.TemporaryFile(buffering=BUF_SIZE)
+                bytzfh = tempfile.SpooledTemporaryFile(buffering=BUF_SIZE)
                 hashing = hashlib.sha256()
                 last_chunknum = None
             elif chunknum - 1 != last_chunknum:
