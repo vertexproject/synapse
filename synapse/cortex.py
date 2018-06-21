@@ -143,10 +143,6 @@ class CoreApi(s_cell.CellApi):
         if opts is not None:
             query.opts.update(opts)
 
-        if self.cell.conf.get('storm:log'):
-            lvl = self.cell.conf.get('storm:log:level')
-            logger.log(lvl, 'Executing storm query [%s] as [%s]', text, self.user)
-
         return query
 
     def storm(self, text, opts=None):
@@ -626,6 +622,14 @@ class Cortex(s_cell.Cell):
 
         for mesg in query.execute():
             yield mesg
+
+    def _logStormQuery(self, text, user):
+        '''
+        Log a storm query.
+        '''
+        if self.conf.get('storm:log'):
+            lvl = self.conf.get('storm:log:level')
+            logger.log(lvl, 'Executing storm query [%s] as [%r]', text, user)
 
     def getNodeByNdef(self, ndef):
         '''

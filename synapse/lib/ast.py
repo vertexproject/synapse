@@ -102,6 +102,7 @@ class Query(AstNode):
 
         self.user = None
         self.view = view
+        self.text = ''
 
         self.opts = {}
 
@@ -141,6 +142,8 @@ class Query(AstNode):
                 yield node
 
     def _runQueryLoop(self, snap):
+
+        snap.core._logStormQuery(self.text, self.user)
 
         count = 0
 
