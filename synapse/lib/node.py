@@ -112,7 +112,7 @@ class Node:
 
         except Exception as e:
             mesg = f'Bad property value: {prop.full}={valu!r}'
-            return self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, valu=valu)
+            return self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, valu=valu, emesg=str(e))
 
         # do we already have the value?
         if curv == norm:
