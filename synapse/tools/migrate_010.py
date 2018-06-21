@@ -275,6 +275,7 @@ class Migrator:
                             props = self._get_props_from_cursor(txn, curs)
                         node = self.convert_props(props)
                         if node is None:
+                            logger.debug('cannot convert %s', props)
                             continue
                         if formname == 'file:bytes':
                             if not txn.put(props['node:ndef'].encode('utf8'), s_msgpack.en(node[0]), db=self.comp_tbl):
@@ -332,6 +333,8 @@ class Migrator:
                         node = self.convert_props(props)
                         if node is not None:
                             self.write_node_to_file(node)
+                        else:
+                            logger.debug('Cannot convert %s', props)
                     except Exception:
                         logger.debug('Failed on processing node with props: %s', props, exc_info=True)
                         if self.rejects_fh is not None:
@@ -536,14 +539,7 @@ class Migrator:
         'inet:dns:look:ipv4': 'inet:dns:look:client',
         'inet:dns:look:tcp4': 'inet:dns:look:server',
         'inet:dns:look:udp4': 'inet:dns:look:server',
-
-        'inet:dns:look:ns': 'inet:dns:look:resp:ns',
-        'inet:dns:look:rev': 'inet:dns:look:resp:rev',
-        'inet:dns:look:aaaa': 'inet:dns:look:resp:rev6',
-        'inet:dns:look:cname': 'inet:dns:look:resp:cname',
-        'inet:dns:look:mx': 'inet:dns:look:resp:mx',
-        'inet:dns:look:soa': 'inet:dns:look:resp:soa',
-        'inet:dns:look:txt': 'inet:dns:look:resp:txt',
+        'inet:dns:look:rcode': 'inet:dns:look:reply:code',
 
         'inet:flow:dst:udp4': 'inet:flow:dst',
         'inet:flow:dst:udp6': 'inet:flow:dst',
@@ -590,7 +586,14 @@ class Migrator:
         'ps:image:file',
         'it:exec:bind:tcp:port',
         'it:exec:bind:udp:port',
-        'inet:dns:look:rcode'
+        'inet:dns:look:a',
+        'inet:dns:look:ns',
+        'inet:dns:look:rev',
+        'inet:dns:look:aaaa',
+        'inet:dns:look:cname',
+        'inet:dns:look:mx',
+        'inet:dns:look:soa',
+        'inet:dns:look:txt',
     ))
 
     def convert_subprop(self, formname, propname, val, props):
@@ -742,7 +745,19 @@ class Migrator:
         return None, None
 
     def dns_look_ipv4_to_query(self, formname, propname, typename, val, props):
+        '''
+        While we're converting inet:dns:look:ipv4 to a dns:query, also emit a inet:dns:answer
+        '''
         client = 'tcp://%s' % s_inet.ipv4str(val)
+        answer_fields = {
+            'inet:dns:look:a',
+            'inet:dns:look:ns',
+            'inet:dns:look:rev',
+            'inet:dns:look:cname',
+            'inet:dns:look:mx',
+            'inet:dns:look:soa',
+            'inet:dns:look:txt',
+        }
         query_name_fields = {
             'inet:dns:look:a:fqdn',
             'inet:dns:look:ns:zone',
@@ -760,6 +775,25 @@ class Migrator:
         else:
             name = '<unknown>'
         dnstype = props.get('inet:dns:look:rcode', 1)
+        answer_props = {'request': props['inet:dns:look']}
+        for fname in answer_fields:
+            val = props.get(fname)
+            if val is None:
+                continue
+            answer_props[fname.rsplit(':', 1)[-1]] = self.convert_foreign_key('inet:dns:look', fname, val)
+        created = props.get('node:created')
+        if created is not None:
+            answer_props['.created'] = created
+        tags = {}
+        for k in props:
+            if k[0] == '#':
+                tags[k[1:]] = (None, None)
+
+        answer_node = (('inet:dns:answer', s_common.guid()), {'props': answer_props})
+        if tags:
+            answer_node[1]['tags'] = tags
+        self.write_node_to_file(answer_node)
+
         return 'inet:dns:look:query', (client, name, dnstype)
 
     subprop_special = {

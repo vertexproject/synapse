@@ -85,7 +85,7 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(node[1]['props']['avatar'], 'guid:' + file_guid)
 
             props = {
-                'rcode': 0,
+                'rcode': 99,
                 'time': now,
                 'ipv4': '5.5.5.5',
                 'udp4': '8.8.8.8:80',
@@ -99,8 +99,11 @@ class Migrate010Test(s_iq.SynTest):
             look_nodes = self.get_formfile('inet:dns:request', fh)
             self.eq(len(look_nodes), 1)
             self.eq(look_nodes[0][1]['props']['server'], 'udp://8.8.8.8:80')
-            self.eq(look_nodes[0][1]['props']['resp:ns'], ('foo.org', 'blah.info'))
-            self.eq(look_nodes[0][1]['props']['query'], ('tcp://5.5.5.5', 'foo.org', 0))
+            self.eq(look_nodes[0][1]['props']['query'], ('tcp://5.5.5.5', 'foo.org', 99))
+
+            answer_nodes = self.get_formfile('inet:dns:answer', fh)
+            self.eq(len(answer_nodes), 1)
+            self.eq(answer_nodes[0][1]['props']['ns'], ('foo.org', 'blah.info'))
 
             nodes = self.get_formfile('inet:server', fh)
             self.eq(len(nodes), 1)
