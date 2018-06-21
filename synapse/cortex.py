@@ -131,7 +131,7 @@ class CoreApi(s_cell.CellApi):
                 yield node.pack(dorepr=dorepr)
 
         except Exception as e:
-            logger.warning('exception during storm eval: %s', e)
+            logging.exception('exception during storm eval')
             query.cancel()
             raise
 
@@ -142,9 +142,6 @@ class CoreApi(s_cell.CellApi):
 
         if opts is not None:
             query.opts.update(opts)
-
-        if self.cell.conf.get('storm:log'):
-            logger.warning('STORM (%s): %s', self.user, text)
 
         return query
 
@@ -160,7 +157,7 @@ class CoreApi(s_cell.CellApi):
                 yield mesg
 
         except Exception as e:
-            logger.warning('exception during storm: %s', e)
+            logger.exception('exception during storm')
             query.cancel()
 
     @s_cell.adminapi
@@ -199,6 +196,12 @@ class Cortex(s_cell.Cell):
         ('storm:log', {
             'type': 'bool', 'defval': False,
             'doc': 'Log storm queries via system logger.'
+        }),
+
+        ('storm:log:level', {
+            'type': 'int',
+            'defval': logging.WARNING,
+            'doc': 'Logging log level to emit storm logs at.'
         }),
 
         ('splice:sync', {
@@ -258,7 +261,7 @@ class Cortex(s_cell.Cell):
 
         # load any configured external layers
         for path in self.conf.get('layers'):
-            logger.warning('loading external layer: %r', path)
+            logger.info('loading external layer: %r', path)
             self.layers.append(s_layer.opendir(path))
 
         # initialize any cortex directory structures
@@ -308,7 +311,7 @@ class Cortex(s_cell.Cell):
 
         iden = self.getCellIden()
 
-        logger.warning('sync loop init: %s', url)
+        logger.info('sync loop init: %s', url)
 
         while not self.isfini:
 
@@ -333,7 +336,7 @@ class Cortex(s_cell.Cell):
                         indx = self.layer.splicelog.indx
                         perc = float(offs) / float(indx) * 100.0
 
-                        logger.warning('splice push: %d %d/%d (%.2f%%)', size, offs, indx, perc)
+                        logger.info('splice push: %d %d/%d (%.2f%%)', size, offs, indx, perc)
 
                         offs = core.addFeedData('syn.splice', items, seqn=(iden, offs))
                         self.fire('core:splice:sync:sent')
@@ -386,7 +389,7 @@ class Cortex(s_cell.Cell):
         typename = feed.get('type')
         fsize = feed.get('size', 1000)
 
-        logger.warning('feed loop init: %s @ %s', typename, url)
+        logger.info('feed loop init: %s @ %s', typename, url)
 
         while not self.isfini:
 
@@ -432,7 +435,7 @@ class Cortex(s_cell.Cell):
 
                     if not online:
                         online = True
-                        logger.warning('splice cryotank: online')
+                        logger.info('splice cryotank: online')
 
                     offs = tank.offset(self.iden)
 
@@ -445,7 +448,7 @@ class Cortex(s_cell.Cell):
                             layr.spliced.wait(timeout=1)
                             continue
 
-                        logger.warning('tanking splices: %d', len(items))
+                        logger.info('tanking splices: %d', len(items))
 
                         offs = tank.puts(items, seqn=(self.iden, offs))
                         self.fire('core:splice:cryotank:sent')
@@ -620,6 +623,14 @@ class Cortex(s_cell.Cell):
 
         for mesg in query.execute():
             yield mesg
+
+    def _logStormQuery(self, text, user):
+        '''
+        Log a storm query.
+        '''
+        if self.conf.get('storm:log'):
+            lvl = self.conf.get('storm:log:level')
+            logger.log(lvl, 'Executing storm query [%s] as [%r]', text, user)
 
     def getNodeByNdef(self, ndef):
         '''

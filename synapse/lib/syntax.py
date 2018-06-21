@@ -636,6 +636,7 @@ class Parser:
         self.ignore(whitespace)
 
         query = s_ast.Query(self.view)
+        query.text = self.text
 
         while True:
 

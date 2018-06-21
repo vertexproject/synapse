@@ -507,6 +507,13 @@ class CortexTest(s_test.SynTest):
             for node in core.eval('teststr=$foo', opts=opts):
                 self.eq('bar', node.ndef[1])
 
+        conf = {'storm:log': True}
+        with self.getTestDir() as dirn:
+            with self.getTestCell(dirn, 'cortex', conf=conf) as core:
+                with self.getLoggerStream('synapse.cortex', 'Executing storm query [help ask] as [None]') as stream:
+                    mesgs = list(core.storm('help ask'))
+                    self.true(stream.wait(6))
+
     def test_feed_splice(self):
 
         iden = s_common.guid()
