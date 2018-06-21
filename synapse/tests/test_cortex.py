@@ -609,7 +609,7 @@ class CortexTest(s_test.SynTest):
             with core.snap() as snap:
 
                 targ = snap.addNode('pivtarg', 'foo')
-                pivo = snap.addNode('pivcomp', ('foo', 'bar'))
+                snap.addNode('pivcomp', ('foo', 'bar'))
 
                 self.raises(s_exc.CantDelNode, targ.delete)
 
@@ -640,7 +640,7 @@ class CortexTest(s_test.SynTest):
                 self.len(0, list(snap.getLiftRows(lops)))
 
                 # check that buid rows are gone...
-                self.len(0, list(snap._getBuidProps(buid)))
+                self.eq(None, snap._getNodeByBuid(buid))
 
                 # final top level API check
                 self.none(snap.getNodeByNdef(('teststr', 'baz')))

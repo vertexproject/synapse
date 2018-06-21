@@ -336,8 +336,7 @@ class InetModelTest(s_t_common.SynTest):
                 self.len(3, list(snap.getNodesBy(formname, '*')))
                 self.len(2, list(snap.getNodesBy(formname, '*.link')))
                 self.len(1, list(snap.getNodesBy(formname, '*.vertex.link')))
-                badgen = snap.getNodesBy(formname, 'api.*.link')
-                self.raises(s_exc.BadLiftValu, list, badgen)
+                self.genraises(s_exc.BadLiftValu, snap.getNodesBy, formname, 'api.*.link')
 
     def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
