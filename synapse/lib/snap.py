@@ -335,9 +335,9 @@ class Snap(s_eventbus.EventBus):
         return self.addNode('syn:tag', name, syst=True)
 
     def _addNodeFnib(self, fnib, props=None, syst=False):
-
-        # add a node via (form, norm, info, buid)
-
+        '''
+        Add a node via (form, norm, info, buid)
+        '''
         form, norm, info, buid = fnib
 
         if props is None:
@@ -534,15 +534,16 @@ class Snap(s_eventbus.EventBus):
 
         Args:
             rows: A generator of (layer_idx, (buid, ...)) tuples.
-            rawprop(Optional[str]):  "raw" propname i.e. if a tag, starts with "#".  Used for filtering so that
-            any time the filtering property or tag is present in the layer, we skip it if we're asking from a higher
-            layer than the row was from (and hence, we'll presumable get/have gotten the row when that layer is lifted.
+            rawprop(str):  "raw" propname i.e. if a tag, starts with "#".  Used for filtering so that we skip the props
+                for a buid if we're asking from a higher layer than the row was from (and hence, we'll presumable
+                get/have gotten the row when that layer is lifted.
         Yields:
             (tuple): (row, node)
         '''
         for origlayer, row in rows:
             props = {}
             buid = row[0]
+            node = self.buidcache.cache.get(buid)
             self.tick()
             # Evaluate layers top-down to more quickly abort if we've found a higher layer with the property set
             for layeridx in range(len(self.xacts) - 1, -1, -1):
@@ -551,14 +552,19 @@ class Snap(s_eventbus.EventBus):
                 # We mark this node to drop iff we see the prop set in this layer *and* we're looking at the props
                 # from a higher (i.e. closer to write, higher idx) layer.
                 if layeridx > origlayer and rawprop in layerprops:
-                    props = {}
+                    props = None
                     break
-                for k, v in layerprops.items():
-                    if k not in props:
-                        props[k] = v
-            if not props:
+                if node is None:
+                    for k, v in layerprops.items():
+                        if k not in props:
+                            props[k] = v
+            if props is None:
                 continue
-            node = s_node.Node(self, buid, props.items())
+            if node is None:
+                node = s_node.Node(self, buid, props.items())
+                if node and node.ndef is not None:
+                    self.buidcache.put(buid, node)
+
             if node.ndef is not None:
                 yield row, node
 
