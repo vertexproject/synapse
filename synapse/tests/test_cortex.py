@@ -154,6 +154,53 @@ class CortexTest(s_test.SynTest):
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
                 self.eq(node.buid, func.args[0].buid)
 
+    def test_cancel_cortex(self):
+        with self.getTestCore() as core:
+            self._run_cancel_assertions(core)
+
+    def test_cancel_coreapi(self):
+        with self.getTestDmon(mirror='dmoncore') as dmon:
+            core = dmon._getTestProxy('core')
+            self._run_cancel_assertions(core)
+
+    def _run_cancel_assertions(self, core):
+        # Add some nodes
+        N = 1000
+        nodes = [(('inet:ipv4', i), {}) for i in range(N)]
+        list(core.addNodes(nodes))
+
+        # Start executing the query but don't iterate yet
+        init = None
+        genr = core.storm('inet:ipv4')
+        if isinstance(genr, s_telepath.Genr):
+            for msg in genr:
+                init = msg
+                break
+        else:
+            init = next(genr)
+        guid = init[1].get('guid')
+
+        # Cancel the query before iterating further
+        self.true(core.cancelQueryByGuid(guid))
+
+        # Start iterating, make sure Canceled is raised
+        canceled = False
+        nodes = []
+        for msg in genr:
+            if msg[0] == 'node':
+                nodes.append(msg[1])
+            elif msg[0] == 'err' and msg[1][0] == 'Canceled':
+                canceled = True
+        self.true(canceled)
+
+        # Make sure some nodes come back, but not all of them
+        numnodes = len(nodes)
+        self.ge(numnodes, 0)
+        self.lt(numnodes, N)
+
+        # Double-cancel shouldn't raise exception
+        self.false(core.cancelQueryByGuid(guid))
+
     def test_adddata(self):
 
         data = ('foo', 'bar', 'baz')
@@ -404,7 +451,6 @@ class CortexTest(s_test.SynTest):
             with core.snap() as snap:
 
                 node = snap.addNode('testtype10', 'one')
-                print(repr(node.pack()))
                 self.eq(node.get('intprop'), 21)
 
                 self.nn(node.get('.created'))

@@ -197,7 +197,8 @@ class Query(AstNode):
             with self._getQuerySnap() as snap:
 
                 tick = s_common.now()
-                chan.put(('init', {'tick': tick}))
+                guid = s_common.guid()
+                chan.put(('init', {'tick': tick, 'guid': guid}))
 
                 snap.link(chan.put)
 
@@ -212,7 +213,7 @@ class Query(AstNode):
         finally:
             tock = s_common.now()
             took = tock - tick
-            chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
+            chan.put(('fini', {'tock': tock, 'took': took, 'count': count, 'guid': guid}))
             chan.done()
 
 class Oper(AstNode):
