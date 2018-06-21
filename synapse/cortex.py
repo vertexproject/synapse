@@ -447,7 +447,7 @@ class Cortex(s_cell.Cell):
                             layr.spliced.wait(timeout=1)
                             continue
 
-                        logger.info('tanking splices: {:,}'.format(len(items)))
+                        logger.info('tanking splices: %d', len(items))
 
                         offs = tank.puts(items, seqn=(self.iden, offs))
                         self.fire('core:splice:cryotank:sent')
