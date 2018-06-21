@@ -204,7 +204,7 @@ class Cortex(s_cell.Cell):
 
         ('storm:log:level', {
             'type': 'int',
-            'defval': logging.DEBUG,
+            'defval': logging.WARNING,
             'doc': 'Logging log level to emit storm logs at.'
         }),
 
