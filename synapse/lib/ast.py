@@ -107,6 +107,7 @@ class Query(AstNode):
         self.opts = {}
 
         self.tick = None
+        self.guid = s_common.guid()
         self.canceled = False
 
     def setUser(self, user):
@@ -197,8 +198,7 @@ class Query(AstNode):
             with self._getQuerySnap() as snap:
 
                 tick = s_common.now()
-                guid = s_common.guid()
-                chan.put(('init', {'tick': tick, 'guid': guid}))
+                chan.put(('init', {'tick': tick, 'guid': self.guid}))
 
                 snap.link(chan.put)
 
@@ -213,7 +213,7 @@ class Query(AstNode):
         finally:
             tock = s_common.now()
             took = tock - tick
-            chan.put(('fini', {'tock': tock, 'took': took, 'count': count, 'guid': guid}))
+            chan.put(('fini', {'tock': tock, 'took': took, 'count': count, 'guid': self.guid}))
             chan.done()
 
 class Oper(AstNode):

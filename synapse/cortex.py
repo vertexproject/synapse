@@ -66,9 +66,6 @@ class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed over telepath.
     '''
-    def __init__(self, *args, **kwargs):
-        s_cell.CellApi.__init__(self, *args, **kwargs)
-        self.running_queries = dict()
 
     @s_cell.adminapi
     def getCoreMods(self):
@@ -97,7 +94,7 @@ class CoreApi(s_cell.CellApi):
         Returns:
             True if canceled, False otherwise.
         '''
-        query = self.running_queries.pop(guid, None)
+        query = self.cell.running_queries.pop(guid, None)
         if query is not None:
             query.cancel()
             return True
@@ -172,23 +169,19 @@ class CoreApi(s_cell.CellApi):
         Execute a storm query and yield messages.
         '''
         query = self._getStormQuery(text, opts=opts)
-
         try:
 
             genr = query.execute()
-            init = genr.get()
-            guid = init[1].get('guid')
-            self.running_queries[guid] = query
-            yield init
-
+            self.cell.running_queries[query.guid] = query
             for mesg in genr:
                 yield mesg
-            self.running_queries.pop(guid, None)
 
         except Exception as e:
             logger.exception('exception during storm')
             query.cancel()
-            self.running_queries.pop(guid, None)
+
+        finally:
+            self.cell.running_queries.pop(query.guid, None)
 
     @s_cell.adminapi
     def splices(self, offs, size):
@@ -653,16 +646,10 @@ class Cortex(s_cell.Cell):
             query.opts.update(opts)
 
         genr = query.execute()
-
-        init = genr.get()
-        guid = init[1].get('guid')
-        self.running_queries[guid] = query
-        yield init
-
+        self.running_queries[query.guid] = query
         for mesg in genr:
             yield mesg
-
-        self.running_queries.pop(guid, None)
+        self.running_queries.pop(query.guid, None)
 
     def cancelQueryByGuid(self, guid):
         '''
