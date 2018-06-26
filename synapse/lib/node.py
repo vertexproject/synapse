@@ -8,14 +8,13 @@ import synapse.lib.time as s_time
 
 logger = logging.getLogger(__name__)
 
-
 class Node:
     '''
     A Cortex hypergraph node.
 
     NOTE: This object is for local Cortex use during a single Xact.
     '''
-    def __init__(self, snap, buid):
+    def __init__(self, snap, buid=None, rawprops=None):
 
         self.snap = snap
 
@@ -35,17 +34,15 @@ class Node:
 
         # self.buid may be None during
         # initial node construction...
-        if self.buid is not None:
-            self._loadNodeData()
+        if rawprops is not None:
+            self._loadNodeData(rawprops)
 
         if self.ndef is not None:
             self.form = self.snap.model.form(self.ndef[0])
 
-    def _loadNodeData(self):
+    def _loadNodeData(self, rawprops):
 
-        props = list(self.snap._getBuidProps(self.buid))
-
-        for prop, valu in props:
+        for prop, valu in rawprops:
 
             p0 = prop[0]
 
@@ -114,7 +111,7 @@ class Node:
 
         except Exception as e:
             mesg = f'Bad property value: {prop.full}={valu!r}'
-            return self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, valu=valu)
+            return self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, valu=valu, emesg=str(e))
 
         # do we already have the value?
         if curv == norm:
@@ -147,7 +144,7 @@ class Node:
         auto = self.snap.model.form(prop.type.name)
         if auto is not None:
             buid = s_common.buid((auto.name, norm))
-            self.snap._addNodeFnib((auto, norm, info, buid))
+            self.snap._addNodeFnib((auto, norm, info, buid), syst=True)
 
         # does the type think we have special auto nodes to add?
         # ( used only for adds which do not meet the above block )
@@ -155,7 +152,7 @@ class Node:
             auto = self.snap.model.form(autoname)
             autonorm, autoinfo = auto.type.norm(autovalu)
             buid = s_common.buid((auto.name, autonorm))
-            self.snap._addNodeFnib((auto, autovalu, autoinfo, buid))
+            self.snap._addNodeFnib((auto, autovalu, autoinfo, buid), syst=True)
 
         # do we need to set any sub props?
         subs = info.get('subs')
@@ -274,14 +271,23 @@ class Node:
 
         path = s_chop.tagpath(tag)
 
+        name = '.'.join(path)
+
+        tagnode = self.snap.addTagNode(name)
+
+        # implement tag renames...
+        isnow = tagnode.get('isnow')
+        if isnow:
+            self.snap.warn(f'tag {name} is now {isnow}')
+            name = isnow
+            path = isnow.split('.')
+
         if not self.snap.allowed('tag:add', *path):
             mesg = 'Not allowed to add the tag.'
             return self.snap._onAuthDeny(mesg, tag=tag)
 
         if valu != (None, None):
             valu = self.snap.model.type('ival').norm(valu)[0]
-
-        name = '.'.join(path)
 
         curv = self.tags.get(name)
         if curv == valu:

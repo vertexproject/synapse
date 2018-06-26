@@ -358,8 +358,7 @@ class InetModelTest(s_t_common.SynTest):
                 self.len(3, list(snap.getNodesBy(formname, '*')))
                 self.len(2, list(snap.getNodesBy(formname, '*.link')))
                 self.len(1, list(snap.getNodesBy(formname, '*.vertex.link')))
-                badgen = snap.getNodesBy(formname, 'api.*.link')
-                self.raises(s_exc.BadLiftValu, list, badgen)
+                self.genraises(s_exc.BadLiftValu, snap.getNodesBy, formname, 'api.*.link')
 
     def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
@@ -595,27 +594,28 @@ class InetModelTest(s_t_common.SynTest):
             ip_str_enfanged = '1[.]2[.]3[.]4'
             ip_str_unicode = '1\u200b.\u200b2\u200b.\u200b3\u200b.\u200b4'
 
-            self.eq(t.norm(ip_int), (ip_int, {}))
-            self.eq(t.norm(ip_str), (ip_int, {}))
-            self.eq(t.norm(ip_str_enfanged), (ip_int, {}))
-            self.eq(t.norm(ip_str_unicode), (ip_int, {}))
+            info = {'subs': {'type': 'unicast'}}
+            self.eq(t.norm(ip_int), (ip_int, info))
+            self.eq(t.norm(ip_str), (ip_int, info))
+            self.eq(t.norm(ip_str_enfanged), (ip_int, info))
+            self.eq(t.norm(ip_str_unicode), (ip_int, info))
             self.eq(t.repr(ip_int), ip_str)
 
             # Demonstrate wrap-around
-            self.eq(t.norm(0x00000000 - 1), (2**32 - 1, {}))
-            self.eq(t.norm(0xFFFFFFFF + 1), (0, {}))
+            info = {'subs': {'type': 'private'}}
+            self.eq(t.norm(0x00000000 - 1), (2**32 - 1, info))
+            self.eq(t.norm(0xFFFFFFFF + 1), (0, info))
 
             # Form Tests ======================================================
             input_props = {
                 'asn': 3,
                 'loc': 'uS',
-                'type': 'cool',
                 'latlong': '-50.12345, 150.56789'
             }
             expected_props = {
                 'asn': 3,
                 'loc': 'us',
-                'type': 'cool',
+                'type': 'unicast',
                 'latlong': (-50.12345, 150.56789),
             }
             valu_str = '1.2.3.4'
@@ -632,10 +632,13 @@ class InetModelTest(s_t_common.SynTest):
             # Type Tests ======================================================
             t = core.model.type(formname)
 
-            self.eq(t.norm('::1'), ('::1', {}))
-            self.eq(t.norm('0:0:0:0:0:0:0:1'), ('::1', {}))
-            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), ('2001:db8::ff00:42:8329', {}))
-            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042\u200b:8329'), ('2001:db8::ff00:42:8329', {}))
+            info = {'subs': {'type': 'loopback'}}
+            self.eq(t.norm('::1'), ('::1', info))
+            self.eq(t.norm('0:0:0:0:0:0:0:1'), ('::1', info))
+
+            info = {'subs': {'type': 'private'}}
+            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), ('2001:db8::ff00:42:8329', info))
+            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042\u200b:8329'), ('2001:db8::ff00:42:8329', info))
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
 
             # Specific examples given in RFC5952

@@ -507,6 +507,13 @@ class CortexTest(s_test.SynTest):
             for node in core.eval('teststr=$foo', opts=opts):
                 self.eq('bar', node.ndef[1])
 
+        conf = {'storm:log': True}
+        with self.getTestDir() as dirn:
+            with self.getTestCell(dirn, 'cortex', conf=conf) as core:
+                with self.getLoggerStream('synapse.cortex', 'Executing storm query [help ask] as [None]') as stream:
+                    mesgs = list(core.storm('help ask'))
+                    self.true(stream.wait(6))
+
     def test_feed_splice(self):
 
         iden = s_common.guid()
@@ -573,9 +580,16 @@ class CortexTest(s_test.SynTest):
 
     def test_getcoremods(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+
             pconf = {'user': 'root', 'passwd': 'root'}
-            with dmon._getTestProxy('core', **pconf) as core:
-                mods = core.getCoreMods()
+
+            core = dmon.shared.get('core')
+            self.nn(core.getCoreMod('synapse.tests.utils.TestModule'))
+
+            with dmon._getTestProxy('core', **pconf) as prox:
+
+                mods = prox.getCoreMods()
+
                 mods = {k: v for k, v in mods}
                 conf = mods.get('synapse.tests.utils.TestModule')
                 self.nn(conf)
@@ -602,7 +616,7 @@ class CortexTest(s_test.SynTest):
             with core.snap() as snap:
 
                 targ = snap.addNode('pivtarg', 'foo')
-                pivo = snap.addNode('pivcomp', ('foo', 'bar'))
+                snap.addNode('pivcomp', ('foo', 'bar'))
 
                 self.raises(s_exc.CantDelNode, targ.delete)
 
@@ -633,7 +647,7 @@ class CortexTest(s_test.SynTest):
                 self.len(0, list(snap.getLiftRows(lops)))
 
                 # check that buid rows are gone...
-                self.len(0, list(snap._getBuidProps(buid)))
+                self.eq(None, snap._getNodeByBuid(buid))
 
                 # final top level API check
                 self.none(snap.getNodeByNdef(('teststr', 'baz')))

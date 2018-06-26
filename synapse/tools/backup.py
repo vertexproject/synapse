@@ -60,9 +60,18 @@ def backup(srcdir, backupdir):
     tock = s_common.now()
     logger.info(f'Backup complete. Took [{tock-tick:.2f}] for [{srcdir}]')
     return
+def blob_00x_check(envpath, backupdir):
+    if 'blobs.lmdb' in os.listdir(envpath):
+        # Make a another blobs.lmdb on backupdir, then call backup_lmdb and return True
+        src = s_common.genpath(envpath, 'blobs.lmdb')
+        dst = s_common.genpath(backupdir, 'blobs.lmdb')
+        backup_lmdb(src, dst)
+        return True
+    return False
 
 def backup_lmdb(envpath, backupdir):
-    # Assumes data.mdb exists.
+    if blob_00x_check(envpath, backupdir):
+        return None
     datafile = os.path.join(envpath, 'data.mdb')
     stat = os.stat(datafile)
     map_size = stat.st_size

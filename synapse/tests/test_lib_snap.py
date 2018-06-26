@@ -1,3 +1,4 @@
+import os
 import synapse.exc as s_exc
 import synapse.lib.auth as s_auth
 import synapse.tests.common as s_t_common
@@ -23,18 +24,21 @@ class SnapTest(s_t_common.SynTest):
         valu = 'cool'
 
         with self.getTestCore() as core:
+
             with core.snap() as snap:
+
                 with self.getTestDir() as dirn:
+
                     with s_auth.Auth(dirn) as auth:
+
                         user = auth.addUser('hatguy')
                         snap.setUser(user)
 
                         self.true(snap.strict)  # Following assertions based on snap.strict being true
                         self.raises(s_exc.AuthDeny, snap.addNode, form, valu)
 
-                        # User can still create the node even if not allowed if snap is not in strict mode
                         snap.strict = False
-                        self.nn(snap.addNode(form, valu))
+                        self.none(snap.addNode(form, valu))
 
     def test_addNodes(self):
         with self.getTestCore() as core:
@@ -89,3 +93,66 @@ class SnapTest(s_t_common.SynTest):
                         self.none(snap.getNodeByNdef(('testauto', 'bar')))
                         self.none(snap.getNodeByNdef(('testtime', 'baz')))
                         self.nn(snap.getNodeByNdef(('teststr', 'faz')))
+
+    def test_cortex_lift_layers_bad_filter(self):
+        '''
+        Test a two layer cortex where a lift operation gives the wrong result
+        '''
+        with self.getTestCore() as core1:
+            node = (('inet:ipv4', 1), {'props': {'asn': 42, '.seen': (1, 2)}, 'tags': {'woot': (1, 2)}})
+            nodes_core1 = list(core1.addNodes([node]))
+
+            layerfn = os.path.join(core1.dirn, 'layers', 'default')
+            with self.getTestCore(conf={'layers': [layerfn]}) as core, core.snap() as snap:
+                # Basic sanity check
+                nodes = list(snap.getNodesBy('inet:ipv4', 1))
+                self.len(1, nodes)
+                nodes = list(snap.getNodesBy('inet:ipv4.seen', 1))
+                self.len(1, nodes)
+                self.eq(nodes_core1[0].pack(), nodes[0].pack())
+                nodes = list(snap.getNodesBy('inet:ipv4#woot', 1))
+                self.len(1, nodes)
+                nodes = list(snap.getNodesBy('inet:ipv4#woot', 99))
+                self.len(0, nodes)
+
+                # Now change asn in the "higher" layer
+                changed_node = (('inet:ipv4', 1), {'props': {'asn': 43, '.seen': (3, 4)}, 'tags': {'woot': (3, 4)}})
+                nodes = list(snap.addNodes([changed_node]))
+                # Lookup by prop
+                nodes = list(snap.getNodesBy('inet:ipv4:asn', 42))
+                self.len(0, nodes)
+
+                # Lookup by univ prop
+                nodes = list(snap.getNodesBy('inet:ipv4.seen', 1))
+                self.len(0, nodes)
+
+                # Lookup by formtag
+                nodes = list(snap.getNodesBy('inet:ipv4#woot', 1))
+                self.len(0, nodes)
+
+                # Lookup by tag
+                nodes = list(snap.getNodesBy('#woot', 1))
+                self.len(0, nodes)
+
+    def test_cortex_lift_layers_dup(self):
+        '''
+        Test a two layer cortex where a lift operation might give the same node twice incorrectly
+        '''
+        with self.getTestCore() as core1:
+            node = (('inet:ipv4', 1), {'props': {'asn': 42}})
+            nodes_core1 = list(core1.addNodes([node]))
+
+            layerfn = os.path.join(core1.dirn, 'layers', 'default')
+            with self.getTestCore(conf={'layers': [layerfn]}) as core, core.snap() as snap:
+                # Basic sanity check
+                nodes = list(snap.getNodesBy('inet:ipv4', 1))
+                self.len(1, nodes)
+                self.eq(nodes_core1[0].pack(), nodes[0].pack())
+
+                # Now set asn in the "higher" layer to the same (by changing it, then changing it back)
+                changed_node = (('inet:ipv4', 1), {'props': {'asn': 43}})
+                nodes = list(snap.addNodes([changed_node]))
+                changed_node = (('inet:ipv4', 1), {'props': {'asn': 42}})
+                nodes = list(snap.addNodes([changed_node]))
+                nodes = list(snap.getNodesBy('inet:ipv4:asn', 42))
+                self.len(1, nodes)

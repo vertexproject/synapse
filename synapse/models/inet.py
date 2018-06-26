@@ -269,7 +269,9 @@ class IPv4(s_types.Type):
 
     def _normPyInt(self, valu):
         norm = valu & 0xffffffff
-        return norm, {}
+        addr = ipaddress.IPv4Address(norm)
+        subs = {'type': getAddrType(addr)}
+        return norm, {'subs': subs}
 
     def _normPyStr(self, valu):
 
@@ -323,6 +325,25 @@ class IPv4(s_types.Type):
 
         return s_types.Type.indxByEq(self, valu)
 
+def getAddrType(ip):
+
+    if ip.is_multicast:
+        return 'multicast'
+
+    if ip.is_loopback:
+        return 'loopback'
+
+    if ip.is_link_local:
+        return 'linklocal'
+
+    if ip.is_private:
+        return 'private'
+
+    if ip.is_reserved:
+        return 'reserved'
+
+    return 'unicast'
+
 class IPv6(s_types.Type):
 
     def postTypeInit(self):
@@ -344,12 +365,15 @@ class IPv6(s_types.Type):
             v6 = ipaddress.IPv6Address(valu)
             v4 = v6.ipv4_mapped
 
+            subs = {'type': getAddrType(v6)}
+
             if v4 is not None:
                 v4_int = self.modl.type('inet:ipv4').norm(v4.compressed)[0]
                 v4_str = self.modl.type('inet:ipv4').repr(v4_int)
-                return f'::ffff:{v4_str}', {'subs': {'ipv4': v4_int}}
+                subs['ipv4'] = v4_int
+                return f'::ffff:{v4_str}', {'subs': subs}
 
-            return ipaddress.IPv6Address(valu).compressed, {}
+            return ipaddress.IPv6Address(valu).compressed, {'subs': subs}
 
         except Exception as e:
             raise s_exc.BadTypeValu(valu)
@@ -1259,21 +1283,18 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:ipv4', {}, (
-                        ('asn', ('inet:asn', {}), {
-                            'defval': 0,  # TODO replace with nullval
-                            'doc': 'The ASN to which the IPv4 address is currently assigned.'
-                        }),
+
+                        ('asn', ('inet:asn', {}), {'defval': 0,  # TODO replace with nullval
+                            'doc': 'The ASN to which the IPv4 address is currently assigned.'}),
+
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The best known latitude/longitude for the node'
-                        }),
-                        ('loc', ('loc', {}), {
-                            'defval': '??',
-                            'doc': 'The geo-political location string for the IPv4.'
-                        }),
-                        ('type', ('str', {}), {
-                            'defval': '??',
-                            'doc': 'The type of IP address (e.g., private, multicast, etc.).'
-                        })
+                            'doc': 'The best known latitude/longitude for the node'}),
+
+                        ('loc', ('loc', {}), {'defval': '??',
+                            'doc': 'The geo-political location string for the IPv4.'}),
+
+                        ('type', ('str', {}), {'defval': '??',
+                            'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
                     )),
 
                     ('inet:ipv6', {}, (

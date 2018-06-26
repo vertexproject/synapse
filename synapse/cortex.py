@@ -138,7 +138,7 @@ class CoreApi(s_cell.CellApi):
                 yield node.pack(dorepr=dorepr)
 
         except Exception as e:
-            logger.warning('exception during storm eval: %s', e)
+            logging.exception('exception during storm eval')
             query.cancel()
             raise
 
@@ -149,9 +149,6 @@ class CoreApi(s_cell.CellApi):
 
         if opts is not None:
             query.opts.update(opts)
-
-        if self.cell.conf.get('storm:log'):
-            logger.warning('STORM (%s): %s', self.user, text)
 
         return query
 
@@ -167,7 +164,7 @@ class CoreApi(s_cell.CellApi):
                 yield mesg
 
         except Exception as e:
-            logger.warning('exception during storm: %s', e)
+            logger.exception('exception during storm')
             query.cancel()
 
     @s_cell.adminapi
@@ -208,6 +205,12 @@ class Cortex(s_cell.Cell):
             'doc': 'Log storm queries via system logger.'
         }),
 
+        ('storm:log:level', {
+            'type': 'int',
+            'defval': logging.WARNING,
+            'doc': 'Logging log level to emit storm logs at.'
+        }),
+
         ('splice:sync', {
             'type': 'str', 'defval': None,
             'doc': 'A telepath URL for an upstream cortex.'
@@ -244,9 +247,13 @@ class Cortex(s_cell.Cell):
         self.stormcmds = {}
 
         self.addStormCmd(s_storm.HelpCmd)
+        self.addStormCmd(s_storm.SpinCmd)
         self.addStormCmd(s_storm.SudoCmd)
+        self.addStormCmd(s_storm.CountCmd)
         self.addStormCmd(s_storm.LimitCmd)
         self.addStormCmd(s_storm.DelNodeCmd)
+        self.addStormCmd(s_storm.MoveTagCmd)
+        self.addStormCmd(s_storm.ReIndexCmd)
 
         self.splicers = {
             'node:add': self._onFeedNodeAdd,
@@ -261,7 +268,7 @@ class Cortex(s_cell.Cell):
 
         # load any configured external layers
         for path in self.conf.get('layers'):
-            logger.warning('loading external layer: %r', path)
+            logger.info('loading external layer: %r', path)
             self.layers.append(s_layer.opendir(path))
 
         # initialize any cortex directory structures
@@ -298,6 +305,7 @@ class Cortex(s_cell.Cell):
             return
 
         thrd = self._runPushLoop()
+
         def fini():
             return thrd.join(timeout=8)
 
@@ -310,7 +318,7 @@ class Cortex(s_cell.Cell):
 
         iden = self.getCellIden()
 
-        logger.warning('sync loop init: %s', url)
+        logger.info('sync loop init: %s', url)
 
         while not self.isfini:
 
@@ -335,7 +343,7 @@ class Cortex(s_cell.Cell):
                         indx = self.layer.splicelog.indx
                         perc = float(offs) / float(indx) * 100.0
 
-                        logger.warning('splice push: %d %d/%d (%.2f%%)', size, offs, indx, perc)
+                        logger.info('splice push: %d %d/%d (%.2f%%)', size, offs, indx, perc)
 
                         offs = core.addFeedData('syn.splice', items, seqn=(iden, offs))
                         self.fire('core:splice:sync:sent')
@@ -388,7 +396,7 @@ class Cortex(s_cell.Cell):
         typename = feed.get('type')
         fsize = feed.get('size', 1000)
 
-        logger.warning('feed loop init: %s @ %s', typename, url)
+        logger.info('feed loop init: %s @ %s', typename, url)
 
         while not self.isfini:
 
@@ -434,7 +442,7 @@ class Cortex(s_cell.Cell):
 
                     if not online:
                         online = True
-                        logger.warning('splice cryotank: online')
+                        logger.info('splice cryotank: online')
 
                     offs = tank.offset(self.iden)
 
@@ -447,7 +455,7 @@ class Cortex(s_cell.Cell):
                             layr.spliced.wait(timeout=1)
                             continue
 
-                        logger.warning('tanking splices: %d', len(items))
+                        logger.info('tanking splices: %d', len(items))
 
                         offs = tank.puts(items, seqn=(self.iden, offs))
                         self.fire('core:splice:cryotank:sent')
@@ -557,13 +565,13 @@ class Cortex(s_cell.Cell):
 
         node.delTag(tag)
 
-    #def _addSynUndo(self, snap, items):
+    # def _addSynUndo(self, snap, items):
         # TODO apply splices in reverse
 
     def _initCoreDir(self):
 
         # each cortex has a default write layer...
-        path = s_common.gendir(self.dirn, 'layers', 'default')
+        s_common.gendir(self.dirn, 'layers', 'default')
 
         self.layer = self.openLayerName('default')
         self.layers.append(self.layer)
@@ -571,6 +579,9 @@ class Cortex(s_cell.Cell):
     def openLayerName(self, name):
         dirn = s_common.gendir(self.dirn, 'layers', name)
         return s_layer.opendir(dirn)
+
+    def getCoreMod(self, name):
+        return self.modules.get(name)
 
     def getCoreMods(self):
         ret = []
@@ -608,6 +619,14 @@ class Cortex(s_cell.Cell):
         query = self.view.getStormQuery(text, opts=opts)
         for mesg in query.execute():
             yield mesg
+
+    def _logStormQuery(self, text, user):
+        '''
+        Log a storm query.
+        '''
+        if self.conf.get('storm:log'):
+            lvl = self.conf.get('storm:log:level')
+            logger.log(lvl, 'Executing storm query [%s] as [%r]', text, user)
 
     def getNodeByNdef(self, ndef):
         '''
@@ -707,8 +726,6 @@ class Cortex(s_cell.Cell):
         '''
         Add a list of (name,conf) module tuples to the cortex.
         '''
-        revs = []
-
         mdefs = []
         added = []
 
@@ -730,7 +747,7 @@ class Cortex(s_cell.Cell):
 
         # now that we've loaded all their models
         # we can call their init functions
-        for  modu in added:
+        for modu in added:
             modu.initCoreModule()
 
     def loadCoreModule(self, ctor, conf=None):

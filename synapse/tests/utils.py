@@ -14,7 +14,6 @@ compatible with the unittest, nose and pytest frameworks.  This does not lock
 users into a particular test framework; while at the same time allowing base
 use to be invoked via the built-in Unittest library.
 '''
-
 import io
 import os
 import sys
@@ -617,11 +616,18 @@ class SynTest(unittest.TestCase):
                 env.fini()
 
     @contextlib.contextmanager
-    def getTestCore(self, mirror='testcore'):
+    def getTestCore(self, mirror='testcore', conf=None):
         '''
         Return a simple test Cortex.
+
+        Args:
+           conf:  additional configuration entries.  Combined with contents from mirror.
         '''
         with self.getTestDir(mirror=mirror) as dirn:
+            if conf is not None:
+                oldconf = s_common.yamlload(dirn, 'cell.yaml')
+                s_common.yamlsave({**oldconf, **conf}, dirn, 'cell.yaml')
+
             with s_cortex.Cortex(dirn) as core:
                 yield core
 

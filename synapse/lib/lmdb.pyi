@@ -1,3 +1,0 @@
-from typing import Union  # NOQA
-
-def encodeValAsKey(v: Union[str, int], isprefix=...) -> bytes: ...

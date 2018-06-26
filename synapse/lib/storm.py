@@ -153,3 +153,143 @@ class SudoCmd(Cmd):
     def runStormCmd(self, snap, genr):
         snap.elevated = True
         yield from genr
+
+class ReIndexCmd(Cmd):
+    '''
+    Use admin priviliges to re index/normalize node properties.
+
+    Example:
+
+        foo:bar | reindex --subs
+
+    NOTE: This is mostly for model updates and migrations.
+          Use with caution and be very sure of what you are doing.
+    '''
+    name = 'reindex'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('--subs', default=False, action='store_true', help='Re-parse and set sub props.')
+        return pars
+
+    def runStormCmd(self, snap, genr):
+
+        if snap.user is not None and not snap.user.admin:
+            snap.warn('reindex requires an admin')
+            return
+
+        snap.elevated = True
+        for node in genr:
+
+            form, valu = node.ndef
+            norm, info = node.form.type.norm(valu)
+
+            subs = info.get('subs')
+            if subs is not None:
+                for subn, subv in subs.items():
+                    if node.form.props.get(subn):
+                        node.set(subn, subv)
+
+            yield node
+
+class MoveTagCmd(Cmd):
+    '''
+    Rename an entire tag tree and preserve time intervals.
+
+    Example:
+
+        movetag #foo.bar #baz.faz.bar
+    '''
+    name = 'movetag'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('oldtag', help='The tag tree to rename.')
+        pars.add_argument('newtag', help='The new tag tree name.')
+        return pars
+
+    def runStormCmd(self, snap, genr):
+
+        oldt = snap.addNode('syn:tag', self.opts.oldtag)
+        oldstr = oldt.ndef[1]
+        oldsize = len(oldstr)
+
+        newt = snap.addNode('syn:tag', self.opts.newtag)
+        newstr = newt.ndef[1]
+
+        retag = {oldstr: newstr}
+
+        # first we set all the syn:tag:isnow props
+        for node in snap.getNodesBy('syn:tag', self.opts.oldtag, cmpr='^='):
+
+            tagstr = node.ndef[1]
+            if tagstr == oldstr: # special case for exact match
+                node.set('isnow', newstr)
+                continue
+
+            newtag = newstr + tagstr[oldsize:]
+
+            retag[tagstr] = newtag
+            node.set('isnow', newtag)
+
+        # now we re-tag all the nodes...
+        count = 0
+        for node in snap.getNodesBy(f'#{oldstr}'):
+
+            count += 1
+
+            tags = list(node.tags.items())
+            tags.sort(reverse=True)
+
+            for name, valu in tags:
+
+                newt = retag.get(name)
+                if newt is None:
+                    continue
+
+                node.delTag(name)
+                node.addTag(newt, valu=valu)
+
+        snap.printf(f'moved tags on {count} nodes.')
+
+        for node in genr:
+            yield node
+
+class SpinCmd(Cmd):
+    '''
+    Iterate through all query results, but do not yield any.
+    This can be used to operate on many nodes without returning any.
+
+    Example:
+
+        foo:bar:size=20 [ +#hehe ] | spin
+
+    '''
+    name = 'spin'
+
+    def runStormCmd(self, snap, genr):
+
+        yield from ()
+
+        for node in genr:
+            pass
+
+class CountCmd(Cmd):
+    '''
+    Iterate through query results, and print the resulting number of nodes
+    which were lifted. This does yield the nodes counted.
+
+    Example:
+
+        foo:bar:size=20 | count
+
+    '''
+    name = 'count'
+
+    def runStormCmd(self, snap, genr):
+
+        i = 0
+        for i, node in enumerate(genr, 1):
+            yield node
+
+        snap.printf(f'Counted {i} nodes.')
