@@ -176,6 +176,7 @@ class Query(AstNode):
                 break
 
             if self.canceled:
+                snap.core.fire('query:canceled', guid=self.guid)
                 raise s_exc.Canceled()
 
     def _getQuerySnap(self):

@@ -172,6 +172,8 @@ class CortexTest(s_test.SynTest):
         # Start executing the query but don't iterate yet
         init = None
         genr = core.storm('inet:ipv4')
+
+        # Get the guid from the init message
         if isinstance(genr, s_telepath.Genr):
             for msg in genr:
                 init = msg
@@ -181,7 +183,9 @@ class CortexTest(s_test.SynTest):
         guid = init[1].get('guid')
 
         # Cancel the query before iterating further
+        waiter = core.waiter(1, 'query:canceled')
         self.true(core.cancelQueryByGuid(guid))
+        waiter.wait(timeout=10)
 
         # Start iterating, make sure Canceled is raised
         canceled = False
