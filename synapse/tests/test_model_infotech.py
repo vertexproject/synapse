@@ -13,6 +13,59 @@ import synapse.tests.common as s_test
 #
 
 class InfotechModelTest(s_test.SynTest):
+
+    def test_model_infotech_android(self):
+
+        host = s_common.guid()
+        fnode = f'guid:{s_common.guid()}'
+
+        libver = s_common.guid()
+        softver = s_common.guid()
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                perm = snap.addNode('it:os:android:intent', 'Foo Bar')
+                intent = snap.addNode('it:os:android:intent', 'Foo Bar')
+
+                ilisn = snap.addNode('it:os:android:ilisten', (softver, 'Listen Test'))
+                self.eq(ilisn.get('app'), softver)
+                self.eq(ilisn.get('intent'), 'Listen Test')
+                self.nn(snap.getNodeByNdef(('it:os:android:intent', 'Listen Test')))
+
+                ibcast = snap.addNode('it:os:android:ibroadcast', (softver, 'Broadcast Test'))
+                self.eq(ibcast.get('app'), softver)
+                self.eq(ibcast.get('intent'), 'Broadcast Test')
+                self.nn(snap.getNodeByNdef(('it:os:android:intent', 'Broadcast Test')))
+
+                softfile = snap.addNode('it:prod:softfile', (softver, fnode))
+                self.eq(softfile.get('soft'), softver)
+                self.eq(softfile.get('file'), fnode)
+                self.nn(snap.getNodeByNdef(('file:bytes', fnode)))
+
+                reqperm = snap.addNode('it:os:android:reqperm', (softver, 'Test Perm'))
+                self.eq(reqperm.get('app'), softver)
+                self.eq(reqperm.get('perm'), 'Test Perm')
+                self.nn(snap.getNodeByNdef(('it:os:android:perm', 'Test Perm')))
+
+                softlib = snap.addNode('it:prod:softlib', (softver, libver))
+                self.eq(softlib.get('lib'), libver)
+                self.eq(softlib.get('soft'), softver)
+                self.nn(snap.getNodeByNdef(('it:prod:softver', libver)))
+                self.nn(snap.getNodeByNdef(('it:prod:softver', softver)))
+
+    def test_model_infotech_softver(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                node = snap.addNode('it:prod:soft', s_common.guid())
+
+                node.set('isos', True)
+                node.set('islib', True)
+
     def test_it_forms_simple(self):
         with self.getTestCore() as core:
             with core.snap() as snap:
