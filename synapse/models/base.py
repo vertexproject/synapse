@@ -21,6 +21,11 @@ class BaseModule(s_module.CoreModule):
                 ('seen', ('comp', {'fields': (('source', 'source'), ('node', 'ndef'))}), {
                     'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
 
+                ('record', ('guid', {}), {
+                    'doc': 'A node to represent an external record or super-model node.'}),
+
+                ('verb', ('str', {'lower': True}), {
+                    'doc': 'A relationship described by a digraph edge.'}),
             ),
 
             'forms': (
@@ -40,29 +45,37 @@ class BaseModule(s_module.CoreModule):
                     ('node', ('ndef', {}), {'ro': 1,
                         'doc': 'The node which was observed by or received from the source.'}),
 
-                    #('node:form', ('str', {'lower': True}), {'ro': 1,
-                        #'doc': 'The form of the observed node.'}),
-
-                    #('time:min', {'ptype': 'time:min',
-                        #'doc': 'An optional earliest time the data in the node was observed by the source.'}),
-                    #('time:max', {'ptype': 'time:max',
-                        #'doc': 'An optional most recent time the data in the node was observed by the source.'}),
                 )),
 
-                #('record', {}, (
-                    #('type', {'ptype': 'str:lwr', 'req': 1, 'ro': 1,
-                        #'doc': 'The type name for the record.  Used to group records by expected relationships.'}),
-                    #('name', {'ptype': 'str:lwr',
-                        #'doc': 'A human readable name for this record.'}),
-                #)),
+                ('edge', {}, (
 
-                #('recref', {}, (
-                    #('record', {'ptype': 'record', 'req': 1, 'ro': 1,
-                        #'doc': 'The record which references the target node.'}),
-                    #('node', {'ptype': 'ndef', 'req': 1, 'ro': 1,
-                        #'doc': 'The node which the record references.'}),
-                    #('node:form', {'ptype': 'syn:prop', 'req': 1, 'ro': 1,
-                        #'doc': 'The :type field from the record node.'}),
-                #)),
+                    ('n1', ('ndef', {}), {'ro': 1,
+                        'doc': 'The "source" node for the digraph edge.'}),
+
+                    ('n1:form', ('str', {}), {'ro': 1,
+                        'doc': 'The form name of the source node.'}),
+
+                    ('verb', ('verb', {}), {
+                        'doc': 'The relationship type described by the digraph edge.'}),
+
+                    ('n2', ('ndef', {}), {'ro': 1,
+                        'doc': 'The "destination" node for the digraph edge.'}),
+
+                    ('n2:form', ('str', {}), {'ro': 1,
+                        'doc': 'The form name of the destination node.'}),
+                )),
+
+                ('record', {}, (
+
+                    ('type', ('str', {'lower': True}), {
+                        'doc': 'The type name for the record.  Used to group records by expected relationships.'}),
+
+                    ('name', ('str', {}), {
+                        'doc': 'A human readable name for this record.'}),
+
+                    ('data', ('data', {}), {
+                        'doc': 'Aribtrary msgpack data which represents the record.'}),
+
+                )),
             ),
         }),)

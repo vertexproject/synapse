@@ -66,6 +66,9 @@ class Type:
         sufx = xxhash.xxh64(indx).digest()
         return base + sufx
 
+    def getTypeVals(self, valu):
+        yield valu
+
     def setCmprCtor(self, name, func):
         self._cmpr_ctors[name] = func
 
@@ -550,16 +553,44 @@ class Int(Type):
 class Ival(Type):
 
     def postTypeInit(self):
+
         self.timetype = self.modl.type('time')
+
+        self.setCmprCtor('@=', self._ctorCmprAt)
+
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyIter)
         self.setNormFunc(tuple, self._normPyIter)
-        self.setNormFunc(None.__class__, self._normPyNone)
+        #self.setNormFunc(None.__class__, self._normPyNone)
 
-    def _normPyNone(self, valu):
+    def _ctorCmprAt(self, valu):
+
+        if valu is None or valu == (None, None):
+            def cmpr(item):
+                return False
+            return cmpr
+
+        norm = self.norm(valu)[0]
+
+        def cmpr(item):
+
+            if item is None or item == (None, None):
+                return False
+
+            if item[0] >= norm[1]:
+                return False
+
+            if item[1] <= norm[0]:
+                return False
+
+            return True
+
+        return cmpr
+
+    #def _normPyNone(self, valu):
         # none is an ok interval (unknown...)
-        return valu, {}
+        #return valu, {}
 
     def _normPyInt(self, valu):
         return (valu, valu + 1), {}
@@ -587,7 +618,6 @@ class Ival(Type):
         indx += self.timetype.indx(norm[1])
 
         return indx
-
 
 class Loc(Type):
 
@@ -648,6 +678,49 @@ class Ndef(Type):
     def indx(self, norm):
         return s_common.buid(norm)
 
+class Edge(Type):
+
+    def postTypeInit(self):
+        opts = {'lower': True, 'onespace': True}
+        self.verbtype = self.modl.types.get('str').clone(opts)
+        self.ndeftype = self.modl.types.get('ndef')
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+    def _normPyTuple(self, valu):
+
+        if len(valu) != 3:
+            mesg = 'edge requires (ndef, type, ndef)'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=valu)
+
+        n1, verb, n2 = valu
+
+        subs = {}
+        verb, info = self.verbtype.norm(verb)
+
+        n1, info = self.ndeftype.norm(n1)
+
+        subs['n1'] = n1
+        subs['n1:form'] = n1[0]
+
+        n2, info = self.ndeftype.norm(n1)
+
+        subs['n2'] = n2
+        subs['n2:form'] = n2[0]
+
+        return (n1, verb, n2), {'subs': subs}
+
+    def indx(self, norm):
+        return s_common.buid(norm)
+
+class Data(Type):
+
+    def norm(self, valu):
+        byts = s_msgpack.en(valu)
+        return s_msgpack.un(valu)
+
+    def indx(self, norm):
+        return None
 
 class NodeProp(Type):
 

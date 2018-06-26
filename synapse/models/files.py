@@ -184,7 +184,7 @@ class FileModule(s_module.CoreModule):
             'types': (
 
                 ('file:ref', ('comp', {'fields': (('file', 'file:bytes'), ('node', 'ndef'))}), {
-                    'doc': 'A file that contains an image of the specififed node.'}),
+                    'doc': 'A file that contains reference to the specififed node.'}),
 
                 ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
                     'doc': 'A parent file that fully contains the specified child file.',

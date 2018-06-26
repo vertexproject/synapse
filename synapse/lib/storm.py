@@ -137,7 +137,7 @@ class DelNodeCmd(Cmd):
                 mesg = '--force requires admin privs.'
                 return self._onAuthDeny(mesg)
 
-        for node in genr:
+        for node, path in genr:
             node.delete(force=self.opts.force)
 
 class SudoCmd(Cmd):

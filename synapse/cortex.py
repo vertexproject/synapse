@@ -58,9 +58,16 @@ class View:
     def snap(self):
         return s_snap.Snap(self.core, self.layers)
 
-    def getStormQuery(self, text):
+    def getStormQuery(self, text, opts=None):
+
         parser = s_syntax.Parser(self, text)
-        return parser.query()
+
+        query = parser.query()
+
+        if opts is not None:
+            query.opts.update(opts)
+
+        return query
 
 class CoreApi(s_cell.CellApi):
     '''
@@ -127,7 +134,7 @@ class CoreApi(s_cell.CellApi):
 
         try:
 
-            for node in query.evaluate():
+            for node, path in query.evaluate():
                 yield node.pack(dorepr=dorepr)
 
         except Exception as e:
@@ -584,12 +591,8 @@ class Cortex(s_cell.Cell):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
-        query = self.view.getStormQuery(text)
-
-        if opts is not None:
-            query.opts.update(opts)
-
-        for node in query.evaluate():
+        query = self.view.getStormQuery(text, opts=opts)
+        for node, path in query.evaluate():
             yield node
 
     def storm(self, text, opts=None):
@@ -598,18 +601,11 @@ class Cortex(s_cell.Cell):
 
         Args:
             text (str): A storm query.
-            vars (dict): A set of input variables.
-            user (str): The user to run as (or s_auth.whoami())
-            view (str): An optional view guid.
 
         Yields:
             ((str,dict)): Storm messages.
         '''
-        query = self.view.getStormQuery(text)
-
-        if opts is not None:
-            query.opts.update(opts)
-
+        query = self.view.getStormQuery(text, opts=opts)
         for mesg in query.execute():
             yield mesg
 

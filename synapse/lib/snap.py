@@ -193,7 +193,14 @@ class Snap(s_eventbus.EventBus):
 
     def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
 
+        filt = None
         form = self.model.form(name)
+
+        if valu is not None:
+            ctor = self.model.type('ival').getCmprCtor(cmpr)
+            if ctor is not None:
+                filt = ctor(valu)
+
         if form is None:
             raise s_exc.NoSuchForm(form=name)
 
@@ -211,8 +218,20 @@ class Snap(s_eventbus.EventBus):
             ('indx', ('byprop', fenc + tenc, iops)),
         )
 
+        # a small speed optimization...
+        if filt is None:
+
+            for row, node in self.getLiftNodes(lops):
+                yield node
+
+            return
+
         for row, node in self.getLiftNodes(lops):
-            yield node
+
+            valu = node.getTag(tag)
+
+            if filt(valu):
+                yield node
 
     def getNodesBy(self, full, valu=None, cmpr='='):
         '''

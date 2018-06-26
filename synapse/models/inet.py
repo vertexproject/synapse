@@ -225,8 +225,47 @@ class IPv4(s_types.Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
-    # TODO add :ipv4=1.2.3.0/24 cmpr
-    #def _ctorCmprEq(self, valu):
+    def _ctorCmprEq(self, valu):
+
+        if type(valu) == str:
+
+            if valu.find('/') != -1:
+                minv, maxv = self.getCidrRange(valu)
+                def cmpr(norm):
+                    return norm >= minv and norm < maxv
+                return cmpr
+
+            if valu.find('-') != -1:
+                minv, maxv = self.getNetRange(valu)
+                def cmpr(norm):
+                    return norm >= minv and norm < maxv
+                return cmpr
+
+        return s_types.Type._ctorCmprEq(self, valu)
+
+    def getTypeVals(self, text):
+
+        if text.find('/') != -1:
+
+            minv, maxv = self.getCidrRange(text)
+
+            while minv < maxv:
+                yield minv
+                minv += 1
+
+            return
+
+        if text.find('-') != -1:
+
+            minv, maxv = self.getNetRange(text)
+
+            while minv < maxv:
+                yield minv
+                minv += 1
+
+            return
+
+        yield text
 
     def _normPyInt(self, valu):
         norm = valu & 0xffffffff
@@ -251,22 +290,36 @@ class IPv4(s_types.Type):
     def repr(self, norm, defval=None):
         return socket.inet_ntoa(self.indx(norm))
 
+    def getNetRange(self, text):
+        minstr, maxstr = text.split('-')
+        minv, info = self.norm(minstr)
+        maxv, info = self.norm(maxstr)
+        return minv, maxv
+
+    def getCidrRange(self, text):
+        addr, mask = text.split('/', 1)
+        norm, info = self.norm(addr)
+
+        mask = cidrmasks[int(mask)]
+
+        minv = norm & mask[0]
+        return minv, minv + mask[1]
+
     def indxByEq(self, valu):
 
-        if type(valu) == str and valu.find('/') != -1:
-            addr, mask = valu.split('/', 1)
-            norm, info = self.norm(addr)
+        if type(valu) == str:
 
-            mask = cidrmasks[int(mask)]
+            if valu.find('/') != -1:
+                minv, maxv = self.getCidrRange(valu)
+                return (
+                    ('range', (self.indx(minv), self.indx(maxv))),
+                )
 
-            minv = norm & mask[0]
-
-            mini = self.indx(minv)
-            maxi = self.indx(minv + mask[1])
-
-            return (
-                ('range', (mini, maxi)),
-            )
+            if valu.find('-'):
+                minv, maxv = self.getNetRange(valu)
+                return (
+                    ('range', (self.indx(minv), self.indx(maxv))),
+                )
 
         return s_types.Type.indxByEq(self, valu)
 

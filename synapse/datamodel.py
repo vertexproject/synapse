@@ -360,6 +360,14 @@ class Model:
         item = s_types.Ndef(self, 'ndef', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'An extensible digraph edge type used to link two nodes.'}
+        item = s_types.Edge(self, 'edge', info, {})
+        self.addBaseType(item)
+
+        info = {'doc': 'Arbitrary msgpack/json compatible data stored without an index.'}
+        item = s_types.Data(self, 'data', info, {})
+        self.addBaseType(item)
+
         info = {'doc': 'The nodeprop type for a (prop,valu) compound field.'}
         item = s_types.NodeProp(self, 'nodeprop', info, {})
         self.addBaseType(item)

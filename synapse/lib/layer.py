@@ -23,16 +23,19 @@ import synapse.lib.threads as s_threads
 logger = logging.getLogger(__name__)
 openlayers = {}
 
-
 class Encoder(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8') + b'\x00'
-
 
 class Utf8er(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8')
 
+def byte(valu):
+    return valu.to_int(length=1, byteorder='big')
+
+def tkey(tokn, penc, buid):
+    b''.join((tokn.encode('utf8'), b'\x00', penc, buid))
 
 class Xact(s_eventbus.EventBus):
     '''
@@ -120,6 +123,30 @@ class Xact(s_eventbus.EventBus):
     def getBuidProps(self, buid):
         return self.buidcache.get(buid)
 
+    def setPropToks(self, buid, penc, toks):
+
+        tset = set(toks)
+        toks = list(tset)
+
+        bpkey = buid + penc
+
+        newb = s_msgpack.en(toks)
+        byts = self.xact.replace(bpkey, newb, db=self.bptoks)
+
+        if byts is None:
+            todo = [tkey(tokn, penc, buid) for tokn in toks]
+            self.xact.putmulti(todo, db=self.bytokn)
+            return
+
+        olds = set(s_msgpack.un(byts))
+
+        toadd = tset - olds
+        todel = olds - tset
+
+        # no delete multi :(
+        [self.xact.delete(tkey(tokn, penc, buid), db=self.bytokn) for tokn in todel]
+        self.xact.putmulti([tkey(tokn, penc, buid) for tokn in toadd], db=self.bytokn)
+
     def _getBuidProps(self, buid):
 
         props = []
@@ -169,6 +196,12 @@ class Layer(s_cell.Cell):
         self.byprop = self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
         self.byuniv = self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
 
+        # used only for selected types
+        self.bytype = self.initdb('bytype', dupsort=True) # <type>00<indx>=(buid, prop)
+
+        self.bytoks = self.initdb('bytoks') # <tokn>00<score><buid><prop>=01
+        self.bptoks = self.initdb('bptoks') # <buid><prop>=( (tokn, score), ... )
+
         offsdb = self.initdb('offsets')
         self.offs = s_lmdb.Offs(self.lenv, offsdb)
 
@@ -217,6 +250,9 @@ class Layer(s_cell.Cell):
 
         univ = info.get('univ')
 
+        #toks = info.get('toks')
+        #bytype = info.get('bytype')
+
         # special case for setting primary property
         if prop:
             bpkey = buid + self.utf8[prop]
@@ -244,27 +280,30 @@ class Layer(s_cell.Cell):
         if univ:
             xact.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
 
+        if bytype:
+            xact.put(indx +
+
     def _storPropDel(self, xact, oper):
 
-        _, (buid, form, prop, info) = oper
+        _, (buid, form, prop, info)=oper
 
-        fenc = self.encoder[form]
-        penc = self.encoder[prop]
+        fenc=self.encoder[form]
+        penc=self.encoder[prop]
 
         if prop:
-            bpkey = buid + self.utf8[prop]
+            bpkey=buid + self.utf8[prop]
         else:
-            bpkey = buid + b'*' + self.utf8[form]
+            bpkey=buid + b'*' + self.utf8[form]
 
-        univ = info.get('univ')
+        univ=info.get('univ')
 
-        byts = xact.pop(bpkey, db=self.bybuid)
+        byts=xact.pop(bpkey, db=self.bybuid)
         if byts is None:
             return
 
-        oldv, oldi = s_msgpack.un(byts)
+        oldv, oldi=s_msgpack.un(byts)
 
-        pvvalu = s_msgpack.en((buid,))
+        pvvalu=s_msgpack.en((buid,))
         xact.delete(fenc + penc + oldi, pvvalu, db=self.byprop)
 
         if univ:
@@ -274,13 +313,13 @@ class Layer(s_cell.Cell):
         return self.dbs.get(name)
 
     def initdb(self, name, dupsort=False):
-        db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
-        self.dbs[name] = db
+        db=self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
+        self.dbs[name]=db
         return db
 
     def _xactRunLifts(self, xact, lops):
         for oper in lops:
-            func = self._lift_funcs.get(oper[0])
+            func=self._lift_funcs.get(oper[0])
             for item in func(xact, oper):
                 yield item
 
@@ -289,7 +328,7 @@ class Layer(s_cell.Cell):
         Execute a series of storage operations.
         '''
         for oper in sops:
-            func = self._stor_funcs.get(oper[0])
+            func=self._stor_funcs.get(oper[0])
             if func is None:
                 raise s_exc.NoSuchStor(name=oper[0])
             func(xact, oper)
@@ -297,9 +336,9 @@ class Layer(s_cell.Cell):
     def _liftByIndx(self, xact, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))
         # indx opers:  ('eq', <indx>)  ('pref', <indx>) ('range', (<indx>, <indx>)
-        name, pref, iops = oper[1]
+        name, pref, iops=oper[1]
 
-        db = self.dbs.get(name)
+        db=self.dbs.get(name)
         if db is None:
             raise s_exc.NoSuchName(name=name)
 
@@ -308,9 +347,9 @@ class Layer(s_cell.Cell):
 
             for (name, valu) in iops:
 
-                func = self.indxfunc.get(name)
+                func=self.indxfunc.get(name)
                 if func is None:
-                    mesg = 'unknown index operation'
+                    mesg='unknown index operation'
                     raise s_exc.NoSuchName(name=name, mesg=mesg)
 
                 for row in func(curs, pref, valu):
@@ -318,7 +357,7 @@ class Layer(s_cell.Cell):
                     yield row
 
     def _rowsByEq(self, curs, pref, valu):
-        lkey = pref + valu
+        lkey=pref + valu
         if not curs.set_key(lkey):
             return
 
@@ -326,11 +365,11 @@ class Layer(s_cell.Cell):
             yield s_msgpack.un(byts)
 
     def _rowsByPref(self, curs, pref, valu):
-        pref = pref + valu
+        pref=pref + valu
         if not curs.set_range(pref):
             return
 
-        size = len(pref)
+        size=len(pref)
         for lkey, byts in curs.iternext():
 
             if lkey[:size] != pref:
@@ -340,10 +379,10 @@ class Layer(s_cell.Cell):
 
     def _rowsByRange(self, curs, pref, valu):
 
-        lmin = pref + valu[0]
-        lmax = pref + valu[1]
+        lmin=pref + valu[0]
+        lmax=pref + valu[1]
 
-        size = len(lmax)
+        size=len(lmax)
         if not curs.set_range(lmin):
             return
 
@@ -364,13 +403,13 @@ def opendir(*path):
     '''
     Since a layer may not be opened twice, use the existing.
     '''
-    path = s_common.genpath(*path)
+    path=s_common.genpath(*path)
 
-    layr = openlayers.get(path)
+    layr=openlayers.get(path)
     if layr is not None:
         return layr
 
-    layr = Layer(path)
-    openlayers[path] = layr
+    layr=Layer(path)
+    openlayers[path]=layr
 
     return layr

@@ -33,6 +33,28 @@ class InetModelTest(s_t_common.SynTest):
                 raise AssertionError(msg)
             logger.warning(msg)
 
+    def test_ipv4_lift_range(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                snap.addNode('inet:ipv4', '1.2.3.0')
+                snap.addNode('inet:ipv4', '1.2.3.1')
+                snap.addNode('inet:ipv4', '1.2.3.2')
+                snap.addNode('inet:ipv4', '1.2.3.3')
+                snap.addNode('inet:ipv4', '1.2.3.4')
+
+            self.len(3, core.eval('inet:ipv4=1.2.3.1-1.2.3.3'))
+
+    def test_ipv4_filt_cidr(self):
+
+        with self.getTestCore() as core:
+
+            self.len(5, core.eval('[ inet:ipv4=1.2.3.0/30 inet:ipv4=5.5.5.5 ]'))
+            self.len(4, core.eval('inet:ipv4 +inet:ipv4=1.2.3.0/30'))
+            self.len(1, core.eval('inet:ipv4 -inet:ipv4=1.2.3.0/30'))
+
     def test_addr(self):
         formname = 'inet:addr'
         with self.getTestCore() as core:
