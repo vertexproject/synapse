@@ -260,7 +260,7 @@ class BlobCell(s_cell.Cell):
         with chan:
             offs = mesg[1].get('offs')
             genr = self.blobs.clone(offs)
-            rows = list(itertools.islice(genr, 1000))
+            rows = list(itertools.islice(genr, 63))
             chan.txok(rows)
 
     @s_glob.inpool
