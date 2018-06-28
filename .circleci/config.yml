@@ -147,9 +147,23 @@ jobs:
 
     <<: *test_steps
 
+  python37:
+    parallelism: 7
+    docker:
+      - image: circleci/python:3.7-rc
+        environment:
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          IMAGE_VERSION: 3.6
+
+    working_directory: ~/repo
+
+    <<: *test_steps
+
+
 workflows:
   version: 2
   run_tests:
     jobs:
 #      - osx36
       - python36
+      - python37
