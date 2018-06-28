@@ -183,5 +183,5 @@ def parseVersionParts(text, seps=vseps):
 ##############################################################################
 # The following are touched during the release process by bumpversion.
 # Do not modify these directly.
-version = (0, 0, 55)
+version = (0, 0, 56)
 verstring = '.'.join([str(x) for x in version])
