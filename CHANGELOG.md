@@ -1,6 +1,13 @@
 Changelog
 =========
 
+v0.0.56 - 2018-06-28
+--------------------
+
+## Bugs
+- #844 - The ``BlobCell_onBlobClone()`` method could produce too much data for cryptography to encrypt at once.  This method now produces up to 63 rows at a time to clone.
+
+
 v0.0.55 - 2018-05-09
 --------------------
 
