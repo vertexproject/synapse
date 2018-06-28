@@ -465,7 +465,7 @@ class Snap(s_eventbus.EventBus):
         try:
             norm, info = form.type.norm(valu)
         except Exception as e:
-            raise s_exc.BadPropValu(prop=form.name, valu=valu)
+            raise s_exc.BadPropValu(prop=form.name, valu=valu, mesg=str(e))
 
         buid = s_common.buid((form.name, norm))
         return form, norm, info, buid

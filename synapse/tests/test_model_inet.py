@@ -453,36 +453,6 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_http_reqhead(self):
-        formname = 'inet:http:reqhead'
-        input_props = {}
-        expected_props = {
-            'request': 32 * 'a',
-            'header': ('cool', 'Cooler'),
-            'header:name': 'cool',
-            'header:value': 'Cooler',
-        }
-        expected_ndef = (formname, (32 * 'a', ('cool', 'Cooler')))
-        with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, (32 * 'a', ('cool', 'Cooler')), props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
-    def test_http_reqparam(self):
-        formname = 'inet:http:reqparam'
-        input_props = {}
-        expected_props = {
-            'request': 32 * 'a',
-            'param': ('cool', 'Cooler'),
-            'param:name': 'cool',
-            'param:value': 'Cooler',
-        }
-        expected_ndef = (formname, (32 * 'a', ('cool', 'Cooler')))
-        with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, (32 * 'a', ('cool', 'Cooler')), props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
     def test_http_request(self):
         formname = 'inet:http:request'
         input_props = {
@@ -505,21 +475,6 @@ class InetModelTest(s_t_common.SynTest):
         with self.getTestCore() as core:
             with core.snap() as snap:
                 node = snap.addNode(formname, 32 * 'a', props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
-    def test_http_resphead(self):
-        formname = 'inet:http:resphead'
-        input_props = {}
-        expected_props = {
-            'response': 32 * 'a',
-            'header': ('cool', 'Cooler'),
-            'header:name': 'cool',
-            'header:value': 'Cooler',
-        }
-        expected_ndef = (formname, (32 * 'a', ('cool', 'Cooler')))
-        with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, (32 * 'a', ('cool', 'Cooler')), props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
     def test_http_response(self):
@@ -545,14 +500,17 @@ class InetModelTest(s_t_common.SynTest):
         expected_ndef = (formname, 32 * 'd')
         with self.getTestCore() as core:
             with core.snap() as snap:
+
                 node = snap.addNode(formname, 32 * 'd', props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
+
+                head = snap.addNode('inet:http:header', ('user-agent', 'hehe haha'))
+                refs = snap.addNode('refs', (node.ndef, head.ndef))
 
     def test_iface(self):
         formname = 'inet:iface'
         valu = 32 * 'a'
         input_props = {
-            'latlong': '0,0',
             'host': 32 * 'c',
             'type': 'Cool',
             'mac': 'ff:00:ff:00:ff:00',
@@ -565,7 +523,6 @@ class InetModelTest(s_t_common.SynTest):
             'mob:imsi': 12345678901234,
         }
         expected_props = {
-            'latlong': (0.0, 0.0),
             'host': 32 * 'c',
             'type': 'cool',
             'mac': 'ff:00:ff:00:ff:00',

@@ -179,7 +179,8 @@ class ReIndexCmd(Cmd):
             return
 
         snap.elevated = True
-        for node in genr:
+
+        for node, path in genr:
 
             form, valu = node.ndef
             norm, info = node.form.type.norm(valu)
@@ -190,7 +191,7 @@ class ReIndexCmd(Cmd):
                     if node.form.props.get(subn):
                         node.set(subn, subv)
 
-            yield node
+            yield node, path
 
 class MoveTagCmd(Cmd):
     '''
@@ -252,8 +253,8 @@ class MoveTagCmd(Cmd):
 
         snap.printf(f'moved tags on {count} nodes.')
 
-        for node in genr:
-            yield node
+        for node, path in genr:
+            yield node, path
 
 class SpinCmd(Cmd):
     '''
@@ -271,7 +272,7 @@ class SpinCmd(Cmd):
 
         yield from ()
 
-        for node in genr:
+        for node, path in genr:
             pass
 
 class CountCmd(Cmd):
@@ -289,7 +290,7 @@ class CountCmd(Cmd):
     def runStormCmd(self, snap, genr):
 
         i = 0
-        for i, node in enumerate(genr, 1):
-            yield node
+        for i, (node, path) in enumerate(genr, 1):
+            yield node, path
 
         snap.printf(f'Counted {i} nodes.')

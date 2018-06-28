@@ -238,19 +238,19 @@ class FileModule(s_module.CoreModule):
 
                 ('file:base', {}, (
                     ('ext', ('str', {}), {'ro': 1,
-                                          'doc': 'The file extension (if any).'}),
+                        'doc': 'The file extension (if any).'}),
                 )),
 
                 ('file:ref', {}, (
 
                     ('file', ('file:bytes', {}), {'ro': 1,
-                                                  'doc': 'The file that refers to a node.'}),
+                        'doc': 'The file that refers to a node.'}),
 
                     ('node', ('ndef', {}), {'ro': 1,
-                                            'doc': 'The node referenced by the file.'}),
+                        'doc': 'The node referenced by the file.'}),
 
                     ('node:form', ('str', {}), {'ro': 1,
-                                                'doc': 'The form of node which is referenced.'}),
+                        'doc': 'The form of node which is referenced.'}),
 
                     ('type', ('str', {'lower': 1}), {
                         'doc': 'A convention based name for the type of reference.'}),
@@ -297,13 +297,13 @@ class FileModule(s_module.CoreModule):
 
                 ('file:path', {}, (
                     ('dir', ('file:path', {}), {'ro': 1,
-                                                'doc': 'The parent directory.'}),
+                        'doc': 'The parent directory.'}),
 
                     ('base', ('file:base', {}), {'ro': 1,
-                                                 'doc': 'The file base name.'}),
+                        'doc': 'The file base name.'}),
 
                     ('base:ext', ('str', {}), {'ro': 1,
-                                               'doc': 'The file extension.'}),
+                        'doc': 'The file extension.'}),
                 )),
             ),
 

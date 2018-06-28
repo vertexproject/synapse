@@ -21,11 +21,20 @@ class BaseModule(s_module.CoreModule):
                 ('seen', ('comp', {'fields': (('source', 'source'), ('node', 'ndef'))}), {
                     'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
 
-                ('record', ('guid', {}), {
-                    'doc': 'A node to represent an external record or super-model node.'}),
+                ('node', ('guid', {}), {
+                    'doc': 'A generic node used to represent objects outside the model.'}),
 
-                ('verb', ('str', {'lower': True}), {
-                    'doc': 'A relationship described by a digraph edge.'}),
+                ('event', ('guid', {}), {
+                    'doc': 'A generic event node to represent events outside the model.'}),
+
+                ('refs', ('edge', {}), {
+                    'doc': 'A digraph edge which records that N1 refers to or contains N2.'}),
+
+                ('has', ('edge', {}), {
+                    'doc': 'A digraph edge which records that N1 has N2.'}),
+
+                ('wentto', ('timeedge', {}), {
+                    'doc': 'A digraph edge which records that N1 went to N2 at a specific time.'}),
             ),
 
             'forms': (
@@ -47,35 +56,54 @@ class BaseModule(s_module.CoreModule):
 
                 )),
 
-                ('edge', {}, (
-
-                    ('n1', ('ndef', {}), {'ro': 1,
-                        'doc': 'The "source" node for the digraph edge.'}),
-
-                    ('n1:form', ('str', {}), {'ro': 1,
-                        'doc': 'The form name of the source node.'}),
-
-                    ('verb', ('verb', {}), {
-                        'doc': 'The relationship type described by the digraph edge.'}),
-
-                    ('n2', ('ndef', {}), {'ro': 1,
-                        'doc': 'The "destination" node for the digraph edge.'}),
-
-                    ('n2:form', ('str', {}), {'ro': 1,
-                        'doc': 'The form name of the destination node.'}),
+                ('has', {}, (
+                    ('n1', ('ndef', {}), {'ro': 1}),
+                    ('n1:form', ('str', {}), {'ro': 1}),
+                    ('n2', ('ndef', {}), {'ro': 1}),
+                    ('n2:form', ('str', {}), {'ro': 1}),
                 )),
 
-                ('record', {}, (
+                ('refs', {}, (
+                    ('n1', ('ndef', {}), {'ro': 1}),
+                    ('n1:form', ('str', {}), {'ro': 1}),
+                    ('n2', ('ndef', {}), {'ro': 1}),
+                    ('n2:form', ('str', {}), {'ro': 1}),
+                )),
+
+                ('wentto', {}, (
+                    ('n1', ('ndef', {}), {'ro': 1}),
+                    ('n1:form', ('str', {}), {'ro': 1}),
+                    ('n2', ('ndef', {}), {'ro': 1}),
+                    ('n2:form', ('str', {}), {'ro': 1}),
+
+                    ('time', ('time', {}), {'ro': 1}),
+                )),
+
+                ('node', {}, (
 
                     ('type', ('str', {'lower': True}), {
-                        'doc': 'The type name for the record.  Used to group records by expected relationships.'}),
+                        'doc': 'The type name for the non-model node.'}),
 
                     ('name', ('str', {}), {
                         'doc': 'A human readable name for this record.'}),
 
                     ('data', ('data', {}), {
-                        'doc': 'Aribtrary msgpack data which represents the record.'}),
+                        'doc': 'Aribtrary non-indexed json/msgpack data attached to the node.'}),
 
                 )),
+
+                ('event', {}, (
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time of the event.'}),
+
+                    ('name', ('str', {}), {
+                        'doc': 'A name for the event.'}),
+
+                    ('data', ('data', {}), {
+                        'doc': 'Aribtrary non-indexed json/msgpack data attached to the event.'}),
+
+                )),
+
             ),
         }),)

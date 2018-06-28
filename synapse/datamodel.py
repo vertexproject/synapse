@@ -135,6 +135,15 @@ class Prop:
         )
 
     def getDelOps(self, buid):
+        '''
+        Get a list of storage operations to delete this property from the buid.
+
+        Args:
+            buid (bytes): The node buid.
+
+        Returns:
+            (tuple): The storage operations
+        '''
         return (
             ('prop:del', (buid, self.form.name, self.name, self.storinfo)),
         )
@@ -357,8 +366,12 @@ class Model:
         item = s_types.Ndef(self, 'ndef', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'An extensible digraph edge type used to link two nodes.'}
+        info = {'doc': 'An digraph edge base type.'}
         item = s_types.Edge(self, 'edge', info, {})
+        self.addBaseType(item)
+
+        info = {'doc': 'An digraph edge base type with a unique time.'}
+        item = s_types.TimeEdge(self, 'timeedge', info, {})
         self.addBaseType(item)
 
         info = {'doc': 'Arbitrary msgpack/json compatible data stored without an index.'}

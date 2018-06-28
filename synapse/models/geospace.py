@@ -132,22 +132,21 @@ class GeoModule(s_module.CoreModule):
                 ),
 
                 'forms': (
+
                     ('geo:nloc', {}, (
-                        ('ndef', ('ndef', {}), {
-                            'ro': 1,
-                            'req': 1,
-                            'doc': 'The node with location in geo/time'
-                        }),
-                        ('latlong', ('geo:latlong', {}), {
-                            'ro': 1,
-                            'req': 1,
-                            'doc': 'The latitude/longitude the node was observed'
-                        }),
-                        ('time', ('time', {}), {
-                            'ro': 1,
-                            'req': 1,
-                            'doc': 'The time the node was observed at location'
-                        }),
+
+                        ('ndef', ('ndef', {}), {'ro': True,
+                            'doc': 'The node with location in geo/time'}),
+
+                        ('ndef:form', ('str', {}), {'ro': True,
+                            'doc': 'The form of node referenced by the ndef.'}),
+
+                        ('latlong', ('geo:latlong', {}), {'ro': True,
+                            'doc': 'The latitude/longitude the node was observed.'}),
+
+                        ('time', ('time', {}), {'ro': True,
+                            'doc': 'The time the node was observed at location'}),
+
                     )),
 
                     ('geo:place', {}, (

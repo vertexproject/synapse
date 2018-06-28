@@ -257,8 +257,8 @@ class TelcoModule(s_module.CoreModule):
                     'doc': 'Fused knowledge of an IMSI assigned phone number.',
                     'ex': '(310150123456789, "+7(495) 124-59-83")',
                 }),
-
             ),
+
             'forms': (
                 ('tel:phone', {}, (
                     ('loc', ('loc', {}), {
@@ -300,8 +300,7 @@ class TelcoModule(s_module.CoreModule):
                     }),
                 )),
                 ('tel:mob:imid', {}, (
-                    ('imei', ('tel:mob:imei', {}), {
-                        'ro': 1,
+                    ('imei', ('tel:mob:imei', {}), {'ro': 1,
                         'doc': 'The IMEI for the phone hardware.'
                     }),
                     ('imsi', ('tel:mob:imsi', {}), {
@@ -318,6 +317,24 @@ class TelcoModule(s_module.CoreModule):
                         'ro': 1,
                         'doc': 'The IMSI with the assigned phone number.'
                     }),
+                )),
+
+                ('tel:mob:telem', {}, (
+
+                    ('time', ('time', {}), {}),
+                    ('latlong', ('geo:latlong', {}), {}),
+
+                    # telco specific data
+                    ('imsi', ('tel:mob:imsi', {}), {}),
+                    ('imei', ('tel:mob:imei', {}), {}),
+                    ('phone', ('tel:phone', {}), {}),
+
+                    # inet protocol addresses
+                    ('mac', ('inet:mac', {}), {}),
+                    ('ipv4', ('inet:ipv4', {}), {}),
+                    ('ipv6', ('inet:ipv6', {}), {}),
+
+                    ('data', ('data', {}), {}),
                 )),
 
             )

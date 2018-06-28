@@ -6,6 +6,7 @@ import synapse.common as s_common
 
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.types as s_types
 
 logger = logging.getLogger(__name__)
 
@@ -352,6 +353,9 @@ class PivotOper(Oper):
         self.isjoin = isjoin
 
 class PivotOut(PivotOper):
+    '''
+    -> *
+    '''
 
     def prepare(self):
         pass
@@ -362,6 +366,12 @@ class PivotOut(PivotOper):
 
             if self.isjoin:
                 yield node, path
+
+            if isinstance(node.form.type, s_types.Edge):
+                n2def = node.get('n2')
+                pivo = self.snap.getNodeByNdef(n2def)
+                yield pivo, path.fork()
+                continue
 
             for name, valu in node.props.items():
 
@@ -383,6 +393,9 @@ class PivotOut(PivotOper):
                 yield pivo, path.fork()
 
 class PivotIn(PivotOper):
+    '''
+    <- *
+    '''
 
     def prepare(self):
         pass
@@ -428,19 +441,42 @@ class FormPivot(PivotOper):
 
         # form -> form pivot is nonsensical. Lets help out...
 
+        # if dest form is a subtype of a digraph "edge", use N1 automatically
+        if isinstance(self.prop.type, s_types.Edge):
+
+            full = self.prop.name + ':n1'
+
+            for node, path in nodes:
+                for pivo in self.snap.getNodesBy(full, node.ndef):
+                    yield pivo, path.fork()
+
+            return
+
         # form name and type name match
-        desttype = self.prop.name
+        destform = self.prop.name
 
         @s_cache.memoize()
         def getsrc(form):
             for name, prop in form.props.items():
-                if prop.type.name == desttype:
+                if prop.type.name == destform:
                     return name
 
         for node, path in nodes:
 
             if self.isjoin:
                 yield node, path
+
+            # if the source node is a digraph edge, use n2
+            if isinstance(node.form.type, s_types.Edge):
+
+                n2def = node.get('n2')
+                if n2def[0] != destform:
+                    continue
+
+                pivo = self.snap.getNodeByNdef(node.get('n2'))
+                yield pivo, path.fork()
+
+                continue
 
             name = getsrc(node.form)
             if name is None:

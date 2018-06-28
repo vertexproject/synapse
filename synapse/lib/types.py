@@ -1,16 +1,15 @@
-
 import logging
 import collections
-
 
 import regex
 import xxhash
 
-
 import synapse.exc as s_exc
 import synapse.common as s_common
+
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 tagre = regex.compile(r'^([\w]+\.)*[\w]+$')
@@ -584,10 +583,12 @@ class Ival(Type):
             if item is None or item == (None, None):
                 return False
 
-            if item[0] >= norm[1]:
+            othr, info = self.norm(item)
+
+            if othr[0] >= norm[1]:
                 return False
 
-            if item[1] <= norm[0]:
+            if othr[1] <= norm[0]:
                 return False
 
             return True
@@ -677,7 +678,7 @@ class Ndef(Type):
         try:
             formname, formvalu = valu
         except Exception as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu)
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e))
 
         form = self.modl.form(formname)
         if form is None:
@@ -697,43 +698,78 @@ class Ndef(Type):
 class Edge(Type):
 
     def postTypeInit(self):
+
         opts = {'lower': True, 'onespace': True}
-        self.verbtype = self.modl.types.get('str').clone(opts)
         self.ndeftype = self.modl.types.get('ndef')
+
+        self.n1forms = None
+        self.n2forms = None
+
+        self.n1forms = self.opts.get('n1:forms', None)
+        self.n2forms = self.opts.get('n1:forms', None)
+
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 
-    def _normPyTuple(self, valu):
-
-        if len(valu) != 3:
-            mesg = 'edge requires (ndef, type, ndef)'
-            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=valu)
-
-        n1, verb, n2 = valu
+    def _initEdgeBase(self, n1, n2):
 
         subs = {}
-        verb, info = self.verbtype.norm(verb)
 
         n1, info = self.ndeftype.norm(n1)
+
+        if self.n1forms is not None:
+            if n1[0] not in self.n1forms:
+                raise s_exc.BadTypeValu(valu, mesg='Invalid source node for edge type: %r' % n1[0])
 
         subs['n1'] = n1
         subs['n1:form'] = n1[0]
 
-        n2, info = self.ndeftype.norm(n1)
+        n2, info = self.ndeftype.norm(n2)
+
+        if self.n2forms is not None:
+            if n2[0] not in self.n2forms:
+                raise s_exc.BadTypeValu(valu, mesg='Invalid dest node for edge type: %r' % n2[0])
 
         subs['n2'] = n2
         subs['n2:form'] = n2[0]
 
-        return (n1, verb, n2), {'subs': subs}
+        return (n1, n2), {'subs': subs}
+
+    def _normPyTuple(self, valu):
+
+        if len(valu) != 2:
+            mesg = 'edge requires (ndef, ndef)'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=valu)
+
+        n1, n2 = valu
+        return self._initEdgeBase(n1, n2)
 
     def indx(self, norm):
         return s_common.buid(norm)
+
+class TimeEdge(Edge):
+
+    def _normPyTuple(self, valu):
+
+        if len(valu) != 3:
+            mesg = 'timeedge requires (ndef, ndef, time)'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=valu)
+
+        n1, n2, tick = valu
+
+        tick, info = self.modl.types.get('time').norm(tick)
+
+        (n1, n2), info = self._initEdgeBase(n1, n2)
+
+        info['subs']['time'] = tick
+
+        return (n1, n2, tick), info
 
 class Data(Type):
 
     def norm(self, valu):
         byts = s_msgpack.en(valu)
-        return s_msgpack.un(valu)
+        return s_msgpack.un(byts), {}
 
     def indx(self, norm):
         return None
@@ -757,7 +793,7 @@ class NodeProp(Type):
         try:
             propname, propvalu = valu
         except Exception as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu)
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e))
 
         prop = self.modl.prop(propname)
         if prop is None:
@@ -941,9 +977,13 @@ class Time(Type):
 
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
+        self.setCmprCtor('@=', self._ctorCmprAt)
 
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')
+
+    def _ctorCmprAt(self, valu):
+        return self.modl.types.get('ival')._ctorCmprAt(valu)
 
     def _normPyStr(self, valu):
 
