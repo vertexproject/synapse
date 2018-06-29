@@ -730,18 +730,6 @@ class RelPropCond(Cond):
     '''
     :foo:bar <cmpr> <value>
     '''
-    def getLiftHints(self):
-
-        if not self.isconst:
-            return ()
-
-        return (
-            ('prop', {
-                'name': prop.full,
-                'valu': self.constval,
-                'cmpr': self.cmprname,
-            }),
-        )
 
     def prepare(self):
 
