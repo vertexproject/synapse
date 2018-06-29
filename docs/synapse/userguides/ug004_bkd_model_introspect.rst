@@ -4,8 +4,8 @@ Background - Model Introspection
 
 In order to query and pivot through data in the Synapse hypergraph effectively, analysts must have some familiarity with the Synapse data model. Analysts will quickly become familiar with forms they work with most often; but as the model expands it is helpful to be able to easily reference forms that may be less familiar. Similarly, as the number of tags used in the hypergraph increases, analysts must be able to readily identify tags, tag hierarchies, and the precise meaning of individual tags so they can be applied and interpreted correctly.
 
-  * `Data Model (Form) Introspection`_
-  * `Analytical Model (Tag) Introspection`_
+* `Data Model (Form) Introspection`_
+* `Analytical Model (Tag) Introspection`_
 
 Data Model (Form) Introspection
 -------------------------------
@@ -39,20 +39,20 @@ Synapse’s Storm query language can be used to view and examine tags and tag tr
 
 To lift a single tag:
 
-    ``cli> storm syn:tag=<tag>``
+``cli> storm syn:tag=<tag>``
 
 To list all root tags:
 
-    ``cli> storm syn:tag:depth=0``
+``cli> storm syn:tag:depth=0``
 
 To list all tags one level “down” from the current tag:
 
-    ``cli> storm syn:tag=<tag> -> syn:tag:up``
+``cli> storm syn:tag=<tag> -> syn:tag:up``
 
 To list all tags that share the same base (leaf) element:
 
-    ``cli> storm syn:tag:base=<base>``
+``cli> storm syn:tag:base=<base>``
 
 
-.. _`source code`: 
+.. _`source code`: https://github.com/vertexproject/synapse
 .. _`data model dictionary`: ../../datamodel.html
