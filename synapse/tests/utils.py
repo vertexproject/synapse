@@ -126,6 +126,7 @@ testmodel = {
 
         ('testtime', ('time', {}), {}),
 
+        ('testint', ('int', {}), {}),
         ('teststr', ('str', {}), {}),
         ('testauto', ('str', {}), {}),
 
@@ -172,6 +173,8 @@ testmodel = {
             ('hehe', ('int', {}), {'ro': 1}),
             ('haha', ('str', {}), {'ro': 1}),
         )),
+
+        ('testint', {}, {}),
 
         ('teststr', {}, (
             ('bar', ('ndef', {}), {}),

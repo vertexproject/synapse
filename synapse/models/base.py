@@ -21,7 +21,7 @@ class BaseModule(s_module.CoreModule):
                 ('seen', ('comp', {'fields': (('source', 'source'), ('node', 'ndef'))}), {
                     'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
 
-                ('node', ('guid', {}), {
+                ('graph:node', ('guid', {}), {
                     'doc': 'A generic node used to represent objects outside the model.'}),
 
                 ('event', ('guid', {}), {
@@ -35,6 +35,12 @@ class BaseModule(s_module.CoreModule):
 
                 ('wentto', ('timeedge', {}), {
                     'doc': 'A digraph edge which records that N1 went to N2 at a specific time.'}),
+
+                ('graph:link', ('edge', {}), {
+                    'doc': 'A generic digraph edge to show relationships outside the model.'}),
+
+                ('graph:timelink', ('timeedge', {}), {
+                    'doc': 'A generic digraph time edge to show relationships outside the model.'}),
             ),
 
             'forms': (
@@ -79,9 +85,9 @@ class BaseModule(s_module.CoreModule):
                     ('time', ('time', {}), {'ro': 1}),
                 )),
 
-                ('node', {}, (
+                ('graph:node', {}, (
 
-                    ('type', ('str', {'lower': True}), {
+                    ('type', ('str', {}), {
                         'doc': 'The type name for the non-model node.'}),
 
                     ('name', ('str', {}), {
@@ -90,6 +96,21 @@ class BaseModule(s_module.CoreModule):
                     ('data', ('data', {}), {
                         'doc': 'Aribtrary non-indexed json/msgpack data attached to the node.'}),
 
+                )),
+
+                ('graph:link', {}, (
+                    ('n1', ('ndef', {}), {'ro': 1}),
+                    ('n1:form', ('str', {}), {'ro': 1}),
+                    ('n2', ('ndef', {}), {'ro': 1}),
+                    ('n2:form', ('str', {}), {'ro': 1}),
+                )),
+
+                ('graph:timelink', {}, (
+                    ('time', ('time', {}), {'ro': 1}),
+                    ('n1', ('ndef', {}), {'ro': 1}),
+                    ('n1:form', ('str', {}), {'ro': 1}),
+                    ('n2', ('ndef', {}), {'ro': 1}),
+                    ('n2:form', ('str', {}), {'ro': 1}),
                 )),
 
                 ('event', {}, (

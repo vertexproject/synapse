@@ -17,10 +17,40 @@ class BaseTest(s_test.SynTest):
                     'data': ('some', 'data', 'here'),
                 }
 
-                node = snap.addNode('node', iden, props=props)
-                self.eq(node.ndef, ('node', iden))
+                node = snap.addNode('graph:node', iden, props=props)
+                self.eq(node.ndef, ('graph:node', iden))
                 self.eq(node.get('type'), 'hehe haha')
                 self.eq(node.get('data'), ('some', 'data', 'here'))
+
+    def test_model_base_link(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                node1 = snap.addNode('testint', 20)
+                node2 = snap.addNode('teststr', 'foo')
+
+                link = snap.addNode('graph:link', (node1.ndef, node2.ndef))
+
+                self.eq(link.ndef[1], (('testint', 20), ('teststr', 'foo')))
+                self.eq(link.get('n1'), ('testint', 20))
+                self.eq(link.get('n1:form'), 'testint')
+
+                self.eq(link.get('n2'), ('teststr', 'foo'))
+                self.eq(link.get('n2:form'), 'teststr')
+
+                timelink = snap.addNode('graph:timelink', (node1.ndef, node2.ndef, '2015'))
+
+                self.eq(timelink.ndef[1], (('testint', 20), ('teststr', 'foo'), 1420070400000))
+
+                self.eq(timelink.get('time'), 1420070400000)
+
+                self.eq(timelink.get('n1'), ('testint', 20))
+                self.eq(timelink.get('n1:form'), 'testint')
+
+                self.eq(timelink.get('n2'), ('teststr', 'foo'))
+                self.eq(timelink.get('n2:form'), 'teststr')
 
     def test_model_base_event(self):
 

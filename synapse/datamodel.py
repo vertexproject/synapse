@@ -366,6 +366,10 @@ class Model:
         item = s_types.Ndef(self, 'ndef', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'A list type for storing multiple values of the same type.'}
+        item = s_types.List(self, 'list', info, {'type': 'str'})
+        self.addBaseType(item)
+
         info = {'doc': 'An digraph edge base type.'}
         item = s_types.Edge(self, 'edge', info, {})
         self.addBaseType(item)

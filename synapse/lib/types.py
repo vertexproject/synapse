@@ -695,6 +695,37 @@ class Ndef(Type):
     def indx(self, norm):
         return s_common.buid(norm)
 
+class List(Type):
+
+    def postTypeInit(self):
+
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+        # *contains= cmpr and eventually lift
+
+        typename = self.opts.get('type')
+        if typename is None:
+            mesg = 'type option is required for list type'
+            raise s_exc.BadConfValu(name='type', valu=None, mesg=mesg)
+
+        self.itemtype = self.modl.types.get(typename)
+        if self.itemtype is None:
+            raise s_exc.NoSuchType(typename)
+
+    def _normPyTuple(self, valu):
+
+        retn = []
+
+        for item in valu:
+            norm, info = self.itemtype.norm(item)
+            retn.append(norm)
+
+        return tuple(retn), {}
+
+    def indx(self, norm):
+        return None
+
 class Edge(Type):
 
     def postTypeInit(self):
