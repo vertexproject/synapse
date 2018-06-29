@@ -97,6 +97,9 @@ class BaseModule(s_module.CoreModule):
                     ('time', ('time', {}), {
                         'doc': 'The time of the event.'}),
 
+                    ('type', ('str', {}), {
+                        'doc': 'A arbitrary type string for the event.'}),
+
                     ('name', ('str', {}), {
                         'doc': 'A name for the event.'}),
 

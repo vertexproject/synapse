@@ -879,9 +879,12 @@ class Parser:
 
         self.ignore(whitespace)
 
-        self.nextmust('*')
+        if self.nextchar() == '*':
+            self.offs += 1
+            return s_ast.PivotIn()
 
-        return s_ast.PivotIn()
+        prop = self.absprop()
+        return s_ast.PivotInFrom(kids=(prop,))
 
     def formjoinin(self):
         '''

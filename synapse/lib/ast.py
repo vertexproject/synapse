@@ -360,9 +360,9 @@ class PivotOut(PivotOper):
     def prepare(self):
         pass
 
-    def run(self, nodes):
+    def run(self, genr):
 
-        for node, path in nodes:
+        for node, path in genr:
 
             if self.isjoin:
                 yield node, path
@@ -400,18 +400,72 @@ class PivotIn(PivotOper):
     def prepare(self):
         pass
 
-    def run(self, nodes):
+    def run(self, genr):
 
-        for node, path in nodes:
+        for node, path in genr:
 
             if self.isjoin:
                 yield node, path
+
+            # if it's a digraph edge, use :n2
+            if isinstance(node.form.type, s_types.Edge):
+
+                ndef = node.get('n1')
+
+                pivo = self.snap.getNodeByNdef(ndef)
+                if pivo is None:
+                    continue
+
+                yield pivo, path.fork()
+
+                continue
 
             name, valu = node.ndef
 
             for prop in self.snap.model.propsbytype.get(name, ()):
                 for pivo in self.snap.getNodesBy(prop.full, valu):
                     yield pivo, path.fork()
+
+class PivotInFrom(PivotOper):
+
+    def prepare(self):
+
+        name = self.kids[0].value()
+        self.form = self.snap.model.forms.get(name)
+
+        if self.form is None:
+            raise s_exc.NoSuchForm(name=name)
+
+    def run(self, genr):
+
+        # <- edge
+        if isinstance(self.form.type, s_types.Edge):
+
+            full = self.form.name + ':n2'
+
+            for node, path in genr:
+                for pivo in self.snap.getNodesBy(full, node.ndef):
+                    yield pivo, path.fork()
+
+            return
+
+        # edge <- form
+        for node, path in genr:
+
+            if not isinstance(node.form.type, s_types.Edge):
+                continue
+
+            # dont bother traversing edges to the wrong form
+            if node.get('n1:form') != self.form.name:
+                continue
+
+            n1def = node.get('n1')
+
+            pivo = self.snap.getNodeByNdef(n1def)
+            if pivo is None:
+                continue
+
+            yield pivo, path.fork()
 
 class FormPivot(PivotOper):
 
@@ -423,12 +477,12 @@ class FormPivot(PivotOper):
         if self.prop is None:
             raise s_exc.NoSuchProp(name=name)
 
-    def run(self, nodes):
+    def run(self, genr):
 
         if not self.prop.isform:
 
             # plain old pivot...
-            for node, path in nodes:
+            for node, path in genr:
 
                 if self.isjoin:
                     yield node, path
@@ -446,7 +500,7 @@ class FormPivot(PivotOper):
 
             full = self.prop.name + ':n1'
 
-            for node, path in nodes:
+            for node, path in genr:
                 for pivo in self.snap.getNodesBy(full, node.ndef):
                     yield pivo, path.fork()
 
@@ -461,7 +515,7 @@ class FormPivot(PivotOper):
                 if prop.type.name == destform:
                     return name
 
-        for node, path in nodes:
+        for node, path in genr:
 
             if self.isjoin:
                 yield node, path
@@ -500,11 +554,11 @@ class PropPivot(PivotOper):
         if self.prop is None:
             raise s_exc.NoSuchProp(name=name)
 
-    def run(self, nodes):
+    def run(self, genr):
 
         # TODO if we are pivoting to a form, use ndef!
 
-        for node, path in nodes:
+        for node, path in genr:
 
             if self.isjoin:
                 yield node, path
@@ -877,9 +931,9 @@ class EditNodeAdd(Edit):
         self.formname = self.kids[0].value()
         self.formtype = self.snap.model.types.get(self.formname)
 
-    def run(self, nodes):
+    def run(self, genr):
 
-        yield from nodes
+        yield from genr
 
         kval = self.kids[1].value()
 
@@ -892,8 +946,8 @@ class EditPropSet(Edit):
     def prepare(self):
         self.propname = self.kids[0].value()
 
-    def run(self, nodes):
-        for node, path in nodes:
+    def run(self, genr):
+        for node, path in genr:
             valu = self.kids[1].compute(node, path)
             node.set(self.propname, valu)
             yield node, path
@@ -903,8 +957,8 @@ class EditPropDel(Edit):
     def prepare(self):
         self.propname = self.kids[0].value()
 
-    def run(self, nodes):
-        for node, path in nodes:
+    def run(self, genr):
+        for node, path in genr:
             node.pop(self.propname)
             yield node, path
 
@@ -921,8 +975,8 @@ class EditTagAdd(Edit):
 
         return self.kids[1].compute(node, path)
 
-    def run(self, nodes):
-        for node, path in nodes:
+    def run(self, genr):
+        for node, path in genr:
             valu = self.getTagValue(node, path)
             node.addTag(self.tagname, valu=valu)
             yield node, path
@@ -932,7 +986,7 @@ class EditTagDel(Edit):
     def prepare(self):
         self.tagname = self.kids[0].value()
 
-    def run(self, nodes):
-        for node, path in nodes:
+    def run(self, genr):
+        for node, path in genr:
             node.delTag(self.tagname)
             yield node, path

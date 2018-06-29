@@ -31,7 +31,7 @@ class BaseTest(s_test.SynTest):
                 iden = s_common.guid()
 
                 props = {
-                    'type': 'hehe haha',
+                    'type': 'HeHe HaHa',
                     'time': '2015',
                     'data': ('some', 'data', 'here'),
                 }
@@ -40,8 +40,8 @@ class BaseTest(s_test.SynTest):
 
                 self.eq(node.ndef, ('event', iden))
 
-                self.eq(node.get('type'), 'hehe haha')
-                self.eq(node.get('time'), 'hehe haha')
+                self.eq(node.get('type'), 'HeHe HaHa')
+                self.eq(node.get('time'), 1420070400000)
                 self.eq(node.get('data'), ('some', 'data', 'here'))
 
     def test_model_base_edge(self):
@@ -83,6 +83,12 @@ class BaseTest(s_test.SynTest):
             self.len(1, core.eval('ps:person=$pers -> wentto -> *', opts=opts))
             self.len(1, core.eval('ps:person=$pers -> wentto +:time@=(2014,2017) -> geo:place', opts=opts))
             self.len(0, core.eval('ps:person=$pers -> wentto -> inet:ipv4', opts=opts))
+
+            opts = {'vars': {'place': plac}}
+
+            self.len(1, core.eval('geo:place=$place <- has <- *', opts=opts))
+            self.len(1, core.eval('geo:place=$place <- has <- ps:person', opts=opts))
+            self.len(0, core.eval('geo:place=$place <- has <- inet:ipv4', opts=opts))
 
     def test_model_base_source(self):
 

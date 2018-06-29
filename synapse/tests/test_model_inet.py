@@ -427,6 +427,13 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_http_cookie(self):
+
+        with self.getTestCore() as core:
+            with core.snap() as snap:
+                node = snap.addNode('inet:http:cookie', 'HeHe=HaHa')
+                self.eq(node.ndef[1], 'HeHe=HaHa')
+
     def test_http_header(self):
         formname = 'inet:http:header'
         valu = ('Cool', 'Cooler')
@@ -481,7 +488,6 @@ class InetModelTest(s_t_common.SynTest):
         formname = 'inet:http:response'
         input_props = {
             'flow': 32 * 'f',
-            'host': 32 * 'c',
             'time': 0,
             'request': 32 * 'a',
             'code': '401',
@@ -490,7 +496,6 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_props = {
             'flow': 32 * 'f',
-            'host': 32 * 'c',
             'time': 0,
             'request': 32 * 'a',
             'code': 401,

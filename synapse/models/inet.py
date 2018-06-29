@@ -702,21 +702,20 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A group name string.'
                     }),
 
+                    ('inet:http:cookie', ('str', {}), {
+                        'doc': 'An HTTP cookie string.'}),
+
                     ('inet:http:header', ('comp', {'fields': (('name', ('str', {'lower': True})), ('value', 'str'))}), {
-                        'doc': 'An HTTP protocol header key/value.',
-                    }),
+                        'doc': 'An HTTP protocol header key/value.'}),
 
                     ('inet:http:param', ('comp', {'fields': (('name', ('str', {'lower': True})), ('value', 'str'))}), {
-                        'doc': 'An HTTP request path query parameter.',
-                    }),
+                        'doc': 'An HTTP request path query parameter.'}),
 
                     ('inet:http:request', ('guid', {}), {
-                        'doc': 'A single client http request.',
-                    }),
+                        'doc': 'A single HTTP request.'}),
 
                     ('inet:http:response', ('guid', {}), {
-                        'doc': 'A server response to a client HTTP request.',
-                    }),
+                        'doc': 'A single HTTP response.'}),
 
                     ('inet:iface', ('guid', {}), {
                         'doc': 'A network interface with a set of associated protocol addresses.'
@@ -1127,12 +1126,20 @@ class InetModule(s_module.CoreModule):
 
                     )),
 
-                    ('inet:http:request', {}, (
-                        ('flow', ('inet:flow', {}), {
-                            'doc': 'The inet:flow which contained the HTTP request.'}),
+                    ('inet:http:cookie', {}, ()),
 
-                        ('host', ('it:host', {}), {
-                            'doc': 'The it:host which sent the HTTP request.'}),
+                    ('inet:http:request', {}, (
+
+                        ('flow', ('inet:flow', {}), {}),
+
+                        ('client', ('inet:client', {}), {'ro': True}),
+                        ('client:ipv4', ('inet:client', {}), {'ro': True}),
+                        ('client:ipv6', ('inet:client', {}), {'ro': True}),
+
+                        ('server', ('inet:server', {}), {'ro': True}),
+                        ('server:ipv4', ('inet:ipv4', {}), {'ro': True}),
+                        ('server:ipv6', ('inet:ipv6', {}), {'ro': True}),
+                        ('server:port', ('inet:ipv6', {}), {'ro': True}),
 
                         ('time', ('time', {}), {
                             'doc': 'The time that the HTTP request was sent.'}),
@@ -1154,12 +1161,18 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:http:response', {}, (
-                        ('flow', ('inet:flow', {}), {
-                            'doc': 'The inet:flow which contained the HTTP response.'
-                        }),
-                        ('host', ('it:host', {}), {
-                            'doc': 'The it:host which sent the HTTP response.'
-                        }),
+
+                        ('flow', ('inet:flow', {}), {}),
+
+                        ('client', ('inet:client', {}), {'ro': True}),
+                        ('client:ipv4', ('inet:client', {}), {'ro': True}),
+                        ('client:ipv6', ('inet:client', {}), {'ro': True}),
+
+                        ('server', ('inet:server', {}), {'ro': True}),
+                        ('server:ipv4', ('inet:ipv4', {}), {'ro': True}),
+                        ('server:ipv6', ('inet:ipv6', {}), {'ro': True}),
+                        ('server:port', ('inet:ipv6', {}), {'ro': True}),
+
                         ('time', ('time', {}), {
                             'doc': 'The time that the HTTP response was sent.'
                         }),
