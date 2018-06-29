@@ -435,7 +435,25 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.ndef[1], 'HeHe=HaHa')
 
     def test_http_header(self):
-        formname = 'inet:http:header'
+        pass # this is tested below...
+
+    def test_http_request_header(self):
+        formname = 'inet:http:request:header'
+        valu = ('Cool', 'Cooler')
+        expected_props = {
+            'name': 'cool',
+            'value': 'Cooler'
+        }
+        expected_ndef = (formname, ('cool', 'Cooler'))
+        with self.getTestCore() as core:
+            with core.snap() as snap:
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_http_response_header(self):
+
+        formname = 'inet:http:response:header'
+
         valu = ('Cool', 'Cooler')
         expected_props = {
             'name': 'cool',
@@ -463,54 +481,40 @@ class InetModelTest(s_t_common.SynTest):
     def test_http_request(self):
         formname = 'inet:http:request'
         input_props = {
-            'time': 0,
+            'time': '2015',
             'flow': 32 * 'f',
             'method': 'gEt',
             'path': '/woot/hehe/',
             'query': 'hoho=1&qaz=bar',
-            'body': 64 * 'b'
+            'client': '1.2.3.4',
+            'server': '5.5.5.5:443',
+            'body': 64 * 'b',
+            'response:code': 200,
+            'response:reason': 'OK',
+            'response:body': 64 * 'b'
         }
         expected_props = {
-            'time': 0,
+            'time': 1420070400000,
             'flow': 32 * 'f',
             'method': 'gEt',
             'path': '/woot/hehe/',
             'query': 'hoho=1&qaz=bar',
-            'body': 'sha256:' + 64 * 'b'
+            'body': 'sha256:' + 64 * 'b',
+
+            'client:ipv4': 0x01020304,
+
+            'server:port': 443,
+            'server:ipv4': 0x05050505,
+
+            'response:code': 200,
+            'response:reason': 'OK',
+            'response:body': 'sha256:' + 64 * 'b',
         }
         expected_ndef = (formname, 32 * 'a')
         with self.getTestCore() as core:
             with core.snap() as snap:
                 node = snap.addNode(formname, 32 * 'a', props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
-
-    def test_http_response(self):
-        formname = 'inet:http:response'
-        input_props = {
-            'flow': 32 * 'f',
-            'time': 0,
-            'request': 32 * 'a',
-            'code': '401',
-            'reason': 'newp',
-            'body': 64 * 'b'
-        }
-        expected_props = {
-            'flow': 32 * 'f',
-            'time': 0,
-            'request': 32 * 'a',
-            'code': 401,
-            'reason': 'newp',
-            'body': 'sha256:' + 64 * 'b'
-        }
-        expected_ndef = (formname, 32 * 'd')
-        with self.getTestCore() as core:
-            with core.snap() as snap:
-
-                node = snap.addNode(formname, 32 * 'd', props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
-                head = snap.addNode('inet:http:header', ('user-agent', 'hehe haha'))
-                refs = snap.addNode('refs', (node.ndef, head.ndef))
 
     def test_iface(self):
         formname = 'inet:iface'
