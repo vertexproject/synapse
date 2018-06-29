@@ -7,23 +7,23 @@ This section covers the basic “building blocks” of the Synapse hypergraph da
 
 **Note:** This documentation presents the data model from a User or Analyst perspective; for detailed information, see the `Data Model`_ section or the Synapse source code.
 
-  * `Background`_
-  * `Data Model Terminology`_
-  * `Nodes`_
-  * `Forms`_
-  * `Types`_
-  * `Tags`_
+* `Background`_
+* `Data Model Terminology`_
+* `Nodes`_
+* `Forms`_
+* `Types`_
+* `Tags`_
 
 Background
 ----------
 
 Recall that **Synapse is a distributed key-value hypergraph analysis framework.** That is, Synapse is a particular implementation of a hypergraph model, where an instance of a hypergraph is called a Cortex. In our brief discussion_ of graphs and hypergraphs, we pointed out some fundamental concepts related to the Synapse hypergraph implementation:
 
-  * **Everything is a node.** There are no pairwise (“two-dimensional”) edges in a hypergraph the way there are in a directed graph.
+* **Everything is a node.** There are no pairwise (“two-dimensional”) edges in a hypergraph the way there are in a directed graph.
 
-  * **Tags act as hyperedges.** In a directed graph, an edge connects exactly two nodes. In Synapse, tags are labels that can be applied to an arbitrary number of nodes. These tags effectively act as an n-dimensional edge that can connect any number of nodes – a hyperedge.
+* **Tags act as hyperedges.** In a directed graph, an edge connects exactly two nodes. In Synapse, tags are labels that can be applied to an arbitrary number of nodes. These tags effectively act as an n-dimensional edge that can connect any number of nodes – a hyperedge.
 
-  * **(Almost) every navigation of the graph is a pivot.** Since there are no pairwise edges in a hypergraph, you can’t query or explore the graph by traversing its edges. Instead, navigation primarily consists of pivoting from the properties of one set of nodes to the properties of another set of nodes. (Since tags are hyperedges, there are ways to lift by or “pivot through” tags that act as “hyperedge traversal”; but most navigation is via pivots.)
+* **(Almost) every navigation of the graph is a pivot.** Since there are no pairwise edges in a hypergraph, you can’t query or explore the graph by traversing its edges. Instead, navigation primarily consists of pivoting from the properties of one set of nodes to the properties of another set of nodes. (Since tags are hyperedges, there are ways to lift by or “pivot through” tags that act as “hyperedge traversal”; but most navigation is via pivots.)
 
 To start building on those concepts, you need to understand the basic elements of the Synapse data model.
 
@@ -32,10 +32,10 @@ Data Model Terminology
 
 The fundamental concepts you should be familiar with are:
 
-  * `Nodes`_
-  * `Forms`_
-  * `Types`_
-  * `Tags`_
+* `Nodes`_
+* `Forms`_
+* `Types`_
+* `Tags`_
 
 Synapse uses a query language called **Storm** to interact with data in the hypergraph. Storm allows a user to ask about, filter, and pivot around data based on node properties, values, and tags. **Understanding these structures will significantly improve your ability to use Storm and interact with Synapse data.**
 
@@ -46,18 +46,20 @@ A node is a unique object within the Synapse hypergraph. In Synapse nodes repres
 
 Every node consists of the following components:
 
-  * A **primary property** that consists of the form of the node (see below) plus its specific value. All primary properties (``<form> = <valu>``) must be unique for a given node type (form). For example, the primary property of the node representing the domain “woot.com” would be ``inet:fqdn = woot.com``. The uniqueness of the ``<form> = <valu>`` pair ensures there can be only one node that represents the domain “woot.com”. Because this unique pair “defines” the node, the form / value combination is also known as the node’s **ndef** (short for “node definition”).
+* A **primary property** that consists of the form of the node (see below) plus its specific value. All primary properties (``<form> = <valu>``) must be unique for a given node type (form). For example, the primary property of the node representing the domain “woot.com” would be ``inet:fqdn = woot.com``. The uniqueness of the ``<form> = <valu>`` pair ensures there can be only one node that represents the domain “woot.com”. Because this unique pair “defines” the node, the form / value combination is also known as the node’s **ndef** (short for “node definition”).
 
-  * Various **universal properties.** As the name implies, universal properties are applicable to all nodes. Their property name is preceded by a dot ( ``.`` ) to distinguish them from form-specific properties. Examples of universal properties include:
+* Various **universal properties.** As the name implies, universal properties are applicable to all nodes. Their property name is preceded by a dot ( ``.`` ) to distinguish them from form-specific properties. Examples of universal properties include:
 
-    * ``.created``: every node is automatically assigned a ``.created`` property on formation whose value is its creation timestamp.
-    * ``.seen``: can be used to assign “first observed” and “last observed” timestamps to a given node, if applicable. “When” a particular node existed or was observed is important for many types of analysis. When was a Twitter account (``inet:web:acct``) created and when was it deleted or shut down? During what time period did the domain woot.com resolve to IP 1.2.3.4 (``inet:dns:a``)?
+  * ``.created``: every node is automatically assigned a ``.created`` property on formation whose value is its creation timestamp.
+  * ``.seen``: can be used to assign “first observed” and “last observed” timestamps to a given node, if applicable. “When” a particular node existed or was observed is important for many types of analysis. When was a Twitter account (``inet:web:acct``) created and when was it deleted or shut down? During what time period did the domain woot.com resolve to IP 1.2.3.4 (``inet:dns:a``)?
 
-  * Various **secondary properties** (``<prop> = <valu>``) that are specific to that node type and provide additional detail about that particular node. A node representing an Internet domain will have different secondary properties than a node representing a person, which will have different secondary properties than a node representing a bank account.
+* Various **secondary properties** (``<prop> = <valu>``) that are specific to that node type and provide additional detail about that particular node. A node representing an Internet domain will have different secondary properties than a node representing a person, which will have different secondary properties than a node representing a bank account.
 
 **Example**
 
-The Storm query below lifts and displays the node for the domain "woot.com".::
+The Storm query below lifts and displays the node for the domain "woot.com".
+
+::
 
   cli> storm inet:fqdn=woot.com
   
@@ -72,9 +74,9 @@ The Storm query below lifts and displays the node for the domain "woot.com".::
 
 In the output above:
 
-  * ``inet:fqdn = woot.com`` is the primary property (``<form> = <valu>``).
-  * ``.created`` is a universal property showing when the node was added to the Cortex.
-  * ``:domain``, ``:host``, etc. are form-specific secondary properties with their associated values (``:<prop> = <valu>``). For readability, secondary properties are displayed as **relative properties** within the namespace of the form’s primary property (e.g., ``:iszone`` as opposed to ``inet:fqdn:iszone``). The preceding colon ( ``:`` ) indicates the property is a relative property.
+* ``inet:fqdn = woot.com`` is the primary property (``<form> = <valu>``).
+* ``.created`` is a universal property showing when the node was added to the Cortex.
+* ``:domain``, ``:host``, etc. are form-specific secondary properties with their associated values (``:<prop> = <valu>``). For readability, secondary properties are displayed as **relative properties** within the namespace of the form’s primary property (e.g., ``:iszone`` as opposed to ``inet:fqdn:iszone``). The preceding colon ( ``:`` ) indicates the property is a relative property.
 
 Forms
 -----
@@ -153,11 +155,11 @@ Below are examples of how a form (``inet:fqdn``) is represented in both the Syna
 
 Form definitions include:
 
-  * The **primary property** whose value must be unique across all instances of that form.
-  * A set of (possibly optional) **secondary properties,** structured as ``<prop> = <valu>``, listed with their defined type (``<time>``, ``<bool>``) as well as any special handling or normalization of the type for that property (e.g., ``'str'``, ``{'lower': True}``).
-  * Whether a property is **read only** (``‘ro’``) once set. (Note that ``‘ro’`` is visible in the source code but the designation is not carried over into the auto-generated documentation). “Read only” typically applies to secondary properties that are derived from the primary property. Since a node’s primary property value cannot be changed once set, any secondary properties derived from the primary property value should also be immutable. Secondary properties that can be derived from the primary property will be set automatically by Synapse when the node is created.
-  * Whether a property has a **default value** (``‘defval’``) if an explicit value for the property is not specified.
-  * Inline **documentation** (``‘doc’``) that clarifies the purpose or intended definition of the property.
+* The **primary property** whose value must be unique across all instances of that form.
+* A set of (possibly optional) **secondary properties,** structured as ``<prop> = <valu>``, listed with their defined type (``<time>``, ``<bool>``) as well as any special handling or normalization of the type for that property (e.g., ``'str'``, ``{'lower': True}``).
+* Whether a property is **read only** (``‘ro’``) once set. (Note that ``‘ro’`` is visible in the source code but the designation is not carried over into the auto-generated documentation). “Read only” typically applies to secondary properties that are derived from the primary property. Since a node’s primary property value cannot be changed once set, any secondary properties derived from the primary property value should also be immutable. Secondary properties that can be derived from the primary property will be set automatically by Synapse when the node is created.
+* Whether a property has a **default value** (``‘defval’``) if an explicit value for the property is not specified.
+* Inline **documentation** (``‘doc’``) that clarifies the purpose or intended definition of the property.
 
 Types
 -----
@@ -175,8 +177,8 @@ Tags are annotations applied to nodes. Simplistically, they can be thought of as
 
 Broadly speaking, within Synapse:
 
-  * Nodes represent **things:** objects, relationships, or events. In other words, nodes typically represent facts or observables that are objectively true and unchanging.
-  * Tags represent **assessments:** judgements that could change if the data or the analysis of the data changes.
+* Nodes represent **things:** objects, relationships, or events. In other words, nodes typically represent facts or observables that are objectively true and unchanging.
+* Tags represent **assessments:** judgements that could change if the data or the analysis of the data changes.
 
 For example, an internet domain is an “objectively real thing” - a domain exists, was registered, etc. and can be created as a node such as ``inet:fqdn = woot.com``. Whether that domain is sinkholed is an assessment - a researcher may need to evaluate data related to that domain (such as domain registration records or current and past IP resolutions) to decide whether the domain appears to be sinkholed (or when it was sinkholed). This assessment can be represented by applying a tag such as ``#cno.sink.hole`` to the ``inet:fqdn = woot.com`` node.
 
@@ -227,7 +229,7 @@ Synapse does not include any pre-populated tags (syn:form = <tag>), just as it d
 Tags are discussed in greater detail elsewhere in this documentation.
 
 
-.. _Data Model: ../../datamodel.html
-.. _discussion: ../userguides/ug003_bkd_graphs_hypergraphs.html
+.. _`Data Model`: ../../datamodel.rst
+.. _discussion: ../userguides/ug003_bkd_graphs_hypergraphs.rst
 .. _inet.py: https://github.com/vertexproject/synapse/blob/010/synapse/models/inet.py
 
