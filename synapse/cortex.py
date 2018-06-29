@@ -66,6 +66,7 @@ class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed over telepath.
     '''
+
     @s_cell.adminapi
     def getCoreMods(self):
         return self.cell.getCoreMods()
@@ -79,6 +80,25 @@ class CoreApi(s_cell.CellApi):
 
     async def fini(self):
         pass
+
+    def cancelQueryByGuid(self, guid):
+        '''
+        Cancel a storm query by guid.
+
+        Args:
+            guid (str): A storm query guid.
+
+        Notes:
+            The guid can be obtained in the init message yielded by the query.
+
+        Returns:
+            True if canceled, False otherwise.
+        '''
+        query = self.cell.running_queries.pop(guid, None)
+        if query is not None:
+            query.cancel()
+            return True
+        return False
 
     def addNodes(self, nodes):
 
@@ -126,7 +146,6 @@ class CoreApi(s_cell.CellApi):
         dorepr = query.opts.get('repr')
 
         try:
-
             for node in query.evaluate():
                 yield node.pack(dorepr=dorepr)
 
@@ -150,15 +169,19 @@ class CoreApi(s_cell.CellApi):
         Execute a storm query and yield messages.
         '''
         query = self._getStormQuery(text, opts=opts)
-
         try:
 
-            for mesg in query.execute():
+            genr = query.execute()
+            self.cell.running_queries[query.guid] = query
+            for mesg in genr:
                 yield mesg
 
         except Exception as e:
             logger.exception('exception during storm')
             query.cancel()
+
+        finally:
+            self.cell.running_queries.pop(query.guid, None)
 
     @s_cell.adminapi
     def splices(self, offs, size):
@@ -238,6 +261,7 @@ class Cortex(s_cell.Cell):
         self.feedfuncs = {}
 
         self.stormcmds = {}
+        self.running_queries = {}
 
         self.addStormCmd(s_storm.HelpCmd)
         self.addStormCmd(s_storm.SpinCmd)
@@ -621,8 +645,30 @@ class Cortex(s_cell.Cell):
         if opts is not None:
             query.opts.update(opts)
 
-        for mesg in query.execute():
+        genr = query.execute()
+        self.running_queries[query.guid] = query
+        for mesg in genr:
             yield mesg
+        self.running_queries.pop(query.guid, None)
+
+    def cancelQueryByGuid(self, guid):
+        '''
+        Cancel a storm query by guid.
+
+        Args:
+            guid (str): A storm query guid.
+
+        Notes:
+            The guid can be obtained in the init message yielded by the query.
+
+        Returns:
+            True if canceled, False otherwise.
+        '''
+        query = self.running_queries.pop(guid, None)
+        if query is not None:
+            query.cancel()
+            return True
+        return False
 
     def _logStormQuery(self, text, user):
         '''
