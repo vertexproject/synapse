@@ -229,7 +229,7 @@ Synapse does not include any pre-populated tags (syn:form = <tag>), just as it d
 Tags are discussed in greater detail elsewhere in this documentation.
 
 
-.. _`Data Model`: ../../datamodel.rst
-.. _discussion: ../userguides/ug003_bkd_graphs_hypergraphs.rst
+.. _`Data Model`: ../../datamodel.html
+.. _discussion: ../ug003_bkd_graphs_hypergraphs.rst
 .. _inet.py: https://github.com/vertexproject/synapse/blob/010/synapse/models/inet.py
 
