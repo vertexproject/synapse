@@ -230,6 +230,6 @@ Tags are discussed in greater detail elsewhere in this documentation.
 
 
 .. _`Data Model`: ../../datamodel.html
-.. _discussion: ../ug002_bkd_graphs_hypergraphs.rst
+.. _discussion: ../userguides/ug002_bkd_graphs_hypergraphs.rst
 .. _inet.py: https://github.com/vertexproject/synapse/blob/010/synapse/models/inet.py
 
