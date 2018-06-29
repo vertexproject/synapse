@@ -4,17 +4,17 @@ Data Model - Form Categories
 
 Recall that within the Synapse data model:
 
-  * **Nodes** commonly represent “things”: objects, facts, or observables.
-  * **Tags** commonly represent “assessments”: judgements or evaluations that may change given new data or revised analysis.
+* **Nodes** commonly represent “things”: objects, facts, or observables.
+* **Tags** commonly represent “assessments”: judgements or evaluations that may change given new data or revised analysis.
 
 Within Synapse, forms are the building blocks for any analysis system. Forms are those objects relevant to a given knowledge domain that will be used to represent that knowledge and answer analytical questions about the captured information. As such, the proper design of forms is essential.
 
 In a hypergraph - where there are no edges, and thus everything is a node - forms take on additional significance. Specifically, forms must be used to represent more than just “nouns”. Broadly speaking, forms must be used to capture three general categories of “things”: objects, relationships, and events.
 
-  * `Forms as Objects`_
-  * `Forms as Relationships`_
-  * `Forms as Events`_
-  * `Instance Knowledge vs. Fused Knowledge`_
+* `Forms as Objects`_
+* `Forms as Relationships`_
+* `Forms as Events`_
+* `Instance Knowledge vs. Fused Knowledge`_
 
 Forms as Objects
 ----------------
@@ -94,8 +94,8 @@ An alternative would be to decide that it is sufficient to know that a domain re
 
 This second approach loses some granularity:
 
-  * The domain is not guaranteed to have resolved to that IP consistently throughout the entire time period.
-  * Given only this node, we don’t know exactly when it the domain resolved there during that time period. 
+* The domain is not guaranteed to have resolved to that IP consistently throughout the entire time period.
+* Given only this node, we don’t know exactly when it the domain resolved there during that time period. 
 
 However, this fused knowledge may be sufficient for our needs and may be preferable to creating thousands of nodes for individual DNS resolutions. 
 
@@ -103,6 +103,6 @@ Of course, a hybrid approach is also possible, where most DNS A record data is r
 
 Additional examples include:
 
-  * **Malware behavior.** In some circumstances, it may be enough to know that when a malware binary is executed, it drops (writes) a specific file (a set of bytes with a specific hash) to disk; this would represent relationship-type “fused knowledge” (e.g., “file1 writes file2”). In other circumstances, it may be important to know not only what file was dropped, but also the specific filename and directory path used, or the specific configuration of the computer or sandbox where the malware executed; this would represent specific event-based “instance knowledge”.
+* **Malware behavior.** In some circumstances, it may be enough to know that when a malware binary is executed, it drops (writes) a specific file (a set of bytes with a specific hash) to disk; this would represent relationship-type “fused knowledge” (e.g., “file1 writes file2”). In other circumstances, it may be important to know not only what file was dropped, but also the specific filename and directory path used, or the specific configuration of the computer or sandbox where the malware executed; this would represent specific event-based “instance knowledge”.
 
-  * **Environmental observations** (temperature, humidity, barometric pressure, etc.). It may be sufficient to know that in a given location (city, latitude / longitude), the recorded temperature has varied between two upper and lower bounds; in other circumstances, it may be important to know the specific temperature observation at a specific point in time.
+* **Environmental observations** (temperature, humidity, barometric pressure, etc.). It may be sufficient to know that in a given location (city, latitude / longitude), the recorded temperature has varied between two upper and lower bounds; in other circumstances, it may be important to know the specific temperature observation at a specific point in time.
