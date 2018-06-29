@@ -31,12 +31,6 @@ class Utf8er(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8')
 
-def byte(valu):
-    return valu.to_int(length=1, byteorder='big')
-
-def tkey(tokn, penc, buid):
-    b''.join((tokn.encode('utf8'), b'\x00', penc, buid))
-
 class Xact(s_eventbus.EventBus):
     '''
     A Layer transaction which encapsulates the storage implementation.
@@ -134,30 +128,6 @@ class Xact(s_eventbus.EventBus):
 
     def getBuidProps(self, buid):
         return self.buidcache.get(buid)
-
-    def setPropToks(self, buid, penc, toks):
-
-        tset = set(toks)
-        toks = list(tset)
-
-        bpkey = buid + penc
-
-        newb = s_msgpack.en(toks)
-        byts = self.xact.replace(bpkey, newb, db=self.bptoks)
-
-        if byts is None:
-            todo = [tkey(tokn, penc, buid) for tokn in toks]
-            self.xact.putmulti(todo, db=self.bytokn)
-            return
-
-        olds = set(s_msgpack.un(byts))
-
-        toadd = tset - olds
-        todel = olds - tset
-
-        # no delete multi :(
-        [self.xact.delete(tkey(tokn, penc, buid), db=self.bytokn) for tokn in todel]
-        self.xact.putmulti([tkey(tokn, penc, buid) for tokn in toadd], db=self.bytokn)
 
     def _getBuidProps(self, buid):
 
@@ -278,12 +248,6 @@ class Layer(s_cell.Cell):
         self.bybuid = self.initdb('bybuid') # <buid><prop>=<valu>
         self.byprop = self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
         self.byuniv = self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
-
-        # used only for selected types
-        self.bytype = self.initdb('bytype', dupsort=True) # <type>00<indx>=(buid, prop)
-
-        self.bytoks = self.initdb('bytoks') # <tokn>00<score><buid><prop>=01
-        self.bptoks = self.initdb('bptoks') # <buid><prop>=( (tokn, score), ... )
 
         offsdb = self.initdb('offsets')
         self.offs = s_lmdb.Offs(self.lenv, offsdb)
