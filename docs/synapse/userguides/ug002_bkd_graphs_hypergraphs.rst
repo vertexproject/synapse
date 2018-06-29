@@ -3,21 +3,20 @@ Graphs and Hypergraphs
 
 To understand the power of Synapse, it helps to have some additional background. Without delving into mathematical definitions, this section introduces key concepts related to a **hypergraph,** and contrasts them with those of a **graph** or a **directed graph.** Most people should be familiar with the concept of a graph – even if not in the strict mathematical sense – or with data that can be visually represented in graph form.
 
-  * `Graphs`_
-  * `Directed Graphs`_
-  * `Analysis with Graphs`_
-  * `Hypergraphs`_
-  * `Analysis with a Synapse Hypergraph`_
-  * `Conclusions`_
-
+* `Graphs`_
+* `Directed Graphs`_
+* `Analysis with Graphs`_
+* `Hypergraphs`_
+* `Analysis with a Synapse Hypergraph`_
+* `Conclusions`_
 
 Graphs
 ------
 
 A **graph** is a mathematical structure used to model pairwise relations between objects. Graphs consist of:
 
-  * **vertices** (or **nodes**) that represent objects, and
-  * **edges** that connect two vertices in some type of relationship.
+* **vertices** (or **nodes**) that represent objects, and
+* **edges** that connect two vertices in some type of relationship.
 
 Edges are specifically pairwise or **two-dimensional:** an edge connects exactly two nodes. Both nodes and edges may have **properties** that describe their relevant features. In this sense both nodes and edges can be thought of as representational objects within the graph, with nodes typically representing things (“nouns”) and edges representing relationships (“verbs”).
 
@@ -42,11 +41,11 @@ Here is an example visualization of a `directed graph`_ (nodes and directed edge
 
 **Other Examples.** Many other types of data can be represented with nodes and directed edges.  In information security, for example, you can represent data and relationships such as:
 
-  ``<malware_file> -- <performed DNS lookup for> --> <domain>``
+``<malware_file> -- <performed DNS lookup for> --> <domain>``
 
 or
 
-  ``<domain> -- <has DNS A record for> --> <IP_address>``
+``<domain> -- <has DNS A record for> --> <IP_address>``
 
 In these examples, files, domains and IP addresses are nodes and “performed DNS lookup” or “has DNS A record” (i.e., “resolved to”) are edges (relationships). The edges are directed because a malware binary can contain programming to resolve a domain name, but a domain can’t “perform a lookup” for a malware binary; the relationship (edge) is one-way.
 
@@ -59,27 +58,27 @@ Analysis with Graphs
 
 Directed graphs have become increasingly popular for representing and conducting analysis across large data sets. Analysis using a directed graph can be highly generalized into four methods for interacting with the data:
 
-  * **Lifting** or retrieving data. Lifting simply asks about and returns specific nodes or edges from the graph. For example, you can ask about the node representing your Twitter account, or about the node representing IP address 1.2.3.4. You can also ask about sets of nodes that share some common feature – for example, all of the Twitter users who signed up for the service in January 2014, or all the PE executables whose compile date is 6/19/1992.
+* **Lifting** or retrieving data. Lifting simply asks about and returns specific nodes or edges from the graph. For example, you can ask about the node representing your Twitter account, or about the node representing IP address 1.2.3.4. You can also ask about sets of nodes that share some common feature – for example, all of the Twitter users who signed up for the service in January 2014, or all the PE executables whose compile date is 6/19/1992.
 
-  * **Filtering** the results. Once you’ve lifted an initial data set (a node or set of nodes), filtering allows you to refine your results by including or excluding data based on some criteria. For example, once you have your set of Twitter users who signed up in January 2014, you may decide to exclude users who list their location as the United States. Similarly, once you have your set of files compiled on 6/19/1992, you can filter those results to only include files whose size is greater than 26576 bytes.
+* **Filtering** the results. Once you’ve lifted an initial data set (a node or set of nodes), filtering allows you to refine your results by including or excluding data based on some criteria. For example, once you have your set of Twitter users who signed up in January 2014, you may decide to exclude users who list their location as the United States. Similarly, once you have your set of files compiled on 6/19/1992, you can filter those results to only include files whose size is greater than 26576 bytes.
 
-  * **Traversing** the graph structure. Once you’ve lifted an initial data set, you can ask about relationships between your data set and other nodes by pathing (traversing) along the edges (relationships) that connect those nodes. For example, if you retrieve the node for your Twitter account, you can identify all of the accounts you are following on Twitter by traversing all of the “follows” edges from your node to the nodes of accounts that you follow. Similarly, if you retrieve the node for IP address 1.2.3.4, you can retrieve all of the domains that resolve to that IP by pathing backwards (remember, edges are directional) along the all of the “has DNS A record for” edges that point from various domains to that IP.
+* **Traversing** the graph structure. Once you’ve lifted an initial data set, you can ask about relationships between your data set and other nodes by pathing (traversing) along the edges (relationships) that connect those nodes. For example, if you retrieve the node for your Twitter account, you can identify all of the accounts you are following on Twitter by traversing all of the “follows” edges from your node to the nodes of accounts that you follow. Similarly, if you retrieve the node for IP address 1.2.3.4, you can retrieve all of the domains that resolve to that IP by pathing backwards (remember, edges are directional) along the all of the “has DNS A record for” edges that point from various domains to that IP.
 
-  * **Pivoting** across like properties. Once you’ve lifted an initial data set, pivoting allows you to retrieve additional nodes or edges that share some property in common with your original data. For example, you can retrieve the node representing a PE executable and then pivot to any other PE executables that share the same PE import hash or the same PE compile time.
+* **Pivoting** across like properties. Once you’ve lifted an initial data set, pivoting allows you to retrieve additional nodes or edges that share some property in common with your original data. For example, you can retrieve the node representing a PE executable and then pivot to any other PE executables that share the same PE import hash or the same PE compile time.
 
 Despite their utility and increased use, directed graphs have certain limitations, most notably the “two-dimensionality” inherent in the concept of an edge. The fact that an edge can only connect exactly two nodes leads to a variety of consequences, including:
 
-  * **Performance.** Even though a directed graph edge can only join two nodes, in theory there is no limit to the **total** number of edges to or from a given node. These “edge dense” or “heavy” nodes represent a potential performance limitation when attempting to conduct analysis across a large or complex directed graph. The computational resources required to traverse large numbers of edges, hold the resulting set of nodes in memory, and then perform additional operations on the results (filtering, pivoting, additional traversals, etc.) can become prohibitive.
+* **Performance.** Even though a directed graph edge can only join two nodes, in theory there is no limit to the **total** number of edges to or from a given node. These “edge dense” or “heavy” nodes represent a potential performance limitation when attempting to conduct analysis across a large or complex directed graph. The computational resources required to traverse large numbers of edges, hold the resulting set of nodes in memory, and then perform additional operations on the results (filtering, pivoting, additional traversals, etc.) can become prohibitive.
 
-    **Example:** "edge dense" nodes may include those representing extremely common items such as IP address 127.0.0.1 or the MD5 hash representing the "empty" (zero-byte) file. Tens of thousands of domains may have been configured to resolve to 127.0.0.1 at various times. Similarly, hundreds of thousands of individual malware samples may attempt to write a zero-byte file to disk to test write permissions before infecting a system. Attempting a query that traverses the edges pointing to or from one of those nodes can return significant amounts of irrelevant data at best, or be performance-prohibitive at worst.
+  **Example:** "edge dense" nodes may include those representing extremely common items such as IP address 127.0.0.1 or the MD5 hash representing the "empty" (zero-byte) file. Tens of thousands of domains may have been configured to resolve to 127.0.0.1 at various times. Similarly, hundreds of thousands of individual malware samples may attempt to write a zero-byte file to disk to test write permissions before infecting a system. Attempting a query that traverses the edges pointing to or from one of those nodes can return significant amounts of irrelevant data at best, or be performance-prohibitive at worst.
 
-  * **Data Representation.** Some relationships involve more than two objects, which may require some creativity to force them into a two-dimensional directed graph model. One side effect may be a multiplication of edges (because you need to show the relationship of several ``foos`` to a single ``bar``), or the arbitrary "clustering" of data to combine what would normally be two or more nodes into a single node simply so the cluster can be assocaited with another node via a single edge.
+* **Data Representation.** Some relationships involve more than two objects, which may require some creativity to force them into a two-dimensional directed graph model. One side effect may be a multiplication of edges (because you need to show the relationship of several ``foos`` to a single ``bar``), or the arbitrary "clustering" of data to combine what would normally be two or more nodes into a single node simply so the cluster can be assocaited with another node via a single edge.
 
-    **Example:** "genetic parentage" is a multi-dimensional relationship. In modeling genalogy research, you need to represent two parents and a child. In a directed graph, you can do this by representing “parentage” as a directed relationship between a single parent (``n1``) and the child (``n2``). If each individual parent is a single node, you require two edges to represent the complete parents-child relationship.
+  **Example:** "genetic parentage" is a multi-dimensional relationship. In modeling genalogy research, you need to represent two parents and a child. In a directed graph, you can do this by representing “parentage” as a directed relationship between a single parent (``n1``) and the child (``n2``). If each individual parent is a single node, you require two edges to represent the complete parents-child relationship.
 
-    Alternately, you could conflate the two parent nodes into as single node (``n1``) that consisted of the combination of the two individuals, with an edge between this “pair” (``n1``) and the child (``n2``). Here you use only a single edge, but have created a semi-artificial “cluster” node to do so; and you will you need to create a unique “cluster” node for every set of two parents that have a child. In addition, there may be cases where you want to treat one of the parents as an individual person (node) for other purposes (for example, to note the person’s date of birth and date of death as properties on that person’s node). Now the same person may be represented in multiple places in the directed graph, both as an individual node and as one part of multiple “parent clusters”.
+  Alternately, you could conflate the two parent nodes into as single node (``n1``) that consisted of the combination of the two individuals, with an edge between this “pair” (``n1``) and the child (``n2``). Here you use only a single edge, but have created a semi-artificial “cluster” node to do so; and you will you need to create a unique “cluster” node for every set of two parents that have a child. In addition, there may be cases where you want to treat one of the parents as an individual person (node) for other purposes (for example, to note the person’s date of birth and date of death as properties on that person’s node). Now the same person may be represented in multiple places in the directed graph, both as an individual node and as one part of multiple “parent clusters”.
 
-    The issue may seem only moderately challenging for genealogy but consider a broader field like plant biology. In an attempt to create a more drought-tolerant or disease-resistant rose bush, botanists may combine genetic material from multiple “parents” to produce a hybrid offspring.
+  The issue may seem only moderately challenging for genealogy but consider a broader field like plant biology. In an attempt to create a more drought-tolerant or disease-resistant rose bush, botanists may combine genetic material from multiple “parents” to produce a hybrid offspring.
 
 Hypergraphs
 -----------
@@ -88,9 +87,9 @@ A **hypergraph** is a generalization of a graph in which an edge can join any nu
 
 Looked at another way, they key features of a hypergraph are:
 
-  * **Everything is a node.** Objects (“nouns”) are still nodes in a hypergraph, similar to a directed graph. However, relationships (“verbs”, commonly represented as edges in a directed graph) are now also represented as nodes. Where an edge in a directed graph consists of three objects (two nodes and the edge connecting them), in a hypergraph the same data is represented as a single multi-dimensional node.
+* **Everything is a node.** Objects (“nouns”) are still nodes in a hypergraph, similar to a directed graph. However, relationships (“verbs”, commonly represented as edges in a directed graph) are now also represented as nodes. Where an edge in a directed graph consists of three objects (two nodes and the edge connecting them), in a hypergraph the same data is represented as a single multi-dimensional node.
 
-  * **Hyperedges connect arbitrary sets of nodes.** An edge in a directed graph connects exactly two nodes (represented as an arrow connecting two points). A hyperedge can connect an arbitrary number of nodes; this makes hypergraphs more challenging to visualize in a "flat" form. Hyperedges are commonly represented as a set of disconnected nodes encircled by a boundary; the boundary represents the hyperedge “joining” the nodes into a related group. Just as there is no limit to the number of edges to or from a node in a directed graph, a node in a hypergraph can be joined by any number of hyperedges (i.e., be part of any number of “groups”).
+* **Hyperedges connect arbitrary sets of nodes.** An edge in a directed graph connects exactly two nodes (represented as an arrow connecting two points). A hyperedge can connect an arbitrary number of nodes; this makes hypergraphs more challenging to visualize in a "flat" form. Hyperedges are commonly represented as a set of disconnected nodes encircled by a boundary; the boundary represents the hyperedge “joining” the nodes into a related group. Just as there is no limit to the number of edges to or from a node in a directed graph, a node in a hypergraph can be joined by any number of hyperedges (i.e., be part of any number of “groups”).
 
 In Synapse, hyperedges are represented by **tags,** which can be thought of as labels applied to nodes.
 
@@ -105,11 +104,11 @@ Analysis of data using a Cortex leverages some of the same methods as a directed
 
 Synapse optimizes this ability to pivot across properties through two key design features: **type safety** and **property normalization.**
 
-  * **Type safety** ensures that node property types are explicitly declared and enforced across the data model. For example, where a property value is an IP address, that IP address is declared and stored as an integer for consistency (as opposed to being stored as an integer in some instances and a dotted-decimal string in others).
+* **Type safety** ensures that node property types are explicitly declared and enforced across the data model. For example, where a property value is an IP address, that IP address is declared and stored as an integer for consistency (as opposed to being stored as an integer in some instances and a dotted-decimal string in others).
 
-  * **Property normalization** ensures that properties are represented in a consistent manner for both storage and display purposes, regardless of the format in which they are received. Synapse takes a “do what I mean” approach to input where possible, attempting to recognize common formats and normalize them on the user’s behalf. This allows users to work with data in a way that should feel natural.
+* **Property normalization** ensures that properties are represented in a consistent manner for both storage and display purposes, regardless of the format in which they are received. Synapse takes a “do what I mean” approach to input where possible, attempting to recognize common formats and normalize them on the user’s behalf. This allows users to work with data in a way that should feel natural.
 
-    For example, a user can enter an IP address as an integer, a hex value, or a dotted decimal string; Synapse will automatically store the IP as an integer and represent it back to the user as a dotted-decimal string. Similarly, a user can enter a directory path using either Windows format (``C:\foo\bar\baz.exe``) or Linux format (``/home/user/foo/bar``) and using any combination of upper and lowercase letters; Synapse will automatically enforce normalization such as the use of forward slashes for directory separators and the use of all lower-case letters for drive, path, and file names.
+  For example, a user can enter an IP address as an integer, a hex value, or a dotted decimal string; Synapse will automatically store the IP as an integer and represent it back to the user as a dotted-decimal string. Similarly, a user can enter a directory path using either Windows format (``C:\foo\bar\baz.exe``) or Linux format (``/home/user/foo/bar``) and using any combination of upper and lowercase letters; Synapse will automatically enforce normalization such as the use of forward slashes for directory separators and the use of all lower-case letters for drive, path, and file names.
 
 These features make pivoting highly effective because they ensure that data of the same type and / or with the same value is represented consistently throughout the Synapse hypergraph.
 
@@ -123,8 +122,8 @@ Synapse’s optimized use of pivots, combined with the ability to represent rela
 
 Viewed another way (and depending on the specific implementation), a single edge traversal in a directed graph may be the computational equivalent of two pivots. Assume a generic representation of an edge as a tuple comprised of two nodes and the specific edge relationship (``{n1,edge,n2}``). Traversing from one set of nodes along a specified edge to a second set of nodes can be viewed as:
 
-  * an initial pivot from a set of nodes to that set of edges where those nodes represent n1 of the edge tuples; and
-  * a second pivot from the set of n2s of the edge tuples to the nodes that correspond to those n2s.
+* an initial pivot from a set of nodes to that set of edges where those nodes represent n1 of the edge tuples; and
+* a second pivot from the set of n2s of the edge tuples to the nodes that correspond to those n2s.
 
 In a Cortex, a single node represents the “has DNS A record for” relationship, with the domain and IP address involved in the relationship both stored as properties on that node. So you simply need to lift the set of “has DNS A record for” nodes where the value of the IP address property is the IP you are interested in. Once you have the relevant set of “has DNS A record for” nodes, you simply pivot from the set of “domain” properties to the set of nodes representing those domains (or simply view the “domain” properties of the “has DNS A record for” nodes themselves without pivoting at all).
 
@@ -143,11 +142,11 @@ For example, let’s say you have a malicious domain and you determine the set o
 How you answer this question will vary depending on the specific implementation of the directed graph. However, if you assume an implementation with the following defined edges:
 
 
-  ``<domain> -- <has DNS A record> --> <IP address>``
+``<domain> -- <has DNS A record> --> <IP address>``
 
 and 
 
-  ``<IP address> -- <was source IP for> --> <RFC822 file>``
+``<IP address> -- <was source IP for> --> <RFC822 file>``
 
 Then you may be able to obtain an answer through a multi-part query similar to the following:
 
