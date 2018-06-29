@@ -110,4 +110,4 @@ Many of the real-world examples in this User Guide reference data from the field
 
 .. _`Apache License 2.0`:  https://github.com/vertexproject/synapse/blob/master/LICENSE
  
-.. _`Synapse Performance`: ../../performance.html
+.. _`Synapse Performance`: ../../performance.rst
