@@ -577,7 +577,7 @@ class Cond(AstNode):
         return ()
 
     def evaluate(self, node, path):
-        raise FIXME
+        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.evaluate()')
 
 class OrCond(Cond):
     '''
@@ -819,7 +819,7 @@ class AssignOper(Oper):
 class RunValue(AstNode):
 
     def compute(self, node, path):
-        raise FIXME
+        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()')
 
 class RelPropValue(RunValue):
 
@@ -902,7 +902,7 @@ class AbsProp(Value):
     def prepare(self):
         self.prop = self.snap.model.props.get(self.valu)
         if self.prop is None:
-            raise s_exc.NoSuchProp(name=name)
+            raise s_exc.NoSuchProp(name=self.valu)
 
     def value(self):
         return self.prop.full

@@ -378,9 +378,9 @@ class Model:
         item = s_types.Ndef(self, 'ndef', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'A list type for storing multiple values of the same type.'}
-        item = s_types.List(self, 'list', info, {'type': 'str'})
-        self.addBaseType(item)
+        #info = {'doc': 'A list type for storing multiple values of the same type.'}
+        #item = s_types.List(self, 'list', info, {'type': 'str'})
+        #self.addBaseType(item)
 
         info = {'doc': 'An digraph edge base type.'}
         item = s_types.Edge(self, 'edge', info, {})
@@ -390,7 +390,7 @@ class Model:
         item = s_types.TimeEdge(self, 'timeedge', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'Arbitrary msgpack/json compatible data stored without an index.'}
+        info = {'doc': 'Arbitrary msgpack compatible data stored without an index.'}
         item = s_types.Data(self, 'data', info, {})
         self.addBaseType(item)
 
