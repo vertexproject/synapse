@@ -162,6 +162,8 @@ class ReIndexCmd(Cmd):
 
         foo:bar | reindex --subs
 
+        reindex --type inet:ipv4
+
     NOTE: This is mostly for model updates and migrations.
           Use with caution and be very sure of what you are doing.
     '''
@@ -169,6 +171,7 @@ class ReIndexCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
+        pars.add_argument('--type', default=None, help='Re-index all properties of a specified type.')
         pars.add_argument('--subs', default=False, action='store_true', help='Re-parse and set sub props.')
         return pars
 
@@ -179,6 +182,30 @@ class ReIndexCmd(Cmd):
             return
 
         snap.elevated = True
+        snap.writeable()
+
+        # are we re-indexing a type?
+        if self.opts.type is not None:
+
+            # is the type also a form?
+            form = snap.model.forms.get(self.opts.type)
+
+            if form is not None:
+
+                snap.printf(f'reindex form: {form.name}')
+                for buid, norm in snap.xact.iterFormRows(form.name):
+                    snap.stor(form.getSetOps(buid, norm))
+
+            for prop in snap.model.getPropsByType(self.opts.type):
+
+                snap.printf(f'reindex prop: {prop.full}')
+
+                formname = prop.form.name
+
+                for buid, norm in snap.xact.iterPropRows(formname, prop.name):
+                    snap.stor(prop.getSetOps(buid, norm))
+
+            return
 
         for node, path in genr:
 

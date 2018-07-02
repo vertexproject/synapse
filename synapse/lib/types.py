@@ -114,7 +114,11 @@ class Type:
 
     def indxByEq(self, valu):
         norm, info = self.norm(valu)
+
         indx = self.indx(norm)
+        if indx is None:
+            raise s_exc.NoSuchIndx(name=self.name)
+
         return (
             ('eq', indx),
         )
