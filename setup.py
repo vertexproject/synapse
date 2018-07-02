@@ -24,12 +24,6 @@ setup(
         'regex>=2017.9.23',
         'PyYAML>=3.12,<4.0',
     ],
-    extras_require={
-        'docs': [
-            'sphinx==1.7.0',
-            'sphinx_rtd_theme',
-        ]
-    },
 
     classifiers=[
         'Development Status :: 4 - Beta',
