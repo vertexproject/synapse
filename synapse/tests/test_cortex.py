@@ -928,3 +928,7 @@ class CortexTest(s_test.SynTest):
             self.len(1, core.eval('teststr#foo@=(2012,2017)'))
             self.len(1, core.eval('teststr#foo@=(2017,2022)'))
             self.len(1, core.eval('teststr#foo@=(2012,2022)'))
+
+    def test_cortex_storm_indx_none(self):
+        with self.getTestCore() as core:
+            self.raises(s_exc.NoSuchIndx, list, core.eval('graph:node:data=10'))
