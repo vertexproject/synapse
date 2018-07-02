@@ -9,6 +9,47 @@ import synapse.tests.common as s_test
 
 class CortexTest(s_test.SynTest):
 
+    def test_cortex_iter_props(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                props = {'asn': 10, '.seen': '2016'}
+                node = snap.addNode('inet:ipv4', 0x01020304, props=props)
+                self.eq(node.get('asn'), 10)
+
+                props = {'asn': 20, '.seen': '2015'}
+                node = snap.addNode('inet:ipv4', 0x05050505, props=props)
+                self.eq(node.get('asn'), 20)
+
+            with core.layer.xact() as xact:
+                # rows are (buid, valu) tuples
+                rows = tuple(xact.iterPropRows('inet:ipv4', 'asn'))
+
+            self.eq((10,20), tuple(sorted([ row[1] for row in rows ])))
+
+            with core.layer.xact() as xact:
+                # rows are (buid, valu) tuples
+                rows = tuple(xact.iterUnivRows('.seen'))
+
+            ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
+            self.eq(ivals, tuple(sorted([ row[1] for row in rows ])))
+
+    def test_cortex_lift_regex(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+                node = snap.addNode('teststr', 'hezipha')
+                node = snap.addNode('testcomp', (20, 'lulzlulz'))
+
+            self.len(0, core.eval('testcomp:haha~="^zerg"'))
+            self.len(1, core.eval('testcomp:haha~="^lulz"'))
+
+            self.len(1, core.eval('teststr~="zip"'))
+            self.len(0, core.eval('teststr~="gronk"'))
+
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
     def test_feed_conf(self):
         with self.getTestDmon(mirror='cryodmon') as dst_dmon:
@@ -783,3 +824,107 @@ class CortexTest(s_test.SynTest):
             list(core.addNodes((node,)))
 
             self.nn(core.getNodeByNdef(('teststr', 'foo')))
+
+    def test_cortex_storm_set_univ(self):
+
+        with self.getTestCore() as core:
+
+            list(core.eval('[ teststr=woot .seen=(2014,2015) ]'))
+
+            with core.snap() as snap:
+
+                node = snap.getNodeByNdef(('teststr', 'woot'))
+                self.eq(node.get('.seen'), (1388534400000, 1420070400000))
+
+    def test_cortex_storm_set_tag(self):
+
+        with self.getTestCore() as core:
+
+            tick0 = core.model.type('time').norm('2014')[0]
+            tick1 = core.model.type('time').norm('2015')[0]
+            tick2 = core.model.type('time').norm('2016')[0]
+
+            self.len(1, core.eval('[ teststr=hehe +#foo=(2014,2016) ]'))
+            self.len(1, core.eval('[ teststr=haha +#bar=2015 ]'))
+
+            with core.snap() as snap:
+
+                node = snap.getNodeByNdef(('teststr', 'hehe'))
+                self.eq(node.getTag('foo'), (tick0, tick2))
+
+                node = snap.getNodeByNdef(('teststr', 'haha'))
+                self.eq(node.getTag('bar'), (tick1, tick1 + 1))
+
+            self.len(1, core.eval('[ teststr=haha +#bar=2016 ]'))
+
+            with core.snap() as snap:
+
+                node = snap.getNodeByNdef(('teststr', 'haha'))
+                self.eq(node.getTag('bar'), (tick1, tick2 + 1))
+
+    def test_cortex_storm_vars(self):
+
+        with self.getTestCore() as core:
+
+            opts = {'vars': {'foo': '1.2.3.4'}}
+
+            self.len(1, core.eval('[ inet:ipv4=$foo ]', opts=opts))
+            self.len(1, core.eval('$bar=5.5.5.5 [ inet:ipv4=$bar ]'))
+
+            self.len(1, core.eval('[ inet:dns:a=(woot.com,1.2.3.4) ]'))
+
+            self.len(2, core.eval('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn inet:fqdn=$hehe'))
+
+            self.len(1, core.eval('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn +:fqdn=$hehe'))
+            self.len(0, core.eval('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn -:fqdn=$hehe'))
+
+            self.len(1, core.eval('[ pivcomp=(hehe,haha) +#foo=(2014,2016) ]'))
+            self.len(1, core.eval('pivtarg=hehe [ .seen=2015 ]'))
+
+            self.len(1, core.eval('pivcomp=(hehe,haha) $ticktock=#foo -> pivtarg +.seen@=$ticktock'))
+
+    def test_cortex_storm_filt_ival(self):
+
+        with self.getTestCore() as core:
+
+            self.len(1, core.eval('[ teststr=woot +#foo=(2015,2018) +#bar .seen=(2014,2016) ]'))
+
+            self.len(1, core.eval('teststr=woot +.seen@=2015'))
+            self.len(0, core.eval('teststr=woot +.seen@=2012'))
+            self.len(1, core.eval('teststr=woot +.seen@=(2012,2015)'))
+            self.len(0, core.eval('teststr=woot +.seen@=(2012,2013)'))
+
+            self.len(1, core.eval('teststr=woot +.seen@=#foo'))
+            self.len(0, core.eval('teststr=woot +.seen@=#bar'))
+            self.len(0, core.eval('teststr=woot +.seen@=#baz'))
+
+            self.len(1, core.eval('teststr=woot $foo=#foo +.seen@=$foo'))
+
+            self.len(1, core.eval('[ inet:dns:a=(woot.com,1.2.3.4) .seen=(2015,2016) ]'))
+            self.len(1, core.eval('[ inet:fqdn=woot.com +#bad=(2015,2016) ]'))
+
+            self.len(1, core.eval('inet:fqdn +#bad $fqdnbad=#bad -> inet:dns:a:fqdn +.seen@=$fqdnbad'))
+
+            #self.len(1, core.eval('[ teststr=woot +#foo=(2015,2018) .seen=(2014,2016) ]'))
+
+    def test_cortex_storm_tagform(self):
+
+        with self.getTestCore() as core:
+
+            self.len(1, core.eval('[ teststr=hehe ]'))
+            self.len(1, core.eval('[ teststr=haha +#foo ]'))
+            self.len(1, core.eval('[ teststr=woot +#foo=(2015,2018) ]'))
+
+            self.len(2, core.eval('#foo'))
+            self.len(3, core.eval('teststr'))
+
+            self.len(2, core.eval('teststr#foo'))
+            self.len(1, core.eval('teststr#foo@=2016'))
+            self.len(0, core.eval('teststr#foo@=2020'))
+
+            # test the overlap variants
+            self.len(0, core.eval('teststr#foo@=(2012,2013)'))
+            self.len(0, core.eval('teststr#foo@=(2020,2022)'))
+            self.len(1, core.eval('teststr#foo@=(2012,2017)'))
+            self.len(1, core.eval('teststr#foo@=(2017,2022)'))
+            self.len(1, core.eval('teststr#foo@=(2012,2022)'))

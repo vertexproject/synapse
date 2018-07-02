@@ -124,6 +124,7 @@ class NoSuchStor(SynErr): pass
 class NoSuchObj(SynErr): pass
 class NoSuchFile(SynErr): pass
 class NoSuchMeth(SynErr): pass
+class NoSuchLift(SynErr): pass
 class NoSuchFunc(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchRole(SynErr): pass
