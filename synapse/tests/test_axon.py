@@ -42,14 +42,14 @@ class AxonTest(s_test.SynTest):
                 hash1 = hashlib.sha256(data1).digest()
                 blobs = (
                     (hash1, (0, data1[0:4])),
-                    (hash1, (1, data1[4:8])),
-                    (hash1, (2, data1[8:12])),
-                    (hash1, (3, data1[12:16])),
+                    (None, (1, data1[4:8])),
+                    (None, (2, data1[8:12])),
+                    (None, (3, data1[12:16])),
                 )
 
-                bst0.save(blobs)
+                bst0.bulkput(blobs)
 
-                retn = b''.join(bst0.load(hash1))
+                retn = b''.join(bst0.get(hash1))
                 self.eq(retn, data1)
 
                 # We can store and retrieve an empty string
@@ -58,10 +58,10 @@ class AxonTest(s_test.SynTest):
                 blobs = (
                     (hash2, (0, data)),
                 )
-                bst0.save(blobs)
+                bst0.bulkput(blobs)
                 bl = []
-                for byts in bst0.load(hash2):
-                    bl.append(byts)
+                for byts in bst0.get(hash2):
+                    bl.append(byts.tobytes())
                 self.eq(bl, [b''])
                 retn = b''.join(bl)
                 self.eq(retn, b'')
@@ -72,9 +72,9 @@ class AxonTest(s_test.SynTest):
 
                     bst1._consume_clone_data(bst0.clone(0))
 
-                    retn = b''.join(bst1.load(hash1))
+                    retn = b''.join(bst1.get(hash1))
                     self.eq(retn, data1)
-                    retn = b''.join(bst1.load(hash2))
+                    retn = b''.join(bst1.get(hash2))
                     self.eq(retn, b'')
 
                     bst1._consume_clone_data([])
@@ -86,24 +86,23 @@ class AxonTest(s_test.SynTest):
             path0 = os.path.join(dirn, 'blob0')
             with s_axon.BlobStor(path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst0:
 
-                tbuid = b'\x56' * 32
                 blobs = (
-                    (tbuid + u64(0), os.urandom(1000)),
-                    (tbuid + u64(1), b'qwer'),
-                    (tbuid + u64(2), b'hehe'),
-                    (tbuid + u64(3), b'haha'),
+                    (None, (0, os.urandom(1000))),
+                    (None, (1, b'qwer')),
+                    (None, (2, b'hehe')),
+                    (None, (3, b'haha')),
                 )  # 4 blocks, size 1000 + 4 + 4 + 4 = 1012 bytes
 
                 stats = bst0.stat()
                 self.eq(stats, {})
 
-                bst0.save(blobs[0:1])
+                bst0.bulkput(blobs[0:1])
                 stats = bst0.stat()
-                self.eq(stats, {'bytes': 1000, 'blocks': 1})
+                self.eq(stats, {'bytes': 1000, 'blobs': 1})
 
-                bst0.save(blobs[1:])
+                bst0.bulkput(blobs)
                 stats = bst0.stat()
-                self.eq(stats, {'bytes': 1012, 'blocks': 4})
+                self.eq(stats, {'bytes': 2012, 'blobs': 2})
 
     def test_blobstor_metrics(self):
 
@@ -112,36 +111,35 @@ class AxonTest(s_test.SynTest):
             path0 = os.path.join(dirn, 'blob0')
             with s_axon.BlobStor(path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst0:
 
-                tbuid = b'\x56' * 32
                 blobs = (
-                    (tbuid + u64(0), os.urandom(1000)),
-                    (tbuid + u64(1), b'qwer'),
-                    (tbuid + u64(2), b'hehe'),
-                    (tbuid + u64(3), b'haha'),
-                )  # 4 blocks, size 1000 + 4 + 4 + 4 = 1012 bytes
+                    (None, (0, os.urandom(1000))),
+                    (None, (1, b'qwer')),
+                    (None, (2, b'hehe')),
+                    (None, (3, b'haha')),
+                )
 
                 metrics = sorted(list(bst0.metrics()))
                 self.eq(metrics, [])
 
-                bst0.save(blobs[0:1])
+                bst0.bulkput(blobs[0:1])
                 metrics = []
                 for item in bst0.metrics():
                     item[1].pop('time')
                     metrics.append(item[1])
                 tooks = [m.pop('took') for m in metrics]  # remove took since it may vary
-                self.eq(metrics, [{'size': 1000, 'blocks': 1}])
+                self.eq(metrics, [{'size': 1000}])
                 self.len(1, tooks)
                 # These are time based and cannot be promised to be a particular value
                 for took in tooks:
                     self.lt(took, 10000)
 
-                bst0.save(blobs[1:])
+                bst0.bulkput(blobs[0:2])
                 metrics = []
                 for item in bst0.metrics():
                     item[1].pop('time')
                     metrics.append(item[1])
                 tooks = [m.pop('took') for m in metrics]  # remove took since it may vary
-                self.eq(metrics, [{'size': 1000, 'blocks': 1}, {'blocks': 3, 'size': 12}])
+                self.eq(metrics, [{'size': 1000}, {'size': 1004}])
                 self.len(2, tooks)
                 # These are time based and cannot be promised to be a particular value
                 for took in tooks:
@@ -164,12 +162,12 @@ class AxonTest(s_test.SynTest):
             self.len(1, axon.wants([asdfhash]))
 
             # Asking for bytes prior to the bytes being present raises
-            self.genraises(s_exc.NoSuchFile, axon.bytes, asdfhash)
+            self.genraises(s_exc.NoSuchFile, axon.get, asdfhash)
 
             # FIXME: tmp
             return
 
-            self.eq(1, axon.save([b'asdfasdf'], timeout=3))
+            self.eq(1, axon.put([b'asdfasdf'], timeout=3))
 
             self.eq((), tuple(axon.metrics(offs=999999999)))
             self.eq((), tuple(blob.metrics(offs=99999999, timeout=3)))

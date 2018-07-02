@@ -8,7 +8,6 @@ logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
-import synapse.cells as s_cells
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
@@ -286,6 +285,7 @@ class Daemon(EventBus):
             self.loadDmonCell(name)
 
     def loadDmonCell(self, name):
+        import synapse.cells as s_cells
 
         dirn = s_common.gendir(self.dirn, 'cells', name)
         logger.info(f'loading cell from: {dirn}')
@@ -446,15 +446,15 @@ class Daemon(EventBus):
 
         try:
 
-            name, args, kwargs = mesg[1].get('todo')
+            methname, args, kwargs = mesg[1].get('todo')
 
-            if name[0] == '_':
-                raise s_exc.NoSuchMeth(name=name)
+            if methname[0] == '_':
+                raise s_exc.NoSuchMeth(name=methname)
 
-            meth = getattr(item, name, None)
+            meth = getattr(item, methname, None)
             if meth is None:
-                logger.warning(f'{item!r} has no method: {name}')
-                raise s_exc.NoSuchMeth(name=name)
+                logger.warning(f'{item!r} has no method: {methname}')
+                raise s_exc.NoSuchMeth(name=methname)
 
             valu = await self._runTodoMeth(link, meth, args, kwargs)
             valu = await self._tryWrapValu(link, valu)

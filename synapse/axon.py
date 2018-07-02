@@ -1,17 +1,17 @@
-import os
 import lmdb
 import asyncio
 import struct
 import logging
 import random
 import hashlib
-import itertools
+import contextlib
 import tempfile
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
+import synapse.daemon as s_daemon
 
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
@@ -24,25 +24,93 @@ blocksize = s_const.mebibyte * 64
 
 # FIXME:  allow axons to register for when new data arrives on blobstor
 
-class BlobStorApi(s_cell.CellApi):
-    def save(self, blocs):
-        # FIXME:  genr uploader thing '''
-        return self.cell.save(blocs)
+class PassThroughApi(s_cell.CellApi):
+    ''' Class that passes through methods made on it to its cell. '''
+    allowed_methods = []
 
-    def load(self, sha256):
-        return self.cell.load(sha256)
+    def __init__(self, cell, link):
+        s_cell.CellApi.__init__(self, cell, link)
 
-    def clone(self, offs):
-        yield from self.cell.clone(offs)
+        for f in self.allowed_methods:
+            # N.B. this curious double nesting is due to Python's closure mechanism (f is essentially captured by name)
+            def funcapply(f):
+                def func(*args, **kwargs):
+                    return getattr(cell, f)(*args, **kwargs)
+                return func
+            setattr(self, f, funcapply(f))
 
-    def stat(self):
-        return self.cell.stat()
+class Uploader(s_telepath.Share):
+    typename = 'uploader'
+    BUF_SIZE = 16 * s_const.mebibyte
 
-    def metrics(self, offs=0):
-        return self.cell.metrics(offs)
+    def __init__(self, link, item):
+        s_daemon.Share.__init__(self, link, item)
+        self.doneevent = asyncio.Event()
+        self.exitok = False
+        self._init()
+        # We delay getting the transaction (hence the write lock) until we have the first file
+        self.xact = None
+        self.tick = s_common.now()
+        self.all_hashes = []
+        self.totalsize = 0
 
-    def getCloneOffs(self):
-        return self.cell.getCloneOffs()
+        def _init(self):
+            self.bytzfh = tempfile.SpooledTemporaryFile(buffering=self.BUF_SIZE)
+            self.hashing = hashlib.sha256()
+
+        async def fini():
+            if self.exitok:
+                self._save()
+            else:
+                self.bytzfh.close()
+            del self.bytzfh
+            if self.all_hashes:
+                self._write_stats()
+                self.xact.commit()
+            elif self.xact:
+                self.xact.abort()
+            self.doneevent.set()
+        self.onfini(fini)
+
+    async def write(self, bytz):
+        self.bytzfh.write(bytz)
+        self.hashing.update(bytz)
+
+    async def _runShareLoop(self):
+        '''
+        This keeps the object alive until we're fini'd.
+        '''
+        await self.doneevent.wait()
+
+    async def finish(self):
+        self.exitok = True
+        self.fini()
+
+    def _write_stats(self):
+        self.item._save_update_stats(self.all_hashes, self.totalsize, self.tick, self.xact)
+
+    async def _save(self):
+        final_sha = self.hashing.digest()
+        if self.xact is None:
+            self.xact = self.item.lenv.begin(write=True, buffers=True)
+        bytes_written = self.item._store_fh(self.bytzfh, final_sha, self.xact)
+        if bytes_written:
+            self.totalsize += bytes_written
+            self.all_hashes.append(final_sha)
+
+    async def finishFile(self):
+        '''
+        Finish and commit the existing file, keeping the uploader active for more files.
+        '''
+        self._save()
+        self._init()
+
+class BlobStorApi(PassThroughApi):
+
+    allowed_methods = ['onsave', 'load', 'clone', 'stat', 'metrics', 'curPos', 'save', 'registerListener']
+
+    def upload(self):
+        return Uploader(self.link, self)
 
 class BlobStor(s_cell.Cell):
     '''
@@ -77,6 +145,7 @@ class BlobStor(s_cell.Cell):
         self._blob_metrics = s_lmdb.Metrics(self.lenv)
 
         self.cloneof = self.conf.get('cloneof')
+        self.listeners = {}
 
         if self.cloneof is not None:
             self.clonetask = s_glob.plex.coroToTask(self._cloneeLoop(self.cloneof))
@@ -85,6 +154,10 @@ class BlobStor(s_cell.Cell):
             self.lenv.close()
 
         self.onfini(fini)
+
+    def registerListener(self, path):
+        if path not in self.listeners:
+            self.listeners[path] = None
 
     async def _cloneeLoop(self, cloneepath):
         ROWS_AT_A_TIME = 128
@@ -104,76 +177,126 @@ class BlobStor(s_cell.Cell):
                     logger.exception('BlobStor.cloneeLoop error')
                     asyncio.sleep(self.CLONE_POLL_S)
 
-    def save(self, blocs):
+    def _find_hash(self, curs, key):
         '''
-        Save items from an iterator of (chunk #, <bytes>).
+        Returns false if key not present, else returns true and positions cursor at first chunk of value
+        '''
+        if not curs.set_range(key):
+            return False
+        return curs.key()[:len(key)] == key
+
+    def bulkput(self, blocs):
+        '''
+        Save items from an iterator of (sha256, chunk #, <bytes>).
 
         Args:
-            blocs: An iterator of (chunk #, <bytes>).  Every 0 chunk # represents a new file
-
-        Notes:
-            This API is only for use by a single Axon who owns this BlobStor.
+            blocs: An iterator of (sha256, chunk #, <bytes>).  Every 0 chunk # represents a new file.
+            The sha256 must be None, except if the chunk # is 0, in which it may optionally be a sha256 hash.  If
+            present and the blobstor contains a value with a matching hash, all bytes will be skipped until the next
+            bloc with a chunk # of 0 is encountered.
 
         Returns:
             None
         '''
         with self.lenv.begin(write=True, buffers=True) as xact:
-            self._save(blocs, xact)
+            # FIXME: worry about transactions too large
+            self._bulkput(blocs, xact)
 
-    def _save(self, blocs, xact):
+    def put(self, item):
+        self.bulkput((None, 0, item))
+
+    def putmany(self, items):
+        self.bulkput((None, 0, i) for i in items)
+
+    def _store_fh(self, fh, sha256, xact):
+        MAX_VAL_SIZE = 2**31  # Actually lmdb takes up to 2**32, but this is a nice round number
+        count = 0
+
+        with contextlib.closing(fh):
+            # Check if already present
+            with xact.cursor(db=self._blob_bytes) as curs:
+                if self._find_hash(curs, sha256):
+                    return None
+            fh.seek(0)
+            i = 0
+            while True:
+                chunk = fh.read(MAX_VAL_SIZE)
+                sz = len(chunk)
+                count += sz
+                # We want to write *something* if data is empty
+                if i and not sz:
+                    break
+                i_enc = i.to_bytes(4, 'big')
+                xact.put(sha256 + i_enc, chunk, db=self._blob_bytes)
+                i += 1
+        return count
+
+    def _save_update_stats(self, clones, size, tick, xact):
+        self._clone_seqn.save(xact, clones)
+        self._blob_metrics.inc(xact, 'bytes', size)
+        self._blob_metrics.inc(xact, 'blobs', len(clones))
+
+        took = s_common.now() - tick
+        self._blob_metrics.record(xact, {'time': tick, 'size': size, 'took': took})
+
+    def _bulkput(self, blocs, xact):
         '''
-        Private version of save that takes a passed-in transaction
+        Private version of bulkput that takes a passed-in transaction
         '''
         BUF_SIZE = 16 * s_const.mebibyte
 
-        size = 0
-        hashes = 0
         clones = []
         tick = s_common.now()
         last_chunknum = None
         bytzfh = None
         hashing = None
+        total = 0
+        skip_this_hash = False
 
-        def saveit():
-            nonlocal hashes, bytzfh
-            bytzfh.seek(0)
-            sha256 = hashing.digest()
-            # FIXME: limit val to 2**32
-            # FIXME: check if already stored
-            xact.put(sha256, bytzfh.read(), db=self._blob_bytes)
-            bytzfh.close()
-            oldbytesfh, bytzfh = bytzfh, None
-            del oldbytesfh
-            clones.append(sha256)
-            hashes += 1
+        def storeit():
+            nonlocal total, bytzfh
+            final_hash = hashing.digest()
+            print('Writing hash', final_hash)
+            bytes_written = self._store_fh(bytzfh, final_hash, xact)
+            bytzfh = None
+            if bytes_written is not None:
+                clones.append(final_hash)
+                total += bytes_written
 
-        for chunknum, bytz in blocs:
+        for sha256, (chunknum, bytz) in blocs:
             if chunknum == 0:
-                if bytzfh is not None:
-                    saveit()
-                bytzfh = tempfile.SpooledTemporaryFile(buffering=BUF_SIZE)
-                hashing = hashlib.sha256()
-                last_chunknum = None
+                if bytzfh:
+                    storeit()
+                if not bytzfh:
+                    last_chunknum = None
+                    if sha256 is not None:
+                        with xact.cursor(db=self._blob_bytes) as curs:
+                            skip_this_hash = self._find_hash(curs, sha256)
+                    else:
+                        skip_this_hash = False
+                    if not skip_this_hash:
+                        bytzfh = tempfile.SpooledTemporaryFile(buffering=BUF_SIZE)
+                        hashing = hashlib.sha256()
+
+            elif sha256 is not None:
+                raise s_exc.AxonBadChunk('sha256 present past the first chunk')
             elif chunknum - 1 != last_chunknum:
                 raise s_exc.AxonBadChunk('Chunks out of sequence')
-
-            size += len(bytz)
-
-            bytzfh.write(bytz)
-            hashing.update(bytz)
             last_chunknum = chunknum
 
+            if not skip_this_hash:
+                bytzfh.write(bytz)
+                hashing.update(bytz)
+
         # Store the last chunk
-        saveit()
+        if bytzfh:
+            storeit()
+        if clones:
+            self._save_update_stats(clones, total, tick, xact)
 
-        self._clone_seqn.save(xact, clones)
-        self._blob_metrics.inc(xact, 'bytes', size)
-        self._blob_metrics.inc(xact, 'hashes', hashes)
+        # FIXME: partial commits, write-lock for writes
 
-        took = s_common.now() - tick
-        self._blob_metrics.record(xact, {'time': tick, 'size': size, 'blocks': hashes, 'took': took})
-
-    def load(self, sha256):
+    def get(self, sha256):
         '''
         Load and yield the bytes blocks for a given hash.
 
@@ -184,10 +307,16 @@ class BlobStor(s_cell.Cell):
             bytes: Bytes for a given buid, in order.
         '''
         with self.lenv.begin(db=self._blob_bytes, buffers=True) as xact:
-            bytz = xact.get(sha256)
-            if bytz is None:
-                return
-            yield from s_common.chunks(bytz, self.CHUNK_SIZE_B)
+            yield from self._get(sha256, xact)
+
+    def _get(self, sha256, xact):
+        with xact.cursor(db=self._blob_bytes) as curs:
+            if not self._find_hash(curs, sha256):
+                return None
+            for k, v in curs:
+                if not k[:len(sha256)] == sha256:
+                    return None
+                yield from s_common.chunks(v, self.CHUNK_SIZE)
 
     def clone(self, offset):
         '''
@@ -197,16 +326,12 @@ class BlobStor(s_cell.Cell):
             offset (int): Offset to start yielding rows from.
 
         Yields:
-            ((bytes, (bytes, int, bytes))): tuples of (index, (sha256,bytes)) data.
+            ((bytes, (bytes, int, bytes))): tuples of (index, (sha256,chunknum,bytes)) data.
         '''
         with self.lenv.begin(buffers=True) as xact:
-            curs = xact.cursor(db=self._blob_bytes)
             for off, sha256 in self._clone_seqn.iter(xact, offset):
-                byts = curs.get(sha256)
-                if byts is None:
-                    raise s_exc.CorruptDatabase('missing blob value with hash %s', sha256)
-                for chunknum, chunk in enumerate(s_common.chunks(byts, self.CHUNK_SIZE_B)):
-                    yield off, (sha256, chunknum, byts)
+                for chunknum, chunk in enumerate(self._get(sha256, xact)):
+                    yield off, (None if chunknum else sha256, chunknum, bytes(chunk))
 
     def _consume_clone_data(self, items):
         '''
@@ -233,8 +358,9 @@ class BlobStor(s_cell.Cell):
                         self._clone_seqn.save(xact, [last_offset])
                     last_offset = offset
 
+        # FIXME: commit after X bytes processed
         with self.lenv.begin(write=True, buffers=True, db=self._blob_bytes) as xact:
-            self._save(yielder(items, xact), xact)
+            self._bulkput(yielder(items, xact), xact)
             xact.put(b'clone:offset', struct.pack('>Q', last_offset), db=self._blob_info)
             return last_offset
 
@@ -261,7 +387,7 @@ class BlobStor(s_cell.Cell):
             for item in self._blob_metrics.iter(xact, offs):
                 yield item
 
-    def getCloneOffs(self):
+    def offset(self):
         '''
         Get the current offset for the clone:index of the BlobStor.
 
@@ -276,28 +402,11 @@ class BlobStor(s_cell.Cell):
 
             return struct.unpack('>Q', lval)[0] + 1
 
-class PassThroughApi(s_cell.CellApi):
-    ''' Class that passes through methods made on it to its cell. '''
-    allowed_methods = []
-
-    def __init__(self, cell, link):
-        s_cell.CellApi.__init__(self, cell, link)
-
-        for f in self.allowed_methods:
-            # N.B. this curious double nesting is due to Python's closure mechanism (f is essentially captured by name)
-            def funcapply(f):
-                def func(*args, **kwargs):
-                    return getattr(cell, f)(*args, **kwargs)
-                return func
-            setattr(self, f, funcapply(f))
-
 class AxonApi(PassThroughApi):
-    allowed_methods = ['locs', 'stat', 'save', 'wants', 'upload', 'bytes', 'metrics']
+    allowed_methods = ['startput', 'bulkput', 'get', 'locs', 'stat', 'wants', 'upload', 'metrics']
 
     def startUpload(self):
         raise NotImplemented
-
-# FIXME:  clones tell axon about clone info
 
 class Axon(s_cell.Cell):
 
@@ -323,7 +432,7 @@ class Axon(s_cell.Cell):
 
     def _blobstor_by_name(self, blobstorname):
         '''
-        Retrieve a blobstor proxy by name.  If not connected
+        Retrieve a blobstor proxy by name.
         '''
         # TODO: give up on a blobstor after too many failures
         blobstor = self._blobstorprox.get(blobstorname, s_common.NoValu)
@@ -363,7 +472,7 @@ class Axon(s_cell.Cell):
 
         def fini():
             self.lenv.close()
-            for blobstor in self._blobstor.values():
+            for blobstor in self._blobstorprox.values():
                 if blobstor is not None:
                     blobstor.fini()
 
@@ -373,6 +482,9 @@ class Axon(s_cell.Cell):
         return self._metrics.stat()
 
     def wants(self, hashes):
+        '''
+        Given a list of hashes, returns a list of the hashes *not* available
+        '''
         wants = []
         with self.lenv.begin(db=self.blobhas) as xact:
             curs = xact.cursor()
@@ -383,7 +495,7 @@ class Axon(s_cell.Cell):
 
     def locs(self, sha256):
         '''
-        Get the blobnames for a given sha256 value
+        Get the blobstor buids for a given sha256 value
 
         Args:
             xact (lmdb.Transaction): An LMDB transaction.
@@ -395,14 +507,10 @@ class Axon(s_cell.Cell):
         with self.lenv.begin() as xact, xact.cursor(db=self.bloblocs) as curs:
             if not curs.set_key(sha256):
                 return []
-            blobstornames = []
+            blobstorbuids = []
             for buid in curs.iternext_dup():
-                blobstorname = self._blobstorbuid.get(buid)
-                if blobstorname is None:
-                    logger.warning('Encountered unknown blobstor buid')
-                    continue
-                blobstornames.append(blobstorname)
-            return blobstornames
+                blobstorbuids.append(blobstorbuids)
+            return blobstorbuids
 
     def _randoblobstor(self, items=None):
         # FIXME: fix list of buids vs. list of names
@@ -418,20 +526,18 @@ class Axon(s_cell.Cell):
                 return blobstor
         raise Exception('No blobstors available')
 
-    def upload(self, genr):
+    def startput(self):
         '''
         Args:
+            None
 
         Returns:
-            bytes: The sha256 digest of the file received, in bytes.
+            an Uploader object suitable for streaming an upload
         '''
-        blobstor = self._randoblobstor()
-        uploader = blobstor.startUpload()
-        for chunk in genr:
-            uploader.write(chunk)
-        return uploader.finish()
+        blobstor, blobstorbuid = self._randoblobstor()
+        return blobstor.startput()
 
-    def save(self, files):
+    def bulkput(self, files):
         '''
         Save a list of files to the axon.
 
@@ -443,7 +549,7 @@ class Axon(s_cell.Cell):
         '''
         blobstor, blobstorbuid = self._randoblobstor()
         count = 0
-        with blobstor.startUpload() as uploader:
+        with blobstor.startput() as uploader:
             for bytz in files:
                 for chunk in s_common.chunks(self.CHUNK_SIZE):
                     uploader.write(chunk)
@@ -453,7 +559,7 @@ class Axon(s_cell.Cell):
             self._addloc(sha256, len(bytz), blobstorbuid, xact)
         return count
 
-    def bytes(self, sha256):
+    def get(self, sha256):
         '''
         Yield bytes for the given SHA256.
 
@@ -466,14 +572,14 @@ class Axon(s_cell.Cell):
         Raises:
             RetnErr: If the file requested does not exist.
         '''
-        locs = self._getBlobLocs(sha256)
+        locs = self.locs(sha256)
         if not locs:
             raise s_exc.NoSuchFile()
-        blobstornames = self._randrotate(locs)
-        for blobstorname in blobstornames:
-            blobstor = self._get_blobstor_by_name(blobstorname)
-            if blobstor is None:
-                continue
+        blobstorbuids = self._randrotate(locs)
+        for buid in blobstorbuids:
+            blobstor = self._get_blobstor_by_buid(buid)
+            if blobstor is not None:
+                break
         else:
             raise Exception('No blobstors available')
 

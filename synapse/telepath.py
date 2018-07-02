@@ -160,7 +160,7 @@ class Method:
     '''
     def __init__(self, proxy, name, share=None):
         self.name = name
-        self.share = None
+        self.share = share
         self.proxy = proxy
 
         # act as much like a bound method as possible...
@@ -248,12 +248,12 @@ class Proxy(s_coro.Fini):
 
         await share._onShareData(data)
 
-    async def call(self, name, *args, **kwargs):
+    async def call(self, methname, *args, **kwargs):
         '''
         Call a remote method by name.
 
         Args:
-            name (str): The name of the remote method.
+            methname (str): The name of the remote method.
             *args: Arguments to the method call.
             **kwargs: Keyword arguments to the method call.
 
@@ -264,7 +264,7 @@ class Proxy(s_coro.Fini):
             valu = proxy.getFooBar(x, y)
             valu = proxy.call('getFooBar', x, y)
         '''
-        todo = (name, args, kwargs)
+        todo = (methname, args, kwargs)
         return await self.task(todo)
 
     async def task(self, todo, name=None):
@@ -391,7 +391,7 @@ class Proxy(s_coro.Fini):
 
 def alias(name):
     '''
-    Resolve a telpath alias via ~/.syn/aliases.yaml
+    Resolve a telepath alias via ~/.syn/aliases.yaml
     '''
     path = s_common.getSynPath('aliases.yaml')
     if not os.path.isfile(path):

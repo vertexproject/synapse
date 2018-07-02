@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import threading
 
@@ -5,12 +6,22 @@ logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
+import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.tests.common as s_test
 
 class Boom:
     pass
+
+class CustomShare(s_daemon.Share):
+    typename = 'customshare'
+
+    async def _runShareLoop(self):
+        await asyncio.sleep(10)
+
+    def boo(self, x):
+        return x
 
 class Foo:
 
@@ -76,6 +87,9 @@ class TeleApi:
 
     def getFooBar(self, x, y):
         return x - y
+
+    def customshare(self):
+        return CustomShare(self.link, 42)
 
 class TeleAware(s_telepath.Aware):
 
@@ -154,6 +168,10 @@ class TeleTest(s_test.SynTest):
             dmon.share('woke', item)
             proxy = dmon._getTestProxy('woke')
             self.eq(10, proxy.getFooBar(20, 10))
+
+            # check a custom share works
+            obj = proxy.customshare()
+            self.eq(999, obj.boo(999))
 
     def test_telepath_auth(self):
 
