@@ -881,6 +881,8 @@ class CortexTest(s_test.SynTest):
             self.len(1, core.eval('[ pivcomp=(hehe,haha) +#foo=(2014,2016) ]'))
             self.len(1, core.eval('pivtarg=hehe [ .seen=2015 ]'))
 
+            self.len(1, core.eval('pivcomp=(hehe,haha) $ticktock=#foo -> pivtarg +.seen@=$ticktock'))
+
     def test_cortex_storm_filt_ival(self):
 
         with self.getTestCore() as core:

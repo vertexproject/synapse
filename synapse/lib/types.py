@@ -666,7 +666,6 @@ class Loc(Type):
             ('pref', indx),
         )
 
-
 class Ndef(Type):
 
     def postTypeInit(self):
