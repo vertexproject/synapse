@@ -1,3 +1,0 @@
-python:
-  setup_py_install: true
-  version: 3.6
