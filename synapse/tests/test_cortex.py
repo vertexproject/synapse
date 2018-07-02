@@ -9,6 +9,47 @@ import synapse.tests.common as s_test
 
 class CortexTest(s_test.SynTest):
 
+    def test_cortex_iter_props(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                props = {'asn': 10, '.seen': '2016'}
+                node = snap.addNode('inet:ipv4', 0x01020304, props=props)
+                self.eq(node.get('asn'), 10)
+
+                props = {'asn': 20, '.seen': '2015'}
+                node = snap.addNode('inet:ipv4', 0x05050505, props=props)
+                self.eq(node.get('asn'), 20)
+
+            with core.layer.xact() as xact:
+                # rows are (buid, valu) tuples
+                rows = tuple(xact.iterPropRows('inet:ipv4', 'asn'))
+
+            self.eq((10,20), tuple(sorted([ row[1] for row in rows ])))
+
+            with core.layer.xact() as xact:
+                # rows are (buid, valu) tuples
+                rows = tuple(xact.iterUnivRows('.seen'))
+
+            ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
+            self.eq(ivals, tuple(sorted([ row[1] for row in rows ])))
+
+    def test_cortex_lift_regex(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+                node = snap.addNode('teststr', 'hezipha')
+                node = snap.addNode('testcomp', (20, 'lulzlulz'))
+
+            self.len(0, core.eval('testcomp:haha~="^zerg"'))
+            self.len(1, core.eval('testcomp:haha~="^lulz"'))
+
+            self.len(1, core.eval('teststr~="zip"'))
+            self.len(0, core.eval('teststr~="gronk"'))
+
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
     def test_feed_conf(self):
         with self.getTestDmon(mirror='cryodmon') as dst_dmon:

@@ -317,7 +317,7 @@ class IPv4(s_types.Type):
                     ('range', (self.indx(minv), self.indx(maxv))),
                 )
 
-            if valu.find('-'):
+            if valu.find('-') != -1:
                 minv, maxv = self.getNetRange(valu)
                 return (
                     ('range', (self.indx(minv), self.indx(maxv))),
@@ -705,7 +705,9 @@ class InetModule(s_module.CoreModule):
                     ('inet:http:cookie', ('str', {}), {
                         'doc': 'An HTTP cookie string.'}),
 
-                    ('inet:http:header', ('comp', {'fields': (('name', ('str', {'lower': True})), ('value', 'str'))}), {
+                    ('inet:http:header:name', ('str', {'lower': True}), {}),
+
+                    ('inet:http:header', ('comp', {'fields': (('name', 'inet:http:header:name'), ('value', 'str'))}), {
                         'doc': 'An HTTP protocol header key/value.'}),
 
                     ('inet:http:request:header', ('inet:http:header', {}), {
@@ -714,7 +716,7 @@ class InetModule(s_module.CoreModule):
                     ('inet:http:response:header', ('inet:http:header', {}), {
                         'doc': 'An HTTP response header.'}),
 
-                    ('inet:http:param', ('comp', {'fields': (('name', ('str', {'lower': True})), ('value', 'str'))}), {
+                    ('inet:http:param', ('comp', {'fields': (('name', 'str'), ('value', 'str'))}), {
                         'doc': 'An HTTP request path query parameter.'}),
 
                     ('inet:http:request', ('guid', {}), {

@@ -123,6 +123,12 @@ class Prop:
                 ('indx', ('byprop', self.pref, iops)),
             )
 
+        # TODO: make types control this more tightly...
+        if cmpr == '~=':
+            return (
+                ('prop:re', (self.form.name, self.name, valu, {})),
+            )
+
         iops = self.type.getIndxOps(valu, cmpr=cmpr)
         return (
             ('indx', ('byprop', self.pref, iops)),
@@ -176,11 +182,12 @@ class Univ:
     def getLiftOps(self, valu, cmpr='='):
 
         if valu is None:
-            iops = (
-                ('pref', b''),
+            iops = ( ('pref', b''), )
+            return (
+                ('indx', ('byuniv', self.pref, iops)),
             )
-        else:
-            iops = self.type.getIndxOps(valu)
+
+        iops = self.type.getIndxOps(valu)
 
         return (
             ('indx', ('byuniv', self.pref, iops)),
@@ -275,6 +282,11 @@ class Form:
             iops = (('pref', b''),)
             return (
                 ('indx', ('byprop', self.pref, iops)),
+            )
+
+        if cmpr == '~=':
+            return (
+                ('form:re', (self.name, valu, {})),
             )
 
         iops = self.type.getIndxOps(valu, cmpr=cmpr)

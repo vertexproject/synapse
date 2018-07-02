@@ -14,7 +14,6 @@ import synapse.lib.msgpack as s_msgpack
 logger = logging.getLogger(__name__)
 tagre = regex.compile(r'^([\w]+\.)*[\w]+$')
 
-
 class Type:
 
     _opt_defs = ()
@@ -138,7 +137,7 @@ class Type:
             raise s_exc.BadCmprValu(valu=vals, cmpr='*in=')
 
         for valu in vals:
-            opers.extend(self.getIndxOpers(valu))
+            opers.extend(self.getIndxOps(valu))
 
         return opers
 
@@ -1046,6 +1045,27 @@ class Time(Type):
         # wreaking havoc with the btree range indexing...
         return (norm + 0x8000000000000000).to_bytes(8, 'big')
 
+    def _getLiftValu(self, valu, relto=None):
+
+        if isinstance(valu, str):
+
+            lowr = valu.strip().lower()
+            if not lowr:
+                raise s_exc.BadTypeValu(name='time', valu=valu)
+
+            if lowr == 'now':
+                return s_common.now()
+
+            if lowr[0] in ('-', '+'):
+
+                delt = s_time.delta(lowr)
+                if relto is None:
+                    relto = s_common.now()
+
+                return delt + relto
+
+        return self.norm(valu)[0]
+
     def _indxTimeRange(self, mint, maxt):
         minv, _ = self.norm(mint)
         maxv, _ = self.norm(maxt)
@@ -1055,9 +1075,21 @@ class Time(Type):
 
     def indxByEq(self, valu):
 
-        if type(valu) == str and valu.endswith('*'):
-            valu = s_chop.digits(valu)
-            maxv = str(int(valu) + 1)
-            return self._indxTimeRange(valu, maxv)
+        if isinstance(valu, str):
+
+            if valu.endswith('*'):
+                valu = s_chop.digits(valu)
+                maxv = str(int(valu) + 1)
+                return self._indxTimeRange(valu, maxv)
+
+            if valu and valu[0] == '-':
+                tock = s_common.now()
+                delt = s_time.delta(valu)
+                return self._indxTimeRange(tock + delt, tock)
+
+        if type(valu) in (tuple, list):
+            tick = self._getLiftValu(valu[0])
+            tock = self._getLiftValu(valu[1], relto=tick)
+            return self._indxTimeRange(tick, tock)
 
         return Type.indxByEq(self, valu)

@@ -437,6 +437,9 @@ class InetModelTest(s_t_common.SynTest):
     def test_http_header(self):
         pass # this is tested below...
 
+    def test_http_header_name(self):
+        pass # this is tested below...
+
     def test_http_request_header(self):
         formname = 'inet:http:request:header'
         valu = ('Cool', 'Cooler')
@@ -472,7 +475,7 @@ class InetModelTest(s_t_common.SynTest):
             'name': 'cool',
             'value': 'Cooler'
         }
-        expected_ndef = (formname, ('cool', 'Cooler'))
+        expected_ndef = (formname, ('Cool', 'Cooler'))
         with self.getTestCore() as core:
             with core.snap() as snap:
                 node = snap.addNode(formname, valu)
