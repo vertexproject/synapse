@@ -35,6 +35,8 @@ class FileTest(s_test.SynTest):
             self.eq('foo.exe', norm)
             self.eq('exe', subs.get('ext'))
 
+            self.eq(b'oh\xed\xb3\xbesnap', base.indx('oh\udcfesnap'))
+            self.eq(b'oh\xed\xb3\xbes', base.indxByPref('oh\udcfes')[0][1])
             self.raises(s_exc.BadTypeValu, base.norm, 'foo/bar.exe')
             self.raises(s_exc.BadTypeValu, base.norm, '/haha')
 
@@ -60,6 +62,9 @@ class FileTest(s_test.SynTest):
             self.none(subs.get('ext'))
             self.none(subs.get('dir'))
             self.eq(subs.get('base'), 'foo')
+
+            self.eq(b'c:/the/real/world/\xed\xb3\xbeis/messy', path.indx('c:/the/real/world/\udcfeis/messy'))
+            self.eq(b'c:/the/real/world/\xed\xb3\xbe', path.indxByPref('c:/the/real/world/\udcfe')[0][1])
 
             with core.snap() as snap:
 

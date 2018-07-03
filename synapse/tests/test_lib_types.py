@@ -91,6 +91,7 @@ class TypesTest(s_test.SynTest):
                 ('010101', s_exc.BadTypeValu),
                 (b'\x10\x01\xff', s_exc.BadTypeValu),
                 (b'\xff', s_exc.BadTypeValu),
+                ('01\udcfe0101', s_exc.BadTypeValu),
             ]
             t = core.model.type('testhex4')
             for v, b in testvectors4:
@@ -253,6 +254,9 @@ class TypesTest(s_test.SynTest):
         loctype = model.types.get('loc')
 
         self.eq('us.va', loctype.norm('US.    VA')[0])
+        self.eq('', loctype.norm('')[0])
+        self.eq('us.va.ओं.reston', loctype.norm('US.    VA.ओं.reston')[0])
+        self.eq(b'us\x00haha\xed\xb3\xbestuff\x00blah\x00', loctype.indx('us.haha\udcfestuff.blah'))
 
     def test_ndef(self):
         self.skip('Implement base ndef test')
@@ -314,6 +318,10 @@ class TypesTest(s_test.SynTest):
         byts = s_common.uhex('e2889e')
         self.eq(byts, model.type('str').indx('∞'))
 
+        # The real world is a harsh place.
+        self.eq(b'haha\xed\xb3\xbe hehe', model.type('str').indx('haha\udcfe hehe'))
+        self.eq(b'haha\xed\xb3\xbe ', model.type('str').indxByPref('haha\udcfe ')[0][1])
+
         strp = model.type('str').clone({'strip': True})
         self.eq('foo', strp.norm('  foo \t')[0])
         self.eq(b'foo  bar', strp.indxByPref(' foo  bar')[0][1])
@@ -353,6 +361,15 @@ class TypesTest(s_test.SynTest):
         self.eq('foo', subs.get('up'))
 
         self.raises(s_exc.BadTypeValu, tagtype.norm, '@#R)(Y')
+        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\udcfe.bar')
+        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo.')
+        self.raises(s_exc.BadTypeValu, tagtype.norm, '.')
+        self.raises(s_exc.BadTypeValu, tagtype.norm, '')
+        # Okay behavior?
+        # self.eq('icon.ॐ', tagtype.norm('ICON.ॐ')[0])
+        # self.raises(s_exc.BadTypeValu, tagtype.norm, 'ICON.ॐ')
+        # HMM THIS IS WEIRD
+        # self.eq('hehe.😀.haha', tagtype.norm(b'hehe.\xf0\x9f\x98\x80.haha'.decode())[0])
 
     def test_time(self):
         self.skip('Implement base time test')

@@ -159,7 +159,7 @@ class Email(s_types.Type):
         return norm, info
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
 class Fqdn(s_types.Type):
 
@@ -393,11 +393,11 @@ class Rfc2822Addr(s_types.Type):
         valu = valu.strip().lower()
         valu = ' '.join(valu.split())
         return (
-            ('pref', valu.encode('utf8')),
+            ('pref', valu.encode('utf8', 'surrogatepass')),
         )
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
     def _normPyStr(self, valu):
 
@@ -437,7 +437,7 @@ class Url(s_types.Type):
         self.setNormFunc(str, self._normPyStr)
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
     def _normPyStr(self, valu):
         orig = valu

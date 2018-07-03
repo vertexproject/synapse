@@ -455,7 +455,10 @@ class Hex(Type):
         return Type.indxByEq(self, valu)
 
     def _normPyStr(self, valu):
-        valu = s_chop.hexstr(valu)
+        try:
+            valu = s_chop.hexstr(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=repr(valu), mesg=f'Failed to hexstr input [str(e)].')
 
         if self._size and len(valu) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size,
@@ -659,7 +662,7 @@ class Loc(Type):
     def indx(self, norm):
         parts = norm.split('.')
         valu = '\x00'.join(parts) + '\x00'
-        return valu.encode('utf8')
+        return valu.encode('utf8', 'surrogatepass')
 
     def indxByEq(self, valu):
 
@@ -932,7 +935,7 @@ class Str(Type):
             valu = s_chop.onespace(valu)
 
         return (
-            ('pref', valu.encode('utf8')),
+            ('pref', valu.encode('utf8', 'surrogatepass')),
         )
 
     def _normPyStr(self, valu):
@@ -960,7 +963,7 @@ class Str(Type):
         return norm, {}
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
 
 class Tag(Type):

@@ -71,6 +71,9 @@ class TelcoModelTest(s_test.SynTest):
             self.eq(norm, '1234567890')
             self.eq(subs, {'subs': {'loc': 'us'}})
 
+            norm, subs = t.norm('123 456 \udcfe7890')
+            self.eq(norm, '1234567890')
+
             norm, subs = t.norm(1234567890)
             self.eq(norm, '1234567890')
             self.eq(subs, {'subs': {'loc': 'us'}})
