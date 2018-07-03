@@ -607,7 +607,7 @@ class Ival(Type):
 
     def _normPyStr(self, valu):
         norm, info = self.timetype.norm(valu)
-        # until we support 2013+2years syntax...
+        # TODO until we support 2013+2years syntax...
         return (norm, norm + 1), {}
 
     def _normPyIter(self, valu):
@@ -751,7 +751,7 @@ class Edge(Type):
 
         if self.n1forms is not None:
             if n1[0] not in self.n1forms:
-                raise s_exc.BadTypeValu(valu, mesg='Invalid source node for edge type: %r' % n1[0])
+                raise s_exc.BadTypeValu(valu=n1[0], mesg='Invalid source node for edge type')
 
         subs['n1'] = n1
         subs['n1:form'] = n1[0]
@@ -760,7 +760,7 @@ class Edge(Type):
 
         if self.n2forms is not None:
             if n2[0] not in self.n2forms:
-                raise s_exc.BadTypeValu(valu, mesg='Invalid dest node for edge type: %r' % n2[0])
+                raise s_exc.BadTypeValu(valu=n2[0], mesg='Invalid dest node for edge type')
 
         subs['n2'] = n2
         subs['n2:form'] = n2[0]
@@ -987,7 +987,7 @@ class Tag(Type):
 
         norm = '.'.join(toks)
         if not tagre.match(norm):
-            raise s_exc.BadTypeValu(valu=text)
+            raise s_exc.BadTypeValu(valu=text, mesg=f'Tag does not match tagre: [{tagre.pattern}]')
 
         if len(toks) > 1:
             subs['up'] = '.'.join(toks[:-1])

@@ -175,7 +175,7 @@ class Fqdn(s_types.Type):
         try:
             valu = valu.encode('idna').decode('utf8').lower()
         except UnicodeError as e:
-            raise s_exc.BadTypeValu(valu)
+            raise s_exc.BadTypeValu(valu=valu)
 
         parts = valu.strip('.').split('.', 1)
         subs = {'host': parts[0]}

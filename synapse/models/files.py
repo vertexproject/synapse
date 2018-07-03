@@ -145,7 +145,7 @@ class FileBytes(s_types.Type):
             subs = {'sha256': kval}
             return f'sha256:{kval}', {'subs': subs}
 
-        raise s_exc.BadTypeValu(name=self.name, valu=valu)
+        raise s_exc.BadTypeValu(name=self.name, valu=valu, kind=kind)
 
     def _normPyBytes(self, valu):
 
