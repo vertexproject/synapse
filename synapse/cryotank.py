@@ -28,6 +28,17 @@ logger = logging.getLogger(__name__)
 class TankApi(s_cell.CellApi):
 
     def slice(self, size, offs, iden=None):
+        '''
+        Return size records from the cryotank starting at offset.
+
+        Args:
+            size (int): The number of records to return.
+            offs (int): The offset to begin returning.
+            iden (str): The GUID to record the current offset.
+
+        Yields:
+            (int,obj): Offset, record tuples.
+        '''
         yield from self.cell.slice(size, offs, iden=iden)
 
     def puts(self, items, seqn=None):
@@ -38,6 +49,12 @@ class TankApi(s_cell.CellApi):
 
     def offset(self, iden):
         return self.cell.getOffset(iden)
+
+    def delete(self, offs):
+        '''
+        Delete up to (but not including) offset.
+        '''
+        return self.cell.delete(offs)
 
     def addIndex(self, prop, syntype, datapaths):
         '''
@@ -178,6 +195,8 @@ class CryoTank(s_cell.Cell):
         self.lenv = lmdb.open(path, writemap=True, max_dbs=128)
         self.lenv.set_mapsize(mapsize)
 
+        self.metadb = self.lenv.open_db(b'meta')
+
         self.lenv_items = self.lenv.open_db(b'items')
         self.lenv_metrics = self.lenv.open_db(b'metrics')
 
@@ -187,8 +206,22 @@ class CryoTank(s_cell.Cell):
         noindex = self.conf.get('noindex')
         self.indexer = None if noindex else CryoTankIndexer(self)
 
+        # retrieve our next offset from metadata storage
+        self.items_indx = None
+        with self.lenv.begin(write=True) as xact:
+
+            byts = xact.get(b'offs', db=self.metadb)
+            if byts is not None:
+                self.items_indx = struct.unpack('>Q', byts)[0]
+
+            if self.items_indx is None:
+                # we may be a old-style cryotank, check for an entry...
+                self.items_indx = xact.stat(self.lenv_items)['entries']
+                xact.put(b'offs', struct.pack('>Q', self.items_indx), db=self.metadb)
+
+        last = self.last()
+
         with self.lenv.begin() as xact:
-            self.items_indx = xact.stat(self.lenv_items)['entries']
             self.metrics_indx = xact.stat(self.lenv_metrics)['entries']
 
         def fini():
@@ -233,7 +266,7 @@ class CryoTank(s_cell.Cell):
         tick = s_common.now()
         bytesize = sum([len(b) for b in itembyts])
 
-        with self.lenv.begin(db=self.lenv_items, write=True) as xact:
+        with self.lenv.begin(write=True) as xact:
 
             todo = []
             for byts in itembyts:
@@ -242,8 +275,10 @@ class CryoTank(s_cell.Cell):
 
             retn = self.items_indx
 
-            with xact.cursor() as curs:
+            with xact.cursor(db=self.lenv_items) as curs:
                 curs.putmulti(todo, append=True)
+
+            xact.put(b'offs', struct.pack('>Q', self.items_indx), db=self.metadb)
 
             took = s_common.now() - tick
 
@@ -294,6 +329,29 @@ class CryoTank(s_cell.Cell):
                     item = s_msgpack.un(lval)
 
                     yield indx, item
+
+    def delete(self, offs):
+        '''
+        Delete up to ( but not including ) offset.
+        '''
+        retn = 0
+
+        byts = struct.pack('>Q', offs)
+
+        with self.lenv.begin(write=True) as xact:
+
+            with xact.cursor(db=self.lenv_items) as curs:
+
+                if not curs.first():
+                    return 0
+
+                lkey = curs.key()
+                while lkey and lkey < byts:
+                    retn += 1
+                    curs.delete()
+                    lkey = curs.key()
+
+        return retn
 
     def slice(self, offs, size, iden=None):
         '''

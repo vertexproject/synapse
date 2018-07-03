@@ -81,6 +81,16 @@ class CryoTest(s_test.SynTest):
 
                 self.len(1, list(prox.metrics(0)))
 
+                # test the tank.delete() API
+                self.eq(0, prox.delete(0))
+                self.len(2, list(prox.slice(0, 9999)))
+
+                self.eq(1, prox.delete(1))
+                self.len(1, list(prox.slice(0, 9999)))
+
+                self.eq(1, prox.delete(9999))
+                self.len(0, list(prox.slice(0, 9999)))
+
     def test_cryo_cell_indexing(self):
 
         # conf = {'defvals': {'mapsize': s_test.TEST_MAP_SIZE}}
