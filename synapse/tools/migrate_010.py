@@ -440,8 +440,9 @@ class Migrator:
         retn = []
         for member in members:
             full_member = '%s:%s' % (formname, member)
-            _, val = self.convert_subprop(formname, full_member, props[full_member], props)
-            retn.append(val)
+            if full_member in props:
+                _, val = self.convert_subprop(formname, full_member, props[full_member], props)
+                retn.append(val)
         return tuple(retn)
 
     def default_subprop_convert(self, formname, subpropname, subproptype, val):
@@ -831,8 +832,9 @@ def main(argv, outp=None):  # pragma: no cover
     fh.setLevel(logging.DEBUG)
     logger.addHandler(fh)
 
-    for modname in opts.extra_module:
-        s_modules.load(modname)
+    if opts.extra_module is not None:
+        for modname in opts.extra_module:
+            s_modules.load(modname)
 
     fh = open(opts.outfile, 'wb')
     rejects_fh = open(opts.outfile + '.rejects', 'wb')
