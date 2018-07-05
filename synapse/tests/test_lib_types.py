@@ -362,14 +362,15 @@ class TypesTest(s_test.SynTest):
 
         self.raises(s_exc.BadTypeValu, tagtype.norm, '@#R)(Y')
         self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\udcfe.bar')
+        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\u200b.bar')
+        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\u202e.bar')
         self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo.')
         self.raises(s_exc.BadTypeValu, tagtype.norm, '.')
         self.raises(s_exc.BadTypeValu, tagtype.norm, '')
-        # Okay behavior?
-        # self.eq('icon.ॐ', tagtype.norm('ICON.ॐ')[0])
-        # self.raises(s_exc.BadTypeValu, tagtype.norm, 'ICON.ॐ')
-        # HMM THIS IS WEIRD
-        # self.eq('hehe.😀.haha', tagtype.norm(b'hehe.\xf0\x9f\x98\x80.haha'.decode())[0])
+        # Tags including non-english unicode letters are okay
+        self.eq('icon.ॐ', tagtype.norm('ICON.ॐ')[0])
+        # homoglyphs are also possible
+        self.eq('is.ｂob.evil', tagtype.norm('is.\uff42ob.evil')[0])
 
     def test_time(self):
         self.skip('Implement base time test')
