@@ -32,7 +32,7 @@ class Addr(s_types.Type):
         self.setNormFunc(str, self._normPyStr)
 
     def indx(self, norm):
-        return norm.encode('utf-8')
+        return norm.encode('utf8')
 
     def _getPort(self, valu):
         port = None
