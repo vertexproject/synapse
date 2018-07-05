@@ -14,7 +14,7 @@ class FileBase(s_types.Type):
 
     def indxByPref(self, valu):
         valu = valu.strip().lower().replace('\\', '/')
-        indx = valu.encode('utf8')
+        indx = valu.encode('utf8', 'surrogatepass')
         return (
             ('pref', indx),
         )
@@ -33,7 +33,7 @@ class FileBase(s_types.Type):
         return norm, {'subs': subs}
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
 class FilePath(s_types.Type):
 
@@ -43,7 +43,7 @@ class FilePath(s_types.Type):
 
     def indxByPref(self, valu):
         valu = valu.strip().lower().replace('\\', '/')
-        indx = valu.encode('utf8')
+        indx = valu.encode('utf8', 'surrogatepass')
         return (
             ('pref', indx),
         )
@@ -87,7 +87,7 @@ class FilePath(s_types.Type):
         return fullpath, {'subs': subs}
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
 class FileBytes(s_types.Type):
 
@@ -145,7 +145,7 @@ class FileBytes(s_types.Type):
             subs = {'sha256': kval}
             return f'sha256:{kval}', {'subs': subs}
 
-        raise s_exc.BadTypeValu(name=self.name, valu=valu)
+        raise s_exc.BadTypeValu(name=self.name, valu=valu, kind=kind)
 
     def _normPyBytes(self, valu):
 

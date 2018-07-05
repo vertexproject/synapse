@@ -455,7 +455,10 @@ class Hex(Type):
         return Type.indxByEq(self, valu)
 
     def _normPyStr(self, valu):
-        valu = s_chop.hexstr(valu)
+        try:
+            valu = s_chop.hexstr(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=repr(valu), mesg=f'Failed to hexstr input [str(e)].')
 
         if self._size and len(valu) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size,
@@ -607,7 +610,7 @@ class Ival(Type):
 
     def _normPyStr(self, valu):
         norm, info = self.timetype.norm(valu)
-        # until we support 2013+2years syntax...
+        # TODO until we support 2013+2years syntax...
         return (norm, norm + 1), {}
 
     def _normPyIter(self, valu):
@@ -659,7 +662,7 @@ class Loc(Type):
     def indx(self, norm):
         parts = norm.split('.')
         valu = '\x00'.join(parts) + '\x00'
-        return valu.encode('utf8')
+        return valu.encode('utf8', 'surrogatepass')
 
     def indxByEq(self, valu):
 
@@ -751,7 +754,7 @@ class Edge(Type):
 
         if self.n1forms is not None:
             if n1[0] not in self.n1forms:
-                raise s_exc.BadTypeValu(valu, mesg='Invalid source node for edge type: %r' % n1[0])
+                raise s_exc.BadTypeValu(valu=n1[0], mesg='Invalid source node for edge type')
 
         subs['n1'] = n1
         subs['n1:form'] = n1[0]
@@ -760,7 +763,7 @@ class Edge(Type):
 
         if self.n2forms is not None:
             if n2[0] not in self.n2forms:
-                raise s_exc.BadTypeValu(valu, mesg='Invalid dest node for edge type: %r' % n2[0])
+                raise s_exc.BadTypeValu(valu=n2[0], mesg='Invalid dest node for edge type')
 
         subs['n2'] = n2
         subs['n2:form'] = n2[0]
@@ -932,7 +935,7 @@ class Str(Type):
             valu = s_chop.onespace(valu)
 
         return (
-            ('pref', valu.encode('utf8')),
+            ('pref', valu.encode('utf8', 'surrogatepass')),
         )
 
     def _normPyStr(self, valu):
@@ -960,7 +963,7 @@ class Str(Type):
         return norm, {}
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
 
 class Tag(Type):
@@ -987,7 +990,7 @@ class Tag(Type):
 
         norm = '.'.join(toks)
         if not tagre.match(norm):
-            raise s_exc.BadTypeValu(valu=text)
+            raise s_exc.BadTypeValu(valu=text, mesg=f'Tag does not match tagre: [{tagre.pattern}]')
 
         if len(toks) > 1:
             subs['up'] = '.'.join(toks[:-1])

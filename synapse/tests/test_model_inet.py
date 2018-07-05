@@ -236,6 +236,9 @@ class InetModelTest(s_t_common.SynTest):
             expected = ('unittest@vertex.link', {'subs': {'fqdn': 'vertex.link', 'user': 'unittest'}})
             self.eq(t.norm(email), expected)
 
+            valu = t.norm('bob\udcfesmith@woot.com')[0]
+            self.eq(b'bob\xed\xb3\xbesmith@woot.com', t.indx(valu))
+
             # Form Tests ======================================================
             valu = 'UnitTest@Vertex.link'
             expected_ndef = (formname, valu.lower())
@@ -315,6 +318,8 @@ class InetModelTest(s_t_common.SynTest):
             expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'link'}})
             self.eq(t.norm(fqdn), expected)
             self.none(t.repr(fqdn))  # UnicodeError raised and caught and fallback to norm
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com')
 
             # Form Tests ======================================================
             valu = 'api.vertex.link'
@@ -751,6 +756,10 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm('"foo bar "   <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
             self.eq(t.norm('<visi@vertex.link>'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
 
+            valu = t.norm('bob\udcfesmith@woot.com')[0]
+            self.eq(b'bob\xed\xb3\xbesmith@woot.com', t.indx(valu))
+            self.eq(b'bob\xed\xb3\xbesmith', t.indxByPref('bob\udcfesmith')[0][1])
+
             self.raises(s_exc.NoSuchFunc, t.norm, 20)
 
             # Form Tests ======================================================
@@ -842,6 +851,11 @@ class InetModelTest(s_t_common.SynTest):
 
             self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')  # No Host
             self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
+            valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')[0]
+            self.eq(b'http://www.googlesites.com/hehe\xed\xb3\xbestuff.asp',
+                    t.indx(valu))
 
             # Form Tests ======================================================
             with core.snap() as snap:
