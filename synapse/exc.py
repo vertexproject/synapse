@@ -26,15 +26,6 @@ class SynErr(Exception):
         '''
         return self.errinfo.get(name)
 
-##########################################################################
-class NoLinkRx(SynErr):
-    '''
-    No onrx() has been set for the link.
-    '''
-    pass
-
-##########################################################################
-
 class CliFini(SynErr):
     '''
     Raised when the CLI is to exit.
@@ -58,6 +49,7 @@ class BadPropName(SynErr): pass
 class BadCoreName(SynErr): pass
 class BadCtorType(SynErr): pass
 class BadMesgVers(SynErr): pass
+class BadMesgType(SynErr): pass
 class BadInfoValu(SynErr): pass
 class BadStorValu(SynErr): pass
 class BadRuleValu(SynErr): pass
@@ -129,6 +121,8 @@ class NoSuchFunc(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchRole(SynErr): pass
 class NoSuchIndx(SynErr): pass
+
+class LinkClosed(SynErr): pass  # The link was shut down by the remote side
 
 class ReadOnlyProp(SynErr): pass
 class ReqConfOpt(SynErr): pass

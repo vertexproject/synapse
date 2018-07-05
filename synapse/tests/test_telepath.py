@@ -1,7 +1,10 @@
+import time
 import types
 import asyncio
 import logging
 import threading
+
+from unittest.mock import patch
 
 logger = logging.getLogger(__name__)
 
@@ -183,3 +186,20 @@ class TeleTest(s_test.SynTest):
             host, port = dmon.listen('tcp://127.0.0.1:0/')
 
             self.raises(s_exc.BadMesgVers, s_telepath.openurl, 'tcp://127.0.0.1/', port=port)
+
+    @patch('synapse.daemon.sesslife', 0.01)
+    @patch('synapse.daemon.sesstick', 0.01)
+    def test_telepath_sess_cull(self):
+
+        foo = Foo()
+
+        with self.getTestDmon() as dmon:
+
+            dmon.share('foo', foo)
+
+            with dmon._getTestProxy('foo') as prox:
+                self.eq(foo.bar(10, 20), 30)
+                self.len(1, dmon.sessions)
+
+            time.sleep(0.1)
+            self.len(0, dmon.sessions)

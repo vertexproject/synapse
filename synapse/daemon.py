@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import types
 import asyncio
 import logging
@@ -22,148 +23,40 @@ class Share(s_coro.Fini):
     '''
     Class to wrap a dynamically shared object.
     '''
-    def __init__(self, link, item):
+    def __init__(self):
         s_coro.Fini.__init__(self)
 
-        self.link = link
+class Sess(s_coro.Fini):
 
-        self.orig = item    # for context management
-        self.item = item
+    def __init__(self):
+        s_coro.Fini.__init__(self)
 
-        self.iden = s_common.guid()
+        self.tick = s_common.now()
+        self.count = 1
 
-        self.exited = False
-        self.entered = False
+        self.shared = {}
+        self.onfini(self._onSessFini)
 
-        items = link.get('dmon:items')
+    async def _onSessFini(self):
 
-        async def fini():
-            items.pop(self.iden, None)
+        # pop the main object...
+        self.shared.pop(None, None)
 
-        self.onfini(fini)
-        items[self.iden] = self
-
-    async def _runShareLoop(self):
-        return
-
-class With(Share):
-    '''
-    Server side context for a telepath With() proxy.
-    '''
-    typename = 'with'
-
-    def __init__(self, link, item):
-        Share.__init__(self, link, item)
-
-        self.exitok = None  # None/False == error
-        self.onfini(self._onWithFini)
-
-    async def _onWithFini(self):
-
-        if self.exitok:
-            return await self._runExitFunc((None, None, None))
-
-        try:
-            raise s_exc.SynErr()
-        except Exception as e:
-            args = sys.exc_info()
-            return await self._runExitFunc(args)
-
-    async def _runExitFunc(self, args):
-
-        exit = getattr(self.orig, '__aexit__', None)
-        if exit:
-            await exit(*args)
-            return
-
-        exit = getattr(self.orig, '__exit__', None)
-        if exit:
-            await s_glob.executor(exit, *args)
-            return
-
-    async def _runShareLoop(self):
-
-        self.orig = self.item
-
-        enter = getattr(self.orig, '__aenter__', None)
-        if enter:
-            self.item = await enter()
-            return
-
-        enter = getattr(self.orig, '__enter__', None)
-        if enter:
-            self.item = await s_glob.executor(enter)
-            return
-
-    async def teleexit(self, isexc):
-        self.exitok = isexc
-        await self.fini()
-
-class Genr(Share):
-
-    typename = 'genr'
-
-    async def _runShareLoop(self):
-
-        # automatically begin yielding
-        def syncloop():
+        for name, item in self.shared.items():
             try:
-                while not self.isfini:
-                    try:
-                        item = next(self.item)
-                    except StopIteration:
-                        break
-                    except Exception as e:
-                        retn = s_common.retnexc(e)
-                        mesg = ('share:data', {'share': self.iden, 'data': retn})
-                        s_glob.sync(self.link.tx(mesg))
-                        break
+                await item.fini()
+            except Exception as e:
+                logger.exception(f'coro fini() error for {item.__class__.__name__}')
 
-                    retn = (True, item)
-                    mesg = ('share:data', {'share': self.iden, 'data': retn})
-                    if not s_glob.sync(self.link.tx(mesg)):
-                        logger.debug('Failure in sending data')
-                        break
-            finally:
-                self.item.close()
-                mesg = ('share:data', {'share': self.iden, 'data': None})
-                s_glob.sync(self.link.tx(mesg))
+    def incref(self):
+        self.count += 1
 
-        await s_glob.executor(syncloop)
+    def decref(self):
+        self.tick = time.time()
+        self.count -= 1
 
-class AsyncGenr(Share):
-
-    typename = 'genr'
-
-    async def _runShareLoop(self):
-
-        try:
-
-            async for item in self.item:
-
-                if self.isfini:
-                    break
-
-                retn = (True, item)
-                mesg = ('share:data', {'share': self.iden, 'data': retn})
-                await self.link.tx(mesg)
-
-        except Exception as e:
-
-            retn = s_common.retnexc(e)
-            mesg = ('share:data', {'share': self.iden, 'data': retn})
-            await self.link.tx(mesg)
-
-        finally:
-
-            mesg = ('share:data', {'share': self.iden, 'data': None})
-            await self.link.tx(mesg)
-            await self.fini()
-
-dmonwrap = (
-    (types.AsyncGeneratorType, AsyncGenr),
-    (types.GeneratorType, Genr),
-)
+sesstick = 60
+sesslife = 120  # session lifespan with 0 active links
 
 class Daemon(EventBus):
 
@@ -196,11 +89,14 @@ class Daemon(EventBus):
         self.cells = {}     # all cells are shared.  not all shared are cells.
         self.shared = {}    # objects provided by daemon
 
+        self.sessions = {}
+
         self.mesgfuncs = {
             'tele:syn': self._onTeleSyn,
             'task:init': self._onTaskInit,
-            'share:fini': self._onShareFini,
         }
+
+        s_glob.plex.coroLoopTask(self._cullDeadSess())
 
         self._loadDmonConf()
         self._loadDmonCells()
@@ -244,6 +140,27 @@ class Daemon(EventBus):
 
         except Exception as e:
             logger.exception(f'onTeleShare() error for: {name}')
+
+    async def _cullDeadSess(self):
+
+        while not self.isfini:
+
+            mintime = time.time() - sesslife
+
+            items = list(self.sessions.items())
+
+            for iden, sess in items:
+
+                if sess.count > 0:
+                    continue
+
+                if sess.tick > mintime:
+                    continue
+
+                self.sessions.pop(iden, None)
+                await sess.fini()
+
+            await asyncio.sleep(sesstick)
 
     def _onDmonFini(self):
         for name, cell in self.cells.items():
@@ -299,7 +216,6 @@ class Daemon(EventBus):
 
         kind = conf.get('type')
 
-        #ctor = s_registry.getService(kind)
         cell = s_cells.init(kind, dirn)
 
         self.share(name, cell)
@@ -320,14 +236,18 @@ class Daemon(EventBus):
 
     async def _onLinkInit(self, link):
 
-        async def onrx(mesg):
-            await self._onLinkMesg(link, mesg)
+        while not link.isfini:
 
-        link.onrx(onrx)
+            mesg = await link.rx()
+            if mesg is None:
+                return
+
+            await self._onLinkMesg(link, mesg)
 
     async def _onLinkMesg(self, link, mesg):
 
         try:
+
             func = self.mesgfuncs.get(mesg[0])
             if func is None:
                 logger.exception('Dmon.onLinkMesg Invalid: %.80r' % (mesg,))
@@ -336,16 +256,19 @@ class Daemon(EventBus):
             await func(link, mesg)
 
         except Exception as e:
+            await link.fini()
             logger.exception('Dmon.onLinkMesg Handler: %.80r' % (mesg,))
 
-    async def _onShareFini(self, link, mesg):
+    async def _getDmonSess(self, iden):
 
-        iden = mesg[1].get('share')
-        share = link.get('dmon:items').get(iden)
-        if share is None:
-            return
+        sess = self.sessions.get(iden)
+        if sess is not None:
+            sess.incref()
+            return sess
 
-        await share.fini()
+        sess = Sess()
+        self.sessions[iden] = sess
+        return sess
 
     async def _onTeleSyn(self, link, mesg):
 
@@ -355,6 +278,13 @@ class Daemon(EventBus):
         })
 
         try:
+
+            iden = mesg[1].get('sess')
+            sess = await self._getDmonSess(iden)
+
+            # decrement the sess.count on link fini
+            link.onfini(sess.decref)
+            link.set('sess', sess)
 
             vers = mesg[1].get('vers')
 
@@ -380,21 +310,7 @@ class Daemon(EventBus):
             if isinstance(item, s_telepath.Aware):
                 item = item.getTeleApi(link, mesg)
 
-            items = {None: item}
-            link.set('dmon:items', items)
-
-            @s_glob.synchelp
-            async def fini():
-
-                items = list(link.get('dmon:items').values())
-
-                for item in items:
-                    try:
-                        await item.fini()
-                    except Exception as e:
-                        logger.exception(f'item fini error: {e}')
-
-            link.onfini(fini)
+            sess.shared[None] = item
 
         except Exception as e:
             logger.exception('tele:syn error')
@@ -402,7 +318,7 @@ class Daemon(EventBus):
 
         await link.tx(reply)
 
-    async def _runTodoMeth(self, link, meth, args, kwargs):
+    async def _runTodoMeth(self, meth, args, kwargs):
 
         # do we get to dispatch it ourselves?
         if asyncio.iscoroutinefunction(meth):
@@ -411,38 +327,39 @@ class Daemon(EventBus):
             # the method isn't async :(
             return await s_glob.executor(meth, *args, **kwargs)
 
-    async def _tryWrapValu(self, link, valu):
+    async def _runGenrLoop(self, link, genr):
 
-        for wraptype, wrapctor in dmonwrap:
-            if isinstance(valu, wraptype):
-                return wrapctor(link, valu)
+        def loop():
+            try:
 
-        # turtles all the way down...
-        if asyncio.iscoroutine(valu):
-            valu = await valu
-            return await self._tryWrapValu(link, valu)
+                for item in genr:
+                    mesg = ('genr:data', item)
+                    if not s_glob.sync(link.tx(mesg)):
+                        return False
 
-        return valu
+                mesg = ('genr:fini', None)
+                s_glob.sync(link.tx(mesg))
+                return True
 
-    def _getTaskFiniMesg(self, task, valu):
+            except Exception as e:
+                mesg = ('genr:errx', s_common.retnexc(e))
+                s_glob.sync(link.tx(mesg))
+                return False
 
-        if not isinstance(valu, Share):
-            retn = (True, valu)
-            return ('task:fini', {'task': task, 'retn': retn})
-
-        retn = (True, valu.iden)
-        typename = valu.typename
-        return ('task:fini', {'task': task, 'retn': retn, 'type': typename})
+        if not await s_glob.executor(loop):
+            print('BORK')
+            await link.fini()
 
     async def _onTaskInit(self, link, mesg):
 
-        task = mesg[1].get('task')
         name = mesg[1].get('name')
 
-        item = link.get('dmon:items').get(name)
+        sess = link.get('sess')
+        if sess is None:
+            await link.fini()
+            return
 
-        #import synapse.lib.scope as s_scope
-        #with s_scope.enter({'syn:user': user}):
+        item = sess.shared.get(name)
 
         try:
 
@@ -456,20 +373,50 @@ class Daemon(EventBus):
                 logger.warning(f'{item!r} has no method: {name}')
                 raise s_exc.NoSuchMeth(name=name)
 
-            valu = await self._runTodoMeth(link, meth, args, kwargs)
-            valu = await self._tryWrapValu(link, valu)
+            valu = await self._runTodoMeth(meth, args, kwargs)
 
-            mesg = self._getTaskFiniMesg(task, valu)
-            await link.tx(mesg)
+            # if it's a generator, fire a thread to run it...
+            if isinstance(valu, types.GeneratorType):
 
-            # if it's a Share(), spin off the share loop
+                mesg = ('task:fini', {'type': 'genr', 'retn': (True, None)})
+                if not await link.tx(mesg):
+                    return
+
+                await self._runGenrLoop(link, valu)
+                return
+
+            # handle a returned async generator in-line
+            if isinstance(valu, types.AsyncGeneratorType):
+
+                mesg = ('task:fini', {'type': 'genr', 'retn': (True, None)})
+                if not await link.tx(mesg):
+                    return
+
+                try:
+
+                    async for item in valu:
+
+                        if not await link.tx(('genr:data', item)):
+                            return
+
+                    if not await link.tx(('genr:fini', None)):
+                        return
+
+                except Exception as e:
+                    mesg = ('genr:errx', s_common.retnexc(e))
+                    await link.tx(mesg)
+
+                return
+
+            # otherwise, it may be a new Share()
             if isinstance(valu, Share):
-                async def spinshareloop():
-                    try:
-                        await valu._runShareLoop()
-                    finally:
-                        await valu.fini()
-                s_glob.plex.coroLoopTask(spinshareloop())
+                # a new dynamic share
+                iden = s_common.guid()
+                sess.shared[iden] = valu
+                await link.tx(('task:fini', {'type': 'share', 'retn': (True, iden)}))
+                return
+
+            await link.tx(('task:fini', {'retn': (True, valu)}))
 
         except Exception as e:
 
@@ -478,7 +425,7 @@ class Daemon(EventBus):
             retn = s_common.retnexc(e)
 
             await link.tx(
-                ('task:fini', {'task': task, 'retn': retn})
+                ('task:fini', {'retn': retn})
             )
 
     def _getTestProxy(self, name, **kwargs):

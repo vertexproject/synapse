@@ -1,6 +1,7 @@
 import socket
 import asyncio
 import logging
+import collections
 
 logger = logging.getLogger(__name__)
 
@@ -9,8 +10,11 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
+import synapse.lib.const as s_const
 import synapse.lib.queue as s_queue
 import synapse.lib.msgpack as s_msgpack
+
+readsize = 10 * s_const.megabyte
 
 class Link(s_coro.Fini):
     '''
@@ -25,6 +29,8 @@ class Link(s_coro.Fini):
 
         self.reader = reader
         self.writer = writer
+
+        self.mesgs = collections.deque()
 
         self.sock = self.writer.get_extra_info('socket')
 
@@ -41,33 +47,33 @@ class Link(s_coro.Fini):
             self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
 
         self.info = {}
-        self.chans = {}
+        #self.chans = {}
 
         self.unpk = s_msgpack.Unpk()
-        self.txque = asyncio.Queue(maxsize=1000)
-        self.rxfunc = None
+        #self.txque = asyncio.Queue(maxsize=1000)
+        #self.rxfunc = None
 
         async def fini():
 
-            [await c.fini() for c in self.chans.values()]
+            #[await c.fini() for c in self.chans.values()]
             self.writer.close()
 
         self.onfini(fini)
 
-    def chan(self, iden=None):
+    #def chan(self, iden=None):
 
-        if iden is None:
-            iden = s_common.guid()
+        #if iden is None:
+            #iden = s_common.guid()
 
-        chan = Chan(self, iden)
+        #chan = Chan(self, iden)
 
-        async def fini():
-            self.chans.pop(iden, None)
+        #async def fini():
+            #self.chans.pop(iden, None)
 
-        chan.onfini(fini)
-        self.chans[iden] = chan
+        #chan.onfini(fini)
+        #self.chans[iden] = chan
 
-        return chan
+        #return chan
 
     async def tx(self, mesg):
         '''
@@ -77,8 +83,8 @@ class Link(s_coro.Fini):
             logger.debug('Attempt to transmit on disconnected link')
             return False
 
-        if self.rxfunc is None:
-            raise s_exc.NoLinkRx()
+        #if self.rxfunc is None:
+            #raise s_exc.NoLinkRx()
 
         byts = s_msgpack.en(mesg)
         try:
@@ -92,26 +98,41 @@ class Link(s_coro.Fini):
 
         return True
 
-    async def rx(self, mesg):
+    async def rx(self):
         '''
         Routine called by Plex to rx a mesg for this Link.
         '''
-        coro = self.rxfunc(mesg)
-        if asyncio.iscoroutine(coro):
-            await coro
+        while not self.mesgs:
 
-    def onrx(self, func):
-        '''
-        Register the rx function for the link.
+            try:
 
-        NOTE: recv loop only begins once this is set!
-        NOTE: func *must* be a coroutine function.
-        '''
-        if self.rxfunc:
-            raise Exception('already set...')
+                byts = await self.reader.read(readsize)
 
-        self.rxfunc = func
-        self.plex.initLinkLoop(self)
+                if not byts:
+                    await self.fini()
+                    return None
+
+                for size, mesg in self.unpk.feed(byts):
+                    self.mesgs.append(mesg)
+
+            except Exception as e:
+                await self.fini()
+                return None
+
+        return self.mesgs.popleft()
+
+    #def onrx(self, func):
+        #'''
+        #Register the rx function for the link.
+
+        #NOTE: recv loop only begins once this is set!
+        #NOTE: func *must* be a coroutine function.
+        #'''
+        #if self.rxfunc:
+            #raise Exception('already set...')
+
+        #self.rxfunc = func
+        #self.plex.initLinkLoop(self)
 
     def get(self, name, defval=None):
         '''
@@ -131,81 +152,81 @@ class Link(s_coro.Fini):
         '''
         return self.unpk.feed(byts)
 
-class Chan(s_coro.Fini):
-    '''
-    An on-going data channel in a Link.
-    '''
-    def __init__(self, link, iden):
-        s_coro.Fini.__init__(self)
+#class Chan(s_coro.Fini):
+    #'''
+    #An on-going data channel in a Link.
+    #'''
+    #def __init__(self, link, iden):
+        #s_coro.Fini.__init__(self)
 
-        self.link = link
-        self.iden = iden
+        #self.link = link
+        #self.iden = iden
 
-        self.info = dict(link.info)
-        self.rxque = s_queue.Queue()
+        #self.info = dict(link.info)
+        #self.rxque = s_queue.Queue()
 
-    async def txfini(self):
-        '''
-        We are done sending on this channel.
-        '''
-        wrap = ('chan:data', {
-            'chan': self.iden,
-            'retn': None,
-        })
+    #async def txfini(self):
+        #'''
+        #We are done sending on this channel.
+        #'''
+        #wrap = ('chan:data', {
+            #'chan': self.iden,
+            #'retn': None,
+        #})
 
-        return await self.link.tx(wrap)
+        #return await self.link.tx(wrap)
 
-    async def init(self, task):
-        '''
-        Send a chan init message.
-        '''
-        mesg = ('chan:init', {
-            'task': task,
-            'chan': self.iden,
-        })
-        return await self.link.tx(mesg)
+    #async def init(self, task):
+        #'''
+        #Send a chan init message.
+        #'''
+        #mesg = ('chan:init', {
+            #'task': task,
+            #'chan': self.iden,
+        #})
+        #return await self.link.tx(mesg)
 
-    async def tx(self, data):
+    #async def tx(self, data):
 
-        if self.isfini:
-            return False
+        #if self.isfini:
+            #return False
 
-        wrap = ('chan:data', {
-            'chan': self.iden,
-            'retn': (True, data),
-        })
+        #wrap = ('chan:data', {
+            #'chan': self.iden,
+            #'retn': (True, data),
+        #})
 
-        return await self.link.tx(wrap)
+        #return await self.link.tx(wrap)
 
-    async def txexc(self, exc):
-        retn = s_common.retnexc(exc)
-        wrap = ('chan:data', {
-            'chan': self.iden,
-            'retn': retn,
-        })
-        return await self.link.tx(wrap)
+    #async def txexc(self, exc):
+        #retn = s_common.retnexc(exc)
+        #wrap = ('chan:data', {
+            #'chan': self.iden,
+            #'retn': retn,
+        #})
+        #return await self.link.tx(wrap)
 
-    def rx(self, item):
-        '''
-        Add an item to the rx queue. Used by Plex.
-        '''
-        if self.isfini:
-            return
+    #def rx(self, item):
+        #'''
+        #Add an item to the rx queue. Used by Plex.
+        #'''
+        #if self.isfini:
+            #return
 
-        self.rxque.put(item)
+        #self.rxque.put(item)
 
-    def rxfini(self):
-        self.rxque.put(s_common.novalu)
+    #def rxfini(self):
+        #self.rxque.put(s_common.novalu)
 
-    def __iter__(self):
-        try:
+    #def __iter__(self):
+        #try:
 
-            for retn in self.rxque:
+            #for retn in self.rxque:
 
-                if retn is None:
-                    break
+                #if retn is None:
+                    #break
 
-                yield s_common.result(retn)
+                #yield s_common.result(retn)
 
-        finally:
-            s_glob.sync(self.fini())
+        #finally:
+            #s_glob.sync(self.fini())

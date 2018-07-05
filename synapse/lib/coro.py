@@ -40,7 +40,7 @@ class Fini:
                     await valu
 
             except Exception as e:
-                logger.exception()
+                logger.exception('error in coro fini()')
 
     async def __aenter__(self):
         self.entered = True

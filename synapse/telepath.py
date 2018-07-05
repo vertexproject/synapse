@@ -5,15 +5,18 @@ An RMI framework for synapse.
 import os
 import asyncio
 import logging
+import collections
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
+
+import synapse.lib.coro as s_coro
 import synapse.lib.urlhelp as s_urlhelp
 
 logger = logging.getLogger(__name__)
 
-televers = (3, 0)
+televers = (4, 0)
 
 class Aware:
     '''
@@ -38,24 +41,6 @@ class Aware:
         '''
         return None
 
-class Task:
-    '''
-    A telepath Task is used to internally track calls/responses.
-    '''
-    def __init__(self):
-        self.retn = None
-        self.iden = s_common.guid()
-        self.done = asyncio.Event()
-
-    async def result(self):
-        await self.done.wait()
-        return s_common.result(self.retn)
-
-    def reply(self, retn):
-        self.retn = retn
-        self.done.set()
-
-import synapse.lib.coro as s_coro
 
 class Share(s_coro.Fini):
     '''
@@ -66,67 +51,79 @@ class Share(s_coro.Fini):
         self.iden = iden
         self.proxy = proxy
 
-        self.proxy.shares[iden] = self
-
-        self.txfini = True
-        self.onfini(self._txShareFini)
-
-    async def _txShareFini(self):
-
-        self.proxy.shares.pop(self.iden, None)
-
-        if not self.txfini:
-            return
-
-        mesg = ('share:fini', {'share': self.iden})
-        await self.proxy.link.tx(mesg)
-
-    async def _onShareData(self, data):
-        logger.warning(f'share:data with no handler: {data!r}')
-
     def __getattr__(self, name):
         meth = Method(self.proxy, name, share=self.iden)
         setattr(self, name, meth)
         return meth
 
-class Genr(Share):
+class Genr:
 
-    def __init__(self, proxy, iden):
-        Share.__init__(self, proxy, iden)
-        self.queue = s_coro.Queue()
-        self.onfini(self.queue.fini)
-
-    async def _onShareData(self, data):
-        self.queue.put(data)
+    def __init__(self, proxy, link):
+        self.link = link
+        self.proxy = proxy
 
     async def __aiter__(self):
 
         try:
 
-            while not self.isfini:
+            while not self.link.isfini:
 
-                for retn in self.queue.slice():
-                    if retn is None:
-                        return
+                mesg = await self.link.rx()
+                if mesg is None:
+                    raise s_exc.LinkClosed()
 
-                    yield s_common.result(retn)
+                if mesg[0] == 'genr:data':
+                    yield mesg[1]
+                    continue
 
-        finally:
-            await self.fini()
+                if mesg[0] == 'genr:fini':
+                    # clean exit...
+                    await self.proxy._putPoolLink(self.link)
+                    self.link = None
+                    return
+
+                if mesg[0] == 'genr:errx':
+                    # clean exit...
+                    await self.proxy._putPoolLink(self.link)
+                    # this will raise...
+                    s_common.result(mesg[1])
+
+        except Exception as e:
+            # this includes GeneratorExit
+            await link.fini()
+            return
 
     def __iter__(self):
+
+        # a clone of above with sync() wrappers
         try:
-            while not self.isfini:
 
-                for retn in s_glob.sync(self.queue.slice()):
+            while not self.link.isfini:
 
-                    if retn is None:
-                        return
+                mesg = s_glob.sync(self.link.rx())
+                if mesg is None:
+                    raise s_exc.LinkClosed()
 
-                    yield s_common.result(retn)
+                if mesg[0] == 'genr:data':
+                    yield mesg[1]
+                    continue
 
-        finally:
-            s_glob.sync(self.fini())
+                if mesg[0] == 'genr:fini':
+                    # clean exit...
+                    s_glob.sync(self.proxy._putPoolLink(self.link))
+                    self.link = None
+                    return
+
+                if mesg[0] == 'genr:errx':
+                    # clean exit...
+                    s_glob.sync(self.proxy._putPoolLink(self.link))
+                    # this will raise...
+                    s_common.result(mesg[1])
+
+        except Exception as e:
+            # this includes GeneratorExit
+            s_glob.sync(link.fini())
+            return
 
 class With(Share):
 
@@ -172,6 +169,12 @@ class Method:
         todo = (self.name, args, kwargs)
         return await self.proxy.task(todo, name=self.share)
 
+#class PoolLink:
+
+    #def __init__(self, link):
+    #async def __aenter__(self):
+    #async def __aexit__(self):
+
 class Proxy(s_coro.Fini):
     '''
     A telepath Proxy is used to call remote APIs on a shared object.
@@ -195,14 +198,33 @@ class Proxy(s_coro.Fini):
         valu = proxy.getFooValu(x, y)
 
     '''
-    def __init__(self, link, name):
+    def __init__(self, url, opts=None):
+
         s_coro.Fini.__init__(self)
 
-        self.link = link
-        self.name = name
+        info = s_urlhelp.chopurl(url)
+        if opts is not None:
+            info.update(opts)
+
+        self.sess = s_common.guid()
+
+        self.host = info.get('host')
+        self.port = info.get('port')
+
+        self.name = info.get('path')[1:]
+
+        self.auth = None
+        self.user = info.get('user')
+        self.passwd = info.get('passwd')
+
+        if self.user is not None:
+            self.auth = (self.user, {'passwd': self.passwd})
 
         self.tasks = {}
         self.shares = {}
+
+        self.pool = collections.deque()
+        self.links = {}
 
         self.synack = None
         self.syndone = asyncio.Event()
@@ -217,36 +239,17 @@ class Proxy(s_coro.Fini):
         }
 
         async def fini():
-            for item in list(self.shares.values()):
-                await item.fini()
-            for name, task in list(self.tasks.items()):
-                task.reply((False, (('IsFini', {}))))
-                del self.tasks[name]
-            await self.link.fini()
+            # fini all the links
+            links = list(self.links.values())
+            for link in links:
+                await link.fini()
 
         self.onfini(fini)
-        self.link.onfini(self.fini)
 
-    async def _onShareFini(self, mesg):
-
-        iden = mesg[1].get('share')
-        share = self.shares.get(iden)
-        if share is None:
-            return
-
-        share.txfini = False
-        await share.fini()
-
-    async def _onShareData(self, mesg):
-
-        data = mesg[1].get('data')
-        iden = mesg[1].get('share')
-
-        share = self.shares.get(iden)
-        if share is None:
-            return
-
-        await share._onShareData(data)
+    async def handshake(self):
+        # force one connection with auth/handshake
+        link = await self._getPoolLink()
+        await self._putPoolLink(link)
 
     async def call(self, name, *args, **kwargs):
         '''
@@ -269,120 +272,87 @@ class Proxy(s_coro.Fini):
 
     async def task(self, todo, name=None):
 
-        task = Task()
+        link = await self._getPoolLink()
 
-        mesg = ('task:init', {
-                    'task': task.iden,
+        await link.tx(('task:init', {
+                    #'task': task.iden,
                     'todo': todo,
                     'name': name,
-        })
+        }))
 
-        self.tasks[task.iden] = task
+        mesg = await link.rx()
+        if mesg is None:
+            # link is already fini()
+            raise s_exc.LinkClosed()
+
+        if mesg[0] != 'task:fini':
+            await link.fini()
+            raise s_exc.BadMesgType()
+
+        retn = mesg[1].get('retn')
+
+        retntype = mesg[1].get('type')
+        if retntype is not None:
+
+            if retntype == 'genr':
+                # Genr() owns the link
+                return Genr(self, link)
+
+            if retntype == 'share':
+                await self._putPoolLink(link)
+                return Share(self, retn[1])
+
+            # since we dont know the remaining proto
+            # we must abort and close the link
+            await link.fini()
+            raise s_exc.NoSuchCtor(name=retntype)
+
+        # we sent a simple request, and got a reply. pool the link.
+        await self._putPoolLink(link)
+        return s_common.result(retn)
+
+    async def _putPoolLink(self, link):
+
+        if len(self.pool) > 10: # TODO config...
+            await link.fini()
+            return
+
+        self.pool.append(link)
+
+    async def _getPoolLink(self):
 
         try:
+            return self.pool.popleft()
+        except IndexError as e:
+            pass
 
-            await self.link.tx(mesg)
-            return await task.result()
+        link = await s_glob.plex.link(self.host, self.port)
+        self.links[link.iden] = link
 
-        finally:
+        async def fini():
+            self.links.pop(link.iden, None)
 
-            self.tasks.pop(task.iden, None)
+        link.onfini(fini)
 
-    async def handshake(self, auth=None):
-
-        self.link.onrx(self._onLinkRx)
-
-        mesg = ('tele:syn', {
-            'auth': auth,
+        # do our auth/handlshake...
+        await link.tx(('tele:syn', {
+            'auth': self.auth,
             'vers': televers,
             'name': self.name,
-        })
+            'sess': self.sess,
+        }))
 
-        await self.link.tx(mesg)
-        await self.syndone.wait()
+        mesg = await link.rx()
+        vers = mesg[1].get('vers')
 
-        vers = self.synack[1].get('vers')
         if vers[0] != televers[0]:
             raise s_exc.BadMesgVers(myver=televers, hisver=vers)
 
-        retn = self.synack[1].get('retn')
-
-        return s_common.result(retn)
-
-    async def _onLinkRx(self, mesg):
-
-        # handle a message on a link
-
-        try:
-
-            func = self.handlers.get(mesg[0])
-            if func is None:
-                logger.warning('Proxy.onLinkRx: Invalid Message: %r' % (mesg,))
-                return
-
-            await func(mesg)
-
-        except Exception as e:
-            logger.exception('Proxy.onLinkRx for %r' % (mesg,))
-
-    async def _onTeleSyn(self, mesg):
-        # handle a tele:syn message
-        self.synack = mesg
-        self.syndone.set()
-
-    async def _onChanInit(self, mesg):
-
-        # this happens when the server API returns a channel.
-        # (it is also considered a task:fini since we return)
-        chaniden = mesg[1].get('chan')
-        taskiden = mesg[1].get('task')
-
-        task = self.tasks.pop(taskiden, None)
-        if task is None:
-            return await self._sendChanFini(chaniden)
-
-        chan = self.link.chan(chaniden)
-        task.reply((True, chan))
-
-    async def _onChanData(self, mesg):
-
-        iden = mesg[1].get('chan')
-
-        chan = self.link.chans.get(iden)
-        if chan is None:
-            return await self._sendChanFini(iden)
-
+        # this will raise if there was an error
         retn = mesg[1].get('retn')
-        chan.rx(retn)
+        s_common.result(retn)
 
-    async def _txShareExc(self, iden):
-        # send a share:fini for an unhandled share.
-        await self.link.tx(
-            ('share:fini', {'share': iden, 'isexc': True})
-        )
-
-    async def _onTaskFini(self, mesg):
-        # handle task:fini message
-        iden = mesg[1].get('task')
-
-        task = self.tasks.pop(iden, None)
-        if task is None:
-            logger.warning('task:fini for invalid task: %r' % (iden,))
-            return
-
-        retn = mesg[1].get('retn')
-
-        # fast path errors...
-        if not retn[0]:
-            return task.reply(retn)
-
-        # check for special return types
-        retntype = mesg[1].get('type')
-        if retntype is not None:
-            ctor = sharetypes.get(retntype, Share)
-            retn = (True, ctor(self, retn[1]))
-
-        return task.reply(retn)
+        return link
 
     def __getattr__(self, name):
         meth = Method(self, name)
@@ -429,27 +399,7 @@ async def openurl(url, **opts):
             raise s_exc.BadUrl(f':// not found in [{url}] and no alias found!')
         url = newurl
 
-    info = s_urlhelp.chopurl(url)
-    info.update(opts)
-
-    host = info.get('host')
-    port = info.get('port')
-    name = info.get('path')[1:]
-
-    auth = None
-
-    user = info.get('user')
-    if user is not None:
-        auth = (user, {
-            'passwd': info.get('passwd')
-        })
-
-    #TODO SSL
-
-    link = await s_glob.plex.link(host, port)
-
-    prox = Proxy(link, name)
-
-    await prox.handshake(auth=auth)
+    prox = Proxy(url, opts=opts)
+    await prox.handshake()
 
     return prox
