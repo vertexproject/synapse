@@ -312,7 +312,8 @@ class Bool(Type):
         if sval in ('false', 'f', 'n', 'no', 'off'):
             return 0, {}
 
-        raise s_exc.BadTypeValu(name=self.name, valu=valu)
+        raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                mesg='Failed to norm bool')
 
     def _normPyInt(self, valu):
         return int(bool(valu)), {}
@@ -331,7 +332,8 @@ class Comp(Type):
 
         fields = self.opts.get('fields')
         if len(fields) != len(valu):
-            raise s_exc.BadTypeValu(name=self.name, valu=valu)
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='invalid number of fields given for norming')
 
         subs = {}
         adds = []
@@ -418,7 +420,8 @@ class Guid(Type):
 
         valu = valu.lower()
         if not s_common.isguid(valu):
-            raise s_exc.BadTypeValu(name=self.name, valu=valu)
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='valu is not a guid.')
 
         return valu, {}
 
@@ -820,7 +823,7 @@ class NodeProp(Type):
         try:
             valu = valu.split('=', 1)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu, mesg='invalid nodeprop string')
+            raise s_exc.badTypeValu(valu=valu, mesg='invalid nodeprop string')
 
         return self._normPyTuple(valu)
 
@@ -865,19 +868,19 @@ class Range(Type):
         try:
             valu = valu.split('-', 1)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu, mesg='invalid range string')
+            raise s_exc.badTypeValu(valu=valu, mesg='invalid range string')
 
         return self._normPyTuple(valu)
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
-            raise s_exc.BadTypeValu(valu, mesg=f'Must be a 2-tuple of type {self.subtype.name}')
+            raise s_exc.badTypeValu(valu=valu, mesg=f'Must be a 2-tuple of type {self.subtype.name}')
 
         minv = self.subtype.norm(valu[0])[0]
         maxv = self.subtype.norm(valu[1])[0]
 
         if minv > maxv:
-            raise s_exc.BadTypeValu(valu, mesg='minval cannot be greater than maxval')
+            raise s_exc.badTypeValu(valu=valu, mesg='minval cannot be greater than maxval')
 
         return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
 
