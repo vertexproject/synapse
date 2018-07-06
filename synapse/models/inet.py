@@ -132,7 +132,7 @@ class Cidr4(s_types.Type):
 
         mask_int = int(mask_str)
         if mask_int > 32 or mask_int < 0:
-            raise s_exc.badTypeValu(valu=valu, mesg='Invalid CIDR Mask')
+            raise s_exc.BadTypeValu(valu=valu, mesg='Invalid CIDR Mask')
 
         ip_int = self.modl.type('inet:ipv4').norm(ip_str)[0]
 
@@ -167,7 +167,7 @@ class Email(s_types.Type):
             fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
             usernorm, userinfo = self.modl.type('inet:user').norm(user)
         except Exception as e:
-            raise s_exc.badTypeValu(valu=valu, mesg=e)
+            raise s_exc.BadTypeValu(valu=valu, mesg=e)
 
         norm = f'{usernorm}@{fqdnnorm}'
         info = {
@@ -412,7 +412,7 @@ class Rfc2822Addr(s_types.Type):
             name, addr = email.utils.parseaddr(valu)
         except Exception as e:  # pragma: no cover
             # not sure we can ever really trigger this with a string as input
-            raise s_exc.badTypeValu(valu=valu, mesg='email.utils.parsaddr failed: %s' % (e,))
+            raise s_exc.BadTypeValu(valu=valu, mesg='email.utils.parsaddr failed: %s' % (e,))
 
         subs = {}
         if name:

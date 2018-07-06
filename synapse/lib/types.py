@@ -823,7 +823,7 @@ class NodeProp(Type):
         try:
             valu = valu.split('=', 1)
         except Exception as e:
-            raise s_exc.badTypeValu(valu=valu, mesg='invalid nodeprop string')
+            raise s_exc.BadTypeValu(valu=valu, mesg='invalid nodeprop string')
 
         return self._normPyTuple(valu)
 
@@ -868,19 +868,19 @@ class Range(Type):
         try:
             valu = valu.split('-', 1)
         except Exception as e:
-            raise s_exc.badTypeValu(valu=valu, mesg='invalid range string')
+            raise s_exc.BadTypeValu(valu=valu, mesg='invalid range string')
 
         return self._normPyTuple(valu)
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
-            raise s_exc.badTypeValu(valu=valu, mesg=f'Must be a 2-tuple of type {self.subtype.name}')
+            raise s_exc.BadTypeValu(valu=valu, mesg=f'Must be a 2-tuple of type {self.subtype.name}')
 
         minv = self.subtype.norm(valu[0])[0]
         maxv = self.subtype.norm(valu[1])[0]
 
         if minv > maxv:
-            raise s_exc.badTypeValu(valu=valu, mesg='minval cannot be greater than maxval')
+            raise s_exc.BadTypeValu(valu=valu, mesg='minval cannot be greater than maxval')
 
         return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
 
