@@ -369,6 +369,9 @@ class Role:
 
         self.initRuleTree()
 
+    def __str__(self):
+        return self.name
+
     def setAdmin(self, admin):
         '''
         Set the admin value to True/False.
@@ -476,9 +479,6 @@ class User(Role):
             self.roles[name] = self.auth.roles.get(name)
 
         self.shadow = info.get('shadow')
-
-    def __str__(self):
-        return self.name
 
     def save(self):
         self.auth._saveUserInfo(self.name, self.info)
