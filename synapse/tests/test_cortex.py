@@ -27,14 +27,14 @@ class CortexTest(s_test.SynTest):
                 # rows are (buid, valu) tuples
                 rows = tuple(xact.iterPropRows('inet:ipv4', 'asn'))
 
-            self.eq((10,20), tuple(sorted([ row[1] for row in rows ])))
+            self.eq((10, 20), tuple(sorted([row[1] for row in rows])))
 
             with core.layer.xact() as xact:
                 # rows are (buid, valu) tuples
                 rows = tuple(xact.iterUnivRows('.seen'))
 
             ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
-            self.eq(ivals, tuple(sorted([ row[1] for row in rows ])))
+            self.eq(ivals, tuple(sorted([row[1] for row in rows])))
 
     def test_cortex_lift_regex(self):
 
@@ -445,7 +445,6 @@ class CortexTest(s_test.SynTest):
             with core.snap() as snap:
 
                 node = snap.addNode('testtype10', 'one')
-                print(repr(node.pack()))
                 self.eq(node.get('intprop'), 21)
 
                 self.nn(node.get('.created'))
