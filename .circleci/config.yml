@@ -150,7 +150,7 @@ jobs:
   python37:
     parallelism: 7
     docker:
-      - image: circleci/python:3.7-rc
+      - image: circleci/python:3.7
         environment:
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
           IMAGE_VERSION: 3.6
