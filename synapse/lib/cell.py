@@ -24,9 +24,8 @@ def adminapi(f):
             raise s_exc.AuthDeny(mesg='User is not an admin.',
                                  user=args[0].user.name)
 
-        logger.info('Executing [%s] as [%s] with args [%s][%s]',
-                    f.__qualname__, args[0].user, args[1:], kwargs)
-
+        logger.info('Executing [%s][%s][%s] as [%s]',
+                    f.__qualname__, args[1:], kwargs, args[0].user)
         return f(*args, **kwargs)
 
     return func
