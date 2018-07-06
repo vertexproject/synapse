@@ -76,13 +76,13 @@ class Phone(s_types.Type):
     def _normPyStr(self, valu):
         digs = digits(valu)
         if not digs:
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='requires a digit string')
         subs = {}
         try:
             info = s_l_phone.getPhoneInfo(int(digs))
         except Exception as e:  # pragma: no cover
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Failed to get phone info')
         cc = info.get('cc')
         if cc is not None:
@@ -92,7 +92,7 @@ class Phone(s_types.Type):
 
     def _normPyInt(self, valu):
         if valu < 1:
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='phone int must be greater than 0')
         return self._normPyStr(str(valu))
 
@@ -156,7 +156,7 @@ class Imsi(s_types.Type):
     def _normPyStr(self, valu):
         digs = digits(valu)
         if not digs:
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='requires a digit string')
         return self._normPyInt(int(digs))
 
@@ -164,7 +164,7 @@ class Imsi(s_types.Type):
         imsi = str(valu)
         ilen = len(imsi)
         if ilen > 15:
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='invalid imsi len: %d' % (ilen,))
 
         mcc = int(imsi[0:3])
@@ -191,7 +191,7 @@ class Imei(s_types.Type):
     def _normPyStr(self, valu):
         digs = digits(valu)
         if not digs:
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='requires a digit string')
         return self._normPyInt(int(digs))
 
@@ -208,11 +208,11 @@ class Imei(s_types.Type):
         # if we *have* our check digit, lets check it
         elif ilen == 15:
             if imeicsum(imei) != imei[-1]:
-                raise s_exc.BadTypeValu(valu=valu,
+                raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                         mesg='invalid imei checksum byte')
             return chop_imei(imei)
 
-        raise s_exc.BadTypeValu(valu=valu,
+        raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                 mesg='Failed to norm IMEI')
 
     def indx(self, valu):

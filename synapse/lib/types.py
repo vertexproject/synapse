@@ -461,10 +461,11 @@ class Hex(Type):
         try:
             valu = s_chop.hexstr(valu)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu=repr(valu), mesg=f'Failed to hexstr input [str(e)].')
+            raise s_exc.BadTypeValu(valu=repr(valu), name=self.name,
+                                    mesg=f'Failed to hexstr input [str(e)].')
 
         if self._size and len(valu) != self._size:
-            raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size,
+            raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,
                                     mesg='invalid width')
         return valu, {}
 
@@ -547,11 +548,11 @@ class Int(Type):
 
         if self.minval is not None and valu < self.minval:
             mesg = f'value is below min={self.minval}'
-            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
         if self.maxval is not None and valu > self.maxval:
             mesg = f'value is above max={self.maxval}'
-            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
         return valu, {}
 
@@ -757,7 +758,7 @@ class Edge(Type):
 
         if self.n1forms is not None:
             if n1[0] not in self.n1forms:
-                raise s_exc.BadTypeValu(valu=n1[0], mesg='Invalid source node for edge type')
+                raise s_exc.BadTypeValu(valu=n1[0], name=self.name, mesg='Invalid source node for edge type')
 
         subs['n1'] = n1
         subs['n1:form'] = n1[0]
@@ -766,7 +767,7 @@ class Edge(Type):
 
         if self.n2forms is not None:
             if n2[0] not in self.n2forms:
-                raise s_exc.BadTypeValu(valu=n2[0], mesg='Invalid dest node for edge type')
+                raise s_exc.BadTypeValu(valu=n2[0], name=self.name, mesg='Invalid dest node for edge type')
 
         subs['n2'] = n2
         subs['n2:form'] = n2[0]
@@ -823,7 +824,7 @@ class NodeProp(Type):
         try:
             valu = valu.split('=', 1)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu=valu, mesg='invalid nodeprop string')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg='invalid nodeprop string')
 
         return self._normPyTuple(valu)
 
@@ -868,19 +869,22 @@ class Range(Type):
         try:
             valu = valu.split('-', 1)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu=valu, mesg='invalid range string')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='invalid range string')
 
         return self._normPyTuple(valu)
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
-            raise s_exc.BadTypeValu(valu=valu, mesg=f'Must be a 2-tuple of type {self.subtype.name}')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=f'Must be a 2-tuple of type {self.subtype.name}')
 
         minv = self.subtype.norm(valu[0])[0]
         maxv = self.subtype.norm(valu[1])[0]
 
         if minv > maxv:
-            raise s_exc.BadTypeValu(valu=valu, mesg='minval cannot be greater than maxval')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='minval cannot be greater than maxval')
 
         return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
 
@@ -993,7 +997,8 @@ class Tag(Type):
 
         norm = '.'.join(toks)
         if not tagre.match(norm):
-            raise s_exc.BadTypeValu(valu=text, mesg=f'Tag does not match tagre: [{tagre.pattern}]')
+            raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                    mesg=f'Tag does not match tagre: [{tagre.pattern}]')
 
         if len(toks) > 1:
             subs['up'] = '.'.join(toks[:-1])
@@ -1059,7 +1064,7 @@ class Time(Type):
 
             lowr = valu.strip().lower()
             if not lowr:
-                raise s_exc.BadTypeValu(name='time', valu=valu)
+                raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
             if lowr == 'now':
                 return s_common.now()
