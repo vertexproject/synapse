@@ -1,20 +1,18 @@
-
 import logging
 import collections
-
 
 import regex
 import xxhash
 
-
 import synapse.exc as s_exc
 import synapse.common as s_common
+
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 tagre = regex.compile(r'^([\w]+\.)*[\w]+$')
-
 
 class Type:
 
@@ -66,6 +64,9 @@ class Type:
         sufx = xxhash.xxh64(indx).digest()
         return base + sufx
 
+    def getTypeVals(self, valu):
+        yield valu
+
     def setCmprCtor(self, name, func):
         self._cmpr_ctors[name] = func
 
@@ -113,7 +114,11 @@ class Type:
 
     def indxByEq(self, valu):
         norm, info = self.norm(valu)
+
         indx = self.indx(norm)
+        if indx is None:
+            raise s_exc.NoSuchIndx(name=self.name)
+
         return (
             ('eq', indx),
         )
@@ -136,7 +141,7 @@ class Type:
             raise s_exc.BadCmprValu(valu=vals, cmpr='*in=')
 
         for valu in vals:
-            opers.extend(self.getIndxOpers(valu))
+            opers.extend(self.getIndxOps(valu))
 
         return opers
 
@@ -450,7 +455,10 @@ class Hex(Type):
         return Type.indxByEq(self, valu)
 
     def _normPyStr(self, valu):
-        valu = s_chop.hexstr(valu)
+        try:
+            valu = s_chop.hexstr(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=repr(valu), mesg=f'Failed to hexstr input [str(e)].')
 
         if self._size and len(valu) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size,
@@ -556,23 +564,53 @@ class Ival(Type):
     '''
 
     def postTypeInit(self):
+
         self.timetype = self.modl.type('time')
+
+        self.setCmprCtor('@=', self._ctorCmprAt)
+
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyIter)
         self.setNormFunc(tuple, self._normPyIter)
-        self.setNormFunc(None.__class__, self._normPyNone)
+        #self.setNormFunc(None.__class__, self._normPyNone)
 
-    def _normPyNone(self, valu):
+    def _ctorCmprAt(self, valu):
+
+        if valu is None or valu == (None, None):
+            def cmpr(item):
+                return False
+            return cmpr
+
+        norm = self.norm(valu)[0]
+
+        def cmpr(item):
+
+            if item is None or item == (None, None):
+                return False
+
+            othr, info = self.norm(item)
+
+            if othr[0] >= norm[1]:
+                return False
+
+            if othr[1] <= norm[0]:
+                return False
+
+            return True
+
+        return cmpr
+
+    #def _normPyNone(self, valu):
         # none is an ok interval (unknown...)
-        return valu, {}
+        #return valu, {}
 
     def _normPyInt(self, valu):
         return (valu, valu + 1), {}
 
     def _normPyStr(self, valu):
         norm, info = self.timetype.norm(valu)
-        # until we support 2013+2years syntax...
+        # TODO until we support 2013+2years syntax...
         return (norm, norm + 1), {}
 
     def _normPyIter(self, valu):
@@ -624,7 +662,7 @@ class Loc(Type):
     def indx(self, norm):
         parts = norm.split('.')
         valu = '\x00'.join(parts) + '\x00'
-        return valu.encode('utf8')
+        return valu.encode('utf8', 'surrogatepass')
 
     def indxByEq(self, valu):
 
@@ -634,7 +672,6 @@ class Loc(Type):
         return (
             ('pref', indx),
         )
-
 
 class Ndef(Type):
 
@@ -646,7 +683,7 @@ class Ndef(Type):
         try:
             formname, formvalu = valu
         except Exception as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu)
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e))
 
         form = self.modl.form(formname)
         if form is None:
@@ -663,6 +700,114 @@ class Ndef(Type):
     def indx(self, norm):
         return s_common.buid(norm)
 
+#class List(Type):
+
+    #def postTypeInit(self):
+
+        #self.setNormFunc(list, self._normPyTuple)
+        #self.setNormFunc(tuple, self._normPyTuple)
+
+        # *contains= cmpr and eventually lift
+
+        #typename = self.opts.get('type')
+        #if typename is None:
+            #mesg = 'type option is required for list type'
+            #raise s_exc.BadConfValu(name='type', valu=None, mesg=mesg)
+
+        #self.itemtype = self.modl.types.get(typename)
+        #if self.itemtype is None:
+            #raise s_exc.NoSuchType(typename)
+
+    #def _normPyTuple(self, valu):
+
+        #retn = []
+
+        #for item in valu:
+            #norm, info = self.itemtype.norm(item)
+            #retn.append(norm)
+
+        #return tuple(retn), {}
+
+    #def indx(self, norm):
+        #return None
+
+class Edge(Type):
+
+    def postTypeInit(self):
+
+        self.ndeftype = self.modl.types.get('ndef')
+
+        self.n1forms = None
+        self.n2forms = None
+
+        self.n1forms = self.opts.get('n1:forms', None)
+        self.n2forms = self.opts.get('n1:forms', None)
+
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+    def _initEdgeBase(self, n1, n2):
+
+        subs = {}
+
+        n1, info = self.ndeftype.norm(n1)
+
+        if self.n1forms is not None:
+            if n1[0] not in self.n1forms:
+                raise s_exc.BadTypeValu(valu=n1[0], mesg='Invalid source node for edge type')
+
+        subs['n1'] = n1
+        subs['n1:form'] = n1[0]
+
+        n2, info = self.ndeftype.norm(n2)
+
+        if self.n2forms is not None:
+            if n2[0] not in self.n2forms:
+                raise s_exc.BadTypeValu(valu=n2[0], mesg='Invalid dest node for edge type')
+
+        subs['n2'] = n2
+        subs['n2:form'] = n2[0]
+
+        return (n1, n2), {'subs': subs}
+
+    def _normPyTuple(self, valu):
+
+        if len(valu) != 2:
+            mesg = 'edge requires (ndef, ndef)'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=valu)
+
+        n1, n2 = valu
+        return self._initEdgeBase(n1, n2)
+
+    def indx(self, norm):
+        return s_common.buid(norm)
+
+class TimeEdge(Edge):
+
+    def _normPyTuple(self, valu):
+
+        if len(valu) != 3:
+            mesg = 'timeedge requires (ndef, ndef, time)'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=valu)
+
+        n1, n2, tick = valu
+
+        tick, info = self.modl.types.get('time').norm(tick)
+
+        (n1, n2), info = self._initEdgeBase(n1, n2)
+
+        info['subs']['time'] = tick
+
+        return (n1, n2, tick), info
+
+class Data(Type):
+
+    def norm(self, valu):
+        byts = s_msgpack.en(valu)
+        return s_msgpack.un(byts), {}
+
+    def indx(self, norm):
+        return None
 
 class NodeProp(Type):
 
@@ -683,7 +828,7 @@ class NodeProp(Type):
         try:
             propname, propvalu = valu
         except Exception as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu)
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e))
 
         prop = self.modl.prop(propname)
         if prop is None:
@@ -790,7 +935,7 @@ class Str(Type):
             valu = s_chop.onespace(valu)
 
         return (
-            ('pref', valu.encode('utf8')),
+            ('pref', valu.encode('utf8', 'surrogatepass')),
         )
 
     def _normPyStr(self, valu):
@@ -818,7 +963,7 @@ class Str(Type):
         return norm, {}
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
 
 class Tag(Type):
@@ -845,7 +990,7 @@ class Tag(Type):
 
         norm = '.'.join(toks)
         if not tagre.match(norm):
-            raise s_exc.BadTypeValu(valu=text)
+            raise s_exc.BadTypeValu(valu=text, mesg=f'Tag does not match tagre: [{tagre.pattern}]')
 
         if len(toks) > 1:
             subs['up'] = '.'.join(toks[:-1])
@@ -867,9 +1012,13 @@ class Time(Type):
 
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
+        self.setCmprCtor('@=', self._ctorCmprAt)
 
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')
+
+    def _ctorCmprAt(self, valu):
+        return self.modl.types.get('ival')._ctorCmprAt(valu)
 
     def _normPyStr(self, valu):
 
@@ -901,6 +1050,27 @@ class Time(Type):
         # wreaking havoc with the btree range indexing...
         return (norm + 0x8000000000000000).to_bytes(8, 'big')
 
+    def _getLiftValu(self, valu, relto=None):
+
+        if isinstance(valu, str):
+
+            lowr = valu.strip().lower()
+            if not lowr:
+                raise s_exc.BadTypeValu(name='time', valu=valu)
+
+            if lowr == 'now':
+                return s_common.now()
+
+            if lowr[0] in ('-', '+'):
+
+                delt = s_time.delta(lowr)
+                if relto is None:
+                    relto = s_common.now()
+
+                return delt + relto
+
+        return self.norm(valu)[0]
+
     def _indxTimeRange(self, mint, maxt):
         minv, _ = self.norm(mint)
         maxv, _ = self.norm(maxt)
@@ -910,9 +1080,21 @@ class Time(Type):
 
     def indxByEq(self, valu):
 
-        if type(valu) == str and valu.endswith('*'):
-            valu = s_chop.digits(valu)
-            maxv = str(int(valu) + 1)
-            return self._indxTimeRange(valu, maxv)
+        if isinstance(valu, str):
+
+            if valu.endswith('*'):
+                valu = s_chop.digits(valu)
+                maxv = str(int(valu) + 1)
+                return self._indxTimeRange(valu, maxv)
+
+            if valu and valu[0] == '-':
+                tock = s_common.now()
+                delt = s_time.delta(valu)
+                return self._indxTimeRange(tock + delt, tock)
+
+        if type(valu) in (tuple, list):
+            tick = self._getLiftValu(valu[0])
+            tock = self._getLiftValu(valu[1], relto=tick)
+            return self._indxTimeRange(tick, tock)
 
         return Type.indxByEq(self, valu)

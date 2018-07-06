@@ -188,9 +188,47 @@ class ItModule(s_module.CoreModule):
                 ('it:prod:soft', ('guid', {}), {
                     'doc': 'A arbitrary, unversioned software product.',
                 }),
+
+                ('it:os:android:perm', ('str', {}), {
+                    'doc': 'An android permission string.'}),
+
+                ('it:os:android:intent', ('str', {}), {
+                    'doc': 'An android intent string.'}),
+
+                ('it:os:android:reqperm', ('comp', {'fields': (
+                                                        ('app', 'it:prod:soft'),
+                                                        ('perm', 'it:os:android:perm'))}), {
+                    'doc': 'The given software requests the android permission.'}),
+
+                ('it:os:android:ilisten', ('comp', {'fields': (
+                                                        ('app', 'it:prod:soft'),
+                                                        ('intent', 'it:os:android:intent'))}), {
+                    'doc': 'The given software listens for an android intent.'}),
+
+                ('it:os:android:ibroadcast', ('comp', {'fields': (
+                                                        ('app', 'it:prod:soft'),
+                                                        ('intent', 'it:os:android:intent')
+                                              )}), {
+                    'doc': 'The given software broadcasts the given Android intent.'}),
+
                 ('it:prod:softver', ('guid', {}), {
-                    'doc': 'A version of a particular software product.'
-                }),
+                    'doc': 'A specific version of a software product.'}),
+
+                ('it:prod:softfile', ('comp', {'fields': (
+                                            ('soft', 'it:prod:softver'),
+                                            ('file', 'file:bytes'))}), {
+                    'doc': 'A file is distributed by a specific software version.'}),
+
+                ('it:prod:softlib', ('comp', {'fields': (
+                                            ('soft', 'it:prod:softver'),
+                                            ('lib', 'it:prod:softver'))}), {
+                    'doc': 'A software version contains a library software version.'}),
+
+                ('it:prod:softos', ('comp', {'fields': (
+                                            ('soft', 'it:prod:softver'),
+                                            ('os', 'it:prod:softver'))}), {
+                    'doc': 'The software version is known to be compatible with the given os software version.'}),
+
                 ('it:hostsoft', ('comp', {'fields': (('host', 'it:host'), ('softver', 'it:prod:softver'))}), {
                    'doc': 'A version of a software product which is present on a given host.',
                 }),
@@ -259,6 +297,9 @@ class ItModule(s_module.CoreModule):
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'The last known location for the host.'
                     }),
+
+                    ('os', ('it:prod:softver', {}), {
+                        'doc': 'The operating system of the host.'}),
                 )),
                 ('it:hosturl', {}, (
                     ('host', ('it:host', {}), {
@@ -298,6 +339,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file representing the value of the registry key, if the value is binary data.',
                     }),
                 )),
+
                 ('it:prod:soft', {}, (
                     ('name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'Name of the software.',
@@ -317,14 +359,63 @@ class ItModule(s_module.CoreModule):
                     ('author:email', ('inet:email', {}), {
                         'doc': 'Email address of the sofware author.',
                     }),
+
                     ('author:person', ('ps:person', {}), {
                         'doc': 'Person who authored the software.',
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'URL relevant for the software.',
                     }),
+
+                    ('isos', ('bool', {}), {
+                        'doc': 'Set to True if the software is an operating system.'}),
+
+                    ('islib', ('bool', {}), {
+                        'doc': 'Set to True if the software is a library.'}),
                 )),
+
+                ('it:os:android:perm', {}, ()),
+                ('it:os:android:intent', {}, ()),
+
+                ('it:os:android:reqperm', {}, (
+
+                    ('app', ('it:prod:softver', {}), {'ro': True,
+                        'doc': 'The android app which requests the permission.'}),
+
+                    ('perm', ('it:os:android:perm', {}), {'ro': True,
+                        'doc': 'The android permission requested by the app.'}),
+                )),
+
+                ('it:prod:softos', {}, (
+
+                    ('soft', ('it:prod:softver', {}), {'ro': True,
+                        'doc': 'The software which can run on the operating system.'}),
+
+                    ('os', ('it:prod:softver', {}), {'ro': True,
+                        'doc': 'The operating system which the software can run on.'}),
+                )),
+
+                ('it:os:android:ilisten', {}, (
+
+                    ('app', ('it:prod:softver', {}), {'ro': True,
+                        'doc': 'The app software which listens for the android intent.'}),
+
+                    ('intent', ('it:os:android:intent', {}), {'ro': True,
+                        'doc': 'The android intent which is listened for by the app.'}),
+                )),
+
+                ('it:os:android:ibroadcast', {}, (
+
+                    ('app', ('it:prod:softver', {}), {'ro': True,
+                        'doc': 'The app software which broadcasts the android intent.'}),
+
+                    ('intent', ('it:os:android:intent', {}), {'ro': True,
+                        'doc': 'The android intent which is broadcast by the app.'}),
+
+                )),
+
                 ('it:prod:softver', {}, (
+
                     ('software', ('it:prod:soft', {}), {
                         'doc': 'Software associated with this version instance',
                     }),
@@ -362,15 +453,33 @@ class ItModule(s_module.CoreModule):
                         'doc': 'URL where a specific version of the software is available from.',
                     }),
                 )),
+
+                ('it:prod:softlib', {}, (
+
+                    ('soft', ('it:prod:softver', {}), {'ro': True,
+                        'doc': 'The software version that contains the library.'}),
+
+                    ('lib', ('it:prod:softver', {}), {'ro': True,
+                        'doc': 'The library software version.'}),
+                )),
+
+                ('it:prod:softfile', {}, (
+
+                    ('soft', ('it:prod:softver', {}), {'ro': True,
+                        'doc': 'The software which distributes the file.'}),
+
+                    ('file', ('file:bytes', {}), {'ro': True,
+                        'doc': 'The file distributed by the software.'}),
+                )),
+
                 ('it:hostsoft', {}, (
-                    ('host', ('it:host', {}), {
-                        'ro': True,
-                        'doc': 'Host with the software.',
-                    }),
-                    ('softver', ('it:prod:softver', {}), {
-                        'ro': True,
-                        'doc': 'Software on the host.',
-                    })
+
+                    ('host', ('it:host', {}), {'ro': True,
+                        'doc': 'Host with the software.'}),
+
+                    ('softver', ('it:prod:softver', {}), {'ro': True,
+                        'doc': 'Software on the host.'})
+
                 )),
                 ('it:av:sig', {}, (
                     ('soft', ('it:prod:soft', {}), {

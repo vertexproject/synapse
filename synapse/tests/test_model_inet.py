@@ -33,6 +33,28 @@ class InetModelTest(s_t_common.SynTest):
                 raise AssertionError(msg)
             logger.warning(msg)
 
+    def test_ipv4_lift_range(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                snap.addNode('inet:ipv4', '1.2.3.0')
+                snap.addNode('inet:ipv4', '1.2.3.1')
+                snap.addNode('inet:ipv4', '1.2.3.2')
+                snap.addNode('inet:ipv4', '1.2.3.3')
+                snap.addNode('inet:ipv4', '1.2.3.4')
+
+            self.len(3, core.eval('inet:ipv4=1.2.3.1-1.2.3.3'))
+
+    def test_ipv4_filt_cidr(self):
+
+        with self.getTestCore() as core:
+
+            self.len(5, core.eval('[ inet:ipv4=1.2.3.0/30 inet:ipv4=5.5.5.5 ]'))
+            self.len(4, core.eval('inet:ipv4 +inet:ipv4=1.2.3.0/30'))
+            self.len(1, core.eval('inet:ipv4 -inet:ipv4=1.2.3.0/30'))
+
     def test_addr(self):
         formname = 'inet:addr'
         with self.getTestCore() as core:
@@ -214,6 +236,9 @@ class InetModelTest(s_t_common.SynTest):
             expected = ('unittest@vertex.link', {'subs': {'fqdn': 'vertex.link', 'user': 'unittest'}})
             self.eq(t.norm(email), expected)
 
+            valu = t.norm('bob\udcfesmith@woot.com')[0]
+            self.eq(b'bob\xed\xb3\xbesmith@woot.com', t.indx(valu))
+
             # Form Tests ======================================================
             valu = 'UnitTest@Vertex.link'
             expected_ndef = (formname, valu.lower())
@@ -293,6 +318,8 @@ class InetModelTest(s_t_common.SynTest):
             expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'link'}})
             self.eq(t.norm(fqdn), expected)
             self.none(t.repr(fqdn))  # UnicodeError raised and caught and fallback to norm
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com')
 
             # Form Tests ======================================================
             valu = 'api.vertex.link'
@@ -405,8 +432,36 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    def test_http_cookie(self):
+
+        with self.getTestCore() as core:
+            with core.snap() as snap:
+                node = snap.addNode('inet:http:cookie', 'HeHe=HaHa')
+                self.eq(node.ndef[1], 'HeHe=HaHa')
+
     def test_http_header(self):
-        formname = 'inet:http:header'
+        pass # this is tested below...
+
+    def test_http_header_name(self):
+        pass # this is tested below...
+
+    def test_http_request_header(self):
+        formname = 'inet:http:request:header'
+        valu = ('Cool', 'Cooler')
+        expected_props = {
+            'name': 'cool',
+            'value': 'Cooler'
+        }
+        expected_ndef = (formname, ('cool', 'Cooler'))
+        with self.getTestCore() as core:
+            with core.snap() as snap:
+                node = snap.addNode(formname, valu)
+                self.checkNode(node, (expected_ndef, expected_props))
+
+    def test_http_response_header(self):
+
+        formname = 'inet:http:response:header'
+
         valu = ('Cool', 'Cooler')
         expected_props = {
             'name': 'cool',
@@ -425,59 +480,43 @@ class InetModelTest(s_t_common.SynTest):
             'name': 'cool',
             'value': 'Cooler'
         }
-        expected_ndef = (formname, ('cool', 'Cooler'))
+        expected_ndef = (formname, ('Cool', 'Cooler'))
         with self.getTestCore() as core:
             with core.snap() as snap:
                 node = snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_http_reqhead(self):
-        formname = 'inet:http:reqhead'
-        input_props = {}
-        expected_props = {
-            'request': 32 * 'a',
-            'header': ('cool', 'Cooler'),
-            'header:name': 'cool',
-            'header:value': 'Cooler',
-        }
-        expected_ndef = (formname, (32 * 'a', ('cool', 'Cooler')))
-        with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, (32 * 'a', ('cool', 'Cooler')), props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
-    def test_http_reqparam(self):
-        formname = 'inet:http:reqparam'
-        input_props = {}
-        expected_props = {
-            'request': 32 * 'a',
-            'param': ('cool', 'Cooler'),
-            'param:name': 'cool',
-            'param:value': 'Cooler',
-        }
-        expected_ndef = (formname, (32 * 'a', ('cool', 'Cooler')))
-        with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, (32 * 'a', ('cool', 'Cooler')), props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
     def test_http_request(self):
         formname = 'inet:http:request'
         input_props = {
-            'time': 0,
+            'time': '2015',
             'flow': 32 * 'f',
             'method': 'gEt',
             'path': '/woot/hehe/',
             'query': 'hoho=1&qaz=bar',
-            'body': 64 * 'b'
+            'client': '1.2.3.4',
+            'server': '5.5.5.5:443',
+            'body': 64 * 'b',
+            'response:code': 200,
+            'response:reason': 'OK',
+            'response:body': 64 * 'b'
         }
         expected_props = {
-            'time': 0,
+            'time': 1420070400000,
             'flow': 32 * 'f',
             'method': 'gEt',
             'path': '/woot/hehe/',
             'query': 'hoho=1&qaz=bar',
-            'body': 'sha256:' + 64 * 'b'
+            'body': 'sha256:' + 64 * 'b',
+
+            'client:ipv4': 0x01020304,
+
+            'server:port': 443,
+            'server:ipv4': 0x05050505,
+
+            'response:code': 200,
+            'response:reason': 'OK',
+            'response:body': 'sha256:' + 64 * 'b',
         }
         expected_ndef = (formname, 32 * 'a')
         with self.getTestCore() as core:
@@ -485,52 +524,10 @@ class InetModelTest(s_t_common.SynTest):
                 node = snap.addNode(formname, 32 * 'a', props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_http_resphead(self):
-        formname = 'inet:http:resphead'
-        input_props = {}
-        expected_props = {
-            'response': 32 * 'a',
-            'header': ('cool', 'Cooler'),
-            'header:name': 'cool',
-            'header:value': 'Cooler',
-        }
-        expected_ndef = (formname, (32 * 'a', ('cool', 'Cooler')))
-        with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, (32 * 'a', ('cool', 'Cooler')), props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
-    def test_http_response(self):
-        formname = 'inet:http:response'
-        input_props = {
-            'flow': 32 * 'f',
-            'host': 32 * 'c',
-            'time': 0,
-            'request': 32 * 'a',
-            'code': '401',
-            'reason': 'newp',
-            'body': 64 * 'b'
-        }
-        expected_props = {
-            'flow': 32 * 'f',
-            'host': 32 * 'c',
-            'time': 0,
-            'request': 32 * 'a',
-            'code': 401,
-            'reason': 'newp',
-            'body': 'sha256:' + 64 * 'b'
-        }
-        expected_ndef = (formname, 32 * 'd')
-        with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, 32 * 'd', props=input_props)
-                self.checkNode(node, (expected_ndef, expected_props))
-
     def test_iface(self):
         formname = 'inet:iface'
         valu = 32 * 'a'
         input_props = {
-            'latlong': '0,0',
             'host': 32 * 'c',
             'type': 'Cool',
             'mac': 'ff:00:ff:00:ff:00',
@@ -543,7 +540,6 @@ class InetModelTest(s_t_common.SynTest):
             'mob:imsi': 12345678901234,
         }
         expected_props = {
-            'latlong': (0.0, 0.0),
             'host': 32 * 'c',
             'type': 'cool',
             'mac': 'ff:00:ff:00:ff:00',
@@ -760,6 +756,10 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm('"foo bar "   <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
             self.eq(t.norm('<visi@vertex.link>'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
 
+            valu = t.norm('bob\udcfesmith@woot.com')[0]
+            self.eq(b'bob\xed\xb3\xbesmith@woot.com', t.indx(valu))
+            self.eq(b'bob\xed\xb3\xbesmith', t.indxByPref('bob\udcfesmith')[0][1])
+
             self.raises(s_exc.NoSuchFunc, t.norm, 20)
 
             # Form Tests ======================================================
@@ -851,6 +851,11 @@ class InetModelTest(s_t_common.SynTest):
 
             self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')  # No Host
             self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
+            valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')[0]
+            self.eq(b'http://www.googlesites.com/hehe\xed\xb3\xbestuff.asp',
+                    t.indx(valu))
 
             # Form Tests ======================================================
             with core.snap() as snap:

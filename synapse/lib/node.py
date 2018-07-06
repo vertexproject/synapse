@@ -2,7 +2,9 @@ import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
 import synapse.lib.chop as s_chop
+import synapse.lib.time as s_time
 
 logger = logging.getLogger(__name__)
 
@@ -292,6 +294,7 @@ class Node:
             return
 
         elif curv is None:
+
             tags = s_chop.tags(name)
             for tag in tags[:-1]:
 
@@ -302,6 +305,9 @@ class Node:
 
             self._addTagRaw(tags[-1], valu)
             return
+
+        # merge values into one interval
+        valu = s_time.ival(*valu, *curv)
 
         indx = self.snap.model.types['ival'].indx(valu)
         info = {'univ': True}
@@ -424,3 +430,19 @@ class Node:
         self.snap.buidcache.pop(self.buid)
 
         self.form.wasDeleted(self)
+
+class Path:
+    '''
+    A path context tracked through the storm runtime.
+    '''
+    def __init__(self, vars):
+        self.vars = dict(vars)
+
+    def get(self, name, defv=s_common.novalu):
+        return self.vars.get(name, defv)
+
+    def set(self, name, valu):
+        self.vars[name] = valu
+
+    def fork(self):
+        return Path(self.vars)

@@ -230,35 +230,39 @@ class TelcoModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
             'ctors': (
+
                 ('tel:mob:imei', 'synapse.models.telco.Imei', {}, {
-                    'doc': 'An International Mobile Equipment Id',
                     'ex': '490154203237518',
-                }),
+                    'doc': 'An International Mobile Equipment Id'}),
+
                 ('tel:mob:imsi', 'synapse.models.telco.Imsi', {}, {
-                    'doc': 'An International Mobile Subscriber Id',
                     'ex': '310150123456789',
-                }),
+                    'doc': 'An International Mobile Subscriber Id'}),
+
                 ('tel:phone', 'synapse.models.telco.Phone', {}, {
-                    'doc': 'A phone number.',
                     'ex': '+15558675309',
-                }),
+                    'doc': 'A phone number.'}),
 
             ),
+
             'types': (
-                ('tel:mob:tac', ('int', {}), {
-                    'doc': 'A mobile Type Allocation Code',
-                    'ex': '49015420',
-                }),
-                ('tel:mob:imid', ('comp', {'fields': (('imei', 'tel:mob:imei'), ('imsi', 'tel:mob:imsi'))}), {
-                    'doc': 'Fused knowledge of an IMEI/IMSI used together.',
-                    'ex': '(490154203237518, 310150123456789)',
-                }),
-                ('tel:mob:imsiphone', ('comp', {'fields': (('imsi', 'tel:mob:imsi'), ('phone', 'tel:phone'))}), {
-                    'doc': 'Fused knowledge of an IMSI assigned phone number.',
-                    'ex': '(310150123456789, "+7(495) 124-59-83")',
-                }),
 
+                ('tel:mob:tac', ('int', {}), {
+                    'ex': '49015420',
+                    'doc': 'A mobile Type Allocation Code'}),
+
+                ('tel:mob:imid', ('comp', {'fields': (('imei', 'tel:mob:imei'), ('imsi', 'tel:mob:imsi'))}), {
+                    'ex': '(490154203237518, 310150123456789)',
+                    'doc': 'Fused knowledge of an IMEI/IMSI used together.'}),
+
+                ('tel:mob:imsiphone', ('comp', {'fields': (('imsi', 'tel:mob:imsi'), ('phone', 'tel:phone'))}), {
+                    'ex': '(310150123456789, "+7(495) 124-59-83")',
+                    'doc': 'Fused knowledge of an IMSI assigned phone number.'}),
+
+                ('tel:mob:telem', ('guid', {}), {
+                    'doc': 'A single mobile telemetry measurement.'}),
             ),
+
             'forms': (
                 ('tel:phone', {}, (
                     ('loc', ('loc', {}), {
@@ -300,8 +304,7 @@ class TelcoModule(s_module.CoreModule):
                     }),
                 )),
                 ('tel:mob:imid', {}, (
-                    ('imei', ('tel:mob:imei', {}), {
-                        'ro': 1,
+                    ('imei', ('tel:mob:imei', {}), {'ro': 1,
                         'doc': 'The IMEI for the phone hardware.'
                     }),
                     ('imsi', ('tel:mob:imsi', {}), {
@@ -318,6 +321,28 @@ class TelcoModule(s_module.CoreModule):
                         'ro': 1,
                         'doc': 'The IMSI with the assigned phone number.'
                     }),
+                )),
+
+                ('tel:mob:telem', {}, (
+
+                    ('time', ('time', {}), {}),
+                    ('latlong', ('geo:latlong', {}), {}),
+
+                    # telco specific data
+                    ('imsi', ('tel:mob:imsi', {}), {}),
+                    ('imei', ('tel:mob:imei', {}), {}),
+                    ('phone', ('tel:phone', {}), {}),
+
+                    # inet protocol addresses
+                    ('mac', ('inet:mac', {}), {}),
+                    ('ipv4', ('inet:ipv4', {}), {}),
+                    ('ipv6', ('inet:ipv6', {}), {}),
+
+                    ('wifi:ssid', ('inet:wifi:ssid', {}), {}),
+                    ('wifi:bssid', ('inet:mac', {}), {}),
+
+                    ('data', ('data', {}), {}),
+                    # any other fields may be refs...
                 )),
 
             )

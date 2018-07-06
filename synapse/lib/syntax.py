@@ -589,13 +589,13 @@ def parse_stormsub(text, off=0):
 
     return opers, off
 
-tagterm = set(')]},@ \t\n')
+tagterm = set('*=)]},@ \t\n')
 whitespace = set(' \t\n')
 
 optset = set('abcdefghijklmnopqrstuvwxyz')
 varset = set('$.:abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-cmprset = set('!<>^~=')
-cmprstart = set('*!<>^~=')
+cmprset = set('!<>@^~=')
+cmprstart = set('*@!<>^~=')
 
 cmdset = set('abcdefghijklmnopqrstuvwxyz1234567890.')
 alphanum = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
@@ -664,7 +664,7 @@ class Parser:
                 text = self.cmdtext()
 
                 oper = s_ast.CmdOper(kids=(name, text))
-                query.kids.append(oper)
+                query.addKid(oper)
 
                 # command is last query text case...
                 if not self.more():
@@ -718,8 +718,7 @@ class Parser:
                 continue
 
             oper = self.oper()
-
-            query.kids.append(oper)
+            query.addKid(oper)
 
             self.ignore(whitespace)
 
@@ -735,6 +734,9 @@ class Parser:
 
         if self.nextstr(':'):
             return self.editpropset()
+
+        if self.nextstr('.'):
+            return self.editunivset()
 
         if self.nextstr('+#'):
             return self.edittagadd()
@@ -810,6 +812,25 @@ class Parser:
         valu = self.valu()
         return s_ast.EditPropSet(kids=(relp, valu))
 
+    def editunivset(self):
+        '''
+        .foo = bar
+        '''
+        self.ignore(whitespace)
+
+        if not self.nextstr('.'):
+            self._raiseSyntaxExpects('.')
+
+        univ = self.univprop()
+        self.ignore(whitespace)
+
+        self.nextmust('=')
+
+        self.ignore(whitespace)
+
+        valu = self.valu()
+        return s_ast.EditPropSet(kids=(univ, valu))
+
     def editpropdel(self):
 
         self.ignore(whitespace)
@@ -829,10 +850,13 @@ class Parser:
 
         self.ignore(whitespace)
 
-        # TODO
-        #if self.nextstr('@'):
+        if not self.nextstr('='):
+            return s_ast.EditTagAdd(kids=(tag,))
 
-        return s_ast.EditTagAdd(kids=(tag,))
+        self.offs += 1
+
+        valu = self.valu()
+        return s_ast.EditTagAdd(kids=(tag, valu))
 
     def edittagdel(self):
 
@@ -855,9 +879,12 @@ class Parser:
 
         self.ignore(whitespace)
 
-        self.nextmust('*')
+        if self.nextchar() == '*':
+            self.offs += 1
+            return s_ast.PivotIn()
 
-        return s_ast.PivotIn()
+        prop = self.absprop()
+        return s_ast.PivotInFrom(kids=(prop,))
 
     def formjoinin(self):
         '''
@@ -910,7 +937,7 @@ class Parser:
         '''
         :foo:bar -> baz:faz
         '''
-        pval = s_ast.RelPropValue(None, kids=(prop,))
+        pval = s_ast.RelPropValue(kids=(prop,))
 
         self.ignore(whitespace)
 
@@ -925,7 +952,7 @@ class Parser:
         '''
         :foo:bar <- baz:faz
         '''
-        pval = s_ast.RelPropValue(None, kids=(prop,))
+        pval = s_ast.RelPropValue(kids=(prop,))
 
         self.ignore(whitespace)
 
@@ -961,9 +988,24 @@ class Parser:
         if self.nextstr('<+-'):
             return self.formjoinin()
 
-        # $foo= here *will* be var assignment
-
         char = self.nextchar()
+
+        # $foo = valu var assignment
+        if char == '$':
+
+            varn = self.varname()
+
+            self.ignore(whitespace)
+
+            # TODO special var assigments for lists?
+            self.nextmust('=')
+
+            self.ignore(whitespace)
+
+            valu = self.valu()
+
+            kids = (varn, valu)
+            return s_ast.VarSetOper(kids=kids)
 
         if char in ('+', '-'):
             return self.filtoper()
@@ -985,9 +1027,28 @@ class Parser:
             if self.nextstr('<-'):
                 return self.propjoin(prop)
 
-        name = self.noms(varset, ignore=whitespace)
+        name = self.noms(varset)
         if not name:
             self._raiseSyntaxError('unknown query syntax')
+
+        # before ignoring more whitespace, check for form#tag=time
+        if self.model.forms.get(name) is not None and self.nextstr('#'):
+
+            tag = self.tag()
+            form = s_ast.Const(name)
+
+            self.ignore(whitespace)
+
+            if self.nextchar() not in cmprstart:
+                return s_ast.LiftFormTag(kids=(form, tag))
+
+            cmpr = self.cmpr()
+
+            self.ignore(whitespace)
+
+            valu = self.valu()
+
+            return s_ast.LiftFormTag(kids=(form, tag, cmpr, valu))
 
         if self.model.props.get(name) is None:
 
@@ -1013,7 +1074,7 @@ class Parser:
             kids = (s_ast.Const(name), cmpr, valu)
             return s_ast.LiftPropBy(kids=kids)
 
-        # lift by
+        # lift by prop only
         return s_ast.LiftProp(kids=(s_ast.Const(name),))
 
     def liftbytag(self):
@@ -1023,21 +1084,12 @@ class Parser:
         tag = self.tag()
 
         self.ignore(whitespace)
+        cmprstart
 
         #TODO
         #if self.nextstr('@='):
 
         return s_ast.LiftTag(kids=(tag,))
-
-    def callargs(self):
-        # FIXME dead?
-
-        self.ignore(whitespace)
-
-        self.nextmust('(')
-        # TODO
-
-        # check for keyword args? --foo? cmdline?
 
     def filtoper(self):
 
@@ -1072,8 +1124,6 @@ class Parser:
 
         #foo.bar@2013
 
-        $var = 20
-
         (:foo=10 and ( #foo or #bar ))
 
         '''
@@ -1087,6 +1137,21 @@ class Parser:
 
             name = self.relprop()
 
+            self.ignore(whitespace)
+
+            if self.nextchar() not in cmprstart:
+                return s_ast.HasRelPropCond(kids=(name,))
+
+            cmpr = self.cmpr()
+
+            self.ignore(whitespace)
+            valu = self.valu()
+
+            return s_ast.RelPropCond(kids=(name, cmpr, valu))
+
+        if self.nextstr('.'):
+
+            name = self.univprop()
             self.ignore(whitespace)
 
             if self.nextchar() not in cmprstart:
@@ -1185,6 +1250,21 @@ class Parser:
 
         return s_ast.RelProp(name)
 
+    def univprop(self):
+        '''
+        .foo
+        '''
+        self.ignore(whitespace)
+
+        if not self.nextstr('.'):
+            self._raiseBadSyntax('universal property expected .')
+
+        name = self.noms(varset)
+        if not name:
+            self._raiseBadSyntax('empty relative property name')
+
+        return s_ast.RelProp(name)
+
     def cmpr(self):
 
         self.ignore(whitespace)
@@ -1227,7 +1307,7 @@ class Parser:
 
         if self.nextstr('$'):
             varn = self.varname()
-            return s_ast.VarValue(None, kids=(varn,))
+            return s_ast.VarValue(kids=(varn,))
 
         if self.nextstr('"'):
             text = self.quoted()

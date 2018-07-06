@@ -32,7 +32,7 @@ class Addr(s_types.Type):
         self.setNormFunc(str, self._normPyStr)
 
     def indx(self, norm):
-        return norm.encode('utf-8')
+        return norm.encode('utf8')
 
     def _getPort(self, valu):
         port = None
@@ -159,7 +159,7 @@ class Email(s_types.Type):
         return norm, info
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
 class Fqdn(s_types.Type):
 
@@ -175,7 +175,7 @@ class Fqdn(s_types.Type):
         try:
             valu = valu.encode('idna').decode('utf8').lower()
         except UnicodeError as e:
-            raise s_exc.BadTypeValu(valu)
+            raise s_exc.BadTypeValu(valu=valu)
 
         parts = valu.strip('.').split('.', 1)
         subs = {'host': parts[0]}
@@ -225,8 +225,47 @@ class IPv4(s_types.Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
 
-    # TODO add :ipv4=1.2.3.0/24 cmpr
-    #def _ctorCmprEq(self, valu):
+    def _ctorCmprEq(self, valu):
+
+        if type(valu) == str:
+
+            if valu.find('/') != -1:
+                minv, maxv = self.getCidrRange(valu)
+                def cmpr(norm):
+                    return norm >= minv and norm < maxv
+                return cmpr
+
+            if valu.find('-') != -1:
+                minv, maxv = self.getNetRange(valu)
+                def cmpr(norm):
+                    return norm >= minv and norm < maxv
+                return cmpr
+
+        return s_types.Type._ctorCmprEq(self, valu)
+
+    def getTypeVals(self, text):
+
+        if text.find('/') != -1:
+
+            minv, maxv = self.getCidrRange(text)
+
+            while minv < maxv:
+                yield minv
+                minv += 1
+
+            return
+
+        if text.find('-') != -1:
+
+            minv, maxv = self.getNetRange(text)
+
+            while minv < maxv:
+                yield minv
+                minv += 1
+
+            return
+
+        yield text
 
     def _normPyInt(self, valu):
         norm = valu & 0xffffffff
@@ -253,22 +292,36 @@ class IPv4(s_types.Type):
     def repr(self, norm, defval=None):
         return socket.inet_ntoa(self.indx(norm))
 
+    def getNetRange(self, text):
+        minstr, maxstr = text.split('-')
+        minv, info = self.norm(minstr)
+        maxv, info = self.norm(maxstr)
+        return minv, maxv
+
+    def getCidrRange(self, text):
+        addr, mask = text.split('/', 1)
+        norm, info = self.norm(addr)
+
+        mask = cidrmasks[int(mask)]
+
+        minv = norm & mask[0]
+        return minv, minv + mask[1]
+
     def indxByEq(self, valu):
 
-        if type(valu) == str and valu.find('/') != -1:
-            addr, mask = valu.split('/', 1)
-            norm, info = self.norm(addr)
+        if type(valu) == str:
 
-            mask = cidrmasks[int(mask)]
+            if valu.find('/') != -1:
+                minv, maxv = self.getCidrRange(valu)
+                return (
+                    ('range', (self.indx(minv), self.indx(maxv))),
+                )
 
-            minv = norm & mask[0]
-
-            mini = self.indx(minv)
-            maxi = self.indx(minv + mask[1])
-
-            return (
-                ('range', (mini, maxi)),
-            )
+            if valu.find('-') != -1:
+                minv, maxv = self.getNetRange(valu)
+                return (
+                    ('range', (self.indx(minv), self.indx(maxv))),
+                )
 
         return s_types.Type.indxByEq(self, valu)
 
@@ -340,11 +393,11 @@ class Rfc2822Addr(s_types.Type):
         valu = valu.strip().lower()
         valu = ' '.join(valu.split())
         return (
-            ('pref', valu.encode('utf8')),
+            ('pref', valu.encode('utf8', 'surrogatepass')),
         )
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
     def _normPyStr(self, valu):
 
@@ -384,7 +437,7 @@ class Url(s_types.Type):
         self.setNormFunc(str, self._normPyStr)
 
     def indx(self, norm):
-        norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
     def _normPyStr(self, valu):
         orig = valu
@@ -649,33 +702,25 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A group name string.'
                     }),
 
-                    ('inet:http:header', ('comp', {'fields': (('name', ('str', {'lower': True})), ('value', 'str'))}), {
-                        'doc': 'An HTTP protocol header key/value.',
-                    }),
+                    ('inet:http:cookie', ('str', {}), {
+                        'doc': 'An HTTP cookie string.'}),
 
-                    ('inet:http:param', ('comp', {'fields': (('name', ('str', {'lower': True})), ('value', 'str'))}), {
-                        'doc': 'An HTTP request path query parameter.',
-                    }),
+                    ('inet:http:header:name', ('str', {'lower': True}), {}),
 
-                    ('inet:http:reqhead', ('comp', {'fields': (('request', 'inet:http:request'), ('header', 'inet:http:header'))}), {
-                        'doc': 'An instance of an HTTP header within a specific HTTP request.',
-                    }),
+                    ('inet:http:header', ('comp', {'fields': (('name', 'inet:http:header:name'), ('value', 'str'))}), {
+                        'doc': 'An HTTP protocol header key/value.'}),
 
-                    ('inet:http:reqparam', ('comp', {'fields': (('request', 'inet:http:request'), ('param', 'inet:http:param'))}), {
-                        'doc': 'An instance of an HTTP request parameter within a specific HTTP requst.',
-                    }),
+                    ('inet:http:request:header', ('inet:http:header', {}), {
+                        'doc': 'An HTTP request header.'}),
+
+                    ('inet:http:response:header', ('inet:http:header', {}), {
+                        'doc': 'An HTTP response header.'}),
+
+                    ('inet:http:param', ('comp', {'fields': (('name', 'str'), ('value', 'str'))}), {
+                        'doc': 'An HTTP request path query parameter.'}),
 
                     ('inet:http:request', ('guid', {}), {
-                        'doc': 'A single client http request.',
-                    }),
-
-                    ('inet:http:response', ('guid', {}), {
-                        'doc': 'A server response to a client HTTP request.',
-                    }),
-
-                    ('inet:http:resphead', ('comp', {'fields': (('response', 'inet:http:response'), ('header', 'inet:http:header'))}), {
-                        'doc': 'An instance of an HTTP header within a specific HTTP response.',
-                    }),
+                        'doc': 'A single HTTP request.'}),
 
                     ('inet:iface', ('guid', {}), {
                         'doc': 'A network interface with a set of associated protocol addresses.'
@@ -1066,137 +1111,77 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:group', {}, ()),
 
-                    ('inet:http:header', {}, (
-                        ('name', ('str', {'lower': True}), {
-                            'ro': True,
-                            'doc': 'The name of the HTTP header.'
-                        }),
-                        ('value', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The value of the HTTP header.'
-                        }),
+                    ('inet:http:request:header', {}, (
+
+                        ('name', ('str', {'lower': True}), {'ro': True,
+                            'doc': 'The name of the HTTP request header.'}),
+
+                        ('value', ('str', {}), {'ro': True,
+                            'doc': 'The value of the HTTP request header.'}),
+
+                    )),
+
+                    ('inet:http:response:header', {}, (
+
+                        ('name', ('str', {'lower': True}), {'ro': True,
+                            'doc': 'The name of the HTTP response header.'}),
+
+                        ('value', ('str', {}), {'ro': True,
+                            'doc': 'The value of the HTTP response header.'}),
+
                     )),
 
                     ('inet:http:param', {}, (
-                        ('name', ('str', {'lower': True}), {
-                            'ro': True,
-                            'doc': 'The name of the HTTP query parameter.'
-                        }),
-                        ('value', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The value of the HTTP query parameter.'
-                        }),
+
+                        ('name', ('str', {'lower': True}), {'ro': True,
+                            'doc': 'The name of the HTTP query parameter.'}),
+
+                        ('value', ('str', {}), {'ro': True,
+                            'doc': 'The value of the HTTP query parameter.'}),
+
                     )),
 
-                    ('inet:http:reqhead', {}, (
-                        ('request', ('inet:http:request', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP request which contained the header.'
-                        }),
-                        ('header', ('inet:http:header', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP header contained in the request.'
-                        }),
-                        ('header:name', ('str', {'lower': True}), {
-                            'ro': True,
-                            'doc': 'The HTTP header name'
-                        }),
-                        ('header:value', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP header value.'
-                        }),
-                    )),
-
-                    ('inet:http:reqparam', {}, (
-                        ('request', ('inet:http:request', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP request which contained the header.'
-                        }),
-                        ('param', ('inet:http:header', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP query parameter contained in the request.'
-                        }),
-                        ('param:name', ('str', {'lower': True}), {
-                            'ro': True,
-                            'doc': 'The HTTP query parameter name'
-                        }),
-                        ('param:value', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP query parameter value.'
-                        }),
-                    )),
+                    ('inet:http:cookie', {}, ()),
 
                     ('inet:http:request', {}, (
-                        ('flow', ('inet:flow', {}), {
-                            'doc': 'The inet:flow which contained the HTTP request.'
-                        }),
-                        ('host', ('it:host', {}), {
-                            'doc': 'The it:host which sent the HTTP request.'
-                        }),
+
+                        ('flow', ('inet:flow', {}), {}),
+
+                        ('client', ('inet:client', {}), {'ro': True}),
+                        ('client:ipv4', ('inet:ipv4', {}), {'ro': True}),
+                        ('client:ipv6', ('inet:ipv6', {}), {'ro': True}),
+
+                        ('server', ('inet:server', {}), {'ro': True}),
+                        ('server:ipv4', ('inet:ipv4', {}), {'ro': True}),
+                        ('server:ipv6', ('inet:ipv6', {}), {'ro': True}),
+                        ('server:port', ('inet:port', {}), {'ro': True}),
+
                         ('time', ('time', {}), {
-                            'doc': 'The time that the HTTP request was sent.'
-                        }),
+                            'doc': 'The time that the HTTP request was sent.'}),
+
                         ('method', ('str', {}), {
-                            'doc': 'The HTTP request method string.'
-                        }),
+                            'doc': 'The HTTP request method string.'}),
+
                         ('path', ('str', {}), {
-                            'doc': 'The requested HTTP path (without query parameters).'
-                        }),
+                            'doc': 'The requested HTTP path (without query parameters).'}),
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The reconstructed URL for the request if known.'}),
+
                         ('query', ('str', {}), {
-                            'doc': 'The HTTP query string which optionally folows the path.'
-                        }),
-                        ('body', ('file:bytes', {}), {
-                            'doc': 'The body of the HTTP request.'
-                        }),
-                    )),
+                            'doc': 'The HTTP query string which optionally folows the path.'}),
 
-                    ('inet:http:resphead', {}, (
-                        ('response', ('inet:http:response', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP response which contained the header.'
-                        }),
-                        ('header', ('inet:http:header', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP header contained in the response.'
-                        }),
-                        ('header:name', ('str', {'lower': True}), {
-                            'ro': True,
-                            'doc': 'The HTTP header name'
-                        }),
-                        ('header:value', ('str', {}), {
-                            'ro': True,
-                            'doc': 'The HTTP header value.'
-                        }),
-                    )),
-
-                    ('inet:http:response', {}, (
-                        ('flow', ('inet:flow', {}), {
-                            'doc': 'The inet:flow which contained the HTTP response.'
-                        }),
-                        ('host', ('it:host', {}), {
-                            'doc': 'The it:host which sent the HTTP response.'
-                        }),
-                        ('time', ('time', {}), {
-                            'doc': 'The time that the HTTP response was sent.'
-                        }),
-                        ('request', ('inet:http:request', {}), {
-                            'doc': 'The HTTP request which caused the response.'
-                        }),
-                        ('code', ('int', {}), {
-                            'doc': 'The HTTP response code.'
-                        }),
-                        ('reason', ('str', {}), {
-                            'doc': 'The HTTP response reason string.'
-                        }),
                         ('body', ('file:bytes', {}), {
-                            'doc': 'The HTTP response body data.'
-                        }),
+                            'doc': 'The body of the HTTP request.'}),
+
+                        ('response:time', ('time', {}), {}),
+                        ('response:code', ('int', {}), {}),
+                        ('response:reason', ('str', {}), {}),
+                        ('response:body', ('file:bytes', {}), {}),
+
                     )),
 
                     ('inet:iface', {}, (
-                        ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The last known latitude/longitude for the node'
-                        }),
                         ('host', ('it:host', {}), {
                             'doc': 'The guid of the host the interface is associated with.'
                         }),

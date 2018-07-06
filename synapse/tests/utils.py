@@ -18,6 +18,7 @@ import io
 import os
 import sys
 import time
+import types
 import shutil
 import logging
 import tempfile
@@ -125,6 +126,7 @@ testmodel = {
 
         ('testtime', ('time', {}), {}),
 
+        ('testint', ('int', {}), {}),
         ('teststr', ('str', {}), {}),
         ('testauto', ('str', {}), {}),
 
@@ -171,6 +173,8 @@ testmodel = {
             ('hehe', ('int', {}), {'ro': 1}),
             ('haha', ('str', {}), {'ro': 1}),
         )),
+
+        ('testint', {}, {}),
 
         ('teststr', {}, (
             ('bar', ('ndef', {}), {}),
@@ -1094,6 +1098,9 @@ class SynTest(unittest.TestCase):
         '''
         Assert that the length of an object is equal to X
         '''
+        if isinstance(obj, types.GeneratorType):
+            obj = list(obj)
+
         self.eq(x, len(obj), msg=msg)
 
     def istufo(self, obj):

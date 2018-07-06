@@ -13,17 +13,45 @@ import synapse.tests.common as s_test
 #
 
 class InfotechModelTest(s_test.SynTest):
+
+    def test_model_infotech_android(self):
+
+        softver = s_common.guid()
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                perm = snap.addNode('it:os:android:perm', 'Foo Perm')
+                self.eq(perm.ndef[1], 'Foo Perm')
+                intent = snap.addNode('it:os:android:intent', 'Foo Intent')
+                self.eq(intent.ndef[1], 'Foo Intent')
+
+                ilisn = snap.addNode('it:os:android:ilisten', (softver, 'Listen Test'))
+                self.eq(ilisn.get('app'), softver)
+                self.eq(ilisn.get('intent'), 'Listen Test')
+
+                ibcast = snap.addNode('it:os:android:ibroadcast', (softver, 'Broadcast Test'))
+                self.eq(ibcast.get('app'), softver)
+                self.eq(ibcast.get('intent'), 'Broadcast Test')
+
+                reqperm = snap.addNode('it:os:android:reqperm', (softver, 'Test Perm'))
+                self.eq(reqperm.get('app'), softver)
+                self.eq(reqperm.get('perm'), 'Test Perm')
+
     def test_it_forms_simple(self):
         with self.getTestCore() as core:
             with core.snap() as snap:
                 node = snap.addNode('it:hostname', 'Bobs Computer')
                 self.eq(node.ndef[1], 'bobs computer')
                 host0 = s_common.guid()
+                sver0 = s_common.guid()
                 hprops = {
                     'name': 'Bobs laptop',
                     'desc': 'Bobs paperweight',
                     'ipv4': '1.2.3.4',
-                    'latlong': '0.0, 0.0'
+                    'latlong': '0.0, 0.0',
+                    'os': sver0,
                 }
                 node = snap.addNode('it:host', host0, hprops)
                 self.eq(node.ndef[1], host0)
@@ -31,6 +59,7 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('desc'), 'Bobs paperweight')
                 self.eq(node.get('ipv4'), 0x01020304)
                 self.eq(node.get('latlong'), (0.0, 0.0))
+                self.eq(node.get('os'), sver0)
 
                 node = snap.addNode('it:hosturl', (host0, 'http://vertex.ninja/cool.php'))
                 self.eq(node.ndef[1], (host0, 'http://vertex.ninja/cool.php'))
@@ -77,6 +106,7 @@ class InfotechModelTest(s_test.SynTest):
                 prod0 = s_common.guid()
                 org0 = s_common.guid()
                 person0 = s_common.guid()
+                file0 = 'a' * 64
                 acct0 = ('vertex.link', 'pennywise')
                 url0 = 'https://vertex.link/products/balloonmaker'
                 sprops = {
@@ -98,6 +128,13 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('author:acct'), acct0)
                 self.eq(node.get('author:email'), 'pennywise@vertex.link')
                 self.eq(node.get('author:person'), person0)
+                self.false(node.get('isos'))
+                self.false(node.get('islib'))
+                node.set('isos', True)
+                node.set('islib', True)
+                self.true(node.get('isos'))
+                self.true(node.get('islib'))
+
                 self.eq(node.get('url'), url0)
 
                 # it:prod:softver - this does test a bunch of property related callbacks
@@ -136,6 +173,20 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('host'), host0)
                 self.eq(node.get('softver'), ver0)
 
+                softfile = snap.addNode('it:prod:softfile', (ver0, file0))
+                self.eq(softfile.get('soft'), ver0)
+                self.eq(softfile.get('file'), f'sha256:{file0}')
+
+                ver1 = s_common.guid()
+                softlib = snap.addNode('it:prod:softlib', (ver0, ver1))
+                self.eq(softlib.get('soft'), ver0)
+                self.eq(softlib.get('lib'), ver1)
+
+                os0 = s_common.guid()
+                softos = snap.addNode('it:prod:softos', (ver0, os0))
+                self.eq(softos.get('soft'), ver0)
+                self.eq(softos.get('os'), os0)
+
                 prod1 = s_common.guid()
                 sigprops = {
                     'desc': 'The evil balloon virus!',
@@ -149,7 +200,6 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('desc'), 'The evil balloon virus!')
                 self.eq(node.get('url'), url1)
 
-                file0 = 'a' * 64
                 node = snap.addNode('it:av:filehit', (file0, sig0))
                 self.eq(node.ndef[1], (f'sha256:{file0}', (prod1, 'Bar.BAZ.faZ'.lower())))
                 self.eq(node.get('file'), f'sha256:{file0}')
@@ -591,134 +641,3 @@ class InfotechModelTest(s_test.SynTest):
                         self.nn(node.get('reg'))
                         self.eq(node.get('reg:key'), key)
                         self.eq(node.get(ekey), valu)
-
-class OldInfoTechTst:
-    def test_model_infotech_software(self):
-        with self.getRamCore() as core:
-            # Make some version nodes
-            # Link the softver to a host
-            hs1 = core.formTufoByProp('it:hostsoft',
-                                      (h1[1].get('it:host'),
-                                       sv1[1].get('it:prod:softver')),
-                                      **{'seen:min': '2013',
-                                         'seen:max': '2017', }
-                                      )
-            self.eq(hs1[1].get('it:hostsoft:host'), h1[1].get('it:host'))
-            self.eq(hs1[1].get('it:hostsoft:softver'), sv1[1].get('it:prod:softver'))
-            self.eq(hs1[1].get('it:hostsoft:seen:min'), core.getTypeNorm('time', '2013')[0])
-            self.eq(hs1[1].get('it:hostsoft:seen:max'), core.getTypeNorm('time', '2017')[0])
-
-            nodes = core.eval('it:prod:soft:name="balloon maker" ->it:prod:softver:software ->it:hostsoft:softver '
-                              ':host->it:host')
-            self.len(1, nodes)
-            form, prop = s_tufo.ndef(nodes[0])
-            self.eq(form, 'it:host')
-            self.eq(prop, 'e862b0d7f3a9e015171a4113e0dbe861')
-
-            # Go backwards from the host
-            nodes = core.eval('it:host=e862b0d7f3a9e015171a4113e0dbe861 ->it:hostsoft:host :softver '
-                              '->it:prod:softver')
-            self.len(1, nodes)
-            form, prop = s_tufo.ndef(nodes[0])
-            self.eq(form, 'it:prod:softver')
-            self.eq(prop, sv1[1].get('it:prod:softver'))
-
-            # Make a bunch of softver nodes in order to do filtering via storm
-            sv = core.formTufoByProp('it:prod:softver',
-                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('vers', 'V1.0.0'))
-                                     )
-            sv = core.formTufoByProp('it:prod:softver',
-                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('vers', 'V1.1.0'))
-                                     )
-            sv = core.formTufoByProp('it:prod:softver',
-                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('vers', 'V0.0.1'))
-                                     )
-            sv = core.formTufoByProp('it:prod:softver',
-                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('vers', 'V0.1.0'))
-                                     )
-            sv = core.formTufoByProp('it:prod:softver',
-                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('vers', '0.1.1'))
-                                     )
-            sv = core.formTufoByProp('it:prod:softver',
-                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('vers', 'V2.0.0-alpha+b1'))
-                                     )
-
-            nodes = core.eval('it:prod:softver:semver<1.0.0')
-            self.len(3, nodes)
-            nodes = core.eval('it:prod:softver:semver<1.0.0 +it:prod:softver:semver:minor=1')
-            self.len(2, nodes)
-            nodes = core.eval('it:prod:softver:semver<=1.0.0')
-            self.len(4, nodes)
-            nodes = core.eval('it:prod:softver:semver>1.1.0')
-            self.len(1, nodes)
-            nodes = core.eval('it:prod:softver:semver:pre=alpha')
-            self.len(1, nodes)
-
-            # Try some non-standard semver values
-            sv = core.formTufoByProp('it:prod:softver',
-                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('vers', '  OhMy2016-12-10  '))
-                                     )
-            self.eq(sv[1].get('it:prod:softver:vers'), '  OhMy2016-12-10  ')
-            self.eq(sv[1].get('it:prod:softver:vers:norm'), 'ohmy2016-12-10')
-            self.eq(sv[1].get('it:prod:softver:semver:major'), 2016)
-            self.eq(sv[1].get('it:prod:softver:semver:minor'), 12)
-            self.eq(sv[1].get('it:prod:softver:semver:patch'), 10)
-            nodes = core.eval('it:prod:softver:semver:major=2016')
-            self.len(1, nodes)
-
-            sv = core.formTufoByProp('it:prod:softver',
-                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('vers', '1.2'))
-                                     )
-            self.eq(sv[1].get('it:prod:softver:semver:major'), 1)
-            self.eq(sv[1].get('it:prod:softver:semver:minor'), 2)
-            self.none(sv[1].get('it:prod:softver:semver:patch'))
-
-            sv = core.formTufoByProp('it:prod:softver',
-                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('vers', '1.2.3.4'))
-                                     )
-            self.eq(sv[1].get('it:prod:softver:semver:major'), 1)
-            self.eq(sv[1].get('it:prod:softver:semver:minor'), 2)
-            self.eq(sv[1].get('it:prod:softver:semver:patch'), 3)
-
-            sv = core.formTufoByProp('it:prod:softver',
-                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('vers', 'AlPHa'))
-                                     )
-            self.eq(sv[1].get('it:prod:softver:vers'), 'AlPHa')
-            self.eq(sv[1].get('it:prod:softver:vers:norm'), 'alpha')
-            self.none(sv[1].get('it:prod:softver:semver'))
-
-            # Set the software:name directly
-            sv = core.formTufoByProp('it:prod:softver',
-                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('vers', 'beta')),
-                                     **{'software:name': 'ballon maker-beta'}
-                                     )
-            self.eq(sv[1].get('it:prod:softver:vers'), 'beta')
-            self.eq(sv[1].get('it:prod:softver:software:name'), 'ballon maker-beta')
-
-            # Set the semver value separately from the vers.
-            # This bypasses the node:form callback from setting the prop and instead
-            # relys on regular prop-norming.
-            sv = core.formTufoByProp('it:prod:softver',
-                                     (('software', '5fd0340d2ad8878fe53ccd28843ff2dc'),
-                                      ('vers', 'AlPHa001')),
-                                     semver='0.0.1-alpha+build.001'
-                                     )
-            self.eq(sv[1].get('it:prod:softver:vers'), 'AlPHa001')
-            self.eq(sv[1].get('it:prod:softver:vers:norm'), 'alpha001')
-            self.eq(sv[1].get('it:prod:softver:semver'), 1)
-            self.eq(sv[1].get('it:prod:softver:semver:major'), 0)
-            self.eq(sv[1].get('it:prod:softver:semver:minor'), 0)
-            self.eq(sv[1].get('it:prod:softver:semver:patch'), 1)
-            self.eq(sv[1].get('it:prod:softver:semver:build'), 'build.001')
-            self.eq(sv[1].get('it:prod:softver:semver:pre'), 'alpha')

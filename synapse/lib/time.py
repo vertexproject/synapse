@@ -4,6 +4,7 @@ Time related utilities for synapse "epoch millis" time values.
 
 import datetime
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 def parse(text, base=None, chop=False):
@@ -74,3 +75,64 @@ def ival(*times):
         maxv += 1
 
     return (minv, maxv)
+
+onesec  = 1000
+onemin  = 60000
+onehour = 3600000
+oneday  = 86400000
+
+timeunits = {
+    'sec': onesec,
+    'secs': onesec,
+    'seconds': onesec,
+
+    'min': onemin,
+    'mins': onemin,
+    'minutes': onemin,
+
+    'hour': onehour,
+    'hours': onehour,
+
+    'day': oneday,
+    'days': oneday,
+}
+
+# TODO: use synapse.lib.syntax once it gets cleaned up
+def _noms(text, offs, cset):
+    begin = offs
+    while len(text) > offs and text[offs] in cset:
+        offs += 1
+    return text[begin:offs], offs
+
+def delta(text):
+    '''
+    Parse a simple time delta string and return the delta.
+    '''
+    text = text.strip().lower()
+
+    _, offs = _noms(text, 0, ' \t\r\n')
+
+    sign = '+'
+    if text and text[0] in ('+', '-'):
+        sign = text[0]
+        offs += 1
+
+    _, offs = _noms(text, offs, ' \t\r\n')
+
+    sizetext, offs = _noms(text, offs, '0123456789')
+
+    _, offs = _noms(text, offs, ' \t\r\n')
+
+    unittext = text[offs:]
+
+    size = int(sizetext, 0)
+
+    if sign == '-':
+        size = -size
+
+    base = timeunits.get(unittext)
+    if base is None:
+        mesg = f'unknown time delta units: {unittext}'
+        raise s_exc.BadTypeValu(name='time', valu=text, mesg=mesg)
+
+    return size * base

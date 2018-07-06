@@ -123,6 +123,12 @@ class Prop:
                 ('indx', ('byprop', self.pref, iops)),
             )
 
+        # TODO: make types control this more tightly...
+        if cmpr == '~=':
+            return (
+                ('prop:re', (self.form.name, self.name, valu, {})),
+            )
+
         iops = self.type.getIndxOps(valu, cmpr=cmpr)
         return (
             ('indx', ('byprop', self.pref, iops)),
@@ -135,6 +141,15 @@ class Prop:
         )
 
     def getDelOps(self, buid):
+        '''
+        Get a list of storage operations to delete this property from the buid.
+
+        Args:
+            buid (bytes): The node buid.
+
+        Returns:
+            (tuple): The storage operations
+        '''
         return (
             ('prop:del', (buid, self.form.name, self.name, self.storinfo)),
         )
@@ -167,11 +182,12 @@ class Univ:
     def getLiftOps(self, valu, cmpr='='):
 
         if valu is None:
-            iops = (
-                ('pref', b''),
+            iops = ( ('pref', b''), )
+            return (
+                ('indx', ('byuniv', self.pref, iops)),
             )
-        else:
-            iops = self.type.getIndxOps(valu)
+
+        iops = self.type.getIndxOps(valu)
 
         return (
             ('indx', ('byuniv', self.pref, iops)),
@@ -268,6 +284,11 @@ class Form:
                 ('indx', ('byprop', self.pref, iops)),
             )
 
+        if cmpr == '~=':
+            return (
+                ('form:re', (self.name, valu, {})),
+            )
+
         iops = self.type.getIndxOps(valu, cmpr=cmpr)
         return (
             ('indx', ('byprop', self.pref, iops)),
@@ -355,6 +376,22 @@ class Model:
 
         info = {'doc': 'The node definition type for a (form,valu) compound field.'}
         item = s_types.Ndef(self, 'ndef', info, {})
+        self.addBaseType(item)
+
+        #info = {'doc': 'A list type for storing multiple values of the same type.'}
+        #item = s_types.List(self, 'list', info, {'type': 'str'})
+        #self.addBaseType(item)
+
+        info = {'doc': 'An digraph edge base type.'}
+        item = s_types.Edge(self, 'edge', info, {})
+        self.addBaseType(item)
+
+        info = {'doc': 'An digraph edge base type with a unique time.'}
+        item = s_types.TimeEdge(self, 'timeedge', info, {})
+        self.addBaseType(item)
+
+        info = {'doc': 'Arbitrary msgpack compatible data stored without an index.'}
+        item = s_types.Data(self, 'data', info, {})
         self.addBaseType(item)
 
         info = {'doc': 'The nodeprop type for a (prop,valu) compound field.'}

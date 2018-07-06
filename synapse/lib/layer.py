@@ -4,6 +4,7 @@ cortex construction.
 '''
 import os
 import lmdb
+import regex
 import logging
 import threading
 import contextlib
@@ -27,11 +28,9 @@ class Encoder(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8') + b'\x00'
 
-
 class Utf8er(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8')
-
 
 class Xact(s_eventbus.EventBus):
     '''
@@ -45,6 +44,19 @@ class Xact(s_eventbus.EventBus):
         self.write = write
         self.spliced = False
         self.splices = []
+
+        self.indxfunc = {
+            'eq': self._rowsByEq,
+            'pref': self._rowsByPref,
+            'range': self._rowsByRange,
+        }
+
+        self._lift_funcs = {
+            'indx': self._liftByIndx,
+            'prop:re': self._liftByPropRe,
+            'univ:re': self._liftByUnivRe,
+            'form:re': self._liftByFormRe,
+        }
 
         self.xact = layr.lenv.begin(write=write)
 
@@ -104,8 +116,14 @@ class Xact(s_eventbus.EventBus):
             func(oper)
 
     def getLiftRows(self, lops):
-        for row in self.layr._xactRunLifts(self.xact, lops):
-            yield row
+
+        for oper in lops:
+
+            func = self._lift_funcs.get(oper[0])
+            if func is None:
+                raise s_exc.NoSuchLift(name=oper[0])
+
+            yield from func(oper)
 
     def abort(self):
 
@@ -221,91 +239,71 @@ class Xact(s_eventbus.EventBus):
         if univ:
             self.xact.delete(penc + oldi, pvvalu, db=self.layr.byuniv)
 
-class Layer(s_cell.Cell):
-    '''
-    A layer implements btree indexed storage for a cortex.
+    def _liftByFormRe(self, oper):
 
-    TODO:
-        metadata for layer contents (only specific type / tag)
-    '''
-    confdefs = (
-        ('lmdb:mapsize', {'type': 'int', 'defval': s_const.tebibyte}),
-    )
+        form, query, info = oper[1]
 
-    def __init__(self, dirn):
+        regx = regex.compile(query)
 
-        s_cell.Cell.__init__(self, dirn)
+        for buid, valu in self.iterFormRows(form):
 
-        path = os.path.join(self.dirn, 'layer.lmdb')
+            # for now... but maybe repr eventually?
+            if not isinstance(valu, str):
+                valu = str(valu)
 
-        mapsize = self.conf.get('lmdb:mapsize')
+            if not regx.search(valu):
+                continue
 
-        self.lenv = lmdb.open(path, max_dbs=128, map_size=mapsize, writemap=True)
+            yield (buid, )
 
-        self.dbs = {}
+    def _liftByUnivRe(self, oper):
 
-        self.utf8 = Utf8er()
-        self.encoder = Encoder()
+        prop, query, info = oper[1]
 
-        self.bybuid = self.initdb('bybuid') # <buid><prop>=<valu>
-        self.byprop = self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
-        self.byuniv = self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
+        regx = regex.compile(query)
 
-        offsdb = self.initdb('offsets')
-        self.offs = s_lmdb.Offs(self.lenv, offsdb)
+        for buid, valu in self.iterUnivRows(prop):
 
-        self.spliced = threading.Event()
-        self.onfini(self.spliced.set)
+            # for now... but maybe repr eventually?
+            if not isinstance(valu, str):
+                valu = str(valu)
 
-        self.splicedb = self.initdb('splices')
-        self.splicelog = s_lmdb.Seqn(self.lenv, b'splices')
+            if not regx.search(valu):
+                continue
 
-        self.indxfunc = {
-            'eq': self._rowsByEq,
-            'pref': self._rowsByPref,
-            'range': self._rowsByRange,
-        }
+            yield (buid, )
 
-        self._lift_funcs = {
-            'indx': self._liftByIndx,
-        }
+    def _liftByPropRe(self, oper):
 
-    def getOffset(self, iden):
-        return self.offs.get(iden)
+        # ('regex', (<form>, <prop>, <regex>, info))
+        form, prop, query, info = oper[1]
 
-    def setOffset(self, iden, offs):
-        return self.offs.set(iden, offs)
+        regx = regex.compile(query)
 
-    def splices(self, offs, size):
-        with self.lenv.begin() as xact:
-            for i, mesg in self.splicelog.slice(xact, offs, size):
-                yield mesg
+        # full table scan...
+        for buid, valu in self.iterPropRows(form, prop):
 
-    def db(self, name):
-        return self.dbs.get(name)
+            # for now... but maybe repr eventually?
+            if not isinstance(valu, str):
+                valu = str(valu)
 
-    def initdb(self, name, dupsort=False):
-        db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
-        self.dbs[name] = db
-        return db
+            if not regx.search(valu):
+                continue
 
-    def _xactRunLifts(self, xact, lops):
-        for oper in lops:
-            func = self._lift_funcs.get(oper[0])
-            for item in func(xact, oper):
-                yield item
+            #yield buid, form, prop, valu
+            yield (buid, )
 
-    def _liftByIndx(self, xact, oper):
+    def _liftByIndx(self, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))
         # indx opers:  ('eq', <indx>)  ('pref', <indx>) ('range', (<indx>, <indx>)
         name, pref, iops = oper[1]
 
-        db = self.dbs.get(name)
+        db = self.layr.dbs.get(name)
         if db is None:
             raise s_exc.NoSuchName(name=name)
 
         # row operations...
-        with xact.cursor(db=db) as curs:
+        with self.xact.cursor(db=db) as curs:
 
             for (name, valu) in iops:
 
@@ -354,6 +352,155 @@ class Layer(s_cell.Cell):
                 return
 
             yield s_msgpack.un(byts)
+
+    def iterFormRows(self, form):
+        '''
+        Iterate (buid, valu) rows for the given form in this layer.
+        '''
+
+        # <form> 00 00 (no prop...)
+        pref = self.layr.encoder[form] + b'\x00'
+        penc = self.layr.utf8['*' + form]
+
+        with self.xact.cursor(db=self.layr.byprop) as curs:
+
+            if not curs.set_range(pref):
+                return
+
+            size = len(pref)
+
+            for lkey, pval in curs.iternext():
+
+                if lkey[:size] != pref:
+                    return
+
+                buid = s_msgpack.un(pval)[0]
+
+                byts = self.xact.get(buid + penc, db=self.layr.bybuid)
+                if byts is None:
+                    continue
+
+                valu, indx = s_msgpack.un(byts)
+
+                yield buid, valu
+
+    def iterPropRows(self, form, prop):
+        '''
+        Iterate (buid, valu) rows for the given form:prop in this layer.
+        '''
+        # iterate byprop and join bybuid to get to value
+
+        penc = self.layr.utf8[prop]
+        pref = self.layr.encoder[form] + self.layr.encoder[prop]
+
+        with self.xact.cursor(db=self.layr.byprop) as curs:
+
+            if not curs.set_range(pref):
+                return
+
+            size = len(pref)
+
+            for lkey, pval in curs.iternext():
+
+                if lkey[:size] != pref:
+                    return
+
+                buid = s_msgpack.un(pval)[0]
+
+                byts = self.xact.get(buid + penc, db=self.layr.bybuid)
+                if byts is None:
+                    continue
+
+                valu, indx = s_msgpack.un(byts)
+
+                yield buid, valu
+
+    def iterUnivRows(self, prop):
+        '''
+        Iterate (buid, valu) rows for the given universal prop
+        '''
+        penc = self.layr.utf8[prop]
+        pref = self.layr.encoder[prop]
+
+        with self.xact.cursor(db=self.layr.byuniv) as curs:
+
+            if not curs.set_range(pref):
+                return
+
+            size = len(pref)
+
+            for lkey, pval in curs.iternext():
+
+                if lkey[:size] != pref:
+                    return
+
+                buid = s_msgpack.un(pval)[0]
+
+                byts = self.xact.get(buid + penc, db=self.layr.bybuid)
+                if byts is None:
+                    continue
+
+                valu, indx = s_msgpack.un(byts)
+
+                yield buid, valu
+
+class Layer(s_cell.Cell):
+    '''
+    A layer implements btree indexed storage for a cortex.
+
+    TODO:
+        metadata for layer contents (only specific type / tag)
+    '''
+    confdefs = (
+        ('lmdb:mapsize', {'type': 'int', 'defval': s_const.tebibyte}),
+    )
+
+    def __init__(self, dirn):
+
+        s_cell.Cell.__init__(self, dirn)
+
+        path = os.path.join(self.dirn, 'layer.lmdb')
+
+        mapsize = self.conf.get('lmdb:mapsize')
+
+        self.lenv = lmdb.open(path, max_dbs=128, map_size=mapsize, writemap=True)
+
+        self.dbs = {}
+
+        self.utf8 = Utf8er()
+        self.encoder = Encoder()
+
+        self.bybuid = self.initdb('bybuid') # <buid><prop>=<valu>
+        self.byprop = self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
+        self.byuniv = self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
+
+        offsdb = self.initdb('offsets')
+        self.offs = s_lmdb.Offs(self.lenv, offsdb)
+
+        self.spliced = threading.Event()
+        self.onfini(self.spliced.set)
+
+        self.splicedb = self.initdb('splices')
+        self.splicelog = s_lmdb.Seqn(self.lenv, b'splices')
+
+    def getOffset(self, iden):
+        return self.offs.get(iden)
+
+    def setOffset(self, iden, offs):
+        return self.offs.set(iden, offs)
+
+    def splices(self, offs, size):
+        with self.lenv.begin() as xact:
+            for i, mesg in self.splicelog.slice(xact, offs, size):
+                yield mesg
+
+    def db(self, name):
+        return self.dbs.get(name)
+
+    def initdb(self, name, dupsort=False):
+        db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
+        self.dbs[name] = db
+        return db
 
     def xact(self, write=False):
         '''
