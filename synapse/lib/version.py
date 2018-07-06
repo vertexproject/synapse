@@ -118,8 +118,8 @@ def fmtVersion(*vsnparts):
 
     '''
     if len(vsnparts) < 1:
-        raise s_exc.BadTypeValu('Not enough version parts to form a version string with.',
-                                vsnparts=vsnparts)
+        raise s_exc.BadTypeValu(valu=repr(vsnparts),
+                                mesg='Not enough version parts to form a version string with.',)
     ret = '.'.join([str(part).lower() for part in vsnparts])
     return ret
 

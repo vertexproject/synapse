@@ -41,10 +41,10 @@ class Latitude(s_types.Type):
         try:
             valu = float(valu)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu, mesg='Invalid float format')
+            raise s_exc.BadTypeValu(valu=valu, mesg='Invalid float format')
 
         if valu > 90.0 or valu < -90.0:
-            raise s_exc.BadTypeValu(valu, mesg='Latitude may only be -90.0 to 90.0')
+            raise s_exc.BadTypeValu(valu=valu, mesg='Latitude may only be -90.0 to 90.0')
 
         valu = int(valu * Latitude.SCALE) / Latitude.SCALE
 
@@ -66,13 +66,13 @@ class LatLong(s_types.Type):
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
-            raise s_exc.BadTypeValu(valu, mesg='Valu must contain valid latitude,longitude')
+            raise s_exc.BadTypeValu(valu=valu, mesg='Valu must contain valid latitude,longitude')
 
         try:
             latv = self.modl.type('geo:latitude').norm(valu[0])[0]
             lonv = self.modl.type('geo:longitude').norm(valu[1])[0]
         except Exception as e:
-            raise s_exc.BadTypeValu(valu, mesg=e)
+            raise s_exc.BadTypeValu(valu=valu, mesg=e)
 
         return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
 
@@ -91,10 +91,10 @@ class Longitude(s_types.Type):
         try:
             valu = float(valu)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu, mesg='Invalid float format')
+            raise s_exc.BadTypeValu(valu=valu, mesg='Invalid float format')
 
         if valu > 180.0 or valu < -180.0:
-            raise s_exc.BadTypeValu(valu, mesg='Longitude may only be -180.0 to 180.0')
+            raise s_exc.BadTypeValu(valu=valu, mesg='Longitude may only be -180.0 to 180.0')
 
         valu = int(valu * Longitude.SCALE) / Longitude.SCALE
 
