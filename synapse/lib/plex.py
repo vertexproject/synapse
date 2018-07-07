@@ -6,8 +6,6 @@ logger = logging.getLogger(__name__)
 
 import synapse.eventbus as s_eventbus
 
-import synapse.glob as s_glob
-
 import synapse.lib.link as s_link
 import synapse.lib.const as s_const
 import synapse.lib.threads as s_threads
