@@ -740,7 +740,7 @@ class Edge(Type):
         self.n2forms = None
 
         self.n1forms = self.opts.get('n1:forms', None)
-        self.n2forms = self.opts.get('n1:forms', None)
+        self.n2forms = self.opts.get('n2:forms', None)
 
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
