@@ -866,12 +866,7 @@ class Range(Type):
         self.setNormFunc(tuple, self._normPyTuple)
 
     def _normPyStr(self, valu):
-        try:
-            valu = valu.split('-', 1)
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='invalid range string')
-
+        valu = valu.split('-', 1)
         return self._normPyTuple(valu)
 
     def _normPyTuple(self, valu):
