@@ -2,15 +2,18 @@ import os
 import time
 import struct
 import hashlib
+import asyncio
 import logging
 import contextlib
 
 import synapse.exc as s_exc
 import synapse.axon as s_axon
+import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.lib.msgpack as s_msgpack
 
 import synapse.lib.cell as s_cell
+import synapse.lib.msgpack as s_msgpack
+
 import synapse.tests.common as s_test
 
 logger = logging.getLogger(__name__)
@@ -30,8 +33,8 @@ def u64(x):
 
 class AxonTest(s_test.SynTest):
 
-    def test_blobstor(self):
-
+    @s_glob.synchelp
+    async def test_blobstor(self):
         with self.getTestDir() as dirn:
 
             path0 = os.path.join(dirn, 'blob0')
@@ -41,26 +44,28 @@ class AxonTest(s_test.SynTest):
 
                 hash1 = hashlib.sha256(data1).digest()
                 blobs = (
-                    (hash1, (0, data1[0:4])),
-                    (None, (1, data1[4:8])),
-                    (None, (2, data1[8:12])),
-                    (None, (3, data1[12:16])),
+                    (hash1, 0, data1[0:4]),
+                    (None, 1, data1[4:8]),
+                    (None, 2, data1[8:12]),
+                    (None, 3, data1[12:16]),
                 )
+                print('Got here 0')
+                await bst0.bulkput(blobs)
+                print('Got here 1')
 
-                bst0.bulkput(blobs)
-
-                retn = b''.join(bst0.get(hash1))
+                retn = b''.join([x async for x in bst0.get(hash1)])
                 self.eq(retn, data1)
 
                 # We can store and retrieve an empty string
                 data = b''
                 hash2 = hashlib.sha256(data).digest()
                 blobs = (
-                    (hash2, (0, data)),
+                    (hash2, 0, data),
                 )
-                bst0.bulkput(blobs)
+                await bst0.bulkput(blobs)
+
                 bl = []
-                for byts in bst0.get(hash2):
+                async for byts in bst0.get(hash2):
                     bl.append(byts.tobytes())
                 self.eq(bl, [b''])
                 retn = b''.join(bl)
@@ -70,16 +75,18 @@ class AxonTest(s_test.SynTest):
 
                 with s_axon.BlobStor(path1, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst1:
 
-                    bst1._consume_clone_data(bst0.clone(0))
+                    clone_data = [x async for x in bst0.clone(0)]
+                    await bst1._consume_clone_data(clone_data)
 
-                    retn = b''.join(bst1.get(hash1))
+                    retn = b''.join([x async for x in bst1.get(hash1)])
                     self.eq(retn, data1)
-                    retn = b''.join(bst1.get(hash2))
+                    retn = b''.join([x async for x in bst1.get(hash2)])
                     self.eq(retn, b'')
 
-                    bst1._consume_clone_data([])
+                    await bst1._consume_clone_data([])
 
-    def test_blobstor_stat(self):
+    @s_glob.synchelp
+    async def test_blobstor_stat(self):
 
         with self.getTestDir() as dirn:
 
@@ -87,24 +94,25 @@ class AxonTest(s_test.SynTest):
             with s_axon.BlobStor(path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst0:
 
                 blobs = (
-                    (None, (0, os.urandom(1000))),
-                    (None, (1, b'qwer')),
-                    (None, (2, b'hehe')),
-                    (None, (3, b'haha')),
+                    (None, 0, os.urandom(1000)),
+                    (None, 1, b'qwer'),
+                    (None, 2, b'hehe'),
+                    (None, 3, b'haha'),
                 )  # 4 blocks, size 1000 + 4 + 4 + 4 = 1012 bytes
 
-                stats = bst0.stat()
+                stats = await bst0.stat()
                 self.eq(stats, {})
 
-                bst0.bulkput(blobs[0:1])
-                stats = bst0.stat()
+                await bst0.bulkput(blobs[0:1])
+                stats = await bst0.stat()
                 self.eq(stats, {'bytes': 1000, 'blobs': 1})
 
-                bst0.bulkput(blobs)
-                stats = bst0.stat()
+                await bst0.bulkput(blobs)
+                stats = await bst0.stat()
                 self.eq(stats, {'bytes': 2012, 'blobs': 2})
 
-    def test_blobstor_metrics(self):
+    @s_glob.synchelp
+    async def test_blobstor_metrics(self):
 
         with self.getTestDir() as dirn:
 
@@ -112,30 +120,28 @@ class AxonTest(s_test.SynTest):
             with s_axon.BlobStor(path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst0:
 
                 blobs = (
-                    (None, (0, os.urandom(1000))),
-                    (None, (1, b'qwer')),
-                    (None, (2, b'hehe')),
-                    (None, (3, b'haha')),
+                    (None, 0, os.urandom(1000)),
+                    (None, 1, b'qwer'),
+                    (None, 2, b'hehe'),
+                    (None, 3, b'haha'),
                 )
-
-                metrics = sorted(list(bst0.metrics()))
+                metrics = sorted([x async for x in bst0.metrics()])
                 self.eq(metrics, [])
 
-                bst0.bulkput(blobs[0:1])
-                metrics = []
-                for item in bst0.metrics():
-                    item[1].pop('time')
-                    metrics.append(item[1])
-                tooks = [m.pop('took') for m in metrics]  # remove took since it may vary
-                self.eq(metrics, [{'size': 1000}])
+                await bst0.bulkput(blobs[0:1])
+
+                metrics = [x async for x in bst0.metrics()]
+                [m[1].pop('time') for m in metrics]
+                tooks = [m[1].pop('took') for m in metrics]  # remove took since it may vary
+                self.eq(metrics[0][1], {'size': 1000})
                 self.len(1, tooks)
                 # These are time based and cannot be promised to be a particular value
                 for took in tooks:
                     self.lt(took, 10000)
 
-                bst0.bulkput(blobs[0:2])
+                await bst0.bulkput(blobs[0:2])
                 metrics = []
-                for item in bst0.metrics():
+                async for item in bst0.metrics():
                     item[1].pop('time')
                     metrics.append(item[1])
                 tooks = [m.pop('took') for m in metrics]  # remove took since it may vary
