@@ -60,7 +60,7 @@ def hexstr(text):
         # checks for valid hex width and does character
         # checking in C without using regex
         s_common.uhex(text)
-    except binascii.Error as e:
+    except (binascii.Error, ValueError) as e:
         raise s_exc.BadTypeValu(valu=text, name='hexstr', mesg=str(e))
     return text
 
