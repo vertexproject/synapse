@@ -182,8 +182,6 @@ testmodel = {
             ('tick', ('testtime', {}), {}),
         )),
 
-        ('testtime', {}, ()),
-
         ('testthreetype', {}, (
             ('three', ('int', {}), {}),
         )),
