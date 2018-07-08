@@ -373,4 +373,24 @@ class TypesTest(s_test.SynTest):
         self.eq('is.ｂob.evil', tagtype.norm('is.\uff42ob.evil')[0])
 
     def test_time(self):
-        self.skip('Implement base time test')
+
+        with self.getTestCore() as core:
+            t = core.model.type('testtime')
+            tick = t.norm('2014')[0]
+            tock = t.norm('2015')[0]
+
+            r = t.indxByEq('-2 days')
+            print(r)
+            r = t.indxByEq((tick, tock))
+            self.eq(r, (('range', (b'\x80\x00\x01CK\x19\x84\x00', b'\x80\x00\x01J\xa2\xca\xb0\x00')),))
+
+            self.raises(s_exc.BadTypeValu, t.indxByEq, ('', ''))
+
+            r = t.indxByEq(('2014', '+1 day'))
+            print(r)
+
+            r = t.indxByEq(('now', '-7 days'))
+            print(r)
+
+            r = t.indxByEq(('-7 days', '+7 days'))
+            print(r)
