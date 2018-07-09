@@ -20,6 +20,7 @@ class GeoTest(s_t_common.SynTest):
             self.eq(t.norm('12.345678901234567890')[0], 12.3456789)
             self.eq(t.norm('90')[0], 90.0)
             self.raises(s_exc.BadTypeValu, t.norm, '90.1')
+            self.raises(s_exc.BadTypeValu, t.norm, 'newp')
 
             self.eq(t.indx(-90), b'\x00\x00\x00\x00\x00')  # index starts at 0 and goes to 9000000000
             self.eq(t.indx(-12.34567890123456789), b'\x01\xce\xdb\x17-')
@@ -37,6 +38,7 @@ class GeoTest(s_t_common.SynTest):
             self.eq(t.norm('12.345678901234567890')[0], 12.3456789)
             self.eq(t.norm('180')[0], 180.0)
             self.raises(s_exc.BadTypeValu, t.norm, '180.1')
+            self.raises(s_exc.BadTypeValu, t.norm, 'newp')
 
             self.eq(t.indx(-180), b'\x00\x00\x00\x00\x00')  # index starts at 0 and goes to 18000000000
             self.eq(t.indx(-12.34567890123456789), b'\x03\xe7L1-')
@@ -57,6 +59,7 @@ class GeoTest(s_t_common.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, '91,0')
             self.raises(s_exc.BadTypeValu, t.norm, '0,-181')
             self.raises(s_exc.BadTypeValu, t.norm, '0,181')
+            self.raises(s_exc.BadTypeValu, t.norm, ('newp', 'newp', 'still newp'))
 
             # Demonstrate precision
             self.eq(t.norm('12.345678,-12.345678'),

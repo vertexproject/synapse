@@ -159,7 +159,7 @@ class NodeTest(s_t_common.SynTest):
                 node.addTag('cool', valu=(1, 3))  # Add again with different valu
                 self.eq(node.getTag('cool'), (1, 3))
                 node.addTag('cool', valu=(-5, 0))  # Add again with different valu
-                self.eq(node.getTag('cool'), (-5, 0))  # Does not merge, overwrites
+                self.eq(node.getTag('cool'), (-5, 3)) # merges...
 
                 self.true(node.hasTag('cool'))
                 self.true(node.hasTag('#cool'))
@@ -170,7 +170,6 @@ class NodeTest(s_t_common.SynTest):
                 node.addTag('cool.beans.abc', valu=(1, 8))
                 self.eq(node.getTag('cool.beans.abc'), (1, 8))
                 self.eq(node.getTag('cool.beans'), (None, None))
-                self.eq(node.getTag('cool'), (-5, 0))  # from above
 
                 self.raises(s_exc.NoSuchProp, node.pop, 'nope')
                 snap.strict = False

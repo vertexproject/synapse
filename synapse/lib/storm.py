@@ -137,7 +137,7 @@ class DelNodeCmd(Cmd):
                 mesg = '--force requires admin privs.'
                 return self._onAuthDeny(mesg)
 
-        for node in genr:
+        for node, path in genr:
             node.delete(force=self.opts.force)
 
 class SudoCmd(Cmd):
@@ -162,6 +162,8 @@ class ReIndexCmd(Cmd):
 
         foo:bar | reindex --subs
 
+        reindex --type inet:ipv4
+
     NOTE: This is mostly for model updates and migrations.
           Use with caution and be very sure of what you are doing.
     '''
@@ -169,6 +171,7 @@ class ReIndexCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
+        pars.add_argument('--type', default=None, help='Re-index all properties of a specified type.')
         pars.add_argument('--subs', default=False, action='store_true', help='Re-parse and set sub props.')
         return pars
 
@@ -179,7 +182,32 @@ class ReIndexCmd(Cmd):
             return
 
         snap.elevated = True
-        for node in genr:
+        snap.writeable()
+
+        # are we re-indexing a type?
+        if self.opts.type is not None:
+
+            # is the type also a form?
+            form = snap.model.forms.get(self.opts.type)
+
+            if form is not None:
+
+                snap.printf(f'reindex form: {form.name}')
+                for buid, norm in snap.xact.iterFormRows(form.name):
+                    snap.stor(form.getSetOps(buid, norm))
+
+            for prop in snap.model.getPropsByType(self.opts.type):
+
+                snap.printf(f'reindex prop: {prop.full}')
+
+                formname = prop.form.name
+
+                for buid, norm in snap.xact.iterPropRows(formname, prop.name):
+                    snap.stor(prop.getSetOps(buid, norm))
+
+            return
+
+        for node, path in genr:
 
             form, valu = node.ndef
             norm, info = node.form.type.norm(valu)
@@ -190,7 +218,7 @@ class ReIndexCmd(Cmd):
                     if node.form.props.get(subn):
                         node.set(subn, subv)
 
-            yield node
+            yield node, path
 
 class MoveTagCmd(Cmd):
     '''
@@ -252,8 +280,8 @@ class MoveTagCmd(Cmd):
 
         snap.printf(f'moved tags on {count} nodes.')
 
-        for node in genr:
-            yield node
+        for node, path in genr:
+            yield node, path
 
 class SpinCmd(Cmd):
     '''
@@ -271,7 +299,7 @@ class SpinCmd(Cmd):
 
         yield from ()
 
-        for node in genr:
+        for node, path in genr:
             pass
 
 class CountCmd(Cmd):
@@ -289,7 +317,7 @@ class CountCmd(Cmd):
     def runStormCmd(self, snap, genr):
 
         i = 0
-        for i, node in enumerate(genr, 1):
-            yield node
+        for i, (node, path) in enumerate(genr, 1):
+            yield node, path
 
         snap.printf(f'Counted {i} nodes.')

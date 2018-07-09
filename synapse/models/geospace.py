@@ -28,7 +28,8 @@ class Dist(s_types.Type):
 
         mult = units.get(unit.lower())
         if mult is None:
-            raise s_exc.BadTypeValu(text, mesg='invalid/unknown dist unit: %s' % (unit,))
+            raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                    mesg='invalid/unknown dist unit: %s' % (unit,))
 
         return valu * mult, {}
 
@@ -41,10 +42,12 @@ class Latitude(s_types.Type):
         try:
             valu = float(valu)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu, mesg='Invalid float format')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Invalid float format')
 
         if valu > 90.0 or valu < -90.0:
-            raise s_exc.BadTypeValu(valu, mesg='Latitude may only be -90.0 to 90.0')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Latitude may only be -90.0 to 90.0')
 
         valu = int(valu * Latitude.SCALE) / Latitude.SCALE
 
@@ -66,13 +69,15 @@ class LatLong(s_types.Type):
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
-            raise s_exc.BadTypeValu(valu, mesg='Valu must contain valid latitude,longitude')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Valu must contain valid latitude,longitude')
 
         try:
             latv = self.modl.type('geo:latitude').norm(valu[0])[0]
             lonv = self.modl.type('geo:longitude').norm(valu[1])[0]
         except Exception as e:
-            raise s_exc.BadTypeValu(valu, mesg=e)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=e)
 
         return (latv, lonv), {'subs': {'lat': latv, 'lon': lonv}}
 
@@ -91,10 +96,12 @@ class Longitude(s_types.Type):
         try:
             valu = float(valu)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu, mesg='Invalid float format')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Invalid float format')
 
         if valu > 180.0 or valu < -180.0:
-            raise s_exc.BadTypeValu(valu, mesg='Longitude may only be -180.0 to 180.0')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Longitude may only be -180.0 to 180.0')
 
         valu = int(valu * Longitude.SCALE) / Longitude.SCALE
 
@@ -132,22 +139,21 @@ class GeoModule(s_module.CoreModule):
                 ),
 
                 'forms': (
+
                     ('geo:nloc', {}, (
-                        ('ndef', ('ndef', {}), {
-                            'ro': 1,
-                            'req': 1,
-                            'doc': 'The node with location in geo/time'
-                        }),
-                        ('latlong', ('geo:latlong', {}), {
-                            'ro': 1,
-                            'req': 1,
-                            'doc': 'The latitude/longitude the node was observed'
-                        }),
-                        ('time', ('time', {}), {
-                            'ro': 1,
-                            'req': 1,
-                            'doc': 'The time the node was observed at location'
-                        }),
+
+                        ('ndef', ('ndef', {}), {'ro': True,
+                            'doc': 'The node with location in geo/time'}),
+
+                        ('ndef:form', ('str', {}), {'ro': True,
+                            'doc': 'The form of node referenced by the ndef.'}),
+
+                        ('latlong', ('geo:latlong', {}), {'ro': True,
+                            'doc': 'The latitude/longitude the node was observed.'}),
+
+                        ('time', ('time', {}), {'ro': True,
+                            'doc': 'The time the node was observed at location'}),
+
                     )),
 
                     ('geo:place', {}, (

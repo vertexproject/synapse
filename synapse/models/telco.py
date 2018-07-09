@@ -76,13 +76,13 @@ class Phone(s_types.Type):
     def _normPyStr(self, valu):
         digs = digits(valu)
         if not digs:
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='requires a digit string')
         subs = {}
         try:
             info = s_l_phone.getPhoneInfo(int(digs))
         except Exception as e:  # pragma: no cover
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Failed to get phone info')
         cc = info.get('cc')
         if cc is not None:
@@ -92,7 +92,7 @@ class Phone(s_types.Type):
 
     def _normPyInt(self, valu):
         if valu < 1:
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='phone int must be greater than 0')
         return self._normPyStr(str(valu))
 
@@ -156,7 +156,7 @@ class Imsi(s_types.Type):
     def _normPyStr(self, valu):
         digs = digits(valu)
         if not digs:
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='requires a digit string')
         return self._normPyInt(int(digs))
 
@@ -164,7 +164,7 @@ class Imsi(s_types.Type):
         imsi = str(valu)
         ilen = len(imsi)
         if ilen > 15:
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='invalid imsi len: %d' % (ilen,))
 
         mcc = int(imsi[0:3])
@@ -191,7 +191,7 @@ class Imei(s_types.Type):
     def _normPyStr(self, valu):
         digs = digits(valu)
         if not digs:
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='requires a digit string')
         return self._normPyInt(int(digs))
 
@@ -208,11 +208,11 @@ class Imei(s_types.Type):
         # if we *have* our check digit, lets check it
         elif ilen == 15:
             if imeicsum(imei) != imei[-1]:
-                raise s_exc.BadTypeValu(valu=valu,
+                raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                         mesg='invalid imei checksum byte')
             return chop_imei(imei)
 
-        raise s_exc.BadTypeValu(valu=valu,
+        raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                 mesg='Failed to norm IMEI')
 
     def indx(self, valu):
@@ -230,35 +230,39 @@ class TelcoModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
             'ctors': (
+
                 ('tel:mob:imei', 'synapse.models.telco.Imei', {}, {
-                    'doc': 'An International Mobile Equipment Id',
                     'ex': '490154203237518',
-                }),
+                    'doc': 'An International Mobile Equipment Id'}),
+
                 ('tel:mob:imsi', 'synapse.models.telco.Imsi', {}, {
-                    'doc': 'An International Mobile Subscriber Id',
                     'ex': '310150123456789',
-                }),
+                    'doc': 'An International Mobile Subscriber Id'}),
+
                 ('tel:phone', 'synapse.models.telco.Phone', {}, {
-                    'doc': 'A phone number.',
                     'ex': '+15558675309',
-                }),
+                    'doc': 'A phone number.'}),
 
             ),
+
             'types': (
-                ('tel:mob:tac', ('int', {}), {
-                    'doc': 'A mobile Type Allocation Code',
-                    'ex': '49015420',
-                }),
-                ('tel:mob:imid', ('comp', {'fields': (('imei', 'tel:mob:imei'), ('imsi', 'tel:mob:imsi'))}), {
-                    'doc': 'Fused knowledge of an IMEI/IMSI used together.',
-                    'ex': '(490154203237518, 310150123456789)',
-                }),
-                ('tel:mob:imsiphone', ('comp', {'fields': (('imsi', 'tel:mob:imsi'), ('phone', 'tel:phone'))}), {
-                    'doc': 'Fused knowledge of an IMSI assigned phone number.',
-                    'ex': '(310150123456789, "+7(495) 124-59-83")',
-                }),
 
+                ('tel:mob:tac', ('int', {}), {
+                    'ex': '49015420',
+                    'doc': 'A mobile Type Allocation Code'}),
+
+                ('tel:mob:imid', ('comp', {'fields': (('imei', 'tel:mob:imei'), ('imsi', 'tel:mob:imsi'))}), {
+                    'ex': '(490154203237518, 310150123456789)',
+                    'doc': 'Fused knowledge of an IMEI/IMSI used together.'}),
+
+                ('tel:mob:imsiphone', ('comp', {'fields': (('imsi', 'tel:mob:imsi'), ('phone', 'tel:phone'))}), {
+                    'ex': '(310150123456789, "+7(495) 124-59-83")',
+                    'doc': 'Fused knowledge of an IMSI assigned phone number.'}),
+
+                ('tel:mob:telem', ('guid', {}), {
+                    'doc': 'A single mobile telemetry measurement.'}),
             ),
+
             'forms': (
                 ('tel:phone', {}, (
                     ('loc', ('loc', {}), {
@@ -300,8 +304,7 @@ class TelcoModule(s_module.CoreModule):
                     }),
                 )),
                 ('tel:mob:imid', {}, (
-                    ('imei', ('tel:mob:imei', {}), {
-                        'ro': 1,
+                    ('imei', ('tel:mob:imei', {}), {'ro': 1,
                         'doc': 'The IMEI for the phone hardware.'
                     }),
                     ('imsi', ('tel:mob:imsi', {}), {
@@ -318,6 +321,28 @@ class TelcoModule(s_module.CoreModule):
                         'ro': 1,
                         'doc': 'The IMSI with the assigned phone number.'
                     }),
+                )),
+
+                ('tel:mob:telem', {}, (
+
+                    ('time', ('time', {}), {}),
+                    ('latlong', ('geo:latlong', {}), {}),
+
+                    # telco specific data
+                    ('imsi', ('tel:mob:imsi', {}), {}),
+                    ('imei', ('tel:mob:imei', {}), {}),
+                    ('phone', ('tel:phone', {}), {}),
+
+                    # inet protocol addresses
+                    ('mac', ('inet:mac', {}), {}),
+                    ('ipv4', ('inet:ipv4', {}), {}),
+                    ('ipv6', ('inet:ipv6', {}), {}),
+
+                    ('wifi:ssid', ('inet:wifi:ssid', {}), {}),
+                    ('wifi:bssid', ('inet:mac', {}), {}),
+
+                    ('data', ('data', {}), {}),
+                    # any other fields may be refs...
                 )),
 
             )

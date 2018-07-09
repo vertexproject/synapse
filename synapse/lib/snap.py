@@ -199,7 +199,14 @@ class Snap(s_eventbus.EventBus):
 
     def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
 
+        filt = None
         form = self.model.form(name)
+
+        if valu is not None:
+            ctor = self.model.type('ival').getCmprCtor(cmpr)
+            if ctor is not None:
+                filt = ctor(valu)
+
         if form is None:
             raise s_exc.NoSuchForm(form=name)
 
@@ -211,17 +218,26 @@ class Snap(s_eventbus.EventBus):
         fenc = form.name.encode('utf8') + b'\x00'
         tenc = b'#' + tag.encode('utf8') + b'\x00'
 
-        if valu is None:
-            iops = (('pref', b''), )
-        else:
-            iops = self.tagtype.getIndxOps(valu, cmpr)
-
+        iops = (('pref', b''), )
         lops = (
             ('indx', ('byprop', fenc + tenc, iops)),
         )
 
-        for row, node in self.getLiftNodes(lops, '#' + tag):
-            yield node
+        # a small speed optimization...
+        rawprop = '#' + tag
+        if filt is None:
+
+            for row, node in self.getLiftNodes(lops, rawprop):
+                yield node
+
+            return
+
+        for row, node in self.getLiftNodes(lops, rawprop):
+
+            valu = node.getTag(tag)
+
+            if filt(valu):
+                yield node
 
     def getNodesBy(self, full, valu=None, cmpr='='):
         '''
@@ -449,7 +465,7 @@ class Snap(s_eventbus.EventBus):
         try:
             norm, info = form.type.norm(valu)
         except Exception as e:
-            raise s_exc.BadPropValu(prop=form.name, valu=valu)
+            raise s_exc.BadPropValu(prop=form.name, valu=valu, mesg=str(e))
 
         buid = s_common.buid((form.name, norm))
         return form, norm, info, buid
