@@ -547,10 +547,10 @@ class CortexTest(s_test.SynTest):
             for node in core.eval('teststr=$foo', opts=opts):
                 self.eq('bar', node.ndef[1])
 
-        conf = {'storm:log': True}
-        with self.getTestDir() as dirn:
-            with self.getTestCell(dirn, 'cortex', conf=conf) as core:
-                with self.getLoggerStream('synapse.cortex', 'Executing storm query [help ask] as [None]') as stream:
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:
+                with self.getLoggerStream('synapse.cortex', 'Executing storm query [help ask] as [root]') as stream:
                     mesgs = list(core.storm('help ask'))
                     self.true(stream.wait(6))
 
