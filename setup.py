@@ -23,6 +23,7 @@ setup(
         'lmdb>=0.94,<1.0.0',
         'regex>=2017.9.23',
         'PyYAML>=3.13,<4.0',
+        'sphinx==1.7.0',
     ],
 
     classifiers=[

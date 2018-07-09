@@ -373,4 +373,33 @@ class TypesTest(s_test.SynTest):
         self.eq('is.ｂob.evil', tagtype.norm('is.\uff42ob.evil')[0])
 
     def test_time(self):
-        self.skip('Implement base time test')
+
+        with self.getTestCore() as core:
+            t = core.model.type('testtime')
+            tick = t.norm('2014')[0]
+            tock = t.norm('2015')[0]
+            with core.snap() as snap:
+                node = snap.addNode('teststr', 'a', {'tick': '2014'})
+                node = snap.addNode('teststr', 'b', {'tick': '2015'})
+                node = snap.addNode('teststr', 'c', {'tick': '2016'})
+                node = snap.addNode('teststr', 'd', {'tick': 'now'})
+
+            nodes = list(core.getNodesBy('teststr:tick', '2014*'))
+            self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
+            nodes = list(core.getNodesBy('teststr:tick', '201401*'))
+            self.eq({node.ndef[1] for node in nodes}, {'a'})
+            nodes = list(core.getNodesBy('teststr:tick', '-3000 days'))
+            self.eq({node.ndef[1] for node in nodes}, {'a', 'b', 'c', 'd'})
+            nodes = list(core.getNodesBy('teststr:tick', (tick, tock)))
+            self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
+            nodes = list(core.getNodesBy('teststr:tick', ('20131231', '+2 days')))
+            self.eq({node.ndef[1] for node in nodes}, {'a'})
+            nodes = list(core.getNodesBy('teststr:tick', ('-1 day', '+1 day')))
+            self.eq({node.ndef[1] for node in nodes}, {'d'})
+            nodes = list(core.getNodesBy('teststr:tick', ('-1 days', 'now', )))
+            self.eq({node.ndef[1] for node in nodes}, {'d'})
+            # This lifts nothing
+            nodes = list(core.getNodesBy('teststr:tick', ('now', '-1 days')))
+            self.eq({node.ndef[1] for node in nodes}, set())
+            # Sad path
+            self.raises(s_exc.BadTypeValu, t.indxByEq, ('', ''))
