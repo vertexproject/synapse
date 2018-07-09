@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.tests.common as s_test
@@ -119,6 +120,14 @@ class BaseTest(s_test.SynTest):
             self.len(1, core.eval('geo:place=$place <- has <- *', opts=opts))
             self.len(1, core.eval('geo:place=$place <- has <- ps:person', opts=opts))
             self.len(0, core.eval('geo:place=$place <- has <- inet:ipv4', opts=opts))
+
+            # Make a restricted edge and validate that you can only form certain relationships
+            copts = {'n1:forms': ('ps:person',), 'n2:forms': ('geo:place',)}
+            t = core.model.type('edge').clone(copts)
+            norm, info = t.norm((n1def, n2def))
+            self.eq(norm, (n1def, n2def))
+            self.raises(s_exc.BadTypeValu, t.norm, (n1def, ('testint', 1)))
+            self.raises(s_exc.BadTypeValu, t.norm, (('testint', 1), n2def))
 
     def test_model_base_source(self):
 

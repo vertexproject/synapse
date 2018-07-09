@@ -368,4 +368,4 @@ def run_autodoc(_):
 def setup(app):
     app.add_stylesheet('theme_overrides.css')
     app.connect('builder-inited', run_apidoc)
-    app.connect('builder-inited', run_autodoc)
+    # app.connect('builder-inited', run_autodoc)
