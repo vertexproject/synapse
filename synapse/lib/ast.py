@@ -575,7 +575,7 @@ class PropPivot(PivotOper):
                 logger.warning('Caught error during pivot', exc_info=e)
                 items = e.items()
                 mesg = items.pop('mesg', '')
-                mesg = ': '.join(('Type error during pivot', mesg))
+                mesg = ': '.join((f'BadTypeValu [{repr(valu)}] during pivot', mesg))
                 self.snap.warn(mesg, **items)
 
 class Cond(AstNode):
