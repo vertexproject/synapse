@@ -807,7 +807,7 @@ class CortexTest(s_test.SynTest):
             mesgs = list(core.storm('testcomp :haha -> testint'))
             warns = [msg for msg in mesgs if msg[0] == 'warn']
             self.len(1, warns)
-            emesg = "Type error during pivot: invalid literal for int() with base 0: 'newp'"
+            emesg = "BadTypeValu ['newp'] during pivot: invalid literal for int() with base 0: 'newp'"
             self.eq(warns[0][1], {'name': 'testint', 'valu': 'newp',
                                   'mesg': emesg})
             nodes = [msg for msg in mesgs if msg[0] == 'node']
