@@ -180,6 +180,7 @@ class TypesTest(s_test.SynTest):
         # test base types that Model snaps in...
         self.eq(t.norm('100')[0], 100)
         self.eq(t.norm('0x20')[0], 32)
+        self.raises(s_exc.BadTypeValu, t.norm, 'newp')
 
         # Index tests
         self.eq(t.indx(-2**63), b'\x00\x00\x00\x00\x00\x00\x00\x00')

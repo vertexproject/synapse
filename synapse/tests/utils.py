@@ -131,7 +131,7 @@ testmodel = {
         ('testauto', ('str', {}), {}),
 
         ('testcomp', ('comp', {'fields': (
-            ('hehe', 'int'),
+            ('hehe', 'testint'),
             ('haha', 'testlower'))
         }), {'doc': 'A fake comp type.'}),
         ('testhexa', ('hex', {}), {'doc': 'anysize test hex type'}),
@@ -170,8 +170,8 @@ testmodel = {
         )),
 
         ('testcomp', {}, (
-            ('hehe', ('int', {}), {'ro': 1}),
-            ('haha', ('str', {}), {'ro': 1}),
+            ('hehe', ('testint', {}), {'ro': 1}),
+            ('haha', ('testlower', {}), {'ro': 1}),
         )),
 
         ('testint', {}, {}),

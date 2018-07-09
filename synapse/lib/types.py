@@ -537,7 +537,12 @@ class Int(Type):
         return cmpr
 
     def _normPyStr(self, valu):
-        return self._normPyInt(int(valu, 0))
+        try:
+            valu = int(valu, 0)
+        except ValueError as e:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg=str(e))
+        return self._normPyInt(valu)
 
     def _normPyInt(self, valu):
 

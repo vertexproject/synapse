@@ -27,14 +27,14 @@ class CortexTest(s_test.SynTest):
                 # rows are (buid, valu) tuples
                 rows = tuple(xact.iterPropRows('inet:ipv4', 'asn'))
 
-            self.eq((10,20), tuple(sorted([ row[1] for row in rows ])))
+            self.eq((10, 20), tuple(sorted([row[1] for row in rows])))
 
             with core.layer.xact() as xact:
                 # rows are (buid, valu) tuples
                 rows = tuple(xact.iterUnivRows('.seen'))
 
             ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
-            self.eq(ivals, tuple(sorted([ row[1] for row in rows ])))
+            self.eq(ivals, tuple(sorted([row[1] for row in rows])))
 
     def test_cortex_lift_regex(self):
 
@@ -801,6 +801,19 @@ class CortexTest(s_test.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
             self.eq(nodes[1][0], ('teststr', 'bar'))
+
+            # Setup a propvalu pivot where the secondary prop may fail to norm
+            # to the destination prop for some of the inbound nodes.
+            list(core.eval('[ testcomp=(127,newp) ] [testcomp=(127,127)]'))
+            mesgs = list(core.storm('testcomp :haha -> testint'))
+            warns = [msg for msg in mesgs if msg[0] == 'warn']
+            self.len(1, warns)
+            emesg = "Type error during pivot: invalid literal for int() with base 0: 'newp'"
+            self.eq(warns[0][1], {'name': 'testint', 'valu': 'newp',
+                                  'mesg': emesg})
+            nodes = [msg for msg in mesgs if msg[0] == 'node']
+            self.len(1, nodes)
+            self.eq(nodes[0][1][0], ('testint', 127))
 
     def test_node_repr(self):
 

@@ -568,8 +568,15 @@ class PropPivot(PivotOper):
                 continue
 
             # TODO cache/bypass normalization in loop!
-            for pivo in self.snap.getNodesBy(self.prop.full, valu):
-                yield pivo, path.fork()
+            try:
+                for pivo in self.snap.getNodesBy(self.prop.full, valu):
+                    yield pivo, path.fork()
+            except s_exc.BadTypeValu as e:
+                logger.warning('Caught error during pivot', exc_info=e)
+                items = e.items()
+                mesg = items.pop('mesg', '')
+                mesg = ': '.join(('Type error during pivot', mesg))
+                self.snap.warn(mesg, **items)
 
 class Cond(AstNode):
 
