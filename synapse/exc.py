@@ -10,7 +10,7 @@ class SynErr(Exception):
         return '%s: %s' % (self.__class__.__name__, displ)
 
     def items(self):
-        return self.errinfo.items()
+        return {k: v for k, v in self.errinfo.items()}
 
     def get(self, name):
         '''
