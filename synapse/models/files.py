@@ -61,6 +61,10 @@ class FilePath(s_types.Type):
         if not valu:
             return '', {}
 
+        if valu in ('.', '..'):
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='Cannot norm a bare relative path.')
+
         path = []
         vals = [v for v in valu.split('/') if v]
         for part in vals:

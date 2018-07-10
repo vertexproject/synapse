@@ -53,6 +53,7 @@ class FileTest(s_test.SynTest):
             self.eq(norm, 'hehe/haha')
             # '.' has no normable value.
             self.raises(s_exc.BadTypeValu, path.norm, '.')
+            self.raises(s_exc.BadTypeValu, path.norm, '..')
 
             norm, info = path.norm('c:')
             self.eq(norm, 'c:')
