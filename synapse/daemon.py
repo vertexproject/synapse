@@ -288,7 +288,7 @@ class Daemon(EventBus):
     def loadDmonCell(self, name):
 
         dirn = s_common.gendir(self.dirn, 'cells', name)
-        logger.warning(f'loading cell from: {dirn}')
+        logger.info(f'loading cell from: {dirn}')
 
         path = os.path.join(dirn, 'boot.yaml')
 
