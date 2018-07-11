@@ -533,11 +533,9 @@ class CortexTest(s_test.SynTest):
             for node in core.eval('[-#foo]', opts=opts):
                 self.none(node.getTag('foo'))
 
-            def wind(func, text):
-                return list(func(text))
-
-            self.raises(s_exc.NoSuchOpt, wind, core.eval, '%foo=asdf')
-            self.raises(s_exc.BadOptValu, wind, core.eval, '%limit=asdf')
+            self.genraises(s_exc.NoSuchOpt, core.eval, '%foo=asdf')
+            self.genraises(s_exc.BadOptValu, core.eval, '%limit=asdf')
+            self.genraises(s_exc.BadStormSyntax, core.eval, ' | | ')
 
             self.len(2, list(core.eval(('[ teststr=foo teststr=bar ]'))))
             self.len(1, list(core.eval(('teststr %limit=1'))))
