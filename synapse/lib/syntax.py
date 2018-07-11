@@ -1419,10 +1419,11 @@ class Parser:
             self.ignore(whitespace)
 
             oper = self.oper()
-            if self.nextchar('}'):
+            if self.nextchar() == '}':
+                self.offs += 1
                 break
 
-        self.eat(1, ignore=whitespace)
+        self.ignore(whitespace)
         return subq
 
     def tag(self):

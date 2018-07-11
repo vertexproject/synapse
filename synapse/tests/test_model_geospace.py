@@ -3,6 +3,17 @@ import synapse.tests.common as s_t_common
 
 class GeoTest(s_t_common.SynTest):
 
+    def test_model_geospace_dist(self):
+
+        with self.getTestCore() as core:
+
+            dist = core.model.type('geo:dist')
+            self.eq(dist.norm('100km')[0], 100000000)
+            self.eq(dist.norm('100     km')[0], 100000000)
+
+            self.eq(dist.repr(10000), '10.0 m')
+            self.eq(dist.repr(1000000), '1.0 km')
+
     def test_latlong(self):
         formlat = 'geo:latitude'
         formlon = 'geo:longitude'

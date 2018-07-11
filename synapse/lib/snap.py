@@ -38,6 +38,7 @@ class Snap(s_eventbus.EventBus):
         self.elevated = False
         self.canceled = False
 
+        self.dorules = True
         self.permcache = s_cache.FixedCache({}, size=1000)
 
         self.core = core
@@ -138,7 +139,26 @@ class Snap(s_eventbus.EventBus):
         if self.user is not None:
             self.permcache.callback = self.user.allowed
 
+    @contextlib.contextmanager
+    def allowall(self):
+        '''
+        DANGER DANGER DANGER
+
+        Never ever hold this while *yielding* nodes in storm.
+        '''
+        dorules = self.dorules
+        self.dorules = False
+
+        yield
+
+        self.dorules = dorules
+
     def allowed(self, *args):
+
+        # are we in an allowall() block?
+        if not self.dorules:
+            return True
+
         # a user will be set by auth subsystem if enabled
         if self.user is None:
             return True
@@ -387,9 +407,9 @@ class Snap(s_eventbus.EventBus):
         sops = form.getSetOps(buid, norm)
         self.stor(sops)
 
-        self.splice('node:add', ndef=node.ndef)
-
         self.buidcache.put(buid, node)
+
+        self.splice('node:add', ndef=node.ndef)
 
         # update props with any subs from form value
         subs = info.get('subs')

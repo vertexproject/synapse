@@ -692,6 +692,25 @@ class CortexTest(s_test.SynTest):
                 # final top level API check
                 self.none(snap.getNodeByNdef(('teststr', 'baz')))
 
+    def test_cortex_allowall(self):
+
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+
+            pconf = {'user': 'root', 'passwd': 'root'}
+
+            def feed(snap, items):
+
+                with snap.allowall():
+                    self.nn(snap.addNode('teststr', 'foo'))
+
+                self.none(snap.addNode('teststr', 'bar'))
+
+            dmon.shared.get('core').setFeedFunc('allowtest', feed)
+
+            with dmon._getTestProxy('core', **pconf) as core:
+
+                core.addFeedData('allowtest', ['asdf'])
+
     def test_cortex_delnode_perms(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:

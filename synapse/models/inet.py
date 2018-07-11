@@ -191,6 +191,8 @@ class Fqdn(s_types.Type):
     def _normPyStr(self, valu):
 
         valu = valu.replace('[.]', '.')
+        valu = valu.replace('(.)', '.')
+
         if not fqdnre.match(valu):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg=f'FQDN failed to match fqdnre [{fqdnre.pattern}]')
@@ -300,6 +302,8 @@ class IPv4(s_types.Type):
     def _normPyStr(self, valu):
 
         valu = valu.replace('[.]', '.')
+        valu = valu.replace('(.)', '.')
+
         valu = s_chop.printables(valu)
 
         try:
