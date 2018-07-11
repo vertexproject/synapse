@@ -13,6 +13,12 @@ units = {
     'km': 1000000,
 }
 
+distrepr = (
+    (1000000.0, 'km'),
+    (1000.0, 'm'),
+    (10.0, 'cm'),
+)
+
 class Dist(s_types.Type):
 
     def postTypeInit(self):
@@ -31,7 +37,19 @@ class Dist(s_types.Type):
             raise s_exc.BadTypeValu(valu=text, name=self.name,
                                     mesg='invalid/unknown dist unit: %s' % (unit,))
 
-        return valu * mult, {}
+        return int(valu * mult), {}
+
+    def indx(self, norm):
+        return norm.to_bytes(8, 'big')
+
+    def repr(self, norm):
+
+        for base, unit in distrepr:
+            if norm >= base:
+                size = norm / base
+                return '%s %s' % (size, unit)
+
+        return '%d mm' % (norm,)
 
 class Latitude(s_types.Type):
     SCALE = 10**8  # ~1mm resolution
@@ -166,6 +184,9 @@ class GeoModule(s_module.CoreModule):
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The lat/long position for the place.'}),
+
+                        ('radius', ('geo:dist', {}), {
+                            'doc': 'An approximate radius to use for bounding box calculation.'}),
                     )),
                 )
             }),

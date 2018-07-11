@@ -144,20 +144,25 @@ class CoreApi(s_cell.CellApi):
 
     def _getStormQuery(self, text, opts=None):
 
-        query = self.cell.view.getStormQuery(text)
-        query.setUser(self.user)
+        try:
 
-        if opts is not None:
-            query.opts.update(opts)
+            query = self.cell.view.getStormQuery(text)
+            query.setUser(self.user)
 
-        return query
+            if opts is not None:
+                query.opts.update(opts)
+
+            return query
+
+        except Exception as e:
+            logger.exception('storm query parser error')
+            raise
 
     def storm(self, text, opts=None):
         '''
         Execute a storm query and yield messages.
         '''
         query = self._getStormQuery(text, opts=opts)
-
         try:
 
             for mesg in query.execute():

@@ -306,6 +306,9 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm(fqdn), expected)
             self.raises(s_exc.BadTypeValu, t.norm, '!@#$%')
 
+            # defanging works
+            self.eq(t.norm('example[.]vertex(.)link'), expected)
+
             # Demonstrate Valid IDNA
             fqdn = 'tèst.èxamplè.link'
             ex_fqdn = 'xn--tst-6la.xn--xampl-3raf.link'
@@ -566,12 +569,14 @@ class InetModelTest(s_t_common.SynTest):
             ip_int = 16909060
             ip_str = '1.2.3.4'
             ip_str_enfanged = '1[.]2[.]3[.]4'
+            ip_str_enfanged2 = '1(.)2(.)3(.)4'
             ip_str_unicode = '1\u200b.\u200b2\u200b.\u200b3\u200b.\u200b4'
 
             info = {'subs': {'type': 'unicast'}}
             self.eq(t.norm(ip_int), (ip_int, info))
             self.eq(t.norm(ip_str), (ip_int, info))
             self.eq(t.norm(ip_str_enfanged), (ip_int, info))
+            self.eq(t.norm(ip_str_enfanged2), (ip_int, info))
             self.eq(t.norm(ip_str_unicode), (ip_int, info))
             self.eq(t.repr(ip_int), ip_str)
 
