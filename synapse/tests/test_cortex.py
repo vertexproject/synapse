@@ -547,12 +547,16 @@ class CortexTest(s_test.SynTest):
             for node in core.eval('teststr=$foo', opts=opts):
                 self.eq('bar', node.ndef[1])
 
+        # Remote storm test paths
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
             with dmon._getTestProxy('core', **pconf) as core:
+                # Storm logging
                 with self.getLoggerStream('synapse.cortex', 'Executing storm query [help ask] as [root]') as stream:
                     mesgs = list(core.storm('help ask'))
                     self.true(stream.wait(6))
+                # Bad syntax
+                self.genraises(s_exc.BadStormSyntax, core.storm, ' | | | ')
 
     def test_feed_splice(self):
 
