@@ -144,7 +144,12 @@ class Snap(s_eventbus.EventBus):
         '''
         DANGER DANGER DANGER
 
-        Never ever hold this while *yielding* nodes in storm.
+        This is used as context manager to perform a operation which disables
+        permission checking on a snap.
+
+        Never ever hold this while *yielding* nodes into a storm pipeline.
+        Doing that will allow subsequent operations to be done without any
+        permissions enforcement.
         '''
         dorules = self.dorules
         self.dorules = False
