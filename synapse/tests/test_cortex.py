@@ -823,11 +823,18 @@ class CortexTest(s_test.SynTest):
             self.eq(nodes[1][0], ('teststr', 'bar'))
 
             # Add tag
-            nodes = list(core.eval('teststr=bar [+#test.bar]'))
+            nodes = list(core.eval('teststr=bar pivcomp=(foo,bar) [+#test.bar]'))
+            self.len(2, nodes)
             # Lift, filter, pivot in
             nodes = [n.pack() for n in core.eval('#test.bar +teststr <- *')]
             self.len(1, nodes)
             self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            nodes = [n.pack() for n in core.eval('#test.bar +teststr <+- *')]
+            self.len(2, nodes)
+            nodes = [n.pack() for n in core.eval('#test.bar +pivcomp -> *')]
+            self.len(2, nodes)
+            nodes = [n.pack() for n in core.eval('#test.bar +pivcomp -+> *')]
+            self.len(3, nodes)
 
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
