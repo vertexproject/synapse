@@ -77,14 +77,15 @@ class Snap(s_eventbus.EventBus):
                         x.commit()
                     except Exception as e:
                         logger.exception('commit error for layer xact')
+                    x.fini()
 
             else:
-
                 for x in self.xacts:
                     try:
                         x.abort()
                     except Exception as e:
                         logger.exception('abort error for layer xact')
+                    x.fini()
 
         self.onfini(fini)
 
@@ -563,7 +564,7 @@ class Snap(s_eventbus.EventBus):
             (tuple): (layer_indx, (buid, ...)) rows.
         '''
         for layer_idx, xact in enumerate(self.xacts):
-            with xact.incref():
+            with xact.incxref():
                 yield from ((layer_idx, x) for x in xact.getLiftRows(lops))
 
     def getRowNodes(self, rows, rawprop):
@@ -611,7 +612,7 @@ class Snap(s_eventbus.EventBus):
 
     def _getNodeByBuid(self, buid):
         props = {}
-        # this is essentially atomic and doesn't need xact.incref
+        # this is essentially atomic and doesn't need xact.incxref
         for layeridx, x in enumerate(self.xacts):
             layerprops = x.getBuidProps(buid)
             props.update(layerprops)

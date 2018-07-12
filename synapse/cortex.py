@@ -274,7 +274,7 @@ class Cortex(s_cell.Cell):
         # load any configured external layers
         for path in self.conf.get('layers'):
             logger.info('loading external layer: %r', path)
-            self.layers.append(s_layer.opendir(path))
+            self.layers.append(s_layer.opendir.gen(path))
 
         # initialize any cortex directory structures
         self._initCoreDir()
@@ -291,6 +291,13 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+        def finiCortex():
+            # XXX Does the view hold things that need to be fini'd / stopped?
+            # self.view.fini()
+            for layer in self.layers:
+                layer.fini()
+        self.onfini(finiCortex)
 
     def addStormCmd(self, ctor):
         '''
@@ -583,7 +590,7 @@ class Cortex(s_cell.Cell):
 
     def openLayerName(self, name):
         dirn = s_common.gendir(self.dirn, 'layers', name)
-        return s_layer.opendir(dirn)
+        return s_layer.opendir.gen(dirn)
 
     def getCoreMod(self, name):
         return self.modules.get(name)
