@@ -241,6 +241,8 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
             user.setAdmin(True)
             user.setPasswd(passwd)
 
+        self.onfini(self.auth.fini)
+
     def _loadCellYaml(self, *path):
 
         path = os.path.join(self.dirn, *path)

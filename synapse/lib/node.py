@@ -431,12 +431,20 @@ class Node:
 
         self.form.wasDeleted(self)
 
+    def initPath(self):
+        '''
+        Begin a new Path() context for this node.
+        '''
+        return Path(self.snap.vars, [self])
+
+
 class Path:
     '''
     A path context tracked through the storm runtime.
     '''
-    def __init__(self, vars):
+    def __init__(self, vars, nodes):
         self.vars = dict(vars)
+        self.nodes = nodes
 
     def get(self, name, defv=s_common.novalu):
         return self.vars.get(name, defv)
@@ -444,5 +452,9 @@ class Path:
     def set(self, name, valu):
         self.vars[name] = valu
 
-    def fork(self):
-        return Path(self.vars)
+    def fork(self, node):
+
+        nodes = list(self.nodes)
+        nodes.append(node)
+
+        return Path(self.vars, nodes)

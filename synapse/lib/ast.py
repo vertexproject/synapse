@@ -136,8 +136,7 @@ class Query(AstNode):
         for ndef in self.opts.get('ndefs', ()):
             node = snap.getNodeByNdef(ndef)
             if node is not None:
-                path = s_node.Path(self.snap.vars)
-                yield node, path
+                yield node, node.initPath()
 
     def evaluate(self):
 
@@ -272,8 +271,7 @@ class LiftOper(Oper):
         yield from genr
 
         for node in self.lift():
-            path = s_node.Path(self.snap.vars)
-            yield node, path
+            yield node, node.initPath()
 
 class LiftTag(LiftOper):
 
@@ -370,7 +368,7 @@ class PivotOut(PivotOper):
             if isinstance(node.form.type, s_types.Edge):
                 n2def = node.get('n2')
                 pivo = self.snap.getNodeByNdef(n2def)
-                yield pivo, path.fork()
+                yield pivo, path.fork(pivo)
                 continue
 
             for name, valu in node.props.items():
@@ -390,7 +388,7 @@ class PivotOut(PivotOper):
                 if pivo is None:
                     continue
 
-                yield pivo, path.fork()
+                yield pivo, path.fork(pivo)
 
 class PivotIn(PivotOper):
     '''
@@ -416,7 +414,7 @@ class PivotIn(PivotOper):
                 if pivo is None:
                     continue
 
-                yield pivo, path.fork()
+                yield pivo, path.fork(pivo)
 
                 continue
 
@@ -424,7 +422,7 @@ class PivotIn(PivotOper):
 
             for prop in self.snap.model.propsbytype.get(name, ()):
                 for pivo in self.snap.getNodesBy(prop.full, valu):
-                    yield pivo, path.fork()
+                    yield pivo, path.fork(pivo)
 
 class PivotInFrom(PivotOper):
 
@@ -445,7 +443,7 @@ class PivotInFrom(PivotOper):
 
             for node, path in genr:
                 for pivo in self.snap.getNodesBy(full, node.ndef):
-                    yield pivo, path.fork()
+                    yield pivo, path.fork(pivo)
 
             return
 
@@ -465,7 +463,7 @@ class PivotInFrom(PivotOper):
             if pivo is None:
                 continue
 
-            yield pivo, path.fork()
+            yield pivo, path.fork(pivo)
 
 class FormPivot(PivotOper):
 
@@ -491,7 +489,7 @@ class FormPivot(PivotOper):
 
                 # TODO cache/bypass normalization in loop!
                 for pivo in self.snap.getNodesBy(self.prop.full, valu):
-                    yield pivo, path.fork()
+                    yield pivo, path.fork(pivo)
 
         # form -> form pivot is nonsensical. Lets help out...
 
@@ -502,7 +500,7 @@ class FormPivot(PivotOper):
 
             for node, path in genr:
                 for pivo in self.snap.getNodesBy(full, node.ndef):
-                    yield pivo, path.fork()
+                    yield pivo, path.fork(pivo)
 
             return
 
@@ -528,7 +526,7 @@ class FormPivot(PivotOper):
                     continue
 
                 pivo = self.snap.getNodeByNdef(node.get('n2'))
-                yield pivo, path.fork()
+                yield pivo, path.fork(pivo)
 
                 continue
 
@@ -540,7 +538,7 @@ class FormPivot(PivotOper):
             valu = node.get(name)
 
             for pivo in self.snap.getNodesBy(self.prop.name, valu):
-                yield pivo, path.fork()
+                yield pivo, path.fork(pivo)
 
 class PropPivot(PivotOper):
 
@@ -570,7 +568,7 @@ class PropPivot(PivotOper):
             # TODO cache/bypass normalization in loop!
             try:
                 for pivo in self.snap.getNodesBy(self.prop.full, valu):
-                    yield pivo, path.fork()
+                    yield pivo, path.fork(pivo)
             except s_exc.BadTypeValu as e:
                 logger.warning('Caught error during pivot', exc_info=e)
                 items = e.items()
@@ -934,7 +932,7 @@ class EditNodeAdd(Edit):
 
         for valu in self.formtype.getTypeVals(kval):
             node = self.snap.addNode(self.formname, valu)
-            yield node, s_node.Path(self.snap.vars)
+            yield node, node.initPath()
 
 class EditPropSet(Edit):
 

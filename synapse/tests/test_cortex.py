@@ -533,11 +533,9 @@ class CortexTest(s_test.SynTest):
             for node in core.eval('[-#foo]', opts=opts):
                 self.none(node.getTag('foo'))
 
-            def wind(func, text):
-                return list(func(text))
-
-            self.raises(s_exc.NoSuchOpt, wind, core.eval, '%foo=asdf')
-            self.raises(s_exc.BadOptValu, wind, core.eval, '%limit=asdf')
+            self.genraises(s_exc.NoSuchOpt, core.eval, '%foo=asdf')
+            self.genraises(s_exc.BadOptValu, core.eval, '%limit=asdf')
+            self.genraises(s_exc.BadStormSyntax, core.eval, ' | | ')
 
             self.len(2, list(core.eval(('[ teststr=foo teststr=bar ]'))))
             self.len(1, list(core.eval(('teststr %limit=1'))))
@@ -547,12 +545,16 @@ class CortexTest(s_test.SynTest):
             for node in core.eval('teststr=$foo', opts=opts):
                 self.eq('bar', node.ndef[1])
 
+        # Remote storm test paths
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
             with dmon._getTestProxy('core', **pconf) as core:
+                # Storm logging
                 with self.getLoggerStream('synapse.cortex', 'Executing storm query [help ask] as [root]') as stream:
                     mesgs = list(core.storm('help ask'))
                     self.true(stream.wait(6))
+                # Bad syntax
+                self.genraises(s_exc.BadStormSyntax, core.storm, ' | | | ')
 
     def test_feed_splice(self):
 
@@ -692,6 +694,25 @@ class CortexTest(s_test.SynTest):
                 # final top level API check
                 self.none(snap.getNodeByNdef(('teststr', 'baz')))
 
+    def test_cortex_allowall(self):
+
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+
+            pconf = {'user': 'root', 'passwd': 'root'}
+
+            def feed(snap, items):
+
+                with snap.allowall():
+                    self.nn(snap.addNode('teststr', 'foo'))
+
+                self.none(snap.addNode('teststr', 'bar'))
+
+            dmon.shared.get('core').setFeedFunc('allowtest', feed)
+
+            with dmon._getTestProxy('core', **pconf) as core:
+
+                core.addFeedData('allowtest', ['asdf'])
+
     def test_cortex_delnode_perms(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
@@ -800,6 +821,20 @@ class CortexTest(s_test.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
             self.eq(nodes[1][0], ('teststr', 'bar'))
+
+            # Add tag
+            nodes = list(core.eval('teststr=bar pivcomp=(foo,bar) [+#test.bar]'))
+            self.len(2, nodes)
+            # Lift, filter, pivot in
+            nodes = [n.pack() for n in core.eval('#test.bar +teststr <- *')]
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            nodes = [n.pack() for n in core.eval('#test.bar +teststr <+- *')]
+            self.len(2, nodes)
+            nodes = [n.pack() for n in core.eval('#test.bar +pivcomp -> *')]
+            self.len(2, nodes)
+            nodes = [n.pack() for n in core.eval('#test.bar +pivcomp -+> *')]
+            self.len(3, nodes)
 
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.

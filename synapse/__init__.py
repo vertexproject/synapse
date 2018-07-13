@@ -29,4 +29,7 @@ from synapse.lib.version import version, verstring
 tmax = multiprocessing.cpu_count() * 8
 
 s_glob.plex = s_plex.Plex()
+s_glob.plex._fini_atexit = True
+
 s_glob.pool = s_threads.Pool(maxsize=tmax)
+s_glob.pool._fini_atexit = True

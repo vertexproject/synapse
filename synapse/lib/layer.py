@@ -22,7 +22,6 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
-openlayers = {}
 
 class Encoder(collections.defaultdict):
     def __missing__(self, name):
@@ -73,7 +72,7 @@ class Xact(s_eventbus.EventBus):
         }
 
     @contextlib.contextmanager
-    def incref(self):
+    def incxref(self):
         '''
         A reference count context manager for the Xact.
 
@@ -483,6 +482,12 @@ class Layer(s_cell.Cell):
         self.splicedb = self.initdb('splices')
         self.splicelog = s_lmdb.Seqn(self.lenv, b'splices')
 
+        def finiLayer():
+            self.lenv.sync()
+            self.lenv.close()
+
+        self.onfini(finiLayer)
+
     def getOffset(self, iden):
         return self.offs.get(iden)
 
@@ -508,17 +513,5 @@ class Layer(s_cell.Cell):
         '''
         return Xact(self, write=write)
 
-def opendir(*path):
-    '''
-    Since a layer may not be opened twice, use the existing.
-    '''
-    path = s_common.genpath(*path)
-
-    layr = openlayers.get(path)
-    if layr is not None:
-        return layr
-
-    layr = Layer(path)
-    openlayers[path] = layr
-
-    return layr
+opendir = s_eventbus.BusRef(Layer)
+opendir._fini_atexit = True
