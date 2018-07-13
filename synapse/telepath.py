@@ -105,7 +105,7 @@ class Genr(Share):
 
             while not self.isfini:
 
-                for retn in self.queue.slice():
+                for retn in await self.queue.slice():
                     if retn is None:
                         return
 
@@ -178,7 +178,7 @@ class Proxy(s_coro.Fini):
 
     Example:
 
-        import synpase.telepath as s_telepath
+        import synapse.telepath as s_telepath
 
         # open the "foo" object shared in a dmon on localhost:3344
 
@@ -188,7 +188,7 @@ class Proxy(s_coro.Fini):
 
             valu = await proxy.getFooValu(x, y)
 
-    The proxy ( and openurl function ) may also be used from sync code:
+    The proxy (and openurl function) may also be used from sync code:
 
         proxy = s_telepath.openurl('tcp://127.0.0.1:3344/foo')
 

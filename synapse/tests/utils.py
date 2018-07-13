@@ -1046,6 +1046,10 @@ class SynTest(unittest.TestCase):
         '''
         return self.assertRaises(*args, **kwargs)
 
+    async def asyncraises(self, exc, coro):
+        with self.assertRaises(exc):
+            await coro
+
     def sorteq(self, x, y, msg=None):
         '''
         Assert two sorted sequences are the same.

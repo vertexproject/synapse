@@ -1,9 +1,13 @@
 import threading
+from typing import Optional, TYPE_CHECKING
+if TYPE_CHECKING:
+    import synapse.lib.plex as s_plex  # NOQA
+    import synapse.lib.threads as s_threads  # NOQA
 
 lock = threading.RLock()
 
-plex = None     # s_net.Plex()
-pool = None     # s_threads.Pool(maxsize=tmax)
+plex: Optional['s_plex.Plex'] = None     # s_plex.Plex()
+pool: Optional['s_threads.Pool'] = None     # s_threads.Pool(maxsize=tmax)
 
 def inpool(f):
     '''

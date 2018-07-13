@@ -128,21 +128,16 @@ class TeleTest(s_test.SynTest):
 
             self.raises(s_exc.BadUrl, s_telepath.openurl, 'noscheme/foo')
 
-            print('a')
-
             # called via synchelp...
             prox = s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
 
             self.false(prox.iAmLoop())
-            print('a')
 
             # check a standard return value
             self.eq(30, prox.bar(10, 20))
-            print('a')
 
             # check a coroutine return value
             self.eq(25, prox.corovalu(10, 5))
-            print('a')
 
             # check a generator return channel
             genr = prox.genr()
@@ -159,6 +154,19 @@ class TeleTest(s_test.SynTest):
             self.raises(s_exc.NoSuchMeth, prox.fake)
 
             self.raises(s_exc.SynErr, prox.boom)
+
+    @s_glob.synchelp
+    async def test_telepath_async(self):
+        foo = Foo()
+
+        async with s_test.SyncToAsyncCMgr(self.getTestDmon) as dmon:
+            addr = await s_glob.plex.executor(dmon.listen, 'tcp://127.0.0.1:0')
+            dmon.share('foo', foo)
+            prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
+            genr = prox.corogenr(3)
+            self.eq([0, 1, 2], [x async for x in await genr])
+            # To act the same as a local object, should be:
+            # self.eq([0, 1, 2], [x async for x in genr])
 
     def test_telepath_aware(self):
 
