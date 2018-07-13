@@ -145,7 +145,6 @@ class CellApi:
             'rules': role.info.get('rules', ()),
         }
 
-        # delayed import.  dep loop.
         if authtype == 'user':
 
             roles = []
