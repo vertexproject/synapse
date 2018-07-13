@@ -279,7 +279,7 @@ class TestUtils(s_test.SynTest):
         with self.getTestDir() as dirn:
             boot = {'auth:en': True}
             conf = {'test': 1}
-            cortex = self.getTestCell(dirn, 'cortex', boot, conf)
-            self.eq(os.path.join(dirn, 'cortex'), cortex.dirn)
-            self.eq(cortex.conf.get('test'), 1)
-            self.eq(cortex.boot.get('auth:en'), True)
+            with self.getTestCell(dirn, 'cortex', boot, conf) as cortex:
+                self.eq(os.path.join(dirn, 'cortex'), cortex.dirn)
+                self.eq(cortex.conf.get('test'), 1)
+                self.eq(cortex.boot.get('auth:en'), True)

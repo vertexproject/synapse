@@ -123,7 +123,11 @@ class Auth(s_cell.Cell):
         self.lenv = lmdb.open(path, max_dbs=128)
         self.lenv.set_mapsize(mapsize)
 
-        self.onfini(self.lenv.close)
+        def authFini():
+            self.lenv.sync()
+            self.lenv.close()
+
+        self.onfini(authFini)
 
         self._db_users = self.lenv.open_db(b'users')
         self._db_roles = self.lenv.open_db(b'roles')

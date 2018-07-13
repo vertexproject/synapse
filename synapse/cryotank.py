@@ -435,6 +435,7 @@ class CryoCell(s_cell.Cell):
         self.sharename = None
 
         self.kvstor = s_kv.KvStor(path)
+        self.onfini(self.kvstor.fini)
 
         self.names = self.kvstor.getKvDict('cryo:names')
         self.confs = self.kvstor.getKvDict('cryo:confs')
