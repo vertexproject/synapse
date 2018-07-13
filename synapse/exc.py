@@ -138,6 +138,8 @@ class AxonIsRo(AxonErr): pass
 class AxonIsClone(AxonErr): pass
 class AxonNotClone(AxonErr): pass
 class AxonBadChunk(AxonErr): pass
+class AxonNoBlobStors(AxonErr): pass
+
 class NoWritableAxons(SynErr):
     '''
     There are no writable axons available for the required operation.
