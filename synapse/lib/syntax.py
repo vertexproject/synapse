@@ -1,6 +1,10 @@
+import collections
+
 import synapse.exc as s_exc
+
 import synapse.lib.ast as s_ast
 import synapse.lib.time as s_time
+import synapse.lib.cache as s_cache
 
 '''
 This module implements syntax parsing for the storm runtime.
@@ -1179,6 +1183,9 @@ class Parser:
 
         if self.nextchar() not in cmprstart:
             return s_ast.HasAbsPropCond(kids=(prop,))
+        # Special case of pivot operations which ALSO start with cmprstart chars
+        if self.nextstrs('<-', '<+-'):
+            return s_ast.HasAbsPropCond(kids=(prop,))
 
         cmpr = self.cmpr()
 
@@ -1494,6 +1501,24 @@ class Parser:
         size = len(text)
         subt = self.text[self.offs:self.offs + size]
         return subt == text
+
+    def nextstrs(self, *texts):
+        if not self.more():
+            return False
+        sd = self.getSortedDict(*texts)
+        for size, valus in sd.items():
+            subt = self.text[self.offs:self.offs + size]
+            if subt in valus:
+                return True
+        return False
+
+    @s_cache.memoize()
+    def getSortedDict(self, *texts):
+        d = collections.defaultdict(list)
+        for text in texts:
+            d[len(text)].append(text)
+        ret = {k: d[k] for k in sorted(d.keys())}
+        return ret
 
     def nextchar(self):
         if not self.more():
