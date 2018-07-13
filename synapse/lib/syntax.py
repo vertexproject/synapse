@@ -1517,7 +1517,7 @@ class Parser:
         d = collections.defaultdict(list)
         for text in texts:
             d[len(text)].append(text)
-        ret = {k: d.get(k) for k in sorted(d.keys())}
+        ret = {k: d[k] for k in sorted(d.keys())}
         return ret
 
     def nextchar(self):
