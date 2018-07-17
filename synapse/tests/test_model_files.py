@@ -49,6 +49,12 @@ class FileTest(s_test.SynTest):
             norm, info = path.norm(r'/foo////bar/.././baz.json')
             self.eq(norm, '/foo/baz.json')
 
+            norm, info = path.norm(r'./hehe/haha')
+            self.eq(norm, 'hehe/haha')
+            # '.' has no normable value.
+            self.raises(s_exc.BadTypeValu, path.norm, '.')
+            self.raises(s_exc.BadTypeValu, path.norm, '..')
+
             norm, info = path.norm('c:')
             self.eq(norm, 'c:')
             subs = info.get('subs')

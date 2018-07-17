@@ -99,6 +99,13 @@ class CmdCoreTest(s_test.SynTest):
             outp.expect('err')
             outp.expect('NoSuchProp')
 
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('storm --hide-unknown [teststr=1234]')
+            s = str(outp)
+            self.notin('node:add', s)
+            self.notin('prop:set', s)
+
 # FIXME incorporate these into storm tests
 '''
 class SynCmdCoreTest(s_test.SynTest):
