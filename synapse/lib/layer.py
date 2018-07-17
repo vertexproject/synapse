@@ -451,7 +451,7 @@ class Layer(s_cell.Cell):
         metadata for layer contents (only specific type / tag)
     '''
     confdefs = (
-        ('lmdb:mapsize', {'type': 'int', 'defval': s_const.tebibyte}),
+        ('lmdb:mapsize', {'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE}),
     )
 
     def __init__(self, dirn):
