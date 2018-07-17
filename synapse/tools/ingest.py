@@ -1,163 +1,115 @@
 import sys
 import time
+import shutil
+import logging
 import argparse
-import collections
-
+import tempfile
+import contextlib
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
-import synapse.lib.tufo as s_tufo
+import synapse.lib.node as s_node
+import synapse.lib.const as s_const
 import synapse.lib.ingest as s_ingest
 import synapse.lib.output as s_output
+
+logger = logging.getLogger(__name__)
+
+@contextlib.contextmanager
+def getTempDir():
+    tempdir = tempfile.mkdtemp()
+
+    try:
+        yield tempdir
+
+    finally:
+        shutil.rmtree(tempdir, ignore_errors=True)
+
+def runIngest(core, *paths):
+    for path in paths:
+        gestdef = s_common.jsload(path)
+        ing = s_ingest.Ingest(gestdef)
+        nodes = ing.ingest(core)
+        yield nodes
+
+def getRet(core, outp, verbose=False, debug=False, *paths):
+    c = 0
+    for nodes in runIngest(core, *paths):
+        for node in nodes:
+            if node is None:
+                outp.printf('Failed to create a node.')
+                return 1
+            c = c + 1
+            if verbose:
+                if isinstance(node, s_node.Node):
+                    node = node.pack()
+                outp.printf(f'{node}')
+    outp.printf(f'Made {c} nodes from {list(paths)}.')
+    if debug:
+        cmdr = s_cmdr.getItemCmdr(core, outp)
+        cmdr.runCmdLoop()
+    return 0
 
 def main(argv, outp=None):
 
     if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
 
-    pars = argparse.ArgumentParser(prog='ingest', description='Command line tool for ingesting data into a cortex')
-
-    pars.add_argument('--core', default='ram://', help='Cortex to use for ingest deconfliction')
-    pars.add_argument('--progress', default=False, action='store_true', help='Print loading progress')
-    pars.add_argument('--sync', default=None, help='Sync to an additional cortex')
-    pars.add_argument('--save', default=None, help='Save cortex sync events to a file')
-    pars.add_argument('--debug', default=False, action='store_true', help='Drop to interactive prompt to inspect cortex')
-    pars.add_argument('--verbose', default=False, action='store_true', help='Show changes to local cortex incrementally')
-    pars.add_argument('files', nargs='*', help='JSON ingest definition files')
-
+    pars = makeargpaser()
     opts = pars.parse_args(argv)
 
-    core = s_cortex.openurl(opts.core)
-    try:
-        s_telepath.reqNotProxy(core)
-    except s_common.MustBeLocal:
-        outp.printf('Ingest requires a local cortex to deconflict against, not a Telepath proxy')
-        raise
-    core.setConfOpt('enforce', 1)
+    if opts.test:
+        with getTempDir() as dirn:
+            s_common.yamlsave({'layer:lmdb:mapsize': s_const.gibibyte * 5}, dirn, 'cell.yaml')
+            with s_cortex.Cortex(dirn) as core:
+                for mod in opts.modules:
+                    outp.printf(f'Loading [{mod}]')
+                    core.loadCoreModule(mod)
+                ret = getRet(core, outp, opts.verbose, opts.debug, *opts.files)
 
-    if opts.debug:  # pragma: no cover
-        core.setConfOpt('log:save', 1)
+    elif opts.cortex:
+        with s_telepath.openurl(opts.cortex) as core:
+            ret = getRet(core, outp, opts.verbose, opts.debug, *opts.files)
 
-    # FIXME check for telepath proxy and bitch.
-    # this core may not be remote because we use
-    # the transaction API.
+    else:  # pragma: no cover
+        outp.printf('No valid options provided [%s]', opts)
+        return 1
 
-    def _print_tufo_add(mesg):
-        tufo = mesg[1].get('node')
-        form = tufo[1].get('tufo:form')
-        outp.printf('add: %s=%s' % (form, tufo[1].get(form)))
-        for prop, valu in sorted(s_tufo.props(tufo).items()):
-            outp.printf('       :%s = %s' % (prop, valu))
+    if ret != 0:
+        outp.printf('Error encountered during data loading.')
+        return ret
 
-    def _print_tufo_tag_add(mesg):
-        tag = mesg[1].get('tag')
-        tufo = mesg[1].get('node')
-        form = tufo[1].get('tufo:form')
-        outp.printf('tag: %s=%s (%s)' % (form, tufo[1].get(form), tag))
+    return ret
 
-    progtot = collections.defaultdict(int)
-    proglast = collections.defaultdict(int)
+def makeargpaser():
+    desc = 'Command line tool for ingesting data into a cortex'
+    pars = argparse.ArgumentParser('synapse.tools.ingest', description=desc)
 
-    proglocs = {'tick': None, 'datatot': 0, 'datalast': 0, 'tufotot': 0, 'tufolast': 0}
+    muxp = pars.add_mutually_exclusive_group(required=True)
+    muxp.add_argument('--cortex', '-c', type=str,
+                      help='Cortex to connect and add nodes too.')
+    muxp.add_argument('--test', '-t', default=False, action='store_true',
+                      help='Perform a local ingest against a temporary cortex.')
 
-    def onGestData(mesg):
-        proglocs['datatot'] += 1
-        proglocs['datalast'] += 1
+    pars.add_argument('--debug', '-d', default=False, action='store_true',
+                      help='Drop to interactive prompt to inspect cortex after loading data.')
+    pars.add_argument('--verbose', '-v', default=False, action='store_true',
+                      help='Print nodes created by ingest.')
 
-    def onNodeAdd(mesg):
-        proglocs['tufotot'] += 1
-        proglocs['tufolast'] += 1
+    pars.add_argument('--save', '-s', type=str, action='store',
+                      help='Save cortex splice events to a file.')
+    pars.add_argument('--modules', '-m', type=str, action='append', default=[],
+                      help='Additional modules to load locally with a test Cortex.')
 
-    # callback for displaying progress...
-    def onGestProg(mesg):
+    pars.add_argument('files', nargs='*', help='JSON ingest definition files')
 
-        act = mesg[1].get('act')
+    return pars
 
-        progtot[act] += 1
-        proglast[act] += 1
-
-        progtot['total'] += 1
-        proglast['total'] += 1
-
-        progtick = proglocs.get('tick')
-        if progtick is None:
-            proglocs['tick'] = time.time()
-            return
-
-        if progtick is not None:
-
-            now = time.time()
-            delta = now - progtick
-
-            if delta >= 1.0:
-
-                tot = sum(proglast.values())
-                persec = int(float(tot) / delta)
-                tot = proglast.get('total', 0)
-
-                datatot = proglocs.get('datatot', 0)
-                datalast = proglocs.get('datalast', 0)
-                datasec = int(float(datalast) / delta)
-
-                tufotot = proglocs.get('tufotot', 0)
-                tufolast = proglocs.get('tufolast', 0)
-                tufosec = int(float(tufolast) / delta)
-
-                totstat = tuple(sorted(progtot.items()))
-                laststat = tuple(sorted(proglast.items()))
-
-                totstr = ' '.join(['%s=%s' % (n, v) for (n, v) in totstat])
-                laststr = ' '.join(['%s=%s' % (n, v) for (n, v) in laststat])
-
-                outp.printf('data: %s %s/sec (%d) nodes: %s %s/sec (%d)' % (datalast, datasec, datatot, tufolast, tufosec, tufotot))
-
-                proglast.clear()
-                proglocs['tick'] = time.time()
-                proglocs['datalast'] = 0
-                proglocs['tufolast'] = 0
-
-    if opts.save:
-        outp.printf('saving sync events to: %s' % (opts.save,))
-        core.addSpliceFd(s_common.genfile(opts.save))
-
-    if opts.verbose:
-        core.on('node:add', _print_tufo_add)
-        core.on('node:tag:add', _print_tufo_tag_add)
-
-    pump = None
-    if opts.sync is not None:
-        sync = s_cortex.openurl(opts.sync)
-        pump = core.getSplicePump(sync)
-
-    tick = time.time()
-
-    with core.getCoreXact() as xact:
-
-        for path in opts.files:
-            gest = s_ingest.loadfile(path)
-
-            if opts.progress:
-                core.on('node:add', onNodeAdd)
-                gest.on('gest:data', onGestData)
-                gest.on('gest:prog', onGestProg)
-
-            gest.ingest(core)
-
-    tock = time.time()
-
-    outp.printf('ingest took: %s sec' % (tock - tick,))
-
-    if opts.debug:  # pragma: no cover
-        s_cmdr.runItemCmdr(core)
-
-    if pump is not None:
-        pump.done()
-        outp.printf('waiting on sync pump...')
-        pump.waitfini()
-
-    return 0
+def _main():  # pragma: no cover
+    s_common.setlogging(logger, 'DEBUG')
+    return main(sys.argv[1:])
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(_main())

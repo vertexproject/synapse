@@ -1098,7 +1098,10 @@ class SynTest(unittest.TestCase):
         '''
         Assert that the length of an object is equal to X
         '''
-        if isinstance(obj, types.GeneratorType):
+        gtyps = (s_telepath.Genr,
+                 types.GeneratorType,
+                 )
+        if isinstance(obj, gtyps):
             obj = list(obj)
 
         self.eq(x, len(obj), msg=msg)
