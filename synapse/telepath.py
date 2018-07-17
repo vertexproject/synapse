@@ -9,6 +9,8 @@ import logging
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
+
+import synapse.lib.coro as s_coro
 import synapse.lib.urlhelp as s_urlhelp
 
 logger = logging.getLogger(__name__)
@@ -54,8 +56,6 @@ class Task:
     def reply(self, retn):
         self.retn = retn
         self.done.set()
-
-import synapse.lib.coro as s_coro
 
 class Share(s_coro.Fini):
     '''
@@ -285,7 +285,6 @@ class Proxy(s_coro.Fini):
             return await task.result()
 
         finally:
-
             self.tasks.pop(task.iden, None)
 
     async def handshake(self, auth=None):

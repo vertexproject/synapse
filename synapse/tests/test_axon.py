@@ -177,16 +177,17 @@ class AxonTest(s_test.SynTest):
     @s_glob.synchelp
     async def test_axon_remote(self):
 
-        with self.getTestDir() as dirn:
+        with self.getTestDir():
             async with s_test.SyncToAsyncCMgr(self.getTestDmon, mirror='axondmon00') as dmon, \
                     await dmon._getTestProxy('axon00') as axon:
                 blobstorurl = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/blobstor00'
                 await axon.addBlobStor(blobstorurl)
 
-                # Test uploader interface
-                # async with await axon.startput() as uploader:
-                #     await uploader.write(b'a')
-                up = await axon.startput()
+                async with await axon.startput() as uploader:
+                    await uploader.write(b'a')
+                    count, hashval = await uploader.finish()
+
+                await _wait_for_axon_files(axon, 1)
 
     @s_glob.synchelp
     async def test_axon_uploader(self):

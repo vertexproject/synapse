@@ -40,7 +40,7 @@ class Fini:
                     await valu
 
             except Exception as e:
-                logger.exception()
+                logger.exception('fini failed')
 
     async def __aenter__(self):
         self.entered = True

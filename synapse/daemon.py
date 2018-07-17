@@ -440,6 +440,8 @@ class Daemon(EventBus):
         name = mesg[1].get('name')
 
         item = link.get('dmon:items').get(name)
+        if item is None:
+            raise s_exc.NoSuchObj(f'name={name}')
 
         #import synapse.lib.scope as s_scope
         #with s_scope.enter({'syn:user': user}):
