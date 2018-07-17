@@ -350,7 +350,7 @@ class Snap(s_eventbus.EventBus):
 
     def addFeedNodes(self, name, items):
         '''
-        Add and return a list of nodes by parsing records from a feed format.
+        Call a feed function and return what it returns (typically yields Node()s).
 
         Args:
             name (str): The name of the feed record type.
