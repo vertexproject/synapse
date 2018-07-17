@@ -35,6 +35,12 @@ def u64(x):
 async def alist(coro):
     return [x async for x in coro]
 
+async def _wait_for_axon_files(axon, nfiles):
+    while True:
+        stats = await axon.stat()
+        if stats.get('files', 0) >= nfiles:
+            break
+        await asyncio.sleep(0.2, loop=s_glob.plex.loop)
 
 class AxonTest(s_test.SynTest):
 
@@ -87,7 +93,6 @@ class AxonTest(s_test.SynTest):
                     self.eq(retn, b'')
 
                     await bst1._consume_clone_data([])
-        await asyncio.sleep(1, loop=s_glob.plex.loop)
 
     @s_glob.synchelp
     async def test_blobstor_stat(self):
@@ -175,7 +180,13 @@ class AxonTest(s_test.SynTest):
         with self.getTestDir() as dirn:
             async with s_test.SyncToAsyncCMgr(self.getTestDmon, mirror='axondmon00') as dmon, \
                     await dmon._getTestProxy('axon00') as axon:
-                pass
+                blobstorurl = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/blobstor00'
+                await axon.addBlobStor(blobstorurl)
+
+                # Test uploader interface
+                # async with await axon.startput() as uploader:
+                #     await uploader.write(b'a')
+                up = await axon.startput()
 
     @s_glob.synchelp
     async def test_axon_uploader(self):
@@ -200,7 +211,7 @@ class AxonTest(s_test.SynTest):
                     self.eq(cdhash, hashval)
 
                 # Give the clone subscription a chance to catch up
-                await asyncio.sleep(.1)
+                await _wait_for_axon_files(axon, 2)
                 self.eq(b'cd', b''.join([x async for x in axon.get(cdhash)]))
                 self.eq(b'ab', b''.join([x async for x in axon.get(abhash)]))
                 print('got here y', flush=True)
@@ -213,9 +224,10 @@ class AxonTest(s_test.SynTest):
                     self.eq(1, count)
                     self.eq(bbufhash, hashval)
 
-                await asyncio.sleep(2)
+                await _wait_for_axon_files(axon, 3)
                 self.eq((), await axon.wants([bbufhash]))
                 self.eq(bbuf, b''.join([x async for x in axon.get(bbufhash)]))
+
 
     @s_glob.synchelp
     async def test_axon(self):
