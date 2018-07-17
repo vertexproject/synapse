@@ -1295,7 +1295,8 @@ class Parser:
         self.ignore(whitespace)
 
         # a simple whitespace separated string
-        if self.nextchar() in alphanum:
+        nexc = self.nextchar()
+        if nexc in alphanum or nexc == '-':
             text = self.noms(until=mustquote)
             return s_ast.Const(text)
 

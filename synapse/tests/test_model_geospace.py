@@ -123,6 +123,11 @@ class GeoTest(s_t_common.SynTest):
                 self.nn(snap.getNodeByNdef(('inet:ipv4', 0)))
 
             # geo:place
+
+            # test inline tuple/float with negative syntax...
+            node = list(core.eval('[ geo:place="*" :latlong=(-30.0,20.22) ]'))[0]
+            self.eq(node.get('latlong'), (-30.0, 20.22))
+
             with core.snap() as snap:
                 guid = s_common.guid()
                 props = {'name': 'Vertex  HQ',
