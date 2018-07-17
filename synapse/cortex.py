@@ -584,6 +584,10 @@ class Cortex(s_cell.Cell):
 
         # each cortex has a default write layer...
         s_common.gendir(self.dirn, 'layers', 'default')
+        mapsize = self.conf.get('layer:lmdb:mapsize')
+        if mapsize:
+            conf = {'lmdb:mapsize': mapsize}
+            s_common.yamlsave(conf, self.dirn, 'layers', 'default', 'cell.yaml')
 
         self.layer = self.openLayerName('default')
         self.layers.append(self.layer)
