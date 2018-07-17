@@ -19,6 +19,23 @@ class SnapTest(s_t_common.SynTest):
                 self.none(snap.stor((2,)))
                 self.eq(snap.bulksops, (1, 2,))
 
+    def test_snap_feed_genr(self):
+
+        def testGenrFunc(snap, items):
+            yield snap.addNode('teststr', 'foo')
+            yield snap.addNode('teststr', 'bar')
+
+        with self.getTestCore() as core:
+
+            core.setFeedFunc('test.genr', testGenrFunc)
+
+            core.addFeedData('test.genr', [])
+            self.len(2, core.eval('teststr'))
+
+            with core.snap() as snap:
+                nodes = list(snap.addFeedNodes('test.genr', []))
+                self.len(2, nodes)
+
     def test_addNode_noperms(self):
         form = 'teststr'
         valu = 'cool'

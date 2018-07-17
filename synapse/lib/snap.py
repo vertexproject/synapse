@@ -1,3 +1,4 @@
+import types
 import logging
 import contextlib
 
@@ -347,6 +348,26 @@ class Snap(s_eventbus.EventBus):
 
                 return None
 
+    def addFeedNodes(self, name, items):
+        '''
+        Add and return a list of nodes by parsing records from a feed format.
+
+        Args:
+            name (str): The name of the feed record type.
+            items (list): A list of records of the given feed type.
+
+        Returns:
+            (object): The return value from the feed function. Typically Node() generator.
+
+        '''
+        func = self.core.getFeedFunc(name)
+        if func is None:
+            raise s_exc.NoSuchName(name=name)
+
+        logger.info(f'adding feed nodes ({name}): {len(items)}')
+
+        return func(self, items)
+
     def addFeedData(self, name, items, seqn=None):
 
         func = self.core.getFeedFunc(name)
@@ -355,7 +376,11 @@ class Snap(s_eventbus.EventBus):
 
         logger.info(f'adding feed data ({name}): {len(items)} {seqn!r}')
 
-        func(self, items)
+        retn = func(self, items)
+
+        # If the feed function is a generator, run it...
+        if isinstance(retn, types.GeneratorType):
+            retn = list(retn)
 
         if seqn is not None:
 
