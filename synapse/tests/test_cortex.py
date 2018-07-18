@@ -239,6 +239,16 @@ class CortexTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('visi', nodes[0][0][1])
 
+            node = core.addNode('teststr', 'foo')
+            core.addNodeTag(node[1].get('iden'), '#foo.bar')
+            core.setNodeProp(node[1].get('iden'), 'tick', '2015')
+
+            self.len(1, list(core.eval('teststr#foo.bar')))
+            self.len(1, list(core.eval('teststr:tick=2015')))
+
+            core.delNodeTag(node[1].get('iden'), '#foo.bar')
+            self.len(0, list(core.eval('teststr#foo.bar')))
+
             opts = {'ndefs': [('inet:user', 'visi')]}
 
             nodes = list(core.eval('', opts=opts))
