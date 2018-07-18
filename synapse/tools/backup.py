@@ -122,7 +122,7 @@ def parse_args(argv):
 def _main(argv):  # pragma: no cover
     args = parse_args(argv)
     s_common.setlogging(logger, defval='DEBUG')
-    main(args)
+    return main(args)
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(_main(sys.argv[1:]))

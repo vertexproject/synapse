@@ -528,97 +528,6 @@ class SynTest(unittest.TestCase):
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
     @contextlib.contextmanager
-    def getAxonCore(self, cortex_conf=None):
-        '''
-        Get a TstEnv instance which is preconfigured with a Neuron, Blob, Axon, Daemon and Cortex.
-
-        Notes:
-            The following items are available in the TstEnv:
-
-            * dirn: Temporary test directory.
-            * axon_client: A Axon client object.
-            * core_url: The Telepath URL to the Cortex so a connection can be made to the Cortex
-              shared by the Daemon.
-            * dmon_port: Port the Daemon is listening on.
-            * dmon: A Daemon which is listening on 127.0.0.1:0. It is preconfigured to share the Cortex.
-            * core: A Cortex.
-            * axon_sess: The client session for the Axon.
-            * axon: The AxonCell.
-            * blob: The BlobCell backing the Axon.
-            * neuron: The Neuron.
-
-        Args:
-            cortex_conf (dict): Optional cortex config
-
-        Yields:
-            TstEnv: A TstEnv instance.
-        '''
-        with self.getTestDir() as dirn:
-            neurconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0}
-            neurpath = s_common.gendir(dirn, 'neuron')
-            neur = s_neuron.Neuron(neurpath, neurconf)
-            neurhost, neurport = neur.getCellAddr()
-
-            blobpath = s_common.gendir(dirn, 'blob')
-            blobconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0, 'blob:mapsize': TEST_MAP_SIZE}
-            blobauth = neur.genCellAuth('blob')
-            s_msgpack.dumpfile(blobauth, os.path.join(blobpath, 'cell.auth'))
-            blob = s_axon.BlobCell(blobpath, blobconf)
-            self.true(blob.cellpool.neurwait(timeout=3))
-
-            axonpath = s_common.gendir(dirn, 'axon')
-            axonauth = neur.genCellAuth('axon')
-            s_msgpack.dumpfile(axonauth, os.path.join(axonpath, 'cell.auth'))
-            axonconf = {'host': 'localhost', 'bind': '127.0.0.1', 'port': 0, 'axon:blobs': ('blob@localhost',),
-                        'axon:mapsize': TEST_MAP_SIZE}
-            axon = s_axon.AxonCell(axonpath, axonconf)
-            self.true(axon.cellpool.neurwait(timeout=3))
-            axonhost, axonport = axon.getCellAddr()
-
-            # wait for the axon to have blob
-            ready = False
-            for i in range(30):
-                if axon.blobs.items():
-                    ready = True
-                    break
-                time.sleep(0.1)
-            self.true(ready)
-
-            axon_user = s_cell.CellUser(axonauth)
-            axon_sess = axon_user.open((axonhost, axonport))
-            axon_client = s_axon.AxonClient(axon_sess)
-
-            core = s_cortex.openurl('ram:///', conf=cortex_conf)
-            self.addTstForms(core)
-
-            cellpoolconf = {'host': neurhost, 'port': neurport, 'auth': s_common.enbase64(s_msgpack.en(axonauth))}
-            core.setConfOpt('cellpool:conf', cellpoolconf)
-            core.setConfOpt('axon:name', 'axon@localhost')
-
-            dmon = s_daemon.Daemon()
-            dmonlink = dmon.listen('tcp://127.0.0.1:0/')
-            dmonport = dmonlink[1].get('port')
-            dmon.share('core', core)
-            coreurl = 'tcp://127.0.0.1:%d/core' % dmonport
-
-            env = TstEnv()
-            env.add('dirn', dirn)
-            env.add('axon_client', axon_client)
-            env.add('core_url', coreurl)
-            env.add('dmon_port', dmonport)
-            # Order matter for clean fini
-            env.add('dmon', dmon, True)
-            env.add('core', core, True)
-            env.add('axon_sess', axon_sess, True)
-            env.add('axon', axon, True)
-            env.add('blob', blob, True)
-            env.add('neuron', neur, True)
-            try:
-                yield env
-            finally:
-                env.fini()
-
-    @contextlib.contextmanager
     def getTestCore(self, mirror='testcore', conf=None):
         '''
         Return a simple test Cortex.
@@ -649,135 +558,6 @@ class SynTest(unittest.TestCase):
                 yield dmon
 
                 s_certdir.defdir = certdir
-
-    @contextlib.contextmanager
-    def getDmonCore(self, conf=None):
-        '''
-        Context manager to make a ram:/// cortex which has test models
-        loaded into it and shared via daemon.
-
-        Args:
-            conf (dict): Optional cortex config
-
-        Yields:
-            s_cores_common.Cortex: A proxy object to the Ram backed cortex with test models.
-        '''
-        dmon = s_daemon.Daemon()
-        core = s_cortex.openurl('ram:///', conf=conf)
-        self.addTstForms(core)
-
-        link = dmon.listen('tcp://127.0.0.1:0/')
-        dmon.share('core00', core)
-        port = link[1].get('port')
-        prox = s_telepath.openurl('tcp://127.0.0.1/core00', port=port)
-
-        s_scope.set('syn:test:link', link)
-        s_scope.set('syn:cmd:core', prox)
-        s_scope.set('syn:core', core)
-        s_scope.set('syn:dmon', dmon)
-
-        try:
-            yield prox
-        except:  # pragma: no cover
-            raise
-        finally:
-            prox.fini()
-            core.fini()
-            dmon.fini()
-            s_scope.pop('syn:dmon')
-            s_scope.pop('syn:core')
-            s_scope.pop('syn:cmd:core')
-            s_scope.pop('syn:test:link')
-
-    @contextlib.contextmanager
-    def getSslCore(self, conf=None, configure_roles=False):
-        dconf = {'auth:admin': 'root@localhost',
-                 'auth:en': 1, }
-        if conf:
-            conf.update(dconf)
-        conf = dconf
-
-        amesgs = (
-            ('auth:add:user', {'user': 'user@localhost'}),
-            ('auth:add:role', {'role': 'creator'}),
-            ('auth:add:rrule', {'role': 'creator',
-                                'rule': ('node:add',
-                                         {'form': '*'})
-                                }),
-            ('auth:add:rrule', {'role': 'creator',
-                                'rule': ('node:tag:add',
-                                         {'tag': '*'})
-                                }),
-            ('auth:add:rrule', {'role': 'creator',
-                                'rule': ('node:prop:set',
-                                         {'form': '*', 'prop': '*'})
-                                }),
-            ('auth:add:role', {'role': 'deleter'}),
-            ('auth:add:rrule', {'role': 'deleter',
-                                'rule': ('node:del',
-                                         {'form': '*'})
-                                }),
-            ('auth:add:rrule', {'role': 'deleter',
-                                'rule': ('node:del',
-                                         {'form': '*'})
-                                }),
-            ('auth:add:rrule', {'role': 'deleter',
-                                'rule': ('node:tag:del',
-                                         {'tag': '*'})
-                                }),
-            ('auth:add:rrule', {'role': 'deleter',
-                                'rule': ('node:prop:set',
-                                         {'form': '*', 'prop': '*'})
-                                }),
-            ('auth:add:urole', {'user': 'user@localhost', 'role': 'creator'}),
-            ('auth:add:urole', {'user': 'user@localhost', 'role': 'deleter'}),
-        )
-
-        with self.getDirCore(conf=conf) as core:
-            s_scope.set('syn:core', core)
-            dirn = s_scope.get('dirn')
-            writeCerts(dirn)
-            cafile = os.path.join(dirn, 'ca.crt')
-            keyfile = os.path.join(dirn, 'server.key')
-            certfile = os.path.join(dirn, 'server.crt')
-            userkey = os.path.join(dirn, 'user.key')
-            usercrt = os.path.join(dirn, 'user.crt')
-            rootkey = os.path.join(dirn, 'root.key')
-            rootcrt = os.path.join(dirn, 'root.crt')
-            with s_daemon.Daemon() as dmon:
-                s_scope.set('syn:dmon', dmon)
-                dmon.share('core', core)
-                link = dmon.listen('ssl://localhost:0/',
-                                   cafile=cafile,
-                                   keyfile=keyfile,
-                                   certfile=certfile,
-                                   )
-                s_scope.set('syn:test:link', link)
-                port = link[1].get('port')
-                url = 'ssl://user@localhost/core'
-                user_prox = s_telepath.openurl(url,
-                                               port=port,
-                                               cafile=cafile,
-                                               keyfile=userkey,
-                                               certfile=usercrt
-                                               )  # type: s_cores_common.CoreApi
-                root_prox = s_telepath.openurl(url,
-                                               port=port,
-                                               cafile=cafile,
-                                               keyfile=rootkey,
-                                               certfile=rootcrt
-                                               )  # type: s_cores_common.CoreApi
-
-                if configure_roles:
-                    for mesg in amesgs:
-                        isok, retn = root_prox.authReact(mesg)
-                        s_common.reqok(isok, retn)
-
-                try:
-                    yield user_prox, root_prox
-                finally:
-                    user_prox.fini()
-                    root_prox.fini()
 
     @contextlib.contextmanager
     def getTestDir(self, mirror=None):
@@ -1098,7 +878,10 @@ class SynTest(unittest.TestCase):
         '''
         Assert that the length of an object is equal to X
         '''
-        if isinstance(obj, types.GeneratorType):
+        gtyps = (s_telepath.Genr,
+                 types.GeneratorType,
+                 )
+        if isinstance(obj, gtyps):
             obj = list(obj)
 
         self.eq(x, len(obj), msg=msg)
@@ -1165,3 +948,90 @@ class SynTest(unittest.TestCase):
         if conf:
             s_common.yamlsave(conf, cdir, 'cell.yaml')
         return s_cells.init(name, cdir)
+
+    def getIngestDef(self, guid, seen):
+        gestdef = {
+            'comment': 'ingest_test',
+            'source': guid,
+            'seen': '20180102',
+            'forms': {
+                'teststr': [
+                    '1234',
+                    'duck',
+                    'knight',
+                ],
+                'testint': [
+                    '1234'
+                ],
+                'pivcomp': [
+                    ('hehe', 'haha')
+                ]
+            },
+            'tags': {
+                'test.foo': (None, None),
+                'test.baz': ('2014', '2015'),
+                'test.woah': (seen - 1, seen + 1),
+            },
+            'nodes': [
+                [
+                    ['teststr',
+                     'ohmy'
+                    ],
+                    {
+                        'props': {
+                            'bar': ('testint', 137),
+                            'tick': '2001',
+                        },
+                        'tags': {
+                            'beep.beep': (None, None),
+                            'beep.boop': (10, 20),
+                        }
+                    }
+                ],
+                [
+                    [
+                        'testint',
+                        '8675309'
+                    ],
+                    {
+                        'tags': {
+                            'beep.morp': (None, None)
+                        }
+                    }
+                ]
+            ],
+            'edges': [
+                [
+                    [
+                        'teststr',
+                        '1234'
+                    ],
+                    'refs',
+                    [
+                        [
+                            'testint',
+                            1234
+                        ]
+                    ]
+                ]
+            ],
+            'time:edges': [
+                [
+                    [
+                        'teststr',
+                        '1234'
+                    ],
+                    'wentto',
+                    [
+                        [
+                            [
+                            'testint',
+                            8675309
+                            ],
+                            '20170102'
+                        ]
+                    ]
+                ]
+            ]
+        }
+        return gestdef

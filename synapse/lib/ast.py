@@ -198,10 +198,10 @@ class Query(AstNode):
 
             dopath = self.opts.get('path')
             dorepr = self.opts.get('repr')
+            tick = s_common.now()
 
             with self._getQuerySnap() as snap:
 
-                tick = s_common.now()
                 chan.put(('init', {'tick': tick}))
 
                 snap.link(chan.put)
