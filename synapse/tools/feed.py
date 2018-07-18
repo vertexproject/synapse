@@ -27,30 +27,28 @@ def getTempDir():
     finally:
         shutil.rmtree(tempdir, ignore_errors=True)
 
-def runIngest(core, *paths):
+def getItems(*paths):
+    items = []
     for path in paths:
-        gestdef = s_common.jsload(path)
-        ing = s_ingest.Ingest(gestdef)
-        nodes = ing.ingest(core)
-        yield nodes
+        if path.endswith('.json'):
+            item = s_common.jsload(path)
+            items.append(item)
+        elif path.endswith(('.yaml', '.yml')):
+            item = s_common.yamlload(path)
+            items.append(item)
+        else:  # pragma: no cover
+            logger.warning('Unsupported file path: [%s]', path)
+    return items
 
-def getRet(core, outp, verbose=False, debug=False, *paths):
-    c = 0
-    for nodes in runIngest(core, *paths):
-        for node in nodes:
-            if node is None:
-                outp.printf('Failed to create a node.')
-                return 1
-            c = c + 1
-            if verbose:
-                if isinstance(node, s_node.Node):
-                    node = node.pack()
-                outp.printf(f'{node}')
-    outp.printf(f'Made {c} nodes from {list(paths)}.')
+
+def addFeedData(core, outp, format,
+                debug=False,
+                *paths):
+    items = getItems(*paths)
+    core.addFeedData(format, items)
     if debug:
         cmdr = s_cmdr.getItemCmdr(core, outp)
         cmdr.runCmdLoop()
-    return 0
 
 def main(argv, outp=None):
 
@@ -67,21 +65,17 @@ def main(argv, outp=None):
                 for mod in opts.modules:
                     outp.printf(f'Loading [{mod}]')
                     core.loadCoreModule(mod)
-                ret = getRet(core, outp, opts.verbose, opts.debug, *opts.files)
+                addFeedData(core, outp, opts.format, opts.debug, *opts.files)
 
     elif opts.cortex:
         with s_telepath.openurl(opts.cortex) as core:
-            ret = getRet(core, outp, opts.verbose, opts.debug, *opts.files)
+            addFeedData(core, outp, opts.format, opts.debug, *opts.files)
 
     else:  # pragma: no cover
         outp.printf('No valid options provided [%s]', opts)
         return 1
 
-    if ret != 0:
-        outp.printf('Error encountered during data loading.')
-        return ret
-
-    return ret
+    return 0
 
 def makeargpaser():
     desc = 'Command line tool for ingesting data into a cortex'
@@ -95,11 +89,8 @@ def makeargpaser():
 
     pars.add_argument('--debug', '-d', default=False, action='store_true',
                       help='Drop to interactive prompt to inspect cortex after loading data.')
-    pars.add_argument('--verbose', '-v', default=False, action='store_true',
-                      help='Print nodes created by ingest.')
-
-    pars.add_argument('--save', '-s', type=str, action='store',
-                      help='Save cortex splice events to a file.')
+    pars.add_argument('--format', '-f', type=str, action='store', default='syn.ingest',
+                      help='Feed format to use for the ingested data.')
     pars.add_argument('--modules', '-m', type=str, action='append', default=[],
                       help='Additional modules to load locally with a test Cortex.')
 

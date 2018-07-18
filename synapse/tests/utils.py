@@ -948,3 +948,90 @@ class SynTest(unittest.TestCase):
         if conf:
             s_common.yamlsave(conf, cdir, 'cell.yaml')
         return s_cells.init(name, cdir)
+
+    def getIngestDef(self, guid, seen):
+        gestdef = {
+            'comment': 'ingest_test',
+            'source': guid,
+            'seen': '20180102',
+            'forms': {
+                'teststr': [
+                    '1234',
+                    'duck',
+                    'knight',
+                ],
+                'testint': [
+                    '1234'
+                ],
+                'pivcomp': [
+                    ('hehe', 'haha')
+                ]
+            },
+            'tags': {
+                'test.foo': (None, None),
+                'test.baz': ('2014', '2015'),
+                'test.woah': (seen - 1, seen + 1),
+            },
+            'nodes': [
+                [
+                    ['teststr',
+                     'ohmy'
+                    ],
+                    {
+                        'props': {
+                            'bar': ('testint', 137),
+                            'tick': '2001',
+                        },
+                        'tags': {
+                            'beep.beep': (None, None),
+                            'beep.boop': (10, 20),
+                        }
+                    }
+                ],
+                [
+                    [
+                        'testint',
+                        '8675309'
+                    ],
+                    {
+                        'tags': {
+                            'beep.morp': (None, None)
+                        }
+                    }
+                ]
+            ],
+            'edges': [
+                [
+                    [
+                        'teststr',
+                        '1234'
+                    ],
+                    'refs',
+                    [
+                        [
+                            'testint',
+                            1234
+                        ]
+                    ]
+                ]
+            ],
+            'time:edges': [
+                [
+                    [
+                        'teststr',
+                        '1234'
+                    ],
+                    'wentto',
+                    [
+                        [
+                            [
+                            'testint',
+                            8675309
+                            ],
+                            '20170102'
+                        ]
+                    ]
+                ]
+            ]
+        }
+        return gestdef
