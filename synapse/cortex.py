@@ -123,7 +123,7 @@ class CoreApi(s_cell.CellApi):
 
             node = snap.getNodeByBuid(buid)
             if node is None:
-                return None
+                raise s_exc.NoSuchIden(iden=iden)
 
             node.delTag(tag)
             return node.pack()
