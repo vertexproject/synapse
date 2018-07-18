@@ -87,6 +87,68 @@ class CoreApi(s_cell.CellApi):
     async def fini(self):
         pass
 
+    def addNodeTag(self, iden, tag, valu=(None, None)):
+        '''
+        Add a tag to a node specified by iden.
+
+        Args:
+            iden (str): A hex encoded node BUID.
+            tag (str):  A tag string.
+            valu (tuple):  A time interval tuple or (None, None).
+        '''
+        buid = s_common.uhex(iden)
+        with self.cell.snap() as snap:
+
+            snap.setUser(self.user)
+
+            node = snap.getNodeByBuid(buid)
+            if node is None:
+                raise s_exc.NoSuchIden(iden=iden)
+
+            node.addTag(tag, valu=valu)
+            return node.pack()
+
+    def delNodeTag(self, iden, tag):
+        '''
+        Delete a tag from the node specified by iden.
+
+        Args:
+            iden (str): A hex encoded node BUID.
+            tag (str):  A tag string.
+        '''
+        buid = s_common.uhex(iden)
+        with self.cell.snap() as snap:
+
+            snap.setUser(self.user)
+
+            node = snap.getNodeByBuid(buid)
+            if node is None:
+                raise s_exc.NoSuchIden(iden=iden)
+
+            node.delTag(tag)
+            return node.pack()
+
+    def setNodeProp(self, iden, prop, valu):
+
+        buid = s_common.uhex(iden)
+        with self.cell.snap() as snap:
+
+            snap.setUser(self.user)
+
+            node = snap.getNodeByBuid(buid)
+            if node is None:
+                raise s_exc.NoSuchIden(iden=iden)
+
+            node.set(prop, valu)
+            return node.pack()
+
+    def addNode(self, form, valu, props=None):
+
+        with self.cell.snap() as snap:
+            snap.setUser(self.user)
+            node = snap.addNode(form, valu, props=props)
+            return node.pack()
+
     def addNodes(self, nodes):
 
         with self.cell.snap() as snap:
