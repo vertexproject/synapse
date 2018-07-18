@@ -585,11 +585,7 @@ class Cortex(s_cell.Cell):
         for item in items:
             try:
                 pnodes = self._getSynIngestNodes(item)
-                # We're kind of cheating here, but for a
-                # remote user we've done all the dirty work
-                # for them right away.
-                nodes = list(snap.addNodes(pnodes))
-                yield from nodes
+                yield from snap.addNodes(pnodes)
             except Exception as e:
                 logger.exception('Failed to process ingest [%r]', item)
                 continue
