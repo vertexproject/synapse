@@ -84,7 +84,7 @@ class CmdCoreTest(s_test.SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('storm --raw teststr=abcd')
             outp.expect("'tick': 123")
-            outp.expect("{'tags': {'cool': (None, None)}")
+            outp.expect("'tags': {'cool': (None, None)")
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()

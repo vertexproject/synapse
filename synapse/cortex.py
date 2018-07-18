@@ -106,6 +106,7 @@ class CoreApi(s_cell.CellApi):
                 raise s_exc.NoSuchIden(iden=iden)
 
             node.addTag(tag, valu=valu)
+            return node.pack()
 
     def delNodeTag(self, iden, tag):
         '''
@@ -122,9 +123,10 @@ class CoreApi(s_cell.CellApi):
 
             node = snap.getNodeByBuid(buid)
             if node is None:
-                raise s_exc.NoSuchIden(iden=iden)
+                return None
 
             node.delTag(tag)
+            return node.pack()
 
     def setNodeProp(self, iden, prop, valu):
 
@@ -138,6 +140,7 @@ class CoreApi(s_cell.CellApi):
                 raise s_exc.NoSuchIden(iden=iden)
 
             node.set(prop, valu)
+            return node.pack()
 
     def addNode(self, form, valu, props=None):
 

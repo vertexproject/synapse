@@ -240,8 +240,12 @@ class CortexTest(s_test.SynTest):
             self.eq('visi', nodes[0][0][1])
 
             node = core.addNode('teststr', 'foo')
-            core.addNodeTag(node[1].get('iden'), '#foo.bar')
-            core.setNodeProp(node[1].get('iden'), 'tick', '2015')
+
+            pack = core.addNodeTag(node[1].get('iden'), '#foo.bar')
+            self.eq(pack[1]['tags'].get('foo.bar'), (None, None))
+
+            pack = core.setNodeProp(node[1].get('iden'), 'tick', '2015')
+            self.eq(pack[1]['props'].get('tick'), 1420070400000)
 
             self.len(1, list(core.eval('teststr#foo.bar')))
             self.len(1, list(core.eval('teststr:tick=2015')))
