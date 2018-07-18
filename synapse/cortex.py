@@ -581,14 +581,10 @@ class Cortex(s_cell.Cell):
         # TODO apply splices in reverse
 
     def _addSynIngest(self, snap, items):
-        # Check and wrap items in a list in the event that
-        # a single ingest definition was passed in.
-        if isinstance(items, dict):
-            items = [items]
 
         for item in items:
             try:
-                pnodes = list(self._genSynIngestNodes(item))
+                pnodes = self._getSynIngestNodes(item)
                 # We're kind of cheating here, but for a
                 # remote user we've done all the dirty work
                 # for them right away.
@@ -598,10 +594,11 @@ class Cortex(s_cell.Cell):
                 logger.exception('Failed to process ingest [%r]', item)
                 continue
 
-    def _genSynIngestNodes(self, item):
+    def _getSynIngestNodes(self, item):
         '''
-        Generate packed nodes from the gestdef.
+        Get a list of packed nodes from a ingest definition.
         '''
+        pnodes = []
         seen = item.get('seen')
         # Track all the ndefs we make so we can make sources
         ndefs = []
@@ -616,7 +613,7 @@ class Cortex(s_cell.Cell):
                 obj = [ndef, {'tags': tags}]
                 if seen:
                     obj[1]['props'] = {'.seen': (seen, seen)}
-                yield obj
+                pnodes.append(obj)
 
         # Make the packed nodes
         nodes = item.get('nodes', ())
@@ -630,7 +627,7 @@ class Cortex(s_cell.Cell):
             if seen:
                 pnode[1].setdefault('props', {})
                 pnode[1]['props'].setdefault('.seen', (seen, seen))
-            yield pnode
+            pnodes.append(pnode)
 
         # Make edges
         for srcdef, etyp, destndefs in item.get('edges', ()):
@@ -642,7 +639,7 @@ class Cortex(s_cell.Cell):
                     obj[1]['props'] = {'.seen': (seen, seen)}
                 if tags:
                     obj[1]['tags'] = tags.copy()
-                yield obj
+                pnodes.append(obj)
 
         # Make time based edges
         for srcdef, etyp, destndefs in item.get('time:edges', ()):
@@ -654,20 +651,21 @@ class Cortex(s_cell.Cell):
                     obj[1]['props'] = {'.seen': (seen, seen)}
                 if tags:
                     obj[1]['tags'] = tags.copy()
-                yield obj
+                pnodes.append(obj)
 
         # Make the source node and links
         source = item.get('source')
         if source:
             # Base object
             obj = [['source', source], {}]
-            yield obj
+            pnodes.append(obj)
 
             # Subsequent links
             for ndef in ndefs:
                 obj = [['seen', (source, ndef)],
                        {'props': {'.seen': (seen, seen)}}]
-                yield obj
+                pnodes.append(obj)
+        return pnodes
 
     def _initCoreDir(self):
 

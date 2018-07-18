@@ -982,7 +982,7 @@ class CortexTest(s_test.SynTest):
 
     def _validate_feed(self, core, gestdef, guid, seen, pack=False):
         # Helper for syn_ingest tests
-        core.addFeedData('syn.ingest', gestdef)
+        core.addFeedData('syn.ingest', [gestdef])
 
         # Nodes are made from the forms directive
         q = 'teststr=1234 teststr=duck teststr=knight'
