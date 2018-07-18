@@ -47,9 +47,8 @@ class AxonTest(s_test.SynTest):
     @s_glob.synchelp
     async def test_blobstor(self):
         with self.getTestDir() as dirn:
-
             path0 = os.path.join(dirn, 'blob0')
-            with s_axon.BlobStor(path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst0:
+            async with s_test.SyncToAsyncCMgr(s_axon.BlobStor, path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst0:
 
                 data1 = b'asdfqwerhehehaha'
 
@@ -82,7 +81,7 @@ class AxonTest(s_test.SynTest):
 
                 path1 = os.path.join(dirn, 'blob1')
 
-                with s_axon.BlobStor(path1, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst1:
+                async with s_test.SyncToAsyncCMgr(s_axon.BlobStor, path1, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst1:
 
                     clone_data = [x async for x in bst0.clone(0)]
                     await bst1._consume_clone_data(clone_data)
@@ -96,11 +95,9 @@ class AxonTest(s_test.SynTest):
 
     @s_glob.synchelp
     async def test_blobstor_stat(self):
-
         with self.getTestDir() as dirn:
-
             path0 = os.path.join(dirn, 'blob0')
-            with s_axon.BlobStor(path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst0:
+            async with s_test.SyncToAsyncCMgr(s_axon.BlobStor, path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst0:
 
                 blobs = (
                     (None, 0, os.urandom(1000)),
@@ -122,12 +119,9 @@ class AxonTest(s_test.SynTest):
 
     @s_glob.synchelp
     async def test_blobstor_metrics(self):
-        print('tbm start', flush=True)
-
         with self.getTestDir() as dirn:
-
             path0 = os.path.join(dirn, 'blob0')
-            with s_axon.BlobStor(path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst0:
+            async with s_test.SyncToAsyncCMgr(s_axon.BlobStor, path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst0:
                 print('bs start', flush=True)
 
                 blobs = (
@@ -176,7 +170,6 @@ class AxonTest(s_test.SynTest):
 
     @s_glob.synchelp
     async def test_axon_remote(self):
-
         with self.getTestDir():
             async with s_test.SyncToAsyncCMgr(self.getTestDmon, mirror='axondmon00') as dmon, \
                     await dmon._getTestProxy('axon00') as axon:
@@ -207,9 +200,12 @@ class AxonTest(s_test.SynTest):
                     await uploader.write(b'b')
                     await uploader.finishFile()
                     await uploader.write(b'cd')
+                    print('tau 4', flush=True)
                     count, hashval = await uploader.finish()
+                    print('tau 5', flush=True)
                     self.eq(2, count)
                     self.eq(cdhash, hashval)
+                print('uploader done', flush=True)
 
                 # Give the clone subscription a chance to catch up
                 await _wait_for_axon_files(axon, 2)
@@ -228,11 +224,22 @@ class AxonTest(s_test.SynTest):
                 await _wait_for_axon_files(axon, 3)
                 self.eq((), await axon.wants([bbufhash]))
                 self.eq(bbuf, b''.join([x async for x in axon.get(bbufhash)]))
+                print('tau end inside ctx', flush=True)
+        print('tau end outside ctx', flush=True)
 
+    @s_glob.synchelp
+    async def test_axon_cloning(self):
+        ''' Bring up an axon and a blobstor, then bring up a second blobstor that's cloning the first '''
+        with self.getTestDir() as dirn:
+            path0 = os.path.join(dirn, 'axon0')
+            async with s_test.SyncToAsyncCMgr(self.getTestDmon, mirror='axondmon00') as dmon, \
+                    await dmon._getTestProxy('blobstor00') as blobstor0, \
+                    s_test.SyncToAsyncCMgr(s_axon.Axon, path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as axon:
+                print('>>got in cloning', flush=True)
+                pass
 
     @s_glob.synchelp
     async def test_axon(self):
-
         with self.getTestDir() as dirn:
             path0 = os.path.join(dirn, 'axon0')
             async with s_test.SyncToAsyncCMgr(self.getTestDmon, mirror='axondmon00') as dmon, \
@@ -279,126 +286,3 @@ class AxonTest(s_test.SynTest):
                 # Empty file test
                 self.eq(1, await axon.bulkput([b'']))
 
-                return
-
-                # FIXME - What is the behavior we want here?
-                # Currently, we duplicate the uploaded bytes with a new buid.
-                # self.eq(asdfhash, axon.upload([b'asdf', b'asdf'], timeout=3))
-                # metrics = list(blob.metrics(timeout=3))
-                # self.len(1, metrics)
-                # self.eq(8, metrics[0][1].get('size'))
-                # self.eq(1, metrics[0][1].get('blocks'))
-                # stat = axon.stat(timeout=3)
-                # self.eq(1, stat.get('files'))
-                # self.eq(8, stat.get('bytes'))
-
-                # lets see if the bytes made it to the blob clone...
-                self.nn(blob01wait.wait(timeout=10))
-
-                newp = os.urandom(32)
-                def loop():
-                    s_common.spin(axon.bytes(newp))
-
-                self.raises(s_exc.RetnErr, loop)
-                with await dmon._getTestProxy('blobstor01') as blobstor1:
-                    pass
-
-                blob01wait = blob01.waiter(1, 'blob:clone:rows')
-                self.eq(qwerhash, axon.upload([b'qwer', b'qwer'], timeout=3))
-
-                self.len(0, axon.wants([qwerhash]))
-                self.eq(b'qwerqwer', b''.join(axon.bytes(qwerhash, timeout=3)))
-                self.nn(blob01wait.wait(3))
-
-                retn = list(axon.metrics(0, timeout=3))
-                self.eq(retn[0][1].get('size'), 8)
-                self.eq(retn[0][1].get('cell'), 'blob00@localhost')
-
-                # Try uploading a large file
-                logger.debug('Large file test')
-                # Monkeypatch axon to a smaller blocksize
-                s_axon.blocksize = s_const.kibibyte
-                self.raises(RetnErr, axon.locs, bbufhash, timeout=3)
-                genr = s_common.chunks(bbuf, s_axon.blocksize)
-                # It is possible that we may need multiple events captured
-                # to avoid a timing issue
-                blob01wait = blob01.waiter(2, 'blob:clone:rows')
-                self.eq(bbufhash, axon.upload(genr, timeout=3))
-                self.eq((), axon.wants([bbufhash], timeout=3))
-
-                # Then retrieve it
-                size = 0
-                gots = []
-                testhash = hashlib.sha256()
-                for byts in axon.bytes(bbufhash, timeout=3):
-                    size += len(byts)
-                    gots.append(byts)
-                    testhash.update(byts)
-                self.eq(bbufhash, testhash.digest())
-
-                try:
-                    self.eq(size, len(bbuf))
-                    self.eq(bbufhash, testhash.digest())
-
-                except Exception as e:
-
-                    for byts in gots:
-                        print(repr(byts))
-
-                    print('SIZE: %d/%d' % (size, len(bbuf)))
-                    raise
-
-                blob01wait.wait(3)
-                self.ne(blob01wait.events, [])
-                locs = axon.locs(bbufhash, timeout=3)
-                self.len(1, locs)
-                self.isin('blob00', locs[0][0])
-                # Use the buid to retrieve the large file from blob01
-                tbuid = locs[0][1]
-                testhash = hashlib.sha256()
-                for byts in blob01c.bytes(tbuid, timeout=3):
-                    testhash.update(byts)
-                self.eq(bbufhash, testhash.digest())
-
-                # Try storing a empty file
-                logger.debug('Nullfile test')
-                axon.save([b''])
-                self.eq((), tuple(axon.wants([nullhash])))
-                # Then retrieve it
-                parts = []
-                for part in axon.bytes(nullhash):
-                    parts.append(part)
-                self.eq([b''], parts)
-
-                logger.debug('Shutdown / restart blob01 test')
-                bref.pop('blob01')
-                blob01.fini()
-                self.true(blob01.isfini)
-                axon.save([b'hehehaha'], timeout=3)
-                self.eq((), axon.wants([hehahash], timeout=3))
-                # Now bring blob01 back online
-                logger.debug('Bringing blob01 back online')
-                blob01 = s_axon.BlobCell(path, blob01conf)
-                bref.put('blob01', blob01)
-                self.true(blob01.cellpool.neurwait(timeout=3))
-                blob01wait = blob01.waiter(1, 'blob:clone:rows')
-                # Cloning should start up shortly
-                self.nn(blob01wait.wait(10))
-
-                # Ask a blobclient for data for a random buid
-                newp = buid()
-                parts = []
-                for part in blob.bytes(newp):
-                    parts.append(part)
-                self.eq(parts, [])
-
-                # Try retrieving a large file
-                testhash = hashlib.sha256()
-                for byts in axon.bytes(bbufhash, timeout=3):
-                    testhash.update(byts)
-                self.eq(bbufhash, testhash.digest())
-
-                # Try saving a new file and a existing file to the cluster and ensure it is replicated
-                self.eq((ohmyhash,), axon.wants((ohmyhash, hehahash, nullhash), 3))
-                self.eq(1, axon.save([b'ohmyohmyy', b'']))
-                self.nn(blob01wait.wait(10))

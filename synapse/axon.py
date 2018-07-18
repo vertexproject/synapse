@@ -27,7 +27,7 @@ import synapse.lib.const as s_const
 
 logger = logging.getLogger(__name__)
 
-# File convention: buid -> unique id for a blobstor
+# File convention: bsid -> unique id for a blobstor (actually the cell iden)
 CHUNK_SIZE = 16 * s_const.mebibyte
 
 
@@ -79,8 +79,9 @@ class IncrementalTransaction(s_eventbus.EventBus):
         def fini():
             self.commit()
             # lmdb workaround:  close environment from here to avoid lmdb crash
-            print('closing lenv', flush=True)
+            print(f'closing lenv {id(self.lenv)%997}', flush=True)
             self.lenv.close()
+            print('lenv closed', flush=True)
 
         self.onfini(fini)
 
@@ -137,9 +138,8 @@ class Uploader(s_daemon.Share):
         self.onfini(fini)
 
     async def write(self, bytz):
-        print('write', flush=True)
+        assert not self.isfini
         await self.item._partialsubmit(self.wcid, ((self.chunknum, bytz), ))
-        print('write done', flush=True)
         self.chunknum += 1
 
     async def _runShareLoop(self):
@@ -150,7 +150,8 @@ class Uploader(s_daemon.Share):
 
     async def finish(self):
         self._needfinish = False
-        return await self.item._complete(self.wcid, wait_for_result=True)
+        rv = await self.item._complete(self.wcid, wait_for_result=True)
+        return rv
 
     async def finishFile(self):
         '''
@@ -159,7 +160,8 @@ class Uploader(s_daemon.Share):
         self.chunknum = 0
 
 class _AsyncQueue(s_coro.Fini):
-    ''' Multi-async producer, single sync consumer queue.  Assumes producers run on s_glob.loop '''
+    ''' Multi-async producer, single sync finite consumer queue with blocking at empty and full.  Assumes producers
+    run on s_glob.plex.loop '''
     def __init__(self, max_entries, drain_level=None):
         s_coro.Fini.__init__(self)
         self.deq = collections.deque()
@@ -175,6 +177,7 @@ class _AsyncQueue(s_coro.Fini):
         self.onfini(_onfini)
 
     def get(self):
+        assert not self.isfini
         while not self.isfini:
             try:
                 val = self.deq.popleft()
@@ -193,6 +196,7 @@ class _AsyncQueue(s_coro.Fini):
         return val
 
     async def put(self, item):
+        assert not self.isfini
         while not self.isfini:
             if len(self.deq) >= self.max_entries:
                 self.notdrainingevent.clear()
@@ -238,8 +242,10 @@ class _BlobStorWriter(s_coro.Fini):
         self.clients = {}
 
         async def _onfini():
+            print(f'BSW fini self={id(self)%997} wq={id(self._workq) % 997}')
             await self._workq.fini()
             self._worker.join()
+            print(f'BSW fini done self={id(self)%997}')
         self.onfini(_onfini)
 
         self._worker.start()
@@ -309,6 +315,7 @@ class _BlobStorWriter(s_coro.Fini):
         self.xact.txn.put(b'clone:offset', struct.pack('>Q', offset), db=self.blobstor._blob_info)
 
     def _workloop(self):
+        print(f'bsw 1 self={id(self) % 997}', flush=True)
         try:
             while not self.isfini:
                 msg = self._workq.get()
@@ -328,11 +335,14 @@ class _BlobStorWriter(s_coro.Fini):
                     self.update_offset(offset)
         finally:
             # Workaround to avoid lmdb close/commit race
+            print('bsw done', flush=True)
             self.xact.fini()
 
     # Client methods
 
     async def partialsubmit(self, wcid, blocs):
+        print(f'BSW partialsubmit self={id(self)%997} wq={id(self._workq) % 997}')
+        assert not self.isfini
         ran_at_all = False
         async for b in to_aiter(blocs):
             chunknum, bytz = b
@@ -341,6 +351,7 @@ class _BlobStorWriter(s_coro.Fini):
         return ran_at_all
 
     async def complete(self, wcid, wait_for_result=False):
+        assert not self.isfini
         rv = None
         if wait_for_result:
             fut = asyncio.Future(loop=s_glob.plex.loop)
@@ -388,6 +399,7 @@ class BlobStor(s_cell.Cell):
 
     def __init__(self, dirn: str, conf=None) -> None:
 
+        print(f'BlobStor __init__ self={id(self)%997}', flush=True)
         s_cell.Cell.__init__(self, dirn)
         self.clonetask = None
 
@@ -399,7 +411,7 @@ class BlobStor(s_cell.Cell):
         mapsize = self.conf.get('mapsize')
         print(f'blobstor lmdb.open {path}', flush=True)
         self.lenv = lmdb.open(path, writemap=True, max_dbs=128, map_size=mapsize)
-        print('blobstor lmdb.open done', flush=True)
+        print(f'blobstor lmdb.open done {id(self.lenv)%997}', flush=True)
 
         self._blob_info = self.lenv.open_db(b'info')
         self._blob_bytes = self.lenv.open_db(b'bytes') # <sha256>=<byts>
@@ -416,13 +428,15 @@ class BlobStor(s_cell.Cell):
             self.clonetask = s_glob.plex.coroToTask(self._cloneeLoop(self.cloneof))
 
         def fini():
-            s_glob.plex.addLoopCoro(self.writer.fini())
+            print(f'BlobStor fini self={id(self)%997} iamLoop={s_glob.plex.iAmLoop()}', flush=True)
+            s_glob.plex.coroToSync(self.writer.fini())
             # To avoid lmdb seg fault, let writer close the environment
 
         self.onfini(fini)
 
     async def _partialsubmit(self, wcid, blocs):
         ''' For Uploader's sake '''
+        print(f'BlobStor _partialsubmit self={id(self)%997}', flush=True)
         return await self.writer.partialsubmit(wcid, blocs)
 
     async def _complete(self, wcid, wait_for_result=False):
@@ -606,12 +620,12 @@ class BlobStor(s_cell.Cell):
 
 class _ProxyKeeper(s_coro.Fini):
 
-    # All the proxy keepers share a common buid -> path map
-    buidpathmap: Dict[bytes, str] = {}  # buid -> path
+    # All the proxy keepers share a common bsid -> path map
+    bsidpathmap: Dict[bytes, str] = {}  # bsid -> path
 
     def __init__(self):
         s_coro.Fini.__init__(self)
-        self._proxymap = {}  # buid -> proxy
+        self._proxymap = {}  # bsid -> proxy
 
         # All the proxy
 
@@ -619,51 +633,56 @@ class _ProxyKeeper(s_coro.Fini):
             for proxy in self._proxymap.values():
                 if proxy is not None:
                     await proxy.fini()
+            self._proxymap = {}
 
         self.onfini(fini)
 
     async def _addproxy(self, proxy, path):
-        buid = binascii.unhexlify(await proxy.getCellIden())
-        self.buidpathmap[buid] = path
-        self._proxymap[buid] = proxy
-        return buid
+        bsid = binascii.unhexlify(await proxy.getCellIden())
+        self.bsidpathmap[bsid] = path
+        self._proxymap[bsid] = proxy
+        return bsid
 
     async def connect(self, path: str) -> Tuple[bytes, s_telepath.Proxy]:
         proxy = await s_telepath.openurl(path)
         if proxy is None:
             return None
-        newbuid = await self._addproxy(proxy, path)
-        return newbuid, proxy
+        newbsid = await self._addproxy(proxy, path)
+        return newbsid, proxy
 
-    async def randoproxy(self, buids=None):
+    async def randoproxy(self, bsids=None):
         '''
-        Returns a random buid, blobstor from the buids parameter, or from all know buids if parameter is None
+        Returns a random (bsid, blobstor) pair from the bsids parameter, or from all know bsids if parameter is None
         '''
-        if buids is None:
-            buids = list(self.buidpathmap.keys())
-        if not buids:
+        if bsids is None:
+            bsids = list(self.bsidpathmap.keys())
+        if not bsids:
             raise s_exc.AxonNoBlobStors()
-        rot = random.randrange(len(buids))
-        buidsrot = buids[rot:] + buids[:rot]
-        for buid in buidsrot:
-            blobstor = await self.get(buid)
+        rot = random.randrange(len(bsids))
+        bsidsrot = bsids[rot:] + bsids[:rot]
+        for bsid in bsidsrot:
+            blobstor = await self.get(bsid)
             if blobstor is not None:
-                return buid, blobstor
+                return bsid, blobstor
         raise s_exc.AxonNoBlobStors()
 
-    async def get(self, buid: bytes) -> s_telepath.Proxy:
-        proxy = self._proxymap.get(buid)
+    async def get(self, bsid: bytes) -> s_telepath.Proxy:
+        proxy = self._proxymap.get(bsid)
         if proxy:
             if proxy.isfini:
-                del self._proxymap[buid]
+                del self._proxymap[bsid]
             else:
                 return proxy
-        path = self.buidpathmap.get(buid)
+        path = self.bsidpathmap.get(bsid)
         if path is None:
-            raise s_exc.AxonUnknownBuid()
-        newbuid, proxy = await self.connect(path)
-        if newbuid != buid:
-            raise s_exc.AxonBlobStorBuidChanged()
+            raise s_exc.AxonUnknownBsid()
+        try:
+            newbsid, proxy = await self.connect(path)
+        except ConnectionRefusedError:
+            import ipdb; ipdb.set_trace()
+            return None
+        if newbsid != bsid:
+            raise s_exc.AxonBlobStorBsidChanged()
         return proxy
 
 class AxonApi(PassThroughApi):
@@ -687,6 +706,7 @@ class AxonApi(PassThroughApi):
         return rv
 
 class UploaderProxy(s_daemon.Share):
+    ''' A proxy to a blobstor uploader living with the axon '''
     typename = 'uploaderproxy'
 
     def __init__(self, link, axonproxy, blobstorproxy):
@@ -716,7 +736,8 @@ class UploaderProxy(s_daemon.Share):
     async def finish(self):
         if self.uploader is None:
             return
-        return await self.uploader.finish()
+        rv = await self.uploader.finish()
+        return rv
 
     async def finishFile(self):
         if self.uploader is None:
@@ -738,14 +759,19 @@ class Axon(s_cell.Cell):
         self.lenv = lmdb.open(path, writemap=True, max_dbs=128)
         self.lenv.set_mapsize(mapsize)
 
-        self.bloblocs = self.lenv.open_db(b'axon:blob:locs', dupsort=True, dupfixed=True) # <sha256>=blobstor_buid
-        self.offsets = self.lenv.open_db(b'axon:blob:offsets', dupsort=True, dupfixed=True) # <sha256>=blobstor_buid
+        self.bloblocs = self.lenv.open_db(b'axon:blob:locs', dupsort=True, dupfixed=True) # <sha256>=blobstor_bsid
+        self.offsets = self.lenv.open_db(b'axon:blob:offsets', dupsort=True, dupfixed=True) # <sha256>=blobstor_bsid
 
         # Persistent settings
         self.settings = self.lenv.open_db(b'axon:settings', dupsort=True)
 
         self._metrics = s_lmdb.Metrics(self.lenv)
         self._proxykeeper = _ProxyKeeper()
+
+        # Clear the global proxykeeper bsid->telepath path map (really just for unit tests)
+        _ProxyKeeper.bsidpathmap = {}
+
+        print(f'Axon __init__ axon={id(self)%997} pk={id(self._proxykeeper)%997}', flush=True)
 
         paths = self._get_stored_blobstorpaths()
         self.blobstorwatchers: Dict[str, asyncio.Event] = {}
@@ -758,14 +784,15 @@ class Axon(s_cell.Cell):
         self._worker.start()
 
         def fini():
+            print('Axon fini start', flush=True)
 
             async def run_on_loop():
                 for stop_event in self.blobstorwatchers.values():
                     stop_event.set()
                 await self._workq.fini()
             s_glob.plex.coroToTask(run_on_loop())
-            self._worker.join(5)
-
+            self._worker.join()
+            print('Axon fini end', flush=True)
         self.onfini(fini)
 
     def _get_stored_blobstorpaths(self):
@@ -780,8 +807,8 @@ class Axon(s_cell.Cell):
     async def _start_watching_blobstor(self, blobstorpath: str):
         stop_watching_event = asyncio.Event(loop=s_glob.plex.loop)
         self.blobstorwatchers[blobstorpath] = stop_watching_event
-        buid, blobstor = await self._proxykeeper.connect(blobstorpath)
-        s_glob.plex.addLoopCoro(self._watch_blobstor(blobstor, buid, blobstorpath, stop_watching_event))
+        bsid, blobstor = await self._proxykeeper.connect(blobstorpath)
+        s_glob.plex.addLoopCoro(self._watch_blobstor(blobstor, bsid, blobstorpath, stop_watching_event))
 
     async def addBlobStor(self, blobstorpath):
         '''
@@ -796,14 +823,14 @@ class Axon(s_cell.Cell):
         await self._executor(_store_blobstorpath, blobstorpath)
         await self._start_watching_blobstor(blobstorpath)
 
-    async def _watch_blobstor(self, blobstor, buid, blobstorpath, stop_event):
+    async def _watch_blobstor(self, blobstor, bsid, blobstorpath, stop_event):
         '''
         Monitor a blobstor, by repeatedly asking long-poll-style for its new data
         '''
         logger.info('Bringing BlobStor %s online', blobstorpath)
 
         CLONE_TIMEOUT = 60.0
-        cur_offset = self._getSyncProgress(buid)
+        cur_offset = self._getSyncProgress(bsid)
         while not self.isfini and not stop_event.is_set():
             try:
                 if blobstor.isfini:
@@ -824,22 +851,22 @@ class Axon(s_cell.Cell):
                 genr = donelist.pop().result()
 
                 if genr is not None:
-                    rv = await self._consume_clone_data(genr, buid)
+                    rv = await self._consume_clone_data(genr, bsid)
                     if rv is not None:
                         cur_offset = rv
-                        await self._executor_nowait(self._updateSyncProgress, buid, cur_offset)
+                        await self._executor_nowait(self._updateSyncProgress, bsid, cur_offset)
 
             except Exception:
                 if not self.isfini:
                     logger.exception('BlobStor.blobstorLoop error')
 
-    def _updateSyncProgress(self, buid, new_offset):
+    def _updateSyncProgress(self, bsid, new_offset):
         xact = self.xact.guarantee()
-        xact.put(b'offset:' + buid, struct.pack('>Q', new_offset), db=self.offsets)
+        xact.put(b'offset:' + bsid, struct.pack('>Q', new_offset), db=self.offsets)
 
         self.xact.commit()
 
-    def _getSyncProgress(self, buid):
+    def _getSyncProgress(self, bsid):
         '''
         Get the current offset for one blobstor of the Axon
 
@@ -848,7 +875,7 @@ class Axon(s_cell.Cell):
         '''
         with self.lenv.begin(buffers=True) as xact:
 
-            lval = xact.get(b'offset:' + buid, db=self.offsets)
+            lval = xact.get(b'offset:' + bsid, db=self.offsets)
             if lval is None:
                 return -1
 
@@ -858,9 +885,11 @@ class Axon(s_cell.Cell):
         '''
         A worker for running stuff that requires a write lock
         '''
+        print('axon _workloop start', flush=True)
         try:
             while not self.isfini:
                 msg = self._workq.get()
+                print('axon _workloop got', flush=True)
                 if msg is None:
                     break
                 func, done_event = msg
@@ -869,7 +898,7 @@ class Axon(s_cell.Cell):
                     s_glob.plex.callSoonSafe(done_event.set)
         finally:
             self.xact.fini()
-        print('_workloop done')
+        print('axon _workloop done', flush=True)
 
     async def _executor_nowait(self, func, *args, **kwargs):
         def syncfunc():
@@ -889,28 +918,27 @@ class Axon(s_cell.Cell):
         await done_event.wait()
         return retn
 
-    def _addloc(self, buid, hashval):
+    def _addloc(self, bsid, hashval):
         '''
-        Record blobstor's buid has a particular hashval.  Should be run in my executor.
+        Record blobstor's bsid has a particular hashval.  Should be run in my executor.
         '''
-        print(f'_addloc: {buid} has {hashval}', flush=True)
+        print(f'_addloc: {bsid} has {hashval}', flush=True)
         # import ipdb; ipdb.set_trace()
         xact = self.xact.guarantee()
 
         tick = s_common.now()
 
-        written = xact.put(hashval, buid, db=self.bloblocs, overwrite=False)
+        written = xact.put(hashval, bsid, db=self.bloblocs, overwrite=False)
 
         if written:
-            print('***Inc', flush=True)
             self._metrics.inc(xact, 'files', 1)
 
             # metrics contains everything we need to clone
-            self._metrics.record(xact, {'time': tick, 'buid': buid, 'sha256': hashval})
+            self._metrics.record(xact, {'time': tick, 'bsid': bsid, 'sha256': hashval})
 
             self.xact.commit()
 
-    async def _consume_clone_data(self, items, frombuid):
+    async def _consume_clone_data(self, items, frombsid):
         '''
         Add rows obtained from a BlobStor.clone() method.
 
@@ -923,7 +951,7 @@ class Axon(s_cell.Cell):
         last_offset = None
 
         async for offset, (hashval, _, _) in to_aiter(items):
-            await self._executor_nowait(self._addloc, frombuid, hashval)
+            await self._executor_nowait(self._addloc, frombsid, hashval)
 
             last_offset = offset
 
@@ -946,7 +974,7 @@ class Axon(s_cell.Cell):
 
     async def locs(self, hashval):
         '''
-        Get the blobstor buids for a given sha256 value
+        Get the blobstor bsids for a given sha256 value
 
         Args:
             xact (lmdb.Transaction): An LMDB transaction.
@@ -958,10 +986,10 @@ class Axon(s_cell.Cell):
         with self.lenv.begin() as xact, xact.cursor(db=self.bloblocs) as curs:
             if not curs.set_key(hashval):
                 return []
-            blobstorbuids = []
-            for buid in curs.iternext_dup():
-                blobstorbuids.append(buid)
-            return blobstorbuids
+            blobstorbsids = []
+            for bsid in curs.iternext_dup():
+                blobstorbsids.append(bsid)
+            return blobstorbsids
 
     async def startput(self):
         '''
@@ -987,7 +1015,7 @@ class Axon(s_cell.Cell):
         '''
         if proxykeeper is None:
             proxykeeper = self._proxykeeper
-        buid, blobstor = await proxykeeper.randoproxy()
+        bsid, blobstor = await proxykeeper.randoproxy()
         async with await blobstor.startput() as uploader:
             for bytz in files:
                 for chunk in s_common.chunks(bytz, CHUNK_SIZE):
@@ -995,7 +1023,7 @@ class Axon(s_cell.Cell):
                 await uploader.finishFile()
             count, hashval = await uploader.finish()
         if count:
-            await self._executor(self._addloc, buid, hashval)
+            await self._executor(self._addloc, bsid, hashval)
 
         return count
 

@@ -59,6 +59,8 @@ class Plex(s_eventbus.EventBus):
     def listen(self, host, port, onlink, ssl=None):
         '''
         Listen on the given host/port and fire onlink(Link).
+
+        Returns the socket object being listened on
         '''
         async def onconn(reader, writer):
 
@@ -71,7 +73,7 @@ class Plex(s_eventbus.EventBus):
 
         async def bind():
             server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
-            return server.sockets[0].getsockname()
+            return server
 
         coro = bind()
         return self.coroToSync(coro)

@@ -139,8 +139,8 @@ class AxonIsClone(AxonErr): pass
 class AxonNotClone(AxonErr): pass
 class AxonBadChunk(AxonErr): pass
 class AxonNoBlobStors(AxonErr): pass
-class AxonBlobStorBuidChanged(AxonErr): pass
-class AxonUnknownBuid(AxonErr): pass
+class AxonBlobStorBsidChanged(AxonErr): pass
+class AxonUnknownBsid(AxonErr): pass
 
 class NoWritableAxons(SynErr):
     '''

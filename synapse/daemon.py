@@ -194,6 +194,8 @@ class Daemon(EventBus):
         self.addr = None    # our main listen address
         self.cells = {}     # all cells are shared.  not all shared are cells.
         self.shared = {}    # objects provided by daemon
+        self.listenservers = [] # the sockets we're listening on
+        self.connectedlinks = [] # the links we're currently connected on
 
         self.mesgfuncs = {
             'tele:syn': self._onTeleSyn,
@@ -223,7 +225,9 @@ class Daemon(EventBus):
         # TODO: SSL
         ssl = None
 
-        return s_glob.plex.listen(host, port, self._onLinkInit, ssl=ssl)
+        server = s_glob.plex.listen(host, port, self._onLinkInit, ssl=ssl)
+        self.listenservers.append(server)
+        return server.sockets[0].getsockname()
 
     def share(self, name, item):
         '''
@@ -245,8 +249,21 @@ class Daemon(EventBus):
             logger.exception(f'onTeleShare() error for: {name}')
 
     def _onDmonFini(self):
-        for name, cell in self.cells.items():
-            cell.fini()
+        for s in self.listenservers:
+            s.close()
+        for name, share in self.shared.items():
+            if isinstance(share, EventBus):
+                share.fini()
+
+        async def afini():
+            for name, share in self.shared.items():
+                if isinstance(share, s_coro.Fini):
+                    await share.fini()
+
+            for link in self.connectedlinks:
+                await link.fini()
+
+        s_glob.plex.addLoopCoro(afini())
 
     def _getSslCtx(self):
         return None
@@ -324,6 +341,7 @@ class Daemon(EventBus):
             await self._onLinkMesg(link, mesg)
 
         link.onrx(onrx)
+        self.connectedlinks.append(link)
 
     async def _onLinkMesg(self, link, mesg):
 
@@ -348,6 +366,7 @@ class Daemon(EventBus):
         await share.fini()
 
     async def _onTeleSyn(self, link, mesg):
+        assert not self.isfini
 
         reply = ('tele:syn', {
             'vers': self.televers,

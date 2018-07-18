@@ -19,6 +19,7 @@ class Link(s_coro.Fini):
     def __init__(self, plex, reader, writer):
 
         s_coro.Fini.__init__(self)
+        print('Link __init__', flush=True)
 
         self.plex = plex
         self.iden = s_common.guid()
