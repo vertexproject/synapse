@@ -66,6 +66,7 @@ class FeedTest(s_test.SynTest):
             gestfp = s_common.genpath(dirn, 'gest.json')
             s_common.jssave(gestdef, gestfp)
             argv = ['--cortex', curl,
+                    '--debug',
                     '--modules', 'synapse.tests.utils.TestModule',
                     gestfp]
 
