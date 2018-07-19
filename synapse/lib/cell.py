@@ -257,7 +257,6 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         pass
 
     def getTeleApi(self, link, mesg):
-        assert not self.isfini
 
         if self.auth is None:
             return self.cellapi(self, link)

@@ -60,7 +60,7 @@ class Plex(s_eventbus.EventBus):
         '''
         Listen on the given host/port and fire onlink(Link).
 
-        Returns the socket object being listened on
+        Returns a server object that contains the listening sockets
         '''
         async def onconn(reader, writer):
 
