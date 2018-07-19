@@ -89,7 +89,7 @@ def makeargpaser():
 
 def _main():  # pragma: no cover
     s_common.setlogging(logger, 'DEBUG')
-    main(sys.argv[1:])
+    return main(sys.argv[1:])
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(_main())

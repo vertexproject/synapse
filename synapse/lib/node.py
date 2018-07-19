@@ -67,6 +67,7 @@ class Node:
             (tuple): An (iden, info) node tuple.
         '''
         node = (self.ndef, {
+            'iden': s_common.ehex(self.buid),
             'tags': self.tags,
             'props': self.props,
         })
@@ -286,6 +287,8 @@ class Node:
             mesg = 'Not allowed to add the tag.'
             return self.snap._onAuthDeny(mesg, tag=tag)
 
+        if isinstance(valu, list):
+            valu = tuple(valu)
         if valu != (None, None):
             valu = self.snap.model.type('ival').norm(valu)[0]
 

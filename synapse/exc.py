@@ -110,6 +110,7 @@ class NoRevPath(SynErr): pass
 class NoSuchCtor(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchImpl(SynErr): pass
+class NoSuchIden(SynErr): pass
 class NoSuchName(SynErr): pass
 class NoSuchTufo(SynErr): pass
 class NoSuchOper(SynErr): pass

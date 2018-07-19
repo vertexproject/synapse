@@ -246,6 +246,7 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         path = os.path.join(self.dirn, *path)
 
         if os.path.isfile(path):
+            logger.debug('Loading file from [%s]', path)
             return s_common.yamlload(path)
 
         return {}

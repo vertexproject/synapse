@@ -239,6 +239,20 @@ class CortexTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq('visi', nodes[0][0][1])
 
+            node = core.addNode('teststr', 'foo')
+
+            pack = core.addNodeTag(node[1].get('iden'), '#foo.bar')
+            self.eq(pack[1]['tags'].get('foo.bar'), (None, None))
+
+            pack = core.setNodeProp(node[1].get('iden'), 'tick', '2015')
+            self.eq(pack[1]['props'].get('tick'), 1420070400000)
+
+            self.len(1, list(core.eval('teststr#foo.bar')))
+            self.len(1, list(core.eval('teststr:tick=2015')))
+
+            core.delNodeTag(node[1].get('iden'), '#foo.bar')
+            self.len(0, list(core.eval('teststr#foo.bar')))
+
             opts = {'ndefs': [('inet:user', 'visi')]}
 
             nodes = list(core.eval('', opts=opts))
@@ -979,3 +993,84 @@ class CortexTest(s_test.SynTest):
     def test_cortex_storm_indx_none(self):
         with self.getTestCore() as core:
             self.raises(s_exc.NoSuchIndx, list, core.eval('graph:node:data=10'))
+
+    def _validate_feed(self, core, gestdef, guid, seen, pack=False):
+        # Helper for syn_ingest tests
+        core.addFeedData('syn.ingest', [gestdef])
+
+        # Nodes are made from the forms directive
+        q = 'teststr=1234 teststr=duck teststr=knight'
+        self.len(3, core.eval(q))
+        q = 'testint=1234'
+        self.len(1, core.eval(q))
+        q = 'pivcomp=(hehe,haha)'
+        self.len(1, core.eval(q))
+
+        # packed nodes are made from the nodes directive
+        nodes = list(core.eval('teststr=ohmy'))
+        if pack:
+            nodes = [node.pack() for node in nodes]
+        self.len(1, nodes)
+        node = nodes[0]
+        self.eq(node[1]['props'].get('bar'), ('testint', 137))
+        self.eq(node[1]['props'].get('tick'), 978307200000)
+        self.isin('beep.beep', node[1]['tags'])
+        self.isin('beep.boop', node[1]['tags'])
+        self.isin('test.foo', node[1]['tags'])
+
+        nodes = list(core.eval('testint=8675309'))
+        if pack:
+            nodes = [node.pack() for node in nodes]
+        self.len(1, nodes)
+        node = nodes[0]
+        self.isin('beep.morp', node[1]['tags'])
+        self.isin('test.foo', node[1]['tags'])
+
+        # Sources are made, as are seen nodes.
+        q = f'source={guid} -> seen:source'
+        nodes = list(core.eval(q))
+        if pack:
+            nodes = [node.pack() for node in nodes]
+        self.len(9, nodes)
+        for node in nodes:
+            self.isin('.seen', node[1].get('props', {}))
+
+        # Included tags are made
+        self.len(9, core.eval(f'#test'))
+
+        # As are tag times
+        nodes = list(core.eval('#test.baz'))
+        if pack:
+            nodes = [node.pack() for node in nodes]
+        self.eq(nodes[0][1].get('tags', {}).get('test.baz', ()),
+                (1388534400000, 1420070400000))
+
+        # Edges are made
+        self.len(1, core.eval('refs'))
+        self.len(1, core.eval('wentto'))
+
+    def test_syn_ingest_remote(self):
+        guid = s_common.guid()
+        seen = s_common.now()
+        gestdef = self.getIngestDef(guid, seen)
+
+        # Test Remote Cortex
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:
+
+                # Setup user permissions
+                core.addAuthRole('creator')
+                core.addAuthRule('creator', (True, ('node:add',)))
+                core.addAuthRule('creator', (True, ('prop:set',)))
+                core.addAuthRule('creator', (True, ('tag:add',)))
+                core.addUserRole('root', 'creator')
+                self._validate_feed(core, gestdef, guid, seen)
+
+    def test_syn_ingest_local(self):
+        guid = s_common.guid()
+        seen = s_common.now()
+        gestdef = self.getIngestDef(guid, seen)
+
+        with self.getTestCore() as core:
+            self._validate_feed(core, gestdef, guid, seen, pack=True)

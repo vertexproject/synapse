@@ -87,6 +87,68 @@ class CoreApi(s_cell.CellApi):
     async def fini(self):
         pass
 
+    def addNodeTag(self, iden, tag, valu=(None, None)):
+        '''
+        Add a tag to a node specified by iden.
+
+        Args:
+            iden (str): A hex encoded node BUID.
+            tag (str):  A tag string.
+            valu (tuple):  A time interval tuple or (None, None).
+        '''
+        buid = s_common.uhex(iden)
+        with self.cell.snap() as snap:
+
+            snap.setUser(self.user)
+
+            node = snap.getNodeByBuid(buid)
+            if node is None:
+                raise s_exc.NoSuchIden(iden=iden)
+
+            node.addTag(tag, valu=valu)
+            return node.pack()
+
+    def delNodeTag(self, iden, tag):
+        '''
+        Delete a tag from the node specified by iden.
+
+        Args:
+            iden (str): A hex encoded node BUID.
+            tag (str):  A tag string.
+        '''
+        buid = s_common.uhex(iden)
+        with self.cell.snap() as snap:
+
+            snap.setUser(self.user)
+
+            node = snap.getNodeByBuid(buid)
+            if node is None:
+                raise s_exc.NoSuchIden(iden=iden)
+
+            node.delTag(tag)
+            return node.pack()
+
+    def setNodeProp(self, iden, prop, valu):
+
+        buid = s_common.uhex(iden)
+        with self.cell.snap() as snap:
+
+            snap.setUser(self.user)
+
+            node = snap.getNodeByBuid(buid)
+            if node is None:
+                raise s_exc.NoSuchIden(iden=iden)
+
+            node.set(prop, valu)
+            return node.pack()
+
+    def addNode(self, form, valu, props=None):
+
+        with self.cell.snap() as snap:
+            snap.setUser(self.user)
+            node = snap.addNode(form, valu, props=props)
+            return node.pack()
+
     def addNodes(self, nodes):
 
         with self.cell.snap() as snap:
@@ -270,6 +332,7 @@ class Cortex(s_cell.Cell):
         }
 
         self.setFeedFunc('syn.splice', self._addSynSplice)
+        self.setFeedFunc('syn.ingest', self._addSynIngest)
 
         # load any configured external layers
         for path in self.conf.get('layers'):
@@ -497,7 +560,6 @@ class Cortex(s_cell.Cell):
     def _addSynSplice(self, snap, items):
 
         for item in items:
-
             func = self.splicers.get(item[0])
 
             if func is None:
@@ -580,10 +642,97 @@ class Cortex(s_cell.Cell):
     # def _addSynUndo(self, snap, items):
         # TODO apply splices in reverse
 
+    def _addSynIngest(self, snap, items):
+
+        for item in items:
+            try:
+                pnodes = self._getSynIngestNodes(item)
+                yield from snap.addNodes(pnodes)
+            except Exception as e:
+                logger.exception('Failed to process ingest [%r]', item)
+                continue
+
+    def _getSynIngestNodes(self, item):
+        '''
+        Get a list of packed nodes from a ingest definition.
+        '''
+        pnodes = []
+        seen = item.get('seen')
+        # Track all the ndefs we make so we can make sources
+        ndefs = []
+
+        # Make the form nodes
+        tags = item.get('tags', {})
+        forms = item.get('forms', {})
+        for form, valus in forms.items():
+            for valu in valus:
+                ndef = [form, valu]
+                ndefs.append(ndef)
+                obj = [ndef, {'tags': tags}]
+                if seen:
+                    obj[1]['props'] = {'.seen': (seen, seen)}
+                pnodes.append(obj)
+
+        # Make the packed nodes
+        nodes = item.get('nodes', ())
+        for pnode in nodes:
+            ndefs.append(pnode[0])
+            pnode[1].setdefault('tags', {})
+            for tag, valu in tags.items():
+                # Tag in the packed node has a higher predecence
+                # than the tag in the whole ingest set of data.
+                pnode[1]['tags'].setdefault(tag, valu)
+            if seen:
+                pnode[1].setdefault('props', {})
+                pnode[1]['props'].setdefault('.seen', (seen, seen))
+            pnodes.append(pnode)
+
+        # Make edges
+        for srcdef, etyp, destndefs in item.get('edges', ()):
+            for destndef in destndefs:
+                ndef = [etyp, [srcdef, destndef]]
+                ndefs.append(ndef)
+                obj = [ndef, {}]
+                if seen:
+                    obj[1]['props'] = {'.seen': (seen, seen)}
+                if tags:
+                    obj[1]['tags'] = tags.copy()
+                pnodes.append(obj)
+
+        # Make time based edges
+        for srcdef, etyp, destndefs in item.get('time:edges', ()):
+            for destndef, time in destndefs:
+                ndef = [etyp, [srcdef, destndef, time]]
+                ndefs.append(ndef)
+                obj = [ndef, {}]
+                if seen:
+                    obj[1]['props'] = {'.seen': (seen, seen)}
+                if tags:
+                    obj[1]['tags'] = tags.copy()
+                pnodes.append(obj)
+
+        # Make the source node and links
+        source = item.get('source')
+        if source:
+            # Base object
+            obj = [['source', source], {}]
+            pnodes.append(obj)
+
+            # Subsequent links
+            for ndef in ndefs:
+                obj = [['seen', (source, ndef)],
+                       {'props': {'.seen': (seen, seen)}}]
+                pnodes.append(obj)
+        return pnodes
+
     def _initCoreDir(self):
 
         # each cortex has a default write layer...
         s_common.gendir(self.dirn, 'layers', 'default')
+        mapsize = self.conf.get('layer:lmdb:mapsize')
+        if mapsize:
+            conf = {'lmdb:mapsize': mapsize}
+            s_common.yamlsave(conf, self.dirn, 'layers', 'default', 'cell.yaml')
 
         self.layer = self.openLayerName('default')
         self.layers.append(self.layer)

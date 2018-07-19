@@ -84,7 +84,7 @@ class CmdCoreTest(s_test.SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('storm --raw teststr=abcd')
             outp.expect("'tick': 123")
-            outp.expect("{'tags': {'cool': (None, None)}")
+            outp.expect("'tags': {'cool': (None, None)")
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
@@ -98,6 +98,13 @@ class CmdCoreTest(s_test.SynTest):
             cmdr.runCmdLine('storm newpz')
             outp.expect('err')
             outp.expect('NoSuchProp')
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('storm --hide-unknown [teststr=1234]')
+            s = str(outp)
+            self.notin('node:add', s)
+            self.notin('prop:set', s)
 
 # FIXME incorporate these into storm tests
 '''
