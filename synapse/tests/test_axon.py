@@ -1,6 +1,5 @@
 import os
 import time
-import struct
 import hashlib
 import asyncio
 import logging
@@ -340,5 +339,3 @@ class _AsyncQueueTest(s_test.SynTest):
         self.true(got_to_end)
 
         t.join()
-
-
