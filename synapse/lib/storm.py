@@ -112,7 +112,7 @@ class LimitCmd(Cmd):
 class UniqCmd(Cmd):
     '''
     Filter nodes by their uniq iden values.
-    When this node is used in a storm pipeline, only the first instance of a
+    When this is used a Storm pipeline, only the first instance of a
     given node is allowed through the pipeline.
 
     Examples:
