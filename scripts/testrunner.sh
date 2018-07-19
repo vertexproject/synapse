@@ -11,13 +11,19 @@
 MODULE=synapse
 HTML_DIR=./build/htmlcov
 INDEX=$HTML_DIR/index.html
+COVREQ=80
 
 if [ -e $HTML_DIR ]; then
     echo "Removing existing coverage reports."
     rm -rf $HTML_DIR
 fi
 
-pytest -v -s --durations 6 -n auto --maxfail 6 -rs --cov $MODULE --no-cov-on-fail --cov-report=html:$HTML_DIR $1
+COVFAIL=""
+if [ "$*" = '' ]; then
+    COVFAIL="--cov-fail-under=$COVREQ"
+fi
+
+pytest -v -s --durations 6 -n auto --maxfail 6 -rs $COVFAIL --cov $MODULE --no-cov-on-fail --cov-report=html:$HTML_DIR $*
 
 if [ $? -eq 0 ]; then
     if [ -e $INDEX ]; then
