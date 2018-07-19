@@ -11,7 +11,6 @@ import threading
 import concurrent
 import contextlib
 import collections
-from typing import List, Dict, Tuple
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -58,7 +57,7 @@ class PassThroughApi(s_cell.CellApi):
     '''
     Class that passes through methods made on it to its cell.
     '''
-    allowed_methods: List[str] = []
+    allowed_methods = []
 
     def __init__(self, cell, link):
         s_cell.CellApi.__init__(self, cell, link)
@@ -697,7 +696,7 @@ class _ProxyKeeper(s_coro.Fini):
     '''
 
     # All the proxy keepers share a common bsid -> path map
-    bsidpathmap: Dict[bytes, str] = {}  # bsid -> path
+    bsidpathmap = {}
 
     def __init__(self):
         s_coro.Fini.__init__(self)
@@ -719,7 +718,13 @@ class _ProxyKeeper(s_coro.Fini):
         self._proxymap[bsid] = proxy
         return bsid
 
-    async def connect(self, path: str) -> Tuple[bytes, s_telepath.Proxy]:
+    async def connect(self, path):
+        '''
+        Connect to a proxy.
+
+        Returns:
+            (bytes, s_telepath.Proxy) the bsid and the proxy object
+        '''
         proxy = await s_telepath.openurl(path)
         if proxy is None:
             return None
@@ -743,6 +748,9 @@ class _ProxyKeeper(s_coro.Fini):
         raise s_exc.AxonNoBlobStors()
 
     async def get(self, bsid: bytes) -> s_telepath.Proxy:
+        '''
+        Retrieve a proxy object by bsid, connecting if not already connected
+        '''
         proxy = self._proxymap.get(bsid)
         if proxy:
             if proxy.isfini:
@@ -848,7 +856,7 @@ class Axon(s_cell.Cell):
         _ProxyKeeper.bsidpathmap = {}
 
         paths = self._get_stored_blobstorpaths()
-        self.blobstorwatchers: Dict[str, asyncio.Event] = {}
+        self.blobstorwatchers = {}
         for path in paths:
             self._start_watching_blobstor(path)
 
