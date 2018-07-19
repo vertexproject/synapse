@@ -34,7 +34,6 @@ import synapse.lib.cell as s_cell
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
-import synapse.neuron as s_neuron
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
