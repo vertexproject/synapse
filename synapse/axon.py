@@ -28,9 +28,14 @@ import synapse.lib.const as s_const
 logger = logging.getLogger(__name__)
 
 # File convention: bsid -> unique id for a blobstor (actually the cell iden)
+
+
 CHUNK_SIZE = 16 * s_const.mebibyte
 
 async def to_aiter(it):
+    '''
+    Take either a sync or async iteratable and yields as an async generator
+    '''
     if hasattr(it, '__aiter__'):
         async for i in it:
             yield i
@@ -40,14 +45,19 @@ async def to_aiter(it):
 
 def _find_hash(curs, key):
     '''
-    Returns false if key not present, else returns true and positions cursor at first chunk of value
+    Set a LMDB cursor to the first key that starts with \a key
+
+    Returns:
+        False if key not present, else True and positions cursor at first chunk of value
     '''
     if not curs.set_range(key):
         return False
     return curs.key()[:len(key)] == key
 
 class PassThroughApi(s_cell.CellApi):
-    ''' Class that passes through methods made on it to its cell. '''
+    '''
+    Class that passes through methods made on it to its cell.
+    '''
     allowed_methods: List[str] = []
 
     def __init__(self, cell, link):
@@ -91,7 +101,7 @@ class IncrementalTransaction(s_eventbus.EventBus):
 
     def guarantee(self):
         '''
-        Make a real transaction if we don't have one
+        Make an LMDB transaction if we don't already have kone, and return it
         '''
         if self.txn is None:
             self.txn = self.lenv.begin(write=True, buffers=True)
@@ -101,13 +111,10 @@ class IncrementalTransaction(s_eventbus.EventBus):
         self.guarantee()
         return self.txn.cursor(db)
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc, cls, tb):
-        self.commit()
-
     def put(self, key, value, db):
+        '''
+        Write data to the database, committing if too many bytes are uncommitted
+        '''
         vallen = len(value)
         if vallen + self._bytecount > self.MAX_OUTSTANDING:
             self.commit()
@@ -117,6 +124,9 @@ class IncrementalTransaction(s_eventbus.EventBus):
         return rv
 
 class Uploader(s_daemon.Share):
+    '''
+    A remotely shareable object used for streaming uploads to a blobstor
+    '''
     typename = 'uploader'
 
     def __init__(self, link, item):
@@ -135,6 +145,12 @@ class Uploader(s_daemon.Share):
         self.onfini(fini)
 
     async def write(self, bytz):
+        '''
+        Upload some data
+
+        Args:
+            bytz (bytes):  a chunk of data.   It does not have to an entire blob.
+        '''
         assert not self.isfini
         await self.item._partialsubmit(self.wcid, ((self.chunknum, bytz), ))
         self.chunknum += 1
@@ -146,6 +162,9 @@ class Uploader(s_daemon.Share):
         await self.doneevent.wait()
 
     async def finish(self):
+        '''
+        Conclude an uploading session
+        '''
         self._needfinish = False
         rv = await self.item._complete(self.wcid, wait_for_result=True)
         return rv
@@ -162,6 +181,16 @@ class _AsyncQueue(s_coro.Fini):
     s_glob.plex.loop
     '''
     def __init__(self, max_entries, drain_level=None):
+        '''
+        Yield bytes for the given SHA256.
+
+        Args:
+            max_entries (int): the maximum number of entries that can be in the queue.
+
+            drain_level (int): once the queue is full, no more entries will be admitted until the number of entries
+                falls below this parameter.
+        '''
+
         s_coro.Fini.__init__(self)
         self.deq = collections.deque()
         self.notdrainingevent = asyncio.Event(loop=s_glob.plex.loop)
@@ -176,6 +205,9 @@ class _AsyncQueue(s_coro.Fini):
         self.onfini(_onfini)
 
     def get(self):
+        '''
+        Pending retrieve on the queue
+        '''
         assert not self.isfini
         while not self.isfini:
             try:
@@ -195,6 +227,9 @@ class _AsyncQueue(s_coro.Fini):
         return val
 
     async def put(self, item):
+        '''
+        Put onto the queue.  It will async pend if the queue is full or draining.
+        '''
         assert not self.isfini
         while not self.isfini:
             if len(self.deq) >= self.max_entries:
@@ -211,14 +246,19 @@ class _BlobStorWriter(s_coro.Fini):
     '''
     An active object that writes to disk on behalf of a blobstor (plus the client methods to interact with it)
     '''
-    # FIXME: partial commits, write-lock for writes
 
     class Command(enum.Enum):
+        '''
+        The types of commands a blobstorwriter client can issue
+        '''
         WRITE_BLOB = enum.auto()
         FINISH = enum.auto()
         UPDATE_OFFSET = enum.auto()
 
     class ClientInfo:
+        '''
+        The session information for a single active client to a blobstor
+        '''
         BUF_SIZE = 16 * s_const.mebibyte
 
         def __init__(self):
@@ -249,6 +289,9 @@ class _BlobStorWriter(s_coro.Fini):
         self._worker.start()
 
     def _finish_file(self, client) -> None:
+        '''
+        Read from the temporary file and write to one or more database rows.
+        '''
         hashval = client.hashing.digest()
         # Check if already present
         with self.xact.cursor(db=self.blobstor._blob_bytes) as curs:
@@ -279,6 +322,18 @@ class _BlobStorWriter(s_coro.Fini):
         client.newhashes.append(hashval)
 
     def _write_blob(self, wcid: int, chunknum: int, bytz: bytes) -> None:
+        '''
+        Write data
+
+        Args:
+            wcid (str): A value unique to a particular client session
+            chunknum (int):  the index of this particular chunk in blob.  A chunknum of 0 completes any previous
+            blob and starts a new one.  chunknums must be consecutive for each blob.
+            bytz (bytes):  the actual payload
+
+        Returns:
+            None
+        '''
         client = self.clients.get(wcid)
         if not chunknum:
             if client is None:
@@ -840,7 +895,9 @@ class Axon(s_cell.Cell):
         await self._start_watching_blobstor(blobstorpath)
 
     async def unwatchBlobStor(self, blobstorpath):
-
+        '''
+        Cause an axon to stop using a particular blobstor by path.  This is persistently stored.
+        '''
         def _del_blobstorpath(path):
             txn = self.xact.guarantee()
             txn.delete(b'blobstorpaths', path.encode(), db=self.settings)
@@ -889,6 +946,9 @@ class Axon(s_cell.Cell):
                     logger.exception('BlobStor.blobstorLoop error')
 
     def _updateSyncProgress(self, bsid, new_offset):
+        '''
+        Persistenly record how far we've gotten in retrieving the set of hash values a particular blobstor has
+        '''
         xact = self.xact.guarantee()
         xact.put(b'offset:' + bsid, struct.pack('>Q', new_offset), db=self.offsets)
 
@@ -926,12 +986,18 @@ class Axon(s_cell.Cell):
             self.xact.fini()
 
     async def _executor_nowait(self, func, *args, **kwargs):
+        '''
+        Run a function on the Axon's work thread without waiting for a result
+        '''
         def syncfunc():
             func(*args, **kwargs)
 
         await self._workq.put((syncfunc, None))
 
     async def _executor(self, func, *args, **kwargs):
+        '''
+        Run a function on the Axon's work thread
+        '''
         done_event = asyncio.Event(loop=s_glob.plex.loop)
         retn = None
 
@@ -1000,8 +1066,7 @@ class Axon(s_cell.Cell):
         Get the blobstor bsids for a given sha256 value
 
         Args:
-            xact (lmdb.Transaction): An LMDB transaction.
-            sha256 (bytes): The sha256 digest to look up
+            hashval (bytes): The sha256 digest to look up
 
         Returns:
             list: A list of blobnames
@@ -1070,7 +1135,7 @@ class Axon(s_cell.Cell):
             raise s_exc.NoSuchFile()
         _, blobstor = await proxykeeper.randoproxy(locs)
 
-        # that await is due to the current async generator telepath assymetry
+        # that await is due to the current async generator telepath asymmetry
         async for bloc in await blobstor.get(hashval):
             yield bloc
 

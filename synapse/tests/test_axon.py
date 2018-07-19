@@ -1,4 +1,5 @@
 import os
+import time
 import struct
 import hashlib
 import asyncio
@@ -8,6 +9,8 @@ import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.glob as s_glob
 import synapse.common as s_common
+
+import synapse.lib.threads as s_threads
 
 import synapse.tests.common as s_test
 
@@ -303,3 +306,39 @@ class AxonTest(s_test.SynTest):
 
                     # Make sure a regular write to the axon still works
                     self.eq(1, await axon.bulkput([b'bar']))
+
+class _AsyncQueueTest(s_test.SynTest):
+    @s_glob.synchelp
+    async def test_asyncqueue(self):
+
+        # The axon tests test most of the asyncqueue functionality.  We just need to test the
+        # draining part
+
+        q = s_axon._AsyncQueue(5, drain_level=3)
+        [await q.put(i) for i in range(5)]
+        got_to_end = False
+        last_msg = 0
+
+        def sync_worker():
+            nonlocal got_to_end
+            nonlocal last_msg
+            time.sleep(0.1)
+
+            last_msg = q.get()
+            last_msg = q.get()
+            time.sleep(0.1)
+            last_msg = q.get()
+
+            got_to_end = True
+        t = s_threads.worker(sync_worker)
+        before = time.time()
+        await q.put(6)
+        self.lt(0.1, time.time() - before)
+        self.eq(last_msg, 2)
+        await asyncio.sleep(0.1)
+
+        self.true(got_to_end)
+
+        t.join()
+
+
