@@ -26,10 +26,14 @@ import synapse.lib.const as s_const
 
 logger = logging.getLogger(__name__)
 
-# File convention: bsid -> unique id for a blobstor (actually the cell iden)
+# File convention: bsid -> persistent unique id for a blobstor (actually the cell iden)
 
 
 CHUNK_SIZE = 16 * s_const.mebibyte
+
+async def _run_after_delay(delay, coro):
+    await asyncio.sleep(delay, loop=s_glob.plex.loop)
+    await coro
 
 async def to_aiter(it):
     '''
@@ -69,6 +73,7 @@ class PassThroughApi(s_cell.CellApi):
                     return getattr(cell, f)(*args, **kwargs)
                 return func
             setattr(self, f, funcapply(f))
+
 
 class IncrementalTransaction(s_eventbus.EventBus):
     '''
@@ -770,7 +775,7 @@ class _ProxyKeeper(s_coro.Fini):
         return proxy
 
 class AxonApi(PassThroughApi):
-    allowed_methods = ['get', 'locs', 'stat', 'wants', 'metrics', 'addBlobStor', 'unwatchBlobStor']
+    allowed_methods = ['get', 'locs', 'stat', 'wants', 'metrics', 'addBlobStor', 'unwatchBlobStor', 'getBlobStors']
 
     def __init__(self, cell, link):
         PassThroughApi.__init__(self, cell, link)
@@ -857,8 +862,11 @@ class Axon(s_cell.Cell):
 
         paths = self._get_stored_blobstorpaths()
         self.blobstorwatchers = {}
+
+        # Wait a few seconds for the daemon to register all of its shared objects
+        DAEMON_DELAY = 3
         for path in paths:
-            self._start_watching_blobstor(path)
+            s_glob.plex.addLoopCoro(_run_after_delay(DAEMON_DELAY, self._start_watching_blobstor(path)))
 
         self._worker = threading.Thread(target=self._workloop, name='BlobStorWriter')
         self._workq = _AsyncQueue(50)
@@ -880,7 +888,7 @@ class Axon(s_cell.Cell):
             if not curs.set_key(b'blobstorpaths'):
                 return []
             for path in curs.iternext_dup():
-                paths.append(path.decode())
+                paths.append(bytes(path).decode())
         return paths
 
     async def _start_watching_blobstor(self, blobstorpath: str):
@@ -899,8 +907,18 @@ class Axon(s_cell.Cell):
             txn.put(b'blobstorpaths', path.encode(), dupdata=True, db=self.settings)
             self.xact.commit()
 
+        if blobstorpath in self.blobstorwatchers:
+            return None
+
         await self._executor(_store_blobstorpath, blobstorpath)
         await self._start_watching_blobstor(blobstorpath)
+
+    async def getBlobStors(self):
+        '''
+        Returns:
+            A list of all the watched blobstors
+        '''
+        return list(self.blobstorwatchers.keys())
 
     async def unwatchBlobStor(self, blobstorpath):
         '''
@@ -920,7 +938,7 @@ class Axon(s_cell.Cell):
         '''
         Monitor a blobstor, by repeatedly asking long-poll-style for its new data
         '''
-        logger.info('Bringing BlobStor %s online', blobstorpath)
+        logger.info('Watching BlobStor %s', blobstorpath)
 
         CLONE_TIMEOUT = 60.0
         cur_offset = self._getSyncProgress(bsid)
@@ -1017,7 +1035,7 @@ class Axon(s_cell.Cell):
         await done_event.wait()
         return retn
 
-    def _addloc(self, bsid, hashval):
+    def _addloc(self, bsid, hashval, commit=False):
         '''
         Record blobstor's bsid has a particular hashval.  Should be run in my executor.
         '''
@@ -1033,7 +1051,9 @@ class Axon(s_cell.Cell):
             # metrics contains everything we need to clone
             self._metrics.record(xact, {'time': tick, 'bsid': bsid, 'sha256': hashval})
 
-            self.xact.commit()
+            if commit:
+                self.xact.commit()
+
 
     async def _consume_clone_data(self, items, frombsid):
         '''
@@ -1051,6 +1071,9 @@ class Axon(s_cell.Cell):
             await self._executor_nowait(self._addloc, frombsid, hashval)
 
             last_offset = offset
+
+        if last_offset is not None:
+            await self._executor_nowait(self.xact.commit)
 
         return last_offset
 
@@ -1119,7 +1142,7 @@ class Axon(s_cell.Cell):
                 await uploader.finishFile()
             count, hashval = await uploader.finish()
         if count:
-            await self._executor(self._addloc, bsid, hashval)
+            await self._executor(self._addloc, bsid, hashval, commit=True)
 
         return count
 

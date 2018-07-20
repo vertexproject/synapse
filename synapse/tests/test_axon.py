@@ -294,6 +294,9 @@ class AxonTest(s_test.SynTest):
                     dmon.share('blobstor01', blobstor1)
                     await axon.addBlobStor(blobstorurl1)
 
+                    bss = await axon.getBlobStors()
+                    self.sorteq((blobstorurl0, blobstorurl1), bss)
+
                     # Make sure the axon gets the updates from the second blobstor
                     await self._wait_for_axon_files(axon, 4)
 

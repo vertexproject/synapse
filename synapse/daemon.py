@@ -366,7 +366,6 @@ class Daemon(EventBus):
         await share.fini()
 
     async def _onTeleSyn(self, link, mesg):
-        assert not self.isfini
 
         reply = ('tele:syn', {
             'vers': self.televers,
