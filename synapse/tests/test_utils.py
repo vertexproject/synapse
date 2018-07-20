@@ -283,3 +283,11 @@ class TestUtils(s_test.SynTest):
                 self.eq(os.path.join(dirn, 'cortex'), cortex.dirn)
                 self.eq(cortex.conf.get('test'), 1)
                 self.eq(cortex.boot.get('auth:en'), True)
+
+    @s_glob.synchelp
+    async def test_async(self):
+
+        async def araiser():
+            return 1 / 0
+
+        await self.asyncraises(ZeroDivisionError, araiser())
