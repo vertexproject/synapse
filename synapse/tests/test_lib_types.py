@@ -46,6 +46,8 @@ class TypesTest(s_test.SynTest):
             pnode = node.pack(dorepr=True)
             self.eq(pnode[0], (t, (123, 'haha')))
             self.eq(pnode[1].get('repr'), ('123', 'haha'))
+            self.eq(node.get('foo'), 123)
+            self.eq(node.get('bar'), 'haha')
 
     def test_fieldhelper(self):
         self.skip('Implement base fieldhelper test')
