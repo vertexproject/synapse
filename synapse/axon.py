@@ -301,9 +301,7 @@ class _BlobStorWriter(s_coro.Fini):
         with self.xact.cursor(db=self.blobstor._blob_bytes) as curs:
             if _find_hash(curs, hashval):
                 return
-        # MAX_SEGMENT_SIZE = 2**31  # Actually an lmdb value can be up to 2**32-1 bytes, but this is a nice round number
-        # Nic tmp
-        MAX_SEGMENT_SIZE = 2 ** 26
+        MAX_SEGMENT_SIZE = 2**31  # Actually an lmdb value can be up to 2**32-1 bytes, but this is a nice round number
         with contextlib.closing(client.tmpfh):
             client.tmpfh.seek(0)
             total_sz = 0
@@ -502,6 +500,7 @@ class BlobStor(s_cell.Cell):
         with self.lenv.begin(buffers=True, write=True) as xact:
 
             partial_hash = xact.get(b'blobstor:partial', db=self._blob_info)
+            import ipdb; ipdb.set_trace()
             if partial_hash is None:
                 return
             logger.info('Found partially written blob.  Deleting')
@@ -526,7 +525,7 @@ class BlobStor(s_cell.Cell):
         '''
         Act to clone another blobstor, the clonee, by repeatedly asking long-poll-style for its new data
         '''
-        CLONE_TIMEOUT = 60.0
+        CLONE_TIMEOUT = 30.0
         clonee = await s_telepath.openurl(cloneepath)
         cur_offset = self.getCloneProgress()
         while not self.isfini:
@@ -535,11 +534,10 @@ class BlobStor(s_cell.Cell):
                     clonee = await s_telepath.openurl(cloneepath)
 
                 genr = await clonee.clone(cur_offset, timeout=CLONE_TIMEOUT)
-                if genr is not None:
-                    last_offset = await self._consume_clone_data(genr)
-                    if last_offset is not None:
-                        cur_offset = last_offset + 1
-                        await self.writer.updateCloneProgress(cur_offset)
+                last_offset = await self._consume_clone_data(genr)
+                if last_offset is not None:
+                    cur_offset = last_offset + 1
+                    await self.writer.updateCloneProgress(cur_offset)
 
             except Exception:
                 if not self.isfini:
@@ -949,9 +947,7 @@ class Axon(s_cell.Cell):
         '''
         logger.info('Watching BlobStor %s', blobstorpath)
 
-        # CLONE_TIMEOUT = 60.0
-        # Nic tmp
-        CLONE_TIMEOUT = 5.0
+        CLONE_TIMEOUT = 60.0
         cur_offset = self._getSyncProgress(bsid)
         while not self.isfini and not stop_event.is_set():
             try:
@@ -1166,7 +1162,6 @@ class Axon(s_cell.Cell):
                 await uploader.finishFile()
             count, hashval = await uploader.finish()
         if count:
-            import ipdb; ipdb.set_trace()
             await self._executor(self._addloc, bsid, hashval, commit=True)
 
         return count
