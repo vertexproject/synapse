@@ -20,15 +20,6 @@ dmonpath = os.getenv('SYN_DMON_PATH')
 if dmonpath is None:
     dmonpath = s_common.genpath('~/.syn/dmon')
 
-# nic tmp
-from IPython import embed
-
-def excepthook(type, value, traceback):
-    embed()
-
-sys.excepthook = excepthook
-
-
 dmonyaml = '''
 listen: tcp://127.0.0.1:27429/
 
