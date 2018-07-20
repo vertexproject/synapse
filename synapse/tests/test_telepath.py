@@ -6,15 +6,15 @@ logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
-import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
+import synapse.lib.share as s_share
 import synapse.tests.common as s_test
 
 class Boom:
     pass
 
-class CustomShare(s_daemon.Share):
+class CustomShare(s_share.Share):
     typename = 'customshare'
 
     async def _runShareLoop(self):

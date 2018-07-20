@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
+import synapse.cells as s_cells
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
@@ -16,43 +17,16 @@ from synapse.eventbus import EventBus
 
 import synapse.lib.coro as s_coro
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.share as s_share
 
-class Share(s_coro.Fini):
-    '''
-    Class to wrap a dynamically shared object.
-    '''
-    def __init__(self, link, item):
-        s_coro.Fini.__init__(self)
-
-        self.link = link
-
-        self.orig = item    # for context management
-        self.item = item
-
-        self.iden = s_common.guid()
-
-        self.exited = False
-        self.entered = False
-
-        items = link.get('dmon:items')
-
-        async def fini():
-            items.pop(self.iden, None)
-
-        self.onfini(fini)
-        items[self.iden] = self
-
-    async def _runShareLoop(self):
-        return
-
-class With(Share):
+class With(s_share.Share):
     '''
     Server side context for a telepath With() proxy.
     '''
     typename = 'with'
 
     def __init__(self, link, item):
-        Share.__init__(self, link, item)
+        s_share.Share.__init__(self, link, item)
 
         self.exitok = None  # None/False == error
         self.onfini(self._onWithFini)
@@ -98,7 +72,7 @@ class With(Share):
         self.exitok = isexc
         await self.fini()
 
-class Genr(Share):
+class Genr(s_share.Share):
 
     typename = 'genr'
 
@@ -130,7 +104,7 @@ class Genr(Share):
 
         await s_glob.executor(syncloop)
 
-class AsyncGenr(Share):
+class AsyncGenr(s_share.Share):
 
     typename = 'genr'
 
@@ -260,8 +234,7 @@ class Daemon(EventBus):
                 if isinstance(share, s_coro.Fini):
                     await share.fini()
 
-            for link in self.connectedlinks:
-                await link.fini()
+            asyncio.wait(link.fini() for link in self.connectedlinks)
 
         s_glob.plex.addLoopCoro(afini())
 
@@ -302,8 +275,6 @@ class Daemon(EventBus):
             self.loadDmonCell(name)
 
     def loadDmonCell(self, name):
-        import synapse.cells as s_cells
-
         dirn = s_common.gendir(self.dirn, 'cells', name)
         logger.info(f'loading cell from: {dirn}')
 
@@ -444,7 +415,7 @@ class Daemon(EventBus):
 
     def _getTaskFiniMesg(self, task, valu):
 
-        if not isinstance(valu, Share):
+        if not isinstance(valu, s_share.Share):
             retn = (True, valu)
             return ('task:fini', {'task': task, 'retn': retn})
 
@@ -483,7 +454,7 @@ class Daemon(EventBus):
             await link.tx(mesg)
 
             # if it's a Share(), spin off the share loop
-            if isinstance(valu, Share):
+            if isinstance(valu, s_share.Share):
                 async def spinshareloop():
                     try:
                         await valu._runShareLoop()

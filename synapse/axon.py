@@ -15,7 +15,6 @@ import collections
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.daemon as s_daemon
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
@@ -23,6 +22,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
+import synapse.lib.share as s_share
 
 logger = logging.getLogger(__name__)
 
@@ -127,14 +127,14 @@ class IncrementalTransaction(s_eventbus.EventBus):
         rv = self.txn.put(key, value, db=db)
         return rv
 
-class Uploader(s_daemon.Share):
+class Uploader(s_share.Share):
     '''
     A remotely shareable object used for streaming uploads to a blobstor
     '''
     typename = 'uploader'
 
     def __init__(self, link, item):
-        s_daemon.Share.__init__(self, link, item)
+        s_share.Share.__init__(self, link, item)
         self.doneevent = asyncio.Event()
         self.exitok = False
         self.chunknum = 0
@@ -800,12 +800,12 @@ class AxonApi(PassThroughApi):
         rv = UploaderProxy(self.link, self.cell, blobstor)
         return rv
 
-class UploaderProxy(s_daemon.Share):
+class UploaderProxy(s_share.Share):
     ''' A proxy to a blobstor uploader living with the axon '''
     typename = 'uploaderproxy'
 
     def __init__(self, link, axonproxy, blobstorproxy):
-        s_daemon.Share.__init__(self, link, axonproxy)
+        s_share.Share.__init__(self, link, axonproxy)
         self.doneevent = asyncio.Event()
         self.blobstor = blobstorproxy
         self.uploader = None

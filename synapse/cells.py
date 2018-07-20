@@ -13,11 +13,11 @@ import synapse.lib.layer as s_layer
 
 ctors = {
     'auth': s_auth.Auth,
+    'axon': s_axon.Axon,
     'layer': s_layer.Layer,
     'cortex': s_cortex.Cortex,
     'cryocell': s_cryotank.CryoCell,
     'cryotank': s_cryotank.CryoTank,
-    'axon': s_axon.Axon,
     'blobstor': s_axon.BlobStor
 }
 
