@@ -500,7 +500,6 @@ class BlobStor(s_cell.Cell):
         with self.lenv.begin(buffers=True, write=True) as xact:
 
             partial_hash = xact.get(b'blobstor:partial', db=self._blob_info)
-            import ipdb; ipdb.set_trace()
             if partial_hash is None:
                 return
             logger.info('Found partially written blob.  Deleting')
