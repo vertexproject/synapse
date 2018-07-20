@@ -363,7 +363,7 @@ class Comp(Type):
         for valu, (name, typename) in zip(valu, fields):
 
             # if any of our comp fields need repr we do too...
-            rval = self.modl.types[typename].repr(valu)
+            rval = self.tcache[name].repr(valu)
 
             if rval is not None:
                 hit = True
