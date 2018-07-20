@@ -1,4 +1,5 @@
 import logging
+import collections
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -108,6 +109,10 @@ class Query(AstNode):
 
         self.opts = {}
 
+        # used by the di-graph projection logic
+        self._graph_done = {}
+        self._graph_want = {}
+
         self.tick = None
         self.canceled = False
 
@@ -138,8 +143,30 @@ class Query(AstNode):
             if node is not None:
                 yield node, node.initPath()
 
-    def evaluate(self):
+    def _finiGraph(self):
 
+        # gather up any remaining todo nodes
+        for ndef in self._graph_want.keys():
+            node = self.snap.getNodeByNdef(ndef)
+            yield node, node.initPath()
+
+    def _iterGraph(self, node, path):
+
+        self._graph_done[node.ndef] = True
+
+        edges = []
+        for name, ndef in node.getNodeRefs():
+
+            iden = s_common.ehex(s_common.buid(ndef))
+            # edge def is (iden1, iden2, uniq): info...
+
+            edges.append(((iden, None), {}))
+
+            self._graph_want[ndef] = True
+
+        path.meta('edges', edges)
+
+    def evaluate(self):
         with self._getQuerySnap() as snap:
             yield from self._runQueryLoop(snap)
 
@@ -147,16 +174,18 @@ class Query(AstNode):
 
         snap.core._logStormQuery(self.text, self.user)
 
+        self.init(snap)
+
         count = 0
 
         # all snap events go into the output queue...
         snap.runt['storm:opts'] = self.opts
 
-        self.init(snap)
-
         varz = self.opts.get('vars')
         if varz is not None:
             snap.vars.update(varz)
+
+        graph = self.opts.get('graph')
 
         self.optimize()
 
@@ -166,9 +195,12 @@ class Query(AstNode):
         for oper in self.kids:
             genr = oper.run(genr)
 
-        for item in genr:
+        for node, path in genr:
 
-            yield item
+            if graph:
+                self._iterGraph(node, path)
+
+            yield node, path
 
             count += 1
 
@@ -180,6 +212,10 @@ class Query(AstNode):
             if self.canceled:
                 raise s_exc.Canceled()
 
+        # give the graph system a chance to mop up...
+        if graph:
+            yield from self._finiGraph()
+
     def _getQuerySnap(self):
         write = self.isWrite()
         snap = self.view.snap()
@@ -188,9 +224,6 @@ class Query(AstNode):
 
     @s_glob.inpool
     def _runQueryThread(self, chan):
-
-        #for depth, text in self.format():
-            #print(' ' * depth + text)
 
         try:
 
@@ -208,6 +241,7 @@ class Query(AstNode):
 
                 for node, path in self._runQueryLoop(snap):
                     pode = node.pack(dorepr=dorepr)
+                    pode[1].update(path.pack())
                     chan.put(('node', pode))
                     count += 1
 
@@ -405,7 +439,7 @@ class PivotIn(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            # if it's a digraph edge, use :n2
+            # if it's a graph edge, use :n2
             if isinstance(node.form.type, s_types.Edge):
 
                 ndef = node.get('n1')
@@ -493,7 +527,7 @@ class FormPivot(PivotOper):
 
         # form -> form pivot is nonsensical. Lets help out...
 
-        # if dest form is a subtype of a digraph "edge", use N1 automatically
+        # if dest form is a subtype of a graph "edge", use N1 automatically
         if isinstance(self.prop.type, s_types.Edge):
 
             full = self.prop.name + ':n1'
@@ -518,7 +552,7 @@ class FormPivot(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            # if the source node is a digraph edge, use n2
+            # if the source node is a graph edge, use n2
             if isinstance(node.form.type, s_types.Edge):
 
                 n2def = node.get('n2')

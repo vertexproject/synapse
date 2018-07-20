@@ -64,6 +64,9 @@ class Type:
         sufx = xxhash.xxh64(indx).digest()
         return base + sufx
 
+    def pack(self):
+        return {'info': dict(self.info), 'opts': dict(self.opts)}
+
     def getTypeVals(self, valu):
         yield valu
 
@@ -287,7 +290,6 @@ class Type:
             raise s_exc.NoSuchCmpr(type=self.name, cmpr=cmpr)
 
         return func(valu)
-
 
 class Bool(Type):
 

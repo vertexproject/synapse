@@ -543,7 +543,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The (optional) clear text password for this password hash.',
                     }),
                 )),
-                ('it:exec:proc', ('guid', {}), (
+                ('it:exec:proc', {}, (
                     ('host', ('it:host', {}), {
                         'doc': 'The host that executed the process. May be an actual or a virtual / notional host.',
                     }),

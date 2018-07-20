@@ -5,6 +5,7 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
+import synapse.lib.types as s_types
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ class Node:
         self.snap = snap
 
         self.buid = buid
+
         self.init = False  # True if the node is being added.
 
         # if set, the node is complete.
@@ -39,6 +41,9 @@ class Node:
 
         if self.ndef is not None:
             self.form = self.snap.model.form(self.ndef[0])
+
+    def iden(self):
+        return s_common.ehex(self.buid)
 
     def _loadNodeData(self, rawprops):
 
@@ -77,6 +82,28 @@ class Node:
             node[1]['reprs'] = self.reprs()
 
         return node
+
+    def getNodeRefs(self):
+        '''
+        Return a list of (prop, (form, valu)) refs out for the node.
+        '''
+        retn = []
+
+        for name, valu in self.props.items():
+
+            pobj = self.form.props.get(name)
+
+            if isinstance(pobj.type, s_types.Ndef):
+                retn.append(name, valu)
+                continue
+
+            if self.snap.model.forms.get(pobj.type.name) is None:
+                continue
+
+            ndef = (pobj.type.name, valu)
+            retn.append((name, ndef))
+
+        return retn
 
     def set(self, name, valu, init=False):
         '''
@@ -448,12 +475,22 @@ class Path:
     def __init__(self, vars, nodes):
         self.vars = dict(vars)
         self.nodes = nodes
+        self.metadata = {}
 
     def get(self, name, defv=s_common.novalu):
         return self.vars.get(name, defv)
 
     def set(self, name, valu):
         self.vars[name] = valu
+
+    def meta(self, name, valu):
+        '''
+        Add node specific metadata to be returned with the node.
+        '''
+        self.metadata[name] = valu
+
+    def pack(self):
+        return dict(self.metadata)
 
     def fork(self, node):
 

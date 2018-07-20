@@ -161,11 +161,11 @@ testmodel = {
                 'defval': '??'}),
         )),
 
-        ('cycle0', ('cycle0', {}), (
+        ('cycle0', {}, (
             ('cycle1', ('cycle1', {}), {}),
         )),
 
-        ('cycle1', ('cycle1', {}), (
+        ('cycle1', {}, (
             ('cycle0', ('cycle0', {}), {}),
         )),
 

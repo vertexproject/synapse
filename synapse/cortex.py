@@ -87,6 +87,15 @@ class CoreApi(s_cell.CellApi):
     async def fini(self):
         pass
 
+    def getModelDict(self):
+        '''
+        Return a dictionary which describes the data model.
+
+        Returns:
+            (dict): A model description dictionary.
+        '''
+        return self.cell.model.getModelDict()
+
     def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
         Add a tag to a node specified by iden.
@@ -197,7 +206,9 @@ class CoreApi(s_cell.CellApi):
         try:
 
             for node, path in query.evaluate():
-                yield node.pack(dorepr=dorepr)
+                pode = node.pack(dorepr=dorepr)
+                pode[1].update(path.pack())
+                yield pode
 
         except Exception as e:
             logging.exception('exception during storm eval')
