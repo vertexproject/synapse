@@ -46,6 +46,8 @@ class TypesTest(s_test.SynTest):
             pnode = node.pack(dorepr=True)
             self.eq(pnode[0], (t, (123, 'haha')))
             self.eq(pnode[1].get('repr'), ('123', 'haha'))
+            self.eq(pnode[1].get('reprs').get('foo'), '123')
+            self.notin('bar', pnode[1].get('reprs'))
             self.eq(node.get('foo'), 123)
             self.eq(node.get('bar'), 'haha')
 
