@@ -16,9 +16,9 @@ ctors = {
     'axon': s_axon.Axon,
     'layer': s_layer.Layer,
     'cortex': s_cortex.Cortex,
+    'blobstor': s_axon.BlobStor,
     'cryocell': s_cryotank.CryoCell,
-    'cryotank': s_cryotank.CryoTank,
-    'blobstor': s_axon.BlobStor
+    'cryotank': s_cryotank.CryoTank
 }
 
 def add(name, ctor):
