@@ -218,6 +218,10 @@ class Fqdn(s_types.Type):
 
     def indxByEq(self, valu):
 
+        if valu == '':
+            raise s_exc.BadLiftValu(valu=valu, name=self.name,
+                                    mesg='Cannot generate fqdn index bytes for a empty string.')
+
         if valu[0] == '*':
             indx = valu[1:][::-1].encode('utf8')
             return (
@@ -225,7 +229,8 @@ class Fqdn(s_types.Type):
             )
 
         if valu.find('*') != -1:
-            raise s_exc.BadLiftValu(valu=valu, mesg='Wild card may only appear at the beginning.')
+            raise s_exc.BadLiftValu(valu=valu, name=self.name,
+                                    mesg='Wild card may only appear at the beginning.')
 
         return s_types.Type.indxByEq(self, valu)
 
