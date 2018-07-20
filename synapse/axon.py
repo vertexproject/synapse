@@ -301,7 +301,9 @@ class _BlobStorWriter(s_coro.Fini):
         with self.xact.cursor(db=self.blobstor._blob_bytes) as curs:
             if _find_hash(curs, hashval):
                 return
-        MAX_SEGMENT_SIZE = 2**31  # Actually an lmdb value can be up to 2**32-1 bytes, but this is a nice round number
+        # MAX_SEGMENT_SIZE = 2**31  # Actually an lmdb value can be up to 2**32-1 bytes, but this is a nice round number
+        # Nic tmp
+        MAX_SEGMENT_SIZE = 2 ** 26
         with contextlib.closing(client.tmpfh):
             client.tmpfh.seek(0)
             total_sz = 0
@@ -411,7 +413,6 @@ class _BlobStorWriter(s_coro.Fini):
         return ran_at_all
 
     async def complete(self, wcid, wait_for_result=False):
-        assert not self.isfini
         rv = None
         if wait_for_result:
             fut = asyncio.Future(loop=s_glob.plex.loop)
@@ -424,6 +425,7 @@ class _BlobStorWriter(s_coro.Fini):
         return rv
 
     async def updateCloneProgress(self, offset):
+        logger.debug('updateCloneProgress {offset}')
         await self._workq.put((self.Command.UPDATE_OFFSET, offset))
 
     async def submit(self, blocs, wait_for_result=False):
@@ -534,9 +536,9 @@ class BlobStor(s_cell.Cell):
 
                 genr = await clonee.clone(cur_offset, timeout=CLONE_TIMEOUT)
                 if genr is not None:
-                    new_offset = await self._consume_clone_data(genr)
-                    if new_offset is not None:
-                        cur_offset = new_offset
+                    last_offset = await self._consume_clone_data(genr)
+                    if last_offset is not None:
+                        cur_offset = last_offset + 1
                         await self.writer.updateCloneProgress(cur_offset)
 
             except Exception:
@@ -611,6 +613,8 @@ class BlobStor(s_cell.Cell):
         Yields:
             ((bytes, (bytes, int, bytes))): tuples of (index, (sha256,chunknum,bytes)) data.
         '''
+        MAX_ITERS = 1024  # just a rough number so we don't have genrs that last forever
+        iter_count = 0
         cur_offset = self._clone_seqn.indx  # actually, the next offset at which we'll write
         if cur_offset <= offset:
             if timeout == 0:
@@ -620,14 +624,17 @@ class BlobStor(s_cell.Cell):
                 await asyncio.wait_for(self._newdataevent.wait(), timeout, loop=s_glob.plex.loop)
             except asyncio.TimeoutError:
                 return
-
         with self.lenv.begin(buffers=True) as xact:
             for off, hashval in self._clone_seqn.iter(xact, offset):
+                iter_count += 1
                 if include_contents:
                     for chunknum, chunk in enumerate(self._get(hashval, xact)):
                         yield off, (None if chunknum else hashval, chunknum, bytes(chunk))
+                        iter_count += 1
                 else:
                     yield off, (hashval, None, None)
+                if iter_count >= MAX_ITERS:
+                    break
 
     async def _consume_clone_data(self, items):
         '''
@@ -637,7 +644,7 @@ class BlobStor(s_cell.Cell):
             items (Iterable): A list of tuples containing (offset, (sha256,chunknum,bytes)) data.
 
         Returns:
-            int: The offset *after* the last one processed from the list of items, or None if nothing was processed
+            int: The the last offset processed from the list of items, or None if nothing was processed
         '''
         last_offset = None
 
@@ -654,7 +661,9 @@ class BlobStor(s_cell.Cell):
 
         # Update how far we've cloned
         if last_offset is not None:
-            return last_offset + 1
+            logger.debug(f'_consume_clone_data returning {last_offset}')
+            return last_offset
+        logger.debug(f'_consume_clone_data returning None')
         return None
 
     async def stat(self):
@@ -849,7 +858,7 @@ class Axon(s_cell.Cell):
         self.lenv.set_mapsize(mapsize)
 
         self.bloblocs = self.lenv.open_db(b'axon:blob:locs', dupsort=True, dupfixed=True) # <sha256>=blobstor_bsid
-        self.offsets = self.lenv.open_db(b'axon:blob:offsets', dupsort=True, dupfixed=True) # <sha256>=blobstor_bsid
+        self.offsets = self.lenv.open_db(b'axon:blob:offsets') # <sha256>=blobstor_bsid
 
         # Persistent settings
         self.settings = self.lenv.open_db(b'axon:settings', dupsort=True)
@@ -908,7 +917,7 @@ class Axon(s_cell.Cell):
             self.xact.commit()
 
         if blobstorpath in self.blobstorwatchers:
-            return None
+            return
 
         await self._executor(_store_blobstorpath, blobstorpath)
         await self._start_watching_blobstor(blobstorpath)
@@ -936,11 +945,13 @@ class Axon(s_cell.Cell):
 
     async def _watch_blobstor(self, blobstor, bsid, blobstorpath, stop_event):
         '''
-        Monitor a blobstor, by repeatedly asking long-poll-style for its new data
+        As Axon, Monitor a blobstor, by repeatedly asking long-poll-style for its new data
         '''
         logger.info('Watching BlobStor %s', blobstorpath)
 
-        CLONE_TIMEOUT = 60.0
+        # CLONE_TIMEOUT = 60.0
+        # Nic tmp
+        CLONE_TIMEOUT = 5.0
         cur_offset = self._getSyncProgress(bsid)
         while not self.isfini and not stop_event.is_set():
             try:
@@ -950,22 +961,31 @@ class Axon(s_cell.Cell):
                         logger.warning('No longer monitoring %s for new data', blobstorpath)
                         break
 
+                async def clone_and_next():
+                    ''' Get the async generator and the first item of that generator '''
+                    genr = await blobstor.clone(cur_offset, timeout=CLONE_TIMEOUT, include_contents=False)
+                    try:
+                        it = genr.__aiter__()
+                        first_item = await it.__anext__()
+                        return it, first_item
+                    except StopAsyncIteration:
+                        return None, None
+
                 # Wait on either the clone completing, or a signal to stop watching
-                clone_coro = blobstor.clone(cur_offset + 1, timeout=CLONE_TIMEOUT, include_contents=False)
                 stop_coro = stop_event.wait()
-                donelist, notdonelist = await asyncio.wait([clone_coro, stop_coro], loop=s_glob.plex.loop,
+                donelist, notdonelist = await asyncio.wait([clone_and_next(), stop_coro], loop=s_glob.plex.loop,
                                                            return_when=concurrent.futures.FIRST_COMPLETED)
                 for task in notdonelist:
                     task.cancel()
                 if stop_event.is_set():
                     break
-                genr = donelist.pop().result()
+                genr, first_item = donelist.pop().result()
+                if genr is None:
+                    continue
 
-                if genr is not None:
-                    rv = await self._consume_clone_data(genr, bsid)
-                    if rv is not None:
-                        cur_offset = rv
-                        await self._executor_nowait(self._updateSyncProgress, bsid, cur_offset)
+                logger.debug('Got clone data for %s', blobstorpath)
+                cur_offset = 1 + await self._consume_clone_data(first_item, genr, bsid)
+                await self._executor_nowait(self._updateSyncProgress, bsid, cur_offset)
 
             except Exception:
                 if not self.isfini:
@@ -973,10 +993,13 @@ class Axon(s_cell.Cell):
 
     def _updateSyncProgress(self, bsid, new_offset):
         '''
-        Persistenly record how far we've gotten in retrieving the set of hash values a particular blobstor has
+        Persistently record how far we've gotten in retrieving the set of hash values a particular blobstor has
+
+        Records the next offset to retrieve
         '''
-        xact = self.xact.guarantee()
-        xact.put(b'offset:' + bsid, struct.pack('>Q', new_offset), db=self.offsets)
+        logger.debug('Axon._updateSyncProgress on %r to %r', bsid, new_offset)
+        rv = self.xact.put(b'offset:' + bsid, struct.pack('>Q', new_offset), db=self.offsets)
+        assert rv
 
         self.xact.commit()
 
@@ -991,9 +1014,11 @@ class Axon(s_cell.Cell):
 
             lval = xact.get(b'offset:' + bsid, db=self.offsets)
             if lval is None:
-                return -1
-
-            return struct.unpack('>Q', lval)[0] + 1
+                rv = 0
+            else:
+                rv = struct.unpack('>Q', lval)[0]
+        logger.debug('Axon._getSyncProgress: %r: %r', bsid, rv)
+        return rv
 
     def _workloop(self):
         '''
@@ -1054,8 +1079,7 @@ class Axon(s_cell.Cell):
             if commit:
                 self.xact.commit()
 
-
-    async def _consume_clone_data(self, items, frombsid):
+    async def _consume_clone_data(self, first_item, items, frombsid):
         '''
         Add rows obtained from a BlobStor.clone() method.
 
@@ -1065,15 +1089,15 @@ class Axon(s_cell.Cell):
         Returns:
             int: The last index value processed from the list of items, or None if nothing was processed
         '''
-        last_offset = None
+        last_offset, (hashval, _, _) = first_item
+        await self._executor_nowait(self._addloc, frombsid, hashval)
 
-        async for offset, (hashval, _, _) in to_aiter(items):
+        async for last_offset, (hashval, _, _) in to_aiter(items):
             await self._executor_nowait(self._addloc, frombsid, hashval)
 
-            last_offset = offset
+        await self._executor_nowait(self.xact.commit)
 
-        if last_offset is not None:
-            await self._executor_nowait(self.xact.commit)
+        logger.debug('_consume_clone_data returning %r', last_offset)
 
         return last_offset
 
@@ -1142,6 +1166,7 @@ class Axon(s_cell.Cell):
                 await uploader.finishFile()
             count, hashval = await uploader.finish()
         if count:
+            import ipdb; ipdb.set_trace()
             await self._executor(self._addloc, bsid, hashval, commit=True)
 
         return count
@@ -1163,7 +1188,7 @@ class Axon(s_cell.Cell):
             proxykeeper = self._proxykeeper
         locs = await self.locs(hashval)
         if not locs:
-            raise s_exc.NoSuchFile()
+            raise s_exc.NoSuchFile(f'{hashval} not present')
         _, blobstor = await proxykeeper.randoproxy(locs)
 
         # that await is due to the current async generator telepath asymmetry
