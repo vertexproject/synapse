@@ -109,6 +109,32 @@ class LimitCmd(Cmd):
 
             yield item
 
+class UniqCmd(Cmd):
+    '''
+    Filter nodes by their uniq iden values.
+    When this is used a Storm pipeline, only the first instance of a
+    given node is allowed through the pipeline.
+
+    Examples:
+
+        #badstuff +inet:ipv4 ->* | uniq
+
+    '''
+
+    name = 'uniq'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        return pars
+
+    def runStormCmd(self, snap, genr):
+        buidset = set()
+        for node, path in genr:
+            if node.buid in buidset:
+                continue
+            buidset.add(node.buid)
+            yield node, path
+
 class DelNodeCmd(Cmd):
     '''
     Delete nodes produced by the previous query logic.

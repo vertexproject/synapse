@@ -86,3 +86,12 @@ class StormTest(s_test_common.SynTest):
             self.eq(prints[0][1].get('mesg'), 'Counted 0 nodes.')
             nodes = [mesg for mesg in mesgs if mesg[0] == 'node']
             self.len(0, nodes)
+
+    def test_storm_uniq(self):
+        with self.getTestCore() as core:
+            q = "[testcomp=(123, test) testcomp=(123, duck) testcomp=(123, mode)]"
+            self.len(3, core.eval(q))
+            nodes = list(core.eval('testcomp -> *'))
+            self.len(3, nodes)
+            nodes = list(core.eval('testcomp -> * | uniq | count'))
+            self.len(1, nodes)
