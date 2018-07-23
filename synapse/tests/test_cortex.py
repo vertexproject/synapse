@@ -1,5 +1,10 @@
+import json
 import threading
+
+import tornado.web as t_web
+
 from unittest.mock import patch
+from urllib.request import urlopen
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -7,7 +12,30 @@ import synapse.telepath as s_telepath
 
 import synapse.tests.common as s_test
 
+class HttpTestV1(t_web.RequestHandler):
+
+    def get(self):
+        self.write(b'woot')
+
 class CortexTest(s_test.SynTest):
+
+    def test_cortex_http(self):
+
+        with self.getTestCore() as core:
+
+            core.addHttpApi('/v1/test', HttpTestV1)
+
+            url = core._getTestHttpUrl('v1/test')
+            self.eq(b'woot', urlopen(url).read())
+
+            url = core._getTestHttpUrl('v1/model')
+
+            resp = json.loads(urlopen(url).read())
+
+            self.eq(resp['status'], 'ok')
+
+            self.nn(resp['result'].get('forms'))
+            self.nn(resp['result'].get('types'))
 
     def test_cortex_iter_props(self):
 
