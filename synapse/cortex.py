@@ -438,6 +438,7 @@ class Cortex(s_cell.Cell):
         socks = t_netutil.bind_sockets(port, host)
 
         self.webaddr = socks[0].getsockname()
+        logger.debug('Starting webserver at [%r]', self.webaddr)
         self.webserver = t_http.HTTPServer(self.webapp)
         self.webserver.add_sockets(socks)
 
