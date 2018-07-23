@@ -19,6 +19,19 @@ class HttpTestV1(t_web.RequestHandler):
 
 class CortexTest(s_test.SynTest):
 
+    def test_cortex_noderefs(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                node = snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+
+                refs = dict(node.getNodeRefs())
+
+                self.eq(refs.get('fqdn'), ('inet:fqdn', 'woot.com'))
+                self.eq(refs.get('ipv4'), ('inet:ipv4', 0x01020304))
+
     def test_cortex_http(self):
 
         with self.getTestCore() as core:

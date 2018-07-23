@@ -72,7 +72,7 @@ class Node:
             (tuple): An (iden, info) node tuple.
         '''
         node = (self.ndef, {
-            'iden': s_common.ehex(self.buid),
+            'iden': self.iden(),
             'tags': self.tags,
             'props': self.props,
         })
