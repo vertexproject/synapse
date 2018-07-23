@@ -542,7 +542,7 @@ class Model:
         base = '.' + name
         univ = Univ(self, base, tdef, info)
 
-        self.props[name] = univ
+        self.props[base] = univ
 
         self.univs.append((name, tdef, info))
 
