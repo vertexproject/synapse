@@ -34,7 +34,6 @@ import synapse.lib.cell as s_cell
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
-import synapse.neuron as s_neuron
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
@@ -134,6 +133,10 @@ testmodel = {
             ('hehe', 'testint'),
             ('haha', 'testlower'))
         }), {'doc': 'A fake comp type.'}),
+        ('testcomplexcomp', ('comp', {'fields': (
+            ('foo', 'testint'),
+            ('bar', ('str', {'lower': True}),),
+        )}), {'doc': 'A complex comp type.'}),
         ('testhexa', ('hex', {}), {'doc': 'anysize test hex type'}),
         ('testhex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
 
@@ -172,6 +175,11 @@ testmodel = {
         ('testcomp', {}, (
             ('hehe', ('testint', {}), {'ro': 1}),
             ('haha', ('testlower', {}), {'ro': 1}),
+        )),
+
+        ('testcomplexcomp', {}, (
+            ('foo', ('testint', {}), {'ro': 1}),
+            ('bar', ('str', {'lower': 1}), {'ro': 1})
         )),
 
         ('testint', {}, {}),

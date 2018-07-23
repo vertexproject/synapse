@@ -25,8 +25,8 @@ class FeedTest(s_test.SynTest):
             cmdg = s_test.CmdGenerator(['storm pivcomp -> *'], on_end=EOFError)
             with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
                 self.eq(s_feed.main(argv, outp=outp), 0)
-            self.true(outp.expect('teststr = haha', throw=False))
-            self.true(outp.expect('pivtarg = hehe', throw=False))
+            self.true(outp.expect('teststr=haha', throw=False))
+            self.true(outp.expect('pivtarg=hehe', throw=False))
 
     def test_syningest_fail(self):
         with self.getTestDir() as dirn:
@@ -74,8 +74,8 @@ class FeedTest(s_test.SynTest):
             cmdg = s_test.CmdGenerator(['storm pivcomp -> *'], on_end=EOFError)
             with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
                 self.eq(s_feed.main(argv, outp=outp), 0)
-            self.true(outp.expect('teststr = haha', throw=False))
-            self.true(outp.expect('pivtarg = hehe', throw=False))
+            self.true(outp.expect('teststr=haha', throw=False))
+            self.true(outp.expect('pivtarg=hehe', throw=False))
 
     def test_synsplice_remote(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:

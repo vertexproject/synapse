@@ -603,11 +603,11 @@ class PropPivot(PivotOper):
             try:
                 for pivo in self.snap.getNodesBy(self.prop.full, valu):
                     yield pivo, path.fork(pivo)
-            except s_exc.BadTypeValu as e:
+            except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
                 logger.warning('Caught error during pivot', exc_info=e)
                 items = e.items()
                 mesg = items.pop('mesg', '')
-                mesg = ': '.join((f'BadTypeValu [{repr(valu)}] during pivot', mesg))
+                mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
                 self.snap.warn(mesg, **items)
 
 class Cond(AstNode):

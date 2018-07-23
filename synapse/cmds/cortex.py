@@ -62,7 +62,7 @@ class StormCmd(s_cli.Cmd):
             self.printf(repr(node))
             return
 
-        self.printf('%.20s = %s' % (formname, formvalu))
+        self.printf(f'{formname}={formvalu}')
 
         if not opts.get('hide-props'):
 
