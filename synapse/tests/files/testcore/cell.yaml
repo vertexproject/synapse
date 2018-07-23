@@ -5,4 +5,4 @@ layer:lmdb:mapsize: 5368709120
 
 httpapi:
     port: 0
-    host: localhost
+    host: 127.0.0.1
