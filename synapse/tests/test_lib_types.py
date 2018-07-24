@@ -62,7 +62,7 @@ class TypesTest(s_test.SynTest):
         self.raises(s_exc.BadTypeValu, model.type('guid').norm, 'visi')
 
         guid = model.type('guid').norm('*')[0]
-        self.len(32, guid)
+        self.true(s_common.isguid(guid))
 
     def test_hex(self):
 
