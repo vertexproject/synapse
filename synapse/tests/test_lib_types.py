@@ -62,7 +62,15 @@ class TypesTest(s_test.SynTest):
         self.raises(s_exc.BadTypeValu, model.type('guid').norm, 'visi')
 
         guid = model.type('guid').norm('*')[0]
-        self.len(32, guid)
+        self.true(s_common.isguid(guid))
+
+        with self.getTestCore() as core:
+            q = '[testguid="*" :tick=2001]'
+            nodes = list(core.eval(q))
+            self.len(1, nodes)
+            node = nodes[0]
+            self.true(s_common.isguid(node.ndef[1]))
+            self.nn(node.get('tick'))
 
     def test_hex(self):
 

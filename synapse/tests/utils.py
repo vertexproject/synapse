@@ -128,6 +128,7 @@ testmodel = {
         ('testint', ('int', {}), {}),
         ('teststr', ('str', {}), {}),
         ('testauto', ('str', {}), {}),
+        ('testguid', ('guid', {}), {}),
 
         ('testcomp', ('comp', {'fields': (
             ('hehe', 'testint'),
@@ -182,7 +183,10 @@ testmodel = {
             ('bar', ('str', {'lower': 1}), {'ro': 1})
         )),
 
-        ('testint', {}, {}),
+        ('testint', {}, ()),
+        ('testguid', {}, (
+            ('tick', ('testtime', {}), {}),
+        )),
 
         ('teststr', {}, (
             ('bar', ('ndef', {}), {}),

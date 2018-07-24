@@ -602,6 +602,10 @@ class CortexTest(s_test.SynTest):
                 self.eq(node.ndef[0], 'pivtarg')
                 self.eq(node.ndef[1], 'foo')
 
+            for node in core.eval('[testguid="*" :tick=2001]'):
+                self.true(s_common.isguid(node.ndef[1]))
+                self.nn(node.get('tick'))
+
             nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -> pivtarg')])
 
             self.len(1, nodes)
