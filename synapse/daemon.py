@@ -458,6 +458,8 @@ class Daemon(EventBus):
                 async def spinshareloop():
                     try:
                         await valu._runShareLoop()
+                    except Exception:
+                        logger.exception('Error running %r', valu)
                     finally:
                         await valu.fini()
                 s_glob.plex.coroLoopTask(spinshareloop())
