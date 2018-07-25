@@ -142,6 +142,11 @@ class Query(AstNode):
             node = snap.getNodeByNdef(ndef)
             if node is not None:
                 yield node, node.initPath()
+        for iden in self.opts.get('idens', ()):
+            buid = s_common.uhex(iden)
+            node = snap.getNodeByBuid(buid)
+            if node is not None:
+                yield node, node.initPath()
 
     def _finiGraph(self):
 

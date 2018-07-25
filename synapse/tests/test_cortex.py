@@ -629,9 +629,15 @@ class CortexTest(s_test.SynTest):
 
             ndef = ('testcomp', (10, 'haha'))
             opts = {'ndefs': (ndef,)}
-
+            # Seed nodes in the query with ndefs
             for node in core.eval('[-#foo]', opts=opts):
                 self.none(node.getTag('foo'))
+
+            # Seed nodes in the query with idens
+            opts = {'idens': (nodes[0][1].get('iden'),)}
+            nodes = list(core.eval('', opts=opts))
+            self.len(1, nodes)
+            self.eq(nodes[0].pack()[0], ('teststr', 'foo bar'))
 
             self.genraises(s_exc.NoSuchOpt, core.eval, '%foo=asdf')
             self.genraises(s_exc.BadOptValu, core.eval, '%limit=asdf')
