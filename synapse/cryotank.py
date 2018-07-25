@@ -402,7 +402,7 @@ class CryoApi(s_cell.CellApi):
 
     def rows(self, name, offs, size, iden=None):
         tank = self.cell.init(name)
-        yield from tank.rows(name, offs, size, iden=iden)
+        yield from tank.rows(offs, size, iden=iden)
 
     def metrics(self, name, offs, size=None):
         tank = self.cell.init(name)
