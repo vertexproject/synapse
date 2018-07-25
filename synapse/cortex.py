@@ -348,6 +348,7 @@ class Cortex(s_cell.Cell):
         self.stormcmds = {}
 
         self.addStormCmd(s_storm.HelpCmd)
+        self.addStormCmd(s_storm.IdenCmd)
         self.addStormCmd(s_storm.SpinCmd)
         self.addStormCmd(s_storm.SudoCmd)
         self.addStormCmd(s_storm.UniqCmd)
