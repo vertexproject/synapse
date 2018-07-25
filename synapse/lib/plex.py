@@ -146,6 +146,8 @@ class Plex(s_eventbus.EventBus):
         Schedule the coro on the loop.
 
         NOTE: NOT THREAD SAFE. ONLY FROM IO LOOP.
+
+        NOTE: any exceptions raised out of coro will be silently swallowed
         '''
         self.loop.create_task(coro)
 
