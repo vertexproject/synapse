@@ -16,7 +16,7 @@ import synapse.tests.common as s_test
 logger = logging.getLogger(__name__)
 
 # This causes blocks which are not homogeneous when sliced in kibibyte lengths
-bbuf = b'0123456' * 4585
+bbuf = b'0123456' * 4793491
 
 bbufhash = hashlib.sha256(bbuf).digest()
 asdfhash = hashlib.sha256(b'asdfasdf').digest()

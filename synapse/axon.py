@@ -935,10 +935,10 @@ class Axon(s_cell.Cell):
             txn.delete(b'blobstorpaths', path.encode(), db=self.settings)
             self.xact.commit()
 
-        await self._executor(_del_blobstorpath, blobstorpath)
         stop_event = self.blobstorwatchers.pop(blobstorpath, None)
         if stop_event is not None:
             stop_event.set()
+        await self._executor(_del_blobstorpath, blobstorpath)
 
     async def _watch_blobstor(self, blobstor, bsid, blobstorpath, stop_event):
         '''
@@ -973,6 +973,12 @@ class Axon(s_cell.Cell):
                 for task in notdonelist:
                     task.cancel()
                 if stop_event.is_set():
+                    # avoid asyncio debug warnings by retrieving any done task exceptions
+                    for f in donelist:
+                        try:
+                            f.result()
+                        except Exception:
+                            pass
                     break
                 genr, first_item = donelist.pop().result()
                 if genr is None:
