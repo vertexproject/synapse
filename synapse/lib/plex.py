@@ -28,6 +28,7 @@ class Plex(s_eventbus.EventBus):
         def fini():
             coro = self._onAsyncFini()
             self.coroToSync(coro, timeout=2)
+            self.loop.stop()
 
         self.onfini(fini)
 
