@@ -1,16 +1,18 @@
 import enum
-import lmdb  # type: ignore
-import asyncio
-import binascii
 import struct
-import logging
 import random
+import asyncio
 import hashlib
+import logging
+import binascii
 import tempfile
+import functools
 import threading
 import concurrent
 import contextlib
 import collections
+
+import lmdb  # type: ignore
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -388,7 +390,8 @@ class _BlobStorWriter(s_coro.Fini):
                     _, wcid, fut = msg
                     result = self._complete_session(wcid)
                     if fut is not None:
-                        s_glob.plex.callSoonSafe(lambda: fut.set_result(result))
+                        s_glob.plex.callSoonSafe(functools.partial(fut.set_result, result))
+
                 elif cmd == self.Command.UPDATE_OFFSET:
                     _, offset = msg
                     self._updateCloneProgress(offset)
