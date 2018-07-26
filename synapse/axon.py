@@ -155,7 +155,6 @@ class Uploader(s_share.Share):
         Args:
             bytz (bytes):  a chunk of data.   It does not have to an entire blob.
         '''
-        assert not self.isfini
         await self.item._partialsubmit(self.wcid, ((self.chunknum, bytz), ))
         self.chunknum += 1
 
@@ -212,7 +211,6 @@ class _AsyncQueue(s_coro.Fini):
         '''
         Pending retrieve on the queue
         '''
-        assert not self.isfini
         while not self.isfini:
             try:
                 val = self.deq.popleft()
@@ -234,7 +232,6 @@ class _AsyncQueue(s_coro.Fini):
         '''
         Put onto the queue.  It will async pend if the queue is full or draining.
         '''
-        assert not self.isfini
         while not self.isfini:
             if len(self.deq) >= self.max_entries:
                 self.notdrainingevent.clear()
@@ -402,7 +399,6 @@ class _BlobStorWriter(s_coro.Fini):
     # Client methods
 
     async def partialsubmit(self, wcid, blocs):
-        assert not self.isfini
         ran_at_all = False
         async for b in to_aiter(blocs):
             chunknum, bytz = b
@@ -998,9 +994,7 @@ class Axon(s_cell.Cell):
 
         Records the next offset to retrieve
         '''
-        logger.debug('Axon._updateSyncProgress on %r to %r', bsid, new_offset)
-        rv = self.xact.put(b'offset:' + bsid, struct.pack('>Q', new_offset), db=self.offsets)
-        assert rv
+        self.xact.put(b'offset:' + bsid, struct.pack('>Q', new_offset), db=self.offsets)
 
         self.xact.commit()
 
@@ -1097,8 +1091,6 @@ class Axon(s_cell.Cell):
             await self._executor_nowait(self._addloc, frombsid, hashval)
 
         await self._executor_nowait(self.xact.commit)
-
-        logger.debug('_consume_clone_data returning %r', last_offset)
 
         return last_offset
 
