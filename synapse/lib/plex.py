@@ -113,6 +113,18 @@ class Plex(s_eventbus.EventBus):
 
         return await self.loop.run_in_executor(None, syncfunc)
 
+    async def sleep(self, delay):
+        '''
+        A coroutine that suspends for delay seconds.
+
+        Args:
+            delay (float): Time to delay the function call for.
+
+        Notes:
+            This API must be called on the IOLoop
+        '''
+        await asyncio.sleep(delay, loop=self.loop)
+
     async def _onAsyncFini(self):
         # async fini stuff here...
         return
