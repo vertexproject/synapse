@@ -44,36 +44,7 @@ def printuser(user):
                 rrep = reprrule(rule)
                 print(f'        {rrep}')
 
-def main(argv):
-
-    pars = argparse.ArgumentParser('synapse.tools.cellauth', description=desc)
-
-    pars.add_argument('--debug', action='store_true', help='Show debug traceback on error.')
-    pars.add_argument('--adduser', action='store_true', help='Add the named user to the cortex.')
-    pars.add_argument('--addrole', action='store_true', help='Add the named role to the cortex.')
-
-    pars.add_argument('--admin', action='store_true', help='Grant admin powers to the user/role.')
-    pars.add_argument('--noadmin', action='store_true', help='Revoke admin powers from the user/role.')
-
-    pars.add_argument('--lock', action='store_true', help='Lock the user account.')
-    pars.add_argument('--unlock', action='store_true', help='Unlock the user account.')
-
-    #pars.add_argument('--deluser', action='store_true', help='Add the named user to the cortex.')
-    #pars.add_argument('--delrole', action='store_true', help='Add the named role to the cortex.')
-
-    pars.add_argument('--passwd', help='Set the user password.')
-
-    pars.add_argument('--grant', help='Grant the specified role to the user.')
-    pars.add_argument('--revoke', help='Grant the specified role to the user.')
-
-    pars.add_argument('--addrule', help='Add the given rule to the user/role.')
-    pars.add_argument('--delrule', type=int, help='Delete the given rule number from the user/role.')
-
-    pars.add_argument('name', help='The user/role to modify.')
-    pars.add_argument('cellurl', help='The telepath URL to connect to a cell.')
-
-    opts = pars.parse_args(argv)
-
+def handleModify(opts):
     try:
 
         with s_telepath.openurl(opts.cellurl) as cell:
@@ -146,6 +117,79 @@ def main(argv):
             traceback.print_exc()
 
         print(e)
+
+def handleList(opts):
+    try:
+        with s_telepath.openurl(opts.cellurl) as cell:
+
+            if opts.name:
+                user = cell.getAuthInfo(opts.name)
+                if user is None:
+                    print(f'no such user: {opts.name}')
+                    return
+
+                printuser(user)
+                return
+
+            print(f'getting users and roles')
+
+            print('users:')
+            for user in cell.getAuthUsers():
+                print(f'    {user}')
+
+            print('roles:')
+            for role in cell.getAuthRoles():
+                print(f'    {role}')
+            return
+
+    except Exception as e:
+
+        if opts.debug:
+            traceback.print_exc()
+
+        print(e)
+
+def main(argv):
+
+    pars = argparse.ArgumentParser('synapse.tools.cellauth', description=desc)
+
+    pars.add_argument('--debug', action='store_true', help='Show debug traceback on error.')
+    pars.add_argument('cellurl', help='The telepath URL to connect to a cell.')
+
+    subpars = pars.add_subparsers()
+
+    # list
+    pars_list = subpars.add_parser('list', help='List users/roles')
+    pars_list.add_argument('name', default=None, help='The name of the user/role to list')
+    pars_list.set_defaults(func=handleList)
+
+    # create / modify / delete
+    pars_mod = subpars.add_parser('modify', help='Create, modify, delete the names user/role')
+    pars_mod.add_argument('--adduser', action='store_true', help='Add the named user to the cortex.')
+    pars_mod.add_argument('--addrole', action='store_true', help='Add the named role to the cortex.')
+
+    pars_mod.add_argument('--admin', action='store_true', help='Grant admin powers to the user/role.')
+    pars_mod.add_argument('--noadmin', action='store_true', help='Revoke admin powers from the user/role.')
+
+    pars_mod.add_argument('--lock', action='store_true', help='Lock the user account.')
+    pars_mod.add_argument('--unlock', action='store_true', help='Unlock the user account.')
+
+    #pars_mod.add_argument('--deluser', action='store_true', help='Add the named user to the cortex.')
+    #pars_mod.add_argument('--delrole', action='store_true', help='Add the named role to the cortex.')
+
+    pars_mod.add_argument('--passwd', help='Set the user password.')
+
+    pars_mod.add_argument('--grant', help='Grant the specified role to the user.')
+    pars_mod.add_argument('--revoke', help='Grant the specified role to the user.')
+
+    pars_mod.add_argument('--addrule', help='Add the given rule to the user/role.')
+    pars_mod.add_argument('--delrule', type=int, help='Delete the given rule number from the user/role.')
+
+    pars_mod.add_argument('name', help='The user/role to modify.')
+    pars_mod.set_defaults(func=handleModify)
+
+    opts = pars.parse_args(argv)
+    opts.func(opts)
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))
