@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 
 # File convention: bsid -> persistent unique id for a blobstor (actually the cell iden)
 
-
 CHUNK_SIZE = 16 * s_const.mebibyte
 
 async def _run_after_delay(delay, coro):
@@ -75,7 +74,6 @@ class PassThroughApi(s_cell.CellApi):
                     return getattr(cell, f)(*args, **kwargs)
                 return func
             setattr(self, f, funcapply(f))
-
 
 class IncrementalTransaction(s_eventbus.EventBus):
     '''
@@ -281,15 +279,14 @@ class _BlobStorWriter(s_coro.Fini):
         self.lenv = blobstor.lenv
         self.blobstor = blobstor
         self._workq = _AsyncQueue(50)
-        self._worker = threading.Thread(target=self._workloop, name='BlobStorWriter')
+        self._worker = self._workloop()
+        self._worker.name = 'BlobStorWriter'
         self.clients = {}
 
         async def _onfini():
             await self._workq.fini()
             self._worker.join()
         self.onfini(_onfini)
-
-        self._worker.start()
 
     def _finish_file(self, client) -> None:
         '''
@@ -376,6 +373,7 @@ class _BlobStorWriter(s_coro.Fini):
         self.xact.txn.put(b'clone:progress', struct.pack('>Q', offset), db=self.blobstor._blob_info)
         self.xact.commit()
 
+    @s_common.firethread
     def _workloop(self):
         try:
             while not self.isfini:
@@ -873,10 +871,10 @@ class Axon(s_cell.Cell):
         for path in paths:
             s_glob.plex.addLoopCoro(_run_after_delay(DAEMON_DELAY, self._start_watching_blobstor(path)))
 
-        self._worker = threading.Thread(target=self._workloop, name='BlobStorWriter')
         self._workq = _AsyncQueue(50)
         self.xact = IncrementalTransaction(self.lenv)
-        self._worker.start()
+        self._worker = self._workloop()
+        self._worker.name = 'Axon Writer'
 
         def fini():
             async def run_on_loop():
@@ -1018,6 +1016,7 @@ class Axon(s_cell.Cell):
         logger.debug('Axon._getSyncProgress: %r: %r', bsid, rv)
         return rv
 
+    @s_common.firethread
     def _workloop(self):
         '''
         A worker for running stuff that requires a write lock

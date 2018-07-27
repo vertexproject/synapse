@@ -29,6 +29,7 @@ import contextlib
 import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.data as s_data
+import synapse.glob as s_glob
 import synapse.cells as s_cells
 import synapse.lib.cell as s_cell
 import synapse.common as s_common
@@ -1051,3 +1052,21 @@ class SynTest(unittest.TestCase):
             ]
         }
         return gestdef
+
+class SyncToAsyncCMgr():
+    ''' Wraps a regular context manager in an async one '''
+    def __init__(self, func, *args, **kwargs):
+        def run_and_enter():
+            obj = func(*args, **kwargs)
+            rv = obj.__enter__()
+            return obj, rv
+
+        self.coro = s_glob.plex.executor(run_and_enter)
+        self.obj = None
+
+    async def __aenter__(self):
+        self.obj, rv = await self.coro
+        return rv
+
+    async def __aexit__(self, *args):
+        return await s_glob.plex.executor(self.obj.__exit__, *args)
