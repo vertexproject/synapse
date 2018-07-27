@@ -38,7 +38,18 @@ class TypesTest(s_test.SynTest):
         self.eq(t.repr(0), 'False')
 
     def test_comp(self):
-        self.skip('Implement base comp test')
+        with self.getTestCore() as core:
+            t = 'testcomplexcomp'
+            valu = ('123', 'HAHA')
+            with core.snap() as snap:
+                node = snap.addNode(t, valu)
+            pnode = node.pack(dorepr=True)
+            self.eq(pnode[0], (t, (123, 'haha')))
+            self.eq(pnode[1].get('repr'), ('123', 'haha'))
+            self.eq(pnode[1].get('reprs').get('foo'), '123')
+            self.notin('bar', pnode[1].get('reprs'))
+            self.eq(node.get('foo'), 123)
+            self.eq(node.get('bar'), 'haha')
 
     def test_fieldhelper(self):
         self.skip('Implement base fieldhelper test')
@@ -51,7 +62,7 @@ class TypesTest(s_test.SynTest):
         self.raises(s_exc.BadTypeValu, model.type('guid').norm, 'visi')
 
         guid = model.type('guid').norm('*')[0]
-        self.len(32, guid)
+        self.true(s_common.isguid(guid))
 
     def test_hex(self):
 

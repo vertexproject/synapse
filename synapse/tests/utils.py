@@ -128,11 +128,16 @@ testmodel = {
         ('testint', ('int', {}), {}),
         ('teststr', ('str', {}), {}),
         ('testauto', ('str', {}), {}),
+        ('testguid', ('guid', {}), {}),
 
         ('testcomp', ('comp', {'fields': (
             ('hehe', 'testint'),
             ('haha', 'testlower'))
         }), {'doc': 'A fake comp type.'}),
+        ('testcomplexcomp', ('comp', {'fields': (
+            ('foo', 'testint'),
+            ('bar', ('str', {'lower': True}),),
+        )}), {'doc': 'A complex comp type.'}),
         ('testhexa', ('hex', {}), {'doc': 'anysize test hex type'}),
         ('testhex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
 
@@ -160,11 +165,11 @@ testmodel = {
                 'defval': '??'}),
         )),
 
-        ('cycle0', ('cycle0', {}), (
+        ('cycle0', {}, (
             ('cycle1', ('cycle1', {}), {}),
         )),
 
-        ('cycle1', ('cycle1', {}), (
+        ('cycle1', {}, (
             ('cycle0', ('cycle0', {}), {}),
         )),
 
@@ -173,7 +178,15 @@ testmodel = {
             ('haha', ('testlower', {}), {'ro': 1}),
         )),
 
-        ('testint', {}, {}),
+        ('testcomplexcomp', {}, (
+            ('foo', ('testint', {}), {'ro': 1}),
+            ('bar', ('str', {'lower': 1}), {'ro': 1})
+        )),
+
+        ('testint', {}, ()),
+        ('testguid', {}, (
+            ('tick', ('testtime', {}), {}),
+        )),
 
         ('teststr', {}, (
             ('bar', ('ndef', {}), {}),

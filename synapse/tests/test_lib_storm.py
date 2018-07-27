@@ -86,3 +86,30 @@ class StormTest(s_test_common.SynTest):
             self.eq(prints[0][1].get('mesg'), 'Counted 0 nodes.')
             nodes = [mesg for mesg in mesgs if mesg[0] == 'node']
             self.len(0, nodes)
+
+    def test_storm_uniq(self):
+        with self.getTestCore() as core:
+            q = "[testcomp=(123, test) testcomp=(123, duck) testcomp=(123, mode)]"
+            self.len(3, core.eval(q))
+            nodes = list(core.eval('testcomp -> *'))
+            self.len(3, nodes)
+            nodes = list(core.eval('testcomp -> * | uniq | count'))
+            self.len(1, nodes)
+
+    def test_storm_iden(self):
+        with self.getTestCore() as core:
+            q = "[teststr=beep teststr=boop]"
+            nodes = list(core.eval(q))
+            self.len(2, nodes)
+            idens = [node.iden() for node in nodes]
+
+            iq = ' '.join(idens)
+            # Demonstrate the iden lift does pass through previous nodes in the pipeline
+            q = f'[teststr=hehe] | iden {iq} | count'
+            mesgs = list(core.storm(q))
+            self.len(3, [mesg for mesg in mesgs if mesg[0] == 'node'])
+
+            q = 'iden newp'
+            with self.getLoggerStream('synapse.lib.snap', 'Failed to decode iden') as stream:
+                self.len(0, list(core.eval(q)))
+                self.true(stream.wait(1))

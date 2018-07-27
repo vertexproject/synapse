@@ -1,6 +1,13 @@
+import json
+import asyncio
 import logging
 
+import tornado.web as t_web
+import tornado.netutil as t_netutil
+import tornado.httpserver as t_http
+
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
@@ -69,6 +76,17 @@ class View:
 
         return query
 
+class HttpModelApiV1(t_web.RequestHandler):
+
+    def initialize(self, core):
+        self.core = core
+
+    async def get(self):
+        self.set_header('content-type', 'application/json')
+        modl = self.core.model.getModelDict()
+        byts = json.dumps({'status': 'ok', 'result': modl})
+        self.write(byts)
+
 class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed over telepath.
@@ -86,6 +104,15 @@ class CoreApi(s_cell.CellApi):
 
     async def fini(self):
         pass
+
+    def getModelDict(self):
+        '''
+        Return a dictionary which describes the data model.
+
+        Returns:
+            (dict): A model description dictionary.
+        '''
+        return self.cell.model.getModelDict()
 
     def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
@@ -197,7 +224,9 @@ class CoreApi(s_cell.CellApi):
         try:
 
             for node, path in query.evaluate():
-                yield node.pack(dorepr=dorepr)
+                pode = node.pack(dorepr=dorepr)
+                pode[1].update(path.pack())
+                yield pode
 
         except Exception as e:
             logging.exception('exception during storm eval')
@@ -293,6 +322,11 @@ class Cortex(s_cell.Cell):
             'doc': 'A list of feed dictionaries.'
         }),
 
+        ('httpapi', {
+            'type': 'dict', 'defval': None,
+            'doc': 'An HTTP API configuration. Port is the only required key.'
+        }),
+
         # ('storm:save', {
         #     'type': 'bool', 'defval': False,
         #     'doc': 'Archive storm queries for audit trail.'
@@ -314,8 +348,10 @@ class Cortex(s_cell.Cell):
         self.stormcmds = {}
 
         self.addStormCmd(s_storm.HelpCmd)
+        self.addStormCmd(s_storm.IdenCmd)
         self.addStormCmd(s_storm.SpinCmd)
         self.addStormCmd(s_storm.SudoCmd)
+        self.addStormCmd(s_storm.UniqCmd)
         self.addStormCmd(s_storm.CountCmd)
         self.addStormCmd(s_storm.LimitCmd)
         self.addStormCmd(s_storm.DelNodeCmd)
@@ -355,11 +391,23 @@ class Cortex(s_cell.Cell):
         self._initPushLoop()
         self._initFeedLoops()
 
+        self.webapp = None
+        self.webaddr = None
+        self.webserver = None
+
+        if self.conf.get('httpapi') is not None:
+            self._initHttpApi()
+
         def finiCortex():
+
             # XXX Does the view hold things that need to be fini'd / stopped?
             # self.view.fini()
             for layer in self.layers:
                 layer.fini()
+
+            if self.webserver is not None:
+                self.webserver.stop()
+
         self.onfini(finiCortex)
 
     def addStormCmd(self, ctor):
@@ -373,6 +421,37 @@ class Cortex(s_cell.Cell):
 
     def getStormCmds(self):
         return list(self.stormcmds.items())
+
+    def _initHttpApi(self):
+
+        # set the current loop to the global plex
+        asyncio.set_event_loop(s_glob.plex.loop)
+
+        self.webapp = t_web.Application([
+            ('/v1/model', HttpModelApiV1, {'core': self}),
+        ])
+
+        conf = self.conf.get('httpapi')
+
+        port = conf.get('port', 8888)
+        host = conf.get('host', 'localhost')
+
+        socks = t_netutil.bind_sockets(port, host)
+
+        self.webaddr = socks[0].getsockname()
+        logger.debug('Starting webserver at [%r]', self.webaddr)
+        self.webserver = t_http.HTTPServer(self.webapp)
+        self.webserver.add_sockets(socks)
+
+    def addHttpApi(self, path, ctor):
+        self.webapp.add_handlers('.*', [
+            (path, ctor),
+        ])
+
+    def _getTestHttpUrl(self, *path):
+        base = '/'.join(path)
+        host, port = self.webaddr
+        return f'http://{host}:{port}/' + base
 
     def _initPushLoop(self):
 

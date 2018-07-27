@@ -37,6 +37,25 @@ class DnsModelTest(s_test.SynTest):
                 answ = snap.addNode('inet:dns:answer', '*', props)
                 self.nn(snap.getNodeByNdef(('inet:dns:a', ('vertex.link', 0x02030405))))
 
+            # DNS queries can be quite complex or awkward since the protocol
+            # allows for nearly anything to be asked about. This can lead to
+            # pivots with non-normable data.
+            q = '[inet:dns:query=(tcp://1.2.3.4, "", 1)]'
+            self.len(1, core.eval(q))
+            q = '[inet:dns:query=(tcp://1.2.3.4, "foo*.haha.com", 1)]'
+            self.len(1, core.eval(q))
+            q = 'inet:dns:query=(tcp://1.2.3.4, "", 1) :name -> inet:fqdn'
+            with self.getLoggerStream('synapse.lib.ast',
+                                      'Cannot generate fqdn index bytes for a empty string') as stream:
+                self.len(0, core.eval(q))
+                self.true(stream.wait(1))
+
+            q = 'inet:dns:query=(tcp://1.2.3.4, "foo*.haha.com", 1) :name -> inet:fqdn'
+            with self.getLoggerStream('synapse.lib.ast',
+                                      'Wild card may only appear at the beginning') as stream:
+                self.len(0, core.eval(q))
+                self.true(stream.wait(1))
+
     def test_forms_dns_simple(self):
 
         with self.getTestCore() as core:

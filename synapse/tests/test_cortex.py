@@ -1,5 +1,10 @@
+import json
 import threading
+
+import tornado.web as t_web
+
 from unittest.mock import patch
+from urllib.request import urlopen
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -7,7 +12,43 @@ import synapse.telepath as s_telepath
 
 import synapse.tests.common as s_test
 
+class HttpTestV1(t_web.RequestHandler):
+
+    def get(self):
+        self.write(b'woot')
+
 class CortexTest(s_test.SynTest):
+
+    def test_cortex_noderefs(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                node = snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+
+                refs = dict(node.getNodeRefs())
+
+                self.eq(refs.get('fqdn'), ('inet:fqdn', 'woot.com'))
+                self.eq(refs.get('ipv4'), ('inet:ipv4', 0x01020304))
+
+    def test_cortex_http(self):
+
+        with self.getTestCore() as core:
+
+            core.addHttpApi('/v1/test', HttpTestV1)
+
+            url = core._getTestHttpUrl('v1/test')
+            self.eq(b'woot', urlopen(url).read())
+
+            url = core._getTestHttpUrl('v1/model')
+
+            resp = json.loads(urlopen(url).read())
+
+            self.eq(resp['status'], 'ok')
+
+            self.nn(resp['result'].get('forms'))
+            self.nn(resp['result'].get('types'))
 
     def test_cortex_iter_props(self):
 
@@ -95,6 +136,47 @@ class CortexTest(s_test.SynTest):
                 # Sad path testing
                 conf['feeds'][0]['type'] = 'com.clown'
                 self.raises(s_exc.NoSuchType, self.getTestCell, dirn, 'cortex', conf=conf)
+
+    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
+    def test_cortex_model_dict(self):
+
+        with self.getTestDmon(mirror='dmoncore') as dmon:
+
+            core = dmon._getTestProxy('core')
+
+            model = core.getModelDict()
+
+            tnfo = model['types'].get('inet:ipv4')
+
+            self.nn(tnfo)
+            self.eq(tnfo['info']['doc'], 'An IPv4 address.')
+
+            fnfo = model['forms'].get('inet:ipv4')
+            self.nn(fnfo)
+
+            pnfo = fnfo['props'].get('asn')
+
+            self.nn(pnfo)
+            self.eq(pnfo['type'][0], 'inet:asn')
+
+    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
+    def test_storm_graph(self):
+
+        with self.getTestDmon(mirror='dmoncore') as dmon:
+
+            core = dmon._getTestProxy('core')
+            core.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+
+            opts = {'graph': True}
+            nodes = list(core.eval('inet:dns:a', opts=opts))
+
+            self.len(3, nodes)
+
+            for node in nodes:
+                if node[0][0] == 'inet:dns:a':
+                    edges = node[1]['edges']
+                    idens = list(sorted(e[0][0] for e in edges))
+                    self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f', 'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
     def test_splice_cryo(self):
@@ -520,6 +602,10 @@ class CortexTest(s_test.SynTest):
                 self.eq(node.ndef[0], 'pivtarg')
                 self.eq(node.ndef[1], 'foo')
 
+            for node in core.eval('[testguid="*" :tick=2001]'):
+                self.true(s_common.isguid(node.ndef[1]))
+                self.nn(node.get('tick'))
+
             nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -> pivtarg')])
 
             self.len(1, nodes)
@@ -543,9 +629,15 @@ class CortexTest(s_test.SynTest):
 
             ndef = ('testcomp', (10, 'haha'))
             opts = {'ndefs': (ndef,)}
-
+            # Seed nodes in the query with ndefs
             for node in core.eval('[-#foo]', opts=opts):
                 self.none(node.getTag('foo'))
+
+            # Seed nodes in the query with idens
+            opts = {'idens': (nodes[0][1].get('iden'),)}
+            nodes = list(core.eval('', opts=opts))
+            self.len(1, nodes)
+            self.eq(nodes[0].pack()[0], ('teststr', 'foo bar'))
 
             self.genraises(s_exc.NoSuchOpt, core.eval, '%foo=asdf')
             self.genraises(s_exc.BadOptValu, core.eval, '%limit=asdf')

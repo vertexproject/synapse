@@ -64,6 +64,9 @@ class Type:
         sufx = xxhash.xxh64(indx).digest()
         return base + sufx
 
+    def pack(self):
+        return {'info': dict(self.info), 'opts': dict(self.opts)}
+
     def getTypeVals(self, valu):
         yield valu
 
@@ -288,7 +291,6 @@ class Type:
 
         return func(valu)
 
-
 class Bool(Type):
 
     def postTypeInit(self):
@@ -363,7 +365,7 @@ class Comp(Type):
         for valu, (name, typename) in zip(valu, fields):
 
             # if any of our comp fields need repr we do too...
-            rval = self.modl.types[typename].repr(valu)
+            rval = self.tcache[name].repr(valu)
 
             if rval is not None:
                 hit = True
