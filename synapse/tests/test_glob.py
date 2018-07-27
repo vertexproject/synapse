@@ -23,3 +23,12 @@ class GlobTest(s_test.SynTest):
         woot()
         evnt.wait(timeout=1)
         self.ne(iden, retn.get('iden'))
+
+    def test_glob_sync(self):
+
+        async def afoo():
+            return 42
+
+        retn = s_glob.sync(afoo())
+        self.eq(retn, 42)
+

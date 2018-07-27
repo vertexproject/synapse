@@ -4,7 +4,6 @@ import struct
 import xxhash  # type: ignore
 
 import synapse.common as s_common
-
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 

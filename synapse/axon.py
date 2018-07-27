@@ -1,156 +1,675 @@
-import time
-import lmdb
+import enum
 import struct
-import logging
+import random
+import asyncio
 import hashlib
-import itertools
+import logging
+import binascii
+import tempfile
+import functools
+import threading
+import concurrent
+import contextlib
+import collections
 
+import lmdb  # type: ignore
+
+import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
+import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
+import synapse.lib.share as s_share
 
 logger = logging.getLogger(__name__)
 
-zero64 = b'\x00\x00\x00\x00\x00\x00\x00\x00'
-blocksize = s_const.mebibyte * 64
+# File convention: bsid -> persistent unique id for a blobstor (actually the cell iden)
 
-class BlobStor(s_eventbus.EventBus):
+CHUNK_SIZE = 16 * s_const.mebibyte
+
+async def _run_after_delay(delay, coro):
+    await asyncio.sleep(delay, loop=s_glob.plex.loop)
+    await coro
+
+async def to_aiter(it):
     '''
-    The blob store maps buid,indx values to sequences of bytes stored in a LMDB database.
+    Take either a sync or async iteratable and yields as an async generator
     '''
+    if hasattr(it, '__aiter__'):
+        async for i in it:
+            yield i
+    else:
+        for i in it:
+            yield i
 
-    def __init__(self, dirn, mapsize=s_const.tebibyte):
+def _find_hash(curs, key):
+    '''
+    Set a LMDB cursor to the first key that starts with \a key
 
+    Returns:
+        False if key not present, else True and positions cursor at first chunk of value
+    '''
+    if not curs.set_range(key):
+        return False
+    return curs.key()[:len(key)] == key
+
+class PassThroughApi(s_cell.CellApi):
+    '''
+    Class that passes through methods made on it to its cell.
+    '''
+    allowed_methods = []
+
+    def __init__(self, cell, link):
+        s_cell.CellApi.__init__(self, cell, link)
+
+        for f in self.allowed_methods:
+            # N.B. this curious double nesting is due to Python's closure mechanism (f is essentially captured by name)
+            def funcapply(f):
+                def func(*args, **kwargs):
+                    return getattr(cell, f)(*args, **kwargs)
+                return func
+            setattr(self, f, funcapply(f))
+
+class IncrementalTransaction(s_eventbus.EventBus):
+    '''
+    An lmdb write transaction that commits if the number of outstanding bytes to be commits grows too large.
+
+    Naturally, this breaks transaction atomicity.
+    '''
+    MAX_OUTSTANDING = s_const.gibibyte
+
+    def __init__(self, lenv):
         s_eventbus.EventBus.__init__(self)
-
-        path = s_common.gendir(dirn, 'blobs.lmdb')
-        self.lenv = lmdb.open(path, writemap=True, max_dbs=128)
-        self.lenv.set_mapsize(mapsize)
-
-        self._blob_info = self.lenv.open_db(b'info')
-        self._blob_bytes = self.lenv.open_db(b'bytes') # <fidn><foff>=<byts>
-
-        self._blob_clone = s_lmdb.Seqn(self.lenv, b'clone')
-        self._blob_metrics = s_lmdb.Metrics(self.lenv)
+        self.lenv = lenv
+        self.txn = None
+        self._bytecount = 0
 
         def fini():
-            self.lenv.sync()
+            self.commit()
+            # lmdb workaround:  close environment from here to avoid lmdb crash
             self.lenv.close()
 
         self.onfini(fini)
 
-    def save(self, blocs):
+    def commit(self):
+        if self.txn is None:
+            return
+        self.txn.commit()
+        self.txn = None
+        self._bytecount = 0
+
+    def guarantee(self):
         '''
-        Save items from an iterator of (<buid><indx>, <byts>).
+        Make an LMDB transaction if we don't already have kone, and return it
+        '''
+        if self.txn is None:
+            self.txn = self.lenv.begin(write=True, buffers=True)
+        return self.txn
+
+    def cursor(self, db=None):
+        self.guarantee()
+        return self.txn.cursor(db)
+
+    def put(self, key, value, db):
+        '''
+        Write data to the database, committing if too many bytes are uncommitted
+        '''
+        vallen = len(value)
+        if vallen + self._bytecount > self.MAX_OUTSTANDING:
+            self.commit()
+        self.guarantee()
+        self._bytecount += vallen
+        rv = self.txn.put(key, value, db=db)
+        return rv
+
+class Uploader(s_share.Share):
+    '''
+    A remotely shareable object used for streaming uploads to a blobstor
+    '''
+    typename = 'uploader'
+
+    def __init__(self, link, item):
+        s_share.Share.__init__(self, link, item)
+        self.doneevent = asyncio.Event()
+        self.exitok = False
+        self.chunknum = 0
+        self.wcid = s_common.guid()
+        self._needfinish = True
+
+        async def fini():
+            if self._needfinish:
+                await self.finish()
+            self.doneevent.set()
+
+        self.onfini(fini)
+
+    async def write(self, bytz):
+        '''
+        Upload some data
 
         Args:
-            blocs: An iterator of (<buid><indx>, <bytes>).
+            bytz (bytes):  a chunk of data.   It does not have to an entire blob.
+        '''
+        await self.item._partialsubmit(self.wcid, ((self.chunknum, bytz), ))
+        self.chunknum += 1
 
-        Notes:
-            This API is only for use by a single Axon who owns this BlobStor.
+    async def _runShareLoop(self):
+        '''
+        This keeps the object alive until we're fini'd.
+        '''
+        await self.doneevent.wait()
+
+    async def finish(self):
+        '''
+        Conclude an uploading session
+        '''
+        self._needfinish = False
+        rv = await self.item._complete(self.wcid, wait_for_result=True)
+        return rv
+
+    async def finishFile(self):
+        '''
+        Finish and commit the existing file, keeping the uploader active for more files.
+        '''
+        self.chunknum = 0
+
+class _AsyncQueue(s_coro.Fini):
+    '''
+    Multi-async producer, single sync finite consumer queue with blocking at empty and full.  Assumes producers run on
+    s_glob.plex.loop
+    '''
+    def __init__(self, max_entries, drain_level=None):
+        '''
+        Yield bytes for the given SHA256.
+
+        Args:
+            max_entries (int): the maximum number of entries that can be in the queue.
+
+            drain_level (int): once the queue is full, no more entries will be admitted until the number of entries
+                falls below this parameter.
+        '''
+
+        s_coro.Fini.__init__(self)
+        self.deq = collections.deque()
+        self.notdrainingevent = asyncio.Event(loop=s_glob.plex.loop)
+        self.notdrainingevent.set()
+        self.notemptyevent = threading.Event()
+        self.max_entries = max_entries
+        self.drain_level = max_entries // 2 if drain_level is None else drain_level
+
+        async def _onfini():
+            self.notemptyevent.set()
+            self.notdrainingevent.set()
+        self.onfini(_onfini)
+
+    def get(self):
+        '''
+        Pending retrieve on the queue
+        '''
+        while not self.isfini:
+            try:
+                val = self.deq.popleft()
+                break
+            except IndexError:
+                self.notemptyevent.clear()
+                if len(self.deq):
+                    continue
+                self.notemptyevent.wait()
+        else:
+            return None
+
+        if not self.notdrainingevent.is_set():
+            if len(self.deq) < self.drain_level:
+                s_glob.plex.callSoonSafe(self.notdrainingevent.set)
+        return val
+
+    async def put(self, item):
+        '''
+        Put onto the queue.  It will async pend if the queue is full or draining.
+        '''
+        while not self.isfini:
+            if len(self.deq) >= self.max_entries:
+                self.notdrainingevent.clear()
+            if not self.notdrainingevent.is_set():
+                await self.notdrainingevent.wait()
+                continue
+            break
+
+        self.deq.append(item)
+        self.notemptyevent.set()
+
+class _BlobStorWriter(s_coro.Fini):
+    '''
+    An active object that writes to disk on behalf of a blobstor (plus the client methods to interact with it)
+    '''
+
+    class Command(enum.Enum):
+        '''
+        The types of commands a blobstorwriter client can issue
+        '''
+        WRITE_BLOB = enum.auto()
+        FINISH = enum.auto()
+        UPDATE_OFFSET = enum.auto()
+
+    class ClientInfo:
+        '''
+        The session information for a single active client to a blobstor
+        '''
+        BUF_SIZE = 16 * s_const.mebibyte
+
+        def __init__(self):
+            self.starttime = s_common.now()
+            self.newhashes = []
+            self.totalsize = 0
+            self.nextfile()
+
+        def nextfile(self):
+            self.nextchunknum = 0
+            self.tmpfh = tempfile.SpooledTemporaryFile(buffering=self.BUF_SIZE)
+            self.hashing = hashlib.sha256()
+
+    def __init__(self, blobstor):
+        s_coro.Fini.__init__(self)
+        self.xact = IncrementalTransaction(blobstor.lenv)
+        self.lenv = blobstor.lenv
+        self.blobstor = blobstor
+        self._workq = _AsyncQueue(50)
+        self._worker = self._workloop()
+        self._worker.name = 'BlobStorWriter'
+        self.clients = {}
+
+        async def _onfini():
+            await self._workq.fini()
+            self._worker.join()
+        self.onfini(_onfini)
+
+    def _finish_file(self, client) -> None:
+        '''
+        Read from the temporary file and write to one or more database rows.
+        '''
+        hashval = client.hashing.digest()
+        # Check if already present
+        with self.xact.cursor(db=self.blobstor._blob_bytes) as curs:
+            if _find_hash(curs, hashval):
+                return
+        MAX_SEGMENT_SIZE = 2**31  # Actually an lmdb value can be up to 2**32-1 bytes, but this is a nice round number
+        with contextlib.closing(client.tmpfh):
+            client.tmpfh.seek(0)
+            total_sz = 0
+            segment = 0
+            self.blobstor._partial_hash = hashval
+            self.xact.put(b'blobstor:partial', hashval, db=self.blobstor._blob_info)
+            while True:
+                chunk = client.tmpfh.read(MAX_SEGMENT_SIZE)
+                sz = len(chunk)
+                total_sz += sz
+                # We want to write *something* if data is empty
+                if segment and not sz:
+                    break
+                segment_enc = segment.to_bytes(4, 'big')
+                self.xact.put(hashval + segment_enc, chunk, db=self.blobstor._blob_bytes)
+                segment += 1
+
+        self.xact.txn.delete(b'blobstor:partial', db=self.blobstor._blob_info)
+        self.blobstor._partial_hash = None
+
+        client.totalsize += total_sz
+        client.newhashes.append(hashval)
+
+    def _write_blob(self, wcid: int, chunknum: int, bytz: bytes) -> None:
+        '''
+        Write data
+
+        Args:
+            wcid (str): A value unique to a particular client session
+            chunknum (int):  the index of this particular chunk in blob.  A chunknum of 0 completes any previous
+            blob and starts a new one.  chunknums must be consecutive for each blob.
+            bytz (bytes):  the actual payload
 
         Returns:
             None
         '''
-        with self.lenv.begin(write=True, db=self._blob_bytes) as xact:
+        client = self.clients.get(wcid)
+        if not chunknum:
+            if client is None:
+                self.clients[wcid] = client = self.ClientInfo()
+            else:
+                self._finish_file(client)
+                client.nextfile()
+        elif client is None:
+            raise s_exc.AxonBadChunk('BlobStorWriter missing first chunk')
 
-            size = 0
-            count = 0
-            clones = []
-            tick = s_common.now()
+        client.tmpfh.write(bytz)
+        client.hashing.update(bytz)
 
-            for lkey, lval in blocs:
-                clones.append(lkey)
-                xact.put(lkey, lval, db=self._blob_bytes)
+    def _save_update_stats(self, client):
+        took = s_common.now() - client.starttime
+        self.xact.guarantee()
+        self.blobstor._clone_seqn.save(self.xact.txn, client.newhashes)
+        self.blobstor._metrics.inc(self.xact.txn, 'bytes', client.totalsize)
+        self.blobstor._metrics.inc(self.xact.txn, 'blobs', len(client.newhashes))
+        self.blobstor._metrics.record(self.xact.txn, {'time': client.starttime, 'size': client.totalsize, 'took': took})
 
-                size += len(lval)
-                count += 1
+    def _complete_session(self, wcid):
+        client = self.clients.get(wcid)
+        if client is None:
+            logger.debug('BlobStorWriter got session completion on unknown client')
+            return None
+        self._finish_file(client)
+        self._save_update_stats(client)
+        self.xact.commit()
+        hashcount = len(client.newhashes)
+        last_hashval = client.newhashes[-1] if hashcount else None
+        del self.clients[wcid]
+        return hashcount, last_hashval
 
-            self._blob_clone.save(xact, clones)
-            self._blob_metrics.inc(xact, 'bytes', size)
-            self._blob_metrics.inc(xact, 'blocks', count)
+    def _updateCloneProgress(self, offset):
+        self.xact.guarantee()
+        self.xact.txn.put(b'clone:progress', struct.pack('>Q', offset), db=self.blobstor._blob_info)
+        self.xact.commit()
 
-            took = s_common.now() - tick
-            self._blob_metrics.record(xact, {'time': tick, 'size': size, 'blocks': count, 'took': took})
-
-    def load(self, buid):
-        '''
-        Load and yield the bytes blocks for a given buid.
-
-        Args:
-            buid (bytes): Buid to retrieve bytes for.
-
-        Yields:
-            bytes: Bytes for a given buid, in order.
-        '''
-        with self.lenv.begin(db=self._blob_bytes, buffers=True) as xact:
-
-            curs = xact.cursor()
-            if not curs.set_range(buid):
-                return
-
-            for lkey, byts in curs.iternext():
-
-                if lkey[:32] != buid:
+    @s_common.firethread
+    def _workloop(self):
+        try:
+            while not self.isfini:
+                msg = self._workq.get()
+                if msg is None:
                     break
+                cmd = msg[0]
+                if cmd == self.Command.WRITE_BLOB:
+                    _, wcid, chunknum, bytz = msg
+                    self._write_blob(wcid, chunknum, bytz)
+                elif cmd == self.Command.FINISH:
+                    _, wcid, fut = msg
+                    result = self._complete_session(wcid)
+                    if fut is not None:
+                        s_glob.plex.callSoonSafe(functools.partial(fut.set_result, result))
 
-                yield byts
+                elif cmd == self.Command.UPDATE_OFFSET:
+                    _, offset = msg
+                    self._updateCloneProgress(offset)
+        finally:
+            # Workaround to avoid lmdb close/commit race
+            self.xact.fini()
 
-    def clone(self, offs):
+    # Client methods
+
+    async def partialsubmit(self, wcid, blocs):
+        ran_at_all = False
+        async for b in to_aiter(blocs):
+            chunknum, bytz = b
+            ran_at_all = True
+            await self._workq.put((self.Command.WRITE_BLOB, wcid, chunknum, bytz))
+        return ran_at_all
+
+    async def complete(self, wcid, wait_for_result=False):
+        rv = None
+        if wait_for_result:
+            fut = asyncio.Future(loop=s_glob.plex.loop)
+            await self._workq.put((self.Command.FINISH, wcid, fut))
+            await fut
+            rv = fut.result()
+        else:
+            await self._workq.put((self.Command.FINISH, wcid, None))
+        self.blobstor._newdataevent.set()
+        return rv
+
+    async def updateCloneProgress(self, offset):
+        logger.debug('updateCloneProgress {offset}')
+        await self._workq.put((self.Command.UPDATE_OFFSET, offset))
+
+    async def submit(self, blocs, wait_for_result=False):
         '''
-        Yield (indx, (lkey, lval)) tuples to clone this BlobStor.
+        Returns:
+             Count of hashes processed, last hash value processed
+        '''
+        wcid = s_common.guid()
+        ran_at_all = await self.partialsubmit(wcid, blocs)
+        if not ran_at_all:
+            return 0, None if wait_for_result else None
+        rv = await self.complete(wcid, wait_for_result)
+        return rv
+
+class BlobStorApi(PassThroughApi):
+
+    allowed_methods = ['clone', 'stat', 'metrics', 'offset', 'bulkput', 'putone', 'putmany', 'get',
+                       '_complete', '_partialsubmit', 'getCloneProgress']
+
+    async def startput(self):
+        return Uploader(self.link, self)
+
+class BlobStor(s_cell.Cell):
+    '''
+    The blob store maps sha256 values to sequences of bytes stored in a LMDB database.
+    '''
+    cellapi = BlobStorApi
+
+    confdefs = (  # type: ignore
+        ('mapsize', {'type': 'int', 'doc': 'LMDB mapsize value', 'defval': s_lmdb.DEFAULT_MAP_SIZE}),
+        ('cloneof', {'type': 'str', 'doc': 'The telepath of a blob cell to clone from', 'defval': None}),
+    )
+
+    def __init__(self, dirn: str, conf=None) -> None:
+
+        s_cell.Cell.__init__(self, dirn)
+        self.clonetask = None
+
+        if conf is not None:
+            self.conf.update(conf)
+
+        path = s_common.gendir(self.dirn, 'blobs.lmdb')
+
+        mapsize = self.conf.get('mapsize')
+        self.lenv = lmdb.open(path, writemap=True, max_dbs=128, map_size=mapsize)
+
+        self._blob_info = self.lenv.open_db(b'info')
+        self._blob_bytes = self.lenv.open_db(b'bytes') # <sha256>=<byts>
+
+        self._clone_seqn = s_lmdb.Seqn(self.lenv, b'clone')
+        self._metrics = s_lmdb.Metrics(self.lenv)
+        self._newdataevent = asyncio.Event(loop=s_glob.plex.loop)
+
+        self._recover_partial()
+        self._partial_hash = None  # hash currently being written
+
+        self.writer = _BlobStorWriter(self)
+
+        self.cloneof = self.conf.get('cloneof')
+
+        if self.cloneof is not None:
+            self.clonetask = s_glob.plex.coroToTask(self._cloneeLoop(self.cloneof))
+
+        def fini():
+            s_glob.plex.coroToSync(self.writer.fini())
+            # To avoid lmdb seg fault, let writer close the environment
+
+        self.onfini(fini)
+
+    def _recover_partial(self):
+        '''
+        Check if we died in the middle of writing a big blob.  If so delete it.
+        '''
+        with self.lenv.begin(buffers=True, write=True) as xact:
+
+            partial_hash = xact.get(b'blobstor:partial', db=self._blob_info)
+            if partial_hash is None:
+                return
+            logger.info('Found partially written blob.  Deleting')
+            with xact.cursor(db=self._blob_bytes) as curs:
+                if not _find_hash(curs, partial_hash):
+                    return None
+                while True:
+                    curkey = curs.key()
+                    if curkey is None or curkey[:len(partial_hash)] != partial_hash:
+                        break
+                    curs.delete()
+
+    async def _partialsubmit(self, wcid, blocs):
+        ''' For Uploader's sake '''
+        return await self.writer.partialsubmit(wcid, blocs)
+
+    async def _complete(self, wcid, wait_for_result=False):
+        ''' For Uploader's sake '''
+        return await self.writer.complete(wcid, wait_for_result)
+
+    async def _cloneeLoop(self, cloneepath):
+        '''
+        Act to clone another blobstor, the clonee, by repeatedly asking long-poll-style for its new data
+        '''
+        CLONE_TIMEOUT = 30.0
+        clonee = await s_telepath.openurl(cloneepath)
+        cur_offset = self.getCloneProgress()
+        while not self.isfini:
+            try:
+                if clonee.isfini:
+                    clonee = await s_telepath.openurl(cloneepath)
+
+                genr = await clonee.clone(cur_offset, timeout=CLONE_TIMEOUT)
+                last_offset = await self._consume_clone_data(genr)
+                if last_offset is not None:
+                    cur_offset = last_offset + 1
+                    await self.writer.updateCloneProgress(cur_offset)
+
+            except Exception:
+                if not self.isfini:
+                    logger.exception('BlobStor.cloneeLoop error')
+
+    async def bulkput(self, blocs):
+        '''
+        Save items from an iterator of (sha256, chunk #, <bytes>).
 
         Args:
-            offs (int): Offset to start yielding rows from.
-
-        Yields:
-            ((bytes, (bytes, bytes))): tuples of (index, (<buid><index>,bytes)) data.
-        '''
-        with self.lenv.begin() as xact:
-            curs = xact.cursor(db=self._blob_bytes)
-            for indx, lkey in self._blob_clone.iter(xact, offs):
-                byts = curs.get(lkey)
-                yield indx, (lkey, byts)
-
-    def addCloneRows(self, items):
-        '''
-        Add rows from obtained from a BlobStor.clone() method.
-
-        Args:
-            items (list): A list of tuples containing (index, (<buid><index>,bytes)) data.
+            blocs: An iterator of (sha256, chunk #, <bytes>).  Every 0 chunk # represents a new file.
+            The sha256 must be None, except if the chunk # is 0, in which it may optionally be a sha256 hash.  If
+            present and the blobstor contains a value with a matching hash, all bytes will be skipped until the next
+            bloc with a chunk # of 0 is encountered.
 
         Returns:
-            int: The last index value processed from the list of items.
+            None
         '''
+        async def filter_out_known_hashes(self, blocs):
+            skipping = False
+            with self.lenv.begin(db=self._blob_bytes, buffers=True) as xact, xact.cursor(db=self._blob_bytes) as curs:
+                async for hashval, chunknum, bytz in to_aiter(blocs):
+                    if not chunknum:
+                        skipping = hashval is not None and _find_hash(curs, hashval)
+                    if skipping:
+                        continue
+                    yield chunknum, bytz
 
-        if not items:
+        hashcount, _ = await self.writer.submit(filter_out_known_hashes(self, blocs), wait_for_result=True)
+        if hashcount:
+            self._newdataevent.set()
+        return hashcount
+
+    async def putone(self, item):
+        return await self.writer.submit(((0, item), ), wait_for_result=True)
+
+    async def putmany(self, items):
+        return await self.writer.submit(((0, i) for i in items), wait_for_result=True)
+
+    async def get(self, hashval):
+        '''
+        Load and yield the bytes blocks for a given hash.
+
+        Args:
+            hashval (bytes): Hash to retrieve bytes for.
+
+        '''
+        if hashval == self._partial_hash:
             return
+        with self.lenv.begin(db=self._blob_bytes, buffers=True) as xact:
+            for chunk in self._get(hashval, xact):
+                yield chunk
 
-        with self.lenv.begin(write=True, db=self._blob_bytes) as xact:
+    def _get(self, hashval, xact):
+        with xact.cursor(db=self._blob_bytes) as curs:
+            if not _find_hash(curs, hashval):
+                return None
+            for k, v in curs:
+                if not k[:len(hashval)] == hashval:
+                    return None
+                yield from s_common.chunks(v, CHUNK_SIZE)
 
-            clones = []
-            for indx, (lkey, lval) in items:
-                xact.put(lkey, lval)
-                clones.append(lkey)
+    async def clone(self, offset: int, include_contents=True, timeout=0):
+        '''
+        Yield (offset, (sha256, chunknum, bytes)) tuples to clone this BlobStor.
 
-            xact.put(b'clone:indx', struct.pack('>Q', indx), db=self._blob_info)
-            self._blob_clone.save(xact, clones)
-            return indx
+        Args:
+            offset (int): Offset to start yielding rows from.
+            include_contents (bool):  Whether to include the blob value in the results stream
 
-    def stat(self):
+        Yields:
+            ((bytes, (bytes, int, bytes))): tuples of (index, (sha256,chunknum,bytes)) data.
+        '''
+        MAX_ITERS = 1024  # just a rough number so we don't have genrs that last forever
+        iter_count = 0
+        cur_offset = self._clone_seqn.indx  # actually, the next offset at which we'll write
+        if cur_offset <= offset:
+            if timeout == 0:
+                return
+            self._newdataevent.clear()
+            try:
+                await asyncio.wait_for(self._newdataevent.wait(), timeout, loop=s_glob.plex.loop)
+            except asyncio.TimeoutError:
+                return
+        with self.lenv.begin(buffers=True) as xact:
+            for off, hashval in self._clone_seqn.iter(xact, offset):
+                iter_count += 1
+                if include_contents:
+                    for chunknum, chunk in enumerate(self._get(hashval, xact)):
+                        yield off, (None if chunknum else hashval, chunknum, bytes(chunk))
+                        iter_count += 1
+                else:
+                    yield off, (hashval, None, None)
+                if iter_count >= MAX_ITERS:
+                    break
+
+    async def _consume_clone_data(self, items):
+        '''
+        Add rows obtained from a BlobStor.clone() method.
+
+        Args:
+            items (Iterable): A list of tuples containing (offset, (sha256,chunknum,bytes)) data.
+
+        Returns:
+            int: The the last offset processed from the list of items, or None if nothing was processed
+        '''
+        last_offset = None
+
+        async def yielder(i):
+            '''
+            Drop the offset and keep track of the last one encountered
+            '''
+            nonlocal last_offset
+            async for offset, (hashval, chunknum, bytz) in to_aiter(i):
+                yield hashval, chunknum, bytz
+                last_offset = offset
+
+        await self.bulkput(yielder(items))
+
+        # Update how far we've cloned
+        if last_offset is not None:
+            logger.debug(f'_consume_clone_data returning {last_offset}')
+            return last_offset
+        logger.debug(f'_consume_clone_data returning None')
+        return None
+
+    async def stat(self):
         '''
         Get storage stats for the BlobStor.
 
         Returns:
             dict: A dictionary containing the total bytes and blocks store in the BlobStor.
         '''
-        return self._blob_metrics.stat()
+        return self._metrics.stat()
 
-    def metrics(self, offs=0):
+    async def metrics(self, offs=0):
         '''
         Get metrics for the BlobStor. These can be aggregated to compute the storage stats.
 
@@ -160,565 +679,498 @@ class BlobStor(s_eventbus.EventBus):
         Yields:
             ((int, dict)): Yields index, sample data from the metrics sequence.
         '''
-        with self.lenv.begin() as xact:
-            for item in self._blob_metrics.iter(xact, offs):
+        with self.lenv.begin(buffers=True) as xact:
+            for item in self._metrics.iter(xact, offs):
                 yield item
 
-    def getCloneOffs(self):
+    def getCloneProgress(self):
         '''
-        Get the current offset for the clone:index of the BlobStor.
+        Get the next offset to retrieve for the clone:index of the BlobStor.
+
+        Returns:
+            int: The offset value
+        '''
+        with self.lenv.begin(buffers=True) as xact:
+
+            lval = xact.get(b'clone:progress', db=self._blob_info)
+            if lval is None:
+                return 0
+
+            return struct.unpack('>Q', lval)[0]
+
+class _ProxyKeeper(s_coro.Fini):
+    '''
+    A container for active blobstor proxy objects.
+    '''
+
+    # All the proxy keepers share a common bsid -> path map
+    bsidpathmap = {}
+
+    def __init__(self):
+        s_coro.Fini.__init__(self)
+        self._proxymap = {}  # bsid -> proxy
+
+        # All the proxy
+
+        async def fini():
+            for proxy in self._proxymap.values():
+                if proxy is not None:
+                    await proxy.fini()
+            self._proxymap = {}
+
+        self.onfini(fini)
+
+    async def _addproxy(self, proxy, path):
+        bsid = binascii.unhexlify(await proxy.getCellIden())
+        self.bsidpathmap[bsid] = path
+        self._proxymap[bsid] = proxy
+        return bsid
+
+    async def connect(self, path):
+        '''
+        Connect to a proxy.
+
+        Returns:
+            (bytes, s_telepath.Proxy) the bsid and the proxy object
+        '''
+        proxy = await s_telepath.openurl(path)
+        if proxy is None:
+            return None
+        newbsid = await self._addproxy(proxy, path)
+        return newbsid, proxy
+
+    async def randoproxy(self, bsids=None):
+        '''
+        Returns a random (bsid, blobstor) pair from the bsids parameter, or from all know bsids if parameter is None
+        '''
+        if bsids is None:
+            bsids = list(self.bsidpathmap.keys())
+        if not bsids:
+            raise s_exc.AxonNoBlobStors()
+        rot = random.randrange(len(bsids))
+        bsidsrot = bsids[rot:] + bsids[:rot]
+        for bsid in bsidsrot:
+            blobstor = await self.get(bsid)
+            if blobstor is not None:
+                return bsid, blobstor
+        raise s_exc.AxonNoBlobStors()
+
+    async def get(self, bsid: bytes) -> s_telepath.Proxy:
+        '''
+        Retrieve a proxy object by bsid, connecting if not already connected
+        '''
+        proxy = self._proxymap.get(bsid)
+        if proxy:
+            if proxy.isfini:
+                del self._proxymap[bsid]
+            else:
+                return proxy
+        path = self.bsidpathmap.get(bsid)
+        if path is None:
+            raise s_exc.AxonUnknownBsid()
+        try:
+            newbsid, proxy = await self.connect(path)
+        except ConnectionRefusedError:
+            # Try a different blobstor?
+            raise
+        if newbsid != bsid:
+            raise s_exc.AxonBlobStorBsidChanged()
+        return proxy
+
+class AxonApi(PassThroughApi):
+    allowed_methods = ['get', 'locs', 'stat', 'wants', 'metrics', 'addBlobStor', 'unwatchBlobStor', 'getBlobStors']
+
+    def __init__(self, cell, link):
+        PassThroughApi.__init__(self, cell, link)
+
+        # The Axon makes new connections to each blobstor for each client.
+        self._proxykeeper = _ProxyKeeper()
+
+    async def fini(self):
+        await self._proxykeeper.fini()
+
+    async def get(self, hashval):
+        return await self.cell.get(hashval, self._proxykeeper)
+
+    async def startput(self):
+        _, blobstor = await self._proxykeeper.randoproxy()
+        rv = UploaderProxy(self.link, self.cell, blobstor)
+        return rv
+
+class UploaderProxy(s_share.Share):
+    ''' A proxy to a blobstor uploader living with the axon '''
+    typename = 'uploaderproxy'
+
+    def __init__(self, link, axonproxy, blobstorproxy):
+        s_share.Share.__init__(self, link, axonproxy)
+        self.doneevent = asyncio.Event()
+        self.blobstor = blobstorproxy
+        self.uploader = None
+
+        async def fini():
+            if self.uploader is not None:
+                await self.uploader.fini()
+            self.doneevent.set()
+
+        self.onfini(fini)
+
+    async def write(self, bytz):
+        if self.uploader is None:
+            self.uploader = await self.blobstor.startput()
+        await self.uploader.write(bytz)
+
+    async def _runShareLoop(self):
+        '''
+        This keeps the object alive until we're fini'd.
+        '''
+        await self.doneevent.wait()
+
+    async def finish(self):
+        if self.uploader is None:
+            return
+        rv = await self.uploader.finish()
+        return rv
+
+    async def finishFile(self):
+        if self.uploader is None:
+            return
+        return await self.uploader.finishFile()
+
+class Axon(s_cell.Cell):
+
+    cellapi = AxonApi
+    confdefs = (  # type: ignore
+        ('mapsize', {'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE, 'doc': 'The size of the LMDB memory map'}),
+    )
+
+    def __init__(self, dirn: str, conf=None) -> None:
+        s_cell.Cell.__init__(self, dirn)
+
+        path = s_common.gendir(self.dirn, 'axon.lmdb')
+        mapsize = self.conf.get('mapsize')
+        self.lenv = lmdb.open(path, writemap=True, max_dbs=128)
+        self.lenv.set_mapsize(mapsize)
+
+        self.bloblocs = self.lenv.open_db(b'axon:blob:locs', dupsort=True, dupfixed=True) # <sha256>=blobstor_bsid
+        self.offsets = self.lenv.open_db(b'axon:blob:offsets') # <sha256>=blobstor_bsid
+
+        # Persistent settings
+        self.settings = self.lenv.open_db(b'axon:settings', dupsort=True)
+
+        self._metrics = s_lmdb.Metrics(self.lenv)
+        self._proxykeeper = _ProxyKeeper()
+
+        # Clear the global proxykeeper bsid->telepath path map (really just for unit tests)
+        _ProxyKeeper.bsidpathmap = {}
+
+        paths = self._get_stored_blobstorpaths()
+        self.blobstorwatchers = {}
+
+        # Wait a few seconds for the daemon to register all of its shared objects
+        DAEMON_DELAY = 3
+        for path in paths:
+            s_glob.plex.addLoopCoro(_run_after_delay(DAEMON_DELAY, self._start_watching_blobstor(path)))
+
+        self._workq = _AsyncQueue(50)
+        self.xact = IncrementalTransaction(self.lenv)
+        self._worker = self._workloop()
+        self._worker.name = 'Axon Writer'
+
+        def fini():
+            async def run_on_loop():
+                for stop_event in self.blobstorwatchers.values():
+                    stop_event.set()
+                await self._workq.fini()
+            s_glob.plex.coroToTask(run_on_loop())
+            self._worker.join()
+        self.onfini(fini)
+
+    def _get_stored_blobstorpaths(self):
+        paths = []
+        with self.lenv.begin(buffers=True) as xact, xact.cursor(db=self.settings) as curs:
+            if not curs.set_key(b'blobstorpaths'):
+                return []
+            for path in curs.iternext_dup():
+                paths.append(bytes(path).decode())
+        return paths
+
+    async def _start_watching_blobstor(self, blobstorpath: str):
+        stop_watching_event = asyncio.Event(loop=s_glob.plex.loop)
+        self.blobstorwatchers[blobstorpath] = stop_watching_event
+        bsid, blobstor = await self._proxykeeper.connect(blobstorpath)
+        s_glob.plex.addLoopCoro(self._watch_blobstor(blobstor, bsid, blobstorpath, stop_watching_event))
+
+    async def addBlobStor(self, blobstorpath):
+        '''
+        Causes an axon to start using a particular blobstor.  This is persistently stored; on Axon restart, it will
+        automatically reconnect to the blobstor at the specified path.
+        '''
+        def _store_blobstorpath(path):
+            txn = self.xact.guarantee()
+            txn.put(b'blobstorpaths', path.encode(), dupdata=True, db=self.settings)
+            self.xact.commit()
+
+        if blobstorpath in self.blobstorwatchers:
+            return
+
+        await self._executor(_store_blobstorpath, blobstorpath)
+        await self._start_watching_blobstor(blobstorpath)
+
+    async def getBlobStors(self):
+        '''
+        Returns:
+            A list of all the watched blobstors
+        '''
+        return list(self.blobstorwatchers.keys())
+
+    async def unwatchBlobStor(self, blobstorpath):
+        '''
+        Cause an axon to stop using a particular blobstor by path.  This is persistently stored.
+        '''
+        def _del_blobstorpath(path):
+            txn = self.xact.guarantee()
+            txn.delete(b'blobstorpaths', path.encode(), db=self.settings)
+            self.xact.commit()
+
+        stop_event = self.blobstorwatchers.pop(blobstorpath, None)
+        if stop_event is not None:
+            stop_event.set()
+        await self._executor(_del_blobstorpath, blobstorpath)
+
+    async def _watch_blobstor(self, blobstor, bsid, blobstorpath, stop_event):
+        '''
+        As Axon, Monitor a blobstor, by repeatedly asking long-poll-style for its new data
+        '''
+        logger.info('Watching BlobStor %s', blobstorpath)
+
+        CLONE_TIMEOUT = 60.0
+        cur_offset = self._getSyncProgress(bsid)
+        while not self.isfini and not stop_event.is_set():
+            try:
+                if blobstor.isfini:
+                    blobstor = await s_telepath.openurl(blobstorpath)
+                    if blobstor is None:
+                        logger.warning('No longer monitoring %s for new data', blobstorpath)
+                        break
+
+                async def clone_and_next():
+                    ''' Get the async generator and the first item of that generator '''
+                    genr = await blobstor.clone(cur_offset, timeout=CLONE_TIMEOUT, include_contents=False)
+                    try:
+                        it = genr.__aiter__()
+                        first_item = await it.__anext__()
+                        return it, first_item
+                    except StopAsyncIteration:
+                        return None, None
+
+                # Wait on either the clone completing, or a signal to stop watching
+                stop_coro = stop_event.wait()
+                donelist, notdonelist = await asyncio.wait([clone_and_next(), stop_coro], loop=s_glob.plex.loop,
+                                                           return_when=concurrent.futures.FIRST_COMPLETED)
+                for task in notdonelist:
+                    task.cancel()
+                if stop_event.is_set():
+                    # avoid asyncio debug warnings by retrieving any done task exceptions
+                    for f in donelist:
+                        try:
+                            f.result()
+                        except Exception:
+                            pass
+                    break
+                genr, first_item = donelist.pop().result()
+                if genr is None:
+                    continue
+
+                logger.debug('Got clone data for %s', blobstorpath)
+                cur_offset = 1 + await self._consume_clone_data(first_item, genr, bsid)
+                await self._executor_nowait(self._updateSyncProgress, bsid, cur_offset)
+
+            except Exception:
+                if not self.isfini:
+                    logger.exception('BlobStor.blobstorLoop error')
+
+    def _updateSyncProgress(self, bsid, new_offset):
+        '''
+        Persistently record how far we've gotten in retrieving the set of hash values a particular blobstor has
+
+        Records the next offset to retrieve
+        '''
+        self.xact.put(b'offset:' + bsid, struct.pack('>Q', new_offset), db=self.offsets)
+
+        self.xact.commit()
+
+    def _getSyncProgress(self, bsid):
+        '''
+        Get the current offset for one blobstor of the Axon
 
         Returns:
             int: The offset value.
         '''
-        with self.lenv.begin() as xact:
+        with self.lenv.begin(buffers=True) as xact:
 
-            lval = xact.get(b'clone:indx', db=self._blob_info)
+            lval = xact.get(b'offset:' + bsid, db=self.offsets)
             if lval is None:
-                return 0
-
-            return struct.unpack('>Q', lval)[0] + 1
-
-class BlobCell(s_cell.Cell):
-
-    confdefs = (
-        ('blob:mapsize', {'type': 'int', 'defval': s_const.tebibyte * 10,
-            'doc': 'The maximum size of the LMDB memory map'}),
-
-        ('blob:cloneof', {'defval': None,
-            'doc': 'The name of a blob cell to clone from'}),
-    )
-
-    def postCell(self):
-
-        if self.neuraddr is None:
-            raise s_common.BadConfValu(mesg='BlobCell requires a neuron')
-
-        path = self.getCellDir('blobs.lmdb')
-        mapsize = self.getConfOpt('blob:mapsize')
-
-        self.blobs = BlobStor(path, mapsize=mapsize)
-        self.cloneof = self.getConfOpt('blob:cloneof')
-
-        if self.cloneof is not None:
-            self.cellpool.add(self.cloneof, self._fireCloneThread)
-            self.cellinfo['blob:cloneof'] = self.cloneof
-
-    def finiCell(self):
-        self.blobs.fini()
-
-    def _saveDispItems(self, items):
-
-        def genr():
-
-            for link, mesg in items:
-
-                with link:
-
-                    rows = mesg[1].get('rows', ())
-                    for row in rows:
-                        yield row
-
-                    link.txok(len(rows))
-
-        self.blobs.save(genr())
+                rv = 0
+            else:
+                rv = struct.unpack('>Q', lval)[0]
+        logger.debug('Axon._getSyncProgress: %r: %r', bsid, rv)
+        return rv
 
     @s_common.firethread
-    def _fireCloneThread(self, sess):
+    def _workloop(self):
         '''
-        Fires a thread which requests clone rows from a given offset
-        for the remote blob.
+        A worker for running stuff that requires a write lock
         '''
-        while not sess.isfini:
+        try:
+            while not self.isfini:
+                msg = self._workq.get()
+                if msg is None:
+                    break
+                func, done_event = msg
+                func()
+                if done_event is not None:
+                    s_glob.plex.callSoonSafe(done_event.set)
+        finally:
+            self.xact.fini()
 
-            try:
+    async def _executor_nowait(self, func, *args, **kwargs):
+        '''
+        Run a function on the Axon's work thread without waiting for a result
+        '''
+        def syncfunc():
+            func(*args, **kwargs)
 
-                offs = self.blobs.getCloneOffs()
+        await self._workq.put((syncfunc, None))
 
-                mesg = ('blob:clone', {'offs': offs})
-                ok, rows = sess.call(mesg, timeout=60)
+    async def _executor(self, func, *args, **kwargs):
+        '''
+        Run a function on the Axon's work thread
+        '''
+        done_event = asyncio.Event(loop=s_glob.plex.loop)
+        retn = None
 
-                if not ok or not rows:
-                    sess.waitfini(timeout=1)
-                    continue
+        def syncfunc():
+            nonlocal retn
+            retn = func(*args, **kwargs)
 
-                self.blobs.addCloneRows(rows)
-                self.fire('blob:clone:rows', size=len(rows))
+        await self._workq.put((syncfunc, done_event))
+        await done_event.wait()
+        return retn
 
-            except Exception as e:
-                if not sess.isfini:
-                    logger.exception('BlobCell clone thread error')
-                    time.sleep(1)
-
-    def handlers(self):
-        self.savedisp = s_net.LinkDisp(self._saveDispItems)
-        return {
-            'blob:save': self.savedisp.rx, # ('blob:save', {'rows':[ (lkey, lval)]})
-            'blob:load': self._onBlobLoad, # ('blob:load', {'buid': <buid>} )
-            'blob:stat': self._onBlobStat, # ('blob:stat', {}) -> (True, {info})
-            'blob:clone': self._onBlobClone, # ('blob:clone', {'offs': <indx>}) -> [ (indx, (lkey, lval)), ]
-            'blob:upload': self._onBlobUpload,
-            'blob:metrics': self._onBlobMetrics, # ('metrics', {'offs':<indx>}) -> ( (indx, info), ... )
-        }
-
-    @s_glob.inpool
-    def _onBlobClone(self, chan, mesg):
-        with chan:
-            offs = mesg[1].get('offs')
-            genr = self.blobs.clone(offs)
-            rows = list(itertools.islice(genr, 1000))
-            chan.txok(rows)
-
-    @s_glob.inpool
-    def _onBlobUpload(self, chan, mesg):
-
-        with chan:
-
-            chan.setq()
-            self.fire('blob:upload')
-
-            chan.txok(True)
-            for row in chan.rxwind(timeout=60):
-                self.blobs.save([row])
-
-    @s_glob.inpool
-    def _onBlobStat(self, chan, mesg):
-        with chan:
-            chan.txok(self.blobs.stat())
-
-    @s_glob.inpool
-    def _onBlobMetrics(self, chan, mesg):
-
-        offs = mesg[1].get('offs', 0)
-        with chan:
-            chan.setq()
-            chan.txok(True)
-
-            metr = self.blobs.metrics(offs=offs)
-            genr = s_common.chunks(metr, 1000)
-
-            chan.txwind(genr, 100, timeout=30)
-
-    @s_glob.inpool
-    def _onBlobLoad(self, chan, mesg):
-        buid = mesg[1].get('buid')
-        with chan:
-            chan.setq()
-            chan.txok(None)
-
-            def genr():
-                for byts in self.blobs.load(buid):
-                    yield byts
-
-            chan.txwind(genr(), 10, timeout=30)
-
-class AxonCell(s_cell.Cell):
-    '''
-    An Axon acts as an indexer and manages access to BlobCell bytes.
-    '''
-
-    confdefs = (
-        ('axon:mapsize', {'type': 'int', 'defval': s_const.tebibyte,
-            'doc': 'The maximum size of the LMDB memory map'}),
-
-        ('axon:blobs', {'req': True,
-            'doc': 'A list of cell names in a neuron cluster'}),
-    )
-
-    def postCell(self):
-
-        if self.cellpool is None:
-            raise s_common.BadConfValu(mesg='AxonCell requires a neuron and CellPool')
-
-        mapsize = self.getConfOpt('axon:mapsize')
-
-        path = self.getCellDir('axon.lmdb')
-
-        self.lenv = lmdb.open(path, writemap=True, max_dbs=128)
-        self.lenv.set_mapsize(mapsize)
-
-        self.blobhas = self.lenv.open_db(b'axon:blob:has') # <sha256>=<size>
-        self.bloblocs = self.lenv.open_db(b'axon:blob:locs') # <sha256><loc>=<buid>
-
-        self.metrics = s_lmdb.Metrics(self.lenv)
-
-        self.blobs = s_cell.CellPool(self.cellauth, self.neuraddr)
-        self.blobs.neurwait(timeout=10)
-
-        for name in self.getConfOpt('axon:blobs'):
-            self.blobs.add(name)
-
-    def finiCell(self):
-        self.lenv.sync()
-        self.lenv.close()
-        self.blobs.fini()
-
-    def handlers(self):
-        return {
-            'axon:locs': self._onAxonLocs,
-            'axon:save': self._onAxonSave,
-            'axon:stat': self._onAxonStat,
-            'axon:wants': self._onAxonWants,
-            'axon:bytes': self._onAxonBytes,
-            'axon:upload': self._onAxonUpload,
-            'axon:metrics': self._onAxonMetrics,
-        }
-
-    @s_glob.inpool
-    def _onAxonUpload(self, chan, mesg):
-
-        with chan:
-
-            chan.setq()
-
-            ok, retn = self.blobs.any()
-            if not ok:
-                return chan.txerr(retn)
-
-            name, sess = retn
-
-            info = {'size': 0}
-            buid = s_common.buid()
-
-            sha256 = hashlib.sha256()
-
-            def genr():
-
-                indx = 0
-
-                allb = b''
-                for byts in chan.rxwind(timeout=30):
-
-                    sha256.update(byts)
-                    info['size'] += len(byts)
-
-                    allb += byts
-                    while len(allb) >= blocksize:
-
-                        bloc = allb[:blocksize]
-                        allb = allb[blocksize:]
-
-                        lkey = buid + struct.pack('>Q', indx)
-                        indx += 1
-
-                        yield lkey, bloc
-
-                if allb or (indx is 0):
-                    lkey = buid + struct.pack('>Q', indx)
-                    yield lkey, allb
-
-            with sess.chan() as bchan:
-
-                bchan.setq()
-
-                bchan.tx(('blob:upload', {}))
-                ok, retn = bchan.next(timeout=30)
-                if not ok:
-                    chan.txerr(retn)
-
-                chan.txok(True)
-
-                if bchan.txwind(genr(), 10, timeout=30):
-
-                    size = info.get('size')
-                    with self.lenv.begin(write=True) as xact:
-                        self._addFileLoc(xact, buid, sha256.digest(), size, name)
-
-            chan.txok(sha256.digest())
-
-    def _addFileLoc(self, xact, buid, sha256, size, name):
+    def _addloc(self, bsid, hashval, commit=False):
+        '''
+        Record blobstor's bsid has a particular hashval.  Should be run in my executor.
+        '''
+        xact = self.xact.guarantee()
 
         tick = s_common.now()
 
-        nenc = name.encode('utf8')
+        written = xact.put(hashval, bsid, db=self.bloblocs, dupdata=False)
 
-        xact.put(sha256, struct.pack('>Q', size), db=self.blobhas)
-        xact.put(sha256 + nenc, buid, db=self.bloblocs)
+        if written:
+            self._metrics.inc(xact, 'files', 1)
 
-        self.metrics.inc(xact, 'files', 1)
-        self.metrics.inc(xact, 'bytes', size)
+            # metrics contains everything we need to clone
+            self._metrics.record(xact, {'time': tick, 'bsid': bsid, 'sha256': hashval})
 
-        # metrics contains everything we need to clone
-        self.metrics.record(xact, {'time': tick, 'cell': name, 'size': size, 'buid': buid, 'sha256': sha256})
+            if commit:
+                self.xact.commit()
 
-    def _onAxonStat(self, chan, mesg):
-        with chan:
-            return chan.txok(self.metrics.stat())
-
-    @s_glob.inpool
-    def _onAxonMetrics(self, chan, mesg):
-        offs = mesg[1].get('offs', 0)
-
-        chan.setq()
-        chan.txok(True)
-
-        with self.lenv.begin() as xact:
-            metr = self.metrics.iter(xact, offs)
-            genr = s_common.chunks(metr, 1000)
-            chan.txwind(genr, 100, timeout=30)
-            chan.txfini()
-
-    @s_glob.inpool
-    def _onAxonWants(self, chan, mesg):
-
-        # ('axon:wants', {'hashes': [sha256, ...]})
-        with chan:
-
-            wants = []
-            hashes = mesg[1].get('hashes', ())
-
-            with self.lenv.begin(db=self.blobhas) as xact:
-
-                curs = xact.cursor()
-
-                for sha256 in hashes:
-                    if not curs.set_key(sha256):
-                        wants.append(sha256)
-
-            chan.txok(wants)
-
-    @s_glob.inpool
-    def _onAxonLocs(self, chan, mesg):
-        with chan:
-            sha256 = mesg[1].get('sha256')
-            with self.lenv.begin() as xact:
-                locs = self.getBlobLocs(xact, sha256)
-            if not locs:
-                return chan.txerr(('NoSuchFile', {}))
-            return chan.txok(locs)
-
-    @s_glob.inpool
-    def _onAxonBytes(self, chan, mesg):
-
-        with chan:
-
-            chan.setq()
-
-            sha256 = mesg[1].get('sha256')
-
-            with self.lenv.begin() as xact:
-                locs = self.getBlobLocs(xact, sha256)
-
-            if not locs:
-                return chan.txerr(('NoSuchFile', {}))
-            sess = None
-            buid = None
-
-            for name, buid in locs:
-                sess = self.blobs.get(name)
-                if sess is not None:
-                    break
-
-            if sess is None:
-                return chan.txerr(('NotReady', {}))
-
-            with sess.chan() as bchan:
-
-                bchan.setq()
-                bchan.tx(('blob:load', {'buid': buid}))
-
-                ok, retn = bchan.next(timeout=30)
-                if not ok:
-                    return chan.txerr(retn)
-
-                chan.txok(name)
-
-                def genr():
-                    for byts in bchan.rxwind(timeout=30):
-                        yield byts
-
-                chan.txwind(genr(), 10, timeout=30)
-
-    def getBlobLocs(self, xact, sha256):
+    async def _consume_clone_data(self, first_item, items, frombsid):
         '''
-        Get the blob and buids for a given sha256 value
+        Add rows obtained from a BlobStor.clone() method.
 
         Args:
-            xact (lmdb.Transaction): An LMDB transaction.
-            sha256 (bytes): The sha256 digest to look up in bytes.
+            items (Iterable): A list of tuples containing (offset, (sha256,chunknum,bytes)) data.
 
         Returns:
-            list: A list of (blobname, buid) tuples.
+            int: The last index value processed from the list of items, or None if nothing was processed
         '''
-        with xact.cursor(db=self.bloblocs) as curs:
+        last_offset, (hashval, _, _) = first_item
+        await self._executor_nowait(self._addloc, frombsid, hashval)
 
-            if not curs.set_range(sha256):
-                return ()
+        async for last_offset, (hashval, _, _) in to_aiter(items):
+            await self._executor_nowait(self._addloc, frombsid, hashval)
 
-            locs = []
+        await self._executor_nowait(self.xact.commit)
 
-            for lkey, buid in curs.iternext():
-                if lkey[:32] != sha256:
-                    break
+        return last_offset
 
-                cellname = lkey[32:].decode('utf8')
-                locs.append((cellname, buid))
+    async def stat(self):
+        return self._metrics.stat()
 
-            return locs
-
-    def _filtSaveByts(self, files):
-
-        todo = []
-        with self.lenv.begin() as xact:
-
-            curs = xact.cursor(db=self.blobhas)
-            for byts in files:
-
-                sha256 = hashlib.sha256(byts).digest()
-
-                if curs.get(sha256):
-                    continue
-
-                todo.append((s_common.buid(), sha256, byts))
-
-        return todo
-
-    def _saveBlobByts(self, todo):
-
-        rows = []
-        for buid, sha256, byts in todo:
-            for i, ibyts in enumerate(s_common.chunks(byts, blocksize)):
-                indx = struct.pack('>Q', i)
-                rows.append((buid + indx, ibyts))
-
-        ok, retn = self.blobs.any()
-        if not ok:
-            return False, retn
-
-        name, cell = retn
-
-        mesg = ('blob:save', {'rows': rows})
-
-        ok, retn = cell.call(mesg, timeout=30)
-        if not ok:
-            return False, retn
-
-        return True, name
-
-    @s_glob.inpool
-    def _onAxonSave(self, chan, mesg):
-
-        with chan:
-
-            files = mesg[1].get('files', ())
-            if not files:
-                return chan.txok(0)
-
-            todo = self._filtSaveByts(files)
-
-            # if there is nothing to do after deconfliction, bail
-            if not todo:
-                return chan.txok(0)
-
-            ok, retn = self._saveBlobByts(todo)
-            if not ok:
-                logger.warning('axon:save failed save blobs: %r' % (retn,))
-                return chan.txerr(retn)
-
-            name = retn
-            with self.lenv.begin(write=True) as xact:
-                for buid, sha256, byts in todo:
-                    self._addFileLoc(xact, buid, sha256, len(byts), name)
-
-            return chan.txok(len(todo))
-
-class AxonClient:
-
-    def __init__(self, sess):
-        self.sess = sess
-
-    def locs(self, sha256, timeout=None):
+    async def wants(self, hashvals):
         '''
-        Get the Blob hostname and buid pairs for a given sha256.
+        Given a list of hashvals, returns a list of the hashes *not* available
+        '''
+        wants = []
+        with self.lenv.begin(db=self.bloblocs) as xact:
+            curs = xact.cursor()
+            for hashval in hashvals:
+                if not curs.set_key(hashval):
+                    wants.append(hashval)
+        return wants
+
+    async def locs(self, hashval):
+        '''
+        Get the blobstor bsids for a given sha256 value
 
         Args:
-            sha256 (bytes): Sha256 to look up.
-            timeout (int): The network timeout in seconds.
+            hashval (bytes): The sha256 digest to look up
 
         Returns:
-            tuple: A tuple of (blob, buid) tuples.
-
-        Raises:
-            RetnErr: If the file requested does not exist.
+            list: A list of blobnames
         '''
-        mesg = ('axon:locs', {'sha256': sha256})
-        ok, retn = self.sess.call(mesg, timeout=timeout)
-        return s_common.reqok(ok, retn)
+        with self.lenv.begin() as xact, xact.cursor(db=self.bloblocs) as curs:
+            if not curs.set_key(hashval):
+                return []
+            blobstorbsids = []
+            for bsid in curs.iternext_dup():
+                blobstorbsids.append(bsid)
+            return blobstorbsids
 
-    def stat(self, timeout=None):
+    async def startput(self):
         '''
-        Return the stat dictionary for the Axon.
-
         Args:
-            timeout (int): The network timeout in seconds.
+            None
 
         Returns:
-            dict: The stat dictionary.
+            an Uploader object suitable for streaming an upload
         '''
-        mesg = ('axon:stat', {})
-        ok, retn = self.sess.call(mesg, timeout=timeout)
-        return s_common.reqok(ok, retn)
+        proxykeeper = self._proxykeeper
+        _, blobstor = await proxykeeper.randoproxy()
+        return await blobstor.startput()
 
-    def save(self, files, timeout=None):
+    async def bulkput(self, files, proxykeeper=None):
         '''
         Save a list of files to the axon.
 
         Args:
             files ([bytes]): A list of files as bytes blobs.
-            timeout (int): The network timeout in seconds.
 
         Returns:
             int: The number of files saved.
         '''
-        mesg = ('axon:save', {'files': files})
-        ok, retn = self.sess.call(mesg, timeout=timeout)
-        return s_common.reqok(ok, retn)
+        if proxykeeper is None:
+            proxykeeper = self._proxykeeper
+        bsid, blobstor = await proxykeeper.randoproxy()
+        async with await blobstor.startput() as uploader:
+            for bytz in files:
+                for chunk in s_common.chunks(bytz, CHUNK_SIZE):
+                    await uploader.write(chunk)
+                await uploader.finishFile()
+            count, hashval = await uploader.finish()
+        if count:
+            await self._executor(self._addloc, bsid, hashval, commit=True)
 
-    def wants(self, hashes, timeout=None):
-        '''
-        Filter and return a list of hashes that the axon wants.
+        return count
 
-        Args:
-            hashes (list): A list of SHA256 bytes.
-            timeout (int): The network timeout in seconds.
-
-        Returns:
-            tuple: A tuple containg hashes the axon wants.
-        '''
-        mesg = ('axon:wants', {'hashes': hashes})
-        ok, retn = self.sess.call(mesg, timeout=timeout)
-        return s_common.reqok(ok, retn)
-
-    def upload(self, genr, timeout=None):
-        '''
-        Upload a large file using a generator.
-
-        Args:
-            genr (generator): Yields file bytes chunks.
-            timeout (int): The network timeout in seconds.
-
-        Returns:
-            bytes: The sha256 digest of the file received, in bytes.
-        '''
-        mesg = ('axon:upload', {})
-
-        with self.sess.task(mesg, timeout=timeout) as chan:
-
-            ok, retn = chan.next(timeout=timeout)
-            s_common.reqok(ok, retn)
-
-            chan.txwind(genr, 10, timeout=timeout)
-
-            ok, retn = chan.next(timeout=timeout)
-            return s_common.reqok(ok, retn)
-
-    def bytes(self, sha256, timeout=None):
+    async def get(self, hashval, proxykeeper=None):
         '''
         Yield bytes for the given SHA256.
 
         Args:
-            sha256 (str): The SHA256 hash bytes.
-            timeout (int): The network timeout in seconds.
+            hashval (str): The SHA256 hash bytes.
 
         Yields:
             bytes: Bytes of the file requested.
@@ -726,76 +1178,18 @@ class AxonClient:
         Raises:
             RetnErr: If the file requested does not exist.
         '''
-        mesg = ('axon:bytes', {'sha256': sha256})
-        with self.sess.task(mesg, timeout=timeout) as chan:
+        if proxykeeper is None:
+            proxykeeper = self._proxykeeper
+        locs = await self.locs(hashval)
+        if not locs:
+            raise s_exc.NoSuchFile(f'{hashval} not present')
+        _, blobstor = await proxykeeper.randoproxy(locs)
 
-            ok, retn = chan.next(timeout=timeout)
-            s_common.reqok(ok, retn)
+        # that await is due to the current async generator telepath asymmetry
+        async for bloc in await blobstor.get(hashval):
+            yield bloc
 
-            for byts in chan.rxwind(timeout=timeout):
-                yield byts
-
-    def metrics(self, offs=0, timeout=None):
-        '''
-        Yield metrics rows beginning at an offset.
-
-        Args:
-            offs (int): The offset to begin at.
-            timeout (int): The network timeout in seconds.
-
-        Yields:
-            ((int, dict)): A tuple of offset and metrics information.
-        '''
-        mesg = ('axon:metrics', {'offs': offs})
-        with self.sess.task(mesg, timeout=timeout) as chan:
-
-            ok, retn = chan.next(timeout=timeout)
-            s_common.reqok(ok, retn)
-
-            for bloc in chan.rxwind(timeout=timeout):
-                for item in bloc:
-                    yield item
-
-class BlobClient:
-
-    def __init__(self, sess):
-        self.sess = sess
-
-    def metrics(self, offs=0, timeout=None):
-        '''
-        Get metrics for a given blob.
-
-        Args:
-            offs (int): Offset to start collecting metrics from.
-            timeout (int): The network timeout in seconds.
-
-        Yields:
-            ((int, dict)): A tuple of offset and metrics information.
-        '''
-        mesg = ('blob:metrics', {'offs': offs})
-        with self.sess.task(mesg, timeout=timeout) as chan:
-
-            ok, retn = chan.next(timeout=timeout)
-            s_common.reqok(ok, retn)
-
-            for bloc in chan.rxwind(timeout=timeout):
-                for item in bloc:
-                    yield item
-
-    def bytes(self, buid, timeout=None):
-        '''
-        Yield bytes for the given buid.
-
-        Args:
-            buid (bytes): The buid hash.
-            timeout (int): The network timeout in seconds.
-
-        Yields:
-            bytes: Chunks of bytes for the given buid.
-        '''
-        mesg = ('blob:load', {'buid': buid})
-        with self.sess.task(mesg, timeout=timeout) as chan:
-            ok, retn = chan.next(timeout=timeout)
-            s_common.reqok(ok, retn)
-            for byts in chan.rxwind(timeout=timeout):
-                yield byts
+    async def metrics(self, offs=0):
+        with self.lenv.begin(buffers=True) as xact:
+            for item in self._metrics.iter(xact, offs):
+                yield item

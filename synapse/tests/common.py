@@ -123,3 +123,4 @@ class CallBack:
 
     def wait(self, timeout=None):
         return self.event.wait(timeout=timeout)
+

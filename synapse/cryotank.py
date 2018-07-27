@@ -192,7 +192,6 @@ class CryoTank(s_cell.Cell):
             self.metrics_indx = xact.stat(self.lenv_metrics)['entries']
 
         def fini():
-            self.lenv.sync()
             self.lenv.close()
 
         self.onfini(fini)
@@ -378,9 +377,6 @@ class CryoApi(s_cell.CellApi):
 
     This is the API to reference for remote CryoCell use.
     '''
-    def __init__(self, cell, link):
-        s_cell.CellApi.__init__(self, cell, link)
-
     def init(self, name, conf=None):
         self.cell.init(name, conf=conf)
         return True
@@ -406,7 +402,7 @@ class CryoApi(s_cell.CellApi):
 
     def rows(self, name, offs, size, iden=None):
         tank = self.cell.init(name)
-        yield from tank.rows(name, offs, size, iden=iden)
+        yield from tank.rows(offs, size, iden=iden)
 
     def metrics(self, name, offs, size=None):
         tank = self.cell.init(name)

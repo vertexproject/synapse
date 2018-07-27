@@ -6,8 +6,6 @@ logger = logging.getLogger(__name__)
 
 import synapse.eventbus as s_eventbus
 
-import synapse.glob as s_glob
-
 import synapse.lib.link as s_link
 import synapse.lib.const as s_const
 import synapse.lib.threads as s_threads
@@ -30,6 +28,7 @@ class Plex(s_eventbus.EventBus):
         def fini():
             coro = self._onAsyncFini()
             self.coroToSync(coro, timeout=2)
+            self.loop.stop()
 
         self.onfini(fini)
 
@@ -61,6 +60,8 @@ class Plex(s_eventbus.EventBus):
     def listen(self, host, port, onlink, ssl=None):
         '''
         Listen on the given host/port and fire onlink(Link).
+
+        Returns a server object that contains the listening sockets
         '''
         async def onconn(reader, writer):
 
@@ -73,7 +74,7 @@ class Plex(s_eventbus.EventBus):
 
         async def bind():
             server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
-            return server.sockets[0].getsockname()
+            return server
 
         coro = bind()
         return self.coroToSync(coro)
@@ -113,6 +114,18 @@ class Plex(s_eventbus.EventBus):
 
         return await self.loop.run_in_executor(None, syncfunc)
 
+    async def sleep(self, delay):
+        '''
+        A coroutine that suspends for delay seconds.
+
+        Args:
+            delay (float): Time to delay the function call for.
+
+        Notes:
+            This API must be called on the IOLoop
+        '''
+        await asyncio.sleep(delay, loop=self.loop)
+
     async def _onAsyncFini(self):
         # async fini stuff here...
         return
@@ -146,6 +159,8 @@ class Plex(s_eventbus.EventBus):
         Schedule the coro on the loop.
 
         NOTE: NOT THREAD SAFE. ONLY FROM IO LOOP.
+
+        NOTE: any exceptions raised out of coro will be silently swallowed
         '''
         self.loop.create_task(coro)
 
