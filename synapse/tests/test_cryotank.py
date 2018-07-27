@@ -9,6 +9,8 @@ import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.common as s_test
 
+from synapse.tests.utils import SyncToAsyncCMgr
+
 logger = s_cryotank.logger
 
 cryodata = (('foo', {'bar': 10}), ('baz', {'faz': 20}))
@@ -17,7 +19,7 @@ class CryoTest(s_test.SynTest):
 
     @s_glob.synchelp
     async def test_cryo_cell_async(self):
-        async with s_test.SyncToAsyncCMgr(self.getTestDmon, mirror='cryodmon') as dmon, \
+        async with SyncToAsyncCMgr(self.getTestDmon, mirror='cryodmon') as dmon, \
                 await dmon._getTestProxy('cryo00') as prox:
             self.true(await prox.init('foo'))
             self.eq([], [x async for x in await prox.rows('foo', 0, 1)])

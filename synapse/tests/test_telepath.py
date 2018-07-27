@@ -11,6 +11,8 @@ import synapse.telepath as s_telepath
 import synapse.lib.share as s_share
 import synapse.tests.common as s_test
 
+from synapse.tests.utils import SyncToAsyncCMgr
+
 class Boom:
     pass
 
@@ -159,7 +161,7 @@ class TeleTest(s_test.SynTest):
     async def test_telepath_async(self):
         foo = Foo()
 
-        async with s_test.SyncToAsyncCMgr(self.getTestDmon) as dmon:
+        async with SyncToAsyncCMgr(self.getTestDmon) as dmon:
             addr = await s_glob.plex.executor(dmon.listen, 'tcp://127.0.0.1:0')
             dmon.share('foo', foo)
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
