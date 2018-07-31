@@ -28,6 +28,8 @@ class Link(s_coro.Fini):
 
         self.sock = self.writer.get_extra_info('socket')
 
+        self._drain_lock = asyncio.Lock(loop=plex.loop)
+
         # disable nagle ( to minimize latency for small xmit )
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         # enable TCP keep alives...
@@ -83,7 +85,9 @@ class Link(s_coro.Fini):
         byts = s_msgpack.en(mesg)
         try:
             self.writer.write(byts)
-            await self.writer.drain()
+            # Avoid Python bug.  See https://bugs.python.org/issue29930
+            async with self._drain_lock:
+                await self.writer.drain()
         except ConnectionError as e:
             await self.fini()
             einfo = s_common.retnexc(e)
