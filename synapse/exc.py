@@ -139,6 +139,8 @@ class AxonBadChunk(AxonErr): pass
 class AxonNoBlobStors(AxonErr): pass
 class AxonBlobStorBsidChanged(AxonErr): pass
 class AxonUnknownBsid(AxonErr): pass
+class AxonUploaderFinished(AxonErr): pass
+class AxonBlobStorDisagree(AxonErr): pass
 
 class FileExists(SynErr): pass
 class NoCertKey(SynErr):
