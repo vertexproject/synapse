@@ -156,6 +156,7 @@ class CellApi:
 
         # delayed import.  dep loop.
         if authtype == 'user':
+            info['locked'] = role.locked
 
             roles = []
             info['roles'] = roles

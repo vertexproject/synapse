@@ -2,11 +2,14 @@ import sys
 import argparse
 import traceback
 
+import synapse.exc as s_exc
+import synapse.lib.output as s_output
 import synapse.telepath as s_telepath
 
 desc = '''
 Admin users in a remote cell.
 '''
+outp = None
 
 denyallow = ['deny', 'allow']
 def reprrule(rule):
@@ -19,30 +22,30 @@ def printuser(user):
     admin = user[1].get('admin')
     authtype = user[1].get('type')
 
-    print(f'{user[0]}')
-    print(f'type: {authtype}')
-    print(f'admin: {admin}')
+    outp.printf(f'{user[0]}')
+    outp.printf(f'type: {authtype}')
+    outp.printf(f'admin: {admin}')
 
     if authtype == 'user':
         locked = user[1].get('locked')
-        print(f'locked: {locked}')
+        outp.printf(f'locked: {locked}')
 
-    print('rules:')
+    outp.printf('rules:')
 
     for i, rule in enumerate(user[1].get('rules')):
         rrep = reprrule(rule)
-        print(f'    {i} {rrep}')
+        outp.printf(f'    {i} {rrep}')
 
-    print('')
+    outp.printf('')
 
     if authtype == 'user':
 
-        print('roles:')
+        outp.printf('roles:')
         for rolename, roleinfo in sorted(user[1].get('roles')):
-            print(f'    role: {rolename}')
+            outp.printf(f'    role: {rolename}')
             for rule in roleinfo.get('rules'):
                 rrep = reprrule(rule)
-                print(f'        {rrep}')
+                outp.printf(f'        {rrep}')
 
 def handleModify(opts):
     try:
@@ -50,39 +53,39 @@ def handleModify(opts):
         with s_telepath.openurl(opts.cellurl) as cell:
 
             if opts.adduser:
-                print(f'adding user: {opts.name}')
+                outp.printf(f'adding user: {opts.name}')
                 user = cell.addAuthUser(opts.name)
 
             if opts.addrole:
-                print(f'adding role: {opts.name}')
+                outp.printf(f'adding role: {opts.name}')
                 user = cell.addAuthRole(opts.name)
 
             if opts.passwd:
-                print(f'setting passwd for: {opts.name}')
+                outp.printf(f'setting passwd for: {opts.name}')
                 cell.setUserPasswd(opts.name, opts.passwd)
 
             if opts.grant:
-                print(f'granting {opts.grant} to: {opts.name}')
+                outp.printf(f'granting {opts.grant} to: {opts.name}')
                 cell.addUserRole(opts.name, opts.grant)
 
             if opts.revoke:
-                print(f'revoking {opts.grant} from: {opts.name}')
+                outp.printf(f'revoking {opts.revoke} from: {opts.name}')
                 cell.delUserRole(opts.name, opts.revoke)
 
             if opts.admin:
-                print(f'granting admin status: {opts.name}')
+                outp.printf(f'granting admin status: {opts.name}')
                 cell.setAuthAdmin(opts.name, True)
 
             if opts.noadmin:
-                print(f'revoking admin status: {opts.name}')
+                outp.printf(f'revoking admin status: {opts.name}')
                 cell.setAuthAdmin(opts.name, False)
 
             if opts.lock:
-                print(f'locking user: {opts.name}')
+                outp.printf(f'locking user: {opts.name}')
                 cell.setUserLocked(opts.name, True)
 
             if opts.unlock:
-                print(f'unlocking user: {opts.name}')
+                outp.printf(f'unlocking user: {opts.name}')
                 cell.setUserLocked(opts.name, False)
 
             if opts.addrule:
@@ -97,26 +100,27 @@ def handleModify(opts):
 
                 rule = (allow, text.split('.'))
 
-                print(f'adding rule to {opts.name}: {rule!r}')
+                outp.printf(f'adding rule to {opts.name}: {rule!r}')
                 cell.addAuthRule(opts.name, rule, indx=None)
 
             if opts.delrule is not None:
-                print(f'deleting rule index: {opts.delrule}')
+                outp.printf(f'deleting rule index: {opts.delrule}')
                 cell.delAuthRule(opts.name, opts.delrule)
 
-            user = cell.getAuthInfo(opts.name)
-            if user is None:
-                print(f'no such user: {opts.name}')
+            try:
+                user = cell.getAuthInfo(opts.name)
+            except s_exc.NoSuchName as e:
+                outp.printf(f'no such user: {opts.name}')
                 return
 
             printuser(user)
 
-    except Exception as e:
+    except Exception as e: # pragma: no cover
 
         if opts.debug:
             traceback.print_exc()
 
-        print(e)
+        outp.printf(e)
 
 def handleList(opts):
     try:
@@ -125,31 +129,35 @@ def handleList(opts):
             if opts.name:
                 user = cell.getAuthInfo(opts.name)
                 if user is None:
-                    print(f'no such user: {opts.name}')
+                    outp.printf(f'no such user: {opts.name}')
                     return
 
                 printuser(user)
                 return
 
-            print(f'getting users and roles')
+            outp.printf(f'getting users and roles')
 
-            print('users:')
+            outp.printf('users:')
             for user in cell.getAuthUsers():
-                print(f'    {user}')
+                outp.printf(f'    {user}')
 
-            print('roles:')
+            outp.printf('roles:')
             for role in cell.getAuthRoles():
-                print(f'    {role}')
+                outp.printf(f'    {role}')
             return
 
-    except Exception as e:
+    except Exception as e: # pragma: no cover
 
         if opts.debug:
             traceback.print_exc()
 
-        print(e)
+        outp.printf(e)
 
-def main(argv):
+def main(argv, outprint=None):
+    if outprint is None:  # pragma: no cover
+        outprint = s_output.OutPut()
+    global outp
+    outp = outprint
 
     pars = argparse.ArgumentParser('synapse.tools.cellauth', description=desc)
 
@@ -160,7 +168,7 @@ def main(argv):
 
     # list
     pars_list = subpars.add_parser('list', help='List users/roles')
-    pars_list.add_argument('name', default=None, help='The name of the user/role to list')
+    pars_list.add_argument('name', nargs='*', default=None, help='The name of the user/role to list')
     pars_list.set_defaults(func=handleList)
 
     # create / modify / delete
@@ -191,5 +199,5 @@ def main(argv):
     opts = pars.parse_args(argv)
     opts.func(opts)
 
-if __name__ == '__main__':
+if __name__ == '__main__': # pragma: no cover
     sys.exit(main(sys.argv[1:]))
