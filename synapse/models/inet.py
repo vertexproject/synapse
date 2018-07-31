@@ -474,7 +474,7 @@ class Url(s_types.Type):
 
         # Query params first
         queryrem = ''
-        if valu.find('?') != -1:
+        if '?' in valu:
             valu, queryrem = valu.split('?', 1)
             # TODO break out query params separately
 
