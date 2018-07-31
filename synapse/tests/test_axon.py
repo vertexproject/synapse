@@ -228,12 +228,19 @@ class AxonTest(s_test.SynTest):
 
                 await axon.unwatchBlobStor(blobstorurl)
 
+                # Check that invalid paths don't kill things
+                blobstorurl = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/notablobstor'
+                await self.asyncraises(s_exc.NoSuchName, axon.addBlobStor(blobstorurl))
+                blobstorurl = f'tcp://{dmon.addr[0]}:32323/notablobstor'
+                await self.asyncraises(s_exc.SynErr, axon.addBlobStor(blobstorurl))
+                bslist = await axon.getBlobStors()
+                self.notin(blobstorurl, bslist)
+
     @s_glob.synchelp
     async def test_axon_uploader(self):
         with self.getTestDir() as dirn:
-            path0 = os.path.join(dirn, 'axon0')
             async with SyncToAsyncCMgr(self.getTestDmon, mirror='axondmon') as dmon, \
-                    SyncToAsyncCMgr(s_axon.Axon, path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as axon:
+                    await dmon._getTestProxy('axon00') as axon:
                 abhash = hashlib.sha256(b'ab').digest()
                 cdhash = hashlib.sha256(b'cd').digest()
 
@@ -251,12 +258,21 @@ class AxonTest(s_test.SynTest):
                     self.eq(cdhash, hashval)
 
                 # Give the clone subscription a chance to catch up
-                await self._wait_for_axon_files(axon, 2)
-                self.eq(b'cd', b''.join([x async for x in axon.get(cdhash)]))
-                self.eq(b'ab', b''.join([x async for x in axon.get(abhash)]))
+                self.eq([], await axon.wants([abhash, cdhash]))
+                foo = await axon.get(cdhash)
+                bar = [x async for x in foo]
+                print(bar)
+                self.eq(b'cd', b''.join([x async for x in await axon.get(cdhash)]))
+                self.eq(b'ab', b''.join([x async for x in await axon.get(abhash)]))
 
-                # Upload a big boy
+                # Test deconfliction, Upload a big boy
+                print('************************')
                 async with await axon.startput() as uploader:
+                    await uploader.write(b'cd')
+                    await uploader.finishFile()
+                    await uploader.write(b'c')
+                    await uploader.write(b'd')
+                    await uploader.finishFile()
                     for chunk in s_common.chunks(bbuf, s_axon.CHUNK_SIZE + 13):
                         await uploader.write(chunk)
                     count, hashval = await uploader.finish()
@@ -265,7 +281,7 @@ class AxonTest(s_test.SynTest):
 
                 await self._wait_for_axon_files(axon, 3)
                 self.eq((), await axon.wants([bbufhash]))
-                self.eq(bbuf, b''.join([x async for x in axon.get(bbufhash)]))
+                self.eq(bbuf, b''.join([x async for x in await axon.get(bbufhash)]))
 
     @s_glob.synchelp
     async def test_axon_cloning(self):
@@ -310,6 +326,17 @@ class AxonTest(s_test.SynTest):
 
                     # Make sure a regular write to the axon still works
                     self.eq(1, await axon.bulkput([b'bar']))
+
+                    # Now turn off the second blobstor and see what happens
+                    await s_glob.plex.executor(blobstor1.fini)
+
+                    # Not sure this is entirely fair
+                    # self.eq(1, await axon.bulkput([b'bar']))
+
+    @s_glob.synchelp
+    async def test_axon_blobstors_dropping(self):
+        # FIXME
+        pass
 
 class _AsyncQueueTest(s_test.SynTest):
     @s_glob.synchelp
