@@ -261,12 +261,10 @@ class AxonTest(s_test.SynTest):
                 self.eq([], await axon.wants([abhash, cdhash]))
                 foo = await axon.get(cdhash)
                 bar = [x async for x in foo]
-                print(bar)
                 self.eq(b'cd', b''.join([x async for x in await axon.get(cdhash)]))
                 self.eq(b'ab', b''.join([x async for x in await axon.get(abhash)]))
 
                 # Test deconfliction, Upload a big boy
-                print('************************')
                 async with await axon.startput() as uploader:
                     await uploader.write(b'cd')
                     await uploader.finishFile()
