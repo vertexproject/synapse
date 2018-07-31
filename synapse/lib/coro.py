@@ -40,7 +40,7 @@ class Fini:
                     await valu
 
             except Exception as e:
-                logger.exception()
+                logger.exception('fini failed')
 
     async def __aenter__(self):
         self.entered = True
@@ -68,7 +68,7 @@ class Fini:
 
 class Queue(Fini):
     '''
-    An async queue with chunk optmized sync compatible consumer.
+    An async queue with chunk optimized sync compatible consumer.
     '''
     def __init__(self):
         Fini.__init__(self)

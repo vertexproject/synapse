@@ -9,6 +9,8 @@ import logging
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
+
+import synapse.lib.coro as s_coro
 import synapse.lib.urlhelp as s_urlhelp
 
 logger = logging.getLogger(__name__)
@@ -54,8 +56,6 @@ class Task:
     def reply(self, retn):
         self.retn = retn
         self.done.set()
-
-import synapse.lib.coro as s_coro
 
 class Share(s_coro.Fini):
     '''
@@ -105,7 +105,7 @@ class Genr(Share):
 
             while not self.isfini:
 
-                for retn in self.queue.slice():
+                for retn in await self.queue.slice():
                     if retn is None:
                         return
 
@@ -160,7 +160,7 @@ class Method:
     '''
     def __init__(self, proxy, name, share=None):
         self.name = name
-        self.share = None
+        self.share = share
         self.proxy = proxy
 
         # act as much like a bound method as possible...
@@ -178,7 +178,7 @@ class Proxy(s_coro.Fini):
 
     Example:
 
-        import synpase.telepath as s_telepath
+        import synapse.telepath as s_telepath
 
         # open the "foo" object shared in a dmon on localhost:3344
 
@@ -188,7 +188,7 @@ class Proxy(s_coro.Fini):
 
             valu = await proxy.getFooValu(x, y)
 
-    The proxy ( and openurl function ) may also be used from sync code:
+    The proxy (and openurl function) may also be used from sync code:
 
         proxy = s_telepath.openurl('tcp://127.0.0.1:3344/foo')
 
@@ -248,12 +248,12 @@ class Proxy(s_coro.Fini):
 
         await share._onShareData(data)
 
-    async def call(self, name, *args, **kwargs):
+    async def call(self, methname, *args, **kwargs):
         '''
         Call a remote method by name.
 
         Args:
-            name (str): The name of the remote method.
+            methname (str): The name of the remote method.
             *args: Arguments to the method call.
             **kwargs: Keyword arguments to the method call.
 
@@ -264,7 +264,7 @@ class Proxy(s_coro.Fini):
             valu = proxy.getFooBar(x, y)
             valu = proxy.call('getFooBar', x, y)
         '''
-        todo = (name, args, kwargs)
+        todo = (methname, args, kwargs)
         return await self.task(todo)
 
     async def task(self, todo, name=None):
@@ -285,7 +285,6 @@ class Proxy(s_coro.Fini):
             return await task.result()
 
         finally:
-
             self.tasks.pop(task.iden, None)
 
     async def handshake(self, auth=None):
@@ -391,7 +390,7 @@ class Proxy(s_coro.Fini):
 
 def alias(name):
     '''
-    Resolve a telpath alias via ~/.syn/aliases.yaml
+    Resolve a telepath alias via ~/.syn/aliases.yaml
     '''
     path = s_common.getSynPath('aliases.yaml')
     if not os.path.isfile(path):

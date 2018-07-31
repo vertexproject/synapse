@@ -2,7 +2,7 @@ import threading
 
 lock = threading.RLock()
 
-plex = None     # s_net.Plex()
+plex = None     # s_plex.Plex()
 pool = None     # s_threads.Pool(maxsize=tmax)
 
 def inpool(f):
