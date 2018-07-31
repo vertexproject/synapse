@@ -236,6 +236,7 @@ class Query(AstNode):
 
             dopath = self.opts.get('path')
             dorepr = self.opts.get('repr')
+
             tick = s_common.now()
 
             with self._getQuerySnap() as snap:
@@ -419,6 +420,15 @@ class PivotOut(PivotOper):
                     logger.warning(f'node prop is not form prop: {node.form.name} {name}')
                     continue
 
+                # if the outbound prop is an ndef...
+                if isinstance(prop.type, s_types.Ndef):
+                    pivo = self.snap.getNodeByNdef(valu)
+                    if pivo is None:
+                        continue
+
+                    yield pivo, path.fork(pivo)
+                    continue
+
                 form = self.snap.model.forms.get(prop.type.name)
                 if form is None:
                     continue
@@ -578,6 +588,34 @@ class FormPivot(PivotOper):
 
             for pivo in self.snap.getNodesBy(self.prop.name, valu):
                 yield pivo, path.fork(pivo)
+
+class PropPivotOut(PivotOper):
+
+    def run(self, genr):
+
+        name = self.kids[0].value()
+
+        for node, path in genr:
+
+            prop = node.form.props.get(name)
+            if prop is None:
+                continue
+
+            valu = node.get(name)
+            if valu is None:
+                continue
+
+            # ndef pivot out syntax...
+            # :ndef -> *
+            if isinstance(prop.type, s_types.Ndef):
+                pivo = self.snap.getNodeByNdef(valu)
+                yield pivo, path.fork(pivo)
+                continue
+
+            # :ipv4 -> *
+            ndef = (prop.type.name, valu)
+            pivo = self.snap.getNodeByNdef(valu)
+            yield pivo, path.fork(pivo)
 
 class PropPivot(PivotOper):
 
@@ -769,6 +807,27 @@ class AbsPropCond(Cond):
 
         cmpr = self._getCmprFunc(self.prop, node, path)
         return cmpr(valu)
+
+class TagValuCond(Cond):
+
+    def prepare(self):
+
+        self.tagtype = self.snap.model.type('ival')
+        self.tagname = self.kids[0].value()
+        self.cmprname = self.kids[1].value()
+
+        self.isconst = isinstance(self.kids[2], Const)
+        if self.isconst:
+            self.constval = self.kids[2].value()
+
+    def evaluate(self, node, path):
+
+        tval = node.getTag(self.tagname)
+        if tval is None:
+            return False
+
+        valu = self.kids[2].compute(node, path)
+        return self.tagtype.cmpr(tval, self.cmprname, valu)
 
 class RelPropCond(Cond):
     '''

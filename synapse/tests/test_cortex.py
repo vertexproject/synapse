@@ -19,9 +19,29 @@ class HttpTestV1(t_web.RequestHandler):
 
 class CortexTest(s_test.SynTest):
 
+    def test_cortex_of_the_future(self):
+
+        # test "future/ongoing" time stamp.
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                node = snap.addNode('teststr', 'foo')
+                node.addTag('lol', valu=('2015', '?'))
+
+                self.eq((1420070400000, 0x7fffffffffffffff), node.getTag('lol'))
+
+            nodes = [n.pack() for n in core.eval('teststr=foo +#lol@=2014')]
+            self.len(0, nodes)
+
+            nodes = [n.pack() for n in core.eval('teststr=foo +#lol@=2016')]
+            self.len(1, nodes)
+
     def test_cortex_noderefs(self):
 
         with self.getTestCore() as core:
+
+            sorc = s_common.guid()
 
             with core.snap() as snap:
 
@@ -31,6 +51,20 @@ class CortexTest(s_test.SynTest):
 
                 self.eq(refs.get('fqdn'), ('inet:fqdn', 'woot.com'))
                 self.eq(refs.get('ipv4'), ('inet:ipv4', 0x01020304))
+
+                node.seen('now', source=sorc)
+
+            opts = {'vars': {'sorc': sorc}}
+            nodes = list([n.pack() for n in core.eval('seen:source=$sorc -> *', opts=opts)])
+
+            self.len(2, nodes)
+            self.true('inet:dns:a' in [n[0][0] for n in nodes])
+
+            opts = {'vars': {'sorc': sorc}}
+            nodes = list([n.pack() for n in core.eval('seen:source=$sorc :node -> *', opts=opts)])
+
+            self.len(1, nodes)
+            self.true('inet:dns:a' in [n[0][0] for n in nodes])
 
     def test_cortex_http(self):
 

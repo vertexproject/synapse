@@ -83,6 +83,16 @@ class Node:
 
         return node
 
+    def seen(self, tick, source=None):
+        '''
+        Update the .seen interval and optionally a source specific seen node.
+        '''
+        self.set('.seen', tick)
+
+        if source is not None:
+            seen = self.snap.addNode('seen', (source, self.ndef))
+            seen.set('.seen', tick)
+
     def getNodeRefs(self):
         '''
         Return a list of (prop, (form, valu)) refs out for the node.
