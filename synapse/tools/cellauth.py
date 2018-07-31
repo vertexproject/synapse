@@ -115,7 +115,7 @@ def handleModify(opts):
 
             printuser(user)
 
-    except Exception as e: # pragma: no cover
+    except Exception as e:  # pragma: no cover
 
         if opts.debug:
             traceback.print_exc()
@@ -146,7 +146,7 @@ def handleList(opts):
                 outp.printf(f'    {role}')
             return
 
-    except Exception as e: # pragma: no cover
+    except Exception as e:  # pragma: no cover
 
         if opts.debug:
             traceback.print_exc()
@@ -154,7 +154,7 @@ def handleList(opts):
         outp.printf(e)
 
 def main(argv, outprint=None):
-    if outprint is None:  # pragma: no cover
+    if outprint is None:   # pragma: no cover
         outprint = s_output.OutPut()
     global outp
     outp = outprint
@@ -199,5 +199,5 @@ def main(argv, outprint=None):
     opts = pars.parse_args(argv)
     opts.func(opts)
 
-if __name__ == '__main__': # pragma: no cover
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(main(sys.argv[1:]))
