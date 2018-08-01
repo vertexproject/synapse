@@ -349,6 +349,7 @@ def yamlsave(obj, *paths):
     with genfile(path) as fd:
         s = yaml.safe_dump(obj, allow_unicode=False, default_flow_style=False,
                            default_style='', explicit_start=True, explicit_end=True)
+        fd.truncate(0)
         fd.write(s.encode('utf8'))
 
 def verstr(vtup):

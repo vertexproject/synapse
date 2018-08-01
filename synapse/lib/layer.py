@@ -443,6 +443,24 @@ class Xact(s_eventbus.EventBus):
 
                 yield buid, valu
 
+class HBaseLayer(s_cell.Cell):
+    def __init__(self, dirn):
+        s_cell.Cell.__init__(self, dirn)
+        print('got here', self.conf)
+
+
+class LayerFactory:
+    def __new__(cls, dirn):
+        conf = s_common.yamlload(dirn, 'cell.yaml') or {}
+        backing = conf.get('backing')
+        if backing == 'hbase':
+            return HBaseLayer(dirn)
+        elif backing is None or backing == 'lmdb':
+            return Layer(dirn)
+        else:
+            raise s_exc.LayerUnknownBacking(backing)
+
+
 class Layer(s_cell.Cell):
     '''
     A layer implements btree indexed storage for a cortex.
@@ -457,6 +475,7 @@ class Layer(s_cell.Cell):
     def __init__(self, dirn):
 
         s_cell.Cell.__init__(self, dirn)
+        print('***layer init***', self.conf)
 
         path = os.path.join(self.dirn, 'layer.lmdb')
 
@@ -513,5 +532,5 @@ class Layer(s_cell.Cell):
         '''
         return Xact(self, write=write)
 
-opendir = s_eventbus.BusRef(Layer)
+opendir = s_eventbus.BusRef(LayerFactory)
 opendir._fini_atexit = True

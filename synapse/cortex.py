@@ -807,11 +807,15 @@ class Cortex(s_cell.Cell):
     def _initCoreDir(self):
 
         # each cortex has a default write layer...
+
+        # FIXME:  it is too late to write to the config file.  The default layer has already been loaded...
         s_common.gendir(self.dirn, 'layers', 'default')
         mapsize = self.conf.get('layer:lmdb:mapsize')
         if mapsize:
-            conf = {'lmdb:mapsize': mapsize}
-            s_common.yamlsave(conf, self.dirn, 'layers', 'default', 'cell.yaml')
+            paths = [self.dirn, 'layers', 'default', 'cell.yaml']
+            conf = s_common.yamlload(*paths) or {}
+            conf['lmdb:mapsize'] = mapsize
+            s_common.yamlsave(conf, *paths)
 
         self.layer = self.openLayerName('default')
         self.layers.append(self.layer)
