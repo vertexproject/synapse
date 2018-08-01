@@ -32,6 +32,12 @@ logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 16 * s_const.mebibyte
 
+def _path_sanitize(blobstorpath):
+    '''
+    The path might contain username/password, so just return the last part
+    '''
+    return '.../' + blobstorpath.rsplit('/', 1)[-1]
+
 async def to_aiter(it):
     '''
     Take either a sync or async iteratable and yields as an async generator
@@ -769,7 +775,7 @@ class _ProxyKeeper(s_coro.Fini):
         try:
             proxy = await s_telepath.openurl(path)
         except Exception:
-            logger.exception('Failed to connect to telepath %s', path)
+            logger.exception('Failed to connect to telepath %s', _path_sanitize(path))
             raise
 
         newbsid = await self._addproxy(proxy, path)
@@ -944,7 +950,7 @@ class Axon(s_cell.Cell):
                 try:
                     await self._start_watching_blobstor(path)
                 except Exception:
-                    logger.error('At axon startup, failed to connect to stored blobstor path %s', path)
+                    logger.error('At axon startup, failed to connect to stored blobstor path %s', _path_sanitize(path))
 
         s_glob.plex.addLoopCoro(_connect_to_blobstors())
 
@@ -1023,7 +1029,7 @@ class Axon(s_cell.Cell):
         '''
         As Axon, Monitor a blobstor, by repeatedly asking long-poll-style for its new data
         '''
-        logger.info('Watching BlobStor %s', blobstorpath)
+        logger.info('Watching BlobStor %s', _path_sanitize(blobstorpath))
 
         CLONE_TIMEOUT = 60.0
         cur_offset = self._getSyncProgress(bsid)
@@ -1031,9 +1037,6 @@ class Axon(s_cell.Cell):
             try:
                 if blobstor.isfini:
                     blobstor = await s_telepath.openurl(blobstorpath)
-                    if blobstor is None:
-                        logger.warning('No longer monitoring %s for new data', blobstorpath)
-                        break
 
                 async def clone_and_next():
                     ''' Get the async generator and the first item of that generator '''
@@ -1063,13 +1066,18 @@ class Axon(s_cell.Cell):
                 if genr is None:
                     continue
 
-                logger.debug('Got clone data for %s', blobstorpath)
+                logger.debug('Got clone data for %s', _path_sanitize(blobstorpath))
                 cur_offset = 1 + await self._consume_clone_data(first_item, genr, bsid)
                 await self._executor_nowait(self._updateSyncProgress, bsid, cur_offset)
 
+            except ConnectionRefusedError:
+                logger.warning('Trouble connecting to blobstor %s.  Will retry in %ss.', _path_sanitize(blobstorpath),
+                               CLONE_TIMEOUT)
+                await s_glob.plex.sleep(CLONE_TIMEOUT)
             except Exception:
                 if not self.isfini:
-                    logger.exception('BlobStor.blobstorLoop error')
+                    logger.exception('BlobStor._watch_blobstor error on %s', _path_sanitize(blobstorpath))
+                await s_glob.plex.sleep(CLONE_TIMEOUT)
 
     def _updateSyncProgress(self, bsid, new_offset):
         '''
@@ -1095,7 +1103,6 @@ class Axon(s_cell.Cell):
                 rv = 0
             else:
                 rv = struct.unpack('>Q', lval)[0]
-        logger.debug('Axon._getSyncProgress: %r: %r', bsid, rv)
         return rv
 
     @s_common.firethread
