@@ -369,7 +369,7 @@ class CryoTank(s_cell.Cell):
         Returns:
             dict: A dict containing items and metrics indexes.
         '''
-        return {'indx': self.items_indx, 'metrics': self.metrics_indx, 'stat': self.lenv.stat()}
+        return {'indx': self.items_indx, 'metrics': self.metrics_indx, }
 
 class CryoApi(s_cell.CellApi):
     '''
