@@ -820,7 +820,8 @@ class _ProxyKeeper(s_coro.Fini):
         return proxy
 
 class AxonApi(PassThroughApi):
-    allowed_methods = ['get', 'locs', 'stat', 'wants', 'metrics', 'addBlobStor', 'unwatchBlobStor', 'getBlobStors']
+    allowed_methods = ['get', 'locs', 'stat', 'wants', 'metrics', 'putone',
+                       'addBlobStor', 'unwatchBlobStor', 'getBlobStors']
 
     def __init__(self, cell, link):
         PassThroughApi.__init__(self, cell, link)
@@ -1247,6 +1248,27 @@ class Axon(s_cell.Cell):
         await self._executor(self.xact.commit)
 
         return count
+
+    async def putone(self, bytz, hashval=None, proxykeeper=None):
+        '''
+        If hashval is None and or not None and not already in the axon, stores bytz as a single blob
+
+        Returns:
+            bytes:  The hash of bytz
+        '''
+
+        if hashval is not None:
+            if await self.wants([hashval]) == []:
+                return hashval
+
+        if proxykeeper is None:
+            proxykeeper = self._proxykeeper
+
+        bsid, blobstor = await proxykeeper.randoproxy()
+
+        _, hashval = await blobstor.putone(bytz)
+        await self._executor(self._addloc, bsid, hashval, commit=True)
+        return hashval
 
     async def get(self, hashval, proxykeeper=None):
         '''

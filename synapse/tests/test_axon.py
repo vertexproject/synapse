@@ -220,11 +220,18 @@ class AxonTest(s_test.SynTest):
                 blobstorurl = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/blobstor00'
                 await axon.addBlobStor(blobstorurl)
 
+                hashval = await axon.putone(b'abcd')
+                self.len(0, await axon.wants([hashval]))
+                nfiles = (await axon.stat())['files']
+                await axon.putone(b'abcd', hashval)
+                nfiles2 = (await axon.stat())['files']
+                self.eq(nfiles, nfiles2)
+
                 async with await axon.startput() as uploader:
                     await uploader.write(b'a')
                     count, hashval = await uploader.finish()
 
-                await self._wait_for_axon_files(axon, 1)
+                await self._wait_for_axon_files(axon, 2)
 
                 await axon.unwatchBlobStor(blobstorurl)
 
@@ -238,7 +245,7 @@ class AxonTest(s_test.SynTest):
 
     @s_glob.synchelp
     async def test_axon_uploader(self):
-        with self.getTestDir() as dirn:
+        with self.getTestDir():
             async with SyncToAsyncCMgr(self.getTestDmon, mirror='axondmon') as dmon, \
                     await dmon._getTestProxy('axon00') as axon:
                 abhash = hashlib.sha256(b'ab').digest()
@@ -260,7 +267,7 @@ class AxonTest(s_test.SynTest):
                 # Give the clone subscription a chance to catch up
                 self.eq([], await axon.wants([abhash, cdhash]))
                 foo = await axon.get(cdhash)
-                bar = [x async for x in foo]
+                [x async for x in foo]
                 self.eq(b'cd', b''.join([x async for x in await axon.get(cdhash)]))
                 self.eq(b'ab', b''.join([x async for x in await axon.get(abhash)]))
 
