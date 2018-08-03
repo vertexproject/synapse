@@ -749,8 +749,6 @@ class _ProxyKeeper(s_coro.Fini):
         s_coro.Fini.__init__(self)
         self._proxymap = {}  # bsid -> proxy
 
-        # All the proxy
-
         async def fini():
             for proxy in self._proxymap.values():
                 if proxy is not None:
@@ -758,6 +756,18 @@ class _ProxyKeeper(s_coro.Fini):
             self._proxymap = {}
 
         self.onfini(fini)
+
+    def get_all(self):
+        '''
+        Returns:
+            (Dict[str, proxy]) A map of path -> proxy for all known blobstors.
+        '''
+        retn = {}
+        for bsid, proxy in self._proxymap.items():
+            path = self.bsidpathmap.get(bsid)
+            if path is not None:
+                retn[path] = proxy
+        return retn
 
     async def _addproxy(self, proxy, path):
         bsid = binascii.unhexlify(await proxy.getCellIden())
@@ -820,7 +830,8 @@ class _ProxyKeeper(s_coro.Fini):
         return proxy
 
 class AxonApi(PassThroughApi):
-    allowed_methods = ['get', 'locs', 'stat', 'wants', 'metrics', 'addBlobStor', 'unwatchBlobStor', 'getBlobStors']
+    allowed_methods = ['get', 'locs', 'stat', 'wants', 'metrics', 'putone',
+                       'addBlobStor', 'unwatchBlobStor', 'getBlobStors']
 
     def __init__(self, cell, link):
         PassThroughApi.__init__(self, cell, link)
@@ -1186,7 +1197,14 @@ class Axon(s_cell.Cell):
         return last_offset
 
     async def stat(self):
-        return self._metrics.stat()
+        bsstats = {}
+        proxymap = self._proxykeeper.get_all()
+        for path, blobstor in proxymap.items():
+            if not blobstor.isfini:
+                bsstats[_path_sanitize(path)] = await blobstor.stat()
+        my_stats = self._metrics.stat()
+        my_stats['blobstors'] = bsstats
+        return my_stats
 
     async def wants(self, hashvals):
         '''
@@ -1247,6 +1265,27 @@ class Axon(s_cell.Cell):
         await self._executor(self.xact.commit)
 
         return count
+
+    async def putone(self, bytz, hashval=None, proxykeeper=None):
+        '''
+        If hashval is None and or not None and not already in the axon, stores bytz as a single blob
+
+        Returns:
+            bytes:  The hash of bytz
+        '''
+
+        if hashval is not None:
+            if await self.wants([hashval]) == []:
+                return hashval
+
+        if proxykeeper is None:
+            proxykeeper = self._proxykeeper
+
+        bsid, blobstor = await proxykeeper.randoproxy()
+
+        _, hashval = await blobstor.putone(bytz)
+        await self._executor(self._addloc, bsid, hashval, commit=True)
+        return hashval
 
     async def get(self, hashval, proxykeeper=None):
         '''
