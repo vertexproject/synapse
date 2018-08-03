@@ -749,8 +749,6 @@ class _ProxyKeeper(s_coro.Fini):
         s_coro.Fini.__init__(self)
         self._proxymap = {}  # bsid -> proxy
 
-        # All the proxy
-
         async def fini():
             for proxy in self._proxymap.values():
                 if proxy is not None:
@@ -758,6 +756,18 @@ class _ProxyKeeper(s_coro.Fini):
             self._proxymap = {}
 
         self.onfini(fini)
+
+    def get_all(self):
+        '''
+        Returns:
+            (Dict[str, proxy]) A map of path -> proxy for all known blobstors.
+        '''
+        retn = {}
+        for bsid, proxy in self._proxymap.items():
+            path = self.bsidpathmap.get(bsid)
+            if path is not None:
+                retn[path] = proxy
+        return retn
 
     async def _addproxy(self, proxy, path):
         bsid = binascii.unhexlify(await proxy.getCellIden())
@@ -1187,7 +1197,14 @@ class Axon(s_cell.Cell):
         return last_offset
 
     async def stat(self):
-        return self._metrics.stat()
+        bsstats = {}
+        proxymap = self._proxykeeper.get_all()
+        for path, blobstor in proxymap.items():
+            if not blobstor.isfini:
+                bsstats[_path_sanitize(path)] = await blobstor.stat()
+        my_stats = self._metrics.stat()
+        my_stats['blobstors'] = bsstats
+        return my_stats
 
     async def wants(self, hashvals):
         '''
