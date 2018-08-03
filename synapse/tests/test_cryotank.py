@@ -43,6 +43,10 @@ class CryoTest(s_test.SynTest):
 
                 self.true(prox.puts('foo', cryodata))
 
+                info = prox.list()
+                self.eq('foo', info[0][0])
+                self.eq(2, info[0][1].get('stat').get('entries'))
+
                 self.true(prox.puts('foo', cryodata))
 
                 items = list(prox.slice('foo', 1, 3))
