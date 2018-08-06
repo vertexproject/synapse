@@ -162,7 +162,7 @@ class TeleTest(s_test.SynTest):
 
         # Fini'ing a daemon fini's proxies connected to it.
         self.true(evt.wait(2))
-        self.true(prox.isifini)
+        self.true(prox.isfini)
 
     @s_glob.synchelp
     async def test_telepath_async(self):
