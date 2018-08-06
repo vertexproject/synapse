@@ -1,6 +1,7 @@
 import json
 import asyncio
 import logging
+import pathlib
 
 import tornado.web as t_web
 import tornado.netutil as t_netutil
@@ -23,6 +24,8 @@ import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_LAYER_NAME = '000-default'
 
 
 '''
@@ -291,11 +294,6 @@ class Cortex(s_cell.Cell):
             'doc': 'A list of module classes to load.'
         }),
 
-        ('layers', {
-            'type': 'list', 'defval': (),
-            'doc': 'A list of layer paths to load.'
-        }),
-
         ('storm:log', {
             'type': 'bool', 'defval': False,
             'doc': 'Log storm queries via system logger.'
@@ -337,6 +335,7 @@ class Cortex(s_cell.Cell):
     cellapi = CoreApi
 
     def __init__(self, dirn):
+        import synapse.cells as s_cells
 
         s_cell.Cell.__init__(self, dirn)
 
@@ -370,13 +369,24 @@ class Cortex(s_cell.Cell):
         self.setFeedFunc('syn.splice', self._addSynSplice)
         self.setFeedFunc('syn.ingest', self._addSynIngest)
 
-        # load any configured external layers
-        for path in self.conf.get('layers'):
-            logger.info('loading external layer: %r', path)
-            self.layers.append(s_layer.opendir.gen(path))
+        layersdir = pathlib.Path(dirn, 'layers')
+        layersdir.mkdir(exist_ok=True)
+        if pathlib.Path(layersdir, 'default').is_dir():
+            self._migrateOldDefaultLayer()
 
-        # initialize any cortex directory structures
-        self._initCoreDir()
+        # Layers are imported in lexicographic order
+        for layerdir in sorted(d for d in layersdir.iterdir() if d.is_dir()):
+            logger.info('loading external layer from %s', layerdir)
+            layer = s_cells.initFromDirn(layerdir)
+            if not isinstance(layer, s_layer.Layer):
+                raise s_exc.BadConfValu('layer dir %s must contain Layer cell', layerdir)
+            self.layers.append(layer)
+
+        if not self.layers:
+            # Setup the fallback/default single LMDB layer
+            self.layers.append(self._makeDefaultLayer())
+
+        logger.debug('Cortex using the following layers: %s\n', (''.join(f'\n   {l.dirn}' for l in self.layers)))
 
         # these may be used directly
         self.model = s_datamodel.Model()
@@ -804,25 +814,31 @@ class Cortex(s_cell.Cell):
                 pnodes.append(obj)
         return pnodes
 
-    def _initCoreDir(self):
+    def _migrateOldDefaultLayer(self):
+        layersdir = pathlib.Path(self.dirn, 'layers')
+        new_path = pathlib.Path(layersdir, DEFAULT_LAYER_NAME)
+        logger.info('Migrating old default layer to new location at %s', new_path)
+        pathlib.Path(layersdir, 'default').rename(new_path)
+        boot_yaml = pathlib.Path(new_path, 'boot.yaml')
+        if not boot_yaml.exists():
+            conf = {'cell:name': 'default', 'type': 'layer-lmdb'}
+            s_common.yamlsave(conf, boot_yaml)
 
-        # each cortex has a default write layer...
-
-        # FIXME:  it is too late to write to the config file.  The default layer has already been loaded...
-        s_common.gendir(self.dirn, 'layers', 'default')
+    def _makeDefaultLayer(self):
+        '''
+        Since a user hasn't specified any layers, make one
+        '''
+        import synapse.cells as s_cells
+        layerdir = s_common.gendir(self.dirn, 'layers', DEFAULT_LAYER_NAME)
+        s_cells.deploy('layer-lmdb', layerdir)
         mapsize = self.conf.get('layer:lmdb:mapsize')
-        if mapsize:
-            paths = [self.dirn, 'layers', 'default', 'cell.yaml']
-            conf = s_common.yamlload(*paths) or {}
+        if mapsize is not None:
+            cell_yaml = pathlib.Path(layerdir, 'cell.yaml')
+            conf = s_common.yamlload(cell_yaml) or {}
             conf['lmdb:mapsize'] = mapsize
-            s_common.yamlsave(conf, *paths)
-
-        self.layer = self.openLayerName('default')
-        self.layers.append(self.layer)
-
-    def openLayerName(self, name):
-        dirn = s_common.gendir(self.dirn, 'layers', name)
-        return s_layer.opendir.gen(dirn)
+            s_common.yamlsave(conf, cell_yaml)
+        logger.info('Creating a new default storage layer at %s', layerdir)
+        return s_layer.Layer(layerdir)
 
     def getCoreMod(self, name):
         return self.modules.get(name)
@@ -832,9 +848,6 @@ class Cortex(s_cell.Cell):
         for modname, mod in self.modules.items():
             ret.append((modname, mod.conf))
         return ret
-
-    def getLayerConf(self, name):
-        return {}
 
     def getForkView(self, iden):
         pass

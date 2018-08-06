@@ -150,12 +150,6 @@ class NoCertKey(SynErr):
     '''
     pass
 
-class CellUserErr(SynErr):
-    '''
-    Exception raised by a CellUser
-    '''
-    pass
-
 class IsFini(SynErr): pass
 class TimeOut(SynErr): pass
 class Canceled(SynErr): pass

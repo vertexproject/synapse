@@ -14,7 +14,8 @@ import synapse.lib.layer as s_layer
 ctors = {
     'auth': s_auth.Auth,
     'axon': s_axon.Axon,
-    'layer': s_layer.Layer,
+    'layer-lmdb': s_layer.Layer,  # FIXME: will need to change when we have lmdblayer
+    'layer-hbase': s_layer.HBaseLayer,  # FIXME: will need to change when we have lmdblayer
     'cortex': s_cortex.Cortex,
     'blobstor': s_axon.BlobStor,
     'cryocell': s_cryotank.CryoCell,
@@ -46,6 +47,16 @@ def init(name, dirn):
         raise s_exc.NoSuchName(name=name, mesg='No cell ctor by that name')
 
     return ctor(dirn)
+
+def initFromDirn(dirn):
+    '''
+    As above, but retrieves type from boot.yaml in dirn
+    '''
+    conf = s_common.yamlload(dirn, 'boot.yaml') or {}
+    kind = conf.get('type')
+    if type is None:
+        raise s_exc.BadConfValu('boot.yaml missing type key')
+    return init(kind, dirn)
 
 def deploy(name, dirn, boot=None):
     '''
