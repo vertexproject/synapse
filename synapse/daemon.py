@@ -378,10 +378,11 @@ class Daemon(EventBus):
                 items = list(link.get('dmon:items').values())
 
                 for item in items:
-                    try:
-                        await item.fini()
-                    except Exception as e:
-                        logger.exception(f'item fini error: {e}')
+                    if hasattr(item, 'fini'):
+                        try:
+                            await item.fini()
+                        except Exception as e:  # pragma: no cover
+                            logger.exception('item fini error')
 
             link.onfini(fini)
 
