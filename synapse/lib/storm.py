@@ -285,6 +285,16 @@ class MoveTagCmd(Cmd):
 
             newtag = newstr + tagstr[oldsize:]
 
+            newnode = snap.addNode('syn:tag', newtag)
+
+            olddoc = node.get('doc')
+            if olddoc is not None:
+                newnode.set('doc', olddoc)
+
+            oldtitle = node.get('title')
+            if oldtitle is not None:
+                newnode.set('title', oldtitle)
+
             retag[tagstr] = newtag
             node.set('isnow', newtag)
 

@@ -76,6 +76,19 @@ class Type:
     def getCmprCtor(self, name):
         return self._cmpr_ctors.get(name)
 
+    def cmpr(self, val1, name, val2):
+        '''
+        Compare the two values using the given type specific comparitor.
+        '''
+        ctor = self.getCmprCtor(name)
+        if ctor is None:
+            raise s_exc.NoSuchCmpr(name=name)
+
+        norm1 = self.norm(val1)[0]
+        norm2 = self.norm(val2)[0]
+
+        return ctor(norm1)(norm2)
+
     def _ctorCmprEq(self, text):
         norm, info = self.norm(text)
 
@@ -1027,6 +1040,10 @@ class Time(Type):
         if valu == 'now':
             return self._normPyInt(s_common.now())
 
+        # an unspecififed time in the future...
+        if valu == '?':
+            return 0x7fffffffffffffff, {}
+
         valu = s_time.parse(valu)
         return self._normPyInt(valu)
 
@@ -1044,6 +1061,10 @@ class Time(Type):
         return newv
 
     def repr(self, valu, defval=None):
+
+        if valu == 0x7fffffffffffffff:
+            return '?'
+
         return s_time.repr(valu)
 
     def indx(self, norm):

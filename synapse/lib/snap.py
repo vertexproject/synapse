@@ -90,6 +90,11 @@ class Snap(s_eventbus.EventBus):
 
         self.onfini(fini)
 
+    def getStormQuery(self, text, opts=None):
+        '''
+        Construct and return a new storm query object for this Snap().
+        '''
+
     def cancel(self):
         self.canceled = True
 
