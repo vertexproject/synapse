@@ -55,6 +55,14 @@ class CellApi:
         self.cell.auth.addRole(name)
 
     @adminapi
+    def getAuthUsers(self):
+        return self.cell.auth.getUsers()
+
+    @adminapi
+    def getAuthRoles(self):
+        return self.cell.auth.getRoles()
+
+    @adminapi
     def addAuthRule(self, name, rule, indx=None):
         item = self._getAuthItem(name)
         return item.addRule(rule, indx=indx)
@@ -146,6 +154,7 @@ class CellApi:
         }
 
         if authtype == 'user':
+            info['locked'] = role.locked
 
             roles = []
             info['roles'] = roles

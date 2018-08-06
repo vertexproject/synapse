@@ -2,7 +2,6 @@ import copy
 import logging
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.models.inet as s_m_inet
 import synapse.tests.common as s_t_common
 
@@ -874,6 +873,13 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.get('port'), 1337)
                 self.eq(node.get('proto'), 'https')
                 self.eq(node.get('user'), 'vertexmc')
+
+                valu = 'https://vertex.link?a=1'
+                expected_ndef = (formname, valu)
+                node = snap.addNode(formname, valu)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.get('fqdn'), 'vertex.link')
+                self.eq(node.get('path'), '?a=1')
 
     def test_url_fqdn(self):
 

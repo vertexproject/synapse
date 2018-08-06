@@ -2,11 +2,14 @@ import sys
 import argparse
 import traceback
 
+import synapse.exc as s_exc
+import synapse.lib.output as s_output
 import synapse.telepath as s_telepath
 
 desc = '''
 Admin users in a remote cell.
 '''
+outp = None
 
 denyallow = ['deny', 'allow']
 def reprrule(rule):
@@ -19,99 +22,70 @@ def printuser(user):
     admin = user[1].get('admin')
     authtype = user[1].get('type')
 
-    print(f'{user[0]}')
-    print(f'type: {authtype}')
-    print(f'admin: {admin}')
+    outp.printf(f'{user[0]}')
+    outp.printf(f'type: {authtype}')
+    outp.printf(f'admin: {admin}')
 
     if authtype == 'user':
         locked = user[1].get('locked')
-        print(f'locked: {locked}')
+        outp.printf(f'locked: {locked}')
 
-    print('rules:')
+    outp.printf('rules:')
 
     for i, rule in enumerate(user[1].get('rules')):
         rrep = reprrule(rule)
-        print(f'    {i} {rrep}')
+        outp.printf(f'    {i} {rrep}')
 
-    print('')
+    outp.printf('')
 
     if authtype == 'user':
 
-        print('roles:')
+        outp.printf('roles:')
         for rolename, roleinfo in sorted(user[1].get('roles')):
-            print(f'    role: {rolename}')
+            outp.printf(f'    role: {rolename}')
             for rule in roleinfo.get('rules'):
                 rrep = reprrule(rule)
-                print(f'        {rrep}')
+                outp.printf(f'        {rrep}')
 
-def main(argv):
-
-    pars = argparse.ArgumentParser('synapse.tools.cellauth', description=desc)
-
-    pars.add_argument('--debug', action='store_true', help='Show debug traceback on error.')
-    pars.add_argument('--adduser', action='store_true', help='Add the named user to the cortex.')
-    pars.add_argument('--addrole', action='store_true', help='Add the named role to the cortex.')
-
-    pars.add_argument('--admin', action='store_true', help='Grant admin powers to the user/role.')
-    pars.add_argument('--noadmin', action='store_true', help='Revoke admin powers from the user/role.')
-
-    pars.add_argument('--lock', action='store_true', help='Lock the user account.')
-    pars.add_argument('--unlock', action='store_true', help='Unlock the user account.')
-
-    #pars.add_argument('--deluser', action='store_true', help='Add the named user to the cortex.')
-    #pars.add_argument('--delrole', action='store_true', help='Add the named role to the cortex.')
-
-    pars.add_argument('--passwd', help='Set the user password.')
-
-    pars.add_argument('--grant', help='Grant the specified role to the user.')
-    pars.add_argument('--revoke', help='Grant the specified role to the user.')
-
-    pars.add_argument('--addrule', help='Add the given rule to the user/role.')
-    pars.add_argument('--delrule', type=int, help='Delete the given rule number from the user/role.')
-
-    pars.add_argument('name', help='The user/role to modify.')
-    pars.add_argument('cellurl', help='The telepath URL to connect to a cell.')
-
-    opts = pars.parse_args(argv)
-
+def handleModify(opts):
     try:
 
         with s_telepath.openurl(opts.cellurl) as cell:
 
             if opts.adduser:
-                print(f'adding user: {opts.name}')
+                outp.printf(f'adding user: {opts.name}')
                 user = cell.addAuthUser(opts.name)
 
             if opts.addrole:
-                print(f'adding role: {opts.name}')
+                outp.printf(f'adding role: {opts.name}')
                 user = cell.addAuthRole(opts.name)
 
             if opts.passwd:
-                print(f'setting passwd for: {opts.name}')
+                outp.printf(f'setting passwd for: {opts.name}')
                 cell.setUserPasswd(opts.name, opts.passwd)
 
             if opts.grant:
-                print(f'granting {opts.grant} to: {opts.name}')
+                outp.printf(f'granting {opts.grant} to: {opts.name}')
                 cell.addUserRole(opts.name, opts.grant)
 
             if opts.revoke:
-                print(f'revoking {opts.grant} from: {opts.name}')
+                outp.printf(f'revoking {opts.revoke} from: {opts.name}')
                 cell.delUserRole(opts.name, opts.revoke)
 
             if opts.admin:
-                print(f'granting admin status: {opts.name}')
+                outp.printf(f'granting admin status: {opts.name}')
                 cell.setAuthAdmin(opts.name, True)
 
             if opts.noadmin:
-                print(f'revoking admin status: {opts.name}')
+                outp.printf(f'revoking admin status: {opts.name}')
                 cell.setAuthAdmin(opts.name, False)
 
             if opts.lock:
-                print(f'locking user: {opts.name}')
+                outp.printf(f'locking user: {opts.name}')
                 cell.setUserLocked(opts.name, True)
 
             if opts.unlock:
-                print(f'unlocking user: {opts.name}')
+                outp.printf(f'unlocking user: {opts.name}')
                 cell.setUserLocked(opts.name, False)
 
             if opts.addrule:
@@ -126,26 +100,104 @@ def main(argv):
 
                 rule = (allow, text.split('.'))
 
-                print(f'adding rule to {opts.name}: {rule!r}')
+                outp.printf(f'adding rule to {opts.name}: {rule!r}')
                 cell.addAuthRule(opts.name, rule, indx=None)
 
             if opts.delrule is not None:
-                print(f'deleting rule index: {opts.delrule}')
+                outp.printf(f'deleting rule index: {opts.delrule}')
                 cell.delAuthRule(opts.name, opts.delrule)
 
-            user = cell.getAuthInfo(opts.name)
-            if user is None:
-                print(f'no such user: {opts.name}')
+            try:
+                user = cell.getAuthInfo(opts.name)
+            except s_exc.NoSuchName as e:
+                outp.printf(f'no such user: {opts.name}')
                 return
 
             printuser(user)
 
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
 
         if opts.debug:
             traceback.print_exc()
 
-        print(e)
+        outp.printf(e)
 
-if __name__ == '__main__':
+def handleList(opts):
+    try:
+        with s_telepath.openurl(opts.cellurl) as cell:
+
+            if opts.name:
+                user = cell.getAuthInfo(opts.name)
+                if user is None:
+                    outp.printf(f'no such user: {opts.name}')
+                    return
+
+                printuser(user)
+                return
+
+            outp.printf(f'getting users and roles')
+
+            outp.printf('users:')
+            for user in cell.getAuthUsers():
+                outp.printf(f'    {user}')
+
+            outp.printf('roles:')
+            for role in cell.getAuthRoles():
+                outp.printf(f'    {role}')
+            return
+
+    except Exception as e:  # pragma: no cover
+
+        if opts.debug:
+            traceback.print_exc()
+
+        outp.printf(e)
+
+def main(argv, outprint=None):
+    if outprint is None:   # pragma: no cover
+        outprint = s_output.OutPut()
+    global outp
+    outp = outprint
+
+    pars = argparse.ArgumentParser('synapse.tools.cellauth', description=desc)
+
+    pars.add_argument('--debug', action='store_true', help='Show debug traceback on error.')
+    pars.add_argument('cellurl', help='The telepath URL to connect to a cell.')
+
+    subpars = pars.add_subparsers()
+
+    # list
+    pars_list = subpars.add_parser('list', help='List users/roles')
+    pars_list.add_argument('name', nargs='*', default=None, help='The name of the user/role to list')
+    pars_list.set_defaults(func=handleList)
+
+    # create / modify / delete
+    pars_mod = subpars.add_parser('modify', help='Create, modify, delete the names user/role')
+    pars_mod.add_argument('--adduser', action='store_true', help='Add the named user to the cortex.')
+    pars_mod.add_argument('--addrole', action='store_true', help='Add the named role to the cortex.')
+
+    pars_mod.add_argument('--admin', action='store_true', help='Grant admin powers to the user/role.')
+    pars_mod.add_argument('--noadmin', action='store_true', help='Revoke admin powers from the user/role.')
+
+    pars_mod.add_argument('--lock', action='store_true', help='Lock the user account.')
+    pars_mod.add_argument('--unlock', action='store_true', help='Unlock the user account.')
+
+    #pars_mod.add_argument('--deluser', action='store_true', help='Add the named user to the cortex.')
+    #pars_mod.add_argument('--delrole', action='store_true', help='Add the named role to the cortex.')
+
+    pars_mod.add_argument('--passwd', help='Set the user password.')
+
+    pars_mod.add_argument('--grant', help='Grant the specified role to the user.')
+    pars_mod.add_argument('--revoke', help='Grant the specified role to the user.')
+
+    pars_mod.add_argument('--addrule', help='Add the given rule to the user/role.')
+    pars_mod.add_argument('--delrule', type=int, help='Delete the given rule number from the user/role.')
+
+    pars_mod.add_argument('name', help='The user/role to modify.')
+    pars_mod.set_defaults(func=handleModify)
+
+    opts = pars.parse_args(argv)
+    opts.func(opts)
+
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(main(sys.argv[1:]))

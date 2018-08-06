@@ -234,7 +234,7 @@ class Daemon(EventBus):
                 if isinstance(share, s_coro.Fini):
                     await share.fini()
 
-            asyncio.wait(link.fini() for link in self.connectedlinks)
+            await asyncio.wait(link.fini() for link in self.connectedlinks)
 
         s_glob.plex.addLoopCoro(afini())
 
