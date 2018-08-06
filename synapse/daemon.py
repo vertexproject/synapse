@@ -378,7 +378,7 @@ class Daemon(EventBus):
                 items = list(link.get('dmon:items').values())
 
                 for item in items:
-                    if hasattr(item, 'fini'):
+                    if isinstance(item, s_coro.Fini):
                         try:
                             await item.fini()
                         except Exception as e:  # pragma: no cover
