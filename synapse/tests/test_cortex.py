@@ -1076,10 +1076,19 @@ class CortexTest(s_test.SynTest):
             self.len(1, core.eval('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn +:fqdn=$hehe'))
             self.len(0, core.eval('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn -:fqdn=$hehe'))
 
-            self.len(1, core.eval('[ pivcomp=(hehe,haha) +#foo=(2014,2016) ]'))
+            self.len(1, core.eval('[ pivcomp=(hehe,haha) :tick=2015 +#foo=(2014,2016) ]'))
             self.len(1, core.eval('pivtarg=hehe [ .seen=2015 ]'))
 
             self.len(1, core.eval('pivcomp=(hehe,haha) $ticktock=#foo -> pivtarg +.seen@=$ticktock'))
+
+            # Vars can also be provided as tuple
+            opts = {'vars': {'foo': ('hehe', 'haha')}}
+            self.len(1, core.eval('pivcomp=$foo', opts=opts))
+
+            # Vars can also be provided as integers
+            norm = core.model.type('time').norm('2015')[0]
+            opts = {'vars': {'foo': norm}}
+            self.len(1, core.eval('pivcomp:tick=$foo', opts=opts))
 
     def test_cortex_storm_filt_ival(self):
 
