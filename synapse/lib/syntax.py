@@ -949,6 +949,10 @@ class Parser:
 
         self.ignore(whitespace)
 
+        if self.nextchar() == '*':
+            self.offs += 1
+            return s_ast.PropPivotOut(kids=(prop,))
+
         dest = self.absprop()
         return s_ast.PropPivot(kids=(pval, dest))
 
@@ -1174,8 +1178,15 @@ class Parser:
 
             self.ignore(whitespace)
 
-            if not self.nextstr('@='):
+            if self.nextchar() not in cmprstart:
                 return s_ast.TagCond(kids=(tag,))
+
+            cmpr = self.cmpr()
+            self.ignore(whitespace)
+
+            valu = self.valu()
+
+            return s_ast.TagValuCond(kids=(tag, cmpr, valu))
 
         prop = self.absprop()
 
