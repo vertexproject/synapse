@@ -122,6 +122,7 @@ class TeleTest(s_test.SynTest):
     def test_telepath_basics(self):
 
         foo = Foo()
+        evt = threading.Event()
 
         with self.getTestDmon() as dmon:
 
@@ -132,6 +133,8 @@ class TeleTest(s_test.SynTest):
 
             # called via synchelp...
             prox = s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
+            # Add an additional prox.fini handler.
+            prox.onfini(evt.set)
 
             self.false(prox.iAmLoop())
 
@@ -156,6 +159,10 @@ class TeleTest(s_test.SynTest):
             self.raises(s_exc.NoSuchMeth, prox.fake)
 
             self.raises(s_exc.SynErr, prox.boom)
+
+        # Fini'ing a daemon fini's proxies connected to it.
+        self.true(evt.wait(2))
+        self.true(prox.isfini)
 
     @s_glob.synchelp
     async def test_telepath_async(self):
