@@ -614,7 +614,7 @@ class PropPivotOut(PivotOper):
 
             # :ipv4 -> *
             ndef = (prop.type.name, valu)
-            pivo = self.snap.getNodeByNdef(valu)
+            pivo = self.snap.getNodeByNdef(ndef)
             yield pivo, path.fork(pivo)
 
 class PropPivot(PivotOper):

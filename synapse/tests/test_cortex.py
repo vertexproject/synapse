@@ -19,6 +19,17 @@ class HttpTestV1(t_web.RequestHandler):
 
 class CortexTest(s_test.SynTest):
 
+    def test_cortex_prop_pivout(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+                snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+
+            nodes = list([n.pack() for n in core.eval('inet:dns:a :ipv4 -> *')])
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('inet:ipv4', 0x01020304))
+
     def test_cortex_of_the_future(self):
 
         # test "future/ongoing" time stamp.
