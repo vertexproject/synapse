@@ -66,9 +66,11 @@ class InetModelTest(s_t_common.SynTest):
 
             nodes = list(core.eval('inet:ipv4=10.2.1.4/32'))
             self.len(1, nodes)
+            self.len(1, core.eval('inet:ipv4 +inet:ipv4=10.2.1.4/32'))
 
             nodes = list(core.eval('inet:ipv4=10.2.1.4/31'))
             self.len(2, nodes)
+            self.len(2, core.eval('inet:ipv4 +inet:ipv4=10.2.1.4/31'))
 
             # 10.2.1.1/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
             nodes = list(core.eval('inet:ipv4=10.2.1.1/30'))
