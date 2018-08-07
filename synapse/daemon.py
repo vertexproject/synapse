@@ -234,7 +234,7 @@ class Daemon(EventBus):
                 if isinstance(share, s_coro.Fini):
                     await share.fini()
 
-            await asyncio.wait(link.fini() for link in self.connectedlinks)
+            await asyncio.wait([link.fini() for link in self.connectedlinks], loop=s_glob.plex.loop)
 
         s_glob.plex.addLoopCoro(afini())
 
@@ -378,10 +378,11 @@ class Daemon(EventBus):
                 items = list(link.get('dmon:items').values())
 
                 for item in items:
-                    try:
-                        await item.fini()
-                    except Exception as e:
-                        logger.exception(f'item fini error: {e}')
+                    if isinstance(item, s_coro.Fini):
+                        try:
+                            await item.fini()
+                        except Exception as e:  # pragma: no cover
+                            logger.exception('item fini error')
 
             link.onfini(fini)
 
