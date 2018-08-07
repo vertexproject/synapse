@@ -269,7 +269,7 @@ class IPv4(s_types.Type):
             if valu.find('-') != -1:
                 minv, maxv = self.getNetRange(valu)
                 def cmpr(norm):
-                    return norm >= minv and norm < maxv
+                    return norm >= minv and norm <= maxv
                 return cmpr
 
         return s_types.Type._ctorCmprEq(self, valu)
@@ -290,7 +290,7 @@ class IPv4(s_types.Type):
 
             minv, maxv = self.getNetRange(text)
 
-            while minv < maxv:
+            while minv <= maxv:
                 yield minv
                 minv += 1
 
