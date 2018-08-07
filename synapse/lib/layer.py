@@ -35,23 +35,22 @@ class Xact(s_eventbus.EventBus):
     def __init__(self, layr, write=False):
 
         s_eventbus.EventBus.__init__(self)
-        if 0:
 
-            self.indxfunc = {
-                'eq': self._rowsByEq,
-                'pref': self._rowsByPref,
-                'range': self._rowsByRange,
-            }
+        self.indxfunc = {
+            'eq': self._rowsByEq,
+            'pref': self._rowsByPref,
+            'range': self._rowsByRange,
+        }
 
-            self._lift_funcs = {
-                'indx': self._liftByIndx,
-                'prop:re': self._liftByPropRe,
-                'univ:re': self._liftByUnivRe,
-                'form:re': self._liftByFormRe,
-            }
+        self._lift_funcs = {
+            'indx': self._liftByIndx,
+            'prop:re': self._liftByPropRe,
+            'univ:re': self._liftByUnivRe,
+            'form:re': self._liftByFormRe,
+        }
 
-            self.layr = layr
-            self.write = write
+        self.layr = layr
+        self.write = write
 
     @contextlib.contextmanager
     def incxref(self):
