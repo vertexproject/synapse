@@ -19,9 +19,40 @@ class HttpTestV1(t_web.RequestHandler):
 
 class CortexTest(s_test.SynTest):
 
+    def test_cortex_prop_pivout(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+                snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+
+            nodes = list([n.pack() for n in core.eval('inet:dns:a :ipv4 -> *')])
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('inet:ipv4', 0x01020304))
+
+    def test_cortex_of_the_future(self):
+
+        # test "future/ongoing" time stamp.
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                node = snap.addNode('teststr', 'foo')
+                node.addTag('lol', valu=('2015', '?'))
+
+                self.eq((1420070400000, 0x7fffffffffffffff), node.getTag('lol'))
+
+            nodes = [n.pack() for n in core.eval('teststr=foo +#lol@=2014')]
+            self.len(0, nodes)
+
+            nodes = [n.pack() for n in core.eval('teststr=foo +#lol@=2016')]
+            self.len(1, nodes)
+
     def test_cortex_noderefs(self):
 
         with self.getTestCore() as core:
+
+            sorc = s_common.guid()
 
             with core.snap() as snap:
 
@@ -31,6 +62,20 @@ class CortexTest(s_test.SynTest):
 
                 self.eq(refs.get('fqdn'), ('inet:fqdn', 'woot.com'))
                 self.eq(refs.get('ipv4'), ('inet:ipv4', 0x01020304))
+
+                node.seen('now', source=sorc)
+
+            opts = {'vars': {'sorc': sorc}}
+            nodes = list([n.pack() for n in core.eval('seen:source=$sorc -> *', opts=opts)])
+
+            self.len(2, nodes)
+            self.true('inet:dns:a' in [n[0][0] for n in nodes])
+
+            opts = {'vars': {'sorc': sorc}}
+            nodes = list([n.pack() for n in core.eval('seen:source=$sorc :node -> *', opts=opts)])
+
+            self.len(1, nodes)
+            self.true('inet:dns:a' in [n[0][0] for n in nodes])
 
     def test_cortex_http(self):
 
@@ -602,6 +647,10 @@ class CortexTest(s_test.SynTest):
                 self.eq(node.ndef[0], 'pivtarg')
                 self.eq(node.ndef[1], 'foo')
 
+            for node in core.eval('[testguid="*" :tick=2001]'):
+                self.true(s_common.isguid(node.ndef[1]))
+                self.nn(node.get('tick'))
+
             nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -> pivtarg')])
 
             self.len(1, nodes)
@@ -625,9 +674,15 @@ class CortexTest(s_test.SynTest):
 
             ndef = ('testcomp', (10, 'haha'))
             opts = {'ndefs': (ndef,)}
-
+            # Seed nodes in the query with ndefs
             for node in core.eval('[-#foo]', opts=opts):
                 self.none(node.getTag('foo'))
+
+            # Seed nodes in the query with idens
+            opts = {'idens': (nodes[0][1].get('iden'),)}
+            nodes = list(core.eval('', opts=opts))
+            self.len(1, nodes)
+            self.eq(nodes[0].pack()[0], ('teststr', 'foo bar'))
 
             self.genraises(s_exc.NoSuchOpt, core.eval, '%foo=asdf')
             self.genraises(s_exc.BadOptValu, core.eval, '%limit=asdf')
@@ -1021,10 +1076,19 @@ class CortexTest(s_test.SynTest):
             self.len(1, core.eval('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn +:fqdn=$hehe'))
             self.len(0, core.eval('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn -:fqdn=$hehe'))
 
-            self.len(1, core.eval('[ pivcomp=(hehe,haha) +#foo=(2014,2016) ]'))
+            self.len(1, core.eval('[ pivcomp=(hehe,haha) :tick=2015 +#foo=(2014,2016) ]'))
             self.len(1, core.eval('pivtarg=hehe [ .seen=2015 ]'))
 
             self.len(1, core.eval('pivcomp=(hehe,haha) $ticktock=#foo -> pivtarg +.seen@=$ticktock'))
+
+            # Vars can also be provided as tuple
+            opts = {'vars': {'foo': ('hehe', 'haha')}}
+            self.len(1, core.eval('pivcomp=$foo', opts=opts))
+
+            # Vars can also be provided as integers
+            norm = core.model.type('time').norm('2015')[0]
+            opts = {'vars': {'foo': norm}}
+            self.len(1, core.eval('pivcomp:tick=$foo', opts=opts))
 
     def test_cortex_storm_filt_ival(self):
 

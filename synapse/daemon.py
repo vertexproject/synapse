@@ -17,43 +17,16 @@ from synapse.eventbus import EventBus
 
 import synapse.lib.coro as s_coro
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.share as s_share
 
-class Share(s_coro.Fini):
-    '''
-    Class to wrap a dynamically shared object.
-    '''
-    def __init__(self, link, item):
-        s_coro.Fini.__init__(self)
-
-        self.link = link
-
-        self.orig = item    # for context management
-        self.item = item
-
-        self.iden = s_common.guid()
-
-        self.exited = False
-        self.entered = False
-
-        items = link.get('dmon:items')
-
-        async def fini():
-            items.pop(self.iden, None)
-
-        self.onfini(fini)
-        items[self.iden] = self
-
-    async def _runShareLoop(self):
-        return
-
-class With(Share):
+class With(s_share.Share):
     '''
     Server side context for a telepath With() proxy.
     '''
     typename = 'with'
 
     def __init__(self, link, item):
-        Share.__init__(self, link, item)
+        s_share.Share.__init__(self, link, item)
 
         self.exitok = None  # None/False == error
         self.onfini(self._onWithFini)
@@ -99,7 +72,7 @@ class With(Share):
         self.exitok = isexc
         await self.fini()
 
-class Genr(Share):
+class Genr(s_share.Share):
 
     typename = 'genr'
 
@@ -131,7 +104,7 @@ class Genr(Share):
 
         await s_glob.executor(syncloop)
 
-class AsyncGenr(Share):
+class AsyncGenr(s_share.Share):
 
     typename = 'genr'
 
@@ -195,6 +168,8 @@ class Daemon(EventBus):
         self.addr = None    # our main listen address
         self.cells = {}     # all cells are shared.  not all shared are cells.
         self.shared = {}    # objects provided by daemon
+        self.listenservers = [] # the sockets we're listening on
+        self.connectedlinks = [] # the links we're currently connected on
 
         self.mesgfuncs = {
             'tele:syn': self._onTeleSyn,
@@ -224,7 +199,9 @@ class Daemon(EventBus):
         # TODO: SSL
         ssl = None
 
-        return s_glob.plex.listen(host, port, self._onLinkInit, ssl=ssl)
+        server = s_glob.plex.listen(host, port, self._onLinkInit, ssl=ssl)
+        self.listenservers.append(server)
+        return server.sockets[0].getsockname()
 
     def share(self, name, item):
         '''
@@ -246,8 +223,20 @@ class Daemon(EventBus):
             logger.exception(f'onTeleShare() error for: {name}')
 
     def _onDmonFini(self):
-        for name, cell in self.cells.items():
-            cell.fini()
+        for s in self.listenservers:
+            s.close()
+        for name, share in self.shared.items():
+            if isinstance(share, EventBus):
+                share.fini()
+
+        async def afini():
+            for name, share in self.shared.items():
+                if isinstance(share, s_coro.Fini):
+                    await share.fini()
+
+            await asyncio.wait([link.fini() for link in self.connectedlinks], loop=s_glob.plex.loop)
+
+        s_glob.plex.addLoopCoro(afini())
 
     def _getSslCtx(self):
         return None
@@ -286,7 +275,6 @@ class Daemon(EventBus):
             self.loadDmonCell(name)
 
     def loadDmonCell(self, name):
-
         dirn = s_common.gendir(self.dirn, 'cells', name)
         logger.info(f'loading cell from: {dirn}')
 
@@ -324,6 +312,7 @@ class Daemon(EventBus):
             await self._onLinkMesg(link, mesg)
 
         link.onrx(onrx)
+        self.connectedlinks.append(link)
 
     async def _onLinkMesg(self, link, mesg):
 
@@ -389,10 +378,11 @@ class Daemon(EventBus):
                 items = list(link.get('dmon:items').values())
 
                 for item in items:
-                    try:
-                        await item.fini()
-                    except Exception as e:
-                        logger.exception(f'item fini error: {e}')
+                    if isinstance(item, s_coro.Fini):
+                        try:
+                            await item.fini()
+                        except Exception as e:  # pragma: no cover
+                            logger.exception('item fini error')
 
             link.onfini(fini)
 
@@ -426,7 +416,7 @@ class Daemon(EventBus):
 
     def _getTaskFiniMesg(self, task, valu):
 
-        if not isinstance(valu, Share):
+        if not isinstance(valu, s_share.Share):
             retn = (True, valu)
             return ('task:fini', {'task': task, 'retn': retn})
 
@@ -440,21 +430,23 @@ class Daemon(EventBus):
         name = mesg[1].get('name')
 
         item = link.get('dmon:items').get(name)
+        if item is None:
+            raise s_exc.NoSuchObj(f'name={name}')
 
         #import synapse.lib.scope as s_scope
         #with s_scope.enter({'syn:user': user}):
 
         try:
 
-            name, args, kwargs = mesg[1].get('todo')
+            methname, args, kwargs = mesg[1].get('todo')
 
-            if name[0] == '_':
-                raise s_exc.NoSuchMeth(name=name)
+            if methname[0] == '_':
+                raise s_exc.NoSuchMeth(name=methname)
 
-            meth = getattr(item, name, None)
+            meth = getattr(item, methname, None)
             if meth is None:
-                logger.warning(f'{item!r} has no method: {name}')
-                raise s_exc.NoSuchMeth(name=name)
+                logger.warning(f'{item!r} has no method: {methname}')
+                raise s_exc.NoSuchMeth(name=methname)
 
             valu = await self._runTodoMeth(link, meth, args, kwargs)
             valu = await self._tryWrapValu(link, valu)
@@ -463,10 +455,12 @@ class Daemon(EventBus):
             await link.tx(mesg)
 
             # if it's a Share(), spin off the share loop
-            if isinstance(valu, Share):
+            if isinstance(valu, s_share.Share):
                 async def spinshareloop():
                     try:
                         await valu._runShareLoop()
+                    except Exception:
+                        logger.exception('Error running %r', valu)
                     finally:
                         await valu.fini()
                 s_glob.plex.coroLoopTask(spinshareloop())

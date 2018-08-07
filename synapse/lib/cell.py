@@ -1,7 +1,6 @@
 import os
 import logging
 import threading
-from typing import Any, Tuple
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -54,6 +53,14 @@ class CellApi:
     @adminapi
     def addAuthRole(self, name):
         self.cell.auth.addRole(name)
+
+    @adminapi
+    def getAuthUsers(self):
+        return self.cell.auth.getUsers()
+
+    @adminapi
+    def getAuthRoles(self):
+        return self.cell.auth.getRoles()
 
     @adminapi
     def addAuthRule(self, name, rule, indx=None):
@@ -146,8 +153,8 @@ class CellApi:
             'rules': role.info.get('rules', ()),
         }
 
-        # delayed import.  dep loop.
         if authtype == 'user':
+            info['locked'] = role.locked
 
             roles = []
             info['roles'] = roles
@@ -178,7 +185,7 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
     '''
     cellapi = CellApi
 
-    confdefs: Tuple[Any, ...] = ()
+    confdefs = ()
 
     def __init__(self, dirn):
 

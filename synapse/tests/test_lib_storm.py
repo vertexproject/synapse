@@ -13,6 +13,11 @@ class StormTest(s_test_common.SynTest):
                 node = snap.addNode('teststr', 'foo')
                 node.addTag('hehe.haha', valu=(20, 30))
 
+                tagnode = snap.getNodeByNdef(('syn:tag', 'hehe.haha'))
+
+                tagnode.set('doc', 'haha doc')
+                tagnode.set('title', 'haha title')
+
             list(core.eval('movetag #hehe #woot'))
 
             self.len(0, list(core.eval('#hehe')))
@@ -22,6 +27,11 @@ class StormTest(s_test_common.SynTest):
             self.len(1, list(core.eval('#woot.haha')))
 
             with core.snap() as snap:
+
+                newt = core.getNodeByNdef(('syn:tag', 'woot.haha'))
+
+                self.eq(newt.get('doc'), 'haha doc')
+                self.eq(newt.get('title'), 'haha title')
 
                 node = snap.getNodeByNdef(('teststr', 'foo'))
                 self.eq((20, 30), node.tags.get('woot.haha'))
@@ -95,3 +105,21 @@ class StormTest(s_test_common.SynTest):
             self.len(3, nodes)
             nodes = list(core.eval('testcomp -> * | uniq | count'))
             self.len(1, nodes)
+
+    def test_storm_iden(self):
+        with self.getTestCore() as core:
+            q = "[teststr=beep teststr=boop]"
+            nodes = list(core.eval(q))
+            self.len(2, nodes)
+            idens = [node.iden() for node in nodes]
+
+            iq = ' '.join(idens)
+            # Demonstrate the iden lift does pass through previous nodes in the pipeline
+            q = f'[teststr=hehe] | iden {iq} | count'
+            mesgs = list(core.storm(q))
+            self.len(3, [mesg for mesg in mesgs if mesg[0] == 'node'])
+
+            q = 'iden newp'
+            with self.getLoggerStream('synapse.lib.snap', 'Failed to decode iden') as stream:
+                self.len(0, list(core.eval(q)))
+                self.true(stream.wait(1))

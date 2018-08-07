@@ -62,7 +62,7 @@ class TypesTest(s_test.SynTest):
         self.raises(s_exc.BadTypeValu, model.type('guid').norm, 'visi')
 
         guid = model.type('guid').norm('*')[0]
-        self.len(32, guid)
+        self.true(s_common.isguid(guid))
 
     def test_hex(self):
 
@@ -387,9 +387,18 @@ class TypesTest(s_test.SynTest):
     def test_time(self):
 
         with self.getTestCore() as core:
+
             t = core.model.type('testtime')
+
+            # explicitly test our "future/ongoing" value...
+            future = 0x7fffffffffffffff
+            self.eq(t.indx(future), b'\xff\xff\xff\xff\xff\xff\xff\xff')
+            self.eq(t.norm('?')[0], future)
+            self.eq(t.repr(future), '?')
+
             tick = t.norm('2014')[0]
             tock = t.norm('2015')[0]
+
             with core.snap() as snap:
                 node = snap.addNode('teststr', 'a', {'tick': '2014'})
                 node = snap.addNode('teststr', 'b', {'tick': '2015'})

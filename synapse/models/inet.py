@@ -472,11 +472,20 @@ class Url(s_types.Type):
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Invalid/Missing protocol')
 
+        # Query params first
+        queryrem = ''
+        if '?' in valu:
+            valu, queryrem = valu.split('?', 1)
+            # TODO break out query params separately
+
         # Resource Path
         parts = valu.split('/', 1)
         if len(parts) == 2:
             valu, pathpart = parts
             pathpart = f'/{pathpart}'
+
+        if queryrem:
+            pathpart += f'?{queryrem}'
         subs['path'] = pathpart
 
         # Optional User/Password

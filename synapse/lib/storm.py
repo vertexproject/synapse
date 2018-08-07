@@ -1,6 +1,8 @@
 import shlex
 import argparse
 
+import synapse.common as s_common
+
 class Parser(argparse.ArgumentParser):
 
     def __init__(self, prog=None, descr=None):
@@ -283,6 +285,16 @@ class MoveTagCmd(Cmd):
 
             newtag = newstr + tagstr[oldsize:]
 
+            newnode = snap.addNode('syn:tag', newtag)
+
+            olddoc = node.get('doc')
+            if olddoc is not None:
+                newnode.set('doc', olddoc)
+
+            oldtitle = node.get('title')
+            if oldtitle is not None:
+                newnode.set('title', oldtitle)
+
             retag[tagstr] = newtag
             node.set('isnow', newtag)
 
@@ -347,3 +359,32 @@ class CountCmd(Cmd):
             yield node, path
 
         snap.printf(f'Counted {i} nodes.')
+
+class IdenCmd(Cmd):
+    '''
+    Lift nodes by iden.
+
+    Example:
+
+        iden b25bc9eec7e159dce879f9ec85fb791f83b505ac55b346fcb64c3c51e98d1175 | count
+    '''
+    name = 'iden'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('iden', nargs='*', type=str, default=[],
+                          help='Iden to lift nodes by. May be specified multiple times.')
+        return pars
+
+    def runStormCmd(self, snap, genr):
+        yield from genr
+
+        for iden in self.opts.iden:
+            try:
+                buid = s_common.uhex(iden)
+            except Exception as e:
+                snap.warn(f'Failed to decode iden: [{iden}]')
+                continue
+            node = snap.getNodeByBuid(buid)
+            if node:
+                yield node, node.initPath()

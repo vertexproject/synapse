@@ -1,4 +1,3 @@
-import types
 import asyncio
 import logging
 import threading
@@ -7,14 +6,24 @@ logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
-import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
-import synapse.lib.link as s_link
-
+import synapse.lib.share as s_share
 import synapse.tests.common as s_test
 
-class Boom: pass
+from synapse.tests.utils import SyncToAsyncCMgr
+
+class Boom:
+    pass
+
+class CustomShare(s_share.Share):
+    typename = 'customshare'
+
+    async def _runShareLoop(self):
+        await asyncio.sleep(10)
+
+    def boo(self, x):
+        return x
 
 class Foo:
 
@@ -37,9 +46,6 @@ class Foo:
 
     def speed(self):
         return
-
-    def echo(self, x):
-        return x
 
     def genr(self):
         yield 10
@@ -84,6 +90,9 @@ class TeleApi:
     def getFooBar(self, x, y):
         return x - y
 
+    def customshare(self):
+        return CustomShare(self.link, 42)
+
 class TeleAware(s_telepath.Aware):
 
     def getTeleApi(self, link, mesg):
@@ -113,6 +122,7 @@ class TeleTest(s_test.SynTest):
     def test_telepath_basics(self):
 
         foo = Foo()
+        evt = threading.Event()
 
         with self.getTestDmon() as dmon:
 
@@ -123,6 +133,8 @@ class TeleTest(s_test.SynTest):
 
             # called via synchelp...
             prox = s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
+            # Add an additional prox.fini handler.
+            prox.onfini(evt.set)
 
             self.false(prox.iAmLoop())
 
@@ -148,6 +160,23 @@ class TeleTest(s_test.SynTest):
 
             self.raises(s_exc.SynErr, prox.boom)
 
+        # Fini'ing a daemon fini's proxies connected to it.
+        self.true(evt.wait(2))
+        self.true(prox.isfini)
+
+    @s_glob.synchelp
+    async def test_telepath_async(self):
+        foo = Foo()
+
+        async with SyncToAsyncCMgr(self.getTestDmon) as dmon:
+            addr = await s_glob.plex.executor(dmon.listen, 'tcp://127.0.0.1:0')
+            dmon.share('foo', foo)
+            prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
+            genr = prox.corogenr(3)
+            self.eq([0, 1, 2], [x async for x in await genr])
+            # To act the same as a local object, should be:
+            # self.eq([0, 1, 2], [x async for x in genr])
+
     def test_telepath_aware(self):
 
         item = TeleAware()
@@ -156,6 +185,10 @@ class TeleTest(s_test.SynTest):
             dmon.share('woke', item)
             proxy = dmon._getTestProxy('woke')
             self.eq(10, proxy.getFooBar(20, 10))
+
+            # check a custom share works
+            obj = proxy.customshare()
+            self.eq(999, obj.boo(999))
 
     def test_telepath_auth(self):
 
