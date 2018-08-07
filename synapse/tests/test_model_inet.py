@@ -45,6 +45,8 @@ class InetModelTest(s_t_common.SynTest):
                 snap.addNode('inet:ipv4', '1.2.3.4')
 
             self.len(3, core.eval('inet:ipv4=1.2.3.1-1.2.3.3'))
+            self.len(3, core.eval('[inet:ipv4=1.2.3.1-1.2.3.3]'))
+            self.len(3, core.eval('inet:ipv4 +inet:ipv4=1.2.3.1-1.2.3.3'))
 
     def test_ipv4_filt_cidr(self):
 
