@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LAYER_NAME = '000-default'
 
-
 '''
 A Cortex implements the synapse hypergraph object.
 
@@ -373,7 +372,8 @@ class Cortex(s_cell.Cell):
         if pathlib.Path(layersdir, 'default').is_dir():
             self._migrateOldDefaultLayer()
 
-        # Layers are imported in lexicographic order
+        # Layers are imported in reverse lexicographic order, where the earliest in the alphabet is the 'topmost'
+        # write layer.
         for layerdir in sorted((d for d in layersdir.iterdir() if d.is_dir()), reverse=True):
             logger.info('loading external layer from %s', layerdir)
             layer = s_cells.initFromDirn(layerdir)
