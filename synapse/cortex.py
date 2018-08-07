@@ -17,7 +17,6 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.snap as s_snap
-import synapse.lib.const as s_const
 import synapse.lib.storm as s_storm
 import synapse.lib.layer as s_layer
 import synapse.lib.syntax as s_syntax
@@ -375,7 +374,7 @@ class Cortex(s_cell.Cell):
             self._migrateOldDefaultLayer()
 
         # Layers are imported in lexicographic order
-        for layerdir in sorted(d for d in layersdir.iterdir() if d.is_dir()):
+        for layerdir in sorted((d for d in layersdir.iterdir() if d.is_dir()), reverse=True):
             logger.info('loading external layer from %s', layerdir)
             layer = s_cells.initFromDirn(layerdir)
             if not isinstance(layer, s_layer.Layer):
@@ -385,6 +384,8 @@ class Cortex(s_cell.Cell):
         if not self.layers:
             # Setup the fallback/default single LMDB layer
             self.layers.append(self._makeDefaultLayer())
+
+        self.layer = self.layers[-1]
 
         logger.debug('Cortex using the following layers: %s\n', (''.join(f'\n   {l.dirn}' for l in self.layers)))
 
@@ -838,7 +839,7 @@ class Cortex(s_cell.Cell):
             conf['lmdb:mapsize'] = mapsize
             s_common.yamlsave(conf, cell_yaml)
         logger.info('Creating a new default storage layer at %s', layerdir)
-        return s_layer.Layer(layerdir)
+        return s_cells.initFromDirn(layerdir)
 
     def getCoreMod(self, name):
         return self.modules.get(name)

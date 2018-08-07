@@ -119,8 +119,8 @@ class SnapTest(s_t_common.SynTest):
             node = (('inet:ipv4', 1), {'props': {'asn': 42, '.seen': (1, 2)}, 'tags': {'woot': (1, 2)}})
             nodes_core1 = list(core1.addNodes([node]))
 
-            layerfn = os.path.join(core1.dirn, 'layers', 'default')
-            with self.getTestCore(conf={'layers': [layerfn]}) as core, core.snap() as snap:
+            layerfn = os.path.join(core1.dirn, 'layers', '000-default')
+            with self.getTestCore(extra_layers=[layerfn]) as core, core.snap() as snap:
                 # Basic sanity check
                 nodes = list(snap.getNodesBy('inet:ipv4', 1))
                 self.len(1, nodes)
@@ -159,8 +159,8 @@ class SnapTest(s_t_common.SynTest):
             node = (('inet:ipv4', 1), {'props': {'asn': 42}})
             nodes_core1 = list(core1.addNodes([node]))
 
-            layerfn = os.path.join(core1.dirn, 'layers', 'default')
-            with self.getTestCore(conf={'layers': [layerfn]}) as core, core.snap() as snap:
+            layerfn = os.path.join(core1.dirn, 'layers', '000-default')
+            with self.getTestCore(extra_layers=[layerfn]) as core, core.snap() as snap:
                 # Basic sanity check
                 nodes = list(snap.getNodesBy('inet:ipv4', 1))
                 self.len(1, nodes)

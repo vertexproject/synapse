@@ -17,21 +17,19 @@ use to be invoked via the built-in Unittest library.
 import io
 import os
 import sys
-import time
 import types
 import shutil
 import logging
+import pathlib
 import tempfile
 import unittest
 import threading
 import contextlib
 
 import synapse.exc as s_exc
-import synapse.axon as s_axon
 import synapse.data as s_data
 import synapse.glob as s_glob
 import synapse.cells as s_cells
-import synapse.lib.cell as s_cell
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
@@ -43,7 +41,6 @@ import synapse.telepath as s_telepath
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
-import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)
@@ -541,7 +538,7 @@ class SynTest(unittest.TestCase):
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
     @contextlib.contextmanager
-    def getTestCore(self, mirror='testcore', conf=None):
+    def getTestCore(self, mirror='testcore', conf=None, extra_layers=None):
         '''
         Return a simple test Cortex.
 
@@ -552,6 +549,16 @@ class SynTest(unittest.TestCase):
             if conf is not None:
                 oldconf = s_common.yamlload(dirn, 'cell.yaml')
                 s_common.yamlsave({**oldconf, **conf}, dirn, 'cell.yaml')
+            if extra_layers is not None:
+
+                # The default layer population won't get triggered, so make the default layer
+                layerdir = s_common.gendir(dirn, 'layers', '000-default')
+                s_cells.deploy('layer-lmdb', layerdir)
+                cell_yaml = pathlib.Path(layerdir, 'cell.yaml')
+                conf = {'lmdb:mapsize': TEST_MAP_SIZE}
+                s_common.yamlsave(conf, cell_yaml)
+                for i, fn in enumerate(extra_layers):
+                    os.symlink(fn, os.path.join(dirn, 'layers', f'{i + 1:03}-testlayer'))
 
             with s_cortex.Cortex(dirn) as core:
                 yield core

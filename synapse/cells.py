@@ -9,13 +9,12 @@ import synapse.cortex as s_cortex
 import synapse.cryotank as s_cryotank
 
 import synapse.lib.auth as s_auth
-import synapse.lib.layer as s_layer
+import synapse.lib.lmdblayer as s_lmdblayer
 
 ctors = {
     'auth': s_auth.Auth,
     'axon': s_axon.Axon,
-    'layer-lmdb': s_layer.Layer,  # FIXME: will need to change when we have lmdblayer
-    'layer-hbase': s_layer.HBaseLayer,  # FIXME: will need to change when we have lmdblayer
+    'layer-lmdb': s_lmdblayer.LmdbLayer,
     'cortex': s_cortex.Cortex,
     'blobstor': s_axon.BlobStor,
     'cryocell': s_cryotank.CryoCell,
