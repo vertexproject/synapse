@@ -79,70 +79,70 @@ class Xact(s_eventbus.EventBus):
         if self.refs == 0:
             self.commit()
 
-    def setOffset(self, iden, offs):
+    def setOffset(self, iden, offs):  # pragma: no cover
         raise NotImplementedError
 
-    def getOffset(self, iden):
+    def getOffset(self, iden):  # pragma: no cover
         raise NotImplementedError
 
-    def stor(self, sops):
+    def stor(self, sops):  # pragma: no cover
         '''
         Execute a series of storage operations.
         '''
         raise NotImplementedError
 
-    def getLiftRows(self, lops):
+    def getLiftRows(self, lops):  # pragma: no cover
         raise NotImplementedError
 
-    def abort(self):
+    def abort(self):  # pragma: no cover
         raise NotImplementedError
 
-    def commit(self):
+    def commit(self):  # pragma: no cover
         raise NotImplementedError
 
-    def getBuidProps(self, buid):
+    def getBuidProps(self, buid):  # pragma: no cover
         raise NotImplementedError
 
-    def _storPropSet(self, oper):
+    def _storPropSet(self, oper):  # pragma: no cover
         raise NotImplementedError
 
-    def _storPropDel(self, oper):
+    def _storPropDel(self, oper):  # pragma: no cover
         raise NotImplementedError
 
-    def _liftByFormRe(self, oper):
+    def _liftByFormRe(self, oper):  # pragma: no cover
         raise NotImplementedError
 
-    def _liftByUnivRe(self, oper):
+    def _liftByUnivRe(self, oper):  # pragma: no cover
         raise NotImplementedError
 
-    def _liftByPropRe(self, oper):
+    def _liftByPropRe(self, oper):  # pragma: no cover
         raise NotImplementedError
 
-    def _liftByIndx(self, oper):
+    def _liftByIndx(self, oper):  # pragma: no cover
         raise NotImplementedError
 
-    def _rowsByEq(self, curs, pref, valu):
+    def _rowsByEq(self, curs, pref, valu):  # pragma: no cover
         raise NotImplementedError
 
-    def _rowsByPref(self, curs, pref, valu):
+    def _rowsByPref(self, curs, pref, valu):  # pragma: no cover
         raise NotImplementedError
 
-    def _rowsByRange(self, curs, pref, valu):
+    def _rowsByRange(self, curs, pref, valu):  # pragma: no cover
         raise NotImplementedError
 
-    def iterFormRows(self, form):
+    def iterFormRows(self, form):  # pragma: no cover
         '''
         Iterate (buid, valu) rows for the given form in this layer.
         '''
         raise NotImplementedError
 
-    def iterPropRows(self, form, prop):
+    def iterPropRows(self, form, prop):  # pragma: no cover
         '''
         Iterate (buid, valu) rows for the given form:prop in this layer.
         '''
         raise NotImplementedError
 
-    def iterUnivRows(self, prop):
+    def iterUnivRows(self, prop):  # pragma: no cover
         '''
         Iterate (buid, valu) rows for the given universal prop
         '''
@@ -158,18 +158,17 @@ class Layer(s_cell.Cell):
     def __init__(self, dirn):
         s_cell.Cell.__init__(self, dirn)
 
-    def getOffset(self, iden):
+    def getOffset(self, iden):  # pragma: no cover
         raise NotImplementedError
 
-    def setOffset(self, iden, offs):
+    def setOffset(self, iden, offs):  # pragma: no cover
         raise NotImplementedError
 
-    def splices(self, offs, size):
+    def splices(self, offs, size):  # pragma: no cover
         raise NotImplementedError
 
-    def xact(self, write=False):
+    def xact(self, write=False):  # pragma: no cover
         '''
         Return a transaction object for the layer.
         '''
         return Xact(self, write=write)
-
