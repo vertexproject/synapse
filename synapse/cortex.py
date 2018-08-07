@@ -333,7 +333,6 @@ class Cortex(s_cell.Cell):
     cellapi = CoreApi
 
     def __init__(self, dirn):
-        import synapse.cells as s_cells
 
         s_cell.Cell.__init__(self, dirn)
 
@@ -367,36 +366,15 @@ class Cortex(s_cell.Cell):
         self.setFeedFunc('syn.splice', self._addSynSplice)
         self.setFeedFunc('syn.ingest', self._addSynIngest)
 
-        layersdir = pathlib.Path(dirn, 'layers')
-        layersdir.mkdir(exist_ok=True)
-        if pathlib.Path(layersdir, 'default').is_dir():
-            self._migrateOldDefaultLayer()
-
-        # Layers are imported in reverse lexicographic order, where the earliest in the alphabet is the 'topmost'
-        # write layer.
-        for layerdir in sorted((d for d in layersdir.iterdir() if d.is_dir()), reverse=True):
-            logger.info('loading external layer from %s', layerdir)
-            layer = s_cells.initFromDirn(layerdir)
-            if not isinstance(layer, s_layer.Layer):
-                raise s_exc.BadConfValu('layer dir %s must contain Layer cell', layerdir)
-            self.layers.append(layer)
-
-        if not self.layers:
-            # Setup the fallback/default single LMDB layer
-            self.layers.append(self._makeDefaultLayer())
-
-        self.layer = self.layers[-1]
-
-        logger.debug('Cortex using the following layers: %s\n', (''.join(f'\n   {l.dirn}' for l in self.layers)))
-
-        # these may be used directly
         self.model = s_datamodel.Model()
-        self.view = View(self, self.layers)
-
         self.addCoreMods(s_modules.coremods)
-
         mods = self.conf.get('modules')
         self.addCoreMods(mods)
+
+        self._initCoreLayers()
+
+        # these may be used directly
+        self.view = View(self, self.layers)
 
         self._initCryoLoop()
         self._initPushLoop()
@@ -420,6 +398,29 @@ class Cortex(s_cell.Cell):
                 self.webserver.stop()
 
         self.onfini(finiCortex)
+
+    def _initCoreLayers(self):
+        import synapse.cells as s_cells  # avoid import cycle
+        layersdir = pathlib.Path(self.dirn, 'layers')
+        layersdir.mkdir(exist_ok=True)
+        if pathlib.Path(layersdir, 'default').is_dir():
+            self._migrateOldDefaultLayer()
+
+        # Layers are imported in reverse lexicographic order, where the earliest in the alphabet is the 'topmost'
+        # write layer.
+        for layerdir in sorted((d for d in layersdir.iterdir() if d.is_dir()), reverse=True):
+            logger.info('loading external layer from %s', layerdir)
+            layer = s_cells.initFromDirn(layerdir)
+            if not isinstance(layer, s_layer.Layer):
+                raise s_exc.BadConfValu('layer dir %s must contain Layer cell', layerdir)
+            self.layers.append(layer)
+
+        if not self.layers:
+            # Setup the fallback/default single LMDB layer
+            self.layers.append(self._makeDefaultLayer())
+
+        self.layer = self.layers[-1]
+        logger.debug('Cortex using the following layers: %s\n', (''.join(f'\n   {l.dirn}' for l in self.layers)))
 
     def addStormCmd(self, ctor):
         '''
