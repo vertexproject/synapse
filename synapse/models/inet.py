@@ -347,6 +347,7 @@ class IPv4(s_types.Type):
 
             if valu.find('/') != -1:
                 minv, maxv = self.getCidrRange(valu)
+                maxv -= 1
                 return (
                     ('range', (self.indx(minv), self.indx(maxv))),
                 )
