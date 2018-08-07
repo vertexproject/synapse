@@ -158,9 +158,8 @@ class Query(AstNode):
         for name, ndef in node.getNodeRefs():
 
             iden = s_common.ehex(s_common.buid(ndef))
-            # edge def is (iden1, iden2, uniq): info...
 
-            edges.append(((iden, None), {}))
+            edges.append((iden, {}))
 
             self._graph_want[ndef] = True
 
