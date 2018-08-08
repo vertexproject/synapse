@@ -1,52 +1,73 @@
-import unittest
-raise unittest.SkipTest()
+import os
+import hashlib
 
-from synapse.tests.common import *
+import synapse.exc as s_exc
+import synapse.common as s_common
 
-import synapse.axon as s_axon
-import synapse.cortex as s_cortex
-import synapse.daemon as s_daemon
-import synapse.neuron as s_neuron
-
+import synapse.lib.scope as s_scope
 import synapse.tools.pushfile as s_pushfile
+
+import synapse.tests.common as s_test
 
 nullhash = hashlib.sha256(b'').digest()
 visihash = hashlib.sha256(b'visi').digest()
 
-class TestPushFile(SynTest):
+class TestPushFile(s_test.SynTest):
 
-    def test_tools_pushfile(self):
-        with self.getAxonCore() as env:
+    def test_pushfile(self):
+        with self.getTestDmonCortexAxon() as dmon:
+            coreurl = s_scope.get('coreurl')
+            axonurl = s_scope.get('axonurl')
+            dirn = s_scope.get('dirn')
 
-            nullpath = os.path.join(env.dirn, 'null.txt')
-            visipath = os.path.join(env.dirn, 'visi.txt')
-            with open(visipath, 'wb') as fd:
+            nullpath = os.path.join(dirn, 'null.txt')
+            visipath = os.path.join(dirn, 'visi.txt')
+
+            with s_common.genfile(visipath) as fd:
                 fd.write(b'visi')
 
-            outp = self.getTestOutp()
-            s_pushfile.main(['--tags', 'foo.bar,baz.faz', env.core_url, visipath], outp=outp)
+            with dmon._getTestProxy('axon00') as axon:
+                self.len(1, axon.wants([visihash]))
 
-            node = env.core.getTufoByProp('file:bytes')
-            self.eq(node[1].get('file:bytes'), '442f602ecf8230b2a59a44b4f845be27')
-            self.eq(node[1].get('file:bytes:size'), 4)
-            self.nn(node[1].get('#foo'))
-            self.nn(node[1].get('#foo.bar'))
-            self.nn(node[1].get('#baz'))
-            self.nn(node[1].get('#baz.faz'))
-            # Ensure the axon got the bytes
-            self.eq(env.axon_client.wants((visihash,)), ())
-            self.eq(list(env.axon_client.bytes(visihash))[0], b'visi')
+            outp = self.getTestOutp()
+            args = ['-a', axonurl,
+                    '-c', coreurl,
+                    '-t', 'foo.bar,baz.faz',
+                    visipath]
+            self.eq(0, s_pushfile.main(args, outp))
+            self.true(outp.expect('Uploaded [visi.txt] to axon'))
+            self.true(outp.expect('file: visi.txt (4) added to core'))
+
+            with dmon._getTestProxy('axon00') as axon:
+                self.len(0, axon.wants([visihash]))
+                self.eq(b'visi', b''.join([buf for buf in axon.get(visihash)]))
+            outp = self.getTestOutp()
+            self.eq(0, s_pushfile.main(args, outp))
+            self.true(outp.expect('Axon already had [visi.txt]'))
+
+            with dmon._getTestProxy('core', user='root', passwd='root') as core:
+                self.len(1, core.eval(f'file:bytes={s_common.ehex(visihash)}'))
+                self.len(1, core.eval('file:bytes:size=4'))
+                self.len(1, core.eval('#foo.bar'))
+                self.len(1, core.eval('#baz.faz'))
 
             # Ensure user can't push a non-existant file and that it won't exist
-            self.raises(FileNotFoundError, s_pushfile.main, ['--tags', 'foo.bar,baz.faz', env.core_url, nullpath], outp=outp)
-            self.eq(env.axon_client.wants((nullhash,)), (nullhash,))
+            args = ['-a', axonurl, nullpath]
+            self.raises(s_exc.NoSuchFile, s_pushfile.main, args, outp=outp)
 
-            # Ensure user can push an empty file
-            with open(nullpath, 'wb') as fd:
+            with dmon._getTestProxy('axon00') as axon:
+                self.len(1, axon.wants([nullhash]))
+
+            with s_common.genfile(nullpath) as fd:
                 fd.write(b'')
+
             outp = self.getTestOutp()
-            s_pushfile.main(['--tags', 'foo.bar,baz.faz', env.core_url, nullpath], outp=outp)
-            node = env.core.getTufoByProp('file:bytes:sha256', ehex(nullhash))
-            self.istufo(node)
-            self.eq(env.axon_client.wants((nullhash,)), ())
-            self.eq(list(env.axon_client.bytes(nullhash)), [b''])
+            args = ['-a', axonurl,
+                    '-c', coreurl,
+                    '-t', 'empty',
+                    nullpath]
+            self.eq(0, s_pushfile.main(args, outp))
+
+            with dmon._getTestProxy('axon00') as axon:
+                self.len(0, axon.wants([nullhash]))
+                self.eq(b'', b''.join([buf for buf in axon.get(nullhash)]))
