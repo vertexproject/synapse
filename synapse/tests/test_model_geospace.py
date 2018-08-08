@@ -131,6 +131,7 @@ class GeoTest(s_t_common.SynTest):
             with core.snap() as snap:
                 guid = s_common.guid()
                 props = {'name': 'Vertex  HQ',
+                         'desc': ' The place where Vertex Project hangs out        at! ',
                          'loc': 'us.hehe.haha',
                          'latlong': '34.1341, -118.3215',
                          'radius': '1.337km'}
@@ -140,3 +141,4 @@ class GeoTest(s_t_common.SynTest):
                 self.eq(node.get('loc'), 'us.hehe.haha')
                 self.eq(node.get('latlong'), (34.13409999, -118.3215))
                 self.eq(node.get('radius'), 1337000)
+                self.eq(node.get('desc'), 'the place where vertex project hangs out at!')

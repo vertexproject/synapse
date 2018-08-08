@@ -84,6 +84,12 @@ class OuModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary url for the organization.',
                     }),
+                    ('founded', ('time', {'ismin': True}), {
+                        'doc': 'Date when an organization was founded or came into existence.',
+                    }),
+                    ('dissolved', ('time', {'ismax': True}), {
+                        'doc': 'Date when an organization was dissolved or no longer active.',
+                    }),
                 )),
                 ('ou:hasalias', {}, (
                     ('org', ('ou:org', {}), {
