@@ -179,6 +179,9 @@ class GeoModule(s_module.CoreModule):
                         ('name', ('str', {'lower': 1, 'onespace': 1}), {
                             'doc': 'The name of the place.'}),
 
+                        ('desc', ('str', {}), {
+                            'doc': 'A long form description of the place.'}),
+
                         ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the node.'}),
 
