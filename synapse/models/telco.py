@@ -9,54 +9,6 @@ import synapse.lookup.phonenum as s_l_phone
 
 logger = logging.getLogger(__name__)
 
-intls = (
-    ('us', '1', '011', 10),
-)
-
-# Fixme What do we want to do with these typecasters?
-def genTelLocCast(iso2, cc, idd, size):
-    '''
-    Generate a generic phone canonicalizer for numbers which
-    may reside within an arbitrary country's local exchange.
-    '''
-    clen = len(cc)
-    ilen = len(idd)
-
-    def castTelLocal(valu):
-        try:
-
-            rawp = str(valu).strip()
-            valu = digits(rawp)
-            if not valu:
-                return None
-
-            if rawp[0] == '+':
-                return int(valu)
-
-            # since 00 and 011 are so common
-            # (and generally incompatible with local)
-            if valu.startswith('00'):
-                return int(valu[2:])
-
-            if valu.startswith('011'):
-                return int(valu[3:])
-
-            if idd not in ('00', '011') and valu.startswith(idd):
-                return int(valu[ilen:])
-
-            if valu.startswith(cc):
-                return int(valu)
-
-            if len(valu) == size:
-                return int(cc + valu)
-
-            return int(valu)
-
-        except Exception as e:
-            logger.exception('cast tel:loc:%s' % iso2)
-            return None
-
-    return castTelLocal
 
 def digits(text):
     return ''.join([c for c in text if c.isdigit()])
@@ -167,7 +119,7 @@ class Imsi(s_types.Type):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='invalid imsi len: %d' % (ilen,))
 
-        mcc = int(imsi[0:3])
+        mcc = imsi[0:3]
         # TODO full imsi analysis tree
         return valu, {'subs': {'mcc': mcc}}
 
@@ -261,6 +213,25 @@ class TelcoModule(s_module.CoreModule):
 
                 ('tel:mob:telem', ('guid', {}), {
                     'doc': 'A single mobile telemetry measurement.'}),
+
+                ('tel:mob:mcc', ('str', {'regex': '^[0-9]{3}$', 'strip': 1}), {
+                    'doc': 'ITU Mobile Country Code',
+                }),
+
+                ('tel:mob:mnc', ('str', {'regex': '^[0-9]{2,3}$', 'strip': 1}), {
+                    'doc': 'ITU Mobile Network Code',
+                }),
+
+                ('tel:mob:carrier', ('comp', {'fields': (('mcc', 'tel:mob:mcc'), ('mnc', 'tel:mob:mnc'))}), {
+                    'doc': 'The fusion of a MCC/MNC.'
+                }),
+
+                ('tel:mob:cell', ('comp', {'fields': (('carrier', 'tel:mob:carrier'),
+                                                      ('lac', ('int', {})),
+                                                      ('cid', ('int', {})))}), {
+                    'doc': 'A mobile cell site which a phone may connect to.'
+                }),
+
             ),
 
             'forms': (
@@ -298,7 +269,7 @@ class TelcoModule(s_module.CoreModule):
                     })
                 )),
                 ('tel:mob:imsi', {}, (
-                    ('mcc', ('int', {}), {
+                    ('mcc', ('tel:mob:mcc', {}), {
                         'ro': 1,
                         'doc': 'The Mobile Country Code.',
                     }),
@@ -322,6 +293,27 @@ class TelcoModule(s_module.CoreModule):
                         'doc': 'The IMSI with the assigned phone number.'
                     }),
                 )),
+                ('tel:mob:mcc', {}, ()),
+                ('tel:mob:carrier', {}, (
+                    ('mcc', ('tel:mob:mcc', {}), {
+                        'ro': 1,
+                    }),
+                    ('mnc', ('tel:mob:mnc', {}), {
+                        'ro': 1,
+                    }),
+                    ('org', ('ou:org', {}), {
+                        'doc': 'Organization operating the carrier.'
+                    })
+                )),
+                ('tel:mob:cell', {}, (
+                    ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier'}),
+                    ('carrier:mcc', ('tel:mob:mcc', {}), {'doc': 'Mobile Country Code'}),
+                    ('carrier:mnc', ('tel:mob:mnc', {}), {'doc': 'Mobile Network Code'}),
+                    ('lac', ('int', {}), {'doc': 'Location Area Code. LTE networks may call this a TAC.'}),
+                    ('cid', ('int', {}), {'doc': 'Cell ID'}),
+                    ('radio', ('str', {'lower': 1, 'onespace': 1}), {'doc': 'Cell radio type.'}),
+                    ('latlong', ('geo:latlong', {}), {'doc': 'Last known location of the cell site.'})
+                )),
 
                 ('tel:mob:telem', {}, (
 
@@ -329,6 +321,7 @@ class TelcoModule(s_module.CoreModule):
                     ('latlong', ('geo:latlong', {}), {}),
 
                     # telco specific data
+                    ('cell', ('tel:mob:cell', {}), {}),
                     ('imsi', ('tel:mob:imsi', {}), {}),
                     ('imei', ('tel:mob:imei', {}), {}),
                     ('phone', ('tel:phone', {}), {}),
@@ -341,6 +334,10 @@ class TelcoModule(s_module.CoreModule):
                     ('wifi:ssid', ('inet:wifi:ssid', {}), {}),
                     ('wifi:bssid', ('inet:mac', {}), {}),
 
+                    # host specific data
+                    ('aaid', ('it:os:android:aaid', {}), {}),
+                    ('idfa', ('it:os:ios:idfa', {}), {}),
+
                     ('data', ('data', {}), {}),
                     # any other fields may be refs...
                 )),
@@ -351,12 +348,6 @@ class TelcoModule(s_module.CoreModule):
         return ((name, modl),)
 
 class TelMod(s_module.CoreModule):
-
-    def initCoreModule(self):
-        # TODO
-        # event handlers which cache and resolve prefixes to tag phone numbers
-        for iso2, cc, idd, size in intls:
-            self.core.addTypeCast('tel:loc:%s' % iso2, genTelLocCast(iso2, cc, idd, size))
 
     @staticmethod
     def getBaseModels():

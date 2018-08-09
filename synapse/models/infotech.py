@@ -190,6 +190,12 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A arbitrary, unversioned software product.',
                 }),
 
+                ('it:os:ios:idfa', ('str', {'lower': 1}), {
+                    'doc': 'An iOS advertising identification string.'}),
+
+                ('it:os:android:aaid', ('str', {'lower': 1}), {
+                    'doc': 'An android advertising identification string.'}),
+
                 ('it:os:android:perm', ('str', {}), {
                     'doc': 'An android permission string.'}),
 
@@ -375,6 +381,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Set to True if the software is a library.'}),
                 )),
 
+                ('it:os:ios:idfa', {}, ()),
+                ('it:os:android:aaid', {}, ()),
                 ('it:os:android:perm', {}, ()),
                 ('it:os:android:intent', {}, ()),
 
