@@ -1044,6 +1044,7 @@ class SynTest(unittest.TestCase):
                             [
                             'testint',
                             8675309
+
                             ],
                             '20170102'
                         ]
@@ -1052,6 +1053,70 @@ class SynTest(unittest.TestCase):
             ]
         }
         return gestdef
+
+    def addCreatorDeleterRoles(self, core):
+        '''
+        Add two roles to a Cortex, the `creator` and `deleter` roles.
+        Creator allows for node:add, prop:set and tag:add actions.
+        Deleter allows for node:del, prop:del and tag:del actions.
+
+        Args:
+            core: Auth enabled cortex.
+        '''
+        core.addAuthRole('creator')
+        core.addAuthRule('creator', (True, ('node:add',)))
+        core.addAuthRule('creator', (True, ('prop:set',)))
+        core.addAuthRule('creator', (True, ('tag:add',)))
+
+        core.addAuthRole('deleter')
+        core.addAuthRule('deleter', (True, ('node:del',)))
+        core.addAuthRule('deleter', (True, ('prop:del',)))
+        core.addAuthRule('deleter', (True, ('tag:del',)))
+
+    @contextlib.contextmanager
+    def getTestDmonCortexAxon(self, rootperms=True):
+        '''
+        Get a test Daemon with a Cortex and a Axon with a single BlobStor
+        enabled. The Cortex is an auth enabled cortex with the root username
+        and password as "root:root".
+
+        This environment can be used to run tests which require having both
+        an Cortex and a Axon readily available.
+
+        Valid connection URLs for the Axon and Cortex are set in the local
+        scope as "axonurl" and "coreurl" respectively.
+
+        Args:
+            perms (bool): If true, grant the root user * permissions on the Cortex.
+
+        Returns:
+            s_daemon.Daemon: A configured Daemon.
+        '''
+        with self.getTestDmon('axoncortexdmon') as dmon:
+
+            # Construct URLS for later use
+            blobstorurl = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/blobstor00'
+            axonurl = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/axon00'
+            coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
+
+            # register the blob with the Axon.
+            with dmon._getTestProxy('axon00') as axon:
+                axon.addBlobStor(blobstorurl)
+
+            # Add our helper URLs to scope so others don't
+            # have to construct them.
+            s_scope.set('axonurl', axonurl)
+            s_scope.set('coreurl', coreurl)
+            s_scope.set('blobstorurl', blobstorurl)
+
+            # grant the root user permissions
+            if rootperms:
+                with dmon._getTestProxy('core', user='root', passwd='root') as core:
+                    self.addCreatorDeleterRoles(core)
+                    core.addUserRole('root', 'creator')
+                    core.addUserRole('root', 'deleter')
+
+            yield dmon
 
 class SyncToAsyncCMgr():
     ''' Wraps a regular context manager in an async one '''

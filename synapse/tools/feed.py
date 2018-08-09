@@ -55,7 +55,7 @@ def main(argv, outp=None):
     if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
 
-    pars = makeargpaser()
+    pars = makeargparser()
     opts = pars.parse_args(argv)
 
     if opts.test:
@@ -77,7 +77,7 @@ def main(argv, outp=None):
 
     return 0
 
-def makeargpaser():
+def makeargparser():
     desc = 'Command line tool for ingesting data into a cortex'
     pars = argparse.ArgumentParser('synapse.tools.ingest', description=desc)
 

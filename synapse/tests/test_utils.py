@@ -291,3 +291,13 @@ class TestUtils(s_test.SynTest):
             return 1 / 0
 
         await self.asyncraises(ZeroDivisionError, araiser())
+
+    def test_dmoncoreaxon(self):
+        with self.getTestDmonCortexAxon() as dmon:
+            self.isin('core', dmon.cells)
+            self.isin('axon00', dmon.cells)
+            self.isin('blobstor00', dmon.cells)
+
+            with dmon._getTestProxy('core', user='root', passwd='root') as core:
+                node = core.addNode('teststr', 'hehe')
+                self.nn(node)
