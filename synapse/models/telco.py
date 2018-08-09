@@ -119,7 +119,7 @@ class Imsi(s_types.Type):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='invalid imsi len: %d' % (ilen,))
 
-        mcc = int(imsi[0:3])
+        mcc = imsi[0:3]
         # TODO full imsi analysis tree
         return valu, {'subs': {'mcc': mcc}}
 
@@ -213,6 +213,25 @@ class TelcoModule(s_module.CoreModule):
 
                 ('tel:mob:telem', ('guid', {}), {
                     'doc': 'A single mobile telemetry measurement.'}),
+
+                ('tel:mob:mcc', ('str', {'regex': '^[0-9]{3}$', 'strip': 1}), {
+                    'doc': 'ITU Mobile Country Code',
+                }),
+
+                ('tel:mob:mnc', ('str', {'regex': '^[0-9]{2,3}$', 'strip': 1}), {
+                    'doc': 'ITU Mobile Network Code',
+                }),
+
+                ('tel:mob:carrier', ('comp', {'fields': (('mcc', 'tel:mob:mcc'), ('mnc', 'tel:mob:mnc'))}), {
+                    'doc': 'The fusion of a MCC/MNC.'
+                }),
+
+                ('tel:mob:cell', ('comp', {'fields': (('carrier', 'tel:mob:carrier'),
+                                                      ('lac', ('int', {})),
+                                                      ('cid', ('int', {})))}), {
+                    'doc': 'A mobile cell site which a phone may connect to.'
+                }),
+
             ),
 
             'forms': (
@@ -250,7 +269,7 @@ class TelcoModule(s_module.CoreModule):
                     })
                 )),
                 ('tel:mob:imsi', {}, (
-                    ('mcc', ('int', {}), {
+                    ('mcc', ('tel:mob:mcc', {}), {
                         'ro': 1,
                         'doc': 'The Mobile Country Code.',
                     }),
@@ -274,6 +293,27 @@ class TelcoModule(s_module.CoreModule):
                         'doc': 'The IMSI with the assigned phone number.'
                     }),
                 )),
+                ('tel:mob:mcc', {}, ()),
+                ('tel:mob:carrier', {}, (
+                    ('mcc', ('tel:mob:mcc', {}), {
+                        'ro': 1,
+                    }),
+                    ('mnc', ('tel:mob:mnc', {}), {
+                        'ro': 1,
+                    }),
+                    ('org', ('ou:org', {}), {
+                        'doc': 'Organization operating the carrier.'
+                    })
+                )),
+                ('tel:mob:cell', {}, (
+                    ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier'}),
+                    ('carrier:mcc', ('tel:mob:mcc', {}), {'doc': 'Mobile Country Code'}),
+                    ('carrier:mnc', ('tel:mob:mnc', {}), {'doc': 'Mobile Network Code'}),
+                    ('lac', ('int', {}), {'doc': 'Location Area Code. LTE networks may call this a TAC.'}),
+                    ('cid', ('int', {}), {'doc': 'Cell ID'}),
+                    ('radio', ('str', {'lower': 1, 'onespace': 1}), {'doc': 'Cell radio type.'}),
+                    ('latlong', ('geo:latlong', {}), {'doc': 'Last known location of the cell site.'})
+                )),
 
                 ('tel:mob:telem', {}, (
 
@@ -281,6 +321,7 @@ class TelcoModule(s_module.CoreModule):
                     ('latlong', ('geo:latlong', {}), {}),
 
                     # telco specific data
+                    ('cell', ('tel:mob:cell', {}), {}),
                     ('imsi', ('tel:mob:imsi', {}), {}),
                     ('imei', ('tel:mob:imei', {}), {}),
                     ('phone', ('tel:phone', {}), {}),
@@ -292,6 +333,10 @@ class TelcoModule(s_module.CoreModule):
 
                     ('wifi:ssid', ('inet:wifi:ssid', {}), {}),
                     ('wifi:bssid', ('inet:mac', {}), {}),
+
+                    # host specific data
+                    ('aaid', ('it:os:android:aaid', {}), {}),
+                    ('idfa', ('it:os:ios:idfa', {}), {}),
 
                     ('data', ('data', {}), {}),
                     # any other fields may be refs...
