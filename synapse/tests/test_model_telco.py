@@ -100,18 +100,3 @@ class TelcoModelTest(s_test.SynTest):
                 # Prefix search
                 nodes = list(snap.getNodesBy('tel:phone', '1703555*'))
                 self.len(2, nodes)
-
-class Fixme:
-
-    def test_model_telco_cast_loc_us(self):
-        with self.getRamCore() as core:
-            self.eq(core.getTypeCast('tel:loc:us', '7035551212'), 17035551212)
-            self.eq(core.getTypeCast('tel:loc:us', '17035551212'), 17035551212)
-            self.eq(core.getTypeCast('tel:loc:us', '0017035551212'), 17035551212)
-            self.eq(core.getTypeCast('tel:loc:us', '01117035551212'), 17035551212)
-
-            self.eq(core.getTypeCast('tel:loc:us', '+865551212'), 865551212)
-            self.eq(core.getTypeCast('tel:loc:us', '+17035551212'), 17035551212)
-
-            self.eq(core.getTypeCast('tel:loc:us', '7(495) 124-59-83'), 74951245983)
-            self.eq(core.getTypeCast('tel:loc:us', '+7(495) 124-59-83'), 74951245983)

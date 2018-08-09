@@ -9,54 +9,6 @@ import synapse.lookup.phonenum as s_l_phone
 
 logger = logging.getLogger(__name__)
 
-intls = (
-    ('us', '1', '011', 10),
-)
-
-# Fixme What do we want to do with these typecasters?
-def genTelLocCast(iso2, cc, idd, size):
-    '''
-    Generate a generic phone canonicalizer for numbers which
-    may reside within an arbitrary country's local exchange.
-    '''
-    clen = len(cc)
-    ilen = len(idd)
-
-    def castTelLocal(valu):
-        try:
-
-            rawp = str(valu).strip()
-            valu = digits(rawp)
-            if not valu:
-                return None
-
-            if rawp[0] == '+':
-                return int(valu)
-
-            # since 00 and 011 are so common
-            # (and generally incompatible with local)
-            if valu.startswith('00'):
-                return int(valu[2:])
-
-            if valu.startswith('011'):
-                return int(valu[3:])
-
-            if idd not in ('00', '011') and valu.startswith(idd):
-                return int(valu[ilen:])
-
-            if valu.startswith(cc):
-                return int(valu)
-
-            if len(valu) == size:
-                return int(cc + valu)
-
-            return int(valu)
-
-        except Exception as e:
-            logger.exception('cast tel:loc:%s' % iso2)
-            return None
-
-    return castTelLocal
 
 def digits(text):
     return ''.join([c for c in text if c.isdigit()])
@@ -351,12 +303,6 @@ class TelcoModule(s_module.CoreModule):
         return ((name, modl),)
 
 class TelMod(s_module.CoreModule):
-
-    def initCoreModule(self):
-        # TODO
-        # event handlers which cache and resolve prefixes to tag phone numbers
-        for iso2, cc, idd, size in intls:
-            self.core.addTypeCast('tel:loc:%s' % iso2, genTelLocCast(iso2, cc, idd, size))
 
     @staticmethod
     def getBaseModels():
