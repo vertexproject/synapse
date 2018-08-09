@@ -293,7 +293,9 @@ class TelcoModule(s_module.CoreModule):
                         'doc': 'The IMSI with the assigned phone number.'
                     }),
                 )),
-                ('tel:mob:mcc', {}, ()),
+                ('tel:mob:mcc', {}, (
+                    ('loc', ('loc', {}), {'doc': 'Location assigned to the MCC.'}),
+                )),
                 ('tel:mob:carrier', {}, (
                     ('mcc', ('tel:mob:mcc', {}), {
                         'ro': 1,
@@ -315,7 +317,10 @@ class TelcoModule(s_module.CoreModule):
                     ('lac', ('int', {}), {'doc': 'Location Area Code. LTE networks may call this a TAC.'}),
                     ('cid', ('int', {}), {'doc': 'Cell ID'}),
                     ('radio', ('str', {'lower': 1, 'onespace': 1}), {'doc': 'Cell radio type.'}),
-                    ('latlong', ('geo:latlong', {}), {'doc': 'Last known location of the cell site.'})
+                    ('latlong', ('geo:latlong', {}), {'doc': 'Last known location of the cell site.'}),
+                    ('loc', ('loc', {}), {
+                        'doc': 'Location the cell is operated at.'
+                    }),
                 )),
 
                 ('tel:mob:telem', {}, (

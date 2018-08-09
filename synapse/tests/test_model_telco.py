@@ -52,8 +52,9 @@ class TelcoModelTest(s_test.SynTest):
                 self.eq(node.get('phone'), '74951245983')
 
                 # tel:mob:mcc
-                node = snap.addNode('tel:mob:mcc', '666')
-                self.eq(node.ndef[1], '666')
+                node = snap.addNode('tel:mob:mcc', '611', {'loc': 'gn'})
+                self.eq(node.ndef[1], '611')
+                self.eq(node.get('loc'), 'gn')
 
                 # tel:mob:carrier
                 node = snap.addNode('tel:mob:carrier', ('001', '02'), {'org': oguid, 'loc': 'us'})
@@ -65,12 +66,14 @@ class TelcoModelTest(s_test.SynTest):
 
                 # tel:mob:cell
                 node = snap.addNode('tel:mob:cell', (('001', '02'), 3, 4), {'radio': 'Pirate  ',
-                                                                            'latlong': (0, 0)})
+                                                                            'latlong': (0, 0),
+                                                                            'loc': 'us.ca.la'})
                 self.eq(node.get('carrier'), ('001', '02'))
                 self.eq(node.get('carrier:mcc'), '001')
                 self.eq(node.get('carrier:mnc'), '02')
                 self.eq(node.get('lac'), 3)
                 self.eq(node.get('cid'), 4)
+                self.eq(node.get('loc'), 'us.ca.la')
                 self.eq(node.get('radio'), 'pirate')
                 self.eq(node.get('latlong'), (0.0, 0.0))
 
