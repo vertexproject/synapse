@@ -56,11 +56,12 @@ class TelcoModelTest(s_test.SynTest):
                 self.eq(node.ndef[1], '666')
 
                 # tel:mob:carrier
-                node = snap.addNode('tel:mob:carrier', ('001', '02'), {'org': oguid})
+                node = snap.addNode('tel:mob:carrier', ('001', '02'), {'org': oguid, 'loc': 'us'})
                 self.eq(node.ndef[1], ('001', '02'))
                 self.eq(node.get('mcc'), '001')
                 self.eq(node.get('mnc'), '02')
                 self.eq(node.get('org'), oguid)
+                self.eq(node.get('loc'), 'us')
 
                 # tel:mob:cell
                 node = snap.addNode('tel:mob:cell', (('001', '02'), 3, 4), {'radio': 'Pirate  ',

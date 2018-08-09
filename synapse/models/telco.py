@@ -303,7 +303,10 @@ class TelcoModule(s_module.CoreModule):
                     }),
                     ('org', ('ou:org', {}), {
                         'doc': 'Organization operating the carrier.'
-                    })
+                    }),
+                    ('loc', ('loc', {}), {
+                        'doc': 'Location the carrier operates from.'
+                    }),
                 )),
                 ('tel:mob:cell', {}, (
                     ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier'}),
