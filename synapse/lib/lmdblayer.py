@@ -32,8 +32,6 @@ class LmdbXact(s_layer.Xact):
 
         self.layr = layr
         self.write = write
-        self.spliced = False
-        self.splices = []
 
         self.indxfunc = {
             'eq': self._rowsByEq,
@@ -54,41 +52,6 @@ class LmdbXact(s_layer.Xact):
         self.buidcache = s_cache.FixedCache(self._getBuidProps, size=10000)
         self.tid = s_threads.iden()
 
-        # our constructor gets a ref!
-        self.refs = 1
-
-        self._stor_funcs = {
-            'prop:set': self._storPropSet,
-            'prop:del': self._storPropDel,
-        }
-
-    @contextlib.contextmanager
-    def incxref(self):
-        '''
-        A reference count context manager for the Xact.
-
-        This API is *not* thread safe and is meant only for use
-        in determining when generators running within one thread
-        are complete.
-        '''
-        self.refs += 1
-
-        yield
-
-        self.decref()
-
-    def decref(self):
-        '''
-        Decrement the reference count for the Xact.
-
-        This API is *not* thread safe and is meant only for use
-        in determining when generators running within one thread
-        are complete.
-        '''
-        self.refs -= 1
-        if self.refs == 0:
-            self.commit()
-
     def setOffset(self, iden, offs):
         return self.layr.offs.xset(self.xact, iden, offs)
 
@@ -105,16 +68,6 @@ class LmdbXact(s_layer.Xact):
                 raise s_exc.NoSuchStor(name=oper[0])
             func(oper)
 
-    def getLiftRows(self, lops):
-
-        for oper in lops:
-
-            func = self._lift_funcs.get(oper[0])
-            if func is None:
-                raise s_exc.NoSuchLift(name=oper[0])
-
-            yield from func(oper)
-
     def abort(self):
 
         if self.tid != s_threads.iden():
@@ -126,7 +79,6 @@ class LmdbXact(s_layer.Xact):
 
         if self.tid != s_threads.iden():
             raise s_exc.BadThreadIden()
-
         if self.splices:
             self.layr.splicelog.save(self.xact, self.splices)
 
@@ -467,9 +419,6 @@ class LmdbLayer(s_layer.Layer):
         offsdb = self.initdb('offsets')
         self.offs = s_lmdb.Offs(self.lenv, offsdb)
 
-        self.spliced = threading.Event()
-        self.onfini(self.spliced.set)
-
         self.splicedb = self.initdb('splices')
         self.splicelog = s_lmdb.Seqn(self.lenv, b'splices')
 
@@ -494,6 +443,7 @@ class LmdbLayer(s_layer.Layer):
         return self.dbs.get(name)
 
     def initdb(self, name, dupsort=False):
+        # FIXME:  need to consider whether this is the right public API
         db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
         self.dbs[name] = db
         return db

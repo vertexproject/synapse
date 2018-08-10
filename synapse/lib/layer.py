@@ -32,15 +32,10 @@ class Xact(s_eventbus.EventBus):
     '''
     A Layer transaction which encapsulates the storage implementation.
     '''
+
     def __init__(self, layr, write=False):
 
         s_eventbus.EventBus.__init__(self)
-
-        self.indxfunc = {
-            'eq': self._rowsByEq,
-            'pref': self._rowsByPref,
-            'range': self._rowsByRange,
-        }
 
         self._lift_funcs = {
             'indx': self._liftByIndx,
@@ -49,8 +44,27 @@ class Xact(s_eventbus.EventBus):
             'form:re': self._liftByFormRe,
         }
 
+        self._stor_funcs = {
+            'prop:set': self._storPropSet,
+            'prop:del': self._storPropDel,
+        }
+
+        self.splices = []
+        self.spliced = False
         self.layr = layr
         self.write = write
+        # our constructor gets a ref!
+        self.refs = 1
+
+    def getLiftRows(self, lops):
+        for oper in lops:
+
+            func = self._lift_funcs.get(oper[0])
+            if func is None:
+                raise s_exc.NoSuchLift(name=oper[0])
+
+            yield from func(oper)
+
 
     @contextlib.contextmanager
     def incxref(self):
@@ -85,14 +99,15 @@ class Xact(s_eventbus.EventBus):
     def getOffset(self, iden):  # pragma: no cover
         raise NotImplementedError
 
-    def stor(self, sops):  # pragma: no cover
+    def stor(self, sops):
         '''
         Execute a series of storage operations.
         '''
-        raise NotImplementedError
-
-    def getLiftRows(self, lops):  # pragma: no cover
-        raise NotImplementedError
+        for oper in sops:
+            func = self._stor_funcs.get(oper[0])
+            if func is None:
+                raise s_exc.NoSuchStor(name=oper[0])
+            func(oper)
 
     def abort(self):  # pragma: no cover
         raise NotImplementedError
@@ -157,6 +172,9 @@ class Layer(s_cell.Cell):
     '''
     def __init__(self, dirn):
         s_cell.Cell.__init__(self, dirn)
+        self.spliced = threading.Event()
+        self.onfini(self.spliced.set)
+
 
     def getOffset(self, iden):  # pragma: no cover
         raise NotImplementedError

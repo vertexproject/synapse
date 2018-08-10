@@ -352,6 +352,17 @@ def yamlsave(obj, *paths):
         fd.truncate(0)
         fd.write(s.encode('utf8'))
 
+def yamlmod(obj, *paths):
+    '''
+    Combines/creates a yaml file and combines with obj.  obj and file must be maps or empty.
+    '''
+    oldobj = yamlload(*paths)
+    if obj:
+        if oldobj:
+            yamlsave({**oldobj, **obj}, *paths)
+        else:
+            yamlsave(obj, *paths)
+
 def verstr(vtup):
     '''
     Convert a version tuple to a string.
