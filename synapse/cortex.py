@@ -410,6 +410,9 @@ class Cortex(s_cell.Cell):
         # write layer.
         for layerdir in sorted((d for d in layersdir.iterdir() if d.is_dir()), reverse=True):
             logger.info('loading external layer from %s', layerdir)
+            if not pathlib.Path(layerdir, 'boot.yaml').exists():
+                logger.warn('Skipping layer directory %s due to missing boot.yaml', layerdir)
+                continue
             layer = s_cells.initFromDirn(layerdir)
             if not isinstance(layer, s_layer.Layer):
                 raise s_exc.BadConfValu('layer dir %s must contain Layer cell', layerdir)
