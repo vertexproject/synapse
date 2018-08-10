@@ -224,7 +224,10 @@ class Daemon(EventBus):
 
     def _onDmonFini(self):
         for s in self.listenservers:
-            s.close()
+            try:
+                s.close()
+            except Exception as e:  # pragma: no cover
+                logger.warning('Error during socket server close()', excinfo=e)
         for name, share in self.shared.items():
             if isinstance(share, EventBus):
                 share.fini()
