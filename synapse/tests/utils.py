@@ -446,6 +446,9 @@ class StreamEvent(io.StringIO, threading.Event):
 
 class SynTest(unittest.TestCase):
 
+    def setUp(self):
+        self.alt_write_layer = None
+
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
         self.eq(node.ndef, ex_ndef)
@@ -546,19 +549,20 @@ class SynTest(unittest.TestCase):
            conf:  additional configuration entries.  Combined with contents from mirror.
         '''
         with self.getTestDir(mirror=mirror) as dirn:
-            if conf is not None:
-                oldconf = s_common.yamlload(dirn, 'cell.yaml')
-                s_common.yamlsave({**oldconf, **conf}, dirn, 'cell.yaml')
-            if extra_layers is not None:
-
-                # The default layer population won't get triggered, so make the default layer
-                layerdir = s_common.gendir(dirn, 'layers', '000-default')
+            s_cells.deploy('cortex', dirn)
+            s_common.yamlmod(conf, dirn, 'cell.yaml')
+            ldir = s_common.gendir(dirn, 'layers')
+            layerdir = pathlib.Path(ldir, '000-default')
+            if self.alt_write_layer:
+                os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
+                # This is the tricky case; we're modifying a different directory
+            else:
+                layerdir.mkdir()
                 s_cells.deploy('layer-lmdb', layerdir)
-                cell_yaml = pathlib.Path(layerdir, 'cell.yaml')
-                conf = {'lmdb:mapsize': TEST_MAP_SIZE}
-                s_common.yamlsave(conf, cell_yaml)
-                for i, fn in enumerate(extra_layers):
-                    os.symlink(fn, os.path.join(dirn, 'layers', f'{i + 1:03}-testlayer'))
+                s_common.yamlmod({'lmdb:mapsize': TEST_MAP_SIZE}, layerdir, 'cell.yaml')
+            for i, fn in enumerate(extra_layers or []):
+                src = pathlib.Path(fn).resolve()
+                os.symlink(src, pathlib.Path(ldir, f'{i + 1:03}-testlayer'))
 
             with s_cortex.Cortex(dirn) as core:
                 yield core
