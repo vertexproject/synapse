@@ -62,8 +62,8 @@ class SnapTest(s_t_common.SynTest):
     def test_addNodes(self):
         with self.getTestCore() as core:
             with core.snap() as snap:
-                # ndefs = ()
-                # self.len(0, list(snap.addNodes(ndefs)))
+                ndefs = ()
+                self.len(0, list(snap.addNodes(ndefs)))
 
                 ndefs = (
                     (('teststr', 'hehe'), {'props': {'.created': 5, 'tick': 3}, 'tags': {'cool': (1, 2)}}, ),
@@ -75,6 +75,10 @@ class SnapTest(s_t_common.SynTest):
                 self.eq(node.props.get('tick'), 3)
                 self.ge(node.props.get('.created', 0), 5)
                 self.eq(node.tags.get('cool'), (1, 2))
+
+                nodes = list(snap.getNodesBy('teststr', 'hehe'))
+                self.len(1, nodes)
+                self.eq(nodes[0], node)
 
                 with self.getTestDir() as dirn:
                     with s_auth.Auth(dirn) as auth:
@@ -171,8 +175,7 @@ class SnapTest(s_t_common.SynTest):
             node = (('inet:ipv4', 1), {'props': {'asn': 42}})
             nodes_core1 = list(core1.addNodes([node]))
 
-            layerfn = os.path.join(core1.dirn, 'layers', '000-default')
-            with self.getTestCore(extra_layers=[layerfn]) as core, core.snap() as snap:
+            with self._getTestCoreMultiLayer(core1.dirn) as core, core.snap() as snap:
                 # Basic sanity check
                 nodes = list(snap.getNodesBy('inet:ipv4', 1))
                 self.len(1, nodes)
