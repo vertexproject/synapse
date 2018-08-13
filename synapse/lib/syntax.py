@@ -958,13 +958,13 @@ class Parser:
 
     def propjoin(self, prop):
         '''
-        :foo:bar <- baz:faz
+        :foo:bar -+> baz:faz
         '''
         pval = s_ast.RelPropValue(kids=(prop,))
 
         self.ignore(whitespace)
 
-        self.nextmust('<-')
+        self.nextmust('-+>')
 
         self.ignore(whitespace)
 
@@ -1032,7 +1032,7 @@ class Parser:
             if self.nextstr('->'):
                 return self.proppivot(prop)
 
-            if self.nextstr('<-'):
+            if self.nextstr('-+>'):
                 return self.propjoin(prop)
 
         name = self.noms(varset)
