@@ -443,7 +443,6 @@ class StreamEvent(io.StringIO, threading.Event):
         if self.mesg and self.mesg in s:
             self.set()
 
-
 class SynTest(unittest.TestCase):
 
     def setUp(self):
@@ -554,8 +553,7 @@ class SynTest(unittest.TestCase):
             ldir = s_common.gendir(dirn, 'layers')
             layerdir = pathlib.Path(ldir, '000-default')
             if self.alt_write_layer:
-                os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
-                # This is the tricky case; we're modifying a different directory
+                os.symlink(self.alt_write_layer, layerdir)
             else:
                 layerdir.mkdir()
                 s_cells.deploy('layer-lmdb', layerdir)
@@ -571,6 +569,11 @@ class SynTest(unittest.TestCase):
     def getTestDmon(self, mirror='dmontest'):
 
         with self.getTestDir(mirror=mirror) as dirn:
+            coredir = pathlib.Path(dirn, 'cells', 'core')
+            if coredir.is_dir():
+                ldir = s_common.gendir(coredir, 'layers')
+                if self.alt_write_layer:
+                    os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
 
             certdir = s_certdir.defdir
 
@@ -975,6 +978,11 @@ class SynTest(unittest.TestCase):
             s_common.yamlsave(boot, cdir, 'boot.yaml')
         if conf:
             s_common.yamlsave(conf, cdir, 'cell.yaml')
+        if name == 'cortex' and self.alt_write_layer:
+            ldir = s_common.gendir(cdir, 'layers')
+            layerdir = pathlib.Path(ldir, '000-default')
+            os.symlink(self.alt_write_layer, layerdir)
+            pass
         return s_cells.init(name, cdir)
 
     def getIngestDef(self, guid, seen):

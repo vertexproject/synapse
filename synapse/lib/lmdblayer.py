@@ -361,7 +361,6 @@ class LmdbLayer(s_layer.Layer):
     )
 
     def __init__(self, dirn):
-
         s_layer.Layer.__init__(self, dirn)
 
         path = os.path.join(self.dirn, 'layer.lmdb')

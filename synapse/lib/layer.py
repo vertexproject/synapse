@@ -50,7 +50,6 @@ class Xact(s_eventbus.EventBus):
         }
 
         self.splices = []
-        self.spliced = False
         self.layr = layr
         self.write = write
         # our constructor gets a ref!
