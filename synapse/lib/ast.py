@@ -555,6 +555,10 @@ class FormPivot(PivotOper):
             full = self.prop.name + ':n1'
 
             for node, path in genr:
+
+                if self.isjoin:
+                    yield node, path
+
                 for pivo in self.snap.getNodesBy(full, node.ndef):
                     yield pivo, path.fork(pivo)
 

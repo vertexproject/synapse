@@ -944,6 +944,17 @@ class CortexTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][0], ('pivtarg', 'foo'))
 
+            q = 'teststr=bar -> pivcomp:lulz'
+            nodes = getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+
+            q = 'teststr=bar -+> pivcomp:lulz'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('teststr', 'bar'))
+
             q = 'pivcomp=(foo,bar) -+> pivtarg'
             nodes = getPackNodes(core, q)
             self.len(2, nodes)
@@ -987,6 +998,12 @@ class CortexTest(s_test.SynTest):
 
             # A simple edge for testing pivotinfrom with a edge to n2
             nodes = list(core.eval('[has=((teststr, foobar), (teststr, foo))]'))
+
+            q = 'teststr=foobar -+> has'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('has', (('teststr', 'foobar'), ('teststr', 'foo'))))
+            self.eq(nodes[1][0], ('teststr', 'foobar'))
 
             # traverse from node to edge:n1
             q = 'teststr=foo <- has'
