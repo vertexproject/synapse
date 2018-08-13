@@ -1009,6 +1009,14 @@ class CortexTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][1][0], ('testint', 127))
 
+            # Bad pivots go here
+            for q in ['pivcomp :lulz <- *',
+                      'pivcomp :lulz <+- *',
+                      'pivcomp :lulz <- teststr',
+                      'pivcomp :lulz <+- teststr',
+                      ]:
+                self.raises(s_exc.BadStormSyntax)
+
     def test_node_repr(self):
 
         with self.getTestCore() as core:

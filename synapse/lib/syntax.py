@@ -1035,6 +1035,9 @@ class Parser:
             if self.nextstr('-+>'):
                 return self.propjoin(prop)
 
+            if self.nextstrs('<-', '<+-'):
+                self._raiseSyntaxError('Pivot in syntax does not currently support relative properties.')
+
         name = self.noms(varset)
         if not name:
             self._raiseSyntaxError('unknown query syntax')
