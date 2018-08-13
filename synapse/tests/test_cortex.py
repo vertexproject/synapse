@@ -931,10 +931,8 @@ class CortexTest(s_test.SynTest):
             return nodes
 
         with self.getTestCore() as core:
-
+            # seed a node for pivoting
             list(core.eval('[ pivcomp=(foo,bar) :tick=2018 ]'))
-
-            ###########3
 
             q = 'pivcomp=(foo,bar) -> pivtarg'
             nodes = getPackNodes(core, q)
@@ -965,9 +963,16 @@ class CortexTest(s_test.SynTest):
             self.eq(nodes[1][0], ('pivtarg', 'foo'))
             self.eq(nodes[2][0], ('teststr', 'bar'))
 
+            q = 'pivcomp=(foo,bar) :lulz -> teststr'
+            nodes = getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('teststr', 'bar'))
+
             q = 'pivcomp=(foo,bar) :lulz -+> teststr'
             nodes = getPackNodes(core, q)
             self.len(2, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('teststr', 'bar'))
 
             q = 'teststr=bar <- *'
             nodes = getPackNodes(core, q)
@@ -980,6 +985,37 @@ class CortexTest(s_test.SynTest):
             self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
             self.eq(nodes[1][0], ('teststr', 'bar'))
 
+            # A simple edge for testing pivotinfrom with a edge to n2
+            nodes = list(core.eval('[has=((teststr, foobar), (teststr, foo))]'))
+
+            # traverse from node to edge:n1
+            q = 'teststr=foo <- has'
+            nodes = getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('has', (('teststr', 'foobar'), ('teststr', 'foo'))))
+
+            # traverse from node to edge:n1 with a join
+            q = 'teststr=foo <+- has'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('has', (('teststr', 'foobar'), ('teststr', 'foo'))))
+            self.eq(nodes[1][0], ('teststr', 'foo'))
+
+            # Traverse from a edge to :n2
+            # (this is technically a circular query)
+            q = 'teststr=foobar -> has <- teststr'
+            nodes = getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('teststr', 'foobar'))
+
+            # Traverse from a edge to :n2 with a join
+            # (this is technically a circular query)
+            q = 'teststr=foobar -> has <+- teststr'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('has', (('teststr', 'foobar'), ('teststr', 'foo'))))
+            self.eq(nodes[1][0], ('teststr', 'foobar'))
+
             # Add tag
             q = 'teststr=bar pivcomp=(foo,bar) [+#test.bar]'
             nodes = getPackNodes(core, q)
@@ -989,11 +1025,18 @@ class CortexTest(s_test.SynTest):
             nodes = getPackNodes(core, q)
             self.len(1, nodes)
             self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
-            nodes = [n.pack() for n in core.eval('#test.bar +teststr <+- *')]
+
+            # Pivot tests with optimized lifts
+            q = '#test.bar +teststr <+- *'
+            nodes = getPackNodes(core, q)
             self.len(2, nodes)
-            nodes = [n.pack() for n in core.eval('#test.bar +pivcomp -> *')]
+
+            q = '#test.bar +pivcomp -> *'
+            nodes = getPackNodes(core, q)
             self.len(2, nodes)
-            nodes = [n.pack() for n in core.eval('#test.bar +pivcomp -+> *')]
+
+            q = '#test.bar +pivcomp -+> *'
+            nodes = getPackNodes(core, q)
             self.len(3, nodes)
 
             # Setup a propvalu pivot where the secondary prop may fail to norm

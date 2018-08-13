@@ -874,7 +874,7 @@ class Parser:
 
     def formpivotin(self):
         '''
-        <- *
+        <- * / <- prop
         '''
 
         self.ignore(whitespace)
@@ -892,7 +892,7 @@ class Parser:
 
     def formjoinin(self):
         '''
-        <+- *
+        <+- * / <+- prop
         '''
 
         self.ignore(whitespace)
@@ -901,9 +901,12 @@ class Parser:
 
         self.ignore(whitespace)
 
-        self.nextmust('*')
+        if self.nextchar() == '*':
+            self.offs += 1
+            return s_ast.PivotIn(isjoin=True)
 
-        return s_ast.PivotIn(isjoin=True)
+        prop = self.absprop()
+        return s_ast.PivotInFrom(kids=(prop,), isjoin=True)
 
     def formpivot(self):
 

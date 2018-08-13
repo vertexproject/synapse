@@ -491,6 +491,10 @@ class PivotInFrom(PivotOper):
             full = self.form.name + ':n2'
 
             for node, path in genr:
+
+                if self.isjoin:
+                    yield node, path
+
                 for pivo in self.snap.getNodesBy(full, node.ndef):
                     yield pivo, path.fork(pivo)
 
@@ -498,6 +502,9 @@ class PivotInFrom(PivotOper):
 
         # edge <- form
         for node, path in genr:
+
+            if self.isjoin:
+                yield node, path
 
             if not isinstance(node.form.type, s_types.Edge):
                 continue
