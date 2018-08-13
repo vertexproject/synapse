@@ -1058,7 +1058,7 @@ class CortexTest(s_test.SynTest):
                       'pivcomp :lulz <- teststr',
                       'pivcomp :lulz <+- teststr',
                       ]:
-                self.raises(s_exc.BadStormSyntax)
+                self.genraises(s_exc.BadStormSyntax, core.eval, q)
 
     def test_node_repr(self):
 
