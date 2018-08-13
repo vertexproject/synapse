@@ -639,28 +639,9 @@ class CortexTest(s_test.SynTest):
             for node in core.eval('teststr="foo bar" [ -:tick ]'):
                 self.none(node.get('tick'))
 
-            for node in core.eval('[ pivcomp=(foo,bar) ] -> pivtarg'):
-                self.eq(node.ndef[0], 'pivtarg')
-                self.eq(node.ndef[1], 'foo')
-
-            for node in core.eval('pivcomp=(foo,bar) :targ -> pivtarg'):
-                self.eq(node.ndef[0], 'pivtarg')
-                self.eq(node.ndef[1], 'foo')
-
             for node in core.eval('[testguid="*" :tick=2001]'):
                 self.true(s_common.isguid(node.ndef[1]))
                 self.nn(node.get('tick'))
-
-            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -> pivtarg')])
-
-            self.len(1, nodes)
-            self.eq(nodes[0][0], ('pivtarg', 'foo'))
-
-            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -+> pivtarg')])
-
-            self.len(2, nodes)
-            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
-            self.eq(nodes[1][0], ('pivtarg', 'foo'))
 
             nodes = [n.pack() for n in core.eval('teststr="foo bar" +teststr')]
             self.len(1, nodes)
@@ -945,39 +926,67 @@ class CortexTest(s_test.SynTest):
 
     def test_pivot_inout(self):
 
+        def getPackNodes(core, query):
+            nodes = sorted([n.pack() for n in core.eval(query)])
+            return nodes
+
         with self.getTestCore() as core:
 
             list(core.eval('[ pivcomp=(foo,bar) :tick=2018 ]'))
 
-            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -> *')])
+            ###########3
 
+            q = 'pivcomp=(foo,bar) -> pivtarg'
+            nodes = getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('pivtarg', 'foo'))
+
+            q = 'pivcomp=(foo,bar) :targ -> pivtarg'
+            nodes = getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('pivtarg', 'foo'))
+
+            q = 'pivcomp=(foo,bar) -+> pivtarg'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('pivtarg', 'foo'))
+
+            q = 'pivcomp=(foo,bar) -> *'
+            nodes = getPackNodes(core, q)
             self.len(2, nodes)
             self.eq(nodes[0][0], ('pivtarg', 'foo'))
             self.eq(nodes[1][0], ('teststr', 'bar'))
 
-            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -+> *')])
-
+            q = 'pivcomp=(foo,bar) -+> *'
+            nodes = getPackNodes(core, q)
             self.len(3, nodes)
             self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
             self.eq(nodes[1][0], ('pivtarg', 'foo'))
             self.eq(nodes[2][0], ('teststr', 'bar'))
 
-            nodes = sorted([n.pack() for n in core.eval('teststr=bar <- *')])
+            q = 'pivcomp=(foo,bar) :lulz -+> teststr'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
 
+            q = 'teststr=bar <- *'
+            nodes = getPackNodes(core, q)
             self.len(1, nodes)
             self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
 
-            nodes = sorted([n.pack() for n in core.eval('teststr=bar <+- *')])
-
+            q = 'teststr=bar <+- *'
+            nodes = getPackNodes(core, q)
             self.len(2, nodes)
             self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
             self.eq(nodes[1][0], ('teststr', 'bar'))
 
             # Add tag
-            nodes = list(core.eval('teststr=bar pivcomp=(foo,bar) [+#test.bar]'))
+            q = 'teststr=bar pivcomp=(foo,bar) [+#test.bar]'
+            nodes = getPackNodes(core, q)
             self.len(2, nodes)
             # Lift, filter, pivot in
-            nodes = [n.pack() for n in core.eval('#test.bar +teststr <- *')]
+            q = '#test.bar +teststr <- *'
+            nodes = getPackNodes(core, q)
             self.len(1, nodes)
             self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
             nodes = [n.pack() for n in core.eval('#test.bar +teststr <+- *')]
