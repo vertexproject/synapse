@@ -124,14 +124,44 @@ class Xact(s_eventbus.EventBus):
     def _storPropDel(self, oper):  # pragma: no cover
         raise NotImplementedError
 
-    def _liftByFormRe(self, oper):  # pragma: no cover
-        raise NotImplementedError
+    def _liftByFormRe(self, oper):
+
+        form, query, info = oper[1]
+
+        regx = regex.compile(query)
+
+        for buid, valu in self.iterFormRows(form):
+
+            # for now... but maybe repr eventually?
+            if not isinstance(valu, str):
+                valu = str(valu)
+
+            if not regx.search(valu):
+                continue
+
+            yield (buid, )
 
     def _liftByUnivRe(self, oper):  # pragma: no cover
         raise NotImplementedError
 
-    def _liftByPropRe(self, oper):  # pragma: no cover
-        raise NotImplementedError
+    def _liftByPropRe(self, oper):
+        # ('regex', (<form>, <prop>, <regex>, info))
+        form, prop, query, info = oper[1]
+
+        regx = regex.compile(query)
+
+        # full table scan...
+        for buid, valu in self.iterPropRows(form, prop):
+
+            # for now... but maybe repr eventually?
+            if not isinstance(valu, str):
+                valu = str(valu)
+
+            if not regx.search(valu):
+                continue
+
+            #yield buid, form, prop, valu
+            yield (buid, )
 
     def _liftByIndx(self, oper):  # pragma: no cover
         raise NotImplementedError
@@ -174,7 +204,6 @@ class Layer(s_cell.Cell):
         s_cell.Cell.__init__(self, dirn)
         self.spliced = threading.Event()
         self.onfini(self.spliced.set)
-
 
     def getOffset(self, iden):  # pragma: no cover
         raise NotImplementedError

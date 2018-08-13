@@ -181,23 +181,6 @@ class LmdbXact(s_layer.Xact):
         if univ:
             self.xact.delete(penc + oldi, pvvalu, db=self.layr.byuniv)
 
-    def _liftByFormRe(self, oper):
-
-        form, query, info = oper[1]
-
-        regx = regex.compile(query)
-
-        for buid, valu in self.iterFormRows(form):
-
-            # for now... but maybe repr eventually?
-            if not isinstance(valu, str):
-                valu = str(valu)
-
-            if not regx.search(valu):
-                continue
-
-            yield (buid, )
-
     def _liftByUnivRe(self, oper):
 
         prop, query, info = oper[1]
@@ -213,26 +196,6 @@ class LmdbXact(s_layer.Xact):
             if not regx.search(valu):
                 continue
 
-            yield (buid, )
-
-    def _liftByPropRe(self, oper):
-
-        # ('regex', (<form>, <prop>, <regex>, info))
-        form, prop, query, info = oper[1]
-
-        regx = regex.compile(query)
-
-        # full table scan...
-        for buid, valu in self.iterPropRows(form, prop):
-
-            # for now... but maybe repr eventually?
-            if not isinstance(valu, str):
-                valu = str(valu)
-
-            if not regx.search(valu):
-                continue
-
-            #yield buid, form, prop, valu
             yield (buid, )
 
     def _liftByIndx(self, oper):

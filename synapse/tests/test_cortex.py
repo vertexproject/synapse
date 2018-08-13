@@ -500,7 +500,7 @@ class CortexTest(s_test.SynTest):
                 self.false(node.hasTag('foo'))
                 self.false(node.hasTag('foo.bar'))
 
-    def test_base_types(self):
+    def test_base_types1(self):
 
         with self.getTestCore() as core:
 
@@ -513,6 +513,7 @@ class CortexTest(s_test.SynTest):
                 self.nn(node)
                 self.eq(node.get('intprop'), 21)
 
+    def test_base_types2(self):
         with self.getTestCore() as core:
 
             with core.snap() as snap:
