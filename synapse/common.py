@@ -349,7 +349,19 @@ def yamlsave(obj, *paths):
     with genfile(path) as fd:
         s = yaml.safe_dump(obj, allow_unicode=False, default_flow_style=False,
                            default_style='', explicit_start=True, explicit_end=True)
+        fd.truncate(0)
         fd.write(s.encode('utf8'))
+
+def yamlmod(obj, *paths):
+    '''
+    Combines/creates a yaml file and combines with obj.  obj and file must be maps/dict or empty.
+    '''
+    oldobj = yamlload(*paths)
+    if obj:
+        if oldobj:
+            yamlsave({**oldobj, **obj}, *paths)
+        else:
+            yamlsave(obj, *paths)
 
 def verstr(vtup):
     '''

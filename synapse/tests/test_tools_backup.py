@@ -44,4 +44,4 @@ class BackupTest(s_test.SynTest):
                                          cmpr_path,
                                          skipfns=['lock.mdb'])
                 # We expect the data.mdb file to be in the fpset
-                self.isin('/layers/default/layer.lmdb/data.mdb', fpset)
+                self.isin('/layers/000-default/layer.lmdb/data.mdb', fpset)

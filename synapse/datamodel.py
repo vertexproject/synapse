@@ -193,6 +193,12 @@ class Univ:
                 ('indx', ('byuniv', self.pref, iops)),
             )
 
+        # TODO: make types control this more tightly...
+        if cmpr == '~=':
+            return (
+                ('univ:re', (self.name, valu, {})),
+            )
+
         iops = self.type.getIndxOps(valu)
 
         return (

@@ -17,21 +17,19 @@ use to be invoked via the built-in Unittest library.
 import io
 import os
 import sys
-import time
 import types
 import shutil
 import logging
+import pathlib
 import tempfile
 import unittest
 import threading
 import contextlib
 
 import synapse.exc as s_exc
-import synapse.axon as s_axon
 import synapse.data as s_data
 import synapse.glob as s_glob
 import synapse.cells as s_cells
-import synapse.lib.cell as s_cell
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
@@ -43,7 +41,6 @@ import synapse.telepath as s_telepath
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
-import synapse.lib.msgpack as s_msgpack
 import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)
@@ -446,8 +443,10 @@ class StreamEvent(io.StringIO, threading.Event):
         if self.mesg and self.mesg in s:
             self.set()
 
-
 class SynTest(unittest.TestCase):
+
+    def setUp(self):
+        self.alt_write_layer = None
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
@@ -541,7 +540,7 @@ class SynTest(unittest.TestCase):
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
     @contextlib.contextmanager
-    def getTestCore(self, mirror='testcore', conf=None):
+    def getTestCore(self, mirror='testcore', conf=None, extra_layers=None):
         '''
         Return a simple test Cortex.
 
@@ -549,9 +548,19 @@ class SynTest(unittest.TestCase):
            conf:  additional configuration entries.  Combined with contents from mirror.
         '''
         with self.getTestDir(mirror=mirror) as dirn:
-            if conf is not None:
-                oldconf = s_common.yamlload(dirn, 'cell.yaml')
-                s_common.yamlsave({**oldconf, **conf}, dirn, 'cell.yaml')
+            s_cells.deploy('cortex', dirn)
+            s_common.yamlmod(conf, dirn, 'cell.yaml')
+            ldir = s_common.gendir(dirn, 'layers')
+            layerdir = pathlib.Path(ldir, '000-default')
+            if self.alt_write_layer:
+                os.symlink(self.alt_write_layer, layerdir)
+            else:
+                layerdir.mkdir()
+                s_cells.deploy('layer-lmdb', layerdir)
+                s_common.yamlmod({'lmdb:mapsize': TEST_MAP_SIZE}, layerdir, 'cell.yaml')
+            for i, fn in enumerate(extra_layers or []):
+                src = pathlib.Path(fn).resolve()
+                os.symlink(src, pathlib.Path(ldir, f'{i + 1:03}-testlayer'))
 
             with s_cortex.Cortex(dirn) as core:
                 yield core
@@ -560,6 +569,11 @@ class SynTest(unittest.TestCase):
     def getTestDmon(self, mirror='dmontest'):
 
         with self.getTestDir(mirror=mirror) as dirn:
+            coredir = pathlib.Path(dirn, 'cells', 'core')
+            if coredir.is_dir():
+                ldir = s_common.gendir(coredir, 'layers')
+                if self.alt_write_layer:
+                    os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
 
             certdir = s_certdir.defdir
 
@@ -964,6 +978,10 @@ class SynTest(unittest.TestCase):
             s_common.yamlsave(boot, cdir, 'boot.yaml')
         if conf:
             s_common.yamlsave(conf, cdir, 'cell.yaml')
+        if name == 'cortex' and self.alt_write_layer:
+            ldir = s_common.gendir(cdir, 'layers')
+            layerdir = pathlib.Path(ldir, '000-default')
+            os.symlink(self.alt_write_layer, layerdir)
         return s_cells.init(name, cdir)
 
     def getIngestDef(self, guid, seen):

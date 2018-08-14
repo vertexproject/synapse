@@ -203,3 +203,10 @@ class CommonTest(s_test.SynTest):
             robj = s_common.yamlload(dirn, 'test.yaml')
 
             self.eq(obj, robj)
+
+            obj = {'foo': 'bar', 'zap': [3, 4, 'f']}
+            s_common.yamlsave(obj, dirn, 'test.yaml')
+            s_common.yamlmod({'bar': 42}, dirn, 'test.yaml')
+            robj = s_common.yamlload(dirn, 'test.yaml')
+            obj['bar'] = 42
+            self.eq(obj, robj)

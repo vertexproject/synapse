@@ -1,4 +1,6 @@
 import os
+import contextlib
+
 import synapse.exc as s_exc
 import synapse.lib.auth as s_auth
 import synapse.tests.common as s_t_common
@@ -71,8 +73,12 @@ class SnapTest(s_t_common.SynTest):
 
                 node = result[0]
                 self.eq(node.props.get('tick'), 3)
-                self.ge(node.props.get('.created'), 5)
+                self.ge(node.props.get('.created', 0), 5)
                 self.eq(node.tags.get('cool'), (1, 2))
+
+                nodes = list(snap.getNodesBy('teststr', 'hehe'))
+                self.len(1, nodes)
+                self.eq(nodes[0], node)
 
                 with self.getTestDir() as dirn:
                     with s_auth.Auth(dirn) as auth:
@@ -111,6 +117,18 @@ class SnapTest(s_t_common.SynTest):
                         self.none(snap.getNodeByNdef(('testtime', 'baz')))
                         self.nn(snap.getNodeByNdef(('teststr', 'faz')))
 
+    @contextlib.contextmanager
+    def _getTestCoreMultiLayer(self, first_dirn):
+        '''
+        Custom logic to make a second cortex that puts another cortex's layer underneath.
+
+        Notes:
+            This method is broken out so subclasses can override.
+        '''
+        layerfn = os.path.join(first_dirn, 'layers', '000-default')
+        with self.getTestCore(extra_layers=[layerfn]) as core:
+            yield core
+
     def test_cortex_lift_layers_bad_filter(self):
         '''
         Test a two layer cortex where a lift operation gives the wrong result
@@ -119,8 +137,7 @@ class SnapTest(s_t_common.SynTest):
             node = (('inet:ipv4', 1), {'props': {'asn': 42, '.seen': (1, 2)}, 'tags': {'woot': (1, 2)}})
             nodes_core1 = list(core1.addNodes([node]))
 
-            layerfn = os.path.join(core1.dirn, 'layers', 'default')
-            with self.getTestCore(conf={'layers': [layerfn]}) as core, core.snap() as snap:
+            with self._getTestCoreMultiLayer(core1.dirn) as core, core.snap() as snap:
                 # Basic sanity check
                 nodes = list(snap.getNodesBy('inet:ipv4', 1))
                 self.len(1, nodes)
@@ -159,8 +176,7 @@ class SnapTest(s_t_common.SynTest):
             node = (('inet:ipv4', 1), {'props': {'asn': 42}})
             nodes_core1 = list(core1.addNodes([node]))
 
-            layerfn = os.path.join(core1.dirn, 'layers', 'default')
-            with self.getTestCore(conf={'layers': [layerfn]}) as core, core.snap() as snap:
+            with self._getTestCoreMultiLayer(core1.dirn) as core, core.snap() as snap:
                 # Basic sanity check
                 nodes = list(snap.getNodesBy('inet:ipv4', 1))
                 self.len(1, nodes)
