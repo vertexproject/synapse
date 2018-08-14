@@ -714,16 +714,18 @@ class Storage(s_config.Config):
             **kwargs: Arguments which are passed to the storage layer
                 implementation of _genStoreRows().
 
-        Notes:
-            Since this is intended for use as a backup mechanism for a Storage
-            object, it is not to be considered a performant API.
-
         Yields:
             list: List of rows.  The number of rows and contents
             will vary by implementation.
         '''
         for rows in self._genStoreRows(**kwargs):
             yield rows
+
+    def getSize(self):
+        '''
+        Returns the total number of raw rows.
+        '''
+        raise s_common.NoSuchImpl(name='getSize', mesg='Store does not implement getSize')
 
     def _loadUpdateProperty(self, mesg):
         oldprop = mesg[1].get('oldprop')

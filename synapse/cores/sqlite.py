@@ -143,6 +143,7 @@ class SqliteStorage(s_cores_storage.Storage):
     _t_getrows_by_iden_prop_strval = 'SELECT * FROM {{TABLE}} WHERE iden={{IDEN}} AND prop={{PROP}} AND strval={{VALU}}'
 
     _t_getrows_by_iden_range = 'SELECT * FROM {{TABLE}} WHERE iden >= {{LOWERBOUND}} and iden < {{UPPERBOUND}}'
+    _t_getrows = 'SELECT * FROM {{TABLE}} LIMIT -1 OFFSET {{OFFSET}}'
     _t_getiden_max = 'SELECT MAX(iden) FROM {{TABLE}}'
     _t_getiden_min = 'SELECT MIN(iden) FROM {{TABLE}}'
 
@@ -169,6 +170,7 @@ class SqliteStorage(s_cores_storage.Storage):
     _t_getrows_by_prop_int_wminmax = 'SELECT * FROM {{TABLE}} WHERE prop={{PROP}} AND intval={{VALU}} AND tstamp >= {{MINTIME}} AND tstamp<{{MAXTIME}} LIMIT {{LIMIT}}'
     _t_getrows_by_prop_str_wminmax = 'SELECT * FROM {{TABLE}} WHERE prop={{PROP}} AND strval={{VALU}} AND tstamp >= {{MINTIME}} AND tstamp<{{MAXTIME}} LIMIT {{LIMIT}}'
     ################################################################################
+    _t_getsize = 'SELECT COUNT(*) FROM {{TABLE}}'
     _t_getsize_by_prop = 'SELECT COUNT(*) FROM {{TABLE}} WHERE prop={{PROP}} LIMIT {{LIMIT}}'
     _t_getsize_by_prop_int = 'SELECT COUNT(*) FROM {{TABLE}} WHERE prop={{PROP}} AND intval={{VALU}} LIMIT {{LIMIT}}'
     _t_getsize_by_prop_str = 'SELECT COUNT(*) FROM {{TABLE}} WHERE prop={{PROP}} AND strval={{VALU}} LIMIT {{LIMIT}}'
@@ -388,6 +390,7 @@ class SqliteStorage(s_cores_storage.Storage):
         self._q_getrows_by_iden_prop_strval = self._prepQuery(self._t_getrows_by_iden_prop_strval)
 
         self._q_getrows_by_iden_range = self._prepQuery(self._t_getrows_by_iden_range)
+        self._q_getrows = self._prepQuery(self._t_getrows)
         self._q_getiden_max = self._prepQuery(self._t_getiden_max)
         self._q_getiden_min = self._prepQuery(self._t_getiden_min)
 
@@ -427,6 +430,7 @@ class SqliteStorage(s_cores_storage.Storage):
         self._q_getjoin_by_prop_str_wmax = self._prepQuery(self._t_getjoin_by_prop_str_wmax)
         self._q_getjoin_by_prop_str_wminmax = self._prepQuery(self._t_getjoin_by_prop_str_wminmax)
         ###################################################################################
+        self._q_getsize = self._prepQuery(self._t_getsize)
         self._q_getsize_by_prop = self._prepQuery(self._t_getsize_by_prop)
         self._q_getsize_by_prop_wmin = self._prepQuery(self._t_getsize_by_prop_wmin)
         self._q_getsize_by_prop_wmax = self._prepQuery(self._t_getsize_by_prop_wmax)
@@ -526,8 +530,6 @@ class SqliteStorage(s_cores_storage.Storage):
             }
         }
 
-        self._q_getsize_by_prop = self._prepQuery(self._t_getsize_by_prop)
-
         self._q_getsize_by_ge = self._prepQuery(self._t_getsize_by_ge)
         self._q_getsize_by_le = self._prepQuery(self._t_getsize_by_le)
         self._q_getsize_by_range = self._prepQuery(self._t_getsize_by_range)
@@ -616,6 +618,12 @@ class SqliteStorage(s_cores_storage.Storage):
         with self.getCoreXact() as xact:
             xact.cursor.execute(q, args)
             return xact.cursor.fetchall()
+
+    def selectiter(self, q, **args):
+        with self.getCoreXact() as xact:
+            xact.cursor.execute(q, args)
+            for row in xact.cursor:
+                yield row
 
     def delete(self, q, **args):
         with self.getCoreXact() as xact:
@@ -731,87 +739,29 @@ class SqliteStorage(s_cores_storage.Storage):
     def _genStoreRows(self, **kwargs):
         '''
         Generator which yields lists of rows from the DB in tuple form.
-
-        This works by performing range lookups on iden prefixes over the range
-        of 00000000000000000000000000000000 to ffffffffffffffffffffffffffffffff.
-        The runtime of this is dependent on the number of rows in the DB,
-        but is generally the fastest approach to getting rows out of the DB
-        in a linear time fashion.
-
         Args:
             **kwargs: Optional args.
 
         Notes:
-            The following values may be passed in as kwargs in order to
+            The following value may be passed in as kwargs in order to
             impact the performance of _genStoreRows:
 
-            * slicebytes: The number of bytes to use when generating the iden
+            * gsize: The number of bytes to use when generating the iden
               prefix values.  This defaults to 4.
-            * incvalu (int): The amount in which to increase the internal
-              counter used to generate the prefix by on each pass.  This value
-              determines the width of the iden range looked up at a single
-              time.  This defaults to 4.
-
-            The number of queries which are executed by this generator is
-            equal to (16 ** slicebytes) / incvalu.  This defaults to 16384
-            queries.
-
+            * offset: Skip the first offset rows
         Returns:
             list: List of tuples, each containing an iden, property, value and timestamp.
         '''
-        slicebytes = kwargs.get('slicebytes', 4)
-        incvalu = kwargs.get('incvalu', 4)
+        gsize = kwargs.get('gsize', 10000)
+        offset = kwargs.get('offset', 0)
+        i = ((i, p, sv if iv is None else iv, t) for i, p, iv, sv, t in self.selectiter(self._q_getrows,
+                                                                                        offset=offset))
 
-        # Compute upper and lower bounds up front
-        lowest_iden = '00000000000000000000000000000000'
-        highst_iden = 'ffffffffffffffffffffffffffffffff'
+        return s_common.chunks(i, gsize)
 
-        highest_core_iden = self.select(self._q_getiden_max)[0][0]
-        if not highest_core_iden:
-            # No rows present at all - return early
-            return
-
-        fmt = '{{:0={}x}}'.format(slicebytes)
-        maxv = 16 ** slicebytes
-        num_queries = int(maxv / incvalu)
-        q_count = 0
-        percentaged = {}
-        if num_queries > 128:
-            percentaged = {int((num_queries * i) / 100): i for i in range(100)}
-
-        # Setup lower bound and first upper bound
-        lowerbound = lowest_iden[:slicebytes]
-        c = int(lowerbound, 16) + incvalu
-        upperbound = fmt.format(c)
-
-        logger.info('Dumping rows - slicebytes %s, incvalu %s', slicebytes, incvalu)
-        logger.info('Will perform %s SQL queries given the slicebytes/incvalu calculations.', num_queries)
-        while True:
-            # Check to see if maxv is reached
-            if c >= maxv:
-                upperbound = highst_iden
-            rows = self.select(self._q_getrows_by_iden_range, lowerbound=lowerbound, upperbound=upperbound)
-            q_count += 1
-            completed_rate = percentaged.get(q_count)
-            if completed_rate:
-                logger.info('Completed %s%% queries', completed_rate)
-            if rows:
-                rows = self._foldTypeCols(rows)
-                # print(len(rows), lowerbound, upperbound)
-                yield rows
-            if c >= maxv:
-                break
-            # Increment and continue
-            c += incvalu
-            lowerbound = upperbound
-            upperbound = fmt.format(c)
-            continue
-
-        # Edge case because _q_getrows_by_iden_range is exclusive on the upper bound.
-        if highest_core_iden == highst_iden:
-            rows = self.select(self._q_getrows_by_iden, iden=highest_core_iden)
-            rows = self._foldTypeCols(rows)
-            yield rows
+    def getSize(self):
+        q = self._q_getsize
+        return self.select(q)[0][0]
 
     def getStoreType(self):
         return 'sqlite'

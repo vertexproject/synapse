@@ -671,6 +671,7 @@ class CortexBaseTest(SynTest):
             ('ffffffffffffffffffffffffffffffff', 'inet:asn:name', 'Laphroaig Byte Minery Limited', tick)
         ]
         core.addRows(newrows)
+        self.gt(core.store.getSize(), 1000)
         for _rows in core.store.genStoreRows(slicebytes=2):
             rows.extend(_rows)
         # A default cortex may have a few thousand rows in it - ensure we get at least 1000 rows here.

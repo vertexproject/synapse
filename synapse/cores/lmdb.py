@@ -757,6 +757,11 @@ class LmdbStorage(s_cores_storage.Storage):
 
         return count if do_count_only else ret
 
+    def getSize(self):
+        with self._getTxn() as txn, txn.cursor(db=self.rows) as cur:
+            cur.first()
+            return sum(1 for _ in cur.iternext(keys=False, values=False))
+
     def _genStoreRows(self, **kwargs):
         gsize = kwargs.get('gsize', 1000)
         lifted = 0
