@@ -76,6 +76,9 @@ class LmdbXact(s_layer.Xact):
 
         self.xact.abort()
 
+        # LMDB transaction requires explicit delete to recover resources
+        del self.xact
+
     def commit(self):
 
         if self.tid != s_threads.iden():
@@ -84,6 +87,9 @@ class LmdbXact(s_layer.Xact):
             self.layr.splicelog.save(self.xact, self.splices)
 
         self.xact.commit()
+
+        # LMDB transaction requires explicit delete to recover resources
+        del self.xact
 
         # wake any splice waiters...
         if self.splices:
