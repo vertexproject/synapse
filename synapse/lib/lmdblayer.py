@@ -3,12 +3,13 @@ The layer library contains the base Layer object and helpers used for
 cortex construction.
 '''
 import os
-import lmdb
-import regex
 import logging
 import threading
 import contextlib
 import collections
+
+import lmdb
+import regex
 
 import synapse.exc as s_exc
 import synapse.eventbus as s_eventbus
@@ -180,23 +181,6 @@ class LmdbXact(s_layer.Xact):
 
         if univ:
             self.xact.delete(penc + oldi, pvvalu, db=self.layr.byuniv)
-
-    def _liftByUnivRe(self, oper):
-
-        prop, query, info = oper[1]
-
-        regx = regex.compile(query)
-
-        for buid, valu in self.iterUnivRows(prop):
-
-            # for now... but maybe repr eventually?
-            if not isinstance(valu, str):
-                valu = str(valu)
-
-            if not regx.search(valu):
-                continue
-
-            yield (buid, )
 
     def _liftByIndx(self, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))

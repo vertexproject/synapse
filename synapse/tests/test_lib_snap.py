@@ -122,7 +122,8 @@ class SnapTest(s_t_common.SynTest):
         '''
         Custom logic to make a second cortex that puts another cortex's layer underneath.
 
-        N.B. This method is broken out so subclasses can override.
+        Notes:
+            This method is broken out so subclasses can override.
         '''
         layerfn = os.path.join(first_dirn, 'layers', '000-default')
         with self.getTestCore(extra_layers=[layerfn]) as core:

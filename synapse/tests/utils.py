@@ -982,7 +982,6 @@ class SynTest(unittest.TestCase):
             ldir = s_common.gendir(cdir, 'layers')
             layerdir = pathlib.Path(ldir, '000-default')
             os.symlink(self.alt_write_layer, layerdir)
-            pass
         return s_cells.init(name, cdir)
 
     def getIngestDef(self, guid, seen):

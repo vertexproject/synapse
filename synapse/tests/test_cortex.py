@@ -9,6 +9,7 @@ from urllib.request import urlopen
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
+import synapse.datamodel as s_datamodel
 
 import synapse.tests.common as s_test
 
@@ -123,18 +124,19 @@ class CortexTest(s_test.SynTest):
             self.eq(ivals, tuple(sorted([row[1] for row in rows])))
 
     def test_cortex_lift_regex(self):
-
         with self.getTestCore() as core:
+            core.model.addUnivProp('favcolor', ('str', {}), {})
 
             with core.snap() as snap:
-                node = snap.addNode('teststr', 'hezipha')
+                node = snap.addNode('teststr', 'hezipha', props={'.favcolor': 'red'})
                 node = snap.addNode('testcomp', (20, 'lulzlulz'))
 
             self.len(0, core.eval('testcomp:haha~="^zerg"'))
             self.len(1, core.eval('testcomp:haha~="^lulz"'))
 
             self.len(1, core.eval('teststr~="zip"'))
-            self.len(0, core.eval('teststr~="gronk"'))
+            self.len(1, core.eval('teststr~="zip"'))
+            self.len(1, core.eval('.favcolor~="^r"'))
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
     def test_feed_conf(self):

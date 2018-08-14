@@ -140,8 +140,22 @@ class Xact(s_eventbus.EventBus):
 
             yield (buid, )
 
-    def _liftByUnivRe(self, oper):  # pragma: no cover
-        raise NotImplementedError
+    def _liftByUnivRe(self, oper):
+
+        prop, query, info = oper[1]
+
+        regx = regex.compile(query)
+
+        for buid, valu in self.iterUnivRows(prop):
+
+            # for now... but maybe repr eventually?
+            if not isinstance(valu, str):
+                valu = str(valu)
+
+            if not regx.search(valu):
+                continue
+
+            yield (buid, )
 
     def _liftByPropRe(self, oper):
         # ('regex', (<form>, <prop>, <regex>, info))

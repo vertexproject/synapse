@@ -410,7 +410,7 @@ class Cortex(s_cell.Cell):
         # write layer.
         for layerdir in sorted((d for d in layersdir.iterdir() if d.is_dir()), reverse=True):
             logger.info('loading external layer from %s', layerdir)
-            if not pathlib.Path(layerdir, 'boot.yaml').exists():
+            if not pathlib.Path(layerdir, 'boot.yaml').exists():  # pragma: no cover
                 logger.warning('Skipping layer directory %s due to missing boot.yaml', layerdir)
                 continue
             layer = s_cells.initFromDirn(layerdir)
@@ -819,7 +819,11 @@ class Cortex(s_cell.Cell):
                 pnodes.append(obj)
         return pnodes
 
-    def _migrateOldDefaultLayer(self):
+    # FIXME can remove this before 010 release, since 'old' is prelease 010.
+    def _migrateOldDefaultLayer(self):  # pragma: no cover
+        '''
+        Migrate from 'old' 010 layers configuration structure
+        '''
         layersdir = pathlib.Path(self.dirn, 'layers')
         new_path = pathlib.Path(layersdir, DEFAULT_LAYER_NAME)
         logger.info('Migrating old default layer to new location at %s', new_path)
