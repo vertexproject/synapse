@@ -6,6 +6,8 @@ import collections
 
 import synapse.exc as s_exc
 import synapse.eventbus as s_eventbus
+
+import synapse.lib.coro as s_coro
 import synapse.lib.mixins as s_mixins
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
@@ -230,7 +232,11 @@ class Cli(s_eventbus.EventBus):
 
         self.loopthread = None
 
-        self.item.onfini(self._onItemFini)
+        if isinstance(item, s_eventbus.EventBus):
+            self.item.onfini(self._onItemFini)
+
+        if isinstance(item, s_coro.Fini):
+            self.item.onfini(self._onItemFini)
 
         self.cmds = {}
         self.cmdprompt = 'cli> '
