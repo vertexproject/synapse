@@ -227,7 +227,7 @@ class Daemon(EventBus):
             try:
                 s.close()
             except Exception as e:  # pragma: no cover
-                logger.warning('Error during socket server close()', excinfo=e)
+                logger.warning('Error during socket server close()', exc_info=e)
         for name, share in self.shared.items():
             if isinstance(share, EventBus):
                 share.fini()
