@@ -233,10 +233,7 @@ class Cli(s_eventbus.EventBus):
         self.finikill = False
         self.loopthread = None
 
-        if isinstance(item, s_eventbus.EventBus):
-            self.item.onfini(self._onItemFini)
-
-        if isinstance(item, s_coro.Fini):
+        if isinstance(item, (s_coro.Fini, s_eventbus.EventBus)):
             self.item.onfini(self._onItemFini)
 
         self.cmds = {}
