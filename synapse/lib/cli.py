@@ -1,9 +1,13 @@
 import json
+import signal
+import threading
 import traceback
 import collections
 
 import synapse.exc as s_exc
 import synapse.eventbus as s_eventbus
+
+import synapse.lib.coro as s_coro
 import synapse.lib.mixins as s_mixins
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
@@ -226,12 +230,27 @@ class Cli(s_eventbus.EventBus):
         self.locs = locs
         self.item = item    # whatever object we are commanding
 
+        self.finikill = False
+        self.loopthread = None
+
+        if isinstance(item, (s_coro.Fini, s_eventbus.EventBus)):
+            self.item.onfini(self._onItemFini)
+
         self.cmds = {}
         self.cmdprompt = 'cli> '
 
         self.addCmdClass(CmdHelp)
         self.addCmdClass(CmdQuit)
         self.addCmdClass(CmdLocals)
+
+    def _onItemFini(self):
+
+        self.printf('connection closed...')
+
+        self.fini()
+
+        if self.loopthread is not None and self.finikill:
+            signal.pthread_kill(self.loopthread, signal.SIGINT)
 
     def reflectItem(self):
         refl = s_reflect.getItemInfo(self.item)
@@ -300,6 +319,8 @@ class Cli(s_eventbus.EventBus):
         '''
         Run commands from a user in an interactive fashion until fini() or EOFError is raised.
         '''
+        self.loopthread = threading.currentThread().ident
+
         import readline
 
         try:
@@ -329,6 +350,10 @@ class Cli(s_eventbus.EventBus):
                 self.runCmdLine(line)
 
             except KeyboardInterrupt as e:
+
+                if self.isfini:
+                    return
+
                 self.printf('<ctrl-c>')
 
             except (s_exc.CliFini, EOFError) as e:

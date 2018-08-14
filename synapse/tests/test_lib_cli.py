@@ -1,6 +1,5 @@
-
+import threading
 import unittest.mock as mock
-
 
 import synapse.exc as s_exc
 import synapse.lib.cli as s_cli
@@ -277,3 +276,14 @@ class CliTest(s_test.SynTest):
                 self.true(outp.expect('ZeroDivisionError'))
                 self.true(outp.expect('<ctrl-c>'))
                 self.true(cli.isfini)
+
+    def test_cli_fini_disconnect(self):
+        evt = threading.Event()
+        outp = self.getTestOutp()
+        with self.getTestDmon('dmonboot') as dmon:
+            with dmon._getTestProxy('echo00') as prox:
+                cli = s_cli.Cli(prox, outp)
+                cli.onfini(evt.set)
+            self.true(evt.wait(2))
+            self.true(cli.isfini)
+            self.true(outp.expect('connection closed...'))
