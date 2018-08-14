@@ -366,12 +366,13 @@ class Cortex(s_cell.Cell):
         self.setFeedFunc('syn.splice', self._addSynSplice)
         self.setFeedFunc('syn.ingest', self._addSynIngest)
 
+        self._initCoreLayers()
+
         self.model = s_datamodel.Model()
+
         self.addCoreMods(s_modules.coremods)
         mods = self.conf.get('modules')
         self.addCoreMods(mods)
-
-        self._initCoreLayers()
 
         # these may be used directly
         self.view = View(self, self.layers)
