@@ -111,7 +111,7 @@ class Query(AstNode):
 
         # used by the di-graph projection logic
         self._graph_done = {}
-        self._graph_want = {}
+        self._graph_want = collections.deque()
 
         self.tick = None
         self.canceled = False
@@ -151,23 +151,43 @@ class Query(AstNode):
     def _finiGraph(self):
 
         # gather up any remaining todo nodes
-        for ndef in self._graph_want.keys():
+        while self._graph_want:
+
+            ndef = self._graph_want.popleft()
+
+            if self._graph_done.get(ndef):
+                continue
+
             node = self.snap.getNodeByNdef(ndef)
-            yield node, node.initPath()
+            if node is None:
+                continue
+
+            path = node.initPath()
+
+            self._iterGraph(node, path)
+
+            yield node, path
 
     def _iterGraph(self, node, path):
 
         self._graph_done[node.ndef] = True
 
+        done = {}
         edges = []
+
         for name, ndef in node.getNodeRefs():
 
+            if done.get(ndef):
+                continue
+
+            done[ndef] = True
+
             iden = s_common.ehex(s_common.buid(ndef))
-            # edge def is (iden1, iden2, uniq): info...
 
-            edges.append(((iden, None), {}))
+            edges.append((iden, {}))
 
-            self._graph_want[ndef] = True
+            if not self._graph_done.get(ndef):
+                self._graph_want.append(ndef)
 
         path.meta('edges', edges)
 

@@ -104,13 +104,16 @@ class Node:
             pobj = self.form.props.get(name)
 
             if isinstance(pobj.type, s_types.Ndef):
-                retn.append(name, valu)
+                retn.append((name, valu))
                 continue
 
             if self.snap.model.forms.get(pobj.type.name) is None:
                 continue
 
             ndef = (pobj.type.name, valu)
+            if ndef == self.ndef:
+                continue
+
             retn.append((name, ndef))
 
         return retn
