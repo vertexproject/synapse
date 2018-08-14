@@ -230,6 +230,7 @@ class Cli(s_eventbus.EventBus):
         self.locs = locs
         self.item = item    # whatever object we are commanding
 
+        self.finikill = False
         self.loopthread = None
 
         if isinstance(item, s_eventbus.EventBus):
@@ -251,7 +252,7 @@ class Cli(s_eventbus.EventBus):
 
         self.fini()
 
-        if self.loopthread is not None:
+        if self.loopthread is not None and self.finikill:
             signal.pthread_kill(self.loopthread, signal.SIGINT)
 
     def reflectItem(self):

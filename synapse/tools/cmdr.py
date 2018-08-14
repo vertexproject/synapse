@@ -11,6 +11,7 @@ def main(argv):
     item = s_telepath.openurl(argv[1])
 
     cmdr = s_cmdr.getItemCmdr(item)
+    cmdr.finikill = True
 
     cmdr.runCmdLoop()
 
