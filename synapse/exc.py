@@ -10,7 +10,7 @@ class SynErr(Exception):
         return '%s: %s' % (self.__class__.__name__, displ)
 
     def items(self):
-        return self.errinfo.items()
+        return {k: v for k, v in self.errinfo.items()}
 
     def get(self, name):
         '''
@@ -110,6 +110,7 @@ class NoRevPath(SynErr): pass
 class NoSuchCtor(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchImpl(SynErr): pass
+class NoSuchIden(SynErr): pass
 class NoSuchName(SynErr): pass
 class NoSuchTufo(SynErr): pass
 class NoSuchOper(SynErr): pass
@@ -134,15 +135,12 @@ class ReadOnlyProp(SynErr): pass
 class ReqConfOpt(SynErr): pass
 
 class AxonErr(SynErr): pass
-class AxonIsRo(AxonErr): pass
-class AxonIsClone(AxonErr): pass
-class AxonNotClone(AxonErr): pass
 class AxonBadChunk(AxonErr): pass
-class NoWritableAxons(SynErr):
-    '''
-    There are no writable axons available for the required operation.
-    '''
-    pass
+class AxonNoBlobStors(AxonErr): pass
+class AxonBlobStorBsidChanged(AxonErr): pass
+class AxonUnknownBsid(AxonErr): pass
+class AxonUploaderFinished(AxonErr): pass
+class AxonBlobStorDisagree(AxonErr): pass
 
 class FileExists(SynErr): pass
 class NoCertKey(SynErr):

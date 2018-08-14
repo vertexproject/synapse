@@ -14,7 +14,7 @@ class FileBase(s_types.Type):
 
     def indxByPref(self, valu):
         valu = valu.strip().lower().replace('\\', '/')
-        indx = valu.encode('utf8')
+        indx = valu.encode('utf8', 'surrogatepass')
         return (
             ('pref', indx),
         )
@@ -33,7 +33,7 @@ class FileBase(s_types.Type):
         return norm, {'subs': subs}
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
 class FilePath(s_types.Type):
 
@@ -43,7 +43,7 @@ class FilePath(s_types.Type):
 
     def indxByPref(self, valu):
         valu = valu.strip().lower().replace('\\', '/')
-        indx = valu.encode('utf8')
+        indx = valu.encode('utf8', 'surrogatepass')
         return (
             ('pref', indx),
         )
@@ -60,6 +60,10 @@ class FilePath(s_types.Type):
         valu = valu.strip().lower().replace('\\', '/').strip('/')
         if not valu:
             return '', {}
+
+        if valu in ('.', '..'):
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='Cannot norm a bare relative path.')
 
         path = []
         vals = [v for v in valu.split('/') if v]
@@ -87,7 +91,7 @@ class FilePath(s_types.Type):
         return fullpath, {'subs': subs}
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
 class FileBytes(s_types.Type):
 
@@ -113,7 +117,8 @@ class FileBytes(s_types.Type):
                 subs = {'sha256': valu}
                 return f'sha256:{valu}', {'subs': subs}
 
-            raise s_exc.BadTypeValu(name=self.name, valu=valu)
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='unadorned file:bytes value is not a sha256')
 
         kind, kval = valu.split(':', 1)
 
@@ -131,21 +136,24 @@ class FileBytes(s_types.Type):
 
             kval = kval.lower()
             if not s_common.isguid(kval):
-                raise s_exc.BadTypeValu(name=self.name, valu=valu)
+                raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                        mesg='guid is not a guid')
 
             return f'guid:{kval}', {}
 
         if kind == 'sha256':
 
             if len(kval) != 64:
-                raise s_exc.BadTypeValu(name=self.name, valu=valu)
+                raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                        mesg='invalid length for sha256 valu')
 
             s_common.uhex(kval)
 
             subs = {'sha256': kval}
             return f'sha256:{kval}', {'subs': subs}
 
-        raise s_exc.BadTypeValu(name=self.name, valu=valu)
+        raise s_exc.BadTypeValu(name=self.name, valu=valu, kind=kind,
+                                mesg='unable to norm as file:bytes')
 
     def _normPyBytes(self, valu):
 
@@ -184,7 +192,7 @@ class FileModule(s_module.CoreModule):
             'types': (
 
                 ('file:ref', ('comp', {'fields': (('file', 'file:bytes'), ('node', 'ndef'))}), {
-                    'doc': 'A file that contains reference to the specififed node.'}),
+                    'doc': 'A file that contains reference to the specified node.'}),
 
                 ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
                     'doc': 'A parent file that fully contains the specified child file.',

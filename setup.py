@@ -21,8 +21,9 @@ setup(
         'msgpack==0.5.1',
         'xxhash>=1.0.1,<2.0.0',
         'lmdb>=0.94,<1.0.0',
+        'tornado>=5.1,<6.0.0',
         'regex>=2017.9.23',
-        'PyYAML>=3.12,<4.0',
+        'PyYAML>=3.13,<4.0',
     ],
 
     classifiers=[
@@ -35,5 +36,6 @@ setup(
         'Topic :: System :: Software Distribution',
 
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
     ],
 )

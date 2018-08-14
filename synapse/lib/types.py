@@ -64,6 +64,9 @@ class Type:
         sufx = xxhash.xxh64(indx).digest()
         return base + sufx
 
+    def pack(self):
+        return {'info': dict(self.info), 'opts': dict(self.opts)}
+
     def getTypeVals(self, valu):
         yield valu
 
@@ -72,6 +75,19 @@ class Type:
 
     def getCmprCtor(self, name):
         return self._cmpr_ctors.get(name)
+
+    def cmpr(self, val1, name, val2):
+        '''
+        Compare the two values using the given type specific comparitor.
+        '''
+        ctor = self.getCmprCtor(name)
+        if ctor is None:
+            raise s_exc.NoSuchCmpr(name=name)
+
+        norm1 = self.norm(val1)[0]
+        norm2 = self.norm(val2)[0]
+
+        return ctor(norm1)(norm2)
 
     def _ctorCmprEq(self, text):
         norm, info = self.norm(text)
@@ -288,7 +304,6 @@ class Type:
 
         return func(valu)
 
-
 class Bool(Type):
 
     def postTypeInit(self):
@@ -312,7 +327,8 @@ class Bool(Type):
         if sval in ('false', 'f', 'n', 'no', 'off'):
             return 0, {}
 
-        raise s_exc.BadTypeValu(name=self.name, valu=valu)
+        raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                mesg='Failed to norm bool')
 
     def _normPyInt(self, valu):
         return int(bool(valu)), {}
@@ -331,7 +347,8 @@ class Comp(Type):
 
         fields = self.opts.get('fields')
         if len(fields) != len(valu):
-            raise s_exc.BadTypeValu(name=self.name, valu=valu)
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='invalid number of fields given for norming')
 
         subs = {}
         adds = []
@@ -361,7 +378,7 @@ class Comp(Type):
         for valu, (name, typename) in zip(valu, fields):
 
             # if any of our comp fields need repr we do too...
-            rval = self.modl.types[typename].repr(valu)
+            rval = self.tcache[name].repr(valu)
 
             if rval is not None:
                 hit = True
@@ -418,7 +435,8 @@ class Guid(Type):
 
         valu = valu.lower()
         if not s_common.isguid(valu):
-            raise s_exc.BadTypeValu(name=self.name, valu=valu)
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='valu is not a guid.')
 
         return valu, {}
 
@@ -456,9 +474,8 @@ class Hex(Type):
 
     def _normPyStr(self, valu):
         valu = s_chop.hexstr(valu)
-
         if self._size and len(valu) != self._size:
-            raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size,
+            raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,
                                     mesg='invalid width')
         return valu, {}
 
@@ -535,17 +552,22 @@ class Int(Type):
         return cmpr
 
     def _normPyStr(self, valu):
-        return self._normPyInt(int(valu, 0))
+        try:
+            valu = int(valu, 0)
+        except ValueError as e:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg=str(e))
+        return self._normPyInt(valu)
 
     def _normPyInt(self, valu):
 
         if self.minval is not None and valu < self.minval:
             mesg = f'value is below min={self.minval}'
-            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
         if self.maxval is not None and valu > self.maxval:
             mesg = f'value is above max={self.maxval}'
-            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
         return valu, {}
 
@@ -607,7 +629,7 @@ class Ival(Type):
 
     def _normPyStr(self, valu):
         norm, info = self.timetype.norm(valu)
-        # until we support 2013+2years syntax...
+        # TODO until we support 2013+2years syntax...
         return (norm, norm + 1), {}
 
     def _normPyIter(self, valu):
@@ -659,7 +681,7 @@ class Loc(Type):
     def indx(self, norm):
         parts = norm.split('.')
         valu = '\x00'.join(parts) + '\x00'
-        return valu.encode('utf8')
+        return valu.encode('utf8', 'surrogatepass')
 
     def indxByEq(self, valu):
 
@@ -738,7 +760,7 @@ class Edge(Type):
         self.n2forms = None
 
         self.n1forms = self.opts.get('n1:forms', None)
-        self.n2forms = self.opts.get('n1:forms', None)
+        self.n2forms = self.opts.get('n2:forms', None)
 
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
@@ -751,7 +773,7 @@ class Edge(Type):
 
         if self.n1forms is not None:
             if n1[0] not in self.n1forms:
-                raise s_exc.BadTypeValu(valu, mesg='Invalid source node for edge type: %r' % n1[0])
+                raise s_exc.BadTypeValu(valu=n1[0], name=self.name, mesg='Invalid source node for edge type')
 
         subs['n1'] = n1
         subs['n1:form'] = n1[0]
@@ -760,7 +782,7 @@ class Edge(Type):
 
         if self.n2forms is not None:
             if n2[0] not in self.n2forms:
-                raise s_exc.BadTypeValu(valu, mesg='Invalid dest node for edge type: %r' % n2[0])
+                raise s_exc.BadTypeValu(valu=n2[0], name=self.name, mesg='Invalid dest node for edge type')
 
         subs['n2'] = n2
         subs['n2:form'] = n2[0]
@@ -814,11 +836,7 @@ class NodeProp(Type):
         self.setNormFunc(tuple, self._normPyTuple)
 
     def _normPyStr(self, valu):
-        try:
-            valu = valu.split('=', 1)
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu, mesg='invalid nodeprop string')
-
+        valu = valu.split('=', 1)
         return self._normPyTuple(valu)
 
     def _normPyTuple(self, valu):
@@ -859,22 +877,20 @@ class Range(Type):
         self.setNormFunc(tuple, self._normPyTuple)
 
     def _normPyStr(self, valu):
-        try:
-            valu = valu.split('-', 1)
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu, mesg='invalid range string')
-
+        valu = valu.split('-', 1)
         return self._normPyTuple(valu)
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
-            raise s_exc.BadTypeValu(valu, mesg=f'Must be a 2-tuple of type {self.subtype.name}')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=f'Must be a 2-tuple of type {self.subtype.name}')
 
         minv = self.subtype.norm(valu[0])[0]
         maxv = self.subtype.norm(valu[1])[0]
 
         if minv > maxv:
-            raise s_exc.BadTypeValu(valu, mesg='minval cannot be greater than maxval')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='minval cannot be greater than maxval')
 
         return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
 
@@ -932,7 +948,7 @@ class Str(Type):
             valu = s_chop.onespace(valu)
 
         return (
-            ('pref', valu.encode('utf8')),
+            ('pref', valu.encode('utf8', 'surrogatepass')),
         )
 
     def _normPyStr(self, valu):
@@ -960,7 +976,7 @@ class Str(Type):
         return norm, {}
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
 
 class Tag(Type):
@@ -987,7 +1003,8 @@ class Tag(Type):
 
         norm = '.'.join(toks)
         if not tagre.match(norm):
-            raise s_exc.BadTypeValu(valu=text)
+            raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                    mesg=f'Tag does not match tagre: [{tagre.pattern}]')
 
         if len(toks) > 1:
             subs['up'] = '.'.join(toks[:-1])
@@ -1023,6 +1040,10 @@ class Time(Type):
         if valu == 'now':
             return self._normPyInt(s_common.now())
 
+        # an unspecififed time in the future...
+        if valu == '?':
+            return 0x7fffffffffffffff, {}
+
         valu = s_time.parse(valu)
         return self._normPyInt(valu)
 
@@ -1040,6 +1061,10 @@ class Time(Type):
         return newv
 
     def repr(self, valu, defval=None):
+
+        if valu == 0x7fffffffffffffff:
+            return '?'
+
         return s_time.repr(valu)
 
     def indx(self, norm):
@@ -1053,7 +1078,7 @@ class Time(Type):
 
             lowr = valu.strip().lower()
             if not lowr:
-                raise s_exc.BadTypeValu(name='time', valu=valu)
+                raise s_exc.BadTypeValu(name=self.name, valu=valu)
 
             if lowr == 'now':
                 return s_common.now()

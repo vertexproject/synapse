@@ -50,7 +50,7 @@ class OuModelTest(s_test.SynTest):
                     'sic': '0119',
                     'naics': 541715,
                     'url': 'http://www.arrowinc.link',
-                    'us:cage': '7qe71'
+                    'us:cage': '7qe71',
                 }
                 node = snap.addNode('ou:org', guid0, oprops)
                 self.eq(node.ndef[1], guid0),
@@ -202,27 +202,3 @@ class OuModelTest(s_test.SynTest):
 
                 nodes = list(snap.getNodesBy('ou:org:naics', '22112', cmpr='^='))
                 self.len(2, nodes)
-
-class FIXME:
-
-    def test_model_orgs_seed_alias(self):
-        with self.getRamCore() as core:
-
-            node0 = core.formTufoByProp('ou:org:alias', 'wewtcorp', name='The Woot Corp')
-
-            self.eq(node0[1].get('ou:org:alias'), 'wewtcorp')
-            self.eq(node0[1].get('ou:org:name'), 'the woot corp')
-
-            node1 = core.formTufoByProp('ou:org:alias', 'wewtcorp')
-
-            self.eq(node0[0], node1[0])
-
-    def test_model_orgs_seed_name(self):
-        with self.getRamCore() as core:
-
-            node0 = core.formTufoByProp('ou:org:name', 'The Woot Corp')
-            node1 = core.formTufoByProp('ou:org:name', 'the woot corp')
-
-            self.eq(node0[1].get('ou:org:name'), 'the woot corp')
-
-            self.eq(node0[0], node1[0])

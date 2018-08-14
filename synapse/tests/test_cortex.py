@@ -1,5 +1,10 @@
+import json
 import threading
+
+import tornado.web as t_web
+
 from unittest.mock import patch
+from urllib.request import urlopen
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -7,7 +12,88 @@ import synapse.telepath as s_telepath
 
 import synapse.tests.common as s_test
 
+class HttpTestV1(t_web.RequestHandler):
+
+    def get(self):
+        self.write(b'woot')
+
 class CortexTest(s_test.SynTest):
+
+    def test_cortex_prop_pivout(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+                snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+
+            nodes = list([n.pack() for n in core.eval('inet:dns:a :ipv4 -> *')])
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('inet:ipv4', 0x01020304))
+
+    def test_cortex_of_the_future(self):
+
+        # test "future/ongoing" time stamp.
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                node = snap.addNode('teststr', 'foo')
+                node.addTag('lol', valu=('2015', '?'))
+
+                self.eq((1420070400000, 0x7fffffffffffffff), node.getTag('lol'))
+
+            nodes = [n.pack() for n in core.eval('teststr=foo +#lol@=2014')]
+            self.len(0, nodes)
+
+            nodes = [n.pack() for n in core.eval('teststr=foo +#lol@=2016')]
+            self.len(1, nodes)
+
+    def test_cortex_noderefs(self):
+
+        with self.getTestCore() as core:
+
+            sorc = s_common.guid()
+
+            with core.snap() as snap:
+
+                node = snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+
+                refs = dict(node.getNodeRefs())
+
+                self.eq(refs.get('fqdn'), ('inet:fqdn', 'woot.com'))
+                self.eq(refs.get('ipv4'), ('inet:ipv4', 0x01020304))
+
+                node.seen('now', source=sorc)
+
+            opts = {'vars': {'sorc': sorc}}
+            nodes = list([n.pack() for n in core.eval('seen:source=$sorc -> *', opts=opts)])
+
+            self.len(2, nodes)
+            self.true('inet:dns:a' in [n[0][0] for n in nodes])
+
+            opts = {'vars': {'sorc': sorc}}
+            nodes = list([n.pack() for n in core.eval('seen:source=$sorc :node -> *', opts=opts)])
+
+            self.len(1, nodes)
+            self.true('inet:dns:a' in [n[0][0] for n in nodes])
+
+    def test_cortex_http(self):
+
+        with self.getTestCore() as core:
+
+            core.addHttpApi('/v1/test', HttpTestV1)
+
+            url = core._getTestHttpUrl('v1/test')
+            self.eq(b'woot', urlopen(url).read())
+
+            url = core._getTestHttpUrl('v1/model')
+
+            resp = json.loads(urlopen(url).read())
+
+            self.eq(resp['status'], 'ok')
+
+            self.nn(resp['result'].get('forms'))
+            self.nn(resp['result'].get('types'))
 
     def test_cortex_iter_props(self):
 
@@ -27,14 +113,14 @@ class CortexTest(s_test.SynTest):
                 # rows are (buid, valu) tuples
                 rows = tuple(xact.iterPropRows('inet:ipv4', 'asn'))
 
-            self.eq((10,20), tuple(sorted([ row[1] for row in rows ])))
+            self.eq((10, 20), tuple(sorted([row[1] for row in rows])))
 
             with core.layer.xact() as xact:
                 # rows are (buid, valu) tuples
                 rows = tuple(xact.iterUnivRows('.seen'))
 
             ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
-            self.eq(ivals, tuple(sorted([ row[1] for row in rows ])))
+            self.eq(ivals, tuple(sorted([row[1] for row in rows])))
 
     def test_cortex_lift_regex(self):
 
@@ -95,6 +181,47 @@ class CortexTest(s_test.SynTest):
                 # Sad path testing
                 conf['feeds'][0]['type'] = 'com.clown'
                 self.raises(s_exc.NoSuchType, self.getTestCell, dirn, 'cortex', conf=conf)
+
+    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
+    def test_cortex_model_dict(self):
+
+        with self.getTestDmon(mirror='dmoncore') as dmon:
+
+            core = dmon._getTestProxy('core')
+
+            model = core.getModelDict()
+
+            tnfo = model['types'].get('inet:ipv4')
+
+            self.nn(tnfo)
+            self.eq(tnfo['info']['doc'], 'An IPv4 address.')
+
+            fnfo = model['forms'].get('inet:ipv4')
+            self.nn(fnfo)
+
+            pnfo = fnfo['props'].get('asn')
+
+            self.nn(pnfo)
+            self.eq(pnfo['type'][0], 'inet:asn')
+
+    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
+    def test_storm_graph(self):
+
+        with self.getTestDmon(mirror='dmoncore') as dmon:
+
+            core = dmon._getTestProxy('core')
+            core.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+
+            opts = {'graph': True}
+            nodes = list(core.eval('inet:dns:a', opts=opts))
+
+            self.len(5, nodes)
+
+            for node in nodes:
+                if node[0][0] == 'inet:dns:a':
+                    edges = node[1]['edges']
+                    idens = list(sorted(e[0] for e in edges))
+                    self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f', 'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
     def test_splice_cryo(self):
@@ -238,6 +365,20 @@ class CortexTest(s_test.SynTest):
             nodes = list(core.getNodesBy('inet:user', 'visi'))
             self.len(1, nodes)
             self.eq('visi', nodes[0][0][1])
+
+            node = core.addNode('teststr', 'foo')
+
+            pack = core.addNodeTag(node[1].get('iden'), '#foo.bar')
+            self.eq(pack[1]['tags'].get('foo.bar'), (None, None))
+
+            pack = core.setNodeProp(node[1].get('iden'), 'tick', '2015')
+            self.eq(pack[1]['props'].get('tick'), 1420070400000)
+
+            self.len(1, list(core.eval('teststr#foo.bar')))
+            self.len(1, list(core.eval('teststr:tick=2015')))
+
+            core.delNodeTag(node[1].get('iden'), '#foo.bar')
+            self.len(0, list(core.eval('teststr#foo.bar')))
 
             opts = {'ndefs': [('inet:user', 'visi')]}
 
@@ -445,7 +586,6 @@ class CortexTest(s_test.SynTest):
             with core.snap() as snap:
 
                 node = snap.addNode('testtype10', 'one')
-                print(repr(node.pack()))
                 self.eq(node.get('intprop'), 21)
 
                 self.nn(node.get('.created'))
@@ -499,24 +639,9 @@ class CortexTest(s_test.SynTest):
             for node in core.eval('teststr="foo bar" [ -:tick ]'):
                 self.none(node.get('tick'))
 
-            for node in core.eval('[ pivcomp=(foo,bar) ] -> pivtarg'):
-                self.eq(node.ndef[0], 'pivtarg')
-                self.eq(node.ndef[1], 'foo')
-
-            for node in core.eval('pivcomp=(foo,bar) :targ -> pivtarg'):
-                self.eq(node.ndef[0], 'pivtarg')
-                self.eq(node.ndef[1], 'foo')
-
-            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -> pivtarg')])
-
-            self.len(1, nodes)
-            self.eq(nodes[0][0], ('pivtarg', 'foo'))
-
-            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -+> pivtarg')])
-
-            self.len(2, nodes)
-            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
-            self.eq(nodes[1][0], ('pivtarg', 'foo'))
+            for node in core.eval('[testguid="*" :tick=2001]'):
+                self.true(s_common.isguid(node.ndef[1]))
+                self.nn(node.get('tick'))
 
             nodes = [n.pack() for n in core.eval('teststr="foo bar" +teststr')]
             self.len(1, nodes)
@@ -530,15 +655,19 @@ class CortexTest(s_test.SynTest):
 
             ndef = ('testcomp', (10, 'haha'))
             opts = {'ndefs': (ndef,)}
-
+            # Seed nodes in the query with ndefs
             for node in core.eval('[-#foo]', opts=opts):
                 self.none(node.getTag('foo'))
 
-            def wind(func, text):
-                return list(func(text))
+            # Seed nodes in the query with idens
+            opts = {'idens': (nodes[0][1].get('iden'),)}
+            nodes = list(core.eval('', opts=opts))
+            self.len(1, nodes)
+            self.eq(nodes[0].pack()[0], ('teststr', 'foo bar'))
 
-            self.raises(s_exc.NoSuchOpt, wind, core.eval, '%foo=asdf')
-            self.raises(s_exc.BadOptValu, wind, core.eval, '%limit=asdf')
+            self.genraises(s_exc.NoSuchOpt, core.eval, '%foo=asdf')
+            self.genraises(s_exc.BadOptValu, core.eval, '%limit=asdf')
+            self.genraises(s_exc.BadStormSyntax, core.eval, ' | | ')
 
             self.len(2, list(core.eval(('[ teststr=foo teststr=bar ]'))))
             self.len(1, list(core.eval(('teststr %limit=1'))))
@@ -548,12 +677,16 @@ class CortexTest(s_test.SynTest):
             for node in core.eval('teststr=$foo', opts=opts):
                 self.eq('bar', node.ndef[1])
 
-        conf = {'storm:log': True}
-        with self.getTestDir() as dirn:
-            with self.getTestCell(dirn, 'cortex', conf=conf) as core:
-                with self.getLoggerStream('synapse.cortex', 'Executing storm query [help ask] as [None]') as stream:
+        # Remote storm test paths
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:
+                # Storm logging
+                with self.getLoggerStream('synapse.cortex', 'Executing storm query [help ask] as [root]') as stream:
                     mesgs = list(core.storm('help ask'))
                     self.true(stream.wait(6))
+                # Bad syntax
+                self.genraises(s_exc.BadStormSyntax, core.storm, ' | | | ')
 
     def test_feed_splice(self):
 
@@ -693,6 +826,25 @@ class CortexTest(s_test.SynTest):
                 # final top level API check
                 self.none(snap.getNodeByNdef(('teststr', 'baz')))
 
+    def test_cortex_allowall(self):
+
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+
+            pconf = {'user': 'root', 'passwd': 'root'}
+
+            def feed(snap, items):
+
+                with snap.allowall():
+                    self.nn(snap.addNode('teststr', 'foo'))
+
+                self.none(snap.addNode('teststr', 'bar'))
+
+            dmon.shared.get('core').setFeedFunc('allowtest', feed)
+
+            with dmon._getTestProxy('core', **pconf) as core:
+
+                core.addFeedData('allowtest', ['asdf'])
+
     def test_cortex_delnode_perms(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
@@ -774,33 +926,156 @@ class CortexTest(s_test.SynTest):
 
     def test_pivot_inout(self):
 
-        with self.getTestCore() as core:
+        def getPackNodes(core, query):
+            nodes = sorted([n.pack() for n in core.eval(query)])
+            return nodes
 
+        with self.getTestCore() as core:
+            # seed a node for pivoting
             list(core.eval('[ pivcomp=(foo,bar) :tick=2018 ]'))
 
-            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -> *')])
+            q = 'pivcomp=(foo,bar) -> pivtarg'
+            nodes = getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('pivtarg', 'foo'))
 
+            q = 'pivcomp=(foo,bar) :targ -> pivtarg'
+            nodes = getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('pivtarg', 'foo'))
+
+            q = 'teststr=bar -> pivcomp:lulz'
+            nodes = getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+
+            q = 'teststr=bar -+> pivcomp:lulz'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('teststr', 'bar'))
+
+            q = 'pivcomp=(foo,bar) -+> pivtarg'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('pivtarg', 'foo'))
+
+            q = 'pivcomp=(foo,bar) -> *'
+            nodes = getPackNodes(core, q)
             self.len(2, nodes)
             self.eq(nodes[0][0], ('pivtarg', 'foo'))
             self.eq(nodes[1][0], ('teststr', 'bar'))
 
-            nodes = sorted([n.pack() for n in core.eval('pivcomp=(foo,bar) -+> *')])
-
+            q = 'pivcomp=(foo,bar) -+> *'
+            nodes = getPackNodes(core, q)
             self.len(3, nodes)
             self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
             self.eq(nodes[1][0], ('pivtarg', 'foo'))
             self.eq(nodes[2][0], ('teststr', 'bar'))
 
-            nodes = sorted([n.pack() for n in core.eval('teststr=bar <- *')])
-
+            q = 'pivcomp=(foo,bar) :lulz -> teststr'
+            nodes = getPackNodes(core, q)
             self.len(1, nodes)
-            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            self.eq(nodes[0][0], ('teststr', 'bar'))
 
-            nodes = sorted([n.pack() for n in core.eval('teststr=bar <+- *')])
-
+            q = 'pivcomp=(foo,bar) :lulz -+> teststr'
+            nodes = getPackNodes(core, q)
             self.len(2, nodes)
             self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
             self.eq(nodes[1][0], ('teststr', 'bar'))
+
+            q = 'teststr=bar <- *'
+            nodes = getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+
+            q = 'teststr=bar <+- *'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+            self.eq(nodes[1][0], ('teststr', 'bar'))
+
+            # A simple edge for testing pivotinfrom with a edge to n2
+            nodes = list(core.eval('[has=((teststr, foobar), (teststr, foo))]'))
+
+            q = 'teststr=foobar -+> has'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('has', (('teststr', 'foobar'), ('teststr', 'foo'))))
+            self.eq(nodes[1][0], ('teststr', 'foobar'))
+
+            # traverse from node to edge:n1
+            q = 'teststr=foo <- has'
+            nodes = getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('has', (('teststr', 'foobar'), ('teststr', 'foo'))))
+
+            # traverse from node to edge:n1 with a join
+            q = 'teststr=foo <+- has'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('has', (('teststr', 'foobar'), ('teststr', 'foo'))))
+            self.eq(nodes[1][0], ('teststr', 'foo'))
+
+            # Traverse from a edge to :n2
+            # (this is technically a circular query)
+            q = 'teststr=foobar -> has <- teststr'
+            nodes = getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('teststr', 'foobar'))
+
+            # Traverse from a edge to :n2 with a join
+            # (this is technically a circular query)
+            q = 'teststr=foobar -> has <+- teststr'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('has', (('teststr', 'foobar'), ('teststr', 'foo'))))
+            self.eq(nodes[1][0], ('teststr', 'foobar'))
+
+            # Add tag
+            q = 'teststr=bar pivcomp=(foo,bar) [+#test.bar]'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
+            # Lift, filter, pivot in
+            q = '#test.bar +teststr <- *'
+            nodes = getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('pivcomp', ('foo', 'bar')))
+
+            # Pivot tests with optimized lifts
+            q = '#test.bar +teststr <+- *'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
+
+            q = '#test.bar +pivcomp -> *'
+            nodes = getPackNodes(core, q)
+            self.len(2, nodes)
+
+            q = '#test.bar +pivcomp -+> *'
+            nodes = getPackNodes(core, q)
+            self.len(3, nodes)
+
+            # Setup a propvalu pivot where the secondary prop may fail to norm
+            # to the destination prop for some of the inbound nodes.
+            list(core.eval('[ testcomp=(127,newp) ] [testcomp=(127,127)]'))
+            mesgs = list(core.storm('testcomp :haha -> testint'))
+            warns = [msg for msg in mesgs if msg[0] == 'warn']
+            self.len(1, warns)
+            emesg = "BadTypeValu ['newp'] during pivot: invalid literal for int() with base 0: 'newp'"
+            self.eq(warns[0][1], {'name': 'testint', 'valu': 'newp',
+                                  'mesg': emesg})
+            nodes = [msg for msg in mesgs if msg[0] == 'node']
+            self.len(1, nodes)
+            self.eq(nodes[0][1][0], ('testint', 127))
+
+            # Bad pivots go here
+            for q in ['pivcomp :lulz <- *',
+                      'pivcomp :lulz <+- *',
+                      'pivcomp :lulz <- teststr',
+                      'pivcomp :lulz <+- teststr',
+                      ]:
+                self.genraises(s_exc.BadStormSyntax, core.eval, q)
 
     def test_node_repr(self):
 
@@ -878,10 +1153,19 @@ class CortexTest(s_test.SynTest):
             self.len(1, core.eval('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn +:fqdn=$hehe'))
             self.len(0, core.eval('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn -:fqdn=$hehe'))
 
-            self.len(1, core.eval('[ pivcomp=(hehe,haha) +#foo=(2014,2016) ]'))
+            self.len(1, core.eval('[ pivcomp=(hehe,haha) :tick=2015 +#foo=(2014,2016) ]'))
             self.len(1, core.eval('pivtarg=hehe [ .seen=2015 ]'))
 
             self.len(1, core.eval('pivcomp=(hehe,haha) $ticktock=#foo -> pivtarg +.seen@=$ticktock'))
+
+            # Vars can also be provided as tuple
+            opts = {'vars': {'foo': ('hehe', 'haha')}}
+            self.len(1, core.eval('pivcomp=$foo', opts=opts))
+
+            # Vars can also be provided as integers
+            norm = core.model.type('time').norm('2015')[0]
+            opts = {'vars': {'foo': norm}}
+            self.len(1, core.eval('pivcomp:tick=$foo', opts=opts))
 
     def test_cortex_storm_filt_ival(self):
 
@@ -932,3 +1216,84 @@ class CortexTest(s_test.SynTest):
     def test_cortex_storm_indx_none(self):
         with self.getTestCore() as core:
             self.raises(s_exc.NoSuchIndx, list, core.eval('graph:node:data=10'))
+
+    def _validate_feed(self, core, gestdef, guid, seen, pack=False):
+        # Helper for syn_ingest tests
+        core.addFeedData('syn.ingest', [gestdef])
+
+        # Nodes are made from the forms directive
+        q = 'teststr=1234 teststr=duck teststr=knight'
+        self.len(3, core.eval(q))
+        q = 'testint=1234'
+        self.len(1, core.eval(q))
+        q = 'pivcomp=(hehe,haha)'
+        self.len(1, core.eval(q))
+
+        # packed nodes are made from the nodes directive
+        nodes = list(core.eval('teststr=ohmy'))
+        if pack:
+            nodes = [node.pack() for node in nodes]
+        self.len(1, nodes)
+        node = nodes[0]
+        self.eq(node[1]['props'].get('bar'), ('testint', 137))
+        self.eq(node[1]['props'].get('tick'), 978307200000)
+        self.isin('beep.beep', node[1]['tags'])
+        self.isin('beep.boop', node[1]['tags'])
+        self.isin('test.foo', node[1]['tags'])
+
+        nodes = list(core.eval('testint=8675309'))
+        if pack:
+            nodes = [node.pack() for node in nodes]
+        self.len(1, nodes)
+        node = nodes[0]
+        self.isin('beep.morp', node[1]['tags'])
+        self.isin('test.foo', node[1]['tags'])
+
+        # Sources are made, as are seen nodes.
+        q = f'source={guid} -> seen:source'
+        nodes = list(core.eval(q))
+        if pack:
+            nodes = [node.pack() for node in nodes]
+        self.len(9, nodes)
+        for node in nodes:
+            self.isin('.seen', node[1].get('props', {}))
+
+        # Included tags are made
+        self.len(9, core.eval(f'#test'))
+
+        # As are tag times
+        nodes = list(core.eval('#test.baz'))
+        if pack:
+            nodes = [node.pack() for node in nodes]
+        self.eq(nodes[0][1].get('tags', {}).get('test.baz', ()),
+                (1388534400000, 1420070400000))
+
+        # Edges are made
+        self.len(1, core.eval('refs'))
+        self.len(1, core.eval('wentto'))
+
+    def test_syn_ingest_remote(self):
+        guid = s_common.guid()
+        seen = s_common.now()
+        gestdef = self.getIngestDef(guid, seen)
+
+        # Test Remote Cortex
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:
+
+                # Setup user permissions
+                core.addAuthRole('creator')
+                core.addAuthRule('creator', (True, ('node:add',)))
+                core.addAuthRule('creator', (True, ('prop:set',)))
+                core.addAuthRule('creator', (True, ('tag:add',)))
+                core.addUserRole('root', 'creator')
+                self._validate_feed(core, gestdef, guid, seen)
+
+    def test_syn_ingest_local(self):
+        guid = s_common.guid()
+        seen = s_common.now()
+        gestdef = self.getIngestDef(guid, seen)
+
+        with self.getTestCore() as core:
+            self._validate_feed(core, gestdef, guid, seen, pack=True)

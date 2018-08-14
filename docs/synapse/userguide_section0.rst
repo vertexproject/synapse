@@ -1,50 +1,35 @@
 Synapse User Guide
 ##################
 
-This User Guide is written by and for Synapse users.
-Additional technical documentation can be found elsewhere in the doc index_.
+This User Guide is written by and for Synapse users and is intended to provide a general overview of Synapse concepts and operations. Technical documentation appropriate for Synapse deployment and development can be found elsewhere in the Document Index_.
 
-The User Guide is a living document and will continue to be updated and expanded. The current sections are:
+The User Guide is a living document and will continue to be updated and expanded as appropriate. The current sections are:
 
 .. toctree::
     :titlesonly:
 
-    userguides/ug001_synapse
-    userguides/ug002_graphintro
-    userguides/ug003_dm_basics
-    userguides/ug004_dm_concepts
-    userguides/ug005_dm_nodesconcepts
-    userguides/ug006_dm_nodeprops
-    userguides/ug007_dm_nodetypes
-    userguides/ug008_dm_tagconcepts
-    userguides/ug009_dm_tagmodel
-    userguides/ug010_cmdr_cortex
-    userguides/ug011_storm_basics
-    userguides/ug012_storm_ref_datamod
-    userguides/ug013_storm_ref_lift
-    userguides/ug014_storm_ref_filter
-    userguides/ug015_storm_ref_pivot
-    userguides/ug016_storm_ref_byhandlers
-    userguides/ug017_storm_ref_stats
-    userguides/ug018_storm_ref_misc
-    userguides/ug050_ing_intro
-    userguides/ug051_ing_tool
-    userguides/ug052_ing_embed
-    userguides/ug053_ing_lines
-    userguides/ug054_ing_csv
-    userguides/ug055_ing_json
-    userguides/ug056_ing_jsonl
-    userguides/ug057_ing_xml
-    userguides/ug058_ing_filebytes
-    userguides/ug059_ing_sync
-    userguides/ug060_ing_format
-    userguides/ug061_ing_conditional
+    userguides/ug001_why_synapse
+    userguides/ug002_bkd_graphs_hypergraphs
+    userguides/ug003_bkd_dm_basics
+    userguides/ug004_bkd_model_introspect
 
-The following sections are still under development:
+    userguides/ug005_dm_form_cats
+    userguides/ug006_dm_form_types
 
-- Storm Reference
-- Storm Tutorial
+    userguides/ug007_am_tags_nodes
+    userguides/ug008_am_tags_analysis
+    userguides/ug009_am_tags_other
 
-Many of the concepts above are closely interrelated, and the outline above represents a reasonable effort at introducing concepts in a logical order. However, it is difficult to fully understand the potential of Synapse and hypergraphs without grasping the power of the Storm query language to understand, manipulate, and annotate data. Similarly, it’s hard to understand the effectiveness of Storm without knowledge of the underlying data model. **The outline above is our suggested order, but readers are encouraged to skip around, or revisit earlier sections after digesting later sections to better see how these topics are tied together.**
+    userguides/ug010_dc_data_model
+    userguides/ug011_dc_analytical_model
+    userguides/ug012_dc_nodes_vs_tags
+    userguides/ug013_dc_node_deconfliction
+    userguides/ug014_dc_layers
 
-.. _index:              ../index.html
+    userguides/ug015_syn_commands
+    userguides/ug016_syn_storm
+    userguides/ug017_syn_storm_reference
+
+Many of the concepts above are closely related and this outline represents a reasonable effort to introduce concepts in a logical order. However, it is difficult to fully understand the potential of Synapse and hypergraphs without grasping the power of the Storm query language to understand, manipulate, and annotate data. Similarly, it’s hard to understand the effectiveness of Storm without knowledge of the underlying data model. **The outline above is our suggested order but readers are encouraged to skip around or revisit earlier sections after digesting later sections to better see how these topics are tied together.**
+
+.. _Index:              ../index.html

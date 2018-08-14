@@ -43,7 +43,8 @@ def parse(text, base=None, chop=False):
         dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S%f')
 
     else:
-        raise s_common.BadTypeValu(valu=text, mesg='Unknown time format')
+        raise s_exc.BadTypeValu(valu=text, name='time',
+                                mesg='Unknown time format')
 
     epoch = datetime.datetime(1970, 1, 1)
     return int((dt - epoch).total_seconds() * 1000)
@@ -76,10 +77,10 @@ def ival(*times):
 
     return (minv, maxv)
 
-onesec  = 1000
-onemin  = 60000
+onesec = 1000
+onemin = 60000
 onehour = 3600000
-oneday  = 86400000
+oneday = 86400000
 
 timeunits = {
     'sec': onesec,

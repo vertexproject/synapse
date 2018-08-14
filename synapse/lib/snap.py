@@ -1,3 +1,4 @@
+import types
 import logging
 import contextlib
 
@@ -38,6 +39,7 @@ class Snap(s_eventbus.EventBus):
         self.elevated = False
         self.canceled = False
 
+        self.dorules = True
         self.permcache = s_cache.FixedCache({}, size=1000)
 
         self.core = core
@@ -76,16 +78,22 @@ class Snap(s_eventbus.EventBus):
                         x.commit()
                     except Exception as e:
                         logger.exception('commit error for layer xact')
+                    x.fini()
 
             else:
-
                 for x in self.xacts:
                     try:
                         x.abort()
                     except Exception as e:
                         logger.exception('abort error for layer xact')
+                    x.fini()
 
         self.onfini(fini)
+
+    def getStormQuery(self, text, opts=None):
+        '''
+        Construct and return a new storm query object for this Snap().
+        '''
 
     def cancel(self):
         self.canceled = True
@@ -138,7 +146,31 @@ class Snap(s_eventbus.EventBus):
         if self.user is not None:
             self.permcache.callback = self.user.allowed
 
+    @contextlib.contextmanager
+    def allowall(self):
+        '''
+        DANGER DANGER DANGER
+
+        This is used as context manager to perform a operation which disables
+        permission checking on a snap.
+
+        Never ever hold this while *yielding* nodes into a storm pipeline.
+        Doing that will allow subsequent operations to be done without any
+        permissions enforcement.
+        '''
+        dorules = self.dorules
+        self.dorules = False
+
+        yield
+
+        self.dorules = dorules
+
     def allowed(self, *args):
+
+        # are we in an allowall() block?
+        if not self.dorules:
+            return True
+
         # a user will be set by auth subsystem if enabled
         if self.user is None:
             return True
@@ -321,15 +353,39 @@ class Snap(s_eventbus.EventBus):
 
                 return None
 
+    def addFeedNodes(self, name, items):
+        '''
+        Call a feed function and return what it returns (typically yields Node()s).
+
+        Args:
+            name (str): The name of the feed record type.
+            items (list): A list of records of the given feed type.
+
+        Returns:
+            (object): The return value from the feed function. Typically Node() generator.
+
+        '''
+        func = self.core.getFeedFunc(name)
+        if func is None:
+            raise s_exc.NoSuchName(name=name)
+
+        logger.info(f'adding feed nodes ({name}): {len(items)}')
+
+        return func(self, items)
+
     def addFeedData(self, name, items, seqn=None):
 
         func = self.core.getFeedFunc(name)
         if func is None:
             raise s_exc.NoSuchName(name=name)
 
-        logger.warning(f'adding feed data ({name}): {len(items)} {seqn!r}')
+        logger.info(f'adding feed data ({name}): {len(items)} {seqn!r}')
 
-        func(self, items)
+        retn = func(self, items)
+
+        # If the feed function is a generator, run it...
+        if isinstance(retn, types.GeneratorType):
+            retn = list(retn)
 
         if seqn is not None:
 
@@ -387,9 +443,9 @@ class Snap(s_eventbus.EventBus):
         sops = form.getSetOps(buid, norm)
         self.stor(sops)
 
-        self.splice('node:add', ndef=node.ndef)
-
         self.buidcache.put(buid, node)
+
+        self.splice('node:add', ndef=node.ndef)
 
         # update props with any subs from form value
         subs = info.get('subs')
@@ -538,7 +594,7 @@ class Snap(s_eventbus.EventBus):
             (tuple): (layer_indx, (buid, ...)) rows.
         '''
         for layer_idx, xact in enumerate(self.xacts):
-            with xact.incref():
+            with xact.incxref():
                 yield from ((layer_idx, x) for x in xact.getLiftRows(lops))
 
     def getRowNodes(self, rows, rawprop):
@@ -586,7 +642,7 @@ class Snap(s_eventbus.EventBus):
 
     def _getNodeByBuid(self, buid):
         props = {}
-        # this is essentially atomic and doesn't need xact.incref
+        # this is essentially atomic and doesn't need xact.incxref
         for layeridx, x in enumerate(self.xacts):
             layerprops = x.getBuidProps(buid)
             props.update(layerprops)

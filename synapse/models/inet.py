@@ -26,13 +26,32 @@ srv6re = regex.compile(r'^\[([a-f0-9:]+)\]:(\d+)$')
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 
 
+def getAddrType(ip):
+
+    if ip.is_multicast:
+        return 'multicast'
+
+    if ip.is_loopback:
+        return 'loopback'
+
+    if ip.is_link_local:
+        return 'linklocal'
+
+    if ip.is_private:
+        return 'private'
+
+    if ip.is_reserved:
+        return 'reserved'
+
+    return 'unicast'
+
 class Addr(s_types.Type):
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
 
     def indx(self, norm):
-        return norm.encode('utf-8')
+        return norm.encode('utf8')
 
     def _getPort(self, valu):
         port = None
@@ -53,7 +72,8 @@ class Addr(s_types.Type):
             proto, valu = parts
 
         if proto not in ('tcp', 'udp', 'icmp', 'host'):
-            raise s_exc.BadTypeValu(orig, mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
         subs['proto'] = proto
 
         valu = valu.strip().strip('/')
@@ -83,7 +103,8 @@ class Addr(s_types.Type):
 
                 return f'{proto}://[{ipv6}]:{port}', {'subs': subs}
 
-            raise s_exc.BadTypeValu(orig, mesg='invalid IPv6 w/ port')
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='invalid IPv6 w/ port')
 
         elif valu.count(':') >= 2:
             ipv6 = self.modl.type('inet:ipv6').norm(valu)[0]
@@ -112,7 +133,8 @@ class Cidr4(s_types.Type):
 
         mask_int = int(mask_str)
         if mask_int > 32 or mask_int < 0:
-            raise s_exc.BadTypeValu(valu, mesg='Invalid CIDR Mask')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Invalid CIDR Mask')
 
         ip_int = self.modl.type('inet:ipv4').norm(ip_str)[0]
 
@@ -147,7 +169,7 @@ class Email(s_types.Type):
             fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
             usernorm, userinfo = self.modl.type('inet:user').norm(user)
         except Exception as e:
-            raise s_exc.BadTypeValu(valu, mesg=e)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=e)
 
         norm = f'{usernorm}@{fqdnnorm}'
         info = {
@@ -159,7 +181,7 @@ class Email(s_types.Type):
         return norm, info
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
 class Fqdn(s_types.Type):
 
@@ -169,13 +191,17 @@ class Fqdn(s_types.Type):
     def _normPyStr(self, valu):
 
         valu = valu.replace('[.]', '.')
+        valu = valu.replace('(.)', '.')
+
         if not fqdnre.match(valu):
-            raise s_exc.BadTypeValu(valu)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=f'FQDN failed to match fqdnre [{fqdnre.pattern}]')
 
         try:
             valu = valu.encode('idna').decode('utf8').lower()
         except UnicodeError as e:
-            raise s_exc.BadTypeValu(valu)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Failed to encode/decode the value with idna/utf8.')
 
         parts = valu.strip('.').split('.', 1)
         subs = {'host': parts[0]}
@@ -192,6 +218,10 @@ class Fqdn(s_types.Type):
 
     def indxByEq(self, valu):
 
+        if valu == '':
+            raise s_exc.BadLiftValu(valu=valu, name=self.name,
+                                    mesg='Cannot generate fqdn index bytes for a empty string.')
+
         if valu[0] == '*':
             indx = valu[1:][::-1].encode('utf8')
             return (
@@ -199,7 +229,8 @@ class Fqdn(s_types.Type):
             )
 
         if valu.find('*') != -1:
-            raise s_exc.BadLiftValu(valu=valu, mesg='Wild card may only appear at the beginning.')
+            raise s_exc.BadLiftValu(valu=valu, name=self.name,
+                                    mesg='Wild card may only appear at the beginning.')
 
         return s_types.Type.indxByEq(self, valu)
 
@@ -238,7 +269,7 @@ class IPv4(s_types.Type):
             if valu.find('-') != -1:
                 minv, maxv = self.getNetRange(valu)
                 def cmpr(norm):
-                    return norm >= minv and norm < maxv
+                    return norm >= minv and norm <= maxv
                 return cmpr
 
         return s_types.Type._ctorCmprEq(self, valu)
@@ -259,7 +290,7 @@ class IPv4(s_types.Type):
 
             minv, maxv = self.getNetRange(text)
 
-            while minv < maxv:
+            while minv <= maxv:
                 yield minv
                 minv += 1
 
@@ -276,12 +307,15 @@ class IPv4(s_types.Type):
     def _normPyStr(self, valu):
 
         valu = valu.replace('[.]', '.')
+        valu = valu.replace('(.)', '.')
+
         valu = s_chop.printables(valu)
 
         try:
             byts = socket.inet_aton(valu)
         except OSError as e:
-            raise s_exc.BadTypeValu(type=self.name, valu=valu)
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg=str(e))
 
         norm = int.from_bytes(byts, 'big')
         return self._normPyInt(norm)
@@ -313,6 +347,7 @@ class IPv4(s_types.Type):
 
             if valu.find('/') != -1:
                 minv, maxv = self.getCidrRange(valu)
+                maxv -= 1
                 return (
                     ('range', (self.indx(minv), self.indx(maxv))),
                 )
@@ -324,25 +359,6 @@ class IPv4(s_types.Type):
                 )
 
         return s_types.Type.indxByEq(self, valu)
-
-def getAddrType(ip):
-
-    if ip.is_multicast:
-        return 'multicast'
-
-    if ip.is_loopback:
-        return 'loopback'
-
-    if ip.is_link_local:
-        return 'linklocal'
-
-    if ip.is_private:
-        return 'private'
-
-    if ip.is_reserved:
-        return 'reserved'
-
-    return 'unicast'
 
 class IPv6(s_types.Type):
 
@@ -376,7 +392,7 @@ class IPv6(s_types.Type):
             return ipaddress.IPv6Address(valu).compressed, {'subs': subs}
 
         except Exception as e:
-            raise s_exc.BadTypeValu(valu)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e))
 
 
 class Rfc2822Addr(s_types.Type):
@@ -393,11 +409,11 @@ class Rfc2822Addr(s_types.Type):
         valu = valu.strip().lower()
         valu = ' '.join(valu.split())
         return (
-            ('pref', valu.encode('utf8')),
+            ('pref', valu.encode('utf8', 'surrogatepass')),
         )
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
     def _normPyStr(self, valu):
 
@@ -410,7 +426,8 @@ class Rfc2822Addr(s_types.Type):
             name, addr = email.utils.parseaddr(valu)
         except Exception as e:  # pragma: no cover
             # not sure we can ever really trigger this with a string as input
-            raise s_exc.BadTypeValu(valu, mesg='email.utils.parsaddr failed: %s' % (e,))
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='email.utils.parsaddr failed: %s' % (e,))
 
         subs = {}
         if name:
@@ -437,7 +454,7 @@ class Url(s_types.Type):
         self.setNormFunc(str, self._normPyStr)
 
     def indx(self, norm):
-        return norm.encode('utf8')
+        return norm.encode('utf8', 'surrogatepass')
 
     def _normPyStr(self, valu):
         orig = valu
@@ -453,13 +470,23 @@ class Url(s_types.Type):
             proto = proto.lower()
             subs['proto'] = proto
         except Exception as e:
-            raise s_exc.BadTypeValu(orig, mesg='Invalid/Missing protocol')
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='Invalid/Missing protocol')
+
+        # Query params first
+        queryrem = ''
+        if '?' in valu:
+            valu, queryrem = valu.split('?', 1)
+            # TODO break out query params separately
 
         # Resource Path
         parts = valu.split('/', 1)
         if len(parts) == 2:
             valu, pathpart = parts
             pathpart = f'/{pathpart}'
+
+        if queryrem:
+            pathpart += f'?{queryrem}'
         subs['path'] = pathpart
 
         # Optional User/Password
@@ -518,7 +545,7 @@ class Url(s_types.Type):
 
         # Raise exception if there was no FQDN, IPv4, or IPv6
         if host is None:
-            raise s_exc.BadTypeValu(orig, mesg='No valid host')
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg='No valid host')
 
         # Optional Port
         if port is not None:

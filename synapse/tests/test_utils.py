@@ -279,7 +279,25 @@ class TestUtils(s_test.SynTest):
         with self.getTestDir() as dirn:
             boot = {'auth:en': True}
             conf = {'test': 1}
-            cortex = self.getTestCell(dirn, 'cortex', boot, conf)
-            self.eq(os.path.join(dirn, 'cortex'), cortex.dirn)
-            self.eq(cortex.conf.get('test'), 1)
-            self.eq(cortex.boot.get('auth:en'), True)
+            with self.getTestCell(dirn, 'cortex', boot, conf) as cortex:
+                self.eq(os.path.join(dirn, 'cortex'), cortex.dirn)
+                self.eq(cortex.conf.get('test'), 1)
+                self.eq(cortex.boot.get('auth:en'), True)
+
+    @s_glob.synchelp
+    async def test_async(self):
+
+        async def araiser():
+            return 1 / 0
+
+        await self.asyncraises(ZeroDivisionError, araiser())
+
+    def test_dmoncoreaxon(self):
+        with self.getTestDmonCortexAxon() as dmon:
+            self.isin('core', dmon.cells)
+            self.isin('axon00', dmon.cells)
+            self.isin('blobstor00', dmon.cells)
+
+            with dmon._getTestProxy('core', user='root', passwd='root') as core:
+                node = core.addNode('teststr', 'hehe')
+                self.nn(node)

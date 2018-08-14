@@ -53,15 +53,15 @@ def hexstr(text):
         text = text[2:]
 
     if not text:
-        raise s_exc.BadTypeValu(valu=text,
+        raise s_exc.BadTypeValu(valu=text, name='hexstr',
                                 mesg='No string left after stripping')
 
     try:
         # checks for valid hex width and does character
         # checking in C without using regex
         s_common.uhex(text)
-    except binascii.Error as e:
-        raise s_exc.BadTypeValu(valu=text, mesg=str(e))
+    except (binascii.Error, ValueError) as e:
+        raise s_exc.BadTypeValu(valu=text, name='hexstr', mesg=str(e))
     return text
 
 def onespace(text):

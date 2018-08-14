@@ -12,7 +12,7 @@
 #   python -m synapse.tools.deploy --listen tcp://0.0.0.0:47322 cortex core dmon_dir
 #   docker run -it -p47322:47322 -v "$(pwd)"/dmon_dir:/syndata/dmon_dir vertexproject/synapse:localdev
 
-FROM vertexproject/synapse-base-image:py36
+FROM vertexproject/synapse-base-image2:py36
 
 ENV SYN_DMON_LOG_LEVEL="WARNING"
 COPY . /root/git/synapse/
@@ -22,14 +22,14 @@ RUN set -ex && \
     python setup.py develop && \
     # Create a default dmon directory
     mkdir -p /syndata && cd /syndata && \
-    python -m synapse.tools.deploy --listen tcp://0.0.0.0:47322 cortex core dmon_dir
+    python -m synapse.tools.deploy --listen tcp://0.0.0.0:47322 cortex core dmon
 
 VOLUME /syndata
 VOLUME /root/git/synapse
 WORKDIR /root/git/synapse
 EXPOSE 47322
 
-ENTRYPOINT ["python", "-m", "synapse.tools.dmon", "/syndata/dmon_dir"]
+ENTRYPOINT ["python", "-m", "synapse.tools.dmon", "/syndata/dmon"]
 # Optional entry point that can be used to run commands via cron
 # See https://github.com/vertexproject/cron-docker-image/tree/master/debian
 # for notes on its usage.

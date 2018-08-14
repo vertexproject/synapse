@@ -1,6 +1,13 @@
+import json
+import asyncio
 import logging
 
+import tornado.web as t_web
+import tornado.netutil as t_netutil
+import tornado.httpserver as t_http
+
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
@@ -69,6 +76,17 @@ class View:
 
         return query
 
+class HttpModelApiV1(t_web.RequestHandler):
+
+    def initialize(self, core):
+        self.core = core
+
+    async def get(self):
+        self.set_header('content-type', 'application/json')
+        modl = self.core.model.getModelDict()
+        byts = json.dumps({'status': 'ok', 'result': modl})
+        self.write(byts)
+
 class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed over telepath.
@@ -86,6 +104,77 @@ class CoreApi(s_cell.CellApi):
 
     async def fini(self):
         pass
+
+    def getModelDict(self):
+        '''
+        Return a dictionary which describes the data model.
+
+        Returns:
+            (dict): A model description dictionary.
+        '''
+        return self.cell.model.getModelDict()
+
+    def addNodeTag(self, iden, tag, valu=(None, None)):
+        '''
+        Add a tag to a node specified by iden.
+
+        Args:
+            iden (str): A hex encoded node BUID.
+            tag (str):  A tag string.
+            valu (tuple):  A time interval tuple or (None, None).
+        '''
+        buid = s_common.uhex(iden)
+        with self.cell.snap() as snap:
+
+            snap.setUser(self.user)
+
+            node = snap.getNodeByBuid(buid)
+            if node is None:
+                raise s_exc.NoSuchIden(iden=iden)
+
+            node.addTag(tag, valu=valu)
+            return node.pack()
+
+    def delNodeTag(self, iden, tag):
+        '''
+        Delete a tag from the node specified by iden.
+
+        Args:
+            iden (str): A hex encoded node BUID.
+            tag (str):  A tag string.
+        '''
+        buid = s_common.uhex(iden)
+        with self.cell.snap() as snap:
+
+            snap.setUser(self.user)
+
+            node = snap.getNodeByBuid(buid)
+            if node is None:
+                raise s_exc.NoSuchIden(iden=iden)
+
+            node.delTag(tag)
+            return node.pack()
+
+    def setNodeProp(self, iden, prop, valu):
+
+        buid = s_common.uhex(iden)
+        with self.cell.snap() as snap:
+
+            snap.setUser(self.user)
+
+            node = snap.getNodeByBuid(buid)
+            if node is None:
+                raise s_exc.NoSuchIden(iden=iden)
+
+            node.set(prop, valu)
+            return node.pack()
+
+    def addNode(self, form, valu, props=None):
+
+        with self.cell.snap() as snap:
+            snap.setUser(self.user)
+            node = snap.addNode(form, valu, props=props)
+            return node.pack()
 
     def addNodes(self, nodes):
 
@@ -135,7 +224,9 @@ class CoreApi(s_cell.CellApi):
         try:
 
             for node, path in query.evaluate():
-                yield node.pack(dorepr=dorepr)
+                pode = node.pack(dorepr=dorepr)
+                pode[1].update(path.pack())
+                yield pode
 
         except Exception as e:
             logging.exception('exception during storm eval')
@@ -144,20 +235,25 @@ class CoreApi(s_cell.CellApi):
 
     def _getStormQuery(self, text, opts=None):
 
-        query = self.cell.view.getStormQuery(text)
-        query.setUser(self.user)
+        try:
 
-        if opts is not None:
-            query.opts.update(opts)
+            query = self.cell.view.getStormQuery(text)
+            query.setUser(self.user)
 
-        return query
+            if opts is not None:
+                query.opts.update(opts)
+
+            return query
+
+        except Exception as e:
+            logger.exception('storm query parser error')
+            raise
 
     def storm(self, text, opts=None):
         '''
         Execute a storm query and yield messages.
         '''
         query = self._getStormQuery(text, opts=opts)
-
         try:
 
             for mesg in query.execute():
@@ -226,6 +322,11 @@ class Cortex(s_cell.Cell):
             'doc': 'A list of feed dictionaries.'
         }),
 
+        ('httpapi', {
+            'type': 'dict', 'defval': None,
+            'doc': 'An HTTP API configuration. Port is the only required key.'
+        }),
+
         # ('storm:save', {
         #     'type': 'bool', 'defval': False,
         #     'doc': 'Archive storm queries for audit trail.'
@@ -247,8 +348,10 @@ class Cortex(s_cell.Cell):
         self.stormcmds = {}
 
         self.addStormCmd(s_storm.HelpCmd)
+        self.addStormCmd(s_storm.IdenCmd)
         self.addStormCmd(s_storm.SpinCmd)
         self.addStormCmd(s_storm.SudoCmd)
+        self.addStormCmd(s_storm.UniqCmd)
         self.addStormCmd(s_storm.CountCmd)
         self.addStormCmd(s_storm.LimitCmd)
         self.addStormCmd(s_storm.DelNodeCmd)
@@ -265,11 +368,12 @@ class Cortex(s_cell.Cell):
         }
 
         self.setFeedFunc('syn.splice', self._addSynSplice)
+        self.setFeedFunc('syn.ingest', self._addSynIngest)
 
         # load any configured external layers
         for path in self.conf.get('layers'):
             logger.info('loading external layer: %r', path)
-            self.layers.append(s_layer.opendir(path))
+            self.layers.append(s_layer.opendir.gen(path))
 
         # initialize any cortex directory structures
         self._initCoreDir()
@@ -287,6 +391,25 @@ class Cortex(s_cell.Cell):
         self._initPushLoop()
         self._initFeedLoops()
 
+        self.webapp = None
+        self.webaddr = None
+        self.webserver = None
+
+        if self.conf.get('httpapi') is not None:
+            self._initHttpApi()
+
+        def finiCortex():
+
+            # XXX Does the view hold things that need to be fini'd / stopped?
+            # self.view.fini()
+            for layer in self.layers:
+                layer.fini()
+
+            if self.webserver is not None:
+                self.webserver.stop()
+
+        self.onfini(finiCortex)
+
     def addStormCmd(self, ctor):
         '''
         Add a synapse.lib.storm.Cmd class to the cortex.
@@ -298,6 +421,37 @@ class Cortex(s_cell.Cell):
 
     def getStormCmds(self):
         return list(self.stormcmds.items())
+
+    def _initHttpApi(self):
+
+        # set the current loop to the global plex
+        asyncio.set_event_loop(s_glob.plex.loop)
+
+        self.webapp = t_web.Application([
+            ('/v1/model', HttpModelApiV1, {'core': self}),
+        ])
+
+        conf = self.conf.get('httpapi')
+
+        port = conf.get('port', 8888)
+        host = conf.get('host', 'localhost')
+
+        socks = t_netutil.bind_sockets(port, host)
+
+        self.webaddr = socks[0].getsockname()
+        logger.debug('Starting webserver at [%r]', self.webaddr)
+        self.webserver = t_http.HTTPServer(self.webapp)
+        self.webserver.add_sockets(socks)
+
+    def addHttpApi(self, path, ctor):
+        self.webapp.add_handlers('.*', [
+            (path, ctor),
+        ])
+
+    def _getTestHttpUrl(self, *path):
+        base = '/'.join(path)
+        host, port = self.webaddr
+        return f'http://{host}:{port}/' + base
 
     def _initPushLoop(self):
 
@@ -485,7 +639,6 @@ class Cortex(s_cell.Cell):
     def _addSynSplice(self, snap, items):
 
         for item in items:
-
             func = self.splicers.get(item[0])
 
             if func is None:
@@ -568,17 +721,104 @@ class Cortex(s_cell.Cell):
     # def _addSynUndo(self, snap, items):
         # TODO apply splices in reverse
 
+    def _addSynIngest(self, snap, items):
+
+        for item in items:
+            try:
+                pnodes = self._getSynIngestNodes(item)
+                yield from snap.addNodes(pnodes)
+            except Exception as e:
+                logger.exception('Failed to process ingest [%r]', item)
+                continue
+
+    def _getSynIngestNodes(self, item):
+        '''
+        Get a list of packed nodes from a ingest definition.
+        '''
+        pnodes = []
+        seen = item.get('seen')
+        # Track all the ndefs we make so we can make sources
+        ndefs = []
+
+        # Make the form nodes
+        tags = item.get('tags', {})
+        forms = item.get('forms', {})
+        for form, valus in forms.items():
+            for valu in valus:
+                ndef = [form, valu]
+                ndefs.append(ndef)
+                obj = [ndef, {'tags': tags}]
+                if seen:
+                    obj[1]['props'] = {'.seen': (seen, seen)}
+                pnodes.append(obj)
+
+        # Make the packed nodes
+        nodes = item.get('nodes', ())
+        for pnode in nodes:
+            ndefs.append(pnode[0])
+            pnode[1].setdefault('tags', {})
+            for tag, valu in tags.items():
+                # Tag in the packed node has a higher predecence
+                # than the tag in the whole ingest set of data.
+                pnode[1]['tags'].setdefault(tag, valu)
+            if seen:
+                pnode[1].setdefault('props', {})
+                pnode[1]['props'].setdefault('.seen', (seen, seen))
+            pnodes.append(pnode)
+
+        # Make edges
+        for srcdef, etyp, destndefs in item.get('edges', ()):
+            for destndef in destndefs:
+                ndef = [etyp, [srcdef, destndef]]
+                ndefs.append(ndef)
+                obj = [ndef, {}]
+                if seen:
+                    obj[1]['props'] = {'.seen': (seen, seen)}
+                if tags:
+                    obj[1]['tags'] = tags.copy()
+                pnodes.append(obj)
+
+        # Make time based edges
+        for srcdef, etyp, destndefs in item.get('time:edges', ()):
+            for destndef, time in destndefs:
+                ndef = [etyp, [srcdef, destndef, time]]
+                ndefs.append(ndef)
+                obj = [ndef, {}]
+                if seen:
+                    obj[1]['props'] = {'.seen': (seen, seen)}
+                if tags:
+                    obj[1]['tags'] = tags.copy()
+                pnodes.append(obj)
+
+        # Make the source node and links
+        source = item.get('source')
+        if source:
+            # Base object
+            obj = [['source', source], {}]
+            pnodes.append(obj)
+
+            # Subsequent links
+            for ndef in ndefs:
+                obj = [['seen', (source, ndef)],
+                       {'props': {'.seen': (seen, seen)}}]
+                pnodes.append(obj)
+        return pnodes
+
     def _initCoreDir(self):
 
         # each cortex has a default write layer...
         s_common.gendir(self.dirn, 'layers', 'default')
+        mapsize = self.conf.get('layer:lmdb:mapsize')
+        if mapsize:
+            conf = {'lmdb:mapsize': mapsize}
+            s_common.yamlsave(conf, self.dirn, 'layers', 'default', 'cell.yaml')
 
         self.layer = self.openLayerName('default')
         self.layers.append(self.layer)
 
     def openLayerName(self, name):
         dirn = s_common.gendir(self.dirn, 'layers', name)
-        return s_layer.opendir(dirn)
+        return s_layer.opendir.gen(dirn)
 
     def getCoreMod(self, name):
         return self.modules.get(name)
@@ -626,7 +866,7 @@ class Cortex(s_cell.Cell):
         '''
         if self.conf.get('storm:log'):
             lvl = self.conf.get('storm:log:level')
-            logger.log(lvl, 'Executing storm query [%s] as [%r]', text, user)
+            logger.log(lvl, 'Executing storm query [%s] as [%s]', text, user)
 
     def getNodeByNdef(self, ndef):
         '''

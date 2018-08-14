@@ -5,6 +5,7 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
+import synapse.lib.types as s_types
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ class Node:
         self.snap = snap
 
         self.buid = buid
+
         self.init = False  # True if the node is being added.
 
         # if set, the node is complete.
@@ -39,6 +41,9 @@ class Node:
 
         if self.ndef is not None:
             self.form = self.snap.model.form(self.ndef[0])
+
+    def iden(self):
+        return s_common.ehex(self.buid)
 
     def _loadNodeData(self, rawprops):
 
@@ -67,6 +72,7 @@ class Node:
             (tuple): An (iden, info) node tuple.
         '''
         node = (self.ndef, {
+            'iden': self.iden(),
             'tags': self.tags,
             'props': self.props,
         })
@@ -76,6 +82,41 @@ class Node:
             node[1]['reprs'] = self.reprs()
 
         return node
+
+    def seen(self, tick, source=None):
+        '''
+        Update the .seen interval and optionally a source specific seen node.
+        '''
+        self.set('.seen', tick)
+
+        if source is not None:
+            seen = self.snap.addNode('seen', (source, self.ndef))
+            seen.set('.seen', tick)
+
+    def getNodeRefs(self):
+        '''
+        Return a list of (prop, (form, valu)) refs out for the node.
+        '''
+        retn = []
+
+        for name, valu in self.props.items():
+
+            pobj = self.form.props.get(name)
+
+            if isinstance(pobj.type, s_types.Ndef):
+                retn.append((name, valu))
+                continue
+
+            if self.snap.model.forms.get(pobj.type.name) is None:
+                continue
+
+            ndef = (pobj.type.name, valu)
+            if ndef == self.ndef:
+                continue
+
+            retn.append((name, ndef))
+
+        return retn
 
     def set(self, name, valu, init=False):
         '''
@@ -286,6 +327,8 @@ class Node:
             mesg = 'Not allowed to add the tag.'
             return self.snap._onAuthDeny(mesg, tag=tag)
 
+        if isinstance(valu, list):
+            valu = tuple(valu)
         if valu != (None, None):
             valu = self.snap.model.type('ival').norm(valu)[0]
 
@@ -431,12 +474,21 @@ class Node:
 
         self.form.wasDeleted(self)
 
+    def initPath(self):
+        '''
+        Begin a new Path() context for this node.
+        '''
+        return Path(self.snap.vars, [self])
+
+
 class Path:
     '''
     A path context tracked through the storm runtime.
     '''
-    def __init__(self, vars):
+    def __init__(self, vars, nodes):
         self.vars = dict(vars)
+        self.nodes = nodes
+        self.metadata = {}
 
     def get(self, name, defv=s_common.novalu):
         return self.vars.get(name, defv)
@@ -444,5 +496,18 @@ class Path:
     def set(self, name, valu):
         self.vars[name] = valu
 
-    def fork(self):
-        return Path(self.vars)
+    def meta(self, name, valu):
+        '''
+        Add node specific metadata to be returned with the node.
+        '''
+        self.metadata[name] = valu
+
+    def pack(self):
+        return dict(self.metadata)
+
+    def fork(self, node):
+
+        nodes = list(self.nodes)
+        nodes.append(node)
+
+        return Path(self.vars, nodes)

@@ -7,6 +7,18 @@ import synapse.tests.common as s_test
 class TelcoModelTest(s_test.SynTest):
     def test_telco_simple(self):
         with self.getTestCore() as core:
+
+            typ = core.model.type('tel:mob:mcc')
+            self.eq(typ.norm('001')[0], '001')
+            self.raises(s_exc.BadTypeValu, typ.norm, '01')
+            self.raises(s_exc.BadTypeValu, typ.norm, '0001')
+
+            typ = core.model.type('tel:mob:mnc')
+            self.eq(typ.norm('01')[0], '01')
+            self.eq(typ.norm('001')[0], '001')
+            self.raises(s_exc.BadTypeValu, typ.norm, '0001')
+            self.raises(s_exc.BadTypeValu, typ.norm, '1')
+
             with core.snap() as snap:
                 # tel:mob:tac
                 oguid = s_common.guid()
@@ -39,6 +51,32 @@ class TelcoModelTest(s_test.SynTest):
                 self.eq(node.get('imsi'), 310150123456789)
                 self.eq(node.get('phone'), '74951245983')
 
+                # tel:mob:mcc
+                node = snap.addNode('tel:mob:mcc', '611', {'loc': 'gn'})
+                self.eq(node.ndef[1], '611')
+                self.eq(node.get('loc'), 'gn')
+
+                # tel:mob:carrier
+                node = snap.addNode('tel:mob:carrier', ('001', '02'), {'org': oguid, 'loc': 'us'})
+                self.eq(node.ndef[1], ('001', '02'))
+                self.eq(node.get('mcc'), '001')
+                self.eq(node.get('mnc'), '02')
+                self.eq(node.get('org'), oguid)
+                self.eq(node.get('loc'), 'us')
+
+                # tel:mob:cell
+                node = snap.addNode('tel:mob:cell', (('001', '02'), 3, 4), {'radio': 'Pirate  ',
+                                                                            'latlong': (0, 0),
+                                                                            'loc': 'us.ca.la'})
+                self.eq(node.get('carrier'), ('001', '02'))
+                self.eq(node.get('carrier:mcc'), '001')
+                self.eq(node.get('carrier:mnc'), '02')
+                self.eq(node.get('lac'), 3)
+                self.eq(node.get('cid'), 4)
+                self.eq(node.get('loc'), 'us.ca.la')
+                self.eq(node.get('radio'), 'pirate')
+                self.eq(node.get('latlong'), (0.0, 0.0))
+
     def test_telco_imei(self):
         with self.getTestCore() as core:
             with core.snap() as snap:
@@ -60,7 +98,7 @@ class TelcoModelTest(s_test.SynTest):
             with core.snap() as snap:
                 node = snap.addNode('tel:mob:imsi', '310150123456789')
                 self.eq(node.ndef[1], 310150123456789)
-                self.eq(node.get('mcc'), 310)
+                self.eq(node.get('mcc'), '310')
                 self.raises(s_exc.BadPropValu, snap.addNode, 'tel:mob:imsi', 'hehe')
                 self.raises(s_exc.BadPropValu, snap.addNode, 'tel:mob:imsi', 1111111111111111)
 
@@ -70,6 +108,9 @@ class TelcoModelTest(s_test.SynTest):
             norm, subs = t.norm('123 456 7890')
             self.eq(norm, '1234567890')
             self.eq(subs, {'subs': {'loc': 'us'}})
+
+            norm, subs = t.norm('123 456 \udcfe7890')
+            self.eq(norm, '1234567890')
 
             norm, subs = t.norm(1234567890)
             self.eq(norm, '1234567890')
@@ -97,18 +138,3 @@ class TelcoModelTest(s_test.SynTest):
                 # Prefix search
                 nodes = list(snap.getNodesBy('tel:phone', '1703555*'))
                 self.len(2, nodes)
-
-class Fixme:
-
-    def test_model_telco_cast_loc_us(self):
-        with self.getRamCore() as core:
-            self.eq(core.getTypeCast('tel:loc:us', '7035551212'), 17035551212)
-            self.eq(core.getTypeCast('tel:loc:us', '17035551212'), 17035551212)
-            self.eq(core.getTypeCast('tel:loc:us', '0017035551212'), 17035551212)
-            self.eq(core.getTypeCast('tel:loc:us', '01117035551212'), 17035551212)
-
-            self.eq(core.getTypeCast('tel:loc:us', '+865551212'), 865551212)
-            self.eq(core.getTypeCast('tel:loc:us', '+17035551212'), 17035551212)
-
-            self.eq(core.getTypeCast('tel:loc:us', '7(495) 124-59-83'), 74951245983)
-            self.eq(core.getTypeCast('tel:loc:us', '+7(495) 124-59-83'), 74951245983)

@@ -30,21 +30,22 @@ class SemVer(s_types.Type):
     def _normPyStr(self, valu):
         valu = valu.strip()
         if not valu:
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='No text left after stripping whitespace')
 
         subs = s_version.parseSemver(valu)
         if subs is None:
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Unable to parse string as a semver.')
         valu = s_version.packVersion(subs.get('major'), subs.get('minor'), subs.get('patch'))
         return valu, {'subs': subs}
 
     def _normPyInt(self, valu):
         if valu < 0:
-            raise s_exc.BadTypeValu(valu=valu, mesg='Cannot norm a negative integer as a semver.')
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Cannot norm a negative integer as a semver.')
         if valu > s_version.mask60:
-            raise s_exc.BadTypeValu(valu=valu,
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                mesg='Cannot norm a integer larger than 1152921504606846975 as a semver.')
         major, minor, patch = s_version.unpackVersion(valu)
         valu = s_version.packVersion(major, minor, patch)
@@ -93,7 +94,7 @@ class ItModule(s_module.CoreModule):
             # Try doing version part extraction by noming through the string
             subs = s_version.parseVersionParts(valu)
             if subs is None:
-                raise s_exc.BadTypeValu(valu=valu,
+                raise s_exc.BadTypeValu(valu=valu, name='bruteVersionStr',
                                            mesg='Unable to brute force version parts out of the string')
             if subs:
                 valu = s_version.packVersion(subs.get('major'),
@@ -188,6 +189,12 @@ class ItModule(s_module.CoreModule):
                 ('it:prod:soft', ('guid', {}), {
                     'doc': 'A arbitrary, unversioned software product.',
                 }),
+
+                ('it:os:ios:idfa', ('str', {'lower': 1}), {
+                    'doc': 'An iOS advertising identification string.'}),
+
+                ('it:os:android:aaid', ('str', {'lower': 1}), {
+                    'doc': 'An android advertising identification string.'}),
 
                 ('it:os:android:perm', ('str', {}), {
                     'doc': 'An android permission string.'}),
@@ -374,6 +381,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Set to True if the software is a library.'}),
                 )),
 
+                ('it:os:ios:idfa', {}, ()),
+                ('it:os:android:aaid', {}, ()),
                 ('it:os:android:perm', {}, ()),
                 ('it:os:android:intent', {}, ()),
 
@@ -542,7 +551,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The (optional) clear text password for this password hash.',
                     }),
                 )),
-                ('it:exec:proc', ('guid', {}), (
+                ('it:exec:proc', {}, (
                     ('host', ('it:host', {}), {
                         'doc': 'The host that executed the process. May be an actual or a virtual / notional host.',
                     }),

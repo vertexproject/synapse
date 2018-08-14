@@ -1,4 +1,5 @@
 import logging
+import collections
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -108,6 +109,10 @@ class Query(AstNode):
 
         self.opts = {}
 
+        # used by the di-graph projection logic
+        self._graph_done = {}
+        self._graph_want = collections.deque()
+
         self.tick = None
         self.canceled = False
 
@@ -136,11 +141,57 @@ class Query(AstNode):
         for ndef in self.opts.get('ndefs', ()):
             node = snap.getNodeByNdef(ndef)
             if node is not None:
-                path = s_node.Path(self.snap.vars)
-                yield node, path
+                yield node, node.initPath()
+        for iden in self.opts.get('idens', ()):
+            buid = s_common.uhex(iden)
+            node = snap.getNodeByBuid(buid)
+            if node is not None:
+                yield node, node.initPath()
+
+    def _finiGraph(self):
+
+        # gather up any remaining todo nodes
+        while self._graph_want:
+
+            ndef = self._graph_want.popleft()
+
+            if self._graph_done.get(ndef):
+                continue
+
+            node = self.snap.getNodeByNdef(ndef)
+            if node is None:
+                continue
+
+            path = node.initPath()
+
+            self._iterGraph(node, path)
+
+            yield node, path
+
+    def _iterGraph(self, node, path):
+
+        self._graph_done[node.ndef] = True
+
+        done = {}
+        edges = []
+
+        for name, ndef in node.getNodeRefs():
+
+            if done.get(ndef):
+                continue
+
+            done[ndef] = True
+
+            iden = s_common.ehex(s_common.buid(ndef))
+
+            edges.append((iden, {}))
+
+            if not self._graph_done.get(ndef):
+                self._graph_want.append(ndef)
+
+        path.meta('edges', edges)
 
     def evaluate(self):
-
         with self._getQuerySnap() as snap:
             yield from self._runQueryLoop(snap)
 
@@ -148,16 +199,18 @@ class Query(AstNode):
 
         snap.core._logStormQuery(self.text, self.user)
 
+        self.init(snap)
+
         count = 0
 
         # all snap events go into the output queue...
         snap.runt['storm:opts'] = self.opts
 
-        self.init(snap)
-
         varz = self.opts.get('vars')
         if varz is not None:
             snap.vars.update(varz)
+
+        graph = self.opts.get('graph')
 
         self.optimize()
 
@@ -167,9 +220,12 @@ class Query(AstNode):
         for oper in self.kids:
             genr = oper.run(genr)
 
-        for item in genr:
+        for node, path in genr:
 
-            yield item
+            if graph:
+                self._iterGraph(node, path)
+
+            yield node, path
 
             count += 1
 
@@ -181,6 +237,10 @@ class Query(AstNode):
             if self.canceled:
                 raise s_exc.Canceled()
 
+        # give the graph system a chance to mop up...
+        if graph:
+            yield from self._finiGraph()
+
     def _getQuerySnap(self):
         write = self.isWrite()
         snap = self.view.snap()
@@ -190,9 +250,6 @@ class Query(AstNode):
     @s_glob.inpool
     def _runQueryThread(self, chan):
 
-        #for depth, text in self.format():
-            #print(' ' * depth + text)
-
         try:
 
             count = 0
@@ -200,15 +257,17 @@ class Query(AstNode):
             dopath = self.opts.get('path')
             dorepr = self.opts.get('repr')
 
+            tick = s_common.now()
+
             with self._getQuerySnap() as snap:
 
-                tick = s_common.now()
                 chan.put(('init', {'tick': tick}))
 
                 snap.link(chan.put)
 
                 for node, path in self._runQueryLoop(snap):
                     pode = node.pack(dorepr=dorepr)
+                    pode[1].update(path.pack())
                     chan.put(('node', pode))
                     count += 1
 
@@ -272,8 +331,7 @@ class LiftOper(Oper):
         yield from genr
 
         for node in self.lift():
-            path = s_node.Path(self.snap.vars)
-            yield node, path
+            yield node, node.initPath()
 
 class LiftTag(LiftOper):
 
@@ -370,7 +428,7 @@ class PivotOut(PivotOper):
             if isinstance(node.form.type, s_types.Edge):
                 n2def = node.get('n2')
                 pivo = self.snap.getNodeByNdef(n2def)
-                yield pivo, path.fork()
+                yield pivo, path.fork(pivo)
                 continue
 
             for name, valu in node.props.items():
@@ -382,6 +440,15 @@ class PivotOut(PivotOper):
                     logger.warning(f'node prop is not form prop: {node.form.name} {name}')
                     continue
 
+                # if the outbound prop is an ndef...
+                if isinstance(prop.type, s_types.Ndef):
+                    pivo = self.snap.getNodeByNdef(valu)
+                    if pivo is None:
+                        continue
+
+                    yield pivo, path.fork(pivo)
+                    continue
+
                 form = self.snap.model.forms.get(prop.type.name)
                 if form is None:
                     continue
@@ -390,7 +457,7 @@ class PivotOut(PivotOper):
                 if pivo is None:
                     continue
 
-                yield pivo, path.fork()
+                yield pivo, path.fork(pivo)
 
 class PivotIn(PivotOper):
     '''
@@ -407,7 +474,7 @@ class PivotIn(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            # if it's a digraph edge, use :n2
+            # if it's a graph edge, use :n2
             if isinstance(node.form.type, s_types.Edge):
 
                 ndef = node.get('n1')
@@ -416,7 +483,7 @@ class PivotIn(PivotOper):
                 if pivo is None:
                     continue
 
-                yield pivo, path.fork()
+                yield pivo, path.fork(pivo)
 
                 continue
 
@@ -424,7 +491,7 @@ class PivotIn(PivotOper):
 
             for prop in self.snap.model.propsbytype.get(name, ()):
                 for pivo in self.snap.getNodesBy(prop.full, valu):
-                    yield pivo, path.fork()
+                    yield pivo, path.fork(pivo)
 
 class PivotInFrom(PivotOper):
 
@@ -444,13 +511,20 @@ class PivotInFrom(PivotOper):
             full = self.form.name + ':n2'
 
             for node, path in genr:
+
+                if self.isjoin:
+                    yield node, path
+
                 for pivo in self.snap.getNodesBy(full, node.ndef):
-                    yield pivo, path.fork()
+                    yield pivo, path.fork(pivo)
 
             return
 
         # edge <- form
         for node, path in genr:
+
+            if self.isjoin:
+                yield node, path
 
             if not isinstance(node.form.type, s_types.Edge):
                 continue
@@ -465,7 +539,7 @@ class PivotInFrom(PivotOper):
             if pivo is None:
                 continue
 
-            yield pivo, path.fork()
+            yield pivo, path.fork(pivo)
 
 class FormPivot(PivotOper):
 
@@ -491,18 +565,22 @@ class FormPivot(PivotOper):
 
                 # TODO cache/bypass normalization in loop!
                 for pivo in self.snap.getNodesBy(self.prop.full, valu):
-                    yield pivo, path.fork()
+                    yield pivo, path.fork(pivo)
 
         # form -> form pivot is nonsensical. Lets help out...
 
-        # if dest form is a subtype of a digraph "edge", use N1 automatically
+        # if dest form is a subtype of a graph "edge", use N1 automatically
         if isinstance(self.prop.type, s_types.Edge):
 
             full = self.prop.name + ':n1'
 
             for node, path in genr:
+
+                if self.isjoin:
+                    yield node, path
+
                 for pivo in self.snap.getNodesBy(full, node.ndef):
-                    yield pivo, path.fork()
+                    yield pivo, path.fork(pivo)
 
             return
 
@@ -520,7 +598,7 @@ class FormPivot(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            # if the source node is a digraph edge, use n2
+            # if the source node is a graph edge, use n2
             if isinstance(node.form.type, s_types.Edge):
 
                 n2def = node.get('n2')
@@ -528,7 +606,7 @@ class FormPivot(PivotOper):
                     continue
 
                 pivo = self.snap.getNodeByNdef(node.get('n2'))
-                yield pivo, path.fork()
+                yield pivo, path.fork(pivo)
 
                 continue
 
@@ -540,7 +618,35 @@ class FormPivot(PivotOper):
             valu = node.get(name)
 
             for pivo in self.snap.getNodesBy(self.prop.name, valu):
-                yield pivo, path.fork()
+                yield pivo, path.fork(pivo)
+
+class PropPivotOut(PivotOper):
+
+    def run(self, genr):
+
+        name = self.kids[0].value()
+
+        for node, path in genr:
+
+            prop = node.form.props.get(name)
+            if prop is None:
+                continue
+
+            valu = node.get(name)
+            if valu is None:
+                continue
+
+            # ndef pivot out syntax...
+            # :ndef -> *
+            if isinstance(prop.type, s_types.Ndef):
+                pivo = self.snap.getNodeByNdef(valu)
+                yield pivo, path.fork(pivo)
+                continue
+
+            # :ipv4 -> *
+            ndef = (prop.type.name, valu)
+            pivo = self.snap.getNodeByNdef(ndef)
+            yield pivo, path.fork(pivo)
 
 class PropPivot(PivotOper):
 
@@ -568,8 +674,15 @@ class PropPivot(PivotOper):
                 continue
 
             # TODO cache/bypass normalization in loop!
-            for pivo in self.snap.getNodesBy(self.prop.full, valu):
-                yield pivo, path.fork()
+            try:
+                for pivo in self.snap.getNodesBy(self.prop.full, valu):
+                    yield pivo, path.fork(pivo)
+            except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
+                logger.warning('Caught error during pivot', exc_info=e)
+                items = e.items()
+                mesg = items.pop('mesg', '')
+                mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
+                self.snap.warn(mesg, **items)
 
 class Cond(AstNode):
 
@@ -725,6 +838,27 @@ class AbsPropCond(Cond):
 
         cmpr = self._getCmprFunc(self.prop, node, path)
         return cmpr(valu)
+
+class TagValuCond(Cond):
+
+    def prepare(self):
+
+        self.tagtype = self.snap.model.type('ival')
+        self.tagname = self.kids[0].value()
+        self.cmprname = self.kids[1].value()
+
+        self.isconst = isinstance(self.kids[2], Const)
+        if self.isconst:
+            self.constval = self.kids[2].value()
+
+    def evaluate(self, node, path):
+
+        tval = node.getTag(self.tagname)
+        if tval is None:
+            return False
+
+        valu = self.kids[2].compute(node, path)
+        return self.tagtype.cmpr(tval, self.cmprname, valu)
 
 class RelPropCond(Cond):
     '''
@@ -927,7 +1061,7 @@ class EditNodeAdd(Edit):
 
         for valu in self.formtype.getTypeVals(kval):
             node = self.snap.addNode(self.formname, valu)
-            yield node, s_node.Path(self.snap.vars)
+            yield node, node.initPath()
 
 class EditPropSet(Edit):
 

@@ -18,6 +18,7 @@ class StormCmd(s_cli.Cmd):
     Optional Arguments:
         --hide-tags: Do not print tags
         --hide-props: Do not print secondary properties
+        --hide-unknown: Do not print messages which do not have known handlers.
         --raw: Print the nodes in their raw format
             (overrides --hide-tags and --hide-props)
         --debug: Display cmd debug information along with nodes in raw format
@@ -32,6 +33,7 @@ class StormCmd(s_cli.Cmd):
     _cmd_syntax = (
         ('--hide-tags', {}),
         ('--hide-props', {}),
+        ('--hide-unknown', {}),
         ('--raw', {}),
         ('--debug', {}),
         ('query', {'type': 'glob'}),
@@ -60,7 +62,7 @@ class StormCmd(s_cli.Cmd):
             self.printf(repr(node))
             return
 
-        self.printf('%.20s = %s' % (formname, formvalu))
+        self.printf(f'{formname}={formvalu}')
 
         if not opts.get('hide-props'):
 
@@ -120,4 +122,6 @@ class StormCmd(s_cli.Cmd):
                 try:
                     self.reac.react(mesg)
                 except s_exc.NoSuchAct as e:
+                    if opts.get('hide-unknown'):
+                        continue
                     self.printf(repr(mesg))

@@ -1,3 +1,0 @@
-[{"ipv4": "192.168.0.1", "domain": "foobar.com"},{"ipv4": "192.168.0.100", "domain": "w00t.foobar.com"}]
-[{"ipv4": "127.0.0.1", "domain": "knight.net"}]
-[{"ipv4": "10.20.30.40", "domain": "knight.net"},{"ipv4": "8.8.8.8", "domain": "acmecorp.knight.net"}]

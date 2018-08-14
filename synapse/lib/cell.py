@@ -1,7 +1,6 @@
 import os
 import logging
 import threading
-from typing import Any, Tuple
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -23,6 +22,9 @@ def adminapi(f):
         if not args[0].user.admin:
             raise s_exc.AuthDeny(mesg='User is not an admin.',
                                  user=args[0].user.name)
+
+        logger.info('Executing [%s] as [%s] with args [%s][%s]',
+                    f.__qualname__, args[0].user, args[1:], kwargs)
 
         return f(*args, **kwargs)
 
@@ -51,6 +53,14 @@ class CellApi:
     @adminapi
     def addAuthRole(self, name):
         self.cell.auth.addRole(name)
+
+    @adminapi
+    def getAuthUsers(self):
+        return self.cell.auth.getUsers()
+
+    @adminapi
+    def getAuthRoles(self):
+        return self.cell.auth.getRoles()
 
     @adminapi
     def addAuthRule(self, name, rule, indx=None):
@@ -143,8 +153,8 @@ class CellApi:
             'rules': role.info.get('rules', ()),
         }
 
-        # delayed import.  dep loop.
         if authtype == 'user':
+            info['locked'] = role.locked
 
             roles = []
             info['roles'] = roles
@@ -175,7 +185,7 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
     '''
     cellapi = CellApi
 
-    confdefs: Tuple[Any, ...] = ()
+    confdefs = ()
 
     def __init__(self, dirn):
 
@@ -238,11 +248,14 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
             user.setAdmin(True)
             user.setPasswd(passwd)
 
+        self.onfini(self.auth.fini)
+
     def _loadCellYaml(self, *path):
 
         path = os.path.join(self.dirn, *path)
 
         if os.path.isfile(path):
+            logger.debug('Loading file from [%s]', path)
             return s_common.yamlload(path)
 
         return {}

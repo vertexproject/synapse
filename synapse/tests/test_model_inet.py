@@ -2,7 +2,6 @@ import copy
 import logging
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.models.inet as s_m_inet
 import synapse.tests.common as s_t_common
 
@@ -46,6 +45,8 @@ class InetModelTest(s_t_common.SynTest):
                 snap.addNode('inet:ipv4', '1.2.3.4')
 
             self.len(3, core.eval('inet:ipv4=1.2.3.1-1.2.3.3'))
+            self.len(3, core.eval('[inet:ipv4=1.2.3.1-1.2.3.3]'))
+            self.len(3, core.eval('inet:ipv4 +inet:ipv4=1.2.3.1-1.2.3.3'))
 
     def test_ipv4_filt_cidr(self):
 
@@ -54,6 +55,42 @@ class InetModelTest(s_t_common.SynTest):
             self.len(5, core.eval('[ inet:ipv4=1.2.3.0/30 inet:ipv4=5.5.5.5 ]'))
             self.len(4, core.eval('inet:ipv4 +inet:ipv4=1.2.3.0/30'))
             self.len(1, core.eval('inet:ipv4 -inet:ipv4=1.2.3.0/30'))
+
+            self.len(256, core.eval('[ inet:ipv4=192.168.1.0/24]'))
+            self.len(256, core.eval('[ inet:ipv4=192.168.2.0/24]'))
+            self.len(256, core.eval('inet:ipv4=192.168.1.0/24'))
+
+            # Seed some nodes for bounds checking
+            pnodes = [(('inet:ipv4', f'10.2.1.{d}'), {}) for d in range(1, 33)]
+            nodes = list(core.addNodes(pnodes))
+
+            nodes = list(core.eval('inet:ipv4=10.2.1.4/32'))
+            self.len(1, nodes)
+            self.len(1, core.eval('inet:ipv4 +inet:ipv4=10.2.1.4/32'))
+
+            nodes = list(core.eval('inet:ipv4=10.2.1.4/31'))
+            self.len(2, nodes)
+            self.len(2, core.eval('inet:ipv4 +inet:ipv4=10.2.1.4/31'))
+
+            # 10.2.1.1/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
+            nodes = list(core.eval('inet:ipv4=10.2.1.1/30'))
+            self.len(3, nodes)
+
+            # 10.2.1.2/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
+            nodes = list(core.eval('inet:ipv4=10.2.1.2/30'))
+            self.len(3, nodes)
+
+            # 10.2.1.1/29 is 10.2.1.0 -> 10.2.1.7 but we don't have 10.2.1.0 in the core
+            nodes = list(core.eval('inet:ipv4=10.2.1.1/29'))
+            self.len(7, nodes)
+
+            # 10.2.1.8/29 is 10.2.1.8 -> 10.2.1.15
+            nodes = list(core.eval('inet:ipv4=10.2.1.8/29'))
+            self.len(8, nodes)
+
+            # 10.2.1.1/28 is 10.2.1.0 -> 10.2.1.15 but we don't have 10.2.1.0 in the core
+            nodes = list(core.eval('inet:ipv4=10.2.1.1/28'))
+            self.len(15, nodes)
 
     def test_addr(self):
         formname = 'inet:addr'
@@ -236,6 +273,9 @@ class InetModelTest(s_t_common.SynTest):
             expected = ('unittest@vertex.link', {'subs': {'fqdn': 'vertex.link', 'user': 'unittest'}})
             self.eq(t.norm(email), expected)
 
+            valu = t.norm('bob\udcfesmith@woot.com')[0]
+            self.eq(b'bob\xed\xb3\xbesmith@woot.com', t.indx(valu))
+
             # Form Tests ======================================================
             valu = 'UnitTest@Vertex.link'
             expected_ndef = (formname, valu.lower())
@@ -303,6 +343,9 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm(fqdn), expected)
             self.raises(s_exc.BadTypeValu, t.norm, '!@#$%')
 
+            # defanging works
+            self.eq(t.norm('example[.]vertex(.)link'), expected)
+
             # Demonstrate Valid IDNA
             fqdn = 'tèst.èxamplè.link'
             ex_fqdn = 'xn--tst-6la.xn--xampl-3raf.link'
@@ -315,6 +358,8 @@ class InetModelTest(s_t_common.SynTest):
             expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'link'}})
             self.eq(t.norm(fqdn), expected)
             self.none(t.repr(fqdn))  # UnicodeError raised and caught and fallback to norm
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com')
 
             # Form Tests ======================================================
             valu = 'api.vertex.link'
@@ -561,12 +606,14 @@ class InetModelTest(s_t_common.SynTest):
             ip_int = 16909060
             ip_str = '1.2.3.4'
             ip_str_enfanged = '1[.]2[.]3[.]4'
+            ip_str_enfanged2 = '1(.)2(.)3(.)4'
             ip_str_unicode = '1\u200b.\u200b2\u200b.\u200b3\u200b.\u200b4'
 
             info = {'subs': {'type': 'unicast'}}
             self.eq(t.norm(ip_int), (ip_int, info))
             self.eq(t.norm(ip_str), (ip_int, info))
             self.eq(t.norm(ip_str_enfanged), (ip_int, info))
+            self.eq(t.norm(ip_str_enfanged2), (ip_int, info))
             self.eq(t.norm(ip_str_unicode), (ip_int, info))
             self.eq(t.repr(ip_int), ip_str)
 
@@ -751,6 +798,10 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm('"foo bar "   <visi@vertex.link>'), ('foo bar <visi@vertex.link>', {'subs': {'email': 'visi@vertex.link', 'name': 'foo bar'}}))
             self.eq(t.norm('<visi@vertex.link>'), ('visi@vertex.link', {'subs': {'email': 'visi@vertex.link'}}))
 
+            valu = t.norm('bob\udcfesmith@woot.com')[0]
+            self.eq(b'bob\xed\xb3\xbesmith@woot.com', t.indx(valu))
+            self.eq(b'bob\xed\xb3\xbesmith', t.indxByPref('bob\udcfesmith')[0][1])
+
             self.raises(s_exc.NoSuchFunc, t.norm, 20)
 
             # Form Tests ======================================================
@@ -843,6 +894,11 @@ class InetModelTest(s_t_common.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')  # No Host
             self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
 
+            self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
+            valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')[0]
+            self.eq(b'http://www.googlesites.com/hehe\xed\xb3\xbestuff.asp',
+                    t.indx(valu))
+
             # Form Tests ======================================================
             with core.snap() as snap:
                 valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
@@ -855,6 +911,13 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.get('port'), 1337)
                 self.eq(node.get('proto'), 'https')
                 self.eq(node.get('user'), 'vertexmc')
+
+                valu = 'https://vertex.link?a=1'
+                expected_ndef = (formname, valu)
+                node = snap.addNode(formname, valu)
+                self.eq(node.ndef, expected_ndef)
+                self.eq(node.get('fqdn'), 'vertex.link')
+                self.eq(node.get('path'), '?a=1')
 
     def test_url_fqdn(self):
 

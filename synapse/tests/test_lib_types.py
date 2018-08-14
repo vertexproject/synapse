@@ -38,7 +38,18 @@ class TypesTest(s_test.SynTest):
         self.eq(t.repr(0), 'False')
 
     def test_comp(self):
-        self.skip('Implement base comp test')
+        with self.getTestCore() as core:
+            t = 'testcomplexcomp'
+            valu = ('123', 'HAHA')
+            with core.snap() as snap:
+                node = snap.addNode(t, valu)
+            pnode = node.pack(dorepr=True)
+            self.eq(pnode[0], (t, (123, 'haha')))
+            self.eq(pnode[1].get('repr'), ('123', 'haha'))
+            self.eq(pnode[1].get('reprs').get('foo'), '123')
+            self.notin('bar', pnode[1].get('reprs'))
+            self.eq(node.get('foo'), 123)
+            self.eq(node.get('bar'), 'haha')
 
     def test_fieldhelper(self):
         self.skip('Implement base fieldhelper test')
@@ -51,7 +62,7 @@ class TypesTest(s_test.SynTest):
         self.raises(s_exc.BadTypeValu, model.type('guid').norm, 'visi')
 
         guid = model.type('guid').norm('*')[0]
-        self.len(32, guid)
+        self.true(s_common.isguid(guid))
 
     def test_hex(self):
 
@@ -91,6 +102,7 @@ class TypesTest(s_test.SynTest):
                 ('010101', s_exc.BadTypeValu),
                 (b'\x10\x01\xff', s_exc.BadTypeValu),
                 (b'\xff', s_exc.BadTypeValu),
+                ('01\udcfe0101', s_exc.BadTypeValu),
             ]
             t = core.model.type('testhex4')
             for v, b in testvectors4:
@@ -179,6 +191,7 @@ class TypesTest(s_test.SynTest):
         # test base types that Model snaps in...
         self.eq(t.norm('100')[0], 100)
         self.eq(t.norm('0x20')[0], 32)
+        self.raises(s_exc.BadTypeValu, t.norm, 'newp')
 
         # Index tests
         self.eq(t.indx(-2**63), b'\x00\x00\x00\x00\x00\x00\x00\x00')
@@ -253,6 +266,9 @@ class TypesTest(s_test.SynTest):
         loctype = model.types.get('loc')
 
         self.eq('us.va', loctype.norm('US.    VA')[0])
+        self.eq('', loctype.norm('')[0])
+        self.eq('us.va.ओं.reston', loctype.norm('US.    VA.ओं.reston')[0])
+        self.eq(b'us\x00haha\xed\xb3\xbestuff\x00blah\x00', loctype.indx('us.haha\udcfestuff.blah'))
 
     def test_ndef(self):
         self.skip('Implement base ndef test')
@@ -314,6 +330,10 @@ class TypesTest(s_test.SynTest):
         byts = s_common.uhex('e2889e')
         self.eq(byts, model.type('str').indx('∞'))
 
+        # The real world is a harsh place.
+        self.eq(b'haha\xed\xb3\xbe hehe', model.type('str').indx('haha\udcfe hehe'))
+        self.eq(b'haha\xed\xb3\xbe ', model.type('str').indxByPref('haha\udcfe ')[0][1])
+
         strp = model.type('str').clone({'strip': True})
         self.eq('foo', strp.norm('  foo \t')[0])
         self.eq(b'foo  bar', strp.indxByPref(' foo  bar')[0][1])
@@ -353,6 +373,54 @@ class TypesTest(s_test.SynTest):
         self.eq('foo', subs.get('up'))
 
         self.raises(s_exc.BadTypeValu, tagtype.norm, '@#R)(Y')
+        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\udcfe.bar')
+        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\u200b.bar')
+        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\u202e.bar')
+        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo.')
+        self.raises(s_exc.BadTypeValu, tagtype.norm, '.')
+        self.raises(s_exc.BadTypeValu, tagtype.norm, '')
+        # Tags including non-english unicode letters are okay
+        self.eq('icon.ॐ', tagtype.norm('ICON.ॐ')[0])
+        # homoglyphs are also possible
+        self.eq('is.ｂob.evil', tagtype.norm('is.\uff42ob.evil')[0])
 
     def test_time(self):
-        self.skip('Implement base time test')
+
+        with self.getTestCore() as core:
+
+            t = core.model.type('testtime')
+
+            # explicitly test our "future/ongoing" value...
+            future = 0x7fffffffffffffff
+            self.eq(t.indx(future), b'\xff\xff\xff\xff\xff\xff\xff\xff')
+            self.eq(t.norm('?')[0], future)
+            self.eq(t.repr(future), '?')
+
+            tick = t.norm('2014')[0]
+            tock = t.norm('2015')[0]
+
+            with core.snap() as snap:
+                node = snap.addNode('teststr', 'a', {'tick': '2014'})
+                node = snap.addNode('teststr', 'b', {'tick': '2015'})
+                node = snap.addNode('teststr', 'c', {'tick': '2016'})
+                node = snap.addNode('teststr', 'd', {'tick': 'now'})
+
+            nodes = list(core.getNodesBy('teststr:tick', '2014*'))
+            self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
+            nodes = list(core.getNodesBy('teststr:tick', '201401*'))
+            self.eq({node.ndef[1] for node in nodes}, {'a'})
+            nodes = list(core.getNodesBy('teststr:tick', '-3000 days'))
+            self.eq({node.ndef[1] for node in nodes}, {'a', 'b', 'c', 'd'})
+            nodes = list(core.getNodesBy('teststr:tick', (tick, tock)))
+            self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
+            nodes = list(core.getNodesBy('teststr:tick', ('20131231', '+2 days')))
+            self.eq({node.ndef[1] for node in nodes}, {'a'})
+            nodes = list(core.getNodesBy('teststr:tick', ('-1 day', '+1 day')))
+            self.eq({node.ndef[1] for node in nodes}, {'d'})
+            nodes = list(core.getNodesBy('teststr:tick', ('-1 days', 'now', )))
+            self.eq({node.ndef[1] for node in nodes}, {'d'})
+            # This lifts nothing
+            nodes = list(core.getNodesBy('teststr:tick', ('now', '-1 days')))
+            self.eq({node.ndef[1] for node in nodes}, set())
+            # Sad path
+            self.raises(s_exc.BadTypeValu, t.indxByEq, ('', ''))

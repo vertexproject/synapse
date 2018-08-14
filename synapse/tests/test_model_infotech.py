@@ -14,7 +14,17 @@ import synapse.tests.common as s_test
 
 class InfotechModelTest(s_test.SynTest):
 
-    def test_model_infotech_android(self):
+    def test_infotech_ios(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                valu = '00000000-0000-0000-0000-00000000000A'
+                idfa = snap.addNode('it:os:ios:idfa', valu)
+                self.eq(idfa.ndef[1], '00000000-0000-0000-0000-00000000000a')
+
+    def test_infotech_android(self):
 
         softver = s_common.guid()
 
@@ -38,6 +48,10 @@ class InfotechModelTest(s_test.SynTest):
                 reqperm = snap.addNode('it:os:android:reqperm', (softver, 'Test Perm'))
                 self.eq(reqperm.get('app'), softver)
                 self.eq(reqperm.get('perm'), 'Test Perm')
+
+                valu = 'someIdentifier'
+                aaid = snap.addNode('it:os:android:aaid', valu)
+                self.eq(aaid.ndef[1], 'someidentifier')
 
     def test_it_forms_simple(self):
         with self.getTestCore() as core:

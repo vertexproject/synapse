@@ -24,7 +24,12 @@ import synapse.glob as s_glob  # setup glob here to avoid import loops...
 import synapse.lib.plex as s_plex
 import synapse.lib.threads as s_threads
 
+from synapse.lib.version import version, verstring
+
 tmax = multiprocessing.cpu_count() * 8
 
 s_glob.plex = s_plex.Plex()
+s_glob.plex._fini_atexit = True
+
 s_glob.pool = s_threads.Pool(maxsize=tmax)
+s_glob.pool._fini_atexit = True

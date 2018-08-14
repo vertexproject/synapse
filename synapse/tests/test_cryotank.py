@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cryotank as s_cryotank
 
@@ -8,11 +9,20 @@ import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.common as s_test
 
+from synapse.tests.utils import SyncToAsyncCMgr
+
 logger = s_cryotank.logger
 
 cryodata = (('foo', {'bar': 10}), ('baz', {'faz': 20}))
 
 class CryoTest(s_test.SynTest):
+
+    @s_glob.synchelp
+    async def test_cryo_cell_async(self):
+        async with SyncToAsyncCMgr(self.getTestDmon, mirror='cryodmon') as dmon, \
+                await dmon._getTestProxy('cryo00') as prox:
+            self.true(await prox.init('foo'))
+            self.eq([], [x async for x in await prox.rows('foo', 0, 1)])
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
     def test_cryo_cell(self):
@@ -28,7 +38,14 @@ class CryoTest(s_test.SynTest):
                 self.eq('foo', prox.list()[0][0])
 
                 self.none(prox.last('foo'))
+
+                self.eq([], list(prox.rows('foo', 0, 1)))
+
                 self.true(prox.puts('foo', cryodata))
+
+                info = prox.list()
+                self.eq('foo', info[0][0])
+                self.eq(2, info[0][1].get('stat').get('entries'))
 
                 self.true(prox.puts('foo', cryodata))
 

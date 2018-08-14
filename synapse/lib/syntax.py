@@ -1,6 +1,10 @@
+import collections
+
 import synapse.exc as s_exc
+
 import synapse.lib.ast as s_ast
 import synapse.lib.time as s_time
+import synapse.lib.cache as s_cache
 
 '''
 This module implements syntax parsing for the storm runtime.
@@ -870,7 +874,7 @@ class Parser:
 
     def formpivotin(self):
         '''
-        <- *
+        <- * / <- prop
         '''
 
         self.ignore(whitespace)
@@ -888,7 +892,7 @@ class Parser:
 
     def formjoinin(self):
         '''
-        <+- *
+        <+- * / <+- prop
         '''
 
         self.ignore(whitespace)
@@ -897,9 +901,12 @@ class Parser:
 
         self.ignore(whitespace)
 
-        self.nextmust('*')
+        if self.nextchar() == '*':
+            self.offs += 1
+            return s_ast.PivotIn(isjoin=True)
 
-        return s_ast.PivotIn(isjoin=True)
+        prop = self.absprop()
+        return s_ast.PivotInFrom(kids=(prop,), isjoin=True)
 
     def formpivot(self):
 
@@ -945,18 +952,22 @@ class Parser:
 
         self.ignore(whitespace)
 
+        if self.nextchar() == '*':
+            self.offs += 1
+            return s_ast.PropPivotOut(kids=(prop,))
+
         dest = self.absprop()
         return s_ast.PropPivot(kids=(pval, dest))
 
     def propjoin(self, prop):
         '''
-        :foo:bar <- baz:faz
+        :foo:bar -+> baz:faz
         '''
         pval = s_ast.RelPropValue(kids=(prop,))
 
         self.ignore(whitespace)
 
-        self.nextmust('<-')
+        self.nextmust('-+>')
 
         self.ignore(whitespace)
 
@@ -1024,8 +1035,11 @@ class Parser:
             if self.nextstr('->'):
                 return self.proppivot(prop)
 
-            if self.nextstr('<-'):
+            if self.nextstr('-+>'):
                 return self.propjoin(prop)
+
+            if self.nextstrs('<-', '<+-'):
+                self._raiseSyntaxError('Pivot in syntax does not currently support relative properties.')
 
         name = self.noms(varset)
         if not name:
@@ -1170,14 +1184,24 @@ class Parser:
 
             self.ignore(whitespace)
 
-            if not self.nextstr('@='):
+            if self.nextchar() not in cmprstart:
                 return s_ast.TagCond(kids=(tag,))
+
+            cmpr = self.cmpr()
+            self.ignore(whitespace)
+
+            valu = self.valu()
+
+            return s_ast.TagValuCond(kids=(tag, cmpr, valu))
 
         prop = self.absprop()
 
         self.ignore(whitespace)
 
         if self.nextchar() not in cmprstart:
+            return s_ast.HasAbsPropCond(kids=(prop,))
+        # Special case of pivot operations which ALSO start with cmprstart chars
+        if self.nextstrs('<-', '<+-'):
             return s_ast.HasAbsPropCond(kids=(prop,))
 
         cmpr = self.cmpr()
@@ -1288,7 +1312,8 @@ class Parser:
         self.ignore(whitespace)
 
         # a simple whitespace separated string
-        if self.nextchar() in alphanum:
+        nexc = self.nextchar()
+        if nexc in alphanum or nexc == '-':
             text = self.noms(until=mustquote)
             return s_ast.Const(text)
 
@@ -1419,10 +1444,11 @@ class Parser:
             self.ignore(whitespace)
 
             oper = self.oper()
-            if self.nextchar('}'):
+            if self.nextchar() == '}':
+                self.offs += 1
                 break
 
-        self.eat(1, ignore=whitespace)
+        self.ignore(whitespace)
         return subq
 
     def tag(self):
@@ -1493,6 +1519,24 @@ class Parser:
         size = len(text)
         subt = self.text[self.offs:self.offs + size]
         return subt == text
+
+    def nextstrs(self, *texts):
+        if not self.more():
+            return False
+        sd = self.getSortedDict(*texts)
+        for size, valus in sd.items():
+            subt = self.text[self.offs:self.offs + size]
+            if subt in valus:
+                return True
+        return False
+
+    @s_cache.memoize()
+    def getSortedDict(self, *texts):
+        d = collections.defaultdict(list)
+        for text in texts:
+            d[len(text)].append(text)
+        ret = {k: d[k] for k in sorted(d.keys())}
+        return ret
 
     def nextchar(self):
         if not self.more():

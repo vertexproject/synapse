@@ -22,11 +22,13 @@ def _fini_atexit(): # pragma: no cover
         if not isinstance(item, EventBus):
             continue
 
+        if item.isfini:
+            continue
+
         if not item._fini_atexit:
             continue
 
         try:
-
             item.fini()
 
         except Exception as e:

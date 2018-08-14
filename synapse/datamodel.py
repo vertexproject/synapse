@@ -30,6 +30,7 @@ class Prop:
 
         self.form = form
         self.type = None
+        self.typedef = typedef
 
         self.storinfo = {
             'univ': name.startswith('.')
@@ -168,6 +169,11 @@ class Prop:
 
         return func
 
+    def pack(self):
+        info = {'type': self.typedef}
+        info.update(self.info)
+        return info
+
 class Univ:
     '''
     A property-like object that can lift without Form().
@@ -182,7 +188,7 @@ class Univ:
     def getLiftOps(self, valu, cmpr='='):
 
         if valu is None:
-            iops = ( ('pref', b''), )
+            iops = (('pref', b''),)
             return (
                 ('indx', ('byuniv', self.pref, iops)),
             )
@@ -305,6 +311,12 @@ class Form:
         '''
         return self.props.get(name)
 
+    def pack(self):
+        props = {p.name: p.pack() for p in self.props.values()}
+        info = {'props': props}
+        info.update(self.info)
+        return info
+
 class Model:
     '''
     The data model used by a Cortex hypergraph.
@@ -316,14 +328,7 @@ class Model:
         self.props = {} # (form,name): Prop() and full: Prop()
         self.formabbr = {} # name: [Form(), ... ]
 
-        self.univs = (
-            ('created', ('time', {}), {'ro': 1,
-                'doc': 'The time the node was created in the cortex.',
-            }),
-            ('seen', ('ival', {}), {
-                'doc': 'The time interval for first/last observation of the node.',
-            }),
-        )
+        self.univs = []
 
         self.propsbytype = collections.defaultdict(list) # name: Prop()
 
@@ -398,9 +403,13 @@ class Model:
         item = s_types.NodeProp(self, 'nodeprop', info, {})
         self.addBaseType(item)
 
-        for name, typedef, propinfo in self.univs:
-            name = '.' + name
-            self.props[name] = Univ(self, name, typedef, propinfo)
+        # add the base universal properties...
+        self.addUnivProp('seen', ('ival', {}), {
+            'doc': 'The time interval for first/last observation of the node.',
+        })
+        self.addUnivProp('created', ('time', {}), {
+            'doc': 'The time the node was created in the cortex.',
+        })
 
     def getPropsByType(self, name):
         props = self.propsbytype.get(name, ())
@@ -432,6 +441,21 @@ class Model:
 
         return base.clone(typedef[1])
 
+    def getModelDict(self):
+
+        retn = {
+            'types': {},
+            'forms': {},
+        }
+
+        for tobj in self.types.values():
+            retn['types'][tobj.name] = tobj.pack()
+
+        for fobj in self.forms.values():
+            retn['forms'][fobj.name] = fobj.pack()
+
+        return retn
+
     def addDataModels(self, mods):
         '''
         Add a list of (name, mdef) tuples.
@@ -459,7 +483,7 @@ class Model:
         for modlname, mdef in mods:
 
             for name, ctor, opts, info in mdef.get('ctors', ()):
-                item = s_dyndeps.tryDynFunc(ctor, self, name, opts, info)
+                item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts)
                 self.types[name] = item
 
         # load all the types in order...
@@ -488,12 +512,7 @@ class Model:
                 self.props[formname] = form
 
                 for univname, typedef, univinfo in self.univs:
-
-                    prop = Prop(self, form, '.' + univname, typedef, univinfo)
-
-                    full = f'{formname}.{univname}'
-                    self.props[full] = prop
-                    self.props[(formname, univname)] = prop
+                    self._addFormUniv(form, univname, typedef, univinfo)
 
                 for propdef in propdefs:
 
@@ -507,6 +526,28 @@ class Model:
                     full = f'{formname}:{propname}'
                     self.props[full] = prop
                     self.props[(formname, propname)] = prop
+
+    def _addFormUniv(self, form, name, tdef, info):
+
+        base = '.' + name
+        prop = Prop(self, form, base, tdef, info)
+
+        full = f'{form.name}.{name}'
+
+        self.props[full] = prop
+        self.props[(form.name, base)] = prop
+
+    def addUnivProp(self, name, tdef, info):
+
+        base = '.' + name
+        univ = Univ(self, base, tdef, info)
+
+        self.props[base] = univ
+
+        self.univs.append((name, tdef, info))
+
+        for form in self.forms.values():
+            self._addFormUniv(form, name, tdef, info)
 
     def addBaseType(self, item):
         '''
