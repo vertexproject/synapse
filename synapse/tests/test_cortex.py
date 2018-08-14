@@ -215,12 +215,12 @@ class CortexTest(s_test.SynTest):
             opts = {'graph': True}
             nodes = list(core.eval('inet:dns:a', opts=opts))
 
-            self.len(3, nodes)
+            self.len(5, nodes)
 
             for node in nodes:
                 if node[0][0] == 'inet:dns:a':
                     edges = node[1]['edges']
-                    idens = list(sorted(e[0][0] for e in edges))
+                    idens = list(sorted(e[0] for e in edges))
                     self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f', 'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
