@@ -763,6 +763,9 @@ class CortexTest(s_test.SynTest):
             core = dmon.shared.get('core')
             self.nn(core.getCoreMod('synapse.tests.utils.TestModule'))
 
+            # Ensure that the module load creates a node.
+            self.len(1, core.eval('source=8f1401de15918358d5247e21ca29a814'))
+
             with dmon._getTestProxy('core', **pconf) as prox:
 
                 mods = prox.getCoreMods()
