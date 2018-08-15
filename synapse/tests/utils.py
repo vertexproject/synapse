@@ -212,9 +212,12 @@ testmodel = {
 }
 
 class TestModule(s_module.CoreModule):
+    testguid = '8f1401de15918358d5247e21ca29a814'
 
     def initCoreModule(self):
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
+        with self.core.snap() as snap:
+            snap.addNode('source', self.testguid, {'name': 'test'})
 
     def addTestRecords(self, snap, items):
         for name in items:

@@ -254,10 +254,11 @@ class CortexTest(s_test.SynTest):
             tankcell = dst_dmon.shared.get(name)
             tank = tankcell.tanks.get('tank:blahblah')
             slices = list(tank.slice(0, 1000))
-            self.len(2, slices)
+            # # TestModule creates one node and 3 splices
+            self.len(3 + 2, slices)
 
+            slices = slices[3:]
             data = slices[0]
-            self.eq(data[0], 0)
             self.isinstance(data[1], tuple)
             self.len(2, data[1])
             self.eq(data[1][0], 'node:add')
@@ -266,7 +267,6 @@ class CortexTest(s_test.SynTest):
             self.ge(data[1][1].get('time'), 0)
 
             data = slices[1]
-            self.eq(data[0], 1)
             self.isinstance(data[1], tuple)
             self.len(2, data[1])
             self.eq(data[1][0], 'prop:set')
@@ -763,6 +763,9 @@ class CortexTest(s_test.SynTest):
             core = dmon.shared.get('core')
             self.nn(core.getCoreMod('synapse.tests.utils.TestModule'))
 
+            # Ensure that the module load creates a node.
+            self.len(1, core.eval('source=8f1401de15918358d5247e21ca29a814'))
+
             with dmon._getTestProxy('core', **pconf) as prox:
 
                 mods = prox.getCoreMods()
@@ -920,12 +923,12 @@ class CortexTest(s_test.SynTest):
             pconf = {'user': 'root', 'passwd': 'root'}
 
             with dmon._getTestProxy('core', **pconf) as core:
-
-                self.len(0, list(core.splices(0, 1000)))
+                # TestModule creates one node and 3 splices
+                self.len(3, list(core.splices(0, 1000)))
 
                 list(core.eval('sudo | [ teststr=foo ]'))
 
-                self.ge(len(list(core.splices(0, 1000))), 2)
+                self.ge(len(list(core.splices(0, 1000))), 5)
 
     def test_pivot_inout(self):
 

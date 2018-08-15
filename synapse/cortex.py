@@ -368,14 +368,13 @@ class Cortex(s_cell.Cell):
 
         self._initCoreLayers()
 
+        # these may be used directly
         self.model = s_datamodel.Model()
+        self.view = View(self, self.layers)
 
         self.addCoreMods(s_modules.coremods)
         mods = self.conf.get('modules')
         self.addCoreMods(mods)
-
-        # these may be used directly
-        self.view = View(self, self.layers)
 
         self._initCryoLoop()
         self._initPushLoop()
