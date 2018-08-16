@@ -55,14 +55,12 @@ class Latitude(s_types.Type):
     SCALE = 10**8  # ~1mm resolution
     SPACE = 90 * 10**8
 
-    def norm(self, valu):
+    def postTypeInit(self):
+        self.setNormFunc(int, self._normIntStr)
+        self.setNormFunc(str, self._normIntStr)
+        self.setNormFunc(float, self._normFloat)
 
-        try:
-            valu = float(valu)
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Invalid float format')
-
+    def _normFloat(self, valu):
         if valu > 90.0 or valu < -90.0:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Latitude may only be -90.0 to 90.0')
@@ -70,6 +68,14 @@ class Latitude(s_types.Type):
         valu = int(valu * Latitude.SCALE) / Latitude.SCALE
 
         return valu, {}
+
+    def _normIntStr(self, valu):
+        try:
+            valu = float(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Invalid float format')
+        return self._normFloat(valu)
 
     def indx(self, norm):
         return int(norm * Latitude.SCALE + Latitude.SPACE).to_bytes(5, 'big')
@@ -109,13 +115,20 @@ class Longitude(s_types.Type):
     SCALE = 10**8  # ~1mm resolution
     SPACE = 180 * 10**8
 
-    def norm(self, valu):
+    def postTypeInit(self):
+        self.setNormFunc(int, self._normIntStr)
+        self.setNormFunc(str, self._normIntStr)
+        self.setNormFunc(float, self._normFloat)
 
+    def _normIntStr(self, valu):
         try:
             valu = float(valu)
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Invalid float format')
+        return self._normFloat(valu)
+
+    def _normFloat(self, valu):
 
         if valu > 180.0 or valu < -180.0:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
