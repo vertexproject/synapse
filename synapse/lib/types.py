@@ -485,8 +485,93 @@ class Hex(Type):
     def indx(self, norm):
         return s_common.uhex(norm)
 
+class IntBase(Type):
 
-class Int(Type):
+    def __init__(self, modl, name, info, opts):
+
+        Type.__init__(self, modl, name, info, opts)
+
+        self.setCmprCtor('>=', self._ctorCmprGe)
+        self.setCmprCtor('<=', self._ctorCmprLe)
+
+        self.setCmprCtor('>', self._ctorCmprGt)
+        self.setCmprCtor('<', self._ctorCmprLt)
+
+        self.indxcmpr['>='] = self.indxByGe
+        self.indxcmpr['<='] = self.indxByLe
+
+        self.indxcmpr['>'] = self.indxByGt
+        self.indxcmpr['<'] = self.indxByLt
+
+    def indxByGe(self, valu):
+
+        norm, info = self.norm(valu)
+
+        indx = self.indx(norm)
+        imax = b'\xff' * len(indx)
+
+        return (
+            ('range', (indx, imax)),
+        )
+
+    def indxByLe(self, valu):
+
+        norm, info = self.norm(valu)
+
+        indx = self.indx(norm)
+        imin = b'\x00' * len(indx)
+
+        return (
+            ('range', (imin, indx)),
+        )
+
+    def indxByGt(self, valu):
+
+        norm, info = self.norm(valu)
+
+        indx = self.indx(norm + 1)
+        imax = b'\xff' * len(indx)
+
+        return (
+            ('range', (indx, imax)),
+        )
+
+    def indxByLt(self, valu):
+
+        norm, info = self.norm(valu)
+
+        indx = self.indx(norm - 1)
+        imin = b'\x00' * len(indx)
+
+        return (
+            ('range', (imin, indx)),
+        )
+
+    def _ctorCmprGe(self, text):
+        norm, info = self.norm(text)
+        def cmpr(valu):
+            return norm >= valu
+        return cmpr
+
+    def _ctorCmprLe(self, text):
+        norm, info = self.norm(text)
+        def cmpr(valu):
+            return norm <= valu
+        return cmpr
+
+    def _ctorCmprGt(self, text):
+        norm, info = self.norm(text)
+        def cmpr(valu):
+            return norm > valu
+        return cmpr
+
+    def _ctorCmprLt(self, text):
+        norm, info = self.norm(text)
+        def cmpr(valu):
+            return norm < valu
+        return cmpr
+
+class Int(IntBase):
 
     _opt_defs = (
         ('size', 8),  # Set the storage size of the integer type in bytes.
@@ -541,15 +626,6 @@ class Int(Type):
             return max(oldv, newv)
 
         return newv
-
-    def cmprCtorEq(self, text):
-
-        norm, info = self.norm(text)
-
-        def cmpr(valu):
-            return valu == norm
-
-        return cmpr
 
     def _normPyStr(self, valu):
         try:
@@ -1015,7 +1091,7 @@ class Tag(Type):
         return norm.encode('utf8')
 
 
-class Time(Type):
+class Time(IntBase):
 
     _opt_defs = (
         ('ismin', False),
@@ -1026,6 +1102,7 @@ class Time(Type):
 
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
+
         self.setCmprCtor('@=', self._ctorCmprAt)
 
         self.ismin = self.opts.get('ismin')
