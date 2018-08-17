@@ -31,8 +31,6 @@ class NodeTest(s_t_common.SynTest):
                 reprs = {k: v for (k, v) in info.get('reprs', {}).items() if not k.startswith('.')}
                 self.eq(reprs, {'tick': '1970/01/01 00:00:12.345'})
 
-                # 'iden'  # XXX
-
     def test_set(self):
         form = 'teststr'
         valu = 'cool'
