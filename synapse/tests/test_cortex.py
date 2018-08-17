@@ -1303,3 +1303,25 @@ class CortexTest(s_test.SynTest):
 
         with self.getTestCore() as core:
             self._validate_feed(core, gestdef, guid, seen, pack=True)
+
+    def test_cortex_int_indx(self):
+
+        with self.getTestCore() as core:
+
+            list(core.eval('[testint=20]'))
+
+            self.len(0, core.eval('testint>=30'))
+            self.len(1, core.eval('testint>=20'))
+            self.len(1, core.eval('testint>=10'))
+
+            self.len(0, core.eval('testint>30'))
+            self.len(0, core.eval('testint>20'))
+            self.len(1, core.eval('testint>10'))
+
+            self.len(0, core.eval('testint<=10'))
+            self.len(1, core.eval('testint<=20'))
+            self.len(1, core.eval('testint<=30'))
+
+            self.len(0, core.eval('testint<10'))
+            self.len(0, core.eval('testint<20'))
+            self.len(1, core.eval('testint<30'))

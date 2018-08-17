@@ -250,6 +250,23 @@ class TypesTest(s_test.SynTest):
         self.eq(int128.indx(-2**127), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
         self.raises(OverflowError, int8.indx, 2**128)
 
+        # test both unsigned and signed comparitors
+        self.true(uint64.cmpr(10, '<', 20))
+        self.true(uint64.cmpr(10, '<=', 20))
+        self.true(uint64.cmpr(20, '<=', 20))
+
+        self.true(uint64.cmpr(20, '>', 10))
+        self.true(uint64.cmpr(20, '>=', 10))
+        self.true(uint64.cmpr(20, '>=', 20))
+
+        self.true(int8.cmpr(-10, '<', 20))
+        self.true(int8.cmpr(-10, '<=', 20))
+        self.true(int8.cmpr(-20, '<=', -20))
+
+        self.true(int8.cmpr(20, '>', -10))
+        self.true(int8.cmpr(20, '>=', -10))
+        self.true(int8.cmpr(-20, '>=', -20))
+
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('int').clone, {'min': 100, 'max': 1})
 
@@ -424,3 +441,13 @@ class TypesTest(s_test.SynTest):
             self.eq({node.ndef[1] for node in nodes}, set())
             # Sad path
             self.raises(s_exc.BadTypeValu, t.indxByEq, ('', ''))
+
+            self.true(t.cmpr('2015', '>=', '20140202'))
+            self.true(t.cmpr('2015', '>=', '2015'))
+            self.true(t.cmpr('2015', '>', '20140202'))
+            self.false(t.cmpr('2015', '>', '2015'))
+
+            self.true(t.cmpr('20150202', '<=', '2016'))
+            self.true(t.cmpr('20150202', '<=', '2016'))
+            self.true(t.cmpr('20150202', '<', '2016'))
+            self.false(t.cmpr('2015', '<', '2015'))
