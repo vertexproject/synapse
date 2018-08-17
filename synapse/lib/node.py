@@ -512,12 +512,12 @@ class Path:
 
         return Path(self.vars, nodes)
 
-def props(node):
+def props(pode):
     '''
     Get the props from the node.
 
     Args:
-        node (tuple): A packed node.
+        pode (tuple): A packed node.
 
     Notes:
         This will include any universal props present on the node.
@@ -525,14 +525,14 @@ def props(node):
     Returns:
         dict: A dictionary of properties.
     '''
-    return node[1]['props'].copy()
+    return pode[1]['props'].copy()
 
-def prop(node, prop):
+def prop(pode, prop):
     '''
     Return the valu of a given property on the node.
 
     Args:
-        node (tuple): A packed node.
+        pode (tuple): A packed node.
         prop (str): Property to retrieve.
 
     Notes:
@@ -541,25 +541,25 @@ def prop(node, prop):
     Returns:
 
     '''
-    form = node[0][0]
+    form = pode[0][0]
     if prop.startswith(form):
         prop = prop[len(form):]
     if prop[0] == ':':
         prop = prop[1:]
-    return node[1]['props'].get(prop)
+    return pode[1]['props'].get(prop)
 
-def tags(node, leaf=False):
+def tags(pode, leaf=False):
     '''
     Get all the tags for a given node.
 
     Args:
-        node (tuple): A packed node.
+        pode (tuple): A packed node.
         leaf (bool): If True, only return the full tags.
 
     Returns:
         list: A list of tag strings.
     '''
-    fulltags = [tag for tag in node[1]['tags']]
+    fulltags = [tag for tag in pode[1]['tags']]
     if not leaf:
         return fulltags
 
@@ -574,12 +574,12 @@ def tags(node, leaf=False):
         retn.append(tag)
     return retn
 
-def tagged(node, tag):
+def tagged(pode, tag):
     '''
     Check if a packed node has a given tag.
 
     Args:
-        node (tuple): A packed node.
+        pode (tuple): A packed node.
         tag (str): The tag to check.
 
     Examples:
@@ -596,9 +596,9 @@ def tagged(node, tag):
     '''
     if tag.startswith('#'):
         tag = tag[1:]
-    return node[1]['tags'].get(tag) is not None
+    return pode[1]['tags'].get(tag) is not None
 
-def ndef(node):
+def ndef(pode):
     '''
     Return a node definition (<form>,<valu> tuple from the node.
 
@@ -608,16 +608,16 @@ def ndef(node):
     Returns:
         ((str,obj)):    The (<form>,<valu>) tuple for the node
     '''
-    return node[0]
+    return pode[0]
 
-def iden(node):
+def iden(pode):
     '''
     Return the iden (buid) of the packed node.
 
     Args:
-        node (tuple): A packed node.
+        pode (tuple): A packed node.
 
     Returns:
         str: The node iden.
     '''
-    return node[1].get('iden')
+    return pode[1].get('iden')

@@ -210,27 +210,27 @@ class NodeTest(s_t_common.SynTest):
                 node = snap.addNode(form, valu, props=props)
                 node.addTag('test.foo.bar.duck', tval)
                 node.addTag('test.foo.baz', tval)
-                pnode = node.pack(dorepr=True)
+                pode = node.pack(dorepr=True)
 
-        self.eq(s_node.ndef(pnode), ('teststr', 'cool'))
+        self.eq(s_node.ndef(pode), ('teststr', 'cool'))
 
         e = '15985dca780f125a6cefdcbd332c64faa505116ea652b1702a3df81e29e98732'
-        self.eq(s_node.iden(pnode), e)
+        self.eq(s_node.iden(pode), e)
 
-        self.true(s_node.tagged(pnode, 'test'))
-        self.true(s_node.tagged(pnode, '#test.foo.bar'))
-        self.true(s_node.tagged(pnode, 'test.foo.bar.duck'))
-        self.false(s_node.tagged(pnode, 'test.foo.bar.newp'))
+        self.true(s_node.tagged(pode, 'test'))
+        self.true(s_node.tagged(pode, '#test.foo.bar'))
+        self.true(s_node.tagged(pode, 'test.foo.bar.duck'))
+        self.false(s_node.tagged(pode, 'test.foo.bar.newp'))
 
-        self.len(2, s_node.tags(pnode, leaf=True))
-        self.len(5, s_node.tags(pnode))
+        self.len(2, s_node.tags(pode, leaf=True))
+        self.len(5, s_node.tags(pode))
 
-        self.eq(s_node.prop(pnode, 'tick'), 12345)
-        self.eq(s_node.prop(pnode, ':tick'), 12345)
-        self.eq(s_node.prop(pnode, 'teststr:tick'), 12345)
-        self.none(s_node.prop(pnode, 'newp'))
+        self.eq(s_node.prop(pode, 'tick'), 12345)
+        self.eq(s_node.prop(pode, ':tick'), 12345)
+        self.eq(s_node.prop(pode, 'teststr:tick'), 12345)
+        self.none(s_node.prop(pode, 'newp'))
 
-        props = s_node.props(pnode)
+        props = s_node.props(pode)
         self.isin('.created', props)
         self.isin('tick', props)
         self.notin('newp', props)
