@@ -10,6 +10,7 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.syntax as s_syntax
 
 logger = logging.getLogger(__name__)
 
@@ -90,10 +91,19 @@ class Snap(s_eventbus.EventBus):
 
         self.onfini(fini)
 
-    def getStormQuery(self, text, opts=None):
+    def eval(self, text, opts=None):
         '''
-        Construct and return a new storm query object for this Snap().
+        Evaluate a storm query (producing only nodes) from this snap.
         '''
+        parser = s_syntax.Parser(self.core, text)
+        query = parser.query()
+
+        for node, path in query.run(self):
+
+            if self.isfini:
+                break
+
+            yield node, path
 
     def cancel(self):
         self.canceled = True
