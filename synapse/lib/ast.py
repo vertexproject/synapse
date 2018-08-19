@@ -99,12 +99,15 @@ class AstNode:
 
 class Query(AstNode):
 
-    def __init__(self, view, kids=()):
+    def __init__(self, core, kids=()):
 
         AstNode.__init__(self, kids=kids)
 
         self.user = None
-        self.view = view
+
+        self.core = core
+        self.model = core.model
+
         self.text = ''
 
         self.opts = {}
@@ -195,6 +198,9 @@ class Query(AstNode):
         with self._getQuerySnap() as snap:
             yield from self._runQueryLoop(snap)
 
+    def run(self, snap):
+        yield from self._runQueryLoop(snap)
+
     def _runQueryLoop(self, snap):
 
         snap.core._logStormQuery(self.text, self.user)
@@ -243,7 +249,7 @@ class Query(AstNode):
 
     def _getQuerySnap(self):
         write = self.isWrite()
-        snap = self.view.snap()
+        snap = self.core.snap()
         snap.setUser(self.user)
         return snap
 
