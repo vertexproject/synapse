@@ -66,6 +66,17 @@ class View:
     def snap(self):
         return s_snap.Snap(self.core, self.layers)
 
+    def getStormQuery(self, text, opts=None):
+
+        parser = s_syntax.Parser(self, text)
+
+        query = parser.query()
+
+        if opts is not None:
+            query.opts.update(opts)
+
+        return query
+
 class HttpModelApiV1(t_web.RequestHandler):
 
     def initialize(self, core):
@@ -227,8 +238,12 @@ class CoreApi(s_cell.CellApi):
 
         try:
 
-            query = self.cell.getStormQuery(text, opts=opts)
+            query = self.cell.view.getStormQuery(text)
             query.setUser(self.user)
+
+            if opts is not None:
+                query.opts.update(opts)
+
             return query
 
         except Exception as e:
@@ -357,10 +372,6 @@ class Cortex(s_cell.Cell):
         self.model = s_datamodel.Model()
         self.view = View(self, self.layers)
 
-        self.ontagadds = []
-        self.ontagdels = []
-        self.ontagsets = []
-
         self.addCoreMods(s_modules.coremods)
         mods = self.conf.get('modules')
         self.addCoreMods(mods)
@@ -387,14 +398,6 @@ class Cortex(s_cell.Cell):
                 self.webserver.stop()
 
         self.onfini(finiCortex)
-
-    def onTagAdd(self, func):
-        # func(node, tag, val)
-        self.ontagadds.append(func)
-
-    def onTagDel(self, func):
-        # func(node, tag, val)
-        self.ontagdels.append(func)
 
     def _initCoreLayers(self):
         import synapse.cells as s_cells  # avoid import cycle
@@ -861,22 +864,11 @@ class Cortex(s_cell.Cell):
     def newForkView(self):
         pass
 
-    def getStormQuery(self, text, opts=None):
-
-        parser = s_syntax.Parser(self, text)
-
-        query = parser.query()
-
-        if opts is not None:
-            query.opts.update(opts)
-
-        return query
-
     def eval(self, text, opts=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
-        query = self.getStormQuery(text, opts=opts)
+        query = self.view.getStormQuery(text, opts=opts)
         for node, path in query.evaluate():
             yield node
 
@@ -890,7 +882,7 @@ class Cortex(s_cell.Cell):
         Yields:
             ((str,dict)): Storm messages.
         '''
-        query = self.getStormQuery(text, opts=opts)
+        query = self.view.getStormQuery(text, opts=opts)
         for mesg in query.execute():
             yield mesg
 

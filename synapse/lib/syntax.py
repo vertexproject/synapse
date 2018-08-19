@@ -616,14 +616,14 @@ class Parser:
     must be quoted at beginning: . : # @ ( $ etc....
     '''
 
-    def __init__(self, core, text, offs=0):
+    def __init__(self, view, text, offs=0):
 
         self.offs = offs
         self.text = text.strip()
         self.size = len(self.text)
 
-        self.core = core
-        self.model = core.model
+        self.view = view
+        self.model = view.model
 
     def _raiseSyntaxError(self, mesg):
         at = self.text[self.offs:self.offs + 12]
@@ -639,7 +639,7 @@ class Parser:
 
         self.ignore(whitespace)
 
-        query = s_ast.Query(self.core)
+        query = s_ast.Query(self.view)
         query.text = self.text
 
         while True:
@@ -1066,7 +1066,7 @@ class Parser:
 
         if self.model.props.get(name) is None:
 
-            if self.core.getStormCmd(name) is not None:
+            if self.view.core.getStormCmd(name) is not None:
 
                 text = self.cmdtext()
                 self.ignore(whitespace)

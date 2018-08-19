@@ -213,9 +213,6 @@ class Node:
         # we need to fire a Prop.onset() callback.
         if not self.init:
             prop.wasSet(self, curv)
-            if prop.univ:
-                univ = self.snap.model.prop(prop.univ)
-                univ.wasSet(self, curv)
 
     def has(self, name):
         return name in self.props
@@ -378,9 +375,6 @@ class Node:
 
         # TODO: fire an onTagAdd handler...
         self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
-
-        self.core.fireTagAdd(self, name, norm)
-
         return True
 
     def delTag(self, tag, init=False):
