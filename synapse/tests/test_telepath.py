@@ -62,6 +62,7 @@ class Foo:
     async def corogenr(self, x):
         for i in range(x):
             yield i
+            await s_glob.plex.sleep(0.1)
 
     def boom(self):
         return Boom()
@@ -173,9 +174,15 @@ class TeleTest(s_test.SynTest):
             dmon.share('foo', foo)
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
             genr = prox.corogenr(3)
+            print('0', flush=True)
             self.eq([0, 1, 2], [x async for x in await genr])
-            # To act the same as a local object, should be:
+            # To act the same as a local object, would be:
             # self.eq([0, 1, 2], [x async for x in genr])
+
+            aitr = (await prox.corogenr(3)).__aiter__()
+            await aitr.__anext__()
+        self.true(prox.isfini)
+        await self.asyncraises(StopAsyncIteration, aitr.__anext__())
 
     def test_telepath_aware(self):
 
