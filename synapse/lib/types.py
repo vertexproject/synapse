@@ -39,6 +39,7 @@ class Type:
 
         self._type_norms = {}   # python type to norm function map str: _norm_str
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
+        self._cmpr_ctor_lift = {} # if set, create a cmpr which is passed along with indx ops
 
         self.indxcmpr = {
             '=': self.indxByEq,
@@ -75,6 +76,18 @@ class Type:
 
     def getCmprCtor(self, name):
         return self._cmpr_ctors.get(name)
+
+    def setLiftHintCmprCtor(self, name, func):
+        self._cmpr_ctor_lift[name] = func
+
+    def getLiftHintCmprCtor(self, name):
+        return self._cmpr_ctor_lift.get(name)
+
+    def getLiftHintCmpr(self, valu, cmpr):
+        ctor = self.getLiftHintCmprCtor(cmpr)
+        if ctor:
+            return ctor(valu)
+        return None
 
     def cmpr(self, val1, name, val2):
         '''
