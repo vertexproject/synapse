@@ -182,6 +182,9 @@ class TeleTest(s_test.SynTest):
             # To act the same as a local object, would be:
             # self.eq([0, 1, 2], [x async for x in genr])
 
+            aitr = (await prox.corogenr('fred')).__aiter__()
+            await self.asyncraises(s_exc.SynErr, aitr.__anext__())
+
             aitr = (await prox.corogenr(3)).__aiter__()
             await aitr.__anext__()
 
