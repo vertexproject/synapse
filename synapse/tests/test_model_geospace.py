@@ -166,6 +166,19 @@ class GeoTest(s_t_common.SynTest):
                 node = snap.addNode('geo:place', guid2, props)
                 self.nn(node)
 
+                # A telemetry node for example by the observatory
+                guid3 = s_common.guid()
+                props = {'latlong': '34.118660, -118.300470'}
+                node = snap.addNode('tel:mob:telem', guid3, props)
+                self.nn(node)
+
+                # A telemetry node for example by the HQ
+                guid4 = s_common.guid()
+                props = {'latlong': '34.13412, -118.32153'}
+                node = snap.addNode('tel:mob:telem', guid4, props)
+                self.nn(node)
+
+            # Node filtering behavior
             nodes = list(core.eval('geo:place +:latlong*near=((34.1, -118.3), 10km)'))
             self.len(2, nodes)
             nodes = list(core.eval('geo:place +geo:place:latlong*near=((34.1, -118.3), 10km)'))
@@ -180,6 +193,7 @@ class GeoTest(s_t_common.SynTest):
             nodes = list(core.eval('geo:place -:latlong*near=((34.1, -118.3), 50m)'))
             self.len(2 + 1, nodes)
 
+            # Storm variable use to filter nodes based on a given location.
             q = f'geo:place={guid0} $latlong=:latlong $radius=:radius | spin | geo:place +:latlong*near=($latlong, ' \
                 f'$radius)'
             nodes = list(core.eval(q))
@@ -189,9 +203,7 @@ class GeoTest(s_t_common.SynTest):
             nodes = list(core.eval(q))
             self.len(2, nodes)
 
-            nodes = list(core.eval('geo:place:latlong=("34.118560", "-118.300370")'))
-            self.len(1, nodes)
-
+            # Lifting nodes by *near=((latlong), radius)
             nodes = list(core.eval('geo:place:latlong*near=((34.1, -118.3), 10km)'))
             self.len(2, nodes)
 
@@ -204,4 +216,15 @@ class GeoTest(s_t_common.SynTest):
             # Use a radius to lift nodes which will be inside the bounding box,
             # but outside the cmpr implemented using haversine filtering.
             nodes = list(core.eval('geo:place:latlong*near=(("34.118560", "-118.300370"), 2600m)'))
+            self.len(1, nodes)
+
+            # Storm variable use to lift nodes based on a given location.
+            q = f'geo:place={guid1} $latlong=:latlong $radius=:radius | spin | ' \
+                f'tel:mob:telem:latlong*near=($latlong, 3km)'
+            nodes = list(core.eval(q))
+            self.len(2, nodes)
+
+            q = f'geo:place={guid1} $latlong=:latlong $radius=:radius | spin | ' \
+                f'tel:mob:telem:latlong*near=($latlong, $radius)'
+            nodes = list(core.eval(q))
             self.len(1, nodes)
