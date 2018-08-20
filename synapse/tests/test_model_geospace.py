@@ -142,3 +142,66 @@ class GeoTest(s_t_common.SynTest):
                 self.eq(node.get('latlong'), (34.13409999, -118.3215))
                 self.eq(node.get('radius'), 1337000)
                 self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
+
+    def test_near(self):
+        with self.getTestCore() as core:
+            with core.snap() as snap:
+                # These two nodes are 2,605m apart
+                guid0 = s_common.guid()
+                props = {'name': 'Vertex  HQ',
+                         'latlong': '34.1341, -118.3215',  # hollywood sign
+                         'radius': '1.337km'}
+                node = snap.addNode('geo:place', guid0, props)
+                self.nn(node)
+
+                guid1 = s_common.guid()
+                props = {'name': 'Griffith Observatory',
+                         'latlong': '34.118560, -118.300370',
+                         'radius': '75m'}
+                node = snap.addNode('geo:place', guid1, props)
+                self.nn(node)
+
+                guid2 = s_common.guid()
+                props = {'name': 'unknown location'}
+                node = snap.addNode('geo:place', guid2, props)
+                self.nn(node)
+
+            nodes = list(core.eval('geo:place +:latlong*near=((34.1, -118.3), 10km)'))
+            self.len(2, nodes)
+            nodes = list(core.eval('geo:place +geo:place:latlong*near=((34.1, -118.3), 10km)'))
+            self.len(2, nodes)
+
+            nodes = list(core.eval('geo:place +:latlong*near=((34.1, -118.3), 50m)'))
+            self.len(0, nodes)
+
+            # +1's come from the unknown loc without a latlong prop
+            nodes = list(core.eval('geo:place -:latlong*near=((34.1, -118.3), 10km)'))
+            self.len(0 + 1, nodes)
+            nodes = list(core.eval('geo:place -:latlong*near=((34.1, -118.3), 50m)'))
+            self.len(2 + 1, nodes)
+
+            q = f'geo:place={guid0} $latlong=:latlong $radius=:radius | spin | geo:place +:latlong*near=($latlong, ' \
+                f'$radius)'
+            nodes = list(core.eval(q))
+            self.len(1, nodes)
+
+            q = f'geo:place={guid0} $latlong=:latlong $radius=:radius | spin | geo:place +:latlong*near=($latlong, 5km)'
+            nodes = list(core.eval(q))
+            self.len(2, nodes)
+
+            nodes = list(core.eval('geo:place:latlong=("34.118560", "-118.300370")'))
+            self.len(1, nodes)
+
+            nodes = list(core.eval('geo:place:latlong*near=((34.1, -118.3), 10km)'))
+            self.len(2, nodes)
+
+            nodes = list(core.eval('geo:place:latlong*near=(("34.118560", "-118.300370"), 50m)'))
+            self.len(1, nodes)
+
+            nodes = list(core.eval('geo:place:latlong*near=((0, 0), 50m)'))
+            self.len(0, nodes)
+
+            # Use a radius to lift nodes which will be inside the bounding box,
+            # but outside the cmpr implemented using haversine filtering.
+            nodes = list(core.eval('geo:place:latlong*near=(("34.118560", "-118.300370"), 2600m)'))
+            self.len(1, nodes)

@@ -33,7 +33,7 @@ def near(point, dist, points):
     Args:
         point ((float,float)): A latitude, longitude float tuple.
         dist (int): A distance in mm ( base units )
-        points (list): A list of latitude, longitude float tuples.you
+        points (list): A list of latitude, longitude float tuples to compare against.
     '''
     for cmpt in points:
         if haversine(point, cmpt) <= dist:

@@ -1,4 +1,6 @@
 import synapse.exc as s_exc
+
+import synapse.lib.gis as s_gis
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.syntax as s_syntax
@@ -86,6 +88,38 @@ class LatLong(s_types.Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
+
+        self.setCmprCtor('*near=', self._cmprNear)
+        self.setLiftHintCmprCtor('*near=', self._cmprNear)
+        self.indxcmpr['*near='] = self._indxNear
+
+    def _normCmprValu(self, valu):
+        latlong, dist = valu
+        rlatlong = self.modl.type('geo:latlong').norm(latlong)[0]
+        rdist = self.modl.type('geo:dist').norm(dist)[0]
+        return rlatlong, rdist
+
+    def _cmprNear(self, valu):
+        latlong, dist = self._normCmprValu(valu)
+        def cmpr(valu):
+            if s_gis.haversine(valu, latlong) <= dist:
+                return True
+            return False
+        return cmpr
+
+    def _indxNear(self, valu):
+        (lat, long), dist = self._normCmprValu(valu)
+        latmin, latmax, longmin, longmax = s_gis.bbox(lat, long, dist)
+
+        latmin, longmin = self.norm((latmin, longmin))[0]
+        latmax, longmax = self.norm((latmax, longmax))[0]
+
+        minv = self.indx((latmin, longmin))
+        maxv = self.indx((latmax, longmax))
+
+        return (
+            ('range', (minv, maxv)),
+        )
 
     def _normPyStr(self, valu):
         valu = tuple(valu.strip().split(','))
