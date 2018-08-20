@@ -67,7 +67,7 @@ class PlexTest(s_test.SynTest):
 
             link.onrx(do_rx)
 
-        server = plex1.listen('localhost', 0, onlink=server_onlink)
+        server = plex1.listen('localhost', None, onlink=server_onlink)
         _, port = server.sockets[0].getsockname()
         link2 = plex2.connect('localhost', port)
         steps.wait('onlink', timeout=1)
