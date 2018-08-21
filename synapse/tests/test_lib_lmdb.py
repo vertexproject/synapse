@@ -1,5 +1,7 @@
 import lmdb
 
+import synapse.glob as s_glob
+
 import synapse.lib.lmdb as s_lmdb
 
 from synapse.tests.common import *
@@ -298,3 +300,99 @@ class LmdbTest(SynTest):
         self.false(very_long_enc.startswith(long_enc2))
         self.false(long_enc.startswith(med_enc2))
         self.false(med_enc.startswith(sm_enc2))
+
+    @s_glob.synchelp
+    async def test_lmdb_slab_base(self):
+
+        self.true(s_glob.plex.iAmLoop())
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            slab = s_lmdb.Slab(path, map_size=1000000)
+
+            foo = slab.initdb('foo')
+            bar = slab.initdb('bar', dupsort=True)
+
+            slab.put(b'\x00\x01', b'hehe', db=foo)
+            slab.put(b'\x00\x02', b'haha', db=foo)
+            slab.put(b'\x00\x03', b'hoho', db=foo)
+
+            slab.put(b'\x00\x01', b'hehe', dupdata=True, db=bar)
+            slab.put(b'\x00\x02', b'haha', dupdata=True, db=bar)
+            slab.put(b'\x00\x02', b'visi', dupdata=True, db=bar)
+            slab.put(b'\x00\x02', b'zomg', dupdata=True, db=bar)
+            slab.put(b'\x00\x03', b'hoho', dupdata=True, db=bar)
+
+            self.true(slab.dirty)
+            self.false(slab.commit())
+
+            self.true(slab.commit(force=True))
+            self.false(slab.dirty)
+
+            self.eq(b'hehe', slab.get(b'\x00\x01', db=foo))
+
+            items = list(slab.scanByPref(b'\x00', db=foo))
+            self.eq(items, ((b'\x00\x01', b'hehe'), (b'\x00\x02', b'haha'), (b'\x00\x03', b'hoho')))
+
+            items = list(slab.scanByRange(b'\x00\x02', b'\x00\x03', db=foo))
+            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x03', b'hoho')))
+
+            items = list(slab.scanByDups(b'\x00\x02', db=bar))
+            self.eq(items, (b'haha', b'visi', b'zomg'))
+
+            # ok... lets start a scan and then rip out the xact...
+            scan = slab.scanByPref(b'\x00', db=foo)
+            self.eq((b'\x00\x01', b'hehe'), next(scan))
+
+            slab.commit(force=True)
+
+            items = list(scan)
+            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x03', b'hoho')))
+
+            # to test iternext_dup, lets do the same with a dup scan
+            scan = slab.scanByDups(b'\x00\x02', db=bar)
+            self.eq(b'haha', next(scan))
+
+            slab.commit(force=True)
+
+            items = list(scan)
+            self.eq(items, (b'visi', b'zomg'))
+
+            # start a scan and then fini the whole db...
+            scan = slab.scanByPref(b'\x00', db=foo)
+            self.eq((b'\x00\x01', b'hehe'), next(scan))
+
+            await slab.fini()
+
+            self.raises(s_exc.IsFini, next, scan)
+
+    @s_glob.synchelp
+    async def test_lmdb_slab_grow(self):
+
+        self.true(s_glob.plex.iAmLoop())
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            slab = s_lmdb.Slab(path, map_size=100000)
+
+            foo = slab.initdb('foo')
+
+            byts = b'\x00' * 1024
+            for i in range(100):
+                slab.put(s_common.guid().encode('utf8'), byts, db=foo)
+
+            self.true(os.path.isfile(slab.optspath))
+
+            await slab.fini()
+
+            # lets ensure our mapsize / growsize persisted
+
+            newdb = s_lmdb.Slab(path, map_size=100000)
+
+            self.eq(slab.mapsize, newdb.mapsize)
+
+            self.none(newdb.growsize)

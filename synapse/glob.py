@@ -40,7 +40,6 @@ def synchelp(f):
 
     # In both cases, the actual work is done by the global loop.
     '''
-
     def wrap(*args, **kwargs):
 
         coro = f(*args, **kwargs)

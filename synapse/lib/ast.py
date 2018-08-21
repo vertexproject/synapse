@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import collections
 
@@ -129,13 +130,21 @@ class Query(AstNode):
 
         self.canceled = True
 
-    def execute(self):
+    async def execute(self):
 
-        chan = s_queue.Queue()
+        chan = asyncio.Queue(maxsize=10)
 
-        self._runQueryThread(chan)
+        coro = self._runQueryThread(chan)
 
-        return chan
+        s_glob.plex.coroLoopTask(coro)
+
+        while not self.canceled:
+
+            item = await chan.get()
+            if item is None:
+                return
+
+            yield item
 
     def getInput(self, snap):
         for ndef in self.opts.get('ndefs', ()):
@@ -148,7 +157,7 @@ class Query(AstNode):
             if node is not None:
                 yield node, node.initPath()
 
-    def _finiGraph(self):
+    async def _finiGraph(self):
 
         # gather up any remaining todo nodes
         while self._graph_want:
@@ -191,11 +200,12 @@ class Query(AstNode):
 
         path.meta('edges', edges)
 
-    def evaluate(self):
+    async def evaluate(self):
         with self._getQuerySnap() as snap:
-            yield from self._runQueryLoop(snap)
+            async for node, path in self._runQueryLoop(snap):
+                yield node, path
 
-    def _runQueryLoop(self, snap):
+    async def _runQueryLoop(self, snap):
 
         snap.core._logStormQuery(self.text, self.user)
 
@@ -239,7 +249,8 @@ class Query(AstNode):
 
         # give the graph system a chance to mop up...
         if graph:
-            yield from self._finiGraph()
+            async for item in self._finiGraph():
+                yield item
 
     def _getQuerySnap(self):
         write = self.isWrite()
@@ -247,8 +258,8 @@ class Query(AstNode):
         snap.setUser(self.user)
         return snap
 
-    @s_glob.inpool
-    def _runQueryThread(self, chan):
+    #@s_glob.inpool
+    async def _runQueryThread(self, chan):
 
         try:
 
@@ -261,11 +272,11 @@ class Query(AstNode):
 
             with self._getQuerySnap() as snap:
 
-                chan.put(('init', {'tick': tick}))
+                await chan.put(('init', {'tick': tick}))
 
                 snap.link(chan.put)
 
-                for node, path in self._runQueryLoop(snap):
+                async for node, path in self._runQueryLoop(snap):
                     pode = node.pack(dorepr=dorepr)
                     pode[1].update(path.pack())
                     chan.put(('node', pode))
@@ -279,7 +290,7 @@ class Query(AstNode):
             tock = s_common.now()
             took = tock - tick
             chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
-            chan.done()
+            chan.put(None)
 
 class Oper(AstNode):
     iswrite = False

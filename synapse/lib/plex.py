@@ -23,6 +23,8 @@ class Plex(s_eventbus.EventBus):
         self.links = {}
 
         self.thrd = s_threads.worker(self._runIoLoop)
+        self.thrd.setName('SynPlex')
+
         self.ident = self.thrd.ident
 
         def fini():
@@ -78,6 +80,9 @@ class Plex(s_eventbus.EventBus):
 
         coro = bind()
         return self.coroToSync(coro)
+
+    def queue(self, maxsize=None):
+        return asyncio.Queue(maxsize=maxsize, loop=self.loop)
 
     def coroToTask(self, coro):
         '''
@@ -144,6 +149,10 @@ class Plex(s_eventbus.EventBus):
         link.onfini(fini)
 
         return link
+
+    #def fakeSyncCoro(self, coro):
+        # used on non-await call from loop thread
+        #self.loop.run_until_complete(coro)
 
     def initLinkLoop(self, link):
         '''

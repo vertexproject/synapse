@@ -140,7 +140,9 @@ class CortexTest(s_test.SynTest):
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
     def test_feed_conf(self):
+
         with self.getTestDmon(mirror='cryodmon') as dst_dmon:
+
             name = 'cryo00'
             tname = 'tank:blahblah'
             host, port = dst_dmon.addr
@@ -330,6 +332,8 @@ class CortexTest(s_test.SynTest):
 
         with self.getTestCore() as core:
 
+            print(repr(core))
+            print(repr(core.feedfuncs))
             core.addFeedData('com.test.record', data)
 
             vals = []

@@ -15,6 +15,7 @@ import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.snap as s_snap
 import synapse.lib.storm as s_storm
@@ -79,12 +80,12 @@ class View:
 
 class HttpModelApiV1(t_web.RequestHandler):
 
-    def initialize(self, core):
-        self.core = core
+    def initialize(self, cell):
+        self.cell = cell
 
     async def get(self):
         self.set_header('content-type', 'application/json')
-        modl = self.core.model.getModelDict()
+        modl = self.cell.model.getModelDict()
         byts = json.dumps({'status': 'ok', 'result': modl})
         self.write(byts)
 
@@ -201,7 +202,7 @@ class CoreApi(s_cell.CellApi):
     def getFeedOffs(self, iden):
         return self.cell.layer.getOffset(iden)
 
-    def count(self, text, opts=None):
+    async def count(self, text, opts=None):
         '''
         Count the number of nodes which result from a storm query.
 
@@ -213,9 +214,16 @@ class CoreApi(s_cell.CellApi):
             (int): The number of nodes resulting from the query.
         '''
         query = self._getStormQuery(text, opts=opts)
-        return sum((1 for n in query.evaluate()))
 
-    def eval(self, text, opts=None):
+        #TODO
+        #return sum((1 for n in query.evaluate()))
+
+        valu = 0
+        async for _ in query.evaluate():
+            valu += 1
+        return valu
+
+    async def eval(self, text, opts=None):
         '''
         Evalute a storm query and yield packed nodes.
         '''
@@ -224,7 +232,7 @@ class CoreApi(s_cell.CellApi):
 
         try:
 
-            for node, path in query.evaluate():
+            async for node, path in query.evaluate():
                 pode = node.pack(dorepr=dorepr)
                 pode[1].update(path.pack())
                 yield pode
@@ -318,10 +326,10 @@ class Cortex(s_cell.Cell):
             'doc': 'A list of feed dictionaries.'
         }),
 
-        ('httpapi', {
-            'type': 'dict', 'defval': None,
-            'doc': 'An HTTP API configuration. Port is the only required key.'
-        }),
+        #('httpapi', {
+            #'type': 'dict', 'defval': None,
+            #'doc': 'An HTTP API configuration. Port is the only required key.'
+        #}),
 
         # ('storm:save', {
         #     'type': 'bool', 'defval': False,
@@ -363,64 +371,65 @@ class Cortex(s_cell.Cell):
             'tag:del': self._onFeedTagDel,
         }
 
+        self.newp = False
+        print('HAHAHAHAHAHAHAHAHA %r' % (self,))
         self.setFeedFunc('syn.splice', self._addSynSplice)
         self.setFeedFunc('syn.ingest', self._addSynIngest)
+        self.newp = True
 
-        self._initCoreLayers()
+    async def __anit__(self):
+        await s_cell.Cell.__anit__(self)
+
+        await self._initCoreLayers()
 
         # these may be used directly
         self.model = s_datamodel.Model()
         self.view = View(self, self.layers)
 
         self.addCoreMods(s_modules.coremods)
+
         mods = self.conf.get('modules')
+
         self.addCoreMods(mods)
 
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
 
-        self.webapp = None
-        self.webaddr = None
-        self.webserver = None
+        def fini():
+            [layr.fini() for layr in self.layrs]
 
-        if self.conf.get('httpapi') is not None:
-            self._initHttpApi()
+        self.onfini(fini)
 
-        def finiCortex():
+    async def _initCoreLayers(self):
 
-            # XXX Does the view hold things that need to be fini'd / stopped?
-            # self.view.fini()
-            for layer in self.layers:
-                layer.fini()
-
-            if self.webserver is not None:
-                self.webserver.stop()
-
-        self.onfini(finiCortex)
-
-    def _initCoreLayers(self):
         import synapse.cells as s_cells  # avoid import cycle
+
         layersdir = pathlib.Path(self.dirn, 'layers')
         layersdir.mkdir(exist_ok=True)
+
         if pathlib.Path(layersdir, 'default').is_dir():
             self._migrateOldDefaultLayer()
 
         # Layers are imported in reverse lexicographic order, where the earliest in the alphabet is the 'topmost'
         # write layer.
         for layerdir in sorted((d for d in layersdir.iterdir() if d.is_dir()), reverse=True):
+
             logger.info('loading external layer from %s', layerdir)
+
             if not pathlib.Path(layerdir, 'boot.yaml').exists():  # pragma: no cover
                 logger.warning('Skipping layer directory %s due to missing boot.yaml', layerdir)
                 continue
-            layer = s_cells.initFromDirn(layerdir)
+
+            layer = await s_cells.initFromDirn(layerdir)
             if not isinstance(layer, s_layer.Layer):
                 raise s_exc.BadConfValu('layer dir %s must contain Layer cell', layerdir)
+
             self.layers.append(layer)
 
         if not self.layers:
             # Setup the fallback/default single LMDB layer
-            self.layers.append(self._makeDefaultLayer())
+            self.layers.append(await self._makeDefaultLayer())
 
         self.layer = self.layers[-1]
         logger.debug('Cortex using the following layers: %s\n', (''.join(f'\n   {l.dirn}' for l in self.layers)))
@@ -437,36 +446,10 @@ class Cortex(s_cell.Cell):
     def getStormCmds(self):
         return list(self.stormcmds.items())
 
-    def _initHttpApi(self):
-
-        # set the current loop to the global plex
-        asyncio.set_event_loop(s_glob.plex.loop)
-
-        self.webapp = t_web.Application([
-            ('/v1/model', HttpModelApiV1, {'core': self}),
-        ])
-
-        conf = self.conf.get('httpapi')
-
-        port = conf.get('port', 8888)
-        host = conf.get('host', 'localhost')
-
-        socks = t_netutil.bind_sockets(port, host)
-
-        self.webaddr = socks[0].getsockname()
-        logger.debug('Starting webserver at [%r]', self.webaddr)
-        self.webserver = t_http.HTTPServer(self.webapp)
-        self.webserver.add_sockets(socks)
-
-    def addHttpApi(self, path, ctor):
-        self.webapp.add_handlers('.*', [
-            (path, ctor),
-        ])
-
-    def _getTestHttpUrl(self, *path):
-        base = '/'.join(path)
-        host, port = self.webaddr
-        return f'http://{host}:{port}/' + base
+    def getHttpHandlers(self):
+        return (
+            ('/v1/model', HttpModelApiV1, {'cell': self}),
+        )
 
     def _initPushLoop(self):
 
@@ -643,7 +626,11 @@ class Cortex(s_cell.Cell):
         def func(snap, items):
             loaditems...
         '''
+        print("SET FEED %r %r" % (self, name,))
+        if self.newp and name == 'syn.splice':
+            raise Exception('omg')
         self.feedfuncs[name] = func
+        print(repr(self.feedfuncs))
 
     def getFeedFunc(self, name):
         '''
@@ -833,7 +820,7 @@ class Cortex(s_cell.Cell):
             conf = {'cell:name': 'default', 'type': 'layer-lmdb'}
             s_common.yamlsave(conf, boot_yaml)
 
-    def _makeDefaultLayer(self):
+    async def _makeDefaultLayer(self):
         '''
         Since a user hasn't specified any layers, make one
         '''
@@ -846,8 +833,9 @@ class Cortex(s_cell.Cell):
             conf = s_common.yamlload(cell_yaml) or {}
             conf['lmdb:mapsize'] = mapsize
             s_common.yamlsave(conf, cell_yaml)
+
         logger.info('Creating a new default storage layer at %s', layerdir)
-        return s_cells.initFromDirn(layerdir)
+        return await s_cells.initFromDirn(layerdir)
 
     def getCoreMod(self, name):
         return self.modules.get(name)
@@ -864,15 +852,17 @@ class Cortex(s_cell.Cell):
     def newForkView(self):
         pass
 
-    def eval(self, text, opts=None):
+    @s_coro.generator
+    async def eval(self, text, opts=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
         query = self.view.getStormQuery(text, opts=opts)
-        for node, path in query.evaluate():
+        async for node, path in query.evaluate():
             yield node
 
-    def storm(self, text, opts=None):
+    @s_coro.generator
+    async def storm(self, text, opts=None):
         '''
         Evaluate a storm query and yield result messages.
 
@@ -883,7 +873,7 @@ class Cortex(s_cell.Cell):
             ((str,dict)): Storm messages.
         '''
         query = self.view.getStormQuery(text, opts=opts)
-        for mesg in query.execute():
+        async for mesg in query.execute():
             yield mesg
 
     def _logStormQuery(self, text, user):
@@ -1038,10 +1028,12 @@ class Cortex(s_cell.Cell):
 
         try:
 
+            print('LOAD: %r' % (ctor,))
             modu = s_dyndeps.tryDynFunc(ctor, self)
 
             self.modules[ctor] = modu
 
+            print('WOOT: %r' % (ctor,))
             return modu
 
         except Exception as e:

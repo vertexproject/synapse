@@ -136,7 +136,7 @@ class TeleTest(s_test.SynTest):
             # Add an additional prox.fini handler.
             prox.onfini(evt.set)
 
-            self.false(prox.iAmLoop())
+            self.true(prox.iAmLoop())
 
             # check a standard return value
             self.eq(30, prox.bar(10, 20))
@@ -166,9 +166,11 @@ class TeleTest(s_test.SynTest):
 
     @s_glob.synchelp
     async def test_telepath_async(self):
+
         foo = Foo()
 
         async with SyncToAsyncCMgr(self.getTestDmon) as dmon:
+
             addr = await s_glob.plex.executor(dmon.listen, 'tcp://127.0.0.1:0')
             dmon.share('foo', foo)
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])

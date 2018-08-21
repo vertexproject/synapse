@@ -19,90 +19,35 @@ import synapse.lib.coro as s_coro
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.share as s_share
 
-class With(s_share.Share):
-    '''
-    Server side context for a telepath With() proxy.
-    '''
-    typename = 'with'
-
-    def __init__(self, link, item):
-        s_share.Share.__init__(self, link, item)
-
-        self.exitok = None  # None/False == error
-        self.onfini(self._onWithFini)
-
-    async def _onWithFini(self):
-
-        if self.exitok:
-            return await self._runExitFunc((None, None, None))
-
-        try:
-            raise s_exc.SynErr()
-        except Exception as e:
-            args = sys.exc_info()
-            return await self._runExitFunc(args)
-
-    async def _runExitFunc(self, args):
-
-        exit = getattr(self.orig, '__aexit__', None)
-        if exit:
-            await exit(*args)
-            return
-
-        exit = getattr(self.orig, '__exit__', None)
-        if exit:
-            await s_glob.executor(exit, *args)
-            return
-
-    async def _runShareLoop(self):
-
-        self.orig = self.item
-
-        enter = getattr(self.orig, '__aenter__', None)
-        if enter:
-            self.item = await enter()
-            return
-
-        enter = getattr(self.orig, '__enter__', None)
-        if enter:
-            self.item = await s_glob.executor(enter)
-            return
-
-    async def teleexit(self, isexc):
-        self.exitok = isexc
-        await self.fini()
-
 class Genr(s_share.Share):
 
     typename = 'genr'
 
     async def _runShareLoop(self):
 
-        # automatically begin yielding
-        def syncloop():
-            try:
-                while not self.isfini:
-                    try:
-                        item = next(self.item)
-                    except StopIteration:
-                        break
-                    except Exception as e:
-                        retn = s_common.retnexc(e)
-                        mesg = ('share:data', {'share': self.iden, 'data': retn})
-                        s_glob.sync(self.link.tx(mesg))
-                        break
+        try:
 
-                    retn = (True, item)
-                    mesg = ('share:data', {'share': self.iden, 'data': retn})
-                    if not s_glob.sync(self.link.tx(mesg)):
-                        logger.debug('Failure in sending data')
-                        break
-            finally:
-                self.item.close()
-                mesg = ('share:data', {'share': self.iden, 'data': None})
-                s_glob.sync(self.link.tx(mesg))
+            for item in self.item:
 
-        await s_glob.executor(syncloop)
+                if self.isfini:
+                    break
+
+                retn = (True, item)
+                mesg = ('share:data', {'share': self.iden, 'data': retn})
+                await self.link.tx(mesg)
+
+        except Exception as e:
+
+            retn = s_common.retnexc(e)
+            mesg = ('share:data', {'share': self.iden, 'data': retn})
+            await self.link.tx(mesg)
+
+        finally:
+
+            mesg = ('share:data', {'share': self.iden, 'data': None})
+            await self.link.tx(mesg)
+            await self.fini()
+
 
 class AsyncGenr(s_share.Share):
 
@@ -134,6 +79,7 @@ class AsyncGenr(s_share.Share):
             await self.fini()
 
 dmonwrap = (
+    (s_coro.Genr, AsyncGenr), # TODO: make this not double wrapped...
     (types.AsyncGeneratorType, AsyncGenr),
     (types.GeneratorType, Genr),
 )
@@ -365,6 +311,8 @@ class Daemon(EventBus):
                 base = self.shared.get(path[0])
                 if base is not None and isinstance(base, s_telepath.Aware):
                     item = base.onTeleOpen(link, path)
+                    if s_coro.iscoro(item):
+                        item = await item
 
             if item is None:
                 raise s_exc.NoSuchName(name=name)
@@ -397,23 +345,14 @@ class Daemon(EventBus):
 
     async def _runTodoMeth(self, link, meth, args, kwargs):
 
-        # do we get to dispatch it ourselves?
-        if asyncio.iscoroutinefunction(meth):
-            return await meth(*args, **kwargs)
-        else:
-            # the method isn't async :(
-            return await s_glob.executor(meth, *args, **kwargs)
-
-    async def _tryWrapValu(self, link, valu):
+        valu = meth(*args, **kwargs)
 
         for wraptype, wrapctor in dmonwrap:
             if isinstance(valu, wraptype):
                 return wrapctor(link, valu)
 
-        # turtles all the way down...
         if asyncio.iscoroutine(valu):
             valu = await valu
-            return await self._tryWrapValu(link, valu)
 
         return valu
 
@@ -452,7 +391,7 @@ class Daemon(EventBus):
                 raise s_exc.NoSuchMeth(name=methname)
 
             valu = await self._runTodoMeth(link, meth, args, kwargs)
-            valu = await self._tryWrapValu(link, valu)
+            #valu = await self._tryWrapValu(link, valu)
 
             mesg = self._getTaskFiniMesg(task, valu)
             await link.tx(mesg)

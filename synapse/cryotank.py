@@ -379,36 +379,39 @@ class CryoApi(s_cell.CellApi):
 
     This is the API to reference for remote CryoCell use.
     '''
-    def init(self, name, conf=None):
-        self.cell.init(name, conf=conf)
+    async def init(self, name, conf=None):
+        await self.cell.init(name, conf=conf)
         return True
 
-    def slice(self, name, offs, size, iden=None):
-        tank = self.cell.init(name)
-        yield from tank.slice(offs, size, iden=iden)
+    async def slice(self, name, offs, size, iden=None):
+        tank = await self.cell.init(name)
+        async for item in tank.slice(offs, size, iden=iden):
+            yield item
 
     def list(self):
         return self.cell.list()
 
-    def last(self, name):
-        tank = self.cell.init(name)
+    async def last(self, name):
+        tank = await self.cell.init(name)
         return tank.last()
 
-    def puts(self, name, items, seqn=None):
-        tank = self.cell.init(name)
+    async def puts(self, name, items, seqn=None):
+        tank = await self.cell.init(name)
         return tank.puts(items, seqn=seqn)
 
-    def offset(self, name, iden):
-        tank = self.cell.init(name)
+    async def offset(self, name, iden):
+        tank = await self.cell.init(name)
         return tank.getOffset(iden)
 
-    def rows(self, name, offs, size, iden=None):
-        tank = self.cell.init(name)
-        yield from tank.rows(offs, size, iden=iden)
+    async def rows(self, name, offs, size, iden=None):
+        tank = await self.cell.init(name)
+        async for item in tank.rows(offs, size, iden=iden):
+            yield item
 
-    def metrics(self, name, offs, size=None):
-        tank = self.cell.init(name)
-        yield from tank.metrics(offs, size=size)
+    async def metrics(self, name, offs, size=None):
+        tank = await self.cell.init(name)
+        async for item in tank.metrics(offs, size=size):
+            yield item
 
     @s_cell.adminapi
     def delete(self, name):
@@ -452,10 +455,10 @@ class CryoCell(s_cell.Cell):
             tank = CryoTank(path, conf)
             self.tanks.put(name, tank)
 
-    def onTeleOpen(self, link, path):
-        return self.init(path[1])
+    async def onTeleOpen(self, link, path):
+        return await self.init(path[1])
 
-    def init(self, name, conf=None):
+    async def init(self, name, conf=None):
         '''
         Generate a new CryoTank with a given name or get an reference to an existing CryoTank.
 
@@ -479,7 +482,7 @@ class CryoCell(s_cell.Cell):
         if conf is not None:
             mergeconf.update(conf)
 
-        tank = CryoTank(path, mergeconf)
+        tank = await CryoTank(path, mergeconf)
 
         self.names.set(name, iden)
         self.confs.set(name, conf)
