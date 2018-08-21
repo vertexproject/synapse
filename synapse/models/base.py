@@ -1,8 +1,5 @@
 import logging
 
-import synapse.common as s_common
-
-import synapse.lib.tufo as s_tufo
 import synapse.lib.module as s_module
 
 logger = logging.getLogger(__name__)

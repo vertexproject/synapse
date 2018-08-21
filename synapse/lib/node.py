@@ -517,3 +517,113 @@ class Path:
         nodes.append(node)
 
         return Path(self.vars, nodes)
+
+def props(pode):
+    '''
+    Get the props from the node.
+
+    Args:
+        pode (tuple): A packed node.
+
+    Notes:
+        This will include any universal props present on the node.
+
+    Returns:
+        dict: A dictionary of properties.
+    '''
+    return pode[1]['props'].copy()
+
+def prop(pode, prop):
+    '''
+    Return the valu of a given property on the node.
+
+    Args:
+        pode (tuple): A packed node.
+        prop (str): Property to retrieve.
+
+    Notes:
+        The prop argument may be the full property name (foo:bar:baz), relative property name (:baz) , or the unadorned property name (baz).
+
+    Returns:
+
+    '''
+    form = pode[0][0]
+    if prop.startswith(form):
+        prop = prop[len(form):]
+    if prop[0] == ':':
+        prop = prop[1:]
+    return pode[1]['props'].get(prop)
+
+def tags(pode, leaf=False):
+    '''
+    Get all the tags for a given node.
+
+    Args:
+        pode (tuple): A packed node.
+        leaf (bool): If True, only return the full tags.
+
+    Returns:
+        list: A list of tag strings.
+    '''
+    fulltags = [tag for tag in pode[1]['tags']]
+    if not leaf:
+        return fulltags
+
+    # longest first
+    retn = []
+
+    # brute force rather than build a tree.  faster in small sets.
+    for size, tag in sorted([(len(t), t) for t in fulltags], reverse=True):
+        look = tag + '.'
+        if any([r.startswith(look) for r in retn]):
+            continue
+        retn.append(tag)
+    return retn
+
+def tagged(pode, tag):
+    '''
+    Check if a packed node has a given tag.
+
+    Args:
+        pode (tuple): A packed node.
+        tag (str): The tag to check.
+
+    Examples:
+        Check if a node is tagged with "woot" and dostuff if it is.
+
+            if s_node.tagged(node,'woot'):
+                dostuff()
+
+    Notes:
+        If the tag starts with `#`, this is removed prior to checking.
+
+    Returns:
+        bool: True if the tag is present. False otherwise.
+    '''
+    if tag.startswith('#'):
+        tag = tag[1:]
+    return pode[1]['tags'].get(tag) is not None
+
+def ndef(pode):
+    '''
+    Return a node definition (<form>,<valu> tuple from the node.
+
+    Args:
+        node (tuple): A packed node.
+
+    Returns:
+        ((str,obj)):    The (<form>,<valu>) tuple for the node
+    '''
+    return pode[0]
+
+def iden(pode):
+    '''
+    Return the iden (buid) of the packed node.
+
+    Args:
+        pode (tuple): A packed node.
+
+    Returns:
+        str: The node iden.
+    '''
+    return pode[1].get('iden')

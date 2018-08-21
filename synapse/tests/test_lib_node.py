@@ -1,5 +1,8 @@
 import synapse.exc as s_exc
+
 import synapse.lib.auth as s_auth
+import synapse.lib.node as s_node
+
 import synapse.tests.common as s_t_common
 
 class NodeTest(s_t_common.SynTest):
@@ -195,3 +198,39 @@ class NodeTest(s_t_common.SynTest):
                         snap.strict = False
                         self.false(node.pop('tick'))
                         snap.strict = True
+
+    def test_helpers(self):
+        form = 'teststr'
+        valu = 'cool'
+        props = {'tick': 12345}
+        tval = (None, None)
+
+        with self.getTestCore() as core:
+            with core.snap() as snap:
+                node = snap.addNode(form, valu, props=props)
+                node.addTag('test.foo.bar.duck', tval)
+                node.addTag('test.foo.baz', tval)
+                pode = node.pack(dorepr=True)
+
+        self.eq(s_node.ndef(pode), ('teststr', 'cool'))
+
+        e = '15985dca780f125a6cefdcbd332c64faa505116ea652b1702a3df81e29e98732'
+        self.eq(s_node.iden(pode), e)
+
+        self.true(s_node.tagged(pode, 'test'))
+        self.true(s_node.tagged(pode, '#test.foo.bar'))
+        self.true(s_node.tagged(pode, 'test.foo.bar.duck'))
+        self.false(s_node.tagged(pode, 'test.foo.bar.newp'))
+
+        self.len(2, s_node.tags(pode, leaf=True))
+        self.len(5, s_node.tags(pode))
+
+        self.eq(s_node.prop(pode, 'tick'), 12345)
+        self.eq(s_node.prop(pode, ':tick'), 12345)
+        self.eq(s_node.prop(pode, 'teststr:tick'), 12345)
+        self.none(s_node.prop(pode, 'newp'))
+
+        props = s_node.props(pode)
+        self.isin('.created', props)
+        self.isin('tick', props)
+        self.notin('newp', props)

@@ -738,6 +738,7 @@ class Cortex(s_cell.Cell):
         for item in items:
             try:
                 pnodes = self._getSynIngestNodes(item)
+                logger.info('Made [%s] nodes.', len(pnodes))
                 yield from snap.addNodes(pnodes)
             except Exception as e:
                 logger.exception('Failed to process ingest [%r]', item)
