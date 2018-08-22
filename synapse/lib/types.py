@@ -71,6 +71,19 @@ class Type:
         yield valu
 
     def setCmprCtor(self, name, func):
+        '''
+        Set a comparator ctor for a given named comparison operation.
+
+        Args:
+            name (str): Name of the comparison operation.
+            func: Function which returns a comparator.
+
+        Notes:
+            Comparator ctors should expect to get the right-hand-side of the
+            comparison as their argument, and the returned function should
+            expect to get the left hand side of the comparison and return a
+            boolean from there.
+        '''
         self._cmpr_ctors[name] = func
 
     def getCmprCtor(self, name):
@@ -78,7 +91,7 @@ class Type:
 
     def cmpr(self, val1, name, val2):
         '''
-        Compare the two values using the given type specific comparitor.
+        Compare the two values using the given type specific comparator.
         '''
         ctor = self.getCmprCtor(name)
         if ctor is None:
@@ -87,7 +100,7 @@ class Type:
         norm1 = self.norm(val1)[0]
         norm2 = self.norm(val2)[0]
 
-        return ctor(norm1)(norm2)
+        return ctor(norm2)(norm1)
 
     def _ctorCmprEq(self, text):
         norm, info = self.norm(text)
@@ -550,25 +563,25 @@ class IntBase(Type):
     def _ctorCmprGe(self, text):
         norm, info = self.norm(text)
         def cmpr(valu):
-            return norm >= valu
+            return valu >= norm
         return cmpr
 
     def _ctorCmprLe(self, text):
         norm, info = self.norm(text)
         def cmpr(valu):
-            return norm <= valu
+            return valu <= norm
         return cmpr
 
     def _ctorCmprGt(self, text):
         norm, info = self.norm(text)
         def cmpr(valu):
-            return norm > valu
+            return valu > norm
         return cmpr
 
     def _ctorCmprLt(self, text):
         norm, info = self.norm(text)
         def cmpr(valu):
-            return norm < valu
+            return valu < norm
         return cmpr
 
 class Int(IntBase):
