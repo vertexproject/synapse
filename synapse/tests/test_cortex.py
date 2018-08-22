@@ -1190,6 +1190,11 @@ class CortexTest(s_test.SynTest):
 
             self.len(1, core.eval('teststr=woot $foo=#foo +.seen@=$foo'))
 
+            self.len(1, core.eval('teststr +#foo@=2016'))
+            self.len(1, core.eval('teststr +#foo@=(2015, 2018)'))
+            self.len(1, core.eval('teststr +#foo@=(2014, 2019)'))
+            self.len(0, core.eval('teststr +#foo@=(2014, 20141231)'))
+
             self.len(1, core.eval('[ inet:dns:a=(woot.com,1.2.3.4) .seen=(2015,2016) ]'))
             self.len(1, core.eval('[ inet:fqdn=woot.com +#bad=(2015,2016) ]'))
 
