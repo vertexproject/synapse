@@ -1386,4 +1386,3 @@ class CortexTest(s_test.SynTest):
             self.len(1, core.eval('teststr +teststr:tick<201808021202'))
             self.len(0, core.eval('teststr +teststr:tick<201808021201'))
             self.len(0, core.eval('teststr +teststr:tick<201808021200'))
->>>>>>> 010
