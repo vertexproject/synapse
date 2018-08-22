@@ -78,7 +78,7 @@ class Type:
 
     def cmpr(self, val1, name, val2):
         '''
-        Compare the two values using the given type specific comparitor.
+        Compare the two values using the given type specific comparator.
         '''
         ctor = self.getCmprCtor(name)
         if ctor is None:
