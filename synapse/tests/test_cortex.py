@@ -1326,6 +1326,22 @@ class CortexTest(s_test.SynTest):
             self.len(0, core.eval('testint<20'))
             self.len(1, core.eval('testint<30'))
 
+            self.len(0, core.eval('testint +testint>=30'))
+            self.len(1, core.eval('testint +testint>=20'))
+            self.len(1, core.eval('testint +testint>=10'))
+
+            self.len(0, core.eval('testint +testint>30'))
+            self.len(0, core.eval('testint +testint>20'))
+            self.len(1, core.eval('testint +testint>10'))
+
+            self.len(0, core.eval('testint +testint<=10'))
+            self.len(1, core.eval('testint +testint<=20'))
+            self.len(1, core.eval('testint +testint<=30'))
+
+            self.len(0, core.eval('testint +testint<10'))
+            self.len(0, core.eval('testint +testint<20'))
+            self.len(1, core.eval('testint +testint<30'))
+
             # time indx is derived from the same lift helpers
             list(core.eval('[teststr=foo :tick=201808021201]'))
 
@@ -1334,6 +1350,7 @@ class CortexTest(s_test.SynTest):
             self.len(1, core.eval('teststr:tick>=201808021200'))
 
             self.len(0, core.eval('teststr:tick>201808021202'))
+            self.len(0, core.eval('teststr:tick>201808021201'))
             self.len(1, core.eval('teststr:tick>201808021200'))
 
             self.len(1, core.eval('teststr:tick<=201808021202'))
@@ -1341,4 +1358,21 @@ class CortexTest(s_test.SynTest):
             self.len(0, core.eval('teststr:tick<=201808021200'))
 
             self.len(1, core.eval('teststr:tick<201808021202'))
+            self.len(0, core.eval('teststr:tick<201808021201'))
             self.len(0, core.eval('teststr:tick<201808021200'))
+
+            self.len(0, core.eval('teststr +teststr:tick>=201808021202'))
+            self.len(1, core.eval('teststr +teststr:tick>=201808021201'))
+            self.len(1, core.eval('teststr +teststr:tick>=201808021200'))
+
+            self.len(0, core.eval('teststr +teststr:tick>201808021202'))
+            self.len(0, core.eval('teststr +teststr:tick>201808021201'))
+            self.len(1, core.eval('teststr +teststr:tick>201808021200'))
+
+            self.len(1, core.eval('teststr +teststr:tick<=201808021202'))
+            self.len(1, core.eval('teststr +teststr:tick<=201808021201'))
+            self.len(0, core.eval('teststr +teststr:tick<=201808021200'))
+
+            self.len(1, core.eval('teststr +teststr:tick<201808021202'))
+            self.len(0, core.eval('teststr +teststr:tick<201808021201'))
+            self.len(0, core.eval('teststr +teststr:tick<201808021200'))
