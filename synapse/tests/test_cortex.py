@@ -1384,5 +1384,6 @@ class CortexTest(s_test.SynTest):
 
             list(core.eval('[testint=99999]'))
             self.len(1, core.eval('testint<=20'))
+            self.len(2, core.eval('testint>=20'))
             self.len(1, core.eval('testint>20'))
             self.len(0, core.eval('testint<20'))
