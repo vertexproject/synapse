@@ -7,6 +7,8 @@ import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
+import synapse.lib.coro as s_coro
+
 logger = logging.getLogger(__name__)
 
 '''
@@ -30,9 +32,10 @@ def adminapi(f):
 
     return func
 
-class CellApi:
+class CellApi(s_coro.Fini):
 
     def __init__(self, cell, link):
+        s_coro.Fini.__init__(self)
         self.cell = cell
         self.link = link
         self.user = link.get('cell:user')
@@ -42,9 +45,6 @@ class CellApi:
 
     def getCellIden(self):
         return self.cell.getCellIden()
-
-    async def fini(self):
-        return
 
     @adminapi
     def addAuthUser(self, name):

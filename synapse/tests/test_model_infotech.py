@@ -1,7 +1,6 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.tufo as s_tufo
 import synapse.lib.version as s_version
 
 import synapse.models.crypto as s_m_crypto

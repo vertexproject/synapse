@@ -839,8 +839,10 @@ class AxonApi(PassThroughApi):
         # The Axon makes new connections to each blobstor for each client.
         self._proxykeeper = _ProxyKeeper()
 
-    async def fini(self):
-        await self._proxykeeper.fini()
+        async def fini():
+            await self._proxykeeper.fini()
+
+        self.onfini(fini)
 
     async def get(self, hashval):
         return await self.cell.get(hashval, self._proxykeeper)
@@ -975,6 +977,7 @@ class Axon(s_cell.Cell):
                 for stop_event in self.blobstorwatchers.values():
                     stop_event.set()
                 await self._workq.fini()
+                await self._proxykeeper.fini()
             s_glob.plex.coroToTask(run_on_loop())
             self._worker.join()
         self.onfini(fini)
