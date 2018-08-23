@@ -59,9 +59,14 @@ class Foo:
     async def corovalu(self, x, y):
         return x * 2 + y
 
+    async def longasync(self):
+        await s_glob.plex.sleep(5)
+        return 42
+
     async def corogenr(self, x):
         for i in range(x):
             yield i
+            await s_glob.plex.sleep(0.1)
 
     def boom(self):
         return Boom()
@@ -174,8 +179,34 @@ class TeleTest(s_test.SynTest):
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
             genr = prox.corogenr(3)
             self.eq([0, 1, 2], [x async for x in await genr])
-            # To act the same as a local object, should be:
+            # To act the same as a local object, would be:
             # self.eq([0, 1, 2], [x async for x in genr])
+
+            aitr = (await prox.corogenr('fred')).__aiter__()
+            await self.asyncraises(s_exc.SynErr, aitr.__anext__())
+
+            aitr = (await prox.corogenr(3)).__aiter__()
+            await aitr.__anext__()
+
+            start_event = asyncio.Event(loop=s_glob.plex.loop)
+
+            async def longwaiter():
+                coro = prox.longasync()
+                await start_event.wait()
+                await coro
+
+            fut = s_glob.plex.loop.create_task(longwaiter())
+
+        await self.asyncraises(StopAsyncIteration, aitr.__anext__())
+        start_event.set()
+
+        # Test that a coroutine about to await on an async proxy method doesn't become "stuck" by awaiting on a
+        # just-fini'd object method
+
+        # Give the longwaiter a chance to run
+        await s_glob.plex.sleep(.1)
+
+        await self.asyncraises(s_exc.IsFini, asyncio.wait_for(fut, timeout=2, loop=s_glob.plex.loop))
 
     def test_telepath_aware(self):
 
