@@ -1,6 +1,7 @@
 import shlex
 import logging
 import argparse
+import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -454,7 +455,6 @@ class RefsCmd(Cmd):
 
     def doRefs(self, srcnode, srcpath, visited):
 
-        import collections
         srcqueue = collections.deque()
         srcqueue.append((srcnode, srcpath))
 
