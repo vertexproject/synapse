@@ -434,7 +434,7 @@ class RefsCmd(Cmd):
 
         Accept multiple inbound nodes, and unique the output set of nodes across all input nodes:
 
-            ask inet:ipv4=1.2.3.4 1.2.3.5 | refs --degrees 4 --unique
+            ask inet:ipv4=1.2.3.4 inet:ipv4=1.2.3.5 | refs --degrees 4 --unique
 
     '''
     name = 'refs'
