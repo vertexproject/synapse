@@ -1,5 +1,5 @@
+import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.storm as s_storm
 
 import synapse.tests.common as s_test_common
 
@@ -193,3 +193,6 @@ class StormTest(s_test_common.SynTest):
             self.len(2, core.eval(q))
             q = 'teststr=pennywise | refs -d 3 --omit-tag=omit'
             self.len(1, core.eval(q))
+
+            # Sad path
+            self.genraises(s_exc.BadOperArg, core.eval, 'teststr=pennywise | refs -d 0')
