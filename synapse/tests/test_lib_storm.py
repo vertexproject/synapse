@@ -123,3 +123,73 @@ class StormTest(s_test_common.SynTest):
             with self.getLoggerStream('synapse.lib.snap', 'Failed to decode iden') as stream:
                 self.len(0, list(core.eval(q)))
                 self.true(stream.wait(1))
+
+    def test_refs(self):
+
+        from pprint import pprint
+
+        with self.getTestCore() as core:
+
+            self.len(1, core.eval('[pivcomp=(foo, 123)]'))
+            tguid = s_common.guid()
+            self.len(1, core.eval(f'[testguid={tguid} :tick=2015]'))
+            self.len(1, core.eval('teststr=123 [:baz="testguid:tick=2015"]'))
+
+            # Default behavior is a single degree out
+            q = 'pivcomp | refs'
+            self.len(2, core.eval(q))
+
+            # Can join input nodes to output
+            q = 'pivcomp | refs --join'
+            self.len(3, core.eval(q))
+
+            # Can go out multiple degrees
+            q = 'pivcomp | refs --join --degrees 2'
+            self.len(4, core.eval(q))
+
+            srcguid = s_common.guid()
+            self.len(2, core.eval(f'[source={srcguid} +#omit.nopiv] [seen=({srcguid}, (pivtarg, foo))]'))
+
+            q = 'pivcomp | refs --join --degrees 2'
+            self.len(5, core.eval(q))
+
+            q = 'pivcomp | refs --join --degrees 3'
+            self.len(6, core.eval(q))
+
+            # We can traverse edges in both directions
+            self.len(1, core.eval('[refs=((teststr, 123), (testint, 123))]'))
+
+            q = 'teststr=123 | refs'
+            nodes = list(core.eval(q))
+            self.len(3, nodes)
+            self.eq({n.ndef[0] for n in nodes}, {'testguid', 'refs', 'pivcomp'})
+
+            q = 'teststr=123 | refs --traverse-edge'
+            nodes = list(core.eval(q))
+            self.len(3, nodes)
+            self.eq({n.ndef[0] for n in nodes}, {'testguid', 'pivcomp', 'testint'})
+
+            q = 'testint=123 | refs'
+            nodes = list(core.eval(q))
+            self.len(1, nodes)
+            self.eq({n.ndef[0] for n in nodes}, {'refs'})
+
+            q = 'testint=123 | refs --traverse-edge'
+            nodes = list(core.eval(q))
+            self.len(1, nodes)
+            self.eq({n.ndef[0] for n in nodes}, {'teststr'})
+
+            # Prevent inclusion of a form, and the traversal across said form/tag
+            self.len(1, core.eval(f'[seen=({srcguid}, (teststr, pennywise))]'))
+
+            q = 'teststr=pennywise | refs -d 3'
+            self.len(3, core.eval(q))
+            q = 'teststr=pennywise | refs -d 3 --omit-traversal-form=source'
+            self.len(2, core.eval(q))
+            q = 'teststr=pennywise | refs -d 3 --omit-form=source'
+            self.len(1, core.eval(q))
+
+            q = 'teststr=pennywise | refs -d 3 --omit-traversal-tag=omit.nopiv --omit-traversal-tag=test'
+            self.len(2, core.eval(q))
+            q = 'teststr=pennywise | refs -d 3 --omit-tag=omit'
+            self.len(1, core.eval(q))

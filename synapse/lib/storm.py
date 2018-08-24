@@ -1,7 +1,13 @@
 import shlex
+import logging
 import argparse
 
+import synapse.exc as s_exc
 import synapse.common as s_common
+
+import synapse.lib.types as s_types
+
+logger = logging.getLogger(__name__)
 
 class Parser(argparse.ArgumentParser):
 
@@ -388,3 +394,167 @@ class IdenCmd(Cmd):
             node = snap.getNodeByBuid(buid)
             if node:
                 yield node, node.initPath()
+
+class RefsCmd(Cmd):
+    '''
+    Get nodes adjacent to inbound nodes.
+    '''
+    name = 'refs'
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('-d', '--degrees', type=int, default=1, action='store',
+                          help='Number of degrees to walk from the source node.')
+        pars.add_argument('--traverse-edge', default=False, action='store_true',
+                          help='Traverse Edge type nodes, if encountered, to '
+                               'the opposite side of them, if the opposite '
+                               'side has not yet been encountered.')
+        pars.add_argument('--join', default=False, action='store_true',
+                          help='Include source nodes in the output of the refs command.')
+        pars.add_argument('--omit-traversal-form', action='append', default=[], type=str,
+                          help='Form to omit traversal of. Nodes of forms will still be the output.')
+        pars.add_argument('--omit-traversal-tag', action='append', default=[], type=str,
+                          help='Tags to omit traversal of. Nodes with these '
+                               'tags will still be in the output.')
+        pars.add_argument('--omit-form', action='append', default=[], type=str,
+                          help='Forms which will not be included in the '
+                               'output or traversed.')
+        pars.add_argument('--omit-tag', action='append', default=[], type=str,
+                          help='Forms which have these tags will not not be '
+                               'included in the output or traversed.')
+        pars.add_argument('--global-unique', action='store_true', default=False,
+                          help='Unique the output across ALL input nodes, instead of each input node at a time.')
+        pars.add_argument('iden', nargs='*', type=str, default=[],
+                          help='Iden to lift nodes by. May be specified multiple times.')
+        return pars
+
+    def runStormCmd(self, snap, genr):
+
+        self.snap = snap
+        self.omit_traversal_forms = set(self.opts.omit_traversal_form)
+        self.omit_traversal_tags = set(self.opts.omit_traversal_tag)
+        self.omit_forms = set(self.opts.omit_form)
+        self.omit_tags = set(self.opts.omit_tag)
+
+        if self.opts.degrees < 1:
+            raise s_exc.BadOperArg(mesg='degrees must be greater than or equal to 1', arg='degrees')
+
+        visited = set()
+
+        for node, path in genr:
+            if self.opts.join:
+                yield node, path
+
+            if self.opts.global_unique is False:
+                visited = set()
+
+            # Don't revisit the inbound node from genr
+            visited.add(node.ndef)
+
+            yield from self.doRefs(node, path, visited)
+
+    def doRefs(self, srcnode, srcpath, visited):
+
+        import collections
+        srcqueue = collections.deque()
+        srcqueue.append((srcnode, srcpath))
+
+        degrees = self.opts.degrees
+
+        while degrees:
+            # Decrement degrees
+            degrees = degrees - 1
+            newqueue = collections.deque()
+            while True:
+                try:
+                    snode, spath = srcqueue.pop()
+                except IndexError as e:
+                    # We've exhausted srcqueue, loop back around
+                    srcqueue = newqueue
+                    break
+
+                for pnode, ppath in self.getRefs(snode, spath):
+                    if pnode.ndef in visited:
+                        continue
+                    visited.add(pnode.ndef)
+                    # Are we clear to yield this node?
+                    if pnode.ndef[0] in self.omit_forms:
+                        continue
+                    if self.omit_tags.intersection(set(pnode.tags.keys())):
+                        continue
+
+                    yield  pnode, ppath
+
+                    # Can we traverse across this node?
+                    if pnode.ndef[0] in self.omit_traversal_forms:
+                        continue
+                    if self.omit_traversal_tags.intersection(set(pnode.tags.keys())):
+                        continue
+                    # We're clear to circle back around to revisit nodes
+                    # pointed by this node.
+                    newqueue.append((pnode, ppath))
+
+    def getRefs(self, srcnode, srcpath):
+
+        # Pivot out to secondary properties which are forms.
+        for name, valu in srcnode.props.items():
+            prop = srcnode.form.props.get(name)
+            if prop is None:  # pragma: no cover
+                # this should be impossible
+                logger.warning(f'node prop is not form prop: {srcnode.form.name} {name}')
+                continue
+
+            if isinstance(prop.type, s_types.Ndef):
+                pivo = self.snap.getNodeByNdef(valu)
+                if pivo is None:
+                    continue  # pragma: no cover
+                yield pivo, srcpath.fork(pivo)
+                continue
+
+            if isinstance(prop.type, s_types.NodeProp):
+                qprop, qvalu = valu
+                for pivo in self.snap.getNodesBy(qprop, qvalu):
+                    yield pivo, srcpath.fork(pivo)
+
+            form = self.snap.model.forms.get(prop.type.name)
+            if form is None:
+                continue
+
+            pivo = self.snap.getNodeByNdef((form.name, valu))
+            if pivo is None:
+                continue  # pragma: no cover
+
+            yield pivo, srcpath.fork(pivo)
+
+        # Pivot in - pick up nodes who have secondary properties who have the same
+        # type as me!
+        name, valu = srcnode.ndef
+        for prop in self.snap.model.propsbytype.get(name, ()):
+            for pivo in self.snap.getNodesBy(prop.full, valu):
+                yield pivo, srcpath.fork(pivo)
+
+        # Pivot to any Ndef properties we haven't pivoted to yet
+        for prop in list(self.snap.model.props.values()):
+
+            if isinstance(prop.type, s_types.Ndef):
+
+                for pivo in self.snap.getNodesBy(prop.full, srcnode.ndef):
+                    if self.opts.traverse_edge and isinstance(pivo.form.type, s_types.Edge):
+                        # Determine if srcnode.ndef is n1 or n2, and pivot to the other side
+                        if srcnode.ndef == pivo.get('n1'):
+                            npivo = self.snap.getNodeByNdef(pivo.get('n2'))
+                            if npivo is None:  # pragma: no cover
+                                logger.warning('n2 does not exist for edge? [%s]', pivo.ndef)
+                                continue
+                            yield npivo, srcpath.fork(npivo)
+                            continue
+                        if srcnode.ndef == pivo.get('n2'):
+                            npivo = self.snap.getNodeByNdef(pivo.get('n1'))
+                            if npivo is None:  # pragma: no cover
+                                logger.warning('n1 does not exist for edge? [%s]', pivo.ndef)
+                                continue
+                            yield npivo, srcpath.fork(npivo)
+                            continue
+                        logger.warning('edge type has no n1/n2 property. [%s]', pivo.ndef)  # pragma: no cover
+                        continue  # pragma: no cover
+
+                    yield pivo, srcpath.fork(pivo)
