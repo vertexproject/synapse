@@ -126,16 +126,16 @@ class StormTest(s_test_common.SynTest):
 
     def test_refs(self):
 
-        from pprint import pprint
-
         with self.getTestCore() as core:
-
             self.len(1, core.eval('[pivcomp=(foo, 123)]'))
             tguid = s_common.guid()
             self.len(1, core.eval(f'[testguid={tguid} :tick=2015]'))
             self.len(1, core.eval('teststr=123 [:baz="testguid:tick=2015"]'))
 
-            # Default behavior is a single degree out
+            # Sad path
+            self.genraises(s_exc.BadOperArg, core.eval, 'teststr | refs -d 0')
+
+            # # Default behavior is a single degree out
             q = 'pivcomp | refs'
             self.len(2, core.eval(q))
 
@@ -194,5 +194,18 @@ class StormTest(s_test_common.SynTest):
             q = 'teststr=pennywise | refs -d 3 --omit-tag=omit'
             self.len(1, core.eval(q))
 
-            # Sad path
-            self.genraises(s_exc.BadOperArg, core.eval, 'teststr=pennywise | refs -d 0')
+            # Do a huge traversal that includes paths
+            q = 'teststr=pennywise | refs --join -d 9'
+            mesgs = list(core.storm(q, opts={'path': True}))
+            nodes = [mesg[1] for mesg in mesgs if mesg[0] == 'node']
+            self.len(10, nodes)
+            self.len(1, nodes[0][1].get('path'))
+            self.len(9, nodes[9][1].get('path'))
+
+            # Paths may change depending on traversal options
+            q = 'teststr=pennywise | refs --join -d 9 --traverse-edge'
+            mesgs = list(core.storm(q, opts={'path': True}))
+            nodes = [mesg[1] for mesg in mesgs if mesg[0] == 'node']
+            self.len(9, nodes)
+            self.len(1, nodes[0][1].get('path'))
+            self.len(8, nodes[8][1].get('path'))

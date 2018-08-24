@@ -221,12 +221,13 @@ class CoreApi(s_cell.CellApi):
         '''
         query = self._getStormQuery(text, opts=opts)
         dorepr = query.opts.get('repr')
+        dopath = query.opts.get('path')
 
         try:
 
             for node, path in query.evaluate():
                 pode = node.pack(dorepr=dorepr)
-                pode[1].update(path.pack())
+                pode[1].update(path.pack(path=dopath))
                 yield pode
 
         except Exception as e:

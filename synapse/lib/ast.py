@@ -267,7 +267,7 @@ class Query(AstNode):
 
                 for node, path in self._runQueryLoop(snap):
                     pode = node.pack(dorepr=dorepr)
-                    pode[1].update(path.pack())
+                    pode[1].update(path.pack(path=dopath))
                     chan.put(('node', pode))
                     count += 1
 
