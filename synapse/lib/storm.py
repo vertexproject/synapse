@@ -163,7 +163,7 @@ class DelNodeCmd(Cmd):
         if self.opts.force:
             if snap.user is not None and not snap.user.admin:
                 mesg = '--force requires admin privs.'
-                return self._onAuthDeny(mesg)
+                return snap._onAuthDeny(mesg)
 
         for node, path in genr:
             node.delete(force=self.opts.force)
