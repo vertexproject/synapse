@@ -144,7 +144,7 @@ class StormTest(s_test_common.SynTest):
             self.len(3, core.eval(q))
 
             # Can go out multiple degrees
-            q = 'pivcomp | refs --join --degrees 2'
+            q = 'pivcomp | refs -j --degrees 2'
             self.len(4, core.eval(q))
 
             srcguid = s_common.guid()
@@ -153,7 +153,7 @@ class StormTest(s_test_common.SynTest):
             q = 'pivcomp | refs --join --degrees 2'
             self.len(5, core.eval(q))
 
-            q = 'pivcomp | refs --join --degrees 3'
+            q = 'pivcomp | refs --join -d 3'
             self.len(6, core.eval(q))
 
             # We can traverse edges in both directions
@@ -174,24 +174,36 @@ class StormTest(s_test_common.SynTest):
             self.len(1, nodes)
             self.eq({n.ndef[0] for n in nodes}, {'refs'})
 
-            q = 'testint=123 | refs --traverse-edge'
+            q = 'testint=123 | refs -te'
             nodes = list(core.eval(q))
             self.len(1, nodes)
             self.eq({n.ndef[0] for n in nodes}, {'teststr'})
 
             # Prevent inclusion of a form, and the traversal across said form/tag
+            # Use long and short form arguments
             self.len(1, core.eval(f'[seen=({srcguid}, (teststr, pennywise))]'))
 
             q = 'teststr=pennywise | refs -d 3'
             self.len(3, core.eval(q))
+
             q = 'teststr=pennywise | refs -d 3 --omit-traversal-form=source'
             self.len(2, core.eval(q))
+            q = 'teststr=pennywise | refs -d 3 -otf=source'
+            self.len(2, core.eval(q))
+
             q = 'teststr=pennywise | refs -d 3 --omit-form=source'
+            self.len(1, core.eval(q))
+            q = 'teststr=pennywise | refs -d 3 -of=source'
             self.len(1, core.eval(q))
 
             q = 'teststr=pennywise | refs -d 3 --omit-traversal-tag=omit.nopiv --omit-traversal-tag=test'
             self.len(2, core.eval(q))
+            q = 'teststr=pennywise | refs -d 3 -ott=omit.nopiv -ott=test'
+            self.len(2, core.eval(q))
+
             q = 'teststr=pennywise | refs -d 3 --omit-tag=omit'
+            self.len(1, core.eval(q))
+            q = 'teststr=pennywise | refs -d 3 -ot=omit'
             self.len(1, core.eval(q))
 
             # Do a huge traversal that includes paths
@@ -216,6 +228,11 @@ class StormTest(s_test_common.SynTest):
             self.len(9, nodes)
 
             # Refs from multiple sources may be globally uniqued
-            q = 'teststr | refs -d 3 --global-unique'
+            q = 'teststr | refs -d 3 --unique'
+            nodes = list(core.eval(q))
+            self.len(8, nodes)
+
+            # And he has a short arg too
+            q = 'teststr | refs -d 3 -u'
             nodes = list(core.eval(q))
             self.len(8, nodes)

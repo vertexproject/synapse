@@ -404,28 +404,26 @@ class RefsCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('-d', '--degrees', type=int, default=1, action='store',
-                          help='Number of degrees to walk from the source node.')
-        pars.add_argument('--traverse-edge', default=False, action='store_true',
+                          help='Number of degrees to traverse from the source node.')
+        pars.add_argument('-te', '--traverse-edge', default=False, action='store_true',
                           help='Traverse Edge type nodes, if encountered, to '
                                'the opposite side of them, if the opposite '
                                'side has not yet been encountered.')
-        pars.add_argument('--join', default=False, action='store_true',
+        pars.add_argument('-j', '--join', default=False, action='store_true',
                           help='Include source nodes in the output of the refs command.')
-        pars.add_argument('--omit-traversal-form', action='append', default=[], type=str,
+        pars.add_argument('-otf', '--omit-traversal-form', action='append', default=[], type=str,
                           help='Form to omit traversal of. Nodes of forms will still be the output.')
-        pars.add_argument('--omit-traversal-tag', action='append', default=[], type=str,
+        pars.add_argument('-ott', '--omit-traversal-tag', action='append', default=[], type=str,
                           help='Tags to omit traversal of. Nodes with these '
                                'tags will still be in the output.')
-        pars.add_argument('--omit-form', action='append', default=[], type=str,
+        pars.add_argument('-of', '--omit-form', action='append', default=[], type=str,
                           help='Forms which will not be included in the '
                                'output or traversed.')
-        pars.add_argument('--omit-tag', action='append', default=[], type=str,
+        pars.add_argument('-ot', '--omit-tag', action='append', default=[], type=str,
                           help='Forms which have these tags will not not be '
                                'included in the output or traversed.')
-        pars.add_argument('--global-unique', action='store_true', default=False,
+        pars.add_argument('-u', '--unique', action='store_true', default=False,
                           help='Unique the output across ALL input nodes, instead of each input node at a time.')
-        pars.add_argument('iden', nargs='*', type=str, default=[],
-                          help='Iden to lift nodes by. May be specified multiple times.')
         return pars
 
     def runStormCmd(self, snap, genr):
@@ -445,7 +443,7 @@ class RefsCmd(Cmd):
             if self.opts.join:
                 yield node, path
 
-            if self.opts.global_unique is False:
+            if self.opts.unique is False:
                 visited = set()
 
             # Don't revisit the inbound node from genr
