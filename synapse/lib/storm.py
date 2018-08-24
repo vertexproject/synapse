@@ -46,8 +46,8 @@ class Cmd:
         self.pars = self.getArgParser()
 
     @classmethod
-    def getCmdBrief(clas):
-        return clas.__doc__.strip().split('\n')[0]
+    def getCmdBrief(cls):
+        return cls.__doc__.strip().split('\n')[0]
 
     def getCmdArgv(self):
         return shlex.split(self.text)
