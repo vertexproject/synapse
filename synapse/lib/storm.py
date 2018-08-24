@@ -484,7 +484,7 @@ class RefsCmd(Cmd):
                 visited = set()
 
             # Don't revisit the inbound node from genr
-            visited.add(node.ndef)
+            visited.add(node.buid)
 
             yield from self.doRefs(node, path, visited)
 
@@ -508,9 +508,9 @@ class RefsCmd(Cmd):
                     break
 
                 for pnode, ppath in self.getRefs(snode, spath):
-                    if pnode.ndef in visited:
+                    if pnode.buid in visited:
                         continue
-                    visited.add(pnode.ndef)
+                    visited.add(pnode.buid)
                     # Are we clear to yield this node?
                     if pnode.ndef[0] in self.omit_forms:
                         continue
