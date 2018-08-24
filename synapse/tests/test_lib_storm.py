@@ -209,3 +209,13 @@ class StormTest(s_test_common.SynTest):
             self.len(9, nodes)
             self.len(1, nodes[0][1].get('path'))
             self.len(8, nodes[8][1].get('path'))
+
+            # Start from multiple nodes and get their refs
+            q = 'teststr | refs -d 3'
+            nodes = list(core.eval(q))
+            self.len(9, nodes)
+
+            # Refs from multiple sources may be globally uniqued
+            q = 'teststr | refs -d 3 --global-unique'
+            nodes = list(core.eval(q))
+            self.len(8, nodes)
