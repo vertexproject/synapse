@@ -346,7 +346,6 @@ class Cortex(s_cell.Cell):
 
         self.addStormCmd(s_storm.HelpCmd)
         self.addStormCmd(s_storm.IdenCmd)
-        self.addStormCmd(s_storm.RefsCmd)
         self.addStormCmd(s_storm.SpinCmd)
         self.addStormCmd(s_storm.SudoCmd)
         self.addStormCmd(s_storm.UniqCmd)
@@ -355,6 +354,7 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.DelNodeCmd)
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
+        self.addStormCmd(s_storm.NoderefsCmd)
 
         self.splicers = {
             'node:add': self._onFeedNodeAdd,

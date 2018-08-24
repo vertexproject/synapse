@@ -396,7 +396,7 @@ class IdenCmd(Cmd):
             if node:
                 yield node, node.initPath()
 
-class RefsCmd(Cmd):
+class NoderefsCmd(Cmd):
     '''
     Get nodes adjacent to inbound nodes, up to n degrees away.
 
@@ -406,38 +406,38 @@ class RefsCmd(Cmd):
 
         Get all nodes 1 degree away from a input node:
 
-            ask inet:ipv4=1.2.3.4 | refs
+            ask inet:ipv4=1.2.3.4 | noderefs
 
         Get all nodes 1 degree away from a input node and include the source node:
 
-            ask inet:ipv4=1.2.3.4 | refs --join
+            ask inet:ipv4=1.2.3.4 | noderefs --join
 
         Get all nodes 3 degrees away from a input node and include the source node:
 
-            ask inet:ipv4=1.2.3.4 | refs --join --degrees 3
+            ask inet:ipv4=1.2.3.4 | noderefs --join --degrees 3
 
         Do not include nodes of a given form in the output or traverse across them:
 
-            ask inet:ipv4=1.2.3.4 | refs --omit-form inet:dns:a
+            ask inet:ipv4=1.2.3.4 | noderefs --omit-form inet:dns:a
 
         Do not traverse across nodes of a given form (but include them in the output):
 
-            ask inet:ipv4=1.2.3.4 | refs --omit-traversal-form inet:dns:a
+            ask inet:ipv4=1.2.3.4 | noderefs --omit-traversal-form inet:dns:a
 
         Do not include nodes with a specific tag in the output or traverse across them:
 
-            ask inet:ipv4=1.2.3.4 | refs --omit-tag omit.nopiv
+            ask inet:ipv4=1.2.3.4 | noderefs --omit-tag omit.nopiv
 
         Do not traverse across nodes with a sepcific tag (but include them in the output):
 
-            ask inet:ipv4=1.2.3.4 | refs --omit-traversal-tag omit.nopiv
+            ask inet:ipv4=1.2.3.4 | noderefs --omit-traversal-tag omit.nopiv
 
         Accept multiple inbound nodes, and unique the output set of nodes across all input nodes:
 
-            ask inet:ipv4=1.2.3.4 inet:ipv4=1.2.3.5 | refs --degrees 4 --unique
+            ask inet:ipv4=1.2.3.4 inet:ipv4=1.2.3.5 | noderefs --degrees 4 --unique
 
     '''
-    name = 'refs'
+    name = 'noderefs'
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('-d', '--degrees', type=int, default=1, action='store',

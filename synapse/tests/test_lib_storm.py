@@ -124,7 +124,7 @@ class StormTest(s_test_common.SynTest):
                 self.len(0, list(core.eval(q)))
                 self.true(stream.wait(1))
 
-    def test_refs(self):
+    def test_noderefs(self):
 
         with self.getTestCore() as core:
             self.len(1, core.eval('[pivcomp=(foo, 123)]'))
@@ -133,48 +133,48 @@ class StormTest(s_test_common.SynTest):
             self.len(1, core.eval('teststr=123 [:baz="testguid:tick=2015"]'))
 
             # Sad path
-            self.genraises(s_exc.BadOperArg, core.eval, 'teststr | refs -d 0')
+            self.genraises(s_exc.BadOperArg, core.eval, 'teststr | noderefs -d 0')
 
             # # Default behavior is a single degree out
-            q = 'pivcomp | refs'
+            q = 'pivcomp | noderefs'
             self.len(2, core.eval(q))
 
             # Can join input nodes to output
-            q = 'pivcomp | refs --join'
+            q = 'pivcomp | noderefs --join'
             self.len(3, core.eval(q))
 
             # Can go out multiple degrees
-            q = 'pivcomp | refs -j --degrees 2'
+            q = 'pivcomp | noderefs -j --degrees 2'
             self.len(4, core.eval(q))
 
             srcguid = s_common.guid()
             self.len(2, core.eval(f'[source={srcguid} +#omit.nopiv] [seen=({srcguid}, (pivtarg, foo))]'))
 
-            q = 'pivcomp | refs --join --degrees 2'
+            q = 'pivcomp | noderefs --join --degrees 2'
             self.len(5, core.eval(q))
 
-            q = 'pivcomp | refs --join -d 3'
+            q = 'pivcomp | noderefs --join -d 3'
             self.len(6, core.eval(q))
 
             # We can traverse edges in both directions
             self.len(1, core.eval('[refs=((teststr, 123), (testint, 123))]'))
 
-            q = 'teststr=123 | refs'
+            q = 'teststr=123 | noderefs'
             nodes = list(core.eval(q))
             self.len(3, nodes)
             self.eq({n.ndef[0] for n in nodes}, {'testguid', 'refs', 'pivcomp'})
 
-            q = 'teststr=123 | refs --traverse-edge'
+            q = 'teststr=123 | noderefs --traverse-edge'
             nodes = list(core.eval(q))
             self.len(3, nodes)
             self.eq({n.ndef[0] for n in nodes}, {'testguid', 'pivcomp', 'testint'})
 
-            q = 'testint=123 | refs'
+            q = 'testint=123 | noderefs'
             nodes = list(core.eval(q))
             self.len(1, nodes)
             self.eq({n.ndef[0] for n in nodes}, {'refs'})
 
-            q = 'testint=123 | refs -te'
+            q = 'testint=123 | noderefs -te'
             nodes = list(core.eval(q))
             self.len(1, nodes)
             self.eq({n.ndef[0] for n in nodes}, {'teststr'})
@@ -183,31 +183,31 @@ class StormTest(s_test_common.SynTest):
             # Use long and short form arguments
             self.len(1, core.eval(f'[seen=({srcguid}, (teststr, pennywise))]'))
 
-            q = 'teststr=pennywise | refs -d 3'
+            q = 'teststr=pennywise | noderefs -d 3'
             self.len(3, core.eval(q))
 
-            q = 'teststr=pennywise | refs -d 3 --omit-traversal-form=source'
+            q = 'teststr=pennywise | noderefs -d 3 --omit-traversal-form=source'
             self.len(2, core.eval(q))
-            q = 'teststr=pennywise | refs -d 3 -otf=source'
-            self.len(2, core.eval(q))
-
-            q = 'teststr=pennywise | refs -d 3 --omit-form=source'
-            self.len(1, core.eval(q))
-            q = 'teststr=pennywise | refs -d 3 -of=source'
-            self.len(1, core.eval(q))
-
-            q = 'teststr=pennywise | refs -d 3 --omit-traversal-tag=omit.nopiv --omit-traversal-tag=test'
-            self.len(2, core.eval(q))
-            q = 'teststr=pennywise | refs -d 3 -ott=omit.nopiv -ott=test'
+            q = 'teststr=pennywise | noderefs -d 3 -otf=source'
             self.len(2, core.eval(q))
 
-            q = 'teststr=pennywise | refs -d 3 --omit-tag=omit'
+            q = 'teststr=pennywise | noderefs -d 3 --omit-form=source'
             self.len(1, core.eval(q))
-            q = 'teststr=pennywise | refs -d 3 -ot=omit'
+            q = 'teststr=pennywise | noderefs -d 3 -of=source'
+            self.len(1, core.eval(q))
+
+            q = 'teststr=pennywise | noderefs -d 3 --omit-traversal-tag=omit.nopiv --omit-traversal-tag=test'
+            self.len(2, core.eval(q))
+            q = 'teststr=pennywise | noderefs -d 3 -ott=omit.nopiv -ott=test'
+            self.len(2, core.eval(q))
+
+            q = 'teststr=pennywise | noderefs -d 3 --omit-tag=omit'
+            self.len(1, core.eval(q))
+            q = 'teststr=pennywise | noderefs -d 3 -ot=omit'
             self.len(1, core.eval(q))
 
             # Do a huge traversal that includes paths
-            q = 'teststr=pennywise | refs --join -d 9'
+            q = 'teststr=pennywise | noderefs --join -d 9'
             mesgs = list(core.storm(q, opts={'path': True}))
             nodes = [mesg[1] for mesg in mesgs if mesg[0] == 'node']
             self.len(10, nodes)
@@ -215,7 +215,7 @@ class StormTest(s_test_common.SynTest):
             self.len(9, nodes[9][1].get('path'))
 
             # Paths may change depending on traversal options
-            q = 'teststr=pennywise | refs --join -d 9 --traverse-edge'
+            q = 'teststr=pennywise | noderefs --join -d 9 --traverse-edge'
             mesgs = list(core.storm(q, opts={'path': True}))
             nodes = [mesg[1] for mesg in mesgs if mesg[0] == 'node']
             self.len(9, nodes)
@@ -223,16 +223,16 @@ class StormTest(s_test_common.SynTest):
             self.len(8, nodes[8][1].get('path'))
 
             # Start from multiple nodes and get their refs
-            q = 'teststr | refs -d 3'
+            q = 'teststr | noderefs -d 3'
             nodes = list(core.eval(q))
             self.len(9, nodes)
 
             # Refs from multiple sources may be globally uniqued
-            q = 'teststr | refs -d 3 --unique'
+            q = 'teststr | noderefs -d 3 --unique'
             nodes = list(core.eval(q))
             self.len(8, nodes)
 
             # And he has a short arg too
-            q = 'teststr | refs -d 3 -u'
+            q = 'teststr | noderefs -d 3 -u'
             nodes = list(core.eval(q))
             self.len(8, nodes)
