@@ -400,7 +400,7 @@ class RefsCmd(Cmd):
     '''
     Get nodes adjacent to inbound nodes, up to n degrees away.
 
-    Examples:e
+    Examples:
         The following examples show long-form options. Short form options exist and
         should be easier for regular use.
 
