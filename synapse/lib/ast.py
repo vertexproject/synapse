@@ -250,14 +250,14 @@ class Query(AstNode):
     @s_glob.inpool
     def _runQueryThread(self, chan):
 
+        count = 0
+
+        dopath = self.opts.get('path')
+        dorepr = self.opts.get('repr')
+
+        tick = s_common.now()
+
         try:
-
-            count = 0
-
-            dopath = self.opts.get('path')
-            dorepr = self.opts.get('repr')
-
-            tick = s_common.now()
 
             with self._getQuerySnap() as snap:
 
