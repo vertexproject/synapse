@@ -307,7 +307,8 @@ class Snap(s_eventbus.EventBus):
             raise s_exc.NoSuchProp(name=full)
 
         lops = prop.getLiftOps(valu, cmpr=cmpr)
-        for row, node in self.getLiftNodes(lops, prop.name):
+        cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
+        for row, node in self.getLiftNodes(lops, prop.name, cmpf):
             yield node
 
     def _getNodesByType(self, name, valu=None, addform=True):
@@ -576,9 +577,9 @@ class Snap(s_eventbus.EventBus):
 
         yield None
 
-    def getLiftNodes(self, lops, rawprop):
+    def getLiftNodes(self, lops, rawprop, cmpr=None):
         genr = self.getLiftRows(lops)
-        return self.getRowNodes(genr, rawprop)
+        return self.getRowNodes(genr, rawprop, cmpr)
 
     def getLiftRows(self, lops):
         '''
@@ -597,7 +598,7 @@ class Snap(s_eventbus.EventBus):
             with xact.incxref():
                 yield from ((layer_idx, x) for x in xact.getLiftRows(lops))
 
-    def getRowNodes(self, rows, rawprop):
+    def getRowNodes(self, rows, rawprop, cmpr=None):
         '''
         Join a row generator into (row, Node()) tuples.
 
@@ -609,6 +610,7 @@ class Snap(s_eventbus.EventBus):
             rawprop(str):  "raw" propname i.e. if a tag, starts with "#".  Used for filtering so that we skip the props
                 for a buid if we're asking from a higher layer than the row was from (and hence, we'll presumable
                 get/have gotten the row when that layer is lifted.
+            cmpr (func): A secondary comparison function used to filter nodes.
         Yields:
             (tuple): (row, node)
         '''
@@ -638,6 +640,19 @@ class Snap(s_eventbus.EventBus):
                     self.buidcache.put(buid, node)
 
             if node.ndef is not None:
+
+                if cmpr:
+                    if rawprop == node.form:
+                        valu = node.ndef[1]
+                    else:
+                        valu = node.get(rawprop)
+                    if valu is None:
+                        # cmpr required to evaluate something; cannot know if this
+                        # node is valid or not without the prop being present.
+                        continue
+                    if not cmpr(valu):
+                        continue
+
                 yield row, node
 
     def _getNodeByBuid(self, buid):
