@@ -82,6 +82,7 @@ class PsqlStorage(s_cores_sqlite.SqliteStorage):
     _t_getrows_by_idens = 'SELECT * FROM {{TABLE}} WHERE iden IN {{VALU}}'
 
     _t_uprows_by_prop_val_str = 'UPDATE {{TABLE}} SET strval={{NEWVALU}} WHERE prop={{PROP}} and MD5(strval)=MD5({{OLDVALU}})'
+    _t_getrows = 'SELECT * FROM {{TABLE}} LIMIT ALL OFFSET {{OFFSET}}'
 
     def _initDbConn(self):
         import psycopg2
