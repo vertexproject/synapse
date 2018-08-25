@@ -470,6 +470,8 @@ class NoderefsCmd(Cmd):
         self.omit_traversal_tags = set(self.opts.omit_traversal_tag)
         self.omit_forms = set(self.opts.omit_form)
         self.omit_tags = set(self.opts.omit_tag)
+        self.ndef_props = [prop for prop in self.snap.model.props.values()
+                           if isinstance(prop.type, s_types.Ndef)]
 
         if self.opts.degrees < 1:
             raise s_exc.BadOperArg(mesg='degrees must be greater than or equal to 1', arg='degrees')
@@ -568,28 +570,25 @@ class NoderefsCmd(Cmd):
                 yield pivo, srcpath.fork(pivo)
 
         # Pivot to any Ndef properties we haven't pivoted to yet
-        for prop in list(self.snap.model.props.values()):
-
-            if isinstance(prop.type, s_types.Ndef):
-
-                for pivo in self.snap.getNodesBy(prop.full, srcnode.ndef):
-                    if self.opts.traverse_edge and isinstance(pivo.form.type, s_types.Edge):
-                        # Determine if srcnode.ndef is n1 or n2, and pivot to the other side
-                        if srcnode.ndef == pivo.get('n1'):
-                            npivo = self.snap.getNodeByNdef(pivo.get('n2'))
-                            if npivo is None:  # pragma: no cover
-                                logger.warning('n2 does not exist for edge? [%s]', pivo.ndef)
-                                continue
-                            yield npivo, srcpath.fork(npivo)
+        for prop in self.ndef_props:
+            for pivo in self.snap.getNodesBy(prop.full, srcnode.ndef):
+                if self.opts.traverse_edge and isinstance(pivo.form.type, s_types.Edge):
+                    # Determine if srcnode.ndef is n1 or n2, and pivot to the other side
+                    if srcnode.ndef == pivo.get('n1'):
+                        npivo = self.snap.getNodeByNdef(pivo.get('n2'))
+                        if npivo is None:  # pragma: no cover
+                            logger.warning('n2 does not exist for edge? [%s]', pivo.ndef)
                             continue
-                        if srcnode.ndef == pivo.get('n2'):
-                            npivo = self.snap.getNodeByNdef(pivo.get('n1'))
-                            if npivo is None:  # pragma: no cover
-                                logger.warning('n1 does not exist for edge? [%s]', pivo.ndef)
-                                continue
-                            yield npivo, srcpath.fork(npivo)
+                        yield npivo, srcpath.fork(npivo)
+                        continue
+                    if srcnode.ndef == pivo.get('n2'):
+                        npivo = self.snap.getNodeByNdef(pivo.get('n1'))
+                        if npivo is None:  # pragma: no cover
+                            logger.warning('n1 does not exist for edge? [%s]', pivo.ndef)
                             continue
-                        logger.warning('edge type has no n1/n2 property. [%s]', pivo.ndef)  # pragma: no cover
-                        continue  # pragma: no cover
+                        yield npivo, srcpath.fork(npivo)
+                        continue
+                    logger.warning('edge type has no n1/n2 property. [%s]', pivo.ndef)  # pragma: no cover
+                    continue  # pragma: no cover
 
-                    yield pivo, srcpath.fork(pivo)
+                yield pivo, srcpath.fork(pivo)
