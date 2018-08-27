@@ -42,8 +42,6 @@ def getItems(*paths):
                 item = [item]
             items.append((path, item))
         elif path.endswith('.mpk'):
-            # XXX Support a offset here!
-            # genr = s_msgpack.iterfile(path, since=offset)
             genr = s_msgpack.iterfile(path)
             items.append((path, genr))
         else:  # pragma: no cover
@@ -63,8 +61,6 @@ def addFeedData(core, outp, feedformat,
         bname = os.path.basename(path)
         tick = time.time()
         outp.printf(f'Adding items from [{path}]')
-        # if not isinstance(item, (types.GeneratorType):
-        #     item = [item]
         foff = 0
         for chunk in s_common.chunks(item, chunksize):
 
