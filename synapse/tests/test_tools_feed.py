@@ -81,11 +81,7 @@ class FeedTest(s_test.SynTest):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
             with dmon._getTestProxy('core', **pconf) as core:
-                # Setup user permissions
-                core.addAuthRole('creator')
-                core.addAuthRule('creator', (True, ('node:add',)))
-                core.addAuthRule('creator', (True, ('prop:set',)))
-                core.addAuthRule('creator', (True, ('tag:add',)))
+                self.addCreatorDeleterRoles(core)
                 core.addUserRole('root', 'creator')
 
             host, port = dmon.addr
