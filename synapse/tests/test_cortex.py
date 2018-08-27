@@ -1387,3 +1387,12 @@ class CortexTest(s_test.SynTest):
             self.len(2, core.eval('testint>=20'))
             self.len(1, core.eval('testint>20'))
             self.len(0, core.eval('testint<20'))
+
+    def test_feed_syn_nodes(self):
+        with self.getTestCore() as core0:
+            q = '[testint=1 testint=2 testint=3]'
+            podes = [n.pack() for n in core0.eval(q)]
+            self.len(3, podes)
+        with self.getTestCore() as core1:
+            retn = core1.addFeedData('syn.nodes', podes)
+            self.len(3, core1.eval('testint'))
