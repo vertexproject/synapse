@@ -20,7 +20,7 @@ class CustomShare(s_share.Share):
     typename = 'customshare'
 
     async def _runShareLoop(self):
-        await asyncio.sleep(10)
+        await s_glob.plex.sleep(10)
 
     def boo(self, x):
         return x
@@ -207,6 +207,41 @@ class TeleTest(s_test.SynTest):
         await s_glob.plex.sleep(.1)
 
         await self.asyncraises(s_exc.IsFini, asyncio.wait_for(fut, timeout=2, loop=s_glob.plex.loop))
+
+    @s_glob.synchelp
+    async def test_telepath_blocking(self):
+        ''' Make sure that async methods on the same proxy don't block each other '''
+
+        class MyClass():
+            typename = 'myshare'
+
+            def __init__(self):
+                self.sema = asyncio.Semaphore(value=0, loop=s_glob.plex.loop)
+                self.evnt = asyncio.Event(loop=s_glob.plex.loop)
+
+            async def do_it(self):
+                self.sema.release()
+                await self.evnt.wait()
+
+            async def wait_for_doits(self):
+                await self.sema.acquire()
+                await self.sema.acquire()
+                self.evnt.set()
+
+        bar = MyClass()
+
+        async with SyncToAsyncCMgr(self.getTestDmon) as dmon:
+            addr = await s_glob.plex.executor(dmon.listen, 'tcp://127.0.0.1:0')
+            dmon.share('bar', bar)
+
+            prox = await s_telepath.openurl('tcp://127.0.0.1/bar', port=addr[1])
+
+            # Check proxy objects, and also make sure that it doesn't block on server
+
+            tasks = [prox.do_it() for _ in range(2)]
+            tasks.append(prox.wait_for_doits())
+            await asyncio.wait_for(asyncio.gather(*tasks, loop=s_glob.plex.loop), timeout=5, loop=s_glob.plex.loop)
+            await prox.fini()
 
     def test_telepath_aware(self):
 
