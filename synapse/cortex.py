@@ -365,6 +365,7 @@ class Cortex(s_cell.Cell):
             'tag:del': self._onFeedTagDel,
         }
 
+        self.setFeedFunc('syn.nodes', self._addSynNodes)
         self.setFeedFunc('syn.splice', self._addSynSplice)
         self.setFeedFunc('syn.ingest', self._addSynIngest)
 
@@ -652,6 +653,9 @@ class Cortex(s_cell.Cell):
         Get a data ingest function.
         '''
         return self.feedfuncs.get(name)
+
+    def _addSynNodes(self, snap, items):
+        yield from snap.addNodes(items)
 
     def _addSynSplice(self, snap, items):
 
