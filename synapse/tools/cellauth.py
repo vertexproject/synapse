@@ -1,10 +1,14 @@
 import sys
+import logging
 import argparse
 import traceback
-
 import synapse.exc as s_exc
+import synapse.common as s_common
+
 import synapse.lib.output as s_output
 import synapse.telepath as s_telepath
+
+logger = logging.getLogger(__name__)
 
 desc = '''
 Admin users in a remote cell.
@@ -111,7 +115,7 @@ def handleModify(opts):
                 user = cell.getAuthInfo(opts.name)
             except s_exc.NoSuchName as e:
                 outp.printf(f'no such user: {opts.name}')
-                return
+                return 1
 
             printuser(user)
 
@@ -121,19 +125,24 @@ def handleModify(opts):
             traceback.print_exc()
 
         outp.printf(e)
+        return 1
+
+    else:
+        return 0
 
 def handleList(opts):
     try:
         with s_telepath.openurl(opts.cellurl) as cell:
 
             if opts.name:
-                user = cell.getAuthInfo(opts.name)
-                if user is None:
-                    outp.printf(f'no such user: {opts.name}')
-                    return
+                for name in opts.name:
+                    user = cell.getAuthInfo(name)
+                    if user is None:
+                        outp.printf(f'no such user: {opts.name}')
+                        return 1
 
-                printuser(user)
-                return
+                    printuser(user)
+                return 0
 
             outp.printf(f'getting users and roles')
 
@@ -144,7 +153,6 @@ def handleList(opts):
             outp.printf('roles:')
             for role in cell.getAuthRoles():
                 outp.printf(f'    {role}')
-            return
 
     except Exception as e:  # pragma: no cover
 
@@ -152,6 +160,10 @@ def handleList(opts):
             traceback.print_exc()
 
         outp.printf(e)
+        return 1
+
+    else:
+        return 0
 
 def main(argv, outprint=None):
     if outprint is None:   # pragma: no cover
@@ -159,6 +171,11 @@ def main(argv, outprint=None):
     global outp
     outp = outprint
 
+    pars = makeargparser()
+    opts = pars.parse_args(argv)
+    return opts.func(opts)
+
+def makeargparser():
     pars = argparse.ArgumentParser('synapse.tools.cellauth', description=desc)
 
     pars.add_argument('--debug', action='store_true', help='Show debug traceback on error.')
@@ -182,8 +199,8 @@ def main(argv, outprint=None):
     pars_mod.add_argument('--lock', action='store_true', help='Lock the user account.')
     pars_mod.add_argument('--unlock', action='store_true', help='Unlock the user account.')
 
-    #pars_mod.add_argument('--deluser', action='store_true', help='Add the named user to the cortex.')
-    #pars_mod.add_argument('--delrole', action='store_true', help='Add the named role to the cortex.')
+    # pars_mod.add_argument('--deluser', action='store_true', help='Add the named user to the cortex.')
+    # pars_mod.add_argument('--delrole', action='store_true', help='Add the named role to the cortex.')
 
     pars_mod.add_argument('--passwd', help='Set the user password.')
 
@@ -195,9 +212,12 @@ def main(argv, outprint=None):
 
     pars_mod.add_argument('name', help='The user/role to modify.')
     pars_mod.set_defaults(func=handleModify)
+    return pars
 
-    opts = pars.parse_args(argv)
-    opts.func(opts)
+
+def _main():  # pragma: no cover
+    s_common.setlogging(logger, 'DEBUG')
+    return main(sys.argv[1:])
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(_main())
