@@ -1,5 +1,7 @@
+import os
 import sys
 import time
+import types
 import shutil
 import logging
 import argparse
@@ -10,10 +12,9 @@ import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
-import synapse.lib.node as s_node
 import synapse.lib.const as s_const
-import synapse.lib.ingest as s_ingest
 import synapse.lib.output as s_output
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -32,20 +33,56 @@ def getItems(*paths):
     for path in paths:
         if path.endswith('.json'):
             item = s_common.jsload(path)
-            items.append(item)
+            if not isinstance(item, list):
+                item = [item]
+            items.append((path, item))
         elif path.endswith(('.yaml', '.yml')):
             item = s_common.yamlload(path)
-            items.append(item)
+            if not isinstance(item, list):
+                item = [item]
+            items.append((path, item))
+        elif path.endswith('.mpk'):
+            # XXX Support a offset here!
+            # genr = s_msgpack.iterfile(path, since=offset)
+            genr = s_msgpack.iterfile(path)
+            items.append((path, genr))
         else:  # pragma: no cover
             logger.warning('Unsupported file path: [%s]', path)
     return items
 
+# def addFeedData(core, outp, format, debug=False, *paths):
 
-def addFeedData(core, outp, format,
+def addFeedData(core, outp, feedformat,
                 debug=False,
-                *paths):
+                *paths,
+                chunksize=1000,
+                offset=0):
+
     items = getItems(*paths)
-    core.addFeedData(format, items)
+    for path, item in items:
+        bname = os.path.basename(path)
+        tick = time.time()
+        outp.printf(f'Adding items from [{path}]')
+        # if not isinstance(item, (types.GeneratorType):
+        #     item = [item]
+        foff = 0
+        for chunk in s_common.chunks(item, chunksize):
+
+            clen = len(chunk)
+            if offset and foff + clen < offset:
+                # We have not yet encountered a chunk which
+                # will include the offset size.
+                foff += clen
+                continue
+
+            core.addFeedData(feedformat, chunk)
+
+            foff += clen
+            outp.printf(f'Added [{clen}] items from [{bname}] - offset [{foff}]')
+
+        tock = time.time()
+        outp.printf(f'Done consuming from [{bname}]')
+        outp.printf(f'Took [{tock - tick}] seconds.')
     if debug:
         cmdr = s_cmdr.getItemCmdr(core, outp)
         cmdr.runCmdLoop()
@@ -58,18 +95,33 @@ def main(argv, outp=None):
     pars = makeargparser()
     opts = pars.parse_args(argv)
 
+    if opts.offset:
+        if len(opts.files) > 1:
+            outp.printf('Cannot start from a arbitrary offset for more than 1 file.')
+            return 1
+
+        outp.printf(f'Starting from offset [{opts.offset}] - it may take a while'
+                    f' to get to that location in the input file.')
+
     if opts.test:
         with getTempDir() as dirn:
-            s_common.yamlsave({'layer:lmdb:mapsize': s_const.gibibyte * 5}, dirn, 'cell.yaml')
+            s_common.yamlsave({'layer:lmdb:mapsize': s_const.gibibyte * 5},
+                              dirn, 'cell.yaml')
             with s_cortex.Cortex(dirn) as core:
                 for mod in opts.modules:
                     outp.printf(f'Loading [{mod}]')
                     core.loadCoreModule(mod)
-                addFeedData(core, outp, opts.format, opts.debug, *opts.files)
+                addFeedData(core, outp, opts.format, opts.debug,
+                            chunksize=opts.chunksize,
+                            offset=opts.offset,
+                            *opts.files)
 
     elif opts.cortex:
         with s_telepath.openurl(opts.cortex) as core:
-            addFeedData(core, outp, opts.format, opts.debug, *opts.files)
+            addFeedData(core, outp, opts.format, opts.debug,
+                        chunksize=opts.chunksize,
+                        offset=opts.offset,
+                        *opts.files)
 
     else:  # pragma: no cover
         outp.printf('No valid options provided [%s]', opts)
@@ -93,8 +145,11 @@ def makeargparser():
                       help='Feed format to use for the ingested data.')
     pars.add_argument('--modules', '-m', type=str, action='append', default=[],
                       help='Additional modules to load locally with a test Cortex.')
-
-    pars.add_argument('files', nargs='*', help='JSON ingest definition files')
+    pars.add_argument('--chunksize', type=int, action='store', default=1000,
+                      help='Default chunksize for iterating over items.')
+    pars.add_argument('--offset', type=int, action='store', default=0,
+                      help='Item offset to start consuming msgpack files from.')
+    pars.add_argument('files', nargs='*', help='json/yaml/msgpack feed files')
 
     return pars
 

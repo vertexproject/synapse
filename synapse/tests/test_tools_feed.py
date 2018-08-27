@@ -3,6 +3,7 @@ import unittest.mock as mock
 import synapse.common as s_common
 
 import synapse.lib.scope as s_scope
+import synapse.lib.msgpack as s_msgpack
 
 import synapse.tools.feed as s_feed
 
@@ -63,8 +64,9 @@ class FeedTest(s_test.SynTest):
             guid = s_common.guid()
             seen = s_common.now()
             gestdef = self.getIngestDef(guid, seen)
-            gestfp = s_common.genpath(dirn, 'gest.json')
-            s_common.jssave(gestdef, gestfp)
+            # Test yaml support here
+            gestfp = s_common.genpath(dirn, 'gest.yaml')
+            s_common.yamlsave(gestdef, gestfp)
             argv = ['--cortex', curl,
                     '--debug',
                     '--modules', 'synapse.tests.utils.TestModule',
@@ -89,8 +91,9 @@ class FeedTest(s_test.SynTest):
             dirn = s_scope.get('dirn')
 
             mesg = ('node:add', {'ndef': ('teststr', 'foo')})
-            splicefp = s_common.genpath(dirn, 'splice.yaml')
-            s_common.yamlsave(mesg, splicefp)
+            splicefp = s_common.genpath(dirn, 'splice.mpk')
+            with s_common.genfile(splicefp) as fd:
+                fd.write(s_msgpack.en(mesg))
 
             argv = ['--cortex', curl,
                     '--format', 'syn.splice',
@@ -101,3 +104,67 @@ class FeedTest(s_test.SynTest):
             self.eq(s_feed.main(argv, outp=outp), 0)
             with dmon._getTestProxy('core', **pconf) as core:
                 self.len(1, core.eval('teststr=foo'))
+
+    def test_synnodes_remote(self):
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:
+                self.addCreatorDeleterRoles(core)
+                core.addUserRole('root', 'creator')
+
+            host, port = dmon.addr
+            curl = f'tcp://root:root@{host}:{port}/core'
+            dirn = s_scope.get('dirn')
+
+            mpkfp = s_common.genpath(dirn, 'podes.mpk')
+            with s_common.genfile(mpkfp) as fd:
+                for i in range(20):
+                    pode = (('testint', i), {})
+                    fd.write(s_msgpack.en(pode))
+
+            argv = ['--cortex', curl,
+                    '--format', 'syn.nodes',
+                    '--modules', 'synapse.tests.utils.TestModule',
+                    '--chunksize', '3',
+                    mpkfp]
+
+            outp = self.getTestOutp()
+            self.eq(s_feed.main(argv, outp=outp), 0)
+            with dmon._getTestProxy('core', **pconf) as core:
+                self.len(20, core.eval('testint'))
+            print(outp)
+
+    def test_synnodes_offset(self):
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:
+                self.addCreatorDeleterRoles(core)
+                core.addUserRole('root', 'creator')
+
+            host, port = dmon.addr
+            curl = f'tcp://root:root@{host}:{port}/core'
+            dirn = s_scope.get('dirn')
+
+            mpkfp = s_common.genpath(dirn, 'podes.mpk')
+            with s_common.genfile(mpkfp) as fd:
+                for i in range(20):
+                    pode = (('testint', i), {})
+                    fd.write(s_msgpack.en(pode))
+
+            argv = ['--cortex', curl,
+                    '--format', 'syn.nodes',
+                    '--modules', 'synapse.tests.utils.TestModule',
+                    '--chunksize', '4',
+                    '--offset', '15',
+                    mpkfp]
+
+            outp = self.getTestOutp()
+            self.eq(s_feed.main(argv, outp=outp), 0)
+            with dmon._getTestProxy('core', **pconf) as core:
+                self.len(8, core.eval('testint'))
+
+            # Sad path catch
+            outp = self.getTestOutp()
+            argv.append(mpkfp)
+            self.eq(s_feed.main(argv, outp=outp), 1)
+            self.true(outp.expect('Cannot start from a arbitrary offset for more than 1 file.'))
