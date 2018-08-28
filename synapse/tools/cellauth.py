@@ -124,7 +124,7 @@ def handleModify(opts):
         if opts.debug:
             traceback.print_exc()
 
-        outp.printf(e)
+        outp.printf(str(e))
         return 1
 
     else:
@@ -159,7 +159,7 @@ def handleList(opts):
         if opts.debug:
             traceback.print_exc()
 
-        outp.printf(e)
+        outp.printf(str(e))
         return 1
 
     else:
