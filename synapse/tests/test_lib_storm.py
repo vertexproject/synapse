@@ -131,7 +131,7 @@ class StormTest(s_test_common.SynTest):
             with core.snap() as snap:
 
                 node = snap.addNode('teststr', 'woot')
-                node.exec('[ +#hehe ]')
+                s_common.spin(node.storm('[ +#hehe ]'))
 
                 self.len(1, snap.eval('#hehe'))
 

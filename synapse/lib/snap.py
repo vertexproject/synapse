@@ -89,12 +89,15 @@ class Snap(s_eventbus.EventBus):
         Yield packed node tuples for the given storm query text.
         '''
         dorepr = False
+        dopath = False
+
         if opts is not None:
-            dorepr = opts.get('repr')
+            dorepr = opts.get('repr', False)
+            dopath = opts.get('path', False)
 
         for node, path in self.storm(text, opts=opts, user=user):
             pode = node.pack(dorepr=dorepr)
-            pode[1].update(path.pack())
+            pode[1].update(path.pack(path=dopath))
             yield pode
 
     def storm(self, text, opts=None, user=None):

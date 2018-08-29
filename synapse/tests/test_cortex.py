@@ -689,7 +689,7 @@ class CortexTest(s_test.SynTest):
                     mesgs = list(core.storm('help ask'))
                     self.true(stream.wait(6))
                 # Bad syntax
-                self.genraises(s_exc.BadStormSyntax, core.storm, ' | | | ')
+                self.genraises(s_exc.BadStormSyntax, list, core.storm(' | | | '))
 
     def test_feed_splice(self):
 
@@ -1344,6 +1344,7 @@ class CortexTest(s_test.SynTest):
         with self.getTestCore() as core:
 
             with core.snap() as snap:
+                self.len(1, snap.eval('[testint=20]'))
                 self.len(2, snap.eval('[teststr=foo teststr=bar]'))
 
             self.len(0, core.eval('testint +testint>=30'))

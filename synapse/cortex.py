@@ -251,8 +251,7 @@ class CoreApi(s_cell.CellApi):
         Evalute a storm query and yield packed nodes.
         '''
         with self.cell.snap(user=self.user) as snap:
-            query = snap.core.getStormQuery(text)
-            yield from snap.iterStormPodes(query, opts=opts, user=self.user)
+            yield from snap.iterStormPodes(text, opts=opts, user=self.user)
 
     def storm(self, text, opts=None):
         '''
@@ -908,15 +907,18 @@ class Cortex(s_cell.Cell):
     def storm(self, text, opts=None, user=None):
 
         chan = s_queue.Queue()
-        query = self.getStormQuery(text)
 
-        self._runStormThread(query, opts=opts, user=user, chan=chan)
+        # check syntax before executing...
+        # (the query will be cached anyway )
+        self.getStormQuery(text)
+
+        self._runStormThread(text, opts=opts, user=user, chan=chan)
 
         for mesg in chan:
             yield mesg
 
     @s_glob.inpool
-    def _runStormThread(self, query, opts=None, user=None, chan=None):
+    def _runStormThread(self, text, opts=None, user=None, chan=None):
 
         try:
 
@@ -929,7 +931,7 @@ class Cortex(s_cell.Cell):
 
                 snap.link(chan.put)
 
-                for pode in snap.iterStormPodes(query, opts=opts, user=user):
+                for pode in snap.iterStormPodes(text, opts=opts, user=user):
                     chan.put(('node', pode))
                     count += 1
 

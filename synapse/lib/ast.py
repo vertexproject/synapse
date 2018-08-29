@@ -730,6 +730,9 @@ class AbsPropCond(Cond):
 
         def cond(node, path):
             val1 = node.get(prop.name)
+            if val1 is None:
+                return False
+
             val2 = self.kids[2].compute(runt, node, path)
             return ctor(val2)(val1)
 
