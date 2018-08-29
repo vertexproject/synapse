@@ -182,11 +182,10 @@ class Cmd:
     def getArgParser(self):
         return Parser(prog=self.name, descr=self.__class__.__doc__)
 
-    def reqValidOpts(self, snap):
+    def hasValidOpts(self, snap):
         self.pars.printf = snap.printf
         self.opts = self.pars.parse_args(self.argv)
-        if self.pars.exited:
-            raise s_exc.BadStormSyntax(name=self.name, text=self.text)
+        return not self.pars.exited
 
     def execStormCmd(self, runt, genr):
         # override me!
