@@ -199,8 +199,10 @@ class CoreApi(s_cell.CellApi):
             (tuple): Packed node tuples ((form,valu), {'props': {}, 'tags':{}})
 
         '''
-        done = {}
 
+        # First check that that user may add each form
+
+        done = {}
         for node in nodes:
 
             formname = node[0][0]

@@ -37,7 +37,7 @@ class Runtime:
         self.canceled = False
         self.elevated = False
 
-        # used by the di-graph projection logic
+        # used by the digraph projection logic
         self._graph_done = {}
         self._graph_want = collections.deque()
 
