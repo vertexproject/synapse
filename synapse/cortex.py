@@ -108,7 +108,7 @@ class CoreApi(s_cell.CellApi):
     def _reqUserAllowed(self, *path):
         if not self.allowed(*path):
             perm = '.'.join(path)
-            raise s_exc.AuthDeny(perm=perm)
+            raise s_exc.AuthDeny(perm=perm, user=self.user.name)
 
     def getModelDict(self):
         '''
@@ -920,10 +920,10 @@ class Cortex(s_cell.Cell):
     @s_glob.inpool
     def _runStormThread(self, text, opts=None, user=None, chan=None):
 
-        try:
+        count = 0
+        tick = s_common.now()
 
-            count = 0
-            tick = s_common.now()
+        try:
 
             chan.put(('init', {'tick': tick}))
 

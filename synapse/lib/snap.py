@@ -154,7 +154,7 @@ class Snap(s_eventbus.EventBus):
         Doing that will allow subsequent operations to be done without any
         permissions enforcement.
         '''
-        logger.warning('allowall() is depricated and will be removed!')
+        logger.warning('allowall() is deprecated and will be removed!')
         yield
 
     def printf(self, mesg):

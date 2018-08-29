@@ -51,7 +51,7 @@ class Runtime:
 
         if self.user is not None:
             if not self.user.admin:
-                raise s_exc.AuthDeny(mesg='user is not admin')
+                raise s_exc.AuthDeny(mesg='user is not admin', user=self.user.name)
 
         self.elevated = True
 
@@ -111,8 +111,8 @@ class Runtime:
             return
 
         # fails will not be cached...
-        perm = ':'.join(args)
-        raise s_exc.AuthDeny(perm=perm)
+        perm = '.'.join(args)
+        raise s_exc.AuthDeny(perm=perm, user=self.user.name)
 
     def execStormQuery(self, query):
         count = 0

@@ -449,7 +449,7 @@ class FormPivot(PivotOper):
                     yield node, path
 
                 for pivo in runt.snap.getNodesBy(prop.full, node.ndef):
-                    yield pivo, path.fork()
+                    yield pivo, path.fork(pivo)
 
             return
 

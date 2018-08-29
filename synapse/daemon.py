@@ -235,14 +235,13 @@ class Daemon(EventBus):
             if isinstance(share, EventBus):
                 share.fini()
 
-        async def afini():
-            for name, share in self.shared.items():
-                if isinstance(share, s_coro.Fini):
-                    await share.fini()
+        for name, share in self.shared.items():
+            if isinstance(share, s_coro.Fini):
+                await share.fini()
 
-            await asyncio.wait([link.fini() for link in self.connectedlinks], loop=s_glob.plex.loop)
-
-        s_glob.plex.addLoopCoro(afini())
+        coros = [link.fini() for link in self.connectedlinks]
+        if coros:
+            await asyncio.wait(coros, loop=s_glob.plex.loop)
 
     def _getSslCtx(self):
         return None
