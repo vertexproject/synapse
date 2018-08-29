@@ -315,7 +315,7 @@ class Daemon(EventBus):
     async def _onLinkInit(self, link):
 
         async def onrx(mesg):
-            await self._onLinkMesg(link, mesg)
+            s_glob.plex.loop.create_task(self._onLinkMesg(link, mesg))
 
         link.onrx(onrx)
         self.connectedlinks.append(link)

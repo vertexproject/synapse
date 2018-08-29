@@ -10,7 +10,6 @@ import synapse.lib.types as s_types
 
 logger = logging.getLogger(__name__)
 
-import synapse.lib.queue as s_queue
 
 class AstNode:
     '''

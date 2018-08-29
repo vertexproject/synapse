@@ -20,7 +20,7 @@ class CustomShare(s_share.Share):
     typename = 'customshare'
 
     async def _runShareLoop(self):
-        await asyncio.sleep(10)
+        await s_glob.plex.sleep(10)
 
     def boo(self, x):
         return x
@@ -59,9 +59,14 @@ class Foo:
     async def corovalu(self, x, y):
         return x * 2 + y
 
+    async def longasync(self):
+        await s_glob.plex.sleep(5)
+        return 42
+
     async def corogenr(self, x):
         for i in range(x):
             yield i
+            await s_glob.plex.sleep(0.1)
 
     def boom(self):
         return Boom()
@@ -174,8 +179,69 @@ class TeleTest(s_test.SynTest):
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
             genr = prox.corogenr(3)
             self.eq([0, 1, 2], [x async for x in await genr])
-            # To act the same as a local object, should be:
+            # To act the same as a local object, would be:
             # self.eq([0, 1, 2], [x async for x in genr])
+
+            aitr = (await prox.corogenr('fred')).__aiter__()
+            await self.asyncraises(s_exc.SynErr, aitr.__anext__())
+
+            aitr = (await prox.corogenr(3)).__aiter__()
+            await aitr.__anext__()
+
+            start_event = asyncio.Event(loop=s_glob.plex.loop)
+
+            async def longwaiter():
+                coro = prox.longasync()
+                await start_event.wait()
+                await coro
+
+            fut = s_glob.plex.loop.create_task(longwaiter())
+
+        await self.asyncraises(StopAsyncIteration, aitr.__anext__())
+        start_event.set()
+
+        # Test that a coroutine about to await on an async proxy method doesn't become "stuck" by awaiting on a
+        # just-fini'd object method
+
+        # Give the longwaiter a chance to run
+        await s_glob.plex.sleep(.1)
+
+        await self.asyncraises(s_exc.IsFini, asyncio.wait_for(fut, timeout=2, loop=s_glob.plex.loop))
+
+    @s_glob.synchelp
+    async def test_telepath_blocking(self):
+        ''' Make sure that async methods on the same proxy don't block each other '''
+
+        class MyClass():
+            typename = 'myshare'
+
+            def __init__(self):
+                self.sema = asyncio.Semaphore(value=0, loop=s_glob.plex.loop)
+                self.evnt = asyncio.Event(loop=s_glob.plex.loop)
+
+            async def do_it(self):
+                self.sema.release()
+                await self.evnt.wait()
+
+            async def wait_for_doits(self):
+                await self.sema.acquire()
+                await self.sema.acquire()
+                self.evnt.set()
+
+        bar = MyClass()
+
+        async with SyncToAsyncCMgr(self.getTestDmon) as dmon:
+            addr = await s_glob.plex.executor(dmon.listen, 'tcp://127.0.0.1:0')
+            dmon.share('bar', bar)
+
+            prox = await s_telepath.openurl('tcp://127.0.0.1/bar', port=addr[1])
+
+            # Check proxy objects, and also make sure that it doesn't block on server
+
+            tasks = [prox.do_it() for _ in range(2)]
+            tasks.append(prox.wait_for_doits())
+            await asyncio.wait_for(asyncio.gather(*tasks, loop=s_glob.plex.loop), timeout=5, loop=s_glob.plex.loop)
+            await prox.fini()
 
     def test_telepath_aware(self):
 

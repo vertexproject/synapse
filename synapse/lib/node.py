@@ -488,8 +488,11 @@ class Path:
         '''
         self.metadata[name] = valu
 
-    def pack(self):
-        return dict(self.metadata)
+    def pack(self, path=False):
+        ret = dict(self.metadata)
+        if path:
+            ret['path'] = [node.iden() for node in self.nodes]
+        return ret
 
     def fork(self, node):
 

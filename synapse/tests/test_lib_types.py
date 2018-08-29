@@ -250,7 +250,7 @@ class TypesTest(s_test.SynTest):
         self.eq(int128.indx(-2**127), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
         self.raises(OverflowError, int8.indx, 2**128)
 
-        # test both unsigned and signed comparitors
+        # test both unsigned and signed comparators
         self.true(uint64.cmpr(10, '<', 20))
         self.true(uint64.cmpr(10, '<=', 20))
         self.true(uint64.cmpr(20, '<=', 20))

@@ -1150,6 +1150,11 @@ class CortexTest(s_test.SynTest):
 
             self.len(1, core.eval('teststr=woot $foo=#foo +.seen@=$foo'))
 
+            self.len(1, core.eval('teststr +#foo@=2016'))
+            self.len(1, core.eval('teststr +#foo@=(2015, 2018)'))
+            self.len(1, core.eval('teststr +#foo@=(2014, 2019)'))
+            self.len(0, core.eval('teststr +#foo@=(2014, 20141231)'))
+
             self.len(1, core.eval('[ inet:dns:a=(woot.com,1.2.3.4) .seen=(2015,2016) ]'))
             self.len(1, core.eval('[ inet:fqdn=woot.com +#bad=(2015,2016) ]'))
 
@@ -1286,13 +1291,6 @@ class CortexTest(s_test.SynTest):
             self.len(0, core.eval('testint<20'))
             self.len(1, core.eval('testint<30'))
 
-    def test_cortex_snap_eval(self):
-
-        with self.getTestCore() as core:
-
-            with core.snap() as snap:
-                self.len(2, snap.eval('[teststr=foo teststr=bar]'))
-
     def test_cortex_ontag(self):
 
         with self.getTestCore() as core:
@@ -1340,3 +1338,76 @@ class CortexTest(s_test.SynTest):
             self.len(1, core.eval('.hehe'))
             self.len(1, core.eval('.hehe [ -.hehe ]'))
             self.len(0, core.eval('.hehe'))
+
+    def test_cortex_snap_eval(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+                self.len(2, snap.eval('[teststr=foo teststr=bar]'))
+
+            self.len(0, core.eval('testint +testint>=30'))
+            self.len(1, core.eval('testint +testint>=20'))
+            self.len(1, core.eval('testint +testint>=10'))
+
+            self.len(0, core.eval('testint +testint>30'))
+            self.len(0, core.eval('testint +testint>20'))
+            self.len(1, core.eval('testint +testint>10'))
+
+            self.len(0, core.eval('testint +testint<=10'))
+            self.len(1, core.eval('testint +testint<=20'))
+            self.len(1, core.eval('testint +testint<=30'))
+
+            self.len(0, core.eval('testint +testint<10'))
+            self.len(0, core.eval('testint +testint<20'))
+            self.len(1, core.eval('testint +testint<30'))
+
+            # time indx is derived from the same lift helpers
+            list(core.eval('[teststr=foo :tick=201808021201]'))
+
+            self.len(0, core.eval('teststr:tick>=201808021202'))
+            self.len(1, core.eval('teststr:tick>=201808021201'))
+            self.len(1, core.eval('teststr:tick>=201808021200'))
+
+            self.len(0, core.eval('teststr:tick>201808021202'))
+            self.len(0, core.eval('teststr:tick>201808021201'))
+            self.len(1, core.eval('teststr:tick>201808021200'))
+
+            self.len(1, core.eval('teststr:tick<=201808021202'))
+            self.len(1, core.eval('teststr:tick<=201808021201'))
+            self.len(0, core.eval('teststr:tick<=201808021200'))
+
+            self.len(1, core.eval('teststr:tick<201808021202'))
+            self.len(0, core.eval('teststr:tick<201808021201'))
+            self.len(0, core.eval('teststr:tick<201808021200'))
+
+            self.len(0, core.eval('teststr +teststr:tick>=201808021202'))
+            self.len(1, core.eval('teststr +teststr:tick>=201808021201'))
+            self.len(1, core.eval('teststr +teststr:tick>=201808021200'))
+
+            self.len(0, core.eval('teststr +teststr:tick>201808021202'))
+            self.len(0, core.eval('teststr +teststr:tick>201808021201'))
+            self.len(1, core.eval('teststr +teststr:tick>201808021200'))
+
+            self.len(1, core.eval('teststr +teststr:tick<=201808021202'))
+            self.len(1, core.eval('teststr +teststr:tick<=201808021201'))
+            self.len(0, core.eval('teststr +teststr:tick<=201808021200'))
+
+            self.len(1, core.eval('teststr +teststr:tick<201808021202'))
+            self.len(0, core.eval('teststr +teststr:tick<201808021201'))
+            self.len(0, core.eval('teststr +teststr:tick<201808021200'))
+
+            list(core.eval('[testint=99999]'))
+            self.len(1, core.eval('testint<=20'))
+            self.len(2, core.eval('testint>=20'))
+            self.len(1, core.eval('testint>20'))
+            self.len(0, core.eval('testint<20'))
+
+    def test_feed_syn_nodes(self):
+        with self.getTestCore() as core0:
+            q = '[testint=1 testint=2 testint=3]'
+            podes = [n.pack() for n in core0.eval(q)]
+            self.len(3, podes)
+        with self.getTestCore() as core1:
+            retn = core1.addFeedData('syn.nodes', podes)
+            self.len(3, core1.eval('testint'))

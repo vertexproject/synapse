@@ -8,17 +8,32 @@ import synapse.tools.deploy as s_deploy
 class CellAuthTest(s_test.SynTest):
     def test_cellauth_list(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
-            outp = self.getTestOutp()
+            with dmon._getTestProxy('core', user='root', passwd='root') as core:
+                self.addCreatorDeleterRoles(core)
+                core.addUserRole('root', 'creator')
 
             coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
-            argv = [coreurl, 'list']
 
-            s_cellauth.main(argv, outp)
-            # print(str(outp))
+            argv = [coreurl, 'list']
+            outp = self.getTestOutp()
+            self.eq(s_cellauth.main(argv, outp), 0)
             outp.expect('getting users and roles')
             outp.expect('users:')
             outp.expect('root')
             outp.expect('roles:')
+
+            argv = [coreurl, 'list', 'root']
+            outp = self.getTestOutp()
+            self.eq(s_cellauth.main(argv, outp), 0)
+            outp.expect('root')
+            outp.expect('admin: True')
+            outp.expect('role: creator')
+
+            argv = [coreurl, 'list', 'creator']
+            outp = self.getTestOutp()
+            self.eq(s_cellauth.main(argv, outp), 0)
+            outp.expect('creator')
+            outp.expect('type: role')
 
     def test_cellauth_user(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:

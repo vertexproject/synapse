@@ -351,6 +351,7 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.DelNodeCmd)
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
+        self.addStormCmd(s_storm.NoderefsCmd)
 
         self.splicers = {
             'node:add': self._onFeedNodeAdd,
@@ -361,6 +362,7 @@ class Cortex(s_cell.Cell):
             'tag:del': self._onFeedTagDel,
         }
 
+        self.setFeedFunc('syn.nodes', self._addSynNodes)
         self.setFeedFunc('syn.splice', self._addSynSplice)
         self.setFeedFunc('syn.ingest', self._addSynIngest)
 
@@ -687,6 +689,9 @@ class Cortex(s_cell.Cell):
         Get a data ingest function.
         '''
         return self.feedfuncs.get(name)
+
+    def _addSynNodes(self, snap, items):
+        yield from snap.addNodes(items)
 
     def _addSynSplice(self, snap, items):
 
