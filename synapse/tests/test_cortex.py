@@ -1291,62 +1291,6 @@ class CortexTest(s_test.SynTest):
             self.len(0, core.eval('testint<20'))
             self.len(1, core.eval('testint<30'))
 
-    def test_cortex_ontag(self):
-
-        with self.getTestCore() as core:
-
-            tags = {}
-            def onadd(node, tag, valu):
-                tags[tag] = valu
-
-            def ondel(node, tag, valu):
-                self.none(node.getTag(tag))
-                self.false(node.hasTag(tag))
-                tags.pop(tag)
-
-            core.onTagAdd('foo', onadd)
-            core.onTagAdd('foo.bar', onadd)
-            core.onTagAdd('foo.bar.baz', onadd)
-
-            core.onTagDel('foo', ondel)
-            core.onTagDel('foo.bar', ondel)
-            core.onTagDel('foo.bar.baz', ondel)
-
-            with core.snap() as snap:
-
-                node = snap.addNode('teststr', 'hehe')
-                node.addTag('foo.bar.baz', valu=(200, 300))
-
-                self.eq(tags.get('foo'), (None, None))
-                self.eq(tags.get('foo.bar'), (None, None))
-                self.eq(tags.get('foo.bar.baz'), (200, 300))
-
-                node.delTag('foo.bar')
-
-                self.eq(tags.get('foo'), (None, None))
-
-                self.none(tags.get('foo.bar'))
-                self.none(tags.get('foo.bar.baz'))
-
-    def test_cortex_del_univ(self):
-
-        with self.getTestCore() as core:
-
-            core.model.addUnivProp('hehe', ('int', {}), {})
-
-            self.len(1, core.eval('[ teststr=woot .hehe=20 ]'))
-            self.len(1, core.eval('.hehe'))
-            self.len(1, core.eval('.hehe [ -.hehe ]'))
-            self.len(0, core.eval('.hehe'))
-
-    def test_cortex_snap_eval(self):
-
-        with self.getTestCore() as core:
-
-            with core.snap() as snap:
-                self.len(1, snap.eval('[testint=20]'))
-                self.len(2, snap.eval('[teststr=foo teststr=bar]'))
-
             self.len(0, core.eval('testint +testint>=30'))
             self.len(1, core.eval('testint +testint>=20'))
             self.len(1, core.eval('testint +testint>=10'))
@@ -1403,6 +1347,62 @@ class CortexTest(s_test.SynTest):
             self.len(2, core.eval('testint>=20'))
             self.len(1, core.eval('testint>20'))
             self.len(0, core.eval('testint<20'))
+
+    def test_cortex_ontag(self):
+
+        with self.getTestCore() as core:
+
+            tags = {}
+            def onadd(node, tag, valu):
+                tags[tag] = valu
+
+            def ondel(node, tag, valu):
+                self.none(node.getTag(tag))
+                self.false(node.hasTag(tag))
+                tags.pop(tag)
+
+            core.onTagAdd('foo', onadd)
+            core.onTagAdd('foo.bar', onadd)
+            core.onTagAdd('foo.bar.baz', onadd)
+
+            core.onTagDel('foo', ondel)
+            core.onTagDel('foo.bar', ondel)
+            core.onTagDel('foo.bar.baz', ondel)
+
+            with core.snap() as snap:
+
+                node = snap.addNode('teststr', 'hehe')
+                node.addTag('foo.bar.baz', valu=(200, 300))
+
+                self.eq(tags.get('foo'), (None, None))
+                self.eq(tags.get('foo.bar'), (None, None))
+                self.eq(tags.get('foo.bar.baz'), (200, 300))
+
+                node.delTag('foo.bar')
+
+                self.eq(tags.get('foo'), (None, None))
+
+                self.none(tags.get('foo.bar'))
+                self.none(tags.get('foo.bar.baz'))
+
+    def test_cortex_del_univ(self):
+
+        with self.getTestCore() as core:
+
+            core.model.addUnivProp('hehe', ('int', {}), {})
+
+            self.len(1, core.eval('[ teststr=woot .hehe=20 ]'))
+            self.len(1, core.eval('.hehe'))
+            self.len(1, core.eval('.hehe [ -.hehe ]'))
+            self.len(0, core.eval('.hehe'))
+
+    def test_cortex_snap_eval(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+                self.len(2, snap.eval('[teststr=foo teststr=bar]'))
+            self.len(2, core.eval('teststr'))
 
     def test_feed_syn_nodes(self):
         with self.getTestCore() as core0:
