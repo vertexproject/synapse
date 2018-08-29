@@ -7,6 +7,21 @@ import synapse.tests.common as s_t_common
 
 class SnapTest(s_t_common.SynTest):
 
+    def test_snap_eval_storm(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                snap.addNode('teststr', 'hehe')
+                snap.addNode('teststr', 'haha')
+
+                self.len(2, snap.eval('teststr'))
+
+                snap.addNode('teststr', 'hoho')
+
+                self.len(3, snap.storm('teststr'))
+
     def test_stor(self):
         with self.getTestCore() as core:
 

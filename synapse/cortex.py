@@ -2,6 +2,8 @@ import json
 import asyncio
 import logging
 import pathlib
+import contextlib
+import collections
 
 import tornado.web as t_web
 import tornado.netutil as t_netutil
@@ -17,8 +19,10 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.snap as s_snap
+import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
 import synapse.lib.layer as s_layer
+import synapse.lib.queue as s_queue
 import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
 
@@ -95,6 +99,17 @@ class CoreApi(s_cell.CellApi):
     async def fini(self):
         pass
 
+    def allowed(self, *path):
+        if self.user is None:
+            return True
+
+        return self.user.allowed(path)
+
+    def _reqUserAllowed(self, *path):
+        if not self.allowed(*path):
+            perm = '.'.join(path)
+            raise s_exc.AuthDeny(perm=perm)
+
     def getModelDict(self):
         '''
         Return a dictionary which describes the data model.
@@ -114,9 +129,11 @@ class CoreApi(s_cell.CellApi):
             valu (tuple):  A time interval tuple or (None, None).
         '''
         buid = s_common.uhex(iden)
-        with self.cell.snap() as snap:
 
-            snap.setUser(self.user)
+        parts = tag.split('.')
+        self._reqUserAllowed('tag:add', *parts)
+
+        with self.cell.snap(user=self.user) as snap:
 
             node = snap.getNodeByBuid(buid)
             if node is None:
@@ -134,9 +151,11 @@ class CoreApi(s_cell.CellApi):
             tag (str):  A tag string.
         '''
         buid = s_common.uhex(iden)
-        with self.cell.snap() as snap:
 
-            snap.setUser(self.user)
+        parts = tag.split('.')
+        self._reqUserAllowed('tag:del', *parts)
+
+        with self.cell.snap(user=self.user) as snap:
 
             node = snap.getNodeByBuid(buid)
             if node is None:
@@ -145,33 +164,55 @@ class CoreApi(s_cell.CellApi):
             node.delTag(tag)
             return node.pack()
 
-    def setNodeProp(self, iden, prop, valu):
+    def setNodeProp(self, iden, name, valu):
 
         buid = s_common.uhex(iden)
-        with self.cell.snap() as snap:
 
-            snap.setUser(self.user)
+        with self.cell.snap(user=self.user) as snap:
 
             node = snap.getNodeByBuid(buid)
             if node is None:
                 raise s_exc.NoSuchIden(iden=iden)
 
-            node.set(prop, valu)
+            prop = node.form.props.get(name)
+            self._reqUserAllowed('prop:set', prop.full)
+
+            node.set(name, valu)
             return node.pack()
 
     def addNode(self, form, valu, props=None):
 
-        with self.cell.snap() as snap:
-            snap.setUser(self.user)
+        self._reqUserAllowed('node:add', form)
+
+        with self.cell.snap(user=self.user) as snap:
             node = snap.addNode(form, valu, props=props)
             return node.pack()
 
     def addNodes(self, nodes):
+        '''
+        Add a list of packed nodes to the cortex.
 
-        with self.cell.snap() as snap:
+        Args:
+            nodes (list): [ ( (form, valu), {'props':{}, 'tags':{}}), ... ]
+
+        Yields:
+            (tuple): Packed node tuples ((form,valu), {'props': {}, 'tags':{}})
+
+        '''
+        done = {}
+
+        for node in nodes:
+
+            formname = node[0][0]
+            if done.get(formname):
+                continue
+
+            self._reqUserAllowed('node:add', formname)
+            done[formname] = True
+
+        with self.cell.snap(user=self.user) as snap:
 
             snap.strict = False
-            snap.setUser(self.user)
 
             for node in snap.addNodes(nodes):
 
@@ -182,9 +223,10 @@ class CoreApi(s_cell.CellApi):
 
     def addFeedData(self, name, items, seqn=None):
 
-        with self.cell.snap() as snap:
+        self._reqUserAllowed('feed:data', *name.split('.'))
+
+        with self.cell.snap(user=self.user) as snap:
             snap.strict = False
-            snap.setUser(self.user)
             return snap.addFeedData(name, items, seqn=seqn)
 
     def getFeedOffs(self, iden):
@@ -201,53 +243,23 @@ class CoreApi(s_cell.CellApi):
         Returns:
             (int): The number of nodes resulting from the query.
         '''
-        query = self._getStormQuery(text, opts=opts)
-        return sum((1 for n in query.evaluate()))
+        with self.cell.snap(user=self.user) as snap:
+            return sum((1 for n in snap.eval(text, opts=opts, user=self.user)))
 
     def eval(self, text, opts=None):
         '''
         Evalute a storm query and yield packed nodes.
         '''
-        query = self._getStormQuery(text, opts=opts)
-        dorepr = query.opts.get('repr')
-
-        try:
-
-            for node, path in query.evaluate():
-                pode = node.pack(dorepr=dorepr)
-                pode[1].update(path.pack())
-                yield pode
-
-        except Exception as e:
-            logging.exception('exception during storm eval')
-            query.cancel()
-            raise
-
-    def _getStormQuery(self, text, opts=None):
-
-        try:
-
-            query = self.cell.getStormQuery(text, opts=opts)
-            query.setUser(self.user)
-            return query
-
-        except Exception as e:
-            logger.exception('storm query parser error')
-            raise
+        with self.cell.snap(user=self.user) as snap:
+            query = snap.core.getStormQuery(text)
+            yield from snap.iterStormPodes(query, opts=opts, user=self.user)
 
     def storm(self, text, opts=None):
         '''
         Execute a storm query and yield messages.
         '''
-        query = self._getStormQuery(text, opts=opts)
-        try:
-
-            for mesg in query.execute():
-                yield mesg
-
-        except Exception as e:
-            logger.exception('exception during storm')
-            query.cancel()
+        for mesg in self.cell.storm(text, opts=opts, user=self.user):
+            yield mesg
 
     @s_cell.adminapi
     def splices(self, offs, size):
@@ -327,6 +339,7 @@ class Cortex(s_cell.Cell):
         self.feedfuncs = {}
 
         self.stormcmds = {}
+        self.stormrunts = {}
 
         self.addStormCmd(s_storm.HelpCmd)
         self.addStormCmd(s_storm.IdenCmd)
@@ -357,9 +370,8 @@ class Cortex(s_cell.Cell):
         self.model = s_datamodel.Model()
         self.view = View(self, self.layers)
 
-        self.ontagadds = []
-        self.ontagdels = []
-        self.ontagsets = []
+        self.ontagadds = collections.defaultdict(list)
+        self.ontagdels = collections.defaultdict(list)
 
         self.addCoreMods(s_modules.coremods)
         mods = self.conf.get('modules')
@@ -388,13 +400,41 @@ class Cortex(s_cell.Cell):
 
         self.onfini(finiCortex)
 
-    def onTagAdd(self, func):
-        # func(node, tag, val)
-        self.ontagadds.append(func)
+    def onTagAdd(self, name, func):
+        '''
+        Register a callback for tag addition.
+        Args:
+            name (str): The name of the tag.
+            func (function): The callback func(node, tagname, tagval).
 
-    def onTagDel(self, func):
-        # func(node, tag, val)
-        self.ontagdels.append(func)
+        '''
+        #TODO allow name wild cards
+        self.ontagadds[name].append(func)
+
+    def onTagDel(self, name, func):
+        '''
+        Register a callback for tag deletion.
+        Args:
+            name (str): The name of the tag.
+            func (function): The callback func(node, tagname, tagval).
+
+        '''
+        #TODO allow name wild cards
+        self.ontagdels[name].append(func)
+
+    def runTagAdd(self, node, tag, valu):
+        for func in self.ontagadds.get(tag, ()):
+            try:
+                func(node, tag, valu)
+            except Exception as e:
+                logger.exception('onTagAdd Error')
+
+    def runTagDel(self, node, tag, valu):
+        for func in self.ontagdels.get(tag, ()):
+            try:
+                func(node, tag, valu)
+            except Exception as e:
+                logger.exception('onTagDel Error')
 
     def _initCoreLayers(self):
         import synapse.cells as s_cells  # avoid import cycle
@@ -856,44 +896,53 @@ class Cortex(s_cell.Cell):
             ret.append((modname, mod.conf))
         return ret
 
-    def getForkView(self, iden):
-        pass
+    def eval(self, text, opts=None, user=None):
+        with self.snap(user=user) as snap:
+            yield from snap.eval(text, opts=opts, user=user)
 
-    def newForkView(self):
-        pass
+    def storm(self, text, opts=None, user=None):
 
-    def getStormQuery(self, text, opts=None):
+        chan = s_queue.Queue()
+        query = self.getStormQuery(text)
 
-        parser = s_syntax.Parser(self, text)
+        self._runStormThread(query, opts=opts, user=user, chan=chan)
 
-        query = parser.query()
-
-        if opts is not None:
-            query.opts.update(opts)
-
-        return query
-
-    def eval(self, text, opts=None):
-        '''
-        Evaluate a storm query and yield Nodes only.
-        '''
-        query = self.getStormQuery(text, opts=opts)
-        for node, path in query.evaluate():
-            yield node
-
-    def storm(self, text, opts=None):
-        '''
-        Evaluate a storm query and yield result messages.
-
-        Args:
-            text (str): A storm query.
-
-        Yields:
-            ((str,dict)): Storm messages.
-        '''
-        query = self.getStormQuery(text, opts=opts)
-        for mesg in query.execute():
+        for mesg in chan:
             yield mesg
+
+    @s_glob.inpool
+    def _runStormThread(self, query, opts=None, user=None, chan=None):
+
+        try:
+
+            count = 0
+            tick = s_common.now()
+
+            chan.put(('init', {'tick': tick}))
+
+            with self.snap(user=user) as snap:
+
+                snap.link(chan.put)
+
+                for pode in snap.iterStormPodes(query, opts=opts, user=user):
+                    chan.put(('node', pode))
+                    count += 1
+
+        except Exception as e:
+            chan.put(('err', s_common.err(e)))
+
+        finally:
+            tock = s_common.now()
+            took = tock - tick
+            chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
+            chan.done()
+
+    @s_cache.memoize(size=10000)
+    def getStormQuery(self, text):
+        '''
+        Parse storm query text and return a Query object.
+        '''
+        return s_syntax.Parser(self, text).query()
 
     def _logStormQuery(self, text, user):
         '''
@@ -983,7 +1032,7 @@ class Cortex(s_cell.Cell):
     def getFeedOffs(self, iden):
         return self.layer.getOffset(iden)
 
-    def snap(self):
+    def snap(self, user=None):
         '''
         Return a transaction object for the default view.
 
@@ -995,7 +1044,10 @@ class Cortex(s_cell.Cell):
 
         NOTE: This must be used in a with block.
         '''
-        return self.view.snap()
+        snap = self.view.snap()
+        if user is not None:
+            snap.setUser(user)
+        return snap
 
     def addCoreMods(self, mods):
         '''

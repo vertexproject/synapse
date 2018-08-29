@@ -1,5 +1,4 @@
 import logging
-import collections
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -19,10 +18,7 @@ class AstNode:
     '''
 
     def __init__(self, kids=()):
-        self.snap = None
-
         self.kids = []
-
         [self.addKid(k) for k in kids]
 
     def addKid(self, astn):
@@ -41,10 +37,6 @@ class AstNode:
         astn.pindex = indx
 
     def replace(self, astn):
-
-        if self.snap:
-            astn.init(self.snap)
-
         self.parent.setKid(self.pindex, astn)
 
     def sibling(self, offs=1):
@@ -86,9 +78,9 @@ class AstNode:
     def repr(self):
         return self.__class__.__name__
 
-    def init(self, snap):
-        self.snap = snap
-        [k.init(snap) for k in self.kids]
+    def init(self, core):
+        self.core = core
+        [k.init(core) for k in self.kids]
         self.prepare()
 
     def prepare(self):
@@ -103,77 +95,35 @@ class Query(AstNode):
 
         AstNode.__init__(self, kids=kids)
 
-        self.user = None
-
         self.core = core
-        self.model = core.model
-
         self.text = ''
 
+        # for options parsed from the query itself
         self.opts = {}
 
-        # used by the di-graph projection logic
-        self._graph_done = {}
-        self._graph_want = collections.deque()
-
-        self.tick = None
-        self.canceled = False
-
-    def setUser(self, user):
-        self.user = user
-
-    def isWrite(self):
-        return any(o.iswrite for o in self.kids)
-
-    def cancel(self):
-
-        if self.snap is not None:
-            self.snap.cancel()
-
-        self.canceled = True
-
-    def execute(self):
-
-        chan = s_queue.Queue()
-
-        self._runQueryThread(chan)
-
-        return chan
-
-    def getInput(self, snap):
-        for ndef in self.opts.get('ndefs', ()):
-            node = snap.getNodeByNdef(ndef)
-            if node is not None:
-                yield node, node.initPath()
-        for iden in self.opts.get('idens', ()):
-            buid = s_common.uhex(iden)
-            node = snap.getNodeByBuid(buid)
-            if node is not None:
-                yield node, node.initPath()
-
-    def _finiGraph(self):
+    def _finiGraph(self, runt):
 
         # gather up any remaining todo nodes
-        while self._graph_want:
+        while runt._graph_want:
 
-            ndef = self._graph_want.popleft()
+            ndef = runt._graph_want.popleft()
 
-            if self._graph_done.get(ndef):
+            if runt._graph_done.get(ndef):
                 continue
 
-            node = self.snap.getNodeByNdef(ndef)
+            node = runt.snap.getNodeByNdef(ndef)
             if node is None:
                 continue
 
-            path = node.initPath()
+            path = runt.initPath(node)
 
-            self._iterGraph(node, path)
+            self._iterGraph(runt, node, path)
 
             yield node, path
 
-    def _iterGraph(self, node, path):
+    def _iterGraph(self, runt, node, path):
 
-        self._graph_done[node.ndef] = True
+        runt._graph_done[node.ndef] = True
 
         done = {}
         edges = []
@@ -189,189 +139,136 @@ class Query(AstNode):
 
             edges.append((iden, {}))
 
-            if not self._graph_done.get(ndef):
-                self._graph_want.append(ndef)
+            if not runt._graph_done.get(ndef):
+                runt._graph_want.append(ndef)
 
         path.meta('edges', edges)
 
-    def evaluate(self):
-        with self._getQuerySnap() as snap:
-            yield from self._runQueryLoop(snap)
+    def iterNodePaths(self, runt):
 
-    def run(self, snap):
-        yield from self._runQueryLoop(snap)
-
-    def _runQueryLoop(self, snap):
-
-        snap.core._logStormQuery(self.text, self.user)
-
-        self.init(snap)
+        self.core._logStormQuery(self.text, runt.user)
 
         count = 0
 
-        # all snap events go into the output queue...
-        snap.runt['storm:opts'] = self.opts
-
-        varz = self.opts.get('vars')
-        if varz is not None:
-            snap.vars.update(varz)
-
-        graph = self.opts.get('graph')
+        graph = runt.getOpt('graph')
 
         self.optimize()
 
         # turtles all the way down...
-        genr = self.getInput(snap)
+        genr = runt.getInput()
 
         for oper in self.kids:
-            genr = oper.run(genr)
+            genr = oper.run(runt, genr)
 
         for node, path in genr:
 
+            runt.tick()
+
             if graph:
-                self._iterGraph(node, path)
+                self._iterGraph(runt, node, path)
 
             yield node, path
 
             count += 1
 
-            limit = self.opts.get('limit')
+            limit = runt.getOpt('limit')
             if limit is not None and count >= limit:
-                snap.printf('limit reached: %d' % (limit,))
+                runt.printf('limit reached: %d' % (limit,))
                 break
 
-            if self.canceled:
-                raise s_exc.Canceled()
-
-        # give the graph system a chance to mop up...
         if graph:
-            yield from self._finiGraph()
-
-    def _getQuerySnap(self):
-        write = self.isWrite()
-        snap = self.core.snap()
-        snap.setUser(self.user)
-        return snap
-
-    @s_glob.inpool
-    def _runQueryThread(self, chan):
-
-        try:
-
-            count = 0
-
-            dopath = self.opts.get('path')
-            dorepr = self.opts.get('repr')
-
-            tick = s_common.now()
-
-            with self._getQuerySnap() as snap:
-
-                chan.put(('init', {'tick': tick}))
-
-                snap.link(chan.put)
-
-                for node, path in self._runQueryLoop(snap):
-                    pode = node.pack(dorepr=dorepr)
-                    pode[1].update(path.pack())
-                    chan.put(('node', pode))
-                    count += 1
-
-        except Exception as e:
-            logger.exception('error in storm execution')
-            chan.put(('err', s_common.err(e)))
-
-        finally:
-            tock = s_common.now()
-            took = tock - tick
-            chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
-            chan.done()
+            yield from self._finiGraph(runt)
 
 class Oper(AstNode):
-    iswrite = False
+    pass
 
 class SubQuery(Oper):
     pass
 
 class CmdOper(Oper):
 
-    def prepare(self):
+    def run(self, runt, genr):
 
         name = self.kids[0].value()
         text = self.kids[1].value()
 
-        ctor = self.snap.core.getStormCmd(name)
-
+        ctor = runt.snap.core.getStormCmd(name)
         if ctor is None:
             mesg = 'Storm command not found.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
-        self.scmd = ctor(text)
-        self.scmd.reqValidOpts(self.snap)
+        scmd = ctor(text)
+        scmd.reqValidOpts(runt.snap)
 
-    def run(self, genr):
-        # we only actually run or do anything if parser was ok
-        if not self.scmd.pars.exited:
-            yield from self.scmd.runStormCmd(self.snap, genr)
+        yield from scmd.execStormCmd(runt, genr)
 
 class VarSetOper(Oper):
 
-    def run(self, genr):
+    def run(self, runt, genr):
 
         name = self.kids[0].value()
 
-        vkid = self.kids[1]
-        if isinstance(vkid, Value):
-            self.snap.vars[name] = vkid.value()
+        if isinstance(self.kids[1], Value):
+            valu = self.kids[1].value()
+            runt.vars[name] = valu
 
         for node, path in genr:
-            valu = self.kids[1].compute(node, path)
+            valu = self.kids[1].compute(runt, node, path)
             path.set(name, valu)
-            self.snap.vars[name] = valu
+            runt.vars[name] = valu
             yield node, path
 
 class LiftOper(Oper):
 
-    def run(self, genr):
+    def run(self, runt, genr):
 
         yield from genr
 
-        for node in self.lift():
-            yield node, node.initPath()
+        for node in self.lift(runt):
+            yield node, runt.initPath(node)
 
 class LiftTag(LiftOper):
 
-    def lift(self):
+    def lift(self, runt):
         tag = self.kids[0].value()
-        yield from self.snap._getNodesByTag(tag)
+        yield from runt.snap._getNodesByTag(tag)
 
 class LiftFormTag(LiftOper):
 
-    def prepare(self):
+    def lift(self, runt):
 
-        self.form = self.kids[0].value()
-        self.tag = self.kids[1].value()
+        form = self.kids[0].value()
+        tag = self.kids[1].value()
 
-        self.cmpr = None
-        self.valu = None
+        cmpr = None
+        valu = None
 
         if len(self.kids) == 4:
-            self.cmpr = self.kids[2].value()
-            self.valu = self.kids[3].value()
+            cmpr = self.kids[2].value()
+            valu = self.kids[3].runtval(runt)
 
-    def lift(self):
-        yield from self.snap._getNodesByFormTag(self.form, self.tag, valu=self.valu, cmpr=self.cmpr)
+        yield from runt.snap._getNodesByFormTag(form, tag, valu=valu, cmpr=cmpr)
 
 class LiftProp(LiftOper):
 
-    def prepare(self):
-        self.name = self.kids[0].value()
-        # TODO generalize by morphing AST
-        self.taghint = None
+    def lift(self, runt):
 
-    def optimize(self):
+        name = self.kids[0].value()
 
-        if self.snap.model.forms.get(self.name) is None:
+        cmpr = None
+        valu = None
+
+        if len(self.kids) == 3:
+            cmpr = self.kids[1].value()
+            valu = self.kids[2].runtval(runt)
+
+        # If its a secondary prop, there's no optimization
+        if runt.snap.model.forms.get(name) is None:
+            yield from runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr)
+            return
+
+        if cmpr is not None:
+            yield from runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr)
             return
 
         # lifting by a form only is pretty bad, maybe
@@ -383,7 +280,8 @@ class LiftProp(LiftOper):
                 for hint in oper.getLiftHints():
 
                     if hint[0] == 'tag':
-                        self.taghint = hint[1].get('name')
+                        tagname = hint[1].get('name')
+                        yield from runt.snap._getNodesByFormTag(name, tagname)
                         return
 
             # we can skip other lifts but that's it...
@@ -392,23 +290,18 @@ class LiftProp(LiftOper):
 
             break
 
-    def lift(self):
-
-        if self.taghint:
-            yield from self.snap._getNodesByFormTag(self.name, self.taghint)
-            return
-
-        yield from self.snap.getNodesBy(self.name)
+        yield from runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr)
 
 class LiftPropBy(LiftOper):
 
-    def lift(self):
+    def lift(self, runt):
 
         name = self.kids[0].value()
         cmpr = self.kids[1].value()
-        valu = self.kids[2].value()
 
-        yield from self.snap.getNodesBy(name, valu, cmpr=cmpr)
+        valu = self.kids[2].runtval(runt)
+
+        yield from runt.snap.getNodesBy(name, valu, cmpr=cmpr)
 
 class PivotOper(Oper):
 
@@ -420,11 +313,7 @@ class PivotOut(PivotOper):
     '''
     -> *
     '''
-
-    def prepare(self):
-        pass
-
-    def run(self, genr):
+    def run(self, runt, genr):
 
         for node, path in genr:
 
@@ -433,7 +322,7 @@ class PivotOut(PivotOper):
 
             if isinstance(node.form.type, s_types.Edge):
                 n2def = node.get('n2')
-                pivo = self.snap.getNodeByNdef(n2def)
+                pivo = runt.snap.getNodeByNdef(n2def)
                 yield pivo, path.fork(pivo)
                 continue
 
@@ -448,18 +337,18 @@ class PivotOut(PivotOper):
 
                 # if the outbound prop is an ndef...
                 if isinstance(prop.type, s_types.Ndef):
-                    pivo = self.snap.getNodeByNdef(valu)
+                    pivo = runt.snap.getNodeByNdef(valu)
                     if pivo is None:
                         continue
 
                     yield pivo, path.fork(pivo)
                     continue
 
-                form = self.snap.model.forms.get(prop.type.name)
+                form = runt.snap.model.forms.get(prop.type.name)
                 if form is None:
                     continue
 
-                pivo = self.snap.getNodeByNdef((form.name, valu))
+                pivo = runt.snap.getNodeByNdef((form.name, valu))
                 if pivo is None:
                     continue
 
@@ -470,10 +359,7 @@ class PivotIn(PivotOper):
     <- *
     '''
 
-    def prepare(self):
-        pass
-
-    def run(self, genr):
+    def run(self, runt, genr):
 
         for node, path in genr:
 
@@ -485,7 +371,7 @@ class PivotIn(PivotOper):
 
                 ndef = node.get('n1')
 
-                pivo = self.snap.getNodeByNdef(ndef)
+                pivo = runt.snap.getNodeByNdef(ndef)
                 if pivo is None:
                     continue
 
@@ -495,33 +381,31 @@ class PivotIn(PivotOper):
 
             name, valu = node.ndef
 
-            for prop in self.snap.model.propsbytype.get(name, ()):
-                for pivo in self.snap.getNodesBy(prop.full, valu):
+            for prop in runt.snap.model.propsbytype.get(name, ()):
+                for pivo in runt.snap.getNodesBy(prop.full, valu):
                     yield pivo, path.fork(pivo)
 
 class PivotInFrom(PivotOper):
 
-    def prepare(self):
+    def run(self, runt, genr):
 
         name = self.kids[0].value()
-        self.form = self.snap.model.forms.get(name)
 
-        if self.form is None:
+        form = runt.snap.model.forms.get(name)
+        if form is None:
             raise s_exc.NoSuchForm(name=name)
 
-    def run(self, genr):
-
         # <- edge
-        if isinstance(self.form.type, s_types.Edge):
+        if isinstance(form.type, s_types.Edge):
 
-            full = self.form.name + ':n2'
+            full = form.name + ':n2'
 
             for node, path in genr:
 
                 if self.isjoin:
                     yield node, path
 
-                for pivo in self.snap.getNodesBy(full, node.ndef):
+                for pivo in runt.snap.getNodesBy(full, node.ndef):
                     yield pivo, path.fork(pivo)
 
             return
@@ -536,12 +420,12 @@ class PivotInFrom(PivotOper):
                 continue
 
             # dont bother traversing edges to the wrong form
-            if node.get('n1:form') != self.form.name:
+            if node.get('n1:form') != form.name:
                 continue
 
             n1def = node.get('n1')
 
-            pivo = self.snap.getNodeByNdef(n1def)
+            pivo = runt.snap.getNodeByNdef(n1def)
             if pivo is None:
                 continue
 
@@ -549,17 +433,28 @@ class PivotInFrom(PivotOper):
 
 class FormPivot(PivotOper):
 
-    def prepare(self):
+    def run(self, runt, genr):
 
         name = self.kids[0].value()
 
-        self.prop = self.snap.model.props.get(name)
-        if self.prop is None:
+        prop = runt.snap.model.props.get(name)
+        if prop is None:
             raise s_exc.NoSuchProp(name=name)
 
-    def run(self, genr):
+        # -> baz:ndef
+        if isinstance(prop.type, s_types.Ndef):
 
-        if not self.prop.isform:
+            for node, path in genr:
+
+                if self.isjoin:
+                    yield node, path
+
+                for pivo in runt.snap.getNodesBy(prop.full, node.ndef):
+                    yield pivo, path.fork()
+
+            return
+
+        if not prop.isform:
 
             # plain old pivot...
             for node, path in genr:
@@ -570,28 +465,28 @@ class FormPivot(PivotOper):
                 valu = node.ndef[1]
 
                 # TODO cache/bypass normalization in loop!
-                for pivo in self.snap.getNodesBy(self.prop.full, valu):
+                for pivo in runt.snap.getNodesBy(prop.full, valu):
                     yield pivo, path.fork(pivo)
 
         # form -> form pivot is nonsensical. Lets help out...
 
         # if dest form is a subtype of a graph "edge", use N1 automatically
-        if isinstance(self.prop.type, s_types.Edge):
+        if isinstance(prop.type, s_types.Edge):
 
-            full = self.prop.name + ':n1'
+            full = prop.name + ':n1'
 
             for node, path in genr:
 
                 if self.isjoin:
                     yield node, path
 
-                for pivo in self.snap.getNodesBy(full, node.ndef):
+                for pivo in runt.snap.getNodesBy(full, node.ndef):
                     yield pivo, path.fork(pivo)
 
             return
 
         # form name and type name match
-        destform = self.prop.name
+        destform = prop.name
 
         @s_cache.memoize()
         def getsrc(form):
@@ -611,7 +506,7 @@ class FormPivot(PivotOper):
                 if n2def[0] != destform:
                     continue
 
-                pivo = self.snap.getNodeByNdef(node.get('n2'))
+                pivo = runt.snap.getNodeByNdef(node.get('n2'))
                 yield pivo, path.fork(pivo)
 
                 continue
@@ -623,12 +518,12 @@ class FormPivot(PivotOper):
             # TODO: bypass normalization
             valu = node.get(name)
 
-            for pivo in self.snap.getNodesBy(self.prop.name, valu):
+            for pivo in runt.snap.getNodesBy(prop.name, valu):
                 yield pivo, path.fork(pivo)
 
 class PropPivotOut(PivotOper):
 
-    def run(self, genr):
+    def run(self, runt, genr):
 
         name = self.kids[0].value()
 
@@ -645,28 +540,24 @@ class PropPivotOut(PivotOper):
             # ndef pivot out syntax...
             # :ndef -> *
             if isinstance(prop.type, s_types.Ndef):
-                pivo = self.snap.getNodeByNdef(valu)
+                pivo = runt.snap.getNodeByNdef(valu)
                 yield pivo, path.fork(pivo)
                 continue
 
             # :ipv4 -> *
             ndef = (prop.type.name, valu)
-            pivo = self.snap.getNodeByNdef(ndef)
+            pivo = runt.snap.getNodeByNdef(ndef)
             yield pivo, path.fork(pivo)
 
 class PropPivot(PivotOper):
 
-    def prepare(self):
+    def run(self, runt, genr):
 
         name = self.kids[1].value()
 
-        #self.isform = snap.model.forms.get(name) is not None
-
-        self.prop = self.snap.model.props.get(name)
-        if self.prop is None:
+        prop = runt.snap.model.props.get(name)
+        if prop is None:
             raise s_exc.NoSuchProp(name=name)
-
-    def run(self, genr):
 
         # TODO if we are pivoting to a form, use ndef!
 
@@ -675,37 +566,46 @@ class PropPivot(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            valu = self.kids[0].compute(node, path)
+            valu = self.kids[0].compute(runt, node, path)
             if valu is None:
                 continue
 
             # TODO cache/bypass normalization in loop!
             try:
-                for pivo in self.snap.getNodesBy(self.prop.full, valu):
+                for pivo in runt.snap.getNodesBy(prop.full, valu):
                     yield pivo, path.fork(pivo)
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
                 logger.warning('Caught error during pivot', exc_info=e)
                 items = e.items()
                 mesg = items.pop('mesg', '')
                 mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
-                self.snap.warn(mesg, **items)
+                runt.snap.warn(mesg, **items)
 
 class Cond(AstNode):
 
     def getLiftHints(self):
         return ()
 
-    def evaluate(self, node, path):
+    def getCondEval(self, runt):
         raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.evaluate()')
 
 class OrCond(Cond):
     '''
     <cond> or <cond>
     '''
-    def evaluate(self, node, path):
-        if self.kids[0].evaluate(node, path):
-            return True
-        return self.kids[1].evaluate(node, path)
+    def getCondEval(self, runt):
+
+        cond0 = self.kids[0].getCondEval(runt)
+        cond1 = self.kids[1].getCondEval(runt)
+
+        def cond(node, path):
+
+            if cond0(node, path):
+                return True
+
+            return cond1(node, path)
+
+        return cond
 
 class AndCond(Cond):
     '''
@@ -716,265 +616,229 @@ class AndCond(Cond):
         h1 = self.kids[1].getLiftHints()
         return h0 + h1
 
-    def evaluate(self, node, path):
-        if not self.kids[0].evaluate(node, path):
-            return False
-        return self.kids[1].evaluate(node, path)
+    def getCondEval(self, runt):
+
+        cond0 = self.kids[0].getCondEval(runt)
+        cond1 = self.kids[1].getCondEval(runt)
+
+        def cond(node, path):
+
+            if not cond0(node, path):
+                return False
+
+            return cond1(node, path)
+
+        return cond
 
 class NotCond(Cond):
     '''
     not <cond>
     '''
-    def evaluate(self, node, path):
-        return not self.kids[0].evaluate(node, path)
+
+    def getCondEval(self, runt):
+
+        kidcond = self.kids[0].getCondEval(runt)
+
+        def cond(node, path):
+            return not kidcond(node, path)
+
+        return cond
 
 class TagCond(Cond):
     '''
     #foo.bar
     '''
     def getLiftHints(self):
+        name = self.kids[0].value()
         return (
-            ('tag', {'name': self.tagname}),
+            ('tag', {'name': name}),
         )
 
-    def prepare(self):
-        self.tagname = self.kids[0].value()
+    def getCondEval(self, runt):
 
-    def evaluate(self, node, path):
-        return node.tags.get(self.tagname) is not None
+        name = self.kids[0].value()
+
+        def cond(node, path):
+            return node.tags.get(name) is not None
+
+        return cond
 
 class HasRelPropCond(Cond):
 
-    def prepare(self):
-        self.propname = self.kids[0].value()
+    def getCondEval(self, runt):
 
-    def evaluate(self, node, path):
-        return node.has(self.propname)
+        name = self.kids[0].value()
+
+        def cond(node, path):
+            return node.has(name)
+
+        return cond
 
 class HasAbsPropCond(Cond):
 
-    def prepare(self):
+    def getCondEval(self, runt):
 
-        propfull = self.kids[0].value()
+        name = self.kids[0].value()
 
-        # our AbsProp kid would raise if NoSuchProp.
-        self.prop = self.snap.model.props.get(propfull)
+        prop = runt.snap.model.props.get(name)
+        if prop is None:
+            raise s_exc.NoSuchProp(name=name)
 
-        if self.prop.isform:
-            self.propname = None
-            self.formname = self.prop.name
-        else:
-            self.propname = self.prop.name
-            self.formname = self.prop.form.name
+        if prop.isform:
 
-    def evaluate(self, node, path):
+            def cond(node, path):
+                return node.form.name == prop.name
 
-        if node.form.name != self.formname:
-            return False
+            return cond
 
-        if self.propname is None:
-            return True
+        def cond(node, path):
 
-        return node.has(self.propname)
+            if node.form.name != prop.form.name:
+                return False
+
+            return node.has(prop.name)
+
+        return cond
 
 class AbsPropCond(Cond):
 
-    def prepare(self):
+    def getCondEval(self, runt):
 
-        self.constval = None
+        name = self.kids[0].value()
+        cmpr = self.kids[1].value()
 
-        propfull = self.kids[0].value()
-        self.prop = self.snap.model.props.get(propfull)
+        prop = runt.snap.model.props.get(name)
+        if prop is None:
+            raise s_exc.NoSuchProp(name=name)
 
-        if self.prop.isform:
-            self.propname = None
-            self.formname = self.prop.name
-        else:
-            self.propname = self.prop.name
-            self.formname = self.prop.form.name
-
-        self.cmprname = self.kids[1].value()
-
-        self.isconst = isinstance(self.kids[2], Const)
-
-        if self.isconst:
-            self.constval = self.kids[2].value()
-
-        self.cmprcache = {}
-
-    def _getCmprFunc(self, prop, node, path):
-
-        if self.isconst:
-
-            name = prop.type.name
-
-            func = self.cmprcache.get(name)
-            if func is not None:
-                return func
-
-            ctor = prop.type.getCmprCtor(self.cmprname)
-            if ctor is None:
-                raise s_exc.NoSuchCmpr(name=self.cmprname, type=prop.type.name)
-
-            func = ctor(self.constval)
-            self.cmprcache[name] = func
-            return func
-
-        # dynamic vs dynamic comparison... no cacheing...
-        valu = self.kids[2].compute(node, path)
-
-        ctor = prop.type.getCmprCtor(self.cmprname)
+        ctor = prop.type.getCmprCtor(cmpr)
         if ctor is None:
-            raise s_exc.NoSuchCmpr(name=self.cmprname, type=prop.type.name)
+            raise s_exc.NoSuchCmpr(name=cmpr, type=prop.type.name)
 
-        return ctor(valu)
+        if prop.isform:
 
-    def evaluate(self, node, path):
+            def cond(node, path):
 
-        if node.form.name != self.formname:
-            return False
+                if node.ndef[0] != name:
+                    return False
 
-        if self.prop.isform:
-            valu = node.ndef[1]
+                val1 = node.ndef[1]
+                val2 = self.kids[2].compute(runt, node, path)
 
-        else:
-            valu = node.get(self.propname)
-            if valu is None:
-                return False
+                return ctor(val2)(val1)
 
-        cmpr = self._getCmprFunc(self.prop, node, path)
-        return cmpr(valu)
+            return cond
+
+        def cond(node, path):
+            val1 = node.get(prop.name)
+            val2 = self.kids[2].compute(runt, node, path)
+            return ctor(val2)(val1)
+
+        return cond
 
 class TagValuCond(Cond):
 
-    def prepare(self):
+    def getCondEval(self, runt):
 
-        self.tagtype = self.snap.model.type('ival')
-        self.tagname = self.kids[0].value()
-        self.cmprname = self.kids[1].value()
+        name = self.kids[0].value()
+        cmpr = self.kids[1].value()
 
-        self.isconst = isinstance(self.kids[2], Const)
-        if self.isconst:
-            self.constval = self.kids[2].value()
+        ival = runt.snap.model.type('ival')
 
-    def evaluate(self, node, path):
+        cmprctor = ival.getCmprCtor(cmpr)
+        if cmprctor is None:
+            raise s_exc.NoSuchCmpr(name=cmpr, type=prop.type.name)
 
-        tval = node.getTag(self.tagname)
-        if tval is None:
-            return False
+        if isinstance(self.kids[2], Const):
 
-        valu = self.kids[2].compute(node, path)
-        return self.tagtype.cmpr(tval, self.cmprname, valu)
+            valu = self.kids[2].value()
+
+            cmpr = cmprctor(valu)
+
+            def cond(node, path):
+                return cmpr(node.tags.get(name))
+
+            return cond
+
+        # it's a runtime value...
+        def cond(node, path):
+            valu = self.kids[2].compute(runt, node, path)
+            return cmprctor(valu)(node.tags.get(name))
+
+        return cond
 
 class RelPropCond(Cond):
     '''
     :foo:bar <cmpr> <value>
     '''
+    def getCondEval(self, runt):
 
-    def prepare(self):
+        name = self.kids[0].value()
+        cmpr = self.kids[1].value()
 
-        self.constval = None
+        def cond(node, path):
 
-        self.propname = self.kids[0].value()
-        self.cmprname = self.kids[1].value()
+            prop = node.form.props.get(name)
+            if prop is None:
+                return False
 
-        self.isconst = isinstance(self.kids[2], Const)
+            valu = node.get(prop.name)
+            if valu is None:
+                return False
 
-        if self.isconst:
-            self.constval = self.kids[2].value()
+            xval = self.kids[2].compute(runt, node, path)
+            func = prop.type.getCmprCtor(cmpr)(xval)
 
-        self.cmprcache = {}
+            return func(valu)
 
-    def _getCmprFunc(self, prop, node, path):
-
-        if self.isconst:
-
-            name = prop.type.name
-
-            func = self.cmprcache.get(name)
-            if func is not None:
-                return func
-
-            ctor = prop.type.getCmprCtor(self.cmprname)
-            if ctor is None:
-                raise s_exc.NoSuchCmpr(name=self.cmprname, type=prop.type.name)
-
-            func = ctor(self.constval)
-            self.cmprcache[name] = func
-            return func
-
-        # dynamic vs dynamic comparison... no cacheing...
-        valu = self.kids[2].compute(node, path)
-
-        ctor = prop.type.getCmprCtor(self.cmprname)
-        if ctor is None:
-            raise s_exc.NoSuchCmpr(name=self.cmprname, type=prop.type.name)
-
-        return ctor(valu)
-
-    def evaluate(self, node, path):
-
-        prop = node.form.props.get(self.propname)
-
-        if prop is None:
-            return False
-
-        valu = node.get(prop.name)
-        if valu is None:
-            return False
-
-        cmpr = self._getCmprFunc(prop, node, path)
-        return cmpr(valu)
-
-class TagTimeCond(Cond):
-    pass
+        return cond
 
 class FiltOper(Oper):
 
     def getLiftHints(self):
 
-        if not self.ismust:
+        if self.kids[0].value() != '+':
             return ()
 
         return self.kids[1].getLiftHints()
 
-    def prepare(self):
-        self.ismust = self.kids[0].value() == '+'
+    def run(self, runt, genr):
 
-    def run(self, genr):
+        must = self.kids[0].value() == '+'
+        func = self.kids[1].getCondEval(runt)
+
         for node, path in genr:
-            if self.allow(node, path):
+            answ = func(node, path)
+            if (must and answ) or (not must and not answ):
                 yield node, path
 
-    def allow(self, node, path):
-        answ = self.kids[1].evaluate(node, path)
-        if self.ismust:
-            return answ
+class CompValue(AstNode):
 
-        return not answ
-
-class AssignOper(Oper):
-    pass
+    def compute(self, runt, node, path):
+        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()')
 
 class RunValue(AstNode):
 
-    def compute(self, node, path):
-        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()')
+    def runtval(self, runt):
+        return self.value()
 
-class RelPropValue(RunValue):
+    def compute(self, runt, node, path):
+        return self.runtval(runt)
+
+class RelPropValue(CompValue):
 
     def prepare(self):
         self.name = self.kids[0].value()
 
-    def compute(self, node, path):
+    def compute(self, runt, node, path):
         return node.get(self.name)
 
-class TagPropValue(RunValue):
+class TagPropValue(CompValue):
 
     def prepare(self):
         self.name = self.kids[0].value()
 
-    def compute(self, node, path):
+    def compute(self, runt, node, path):
         return node.getTag(self.name)
 
 class VarValue(RunValue):
@@ -982,13 +846,10 @@ class VarValue(RunValue):
     def prepare(self):
         self.name = self.kids[0].value()
 
-    def value(self):
-        valu = self.snap.vars.get(self.name, s_common.novalu)
-        if valu is s_common.novalu:
-            raise s_exc.NoSuchVar(name=self.name)
-        return valu
+    def runtval(self, runt):
+        return runt.vars.get(self.name)
 
-    def compute(self, node, path):
+    def compute(self, runt, node, path):
         valu = path.get(self.name, s_common.novalu)
         if valu is s_common.novalu:
             raise s_exc.NoSuchVar(name=self.name)
@@ -1000,7 +861,10 @@ class Value(RunValue):
         RunValue.__init__(self, kids=kids)
         self.valu = valu
 
-    def compute(self, node, path):
+    def runtval(self, runt):
+        return self.value()
+
+    def compute(self, runt, node, path):
         return self.value()
 
     def value(self):
@@ -1021,8 +885,11 @@ class List(Value):
     def repr(self):
         return 'List: %s' % (self.valu,)
 
-    def compute(self, node, path):
-        return [k.compute(node, path) for k in self.kids]
+    def runtval(self, runt):
+        return [k.runtval(runt) for k in self.kids]
+
+    def compute(self, runt, node, path):
+        return [k.compute(runt, node, path) for k in self.kids]
 
     def value(self):
         return [k.value() for k in self.kids]
@@ -1039,82 +906,116 @@ class RelProp(Value):
 
 class AbsProp(Value):
 
-    def prepare(self):
-        self.prop = self.snap.model.props.get(self.valu)
-        if self.prop is None:
-            raise s_exc.NoSuchProp(name=self.valu)
-
-    def value(self):
-        return self.prop.full
-
     def repr(self):
         return f'AbsProp: {self.valu}'
 
 class Edit(Oper):
-    iswrite = True
+    pass
 
 class EditNodeAdd(Edit):
 
-    def prepare(self):
-        self.formname = self.kids[0].value()
-        self.formtype = self.snap.model.types.get(self.formname)
+    def run(self, runt, genr):
 
-    def run(self, genr):
+        name = self.kids[0].value()
+        formtype = runt.snap.model.types.get(name)
 
         yield from genr
 
-        kval = self.kids[1].value()
+        runt.allowed('node:add', name)
 
-        for valu in self.formtype.getTypeVals(kval):
-            node = self.snap.addNode(self.formname, valu)
-            yield node, node.initPath()
+        kval = self.kids[1].runtval(runt)
+
+        for valu in formtype.getTypeVals(kval):
+            node = runt.snap.addNode(name, valu)
+            yield node, runt.initPath(node)
 
 class EditPropSet(Edit):
 
-    def prepare(self):
-        self.propname = self.kids[0].value()
+    def run(self, runt, genr):
 
-    def run(self, genr):
+        name = self.kids[0].value()
+
         for node, path in genr:
-            valu = self.kids[1].compute(node, path)
-            node.set(self.propname, valu)
+
+            valu = self.kids[1].compute(runt, node, path)
+
+            prop = node.form.props.get(name)
+            if prop is None:
+                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+
+            runt.allowed('prop:set', prop.full)
+
+            node.set(name, valu)
+
             yield node, path
 
 class EditPropDel(Edit):
 
-    def prepare(self):
-        self.propname = self.kids[0].value()
+    def run(self, runt, genr):
 
-    def run(self, genr):
+        name = self.kids[0].value()
+
         for node, path in genr:
-            node.pop(self.propname)
+
+            prop = node.form.props.get(name)
+            if prop is None:
+                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+
+            runt.allowed('prop:del', prop.full)
+
+            node.pop(name)
+
+            yield node, path
+
+class EditUnivDel(Edit):
+
+    def run(self, runt, genr):
+
+        name = self.kids[0].value()
+
+        univ = runt.snap.model.props.get(name)
+        if univ is None:
+            raise s_exc.NoSuchProp(name=name)
+
+        runt.allowed('prop:del', name)
+
+        for node, path in genr:
+            node.pop(name)
             yield node, path
 
 class EditTagAdd(Edit):
 
-    def prepare(self):
-        self.tagname = self.kids[0].value()
-        self.hasvalu = len(self.kids) > 1
+    def run(self, runt, genr):
 
-    def getTagValue(self, node, path):
+        name = self.kids[0].value()
+        hasval = len(self.kids) > 1
 
-        if not self.hasvalu:
-            return (None, None)
+        valu = (None, None)
 
-        return self.kids[1].compute(node, path)
+        parts = name.split('.')
 
-    def run(self, genr):
         for node, path in genr:
-            valu = self.getTagValue(node, path)
-            node.addTag(self.tagname, valu=valu)
+
+            runt.allowed('tag:add', *parts)
+
+            if hasval:
+                valu = self.kids[1].compute(runt, node, path)
+
+            node.addTag(name, valu=valu)
+
             yield node, path
 
 class EditTagDel(Edit):
 
-    def prepare(self):
-        self.tagname = self.kids[0].value()
+    def run(self, runt, genr):
 
-    def run(self, genr):
+        name = self.kids[0].value()
+        parts = name.split('.')
+
         for node, path in genr:
-            node.delTag(self.tagname)
+
+            runt.allowed('tag:del', *parts)
+
+            node.delTag(name)
+
             yield node, path

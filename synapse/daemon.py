@@ -222,12 +222,15 @@ class Daemon(EventBus):
         except Exception as e:
             logger.exception(f'onTeleShare() error for: {name}')
 
-    def _onDmonFini(self):
+    @s_glob.synchelp
+    async def _onDmonFini(self):
+
         for s in self.listenservers:
             try:
                 s.close()
             except Exception as e:  # pragma: no cover
                 logger.warning('Error during socket server close()', exc_info=e)
+
         for name, share in self.shared.items():
             if isinstance(share, EventBus):
                 share.fini()

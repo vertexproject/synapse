@@ -730,6 +730,7 @@ class Parser:
                 #self.offs += 1
                 #oper = self.query()
 
+        query.init(self.core)
         return query
 
     def editoper(self):
@@ -747,6 +748,9 @@ class Parser:
 
         if self.nextstr('-:'):
             return self.editpropdel()
+
+        if self.nextstr('-.'):
+            return self.editunivdel()
 
         if self.nextstr('-#'):
             return self.edittagdel()
@@ -843,6 +847,15 @@ class Parser:
 
         relp = self.relprop()
         return s_ast.EditPropDel(kids=(relp,))
+
+    def editunivdel(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('-')
+
+        univ = self.univprop()
+        return s_ast.EditUnivDel(kids=(univ,))
 
     def edittagadd(self):
 

@@ -832,25 +832,6 @@ class CortexTest(s_test.SynTest):
                 # final top level API check
                 self.none(snap.getNodeByNdef(('teststr', 'baz')))
 
-    def test_cortex_allowall(self):
-
-        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
-
-            pconf = {'user': 'root', 'passwd': 'root'}
-
-            def feed(snap, items):
-
-                with snap.allowall():
-                    self.nn(snap.addNode('teststr', 'foo'))
-
-                self.none(snap.addNode('teststr', 'bar'))
-
-            dmon.shared.get('core').setFeedFunc('allowtest', feed)
-
-            with dmon._getTestProxy('core', **pconf) as core:
-
-                core.addFeedData('allowtest', ['asdf'])
-
     def test_cortex_delnode_perms(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
@@ -894,27 +875,6 @@ class CortexTest(s_test.SynTest):
 
                 nodes = list(core.eval('sudo | [ inet:ipv4=1.2.3.4 ]'))
                 self.len(1, nodes)
-
-    def test_cortex_snap_cancel(self):
-
-        with self.getTestCore() as core:
-
-            with core.snap() as snap:
-                snap.cancel()
-                self.raises(s_exc.Canceled, snap.getNodeByNdef, ('teststr', 'foo'))
-
-            with core.snap() as snap:
-
-                snap.addNode('teststr', 'foo')
-                snap.addNode('teststr', 'bar')
-
-                genr = snap.getNodesBy('teststr')
-
-                self.nn(next(genr))
-
-                snap.cancel()
-
-                self.raises(s_exc.Canceled, next, genr)
 
     def test_cortex_cell_splices(self):
 
@@ -1332,3 +1292,51 @@ class CortexTest(s_test.SynTest):
 
             with core.snap() as snap:
                 self.len(2, snap.eval('[teststr=foo teststr=bar]'))
+
+    def test_cortex_ontag(self):
+
+        with self.getTestCore() as core:
+
+            tags = {}
+            def onadd(node, tag, valu):
+                tags[tag] = valu
+
+            def ondel(node, tag, valu):
+                self.none(node.getTag(tag))
+                self.false(node.hasTag(tag))
+                tags.pop(tag)
+
+            core.onTagAdd('foo', onadd)
+            core.onTagAdd('foo.bar', onadd)
+            core.onTagAdd('foo.bar.baz', onadd)
+
+            core.onTagDel('foo', ondel)
+            core.onTagDel('foo.bar', ondel)
+            core.onTagDel('foo.bar.baz', ondel)
+
+            with core.snap() as snap:
+
+                node = snap.addNode('teststr', 'hehe')
+                node.addTag('foo.bar.baz', valu=(200, 300))
+
+                self.eq(tags.get('foo'), (None, None))
+                self.eq(tags.get('foo.bar'), (None, None))
+                self.eq(tags.get('foo.bar.baz'), (200, 300))
+
+                node.delTag('foo.bar')
+
+                self.eq(tags.get('foo'), (None, None))
+
+                self.none(tags.get('foo.bar'))
+                self.none(tags.get('foo.bar.baz'))
+
+    def test_cortex_del_univ(self):
+
+        with self.getTestCore() as core:
+
+            core.model.addUnivProp('hehe', ('int', {}), {})
+
+            self.len(1, core.eval('[ teststr=woot .hehe=20 ]'))
+            self.len(1, core.eval('.hehe'))
+            self.len(1, core.eval('.hehe [ -.hehe ]'))
+            self.len(0, core.eval('.hehe'))
