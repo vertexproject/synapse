@@ -124,6 +124,20 @@ class StormTest(s_test_common.SynTest):
                 self.len(0, list(core.eval(q)))
                 self.true(stream.wait(1))
 
+    def test_storm_input(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                node = snap.addNode('teststr', 'woot')
+                s_common.spin(node.storm('[ +#hehe ]'))
+
+                self.len(1, snap.eval('#hehe'))
+
+                list(node.storm('[ -#hehe ]'))
+                self.len(0, snap.eval('#hehe'))
+
     def test_noderefs(self):
 
         with self.getTestCore() as core:

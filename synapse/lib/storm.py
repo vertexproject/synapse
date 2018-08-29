@@ -6,9 +6,129 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.node as s_node
+import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 
 logger = logging.getLogger(__name__)
+
+class Runtime:
+    '''
+    A Runtime represents the instance of a running query.
+    '''
+    def __init__(self, snap, opts=None, user=None):
+
+        if opts is None:
+            opts = {}
+
+        self.vars = {}
+        self.opts = opts
+        self.snap = snap
+        self.user = user
+
+        self.inputs = []    # [synapse.lib.node.Node(), ...]
+
+        self.iden = s_common.guid()
+
+        varz = self.opts.get('vars')
+        if varz is not None:
+            self.vars.update(varz)
+
+        self.canceled = False
+        self.elevated = False
+
+        # used by the digraph projection logic
+        self._graph_done = {}
+        self._graph_want = collections.deque()
+
+    def printf(self, mesg):
+        return self.snap.printf(mesg)
+
+    def warn(self, mesg, **info):
+        return self.snap.warn(mesg, **info)
+
+    def elevate(self):
+
+        if self.user is not None:
+            if not self.user.admin:
+                raise s_exc.AuthDeny(mesg='user is not admin', user=self.user.name)
+
+        self.elevated = True
+
+    def tick(self):
+
+        if self.canceled:
+            raise s_exc.Canceled()
+
+    def cancel(self):
+        self.canceled = True
+
+    def initPath(self, node):
+        return s_node.Path(self, dict(self.vars), [node])
+
+    def getOpt(self, name, defval=None):
+        return self.opts.get(name, defval)
+
+    def setOpt(self, name, valu):
+        self.opts[name] = valu
+
+    def addInput(self, node):
+        '''
+        Add a Node() object as input to the query runtime.
+        '''
+        self.inputs.append(node)
+
+    def getInput(self):
+
+        for node in self.inputs:
+            yield node, self.initPath(node)
+
+        for ndef in self.opts.get('ndefs', ()):
+
+            node = self.snap.getNodeByNdef(ndef)
+            if node is not None:
+                yield node, self.initPath(node)
+
+        for iden in self.opts.get('idens', ()):
+
+            buid = s_common.uhex(iden)
+
+            node = self.snap.getNodeByBuid(buid)
+            if node is not None:
+                yield node, self.initPath(node)
+
+    @s_cache.memoize(size=100)
+    def allowed(self, *args):
+
+        # a user will be set by auth subsystem if enabled
+        if self.user is None:
+            return
+
+        if self.elevated:
+            return
+
+        if self.user.allowed(args, elev=False):
+            return
+
+        # fails will not be cached...
+        perm = '.'.join(args)
+        raise s_exc.AuthDeny(perm=perm, user=self.user.name)
+
+    def execStormQuery(self, query):
+        count = 0
+        for node, path in self.iterStormQuery(query):
+            count += 1
+        return count
+
+    def iterStormQuery(self, query):
+        # init any options from the query
+        # (but dont override our own opts)
+        for name, valu in query.opts.items():
+            self.opts.setdefault(name, valu)
+
+        for node, path in query.iterNodePaths(self):
+            self.tick()
+            yield node, path
 
 class Parser(argparse.ArgumentParser):
 
@@ -65,9 +185,15 @@ class Cmd:
     def reqValidOpts(self, snap):
         self.pars.printf = snap.printf
         self.opts = self.pars.parse_args(self.argv)
-        return self.pars.exited
+        if self.pars.exited:
+            raise s_exc.BadStormSyntax(name=self.name, text=self.text)
+
+    def execStormCmd(self, runt, genr):
+        # override me!
+        yield from self.runStormCmd(runt.snap, genr)
 
     def runStormCmd(self, snap, genr):
+        # Older API.  Prefer execStormCmd().
         yield from genr
 
 class HelpCmd(Cmd):
@@ -162,18 +288,25 @@ class DelNodeCmd(Cmd):
         pars.add_argument('--force', default=False, action='store_true', help=forcehelp)
         return pars
 
-    def runStormCmd(self, snap, genr):
+    def execStormCmd(self, runt, genr):
+
+        if self.opts.force:
+            if runt.user is not None and not runt.user.admin:
+                mesg = '--force requires admin privs.'
+                raise s_exc.AuthDeny(mesg=mesg)
+
+        for node, path in genr:
+
+            # make sure we can delete the tags...
+            for tag in node.tags.keys():
+                runt.allowed('tag:del', *tag.split('.'))
+
+            runt.allowed('node:del', node.form.name)
+
+            node.delete(force=self.opts.force)
 
         # a bit odd, but we need to be detected as a generator
         yield from ()
-
-        if self.opts.force:
-            if snap.user is not None and not snap.user.admin:
-                mesg = '--force requires admin privs.'
-                return snap._onAuthDeny(mesg)
-
-        for node, path in genr:
-            node.delete(force=self.opts.force)
 
 class SudoCmd(Cmd):
     '''
@@ -185,9 +318,18 @@ class SudoCmd(Cmd):
     '''
     name = 'sudo'
 
-    def runStormCmd(self, snap, genr):
-        snap.elevated = True
+    def execStormCmd(self, runt, genr):
+        runt.elevate()
         yield from genr
+
+# TODO
+#class AddNodeCmd(Cmd):     # addnode inet:ipv4 1.2.3.4 5.6.7.8
+#class DelPropCmd(Cmd):     # | delprop baz
+#class SetPropCmd(Cmd):     # | setprop foo bar
+#class AddTagCmd(Cmd):      # | addtag --time 2015 #hehe.haha
+#class DelTagCmd(Cmd):      # | deltag #foo.bar
+#class SeenCmd(Cmd):        # | seen --from <guid>update .seen and seen=(src,node).seen
+#class SourcesCmd(Cmd):     # | sources ( <nodes> -> seen:ndef :source -> source )
 
 class ReIndexCmd(Cmd):
     '''
@@ -383,18 +525,20 @@ class IdenCmd(Cmd):
                           help='Iden to lift nodes by. May be specified multiple times.')
         return pars
 
-    def runStormCmd(self, snap, genr):
+    def execStormCmd(self, runt, genr):
+
         yield from genr
 
         for iden in self.opts.iden:
             try:
                 buid = s_common.uhex(iden)
             except Exception as e:
-                snap.warn(f'Failed to decode iden: [{iden}]')
+                runt.warn(f'Failed to decode iden: [{iden}]')
                 continue
-            node = snap.getNodeByBuid(buid)
-            if node:
-                yield node, node.initPath()
+
+            node = runt.snap.getNodeByBuid(buid)
+            if node is not None:
+                yield node, runt.initPath(node)
 
 class NoderefsCmd(Cmd):
     '''

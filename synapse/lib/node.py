@@ -31,7 +31,7 @@ class Node:
         self.props = {}
         self.univs = {}
 
-        self.vars = {}  # runtime storm variables
+        #self.vars = {}  # runtime storm variables
         # self.runt = {}  # a runtime info dict for things like storm
 
         # self.buid may be None during
@@ -41,6 +41,12 @@ class Node:
 
         if self.ndef is not None:
             self.form = self.snap.model.form(self.ndef[0])
+
+    def storm(self, text, opts=None, user=None):
+        query = self.snap.core.getStormQuery(text)
+        with self.snap.getStormRuntime(opts=opts, user=user) as runt:
+            runt.addInput(self)
+            yield from runt.iterStormQuery(query)
 
     def iden(self):
         return s_common.ehex(self.buid)
@@ -139,10 +145,6 @@ class Node:
             self.snap.warn(f'NoSuchProp: name={name}')
             return False
 
-        if not init and not self.snap.allowed('prop:set', self.form.name, prop.name):
-            mesg = 'Not allowed to set the property.'
-            return self.snap._onAuthDeny(mesg, form=self.form.name, prop=prop.name)
-
         curv = self.props.get(name)
 
         # normalize the property value...
@@ -185,7 +187,7 @@ class Node:
         auto = self.snap.model.form(prop.type.name)
         if auto is not None:
             buid = s_common.buid((auto.name, norm))
-            self.snap._addNodeFnib((auto, norm, info, buid), syst=True)
+            self.snap._addNodeFnib((auto, norm, info, buid))
 
         # does the type think we have special auto nodes to add?
         # ( used only for adds which do not meet the above block )
@@ -193,7 +195,7 @@ class Node:
             auto = self.snap.model.form(autoname)
             autonorm, autoinfo = auto.type.norm(autovalu)
             buid = s_common.buid((auto.name, autonorm))
-            self.snap._addNodeFnib((auto, autovalu, autoinfo, buid), syst=True)
+            self.snap._addNodeFnib((auto, autovalu, autoinfo, buid))
 
         # do we need to set any sub props?
         subs = info.get('subs')
@@ -213,6 +215,9 @@ class Node:
         # we need to fire a Prop.onset() callback.
         if not self.init:
             prop.wasSet(self, curv)
+            if prop.univ:
+                univ = self.snap.model.prop(prop.univ)
+                univ.wasSet(self, curv)
 
     def has(self, name):
         return name in self.props
@@ -252,20 +257,21 @@ class Node:
         return node.get(text)
 
     def pop(self, name, init=False):
+
         prop = self.form.prop(name)
         if prop is None:
-            mesg = f'No such property.'
-            return self.snap._raiseOnStrict(s_exc.NoSuchProp, mesg, name=name)
+            if self.snap.strict:
+                raise s_exc.NoSuchProp(name=name)
+            self.snap.warn(f'No Such Property: {name}')
+            return False
 
         if not init:
 
-            if not self.snap.allowed('prop:del', self.form.name, prop.name):
-                mesg = 'Not allowed to delete the property.'
-                return self.snap._onAuthDeny(mesg, prop=prop.full)
-
             if prop.info.get('ro'):
-                mesg = 'Property is read-only.'
-                return self.snap._raiseOnStrict(s_exc.ReadOnlyProp, mesg, name=prop.full)
+                if self.snap.strict:
+                    raise s_exc.ReadOnlyProp(name=name)
+                self.snap.warn(f'Property is read-only: {name}')
+                return False
 
         curv = self.props.pop(name, s_common.novalu)
         if curv is s_common.novalu:
@@ -323,10 +329,6 @@ class Node:
             name = isnow
             path = isnow.split('.')
 
-        if not self.snap.allowed('tag:add', *path):
-            mesg = 'Not allowed to add the tag.'
-            return self.snap._onAuthDeny(mesg, tag=tag)
-
         if isinstance(valu, list):
             valu = tuple(valu)
         if valu != (None, None):
@@ -375,6 +377,8 @@ class Node:
 
         # TODO: fire an onTagAdd handler...
         self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
+        self.snap.core.runTagAdd(self, name, norm)
+
         return True
 
     def delTag(self, tag, init=False):
@@ -382,12 +386,6 @@ class Node:
         Delete a tag from the node.
         '''
         path = s_chop.tagpath(tag)
-
-        if not init:
-
-            if not self.snap.allowed('tag:del', *path):
-                mesg = 'Not allowed to delete the tag.'
-                return self.snap._onAuthDeny(mesg, tag=tag)
 
         name = '.'.join(path)
 
@@ -404,9 +402,11 @@ class Node:
         sops = []
 
         for sublen, subtag in subtags:
-            self.tags.pop(subtag, None)
+            valu = self.tags.pop(subtag, None)
+            self.snap.core.runTagDel(self, subtag, valu)
             sops.append(('prop:del', (self.buid, self.form.name, '#' + subtag, info)))
 
+        self.snap.core.runTagDel(self, name, curv)
         sops.append(('prop:del', (self.buid, self.form.name, '#' + name, info)))
 
         self.snap.stor(sops)
@@ -440,17 +440,11 @@ class Node:
 
         formname, formvalu = self.ndef
 
-        # check permissions
-        if not self.snap.allowed('node:del', formname):
-            return self.snap._onAuthDeny('Not allowed to delete the node.')
-
         tags = [(len(t), t) for t in self.tags.keys()]
 
         # check for tag permissions
         for size, tag in tags:
             tagpath = s_chop.tagpath(tag)
-            if not self.snap.allowed('tag:del', *tagpath):
-                return self.snap._onAuthDeny('Not allowed to delete node with tag {tag}.')
 
         # check for any nodes which reference us...
         if not force:
@@ -474,20 +468,16 @@ class Node:
 
         self.form.wasDeleted(self)
 
-    def initPath(self):
-        '''
-        Begin a new Path() context for this node.
-        '''
-        return Path(self.snap.vars, [self])
-
-
 class Path:
     '''
     A path context tracked through the storm runtime.
     '''
-    def __init__(self, vars, nodes):
-        self.vars = dict(vars)
+    def __init__(self, runt, vars, nodes):
+
+        self.runt = runt
         self.nodes = nodes
+
+        self.vars = vars
         self.metadata = {}
 
     def get(self, name, defv=s_common.novalu):
@@ -513,7 +503,7 @@ class Path:
         nodes = list(self.nodes)
         nodes.append(node)
 
-        return Path(self.vars, nodes)
+        return Path(self.runt, dict(self.vars), nodes)
 
 def props(pode):
     '''

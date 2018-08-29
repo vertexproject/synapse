@@ -10,6 +10,8 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.storm as s_storm
+import synapse.lib.syntax as s_syntax
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +41,6 @@ class Snap(s_eventbus.EventBus):
         self.elevated = False
         self.canceled = False
 
-        self.dorules = True
-        self.permcache = s_cache.FixedCache({}, size=1000)
-
         self.core = core
         self.model = core.model
         self.layers = layers
@@ -57,8 +56,6 @@ class Snap(s_eventbus.EventBus):
         self.debug = False      # Set to true to enable debug output.
         self.write = False      # True when the snap has a write lock on a layer.
 
-        self.wtick = None       # Last time we wrote ( used by tick() to commit/release )
-
         self.xact = None
         self.xacts = [l.xact() for l in layers]
 
@@ -71,55 +68,60 @@ class Snap(s_eventbus.EventBus):
 
         def fini():
 
-            if self.exitok:
-
-                for x in self.xacts:
-                    try:
-                        x.commit()
-                    except Exception as e:
-                        logger.exception('commit error for layer xact')
-                    x.fini()
-
-            else:
-                for x in self.xacts:
-                    try:
-                        x.abort()
-                    except Exception as e:
-                        logger.exception('abort error for layer xact')
-                    x.fini()
+            for x in self.xacts:
+                try:
+                    x.commit()
+                except Exception as e:
+                    logger.exception('commit error for layer xact')
+                x.fini()
 
         self.onfini(fini)
 
-    def getStormQuery(self, text, opts=None):
+    @contextlib.contextmanager
+    def getStormRuntime(self, opts=None, user=None):
+        runt = s_storm.Runtime(self, opts=opts, user=user)
+        self.core.stormrunts[runt.iden] = runt
+        yield runt
+        self.core.stormrunts.pop(runt.iden, None)
+
+    def iterStormPodes(self, text, opts=None, user=None):
         '''
-        Construct and return a new storm query object for this Snap().
+        Yield packed node tuples for the given storm query text.
         '''
+        dorepr = False
+        dopath = False
 
-    def cancel(self):
-        self.canceled = True
+        if opts is not None:
+            dorepr = opts.get('repr', False)
+            dopath = opts.get('path', False)
 
-    def tick(self):
+        for node, path in self.storm(text, opts=opts, user=user):
+            pode = node.pack(dorepr=dorepr)
+            pode[1].update(path.pack(path=dopath))
+            yield pode
+
+    def storm(self, text, opts=None, user=None):
         '''
-        The time-checking tick counter for the snap.
-
-        This should be called frequently while routines do their work
-        to ensure write timeouts and maximum snap duration is enforced.
-
-        NOTE: tick() may commit() a current write transaction to release the
-              writer lock.  As such, it should only be called at positions where
-              model coherence is ensured.
+        Execute a storm query and yield (Node(), Path()) tuples.
         '''
-        if self.canceled:
-            raise s_exc.Canceled()
+        query = self.core.getStormQuery(text)
+        with self.getStormRuntime(opts=opts, user=user) as runt:
+            yield from runt.iterStormQuery(query)
 
-        # TODO give up write lock if wtick is too long ago...
+    def eval(self, text, opts=None, user=None):
+        '''
+        Run a storm query and yield Node() objects.
+        '''
+        # maintained for backward compatibility
+        query = self.core.getStormQuery(text)
+        with self.getStormRuntime(opts=opts, user=user) as runt:
+            for node, path in runt.iterStormQuery(query):
+                yield node
 
     def writeable(self):
         '''
         Ensure that the snap() is writable and record our write tick.
         '''
-        self.wtick = s_common.now()
-
         if self.write:
             return True
 
@@ -138,13 +140,7 @@ class Snap(s_eventbus.EventBus):
         return self.xact.getOffset(iden, offs)
 
     def setUser(self, user):
-
         self.user = user
-        self.permcache.clear()
-        self.permcache.callback = {}
-
-        if self.user is not None:
-            self.permcache.callback = self.user.allowed
 
     @contextlib.contextmanager
     def allowall(self):
@@ -158,24 +154,8 @@ class Snap(s_eventbus.EventBus):
         Doing that will allow subsequent operations to be done without any
         permissions enforcement.
         '''
-        dorules = self.dorules
-        self.dorules = False
-
+        logger.warning('allowall() is deprecated and will be removed!')
         yield
-
-        self.dorules = dorules
-
-    def allowed(self, *args):
-
-        # are we in an allowall() block?
-        if not self.dorules:
-            return True
-
-        # a user will be set by auth subsystem if enabled
-        if self.user is None:
-            return True
-
-        return self.user.allowed(args, elev=self.elevated)
 
     def printf(self, mesg):
         self.fire('print', mesg=mesg)
@@ -195,7 +175,6 @@ class Snap(s_eventbus.EventBus):
             ((str,dict)): The node tuple or None.
 
         '''
-        self.tick()
         return self.buidcache.get(buid)
 
     def getNodeByNdef(self, ndef):
@@ -329,7 +308,7 @@ class Snap(s_eventbus.EventBus):
             for row, node in self.getLiftNodes(lops, prop):
                 yield node
 
-    def addNode(self, name, valu, props=None, syst=False):
+    def addNode(self, name, valu, props=None):
         '''
         Add a node by form name and value with optional props.
 
@@ -343,7 +322,7 @@ class Snap(s_eventbus.EventBus):
             try:
 
                 fnib = self._getNodeFnib(name, valu)
-                return self._addNodeFnib(fnib, props=props, syst=syst)
+                return self._addNodeFnib(fnib, props=props)
 
             except Exception as e:
 
@@ -405,9 +384,9 @@ class Snap(s_eventbus.EventBus):
         return self.tagcache.get(name)
 
     def _addTagNode(self, name):
-        return self.addNode('syn:tag', name, syst=True)
+        return self.addNode('syn:tag', name)
 
-    def _addNodeFnib(self, fnib, props=None, syst=False):
+    def _addNodeFnib(self, fnib, props=None):
         '''
         Add a node via (form, norm, info, buid)
         '''
@@ -427,11 +406,6 @@ class Snap(s_eventbus.EventBus):
                 node.set(name, valu)
 
             return node
-
-        # time for the perms check...
-        if not syst and not self.allowed('node:add', form.name):
-            self._onAuthDeny('Not allowed to add the node.', form=form.name)
-            return None
 
         # lets build a node...
         node = s_node.Node(self, None)
@@ -478,14 +452,6 @@ class Snap(s_eventbus.EventBus):
             prop.wasSet(node, None)
 
         return node
-
-    def _onAuthDeny(self, mesg, **info):
-
-        if self.strict:
-            raise s_exc.AuthDeny(mesg=mesg, **info)
-
-        self.warn(f'AuthDeny: {mesg} {info!r}')
-        return False
 
     def _raiseOnStrict(self, ctor, mesg, **info):
         self.warn(f'{ctor.__name__}: {mesg} {info!r}')
@@ -618,7 +584,6 @@ class Snap(s_eventbus.EventBus):
             props = {}
             buid = row[0]
             node = self.buidcache.cache.get(buid)
-            self.tick()
             # Evaluate layers top-down to more quickly abort if we've found a higher layer with the property set
             for layeridx in range(len(self.xacts) - 1, -1, -1):
                 x = self.xacts[layeridx]
