@@ -260,13 +260,17 @@ class Node:
 
         prop = self.form.prop(name)
         if prop is None:
-            self.warn(f'No Such Property: {name}')
+            if self.snap.strict:
+                raise s_exc.NoSuchProp(name=name)
+            self.snap.warn(f'No Such Property: {name}')
             return False
 
         if not init:
 
             if prop.info.get('ro'):
-                self.warn(f'Property is read-only: {name}')
+                if self.snap.strict:
+                    raise s_exc.ReadOnlyProp(name=name)
+                self.snap.warn(f'Property is read-only: {name}')
                 return False
 
         curv = self.props.pop(name, s_common.novalu)

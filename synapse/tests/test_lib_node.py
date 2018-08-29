@@ -51,16 +51,6 @@ class NodeTest(s_t_common.SynTest):
                 self.false(ronode.set('hehe', 3))
                 snap.strict = True
 
-                with self.getTestDir() as dirn:
-                    with s_auth.Auth(dirn) as auth:
-                        user = auth.addUser('hatguy2')
-                        snap.setUser(user)
-
-                        self.raises(s_exc.AuthDeny, node.set, 'tick', 1)
-                        snap.strict = False
-                        self.false(node.set('tick', 1))
-                        snap.strict = True
-
     def test_has(self):
         form = 'teststr'
         valu = 'cool'
@@ -115,16 +105,6 @@ class NodeTest(s_t_common.SynTest):
                 self.false(ronode.pop('hehe'))
                 snap.strict = True
 
-                with self.getTestDir() as dirn:
-                    with s_auth.Auth(dirn) as auth:
-                        user = auth.addUser('hatguy')
-                        snap.setUser(user)
-
-                        self.raises(s_exc.AuthDeny, node.pop, 'tick')
-                        snap.strict = False
-                        self.false(node.pop('tick'))
-                        snap.strict = True
-
     def test_repr(self):
         with self.getTestCore() as core:
             with core.snap() as snap:
@@ -178,26 +158,6 @@ class NodeTest(s_t_common.SynTest):
                 snap.strict = False
                 self.false(node.pop('nope'))
                 snap.strict = True
-
-                with self.getTestDir() as dirn:
-                    with s_auth.Auth(dirn) as auth:
-                        user = auth.addUser('hatguy')
-                        snap.setUser(user)
-
-                        self.raises(s_exc.AuthDeny, node.addTag, 'newp')
-                        snap.strict = False
-                        self.false(node.addTag('newp'))
-                        snap.strict = True
-
-                        self.raises(s_exc.AuthDeny, node.delTag, 'newp')
-                        snap.strict = False
-                        self.false(node.delTag('newp'))
-                        snap.strict = True
-
-                        self.raises(s_exc.AuthDeny, node.pop, 'tick')
-                        snap.strict = False
-                        self.false(node.pop('tick'))
-                        snap.strict = True
 
     def test_helpers(self):
         form = 'teststr'
