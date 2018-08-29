@@ -222,26 +222,24 @@ class Daemon(EventBus):
         except Exception as e:
             logger.exception(f'onTeleShare() error for: {name}')
 
-    @s_glob.synchelp
-    async def _onDmonFini(self):
-
+    def _onDmonFini(self):
         for s in self.listenservers:
             try:
                 s.close()
             except Exception as e:  # pragma: no cover
                 logger.warning('Error during socket server close()', exc_info=e)
-
         for name, share in self.shared.items():
             if isinstance(share, EventBus):
                 share.fini()
 
-        for name, share in self.shared.items():
-            if isinstance(share, s_coro.Fini):
-                await share.fini()
+        async def afini():
+            for name, share in self.shared.items():
+                if isinstance(share, s_coro.Fini):
+                    await share.fini()
 
-        coros = [link.fini() for link in self.connectedlinks]
-        if coros:
-            await asyncio.wait(coros, loop=s_glob.plex.loop)
+            await asyncio.wait([link.fini() for link in self.connectedlinks], loop=s_glob.plex.loop)
+
+        s_glob.plex.addLoopCoro(afini())
 
     def _getSslCtx(self):
         return None
