@@ -62,19 +62,26 @@ class Migrator:
     Sucks all rows out of a < .0.1.0 cortex, into a temporary LMDB database, migrates the schema, then dumps to new
     file suitable for ingesting into a >= .0.1.0 cortex.
     '''
-    def __init__(self, core, outfh, tmpdir=None, stage1_fn=None, rejects_fh=None):
+    def __init__(self, core, outfh, tmpdir=None, stage1_fn=None, rejects_fh=None, good_forms=good_forms):
         '''
         Create a migrator.
 
         Args:
             core (synapse.cores.common.Cortex): 0.0.x *local* cortex to export from
+
             outfh (IO['bin']): file handle opened for binary to push messagepacked data into
+
             tmpdir (Optional[str]):  location to write stage 1 LMDB database.  Please note that /tmp on Linux might
                 *not* a good location since it is usually mounted tmpfs with not enough space.  This parameter is not
                 used if stage1_fn parameter is specified.
+
             stage1_fn (Optional[str]):   Skips stage1 altogether and starts with existing stage 1 DB.
+
             rejects_fh (Optional[IO['bin']]):  file handle in which to place the nodes that couldn't be migrated.  If
                 not provided, no rejects file will be used.
+
+            good_forms (Optional[List[str]]):  whitelist of form names to accept.  If not None, all other forms will be
+                skipped
         '''
 
         self.core = core
@@ -83,6 +90,7 @@ class Migrator:
         assert tmpdir or stage1_fn
         self.next_val = 0
         self.rejects_fh = rejects_fh
+        self.good_forms = set(good_forms) if good_forms is not None else None
 
         if stage1_fn is None:
             with tempfile.NamedTemporaryFile(prefix='stage1_', suffix='.lmdb', delete=True, dir=str(tmpdir)) as fh:
@@ -260,7 +268,7 @@ class Migrator:
 
         # Do the comp forms
         for i, formname in enumerate(self.first_forms):
-            if formname in self.forms_to_drop:
+            if formname in self.forms_to_drop or (self.good_forms is not None and formname not in self.good_forms):
                 continue
             with self.dbenv.begin(write=True, db=self.form_tbl) as txn:
                 curs = txn.cursor(self.form_tbl)
@@ -329,7 +337,8 @@ class Migrator:
                 props = self._get_props_from_cursor(txn, curs)
                 rv = curs.next()
                 formname = props.get('tufo:form')
-                if not (formname is None or formname in self.first_forms):
+                if not (formname is None or formname in self.first_forms or
+                        (self.good_names and formname not in self.goodnames)):
                     try:
                         node = self.convert_props(props)
                         if node is not None:
@@ -831,6 +840,7 @@ def main(argv, outp=None):  # pragma: no cover
     p.add_argument('--stage-1', help='Start at stage 2 with stage 1 file')
     p.add_argument('--log-level', choices=s_const.LOG_LEVEL_CHOICES, help='specify the log level', type=str.upper)
     p.add_argument('--extra-module', nargs='+', help='name of an extra module to load')
+    p.add_argument('--only-convert-forms-file', type=argparse.FileType('r'))
     opts = p.parse_args(argv)
 
     s_common.setlogging(logger, opts.log_level)
@@ -843,10 +853,19 @@ def main(argv, outp=None):  # pragma: no cover
         for modname in opts.extra_module:
             s_modules.load(modname)
 
+    if opts.only_convert_forms_file:
+        good_forms = []
+        for line in opts.only_convert_forms_file:
+            good_forms.append(line)
+    else:
+        good_forms = None
+
+
     fh = open(opts.outfile, 'wb')
     rejects_fh = open(opts.outfile + '.rejects', 'wb')
     with s_cortex.openurl(opts.cortex, conf={'caching': True, 'cache:maxsize': 1000000}) as core:
-        m = Migrator(core, fh, tmpdir=pathlib.Path(opts.outfile).parent, stage1_fn=opts.stage_1, rejects_fh=rejects_fh)
+        m = Migrator(core, fh, tmpdir=pathlib.Path(opts.outfile).parent, stage1_fn=opts.stage_1, rejects_fh=rejects_fh,
+                     good_forms=good_forms)
         m.migrate()
     return 0
 
