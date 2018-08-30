@@ -197,7 +197,9 @@ class CmdOper(Oper):
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
         scmd = ctor(text)
-        scmd.reqValidOpts(runt.snap)
+
+        if not scmd.hasValidOpts(runt.snap):
+            return
 
         yield from scmd.execStormCmd(runt, genr)
 
