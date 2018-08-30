@@ -670,6 +670,10 @@ class CortexTest(s_test.SynTest):
 
             self.genraises(s_exc.NoSuchOpt, core.eval, '%foo=asdf')
             self.genraises(s_exc.BadOptValu, core.eval, '%limit=asdf')
+            self.genraises(s_exc.NoSuchCmpr, core.eval, 'teststr*near=newp')
+            self.genraises(s_exc.NoSuchCmpr, core.eval, 'teststr +teststr@=2018')
+            self.genraises(s_exc.NoSuchCmpr, core.eval, 'teststr +#test*near=newp')
+            self.genraises(s_exc.NoSuchCmpr, core.eval, 'teststr +teststr:tick*near=newp')
             self.genraises(s_exc.BadStormSyntax, core.eval, ' | | ')
 
             self.len(2, list(core.eval(('[ teststr=foo teststr=bar ]'))))
