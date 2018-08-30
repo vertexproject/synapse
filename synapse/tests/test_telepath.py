@@ -66,7 +66,10 @@ class Foo:
     async def corogenr(self, x):
         for i in range(x):
             yield i
-            await s_glob.plex.sleep(0.1)
+            try:
+                await s_glob.plex.sleep(0.1)
+            except asyncio.CancelledError:
+                return
 
     def boom(self):
         return Boom()

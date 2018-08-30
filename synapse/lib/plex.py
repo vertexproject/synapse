@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import threading
+import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +28,11 @@ class Plex(s_eventbus.EventBus):
 
         def fini():
             coro = self._onAsyncFini()
-            self.coroToSync(coro, timeout=2)
-            self.loop.stop()
+            try:
+                self.coroToSync(coro, timeout=2)
+            except concurrent.futures.TimeoutError:
+                pass
+            self.thrd.join(.1)
 
         self.onfini(fini)
 
@@ -128,7 +132,7 @@ class Plex(s_eventbus.EventBus):
 
     async def _onAsyncFini(self):
         # async fini stuff here...
-        return
+        self.loop.stop()
 
     def _initPlexLink(self, reader, writer):
 
@@ -152,7 +156,7 @@ class Plex(s_eventbus.EventBus):
         self.addLoopCoro(self._linkRxLoop(link))
 
     def addLoopCoro(self, coro):
-        asyncio.run_coroutine_threadsafe(coro, self.loop)
+        return asyncio.run_coroutine_threadsafe(coro, self.loop)
 
     def coroLoopTask(self, coro):
         '''
@@ -162,7 +166,7 @@ class Plex(s_eventbus.EventBus):
 
         NOTE: any exceptions raised out of coro will be silently swallowed
         '''
-        self.loop.create_task(coro)
+        return self.loop.create_task(coro)
 
     def callSoonSafe(self, func):
         return self.loop.call_soon_threadsafe(func)
@@ -259,6 +263,9 @@ class Plex(s_eventbus.EventBus):
                     await link.rx(mesg)
 
                 byts = await link.reader.read(readsize)
+
+        except BrokenPipeError as e:
+            logger.warning('%s', str(e))
 
         except Exception as e:
             logger.exception('_linkRxLoop Error!')

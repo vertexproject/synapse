@@ -466,7 +466,8 @@ class Daemon(EventBus):
                         logger.exception('Error running %r', valu)
                     finally:
                         await valu.fini()
-                s_glob.plex.coroLoopTask(spinshareloop())
+                future = s_glob.plex.coroLoopTask(spinshareloop())
+                self.onfini(future.cancel)
 
         except Exception as e:
 

@@ -52,36 +52,35 @@ class PlexTest(s_test.SynTest):
         '''
         Have two plexes connect to each other, send messages, and then server disconnects
         '''
-        plex1 = s_plex.Plex()
-        plex2 = s_plex.Plex()
         steps = self.getTestSteps(['onlink', 'onrx1', 'client_rx', 'link_fini'])
+        with s_plex.Plex() as plex1, s_plex.Plex() as plex2:
 
-        async def server_onlink(link):
-            steps.done('onlink')
+            async def server_onlink(link):
+                steps.done('onlink')
 
-            async def do_rx(msg):
-                self.eq(msg, 'foo')
-                steps.done('onrx1')
-                await link.tx('bar')
-                await link.fini()
+                async def do_rx(msg):
+                    self.eq(msg, 'foo')
+                    steps.done('onrx1')
+                    await link.tx('bar')
+                    await link.fini()
 
-            link.onrx(do_rx)
+                link.onrx(do_rx)
 
-        server = plex1.listen('127.0.0.1', None, onlink=server_onlink)
-        _, port = server.sockets[0].getsockname()
-        link2 = plex2.connect('127.0.0.1', port)
-        steps.wait('onlink', timeout=1)
+            server = plex1.listen('127.0.0.1', None, onlink=server_onlink)
+            _, port = server.sockets[0].getsockname()
+            link2 = plex2.connect('127.0.0.1', port)
+            steps.wait('onlink', timeout=1)
 
-        async def client_do_rx(msg):
-            self.eq(msg, 'bar')
-            steps.done('client_rx')
-        link2.onrx(client_do_rx)
+            async def client_do_rx(msg):
+                self.eq(msg, 'bar')
+                steps.done('client_rx')
+            link2.onrx(client_do_rx)
 
-        async def onlinkfini():
-            steps.done('link_fini')
+            async def onlinkfini():
+                steps.done('link_fini')
 
-        link2.onfini(onlinkfini)
-        await link2.tx('foo')
-        steps.wait('onrx1', timeout=1)
-        steps.wait('client_rx', timeout=1)
-        steps.wait('link_fini')
+            link2.onfini(onlinkfini)
+            await link2.tx('foo')
+            steps.wait('onrx1', timeout=1)
+            steps.wait('client_rx', timeout=1)
+            steps.wait('link_fini')
