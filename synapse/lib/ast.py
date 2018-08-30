@@ -751,7 +751,7 @@ class TagValuCond(Cond):
 
         cmprctor = ival.getCmprCtor(cmpr)
         if cmprctor is None:
-            raise s_exc.NoSuchCmpr(name=cmpr, type=prop.type.name)
+            raise s_exc.NoSuchCmpr(name=cmpr, type=ival.name)
 
         if isinstance(self.kids[2], Const):
 
