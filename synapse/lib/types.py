@@ -9,6 +9,7 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
+import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
@@ -793,6 +794,28 @@ class Loc(Type):
         return (
             ('pref', indx),
         )
+
+    @s_cache.memoize()
+    def stems(self, valu):
+        norm, info = self.norm(valu)
+        parts = norm.split('.')
+        ret = []
+        for i in range(len(parts)):
+            part = '.'.join(parts[:i + 1])
+            ret.append(part)
+        return ret
+
+    def _ctorCmprEq(self, text):
+        def cmpr(valu):
+            # Shortcut equality
+            if valu == text:
+                return True
+
+            vstems = self.stems(valu)
+            return text in vstems
+
+        return cmpr
+
 
 class Ndef(Type):
 
