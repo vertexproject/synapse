@@ -15,6 +15,23 @@ class Migrate010Test(s_iq.SynTest):
         nodes = list(node for node in s_msgpack.iterfd(fh) if node[0][0] == formname)
         return nodes
 
+    def test_txtref_tcp4(self):
+        with self.getTestDir() as dirn, s_cortex.openurl('sqlite:///:memory:') as core:
+            # with self.getTestDir() as dirn, self.getRamCore() as core:
+
+            dirn = pathlib.Path(dirn)
+
+            iden = s_common.guid()
+            core.formTufoByProp('file:txtref', (iden, ('inet:tcp4', '1.2.3.4:4567')))
+            fh = tempfile.TemporaryFile(dir=str(dirn))
+            m = s_migrate.Migrator(core, fh, tmpdir=str(dirn))
+            m.migrate()
+
+            nodes = self.get_formfile('file:ref', fh)
+            self.eq(len(nodes), 1)
+            node = nodes[0]
+            self.eq(node[0][1][1][0], 'inet:srv4')
+
     def test_basic(self):
         self.maxDiff = None
         with self.getTestDir() as dirn, s_cortex.openurl('sqlite:///:memory:') as core:
