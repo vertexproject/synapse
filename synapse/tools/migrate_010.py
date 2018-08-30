@@ -376,11 +376,16 @@ class Migrator:
         t = self.core.getPropType(propname)
         sourceval = props[propname + ':' + t._sorc_name]
         destprop = props[propname + ':xref:prop']
+
         destval = props.get(propname + ':xref:intval', props.get(propname + ':xref:strval'))
         if destval is None:
             destval = props[propname + ':xref'].split('=', 1)[1]
         source_final = self.convert_foreign_key(propname, t._sorc_type, sourceval)
         dest_final = self.convert_foreign_key(propname, destprop, destval)
+
+        if destprop in self.form_renames:
+            destprop = self.form_renames[destprop]
+
         return (source_final, (destprop, dest_final))
 
     def convert_primary(self, props):
@@ -423,6 +428,8 @@ class Migrator:
         '''
         if pivot_formname in self.filebytes:
             return self.convert_filebytes_secondary(pivot_formname, pivot_fk)
+        if pivot_formname in ('inet:tcp4', 'inet:tcp6', 'inet:udp4', 'inet:udp6'):
+            return self.xxp_to_server(pivot_formname, pivot_formname, pivot_formname, pivot_fk, {})[1]
         if self.is_comp(pivot_formname):
             return self.convert_comp_secondary(pivot_formname, pivot_fk)
         if self.is_sepr(pivot_formname):

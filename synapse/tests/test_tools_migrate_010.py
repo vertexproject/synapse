@@ -30,7 +30,7 @@ class Migrate010Test(s_iq.SynTest):
             nodes = self.get_formfile('file:ref', fh)
             self.eq(len(nodes), 1)
             node = nodes[0]
-            self.eq(node[0][1][1][0], 'inet:srv4')
+            self.eq(node[0][1][1][0], 'inet:server')
 
     def test_basic(self):
         self.maxDiff = None
