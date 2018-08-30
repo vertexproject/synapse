@@ -714,7 +714,7 @@ class AbsPropCond(Cond):
 
         ctor = prop.type.getCmprCtor(cmpr)
         if ctor is None:
-            raise s_exc.NoSuchCmpr(name=cmpr, type=prop.type.name)
+            raise s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name)
 
         if prop.isform:
 
@@ -751,7 +751,7 @@ class TagValuCond(Cond):
 
         cmprctor = ival.getCmprCtor(cmpr)
         if cmprctor is None:
-            raise s_exc.NoSuchCmpr(name=cmpr, type=prop.type.name)
+            raise s_exc.NoSuchCmpr(cmpr=cmpr, name=ival.name)
 
         if isinstance(self.kids[2], Const):
 

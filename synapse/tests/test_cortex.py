@@ -670,6 +670,10 @@ class CortexTest(s_test.SynTest):
 
             self.genraises(s_exc.NoSuchOpt, core.eval, '%foo=asdf')
             self.genraises(s_exc.BadOptValu, core.eval, '%limit=asdf')
+            self.genraises(s_exc.NoSuchCmpr, core.eval, 'teststr*near=newp')
+            self.genraises(s_exc.NoSuchCmpr, core.eval, 'teststr +teststr@=2018')
+            self.genraises(s_exc.NoSuchCmpr, core.eval, 'teststr +#test*near=newp')
+            self.genraises(s_exc.NoSuchCmpr, core.eval, 'teststr +teststr:tick*near=newp')
             self.genraises(s_exc.BadStormSyntax, core.eval, ' | | ')
 
             self.len(2, list(core.eval(('[ teststr=foo teststr=bar ]'))))
@@ -689,7 +693,7 @@ class CortexTest(s_test.SynTest):
                     mesgs = list(core.storm('help ask'))
                     self.true(stream.wait(6))
                 # Bad syntax
-                self.genraises(s_exc.BadStormSyntax, list, core.storm(' | | | '))
+                self.genraises(s_exc.BadStormSyntax, core.storm, ' | | | ')
 
     def test_feed_splice(self):
 
@@ -1021,6 +1025,25 @@ class CortexTest(s_test.SynTest):
             q = '#test.bar +pivcomp -+> *'
             nodes = getPackNodes(core, q)
             self.len(3, nodes)
+
+            # tag conditional filters followed by * pivot operators
+            # These are all going to yield zero nodes but should
+            # parse cleanly.
+            q = '#test.bar -#test <- *'
+            nodes = getPackNodes(core, q)
+            self.len(0, nodes)
+
+            q = '#test.bar -#test <+- *'
+            nodes = getPackNodes(core, q)
+            self.len(0, nodes)
+
+            q = '#test.bar -#test -> *'
+            nodes = getPackNodes(core, q)
+            self.len(0, nodes)
+
+            q = '#test.bar -#test -+> *'
+            nodes = getPackNodes(core, q)
+            self.len(0, nodes)
 
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.

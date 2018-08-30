@@ -9,7 +9,9 @@ import synapse.datamodel as s_datamodel
 class TypesTest(s_test.SynTest):
 
     def test_type(self):
-        self.skip('Implement base type test')
+        model = s_datamodel.Model()
+        t = model.type('bool')
+        self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
 
     def test_bool(self):
         model = s_datamodel.Model()

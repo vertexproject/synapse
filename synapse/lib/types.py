@@ -108,7 +108,7 @@ class Type:
         '''
         ctor = self.getCmprCtor(name)
         if ctor is None:
-            raise s_exc.NoSuchCmpr(name=name)
+            raise s_exc.NoSuchCmpr(cmpr=name, name=self.name)
 
         norm1 = self.norm(val1)[0]
         norm2 = self.norm(val2)[0]
@@ -326,7 +326,7 @@ class Type:
         func = self.indxcmpr.get(cmpr)
 
         if func is None:
-            raise s_exc.NoSuchCmpr(type=self.name, cmpr=cmpr)
+            raise s_exc.NoSuchCmpr(name=self.name, cmpr=cmpr)
 
         return func(valu)
 
