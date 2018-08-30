@@ -1022,6 +1022,25 @@ class CortexTest(s_test.SynTest):
             nodes = getPackNodes(core, q)
             self.len(3, nodes)
 
+            # tag conditional filters followed by * pivot operators
+            # These are all going to yield zero nodes but should
+            # parse cleanly.
+            q = '#test.bar -#test <- *'
+            nodes = getPackNodes(core, q)
+            self.len(0, nodes)
+
+            q = '#test.bar -#test <+- *'
+            nodes = getPackNodes(core, q)
+            self.len(0, nodes)
+
+            q = '#test.bar -#test -> *'
+            nodes = getPackNodes(core, q)
+            self.len(0, nodes)
+
+            q = '#test.bar -#test -+> *'
+            nodes = getPackNodes(core, q)
+            self.len(0, nodes)
+
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
             list(core.eval('[ testcomp=(127,newp) ] [testcomp=(127,127)]'))
