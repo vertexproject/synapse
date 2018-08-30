@@ -1200,6 +1200,10 @@ class Parser:
             if self.nextchar() not in cmprstart:
                 return s_ast.TagCond(kids=(tag,))
 
+            # Special case of pivot operations which ALSO start with cmprstart chars
+            if self.nextstrs('<-', '<+-'):
+                return s_ast.TagCond(kids=(tag,))
+
             cmpr = self.cmpr()
             self.ignore(whitespace)
 
