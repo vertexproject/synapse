@@ -689,7 +689,7 @@ class CortexTest(s_test.SynTest):
                     mesgs = list(core.storm('help ask'))
                     self.true(stream.wait(6))
                 # Bad syntax
-                self.genraises(s_exc.BadStormSyntax, list, core.storm(' | | | '))
+                self.genraises(s_exc.BadStormSyntax, core.storm, ' | | | ')
 
     def test_feed_splice(self):
 
