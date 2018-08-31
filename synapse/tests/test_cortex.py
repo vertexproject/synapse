@@ -515,12 +515,6 @@ class CortexTest(s_test.SynTest):
                 self.nn(node)
                 self.eq(node.get('intprop'), 21)
 
-    def test_wut(self):
-        with self.getTestCore() as core:
-            self.len(1, core.eval('[testint=123]'))
-
-            self.len(1, core.eval('testint=123'))
-
     def test_base_types2(self):
         with self.getTestCore() as core:
 
