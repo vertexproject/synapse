@@ -31,6 +31,20 @@ class NodeTest(s_t_common.SynTest):
                 reprs = {k: v for (k, v) in info.get('reprs', {}).items() if not k.startswith('.')}
                 self.eq(reprs, {'tick': '1970/01/01 00:00:12.345'})
 
+                # Set a property on the node which is extra model and pack it.
+                # This situation can be encountered in a multi-layer situation
+                # where one Cortex can have model knowledge and set props
+                # that another Cortex (sitting on top of the first one) lifts
+                # a node which has props the second cortex doens't know about.
+                node.props['.newp'] = 1
+                node.props['newp'] = (2, 3)
+                iden, info = node.pack(dorepr=True)
+                props, reprs = info.get('props'), info.get('reprs')
+                self.eq(props.get('.newp'), 1)
+                self.eq(props.get('newp'), (2, 3))
+                self.eq(reprs.get('.newp'), '1')
+                self.eq(reprs.get('newp'), '(2, 3)')
+
     def test_set(self):
         form = 'teststr'
         valu = 'cool'
