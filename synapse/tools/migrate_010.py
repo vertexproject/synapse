@@ -62,7 +62,7 @@ class Migrator:
     Sucks all rows out of a < .0.1.0 cortex, into a temporary LMDB database, migrates the schema, then dumps to new
     file suitable for ingesting into a >= .0.1.0 cortex.
     '''
-    def __init__(self, core, outfh, tmpdir=None, stage1_fn=None, rejects_fh=None, good_forms=good_forms):
+    def __init__(self, core, outfh, tmpdir=None, stage1_fn=None, rejects_fh=None, good_forms=None):
         '''
         Create a migrator.
 
@@ -246,6 +246,7 @@ class Migrator:
         logger.info('Stage 1 complete in %.1fs.', time.time() - start_time)
 
     def write_node_to_file(self, node):
+        assert(len(node) == 2)
         self.outfh.write(s_msgpack.en(node))
 
     def _get_props_from_cursor(self, txn, curs):
@@ -338,7 +339,7 @@ class Migrator:
                 rv = curs.next()
                 formname = props.get('tufo:form')
                 if not (formname is None or formname in self.first_forms or
-                        (self.good_names and formname not in self.goodnames)):
+                        (self.good_forms and formname not in self.good_forms)):
                     try:
                         node = self.convert_props(props)
                         if node is not None:
@@ -752,14 +753,26 @@ class Migrator:
                 addrport = '[%s]:%s' % (val, port)
         return propname, '%s://%s' % (formname[-3:], addrport)
 
-    def name_en_to_altname(self, formname, propname, typename, val, props):
-        node = (('ps:altname', (props[formname], val)),)
-        self.write_node_to_file(node)
-        return None, None
+    def name_en_to_has(self, formname, propname, typename, val, props):
+        ''' Handle {ou:org,,ps:person,ps:persona} name:en props '''
 
-    def ou_name_en_to_altname(self, formname, propname, typename, val, props):
-        node = (('ou:altname', (props[formname], val)),)
-        self.write_node_to_file(node)
+        # First write the new {ou,ps}:name node
+        psorou = formname.split(':', 1)[0]
+        nameformname = 'ps:name' if psorou == 'ps' else 'ou:org:name'
+        nameprops = {}
+        if psorou == 'ps':
+            for prop in [':sur', ':given', ':middle']:
+                part = props.get(propname + prop)
+                if part is not None:
+                    nameprops[nameformname + prop] = part
+        namenode = ((nameformname, val), {'props': nameprops})
+        self.write_node_to_file(namenode)
+
+        # Then write the new {ou:org:has,ps:person:has,ps:persona:has} node
+        hasformname = formname + ':has'
+        hasnode = ((hasformname, (props[formname], (nameformname, val))), {})
+        self.write_node_to_file(hasnode)
+
         return None, None
 
     def dns_look_ipv4_to_query(self, formname, propname, typename, val, props):
@@ -827,9 +840,9 @@ class Migrator:
         'it:exec:bind:tcp:ipv6': ip_with_port_to_server,
         'it:exec:bind:udp:ipv4': ip_with_port_to_server,
         'it:exec:bind:udp:ipv6': ip_with_port_to_server,
-        'ps:person:name:en': name_en_to_altname,
-        'ps:persona:name:en': name_en_to_altname,
-        'ou:org:name:en': ou_name_en_to_altname,
+        'ps:person:name:en': name_en_to_has,
+        'ps:persona:name:en': name_en_to_has,
+        'ou:org:name:en': name_en_to_has,
     }
 
 def main(argv, outp=None):  # pragma: no cover

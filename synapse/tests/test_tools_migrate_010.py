@@ -15,23 +15,6 @@ class Migrate010Test(s_iq.SynTest):
         nodes = list(node for node in s_msgpack.iterfd(fh) if node[0][0] == formname)
         return nodes
 
-    def test_txtref_tcp4(self):
-        with self.getTestDir() as dirn, s_cortex.openurl('sqlite:///:memory:') as core:
-            # with self.getTestDir() as dirn, self.getRamCore() as core:
-
-            dirn = pathlib.Path(dirn)
-
-            iden = s_common.guid()
-            core.formTufoByProp('file:txtref', (iden, ('inet:tcp4', '1.2.3.4:4567')))
-            fh = tempfile.TemporaryFile(dir=str(dirn))
-            m = s_migrate.Migrator(core, fh, tmpdir=str(dirn))
-            m.migrate()
-
-            nodes = self.get_formfile('file:ref', fh)
-            self.eq(len(nodes), 1)
-            node = nodes[0]
-            self.eq(node[0][1][1][0], 'inet:server')
-
     def test_basic(self):
         self.maxDiff = None
         with self.getTestDir() as dirn, s_cortex.openurl('sqlite:///:memory:') as core:
@@ -322,24 +305,46 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(len(nodes), 1)
             self.eq(nodes[0][0], ('inet:dns:soa', ('foo.bar.com', 'bob@foo.bar.com')))
 
-    def test_ps_person(self):
+    def test_ps_personx(self):
+        ''' Test both ps:person and ps:persona '''
+        self.maxDiff = None
+        for personx in ('person', 'persona'):
+            with self.getTestDir() as dirn, self.getRamCore() as core:
+                props = {
+                    'name': 'Gnaeus Pompeius Magnus',
+                    'name:given': 'Gnaeus',
+                    'name:en': 'Pompey the Great',
+                    'name:en:sur': 'Pompey'
+                }
+                core.formTufoByProp(f'ps:{personx}', s_common.guid(), **props)
+                fh = tempfile.TemporaryFile(dir=dirn)
+                m = s_migrate.Migrator(core, fh, tmpdir=dirn)
+                m.migrate()
+                nodes = self.get_formfile(f'ps:{personx}', fh)
+                self.len(1, nodes)
+                self.isin('name:given', nodes[0][1]['props'])
+                self.notin('name:en', nodes[0][1]['props'])
+                nodes = self.get_formfile(f'ps:{personx}:has', fh)
+                self.len(1, nodes)
+                self.eq(nodes[0][0][1][1], ('ps:name', 'pompey the great'))
+
+    def test_ou_org(self):
         self.maxDiff = None
         with self.getTestDir() as dirn, self.getRamCore() as core:
             props = {
-                'name': 'Gnaeus Pompeius Magnus',
-                'name:given': 'Gnaeus',
-                'name:en': 'Pompey the Great'
+                'name': 'Senatus Romanum',
+                'name:en': 'The Roman Senate',
             }
-            core.formTufoByProp('ps:person', s_common.guid(), **props)
+            core.formTufoByProp(f'ou:org', s_common.guid(), **props)
             fh = tempfile.TemporaryFile(dir=dirn)
             m = s_migrate.Migrator(core, fh, tmpdir=dirn)
             m.migrate()
-            nodes = self.get_formfile('ps:person', fh)
+            nodes = self.get_formfile(f'ou:org', fh)
             self.len(1, nodes)
-            self.isin('name:given', nodes[0][1]['props'])
             self.notin('name:en', nodes[0][1]['props'])
-            nodes = self.get_formfile('ps:altname', fh)
+            nodes = self.get_formfile(f'ou:org:has', fh)
             self.len(1, nodes)
+            self.eq(nodes[0][0][1][1], ('ou:org:name', 'the roman senate'))
 
     def test_dns_query(self):
         with self.getTestDir() as dirn, self.getRamCore() as core:
@@ -362,3 +367,20 @@ class Migrate010Test(s_iq.SynTest):
             nodes = self.get_formfile('file:subfile', fh)
             self.len(1, nodes)
             self.eq(nodes[0][0][1], ('guid:' + g1, 'guid:' + g2))
+
+    def test_txtref_tcp4(self):
+        with self.getTestDir() as dirn, s_cortex.openurl('sqlite:///:memory:') as core:
+            # with self.getTestDir() as dirn, self.getRamCore() as core:
+
+            dirn = pathlib.Path(dirn)
+
+            iden = s_common.guid()
+            core.formTufoByProp('file:txtref', (iden, ('inet:tcp4', '1.2.3.4:4567')))
+            fh = tempfile.TemporaryFile(dir=str(dirn))
+            m = s_migrate.Migrator(core, fh, tmpdir=str(dirn))
+            m.migrate()
+
+            nodes = self.get_formfile('file:ref', fh)
+            self.eq(len(nodes), 1)
+            node = nodes[0]
+            self.eq(node[0][1][1][0], 'inet:server')
