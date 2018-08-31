@@ -7,7 +7,6 @@ from binascii import unhexlify, hexlify
 
 import lmdb  # type: ignore
 
-
 import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.lib.modules as s_modules
@@ -853,7 +852,8 @@ def main(argv, outp=None):  # pragma: no cover
     p.add_argument('--stage-1', help='Start at stage 2 with stage 1 file')
     p.add_argument('--log-level', choices=s_const.LOG_LEVEL_CHOICES, help='specify the log level', type=str.upper)
     p.add_argument('--extra-module', nargs='+', help='name of an extra module to load')
-    p.add_argument('--only-convert-forms-file', type=argparse.FileType('r'))
+    p.add_argument('--only-convert-forms-file', type=argparse.FileType('r'),
+                   help='Path to newline-delimited file of forms to convert')
     opts = p.parse_args(argv)
 
     s_common.setlogging(logger, opts.log_level)
@@ -869,10 +869,9 @@ def main(argv, outp=None):  # pragma: no cover
     if opts.only_convert_forms_file:
         good_forms = []
         for line in opts.only_convert_forms_file:
-            good_forms.append(line)
+            good_forms.append(line.rstrip())
     else:
         good_forms = None
-
 
     fh = open(opts.outfile, 'wb')
     rejects_fh = open(opts.outfile + '.rejects', 'wb')
