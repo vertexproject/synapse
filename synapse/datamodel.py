@@ -208,7 +208,7 @@ class Univ(PropBase):
                 ('univ:re', (self.name, valu, {})),
             )
 
-        iops = self.type.getIndxOps(valu)
+        iops = self.type.getIndxOps(valu, cmpr)
 
         return (
             ('indx', ('byuniv', self.pref, iops)),
@@ -310,7 +310,7 @@ class Form:
                 ('form:re', (self.name, valu, {})),
             )
 
-        iops = self.type.getIndxOps(valu, cmpr=cmpr)
+        iops = self.type.getIndxOps(valu, cmpr)
         return (
             ('indx', ('byprop', self.pref, iops)),
         )
