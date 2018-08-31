@@ -518,12 +518,12 @@ class CortexTest(s_test.SynTest):
     def test_base_types2(self):
         with self.getTestCore() as core:
 
+            # Test some default values
             with core.snap() as snap:
 
                 node = snap.addNode('testtype10', 'one')
                 self.nn(node.get('.created'))
-
-                nodes = list(snap.getNodesBy('.created', '2010', cmpr='>='))
+                created = node.reprs().get('.created')
 
                 self.eq(node.get('intprop'), 20)
                 self.eq(node.get('locprop'), '??')
@@ -531,6 +531,36 @@ class CortexTest(s_test.SynTest):
 
                 self.true(s_common.isguid(node.get('guidprop')))
 
+            # open a new snap, commiting the previous snap and do some lifts by univ prop
+            with core.snap() as snap:
+
+                nodes = list(snap.getNodesBy('.created', ))
+                self.len(1 + 1, nodes)
+
+                nodes = list(snap.getNodesBy('.created', node.get('.created')))
+                self.len(1, nodes)
+
+                nodes = list(snap.getNodesBy('.created', '2010', cmpr='>='))
+                self.len(1 + 1, nodes)
+
+                nodes = list(snap.getNodesBy('.created', ('2010', '3001'), cmpr='*range='))
+                self.len(1 + 1, nodes)
+
+                nodes = list(snap.getNodesBy('.created', ('2010', '?'), cmpr='*range='))
+                self.len(1 + 1, nodes)
+
+                self.len(2, core.eval('.created'))
+                self.len(1, core.eval(f'.created="{created}"'))
+                self.len(2, core.eval('.created>2010'))
+                self.len(0, core.eval('.created<2010'))
+                # The year the monolith returns
+                self.len(2, core.eval('.created*range=(2010, 3001)'))
+                self.len(2, core.eval('.created*range=("2010", "?")'))
+
+            # Open another snap to test some more default value behavior
+            with core.snap() as snap:
+                # Grab an updated reference to the first node
+                node = list(snap.getNodesBy('testtype10', 'one'))[0]
                 # add another node with default vals
                 snap.addNode('testtype10', 'two')
 
