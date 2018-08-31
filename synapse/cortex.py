@@ -938,6 +938,7 @@ class Cortex(s_cell.Cell):
                     count += 1
 
         except Exception as e:
+            logger.exception('Error during Storm execution.')
             chan.put(('err', s_common.err(e)))
 
         finally:
