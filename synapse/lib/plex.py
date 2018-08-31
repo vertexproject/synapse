@@ -29,7 +29,7 @@ class Plex(s_eventbus.EventBus):
         def fini():
             coro = self._onAsyncFini()
             try:
-                self.coroToSync(coro, timeout=2)
+                self.coroToSync(coro, timeout=.05)
             except concurrent.futures.TimeoutError:
                 pass
             self.thrd.join(.1)
@@ -90,10 +90,11 @@ class Plex(s_eventbus.EventBus):
         Args:
             coro (coroutine): The coroutine instance.
 
-        Returns:
-            (concurrent.futures.Task): A Future/Task to wait on.
+        Notes:
+            This API is thread safe.
 
-        NOTE: This API *is* thread safe
+        Returns:
+            concurrent.futures.Future: A Future to wait on.
         '''
         return asyncio.run_coroutine_threadsafe(coro, loop=self.loop)
 
@@ -162,9 +163,15 @@ class Plex(s_eventbus.EventBus):
         '''
         Schedule the coro on the loop.
 
-        NOTE: NOT THREAD SAFE. ONLY FROM IO LOOP.
+        Args:
+            coro:
 
-        NOTE: any exceptions raised out of coro will be silently swallowed
+        Notes:
+            This is not thread safe It should only be called from inside
+            the ioloop.
+
+        Returns:
+            asyncio.Task: An asyncio.Task object for the coro.
         '''
         return self.loop.create_task(coro)
 
