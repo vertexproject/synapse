@@ -298,9 +298,12 @@ class Node:
 
         for name, valu in self.props.items():
 
-            rval = self.form.props[name].type.repr(valu)
-            if rval is None:
-                continue
+            try:
+                rval = self.form.props[name].type.repr(valu)
+                if rval is None:
+                    continue
+            except KeyError:
+                rval = repr(valu)
 
             reps[name] = rval
 
