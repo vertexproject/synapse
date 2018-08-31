@@ -142,9 +142,16 @@ class Parser(argparse.ArgumentParser):
             description=descr,
             formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    def exit(self, *args, **kwargs):
-        # yea....  newp.
+    def exit(self, status=0, message=None):
+        '''
+        Argparse expects exit() to be a terminal function and not return.
+        As such, this function must raise an exception which will be caught
+        by Cmd.hasValidOpts.
+        '''
+        if message:
+            self._print_message(message)
         self.exited = True
+        raise s_exc.BadSyntaxError(mesg=message, prog=self.prog)
 
     def _print_message(self, text, fd=None):
 
@@ -184,7 +191,10 @@ class Cmd:
 
     def hasValidOpts(self, snap):
         self.pars.printf = snap.printf
-        self.opts = self.pars.parse_args(self.argv)
+        try:
+            self.opts = self.pars.parse_args(self.argv)
+        except s_exc.BadSyntaxError as e:
+            pass
         return not self.pars.exited
 
     def execStormCmd(self, runt, genr):
