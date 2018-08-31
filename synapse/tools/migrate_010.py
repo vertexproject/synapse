@@ -337,8 +337,8 @@ class Migrator:
                 props = self._get_props_from_cursor(txn, curs)
                 rv = curs.next()
                 formname = props.get('tufo:form')
-                if not (formname is None or formname in self.first_forms or
-                        (self.good_forms and formname not in self.good_forms)):
+                if not (formname is None or formname in self.first_forms or (self.good_forms and formname not in
+                        self.good_forms)):
                     try:
                         node = self.convert_props(props)
                         if node is not None:

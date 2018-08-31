@@ -316,15 +316,15 @@ class Migrate010Test(s_iq.SynTest):
                     'name:en': 'Pompey the Great',
                     'name:en:sur': 'Pompey'
                 }
-                core.formTufoByProp(f'ps:{personx}', s_common.guid(), **props)
+                core.formTufoByProp('ps:%s' % personx, s_common.guid(), **props)
                 fh = tempfile.TemporaryFile(dir=dirn)
                 m = s_migrate.Migrator(core, fh, tmpdir=dirn)
                 m.migrate()
-                nodes = self.get_formfile(f'ps:{personx}', fh)
+                nodes = self.get_formfile('ps:%s' % personx, fh)
                 self.len(1, nodes)
                 self.isin('name:given', nodes[0][1]['props'])
                 self.notin('name:en', nodes[0][1]['props'])
-                nodes = self.get_formfile(f'ps:{personx}:has', fh)
+                nodes = self.get_formfile('ps:%s:has' % personx, fh)
                 self.len(1, nodes)
                 self.eq(nodes[0][0][1][1], ('ps:name', 'pompey the great'))
 
@@ -335,14 +335,14 @@ class Migrate010Test(s_iq.SynTest):
                 'name': 'Senatus Romanum',
                 'name:en': 'The Roman Senate',
             }
-            core.formTufoByProp(f'ou:org', s_common.guid(), **props)
+            core.formTufoByProp('ou:org', s_common.guid(), **props)
             fh = tempfile.TemporaryFile(dir=dirn)
             m = s_migrate.Migrator(core, fh, tmpdir=dirn)
             m.migrate()
-            nodes = self.get_formfile(f'ou:org', fh)
+            nodes = self.get_formfile('ou:org', fh)
             self.len(1, nodes)
             self.notin('name:en', nodes[0][1]['props'])
-            nodes = self.get_formfile(f'ou:org:has', fh)
+            nodes = self.get_formfile('ou:org:has', fh)
             self.len(1, nodes)
             self.eq(nodes[0][0][1][1], ('ou:org:name', 'the roman senate'))
 
