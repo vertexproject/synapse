@@ -151,7 +151,7 @@ class Parser(argparse.ArgumentParser):
         if message:
             self._print_message(message)
         self.exited = True
-        raise s_exc.BadSyntaxError(mesg=message, prog=self.prog)
+        raise s_exc.BadSyntaxError(mesg=message, prog=self.prog, status=status)
 
     def _print_message(self, text, fd=None):
 
