@@ -206,24 +206,6 @@ class Type:
             ('range', (mini, maxi)),
         )
 
-    def getFiltFunc(self, cmpr, text):
-        '''
-        Return a filter function for the given value and comparison.
-
-        Args:
-            cmpr (str): Comparison operator such as '='.
-            text (str): The query text to compare against.
-        '''
-        ctor = self._cmpr_ctors.get(cmpr)
-        if ctor is not None:
-            return ctor(text)
-
-        norm, info = self.norm(text)
-
-        #cmprfunc = s_cmpr.get(cmpr)
-        #if cmprfunc is None:
-            #raise s_exc.NoSuchCmpr(name=cmpr)
-
     def setNormFunc(self, typo, func):
         '''
         Register a normalizer function for a given python type.

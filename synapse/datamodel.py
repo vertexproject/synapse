@@ -163,20 +163,6 @@ class Prop(PropBase):
             ('prop:del', (buid, self.form.name, self.name, self.storinfo)),
         )
 
-    def filt(self, text, cmpr='='):
-        '''
-        Construct a filter function for nodes by property.
-        '''
-        typefilt = self.type.getFiltFunc(text=text, cmpr=cmpr)
-        if typefilt is None:
-            return
-
-        def func(node):
-            valu = node[1]['props'].get(self.name)
-            return typefilt(valu)
-
-        return func
-
     def pack(self):
         info = {'type': self.typedef}
         info.update(self.info)
