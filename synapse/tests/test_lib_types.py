@@ -301,7 +301,7 @@ class TypesTest(s_test.SynTest):
             self.len(2, core.eval('testint:loc=us'))
             self.len(0, core.eval('testint:loc=u'))
 
-            self.len(1, core.eval('testint +:loc=us.va.syria'))
+            self.len(1, core.eval('testint +:loc="us.va. syria"'))
             self.len(1, core.eval('testint +:loc=us.va.sydney'))
             self.len(0, core.eval('testint +:loc=us.va.sy'))
             self.len(2, core.eval('testint +:loc=us.va'))

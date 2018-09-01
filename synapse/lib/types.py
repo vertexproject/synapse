@@ -788,13 +788,15 @@ class Loc(Type):
         return ret
 
     def _ctorCmprEq(self, text):
+        norm, _ = self.norm(text)
+
         def cmpr(valu):
             # Shortcut equality
-            if valu == text:
+            if valu == norm:
                 return True
 
             vstems = self.stems(valu)
-            return text in vstems
+            return norm in vstems
 
         return cmpr
 
