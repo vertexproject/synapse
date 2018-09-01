@@ -348,6 +348,7 @@ class LmdbLayer(s_layer.Layer):
     '''
     confdefs = (
         ('lmdb:mapsize', {'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE}),
+        ('lmdb:readahead', {'type': 'bool', 'defval': True}),
     )
 
     def __init__(self, dirn):
@@ -356,8 +357,9 @@ class LmdbLayer(s_layer.Layer):
         path = os.path.join(self.dirn, 'layer.lmdb')
 
         mapsize = self.conf.get('lmdb:mapsize')
-
-        self.lenv = lmdb.open(path, max_dbs=128, map_size=mapsize, writemap=True)
+        readahead = self.conf.get('lmdb:readahead')
+        self.lenv = lmdb.open(path, max_dbs=128, map_size=mapsize, writemap=True,
+                              readahead=readahead)
 
         self.dbs = {}
 
@@ -405,4 +407,3 @@ class LmdbLayer(s_layer.Layer):
         Return a transaction object for the layer.
         '''
         return LmdbXact(self, write=write)
-
