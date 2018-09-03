@@ -7,7 +7,6 @@ from binascii import unhexlify, hexlify
 
 import lmdb  # type: ignore
 
-
 import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.lib.modules as s_modules
@@ -62,19 +61,26 @@ class Migrator:
     Sucks all rows out of a < .0.1.0 cortex, into a temporary LMDB database, migrates the schema, then dumps to new
     file suitable for ingesting into a >= .0.1.0 cortex.
     '''
-    def __init__(self, core, outfh, tmpdir=None, stage1_fn=None, rejects_fh=None):
+    def __init__(self, core, outfh, tmpdir=None, stage1_fn=None, rejects_fh=None, good_forms=None):
         '''
         Create a migrator.
 
         Args:
             core (synapse.cores.common.Cortex): 0.0.x *local* cortex to export from
+
             outfh (IO['bin']): file handle opened for binary to push messagepacked data into
+
             tmpdir (Optional[str]):  location to write stage 1 LMDB database.  Please note that /tmp on Linux might
                 *not* a good location since it is usually mounted tmpfs with not enough space.  This parameter is not
                 used if stage1_fn parameter is specified.
+
             stage1_fn (Optional[str]):   Skips stage1 altogether and starts with existing stage 1 DB.
+
             rejects_fh (Optional[IO['bin']]):  file handle in which to place the nodes that couldn't be migrated.  If
                 not provided, no rejects file will be used.
+
+            good_forms (Optional[List[str]]):  whitelist of form names to accept.  If not None, all other forms will be
+                skipped
         '''
 
         self.core = core
@@ -83,6 +89,7 @@ class Migrator:
         assert tmpdir or stage1_fn
         self.next_val = 0
         self.rejects_fh = rejects_fh
+        self.good_forms = set(good_forms) if good_forms is not None else None
 
         if stage1_fn is None:
             with tempfile.NamedTemporaryFile(prefix='stage1_', suffix='.lmdb', delete=True, dir=str(tmpdir)) as fh:
@@ -238,6 +245,7 @@ class Migrator:
         logger.info('Stage 1 complete in %.1fs.', time.time() - start_time)
 
     def write_node_to_file(self, node):
+        assert(len(node) == 2)
         self.outfh.write(s_msgpack.en(node))
 
     def _get_props_from_cursor(self, txn, curs):
@@ -260,7 +268,7 @@ class Migrator:
 
         # Do the comp forms
         for i, formname in enumerate(self.first_forms):
-            if formname in self.forms_to_drop:
+            if formname in self.forms_to_drop or (self.good_forms is not None and formname not in self.good_forms):
                 continue
             with self.dbenv.begin(write=True, db=self.form_tbl) as txn:
                 curs = txn.cursor(self.form_tbl)
@@ -329,7 +337,8 @@ class Migrator:
                 props = self._get_props_from_cursor(txn, curs)
                 rv = curs.next()
                 formname = props.get('tufo:form')
-                if not (formname is None or formname in self.first_forms):
+                if not (formname is None or formname in self.first_forms or (self.good_forms and formname not in
+                        self.good_forms)):
                     try:
                         node = self.convert_props(props)
                         if node is not None:
@@ -376,11 +385,16 @@ class Migrator:
         t = self.core.getPropType(propname)
         sourceval = props[propname + ':' + t._sorc_name]
         destprop = props[propname + ':xref:prop']
+
         destval = props.get(propname + ':xref:intval', props.get(propname + ':xref:strval'))
         if destval is None:
             destval = props[propname + ':xref'].split('=', 1)[1]
         source_final = self.convert_foreign_key(propname, t._sorc_type, sourceval)
         dest_final = self.convert_foreign_key(propname, destprop, destval)
+
+        if destprop in self.form_renames:
+            destprop = self.form_renames[destprop]
+
         return (source_final, (destprop, dest_final))
 
     def convert_primary(self, props):
@@ -423,6 +437,8 @@ class Migrator:
         '''
         if pivot_formname in self.filebytes:
             return self.convert_filebytes_secondary(pivot_formname, pivot_fk)
+        if pivot_formname in ('inet:tcp4', 'inet:tcp6', 'inet:udp4', 'inet:udp6'):
+            return self.xxp_to_server(pivot_formname, pivot_formname, pivot_formname, pivot_fk, {})[1]
         if self.is_comp(pivot_formname):
             return self.convert_comp_secondary(pivot_formname, pivot_fk)
         if self.is_sepr(pivot_formname):
@@ -736,14 +752,26 @@ class Migrator:
                 addrport = '[%s]:%s' % (val, port)
         return propname, '%s://%s' % (formname[-3:], addrport)
 
-    def name_en_to_altname(self, formname, propname, typename, val, props):
-        node = (('ps:altname', (props[formname], val)),)
-        self.write_node_to_file(node)
-        return None, None
+    def name_en_to_has(self, formname, propname, typename, val, props):
+        ''' Handle {ou:org,,ps:person,ps:persona} name:en props '''
 
-    def ou_name_en_to_altname(self, formname, propname, typename, val, props):
-        node = (('ou:altname', (props[formname], val)),)
-        self.write_node_to_file(node)
+        # First write the new {ou,ps}:name node
+        psorou = formname.split(':', 1)[0]
+        nameformname = 'ps:name' if psorou == 'ps' else 'ou:org:name'
+        nameprops = {}
+        if psorou == 'ps':
+            for prop in [':sur', ':given', ':middle']:
+                part = props.get(propname + prop)
+                if part is not None:
+                    nameprops[nameformname + prop] = part
+        namenode = ((nameformname, val), {'props': nameprops})
+        self.write_node_to_file(namenode)
+
+        # Then write the new {ou:org:has,ps:person:has,ps:persona:has} node
+        hasformname = formname + ':has'
+        hasnode = ((hasformname, (props[formname], (nameformname, val))), {})
+        self.write_node_to_file(hasnode)
+
         return None, None
 
     def dns_look_ipv4_to_query(self, formname, propname, typename, val, props):
@@ -811,9 +839,9 @@ class Migrator:
         'it:exec:bind:tcp:ipv6': ip_with_port_to_server,
         'it:exec:bind:udp:ipv4': ip_with_port_to_server,
         'it:exec:bind:udp:ipv6': ip_with_port_to_server,
-        'ps:person:name:en': name_en_to_altname,
-        'ps:persona:name:en': name_en_to_altname,
-        'ou:org:name:en': ou_name_en_to_altname,
+        'ps:person:name:en': name_en_to_has,
+        'ps:persona:name:en': name_en_to_has,
+        'ou:org:name:en': name_en_to_has,
     }
 
 def main(argv, outp=None):  # pragma: no cover
@@ -824,6 +852,8 @@ def main(argv, outp=None):  # pragma: no cover
     p.add_argument('--stage-1', help='Start at stage 2 with stage 1 file')
     p.add_argument('--log-level', choices=s_const.LOG_LEVEL_CHOICES, help='specify the log level', type=str.upper)
     p.add_argument('--extra-module', nargs='+', help='name of an extra module to load')
+    p.add_argument('--only-convert-forms-file', type=argparse.FileType('r'),
+                   help='Path to newline-delimited file of forms to convert')
     opts = p.parse_args(argv)
 
     s_common.setlogging(logger, opts.log_level)
@@ -836,10 +866,18 @@ def main(argv, outp=None):  # pragma: no cover
         for modname in opts.extra_module:
             s_modules.load(modname)
 
+    if opts.only_convert_forms_file:
+        good_forms = []
+        for line in opts.only_convert_forms_file:
+            good_forms.append(line.rstrip())
+    else:
+        good_forms = None
+
     fh = open(opts.outfile, 'wb')
     rejects_fh = open(opts.outfile + '.rejects', 'wb')
     with s_cortex.openurl(opts.cortex, conf={'caching': True, 'cache:maxsize': 1000000}) as core:
-        m = Migrator(core, fh, tmpdir=pathlib.Path(opts.outfile).parent, stage1_fn=opts.stage_1, rejects_fh=rejects_fh)
+        m = Migrator(core, fh, tmpdir=pathlib.Path(opts.outfile).parent, stage1_fn=opts.stage_1, rejects_fh=rejects_fh,
+                     good_forms=good_forms)
         m.migrate()
     return 0
 
