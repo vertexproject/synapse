@@ -224,6 +224,9 @@ class Layer(s_cell.Cell):
     def setOffset(self, iden, offs):  # pragma: no cover
         raise NotImplementedError
 
+    def stat(self):
+        raise NotImplementedError
+
     def splices(self, offs, size):  # pragma: no cover
         raise NotImplementedError
 

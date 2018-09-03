@@ -89,6 +89,10 @@ class CoreApi(s_cell.CellApi):
     def getCoreMods(self):
         return self.cell.getCoreMods()
 
+    @s_cell.adminapi
+    def stat(self):
+        return self.layer.stat()
+
     def getNodesBy(self, full, valu, cmpr='='):
         '''
         Yield Node.pack() tuples which match the query.

@@ -393,6 +393,11 @@ class LmdbLayer(s_layer.Layer):
             for i, mesg in self.splicelog.slice(xact, offs, size):
                 yield mesg
 
+    def stat(self):
+        return {
+            'splicelog_indx': self.splicelog.index(),
+        }
+
     def db(self, name):
         return self.dbs.get(name)
 
