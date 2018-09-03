@@ -91,7 +91,7 @@ class CoreApi(s_cell.CellApi):
 
     @s_cell.adminapi
     def stat(self):
-        return self.layer.stat()
+        return self.cell.stat()
 
     def getNodesBy(self, full, valu, cmpr='='):
         '''
@@ -1122,3 +1122,9 @@ class Cortex(s_cell.Cell):
         except Exception as e:
             logger.exception('mod load fail: %s' % (ctor,))
             return None
+
+    def stat(self):
+        stats = {
+            'layer': self.layer.stat()
+        }
+        return stats
