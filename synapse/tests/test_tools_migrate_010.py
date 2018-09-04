@@ -370,7 +370,6 @@ class Migrate010Test(s_iq.SynTest):
 
     def test_txtref_tcp4(self):
         with self.getTestDir() as dirn, s_cortex.openurl('sqlite:///:memory:') as core:
-            # with self.getTestDir() as dirn, self.getRamCore() as core:
 
             dirn = pathlib.Path(dirn)
 
@@ -384,3 +383,26 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(len(nodes), 1)
             node = nodes[0]
             self.eq(node[0][1][1][0], 'inet:server')
+
+    def test_inet_web_chprofile(self):
+        with self.getTestDir() as dirn, s_cortex.openurl('sqlite:///:memory:') as core:
+
+            dirn = pathlib.Path(dirn)
+
+            arb_date = '2018/02/02 22:43:22.000'
+            props = {
+                'acct': 'twitter.com/foobar',
+                'acct:site': 'twitter.com',
+                'acct:user': 'foobar',
+                'pv': f'inet:web:acct:seen:max={arb_date}',
+                'pv:prop': 'inet:web:acct:seen:max',
+            }
+            core.formTufoByProp('inet:web:chprofile', s_common.guid(), **props)
+            fh = tempfile.TemporaryFile(dir=str(dirn))
+            m = s_migrate.Migrator(core, fh, tmpdir=str(dirn))
+            m.migrate()
+
+            nodes = self.get_formfile('inet:web:chprofile', fh)
+            self.eq(len(nodes), 1)
+            node = nodes[0]
+            self.eq(node[1]['props']['nodeprop'], f'inet:web:acct:seen={arb_date}')
