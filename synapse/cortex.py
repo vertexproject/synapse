@@ -236,7 +236,11 @@ class CoreApi(s_cell.CellApi):
             return snap.addFeedData(name, items, seqn=seqn)
 
     def getFeedOffs(self, iden):
-        return self.cell.layer.getOffset(iden)
+        return self.cell.getFeedOffs(iden)
+
+    @s_cell.adminapi
+    def setFeedOffs(self, iden, offs):
+        return self.cell.setFeedOffs(iden, offs)
 
     def count(self, text, opts=None):
         '''
@@ -1045,6 +1049,15 @@ class Cortex(s_cell.Cell):
 
     def getFeedOffs(self, iden):
         return self.layer.getOffset(iden)
+
+    def setFeedOffs(self, iden, offs):
+        if offs < 0:
+            raise s_exc.BadConfValu(mesg='Offset must be greater than or equal to zero.', offs=offs,
+                                    iden=iden)
+        oldoffs = self.getFeedOffs(iden)
+        logger.info('Setting Feed offset for [%s] from [%s] to [%s]',
+                    iden, oldoffs, offs)
+        return self.layer.setOffset(iden, offs)
 
     def snap(self, user=None):
         '''

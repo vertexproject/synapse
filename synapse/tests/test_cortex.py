@@ -1476,3 +1476,15 @@ class CortexTest(s_test.SynTest):
                 self.len(1, (core.eval('sudo | [teststr=123 :tick=2018]')))
                 nstat = core.stat()
                 self.gt(nstat.get('layer').get('splicelog_indx'), ostat.get('layer').get('splicelog_indx'))
+
+    def test_offset(self):
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:
+                iden = s_common.guid()
+                self.eq(core.getFeedOffs(iden), 0)
+                self.none(core.setFeedOffs(iden, 10))
+                self.eq(core.getFeedOffs(iden), 10)
+                self.none(core.setFeedOffs(iden, 0))
+                self.eq(core.getFeedOffs(iden), 0)
+                self.raises(s_exc.BadConfValu, core.setFeedOffs, iden, -1)
