@@ -52,7 +52,7 @@ test_steps:  &test_steps
         name: report coverage
         command: |
           . venv/bin/activate
-          if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${IMAGE_VERSION}node${CIRCLE_NODE_INDEX} --required; fi;
+          if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${PYVERS}node${CIRCLE_NODE_INDEX} ${CODECOV_ARGS}; fi;
 
     - store_test_results:
         path: test-reports
@@ -113,7 +113,7 @@ osx_test_steps:  &osx_test_steps
           command: |
             source ~/.bash_profile
             pyenv shell syn36
-            if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${IMAGE_VERSION}node${CIRCLE_NODE_INDEX} --required; fi;
+            if [ -n "${COVERAGE_ARGS}" ]; then codecov --name ${PYVERS}node${CIRCLE_NODE_INDEX} ${CODECOV_ARGS}; fi;
 
       - store_test_results:
           path: test-reports
@@ -130,6 +130,7 @@ jobs:
 
     environment:
       COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+      PYVERS: 3.6
 
     working_directory: ~/repo
 
@@ -140,8 +141,9 @@ jobs:
     docker:
       - image: circleci/python:3.6
         environment:
+          CODECOV_ARGS: --required
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-          IMAGE_VERSION: 3.6
+          PYVERS: 3.6
 
     working_directory: ~/repo
 
@@ -152,8 +154,9 @@ jobs:
     docker:
       - image: circleci/python:3.7
         environment:
+          CODECOV_ARGS: --required
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-          IMAGE_VERSION: 3.6
+          PYVERS: 3.7
 
     working_directory: ~/repo
 

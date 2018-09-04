@@ -9,6 +9,7 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
+import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
@@ -204,24 +205,6 @@ class Type:
         return (
             ('range', (mini, maxi)),
         )
-
-    def getFiltFunc(self, cmpr, text):
-        '''
-        Return a filter function for the given value and comparison.
-
-        Args:
-            cmpr (str): Comparison operator such as '='.
-            text (str): The query text to compare against.
-        '''
-        ctor = self._cmpr_ctors.get(cmpr)
-        if ctor is not None:
-            return ctor(text)
-
-        norm, info = self.norm(text)
-
-        #cmprfunc = s_cmpr.get(cmpr)
-        #if cmprfunc is None:
-            #raise s_exc.NoSuchCmpr(name=cmpr)
 
     def setNormFunc(self, typo, func):
         '''
@@ -793,6 +776,30 @@ class Loc(Type):
         return (
             ('pref', indx),
         )
+
+    @s_cache.memoize()
+    def stems(self, valu):
+        norm, info = self.norm(valu)
+        parts = norm.split('.')
+        ret = []
+        for i in range(len(parts)):
+            part = '.'.join(parts[:i + 1])
+            ret.append(part)
+        return ret
+
+    def _ctorCmprEq(self, text):
+        norm, _ = self.norm(text)
+
+        def cmpr(valu):
+            # Shortcut equality
+            if valu == norm:
+                return True
+
+            vstems = self.stems(valu)
+            return norm in vstems
+
+        return cmpr
+
 
 class Ndef(Type):
 

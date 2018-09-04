@@ -518,12 +518,12 @@ class CortexTest(s_test.SynTest):
     def test_base_types2(self):
         with self.getTestCore() as core:
 
+            # Test some default values
             with core.snap() as snap:
 
                 node = snap.addNode('testtype10', 'one')
                 self.nn(node.get('.created'))
-
-                nodes = list(snap.getNodesBy('.created', '2010', cmpr='>='))
+                created = node.reprs().get('.created')
 
                 self.eq(node.get('intprop'), 20)
                 self.eq(node.get('locprop'), '??')
@@ -531,6 +531,36 @@ class CortexTest(s_test.SynTest):
 
                 self.true(s_common.isguid(node.get('guidprop')))
 
+            # open a new snap, commiting the previous snap and do some lifts by univ prop
+            with core.snap() as snap:
+
+                nodes = list(snap.getNodesBy('.created', ))
+                self.len(1 + 1, nodes)
+
+                nodes = list(snap.getNodesBy('.created', node.get('.created')))
+                self.len(1, nodes)
+
+                nodes = list(snap.getNodesBy('.created', '2010', cmpr='>='))
+                self.len(1 + 1, nodes)
+
+                nodes = list(snap.getNodesBy('.created', ('2010', '3001'), cmpr='*range='))
+                self.len(1 + 1, nodes)
+
+                nodes = list(snap.getNodesBy('.created', ('2010', '?'), cmpr='*range='))
+                self.len(1 + 1, nodes)
+
+                self.len(2, core.eval('.created'))
+                self.len(1, core.eval(f'.created="{created}"'))
+                self.len(2, core.eval('.created>2010'))
+                self.len(0, core.eval('.created<2010'))
+                # The year the monolith returns
+                self.len(2, core.eval('.created*range=(2010, 3001)'))
+                self.len(2, core.eval('.created*range=("2010", "?")'))
+
+            # Open another snap to test some more default value behavior
+            with core.snap() as snap:
+                # Grab an updated reference to the first node
+                node = list(snap.getNodesBy('testtype10', 'one'))[0]
                 # add another node with default vals
                 snap.addNode('testtype10', 'two')
 
@@ -1435,3 +1465,28 @@ class CortexTest(s_test.SynTest):
         with self.getTestCore() as core1:
             retn = core1.addFeedData('syn.nodes', podes)
             self.len(3, core1.eval('testint'))
+
+    def test_stat(self):
+
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            coreiden = dmon.shared['core'].iden
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:
+                ostat = core.stat()
+                self.eq(ostat.get('iden'), coreiden)
+                self.isin('layer', ostat)
+                self.len(1, (core.eval('sudo | [teststr=123 :tick=2018]')))
+                nstat = core.stat()
+                self.gt(nstat.get('layer').get('splicelog_indx'), ostat.get('layer').get('splicelog_indx'))
+
+    def test_offset(self):
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:
+                iden = s_common.guid()
+                self.eq(core.getFeedOffs(iden), 0)
+                self.none(core.setFeedOffs(iden, 10))
+                self.eq(core.getFeedOffs(iden), 10)
+                self.none(core.setFeedOffs(iden, 0))
+                self.eq(core.getFeedOffs(iden), 0)
+                self.raises(s_exc.BadConfValu, core.setFeedOffs, iden, -1)
