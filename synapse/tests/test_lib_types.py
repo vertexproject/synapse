@@ -289,6 +289,29 @@ class TypesTest(s_test.SynTest):
         self.eq('us.va.ओं.reston', loctype.norm('US.    VA.ओं.reston')[0])
         self.eq(b'us\x00haha\xed\xb3\xbestuff\x00blah\x00', loctype.indx('us.haha\udcfestuff.blah'))
 
+        with self.getTestCore() as core:
+            self.len(1, core.eval('[testint=1 :loc=us.va.syria]'))
+            self.len(1, core.eval('[testint=2 :loc=us.va.sydney]'))
+            self.len(1, core.eval('[testint=3 :loc=""]'))
+
+            self.len(1, core.eval('testint:loc=us.va.syria'))
+            self.len(1, core.eval('testint:loc=us.va.sydney'))
+            self.len(0, core.eval('testint:loc=us.va.sy'))
+            self.len(2, core.eval('testint:loc=us.va'))
+            self.len(0, core.eval('testint:loc=us.v'))
+            self.len(2, core.eval('testint:loc=us'))
+            self.len(0, core.eval('testint:loc=u'))
+            self.len(1, core.eval('testint:loc=""'))
+
+            self.len(1, core.eval('testint +:loc="us.va. syria"'))
+            self.len(1, core.eval('testint +:loc=us.va.sydney'))
+            self.len(0, core.eval('testint +:loc=us.va.sy'))
+            self.len(2, core.eval('testint +:loc=us.va'))
+            self.len(0, core.eval('testint +:loc=us.v'))
+            self.len(2, core.eval('testint +:loc=us'))
+            self.len(0, core.eval('testint +:loc=u'))
+            self.len(1, core.eval('testint +:loc=""'))
+
     def test_ndef(self):
         self.skip('Implement base ndef test')
 

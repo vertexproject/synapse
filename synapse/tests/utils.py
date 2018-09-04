@@ -181,7 +181,10 @@ testmodel = {
             ('bar', ('str', {'lower': 1}), {'ro': 1})
         )),
 
-        ('testint', {}, ()),
+        ('testint', {}, (
+            ('loc', ('loc', {}), {}),
+        )),
+
         ('testguid', {}, (
             ('tick', ('testtime', {}), {}),
         )),
