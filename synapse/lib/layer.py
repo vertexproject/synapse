@@ -64,7 +64,6 @@ class Xact(s_eventbus.EventBus):
 
             yield from func(oper)
 
-
     @contextlib.contextmanager
     def incxref(self):
         '''
@@ -219,13 +218,16 @@ class Layer(s_cell.Cell):
         self.onfini(self.spliced.set)
 
     def getOffset(self, iden):  # pragma: no cover
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def setOffset(self, iden, offs):  # pragma: no cover
-        raise NotImplementedError
+        raise NotImplementedError()
+
+    def stat(self):
+        raise NotImplementedError()
 
     def splices(self, offs, size):  # pragma: no cover
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def xact(self, write=False):  # pragma: no cover
         '''
