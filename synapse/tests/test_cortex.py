@@ -1469,9 +1469,11 @@ class CortexTest(s_test.SynTest):
     def test_stat(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            coreiden = dmon.shared['core'].iden
             pconf = {'user': 'root', 'passwd': 'root'}
             with dmon._getTestProxy('core', **pconf) as core:
                 ostat = core.stat()
+                self.eq(ostat.get('iden'), coreiden)
                 self.isin('layer', ostat)
                 self.len(1, (core.eval('sudo | [teststr=123 :tick=2018]')))
                 nstat = core.stat()

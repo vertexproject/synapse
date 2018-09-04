@@ -1138,6 +1138,7 @@ class Cortex(s_cell.Cell):
 
     def stat(self):
         stats = {
+            'iden': self.iden,
             'layer': self.layer.stat()
         }
         return stats
