@@ -324,6 +324,7 @@ class Migrate010Test(s_iq.SynTest):
                 self.len(1, nodes)
                 self.isin('name:given', nodes[0][1]['props'])
                 self.notin('name:en', nodes[0][1]['props'])
+                self.notin('name:en:sur', nodes[0][1]['props'])
                 nodes = self.get_formfile('ps:%s:has' % personx, fh)
                 self.len(1, nodes)
                 self.eq(nodes[0][0][1][1], ('ps:name', 'pompey the great'))
@@ -385,16 +386,16 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(node[0][1][1][0], 'inet:server')
 
     def test_inet_web_chprofile(self):
+        ''' Just make sure we drop all the 'seen:max ' instances of chprofile, and keep the rest as is '''
         with self.getTestDir() as dirn, s_cortex.openurl('sqlite:///:memory:') as core:
 
             dirn = pathlib.Path(dirn)
 
-            arb_date = '2018/02/02 22:43:22.000'
             props = {
                 'acct': 'twitter.com/foobar',
                 'acct:site': 'twitter.com',
                 'acct:user': 'foobar',
-                'pv': f'inet:web:acct:seen:max={arb_date}',
+                'pv': 'inet:web:acct:seen:max=2018/02/02 22:43:22.000',
                 'pv:prop': 'inet:web:acct:seen:max',
             }
             core.formTufoByProp('inet:web:chprofile', s_common.guid(), **props)
@@ -403,6 +404,19 @@ class Migrate010Test(s_iq.SynTest):
             m.migrate()
 
             nodes = self.get_formfile('inet:web:chprofile', fh)
+            self.eq(len(nodes), 0)
+
+            props = {
+                'acct': 'twitter.com/foobar2',
+                'acct:site': 'twitter.com',
+                'acct:user': 'foobar2',
+                'pv': 'inet:web:acct:occupation=digital janitor',
+                'pv:prop': 'inet:web:acct:occupation',
+            }
+            core.formTufoByProp('inet:web:chprofile', s_common.guid(), **props)
+            fh = tempfile.TemporaryFile(dir=str(dirn))
+            m = s_migrate.Migrator(core, fh, tmpdir=str(dirn))
+            m.migrate()
+
+            nodes = self.get_formfile('inet:web:chprofile', fh)
             self.eq(len(nodes), 1)
-            node = nodes[0]
-            self.eq(node[1]['props']['nodeprop'], f'inet:web:acct:seen={arb_date}')
