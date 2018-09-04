@@ -1186,6 +1186,11 @@ class CortexTest(s_test.SynTest):
             opts = {'vars': {'foo': norm}}
             self.len(1, core.eval('pivcomp:tick=$foo', opts=opts))
 
+            # Vars can be used to make nodes
+            self.len(2, core.eval('[teststr=1 teststr=2 :tick=2018]'))
+            q = 'teststr +:tick $pprop=:tick [testint=$pprop] -teststr'
+            self.len(1, core.eval(q))
+
     def test_cortex_storm_filt_ival(self):
 
         with self.getTestCore() as core:
