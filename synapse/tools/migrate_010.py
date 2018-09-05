@@ -158,7 +158,8 @@ class Migrator:
                     seprs.append(subpropname)
                 if 'comp' in parents:
                     comps.append(subpropname)
-                if ('comp' in parents) or ('sepr' in parents) or subpropprops['ptype'] in forms:
+                if ('comp' in parents) or ('sepr' in parents) or ('propvalu' in parents) or \
+                        subpropprops['ptype'] in forms:
                     subs.extend(x for x in subpropnames if x.startswith(subpropname + ':') and ':seen:' not in x)
 
         self.filebytes = set(filebytes)
@@ -353,6 +354,13 @@ class Migrator:
                     break  # end of data
 
         logger.info('Stage 2b complete in %.1fs.', time.time() - start_time)
+
+    def convert_inet_web_chprofile(self, formname, props):
+        # Drop inet:web:acct:seen:max 'cuz too meta
+        if props.get('inet:web:chprofile:pv:prop') == 'inet:web:acct:seen:max':
+            return None
+        _, val = self.convert_subprop(formname, formname, props[formname], props)
+        return val
 
     def just_guid(self, formname, props):
         return props[formname]
@@ -714,6 +722,7 @@ class Migrator:
 
     primary_prop_special = {
         'inet:web:post': just_guid,
+        'inet:web:chprofile': convert_inet_web_chprofile,
         'it:dev:regval': just_guid,
         'file:bytes': convert_file_bytes,
         'inet:udp4': convert_inet_xxp_primary,
