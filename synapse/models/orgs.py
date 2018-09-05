@@ -26,7 +26,8 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The knowledge that an organization has an alias.',
                 }),
                 ('ou:name', ('str', {'lower': True, 'strip': True}), {
-                    'doc': 'The formal name of an organization',
+                    'doc': 'The name of an organization. This may be a formal name or informal name of the '
+                           'organization.',
                     'ex': 'acme corporation',
                 }),
                 ('ou:member', ('comp', {'fields': (('org', 'ou:org'), ('person', 'ps:person'))}), {
@@ -82,6 +83,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The primary url for the organization.',
                     }),
                 )),
+                ('ou:name', {}, ()),
                 ('ou:hasalias', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
