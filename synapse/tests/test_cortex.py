@@ -522,12 +522,12 @@ class CortexTest(s_test.SynTest):
     def test_base_types2(self):
         with self.getTestCore() as core:
 
+            # Test some default values
             with core.snap() as snap:
 
                 node = snap.addNode('testtype10', 'one')
                 self.nn(node.get('.created'))
-
-                nodes = list(snap.getNodesBy('.created', '2010', cmpr='>='))
+                created = node.reprs().get('.created')
 
                 self.eq(node.get('intprop'), 20)
                 self.eq(node.get('locprop'), '??')
@@ -535,6 +535,36 @@ class CortexTest(s_test.SynTest):
 
                 self.true(s_common.isguid(node.get('guidprop')))
 
+            # open a new snap, commiting the previous snap and do some lifts by univ prop
+            with core.snap() as snap:
+
+                nodes = list(snap.getNodesBy('.created', ))
+                self.len(1 + 1, nodes)
+
+                nodes = list(snap.getNodesBy('.created', node.get('.created')))
+                self.len(1, nodes)
+
+                nodes = list(snap.getNodesBy('.created', '2010', cmpr='>='))
+                self.len(1 + 1, nodes)
+
+                nodes = list(snap.getNodesBy('.created', ('2010', '3001'), cmpr='*range='))
+                self.len(1 + 1, nodes)
+
+                nodes = list(snap.getNodesBy('.created', ('2010', '?'), cmpr='*range='))
+                self.len(1 + 1, nodes)
+
+                self.len(2, core.eval('.created'))
+                self.len(1, core.eval(f'.created="{created}"'))
+                self.len(2, core.eval('.created>2010'))
+                self.len(0, core.eval('.created<2010'))
+                # The year the monolith returns
+                self.len(2, core.eval('.created*range=(2010, 3001)'))
+                self.len(2, core.eval('.created*range=("2010", "?")'))
+
+            # Open another snap to test some more default value behavior
+            with core.snap() as snap:
+                # Grab an updated reference to the first node
+                node = list(snap.getNodesBy('testtype10', 'one'))[0]
                 # add another node with default vals
                 snap.addNode('testtype10', 'two')
 
@@ -660,6 +690,7 @@ class CortexTest(s_test.SynTest):
             nodes = [n.pack() for n in core.eval(qstr)]
             self.len(1, nodes)
 
+            # Seed new nodes via nodedesf
             ndef = ('testcomp', (10, 'haha'))
             opts = {'ndefs': (ndef,)}
             # Seed nodes in the query with ndefs
@@ -672,8 +703,33 @@ class CortexTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].pack()[0], ('teststr', 'foo bar'))
 
+            # Test and/or/not
+            list(core.eval('[testcomp=(1, test) +#meep.morp +#bleep.blorp +#cond]'))
+            list(core.eval('[testcomp=(2, test) +#meep.morp +#bleep.zlorp +#cond]'))
+            list(core.eval('[testcomp=(3, foob) +#meep.gorp +#bleep.zlorp +#cond]'))
+
+            q = 'testcomp +(:hehe<2 and :haha=test)'
+            self.len(1, core.eval(q))
+
+            q = 'testcomp +(:hehe<2 and :haha=foob)'
+            self.len(0, core.eval(q))
+
+            q = 'testcomp +(:hehe<2 or :haha=test)'
+            self.len(2, core.eval(q))
+
+            q = 'testcomp +(:hehe<2 or :haha=foob)'
+            self.len(2, core.eval(q))
+
+            q = 'testcomp +(:hehe<2 or #meep.gorp)'
+            self.len(2, core.eval(q))
+            # TODO Add not tests
+
             self.genraises(s_exc.NoSuchOpt, core.eval, '%foo=asdf')
             self.genraises(s_exc.BadOptValu, core.eval, '%limit=asdf')
+            self.genraises(s_exc.NoSuchCmpr, core.eval, 'teststr*near=newp')
+            self.genraises(s_exc.NoSuchCmpr, core.eval, 'teststr +teststr@=2018')
+            self.genraises(s_exc.NoSuchCmpr, core.eval, 'teststr +#test*near=newp')
+            self.genraises(s_exc.NoSuchCmpr, core.eval, 'teststr +teststr:tick*near=newp')
             self.genraises(s_exc.BadStormSyntax, core.eval, ' | | ')
 
             self.len(2, list(core.eval(('[ teststr=foo teststr=bar ]'))))
@@ -836,25 +892,6 @@ class CortexTest(s_test.SynTest):
                 # final top level API check
                 self.none(snap.getNodeByNdef(('teststr', 'baz')))
 
-    def test_cortex_allowall(self):
-
-        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
-
-            pconf = {'user': 'root', 'passwd': 'root'}
-
-            def feed(snap, items):
-
-                with snap.allowall():
-                    self.nn(snap.addNode('teststr', 'foo'))
-
-                self.none(snap.addNode('teststr', 'bar'))
-
-            dmon.shared.get('core').setFeedFunc('allowtest', feed)
-
-            with dmon._getTestProxy('core', **pconf) as core:
-
-                core.addFeedData('allowtest', ['asdf'])
-
     def test_cortex_delnode_perms(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
@@ -898,27 +935,6 @@ class CortexTest(s_test.SynTest):
 
                 nodes = list(core.eval('sudo | [ inet:ipv4=1.2.3.4 ]'))
                 self.len(1, nodes)
-
-    def test_cortex_snap_cancel(self):
-
-        with self.getTestCore() as core:
-
-            with core.snap() as snap:
-                snap.cancel()
-                self.raises(s_exc.Canceled, snap.getNodeByNdef, ('teststr', 'foo'))
-
-            with core.snap() as snap:
-
-                snap.addNode('teststr', 'foo')
-                snap.addNode('teststr', 'bar')
-
-                genr = snap.getNodesBy('teststr')
-
-                self.nn(next(genr))
-
-                snap.cancel()
-
-                self.raises(s_exc.Canceled, next, genr)
 
     def test_cortex_cell_splices(self):
 
@@ -1066,6 +1082,25 @@ class CortexTest(s_test.SynTest):
             nodes = getPackNodes(core, q)
             self.len(3, nodes)
 
+            # tag conditional filters followed by * pivot operators
+            # These are all going to yield zero nodes but should
+            # parse cleanly.
+            q = '#test.bar -#test <- *'
+            nodes = getPackNodes(core, q)
+            self.len(0, nodes)
+
+            q = '#test.bar -#test <+- *'
+            nodes = getPackNodes(core, q)
+            self.len(0, nodes)
+
+            q = '#test.bar -#test -> *'
+            nodes = getPackNodes(core, q)
+            self.len(0, nodes)
+
+            q = '#test.bar -#test -+> *'
+            nodes = getPackNodes(core, q)
+            self.len(0, nodes)
+
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
             list(core.eval('[ testcomp=(127,newp) ] [testcomp=(127,127)]'))
@@ -1193,6 +1228,11 @@ class CortexTest(s_test.SynTest):
             self.len(0, core.eval('teststr=woot +.seen@=#baz'))
 
             self.len(1, core.eval('teststr=woot $foo=#foo +.seen@=$foo'))
+
+            self.len(1, core.eval('teststr +#foo@=2016'))
+            self.len(1, core.eval('teststr +#foo@=(2015, 2018)'))
+            self.len(1, core.eval('teststr +#foo@=(2014, 2019)'))
+            self.len(0, core.eval('teststr +#foo@=(2014, 20141231)'))
 
             self.len(1, core.eval('[ inet:dns:a=(woot.com,1.2.3.4) .seen=(2015,2016) ]'))
             self.len(1, core.eval('[ inet:fqdn=woot.com +#bad=(2015,2016) ]'))
@@ -1329,3 +1369,150 @@ class CortexTest(s_test.SynTest):
             self.len(0, core.eval('testint<10'))
             self.len(0, core.eval('testint<20'))
             self.len(1, core.eval('testint<30'))
+
+            self.len(0, core.eval('testint +testint>=30'))
+            self.len(1, core.eval('testint +testint>=20'))
+            self.len(1, core.eval('testint +testint>=10'))
+
+            self.len(0, core.eval('testint +testint>30'))
+            self.len(0, core.eval('testint +testint>20'))
+            self.len(1, core.eval('testint +testint>10'))
+
+            self.len(0, core.eval('testint +testint<=10'))
+            self.len(1, core.eval('testint +testint<=20'))
+            self.len(1, core.eval('testint +testint<=30'))
+
+            self.len(0, core.eval('testint +testint<10'))
+            self.len(0, core.eval('testint +testint<20'))
+            self.len(1, core.eval('testint +testint<30'))
+
+            # time indx is derived from the same lift helpers
+            list(core.eval('[teststr=foo :tick=201808021201]'))
+
+            self.len(0, core.eval('teststr:tick>=201808021202'))
+            self.len(1, core.eval('teststr:tick>=201808021201'))
+            self.len(1, core.eval('teststr:tick>=201808021200'))
+
+            self.len(0, core.eval('teststr:tick>201808021202'))
+            self.len(0, core.eval('teststr:tick>201808021201'))
+            self.len(1, core.eval('teststr:tick>201808021200'))
+
+            self.len(1, core.eval('teststr:tick<=201808021202'))
+            self.len(1, core.eval('teststr:tick<=201808021201'))
+            self.len(0, core.eval('teststr:tick<=201808021200'))
+
+            self.len(1, core.eval('teststr:tick<201808021202'))
+            self.len(0, core.eval('teststr:tick<201808021201'))
+            self.len(0, core.eval('teststr:tick<201808021200'))
+
+            self.len(0, core.eval('teststr +teststr:tick>=201808021202'))
+            self.len(1, core.eval('teststr +teststr:tick>=201808021201'))
+            self.len(1, core.eval('teststr +teststr:tick>=201808021200'))
+
+            self.len(0, core.eval('teststr +teststr:tick>201808021202'))
+            self.len(0, core.eval('teststr +teststr:tick>201808021201'))
+            self.len(1, core.eval('teststr +teststr:tick>201808021200'))
+
+            self.len(1, core.eval('teststr +teststr:tick<=201808021202'))
+            self.len(1, core.eval('teststr +teststr:tick<=201808021201'))
+            self.len(0, core.eval('teststr +teststr:tick<=201808021200'))
+
+            self.len(1, core.eval('teststr +teststr:tick<201808021202'))
+            self.len(0, core.eval('teststr +teststr:tick<201808021201'))
+            self.len(0, core.eval('teststr +teststr:tick<201808021200'))
+
+            list(core.eval('[testint=99999]'))
+            self.len(1, core.eval('testint<=20'))
+            self.len(2, core.eval('testint>=20'))
+            self.len(1, core.eval('testint>20'))
+            self.len(0, core.eval('testint<20'))
+
+    def test_cortex_ontag(self):
+
+        with self.getTestCore() as core:
+
+            tags = {}
+            def onadd(node, tag, valu):
+                tags[tag] = valu
+
+            def ondel(node, tag, valu):
+                self.none(node.getTag(tag))
+                self.false(node.hasTag(tag))
+                tags.pop(tag)
+
+            core.onTagAdd('foo', onadd)
+            core.onTagAdd('foo.bar', onadd)
+            core.onTagAdd('foo.bar.baz', onadd)
+
+            core.onTagDel('foo', ondel)
+            core.onTagDel('foo.bar', ondel)
+            core.onTagDel('foo.bar.baz', ondel)
+
+            with core.snap() as snap:
+
+                node = snap.addNode('teststr', 'hehe')
+                node.addTag('foo.bar.baz', valu=(200, 300))
+
+                self.eq(tags.get('foo'), (None, None))
+                self.eq(tags.get('foo.bar'), (None, None))
+                self.eq(tags.get('foo.bar.baz'), (200, 300))
+
+                node.delTag('foo.bar')
+
+                self.eq(tags.get('foo'), (None, None))
+
+                self.none(tags.get('foo.bar'))
+                self.none(tags.get('foo.bar.baz'))
+
+    def test_cortex_del_univ(self):
+
+        with self.getTestCore() as core:
+
+            core.model.addUnivProp('hehe', ('int', {}), {})
+
+            self.len(1, core.eval('[ teststr=woot .hehe=20 ]'))
+            self.len(1, core.eval('.hehe'))
+            self.len(1, core.eval('.hehe [ -.hehe ]'))
+            self.len(0, core.eval('.hehe'))
+
+    def test_cortex_snap_eval(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+                self.len(2, snap.eval('[teststr=foo teststr=bar]'))
+            self.len(2, core.eval('teststr'))
+
+    def test_feed_syn_nodes(self):
+        with self.getTestCore() as core0:
+            q = '[testint=1 testint=2 testint=3]'
+            podes = [n.pack() for n in core0.eval(q)]
+            self.len(3, podes)
+        with self.getTestCore() as core1:
+            retn = core1.addFeedData('syn.nodes', podes)
+            self.len(3, core1.eval('testint'))
+
+    def test_stat(self):
+
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            coreiden = dmon.shared['core'].iden
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:
+                ostat = core.stat()
+                self.eq(ostat.get('iden'), coreiden)
+                self.isin('layer', ostat)
+                self.len(1, (core.eval('sudo | [teststr=123 :tick=2018]')))
+                nstat = core.stat()
+                self.gt(nstat.get('layer').get('splicelog_indx'), ostat.get('layer').get('splicelog_indx'))
+
+    def test_offset(self):
+        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            pconf = {'user': 'root', 'passwd': 'root'}
+            with dmon._getTestProxy('core', **pconf) as core:
+                iden = s_common.guid()
+                self.eq(core.getFeedOffs(iden), 0)
+                self.none(core.setFeedOffs(iden, 10))
+                self.eq(core.getFeedOffs(iden), 10)
+                self.none(core.setFeedOffs(iden, 0))
+                self.eq(core.getFeedOffs(iden), 0)
+                self.raises(s_exc.BadConfValu, core.setFeedOffs, iden, -1)

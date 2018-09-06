@@ -35,6 +35,7 @@ class LmdbTest(SynTest):
             # Reopen the seqn and continue where we left off
             lenv = lmdb.open(dirn, writemap=True, max_dbs=128)
             seqn = s_lmdb.Seqn(lenv, b'seqn:test')
+            self.eq(seqn.index(), 3)
 
             with lenv.begin(write=True) as xact:
                 self.eq(seqn.nextindx(xact), 3)

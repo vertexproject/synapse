@@ -677,6 +677,18 @@ def err(e):
     name = e.__class__.__name__
     info = {}
 
+    tb = sys.exc_info()[2]
+    tbinfo = traceback.extract_tb(tb)
+    if tbinfo:
+        path, line, tbname, src = tbinfo[-1]
+        path = os.path.basename(path)
+        info = {
+            'efile': path,
+            'eline': line,
+            'esrc': src,
+            'ename': tbname,
+        }
+
     if isinstance(e, s_exc.SynErr):
         info.update(e.items())
     else:

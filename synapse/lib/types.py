@@ -9,6 +9,7 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
+import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,7 @@ class Type:
 
         self._type_norms = {}   # python type to norm function map str: _norm_str
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
+        self._cmpr_ctor_lift = {} # if set, create a cmpr which is passed along with indx ops
 
         self.indxcmpr = {
             '=': self.indxByEq,
@@ -71,23 +73,48 @@ class Type:
         yield valu
 
     def setCmprCtor(self, name, func):
+        '''
+        Set a comparator ctor for a given named comparison operation.
+
+        Args:
+            name (str): Name of the comparison operation.
+            func: Function which returns a comparator.
+
+        Notes:
+            Comparator ctors should expect to get the right-hand-side of the
+            comparison as their argument, and the returned function should
+            expect to get the left hand side of the comparison and return a
+            boolean from there.
+        '''
         self._cmpr_ctors[name] = func
 
     def getCmprCtor(self, name):
         return self._cmpr_ctors.get(name)
 
+    def setLiftHintCmprCtor(self, name, func):
+        self._cmpr_ctor_lift[name] = func
+
+    def getLiftHintCmprCtor(self, name):
+        return self._cmpr_ctor_lift.get(name)
+
+    def getLiftHintCmpr(self, valu, cmpr):
+        ctor = self.getLiftHintCmprCtor(cmpr)
+        if ctor:
+            return ctor(valu)
+        return None
+
     def cmpr(self, val1, name, val2):
         '''
-        Compare the two values using the given type specific comparitor.
+        Compare the two values using the given type specific comparator.
         '''
         ctor = self.getCmprCtor(name)
         if ctor is None:
-            raise s_exc.NoSuchCmpr(name=name)
+            raise s_exc.NoSuchCmpr(cmpr=name, name=self.name)
 
         norm1 = self.norm(val1)[0]
         norm2 = self.norm(val2)[0]
 
-        return ctor(norm1)(norm2)
+        return ctor(norm2)(norm1)
 
     def _ctorCmprEq(self, text):
         norm, info = self.norm(text)
@@ -178,24 +205,6 @@ class Type:
         return (
             ('range', (mini, maxi)),
         )
-
-    def getFiltFunc(self, cmpr, text):
-        '''
-        Return a filter function for the given value and comparison.
-
-        Args:
-            cmpr (str): Comparison operator such as '='.
-            text (str): The query text to compare against.
-        '''
-        ctor = self._cmpr_ctors.get(cmpr)
-        if ctor is not None:
-            return ctor(text)
-
-        norm, info = self.norm(text)
-
-        #cmprfunc = s_cmpr.get(cmpr)
-        #if cmprfunc is None:
-            #raise s_exc.NoSuchCmpr(name=cmpr)
 
     def setNormFunc(self, typo, func):
         '''
@@ -300,7 +309,7 @@ class Type:
         func = self.indxcmpr.get(cmpr)
 
         if func is None:
-            raise s_exc.NoSuchCmpr(type=self.name, cmpr=cmpr)
+            raise s_exc.NoSuchCmpr(name=self.name, cmpr=cmpr)
 
         return func(valu)
 
@@ -550,25 +559,25 @@ class IntBase(Type):
     def _ctorCmprGe(self, text):
         norm, info = self.norm(text)
         def cmpr(valu):
-            return norm >= valu
+            return valu >= norm
         return cmpr
 
     def _ctorCmprLe(self, text):
         norm, info = self.norm(text)
         def cmpr(valu):
-            return norm <= valu
+            return valu <= norm
         return cmpr
 
     def _ctorCmprGt(self, text):
         norm, info = self.norm(text)
         def cmpr(valu):
-            return norm > valu
+            return valu > norm
         return cmpr
 
     def _ctorCmprLt(self, text):
         norm, info = self.norm(text)
         def cmpr(valu):
-            return norm < valu
+            return valu < norm
         return cmpr
 
 class Int(IntBase):
@@ -767,6 +776,30 @@ class Loc(Type):
         return (
             ('pref', indx),
         )
+
+    @s_cache.memoize()
+    def stems(self, valu):
+        norm, info = self.norm(valu)
+        parts = norm.split('.')
+        ret = []
+        for i in range(len(parts)):
+            part = '.'.join(parts[:i + 1])
+            ret.append(part)
+        return ret
+
+    def _ctorCmprEq(self, text):
+        norm, _ = self.norm(text)
+
+        def cmpr(valu):
+            # Shortcut equality
+            if valu == norm:
+                return True
+
+            vstems = self.stems(valu)
+            return norm in vstems
+
+        return cmpr
+
 
 class Ndef(Type):
 

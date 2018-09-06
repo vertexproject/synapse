@@ -36,7 +36,17 @@ class PsModule(s_module.CoreModule):
             ),
             'forms': (
                 ('ps:tokn', {}, ()),
-                ('ps:name', {}, ()),
+                ('ps:name', {}, (
+                    ('sur', ('ps:tokn', {}), {
+                        'doc': 'The surname part of the name'
+                    }),
+                    ('middle', ('ps:tokn', {}), {
+                        'doc': 'The middle name part of the name'
+                    }),
+                    ('given', ('ps:tokn', {}), {
+                        'doc': 'The given name part of the name'
+                    }),
+                )),
                 ('ps:person', {}, (
                     ('dob', ('time', {}), {
                         'doc': 'The Date of Birth (DOB) if known.',
@@ -58,18 +68,6 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('name:given', ('ps:tokn', {}), {
                         'doc': 'The given name of the person'
-                    }),
-                    ('name:en', ('ps:name', {}), {
-                        'doc': 'The English version of the name for the person.',
-                    }),
-                    ('name:en:sur', ('ps:tokn', {}), {
-                        'doc': 'The English version of the surname of the person'
-                    }),
-                    ('name:en:middle', ('ps:tokn', {}), {
-                        'doc': 'The English version of the middle name of the person'
-                    }),
-                    ('name:en:given', ('ps:tokn', {}), {
-                        'doc': 'The English version of the given name of the person'
                     }),
                 )),
                 ('ps:persona', {}, (
@@ -97,18 +95,6 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('name:given', ('ps:tokn', {}), {
                         'doc': 'The given name of the suspected person.'
-                    }),
-                    ('name:en', ('ps:name', {}), {
-                        'doc': 'The English version of the name for the person.',
-                    }),
-                    ('name:en:sur', ('ps:tokn', {}), {
-                        'doc': 'The English version of the surname of the suspected person.'
-                    }),
-                    ('name:en:middle', ('ps:tokn', {}), {
-                        'doc': 'The English version of the middle name of the suspected person.'
-                    }),
-                    ('name:en:given', ('ps:tokn', {}), {
-                        'doc': 'The English version of the given name of the suspected person.'
                     }),
                 )),
                 ('ps:person:has', {}, (

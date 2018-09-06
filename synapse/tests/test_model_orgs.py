@@ -41,10 +41,11 @@ class OuModelTest(s_test.SynTest):
 
             with core.snap() as snap:
                 guid0 = s_common.guid()
+                name = '\u21f1\u21f2 Inc.'
+                normname = '\u21f1\u21f2 inc.'
                 oprops = {
                     'loc': 'US.CA',
-                    'name': '\u21f1\u21f2 Inc.',
-                    'name:en': ' Arrow inc.',
+                    'name': name,
                     'alias': 'arrow',
                     'phone': '+15555555555',
                     'sic': '0119',
@@ -55,14 +56,16 @@ class OuModelTest(s_test.SynTest):
                 node = snap.addNode('ou:org', guid0, oprops)
                 self.eq(node.ndef[1], guid0),
                 self.eq(node.get('loc'), 'us.ca')
-                self.eq(node.get('name'), '\u21f1\u21f2 inc.')
-                self.eq(node.get('name:en'), 'arrow inc.')
+                self.eq(node.get('name'), normname)
                 self.eq(node.get('alias'), 'arrow')
                 self.eq(node.get('phone'), '15555555555')
                 self.eq(node.get('sic'), '0119')
                 self.eq(node.get('naics'), '541715')
                 self.eq(node.get('url'), 'http://www.arrowinc.link')
                 self.eq(node.get('us:cage'), '7qe71')
+
+                node = list(snap.getNodesBy('ou:name', name))[0]
+                self.eq(node.ndef[1], normname)
 
                 person0 = s_common.guid()
                 mprops = {

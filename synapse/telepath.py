@@ -268,6 +268,8 @@ class Proxy(s_coro.Fini):
         return await self.task(todo)
 
     async def task(self, todo, name=None):
+        if self.isfini:
+            raise s_exc.IsFini()
 
         task = Task()
 

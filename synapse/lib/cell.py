@@ -218,9 +218,10 @@ class HttpCellStatus(CellHandler):
         #byts = json.dumps({'status': 'ok', 'result': modl})
         #self.write(byts)
 
-class CellApi:
+class CellApi(s_coro.Fini):
 
     def __init__(self, cell, link):
+        s_coro.Fini.__init__(self)
         self.cell = cell
         self.link = link
         self.user = link.get('cell:user')
@@ -230,9 +231,6 @@ class CellApi:
 
     def getCellIden(self):
         return self.cell.getCellIden()
-
-    async def fini(self):
-        return
 
     @adminapi
     def addAuthUser(self, name):

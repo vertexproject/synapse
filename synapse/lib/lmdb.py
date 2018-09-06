@@ -82,6 +82,12 @@ class Seqn:
 
         self.indx = indx
 
+    def index(self):
+        '''
+        Return the current index to be used
+        '''
+        return self.indx
+
     def nextindx(self, xact):
         '''
         Determine the next insert offset according to storage.

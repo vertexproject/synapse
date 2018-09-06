@@ -616,14 +616,14 @@ class Parser:
     must be quoted at beginning: . : # @ ( $ etc....
     '''
 
-    def __init__(self, view, text, offs=0):
+    def __init__(self, core, text, offs=0):
 
         self.offs = offs
         self.text = text.strip()
         self.size = len(self.text)
 
-        self.view = view
-        self.model = view.model
+        self.core = core
+        self.model = core.model
 
     def _raiseSyntaxError(self, mesg):
         at = self.text[self.offs:self.offs + 12]
@@ -639,7 +639,7 @@ class Parser:
 
         self.ignore(whitespace)
 
-        query = s_ast.Query(self.view)
+        query = s_ast.Query(self.core)
         query.text = self.text
 
         while True:
@@ -730,6 +730,7 @@ class Parser:
                 #self.offs += 1
                 #oper = self.query()
 
+        query.init(self.core)
         return query
 
     def editoper(self):
@@ -747,6 +748,9 @@ class Parser:
 
         if self.nextstr('-:'):
             return self.editpropdel()
+
+        if self.nextstr('-.'):
+            return self.editunivdel()
 
         if self.nextstr('-#'):
             return self.edittagdel()
@@ -843,6 +847,15 @@ class Parser:
 
         relp = self.relprop()
         return s_ast.EditPropDel(kids=(relp,))
+
+    def editunivdel(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('-')
+
+        univ = self.univprop()
+        return s_ast.EditUnivDel(kids=(univ,))
 
     def edittagadd(self):
 
@@ -1066,7 +1079,7 @@ class Parser:
 
         if self.model.props.get(name) is None:
 
-            if self.view.core.getStormCmd(name) is not None:
+            if self.core.getStormCmd(name) is not None:
 
                 text = self.cmdtext()
                 self.ignore(whitespace)
@@ -1185,6 +1198,10 @@ class Parser:
             self.ignore(whitespace)
 
             if self.nextchar() not in cmprstart:
+                return s_ast.TagCond(kids=(tag,))
+
+            # Special case of pivot operations which ALSO start with cmprstart chars
+            if self.nextstrs('<-', '<+-'):
                 return s_ast.TagCond(kids=(tag,))
 
             cmpr = self.cmpr()

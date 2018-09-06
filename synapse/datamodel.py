@@ -15,51 +15,11 @@ logger = logging.getLogger(__name__)
 hexre = regex.compile('^[0-9a-z]+$')
 propre = regex.compile('^[0-9a-z:_]+$')
 
-class Prop:
-    '''
-    The Prop class represents a property defined within the data model.
-    '''
+class PropBase:
 
-    def __init__(self, modl, form, name, typedef, info):
-
-        self.modl = modl
-        self.name = name
-        self.info = info
-
-        self.isform = False     # for quick Prop()/Form() detection
-
-        self.form = form
-        self.type = None
-        self.typedef = typedef
-
-        self.storinfo = {
-            'univ': name.startswith('.')
-        }
-
-        self.full = '%s:%s' % (form.name, name)
-
+    def __init__(self):
         self.onsets = []
         self.ondels = []
-
-        self.utf8name = self.name.encode('utf8')
-        self.utf8full = self.full.encode('utf8')
-
-        self.pref = self.form.utf8name + b'\x00' + self.utf8name + b'\x00'
-
-        self.type = self.modl.getTypeClone(typedef)
-
-        self.form.props[name] = self
-
-        self.modl.propsbytype[self.type.name].append(self)
-
-        # if we have a defval, tell the form...
-        defv = self.info.get('defval')
-        if defv is not None:
-            self.form.defvals[name] = defv
-
-        # if we are required, tell the form...
-        if self.info.get('req'):
-            self.form.reqprops.append(self)
 
     def onSet(self, func):
         '''
@@ -116,6 +76,54 @@ class Prop:
             except Exception as e:
                 logger.exception('ondel() error for %s' % (self.full,))
 
+class Prop(PropBase):
+    '''
+    The Prop class represents a property defined within the data model.
+    '''
+    def __init__(self, modl, form, name, typedef, info):
+
+        PropBase.__init__(self)
+
+        self.modl = modl
+        self.name = name
+        self.info = info
+
+        self.isform = False     # for quick Prop()/Form() detection
+
+        self.form = form
+        self.type = None
+        self.typedef = typedef
+
+        self.storinfo = {
+            'univ': name.startswith('.')
+        }
+
+        self.univ = None
+        if name.startswith('.'):
+            self.univ = name
+
+        self.full = '%s:%s' % (form.name, name)
+
+        self.utf8name = self.name.encode('utf8')
+        self.utf8full = self.full.encode('utf8')
+
+        self.pref = self.form.utf8name + b'\x00' + self.utf8name + b'\x00'
+
+        self.type = self.modl.getTypeClone(typedef)
+
+        self.form.props[name] = self
+
+        self.modl.propsbytype[self.type.name].append(self)
+
+        # if we have a defval, tell the form...
+        defv = self.info.get('defval')
+        if defv is not None:
+            self.form.defvals[name] = defv
+
+        # if we are required, tell the form...
+        if self.info.get('req'):
+            self.form.reqprops.append(self)
+
     def getLiftOps(self, valu, cmpr='='):
 
         if valu is None:
@@ -155,30 +163,17 @@ class Prop:
             ('prop:del', (buid, self.form.name, self.name, self.storinfo)),
         )
 
-    def filt(self, text, cmpr='='):
-        '''
-        Construct a filter function for nodes by property.
-        '''
-        typefilt = self.type.getFiltFunc(text=text, cmpr=cmpr)
-        if typefilt is None:
-            return
-
-        def func(node):
-            valu = node[1]['props'].get(self.name)
-            return typefilt(valu)
-
-        return func
-
     def pack(self):
         info = {'type': self.typedef}
         info.update(self.info)
         return info
 
-class Univ:
+class Univ(PropBase):
     '''
     A property-like object that can lift without Form().
     '''
     def __init__(self, modl, name, typedef, propinfo):
+        PropBase.__init__(self)
         self.modl = modl
         self.name = name
         self.type = modl.getTypeClone(typedef)
@@ -199,7 +194,7 @@ class Univ:
                 ('univ:re', (self.name, valu, {})),
             )
 
-        iops = self.type.getIndxOps(valu)
+        iops = self.type.getIndxOps(valu, cmpr)
 
         return (
             ('indx', ('byuniv', self.pref, iops)),
@@ -301,7 +296,7 @@ class Form:
                 ('form:re', (self.name, valu, {})),
             )
 
-        iops = self.type.getIndxOps(valu, cmpr=cmpr)
+        iops = self.type.getIndxOps(valu, cmpr)
         return (
             ('indx', ('byprop', self.pref, iops)),
         )

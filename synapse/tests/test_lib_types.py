@@ -9,7 +9,9 @@ import synapse.datamodel as s_datamodel
 class TypesTest(s_test.SynTest):
 
     def test_type(self):
-        self.skip('Implement base type test')
+        model = s_datamodel.Model()
+        t = model.type('bool')
+        self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
 
     def test_bool(self):
         model = s_datamodel.Model()
@@ -250,7 +252,7 @@ class TypesTest(s_test.SynTest):
         self.eq(int128.indx(-2**127), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
         self.raises(OverflowError, int8.indx, 2**128)
 
-        # test both unsigned and signed comparitors
+        # test both unsigned and signed comparators
         self.true(uint64.cmpr(10, '<', 20))
         self.true(uint64.cmpr(10, '<=', 20))
         self.true(uint64.cmpr(20, '<=', 20))
@@ -286,6 +288,29 @@ class TypesTest(s_test.SynTest):
         self.eq('', loctype.norm('')[0])
         self.eq('us.va.ओं.reston', loctype.norm('US.    VA.ओं.reston')[0])
         self.eq(b'us\x00haha\xed\xb3\xbestuff\x00blah\x00', loctype.indx('us.haha\udcfestuff.blah'))
+
+        with self.getTestCore() as core:
+            self.len(1, core.eval('[testint=1 :loc=us.va.syria]'))
+            self.len(1, core.eval('[testint=2 :loc=us.va.sydney]'))
+            self.len(1, core.eval('[testint=3 :loc=""]'))
+
+            self.len(1, core.eval('testint:loc=us.va.syria'))
+            self.len(1, core.eval('testint:loc=us.va.sydney'))
+            self.len(0, core.eval('testint:loc=us.va.sy'))
+            self.len(2, core.eval('testint:loc=us.va'))
+            self.len(0, core.eval('testint:loc=us.v'))
+            self.len(2, core.eval('testint:loc=us'))
+            self.len(0, core.eval('testint:loc=u'))
+            self.len(1, core.eval('testint:loc=""'))
+
+            self.len(1, core.eval('testint +:loc="us.va. syria"'))
+            self.len(1, core.eval('testint +:loc=us.va.sydney'))
+            self.len(0, core.eval('testint +:loc=us.va.sy'))
+            self.len(2, core.eval('testint +:loc=us.va'))
+            self.len(0, core.eval('testint +:loc=us.v'))
+            self.len(2, core.eval('testint +:loc=us'))
+            self.len(0, core.eval('testint +:loc=u'))
+            self.len(1, core.eval('testint +:loc=""'))
 
     def test_ndef(self):
         self.skip('Implement base ndef test')

@@ -1,5 +1,8 @@
 import synapse.exc as s_exc
+
 import synapse.lib.auth as s_auth
+import synapse.lib.node as s_node
+
 import synapse.tests.common as s_t_common
 
 class NodeTest(s_t_common.SynTest):
@@ -28,6 +31,20 @@ class NodeTest(s_t_common.SynTest):
                 reprs = {k: v for (k, v) in info.get('reprs', {}).items() if not k.startswith('.')}
                 self.eq(reprs, {'tick': '1970/01/01 00:00:12.345'})
 
+                # Set a property on the node which is extra model and pack it.
+                # This situation can be encountered in a multi-layer situation
+                # where one Cortex can have model knowledge and set props
+                # that another Cortex (sitting on top of the first one) lifts
+                # a node which has props the second cortex doens't know about.
+                node.props['.newp'] = 1
+                node.props['newp'] = (2, 3)
+                iden, info = node.pack(dorepr=True)
+                props, reprs = info.get('props'), info.get('reprs')
+                self.eq(props.get('.newp'), 1)
+                self.eq(props.get('newp'), (2, 3))
+                self.eq(reprs.get('.newp'), '1')
+                self.eq(reprs.get('newp'), '(2, 3)')
+
     def test_set(self):
         form = 'teststr'
         valu = 'cool'
@@ -47,16 +64,6 @@ class NodeTest(s_t_common.SynTest):
                 snap.strict = False
                 self.false(ronode.set('hehe', 3))
                 snap.strict = True
-
-                with self.getTestDir() as dirn:
-                    with s_auth.Auth(dirn) as auth:
-                        user = auth.addUser('hatguy2')
-                        snap.setUser(user)
-
-                        self.raises(s_exc.AuthDeny, node.set, 'tick', 1)
-                        snap.strict = False
-                        self.false(node.set('tick', 1))
-                        snap.strict = True
 
     def test_has(self):
         form = 'teststr'
@@ -112,16 +119,6 @@ class NodeTest(s_t_common.SynTest):
                 self.false(ronode.pop('hehe'))
                 snap.strict = True
 
-                with self.getTestDir() as dirn:
-                    with s_auth.Auth(dirn) as auth:
-                        user = auth.addUser('hatguy')
-                        snap.setUser(user)
-
-                        self.raises(s_exc.AuthDeny, node.pop, 'tick')
-                        snap.strict = False
-                        self.false(node.pop('tick'))
-                        snap.strict = True
-
     def test_repr(self):
         with self.getTestCore() as core:
             with core.snap() as snap:
@@ -176,22 +173,38 @@ class NodeTest(s_t_common.SynTest):
                 self.false(node.pop('nope'))
                 snap.strict = True
 
-                with self.getTestDir() as dirn:
-                    with s_auth.Auth(dirn) as auth:
-                        user = auth.addUser('hatguy')
-                        snap.setUser(user)
+    def test_helpers(self):
+        form = 'teststr'
+        valu = 'cool'
+        props = {'tick': 12345}
+        tval = (None, None)
 
-                        self.raises(s_exc.AuthDeny, node.addTag, 'newp')
-                        snap.strict = False
-                        self.false(node.addTag('newp'))
-                        snap.strict = True
+        with self.getTestCore() as core:
+            with core.snap() as snap:
+                node = snap.addNode(form, valu, props=props)
+                node.addTag('test.foo.bar.duck', tval)
+                node.addTag('test.foo.baz', tval)
+                pode = node.pack(dorepr=True)
 
-                        self.raises(s_exc.AuthDeny, node.delTag, 'newp')
-                        snap.strict = False
-                        self.false(node.delTag('newp'))
-                        snap.strict = True
+        self.eq(s_node.ndef(pode), ('teststr', 'cool'))
 
-                        self.raises(s_exc.AuthDeny, node.pop, 'tick')
-                        snap.strict = False
-                        self.false(node.pop('tick'))
-                        snap.strict = True
+        e = '15985dca780f125a6cefdcbd332c64faa505116ea652b1702a3df81e29e98732'
+        self.eq(s_node.iden(pode), e)
+
+        self.true(s_node.tagged(pode, 'test'))
+        self.true(s_node.tagged(pode, '#test.foo.bar'))
+        self.true(s_node.tagged(pode, 'test.foo.bar.duck'))
+        self.false(s_node.tagged(pode, 'test.foo.bar.newp'))
+
+        self.len(2, s_node.tags(pode, leaf=True))
+        self.len(5, s_node.tags(pode))
+
+        self.eq(s_node.prop(pode, 'tick'), 12345)
+        self.eq(s_node.prop(pode, ':tick'), 12345)
+        self.eq(s_node.prop(pode, 'teststr:tick'), 12345)
+        self.none(s_node.prop(pode, 'newp'))
+
+        props = s_node.props(pode)
+        self.isin('.created', props)
+        self.isin('tick', props)
+        self.notin('newp', props)
