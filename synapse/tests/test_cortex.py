@@ -686,6 +686,7 @@ class CortexTest(s_test.SynTest):
             nodes = [n.pack() for n in core.eval(qstr)]
             self.len(1, nodes)
 
+            # Seed new nodes via nodedesf
             ndef = ('testcomp', (10, 'haha'))
             opts = {'ndefs': (ndef,)}
             # Seed nodes in the query with ndefs
@@ -697,6 +698,27 @@ class CortexTest(s_test.SynTest):
             nodes = list(core.eval('', opts=opts))
             self.len(1, nodes)
             self.eq(nodes[0].pack()[0], ('teststr', 'foo bar'))
+
+            # Test and/or/not
+            list(core.eval('[testcomp=(1, test) +#meep.morp +#bleep.blorp +#cond]'))
+            list(core.eval('[testcomp=(2, test) +#meep.morp +#bleep.zlorp +#cond]'))
+            list(core.eval('[testcomp=(3, foob) +#meep.gorp +#bleep.zlorp +#cond]'))
+
+            q = 'testcomp +(:hehe<2 and :haha=test)'
+            self.len(1, core.eval(q))
+
+            q = 'testcomp +(:hehe<2 and :haha=foob)'
+            self.len(0, core.eval(q))
+
+            q = 'testcomp +(:hehe<2 or :haha=test)'
+            self.len(2, core.eval(q))
+
+            q = 'testcomp +(:hehe<2 or :haha=foob)'
+            self.len(2, core.eval(q))
+
+            q = 'testcomp +(:hehe<2 or #meep.gorp)'
+            self.len(2, core.eval(q))
+            # TODO Add not tests
 
             self.genraises(s_exc.NoSuchOpt, core.eval, '%foo=asdf')
             self.genraises(s_exc.BadOptValu, core.eval, '%limit=asdf')
