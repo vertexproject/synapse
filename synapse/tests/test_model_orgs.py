@@ -46,7 +46,6 @@ class OuModelTest(s_test.SynTest):
                 oprops = {
                     'loc': 'US.CA',
                     'name': name,
-                    'name:en': ' Arrow inc.',
                     'alias': 'arrow',
                     'phone': '+15555555555',
                     'sic': '0119',
@@ -58,7 +57,6 @@ class OuModelTest(s_test.SynTest):
                 self.eq(node.ndef[1], guid0),
                 self.eq(node.get('loc'), 'us.ca')
                 self.eq(node.get('name'), normname)
-                self.eq(node.get('name:en'), 'arrow inc.')
                 self.eq(node.get('alias'), 'arrow')
                 self.eq(node.get('phone'), '15555555555')
                 self.eq(node.get('sic'), '0119')
