@@ -238,10 +238,10 @@ class Migrator:
                 compi = ((v.encode('utf8'), _enc_iden(i)) for i, p, v, _ in rows
                          if p == 'tufo:form' and (self.is_comp(v) or v == 'file:bytes'))
                 with txn.cursor(self.form_tbl) as curs:
-                        consumed, added = curs.putmulti(compi)
-                        if consumed != added:
-                            raise ConsistencyError('Failure writing to Db.  consumed %d != added %d',
-                                                   consumed, added)
+                    consumed, added = curs.putmulti(compi)
+                    if consumed != added:
+                        raise ConsistencyError('Failure writing to Db.  consumed %d != added %d',
+                                               consumed, added)
 
         logger.info('Stage 1 complete in %.1fs.', time.time() - start_time)
 
@@ -591,9 +591,6 @@ class Migrator:
 
     secondary_props_to_drop = set((
         'syn:tag:depth',
-        'ps:name:middle',
-        'ps:name:sur',
-        'ps:name:given',
         'inet:tcp4:ipv4',
         'inet:tcp4:port',
         'inet:udp4:ipv4',
@@ -784,10 +781,10 @@ class Migrator:
         nameformname = '%s:name' % psorou
         nameprops = {}
         if psorou == 'ps':
-            for prop in [':sur', ':given', ':middle']:
-                part = props.get(propname + prop)
+            for prop in ('sur', 'given', 'middle'):
+                part = props.get('%s:%s' % (propname, prop))
                 if part is not None:
-                    nameprops[nameformname + prop] = part
+                    nameprops[prop] = part
             namenode = ((nameformname, val), {'props': nameprops})
             self.write_node_to_file(namenode)
 

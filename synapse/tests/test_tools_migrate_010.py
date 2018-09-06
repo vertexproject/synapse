@@ -77,11 +77,6 @@ class Migrate010Test(s_iq.SynTest):
             self.notin('site', node[1]['props'])
             self.eq(node[1]['props']['.seen'], (1000, 2000))
 
-            # test that secondary prop drop works
-            nodes = self.get_formfile('ps:name', fh)
-            self.eq(len(nodes), 1)
-            self.notin('middle', nodes[0][1]['props'])
-
             self.eq(node[1]['props']['avatar'], 'guid:' + file_guid)
 
             props = {
@@ -312,6 +307,7 @@ class Migrate010Test(s_iq.SynTest):
             with self.getTestDir() as dirn, self.getRamCore() as core:
                 props = {
                     'name': 'Gnaeus Pompeius Magnus',
+                    'guidname': 'guidname',
                     'name:given': 'Gnaeus',
                     'name:en': 'Pompey the Great',
                     'name:en:sur': 'Pompey'
@@ -323,13 +319,25 @@ class Migrate010Test(s_iq.SynTest):
                 m.migrate()
                 nodes = self.get_formfile('ps:%s' % personx, fh)
                 self.len(1, nodes)
+
                 self.isin('name:given', nodes[0][1]['props'])
                 self.notin('name:en', nodes[0][1]['props'])
                 self.notin('name:en:sur', nodes[0][1]['props'])
+
+                # test that secondary prop drop works
+                self.notin('guidname', nodes[0][1]['props'])
+
                 nodes = self.get_formfile('has', fh)
                 self.len(1, nodes)
                 first_node = nodes[0]
                 self.eq(first_node[0][1], (('ps:%s' % personx, guid), ('ps:name', 'pompey the great')))
+
+                nodes = self.get_formfile('ps:name', fh)
+                self.len(3, nodes)
+                en_node = [n for n in nodes if n[0][1] == 'pompey the great'][0]
+                latin_node = [n for n in nodes if n[0][1] == 'gnaeus pompeius magnus'][0]
+                self.eq('pompey', en_node[1]['props'].get('sur'))
+                self.eq('gnaeus', latin_node[1]['props'].get('given'))
 
                 core.formTufoByProp('ps:%s:has' % personx, (guid, ('inet:fqdn', 'pompeius.respublica.rm')))
                 fh = tempfile.TemporaryFile(dir=dirn)
