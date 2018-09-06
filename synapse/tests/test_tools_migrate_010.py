@@ -169,9 +169,9 @@ class Migrate010Test(s_iq.SynTest):
                                 **{'seen:min': 1000, 'seen:max': 2000})
             fh = tempfile.TemporaryFile(dir=str(dirn))
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
-            nodes = self.get_formfile('ps:person:has', fh)
+            nodes = self.get_formfile('has', fh)
             self.len(1, nodes)
-            self.eq(nodes[0][0], ('ps:person:has', (person_guid, ('file:bytes', 'guid:' + file_guid))))
+            self.eq(nodes[0][0], ('has', (('ps:person', person_guid), ('file:bytes', 'guid:' + file_guid))))
             self.eq(nodes[0][1]['props']['.seen'], (1000, 2000))
 
             # ps:image
@@ -316,7 +316,8 @@ class Migrate010Test(s_iq.SynTest):
                     'name:en': 'Pompey the Great',
                     'name:en:sur': 'Pompey'
                 }
-                core.formTufoByProp('ps:%s' % personx, s_common.guid(), **props)
+                guid = s_common.guid()
+                core.formTufoByProp('ps:%s' % personx, guid, **props)
                 fh = tempfile.TemporaryFile(dir=dirn)
                 m = s_migrate.Migrator(core, fh, tmpdir=dirn)
                 m.migrate()
@@ -325,9 +326,19 @@ class Migrate010Test(s_iq.SynTest):
                 self.isin('name:given', nodes[0][1]['props'])
                 self.notin('name:en', nodes[0][1]['props'])
                 self.notin('name:en:sur', nodes[0][1]['props'])
-                nodes = self.get_formfile('ps:%s:has' % personx, fh)
+                nodes = self.get_formfile('has', fh)
                 self.len(1, nodes)
-                self.eq(nodes[0][0][1][1], ('ps:name', 'pompey the great'))
+                first_node = nodes[0]
+                self.eq(first_node[0][1], (('ps:%s' % personx, guid), ('ps:name', 'pompey the great')))
+
+                core.formTufoByProp('ps:%s:has' % personx, (guid, ('inet:fqdn', 'pompeius.respublica.rm')))
+                fh = tempfile.TemporaryFile(dir=dirn)
+                m = s_migrate.Migrator(core, fh, tmpdir=dirn)
+                m.migrate()
+                nodes = self.get_formfile('has', fh)
+                self.len(2, nodes)
+                other_node = nodes[0] if first_node == nodes[1] else nodes[1]
+                self.eq(other_node[0], ('has', (('ps:%s' % personx, guid), ('inet:fqdn', 'pompeius.respublica.rm'))))
 
     def test_ou_org(self):
         self.maxDiff = None
@@ -336,16 +347,27 @@ class Migrate010Test(s_iq.SynTest):
                 'name': 'Senatus Romanum',
                 'name:en': 'The Roman Senate',
             }
-            core.formTufoByProp('ou:org', s_common.guid(), **props)
+            guid = s_common.guid()
+            core.formTufoByProp('ou:org', guid, **props)
             fh = tempfile.TemporaryFile(dir=dirn)
             m = s_migrate.Migrator(core, fh, tmpdir=dirn)
             m.migrate()
             nodes = self.get_formfile('ou:org', fh)
             self.len(1, nodes)
             self.notin('name:en', nodes[0][1]['props'])
-            nodes = self.get_formfile('ou:org:has', fh)
+            nodes = self.get_formfile('has', fh)
             self.len(1, nodes)
-            self.eq(nodes[0][0][1][1], ('ou:org:name', 'the roman senate'))
+            first_node = nodes[0]
+            self.eq(first_node[0][1][1], ('ou:name', 'the roman senate'))
+
+            core.formTufoByProp('ou:org:has', (guid, ('inet:fqdn', 'respublica.rm')))
+            fh = tempfile.TemporaryFile(dir=dirn)
+            m = s_migrate.Migrator(core, fh, tmpdir=dirn)
+            m.migrate()
+            nodes = self.get_formfile('has', fh)
+            self.len(2, nodes)
+            other_node = nodes[0] if first_node == nodes[1] else nodes[1]
+            self.eq(other_node[0], ('has', (('ou:org', guid), ('inet:fqdn', 'respublica.rm'))))
 
     def test_dns_query(self):
         with self.getTestDir() as dirn, self.getRamCore() as core:
