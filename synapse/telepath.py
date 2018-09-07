@@ -398,12 +398,15 @@ def alias(name):
         name (str): Name of the alias to resolve.
 
     Notes:
-        If this string contains a '/' in it, only the value before the slash
-        is looked up and the remainder of the path is joined to any result.
-        This is done to support dynamic Telepath share names.
+        An exact match against the aliases will always be returned first.
+        If no exact match is found and the name contains a '/' in it, the
+        value before the slash is looked up and the remainder of the path
+        is joined to any result. This is done to support dynamic Telepath
+        share names.
 
     Returns:
-        str: The url string, if present in the alias.
+        str: The url string, if present in the alias.  None will be returned
+        if there are no matches.
     '''
     path = s_common.getSynPath('aliases.yaml')
     if not os.path.isfile(path):
