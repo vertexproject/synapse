@@ -393,13 +393,35 @@ class Proxy(s_coro.Fini):
 def alias(name):
     '''
     Resolve a telepath alias via ~/.syn/aliases.yaml
+
+    Args:
+        name (str): Name of the alias to resolve.
+
+    Notes:
+        If this string contains a '/' in it, only the value before the slash
+        is looked up and the remainder of the path is joined to any result.
+        This is done to support dynamic Telepath share names.
+
+    Returns:
+        str: The url string, if present in the alias.
     '''
     path = s_common.getSynPath('aliases.yaml')
     if not os.path.isfile(path):
         return None
 
     conf = s_common.yamlload(path)
-    return conf.get(name)
+
+    # Since telepath supports dynamic shared object access,
+    # slice a name at the first '/', look up using that value
+    # and then append the second value to it.
+    dynname = None
+    if '/' in name:
+        name, dynname = name.split('/', 1)
+    url = conf.get(name)
+    if url and dynname:
+        url = '/'.join([url, dynname])
+
+    return url
 
 @s_glob.synchelp
 async def openurl(url, **opts):
