@@ -319,15 +319,24 @@ class TeleTest(s_test.SynTest):
             dmon.share(name, item)
             dirn = s_scope.get('dirn')
 
-            alias = f'tcp://{addr[0]}:{addr[1]}/{name}'
+            url = f'tcp://{addr[0]}:{addr[1]}/{name}'
+            beepbeep_alias = url + '/beepbeep'
+            aliases = {name: url,
+                       f'{name}/borp': beepbeep_alias}
 
             with self.setSynDir(dirn):
                 fp = s_common.getSynPath('aliases.yaml')
-                s_common.yamlsave({name: alias}, fp)
+                s_common.yamlsave(aliases, fp)
 
                 # None existent aliases return None
                 self.none(s_telepath.alias('newp'))
                 self.none(s_telepath.alias('newp/path'))
+
+                # An exact match wins
+                self.eq(s_telepath.alias(name), url)
+                self.eq(s_telepath.alias(f'{name}/borp'), beepbeep_alias)
+                # Dynamic aliases are valid.
+                self.eq(s_telepath.alias(f'{name}/beepbeep'), beepbeep_alias)
 
                 with s_telepath.openurl(name) as prox:
                     self.eq(10, prox.getFooBar(20, 10))

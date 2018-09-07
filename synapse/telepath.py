@@ -411,6 +411,11 @@ def alias(name):
 
     conf = s_common.yamlload(path)
 
+    # Is there an exact match - if so, return it.
+    url = conf.get(name)
+    if url:
+        return url
+
     # Since telepath supports dynamic shared object access,
     # slice a name at the first '/', look up using that value
     # and then append the second value to it.
