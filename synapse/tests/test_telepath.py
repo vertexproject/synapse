@@ -6,9 +6,11 @@ logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
+import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.share as s_share
+import synapse.lib.scope as s_scope
 import synapse.tests.common as s_test
 
 from synapse.tests.utils import SyncToAsyncCMgr
@@ -24,6 +26,13 @@ class CustomShare(s_share.Share):
 
     def boo(self, x):
         return x
+
+class Beep:
+    def __init__(self, path):
+        self.path = path
+
+    def beep(self):
+        return f'{self.path}: beep'
 
 class Foo:
 
@@ -99,6 +108,20 @@ class TeleApi:
         return CustomShare(self.link, 42)
 
 class TeleAware(s_telepath.Aware):
+    def __init__(self):
+        s_telepath.Aware.__init__(self)
+        self.beeps = {}
+
+    def _initBeep(self, path):
+        beep = self.beeps.get(path)
+        if beep:
+            return beep
+        beep = Beep(path)
+        self.beeps[path] = beep
+        return beep
+
+    def onTeleOpen(self, link, path):
+        return self._initBeep(path[1])
 
     def getTeleApi(self, link, mesg):
         return TeleApi(self, link)
@@ -249,12 +272,16 @@ class TeleTest(s_test.SynTest):
 
         with self.getTestDmon() as dmon:
             dmon.share('woke', item)
-            proxy = dmon._getTestProxy('woke')
-            self.eq(10, proxy.getFooBar(20, 10))
+            with dmon._getTestProxy('woke') as proxy:
+                self.eq(10, proxy.getFooBar(20, 10))
 
-            # check a custom share works
-            obj = proxy.customshare()
-            self.eq(999, obj.boo(999))
+                # check a custom share works
+                obj = proxy.customshare()
+                self.eq(999, obj.boo(999))
+
+            # check that a dynamic share works
+            with dmon._getTestProxy('woke/up') as proxy:
+                self.eq('up: beep', proxy.beep())
 
     def test_telepath_auth(self):
 
@@ -282,3 +309,39 @@ class TeleTest(s_test.SynTest):
             host, port = dmon.listen('tcp://127.0.0.1:0/')
 
             self.raises(s_exc.BadMesgVers, s_telepath.openurl, 'tcp://127.0.0.1/', port=port)
+
+    def test_alias(self):
+        item = TeleAware()
+        name = 'item'
+
+        with self.getTestDmon() as dmon:
+            addr = dmon.listen('tcp://127.0.0.1:0')
+            dmon.share(name, item)
+            dirn = s_scope.get('dirn')
+
+            url = f'tcp://{addr[0]}:{addr[1]}/{name}'
+            beepbeep_alias = url + '/beepbeep'
+            aliases = {name: url,
+                       f'{name}/borp': beepbeep_alias}
+
+            with self.setSynDir(dirn):
+                fp = s_common.getSynPath('aliases.yaml')
+                s_common.yamlsave(aliases, fp)
+
+                # None existent aliases return None
+                self.none(s_telepath.alias('newp'))
+                self.none(s_telepath.alias('newp/path'))
+
+                # An exact match wins
+                self.eq(s_telepath.alias(name), url)
+                self.eq(s_telepath.alias(f'{name}/borp'), beepbeep_alias)
+                # Dynamic aliases are valid.
+                self.eq(s_telepath.alias(f'{name}/beepbeep'), beepbeep_alias)
+
+                with s_telepath.openurl(name) as prox:
+                    self.eq(10, prox.getFooBar(20, 10))
+
+                # Check to see that we can connect to an aliased name
+                # with a dynamic share attached to it.
+                with s_telepath.openurl(f'{name}/bar') as prox:
+                    self.eq('bar: beep', prox.beep())
