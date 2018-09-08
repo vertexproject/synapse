@@ -727,6 +727,7 @@ class CortexTest(s_test.SynTest):
             self.genraises(s_exc.NoSuchCmpr, core.eval, 'teststr +#test*near=newp')
             self.genraises(s_exc.NoSuchCmpr, core.eval, 'teststr +teststr:tick*near=newp')
             self.genraises(s_exc.BadStormSyntax, core.eval, ' | | ')
+            self.genraises(s_exc.BadStormSyntax, core.eval, '[-teststr]')
 
             self.len(2, list(core.eval(('[ teststr=foo teststr=bar ]'))))
             self.len(1, list(core.eval(('teststr %limit=1'))))
