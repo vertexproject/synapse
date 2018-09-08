@@ -31,8 +31,8 @@ _comp_and_sepr_forms = [
     'inet:dns:soa', 'inet:dns:rev6', 'inet:dns:rev', 'inet:dns:req', 'inet:dns:ns', 'inet:dns:mx',
     'inet:dns:cname', 'inet:dns:aaaa', 'inet:dns:a', 'inet:asnet4', 'geo:nloc', 'file:subfile']
 
+# "Subs" that aren't really subs, they just look like them
 _subs_to_save = [
-    'ou:org:name:en',
     'ps:person:name:en',
     'ps:person:name:sur',
     'ps:person:name:given',
@@ -238,10 +238,10 @@ class Migrator:
                 compi = ((v.encode('utf8'), _enc_iden(i)) for i, p, v, _ in rows
                          if p == 'tufo:form' and (self.is_comp(v) or v == 'file:bytes'))
                 with txn.cursor(self.form_tbl) as curs:
-                        consumed, added = curs.putmulti(compi)
-                        if consumed != added:
-                            raise ConsistencyError('Failure writing to Db.  consumed %d != added %d',
-                                                   consumed, added)
+                    consumed, added = curs.putmulti(compi)
+                    if consumed != added:
+                        raise ConsistencyError('Failure writing to Db.  consumed %d != added %d',
+                                               consumed, added)
 
         logger.info('Stage 1 complete in %.1fs.', time.time() - start_time)
 
@@ -544,6 +544,9 @@ class Migrator:
         'file:txtref': 'file:ref',
         'file:imgof': 'file:ref',
         'ps:image': 'file:ref',
+        'ps:person:has': 'has',
+        'ps:persona:has': 'has',
+        'ou:org:has': 'has',
         'it:exec:bind:tcp': 'it:exec:bind',
         'it:exec:bind:udp': 'it:exec:bind',
         'inet:tcp4': 'inet:server',
@@ -588,9 +591,6 @@ class Migrator:
 
     secondary_props_to_drop = set((
         'syn:tag:depth',
-        'ps:name:middle',
-        'ps:name:sur',
-        'ps:name:given',
         'inet:tcp4:ipv4',
         'inet:tcp4:port',
         'inet:udp4:ipv4',
@@ -713,6 +713,15 @@ class Migrator:
 
         return retn
 
+    def convert_has(self, formname, props):
+        fn1, fn2, _ = formname.split(':', 3)
+        fromprop = '%s:%s' % (formname, fn2)
+        fromtup = ('%s:%s' % (fn1, fn2), props[fromprop])
+        xref = props[formname + ':xref']
+        destprop, destval = tuple(xref.split('=', 1))
+        converteddestval = self.convert_foreign_key(None, destprop, destval)
+        return (fromtup, (destprop, converteddestval))
+
     def convert_ps_image(self, formname, props):
         '''
         Transform ps:image into a file:ref
@@ -731,6 +740,9 @@ class Migrator:
         'inet:tcp6': convert_inet_xxp_primary,
         'ps:image': convert_ps_image,
         'file:base': check_file_base_primary,
+        'ps:person:has': convert_has,
+        'ps:persona:has': convert_has,
+        'ou:org:has': convert_has,
     }
 
     def handle_seen(self, propname, propval, newprops):
@@ -762,25 +774,25 @@ class Migrator:
         return propname, '%s://%s' % (formname[-3:], addrport)
 
     def name_en_to_has(self, formname, propname, typename, val, props):
-        ''' Handle {ou:org,,ps:person,ps:persona} name:en props '''
+        ''' Handle {ou:org,ps:person,ps:persona} name:en props '''
 
-        # First write the new {ou,ps}:name node
+        # First write the new {ou,ps}:name node (not necessary for ou due to auto-creation from has node)
         psorou = formname.split(':', 1)[0]
-        nameformname = 'ps:name' if psorou == 'ps' else 'ou:org:name'
+        nameformname = '%s:name' % psorou
         nameprops = {}
         if psorou == 'ps':
-            for prop in [':sur', ':given', ':middle']:
-                part = props.get(propname + prop)
+            for prop in ('sur', 'given', 'middle'):
+                part = props.get('%s:%s' % (propname, prop))
                 if part is not None:
-                    nameprops[nameformname + prop] = part
-        namenode = ((nameformname, val), {'props': nameprops})
-        self.write_node_to_file(namenode)
+                    nameprops[prop] = part
+            namenode = ((nameformname, val), {'props': nameprops})
+            self.write_node_to_file(namenode)
 
-        # Then write the new {ou:org:has,ps:person:has,ps:persona:has} node
-        hasformname = formname + ':has'
-        hasnode = ((hasformname, (props[formname], (nameformname, val))), {})
+        # Then write the new has node
+        fromtup = (formname, props[formname])
+        totup = (nameformname, val)
+        hasnode = (('has', (fromtup, totup)), {})
         self.write_node_to_file(hasnode)
-
         return None, None
 
     def dns_look_ipv4_to_query(self, formname, propname, typename, val, props):
