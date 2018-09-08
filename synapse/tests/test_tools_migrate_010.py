@@ -79,6 +79,13 @@ class Migrate010Test(s_iq.SynTest):
 
             self.eq(node[1]['props']['avatar'], 'guid:' + file_guid)
 
+            # test that secondary props make it in
+            nodes = self.get_formfile('ps:name', fh)
+            self.eq(len(nodes), 1)
+            self.eq(nodes[0][1]['props'].get('given'), 'tony')
+
+            fh.close()
+
             props = {
                 'rcode': 99,
                 'time': now,
@@ -103,6 +110,7 @@ class Migrate010Test(s_iq.SynTest):
             nodes = self.get_formfile('inet:server', fh)
             self.eq(len(nodes), 1)
             self.eq(nodes[0][0], ('inet:server', 'udp://8.8.8.8:80'))
+            fh.close()
 
             tufo = core.formTufoByProp('inet:web:logon', '*', acct='vertex.link/pennywise', time=now,
                                        ipv4=0x01020304)
@@ -122,6 +130,7 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(tags['hehe.haha'], (1451606400000, 1483228800000))
             nodes = self.get_formfile('syn:tagform', fh)
             self.eq(nodes, [])
+            fh.close()
 
             wp_tufo = core.formTufoByProp('inet:web:post', ('vertex.link/visi', 'knock knock'), time='20141217010101')
             core.formTufoByProp('inet:web:postref',
@@ -132,6 +141,7 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(len(nodes), 1)
             # Make sure the primary val is a guid
             self.eq(len(nodes[0][0][1]), 32)
+            fh.close()
 
             fh = tempfile.TemporaryFile(dir=str(dirn))
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
@@ -139,6 +149,7 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(len(nodes), 1)
             self.eq(nodes[0][0], ('inet:web:postref',
                                   (wp_tufo[1]['inet:web:post'], ('file:bytes', 'guid:' + file_guid))))
+            fh.close()
 
             node = core.formTufoByProp('it:exec:reg:get', '*', host=s_common.guid(), reg=['foo/bar', ('int', 20)],
                                        exe=s_common.guid(), proc=s_common.guid(), time=now)
@@ -146,6 +157,7 @@ class Migrate010Test(s_iq.SynTest):
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('it:exec:reg:get', fh)
             self.eq(len(nodes), 1)
+            fh.close()
 
             # file:imgof
             person_guid = contact_tufo[1]['ps:contact:person']
@@ -158,6 +170,7 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(node[1]['props']['type'], 'image')
             ndef = node[0]
             self.eq(ndef, ('file:ref', ('guid:' + file_guid, ('ps:person', person_guid))))
+            fh.close()
 
             # ps:person:has
             core.formTufoByProp('ps:person:has', (person_guid, ('file:bytes', file_guid)),
@@ -168,6 +181,7 @@ class Migrate010Test(s_iq.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][0], ('has', (('ps:person', person_guid), ('file:bytes', 'guid:' + file_guid))))
             self.eq(nodes[0][1]['props']['.seen'], (1000, 2000))
+            fh.close()
 
             # ps:image
             core.formTufoByProp('ps:image', person_guid + '/' + file_guid)
@@ -177,6 +191,7 @@ class Migrate010Test(s_iq.SynTest):
             self.len(2, nodes)
             # Just verify that the ps:image conversion looks like the file:imgof conversion above
             self.eq(nodes[0][0], nodes[1][0])
+            fh.close()
 
     def test_filebytes(self):
         self.maxDiff = None
@@ -198,6 +213,7 @@ class Migrate010Test(s_iq.SynTest):
             self.notin('sha256', node2[1]['props'])
             self.true(node1[0][1].startswith('sha256:'))
             self.true(node2[0][1].startswith('guid:'))
+            fh.close()
 
             # inet:ssl:tcp4cert
             core.formTufoByProp('inet:ssl:tcp4cert', '5.5.5.5:80/' + valu)
@@ -206,13 +222,11 @@ class Migrate010Test(s_iq.SynTest):
             nodes = self.get_formfile('inet:ssl:cert', fh)
             self.len(1, nodes)
             self.eq(nodes[0][0], ('inet:ssl:cert', ('tcp://5.5.5.5:80', node1[0][1])))
+            fh.close()
 
     def test_bigval(self):
         with self.getTestDir() as dirn, self.getRamCore() as core:
 
-            hset = s_hashset.HashSet()
-            hset.update(b'visi')
-            valu, props = hset.guid()
             for i in range(1000):
                 core.formTufoByProp('ps:contact', s_common.guid(), title=str(i), address='x' * (512 + i))
 
@@ -222,6 +236,7 @@ class Migrate010Test(s_iq.SynTest):
             self.len(1000, nodes)
             for n in nodes:
                 self.len(512 + int(n[1]['props']['title']), n[1]['props']['address'])
+            fh.close()
 
     def test_flow(self):
         self.maxDiff = None
@@ -240,6 +255,7 @@ class Migrate010Test(s_iq.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][1]['props']['dst'], 'tcp://1.2.3.4:80')
             self.eq(nodes[0][1]['props']['src'], 'tcp://[::3:2:1]:443')
+            fh.close()
 
     def test_it_exec_bind(self):
         self.maxDiff = None
@@ -258,6 +274,7 @@ class Migrate010Test(s_iq.SynTest):
                 node2, node1 = node1, node2
             self.eq(node1[1]['props']['server'], 'tcp://1.2.3.4:80')
             self.eq(node2[1]['props']['server'], 'udp://[::1]:81')
+            fh.close()
 
     def test_file_base(self):
         '''
@@ -278,6 +295,7 @@ class Migrate010Test(s_iq.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][0], ('file:path', '%temp%/bar.exe'))
             self.eq(nodes[0][1]['tags'], {'test': (None, None)})
+            fh.close()
 
     def test_ipv4(self):
         self.maxDiff = None
@@ -289,6 +307,7 @@ class Migrate010Test(s_iq.SynTest):
             nodes = self.get_formfile('inet:ipv4', fh)
             self.len(1, nodes)
             self.eq(nodes[0][1]['tags'], {'test': (None, None)})
+            fh.close()
 
     def test_inet_dns_soa(self):
         self.maxDiff = None
@@ -299,6 +318,7 @@ class Migrate010Test(s_iq.SynTest):
             nodes = self.get_formfile('inet:dns:soa', fh)
             self.eq(len(nodes), 1)
             self.eq(nodes[0][0], ('inet:dns:soa', ('foo.bar.com', 'bob@foo.bar.com')))
+            fh.close()
 
     def test_ps_personx(self):
         ''' Test both ps:person and ps:persona '''
@@ -338,6 +358,7 @@ class Migrate010Test(s_iq.SynTest):
                 latin_node = [n for n in nodes if n[0][1] == 'gnaeus pompeius magnus'][0]
                 self.eq('pompey', en_node[1]['props'].get('sur'))
                 self.eq('gnaeus', latin_node[1]['props'].get('given'))
+                fh.close()
 
                 core.formTufoByProp('ps:%s:has' % personx, (guid, ('inet:fqdn', 'pompeius.respublica.rm')))
                 fh = tempfile.TemporaryFile(dir=dirn)
@@ -347,6 +368,8 @@ class Migrate010Test(s_iq.SynTest):
                 self.len(2, nodes)
                 other_node = nodes[0] if first_node == nodes[1] else nodes[1]
                 self.eq(other_node[0], ('has', (('ps:%s' % personx, guid), ('inet:fqdn', 'pompeius.respublica.rm'))))
+                self.len(0, self.get_formfile('ps:%s:has' % personx, fh))
+                fh.close()
 
     def test_ou_org(self):
         self.maxDiff = None
@@ -367,6 +390,7 @@ class Migrate010Test(s_iq.SynTest):
             self.len(1, nodes)
             first_node = nodes[0]
             self.eq(first_node[0][1][1], ('ou:name', 'the roman senate'))
+            fh.close()
 
             core.formTufoByProp('ou:org:has', (guid, ('inet:fqdn', 'respublica.rm')))
             fh = tempfile.TemporaryFile(dir=dirn)
@@ -376,6 +400,8 @@ class Migrate010Test(s_iq.SynTest):
             self.len(2, nodes)
             other_node = nodes[0] if first_node == nodes[1] else nodes[1]
             self.eq(other_node[0], ('has', (('ou:org', guid), ('inet:fqdn', 'respublica.rm'))))
+            self.len(0, self.get_formfile('ou:org:has', fh))
+            fh.close()
 
     def test_dns_query(self):
         with self.getTestDir() as dirn, self.getRamCore() as core:
@@ -386,6 +412,7 @@ class Migrate010Test(s_iq.SynTest):
             nodes = self.get_formfile('inet:dns:query', fh)
             self.len(1, nodes)
             self.eq(nodes[0][0], ('inet:dns:query', ('tcp://1.2.3.4', 'vertex.link', 28)))
+            fh.close()
 
     def test_subfile(self):
         g1 = s_common.guid()
@@ -398,6 +425,7 @@ class Migrate010Test(s_iq.SynTest):
             nodes = self.get_formfile('file:subfile', fh)
             self.len(1, nodes)
             self.eq(nodes[0][0][1], ('guid:' + g1, 'guid:' + g2))
+            fh.close()
 
     def test_txtref_tcp4(self):
         with self.getTestDir() as dirn, s_cortex.openurl('sqlite:///:memory:') as core:
@@ -414,6 +442,7 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(len(nodes), 1)
             node = nodes[0]
             self.eq(node[0][1][1][0], 'inet:server')
+            fh.close()
 
     def test_inet_web_chprofile(self):
         ''' Just make sure we drop all the 'seen:max ' instances of chprofile, and keep the rest as is '''
@@ -435,6 +464,7 @@ class Migrate010Test(s_iq.SynTest):
 
             nodes = self.get_formfile('inet:web:chprofile', fh)
             self.eq(len(nodes), 0)
+            fh.close()
 
             props = {
                 'acct': 'twitter.com/foobar2',
@@ -450,3 +480,4 @@ class Migrate010Test(s_iq.SynTest):
 
             nodes = self.get_formfile('inet:web:chprofile', fh)
             self.eq(len(nodes), 1)
+            fh.close()
