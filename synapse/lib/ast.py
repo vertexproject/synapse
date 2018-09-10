@@ -101,7 +101,6 @@ class Query(AstNode):
         # for options parsed from the query itself
         self.opts = {}
 
-<< << << < HEAD
         # used by the di-graph projection logic
         self._graph_done = {}
         self._graph_want = collections.deque()
@@ -274,7 +273,8 @@ class LiftOper(Oper):
 
     async def run(self, runt, genr):
 
-        yield from genr
+        for x in genr:
+            yield x
 
         for node in self.lift(runt):
             yield node, runt.initPath(node)
@@ -974,7 +974,8 @@ class EditNodeAdd(Edit):
         name = self.kids[0].value()
         formtype = runt.snap.model.types.get(name)
 
-        yield from genr
+        for x in genr:
+            yield x
 
         runt.allowed('node:add', name)
 

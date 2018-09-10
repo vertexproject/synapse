@@ -38,6 +38,9 @@ LARGE_STRING_SIZE = 128
 MAX_INT_VAL = 2 ** 63 - 1
 MIN_INT_VAL = -1 * (2 ** 63)
 
+# Precompiled struct of a big-endian 64-bit int
+_IntStruct = struct.Struct('>Q')
+
 class Seqn:
     '''
     An append optimized sequence of byte blobs.
@@ -708,18 +711,18 @@ class Slab(s_coro.Fini):
 
                 yield lkey, lval
 
-    def scanByRange(self, lmin, lmax, db=None):
+    def scanByRange(self, lmin, lmax=None, db=None):
 
         with Scan(self, db) as scan:
 
             if not scan.set_range(lmin):
                 return
 
-            size = len(lmax)
+            size = len(lmax) if lmax is not None else None
 
             for lkey, lval in scan.iternext():
 
-                if lkey[:size] > lmax:
+                if lmax is not None and lkey[:size] > lmax:
                     return
 
                 yield lkey, lval
@@ -755,6 +758,61 @@ class Slab(s_coro.Fini):
         self._runXactOpers()
         self.recovering = False
 
+    # FIXME:  refactor delete/put/replace/pop common code
+    def pop(self, lkey, db=None):
+
+        try:
+
+            # if this is the first write for this xact, reset tick.
+            if not self.dirty:
+                self.tick = s_common.now()
+                self.dirty = True
+
+            if not self.recovering:
+                self._logXactOper(self.pop, lkey, db=db)
+
+            retn = self.xact.pop(lkey, db=db)
+
+            # give the commit a chance...
+            if not self.holders:
+                self.commit()
+
+            return retn
+
+        except lmdb.MapFullError as e:
+
+            with self.aborted():
+                self._growMapSize()
+
+            self.commit(force=True)
+
+    def delete(self, lkey, dupdata=False, db=None):
+
+        try:
+
+            # if this is the first write for this xact, reset tick.
+            if not self.dirty:
+                self.tick = s_common.now()
+                self.dirty = True
+
+            if not self.recovering:
+                self._logXactOper(self.delete, lkey, dupdata=dupdata, db=db)
+
+            self.xact.delete(lkey, dupdata=dupdata, db=db)
+
+            # give the commit a chance...
+            if not self.holders:
+                self.commit()
+
+            return
+
+        except lmdb.MapFullError as e:
+
+            with self.aborted():
+                self._growMapSize()
+
+            self.commit(force=True)
+
     def put(self, lkey, lval, dupdata=False, db=None):
 
         try:
@@ -768,6 +826,64 @@ class Slab(s_coro.Fini):
                 self._logXactOper(self.put, lkey, lval, dupdata=dupdata, db=db)
 
             self.xact.put(lkey, lval, dupdata=dupdata, db=db)
+
+            # give the commit a chance...
+            if not self.holders:
+                self.commit()
+
+            return
+
+        except lmdb.MapFullError as e:
+
+            with self.aborted():
+                self._growMapSize()
+
+            self.commit(force=True)
+
+    def replace(self, lkey, lval, db=None):
+        '''
+        Like put, but returns the previous value if existed
+        '''
+
+        try:
+
+            # if this is the first write for this xact, reset tick.
+            if not self.dirty:
+                self.tick = s_common.now()
+                self.dirty = True
+
+            if not self.recovering:
+                self._logXactOper(self.replace, lkey, lval, db=db)
+
+            retn = self.xact.put(lkey, lval, db=db)
+
+            # give the commit a chance...
+            if not self.holders:
+                self.commit()
+
+            return retn
+
+        except lmdb.MapFullError as e:
+
+            with self.aborted():
+                self._growMapSize()
+
+            self.commit(force=True)
+
+    def putmulti(self, kvpairs, dupdata=False, append=False, db=None):
+
+        try:
+
+            # if this is the first write for this xact, reset tick.
+            if not self.dirty:
+                self.tick = s_common.now()
+                self.dirty = True
+
+            if not self.recovering:
+                self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=True, db=db)
+
+            with self.xact.cursor(db=db) as curs:
+                curs.putmulti(kvpairs, dupdata=dupdata, append=append)
 
             # give the commit a chance...
             if not self.holders:
@@ -849,6 +965,12 @@ class Scan:
         self.bump()
 
         self.slab.scans.discard(self)
+
+    def last_key(self):
+        ''' Return the last key in the database.  Returns none if database is empty. '''
+        if not self.curs.last():
+            return None
+        return self.curs.key()
 
     def set_key(self, lkey):
 

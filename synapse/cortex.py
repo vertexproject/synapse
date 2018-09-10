@@ -410,6 +410,8 @@ class Cortex(s_cell.Cell):
         self.onfini(fini)
 
     async def _initCoreLayers(self):
+        # FIXME
+        pass
 
     def onTagAdd(self, name, func):
         '''
@@ -905,6 +907,8 @@ class Cortex(s_cell.Cell):
             yield from snap.eval(text, opts=opts, user=user)
 
     def storm(self, text, opts=None, user=None):
+        # FIXME
+        pass
 
     async def eval(self, text, opts=None):
         '''

@@ -317,7 +317,8 @@ class DelNodeCmd(Cmd):
             await node.delete(force=self.opts.force)
 
         # a bit odd, but we need to be detected as a generator
-        yield from ()
+        if False:
+            yield
 
 class SudoCmd(Cmd):
     '''
@@ -331,7 +332,8 @@ class SudoCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
         runt.elevate()
-        yield from genr
+        for x in genr:
+            yield x
 
 # TODO
 #class AddNodeCmd(Cmd):     # addnode inet:ipv4 1.2.3.4 5.6.7.8
@@ -543,7 +545,8 @@ class IdenCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        yield from genr
+        for x in genr:
+            yield x
 
         for iden in self.opts.iden:
             try:
@@ -653,7 +656,8 @@ class NoderefsCmd(Cmd):
             async for item in self.doRefs(node, path, visited):
                 yield item
 
-            yield from self.doRefs(node, path, visited)
+            for x in self.doRefs(node, path, visited):
+                yield x
 
     async def doRefs(self, srcnode, srcpath, visited):
 
