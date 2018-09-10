@@ -38,9 +38,6 @@ LARGE_STRING_SIZE = 128
 MAX_INT_VAL = 2 ** 63 - 1
 MIN_INT_VAL = -1 * (2 ** 63)
 
-# Precompiled struct of a big-endian 64-bit int
-_IntStruct = struct.Struct('>Q')
-
 class Seqn:
     '''
     An append optimized sequence of byte blobs.
