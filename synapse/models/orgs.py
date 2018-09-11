@@ -64,9 +64,6 @@ class OuModule(s_module.CoreModule):
                     ('name', ('ou:name', {}), {
                         'doc': 'The localized name of an organization.',
                     }),
-                    ('name:en', ('ou:name', {}), {
-                        'doc': 'The English name of an organization.',
-                    }),
                     ('alias', ('ou:alias', {}), {
                         'doc': 'The default alias for an organization'
                     }),

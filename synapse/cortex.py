@@ -935,7 +935,7 @@ class Cortex(s_cell.Cell):
 
         try:
 
-            chan.put(('init', {'tick': tick}))
+            chan.put(('init', {'tick': tick, 'text': text}))
 
             with self.snap(user=user) as snap:
 
