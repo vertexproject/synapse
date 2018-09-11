@@ -6,6 +6,7 @@ import codecs
 import xml.etree.ElementTree as x_etree
 
 import synapse.exc as s_exc
+import synapse.lib.msgpack as s_msgpack
 
 def _de_base64(item, **opts):
 
@@ -181,8 +182,12 @@ def _fmt_jsonl(fd, info):
     for line in fd:
         yield json.loads(line)
 
+def _fmt_mpk(fd, info):
+    yield from s_msgpack.iterfd(fd)
+
 fmtyielders = {
     'csv': _fmt_csv,
+    'mpk': _fmt_mpk,
     'xml': _fmt_xml,
     'json': _fmt_json,
     'jsonl': _fmt_jsonl,
@@ -190,6 +195,7 @@ fmtyielders = {
 }
 
 fmtopts = {
+    'mpk': {},
     'xml': {'mode': 'r', 'encoding': 'utf8'},
     'csv': {'mode': 'r', 'encoding': 'utf8'},
     'json': {'mode': 'r', 'encoding': 'utf8'},
