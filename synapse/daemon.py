@@ -158,7 +158,7 @@ class Daemon(EventBus):
         EventBus.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
-        self._shareLoopTasks = []
+        self._shareLoopTasks = set()
 
         conf = self._loadDmonYaml()
         self.conf = s_common.config(conf, self.confdefs)
@@ -180,9 +180,6 @@ class Daemon(EventBus):
 
         self._loadDmonConf()
         self._loadDmonCells()
-
-        # Start task reaper
-        s_glob.plex.callSoonSafe(self._reapTasks)
 
         self.onfini(self._onDmonFini)
 
@@ -248,8 +245,6 @@ class Daemon(EventBus):
                     task.cancel()
                 except Exception as e:
                     logger.error('Error cancelling task: %s', str(e))
-            # Drop any task refs we have
-            self._shareLoopTasks = []
 
             await asyncio.wait([link.fini() for link in self.connectedlinks], loop=s_glob.plex.loop)
 
@@ -483,7 +478,8 @@ class Daemon(EventBus):
                     finally:
                         await valu.fini()
                 task = s_glob.plex.coroLoopTask(spinshareloop())
-                self._shareLoopTasks.append(task)
+                self._shareLoopTasks.add(task)
+                task.add_done_callback(self._getTaskResult)
 
         except Exception as e:
 
@@ -495,16 +491,21 @@ class Daemon(EventBus):
                 ('task:fini', {'task': task, 'retn': retn})
             )
 
-    def _reapTasks(self):
-        if self.isfini:
-            return
+    def _getTaskResult(self, task):
+        result = s_common.novalu
         try:
-            self._shareLoopTasks = [task for task in self._shareLoopTasks if not task.done()]
+            result = task.result()
+        except asyncio.CancelledError:
+            pass
         except Exception as e:
-            logger.error('Error reaping tasks: %s', str(e))
+            logger.error('Error encountered for %s: [%s]',
+                         task, e)
         finally:
-            # TODO Figure out a good metric for how often to reap tasks.
-            s_glob.plex.callLater(6, self._reapTasks)
+            try:
+                self._shareLoopTasks.remove(task)
+            except KeyError:
+                pass
+            return result
 
     def _getTestProxy(self, name, **kwargs):
         host, port = self.addr
