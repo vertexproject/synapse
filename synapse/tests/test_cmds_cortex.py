@@ -147,7 +147,7 @@ class CmdCoreTest(s_test.SynTest):
                 with dmon._getTestProxy('core') as core:
                     outp = self.getTestOutp()
                     cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-                    # Our defailt format is mpk
+                    # Our default format is mpk
                     fp = os.path.join(dirn, 'loggyMcLogFace.mpk')
                     cmdr.runCmdLine(f'log --on --splices-only --path {fp}')
                     fp = cmdr.locs.get('log:fp')

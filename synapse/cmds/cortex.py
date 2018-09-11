@@ -36,7 +36,7 @@ class Log(s_cli.Cmd):
     Syntax:
         log (--on|--off) [--splices-only] [--format (mpk|jsonl)] [--path /path/to/file]
 
-    Required Argumetns:
+    Required Arguments:
         --on: Enables logging of storm messages to a file.
         --off: Disables message logging and closes the current storm file.
 
@@ -47,7 +47,7 @@ class Log(s_cli.Cmd):
 
     Notes:
         By default, the log file contains all messages received from the execution of
-        a Storm query by the current Cli. By default, these messages are saved to a
+        a Storm query by the current CLI. By default, these messages are saved to a
         file located in ~/.syn/stormlogs/storm_(date).(format).
 
     Examples:
@@ -115,7 +115,7 @@ class Log(s_cli.Cmd):
             try:
                 buf = self.encodeMsg(mesg)
             except Exception as e:
-                logger.exception('Failed to serialize message.')
+                logger.error('Failed to serialize message: [%s]', str(e))
                 return
             fd.write(buf)
 
@@ -174,7 +174,7 @@ class Log(s_cli.Cmd):
         on = opts.get('on')
         off = opts.get('off')
 
-        if (on and off) or (not on and not off):
+        if bool(on) == bool(off):
             self.printf('Pick one of "--on" or "--off".')
             return
 
