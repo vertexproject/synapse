@@ -199,7 +199,7 @@ class LmdbLayer(s_layer.Layer):
 
     async def _rowsByEq(self, db, pref, valu):
         lkey = pref + valu
-        for _, byts in self.slab.scanByDups(lkey, db=db):
+        for byts in self.slab.scanByDups(lkey, db=db):
             yield s_msgpack.un(byts)
 
     async def _rowsByPref(self, db, pref, valu):

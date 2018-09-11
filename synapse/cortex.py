@@ -405,8 +405,7 @@ class Cortex(s_cell.Cell):
         self._initFeedLoops()
 
         async def fini():
-            futr = await asyncio.gather(layr.fini() for layr in self.layers)
-            futr.result()
+            await asyncio.gather(*[layr.fini() for layr in self.layers])
 
         self.onfini(fini)
 

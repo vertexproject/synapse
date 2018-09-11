@@ -852,7 +852,7 @@ class Slab(s_coro.Fini):
             if not self.recovering:
                 self._logXactOper(self.replace, lkey, lval, db=db)
 
-            retn = self.xact.put(lkey, lval, db=db)
+            retn = self.xact.replace(lkey, lval, db=db)
 
             # give the commit a chance...
             if not self.holders:
