@@ -113,6 +113,14 @@ class CmdCoreTest(s_test.SynTest):
             self.notin('node:add', s)
             self.notin('prop:set', s)
 
+            self.len(1, core.eval('[testcomp=(1234, 5678)]'))
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            q = 'storm --raw --path testcomp -> testint'
+            cmdr.runCmdLine(q)
+            self.true(outp.expect("('testint', 1234)"))
+            self.true(outp.expect("'path'"))
+
     def test_log(self):
         with self.getTestDmon('dmoncore') as dmon:
             dirn = s_scope.get('dirn')
