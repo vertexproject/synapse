@@ -164,7 +164,7 @@ class Plex(s_eventbus.EventBus):
         Schedule the coro on the loop.
 
         Args:
-            coro:
+            coro: Coroutine to turn into a task.
 
         Notes:
             This is not thread safe It should only be called from inside
