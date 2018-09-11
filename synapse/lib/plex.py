@@ -154,7 +154,7 @@ class Plex(s_eventbus.EventBus):
         '''
         Initialize the ioloop for the given link.
         '''
-        self.coroLoopTask(self._linkRxLoop(link))
+        self.coroToTask(self._linkRxLoop(link))
 
     def coroLoopTask(self, coro):
         '''

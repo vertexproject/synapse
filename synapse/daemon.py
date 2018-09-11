@@ -248,7 +248,7 @@ class Daemon(EventBus):
 
             await asyncio.wait([link.fini() for link in self.connectedlinks], loop=s_glob.plex.loop)
 
-        s_glob.plex.coroLoopTask(afini())
+        s_glob.plex.coroToTask(afini())
 
     def _getSslCtx(self):
         return None
