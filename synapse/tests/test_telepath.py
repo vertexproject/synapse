@@ -20,7 +20,10 @@ class CustomShare(s_share.Share):
     typename = 'customshare'
 
     async def _runShareLoop(self):
-        await s_glob.plex.sleep(10)
+        try:
+            await s_glob.plex.sleep(10)
+        except asyncio.CancelledError as e:
+            raise e
 
     def boo(self, x):
         return x
