@@ -756,7 +756,7 @@ class Parser:
             return self.edittagdel()
 
         if self.nextstr('-'):
-            return self.editnodedel()
+            self._raiseSyntaxError('Cannot delete nodes via edit syntax. Use the delnode command instead.')
 
         return self.editnodeadd()
 
@@ -781,17 +781,6 @@ class Parser:
         valu = self.valu()
 
         return s_ast.EditNodeAdd(kids=(absp, valu))
-
-    def editnodedel(self):
-        '''
-        -foo:bar
-        '''
-        self.ignore(whitespace)
-
-        self.nextmust('-')
-
-        absp = self.absprop()
-        return s_ast.EditNodeDel(kids=(absp,))
 
     def nextmust(self, text):
 

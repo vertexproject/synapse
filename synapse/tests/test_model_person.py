@@ -26,10 +26,6 @@ class PsModelTest(s_test.SynTest):
                     'name:sur': 'grey',
                     'name:middle': 'clown',
                     'name:given': 'robert',
-                    'name:en': 'robert clown grey',
-                    'name:en:sur': 'grey',
-                    'name:en:middle': 'clown',
-                    'name:en:given': 'robert',
                 }
                 node = snap.addNode('ps:person', person0, person_props)
                 self.eq(node.ndef[1], person0)
@@ -40,10 +36,6 @@ class PsModelTest(s_test.SynTest):
                 self.eq(node.get('name:sur'), 'grey')
                 self.eq(node.get('name:middle'), 'clown')
                 self.eq(node.get('name:given'), 'robert')
-                self.eq(node.get('name:en'), 'robert clown grey')
-                self.eq(node.get('name:en:sur'), 'grey')
-                self.eq(node.get('name:en:middle'), 'clown')
-                self.eq(node.get('name:en:given'), 'robert')
                 # self.eq(node.get('img'), '')  # fixme file:bytes
                 # self.eq(node.get('guidname'), '')  # fixme guid aliases
 
@@ -56,10 +48,6 @@ class PsModelTest(s_test.SynTest):
                     'name:sur': 'Гольдштейн',
                     'name:middle': 'брат',
                     'name:given': 'эммануэль',
-                    'name:en': 'emmanuel brother goldstein',
-                    'name:en:sur': 'goldstein',
-                    'name:en:middle': 'brother',
-                    'name:en:given': 'emmanuel',
                 }
                 node = snap.addNode('ps:persona', persona0, persona_props)
                 self.eq(node.ndef[1], persona0)
@@ -70,10 +58,6 @@ class PsModelTest(s_test.SynTest):
                 self.eq(node.get('name:sur'), 'гольдштейн')
                 self.eq(node.get('name:middle'), 'брат')
                 self.eq(node.get('name:given'), 'эммануэль')
-                self.eq(node.get('name:en'), 'emmanuel brother goldstein')
-                self.eq(node.get('name:en:sur'), 'goldstein')
-                self.eq(node.get('name:en:middle'), 'brother')
-                self.eq(node.get('name:en:given'), 'emmanuel')
                 # self.eq(node.get('img'), '')  # fixme file:bytes
                 # self.eq(node.get('guidname'), '')  # fixme guid aliases
 
