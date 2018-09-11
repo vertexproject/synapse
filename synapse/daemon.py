@@ -158,6 +158,7 @@ class Daemon(EventBus):
         EventBus.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
+        self._shareLoopTasks = set()
 
         conf = self._loadDmonYaml()
         self.conf = s_common.config(conf, self.confdefs)
@@ -237,9 +238,17 @@ class Daemon(EventBus):
                 if isinstance(share, s_coro.Fini):
                     await share.fini()
 
+            for task in self._shareLoopTasks:
+                try:
+                    if task.done():
+                        continue
+                    task.cancel()
+                except Exception as e:
+                    logger.error('Error cancelling task: %s', str(e))
+
             await asyncio.wait([link.fini() for link in self.connectedlinks], loop=s_glob.plex.loop)
 
-        s_glob.plex.addLoopCoro(afini())
+        s_glob.plex.coroToTask(afini())
 
     def _getSslCtx(self):
         return None
@@ -462,11 +471,15 @@ class Daemon(EventBus):
                 async def spinshareloop():
                     try:
                         await valu._runShareLoop()
+                    except asyncio.CancelledError:
+                        pass
                     except Exception:
                         logger.exception('Error running %r', valu)
                     finally:
                         await valu.fini()
-                s_glob.plex.coroLoopTask(spinshareloop())
+                task = s_glob.plex.coroLoopTask(spinshareloop())
+                self._shareLoopTasks.add(task)
+                task.add_done_callback(self._getTaskResult)
 
         except Exception as e:
 
@@ -477,6 +490,22 @@ class Daemon(EventBus):
             await link.tx(
                 ('task:fini', {'task': task, 'retn': retn})
             )
+
+    def _getTaskResult(self, task):
+        result = s_common.novalu
+        try:
+            result = task.result()
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error('Error encountered for %s: [%s]',
+                         task, e)
+        finally:
+            try:
+                self._shareLoopTasks.remove(task)
+            except KeyError:
+                pass
+            return result
 
     def _getTestProxy(self, name, **kwargs):
         host, port = self.addr

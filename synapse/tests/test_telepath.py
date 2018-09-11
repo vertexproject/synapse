@@ -22,7 +22,10 @@ class CustomShare(s_share.Share):
     typename = 'customshare'
 
     async def _runShareLoop(self):
-        await s_glob.plex.sleep(10)
+        try:
+            await s_glob.plex.sleep(10)
+        except asyncio.CancelledError as e:
+            raise e
 
     def boo(self, x):
         return x
@@ -75,7 +78,10 @@ class Foo:
     async def corogenr(self, x):
         for i in range(x):
             yield i
-            await s_glob.plex.sleep(0.1)
+            try:
+                await s_glob.plex.sleep(0.1)
+            except asyncio.CancelledError:
+                return
 
     def boom(self):
         return Boom()
