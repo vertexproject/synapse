@@ -570,7 +570,7 @@ class Url(s_types.Type):
 
 class InetModule(s_module.CoreModule):
 
-    def initCoreModule(self):
+    async def initCoreModule(self):
         self.model.form('inet:fqdn').onAdd(self._onAddFqdn)
         self.model.prop('inet:fqdn:zone').onSet(self._onSetFqdnZone)
         self.model.prop('inet:fqdn:iszone').onSet(self._onSetFqdnIsZone)

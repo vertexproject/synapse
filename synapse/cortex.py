@@ -345,7 +345,6 @@ class Cortex(s_cell.Cell):
     cellapi = CoreApi
 
     def __init__(self, dirn):
-
         s_cell.Cell.__init__(self, dirn)
 
         self.views = {}
@@ -377,6 +376,7 @@ class Cortex(s_cell.Cell):
             'tag:del': self._onFeedTagDel,
         }
 
+        self.newp = False
         self.setFeedFunc('syn.nodes', self._addSynNodes)
         self.setFeedFunc('syn.splice', self._addSynSplice)
         self.setFeedFunc('syn.ingest', self._addSynIngest)
@@ -394,24 +394,21 @@ class Cortex(s_cell.Cell):
         self.ontagadds = collections.defaultdict(list)
         self.ontagdels = collections.defaultdict(list)
 
-        self.addCoreMods(s_modules.coremods)
+        await self.addCoreMods(s_modules.coremods)
 
         mods = self.conf.get('modules')
 
-        self.addCoreMods(mods)
+        await self.addCoreMods(mods)
 
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
 
-        def fini():
-            [layr.fini() for layr in self.layrs]
+        async def fini():
+            futr = await asyncio.gather(layr.fini() for layr in self.layers)
+            futr.result()
 
         self.onfini(fini)
-
-    async def _initCoreLayers(self):
-        # FIXME
-        pass
 
     def onTagAdd(self, name, func):
         '''
@@ -1049,7 +1046,7 @@ class Cortex(s_cell.Cell):
             snap.setUser(user)
         return snap
 
-    def addCoreMods(self, mods):
+    async def addCoreMods(self, mods):
         '''
         Add a list of (name,conf) module tuples to the cortex.
         '''
@@ -1075,7 +1072,7 @@ class Cortex(s_cell.Cell):
         # now that we've loaded all their models
         # we can call their init functions
         for modu in added:
-            modu.initCoreModule()
+            await modu.initCoreModule()
 
     def loadCoreModule(self, ctor, conf=None):
         '''

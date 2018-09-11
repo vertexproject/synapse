@@ -48,6 +48,9 @@ logger = logging.getLogger(__name__)
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
 
+async def alist(coro):
+    return [x async for x in coro]
+
 def writeCerts(dirn):
     '''
     Copy test SSL certs from synapse.data to a directory.
@@ -217,10 +220,10 @@ testmodel = {
 class TestModule(s_module.CoreModule):
     testguid = '8f1401de15918358d5247e21ca29a814'
 
-    def initCoreModule(self):
+    async def initCoreModule(self):
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
         with self.core.snap() as snap:
-            snap.addNode('source', self.testguid, {'name': 'test'})
+            await snap.addNode('source', self.testguid, {'name': 'test'})
 
     def addTestRecords(self, snap, items):
         for name in items:
@@ -545,6 +548,34 @@ class SynTest(unittest.TestCase):
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
+    # Note: required Python 3.7
+    @contextlib.asynccontextmanager
+    async def agetTestCore(self, mirror='testcore', conf=None, extra_layers=None):
+        '''
+        Return a simple test Cortex.
+
+        Args:
+           conf:  additional configuration entries.  Combined with contents from mirror.
+        '''
+        with self.getTestDir(mirror=mirror) as dirn:
+            s_cells.deploy('cortex', dirn)
+            s_common.yamlmod(conf, dirn, 'cell.yaml')
+            ldir = s_common.gendir(dirn, 'layers')
+            layerdir = pathlib.Path(ldir, '000-default')
+            if self.alt_write_layer:
+                os.symlink(self.alt_write_layer, layerdir)
+            else:
+                layerdir.mkdir()
+                s_cells.deploy('layer-lmdb', layerdir)
+                s_common.yamlmod({'lmdb:mapsize': TEST_MAP_SIZE}, layerdir, 'cell.yaml')
+            for i, fn in enumerate(extra_layers or []):
+                src = pathlib.Path(fn).resolve()
+                os.symlink(src, pathlib.Path(ldir, f'{i + 1:03}-testlayer'))
+
+            async with await s_cortex.Cortex.anit(dirn) as core:
+                yield core
+
+    # FIXME: remove when all-async'd up
     @contextlib.contextmanager
     def getTestCore(self, mirror='testcore', conf=None, extra_layers=None):
         '''

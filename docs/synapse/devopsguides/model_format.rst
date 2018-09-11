@@ -136,7 +136,7 @@ An example of extending the previous example is shown below (minus migration fun
     class FooBarModule(s_module.CoreModule):
 
         # Override the default initCoreModule function
-        def initCoreModule(self):
+        async def initCoreModule(self):
 
             # Define a function used for helping out during node creation.
             self.onFormNode('foo:knight', self.onTufoFormKnight)

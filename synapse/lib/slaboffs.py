@@ -2,7 +2,7 @@ import synapse.common as s_common
 
 import synapse.lib.lmdb as s_lmdb
 
-class Offs:
+class SlabOffs:
 
     def __init__(self, slab: s_lmdb.Slab, db) -> None:
         self.db = db

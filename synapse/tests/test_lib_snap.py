@@ -1,24 +1,25 @@
 import os
 import contextlib
+import synapse.glob as s_glob
 
-import synapse.exc as s_exc
-import synapse.lib.auth as s_auth
+from synapse.tests.utils import SyncToAsyncCMgr, alist
 import synapse.tests.common as s_t_common
 
 class SnapTest(s_t_common.SynTest):
 
-    def test_snap_eval_storm(self):
+    @s_glob.synchelp
+    async def test_snap_eval_storm(self):
 
         with self.getTestCore() as core:
 
             with core.snap() as snap:
 
-                snap.addNode('teststr', 'hehe')
-                snap.addNode('teststr', 'haha')
+                await snap.addNode('teststr', 'hehe')
+                await snap.addNode('teststr', 'haha')
 
                 self.len(2, snap.eval('teststr'))
 
-                snap.addNode('teststr', 'hoho')
+                await snap.addNode('teststr', 'hoho')
 
                 self.len(3, snap.storm('teststr'))
 
@@ -53,16 +54,17 @@ class SnapTest(s_t_common.SynTest):
                 nodes = list(snap.addFeedNodes('test.genr', []))
                 self.len(2, nodes)
 
-    def test_addNodes(self):
-        with self.getTestCore() as core:
+    @s_glob.synchelp
+    async def test_addNodes(self):
+        async with self.agetTestCore() as core:
             with core.snap() as snap:
                 ndefs = ()
-                self.len(0, list(snap.addNodes(ndefs)))
+                self.len(0, await alist(snap.addNodes(ndefs)))
 
                 ndefs = (
                     (('teststr', 'hehe'), {'props': {'.created': 5, 'tick': 3}, 'tags': {'cool': (1, 2)}}, ),
                 )
-                result = list(snap.addNodes(ndefs))
+                result = await alist(snap.addNodes(ndefs))
                 self.len(1, result)
 
                 node = result[0]
@@ -70,7 +72,7 @@ class SnapTest(s_t_common.SynTest):
                 self.ge(node.props.get('.created', 0), 5)
                 self.eq(node.tags.get('cool'), (1, 2))
 
-                nodes = list(snap.getNodesBy('teststr', 'hehe'))
+                nodes = await alist(snap.getNodesBy('teststr', 'hehe'))
                 self.len(1, nodes)
                 self.eq(nodes[0], node)
 

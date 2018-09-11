@@ -48,11 +48,11 @@ class Layer(s_cell.Cell):
     async def getLiftRows(self, lops):
         for oper in lops:
 
-            func = await self._lift_funcs.get(oper[0])
+            func = self._lift_funcs.get(oper[0])
             if func is None:
                 raise s_exc.NoSuchLift(name=oper[0])
 
-            for row in func(oper):
+            async for row in func(oper):
                 yield row
 
     async def setOffset(self, iden, offs):  # pragma: no cover

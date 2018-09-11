@@ -63,7 +63,7 @@ class SemVer(s_types.Type):
         return valu.to_bytes(8, 'big')
 
 class ItModule(s_module.CoreModule):
-    def initCoreModule(self):
+    async def initCoreModule(self):
         self.model.form('it:dev:str').onAdd(self._onFormItDevStr)
         self.model.form('it:dev:pipe').onAdd(self._onFormMakeDevStr)
         self.model.form('it:dev:mutex').onAdd(self._onFormMakeDevStr)

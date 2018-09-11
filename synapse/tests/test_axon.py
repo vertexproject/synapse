@@ -13,7 +13,7 @@ import synapse.lib.threads as s_threads
 
 import synapse.tests.common as s_test
 
-from synapse.tests.utils import SyncToAsyncCMgr
+from synapse.tests.utils import SyncToAsyncCMgr, alist
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +22,6 @@ bbuf = b'0123456' * 4793491
 
 bbufhash = hashlib.sha256(bbuf).digest()
 asdfhash = hashlib.sha256(b'asdfasdf').digest()
-
-async def alist(coro):
-    return [x async for x in coro]
 
 class AxonTest(s_test.SynTest):
 
