@@ -1,4 +1,11 @@
+import os
+import synapse.common as s_common
+
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.scope as s_scope
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.encoding as s_encoding
+
 import synapse.tests.common as s_test
 
 
@@ -105,6 +112,59 @@ class CmdCoreTest(s_test.SynTest):
             s = str(outp)
             self.notin('node:add', s)
             self.notin('prop:set', s)
+
+    def test_log(self):
+        with self.getTestDmon('dmoncore') as dmon:
+            dirn = s_scope.get('dirn')
+            with self.setSynDir(dirn):
+                with dmon._getTestProxy('core') as core:
+                    outp = self.getTestOutp()
+                    cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                    cmdr.runCmdLine('log --on --format jsonl')
+                    fp = cmdr.locs.get('log:fp')
+                    cmdr.runCmdLine('storm [teststr=hi :tick=2018 +#haha.hehe]')
+                    cmdr.runCmdLine('log --off')
+                    cmdr.fini()
+
+                    self.true(outp.expect('Starting logfile'))
+                    self.true(outp.expect('Closing logfile'))
+                    self.true(os.path.isfile(fp))
+
+                    # Ensure that jsonl is how the data was saved
+                    with s_common.genfile(fp) as fd:
+                        genr = s_encoding.iterdata(fd, close_fd=False, format='jsonl')
+                        objs = list(genr)
+                    self.eq(objs[0][0], 'init')
+
+                with dmon._getTestProxy('core') as core:
+                    outp = self.getTestOutp()
+                    cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                    # Our defailt format is mpk
+                    fp = os.path.join(dirn, 'loggyMcLogFace.mpk')
+                    cmdr.runCmdLine(f'log --on --splices-only --path {fp}')
+                    fp = cmdr.locs.get('log:fp')
+                    cmdr.runCmdLine('storm [teststr="I am a message!" :tick=1999 +#oh.my] ')
+                    cmdr.runCmdLine('log --off')
+                    cmdr.fini()
+
+                    self.true(os.path.isfile(fp))
+                    with s_common.genfile(fp) as fd:
+                        genr = s_encoding.iterdata(fd, close_fd=False, format='mpk')
+                        objs = list(genr)
+                    self.eq(objs[0][0], 'node:add')
+
+                with dmon._getTestProxy('core') as core:
+                    outp = self.getTestOutp()
+                    cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                    cmdr.runCmdLine('log --on --off')
+                    cmdr.fini()
+                    self.true(outp.expect('Pick one'))
+
+                    outp = self.getTestOutp()
+                    cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                    cmdr.runCmdLine('log')
+                    cmdr.fini()
+                    self.true(outp.expect('Pick one'))
 
 # FIXME incorporate these into storm tests
 '''
