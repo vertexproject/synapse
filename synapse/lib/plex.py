@@ -96,7 +96,7 @@ class Plex(s_eventbus.EventBus):
         Returns:
             concurrent.futures.Future: A Future to wait on.
         '''
-        return asyncio.run_coroutine_threadsafe(coro, loop=self.loop)
+        return asyncio.run_coroutine_threadsafe(coro, self.loop)
 
     def coroToSync(self, coro, timeout=None):
         '''
@@ -154,10 +154,7 @@ class Plex(s_eventbus.EventBus):
         '''
         Initialize the ioloop for the given link.
         '''
-        self.addLoopCoro(self._linkRxLoop(link))
-
-    def addLoopCoro(self, coro):
-        return asyncio.run_coroutine_threadsafe(coro, self.loop)
+        self.coroLoopTask(self._linkRxLoop(link))
 
     def coroLoopTask(self, coro):
         '''
