@@ -122,9 +122,8 @@ class CortexTest(s_test.SynTest):
 
             self.eq((10, 20), tuple(sorted([row[1] for row in rows])))
 
-            with core.layer.xact() as xact:
-                # rows are (buid, valu) tuples
-                rows = tuple(xact.iterUnivRows('.seen'))
+            # rows are (buid, valu) tuples
+            rows = await alist(core.layer.iterUnivRows('.seen'))
 
             ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
             self.eq(ivals, tuple(sorted([row[1] for row in rows])))
@@ -138,17 +137,15 @@ class CortexTest(s_test.SynTest):
                 node = snap.addNode('teststr', 'hezipha', props={'.favcolor': 'red'})
                 node = snap.addNode('testcomp', (20, 'lulzlulz'))
 
-            self.len(0, core.eval('testcomp:haha~="^zerg"'))
-            self.len(1, core.eval('testcomp:haha~="^lulz"'))
+            self.len(0, await alist(core.eval('testcomp:haha~="^zerg"')))
+            self.len(1, await alist(core.eval('testcomp:haha~="^lulz"')))
 
-            self.len(1, core.eval('teststr~="zip"'))
-            self.len(1, core.eval('teststr~="zip"'))
-            self.len(1, core.eval('.favcolor~="^r"'))
+            self.len(1, await alist(core.eval('teststr~="zip"')))
+            self.len(1, await alist(core.eval('teststr~="zip"')))
+            self.len(1, await alist(core.eval('.favcolor~="^r"')))
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
-    @s_glob.synchelp
-    async def test_feed_conf(self):
-
+    def test_feed_conf(self):
         with self.getTestDmon(mirror='cryodmon') as dst_dmon:
 
             name = 'cryo00'
@@ -167,6 +164,8 @@ class CortexTest(s_test.SynTest):
                 ],
                 'modules': ('synapse.tests.utils.TestModule',),
             }
+
+            breakpoint()
 
             # initialize the tank and get his iden
             with s_telepath.openurl(tank_addr) as tank:

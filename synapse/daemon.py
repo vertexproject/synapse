@@ -84,7 +84,7 @@ dmonwrap = (
     (types.GeneratorType, Genr),
 )
 
-class Daemon(EventBus):
+class Daemon(EventBus, s_coro.Anit, s_coro.Fini):
 
     confdefs = (
 
@@ -124,9 +124,11 @@ class Daemon(EventBus):
         }
 
         self._loadDmonConf()
-        self._loadDmonCells()
 
         self.onfini(self._onDmonFini)
+
+    async def __anit__(self):
+        await self._loadDmonCells()
 
     def listen(self, url, **opts):
         '''
@@ -210,7 +212,7 @@ class Daemon(EventBus):
         logger.warning('config not found: %r' % (path,))
         return {}
 
-    def _loadDmonCells(self):
+    async def _loadDmonCells(self):
 
         # load our services from a directory
 
@@ -221,9 +223,9 @@ class Daemon(EventBus):
             if name.startswith('.'):
                 continue
 
-            self.loadDmonCell(name)
+            await self.loadDmonCell(name)
 
-    def loadDmonCell(self, name):
+    async def loadDmonCell(self, name):
         dirn = s_common.gendir(self.dirn, 'cells', name)
         logger.info(f'loading cell from: {dirn}')
 
@@ -237,7 +239,7 @@ class Daemon(EventBus):
         kind = conf.get('type')
 
         #ctor = s_registry.getService(kind)
-        cell = s_cells.init(kind, dirn)
+        cell = await s_cells.init(kind, dirn)
 
         self.share(name, cell)
         self.cells[name] = cell

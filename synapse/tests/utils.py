@@ -605,6 +605,7 @@ class SynTest(unittest.TestCase):
     @contextlib.contextmanager
     def getTestDmon(self, mirror='dmontest'):
 
+        breakpoint()
         with self.getTestDir(mirror=mirror) as dirn:
             coredir = pathlib.Path(dirn, 'cells', 'core')
             if coredir.is_dir():
