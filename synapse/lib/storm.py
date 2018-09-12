@@ -120,13 +120,13 @@ class Runtime:
             count += 1
         return count
 
-    def iterStormQuery(self, query):
+    async def iterStormQuery(self, query):
         # init any options from the query
         # (but dont override our own opts)
         for name, valu in query.opts.items():
             self.opts.setdefault(name, valu)
 
-        for node, path in query.iterNodePaths(self):
+        async for node, path in query.iterNodePaths(self):
             self.tick()
             yield node, path
 

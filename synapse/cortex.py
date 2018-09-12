@@ -347,7 +347,6 @@ class Cortex(s_cell.Cell):
     def __init__(self, dirn):
         s_cell.Cell.__init__(self, dirn)
 
-        self.views = {}
         self.layers = []
         self.modules = {}
         self.feedfuncs = {}
@@ -979,7 +978,7 @@ class Cortex(s_cell.Cell):
             for node in snap.getNodesBy(full, valu, cmpr=cmpr):
                 yield node
 
-    def addNodes(self, nodedefs):
+    async def addNodes(self, nodedefs):
         '''
         Quickly add/modify a list of nodes from node definition tuples.
         This API is the simplest/fastest way to add nodes, set node props,
@@ -998,7 +997,8 @@ class Cortex(s_cell.Cell):
         '''
         with self.snap() as snap:
             snap.strict = False
-            yield from snap.addNodes(nodedefs)
+            async for node in snap.addNodes(nodedefs):
+                yield node
 
     def addFeedData(self, name, items, seqn=None):
         '''

@@ -14,7 +14,7 @@ import synapse.lib.storm as s_storm
 
 logger = logging.getLogger(__name__)
 
-# FIXME:  figure out eventbus and s_coro?!
+# FIXME:  figure out eventbus and s_coro?!  fini methods collide
 
 class Snap(s_eventbus.EventBus, s_coro.Fini):
     '''
@@ -77,6 +77,12 @@ class Snap(s_eventbus.EventBus, s_coro.Fini):
 
         s_coro.Fini.onfini(self, fini)
 
+    # FIXME:  hack for colliding finis
+    async def __aexit__(self, exc, cls, tb):
+        self.exitinfo = (exc, cls, tb)
+        await s_coro.Fini.fini(self)
+        s_eventbus.EventBus.fini(self)
+
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
         runt = s_storm.Runtime(self, opts=opts, user=user)
@@ -106,7 +112,7 @@ class Snap(s_eventbus.EventBus, s_coro.Fini):
         '''
         query = self.core.getStormQuery(text)
         with self.getStormRuntime(opts=opts, user=user) as runt:
-            for x in runt.iterStormQuery(query):
+            async for x in runt.iterStormQuery(query):
                 yield x
 
     async def eval(self, text, opts=None, user=None):
@@ -116,7 +122,7 @@ class Snap(s_eventbus.EventBus, s_coro.Fini):
         # maintained for backward compatibility
         query = self.core.getStormQuery(text)
         with self.getStormRuntime(opts=opts, user=user) as runt:
-            for node, path in runt.iterStormQuery(query):
+            async for node, path in runt.iterStormQuery(query):
                 yield node
 
     async def setOffset(self, iden, offs):

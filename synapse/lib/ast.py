@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import collections
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -276,18 +277,19 @@ class LiftOper(Oper):
         for x in genr:
             yield x
 
-        for node in self.lift(runt):
+        async for node in self.lift(runt):
             yield node, runt.initPath(node)
 
 class LiftTag(LiftOper):
 
-    def lift(self, runt):
+    async def lift(self, runt):
         tag = self.kids[0].value()
-        yield from runt.snap._getNodesByTag(tag)
+        for node in runt.snap._getNodesByTag(tag):
+            yield node
 
 class LiftFormTag(LiftOper):
 
-    def lift(self, runt):
+    async def lift(self, runt):
 
         form = self.kids[0].value()
         tag = self.kids[1].value()
@@ -299,11 +301,12 @@ class LiftFormTag(LiftOper):
             cmpr = self.kids[2].value()
             valu = self.kids[3].runtval(runt)
 
-        yield from runt.snap._getNodesByFormTag(form, tag, valu=valu, cmpr=cmpr)
+        for node in runt.snap._getNodesByFormTag(form, tag, valu=valu, cmpr=cmpr):
+            yield node
 
 class LiftProp(LiftOper):
 
-    def lift(self, runt):
+    async def lift(self, runt):
 
         name = self.kids[0].value()
 
@@ -316,11 +319,13 @@ class LiftProp(LiftOper):
 
         # If its a secondary prop, there's no optimization
         if runt.snap.model.forms.get(name) is None:
-            yield from runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr)
+            for node in runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr):
+                yield node
             return
 
         if cmpr is not None:
-            yield from runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr)
+            for node in runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr):
+                yield node
             return
 
         # lifting by a form only is pretty bad, maybe
@@ -333,7 +338,8 @@ class LiftProp(LiftOper):
 
                     if hint[0] == 'tag':
                         tagname = hint[1].get('name')
-                        yield from runt.snap._getNodesByFormTag(name, tagname)
+                        for node in runt.snap._getNodesByFormTag(name, tagname):
+                            yield node
                         return
 
             # we can skip other lifts but that's it...
@@ -342,18 +348,20 @@ class LiftProp(LiftOper):
 
             break
 
-        yield from runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr)
+        async for node in runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr):
+            yield node
 
 class LiftPropBy(LiftOper):
 
-    def lift(self, runt):
+    async def lift(self, runt):
 
         name = self.kids[0].value()
         cmpr = self.kids[1].value()
 
         valu = self.kids[2].runtval(runt)
 
-        yield from runt.snap.getNodesBy(name, valu, cmpr=cmpr)
+        for node in runt.snap.getNodesBy(name, valu, cmpr=cmpr):
+            yield node
 
 class PivotOper(Oper):
 
