@@ -584,46 +584,46 @@ class InetModule(s_module.CoreModule):
         node.set('sha1', hashlib.sha1(byts).hexdigest())
         node.set('sha256', hashlib.sha256(byts).hexdigest())
 
-    def _onAddFqdn(self, node):
+    async def _onAddFqdn(self, node):
 
         fqdn = node.ndef[1]
         domain = node.get('domain')
 
         if domain is None:
-            node.set('issuffix', True)
+            await node.set('issuffix', True)
             return
 
         # almost certainly in the cache anyway....
-        parent = node.snap.getNodeByNdef(('inet:fqdn', domain))
+        parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
 
         if parent.get('issuffix'):
-            node.set('iszone', True)
-            node.set('zone', fqdn)
+            await node.set('iszone', True)
+            await node.set('zone', fqdn)
             return
 
         if parent.get('iszone'):
-            node.set('zone', domain)
+            await node.set('zone', domain)
             return
 
         zone = parent.get('zone')
         if zone is not None:
-            node.set('zone', zone)
+            await node.set('zone', zone)
 
-    def _onSetFqdnIsSuffix(self, node, oldv):
+    async def _onSetFqdnIsSuffix(self, node, oldv):
 
         fqdn = node.ndef[1]
 
         issuffix = node.get('issuffix')
-        for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
-            child.set('iszone', issuffix)
+        async for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
+            await child.set('iszone', issuffix)
 
-    def _onSetFqdnIsZone(self, node, oldv):
+    async def _onSetFqdnIsZone(self, node, oldv):
 
         fqdn = node.ndef[1]
 
         iszone = node.get('iszone')
         if iszone:
-            node.set('zone', fqdn)
+            await node.set('zone', fqdn)
             return
 
         # we are not a zone...
@@ -633,7 +633,7 @@ class InetModule(s_module.CoreModule):
             node.pop('zone')
             return
 
-        parent = node.snap.getNodeByNdef(('inet:fqdn', domain))
+        parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
 
         zone = parent.get('zone')
         if zone is None:
@@ -642,19 +642,19 @@ class InetModule(s_module.CoreModule):
 
         node.set('zone', zone)
 
-    def _onSetFqdnZone(self, node, oldv):
+    async def _onSetFqdnZone(self, node, oldv):
 
         fqdn = node.ndef[1]
         zone = node.get('zone')
 
-        for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
+        async for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
 
             # if they are their own zone level, skip
             if child.get('iszone'):
                 continue
 
             # the have the same zone we do
-            child.set('zone', zone)
+            await child.set('zone', zone)
 
     def getModelDefs(self):
         return (

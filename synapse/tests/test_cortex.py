@@ -7,10 +7,11 @@ from unittest.mock import patch
 from urllib.request import urlopen
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
-import synapse.datamodel as s_datamodel
 
+from synapse.tests.utils import alist
 import synapse.tests.common as s_test
 
 class HttpTestV1(t_web.RequestHandler):
@@ -20,71 +21,76 @@ class HttpTestV1(t_web.RequestHandler):
 
 class CortexTest(s_test.SynTest):
 
-    def test_cortex_prop_pivout(self):
+    @s_glob.synchelp
+    async def test_cortex_prop_pivot(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             with core.snap() as snap:
                 snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
 
-            nodes = list([n.pack() for n in core.eval('inet:dns:a :ipv4 -> *')])
+            nodes = [n.pack() async for n in core.eval('inet:dns:a :ipv4 -> *')]
             self.len(1, nodes)
             self.eq(nodes[0][0], ('inet:ipv4', 0x01020304))
 
-    def test_cortex_of_the_future(self):
+    @s_glob.synchelp
+    async def test_cortex_of_the_future(self):
 
         # test "future/ongoing" time stamp.
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             with core.snap() as snap:
 
-                node = snap.addNode('teststr', 'foo')
-                node.addTag('lol', valu=('2015', '?'))
+                node = await snap.addNode('teststr', 'foo')
+                await node.addTag('lol', valu=('2015', '?'))
 
                 self.eq((1420070400000, 0x7fffffffffffffff), node.getTag('lol'))
 
-            nodes = [n.pack() for n in core.eval('teststr=foo +#lol@=2014')]
+            nodes = [n.pack() async for n in core.eval('teststr=foo +#lol@=2014')]
             self.len(0, nodes)
 
-            nodes = [n.pack() for n in core.eval('teststr=foo +#lol@=2016')]
+            nodes = [n.pack() async for n in core.eval('teststr=foo +#lol@=2016')]
             self.len(1, nodes)
 
-    def test_cortex_noderefs(self):
+    @s_glob.synchelp
+    async def test_cortex_noderefs(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             sorc = s_common.guid()
 
             with core.snap() as snap:
 
-                node = snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+                node = await snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
 
                 refs = dict(node.getNodeRefs())
 
                 self.eq(refs.get('fqdn'), ('inet:fqdn', 'woot.com'))
                 self.eq(refs.get('ipv4'), ('inet:ipv4', 0x01020304))
 
-                node.seen('now', source=sorc)
+                await node.seen('now', source=sorc)
 
             opts = {'vars': {'sorc': sorc}}
-            nodes = list([n.pack() for n in core.eval('seen:source=$sorc -> *', opts=opts)])
+            nodes = [n.pack() async for n in core.eval('seen:source=$sorc -> *', opts=opts)]
 
             self.len(2, nodes)
             self.true('inet:dns:a' in [n[0][0] for n in nodes])
 
             opts = {'vars': {'sorc': sorc}}
-            nodes = list([n.pack() for n in core.eval('seen:source=$sorc :node -> *', opts=opts)])
+            nodes = [n.pack() async for n in core.eval('seen:source=$sorc :node -> *', opts=opts)]
 
             self.len(1, nodes)
             self.true('inet:dns:a' in [n[0][0] for n in nodes])
 
-    def test_cortex_http(self):
+    @s_glob.synchelp
+    async def test_cortex_http(self):
 
-        with self.getTestCore() as core:
-
+        async with self.agetTestCore() as core:
             core.addHttpApi('/v1/test', HttpTestV1)
 
             url = core._getTestHttpUrl('v1/test')
+
+            # FIXME: deadlock
             self.eq(b'woot', urlopen(url).read())
 
             url = core._getTestHttpUrl('v1/model')
@@ -96,23 +102,23 @@ class CortexTest(s_test.SynTest):
             self.nn(resp['result'].get('forms'))
             self.nn(resp['result'].get('types'))
 
-    def test_cortex_iter_props(self):
+    @s_glob.synchelp
+    async def test_cortex_iter_props(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             with core.snap() as snap:
 
                 props = {'asn': 10, '.seen': '2016'}
-                node = snap.addNode('inet:ipv4', 0x01020304, props=props)
+                node = await snap.addNode('inet:ipv4', 0x01020304, props=props)
                 self.eq(node.get('asn'), 10)
 
                 props = {'asn': 20, '.seen': '2015'}
-                node = snap.addNode('inet:ipv4', 0x05050505, props=props)
+                node = await snap.addNode('inet:ipv4', 0x05050505, props=props)
                 self.eq(node.get('asn'), 20)
 
-            with core.layer.xact() as xact:
-                # rows are (buid, valu) tuples
-                rows = tuple(xact.iterPropRows('inet:ipv4', 'asn'))
+            # rows are (buid, valu) tuples
+            rows = await alist((core.layer.iterPropRows('inet:ipv4', 'asn')))
 
             self.eq((10, 20), tuple(sorted([row[1] for row in rows])))
 
@@ -123,8 +129,9 @@ class CortexTest(s_test.SynTest):
             ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
             self.eq(ivals, tuple(sorted([row[1] for row in rows])))
 
-    def test_cortex_lift_regex(self):
-        with self.getTestCore() as core:
+    @s_glob.synchelp
+    async def test_cortex_lift_regex(self):
+        async with self.agetTestCore() as core:
             core.model.addUnivProp('favcolor', ('str', {}), {})
 
             with core.snap() as snap:
@@ -139,7 +146,8 @@ class CortexTest(s_test.SynTest):
             self.len(1, core.eval('.favcolor~="^r"'))
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
-    def test_feed_conf(self):
+    @s_glob.synchelp
+    async def test_feed_conf(self):
 
         with self.getTestDmon(mirror='cryodmon') as dst_dmon:
 
@@ -187,7 +195,8 @@ class CortexTest(s_test.SynTest):
                 self.raises(s_exc.NoSuchType, self.getTestCell, dirn, 'cortex', conf=conf)
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
-    def test_cortex_model_dict(self):
+    @s_glob.synchelp
+    async def test_cortex_model_dict(self):
 
         with self.getTestDmon(mirror='dmoncore') as dmon:
 
@@ -209,7 +218,8 @@ class CortexTest(s_test.SynTest):
             self.eq(pnfo['type'][0], 'inet:asn')
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
-    def test_storm_graph(self):
+    @s_glob.synchelp
+    async def test_storm_graph(self):
 
         with self.getTestDmon(mirror='dmoncore') as dmon:
 
@@ -228,7 +238,8 @@ class CortexTest(s_test.SynTest):
                     self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f', 'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
-    def test_splice_cryo(self):
+    @s_glob.synchelp
+    async def test_splice_cryo(self):
         with self.getTestDmon(mirror='cryodmon') as dst_dmon:
             name = 'cryo00'
             host, port = dst_dmon.addr
@@ -279,7 +290,8 @@ class CortexTest(s_test.SynTest):
             self.eq(data[1][1].get('user'), '?')
             self.ge(data[1][1].get('time'), 0)
 
-    def test_splice_sync(self):
+    @s_glob.synchelp
+    async def test_splice_sync(self):
         with self.getTestDmon(mirror='dmoncore') as dst_dmon:
             name = 'core'
             host, port = dst_dmon.addr
@@ -314,9 +326,10 @@ class CortexTest(s_test.SynTest):
                 node = snap.getNodeByNdef(('teststr', 'teehee'))
                 self.eq(node.ndef, ('teststr', 'teehee'))
 
-    def test_onadd(self):
+    @s_glob.synchelp
+    async def test_onadd(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             with core.snap() as snap:
 
@@ -326,27 +339,29 @@ class CortexTest(s_test.SynTest):
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
                 self.eq(node.buid, func.args[0].buid)
 
-    def test_adddata(self):
+    @s_glob.synchelp
+    async def test_adddata(self):
 
         data = ('foo', 'bar', 'baz')
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             print(repr(core))
             print(repr(core.feedfuncs))
             core.addFeedData('com.test.record', data)
 
             vals = []
-            for node in core.eval('teststr'):
+            async for node in core.eval('teststr'):
                 vals.append(node.ndef[1])
 
             vals.sort()
 
             self.eq(vals, ('bar', 'baz', 'foo'))
 
-    def test_indxchop(self):
+    @s_glob.synchelp
+    async def test_indxchop(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             with core.snap() as snap:
                 valu = 'a' * 257
@@ -355,7 +370,8 @@ class CortexTest(s_test.SynTest):
                 nodes = list(snap.getNodesBy('teststr', 'aa', cmpr='^='))
                 self.len(1, nodes)
 
-    def test_cell(self):
+    @s_glob.synchelp
+    async def test_cell(self):
 
         data = ('foo', 'bar', 'baz')
 
@@ -399,9 +415,10 @@ class CortexTest(s_test.SynTest):
             self.eq(0, core.count('pivtarg'))
             self.eq(1, core.count('inet:user'))
 
-    def test_stormcmd(self):
+    @s_glob.synchelp
+    async def test_stormcmd(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             msgs = list(core.storm('|help'))
             self.printed(msgs, 'help: List available commands and a brief description for each.')
@@ -431,9 +448,10 @@ class CortexTest(s_test.SynTest):
             self.printed(msgs, 'usage: limit [-h] count')
             self.len(0, [m for m in msgs if m[0] == 'node'])
 
-    def test_onsetdel(self):
+    @s_glob.synchelp
+    async def test_onsetdel(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             with core.snap() as snap:
 
@@ -460,9 +478,10 @@ class CortexTest(s_test.SynTest):
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
                 self.none(node.get('loc'))
 
-    def test_tags(self):
+    @s_glob.synchelp
+    async def test_tags(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             with core.snap() as snap:
 
@@ -506,9 +525,10 @@ class CortexTest(s_test.SynTest):
                 self.false(node.hasTag('foo'))
                 self.false(node.hasTag('foo.bar'))
 
-    def test_base_types1(self):
+    @s_glob.synchelp
+    async def test_base_types1(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             with core.snap() as snap:
                 node = snap.addNode('testtype10', 'one')
@@ -519,8 +539,9 @@ class CortexTest(s_test.SynTest):
                 self.nn(node)
                 self.eq(node.get('intprop'), 21)
 
-    def test_base_types2(self):
-        with self.getTestCore() as core:
+    @s_glob.synchelp
+    async def test_base_types2(self):
+        async with self.agetTestCore() as core:
 
             # Test some default values
             with core.snap() as snap:
@@ -643,9 +664,10 @@ class CortexTest(s_test.SynTest):
                 self.eq(nodes[0].get('hehe'), 33)
                 self.eq(nodes[0].ndef[1], (33, 'thirty three'))
 
-    def test_pivprop(self):
+    @s_glob.synchelp
+    async def test_pivprop(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             with core.snap() as snap:
 
@@ -660,9 +682,10 @@ class CortexTest(s_test.SynTest):
                 pivc = snap.getNodeByNdef(('pivcomp', ('woot', 'rofl')))
                 self.eq(pivc.get('targ::name'), 'visi')
 
-    def test_storm(self):
+    @s_glob.synchelp
+    async def test_storm(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             # test some edit syntax
             for node in core.eval('[ testcomp=(10, haha) +#foo.bar -#foo.bar ]'):
@@ -751,11 +774,12 @@ class CortexTest(s_test.SynTest):
                 # Bad syntax
                 self.genraises(s_exc.BadStormSyntax, core.storm, ' | | | ')
 
-    def test_feed_splice(self):
+    @s_glob.synchelp
+    async def test_feed_splice(self):
 
         iden = s_common.guid()
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             offs = core.getFeedOffs(iden)
             self.eq(0, offs)
@@ -797,9 +821,10 @@ class CortexTest(s_test.SynTest):
                 node = snap.getNodeByNdef(('teststr', 'foo'))
                 self.none(node.getTag('bar'))
 
-    def test_strict(self):
+    @s_glob.synchelp
+    async def test_strict(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             with core.snap() as snap:
 
@@ -815,7 +840,8 @@ class CortexTest(s_test.SynTest):
                 self.false(node.set('newpnewp', 10))
                 self.false(node.set('tick', (20, 30)))
 
-    def test_getcoremods(self):
+    @s_glob.synchelp
+    async def test_getcoremods(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
             pconf = {'user': 'root', 'passwd': 'root'}
@@ -835,7 +861,8 @@ class CortexTest(s_test.SynTest):
                 self.nn(conf)
                 self.eq(conf.get('key'), 'valu')
 
-    def test_cortex_delnode(self):
+    @s_glob.synchelp
+    async def test_cortex_delnode(self):
 
         data = {}
 
@@ -846,7 +873,7 @@ class CortexTest(s_test.SynTest):
         def onNodeDel(node):
             data['node:del'] = True
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             form = core.model.forms.get('teststr')
 
@@ -892,7 +919,8 @@ class CortexTest(s_test.SynTest):
                 # final top level API check
                 self.none(snap.getNodeByNdef(('teststr', 'baz')))
 
-    def test_cortex_delnode_perms(self):
+    @s_glob.synchelp
+    async def test_cortex_delnode_perms(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
@@ -923,7 +951,8 @@ class CortexTest(s_test.SynTest):
 
                 self.len(0, list(core.eval('cycle0=foo | delnode --force')))
 
-    def test_cortex_sudo(self):
+    @s_glob.synchelp
+    async def test_cortex_sudo(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
@@ -936,7 +965,8 @@ class CortexTest(s_test.SynTest):
                 nodes = list(core.eval('sudo | [ inet:ipv4=1.2.3.4 ]'))
                 self.len(1, nodes)
 
-    def test_cortex_cell_splices(self):
+    @s_glob.synchelp
+    async def test_cortex_cell_splices(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
@@ -950,13 +980,14 @@ class CortexTest(s_test.SynTest):
 
                 self.ge(len(list(core.splices(0, 1000))), 5)
 
-    def test_pivot_inout(self):
+    @s_glob.synchelp
+    async def test_pivot_inout(self):
 
         def getPackNodes(core, query):
             nodes = sorted([n.pack() for n in core.eval(query)])
             return nodes
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
             # seed a node for pivoting
             list(core.eval('[ pivcomp=(foo,bar) :tick=2018 ]'))
 
@@ -1122,9 +1153,10 @@ class CortexTest(s_test.SynTest):
                       ]:
                 self.genraises(s_exc.BadStormSyntax, core.eval, q)
 
-    def test_node_repr(self):
+    @s_glob.synchelp
+    async def test_node_repr(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             with core.snap() as snap:
 
@@ -1134,10 +1166,11 @@ class CortexTest(s_test.SynTest):
                 node = snap.addNode('inet:dns:a', ('woot.com', 0x01020304))
                 self.eq('1.2.3.4', node.repr('ipv4'))
 
-    def test_coverage(self):
+    @s_glob.synchelp
+    async def test_coverage(self):
 
         # misc tests to increase code coverage
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             node = (('teststr', 'foo'), {})
 
@@ -1145,9 +1178,10 @@ class CortexTest(s_test.SynTest):
 
             self.nn(core.getNodeByNdef(('teststr', 'foo')))
 
-    def test_cortex_storm_set_univ(self):
+    @s_glob.synchelp
+    async def test_cortex_storm_set_univ(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             list(core.eval('[ teststr=woot .seen=(2014,2015) ]'))
 
@@ -1156,9 +1190,10 @@ class CortexTest(s_test.SynTest):
                 node = snap.getNodeByNdef(('teststr', 'woot'))
                 self.eq(node.get('.seen'), (1388534400000, 1420070400000))
 
-    def test_cortex_storm_set_tag(self):
+    @s_glob.synchelp
+    async def test_cortex_storm_set_tag(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             tick0 = core.model.type('time').norm('2014')[0]
             tick1 = core.model.type('time').norm('2015')[0]
@@ -1182,9 +1217,10 @@ class CortexTest(s_test.SynTest):
                 node = snap.getNodeByNdef(('teststr', 'haha'))
                 self.eq(node.getTag('bar'), (tick1, tick2 + 1))
 
-    def test_cortex_storm_vars(self):
+    @s_glob.synchelp
+    async def test_cortex_storm_vars(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             opts = {'vars': {'foo': '1.2.3.4'}}
 
@@ -1212,9 +1248,10 @@ class CortexTest(s_test.SynTest):
             opts = {'vars': {'foo': norm}}
             self.len(1, core.eval('pivcomp:tick=$foo', opts=opts))
 
-    def test_cortex_storm_filt_ival(self):
+    @s_glob.synchelp
+    async def test_cortex_storm_filt_ival(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             self.len(1, core.eval('[ teststr=woot +#foo=(2015,2018) +#bar .seen=(2014,2016) ]'))
 
@@ -1241,9 +1278,10 @@ class CortexTest(s_test.SynTest):
 
             #self.len(1, core.eval('[ teststr=woot +#foo=(2015,2018) .seen=(2014,2016) ]'))
 
-    def test_cortex_storm_tagform(self):
+    @s_glob.synchelp
+    async def test_cortex_storm_tagform(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             self.len(1, core.eval('[ teststr=hehe ]'))
             self.len(1, core.eval('[ teststr=haha +#foo ]'))
@@ -1263,8 +1301,9 @@ class CortexTest(s_test.SynTest):
             self.len(1, core.eval('teststr#foo@=(2017,2022)'))
             self.len(1, core.eval('teststr#foo@=(2012,2022)'))
 
-    def test_cortex_storm_indx_none(self):
-        with self.getTestCore() as core:
+    @s_glob.synchelp
+    async def test_cortex_storm_indx_none(self):
+        async with self.agetTestCore() as core:
             self.raises(s_exc.NoSuchIndx, list, core.eval('graph:node:data=10'))
 
     def _validate_feed(self, core, gestdef, guid, seen, pack=False):
@@ -1322,7 +1361,8 @@ class CortexTest(s_test.SynTest):
         self.len(1, core.eval('refs'))
         self.len(1, core.eval('wentto'))
 
-    def test_syn_ingest_remote(self):
+    @s_glob.synchelp
+    async def test_syn_ingest_remote(self):
         guid = s_common.guid()
         seen = s_common.now()
         gestdef = self.getIngestDef(guid, seen)
@@ -1340,17 +1380,19 @@ class CortexTest(s_test.SynTest):
                 core.addUserRole('root', 'creator')
                 self._validate_feed(core, gestdef, guid, seen)
 
-    def test_syn_ingest_local(self):
+    @s_glob.synchelp
+    async def test_syn_ingest_local(self):
         guid = s_common.guid()
         seen = s_common.now()
         gestdef = self.getIngestDef(guid, seen)
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
             self._validate_feed(core, gestdef, guid, seen, pack=True)
 
-    def test_cortex_int_indx(self):
+    @s_glob.synchelp
+    async def test_cortex_int_indx(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             list(core.eval('[testint=20]'))
 
@@ -1427,9 +1469,10 @@ class CortexTest(s_test.SynTest):
             self.len(1, core.eval('testint>20'))
             self.len(0, core.eval('testint<20'))
 
-    def test_cortex_ontag(self):
+    @s_glob.synchelp
+    async def test_cortex_ontag(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             tags = {}
             def onadd(node, tag, valu):
@@ -1464,9 +1507,10 @@ class CortexTest(s_test.SynTest):
                 self.none(tags.get('foo.bar'))
                 self.none(tags.get('foo.bar.baz'))
 
-    def test_cortex_del_univ(self):
+    @s_glob.synchelp
+    async def test_cortex_del_univ(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             core.model.addUnivProp('hehe', ('int', {}), {})
 
@@ -1475,24 +1519,27 @@ class CortexTest(s_test.SynTest):
             self.len(1, core.eval('.hehe [ -.hehe ]'))
             self.len(0, core.eval('.hehe'))
 
-    def test_cortex_snap_eval(self):
+    @s_glob.synchelp
+    async def test_cortex_snap_eval(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
 
             with core.snap() as snap:
                 self.len(2, snap.eval('[teststr=foo teststr=bar]'))
             self.len(2, core.eval('teststr'))
 
-    def test_feed_syn_nodes(self):
-        with self.getTestCore() as core0:
+    @s_glob.synchelp
+    async def test_feed_syn_nodes(self):
+        async with self.agetTestCore() as core0:
             q = '[testint=1 testint=2 testint=3]'
             podes = [n.pack() for n in core0.eval(q)]
             self.len(3, podes)
-        with self.getTestCore() as core1:
+        async with self.agetTestCore() as core1:
             retn = core1.addFeedData('syn.nodes', podes)
             self.len(3, core1.eval('testint'))
 
-    def test_stat(self):
+    @s_glob.synchelp
+    async def test_stat(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             coreiden = dmon.shared['core'].iden
@@ -1505,7 +1552,8 @@ class CortexTest(s_test.SynTest):
                 nstat = core.stat()
                 self.gt(nstat.get('layer').get('splicelog_indx'), ostat.get('layer').get('splicelog_indx'))
 
-    def test_offset(self):
+    @s_glob.synchelp
+    async def test_offset(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
             with dmon._getTestProxy('core', **pconf) as core:

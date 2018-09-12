@@ -783,7 +783,7 @@ class Slab(s_coro.Fini):
 
             self.commit(force=True)
 
-    def delete(self, lkey, dupdata=False, db=None):
+    def delete(self, lkey, val=None, db=None):
 
         try:
 
@@ -793,9 +793,9 @@ class Slab(s_coro.Fini):
                 self.dirty = True
 
             if not self.recovering:
-                self._logXactOper(self.delete, lkey, dupdata=dupdata, db=db)
+                self._logXactOper(self.delete, lkey, val, db=db)
 
-            self.xact.delete(lkey, dupdata=dupdata, db=db)
+            self.xact.delete(lkey, val, db=db)
 
             # give the commit a chance...
             if not self.holders:
@@ -945,6 +945,7 @@ class Scan:
     def __init__(self, slab, db):
 
         self.slab = slab
+        self.db = db
 
         self.curs = self.slab.xact.cursor(db=db)
 

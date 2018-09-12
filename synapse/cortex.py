@@ -897,14 +897,6 @@ class Cortex(s_cell.Cell):
             ret.append((modname, mod.conf))
         return ret
 
-    def eval(self, text, opts=None, user=None):
-        with self.snap(user=user) as snap:
-            yield from snap.eval(text, opts=opts, user=user)
-
-    def storm(self, text, opts=None, user=None):
-        # FIXME
-        pass
-
     async def eval(self, text, opts=None):
         '''
         Evaluate a storm query and yield Nodes only.

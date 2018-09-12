@@ -2,7 +2,7 @@ import os
 import contextlib
 import synapse.glob as s_glob
 
-from synapse.tests.utils import SyncToAsyncCMgr, alist
+from synapse.tests.utils import alist
 import synapse.tests.common as s_t_common
 
 class SnapTest(s_t_common.SynTest):

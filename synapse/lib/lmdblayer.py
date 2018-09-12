@@ -71,8 +71,6 @@ class LmdbLayer(s_layer.Layer):
         self.splicedb = await self.initdb('splices')
         self.splicelog = s_slabseqn.SlabSeqn(self.slab, 'splices')
 
-
-
     async def stor(self, sops):
         '''
         Execute a series of storage operations.
@@ -137,7 +135,7 @@ class LmdbLayer(s_layer.Layer):
 
             oldv, oldi = s_msgpack.un(byts)
 
-            self.delete(pvpref + oldi, pvvalu, db=self.byprop)
+            self.slab.delete(pvpref + oldi, pvvalu, db=self.byprop)
 
             if univ:
                 unkey = penc + oldi

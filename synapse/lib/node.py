@@ -89,15 +89,15 @@ class Node:
 
         return node
 
-    def seen(self, tick, source=None):
+    async def seen(self, tick, source=None):
         '''
         Update the .seen interval and optionally a source specific seen node.
         '''
-        self.set('.seen', tick)
+        await self.set('.seen', tick)
 
         if source is not None:
-            seen = self.snap.addNode('seen', (source, self.ndef))
-            seen.set('.seen', tick)
+            seen = await self.snap.addNode('seen', (source, self.ndef))
+            await seen.set('.seen', tick)
 
     def getNodeRefs(self):
         '''
@@ -187,7 +187,7 @@ class Node:
         auto = self.snap.model.form(prop.type.name)
         if auto is not None:
             buid = s_common.buid((auto.name, norm))
-            self.snap._addNodeFnib((auto, norm, info, buid))
+            await self.snap._addNodeFnib((auto, norm, info, buid))
 
         # does the type think we have special auto nodes to add?
         # ( used only for adds which do not meet the above block )
@@ -195,7 +195,7 @@ class Node:
             auto = self.snap.model.form(autoname)
             autonorm, autoinfo = auto.type.norm(autovalu)
             buid = s_common.buid((auto.name, autonorm))
-            self.snap._addNodeFnib((auto, autovalu, autoinfo, buid))
+            await self.snap._addNodeFnib((auto, autovalu, autoinfo, buid))
 
         # do we need to set any sub props?
         subs = info.get('subs')
@@ -214,10 +214,10 @@ class Node:
         # last but not least, if we are *not* in init
         # we need to fire a Prop.onset() callback.
         if not self.init:
-            prop.wasSet(self, curv)
+            await prop.wasSet(self, curv)
             if prop.univ:
                 univ = self.snap.model.prop(prop.univ)
-                univ.wasSet(self, curv)
+                await univ.wasSet(self, curv)
 
     def has(self, name):
         return name in self.props

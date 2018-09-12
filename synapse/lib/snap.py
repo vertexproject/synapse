@@ -168,7 +168,6 @@ class Snap(s_eventbus.EventBus, s_coro.Fini):
         return await self.getNodeByBuid(buid)
 
     async def _getNodesByTag(self, name, valu=None, cmpr='='):
-        breakpoint()
         # TODO interval indexing for valu... and @=
         name = s_chop.tag(name)
         pref = b'#' + name.encode('utf8') + b'\x00'
@@ -428,12 +427,12 @@ class Snap(s_eventbus.EventBus, s_coro.Fini):
         # we are done initializing.
         node.init = False
 
-        form.wasAdded(node)
+        await form.wasAdded(node)
 
         # now we must fire all his prop sets
         for name, valu in tuple(node.props.items()):
             prop = node.form.props.get(name)
-            prop.wasSet(node, None)
+            await prop.wasSet(node, None)
 
         return node
 
