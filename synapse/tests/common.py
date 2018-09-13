@@ -4,7 +4,6 @@ import logging
 
 import unittest.mock as mock
 
-
 loglevel = os.getenv('SYN_TEST_LOG_LEVEL', 'WARNING')
 logging.basicConfig(level=loglevel,
                     format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]')

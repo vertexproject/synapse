@@ -19,6 +19,7 @@ import os
 import sys
 import types
 import shutil
+import inspect
 import logging
 import pathlib
 import tempfile
@@ -547,6 +548,20 @@ class SynTest(unittest.TestCase):
         for k, v in props.items():
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
+
+class ASynTest(SynTest):
+    '''
+    Identical to SynTest, except that all async test methods are s_glob.synchelp decorated
+    '''
+    def __getattribute__(self, s):
+        '''
+        '''
+        attr = SynTest.__getattribute__(self, s)
+        # If attribute is an instance method and starts with 'test_'
+        if s.startswith('test_') and inspect.ismethod(attr) and inspect.iscoroutinefunction(attr):
+            return s_glob.synchelp(attr)
+        else:
+            return attr
 
     # Note: required Python 3.7
     @contextlib.asynccontextmanager
