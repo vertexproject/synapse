@@ -1,12 +1,46 @@
+import gc
+import atexit
+import signal
 import asyncio
 import logging
+import functools
+import threading
 import collections
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
+
 import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)
+
+def _fini_atexit(): # pragma: no cover
+
+    for item in gc.get_objects():
+
+        if not isinstance(item, Base):
+            continue
+
+        if item.isfini:
+            continue
+
+        if not item._fini_atexit:
+            continue
+
+        try:
+            rv = item.fini()
+            if asyncio.iscoroutine(rv):
+                # Try to run the fini on its loop
+                loop = item.loop
+                if not loop.is_running():
+                    continue
+                loop.create_task(rv)
+
+        except Exception as e:
+            logger.exception('atexit fini fail: %r' % (item,))
+
+atexit.register(_fini_atexit)
 
 class Base:
     '''
@@ -27,8 +61,9 @@ class Base:
         foo = await Foo.anit(10)
     '''
     @classmethod
-    async def anit(cons, *args, **kwargs):
-        self = cons(*args, **kwargs)
+    async def anit(cls, *args, **kwargs):
+        self = cls(*args, **kwargs)
+        self.loop = asyncio.get_running_loop()
         await self.__anit__()
         return self
 
@@ -52,11 +87,11 @@ class Base:
     async def __anit__(self):
         pass
 
-    def onfini(self, coro):
+    def onfini(self, func):
         '''
-        Add a *coroutine* to be called on fini().
+        Add a function or coroutine function to be called on fini().
         '''
-        self._fini_funcs.append(coro)
+        self._fini_funcs.append(func)
 
     async def __aenter__(self):
         self.entered = True
@@ -79,8 +114,7 @@ class Base:
 
     def incref(self):
         '''
-        Increment the reference count for this event bus.
-        This API may be optionally used to control fini().
+        Increment the reference count for this event bus.  This API may be optionally used to control fini().
         '''
         self._syn_refs += 1
         return self._syn_refs
@@ -115,8 +149,8 @@ class Base:
 
     def on(self, evnt, func, **filts):
         '''
-        Add an event bus function callback for a specific event with optional filtering.
-        If the function returns a coroutine, it will be awaited.
+        Add an event bus function callback for a specific event with optional filtering.  If the function returns a
+        coroutine, it will be awaited.
 
         Args:
             evnt (str):         An event name
@@ -243,7 +277,9 @@ class Base:
         for fini in self._fini_funcs:
 
             try:
-                await fini()
+                rv = fini()
+                if asyncio.iscoroutine(rv):
+                    await rv
 
             except Exception as e:
                 logger.exception('fini failed')
@@ -268,13 +304,59 @@ class Base:
             return True
 
         if self.finievt is None:
-            self.finievt = asyncio.Event(loop=asyncio.get_running_loop())
+            self.finievt = asyncio.Event(loop=self.loop)
 
         try:
-            await asyncio.wait_for(self.finievt.wait(), timeout, loop=asyncio.get_running_loop())
+            await asyncio.wait_for(self.finievt.wait(), timeout, loop=self.loop)
         except asyncio.TimeoutError:
             return None
         return True
+
+    def main(self):
+        '''
+        Helper function to block until shutdown ( and handle ctrl-c and SIGTERM).
+
+        Examples:
+            Run a event bus, wait until main() has returned, then do other stuff::
+
+                foo = EventBus()
+                foo.main()
+                dostuff()
+
+        Notes:
+            This does fire a 'ebus:main' event prior to entering the
+            waitfini() loop.
+
+        Returns:
+            None
+        '''
+        assert self.loop == s_glob.plex.loop
+
+        doneevent = threading.Event()
+        self.onfini(doneevent.set)
+
+        async def sighandler():
+            print('Caught SIGTERM, shutting down')
+            await self.fini()
+
+        try:
+            s_glob.plex.loop.add_signal_handler(signal.SIGTERM, functools.partial(asyncio.create_task, sighandler()))
+        except Exception as e:  # pragma: no cover
+            logger.exception('Unable to register SIGTERM handler.')
+
+        async def asyncmain():
+            await self.fire('ebus:main')
+
+        asyncio.run_coroutine_threadsafe(asyncmain(), loop=self.loop)
+
+        try:
+            doneevent.wait()
+
+        except KeyboardInterrupt as e:
+            print('ctrl-c caught: shutting down')
+
+        finally:
+            asyncio.run_coroutine_threadsafe(self.fini(), loop=self.loop)
 
     def waiter(self, count, *names):
         '''
@@ -300,7 +382,7 @@ class Base:
               race conditions with this mechanism ;)
 
         '''
-        return Waiter(self, count, *names)
+        return Waiter(self, count, self.loop, *names)
 
     async def log(self, level, mesg, **info):
         '''
@@ -338,11 +420,12 @@ class Waiter:
     '''
     A helper to wait for a given number of events on a Base.
     '''
-    def __init__(self, bus, count, *names):
+    def __init__(self, bus, count, loop, *names):
         self.bus = bus
         self.names = names
         self.count = count
-        self.event = asyncio.Event(loop=asyncio.get_running_loop())
+        self.loop = loop
+        self.event = asyncio.Event(loop=loop)
 
         self.events = []
 
@@ -375,7 +458,7 @@ class Waiter:
         '''
         try:
             try:
-                await asyncio.wait_for(self.event.wait(), timeout, loop=asyncio.get_running_loop())
+                await asyncio.wait_for(self.event.wait(), timeout, loop=self.loop)
             except asyncio.TimeoutError:
                 return None
 

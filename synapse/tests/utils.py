@@ -549,20 +549,6 @@ class SynTest(unittest.TestCase):
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
-class ASynTest(SynTest):
-    '''
-    Identical to SynTest, except that all async test methods are s_glob.synchelp decorated
-    '''
-    def __getattribute__(self, s):
-        '''
-        '''
-        attr = SynTest.__getattribute__(self, s)
-        # If attribute is an instance method and starts with 'test_'
-        if s.startswith('test_') and inspect.ismethod(attr) and inspect.iscoroutinefunction(attr):
-            return s_glob.synchelp(attr)
-        else:
-            return attr
-
     # Note: required Python 3.7
     @contextlib.asynccontextmanager
     async def agetTestCore(self, mirror='testcore', conf=None, extra_layers=None):
@@ -1188,6 +1174,21 @@ class ASynTest(SynTest):
                     core.addUserRole('root', 'deleter')
 
             yield dmon
+
+class ASynTest(SynTest):
+    '''
+    Identical to SynTest, except that all async test methods are s_glob.synchelp decorated
+    '''
+    def __getattribute__(self, s):
+        '''
+        '''
+        attr = SynTest.__getattribute__(self, s)
+        # If attribute is an instance method and starts with 'test_'
+        if s.startswith('test_') and inspect.ismethod(attr) and inspect.iscoroutinefunction(attr):
+            return s_glob.synchelp(attr)
+        else:
+            return attr
+
 
 class SyncToAsyncCMgr():
     ''' Wraps a regular context manager in an async one '''
