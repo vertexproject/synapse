@@ -15,9 +15,10 @@ import synapse.telepath as s_telepath
 
 from synapse.eventbus import EventBus
 
+import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
-import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.share as s_share
+import synapse.lib.urlhelp as s_urlhelp
 
 class Genr(s_share.Share):
 
@@ -84,7 +85,7 @@ dmonwrap = (
     (types.GeneratorType, Genr),
 )
 
-class Daemon(EventBus, s_coro.Anit, s_coro.Fini):
+class Daemon(s_base.Base):
 
     confdefs = (
 

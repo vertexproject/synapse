@@ -164,7 +164,7 @@ class AxonTest(s_test.SynTest):
     async def test_axon(self):
         with self.getTestDir() as dirn:
             path0 = os.path.join(dirn, 'axon0')
-            async with SyncToAsyncCMgr(self.getTestDmon, mirror='axondmon') as dmon, \
+            async with self.getTestDmon(mirror='axondmon') as dmon, \
                     await dmon._getTestProxy('blobstor00') as blobstor0, \
                     SyncToAsyncCMgr(s_axon.Axon, path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as axon:
 

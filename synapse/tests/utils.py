@@ -603,10 +603,9 @@ class SynTest(unittest.TestCase):
             with s_cortex.Cortex(dirn) as core:
                 yield core
 
-    @contextlib.contextmanager
-    def getTestDmon(self, mirror='dmontest'):
+    @contextlib.asynccontextmanager
+    async def getTestDmon(self, mirror='dmontest'):
 
-        breakpoint()
         with self.getTestDir(mirror=mirror) as dirn:
             coredir = pathlib.Path(dirn, 'cells', 'core')
             if coredir.is_dir():
@@ -616,7 +615,7 @@ class SynTest(unittest.TestCase):
 
             certdir = s_certdir.defdir
 
-            with s_daemon.Daemon(dirn) as dmon:
+            async with s_daemon.Daemon(dirn) as dmon:
 
                 # act like synapse.tools.dmon...
                 s_certdir.defdir = s_common.genpath(dirn, 'certs')
@@ -1175,6 +1174,7 @@ class SynTest(unittest.TestCase):
 
             yield dmon
 
+# FIXME:  we could just incorporate this into SynTest
 class ASynTest(SynTest):
     '''
     Identical to SynTest, except that all async test methods are s_glob.synchelp decorated
@@ -1183,7 +1183,7 @@ class ASynTest(SynTest):
         '''
         '''
         attr = SynTest.__getattribute__(self, s)
-        # If attribute is an instance method and starts with 'test_'
+        # If s is an instance method and starts with 'test_', synchelp wrap it
         if s.startswith('test_') and inspect.ismethod(attr) and inspect.iscoroutinefunction(attr):
             return s_glob.synchelp(attr)
         else:

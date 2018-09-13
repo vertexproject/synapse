@@ -362,9 +362,7 @@ class BaseTest(s_t_utils.ASynTest):
         ctx = multiprocessing.get_context('spawn')
 
         evt1 = ctx.Event()
-        # evt1.clear()
         evt2 = ctx.Event()
-        # evt2.clear()
 
         proc = ctx.Process(target=block_processing, args=(evt1, evt2))
         proc.start()
