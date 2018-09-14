@@ -2,6 +2,7 @@ import os
 import sys
 import signal
 import asyncio
+import unittest
 import multiprocessing
 
 import synapse.exc as s_exc
@@ -19,18 +20,20 @@ def block_processing(evt1, evt2):
         evt2 (multiprocessing.Event): event to twiddle
     '''
 
-    bus = s_glob.plex.coroToSync(s_base.Base.anit())
+    base = s_glob.plex.coroToSync(s_base.Base.anit())
 
-    def onMain(mesg):
+    async def onMain(mesg):
         evt1.set()
+        await base.fini()
 
     def onFini():
         evt2.set()
 
-    bus.on('ebus:main', onMain)
-    bus.onfini(onFini)
+    base.on('ebus:main', onMain)
+    base.onfini(onFini)
 
-    bus.main()
+    base.main()
+
     sys.exit(137)
 
 class BaseTest(s_t_utils.SynTest):
@@ -182,6 +185,7 @@ class BaseTest(s_t_utils.SynTest):
         self.true(mesg[1].get('woot'))
 
     @s_glob.synchelp
+    @unittest.skip('Remove me when base.log confirmed unused')
     async def test_base_log(self):
 
         logs = []
@@ -197,6 +201,7 @@ class BaseTest(s_t_utils.SynTest):
         self.eq(mesg[1].get('level'), 100)
 
     @s_glob.synchelp
+    @unittest.skip('Remove me when exc confirmed unused')
     async def test_base_exc(self):
 
         logs = []
