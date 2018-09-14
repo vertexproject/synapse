@@ -45,7 +45,7 @@ class Scope:
         '''
         Pop the current scope frame.
         '''
-        self.frames.pop()
+        return self.frames.pop()
 
     def set(self, name, valu):
         '''
