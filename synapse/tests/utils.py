@@ -549,7 +549,7 @@ class SynTest(unittest.TestCase):
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
-    # Note: required Python 3.7
+    # Note: requires Python 3.7
     @contextlib.asynccontextmanager
     async def agetTestCore(self, mirror='testcore', conf=None, extra_layers=None):
         '''
@@ -615,7 +615,7 @@ class SynTest(unittest.TestCase):
 
             certdir = s_certdir.defdir
 
-            async with s_daemon.Daemon(dirn) as dmon:
+            async with await s_daemon.Daemon.anit(dirn) as dmon:
 
                 # act like synapse.tools.dmon...
                 s_certdir.defdir = s_common.genpath(dirn, 'certs')

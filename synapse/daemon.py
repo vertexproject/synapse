@@ -99,8 +99,7 @@ class Daemon(s_base.Base):
     )
 
     def __init__(self, dirn):
-
-        Base.__init__(self)
+        s_base.Base.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
         self._shareLoopTasks = set()
@@ -123,14 +122,13 @@ class Daemon(s_base.Base):
             'share:fini': self._onShareFini,
         }
 
-        self._loadDmonConf()
-
         self.onfini(self._onDmonFini)
 
     async def __anit__(self):
+        await self._loadDmonConf()
         await self._loadDmonCells()
 
-    def listen(self, url, **opts):
+    async def listen(self, url, **opts):
         '''
         Bind and listen on the given host/port with possible SSL.
 
@@ -147,7 +145,7 @@ class Daemon(s_base.Base):
         # TODO: SSL
         ssl = None
 
-        server = s_glob.plex.listen(host, port, self._onLinkInit, ssl=ssl)
+        server = await s_glob.plex.listen(host, port, self._onLinkInit, ssl=ssl)
         self.listenservers.append(server)
         return server.sockets[0].getsockname()
 
@@ -180,22 +178,23 @@ class Daemon(s_base.Base):
             if isinstance(share, s_base.Base):
                 await share.fini()
 
-        async def afini():
-            for name, share in self.shared.items():
-                if isinstance(share, s_coro.Fini):
-                    await share.fini()
+        for name, share in self.shared.items():
+            if isinstance(share, s_base.Base):
+                await share.fini()
+            # FIXME:  remove when transition all to Base
+            elif isinstance(share, s_coro.Fini):
+                await share.fini()
 
-            for task in self._shareLoopTasks:
-                try:
-                    if task.done():
-                        continue
-                    task.cancel()
-                except Exception as e:
-                    logger.error('Error cancelling task: %s', str(e))
-
-            await asyncio.wait([link.fini() for link in self.connectedlinks], loop=s_glob.plex.loop)
-
-        s_glob.plex.coroToTask(afini())
+        for task in self._shareLoopTasks:
+            try:
+                if task.done():
+                    continue
+                task.cancel()
+            except Exception as e:
+                logger.error('Error cancelling task: %s', str(e))
+        finis = [link.fini() for link in self.connectedlinks]
+        if finis:
+            await asyncio.wait(finis, loop=asyncio.get_event_loop)
 
     def _getSslCtx(self):
         return None
@@ -252,7 +251,7 @@ class Daemon(s_base.Base):
         self.share(name, cell)
         self.cells[name] = cell
 
-    def _loadDmonConf(self):
+    async def _loadDmonConf(self):
 
         # process per-conf elements...
         for name in self.conf.get('modules', ()):
@@ -263,7 +262,7 @@ class Daemon(s_base.Base):
 
         lisn = self.conf.get('listen')
         if lisn is not None:
-            self.addr = self.listen(lisn)
+            self.addr = await self.listen(lisn)
 
     async def _onLinkInit(self, link):
 

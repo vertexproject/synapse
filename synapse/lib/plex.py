@@ -63,7 +63,7 @@ class Plex(s_eventbus.EventBus):
         coro = self.link(host, port, ssl=ssl)
         return self.coroToSync(coro, timeout=timeout)
 
-    def listen(self, host, port, onlink, ssl=None):
+    async def listen(self, host, port, onlink, ssl=None):
         '''
         Listen on the given host/port and fire onlink(Link).
 
@@ -78,12 +78,8 @@ class Plex(s_eventbus.EventBus):
             if asyncio.iscoroutine(coro):
                 await coro
 
-        async def bind():
-            server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
-            return server
-
-        coro = bind()
-        return self.coroToSync(coro)
+        server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
+        return server
 
     def queue(self, maxsize=None):
         return asyncio.Queue(maxsize=maxsize, loop=self.loop)
