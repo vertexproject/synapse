@@ -437,9 +437,6 @@ class MoveTagCmd(Cmd):
         for node in snap.getNodesBy('syn:tag', self.opts.oldtag, cmpr='^='):
 
             tagstr = node.ndef[1]
-            if tagstr == oldstr: # special case for exact match
-                node.set('isnow', newstr)
-                continue
 
             newtag = newstr + tagstr[oldsize:]
 
