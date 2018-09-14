@@ -56,6 +56,28 @@ class StormTest(s_test_common.SynTest):
                 self.none(node.tags.get('hehe'))
                 self.none(node.tags.get('hehe.haha'))
 
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+                node = snap.addNode('teststr', 'foo')
+                node.addTag('hehe', valu=(20, 30))
+
+                tagnode = snap.getNodeByNdef(('syn:tag', 'hehe'))
+
+                tagnode.set('doc', 'haha doc')
+
+            list(core.eval('movetag #hehe #woot'))
+
+            self.len(0, list(core.eval('#hehe')))
+
+            self.len(1, list(core.eval('#woot')))
+
+            with core.snap() as snap:
+
+                newt = core.getNodeByNdef(('syn:tag', 'woot'))
+
+                self.eq(newt.get('doc'), 'haha doc')
+
     def test_storm_spin(self):
 
         with self.getTestCore() as core:
