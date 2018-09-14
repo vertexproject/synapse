@@ -3,7 +3,6 @@ import atexit
 import signal
 import asyncio
 import logging
-import functools
 import threading
 import collections
 
@@ -63,7 +62,7 @@ class Base:
     @classmethod
     async def anit(cls, *args, **kwargs):
         self = cls(*args, **kwargs)
-        self.loop = asyncio.get_running_loop()
+        self.loop = asyncio.get_event_loop()
         await self.__anit__()
         return self
 
@@ -339,8 +338,11 @@ class Base:
             print('Caught SIGTERM, shutting down')
             await self.fini()
 
+        def handler():
+            asyncio.run_coroutine_threadsafe(sighandler(), loop=self.loop)
+
         try:
-            s_glob.plex.loop.add_signal_handler(signal.SIGTERM, functools.partial(asyncio.create_task, sighandler()))
+            s_glob.plex.loop.add_signal_handler(signal.SIGTERM, handler)
         except Exception as e:  # pragma: no cover
             logger.exception('Unable to register SIGTERM handler.')
 
@@ -356,6 +358,9 @@ class Base:
             print('ctrl-c caught: shutting down')
 
         finally:
+            # Avoid https://bugs.python.org/issue34680 by removing handler before closing down
+            s_glob.plex.loop.remove_signal_handler(signal.SIGTERM)
+
             asyncio.run_coroutine_threadsafe(self.fini(), loop=self.loop)
 
     def waiter(self, count, *names):

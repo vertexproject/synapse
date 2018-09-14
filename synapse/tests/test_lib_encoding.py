@@ -3,6 +3,7 @@ import json
 
 import synapse.common as s_common
 
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.encoding as s_encoding
 
 import synapse.tests.common as s_test
@@ -128,6 +129,20 @@ class EncTest(s_test.SynTest):
             with s_common.genfile(linep) as fd:
                 lines = list(s_encoding.iterdata(fd, close_fd=False,
                                                  format='lines'))
+                self.len(2, lines)
+                e = ['foo.com', 'bar.com']
+                self.eq(lines, e)
+
+    def test_fmt_mpk(self):
+        with self.getTestDir() as dirn:
+            fp = s_common.genpath(dirn, 'woot.mpk')
+            with s_common.genfile(fp) as fd:
+                fd.write(s_msgpack.en('foo.com'))
+                fd.write(s_msgpack.en('bar.com'))
+
+            with s_common.genfile(fp) as fd:
+                lines = list(s_encoding.iterdata(fd, close_fd=False,
+                                                 format='mpk'))
                 self.len(2, lines)
                 e = ['foo.com', 'bar.com']
                 self.eq(lines, e)

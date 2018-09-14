@@ -830,6 +830,24 @@ class SynTest(unittest.TestCase):
 
         self.raises(exc, testfunc)
 
+    @contextlib.contextmanager
+    def setSynDir(self, dirn):
+        '''
+        Sets s_common.syndir to a specific directory and then unsets it afterwards.
+
+        Args:
+            dirn (str): Directory to set syndir to.
+
+        Notes:
+            This is to be used as a context manager.
+        '''
+        olddir = s_common.syndir
+        try:
+            s_common.syndir = dirn
+            yield None
+        finally:
+            s_common.syndir = olddir
+
     def eq(self, x, y, msg=None):
         '''
         Assert X is equal to Y

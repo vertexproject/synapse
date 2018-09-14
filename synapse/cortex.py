@@ -2,7 +2,6 @@ import json
 import asyncio
 import logging
 import pathlib
-import contextlib
 import collections
 
 import tornado.web as t_web
@@ -10,20 +9,17 @@ import tornado.netutil as t_netutil
 import tornado.httpserver as t_http
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.cell as s_cell
-import synapse.lib.coro as s_coro
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
 import synapse.lib.layer as s_layer
-import synapse.lib.queue as s_queue
 import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
 

@@ -1,4 +1,11 @@
+import os
+import synapse.common as s_common
+
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.scope as s_scope
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.encoding as s_encoding
+
 import synapse.tests.common as s_test
 
 
@@ -106,6 +113,67 @@ class CmdCoreTest(s_test.SynTest):
             self.notin('node:add', s)
             self.notin('prop:set', s)
 
+            self.len(1, core.eval('[testcomp=(1234, 5678)]'))
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            q = 'storm --raw --path testcomp -> testint'
+            cmdr.runCmdLine(q)
+            self.true(outp.expect("('testint', 1234)"))
+            self.true(outp.expect("'path'"))
+
+    def test_log(self):
+        with self.getTestDmon('dmoncore') as dmon:
+            dirn = s_scope.get('dirn')
+            with self.setSynDir(dirn):
+                with dmon._getTestProxy('core') as core:
+                    outp = self.getTestOutp()
+                    cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                    cmdr.runCmdLine('log --on --format jsonl')
+                    fp = cmdr.locs.get('log:fp')
+                    cmdr.runCmdLine('storm [teststr=hi :tick=2018 +#haha.hehe]')
+                    cmdr.runCmdLine('log --off')
+                    cmdr.fini()
+
+                    self.true(outp.expect('Starting logfile'))
+                    self.true(outp.expect('Closing logfile'))
+                    self.true(os.path.isfile(fp))
+
+                    # Ensure that jsonl is how the data was saved
+                    with s_common.genfile(fp) as fd:
+                        genr = s_encoding.iterdata(fd, close_fd=False, format='jsonl')
+                        objs = list(genr)
+                    self.eq(objs[0][0], 'init')
+
+                with dmon._getTestProxy('core') as core:
+                    outp = self.getTestOutp()
+                    cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                    # Our default format is mpk
+                    fp = os.path.join(dirn, 'loggyMcLogFace.mpk')
+                    cmdr.runCmdLine(f'log --on --splices-only --path {fp}')
+                    fp = cmdr.locs.get('log:fp')
+                    cmdr.runCmdLine('storm [teststr="I am a message!" :tick=1999 +#oh.my] ')
+                    cmdr.runCmdLine('log --off')
+                    cmdr.fini()
+
+                    self.true(os.path.isfile(fp))
+                    with s_common.genfile(fp) as fd:
+                        genr = s_encoding.iterdata(fd, close_fd=False, format='mpk')
+                        objs = list(genr)
+                    self.eq(objs[0][0], 'node:add')
+
+                with dmon._getTestProxy('core') as core:
+                    outp = self.getTestOutp()
+                    cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                    cmdr.runCmdLine('log --on --off')
+                    cmdr.fini()
+                    self.true(outp.expect('Pick one'))
+
+                    outp = self.getTestOutp()
+                    cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                    cmdr.runCmdLine('log')
+                    cmdr.fini()
+                    self.true(outp.expect('Pick one'))
+
 # FIXME incorporate these into storm tests
 '''
 class SynCmdCoreTest(s_test.SynTest):
@@ -131,85 +199,4 @@ class SynCmdCoreTest(s_test.SynTest):
             self.len(4, resp['data'])
             result = [mesg.strip() for mesg in outp.mesgs]
             self.eq(result, ['z@a.vertex.link', 'a@vertex.link', 'vertexmc@vertex.link', 'visi@vertex.link', '(4 results)'])
-
-    def test_cmds_storm_mesgs(self):
-        with self.getDmonCore() as core:
-            real_core = s_scope.get('syn:core')
-            real_core.setOperFunc('test:mesg', mesg_cmd)
-
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            resp = cmdr.runCmdLine('storm [inet:ipv4=1.2.3.4] test:mesg()')
-            self.len(1, resp['data'])
-            self.len(2, resp['mesgs'])
-
-            outp.expect('Storm Status Messages:')
-            outp.expect('Log test messages')
-            outp.expect('Query has [1] nodes')
-            print('cli> storm [inet:ipv4=1.2.3.4] test:mesg()')
-            print(outp)
-
-    def test_cmds_storm_tagtime(self):
-
-        with self.getDmonCore() as core:
-
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-
-            resp = cmdr.runCmdLine('storm [ inet:ipv4=1.2.3.4 #foo.bar@2011-2016 #baz.faz ]')
-            self.len(1, resp['data'])
-
-            lines = [s.strip() for s in str(outp).split('\n')]
-
-            self.true(any([regex.search('^#baz.faz \(added [0-9/: \.]+\)$', l) for l in lines]))
-            self.true(any([regex.search('^#foo.bar \(added [0-9/: \.]+\) 2011/01/01 00:00:00.000  -  2016/01/01 00:00:00.000$', l) for l in lines]))
-
-    def test_cmds_storm_mutual_exclusive(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('inet:email', 'visi@vertex.link')
-            resp = cmdr.runCmdLine('storm --raw --props inet:email="visi@vertex.link"')
-            self.none(resp)
-            self.true(outp.expect('Cannot specify --raw and --props together.'))
-
-    def test_cmds_storm_null_response(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('inet:email', 'visi@vertex.link')
-            resp = cmdr.runCmdLine('storm inet:email="pennywise@vertex.link"')
-            self.none(resp)
-            self.true(outp.expect('(0 results)'))
-
-    def test_cmds_storm_exc_response(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('inet:email', 'visi@vertex.link')
-            resp = cmdr.runCmdLine('storm inet:dns:a:ipv4*inet:cidr=192.168.0.0/100')
-            self.none(resp)
-
-            outp = str(outp)
-            terms = ('\(0 results\)',
-                     'oplog:',
-                     'options:',
-                     'limits:')
-            for term in terms:
-                self.nn(regex.search(term, outp))
-
-    def test_cmds_storm_multilift(self):
-        with self.getDmonCore() as core:
-            outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
-            core.formTufoByProp('strform', 'hehe')
-            core.formTufoByProp('inet:ipv4', 0)
-            resp = cmdr.runCmdLine('storm strform inet:ipv4')
-            self.len(2, resp['data'])
-
-            outp = str(outp)
-            terms = ('0.0.0.0', 'hehe')
-
-            for term in terms:
-                self.nn(regex.search(term, outp))
 '''

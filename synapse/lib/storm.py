@@ -138,9 +138,9 @@ class Parser(argparse.ArgumentParser):
         self.exited = False
 
         argparse.ArgumentParser.__init__(self,
-            prog=prog,
-            description=descr,
-            formatter_class=argparse.RawDescriptionHelpFormatter)
+                                         prog=prog,
+                                         description=descr,
+                                         formatter_class=argparse.RawDescriptionHelpFormatter)
 
     def exit(self, status=0, message=None):
         '''
@@ -249,6 +249,7 @@ class LimitCmd(Cmd):
             count += 1
 
             if count >= self.opts.count:
+                # FIXME:
                 snap.printf(f'limit reached: {self.opts.count}')
 
 class UniqCmd(Cmd):
@@ -336,13 +337,13 @@ class SudoCmd(Cmd):
             yield x
 
 # TODO
-#class AddNodeCmd(Cmd):     # addnode inet:ipv4 1.2.3.4 5.6.7.8
-#class DelPropCmd(Cmd):     # | delprop baz
-#class SetPropCmd(Cmd):     # | setprop foo bar
-#class AddTagCmd(Cmd):      # | addtag --time 2015 #hehe.haha
-#class DelTagCmd(Cmd):      # | deltag #foo.bar
-#class SeenCmd(Cmd):        # | seen --from <guid>update .seen and seen=(src,node).seen
-#class SourcesCmd(Cmd):     # | sources ( <nodes> -> seen:ndef :source -> source )
+# class AddNodeCmd(Cmd):     # addnode inet:ipv4 1.2.3.4 5.6.7.8
+# class DelPropCmd(Cmd):     # | delprop baz
+# class SetPropCmd(Cmd):     # | setprop foo bar
+# class AddTagCmd(Cmd):      # | addtag --time 2015 #hehe.haha
+# class DelTagCmd(Cmd):      # | deltag #foo.bar
+# class SeenCmd(Cmd):        # | seen --from <guid>update .seen and seen=(src,node).seen
+# class SourcesCmd(Cmd):     # | sources ( <nodes> -> seen:ndef :source -> source )
 
 class ReIndexCmd(Cmd):
     '''
@@ -524,7 +525,7 @@ class CountCmd(Cmd):
         async for item in genr:
             yield item
             i += 1
-
+        # FIXME:
         snap.printf(f'Counted {i} nodes.')
 
 class IdenCmd(Cmd):
@@ -601,6 +602,7 @@ class NoderefsCmd(Cmd):
 
     '''
     name = 'noderefs'
+
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('-d', '--degrees', type=int, default=1, action='store',
@@ -692,7 +694,7 @@ class NoderefsCmd(Cmd):
                     if self.omit_tags.intersection(set(pnode.tags.keys())):
                         continue
 
-                    yield  pnode, ppath
+                    yield pnode, ppath
 
                     # Can we traverse across this node?
                     if pnode.ndef[0] in self.omit_traversal_forms:

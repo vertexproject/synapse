@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import threading
+import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +30,11 @@ class Plex(s_eventbus.EventBus):
 
         def fini():
             coro = self._onAsyncFini()
-            self.coroToSync(coro, timeout=2)
-            self.loop.stop()
+            try:
+                self.coroToSync(coro, timeout=.05)
+            except concurrent.futures.TimeoutError:
+                pass
+            self.thrd.join(.1)
 
         self.onfini(fini)
 
@@ -91,12 +95,13 @@ class Plex(s_eventbus.EventBus):
         Args:
             coro (coroutine): The coroutine instance.
 
-        Returns:
-            (concurrent.futures.Task): A Future/Task to wait on.
+        Notes:
+            This API is thread safe.
 
-        NOTE: This API *is* thread safe
+        Returns:
+            concurrent.futures.Future: A Future to wait on.
         '''
-        return asyncio.run_coroutine_threadsafe(coro, loop=self.loop)
+        return asyncio.run_coroutine_threadsafe(coro, self.loop)
 
     def coroToSync(self, coro, timeout=None):
         '''
@@ -133,7 +138,7 @@ class Plex(s_eventbus.EventBus):
 
     async def _onAsyncFini(self):
         # async fini stuff here...
-        return
+        self.loop.stop()
 
     def _initPlexLink(self, reader, writer):
 
@@ -158,20 +163,23 @@ class Plex(s_eventbus.EventBus):
         '''
         Initialize the ioloop for the given link.
         '''
-        self.addLoopCoro(self._linkRxLoop(link))
-
-    def addLoopCoro(self, coro):
-        asyncio.run_coroutine_threadsafe(coro, self.loop)
+        self.coroToTask(self._linkRxLoop(link))
 
     def coroLoopTask(self, coro):
         '''
         Schedule the coro on the loop.
 
-        NOTE: NOT THREAD SAFE. ONLY FROM IO LOOP.
+        Args:
+            coro: Coroutine to turn into a task.
 
-        NOTE: any exceptions raised out of coro will be silently swallowed
+        Notes:
+            This is not thread safe It should only be called from inside
+            the ioloop.
+
+        Returns:
+            asyncio.Task: An asyncio.Task object for the coro.
         '''
-        self.loop.create_task(coro)
+        return self.loop.create_task(coro)
 
     def callSoonSafe(self, func):
         return self.loop.call_soon_threadsafe(func)
@@ -268,6 +276,9 @@ class Plex(s_eventbus.EventBus):
                     await link.rx(mesg)
 
                 byts = await link.reader.read(readsize)
+
+        except BrokenPipeError as e:
+            logger.warning('%s', str(e))
 
         except Exception as e:
             logger.exception('_linkRxLoop Error!')
