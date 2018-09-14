@@ -7,10 +7,6 @@ import threading
 import collections
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
-import synapse.common as s_common
-
-import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +78,7 @@ class Base:
         self._syn_links = []
         self._fini_funcs = []
         self._fini_atexit = False
+        self.loop: asyncio.AbstractEventLoop = None
 
     async def __anit__(self):
         pass
@@ -113,7 +110,7 @@ class Base:
 
     def incref(self):
         '''
-        Increment the reference count for this event bus.  This API may be optionally used to control fini().
+        Increment the reference count for this base.  This API may be optionally used to control fini().
         '''
         self._syn_refs += 1
         return self._syn_refs
@@ -148,7 +145,7 @@ class Base:
 
     def on(self, evnt, func, **filts):
         '''
-        Add an event bus function callback for a specific event with optional filtering.  If the function returns a
+        Add an base function callback for a specific event with optional filtering.  If the function returns a
         coroutine, it will be awaited.
 
         Args:
@@ -291,7 +288,7 @@ class Base:
 
     async def waitfini(self, timeout=None):
         '''
-        Wait for the event bus to fini()
+        Wait for the base to fini()
 
         Example:
 
@@ -316,9 +313,9 @@ class Base:
         Helper function to block until shutdown ( and handle ctrl-c and SIGTERM).
 
         Examples:
-            Run a event bus, wait until main() has returned, then do other stuff::
+            Run a base, wait until main() has returned, then do other stuff::
 
-                foo = EventBus()
+                foo = Base()
                 foo.main()
                 dostuff()
 
@@ -329,8 +326,6 @@ class Base:
         Returns:
             None
         '''
-        assert self.loop == s_glob.plex.loop
-
         doneevent = threading.Event()
         self.onfini(doneevent.set)
 
@@ -342,7 +337,7 @@ class Base:
             asyncio.run_coroutine_threadsafe(sighandler(), loop=self.loop)
 
         try:
-            s_glob.plex.loop.add_signal_handler(signal.SIGTERM, handler)
+            self.loop.add_signal_handler(signal.SIGTERM, handler)
         except Exception as e:  # pragma: no cover
             logger.exception('Unable to register SIGTERM handler.')
 
@@ -359,9 +354,7 @@ class Base:
 
         finally:
             # Avoid https://bugs.python.org/issue34680 by removing handler before closing down
-            s_glob.plex.loop.remove_signal_handler(signal.SIGTERM)
-
-            asyncio.run_coroutine_threadsafe(self.fini(), loop=self.loop)
+            self.loop.remove_signal_handler(signal.SIGTERM)
 
     def waiter(self, count, *names):
         '''
@@ -389,37 +382,37 @@ class Base:
         '''
         return Waiter(self, count, self.loop, *names)
 
-    async def log(self, level, mesg, **info):
-        '''
-        Implements the log event convention for a Base.
+    # async def log(self, level, mesg, **info):
+    #     '''
+    #     Implements the log event convention for a Base.
 
-        Args:
-            level (int):  A python logger level for the event
-            mesg (str):   A log message
-            **info:       Additional log metadata
+    #     Args:
+    #         level (int):  A python logger level for the event
+    #         mesg (str):   A log message
+    #         **info:       Additional log metadata
 
-        '''
-        info['time'] = s_common.now()
-        info['host'] = s_thishost.get('hostname')
+    #     '''
+    #     info['time'] = s_common.now()
+    #     info['host'] = s_thishost.get('hostname')
 
-        info['level'] = level
-        info['class'] = self.__class__.__name__
+    #     info['level'] = level
+    #     info['class'] = self.__class__.__name__
 
-        await self.fire('log', mesg=mesg, **info)
+    #     await self.fire('log', mesg=mesg, **info)
 
-    async def exc(self, exc, **info):
-        '''
-        Implements the exception log convention for Base.
-        A caller is expected to be within the except frame.
+    # async def exc(self, exc, **info):
+    #     '''
+    #     Implements the exception log convention for Base.
+    #     A caller is expected to be within the except frame.
 
-        Args:
-            exc (Exception):    The exception to log
+    #     Args:
+    #         exc (Exception):    The exception to log
 
-        Returns:
-            None
-        '''
-        info.update(s_common.excinfo(exc))
-        await self.log(logging.ERROR, str(exc), **info)
+    #     Returns:
+    #         None
+    #     '''
+    #     info.update(s_common.excinfo(exc))
+    #     await self.log(logging.ERROR, str(exc), **info)
 
 class Waiter:
     '''
