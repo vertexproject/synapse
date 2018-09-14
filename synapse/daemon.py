@@ -13,8 +13,6 @@ import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 
-from synapse.eventbus import EventBus
-
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.share as s_share
@@ -102,7 +100,7 @@ class Daemon(s_base.Base):
 
     def __init__(self, dirn):
 
-        EventBus.__init__(self)
+        Base.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
         self._shareLoopTasks = set()
@@ -172,15 +170,15 @@ class Daemon(s_base.Base):
         except Exception as e:
             logger.exception(f'onTeleShare() error for: {name}')
 
-    def _onDmonFini(self):
+    async def _onDmonFini(self):
         for s in self.listenservers:
             try:
                 s.close()
             except Exception as e:  # pragma: no cover
                 logger.warning('Error during socket server close()', exc_info=e)
         for name, share in self.shared.items():
-            if isinstance(share, EventBus):
-                share.fini()
+            if isinstance(share, s_base.Base):
+                await share.fini()
 
         async def afini():
             for name, share in self.shared.items():

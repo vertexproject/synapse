@@ -149,10 +149,6 @@ class BaseTest(s_t_utils.ASynTest):
         evts = await wait1.wait(timeout=0.1)
         self.none(evts)
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> all-our-base
     async def test_base_filt(self):
 
         base = await s_base.Base.anit()
@@ -176,10 +172,6 @@ class BaseTest(s_t_utils.ASynTest):
         mesg = await base.fire('rofl', foo=10)
         self.true(mesg[1].get('woot'))
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> all-our-base
     async def test_base_log(self):
 
         logs = []
@@ -194,10 +186,6 @@ class BaseTest(s_t_utils.ASynTest):
         self.eq(mesg[1].get('mesg'), 'omg woot')
         self.eq(mesg[1].get('level'), 100)
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> all-our-base
     async def test_base_exc(self):
 
         logs = []
@@ -212,10 +200,6 @@ class BaseTest(s_t_utils.ASynTest):
         mesg = logs[0]
         self.eq(mesg[1].get('err'), 'NoSuchObj')
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> all-our-base
     async def test_baseref(self):
 
         bref = await s_base.BaseRef.anit()
@@ -240,10 +224,6 @@ class BaseTest(s_t_utils.ASynTest):
         await bref.fini()
         self.true(base0.isfini)
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> all-our-base
     async def test_base_waitfini(self):
 
         base = await s_base.Base.anit()
@@ -251,27 +231,16 @@ class BaseTest(s_t_utils.ASynTest):
         self.false(await base.waitfini(timeout=0.1))
 
         async def callfini():
-<<<<<<< HEAD
-            await asyncio.sleep(0.1, loop=asyncio.get_running_loop())
-            await base.fini()
-
-        asyncio.get_running_loop().create_task(callfini())
-=======
             await asyncio.sleep(0.1, loop=asyncio.get_event_loop())
             await base.fini()
 
         asyncio.get_event_loop().create_task(callfini())
->>>>>>> all-our-base
         # actually wait...
         self.true(await base.waitfini(timeout=0.3))
 
         # bounce off the isfini block
         self.true(await base.waitfini(timeout=0.3))
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> all-our-base
     async def test_base_refcount(self):
         base = await s_base.Base.anit()
 
@@ -283,10 +252,6 @@ class BaseTest(s_t_utils.ASynTest):
         self.eq(await base.fini(), 0)
         self.true(base.isfini)
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> all-our-base
     async def test_baseref_gen(self):
 
         async with await s_base.BaseRef.anit() as refs:
@@ -318,10 +283,6 @@ class BaseTest(s_t_utils.ASynTest):
             self.false(refs.get('woot') is woot)
             self.eq(0, woot._syn_refs)
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> all-our-base
     async def test_baseref_items(self):
 
         bref = await s_base.BaseRef.anit()
