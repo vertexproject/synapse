@@ -57,6 +57,16 @@ class ScopeTest(SynTest):
         self.none(s_scope.get('woot'))
         self.none(s_scope.get('newp'))
 
+        scope = s_scope.Scope()
+        scope.enter({'yes': 1})
+        self.eq(scope.get('yes'), 1)
+        scope.set('no', 0)
+        frame = scope.leave()
+        self.eq(frame, {'yes': 1, 'no': 0})
+        self.none(scope.get('yes'))
+        self.none(scope.get('no'))
+        self.raises(IndexError, scope.leave)
+
     def test_lib_scope_get_defval(self):
         syms = {'foo': None, 'bar': 123}
         scope = s_scope.Scope(**syms)
