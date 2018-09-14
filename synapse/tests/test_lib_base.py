@@ -1,34 +1,18 @@
 import os
 import sys
-import time
 import signal
 import asyncio
 import multiprocessing
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
-import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.tests.utils as s_t_utils
 
-@s_common.firethread
-def send_sig(pid, sig):
-    '''
-    Sent a signal to a process.
-
-    Args:
-        pid (int): Process id to send the signal too.
-        sig (int): Signal to send.
-
-    Returns:
-        None
-    '''
-    os.kill(pid, sig)
-
 def block_processing(evt1, evt2):
     '''
-    Function to make a baseand call main().  Used as a Process target.
+    Function to make a base and call main().  Used as a Process target.
 
     Args:
         evt1 (multiprocessing.Event): event to twiddle
@@ -260,10 +244,10 @@ class BaseTest(s_t_utils.SynTest):
         self.false(await base.waitfini(timeout=0.1))
 
         async def callfini():
-            await asyncio.sleep(0.1, loop=asyncio.get_running_loop())
+            await asyncio.sleep(0.1, loop=asyncio.get_event_loop())
             await base.fini()
 
-        asyncio.get_running_loop().create_task(callfini())
+        asyncio.get_event_loop().create_task(callfini())
         # actually wait...
         self.true(await base.waitfini(timeout=0.3))
 
@@ -356,18 +340,15 @@ class BaseTest(s_t_utils.SynTest):
         ctx = multiprocessing.get_context('spawn')
 
         evt1 = ctx.Event()
-        evt1.clear()
         evt2 = ctx.Event()
-        evt2.clear()
 
         proc = ctx.Process(target=block_processing, args=(evt1, evt2))
         proc.start()
 
         self.true(evt1.wait(timeout=10))
-        foo = send_sig(proc.pid, signal.SIGTERM)
+        os.kill(proc.pid, signal.SIGTERM)
         self.true(evt2.wait(timeout=10))
         proc.join(timeout=10)
-        foo.join()
         self.eq(proc.exitcode, 137)
 
     def test_base_main_sigint(self):
@@ -377,16 +358,14 @@ class BaseTest(s_t_utils.SynTest):
         ctx = multiprocessing.get_context('spawn')
 
         evt1 = ctx.Event()
-        # evt1.clear()
         evt2 = ctx.Event()
-        # evt2.clear()
 
         proc = ctx.Process(target=block_processing, args=(evt1, evt2))
         proc.start()
 
         self.true(evt1.wait(timeout=10))
-        foo = send_sig(proc.pid, signal.SIGINT)
+        os.kill(proc.pid, signal.SIGINT)
+
         self.true(evt2.wait(timeout=10))
         proc.join(timeout=10)
-        foo.join()
         self.eq(proc.exitcode, 137)
