@@ -60,7 +60,7 @@ class LmdbTest(SynTest):
             with lenv.begin() as xact:
                 self.raises(lmdb.ReadonlyError, seqn.save, xact, items)
 
-            # A subseqeunt write works.
+            # A subsequent write works.
             with lenv.begin(write=True) as xact:
                 seqn.save(xact, items)
                 retn = tuple(seqn.iter(xact, 0))

@@ -13,7 +13,7 @@ import synapse.lib.threads as s_threads
 
 import synapse.tests.common as s_test
 
-from synapse.tests.utils import SyncToAsyncCMgr
+from synapse.tests.utils import SyncToAsyncCMgr, alist
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +22,6 @@ bbuf = b'0123456' * 4793491
 
 bbufhash = hashlib.sha256(bbuf).digest()
 asdfhash = hashlib.sha256(b'asdfasdf').digest()
-
-async def alist(coro):
-    return [x async for x in coro]
 
 class AxonTest(s_test.SynTest):
 
@@ -167,7 +164,7 @@ class AxonTest(s_test.SynTest):
     async def test_axon(self):
         with self.getTestDir() as dirn:
             path0 = os.path.join(dirn, 'axon0')
-            async with SyncToAsyncCMgr(self.getTestDmon, mirror='axondmon') as dmon, \
+            async with self.getTestDmon(mirror='axondmon') as dmon, \
                     await dmon._getTestProxy('blobstor00') as blobstor0, \
                     SyncToAsyncCMgr(s_axon.Axon, path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as axon:
 

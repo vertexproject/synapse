@@ -5,17 +5,18 @@ import contextlib
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
-import synapse.datamodel as s_datamodel
 
 import synapse.lib.chop as s_chop
+import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
-import synapse.lib.syntax as s_syntax
 
 logger = logging.getLogger(__name__)
 
-class Snap(s_eventbus.EventBus):
+# FIXME:  figure out eventbus and s_coro?!  fini methods collide
+
+class Snap(s_eventbus.EventBus, s_coro.Fini):
     '''
     A "snapshot" is a transaction across multiple Cortex layers.
 
@@ -33,6 +34,7 @@ class Snap(s_eventbus.EventBus):
     def __init__(self, core, layers, write=False):
 
         s_eventbus.EventBus.__init__(self)
+        s_coro.Fini.__init__(self)
 
         self.stack = contextlib.ExitStack()
 
@@ -44,6 +46,7 @@ class Snap(s_eventbus.EventBus):
         self.core = core
         self.model = core.model
         self.layers = layers
+        self.wlyr = self.layers[-1]
 
         self.bulk = False
         self.bulksops = []
@@ -56,9 +59,6 @@ class Snap(s_eventbus.EventBus):
         self.debug = False      # Set to true to enable debug output.
         self.write = False      # True when the snap has a write lock on a layer.
 
-        self.xact = None
-        self.xacts = [l.xact() for l in layers]
-
         self.tagcache = s_cache.FixedCache(self._addTagNode, size=10000)
         self.buidcache = s_cache.FixedCache(self._getNodeByBuid, size=100000)
 
@@ -66,16 +66,22 @@ class Snap(s_eventbus.EventBus):
         self.changelog = []
         self.tagtype = core.model.type('ival')
 
-        def fini():
+        async def fini():
 
-            for x in self.xacts:
+            for layr in self.layers:
                 try:
-                    x.commit()
+                    await layr.commit()
                 except Exception as e:
-                    logger.exception('commit error for layer xact')
-                x.fini()
+                    logger.exception('commit error for layer')
+                await layr.fini()
 
-        self.onfini(fini)
+        s_coro.Fini.onfini(self, fini)
+
+    # FIXME:  hack for colliding finis
+    async def __aexit__(self, exc, cls, tb):
+        self.exitinfo = (exc, cls, tb)
+        await s_coro.Fini.fini(self)
+        s_eventbus.EventBus.fini(self)
 
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
@@ -84,7 +90,7 @@ class Snap(s_eventbus.EventBus):
         yield runt
         self.core.stormrunts.pop(runt.iden, None)
 
-    def iterStormPodes(self, text, opts=None, user=None):
+    async def iterStormPodes(self, text, opts=None, user=None):
         '''
         Yield packed node tuples for the given storm query text.
         '''
@@ -100,62 +106,33 @@ class Snap(s_eventbus.EventBus):
             pode[1].update(path.pack(path=dopath))
             yield pode
 
-    def storm(self, text, opts=None, user=None):
+    async def storm(self, text, opts=None, user=None):
         '''
         Execute a storm query and yield (Node(), Path()) tuples.
         '''
         query = self.core.getStormQuery(text)
         with self.getStormRuntime(opts=opts, user=user) as runt:
-            yield from runt.iterStormQuery(query)
+            async for x in runt.iterStormQuery(query):
+                yield x
 
-    def eval(self, text, opts=None, user=None):
+    async def eval(self, text, opts=None, user=None):
         '''
         Run a storm query and yield Node() objects.
         '''
         # maintained for backward compatibility
         query = self.core.getStormQuery(text)
         with self.getStormRuntime(opts=opts, user=user) as runt:
-            for node, path in runt.iterStormQuery(query):
+            async for node, path in runt.iterStormQuery(query):
                 yield node
 
-    def writeable(self):
-        '''
-        Ensure that the snap() is writable and record our write tick.
-        '''
-        if self.write:
-            return True
+    async def setOffset(self, iden, offs):
+        return self.wlyr.setOffset(iden, offs)
 
-        self.xacts[-1].decref()
-
-        self.xact = self.layers[-1].xact(write=True)
-
-        self.write = True
-        self.xacts[-1] = self.xact
-
-    def setOffset(self, iden, offs):
-        self.writeable()
-        return self.xact.setOffset(iden, offs)
-
-    def getOffset(self, iden, offs):
-        return self.xact.getOffset(iden, offs)
+    async def getOffset(self, iden, offs):
+        return self.wlyr.getOffset(iden, offs)
 
     def setUser(self, user):
         self.user = user
-
-    @contextlib.contextmanager
-    def allowall(self):
-        '''
-        DANGER DANGER DANGER
-
-        This is used as context manager to perform a operation which disables
-        permission checking on a snap.
-
-        Never ever hold this while *yielding* nodes into a storm pipeline.
-        Doing that will allow subsequent operations to be done without any
-        permissions enforcement.
-        '''
-        logger.warning('allowall() is deprecated and will be removed!')
-        yield
 
     def printf(self, mesg):
         self.fire('print', mesg=mesg)
@@ -175,7 +152,7 @@ class Snap(s_eventbus.EventBus):
             ((str,dict)): The node tuple or None.
 
         '''
-        return self.buidcache.get(buid)
+        return await self.buidcache.aget(buid)
 
     async def getNodeByNdef(self, ndef):
         '''
@@ -190,8 +167,7 @@ class Snap(s_eventbus.EventBus):
         buid = s_common.buid(ndef)
         return await self.getNodeByBuid(buid)
 
-    def _getNodesByTag(self, name, valu=None, cmpr='='):
-
+    async def _getNodesByTag(self, name, valu=None, cmpr='='):
         # TODO interval indexing for valu... and @=
         name = s_chop.tag(name)
         pref = b'#' + name.encode('utf8') + b'\x00'
@@ -208,7 +184,7 @@ class Snap(s_eventbus.EventBus):
         for row, node in self.getLiftNodes(lops, '#' + name):
             yield node
 
-    def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
+    async def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
 
         filt = None
         form = self.model.form(name)
@@ -250,7 +226,7 @@ class Snap(s_eventbus.EventBus):
             if filt(valu):
                 yield node
 
-    def getNodesBy(self, full, valu=None, cmpr='='):
+    async def getNodesBy(self, full, valu=None, cmpr='='):
         '''
         The main function for retrieving nodes by prop.
 
@@ -267,19 +243,26 @@ class Snap(s_eventbus.EventBus):
 
         # special handling for by type (*type=) here...
         if cmpr == '*type=':
-            return self._getNodesByType(full, valu=valu)
+            async for node in self._getNodesByType(full, valu=valu):
+                yield node
+            return
 
         if full.startswith('#'):
-            return self._getNodesByTag(full, valu=valu, cmpr=cmpr)
+            async for node in self._getNodesByTag(full, valu=valu, cmpr=cmpr):
+                yield node
+            return
 
         fields = full.split('#', 1)
         if len(fields) > 1:
             form, tag = fields
-            return self._getNodesByFormTag(form, tag, valu=valu, cmpr=cmpr)
+            async for node in self._getNodesByFormTag(form, tag, valu=valu, cmpr=cmpr):
+                yield node
+            return
 
-        return self._getNodesByProp(full, valu=valu, cmpr=cmpr)
+        async for node in self._getNodesByProp(full, valu=valu, cmpr=cmpr):
+            yield node
 
-    def _getNodesByProp(self, full, valu=None, cmpr='='):
+    async def _getNodesByProp(self, full, valu=None, cmpr='='):
 
         prop = self.model.prop(full)
         if prop is None:
@@ -287,10 +270,10 @@ class Snap(s_eventbus.EventBus):
 
         lops = prop.getLiftOps(valu, cmpr=cmpr)
         cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
-        for row, node in self.getLiftNodes(lops, prop.name, cmpf):
+        async for row, node in self.getLiftNodes(lops, prop.name, cmpf):
             yield node
 
-    def _getNodesByType(self, name, valu=None, addform=True):
+    async def _getNodesByType(self, name, valu=None, addform=True):
 
         _type = self.model.types.get(name)
         if _type is None:
@@ -308,7 +291,7 @@ class Snap(s_eventbus.EventBus):
             for row, node in self.getLiftNodes(lops, prop):
                 yield node
 
-    def addNode(self, name, valu, props=None):
+    async def addNode(self, name, valu, props=None):
         '''
         Add a node by form name and value with optional props.
 
@@ -322,7 +305,7 @@ class Snap(s_eventbus.EventBus):
             try:
 
                 fnib = self._getNodeFnib(name, valu)
-                return self._addNodeFnib(fnib, props=props)
+                return await self._addNodeFnib(fnib, props=props)
 
             except Exception as e:
 
@@ -333,7 +316,7 @@ class Snap(s_eventbus.EventBus):
 
                 return None
 
-    def addFeedNodes(self, name, items):
+    async def addFeedNodes(self, name, items):
         '''
         Call a feed function and return what it returns (typically yields Node()s).
 
@@ -353,7 +336,7 @@ class Snap(s_eventbus.EventBus):
 
         return func(self, items)
 
-    def addFeedData(self, name, items, seqn=None):
+    async def addFeedData(self, name, items, seqn=None):
 
         func = self.core.getFeedFunc(name)
         if func is None:
@@ -377,16 +360,16 @@ class Snap(s_eventbus.EventBus):
 
             return nextoff
 
-    def addTagNode(self, name):
+    async def addTagNode(self, name):
         '''
         Ensure that the given syn:tag node exists.
         '''
-        return self.tagcache.get(name)
+        return await self.tagcache.aget(name)
 
-    def _addTagNode(self, name):
-        return self.addNode('syn:tag', name)
+    async def _addTagNode(self, name):
+        return await self.addNode('syn:tag', name)
 
-    def _addNodeFnib(self, fnib, props=None):
+    async def _addNodeFnib(self, fnib, props=None):
         '''
         Add a node via (form, norm, info, buid)
         '''
@@ -397,13 +380,13 @@ class Snap(s_eventbus.EventBus):
 
         sops = []
 
-        node = self.getNodeByBuid(buid)
+        node = await self.getNodeByBuid(buid)
         if node is not None:
 
             # maybe set some props...
             for name, valu in props.items():
                 # TODO: node.merge(name, valu)
-                node.set(name, valu)
+                await node.set(name, valu)
 
             return node
 
@@ -416,11 +399,11 @@ class Snap(s_eventbus.EventBus):
         node.ndef = (form.name, norm)
 
         sops = form.getSetOps(buid, norm)
-        self.stor(sops)
+        await self.stor(sops)
 
         self.buidcache.put(buid, node)
 
-        self.splice('node:add', ndef=node.ndef)
+        await self.splice('node:add', ndef=node.ndef)
 
         # update props with any subs from form value
         subs = info.get('subs')
@@ -435,21 +418,21 @@ class Snap(s_eventbus.EventBus):
 
         # set all the properties with init=True
         for name, valu in props.items():
-            node.set(name, valu, init=True)
+            await node.set(name, valu, init=True)
 
         # set our global properties
         tick = s_common.now()
-        node.set('.created', tick, init=True)
+        await node.set('.created', tick, init=True)
 
         # we are done initializing.
         node.init = False
 
-        form.wasAdded(node)
+        await form.wasAdded(node)
 
         # now we must fire all his prop sets
         for name, valu in tuple(node.props.items()):
             prop = node.form.props.get(name)
-            prop.wasSet(node, None)
+            await prop.wasSet(node, None)
 
         return node
 
@@ -459,7 +442,7 @@ class Snap(s_eventbus.EventBus):
             raise ctor(mesg=mesg, **info)
         return False
 
-    def splice(self, name, **info):
+    async def splice(self, name, **info):
         '''
         Construct and log a splice record to be saved on commit().
         '''
@@ -473,7 +456,7 @@ class Snap(s_eventbus.EventBus):
         self.fire(name, **info)
 
         mesg = (name, info)
-        self.xact.splices.append(mesg)
+        self.wlyr.splices.append(mesg)
 
         return (name, info)
 
@@ -493,7 +476,7 @@ class Snap(s_eventbus.EventBus):
         buid = s_common.buid((form.name, norm))
         return form, norm, info, buid
 
-    def addNodes(self, nodedefs):
+    async def addNodes(self, nodedefs):
         '''
         Add/merge nodes in bulk.
 
@@ -519,35 +502,35 @@ class Snap(s_eventbus.EventBus):
                 if props is not None:
                     props.pop('.created', None)
 
-                node = self.addNode(formname, formvalu, props=props)
+                node = await self.addNode(formname, formvalu, props=props)
                 if node is not None:
                     tags = forminfo.get('tags')
                     if tags is not None:
                         for tag, asof in tags.items():
-                            node.addTag(tag, valu=asof)
+                            await node.addTag(tag, valu=asof)
 
                 yield node
 
-    def stor(self, sops):
-
-        self.writeable()
+    async def stor(self, sops):
 
         if self.bulk:
             self.bulksops.extend(sops)
             return
 
-        self.xact.stor(sops)
+        await self.wlyr.stor(sops)
 
+    # FIXME: remove?
     @contextlib.contextmanager
     def bulkload(self):
 
         yield None
 
-    def getLiftNodes(self, lops, rawprop, cmpr=None):
+    async def getLiftNodes(self, lops, rawprop, cmpr=None):
         genr = self.getLiftRows(lops)
-        return self.getRowNodes(genr, rawprop, cmpr)
+        async for node in self.getRowNodes(genr, rawprop, cmpr):
+            yield node
 
-    def getLiftRows(self, lops):
+    async def getLiftRows(self, lops):
         '''
         Yield row tuples from a series of lift operations.
 
@@ -560,11 +543,11 @@ class Snap(s_eventbus.EventBus):
         Yields:
             (tuple): (layer_indx, (buid, ...)) rows.
         '''
-        for layer_idx, xact in enumerate(self.xacts):
-            with xact.incxref():
-                yield from ((layer_idx, x) for x in xact.getLiftRows(lops))
+        for layer_idx, layr in enumerate(self.layers):
+            async for x in layr.getLiftRows(lops):
+                yield layer_idx, x
 
-    def getRowNodes(self, rows, rawprop, cmpr=None):
+    async def getRowNodes(self, rows, rawprop, cmpr=None):
         '''
         Join a row generator into (row, Node()) tuples.
 
@@ -580,14 +563,14 @@ class Snap(s_eventbus.EventBus):
         Yields:
             (tuple): (row, node)
         '''
-        for origlayer, row in rows:
+        async for origlayer, row in rows:
             props = {}
             buid = row[0]
             node = self.buidcache.cache.get(buid)
             # Evaluate layers top-down to more quickly abort if we've found a higher layer with the property set
-            for layeridx in range(len(self.xacts) - 1, -1, -1):
-                x = self.xacts[layeridx]
-                layerprops = x.getBuidProps(buid)
+            for layeridx in range(len(self.layers) - 1, -1, -1):
+                layr = self.layers[layeridx]
+                layerprops = await layr.getBuidProps(buid)
                 # We mark this node to drop iff we see the prop set in this layer *and* we're looking at the props
                 # from a higher (i.e. closer to write, higher idx) layer.
                 if layeridx > origlayer and rawprop in layerprops:
@@ -620,11 +603,10 @@ class Snap(s_eventbus.EventBus):
 
                 yield row, node
 
-    def _getNodeByBuid(self, buid):
+    async def _getNodeByBuid(self, buid):
         props = {}
-        # this is essentially atomic and doesn't need xact.incxref
-        for layeridx, x in enumerate(self.xacts):
-            layerprops = x.getBuidProps(buid)
+        for layr in self.layers:
+            layerprops = await layr.getBuidProps(buid)
             props.update(layerprops)
 
         node = s_node.Node(self, buid, props.items())

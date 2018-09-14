@@ -1,9 +1,188 @@
+import json
 import pprint
+import logging
 
 import synapse.exc as s_exc
-import synapse.lib.cli as s_cli
+import synapse.common as s_common
 import synapse.reactor as s_reactor
 
+import synapse.lib.cli as s_cli
+import synapse.lib.time as s_time
+import synapse.lib.queue as s_queue
+import synapse.lib.msgpack as s_msgpack
+
+logger = logging.getLogger(__name__)
+
+
+reac = s_reactor.Reactor()
+
+def _reacJsonl(mesg):
+    s = json.dumps(mesg, sort_keys=True) + '\n'
+    buf = s.encode()
+    return buf
+
+def _reacMpk(mesg):
+    buf = s_msgpack.en(mesg)
+    return buf
+
+reac.act('mpk', _reacMpk)
+reac.act('jsonl', _reacJsonl)
+
+
+class Log(s_cli.Cmd):
+    '''
+    Add a storm log to the local command session.
+
+    Syntax:
+        log (--on|--off) [--splices-only] [--format (mpk|jsonl)] [--path /path/to/file]
+
+    Required Arguments:
+        --on: Enables logging of storm messages to a file.
+        --off: Disables message logging and closes the current storm file.
+
+    Optional Arguments:
+        --splices-only: Only records splices. Does not record any other messages.
+        --format: The format used to save messages to disk. Defaults to msgpack (mpk).
+        --path: The path to the log file.  This will append messages to a existing file.
+
+    Notes:
+        By default, the log file contains all messages received from the execution of
+        a Storm query by the current CLI. By default, these messages are saved to a
+        file located in ~/.syn/stormlogs/storm_(date).(format).
+
+    Examples:
+        # Enable logging all messages to mpk files (default)
+        log --on
+
+        # Disable logging and close the current file
+        log --off
+
+        # Enable logging, but only log splices. Log them as jsonl instead of mpk.
+        log --on --splices-only --format jsonl
+
+        # Enable logging, but log to a custom path:
+        log --on --path /my/aweome/log/directory/storm20010203.mpk
+
+    '''
+    _cmd_name = 'log'
+    _cmd_syntax = (
+        ('--on', {'type': 'flag'}),
+        ('--off', {'type': 'flag'}),
+        ('--path', {'type': 'valu'}),
+        ('--format', {'type': 'enum',
+                      'defval': 'mpk',
+                      'enum:vals': ['mpk', 'jsonl']}),
+        ('--splices-only', {'defval': False})
+    )
+    splicetypes = (
+        'tag:add',
+        'tag:del',
+        'node:add',
+        'node:del',
+        'prop:set',
+        'prop:del',
+    )
+
+    def __init__(self, cli, **opts):
+        s_cli.Cmd.__init__(self, cli, **opts)
+        # Give ourselves a local ref to locs since we're stateful.
+        self.locs = self._cmd_cli.locs
+        self._cmd_cli.onfini(self.closeLogFd)
+
+    def onStormMesg(self, mesg):
+        queue = self.locs.get('log:queue')
+        queue.put(mesg)
+
+    @s_common.firethread
+    def queueLoop(self):
+        queue = self.locs.get('log:queue')
+        while not self._cmd_cli.isfini:
+            try:
+                mesg = queue.get(timeout=2)
+            except s_exc.TimeOut:
+                continue
+            except s_exc.IsFini:
+                break
+            smesg = mesg[1].get('mesg')
+            self.save(smesg)
+
+    def save(self, mesg):
+        fd = self.locs.get('log:fd')
+        spliceonly = self.locs.get('log:splicesonly')
+        if fd and not fd.closed:
+            if spliceonly and mesg[0] not in self.splicetypes:
+                return
+            try:
+                buf = self.encodeMsg(mesg)
+            except Exception as e:
+                logger.error('Failed to serialize message: [%s]', str(e))
+                return
+            fd.write(buf)
+
+    def encodeMsg(self, mesg):
+        '''Get byts for a message'''
+        fmt = self.locs.get('log:fmt')
+        return reac.react(mesg, fmt)
+
+    def closeLogFd(self):
+        self._cmd_cli.off('storm:mesg', self.onStormMesg)
+        queue = self.locs.pop('log:queue', None)
+        if queue is not None:
+            self.printf('Marking log queue done')
+            queue.done()
+        thr = self.locs.pop('log:thr', None)
+        if thr:
+            self.printf('Joining log thread.')
+            thr.join(2)
+        fp = self.locs.pop('log:fp', None)
+        fd = self.locs.pop('log:fd', None)
+        self.locs.pop('log:fmt', None)
+        self.locs.pop('log:splicesonly', None)
+        if fd:
+            try:
+                self.printf(f'Closing logfile: [{fp}]')
+                fd.close()
+            except Exception as e:  # pragma: no cover
+                self.printf(f'Failed to close fd: [{str(e)}]')
+
+    def openLogFd(self, opts):
+        opath = self.locs.get('log:fp')
+        if opath:
+            self.printf('Must call --off to disable current file before starting a new file.')
+            return
+        fmt = opts.get('format')
+        path = opts.get('path')
+        splice_only = opts.get('splices-only')
+        if not path:
+            ts = s_time.repr(s_common.now(), True)
+            fn = f'storm_{ts}.{fmt}'
+            path = s_common.getSynPath('stormlogs', fn)
+        self.printf(f'Starting logfile at [{path}]')
+        queue = s_queue.Queue()
+        fd = s_common.genfile(path)
+        # Seek to the end of the file. Allows a user to append to a file.
+        fd.seek(0, 2)
+        self.locs['log:fp'] = path
+        self.locs['log:fd'] = fd
+        self.locs['log:fmt'] = fmt
+        self.locs['log:queue'] = queue
+        self.locs['log:thr'] = self.queueLoop()
+        self.locs['log:splicesonly'] = splice_only
+        self._cmd_cli.on('storm:mesg', self.onStormMesg)
+
+    def runCmdOpts(self, opts):
+        on = opts.get('on')
+        off = opts.get('off')
+
+        if bool(on) == bool(off):
+            self.printf('Pick one of "--on" or "--off".')
+            return
+
+        if on:
+            return self.openLogFd(opts)
+
+        if off:
+            return self.closeLogFd()
 
 class StormCmd(s_cli.Cmd):
     '''
@@ -23,6 +202,8 @@ class StormCmd(s_cli.Cmd):
             (overrides --hide-tags and --hide-props)
         --debug: Display cmd debug information along with nodes in raw format
             (overrides --hide-tags, --hide-props and raw)
+        --path: Get path information about returned nodes.
+        --graph: Get graph information about returned nodes.
 
     Examples:
         storm inet:ipv4=1.2.3.4
@@ -36,6 +217,8 @@ class StormCmd(s_cli.Cmd):
         ('--hide-unknown', {}),
         ('--raw', {}),
         ('--debug', {}),
+        ('--graph', {}),
+        ('--path', {}),
         ('query', {'type': 'glob'}),
     )
 
@@ -107,9 +290,13 @@ class StormCmd(s_cli.Cmd):
 
         core = self.getCmdItem()
         stormopts = {'repr': True}
+        stormopts.setdefault('path', opts.get('path', False))
+        stormopts.setdefault('graph', opts.get('graph', False))
         self.printf('')
 
         for mesg in core.storm(text, opts=stormopts):
+
+            self._cmd_cli.fire('storm:mesg', mesg=mesg)
 
             if opts.get('debug'):
                 self.printf(pprint.pformat(mesg))

@@ -89,15 +89,15 @@ class Node:
 
         return node
 
-    def seen(self, tick, source=None):
+    async def seen(self, tick, source=None):
         '''
         Update the .seen interval and optionally a source specific seen node.
         '''
-        self.set('.seen', tick)
+        await self.set('.seen', tick)
 
         if source is not None:
-            seen = self.snap.addNode('seen', (source, self.ndef))
-            seen.set('.seen', tick)
+            seen = await self.snap.addNode('seen', (source, self.ndef))
+            await seen.set('.seen', tick)
 
     def getNodeRefs(self):
         '''
@@ -124,7 +124,7 @@ class Node:
 
         return retn
 
-    def set(self, name, valu, init=False):
+    async def set(self, name, valu, init=False):
         '''
         Set a property on the node.
 
@@ -178,8 +178,8 @@ class Node:
 
         sops = prop.getSetOps(self.buid, norm)
 
-        self.snap.stor(sops)
-        self.snap.splice('prop:set', ndef=self.ndef, prop=prop.name, valu=norm, oldv=curv)
+        await self.snap.stor(sops)
+        await self.snap.splice('prop:set', ndef=self.ndef, prop=prop.name, valu=norm, oldv=curv)
 
         self.props[prop.name] = norm
 
@@ -187,7 +187,7 @@ class Node:
         auto = self.snap.model.form(prop.type.name)
         if auto is not None:
             buid = s_common.buid((auto.name, norm))
-            self.snap._addNodeFnib((auto, norm, info, buid))
+            await self.snap._addNodeFnib((auto, norm, info, buid))
 
         # does the type think we have special auto nodes to add?
         # ( used only for adds which do not meet the above block )
@@ -195,7 +195,7 @@ class Node:
             auto = self.snap.model.form(autoname)
             autonorm, autoinfo = auto.type.norm(autovalu)
             buid = s_common.buid((auto.name, autonorm))
-            self.snap._addNodeFnib((auto, autovalu, autoinfo, buid))
+            await self.snap._addNodeFnib((auto, autovalu, autoinfo, buid))
 
         # do we need to set any sub props?
         subs = info.get('subs')
@@ -214,10 +214,10 @@ class Node:
         # last but not least, if we are *not* in init
         # we need to fire a Prop.onset() callback.
         if not self.init:
-            prop.wasSet(self, curv)
+            await prop.wasSet(self, curv)
             if prop.univ:
                 univ = self.snap.model.prop(prop.univ)
-                univ.wasSet(self, curv)
+                await univ.wasSet(self, curv)
 
     def has(self, name):
         return name in self.props
@@ -317,13 +317,13 @@ class Node:
         name = s_chop.tag(name)
         return self.tags.get(name, defval)
 
-    def addTag(self, tag, valu=(None, None)):
+    async def addTag(self, tag, valu=(None, None)):
 
         path = s_chop.tagpath(tag)
 
         name = '.'.join(path)
 
-        tagnode = self.snap.addTagNode(name)
+        tagnode = await self.snap.addTagNode(name)
 
         # implement tag renames...
         isnow = tagnode.get('isnow')
@@ -351,7 +351,7 @@ class Node:
 
                 self._addTagRaw(tag, (None, None))
 
-            self._addTagRaw(tags[-1], valu)
+            await self._addTagRaw(tags[-1], valu)
             return
 
         # merge values into one interval
@@ -361,14 +361,14 @@ class Node:
         info = {'univ': True}
         self._setTagProp(name, valu, indx, info)
 
-    def _setTagProp(self, name, norm, indx, info):
+    async def _setTagProp(self, name, norm, indx, info):
         self.tags[name] = norm
-        self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),))
+        await self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),))
 
-    def _addTagRaw(self, name, norm):
+    async def _addTagRaw(self, name, norm):
 
         # these are cached based on norm...
-        self.snap.addTagNode(name)
+        await self.snap.addTagNode(name)
 
         info = {'univ': True}
         if norm == (None, None):
@@ -376,11 +376,11 @@ class Node:
         else:
             indx = self.snap.model.types['ival'].indx(norm)
 
-        self._setTagProp(name, norm, indx, info)
+        await self._setTagProp(name, norm, indx, info)
 
         # TODO: fire an onTagAdd handler...
-        self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
-        self.snap.core.runTagAdd(self, name, norm)
+        await self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
+        await self.snap.core.runTagAdd(self, name, norm)
 
         return True
 

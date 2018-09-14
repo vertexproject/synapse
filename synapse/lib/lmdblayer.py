@@ -4,35 +4,47 @@ cortex construction.
 '''
 import os
 import logging
-import threading
-import contextlib
-import collections
-
-import lmdb
-import regex
 
 import synapse.exc as s_exc
-import synapse.eventbus as s_eventbus
 
-import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
-import synapse.lib.cache as s_cache
+import synapse.lib.slabseqn as s_slabseqn
+import synapse.lib.slaboffs as s_slaboffs
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
 
-class LmdbXact(s_layer.Xact):
-    '''
-    A Layer transaction which encapsulates the storage implementation.
-    '''
-    def __init__(self, layr, write=False):
+# Maximum number of bytes we're going to put in an index
+MAX_INDEX_LEN = 256
 
-        s_layer.Xact.__init__(self, layr, write)
+class LmdbLayer(s_layer.Layer):
+    '''
+    A layer implements btree indexed storage for a cortex.
 
-        self.layr = layr
-        self.write = write
+    TODO:
+        metadata for layer contents (only specific type / tag)
+    '''
+    confdefs = (  # type: ignore
+        ('lmdb:mapsize', {'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE}),
+        ('lmdb:readahead', {'type': 'bool', 'defval': True}),
+    )
+
+    def __init__(self, dirn):
+        s_layer.Layer.__init__(self, dirn)
+
+        path = os.path.join(self.dirn, 'layer.lmdb')
+
+        mapsize = self.conf.get('lmdb:mapsize')
+        readahead = self.conf.get('lmdb:readahead')
+        self.slab = s_lmdb.Slab(path, max_dbs=128, map_size=mapsize, writemap=True, readahead=readahead)
+        self.onfini(self.slab.fini)
+
+        self.dbs = {}
+
+        self.utf8 = s_layer.Utf8er()
+        self.encoder = s_layer.Encoder()
 
         self.indxfunc = {
             'eq': self._rowsByEq,
@@ -47,19 +59,19 @@ class LmdbXact(s_layer.Xact):
             'form:re': self._liftByFormRe,
         }
 
-        self.xact = layr.lenv.begin(write=write)
-
-        self.buidcurs = self.xact.cursor(db=layr.bybuid)
-        self.buidcache = s_cache.FixedCache(self._getBuidProps, size=10000)
         self.tid = s_threads.iden()
 
-    def setOffset(self, iden, offs):
-        return self.layr.offs.xset(self.xact, iden, offs)
+    async def __anit__(self):
+        self.bybuid = await self.initdb('bybuid') # <buid><prop>=<valu>
+        self.byprop = await self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
+        self.byuniv = await self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
+        offsdb = await self.initdb('offsets')
+        self.offs = s_slaboffs.SlabOffs(self.slab, offsdb)
 
-    def getOffset(self, iden):
-        return self.layr.offs.xget(self.xact, iden)
+        self.splicedb = await self.initdb('splices')
+        self.splicelog = s_slabseqn.SlabSeqn(self.slab, 'splices')
 
-    def stor(self, sops):
+    async def stor(self, sops):
         '''
         Execute a series of storage operations.
         '''
@@ -67,48 +79,24 @@ class LmdbXact(s_layer.Xact):
             func = self._stor_funcs.get(oper[0])
             if func is None:
                 raise s_exc.NoSuchStor(name=oper[0])
-            func(oper)
+            await func(oper)
 
-    def abort(self):
+    async def commit(self):
 
-        if self.tid != s_threads.iden():
-            raise s_exc.BadThreadIden()
-
-        self.xact.abort()
-
-        # LMDB transaction requires explicit delete to recover resources
-        del self.xact
-
-    def commit(self):
-
-        if self.tid != s_threads.iden():
-            raise s_exc.BadThreadIden()
         if self.splices:
-            self.layr.splicelog.save(self.xact, self.splices)
+            self.splicelog.save(self.splices)
 
-        self.xact.commit()
-
-        # LMDB transaction requires explicit delete to recover resources
-        del self.xact
+        self.slab.commit(force=True)
 
         # wake any splice waiters...
         if self.splices:
-            self.layr.spliced.set()
+            self.spliced.set()
 
-    def getBuidProps(self, buid):
-        return self.buidcache.get(buid)
-
-    def _getBuidProps(self, buid):
+    async def getBuidProps(self, buid):
 
         props = {}
 
-        if not self.buidcurs.set_range(buid):
-            return props
-
-        for lkey, lval in self.buidcurs.iternext():
-
-            if lkey[:32] != buid:
-                break
+        for lkey, lval in self.slab.scanByPref(buid, db=self.bybuid):
 
             prop = lkey[32:].decode('utf8')
             valu, indx = s_msgpack.un(lval)
@@ -116,16 +104,16 @@ class LmdbXact(s_layer.Xact):
 
         return props
 
-    def _storPropSet(self, oper):
+    async def _storPropSet(self, oper):
 
         _, (buid, form, prop, valu, indx, info) = oper
 
-        if len(indx) > 256: # max index size...
+        if len(indx) > MAX_INDEX_LEN:
             mesg = 'index bytes are too large'
             raise s_exc.BadIndxValu(mesg=mesg, prop=prop, valu=valu)
 
-        fenc = self.layr.encoder[form]
-        penc = self.layr.encoder[prop]
+        fenc = self.encoder[form]
+        penc = self.encoder[prop]
 
         univ = info.get('univ')
 
@@ -133,282 +121,177 @@ class LmdbXact(s_layer.Xact):
         if not prop:
             prop = '*' + form
 
-        bpkey = buid + self.layr.utf8[prop]
+        bpkey = buid + self.utf8[prop]
 
-        cacheval = self.buidcache.cache.get(buid)
-        if cacheval is not None:
-            cacheval[prop] = valu
+        # FIXME:  might need to update any cortex buid cache
 
         bpval = s_msgpack.en((valu, indx))
 
         pvpref = fenc + penc
         pvvalu = s_msgpack.en((buid,))
 
-        byts = self.xact.replace(bpkey, bpval, db=self.layr.bybuid)
+        byts = self.slab.replace(bpkey, bpval, db=self.bybuid)
         if byts is not None:
 
             oldv, oldi = s_msgpack.un(byts)
 
-            self.xact.delete(pvpref + oldi, pvvalu, db=self.layr.byprop)
+            self.slab.delete(pvpref + oldi, pvvalu, db=self.byprop)
 
             if univ:
                 unkey = penc + oldi
-                self.xact.delete(unkey, pvvalu, db=self.layr.byuniv)
+                self.slab.delete(unkey, pvvalu, db=self.byuniv)
 
-        self.xact.put(pvpref + indx, pvvalu, dupdata=True, db=self.layr.byprop)
+        self.slab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
 
         if univ:
-            self.xact.put(penc + indx, pvvalu, dupdata=True, db=self.layr.byuniv)
+            self.slab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
 
-    def _storPropDel(self, oper):
+    async def _storPropDel(self, oper):
 
         _, (buid, form, prop, info) = oper
 
-        self.buidcache.pop(buid)
+        # FIXME:  update any cortex-wide buid cache
+        # FIXME:  this might not have the expected impact if
 
-        fenc = self.layr.encoder[form]
-        penc = self.layr.encoder[prop]
+        fenc = self.encoder[form]
+        penc = self.encoder[prop]
 
         if prop:
-            bpkey = buid + self.layr.utf8[prop]
+            bpkey = buid + self.utf8[prop]
         else:
-            bpkey = buid + b'*' + self.layr.utf8[form]
+            bpkey = buid + b'*' + self.utf8[form]
 
         univ = info.get('univ')
 
-        byts = self.xact.pop(bpkey, db=self.layr.bybuid)
+        byts = self.slab.pop(bpkey, db=self.bybuid)
         if byts is None:
             return
 
         oldv, oldi = s_msgpack.un(byts)
 
         pvvalu = s_msgpack.en((buid,))
-        self.xact.delete(fenc + penc + oldi, pvvalu, db=self.layr.byprop)
+        self.slab.delete(fenc + penc + oldi, pvvalu, db=self.byprop)
 
         if univ:
-            self.xact.delete(penc + oldi, pvvalu, db=self.layr.byuniv)
+            self.slab.delete(penc + oldi, pvvalu, db=self.byuniv)
 
-    def _liftByIndx(self, oper):
+    async def _liftByIndx(self, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))
         # indx opers:  ('eq', <indx>)  ('pref', <indx>) ('range', (<indx>, <indx>)
         name, pref, iops = oper[1]
 
-        db = self.layr.dbs.get(name)
+        db = self.dbs.get(name)
         if db is None:
             raise s_exc.NoSuchName(name=name)
 
-        # row operations...
-        with self.xact.cursor(db=db) as curs:
+        for (name, valu) in iops:
 
-            for (name, valu) in iops:
+            func = self.indxfunc.get(name)
+            if func is None:
+                mesg = 'unknown index operation'
+                raise s_exc.NoSuchName(name=name, mesg=mesg)
 
-                func = self.indxfunc.get(name)
-                if func is None:
-                    mesg = 'unknown index operation'
-                    raise s_exc.NoSuchName(name=name, mesg=mesg)
+            async for row in func(db, pref, valu):
 
-                for row in func(curs, pref, valu):
+                yield row
 
-                    yield row
-
-    def _rowsByEq(self, curs, pref, valu):
+    async def _rowsByEq(self, db, pref, valu):
         lkey = pref + valu
-        if not curs.set_key(lkey):
-            return
-
-        for byts in curs.iternext_dup():
+        for byts in self.slab.scanByDups(lkey, db=db):
             yield s_msgpack.un(byts)
 
-    def _rowsByPref(self, curs, pref, valu):
+    async def _rowsByPref(self, db, pref, valu):
         pref = pref + valu
-        if not curs.set_range(pref):
-            return
-
-        size = len(pref)
-        for lkey, byts in curs.iternext():
-
-            if lkey[:size] != pref:
-                return
-
+        for _, byts in self.slab.scanByPref(pref, db=db):
             yield s_msgpack.un(byts)
 
-    def _rowsByRange(self, curs, pref, valu):
-
+    async def _rowsByRange(self, db, pref, valu):
         lmin = pref + valu[0]
         lmax = pref + valu[1]
 
-        size = len(lmax)
-        if not curs.set_range(lmin):
-            return
-
-        for lkey, byts in curs.iternext():
-
-            if lkey[:size] > lmax:
-                return
-
+        for _, byts in self.slab.scanByRange(lmin, lmax, db=db):
             yield s_msgpack.un(byts)
 
-    def iterFormRows(self, form):
+    async def iterFormRows(self, form):
         '''
         Iterate (buid, valu) rows for the given form in this layer.
         '''
 
         # <form> 00 00 (no prop...)
-        pref = self.layr.encoder[form] + b'\x00'
-        penc = self.layr.utf8['*' + form]
+        pref = self.encoder[form] + b'\x00'
+        penc = self.utf8['*' + form]
 
-        with self.xact.cursor(db=self.layr.byprop) as curs:
+        for _, pval in self.slab.scanByPref(pref, db=self.byprop):
 
-            if not curs.set_range(pref):
-                return
+            buid = s_msgpack.un(pval)[0]
 
-            size = len(pref)
+            byts = self.slab.get(buid + penc, db=self.bybuid)
+            if byts is None:
+                continue
 
-            for lkey, pval in curs.iternext():
+            valu, indx = s_msgpack.un(byts)
 
-                if lkey[:size] != pref:
-                    return
+            yield buid, valu
 
-                buid = s_msgpack.un(pval)[0]
-
-                byts = self.xact.get(buid + penc, db=self.layr.bybuid)
-                if byts is None:
-                    continue
-
-                valu, indx = s_msgpack.un(byts)
-
-                yield buid, valu
-
-    def iterPropRows(self, form, prop):
+    async def iterPropRows(self, form, prop):
         '''
         Iterate (buid, valu) rows for the given form:prop in this layer.
         '''
         # iterate byprop and join bybuid to get to value
 
-        penc = self.layr.utf8[prop]
-        pref = self.layr.encoder[form] + self.layr.encoder[prop]
+        penc = self.utf8[prop]
+        pref = self.encoder[form] + self.encoder[prop]
 
-        with self.xact.cursor(db=self.layr.byprop) as curs:
+        for _, pval in self.slab.scanByPref(pref, db=self.byprop):
 
-            if not curs.set_range(pref):
-                return
+            buid = s_msgpack.un(pval)[0]
 
-            size = len(pref)
+            byts = self.slab.get(buid + penc, db=self.bybuid)
+            if byts is None:
+                continue
 
-            for lkey, pval in curs.iternext():
+            valu, indx = s_msgpack.un(byts)
 
-                if lkey[:size] != pref:
-                    return
+            yield buid, valu
 
-                buid = s_msgpack.un(pval)[0]
-
-                byts = self.xact.get(buid + penc, db=self.layr.bybuid)
-                if byts is None:
-                    continue
-
-                valu, indx = s_msgpack.un(byts)
-
-                yield buid, valu
-
-    def iterUnivRows(self, prop):
+    async def iterUnivRows(self, prop):
         '''
         Iterate (buid, valu) rows for the given universal prop
         '''
-        penc = self.layr.utf8[prop]
-        pref = self.layr.encoder[prop]
+        penc = self.utf8[prop]
+        pref = self.encoder[prop]
 
-        with self.xact.cursor(db=self.layr.byuniv) as curs:
+        for _, pval in self.slab.scanByPref(pref, db=self.byuniv):
+            buid = s_msgpack.un(pval)[0]
 
-            if not curs.set_range(pref):
-                return
+            byts = self.slab.get(buid + penc, db=self.bybuid)
+            if byts is None:
+                continue
 
-            size = len(pref)
+            valu, indx = s_msgpack.un(byts)
 
-            for lkey, pval in curs.iternext():
+            yield buid, valu
 
-                if lkey[:size] != pref:
-                    return
-
-                buid = s_msgpack.un(pval)[0]
-
-                byts = self.xact.get(buid + penc, db=self.layr.bybuid)
-                if byts is None:
-                    continue
-
-                valu, indx = s_msgpack.un(byts)
-
-                yield buid, valu
-
-class LmdbLayer(s_layer.Layer):
-    '''
-    A layer implements btree indexed storage for a cortex.
-
-    TODO:
-        metadata for layer contents (only specific type / tag)
-    '''
-    confdefs = (
-        ('lmdb:mapsize', {'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE}),
-        ('lmdb:readahead', {'type': 'bool', 'defval': True}),
-    )
-
-    def __init__(self, dirn):
-        s_layer.Layer.__init__(self, dirn)
-
-        path = os.path.join(self.dirn, 'layer.lmdb')
-
-        mapsize = self.conf.get('lmdb:mapsize')
-        readahead = self.conf.get('lmdb:readahead')
-        self.lenv = lmdb.open(path, max_dbs=128, map_size=mapsize, writemap=True,
-                              readahead=readahead)
-
-        self.dbs = {}
-
-        self.utf8 = s_layer.Utf8er()
-        self.encoder = s_layer.Encoder()
-
-        self.bybuid = self.initdb('bybuid') # <buid><prop>=<valu>
-        self.byprop = self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
-        self.byuniv = self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
-
-        offsdb = self.initdb('offsets')
-        self.offs = s_lmdb.Offs(self.lenv, offsdb)
-
-        self.splicedb = self.initdb('splices')
-        self.splicelog = s_lmdb.Seqn(self.lenv, b'splices')
-
-        def finiLayer():
-            self.lenv.sync()
-            self.lenv.close()
-
-        self.onfini(finiLayer)
-
-    def getOffset(self, iden):
+    async def getOffset(self, iden):
         return self.offs.get(iden)
 
-    def setOffset(self, iden, offs):
+    async def setOffset(self, iden, offs):
         return self.offs.set(iden, offs)
 
-    def splices(self, offs, size):
-        with self.lenv.begin() as xact:
-            for i, mesg in self.splicelog.slice(xact, offs, size):
-                yield mesg
+    async def splices(self, offs, size):
+        for i, mesg in self.splicelog.slice(offs, size):
+            yield mesg
 
-    def stat(self):
+    async def stat(self):
         return {
             'splicelog_indx': self.splicelog.index(),
         }
 
-    def db(self, name):
-        return self.dbs.get(name)
+    # FIXME: is this used anywhere?
+    # async def db(self, name):
+    #     return self.dbs.get(name)
 
-    def initdb(self, name, dupsort=False):
-        # FIXME:  need to consider whether this is the right public API
-        db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
+    async def initdb(self, name, dupsort=False):
+        db = self.slab.initdb(name, dupsort)
         self.dbs[name] = db
         return db
-
-    def xact(self, write=False):
-        '''
-        Return a transaction object for the layer.
-        '''
-        return LmdbXact(self, write=write)

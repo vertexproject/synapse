@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import collections
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -101,7 +102,6 @@ class Query(AstNode):
         # for options parsed from the query itself
         self.opts = {}
 
-<< << << < HEAD
         # used by the di-graph projection logic
         self._graph_done = {}
         self._graph_want = collections.deque()
@@ -138,14 +138,14 @@ class Query(AstNode):
 
             yield item
 
-    def getInput(self, snap):
+    async def getInput(self, snap):
         for ndef in self.opts.get('ndefs', ()):
-            node = snap.getNodeByNdef(ndef)
+            node = await snap.getNodeByNdef(ndef)
             if node is not None:
                 yield node, node.initPath()
         for iden in self.opts.get('idens', ()):
             buid = s_common.uhex(iden)
-            node = snap.getNodeByBuid(buid)
+            node = await snap.getNodeByBuid(buid)
             if node is not None:
                 yield node, node.initPath()
 
@@ -264,7 +264,7 @@ class VarSetOper(Oper):
             valu = self.kids[1].value()
             runt.vars[name] = valu
 
-        for node, path in genr:
+        async for node, path in genr:
             valu = self.kids[1].compute(runt, node, path)
             path.set(name, valu)
             runt.vars[name] = valu
@@ -274,20 +274,22 @@ class LiftOper(Oper):
 
     async def run(self, runt, genr):
 
-        yield from genr
+        for x in genr:
+            yield x
 
-        for node in self.lift(runt):
+        async for node in self.lift(runt):
             yield node, runt.initPath(node)
 
 class LiftTag(LiftOper):
 
-    def lift(self, runt):
+    async def lift(self, runt):
         tag = self.kids[0].value()
-        yield from runt.snap._getNodesByTag(tag)
+        for node in runt.snap._getNodesByTag(tag):
+            yield node
 
 class LiftFormTag(LiftOper):
 
-    def lift(self, runt):
+    async def lift(self, runt):
 
         form = self.kids[0].value()
         tag = self.kids[1].value()
@@ -299,11 +301,12 @@ class LiftFormTag(LiftOper):
             cmpr = self.kids[2].value()
             valu = self.kids[3].runtval(runt)
 
-        yield from runt.snap._getNodesByFormTag(form, tag, valu=valu, cmpr=cmpr)
+        for node in runt.snap._getNodesByFormTag(form, tag, valu=valu, cmpr=cmpr):
+            yield node
 
 class LiftProp(LiftOper):
 
-    def lift(self, runt):
+    async def lift(self, runt):
 
         name = self.kids[0].value()
 
@@ -316,11 +319,13 @@ class LiftProp(LiftOper):
 
         # If its a secondary prop, there's no optimization
         if runt.snap.model.forms.get(name) is None:
-            yield from runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr)
+            for node in runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr):
+                yield node
             return
 
         if cmpr is not None:
-            yield from runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr)
+            for node in runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr):
+                yield node
             return
 
         # lifting by a form only is pretty bad, maybe
@@ -333,7 +338,8 @@ class LiftProp(LiftOper):
 
                     if hint[0] == 'tag':
                         tagname = hint[1].get('name')
-                        yield from runt.snap._getNodesByFormTag(name, tagname)
+                        for node in runt.snap._getNodesByFormTag(name, tagname):
+                            yield node
                         return
 
             # we can skip other lifts but that's it...
@@ -342,18 +348,20 @@ class LiftProp(LiftOper):
 
             break
 
-        yield from runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr)
+        async for node in runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr):
+            yield node
 
 class LiftPropBy(LiftOper):
 
-    def lift(self, runt):
+    async def lift(self, runt):
 
         name = self.kids[0].value()
         cmpr = self.kids[1].value()
 
         valu = self.kids[2].runtval(runt)
 
-        yield from runt.snap.getNodesBy(name, valu, cmpr=cmpr)
+        async for node in runt.snap.getNodesBy(name, valu, cmpr=cmpr):
+            yield node
 
 class PivotOper(Oper):
 
@@ -367,14 +375,14 @@ class PivotOut(PivotOper):
     '''
     async def run(self, runt, genr):
 
-        for node, path in genr:
+        async for node, path in genr:
 
             if self.isjoin:
                 yield node, path
 
             if isinstance(node.form.type, s_types.Edge):
                 n2def = node.get('n2')
-                pivo = runt.snap.getNodeByNdef(n2def)
+                pivo = await runt.snap.getNodeByNdef(n2def)
                 yield pivo, path.fork(pivo)
                 continue
 
@@ -389,7 +397,7 @@ class PivotOut(PivotOper):
 
                 # if the outbound prop is an ndef...
                 if isinstance(prop.type, s_types.Ndef):
-                    pivo = runt.snap.getNodeByNdef(valu)
+                    pivo = await runt.snap.getNodeByNdef(valu)
                     if pivo is None:
                         continue
 
@@ -400,7 +408,7 @@ class PivotOut(PivotOper):
                 if form is None:
                     continue
 
-                pivo = runt.snap.getNodeByNdef((form.name, valu))
+                pivo = await runt.snap.getNodeByNdef((form.name, valu))
                 if pivo is None:
                     continue
 
@@ -413,7 +421,7 @@ class PivotIn(PivotOper):
 
     async def run(self, runt, genr):
 
-        for node, path in genr:
+        async for node, path in genr:
 
             if self.isjoin:
                 yield node, path
@@ -423,7 +431,7 @@ class PivotIn(PivotOper):
 
                 ndef = node.get('n1')
 
-                pivo = runt.snap.getNodeByNdef(ndef)
+                pivo = await runt.snap.getNodeByNdef(ndef)
                 if pivo is None:
                     continue
 
@@ -452,7 +460,7 @@ class PivotInFrom(PivotOper):
 
             full = form.name + ':n2'
 
-            for node, path in genr:
+            async for node, path in genr:
 
                 if self.isjoin:
                     yield node, path
@@ -477,7 +485,7 @@ class PivotInFrom(PivotOper):
 
             n1def = node.get('n1')
 
-            pivo = runt.snap.getNodeByNdef(n1def)
+            pivo = await runt.snap.getNodeByNdef(n1def)
             if pivo is None:
                 continue
 
@@ -558,7 +566,7 @@ class FormPivot(PivotOper):
                 if n2def[0] != destform:
                     continue
 
-                pivo = runt.snap.getNodeByNdef(node.get('n2'))
+                pivo = await runt.snap.getNodeByNdef(node.get('n2'))
                 yield pivo, path.fork(pivo)
 
                 continue
@@ -579,7 +587,7 @@ class PropPivotOut(PivotOper):
 
         name = self.kids[0].value()
 
-        for node, path in genr:
+        async for node, path in genr:
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -592,13 +600,13 @@ class PropPivotOut(PivotOper):
             # ndef pivot out syntax...
             # :ndef -> *
             if isinstance(prop.type, s_types.Ndef):
-                pivo = runt.snap.getNodeByNdef(valu)
+                pivo = await runt.snap.getNodeByNdef(valu)
                 yield pivo, path.fork(pivo)
                 continue
 
             # :ipv4 -> *
             ndef = (prop.type.name, valu)
-            pivo = runt.snap.getNodeByNdef(ndef)
+            pivo = await runt.snap.getNodeByNdef(ndef)
             yield pivo, path.fork(pivo)
 
 class PropPivot(PivotOper):
@@ -862,7 +870,7 @@ class FiltOper(Oper):
         must = self.kids[0].value() == '+'
         func = self.kids[1].getCondEval(runt)
 
-        for node, path in genr:
+        async for node, path in genr:
             answ = func(node, path)
             if (must and answ) or (not must and not answ):
                 yield node, path
@@ -974,7 +982,8 @@ class EditNodeAdd(Edit):
         name = self.kids[0].value()
         formtype = runt.snap.model.types.get(name)
 
-        yield from genr
+        for x in genr:
+            yield x
 
         runt.allowed('node:add', name)
 

@@ -365,7 +365,7 @@ bootdefs = (
         'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
 )
 
-class Cell(s_eventbus.EventBus, s_telepath.Aware, s_coro.Anit):
+class Cell(s_coro.Fini, s_eventbus.EventBus, s_telepath.Aware, s_coro.Anit):
     '''
     A Cell() implements a synapse micro-service.
     '''
@@ -385,7 +385,9 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware, s_coro.Anit):
 
     def __init__(self, dirn):
 
+        s_coro.Fini.__init__(self)
         s_coro.Anit.__init__(self)
+        s_telepath.Aware.__init__(self)
         s_eventbus.EventBus.__init__(self)
 
         self.dirn = s_common.gendir(dirn)

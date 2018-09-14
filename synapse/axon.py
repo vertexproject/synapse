@@ -965,7 +965,8 @@ class Axon(s_cell.Cell):
                 except Exception:
                     logger.error('At axon startup, failed to connect to stored blobstor path %s', _path_sanitize(path))
 
-        s_glob.plex.addLoopCoro(_connect_to_blobstors())
+        future = s_glob.plex.coroToTask(_connect_to_blobstors())
+        self.onfini(future.cancel)
 
         self._workq = _AsyncQueue(50)
         self.xact = IncrementalTransaction(self.lenv)
@@ -1000,7 +1001,7 @@ class Axon(s_cell.Cell):
         stop_watching_event = asyncio.Event(loop=s_glob.plex.loop)
         self.blobstorwatchers[blobstorpath] = stop_watching_event
 
-        s_glob.plex.addLoopCoro(self._watch_blobstor(blobstor, bsid, blobstorpath, stop_watching_event))
+        s_glob.plex.coroToTask(self._watch_blobstor(blobstor, bsid, blobstorpath, stop_watching_event))
 
     async def addBlobStor(self, blobstorpath):
         '''

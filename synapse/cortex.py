@@ -2,7 +2,6 @@ import json
 import asyncio
 import logging
 import pathlib
-import contextlib
 import collections
 
 import tornado.web as t_web
@@ -10,20 +9,17 @@ import tornado.netutil as t_netutil
 import tornado.httpserver as t_http
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.cell as s_cell
-import synapse.lib.coro as s_coro
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
 import synapse.lib.layer as s_layer
-import synapse.lib.queue as s_queue
 import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
 
@@ -345,10 +341,8 @@ class Cortex(s_cell.Cell):
     cellapi = CoreApi
 
     def __init__(self, dirn):
-
         s_cell.Cell.__init__(self, dirn)
 
-        self.views = {}
         self.layers = []
         self.modules = {}
         self.feedfuncs = {}
@@ -377,6 +371,7 @@ class Cortex(s_cell.Cell):
             'tag:del': self._onFeedTagDel,
         }
 
+        self.newp = False
         self.setFeedFunc('syn.nodes', self._addSynNodes)
         self.setFeedFunc('syn.splice', self._addSynSplice)
         self.setFeedFunc('syn.ingest', self._addSynIngest)
@@ -394,22 +389,20 @@ class Cortex(s_cell.Cell):
         self.ontagadds = collections.defaultdict(list)
         self.ontagdels = collections.defaultdict(list)
 
-        self.addCoreMods(s_modules.coremods)
+        await self.addCoreMods(s_modules.coremods)
 
         mods = self.conf.get('modules')
 
-        self.addCoreMods(mods)
+        await self.addCoreMods(mods)
 
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
 
-        def fini():
-            [layr.fini() for layr in self.layrs]
+        async def fini():
+            await asyncio.gather(*[layr.fini() for layr in self.layers])
 
         self.onfini(fini)
-
-    async def _initCoreLayers(self):
 
     def onTagAdd(self, name, func):
         '''
@@ -900,12 +893,6 @@ class Cortex(s_cell.Cell):
             ret.append((modname, mod.conf))
         return ret
 
-    def eval(self, text, opts=None, user=None):
-        with self.snap(user=user) as snap:
-            yield from snap.eval(text, opts=opts, user=user)
-
-    def storm(self, text, opts=None, user=None):
-
     async def eval(self, text, opts=None):
         '''
         Evaluate a storm query and yield Nodes only.
@@ -979,7 +966,7 @@ class Cortex(s_cell.Cell):
             for node in snap.getNodesBy(full, valu, cmpr=cmpr):
                 yield node
 
-    def addNodes(self, nodedefs):
+    async def addNodes(self, nodedefs):
         '''
         Quickly add/modify a list of nodes from node definition tuples.
         This API is the simplest/fastest way to add nodes, set node props,
@@ -998,7 +985,8 @@ class Cortex(s_cell.Cell):
         '''
         with self.snap() as snap:
             snap.strict = False
-            yield from snap.addNodes(nodedefs)
+            async for node in snap.addNodes(nodedefs):
+                yield node
 
     def addFeedData(self, name, items, seqn=None):
         '''
@@ -1045,7 +1033,7 @@ class Cortex(s_cell.Cell):
             snap.setUser(user)
         return snap
 
-    def addCoreMods(self, mods):
+    async def addCoreMods(self, mods):
         '''
         Add a list of (name,conf) module tuples to the cortex.
         '''
@@ -1071,7 +1059,7 @@ class Cortex(s_cell.Cell):
         # now that we've loaded all their models
         # we can call their init functions
         for modu in added:
-            modu.initCoreModule()
+            await modu.initCoreModule()
 
     def loadCoreModule(self, ctor, conf=None):
         '''

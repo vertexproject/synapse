@@ -13,11 +13,10 @@ import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 
-from synapse.eventbus import EventBus
-
+import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
-import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.share as s_share
+import synapse.lib.urlhelp as s_urlhelp
 
 class Genr(s_share.Share):
 
@@ -84,7 +83,7 @@ dmonwrap = (
     (types.GeneratorType, Genr),
 )
 
-class Daemon(EventBus):
+class Daemon(s_base.Base):
 
     confdefs = (
 
@@ -101,9 +100,10 @@ class Daemon(EventBus):
 
     def __init__(self, dirn):
 
-        EventBus.__init__(self)
+        Base.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
+        self._shareLoopTasks = set()
 
         conf = self._loadDmonYaml()
         self.conf = s_common.config(conf, self.confdefs)
@@ -124,9 +124,11 @@ class Daemon(EventBus):
         }
 
         self._loadDmonConf()
-        self._loadDmonCells()
 
         self.onfini(self._onDmonFini)
+
+    async def __anit__(self):
+        await self._loadDmonCells()
 
     def listen(self, url, **opts):
         '''
@@ -168,24 +170,32 @@ class Daemon(EventBus):
         except Exception as e:
             logger.exception(f'onTeleShare() error for: {name}')
 
-    def _onDmonFini(self):
+    async def _onDmonFini(self):
         for s in self.listenservers:
             try:
                 s.close()
             except Exception as e:  # pragma: no cover
                 logger.warning('Error during socket server close()', exc_info=e)
         for name, share in self.shared.items():
-            if isinstance(share, EventBus):
-                share.fini()
+            if isinstance(share, s_base.Base):
+                await share.fini()
 
         async def afini():
             for name, share in self.shared.items():
                 if isinstance(share, s_coro.Fini):
                     await share.fini()
 
+            for task in self._shareLoopTasks:
+                try:
+                    if task.done():
+                        continue
+                    task.cancel()
+                except Exception as e:
+                    logger.error('Error cancelling task: %s', str(e))
+
             await asyncio.wait([link.fini() for link in self.connectedlinks], loop=s_glob.plex.loop)
 
-        s_glob.plex.addLoopCoro(afini())
+        s_glob.plex.coroToTask(afini())
 
     def _getSslCtx(self):
         return None
@@ -210,7 +220,7 @@ class Daemon(EventBus):
         logger.warning('config not found: %r' % (path,))
         return {}
 
-    def _loadDmonCells(self):
+    async def _loadDmonCells(self):
 
         # load our services from a directory
 
@@ -221,9 +231,9 @@ class Daemon(EventBus):
             if name.startswith('.'):
                 continue
 
-            self.loadDmonCell(name)
+            await self.loadDmonCell(name)
 
-    def loadDmonCell(self, name):
+    async def loadDmonCell(self, name):
         dirn = s_common.gendir(self.dirn, 'cells', name)
         logger.info(f'loading cell from: {dirn}')
 
@@ -237,7 +247,7 @@ class Daemon(EventBus):
         kind = conf.get('type')
 
         #ctor = s_registry.getService(kind)
-        cell = s_cells.init(kind, dirn)
+        cell = await s_cells.init(kind, dirn)
 
         self.share(name, cell)
         self.cells[name] = cell
@@ -401,11 +411,15 @@ class Daemon(EventBus):
                 async def spinshareloop():
                     try:
                         await valu._runShareLoop()
+                    except asyncio.CancelledError:
+                        pass
                     except Exception:
                         logger.exception('Error running %r', valu)
                     finally:
                         await valu.fini()
-                s_glob.plex.coroLoopTask(spinshareloop())
+                task = s_glob.plex.coroLoopTask(spinshareloop())
+                self._shareLoopTasks.add(task)
+                task.add_done_callback(self._getTaskResult)
 
         except Exception as e:
 
@@ -416,6 +430,22 @@ class Daemon(EventBus):
             await link.tx(
                 ('task:fini', {'task': task, 'retn': retn})
             )
+
+    def _getTaskResult(self, task):
+        result = s_common.novalu
+        try:
+            result = task.result()
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error('Error encountered for %s: [%s]',
+                         task, e)
+        finally:
+            try:
+                self._shareLoopTasks.remove(task)
+            except KeyError:
+                pass
+            return result
 
     def _getTestProxy(self, name, **kwargs):
         host, port = self.addr
