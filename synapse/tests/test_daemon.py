@@ -45,24 +45,6 @@ class DaemonTest(s_t_utils.ASynTest):
 
             host, port = dmon.addr
 
-            breakpoint()
-            with await s_telepath.openurl('tcp:///echo00', host=host, port=port) as prox:
+            async with await s_telepath.openurl('tcp:///echo00', host=host, port=port) as prox:
 
-                self.eq('woot', prox.ping('woot'))
-
-    async def test_daemon_timeout(self):
-
-        self.skip('TODO: port to test_telepath')
-
-        # TODO move me test_telepath
-
-        daemon = await s_daemon.Daemon.anit()
-        link = daemon.listen('tcp://127.0.0.1:0/?timeout=0.1')
-
-        relay = s_link.getLinkRelay(link)
-        sock = relay.connect()
-
-        self.eq(sock.recvobj(), None)
-
-        sock.fini()
-        await daemon.fini()
+                self.eq('woot', await prox.ping('woot'))

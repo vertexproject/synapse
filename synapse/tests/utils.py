@@ -576,33 +576,6 @@ class SynTest(unittest.TestCase):
             async with await s_cortex.Cortex.anit(dirn) as core:
                 yield core
 
-    # FIXME: remove when all-async'd up
-    @contextlib.contextmanager
-    def getTestCore(self, mirror='testcore', conf=None, extra_layers=None):
-        '''
-        Return a simple test Cortex.
-
-        Args:
-           conf:  additional configuration entries.  Combined with contents from mirror.
-        '''
-        with self.getTestDir(mirror=mirror) as dirn:
-            s_cells.deploy('cortex', dirn)
-            s_common.yamlmod(conf, dirn, 'cell.yaml')
-            ldir = s_common.gendir(dirn, 'layers')
-            layerdir = pathlib.Path(ldir, '000-default')
-            if self.alt_write_layer:
-                os.symlink(self.alt_write_layer, layerdir)
-            else:
-                layerdir.mkdir()
-                s_cells.deploy('layer-lmdb', layerdir)
-                s_common.yamlmod({'lmdb:mapsize': TEST_MAP_SIZE}, layerdir, 'cell.yaml')
-            for i, fn in enumerate(extra_layers or []):
-                src = pathlib.Path(fn).resolve()
-                os.symlink(src, pathlib.Path(ldir, f'{i + 1:03}-testlayer'))
-
-            with s_cortex.Cortex(dirn) as core:
-                yield core
-
     @contextlib.asynccontextmanager
     async def getTestDmon(self, mirror='dmontest'):
 

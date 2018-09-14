@@ -103,8 +103,13 @@ class Plex(s_eventbus.EventBus):
         '''
         Schedule a coro to run on this loop and return the result.
 
-        NOTE: This API *is* thread safe
+        NOTE: This API *is* thread safe.
+
+        NOTE: This function must *not* be run from inside the event loop
         '''
+        if self.iAmLoop():
+            raise Exception('Already in async thread')
+
         task = self.coroToTask(coro)
         return task.result(timeout=timeout)
 

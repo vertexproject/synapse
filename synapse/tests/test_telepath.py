@@ -151,7 +151,7 @@ class TeleAuth(s_telepath.Aware):
     def getFooBar(self, x, y):
         return x + y
 
-class TeleTest(s_test.SynTest):
+class TeleTest(s_test.ASynTest):
 
     def test_telepath_basics(self):
 
@@ -319,11 +319,11 @@ class TeleTest(s_test.SynTest):
 
             self.raises(s_exc.BadMesgVers, s_telepath.openurl, 'tcp://127.0.0.1/', port=port)
 
-    def test_alias(self):
+    async def test_alias(self):
         item = TeleAware()
         name = 'item'
 
-        with self.getTestDmon() as dmon:
+        async with await self.getTestDmon() as dmon:
             addr = dmon.listen('tcp://127.0.0.1:0')
             dmon.share(name, item)
             dirn = s_scope.get('dirn')
