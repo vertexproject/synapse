@@ -7,16 +7,14 @@ import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.chop as s_chop
-import synapse.lib.coro as s_coro
+import synapse.lib.base as s_base
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
 
 logger = logging.getLogger(__name__)
 
-# FIXME:  figure out eventbus and s_coro?!  fini methods collide
-
-class Snap(s_eventbus.EventBus, s_coro.Fini):
+class Snap(s_base.Base):
     '''
     A "snapshot" is a transaction across multiple Cortex layers.
 
@@ -33,8 +31,7 @@ class Snap(s_eventbus.EventBus, s_coro.Fini):
 
     def __init__(self, core, layers, write=False):
 
-        s_eventbus.EventBus.__init__(self)
-        s_coro.Fini.__init__(self)
+        s_base.Base.__init__(self)
 
         self.stack = contextlib.ExitStack()
 
@@ -75,12 +72,12 @@ class Snap(s_eventbus.EventBus, s_coro.Fini):
                     logger.exception('commit error for layer')
                 await layr.fini()
 
-        s_coro.Fini.onfini(self, fini)
+        self.onfini(fini)
 
     # FIXME:  hack for colliding finis
     async def __aexit__(self, exc, cls, tb):
         self.exitinfo = (exc, cls, tb)
-        await s_coro.Fini.fini(self)
+        await s_base.Base.fini(self)
         s_eventbus.EventBus.fini(self)
 
     @contextlib.contextmanager

@@ -14,6 +14,7 @@ import synapse.lib.scope as s_scope
 import synapse.tests.common as s_test
 
 from synapse.tests.utils import SyncToAsyncCMgr
+import synapse.tests.utils as s_t_utils
 
 class Boom:
     pass
@@ -151,7 +152,7 @@ class TeleAuth(s_telepath.Aware):
     def getFooBar(self, x, y):
         return x + y
 
-class TeleTest(s_test.ASynTest):
+class TeleTest(s_t_utils.ASynTest):
 
     def test_telepath_basics(self):
 

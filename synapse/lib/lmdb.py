@@ -14,7 +14,7 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 
-import synapse.lib.coro as s_coro
+import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
@@ -565,14 +565,14 @@ def encodeValAsKey(v, isprefix=False):
         else:
             return _STR_VAL_MARKER + v_enc + b'\x00'
 
-class Slab(s_coro.Fini):
+class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
 
     def __init__(self, path, **opts):
 
-        s_coro.Fini.__init__(self)
+        s_base.Base.__init__(self)
 
         self.path = path
         self.optspath = os.path.join(path, 'opts.json')

@@ -21,7 +21,7 @@ import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
-import synapse.lib.coro as s_coro
+import synapse.lib.base as s_base
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
 import synapse.lib.share as s_share
@@ -187,7 +187,7 @@ class Uploader(s_share.Share):
         '''
         self.chunknum = 0
 
-class _AsyncQueue(s_coro.Fini):
+class _AsyncQueue(s_base.Base):
     '''
     Multi-async producer, single sync finite consumer queue with blocking at empty and full.  Assumes producers run on
     s_glob.plex.loop
@@ -203,7 +203,7 @@ class _AsyncQueue(s_coro.Fini):
                 falls below this parameter.
         '''
 
-        s_coro.Fini.__init__(self)
+        s_base.Base.__init__(self)
         self.deq = collections.deque()
         self.notdrainingevent = asyncio.Event(loop=s_glob.plex.loop)
         self.notdrainingevent.set()
@@ -252,7 +252,7 @@ class _AsyncQueue(s_coro.Fini):
         self.deq.append(item)
         self.notemptyevent.set()
 
-class _BlobStorWriter(s_coro.Fini):
+class _BlobStorWriter(s_base.Base):
     '''
     An active object that writes to disk on behalf of a blobstor (plus the client methods to interact with it)
     '''
@@ -285,7 +285,7 @@ class _BlobStorWriter(s_coro.Fini):
             self.anything_written = False
 
     def __init__(self, blobstor):
-        s_coro.Fini.__init__(self)
+        s_base.Base.__init__(self)
         self.xact = IncrementalTransaction(blobstor.lenv)
         self.lenv = blobstor.lenv
         self.blobstor = blobstor
@@ -737,7 +737,7 @@ class BlobStor(s_cell.Cell):
 
             return struct.unpack('>Q', lval)[0]
 
-class _ProxyKeeper(s_coro.Fini):
+class _ProxyKeeper(s_base.Base):
     '''
     A container for active blobstor proxy objects.
     '''
@@ -746,7 +746,7 @@ class _ProxyKeeper(s_coro.Fini):
     bsidpathmap = {}
 
     def __init__(self):
-        s_coro.Fini.__init__(self)
+        s_base.Base.__init__(self)
         self._proxymap = {}  # bsid -> proxy
 
         async def fini():
