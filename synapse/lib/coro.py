@@ -3,12 +3,19 @@ Async/Coroutine related utilities.
 '''
 import asyncio
 import logging
+import types
 
 logger = logging.getLogger(__name__)
 
 import synapse.glob as s_glob
 import synapse.lib.base as s_base
 
+
+# FIXME:  replace all instances of asyncio.iscoroutine with this function
+def iscoro(item):
+    if isinstance(item, (types.AsyncGeneratorType, types.GeneratorType)):
+        return False
+    return asyncio.iscoroutine(item)
 
 class Queue(s_base.Base):
     '''

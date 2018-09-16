@@ -576,6 +576,11 @@ class SynTest(unittest.TestCase):
             async with await s_cortex.Cortex.anit(dirn) as core:
                 yield core
 
+    @contextlib.contextmanager
+    def getTestDmonSync(self, *args, **kwargs):
+        with AsyncToSyncCMgr(self.getTestDmon, *args, **kwargs) as dmon:
+            yield dmon
+
     @contextlib.asynccontextmanager
     async def getTestDmon(self, mirror='dmontest'):
 
@@ -1180,9 +1185,27 @@ class ASynTest(SynTest):
         else:
             return attr
 
+class AsyncToSyncCMgr():
+    '''
+    Wraps an async context manager as a sync one
+    '''
+    def __init__(self, func, *args, **kwargs):
+        self.amgr = func(*args, **kwargs)
 
+    def __enter__(self):
+        self.obj = s_glob.plex.coroToSync(self.amgr.__aenter__())
+        return self.obj
+
+    def __exit__(self, *args):
+        return s_glob.plex.coroToSync(self.obj.__aexit__(*args))
+
+# Discuss: could build this logic into coroToSync or synchelp
 class SyncToAsyncCMgr():
-    ''' Wraps a regular context manager in an async one '''
+    '''
+    Wraps a regular context manager in an async one.
+
+    Enter and exit functions are run in executors to avoid deadlock.
+    '''
     def __init__(self, func, *args, **kwargs):
         def run_and_enter():
             obj = func(*args, **kwargs)

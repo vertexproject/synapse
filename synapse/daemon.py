@@ -128,6 +128,7 @@ class Daemon(s_base.Base):
         await self._loadDmonConf()
         await self._loadDmonCells()
 
+    @s_glob.synchelp
     async def listen(self, url, **opts):
         '''
         Bind and listen on the given host/port with possible SSL.
@@ -181,9 +182,6 @@ class Daemon(s_base.Base):
         for name, share in self.shared.items():
             if isinstance(share, s_base.Base):
                 await share.fini()
-            # FIXME:  remove when transition all to Base
-            elif isinstance(share, s_coro.Fini):
-                await share.fini()
 
         for task in self._shareLoopTasks:
             try:
@@ -194,7 +192,7 @@ class Daemon(s_base.Base):
                 logger.error('Error cancelling task: %s', str(e))
         finis = [link.fini() for link in self.connectedlinks]
         if finis:
-            await asyncio.wait(finis, loop=asyncio.get_event_loop)
+            await asyncio.wait(finis, loop=asyncio.get_event_loop())
 
     def _getSslCtx(self):
         return None
@@ -338,7 +336,7 @@ class Daemon(s_base.Base):
                 items = list(link.get('dmon:items').values())
 
                 for item in items:
-                    if isinstance(item, s_coro.Fini):
+                    if isinstance(item, s_base.Base):
                         try:
                             await item.fini()
                         except Exception as e:  # pragma: no cover
@@ -360,7 +358,7 @@ class Daemon(s_base.Base):
             if isinstance(valu, wraptype):
                 return wrapctor(link, valu)
 
-        if asyncio.iscoroutine(valu):
+        if s_coro.iscoro(valu):
             valu = await valu
 
         return valu
