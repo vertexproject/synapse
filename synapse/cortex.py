@@ -4,6 +4,8 @@ import logging
 import pathlib
 import collections
 
+from concurrent.futures import CancelledError
+
 import tornado.web as t_web
 import tornado.netutil as t_netutil
 import tornado.httpserver as t_http
@@ -20,6 +22,7 @@ import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
 import synapse.lib.layer as s_layer
+import synapse.lib.queue as s_queue
 import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
 
@@ -224,13 +227,13 @@ class CoreApi(s_cell.CellApi):
 
                 yield node
 
-    def addFeedData(self, name, items, seqn=None):
+    async def addFeedData(self, name, items, seqn=None):
 
         self._reqUserAllowed('feed:data', *name.split('.'))
 
         with self.cell.snap(user=self.user) as snap:
             snap.strict = False
-            return snap.addFeedData(name, items, seqn=seqn)
+            return await snap.addFeedData(name, items, seqn=seqn)
 
     def getFeedOffs(self, iden):
         return self.cell.getFeedOffs(iden)
@@ -396,8 +399,8 @@ class Cortex(s_cell.Cell):
         await self.addCoreMods(mods)
 
         self._initCryoLoop()
-        self._initPushLoop()
-        self._initFeedLoops()
+        await self._initPushLoop()
+        await self._initFeedLoops()
 
         async def fini():
             await asyncio.gather(*[layr.fini() for layr in self.layers])
@@ -494,20 +497,19 @@ class Cortex(s_cell.Cell):
             ('/v1/model', HttpModelApiV1, {'cell': self}),
         )
 
-    def _initPushLoop(self):
+    async def _initPushLoop(self):
 
         if self.conf.get('splice:sync') is None:
             return
 
-        thrd = self._runPushLoop()
+        fut = self.loop.create_task(self._runPushLoop())
 
         def fini():
-            return thrd.join(timeout=8)
+            return fut.cancel()
 
         self.onfini(fini)
 
-    @s_common.firethread
-    def _runPushLoop(self):
+    async def _runPushLoop(self):
 
         url = self.conf.get('splice:sync')
 
@@ -521,7 +523,7 @@ class Cortex(s_cell.Cell):
 
                 url = self.conf.get('splice:sync')
 
-                with s_telepath.openurl(url) as core:
+                async with s_telepath.openurl(url) as core:
 
                     # use our iden as the feed iden
                     offs = core.getFeedOffs(iden)
@@ -540,8 +542,11 @@ class Cortex(s_cell.Cell):
 
                         logger.info('splice push: %d %d/%d (%.2f%%)', size, offs, indx, perc)
 
-                        offs = core.addFeedData('syn.splice', items, seqn=(iden, offs))
+                        offs = await core.addFeedData('syn.splice', items, seqn=(iden, offs))
                         self.fire('core:splice:sync:sent')
+
+            except CancelledError:
+                break
 
             except Exception as e:  # pragma: no cover
                 logger.exception('sync error')
@@ -560,12 +565,13 @@ class Cortex(s_cell.Cell):
 
         self.onfini(fini)
 
-    def _initFeedLoops(self):
+    async def _initFeedLoops(self):
         '''
         feeds:
             - cryotank: tcp://cryo.vertex.link/cryo00/tank01
               type: syn.splice
         '''
+        # breakpoint()
         feeds = self.conf.get('feeds', ())
         if not feeds:
             return
@@ -577,15 +583,14 @@ class Cortex(s_cell.Cell):
             if self.getFeedFunc(typename) is None:
                 raise s_exc.NoSuchType(name=typename)
 
-            thrd = self._runFeedLoop(feed)
+            fut = self.loop.create_task(self._runFeedLoop(feed))
 
             def fini():
-                thrd.join(timeout=2)
+                fut.cancel()
 
             self.onfini(fini)
 
-    @s_common.firethread
-    def _runFeedLoop(self, feed):
+    async def _runFeedLoop(self, feed):
 
         url = feed.get('cryotank')
         typename = feed.get('type')
@@ -599,7 +604,7 @@ class Cortex(s_cell.Cell):
 
                 url = feed.get('cryotank')
 
-                with s_telepath.openurl(url) as tank:
+                async with await s_telepath.openurl(url) as tank:
 
                     iden = tank.getCellIden()
 
@@ -616,6 +621,9 @@ class Cortex(s_cell.Cell):
 
                         offs = self.addFeedData(typename, datas, seqn=(iden, offs))
                         self.fire('core:feed:loop')
+
+            except CancelledError:
+                break
 
             except Exception as e:  # pragma: no cover
                 logger.exception('feed error')
@@ -681,10 +689,11 @@ class Cortex(s_cell.Cell):
         '''
         return self.feedfuncs.get(name)
 
-    def _addSynNodes(self, snap, items):
-        yield from snap.addNodes(items)
+    async def _addSynNodes(self, snap, items):
+        async for node in snap.addNodes(items):
+            yield node
 
-    def _addSynSplice(self, snap, items):
+    async def _addSynSplice(self, snap, items):
 
         for item in items:
             func = self.splicers.get(item[0])
@@ -897,7 +906,7 @@ class Cortex(s_cell.Cell):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
-        with self.snap() as snap:
+        async with self.snap() as snap:
             async for node in snap.eval(text, opts=opts):
                 yield node
 
@@ -983,12 +992,12 @@ class Cortex(s_cell.Cell):
         The "props" or "tags" keys may be omitted.
 
         '''
-        with self.snap() as snap:
+        async with self.snap() as snap:
             snap.strict = False
             async for node in snap.addNodes(nodedefs):
                 yield node
 
-    def addFeedData(self, name, items, seqn=None):
+    async def addFeedData(self, name, items, seqn=None):
         '''
         Add data using a feed/parser function.
 
@@ -1000,9 +1009,9 @@ class Cortex(s_cell.Cell):
         Returns:
             (int): The next expected offset (or None) if seqn is None.
         '''
-        with self.snap() as snap:
+        async with self.snap() as snap:
             snap.strict = False
-            return snap.addFeedData(name, items, seqn=seqn)
+            return await snap.addFeedData(name, items, seqn=seqn)
 
     def getFeedOffs(self, iden):
         return self.layer.getOffset(iden)

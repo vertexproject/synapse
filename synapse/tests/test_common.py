@@ -5,9 +5,9 @@ import sys
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
-class CommonTest(s_test.SynTest):
+class CommonTest(s_t_utils.SynTest):
     def test_common_vertup(self):
         self.eq(s_common.vertup('1.3.30'), (1, 3, 30))
         self.true(s_common.vertup('30.40.50') > (9, 0))

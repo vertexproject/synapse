@@ -4,7 +4,6 @@ import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
 
 import synapse.lib.chop as s_chop
 import synapse.lib.base as s_base
@@ -70,15 +69,9 @@ class Snap(s_base.Base):
                     await layr.commit()
                 except Exception as e:
                     logger.exception('commit error for layer')
-                await layr.fini()
+            # N.B. don't fini the layers here since they are owned by the cortex
 
         self.onfini(fini)
-
-    # FIXME:  hack for colliding finis
-    async def __aexit__(self, exc, cls, tb):
-        self.exitinfo = (exc, cls, tb)
-        await s_base.Base.fini(self)
-        s_eventbus.EventBus.fini(self)
 
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
@@ -450,7 +443,7 @@ class Snap(s_base.Base):
         info['user'] = user
         info['time'] = s_common.now()
 
-        self.fire(name, **info)
+        await self.fire(name, **info)
 
         mesg = (name, info)
         self.wlyr.splices.append(mesg)

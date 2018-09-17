@@ -30,6 +30,10 @@ logger = logging.getLogger(__name__)
 
 # File convention: bsid -> persistent unique id for a blobstor (actually the cell iden)
 
+# N.B. BlobStor does *not* use lmdb Slab.  It has its own incremental transaction.
+
+# FIXME: port to use Slab
+
 CHUNK_SIZE = 16 * s_const.mebibyte
 
 def _path_sanitize(blobstorpath):
@@ -64,7 +68,7 @@ class PassThroughApi(s_cell.CellApi):
     '''
     Class that passes through methods made on it to its cell.
     '''
-    allowed_methods = []
+    allowed_methods = []  # type: ignore
 
     def __init__(self, cell, link):
         s_cell.CellApi.__init__(self, cell, link)
@@ -93,15 +97,19 @@ class IncrementalTransaction(s_eventbus.EventBus):
 
         def fini():
             self.commit()
+            print(f'fini Before close tid={threading.currentThread().ident}', flush=True)
             # lmdb workaround:  close environment from here to avoid lmdb crash
             self.lenv.close()
+            print('IncrementalTransaction fini end', flush=True)
 
         self.onfini(fini)
 
     def commit(self):
         if self.txn is None:
             return
+        print(f'before commit tid={threading.currentThread().ident}', flush=True)
         self.txn.commit()
+        print('after commit', flush=True)
         self.txn = None
         self._bytecount = 0
 
@@ -110,6 +118,7 @@ class IncrementalTransaction(s_eventbus.EventBus):
         Make an LMDB transaction if we don't already have kone, and return it
         '''
         if self.txn is None:
+            print(f'Creating txn on tid={threading.currentThread().ident}')
             self.txn = self.lenv.begin(write=True, buffers=True)
         return self.txn
 
@@ -295,6 +304,7 @@ class _BlobStorWriter(s_base.Base):
         self.clients = {}
 
         async def _onfini():
+            self.xact.fini()
             await self._workq.fini()
             self._worker.join()
         self.onfini(_onfini)
@@ -404,6 +414,9 @@ class _BlobStorWriter(s_base.Base):
 
     @s_common.firethread
     def _workloop(self):
+        '''
+        Main loop for _BlobStorWriter
+        '''
         try:
             while not self.isfini:
                 msg = self._workq.get()
@@ -427,7 +440,8 @@ class _BlobStorWriter(s_base.Base):
                     self._updateCloneProgress(offset)
         finally:
             # Workaround to avoid lmdb close/commit race
-            self.xact.fini()
+            # self.xact.fini()
+            pass
 
     # Client methods
 
@@ -519,11 +533,7 @@ class BlobStor(s_cell.Cell):
         if self.cloneof is not None:
             self.clonetask = s_glob.plex.coroToTask(self._cloneeLoop(self.cloneof))
 
-        def fini():
-            s_glob.plex.coroToSync(self.writer.fini())
-            # To avoid lmdb seg fault, let writer close the environment
-
-        self.onfini(fini)
+        self.onfini(self.writer.fini)
 
     def _recover_partial(self):
         '''
@@ -743,7 +753,7 @@ class _ProxyKeeper(s_base.Base):
     '''
 
     # All the proxy keepers share a common bsid -> path map
-    bsidpathmap = {}
+    bsidpathmap = {}  # type: ignore
 
     def __init__(self):
         s_base.Base.__init__(self)
@@ -953,7 +963,7 @@ class Axon(s_cell.Cell):
         _ProxyKeeper.bsidpathmap = {}
 
         paths = self._get_stored_blobstorpaths()
-        self.blobstorwatchers = {}
+        self.blobstorwatchers = {}  # type: ignore
 
         async def _connect_to_blobstors():
             # Wait a few seconds for the daemon to register all of its shared objects
@@ -965,21 +975,20 @@ class Axon(s_cell.Cell):
                 except Exception:
                     logger.error('At axon startup, failed to connect to stored blobstor path %s', _path_sanitize(path))
 
-        future = s_glob.plex.coroToTask(_connect_to_blobstors())
-        self.onfini(future.cancel)
+        conn_future = s_glob.plex.coroToTask(_connect_to_blobstors())
 
         self._workq = _AsyncQueue(50)
         self.xact = IncrementalTransaction(self.lenv)
         self._worker = self._workloop()
         self._worker.name = 'Axon Writer'
 
-        def fini():
-            async def run_on_loop():
-                for stop_event in self.blobstorwatchers.values():
-                    stop_event.set()
-                await self._workq.fini()
-                await self._proxykeeper.fini()
-            s_glob.plex.coroToTask(run_on_loop())
+        async def fini():
+            conn_future.cancel()
+            for stop_event in self.blobstorwatchers.values():
+                stop_event.set()
+            await self._workq.fini()
+            await self._proxykeeper.fini()
+            # await self.xact.fini()
             self._worker.join()
         self.onfini(fini)
 
@@ -1001,7 +1010,8 @@ class Axon(s_cell.Cell):
         stop_watching_event = asyncio.Event(loop=s_glob.plex.loop)
         self.blobstorwatchers[blobstorpath] = stop_watching_event
 
-        s_glob.plex.coroToTask(self._watch_blobstor(blobstor, bsid, blobstorpath, stop_watching_event))
+        future = s_glob.plex.coroToTask(self._watch_blobstor(blobstor, bsid, blobstorpath, stop_watching_event))
+        self.onfini(future.cancel)
 
     async def addBlobStor(self, blobstorpath):
         '''

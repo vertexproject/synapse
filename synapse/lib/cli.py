@@ -7,7 +7,7 @@ import collections
 import synapse.exc as s_exc
 import synapse.eventbus as s_eventbus
 
-import synapse.lib.coro as s_coro
+import synapse.lib.base as s_base
 import synapse.lib.mixins as s_mixins
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
@@ -233,7 +233,7 @@ class Cli(s_eventbus.EventBus):
         self.finikill = False
         self.loopthread = None
 
-        if isinstance(item, (s_coro.Fini, s_eventbus.EventBus)):
+        if isinstance(item, (s_base.Base, s_eventbus.EventBus)):
             self.item.onfini(self._onItemFini)
 
         self.cmds = {}

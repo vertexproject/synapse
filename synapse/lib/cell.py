@@ -424,9 +424,8 @@ class Cell(s_base.Base, s_telepath.Aware):
         if self.cellname is None:
             self.cellname = self.__class__.__name__
 
-        self._initCellAuth()
-
     async def __anit__(self):
+        await self._initCellAuth()
         await self._initCellSlab()
         await self._initHttpApi()
         self.onfini(self._finiCellAsync)
@@ -467,8 +466,6 @@ class Cell(s_base.Base, s_telepath.Aware):
         if self.webserver is not None:
             self.webserver.stop()
 
-        return
-
     def getHttpHandlers(self):
         return ()
 
@@ -481,9 +478,10 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         s_common.gendir(self.dirn, 'slabs')
         path = os.path.join(self.dirn, 'slabs', 'cell.lmdb')
-        self.slab = s_lmdb.Slab(path, map_size=s_const.gibibyte)
+        self.slab = await s_lmdb.Slab.anit(path, map_size=s_const.gibibyte)
+        self.onfini(self.slab.fini)
 
-    def _initCellAuth(self):
+    async def _initCellAuth(self):
 
         if not self.boot.get('auth:en'):
             return
@@ -492,7 +490,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         import synapse.cells as s_cells
 
         authdir = s_common.gendir(self.dirn, 'auth')
-        self.auth = s_cells.init('auth', authdir)
+        self.auth = await s_cells.init('auth', authdir)
 
         admin = self.boot.get('auth:admin')
         if admin is not None:

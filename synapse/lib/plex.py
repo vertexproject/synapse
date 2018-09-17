@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.const as s_const
 import synapse.lib.threads as s_threads
@@ -75,7 +76,7 @@ class Plex(s_eventbus.EventBus):
 
             # if the onlink() function is a coroutine, task it.
             coro = onlink(link)
-            if asyncio.iscoroutine(coro):
+            if s_coro.iscoro(coro):
                 await coro
 
         server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
@@ -155,10 +156,6 @@ class Plex(s_eventbus.EventBus):
         link.onfini(fini)
 
         return link
-
-    #def fakeSyncCoro(self, coro):
-        # used on non-await call from loop thread
-        #self.loop.run_until_complete(coro)
 
     def initLinkLoop(self, link):
         '''
@@ -282,6 +279,7 @@ class Plex(s_eventbus.EventBus):
             logger.warning('%s', str(e))
 
         except Exception as e:
+            breakpoint()
             logger.exception('_linkRxLoop Error!')
 
         finally:

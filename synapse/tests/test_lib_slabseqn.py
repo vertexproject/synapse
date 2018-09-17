@@ -1,16 +1,15 @@
 import os
-import lmdb
+import lmdb  # type: ignore
 
 import synapse.glob as s_glob
 
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.slabseqn as s_slabseqn
 
-from synapse.tests.common import SynTest
+import synapse.tests.utils as s_t_utils
 
-class SlabSeqn(SynTest):
+class SlabSeqn(s_t_utils.SynTest):
 
-    @s_glob.synchelp
     async def test_slab_seqn(self):
 
         with self.getTestDir() as dirn:

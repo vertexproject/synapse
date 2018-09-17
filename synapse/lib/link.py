@@ -102,7 +102,7 @@ class Link(s_base.Base):
         Routine called by Plex to rx a mesg for this Link.
         '''
         coro = self.rxfunc(mesg)
-        if asyncio.iscoroutine(coro):
+        if s_coro.iscoro(coro):
             await coro
 
     def onrx(self, func):

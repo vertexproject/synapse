@@ -223,12 +223,12 @@ class TestModule(s_module.CoreModule):
 
     async def initCoreModule(self):
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
-        with self.core.snap() as snap:
+        async with self.core.snap() as snap:
             await snap.addNode('source', self.testguid, {'name': 'test'})
 
-    def addTestRecords(self, snap, items):
+    async def addTestRecords(self, snap, items):
         for name in items:
-            snap.addNode('teststr', name)
+            await snap.addNode('teststr', name)
 
     def getModelDefs(self):
         return (
@@ -320,6 +320,24 @@ class TestSteps:
             StepTimeout: on wait timeout
         '''
         if not self.steps[step].wait(timeout=timeout):
+            raise s_exc.StepTimeout(mesg='timeout waiting for step', step=step)
+        return True
+
+    async def asyncwait(self, step, timeout=None):
+        '''
+        Wait (up to timeout seconds) for a step to complete.
+
+        Args:
+            step (str): The step name to wait for.
+            timeout (int): The timeout in seconds (or None)
+
+        Returns:
+            bool: True if the step is completed within the wait timeout.
+
+        Raises:
+            StepTimeout: on wait timeout
+        '''
+        if not await s_glob.executor(self.steps[step].wait, timeout=timeout):
             raise s_exc.StepTimeout(mesg='timeout waiting for step', step=step)
         return True
 
@@ -454,6 +472,16 @@ class StreamEvent(io.StringIO, threading.Event):
             self.set()
 
 class SynTest(unittest.TestCase):
+    '''
+    Mark all async test methods as s_glob.synchelp decorated
+    '''
+    def __init__(self, *args, **kwargs):
+        unittest.TestCase.__init__(self, *args, **kwargs)
+        for s in dir(self):
+            attr = getattr(self, s, None)
+            # If s is an instance method and starts with 'test_', synchelp wrap it
+            if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
+                setattr(self, s, s_glob.synchelp(attr))
 
     def setUp(self):
         self.alt_write_layer = None
@@ -577,12 +605,12 @@ class SynTest(unittest.TestCase):
                 yield core
 
     @contextlib.contextmanager
-    def getTestDmonSync(self, *args, **kwargs):
-        with AsyncToSyncCMgr(self.getTestDmon, *args, **kwargs) as dmon:
+    def getTestDmon(self, *args, **kwargs):
+        with AsyncToSyncCMgr(self.agetTestDmon, *args, **kwargs) as dmon:
             yield dmon
 
     @contextlib.asynccontextmanager
-    async def getTestDmon(self, mirror='dmontest'):
+    async def agetTestDmon(self, mirror='dmontest'):
 
         with self.getTestDir(mirror=mirror) as dirn:
             coredir = pathlib.Path(dirn, 'cells', 'core')
@@ -601,6 +629,16 @@ class SynTest(unittest.TestCase):
                 yield dmon
 
                 s_certdir.defdir = certdir
+
+    def getTestProxy(self, dmon, name, **kwargs):
+        host, port = dmon.addr
+        kwargs.update({'host': host, 'port': port})
+        return s_telepath.openurl(f'tcp:///{name}', **kwargs)
+
+    async def agetTestProxy(self, dmon, name, **kwargs):
+        host, port = dmon.addr
+        kwargs.update({'host': host, 'port': port})
+        return await s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
     @contextlib.contextmanager
     def getTestDir(self, mirror=None):
@@ -705,7 +743,7 @@ class SynTest(unittest.TestCase):
         slogger.addHandler(handler)
         try:
             yield stream
-        except:  # pragma: no cover
+        except Exception:  # pragma: no cover
             raise
         finally:
             slogger.removeHandler(handler)
@@ -752,7 +790,7 @@ class SynTest(unittest.TestCase):
         # This context manager is a nop
         try:
             yield None
-        except:  # pragma: no cover
+        except Exception:  # pragma: no cover
             raise
         # Clean up any new envars we set and any old envars we need to reset.
         finally:
@@ -1152,7 +1190,7 @@ class SynTest(unittest.TestCase):
             coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
 
             # register the blob with the Axon.
-            with dmon._getTestProxy('axon00') as axon:
+            with AsyncToSyncCMgr(self.getTestProxy, dmon, 'axon00') as axon:
                 axon.addBlobStor(blobstorurl)
 
             # Add our helper URLs to scope so others don't
@@ -1163,27 +1201,12 @@ class SynTest(unittest.TestCase):
 
             # grant the root user permissions
             if rootperms:
-                with dmon._getTestProxy('core', user='root', passwd='root') as core:
+                with AsyncToSyncCMgr(self.getTestProxy, dmon, 'core', user='root', passwd='root') as core:
                     self.addCreatorDeleterRoles(core)
                     core.addUserRole('root', 'creator')
                     core.addUserRole('root', 'deleter')
 
             yield dmon
-
-# FIXME:  we could just incorporate this into SynTest
-class ASynTest(SynTest):
-    '''
-    Identical to SynTest, except that all async test methods are s_glob.synchelp decorated
-    '''
-    def __getattribute__(self, s):
-        '''
-        '''
-        attr = SynTest.__getattribute__(self, s)
-        # If s is an instance method and starts with 'test_', synchelp wrap it
-        if s.startswith('test_') and inspect.ismethod(attr) and inspect.iscoroutinefunction(attr):
-            return s_glob.synchelp(attr)
-        else:
-            return attr
 
 class AsyncToSyncCMgr():
     '''

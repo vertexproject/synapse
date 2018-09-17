@@ -11,15 +11,15 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
-import synapse.tests.common as s_test
 
 class HttpTestV1(t_web.RequestHandler):
 
     def get(self):
         self.write(b'woot')
 
-class CortexTest(s_test.SynTest):
+class CortexTest(s_t_utils.SynTest):
 
     @s_glob.synchelp
     async def test_cortex_prop_pivot(self):
@@ -144,7 +144,7 @@ class CortexTest(s_test.SynTest):
             self.len(1, await alist(core.eval('teststr~="zip"')))
             self.len(1, await alist(core.eval('.favcolor~="^r"')))
 
-    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
+    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     def test_feed_conf(self):
         with self.getTestDmon(mirror='cryodmon') as dst_dmon:
 
@@ -164,8 +164,6 @@ class CortexTest(s_test.SynTest):
                 ],
                 'modules': ('synapse.tests.utils.TestModule',),
             }
-
-            breakpoint()
 
             # initialize the tank and get his iden
             with s_telepath.openurl(tank_addr) as tank:
@@ -193,7 +191,7 @@ class CortexTest(s_test.SynTest):
                 conf['feeds'][0]['type'] = 'com.clown'
                 self.raises(s_exc.NoSuchType, self.getTestCell, dirn, 'cortex', conf=conf)
 
-    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
+    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     @s_glob.synchelp
     async def test_cortex_model_dict(self):
 
@@ -216,7 +214,7 @@ class CortexTest(s_test.SynTest):
             self.nn(pnfo)
             self.eq(pnfo['type'][0], 'inet:asn')
 
-    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
+    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     @s_glob.synchelp
     async def test_storm_graph(self):
 
@@ -236,7 +234,7 @@ class CortexTest(s_test.SynTest):
                     idens = list(sorted(e[0] for e in edges))
                     self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f', 'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
 
-    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
+    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     @s_glob.synchelp
     async def test_splice_cryo(self):
         with self.getTestDmon(mirror='cryodmon') as dst_dmon:
@@ -332,7 +330,7 @@ class CortexTest(s_test.SynTest):
 
             with core.snap() as snap:
 
-                func = s_test.CallBack()
+                func = s_t_utils.CallBack()
                 core.model.form('inet:ipv4').onAdd(func)
 
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
@@ -347,7 +345,8 @@ class CortexTest(s_test.SynTest):
 
             print(repr(core))
             print(repr(core.feedfuncs))
-            core.addFeedData('com.test.record', data)
+
+            await core.addFeedData('com.test.record', data)
 
             vals = []
             async for node in core.eval('teststr'):
@@ -454,7 +453,7 @@ class CortexTest(s_test.SynTest):
 
             with core.snap() as snap:
 
-                func = s_test.CallBack()
+                func = s_t_utils.CallBack()
                 core.model.prop('inet:ipv4:loc').onSet(func)
 
                 node = snap.addNode('inet:ipv4', '1.2.3.4')
@@ -463,7 +462,7 @@ class CortexTest(s_test.SynTest):
                 self.eq(func.args[0].buid, node.buid)
                 self.eq(func.args[1], '??')
 
-                func = s_test.CallBack()
+                func = s_t_utils.CallBack()
                 core.model.prop('inet:ipv4:loc').onDel(func)
 
                 node.pop('loc')

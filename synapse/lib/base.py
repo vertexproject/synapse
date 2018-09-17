@@ -7,6 +7,7 @@ import threading
 import collections
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +22,13 @@ def _fini_atexit(): # pragma: no cover
             continue
 
         if not item._fini_atexit:
+            if __debug__:
+                logger.debug(f'At exit: Missing fini for %r', item)
             continue
 
         try:
+            if __debug__:
+                logger.debug('At exit: Calling fini for %r', item)
             rv = item.fini()
             if asyncio.iscoroutine(rv):
                 # Try to run the fini on its loop
@@ -97,6 +102,21 @@ class Base:
         self.exitok = cls is None
         self.exitinfo = (exc, cls, tb)
         await self.fini()
+
+    def __enter__(self):
+        '''
+        This should never be used by synapse code.
+        '''
+        assert False, 'Base does not have sync context'  # remove me
+        s_glob.plex.coroToSync(self.__aenter__())
+        return self
+
+    def __exit__(self, *args):
+        '''
+        This should never be used by synapse code.
+        '''
+        assert False, 'Base does not have sync context'  # remove me
+        return s_glob.plex.coroToSync(self.obj.__aexit__(*args))
 
     def _isExitExc(self):
         # if entered but not exited *or* exitinfo has exc

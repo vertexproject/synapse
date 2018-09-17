@@ -3,7 +3,7 @@ import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.lib.cli as s_cli
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
 class TstThrowCmd(s_cli.Cmd):
     '''
@@ -24,7 +24,7 @@ class TstThrowKeyboard(s_cli.Cmd):
         raise KeyboardInterrupt('TstThrowKeyboard')
 
 
-class CliTest(s_test.SynTest):
+class CliTest(s_t_utils.SynTest):
 
     def test_cli_prompt(self):
         outp = self.getTestOutp()
@@ -211,7 +211,7 @@ class CliTest(s_test.SynTest):
 
     def test_cli_cmd_loop_quit(self):
         outp = self.getTestOutp()
-        cmdg = s_test.CmdGenerator(['help', 'quit'])
+        cmdg = s_t_utils.CmdGenerator(['help', 'quit'])
 
         with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
             with s_cli.Cli(None, outp) as cli:
@@ -221,7 +221,7 @@ class CliTest(s_test.SynTest):
 
     def test_cli_cmd_loop_eof(self):
         outp = self.getTestOutp()
-        cmdg = s_test.CmdGenerator(['help'], on_end=EOFError)
+        cmdg = s_t_utils.CmdGenerator(['help'], on_end=EOFError)
         with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
             with s_cli.Cli(None, outp) as cli:
                 cli.runCmdLoop()
@@ -230,7 +230,7 @@ class CliTest(s_test.SynTest):
 
     def test_cli_cmd_loop_bad_input(self):
         outp = self.getTestOutp()
-        cmdg = s_test.CmdGenerator([1234], on_end=EOFError)
+        cmdg = s_t_utils.CmdGenerator([1234], on_end=EOFError)
         with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
             with s_cli.Cli(None, outp) as cli:
                 cli.runCmdLoop()
@@ -239,7 +239,7 @@ class CliTest(s_test.SynTest):
 
     def test_cli_cmd_loop_keyint(self):
         outp = self.getTestOutp()
-        cmdg = s_test.CmdGenerator(['help'], on_end=KeyboardInterrupt)
+        cmdg = s_t_utils.CmdGenerator(['help'], on_end=KeyboardInterrupt)
 
         data = {'count': 0}
 
@@ -258,7 +258,7 @@ class CliTest(s_test.SynTest):
 
     def test_cli_cmd_loop(self):
         outp = self.getTestOutp()
-        cmdg = s_test.CmdGenerator(['help',
+        cmdg = s_t_utils.CmdGenerator(['help',
                              'locs',
                              '',
                              '    ',

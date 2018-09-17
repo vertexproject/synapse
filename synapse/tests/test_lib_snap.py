@@ -3,11 +3,10 @@ import contextlib
 import synapse.glob as s_glob
 
 from synapse.tests.utils import alist
-import synapse.tests.common as s_t_common
+import synapse.tests.utils as s_t_utils
 
-class SnapTest(s_t_common.SynTest):
+class SnapTest(s_t_utils.SynTest):
 
-    @s_glob.synchelp
     async def test_snap_eval_storm(self):
 
         async with self.agetTestCore() as core:
@@ -23,7 +22,6 @@ class SnapTest(s_t_common.SynTest):
 
                 self.len(3, await alist(snap.storm('teststr')))
 
-    @s_glob.synchelp
     async def test_stor(self):
         async with self.agetTestCore() as core:
 
@@ -38,7 +36,6 @@ class SnapTest(s_t_common.SynTest):
                 self.none(await snap.stor((2,)))
                 self.eq(snap.bulksops, (1, 2,))
 
-    @s_glob.synchelp
     async def test_snap_feed_genr(self):
 
         def testGenrFunc(snap, items):
@@ -56,10 +53,9 @@ class SnapTest(s_t_common.SynTest):
                 nodes = await alist(snap.addFeedNodes('test.genr', []))
                 self.len(2, nodes)
 
-    @s_glob.synchelp
     async def test_addNodes(self):
         async with self.agetTestCore() as core:
-            with core.snap() as snap:
+            async with core.snap() as snap:
                 ndefs = ()
                 self.len(0, await alist(snap.addNodes(ndefs)))
 
@@ -90,7 +86,6 @@ class SnapTest(s_t_common.SynTest):
         async with self.agetTestCore(extra_layers=[layerfn]) as core:
             yield core
 
-    @s_glob.synchelp
     async def test_cortex_lift_layers_bad_filter(self):
         '''
         Test a two layer cortex where a lift operation gives the wrong result
@@ -130,7 +125,6 @@ class SnapTest(s_t_common.SynTest):
                 nodes = await alist(snap.getNodesBy('#woot', 1))
                 self.len(0, nodes)
 
-    @s_glob.synchelp
     async def test_cortex_lift_layers_dup(self):
         '''
         Test a two layer cortex where a lift operation might give the same node twice incorrectly

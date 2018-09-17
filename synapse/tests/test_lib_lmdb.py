@@ -1,12 +1,16 @@
-import lmdb
+import os
+import lmdb  # type: ignore
+import threading
 
+import synapse.exc as s_exc
 import synapse.glob as s_glob
+import synapse.common as s_common
 
 import synapse.lib.lmdb as s_lmdb
 
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
-class LmdbTest(SynTest):
+class LmdbTest(s_t_utils.SynTest):
 
     def test_lmdb_seqn(self):
 
@@ -80,7 +84,7 @@ class LmdbTest(SynTest):
             evt3 = threading.Event()
             evt4 = threading.Event()
 
-            @firethread
+            @s_common.firethread
             def race(n, m, e):
                 valus = [i for i in range(n, m)]
                 e.set()

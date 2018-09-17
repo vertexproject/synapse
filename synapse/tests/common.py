@@ -1,45 +1,47 @@
 import os
+import time
+import fcntl
 import socket
 import logging
-
-import unittest.mock as mock
+import threading
 
 loglevel = os.getenv('SYN_TEST_LOG_LEVEL', 'WARNING')
-logging.basicConfig(level=loglevel,
-                    format='%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]')
+_logformat = '%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]'
+logging.basicConfig(level=loglevel, format=_logformat)
 
-import synapse.glob as s_glob
-import synapse.common as s_common
-import synapse.cortex as s_cortex
-import synapse.daemon as s_daemon
-import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
-
-#import synapse.cores.common as s_cores_common
+# import synapse.glob as s_glob
+# import synapse.common as s_common
+# import synapse.cortex as s_cortex
+# import synapse.daemon as s_daemon
+# import synapse.eventbus as s_eventbus
+# import synapse.telepath as s_telepath
+#
+# import synapse.lib.scope as s_scope
+# import synapse.lib.ingest as s_ingest
+# import synapse.lib.output as s_output
+# import synapse.lib.msgpack as s_msgpack
+# import synapse.lib.thishost as s_thishost
+#
+# from synapse.tests.utils import CmdGenerator, SynTest, TstEnv, TstOutPut,\
+#     TEST_MAP_SIZE, writeCerts
 
 import synapse.lib.scope as s_scope
-import synapse.lib.ingest as s_ingest
-import synapse.lib.output as s_output
-import synapse.lib.msgpack as s_msgpack
-import synapse.lib.thishost as s_thishost
 
-from synapse.common import *
-
-from synapse.tests.utils import CmdGenerator, SynTest, TstEnv, TstOutPut,\
-    TEST_MAP_SIZE, writeCerts
+import synapse.tests.utils as s_t_utils
 
 # create the global multi-plexor *not* within a test
 # to avoid "leaked resource" when a test triggers creation
 s_scope.get('plex')
 
-class TooFewEvents(Exception): pass
+class TooFewEvents(Exception):
+    pass
 
 TstSSLInvalidClientCertErr = socket.error
 TstSSLConnectionResetErr = socket.error
 
 testdir = os.path.dirname(__file__)
 
-writeCerts(testdir)
+s_t_utils.writeCerts(testdir)
 
 def getTestPath(*paths):
     return os.path.join(testdir, *paths)
@@ -101,9 +103,6 @@ class ModelSeenMixin:
         self.eq(node[1].get(minp), 0)
         self.eq(node[1].get(maxp), 1000)
 
-###########################################################################
-# 010 stuff
-
 class CallBack:
     '''
     An easy to use test helper for *synchronous* callbacks.
@@ -122,4 +121,3 @@ class CallBack:
 
     def wait(self, timeout=None):
         return self.event.wait(timeout=timeout)
-

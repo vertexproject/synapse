@@ -18,6 +18,9 @@ import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
+# FIXME: tmp
+import synapse.lib.threads as s_threads
+
 STOR_FLAG_NOINDEX = 0x0001      # there is no byprop index for this prop
 STOR_FLAG_MULTIVAL = 0x0002     # this is a multi-value prop
 STOR_FLAG_DEFVAL = 0x0004       # Only set this if it doesn't exist
@@ -571,8 +574,8 @@ class Slab(s_base.Base):
     '''
 
     def __init__(self, path, **opts):
-
         s_base.Base.__init__(self)
+        print(f'Slab __init__ self={self} path={path}', flush=True)
 
         self.path = path
         self.optspath = os.path.join(path, 'opts.json')
@@ -602,10 +605,9 @@ class Slab(s_base.Base):
         # there is only ever 1 xact...
         self.tick = s_common.now()
 
-        self.dirty = False
         self.holders = 0
 
-        self.xact = self.lenv.begin(write=True)
+        self._initCoXact()
 
         self.onfini(self._onCoFini)
 
@@ -626,17 +628,23 @@ class Slab(s_base.Base):
 
     async def _onCoFini(self):
         self._finiCoXact()
+        print(f'_onCoFini before close self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
         self.lenv.close()
+        del self.lenv
+        print(f'_onCoFini after close self={id(self)%43} tid={s_threads.iden()%437}', flush=True)
 
     def _finiCoXact(self):
 
         [scan.bump() for scan in self.scans]
 
+        print(f'>commit self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
         self.xact.commit()
+        print(f'<commit self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
 
         self.xactops.clear()
 
         del self.xact
+        print(f'_finiCoXact end self={self} tid={s_threads.iden()}', flush=True)
 
     def grow(self, size=None):
         '''

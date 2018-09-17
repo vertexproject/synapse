@@ -1,11 +1,9 @@
 import synapse.cells as s_cells
 import synapse.common as s_common
-import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
 import synapse.lib.certdir as s_certdir
-import synapse.lib.link as s_link
 
 import synapse.tests.utils as s_t_utils
 
@@ -25,12 +23,12 @@ class EchoCell(s_cell.Cell):
 
 s_cells.add('echo', EchoCell)
 
-class DaemonTest(s_t_utils.ASynTest):
+class DaemonTest(s_t_utils.SynTest):
 
     async def test_daemon_certdir(self):
 
         # ensure the test env by checking for certs
-        async with self.getTestDmon() as dmon:
+        async with self.agetTestDmon() as dmon:
             path = s_common.genpath(dmon.dirn, 'certs')
             self.eq(s_certdir.defdir, path)
 
@@ -38,7 +36,7 @@ class DaemonTest(s_t_utils.ASynTest):
 
     async def test_daemon_boot(self):
         # get a localhost:0 dmon with an EchoCell "echo00"
-        async with self.getTestDmon(mirror='dmonboot') as dmon:
+        async with self.agetTestDmon(mirror='dmonboot') as dmon:
 
             self.nn(dmon.shared.get('echo00'))
             self.nn(dmon.mods.get('synapse.tests.test_daemon'))

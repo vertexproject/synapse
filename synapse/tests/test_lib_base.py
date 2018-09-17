@@ -2,10 +2,7 @@ import os
 import sys
 import signal
 import asyncio
-<<<<<<< HEAD
-=======
 import unittest
->>>>>>> 010
 import multiprocessing
 
 import synapse.exc as s_exc
@@ -23,31 +20,15 @@ def block_processing(evt1, evt2):
         evt2 (multiprocessing.Event): event to twiddle
     '''
 
-<<<<<<< HEAD
-    bus = s_glob.plex.coroToSync(s_base.Base.anit())
-
-    def onMain(mesg):
-        evt1.set()
-=======
     base = s_glob.plex.coroToSync(s_base.Base.anit())
 
     async def onMain(mesg):
         evt1.set()
         await base.fini()
->>>>>>> 010
 
     def onFini():
         evt2.set()
 
-<<<<<<< HEAD
-    bus.on('ebus:main', onMain)
-    bus.onfini(onFini)
-
-    bus.main()
-    sys.exit(137)
-
-class BaseTest(s_t_utils.ASynTest):
-=======
     base.on('ebus:main', onMain)
     base.onfini(onFini)
 
@@ -55,10 +36,17 @@ class BaseTest(s_t_utils.ASynTest):
 
     sys.exit(137)
 
+class Hehe(s_base.Base):
+
+    def __init__(self, foo):
+        s_base.Base.__init__(self)
+        self.foo = foo
+
+    async def __anit__(self):
+        self.bar = self.foo + 10
+
 class BaseTest(s_t_utils.SynTest):
 
-    @s_glob.synchelp
->>>>>>> 010
     async def test_base_basics(self):
         base = await s_base.Base.anit()
 
@@ -72,10 +60,34 @@ class BaseTest(s_t_utils.SynTest):
         event = await base.fire('woot', x=3, y=5, ret=[])
         self.eq(event[1]['ret'], 8)
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> 010
+    async def test_base_anit(self):
+
+        afoo = await Hehe.anit(20)
+        self.eq(afoo.foo, 20)
+        self.eq(afoo.bar, 30)
+
+    @unittest.skip('To discuss')
+    def test_base_init_sync(self):
+
+        afoo = Hehe.anit(20)
+        self.eq(afoo.foo, 20)
+        self.eq(afoo.bar, 30)
+
+    async def test_coro_fini(self):
+
+        event = asyncio.Event()
+
+        async def setit():
+            event.set()
+
+        f = s_base.Base()
+        async with f as f:
+            f.onfini(setit)
+
+        self.true(f.isfini)
+        self.true(event.is_set())
+        self.false(f._isExitExc())
+
     async def test_base_link(self):
 
         base1 = await s_base.Base.anit()
@@ -94,10 +106,6 @@ class BaseTest(s_t_utils.SynTest):
 
         self.true(data.get('woot'))
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> 010
     async def test_base_unlink(self):
 
         base = await s_base.Base.anit()
@@ -119,10 +127,6 @@ class BaseTest(s_t_utils.SynTest):
 
         await base.fini()
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> 010
     async def test_base_withfini(self):
 
         data = {'count': 0}
@@ -135,10 +139,6 @@ class BaseTest(s_t_utils.SynTest):
 
         self.eq(data['count'], 1)
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> 010
     async def test_base_finionce(self):
 
         data = {'count': 0}
@@ -154,10 +154,6 @@ class BaseTest(s_t_utils.SynTest):
 
         self.eq(data['count'], 1)
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> 010
     async def test_base_off(self):
         base = await s_base.Base.anit()
 
@@ -178,10 +174,6 @@ class BaseTest(s_t_utils.SynTest):
 
         self.eq(data['count'], 1)
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> 010
     async def test_base_waiter(self):
         base0 = await s_base.Base.anit()
 
@@ -198,10 +190,6 @@ class BaseTest(s_t_utils.SynTest):
         evts = await wait1.wait(timeout=0.1)
         self.none(evts)
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> 010
     async def test_base_filt(self):
 
         base = await s_base.Base.anit()
@@ -225,11 +213,7 @@ class BaseTest(s_t_utils.SynTest):
         mesg = await base.fire('rofl', foo=10)
         self.true(mesg[1].get('woot'))
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
     @unittest.skip('Remove me when base.log confirmed unused')
->>>>>>> 010
     async def test_base_log(self):
 
         logs = []
@@ -244,11 +228,7 @@ class BaseTest(s_t_utils.SynTest):
         self.eq(mesg[1].get('mesg'), 'omg woot')
         self.eq(mesg[1].get('level'), 100)
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
     @unittest.skip('Remove me when exc confirmed unused')
->>>>>>> 010
     async def test_base_exc(self):
 
         logs = []
@@ -263,10 +243,6 @@ class BaseTest(s_t_utils.SynTest):
         mesg = logs[0]
         self.eq(mesg[1].get('err'), 'NoSuchObj')
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> 010
     async def test_baseref(self):
 
         bref = await s_base.BaseRef.anit()
@@ -291,10 +267,7 @@ class BaseTest(s_t_utils.SynTest):
         await bref.fini()
         self.true(base0.isfini)
 
-<<<<<<< HEAD
-=======
     @s_glob.synchelp
->>>>>>> 010
     async def test_base_waitfini(self):
 
         base = await s_base.Base.anit()
@@ -312,10 +285,7 @@ class BaseTest(s_t_utils.SynTest):
         # bounce off the isfini block
         self.true(await base.waitfini(timeout=0.3))
 
-<<<<<<< HEAD
-=======
     @s_glob.synchelp
->>>>>>> 010
     async def test_base_refcount(self):
         base = await s_base.Base.anit()
 
@@ -327,10 +297,7 @@ class BaseTest(s_t_utils.SynTest):
         self.eq(await base.fini(), 0)
         self.true(base.isfini)
 
-<<<<<<< HEAD
-=======
     @s_glob.synchelp
->>>>>>> 010
     async def test_baseref_gen(self):
 
         async with await s_base.BaseRef.anit() as refs:
@@ -362,10 +329,6 @@ class BaseTest(s_t_utils.SynTest):
             self.false(refs.get('woot') is woot)
             self.eq(0, woot._syn_refs)
 
-<<<<<<< HEAD
-=======
-    @s_glob.synchelp
->>>>>>> 010
     async def test_baseref_items(self):
 
         bref = await s_base.BaseRef.anit()

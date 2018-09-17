@@ -444,7 +444,3 @@ class Daemon(s_base.Base):
                 pass
             return result
 
-    def _getTestProxy(self, name, **kwargs):
-        host, port = self.addr
-        kwargs.update({'host': host, 'port': port})
-        return s_telepath.openurl(f'tcp:///{name}', **kwargs)

@@ -12,7 +12,6 @@ import synapse.telepath as s_telepath
 import synapse.lib.share as s_share
 import synapse.lib.scope as s_scope
 
-from synapse.tests.utils import SyncToAsyncCMgr
 import synapse.tests.utils as s_t_utils
 
 class Boom:
@@ -151,14 +150,14 @@ class TeleAuth(s_telepath.Aware):
     def getFooBar(self, x, y):
         return x + y
 
-class TeleTest(s_t_utils.ASynTest):
+class TeleTest(s_t_utils.SynTest):
 
     def test_telepath_basics(self):
 
         foo = Foo()
         evt = threading.Event()
 
-        with s_t_utils.AsyncToSyncCMgr(self.getTestDmon) as dmon:
+        with self.getTestDmon() as dmon:
 
             addr = dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
@@ -203,7 +202,7 @@ class TeleTest(s_t_utils.ASynTest):
 
         foo = Foo()
 
-        async with self.getTestDmon() as dmon:
+        async with self.agetTestDmon() as dmon:
             addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
@@ -259,7 +258,7 @@ class TeleTest(s_t_utils.ASynTest):
 
         bar = MyClass()
 
-        async with self.getTestDmon() as dmon:
+        async with self.agetTestDmon() as dmon:
             addr = await s_glob.plex.executor(dmon.listen, 'tcp://127.0.0.1:0')
             dmon.share('bar', bar)
 
@@ -276,9 +275,9 @@ class TeleTest(s_t_utils.ASynTest):
 
         item = TeleAware()
 
-        async with self.getTestDmon() as dmon:
+        async with self.agetTestDmon() as dmon:
             dmon.share('woke', item)
-            async with await dmon._getTestProxy('woke') as proxy:
+            async with await self.getTestProxy(dmon, 'woke') as proxy:
                 self.eq(10, await proxy.getFooBar(20, 10))
 
                 # check a custom share works
@@ -286,13 +285,13 @@ class TeleTest(s_t_utils.ASynTest):
                 self.eq(999, await obj.boo(999))
 
             # check that a dynamic share works
-            async with await dmon._getTestProxy('woke/up') as proxy:
+            async with await self.getTestProxy(dmon, 'woke/up') as proxy:
                 self.eq('up: beep', await proxy.beep())
 
     def test_telepath_auth(self):
 
         item = TeleAuth()
-        with self.getTestDmonSync() as dmon:
+        with self.getTestDmon() as dmon:
             dmon.share('auth', item)
             host, port = dmon.addr
 
@@ -308,7 +307,7 @@ class TeleTest(s_t_utils.ASynTest):
 
     def test_telepath_server_badvers(self):
 
-        with self.getTestDmonSync() as dmon:
+        with self.getTestDmon() as dmon:
 
             dmon.televers = (0, 0)
 
@@ -320,7 +319,7 @@ class TeleTest(s_t_utils.ASynTest):
         item = TeleAware()
         name = 'item'
 
-        async with self.getTestDmon() as dmon:
+        async with self.agetTestDmon() as dmon:
             addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share(name, item)
             dirn = s_scope.get('dirn')
