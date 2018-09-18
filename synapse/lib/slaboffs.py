@@ -22,4 +22,3 @@ class SlabOffs:
         buid = s_common.uhex(iden)
         byts = s_common.int64en(offs)
         self.lenv.put(buid, byts, db=self.db)
-

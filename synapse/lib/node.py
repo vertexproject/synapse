@@ -42,11 +42,12 @@ class Node:
         if self.ndef is not None:
             self.form = self.snap.model.form(self.ndef[0])
 
-    def storm(self, text, opts=None, user=None):
+    async def storm(self, text, opts=None, user=None):
         query = self.snap.core.getStormQuery(text)
         with self.snap.getStormRuntime(opts=opts, user=user) as runt:
-            runt.addInput(self)
-            yield from runt.iterStormQuery(query)
+            await runt.addInput(self)
+            for node in runt.iterStormQuery(query):
+                yield node
 
     def iden(self):
         return s_common.ehex(self.buid)
@@ -154,7 +155,7 @@ class Node:
 
         except Exception as e:
             mesg = f'Bad property value: {prop.full}={valu!r}'
-            return self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, valu=valu, emesg=str(e))
+            return await self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, valu=valu, emesg=str(e))
 
         # do we already have the value?
         if curv == norm:
@@ -209,7 +210,7 @@ class Node:
                 if subprop is None:
                     continue
 
-                self.set(full, subvalu, init=init)
+                await self.set(full, subvalu, init=init)
 
         # last but not least, if we are *not* in init
         # we need to fire a Prop.onset() callback.
@@ -240,6 +241,9 @@ class Node:
                 return self.tags.get(name)
             return self.props.get(name)
 
+        # FIXME: would be really nice if the common use case wasn't async
+        raise Exception('Temporarily disabled implicit pivoting in get')
+
         name, text = parts
         prop = self.form.props.get(name)
         if prop is None:
@@ -253,8 +257,8 @@ class Node:
         if form is None:
             raise s_exc.NoSuchForm(form=prop.type.name)
 
-        node = self.snap.getNodeByNdef((form.name, valu))
-        return node.get(text)
+        # node = await self.snap.getNodeByNdef((form.name, valu))
+        # return await node.get(text)
 
     async def pop(self, name, init=False):
 
@@ -282,7 +286,7 @@ class Node:
 
         await self.snap.splice('prop:del', ndef=self.ndef, prop=prop.name, valu=curv)
 
-        prop.wasDel(self, curv)
+        await prop.wasDel(self, curv)
 
     def repr(self, name=None):
 
@@ -406,7 +410,7 @@ class Node:
 
         for sublen, subtag in subtags:
             valu = self.tags.pop(subtag, None)
-            self.snap.core.runTagDel(self, subtag, valu)
+            await self.snap.core.runTagDel(self, subtag, valu)
             sops.append(('prop:del', (self.buid, self.form.name, '#' + subtag, info)))
 
         await self.snap.core.runTagDel(self, name, curv)
@@ -452,15 +456,15 @@ class Node:
         # check for any nodes which reference us...
         if not force:
 
-            if any(self.snap._getNodesByType(formname, formvalu, addform=False)):
+            async for _ in self.snap._getNodesByType(formname, formvalu, addform=False):
                 mesg = 'Other nodes still refer to this node.'
-                return self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
+                return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 
         for size, tag in sorted(tags, reverse=True):
-            self.delTag(tag, init=True)
+            await self.delTag(tag, init=True)
 
         for name in list(self.props.keys()):
-            self.pop(name, init=True)
+            await self.pop(name, init=True)
 
         sops = self.form.getDelOps(self.buid)
 

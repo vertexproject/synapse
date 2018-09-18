@@ -577,12 +577,12 @@ class InetModule(s_module.CoreModule):
         self.model.prop('inet:fqdn:issuffix').onSet(self._onSetFqdnIsSuffix)
         self.model.form('inet:passwd').onAdd(self._onAddPasswd)
 
-    def _onAddPasswd(self, node):
+    async def _onAddPasswd(self, node):
 
         byts = node.ndef[1].encode('utf8')
-        node.set('md5', hashlib.md5(byts).hexdigest())
-        node.set('sha1', hashlib.sha1(byts).hexdigest())
-        node.set('sha256', hashlib.sha256(byts).hexdigest())
+        await node.set('md5', hashlib.md5(byts).hexdigest())
+        await node.set('sha1', hashlib.sha1(byts).hexdigest())
+        await node.set('sha256', hashlib.sha256(byts).hexdigest())
 
     async def _onAddFqdn(self, node):
 
@@ -630,17 +630,17 @@ class InetModule(s_module.CoreModule):
 
         domain = node.get('domain')
         if not domain:
-            node.pop('zone')
+            await node.pop('zone')
             return
 
         parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
 
         zone = parent.get('zone')
         if zone is None:
-            node.pop('zone')
+            await node.pop('zone')
             return
 
-        node.set('zone', zone)
+        await node.set('zone', zone)
 
     async def _onSetFqdnZone(self, node, oldv):
 

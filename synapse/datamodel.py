@@ -73,10 +73,12 @@ class PropBase:
             except Exception as e:
                 logger.exception('onset() error for %s' % (self.full,))
 
-    def wasDel(self, node, oldv):
+    async def wasDel(self, node, oldv):
         for func in self.ondels:
             try:
-                func(node, oldv)
+                retn = await func(node, oldv)
+                if asyncio.iscoroutine(retn):
+                    await retn
             except Exception as e:
                 logger.exception('ondel() error for %s' % (self.full,))
 

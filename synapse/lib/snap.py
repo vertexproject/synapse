@@ -6,6 +6,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
+import synapse.lib.coro as s_coro
 import synapse.lib.base as s_base
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
@@ -91,7 +92,7 @@ class Snap(s_base.Base):
             dorepr = opts.get('repr', False)
             dopath = opts.get('path', False)
 
-        for node, path in self.storm(text, opts=opts, user=user):
+        async for node, path in self.storm(text, opts=opts, user=user):
             pode = node.pack(dorepr=dorepr)
             pode[1].update(path.pack(path=dopath))
             yield pode
@@ -116,10 +117,10 @@ class Snap(s_base.Base):
                 yield node
 
     async def setOffset(self, iden, offs):
-        return self.wlyr.setOffset(iden, offs)
+        return await self.wlyr.setOffset(iden, offs)
 
     async def getOffset(self, iden, offs):
-        return self.wlyr.getOffset(iden, offs)
+        return await self.wlyr.getOffset(iden, offs)
 
     def setUser(self, user):
         self.user = user
@@ -171,7 +172,7 @@ class Snap(s_base.Base):
             ('indx', ('byuniv', pref, iops)),
         )
 
-        for row, node in self.getLiftNodes(lops, '#' + name):
+        async for row, node in self.getLiftNodes(lops, '#' + name):
             yield node
 
     async def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
@@ -204,12 +205,12 @@ class Snap(s_base.Base):
         rawprop = '#' + tag
         if filt is None:
 
-            for row, node in self.getLiftNodes(lops, rawprop):
+            async for row, node in self.getLiftNodes(lops, rawprop):
                 yield node
 
             return
 
-        for row, node in self.getLiftNodes(lops, rawprop):
+        async for row, node in self.getLiftNodes(lops, rawprop):
 
             valu = node.getTag(tag)
 
@@ -273,12 +274,12 @@ class Snap(s_base.Base):
             form = self.model.forms.get(name)
             if form is not None:
                 lops = form.getLiftOps(valu)
-                for row, node in self.getLiftNodes(lops, '*' + form.name):
+                async for row, node in self.getLiftNodes(lops, '*' + form.name):
                     yield node
 
         for prop in self.model.getPropsByType(name):
             lops = prop.getLiftOps(valu)
-            for row, node in self.getLiftNodes(lops, prop):
+            async for row, node in self.getLiftNodes(lops, prop):
                 yield node
 
     # FIXME:  uncomment
@@ -326,7 +327,7 @@ class Snap(s_base.Base):
 
         logger.info(f'adding feed nodes ({name}): {len(items)}')
 
-        return func(self, items)
+        return await func(self, items)
 
     async def addFeedData(self, name, items, seqn=None):
 
@@ -338,9 +339,11 @@ class Snap(s_base.Base):
 
         retn = func(self, items)
 
-        # If the feed function is a generator, run it...
-        if isinstance(retn, types.GeneratorType):
-            retn = list(retn)
+        # If the feed function is an async generator, run it...
+        if isinstance(retn, types.AsyncGeneratorType):
+            retn = [x async for x in retn]
+        elif s_coro.iscoro(retn):
+            await retn
 
         if seqn is not None:
 
@@ -348,7 +351,7 @@ class Snap(s_base.Base):
 
             nextoff = offs + len(items)
 
-            self.setOffset(iden, nextoff)
+            await self.setOffset(iden, nextoff)
 
             return nextoff
 
@@ -428,8 +431,8 @@ class Snap(s_base.Base):
 
         return node
 
-    def _raiseOnStrict(self, ctor, mesg, **info):
-        self.warn(f'{ctor.__name__}: {mesg} {info!r}')
+    async def _raiseOnStrict(self, ctor, mesg, **info):
+        await self.warn(f'{ctor.__name__}: {mesg} {info!r}')
         if self.strict:
             raise ctor(mesg=mesg, **info)
         return False
@@ -448,7 +451,7 @@ class Snap(s_base.Base):
         await self.fire(name, **info)
 
         mesg = (name, info)
-        self.wlyr.splices.append(mesg)
+        self.wlyr.splicelist.append(mesg)
 
         return (name, info)
 

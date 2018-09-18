@@ -575,7 +575,7 @@ class Slab(s_base.Base):
 
     def __init__(self, path, **opts):
         s_base.Base.__init__(self)
-        print(f'Slab __init__ self={self} path={path}', flush=True)
+        # print(f'Slab __init__ self={self} path={path}', flush=True)
 
         self.path = path
         self.optspath = os.path.join(path, 'opts.json')
@@ -628,23 +628,23 @@ class Slab(s_base.Base):
 
     async def _onCoFini(self):
         self._finiCoXact()
-        print(f'_onCoFini before close self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
+        # print(f'_onCoFini before close self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
         self.lenv.close()
         del self.lenv
-        print(f'_onCoFini after close self={id(self)%43} tid={s_threads.iden()%437}', flush=True)
+        # print(f'_onCoFini after close self={id(self)%43} tid={s_threads.iden()%437}', flush=True)
 
     def _finiCoXact(self):
 
         [scan.bump() for scan in self.scans]
 
-        print(f'>commit self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
+        # print(f'>commit self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
         self.xact.commit()
-        print(f'<commit self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
+        # print(f'<commit self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
 
         self.xactops.clear()
 
         del self.xact
-        print(f'_finiCoXact end self={self} tid={s_threads.iden()}', flush=True)
+        # print(f'_finiCoXact end self={self} tid={s_threads.iden()}', flush=True)
 
     def grow(self, size=None):
         '''

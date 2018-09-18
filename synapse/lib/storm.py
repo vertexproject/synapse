@@ -78,14 +78,14 @@ class Runtime:
         '''
         self.inputs.append(node)
 
-    def getInput(self):
+    async def getInput(self):
 
         for node in self.inputs:
             yield node, self.initPath(node)
 
         for ndef in self.opts.get('ndefs', ()):
 
-            node = self.snap.getNodeByNdef(ndef)
+            node = await self.snap.getNodeByNdef(ndef)
             if node is not None:
                 yield node, self.initPath(node)
 
@@ -93,7 +93,7 @@ class Runtime:
 
             buid = s_common.uhex(iden)
 
-            node = self.snap.getNodeByBuid(buid)
+            node = await self.snap.getNodeByBuid(buid)
             if node is not None:
                 yield node, self.initPath(node)
 
@@ -153,7 +153,7 @@ class Parser(argparse.ArgumentParser):
         self.exited = True
         raise s_exc.BadSyntaxError(mesg=message, prog=self.prog, status=status)
 
-    def _print_message(self, text, fd=None):
+    async def _print_message(self, text, fd=None):
 
         if self.printf is None:
             return
@@ -214,15 +214,15 @@ class HelpCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        for item in genr:
+        async for item in genr:
             yield item
 
         if not self.opts.command:
             for name, ctor in sorted(runt.snap.core.getStormCmds()):
-                runt.printf('%.20s: %s' % (name, ctor.getCmdBrief()))
+                await runt.printf('%.20s: %s' % (name, ctor.getCmdBrief()))
 
-        runt.printf('')
-        runt.printf('For detailed help on any command, use <cmd> --help')
+        await runt.printf('')
+        await runt.printf('For detailed help on any command, use <cmd> --help')
 
 class LimitCmd(Cmd):
     '''
@@ -250,7 +250,7 @@ class LimitCmd(Cmd):
 
             if count >= self.opts.count:
                 # FIXME:
-                snap.printf(f'limit reached: {self.opts.count}')
+                await snap.printf(f'limit reached: {self.opts.count}')
 
 class UniqCmd(Cmd):
     '''
@@ -333,7 +333,7 @@ class SudoCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
         runt.elevate()
-        for x in genr:
+        async for x in genr:
             yield x
 
 # TODO
@@ -382,14 +382,14 @@ class ReIndexCmd(Cmd):
 
             if form is not None:
 
-                snap.printf(f'reindex form: {form.name}')
+                await snap.printf(f'reindex form: {form.name}')
 
                 async for buid, norm in snap.xact.iterFormRows(form.name):
                     await snap.stor(form.getSetOps(buid, norm))
 
             for prop in snap.model.getPropsByType(self.opts.type):
 
-                snap.printf(f'reindex prop: {prop.full}')
+                await snap.printf(f'reindex prop: {prop.full}')
 
                 formname = prop.form.name
 
@@ -482,7 +482,7 @@ class MoveTagCmd(Cmd):
                 await node.delTag(name)
                 await node.addTag(newt, valu=valu)
 
-        snap.printf(f'moved tags on {count} nodes.')
+        await snap.printf(f'moved tags on {count} nodes.')
 
         for node, path in genr:
             yield node, path
@@ -525,8 +525,8 @@ class CountCmd(Cmd):
         async for item in genr:
             yield item
             i += 1
-        # FIXME:
-        snap.printf(f'Counted {i} nodes.')
+
+        await snap.printf(f'Counted {i} nodes.')
 
 class IdenCmd(Cmd):
     '''

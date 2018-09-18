@@ -29,8 +29,6 @@ class Layer(s_cell.Cell):
     '''
     def __init__(self, dirn):
         s_cell.Cell.__init__(self, dirn)
-        self.spliced = threading.Event()
-        self.onfini(self.spliced.set)
         self._lift_funcs = {
             'indx': self._liftByIndx,
             'prop:re': self._liftByPropRe,
@@ -42,8 +40,6 @@ class Layer(s_cell.Cell):
             'prop:set': self._storPropSet,
             'prop:del': self._storPropDel,
         }
-
-        self.splices = []
 
     async def getLiftRows(self, lops):
         for oper in lops:

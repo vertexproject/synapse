@@ -848,6 +848,16 @@ class SynTest(unittest.TestCase):
 
         self.raises(exc, testfunc)
 
+    async def agenraises(self, exc, gfunc):
+        '''
+        Helper to validate that an async generator will throw an exception.
+
+        Args:
+            exc: Exception class to catch
+            gfunc: async Generator
+        '''
+        await self.asyncraises(exc, alist(gfunc))
+
     @contextlib.contextmanager
     def setSynDir(self, dirn):
         '''
@@ -991,6 +1001,15 @@ class SynTest(unittest.TestCase):
 
         self.eq(x, len(obj), msg=msg)
 
+    async def agenlen(self, x, obj, msg=None):
+        '''
+        Assert that the async generator produces x items
+        '''
+        count = 0
+        async for _ in obj:
+            count += 1
+        self.eq(x, count, msg=msg)
+
     def istufo(self, obj):
         '''
         Check to see if an object is a tufo.
@@ -1022,7 +1041,7 @@ class SynTest(unittest.TestCase):
                 s_common.yamlsave(conf, cdir, 'cell.yaml')
             yield dirn
 
-    def getTestCell(self, dirn, name, boot=None, conf=None):
+    async def getTestCell(self, dirn, name, boot=None, conf=None):
         '''
         Get an instance of a Cell with specific boot and configuration data.
 
@@ -1056,7 +1075,7 @@ class SynTest(unittest.TestCase):
             ldir = s_common.gendir(cdir, 'layers')
             layerdir = pathlib.Path(ldir, '000-default')
             os.symlink(self.alt_write_layer, layerdir)
-        return s_cells.init(name, cdir)
+        return await s_cells.init(name, cdir)
 
     def getIngestDef(self, guid, seen):
         gestdef = {

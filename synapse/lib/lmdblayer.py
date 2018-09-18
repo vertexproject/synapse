@@ -3,6 +3,7 @@ The layer library contains the base Layer object and helpers used for
 cortex construction.
 '''
 import os
+import asyncio
 import logging
 
 import synapse.exc as s_exc
@@ -70,6 +71,9 @@ class LmdbLayer(s_layer.Layer):
 
         self.splicedb = await self.initdb('splices')
         self.splicelog = s_slabseqn.SlabSeqn(self.slab, 'splices')
+        self.spliced = asyncio.Event(loop=self.loop)
+        self.splicelist = []
+        self.onfini(self.spliced.set)
 
     async def stor(self, sops):
         '''
@@ -83,14 +87,16 @@ class LmdbLayer(s_layer.Layer):
 
     async def commit(self):
 
-        if self.splices:
-            self.splicelog.save(self.splices)
+        if self.splicelist:
+            self.splicelog.save(self.splicelist)
 
         self.slab.commit(force=True)
 
-        # wake any splice waiters...
-        if self.splices:
+        # wake any splice waiters and clear the splices out...
+        if self.splicelist:
             self.spliced.set()
+            self.spliced.clear()
+            self.splicelist.clear()
 
     async def getBuidProps(self, buid):
 
@@ -273,9 +279,17 @@ class LmdbLayer(s_layer.Layer):
             yield buid, valu
 
     async def getOffset(self, iden):
+        '''
+        Note:  this method doesn't need to be async, but it is probable that future layer implementations would need it
+        to be async
+        '''
         return self.offs.get(iden)
 
     async def setOffset(self, iden, offs):
+        '''
+        Note:  this method doesn't need to be async, but it is probable that future layer implementations would need it
+        to be async
+        '''
         return self.offs.set(iden, offs)
 
     async def splices(self, offs, size):

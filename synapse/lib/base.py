@@ -107,6 +107,7 @@ class Base:
         '''
         This should never be used by synapse code.
         '''
+        breakpoint()
         assert False, 'Base does not have sync context'  # remove me
         s_glob.plex.coroToSync(self.__aenter__())
         return self
