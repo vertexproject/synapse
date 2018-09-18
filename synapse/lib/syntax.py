@@ -1591,6 +1591,7 @@ class Parser:
             return self.varvalu()
 
         text = self.noms(until=tagterm)
+        print(text)
 
         return s_ast.TagName(text)
 

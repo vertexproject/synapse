@@ -3,6 +3,8 @@ import logging
 import itertools
 import collections
 
+import regex
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -23,6 +25,40 @@ class StormCtrlFlow(Exception):
 
 class StormBreak(StormCtrlFlow): pass
 class StormContinue(StormCtrlFlow): pass
+
+@s_cache.memoize()
+def getGlobRegex(text):
+    '''
+    Compute a tag regex for glob style matching.
+
+    Args:
+        text (str): String to generate a regex for.
+
+    Notes:
+        This function acts as a global cache for compiled regex objects for tags.
+
+    Returns:
+        regex.Regex: Compiled tag regex.
+    '''
+    # Glob helpers
+    glob_smark = '*'
+    glob_mmark = '**'
+    glob_sre = r'[^\.]+?'
+    glob_mre = '.+'
+
+    text = text.lower()
+
+    def _cmpGlobParts(s, sep='.'):
+        parts = s.split(sep)
+        parts = [p.replace(glob_mmark, glob_mre) for p in parts]
+        parts = [p.replace(glob_smark, glob_sre) for p in parts]
+        regex = '{}'.format(sep).join(parts)
+        return regex + '$'
+
+    restr = _cmpGlobParts(text)
+
+    reobj = regex.compile(restr)
+    return reobj
 
 class AstNode:
     '''
@@ -1273,6 +1309,28 @@ class TagCond(Cond):
 
         name = self.kids[0].value()
 
+        # Allow for a user to ask for #* to signify "any tags on this node"
+        if name == '*':
+            async def cond(node, path):
+                if node.tags:  # Check if the tags dictionary is even present
+                    return True
+                return False
+
+        # Allow a user to use tag globbing to do regex matching of a node.
+        if '*' in name:
+            reobj = getGlobRegex(name)
+
+            def getIsHit(tag):
+                return reobj.match(tag)
+
+            cache = s_cache.FixedCache(getIsHit)
+
+            async def cond(node, path):
+                return any((cache.get(p) for p in node.tags))
+
+            return cond
+
+        # Default exact match
         async def cond(node, path):
             return node.tags.get(name) is not None
 
