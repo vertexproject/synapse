@@ -1,16 +1,16 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.tests.common as s_test_common
+import synapse.tests.utils as s_t_utils
 
-class StormTest(s_test_common.SynTest):
+class StormTest(s_t_utils.SynTest):
 
-    def test_storm_movetag(self):
+    async def test_storm_movetag(self):
 
         with self.getTestCore() as core:
 
             with core.snap() as snap:
-                node = snap.addNode('teststr', 'foo')
+                node = await snap.addNode('teststr', 'foo')
                 node.addTag('hehe.haha', valu=(20, 30))
 
                 tagnode = snap.getNodeByNdef(('syn:tag', 'hehe.haha'))
@@ -45,7 +45,7 @@ class StormTest(s_test_common.SynTest):
                 node = snap.getNodeByNdef(('syn:tag', 'hehe.haha'))
                 self.eq('woot.haha', node.get('isnow'))
 
-                node = snap.addNode('teststr', 'bar')
+                node = await snap.addNode('teststr', 'bar')
 
                 # test isnow plumbing
                 node.addTag('hehe.haha')
@@ -59,7 +59,7 @@ class StormTest(s_test_common.SynTest):
         with self.getTestCore() as core:
 
             with core.snap() as snap:
-                node = snap.addNode('teststr', 'foo')
+                node = await snap.addNode('teststr', 'foo')
                 node.addTag('hehe', valu=(20, 30))
 
                 tagnode = snap.getNodeByNdef(('syn:tag', 'hehe'))
@@ -78,20 +78,20 @@ class StormTest(s_test_common.SynTest):
 
                 self.eq(newt.get('doc'), 'haha doc')
 
-    def test_storm_spin(self):
+    async def test_storm_spin(self):
 
         with self.getTestCore() as core:
 
             self.len(0, list(core.eval('[ teststr=foo teststr=bar ] | spin')))
             self.len(2, list(core.eval('teststr=foo teststr=bar')))
 
-    def test_storm_reindex(self):
+    async def test_storm_reindex(self):
 
         with self.getTestCore() as core:
 
             with core.snap() as snap:
 
-                node = snap.addNode('inet:ipv4', '127.0.0.1')
+                node = await snap.addNode('inet:ipv4', '127.0.0.1')
                 self.eq('loopback', node.get('type'))
                 node.set('type', 'borked')
 
@@ -101,7 +101,7 @@ class StormTest(s_test_common.SynTest):
                 node = snap.getNodeByNdef(('inet:ipv4', 0x7f000001))
                 self.eq('loopback', node.get('type'))
 
-    def test_storm_count(self):
+    async def test_storm_count(self):
 
         with self.getTestCore() as core:
             self.len(2, list(core.eval('[ teststr=foo teststr=bar ]')))
@@ -119,7 +119,7 @@ class StormTest(s_test_common.SynTest):
             nodes = [mesg for mesg in mesgs if mesg[0] == 'node']
             self.len(0, nodes)
 
-    def test_storm_uniq(self):
+    async def test_storm_uniq(self):
         with self.getTestCore() as core:
             q = "[testcomp=(123, test) testcomp=(123, duck) testcomp=(123, mode)]"
             self.len(3, core.eval(q))
@@ -128,7 +128,7 @@ class StormTest(s_test_common.SynTest):
             nodes = list(core.eval('testcomp -> * | uniq | count'))
             self.len(1, nodes)
 
-    def test_storm_iden(self):
+    async def test_storm_iden(self):
         with self.getTestCore() as core:
             q = "[teststr=beep teststr=boop]"
             nodes = list(core.eval(q))
@@ -146,13 +146,13 @@ class StormTest(s_test_common.SynTest):
                 self.len(0, list(core.eval(q)))
                 self.true(stream.wait(1))
 
-    def test_storm_input(self):
+    async def test_storm_input(self):
 
         with self.getTestCore() as core:
 
             with core.snap() as snap:
 
-                node = snap.addNode('teststr', 'woot')
+                node = await snap.addNode('teststr', 'woot')
                 s_common.spin(node.storm('[ +#hehe ]'))
 
                 self.len(1, snap.eval('#hehe'))
@@ -160,7 +160,7 @@ class StormTest(s_test_common.SynTest):
                 list(node.storm('[ -#hehe ]'))
                 self.len(0, snap.eval('#hehe'))
 
-    def test_noderefs(self):
+    async def test_noderefs(self):
 
         with self.getTestCore() as core:
             self.len(1, core.eval('[pivcomp=(foo, 123)]'))

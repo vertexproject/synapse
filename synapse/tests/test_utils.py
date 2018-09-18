@@ -296,6 +296,6 @@ class TestUtils(s_t_utils.SynTest):
             self.isin('axon00', dmon.cells)
             self.isin('blobstor00', dmon.cells)
 
-            with s_t_utils.AsyncToSyncCMgr(self.getTestProxy, dmon, 'core', user='root', passwd='root') as core:
+            with self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
                 node = core.addNode('teststr', 'hehe')
                 self.nn(node)

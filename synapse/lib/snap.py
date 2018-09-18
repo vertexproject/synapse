@@ -124,12 +124,12 @@ class Snap(s_base.Base):
     def setUser(self, user):
         self.user = user
 
-    def printf(self, mesg):
-        self.fire('print', mesg=mesg)
+    async def printf(self, mesg):
+        await self.fire('print', mesg=mesg)
 
-    def warn(self, mesg, **info):
+    async def warn(self, mesg, **info):
         logger.warning(mesg)
-        self.fire('warn', mesg=mesg, **info)
+        await self.fire('warn', mesg=mesg, **info)
 
     async def getNodeByBuid(self, buid):
         '''
@@ -229,7 +229,7 @@ class Snap(s_base.Base):
             (synapse.lib.node.Node): Node instances.
         '''
         if self.debug:
-            self.printf(f'get nodes by: {full} {cmpr} {valu!r}')
+            await self.printf(f'get nodes by: {full} {cmpr} {valu!r}')
 
         # special handling for by type (*type=) here...
         if cmpr == '*type=':
@@ -281,6 +281,8 @@ class Snap(s_base.Base):
             for row, node in self.getLiftNodes(lops, prop):
                 yield node
 
+    # FIXME:  uncomment
+    # @s_glob.synchelp
     async def addNode(self, name, valu, props=None):
         '''
         Add a node by form name and value with optional props.

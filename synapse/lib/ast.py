@@ -639,7 +639,7 @@ class PropPivot(PivotOper):
                 items = e.items()
                 mesg = items.pop('mesg', '')
                 mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
-                runt.snap.warn(mesg, **items)
+                await runt.snap.warn(mesg, **items)
 
 class Cond(AstNode):
 
@@ -990,7 +990,7 @@ class EditNodeAdd(Edit):
         kval = self.kids[1].runtval(runt)
 
         for valu in formtype.getTypeVals(kval):
-            node = runt.snap.addNode(name, valu)
+            node = await runt.snap.addNode(name, valu)
             yield node, runt.initPath(node)
 
 class EditPropSet(Edit):

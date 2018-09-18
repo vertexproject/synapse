@@ -1,10 +1,10 @@
-from synapse.tests.common import SynTest
+import synapse.tests.utils as s_t_utils
 
-class UsGovTest(SynTest):
+class UsGovTest(s_t_utils.SynTest):
 
-    def test_models_usgov_cage(self):
+    async def test_models_usgov_cage(self):
 
-        with self.getTestCore() as core:
+        async with self.agetTestCore() as core:
             input_props = {
                 'street': '123 Main St',
                 'city': 'Smallville',
@@ -30,8 +30,8 @@ class UsGovTest(SynTest):
             formname = 'gov:us:cage'
             valu = '7qe71'
             expected_ndef = (formname, valu)
-            with core.snap() as snap:
-                n0 = snap.addNode(formname, valu.upper(), input_props)
+            async with core.snap() as snap:
+                n0 = await snap.addNode(formname, valu.upper(), input_props)
 
             self.eq(n0.ndef, expected_ndef)
             for prop, valu in expected_props.items():

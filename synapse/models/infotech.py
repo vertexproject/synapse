@@ -105,27 +105,27 @@ class ItModule(s_module.CoreModule):
     def _onFormItDevStr(self, node):
         node.set('norm', node.ndef[1])
 
-    def _onFormMakeDevStr(self, node):
+    async def _onFormMakeDevStr(self, node):
         pprop = node.ndef[1]
-        nnode = node.snap.addNode('it:dev:str', pprop)
+        nnode = await node.snap.addNode('it:dev:str', pprop)
 
-    def _onPropSoftverSoft(self, node, oldv):
+    async def _onPropSoftverSoft(self, node, oldv):
         # Check to see if name is available and set it if possible
         prop = node.get('software')
         if prop:
-            snodes = list(node.snap.getNodesBy('it:prod:soft', prop))
+            snodes = [n async for n in node.snap.getNodesBy('it:prod:soft', prop)]
             if snodes:
                 name = snodes[0].get('name')
                 if name:
                     node.set('software:name', name)
 
-    def _onPropSoftverArch(self, node, oldv):
+    async def _onPropSoftverArch(self, node, oldv):
         # make it:dev:str for arch
         prop = node.get('arch')
         if prop:
-            nnode = node.snap.addNode('it:dev:str', prop)
+            nnode = await node.snap.addNode('it:dev:str', prop)
 
-    def _onPropSoftverVers(self, node, oldv):
+    async def _onPropSoftverVers(self, node, oldv):
         # Set vers:norm and make it's normed valu
         prop = node.get('vers')
         if not prop:
@@ -134,7 +134,7 @@ class ItModule(s_module.CoreModule):
         node.set('vers:norm', prop)
 
         # Make it:dev:str from version str
-        nnode = node.snap.addNode('it:dev:str', prop)
+        nnode = await node.snap.addNode('it:dev:str', prop)
 
         # form the semver properly or bruteforce parts
         try:

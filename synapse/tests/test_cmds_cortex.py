@@ -6,17 +6,17 @@ import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.encoding as s_encoding
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
 
-class CmdCoreTest(s_test.SynTest):
+class CmdCoreTest(s_t_utils.SynTest):
 
-    def test_storm(self):
+    async def test_storm(self):
         help_msg = 'Execute a storm query.'
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             with core.snap() as snap:
                 valu = 'abcd'
-                node = snap.addNode('teststr', valu, props={'tick': 123})
+                node = await snap.addNode('teststr', valu, props={'tick': 123})
                 node.addTag('cool')
 
             outp = self.getTestOutp()

@@ -12,9 +12,9 @@ class CnGovTest(s_test.SynTest):
                 props = {
                     'org': org0
                 }
-                node = snap.addNode('gov:cn:icp', 12345678, props)
+                node = await snap.addNode('gov:cn:icp', 12345678, props)
                 self.eq(node.ndef[1], 12345678)
                 self.eq(node.get('org'), org0)
 
-                node = snap.addNode('gov:cn:mucd', 61786)
+                node = await snap.addNode('gov:cn:mucd', 61786)
                 self.eq(node.ndef[1], 61786)

@@ -142,7 +142,7 @@ class Node:
             if self.snap.strict:
                 raise s_exc.NoSuchProp(name=name)
 
-            self.snap.warn(f'NoSuchProp: name={name}')
+            await self.snap.warn(f'NoSuchProp: name={name}')
             return False
 
         curv = self.props.get(name)
@@ -168,7 +168,7 @@ class Node:
                     raise s_exc.ReadOnlyProp(name=prop.full)
 
                 # not setting a set-once prop unless we are init...
-                self.snap.warn(f'ReadOnlyProp: name={prop.full}')
+                await self.snap.warn(f'ReadOnlyProp: name={prop.full}')
                 return False
 
             # check for type specific merging...
@@ -256,13 +256,13 @@ class Node:
         node = self.snap.getNodeByNdef((form.name, valu))
         return node.get(text)
 
-    def pop(self, name, init=False):
+    async def pop(self, name, init=False):
 
         prop = self.form.prop(name)
         if prop is None:
             if self.snap.strict:
                 raise s_exc.NoSuchProp(name=name)
-            self.snap.warn(f'No Such Property: {name}')
+            await self.snap.warn(f'No Such Property: {name}')
             return False
 
         if not init:
@@ -270,7 +270,7 @@ class Node:
             if prop.info.get('ro'):
                 if self.snap.strict:
                     raise s_exc.ReadOnlyProp(name=name)
-                self.snap.warn(f'Property is read-only: {name}')
+                await self.snap.warn(f'Property is read-only: {name}')
                 return False
 
         curv = self.props.pop(name, s_common.novalu)
@@ -278,9 +278,9 @@ class Node:
             return False
 
         sops = prop.getDelOps(self.buid)
-        self.snap.stor(sops)
+        await self.snap.stor(sops)
 
-        self.snap.splice('prop:del', ndef=self.ndef, prop=prop.name, valu=curv)
+        await self.snap.splice('prop:del', ndef=self.ndef, prop=prop.name, valu=curv)
 
         prop.wasDel(self, curv)
 
@@ -328,7 +328,7 @@ class Node:
         # implement tag renames...
         isnow = tagnode.get('isnow')
         if isnow:
-            self.snap.warn(f'tag {name} is now {isnow}')
+            await self.snap.warn(f'tag {name} is now {isnow}')
             name = isnow
             path = isnow.split('.')
 
@@ -349,7 +349,7 @@ class Node:
                 if self.tags.get(tag) is not None:
                     continue
 
-                self._addTagRaw(tag, (None, None))
+                await self._addTagRaw(tag, (None, None))
 
             await self._addTagRaw(tags[-1], valu)
             return
@@ -359,7 +359,7 @@ class Node:
 
         indx = self.snap.model.types['ival'].indx(valu)
         info = {'univ': True}
-        self._setTagProp(name, valu, indx, info)
+        await self._setTagProp(name, valu, indx, info)
 
     async def _setTagProp(self, name, norm, indx, info):
         self.tags[name] = norm
@@ -384,7 +384,7 @@ class Node:
 
         return True
 
-    def delTag(self, tag, init=False):
+    async def delTag(self, tag, init=False):
         '''
         Delete a tag from the node.
         '''
@@ -409,13 +409,13 @@ class Node:
             self.snap.core.runTagDel(self, subtag, valu)
             sops.append(('prop:del', (self.buid, self.form.name, '#' + subtag, info)))
 
-        self.snap.core.runTagDel(self, name, curv)
+        await self.snap.core.runTagDel(self, name, curv)
         sops.append(('prop:del', (self.buid, self.form.name, '#' + name, info)))
 
-        self.snap.stor(sops)
-        self.snap.splice('tag:del', ndef=self.ndef, tag=name, valu=curv)
+        await self.snap.stor(sops)
+        await self.snap.splice('tag:del', ndef=self.ndef, tag=name, valu=curv)
 
-    def delete(self, force=False):
+    async def delete(self, force=False):
         '''
         Delete a node from the cortex.
 
@@ -464,8 +464,8 @@ class Node:
 
         sops = self.form.getDelOps(self.buid)
 
-        self.snap.stor(sops)
-        self.snap.splice('node:del', ndef=self.ndef)
+        await self.snap.stor(sops)
+        await self.snap.splice('node:del', ndef=self.ndef)
 
         self.snap.buidcache.pop(self.buid)
 

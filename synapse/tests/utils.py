@@ -577,6 +577,8 @@ class SynTest(unittest.TestCase):
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
+    # FIXME:  add back getTestCore
+
     # Note: requires Python 3.7
     @contextlib.asynccontextmanager
     async def agetTestCore(self, mirror='testcore', conf=None, extra_layers=None):

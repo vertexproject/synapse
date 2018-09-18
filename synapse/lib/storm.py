@@ -41,11 +41,11 @@ class Runtime:
         self._graph_done = {}
         self._graph_want = collections.deque()
 
-    def printf(self, mesg):
-        return self.snap.printf(mesg)
+    async def printf(self, mesg):
+        return await self.snap.printf(mesg)
 
-    def warn(self, mesg, **info):
-        return self.snap.warn(mesg, **info)
+    async def warn(self, mesg, **info):
+        return await self.snap.warn(mesg, **info)
 
     def elevate(self):
 
@@ -371,7 +371,7 @@ class ReIndexCmd(Cmd):
         snap = runt.snap
 
         if snap.user is not None and not snap.user.admin:
-            snap.warn('reindex requires an admin')
+            await snap.warn('reindex requires an admin')
             return
 
         # are we re-indexing a type?

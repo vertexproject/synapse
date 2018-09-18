@@ -123,7 +123,7 @@ class CoreApi(s_cell.CellApi):
         '''
         return self.cell.model.getModelDict()
 
-    def addNodeTag(self, iden, tag, valu=(None, None)):
+    async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
         Add a tag to a node specified by iden.
 
@@ -137,16 +137,16 @@ class CoreApi(s_cell.CellApi):
         parts = tag.split('.')
         self._reqUserAllowed('tag:add', *parts)
 
-        with self.cell.snap(user=self.user) as snap:
+        async with self.cell.snap(user=self.user) as snap:
 
-            node = snap.getNodeByBuid(buid)
+            node = await snap.getNodeByBuid(buid)
             if node is None:
                 raise s_exc.NoSuchIden(iden=iden)
 
-            node.addTag(tag, valu=valu)
+            await node.addTag(tag, valu=valu)
             return node.pack()
 
-    def delNodeTag(self, iden, tag):
+    async def delNodeTag(self, iden, tag):
         '''
         Delete a tag from the node specified by iden.
 
@@ -184,15 +184,15 @@ class CoreApi(s_cell.CellApi):
             node.set(name, valu)
             return node.pack()
 
-    def addNode(self, form, valu, props=None):
+    async def addNode(self, form, valu, props=None):
 
         self._reqUserAllowed('node:add', form)
 
         with self.cell.snap(user=self.user) as snap:
-            node = snap.addNode(form, valu, props=props)
+            node = await snap.addNode(form, valu, props=props)
             return node.pack()
 
-    def addNodes(self, nodes):
+    async def addNodes(self, nodes):
         '''
         Add a list of packed nodes to the cortex.
 
@@ -220,7 +220,7 @@ class CoreApi(s_cell.CellApi):
 
             snap.strict = False
 
-            for node in snap.addNodes(nodes):
+            for node in await snap.addNodes(nodes):
 
                 if node is not None:
                     node = node.pack()
@@ -255,7 +255,7 @@ class CoreApi(s_cell.CellApi):
         '''
         i = 0
         with self.cell.snap(user=self.user) as snap:
-            async for node in snap.eval(text, opts=opts, user=self.user):
+            async for _ in snap.eval(text, opts=opts, user=self.user):
                 i += 1
         return i
 
@@ -699,77 +699,77 @@ class Cortex(s_cell.Cell):
             func = self.splicers.get(item[0])
 
             if func is None:
-                snap.warn(f'no such splice: {item!r}')
+                await snap.warn(f'no such splice: {item!r}')
                 continue
 
             try:
                 func(snap, item)
             except Exception as e:
                 logger.exception('splice error')
-                snap.warn(f'splice error: {e}')
+                await snap.warn(f'splice error: {e}')
 
-    def _onFeedNodeAdd(self, snap, mesg):
+    async def _onFeedNodeAdd(self, snap, mesg):
 
         ndef = mesg[1].get('ndef')
 
         if ndef is None:
-            snap.warn(f'Invalid Splice: {mesg!r}')
+            await snap.warn(f'Invalid Splice: {mesg!r}')
             return
 
-        snap.addNode(*ndef)
+        await snap.addNode(*ndef)
 
-    def _onFeedNodeDel(self, snap, mesg):
+    async def _onFeedNodeDel(self, snap, mesg):
 
         ndef = mesg[1].get('ndef')
 
-        node = snap.getNodeByNdef(ndef)
+        node = await snap.getNodeByNdef(ndef)
         if node is None:
             return
 
         node.delete()
 
-    def _onFeedPropSet(self, snap, mesg):
+    async def _onFeedPropSet(self, snap, mesg):
 
         ndef = mesg[1].get('ndef')
         name = mesg[1].get('prop')
         valu = mesg[1].get('valu')
 
-        node = snap.getNodeByNdef(ndef)
+        node = await snap.getNodeByNdef(ndef)
         if node is None:
             return
 
         node.set(name, valu)
 
-    def _onFeedPropDel(self, snap, mesg):
+    async def _onFeedPropDel(self, snap, mesg):
 
         ndef = mesg[1].get('ndef')
         name = mesg[1].get('prop')
 
-        node = snap.getNodeByNdef(ndef)
+        node = await snap.getNodeByNdef(ndef)
         if node is None:
             return
 
         node.pop(name)
 
-    def _onFeedTagAdd(self, snap, mesg):
+    async def _onFeedTagAdd(self, snap, mesg):
 
         ndef = mesg[1].get('ndef')
 
         tag = mesg[1].get('tag')
         valu = mesg[1].get('valu')
 
-        node = snap.getNodeByNdef(ndef)
+        node = await snap.getNodeByNdef(ndef)
         if node is None:
             return
 
         node.addTag(tag, valu=valu)
 
-    def _onFeedTagDel(self, snap, mesg):
+    async def _onFeedTagDel(self, snap, mesg):
 
         ndef = mesg[1].get('ndef')
         tag = mesg[1].get('tag')
 
-        node = snap.getNodeByNdef(ndef)
+        node = await snap.getNodeByNdef(ndef)
         if node is None:
             return
 
@@ -778,13 +778,14 @@ class Cortex(s_cell.Cell):
     # def _addSynUndo(self, snap, items):
         # TODO apply splices in reverse
 
-    def _addSynIngest(self, snap, items):
+    async def _addSynIngest(self, snap, items):
 
         for item in items:
             try:
                 pnodes = self._getSynIngestNodes(item)
                 logger.info('Made [%s] nodes.', len(pnodes))
-                yield from snap.addNodes(pnodes)
+                async for n in snap.addNodes(pnodes):
+                    yield n
             except Exception as e:
                 logger.exception('Failed to process ingest [%r]', item)
                 continue

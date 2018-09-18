@@ -21,19 +21,17 @@ class HttpTestV1(t_web.RequestHandler):
 
 class CortexTest(s_t_utils.SynTest):
 
-    @s_glob.synchelp
     async def test_cortex_prop_pivot(self):
 
         async with self.agetTestCore() as core:
 
             with core.snap() as snap:
-                snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+                await snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
 
             nodes = [n.pack() async for n in core.eval('inet:dns:a :ipv4 -> *')]
             self.len(1, nodes)
             self.eq(nodes[0][0], ('inet:ipv4', 0x01020304))
 
-    @s_glob.synchelp
     async def test_cortex_of_the_future(self):
 
         # test "future/ongoing" time stamp.
@@ -52,7 +50,6 @@ class CortexTest(s_t_utils.SynTest):
             nodes = [n.pack() async for n in core.eval('teststr=foo +#lol@=2016')]
             self.len(1, nodes)
 
-    @s_glob.synchelp
     async def test_cortex_noderefs(self):
 
         async with self.agetTestCore() as core:
@@ -82,7 +79,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.true('inet:dns:a' in [n[0][0] for n in nodes])
 
-    @s_glob.synchelp
     async def test_cortex_http(self):
 
         async with self.agetTestCore() as core:
@@ -102,7 +98,6 @@ class CortexTest(s_t_utils.SynTest):
             self.nn(resp['result'].get('forms'))
             self.nn(resp['result'].get('types'))
 
-    @s_glob.synchelp
     async def test_cortex_iter_props(self):
 
         async with self.agetTestCore() as core:
@@ -128,14 +123,13 @@ class CortexTest(s_t_utils.SynTest):
             ivals = ((1420070400000, 1420070400001), (1451606400000, 1451606400001))
             self.eq(ivals, tuple(sorted([row[1] for row in rows])))
 
-    @s_glob.synchelp
     async def test_cortex_lift_regex(self):
         async with self.agetTestCore() as core:
             core.model.addUnivProp('favcolor', ('str', {}), {})
 
             with core.snap() as snap:
-                node = snap.addNode('teststr', 'hezipha', props={'.favcolor': 'red'})
-                node = snap.addNode('testcomp', (20, 'lulzlulz'))
+                node = await snap.addNode('teststr', 'hezipha', props={'.favcolor': 'red'})
+                node = await snap.addNode('testcomp', (20, 'lulzlulz'))
 
             self.len(0, await alist(core.eval('testcomp:haha~="^zerg"')))
             self.len(1, await alist(core.eval('testcomp:haha~="^lulz"')))
@@ -192,7 +186,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.raises(s_exc.NoSuchType, self.getTestCell, dirn, 'cortex', conf=conf)
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
-    @s_glob.synchelp
     async def test_cortex_model_dict(self):
 
         with self.getTestDmon(mirror='dmoncore') as dmon:
@@ -215,13 +208,12 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(pnfo['type'][0], 'inet:asn')
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
-    @s_glob.synchelp
     async def test_storm_graph(self):
 
         with self.getTestDmon(mirror='dmoncore') as dmon:
 
             core = dmon._getTestProxy('core')
-            core.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
+            await core.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
 
             opts = {'graph': True}
             nodes = list(core.eval('inet:dns:a', opts=opts))
@@ -235,7 +227,6 @@ class CortexTest(s_t_utils.SynTest):
                     self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f', 'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
 
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
-    @s_glob.synchelp
     async def test_splice_cryo(self):
         with self.getTestDmon(mirror='cryodmon') as dst_dmon:
             name = 'cryo00'
@@ -253,7 +244,7 @@ class CortexTest(s_t_utils.SynTest):
                 waiter = src_core.waiter(1, 'core:splice:cryotank:sent')
                 # Form a node and make sure that it exists
                 with src_core.snap() as snap:
-                    snap.addNode('teststr', 'teehee')
+                    await snap.addNode('teststr', 'teehee')
                     self.nn(snap.getNodeByNdef(('teststr', 'teehee')))
 
                 self.true(waiter.wait(timeout=10))
@@ -287,7 +278,6 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(data[1][1].get('user'), '?')
             self.ge(data[1][1].get('time'), 0)
 
-    @s_glob.synchelp
     async def test_splice_sync(self):
         with self.getTestDmon(mirror='dmoncore') as dst_dmon:
             name = 'core'
@@ -311,7 +301,7 @@ class CortexTest(s_t_utils.SynTest):
                     # Form a node and make sure that it exists
                     waiter = src_core.waiter(1, 'core:splice:sync:sent')
                     with src_core.snap() as snap:
-                        snap.addNode('teststr', 'teehee')
+                        await snap.addNode('teststr', 'teehee')
                         self.nn(snap.getNodeByNdef(('teststr', 'teehee')))
 
                     self.true(waiter.wait(timeout=10))
@@ -323,7 +313,6 @@ class CortexTest(s_t_utils.SynTest):
                 node = snap.getNodeByNdef(('teststr', 'teehee'))
                 self.eq(node.ndef, ('teststr', 'teehee'))
 
-    @s_glob.synchelp
     async def test_onadd(self):
 
         async with self.agetTestCore() as core:
@@ -333,10 +322,9 @@ class CortexTest(s_t_utils.SynTest):
                 func = s_t_utils.CallBack()
                 core.model.form('inet:ipv4').onAdd(func)
 
-                node = snap.addNode('inet:ipv4', '1.2.3.4')
+                node = await snap.addNode('inet:ipv4', '1.2.3.4')
                 self.eq(node.buid, func.args[0].buid)
 
-    @s_glob.synchelp
     async def test_adddata(self):
 
         data = ('foo', 'bar', 'baz')
@@ -356,19 +344,17 @@ class CortexTest(s_t_utils.SynTest):
 
             self.eq(vals, ('bar', 'baz', 'foo'))
 
-    @s_glob.synchelp
     async def test_indxchop(self):
 
         async with self.agetTestCore() as core:
 
             with core.snap() as snap:
                 valu = 'a' * 257
-                snap.addNode('teststr', valu)
+                await snap.addNode('teststr', valu)
 
-                nodes = list(snap.getNodesBy('teststr', 'aa', cmpr='^='))
+                nodes = await alist(snap.getNodesBy('teststr', 'aa', cmpr='^='))
                 self.len(1, nodes)
 
-    @s_glob.synchelp
     async def test_cell(self):
 
         data = ('foo', 'bar', 'baz')
@@ -379,14 +365,14 @@ class CortexTest(s_t_utils.SynTest):
 
             nodes = ((('inet:user', 'visi'), {}), )
 
-            nodes = list(core.addNodes(nodes))
+            nodes = await alist(core.addNodes(nodes))
             self.len(1, nodes)
 
-            nodes = list(core.getNodesBy('inet:user', 'visi'))
+            nodes = await alist(core.getNodesBy('inet:user', 'visi'))
             self.len(1, nodes)
             self.eq('visi', nodes[0][0][1])
 
-            node = core.addNode('teststr', 'foo')
+            node = await core.addNode('teststr', 'foo')
 
             pack = core.addNodeTag(node[1].get('iden'), '#foo.bar')
             self.eq(pack[1]['tags'].get('foo.bar'), (None, None))
@@ -413,7 +399,6 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(0, core.count('pivtarg'))
             self.eq(1, core.count('inet:user'))
 
-    @s_glob.synchelp
     async def test_stormcmd(self):
 
         async with self.agetTestCore() as core:
@@ -446,7 +431,6 @@ class CortexTest(s_t_utils.SynTest):
             self.printed(msgs, 'usage: limit [-h] count')
             self.len(0, [m for m in msgs if m[0] == 'node'])
 
-    @s_glob.synchelp
     async def test_onsetdel(self):
 
         async with self.agetTestCore() as core:
@@ -456,7 +440,7 @@ class CortexTest(s_t_utils.SynTest):
                 func = s_t_utils.CallBack()
                 core.model.prop('inet:ipv4:loc').onSet(func)
 
-                node = snap.addNode('inet:ipv4', '1.2.3.4')
+                node = await snap.addNode('inet:ipv4', '1.2.3.4')
                 node.set('loc', 'US.  VA')
 
                 self.eq(func.args[0].buid, node.buid)
@@ -473,40 +457,39 @@ class CortexTest(s_t_utils.SynTest):
                 self.none(node.get('loc'))
 
             with core.snap() as snap:
-                node = snap.addNode('inet:ipv4', '1.2.3.4')
+                node = await snap.addNode('inet:ipv4', '1.2.3.4')
                 self.none(node.get('loc'))
 
-    @s_glob.synchelp
     async def test_tags(self):
 
         async with self.agetTestCore() as core:
 
             with core.snap() as snap:
 
-                snap.addNode('teststr', 'newp')
+                await snap.addNode('teststr', 'newp')
 
-                node = snap.addNode('teststr', 'one')
+                node = await snap.addNode('teststr', 'one')
                 node.addTag('foo.bar', ('2016', '2017'))
 
                 self.eq((1451606400000, 1483228800000), node.getTag('foo.bar', ('2016', '2017')))
 
-                node1 = snap.addNode('testcomp', (10, 'hehe'))
+                node1 = await snap.addNode('testcomp', (10, 'hehe'))
                 node1.addTag('foo.bar')
 
-                self.nn(snap.getNodeByNdef(('syn:tag', 'foo')))
-                self.nn(snap.getNodeByNdef(('syn:tag', 'foo.bar')))
+                self.nn(await snap.getNodeByNdef(('syn:tag', 'foo')))
+                self.nn(await snap.getNodeByNdef(('syn:tag', 'foo.bar')))
 
             with core.snap() as snap:
 
-                node = snap.getNodeByNdef(('teststr', 'one'))
+                node = await snap.getNodeByNdef(('teststr', 'one'))
 
                 self.true(node.hasTag('foo'))
                 self.true(node.hasTag('foo.bar'))
 
                 self.raises(s_exc.NoSuchForm, list, snap.getNodesBy('noway#foo.bar'))
 
-                self.len(2, list(snap.getNodesBy('#foo.bar')))
-                self.len(1, list(snap.getNodesBy('teststr#foo.bar')))
+                self.len(2, await alist(snap.getNodesBy('#foo.bar')))
+                self.len(1, await alist(snap.getNodesBy('teststr#foo.bar')))
 
             with core.snap() as snap:
 
@@ -519,17 +502,16 @@ class CortexTest(s_t_utils.SynTest):
 
             with core.snap() as snap:
 
-                node = snap.addNode('teststr', 'one')
+                node = await snap.addNode('teststr', 'one')
                 self.false(node.hasTag('foo'))
                 self.false(node.hasTag('foo.bar'))
 
-    @s_glob.synchelp
     async def test_base_types1(self):
 
         async with self.agetTestCore() as core:
 
             with core.snap() as snap:
-                node = snap.addNode('testtype10', 'one')
+                node = await snap.addNode('testtype10', 'one')
                 node.set('intprop', 21)
 
             with core.snap() as snap:
@@ -537,14 +519,13 @@ class CortexTest(s_t_utils.SynTest):
                 self.nn(node)
                 self.eq(node.get('intprop'), 21)
 
-    @s_glob.synchelp
     async def test_base_types2(self):
         async with self.agetTestCore() as core:
 
             # Test some default values
             with core.snap() as snap:
 
-                node = snap.addNode('testtype10', 'one')
+                node = await snap.addNode('testtype10', 'one')
                 self.nn(node.get('.created'))
                 created = node.reprs().get('.created')
 
@@ -585,14 +566,14 @@ class CortexTest(s_t_utils.SynTest):
                 # Grab an updated reference to the first node
                 node = list(snap.getNodesBy('testtype10', 'one'))[0]
                 # add another node with default vals
-                snap.addNode('testtype10', 'two')
+                await snap.addNode('testtype10', 'two')
 
                 # modify default vals on initial node
                 node.set('intprop', 21)
                 node.set('strprop', 'qwer')
                 node.set('locprop', 'us.va.reston')
 
-                node = snap.addNode('testcomp', (33, 'THIRTY THREE'))
+                node = await snap.addNode('testcomp', (33, 'THIRTY THREE'))
 
                 self.eq(node.get('hehe'), 33)
                 self.eq(node.get('haha'), 'thirty three')
@@ -606,7 +587,7 @@ class CortexTest(s_t_utils.SynTest):
                     'baz': ('testtype10:strprop', 'WOOT'),
                     'tick': '20160505',
                 }
-                node = snap.addNode('teststr', 'woot', props=props)
+                node = await snap.addNode('teststr', 'woot', props=props)
                 self.eq(node.get('bar'), ('testauto', 'autothis'))
                 self.eq(node.get('baz'), ('testtype10:strprop', 'woot'))
                 self.eq(node.get('tick'), 1462406400000)
@@ -616,8 +597,8 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(nodes[0].ndef, ('teststr', 'woot'))
 
                 # add some time range bumper nodes
-                snap.addNode('teststr', 'toolow', props={'tick': '2015'})
-                snap.addNode('teststr', 'toohigh', props={'tick': '2018'})
+                await snap.addNode('teststr', 'toolow', props={'tick': '2015'})
+                await snap.addNode('teststr', 'toohigh', props={'tick': '2018'})
 
                 # test a few time range syntax options...
                 nodes = list(snap.getNodesBy('teststr:tick', '2016*'))
@@ -641,7 +622,7 @@ class CortexTest(s_t_utils.SynTest):
 
             with core.snap() as snap:
 
-                node = snap.addNode('testtype10', 'one')
+                node = await snap.addNode('testtype10', 'one')
                 self.eq(node.get('intprop'), 21)
 
                 self.nn(node.get('.created'))
@@ -662,14 +643,13 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('hehe'), 33)
                 self.eq(nodes[0].ndef[1], (33, 'thirty three'))
 
-    @s_glob.synchelp
     async def test_pivprop(self):
 
         async with self.agetTestCore() as core:
 
             with core.snap() as snap:
 
-                pivc = snap.addNode('pivcomp', ('woot', 'rofl'))
+                pivc = await snap.addNode('pivcomp', ('woot', 'rofl'))
                 self.eq(pivc.get('targ'), 'woot')
 
                 pivt = snap.getNodeByNdef(('pivtarg', 'woot'))
@@ -680,7 +660,6 @@ class CortexTest(s_t_utils.SynTest):
                 pivc = snap.getNodeByNdef(('pivcomp', ('woot', 'rofl')))
                 self.eq(pivc.get('targ::name'), 'visi')
 
-    @s_glob.synchelp
     async def test_storm(self):
 
         async with self.agetTestCore() as core:
@@ -773,7 +752,6 @@ class CortexTest(s_t_utils.SynTest):
                 # Bad syntax
                 self.genraises(s_exc.BadStormSyntax, core.storm, ' | | | ')
 
-    @s_glob.synchelp
     async def test_feed_splice(self):
 
         iden = s_common.guid()
@@ -820,26 +798,24 @@ class CortexTest(s_t_utils.SynTest):
                 node = snap.getNodeByNdef(('teststr', 'foo'))
                 self.none(node.getTag('bar'))
 
-    @s_glob.synchelp
     async def test_strict(self):
 
         async with self.agetTestCore() as core:
 
             with core.snap() as snap:
 
-                node = snap.addNode('teststr', 'foo')
+                node = await snap.addNode('teststr', 'foo')
 
                 self.raises(s_exc.NoSuchProp, node.set, 'newpnewp', 10)
                 self.raises(s_exc.BadPropValu, node.set, 'tick', (20, 30))
 
                 snap.strict = False
 
-                self.none(snap.addNode('teststr', s_common.novalu))
+                self.none(await snap.addNode('teststr', s_common.novalu))
 
                 self.false(node.set('newpnewp', 10))
                 self.false(node.set('tick', (20, 30)))
 
-    @s_glob.synchelp
     async def test_getcoremods(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
@@ -860,7 +836,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.nn(conf)
                 self.eq(conf.get('key'), 'valu')
 
-    @s_glob.synchelp
     async def test_cortex_delnode(self):
 
         data = {}
@@ -881,12 +856,12 @@ class CortexTest(s_t_utils.SynTest):
 
             with core.snap() as snap:
 
-                targ = snap.addNode('pivtarg', 'foo')
-                snap.addNode('pivcomp', ('foo', 'bar'))
+                targ = await snap.addNode('pivtarg', 'foo')
+                await snap.addNode('pivcomp', ('foo', 'bar'))
 
                 self.raises(s_exc.CantDelNode, targ.delete)
 
-                tstr = snap.addNode('teststr', 'baz')
+                tstr = await snap.addNode('teststr', 'baz')
                 tstr.set('tick', 100)
 
                 buid = tstr.buid
@@ -918,7 +893,6 @@ class CortexTest(s_t_utils.SynTest):
                 # final top level API check
                 self.none(snap.getNodeByNdef(('teststr', 'baz')))
 
-    @s_glob.synchelp
     async def test_cortex_delnode_perms(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
@@ -950,7 +924,6 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.len(0, list(core.eval('cycle0=foo | delnode --force')))
 
-    @s_glob.synchelp
     async def test_cortex_sudo(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
@@ -964,7 +937,6 @@ class CortexTest(s_t_utils.SynTest):
                 nodes = list(core.eval('sudo | [ inet:ipv4=1.2.3.4 ]'))
                 self.len(1, nodes)
 
-    @s_glob.synchelp
     async def test_cortex_cell_splices(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
@@ -979,7 +951,6 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.ge(len(list(core.splices(0, 1000))), 5)
 
-    @s_glob.synchelp
     async def test_pivot_inout(self):
 
         def getPackNodes(core, query):
@@ -1152,20 +1123,18 @@ class CortexTest(s_t_utils.SynTest):
                       ]:
                 self.genraises(s_exc.BadStormSyntax, core.eval, q)
 
-    @s_glob.synchelp
     async def test_node_repr(self):
 
         async with self.agetTestCore() as core:
 
             with core.snap() as snap:
 
-                node = snap.addNode('inet:ipv4', 0x01020304)
+                node = await snap.addNode('inet:ipv4', 0x01020304)
                 self.eq('1.2.3.4', node.repr())
 
-                node = snap.addNode('inet:dns:a', ('woot.com', 0x01020304))
+                node = await snap.addNode('inet:dns:a', ('woot.com', 0x01020304))
                 self.eq('1.2.3.4', node.repr('ipv4'))
 
-    @s_glob.synchelp
     async def test_coverage(self):
 
         # misc tests to increase code coverage
@@ -1173,11 +1142,10 @@ class CortexTest(s_t_utils.SynTest):
 
             node = (('teststr', 'foo'), {})
 
-            list(core.addNodes((node,)))
+            await alist(core.addNodes((node,)))
 
             self.nn(core.getNodeByNdef(('teststr', 'foo')))
 
-    @s_glob.synchelp
     async def test_cortex_storm_set_univ(self):
 
         async with self.agetTestCore() as core:
@@ -1189,7 +1157,6 @@ class CortexTest(s_t_utils.SynTest):
                 node = snap.getNodeByNdef(('teststr', 'woot'))
                 self.eq(node.get('.seen'), (1388534400000, 1420070400000))
 
-    @s_glob.synchelp
     async def test_cortex_storm_set_tag(self):
 
         async with self.agetTestCore() as core:
@@ -1216,7 +1183,6 @@ class CortexTest(s_t_utils.SynTest):
                 node = snap.getNodeByNdef(('teststr', 'haha'))
                 self.eq(node.getTag('bar'), (tick1, tick2 + 1))
 
-    @s_glob.synchelp
     async def test_cortex_storm_vars(self):
 
         async with self.agetTestCore() as core:
@@ -1247,7 +1213,6 @@ class CortexTest(s_t_utils.SynTest):
             opts = {'vars': {'foo': norm}}
             self.len(1, core.eval('pivcomp:tick=$foo', opts=opts))
 
-    @s_glob.synchelp
     async def test_cortex_storm_filt_ival(self):
 
         async with self.agetTestCore() as core:
@@ -1277,7 +1242,6 @@ class CortexTest(s_t_utils.SynTest):
 
             #self.len(1, core.eval('[ teststr=woot +#foo=(2015,2018) .seen=(2014,2016) ]'))
 
-    @s_glob.synchelp
     async def test_cortex_storm_tagform(self):
 
         async with self.agetTestCore() as core:
@@ -1300,7 +1264,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, core.eval('teststr#foo@=(2017,2022)'))
             self.len(1, core.eval('teststr#foo@=(2012,2022)'))
 
-    @s_glob.synchelp
     async def test_cortex_storm_indx_none(self):
         async with self.agetTestCore() as core:
             self.raises(s_exc.NoSuchIndx, list, core.eval('graph:node:data=10'))
@@ -1360,7 +1323,6 @@ class CortexTest(s_t_utils.SynTest):
         self.len(1, core.eval('refs'))
         self.len(1, core.eval('wentto'))
 
-    @s_glob.synchelp
     async def test_syn_ingest_remote(self):
         guid = s_common.guid()
         seen = s_common.now()
@@ -1379,7 +1341,6 @@ class CortexTest(s_t_utils.SynTest):
                 core.addUserRole('root', 'creator')
                 self._validate_feed(core, gestdef, guid, seen)
 
-    @s_glob.synchelp
     async def test_syn_ingest_local(self):
         guid = s_common.guid()
         seen = s_common.now()
@@ -1388,7 +1349,6 @@ class CortexTest(s_t_utils.SynTest):
         async with self.agetTestCore() as core:
             self._validate_feed(core, gestdef, guid, seen, pack=True)
 
-    @s_glob.synchelp
     async def test_cortex_int_indx(self):
 
         async with self.agetTestCore() as core:
@@ -1468,7 +1428,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, core.eval('testint>20'))
             self.len(0, core.eval('testint<20'))
 
-    @s_glob.synchelp
     async def test_cortex_ontag(self):
 
         async with self.agetTestCore() as core:
@@ -1492,7 +1451,7 @@ class CortexTest(s_t_utils.SynTest):
 
             with core.snap() as snap:
 
-                node = snap.addNode('teststr', 'hehe')
+                node = await asnap.addNode('teststr', 'hehe')
                 node.addTag('foo.bar.baz', valu=(200, 300))
 
                 self.eq(tags.get('foo'), (None, None))
@@ -1506,7 +1465,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.none(tags.get('foo.bar'))
                 self.none(tags.get('foo.bar.baz'))
 
-    @s_glob.synchelp
     async def test_cortex_del_univ(self):
 
         async with self.agetTestCore() as core:
@@ -1518,7 +1476,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, core.eval('.hehe [ -.hehe ]'))
             self.len(0, core.eval('.hehe'))
 
-    @s_glob.synchelp
     async def test_cortex_snap_eval(self):
 
         async with self.agetTestCore() as core:
@@ -1527,7 +1484,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(2, snap.eval('[teststr=foo teststr=bar]'))
             self.len(2, core.eval('teststr'))
 
-    @s_glob.synchelp
     async def test_feed_syn_nodes(self):
         async with self.agetTestCore() as core0:
             q = '[testint=1 testint=2 testint=3]'
@@ -1537,7 +1493,6 @@ class CortexTest(s_t_utils.SynTest):
             retn = core1.addFeedData('syn.nodes', podes)
             self.len(3, core1.eval('testint'))
 
-    @s_glob.synchelp
     async def test_stat(self):
 
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
@@ -1551,7 +1506,6 @@ class CortexTest(s_t_utils.SynTest):
                 nstat = core.stat()
                 self.gt(nstat.get('layer').get('splicelog_indx'), ostat.get('layer').get('splicelog_indx'))
 
-    @s_glob.synchelp
     async def test_offset(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}

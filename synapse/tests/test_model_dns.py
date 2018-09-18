@@ -18,7 +18,7 @@ class DnsModelTest(s_test.SynTest):
                     'reply:code': 0,
                 }
 
-                node = snap.addNode('inet:dns:request', '*', props)
+                node = await snap.addNode('inet:dns:request', '*', props)
 
                 self.eq(node.get('time'), 1514764800000)
                 self.eq(node.get('reply:code'), 0)
@@ -34,7 +34,7 @@ class DnsModelTest(s_test.SynTest):
                     'a': ('vertex.link', '2.3.4.5'),
                 }
 
-                answ = snap.addNode('inet:dns:answer', '*', props)
+                answ = await snap.addNode('inet:dns:answer', '*', props)
                 self.nn(snap.getNodeByNdef(('inet:dns:a', ('vertex.link', 0x02030405))))
 
             # DNS queries can be quite complex or awkward since the protocol
@@ -62,7 +62,7 @@ class DnsModelTest(s_test.SynTest):
 
             with core.snap() as snap:
                 # inet:dns:a
-                node = snap.addNode('inet:dns:a', ('hehe.com', '1.2.3.4'))
+                node = await snap.addNode('inet:dns:a', ('hehe.com', '1.2.3.4'))
                 self.eq(node.ndef[1], ('hehe.com', 0x01020304))
                 self.eq(node.get('fqdn'), 'hehe.com')
                 self.eq(node.get('ipv4'), 0x01020304)
