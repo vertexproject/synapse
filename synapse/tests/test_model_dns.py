@@ -24,6 +24,9 @@ class DnsModelTest(s_test.SynTest):
                 self.eq(node.get('reply:code'), 0)
                 self.eq(node.get('server'), 'udp://5.6.7.8:53')
                 self.eq(node.get('query'), ('tcp://1.2.3.4', 'vertex.link', 255))
+                self.eq(node.get('query:name'), 'vertex.link')
+                self.eq(node.get('query:type'), 255)
+                self.none(node.get('query:client'))
 
                 self.nn(snap.getNodeByNdef(('inet:server', 'udp://5.6.7.8:53')))
                 self.nn(snap.getNodeByNdef(('inet:server', 'udp://5.6.7.8:53')))
@@ -36,6 +39,19 @@ class DnsModelTest(s_test.SynTest):
 
                 answ = snap.addNode('inet:dns:answer', '*', props)
                 self.nn(snap.getNodeByNdef(('inet:dns:a', ('vertex.link', 0x02030405))))
+
+                # It is also possible for us to record a request from imperfect data
+                # An example of that is dns data from a malware sandbox where the client
+                # IP is unknown
+                props = {
+                    'time': '2018',
+                    'exe': f'guid:{"a" * 32}',
+                    'query:name': 'notac2.someone.com'
+                }
+                node = snap.addNode('inet:dns:request', '*', props)
+                self.none(node.get('query'))
+                self.eq(node.get('exe'), f'guid:{"a" * 32}')
+                self.eq(node.get('query:name'), 'notac2.someone.com')
 
             # DNS queries can be quite complex or awkward since the protocol
             # allows for nearly anything to be asked about. This can lead to

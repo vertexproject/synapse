@@ -132,6 +132,8 @@ class DnsModule(s_module.CoreModule):
                     ('time', ('time', {}), {}),
 
                     ('query', ('inet:dns:query', {}), {}),
+                    ('query:name', ('inet:dns:name', {}), {}),
+                    ('query:type', ('int', {}), {}),
 
                     ('server', ('inet:server', {}), {}),
 
