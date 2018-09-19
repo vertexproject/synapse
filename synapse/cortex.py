@@ -638,7 +638,7 @@ class Cortex(s_cell.Cell):
 
                         offs = self.addFeedData(typename, datas, seqn=(iden, offs))
                         self.fire('core:feed:loop')
-                        logger.debug('Added [%s] records from [%s]',
+                        logger.debug('Processed [%s] records with [%s]',
                                      len(datas), typename)
 
             except Exception as e:  # pragma: no cover
