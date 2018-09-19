@@ -77,7 +77,6 @@ class StormTest(s_t_utils.SynTest):
                 tagnode = await snap.getNodeByNdef(('syn:tag', 'hehe'))
                 print(f'{tagnode.pack()}')
 
-
                 newt = await core.getNodeByNdef(('syn:tag', 'woot'))
 
                 self.eq(newt.get('doc'), 'haha doc')
