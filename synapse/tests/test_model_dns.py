@@ -24,6 +24,9 @@ class DnsModelTest(s_test.SynTest):
                 self.eq(node.get('reply:code'), 0)
                 self.eq(node.get('server'), 'udp://5.6.7.8:53')
                 self.eq(node.get('query'), ('tcp://1.2.3.4', 'vertex.link', 255))
+                self.eq(node.get('query:name'), 'vertex.link')
+                self.eq(node.get('query:type'), 255)
+                self.none(node.get('query:client'))
 
                 self.nn(snap.getNodeByNdef(('inet:server', 'udp://5.6.7.8:53')))
                 self.nn(snap.getNodeByNdef(('inet:server', 'udp://5.6.7.8:53')))
@@ -36,6 +39,19 @@ class DnsModelTest(s_test.SynTest):
 
                 answ = snap.addNode('inet:dns:answer', '*', props)
                 self.nn(snap.getNodeByNdef(('inet:dns:a', ('vertex.link', 0x02030405))))
+
+                # It is also possible for us to record a request from imperfect data
+                # An example of that is dns data from a malware sandbox where the client
+                # IP is unknown
+                props = {
+                    'time': '2018',
+                    'exe': f'guid:{"a" * 32}',
+                    'query:name': 'notac2.someone.com'
+                }
+                node = snap.addNode('inet:dns:request', '*', props)
+                self.none(node.get('query'))
+                self.eq(node.get('exe'), f'guid:{"a" * 32}')
+                self.eq(node.get('query:name'), 'notac2.someone.com')
 
             # DNS queries can be quite complex or awkward since the protocol
             # allows for nearly anything to be asked about. This can lead to
@@ -114,8 +130,9 @@ class DnsModelTest(s_test.SynTest):
                 self.eq(node.get('mx'), 'mail.vertex.link')
 
                 # inet:dns:soa
-                valu = ('haha.vertex.link', 'ns1.vertex.link', 'pennywise@vertex.link')
-                node = snap.addNode('inet:dns:soa', valu)
+                guid = s_common.guid()
+                props = {'fqdn': 'haha.vertex.link', 'ns': 'ns1.vertex.link', 'email': 'pennywise@vertex.link'}
+                node = snap.addNode('inet:dns:soa', guid, props)
                 self.eq(node.get('fqdn'), 'haha.vertex.link')
                 self.eq(node.get('email'), 'pennywise@vertex.link')
                 self.eq(node.get('ns'), 'ns1.vertex.link')
@@ -174,9 +191,10 @@ class DnsModelTest(s_test.SynTest):
                 node = snap.addNode('inet:dns:answer', '*', props)
                 self.eq(node.get('mx'), (fqdn0, fqdn1))
                 # soa record
-                props = {'soa': (fqdn0, fqdn1, email0)}
+                guid = s_common.guid((fqdn0, fqdn1, email0))
+                props = {'soa': guid}
                 node = snap.addNode('inet:dns:answer', '*', props)
-                self.eq(node.get('soa'), (fqdn0, fqdn1, email0))
+                self.eq(node.get('soa'), guid)
                 # txt record
                 props = {'txt': (fqdn0, 'Oh my!')}
                 node = snap.addNode('inet:dns:answer', '*', props)
