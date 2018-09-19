@@ -45,8 +45,8 @@ class Node:
     async def storm(self, text, opts=None, user=None):
         query = self.snap.core.getStormQuery(text)
         with self.snap.getStormRuntime(opts=opts, user=user) as runt:
-            await runt.addInput(self)
-            for node in runt.iterStormQuery(query):
+            runt.addInput(self)
+            async for node in runt.iterStormQuery(query):
                 yield node
 
     def iden(self):

@@ -535,6 +535,14 @@ def spin(genr):
     '''
     collections.deque(genr, 0)
 
+async def aspin(genr):
+    '''
+    Async version of spin
+    '''
+    # FIXME:  is there anything faster?
+    async for _ in genr:
+        pass
+
 def reqStorDict(x):
     '''
     Raises BadStorValu if any value in the dict is not compatible

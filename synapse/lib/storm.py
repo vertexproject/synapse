@@ -159,7 +159,7 @@ class Parser(argparse.ArgumentParser):
             return
 
         for line in text.split('\n'):
-            self.printf(line)
+            await self.printf(line)
 
 class Cmd:
     '''
@@ -198,8 +198,8 @@ class Cmd:
         return not self.pars.exited
 
     async def execStormCmd(self, runt, genr):
-        for item in self.runStormCmd(runt.snap, genr):
-            yield item
+        ''' Abstract base method '''
+        raise NotImplemented
 
 class HelpCmd(Cmd):
     '''
@@ -428,7 +428,6 @@ class MoveTagCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
-
         snap = runt.snap
 
         oldt = await snap.addNode('syn:tag', self.opts.oldtag)
@@ -445,9 +444,6 @@ class MoveTagCmd(Cmd):
         async for node in snap.getNodesBy('syn:tag', self.opts.oldtag, cmpr='^='):
 
             tagstr = node.ndef[1]
-            if tagstr == oldstr: # special case for exact match
-                await node.set('isnow', newstr)
-                continue
 
             newtag = newstr + tagstr[oldsize:]
 
@@ -484,7 +480,7 @@ class MoveTagCmd(Cmd):
 
         await snap.printf(f'moved tags on {count} nodes.')
 
-        for node, path in genr:
+        async for node, path in genr:
             yield node, path
 
 class SpinCmd(Cmd):
@@ -501,8 +497,8 @@ class SpinCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        async for x in ():
-            yield x
+        if False:
+            yield None
 
         async for node, path in genr:
             pass
@@ -526,7 +522,7 @@ class CountCmd(Cmd):
             yield item
             i += 1
 
-        await snap.printf(f'Counted {i} nodes.')
+        await runt.printf(f'Counted {i} nodes.')
 
 class IdenCmd(Cmd):
     '''
@@ -546,7 +542,7 @@ class IdenCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        for x in genr:
+        async for x in genr:
             yield x
 
         for iden in self.opts.iden:
@@ -556,7 +552,7 @@ class IdenCmd(Cmd):
                 runt.warn(f'Failed to decode iden: [{iden}]')
                 continue
 
-            node = runt.snap.getNodeByBuid(buid)
+            node = await runt.snap.getNodeByBuid(buid)
             if node is not None:
                 yield node, runt.initPath(node)
 
@@ -658,7 +654,7 @@ class NoderefsCmd(Cmd):
             async for item in self.doRefs(node, path, visited):
                 yield item
 
-            for x in self.doRefs(node, path, visited):
+            async for x in self.doRefs(node, path, visited):
                 yield x
 
     async def doRefs(self, srcnode, srcpath, visited):
