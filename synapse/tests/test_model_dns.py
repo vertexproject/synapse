@@ -114,8 +114,9 @@ class DnsModelTest(s_test.SynTest):
                 self.eq(node.get('mx'), 'mail.vertex.link')
 
                 # inet:dns:soa
-                valu = ('haha.vertex.link', 'ns1.vertex.link', 'pennywise@vertex.link')
-                node = snap.addNode('inet:dns:soa', valu)
+                guid = s_common.guid()
+                props = {'fqdn': 'haha.vertex.link', 'ns': 'ns1.vertex.link', 'email': 'pennywise@vertex.link'}
+                node = snap.addNode('inet:dns:soa', guid, props)
                 self.eq(node.get('fqdn'), 'haha.vertex.link')
                 self.eq(node.get('email'), 'pennywise@vertex.link')
                 self.eq(node.get('ns'), 'ns1.vertex.link')
@@ -174,9 +175,10 @@ class DnsModelTest(s_test.SynTest):
                 node = snap.addNode('inet:dns:answer', '*', props)
                 self.eq(node.get('mx'), (fqdn0, fqdn1))
                 # soa record
-                props = {'soa': (fqdn0, fqdn1, email0)}
+                guid = s_common.guid((fqdn0, fqdn1, email0))
+                props = {'soa': guid}
                 node = snap.addNode('inet:dns:answer', '*', props)
-                self.eq(node.get('soa'), (fqdn0, fqdn1, email0))
+                self.eq(node.get('soa'), guid)
                 # txt record
                 props = {'txt': (fqdn0, 'Oh my!')}
                 node = snap.addNode('inet:dns:answer', '*', props)
