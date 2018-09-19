@@ -10,6 +10,8 @@ from typing import Iterable, Optional, Union, Tuple, Dict
 
 import lmdb  # type: ignore
 
+import synapse.glob as s_glob
+
 import synapse.lib.kv as s_kv
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
@@ -482,7 +484,7 @@ class CryoCell(s_cell.Cell):
         if conf is not None:
             mergeconf.update(conf)
 
-        tank = await CryoTank(path, mergeconf)
+        tank = await CryoTank.anit(path, mergeconf)
 
         self.names.set(name, iden)
         self.confs.set(name, conf)
@@ -975,7 +977,7 @@ class CryoTankIndexer:
             self._removeSome()
             if not rowcount and not self._meta.deleting:
                 if stillworktodo is True:
-                    self.cryotank.fire('cryotank:indexer:noworkleft:' + last_callback)
+                    s_glob.plex.coroToTask(self.cryotank.fire('cryotank:indexer:noworkleft:' + last_callback))
                     last_callback = 'None'
                     stillworktodo = False
             else:

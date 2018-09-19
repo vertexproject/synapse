@@ -1,9 +1,11 @@
 '''
 An API to assist with the creation and enforcement of cortex data models.
 '''
-import regex
+import asyncio
 import logging
 import collections
+
+import regex
 
 import synapse.exc as s_exc
 import synapse.dyndeps as s_dyndeps
@@ -55,7 +57,7 @@ class PropBase:
         '''
         self.ondels.append(func)
 
-    def wasSet(self, node, oldv):
+    async def wasSet(self, node, oldv):
         '''
         Fire the onset() handlers for this property.
 
@@ -65,14 +67,18 @@ class PropBase:
         '''
         for func in self.onsets:
             try:
-                func(node, oldv)
+                retn = func(node, oldv)
+                if asyncio.iscoroutine(retn):
+                    await retn
             except Exception as e:
                 logger.exception('onset() error for %s' % (self.full,))
 
-    def wasDel(self, node, oldv):
+    async def wasDel(self, node, oldv):
         for func in self.ondels:
             try:
-                func(node, oldv)
+                retn = await func(node, oldv)
+                if asyncio.iscoroutine(retn):
+                    await retn
             except Exception as e:
                 logger.exception('ondel() error for %s' % (self.full,))
 
@@ -250,13 +256,15 @@ class Form:
     def onDel(self, func):
         self.ondels.append(func)
 
-    def wasAdded(self, node):
+    async def wasAdded(self, node):
         '''
         Fire the onAdd() callbacks for node creation.
         '''
         for func in self.onadds:
             try:
-                func(node)
+                retn = func(node)
+                if asyncio.iscoroutine(retn):
+                    await retn
             except Exception as e:
                 logger.exception('error on onadd for %s' % (self.name,))
 

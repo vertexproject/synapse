@@ -1,11 +1,11 @@
 import synapse.common as s_common
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
 import synapse.tools.cellauth as s_cellauth
 import synapse.tools.deploy as s_deploy
 
-class CellAuthTest(s_test.SynTest):
+class CellAuthTest(s_t_utils.SynTest):
     def test_cellauth_list(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             with dmon._getTestProxy('core', user='root', passwd='root') as core:

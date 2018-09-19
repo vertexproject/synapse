@@ -15,7 +15,7 @@ import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
-import synapse.lib.coro as s_coro
+import synapse.lib.base as s_base
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
 
@@ -218,10 +218,10 @@ class HttpCellStatus(CellHandler):
         #byts = json.dumps({'status': 'ok', 'result': modl})
         #self.write(byts)
 
-class CellApi(s_coro.Fini):
+class CellApi(s_base.Base):
 
     def __init__(self, cell, link):
-        s_coro.Fini.__init__(self)
+        s_base.Base.__init__(self)
         self.cell = cell
         self.link = link
         self.user = link.get('cell:user')
@@ -365,7 +365,7 @@ bootdefs = (
         'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
 )
 
-class Cell(s_eventbus.EventBus, s_telepath.Aware, s_coro.Anit):
+class Cell(s_base.Base, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
     '''
@@ -385,8 +385,8 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware, s_coro.Anit):
 
     def __init__(self, dirn):
 
-        s_coro.Anit.__init__(self)
-        s_eventbus.EventBus.__init__(self)
+        s_base.Base.__init__(self)
+        s_telepath.Aware.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
 
@@ -424,24 +424,13 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware, s_coro.Anit):
         if self.cellname is None:
             self.cellname = self.__class__.__name__
 
-        self._initCellAuth()
-
-        #print('IAM: %r' % (s_glob.plex.iAmLoop(),))
-        #if s_glob.plex.iAmLoop():
-            #raise Exception('omg')
-
-        #if not self._initCellAsync():
-            #raise s_exc.SynErr('initCellAsync failed!')
-
     async def __anit__(self):
+        await self._initCellAuth()
         await self._initCellSlab()
         await self._initHttpApi()
         self.onfini(self._finiCellAsync)
 
     async def _initHttpApi(self):
-
-        # set the current loop to the global plex
-        #asyncio.set_event_loop(s_glob.plex.loop)
 
         conf = self.conf.get('httpapi')
         if conf is None:
@@ -472,20 +461,10 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware, s_coro.Anit):
         host, port = self.webaddr
         return f'http://{host}:{port}/' + base
 
-    #@s_glob.synchelp
-    #async def _initCellAsync(self):
-        ## all init routines which must run in the async ioloop.
-        #await self._initCellSlab()
-        #await self._initHttpApi()
-        #return True
-
-    @s_glob.synchelp
     async def _finiCellAsync(self):
 
         if self.webserver is not None:
             self.webserver.stop()
-
-        return
 
     def getHttpHandlers(self):
         return ()
@@ -499,9 +478,10 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware, s_coro.Anit):
 
         s_common.gendir(self.dirn, 'slabs')
         path = os.path.join(self.dirn, 'slabs', 'cell.lmdb')
-        self.slab = s_lmdb.Slab(path, map_size=s_const.gibibyte)
+        self.slab = await s_lmdb.Slab.anit(path, map_size=s_const.gibibyte)
+        self.onfini(self.slab.fini)
 
-    def _initCellAuth(self):
+    async def _initCellAuth(self):
 
         if not self.boot.get('auth:en'):
             return
@@ -510,7 +490,7 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware, s_coro.Anit):
         import synapse.cells as s_cells
 
         authdir = s_common.gendir(self.dirn, 'auth')
-        self.auth = s_cells.init('auth', authdir)
+        self.auth = await s_cells.init('auth', authdir)
 
         admin = self.boot.get('auth:admin')
         if admin is not None:

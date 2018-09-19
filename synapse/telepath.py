@@ -9,8 +9,9 @@ import logging
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
-
+import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+
 import synapse.lib.urlhelp as s_urlhelp
 
 logger = logging.getLogger(__name__)
@@ -57,12 +58,12 @@ class Task:
         self.retn = retn
         self.done.set()
 
-class Share(s_coro.Fini):
+class Share(s_base.Base):
     '''
     The telepath client side of a dynamically shared object.
     '''
     def __init__(self, proxy, iden):
-        s_coro.Fini.__init__(self)
+        s_base.Base.__init__(self)
         self.iden = iden
         self.proxy = proxy
 
@@ -172,7 +173,7 @@ class Method:
         todo = (self.name, args, kwargs)
         return await self.proxy.task(todo, name=self.share)
 
-class Proxy(s_coro.Fini):
+class Proxy(s_base.Base):
     '''
     A telepath Proxy is used to call remote APIs on a shared object.
 
@@ -196,7 +197,7 @@ class Proxy(s_coro.Fini):
 
     '''
     def __init__(self, link, name):
-        s_coro.Fini.__init__(self)
+        s_base.Base.__init__(self)
 
         self.link = link
         self.name = name
@@ -393,13 +394,43 @@ class Proxy(s_coro.Fini):
 def alias(name):
     '''
     Resolve a telepath alias via ~/.syn/aliases.yaml
+
+    Args:
+        name (str): Name of the alias to resolve.
+
+    Notes:
+        An exact match against the aliases will always be returned first.
+        If no exact match is found and the name contains a '/' in it, the
+        value before the slash is looked up and the remainder of the path
+        is joined to any result. This is done to support dynamic Telepath
+        share names.
+
+    Returns:
+        str: The url string, if present in the alias.  None will be returned
+        if there are no matches.
     '''
     path = s_common.getSynPath('aliases.yaml')
     if not os.path.isfile(path):
         return None
 
     conf = s_common.yamlload(path)
-    return conf.get(name)
+
+    # Is there an exact match - if so, return it.
+    url = conf.get(name)
+    if url:
+        return url
+
+    # Since telepath supports dynamic shared object access,
+    # slice a name at the first '/', look up using that value
+    # and then append the second value to it.
+    dynname = None
+    if '/' in name:
+        name, dynname = name.split('/', 1)
+    url = conf.get(name)
+    if url and dynname:
+        url = '/'.join([url, dynname])
+
+    return url
 
 @s_glob.synchelp
 async def openurl(url, **opts):
@@ -449,7 +480,7 @@ async def openurl(url, **opts):
 
     link = await s_glob.plex.link(host, port)
 
-    prox = Proxy(link, name)
+    prox = await Proxy.anit(link, name)
 
     await prox.handshake(auth=auth)
 

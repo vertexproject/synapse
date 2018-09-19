@@ -37,7 +37,7 @@ def add(name, ctor):
     '''
     ctors[name] = ctor
 
-def init(name, dirn):
+async def init(name, dirn):
     '''
     Initialize and return a Cell() object by alias.
     '''
@@ -45,9 +45,9 @@ def init(name, dirn):
     if ctor is None:
         raise s_exc.NoSuchName(name=name, mesg='No cell ctor by that name')
 
-    return ctor(dirn)
+    return await ctor.anit(dirn)
 
-def initFromDirn(dirn):
+async def initFromDirn(dirn):
     '''
     As above, but retrieves type from boot.yaml in dirn
     '''
@@ -55,7 +55,7 @@ def initFromDirn(dirn):
     kind = conf.get('type')
     if type is None:
         raise s_exc.BadConfValu('boot.yaml missing type key')
-    return init(kind, dirn)
+    return await init(kind, dirn)
 
 def deploy(name, dirn, boot=None):
     '''

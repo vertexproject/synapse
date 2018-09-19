@@ -2,21 +2,13 @@
 The layer library contains the base Layer object and helpers used for
 cortex construction.
 '''
-import os
-import lmdb
 import regex
 import logging
 import threading
-import contextlib
 import collections
 
 import synapse.exc as s_exc
-import synapse.common as s_common
-import synapse.eventbus as s_eventbus
-
 import synapse.lib.cell as s_cell
-import synapse.lib.msgpack as s_msgpack
-import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
 
@@ -28,15 +20,15 @@ class Utf8er(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8')
 
-class Xact(s_eventbus.EventBus):
+class Layer(s_cell.Cell):
     '''
-    A Layer transaction which encapsulates the storage implementation.
+    A layer implements btree indexed storage for a cortex.
+
+    TODO:
+        metadata for layer contents (only specific type / tag)
     '''
-
-    def __init__(self, layr, write=False):
-
-        s_eventbus.EventBus.__init__(self)
-
+    def __init__(self, dirn):
+        s_cell.Cell.__init__(self, dirn)
         self._lift_funcs = {
             'indx': self._liftByIndx,
             'prop:re': self._liftByPropRe,
@@ -49,86 +41,54 @@ class Xact(s_eventbus.EventBus):
             'prop:del': self._storPropDel,
         }
 
-        self.splices = []
-        self.layr = layr
-        self.write = write
-        # our constructor gets a ref!
-        self.refs = 1
-
-    def getLiftRows(self, lops):
+    async def getLiftRows(self, lops):
         for oper in lops:
 
             func = self._lift_funcs.get(oper[0])
             if func is None:
                 raise s_exc.NoSuchLift(name=oper[0])
 
-            yield from func(oper)
+            async for row in func(oper):
+                yield row
 
-    @contextlib.contextmanager
-    def incxref(self):
-        '''
-        A reference count context manager for the Xact.
-
-        This API is *not* thread safe and is meant only for use
-        in determining when generators running within one thread
-        are complete.
-        '''
-        self.refs += 1
-
-        yield
-
-        self.decref()
-
-    def decref(self):
-        '''
-        Decrement the reference count for the Xact.
-
-        This API is *not* thread safe and is meant only for use
-        in determining when generators running within one thread
-        are complete.
-        '''
-        self.refs -= 1
-        if self.refs == 0:
-            self.commit()
-
-    def setOffset(self, iden, offs):  # pragma: no cover
+    async def setOffset(self, iden, offs):  # pragma: no cover
         raise NotImplementedError
 
-    def getOffset(self, iden):  # pragma: no cover
+    async def getOffset(self, iden):  # pragma: no cover
         raise NotImplementedError
 
-    def stor(self, sops):
+    async def stor(self, sops):
         '''
         Execute a series of storage operations.
         '''
         for oper in sops:
-            func = self._stor_funcs.get(oper[0])
+            func = await self._stor_funcs.get(oper[0])
             if func is None:
                 raise s_exc.NoSuchStor(name=oper[0])
             func(oper)
 
-    def abort(self):  # pragma: no cover
+    async def abort(self):  # pragma: no cover
         raise NotImplementedError
 
-    def commit(self):  # pragma: no cover
+    async def commit(self):  # pragma: no cover
         raise NotImplementedError
 
-    def getBuidProps(self, buid):  # pragma: no cover
+    async def getBuidProps(self, buid):  # pragma: no cover
         raise NotImplementedError
 
-    def _storPropSet(self, oper):  # pragma: no cover
+    async def _storPropSet(self, oper):  # pragma: no cover
         raise NotImplementedError
 
-    def _storPropDel(self, oper):  # pragma: no cover
+    async def _storPropDel(self, oper):  # pragma: no cover
         raise NotImplementedError
 
-    def _liftByFormRe(self, oper):
+    async def _liftByFormRe(self, oper):
 
         form, query, info = oper[1]
 
         regx = regex.compile(query)
 
-        for buid, valu in self.iterFormRows(form):
+        async for buid, valu in self.iterFormRows(form):
 
             # for now... but maybe repr eventually?
             if not isinstance(valu, str):
@@ -139,13 +99,13 @@ class Xact(s_eventbus.EventBus):
 
             yield (buid, )
 
-    def _liftByUnivRe(self, oper):
+    async def _liftByUnivRe(self, oper):
 
         prop, query, info = oper[1]
 
         regx = regex.compile(query)
 
-        for buid, valu in self.iterUnivRows(prop):
+        async for buid, valu in self.iterUnivRows(prop):
 
             # for now... but maybe repr eventually?
             if not isinstance(valu, str):
@@ -156,14 +116,14 @@ class Xact(s_eventbus.EventBus):
 
             yield (buid, )
 
-    def _liftByPropRe(self, oper):
+    async def _liftByPropRe(self, oper):
         # ('regex', (<form>, <prop>, <regex>, info))
         form, prop, query, info = oper[1]
 
         regx = regex.compile(query)
 
         # full table scan...
-        for buid, valu in self.iterPropRows(form, prop):
+        async for buid, valu in self.iterPropRows(form, prop):
 
             # for now... but maybe repr eventually?
             if not isinstance(valu, str):
@@ -172,65 +132,41 @@ class Xact(s_eventbus.EventBus):
             if not regx.search(valu):
                 continue
 
-            #yield buid, form, prop, valu
+            # yield buid, form, prop, valu
             yield (buid, )
 
-    def _liftByIndx(self, oper):  # pragma: no cover
+    async def _liftByIndx(self, oper):  # pragma: no cover
         raise NotImplementedError
 
-    def _rowsByEq(self, curs, pref, valu):  # pragma: no cover
+    async def _rowsByEq(self, curs, pref, valu):  # pragma: no cover
         raise NotImplementedError
 
-    def _rowsByPref(self, curs, pref, valu):  # pragma: no cover
+    async def _rowsByPref(self, curs, pref, valu):  # pragma: no cover
         raise NotImplementedError
 
-    def _rowsByRange(self, curs, pref, valu):  # pragma: no cover
+    async def _rowsByRange(self, curs, pref, valu):  # pragma: no cover
         raise NotImplementedError
 
-    def iterFormRows(self, form):  # pragma: no cover
+    async def iterFormRows(self, form):  # pragma: no cover
         '''
         Iterate (buid, valu) rows for the given form in this layer.
         '''
         raise NotImplementedError
 
-    def iterPropRows(self, form, prop):  # pragma: no cover
+    async def iterPropRows(self, form, prop):  # pragma: no cover
         '''
         Iterate (buid, valu) rows for the given form:prop in this layer.
         '''
         raise NotImplementedError
 
-    def iterUnivRows(self, prop):  # pragma: no cover
+    async def iterUnivRows(self, prop):  # pragma: no cover
         '''
         Iterate (buid, valu) rows for the given universal prop
         '''
         raise NotImplementedError
 
-class Layer(s_cell.Cell):
-    '''
-    A layer implements btree indexed storage for a cortex.
-
-    TODO:
-        metadata for layer contents (only specific type / tag)
-    '''
-    def __init__(self, dirn):
-        s_cell.Cell.__init__(self, dirn)
-        self.spliced = threading.Event()
-        self.onfini(self.spliced.set)
-
-    def getOffset(self, iden):  # pragma: no cover
+    async def stat(self):
         raise NotImplementedError()
 
-    def setOffset(self, iden, offs):  # pragma: no cover
+    async def splices(self, offs, size):  # pragma: no cover
         raise NotImplementedError()
-
-    def stat(self):
-        raise NotImplementedError()
-
-    def splices(self, offs, size):  # pragma: no cover
-        raise NotImplementedError()
-
-    def xact(self, write=False):  # pragma: no cover
-        '''
-        Return a transaction object for the layer.
-        '''
-        return Xact(self, write=write)

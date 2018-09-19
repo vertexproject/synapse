@@ -19,6 +19,7 @@ import os
 import sys
 import types
 import shutil
+import inspect
 import logging
 import pathlib
 import tempfile
@@ -47,6 +48,9 @@ logger = logging.getLogger(__name__)
 
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
+
+async def alist(coro):
+    return [x async for x in coro]
 
 def writeCerts(dirn):
     '''
@@ -217,14 +221,14 @@ testmodel = {
 class TestModule(s_module.CoreModule):
     testguid = '8f1401de15918358d5247e21ca29a814'
 
-    def initCoreModule(self):
+    async def initCoreModule(self):
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
-        with self.core.snap() as snap:
-            snap.addNode('source', self.testguid, {'name': 'test'})
+        async with self.core.snap() as snap:
+            await snap.addNode('source', self.testguid, {'name': 'test'})
 
-    def addTestRecords(self, snap, items):
+    async def addTestRecords(self, snap, items):
         for name in items:
-            snap.addNode('teststr', name)
+            await snap.addNode('teststr', name)
 
     def getModelDefs(self):
         return (
@@ -316,6 +320,24 @@ class TestSteps:
             StepTimeout: on wait timeout
         '''
         if not self.steps[step].wait(timeout=timeout):
+            raise s_exc.StepTimeout(mesg='timeout waiting for step', step=step)
+        return True
+
+    async def asyncwait(self, step, timeout=None):
+        '''
+        Wait (up to timeout seconds) for a step to complete.
+
+        Args:
+            step (str): The step name to wait for.
+            timeout (int): The timeout in seconds (or None)
+
+        Returns:
+            bool: True if the step is completed within the wait timeout.
+
+        Raises:
+            StepTimeout: on wait timeout
+        '''
+        if not await s_glob.executor(self.steps[step].wait, timeout=timeout):
             raise s_exc.StepTimeout(mesg='timeout waiting for step', step=step)
         return True
 
@@ -450,6 +472,16 @@ class StreamEvent(io.StringIO, threading.Event):
             self.set()
 
 class SynTest(unittest.TestCase):
+    '''
+    Mark all async test methods as s_glob.synchelp decorated
+    '''
+    def __init__(self, *args, **kwargs):
+        unittest.TestCase.__init__(self, *args, **kwargs)
+        for s in dir(self):
+            attr = getattr(self, s, None)
+            # If s is an instance method and starts with 'test_', synchelp wrap it
+            if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
+                setattr(self, s, s_glob.synchelp(attr))
 
     def setUp(self):
         self.alt_write_layer = None
@@ -545,8 +577,11 @@ class SynTest(unittest.TestCase):
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
-    @contextlib.contextmanager
-    def getTestCore(self, mirror='testcore', conf=None, extra_layers=None):
+    # FIXME:  add back getTestCore
+
+    # Note: requires Python 3.7
+    @contextlib.asynccontextmanager
+    async def agetTestCore(self, mirror='testcore', conf=None, extra_layers=None):
         '''
         Return a simple test Cortex.
 
@@ -568,11 +603,16 @@ class SynTest(unittest.TestCase):
                 src = pathlib.Path(fn).resolve()
                 os.symlink(src, pathlib.Path(ldir, f'{i + 1:03}-testlayer'))
 
-            with s_cortex.Cortex(dirn) as core:
+            async with await s_cortex.Cortex.anit(dirn) as core:
                 yield core
 
     @contextlib.contextmanager
-    def getTestDmon(self, mirror='dmontest'):
+    def getTestDmon(self, *args, **kwargs):
+        with AsyncToSyncCMgr(self.agetTestDmon, *args, **kwargs) as dmon:
+            yield dmon
+
+    @contextlib.asynccontextmanager
+    async def agetTestDmon(self, mirror='dmontest'):
 
         with self.getTestDir(mirror=mirror) as dirn:
             coredir = pathlib.Path(dirn, 'cells', 'core')
@@ -583,7 +623,7 @@ class SynTest(unittest.TestCase):
 
             certdir = s_certdir.defdir
 
-            with s_daemon.Daemon(dirn) as dmon:
+            async with await s_daemon.Daemon.anit(dirn) as dmon:
 
                 # act like synapse.tools.dmon...
                 s_certdir.defdir = s_common.genpath(dirn, 'certs')
@@ -591,6 +631,16 @@ class SynTest(unittest.TestCase):
                 yield dmon
 
                 s_certdir.defdir = certdir
+
+    def getTestProxy(self, dmon, name, **kwargs):
+        host, port = dmon.addr
+        kwargs.update({'host': host, 'port': port})
+        return s_telepath.openurl(f'tcp:///{name}', **kwargs)
+
+    async def agetTestProxy(self, dmon, name, **kwargs):
+        host, port = dmon.addr
+        kwargs.update({'host': host, 'port': port})
+        return await s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
     @contextlib.contextmanager
     def getTestDir(self, mirror=None):
@@ -695,7 +745,7 @@ class SynTest(unittest.TestCase):
         slogger.addHandler(handler)
         try:
             yield stream
-        except:  # pragma: no cover
+        except Exception:  # pragma: no cover
             raise
         finally:
             slogger.removeHandler(handler)
@@ -742,7 +792,7 @@ class SynTest(unittest.TestCase):
         # This context manager is a nop
         try:
             yield None
-        except:  # pragma: no cover
+        except Exception:  # pragma: no cover
             raise
         # Clean up any new envars we set and any old envars we need to reset.
         finally:
@@ -797,6 +847,34 @@ class SynTest(unittest.TestCase):
             return list(gfunc(*args, **kwargs))
 
         self.raises(exc, testfunc)
+
+    async def agenraises(self, exc, gfunc):
+        '''
+        Helper to validate that an async generator will throw an exception.
+
+        Args:
+            exc: Exception class to catch
+            gfunc: async Generator
+        '''
+        await self.asyncraises(exc, alist(gfunc))
+
+    @contextlib.contextmanager
+    def setSynDir(self, dirn):
+        '''
+        Sets s_common.syndir to a specific directory and then unsets it afterwards.
+
+        Args:
+            dirn (str): Directory to set syndir to.
+
+        Notes:
+            This is to be used as a context manager.
+        '''
+        olddir = s_common.syndir
+        try:
+            s_common.syndir = dirn
+            yield None
+        finally:
+            s_common.syndir = olddir
 
     def eq(self, x, y, msg=None):
         '''
@@ -923,6 +1001,15 @@ class SynTest(unittest.TestCase):
 
         self.eq(x, len(obj), msg=msg)
 
+    async def agenlen(self, x, obj, msg=None):
+        '''
+        Assert that the async generator produces x items
+        '''
+        count = 0
+        async for _ in obj:
+            count += 1
+        self.eq(x, count, msg=msg)
+
     def istufo(self, obj):
         '''
         Check to see if an object is a tufo.
@@ -954,7 +1041,7 @@ class SynTest(unittest.TestCase):
                 s_common.yamlsave(conf, cdir, 'cell.yaml')
             yield dirn
 
-    def getTestCell(self, dirn, name, boot=None, conf=None):
+    async def getTestCell(self, dirn, name, boot=None, conf=None):
         '''
         Get an instance of a Cell with specific boot and configuration data.
 
@@ -988,7 +1075,7 @@ class SynTest(unittest.TestCase):
             ldir = s_common.gendir(cdir, 'layers')
             layerdir = pathlib.Path(ldir, '000-default')
             os.symlink(self.alt_write_layer, layerdir)
-        return s_cells.init(name, cdir)
+        return await s_cells.init(name, cdir)
 
     def getIngestDef(self, guid, seen):
         gestdef = {
@@ -1124,7 +1211,7 @@ class SynTest(unittest.TestCase):
             coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
 
             # register the blob with the Axon.
-            with dmon._getTestProxy('axon00') as axon:
+            with AsyncToSyncCMgr(self.getTestProxy, dmon, 'axon00') as axon:
                 axon.addBlobStor(blobstorurl)
 
             # Add our helper URLs to scope so others don't
@@ -1135,15 +1222,34 @@ class SynTest(unittest.TestCase):
 
             # grant the root user permissions
             if rootperms:
-                with dmon._getTestProxy('core', user='root', passwd='root') as core:
+                with AsyncToSyncCMgr(self.getTestProxy, dmon, 'core', user='root', passwd='root') as core:
                     self.addCreatorDeleterRoles(core)
                     core.addUserRole('root', 'creator')
                     core.addUserRole('root', 'deleter')
 
             yield dmon
 
+class AsyncToSyncCMgr():
+    '''
+    Wraps an async context manager as a sync one
+    '''
+    def __init__(self, func, *args, **kwargs):
+        self.amgr = func(*args, **kwargs)
+
+    def __enter__(self):
+        self.obj = s_glob.plex.coroToSync(self.amgr.__aenter__())
+        return self.obj
+
+    def __exit__(self, *args):
+        return s_glob.plex.coroToSync(self.obj.__aexit__(*args))
+
+# Discuss: could build this logic into coroToSync or synchelp
 class SyncToAsyncCMgr():
-    ''' Wraps a regular context manager in an async one '''
+    '''
+    Wraps a regular context manager in an async one.
+
+    Enter and exit functions are run in executors to avoid deadlock.
+    '''
     def __init__(self, func, *args, **kwargs):
         def run_and_enter():
             obj = func(*args, **kwargs)

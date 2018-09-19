@@ -188,7 +188,7 @@ class PsModule(s_module.CoreModule):
 
 # FIXME - what do we want to do with seed ctors?
 class Fixme:
-    def initCoreModule(self):
+    async def initCoreModule(self):
         self.core.addSeedCtor('ps:person:guidname', self.seedPersonGuidName)
         self.core.addSeedCtor('ps:persona:guidname', self.seedPersonaGuidName)
 

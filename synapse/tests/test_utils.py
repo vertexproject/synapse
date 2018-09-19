@@ -16,13 +16,11 @@ import synapse.eventbus as s_eventbus
 
 import synapse.lib.output as s_output
 
-import synapse.tests.common as s_test
 import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
 
-
-class TestUtils(s_test.SynTest):
+class TestUtils(s_t_utils.SynTest):
     def test_syntest_helpers(self):
         # Execute all of the test helpers here
         self.len(2, (1, 2))
@@ -298,6 +296,6 @@ class TestUtils(s_test.SynTest):
             self.isin('axon00', dmon.cells)
             self.isin('blobstor00', dmon.cells)
 
-            with dmon._getTestProxy('core', user='root', passwd='root') as core:
+            with self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
                 node = core.addNode('teststr', 'hehe')
                 self.nn(node)

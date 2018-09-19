@@ -11,9 +11,8 @@ import synapse.common as s_common
 
 import synapse.lib.threads as s_threads
 
-import synapse.tests.common as s_test
-
-from synapse.tests.utils import SyncToAsyncCMgr
+from synapse.tests.utils import alist
+import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +22,7 @@ bbuf = b'0123456' * 4793491
 bbufhash = hashlib.sha256(bbuf).digest()
 asdfhash = hashlib.sha256(b'asdfasdf').digest()
 
-async def alist(coro):
-    return [x async for x in coro]
-
-class AxonTest(s_test.SynTest):
+class AxonTest(s_t_utils.SynTest):
 
     async def _wait_for_axon_files(self, axon, nfiles):
         for i in range(20):
@@ -36,11 +32,10 @@ class AxonTest(s_test.SynTest):
             await asyncio.sleep(0.2, loop=s_glob.plex.loop)
         self.eq(nfiles, (await axon.stat()).get('files'))
 
-    @s_glob.synchelp
     async def test_blobstor(self):
         with self.getTestDir() as dirn:
             path0 = os.path.join(dirn, 'blob0')
-            async with SyncToAsyncCMgr(s_axon.BlobStor, path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst0:
+            async with await s_axon.BlobStor.anit(path0, conf={'mapsize': s_t_utils.TEST_MAP_SIZE}) as bst0:
 
                 data1 = b'asdfqwerhehehaha'
 
@@ -72,8 +67,8 @@ class AxonTest(s_test.SynTest):
                 self.eq(retn, b'')
 
                 path1 = os.path.join(dirn, 'blob1')
-                blobstorconf = {'mapsize': s_test.TEST_MAP_SIZE}
-                async with SyncToAsyncCMgr(s_axon.BlobStor, path1, conf=blobstorconf) as bst1:
+                blobstorconf = {'mapsize': s_t_utils.TEST_MAP_SIZE}
+                async with await s_axon.BlobStor.anit(path1, conf=blobstorconf) as bst1:
 
                     clone_data = [x async for x in bst0.clone(0)]
                     await bst1._consume_clone_data(clone_data)
@@ -91,11 +86,10 @@ class AxonTest(s_test.SynTest):
                 self.eq((1, xxxxhash), await bst0.putone(b'xxxx'))
                 self.eq((2, yyyyhash), await bst0.putmany((b'xxxy', b'yyyy')))
 
-    @s_glob.synchelp
     async def test_blobstor_stat(self):
         with self.getTestDir() as dirn:
             path0 = os.path.join(dirn, 'blob0')
-            async with SyncToAsyncCMgr(s_axon.BlobStor, path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst0:
+            async with await s_axon.BlobStor.anit(path0, conf={'mapsize': s_t_utils.TEST_MAP_SIZE}) as bst0:
 
                 blobs = (
                     (None, 0, os.urandom(1000)),
@@ -115,11 +109,10 @@ class AxonTest(s_test.SynTest):
                 stats = await bst0.stat()
                 self.eq(stats, {'bytes': 2012, 'blobs': 2})
 
-    @s_glob.synchelp
     async def test_blobstor_metrics(self):
         with self.getTestDir() as dirn:
             path0 = os.path.join(dirn, 'blob0')
-            async with SyncToAsyncCMgr(s_axon.BlobStor, path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as bst0:
+            async with await s_axon.BlobStor.anit(path0, conf={'mapsize': s_t_utils.TEST_MAP_SIZE}) as bst0:
 
                 blobs = (
                     (None, 0, os.urandom(1000)),
@@ -153,9 +146,8 @@ class AxonTest(s_test.SynTest):
                 for took in tooks:
                     self.lt(took, 10000)
 
-    @s_glob.synchelp
     async def test_blobstor_remote(self):
-        async with SyncToAsyncCMgr(self.getTestDmon, mirror='axondmon') as dmon, \
+        async with self.agetTestDmon(mirror='axondmon') as dmon, \
                 await dmon._getTestProxy('blobstor00') as bst0:
             stats = await bst0.stat()
             self.eq(stats, {})
@@ -163,13 +155,12 @@ class AxonTest(s_test.SynTest):
             await upld.write(b'abcd')
             await upld.finish()
 
-    @s_glob.synchelp
     async def test_axon(self):
         with self.getTestDir() as dirn:
             path0 = os.path.join(dirn, 'axon0')
-            async with SyncToAsyncCMgr(self.getTestDmon, mirror='axondmon') as dmon, \
-                    await dmon._getTestProxy('blobstor00') as blobstor0, \
-                    SyncToAsyncCMgr(s_axon.Axon, path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as axon:
+            async with self.agetTestDmon(mirror='axondmon') as dmon, \
+                    await self.agetTestProxy(dmon, 'blobstor00') as blobstor0, \
+                    await s_axon.Axon.anit(path0, conf={'mapsize': s_t_utils.TEST_MAP_SIZE}) as axon:
 
                 self.eq((), [x async for x in axon.metrics()])
                 self.eq((), [x async for x in await blobstor0.metrics()])
@@ -211,10 +202,9 @@ class AxonTest(s_test.SynTest):
                 # Empty file test
                 self.eq(1, await axon.bulkput([b'']))
 
-    @s_glob.synchelp
     async def test_axon_remote(self):
-        async with SyncToAsyncCMgr(self.getTestDmon, mirror='axondmon') as dmon, \
-                await dmon._getTestProxy('axon00') as axon:
+        async with self.agetTestDmon(mirror='axondmon') as dmon, \
+                await self.agetTestProxy(dmon, 'axon00') as axon:
             blobstorurl = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/blobstor00'
             await axon.addBlobStor(blobstorurl)
 
@@ -241,10 +231,9 @@ class AxonTest(s_test.SynTest):
             bslist = await axon.getBlobStors()
             self.notin(blobstorurl, bslist)
 
-    @s_glob.synchelp
     async def test_axon_uploader(self):
-        async with SyncToAsyncCMgr(self.getTestDmon, mirror='axondmon') as dmon, \
-                await dmon._getTestProxy('axon00') as axon:
+        async with self.agetTestDmon(mirror='axondmon') as dmon, \
+                await self.agetTestProxy(dmon, 'axon00') as axon:
             abhash = hashlib.sha256(b'ab').digest()
             cdhash = hashlib.sha256(b'cd').digest()
 
@@ -285,24 +274,23 @@ class AxonTest(s_test.SynTest):
             self.eq((), await axon.wants([bbufhash]))
             self.eq(bbuf, b''.join([x async for x in await axon.get(bbufhash)]))
 
-    @s_glob.synchelp
     async def test_axon_cloning(self):
         ''' Bring up an axon and a blobstor, then bring up a second blobstor that's cloning the first '''
         with self.getTestDir() as dirn:
             path0 = os.path.join(dirn, 'axon0')
-            async with SyncToAsyncCMgr(self.getTestDmon, mirror='axondmon') as dmon, \
-                    await dmon._getTestProxy('blobstor00') as blobstor0, \
-                    SyncToAsyncCMgr(s_axon.Axon, path0, conf={'mapsize': s_test.TEST_MAP_SIZE}) as axon:
+            async with self.agetTestDmon(mirror='axondmon') as dmon, \
+                    await self.agetTestProxy(dmon, 'blobstor00') as blobstor0, \
+                    await s_axon.Axon.anit(path0, conf={'mapsize': s_t_utils.TEST_MAP_SIZE}) as axon:
 
                 blobstorurl0 = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/blobstor00'
                 blobstorurl1 = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/blobstor01'
                 await axon.addBlobStor(blobstorurl0)
                 self.eq(1, await axon.bulkput([b'asdfasdf']))
                 self.eq(1, await axon.bulkput([b'foo']))
-                blobstor1conf = {'mapsize': s_test.TEST_MAP_SIZE, 'cloneof': blobstorurl0}
+                blobstor1conf = {'mapsize': s_t_utils.TEST_MAP_SIZE, 'cloneof': blobstorurl0}
 
                 # Make a second blobstor that clones the first
-                async with SyncToAsyncCMgr(s_axon.BlobStor, path0, conf=blobstor1conf) as blobstor1:
+                async with s_axon.BlobStor(path0, conf=blobstor1conf) as blobstor1:
                     # Make sure the cloning works
                     for i in range(10):
                         if blobstor1.getCloneProgress() >= 2:
@@ -340,8 +328,7 @@ class AxonTest(s_test.SynTest):
         # FIXME
         pass
 
-class _AsyncQueueTest(s_test.SynTest):
-    @s_glob.synchelp
+class _AsyncQueueTest(s_t_utils.SynTest):
     async def test_asyncqueue(self):
 
         # The axon tests test most of the asyncqueue functionality.  We just need to test the

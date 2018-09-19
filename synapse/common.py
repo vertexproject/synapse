@@ -7,6 +7,7 @@ import time
 import fcntl
 import types
 import base64
+import struct
 import fnmatch
 import hashlib
 import logging
@@ -43,7 +44,6 @@ version = (major, minor, micro)
 guidre = regex.compile('^[0-9a-f]{32}$')
 
 novalu = NoValu()
-
 
 def now():
     '''
@@ -535,6 +535,14 @@ def spin(genr):
     '''
     collections.deque(genr, 0)
 
+async def aspin(genr):
+    '''
+    Async version of spin
+    '''
+    # FIXME:  is there anything faster?
+    async for _ in genr:
+        pass
+
 def reqStorDict(x):
     '''
     Raises BadStorValu if any value in the dict is not compatible
@@ -601,6 +609,20 @@ def to_bytes(valu, size):
 
 def to_int(byts):
     return int.from_bytes(byts, 'little')
+
+_Int64be = struct.Struct('>Q')
+
+def int64en(i):
+    '''
+    Encode a 64-bit int into 8 byte big-endian bytes
+    '''
+    return _Int64be.pack(i)
+
+def int64un(b):
+    '''
+    Decode a 64-bit int from 8 byte big-endian
+    '''
+    return _Int64be.unpack(b)[0]
 
 def enbase64(b):
     return base64.b64encode(b).decode('utf8')

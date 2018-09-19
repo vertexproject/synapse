@@ -3,9 +3,9 @@ import threading
 import synapse.glob as s_glob
 import synapse.lib.plex as s_plex
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
-class PlexTest(s_test.SynTest):
+class PlexTest(s_t_utils.SynTest):
     def test_plex_callLater(self):
         evt = threading.Event()
         data = {}
@@ -47,41 +47,43 @@ class PlexTest(s_test.SynTest):
         self.isin('args', data)
         self.isin('kwargs', data)
 
-    @s_glob.synchelp
     async def test_plex_basic(self):
         '''
         Have two plexes connect to each other, send messages, and then server disconnects
         '''
-        plex1 = s_plex.Plex()
-        plex2 = s_plex.Plex()
         steps = self.getTestSteps(['onlink', 'onrx1', 'client_rx', 'link_fini'])
+        with s_plex.Plex() as plex1, s_plex.Plex() as plex2:
 
-        async def server_onlink(link):
-            steps.done('onlink')
+            async def server_onlink(link):
+                steps.done('onlink')
 
-            async def do_rx(msg):
-                self.eq(msg, 'foo')
-                steps.done('onrx1')
-                await link.tx('bar')
-                await link.fini()
+                async def do_rx(msg):
+                    self.eq(msg, 'foo')
+                    steps.done('onrx1')
+                    await link.tx('bar')
+                    await link.fini()
 
-            link.onrx(do_rx)
+                link.onrx(do_rx)
 
-        server = plex1.listen('127.0.0.1', None, onlink=server_onlink)
-        _, port = server.sockets[0].getsockname()
-        link2 = plex2.connect('127.0.0.1', port)
-        steps.wait('onlink', timeout=1)
+            async def do_listen():
+                server = await plex1.listen('127.0.0.1', None, onlink=server_onlink)
+                _, port = server.sockets[0].getsockname()
+                return port
 
-        async def client_do_rx(msg):
-            self.eq(msg, 'bar')
-            steps.done('client_rx')
-        link2.onrx(client_do_rx)
+            port = plex1.coroToSync(do_listen())
+            link2 = plex2.connect('127.0.0.1', port)
+            await steps.asyncwait('onlink', timeout=1)
 
-        async def onlinkfini():
-            steps.done('link_fini')
+            async def client_do_rx(msg):
+                self.eq(msg, 'bar')
+                steps.done('client_rx')
+            link2.onrx(client_do_rx)
 
-        link2.onfini(onlinkfini)
-        await link2.tx('foo')
-        steps.wait('onrx1', timeout=1)
-        steps.wait('client_rx', timeout=1)
-        steps.wait('link_fini')
+            async def onlinkfini():
+                steps.done('link_fini')
+
+            link2.onfini(onlinkfini)
+            await link2.tx('foo')
+            await steps.asyncwait('onrx1', timeout=1)
+            await steps.asyncwait('client_rx', timeout=1)
+            await steps.asyncwait('link_fini')

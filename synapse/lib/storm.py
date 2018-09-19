@@ -41,11 +41,11 @@ class Runtime:
         self._graph_done = {}
         self._graph_want = collections.deque()
 
-    def printf(self, mesg):
-        return self.snap.printf(mesg)
+    async def printf(self, mesg):
+        return await self.snap.printf(mesg)
 
-    def warn(self, mesg, **info):
-        return self.snap.warn(mesg, **info)
+    async def warn(self, mesg, **info):
+        return await self.snap.warn(mesg, **info)
 
     def elevate(self):
 
@@ -78,14 +78,14 @@ class Runtime:
         '''
         self.inputs.append(node)
 
-    def getInput(self):
+    async def getInput(self):
 
         for node in self.inputs:
             yield node, self.initPath(node)
 
         for ndef in self.opts.get('ndefs', ()):
 
-            node = self.snap.getNodeByNdef(ndef)
+            node = await self.snap.getNodeByNdef(ndef)
             if node is not None:
                 yield node, self.initPath(node)
 
@@ -93,7 +93,7 @@ class Runtime:
 
             buid = s_common.uhex(iden)
 
-            node = self.snap.getNodeByBuid(buid)
+            node = await self.snap.getNodeByBuid(buid)
             if node is not None:
                 yield node, self.initPath(node)
 
@@ -120,13 +120,13 @@ class Runtime:
             count += 1
         return count
 
-    def iterStormQuery(self, query):
+    async def iterStormQuery(self, query):
         # init any options from the query
         # (but dont override our own opts)
         for name, valu in query.opts.items():
             self.opts.setdefault(name, valu)
 
-        for node, path in query.iterNodePaths(self):
+        async for node, path in query.iterNodePaths(self):
             self.tick()
             yield node, path
 
@@ -138,9 +138,9 @@ class Parser(argparse.ArgumentParser):
         self.exited = False
 
         argparse.ArgumentParser.__init__(self,
-            prog=prog,
-            description=descr,
-            formatter_class=argparse.RawDescriptionHelpFormatter)
+                                         prog=prog,
+                                         description=descr,
+                                         formatter_class=argparse.RawDescriptionHelpFormatter)
 
     def exit(self, status=0, message=None):
         '''
@@ -153,13 +153,13 @@ class Parser(argparse.ArgumentParser):
         self.exited = True
         raise s_exc.BadSyntaxError(mesg=message, prog=self.prog, status=status)
 
-    def _print_message(self, text, fd=None):
+    async def _print_message(self, text, fd=None):
 
         if self.printf is None:
             return
 
         for line in text.split('\n'):
-            self.printf(line)
+            await self.printf(line)
 
 class Cmd:
     '''
@@ -198,8 +198,8 @@ class Cmd:
         return not self.pars.exited
 
     async def execStormCmd(self, runt, genr):
-        for item in self.runStormCmd(runt.snap, genr):
-            yield item
+        ''' Abstract base method '''
+        raise NotImplemented
 
 class HelpCmd(Cmd):
     '''
@@ -214,15 +214,15 @@ class HelpCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        for item in genr:
+        async for item in genr:
             yield item
 
         if not self.opts.command:
             for name, ctor in sorted(runt.snap.core.getStormCmds()):
-                runt.printf('%.20s: %s' % (name, ctor.getCmdBrief()))
+                await runt.printf('%.20s: %s' % (name, ctor.getCmdBrief()))
 
-        runt.printf('')
-        runt.printf('For detailed help on any command, use <cmd> --help')
+        await runt.printf('')
+        await runt.printf('For detailed help on any command, use <cmd> --help')
 
 class LimitCmd(Cmd):
     '''
@@ -249,7 +249,8 @@ class LimitCmd(Cmd):
             count += 1
 
             if count >= self.opts.count:
-                snap.printf(f'limit reached: {self.opts.count}')
+                # FIXME:
+                await snap.printf(f'limit reached: {self.opts.count}')
 
 class UniqCmd(Cmd):
     '''
@@ -317,7 +318,8 @@ class DelNodeCmd(Cmd):
             await node.delete(force=self.opts.force)
 
         # a bit odd, but we need to be detected as a generator
-        yield from ()
+        if False:
+            yield
 
 class SudoCmd(Cmd):
     '''
@@ -331,16 +333,17 @@ class SudoCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
         runt.elevate()
-        yield from genr
+        async for x in genr:
+            yield x
 
 # TODO
-#class AddNodeCmd(Cmd):     # addnode inet:ipv4 1.2.3.4 5.6.7.8
-#class DelPropCmd(Cmd):     # | delprop baz
-#class SetPropCmd(Cmd):     # | setprop foo bar
-#class AddTagCmd(Cmd):      # | addtag --time 2015 #hehe.haha
-#class DelTagCmd(Cmd):      # | deltag #foo.bar
-#class SeenCmd(Cmd):        # | seen --from <guid>update .seen and seen=(src,node).seen
-#class SourcesCmd(Cmd):     # | sources ( <nodes> -> seen:ndef :source -> source )
+# class AddNodeCmd(Cmd):     # addnode inet:ipv4 1.2.3.4 5.6.7.8
+# class DelPropCmd(Cmd):     # | delprop baz
+# class SetPropCmd(Cmd):     # | setprop foo bar
+# class AddTagCmd(Cmd):      # | addtag --time 2015 #hehe.haha
+# class DelTagCmd(Cmd):      # | deltag #foo.bar
+# class SeenCmd(Cmd):        # | seen --from <guid>update .seen and seen=(src,node).seen
+# class SourcesCmd(Cmd):     # | sources ( <nodes> -> seen:ndef :source -> source )
 
 class ReIndexCmd(Cmd):
     '''
@@ -368,7 +371,7 @@ class ReIndexCmd(Cmd):
         snap = runt.snap
 
         if snap.user is not None and not snap.user.admin:
-            snap.warn('reindex requires an admin')
+            await snap.warn('reindex requires an admin')
             return
 
         # are we re-indexing a type?
@@ -379,14 +382,14 @@ class ReIndexCmd(Cmd):
 
             if form is not None:
 
-                snap.printf(f'reindex form: {form.name}')
+                await snap.printf(f'reindex form: {form.name}')
 
                 async for buid, norm in snap.xact.iterFormRows(form.name):
                     await snap.stor(form.getSetOps(buid, norm))
 
             for prop in snap.model.getPropsByType(self.opts.type):
 
-                snap.printf(f'reindex prop: {prop.full}')
+                await snap.printf(f'reindex prop: {prop.full}')
 
                 formname = prop.form.name
 
@@ -425,7 +428,6 @@ class MoveTagCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
-
         snap = runt.snap
 
         oldt = await snap.addNode('syn:tag', self.opts.oldtag)
@@ -442,9 +444,6 @@ class MoveTagCmd(Cmd):
         async for node in snap.getNodesBy('syn:tag', self.opts.oldtag, cmpr='^='):
 
             tagstr = node.ndef[1]
-            if tagstr == oldstr: # special case for exact match
-                await node.set('isnow', newstr)
-                continue
 
             newtag = newstr + tagstr[oldsize:]
 
@@ -479,9 +478,9 @@ class MoveTagCmd(Cmd):
                 await node.delTag(name)
                 await node.addTag(newt, valu=valu)
 
-        snap.printf(f'moved tags on {count} nodes.')
+        await snap.printf(f'moved tags on {count} nodes.')
 
-        for node, path in genr:
+        async for node, path in genr:
             yield node, path
 
 class SpinCmd(Cmd):
@@ -498,8 +497,8 @@ class SpinCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        async for x in ():
-            yield x
+        if False:
+            yield None
 
         async for node, path in genr:
             pass
@@ -523,7 +522,7 @@ class CountCmd(Cmd):
             yield item
             i += 1
 
-        snap.printf(f'Counted {i} nodes.')
+        await runt.printf(f'Counted {i} nodes.')
 
 class IdenCmd(Cmd):
     '''
@@ -543,7 +542,8 @@ class IdenCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        yield from genr
+        async for x in genr:
+            yield x
 
         for iden in self.opts.iden:
             try:
@@ -552,7 +552,7 @@ class IdenCmd(Cmd):
                 runt.warn(f'Failed to decode iden: [{iden}]')
                 continue
 
-            node = runt.snap.getNodeByBuid(buid)
+            node = await runt.snap.getNodeByBuid(buid)
             if node is not None:
                 yield node, runt.initPath(node)
 
@@ -598,6 +598,7 @@ class NoderefsCmd(Cmd):
 
     '''
     name = 'noderefs'
+
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('-d', '--degrees', type=int, default=1, action='store',
@@ -653,7 +654,8 @@ class NoderefsCmd(Cmd):
             async for item in self.doRefs(node, path, visited):
                 yield item
 
-            yield from self.doRefs(node, path, visited)
+            async for x in self.doRefs(node, path, visited):
+                yield x
 
     async def doRefs(self, srcnode, srcpath, visited):
 
@@ -688,7 +690,7 @@ class NoderefsCmd(Cmd):
                     if self.omit_tags.intersection(set(pnode.tags.keys())):
                         continue
 
-                    yield  pnode, ppath
+                    yield pnode, ppath
 
                     # Can we traverse across this node?
                     if pnode.ndef[0] in self.omit_traversal_forms:

@@ -2,22 +2,21 @@ import json
 import asyncio
 import logging
 import pathlib
-import contextlib
 import collections
+
+from concurrent.futures import CancelledError
 
 import tornado.web as t_web
 import tornado.netutil as t_netutil
 import tornado.httpserver as t_http
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.cell as s_cell
-import synapse.lib.coro as s_coro
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
@@ -94,11 +93,11 @@ class CoreApi(s_cell.CellApi):
     def stat(self):
         return self.cell.stat()
 
-    def getNodesBy(self, full, valu, cmpr='='):
+    async def getNodesBy(self, full, valu, cmpr='='):
         '''
         Yield Node.pack() tuples which match the query.
         '''
-        for node in self.cell.getNodesBy(full, valu, cmpr=cmpr):
+        async for node in self.cell.getNodesBy(full, valu, cmpr=cmpr):
             yield node.pack()
 
     async def fini(self):
@@ -124,7 +123,7 @@ class CoreApi(s_cell.CellApi):
         '''
         return self.cell.model.getModelDict()
 
-    def addNodeTag(self, iden, tag, valu=(None, None)):
+    async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
         Add a tag to a node specified by iden.
 
@@ -138,16 +137,16 @@ class CoreApi(s_cell.CellApi):
         parts = tag.split('.')
         self._reqUserAllowed('tag:add', *parts)
 
-        with self.cell.snap(user=self.user) as snap:
+        async with self.cell.snap(user=self.user) as snap:
 
-            node = snap.getNodeByBuid(buid)
+            node = await snap.getNodeByBuid(buid)
             if node is None:
                 raise s_exc.NoSuchIden(iden=iden)
 
-            node.addTag(tag, valu=valu)
+            await node.addTag(tag, valu=valu)
             return node.pack()
 
-    def delNodeTag(self, iden, tag):
+    async def delNodeTag(self, iden, tag):
         '''
         Delete a tag from the node specified by iden.
 
@@ -160,40 +159,40 @@ class CoreApi(s_cell.CellApi):
         parts = tag.split('.')
         self._reqUserAllowed('tag:del', *parts)
 
-        with self.cell.snap(user=self.user) as snap:
+        async with self.cell.snap(user=self.user) as snap:
 
-            node = snap.getNodeByBuid(buid)
+            node = await snap.getNodeByBuid(buid)
             if node is None:
                 raise s_exc.NoSuchIden(iden=iden)
 
-            node.delTag(tag)
+            await node.delTag(tag)
             return node.pack()
 
-    def setNodeProp(self, iden, name, valu):
+    async def setNodeProp(self, iden, name, valu):
 
         buid = s_common.uhex(iden)
 
-        with self.cell.snap(user=self.user) as snap:
+        async with self.cell.snap(user=self.user) as snap:
 
-            node = snap.getNodeByBuid(buid)
+            node = await snap.getNodeByBuid(buid)
             if node is None:
                 raise s_exc.NoSuchIden(iden=iden)
 
             prop = node.form.props.get(name)
             self._reqUserAllowed('prop:set', prop.full)
 
-            node.set(name, valu)
+            await node.set(name, valu)
             return node.pack()
 
-    def addNode(self, form, valu, props=None):
+    async def addNode(self, form, valu, props=None):
 
         self._reqUserAllowed('node:add', form)
 
-        with self.cell.snap(user=self.user) as snap:
-            node = snap.addNode(form, valu, props=props)
+        async with self.cell.snap(user=self.user) as snap:
+            node = await snap.addNode(form, valu, props=props)
             return node.pack()
 
-    def addNodes(self, nodes):
+    async def addNodes(self, nodes):
         '''
         Add a list of packed nodes to the cortex.
 
@@ -217,24 +216,24 @@ class CoreApi(s_cell.CellApi):
             self._reqUserAllowed('node:add', formname)
             done[formname] = True
 
-        with self.cell.snap(user=self.user) as snap:
+        async with self.cell.snap(user=self.user) as snap:
 
             snap.strict = False
 
-            for node in snap.addNodes(nodes):
+            async for node in snap.addNodes(nodes):
 
                 if node is not None:
                     node = node.pack()
 
                 yield node
 
-    def addFeedData(self, name, items, seqn=None):
+    async def addFeedData(self, name, items, seqn=None):
 
         self._reqUserAllowed('feed:data', *name.split('.'))
 
-        with self.cell.snap(user=self.user) as snap:
+        async with self.cell.snap(user=self.user) as snap:
             snap.strict = False
-            return snap.addFeedData(name, items, seqn=seqn)
+            return await snap.addFeedData(name, items, seqn=seqn)
 
     def getFeedOffs(self, iden):
         return self.cell.getFeedOffs(iden)
@@ -255,8 +254,8 @@ class CoreApi(s_cell.CellApi):
             (int): The number of nodes resulting from the query.
         '''
         i = 0
-        with self.cell.snap(user=self.user) as snap:
-            async for node in snap.eval(text, opts=opts, user=self.user):
+        async with self.cell.snap(user=self.user) as snap:
+            async for _ in snap.eval(text, opts=opts, user=self.user):
                 i += 1
         return i
 
@@ -264,8 +263,8 @@ class CoreApi(s_cell.CellApi):
         '''
         Evalute a storm query and yield packed nodes.
         '''
-        with self.cell.snap(user=self.user) as snap:
-            for item in snap.iterStormPodes(text, opts=opts, user=self.user):
+        async with self.cell.snap(user=self.user) as snap:
+            async for item in snap.iterStormPodes(text, opts=opts, user=self.user):
                 yield item
 
     async def storm(self, text, opts=None):
@@ -345,10 +344,8 @@ class Cortex(s_cell.Cell):
     cellapi = CoreApi
 
     def __init__(self, dirn):
-
         s_cell.Cell.__init__(self, dirn)
 
-        self.views = {}
         self.layers = []
         self.modules = {}
         self.feedfuncs = {}
@@ -377,6 +374,7 @@ class Cortex(s_cell.Cell):
             'tag:del': self._onFeedTagDel,
         }
 
+        self.newp = False
         self.setFeedFunc('syn.nodes', self._addSynNodes)
         self.setFeedFunc('syn.splice', self._addSynSplice)
         self.setFeedFunc('syn.ingest', self._addSynIngest)
@@ -394,22 +392,20 @@ class Cortex(s_cell.Cell):
         self.ontagadds = collections.defaultdict(list)
         self.ontagdels = collections.defaultdict(list)
 
-        self.addCoreMods(s_modules.coremods)
+        await self.addCoreMods(s_modules.coremods)
 
         mods = self.conf.get('modules')
 
-        self.addCoreMods(mods)
+        await self.addCoreMods(mods)
 
         self._initCryoLoop()
-        self._initPushLoop()
-        self._initFeedLoops()
+        await self._initPushLoop()
+        await self._initFeedLoops()
 
-        def fini():
-            [layr.fini() for layr in self.layrs]
+        async def fini():
+            await asyncio.gather(*[layr.fini() for layr in self.layers])
 
         self.onfini(fini)
-
-    async def _initCoreLayers(self):
 
     def onTagAdd(self, name, func):
         '''
@@ -436,7 +432,7 @@ class Cortex(s_cell.Cell):
     async def runTagAdd(self, node, tag, valu):
         for func in self.ontagadds.get(tag, ()):
             try:
-                retn = func(node, tag, valu)
+                retn = await func(node, tag, valu)
                 if asyncio.iscoroutine(retn):
                     retn = await retn
             except Exception as e:
@@ -445,7 +441,7 @@ class Cortex(s_cell.Cell):
     async def runTagDel(self, node, tag, valu):
         for func in self.ontagdels.get(tag, ()):
             try:
-                retn = func(node, tag, valu)
+                retn = await func(node, tag, valu)
                 if asyncio.iscoroutine(retn):
                     retn = await retn
             except Exception as e:
@@ -501,20 +497,19 @@ class Cortex(s_cell.Cell):
             ('/v1/model', HttpModelApiV1, {'cell': self}),
         )
 
-    def _initPushLoop(self):
+    async def _initPushLoop(self):
 
         if self.conf.get('splice:sync') is None:
             return
 
-        thrd = self._runPushLoop()
+        fut = self.loop.create_task(self._runPushLoop())
 
         def fini():
-            return thrd.join(timeout=8)
+            return fut.cancel()
 
         self.onfini(fini)
 
-    @s_common.firethread
-    def _runPushLoop(self):
+    async def _runPushLoop(self):
 
         url = self.conf.get('splice:sync')
 
@@ -528,7 +523,7 @@ class Cortex(s_cell.Cell):
 
                 url = self.conf.get('splice:sync')
 
-                with s_telepath.openurl(url) as core:
+                async with s_telepath.openurl(url) as core:
 
                     # use our iden as the feed iden
                     offs = core.getFeedOffs(iden)
@@ -547,8 +542,11 @@ class Cortex(s_cell.Cell):
 
                         logger.info('splice push: %d %d/%d (%.2f%%)', size, offs, indx, perc)
 
-                        offs = core.addFeedData('syn.splice', items, seqn=(iden, offs))
+                        offs = await core.addFeedData('syn.splice', items, seqn=(iden, offs))
                         self.fire('core:splice:sync:sent')
+
+            except CancelledError:
+                break
 
             except Exception as e:  # pragma: no cover
                 logger.exception('sync error')
@@ -567,12 +565,13 @@ class Cortex(s_cell.Cell):
 
         self.onfini(fini)
 
-    def _initFeedLoops(self):
+    async def _initFeedLoops(self):
         '''
         feeds:
             - cryotank: tcp://cryo.vertex.link/cryo00/tank01
               type: syn.splice
         '''
+        # breakpoint()
         feeds = self.conf.get('feeds', ())
         if not feeds:
             return
@@ -584,15 +583,14 @@ class Cortex(s_cell.Cell):
             if self.getFeedFunc(typename) is None:
                 raise s_exc.NoSuchType(name=typename)
 
-            thrd = self._runFeedLoop(feed)
+            fut = self.loop.create_task(self._runFeedLoop(feed))
 
             def fini():
-                thrd.join(timeout=2)
+                fut.cancel()
 
             self.onfini(fini)
 
-    @s_common.firethread
-    def _runFeedLoop(self, feed):
+    async def _runFeedLoop(self, feed):
 
         url = feed.get('cryotank')
         typename = feed.get('type')
@@ -606,7 +604,7 @@ class Cortex(s_cell.Cell):
 
                 url = feed.get('cryotank')
 
-                with s_telepath.openurl(url) as tank:
+                async with await s_telepath.openurl(url) as tank:
 
                     iden = tank.getCellIden()
 
@@ -623,6 +621,9 @@ class Cortex(s_cell.Cell):
 
                         offs = self.addFeedData(typename, datas, seqn=(iden, offs))
                         self.fire('core:feed:loop')
+
+            except CancelledError:
+                break
 
             except Exception as e:  # pragma: no cover
                 logger.exception('feed error')
@@ -676,11 +677,11 @@ class Cortex(s_cell.Cell):
         def func(snap, items):
             loaditems...
         '''
-        print("SET FEED %r %r" % (self, name,))
+        # print("SET FEED %r %r" % (self, name,))
         if self.newp and name == 'syn.splice':
             raise Exception('omg')
         self.feedfuncs[name] = func
-        print(repr(self.feedfuncs))
+        # print(repr(self.feedfuncs))
 
     def getFeedFunc(self, name):
         '''
@@ -688,101 +689,103 @@ class Cortex(s_cell.Cell):
         '''
         return self.feedfuncs.get(name)
 
-    def _addSynNodes(self, snap, items):
-        yield from snap.addNodes(items)
+    async def _addSynNodes(self, snap, items):
+        async for node in snap.addNodes(items):
+            yield node
 
-    def _addSynSplice(self, snap, items):
+    async def _addSynSplice(self, snap, items):
 
         for item in items:
             func = self.splicers.get(item[0])
 
             if func is None:
-                snap.warn(f'no such splice: {item!r}')
+                await snap.warn(f'no such splice: {item!r}')
                 continue
 
             try:
-                func(snap, item)
+                await func(snap, item)
             except Exception as e:
                 logger.exception('splice error')
-                snap.warn(f'splice error: {e}')
+                await snap.warn(f'splice error: {e}')
 
-    def _onFeedNodeAdd(self, snap, mesg):
+    async def _onFeedNodeAdd(self, snap, mesg):
 
         ndef = mesg[1].get('ndef')
 
         if ndef is None:
-            snap.warn(f'Invalid Splice: {mesg!r}')
+            await snap.warn(f'Invalid Splice: {mesg!r}')
             return
 
-        snap.addNode(*ndef)
+        await snap.addNode(*ndef)
 
-    def _onFeedNodeDel(self, snap, mesg):
+    async def _onFeedNodeDel(self, snap, mesg):
 
         ndef = mesg[1].get('ndef')
 
-        node = snap.getNodeByNdef(ndef)
+        node = await snap.getNodeByNdef(ndef)
         if node is None:
             return
 
-        node.delete()
+        await node.delete()
 
-    def _onFeedPropSet(self, snap, mesg):
+    async def _onFeedPropSet(self, snap, mesg):
 
         ndef = mesg[1].get('ndef')
         name = mesg[1].get('prop')
         valu = mesg[1].get('valu')
 
-        node = snap.getNodeByNdef(ndef)
+        node = await snap.getNodeByNdef(ndef)
         if node is None:
             return
 
-        node.set(name, valu)
+        await node.set(name, valu)
 
-    def _onFeedPropDel(self, snap, mesg):
+    async def _onFeedPropDel(self, snap, mesg):
 
         ndef = mesg[1].get('ndef')
         name = mesg[1].get('prop')
 
-        node = snap.getNodeByNdef(ndef)
+        node = await snap.getNodeByNdef(ndef)
         if node is None:
             return
 
-        node.pop(name)
+        await node.pop(name)
 
-    def _onFeedTagAdd(self, snap, mesg):
+    async def _onFeedTagAdd(self, snap, mesg):
 
         ndef = mesg[1].get('ndef')
 
         tag = mesg[1].get('tag')
         valu = mesg[1].get('valu')
 
-        node = snap.getNodeByNdef(ndef)
+        node = await snap.getNodeByNdef(ndef)
         if node is None:
             return
 
-        node.addTag(tag, valu=valu)
+        await node.addTag(tag, valu=valu)
 
-    def _onFeedTagDel(self, snap, mesg):
+    async def _onFeedTagDel(self, snap, mesg):
 
         ndef = mesg[1].get('ndef')
         tag = mesg[1].get('tag')
 
-        node = snap.getNodeByNdef(ndef)
+        node = await snap.getNodeByNdef(ndef)
         if node is None:
             return
 
-        node.delTag(tag)
+        await node.delTag(tag)
 
     # def _addSynUndo(self, snap, items):
         # TODO apply splices in reverse
 
-    def _addSynIngest(self, snap, items):
+    async def _addSynIngest(self, snap, items):
 
         for item in items:
             try:
                 pnodes = self._getSynIngestNodes(item)
                 logger.info('Made [%s] nodes.', len(pnodes))
-                yield from snap.addNodes(pnodes)
+                async for n in snap.addNodes(pnodes):
+                    yield n
             except Exception as e:
                 logger.exception('Failed to process ingest [%r]', item)
                 continue
@@ -900,27 +903,21 @@ class Cortex(s_cell.Cell):
             ret.append((modname, mod.conf))
         return ret
 
-    def eval(self, text, opts=None, user=None):
-        with self.snap(user=user) as snap:
-            yield from snap.eval(text, opts=opts, user=user)
-
-    def storm(self, text, opts=None, user=None):
-
     async def eval(self, text, opts=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
-        with self.snap() as snap:
+        async with self.snap() as snap:
             async for node in snap.eval(text, opts=opts):
                 yield node
 
-    async def storm(self, text, opts=None):
+    async def storm(self, text, opts=None, user=None):
         '''
         Evaluate a storm query and yield result messages.
         Yields:
             ((str,dict)): Storm messages.
         '''
-        with self.snap() as snap:
+        async with self.snap(user=user) as snap:
             async for mesg in snap.storm(text, opts=opts):
                 yield mesg
 
@@ -939,7 +936,7 @@ class Cortex(s_cell.Cell):
             lvl = self.conf.get('storm:log:level')
             logger.log(lvl, 'Executing storm query [%s] as [%s]', text, user)
 
-    def getNodeByNdef(self, ndef):
+    async def getNodeByNdef(self, ndef):
         '''
         Return a single Node() instance by (form,valu) tuple.
         '''
@@ -953,10 +950,10 @@ class Cortex(s_cell.Cell):
 
         buid = s_common.buid((form.name, norm))
 
-        with self.snap() as snap:
-            return snap.getNodeByBuid(buid)
+        async with self.snap() as snap:
+            return await snap.getNodeByBuid(buid)
 
-    def getNodesBy(self, full, valu, cmpr='='):
+    async def getNodesBy(self, full, valu, cmpr='='):
         '''
         Get nodes by a property value or lift syntax.
 
@@ -975,11 +972,11 @@ class Cortex(s_cell.Cell):
             # The inet:ipv4 type knows about cidr syntax
             core.getNodesBy('inet:ipv4', '1.2.3.0/24')
         '''
-        with self.snap() as snap:
-            for node in snap.getNodesBy(full, valu, cmpr=cmpr):
+        async with self.snap() as snap:
+            async for node in snap.getNodesBy(full, valu, cmpr=cmpr):
                 yield node
 
-    def addNodes(self, nodedefs):
+    async def addNodes(self, nodedefs):
         '''
         Quickly add/modify a list of nodes from node definition tuples.
         This API is the simplest/fastest way to add nodes, set node props,
@@ -996,11 +993,12 @@ class Cortex(s_cell.Cell):
         The "props" or "tags" keys may be omitted.
 
         '''
-        with self.snap() as snap:
+        async with self.snap() as snap:
             snap.strict = False
-            yield from snap.addNodes(nodedefs)
+            async for node in snap.addNodes(nodedefs):
+                yield node
 
-    def addFeedData(self, name, items, seqn=None):
+    async def addFeedData(self, name, items, seqn=None):
         '''
         Add data using a feed/parser function.
 
@@ -1012,21 +1010,21 @@ class Cortex(s_cell.Cell):
         Returns:
             (int): The next expected offset (or None) if seqn is None.
         '''
-        with self.snap() as snap:
+        async with self.snap() as snap:
             snap.strict = False
-            return snap.addFeedData(name, items, seqn=seqn)
+            return await snap.addFeedData(name, items, seqn=seqn)
 
-    def getFeedOffs(self, iden):
-        return self.layer.getOffset(iden)
+    async def getFeedOffs(self, iden):
+        return await self.layer.getOffset(iden)
 
-    def setFeedOffs(self, iden, offs):
+    async def setFeedOffs(self, iden, offs):
         if offs < 0:
             raise s_exc.BadConfValu(mesg='Offset must be greater than or equal to zero.', offs=offs,
                                     iden=iden)
-        oldoffs = self.getFeedOffs(iden)
+        oldoffs = await self.getFeedOffs(iden)
         logger.info('Setting Feed offset for [%s] from [%s] to [%s]',
                     iden, oldoffs, offs)
-        return self.layer.setOffset(iden, offs)
+        return await self.layer.setOffset(iden, offs)
 
     def snap(self, user=None):
         '''
@@ -1045,7 +1043,7 @@ class Cortex(s_cell.Cell):
             snap.setUser(user)
         return snap
 
-    def addCoreMods(self, mods):
+    async def addCoreMods(self, mods):
         '''
         Add a list of (name,conf) module tuples to the cortex.
         '''
@@ -1071,7 +1069,7 @@ class Cortex(s_cell.Cell):
         # now that we've loaded all their models
         # we can call their init functions
         for modu in added:
-            modu.initCoreModule()
+            await modu.initCoreModule()
 
     def loadCoreModule(self, ctor, conf=None):
         '''
@@ -1095,21 +1093,21 @@ class Cortex(s_cell.Cell):
 
         try:
 
-            print('LOAD: %r' % (ctor,))
+            # print('LOAD: %r' % (ctor,))
             modu = s_dyndeps.tryDynFunc(ctor, self)
 
             self.modules[ctor] = modu
 
-            print('WOOT: %r' % (ctor,))
+            # print('WOOT: %r' % (ctor,))
             return modu
 
         except Exception as e:
             logger.exception('mod load fail: %s' % (ctor,))
             return None
 
-    def stat(self):
+    async def stat(self):
         stats = {
             'iden': self.iden,
-            'layer': self.layer.stat()
+            'layer': await self.layer.stat()
         }
         return stats

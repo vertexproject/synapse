@@ -1,16 +1,15 @@
-
 import os
 import sys
 import time
 import signal
 import multiprocessing
 
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
-import synapse.tests.common as s_test
 import synapse.lib.threads as s_threads
+
+import synapse.tests.utils as s_t_utils
 
 @s_common.firethread
 def send_sig(pid, sig):
@@ -48,7 +47,7 @@ def block_processing(evt1, evt2):
     bus.main()
     sys.exit(137)
 
-class EventBusTest(s_test.SynTest):
+class EventBusTest(s_t_utils.SynTest):
 
     def test_eventbus_basics(self):
         bus = s_eventbus.EventBus()
