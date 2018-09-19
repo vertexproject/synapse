@@ -2,6 +2,8 @@ import os
 import contextlib
 import unittest
 
+import synapse.common as s_common
+
 from synapse.tests.utils import alist
 import synapse.tests.utils as s_t_utils
 
@@ -87,7 +89,6 @@ class SnapTest(s_t_utils.SynTest):
         async with self.agetTestCore(extra_layers=[layerfn]) as core:
             yield core
 
-    @unittest.skip('OMG bad news crash')
     async def test_cortex_lift_layers_bad_filter(self):
         '''
         Test a two layer cortex where a lift operation gives the wrong result
@@ -95,6 +96,7 @@ class SnapTest(s_t_utils.SynTest):
         async with self.agetTestCore() as core1:
             node = (('inet:ipv4', 1), {'props': {'asn': 42, '.seen': (1, 2)}, 'tags': {'woot': (1, 2)}})
             nodes_core1 = await alist(core1.addNodes([node]))
+            await core1.fini()
 
             async with self._getTestCoreMultiLayer(core1.dirn) as core, core.snap() as snap:
                 # Basic sanity check
@@ -106,7 +108,7 @@ class SnapTest(s_t_utils.SynTest):
                 nodes = await alist(snap.getNodesBy('inet:ipv4#woot', 1))
                 self.len(1, nodes)
                 nodes = await alist(snap.getNodesBy('inet:ipv4#woot', 99))
-                self.len(0, await nodes)
+                self.len(0, nodes)
 
                 # Now change asn in the "higher" layer
                 changed_node = (('inet:ipv4', 1), {'props': {'asn': 43, '.seen': (3, 4)}, 'tags': {'woot': (3, 4)}})
@@ -127,7 +129,6 @@ class SnapTest(s_t_utils.SynTest):
                 nodes = await alist(snap.getNodesBy('#woot', 1))
                 self.len(0, nodes)
 
-    @unittest.skip('OMG bad news crash')
     async def test_cortex_lift_layers_dup(self):
         '''
         Test a two layer cortex where a lift operation might give the same node twice incorrectly
@@ -135,9 +136,10 @@ class SnapTest(s_t_utils.SynTest):
         async with self.agetTestCore() as core1:
             node = (('inet:ipv4', 1), {'props': {'asn': 42}})
             nodes_core1 = await alist(core1.addNodes([node]))
+            await core1.fini()
 
             async with self._getTestCoreMultiLayer(core1.dirn) as core, core.snap() as snap:
-                # Basic sanity check
+                # Basic sanity check first
                 nodes = await alist(snap.getNodesBy('inet:ipv4', 1))
                 self.len(1, nodes)
                 self.eq(nodes_core1[0].pack(), nodes[0].pack())
@@ -149,3 +151,4 @@ class SnapTest(s_t_utils.SynTest):
                 nodes = await alist(snap.addNodes([changed_node]))
                 nodes = await alist(snap.getNodesBy('inet:ipv4:asn', 42))
                 self.len(1, nodes)
+
