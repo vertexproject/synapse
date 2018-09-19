@@ -327,7 +327,8 @@ class Snap(s_base.Base):
 
         logger.info(f'adding feed nodes ({name}): {len(items)}')
 
-        return await func(self, items)
+        async for node in func(self, items):
+            yield node
 
     async def addFeedData(self, name, items, seqn=None):
 

@@ -1,6 +1,5 @@
 import os
 import contextlib
-import unittest
 
 import synapse.common as s_common
 
@@ -38,7 +37,6 @@ class SnapTest(s_t_utils.SynTest):
                 self.none(await snap.stor((2,)))
                 self.eq(snap.bulksops, (1, 2,))
 
-    @unittest.skip('Get to later')
     async def test_snap_feed_genr(self):
 
         async def testGenrFunc(snap, items):
@@ -146,9 +144,8 @@ class SnapTest(s_t_utils.SynTest):
 
                 # Now set asn in the "higher" layer to the same (by changing it, then changing it back)
                 changed_node = (('inet:ipv4', 1), {'props': {'asn': 43}})
-                nodes = await alist(snap.addNodes([changed_node]))
+                await s_common.aspin(snap.addNodes([changed_node]))
                 changed_node = (('inet:ipv4', 1), {'props': {'asn': 42}})
                 nodes = await alist(snap.addNodes([changed_node]))
                 nodes = await alist(snap.getNodesBy('inet:ipv4:asn', 42))
                 self.len(1, nodes)
-
