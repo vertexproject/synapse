@@ -35,13 +35,6 @@ class LmdbLayer(s_layer.Layer):
     def __init__(self, dirn):
         s_layer.Layer.__init__(self, dirn)
 
-        path = os.path.join(self.dirn, 'layer.lmdb')
-
-        mapsize = self.conf.get('lmdb:mapsize')
-        readahead = self.conf.get('lmdb:readahead')
-        self.slab = s_lmdb.Slab(path, max_dbs=128, map_size=mapsize, writemap=True, readahead=readahead)
-        self.onfini(self.slab.fini)
-
         self.dbs = {}
 
         self.utf8 = s_layer.Utf8er()
@@ -63,6 +56,13 @@ class LmdbLayer(s_layer.Layer):
         self.tid = s_threads.iden()
 
     async def __anit__(self):
+        await s_layer.Layer.__anit__(self)
+        path = os.path.join(self.dirn, 'layer.lmdb')
+
+        mapsize = self.conf.get('lmdb:mapsize')
+        readahead = self.conf.get('lmdb:readahead')
+        self.slab = await s_lmdb.Slab.anit(path, max_dbs=128, map_size=mapsize, writemap=True, readahead=readahead)
+        self.onfini(self.slab.fini)
         self.bybuid = await self.initdb('bybuid') # <buid><prop>=<valu>
         self.byprop = await self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
         self.byuniv = await self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
@@ -90,7 +90,7 @@ class LmdbLayer(s_layer.Layer):
         if self.splicelist:
             self.splicelog.save(self.splicelist)
 
-        self.slab.commit(force=True)
+        self.slab.forcecommit()
 
         # wake any splice waiters and clear the splices out...
         if self.splicelist:
