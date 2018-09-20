@@ -628,23 +628,18 @@ class Slab(s_base.Base):
 
     async def _onCoFini(self):
         self._finiCoXact()
-        # print(f'_onCoFini before close self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
         self.lenv.close()
         del self.lenv
-        # print(f'_onCoFini after close self={id(self)%43} tid={s_threads.iden()%437}', flush=True)
 
     def _finiCoXact(self):
 
         [scan.bump() for scan in self.scans]
 
-        # print(f'>commit self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
         self.xact.commit()
-        # print(f'<commit self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
 
         self.xactops.clear()
 
         del self.xact
-        # print(f'_finiCoXact end self={self} tid={s_threads.iden()}', flush=True)
 
     def grow(self, size=None):
         '''
