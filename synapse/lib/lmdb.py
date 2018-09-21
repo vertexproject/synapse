@@ -6,7 +6,7 @@ import contextlib
 
 logger = logging.getLogger(__name__)
 
-import lmdb
+import lmdb  # type: ignore
 
 import xxhash  # type: ignore
 
@@ -17,9 +17,6 @@ import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
-
-# FIXME: tmp
-import synapse.lib.threads as s_threads
 
 STOR_FLAG_NOINDEX = 0x0001      # there is no byprop index for this prop
 STOR_FLAG_MULTIVAL = 0x0002     # this is a multi-value prop
@@ -628,11 +625,13 @@ class Slab(s_base.Base):
                 self.forcecommit()
 
     async def _onCoFini(self):
+        assert s_glob.plex.iAmLoop()
         self._finiCoXact()
         self.lenv.close()
         del self.lenv
 
     def _finiCoXact(self):
+        assert s_glob.plex.iAmLoop()
 
         [scan.bump() for scan in self.scans]
 

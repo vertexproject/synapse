@@ -26,13 +26,15 @@ import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
 import synapse.lib.share as s_share
 
+from concurrent.futures import CancelledError
+
 logger = logging.getLogger(__name__)
 
 # File convention: bsid -> persistent unique id for a blobstor (actually the cell iden)
 
 # N.B. BlobStor does *not* use lmdb Slab.  It has its own incremental transaction.
 
-# FIXME: port to use Slab
+# TODO: port to use Slab
 
 CHUNK_SIZE = 16 * s_const.mebibyte
 
@@ -97,19 +99,15 @@ class IncrementalTransaction(s_eventbus.EventBus):
 
         def fini():
             self.commit()
-            print(f'fini Before close tid={threading.currentThread().ident}', flush=True)
             # lmdb workaround:  close environment from here to avoid lmdb crash
             self.lenv.close()
-            print('IncrementalTransaction fini end', flush=True)
 
         self.onfini(fini)
 
     def commit(self):
         if self.txn is None:
             return
-        print(f'before commit tid={threading.currentThread().ident}', flush=True)
         self.txn.commit()
-        print('after commit', flush=True)
         self.txn = None
         self._bytecount = 0
 
@@ -118,7 +116,6 @@ class IncrementalTransaction(s_eventbus.EventBus):
         Make an LMDB transaction if we don't already have kone, and return it
         '''
         if self.txn is None:
-            print(f'Creating txn on tid={threading.currentThread().ident}')
             self.txn = self.lenv.begin(write=True, buffers=True)
         return self.txn
 
@@ -304,9 +301,9 @@ class _BlobStorWriter(s_base.Base):
         self.clients = {}
 
         async def _onfini():
-            self.xact.fini()
             await self._workq.fini()
             self._worker.join()
+            self.xact.fini()
         self.onfini(_onfini)
 
     def _finish_file(self, client):
@@ -439,9 +436,8 @@ class _BlobStorWriter(s_base.Base):
                     _, offset = msg
                     self._updateCloneProgress(offset)
         finally:
-            # Workaround to avoid lmdb close/commit race
-            # self.xact.fini()
-            pass
+            # Workaround to avoid lmdb close/commit race (so that fini is on same thread as lmdb xact
+            self.xact.fini()
 
     # Client methods
 
@@ -515,7 +511,6 @@ class BlobStor(s_cell.Cell):
 
         mapsize = self.conf.get('mapsize')
         self.lenv = lmdb.open(path, writemap=True, max_dbs=128, map_size=mapsize)
-
         self._blob_info = self.lenv.open_db(b'info')
         self._blob_bytes = self.lenv.open_db(b'bytes') # <sha256>=<byts>
 
@@ -665,7 +660,7 @@ class BlobStor(s_cell.Cell):
             self._newdataevent.clear()
             try:
                 await asyncio.wait_for(self._newdataevent.wait(), timeout, loop=s_glob.plex.loop)
-            except asyncio.TimeoutError:
+            except (asyncio.TimeoutError, CancelledError):
                 return
         with self.lenv.begin(buffers=True) as xact:
             for off, hashval in self._clone_seqn.iter(xact, offset):
@@ -988,7 +983,6 @@ class Axon(s_cell.Cell):
                 stop_event.set()
             await self._workq.fini()
             await self._proxykeeper.fini()
-            # await self.xact.fini()
             self._worker.join()
         self.onfini(fini)
 
@@ -1073,7 +1067,7 @@ class Axon(s_cell.Cell):
                     except (StopAsyncIteration, s_exc.SynErr):
                         return None, None
 
-                # Wait on either the clone completing, or a signal to stop watching
+                # Wait on either the clone completing, or a signal to stop watching (or the blobstor throwing isfini)
                 stop_coro = stop_event.wait()
                 donelist, notdonelist = await asyncio.wait([clone_and_next(), stop_coro], loop=s_glob.plex.loop,
                                                            return_when=concurrent.futures.FIRST_COMPLETED)
@@ -1094,6 +1088,12 @@ class Axon(s_cell.Cell):
                 logger.debug('Got clone data for %s', _path_sanitize(blobstorpath))
                 cur_offset = 1 + await self._consume_clone_data(first_item, genr, bsid)
                 await self._executor_nowait(self._updateSyncProgress, bsid, cur_offset)
+
+            except s_exc.IsFini:
+                continue
+
+            except CancelledError:
+                break
 
             except ConnectionRefusedError:
                 logger.warning('Trouble connecting to blobstor %s.  Will retry in %ss.', _path_sanitize(blobstorpath),
@@ -1133,7 +1133,7 @@ class Axon(s_cell.Cell):
     @s_common.firethread
     def _workloop(self):
         '''
-        A worker for running stuff that requires a write lock
+        Axon:  A worker for running stuff that requires a write lock
         '''
         try:
             while not self.isfini:
