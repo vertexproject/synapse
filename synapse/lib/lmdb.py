@@ -6,7 +6,7 @@ import contextlib
 
 logger = logging.getLogger(__name__)
 
-import lmdb
+import lmdb  # type: ignore
 
 import xxhash  # type: ignore
 
@@ -17,9 +17,6 @@ import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
-
-# FIXME: tmp
-import synapse.lib.threads as s_threads
 
 STOR_FLAG_NOINDEX = 0x0001      # there is no byprop index for this prop
 STOR_FLAG_MULTIVAL = 0x0002     # this is a multi-value prop
@@ -572,6 +569,7 @@ class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
+    COMMIT_PERIOD = 1.0  # time between commits
 
     async def __anit__(self, path, **opts):
 
@@ -602,49 +600,47 @@ class Slab(s_base.Base):
 
         self.scans = set()
 
-        # there is only ever 1 xact...
-        self.tick = s_common.now()
-
         self.holders = 0
 
         self._initCoXact()
 
         self.onfini(self._onCoFini)
 
-        self._runSyncLoop()
+    async def __anit__(self):
+        await s_base.Base.__anit__(self)
+        self.commit_task = self.loop.create_task(self._runSyncLoop())
+        self.onfini(self.commit_task.cancel)
 
     def _saveOptsFile(self):
         opts = {'map_size': self.mapsize, 'growsize': self.growsize}
         s_common.jssave(opts, self.optspath)
 
-    def _runSyncLoop(self):
+    async def _runSyncLoop(self):
 
-        if self.isfini:
-            return
-
-        self.commit()
-
-        s_glob.plex.loop.call_later(1, self._runSyncLoop)
+        while not self.isfini:
+            await self.waitfini(timeout=self.COMMIT_PERIOD)
+            if self.isfini:
+                # There's no reason to forcecommit on fini, because there's a separate handler to already do that
+                break
+            if self.holders == 0:
+                self.forcecommit()
 
     async def _onCoFini(self):
+        assert s_glob.plex.iAmLoop()
         self._finiCoXact()
-        # print(f'_onCoFini before close self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
         self.lenv.close()
         del self.lenv
-        # print(f'_onCoFini after close self={id(self)%43} tid={s_threads.iden()%437}', flush=True)
 
     def _finiCoXact(self):
+        assert s_glob.plex.iAmLoop()
 
         [scan.bump() for scan in self.scans]
 
-        # print(f'>commit self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
         self.xact.commit()
-        # print(f'<commit self={id(self)%43} lenv={id(self.lenv)%483} tid={s_threads.iden()%437}', flush=True)
 
         self.xactops.clear()
 
         del self.xact
-        # print(f'_finiCoXact end self={self} tid={s_threads.iden()}', flush=True)
 
     def grow(self, size=None):
         '''
@@ -763,87 +759,57 @@ class Slab(s_base.Base):
         self._runXactOpers()
         self.recovering = False
 
+    def _handle_mapfull(self):
+        with self.aborted():
+            self._growMapSize()
+
+        self.forcecommit()
+
     # FIXME:  refactor delete/put/replace/pop common code
     def pop(self, lkey, db=None):
 
         try:
-
-            # if this is the first write for this xact, reset tick.
-            if not self.dirty:
-                self.tick = s_common.now()
-                self.dirty = True
+            self.dirty = True
 
             if not self.recovering:
                 self._logXactOper(self.pop, lkey, db=db)
 
             retn = self.xact.pop(lkey, db=db)
 
-            # give the commit a chance...
-            if not self.holders:
-                self.commit()
-
             return retn
 
         except lmdb.MapFullError as e:
-
-            with self.aborted():
-                self._growMapSize()
-
-            self.commit(force=True)
+            self._handle_mapfull()
 
     def delete(self, lkey, val=None, db=None):
 
         try:
-
-            # if this is the first write for this xact, reset tick.
-            if not self.dirty:
-                self.tick = s_common.now()
-                self.dirty = True
+            self.dirty = True
 
             if not self.recovering:
                 self._logXactOper(self.delete, lkey, val, db=db)
 
             self.xact.delete(lkey, val, db=db)
 
-            # give the commit a chance...
-            if not self.holders:
-                self.commit()
-
             return
 
         except lmdb.MapFullError as e:
-
-            with self.aborted():
-                self._growMapSize()
-
-            self.commit(force=True)
+            self._handle_mapfull()
 
     def put(self, lkey, lval, dupdata=False, db=None):
 
         try:
-
-            # if this is the first write for this xact, reset tick.
-            if not self.dirty:
-                self.tick = s_common.now()
-                self.dirty = True
+            self.dirty = True
 
             if not self.recovering:
                 self._logXactOper(self.put, lkey, lval, dupdata=dupdata, db=db)
 
             self.xact.put(lkey, lval, dupdata=dupdata, db=db)
 
-            # give the commit a chance...
-            if not self.holders:
-                self.commit()
-
             return
 
         except lmdb.MapFullError as e:
-
-            with self.aborted():
-                self._growMapSize()
-
-            self.commit(force=True)
+            self._handle_mapfull()
 
     def replace(self, lkey, lval, db=None):
         '''
@@ -851,38 +817,22 @@ class Slab(s_base.Base):
         '''
 
         try:
-
-            # if this is the first write for this xact, reset tick.
-            if not self.dirty:
-                self.tick = s_common.now()
-                self.dirty = True
+            self.dirty = True
 
             if not self.recovering:
                 self._logXactOper(self.replace, lkey, lval, db=db)
 
             retn = self.xact.replace(lkey, lval, db=db)
 
-            # give the commit a chance...
-            if not self.holders:
-                self.commit()
-
             return retn
 
         except lmdb.MapFullError as e:
-
-            with self.aborted():
-                self._growMapSize()
-
-            self.commit(force=True)
+            self._handle_mapfull()
 
     def putmulti(self, kvpairs, dupdata=False, append=False, db=None):
 
         try:
-
-            # if this is the first write for this xact, reset tick.
-            if not self.dirty:
-                self.tick = s_common.now()
-                self.dirty = True
+            self.dirty = True
 
             if not self.recovering:
                 self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=True, db=db)
@@ -890,18 +840,10 @@ class Slab(s_base.Base):
             with self.xact.cursor(db=db) as curs:
                 curs.putmulti(kvpairs, dupdata=dupdata, append=append)
 
-            # give the commit a chance...
-            if not self.holders:
-                self.commit()
-
             return
 
         except lmdb.MapFullError as e:
-
-            with self.aborted():
-                self._growMapSize()
-
-            self.commit(force=True)
+            self._handle_mapfull()
 
     @contextlib.contextmanager
     def synchold(self):
@@ -920,26 +862,11 @@ class Slab(s_base.Base):
         yield None
         self.holders -= 1
 
-        if self.holders == 0:
-            self.commit()
-
-    def commit(self, force=False):
+    def forcecommit(self):
         '''
         '''
         if not self.dirty:
             return False
-
-        if not force:
-
-            if self.holders:
-                return False
-
-            # these are in millis...
-            took = s_common.now() - self.tick
-
-            # commit once per second... for now.
-            if took < 1000:
-                return False
 
         # ok... lets commit and re-open
         self._finiCoXact()

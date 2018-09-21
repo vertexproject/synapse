@@ -35,7 +35,6 @@ class LmdbLayer(s_layer.Layer):
     async def __anit__(self, dirn):
 
         await s_layer.Layer.__anit__(self, dirn)
-
         path = os.path.join(self.dirn, 'layer.lmdb')
 
         mapsize = self.conf.get('lmdb:mapsize')
@@ -92,7 +91,7 @@ class LmdbLayer(s_layer.Layer):
         if self.splicelist:
             self.splicelog.save(self.splicelist)
 
-        self.slab.commit(force=True)
+        self.slab.forcecommit()
 
         # wake any splice waiters and clear the splices out...
         if self.splicelist:

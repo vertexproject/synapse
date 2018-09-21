@@ -148,7 +148,7 @@ class AxonTest(s_t_utils.SynTest):
 
     async def test_blobstor_remote(self):
         async with self.agetTestDmon(mirror='axondmon') as dmon, \
-                await dmon._getTestProxy('blobstor00') as bst0:
+                await self.agetTestProxy(dmon, 'blobstor00') as bst0:
             stats = await bst0.stat()
             self.eq(stats, {})
             upld = await bst0.startput()
@@ -289,8 +289,9 @@ class AxonTest(s_t_utils.SynTest):
                 self.eq(1, await axon.bulkput([b'foo']))
                 blobstor1conf = {'mapsize': s_t_utils.TEST_MAP_SIZE, 'cloneof': blobstorurl0}
 
+                bs2path = os.path.join(dirn, 'bs2')
                 # Make a second blobstor that clones the first
-                async with s_axon.BlobStor(path0, conf=blobstor1conf) as blobstor1:
+                async with await s_axon.BlobStor.anit(bs2path, conf=blobstor1conf) as blobstor1:
                     # Make sure the cloning works
                     for i in range(10):
                         if blobstor1.getCloneProgress() >= 2:
@@ -318,10 +319,7 @@ class AxonTest(s_t_utils.SynTest):
                     self.eq(1, await axon.bulkput([b'bar']))
 
                     # Now turn off the second blobstor and see what happens
-                    await s_glob.plex.executor(blobstor1.fini)
-
-                    # Not sure this is entirely fair
-                    # self.eq(1, await axon.bulkput([b'bar']))
+                    await blobstor1.fini()
 
     @s_glob.synchelp
     async def test_axon_blobstors_dropping(self):

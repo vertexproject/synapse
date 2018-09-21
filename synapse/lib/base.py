@@ -287,7 +287,6 @@ class Base:
 
         fevt = self.finievt
         for fini in self._fini_funcs:
-
             try:
                 rv = fini()
                 if asyncio.iscoroutine(rv):
@@ -305,6 +304,9 @@ class Base:
     async def waitfini(self, timeout=None):
         '''
         Wait for the base to fini()
+
+        Returns:
+            None if timed out, True if fini happened
 
         Example:
 

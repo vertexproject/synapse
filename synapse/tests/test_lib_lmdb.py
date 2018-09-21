@@ -277,7 +277,6 @@ class LmdbTest(s_t_utils.SynTest):
                 retn = tuple(sorted(psto.recs(xact, rows)))
                 self.len(3, retn)
                 self.eq(retn[0], (buid2, [(rows[0][1], rows[0][2]), (rows[1][1], rows[1][2]), ]))
-                self.eq(retn[1], (buid2, [(rows[0][1], rows[0][2]), (rows[1][1], rows[1][2]), ]))  # FIXME do we really need this twice?
                 self.eq(retn[2], (buid3, ()))
 
     def test_lmdb_encode(self):
@@ -331,9 +330,8 @@ class LmdbTest(s_t_utils.SynTest):
             slab.put(b'\x00\x03', b'hoho', dupdata=True, db=bar)
 
             self.true(slab.dirty)
-            self.false(slab.commit())
 
-            self.true(slab.commit(force=True))
+            self.true(slab.forcecommit())
             self.false(slab.dirty)
 
             self.eq(b'hehe', slab.get(b'\x00\x01', db=foo))
@@ -351,7 +349,7 @@ class LmdbTest(s_t_utils.SynTest):
             scan = slab.scanByPref(b'\x00', db=foo)
             self.eq((b'\x00\x01', b'hehe'), next(scan))
 
-            slab.commit(force=True)
+            slab.forcecommit()
 
             items = list(scan)
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x03', b'hoho')))
@@ -360,7 +358,7 @@ class LmdbTest(s_t_utils.SynTest):
             scan = slab.scanByDups(b'\x00\x02', db=bar)
             self.eq(b'haha', next(scan))
 
-            slab.commit(force=True)
+            slab.forcecommit()
 
             items = list(scan)
             self.eq(items, (b'visi', b'zomg'))
