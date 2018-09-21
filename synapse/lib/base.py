@@ -107,17 +107,15 @@ class Base:
         '''
         This should never be used by synapse code.
         '''
-        breakpoint()
-        assert False, 'Base does not have sync context'  # remove me
-        s_glob.plex.coroToSync(self.__aenter__())
+        rv = s_glob.plex.coroToSync(self.__aenter__())
+        self._ctxobj = rv
         return self
 
     def __exit__(self, *args):
         '''
         This should never be used by synapse code.
         '''
-        assert False, 'Base does not have sync context'  # remove me
-        return s_glob.plex.coroToSync(self.obj.__aexit__(*args))
+        return s_glob.plex.coroToSync(self._ctxobj.__aexit__(*args))
 
     def _isExitExc(self):
         # if entered but not exited *or* exitinfo has exc

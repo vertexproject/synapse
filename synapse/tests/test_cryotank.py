@@ -7,29 +7,26 @@ import synapse.cryotank as s_cryotank
 
 import synapse.lib.msgpack as s_msgpack
 
-import synapse.tests.common as s_test
-
-from synapse.tests.utils import SyncToAsyncCMgr
+import synapse.tests.utils as s_t_utils
 
 logger = s_cryotank.logger
 
 cryodata = (('foo', {'bar': 10}), ('baz', {'faz': 20}))
 
-class CryoTest(s_test.SynTest):
+class CryoTest(s_t_utils.SynTest):
 
-    @s_glob.synchelp
     async def test_cryo_cell_async(self):
-        async with SyncToAsyncCMgr(self.getTestDmon, mirror='cryodmon') as dmon, \
-                await dmon._getTestProxy('cryo00') as prox:
+        async with self.agetTestDmon(mirror='cryodmon') as dmon, \
+                await self.agetTestProxy(dmon, 'cryo00') as prox:
             self.true(await prox.init('foo'))
             self.eq([], [x async for x in await prox.rows('foo', 0, 1)])
 
-    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_test.TEST_MAP_SIZE)
+    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     def test_cryo_cell(self):
 
         with self.getTestDmon(mirror='cryodmon') as dmon:
 
-            with dmon._getTestProxy('cryo00') as prox:
+            with self.getTestProxy(dmon, 'cryo00') as prox:
 
                 self.eq((), prox.list())
 
@@ -69,7 +66,7 @@ class CryoTest(s_test.SynTest):
                 self.eq(4, prox.offset('foo', iden))
 
             # test the direct tank share....
-            with dmon._getTestProxy('cryo00/foo') as prox:
+            with self.getTestProxy(dmon, 'cryo00/foo') as prox:
 
                 items = list(prox.slice(1, 3))
 
@@ -88,7 +85,7 @@ class CryoTest(s_test.SynTest):
                 self.eq(2, prox.offset(iden))
 
             # test the new open share
-            with dmon._getTestProxy('cryo00/lulz') as prox:
+            with self.getTestProxy(dmon, 'cryo00/lulz') as prox:
 
                 self.len(0, list(prox.slice(0, 9999)))
 
@@ -100,7 +97,7 @@ class CryoTest(s_test.SynTest):
 
     def test_cryo_cell_indexing(self):
 
-        # conf = {'defvals': {'mapsize': s_test.TEST_MAP_SIZE}}
+        conf = {'defvals': {'mapsize': s_t_utils.TEST_MAP_SIZE}}
         with self.getTestDmon(mirror='cryodmon') as dmon:
             with dmon._getTestProxy('cryo00') as ccell, dmon._getTestProxy('cryo00/woot:woot') as tank:
                 # Setting the _chunksize to 1 forces iteration on the client
@@ -129,7 +126,7 @@ class CryoTest(s_test.SynTest):
                 with dmon._getTestProxy('cryo00/woot:boring') as tank2:
                     self.eq([], tank2.getIndices())
 
-class CryoIndexTest(s_test.SynTest):
+class CryoIndexTest(s_t_utils.SynTest):
 
     def initWaiter(self, tank, operation):
         return tank.waiter(1, 'cryotank:indexer:noworkleft:' + operation)
@@ -139,7 +136,7 @@ class CryoIndexTest(s_test.SynTest):
         self.nn(rv)
 
     def test_cryotank_index(self):
-        conf = {'mapsize': s_test.TEST_MAP_SIZE}
+        conf = {'mapsize': s_t_utils.TEST_MAP_SIZE}
         with self.getTestConfDir(name='CryoTank', conf=conf) as dirn, s_cryotank.CryoTank(dirn) as tank:
 
             idxr = tank.indexer
@@ -266,7 +263,7 @@ class CryoIndexTest(s_test.SynTest):
             self.lt(before_idx['ngood'], after_idx['ngood'])
 
     def test_cryotank_index_nest(self):
-        conf = {'mapsize': s_test.TEST_MAP_SIZE}
+        conf = {'mapsize': s_t_utils.TEST_MAP_SIZE}
         with self.getTestConfDir(name='CryoTank', conf=conf) as dirn, s_cryotank.CryoTank(dirn) as tank:
             idxr = tank.indexer
             item = {

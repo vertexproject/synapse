@@ -13,6 +13,7 @@ import lmdb  # type: ignore
 import synapse.glob as s_glob
 
 import synapse.lib.kv as s_kv
+import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.queue as s_queue
@@ -22,7 +23,6 @@ import synapse.lib.datapath as s_datapath
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
 import synapse.datamodel as s_datamodel
 
 logger = logging.getLogger(__name__)
@@ -387,7 +387,7 @@ class CryoApi(s_cell.CellApi):
 
     async def slice(self, name, offs, size, iden=None):
         tank = await self.cell.init(name)
-        async for item in tank.slice(offs, size, iden=iden):
+        for item in tank.slice(offs, size, iden=iden):
             yield item
 
     def list(self):
@@ -407,12 +407,12 @@ class CryoApi(s_cell.CellApi):
 
     async def rows(self, name, offs, size, iden=None):
         tank = await self.cell.init(name)
-        async for item in tank.rows(offs, size, iden=iden):
+        for item in tank.rows(offs, size, iden=iden):
             yield item
 
     async def metrics(self, name, offs, size=None):
         tank = await self.cell.init(name)
-        async for item in tank.metrics(offs, size=size):
+        for item in tank.metrics(offs, size=size):
             yield item
 
     @s_cell.adminapi
@@ -443,8 +443,8 @@ class CryoCell(s_cell.Cell):
         self.names = self.kvstor.getKvDict('cryo:names')
         self.confs = self.kvstor.getKvDict('cryo:confs')
 
-        self.tanks = s_eventbus.BusRef()
-
+    async def __anit__(self):
+        self.tanks = await s_base.BaseRef.anit()
         self.onfini(self.tanks.fini)
 
         for name, iden in self.names.items():
@@ -454,7 +454,7 @@ class CryoCell(s_cell.Cell):
             path = s_common.genpath(self.dirn, 'tanks', iden)
 
             conf = self.confs.get(name)
-            tank = CryoTank(path, conf)
+            tank = await CryoTank.anit(path, conf)
             self.tanks.put(name, tank)
 
     async def onTeleOpen(self, link, path):
