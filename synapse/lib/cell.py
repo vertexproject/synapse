@@ -1,6 +1,5 @@
 import os
 import ssl
-import asyncio
 import logging
 import threading
 
@@ -10,9 +9,7 @@ import tornado.httpserver as t_http
 
 import synapse.exc as s_exc
 
-import synapse.glob as s_glob
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
@@ -41,8 +38,6 @@ def adminapi(f):
         return f(*args, **kwargs)
 
     return func
-
-#class HttpEndp:
 
 class HttpEndp:
 
@@ -352,17 +347,15 @@ class CellApi(s_base.Base):
 
 bootdefs = (
 
-    #('cell:name', {
-        #'doc': 'Set the log/display name for this cell.'}),
+    # ('cell:name', {
+        # 'doc': 'Set the log/display name for this cell.'}),
 
-    ('auth:en', {'defval': False,
-        'doc': 'Set to True to enable auth for this cortex.'}),
+    ('auth:en', {'defval': False, 'doc': 'Set to True to enable auth for this cortex.'}),
 
-    #('auth:required', {'defval': True,
-        #'doc': 'If auth is enabled, allow non-auth connections.  Cell must manage perms.'})
+    # ('auth:required', {'defval': True,
+        # 'doc': 'If auth is enabled, allow non-auth connections.  Cell must manage perms.'})
 
-    ('auth:admin', {'defval': None,
-        'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
+    ('auth:admin', {'defval': None, 'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
 )
 
 class Cell(s_base.Base, s_telepath.Aware):
@@ -373,7 +366,7 @@ class Cell(s_base.Base, s_telepath.Aware):
     httpapi = HttpApi
 
     # config options that are in all cells...
-    confbase = (
+    confbase = (  # type: ignore
         ('http:en', {'defval': True,
             'doc': 'Enable the HTTP API for this cell.'}),
 
