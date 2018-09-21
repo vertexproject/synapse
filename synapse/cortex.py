@@ -343,8 +343,9 @@ class Cortex(s_cell.Cell):
 
     cellapi = CoreApi
 
-    def __init__(self, dirn):
-        s_cell.Cell.__init__(self, dirn)
+    async def __anit__(self, dirn):
+
+        await s_cell.Cell.__anit__(self, dirn)
 
         self.layers = []
         self.modules = {}
@@ -379,9 +380,6 @@ class Cortex(s_cell.Cell):
         self.setFeedFunc('syn.splice', self._addSynSplice)
         self.setFeedFunc('syn.ingest', self._addSynIngest)
         self.newp = True
-
-    async def __anit__(self):
-        await s_cell.Cell.__anit__(self)
 
         await self._initCoreLayers()
 

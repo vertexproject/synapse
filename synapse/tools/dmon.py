@@ -5,6 +5,7 @@ import logging
 import argparse
 import subprocess
 
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.daemon as s_daemon
 
@@ -77,7 +78,7 @@ def main(argv, outp=s_output.stdout):
         with open(path, 'wb') as fd:
             fd.write(dmonyaml.encode('utf8'))
 
-    with s_daemon.Daemon(opts.dmonpath) as dmon:
+    with s_glob.sync(s_daemon.Daemon.anit(opts.dmonpath)) as dmon:
         host, port = dmon.addr
         outp.printf(f'dmon listening on: {host}:{port}')
         dmon.main()

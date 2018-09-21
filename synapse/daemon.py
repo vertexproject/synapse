@@ -98,8 +98,9 @@ class Daemon(s_base.Base):
             #'doc': 'An SSL config dict with certfile/keyfile optional cacert.'}),
     )
 
-    def __init__(self, dirn):
-        s_base.Base.__init__(self)
+    async def __anit__(self, dirn):
+
+        await s_base.Base.__anit__(self)
 
         self.dirn = s_common.gendir(dirn)
         self._shareLoopTasks = set()
@@ -124,7 +125,6 @@ class Daemon(s_base.Base):
 
         self.onfini(self._onDmonFini)
 
-    async def __anit__(self):
         await self._loadDmonConf()
         await self._loadDmonCells()
 
@@ -326,6 +326,8 @@ class Daemon(s_base.Base):
 
             if isinstance(item, s_telepath.Aware):
                 item = item.getTeleApi(link, mesg)
+                if asyncio.iscoroutine(item):
+                    item = await item
 
             items = {None: item}
             link.set('dmon:items', items)

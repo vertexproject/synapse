@@ -23,12 +23,13 @@ class Aware:
     The telepath.Aware mixin allows shared objects to
     handle individual links managed by the Daemon.
     '''
-    def getTeleApi(self, link, mesg):
+    async def getTeleApi(self, link, mesg):
         '''
         Return a shared object for this link.
         Args:
             link (synapse.lib.link.Link): A network link.
             mesg ((str,dict)): The tele:syn handshake message.
+
         '''
         return self
 

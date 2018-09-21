@@ -314,7 +314,7 @@ class LmdbTest(s_t_utils.SynTest):
 
             path = os.path.join(dirn, 'test.lmdb')
 
-            slab = s_lmdb.Slab(path, map_size=1000000)
+            slab = await s_lmdb.Slab.anit(path, map_size=1000000)
 
             foo = slab.initdb('foo')
             bar = slab.initdb('bar', dupsort=True)
@@ -380,7 +380,7 @@ class LmdbTest(s_t_utils.SynTest):
 
             path = os.path.join(dirn, 'test.lmdb')
 
-            slab = s_lmdb.Slab(path, map_size=100000)
+            slab = await s_lmdb.Slab.anit(path, map_size=100000)
 
             foo = slab.initdb('foo')
 
@@ -394,7 +394,7 @@ class LmdbTest(s_t_utils.SynTest):
 
             # lets ensure our mapsize / growsize persisted
 
-            newdb = s_lmdb.Slab(path, map_size=100000)
+            newdb = await s_lmdb.Slab.anit(path, map_size=100000)
 
             self.eq(slab.mapsize, newdb.mapsize)
 

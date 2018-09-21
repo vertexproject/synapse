@@ -50,24 +50,26 @@ class Base:
 
     Example:
 
-        class Foo(Anit):
+        class Foo(Base):
 
-            def __init__(self, x):
-                self.x = x
+            async def __anit__(self, x, y):
 
-            async def __anit__(self):
-                await stuff()
+                await Base.__anit__(self)
+
+                await stuff(x, y)
 
         foo = await Foo.anit(10)
     '''
     @classmethod
     async def anit(cls, *args, **kwargs):
-        self = cls(*args, **kwargs)
-        self.loop = asyncio.get_event_loop()
-        await self.__anit__()
+        self = cls()
+        await self.__anit__(*args, **kwargs)
         return self
 
-    def __init__(self):
+    async def __anit__(self):
+
+        self.loop = asyncio.get_running_loop()
+
         self.isfini = False
         self.entered = False
         self.exitinfo = None
@@ -83,10 +85,6 @@ class Base:
         self._syn_links = []
         self._fini_funcs = []
         self._fini_atexit = False
-        self.loop: asyncio.AbstractEventLoop = None
-
-    async def __anit__(self):
-        pass
 
     def onfini(self, func):
         '''

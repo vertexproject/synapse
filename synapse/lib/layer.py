@@ -27,8 +27,10 @@ class Layer(s_cell.Cell):
     TODO:
         metadata for layer contents (only specific type / tag)
     '''
-    def __init__(self, dirn):
-        s_cell.Cell.__init__(self, dirn)
+    async def __anit__(self, dirn):
+
+        await s_cell.Cell.__anit__(self, dirn)
+
         self._lift_funcs = {
             'indx': self._liftByIndx,
             'prop:re': self._liftByPropRe,

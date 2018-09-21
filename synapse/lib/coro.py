@@ -64,7 +64,7 @@ class Genr(s_base.Base):
 
     def __iter__(self):
 
-       while not self.isfini:
+        while not self.isfini:
             try:
                 yield s_glob.sync(self.genr.__anext__())
             except StopAsyncIteration as e:

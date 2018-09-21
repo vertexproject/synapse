@@ -571,8 +571,9 @@ class Slab(s_base.Base):
     '''
     COMMIT_PERIOD = 1.0  # time between commits
 
-    def __init__(self, path, **opts):
-        s_base.Base.__init__(self)
+    async def __anit__(self, path, **opts):
+
+        await s_base.Base.__anit__(self)
 
         self.path = path
         self.optspath = os.path.join(path, 'opts.json')

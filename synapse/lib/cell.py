@@ -220,8 +220,8 @@ class HttpCellStatus(CellHandler):
 
 class CellApi(s_base.Base):
 
-    def __init__(self, cell, link):
-        s_base.Base.__init__(self)
+    async def __anit__(self, cell, link):
+        await s_base.Base.__anit__(self)
         self.cell = cell
         self.link = link
         self.user = link.get('cell:user')
@@ -383,9 +383,10 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     confdefs = ()
 
-    def __init__(self, dirn):
+    async def __anit__(self, dirn):
 
-        s_base.Base.__init__(self)
+        await s_base.Base.__anit__(self)
+
         s_telepath.Aware.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
@@ -424,11 +425,15 @@ class Cell(s_base.Base, s_telepath.Aware):
         if self.cellname is None:
             self.cellname = self.__class__.__name__
 
-    async def __anit__(self):
         await self._initCellAuth()
         await self._initCellSlab()
         await self._initHttpApi()
-        self.onfini(self._finiCellAsync)
+
+        async def fini():
+            if self.webserver is not None:
+                self.webserver.stop()
+
+        self.onfini(fini)
 
     async def _initHttpApi(self):
 
@@ -532,10 +537,10 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         hapi = self.httpapi()
 
-    def getTeleApi(self, link, mesg):
+    async def getTeleApi(self, link, mesg):
 
         if self.auth is None:
-            return self.cellapi(self, link)
+            return await self.cellapi.anit(self, link)
 
         user = self._getCellUser(link, mesg)
         if user is None:
