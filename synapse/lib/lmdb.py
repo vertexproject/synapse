@@ -573,9 +573,9 @@ class Slab(s_base.Base):
     A "monolithic" LMDB instance for use in a asyncio loop thread.
     '''
 
-    def __init__(self, path, **opts):
-        s_base.Base.__init__(self)
-        # print(f'Slab __init__ self={self} path={path}', flush=True)
+    async def __anit__(self, path, **opts):
+
+        await s_base.Base.__anit__(self)
 
         self.path = path
         self.optspath = os.path.join(path, 'opts.json')
