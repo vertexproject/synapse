@@ -59,6 +59,10 @@ class Base:
                 await stuff(x, y)
 
         foo = await Foo.anit(10)
+
+    Note:
+        One should not create instances directly via its initializer, i.e. Base().  One shall always use the class
+        method anit.
     '''
     @classmethod
     async def anit(cls, *args, **kwargs):
@@ -71,6 +75,7 @@ class Base:
         self.loop = asyncio.get_running_loop()
 
         self.isfini = False
+        self.anitted = True  # For assertion purposes
         self.entered = False
         self.exitinfo = None
         self.finievt = None
@@ -90,6 +95,7 @@ class Base:
         '''
         Add a function or coroutine function to be called on fini().
         '''
+        assert self.anitted
         self._fini_funcs.append(func)
 
     async def __aenter__(self):
@@ -277,6 +283,7 @@ class Base:
         Returns:
             Remaining ref count
         '''
+        assert self.anitted, 'Base object initialized improperly.  Must use Base.anit class method.'
         if self.isfini:
             return
 
@@ -299,7 +306,7 @@ class Base:
         if fevt is not None:
             fevt.set()
         self._syn_funcs.clear()
-        del self._fini_funcs[:]
+        self._fini_funcs.clear()
         return 0
 
     async def waitfini(self, timeout=None):
@@ -497,8 +504,8 @@ class BaseRef(Base):
     '''
     An object for managing multiple Base instances by name.
     '''
-    def __init__(self, ctor=None):
-        Base.__init__(self)
+    async def __anit__(self, ctor=None):
+        await Base.__anit__(self)
         self.ctor = ctor
         self.base_by_name = {}
         self.onfini(self._onBaseRefFini)

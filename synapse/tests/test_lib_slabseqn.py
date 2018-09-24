@@ -15,7 +15,7 @@ class SlabSeqn(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             path = os.path.join(dirn, 'test.lmdb')
-            slab = s_lmdb.Slab(path, map_size=1000000)
+            slab = await s_lmdb.Slab.anit(path, map_size=1000000)
 
             seqn = s_slabseqn.SlabSeqn(slab, 'seqn:test')
 
@@ -34,7 +34,7 @@ class SlabSeqn(s_t_utils.SynTest):
             await slab.fini()
 
             # Reopen the seqn and continue where we left off
-            slab = s_lmdb.Slab(path, map_size=1000000)
+            slab = await s_lmdb.Slab.anit(path, map_size=1000000)
 
             seqn = s_slabseqn.SlabSeqn(slab, 'seqn:test')
             self.eq(seqn.index(), 3)

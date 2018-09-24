@@ -30,12 +30,8 @@ class Plex(s_eventbus.EventBus):
         self.ident = self.thrd.ident
 
         def fini():
-            coro = self._onAsyncFini()
-            try:
-                self.coroToSync(coro, timeout=.05)
-            except concurrent.futures.TimeoutError:
-                pass
-            self.thrd.join(.1)
+            self.callSoonSafe(self.loop.stop)
+            self.thrd.join(.3)
 
         self.onfini(fini)
 
@@ -55,7 +51,7 @@ class Plex(s_eventbus.EventBus):
         '''
         reader, writer = await asyncio.open_connection(host, port, ssl=ssl)
 
-        return self._initPlexLink(reader, writer)
+        return await self._initPlexLink(reader, writer)
 
     def connect(self, host, port, ssl=None, timeout=None):
         '''
@@ -72,7 +68,7 @@ class Plex(s_eventbus.EventBus):
         '''
         async def onconn(reader, writer):
 
-            link = self._initPlexLink(reader, writer)
+            link = await self._initPlexLink(reader, writer)
 
             # if the onlink() function is a coroutine, task it.
             coro = onlink(link)
@@ -138,15 +134,12 @@ class Plex(s_eventbus.EventBus):
         '''
         await asyncio.sleep(delay, loop=self.loop)
 
-    async def _onAsyncFini(self):
-        # async fini stuff here...
-        self.loop.stop()
 
-    def _initPlexLink(self, reader, writer):
+    async def _initPlexLink(self, reader, writer):
 
         # init a Link from reader, writer
 
-        link = s_link.Link(self, reader, writer)
+        link = await s_link.Link.anit(self, reader, writer)
 
         self.links[link.iden] = link
 

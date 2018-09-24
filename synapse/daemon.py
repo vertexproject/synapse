@@ -66,6 +66,7 @@ class AsyncGenr(s_share.Share):
                 await self.link.tx(mesg)
 
         except Exception as e:
+            breakpoint()
 
             retn = s_common.retnexc(e)
             mesg = ('share:data', {'share': self.iden, 'data': retn})
@@ -358,7 +359,7 @@ class Daemon(s_base.Base):
 
         for wraptype, wrapctor in dmonwrap:
             if isinstance(valu, wraptype):
-                return wrapctor(link, valu)
+                return await wrapctor.anit(link, valu)
 
         if s_coro.iscoro(valu):
             valu = await valu

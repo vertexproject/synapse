@@ -17,9 +17,9 @@ class Link(s_base.Base):
     '''
     A Link() is created for each Plex sock.
     '''
-    def __init__(self, plex, reader, writer):
+    async def __anit__(self, plex, reader, writer):
 
-        s_base.Base.__init__(self)
+        await s_base.Base.__anit__(self)
 
         self.plex = plex
         self.iden = s_common.guid()
@@ -140,8 +140,8 @@ class Chan(s_base.Base):
     '''
     An on-going data channel in a Link.
     '''
-    def __init__(self, link, iden):
-        s_base.Base.__init__(self)
+    async def __anit__(self, link, iden):
+        await s_base.Base.__anit__(self)
 
         self.link = link
         self.iden = iden

@@ -399,3 +399,5 @@ class LmdbTest(s_t_utils.SynTest):
             self.eq(slab.mapsize, newdb.mapsize)
 
             self.none(newdb.growsize)
+
+            await newdb.fini()

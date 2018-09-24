@@ -38,11 +38,9 @@ def block_processing(evt1, evt2):
 
 class Hehe(s_base.Base):
 
-    def __init__(self, foo):
-        s_base.Base.__init__(self)
+    async def __anit__(self, foo):
+        await s_base.Base.__anit__(self)
         self.foo = foo
-
-    async def __anit__(self):
         self.bar = self.foo + 10
 
 class BaseTest(s_t_utils.SynTest):
@@ -80,7 +78,7 @@ class BaseTest(s_t_utils.SynTest):
         async def setit():
             event.set()
 
-        f = s_base.Base()
+        f = await s_base.Base.anit()
         async with f as f:
             f.onfini(setit)
 
@@ -134,7 +132,7 @@ class BaseTest(s_t_utils.SynTest):
         def onfini():
             data['count'] += 1
 
-        async with s_base.Base() as base:
+        async with await s_base.Base.anit() as base:
             base.onfini(onfini)
 
         self.eq(data['count'], 1)

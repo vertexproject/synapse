@@ -161,14 +161,14 @@ class CryoTank(s_cell.Cell):
     '''
     cellapi = TankApi
 
-    confdefs = (
+    confdefs = (  # type: ignore
         ('mapsize', {'type': 'int', 'doc': 'LMDB mapsize value', 'defval': s_lmdb.DEFAULT_MAP_SIZE}),
         ('noindex', {'type': 'bool', 'doc': 'Disable indexing', 'defval': 0}),
     )
 
-    def __init__(self, dirn: str, conf=None) -> None:
+    async def __anit__(self, dirn: str, conf=None) -> None:
 
-        s_cell.Cell.__init__(self, dirn)
+        await s_cell.Cell.__anit__(self, dirn)
 
         if conf is not None:
             self.conf.update(conf)
@@ -428,9 +428,9 @@ class CryoCell(s_cell.Cell):
                           'doc': 'Default config over-rides for a new tank.'}),
     )
 
-    def __init__(self, dirn):
+    async def __anit__(self, dirn):
 
-        s_cell.Cell.__init__(self, dirn)
+        await s_cell.Cell.__anit__(self, dirn)
 
         path = s_common.gendir(self.dirn, 'cryo.lmdb')
 
@@ -443,7 +443,6 @@ class CryoCell(s_cell.Cell):
         self.names = self.kvstor.getKvDict('cryo:names')
         self.confs = self.kvstor.getKvDict('cryo:confs')
 
-    async def __anit__(self):
         self.tanks = await s_base.BaseRef.anit()
         self.onfini(self.tanks.fini)
 

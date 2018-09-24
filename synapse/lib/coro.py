@@ -18,9 +18,8 @@ class Queue(s_base.Base):
     '''
     An async queue with chunk optimized sync compatible consumer.
     '''
-    def __init__(self):
-
-        s_base.Base.__init__(self)
+    async def __anit__(self):
+        await s_base.Base.__anit__(self)
 
         self.fifo = []
         self.event = asyncio.Event()
@@ -55,8 +54,8 @@ class Genr(s_base.Base):
     '''
     Wrap an async generator for use by a potentially sync caller.
     '''
-    def __init__(self, genr):
-        s_base.Base.__init__(self)
+    async def __anit__(self, genr):
+        await s_base.Base.__anit__(self)
         self.genr = genr
 
     def __len__(self):
@@ -78,7 +77,8 @@ class Genr(s_base.Base):
             except StopAsyncIteration as e:
                 return
 
-def generator(f):
-    def wrap(*args, **kwargs):
-        return Genr(f(*args, **kwargs))
-    return wrap
+# FIXME This isn't going to work.  Still used?
+# def generator(f):
+#     def wrap(*args, **kwargs):
+#         return Genr(f(*args, **kwargs))
+#     return wrap

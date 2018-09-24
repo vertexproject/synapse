@@ -11,8 +11,8 @@ class Share(s_base.Base):
     '''
     Class to wrap a dynamically shared object.
     '''
-    def __init__(self, link, item):
-        s_base.Base.__init__(self)
+    async def __anit__(self, link, item):
+        await s_base.Base.__anit__(self)
 
         self.link = link
 

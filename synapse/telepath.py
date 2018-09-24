@@ -197,8 +197,8 @@ class Proxy(s_base.Base):
         valu = proxy.getFooValu(x, y)
 
     '''
-    def __init__(self, link, name):
-        s_base.Base.__init__(self)
+    async def __anit__(self, link, name):
+        await s_base.Base.__anit__(self)
 
         self.link = link
         self.name = name

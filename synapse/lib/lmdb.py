@@ -572,7 +572,6 @@ class Slab(s_base.Base):
     COMMIT_PERIOD = 1.0  # time between commits
 
     async def __anit__(self, path, **opts):
-
         await s_base.Base.__anit__(self)
 
         self.path = path
@@ -605,10 +604,8 @@ class Slab(s_base.Base):
         self._initCoXact()
 
         self.onfini(self._onCoFini)
-
-    async def __anit__(self):
-        await s_base.Base.__anit__(self)
         self.commit_task = self.loop.create_task(self._runSyncLoop())
+
         self.onfini(self.commit_task.cancel)
 
     def _saveOptsFile(self):
@@ -616,14 +613,19 @@ class Slab(s_base.Base):
         s_common.jssave(opts, self.optspath)
 
     async def _runSyncLoop(self):
+        print('Got to top of loop', flush=True)
+        try:
 
-        while not self.isfini:
-            await self.waitfini(timeout=self.COMMIT_PERIOD)
-            if self.isfini:
-                # There's no reason to forcecommit on fini, because there's a separate handler to already do that
-                break
-            if self.holders == 0:
-                self.forcecommit()
+            while not self.isfini:
+                await self.waitfini(timeout=self.COMMIT_PERIOD)
+                if self.isfini:
+                    # There's no reason to forcecommit on fini, because there's a separate handler to already do that
+                    break
+                if self.holders == 0:
+                    self.forcecommit()
+        except Exception as e:
+            print(f'runSyncLoop got {e}')
+            raise
 
     async def _onCoFini(self):
         assert s_glob.plex.iAmLoop()
