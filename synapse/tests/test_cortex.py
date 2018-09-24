@@ -1205,6 +1205,8 @@ class CortexTest(s_test.SynTest):
             for node in core.eval('inet:dns:a=(woot.com,1.2.3.4) $seen=.seen :fqdn -> inet:fqdn [ .seen=$seen ]'):
                 self.eq(node.get('.seen'), (1420070400000, 1514764800000))
 
+            self.raises(s_exc.BadStormSyntax, list, core.eval('inet:dns:a=(woot.com,1.2.3.4) $newp=.newp'))
+
             # Vars can also be provided as tuple
             opts = {'vars': {'foo': ('hehe', 'haha')}}
             self.len(1, core.eval('pivcomp=$foo', opts=opts))

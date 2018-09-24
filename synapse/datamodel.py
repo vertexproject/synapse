@@ -330,6 +330,7 @@ class Model:
         self.formabbr = {} # name: [Form(), ... ]
 
         self.univs = []
+        self.univlook = {}
 
         self.propsbytype = collections.defaultdict(list) # name: Prop()
 
@@ -544,6 +545,7 @@ class Model:
         univ = Univ(self, base, tdef, info)
 
         self.props[base] = univ
+        self.univlook[base] = univ
 
         self.univs.append((name, tdef, info))
 
@@ -567,3 +569,6 @@ class Model:
 
     def form(self, name):
         return self.forms.get(name)
+
+    def univ(self, name):
+        return self.univlook.get(name)
