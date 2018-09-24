@@ -837,6 +837,14 @@ class RelPropValue(CompValue):
     def compute(self, runt, node, path):
         return node.get(self.name)
 
+class UnivPropValue(CompValue):
+
+    def prepare(self):
+        self.name = self.kids[0].value()
+
+    def compute(self, runt, node, path):
+        return node.get(self.name)
+
 class TagPropValue(CompValue):
 
     def prepare(self):
@@ -907,6 +915,11 @@ class RelProp(Value):
 
     def repr(self):
         return 'RelProp: %r' % (self.valu,)
+
+class UnivProp(Value):
+
+    def repr(self):
+        return 'UnivProp: %r' % (self.valu,)
 
 class AbsProp(Value):
 
