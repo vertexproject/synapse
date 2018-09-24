@@ -431,6 +431,10 @@ class MoveTagCmd(Cmd):
         newt = snap.addNode('syn:tag', self.opts.newtag)
         newstr = newt.ndef[1]
 
+        if oldstr == newstr:
+            raise s_exc.BadOperArg(mesg='Cannot retag a tag to the same valu.',
+                                   newtag=newstr, oldtag=oldstr)
+
         retag = {oldstr: newstr}
 
         # first we set all the syn:tag:isnow props
@@ -449,6 +453,10 @@ class MoveTagCmd(Cmd):
             oldtitle = node.get('title')
             if oldtitle is not None:
                 newnode.set('title', oldtitle)
+
+            # Copy any tags over to the newnode if any are present.
+            for k, v in node.tags.items():
+                newnode.addTag(k, v)
 
             retag[tagstr] = newtag
             node.set('isnow', newtag)
