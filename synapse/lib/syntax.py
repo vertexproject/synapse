@@ -1291,9 +1291,9 @@ class Parser:
 
         name = self.noms(varset)
         if not name:
-            self._raiseBadSyntax('empty relative property name')
+            self._raiseBadSyntax('empty universal property name')
 
-        return s_ast.RelProp(name)
+        return s_ast.UnivProp(name)
 
     def cmpr(self):
 
@@ -1331,6 +1331,10 @@ class Parser:
         if self.nextstr(':'):
             prop = self.relprop()
             return s_ast.RelPropValue(kids=(prop,))
+
+        if self.nextstr('.'):
+            prop = self.univprop()
+            return s_ast.UnivPropValue(kids=(prop,))
 
         if self.nextstr('#'):
             tag = self.tag()
