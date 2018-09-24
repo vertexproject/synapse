@@ -1140,7 +1140,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:http:request:header', {}, (
 
-                        ('name', ('str', {'lower': True}), {'ro': True,
+                        ('name', ('inet:http:header:name', {}), {'ro': True,
                             'doc': 'The name of the HTTP request header.'}),
 
                         ('value', ('str', {}), {'ro': True,
@@ -1150,7 +1150,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:http:response:header', {}, (
 
-                        ('name', ('str', {'lower': True}), {'ro': True,
+                        ('name', ('inet:http:header:name', {}), {'ro': True,
                             'doc': 'The name of the HTTP response header.'}),
 
                         ('value', ('str', {}), {'ro': True,
