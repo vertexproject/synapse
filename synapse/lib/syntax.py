@@ -1276,7 +1276,7 @@ class Parser:
 
         name = self.noms(varset)
         if not name:
-            self._raiseBadSyntax('empty relative property name')
+            self._raiseSyntaxError('empty relative property name')
 
         return s_ast.RelProp(name)
 
@@ -1290,10 +1290,11 @@ class Parser:
             self._raiseBadSyntax('universal property expected .')
 
         name = self.noms(varset)
-        if not name:
-            self._raiseBadSyntax('empty relative property name')
 
-        return s_ast.RelProp(name)
+        if self.model.univ(name) is None:
+            self._raiseSyntaxError(f'no such universal property: {name!r}')
+
+        return s_ast.UnivProp(name)
 
     def cmpr(self):
 
@@ -1331,6 +1332,10 @@ class Parser:
         if self.nextstr(':'):
             prop = self.relprop()
             return s_ast.RelPropValue(kids=(prop,))
+
+        if self.nextstr('.'):
+            prop = self.univprop()
+            return s_ast.UnivPropValue(kids=(prop,))
 
         if self.nextstr('#'):
             tag = self.tag()
