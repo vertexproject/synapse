@@ -1520,3 +1520,32 @@ class CortexTest(s_test.SynTest):
                 self.none(core.setFeedOffs(iden, 0))
                 self.eq(core.getFeedOffs(iden), 0)
                 self.raises(s_exc.BadConfValu, core.setFeedOffs, iden, -1)
+
+    def test_storm_sub_query(self):
+
+        with self.getTestCore() as core:
+            # check that the sub-query doesnt effect main query output
+            node = list(core.eval('[ teststr=foo +#bar ] { [ +#baz ] -#bar }'))[0]
+            self.nn(node.getTag('baz'))
+
+    def test_storm_cond_not(self):
+
+        with self.getTestCore() as core:
+
+            self.len(1, core.eval('[ teststr=foo +#bar ]'))
+            self.len(1, core.eval('[ teststr=foo +#bar ] +(not .seen)'))
+            self.len(1, core.eval('[ teststr=foo +#bar ] +(#baz or not .seen)'))
+
+            # check that the sub-query doesnt effect main query output
+            #node = list(core.eval('[ teststr=foo +#bar ] { [ +#baz ] -#bar }'))[0]
+            #self.nn(node.getTag('baz'))
+
+    def test_storm_cond_subq(self):
+
+        with self.getTestCore() as core:
+
+            self.len(1, core.eval('[ teststr=bar +#baz ]'))
+            self.len(1, core.eval('[ pivcomp=(foo,bar) ]'))
+
+            self.len(0, core.eval('pivcomp=(foo,bar) -{ :lulz -> teststr +#baz }'))
+            self.len(1, core.eval('pivcomp=(foo,bar) +{ :lulz -> teststr +#baz } +pivcomp'))
