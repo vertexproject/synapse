@@ -334,6 +334,28 @@ class Migrate010Test(s_iq.SynTest):
             self.eq(nodes[0][1].get('props').get('ns'), 'foo.bar.com')
             fh.close()
 
+    def test_it_dev_regval(self):
+        self.maxDiff = None
+        with self.getTestDir() as dirn, self.getRamCore() as core:
+            # This is kind of worst case - where someone made a it:dev:regval
+            # node as a comp with optional field and set a property
+            # after the fact.
+            node = core.formTufoByProp('it:dev:regval',
+                                       {'key': 'HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\\Run'},
+                                       str='c:\\temp\\good.exe')
+            _, pprop = s_tufo.ndef(node)
+            self.true(s_common.isguid(pprop))
+
+            fh = tempfile.TemporaryFile(dir=dirn)
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            nodes = self.get_formfile('it:dev:regval', fh)
+            self.eq(len(nodes), 1)
+            self.eq(nodes[0][0], ('it:dev:regval', pprop))
+            self.eq(nodes[0][1].get('props').get('key'),
+                    'hkey_local_machine\\software\\microsoft\\windows\\currentversion\\run')
+            self.eq(nodes[0][1].get('props').get('str'), 'c:\\temp\\good.exe')
+            fh.close()
+
     def test_ps_personx(self):
         ''' Test both ps:person and ps:persona '''
         self.maxDiff = None
