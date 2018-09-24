@@ -42,6 +42,11 @@ _subs_to_save = [
     'ps:persona:name:given',
     'ps:persona:name:middle']
 
+_comps_to_keep = [
+    'inet:dns:soa:fqdn',
+    'it:dev:regval:key'
+]
+
 def _enc_iden(iden):
     return unhexlify(iden)
 
@@ -168,6 +173,9 @@ class Migrator:
         self.subs = set(subs) - set(_subs_to_save)
         self.xrefs = set(xrefs)
         self.seprfields = set(seprfields)
+        for field in _comps_to_keep:
+            if field in compfields:
+                compfields.remove(field)
         self.compfields = set(compfields)
 
     def migrate(self):
@@ -346,7 +354,7 @@ class Migrator:
                             self.write_node_to_file(node)
                         else:
                             logger.debug('Cannot convert %s', props)
-                    except Exception:
+                    except Exception as e:
                         logger.debug('Failed on processing node with props: %s', props, exc_info=True)
                         if self.rejects_fh is not None:
                             self.rejects_fh.write(s_msgpack.en(props))
@@ -408,8 +416,9 @@ class Migrator:
     def convert_primary(self, props):
         formname = props['tufo:form']
         pkval = props[formname]
-        if formname in self.primary_prop_special:
-            return self.primary_prop_special[formname](self, formname, props)
+        func = self.primary_prop_special.get(formname)
+        if func:
+            return func(self, formname, props)
         if self.is_comp(formname):
             return self.convert_comp_primary(props)
         if self.is_sepr(formname):
@@ -459,8 +468,6 @@ class Migrator:
         # logger.debug('convert_comp_primary_property: %s, %s', formname, compspec)
         t = self.core.getPropType(formname)
         members = [x[0] for x in t.fields]
-        if formname == 'inet:dns:soa':
-            members = ['ns', 'email']
         retn = []
         for member in members:
             full_member = '%s:%s' % (formname, member)
@@ -733,6 +740,7 @@ class Migrator:
         'inet:web:post': just_guid,
         'inet:web:chprofile': convert_inet_web_chprofile,
         'it:dev:regval': just_guid,
+        'inet:dns:soa': just_guid,
         'file:bytes': convert_file_bytes,
         'inet:udp4': convert_inet_xxp_primary,
         'inet:udp6': convert_inet_xxp_primary,
