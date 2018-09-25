@@ -42,10 +42,10 @@ _subs_to_save = [
     'ps:persona:name:given',
     'ps:persona:name:middle']
 
-_comps_to_keep = [
+_comps_to_keep = {
     'inet:dns:soa:fqdn',
     'it:dev:regval:key'
-]
+}
 
 def _enc_iden(iden):
     return unhexlify(iden)
@@ -173,10 +173,7 @@ class Migrator:
         self.subs = set(subs) - set(_subs_to_save)
         self.xrefs = set(xrefs)
         self.seprfields = set(seprfields)
-        for field in _comps_to_keep:
-            if field in compfields:
-                compfields.remove(field)
-        self.compfields = set(compfields)
+        self.compfields = set(compfields) - _comps_to_keep
 
     def migrate(self):
         '''
@@ -354,7 +351,7 @@ class Migrator:
                             self.write_node_to_file(node)
                         else:
                             logger.debug('Cannot convert %s', props)
-                    except Exception as e:
+                    except Exception:
                         logger.debug('Failed on processing node with props: %s', props, exc_info=True)
                         if self.rejects_fh is not None:
                             self.rejects_fh.write(s_msgpack.en(props))
