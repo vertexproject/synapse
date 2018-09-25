@@ -3,9 +3,12 @@ import tempfile
 
 import synapse.cortex as s_cortex
 import synapse.common as s_common
+
 import synapse.lib.iq as s_iq
+import synapse.lib.tufo as s_tufo
 import synapse.lib.hashset as s_hashset
 import synapse.lib.msgpack as s_msgpack
+
 import synapse.tools.migrate_010 as s_migrate
 
 class Migrate010Test(s_iq.SynTest):
@@ -312,12 +315,45 @@ class Migrate010Test(s_iq.SynTest):
     def test_inet_dns_soa(self):
         self.maxDiff = None
         with self.getTestDir() as dirn, self.getRamCore() as core:
-            core.formTufoByProp('inet:dns:soa', s_common.guid(), ns='foo.bar.com', email='bob@foo.bar.com')
+            # This is kind of worst case - where someone made a inet:dns:soa
+            # node as a comp with optional field and set a third property
+            # after the fact.
+            node = core.formTufoByProp('inet:dns:soa',
+                                       {'fqdn': 'vertex.link', 'ns': 'foo.bar.com'},
+                                       email='bob@foo.bar.com')
+            _, pprop = s_tufo.ndef(node)
+            self.true(s_common.isguid(pprop))
+
             fh = tempfile.TemporaryFile(dir=dirn)
             s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
             nodes = self.get_formfile('inet:dns:soa', fh)
             self.eq(len(nodes), 1)
-            self.eq(nodes[0][0], ('inet:dns:soa', ('foo.bar.com', 'bob@foo.bar.com')))
+            self.eq(nodes[0][0], ('inet:dns:soa', pprop))
+            self.eq(nodes[0][1].get('props').get('fqdn'), 'vertex.link')
+            self.eq(nodes[0][1].get('props').get('email'), 'bob@foo.bar.com')
+            self.eq(nodes[0][1].get('props').get('ns'), 'foo.bar.com')
+            fh.close()
+
+    def test_it_dev_regval(self):
+        self.maxDiff = None
+        with self.getTestDir() as dirn, self.getRamCore() as core:
+            # This is kind of worst case - where someone made a it:dev:regval
+            # node as a comp with optional field and set a property
+            # after the fact.
+            node = core.formTufoByProp('it:dev:regval',
+                                       {'key': 'HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\\Run'},
+                                       str='c:\\temp\\good.exe')
+            _, pprop = s_tufo.ndef(node)
+            self.true(s_common.isguid(pprop))
+
+            fh = tempfile.TemporaryFile(dir=dirn)
+            s_migrate.Migrator(core, fh, tmpdir=dirn).migrate()
+            nodes = self.get_formfile('it:dev:regval', fh)
+            self.eq(len(nodes), 1)
+            self.eq(nodes[0][0], ('it:dev:regval', pprop))
+            self.eq(nodes[0][1].get('props').get('key'),
+                    'hkey_local_machine\\software\\microsoft\\windows\\currentversion\\run')
+            self.eq(nodes[0][1].get('props').get('str'), 'c:\\temp\\good.exe')
             fh.close()
 
     def test_ps_personx(self):
