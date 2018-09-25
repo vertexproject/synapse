@@ -292,11 +292,17 @@ class Base:
             Remaining ref count
         '''
         assert self.anitted, 'Base object initialized improperly.  Must use Base.anit class method.'
-
-        assert s_threads.iden() == self.tid
+        # print(f'fini on {self}')
 
         if self.isfini:
             return
+
+        # Nic tmp
+        if s_threads.iden() != self.tid:
+            print(f'fini on {self} called on different thread than anit')
+            logger.warning('fini on called on different thread than anit', self)
+
+        # assert s_threads.iden() == self.tid
 
         self._syn_refs -= 1
         if self._syn_refs > 0:

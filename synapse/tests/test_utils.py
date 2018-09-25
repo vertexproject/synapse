@@ -290,7 +290,7 @@ class TestUtils(s_t_utils.SynTest):
 
         await self.asyncraises(ZeroDivisionError, araiser())
 
-    def test_dmoncoreaxon(self):
+    async def test_dmoncoreaxon(self):
         async with self.getTestDmonCortexAxon() as dmon:
             self.isin('core', dmon.cells)
             self.isin('axon00', dmon.cells)

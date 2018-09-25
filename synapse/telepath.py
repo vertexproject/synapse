@@ -5,6 +5,7 @@ An RMI framework for synapse.
 import os
 import asyncio
 import logging
+import inspect
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -219,13 +220,12 @@ class Proxy(s_base.Base):
         }
 
         async def fini():
-            import synapse.lib.threads as s_threads
-            assert self.loop == asyncio.get_running_loop()
             for item in list(self.shares.values()):
                 await item.fini()
             for name, task in list(self.tasks.items()):
                 task.reply((False, (('IsFini', {}))))
                 del self.tasks[name]
+            del self.syndone
             await self.link.fini()
 
         self.onfini(fini)

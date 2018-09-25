@@ -1,7 +1,6 @@
 '''
 An API to assist with the creation and enforcement of cortex data models.
 '''
-import asyncio
 import logging
 import collections
 
@@ -11,6 +10,7 @@ import synapse.exc as s_exc
 import synapse.dyndeps as s_dyndeps
 
 import synapse.lib.types as s_types
+import synapse.lib.coro as s_coro
 
 logger = logging.getLogger(__name__)
 

@@ -66,8 +66,6 @@ class AsyncGenr(s_share.Share):
                 await self.link.tx(mesg)
 
         except Exception as e:
-            breakpoint()
-
             retn = s_common.retnexc(e)
             mesg = ('share:data', {'share': self.iden, 'data': retn})
             await self.link.tx(mesg)

@@ -142,6 +142,7 @@ class Uploader(s_share.Share):
     async def __anit__(self, link, item):
         await s_share.Share.__anit__(self, link, item)
         self.doneevent = asyncio.Event(loop=self.loop)
+        self.onfini(s_common.delcb(self.doneevent))
         self.exitok = False
         self.chunknum = 0
         self.wcid = s_common.guid()
@@ -515,6 +516,11 @@ class BlobStor(s_cell.Cell):
         self._clone_seqn = s_lmdb.Seqn(self.lenv, b'clone')
         self._metrics = s_lmdb.Metrics(self.lenv)
         self._newdataevent = asyncio.Event(loop=self.loop)
+
+        def delevent():
+            del self._newdataevent
+
+        self.onfini(delevent)
 
         self._recover_partial()
         self._partial_hash = None  # hash currently being written

@@ -32,7 +32,7 @@ class Plex(s_eventbus.EventBus):
         def fini():
             print('Plex fini!')
             self.callSoonSafe(self.loop.stop)
-            self.thrd.join(.5)
+            self.thrd.join(0.3)
 
         self.onfini(fini)
 

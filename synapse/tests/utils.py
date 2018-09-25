@@ -1234,3 +1234,20 @@ class AsyncToSyncCMgr():
     def __exit__(self, *args):
         return s_glob.plex.coroToSync(self.amgr.__aexit__(*args))
 
+class SyncToAsyncCMgr():
+    ''' Wraps a regular context manager in an async one '''
+    def __init__(self, func, *args, **kwargs):
+        def run_and_enter():
+            obj = func(*args, **kwargs)
+            rv = obj.__enter__()
+            return obj, rv
+
+        self.coro = s_glob.plex.executor(run_and_enter)
+        self.obj = None
+
+    async def __aenter__(self):
+        self.obj, rv = await self.coro
+        return rv
+
+    async def __aexit__(self, *args):
+        return await s_glob.plex.executor(self.obj.__exit__, *args)

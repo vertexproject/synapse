@@ -20,19 +20,15 @@ import traceback
 import contextlib
 import collections
 
-
 import yaml
 import regex
-
 
 import synapse.exc as s_exc
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
-
 class NoValu:
     pass
-
 
 major = sys.version_info.major
 minor = sys.version_info.minor
@@ -661,11 +657,6 @@ def setlogging(mlogger, defval=None):
             raise ValueError('Invalid log level provided: {}'.format(log_level))
         logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
         mlogger.info('log level set to %s', log_level)
-
-################################################
-#
-# 0.1.0 stuff....
-#
 
 syndir = os.getenv('SYN_DIR')
 if syndir is None:
