@@ -15,7 +15,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
     def test_infotech_ios(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             with core.snap() as snap:
 
@@ -27,7 +27,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
         softver = s_common.guid()
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             with core.snap() as snap:
 
@@ -53,7 +53,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(aaid.ndef[1], 'someidentifier')
 
     def test_it_forms_simple(self):
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             with core.snap() as snap:
                 node = snap.addNode('it:hostname', 'Bobs Computer')
                 self.eq(node.ndef[1], 'bobs computer')
@@ -113,7 +113,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
     def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             with core.snap() as snap:
                 # it:prod:soft
                 prod0 = s_common.guid()
@@ -256,7 +256,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     self.true(stream.is_set())
 
     def test_it_form_callbacks(self):
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             with core.snap() as snap:
                 # it:dev:str kicks out the :norm property on him when he is made
                 node = snap.addNode('it:dev:str', 'evil RAT')
@@ -305,7 +305,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.len(1, nodes)
 
     def test_it_semvertype(self):
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             t = core.model.type('it:semver')
             testvectors = (
                 # Strings
@@ -404,7 +404,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
     def test_it_forms_hostexec(self):
         # forms related to the host execution model
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             with core.snap() as snap:
                 exe = 'sha256:' + 'a' * 64
                 port = 80

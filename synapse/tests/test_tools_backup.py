@@ -29,7 +29,7 @@ class BackupTest(s_t_utils.SynTest):
         return set1
 
     def test_backup(self):
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             src_dirn = s_scope.get('dirn')
             # This technically mangles the value in scope but that value
             # is not used for doing directory removal.

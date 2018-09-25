@@ -22,7 +22,7 @@ class IntlGovTest(s_t_utils.SynTest):
 
     def test_models_intl(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             core.model.addDataModels(testmodel)
 

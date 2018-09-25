@@ -7,7 +7,7 @@ import synapse.tools.deploy as s_deploy
 
 class CellAuthTest(s_t_utils.SynTest):
     def test_cellauth_list(self):
-        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             with self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
                 self.addCreatorDeleterRoles(core)
                 core.addUserRole('root', 'creator')
@@ -36,7 +36,7 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('type: role')
 
     def test_cellauth_user(self):
-        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
             coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
 
@@ -80,7 +80,7 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('admin: False')
 
     def test_cellauth_lock(self):
-        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
             coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
 
@@ -103,7 +103,7 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('locked: False')
 
     def test_cellauth_passwd(self):
-        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
             coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
 
@@ -118,7 +118,7 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('setting passwd for: foo')
 
     def test_cellauth_grants(self):
-        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
             coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
 
@@ -142,7 +142,7 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('revoking bar from: foo')
 
     def test_cellauth_rules(self):
-        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
 
             coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
             rule = 'node:add'

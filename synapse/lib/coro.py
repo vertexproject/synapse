@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 import synapse.glob as s_glob
 import synapse.lib.base as s_base
 
-# FIXME:  replace all instances of asyncio.iscoroutine with this function
 def iscoro(item):
     return inspect.iscoroutine(item)
 

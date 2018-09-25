@@ -147,7 +147,7 @@ class AxonTest(s_t_utils.SynTest):
                     self.lt(took, 10000)
 
     async def test_blobstor_remote(self):
-        async with self.agetTestDmon(mirror='axondmon') as dmon, \
+        async with self.getTestDmon(mirror='axondmon') as dmon, \
                 await self.agetTestProxy(dmon, 'blobstor00') as bst0:
             stats = await bst0.stat()
             self.eq(stats, {})
@@ -158,7 +158,7 @@ class AxonTest(s_t_utils.SynTest):
     async def test_axon(self):
         with self.getTestDir() as dirn:
             path0 = os.path.join(dirn, 'axon0')
-            async with self.agetTestDmon(mirror='axondmon') as dmon, \
+            async with self.getTestDmon(mirror='axondmon') as dmon, \
                     await self.agetTestProxy(dmon, 'blobstor00') as blobstor0, \
                     await s_axon.Axon.anit(path0, conf={'mapsize': s_t_utils.TEST_MAP_SIZE}) as axon:
 
@@ -203,7 +203,7 @@ class AxonTest(s_t_utils.SynTest):
                 self.eq(1, await axon.bulkput([b'']))
 
     async def test_axon_remote(self):
-        async with self.agetTestDmon(mirror='axondmon') as dmon, \
+        async with self.getTestDmon(mirror='axondmon') as dmon, \
                 await self.agetTestProxy(dmon, 'axon00') as axon:
             blobstorurl = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/blobstor00'
             await axon.addBlobStor(blobstorurl)
@@ -232,7 +232,7 @@ class AxonTest(s_t_utils.SynTest):
             self.notin(blobstorurl, bslist)
 
     async def test_axon_uploader(self):
-        async with self.agetTestDmon(mirror='axondmon') as dmon, \
+        async with self.getTestDmon(mirror='axondmon') as dmon, \
                 await self.agetTestProxy(dmon, 'axon00') as axon:
             abhash = hashlib.sha256(b'ab').digest()
             cdhash = hashlib.sha256(b'cd').digest()
@@ -278,7 +278,7 @@ class AxonTest(s_t_utils.SynTest):
         ''' Bring up an axon and a blobstor, then bring up a second blobstor that's cloning the first '''
         with self.getTestDir() as dirn:
             path0 = os.path.join(dirn, 'axon0')
-            async with self.agetTestDmon(mirror='axondmon') as dmon, \
+            async with self.getTestDmon(mirror='axondmon') as dmon, \
                     await self.agetTestProxy(dmon, 'blobstor00') as blobstor0, \
                     await s_axon.Axon.anit(path0, conf={'mapsize': s_t_utils.TEST_MAP_SIZE}) as axon:
 

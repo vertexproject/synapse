@@ -8,7 +8,7 @@ class FileTest(s_t_utils.SynTest):
     def test_model_filebytes(self):
 
         # test that sha256: form kicks out a sha256 sub.
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             valu = 'sha256:' + ('a' * 64)
             fbyts = core.model.type('file:bytes')
             norm, info = fbyts.norm(valu)
@@ -24,7 +24,7 @@ class FileTest(s_t_utils.SynTest):
 
     def test_model_file_types(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             base = core.model.type('file:base')
             path = core.model.type('file:path')

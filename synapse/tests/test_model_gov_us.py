@@ -4,7 +4,7 @@ class UsGovTest(s_t_utils.SynTest):
 
     async def test_models_usgov_cage(self):
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
             input_props = {
                 'street': '123 Main St',
                 'city': 'Smallville',

@@ -280,7 +280,7 @@ class CliTest(s_t_utils.SynTest):
     def test_cli_fini_disconnect(self):
         evt = threading.Event()
         outp = self.getTestOutp()
-        with self.getTestDmon('dmonboot') as dmon:
+        async with self.getTestDmon('dmonboot') as dmon:
             with self.getTestProxy(dmon, 'echo00') as prox:
                 cli = s_cli.Cli(prox, outp)
                 cli.onfini(evt.set)

@@ -5,7 +5,7 @@ import synapse.tests.common as s_t_common
 class GeoPolModelTest(s_t_common.SynTest):
 
     def test_forms_country(self):
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             formname = 'pol:country'
             guid = 32 * '0'
             flag_valu = 'sha256:' + 64 * 'f'
@@ -24,7 +24,7 @@ class GeoPolModelTest(s_t_common.SynTest):
                 self.eq(node.get(prop), valu)
 
     def test_types_iso2(self):
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             t = core.model.type('pol:iso2')
 
             self.eq(t.norm('Fo'), ('fo', {}))
@@ -32,7 +32,7 @@ class GeoPolModelTest(s_t_common.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, 'asD')
 
     def test_types_iso3(self):
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             t = core.model.type('pol:iso3')
 
             self.eq(t.norm('Foo'), ('foo', {}))
@@ -41,6 +41,6 @@ class GeoPolModelTest(s_t_common.SynTest):
 
     def test_types_unextended(self):
         # The following types are subtypes that do not extend their base type
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             self.nn(core.model.type('pol:country'))  # guid
             self.nn(core.model.type('pol:isonum'))  # int

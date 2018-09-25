@@ -68,7 +68,7 @@ class PropBase:
         for func in self.onsets:
             try:
                 retn = func(node, oldv)
-                if asyncio.iscoroutine(retn):
+                if s_coro.iscoro(retn):
                     await retn
             except Exception as e:
                 logger.exception('onset() error for %s' % (self.full,))
@@ -77,7 +77,7 @@ class PropBase:
         for func in self.ondels:
             try:
                 retn = await func(node, oldv)
-                if asyncio.iscoroutine(retn):
+                if s_coro.iscoro(retn):
                     await retn
             except Exception as e:
                 logger.exception('ondel() error for %s' % (self.full,))
@@ -263,7 +263,7 @@ class Form:
         for func in self.onadds:
             try:
                 retn = func(node)
-                if asyncio.iscoroutine(retn):
+                if s_coro.iscoro(retn):
                     await retn
             except Exception as e:
                 logger.exception('error on onadd for %s' % (self.name,))

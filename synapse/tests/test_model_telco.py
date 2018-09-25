@@ -6,7 +6,7 @@ import synapse.tests.utils as s_t_utils
 
 class TelcoModelTest(s_t_utils.SynTest):
     def test_telco_simple(self):
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             typ = core.model.type('tel:mob:mcc')
             self.eq(typ.norm('001')[0], '001')
@@ -78,7 +78,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.get('latlong'), (0.0, 0.0))
 
     def test_telco_imei(self):
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             with core.snap() as snap:
                 # proper value
                 node = snap.addNode('tel:mob:imei', '490154203237518')
@@ -94,7 +94,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.raises(s_exc.BadPropValu, snap.addNode, 'tel:mob:imei', 'hehe')
 
     def test_telco_imsi(self):
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             with core.snap() as snap:
                 node = snap.addNode('tel:mob:imsi', '310150123456789')
                 self.eq(node.ndef[1], 310150123456789)
@@ -103,7 +103,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.raises(s_exc.BadPropValu, snap.addNode, 'tel:mob:imsi', 1111111111111111)
 
     def test_telco_phone(self):
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             t = core.model.type('tel:phone')
             norm, subs = t.norm('123 456 7890')
             self.eq(norm, '1234567890')

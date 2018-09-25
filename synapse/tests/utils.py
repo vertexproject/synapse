@@ -577,14 +577,8 @@ class SynTest(unittest.TestCase):
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
-    @contextlib.contextmanager
-    def getTestCore(self, *args, **kwargs):
-        with AsyncToSyncCMgr(self.agetTestCore, *args, **kwargs) as core:
-            yield core
-
-    # Note: requires Python 3.7
     @contextlib.asynccontextmanager
-    async def agetTestCore(self, mirror='testcore', conf=None, extra_layers=None):
+    async def getTestCore(self, mirror='testcore', conf=None, extra_layers=None):
         '''
         Return a simple test Cortex.
 
@@ -609,13 +603,8 @@ class SynTest(unittest.TestCase):
             async with await s_cortex.Cortex.anit(dirn) as core:
                 yield core
 
-    @contextlib.contextmanager
-    def getTestDmon(self, *args, **kwargs):
-        with AsyncToSyncCMgr(self.agetTestDmon, *args, **kwargs) as dmon:
-            yield dmon
-
     @contextlib.asynccontextmanager
-    async def agetTestDmon(self, mirror='dmontest'):
+    async def getTestDmon(self, mirror='dmontest'):
 
         with self.getTestDir(mirror=mirror) as dirn:
             coredir = pathlib.Path(dirn, 'cells', 'core')
@@ -1187,8 +1176,8 @@ class SynTest(unittest.TestCase):
         core.addAuthRule('deleter', (True, ('prop:del',)))
         core.addAuthRule('deleter', (True, ('tag:del',)))
 
-    @contextlib.contextmanager
-    def getTestDmonCortexAxon(self, rootperms=True):
+    @contextlib.asynccontextmanager
+    async def getTestDmonCortexAxon(self, rootperms=True):
         '''
         Get a test Daemon with a Cortex and a Axon with a single BlobStor
         enabled. The Cortex is an auth enabled cortex with the root username
@@ -1206,7 +1195,7 @@ class SynTest(unittest.TestCase):
         Returns:
             s_daemon.Daemon: A configured Daemon.
         '''
-        with self.getTestDmon('axoncortexdmon') as dmon:
+        async with self.getTestDmon('axoncortexdmon') as dmon:
 
             # Construct URLS for later use
             blobstorurl = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/blobstor00'
@@ -1214,7 +1203,7 @@ class SynTest(unittest.TestCase):
             coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
 
             # register the blob with the Axon.
-            with AsyncToSyncCMgr(self.getTestProxy, dmon, 'axon00') as axon:
+            async with self.agetTestProxy(dmon, 'axon00') as axon:
                 axon.addBlobStor(blobstorurl)
 
             # Add our helper URLs to scope so others don't
@@ -1225,7 +1214,7 @@ class SynTest(unittest.TestCase):
 
             # grant the root user permissions
             if rootperms:
-                with AsyncToSyncCMgr(self.getTestProxy, dmon, 'core', user='root', passwd='root') as core:
+                with self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
                     self.addCreatorDeleterRoles(core)
                     core.addUserRole('root', 'creator')
                     core.addUserRole('root', 'deleter')
@@ -1240,31 +1229,8 @@ class AsyncToSyncCMgr():
         self.amgr = func(*args, **kwargs)
 
     def __enter__(self):
-        self.obj = s_glob.plex.coroToSync(self.amgr.__aenter__())
-        return self.obj
+        return s_glob.plex.coroToSync(self.amgr.__aenter__())
 
     def __exit__(self, *args):
-        return s_glob.plex.coroToSync(self.obj.__aexit__(*args))
+        return s_glob.plex.coroToSync(self.amgr.__aexit__(*args))
 
-# Discuss: could build this logic into coroToSync or synchelp
-class SyncToAsyncCMgr():
-    '''
-    Wraps a regular context manager in an async one.
-
-    Enter and exit functions are run in executors to avoid deadlock.
-    '''
-    def __init__(self, func, *args, **kwargs):
-        def run_and_enter():
-            obj = func(*args, **kwargs)
-            rv = obj.__enter__()
-            return obj, rv
-
-        self.coro = s_glob.plex.executor(run_and_enter)
-        self.obj = None
-
-    async def __aenter__(self):
-        self.obj, rv = await self.coro
-        return rv
-
-    async def __aexit__(self, *args):
-        return await s_glob.plex.executor(self.obj.__exit__, *args)

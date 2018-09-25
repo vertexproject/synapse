@@ -47,7 +47,7 @@ class FeedTest(s_t_utils.SynTest):
                 self.true(stream.wait(1))
 
     def test_syningest_remote(self):
-        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
             with self.getTestProxy(dmon, 'core', **pconf) as core:
                 # Setup user permissions
@@ -80,7 +80,7 @@ class FeedTest(s_t_utils.SynTest):
             self.true(outp.expect('pivtarg=hehe', throw=False))
 
     def test_synsplice_remote(self):
-        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
             with self.getTestProxy(dmon, 'core', **pconf) as core:
                 self.addCreatorDeleterRoles(core)
@@ -106,7 +106,7 @@ class FeedTest(s_t_utils.SynTest):
                 self.len(1, core.eval('teststr=foo'))
 
     def test_synnodes_remote(self):
-        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
             with self.getTestProxy(dmon, 'core', **pconf) as core:
                 self.addCreatorDeleterRoles(core)
@@ -135,7 +135,7 @@ class FeedTest(s_t_utils.SynTest):
             print(outp)
 
     def test_synnodes_offset(self):
-        with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
             with self.getTestProxy(dmon, 'core', **pconf) as core:
                 self.addCreatorDeleterRoles(core)

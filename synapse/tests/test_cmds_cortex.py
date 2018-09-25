@@ -122,7 +122,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.true(outp.expect("'path'"))
 
     def test_log(self):
-        with self.getTestDmon('dmoncore') as dmon:
+        async with self.getTestDmon('dmoncore') as dmon:
             dirn = s_scope.get('dirn')
             with self.setSynDir(dirn):
                 with self.getTestProxy(dmon, 'core') as core:

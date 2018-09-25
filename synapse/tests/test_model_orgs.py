@@ -6,7 +6,7 @@ import synapse.tests.utils as s_t_utils
 class OuModelTest(s_t_utils.SynTest):
 
     def test_ou_simple(self):
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             # type norming first
             # ou:name
             t = core.model.type('ou:name')
@@ -184,7 +184,7 @@ class OuModelTest(s_t_utils.SynTest):
             guid3: {'naics': '221320',
                     'sic': '0134'}
         }
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             with core.snap() as snap:
                 for g, props in omap.items():
                     node = snap.addNode('ou:org', g, props)

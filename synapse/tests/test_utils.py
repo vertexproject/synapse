@@ -8,9 +8,10 @@ Test for synapse.tests.utils classes
 import os
 import time
 import logging
-import synapse.glob as s_glob
+import contextlib
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
@@ -282,7 +283,6 @@ class TestUtils(s_t_utils.SynTest):
                 self.eq(cortex.conf.get('test'), 1)
                 self.eq(cortex.boot.get('auth:en'), True)
 
-    @s_glob.synchelp
     async def test_async(self):
 
         async def araiser():
@@ -291,7 +291,7 @@ class TestUtils(s_t_utils.SynTest):
         await self.asyncraises(ZeroDivisionError, araiser())
 
     def test_dmoncoreaxon(self):
-        with self.getTestDmonCortexAxon() as dmon:
+        async with self.getTestDmonCortexAxon() as dmon:
             self.isin('core', dmon.cells)
             self.isin('axon00', dmon.cells)
             self.isin('blobstor00', dmon.cells)
@@ -299,3 +299,13 @@ class TestUtils(s_t_utils.SynTest):
             with self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
                 node = core.addNode('teststr', 'hehe')
                 self.nn(node)
+
+    def test_asynctosynccmgr(self):
+
+        @contextlib.asynccontextmanager
+        async def testmgr():
+            yield 42
+
+        syncmgr = s_t_utils.AsyncToSyncCMgr(testmgr)
+        with syncmgr as foo:
+            self.eq(foo, 42)

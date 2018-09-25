@@ -157,7 +157,7 @@ class TeleTest(s_t_utils.SynTest):
         foo = Foo()
         evt = threading.Event()
 
-        with self.getTestDmon() as dmon:
+        async with self.getTestDmon() as dmon:
 
             addr = dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
@@ -201,7 +201,7 @@ class TeleTest(s_t_utils.SynTest):
     async def test_telepath_async(self):
         foo = Foo()
 
-        async with self.agetTestDmon() as dmon:
+        async with self.getTestDmon() as dmon:
             addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
@@ -258,7 +258,7 @@ class TeleTest(s_t_utils.SynTest):
 
         bar = MyClass()
 
-        async with self.agetTestDmon() as dmon:
+        async with self.getTestDmon() as dmon:
             addr = await s_glob.plex.executor(dmon.listen, 'tcp://127.0.0.1:0')
             dmon.share('bar', bar)
 
@@ -275,7 +275,7 @@ class TeleTest(s_t_utils.SynTest):
 
         item = TeleAware()
 
-        async with self.agetTestDmon() as dmon:
+        async with self.getTestDmon() as dmon:
             dmon.share('woke', item)
             async with await self.getTestProxy(dmon, 'woke') as proxy:
                 self.eq(10, await proxy.getFooBar(20, 10))
@@ -291,7 +291,7 @@ class TeleTest(s_t_utils.SynTest):
     def test_telepath_auth(self):
 
         item = TeleAuth()
-        with self.getTestDmon() as dmon:
+        async with self.getTestDmon() as dmon:
             dmon.share('auth', item)
             host, port = dmon.addr
 
@@ -307,7 +307,7 @@ class TeleTest(s_t_utils.SynTest):
 
     def test_telepath_server_badvers(self):
 
-        with self.getTestDmon() as dmon:
+        async with self.getTestDmon() as dmon:
 
             dmon.televers = (0, 0)
 
@@ -319,7 +319,7 @@ class TeleTest(s_t_utils.SynTest):
         item = TeleAware()
         name = 'item'
 
-        async with self.agetTestDmon() as dmon:
+        async with self.getTestDmon() as dmon:
             addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share(name, item)
             dirn = s_scope.get('dirn')

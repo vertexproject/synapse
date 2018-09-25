@@ -5,7 +5,7 @@ class CnGovTest(s_t_utils.SynTest):
 
     def test_models_cngov_mucd(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             with core.snap() as snap:
                 org0 = s_common.guid()

@@ -30,8 +30,9 @@ class Plex(s_eventbus.EventBus):
         self.ident = self.thrd.ident
 
         def fini():
+            print('Plex fini!')
             self.callSoonSafe(self.loop.stop)
-            self.thrd.join(.3)
+            self.thrd.join(.5)
 
         self.onfini(fini)
 
@@ -133,7 +134,6 @@ class Plex(s_eventbus.EventBus):
             This API must be called on the IOLoop
         '''
         await asyncio.sleep(delay, loop=self.loop)
-
 
     async def _initPlexLink(self, reader, writer):
 

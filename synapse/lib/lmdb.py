@@ -627,6 +627,7 @@ class Slab(s_base.Base):
             # Perfectly normal error on coming down
             raise
         except Exception:
+            # Nic tmp
             print(f'runSyncLoop got exception:')
             import traceback
             traceback.print_exc()

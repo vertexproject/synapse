@@ -6,7 +6,7 @@ from synapse.tests.common import SynTest
 class MatTest(s_t_utils.SynTest):
 
     def test_model_mat_spec_item(self):
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             with core.snap() as snap:
                 n0_guid = guid()
                 node0 = snap.addNode('mat:spec', n0_guid, props={'name': 'F16 Fighter Jet'})

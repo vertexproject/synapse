@@ -9,7 +9,7 @@ class MediaModelTest(s_t_common.SynTest):
 
     def test_news(self):
         formname = 'media:news'
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             with core.snap() as snap:
 
                 valu = 32 * 'a'

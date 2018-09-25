@@ -10,7 +10,7 @@ class GeoTest(s_t_common.SynTest):
         formlon = 'geo:longitude'
         formlatlon = 'geo:latlong'
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             # Latitude Type Tests =====================================================================================
             t = core.model.type(formlat)
@@ -144,7 +144,7 @@ class GeoTest(s_t_common.SynTest):
                 self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
 
     def test_near(self):
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             with core.snap() as snap:
                 # These two nodes are 2,605m apart
                 guid0 = s_common.guid()

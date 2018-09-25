@@ -11,6 +11,7 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 
 import synapse.lib.coro as s_coro
+import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ def _fini_atexit(): # pragma: no cover
             if __debug__:
                 logger.debug('At exit: Calling fini for %r', item)
             rv = item.fini()
-            if asyncio.iscoroutine(rv):
+            if s_coro.iscoro(rv):
                 # Try to run the fini on its loop
                 loop = item.loop
                 if not loop.is_running():
@@ -80,7 +81,8 @@ class Base:
     async def __anit__(self):
 
         self.loop = asyncio.get_running_loop()
-
+        if __debug__:
+            self.tid = s_threads.iden()
         self.isfini = False
         self.anitted = True  # For assertion purposes
         self.entered = False
@@ -116,22 +118,6 @@ class Base:
         self.exitok = cls is None
         self.exitinfo = (exc, cls, tb)
         await self.fini()
-
-    def __enter__(self):
-        '''
-        This should never be used by synapse code.
-        '''
-        assert 'test' in inspect.stack()[1].filename or 'tool' in inspect.stack()[1].filename, 'Nic tmp check'
-        rv = s_glob.plex.coroToSync(self.__aenter__())
-        self._ctxobj = rv
-        return self
-
-    def __exit__(self, *args):
-        '''
-        This should never be used by synapse code.
-        '''
-        assert 'test' in inspect.stack()[1].filename or 'tool' in inspect.stack()[1].filename, 'Nic tmp check'
-        return s_glob.plex.coroToSync(self._ctxobj.__aexit__(*args))
 
     def _isExitExc(self):
         # if entered but not exited *or* exitinfo has exc
@@ -273,7 +259,7 @@ class Base:
                     continue
 
                 retn = func(mesg)
-                if asyncio.iscoroutine(retn):
+                if s_coro.iscoro(retn):
                     retn = await retn
                 ret.append(retn)
 
@@ -288,6 +274,16 @@ class Base:
 
         return ret
 
+    def _iAmLoop(self):
+        '''
+        Return True if the current thread is the Plex loop thread.
+
+        Returns:
+            (bool)
+
+        '''
+        return threading.get_ident() == self.ident
+
     async def fini(self):
         '''
         Shut down the object and notify any onfini() coroutines.
@@ -296,8 +292,9 @@ class Base:
             Remaining ref count
         '''
         assert self.anitted, 'Base object initialized improperly.  Must use Base.anit class method.'
-        assert self.loop == asyncio.get_running_loop(), 'Finiing from wrong loop!'
-        # print(f'****{self}.fini called', flush=True)
+
+        assert s_threads.iden() == self.tid
+
         if self.isfini:
             return
 

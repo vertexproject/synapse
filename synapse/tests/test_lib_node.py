@@ -13,7 +13,7 @@ class NodeTest(s_t_utils.SynTest):
         valu = 'cool'
         props = {'tick': 12345}
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode(form, valu, props=props)
 
@@ -51,7 +51,7 @@ class NodeTest(s_t_utils.SynTest):
         valu = 'cool'
         props = {'tick': 12345}
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 self.true(snap.strict)  # Following assertions based on snap.strict being true
                 node = await snap.addNode(form, valu, props=props)
@@ -71,7 +71,7 @@ class NodeTest(s_t_utils.SynTest):
         valu = 'cool'
         props = {'tick': 12345}
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode(form, valu, props=props)
 
@@ -85,7 +85,7 @@ class NodeTest(s_t_utils.SynTest):
         valu = 'cool'
         props = {'tick': 12345}
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode(form, valu, props=props)
                 await node.addTag('cool', valu=(1, 2))
@@ -105,7 +105,7 @@ class NodeTest(s_t_utils.SynTest):
         valu = 'cool'
         props = {'tick': 12345}
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode(form, valu, props=props)
                 await node.addTag('cool', valu=(1, 2))
@@ -122,7 +122,7 @@ class NodeTest(s_t_utils.SynTest):
                 snap.strict = True
 
     async def test_repr(self):
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
             async with await core.snap() as snap:
 
                 form = 'teststr'
@@ -144,7 +144,7 @@ class NodeTest(s_t_utils.SynTest):
         valu = 'cool'
         props = {'tick': 12345}
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 self.true(snap.strict)
 
@@ -181,7 +181,7 @@ class NodeTest(s_t_utils.SynTest):
         props = {'tick': 12345}
         tval = (None, None)
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode(form, valu, props=props)
                 await node.addTag('test.foo.bar.duck', tval)

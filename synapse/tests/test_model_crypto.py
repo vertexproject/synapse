@@ -36,7 +36,7 @@ TEST_SHA512 = hashlib.sha512(b'test').hexdigest()
 class CryptoModelTest(s_t_utils.SynTest):
 
     def test_norm_lm_ntlm(self):
-        with self.getTestCore() as core:  # type: s_cortex.Cortex
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
             lm = core.model.type('hash:lm')
             valu, subs = lm.norm(TEST_MD5.upper())
             self.eq(valu, TEST_MD5)
@@ -50,7 +50,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, ntlm.norm, TEST_SHA256)
 
     def test_forms_crypto_simple(self):
-        with self.getTestCore() as core:  # type: s_cortex.Cortex
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
             with core.snap() as snap:
                 # md5
                 node = snap.addNode('hash:md5', TEST_MD5.upper())
@@ -83,7 +83,7 @@ class CryptoModelTest(s_t_utils.SynTest):
         }
         valu = (HEXSTR_MODULUS, HEXSTR_PUBLIC_EXPONENT)
 
-        with self.getTestCore() as core:  # type: s_cortex.Cortex
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
 
             with core.snap() as snap:
 

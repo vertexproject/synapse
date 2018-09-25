@@ -7,7 +7,7 @@ class DnsModelTest(s_t_utils.SynTest):
 
     def test_model_dns_request(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             with core.snap() as snap:
 
@@ -58,7 +58,7 @@ class DnsModelTest(s_t_utils.SynTest):
 
     def test_forms_dns_simple(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             with core.snap() as snap:
                 # inet:dns:a
@@ -142,7 +142,7 @@ class DnsModelTest(s_t_utils.SynTest):
         fqdn1 = 'haha.com'
         email0 = 'pennywise@vertex.ninja'
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             with core.snap() as snap:
                 # a record

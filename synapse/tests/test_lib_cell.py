@@ -24,7 +24,7 @@ class CellTest(s_t_utils.SynTest):
     def test_cell_auth(self):
 
         # test out built in cell auth
-        with self.getTestDmon(mirror='cellauth') as dmon:
+        async with self.getTestDmon(mirror='cellauth') as dmon:
 
             echo = dmon.shared.get('echo00')
             self.nn(echo)

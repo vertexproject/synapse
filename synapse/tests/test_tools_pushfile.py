@@ -15,7 +15,7 @@ visihash = hashlib.sha256(b'visi').digest()
 class TestPushFile(s_t_utils.SynTest):
 
     def test_pushfile(self):
-        with self.getTestDmonCortexAxon() as dmon:
+        async with self.getTestDmonCortexAxon() as dmon:
             coreurl = s_scope.get('coreurl')
             axonurl = s_scope.get('axonurl')
             dirn = s_scope.get('dirn')

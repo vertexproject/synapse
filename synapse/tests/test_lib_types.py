@@ -9,25 +9,6 @@ import synapse.tests.utils as s_t_utils
 import synapse.tests.utils as s_utils
 import synapse.datamodel as s_datamodel
 
-
-@contextlib.contextmanager
-def getCoreSnap(core):
-
-    @contextlib.asynccontextmanager
-    async def _acoresnap(core):
-        async with await core.snap() as snap:
-            yield snap
-
-    with s_t_utils.AsyncToSyncCMgr(_acoresnap, core) as core:
-        yield core
-
-@contextlib.contextmanager
-def getCoreSnap(core):
-    snap = s_glob.sync(core.snap())
-    with snap:
-        yield snap
-
-
 class TypesTest(s_t_utils.SynTest):
 
     def test_type(self):
@@ -61,11 +42,11 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(t.repr(1), 'True')
         self.eq(t.repr(0), 'False')
 
-    def test_comp(self):
-        with self.getTestCore() as core:
+    async def test_comp(self):
+        async with self.getTestCore() as core:
             t = 'testcomplexcomp'
             valu = ('123', 'HAHA')
-            with getCoreSnap(core) as snap:
+            async with core.snap(core) as snap:
                 node = snap.addNode(t, valu)
             pnode = node.pack(dorepr=True)
             self.eq(pnode[0], (t, (123, 'haha')))
@@ -94,7 +75,7 @@ class TypesTest(s_t_utils.SynTest):
         self.raises(s_exc.BadConfValu, s_types.Hex, None, None, None, {'size': -1})
         self.raises(s_exc.BadConfValu, s_types.Hex, None, None, None, {'size': 1})
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             t = core.model.type('testhexa')
             # Test norming to index values
@@ -311,7 +292,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('us.va.ओं.reston', loctype.norm('US.    VA.ओं.reston')[0])
         self.eq(b'us\x00haha\xed\xb3\xbestuff\x00blah\x00', loctype.indx('us.haha\udcfestuff.blah'))
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
             self.len(1, core.eval('[testint=1 :loc=us.va.syria]'))
             self.len(1, core.eval('[testint=2 :loc=us.va.sydney]'))
             self.len(1, core.eval('[testint=3 :loc=""]'))
@@ -450,7 +431,7 @@ class TypesTest(s_t_utils.SynTest):
 
     def test_time(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             t = core.model.type('testtime')
 

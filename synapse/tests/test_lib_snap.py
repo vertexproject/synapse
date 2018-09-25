@@ -10,7 +10,7 @@ class SnapTest(s_t_utils.SynTest):
 
     async def test_snap_eval_storm(self):
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
 
             async with await core.snap() as snap:
 
@@ -24,7 +24,7 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(3, await alist(snap.storm('teststr')))
 
     async def test_stor(self):
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
 
             # Bulk
             async with await core.snap() as snap:
@@ -43,7 +43,7 @@ class SnapTest(s_t_utils.SynTest):
             yield await snap.addNode('teststr', 'foo')
             yield await snap.addNode('teststr', 'bar')
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
 
             core.setFeedFunc('test.genr', testGenrFunc)
 
@@ -55,7 +55,7 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(2, nodes)
 
     async def test_addNodes(self):
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 ndefs = ()
                 self.len(0, await alist(snap.addNodes(ndefs)))
@@ -84,14 +84,14 @@ class SnapTest(s_t_utils.SynTest):
             This method is broken out so subclasses can override.
         '''
         layerfn = os.path.join(first_dirn, 'layers', '000-default')
-        async with self.agetTestCore(extra_layers=[layerfn]) as core:
+        async with self.getTestCore(extra_layers=[layerfn]) as core:
             yield core
 
     async def test_cortex_lift_layers_bad_filter(self):
         '''
         Test a two layer cortex where a lift operation gives the wrong result
         '''
-        async with self.agetTestCore() as core1:
+        async with self.getTestCore() as core1:
             node = (('inet:ipv4', 1), {'props': {'asn': 42, '.seen': (1, 2)}, 'tags': {'woot': (1, 2)}})
             nodes_core1 = await alist(core1.addNodes([node]))
             await core1.fini()
@@ -131,7 +131,7 @@ class SnapTest(s_t_utils.SynTest):
         '''
         Test a two layer cortex where a lift operation might give the same node twice incorrectly
         '''
-        async with self.agetTestCore() as core1:
+        async with self.getTestCore() as core1:
             node = (('inet:ipv4', 1), {'props': {'asn': 42}})
             nodes_core1 = await alist(core1.addNodes([node]))
             await core1.fini()

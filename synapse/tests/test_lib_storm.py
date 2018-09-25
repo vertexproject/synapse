@@ -8,7 +8,7 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_movetag(self):
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
 
             async with await core.snap() as snap:
                 node = await snap.addNode('teststr', 'foo')
@@ -57,7 +57,7 @@ class StormTest(s_t_utils.SynTest):
                 self.none(node.tags.get('hehe'))
                 self.none(node.tags.get('hehe.haha'))
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
 
             async with await core.snap() as snap:
                 node = await snap.addNode('teststr', 'foo')
@@ -83,14 +83,14 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_spin(self):
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
 
             await self.agenlen(0, core.eval('[ teststr=foo teststr=bar ] | spin'))
             await self.agenlen(2, core.eval('teststr=foo teststr=bar'))
 
     async def test_storm_reindex(self):
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
 
             async with await core.snap() as snap:
 
@@ -106,7 +106,7 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_count(self):
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
             await self.agenlen(2, core.eval('[ teststr=foo teststr=bar ]'))
             mesgs = await alist(core.storm('teststr=foo teststr=bar | count |  [+#test.tag]'))
             nodes = [mesg for mesg in mesgs if mesg[0] == 'node']
@@ -123,7 +123,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, nodes)
 
     async def test_storm_uniq(self):
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
             q = "[testcomp=(123, test) testcomp=(123, duck) testcomp=(123, mode)]"
             await self.agenlen(3, core.eval(q))
             nodes = await alist(core.eval('testcomp -> *'))
@@ -132,7 +132,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
     async def test_storm_iden(self):
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
             q = "[teststr=beep teststr=boop]"
             nodes = await alist(core.eval(q))
             self.len(2, nodes)
@@ -151,7 +151,7 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_input(self):
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
 
             async with await core.snap() as snap:
 
@@ -165,7 +165,7 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_noderefs(self):
 
-        async with self.agetTestCore() as core:
+        async with self.getTestCore() as core:
             await self.agenlen(1, core.eval('[pivcomp=(foo, 123)]'))
             tguid = s_common.guid()
             await self.agenlen(1, core.eval(f'[testguid={tguid} :tick=2015]'))

@@ -192,15 +192,9 @@ class Daemon(s_base.Base):
             except Exception as e:
                 logger.error('Error cancelling task: %s', str(e))
 
-        if 0:  # nic tmp
-            finis = [link.fini() for link in self.connectedlinks]
-            if finis:
-                await asyncio.wait(finis, loop=self.loop)
-        else:
-            for link in self.connectedlinks:
-                await link.fini()
-                print('d C', flush=True)
-        print('_onDmonFini done', flush=True)
+        finis = [link.fini() for link in self.connectedlinks]
+        if finis:
+            await asyncio.wait(finis, loop=self.loop)
 
     def _getSslCtx(self):
         return None
@@ -334,7 +328,7 @@ class Daemon(s_base.Base):
 
             if isinstance(item, s_telepath.Aware):
                 item = item.getTeleApi(link, mesg)
-                if asyncio.iscoroutine(item):
+                if s_coro.iscoro(item):
                     item = await item
 
             items = {None: item}
@@ -392,9 +386,6 @@ class Daemon(s_base.Base):
         if item is None:
             raise s_exc.NoSuchObj(f'name={name}')
 
-        #import synapse.lib.scope as s_scope
-        #with s_scope.enter({'syn:user': user}):
-
         try:
 
             methname, args, kwargs = mesg[1].get('todo')
@@ -408,7 +399,6 @@ class Daemon(s_base.Base):
                 raise s_exc.NoSuchMeth(name=methname)
 
             valu = await self._runTodoMeth(link, meth, args, kwargs)
-            #valu = await self._tryWrapValu(link, valu)
 
             mesg = self._getTaskFiniMesg(task, valu)
             await link.tx(mesg)

@@ -4,7 +4,7 @@ class SynModelTest(s_t_utils.SynTest):
 
     def test_model_syn_tag(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             with core.snap() as snap:
 

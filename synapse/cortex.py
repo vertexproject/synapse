@@ -430,7 +430,7 @@ class Cortex(s_cell.Cell):
         for func in self.ontagadds.get(tag, ()):
             try:
                 retn = await func(node, tag, valu)
-                if asyncio.iscoroutine(retn):
+                if s_coro.iscoro(retn):
                     retn = await retn
             except Exception as e:
                 logger.exception('onTagAdd Error')
@@ -439,7 +439,7 @@ class Cortex(s_cell.Cell):
         for func in self.ontagdels.get(tag, ()):
             try:
                 retn = await func(node, tag, valu)
-                if asyncio.iscoroutine(retn):
+                if s_coro.iscoro(retn):
                     retn = await retn
             except Exception as e:
                 logger.exception('onTagDel Error')
@@ -995,7 +995,6 @@ class Cortex(s_cell.Cell):
             async for node in snap.addNodes(nodedefs):
                 yield node
 
-    @s_glob.synchelp
     async def addFeedData(self, name, items, seqn=None):
         '''
         Add data using a feed/parser function.
@@ -1069,7 +1068,6 @@ class Cortex(s_cell.Cell):
         for modu in added:
             await modu.initCoreModule()
 
-    @s_glob.synchelp
     async def loadCoreModule(self, ctor, conf=None):
         '''
         Load a cortex module with the given ctor and conf.

@@ -7,7 +7,7 @@ class BaseTest(s_t_utils.SynTest):
 
     def test_model_base_node(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             with core.snap() as snap:
 
@@ -25,7 +25,7 @@ class BaseTest(s_t_utils.SynTest):
 
     def test_model_base_link(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             with core.snap() as snap:
 
@@ -55,7 +55,7 @@ class BaseTest(s_t_utils.SynTest):
 
     def test_model_base_event(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             with core.snap() as snap:
 
@@ -77,7 +77,7 @@ class BaseTest(s_t_utils.SynTest):
 
     def test_model_base_edge(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             pers = s_common.guid()
             plac = s_common.guid()
@@ -131,7 +131,7 @@ class BaseTest(s_t_utils.SynTest):
 
     def test_model_base_source(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             with core.snap() as snap:
 

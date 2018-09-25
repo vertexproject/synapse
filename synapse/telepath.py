@@ -220,7 +220,6 @@ class Proxy(s_base.Base):
 
         async def fini():
             import synapse.lib.threads as s_threads
-            print(f'Proxy fini, tid={s_threads.iden()}, tasks={self.tasks})', flush=True)
             assert self.loop == asyncio.get_running_loop()
             for item in list(self.shares.values()):
                 await item.fini()
@@ -228,10 +227,28 @@ class Proxy(s_base.Base):
                 task.reply((False, (('IsFini', {}))))
                 del self.tasks[name]
             await self.link.fini()
-            print('End proxy fini', flush=True)
 
         self.onfini(fini)
         self.link.onfini(self.fini)
+
+    def __enter__(self):
+        '''
+        Convenience function to enable using Proxy objects as synchronous context managers.
+
+        Note:
+            This must not be used from async code
+        '''
+        assert 'test' in inspect.stack()[1].filename or 'tool' in inspect.stack()[1].filename, 'Nic tmp check'
+        rv = s_glob.plex.coroToSync(self.__aenter__())
+        self._ctxobj = rv
+        return self
+
+    def __exit__(self, *args):
+        '''
+        This should never be used by synapse code.
+        '''
+        assert 'test' in inspect.stack()[1].filename or 'tool' in inspect.stack()[1].filename, 'Nic tmp check'
+        return s_glob.plex.coroToSync(self._ctxobj.__aexit__(*args))
 
     async def _onShareFini(self, mesg):
 

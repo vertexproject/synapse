@@ -16,7 +16,7 @@ cryodata = (('foo', {'bar': 10}), ('baz', {'faz': 20}))
 class CryoTest(s_t_utils.SynTest):
 
     async def test_cryo_cell_async(self):
-        async with self.agetTestDmon(mirror='cryodmon') as dmon, \
+        async with self.getTestDmon(mirror='cryodmon') as dmon, \
                 await self.agetTestProxy(dmon, 'cryo00') as prox:
             self.true(await prox.init('foo'))
             self.eq([], [x async for x in await prox.rows('foo', 0, 1)])
@@ -24,7 +24,7 @@ class CryoTest(s_t_utils.SynTest):
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     def test_cryo_cell(self):
 
-        with self.getTestDmon(mirror='cryodmon') as dmon:
+        async with self.getTestDmon(mirror='cryodmon') as dmon:
 
             with self.getTestProxy(dmon, 'cryo00') as prox:
 
@@ -98,7 +98,7 @@ class CryoTest(s_t_utils.SynTest):
     def test_cryo_cell_indexing(self):
 
         # conf = {'defvals': {'mapsize': s_t_utils.TEST_MAP_SIZE}}
-        with self.getTestDmon(mirror='cryodmon') as dmon:
+        async with self.getTestDmon(mirror='cryodmon') as dmon:
             with self.getTestProxy(dmon, 'cryo00') as ccell, self.getTestProxy(dmon, 'cryo00/woot:woot') as tank:
                 # Setting the _chunksize to 1 forces iteration on the client
                 # side of puts, as well as the server-side.

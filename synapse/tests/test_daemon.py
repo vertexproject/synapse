@@ -28,7 +28,7 @@ class DaemonTest(s_t_utils.SynTest):
     async def test_daemon_certdir(self):
 
         # ensure the test env by checking for certs
-        async with self.agetTestDmon() as dmon:
+        async with self.getTestDmon() as dmon:
             path = s_common.genpath(dmon.dirn, 'certs')
             self.eq(s_certdir.defdir, path)
 
@@ -36,7 +36,7 @@ class DaemonTest(s_t_utils.SynTest):
 
     async def test_daemon_boot(self):
         # get a localhost:0 dmon with an EchoCell "echo00"
-        async with self.agetTestDmon(mirror='dmonboot') as dmon:
+        async with self.getTestDmon(mirror='dmonboot') as dmon:
 
             self.nn(dmon.shared.get('echo00'))
             self.nn(dmon.mods.get('synapse.tests.test_daemon'))
