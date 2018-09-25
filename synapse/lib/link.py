@@ -47,7 +47,7 @@ class Link(s_base.Base):
         self.chans = {}
 
         self.unpk = s_msgpack.Unpk()
-        self.txque = asyncio.Queue(maxsize=1000)
+        self.txque = asyncio.Queue(maxsize=1000, loop=plex.loop)
         self.rxfunc = None
 
         async def fini():

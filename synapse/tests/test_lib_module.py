@@ -1,7 +1,7 @@
 import synapse.cortex as s_cortex
 import synapse.lib.module as s_module
 
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
 data = {}
 
@@ -16,7 +16,7 @@ class BarMod(s_module.CoreModule):
     def finiCoreModule(self):
         data['fini'] = True
 
-class CoreModTest(SynTest):
+class CoreModTest(s_t_utils.SynTest):
 
     def test_lib_module_modname(self):
         with self.getRamCore() as core:

@@ -46,10 +46,10 @@ class Task:
     '''
     A telepath Task is used to internally track calls/responses.
     '''
-    def __init__(self):
+    def __init__(self, loop):
         self.retn = None
         self.iden = s_common.guid()
-        self.done = asyncio.Event()
+        self.done = asyncio.Event(loop=loop)
 
     async def result(self):
         await self.done.wait()
@@ -63,8 +63,8 @@ class Share(s_base.Base):
     '''
     The telepath client side of a dynamically shared object.
     '''
-    def __init__(self, proxy, iden):
-        s_base.Base.__init__(self)
+    async def __anit__(self, proxy, iden):
+        await s_base.Base.__anit__(self)
         self.iden = iden
         self.proxy = proxy
 
@@ -93,9 +93,9 @@ class Share(s_base.Base):
 
 class Genr(Share):
 
-    def __init__(self, proxy, iden):
-        Share.__init__(self, proxy, iden)
-        self.queue = s_coro.Queue()
+    async def __anit__(self, proxy, iden):
+        await Share.__anit__(self, proxy, iden)
+        self.queue = await s_coro.Queue.anit()
         self.onfini(self.queue.fini)
 
     async def _onShareData(self, data):
@@ -132,8 +132,8 @@ class Genr(Share):
 
 class With(Share):
 
-    def __init__(self, proxy, iden):
-        Share.__init__(self, proxy, iden)
+    async def __anit__(self, proxy, iden):
+        await Share.__anit__(self, proxy, iden)
         # a with is optimized to already be entered.
         # so a fini() with no enter causes exit with error.
         self.entered = True # local to synapse.lib.coro.Fini()
@@ -207,7 +207,7 @@ class Proxy(s_base.Base):
         self.shares = {}
 
         self.synack = None
-        self.syndone = asyncio.Event()
+        self.syndone = asyncio.Event(loop=self.loop)
 
         self.timeout = None     # API call timeout default
 
@@ -219,12 +219,16 @@ class Proxy(s_base.Base):
         }
 
         async def fini():
+            import synapse.lib.threads as s_threads
+            print(f'Proxy fini, tid={s_threads.iden()}, tasks={self.tasks})', flush=True)
+            assert self.loop == asyncio.get_running_loop()
             for item in list(self.shares.values()):
                 await item.fini()
             for name, task in list(self.tasks.items()):
                 task.reply((False, (('IsFini', {}))))
                 del self.tasks[name]
             await self.link.fini()
+            print('End proxy fini', flush=True)
 
         self.onfini(fini)
         self.link.onfini(self.fini)
@@ -273,7 +277,7 @@ class Proxy(s_base.Base):
         if self.isfini:
             raise s_exc.IsFini()
 
-        task = Task()
+        task = Task(loop=self.loop)
 
         mesg = ('task:init', {
                     'task': task.iden,
@@ -383,7 +387,7 @@ class Proxy(s_base.Base):
         retntype = mesg[1].get('type')
         if retntype is not None:
             ctor = sharetypes.get(retntype, Share)
-            retn = (True, ctor(self, retn[1]))
+            retn = (True, await ctor.anit(self, retn[1]))
 
         return task.reply(retn)
 

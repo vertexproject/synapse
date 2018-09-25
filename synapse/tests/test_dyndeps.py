@@ -1,6 +1,6 @@
 import synapse.exc as s_exc
 import synapse.dyndeps as s_dyndeps
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
 hehe = 'woot'
 
@@ -11,7 +11,7 @@ class Foo:
 def woot(x, y=30):
     return x + y
 
-class DynDepsTest(s_test.SynTest):
+class DynDepsTest(s_t_utils.SynTest):
 
     def test_dyndeps_dynmod(self):
         self.none(s_dyndeps.getDynMod('- -'))

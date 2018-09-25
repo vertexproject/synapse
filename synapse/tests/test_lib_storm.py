@@ -10,7 +10,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 node = await snap.addNode('teststr', 'foo')
                 await node.addTag('hehe.haha', valu=(20, 30))
 
@@ -27,7 +27,7 @@ class StormTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('#woot'))
             await self.agenlen(1, core.eval('#woot.haha'))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 newt = await core.getNodeByNdef(('syn:tag', 'woot.haha'))
 
@@ -59,7 +59,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 node = await snap.addNode('teststr', 'foo')
                 await node.addTag('hehe', valu=(20, 30))
 
@@ -72,7 +72,7 @@ class StormTest(s_t_utils.SynTest):
             await self.agenlen(0, core.eval('#hehe'))
             await self.agenlen(1, core.eval('#woot'))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 # Nic tmp
                 tagnode = await snap.getNodeByNdef(('syn:tag', 'hehe'))
                 print(f'{tagnode.pack()}')
@@ -92,7 +92,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.addNode('inet:ipv4', '127.0.0.1')
                 self.eq('loopback', node.get('type'))
@@ -100,7 +100,7 @@ class StormTest(s_t_utils.SynTest):
 
             await s_common.aspin(core.eval('inet:ipv4 | reindex --subs'))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 node = await snap.getNodeByNdef(('inet:ipv4', 0x7f000001))
                 self.eq('loopback', node.get('type'))
 
@@ -153,7 +153,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.addNode('teststr', 'woot')
                 await s_common.aspin(node.storm('[ +#hehe ]'))

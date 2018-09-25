@@ -7,11 +7,11 @@ from cryptography.hazmat.backends import default_backend
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.crypto.tinfoil as s_tinfoil
 
-class TinFoilTest(s_test.SynTest):
+class TinFoilTest(s_t_utils.SynTest):
 
     def test_lib_crypto_tnfl_base(self):
 

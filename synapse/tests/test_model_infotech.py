@@ -5,13 +5,13 @@ import synapse.lib.version as s_version
 
 import synapse.models.crypto as s_m_crypto
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
 # 010 TODO / Fixme!
 # Test it:prod:softver by range!
 #
 
-class InfotechModelTest(s_test.SynTest):
+class InfotechModelTest(s_t_utils.SynTest):
 
     def test_infotech_ios(self):
 

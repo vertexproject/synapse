@@ -543,7 +543,7 @@ class Cell(s_base.Base, s_telepath.Aware):
                                  user=user)
 
         link.set('cell:user', user)
-        return self.cellapi(self, link)
+        return await self.cellapi.anit(self, link)
 
     def getCellType(self):
         return self.__class__.__name__.lower()

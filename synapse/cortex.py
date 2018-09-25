@@ -4,13 +4,12 @@ import logging
 import pathlib
 import collections
 
-from concurrent.futures import CancelledError
-
 import tornado.web as t_web
 import tornado.netutil as t_netutil
 import tornado.httpserver as t_http
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
@@ -67,8 +66,8 @@ class View:
         # our "top" layer is "us"
         self.layer = self.layers[-1]
 
-    def snap(self):
-        return s_snap.Snap(self.core, self.layers)
+    async def snap(self):
+        return await s_snap.Snap.anit(self.core, self.layers)
 
 class HttpModelApiV1(t_web.RequestHandler):
 
@@ -137,7 +136,7 @@ class CoreApi(s_cell.CellApi):
         parts = tag.split('.')
         self._reqUserAllowed('tag:add', *parts)
 
-        async with self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user) as snap:
 
             node = await snap.getNodeByBuid(buid)
             if node is None:
@@ -159,7 +158,7 @@ class CoreApi(s_cell.CellApi):
         parts = tag.split('.')
         self._reqUserAllowed('tag:del', *parts)
 
-        async with self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user) as snap:
 
             node = await snap.getNodeByBuid(buid)
             if node is None:
@@ -172,7 +171,7 @@ class CoreApi(s_cell.CellApi):
 
         buid = s_common.uhex(iden)
 
-        async with self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user) as snap:
 
             node = await snap.getNodeByBuid(buid)
             if node is None:
@@ -188,7 +187,7 @@ class CoreApi(s_cell.CellApi):
 
         self._reqUserAllowed('node:add', form)
 
-        async with self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user) as snap:
             node = await snap.addNode(form, valu, props=props)
             return node.pack()
 
@@ -216,7 +215,7 @@ class CoreApi(s_cell.CellApi):
             self._reqUserAllowed('node:add', formname)
             done[formname] = True
 
-        async with self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user) as snap:
 
             snap.strict = False
 
@@ -231,7 +230,7 @@ class CoreApi(s_cell.CellApi):
 
         self._reqUserAllowed('feed:data', *name.split('.'))
 
-        async with self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user) as snap:
             snap.strict = False
             return await snap.addFeedData(name, items, seqn=seqn)
 
@@ -254,7 +253,7 @@ class CoreApi(s_cell.CellApi):
             (int): The number of nodes resulting from the query.
         '''
         i = 0
-        async with self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user) as snap:
             async for _ in snap.eval(text, opts=opts, user=self.user):
                 i += 1
         return i
@@ -263,7 +262,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Evalute a storm query and yield packed nodes.
         '''
-        async with self.cell.snap(user=self.user) as snap:
+        async with await self.cell.snap(user=self.user) as snap:
             async for item in snap.iterStormPodes(text, opts=opts, user=self.user):
                 yield item
 
@@ -401,7 +400,7 @@ class Cortex(s_cell.Cell):
         await self._initFeedLoops()
 
         async def fini():
-            await asyncio.gather(*[layr.fini() for layr in self.layers])
+            await asyncio.gather(*[layr.fini() for layr in self.layers], loop=self.loop)
 
         self.onfini(fini)
 
@@ -543,7 +542,7 @@ class Cortex(s_cell.Cell):
                         offs = await core.addFeedData('syn.splice', items, seqn=(iden, offs))
                         self.fire('core:splice:sync:sent')
 
-            except CancelledError:
+            except asyncio.CancelledError:
                 break
 
             except Exception as e:  # pragma: no cover
@@ -620,7 +619,7 @@ class Cortex(s_cell.Cell):
                         offs = self.addFeedData(typename, datas, seqn=(iden, offs))
                         self.fire('core:feed:loop')
 
-            except CancelledError:
+            except asyncio.CancelledError:
                 break
 
             except Exception as e:  # pragma: no cover
@@ -905,7 +904,7 @@ class Cortex(s_cell.Cell):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
-        async with self.snap() as snap:
+        async with await self.snap() as snap:
             async for node in snap.eval(text, opts=opts):
                 yield node
 
@@ -915,7 +914,7 @@ class Cortex(s_cell.Cell):
         Yields:
             ((str,dict)): Storm messages.
         '''
-        async with self.snap(user=user) as snap:
+        async with await self.snap(user=user) as snap:
             async for mesg in snap.storm(text, opts=opts):
                 yield mesg
 
@@ -948,7 +947,7 @@ class Cortex(s_cell.Cell):
 
         buid = s_common.buid((form.name, norm))
 
-        async with self.snap() as snap:
+        async with await self.snap() as snap:
             return await snap.getNodeByBuid(buid)
 
     async def getNodesBy(self, full, valu, cmpr='='):
@@ -970,7 +969,7 @@ class Cortex(s_cell.Cell):
             # The inet:ipv4 type knows about cidr syntax
             core.getNodesBy('inet:ipv4', '1.2.3.0/24')
         '''
-        async with self.snap() as snap:
+        async with await self.snap() as snap:
             async for node in snap.getNodesBy(full, valu, cmpr=cmpr):
                 yield node
 
@@ -991,11 +990,12 @@ class Cortex(s_cell.Cell):
         The "props" or "tags" keys may be omitted.
 
         '''
-        async with self.snap() as snap:
+        async with await self.snap() as snap:
             snap.strict = False
             async for node in snap.addNodes(nodedefs):
                 yield node
 
+    @s_glob.synchelp
     async def addFeedData(self, name, items, seqn=None):
         '''
         Add data using a feed/parser function.
@@ -1008,7 +1008,7 @@ class Cortex(s_cell.Cell):
         Returns:
             (int): The next expected offset (or None) if seqn is None.
         '''
-        async with self.snap() as snap:
+        async with await self.snap() as snap:
             snap.strict = False
             return await snap.addFeedData(name, items, seqn=seqn)
 
@@ -1024,7 +1024,7 @@ class Cortex(s_cell.Cell):
                     iden, oldoffs, offs)
         return await self.layer.setOffset(iden, offs)
 
-    def snap(self, user=None):
+    async def snap(self, user=None):
         '''
         Return a transaction object for the default view.
 
@@ -1036,7 +1036,7 @@ class Cortex(s_cell.Cell):
 
         NOTE: This must be used in a with block.
         '''
-        snap = self.view.snap()
+        snap = await self.view.snap()
         if user is not None:
             snap.setUser(user)
         return snap
@@ -1069,7 +1069,8 @@ class Cortex(s_cell.Cell):
         for modu in added:
             await modu.initCoreModule()
 
-    def loadCoreModule(self, ctor, conf=None):
+    @s_glob.synchelp
+    async def loadCoreModule(self, ctor, conf=None):
         '''
         Load a cortex module with the given ctor and conf.
 
@@ -1085,7 +1086,7 @@ class Cortex(s_cell.Cell):
         mdefs = modu.getModelDefs()
         self.model.addDataModels(mdefs)
 
-        modu.initCoreModule()
+        await modu.initCoreModule()
 
     def _loadCoreModule(self, ctor):
 

@@ -262,7 +262,7 @@ class CryoTank(s_cell.Cell):
                 self.offs.xset(xact, iden, nextoff)
                 retn = nextoff
 
-        self.fire('cryotank:puts', numrecords=len(itembyts))
+        self.schedCoroSafe(self.fire('cryotank:puts', numrecords=len(itembyts)))
 
         return retn
 

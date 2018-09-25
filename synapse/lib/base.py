@@ -1,6 +1,7 @@
 import gc
 import atexit
 import signal
+import inspect
 import asyncio
 import logging
 import threading
@@ -8,6 +9,8 @@ import collections
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
+
+import synapse.lib.coro as s_coro
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +67,11 @@ class Base:
         One should not create instances directly via its initializer, i.e. Base().  One shall always use the class
         method anit.
     '''
+    def __init__(self):
+        assert inspect.stack()[1].function == 'anit', 'Objects from Base must be constructed solely via "anit"'
+
     @classmethod
+    @s_glob.synchelp
     async def anit(cls, *args, **kwargs):
         self = cls()
         await self.__anit__(*args, **kwargs)
@@ -99,10 +106,13 @@ class Base:
         self._fini_funcs.append(func)
 
     async def __aenter__(self):
+        assert asyncio.get_running_loop() == self.loop
         self.entered = True
         return self
 
     async def __aexit__(self, exc, cls, tb):
+        assert asyncio.get_running_loop() == self.loop
+
         self.exitok = cls is None
         self.exitinfo = (exc, cls, tb)
         await self.fini()
@@ -111,6 +121,7 @@ class Base:
         '''
         This should never be used by synapse code.
         '''
+        assert 'test' in inspect.stack()[1].filename or 'tool' in inspect.stack()[1].filename, 'Nic tmp check'
         rv = s_glob.plex.coroToSync(self.__aenter__())
         self._ctxobj = rv
         return self
@@ -119,6 +130,7 @@ class Base:
         '''
         This should never be used by synapse code.
         '''
+        assert 'test' in inspect.stack()[1].filename or 'tool' in inspect.stack()[1].filename, 'Nic tmp check'
         return s_glob.plex.coroToSync(self._ctxobj.__aexit__(*args))
 
     def _isExitExc(self):
@@ -284,6 +296,8 @@ class Base:
             Remaining ref count
         '''
         assert self.anitted, 'Base object initialized improperly.  Must use Base.anit class method.'
+        assert self.loop == asyncio.get_running_loop(), 'Finiing from wrong loop!'
+        # print(f'****{self}.fini called', flush=True)
         if self.isfini:
             return
 
@@ -297,7 +311,7 @@ class Base:
         for fini in self._fini_funcs:
             try:
                 rv = fini()
-                if asyncio.iscoroutine(rv):
+                if s_coro.iscoro(rv):
                     await rv
 
             except Exception as e:
@@ -384,13 +398,13 @@ class Base:
 
     def waiter(self, count, *names):
         '''
-        Construct and return a new Waiter for events on this bus.
+        Construct and return a new Waiter for events on this base.
 
         Example:
 
             # wait up to 3 seconds for 10 foo:bar events...
 
-            waiter = bus.waiter(10,'foo:bar')
+            waiter = base.waiter(10,'foo:bar')
 
             # .. fire thread that will cause foo:bar events
 
@@ -407,6 +421,18 @@ class Base:
 
         '''
         return Waiter(self, count, self.loop, *names)
+
+    def schedCoroSafe(self, coro):
+        '''
+        Schedules a coroutine to run as soon as possible on the same event loop that this Base is running on
+
+        This function does *not* pend on coroutine completion.
+        '''
+        fut = asyncio.run_coroutine_threadsafe(coro, self.loop)
+
+        # Avoid swallowing any exceptions
+        fut.add_done_callback(fut.result)
+        return fut
 
     # async def log(self, level, mesg, **info):
     #     '''
@@ -464,6 +490,7 @@ class Waiter:
         if len(self.events) >= self.count:
             self.event.set()
 
+    @s_glob.synchelp
     async def wait(self, timeout=None):
         '''
         Wait for the required number of events and return them or None on timeout.
@@ -511,7 +538,7 @@ class BaseRef(Base):
         self.onfini(self._onBaseRefFini)
 
     async def _onBaseRefFini(self):
-        await asyncio.gather(*[base.fini() for base in self.vals()])
+        await asyncio.gather(*[base.fini() for base in self.vals()], loop=self.loop)
 
     def put(self, name, base):
         '''

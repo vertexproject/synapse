@@ -332,7 +332,7 @@ class _AsyncQueueTest(s_t_utils.SynTest):
         # The axon tests test most of the asyncqueue functionality.  We just need to test the
         # draining part
 
-        q = s_axon._AsyncQueue(5, drain_level=3)
+        q = await s_axon._AsyncQueue.anit(5, drain_level=3)
         [await q.put(i) for i in range(5)]
         got_to_end = False
         last_msg = 0
@@ -353,7 +353,7 @@ class _AsyncQueueTest(s_t_utils.SynTest):
         await q.put(6)
         self.lt(0.1, time.time() - before)
         self.eq(last_msg, 2)
-        await asyncio.sleep(0.1)
+        await s_glob.plex.sleep(0.1)
 
         self.true(got_to_end)
 

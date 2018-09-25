@@ -223,7 +223,7 @@ class TestModule(s_module.CoreModule):
 
     async def initCoreModule(self):
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
-        async with self.core.snap() as snap:
+        async with await self.core.snap() as snap:
             await snap.addNode('source', self.testguid, {'name': 'test'})
 
     async def addTestRecords(self, snap, items):
@@ -577,7 +577,10 @@ class SynTest(unittest.TestCase):
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
-    # FIXME:  add back getTestCore
+    @contextlib.contextmanager
+    def getTestCore(self, *args, **kwargs):
+        with AsyncToSyncCMgr(self.agetTestCore, *args, **kwargs) as core:
+            yield core
 
     # Note: requires Python 3.7
     @contextlib.asynccontextmanager

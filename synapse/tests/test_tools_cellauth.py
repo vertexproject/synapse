@@ -8,7 +8,7 @@ import synapse.tools.deploy as s_deploy
 class CellAuthTest(s_t_utils.SynTest):
     def test_cellauth_list(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
-            with dmon._getTestProxy('core', user='root', passwd='root') as core:
+            with self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
                 self.addCreatorDeleterRoles(core)
                 core.addUserRole('root', 'creator')
 

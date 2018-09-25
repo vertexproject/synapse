@@ -1,6 +1,6 @@
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
-class SynModelTest(s_test.SynTest):
+class SynModelTest(s_t_utils.SynTest):
 
     def test_model_syn_tag(self):
 

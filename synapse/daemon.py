@@ -191,9 +191,16 @@ class Daemon(s_base.Base):
                 task.cancel()
             except Exception as e:
                 logger.error('Error cancelling task: %s', str(e))
-        finis = [link.fini() for link in self.connectedlinks]
-        if finis:
-            await asyncio.wait(finis, loop=asyncio.get_event_loop())
+
+        if 0:  # nic tmp
+            finis = [link.fini() for link in self.connectedlinks]
+            if finis:
+                await asyncio.wait(finis, loop=self.loop)
+        else:
+            for link in self.connectedlinks:
+                await link.fini()
+                print('d C', flush=True)
+        print('_onDmonFini done', flush=True)
 
     def _getSslCtx(self):
         return None

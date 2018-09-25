@@ -4,7 +4,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
 class EchoAuthApi(s_cell.CellApi):
 
@@ -19,7 +19,7 @@ class EchoAuth(s_cell.Cell):
 
 s_cells.add('echoauth', EchoAuth)
 
-class CellTest(s_test.SynTest):
+class CellTest(s_t_utils.SynTest):
 
     def test_cell_auth(self):
 

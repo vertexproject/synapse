@@ -97,9 +97,9 @@ class CryoTest(s_t_utils.SynTest):
 
     def test_cryo_cell_indexing(self):
 
-        conf = {'defvals': {'mapsize': s_t_utils.TEST_MAP_SIZE}}
+        # conf = {'defvals': {'mapsize': s_t_utils.TEST_MAP_SIZE}}
         with self.getTestDmon(mirror='cryodmon') as dmon:
-            with dmon._getTestProxy('cryo00') as ccell, dmon._getTestProxy('cryo00/woot:woot') as tank:
+            with self.getTestProxy(dmon, 'cryo00') as ccell, self.getTestProxy(dmon, 'cryo00/woot:woot') as tank:
                 # Setting the _chunksize to 1 forces iteration on the client
                 # side of puts, as well as the server-side.
                 tank._chunksize = 1
@@ -123,7 +123,7 @@ class CryoTest(s_t_utils.SynTest):
                         list(tank.queryRows('prop1', valu='b')))
 
                 ccell.init('woot:boring', {'noindex': True})
-                with dmon._getTestProxy('cryo00/woot:boring') as tank2:
+                with self.getTestProxy(dmon, 'cryo00/woot:boring') as tank2:
                     self.eq([], tank2.getIndices())
 
 class CryoIndexTest(s_t_utils.SynTest):
@@ -137,7 +137,8 @@ class CryoIndexTest(s_t_utils.SynTest):
 
     def test_cryotank_index(self):
         conf = {'mapsize': s_t_utils.TEST_MAP_SIZE}
-        with self.getTestConfDir(name='CryoTank', conf=conf) as dirn, s_cryotank.CryoTank(dirn) as tank:
+        with self.getTestConfDir(name='CryoTank', conf=conf) as dirn, \
+                s_cryotank.CryoTank.anit(dirn) as tank:
 
             idxr = tank.indexer
 
@@ -264,7 +265,7 @@ class CryoIndexTest(s_t_utils.SynTest):
 
     def test_cryotank_index_nest(self):
         conf = {'mapsize': s_t_utils.TEST_MAP_SIZE}
-        with self.getTestConfDir(name='CryoTank', conf=conf) as dirn, s_cryotank.CryoTank(dirn) as tank:
+        with self.getTestConfDir(name='CryoTank', conf=conf) as dirn, s_cryotank.CryoTank.anit(dirn) as tank:
             idxr = tank.indexer
             item = {
                 'hehe': {

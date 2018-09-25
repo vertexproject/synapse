@@ -1,9 +1,9 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
-class FileTest(s_test.SynTest):
+class FileTest(s_t_utils.SynTest):
 
     def test_model_filebytes(self):
 

@@ -1,6 +1,7 @@
 import os
 import sys
 import struct
+import asyncio
 import logging
 import contextlib
 
@@ -613,7 +614,6 @@ class Slab(s_base.Base):
         s_common.jssave(opts, self.optspath)
 
     async def _runSyncLoop(self):
-        print('Got to top of loop', flush=True)
         try:
 
             while not self.isfini:
@@ -623,8 +623,13 @@ class Slab(s_base.Base):
                     break
                 if self.holders == 0:
                     self.forcecommit()
-        except Exception as e:
-            print(f'runSyncLoop got {e}')
+        except asyncio.CancelledError:
+            # Perfectly normal error on coming down
+            raise
+        except Exception:
+            print(f'runSyncLoop got exception:')
+            import traceback
+            traceback.print_exc()
             raise
 
     async def _onCoFini(self):

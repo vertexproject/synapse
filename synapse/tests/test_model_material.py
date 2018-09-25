@@ -3,7 +3,7 @@ import synapse.lib.hashset as s_hashset
 from synapse.common import guid
 from synapse.tests.common import SynTest
 
-class MatTest(SynTest):
+class MatTest(s_t_utils.SynTest):
 
     def test_model_mat_spec_item(self):
         with self.getTestCore() as core:

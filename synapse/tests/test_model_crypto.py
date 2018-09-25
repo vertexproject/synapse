@@ -3,7 +3,7 @@ import hashlib
 import synapse.exc as s_exc
 import synapse.cortex as s_cortex
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
 
 BITS = 2048
@@ -33,7 +33,7 @@ TEST_SHA256 = hashlib.sha256(b'test').hexdigest()
 TEST_SHA384 = hashlib.sha384(b'test').hexdigest()
 TEST_SHA512 = hashlib.sha512(b'test').hexdigest()
 
-class CryptoModelTest(s_test.SynTest):
+class CryptoModelTest(s_t_utils.SynTest):
 
     def test_norm_lm_ntlm(self):
         with self.getTestCore() as core:  # type: s_cortex.Cortex

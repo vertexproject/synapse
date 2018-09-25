@@ -1,9 +1,9 @@
 
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
 import synapse.lib.trees as s_trees
 
-class TreeTest(SynTest):
+class TreeTest(s_t_utils.SynTest):
 
     def test_lib_tree_interval(self):
         ivals = (

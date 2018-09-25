@@ -1,9 +1,13 @@
+import threading
+
 import synapse.exc as s_exc
+import synapse.common as s_common
+
 import synapse.lib.queue as s_queue
 
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
-class QueueTest(SynTest):
+class QueueTest(s_t_utils.SynTest):
 
     def test_queue_base(self):
         q = s_queue.Queue()
@@ -122,7 +126,7 @@ class QueueTest(SynTest):
         q = s_queue.Queue()
         [q.put(item) for item in data]
 
-        @firethread
+        @s_common.firethread
         def finisoon():
             evt.wait()
             q.fini()
@@ -143,7 +147,7 @@ class QueueTest(SynTest):
         data = [1, 2, 3, 4, 5]
         results = []
 
-        @firethread
+        @s_common.firethread
         def nommer():
             evt.wait()
             try:

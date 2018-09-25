@@ -103,7 +103,7 @@ def main(argv, outp=None):
         with getTempDir() as dirn:
             s_common.yamlsave({'layer:lmdb:mapsize': s_const.gibibyte * 5},
                               dirn, 'cell.yaml')
-            with s_cortex.Cortex(dirn) as core:
+            with s_cortex.Cortex.anit(dirn) as core:
                 for mod in opts.modules:
                     outp.printf(f'Loading [{mod}]')
                     core.loadCoreModule(mod)

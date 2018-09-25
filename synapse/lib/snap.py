@@ -29,9 +29,8 @@ class Snap(s_base.Base):
     ('print', {}),
     '''
 
-    def __init__(self, core, layers, write=False):
-
-        s_base.Base.__init__(self)
+    async def __anit__(self, core, layers, write=False):
+        await s_base.Base.__anit__(self)
 
         self.stack = contextlib.ExitStack()
 

@@ -28,7 +28,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 await snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
 
             nodes = [n.pack() async for n in core.eval('inet:dns:a :ipv4 -> *')]
@@ -40,7 +40,7 @@ class CortexTest(s_t_utils.SynTest):
         # test "future/ongoing" time stamp.
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.addNode('teststr', 'foo')
                 await node.addTag('lol', valu=('2015', '?'))
@@ -59,7 +59,7 @@ class CortexTest(s_t_utils.SynTest):
 
             sorc = s_common.guid()
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
 
@@ -106,7 +106,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 props = {'asn': 10, '.seen': '2016'}
                 node = await snap.addNode('inet:ipv4', 0x01020304, props=props)
@@ -131,7 +131,7 @@ class CortexTest(s_t_utils.SynTest):
         async with self.agetTestCore() as core:
             core.model.addUnivProp('favcolor', ('str', {}), {})
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 node = await snap.addNode('teststr', 'hezipha', props={'.favcolor': 'red'})
                 node = await snap.addNode('testcomp', (20, 'lulzlulz'))
 
@@ -252,7 +252,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 waiter = src_core.waiter(1, 'core:splice:cryotank:sent')
                 # Form a node and make sure that it exists
-                async with src_core.snap() as snap:
+                async with await src_core.snap() as snap:
                     await snap.addNode('teststr', 'teehee')
                     self.nn(await snap.getNodeByNdef(('teststr', 'teehee')))
 
@@ -310,7 +310,7 @@ class CortexTest(s_t_utils.SynTest):
                 with self.getTestCell(dirn, 'cortex', conf=conf) as src_core:
                     # Form a node and make sure that it exists
                     waiter = src_core.waiter(1, 'core:splice:sync:sent')
-                    with src_core.snap() as snap:
+                    with await src_core.snap() as snap:
                         await snap.addNode('teststr', 'teehee')
                         self.nn(await snap.getNodeByNdef(('teststr', 'teehee')))
 
@@ -319,7 +319,7 @@ class CortexTest(s_t_utils.SynTest):
             self.true(evt.wait(3))
             # Now that the src core is closed, make sure that the node exists
             # in the dst core without creating it
-            with dst_core.snap() as snap:
+            with await dst_core.snap() as snap:
                 node = await snap.getNodeByNdef(('teststr', 'teehee'))
                 self.eq(node.ndef, ('teststr', 'teehee'))
 
@@ -332,7 +332,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 core.model.form('inet:ipv4').onAdd(testcb)
 
@@ -361,7 +361,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 valu = 'a' * 257
                 await snap.addNode('teststr', valu)
 
@@ -454,7 +454,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 core.model.prop('inet:ipv4:loc').onSet(test_cb)
 
@@ -471,7 +471,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.none(node.get('loc'))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 node = await snap.addNode('inet:ipv4', '1.2.3.4')
                 self.none(node.get('loc'))
 
@@ -479,7 +479,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 await snap.addNode('teststr', 'newp')
 
@@ -494,7 +494,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.nn(await snap.getNodeByNdef(('syn:tag', 'foo')))
                 self.nn(await snap.getNodeByNdef(('syn:tag', 'foo.bar')))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.getNodeByNdef(('teststr', 'one'))
 
@@ -506,7 +506,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(2, await alist(snap.getNodesBy('#foo.bar')))
                 self.len(1, await alist(snap.getNodesBy('teststr#foo.bar')))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.addNode('teststr', 'one')
 
@@ -515,7 +515,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.false(node.hasTag('foo'))
                 self.false(node.hasTag('foo.bar'))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.addNode('teststr', 'one')
                 self.false(node.hasTag('foo'))
@@ -525,11 +525,11 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 node = await snap.addNode('testtype10', 'one')
                 await node.set('intprop', 21)
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 node = await snap.getNodeByNdef(('testtype10', 'one'))
                 self.nn(node)
                 self.eq(node.get('intprop'), 21)
@@ -538,7 +538,7 @@ class CortexTest(s_t_utils.SynTest):
         async with self.agetTestCore() as core:
 
             # Test some default values
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.addNode('testtype10', 'one')
                 self.nn(node.get('.created'))
@@ -551,7 +551,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.true(s_common.isguid(node.get('guidprop')))
 
             # open a new snap, commiting the previous snap and do some lifts by univ prop
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 nodes = await alist(snap.getNodesBy('.created', ))
                 self.len(1 + 1, nodes)
@@ -577,7 +577,7 @@ class CortexTest(s_t_utils.SynTest):
                 await self.agenlen(2, core.eval('.created*range=("2010", "?")'))
 
             # Open another snap to test some more default value behavior
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 # Grab an updated reference to the first node
                 node = (await alist(snap.getNodesBy('testtype10', 'one')))[0]
                 # add another node with default vals
@@ -635,7 +635,7 @@ class CortexTest(s_t_utils.SynTest):
                 nodes = await alist(snap.getNodesBy('teststr:tick'))
                 self.len(3, nodes)
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.addNode('testtype10', 'one')
                 self.eq(node.get('intprop'), 21)
@@ -663,7 +663,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 pivc = await snap.addNode('pivcomp', ('woot', 'rofl'))
                 self.eq(pivc.get('targ'), 'woot')
@@ -672,7 +672,7 @@ class CortexTest(s_t_utils.SynTest):
                 await pivt.set('name', 'visi')
                 self.nn(pivt)
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 pivc = await snap.getNodeByNdef(('pivcomp', ('woot', 'rofl')))
                 self.eq(pivc.get('targ::name'), 'visi')
 
@@ -783,35 +783,35 @@ class CortexTest(s_t_utils.SynTest):
 
             self.eq(1, offs)
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 node = await snap.getNodeByNdef(('teststr', 'foo'))
                 self.nn(node)
 
             mesg = ('prop:set', {'ndef': ('teststr', 'foo'), 'prop': 'tick', 'valu': 200})
             offs = await core.addFeedData('syn.splice', [mesg], seqn=(iden, offs))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 node = await snap.getNodeByNdef(('teststr', 'foo'))
                 self.eq(200, node.get('tick'))
 
             mesg = ('prop:del', {'ndef': ('teststr', 'foo'), 'prop': 'tick'})
             offs = await core.addFeedData('syn.splice', [mesg], seqn=(iden, offs))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 node = await snap.getNodeByNdef(('teststr', 'foo'))
                 self.none(node.get('tick'))
 
             mesg = ('tag:add', {'ndef': ('teststr', 'foo'), 'tag': 'bar', 'valu': (200, 300)})
             offs = await core.addFeedData('syn.splice', [mesg], seqn=(iden, offs))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 node = await snap.getNodeByNdef(('teststr', 'foo'))
                 self.eq((200, 300), node.getTag('bar'))
 
             mesg = ('tag:del', {'ndef': ('teststr', 'foo'), 'tag': 'bar'})
             offs = await core.addFeedData('syn.splice', [mesg], seqn=(iden, offs))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 node = await snap.getNodeByNdef(('teststr', 'foo'))
                 self.none(node.getTag('bar'))
 
@@ -819,7 +819,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.addNode('teststr', 'foo')
 
@@ -871,7 +871,7 @@ class CortexTest(s_t_utils.SynTest):
             form.onDel(onNodeDel)
             form.props.get('tick').onDel(onPropDel)
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 targ = await snap.addNode('pivtarg', 'foo')
                 await snap.addNode('pivcomp', ('foo', 'bar'))
@@ -892,7 +892,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.none(await snap.getNodeByBuid(tstr.buid))
                 self.none(await snap.getNodeByNdef(('teststr', 'baz')))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 # test that secondary props are gone at the row level...
                 prop = snap.model.prop('teststr:tick')
@@ -1147,7 +1147,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.addNode('inet:ipv4', 0x01020304)
                 self.eq('1.2.3.4', node.repr())
@@ -1172,7 +1172,7 @@ class CortexTest(s_t_utils.SynTest):
 
             await alist(core.eval('[ teststr=woot .seen=(2014,2015) ]'))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.getNodeByNdef(('teststr', 'woot'))
                 self.eq(node.get('.seen'), (1388534400000, 1420070400000))
@@ -1188,7 +1188,7 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('[ teststr=hehe +#foo=(2014,2016) ]'))
             await self.agenlen(1, core.eval('[ teststr=haha +#bar=2015 ]'))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.getNodeByNdef(('teststr', 'hehe'))
                 self.eq(node.getTag('foo'), (tick0, tick2))
@@ -1198,7 +1198,7 @@ class CortexTest(s_t_utils.SynTest):
 
             await self.agenlen(1, core.eval('[ teststr=haha +#bar=2016 ]'))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.getNodeByNdef(('teststr', 'haha'))
                 self.eq(node.getTag('bar'), (tick1, tick2 + 1))
@@ -1478,7 +1478,7 @@ class CortexTest(s_t_utils.SynTest):
             core.onTagDel('foo.bar', ondel)
             core.onTagDel('foo.bar.baz', ondel)
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.addNode('teststr', 'hehe')
                 await node.addTag('foo.bar.baz', valu=(200, 300))
@@ -1507,7 +1507,7 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_cortex_snap_eval(self):
         async with self.agetTestCore() as core:
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 await self.agenlen(2, snap.eval('[teststr=foo teststr=bar]'))
             await self.agenlen(2, core.eval('teststr'))
 

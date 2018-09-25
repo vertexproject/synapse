@@ -1,12 +1,34 @@
+import contextlib
+
+import synapse.glob as s_glob
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.types as s_types
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 import synapse.tests.utils as s_utils
 import synapse.datamodel as s_datamodel
 
 
-class TypesTest(s_test.SynTest):
+@contextlib.contextmanager
+def getCoreSnap(core):
+
+    @contextlib.asynccontextmanager
+    async def _acoresnap(core):
+        async with await core.snap() as snap:
+            yield snap
+
+    with s_t_utils.AsyncToSyncCMgr(_acoresnap, core) as core:
+        yield core
+
+@contextlib.contextmanager
+def getCoreSnap(core):
+    snap = s_glob.sync(core.snap())
+    with snap:
+        yield snap
+
+
+class TypesTest(s_t_utils.SynTest):
 
     def test_type(self):
         model = s_datamodel.Model()
@@ -43,7 +65,7 @@ class TypesTest(s_test.SynTest):
         with self.getTestCore() as core:
             t = 'testcomplexcomp'
             valu = ('123', 'HAHA')
-            with core.snap() as snap:
+            with getCoreSnap(core) as snap:
                 node = snap.addNode(t, valu)
             pnode = node.pack(dorepr=True)
             self.eq(pnode[0], (t, (123, 'haha')))
@@ -117,11 +139,11 @@ class TypesTest(s_test.SynTest):
                     self.raises(b, t.norm, v)
 
             # Do some node creation and lifting
-            with core.snap() as snap:  # type: s_snap.Snap
+            with getCoreSnap(core) as snap:
                 node = snap.addNode('testhexa', '010001')
                 self.eq(node.ndef[1], '010001')
 
-            with core.snap() as snap:  # type: s_snap.Snap
+            with getCoreSnap(core) as snap:
                 nodes = list(snap.getNodesBy('testhexa', '010001'))
                 self.len(1, nodes)
 
@@ -134,11 +156,11 @@ class TypesTest(s_test.SynTest):
                      'deadb3b3',
                      'deaddead',
                      'DEADBEEF']
-            with core.snap() as snap:  # type: s_snap.Snap
+            with getCoreSnap(core) as snap:
                 for valu in valus:
                     node = snap.addNode('testhexa', valu)
 
-            with core.snap() as snap:  # type: s_snap.Snap
+            with getCoreSnap(core) as snap:
                 nodes = list(snap.getNodesBy('testhexa', 'dead*'))
                 self.len(5, nodes)
 
@@ -160,11 +182,11 @@ class TypesTest(s_test.SynTest):
                      '01ff',
                      '0200',
                      ]
-            with core.snap() as snap:  # type: s_snap.Snap
+            with getCoreSnap(core) as snap:
                 for valu in valus:
                     node = snap.addNode('testhex4', valu)
 
-            with core.snap() as snap:  # type: s_snap.Snap
+            with getCoreSnap(core) as snap:
                 nodes = list(snap.getNodesBy('testhex4', '00*'))
                 self.len(1, nodes)
 
@@ -441,7 +463,7 @@ class TypesTest(s_test.SynTest):
             tick = t.norm('2014')[0]
             tock = t.norm('2015')[0]
 
-            with core.snap() as snap:
+            with getCoreSnap(core) as snap:
                 node = snap.addNode('teststr', 'a', {'tick': '2014'})
                 node = snap.addNode('teststr', 'b', {'tick': '2015'})
                 node = snap.addNode('teststr', 'c', {'tick': '2016'})

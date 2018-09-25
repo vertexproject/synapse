@@ -12,7 +12,7 @@ class SnapTest(s_t_utils.SynTest):
 
         async with self.agetTestCore() as core:
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 await snap.addNode('teststr', 'hehe')
                 await snap.addNode('teststr', 'haha')
@@ -27,7 +27,7 @@ class SnapTest(s_t_utils.SynTest):
         async with self.agetTestCore() as core:
 
             # Bulk
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 snap.bulk = True
                 self.eq(snap.bulksops, ())
 
@@ -50,13 +50,13 @@ class SnapTest(s_t_utils.SynTest):
             await core.addFeedData('test.genr', [])
             self.len(2, await alist(core.eval('teststr')))
 
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 nodes = await alist(snap.addFeedNodes('test.genr', []))
                 self.len(2, nodes)
 
     async def test_addNodes(self):
         async with self.agetTestCore() as core:
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 ndefs = ()
                 self.len(0, await alist(snap.addNodes(ndefs)))
 
@@ -96,7 +96,7 @@ class SnapTest(s_t_utils.SynTest):
             nodes_core1 = await alist(core1.addNodes([node]))
             await core1.fini()
 
-            async with self._getTestCoreMultiLayer(core1.dirn) as core, core.snap() as snap:
+            async with self._getTestCoreMultiLayer(core1.dirn) as core, await core.snap() as snap:
                 # Basic sanity check
                 nodes = await alist(snap.getNodesBy('inet:ipv4', 1))
                 self.len(1, nodes)
@@ -136,7 +136,7 @@ class SnapTest(s_t_utils.SynTest):
             nodes_core1 = await alist(core1.addNodes([node]))
             await core1.fini()
 
-            async with self._getTestCoreMultiLayer(core1.dirn) as core, core.snap() as snap:
+            async with self._getTestCoreMultiLayer(core1.dirn) as core, await core.snap() as snap:
                 # Basic sanity check first
                 nodes = await alist(snap.getNodesBy('inet:ipv4', 1))
                 self.len(1, nodes)

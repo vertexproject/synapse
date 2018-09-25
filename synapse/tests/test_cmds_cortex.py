@@ -14,7 +14,7 @@ class CmdCoreTest(s_t_utils.SynTest):
     async def test_storm(self):
         help_msg = 'Execute a storm query.'
         async with self.getTestCore() as core:
-            with core.snap() as snap:
+            with await core.snap() as snap:
                 valu = 'abcd'
                 node = await snap.addNode('teststr', valu, props={'tick': 123})
                 node.addTag('cool')
@@ -125,7 +125,8 @@ class CmdCoreTest(s_t_utils.SynTest):
         with self.getTestDmon('dmoncore') as dmon:
             dirn = s_scope.get('dirn')
             with self.setSynDir(dirn):
-                with dmon._getTestProxy('core') as core:
+                with self.getTestProxy(dmon, 'core') as core:
+                    breakpoint()
                     outp = self.getTestOutp()
                     cmdr = s_cmdr.getItemCmdr(core, outp=outp)
                     cmdr.runCmdLine('log --on --format jsonl')
@@ -144,7 +145,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                         objs = list(genr)
                     self.eq(objs[0][0], 'init')
 
-                with dmon._getTestProxy('core') as core:
+                with self.getTestProxy(dmon, 'core') as core:
                     outp = self.getTestOutp()
                     cmdr = s_cmdr.getItemCmdr(core, outp=outp)
                     # Our default format is mpk
@@ -161,7 +162,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                         objs = list(genr)
                     self.eq(objs[0][0], 'node:add')
 
-                with dmon._getTestProxy('core') as core:
+                with self.getTestProxy(dmon, 'core') as core:
                     outp = self.getTestOutp()
                     cmdr = s_cmdr.getItemCmdr(core, outp=outp)
                     cmdr.runCmdLine('log --on --off')
@@ -176,7 +177,7 @@ class CmdCoreTest(s_t_utils.SynTest):
 
 # FIXME incorporate these into storm tests
 '''
-class SynCmdCoreTest(s_test.SynTest):
+class SynCmdCoreTest(s_t_utils.SynTest):
 
     def test_cmds_storm_showcols(self):
         with self.getDmonCore() as core:

@@ -1,8 +1,8 @@
 import synapse.exc as s_exc
 import synapse.reactor as s_reactor
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
-class ReactorTest(s_test.SynTest):
+class ReactorTest(s_t_utils.SynTest):
 
     def test_reactor(self):
         reac = s_reactor.Reactor()

@@ -7,9 +7,9 @@ import synapse.lib.msgpack as s_msgpack
 
 import synapse.tools.feed as s_feed
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
-class FeedTest(s_test.SynTest):
+class FeedTest(s_t_utils.SynTest):
 
     def test_syningest_local(self):
         with self.getTestDir() as dirn:
@@ -23,7 +23,7 @@ class FeedTest(s_test.SynTest):
                     gestfp]
 
             outp = self.getTestOutp()
-            cmdg = s_test.CmdGenerator(['storm pivcomp -> *'], on_end=EOFError)
+            cmdg = s_t_utils.CmdGenerator(['storm pivcomp -> *'], on_end=EOFError)
             with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
                 self.eq(s_feed.main(argv, outp=outp), 0)
             self.true(outp.expect('teststr=haha', throw=False))
@@ -49,7 +49,7 @@ class FeedTest(s_test.SynTest):
     def test_syningest_remote(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
-            with dmon._getTestProxy('core', **pconf) as core:
+            with self.getTestProxy(dmon, 'core', **pconf) as core:
                 # Setup user permissions
                 core.addAuthRole('creator')
                 core.addAuthRule('creator', (True, ('node:add',)))
@@ -73,7 +73,7 @@ class FeedTest(s_test.SynTest):
                     gestfp]
 
             outp = self.getTestOutp()
-            cmdg = s_test.CmdGenerator(['storm pivcomp -> *'], on_end=EOFError)
+            cmdg = s_t_utils.CmdGenerator(['storm pivcomp -> *'], on_end=EOFError)
             with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
                 self.eq(s_feed.main(argv, outp=outp), 0)
             self.true(outp.expect('teststr=haha', throw=False))
@@ -82,7 +82,7 @@ class FeedTest(s_test.SynTest):
     def test_synsplice_remote(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
-            with dmon._getTestProxy('core', **pconf) as core:
+            with self.getTestProxy(dmon, 'core', **pconf) as core:
                 self.addCreatorDeleterRoles(core)
                 core.addUserRole('root', 'creator')
 
@@ -102,13 +102,13 @@ class FeedTest(s_test.SynTest):
 
             outp = self.getTestOutp()
             self.eq(s_feed.main(argv, outp=outp), 0)
-            with dmon._getTestProxy('core', **pconf) as core:
+            with self.getTestProxy(dmon, 'core', **pconf) as core:
                 self.len(1, core.eval('teststr=foo'))
 
     def test_synnodes_remote(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
-            with dmon._getTestProxy('core', **pconf) as core:
+            with self.getTestProxy(dmon, 'core', **pconf) as core:
                 self.addCreatorDeleterRoles(core)
                 core.addUserRole('root', 'creator')
 
@@ -130,14 +130,14 @@ class FeedTest(s_test.SynTest):
 
             outp = self.getTestOutp()
             self.eq(s_feed.main(argv, outp=outp), 0)
-            with dmon._getTestProxy('core', **pconf) as core:
+            with self.getTestProxy(dmon, 'core', **pconf) as core:
                 self.len(20, core.eval('testint'))
             print(outp)
 
     def test_synnodes_offset(self):
         with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
-            with dmon._getTestProxy('core', **pconf) as core:
+            with self.getTestProxy(dmon, 'core', **pconf) as core:
                 self.addCreatorDeleterRoles(core)
                 core.addUserRole('root', 'creator')
 
@@ -160,7 +160,7 @@ class FeedTest(s_test.SynTest):
 
             outp = self.getTestOutp()
             self.eq(s_feed.main(argv, outp=outp), 0)
-            with dmon._getTestProxy('core', **pconf) as core:
+            with self.getTestProxy(dmon, 'core', **pconf) as core:
                 self.len(8, core.eval('testint'))
 
             # Sad path catch

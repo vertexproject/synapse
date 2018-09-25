@@ -1,9 +1,9 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
-class BaseTest(s_test.SynTest):
+class BaseTest(s_t_utils.SynTest):
 
     def test_model_base_node(self):
 

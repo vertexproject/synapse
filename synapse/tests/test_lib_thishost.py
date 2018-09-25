@@ -1,8 +1,8 @@
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
 import synapse.lib.thishost as s_thishost
 
-class ThisTest(SynTest):
+class ThisTest(s_t_utils.SynTest):
 
     def test_thishost_hostname(self):
         self.nn(s_thishost.get('hostname'))

@@ -1,9 +1,9 @@
 
 import synapse.lib.time as s_time
 
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
-class TimeTest(SynTest):
+class TimeTest(s_t_utils.SynTest):
 
     def test_time_delta(self):
 

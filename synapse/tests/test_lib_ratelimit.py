@@ -1,8 +1,10 @@
+import time
+
 import synapse.lib.ratelimit as s_ratelimit
 
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
-class RateLimitTest(SynTest):
+class RateLimitTest(s_t_utils.SynTest):
 
     def test_ratelimit_allow(self):
         rlim = s_ratelimit.RateLimit(3, 0.2)

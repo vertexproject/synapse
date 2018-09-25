@@ -1,4 +1,4 @@
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
 import synapse.lib.datapath as s_datapath
 
@@ -13,7 +13,7 @@ item0 = {
 }
 
 
-class DataPathTest(SynTest):
+class DataPathTest(s_t_utils.SynTest):
 
     def test_datapath_valu(self):
         data = s_datapath.initelem(item0)

@@ -22,7 +22,7 @@ class Queue(s_base.Base):
         await s_base.Base.__anit__(self)
 
         self.fifo = []
-        self.event = asyncio.Event()
+        self.event = asyncio.Event(loop=self.loop)
         self.onfini(self.event.set)
 
     def put(self, item):

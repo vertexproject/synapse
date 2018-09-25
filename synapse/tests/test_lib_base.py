@@ -20,7 +20,7 @@ def block_processing(evt1, evt2):
         evt2 (multiprocessing.Event): event to twiddle
     '''
 
-    base = s_glob.plex.coroToSync(s_base.Base.anit())
+    base = s_base.Base.anit()
 
     async def onMain(mesg):
         evt1.set()
@@ -73,7 +73,7 @@ class BaseTest(s_t_utils.SynTest):
 
     async def test_coro_fini(self):
 
-        event = asyncio.Event()
+        event = asyncio.Event(loop=s_glob.plex.loop)
 
         async def setit():
             event.set()
@@ -267,16 +267,17 @@ class BaseTest(s_t_utils.SynTest):
 
     @s_glob.synchelp
     async def test_base_waitfini(self):
+        loop = s_glob.plex.loop
 
         base = await s_base.Base.anit()
 
         self.false(await base.waitfini(timeout=0.1))
 
         async def callfini():
-            await asyncio.sleep(0.1, loop=asyncio.get_event_loop())
+            await asyncio.sleep(0.1, loop=loop)
             await base.fini()
 
-        asyncio.get_event_loop().create_task(callfini())
+        loop.create_task(callfini())
         # actually wait...
         self.true(await base.waitfini(timeout=0.3))
 

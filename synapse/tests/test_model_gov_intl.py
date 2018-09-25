@@ -18,7 +18,7 @@ testmodel = (
     ),
 )
 
-class IntlGovTest(SynTest):
+class IntlGovTest(s_t_utils.SynTest):
 
     def test_models_intl(self):
 

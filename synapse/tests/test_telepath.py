@@ -109,8 +109,8 @@ class TeleApi:
     def getFooBar(self, x, y):
         return x - y
 
-    def customshare(self):
-        return CustomShare(self.link, 42)
+    async def customshare(self):
+        return await CustomShare.anit(self.link, 42)
 
 class TeleAware(s_telepath.Aware):
     def __init__(self):
@@ -199,7 +199,6 @@ class TeleTest(s_t_utils.SynTest):
         self.raises(s_exc.IsFini, prox.bar, (10, 20))
 
     async def test_telepath_async(self):
-
         foo = Foo()
 
         async with self.agetTestDmon() as dmon:
@@ -225,6 +224,7 @@ class TeleTest(s_t_utils.SynTest):
                 await coro
 
             fut = s_glob.plex.loop.create_task(longwaiter())
+
 
         await self.asyncraises(StopAsyncIteration, aitr.__anext__())
         start_event.set()

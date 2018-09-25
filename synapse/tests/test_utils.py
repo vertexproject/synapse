@@ -273,11 +273,11 @@ class TestUtils(s_t_utils.SynTest):
         self.raises(AssertionError, self.istufo, (1234, set()))
         self.raises(AssertionError, self.istufo, (None, set()))
 
-    def test_getTestCell(self):
+    async def test_getTestCell(self):
         with self.getTestDir() as dirn:
             boot = {'auth:en': True}
             conf = {'test': 1}
-            with self.getTestCell(dirn, 'cortex', boot, conf) as cortex:
+            async with await self.getTestCell(dirn, 'cortex', boot, conf) as cortex:
                 self.eq(os.path.join(dirn, 'cortex'), cortex.dirn)
                 self.eq(cortex.conf.get('test'), 1)
                 self.eq(cortex.boot.get('auth:en'), True)

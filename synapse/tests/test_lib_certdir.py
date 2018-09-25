@@ -6,11 +6,11 @@ from OpenSSL import crypto, SSL
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 import synapse.lib.certdir as s_certdir
 
 
-class CertDirTest(s_test.SynTest):
+class CertDirTest(s_t_utils.SynTest):
 
     @contextmanager
     def getCertDir(self):

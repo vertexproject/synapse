@@ -1,11 +1,11 @@
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
 import unittest
 raise unittest.SkipTest('FIXME RE ENABLE TRIGGERS')
 
 import synapse.lib.trigger as s_trigger
 
-class TrigTest(SynTest):
+class TrigTest(s_t_utils.SynTest):
 
     def test_trigger_base(self):
 
