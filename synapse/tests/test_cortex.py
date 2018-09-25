@@ -1524,9 +1524,64 @@ class CortexTest(s_test.SynTest):
     def test_storm_sub_query(self):
 
         with self.getTestCore() as core:
-            # check that the sub-query doesnt effect main query output
+            # check that the sub-query can make changes but doesnt effect main query output
             node = list(core.eval('[ teststr=foo +#bar ] { [ +#baz ] -#bar }'))[0]
             self.nn(node.getTag('baz'))
+
+            nodes = list(core.eval('[ teststr=oof +#bar ] { [ testint=0xdeadbeef ] }'))
+            self.len(1, core.eval('testint=3735928559'))
+
+        # Test using subqueries for filtering
+        with self.getTestCore() as core:
+            # Generic tests
+
+            self.len(1, core.eval('[ teststr=bar +#baz ]'))
+            self.len(1, core.eval('[ pivcomp=(foo,bar) ]'))
+
+            self.len(0, core.eval('pivcomp=(foo,bar) -{ :lulz -> teststr +#baz }'))
+            self.len(1, core.eval('pivcomp=(foo,bar) +{ :lulz -> teststr +#baz } +pivcomp'))
+
+            # Practical real world example
+
+            self.len(2, core.eval('[ inet:ipv4=1.2.3.4 :loc=us inet:dns:a=(vertex.link,1.2.3.4) ]'))
+            self.len(2, core.eval('[ inet:ipv4=4.3.2.1 :loc=zz inet:dns:a=(example.com,4.3.2.1) ]'))
+            self.len(1, core.eval('inet:ipv4:loc=us'))
+            self.len(1, core.eval('inet:dns:a:fqdn=vertex.link'))
+            self.len(1, core.eval('inet:ipv4:loc=zz'))
+            self.len(1, core.eval('inet:dns:a:fqdn=example.com'))
+
+            # lift all dns, pivot to ipv4 where loc=us, remove the results
+            # this should return the example node because the vertex node matches the filter and should be removed
+            nodes = list(core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 +:loc=us }'))
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], ('example.com', 67305985))
+
+            # lift all dns, pivot to ipv4 where loc=us, add the results
+            # this should return the vertex node because only the vertex node matches the filter
+            nodes = list(core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 +:loc=us }'))
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], ('vertex.link', 16909060))
+
+            # lift all dns, pivot to ipv4 where cc!=us, remove the results
+            # this should return the vertex node because the example node matches the filter and should be removed
+            nodes = list(core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 -:loc=us }'))
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], ('vertex.link', 16909060))
+
+            # lift all dns, pivot to ipv4 where cc!=us, add the results
+            # this should return the example node because only the example node matches the filter
+            nodes = list(core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:loc=us }'))
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], ('example.com', 67305985))
+
+            # lift all dns, pivot to ipv4 where asn=1234, add the results
+            # this should return nothing because no nodes have asn=1234
+            self.len(0, core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 +:asn=1234 }'))
+
+            # lift all dns, pivot to ipv4 where asn!=1234, add the results
+            # this should return everything because no nodes have asn=1234
+            nodes = list(core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:asn=1234 }'))
+            self.len(2, nodes)
 
     def test_storm_cond_not(self):
 
@@ -1535,17 +1590,3 @@ class CortexTest(s_test.SynTest):
             self.len(1, core.eval('[ teststr=foo +#bar ]'))
             self.len(1, core.eval('[ teststr=foo +#bar ] +(not .seen)'))
             self.len(1, core.eval('[ teststr=foo +#bar ] +(#baz or not .seen)'))
-
-            # check that the sub-query doesnt effect main query output
-            #node = list(core.eval('[ teststr=foo +#bar ] { [ +#baz ] -#bar }'))[0]
-            #self.nn(node.getTag('baz'))
-
-    def test_storm_cond_subq(self):
-
-        with self.getTestCore() as core:
-
-            self.len(1, core.eval('[ teststr=bar +#baz ]'))
-            self.len(1, core.eval('[ pivcomp=(foo,bar) ]'))
-
-            self.len(0, core.eval('pivcomp=(foo,bar) -{ :lulz -> teststr +#baz }'))
-            self.len(1, core.eval('pivcomp=(foo,bar) +{ :lulz -> teststr +#baz } +pivcomp'))
