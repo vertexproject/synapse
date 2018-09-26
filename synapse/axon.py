@@ -664,7 +664,7 @@ class BlobStor(s_cell.Cell):
             self._newdataevent.clear()
             try:
                 await asyncio.wait_for(self._newdataevent.wait(), timeout, loop=self.loop)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
+            except asyncio.TimeoutError:
                 return
         with self.lenv.begin(buffers=True) as xact:
             for off, hashval in self._clone_seqn.iter(xact, offset):

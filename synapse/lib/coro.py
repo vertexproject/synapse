@@ -76,8 +76,19 @@ class Genr(s_base.Base):
             except StopAsyncIteration as e:
                 return
 
-# FIXME This isn't going to work.  Still used?
-# def generator(f):
-#     def wrap(*args, **kwargs):
-#         return Genr(f(*args, **kwargs))
-#     return wrap
+async def event_wait(event: asyncio.Event, timeout=None):
+    '''
+    Wait on an an asyncio event with an optional timeout
+
+    Returns:
+        true if the event got set, None if timed out
+    '''
+    if timeout is None:
+        await event.wait()
+        return True
+
+    try:
+        await asyncio.wait_for(event.wait(), timeout)
+    except asyncio.TimeoutError:
+        return False
+    return True

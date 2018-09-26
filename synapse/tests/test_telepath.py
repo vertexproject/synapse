@@ -9,8 +9,9 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.share as s_share
+import synapse.lib.coro as s_coro
 import synapse.lib.scope as s_scope
+import synapse.lib.share as s_share
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -156,7 +157,7 @@ class TeleTest(s_t_utils.SynTest):
     async def test_telepath_basics(self):
 
         foo = Foo()
-        evt = threading.Event()
+        evt = asyncio.Event(loop=s_glob.plex.loop)
 
         async with self.getTestDmon() as dmon:
 
@@ -192,10 +193,11 @@ class TeleTest(s_t_utils.SynTest):
 
             await self.asyncraises(s_exc.NoSuchMeth, prox.fake())
 
-            await self.asyncraises(s_exc.SynErr, prox.boom)
+            await self.asyncraises(s_exc.SynErr, prox.boom())
 
         # Fini'ing a daemon fini's proxies connected to it.
-        self.true(evt.wait(2))
+        breakpoint()
+        self.true(await s_coro.event_wait(evt, 2))
         self.true(prox.isfini)
         self.raises(s_exc.IsFini, prox.bar, (10, 20))
 
@@ -311,16 +313,16 @@ class TeleTest(s_t_utils.SynTest):
 
             dmon.televers = (0, 0)
 
-            host, port = dmon.listen('tcp://127.0.0.1:0/')
+            host, port = await dmon.listen('tcp://127.0.0.1:0/')
 
-            self.raises(s_exc.BadMesgVers, s_telepath.openurl, 'tcp://127.0.0.1/', port=port)
+            await self.asyncraises(s_exc.BadMesgVers, s_telepath.openurl('tcp://127.0.0.1/', port=port))
 
     async def test_alias(self):
         item = TeleAware()
         name = 'item'
 
         async with self.getTestDmon() as dmon:
-            addr = await dmon.listen('tcp://127.0.0.1:0')
+            addr = await dmon.listen('ltcp://127.0.0.1:0')
             dmon.share(name, item)
             dirn = s_scope.get('dirn')
 

@@ -30,7 +30,6 @@ class Plex(s_eventbus.EventBus):
         self.ident = self.thrd.ident
 
         def fini():
-            print('Plex fini!')
             self.callSoonSafe(self.loop.stop)
             self.thrd.join(0.3)
 
@@ -286,4 +285,5 @@ class Plex(s_eventbus.EventBus):
             self.loop.run_forever()
 
         finally:
+            self.loop.run_until_complete(self.loop.shutdown_asyncgens())
             self.loop.close()

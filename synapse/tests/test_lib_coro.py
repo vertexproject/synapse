@@ -6,13 +6,6 @@ import synapse.lib.coro as s_coro
 
 import synapse.tests.utils as s_t_utils
 
-# FIXME: generator isn't used anywhere
-# @s_coro.generator
-# async def asyncgenr():
-#     yield 1
-#     yield 2
-#     yield 3
-
 class CoroTest(s_t_utils.SynTest):
 
     def test_coro_queue(self):
@@ -32,26 +25,6 @@ class CoroTest(s_t_utils.SynTest):
 
         s_glob.plex.coroToTask(poke())
         self.eq(['bar'], s_glob.sync(queue.slice()))
-
-    @unittest.skip('not used anywhere')
-    def test_coro_genr_sync(self):
-
-        items = []
-
-        for x in asyncgenr():
-            items.append(x)
-
-        self.eq(items, (1, 2, 3))
-
-    @unittest.skip('not used anywhere')
-    async def test_coro_genr_async(self):
-
-        items = []
-
-        async for x in asyncgenr():
-            items.append(x)
-
-        self.eq(items, (1, 2, 3))
 
     @s_glob.synchelp
     async def test_coro_iscoro(self):

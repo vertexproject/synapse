@@ -28,8 +28,8 @@ class BackupTest(s_t_utils.SynTest):
         self.eq(set1, set2)
         return set1
 
-    def test_backup(self):
-        async with self.getTestCore() as core:
+    async def test_backup(self):
+        async with self.getTestCore():
             src_dirn = s_scope.get('dirn')
             # This technically mangles the value in scope but that value
             # is not used for doing directory removal.
@@ -41,7 +41,7 @@ class BackupTest(s_t_utils.SynTest):
                 cmpr_path = os.path.join(args.outpath,
                                          os.path.basename(src_dirn))
                 fpset = self.compare_dirs(src_dirn,
-                                         cmpr_path,
-                                         skipfns=['lock.mdb'])
+                                          cmpr_path,
+                                          skipfns=['lock.mdb'])
                 # We expect the data.mdb file to be in the fpset
                 self.isin('/layers/000-default/layer.lmdb/data.mdb', fpset)

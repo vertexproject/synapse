@@ -1157,24 +1157,24 @@ class SynTest(unittest.TestCase):
         }
         return gestdef
 
-    def addCreatorDeleterRoles(self, core):
+    async def addCreatorDeleterRoles(self, core):
         '''
-        Add two roles to a Cortex, the `creator` and `deleter` roles.
+        Add two roles to a Cortex *proxy*, the `creator` and `deleter` roles.
         Creator allows for node:add, prop:set and tag:add actions.
         Deleter allows for node:del, prop:del and tag:del actions.
 
         Args:
             core: Auth enabled cortex.
         '''
-        core.addAuthRole('creator')
-        core.addAuthRule('creator', (True, ('node:add',)))
-        core.addAuthRule('creator', (True, ('prop:set',)))
-        core.addAuthRule('creator', (True, ('tag:add',)))
+        await core.addAuthRole('creator')
+        await core.addAuthRule('creator', (True, ('node:add',)))
+        await core.addAuthRule('creator', (True, ('prop:set',)))
+        await core.addAuthRule('creator', (True, ('tag:add',)))
 
-        core.addAuthRole('deleter')
-        core.addAuthRule('deleter', (True, ('node:del',)))
-        core.addAuthRule('deleter', (True, ('prop:del',)))
-        core.addAuthRule('deleter', (True, ('tag:del',)))
+        await core.addAuthRole('deleter')
+        await core.addAuthRule('deleter', (True, ('node:del',)))
+        await core.addAuthRule('deleter', (True, ('prop:del',)))
+        await core.addAuthRule('deleter', (True, ('tag:del',)))
 
     @contextlib.asynccontextmanager
     async def getTestDmonCortexAxon(self, rootperms=True):
