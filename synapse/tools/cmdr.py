@@ -1,9 +1,15 @@
-import synapse.glob as s_glob
+import sys
+import asyncio
+import logging
+
+import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
 
-def main(argv):  # pragma: no cover
+logger = logging.getLogger(__name__)
+
+async def main(argv):  # pragma: no cover
 
     if len(argv) != 2:
         print('usage: python -m synapse.tools.cmdr <url>')
@@ -17,9 +23,12 @@ def main(argv):  # pragma: no cover
         # the fini handler sends a SIGINT to mainthread; which can
         # be problematic for test runners.
         cmdr.finikill = True
-        cmdr.runCmdLoop()
+        await cmdr.runCmdLoop()
         cmdr.finikill = False
 
+async def _main():  # pragma: no cover
+    s_common.setlogging(logger, 'DEBUG')
+    return await main(sys.argv[1:])
+
 if __name__ == '__main__':  # pragma: no cover
-    import sys
-    sys.exit(main(sys.argv))
+    sys.exit(asyncio.run(_main()))

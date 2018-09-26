@@ -25,7 +25,7 @@ def getItemCmdr(cell, outp=None, **opts):
 
     return cmdr
 
-def runItemCmdr(item, outp=None, **opts):
+async def runItemCmdr(item, outp=None, **opts):
     '''
     Create a cmdr for the given item and run the cmd loop.
 
@@ -35,4 +35,4 @@ def runItemCmdr(item, outp=None, **opts):
 
     '''
     cmdr = getItemCmdr(item, outp=outp, **opts)
-    cmdr.runCmdLoop()
+    await cmdr.runCmdLoop()

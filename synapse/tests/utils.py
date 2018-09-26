@@ -397,7 +397,7 @@ class CmdGenerator(s_eventbus.EventBus):
             # Patch the get_input command to call our CmdGenerator instance
             with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
                 with s_cli.Cli(None, outp) as cli:
-                    cli.runCmdLoop()
+                    await cli.runCmdLoop()
                     self.eq(cli.isfini, True)
 
     Notes:
@@ -1203,8 +1203,8 @@ class SynTest(unittest.TestCase):
             coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
 
             # register the blob with the Axon.
-            async with self.agetTestProxy(dmon, 'axon00') as axon:
-                axon.addBlobStor(blobstorurl)
+            async with await self.agetTestProxy(dmon, 'axon00') as axon:
+                await axon.addBlobStor(blobstorurl)
 
             # Add our helper URLs to scope so others don't
             # have to construct them.
@@ -1214,10 +1214,10 @@ class SynTest(unittest.TestCase):
 
             # grant the root user permissions
             if rootperms:
-                with self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
-                    self.addCreatorDeleterRoles(core)
-                    core.addUserRole('root', 'creator')
-                    core.addUserRole('root', 'deleter')
+                async with await self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
+                    await self.addCreatorDeleterRoles(core)
+                    await core.addUserRole('root', 'creator')
+                    await core.addUserRole('root', 'deleter')
 
             yield dmon
 

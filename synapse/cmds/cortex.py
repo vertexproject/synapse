@@ -170,7 +170,7 @@ class Log(s_cli.Cmd):
         self.locs['log:splicesonly'] = splice_only
         self._cmd_cli.on('storm:mesg', self.onStormMesg)
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
         on = opts.get('on')
         off = opts.get('off')
 
@@ -281,12 +281,13 @@ class StormCmd(s_cli.Cmd):
         warn = mesg[1].get('mesg')
         self.printf(f'WARNING: {warn}')
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
 
         text = opts.get('query')
         if text is None:
             self.printf(self.__doc__)
             return
+        breakpoint()
 
         core = self.getCmdItem()
         stormopts = {'repr': True}
@@ -294,7 +295,7 @@ class StormCmd(s_cli.Cmd):
         stormopts.setdefault('graph', opts.get('graph', False))
         self.printf('')
 
-        for mesg in core.storm(text, opts=stormopts):
+        async for mesg in core.storm(text, opts=stormopts):
 
             self._cmd_cli.fire('storm:mesg', mesg=mesg)
 

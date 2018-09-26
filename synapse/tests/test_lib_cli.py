@@ -11,7 +11,7 @@ class TstThrowCmd(s_cli.Cmd):
     '''
     _cmd_name = 'throwzero'
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
         ret = 1 / 0
 
 class TstThrowKeyboard(s_cli.Cmd):
@@ -20,7 +20,7 @@ class TstThrowKeyboard(s_cli.Cmd):
     '''
     _cmd_name = 'throwkeyboard'
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
         raise KeyboardInterrupt('TstThrowKeyboard')
 
 
@@ -33,47 +33,47 @@ class CliTest(s_t_utils.SynTest):
             cli.cmdprompt = 'hehe> '
             self.eq(cli.getCmdPrompt(), 'hehe> ')
 
-    def test_cli_get_set(self):
+    async def test_cli_get_set(self):
         outp = self.getTestOutp()
         with s_cli.Cli(None, outp=outp, hehe='haha') as cli:
             self.eq(cli.get('hehe'), 'haha')
             self.none(cli.get('foo'))
             cli.set('foo', 'bar')
             self.eq(cli.get('foo'), 'bar')
-            cli.runCmdLine('locs')
+            await cli.runCmdLine('locs')
             self.true(outp.expect('hehe'))
             self.true(outp.expect('haha'))
             self.true(outp.expect('foo'))
             self.true(outp.expect('bar'))
 
-    def test_cli_quit(self):
+    async def test_cli_quit(self):
         outp = self.getTestOutp()
         with s_cli.Cli(None, outp=outp) as cli:
-            cli.runCmdLine('quit')
+            await cli.runCmdLine('quit')
             self.true(cli.isfini)
 
-    def test_cli_help(self):
+    async def test_cli_help(self):
         outp = self.getTestOutp()
         with s_cli.Cli(None, outp=outp) as cli:
-            cli.runCmdLine('help')
+            await cli.runCmdLine('help')
         self.true(outp.expect('Quit the current command line interpreter.'))
 
-    def test_cli_notacommand(self):
+    async def test_cli_notacommand(self):
         outp = self.getTestOutp()
         with s_cli.Cli(None, outp=outp) as cli:
-            cli.runCmdLine('notacommand')
+            await cli.runCmdLine('notacommand')
         self.true(outp.expect('cmd not found: notacommand'))
 
-    def test_cli_cmdret(self):
+    async def test_cli_cmdret(self):
 
         class WootCmd(s_cli.Cmd):
             _cmd_name = 'woot'
-            def runCmdOpts(self, opts):
+            async def runCmdOpts(self, opts):
                 return 20
 
         with s_cli.Cli(None) as cli:
             cli.addCmdClass(WootCmd)
-            self.eq(cli.runCmdLine('woot'), 20)
+            self.eq(await cli.runCmdLine('woot'), 20)
 
     def test_cli_cmd(self):
         with s_cli.Cli(None) as cli:
@@ -215,7 +215,7 @@ class CliTest(s_t_utils.SynTest):
 
         with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
             with s_cli.Cli(None, outp) as cli:
-                cli.runCmdLoop()
+                await cli.runCmdLoop()
                 self.eq(cli.isfini, True)
         self.true(outp.expect('o/'))
 
@@ -224,7 +224,7 @@ class CliTest(s_t_utils.SynTest):
         cmdg = s_t_utils.CmdGenerator(['help'], on_end=EOFError)
         with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
             with s_cli.Cli(None, outp) as cli:
-                cli.runCmdLoop()
+                await cli.runCmdLoop()
                 self.eq(cli.isfini, True)
         self.false(outp.expect('o/', throw=False))
 
@@ -233,7 +233,7 @@ class CliTest(s_t_utils.SynTest):
         cmdg = s_t_utils.CmdGenerator([1234], on_end=EOFError)
         with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
             with s_cli.Cli(None, outp) as cli:
-                cli.runCmdLoop()
+                await cli.runCmdLoop()
                 self.eq(cli.isfini, True)
         self.true(outp.expect("AttributeError: 'int' object has no attribute 'strip'", throw=False))
 
@@ -251,7 +251,7 @@ class CliTest(s_t_utils.SynTest):
         with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
             with s_cli.Cli(None, outp) as cli:
                 cli.on('cli:getinput', _onGetInput)
-                cli.runCmdLoop()
+                await cli.runCmdLoop()
                 self.eq(cli.isfini, True)
 
         self.true(outp.expect('<ctrl-c>'))
@@ -270,7 +270,7 @@ class CliTest(s_t_utils.SynTest):
             with s_cli.Cli(None, outp) as cli:
                 cli.addCmdClass(TstThrowCmd)
                 cli.addCmdClass(TstThrowKeyboard)
-                cli.runCmdLoop()
+                await cli.runCmdLoop()
                 self.true(outp.expect('o/'))
                 self.true(outp.expect('{}'))
                 self.true(outp.expect('ZeroDivisionError'))

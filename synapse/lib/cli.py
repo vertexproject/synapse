@@ -42,7 +42,7 @@ class Cmd:
         self._cmd_cli = cli
         self._cmd_opts = opts
 
-    def runCmdLine(self, line):
+    async def runCmdLine(self, line):
         '''
         Run a line of command input for this command.
 
@@ -52,11 +52,11 @@ class Cmd:
         Examples:
             Run the foo command with some arguments:
 
-                foo.runCmdLine('foo --opt baz woot.com')
+                await foo.runCmdLine('foo --opt baz woot.com')
 
         '''
         opts = self.getCmdOpts(line)
-        return self.runCmdOpts(opts)
+        return await self.runCmdOpts(opts)
 
     def getCmdItem(self):
         '''
@@ -204,7 +204,7 @@ class Cmd:
     def printf(self, mesg, addnl=True):
         return self._cmd_cli.printf(mesg, addnl=addnl)
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
         '''
         Perform the command actions. Must be implemented by Cmd implementers.
 
@@ -315,7 +315,7 @@ class Cli(s_eventbus.EventBus):
         '''
         return self.cmdprompt
 
-    def runCmdLoop(self):
+    async def runCmdLoop(self):
         '''
         Run commands from a user in an interactive fashion until fini() or EOFError is raised.
         '''
@@ -347,7 +347,7 @@ class Cli(s_eventbus.EventBus):
                 if not line:
                     continue
 
-                self.runCmdLine(line)
+                await self.runCmdLine(line)
 
             except KeyboardInterrupt as e:
 
@@ -363,7 +363,7 @@ class Cli(s_eventbus.EventBus):
                 s = traceback.format_exc()
                 self.printf(s)
 
-    def runCmdLine(self, line):
+    async def runCmdLine(self, line):
         '''
         Run a single command line.
 
@@ -373,7 +373,7 @@ class Cli(s_eventbus.EventBus):
         Examples:
             Execute the 'woot' command with the 'help' switch:
 
-                cli.runCmdLine('woot --help')
+                await cli.runCmdLine('woot --help')
 
         Returns:
             object: Arbitrary data from the cmd class.
@@ -391,7 +391,7 @@ class Cli(s_eventbus.EventBus):
 
         try:
 
-            ret = cmdo.runCmdLine(line)
+            ret = await cmdo.runCmdLine(line)
 
         except s_exc.CliFini as e:
             self.fini()
@@ -417,7 +417,7 @@ class CmdQuit(Cmd):
 
     _cmd_name = 'quit'
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
         self.printf('o/')
         raise s_exc.CliFini()
 
@@ -435,7 +435,7 @@ class CmdHelp(Cmd):
         ('cmds', {'type': 'list'})
     ]
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
         cmds = opts.get('cmds')
 
         # if they didn't specify one, just show the list
@@ -470,7 +470,7 @@ class CmdLocals(Cmd):
     '''
     _cmd_name = 'locs'
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
         ret = {}
         for k, v in self._cmd_cli.locs.items():
             ret[k] = repr(v)
