@@ -143,6 +143,17 @@ class Query(AstNode):
 
         path.meta('edges', edges)
 
+    def run(self, runt, genr):
+
+        for oper in self.kids:
+            genr = oper.run(runt, genr)
+
+        for node, path in genr:
+
+            runt.tick()
+
+            yield node, path
+
     def iterNodePaths(self, runt):
 
         self.core._logStormQuery(self.text, runt.user)
@@ -156,12 +167,7 @@ class Query(AstNode):
         # turtles all the way down...
         genr = runt.getInput()
 
-        for oper in self.kids:
-            genr = oper.run(runt, genr)
-
-        for node, path in genr:
-
-            runt.tick()
+        for node, path in self.run(runt, genr):
 
             if graph:
                 self._iterGraph(runt, node, path)
@@ -182,7 +188,16 @@ class Oper(AstNode):
     pass
 
 class SubQuery(Oper):
-    pass
+
+    def run(self, runt, genr):
+
+        subq = self.kids[0]
+
+        for item in genr:
+
+            s_common.spin(subq.run(runt, (item,)))
+
+            yield item
 
 class CmdOper(Oper):
 
@@ -590,6 +605,20 @@ class Cond(AstNode):
     def getCondEval(self, runt):
         raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.evaluate()')
 
+class SubqCond(Cond):
+
+    def getCondEval(self, runt):
+
+        subq = self.kids[0]
+
+        def cond(node, path):
+            genr = ((node, path),)
+            for item in subq.run(runt, genr):
+                return True
+            return False
+
+        return cond
+
 class OrCond(Cond):
     '''
     <cond> or <cond>
@@ -837,6 +866,14 @@ class RelPropValue(CompValue):
     def compute(self, runt, node, path):
         return node.get(self.name)
 
+class UnivPropValue(CompValue):
+
+    def prepare(self):
+        self.name = self.kids[0].value()
+
+    def compute(self, runt, node, path):
+        return node.get(self.name)
+
 class TagPropValue(CompValue):
 
     def prepare(self):
@@ -907,6 +944,11 @@ class RelProp(Value):
 
     def repr(self):
         return 'RelProp: %r' % (self.valu,)
+
+class UnivProp(Value):
+
+    def repr(self):
+        return 'UnivProp: %r' % (self.valu,)
 
 class AbsProp(Value):
 

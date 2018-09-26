@@ -78,6 +78,24 @@ class StormTest(s_test_common.SynTest):
 
                 self.eq(newt.get('doc'), 'haha doc')
 
+        # Test moving a tag which has tags on it.
+        with self.getTestCore() as core:
+            with core.snap() as snap:
+                node = snap.addNode('teststr', 'V')
+                node.addTag('a.b.c', (None, None))
+                tnode = snap.getNodeByNdef(('syn:tag', 'a.b'))
+                tnode.addTag('foo', (None, None))
+
+            list(core.storm('movetag #a.b #a.m'))
+            self.len(2, core.eval('#foo'))
+            self.len(1, core.eval('syn:tag=a.b +#foo'))
+            self.len(1, core.eval('syn:tag=a.m +#foo'))
+
+        # Test moving a tag to itself
+        with self.getTestCore() as core:
+            self.genraises(s_exc.BadOperArg, core.eval,
+                           'movetag #foo.bar #foo.bar')
+
     def test_storm_spin(self):
 
         with self.getTestCore() as core:

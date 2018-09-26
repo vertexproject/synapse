@@ -1149,6 +1149,14 @@ class Parser:
         if self.nextstr('('):
             return self.condexpr()
 
+        if self.nextstr('{'):
+            return self.condsubq()
+
+        if self.nextstr('not'):
+            self.offs += 3
+            cond = self.cond()
+            return s_ast.NotCond(kids=(cond,))
+
         if self.nextstr(':'):
 
             name = self.relprop()
@@ -1217,11 +1225,26 @@ class Parser:
 
         return s_ast.AbsPropCond(kids=(prop, cmpr, valu))
 
+    def condsubq(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('{')
+
+        q = self.query()
+        subq = s_ast.SubqCond(kids=(q,))
+
+        self.nextmust('}')
+
+        return subq
+
     def condexpr(self):
 
         self.ignore(whitespace)
 
         self.nextmust('(')
+
+        self.ignore(whitespace)
 
         cond = self.cond()
 
@@ -1243,12 +1266,6 @@ class Parser:
                 self.offs += 2
                 othr = self.cond()
                 cond = s_ast.OrCond(kids=(cond, othr))
-                continue
-
-            if self.nextstr('not'):
-                self.offs += 3
-                othr = self.cond()
-                cond = s_ast.NotCond(kids=(cond, othr))
                 continue
 
             self._raiseSyntaxError('un-recognized condition expression')
@@ -1276,7 +1293,7 @@ class Parser:
 
         name = self.noms(varset)
         if not name:
-            self._raiseBadSyntax('empty relative property name')
+            self._raiseSyntaxError('empty relative property name')
 
         return s_ast.RelProp(name)
 
@@ -1290,10 +1307,11 @@ class Parser:
             self._raiseBadSyntax('universal property expected .')
 
         name = self.noms(varset)
-        if not name:
-            self._raiseBadSyntax('empty relative property name')
 
-        return s_ast.RelProp(name)
+        if self.model.univ(name) is None:
+            self._raiseSyntaxError(f'no such universal property: {name!r}')
+
+        return s_ast.UnivProp(name)
 
     def cmpr(self):
 
@@ -1331,6 +1349,10 @@ class Parser:
         if self.nextstr(':'):
             prop = self.relprop()
             return s_ast.RelPropValue(kids=(prop,))
+
+        if self.nextstr('.'):
+            prop = self.univprop()
+            return s_ast.UnivPropValue(kids=(prop,))
 
         if self.nextstr('#'):
             tag = self.tag()
@@ -1438,23 +1460,13 @@ class Parser:
 
         self.ignore(whitespace)
 
-        if not self.nextstr('{'):
-            raise FOO
+        self.nextmust('{')
 
-        self.eat(1, ignore=whitespace)
+        q = self.query()
+        subq = s_ast.SubQuery(kids=(q,))
 
-        subq = s_ast.SubQuery()
+        self.nextmust('}')
 
-        while self.more():
-
-            self.ignore(whitespace)
-
-            oper = self.oper()
-            if self.nextchar() == '}':
-                self.offs += 1
-                break
-
-        self.ignore(whitespace)
         return subq
 
     def tag(self):
