@@ -486,3 +486,6 @@ class TypesTest(s_test.SynTest):
             self.len(0, core.eval('teststr +:tick=(20150201, "+1 day")'))
 
             self.len(1, core.eval('teststr +:tick=(20150102, "+- 2day")'))
+
+            self.len(1, core.eval('teststr +:tick=($test, "+- 2day")',
+                                  opts={'vars': {'test': '2015'}}))
