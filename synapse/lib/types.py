@@ -1137,7 +1137,6 @@ class Time(IntBase):
         self.setNormFunc(str, self._normPyStr)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
-        self.setCmprCtor('=', self._ctorCmprEq)
 
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')
