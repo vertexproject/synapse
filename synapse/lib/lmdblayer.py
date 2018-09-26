@@ -49,19 +49,6 @@ class LmdbLayer(s_layer.Layer):
         self.utf8 = s_layer.Utf8er()
         self.encoder = s_layer.Encoder()
 
-        self.indxfunc = {
-            'eq': self._rowsByEq,
-            'pref': self._rowsByPref,
-            'range': self._rowsByRange,
-        }
-
-        self._lift_funcs = {
-            'indx': self._liftByIndx,
-            'prop:re': self._liftByPropRe,
-            'univ:re': self._liftByUnivRe,
-            'form:re': self._liftByFormRe,
-        }
-
         self.tid = s_threads.iden()
 
         self.bybuid = await self.initdb('bybuid') # <buid><prop>=<valu>
@@ -72,9 +59,6 @@ class LmdbLayer(s_layer.Layer):
 
         self.splicedb = await self.initdb('splices')
         self.splicelog = s_slabseqn.SlabSeqn(self.slab, 'splices')
-        self.spliced = asyncio.Event(loop=self.loop)
-        self.splicelist = []
-        self.onfini(self.spliced.set)
 
     async def commit(self):
 
