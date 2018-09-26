@@ -2,10 +2,12 @@
 The layer library contains the base Layer object and helpers used for
 cortex construction.
 '''
-import regex
+import asyncio
 import logging
 import threading
 import collections
+
+import regex
 
 import synapse.exc as s_exc
 import synapse.lib.cell as s_cell
@@ -43,6 +45,16 @@ class Layer(s_cell.Cell):
             'prop:del': self._storPropDel,
         }
 
+        self.indxfunc = {
+            'eq': self._rowsByEq,
+            'pref': self._rowsByPref,
+            'range': self._rowsByRange,
+        }
+
+        self.spliced = asyncio.Event(loop=self.loop)
+        self.splicelist = []
+        self.onfini(self.spliced.set)
+
     async def getLiftRows(self, lops):
         for oper in lops:
 
@@ -53,36 +65,15 @@ class Layer(s_cell.Cell):
             async for row in func(oper):
                 yield row
 
-    async def setOffset(self, iden, offs):  # pragma: no cover
-        raise NotImplementedError
-
-    async def getOffset(self, iden):  # pragma: no cover
-        raise NotImplementedError
-
     async def stor(self, sops):
         '''
         Execute a series of storage operations.
         '''
         for oper in sops:
-            func = await self._stor_funcs.get(oper[0])
+            func = self._stor_funcs.get(oper[0])
             if func is None:
                 raise s_exc.NoSuchStor(name=oper[0])
-            func(oper)
-
-    async def abort(self):  # pragma: no cover
-        raise NotImplementedError
-
-    async def commit(self):  # pragma: no cover
-        raise NotImplementedError
-
-    async def getBuidProps(self, buid):  # pragma: no cover
-        raise NotImplementedError
-
-    async def _storPropSet(self, oper):  # pragma: no cover
-        raise NotImplementedError
-
-    async def _storPropDel(self, oper):  # pragma: no cover
-        raise NotImplementedError
+            await func(oper)
 
     async def _liftByFormRe(self, oper):
 
@@ -136,6 +127,29 @@ class Layer(s_cell.Cell):
 
             # yield buid, form, prop, valu
             yield (buid, )
+
+    # The following functions must be implemented to function.
+
+    async def setOffset(self, iden, offs):  # pragma: no cover
+        raise NotImplementedError
+
+    async def getOffset(self, iden):  # pragma: no cover
+        raise NotImplementedError
+
+    async def abort(self):  # pragma: no cover
+        raise NotImplementedError
+
+    async def commit(self):  # pragma: no cover
+        raise NotImplementedError
+
+    async def getBuidProps(self, buid):  # pragma: no cover
+        raise NotImplementedError
+
+    async def _storPropSet(self, oper):  # pragma: no cover
+        raise NotImplementedError
+
+    async def _storPropDel(self, oper):  # pragma: no cover
+        raise NotImplementedError
 
     async def _liftByIndx(self, oper):  # pragma: no cover
         raise NotImplementedError
