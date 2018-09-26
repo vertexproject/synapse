@@ -76,16 +76,6 @@ class LmdbLayer(s_layer.Layer):
         self.splicelist = []
         self.onfini(self.spliced.set)
 
-    async def stor(self, sops):
-        '''
-        Execute a series of storage operations.
-        '''
-        for oper in sops:
-            func = self._stor_funcs.get(oper[0])
-            if func is None:
-                raise s_exc.NoSuchStor(name=oper[0])
-            await func(oper)
-
     async def commit(self):
 
         if self.splicelist:

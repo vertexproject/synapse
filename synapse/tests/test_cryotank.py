@@ -125,7 +125,7 @@ class CryoTest(s_t_utils.SynTest):
             self.eq([(1, s_msgpack.en(('baz', {'faz': 20})))],
                     await alist(await tank.queryRows('prop1', valu='b')))
 
-            ccell.init('woot:boring', {'noindex': True})
+            await ccell.init('woot:boring', {'noindex': True})
             async with await self.agetTestProxy(dmon, 'cryo00/woot:boring') as tank2:
                 self.eq([], await tank2.getIndices())
 

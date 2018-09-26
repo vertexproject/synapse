@@ -13,6 +13,7 @@ import synapse.lib.share as s_share
 import synapse.lib.scope as s_scope
 
 import synapse.tests.utils as s_t_utils
+from synapse.tests.utils import alist
 
 class Boom:
     pass
@@ -152,46 +153,46 @@ class TeleAuth(s_telepath.Aware):
 
 class TeleTest(s_t_utils.SynTest):
 
-    def test_telepath_basics(self):
+    async def test_telepath_basics(self):
 
         foo = Foo()
         evt = threading.Event()
 
         async with self.getTestDmon() as dmon:
 
-            addr = dmon.listen('tcp://127.0.0.1:0')
+            addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
 
-            self.raises(s_exc.BadUrl, s_telepath.openurl, 'noscheme/foo')
+            await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
 
             # called via synchelp...
-            prox = s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
+            prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
             # Add an additional prox.fini handler.
             prox.onfini(evt.set)
 
-            self.true(prox.iAmLoop())
+            self.true(await prox.iAmLoop())
 
             # check a standard return value
-            self.eq(30, prox.bar(10, 20))
+            self.eq(30, await prox.bar(10, 20))
 
             # check a coroutine return value
-            self.eq(25, prox.corovalu(10, 5))
+            self.eq(25, await prox.corovalu(10, 5))
 
             # check a generator return channel
-            genr = prox.genr()
+            genr = await prox.genr()
             self.true(isinstance(genr, s_telepath.Genr))
-            self.eq((10, 20, 30), tuple(genr))
+            self.eq((10, 20, 30), await alist(genr))
 
             # check an async generator return channel
-            genr = prox.corogenr(3)
+            genr = await prox.corogenr(3)
             self.true(isinstance(genr, s_telepath.Genr))
-            self.eq((0, 1, 2), tuple(genr))
+            self.eq((0, 1, 2), await alist(genr))
 
-            self.raises(s_exc.NoSuchMeth, prox.raze)
+            await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
 
-            self.raises(s_exc.NoSuchMeth, prox.fake)
+            await self.asyncraises(s_exc.NoSuchMeth, prox.fake())
 
-            self.raises(s_exc.SynErr, prox.boom)
+            await self.asyncraises(s_exc.SynErr, prox.boom)
 
         # Fini'ing a daemon fini's proxies connected to it.
         self.true(evt.wait(2))
@@ -224,7 +225,6 @@ class TeleTest(s_t_utils.SynTest):
                 await coro
 
             fut = s_glob.plex.loop.create_task(longwaiter())
-
 
         await self.asyncraises(StopAsyncIteration, aitr.__anext__())
         start_event.set()
@@ -288,7 +288,7 @@ class TeleTest(s_t_utils.SynTest):
             async with await self.getTestProxy(dmon, 'woke/up') as proxy:
                 self.eq('up: beep', await proxy.beep())
 
-    def test_telepath_auth(self):
+    async def test_telepath_auth(self):
 
         item = TeleAuth()
         async with self.getTestDmon() as dmon:
@@ -296,16 +296,16 @@ class TeleTest(s_t_utils.SynTest):
             host, port = dmon.addr
 
             url = 'tcp://localhost/auth'
-            self.raises(s_exc.AuthDeny, s_telepath.openurl, url, port=port)
+            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url, port=port))
 
             url = 'tcp://visi@localhost/auth'
-            self.raises(s_exc.AuthDeny, s_telepath.openurl, url, port=port)
+            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url, port=port))
 
             url = 'tcp://visi:secretsauce@localhost/auth'
-            with s_t_utils.AsyncToSyncCMgr(s_telepath.openurl, url, port=port) as proxy:
-                self.eq(17, proxy.getFooBar(10, 7))
+            async with await s_telepath.openurl(url, port=port) as proxy:
+                self.eq(17, await proxy.getFooBar(10, 7))
 
-    def test_telepath_server_badvers(self):
+    async def test_telepath_server_badvers(self):
 
         async with self.getTestDmon() as dmon:
 

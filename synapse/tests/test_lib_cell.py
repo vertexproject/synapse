@@ -21,7 +21,7 @@ s_cells.add('echoauth', EchoAuth)
 
 class CellTest(s_t_utils.SynTest):
 
-    def test_cell_auth(self):
+    async def test_cell_auth(self):
 
         # test out built in cell auth
         async with self.getTestDmon(mirror='cellauth') as dmon:
@@ -32,28 +32,28 @@ class CellTest(s_t_utils.SynTest):
             host, port = dmon.addr
 
             url = f'tcp://{host}:{port}/echo00'
-            self.raises(s_exc.AuthDeny, s_telepath.openurl, url)
+            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
 
             url = f'tcp://fake@{host}:{port}/echo00'
-            self.raises(s_exc.AuthDeny, s_telepath.openurl, url)
+            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
 
             url = f'tcp://root@{host}:{port}/echo00'
-            self.raises(s_exc.AuthDeny, s_telepath.openurl, url)
+            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
 
             url = f'tcp://root:newpnewp@{host}:{port}/echo00'
-            self.raises(s_exc.AuthDeny, s_telepath.openurl, url)
+            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
 
             url = f'tcp://root:secretsauce@{host}:{port}/echo00'
-            with s_telepath.openurl(url) as proxy:
-                self.true(proxy.isadmin())
-                self.true(proxy.allowed(('hehe', 'haha')))
+            async with await s_telepath.openurl(url) as proxy:
+                self.true(await proxy.isadmin())
+                self.true(await proxy.allowed(('hehe', 'haha')))
 
             user = echo.auth.addUser('visi')
             user.setPasswd('foo')
             user.addRule((True, ('foo', 'bar')))
 
             url = f'tcp://visi:foo@{host}:{port}/echo00'
-            with s_telepath.openurl(url) as proxy:
-                self.true(proxy.allowed(('foo', 'bar')))
-                self.false(proxy.isadmin())
-                self.false(proxy.allowed(('hehe', 'haha')))
+            async with await s_telepath.openurl(url) as proxy:
+                self.true(await proxy.allowed(('foo', 'bar')))
+                self.false(await proxy.isadmin())
+                self.false(await proxy.allowed(('hehe', 'haha')))
