@@ -97,6 +97,7 @@ class Base:
         self._syn_links = []
         self._fini_funcs = []
         self._fini_atexit = False
+        self._active_tasks = set()  # the free running tasks associated with me
 
     def onfini(self, func):
         '''
@@ -280,6 +281,15 @@ class Base:
         '''
         return threading.get_ident() == self.ident
 
+    async def _kill_active_tasks(self):
+        for task in self._active_tasks.copy():
+            task.cancel()
+            try:
+                await task
+            except Exception:
+                # The taskDone callback will emit the exception.  No need to repeat
+                pass
+
     async def fini(self):
         '''
         Shut down the object and notify any onfini() coroutines.
@@ -301,14 +311,18 @@ class Base:
         self.isfini = True
 
         fevt = self.finievt
+
+        if fevt is not None:
+            fevt.set()
+
+        await self._kill_active_tasks()
+
         for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
             except Exception as e:
                 logger.exception('fini failed')
 
-        if fevt is not None:
-            fevt.set()
         self._syn_funcs.clear()
         self._fini_funcs.clear()
         return 0
@@ -337,6 +351,10 @@ class Base:
     def schedCoro(self, coro):
         '''
         Schedules a free-running coroutine to run on this base's event loop.  Kills the coroutine if Base is fini'd.
+        It does not pend on coroutine completion.
+
+        Precondition:
+            This function is *not* threadsafe and must be run on the Base's event loop
 
         Returns:
             An asyncio.Task
@@ -346,7 +364,8 @@ class Base:
 
         task = self.loop.create_task(coro)
 
-        def checkException(task):
+        def taskDone(task):
+            self._active_tasks.remove(task)
             try:
                 task.result()
             except asyncio.CancelledError:
@@ -354,20 +373,21 @@ class Base:
             except Exception:
                 logger.exception('Task scheduled through Base.schedCoro raised exception')
 
-        task.add_done_callback(checkException)
-
-        async def fini():
-            task.cancel()
-            try:
-                await task
-            except Exception:
-                # The checkException callback will emit the exception.  No need to repeat
-                pass
-
-        # FIXME use set
-        self.onfini(fini)
+        task.add_done_callback(taskDone)
+        self._active_tasks.add(task)
 
         return task
+
+    def schedCoroSafe(self, coro):
+        '''
+        Schedules a coroutine to run as soon as possible on the same event loop that this Base is running on
+
+        This function does *not* pend on coroutine completion.
+
+        Note:
+            This method may be run outside the event loop on a different thread.
+        '''
+        self.loop.call_soon_threadsafe(self.schedCoro, coro)
 
     def main(self):
         '''
@@ -442,18 +462,6 @@ class Base:
 
         '''
         return Waiter(self, count, self.loop, *names)
-
-    def schedCoroSafe(self, coro):
-        '''
-        Schedules a coroutine to run as soon as possible on the same event loop that this Base is running on
-
-        This function does *not* pend on coroutine completion.
-        '''
-        fut = asyncio.run_coroutine_threadsafe(coro, self.loop)
-
-        # Avoid swallowing any exceptions
-        fut.add_done_callback(fut.result)
-        return fut
 
     # async def log(self, level, mesg, **info):
     #     '''

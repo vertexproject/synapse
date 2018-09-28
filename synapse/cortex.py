@@ -259,16 +259,59 @@ class CoreApi(s_cell.CellApi):
         '''
         Evalute a storm query and yield packed nodes.
         '''
-        async with await self.cell.snap(user=self.user) as snap:
-            async for item in snap.iterStormPodes(text, opts=opts, user=self.user):
-                yield item
+        MSG_QUEUE_SIZE = 1000
+        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
+
+        async def runEval(chan):
+            try:
+                async with await self.cell.snap(user=self.user) as snap:
+                    async for item in snap.iterStormPodes(text, opts=opts, user=self.user):
+                        await chan.put(item)
+            finally:
+                await chan.put(None)  # sentinel to indicate end of stream
+
+        self.schedCoro(runEval(chan))
+
+        while True:
+            item = await chan.get()
+            if item is None:
+                break
+            yield item
 
     async def storm(self, text, opts=None):
         '''
-        Execute a storm query and yield messages.
+        Evaluate a storm query and yield result messages.
+        Yields:
+            ((str,dict)): Storm messages.
         '''
-        async for mesg in self.cell.storm(text, opts=opts, user=self.user):
-            yield mesg
+        MSG_QUEUE_SIZE = 1000
+        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
+
+        async def runStorm(chan):
+            tick = s_common.now()
+            count = 0
+            try:
+                await chan.put(('init', {'tick': tick, 'text': text}))
+                async with await self.cell.snap(user=self.user) as snap:
+                    snap.link(chan.put)
+                    async for pode in snap.iterStormPodes(text, opts=opts, user=self.user):
+                        await chan.put(('node', pode))
+                        count += 1
+            except Exception as e:
+                logger.exception('Error during storm execution')
+                await chan.put(('err', s_common.err(e)))
+            finally:
+                tock = s_common.now()
+                took = tock - tick
+                await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
+
+        self.schedCoro(runStorm(chan))
+
+        while True:
+            msg = await chan.get()
+            yield msg
+            if msg[0] == 'fini':
+                break
 
     @s_cell.adminapi
     async def splices(self, offs, size):
@@ -885,41 +928,15 @@ class Cortex(s_cell.Cell):
             async for node in snap.eval(text, opts=opts):
                 yield node
 
-    # FIXME:  make this lockstep, and move queue part to coreapi
     async def storm(self, text, opts=None, user=None):
         '''
         Evaluate a storm query and yield result messages.
         Yields:
-            ((str,dict)): Storm messages.
+            (Node, Path) tuples
         '''
-        MSG_QUEUE_SIZE = 1000
-        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
-
-        async def runStorm(chan):
-            tick = s_common.now()
-            count = 0
-            try:
-                await chan.put(('init', {'tick': tick, 'text': text}))
-                async with await self.snap(user=user) as snap:
-                    snap.link(chan.put)
-                    async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                        await chan.put(('node', pode))
-                        count += 1
-            except Exception as e:
-                logger.exception('Error during storm execution')
-                await chan.put(('err', s_common.err(e)))
-            finally:
-                tock = s_common.now()
-                took = tock - tick
-                await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
-
-        self.schedCoro(runStorm(chan))
-
-        while True:
-            msg = await chan.get()
-            yield msg
-            if msg[0] == 'fini':
-                break
+        async with self.snap(user=user) as snap:
+            async for mesg in snap.storm(text, opts=opts):
+                yield mesg
 
     @s_cache.memoize(size=10000)
     def getStormQuery(self, text):
@@ -934,7 +951,7 @@ class Cortex(s_cell.Cell):
         '''
         if self.conf.get('storm:log'):
             lvl = self.conf.get('storm:log:level')
-            print('Executing storm query [%s] as [%s]'% (text, user))
+            print('Executing storm query [%s] as [%s]' % (text, user))
             logger.log(lvl, 'Executing storm query [%s] as [%s]', text, user)
 
     async def getNodeByNdef(self, ndef):

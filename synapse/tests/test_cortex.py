@@ -671,13 +671,13 @@ class CortexTest(s_t_utils.SynTest):
                 pivc = await snap.getNodeByNdef(('pivcomp', ('woot', 'rofl')))
                 self.eq(pivc.get('targ::name'), 'visi')
 
-    async def test_coreapi_storm(self):
+    async def test_eval(self):
 
         async with self.getTestDmon(mirror='dmoncore') as dmon, \
                 await self.agetTestProxy(dmon, 'core') as core:
 
             # test some edit syntax
-            async for node in core.eval('[ testcomp=(10, haha) +#foo.bar -#foo.bar ]'):
+            async for node in await core.eval('[ testcomp=(10, haha) +#foo.bar -#foo.bar ]'):
                 self.nn(node.getTag('foo'))
                 self.none(node.getTag('foo.bar'))
 
@@ -758,8 +758,9 @@ class CortexTest(s_t_utils.SynTest):
             pconf = {'user': 'root', 'passwd': 'root'}
             async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
                 # Storm logging
-                with self.getAsyncLoggerStream('synapse.cortex', 'Executing storm query [help ask] as [root]') as stream:
-                    mesgs = await alist(await core.storm('help ask'))
+                with self.getAsyncLoggerStream('synapse.cortex', 'Executing storm query [help ask] as [root]') \
+                        as stream:
+                    await alist(await core.storm('help ask'))
                     self.true(await stream.wait(4))
                 # Bad syntax
                 await self.asyncraises(s_exc.BadStormSyntax, core.storm(' | | | '))
