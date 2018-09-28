@@ -3,11 +3,11 @@ import synapse.tests.utils as s_t_utils
 
 class CnGovTest(s_t_utils.SynTest):
 
-    def test_models_cngov_mucd(self):
+    async def test_models_cngov_mucd(self):
 
         async with self.getTestCore() as core:
 
-            with core.snap() as snap:
+            async with await core.snap() as snap:
                 org0 = s_common.guid()
                 props = {
                     'org': org0

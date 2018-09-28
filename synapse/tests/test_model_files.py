@@ -5,7 +5,7 @@ import synapse.tests.utils as s_t_utils
 
 class FileTest(s_t_utils.SynTest):
 
-    def test_model_filebytes(self):
+    async def test_model_filebytes(self):
 
         # test that sha256: form kicks out a sha256 sub.
         async with self.getTestCore() as core:
@@ -22,7 +22,7 @@ class FileTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, fbyts.norm, 'helo:moto')
             self.raises(s_exc.BadTypeValu, fbyts.norm, f'sha256:{s_common.guid()}')
 
-    def test_model_file_types(self):
+    async def test_model_file_types(self):
 
         async with self.getTestCore() as core:
 
@@ -74,7 +74,7 @@ class FileTest(s_t_utils.SynTest):
 
             with core.snap() as snap:
 
-                node = snap.addNode('file:path', '/foo/bar/baz.exe')
+                node = await snap.addNode('file:path', '/foo/bar/baz.exe')
 
                 self.eq(node.get('base'), 'baz.exe')
                 self.eq(node.get('base:ext'), 'exe')
@@ -88,21 +88,21 @@ class FileTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 self.eq(node.get('base'), nodes[0].ndef[1])
 
-                node = snap.addNode('file:path', '/')
+                node = await snap.addNode('file:path', '/')
                 self.none(node.get('base'))
                 self.none(node.get('base:ext'))
                 self.none(node.get('dir'))
                 self.eq(node.ndef[1], '')
 
-                node = snap.addNode('file:path', '')
+                node = await snap.addNode('file:path', '')
                 self.none(node.get('base'))
                 self.none(node.get('base:ext'))
                 self.none(node.get('dir'))
                 self.eq(node.ndef[1], '')
 
-                node0 = snap.addNode('file:bytes', 'hex:56565656')
-                node1 = snap.addNode('file:bytes', 'base64:VlZWVg==')
-                node2 = snap.addNode('file:bytes', b'VVVV')
+                node0 = await snap.addNode('file:bytes', 'hex:56565656')
+                node1 = await snap.addNode('file:bytes', 'base64:VlZWVg==')
+                node2 = await snap.addNode('file:bytes', b'VVVV')
 
                 self.eq(node0.ndef, node1.ndef)
                 self.eq(node1.ndef, node2.ndef)
@@ -112,17 +112,17 @@ class FileTest(s_t_utils.SynTest):
                 self.nn(node0.get('sha256'))
                 self.nn(node0.get('sha512'))
 
-                fake = snap.addNode('file:bytes', '*')
+                fake = await snap.addNode('file:bytes', '*')
                 self.true(fake.ndef[1].startswith('guid:'))
 
-                node = snap.addNode('file:subfile', (node1.ndef[1], node2.ndef[1]), {'name': 'embed.BIN'})
+                node = await snap.addNode('file:subfile', (node1.ndef[1], node2.ndef[1]), {'name': 'embed.BIN'})
                 self.eq(node.ndef[1], (node1.ndef[1], node2.ndef[1]))
                 self.eq(node.get('parent'), node1.ndef[1])
                 self.eq(node.get('child'), node2.ndef[1])
                 self.eq(node.get('name'), 'embed.bin')
 
                 fp = 'C:\\www\\woah\\really\\sup.exe'
-                node = snap.addNode('file:filepath', (node0.ndef[1], fp))
+                node = await snap.addNode('file:filepath', (node0.ndef[1], fp))
                 self.eq(node.get('file'), node0.ndef[1])
                 self.eq(node.get('path'), 'c:/www/woah/really/sup.exe')
                 self.eq(node.get('path:dir'), 'c:/www/woah/really')

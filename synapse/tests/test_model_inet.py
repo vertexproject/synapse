@@ -3,13 +3,13 @@ import logging
 
 import synapse.exc as s_exc
 import synapse.models.inet as s_m_inet
-import synapse.tests.common as s_t_common
+import synapse.tests.utils as s_t_utils
+from synapse.tests.utils import alist
 
 ENFORCE_MODEL_COVERAGE = True  # TODO: replace with envvar when we decide upon a convention
 logger = logging.getLogger(__name__)
 
-
-class InetModelTest(s_t_common.SynTest):
+class InetModelTest(s_t_utils.SynTest):
 
     def test__untested_model_elements(self):
         untested_types = []
@@ -32,79 +32,81 @@ class InetModelTest(s_t_common.SynTest):
                 raise AssertionError(msg)
             logger.warning(msg)
 
-    def test_ipv4_lift_range(self):
+    async def test_ipv4_lift_range(self):
 
         async with self.getTestCore() as core:
 
-            with core.snap() as snap:
+            async with await core.snap() as snap:
 
-                snap.addNode('inet:ipv4', '1.2.3.0')
-                snap.addNode('inet:ipv4', '1.2.3.1')
-                snap.addNode('inet:ipv4', '1.2.3.2')
-                snap.addNode('inet:ipv4', '1.2.3.3')
-                snap.addNode('inet:ipv4', '1.2.3.4')
+                await snap.addNode('inet:ipv4', '1.2.3.0')
+                await snap.addNode('inet:ipv4', '1.2.3.1')
+                await snap.addNode('inet:ipv4', '1.2.3.2')
+                await snap.addNode('inet:ipv4', '1.2.3.3')
+                await snap.addNode('inet:ipv4', '1.2.3.4')
 
-            self.len(3, core.eval('inet:ipv4=1.2.3.1-1.2.3.3'))
-            self.len(3, core.eval('[inet:ipv4=1.2.3.1-1.2.3.3]'))
-            self.len(3, core.eval('inet:ipv4 +inet:ipv4=1.2.3.1-1.2.3.3'))
+            await self.agenlen(3, core.eval('inet:ipv4=1.2.3.1-1.2.3.3'))
+            await self.agenlen(3, core.eval('[inet:ipv4=1.2.3.1-1.2.3.3]'))
+            await self.agenlen(3, core.eval('inet:ipv4 +inet:ipv4=1.2.3.1-1.2.3.3'))
 
-    def test_ipv4_filt_cidr(self):
+    async def test_ipv4_filt_cidr(self):
 
         async with self.getTestCore() as core:
 
-            self.len(5, core.eval('[ inet:ipv4=1.2.3.0/30 inet:ipv4=5.5.5.5 ]'))
-            self.len(4, core.eval('inet:ipv4 +inet:ipv4=1.2.3.0/30'))
-            self.len(1, core.eval('inet:ipv4 -inet:ipv4=1.2.3.0/30'))
+            await self.agenlen(5, core.eval('[ inet:ipv4=1.2.3.0/30 inet:ipv4=5.5.5.5 ]'))
+            await self.agenlen(4, core.eval('inet:ipv4 +inet:ipv4=1.2.3.0/30'))
+            await self.agenlen(1, core.eval('inet:ipv4 -inet:ipv4=1.2.3.0/30'))
 
-            self.len(256, core.eval('[ inet:ipv4=192.168.1.0/24]'))
-            self.len(256, core.eval('[ inet:ipv4=192.168.2.0/24]'))
-            self.len(256, core.eval('inet:ipv4=192.168.1.0/24'))
+            await self.agenlen(256, core.eval('[ inet:ipv4=192.168.1.0/24]'))
+            await self.agenlen(256, core.eval('[ inet:ipv4=192.168.2.0/24]'))
+            await self.agenlen(256, core.eval('inet:ipv4=192.168.1.0/24'))
 
             # Seed some nodes for bounds checking
             pnodes = [(('inet:ipv4', f'10.2.1.{d}'), {}) for d in range(1, 33)]
-            nodes = list(core.addNodes(pnodes))
+            nodes = await alist(core.addNodes(pnodes))
 
-            nodes = list(core.eval('inet:ipv4=10.2.1.4/32'))
+            nodes = await alist(core.eval('inet:ipv4=10.2.1.4/32'))
             self.len(1, nodes)
-            self.len(1, core.eval('inet:ipv4 +inet:ipv4=10.2.1.4/32'))
+            await self.agenlen(1, core.eval('inet:ipv4 +inet:ipv4=10.2.1.4/32'))
 
-            nodes = list(core.eval('inet:ipv4=10.2.1.4/31'))
+            nodes = await alist(core.eval('inet:ipv4=10.2.1.4/31'))
             self.len(2, nodes)
-            self.len(2, core.eval('inet:ipv4 +inet:ipv4=10.2.1.4/31'))
+            await self.agenlen(2, core.eval('inet:ipv4 +inet:ipv4=10.2.1.4/31'))
 
             # 10.2.1.1/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
-            nodes = list(core.eval('inet:ipv4=10.2.1.1/30'))
+            nodes = await alist(core.eval('inet:ipv4=10.2.1.1/30'))
             self.len(3, nodes)
 
             # 10.2.1.2/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
-            nodes = list(core.eval('inet:ipv4=10.2.1.2/30'))
+            nodes = await alist(core.eval('inet:ipv4=10.2.1.2/30'))
             self.len(3, nodes)
 
             # 10.2.1.1/29 is 10.2.1.0 -> 10.2.1.7 but we don't have 10.2.1.0 in the core
-            nodes = list(core.eval('inet:ipv4=10.2.1.1/29'))
+            nodes = await alist(core.eval('inet:ipv4=10.2.1.1/29'))
             self.len(7, nodes)
 
             # 10.2.1.8/29 is 10.2.1.8 -> 10.2.1.15
-            nodes = list(core.eval('inet:ipv4=10.2.1.8/29'))
+            nodes = await alist(core.eval('inet:ipv4=10.2.1.8/29'))
             self.len(8, nodes)
 
             # 10.2.1.1/28 is 10.2.1.0 -> 10.2.1.15 but we don't have 10.2.1.0 in the core
-            nodes = list(core.eval('inet:ipv4=10.2.1.1/28'))
+            nodes = await alist(core.eval('inet:ipv4=10.2.1.1/28'))
             self.len(15, nodes)
 
-    def test_addr(self):
+    async def test_addr(self):
         formname = 'inet:addr'
         async with self.getTestCore() as core:
             t = core.model.type(formname)
 
             # Proto defaults to tcp
             self.eq(t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060, 'proto': 'tcp'}}))
-            self.eq(t.norm('1.2.3.4:80'), ('tcp://1.2.3.4:80', {'subs': {'port': 80, 'ipv4': 16909060, 'proto': 'tcp'}}))
+            self.eq(t.norm('1.2.3.4:80'),
+                          ('tcp://1.2.3.4:80', {'subs': {'port': 80, 'ipv4': 16909060, 'proto': 'tcp'}}))
             self.raises(s_exc.BadTypeValu, t.norm, 'https://192.168.1.1:80')  # bad proto
 
             # IPv4
             self.eq(t.norm('tcp://1.2.3.4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060, 'proto': 'tcp'}}))
-            self.eq(t.norm('udp://1.2.3.4:80'), ('udp://1.2.3.4:80', {'subs': {'port': 80, 'ipv4': 16909060, 'proto': 'udp'}}))
+            self.eq(t.norm('udp://1.2.3.4:80'),
+                    ('udp://1.2.3.4:80', {'subs': {'port': 80, 'ipv4': 16909060, 'proto': 'udp'}}))
             self.eq(t.norm('tcp://1[.]2.3[.]4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060, 'proto': 'tcp'}}))
             self.raises(s_exc.BadTypeValu, t.norm, 'tcp://1.2.3.4:-1')
             self.raises(s_exc.BadTypeValu, t.norm, 'tcp://1.2.3.4:66000')
@@ -117,13 +119,14 @@ class InetModelTest(s_t_common.SynTest):
             # Host
             hstr = 'ffa3e574aa219e553e1b2fc1ccd0180f'
             self.eq(t.norm('host://vertex.link'), (f'host://{hstr}', {'subs': {'host': hstr, 'proto': 'host'}}))
-            self.eq(t.norm('host://vertex.link:1337'), (f'host://{hstr}:1337', {'subs': {'host': hstr, 'port': 1337, 'proto': 'host'}}))
+            self.eq(t.norm('host://vertex.link:1337'),
+                    (f'host://{hstr}:1337', {'subs': {'host': hstr, 'port': 1337, 'proto': 'host'}}))
             self.raises(s_exc.BadTypeValu, t.norm, 'vertex.link')  # must use host proto
 
-    def test_asn(self):
+    async def test_asn(self):
         formname = 'inet:asn'
         async with self.getTestCore() as core:
-            with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 valu = '123'
                 expected_ndef = (formname, 123)
@@ -135,19 +138,19 @@ class InetModelTest(s_t_common.SynTest):
                     'name': 'cool',
                     'owner': 32 * 'a',
                 }
-                node = snap.addNode(formname, valu, props=input_props)
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
                 valu = '456'
                 expected_ndef = (formname, 456)
                 expected_props = {'name': '??'}
-                node = snap.addNode(formname, valu)
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_asnet4(self):
+    async def test_asnet4(self):
         formname = 'inet:asnet4'
         async with self.getTestCore() as core:
-            with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 valu = ('54959', ('1.2.3.4', '5.6.7.8'))
                 expected_ndef = (formname, (54959, (16909060, 84281096)))
@@ -157,10 +160,10 @@ class InetModelTest(s_t_common.SynTest):
                     'net4:max': 84281096,
                     'asn': 54959,
                 }
-                node = snap.addNode(formname, valu)
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_cidr4(self):
+    async def test_cidr4(self):
         formname = 'inet:cidr4'
         async with self.getTestCore() as core:
 
@@ -198,14 +201,14 @@ class InetModelTest(s_t_common.SynTest):
             valu = '192[.]168.1.123/24'
             expected_ndef = (formname, '192.168.1.0/24')  # ndef is network/mask, not ip/mask
 
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('network'), 3232235776)  # 192.168.1.0
                 self.eq(node.get('broadcast'), 3232236031)  # 192.168.1.255
                 self.eq(node.get('mask'), 24)
 
-    def test_client(self):
+    async def test_client(self):
         formname = 'inet:client'
         data = (
             ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
@@ -230,12 +233,12 @@ class InetModelTest(s_t_common.SynTest):
         )
 
         async with self.getTestCore() as core:
-            with core.snap() as snap:
+            async with await core.snap() as snap:
                 for valu, expected_valu, expected_props in data:
-                    node = snap.addNode(formname, valu)
+                    node = await snap.addNode(formname, valu)
                     self.checkNode(node, ((formname, expected_valu), expected_props))
 
-    def test_download(self):
+    async def test_download(self):
         formname = 'inet:download'
         input_props = {
             'time': 0,
@@ -258,11 +261,11 @@ class InetModelTest(s_t_common.SynTest):
             'server:proto': 'tcp',
         }
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, 32 * 'a', props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, 32 * 'a', props=input_props)
                 self.checkNode(node, ((formname, 32 * 'a'), expected_props))
 
-    def test_email(self):
+    async def test_email(self):
         formname = 'inet:email'
         async with self.getTestCore() as core:
 
@@ -283,11 +286,11 @@ class InetModelTest(s_t_common.SynTest):
                 'fqdn': 'vertex.link',
                 'user': 'unittest',
             }
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_flow(self):
+    async def test_flow(self):
         formname = 'inet:flow'
         input_props = {
             'time': 0,
@@ -327,11 +330,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, 32 * 'a')
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, 32 * 'a', props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, 32 * 'a', props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_fqdn(self):
+    async def test_fqdn(self):
         formname = 'inet:fqdn'
         async with self.getTestCore() as core:
 
@@ -367,8 +370,8 @@ class InetModelTest(s_t_common.SynTest):
 
             # Demonstrate cascading formation
             # FIXME use checkNode
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props={'created': 0, 'expires': 1, 'updated': 2})
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props={'created': 0, 'expires': 1, 'updated': 2})
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('domain'), 'vertex.link')
                 self.eq(node.get('expires'), 1)
@@ -378,10 +381,10 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.get('updated'), 2)
                 self.eq(node.get('zone'), 'vertex.link')
 
-            with core.snap() as snap:
+            async with await core.snap() as snap:
                 nvalu = 'vertex.link'
                 expected_ndef = (formname, nvalu)
-                node = snap.getNodeByNdef((formname, nvalu))
+                node = await snap.getNodeByNdef((formname, nvalu))
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('domain'), 'link')
                 self.eq(node.get('host'), 'vertex')
@@ -389,23 +392,23 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.get('iszone'), 1)
                 self.eq(node.get('zone'), 'vertex.link')
 
-            with core.snap() as snap:
+            async with await core.snap() as snap:
                 nvalu = 'link'
                 expected_ndef = (formname, nvalu)
-                node = snap.getNodeByNdef((formname, nvalu))
+                node = await snap.getNodeByNdef((formname, nvalu))
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('host'), 'link')
                 self.eq(node.get('issuffix'), 1)
                 self.eq(node.get('iszone'), 0)
 
             # Demonstrate wildcard
-            with core.snap() as snap:
-                self.len(3, list(snap.getNodesBy(formname, '*')))
-                self.len(2, list(snap.getNodesBy(formname, '*.link')))
-                self.len(1, list(snap.getNodesBy(formname, '*.vertex.link')))
-                self.genraises(s_exc.BadLiftValu, snap.getNodesBy, formname, 'api.*.link')
+            async with await core.snap() as snap:
+                await self.agenlen(3, snap.getNodesBy(formname, '*'))
+                await self.agenlen(2, snap.getNodesBy(formname, '*.link'))
+                await self.agenlen(1, snap.getNodesBy(formname, '*.vertex.link'))
+                await self.agenraises(s_exc.BadLiftValu, snap.getNodesBy(formname, 'api.*.link'))
 
-    def test_fqdn_suffix(self):
+    async def test_fqdn_suffix(self):
         # Demonstrate FQDN suffix/zone behavior
 
         formname = 'inet:fqdn'
@@ -423,17 +426,18 @@ class InetModelTest(s_t_common.SynTest):
             self.true(node.get('iszone') == 0 and node.get('issuffix') == 0)
 
         async with self.getTestCore() as core:
-            with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 # Create some nodes and demonstrate zone/suffix behavior
                 # Only FQDNs of the lowest level should be suffix
                 # Only FQDNs whose domains are suffixes should be zones
-                n0 = snap.addNode(formname, 'abc.vertex.link')
-                n1 = snap.addNode(formname, 'def.vertex.link')
-                n2 = snap.addNode(formname, 'g.def.vertex.link')
-                n1 = snap.addNode(formname, 'def.vertex.link')  # form again to show g. should not make this a zone
-                n3 = snap.getNodeByNdef((formname, 'vertex.link'))
-                n4 = snap.getNodeByNdef((formname, 'link'))
+                n0 = await snap.addNode(formname, 'abc.vertex.link')
+                n1 = await snap.addNode(formname, 'def.vertex.link')
+                n2 = await snap.addNode(formname, 'g.def.vertex.link')
+                # form again to show g. should not make this a zone
+                n1 = await snap.addNode(formname, 'def.vertex.link')
+                n3 = await snap.getNodeByNdef((formname, 'vertex.link'))
+                n4 = await snap.getNodeByNdef((formname, 'link'))
                 isneither(n0)
                 isneither(n1)
                 isneither(n2)
@@ -441,42 +445,42 @@ class InetModelTest(s_t_common.SynTest):
                 issuffix(n4)   # link should be a suffix
 
                 # Make one of the FQDNs a suffix and make sure its children become zones
-                n3 = snap.addNode(formname, 'vertex.link', props={'issuffix': True})
+                n3 = await snap.addNode(formname, 'vertex.link', props={'issuffix': True})
                 isboth(n3)     # vertex.link should now be both because we made it a suffix
-                n0 = snap.getNodeByNdef((formname, 'abc.vertex.link'))
-                n1 = snap.getNodeByNdef((formname, 'def.vertex.link'))
-                n2 = snap.getNodeByNdef((formname, 'g.def.vertex.link'))
+                n0 = await snap.getNodeByNdef((formname, 'abc.vertex.link'))
+                n1 = await snap.getNodeByNdef((formname, 'def.vertex.link'))
+                n2 = await snap.getNodeByNdef((formname, 'g.def.vertex.link'))
                 iszone(n0)     # now a zone because vertex.link is a suffix
                 iszone(n1)     # now a zone because vertex.link is a suffix
                 isneither(n2)  # still neither as parent is not a suffix
 
                 # Remove the FQDN's suffix status and make sure its children lose zone status
-                n3 = snap.addNode(formname, 'vertex.link', props={'issuffix': False})
+                n3 = await snap.addNode(formname, 'vertex.link', props={'issuffix': False})
                 iszone(n3)     # vertex.link should now be a zone becuase we removed its suffix status
-                n0 = snap.getNodeByNdef((formname, 'abc.vertex.link'))
-                n1 = snap.getNodeByNdef((formname, 'def.vertex.link'))
-                n2 = snap.getNodeByNdef((formname, 'g.def.vertex.link'))
-                n4 = snap.getNodeByNdef((formname, 'link'))
+                n0 = await snap.getNodeByNdef((formname, 'abc.vertex.link'))
+                n1 = await snap.getNodeByNdef((formname, 'def.vertex.link'))
+                n2 = await snap.getNodeByNdef((formname, 'g.def.vertex.link'))
+                n4 = await snap.getNodeByNdef((formname, 'link'))
                 isneither(n0)  # loses zone status
                 isneither(n1)  # loses zone status
                 isneither(n2)  # stays the same
                 issuffix(n4)   # stays the same
 
-    def test_group(self):
+    async def test_group(self):
         formname = 'inet:group'
         valu = 'cool Group '
         expected_props = {}
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_http_cookie(self):
+    async def test_http_cookie(self):
 
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode('inet:http:cookie', 'HeHe=HaHa')
+            async with await core.snap() as snap:
+                node = await snap.addNode('inet:http:cookie', 'HeHe=HaHa')
                 self.eq(node.ndef[1], 'HeHe=HaHa')
 
     def test_http_header(self):
@@ -485,7 +489,7 @@ class InetModelTest(s_t_common.SynTest):
     def test_http_header_name(self):
         pass # this is tested below...
 
-    def test_http_request_header(self):
+    async def test_http_request_header(self):
         formname = 'inet:http:request:header'
         valu = ('Cool', 'Cooler')
         expected_props = {
@@ -494,11 +498,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, ('cool', 'Cooler'))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_http_response_header(self):
+    async def test_http_response_header(self):
 
         formname = 'inet:http:response:header'
 
@@ -509,11 +513,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, ('cool', 'Cooler'))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_http_param(self):
+    async def test_http_param(self):
         formname = 'inet:http:param'
         valu = ('Cool', 'Cooler')
         expected_props = {
@@ -522,11 +526,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, ('Cool', 'Cooler'))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_http_request(self):
+    async def test_http_request(self):
         formname = 'inet:http:request'
         input_props = {
             'time': '2015',
@@ -560,11 +564,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, 32 * 'a')
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, 32 * 'a', props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, 32 * 'a', props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_iface(self):
+    async def test_iface(self):
         formname = 'inet:iface'
         valu = 32 * 'a'
         input_props = {
@@ -593,11 +597,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_ipv4(self):
+    async def test_ipv4(self):
         formname = 'inet:ipv4'
         async with self.getTestCore() as core:
 
@@ -637,11 +641,11 @@ class InetModelTest(s_t_common.SynTest):
             valu_str = '1.2.3.4'
             valu_int = 16909060
             expected_ndef = (formname, valu_int)
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu_str, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu_str, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_ipv6(self):
+    async def test_ipv6(self):
         formname = 'inet:ipv6'
         async with self.getTestCore() as core:
 
@@ -682,7 +686,7 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm(2**128 - 1)[0], 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
 
             # Form Tests ======================================================
-            with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 valu_str = '::fFfF:1.2.3.4'
                 input_props = {'latlong': '0,2', 'loc': 'cool'}
@@ -693,7 +697,7 @@ class InetModelTest(s_t_common.SynTest):
                     'latlong': (0.0, 2.0),
                 }
                 expected_ndef = (formname, valu_str.lower())
-                node = snap.addNode(formname, valu_str, props=input_props)
+                node = await snap.addNode(formname, valu_str, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
                 valu_str = '::1'
@@ -702,10 +706,10 @@ class InetModelTest(s_t_common.SynTest):
                     'loc': '??',
                 }
                 expected_ndef = (formname, valu_str)
-                node = snap.addNode(formname, valu_str)
+                node = await snap.addNode(formname, valu_str)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_mac(self):
+    async def test_mac(self):
         formname = 'inet:mac'
         async with self.getTestCore() as core:
 
@@ -718,19 +722,19 @@ class InetModelTest(s_t_common.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, 'GG:ff:FF:ff:FF:ff')
 
             # Form Tests ======================================================
-            with core.snap() as snap:
+            async with await core.snap() as snap:
                 valu = '00:00:00:00:00:00'
                 expected_ndef = (formname, valu)
 
-                node = snap.addNode(formname, valu)
+                node = await snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('vendor'), '??')
 
-                node = snap.addNode(formname, valu, props={'vendor': 'Cool'})
+                node = await snap.addNode(formname, valu, props={'vendor': 'Cool'})
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('vendor'), 'Cool')
 
-    def test_net4(self):
+    async def test_net4(self):
         tname = 'inet:net4'
         async with self.getTestCore() as core:
             # Type Tests ======================================================
@@ -745,7 +749,7 @@ class InetModelTest(s_t_common.SynTest):
 
             self.raises(s_exc.BadTypeValu, t.norm, (valu[1], valu[0]))
 
-    def test_net6(self):
+    async def test_net6(self):
         tname = 'inet:net6'
         async with self.getTestCore() as core:
             # Type Tests ======================================================
@@ -760,17 +764,17 @@ class InetModelTest(s_t_common.SynTest):
 
             self.raises(s_exc.BadTypeValu, t.norm, (valu[1], valu[0]))
 
-    def test_passwd(self):
+    async def test_passwd(self):
         async with self.getTestCore() as core:
-            with core.snap() as snap:
+            async with await core.snap() as snap:
 
-                node = snap.addNode('inet:passwd', '2Cool4u')
+                node = await snap.addNode('inet:passwd', '2Cool4u')
                 self.eq(node.ndef[1], '2Cool4u')
                 self.eq('91112d75297841c12ca655baafc05104', node.get('md5'))
                 self.eq('2984ab44774294be9f7a369bbd73b52021bf0bb4', node.get('sha1'))
                 self.eq('62c7174a99ff0afd4c828fc779d2572abc2438415e3ca9769033d4a36479b14f', node.get('sha256'))
 
-    def test_port(self):
+    async def test_port(self):
         tname = 'inet:port'
         async with self.getTestCore() as core:
 
@@ -784,7 +788,7 @@ class InetModelTest(s_t_common.SynTest):
             self.eq(t.norm(65535), (65535, {}))
             self.raises(s_exc.BadTypeValu, t.norm, 65536)
 
-    def test_rfc2822_addr(self):
+    async def test_rfc2822_addr(self):
         formname = 'inet:rfc2822:addr'
         async with self.getTestCore() as core:
 
@@ -807,20 +811,20 @@ class InetModelTest(s_t_common.SynTest):
             # Form Tests ======================================================
             valu = '"UnitTest"    <UnitTest@Vertex.link>'
             expected_ndef = (formname, 'unittest <unittest@vertex.link>')
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('email'), 'unittest@vertex.link')
                 self.eq(node.get('name'), 'unittest')
 
-                snap.addNode(formname, '"UnitTest1')
-                snap.addNode(formname, '"UnitTest12')
+                await snap.addNode(formname, '"UnitTest1')
+                await snap.addNode(formname, '"UnitTest12')
 
-                self.len(3, list(snap.getNodesBy(formname, 'unittest', cmpr='^=')))
-                self.len(2, list(snap.getNodesBy(formname, 'unittest1', cmpr='^=')))
-                self.len(1, list(snap.getNodesBy(formname, 'unittest12', cmpr='^=')))
+                await self.agenlen(3, snap.getNodesBy(formname, 'unittest', cmpr='^='))
+                await self.agenlen(2, snap.getNodesBy(formname, 'unittest1', cmpr='^='))
+                await self.agenlen(1, snap.getNodesBy(formname, 'unittest12', cmpr='^='))
 
-    def test_server(self):
+    async def test_server(self):
         formname = 'inet:server'
         data = (
             ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
@@ -845,12 +849,12 @@ class InetModelTest(s_t_common.SynTest):
         )
 
         async with self.getTestCore() as core:
-            with core.snap() as snap:
+            async with await core.snap() as snap:
                 for valu, expected_valu, expected_props in data:
-                    node = snap.addNode(formname, valu)
+                    node = await snap.addNode(formname, valu)
                     self.checkNode(node, ((formname, expected_valu), expected_props))
 
-    def test_servfile(self):
+    async def test_servfile(self):
         formname = 'inet:servfile'
         valu = ('tcp://127.0.0.1:4040', 'sha256:' + 64 * 'f')
         input_props = {
@@ -866,17 +870,17 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, tuple(item.lower() for item in valu))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_ssl_cert(self):
+    async def test_ssl_cert(self):
 
         async with self.getTestCore() as core:
 
-            with core.snap() as snap:
+            async with await core.snap() as snap:
 
-                node = snap.addNode('inet:ssl:cert', ('tcp://1.2.3.4:443', 'guid:abcdabcdabcdabcdabcdabcdabcdabcd'))
+                node = await snap.addNode('inet:ssl:cert', ('tcp://1.2.3.4:443', 'guid:abcdabcdabcdabcdabcdabcdabcdabcd'))
 
                 self.eq(node.get('file'), 'guid:abcdabcdabcdabcdabcdabcdabcdabcd')
                 self.eq(node.get('server'), 'tcp://1.2.3.4:443')
@@ -884,7 +888,7 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.get('server:port'), 443)
                 self.eq(node.get('server:ipv4'), 0x01020304)
 
-    def test_url(self):
+    async def test_url(self):
         formname = 'inet:url'
         async with self.getTestCore() as core:
 
@@ -900,10 +904,10 @@ class InetModelTest(s_t_common.SynTest):
                     t.indx(valu))
 
             # Form Tests ======================================================
-            with core.snap() as snap:
+            async with await core.snap() as snap:
                 valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
                 expected_ndef = (formname, valu)
-                node = snap.addNode(formname, valu)
+                node = await snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('fqdn'), 'vertex.link')
                 self.eq(node.get('passwd'), 'hunter2')
@@ -914,12 +918,12 @@ class InetModelTest(s_t_common.SynTest):
 
                 valu = 'https://vertex.link?a=1'
                 expected_ndef = (formname, valu)
-                node = snap.addNode(formname, valu)
+                node = await snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('fqdn'), 'vertex.link')
                 self.eq(node.get('path'), '?a=1')
 
-    def test_url_fqdn(self):
+    async def test_url_fqdn(self):
 
         async with self.getTestCore() as core:
 
@@ -934,7 +938,7 @@ class InetModelTest(s_t_common.SynTest):
 
             self._test_types_url_behavior(t, 'fqdn', host, norm_host, repr_host)
 
-    def test_url_ipv4(self):
+    async def test_url_ipv4(self):
         async with self.getTestCore() as core:
             t = core.model.type('inet:url')
 
@@ -946,7 +950,7 @@ class InetModelTest(s_t_common.SynTest):
 
             self._test_types_url_behavior(t, 'ipv4', host, norm_host, repr_host)
 
-    def test_url_ipv6(self):
+    async def test_url_ipv6(self):
         async with self.getTestCore() as core:
             t = core.model.type('inet:url')
 
@@ -1028,7 +1032,7 @@ class InetModelTest(s_t_common.SynTest):
         }})
         self.eq(t.norm(url), expected)
 
-    def test_urlfile(self):
+    async def test_urlfile(self):
         formname = 'inet:urlfile'
         valu = ('https://vertex.link/a_cool_program.exe', 64 * 'f')
         expected_props = {
@@ -1037,11 +1041,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, (valu[0], 'sha256:' + valu[1]))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_urlredir(self):
+    async def test_urlredir(self):
         formname = 'inet:urlredir'
         valu = ('https://vertex.link/idk', 'https://cool.vertex.link:443/something_else')
         expected_props = {
@@ -1052,21 +1056,21 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_user(self):
+    async def test_user(self):
         formname = 'inet:user'
         valu = 'cool User '
         expected_props = {}
         expected_ndef = (formname, 'cool user ')
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_web_acct(self):
+    async def test_web_acct(self):
         async with self.getTestCore() as core:
             formname = 'inet:web:acct'
 
@@ -1116,12 +1120,12 @@ class InetModelTest(s_t_common.SynTest):
                 'signup:client:ipv4': 4,
             })
 
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.eq(node.ndef, expected_ndef)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_web_action(self):
+    async def test_web_action(self):
         formname = 'inet:web:action'
         valu = 32 * 'a'
         input_props = {
@@ -1141,11 +1145,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_web_actref(self):
+    async def test_web_actref(self):
         formname = 'inet:web:actref'
         valu = (32 * 'a', ('inet:ipv4', '0.0.0.1'))
         input_props = {}
@@ -1156,11 +1160,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, (32 * 'a', ('inet:ipv4', 1)))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_web_chprofile(self):
+    async def test_web_chprofile(self):
         formname = 'inet:web:chprofile'
         valu = 32 * 'a'
         input_props = {
@@ -1181,11 +1185,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_web_file(self):
+    async def test_web_file(self):
         formname = 'inet:web:file'
         valu = (('vertex.link', 'vertexmc'), 64 * 'f')
         input_props = {
@@ -1205,11 +1209,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, (valu[0], 'sha256:' + valu[1]))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_web_follows(self):
+    async def test_web_follows(self):
         formname = 'inet:web:follows'
         valu = (('vertex.link', 'vertexmc'), ('example.com', 'aUser'))
         input_props = {}
@@ -1219,11 +1223,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, (('vertex.link', 'vertexmc'), ('example.com', 'auser')))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_web_group(self):
+    async def test_web_group(self):
         formname = 'inet:web:group'
         valu = ('vertex.link', 'CoolGroup')
         input_props = {
@@ -1255,11 +1259,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_web_logon(self):
+    async def test_web_logon(self):
         formname = 'inet:web:logon'
         valu = 32 * 'a'
         input_props = {
@@ -1279,11 +1283,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_web_memb(self):
+    async def test_web_memb(self):
         formname = 'inet:web:memb'
         valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'kenshoto'))
         input_props = {'joined': 2554848000000, 'title': 'Cool'}
@@ -1295,11 +1299,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, (('vertex.link', 'visi'), ('vertex.link', 'kenshoto')))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_web_mesg(self):
+    async def test_web_mesg(self):
         formname = 'inet:web:mesg'
         valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'vertexmc'), 0)
         input_props = {
@@ -1317,11 +1321,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, (('vertex.link', 'visi'), ('vertex.link', 'vertexmc'), 0))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_web_post(self):
+    async def test_web_post(self):
         formname = 'inet:web:post'
         valu = 32 * 'a'
         input_props = {
@@ -1346,11 +1350,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_web_postref(self):
+    async def test_web_postref(self):
         formname = 'inet:web:postref'
         valu = (32 * 'a', ('inet:ipv4', '0.0.0.1'))
         input_props = {}
@@ -1361,11 +1365,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, (32 * 'a', ('inet:ipv4', 1)))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_whois_contact(self):
+    async def test_whois_contact(self):
         formname = 'inet:whois:contact'
         valu = (('vertex.link', '@2015'), 'regiStrar')
         input_props = {
@@ -1402,21 +1406,21 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, (('vertex.link', 1420070400000), 'registrar'))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_whois_rar(self):
+    async def test_whois_rar(self):
         formname = 'inet:whois:rar'
         valu = 'cool Registrar '
         expected_props = {}
         expected_ndef = (formname, 'cool registrar ')
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_whois_rec(self):
+    async def test_whois_rec(self):
         formname = 'inet:whois:rec'
         valu = ('woot.com', '@20501217')
         input_props = {
@@ -1439,11 +1443,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, ('woot.com', 2554848000000))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu, props=input_props)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_whois_recns(self):
+    async def test_whois_recns(self):
         formname = 'inet:whois:recns'
         valu = ('ns1.woot.com', ('woot.com', '@20501217'))
         expected_props = {
@@ -1454,21 +1458,21 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, ('ns1.woot.com', ('woot.com', 2554848000000)))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_whois_reg(self):
+    async def test_whois_reg(self):
         formname = 'inet:whois:reg'
         valu = 'cool Registrant '
         expected_props = {}
         expected_ndef = (formname, 'cool registrant ')
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_whois_regmail(self):
+    async def test_whois_regmail(self):
         formname = 'inet:whois:regmail'
         valu = ('wOOt.Com', 'visi@vertex.LINK')
         expected_props = {
@@ -1477,11 +1481,11 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, tuple(item.lower() for item in valu))
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_wifi_ap(self):
+    async def test_wifi_ap(self):
         formname = 'inet:wifi:ap'
         valu = ('The Best SSID2 ', '00:11:22:33:44:55')
         expected_props = {
@@ -1490,32 +1494,32 @@ class InetModelTest(s_t_common.SynTest):
         }
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_wifi_ssid(self):
+    async def test_wifi_ssid(self):
         formname = 'inet:wifi:ssid'
         valu = 'The Best SSID '
         expected_props = {}
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode(formname, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
 
-    def test_banner(self):
+    async def test_banner(self):
 
         async with self.getTestCore() as core:
 
-            with core.snap() as snap:
+            async with await core.snap() as snap:
 
-                node = snap.addNode('inet:banner', ('tcp://1.2.3.4:443', 'Hi There'))
+                node = await snap.addNode('inet:banner', ('tcp://1.2.3.4:443', 'Hi There'))
 
                 self.eq('Hi There', node.get('text'))
 
                 self.eq(443, node.get('server:port'))
                 self.eq(0x01020304, node.get('server:ipv4'))
 
-                strn = snap.getNodeByNdef(('it:dev:str', 'Hi There'))
+                strn = await snap.getNodeByNdef(('it:dev:str', 'Hi There'))
                 self.nn(strn)

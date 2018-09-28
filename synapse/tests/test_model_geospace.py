@@ -1,11 +1,11 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.tests.common as s_t_common
+import synapse.tests.utils as s_t_utils
 
-class GeoTest(s_t_common.SynTest):
+class GeoTest(s_t_utils.SynTest):
 
-    def test_types_forms(self):
+    async def test_types_forms(self):
         formlat = 'geo:latitude'
         formlon = 'geo:longitude'
         formlatlon = 'geo:latlong'
@@ -113,8 +113,8 @@ class GeoTest(s_t_common.SynTest):
             latlong = ('0.000000000', '0')
             stamp = -0
 
-            with core.snap() as snap:
-                node = snap.addNode('geo:nloc', (ndef, latlong, stamp))
+            async with await core.snap() as snap:
+                node = await snap.addNode('geo:nloc', (ndef, latlong, stamp))
                 self.eq(node.ndef[1], (('inet:ipv4', 0), (0.0, 0.0), stamp))
                 self.eq(node.get('ndef'), ('inet:ipv4', 0))
                 self.eq(node.get('ndef:form'), 'inet:ipv4')
@@ -128,14 +128,14 @@ class GeoTest(s_t_common.SynTest):
             node = list(core.eval('[ geo:place="*" :latlong=(-30.0,20.22) ]'))[0]
             self.eq(node.get('latlong'), (-30.0, 20.22))
 
-            with core.snap() as snap:
+            async with await core.snap() as snap:
                 guid = s_common.guid()
                 props = {'name': 'Vertex  HQ',
                          'desc': 'The place where Vertex Project hangs out at!',
                          'loc': 'us.hehe.haha',
                          'latlong': '34.1341, -118.3215',
                          'radius': '1.337km'}
-                node = snap.addNode('geo:place', guid, props)
+                node = await snap.addNode('geo:place', guid, props)
                 self.eq(node.ndef[1], guid)
                 self.eq(node.get('name'), 'vertex hq')
                 self.eq(node.get('loc'), 'us.hehe.haha')
@@ -143,39 +143,39 @@ class GeoTest(s_t_common.SynTest):
                 self.eq(node.get('radius'), 1337000)
                 self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
 
-    def test_near(self):
+    async def test_near(self):
         async with self.getTestCore() as core:
-            with core.snap() as snap:
+            async with await core.snap() as snap:
                 # These two nodes are 2,605m apart
                 guid0 = s_common.guid()
                 props = {'name': 'Vertex  HQ',
                          'latlong': '34.1341, -118.3215',  # hollywood sign
                          'radius': '1.337km'}
-                node = snap.addNode('geo:place', guid0, props)
+                node = await snap.addNode('geo:place', guid0, props)
                 self.nn(node)
 
                 guid1 = s_common.guid()
                 props = {'name': 'Griffith Observatory',
                          'latlong': '34.118560, -118.300370',
                          'radius': '75m'}
-                node = snap.addNode('geo:place', guid1, props)
+                node = await snap.addNode('geo:place', guid1, props)
                 self.nn(node)
 
                 guid2 = s_common.guid()
                 props = {'name': 'unknown location'}
-                node = snap.addNode('geo:place', guid2, props)
+                node = await snap.addNode('geo:place', guid2, props)
                 self.nn(node)
 
                 # A telemetry node for example by the observatory
                 guid3 = s_common.guid()
                 props = {'latlong': '34.118660, -118.300470'}
-                node = snap.addNode('tel:mob:telem', guid3, props)
+                node = await snap.addNode('tel:mob:telem', guid3, props)
                 self.nn(node)
 
                 # A telemetry node for example by the HQ
                 guid4 = s_common.guid()
                 props = {'latlong': '34.13412, -118.32153'}
-                node = snap.addNode('tel:mob:telem', guid4, props)
+                node = await snap.addNode('tel:mob:telem', guid4, props)
                 self.nn(node)
 
             # Node filtering behavior

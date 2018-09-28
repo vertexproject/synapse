@@ -30,7 +30,7 @@ class UsGovTest(s_t_utils.SynTest):
             formname = 'gov:us:cage'
             valu = '7qe71'
             expected_ndef = (formname, valu)
-            async with core.snap() as snap:
+            async with await core.snap() as snap:
                 n0 = await snap.addNode(formname, valu.upper(), input_props)
 
             self.eq(n0.ndef, expected_ndef)

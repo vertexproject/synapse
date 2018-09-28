@@ -1,20 +1,19 @@
-import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
 
 class PsModelTest(s_t_utils.SynTest):
-    def test_ps_simple(self):
+    async def test_ps_simple(self):
 
         person0 = s_common.guid()
         persona0 = s_common.guid()
 
         async with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode('ps:tokn', ' BOB ')
+            async with await core.snap() as snap:
+                node = await snap.addNode('ps:tokn', ' BOB ')
                 self.eq(node.ndef[1], 'bob')
 
-                node = snap.addNode('ps:name', ' robert GREY  the\t3rd  ')
+                node = await snap.addNode('ps:name', ' robert GREY  the\t3rd  ')
                 self.eq(node.ndef[1], 'robert grey the 3rd')
                 file0 = 'sha256:' + 64 * '0'
                 person_props = {
@@ -27,7 +26,7 @@ class PsModelTest(s_t_utils.SynTest):
                     'name:middle': 'clown',
                     'name:given': 'robert',
                 }
-                node = snap.addNode('ps:person', person0, person_props)
+                node = await snap.addNode('ps:person', person0, person_props)
                 self.eq(node.ndef[1], person0)
                 self.eq(node.get('img'), file0)
                 self.eq(node.get('dob'), 31536000000)
@@ -49,7 +48,7 @@ class PsModelTest(s_t_utils.SynTest):
                     'name:middle': 'брат',
                     'name:given': 'эммануэль',
                 }
-                node = snap.addNode('ps:persona', persona0, persona_props)
+                node = await snap.addNode('ps:persona', persona0, persona_props)
                 self.eq(node.ndef[1], persona0)
                 self.eq(node.get('img'), file0)
                 self.eq(node.get('dob'), 946684800000)
@@ -61,13 +60,13 @@ class PsModelTest(s_t_utils.SynTest):
                 # self.eq(node.get('img'), '')  # fixme file:bytes
                 # self.eq(node.get('guidname'), '')  # fixme guid aliases
 
-                node = snap.addNode('ps:person:has', (person0, ('teststr', 'sewer map')))
+                node = await snap.addNode('ps:person:has', (person0, ('teststr', 'sewer map')))
                 self.eq(node.ndef[1], (person0, ('teststr', 'sewer map')))
                 self.eq(node.get('person'), person0)
                 self.eq(node.get('node'), ('teststr', 'sewer map'))
                 self.eq(node.get('node:form'), 'teststr')
 
-                node = snap.addNode('ps:persona:has', (persona0, ('teststr', 'the gibson')))
+                node = await snap.addNode('ps:persona:has', (persona0, ('teststr', 'the gibson')))
                 self.eq(node.ndef[1], (persona0, ('teststr', 'the gibson')))
                 self.eq(node.get('persona'), persona0)
                 self.eq(node.get('node'), ('teststr', 'the gibson'))
@@ -95,7 +94,7 @@ class PsModelTest(s_t_utils.SynTest):
                     'address': '1 Iron Suit Drive, San Francisco, CA, 22222, USA',
                 }
 
-                node = snap.addNode('ps:contact', con0, cprops)
+                node = await snap.addNode('ps:contact', con0, cprops)
                 self.eq(node.ndef[1], con0)
                 self.eq(node.get('org'), org0)
                 self.eq(node.get('asof'), 1208131200000)

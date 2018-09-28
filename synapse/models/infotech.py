@@ -1,7 +1,6 @@
 import logging
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.version as s_version
@@ -46,7 +45,7 @@ class SemVer(s_types.Type):
                                     mesg='Cannot norm a negative integer as a semver.')
         if valu > s_version.mask60:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                               mesg='Cannot norm a integer larger than 1152921504606846975 as a semver.')
+                                    mesg='Cannot norm a integer larger than 1152921504606846975 as a semver.')
         major, minor, patch = s_version.unpackVersion(valu)
         valu = s_version.packVersion(major, minor, patch)
         subs = {'major': major,
@@ -95,19 +94,19 @@ class ItModule(s_module.CoreModule):
             subs = s_version.parseVersionParts(valu)
             if subs is None:
                 raise s_exc.BadTypeValu(valu=valu, name='bruteVersionStr',
-                                           mesg='Unable to brute force version parts out of the string')
+                                        mesg='Unable to brute force version parts out of the string')
             if subs:
                 valu = s_version.packVersion(subs.get('major'),
                                              subs.get('minor', 0),
                                              subs.get('patch', 0))
                 return valu, subs
 
-    def _onFormItDevStr(self, node):
-        node.set('norm', node.ndef[1])
+    async def _onFormItDevStr(self, node):
+        await node.set('norm', node.ndef[1])
 
     async def _onFormMakeDevStr(self, node):
         pprop = node.ndef[1]
-        nnode = await node.snap.addNode('it:dev:str', pprop)
+        await node.snap.addNode('it:dev:str', pprop)
 
     async def _onPropSoftverSoft(self, node, oldv):
         # Check to see if name is available and set it if possible
@@ -117,13 +116,13 @@ class ItModule(s_module.CoreModule):
             if snodes:
                 name = snodes[0].get('name')
                 if name:
-                    node.set('software:name', name)
+                    await node.set('software:name', name)
 
     async def _onPropSoftverArch(self, node, oldv):
         # make it:dev:str for arch
         prop = node.get('arch')
         if prop:
-            nnode = await node.snap.addNode('it:dev:str', prop)
+            await node.snap.addNode('it:dev:str', prop)
 
     async def _onPropSoftverVers(self, node, oldv):
         # Set vers:norm and make it's normed valu
@@ -131,17 +130,17 @@ class ItModule(s_module.CoreModule):
         if not prop:
             return
 
-        node.set('vers:norm', prop)
+        await node.set('vers:norm', prop)
 
         # Make it:dev:str from version str
-        nnode = await node.snap.addNode('it:dev:str', prop)
+        await node.snap.addNode('it:dev:str', prop)
 
         # form the semver properly or bruteforce parts
         try:
             valu, subs = self.bruteVersionStr(prop)
-            node.set('semver', valu)
+            await node.set('semver', valu)
             for k, v in subs.items():
-                node.set(f'semver:{k}', v)
+                await node.set(f'semver:{k}', v)
         except Exception as e:
             logger.exception('Failed to brute force version string [%s]', prop)
 

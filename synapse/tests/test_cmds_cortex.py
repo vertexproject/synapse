@@ -13,11 +13,9 @@ class CmdCoreTest(s_t_utils.SynTest):
 
     async def test_storm(self):
         help_msg = 'Execute a storm query.'
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                valu = 'abcd'
-                node = await snap.addNode('teststr', valu, props={'tick': 123})
-                node.addTag('cool')
+        async with self.getTestDmon('dmoncore') as dmon, \
+                await self.agetTestProxy(dmon, 'core') as core:
+            await self.agenlen(1, await core.eval("[ teststr=abcd :tick=2015 +#cool ]"))
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
@@ -62,42 +60,41 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm teststr=abcd')
-            outp.expect(':tick = 1970/01/01 00:00:00.123')
+            outp.expect(':tick = 2015/01/01 00:00:00.000')
             outp.expect('#cool = (None, None)')
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-tags teststr=abcd')
-            outp.expect(':tick = 1970/01/01 00:00:00.123')
+            outp.expect(':tick = 2015/01/01 00:00:00.000')
             self.false(outp.expect('#cool = (None, None)', throw=False))
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-props teststr=abcd')
-            self.false(outp.expect(':tick = 1970/01/01 00:00:00.123', throw=False))
+            self.false(outp.expect(':tick = 2015/01/01 00:00:00.000', throw=False))
             outp.expect('#cool = (None, None)')
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-tags --hide-props teststr=abcd')
-            self.false(outp.expect(':tick = 1970/01/01 00:00:00.123', throw=False))
+            self.false(outp.expect(':tick = 2015/01/01 00:00:00.000', throw=False))
             self.false(outp.expect('#cool = (None, None)', throw=False))
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --raw teststr=abcd')
-            outp.expect("'tick': 123")
+            outp.expect("'tick': '2015/01/01 00:00:00.000'")
             outp.expect("'tags': {'cool': (None, None)")
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --bad')
-            outp.expect('Traceback')
             outp.expect('BadStormSyntax')
 
             outp = self.getTestOutp()
@@ -113,7 +110,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.notin('node:add', s)
             self.notin('prop:set', s)
 
-            self.len(1, core.eval('[testcomp=(1234, 5678)]'))
+            await self.agenlen(1, await core.eval('[testcomp=(1234, 5678)]'))
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             q = 'storm --raw --path testcomp -> testint'
@@ -127,7 +124,6 @@ class CmdCoreTest(s_t_utils.SynTest):
             with self.setSynDir(dirn):
                 async with await self.agetTestProxy(dmon, 'core') as core:
                     outp = self.getTestOutp()
-                    breakpoint()
                     cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                     await cmdr.runCmdLine('log --on --format jsonl')
                     fp = cmdr.locs.get('log:fp')
