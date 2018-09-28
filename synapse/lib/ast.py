@@ -234,6 +234,40 @@ class VarSetOper(Oper):
             runt.vars[name] = valu
             yield node, path
 
+class VarMatch(Oper):
+
+    def __init__(self, varv, cases):
+
+        kids = [varv]
+
+        for vals, subq in cases:
+            kids.extend(vals)
+            kids.append(subq)
+
+        Oper.__init__(self, kids)
+
+        self.look = {}
+        self.varv = varv
+        self.cases = cases
+
+        for vals, subq in cases:
+            for mval in vals:
+                self.look[mval.value()] = subq
+
+    def run(self, runt, genr):
+
+        varv = self.varv.runtval(runt)
+        if varv is None:
+            raise s_exc.NoSuchVar()
+
+        subq = self.look.get(varv)
+        if subq is None:
+            runt.warn(f'no match case for: {varv!r}')
+            yield from genr
+            return
+
+        yield from subq.run(runt, genr)
+
 class LiftOper(Oper):
 
     def run(self, runt, genr):
@@ -963,17 +997,35 @@ class EditNodeAdd(Edit):
     def run(self, runt, genr):
 
         name = self.kids[0].value()
-        formtype = runt.snap.model.types.get(name)
-
-        yield from genr
-
         runt.allowed('node:add', name)
 
-        kval = self.kids[1].runtval(runt)
+        formtype = runt.snap.model.types.get(name)
 
-        for valu in formtype.getTypeVals(kval):
-            node = runt.snap.addNode(name, valu)
-            yield node, runt.initPath(node)
+        vkid = self.kids[1]
+
+        kval = vkid.runtval(runt)
+
+        if kval is not None:
+
+            for valu in formtype.getTypeVals(kval):
+                node = runt.snap.addNode(name, valu)
+                yield node, runt.initPath(node)
+
+            yield from genr
+
+            return
+
+        for node, path in genr:
+
+            yield node, path
+
+            kval = vkid.compute(runt, node, path)
+
+            if kval is not None:
+
+                for valu in formtype.getTypeVals(kval):
+                    newn = runt.snap.addNode(name, valu)
+                    yield newn, runt.initPath(newn)
 
 class EditPropSet(Edit):
 

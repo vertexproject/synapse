@@ -2,11 +2,8 @@ import os
 import sys
 import time
 import types
-import shutil
 import logging
 import argparse
-import tempfile
-import contextlib
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
@@ -17,16 +14,6 @@ import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
-
-@contextlib.contextmanager
-def getTempDir():
-    tempdir = tempfile.mkdtemp()
-
-    try:
-        yield tempdir
-
-    finally:
-        shutil.rmtree(tempdir, ignore_errors=True)
 
 def getItems(*paths):
     items = []
@@ -100,7 +87,7 @@ def main(argv, outp=None):
                     f' to get to that location in the input file.')
 
     if opts.test:
-        with getTempDir() as dirn:
+        with s_common.getTempDir() as dirn:
             s_common.yamlsave({'layer:lmdb:mapsize': s_const.gibibyte * 5},
                               dirn, 'cell.yaml')
             with s_cortex.Cortex(dirn) as core:

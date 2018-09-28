@@ -126,6 +126,26 @@ class Runtime:
         for name, valu in query.opts.items():
             self.opts.setdefault(name, valu)
 
+        # rows are mapped into vars and the query is
+        # executed for each row...
+        rows = self.opts.get('rows')
+        if rows is not None:
+
+            for row in rows:
+
+                self.vars.update({str(i): v for (i, v) in enumerate(row)})
+
+                try:
+
+                    for node, path in query.iterNodePaths(self):
+                        self.tick()
+                        yield node, path
+
+                except Exception as e:
+                    self.warn('ERROR ON ROW %r: %r' % (row, e))
+
+            return
+
         for node, path in query.iterNodePaths(self):
             self.tick()
             yield node, path
@@ -553,6 +573,46 @@ class IdenCmd(Cmd):
             node = runt.snap.getNodeByBuid(buid)
             if node is not None:
                 yield node, runt.initPath(node)
+
+class SplitCmd(Cmd):
+    '''
+    Split a variable into separate fields based on a char.
+
+    Example:
+        split $foo | [ :baz=$foo.0 ]
+    '''
+
+    name = 'split'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('--sep', default='|', help='The separator char to use.')
+        # TODO
+        #pars.add_argument('--max', type=int, help='Max number if splits (not parts).')
+        pars.add_argument('varname', help='The variable name to split')
+        return pars
+
+    def execStormCmd(self, runt, genr):
+
+        name = self.opts.varname.strip('$')
+
+        def chop(text):
+            for i, part in enumerate(text.split(self.opts.sep)):
+                yield '%s.%s' % (name, i), part
+
+        valu = runt.vars.get(name)
+        if valu is not None:
+            for subn, part in chop(valu):
+                runt.vars[subn] = part
+
+        for node, path in genr:
+
+            valu = path.get(name)
+            if valu is not None:
+                for subn, part in chop(valu):
+                    path.set(subn, part)
+
+            yield node, path
 
 class NoderefsCmd(Cmd):
     '''

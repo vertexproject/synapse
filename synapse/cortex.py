@@ -357,6 +357,7 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.UniqCmd)
         self.addStormCmd(s_storm.CountCmd)
         self.addStormCmd(s_storm.LimitCmd)
+        self.addStormCmd(s_storm.SplitCmd)
         self.addStormCmd(s_storm.DelNodeCmd)
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)

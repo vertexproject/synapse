@@ -3,8 +3,8 @@ import synapse.cmds.cortex as s_cmds_cortex
 
 cmdsbycell = {
     'cortex': (
-        s_cmds_cortex.StormCmd,
         s_cmds_cortex.Log,
+        s_cmds_cortex.StormCmd,
     ),
 }
 

@@ -604,6 +604,8 @@ cmprstart = set('*@!<>^~=')
 cmdset = set('abcdefghijklmnopqrstuvwxyz1234567890.')
 alphanum = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 
+varchars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._-')
+
 optcast = {
     'limit': int,
     'uniq': bool,
@@ -1047,6 +1049,15 @@ class Parser:
         if not name:
             self._raiseSyntaxError('unknown query syntax')
 
+        self.ignore(whitespace)
+
+        if name == 'match':
+
+            if self.nextstr('$'):
+                return self.varmatch()
+
+            self._raiseSyntaxError('unknown match syntax')
+
         # before ignoring more whitespace, check for form#tag=time
         if self.model.forms.get(name) is not None and self.nextstr('#'):
 
@@ -1092,6 +1103,60 @@ class Parser:
 
         # lift by prop only
         return s_ast.LiftProp(kids=(s_ast.Const(name),))
+
+    def varmatch(self):
+
+        self.ignore(whitespace)
+
+        varn = self.varvalu()
+
+        self.ignore(whitespace)
+
+        # TODO allow casting...
+
+        self.nextmust('{')
+
+        cases = []
+
+        while self.more():
+
+            self.ignore(whitespace)
+
+            if self.nextstr('}'):
+                self.offs += 1
+                break
+
+            valu = self.valu()
+
+            if not isinstance(valu, s_ast.Const):
+                self._raiseSyntaxError('Match case syntax only supports const values.')
+
+            vals = [valu]
+
+            self.ignore(whitespace)
+
+            #while self.nextstr('or'):
+            while not self.nextstr('{'):
+
+                #self.offs += 2
+                self.ignore(whitespace)
+
+                valu = self.valu()
+                if not isinstance(valu, s_ast.Const):
+                    self._raiseSyntaxError('Match case syntax only supports const values.')
+
+                vals.append(valu)
+                self.ignore(whitespace)
+
+            self.nextmust('{')
+
+            query = self.query()
+
+            self.nextmust('}')
+
+            cases.append((vals, query))
+
+        return s_ast.VarMatch(varn, cases)
 
     def liftbytag(self):
 
@@ -1359,8 +1424,7 @@ class Parser:
             return s_ast.TagPropValue(kids=(tag,))
 
         if self.nextstr('$'):
-            varn = self.varname()
-            return s_ast.VarValue(kids=(varn,))
+            return self.varvalu()
 
         if self.nextstr('"'):
             text = self.quoted()
@@ -1376,11 +1440,16 @@ class Parser:
 
         self.ignore(whitespace)
 
-        name = self.noms(alphanum)
+        name = self.noms(varchars)
         if not name:
             self._raiseSyntaxError('expected variable name')
 
         return s_ast.Const(name)
+
+    def varvalu(self):
+        self.ignore(whitespace)
+        varn = self.varname()
+        return s_ast.VarValue(kids=(varn,))
 
     def cmdname(self):
 

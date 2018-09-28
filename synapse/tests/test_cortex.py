@@ -1549,3 +1549,15 @@ class CortexTest(s_test.SynTest):
 
             self.len(0, core.eval('pivcomp=(foo,bar) -{ :lulz -> teststr +#baz }'))
             self.len(1, core.eval('pivcomp=(foo,bar) +{ :lulz -> teststr +#baz } +pivcomp'))
+
+    def test_storm_match_var(self):
+
+        with self.getTestCore() as core:
+            opts = {'vars': {'woot': 'hehe'}}
+            node = list(core.eval('[teststr=foo] match $woot { hehe {[+#baz]} "haha hoho" {[+#faz]} }', opts=opts))[0]
+            self.nn(node.getTag('baz'))
+
+            node = list(core.eval('[teststr=bar] match $woot { haha or hehe {[+#baz]} "haha hoho" {[+#faz]} }', opts=opts))[0]
+            self.nn(node.getTag('baz'))
+
+    #def test_storm_rows(self):
