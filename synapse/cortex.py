@@ -66,17 +66,6 @@ class View:
     async def snap(self):
         return await s_snap.Snap.anit(self.core, self.layers)
 
-class HttpModelApiV1(t_web.RequestHandler):
-
-    def initialize(self, cell):
-        self.cell = cell
-
-    async def get(self):
-        self.set_header('content-type', 'application/json')
-        modl = self.cell.model.getModelDict()
-        byts = json.dumps({'status': 'ok', 'result': modl})
-        self.write(byts)
-
 class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed over telepath.
@@ -524,11 +513,6 @@ class Cortex(s_cell.Cell):
 
     def getStormCmds(self):
         return list(self.stormcmds.items())
-
-    def getHttpHandlers(self):
-        return (
-            ('/v1/model', HttpModelApiV1, {'cell': self}),
-        )
 
     def _initPushLoop(self):
 

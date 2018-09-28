@@ -6,7 +6,6 @@ import threading
 
 import tornado.web as t_web
 import tornado.netutil as t_netutil
-import tornado.httpserver as t_http
 
 import synapse.exc as s_exc
 
@@ -39,180 +38,6 @@ def adminapi(f):
         return f(*args, **kwargs)
 
     return func
-
-class HttpEndp:
-
-    def initialize(self, cell):
-
-        self.cell = cell
-        #self.sess = None
-
-        #iden = self.get_secure_cookie('sess')
-
-        #if iden is not None:
-            #iden = iden.decode('utf8')
-            #self.sess = self.cell.sessions.gen(iden)
-
-    async def sendJsonMesg(self, item):
-        self.set_header('content-type', 'application/json')
-        return await self.write(json.dumps(item))
-
-    def loadJsonMesg(self, byts):
-        try:
-            return json.loads(byts)
-        except Exception as e:
-            logger.exception('invalid json message: %r' % (byts,))
-            return None
-
-#class Handler(Base, t_web.RequestHandler):
-
-    #def options(self):
-        #self.set_headers()
-        #self.set_status(204)
-        #self.finish()
-
-    #def set_headers(self):
-
-        #if self.cell.conf.get('devmode'):
-
-            #origin = self.request.headers.get('origin')
-
-            #if origin is not None:
-                #self.add_header('Access-Control-Allow-Origin', origin)
-                #self.add_header('Access-Control-Allow-Credentials', 'true')
-                #self.add_header('Access-Control-Allow-Headers', 'Content-Type')
-
-
-class HttpApi:
-    '''
-    The cell.yaml can configure this object via:
-
-    httpapi:
-
-        # the port to bind
-        port: 8080
-
-        # the IPv4/IPv6 to bind
-        bind: 0.0.0.0
-
-        # and optionally...
-        #sslkey: /path/to/ssl/key.pem
-        #sslcert: /path/to/ssl/cert.pem
-
-    '''
-
-    def __init__(self, cell):
-
-        self.cell = cell
-
-        conf = cell.conf.get('httpapi')
-        if conf is None:
-            conf = {}
-
-        port = conf.get('port', 8080)
-        bind = conf.get('bind', '0.0.0.0')
-
-        sslkey = conf.get('sslkey')
-        sslcert = conf.get('sslcert')
-
-        #wwwroot = self.conf.get('wwwroot')
-        #if not os.path.isdir(wwwroot):
-            #raise Exception('Bad Web Root: %r' % (wwwroot,))
-
-        # Set up SSL Context
-        if sslkey is not None and sslcert is not None:
-            sctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-            sctx.load_cert_chain(sslcert, sslkey)
-
-        #asyncio.set_event_loop(s_glob.plex.loop)
-
-        #self.sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        #self.sslctx.load_cert_chain(certpath, keypath)
-
-        #keypath = self.conf.get('sslkey')
-        #if keypath is None:
-            #keypath = s_common.reqpath(self.dirn, 'sslkey.pem')
-
-        #certpath = self.conf.get('sslcert')
-        #if certpath is None:
-            #certpath = s_common.reqpath(self.dirn, 'sslcert.pem')
-
-        #self.sslctx.load_cert_chain(certpath, keypath)
-
-        # Generate/Load a Cookie Secret
-        #secpath = os.path.join(self.dirn, 'httpapi', 'cookie.secret')
-        #if not os.path.isfile(secpath):
-            #with s_common.genfile(secpath) as fd:
-                #fd.write(s_common.guid().encode('utf8'))
-
-        opts = {
-            'cookie_secret': self._getCookieSecret(),
-            'websocket_ping_interval': 10
-        }
-
-        self.webapp = t_web.Application(**opts)
-
-        opts = {'ssl_options': self.sslctx}
-        self.httpserver = t_httpserver.HTTPServer(self.wapp, **opts)
-
-        #port = self.conf.get('port')
-
-        socks = t_netutil.bind_sockets(port, '0.0.0.0')
-        self.webaddr = socks[0].getsockname()
-
-        self.httpserver.add_sockets(socks)
-
-        #self.webapp.add_handlers('.*', (
-            #(r'/', r_handlers.IndexHandler, {'cell': self}),
-            #(r'/auth/magic', r_handlers.MagicAuthHandler, {'cell': self}),
-            #(r'/auth/logout', r_handlers.LogoutHandler, {'cell': self}),
-            #(r'/ws', r_handlers.WebSocketHandler, {'cell': self}),
-            #(r'/api/v1/eval', r_handlers.EvalV1Handler, {'cell': self}),
-            #(r'/(.*)', t_web.StaticFileHandler, {'path': wwwroot}),
-
-        #))
-
-        #self.thr = s_common.firethread(self.loop.start())
-
-    #def addHttpEndp(self, path, ctor):
-
-    def _getCookieSecret(self):
-
-        # Generate/Load a Cookie Secret
-        secpath = os.path.join(self.cell.dirn, 'httpapi', 'cookie.secret')
-        if not os.path.isfile(secpath):
-            with s_common.genfile(secpath) as fd:
-                fd.write(s_common.guid().encode('utf8'))
-
-        return s_common.getfile(secpath).read().decode('utf8')
-
-class CellHandler(t_web.RequestHandler):
-
-    def initialize(self, cell):
-        self.cell = cell
-
-    async def sendRestReply(self, item):
-        mesg = {'status': 'ok', 'result': item}
-        await self.sendJsonReply(mesg)
-
-    async def sendJsonReply(self, item):
-        self.set_header('content-type', 'application/json')
-        byts = json.dumps(item)
-        self.write(byts)
-
-class HttpCellStatus(CellHandler):
-
-    async def get(self):
-        status = await self.cell.getCellStatus()
-        await self.sendJsonReply(status)
-
-#class HttpModelApiV1(t_web.RequestHandler):
-
-    #async def get(self):
-        #self.set_header('content-type', 'application/json')
-        #modl = self.core.model.getModelDict()
-        #byts = json.dumps({'status': 'ok', 'result': modl})
-        #self.write(byts)
 
 class CellApi(s_base.Base):
 
@@ -364,17 +189,9 @@ class Cell(s_base.Base, s_telepath.Aware):
     A Cell() implements a synapse micro-service.
     '''
     cellapi = CellApi
-    httpapi = HttpApi
 
     # config options that are in all cells...
-    confbase = (  # type: ignore
-        ('http:en', {'defval': True,
-            'doc': 'Enable the HTTP API for this cell.'}),
-
-        ('http:port', {'defval': 0,
-            'doc': 'The port for the HTTP API listener.'}),
-    )
-
+    confbase = ()
     confdefs = ()
 
     async def __anit__(self, dirn):
@@ -384,11 +201,6 @@ class Cell(s_base.Base, s_telepath.Aware):
         s_telepath.Aware.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
-
-        # used by the HTTP API subsystem
-        self.webapp = None
-        self.webaddr = None
-        self.webserver = None
 
         self.auth = None
 
@@ -418,7 +230,6 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         await self._initCellAuth()
         await self._initCellSlab()
-        await self._initHttpApi()
 
         async def fini():
             if self.webserver is not None:
@@ -426,49 +237,10 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         self.onfini(fini)
 
-    async def _initHttpApi(self):
-
-        conf = self.conf.get('httpapi')
-        if conf is None:
-            return
-
-        handlers = [
-            ('/cell/status', HttpCellStatus, {'cell': self}),
-        ]
-
-        handlers.extend(self.getHttpHandlers())
-
-        self.webapp = t_web.Application(handlers)
-
-        port = conf.get('port', 8888)
-        host = conf.get('host', 'localhost')
-
-        socks = t_netutil.bind_sockets(port, host)
-
-        self.webaddr = socks[0].getsockname()
-
-        logger.debug('Starting webserver at [%r]', self.webaddr)
-
-        self.webserver = t_http.HTTPServer(self.webapp)
-        self.webserver.add_sockets(socks)
-
-    def _getTestHttpUrl(self, *path):
-        base = '/'.join(path)
-        host, port = self.webaddr
-        return f'http://{host}:{port}/' + base
-
     async def _finiCellAsync(self):
 
         if self.webserver is not None:
             self.webserver.stop()
-
-    def getHttpHandlers(self):
-        return ()
-
-    def addHttpApi(self, path, ctor):
-        self.webapp.add_handlers('.*', [
-            (path, ctor),
-        ])
 
     async def _initCellSlab(self):
 
@@ -518,16 +290,6 @@ class Cell(s_base.Base, s_telepath.Aware):
         # sub-classes may over-ride to do deploy initialization
         pass
 
-    def getHttpApi(self):
-        '''
-        Returns an HttpApi instance for the cell or None.
-        '''
-        http = None
-
-        #if self.conf.get('http')
-
-        hapi = self.httpapi()
-
     async def getTeleApi(self, link, mesg):
 
         if self.auth is None:
@@ -572,7 +334,6 @@ class Cell(s_base.Base, s_telepath.Aware):
         if not user.tryPasswd(passwd):
             raise s_exc.AuthDeny(mesg='Invalid password',
                                  user=user.name)
-
         return user
 
     def initCellAuth(self):
