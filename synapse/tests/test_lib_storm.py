@@ -108,6 +108,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             await self.agenlen(2, core.eval('[ teststr=foo teststr=bar ]'))
+
             mesgs = await alist(core.storm('teststr=foo teststr=bar | count |  [+#test.tag]'))
             nodes = [mesg for mesg in mesgs if mesg[0] == 'node']
             self.len(2, nodes)
@@ -146,7 +147,7 @@ class StormTest(s_t_utils.SynTest):
 
             q = 'iden newp'
             with self.getLoggerStream('synapse.lib.snap', 'Failed to decode iden') as stream:
-                self.len(0, list(core.eval(q)))
+                await self.agenlen(0, core.eval(q))
                 self.true(stream.wait(1))
 
     async def test_storm_input(self):
@@ -250,16 +251,16 @@ class StormTest(s_t_utils.SynTest):
             mesgs = await alist(core.storm(q, opts={'path': True}))
             nodes = [mesg[1] for mesg in mesgs if mesg[0] == 'node']
             self.len(10, nodes)
-            self.len(1, nodes[0][1].get('path'))
-            self.len(9, nodes[9][1].get('path'))
+            self.len(1, nodes[0][1].get('path', {}).get('nodes'))
+            self.len(9, nodes[9][1].get('path', {}).get('nodes'))
 
             # Paths may change depending on traversal options
             q = 'teststr=pennywise | noderefs --join -d 9 --traverse-edge'
             mesgs = await alist(core.storm(q, opts={'path': True}))
             nodes = [mesg[1] for mesg in mesgs if mesg[0] == 'node']
             self.len(9, nodes)
-            self.len(1, nodes[0][1].get('path'))
-            self.len(8, nodes[8][1].get('path'))
+            self.len(1, nodes[0][1].get('path', {}).get('nodes'))
+            self.len(8, nodes[8][1].get('path', {}).get('nodes'))
 
             # Start from multiple nodes and get their refs
             q = 'teststr | noderefs -d 3'

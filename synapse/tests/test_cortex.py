@@ -142,7 +142,6 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await alist(core.eval('teststr~="zip"')))
             self.len(1, await alist(core.eval('.favcolor~="^r"')))
 
-    @unittest.skip('fix me later')
     @s_glob.synchelp
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     async def test_feed_conf(self):
@@ -177,9 +176,9 @@ class CortexTest(s_t_utils.SynTest):
                     waiter = core.waiter(3, 'core:feed:loop')
 
                     async with await s_telepath.openurl(tank_addr) as tank:
-                        tank.puts(recs)
+                        await tank.puts(recs)
                     # self.true(evt.wait(3))
-                    self.true(waiter.wait(4))
+                    self.true(await waiter.wait(4))
 
                     offs = await core.layer.getOffset(iden)
                     self.eq(offs, 3)
@@ -233,7 +232,6 @@ class CortexTest(s_t_utils.SynTest):
                     idens = list(sorted(e[0] for e in edges))
                     self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f', 'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
 
-    @unittest.skip('pending cryotank port')
     @s_glob.synchelp
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     async def test_splice_cryo(self):
@@ -257,8 +255,8 @@ class CortexTest(s_t_utils.SynTest):
                     self.nn(await snap.getNodeByNdef(('teststr', 'teehee')))
 
                 self.true(await waiter.wait(timeout=10))
-                src_core.fini()
-                src_core.waitfini()
+                await src_core.fini()
+                await src_core.waitfini()
 
             # Now that the src core is closed, make sure that the splice exists in the tank
             tankcell = dst_dmon.shared.get(name)
@@ -287,7 +285,6 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(data[1][1].get('user'), '?')
             self.ge(data[1][1].get('time'), 0)
 
-    @unittest.skip('pending cryotank port')
     async def test_splice_sync(self):
         async with self.getTestDmon(mirror='dmoncore') as dst_dmon:
             name = 'core'
@@ -307,19 +304,19 @@ class CortexTest(s_t_utils.SynTest):
                     'splice:sync': dst_core_addr,
                     'modules': ('synapse.tests.utils.TestModule',),
                 }
-                with self.getTestCell(dirn, 'cortex', conf=conf) as src_core:
+                async with await self.getTestCell(dirn, 'cortex', conf=conf) as src_core:
                     # Form a node and make sure that it exists
                     waiter = src_core.waiter(1, 'core:splice:sync:sent')
-                    with await src_core.snap() as snap:
+                    async with await src_core.snap() as snap:
                         await snap.addNode('teststr', 'teehee')
                         self.nn(await snap.getNodeByNdef(('teststr', 'teehee')))
 
-                    self.true(waiter.wait(timeout=10))
+                    self.true(await waiter.wait(timeout=10))
 
             self.true(evt.wait(3))
             # Now that the src core is closed, make sure that the node exists
             # in the dst core without creating it
-            with await dst_core.snap() as snap:
+            async with await dst_core.snap() as snap:
                 node = await snap.getNodeByNdef(('teststr', 'teehee'))
                 self.eq(node.ndef, ('teststr', 'teehee'))
 
@@ -339,7 +336,6 @@ class CortexTest(s_t_utils.SynTest):
                 node = await snap.addNode('inet:ipv4', '1.2.3.4')
                 self.eq(node, arg_hit)
 
-    @unittest.skip('FIXME: later')
     async def test_adddata(self):
 
         data = ('foo', 'bar', 'baz')
@@ -411,7 +407,6 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(0, await core.count('pivtarg'))
             self.eq(1, await core.count('inet:user'))
 
-    @unittest.skip('GET WORKING')
     async def test_stormcmd(self):
 
         async with self.getTestCore() as core:
@@ -658,7 +653,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('hehe'), 33)
                 self.eq(nodes[0].ndef[1], (33, 'thirty three'))
 
-    @unittest.skip('need to resolve node.get sync')
+    @unittest.skip('functionality temporarily removed')
     async def test_pivprop(self):
 
         async with self.getTestCore() as core:
@@ -676,10 +671,10 @@ class CortexTest(s_t_utils.SynTest):
                 pivc = await snap.getNodeByNdef(('pivcomp', ('woot', 'rofl')))
                 self.eq(pivc.get('targ::name'), 'visi')
 
-    @unittest.skip('GET WORKING')
-    async def test_storm(self):
+    async def test_coreapi_storm(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestDmon(mirror='dmoncore') as dmon, \
+                await self.agetTestProxy(dmon, 'core') as core:
 
             # test some edit syntax
             async for node in core.eval('[ testcomp=(10, haha) +#foo.bar -#foo.bar ]'):
@@ -763,11 +758,11 @@ class CortexTest(s_t_utils.SynTest):
             pconf = {'user': 'root', 'passwd': 'root'}
             async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
                 # Storm logging
-                with self.getLoggerStream('synapse.cortex', 'Executing storm query [help ask] as [root]') as stream:
+                with self.getAsyncLoggerStream('synapse.cortex', 'Executing storm query [help ask] as [root]') as stream:
                     mesgs = await alist(await core.storm('help ask'))
-                    self.true(stream.wait(6))
+                    self.true(await stream.wait(4))
                 # Bad syntax
-                self.genraises(s_exc.BadStormSyntax, core.storm, ' | | | ')
+                await self.asyncraises(s_exc.BadStormSyntax, core.storm(' | | | '))
 
     async def test_feed_splice(self):
 

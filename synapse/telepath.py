@@ -239,8 +239,8 @@ class Proxy(s_base.Base):
             This must not be used from async code
         '''
         assert 'test' in inspect.stack()[1].filename or 'tool' in inspect.stack()[1].filename, 'Nic tmp check'
-        rv = s_glob.plex.coroToSync(self.__aenter__())
-        self._ctxobj = rv
+        retn = s_glob.plex.coroToSync(self.__aenter__())
+        self._ctxobj = retn
         return self
 
     def __exit__(self, *args):

@@ -1,5 +1,6 @@
 import os
 import ssl
+import asyncio
 import logging
 import threading
 
@@ -388,9 +389,6 @@ class Cell(s_base.Base, s_telepath.Aware):
         self.webapp = None
         self.webaddr = None
         self.webserver = None
-
-        self.cellfini = threading.Event()
-        self.onfini(self.cellfini.set)
 
         self.auth = None
 

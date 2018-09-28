@@ -19,6 +19,7 @@ import os
 import sys
 import types
 import shutil
+import asyncio
 import inspect
 import logging
 import pathlib
@@ -34,6 +35,7 @@ import synapse.cells as s_cells
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
@@ -471,6 +473,38 @@ class StreamEvent(io.StringIO, threading.Event):
         if self.mesg and self.mesg in s:
             self.set()
 
+class AsyncStreamEvent(io.StringIO, asyncio.Event):
+    '''
+    A combination of a io.StringIO object and a threading.Event object.
+    '''
+    def __init__(self, *args, **kwargs):
+        io.StringIO.__init__(self, *args, **kwargs)
+        asyncio.Event.__init__(self, loop=asyncio.get_running_loop())
+        self.mesg = ''
+
+    def setMesg(self, mesg):
+        '''
+        Clear the internal event and set a new message that is used to set the event.
+
+        Args:
+            mesg (str): The string to monitor for.
+
+        Returns:
+            None
+        '''
+        self.mesg = mesg
+        self.clear()
+
+    def write(self, s):
+        io.StringIO.write(self, s)
+        if self.mesg and self.mesg in s:
+            self.set()
+
+    async def wait(self, timeout=None):
+        if timeout is None:
+            return await asyncio.Event.wait(self)
+        return await s_coro.event_wait(self, timeout=timeout)
+
 class SynTest(unittest.TestCase):
     '''
     Mark all async test methods as s_glob.synchelp decorated
@@ -731,6 +765,20 @@ class SynTest(unittest.TestCase):
             StreamEvent: A StreamEvent object
         '''
         stream = StreamEvent()
+        stream.setMesg(mesg)
+        handler = logging.StreamHandler(stream)
+        slogger = logging.getLogger(logname)
+        slogger.addHandler(handler)
+        try:
+            yield stream
+        except Exception:  # pragma: no cover
+            raise
+        finally:
+            slogger.removeHandler(handler)
+
+    @contextlib.contextmanager
+    def getAsyncLoggerStream(self, logname, mesg=''):
+        stream = AsyncStreamEvent()
         stream.setMesg(mesg)
         handler = logging.StreamHandler(stream)
         slogger = logging.getLogger(logname)

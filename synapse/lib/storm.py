@@ -249,8 +249,7 @@ class LimitCmd(Cmd):
             count += 1
 
             if count >= self.opts.count:
-                # FIXME:
-                await snap.printf(f'limit reached: {self.opts.count}')
+                await runt.printf(f'limit reached: {self.opts.count}')
 
 class UniqCmd(Cmd):
     '''
@@ -549,7 +548,7 @@ class IdenCmd(Cmd):
             try:
                 buid = s_common.uhex(iden)
             except Exception as e:
-                runt.warn(f'Failed to decode iden: [{iden}]')
+                await runt.warn(f'Failed to decode iden: [{iden}]')
                 continue
 
             node = await runt.snap.getNodeByBuid(buid)

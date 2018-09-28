@@ -88,7 +88,25 @@ async def event_wait(event: asyncio.Event, timeout=None):
         return True
 
     try:
-        await asyncio.wait_for(event.wait(), timeout)
+        await asyncio.wait_for(event.wait(), timeout, loop=asyncio.get_running_loop())
     except asyncio.TimeoutError:
         return False
     return True
+
+async def ornot(func, *args, **kwargs):
+    '''
+    Calls func and awaits it if a returns a coroutine.
+
+    Note:
+        This is useful for implementing a function that might take a telepath proxy object or a local object, and you
+        must call a non-async method on that object.
+
+        This is also useful when calling a callback that might either be a coroutine function or a regular function.
+    Usage:
+        ok = await s_coro.ornot(maybeproxy.allowed, 'path')
+    '''
+
+    retn = func(*args, **kwargs)
+    if iscoro(retn):
+        return await retn
+    return retn

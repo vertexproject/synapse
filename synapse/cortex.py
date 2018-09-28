@@ -5,23 +5,20 @@ import pathlib
 import collections
 
 import tornado.web as t_web
-import tornado.netutil as t_netutil
-import tornado.httpserver as t_http
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
 import synapse.lib.layer as s_layer
-import synapse.lib.queue as s_queue
 import synapse.lib.syntax as s_syntax
 import synapse.lib.modules as s_modules
 
@@ -396,8 +393,8 @@ class Cortex(s_cell.Cell):
         await self.addCoreMods(mods)
 
         self._initCryoLoop()
-        await self._initPushLoop()
-        await self._initFeedLoops()
+        self._initPushLoop()
+        self._initFeedLoops()
 
         async def fini():
             await asyncio.gather(*[layr.fini() for layr in self.layers], loop=self.loop)
@@ -429,18 +426,14 @@ class Cortex(s_cell.Cell):
     async def runTagAdd(self, node, tag, valu):
         for func in self.ontagadds.get(tag, ()):
             try:
-                retn = await func(node, tag, valu)
-                if s_coro.iscoro(retn):
-                    retn = await retn
+                await s_coro.ornot(func, node, tag, valu)
             except Exception as e:
                 logger.exception('onTagAdd Error')
 
     async def runTagDel(self, node, tag, valu):
         for func in self.ontagdels.get(tag, ()):
             try:
-                retn = await func(node, tag, valu)
-                if s_coro.iscoro(retn):
-                    retn = await retn
+                await s_coro.ornot(func, node, tag, valu)
             except Exception as e:
                 logger.exception('onTagDel Error')
 
@@ -494,17 +487,12 @@ class Cortex(s_cell.Cell):
             ('/v1/model', HttpModelApiV1, {'cell': self}),
         )
 
-    async def _initPushLoop(self):
+    def _initPushLoop(self):
 
         if self.conf.get('splice:sync') is None:
             return
 
-        fut = self.loop.create_task(self._runPushLoop())
-
-        def fini():
-            return fut.cancel()
-
-        self.onfini(fini)
+        self.schedCoro(self._runPushLoop())
 
     async def _runPushLoop(self):
 
@@ -520,17 +508,17 @@ class Cortex(s_cell.Cell):
 
                 url = self.conf.get('splice:sync')
 
-                async with s_telepath.openurl(url) as core:
+                async with await s_telepath.openurl(url) as core:
 
                     # use our iden as the feed iden
-                    offs = core.getFeedOffs(iden)
+                    offs = await core.getFeedOffs(iden)
 
                     while not self.isfini:
 
-                        items = list(self.layer.splices(offs, 10000))
+                        items = [x async for x in self.layer.splices(offs, 10000)]
 
                         if not items:
-                            self.cellfini.wait(timeout=1)
+                            await self.waitfini(timeout=1)
                             continue
 
                         size = len(items)
@@ -540,14 +528,14 @@ class Cortex(s_cell.Cell):
                         logger.info('splice push: %d %d/%d (%.2f%%)', size, offs, indx, perc)
 
                         offs = await core.addFeedData('syn.splice', items, seqn=(iden, offs))
-                        self.fire('core:splice:sync:sent')
+                        await self.fire('core:splice:sync:sent')
 
             except asyncio.CancelledError:
                 break
 
             except Exception as e:  # pragma: no cover
                 logger.exception('sync error')
-                self.cellfini.wait(timeout=1)
+                await self.waitfini(timeout=1)
 
     def _initCryoLoop(self):
 
@@ -555,37 +543,27 @@ class Cortex(s_cell.Cell):
         if tankurl is None:
             return
 
-        self.cryothread = self._runCryoLoop()
+        self.schedCoro(self._runCryoLoop())
 
-        def fini():
-            self.cryothread.join(timeout=8)
-
-        self.onfini(fini)
-
-    async def _initFeedLoops(self):
+    def _initFeedLoops(self):
         '''
         feeds:
             - cryotank: tcp://cryo.vertex.link/cryo00/tank01
               type: syn.splice
         '''
-        # breakpoint()
         feeds = self.conf.get('feeds', ())
         if not feeds:
             return
 
         for feed in feeds:
 
-            # do some validation before we fire threads...
+            # do some validation before we fire tasks...
             typename = feed.get('type')
             if self.getFeedFunc(typename) is None:
                 raise s_exc.NoSuchType(name=typename)
 
-            fut = self.loop.create_task(self._runFeedLoop(feed))
+            self.schedCoro(self._runFeedLoop(feed))
 
-            def fini():
-                fut.cancel()
-
-            self.onfini(fini)
 
     async def _runFeedLoop(self, feed):
 
@@ -603,31 +581,30 @@ class Cortex(s_cell.Cell):
 
                 async with await s_telepath.openurl(url) as tank:
 
-                    iden = tank.getCellIden()
+                    iden = await tank.getCellIden()
 
-                    offs = self.layer.getOffset(iden)
+                    offs = await self.layer.getOffset(iden)
 
                     while not self.isfini:
 
-                        items = list(tank.slice(offs, fsize))
+                        items = [item async for item in await tank.slice(offs, fsize)]
                         if not items:
-                            self.cellfini.wait(timeout=2)
+                            await self.waitfini(timeout=2)
                             continue
 
                         datas = [i[1] for i in items]
 
-                        offs = self.addFeedData(typename, datas, seqn=(iden, offs))
-                        self.fire('core:feed:loop')
+                        offs = await self.addFeedData(typename, datas, seqn=(iden, offs))
+                        await self.fire('core:feed:loop')
 
             except asyncio.CancelledError:
                 break
 
             except Exception as e:  # pragma: no cover
                 logger.exception('feed error')
-                self.cellfini.wait(timeout=1)
+                await self.waitfini(timeout=1)
 
-    @s_common.firethread
-    def _runCryoLoop(self):
+    async def _runCryoLoop(self):
 
         online = False
         tankurl = self.conf.get('splice:cryotank')
@@ -638,34 +615,34 @@ class Cortex(s_cell.Cell):
 
             try:
 
-                with s_telepath.openurl(tankurl) as tank:
+                async with await s_telepath.openurl(tankurl) as tank:
 
                     if not online:
                         online = True
                         logger.info('splice cryotank: online')
 
-                    offs = tank.offset(self.iden)
+                    offs = await tank.offset(self.iden)
 
                     while not self.isfini:
 
-                        items = list(layr.splices(offs, 10000))
+                        items = [item async for item in layr.splices(offs, 10000)]
 
                         if not len(items):
                             layr.spliced.clear()
-                            layr.spliced.wait(timeout=1)
+                            await s_coro.event_wait(layr.spliced, timeout=1)
                             continue
 
                         logger.info('tanking splices: %d', len(items))
 
-                        offs = tank.puts(items, seqn=(self.iden, offs))
-                        self.fire('core:splice:cryotank:sent')
+                        offs = await tank.puts(items, seqn=(self.iden, offs))
+                        await self.fire('core:splice:cryotank:sent')
 
             except Exception as e:  # pragma: no cover
 
                 online = False
                 logger.exception('splice cryotank offline')
 
-                self.cellfini.wait(timeout=2)
+                await self.waitfini(timeout=2)
 
     def setFeedFunc(self, name, func):
         '''
@@ -900,23 +877,49 @@ class Cortex(s_cell.Cell):
             ret.append((modname, mod.conf))
         return ret
 
-    async def eval(self, text, opts=None):
+    async def eval(self, text, opts=None, user=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
-        async with await self.snap() as snap:
+        async with await self.snap(user=user) as snap:
             async for node in snap.eval(text, opts=opts):
                 yield node
 
+    # FIXME:  make this lockstep, and move queue part to coreapi
     async def storm(self, text, opts=None, user=None):
         '''
         Evaluate a storm query and yield result messages.
         Yields:
             ((str,dict)): Storm messages.
         '''
-        async with await self.snap(user=user) as snap:
-            async for mesg in snap.storm(text, opts=opts):
-                yield mesg
+        MSG_QUEUE_SIZE = 1000
+        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
+
+        async def runStorm(chan):
+            tick = s_common.now()
+            count = 0
+            try:
+                await chan.put(('init', {'tick': tick, 'text': text}))
+                async with await self.snap(user=user) as snap:
+                    snap.link(chan.put)
+                    async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                        await chan.put(('node', pode))
+                        count += 1
+            except Exception as e:
+                logger.exception('Error during storm execution')
+                await chan.put(('err', s_common.err(e)))
+            finally:
+                tock = s_common.now()
+                took = tock - tick
+                await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
+
+        self.schedCoro(runStorm(chan))
+
+        while True:
+            msg = await chan.get()
+            yield msg
+            if msg[0] == 'fini':
+                break
 
     @s_cache.memoize(size=10000)
     def getStormQuery(self, text):
@@ -931,6 +934,7 @@ class Cortex(s_cell.Cell):
         '''
         if self.conf.get('storm:log'):
             lvl = self.conf.get('storm:log:level')
+            print('Executing storm query [%s] as [%s]'% (text, user))
             logger.log(lvl, 'Executing storm query [%s] as [%s]', text, user)
 
     async def getNodeByNdef(self, ndef):

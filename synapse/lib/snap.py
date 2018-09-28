@@ -93,7 +93,7 @@ class Snap(s_base.Base):
 
         async for node, path in self.storm(text, opts=opts, user=user):
             pode = node.pack(dorepr=dorepr)
-            pode[1].update(path.pack(path=dopath))
+            pode[1]['path'] = path.pack(path=dopath)
             yield pode
 
     async def storm(self, text, opts=None, user=None):

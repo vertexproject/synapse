@@ -1,4 +1,6 @@
 import synapse.lib.cli as s_cli
+import synapse.lib.coro as s_coro
+
 import synapse.cmds.cortex as s_cmds_cortex
 
 cmdsbycell = {
@@ -8,17 +10,17 @@ cmdsbycell = {
     ),
 }
 
-def getItemCmdr(cell, outp=None, **opts):
+async def getItemCmdr(cell, outp=None, **opts):
     '''
     Construct and return a cmdr for the given remote cell.
 
     Example:
 
-        cmdr = getItemCmdr(foo)
+        cmdr = await getItemCmdr(foo)
 
     '''
     cmdr = s_cli.Cli(cell, outp=outp)
-    typename = cell.getCellType()
+    typename = await s_coro.ornot(cell.getCellType)
 
     for ctor in cmdsbycell.get(typename, ()):
         cmdr.addCmdClass(ctor)
@@ -34,5 +36,5 @@ async def runItemCmdr(item, outp=None, **opts):
         runItemCmdr(foo)
 
     '''
-    cmdr = getItemCmdr(item, outp=outp, **opts)
+    cmdr = await getItemCmdr(item, outp=outp, **opts)
     await cmdr.runCmdLoop()

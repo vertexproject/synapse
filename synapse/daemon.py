@@ -265,7 +265,7 @@ class Daemon(s_base.Base):
     async def _onLinkInit(self, link):
 
         async def onrx(mesg):
-            s_glob.plex.loop.create_task(self._onLinkMesg(link, mesg))
+            self.schedCoro(self._onLinkMesg(link, mesg))
 
         link.onrx(onrx)
         self.connectedlinks.append(link)
@@ -317,17 +317,13 @@ class Daemon(s_base.Base):
 
                 base = self.shared.get(path[0])
                 if base is not None and isinstance(base, s_telepath.Aware):
-                    item = base.onTeleOpen(link, path)
-                    if s_coro.iscoro(item):
-                        item = await item
+                    item = await s_coro.ornot(base.onTeleOpen, link, path)
 
             if item is None:
                 raise s_exc.NoSuchName(name=name)
 
             if isinstance(item, s_telepath.Aware):
-                item = item.getTeleApi(link, mesg)
-                if s_coro.iscoro(item):
-                    item = await item
+                item = await s_coro.ornot(item.getTeleApi, link, mesg)
 
             items = {None: item}
             link.set('dmon:items', items)

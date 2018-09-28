@@ -502,7 +502,7 @@ class Path:
     def pack(self, path=False):
         ret = dict(self.metadata)
         if path:
-            ret['path'] = [node.iden() for node in self.nodes]
+            ret['nodes'] = [node.iden() for node in self.nodes]
         return ret
 
     def fork(self, node):

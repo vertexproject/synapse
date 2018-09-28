@@ -166,7 +166,6 @@ class TeleTest(s_t_utils.SynTest):
 
             await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
 
-            # called via synchelp...
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
             # Add an additional prox.fini handler.
             prox.onfini(evt.set)
@@ -200,6 +199,22 @@ class TeleTest(s_t_utils.SynTest):
         self.true(await s_coro.event_wait(evt, 2))
         self.true(prox.isfini)
         self.raises(s_exc.IsFini, prox.bar, (10, 20))
+
+    async def test_telepath_surrogate(self):
+
+        foo = Foo()
+        async with self.getTestDmon() as dmon:
+
+            addr = await dmon.listen('tcp://127.0.0.1:0')
+            dmon.share('foo', foo)
+
+            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
+                bads = '\u01cb\ufffd\ud842\ufffd\u0012'
+                t0 = ('1234', {'key': bads})
+
+                # Shovel a malformed UTF8 string with an unpaired surrogate over telepath
+                ret = await prox.echo(t0)
+                self.eq(ret, t0)
 
     async def test_telepath_async(self):
         foo = Foo()

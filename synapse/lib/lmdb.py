@@ -605,33 +605,20 @@ class Slab(s_base.Base):
         self._initCoXact()
 
         self.onfini(self._onCoFini)
-        self.commit_task = self.loop.create_task(self._runSyncLoop())
-
-        self.onfini(self.commit_task.cancel)
+        self.schedCoro(self._runSyncLoop())
 
     def _saveOptsFile(self):
         opts = {'map_size': self.mapsize, 'growsize': self.growsize}
         s_common.jssave(opts, self.optspath)
 
     async def _runSyncLoop(self):
-        try:
-
-            while not self.isfini:
-                await self.waitfini(timeout=self.COMMIT_PERIOD)
-                if self.isfini:
-                    # There's no reason to forcecommit on fini, because there's a separate handler to already do that
-                    break
-                if self.holders == 0:
-                    self.forcecommit()
-        except asyncio.CancelledError:
-            # Perfectly normal error on coming down
-            raise
-        except Exception:
-            # Nic tmp
-            print(f'runSyncLoop got exception:')
-            import traceback
-            traceback.print_exc()
-            raise
+        while not self.isfini:
+            await self.waitfini(timeout=self.COMMIT_PERIOD)
+            if self.isfini:
+                # There's no reason to forcecommit on fini, because there's a separate handler to already do that
+                break
+            if self.holders == 0:
+                self.forcecommit()
 
     async def _onCoFini(self):
         assert s_glob.plex.iAmLoop()

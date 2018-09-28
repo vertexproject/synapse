@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import threading
-import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +70,7 @@ class Plex(s_eventbus.EventBus):
             link = await self._initPlexLink(reader, writer)
 
             # if the onlink() function is a coroutine, task it.
-            coro = onlink(link)
-            if s_coro.iscoro(coro):
-                await coro
+            await s_coro.ornot(onlink, link)
 
         server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
         return server

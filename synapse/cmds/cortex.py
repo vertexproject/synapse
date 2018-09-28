@@ -5,6 +5,7 @@ import logging
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.reactor as s_reactor
+import synapse.telepath as s_telepath
 
 import synapse.lib.cli as s_cli
 import synapse.lib.time as s_time
@@ -287,15 +288,14 @@ class StormCmd(s_cli.Cmd):
         if text is None:
             self.printf(self.__doc__)
             return
-        breakpoint()
 
-        core = self.getCmdItem()
+        core: s_telepath.Proxy = self.getCmdItem()
         stormopts = {'repr': True}
         stormopts.setdefault('path', opts.get('path', False))
         stormopts.setdefault('graph', opts.get('graph', False))
         self.printf('')
 
-        async for mesg in core.storm(text, opts=stormopts):
+        async for mesg in await core.storm(text, opts=stormopts):
 
             self._cmd_cli.fire('storm:mesg', mesg=mesg)
 

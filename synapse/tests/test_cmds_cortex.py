@@ -14,28 +14,28 @@ class CmdCoreTest(s_t_utils.SynTest):
     async def test_storm(self):
         help_msg = 'Execute a storm query.'
         async with self.getTestCore() as core:
-            with await core.snap() as snap:
+            async with await core.snap() as snap:
                 valu = 'abcd'
                 node = await snap.addNode('teststr', valu, props={'tick': 123})
                 node.addTag('cool')
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('help storm')
             outp.expect(help_msg)
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm help')
             outp.expect('For detailed help on any command')
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm')
             outp.expect(help_msg)
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --debug teststr=abcd')
             outp.expect("('init',")
             outp.expect("('node',")
@@ -45,7 +45,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp.expect("took")
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --debug teststr=zzz')
             outp.expect("('init',")
             self.false(outp.expect("('node',", throw=False))
@@ -55,59 +55,59 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp.expect("took")
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm teststr=b')
             outp.expect('complete. 0 nodes')
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm teststr=abcd')
             outp.expect(':tick = 1970/01/01 00:00:00.123')
             outp.expect('#cool = (None, None)')
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-tags teststr=abcd')
             outp.expect(':tick = 1970/01/01 00:00:00.123')
             self.false(outp.expect('#cool = (None, None)', throw=False))
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-props teststr=abcd')
             self.false(outp.expect(':tick = 1970/01/01 00:00:00.123', throw=False))
             outp.expect('#cool = (None, None)')
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-tags --hide-props teststr=abcd')
             self.false(outp.expect(':tick = 1970/01/01 00:00:00.123', throw=False))
             self.false(outp.expect('#cool = (None, None)', throw=False))
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --raw teststr=abcd')
             outp.expect("'tick': 123")
             outp.expect("'tags': {'cool': (None, None)")
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --bad')
             outp.expect('Traceback')
             outp.expect('BadStormSyntax')
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm newpz')
             outp.expect('err')
             outp.expect('NoSuchProp')
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-unknown [teststr=1234]')
             s = str(outp)
             self.notin('node:add', s)
@@ -115,7 +115,7 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             self.len(1, core.eval('[testcomp=(1234, 5678)]'))
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             q = 'storm --raw --path testcomp -> testint'
             await cmdr.runCmdLine(q)
             self.true(outp.expect("('testint', 1234)"))
@@ -125,10 +125,10 @@ class CmdCoreTest(s_t_utils.SynTest):
         async with self.getTestDmon('dmoncore') as dmon:
             dirn = s_scope.get('dirn')
             with self.setSynDir(dirn):
-                with self.getTestProxy(dmon, 'core') as core:
-                    breakpoint()
+                async with await self.agetTestProxy(dmon, 'core') as core:
                     outp = self.getTestOutp()
-                    cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                    breakpoint()
+                    cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                     await cmdr.runCmdLine('log --on --format jsonl')
                     fp = cmdr.locs.get('log:fp')
                     await cmdr.runCmdLine('storm [teststr=hi :tick=2018 +#haha.hehe]')
@@ -145,9 +145,9 @@ class CmdCoreTest(s_t_utils.SynTest):
                         objs = list(genr)
                     self.eq(objs[0][0], 'init')
 
-                with self.getTestProxy(dmon, 'core') as core:
+                async with await self.agetTestProxy(dmon, 'core') as core:
                     outp = self.getTestOutp()
-                    cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                    cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                     # Our default format is mpk
                     fp = os.path.join(dirn, 'loggyMcLogFace.mpk')
                     await cmdr.runCmdLine(f'log --on --splices-only --path {fp}')
@@ -162,15 +162,15 @@ class CmdCoreTest(s_t_utils.SynTest):
                         objs = list(genr)
                     self.eq(objs[0][0], 'node:add')
 
-                with self.getTestProxy(dmon, 'core') as core:
+                async with await self.agetTestProxy(dmon, 'core') as core:
                     outp = self.getTestOutp()
-                    cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                    cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                     await cmdr.runCmdLine('log --on --off')
                     cmdr.fini()
                     self.true(outp.expect('Pick one'))
 
                     outp = self.getTestOutp()
-                    cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+                    cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                     await cmdr.runCmdLine('log')
                     cmdr.fini()
                     self.true(outp.expect('Pick one'))
@@ -187,14 +187,14 @@ class SynCmdCoreTest(s_t_utils.SynTest):
             core.formTufoByProp('inet:email', 'a@vertex.link')
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             line = 'storm inet:email="visi@vertex.link" show:cols(inet:email:fqdn,inet:email:user,node:ndef)'
             resp = await cmdr.runCmdLine(line)
             self.len(1, resp['data'])
             self.true(outp.expect('vertex.link visi a20979f71b90cf2ae1c53933675b5c3c'))
 
             outp = self.getTestOutp()
-            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             line = 'storm inet:email show:cols(inet:email, order=inet:email:fqdn)'
             resp = await cmdr.runCmdLine(line)
             self.len(4, resp['data'])

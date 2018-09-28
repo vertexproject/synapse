@@ -8,7 +8,6 @@ import threading
 import collections
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 
 import synapse.lib.coro as s_coro
 import synapse.lib.threads as s_threads
@@ -141,12 +140,12 @@ class Base:
 
         Example:
 
-            bus1 = Base()
-            bus2 = Base()
+            base1 = Base()
+            base2 = Base()
 
-            bus1.link( bus2.dist )
+            base1.link( base2.dist )
 
-            # all events on bus1 are also propigated on bus2
+            # all events on base1 are also propagated on base2
 
         '''
         self._syn_links.append(func)
@@ -157,7 +156,7 @@ class Base:
 
         Example:
 
-            bus.unlink( callback )
+            base.unlink( callback )
 
         '''
         if func in self._syn_links:
@@ -185,10 +184,10 @@ class Base:
                 d.on('foo', baz, x=10)
 
                 # this fire triggers baz...
-                d.fire('foo', x=10, y=20)
+                await d.fire('foo', x=10, y=20)
 
                 # this fire does not ( due to filt )
-                d.fire('foo', x=30, y=20)
+                await d.fire('foo', x=30, y=20)
 
         Returns:
             None:
@@ -201,7 +200,7 @@ class Base:
 
         Example:
 
-            bus.off( 'foo', onFooFunc )
+            base.off( 'foo', onFooFunc )
 
         '''
         funcs = self._syn_funcs.get(evnt)
@@ -243,7 +242,7 @@ class Base:
 
         Example:
 
-            base.dist( ('foo',{'bar':'baz'}) )
+            await base.dist( ('foo',{'bar':'baz'}) )
 
         '''
         if self.isfini:
@@ -257,9 +256,7 @@ class Base:
                 if any(True for k, v in filt if mesg[1].get(k) != v):
                     continue
 
-                retn = func(mesg)
-                if s_coro.iscoro(retn):
-                    retn = await retn
+                retn = await s_coro.ornot(func, mesg)
                 ret.append(retn)
 
             except Exception as e:
@@ -275,7 +272,7 @@ class Base:
 
     def _iAmLoop(self):
         '''
-        Return True if the current thread is the Plex loop thread.
+        Return True if the current thread is same loop anit was called on
 
         Returns:
             (bool)
@@ -291,17 +288,11 @@ class Base:
             Remaining ref count
         '''
         assert self.anitted, 'Base object initialized improperly.  Must use Base.anit class method.'
-        # print(f'fini on {self}')
 
         if self.isfini:
             return
 
-        # Nic tmp
-        if s_threads.iden() != self.tid:
-            print(f'fini on {self} called on different thread than anit')
-            logger.warning('fini on called on different thread than anit', self)
-
-        # assert s_threads.iden() == self.tid
+        assert s_threads.iden() == self.tid
 
         self._syn_refs -= 1
         if self._syn_refs > 0:
@@ -312,10 +303,7 @@ class Base:
         fevt = self.finievt
         for fini in self._fini_funcs:
             try:
-                rv = fini()
-                if s_coro.iscoro(rv):
-                    await rv
-
+                await s_coro.ornot(fini)
             except Exception as e:
                 logger.exception('fini failed')
 
@@ -334,7 +322,7 @@ class Base:
 
         Example:
 
-            bus.waitfini(timeout=30)
+            base.waitfini(timeout=30)
 
         '''
 
@@ -344,11 +332,42 @@ class Base:
         if self.finievt is None:
             self.finievt = asyncio.Event(loop=self.loop)
 
-        try:
-            await asyncio.wait_for(self.finievt.wait(), timeout, loop=self.loop)
-        except asyncio.TimeoutError:
-            return None
-        return True
+        return await s_coro.event_wait(self.finievt, timeout)
+
+    def schedCoro(self, coro):
+        '''
+        Schedules a free-running coroutine to run on this base's event loop.  Kills the coroutine if Base is fini'd.
+
+        Returns:
+            An asyncio.Task
+
+        '''
+        assert asyncio.get_running_loop() == self.loop
+
+        task = self.loop.create_task(coro)
+
+        def checkException(task):
+            try:
+                task.result()
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                logger.exception('Task scheduled through Base.schedCoro raised exception')
+
+        task.add_done_callback(checkException)
+
+        async def fini():
+            task.cancel()
+            try:
+                await task
+            except Exception:
+                # The checkException callback will emit the exception.  No need to repeat
+                pass
+
+        # FIXME use set
+        self.onfini(fini)
+
+        return task
 
     def main(self):
         '''
@@ -472,20 +491,19 @@ class Waiter:
     '''
     A helper to wait for a given number of events on a Base.
     '''
-    def __init__(self, bus, count, loop, *names):
-        self.bus = bus
+    def __init__(self, base, count, *names):
+        self.base = base
         self.names = names
         self.count = count
-        self.loop = loop
-        self.event = asyncio.Event(loop=loop)
+        self.event = asyncio.Event(loop=base.loop)
 
         self.events = []
 
         for name in names:
-            bus.on(name, self._onWaitEvent)
+            base.on(name, self._onWaitEvent)
 
         if not names:
-            bus.link(self._onWaitEvent)
+            base.link(self._onWaitEvent)
 
     def _onWaitEvent(self, mesg):
         self.events.append(mesg)
@@ -509,9 +527,9 @@ class Waiter:
 
         '''
         try:
-            try:
-                await asyncio.wait_for(self.event.wait(), timeout, loop=self.loop)
-            except asyncio.TimeoutError:
+
+            retn = await s_coro.event_wait(self.event, timeout)
+            if not retn:
                 return None
 
             return self.events
@@ -522,10 +540,10 @@ class Waiter:
     def fini(self):
 
         for name in self.names:
-            self.bus.off(name, self._onWaitEvent)
+            self.base.off(name, self._onWaitEvent)
 
         if not self.names:
-            self.bus.unlink(self._onWaitEvent)
+            self.base.unlink(self._onWaitEvent)
         del self.event
 
 class BaseRef(Base):
@@ -568,7 +586,7 @@ class BaseRef(Base):
             name (str): The name/iden of the Base instance
 
         Returns:
-            (Base): The named event bus ( or None )
+            (Base): The named base ( or None )
         '''
         return self.base_by_name.pop(name, None)
 
