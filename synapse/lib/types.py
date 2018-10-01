@@ -1016,7 +1016,23 @@ class Range(Type):
 
         return defval
 
-class Str(Type):
+class StrBase(Type):
+    '''
+    Base class for types which index/behave like strings.
+    '''
+
+    def postTypeInit(self):
+        self.indxcmpr['^='] = self.indxByPref
+
+    def indxByPref(self, valu):
+        return (
+            ('pref', valu.encode('utf8', 'surrogatepass')),
+        )
+
+    def indx(self, norm):
+        return norm.encode('utf8', 'surrogatepass')
+
+class Str(StrBase):
 
     _opt_defs = (
         ('enums', None),
@@ -1027,6 +1043,8 @@ class Str(Type):
     )
 
     def postTypeInit(self):
+
+        StrBase.postTypeInit(self)
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyStr)
@@ -1041,8 +1059,6 @@ class Str(Type):
         if enumstr is not None:
             self.envals = enumstr.split(',')
 
-        self.indxcmpr['^='] = self.indxByPref
-
     def indxByPref(self, valu):
 
         # doesnt have to be normable...
@@ -1056,9 +1072,7 @@ class Str(Type):
         if self.opts.get('onespace'):
             valu = s_chop.onespace(valu)
 
-        return (
-            ('pref', valu.encode('utf8', 'surrogatepass')),
-        )
+        return StrBase.indxByPref(self, valu)
 
     def _normPyStr(self, valu):
 
@@ -1083,10 +1097,6 @@ class Str(Type):
                 raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='regex does not match')
 
         return norm, {}
-
-    def indx(self, norm):
-        return norm.encode('utf8', 'surrogatepass')
-
 
 class Tag(Type):
 

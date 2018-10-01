@@ -16,6 +16,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
+import synapse.lib.scrape as s_scrape
 import synapse.lib.module as s_module
 import synapse.lookup.iana as s_l_iana
 
@@ -448,13 +449,11 @@ class Rfc2822Addr(s_types.Type):
 
         return valu, {'subs': subs}
 
-class Url(s_types.Type):
+class Url(s_types.StrBase):
 
     def postTypeInit(self):
+        s_types.StrBase.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-
-    def indx(self, norm):
-        return norm.encode('utf8', 'surrogatepass')
 
     def _normPyStr(self, valu):
         orig = valu
@@ -576,6 +575,21 @@ class InetModule(s_module.CoreModule):
         self.model.prop('inet:fqdn:iszone').onSet(self._onSetFqdnIsZone)
         self.model.prop('inet:fqdn:issuffix').onSet(self._onSetFqdnIsSuffix)
         self.model.form('inet:passwd').onAdd(self._onAddPasswd)
+
+        self.model.prop('inet:whois:rec:text').onSet(self._onSetWhoisText)
+
+    def _onSetWhoisText(self, node, oldv):
+
+        text = node.get('text')
+        fqdn = node.get('fqdn')
+        asof = node.get('asof')
+
+        for form, valu in s_scrape.scrape(text):
+
+            if form == 'inet:email':
+
+                whomail = node.snap.addNode('inet:whois:email', (fqdn, valu))
+                whomail.set('.seen', asof)
 
     def _onAddPasswd(self, node):
 
@@ -885,6 +899,10 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:whois:regmail', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
                         'doc': 'An association between a domain and a registrant email address.'
+                    }),
+
+                    ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
+                        'doc': 'An email address associated with an FQDN via whois registration text.',
                     }),
 
                     ('inet:wifi:ap', ('comp', {'fields': (('ssid', 'inet:wifi:ssid'), ('bssid', 'inet:mac'))}), {
@@ -1956,13 +1974,28 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:whois:email', {}, (
+                        ('fqdn', ('inet:fqdn', {}), {'ro': True,
+                            'doc': 'The domain with a whois record containing the email address.',
+                        }),
+                        ('email', ('inet:email', {}), {'ro': True,
+                            'doc': 'The email address associated with the domain whois record.',
+                        }),
+                    )),
+
                     ('inet:wifi:ap', {}, (
+
                         ('ssid', ('inet:wifi:ssid', {}), {
-                            'doc': 'The SSID for the wireless access point.'
-                        }),
+                            'doc': 'The SSID for the wireless access point.'}),
+
                         ('bssid', ('inet:mac', {}), {
-                            'doc': 'The MAC address for the wireless access point.'
-                        }),
+                            'doc': 'The MAC address for the wireless access point.'}),
+
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The best known latitude/longitude for the wireless access point.'}),
+
+                        ('loc', ('loc', {}), {'defval': '??',
+                            'doc': 'The geo-political location string for the wireless access point.'}),
                     )),
 
                     ('inet:wifi:ssid', {}, ()),
