@@ -86,7 +86,7 @@ class StormTest(s_test_common.SynTest):
                 tnode = snap.getNodeByNdef(('syn:tag', 'a.b'))
                 tnode.addTag('foo', (None, None))
 
-            list(core.storm('movetag #a.b #a.m'))
+            list(core.eval('movetag #a.b #a.m'))
             self.len(2, core.eval('#foo'))
             self.len(1, core.eval('syn:tag=a.b +#foo'))
             self.len(1, core.eval('syn:tag=a.m +#foo'))
@@ -95,6 +95,27 @@ class StormTest(s_test_common.SynTest):
         with self.getTestCore() as core:
             self.genraises(s_exc.BadOperArg, core.eval,
                            'movetag #foo.bar #foo.bar')
+
+        # Test moving a tag which does not exist
+        with self.getTestCore() as core:
+            self.genraises(s_exc.BadOperArg, core.eval,
+                           'movetag #foo.bar #duck.knight')
+
+        # Test moving a tag to another tag which is a string prefix of the source
+        with self.getTestCore() as core:
+            # core.conf['storm:log'] = True
+            with core.snap() as snap:
+                node = snap.addNode('teststr', 'V')
+                node.addTag('aaa.b.ccc', (None, None))
+                node.addTag('aaa.b.ddd', (None, None))
+                node = snap.addNode('teststr', 'Q')
+                node.addTag('aaa.barbarella.ccc', (None, None))
+
+            mesgs = list(core.eval('movetag #aaa.b #aaa.barbarella'))
+
+            self.len(7, core.eval('syn:tag'))
+            self.len(1, core.eval('syn:tag=aaa.barbarella.ccc'))
+            self.len(1, core.eval('syn:tag=aaa.barbarella.ddd'))
 
     def test_storm_spin(self):
 

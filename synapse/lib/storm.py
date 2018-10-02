@@ -424,9 +424,15 @@ class MoveTagCmd(Cmd):
 
     def runStormCmd(self, snap, genr):
 
-        oldt = snap.addNode('syn:tag', self.opts.oldtag)
+        nodes = list(snap.getNodesBy('syn:tag', self.opts.oldtag))
+        if not nodes:
+            raise s_exc.BadOperArg(mesg='Cannot move a tag which does not exist.',
+                                   oldtag=self.opts.oldtag)
+        oldt = nodes[0]
         oldstr = oldt.ndef[1]
         oldsize = len(oldstr)
+        oldparts = oldstr.split('.')
+        noldparts = len(oldparts)
 
         newt = snap.addNode('syn:tag', self.opts.newtag)
         newstr = newt.ndef[1]
@@ -441,6 +447,10 @@ class MoveTagCmd(Cmd):
         for node in snap.getNodesBy('syn:tag', self.opts.oldtag, cmpr='^='):
 
             tagstr = node.ndef[1]
+            tagparts = tagstr.split('.')
+            # Are we in the same tree?
+            if tagparts[:noldparts] != oldparts:
+                continue
 
             newtag = newstr + tagstr[oldsize:]
 
