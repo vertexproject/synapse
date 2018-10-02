@@ -794,6 +794,59 @@ class CortexTest(s_test.SynTest):
                 node = snap.getNodeByNdef(('teststr', 'foo'))
                 self.none(node.getTag('bar'))
 
+    def test_splice_generation(self):
+
+        with self.getTestCore() as core:
+
+            list(core.eval('[teststr=hello]'))
+            list(core.eval('teststr=hello [:tick="2001"]'))
+            list(core.eval('teststr=hello [:tick="2002"]'))
+            list(core.eval('teststr [+#foo.bar]'))
+            list(core.eval('teststr [+#foo.bar=(2000,2002)]'))
+            list(core.eval('teststr [+#foo.bar=(2000,20020601)]'))
+            list(core.eval('teststr [-#foo]'))
+            list(core.eval('teststr [-:tick]'))
+            list(core.eval('teststr | delnode --force'))
+
+            _splices = list(core.layer.splices(0, 10000))
+            splices = []
+            # strip out user and time
+            for splice in _splices:
+                splice[1].pop('user', None)
+                splice[1].pop('time', None)
+                splices.append(splice)
+            # Check to ensure a few expected splices exist
+            mesg = ('node:add', {'ndef': ('teststr', 'hello')})
+            self.isin(mesg, splices)
+
+            mesg = ('prop:set', {'ndef': ('teststr', 'hello'), 'prop': 'tick', 'valu': 978307200000, 'oldv': None})
+            self.isin(mesg, splices)
+
+            mesg = ('prop:set',
+                    {'ndef': ('teststr', 'hello'), 'prop': 'tick', 'valu': 1009843200000, 'oldv': 978307200000})
+            self.isin(mesg, splices)
+
+            mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo', 'valu': (None, None)})
+            self.isin(mesg, splices)
+
+            mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo.bar', 'valu': (None, None)})
+            self.isin(mesg, splices)
+
+            mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1009843200000)})
+            self.isin(mesg, splices)
+
+            mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1022889600000)})
+            self.isin(mesg, splices)
+
+            mesg = ('tag:del', {'ndef': ('teststr', 'hello'), 'tag': 'foo', 'valu': (None, None)})
+            self.isin(mesg, splices)
+
+            mesg = ('prop:del', {'ndef': ('teststr', 'hello'), 'prop': 'tick', 'valu': 1009843200000})
+            self.isin(mesg, splices)
+
+            mesg = ('node:del', {'ndef': ('teststr', 'hello')})
+            self.isin(mesg, splices)
+
     def test_strict(self):
 
         with self.getTestCore() as core:
