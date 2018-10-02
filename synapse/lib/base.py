@@ -7,6 +7,9 @@ import logging
 import threading
 import collections
 
+if __debug__:
+    import traceback
+
 import synapse.exc as s_exc
 
 import synapse.lib.coro as s_coro
@@ -26,7 +29,9 @@ def _fini_atexit(): # pragma: no cover
 
         if not item._fini_atexit:
             if __debug__:
-                logger.debug(f'At exit: Missing fini for %r', item)
+                print(f'At exit: Missing fini for {item}')
+                for depth, call in enumerate(item.call_stack[:-2]):
+                    print(f'{depth+1:3}: {call.strip()}')
             continue
 
         try:
@@ -73,7 +78,12 @@ class Base:
     @classmethod
     async def anit(cls, *args, **kwargs):
         self = cls()
-        await self.__anit__(*args, **kwargs)
+        try:
+            await self.__anit__(*args, **kwargs)
+        except Exception:
+            await self.fini()
+            raise
+
         return self
 
     async def __anit__(self):
@@ -81,6 +91,7 @@ class Base:
         self.loop = asyncio.get_running_loop()
         if __debug__:
             self.tid = s_threads.iden()
+            self.call_stack = traceback.format_stack()  # For cleanup debugging
         self.isfini = False
         self.anitted = True  # For assertion purposes
         self.entered = False
@@ -107,11 +118,13 @@ class Base:
         self._fini_funcs.append(func)
 
     async def __aenter__(self):
+        # print(f'{{__aenter__ on {self}')
         assert asyncio.get_running_loop() == self.loop
         self.entered = True
         return self
 
     async def __aexit__(self, exc, cls, tb):
+        # print(f'}}__aexit__ on {self}')
         assert asyncio.get_running_loop() == self.loop
 
         self.exitok = cls is None
@@ -289,6 +302,7 @@ class Base:
             except Exception:
                 # The taskDone callback will emit the exception.  No need to repeat
                 pass
+        assert not self._active_tasks
 
     async def fini(self):
         '''
@@ -373,8 +387,8 @@ class Base:
             except Exception:
                 logger.exception('Task scheduled through Base.schedCoro raised exception')
 
-        task.add_done_callback(taskDone)
         self._active_tasks.add(task)
+        task.add_done_callback(taskDone)
 
         return task
 
@@ -401,8 +415,7 @@ class Base:
                 dostuff()
 
         Notes:
-            This does fire a 'ebus:main' event prior to entering the
-            waitfini() loop.
+            This fires a 'ebus:main' event prior to entering the waitfini() loop.
 
         Returns:
             None

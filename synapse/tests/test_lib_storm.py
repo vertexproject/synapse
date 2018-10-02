@@ -1,5 +1,9 @@
+import unittest
+
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+import synapse.lib.node as s_node
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -106,17 +110,18 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_count(self):
 
-        async with self.getTestCore() as core:
-            await self.agenlen(2, core.eval('[ teststr=foo teststr=bar ]'))
+        async with self.getTestDmon(mirror='dmoncore') as dmon, \
+                await self.agetTestProxy(dmon, 'core') as core:
+            await self.agenlen(2, await core.eval('[ teststr=foo teststr=bar ]'))
 
-            mesgs = await alist(core.storm('teststr=foo teststr=bar | count |  [+#test.tag]'))
+            mesgs = await alist(await core.storm('teststr=foo teststr=bar | count |  [+#test.tag]'))
             nodes = [mesg for mesg in mesgs if mesg[0] == 'node']
             self.len(2, nodes)
             prints = [mesg for mesg in mesgs if mesg[0] == 'print']
             self.len(1, prints)
             self.eq(prints[0][1].get('mesg'), 'Counted 2 nodes.')
 
-            mesgs = await alist(core.storm('teststr=newp | count'))
+            mesgs = await alist(await core.storm('teststr=newp | count'))
             prints = [mesg for mesg in mesgs if mesg[0] == 'print']
             self.len(1, prints)
             self.eq(prints[0][1].get('mesg'), 'Counted 0 nodes.')
@@ -143,7 +148,7 @@ class StormTest(s_t_utils.SynTest):
             # Demonstrate the iden lift does pass through previous nodes in the pipeline
             q = f'[teststr=hehe] | iden {iq} | count'
             mesgs = await alist(core.storm(q))
-            self.len(3, [mesg for mesg in mesgs if mesg[0] == 'node'])
+            self.len(3, mesgs)
 
             q = 'iden newp'
             with self.getLoggerStream('synapse.lib.snap', 'Failed to decode iden') as stream:
@@ -249,18 +254,18 @@ class StormTest(s_t_utils.SynTest):
             # Do a huge traversal that includes paths
             q = 'teststr=pennywise | noderefs --join -d 9'
             mesgs = await alist(core.storm(q, opts={'path': True}))
-            nodes = [mesg[1] for mesg in mesgs if mesg[0] == 'node']
+            nodes = [mesg[1] for mesg in mesgs]
             self.len(10, nodes)
-            self.len(1, nodes[0][1].get('path', {}).get('nodes'))
-            self.len(9, nodes[9][1].get('path', {}).get('nodes'))
+            self.len(1, nodes[0].nodes)
+            self.len(9, nodes[9].nodes)
 
             # Paths may change depending on traversal options
             q = 'teststr=pennywise | noderefs --join -d 9 --traverse-edge'
             mesgs = await alist(core.storm(q, opts={'path': True}))
-            nodes = [mesg[1] for mesg in mesgs if mesg[0] == 'node']
+            nodes = [mesg[1] for mesg in mesgs]
             self.len(9, nodes)
-            self.len(1, nodes[0][1].get('path', {}).get('nodes'))
-            self.len(8, nodes[8][1].get('path', {}).get('nodes'))
+            self.len(1, nodes[0].nodes)
+            self.len(8, nodes[8].nodes)
 
             # Start from multiple nodes and get their refs
             q = 'teststr | noderefs -d 3'

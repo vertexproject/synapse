@@ -64,7 +64,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('url'), 'http://www.arrowinc.link')
                 self.eq(node.get('us:cage'), '7qe71')
 
-                node = list(snap.getNodesBy('ou:name', name))[0]
+                node = (await alist(snap.getNodesBy('ou:name', name)))[0]
                 self.eq(node.ndef[1], normname)
 
                 person0 = s_common.guid()

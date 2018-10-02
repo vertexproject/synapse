@@ -2,6 +2,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
+from synapse.tests.utils import alist
 
 class GeoTest(s_t_utils.SynTest):
 
@@ -120,12 +121,12 @@ class GeoTest(s_t_utils.SynTest):
                 self.eq(node.get('ndef:form'), 'inet:ipv4')
                 self.eq(node.get('latlong'), (0.0, 0.0))
                 self.eq(node.get('time'), 0)
-                self.nn(snap.getNodeByNdef(('inet:ipv4', 0)))
+                self.nn(await snap.getNodeByNdef(('inet:ipv4', 0)))
 
             # geo:place
 
             # test inline tuple/float with negative syntax...
-            node = list(core.eval('[ geo:place="*" :latlong=(-30.0,20.22) ]'))[0]
+            node = (await alist(core.eval('[ geo:place="*" :latlong=(-30.0,20.22) ]')))[0]
             self.eq(node.get('latlong'), (-30.0, 20.22))
 
             async with await core.snap() as snap:
@@ -179,52 +180,52 @@ class GeoTest(s_t_utils.SynTest):
                 self.nn(node)
 
             # Node filtering behavior
-            nodes = list(core.eval('geo:place +:latlong*near=((34.1, -118.3), 10km)'))
+            nodes = await alist(core.eval('geo:place +:latlong*near=((34.1, -118.3), 10km)'))
             self.len(2, nodes)
-            nodes = list(core.eval('geo:place +geo:place:latlong*near=((34.1, -118.3), 10km)'))
+            nodes = await alist(core.eval('geo:place +geo:place:latlong*near=((34.1, -118.3), 10km)'))
             self.len(2, nodes)
 
-            nodes = list(core.eval('geo:place +:latlong*near=((34.1, -118.3), 50m)'))
+            nodes = await alist(core.eval('geo:place +:latlong*near=((34.1, -118.3), 50m)'))
             self.len(0, nodes)
 
             # +1's come from the unknown loc without a latlong prop
-            nodes = list(core.eval('geo:place -:latlong*near=((34.1, -118.3), 10km)'))
+            nodes = await alist(core.eval('geo:place -:latlong*near=((34.1, -118.3), 10km)'))
             self.len(0 + 1, nodes)
-            nodes = list(core.eval('geo:place -:latlong*near=((34.1, -118.3), 50m)'))
+            nodes = await alist(core.eval('geo:place -:latlong*near=((34.1, -118.3), 50m)'))
             self.len(2 + 1, nodes)
 
             # Storm variable use to filter nodes based on a given location.
             q = f'geo:place={guid0} $latlong=:latlong $radius=:radius | spin | geo:place +:latlong*near=($latlong, ' \
                 f'$radius)'
-            nodes = list(core.eval(q))
+            nodes = await alist(core.eval(q))
             self.len(1, nodes)
 
             q = f'geo:place={guid0} $latlong=:latlong $radius=:radius | spin | geo:place +:latlong*near=($latlong, 5km)'
-            nodes = list(core.eval(q))
+            nodes = await alist(core.eval(q))
             self.len(2, nodes)
 
             # Lifting nodes by *near=((latlong), radius)
-            nodes = list(core.eval('geo:place:latlong*near=((34.1, -118.3), 10km)'))
+            nodes = await alist(core.eval('geo:place:latlong*near=((34.1, -118.3), 10km)'))
             self.len(2, nodes)
 
-            nodes = list(core.eval('geo:place:latlong*near=(("34.118560", "-118.300370"), 50m)'))
+            nodes = await alist(core.eval('geo:place:latlong*near=(("34.118560", "-118.300370"), 50m)'))
             self.len(1, nodes)
 
-            nodes = list(core.eval('geo:place:latlong*near=((0, 0), 50m)'))
+            nodes = await alist(core.eval('geo:place:latlong*near=((0, 0), 50m)'))
             self.len(0, nodes)
 
             # Use a radius to lift nodes which will be inside the bounding box,
             # but outside the cmpr implemented using haversine filtering.
-            nodes = list(core.eval('geo:place:latlong*near=(("34.118560", "-118.300370"), 2600m)'))
+            nodes = await alist(core.eval('geo:place:latlong*near=(("34.118560", "-118.300370"), 2600m)'))
             self.len(1, nodes)
 
             # Storm variable use to lift nodes based on a given location.
             q = f'geo:place={guid1} $latlong=:latlong $radius=:radius | spin | ' \
                 f'tel:mob:telem:latlong*near=($latlong, 3km)'
-            nodes = list(core.eval(q))
+            nodes = await alist(core.eval(q))
             self.len(2, nodes)
 
             q = f'geo:place={guid1} $latlong=:latlong $radius=:radius | spin | ' \
                 f'tel:mob:telem:latlong*near=($latlong, $radius)'
-            nodes = list(core.eval(q))
+            nodes = await alist(core.eval(q))
             self.len(1, nodes)

@@ -1,11 +1,5 @@
 import os
-import ssl
-import asyncio
 import logging
-import threading
-
-import tornado.web as t_web
-import tornado.netutil as t_netutil
 
 import synapse.exc as s_exc
 
@@ -230,17 +224,6 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         await self._initCellAuth()
         await self._initCellSlab()
-
-        async def fini():
-            if self.webserver is not None:
-                self.webserver.stop()
-
-        self.onfini(fini)
-
-    async def _finiCellAsync(self):
-
-        if self.webserver is not None:
-            self.webserver.stop()
 
     async def _initCellSlab(self):
 

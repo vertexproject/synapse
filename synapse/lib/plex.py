@@ -264,11 +264,10 @@ class Plex(s_eventbus.EventBus):
 
                 byts = await link.reader.read(readsize)
 
-        except BrokenPipeError as e:
+        except (BrokenPipeError, ConnectionResetError) as e:
             logger.warning('%s', str(e))
 
         except Exception as e:
-            breakpoint()
             logger.exception('_linkRxLoop Error!')
 
         finally:

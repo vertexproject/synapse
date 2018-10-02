@@ -68,6 +68,7 @@ class CliTest(s_t_utils.SynTest):
 
         class WootCmd(s_cli.Cmd):
             _cmd_name = 'woot'
+
             async def runCmdOpts(self, opts):
                 return 20
 
@@ -209,7 +210,7 @@ class CliTest(s_t_utils.SynTest):
             opts = quit.getCmdOpts('quit hehe=haha')
             self.eq(opts.get('bar'), [('hehe', 'haha')])
 
-    def test_cli_cmd_loop_quit(self):
+    async def test_cli_cmd_loop_quit(self):
         outp = self.getTestOutp()
         cmdg = s_t_utils.CmdGenerator(['help', 'quit'])
 
@@ -219,7 +220,7 @@ class CliTest(s_t_utils.SynTest):
                 self.eq(cli.isfini, True)
         self.true(outp.expect('o/'))
 
-    def test_cli_cmd_loop_eof(self):
+    async def test_cli_cmd_loop_eof(self):
         outp = self.getTestOutp()
         cmdg = s_t_utils.CmdGenerator(['help'], on_end=EOFError)
         with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
@@ -228,7 +229,7 @@ class CliTest(s_t_utils.SynTest):
                 self.eq(cli.isfini, True)
         self.false(outp.expect('o/', throw=False))
 
-    def test_cli_cmd_loop_bad_input(self):
+    async def test_cli_cmd_loop_bad_input(self):
         outp = self.getTestOutp()
         cmdg = s_t_utils.CmdGenerator([1234], on_end=EOFError)
         with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
@@ -237,7 +238,7 @@ class CliTest(s_t_utils.SynTest):
                 self.eq(cli.isfini, True)
         self.true(outp.expect("AttributeError: 'int' object has no attribute 'strip'", throw=False))
 
-    def test_cli_cmd_loop_keyint(self):
+    async def test_cli_cmd_loop_keyint(self):
         outp = self.getTestOutp()
         cmdg = s_t_utils.CmdGenerator(['help'], on_end=KeyboardInterrupt)
 
@@ -256,7 +257,7 @@ class CliTest(s_t_utils.SynTest):
 
         self.true(outp.expect('<ctrl-c>'))
 
-    def test_cli_cmd_loop(self):
+    async def test_cli_cmd_loop(self):
         outp = self.getTestOutp()
         cmdg = s_t_utils.CmdGenerator(['help',
                              'locs',

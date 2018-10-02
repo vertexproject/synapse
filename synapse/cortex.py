@@ -4,8 +4,6 @@ import logging
 import pathlib
 import collections
 
-import tornado.web as t_web
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
@@ -84,9 +82,6 @@ class CoreApi(s_cell.CellApi):
         '''
         async for node in self.cell.getNodesBy(full, valu, cmpr=cmpr):
             yield node.pack()
-
-    async def fini(self):
-        pass
 
     def allowed(self, *path):
         if self.user is None:
@@ -256,6 +251,9 @@ class CoreApi(s_cell.CellApi):
                 async with await self.cell.snap(user=self.user) as snap:
                     async for item in snap.iterStormPodes(text, opts=opts, user=self.user):
                         await chan.put(item)
+            except Exception as e:
+                await chan.put(e)
+
             finally:
                 await chan.put(None)  # sentinel to indicate end of stream
 
@@ -265,6 +263,8 @@ class CoreApi(s_cell.CellApi):
             item = await chan.get()
             if item is None:
                 break
+            if isinstance(item, Exception):
+                raise item
             yield item
 
     async def storm(self, text, opts=None):
@@ -280,15 +280,18 @@ class CoreApi(s_cell.CellApi):
             tick = s_common.now()
             count = 0
             try:
-                await chan.put(('init', {'tick': tick, 'text': text}))
                 async with await self.cell.snap(user=self.user) as snap:
+                    await chan.put(('init', {'tick': tick, 'text': text}))
                     snap.link(chan.put)
                     async for pode in snap.iterStormPodes(text, opts=opts, user=self.user):
                         await chan.put(('node', pode))
                         count += 1
             except Exception as e:
-                logger.exception('Error during storm execution')
-                await chan.put(('err', s_common.err(e)))
+                if count:
+                    logger.exception('Error during storm execution')
+                    await chan.put(('err', s_common.err(e)))
+                else:
+                    await chan.put(e)
             finally:
                 tock = s_common.now()
                 took = tock - tick
@@ -298,6 +301,8 @@ class CoreApi(s_cell.CellApi):
 
         while True:
             msg = await chan.get()
+            if isinstance(msg, Exception):
+                raise msg
             yield msg
             if msg[0] == 'fini':
                 break
@@ -357,11 +362,6 @@ class Cortex(s_cell.Cell):
             'doc': 'A list of feed dictionaries.'
         }),
 
-        #('httpapi', {
-            #'type': 'dict', 'defval': None,
-            #'doc': 'An HTTP API configuration. Port is the only required key.'
-        #}),
-
         # ('storm:save', {
         #     'type': 'bool', 'defval': False,
         #     'doc': 'Archive storm queries for audit trail.'
@@ -411,6 +411,10 @@ class Cortex(s_cell.Cell):
 
         await self._initCoreLayers()
 
+        async def fini():
+            await asyncio.gather(*[layr.fini() for layr in self.layers], loop=self.loop)
+        self.onfini(fini)
+
         # these may be used directly
         self.model = s_datamodel.Model()
         self.view = View(self, self.layers)
@@ -427,11 +431,6 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
-
-        async def fini():
-            await asyncio.gather(*[layr.fini() for layr in self.layers], loop=self.loop)
-
-        self.onfini(fini)
 
     def onTagAdd(self, name, func):
         '''
@@ -678,11 +677,9 @@ class Cortex(s_cell.Cell):
         def func(snap, items):
             loaditems...
         '''
-        # print("SET FEED %r %r" % (self, name,))
         if self.newp and name == 'syn.splice':
             raise Exception('omg')
         self.feedfuncs[name] = func
-        # print(repr(self.feedfuncs))
 
     def getFeedFunc(self, name):
         '''
@@ -918,7 +915,7 @@ class Cortex(s_cell.Cell):
         Yields:
             (Node, Path) tuples
         '''
-        async with self.snap(user=user) as snap:
+        async with await self.snap(user=user) as snap:
             async for mesg in snap.storm(text, opts=opts):
                 yield mesg
 
@@ -935,7 +932,6 @@ class Cortex(s_cell.Cell):
         '''
         if self.conf.get('storm:log'):
             lvl = self.conf.get('storm:log:level')
-            print('Executing storm query [%s] as [%s]' % (text, user))
             logger.log(lvl, 'Executing storm query [%s] as [%s]', text, user)
 
     async def getNodeByNdef(self, ndef):

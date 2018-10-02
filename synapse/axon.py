@@ -142,7 +142,6 @@ class Uploader(s_share.Share):
     async def __anit__(self, link, item):
         await s_share.Share.__anit__(self, link, item)
         self.doneevent = asyncio.Event(loop=self.loop)
-        self.onfini(s_common.delcb(self.doneevent))
         self.exitok = False
         self.chunknum = 0
         self.wcid = s_common.guid()

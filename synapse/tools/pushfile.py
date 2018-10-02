@@ -41,7 +41,6 @@ def main(argv, outp=None):
         bname = os.path.basename(path)
         hset = s_hashset.HashSet()
         with s_common.reqfile(path) as fd:
-        # with s_common.genfile(path) as fd:
             hset.eatfd(fd)
         fhashes = {htyp: hasher.hexdigest() for htyp, hasher in hset.hashes}
         sha256 = fhashes.get('sha256')
@@ -49,6 +48,7 @@ def main(argv, outp=None):
 
         awants = axon.wants([bsha256])
         if awants:
+            breakpoint()
             with axon.startput() as uploader:
                 with s_common.genfile(path) as fd:
                     for byts in s_common.iterfd(fd):

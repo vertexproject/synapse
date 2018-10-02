@@ -2,6 +2,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
+from synapse.tests.utils import alist
 
 class FileTest(s_t_utils.SynTest):
 
@@ -72,19 +73,19 @@ class FileTest(s_t_utils.SynTest):
             self.eq(b'c:/the/real/world/\xed\xb3\xbeis/messy', path.indx('c:/the/real/world/\udcfeis/messy'))
             self.eq(b'c:/the/real/world/\xed\xb3\xbe', path.indxByPref('c:/the/real/world/\udcfe')[0][1])
 
-            with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 node = await snap.addNode('file:path', '/foo/bar/baz.exe')
 
                 self.eq(node.get('base'), 'baz.exe')
                 self.eq(node.get('base:ext'), 'exe')
                 self.eq(node.get('dir'), '/foo/bar')
-                self.nn(snap.getNodeByNdef(('file:path', '/foo/bar')))
+                self.nn(await snap.getNodeByNdef(('file:path', '/foo/bar')))
 
-                nodes = list(snap.getNodesBy('file:path', '/foo/bar/b', cmpr='^='))
+                nodes = await alist(snap.getNodesBy('file:path', '/foo/bar/b', cmpr='^='))
                 self.len(1, nodes)
                 self.eq(node.ndef, nodes[0].ndef)
-                nodes = list(snap.getNodesBy('file:base', 'baz', cmpr='^='))
+                nodes = await alist(snap.getNodesBy('file:base', 'baz', cmpr='^='))
                 self.len(1, nodes)
                 self.eq(node.get('base'), nodes[0].ndef[1])
 

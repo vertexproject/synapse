@@ -328,7 +328,6 @@ class Daemon(s_base.Base):
             items = {None: item}
             link.set('dmon:items', items)
 
-            @s_glob.synchelp
             async def fini():
 
                 items = list(link.get('dmon:items').values())

@@ -107,7 +107,7 @@ async def main(argv, outp=None):
                                   *opts.files)
 
     elif opts.cortex:
-        with s_telepath.openurl(opts.cortex) as core:
+        async with await s_telepath.openurl(opts.cortex) as core:
             await addFeedData(core, outp, opts.format, opts.debug,
                               chunksize=opts.chunksize,
                               offset=opts.offset,

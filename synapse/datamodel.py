@@ -67,18 +67,14 @@ class PropBase:
         '''
         for func in self.onsets:
             try:
-                retn = func(node, oldv)
-                if s_coro.iscoro(retn):
-                    await retn
+                await s_coro.ornot(func, node, oldv)
             except Exception as e:
                 logger.exception('onset() error for %s' % (self.full,))
 
     async def wasDel(self, node, oldv):
         for func in self.ondels:
             try:
-                retn = await func(node, oldv)
-                if s_coro.iscoro(retn):
-                    await retn
+                await s_coro.ornot(func, node, oldv)
             except Exception as e:
                 logger.exception('ondel() error for %s' % (self.full,))
 

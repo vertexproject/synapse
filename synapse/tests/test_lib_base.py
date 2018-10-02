@@ -9,6 +9,8 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 
 import synapse.lib.base as s_base
+import synapse.lib.plex as s_plex
+
 import synapse.tests.utils as s_t_utils
 
 def block_processing(evt1, evt2):
@@ -20,7 +22,9 @@ def block_processing(evt1, evt2):
         evt2 (multiprocessing.Event): event to twiddle
     '''
 
-    base = s_base.Base.anit()
+    plex = s_plex.Plex()
+
+    base = plex.coroToSync(s_base.Base.anit())
 
     async def onMain(mesg):
         evt1.set()
@@ -265,7 +269,6 @@ class BaseTest(s_t_utils.SynTest):
         await bref.fini()
         self.true(base0.isfini)
 
-    @s_glob.synchelp
     async def test_base_waitfini(self):
         loop = s_glob.plex.loop
 
@@ -284,7 +287,6 @@ class BaseTest(s_t_utils.SynTest):
         # bounce off the isfini block
         self.true(await base.waitfini(timeout=0.3))
 
-    @s_glob.synchelp
     async def test_base_refcount(self):
         base = await s_base.Base.anit()
 
@@ -296,7 +298,6 @@ class BaseTest(s_t_utils.SynTest):
         self.eq(await base.fini(), 0)
         self.true(base.isfini)
 
-    @s_glob.synchelp
     async def test_baseref_gen(self):
 
         async with await s_base.BaseRef.anit() as refs:
