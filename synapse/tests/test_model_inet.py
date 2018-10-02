@@ -1519,3 +1519,40 @@ class InetModelTest(s_t_common.SynTest):
 
                 strn = snap.getNodeByNdef(('it:dev:str', 'Hi There'))
                 self.nn(strn)
+
+    def test_search_query(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                props = {
+                    'time': 200,
+                    'text': 'hi there',
+                    'engine': 'roofroof',
+                }
+                iden = s_common.guid()
+
+                node = snap.addNode('inet:search:query', iden, props=props)
+
+                self.eq(node.get('time'), 20)
+                self.eq(node.get('text'), 'hi there')
+                self.eq(node.get('engine'), 'roofroof')
+
+                props = {
+                    'query': iden,
+                    'url': 'http://hehehaha.com',
+                    'rank': 0,
+                    'text': 'woot woot woot',
+                    'title': 'this is a title',
+                }
+
+                residen = s_common.guid()
+                node = snap.addNode('inet:search:result', residen, props=props)
+
+                self.eq(node.get('url'), 'http://hehehaha.com/')
+
+                self.eq(node.get('rank'), 0)
+                self.eq(node.get('text'), 'woot woot woot')
+                self.eq(node.get('title'), 'this is a title')
+                self.eq(node.get('query'), iden)
