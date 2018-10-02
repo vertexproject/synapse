@@ -600,6 +600,14 @@ class Int(IntBase):
         self.size = self.opts.get('size')
         self.signed = self.opts.get('signed')
 
+        self.enumnorm = {}
+        self.enumrepr = {}
+
+        enums = self.opts.get('enums')
+        if enums is not None:
+            self.enumrepr.update(dict(enums))
+            self.enumnorm.update({(n, v) for (v, n) in enums})
+
         minval = self.opts.get('min')
         maxval = self.opts.get('max')
 
@@ -637,6 +645,11 @@ class Int(IntBase):
         return newv
 
     def _normPyStr(self, valu):
+
+        ival = self.enumnorm.get(valu)
+        if ival is not None:
+            return self._normPyInt(ival)
+
         try:
             valu = int(valu, 0)
         except ValueError as e:
@@ -660,6 +673,11 @@ class Int(IntBase):
         return (valu + self._indx_offset).to_bytes(self.size, 'big')
 
     def repr(self, norm, defval=None):
+
+        text = self.enumrepr.get(norm)
+        if text is not None:
+            return text
+
         return str(norm)
 
 class Ival(Type):
