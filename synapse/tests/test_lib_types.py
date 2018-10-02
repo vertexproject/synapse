@@ -269,6 +269,17 @@ class TypesTest(s_test.SynTest):
         self.true(int8.cmpr(20, '>=', -10))
         self.true(int8.cmpr(-20, '>=', -20))
 
+        # test integer enums for repr and norm
+        eint = model.type('int').clone({'enums': ((1, 'hehe'), (2, 'haha'))})
+
+        self.eq(1, eint.norm('hehe')[0])
+        self.eq(2, eint.norm('haha')[0])
+        self.eq(20, eint.norm('20')[0])
+
+        self.eq('hehe', eint.repr(1))
+        self.eq('haha', eint.repr(2))
+        self.eq('20', eint.repr(20))
+
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('int').clone, {'min': 100, 'max': 1})
 

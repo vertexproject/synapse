@@ -882,6 +882,7 @@ class InetModelTest(s_t_common.SynTest):
 
             # Form Tests ======================================================
             with core.snap() as snap:
+
                 valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
                 expected_ndef = (formname, valu)
                 node = snap.addNode(formname, valu)
@@ -899,6 +900,8 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('fqdn'), 'vertex.link')
                 self.eq(node.get('path'), '?a=1')
+
+                self.len(2, snap.storm('inet:url^=https'))
 
     def test_url_fqdn(self):
 
@@ -1401,7 +1404,7 @@ class InetModelTest(s_t_common.SynTest):
         formname = 'inet:whois:rec'
         valu = ('woot.com', '@20501217')
         input_props = {
-            'text': 'YELLING',
+            'text': 'YELLING TO VISI@VERTEX.LINK AND SUCH',
             'created': 0,
             'updated': 1,
             'expires': 2,
@@ -1411,18 +1414,27 @@ class InetModelTest(s_t_common.SynTest):
         expected_props = {
             'fqdn': 'woot.com',
             'asof': 2554848000000,
-            'text': 'yelling',
+            'text': 'yelling to visi@vertex.link and such',
             'created': 0,
             'updated': 1,
             'expires': 2,
             'registrar': ' cool registrar ',
             'registrant': ' cool registrant ',
         }
+
         expected_ndef = (formname, ('woot.com', 2554848000000))
         with self.getTestCore() as core:
+
             with core.snap() as snap:
+
                 node = snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
+
+                whomail = snap.getNodeByNdef(('inet:whois:email', ('woot.com', 'visi@vertex.link')))
+                self.nn(whomail)
+                self.eq(whomail.get('fqdn'), 'woot.com')
+                self.eq(whomail.get('email'), 'visi@vertex.link')
+                self.eq(whomail.get('.seen'), (2554848000000, 2554848000001))
 
     def test_whois_recns(self):
         formname = 'inet:whois:recns'
@@ -1463,17 +1475,18 @@ class InetModelTest(s_t_common.SynTest):
                 self.checkNode(node, (expected_ndef, expected_props))
 
     def test_wifi_ap(self):
-        formname = 'inet:wifi:ap'
         valu = ('The Best SSID2 ', '00:11:22:33:44:55')
-        expected_props = {
+        ndef = ('inet:wifi:ap', valu)
+        props = {'loc': 'ru', 'latlong': (-50.12345, 150.56789)}
+        expected = {
             'ssid': valu[0],
-            'bssid': valu[1]
+            'bssid': valu[1],
         }
-        expected_ndef = (formname, valu)
+        expected.update(props)
         with self.getTestCore() as core:
             with core.snap() as snap:
-                node = snap.addNode(formname, valu)
-                self.checkNode(node, (expected_ndef, expected_props))
+                node = snap.addNode('inet:wifi:ap', valu, props=props)
+                self.checkNode(node, (ndef, expected))
 
     def test_wifi_ssid(self):
         formname = 'inet:wifi:ssid'
