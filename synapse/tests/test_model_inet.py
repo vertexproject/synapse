@@ -2,6 +2,8 @@ import copy
 import logging
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+
 import synapse.models.inet as s_m_inet
 import synapse.tests.common as s_t_common
 
@@ -1514,13 +1516,13 @@ class InetModelTest(s_t_common.SynTest):
 
                 node = snap.addNode('inet:search:query', iden, props=props)
 
-                self.eq(node.get('time'), 20)
+                self.eq(node.get('time'), 200)
                 self.eq(node.get('text'), 'hi there')
                 self.eq(node.get('engine'), 'roofroof')
 
                 props = {
                     'query': iden,
-                    'url': 'http://hehehaha.com',
+                    'url': 'http://hehehaha.com/',
                     'rank': 0,
                     'text': 'woot woot woot',
                     'title': 'this is a title',
