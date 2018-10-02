@@ -809,6 +809,14 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A username string.'
                     }),
 
+                    ('inet:search:query', ('guid', {}), {
+                        'doc': 'An instance of a search query issued to a search engine.',
+                    }),
+
+                    ('inet:search:result', ('guid', {}), {
+                        'doc': 'A single result from a web search.',
+                    }),
+
                     ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user'))}), {
                         'doc': 'An account with a given Internet-based site or service.',
                         'ex': 'twitter.com/invisig0th'
@@ -1466,6 +1474,38 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:user', {}, ()),
+
+                    ('inet:search:query', {}, (
+
+                        ('text', ('str', {}), {
+                            'doc': 'The search query text.'}),
+
+                        ('time', ('time', {}), {
+                            'doc': 'The time the web search was issued.'}),
+
+                        ('engine', ('str', {'lower': True}), {
+                            'ex': 'google',
+                            'doc': 'A simple name for the search engine used.'}),
+                    )),
+
+                    ('inet:search:result', {}, (
+
+                        ('query', ('inet:search:query', {}), {
+                            'doc': 'The search query that produced the result.'}),
+
+                        ('title', ('str', {'lower': True}), {
+                            'doc': 'The title of the matching web page.'}),
+
+                        ('rank', ('int', {}), {
+                            'doc': 'The rank/order of the query result.'}),
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL hosting the matching content.'}),
+
+                        ('text', ('str', {'lower': True}), {
+                            'doc': 'Extracted/matched text from the matched content.'}),
+                    )),
+
 
                     ('inet:web:acct', {}, (
                         ('avatar', ('file:bytes', {}), {
