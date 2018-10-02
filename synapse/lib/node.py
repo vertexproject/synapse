@@ -364,6 +364,7 @@ class Node:
     def _setTagProp(self, name, norm, indx, info):
         self.tags[name] = norm
         self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),))
+        self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
 
     def _addTagRaw(self, name, norm):
 
@@ -377,9 +378,6 @@ class Node:
             indx = self.snap.model.types['ival'].indx(norm)
 
         self._setTagProp(name, norm, indx, info)
-
-        # TODO: fire an onTagAdd handler...
-        self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
         self.snap.core.runTagAdd(self, name, norm)
 
         return True

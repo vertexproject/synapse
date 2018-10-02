@@ -1230,3 +1230,31 @@ class Time(IntBase):
             return self._indxTimeRange(tick, tock)
 
         return Type.indxByEq(self, valu)
+
+    def _ctorCmprEq(self, text):
+
+        if isinstance(text, (tuple, list)):
+
+            _tick = self._getLiftValu(text[0])
+
+            if text[1].startswith(('+-', '-+')):
+                delt = s_time.delta(text[1][2:])
+                # order matters
+                _tock = _tick + delt
+                _tick = _tick - delt
+            else:
+                _tock = self._getLiftValu(text[1], relto=_tick)
+
+            tick = min(_tick, _tock)
+            tock = max(_tick, _tock)
+
+            def cmpr(valu):
+                return valu >= tick and valu < tock
+            return cmpr
+
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return norm == valu
+
+        return cmpr

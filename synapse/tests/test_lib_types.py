@@ -457,6 +457,8 @@ class TypesTest(s_test.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
             nodes = list(core.getNodesBy('teststr:tick', ('20131231', '+2 days')))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
+            nodes = list(core.eval('teststr:tick=(20131231, "+2 days")'))
+            self.eq({node.ndef[1] for node in nodes}, {'a'})
             nodes = list(core.getNodesBy('teststr:tick', ('-1 day', '+1 day')))
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             nodes = list(core.getNodesBy('teststr:tick', ('-1 days', 'now', )))
@@ -476,3 +478,14 @@ class TypesTest(s_test.SynTest):
             self.true(t.cmpr('20150202', '<=', '2016'))
             self.true(t.cmpr('20150202', '<', '2016'))
             self.false(t.cmpr('2015', '<', '2015'))
+
+            self.len(1, core.eval('teststr +:tick=2015'))
+
+            self.len(1, core.eval('teststr +:tick=(2015, "+1 day")'))
+            self.len(1, core.eval('teststr +:tick=(20150102, "-3 day")'))
+            self.len(0, core.eval('teststr +:tick=(20150201, "+1 day")'))
+
+            self.len(1, core.eval('teststr +:tick=(20150102, "+- 2day")'))
+
+            self.len(1, core.eval('teststr +:tick=($test, "+- 2day")',
+                                  opts={'vars': {'test': '2015'}}))
