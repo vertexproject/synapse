@@ -11,27 +11,6 @@ logger = logging.getLogger(__name__)
 
 class InetModelTest(s_t_common.SynTest):
 
-    def test__untested_model_elements(self):
-        untested_types = []
-        for name in [typ[0] for typ in s_m_inet.InetModule.getModelDefs(None)[0][1]['types']]:
-
-            tname = 'test_' + name.split('inet:', 1)[1].replace(':', '_')
-            if not hasattr(self, tname):
-                untested_types.append(name)
-
-        untested_forms = []
-        for name in [form[0] for form in s_m_inet.InetModule.getModelDefs(None)[0][1]['forms']]:
-
-            tname = 'test_' + name.split('inet:', 1)[1].replace(':', '_')
-            if not hasattr(self, tname):
-                untested_forms.append(name)
-
-        if (len(untested_types) + len(untested_forms)) > 0:
-            msg = f'Untested model elements: types({untested_types}), forms({untested_forms})'
-            if ENFORCE_MODEL_COVERAGE is True:
-                raise AssertionError(msg)
-            logger.warning(msg)
-
     def test_ipv4_lift_range(self):
 
         with self.getTestCore() as core:
