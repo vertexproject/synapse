@@ -1,5 +1,3 @@
-import unittest
-raise unittest.SkipTest()
 import os
 import synapse.lib.scope as s_scope
 
@@ -31,7 +29,8 @@ class BackupTest(s_t_utils.SynTest):
         return set1
 
     async def test_backup(self):
-        async with self.getTestCore():
+        async with self.getTestCore() as core:
+            await core.fini()  # Avoid having the same DB open twice
             src_dirn = s_scope.get('dirn')
             # This technically mangles the value in scope but that value
             # is not used for doing directory removal.
