@@ -118,13 +118,11 @@ class Base:
         self._fini_funcs.append(func)
 
     async def __aenter__(self):
-        # print(f'{{__aenter__ on {self}')
         assert asyncio.get_running_loop() == self.loop
         self.entered = True
         return self
 
     async def __aexit__(self, exc, cls, tb):
-        # print(f'}}__aexit__ on {self}')
         assert asyncio.get_running_loop() == self.loop
 
         self.exitok = cls is None
@@ -374,7 +372,7 @@ class Base:
             An asyncio.Task
 
         '''
-        assert asyncio.get_running_loop() == self.loop
+        assert s_threads.iden() == self.tid
 
         task = self.loop.create_task(coro)
 
@@ -402,6 +400,18 @@ class Base:
             This method may be run outside the event loop on a different thread.
         '''
         self.loop.call_soon_threadsafe(self.schedCoro, coro)
+
+    def schedCoroSafePend(self, coro):
+        '''
+        Schedules a coroutine to run as soon as possible on the same event loop that this Base is running on
+
+        Note:
+            This method may *not* be run inside an event loop
+        '''
+        assert s_threads.iden() != self.tid
+
+        task = asyncio.run_coroutine_threadsafe(coro, self.loop)
+        return task.result()
 
     def main(self):
         '''

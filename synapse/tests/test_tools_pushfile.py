@@ -1,6 +1,5 @@
 import os
 import hashlib
-import unittest
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -14,7 +13,6 @@ nullhash = hashlib.sha256(b'').digest()
 visihash = hashlib.sha256(b'visi').digest()
 
 class TestPushFile(s_t_utils.SynTest):
-    @unittest.skip('FIXME resolve sync async')
     def test_pushfile(self):
         with s_t_utils.AsyncToSyncCMgr(self.getTestDmonCortexAxon) as dmon:
             coreurl = s_scope.get('coreurl')

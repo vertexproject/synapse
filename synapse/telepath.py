@@ -12,6 +12,7 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.threads as s_threads
 
 import synapse.lib.urlhelp as s_urlhelp
 
@@ -92,6 +93,24 @@ class Share(s_base.Base):
         setattr(self, name, meth)
         return meth
 
+    def __enter__(self):
+        '''
+        Convenience function to enable using Proxy objects as synchronous context managers.
+
+        Note:
+            This must not be used from async code or synapse core code.
+        '''
+        if s_threads.iden() == self.tid:
+            raise s_exc.SynErr('Use of synchronous context manager in async code')
+        self._ctxobj = self.schedCoroSafePend(self.__aenter__())
+        return self
+
+    def __exit__(self, *args):
+        '''
+        This should never be used by synapse code.
+        '''
+        return self.schedCoroSafePend(self._ctxobj.__aexit__(*args))
+
 class Genr(Share):
 
     async def __anit__(self, proxy, iden):
@@ -137,7 +156,7 @@ class With(Share):
         await Share.__anit__(self, proxy, iden)
         # a with is optimized to already be entered.
         # so a fini() with no enter causes exit with error.
-        self.entered = True # local to synapse.lib.coro.Fini()
+        self.entered = True
 
     async def __aenter__(self):
         return self
@@ -200,6 +219,7 @@ class Proxy(s_base.Base):
     '''
     async def __anit__(self, link, name):
         await s_base.Base.__anit__(self)
+        self.tid = s_threads.iden()
 
         self.link = link
         self.name = name
@@ -238,17 +258,16 @@ class Proxy(s_base.Base):
         Note:
             This must not be used from async code
         '''
-        assert 'test' in inspect.stack()[1].filename or 'tool' in inspect.stack()[1].filename, 'Nic tmp check'
-        retn = s_glob.plex.coroToSync(self.__aenter__())
-        self._ctxobj = retn
+        if s_threads.iden() == self.tid:
+            raise s_exc.SynErr('Use of synchronous context manager in async code')
+        self._ctxobj = self.schedCoroSafePend(self.__aenter__())
         return self
 
     def __exit__(self, *args):
         '''
         This should never be used by synapse code.
         '''
-        assert 'test' in inspect.stack()[1].filename or 'tool' in inspect.stack()[1].filename, 'Nic tmp check'
-        return s_glob.plex.coroToSync(self._ctxobj.__aexit__(*args))
+        return self.schedCoroSafePend(self._ctxobj.__aexit__(*args))
 
     async def _onShareFini(self, mesg):
 

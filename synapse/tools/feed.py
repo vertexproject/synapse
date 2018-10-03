@@ -101,10 +101,11 @@ async def main(argv, outp=None):
                 for mod in opts.modules:
                     outp.printf(f'Loading [{mod}]')
                     await core.loadCoreModule(mod)
-                await addFeedData(core, outp, opts.format, opts.debug,
-                                  chunksize=opts.chunksize,
-                                  offset=opts.offset,
-                                  *opts.files)
+                async with core.getLocalProxy() as prox:
+                    await addFeedData(prox, outp, opts.format, opts.debug,
+                                      chunksize=opts.chunksize,
+                                      offset=opts.offset,
+                                      *opts.files)
 
     elif opts.cortex:
         async with await s_telepath.openurl(opts.cortex) as core:

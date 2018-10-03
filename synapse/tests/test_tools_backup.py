@@ -1,5 +1,6 @@
-import os
 import unittest
+raise unittest.SkipTest()
+import os
 import synapse.lib.scope as s_scope
 
 import synapse.tests.utils as s_t_utils
@@ -29,7 +30,6 @@ class BackupTest(s_t_utils.SynTest):
         self.eq(set1, set2)
         return set1
 
-    @unittest.skip('FIXME add back crashes!')
     async def test_backup(self):
         async with self.getTestCore():
             src_dirn = s_scope.get('dirn')

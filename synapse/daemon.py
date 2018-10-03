@@ -436,4 +436,3 @@ class Daemon(s_base.Base):
             except KeyError:
                 pass
             return result
-

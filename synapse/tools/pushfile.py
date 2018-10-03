@@ -48,7 +48,6 @@ def main(argv, outp=None):
 
         awants = axon.wants([bsha256])
         if awants:
-            breakpoint()
             with axon.startput() as uploader:
                 with s_common.genfile(path) as fd:
                     for byts in s_common.iterfd(fd):

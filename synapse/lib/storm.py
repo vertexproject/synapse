@@ -4,6 +4,7 @@ import argparse
 import collections
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.node as s_node
@@ -134,8 +135,8 @@ class Parser(argparse.ArgumentParser):
 
     def __init__(self, prog=None, descr=None):
 
-        self.printf = None
         self.exited = False
+        self.mesgs = []
 
         argparse.ArgumentParser.__init__(self,
                                          prog=prog,
@@ -148,18 +149,17 @@ class Parser(argparse.ArgumentParser):
         As such, this function must raise an exception which will be caught
         by Cmd.hasValidOpts.
         '''
-        if message:
-            self._print_message(message)
         self.exited = True
+        if message is not None:
+            self.mesgs.extend(message.split('\n'))
         raise s_exc.BadSyntaxError(mesg=message, prog=self.prog, status=status)
 
-    async def _print_message(self, text, fd=None):
-
-        if self.printf is None:
-            return
-
-        for line in text.split('\n'):
-            await self.printf(line)
+    def _print_message(self, text, fd=None):
+        '''
+        Note:  this overrides an existing method in ArgumentParser
+        '''
+        # Since we have the async->sync->async problem, queue up and print at exit
+        self.mesgs.extend(text.split('\n'))
 
 class Cmd:
     '''
@@ -189,12 +189,15 @@ class Cmd:
     def getArgParser(self):
         return Parser(prog=self.name, descr=self.__class__.__doc__)
 
-    def hasValidOpts(self, snap):
+    async def hasValidOpts(self, snap):
+
         self.pars.printf = snap.printf
         try:
             self.opts = self.pars.parse_args(self.argv)
         except s_exc.BadSyntaxError as e:
             pass
+        for line in self.pars.mesgs:
+            await snap.printf(line)
         return not self.pars.exited
 
     async def execStormCmd(self, runt, genr):
@@ -250,6 +253,7 @@ class LimitCmd(Cmd):
 
             if count >= self.opts.count:
                 await runt.printf(f'limit reached: {self.opts.count}')
+                break
 
 class UniqCmd(Cmd):
     '''

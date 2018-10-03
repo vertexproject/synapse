@@ -68,13 +68,6 @@ class BaseTest(s_t_utils.SynTest):
         self.eq(afoo.foo, 20)
         self.eq(afoo.bar, 30)
 
-    @unittest.skip('To discuss')
-    def test_base_init_sync(self):
-
-        afoo = Hehe.anit(20)
-        self.eq(afoo.foo, 20)
-        self.eq(afoo.bar, 30)
-
     async def test_coro_fini(self):
 
         event = asyncio.Event(loop=s_glob.plex.loop)
@@ -268,6 +261,8 @@ class BaseTest(s_t_utils.SynTest):
 
         await bref.fini()
         self.true(base0.isfini)
+
+        await base2.fini()
 
     async def test_base_waitfini(self):
         loop = s_glob.plex.loop

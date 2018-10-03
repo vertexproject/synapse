@@ -241,7 +241,6 @@ class Node:
                 return self.tags.get(name)
             return self.props.get(name)
 
-        # FIXME: would be really nice if the common use case wasn't async
         raise Exception('Temporarily disabled implicit pivoting in get')
 
         name, text = parts

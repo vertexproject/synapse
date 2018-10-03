@@ -116,7 +116,6 @@ class CortexTest(s_t_utils.SynTest):
     @s_glob.synchelp
     @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     async def test_feed_conf(self):
-        # FIXME this test is leaking slabs
         async with self.getTestDmon(mirror='cryodmon') as dst_dmon:
 
             name = 'cryo00'
@@ -378,38 +377,36 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(0, await core.count('pivtarg'))
             self.eq(1, await core.count('inet:user'))
 
-    @unittest.skip('FIXME add back')
     async def test_stormcmd(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestDmon(mirror='dmoncore') as dmon, \
+                await self.agetTestProxy(dmon, 'core') as core:
 
-            breakpoint()
-
-            msgs = await alist(core.storm('|help'))
+            msgs = await alist(await core.storm('|help'))
             self.printed(msgs, 'help: List available commands and a brief description for each.')
 
-            msgs = await alist(core.storm('help'))
+            msgs = await alist(await core.storm('help'))
             self.printed(msgs, 'help: List available commands and a brief description for each.')
 
-            await alist(core.eval('[ inet:user=visi inet:user=whippit ]'))
+            await alist(await core.eval('[ inet:user=visi inet:user=whippit ]'))
 
-            self.len(2, await alist(core.eval('inet:user')))
+            await self.agenlen(2, await core.eval('inet:user'))
 
             # test cmd as last text syntax
-            self.len(1, await alist(core.eval('inet:user | limit 1')))
+            await self.agenlen(1, await core.eval('inet:user | limit 1'))
 
             # test cmd and trailing pipe syntax
-            self.len(1, await alist(core.eval('inet:user | limit 1|')))
+            await self.agenlen(1, await core.eval('inet:user | limit 1|'))
 
             # test cmd and trailing pipe and whitespace syntax
-            self.len(1, await alist(core.eval('inet:user | limit 1    |     ')))
+            await self.agenlen(1, await core.eval('inet:user | limit 1    |     '))
 
             # test cmd and trailing pipe and whitespace syntax
-            self.len(2, await alist(core.eval('inet:user | limit 10 | [ +#foo.bar ]')))
-            self.len(1, await alist(core.eval('inet:user | limit 10 | +inet:user=visi')))
+            await self.agenlen(2, await core.eval('inet:user | limit 10 | [ +#foo.bar ]'))
+            await self.agenlen(1, await core.eval('inet:user | limit 10 | +inet:user=visi'))
 
-            # test invalid option sytnax
-            msgs = list(core.storm('inet:user | limit --woot'))
+            # test invalid option syntax
+            msgs = await alist(await core.storm('inet:user | limit --woot'))
             self.printed(msgs, 'usage: limit [-h] count')
             self.len(0, [m for m in msgs if m[0] == 'node'])
 

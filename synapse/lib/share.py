@@ -1,11 +1,6 @@
-import logging
-
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
-
-
-logger = logging.getLogger(__name__)
 
 class Share(s_base.Base):
     '''

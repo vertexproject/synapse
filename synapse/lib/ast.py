@@ -248,7 +248,7 @@ class CmdOper(Oper):
 
         scmd = ctor(text)
 
-        if not scmd.hasValidOpts(runt.snap):
+        if not await scmd.hasValidOpts(runt.snap):
             return
 
         async for item in scmd.execStormCmd(runt, genr):

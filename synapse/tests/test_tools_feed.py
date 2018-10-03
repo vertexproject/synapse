@@ -1,4 +1,3 @@
-import unittest
 import unittest.mock as mock
 
 import synapse.common as s_common
@@ -12,7 +11,6 @@ import synapse.tests.utils as s_t_utils
 
 class FeedTest(s_t_utils.SynTest):
 
-    @unittest.skip('FIXME add back')
     async def test_syningest_local(self):
         with self.getTestDir() as dirn:
             guid = s_common.guid()

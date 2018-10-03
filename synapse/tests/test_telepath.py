@@ -155,7 +155,6 @@ class TeleAuth(s_telepath.Aware):
 
 class TeleTest(s_t_utils.SynTest):
 
-    @unittest.skip('FIXME add back')
     async def test_telepath_basics(self):
 
         foo = Foo()
@@ -199,7 +198,7 @@ class TeleTest(s_t_utils.SynTest):
         # Fini'ing a daemon fini's proxies connected to it.
         self.true(await s_coro.event_wait(evt, 2))
         self.true(prox.isfini)
-        self.raises(s_exc.IsFini, prox.bar, (10, 20))
+        await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
 
     async def test_telepath_surrogate(self):
 

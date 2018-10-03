@@ -1,8 +1,10 @@
-import json
+import os
 import asyncio
 import logging
 import pathlib
+import tempfile
 import collections
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -324,7 +326,7 @@ class Cortex(s_cell.Cell):
     callers to manage transaction boundaries explicitly and dramatically
     increases performance.
     '''
-    confdefs = (
+    confdefs = (  # type: ignore
 
         ('layer:lmdb:mapsize', {
             'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE,
@@ -440,7 +442,7 @@ class Cortex(s_cell.Cell):
             func (function): The callback func(node, tagname, tagval).
 
         '''
-        #TODO allow name wild cards
+        # TODO allow name wild cards
         self.ontagadds[name].append(func)
 
     def onTagDel(self, name, func):
@@ -451,7 +453,7 @@ class Cortex(s_cell.Cell):
             func (function): The callback func(node, tagname, tagval).
 
         '''
-        #TODO allow name wild cards
+        # TODO allow name wild cards
         self.ontagdels[name].append(func)
 
     async def runTagAdd(self, node, tag, valu):
@@ -589,7 +591,6 @@ class Cortex(s_cell.Cell):
                 raise s_exc.NoSuchType(name=typename)
 
             self.schedCoro(self._runFeedLoop(feed))
-
 
     async def _runFeedLoop(self, feed):
 
@@ -1109,3 +1110,22 @@ class Cortex(s_cell.Cell):
             'layer': await self.layer.stat()
         }
         return stats
+
+    @contextlib.asynccontextmanager
+    async def getLocalProxy(self):
+        '''
+        Creates a local telepath daemon, shares this object, and returns the telepath proxy of this object
+        '''
+        import synapse.daemon as s_daemon  # avoid import cycle
+        with tempfile.TemporaryDirectory() as dirn:
+            coredir = pathlib.Path(dirn, 'cells', 'core')
+            if coredir.is_dir():
+                ldir = s_common.gendir(coredir, 'layers')
+                if self.alt_write_layer:
+                    os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
+
+            async with await s_daemon.Daemon.anit(dirn) as dmon:
+                dmon.share('core', self)
+                addr = await dmon.listen('tcp://127.0.0.1:0')
+                prox = await s_telepath.openurl('tcp://127.0.0.1/core', port=addr[1])
+                yield prox
