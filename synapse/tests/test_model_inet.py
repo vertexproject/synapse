@@ -936,7 +936,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(norm_host, 'vertex.link')
             self.eq(repr_host, 'vertex.link')
 
-            self._test_types_url_behavior(t, 'fqdn', host, norm_host, repr_host)
+            await self._test_types_url_behavior(t, 'fqdn', host, norm_host, repr_host)
 
     async def test_url_ipv4(self):
         async with self.getTestCore() as core:
@@ -948,7 +948,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(norm_host, 3232235777)
             self.eq(repr_host, '192.168.1.1')
 
-            self._test_types_url_behavior(t, 'ipv4', host, norm_host, repr_host)
+            await self._test_types_url_behavior(t, 'ipv4', host, norm_host, repr_host)
 
     async def test_url_ipv6(self):
         async with self.getTestCore() as core:
@@ -960,7 +960,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(norm_host, '::1')
             self.eq(repr_host, '::1')
 
-            self._test_types_url_behavior(t, 'ipv6', host, norm_host, repr_host)
+            await self._test_types_url_behavior(t, 'ipv6', host, norm_host, repr_host)
 
             # IPv6 Port Special Cases
             weird = t.norm('http://::1:81/hehe')
@@ -969,7 +969,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.raises(s_exc.BadTypeValu, t.norm, 'http://0:0:0:0:0:0:0:0:81/')
 
-    def _test_types_url_behavior(self, t, htype, host, norm_host, repr_host):
+    async def _test_types_url_behavior(self, t, htype, host, norm_host, repr_host):
 
         # Handle IPv6 Port Brackets
         host_port = host

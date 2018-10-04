@@ -784,6 +784,59 @@ class CortexTest(s_t_utils.SynTest):
                 node = await snap.getNodeByNdef(('teststr', 'foo'))
                 self.none(node.getTag('bar'))
 
+    async def test_splice_generation(self):
+
+        async with self.getTestCore() as core:
+
+            await alist(core.eval('[teststr=hello]'))
+            await alist(core.eval('teststr=hello [:tick="2001"]'))
+            await alist(core.eval('teststr=hello [:tick="2002"]'))
+            await alist(core.eval('teststr [+#foo.bar]'))
+            await alist(core.eval('teststr [+#foo.bar=(2000,2002)]'))
+            await alist(core.eval('teststr [+#foo.bar=(2000,20020601)]'))
+            await alist(core.eval('teststr [-#foo]'))
+            await alist(core.eval('teststr [-:tick]'))
+            await alist(core.eval('teststr | delnode --force'))
+
+            _splices = await alist(core.layer.splices(0, 10000))
+            splices = []
+            # strip out user and time
+            for splice in _splices:
+                splice[1].pop('user', None)
+                splice[1].pop('time', None)
+                splices.append(splice)
+            # Check to ensure a few expected splices exist
+            mesg = ('node:add', {'ndef': ('teststr', 'hello')})
+            self.isin(mesg, splices)
+
+            mesg = ('prop:set', {'ndef': ('teststr', 'hello'), 'prop': 'tick', 'valu': 978307200000, 'oldv': None})
+            self.isin(mesg, splices)
+
+            mesg = ('prop:set',
+                    {'ndef': ('teststr', 'hello'), 'prop': 'tick', 'valu': 1009843200000, 'oldv': 978307200000})
+            self.isin(mesg, splices)
+
+            mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo', 'valu': (None, None)})
+            self.isin(mesg, splices)
+
+            mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo.bar', 'valu': (None, None)})
+            self.isin(mesg, splices)
+
+            mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1009843200000)})
+            self.isin(mesg, splices)
+
+            mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1022889600000)})
+            self.isin(mesg, splices)
+
+            mesg = ('tag:del', {'ndef': ('teststr', 'hello'), 'tag': 'foo', 'valu': (None, None)})
+            self.isin(mesg, splices)
+
+            mesg = ('prop:del', {'ndef': ('teststr', 'hello'), 'prop': 'tick', 'valu': 1009843200000})
+            self.isin(mesg, splices)
+
+            mesg = ('node:del', {'ndef': ('teststr', 'hello')})
+            self.isin(mesg, splices)
+
     async def test_strict(self):
 
         async with self.getTestCore() as core:
@@ -1193,6 +1246,13 @@ class CortexTest(s_t_utils.SynTest):
 
             await self.agenlen(1, core.eval('pivcomp=(hehe,haha) $ticktock=#foo -> pivtarg +.seen@=$ticktock'))
 
+            await self.agenlen(1, core.eval('inet:dns:a=(woot.com,1.2.3.4) [ .seen=(2015,2018) ]'))
+
+            async for node in core.eval('inet:dns:a=(woot.com,1.2.3.4) $seen=.seen :fqdn -> inet:fqdn [ .seen=$seen ]'):
+                self.eq(node.get('.seen'), (1420070400000, 1514764800000))
+
+            await self.agenraises(s_exc.BadStormSyntax, core.eval('inet:dns:a=(woot.com,1.2.3.4) $newp=.newp'))
+
             # Vars can also be provided as tuple
             opts = {'vars': {'foo': ('hehe', 'haha')}}
             await self.agenlen(1, core.eval('pivcomp=$foo', opts=opts))
@@ -1513,3 +1573,73 @@ class CortexTest(s_t_utils.SynTest):
                 self.none(await core.setFeedOffs(iden, 0))
                 self.eq(await core.getFeedOffs(iden), 0)
                 await self.asyncraises(s_exc.BadConfValu, core.setFeedOffs(iden, -1))
+
+    async def test_storm_sub_query(self):
+
+        async with self.getTestCore() as core:
+            # check that the sub-query can make changes but doesnt effect main query output
+            node = (await alist(core.eval('[ teststr=foo +#bar ] { [ +#baz ] -#bar }')))[0]
+            self.nn(node.getTag('baz'))
+
+            nodes = await alist(core.eval('[ teststr=oof +#bar ] { [ testint=0xdeadbeef ] }'))
+            await self.agenlen(1, core.eval('testint=3735928559'))
+
+        # Test using subqueries for filtering
+        async with self.getTestCore() as core:
+            # Generic tests
+
+            await self.agenlen(1, core.eval('[ teststr=bar +#baz ]'))
+            await self.agenlen(1, core.eval('[ pivcomp=(foo,bar) ]'))
+
+            await self.agenlen(0, core.eval('pivcomp=(foo,bar) -{ :lulz -> teststr +#baz }'))
+            await self.agenlen(1, core.eval('pivcomp=(foo,bar) +{ :lulz -> teststr +#baz } +pivcomp'))
+
+            # Practical real world example
+
+            await self.agenlen(2, core.eval('[ inet:ipv4=1.2.3.4 :loc=us inet:dns:a=(vertex.link,1.2.3.4) ]'))
+            await self.agenlen(2, core.eval('[ inet:ipv4=4.3.2.1 :loc=zz inet:dns:a=(example.com,4.3.2.1) ]'))
+            await self.agenlen(1, core.eval('inet:ipv4:loc=us'))
+            await self.agenlen(1, core.eval('inet:dns:a:fqdn=vertex.link'))
+            await self.agenlen(1, core.eval('inet:ipv4:loc=zz'))
+            await self.agenlen(1, core.eval('inet:dns:a:fqdn=example.com'))
+
+            # lift all dns, pivot to ipv4 where loc=us, remove the results
+            # this should return the example node because the vertex node matches the filter and should be removed
+            nodes = await alist(core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 +:loc=us }'))
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], ('example.com', 67305985))
+
+            # lift all dns, pivot to ipv4 where loc=us, add the results
+            # this should return the vertex node because only the vertex node matches the filter
+            nodes = await alist(core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 +:loc=us }'))
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], ('vertex.link', 16909060))
+
+            # lift all dns, pivot to ipv4 where cc!=us, remove the results
+            # this should return the vertex node because the example node matches the filter and should be removed
+            nodes = await alist(core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 -:loc=us }'))
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], ('vertex.link', 16909060))
+
+            # lift all dns, pivot to ipv4 where cc!=us, add the results
+            # this should return the example node because only the example node matches the filter
+            nodes = await alist(core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:loc=us }'))
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], ('example.com', 67305985))
+
+            # lift all dns, pivot to ipv4 where asn=1234, add the results
+            # this should return nothing because no nodes have asn=1234
+            await self.agenlen(0, core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 +:asn=1234 }'))
+
+            # lift all dns, pivot to ipv4 where asn!=1234, add the results
+            # this should return everything because no nodes have asn=1234
+            nodes = await alist(core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:asn=1234 }'))
+            self.len(2, nodes)
+
+    async def test_storm_cond_not(self):
+
+        async with self.getTestCore() as core:
+
+            await self.agenlen(1, core.eval('[ teststr=foo +#bar ]'))
+            await self.agenlen(1, core.eval('[ teststr=foo +#bar ] +(not .seen)'))
+            await self.agenlen(1, core.eval('[ teststr=foo +#bar ] +(#baz or not .seen)'))

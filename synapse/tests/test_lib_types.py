@@ -270,6 +270,17 @@ class TypesTest(s_t_utils.SynTest):
         self.true(int8.cmpr(20, '>=', -10))
         self.true(int8.cmpr(-20, '>=', -20))
 
+        # test integer enums for repr and norm
+        eint = model.type('int').clone({'enums': ((1, 'hehe'), (2, 'haha'))})
+
+        self.eq(1, eint.norm('hehe')[0])
+        self.eq(2, eint.norm('haha')[0])
+        self.eq(20, eint.norm('20')[0])
+
+        self.eq('hehe', eint.repr(1))
+        self.eq('haha', eint.repr(2))
+        self.eq('20', eint.repr(20))
+
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('int').clone, {'min': 100, 'max': 1})
 
@@ -458,6 +469,8 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
             nodes = await alist(core.getNodesBy('teststr:tick', ('20131231', '+2 days')))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
+            nodes = await alist(core.eval('teststr:tick=(20131231, "+2 days")'))
+            self.eq({node.ndef[1] for node in nodes}, {'a'})
             nodes = await alist(core.getNodesBy('teststr:tick', ('-1 day', '+1 day')))
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             nodes = await alist(core.getNodesBy('teststr:tick', ('-1 days', 'now', )))
@@ -477,3 +490,14 @@ class TypesTest(s_t_utils.SynTest):
             self.true(t.cmpr('20150202', '<=', '2016'))
             self.true(t.cmpr('20150202', '<', '2016'))
             self.false(t.cmpr('2015', '<', '2015'))
+
+            await self.agenlen(1, core.eval('teststr +:tick=2015'))
+
+            await self.agenlen(1, core.eval('teststr +:tick=(2015, "+1 day")'))
+            await self.agenlen(1, core.eval('teststr +:tick=(20150102, "-3 day")'))
+            await self.agenlen(0, core.eval('teststr +:tick=(20150201, "+1 day")'))
+
+            await self.agenlen(1, core.eval('teststr +:tick=(20150102, "+- 2day")'))
+
+            await self.agenlen(1, core.eval('teststr +:tick=($test, "+- 2day")',
+                                            opts={'vars': {'test': '2015'}}))

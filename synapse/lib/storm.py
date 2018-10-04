@@ -433,13 +433,22 @@ class MoveTagCmd(Cmd):
     async def execStormCmd(self, runt, genr):
         snap = runt.snap
 
-        oldt = await snap.addNode('syn:tag', self.opts.oldtag)
-
+        nodes = [node async for node in snap.getNodesBy('syn:tag', self.opts.oldtag)]
+        if not nodes:
+            raise s_exc.BadOperArg(mesg='Cannot move a tag which does not exist.',
+                                   oldtag=self.opts.oldtag)
+        oldt = nodes[0]
         oldstr = oldt.ndef[1]
         oldsize = len(oldstr)
+        oldparts = oldstr.split('.')
+        noldparts = len(oldparts)
 
         newt = await snap.addNode('syn:tag', self.opts.newtag)
         newstr = newt.ndef[1]
+
+        if oldstr == newstr:
+            raise s_exc.BadOperArg(mesg='Cannot retag a tag to the same valu.',
+                                   newtag=newstr, oldtag=oldstr)
 
         retag = {oldstr: newstr}
 
@@ -447,6 +456,10 @@ class MoveTagCmd(Cmd):
         async for node in snap.getNodesBy('syn:tag', self.opts.oldtag, cmpr='^='):
 
             tagstr = node.ndef[1]
+            tagparts = tagstr.split('.')
+            # Are we in the same tree?
+            if tagparts[:noldparts] != oldparts:
+                continue
 
             newtag = newstr + tagstr[oldsize:]
 
@@ -459,6 +472,10 @@ class MoveTagCmd(Cmd):
             oldtitle = node.get('title')
             if oldtitle is not None:
                 await newnode.set('title', oldtitle)
+
+            # Copy any tags over to the newnode if any are present.
+            for k, v in node.tags.items():
+                await newnode.addTag(k, v)
 
             retag[tagstr] = newtag
             await node.set('isnow', newtag)

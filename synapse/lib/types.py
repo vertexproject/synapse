@@ -600,6 +600,14 @@ class Int(IntBase):
         self.size = self.opts.get('size')
         self.signed = self.opts.get('signed')
 
+        self.enumnorm = {}
+        self.enumrepr = {}
+
+        enums = self.opts.get('enums')
+        if enums is not None:
+            self.enumrepr.update(dict(enums))
+            self.enumnorm.update({(n, v) for (v, n) in enums})
+
         minval = self.opts.get('min')
         maxval = self.opts.get('max')
 
@@ -637,6 +645,11 @@ class Int(IntBase):
         return newv
 
     def _normPyStr(self, valu):
+
+        ival = self.enumnorm.get(valu)
+        if ival is not None:
+            return self._normPyInt(ival)
+
         try:
             valu = int(valu, 0)
         except ValueError as e:
@@ -660,6 +673,11 @@ class Int(IntBase):
         return (valu + self._indx_offset).to_bytes(self.size, 'big')
 
     def repr(self, norm, defval=None):
+
+        text = self.enumrepr.get(norm)
+        if text is not None:
+            return text
+
         return str(norm)
 
 class Ival(Type):
@@ -1016,7 +1034,23 @@ class Range(Type):
 
         return defval
 
-class Str(Type):
+class StrBase(Type):
+    '''
+    Base class for types which index/behave like strings.
+    '''
+
+    def postTypeInit(self):
+        self.indxcmpr['^='] = self.indxByPref
+
+    def indxByPref(self, valu):
+        return (
+            ('pref', valu.encode('utf8', 'surrogatepass')),
+        )
+
+    def indx(self, norm):
+        return norm.encode('utf8', 'surrogatepass')
+
+class Str(StrBase):
 
     _opt_defs = (
         ('enums', None),
@@ -1027,6 +1061,8 @@ class Str(Type):
     )
 
     def postTypeInit(self):
+
+        StrBase.postTypeInit(self)
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyStr)
@@ -1041,8 +1077,6 @@ class Str(Type):
         if enumstr is not None:
             self.envals = enumstr.split(',')
 
-        self.indxcmpr['^='] = self.indxByPref
-
     def indxByPref(self, valu):
 
         # doesnt have to be normable...
@@ -1056,9 +1090,7 @@ class Str(Type):
         if self.opts.get('onespace'):
             valu = s_chop.onespace(valu)
 
-        return (
-            ('pref', valu.encode('utf8', 'surrogatepass')),
-        )
+        return StrBase.indxByPref(self, valu)
 
     def _normPyStr(self, valu):
 
@@ -1083,10 +1115,6 @@ class Str(Type):
                 raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='regex does not match')
 
         return norm, {}
-
-    def indx(self, norm):
-        return norm.encode('utf8', 'surrogatepass')
-
 
 class Tag(Type):
 
@@ -1230,3 +1258,31 @@ class Time(IntBase):
             return self._indxTimeRange(tick, tock)
 
         return Type.indxByEq(self, valu)
+
+    def _ctorCmprEq(self, text):
+
+        if isinstance(text, (tuple, list)):
+
+            _tick = self._getLiftValu(text[0])
+
+            if text[1].startswith(('+-', '-+')):
+                delt = s_time.delta(text[1][2:])
+                # order matters
+                _tock = _tick + delt
+                _tick = _tick - delt
+            else:
+                _tock = self._getLiftValu(text[1], relto=_tick)
+
+            tick = min(_tick, _tock)
+            tock = max(_tick, _tock)
+
+            def cmpr(valu):
+                return valu >= tick and valu < tock
+            return cmpr
+
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return norm == valu
+
+        return cmpr

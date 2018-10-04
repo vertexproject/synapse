@@ -1,17 +1,18 @@
 import asyncio
 import logging
-import collections
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 
-import synapse.lib.node as s_node
+import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 
 logger = logging.getLogger(__name__)
 
+async def agenrofone(item):
+    yield item
 
 class AstNode:
     '''
@@ -102,13 +103,6 @@ class Query(AstNode):
         # for options parsed from the query itself
         self.opts = {}
 
-        # used by the di-graph projection logic
-        self._graph_done = {}
-        self._graph_want = collections.deque()
-
-        self.tick = None
-        self.canceled = False
-
     def setUser(self, user):
         self.user = user
 
@@ -192,6 +186,17 @@ class Query(AstNode):
 
         path.meta('edges', edges)
 
+    async def run(self, runt, genr):
+
+        for oper in self.kids:
+            genr = oper.run(runt, genr)
+
+        async for node, path in genr:
+
+            runt.tick()
+
+            yield node, path
+
     async def iterNodePaths(self, runt):
 
         self.core._logStormQuery(self.text, runt.user)
@@ -232,7 +237,15 @@ class Oper(AstNode):
     pass
 
 class SubQuery(Oper):
-    pass
+
+    async def run(self, runt, genr):
+
+        subq = self.kids[0]
+
+        async for item in genr:
+            await s_common.aspin(subq.run(runt, agenrofone(item)))
+
+            yield item
 
 class CmdOper(Oper):
 
@@ -649,6 +662,20 @@ class Cond(AstNode):
     def getCondEval(self, runt):
         raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.evaluate()')
 
+class SubqCond(Cond):
+
+    def getCondEval(self, runt):
+
+        subq = self.kids[0]
+
+        async def cond(node, path):
+            genr = agenrofone((node, path))
+            async for _ in subq.run(runt, genr):
+                return True
+            return False
+
+        return cond
+
 class OrCond(Cond):
     '''
     <cond> or <cond>
@@ -871,7 +898,7 @@ class FiltOper(Oper):
         func = self.kids[1].getCondEval(runt)
 
         async for node, path in genr:
-            answ = func(node, path)
+            answ = await s_coro.ornot(func, node, path)
             if (must and answ) or (not must and not answ):
                 yield node, path
 
@@ -889,6 +916,14 @@ class RunValue(AstNode):
         return self.runtval(runt)
 
 class RelPropValue(CompValue):
+
+    def prepare(self):
+        self.name = self.kids[0].value()
+
+    def compute(self, runt, node, path):
+        return node.get(self.name)
+
+class UnivPropValue(CompValue):
 
     def prepare(self):
         self.name = self.kids[0].value()
@@ -966,6 +1001,11 @@ class RelProp(Value):
 
     def repr(self):
         return 'RelProp: %r' % (self.valu,)
+
+class UnivProp(Value):
+
+    def repr(self):
+        return 'UnivProp: %r' % (self.valu,)
 
 class AbsProp(Value):
 

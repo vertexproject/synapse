@@ -367,6 +367,7 @@ class Node:
     async def _setTagProp(self, name, norm, indx, info):
         self.tags[name] = norm
         await self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),))
+        await self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
 
     async def _addTagRaw(self, name, norm):
 

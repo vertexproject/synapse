@@ -77,13 +77,46 @@ class StormTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('#woot'))
 
             async with await core.snap() as snap:
-                # Nic tmp
-                tagnode = await snap.getNodeByNdef(('syn:tag', 'hehe'))
-                print(f'{tagnode.pack()}')
-
                 newt = await core.getNodeByNdef(('syn:tag', 'woot'))
 
                 self.eq(newt.get('doc'), 'haha doc')
+
+        # Test moving a tag which has tags on it.
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 'V')
+                await node.addTag('a.b.c', (None, None))
+                tnode = await snap.getNodeByNdef(('syn:tag', 'a.b'))
+                await tnode.addTag('foo', (None, None))
+
+            await alist(core.eval('movetag #a.b #a.m'))
+            await self.agenlen(2, core.eval('#foo'))
+            await self.agenlen(1, core.eval('syn:tag=a.b +#foo'))
+            await self.agenlen(1, core.eval('syn:tag=a.m +#foo'))
+
+        # Test moving a tag to itself
+        async with self.getTestCore() as core:
+            await self.agenraises(s_exc.BadOperArg, core.eval('movetag #foo.bar #foo.bar'))
+
+        # Test moving a tag which does not exist
+        async with self.getTestCore() as core:
+            await self.agenraises(s_exc.BadOperArg, core.eval('movetag #foo.bar #duck.knight'))
+
+        # Test moving a tag to another tag which is a string prefix of the source
+        async with self.getTestCore() as core:
+            # core.conf['storm:log'] = True
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 'V')
+                await node.addTag('aaa.b.ccc', (None, None))
+                await node.addTag('aaa.b.ddd', (None, None))
+                node = await snap.addNode('teststr', 'Q')
+                await node.addTag('aaa.barbarella.ccc', (None, None))
+
+            await alist(core.eval('movetag #aaa.b #aaa.barbarella'))
+
+            await self.agenlen(7, core.eval('syn:tag'))
+            await self.agenlen(1, core.eval('syn:tag=aaa.barbarella.ccc'))
+            await self.agenlen(1, core.eval('syn:tag=aaa.barbarella.ddd'))
 
     async def test_storm_spin(self):
 

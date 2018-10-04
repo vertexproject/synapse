@@ -623,6 +623,8 @@ class Cortex(s_cell.Cell):
 
                         offs = await self.addFeedData(typename, datas, seqn=(iden, offs))
                         await self.fire('core:feed:loop')
+                        logger.debug('Processed [%s] records with [%s]',
+                                     len(datas), typename)
 
             except asyncio.CancelledError:
                 break
