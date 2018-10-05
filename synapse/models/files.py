@@ -5,6 +5,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
+import synapse.lookup.pe as s_l_pe
 
 class FileBase(s_types.Type):
 
@@ -186,10 +187,6 @@ class FileModule(s_module.CoreModule):
                 ('file:path', 'synapse.models.files.FilePath', {}, {
                     'doc': 'A normalized file path.',
                     'ex': 'c:/windows/system32/calc.exe'}),
-
-#                ('file:mime:pe:langcode', 'synapse.models.files.PeLangCode', {}, {
-#                    'doc': 'A ',
-#                    'ex': ''}),
             ),
 
             'types': (
@@ -210,14 +207,13 @@ class FileModule(s_module.CoreModule):
                     )}), {
                     'doc': 'The fused knowledge a file:bytes node containing a pe section.',
                 }),
-# TODO get type/langid figured out
-#                ('file:mime:pe:resource', ('comp', {'fields': (
-#                        ('file', 'file:bytes'),
-#                        ('type', 'typecode'),
-#                        ('langid', 'langcode'),
-#                        ('resource', 'file:bytes'))}), {
-#                    'doc': 'The fused knowledge of a file:bytes node containing a pe resource.',
-#                }),
+                ('file:mime:pe:resource', ('comp', {'fields': (
+                        ('file', 'file:bytes'),
+                        ('type', 'int'),
+                        ('langid', 'int'),
+                        ('resource', 'file:bytes'))}), {
+                    'doc': 'The fused knowledge of a file:bytes node containing a pe resource.',
+                }),
                 ('file:mime:pe:export', ('comp', {'fields': (
                         ('file', 'file:bytes'),
                         ('name', 'str'))}), {
@@ -235,8 +231,14 @@ class FileModule(s_module.CoreModule):
                 }),
                 ('file:string', ('comp', {'fields': (
                         ('file', 'file:bytes'),
-                        ('name', 'str'))}), {
+                        ('string', 'str'))}), {
                     'doc': 'The fused knowledge of a file:bytes node containing a string.',
+                }),
+                ('pe:resource:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
+                    'doc': 'The typecode for the resource',
+                }),
+                ('pe:langid', ('int', {'enums': s_l_pe.getLangCodes()}), {
+                    'doc': 'The PE language id',
                 }),
             ),
 
@@ -275,7 +277,7 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The PE import hash of the file as calculated by pefile; '
                                'https://github.com/erocarrera/pefile'}),
 
-                    ('mime:pe:imphash:vtx', ('guid', {}), {
+                    ('mime:pe:imphash:viv', ('guid', {}), {
                         'doc': 'The PE import hash of the file as calculated by vivisect; this method excludes '
                                'imports referenced as ordinals and may fail to calculate an import hash for files '
                                'that use ordinals.'}),
@@ -307,25 +309,24 @@ class FileModule(s_module.CoreModule):
                     }),
                 )),
 
-# TODO - langid/typecodes
-#                ('file:mime:pe:resource', {}, (
-#                    ('file', ('file:bytes', {}), {
-#                        'ro': True,
-#                        'doc': 'The file containing the resource',
-#                    }),
-#                    ('type', ('typecode', {}), {
-#                        'ro': True,
-#                        'doc': 'The typecode for the resource',
-#                    }),
-#                    ('langid', ('langcode', {}), {
-#                        'ro': True,
-#                        'doc': 'The language code for the resource',
-#                    }),
-#                    ('resource', ('file:bytes', {}), {
-#                        'ro': True,
-#                        'doc': 'The sha256 hash of the resource bytes',
-#                    }),
-#                )),
+                ('file:mime:pe:resource', {}, (
+                    ('file', ('file:bytes', {}), {
+                        'ro': True,
+                        'doc': 'The file containing the resource',
+                    }),
+                    ('type', ('pe:resource:type', {}), {
+                        'ro': True,
+                        'doc': 'The typecode for the resource',
+                    }),
+                    ('langid', ('pe:langid', {}), {
+                        'ro': True,
+                        'doc': 'The language code for the resource',
+                    }),
+                    ('resource', ('file:bytes', {}), {
+                        'ro': True,
+                        'doc': 'The sha256 hash of the resource bytes',
+                    }),
+                )),
 
                 ('file:mime:pe:export', {}, (
                     ('file', ('file:bytes', {}), {
@@ -365,7 +366,7 @@ class FileModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The file containing the string',
                     }),
-                    ('name', ('str', {}), {
+                    ('string', ('str', {}), {
                         'ro': True,
                         'doc': 'The string contained in this file:bytes node.',
                     }),

@@ -31,44 +31,43 @@ class FileTest(s_test.SynTest):
                 exp_time = '201801010233'
                 exp_time_parse = s_time.parse(exp_time)
                 props = {
-                    'mime:pe:imphash:vtx': 'e' * 32,
+                    'mime:pe:imphash:viv': 'e' * 32,
                     'mime:pe:pdbpath': r'c:\this\is\my\pdbstring',
                     'mime:pe:exports:time': exp_time,
                     'mime:pe:exports:libname': 'ohgood',
                     'mime:pe:richhdr': 'f' * 64,
                 }
                 fnode = snap.addNode('file:bytes', 'a' * 64, props=props)
-                self.eq(fnode.get('mime:pe:imphash:vtx'), 'e' * 32)
+
+                # pe props
+                self.eq(fnode.get('mime:pe:imphash:viv'), 'e' * 32)
                 self.eq(fnode.get('mime:pe:pdbpath'), r'c:/this/is/my/pdbstring')
                 self.eq(fnode.get('mime:pe:exports:time'), exp_time_parse)
                 self.eq(fnode.get('mime:pe:exports:libname'), 'ohgood')
                 self.eq(fnode.get('mime:pe:richhdr'), 'f' * 64)
 
-    def test_model_filebytes_pe_section(self):
-        # test to make sure pe section is well formed
-        with self.getTestCore() as core:
-            with core.snap() as snap:
-                #s1node = snap.addNode('file:mime:pe:section', [('file', fnode.ndef), ('name', 'foo'), ('sha256', 'b' * 64)])
-                fnode = snap.addNode('file:bytes', 'a' * 64)
+                # pe resource
+                rbnode = snap.addNode('file:bytes', 'd' * 64)
+                rnode = snap.addNode('file:mime:pe:resource', (fnode.ndef[1], 2, 0x409, rbnode.ndef[1]))
+
+                self.eq(rnode.get('langid'), 0x409)
+                self.eq(rnode.get('type'), 2)
+                self.eq(rnode.repr('langid'), 'en-US')
+                self.eq(rnode.repr('type'), 'RT_BITMAP')
+
+                # pe section
                 s1node = snap.addNode('file:mime:pe:section', (fnode.ndef[1], 'foo', 'b' * 64))
 
                 self.eq(s1node.get('name'), 'foo')
                 self.eq(s1node.get('sha256'), 'b' * 64)
 
-    def test_model_filebytes_pe_export(self):
-        # test to make sure pe export is well formed
-        with self.getTestCore() as core:
-            with core.snap() as snap:
-                fnode = snap.addNode('file:bytes', 'a' * 64)
+                # pe export
                 enode = snap.addNode('file:mime:pe:export', (fnode.ndef[1], 'myexport'))
 
                 self.eq(enode.get('file'), fnode.ndef[1])
                 self.eq(enode.get('name'), 'myexport')
 
-    def test_model_filebytes_pe_vsversion(self):
-        with self.getTestCore() as core:
-            with core.snap() as snap:
-                fnode = snap.addNode('file:bytes', 'a' * 64)
+                # vsversion
                 vskvnode = snap.addNode('file:mime:pe:vsvers:keyval', ('foo', 'bar'))
                 self.eq(vskvnode.get('name'), 'foo')
                 self.eq(vskvnode.get('value'), 'bar')
@@ -83,7 +82,7 @@ class FileTest(s_test.SynTest):
                 fnode = snap.addNode('file:bytes', 'a' * 64)
                 fsnode = snap.addNode('file:string', (fnode.ndef[1], 'foo'))
                 self.eq(fsnode.get('file'), fnode.ndef[1])
-                self.eq(fsnode.get('name'), 'foo')
+                self.eq(fsnode.get('string'), 'foo')
 
     def test_model_file_types(self):
 
