@@ -1643,3 +1643,20 @@ class CortexTest(s_test.SynTest):
             self.len(1, core.eval('[ teststr=foo +#bar ]'))
             self.len(1, core.eval('[ teststr=foo +#bar ] +(not .seen)'))
             self.len(1, core.eval('[ teststr=foo +#bar ] +(#baz or not .seen)'))
+
+    def test_storm_minmax(self):
+
+        with self.getTestCore() as core:
+
+            minval = core.model.type('time').norm('2015')[0]
+            maxval = core.model.type('time').norm('2017')[0]
+
+            self.len(1, core.eval('[ testguid="*" :tick=2015 ]'))
+            self.len(1, core.eval('[ testguid="*" :tick=2016 ]'))
+            self.len(1, core.eval('[ testguid="*" :tick=2017 ]'))
+
+            for node in core.eval('testguid | max tick'):
+                self.eq(node.get('tick'), maxval)
+
+            for node in core.eval('testguid | min tick'):
+                self.eq(node.get('tick'), minval)
