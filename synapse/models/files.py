@@ -277,19 +277,18 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The PE import hash of the file as calculated by pefile; '
                                'https://github.com/erocarrera/pefile'}),
 
-                    ('mime:pe:imphash:viv', ('guid', {}), {
-                        'doc': 'The PE import hash of the file as calculated by vivisect; this method excludes '
-                               'imports referenced as ordinals and may fail to calculate an import hash for files '
-                               'that use ordinals.'}),
-
                     ('mime:pe:compiled', ('time', {}), {
                         'doc': 'The compile time of the file according to the PE header.'}),
+
                     ('mime:pe:pdbpath', ('file:path', {}), {
                         'doc': 'The PDB string according to the PE'}),
+
                     ('mime:pe:exports:time', ('time', {}), {
                         'doc': 'The export time of the file according to the PE'}),
+
                     ('mime:pe:exports:libname', ('str', {}), {
                         'doc': 'The export library name according to the PE'}),
+
                     ('mime:pe:richhdr', ('hash:sha256', {}), {
                         'doc': 'The sha256 hash of the rich header bytes.'}),
                 )),

@@ -31,7 +31,7 @@ class FileTest(s_test.SynTest):
                 exp_time = '201801010233'
                 exp_time_parse = s_time.parse(exp_time)
                 props = {
-                    'mime:pe:imphash:viv': 'e' * 32,
+                    'mime:pe:imphash': 'e' * 32,
                     'mime:pe:pdbpath': r'c:\this\is\my\pdbstring',
                     'mime:pe:exports:time': exp_time,
                     'mime:pe:exports:libname': 'ohgood',
@@ -40,7 +40,7 @@ class FileTest(s_test.SynTest):
                 fnode = snap.addNode('file:bytes', 'a' * 64, props=props)
 
                 # pe props
-                self.eq(fnode.get('mime:pe:imphash:viv'), 'e' * 32)
+                self.eq(fnode.get('mime:pe:imphash'), 'e' * 32)
                 self.eq(fnode.get('mime:pe:pdbpath'), r'c:/this/is/my/pdbstring')
                 self.eq(fnode.get('mime:pe:exports:time'), exp_time_parse)
                 self.eq(fnode.get('mime:pe:exports:libname'), 'ohgood')
