@@ -2,6 +2,8 @@ import copy
 import logging
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+
 import synapse.models.inet as s_m_inet
 import synapse.tests.common as s_t_common
 
@@ -10,27 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 class InetModelTest(s_t_common.SynTest):
-
-    def test__untested_model_elements(self):
-        untested_types = []
-        for name in [typ[0] for typ in s_m_inet.InetModule.getModelDefs(None)[0][1]['types']]:
-
-            tname = 'test_' + name.split('inet:', 1)[1].replace(':', '_')
-            if not hasattr(self, tname):
-                untested_types.append(name)
-
-        untested_forms = []
-        for name in [form[0] for form in s_m_inet.InetModule.getModelDefs(None)[0][1]['forms']]:
-
-            tname = 'test_' + name.split('inet:', 1)[1].replace(':', '_')
-            if not hasattr(self, tname):
-                untested_forms.append(name)
-
-        if (len(untested_types) + len(untested_forms)) > 0:
-            msg = f'Untested model elements: types({untested_types}), forms({untested_forms})'
-            if ENFORCE_MODEL_COVERAGE is True:
-                raise AssertionError(msg)
-            logger.warning(msg)
 
     def test_ipv4_lift_range(self):
 
@@ -901,6 +882,7 @@ class InetModelTest(s_t_common.SynTest):
 
             # Form Tests ======================================================
             with core.snap() as snap:
+
                 valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
                 expected_ndef = (formname, valu)
                 node = snap.addNode(formname, valu)
@@ -918,6 +900,8 @@ class InetModelTest(s_t_common.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('fqdn'), 'vertex.link')
                 self.eq(node.get('path'), '?a=1')
+
+                self.len(2, snap.storm('inet:url^=https'))
 
     def test_url_fqdn(self):
 
@@ -1420,7 +1404,7 @@ class InetModelTest(s_t_common.SynTest):
         formname = 'inet:whois:rec'
         valu = ('woot.com', '@20501217')
         input_props = {
-            'text': 'YELLING',
+            'text': 'YELLING TO VISI@VERTEX.LINK AND SUCH',
             'created': 0,
             'updated': 1,
             'expires': 2,
@@ -1430,18 +1414,27 @@ class InetModelTest(s_t_common.SynTest):
         expected_props = {
             'fqdn': 'woot.com',
             'asof': 2554848000000,
-            'text': 'yelling',
+            'text': 'yelling to visi@vertex.link and such',
             'created': 0,
             'updated': 1,
             'expires': 2,
             'registrar': ' cool registrar ',
             'registrant': ' cool registrant ',
         }
+
         expected_ndef = (formname, ('woot.com', 2554848000000))
         with self.getTestCore() as core:
+
             with core.snap() as snap:
+
                 node = snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
+
+                whomail = snap.getNodeByNdef(('inet:whois:email', ('woot.com', 'visi@vertex.link')))
+                self.nn(whomail)
+                self.eq(whomail.get('fqdn'), 'woot.com')
+                self.eq(whomail.get('email'), 'visi@vertex.link')
+                self.eq(whomail.get('.seen'), (2554848000000, 2554848000001))
 
     def test_whois_recns(self):
         formname = 'inet:whois:recns'
@@ -1482,17 +1475,18 @@ class InetModelTest(s_t_common.SynTest):
                 self.checkNode(node, (expected_ndef, expected_props))
 
     def test_wifi_ap(self):
-        formname = 'inet:wifi:ap'
         valu = ('The Best SSID2 ', '00:11:22:33:44:55')
-        expected_props = {
+        ndef = ('inet:wifi:ap', valu)
+        props = {'loc': 'ru', 'latlong': (-50.12345, 150.56789)}
+        expected = {
             'ssid': valu[0],
-            'bssid': valu[1]
+            'bssid': valu[1],
         }
-        expected_ndef = (formname, valu)
+        expected.update(props)
         with self.getTestCore() as core:
             with core.snap() as snap:
-                node = snap.addNode(formname, valu)
-                self.checkNode(node, (expected_ndef, expected_props))
+                node = snap.addNode('inet:wifi:ap', valu, props=props)
+                self.checkNode(node, (ndef, expected))
 
     def test_wifi_ssid(self):
         formname = 'inet:wifi:ssid'
@@ -1519,3 +1513,40 @@ class InetModelTest(s_t_common.SynTest):
 
                 strn = snap.getNodeByNdef(('it:dev:str', 'Hi There'))
                 self.nn(strn)
+
+    def test_search_query(self):
+
+        with self.getTestCore() as core:
+
+            with core.snap() as snap:
+
+                props = {
+                    'time': 200,
+                    'text': 'hi there',
+                    'engine': 'roofroof',
+                }
+                iden = s_common.guid()
+
+                node = snap.addNode('inet:search:query', iden, props=props)
+
+                self.eq(node.get('time'), 200)
+                self.eq(node.get('text'), 'hi there')
+                self.eq(node.get('engine'), 'roofroof')
+
+                props = {
+                    'query': iden,
+                    'url': 'http://hehehaha.com/',
+                    'rank': 0,
+                    'text': 'woot woot woot',
+                    'title': 'this is a title',
+                }
+
+                residen = s_common.guid()
+                node = snap.addNode('inet:search:result', residen, props=props)
+
+                self.eq(node.get('url'), 'http://hehehaha.com/')
+
+                self.eq(node.get('rank'), 0)
+                self.eq(node.get('text'), 'woot woot woot')
+                self.eq(node.get('title'), 'this is a title')
+                self.eq(node.get('query'), iden)
