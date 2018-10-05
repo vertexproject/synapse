@@ -1,5 +1,5 @@
+import asyncio
 import unittest
-import threading
 
 from unittest.mock import patch
 
@@ -261,7 +261,7 @@ class CortexTest(s_t_utils.SynTest):
             host, port = dst_dmon.addr
             dst_core = dst_dmon.shared.get(name)
             dst_core_addr = f'tcp://{host}:{port}/{name}'
-            evt = threading.Event()
+            evt = asyncio.Event(loop=dst_dmon.loop)
 
             def onAdd(node):
                 evt.set()
@@ -283,7 +283,7 @@ class CortexTest(s_t_utils.SynTest):
 
                     self.true(await waiter.wait(timeout=10))
 
-            self.true(evt.wait(3))
+            self.true(await s_coro.event_wait(evt, timeout=3))
             # Now that the src core is closed, make sure that the node exists
             # in the dst core without creating it
             async with await dst_core.snap() as snap:
