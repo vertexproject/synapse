@@ -155,5 +155,4 @@ workflows:
   run_tests:
     jobs:
 #      - osx36
-      - python36
       - python37
