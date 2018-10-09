@@ -21,24 +21,26 @@ def block_processing(evt1, evt2):
         evt1 (multiprocessing.Event): event to twiddle
         evt2 (multiprocessing.Event): event to twiddle
     '''
+    try:
 
-    plex = s_plex.Plex()
+        plex = s_plex.Plex()
 
-    base = plex.coroToSync(s_base.Base.anit())
+        base = plex.coroToSync(s_base.Base.anit())
 
-    async def onMain(mesg):
-        evt1.set()
-        await base.fini()
+        async def onMain(mesg):
+            evt1.set()
+            await base.fini()
 
-    def onFini():
-        evt2.set()
+        def onFini():
+            evt2.set()
 
-    base.on('ebus:main', onMain)
-    base.onfini(onFini)
+        base.on('ebus:main', onMain)
+        base.onfini(onFini)
 
-    base.main()
+        base.main()
 
-    sys.exit(137)
+    finally:
+        sys.exit(137)
 
 class Hehe(s_base.Base):
 
