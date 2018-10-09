@@ -305,7 +305,6 @@ class LmdbTest(s_t_utils.SynTest):
         self.false(long_enc.startswith(med_enc2))
         self.false(med_enc.startswith(sm_enc2))
 
-    @s_glob.synchelp
     async def test_lmdb_slab_base(self):
 
         self.true(s_glob.plex.iAmLoop())
@@ -371,10 +370,7 @@ class LmdbTest(s_t_utils.SynTest):
 
             self.raises(s_exc.IsFini, next, scan)
 
-    @s_glob.synchelp
     async def test_lmdb_slab_grow(self):
-
-        self.true(s_glob.plex.iAmLoop())
 
         with self.getTestDir() as dirn:
 
@@ -387,6 +383,21 @@ class LmdbTest(s_t_utils.SynTest):
             byts = b'\x00' * 1024
             for i in range(100):
                 slab.put(s_common.guid().encode('utf8'), byts, db=foo)
+
+            count = 0
+            for _, _ in slab.scanByRange(b'', db=foo):
+                count += 1
+            self.eq(count, 100)
+
+            iter = slab.scanByRange(b'', db=foo)
+            for i in range(50):
+                next(iter)
+
+            # Trigger a grow/bump in the middle of a scan; make sure new nodes come after current scan position
+            for i in range(100):
+                slab.put(b'\xff\xff\xff\xff' + s_common.guid().encode('utf8'), byts, db=foo)
+
+            self.eq(150, sum(1 for _ in iter))
 
             self.true(os.path.isfile(slab.optspath))
 

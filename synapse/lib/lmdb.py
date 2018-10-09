@@ -26,7 +26,7 @@ STOR_FLAG_DEFVAL = 0x0004       # Only set this if it doesn't exist
 if sys.platform == 'linux':
     DEFAULT_MAP_SIZE = s_const.tebibyte
     DEFAULT_SMALL_MAP_SIZE = s_const.gibibyte
-else:
+else:  # pragma: no cover
     # For non-Linux system, use a smaller DB since one can't guarantee sparse file support
     DEFAULT_MAP_SIZE = s_const.gibibyte
     DEFAULT_SMALL_MAP_SIZE = s_const.mebibyte * 100
@@ -671,9 +671,6 @@ class Slab(s_base.Base):
         self._finiCoXact()
         yield None
         self._initCoXact()
-
-    def _bumpXactScans(self):
-        [scan.bump() for scan in self.scans]
 
     def get(self, lkey, db=None):
         return self.xact.get(lkey, db=db)
