@@ -123,7 +123,11 @@ class Base:
         return self
 
     async def __aexit__(self, exc, cls, tb):
-        assert asyncio.get_running_loop() == self.loop
+        # Either there should be no running loop or we shall be on the right one
+        try:
+            assert asyncio.get_running_loop() == self.loop
+        except RuntimeError:
+            pass
 
         self.exitok = cls is None
         self.exitinfo = (exc, cls, tb)
