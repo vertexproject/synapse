@@ -218,13 +218,13 @@ class CortexTest(s_t_utils.SynTest):
                 }
                 src_core = await self.getTestCell(dirn, 'cortex', conf=conf)
 
-                waiter = src_core.waiter(1, 'core:splice:cryotank:sent')
+                waiter = src_core.waiter(2, 'core:splice:cryotank:sent')
                 # Form a node and make sure that it exists
                 async with await src_core.snap() as snap:
                     await snap.addNode('teststr', 'teehee')
                     self.nn(await snap.getNodeByNdef(('teststr', 'teehee')))
 
-                self.true(await waiter.wait(timeout=10))
+                await waiter.wait(timeout=3)
                 await src_core.fini()
                 await src_core.waitfini()
 
@@ -276,12 +276,12 @@ class CortexTest(s_t_utils.SynTest):
                 }
                 async with await self.getTestCell(dirn, 'cortex', conf=conf) as src_core:
                     # Form a node and make sure that it exists
-                    waiter = src_core.waiter(1, 'core:splice:sync:sent')
+                    waiter = src_core.waiter(2, 'core:splice:sync:sent')
                     async with await src_core.snap() as snap:
                         await snap.addNode('teststr', 'teehee')
                         self.nn(await snap.getNodeByNdef(('teststr', 'teehee')))
 
-                    self.true(await waiter.wait(timeout=10))
+                    await waiter.wait(timeout=3)
 
             self.true(await s_coro.event_wait(evt, timeout=3))
             # Now that the src core is closed, make sure that the node exists
