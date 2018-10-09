@@ -384,6 +384,8 @@ class Cortex(s_cell.Cell):
         self.stormcmds = {}
         self.stormrunts = {}
 
+        self.addStormCmd(s_storm.MaxCmd)
+        self.addStormCmd(s_storm.MinCmd)
         self.addStormCmd(s_storm.HelpCmd)
         self.addStormCmd(s_storm.IdenCmd)
         self.addStormCmd(s_storm.SpinCmd)

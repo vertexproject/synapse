@@ -285,6 +285,77 @@ class UniqCmd(Cmd):
             buidset.add(node.buid)
             yield node, path
 
+class MaxCmd(Cmd):
+    '''
+    Consume nodes and yield only the one node with the highest value for a property.
+
+    Examples:
+
+        file:bytes +#foo.bar | max size
+
+    '''
+
+    name = 'max'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('propname')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        maxvalu = None
+        maxitem = None
+
+        name = self.opts.propname.strip(':')
+
+        async for node, path in genr:
+
+            valu = node.get(name)
+            if valu is None:
+                continue
+
+            if maxvalu is None or valu > maxvalu:
+                maxvalu = valu
+                maxitem = (node, path)
+
+        yield maxitem
+
+class MinCmd(Cmd):
+    '''
+    Consume nodes and yield only the one node with the lowest value for a property.
+
+    Examples:
+
+        file:bytes +#foo.bar | min size
+
+    '''
+    name = 'min'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('propname')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        minvalu = None
+        minitem = None
+
+        name = self.opts.propname.strip(':')
+
+        async for node, path in genr:
+
+            valu = node.get(name)
+            if valu is None:
+                continue
+
+            if minvalu is None or valu < minvalu:
+                minvalu = valu
+                minitem = (node, path)
+
+        yield minitem
+
 class DelNodeCmd(Cmd):
     '''
     Delete nodes produced by the previous query logic.

@@ -1,5 +1,6 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.time as s_time
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -22,6 +23,67 @@ class FileTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, fbyts.norm, 'guid:0101')
             self.raises(s_exc.BadTypeValu, fbyts.norm, 'helo:moto')
             self.raises(s_exc.BadTypeValu, fbyts.norm, f'sha256:{s_common.guid()}')
+
+    async def test_model_filebytes_pe(self):
+        # test to make sure pe metadata is well formed
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+
+                exp_time = '201801010233'
+                exp_time_parse = s_time.parse(exp_time)
+                props = {
+                    'mime:pe:imphash': 'e' * 32,
+                    'mime:pe:pdbpath': r'c:\this\is\my\pdbstring',
+                    'mime:pe:exports:time': exp_time,
+                    'mime:pe:exports:libname': 'ohgood',
+                    'mime:pe:richhdr': 'f' * 64,
+                }
+                fnode = await snap.addNode('file:bytes', 'a' * 64, props=props)
+
+                # pe props
+                self.eq(fnode.get('mime:pe:imphash'), 'e' * 32)
+                self.eq(fnode.get('mime:pe:pdbpath'), r'c:/this/is/my/pdbstring')
+                self.eq(fnode.get('mime:pe:exports:time'), exp_time_parse)
+                self.eq(fnode.get('mime:pe:exports:libname'), 'ohgood')
+                self.eq(fnode.get('mime:pe:richhdr'), 'f' * 64)
+
+                # pe resource
+                rbnode = await snap.addNode('file:bytes', 'd' * 64)
+                rnode = await snap.addNode('file:mime:pe:resource', (fnode.ndef[1], 2, 0x409, rbnode.ndef[1]))
+
+                self.eq(rnode.get('langid'), 0x409)
+                self.eq(rnode.get('type'), 2)
+                self.eq(rnode.repr('langid'), 'en-US')
+                self.eq(rnode.repr('type'), 'RT_BITMAP')
+
+                # pe section
+                s1node = await snap.addNode('file:mime:pe:section', (fnode.ndef[1], 'foo', 'b' * 64))
+
+                self.eq(s1node.get('name'), 'foo')
+                self.eq(s1node.get('sha256'), 'b' * 64)
+
+                # pe export
+                enode = await snap.addNode('file:mime:pe:export', (fnode.ndef[1], 'myexport'))
+
+                self.eq(enode.get('file'), fnode.ndef[1])
+                self.eq(enode.get('name'), 'myexport')
+
+                # vsversion
+                vskvnode = await snap.addNode('file:mime:pe:vsvers:keyval', ('foo', 'bar'))
+                self.eq(vskvnode.get('name'), 'foo')
+                self.eq(vskvnode.get('value'), 'bar')
+
+                vsnode = await snap.addNode('file:mime:pe:vsvers:info', (fnode.ndef[1], vskvnode.ndef[1]))
+                self.eq(vsnode.get('file'), fnode.ndef[1])
+                self.eq(vsnode.get('keyval'), vskvnode.ndef[1])
+
+    async def test_model_filebytes_string(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                fnode = await snap.addNode('file:bytes', 'a' * 64)
+                fsnode = await snap.addNode('file:string', (fnode.ndef[1], 'foo'))
+                self.eq(fsnode.get('file'), fnode.ndef[1])
+                self.eq(fsnode.get('string'), 'foo')
 
     async def test_model_file_types(self):
 
