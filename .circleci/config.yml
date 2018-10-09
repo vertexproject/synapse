@@ -136,19 +136,6 @@ jobs:
 
     <<: *osx_test_steps
 
-  python36:
-    parallelism: 7
-    docker:
-      - image: circleci/python:3.6
-        environment:
-          CODECOV_ARGS: --required
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-          PYVERS: 3.6
-
-    working_directory: ~/repo
-
-    <<: *test_steps
-
   python37:
     parallelism: 7
     docker:
