@@ -275,39 +275,8 @@ class CoreApi(s_cell.CellApi):
         Yields:
             ((str,dict)): Storm messages.
         '''
-        MSG_QUEUE_SIZE = 1000
-        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
-
-        async def runStorm(chan):
-            tick = s_common.now()
-            count = 0
-            try:
-                async with await self.cell.snap(user=self.user) as snap:
-                    await chan.put(('init', {'tick': tick, 'text': text}))
-                    snap.link(chan.put)
-                    async for pode in snap.iterStormPodes(text, opts=opts, user=self.user):
-                        await chan.put(('node', pode))
-                        count += 1
-            except Exception as e:
-                if count:
-                    logger.exception('Error during storm execution')
-                    await chan.put(('err', s_common.err(e)))
-                else:
-                    await chan.put(e)
-            finally:
-                tock = s_common.now()
-                took = tock - tick
-                await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
-
-        self.schedCoro(runStorm(chan))
-
-        while True:
-            msg = await chan.get()
-            if isinstance(msg, Exception):
-                raise msg
+        async for msg in self.cell.streamstorm(text, opts, user=self.user):
             yield msg
-            if msg[0] == 'fini':
-                break
 
     @s_cell.adminapi
     async def splices(self, offs, size):
@@ -924,6 +893,46 @@ class Cortex(s_cell.Cell):
             async for mesg in snap.storm(text, opts=opts):
                 yield mesg
 
+    async def streamstorm(self, text, opts=None, user=None):
+        '''
+        Evaluate a storm query and yield result messages.
+        Yields:
+            ((str,dict)): Storm messages.
+        '''
+        MSG_QUEUE_SIZE = 1000
+        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
+
+        async def runStorm(chan):
+            tick = s_common.now()
+            count = 0
+            try:
+                async with await self.snap(user=user) as snap:
+                    await chan.put(('init', {'tick': tick, 'text': text}))
+                    snap.link(chan.put)
+                    async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                        await chan.put(('node', pode))
+                        count += 1
+            except Exception as e:
+                if count:
+                    logger.exception('Error during storm execution')
+                    await chan.put(('err', s_common.err(e)))
+                else:
+                    await chan.put(e)
+            finally:
+                tock = s_common.now()
+                took = tock - tick
+                await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
+
+        self.schedCoro(runStorm(chan))
+
+        while True:
+            msg = await chan.get()
+            if isinstance(msg, Exception):
+                raise msg
+            yield msg
+            if msg[0] == 'fini':
+                break
+
     @s_cache.memoize(size=10000)
     def getStormQuery(self, text):
         '''
@@ -1095,13 +1104,10 @@ class Cortex(s_cell.Cell):
     def _loadCoreModule(self, ctor):
 
         try:
-
-            # print('LOAD: %r' % (ctor,))
             modu = s_dyndeps.tryDynFunc(ctor, self)
 
             self.modules[ctor] = modu
 
-            # print('WOOT: %r' % (ctor,))
             return modu
 
         except Exception as e:
