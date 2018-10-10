@@ -16,6 +16,31 @@ logger = logging.getLogger(__name__)
 
 reac = s_reactor.Reactor()
 
+emptytag = (None, None)
+
+def transform(tlist):
+
+    ret = []
+    fulls = []
+    # brute force rather than build a tree.  faster in small sets.
+    for size, tag, times in sorted([(len(t), t, v) for t, v in tlist], reverse=True):
+        # print(size, tag, times)
+        look = tag + '.'
+        isprefixseen = False
+        hastime = times != emptytag
+        if any([r.startswith(look) for r in fulls]):
+            isprefixseen = True
+        # print(f'hastime: {hastime} | isprefixseen: {isprefixseen}')
+
+        if hastime or not isprefixseen:
+            if hastime:
+                times = (s_time.repr(times[0]), s_time.repr(times[1]))
+            ret.append((tag, times))
+        if not isprefixseen:
+            fulls.append(tag)
+
+    return ret
+
 def _reacJsonl(mesg):
     s = json.dumps(mesg, sort_keys=True) + '\n'
     buf = s.encode()
@@ -259,8 +284,10 @@ class StormCmd(s_cli.Cmd):
                 self.printf(f'        {name} = {valu}')
 
         if not opts.get('hide-tags'):
+            tags = sorted(node[1]['tags'].items())
+            tags = transform(tags)
 
-            for name, valu in sorted(node[1]['tags'].items()):
+            for name, valu in tags:
                 self.printf(f'        #{name} = {valu}')
 
     def _onInit(self, mesg):
