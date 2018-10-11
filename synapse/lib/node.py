@@ -317,6 +317,27 @@ class Node:
         name = s_chop.tag(name)
         return self.tags.get(name, defval)
 
+    def getTags(self, leaf=False):
+
+        if not leaf:
+            return list(self.tags.items())
+
+        fulltags = list(self.tags)
+
+        # longest first
+        retn = []
+
+        # brute force rather than build a tree.  faster in small sets.
+        for size, tag, valu in sorted([(len(t), t, v) for (t, v) in self.tags.items()], reverse=True):
+
+            look = tag + '.'
+            if any([r.startswith(look) for (r, rv) in retn]):
+                continue
+
+            retn.append((tag, valu))
+
+        return retn
+
     def addTag(self, tag, valu=(None, None)):
 
         path = s_chop.tagpath(tag)
@@ -334,6 +355,7 @@ class Node:
 
         if isinstance(valu, list):
             valu = tuple(valu)
+
         if valu != (None, None):
             valu = self.snap.model.type('ival').norm(valu)[0]
 
@@ -449,6 +471,13 @@ class Node:
 
         # check for any nodes which reference us...
         if not force:
+
+            # refuse to delete tag nodes with existing tags
+            if self.form.name == 'syn:tag':
+
+                if any(self.snap._getNodesByTag(self.ndef[1])):
+                    mesg = 'Nodes still have this tag.'
+                    return self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 
             if any(self.snap._getNodesByType(formname, formvalu, addform=False)):
                 mesg = 'Other nodes still refer to this node.'

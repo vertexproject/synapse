@@ -7,6 +7,7 @@ import synapse.common as s_common
 import synapse.reactor as s_reactor
 
 import synapse.lib.cli as s_cli
+import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.queue as s_queue
 import synapse.lib.msgpack as s_msgpack
@@ -260,8 +261,16 @@ class StormCmd(s_cli.Cmd):
 
         if not opts.get('hide-tags'):
 
-            for name, valu in sorted(node[1]['tags'].items()):
-                self.printf(f'        #{name} = {valu}')
+            for tag in sorted(s_node.tags(node, leaf=True)):
+
+                valu = node[1]['tags'].get(tag)
+                if valu == (None, None):
+                    self.printf(f'        #{tag}')
+                    continue
+
+                mint = s_time.repr(valu[0])
+                maxt = s_time.repr(valu[1])
+                self.printf(f'        #{tag} = ({mint}, {maxt})')
 
     def _onInit(self, mesg):
         pass

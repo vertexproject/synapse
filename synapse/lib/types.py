@@ -731,8 +731,13 @@ class Ival(Type):
         return (valu, valu + 1), {}
 
     def _normPyStr(self, valu):
+
+        if valu == '?':
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires begin time')
+
         norm, info = self.timetype.norm(valu)
         # TODO until we support 2013+2years syntax...
+
         return (norm, norm + 1), {}
 
     def _normPyIter(self, valu):
