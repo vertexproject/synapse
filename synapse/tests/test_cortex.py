@@ -912,6 +912,10 @@ class CortexTest(s_test.SynTest):
 
                 tstr = snap.addNode('teststr', 'baz')
                 tstr.set('tick', 100)
+                tstr.addTag('hehe')
+
+                tagnode = snap.getNodeByNdef(('syn:tag', 'hehe'))
+                self.raises(s_exc.CantDelNode, tagnode.delete)
 
                 buid = tstr.buid
 
@@ -1660,3 +1664,48 @@ class CortexTest(s_test.SynTest):
 
             for node in core.eval('testguid | min tick'):
                 self.eq(node.get('tick'), minval)
+
+    def test_storm_totags(self):
+
+        with self.getTestCore() as core:
+
+            nodes = list(core.eval('[ teststr=visi +#foo.bar ] -> #'))
+
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'foo.bar')
+
+            self.len(2, core.eval('teststr=visi -> #*'))
+            self.len(1, core.eval('teststr=visi -> #foo.*'))
+            self.len(0, core.eval('teststr=visi -> #baz.*'))
+
+    def test_storm_fromtags(self):
+
+        with self.getTestCore() as core:
+
+            list(core.eval('[ teststr=visi testint=20 +#foo.bar ]'))
+
+            nodes = list(core.eval('syn:tag=foo.bar -> teststr'))
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'visi')
+
+            self.len(2, core.eval('syn:tag=foo.bar -> *'))
+
+            self.raises(s_exc.BadTypeValu, list, core.eval('syn:tag=foo.bar -> teststr:tick'))
+
+    def test_storm_tagtags(self):
+
+        with self.getTestCore() as core:
+
+            list(core.eval('[ teststr=visi +#foo.bar ] -> # [ +#baz.faz ]'))
+
+            nodes = list(core.eval('##baz.faz'))
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'visi')
+
+            # make an icky loop of tags...
+            list(core.eval('syn:tag=baz.faz [ +#foo.bar ]'))
+
+            # should still be ok...
+            nodes = list(core.eval('##baz.faz'))
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'visi')

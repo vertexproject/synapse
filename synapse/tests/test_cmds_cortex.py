@@ -63,28 +63,28 @@ class CmdCoreTest(s_test.SynTest):
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('storm teststr=abcd')
             outp.expect(':tick = 1970/01/01 00:00:00.123')
-            outp.expect('#cool = (None, None)')
+            outp.expect('#cool')
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('storm --hide-tags teststr=abcd')
             outp.expect(':tick = 1970/01/01 00:00:00.123')
-            self.false(outp.expect('#cool = (None, None)', throw=False))
+            self.false(outp.expect('#cool', throw=False))
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('storm --hide-props teststr=abcd')
             self.false(outp.expect(':tick = 1970/01/01 00:00:00.123', throw=False))
-            outp.expect('#cool = (None, None)')
+            outp.expect('#cool')
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('storm --hide-tags --hide-props teststr=abcd')
             self.false(outp.expect(':tick = 1970/01/01 00:00:00.123', throw=False))
-            self.false(outp.expect('#cool = (None, None)', throw=False))
+            self.false(outp.expect('#cool', throw=False))
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
@@ -120,6 +120,13 @@ class CmdCoreTest(s_test.SynTest):
             cmdr.runCmdLine(q)
             self.true(outp.expect("('testint', 1234)"))
             self.true(outp.expect("'path'"))
+
+            outp = self.getTestOutp()
+            cmdr = s_cmdr.getItemCmdr(core, outp=outp)
+            cmdr.runCmdLine('storm [ teststr=foo +#bar.baz=(2015,?) ]')
+            self.true(outp.expect('#bar.baz = (2015/01/01 00:00:00.000, ?)', throw=False))
+            self.false(outp.expect('#bar ', throw=False))
+            outp.expect('complete. 1 nodes')
 
     def test_log(self):
         with self.getTestDmon('dmoncore') as dmon:
