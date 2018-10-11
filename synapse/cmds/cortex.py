@@ -261,7 +261,7 @@ class StormCmd(s_cli.Cmd):
 
         if not opts.get('hide-tags'):
 
-            for tag in s_node.tags(node, leaf=True):
+            for tag in sorted(s_node.tags(node, leaf=True)):
 
                 valu = node[1]['tags'].get(tag)
                 if valu == (None, None):
