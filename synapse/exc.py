@@ -112,7 +112,6 @@ class NoSuchPath(SynErr): pass
 class NoSuchImpl(SynErr): pass
 class NoSuchIden(SynErr): pass
 class NoSuchName(SynErr): pass
-class NoSuchTufo(SynErr): pass
 class NoSuchOper(SynErr): pass
 class NoSuchCmpr(SynErr): pass
 class NoSuchRule(SynErr): pass
