@@ -198,8 +198,6 @@ class _AsyncQueue(s_base.Base):
     '''
     async def __anit__(self, max_entries, drain_level=None):
         '''
-        Yield bytes for the given SHA256.
-
         Args:
             max_entries (int): the maximum number of entries that can be in the queue.
 
@@ -252,6 +250,8 @@ class _AsyncQueue(s_base.Base):
                 await self.notdrainingevent.wait()
                 continue
             break
+        else:
+            return
 
         self.deq.append(item)
         self.notemptyevent.set()
