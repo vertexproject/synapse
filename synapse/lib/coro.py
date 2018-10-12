@@ -92,11 +92,11 @@ class S2AQueue(s_base.Base):
                     continue
                 await self.notemptyevent.wait()
         else:
-            return None
+            return None  # Raise fini?
 
-        if not self.notdrainingevent.is_set():
-            if len(self.deq) < self.drain_level:
-                self.notdrainingevent.set()
+        if not self.notdrainingevent.is_set() and len(self.deq) < self.drain_level:
+            self.notdrainingevent.set()
+
         return val
 
     def put(self, item):
@@ -115,7 +115,7 @@ class S2AQueue(s_base.Base):
 
         self.deq.append(item)
 
-        # N.B. asyncio.Event.is_set is trivially threadsafe, though .set is not
+        # N.B. asyncio.Event.is_set is trivially threadsafe, though Event.set is not
 
         if not self.notemptyevent.is_set():
             self.loop.call_soon_threadsafe(self.notemptyevent.set)
@@ -157,24 +157,24 @@ async def genr2agenr(func, *args, qsize=100, **kwargs):
 
     sentinel = SentinelClass()
 
-    chan = await S2AQueue.anit(qsize)
+    async with await S2AQueue.anit(qsize) as chan:
 
-    def sync():
-        try:
-            for msg in func(*args, **kwargs):
-                chan.put(msg)
-        finally:
-            chan.put(sentinel)
+        def sync():
+            try:
+                for msg in func(*args, **kwargs):
+                    chan.put(msg)
+            finally:
+                chan.put(sentinel)
 
-    task = asyncio.get_running_loop().run_in_executor(None, sync)
+        task = asyncio.get_running_loop().run_in_executor(None, sync)
 
-    while True:
-        msg = await chan.get()
-        if msg is sentinel:
-            break
-        yield msg
+        while True:
+            msg = await chan.get()
+            if msg is sentinel:
+                break
+            yield msg
 
-    await task
+        await task
 
 async def event_wait(event: asyncio.Event, timeout=None):
     '''
