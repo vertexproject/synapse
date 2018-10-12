@@ -342,7 +342,7 @@ class LmdbTest(s_t_utils.SynTest):
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x03', b'hoho')))
 
             items = list(slab.scanByDups(b'\x00\x02', db=bar))
-            self.eq(items, (b'haha', b'visi', b'zomg'))
+            self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x02', b'visi'), (b'\x00\x02', b'zomg')))
 
             # ok... lets start a scan and then rip out the xact...
             scan = slab.scanByPref(b'\x00', db=foo)
@@ -355,12 +355,12 @@ class LmdbTest(s_t_utils.SynTest):
 
             # to test iternext_dup, lets do the same with a dup scan
             scan = slab.scanByDups(b'\x00\x02', db=bar)
-            self.eq(b'haha', next(scan))
+            self.eq((b'\x00\x02', b'haha'), next(scan))
 
             slab.forcecommit()
 
             items = list(scan)
-            self.eq(items, (b'visi', b'zomg'))
+            self.eq(items, ((b'\x00\x02', b'visi'), (b'\x00\x02', b'zomg')))
 
             # start a scan and then fini the whole db...
             scan = slab.scanByPref(b'\x00', db=foo)

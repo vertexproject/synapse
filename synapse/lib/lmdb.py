@@ -903,7 +903,7 @@ class Scan:
             return False
 
         # set_key for a scan is only logical if it's a dup scan
-        self.genr = self.curs.iternext_dup()
+        self.genr = self.curs.iternext_dup(keys=True)
         self.atitem = next(self.genr)
         return True
 
@@ -959,7 +959,7 @@ class Scan:
                     self.curs = self.slab.xact.cursor(db=self.db)
                     self.curs.set_range_dup(*self.atitem)
 
-                    self.genr = self.curs.iternext_dup()
+                    self.genr = self.curs.iternext_dup(keys=True)
 
                     if self.curs.item() == self.atitem:
                         next(self.genr)
