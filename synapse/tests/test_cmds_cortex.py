@@ -61,28 +61,28 @@ class CmdCoreTest(s_t_utils.SynTest):
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm teststr=abcd')
             outp.expect(':tick = 2015/01/01 00:00:00.000')
-            outp.expect('#cool = (None, None)')
+            outp.expect('#cool')
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-tags teststr=abcd')
             outp.expect(':tick = 2015/01/01 00:00:00.000')
-            self.false(outp.expect('#cool = (None, None)', throw=False))
+            self.false(outp.expect('#cool', throw=False))
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-props teststr=abcd')
             self.false(outp.expect(':tick = 2015/01/01 00:00:00.000', throw=False))
-            outp.expect('#cool = (None, None)')
+            outp.expect('#cool')
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-tags --hide-props teststr=abcd')
-            self.false(outp.expect(':tick = 2015/01/01 00:00:00.000', throw=False))
-            self.false(outp.expect('#cool = (None, None)', throw=False))
+            self.false(outp.expect(':tick = 1970/01/01 00:00:00.123', throw=False))
+            self.false(outp.expect('#cool', throw=False))
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
@@ -109,14 +109,21 @@ class CmdCoreTest(s_t_utils.SynTest):
             s = str(outp)
             self.notin('node:add', s)
             self.notin('prop:set', s)
-
             await self.agenlen(1, await core.eval('[testcomp=(1234, 5678)]'))
+
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             q = 'storm --raw --path testcomp -> testint'
             await cmdr.runCmdLine(q)
             self.true(outp.expect("('testint', 1234)"))
             self.true(outp.expect("'path'"))
+
+            outp = self.getTestOutp()
+            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+            await cmdr.runCmdLine('storm [ teststr=foo +#bar.baz=(2015,?) ]')
+            self.true(outp.expect('#bar.baz = (2015/01/01 00:00:00.000, ?)', throw=False))
+            self.false(outp.expect('#bar ', throw=False))
+            outp.expect('complete. 1 nodes')
 
     async def test_log(self):
         async with self.getTestDmon('dmoncore') as dmon:

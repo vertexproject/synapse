@@ -1,5 +1,7 @@
 import asyncio
+import fnmatch
 import logging
+import collections
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -300,6 +302,41 @@ class LiftTag(LiftOper):
         async for node in runt.snap._getNodesByTag(tag):
             yield node
 
+class LiftTagTag(LiftOper):
+    '''
+    ##foo.bar
+    '''
+
+    async def lift(self, runt):
+
+        todo = collections.deque()
+
+        tag = self.kids[0].value()
+
+        node = await runt.snap.getNodeByNdef(('syn:tag', tag))
+        if node is None:
+            return
+
+        todo.append(node)
+
+        done = set()
+        while todo:
+
+            node = todo.popleft()
+
+            tagname = node.ndef[1]
+            if tagname in done:
+                continue
+
+            done.add(tagname)
+            async for node in runt.snap._getNodesByTag(tagname):
+
+                if node.form.name == 'syn:tag':
+                    todo.append(node)
+                    continue
+
+                yield node
+
 class LiftFormTag(LiftOper):
 
     async def lift(self, runt):
@@ -393,6 +430,14 @@ class PivotOut(PivotOper):
             if self.isjoin:
                 yield node, path
 
+            # <syn:tag> -> * is "from tags to nodes with tags"
+            if node.form.name == 'syn:tag':
+
+                async for pivo in runt.snap._getNodesByTag(node.ndef[1]):
+                    yield pivo, path.fork(pivo)
+
+                continue
+
             if isinstance(node.form.type, s_types.Edge):
                 n2def = node.get('n2')
                 pivo = await runt.snap.getNodeByNdef(n2def)
@@ -422,6 +467,52 @@ class PivotOut(PivotOper):
                     continue
 
                 pivo = await runt.snap.getNodeByNdef((form.name, valu))
+                if pivo is None:
+                    continue
+
+                yield pivo, path.fork(pivo)
+
+class PivotToTags(PivotOper):
+    '''
+    -> #                pivot to all leaf tag nodes
+    -> #*               pivot to all tag nodes
+    -> #cno.*           pivot to all tag nodes which match cno.*
+    -> #foo.bar         pivot to the tag node foo.bar if present
+    '''
+    async def run(self, runt, genr):
+
+        leaf = False
+        mval = self.kids[0].value()
+
+        if not mval:
+
+            leaf = True
+
+            def filter(x):
+                return True
+
+        elif mval.find('*') != -1:
+
+            # glob matcher...
+            def filter(x):
+                return fnmatch.fnmatch(x, mval)
+
+        else:
+
+            def filter(x):
+                return x == mval
+
+        async for node, path in genr:
+
+            if self.isjoin:
+                yield node, path
+
+            for name, valu in node.getTags(leaf=leaf):
+
+                if not filter(name):
+                    continue
+
+                pivo = await runt.snap.getNodeByNdef(('syn:tag', name))
                 if pivo is None:
                     continue
 
@@ -571,6 +662,11 @@ class FormPivot(PivotOper):
 
             if self.isjoin:
                 yield node, path
+
+            # <syn:tag> -> <form> is "from tags to nodes" pivot
+            if node.form.name == 'syn:tag' and prop.isform:
+                async for pivo in runt.snap.getNodesBy(f'{prop.name}#{node.ndef[1]}'):
+                    yield pivo, path.fork(pivo)
 
             # if the source node is a graph edge, use n2
             if isinstance(node.form.type, s_types.Edge):
@@ -967,6 +1063,9 @@ class Value(RunValue):
 
     def value(self):
         return self.valu
+
+class TagMatch(Value):
+    pass
 
 class Cmpr(Value):
 

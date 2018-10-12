@@ -902,6 +902,10 @@ class CortexTest(s_t_utils.SynTest):
 
                 tstr = await snap.addNode('teststr', 'baz')
                 await tstr.set('tick', 100)
+                await tstr.addTag('hehe')
+
+                tagnode = await snap.getNodeByNdef(('syn:tag', 'hehe'))
+                await self.asyncraises(s_exc.CantDelNode, tagnode.delete())
 
                 buid = tstr.buid
 
@@ -1660,3 +1664,48 @@ class CortexTest(s_t_utils.SynTest):
 
             async for node in core.eval('testguid | min tick'):
                 self.eq(node.get('tick'), minval)
+
+    async def test_storm_totags(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await alist(core.eval('[ teststr=visi +#foo.bar ] -> #'))
+
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'foo.bar')
+
+            await self.agenlen(2, core.eval('teststr=visi -> #*'))
+            await self.agenlen(1, core.eval('teststr=visi -> #foo.*'))
+            await self.agenlen(0, core.eval('teststr=visi -> #baz.*'))
+
+    async def test_storm_fromtags(self):
+
+        async with self.getTestCore() as core:
+
+            await alist(core.eval('[ teststr=visi testint=20 +#foo.bar ]'))
+
+            nodes = await alist(core.eval('syn:tag=foo.bar -> teststr'))
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'visi')
+
+            await self.agenlen(2, core.eval('syn:tag=foo.bar -> *'))
+
+            await self.agenraises(s_exc.BadTypeValu, core.eval('syn:tag=foo.bar -> teststr:tick'))
+
+    async def test_storm_tagtags(self):
+
+        async with self.getTestCore() as core:
+
+            await alist(core.eval('[ teststr=visi +#foo.bar ] -> # [ +#baz.faz ]'))
+
+            nodes = await alist(core.eval('##baz.faz'))
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'visi')
+
+            # make an icky loop of tags...
+            await alist(core.eval('syn:tag=baz.faz [ +#foo.bar ]'))
+
+            # should still be ok...
+            nodes = await alist(core.eval('##baz.faz'))
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'visi')

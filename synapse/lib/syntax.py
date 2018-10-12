@@ -594,6 +594,8 @@ def parse_stormsub(text, off=0):
     return opers, off
 
 tagterm = set('*=)]},@ \t\n')
+tagmatchterm = set('=)]},@ \t\n')
+
 whitespace = set(' \t\n')
 
 optset = set('abcdefghijklmnopqrstuvwxyz')
@@ -918,6 +920,10 @@ class Parser:
 
         self.ignore(whitespace)
 
+        if self.nextchar() == '#':
+            match = self.tagmatch()
+            return s_ast.PivotToTags(kids=(match,))
+
         # check for pivot out syntax
         if self.nextchar() == '*':
             self.offs += 1
@@ -925,6 +931,16 @@ class Parser:
 
         prop = self.absprop()
         return s_ast.FormPivot(kids=(prop,))
+
+    def tagmatch(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('#')
+
+        text = self.noms(until=tagmatchterm)
+
+        return s_ast.TagMatch(text)
 
     def formjoin(self):
 
@@ -1000,6 +1016,9 @@ class Parser:
 
         if self.nextstr('<+-'):
             return self.formjoinin()
+
+        if self.nextstr('##'):
+            return self.lifttagtag()
 
         char = self.nextchar()
 
@@ -1100,12 +1119,22 @@ class Parser:
         tag = self.tag()
 
         self.ignore(whitespace)
-        cmprstart
 
         #TODO
+        #cmprstart
         #if self.nextstr('@='):
 
         return s_ast.LiftTag(kids=(tag,))
+
+    def lifttagtag(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('#')
+
+        tag = self.tag()
+
+        return s_ast.LiftTagTag(kids=(tag,))
 
     def filtoper(self):
 
@@ -1337,7 +1366,7 @@ class Parser:
 
         # a simple whitespace separated string
         nexc = self.nextchar()
-        if nexc in alphanum or nexc == '-':
+        if nexc in alphanum or nexc in ('-', '?'):
             text = self.noms(until=mustquote)
             return s_ast.Const(text)
 

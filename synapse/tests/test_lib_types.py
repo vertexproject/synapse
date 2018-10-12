@@ -292,6 +292,8 @@ class TypesTest(s_t_utils.SynTest):
         self.eq((1451606400000, 1451606400001), ival.norm(1451606400000)[0])
         self.eq((1451606400000, 1483228800000), ival.norm(('2016', '2017'))[0])
 
+        self.raises(s_exc.BadTypeValu, ival.norm, '?')
+
     async def test_loc(self):
         model = s_datamodel.Model()
         loctype = model.types.get('loc')
