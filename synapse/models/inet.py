@@ -576,6 +576,8 @@ class InetModule(s_module.CoreModule):
         self.model.prop('inet:fqdn:issuffix').onSet(self._onSetFqdnIsSuffix)
         self.model.form('inet:passwd').onAdd(self._onAddPasswd)
 
+        self.model.prop('inet:whois:rec:text').onSet(self._onSetWhoisText)
+
     async def _onSetWhoisText(self, node, oldv):
 
         text = node.get('text')
@@ -587,7 +589,7 @@ class InetModule(s_module.CoreModule):
             if form == 'inet:email':
 
                 whomail = await node.snap.addNode('inet:whois:email', (fqdn, valu))
-                whomail.set('.seen', asof)
+                await whomail.set('.seen', asof)
 
     async def _onAddPasswd(self, node):
 
