@@ -2556,5 +2556,10 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, core.eval('teststr +#*'))
             self.len(1, core.eval('teststr -#*'))
 
-            # Now test globbing - re matches!
+            # Now test globbing - single star matches one tag level
             self.len(2, core.eval('teststr +#foo.*.baz'))
+            self.len(1, core.eval('teststr +#*.bad'))
+            # Double stars matches a whole lot more!
+            self.len(2, core.eval('teststr +#foo.**.az'))
+            self.len(1, core.eval('teststr +#**.bar.baz'))
+            self.len(2, core.eval('teststr +#**.baz'))
