@@ -160,12 +160,76 @@ class Query(AstNode):
 
         count = 0
 
+        done = set()
+
+        leafs = {}  # track leafs (dont yield until the end...)
+
+        limit = runt.getOpt('limit')
         graph = runt.getOpt('graph')
 
         self.optimize()
 
         # turtles all the way down...
         genr = runt.getInput()
+
+        if isinstance(graph, dict):
+
+            for node, path in self.run(runt, genr):
+
+                pivots = graph.get('pivots')
+                degmax = graph.get('degrees')
+
+                if node.buid in done:
+                    continue
+
+                # if we thought this was a leaf, pop it...
+                leafs.pop(node.buid, None)
+
+                todo = collections.deque([(0, node, path)])
+
+                done.add(node.buid)
+
+                while todo:
+
+                    edges = set()
+
+                    degs, tode, tath = todo.popleft()
+
+                    nextdeg = degs + 1
+
+                    # create a copy of "all form" pivots
+                    pivots = list(pivots)
+
+                    # extend to include form specific pivots
+                    pivots.extend(graph.get(tode.form.name, ()))
+
+                    for text, opts in pivots:
+
+                        for pivo, pavh in tode.storm(text, opts=opts):
+
+                            edges.add(pivo.buid)
+
+                            if pivo.buid in done:
+                                continue
+
+                            if degmax is not None and nextdeg < degmax:
+                                # track leaf nodes...
+                                leafs[pivo.buid] = pivo
+                                continue
+
+                            done.add(pivo.buid)
+                            todo.append((nextdeg, pivo, pavh))
+
+                    edges = [s_common.enhex(b) for b in edges]
+                    tath.set('edges', [s_common.enhex(b) for b in edges])
+
+                    yield tode, tath
+
+                    count += 1
+                    if limit is not None and count >= limit:
+                        return
+
+            return
 
         for node, path in self.run(runt, genr):
 
@@ -175,10 +239,7 @@ class Query(AstNode):
             yield node, path
 
             count += 1
-
-            limit = runt.getOpt('limit')
             if limit is not None and count >= limit:
-                runt.printf('limit reached: %d' % (limit,))
                 break
 
         if graph:

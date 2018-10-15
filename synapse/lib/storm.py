@@ -205,6 +205,22 @@ class Cmd:
         # Older API.  Prefer execStormCmd().
         yield from genr
 
+class GraphCmd(Cmd):
+    '''
+    Expand the inbound nodes into a sub-graph using rules specified in query options.
+    '''
+    name = 'graph'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        #pars.add_argument('command', nargs='?', help='Show the help output for a given command.')
+        return pars
+
+    def execStormCmd(self, runt, genr):
+
+        done = set()
+        #rules = runt.
+
 class HelpCmd(Cmd):
     '''
     List available commands and a brief description for each.

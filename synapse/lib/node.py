@@ -31,9 +31,6 @@ class Node:
         self.props = {}
         self.univs = {}
 
-        #self.vars = {}  # runtime storm variables
-        # self.runt = {}  # a runtime info dict for things like storm
-
         # self.buid may be None during
         # initial node construction...
         if rawprops is not None:
