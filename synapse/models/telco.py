@@ -330,6 +330,7 @@ class TelcoModule(s_module.CoreModule):
 
                     # telco specific data
                     ('cell', ('tel:mob:cell', {}), {}),
+                    ('cell:carrier', ('tel:mob:carrier', {}), {}),
                     ('imsi', ('tel:mob:imsi', {}), {}),
                     ('imei', ('tel:mob:imei', {}), {}),
                     ('phone', ('tel:phone', {}), {}),
@@ -345,6 +346,14 @@ class TelcoModule(s_module.CoreModule):
                     # host specific data
                     ('aaid', ('it:os:android:aaid', {}), {}),
                     ('idfa', ('it:os:ios:idfa', {}), {}),
+
+                    # User related data
+                    ('name', ('ps:name', {}), {}),
+                    ('email', ('inet:email', {}), {}),
+                    ('acct', ('inet:web:acct', {}), {}),
+
+                    # reporting related data
+                    ('app', ('it:prod:softver', {}), {}),
 
                     ('data', ('data', {}), {}),
                     # any other fields may be refs...
