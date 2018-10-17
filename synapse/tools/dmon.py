@@ -78,10 +78,15 @@ def main(argv, outp=s_output.stdout):
         with open(path, 'wb') as fd:
             fd.write(dmonyaml.encode('utf8'))
 
-    with s_glob.sync(s_daemon.Daemon.anit(opts.dmonpath)) as dmon:
+    dmon = None
+    try:
+        dmon = s_glob.sync(s_daemon.Daemon.anit(opts.dmonpath))
         host, port = dmon.addr
         outp.printf(f'dmon listening on: {host}:{port}')
         dmon.main()
+    finally:
+        if dmon is not None:
+            s_glob.sync(dmon.fini())
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))
