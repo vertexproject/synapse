@@ -77,6 +77,51 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.get('radio'), 'pirate')
                 self.eq(node.get('latlong'), (0.0, 0.0))
 
+                # tel:mob:telem
+                guid = s_common.guid()
+                softguid = s_common.guid()
+                props = {'time': '2001',
+                         'latlong': (-1, 1),
+                         'cell': (('001', '02'), 3, 4),
+                         'imsi': '310150123456789',
+                         'imei': '490154203237518',
+                         'phone': '123 456 7890',
+                         'mac': '00:00:00:00:00:00',
+                         'ipv4': '1.2.3.4',
+                         'ipv6': '::1',
+                         'wifi:ssid': 'The Best SSID2',
+                         'wifi:bssid': '00:11:22:33:44:55',
+                         'aaid': 'somestr',
+                         'idfa': 'someotherstr',
+                         'name': 'Robert Grey',
+                         'email': 'clown@vertex.link',
+                         'acct': ('vertex.link', 'clown'),
+                         'app': softguid,
+                         'data': {'some key': 'some valu',
+                                  'BEEP': 1}
+                         }
+                node = await snap.addNode('tel:mob:telem', guid, props)
+                self.eq(node.ndef[1], guid)
+                self.eq(node.get('time'), 978307200000)
+                self.eq(node.get('latlong'), (-1.0, 1.0))
+                self.eq(node.get('cell'), (('001', '02'), 3, 4))
+                self.eq(node.get('cell:carrier'), ('001', '02'))
+                self.eq(node.get('imsi'), 310150123456789)
+                self.eq(node.get('imei'), 490154203237518)
+                self.eq(node.get('phone'), '1234567890')
+                self.eq(node.get('mac'), '00:00:00:00:00:00')
+                self.eq(node.get('ipv4'), 0x01020304)
+                self.eq(node.get('ipv6'), '::1')
+                self.eq(node.get('wifi:ssid'), 'The Best SSID2')
+                self.eq(node.get('wifi:bssid'), '00:11:22:33:44:55')
+                self.eq(node.get('aaid'), 'somestr')
+                self.eq(node.get('idfa'), 'someotherstr')
+                self.eq(node.get('name'), 'robert grey')
+                self.eq(node.get('email'), 'clown@vertex.link')
+                self.eq(node.get('acct'), ('vertex.link', 'clown'))
+                self.eq(node.get('app'), softguid)
+                self.eq(node.get('data'), {'some key': 'some valu', 'BEEP': 1})
+
     async def test_telco_imei(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
