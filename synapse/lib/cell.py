@@ -279,11 +279,6 @@ class Cell(s_base.Base, s_telepath.Aware):
             return await self.cellapi.anit(self, link)
 
         user = self._getCellUser(link, mesg)
-        if user is None:
-            _auth = mesg[1].get('auth')
-            user = _auth[0] if _auth else None
-            raise s_exc.AuthDeny(mesg='Unable to find cell user.',
-                                 user=user)
 
         link.set('cell:user', user)
         return await self.cellapi.anit(self, link)
@@ -296,27 +291,21 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     def _getCellUser(self, link, mesg):
 
-        # with SSL a valid client cert sets ssl:user
-        name = link.get('ssl:user')
-        if name is not None:
-            return self.auth.users.get(name)
-
-        # fall back on user/passwd
         auth = mesg[1].get('auth')
         if auth is None:
-            return None
+            raise s_exc.AuthDeny(mesg='Unable to find cell user')
 
         name, info = auth
 
         user = self.auth.users.get(name)
         if user is None:
-            return None
+            raise s_exc.AuthDeny(mesg='Unable to find cell user')
 
         # passwd None always fails...
         passwd = info.get('passwd')
         if not user.tryPasswd(passwd):
-            raise s_exc.AuthDeny(mesg='Invalid password',
-                                 user=user.name)
+            raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
+
         return user
 
     def initCellAuth(self):

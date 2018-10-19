@@ -29,7 +29,6 @@ import threading
 import contextlib
 
 import synapse.exc as s_exc
-import synapse.data as s_data
 import synapse.glob as s_glob
 import synapse.cells as s_cells
 import synapse.common as s_common
@@ -53,44 +52,6 @@ TEST_MAP_SIZE = s_const.gibibyte
 
 async def alist(coro):
     return [x async for x in coro]
-
-def writeCerts(dirn):
-    '''
-    Copy test SSL certs from synapse.data to a directory.
-
-    Args:
-        dirn (str): Path to write files too.
-
-    Notes:
-        Writes the following files to disk:
-        . ca.crt
-        . ca.key
-        . ca.pem
-        . server.crt
-        . server.key
-        . server.pem
-        . root.crt
-        . root.key
-        . user.crt
-        . user.key
-
-        The ca has signed all three certs.  The ``server.crt`` is for
-        a server running on localhost. The ``root.crt`` and ``user.crt``
-        certs are both are user certs which can connect. They have the
-        common names "root@localhost" and "user@localhost", respectively.
-
-    Returns:
-        None
-    '''
-    fns = ('ca.crt', 'ca.key', 'ca.pem',
-           'server.crt', 'server.key', 'server.pem',
-           'root.crt', 'root.key', 'user.crt', 'user.key')
-    for fn in fns:
-        byts = s_data.get(fn)
-        dst = os.path.join(dirn, fn)
-        if not os.path.exists(dst):
-            with s_common.genfile(dst) as fd:
-                fd.write(byts)
 
 class TestType(s_types.Type):
 
@@ -641,6 +602,10 @@ class SynTest(unittest.TestCase):
     async def getTestDmon(self, mirror='dmontest'):
 
         with self.getTestDir(mirror=mirror) as dirn:
+
+            # Copy test certs
+            shutil.copytree(os.path.join(self.getTestFilePath(), 'certdir'), os.path.join(dirn, 'certs'))
+
             coredir = pathlib.Path(dirn, 'cells', 'core')
             if coredir.is_dir():
                 ldir = s_common.gendir(coredir, 'layers')

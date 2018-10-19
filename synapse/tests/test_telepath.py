@@ -1,6 +1,6 @@
+import ssl
 import asyncio
 import logging
-import unittest
 import threading
 
 logger = logging.getLogger(__name__)
@@ -13,6 +13,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.coro as s_coro
 import synapse.lib.scope as s_scope
 import synapse.lib.share as s_share
+import synapse.lib.certdir as s_certdir
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -199,6 +200,23 @@ class TeleTest(s_t_utils.SynTest):
         self.true(await s_coro.event_wait(evt, 2))
         self.true(prox.isfini)
         await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
+
+    async def test_telepath_tls(self):
+
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+
+            addr = await dmon.listen('ssl://localhost:0')
+            dmon.share('foo', foo)
+
+            # IP Address mismatch:  certificate is not valid for 127.0.0.1
+            await self.asyncraises(ssl.SSLCertVerificationError,
+                                   s_telepath.openurl('ssl://127.0.0.1/foo', port=addr[1]))
+
+            prox = await s_telepath.openurl('ssl://localhost/foo', port=addr[1])
+
+            self.eq(30, await prox.bar(10, 20))
 
     async def test_telepath_surrogate(self):
 

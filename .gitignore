@@ -82,8 +82,3 @@ venv
 # Linter files
 .mypy_cache/
 
-# Test certs which are dropped to disk by tests.common from synapse.data.
-synapse/tests/ca.*
-synapse/tests/server.*
-synapse/tests/root.*
-synapse/tests/user.*
