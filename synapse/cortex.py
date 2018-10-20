@@ -900,35 +900,37 @@ class Cortex(s_cell.Cell):
             ((str,dict)): Storm messages.
         '''
         MSG_QUEUE_SIZE = 1000
-        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
+        _chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
 
         async def runStorm(chan):
             tick = s_common.now()
             count = 0
             try:
+                # First, try text parsing. If this fails, we won't be able to get
+                # a storm runtime in the snap, so catch and pass the `err` message
+                # before handing a `fini` message along.
+                self.getStormQuery(text)
+                await chan.put(('init', {'tick': tick, 'text': text}))
                 async with await self.snap(user=user) as snap:
-                    await chan.put(('init', {'tick': tick, 'text': text}))
                     snap.link(chan.put)
                     async for pode in snap.iterStormPodes(text, opts=opts, user=user):
                         await chan.put(('node', pode))
                         count += 1
             except Exception as e:
-                if count:
                     logger.exception('Error during storm execution')
-                    await chan.put(('err', s_common.err(e)))
-                else:
-                    await chan.put(e)
+                    enfo = s_common.err(e)
+                    enfo[1].pop('esrc', None)
+                    enfo[1].pop('ename', None)
+                    await chan.put(('err', enfo))
             finally:
                 tock = s_common.now()
                 took = tock - tick
                 await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
 
-        self.schedCoro(runStorm(chan))
+        self.schedCoro(runStorm(_chan))
 
         while True:
-            msg = await chan.get()
-            if isinstance(msg, Exception):
-                raise msg
+            msg = await _chan.get()
             yield msg
             if msg[0] == 'fini':
                 break
