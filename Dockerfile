@@ -12,7 +12,7 @@
 #   python -m synapse.tools.deploy --listen tcp://0.0.0.0:47322 cortex core dmon_dir
 #   docker run -it -p47322:47322 -v "$(pwd)"/dmon_dir:/syndata/dmon_dir vertexproject/synapse:localdev
 
-FROM vertexproject/synapse-base-image2:py36
+FROM vertexproject/synapse-base-image2:py36-v0.1.0-a1
 
 ENV SYN_DMON_LOG_LEVEL="WARNING"
 COPY . /root/git/synapse/
