@@ -26,6 +26,9 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][0], ('inet:ipv4', 0x01020304))
 
+            # 3: init + inet:ipv4 + fini
+            await self.agenlen(3, core.streamstorm('inet:dns:a :ipv4 -> *'))
+
     async def test_cortex_of_the_future(self):
 
         # test "future/ongoing" time stamp.
