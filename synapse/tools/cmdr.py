@@ -28,7 +28,7 @@ async def main(argv):  # pragma: no cover
 
 async def _main():  # pragma: no cover
     s_common.setlogging(logger, 'DEBUG')
-    return await main(sys.argv[1:])
+    return await main(sys.argv)
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(_main()))
