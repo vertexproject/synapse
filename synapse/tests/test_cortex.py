@@ -739,7 +739,13 @@ class CortexTest(s_t_utils.SynTest):
                     await alist(await core.storm('help ask'))
                     self.true(await stream.wait(4))
                 # Bad syntax
-                await self.agenraises(s_exc.BadStormSyntax, await core.storm(' | | | '))
+                mesgs = await alist(await core.storm(' | | | '))
+                self.len(0, [mesg for mesg in mesgs if mesg[0] == 'init'])
+                self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
+                mesgs = [mesg for mesg in mesgs if mesg[0] == 'err']
+                self.len(1, mesgs)
+                enfo = mesgs[0][1]
+                self.eq(enfo[0], 'BadStormSyntax')
 
     async def test_feed_splice(self):
 
