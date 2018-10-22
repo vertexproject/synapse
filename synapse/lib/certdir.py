@@ -762,7 +762,11 @@ class CertDir:
             None
         '''
         cakey = self.getCaKey(signas)
+        if cakey is None:
+            raise s_exc.NoCertKey('Missing .key for %s' % signas)
         cacert = self.getCaCert(signas)
+        if cacert is None:
+            raise s_exc.NoCertKey('Missing .crt for %s' % signas)
 
         cert.set_issuer(cacert.get_subject())
         cert.sign(cakey, self.signing_digest)
