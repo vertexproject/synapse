@@ -1,13 +1,14 @@
 import sys
-import asyncio
 import logging
 import argparse
 import traceback
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.output as s_output
+import synapse.glob as s_glob
 import synapse.telepath as s_telepath
+
+import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
 
@@ -219,4 +220,4 @@ async def _main():  # pragma: no cover
     return await main(sys.argv[1:])
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main()))
+    sys.exit(s_glob.sync(_main()))
