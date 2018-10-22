@@ -1,7 +1,7 @@
 import sys
-import asyncio
 import logging
 
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -15,7 +15,7 @@ async def main(argv):  # pragma: no cover
         print('usage: python -m synapse.tools.cmdr <url>')
         return -1
 
-    with s_telepath.openurl(argv[1]) as item:
+    async with await s_telepath.openurl(argv[1]) as item:
 
         cmdr = await s_cmdr.getItemCmdr(item)
         # This causes a dropped connection to the cmdr'd item to
@@ -31,4 +31,4 @@ async def _main():  # pragma: no cover
     return await main(sys.argv)
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main()))
+    sys.exit(s_glob.sync(_main()))
