@@ -848,10 +848,12 @@ class CertDir:
 
     def getServerSSLContext(self, hostname: Optional[str] = None) -> ssl.SSLContext:
         '''
+        Returns an ssl.SSLContext appropriate to listen on a socket
+
         Args:
             hostname:  if None, the value from socket.gethostname is used to find the key in the servers directory.
-            This name sould match the not-suffixed part of two files ending in .key and .crt in the hosts subdirectory
-            underneath the certdir.
+            This name should match the not-suffixed part of two files ending in .key and .crt in the hosts subdirectory
+
         '''
         sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         if hostname is None:
