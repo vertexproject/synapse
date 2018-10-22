@@ -2,11 +2,12 @@ import os
 import sys
 import time
 import shutil
-import asyncio
 import logging
 import argparse
 import tempfile
 import contextlib
+
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
@@ -149,4 +150,4 @@ async def _main():  # pragma: no cover
     return await main(sys.argv[1:])
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(asyncio.run(_main()))
+    sys.exit(s_glob.sync(_main()))
