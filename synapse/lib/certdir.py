@@ -863,7 +863,7 @@ class CertDir:
             raise s_exc.NoCertKey('Missing .crt for %s' % hostname)
         keyfile = self.getHostKeyPath(hostname)
         if keyfile is None:
-            raise s_exc.NoCertKey('Missing .key for %s', hostname)
+            raise s_exc.NoCertKey('Missing .key for %s' % hostname)
 
         sslctx.load_cert_chain(certfile, keyfile)
 
