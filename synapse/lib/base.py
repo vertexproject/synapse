@@ -304,6 +304,7 @@ class Base:
             except Exception:
                 # The taskDone callback will emit the exception.  No need to repeat
                 pass
+        await asyncio.sleep(0, loop=self.loop)
         assert not self._active_tasks
 
     async def fini(self):

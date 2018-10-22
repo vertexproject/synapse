@@ -26,6 +26,9 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][0], ('inet:ipv4', 0x01020304))
 
+            # 3: init + inet:ipv4 + fini
+            await self.agenlen(3, core.streamstorm('inet:dns:a :ipv4 -> *'))
+
     async def test_cortex_of_the_future(self):
 
         # test "future/ongoing" time stamp.
@@ -1148,10 +1151,8 @@ class CortexTest(s_t_utils.SynTest):
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
             await alist(core.eval('[ testcomp=(127,newp) ] [testcomp=(127,127)]'))
-            mesgs = await alist(core.storm('testcomp :haha -> testint'))
+            mesgs = await alist(core.streamstorm('testcomp :haha -> testint'))
 
-            # FIXME: warns are different now somehow
-            return
             warns = [msg for msg in mesgs if msg[0] == 'warn']
             self.len(1, warns)
             emesg = "BadTypeValu ['newp'] during pivot: invalid literal for int() with base 0: 'newp'"
@@ -1167,7 +1168,7 @@ class CortexTest(s_t_utils.SynTest):
                       'pivcomp :lulz <- teststr',
                       'pivcomp :lulz <+- teststr',
                       ]:
-                self.genraises(s_exc.BadStormSyntax, core.eval, q)
+                await self.agenraises(s_exc.BadStormSyntax, core.eval(q))
 
     async def test_node_repr(self):
 

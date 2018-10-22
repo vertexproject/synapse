@@ -1,11 +1,15 @@
 import os
+import logging
 import functools
 import threading
+
 import synapse.glob as s_glob
 import synapse.lib.plex as s_plex
 import synapse.lib.certdir as s_certdir
 
 import synapse.tests.utils as s_t_utils
+
+logger = logging.getLogger(__name__)
 
 class PlexTest(s_t_utils.SynTest):
     def test_plex_callLater(self):
@@ -56,6 +60,8 @@ class PlexTest(s_t_utils.SynTest):
         steps = self.getTestSteps(['onlink', 'onrx1', 'client_rx', 'link_fini'])
         with s_plex.Plex() as plex1, s_plex.Plex() as plex2:
 
+            servers = []
+
             async def server_onlink(link):
                 steps.done('onlink')
 
@@ -69,6 +75,7 @@ class PlexTest(s_t_utils.SynTest):
 
             async def do_listen():
                 server = await plex1.listen('127.0.0.1', None, onlink=server_onlink)
+                servers.append(server)
                 _, port = server.sockets[0].getsockname()
                 return port
 
@@ -89,6 +96,12 @@ class PlexTest(s_t_utils.SynTest):
             await steps.asyncwait('onrx1', timeout=1)
             await steps.asyncwait('client_rx', timeout=1)
             await steps.asyncwait('link_fini')
+            # Tear down the socket server
+            for server in servers:
+                try:
+                    server.close()
+                except:
+                    logger.exception('Error tearing down socket server.')
 
     async def test_plex_tls(self):
         '''
@@ -97,6 +110,8 @@ class PlexTest(s_t_utils.SynTest):
         certdir = s_certdir.CertDir(os.path.join(self.getTestFilePath(), 'certdir'))
         steps = self.getTestSteps(['onlink', 'onrx1', 'client_rx', 'link_fini'])
         with s_plex.Plex() as plex1, s_plex.Plex() as plex2:
+
+            servers = []
 
             async def server_onlink(link):
                 steps.done('onlink')
@@ -113,6 +128,7 @@ class PlexTest(s_t_utils.SynTest):
                 sslctx = certdir.getServerSSLContext('localhost')
 
                 server = await plex1.listen('127.0.0.1', None, onlink=server_onlink, ssl=sslctx)
+                servers.append(server)
                 _, port = server.sockets[0].getsockname()
                 return port
 
@@ -134,3 +150,9 @@ class PlexTest(s_t_utils.SynTest):
             await steps.asyncwait('onrx1', timeout=1)
             await steps.asyncwait('client_rx', timeout=1)
             await steps.asyncwait('link_fini')
+            # Tear down the socket server
+            for server in servers:
+                try:
+                    server.close()
+                except:
+                    logger.exception('Error tearing down socket server.')
