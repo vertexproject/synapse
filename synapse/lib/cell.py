@@ -299,7 +299,7 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         user = self.auth.users.get(name)
         if user is None:
-            raise s_exc.AuthDeny(mesg='Unable to find cell user')
+            raise s_exc.AuthDeny(mesg='User not present in link', user=name)
 
         # passwd None always fails...
         passwd = info.get('passwd')

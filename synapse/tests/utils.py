@@ -604,7 +604,7 @@ class SynTest(unittest.TestCase):
         with self.getTestDir(mirror=mirror) as dirn:
 
             # Copy test certs
-            shutil.copytree(os.path.join(self.getTestFilePath(), 'certdir'), os.path.join(dirn, 'certs'))
+            shutil.copytree(self.getTestFilePath('certdir'), os.path.join(dirn, 'certs'))
 
             coredir = pathlib.Path(dirn, 'cells', 'core')
             if coredir.is_dir():

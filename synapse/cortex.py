@@ -242,6 +242,7 @@ class CoreApi(s_cell.CellApi):
         return i
 
     async def eval(self, text, opts=None):
+        # FIXME: remove queue
         '''
         Evalute a storm query and yield packed nodes.
         '''

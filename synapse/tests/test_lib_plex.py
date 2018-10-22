@@ -100,7 +100,7 @@ class PlexTest(s_t_utils.SynTest):
             for server in servers:
                 try:
                     server.close()
-                except:
+                except Exception:
                     logger.exception('Error tearing down socket server.')
 
     async def test_plex_tls(self):
@@ -154,5 +154,5 @@ class PlexTest(s_t_utils.SynTest):
             for server in servers:
                 try:
                     server.close()
-                except:
+                except Exception:
                     logger.exception('Error tearing down socket server.')

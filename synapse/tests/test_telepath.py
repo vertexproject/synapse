@@ -204,6 +204,24 @@ class TeleTest(s_t_utils.SynTest):
         self.true(prox.isfini)
         await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
 
+    async def test_telepath_tls_bad_cert(self):
+
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+            # As a workaround to a Python bug (https://bugs.python.org/issue30945) that prevents localhost:0 from
+            # being connected via TLS, make a certificate for whatever my hostname is and sign it with the test CA
+            # key.
+            hostname = socket.gethostname()
+            dmon.certdir.genHostCert(socket.gethostname())
+
+            addr = await dmon.listen(f'ssl://{hostname}:0')
+            dmon.share('foo', foo)
+
+            # host cert is *NOT* signed by a CA that client recognizes
+            await self.asyncraises(ssl.SSLCertVerificationError,
+                                   s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]))
+
     async def test_telepath_tls(self):
 
         foo = Foo()
@@ -217,10 +235,6 @@ class TeleTest(s_t_utils.SynTest):
 
             addr = await dmon.listen(f'ssl://{hostname}:0')
             dmon.share('foo', foo)
-
-            # IP Address mismatch:  certificate is not valid for 127.0.0.1
-            # await self.asyncraises(ssl.SSLCertVerificationError,
-            #                        s_telepath.openurl('ssl://localhost/foo', port=addr[1]))
 
             prox = await s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1])
 
