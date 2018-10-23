@@ -91,6 +91,8 @@ class Snap(s_eventbus.EventBus):
         dorepr = False
         dopath = False
 
+        self.core._logStormQuery(text, user)
+
         if opts is not None:
             dorepr = opts.get('repr', False)
             dopath = opts.get('path', False)
