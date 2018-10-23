@@ -1,5 +1,4 @@
 import os
-import io
 import shutil
 import tarfile
 import zipfile

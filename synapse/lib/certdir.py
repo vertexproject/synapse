@@ -1,6 +1,8 @@
-
 import os
+import ssl
 import shutil
+import socket
+from typing import Optional
 
 from OpenSSL import crypto
 
@@ -760,7 +762,11 @@ class CertDir:
             None
         '''
         cakey = self.getCaKey(signas)
+        if cakey is None:
+            raise s_exc.NoCertKey('Missing .key for %s' % signas)
         cacert = self.getCaCert(signas)
+        if cacert is None:
+            raise s_exc.NoCertKey('Missing .crt for %s' % signas)
 
         cert.set_issuer(cacert.get_subject())
         cert.sign(cakey, self.signing_digest)
@@ -824,6 +830,44 @@ class CertDir:
         pkey = xcsr.get_pubkey()
         name = xcsr.get_subject().CN
         return self.genUserCert(name, csr=pkey, signas=signas, outp=outp)
+
+    def _loadCasIntoSSLContext(self, ctx):
+        path = s_common.genpath(self.certdir, 'cas')
+        for name in os.listdir(path):
+            if name.endswith('.crt'):
+                ctx.load_verify_locations(os.path.join(path, name))
+
+    def getClientSSLContext(self) -> ssl.SSLContext:
+        '''
+        Returns an ssl.SSLContext appropriate for initiating a TLS session
+        '''
+        sslctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        self._loadCasIntoSSLContext(sslctx)
+
+        return sslctx
+
+    def getServerSSLContext(self, hostname: Optional[str] = None) -> ssl.SSLContext:
+        '''
+        Returns an ssl.SSLContext appropriate to listen on a socket
+
+        Args:
+            hostname:  if None, the value from socket.gethostname is used to find the key in the servers directory.
+            This name should match the not-suffixed part of two files ending in .key and .crt in the hosts subdirectory
+
+        '''
+        sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        if hostname is None:
+            hostname = socket.gethostname()
+        certfile = self.getHostCertPath(hostname)
+        if certfile is None:
+            raise s_exc.NoCertKey('Missing .crt for %s' % hostname)
+        keyfile = self.getHostKeyPath(hostname)
+        if keyfile is None:
+            raise s_exc.NoCertKey('Missing .key for %s' % hostname)
+
+        sslctx.load_cert_chain(certfile, keyfile)
+
+        return sslctx
 
     def _checkDupFile(self, path):
         if os.path.isfile(path):

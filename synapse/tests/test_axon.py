@@ -332,29 +332,29 @@ class _AsyncQueueTest(s_t_utils.SynTest):
         # The axon tests test most of the asyncqueue functionality.  We just need to test the
         # draining part
 
-        q = await s_axon._AsyncQueue.anit(5, drain_level=3)
-        [await q.put(i) for i in range(5)]
-        got_to_end = False
-        last_msg = 0
+        async with await s_axon._AsyncQueue.anit(5, drain_level=3) as q:
+            [await q.put(i) for i in range(5)]
+            got_to_end = False
+            last_msg = 0
 
-        def sync_worker():
-            nonlocal got_to_end
-            nonlocal last_msg
-            time.sleep(0.1)
+            def sync_worker():
+                nonlocal got_to_end
+                nonlocal last_msg
+                time.sleep(0.1)
 
-            last_msg = q.get()
-            last_msg = q.get()
-            time.sleep(0.1)
-            last_msg = q.get()
+                last_msg = q.get()
+                last_msg = q.get()
+                time.sleep(0.1)
+                last_msg = q.get()
 
-            got_to_end = True
-        t = s_threads.worker(sync_worker)
-        before = time.time()
-        await q.put(6)
-        self.lt(0.1, time.time() - before)
-        self.eq(last_msg, 2)
-        await s_glob.plex.sleep(0.1)
+                got_to_end = True
+            t = s_threads.worker(sync_worker)
+            before = time.time()
+            await q.put(6)
+            self.lt(0.1, time.time() - before)
+            self.eq(last_msg, 2)
+            await s_glob.plex.sleep(0.1)
 
-        self.true(got_to_end)
+            self.true(got_to_end)
 
-        t.join()
+            t.join()

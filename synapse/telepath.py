@@ -5,15 +5,15 @@ An RMI framework for synapse.
 import os
 import asyncio
 import logging
-import inspect
+
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.certdir as s_certdir
 import synapse.lib.threads as s_threads
-
 import synapse.lib.urlhelp as s_urlhelp
 
 logger = logging.getLogger(__name__)
@@ -513,13 +513,16 @@ async def openurl(url, **opts):
 
     user = info.get('user')
     if user is not None:
-        auth = (user, {
-            'passwd': info.get('passwd')
-        })
+        passwd = info.get('passwd')
+        auth = (user, {'passwd': passwd})
 
-    #TODO SSL
+    sslctx = None
+    if info.get('scheme') == 'ssl':
+        certpath = info.get('certdir')
+        certdir = s_certdir.CertDir(certpath)
+        sslctx = certdir.getClientSSLContext()
 
-    link = await s_glob.plex.link(host, port)
+    link = await s_glob.plex.link(host, port, ssl=sslctx)
 
     prox = await Proxy.anit(link, name)
 

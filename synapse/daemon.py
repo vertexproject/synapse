@@ -16,6 +16,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.share as s_share
+import synapse.lib.certdir as s_certdir
 import synapse.lib.urlhelp as s_urlhelp
 
 class Genr(s_share.Share):
@@ -106,6 +107,7 @@ class Daemon(s_base.Base):
 
         conf = self._loadDmonYaml()
         self.conf = s_common.config(conf, self.confdefs)
+        self.certdir = s_certdir.CertDir(os.path.join(dirn, 'certs'))
 
         self.mods = {}      # keep refs to mods we load ( mostly for testing )
         self.televers = s_telepath.televers
@@ -135,17 +137,18 @@ class Daemon(s_base.Base):
         Args:
             host (str): A hostname or IP address.
             port (int): The TCP port to bind.
-            ssl (ssl.SSLContext): An SSL context or None...
         '''
         info = s_urlhelp.chopurl(url, **opts)
+        info.update(opts)
 
         host = info.get('host')
         port = info.get('port')
 
-        # TODO: SSL
-        ssl = None
+        sslctx = None
+        if info.get('scheme') == 'ssl':
+            sslctx = self.certdir.getServerSSLContext(hostname=host)
 
-        server = await s_glob.plex.listen(host, port, self._onLinkInit, ssl=ssl)
+        server = await s_glob.plex.listen(host, port, self._onLinkInit, ssl=sslctx)
         self.listenservers.append(server)
         return server.sockets[0].getsockname()
 
