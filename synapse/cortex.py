@@ -242,33 +242,12 @@ class CoreApi(s_cell.CellApi):
         return i
 
     async def eval(self, text, opts=None):
-        # FIXME: remove queue
         '''
         Evalute a storm query and yield packed nodes.
         '''
-        MSG_QUEUE_SIZE = 1000
-        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
-
-        async def runEval(chan):
-            try:
-                async with await self.cell.snap(user=self.user) as snap:
-                    async for item in snap.iterStormPodes(text, opts=opts, user=self.user):
-                        await chan.put(item)
-            except Exception as e:
-                await chan.put(e)
-
-            finally:
-                await chan.put(None)  # sentinel to indicate end of stream
-
-        self.schedCoro(runEval(chan))
-
-        while True:
-            item = await chan.get()
-            if item is None:
-                break
-            if isinstance(item, Exception):
-                raise item
-            yield item
+        async with await self.cell.snap(user=self.user) as snap:
+            async for item in snap.iterStormPodes(text, opts=opts, user=self.user):
+                yield item
 
     async def storm(self, text, opts=None):
         '''
