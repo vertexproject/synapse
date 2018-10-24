@@ -3,8 +3,9 @@ import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.lib.cli as s_cli
+import synapse.lib.coro as s_coro
+
 import synapse.tests.utils as s_t_utils
-import synapse.tests.common as s_t_common
 
 class TstThrowCmd(s_cli.Cmd):
     '''
@@ -69,6 +70,7 @@ class CliTest(s_t_utils.SynTest):
 
         class WootCmd(s_cli.Cmd):
             _cmd_name = 'woot'
+
             def runCmdOpts(self, opts):
                 return 20
 
@@ -214,7 +216,7 @@ class CliTest(s_t_utils.SynTest):
         outp = self.getTestOutp()
         cmdg = s_t_utils.CmdGenerator(['help', 'quit'])
 
-        with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
+        with mock.patch('synapse.lib.cli.get_input', cmdg):
             with s_cli.Cli(None, outp) as cli:
                 cli.runCmdLoop()
                 self.eq(cli.isfini, True)
@@ -223,7 +225,7 @@ class CliTest(s_t_utils.SynTest):
     def test_cli_cmd_loop_eof(self):
         outp = self.getTestOutp()
         cmdg = s_t_utils.CmdGenerator(['help'], on_end=EOFError)
-        with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
+        with mock.patch('synapse.lib.cli.get_input', cmdg):
             with s_cli.Cli(None, outp) as cli:
                 cli.runCmdLoop()
                 self.eq(cli.isfini, True)
@@ -232,7 +234,7 @@ class CliTest(s_t_utils.SynTest):
     def test_cli_cmd_loop_bad_input(self):
         outp = self.getTestOutp()
         cmdg = s_t_utils.CmdGenerator([1234], on_end=EOFError)
-        with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
+        with mock.patch('synapse.lib.cli.get_input', cmdg):
             with s_cli.Cli(None, outp) as cli:
                 cli.runCmdLoop()
                 self.eq(cli.isfini, True)
@@ -249,7 +251,7 @@ class CliTest(s_t_utils.SynTest):
             if data['count'] > 2:
                 cmdg.addCmd('quit')
 
-        with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
+        with mock.patch('synapse.lib.cli.get_input', cmdg):
             with s_cli.Cli(None, outp) as cli:
                 cli.on('cli:getinput', _onGetInput)
                 cli.runCmdLoop()
@@ -267,7 +269,7 @@ class CliTest(s_t_utils.SynTest):
                              'throwkeyboard',
                              'quit',
                              ])
-        with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
+        with mock.patch('synapse.lib.cli.get_input', cmdg):
             with s_cli.Cli(None, outp) as cli:
                 cli.addCmdClass(TstThrowCmd)
                 cli.addCmdClass(TstThrowKeyboard)
@@ -281,7 +283,7 @@ class CliTest(s_t_utils.SynTest):
     def test_cli_fini_disconnect(self):
         evt = threading.Event()
         outp = self.getTestOutp()
-        with s_t_utils.AsyncToSyncCMgr(self.getTestDmon, 'dmonboot') as dmon:
+        with s_coro.AsyncToSyncCMgr(self.getTestDmon, 'dmonboot') as dmon:
             with self.getTestProxy(dmon, 'echo00') as prox:
                 cli = s_cli.Cli(prox, outp)
                 cli.onfini(evt.set)

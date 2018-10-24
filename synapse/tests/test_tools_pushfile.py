@@ -4,6 +4,7 @@ import hashlib
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.coro as s_coro
 import synapse.lib.scope as s_scope
 import synapse.tools.pushfile as s_pushfile
 
@@ -14,7 +15,7 @@ visihash = hashlib.sha256(b'visi').digest()
 
 class TestPushFile(s_t_utils.SynTest):
     def test_pushfile(self):
-        with s_t_utils.AsyncToSyncCMgr(self.getTestDmonCortexAxon) as dmon:
+        with s_coro.AsyncToSyncCMgr(self.getTestDmonCortexAxon) as dmon:
             coreurl = s_scope.get('coreurl')
             axonurl = s_scope.get('axonurl')
             dirn = s_scope.get('dirn')

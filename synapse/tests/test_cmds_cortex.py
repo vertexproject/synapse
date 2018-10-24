@@ -2,6 +2,7 @@ import os
 import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.coro as s_coro
 import synapse.lib.scope as s_scope
 import synapse.lib.encoding as s_encoding
 
@@ -12,7 +13,7 @@ class CmdCoreTest(s_t_utils.SynTest):
 
     def test_storm(self):
         help_msg = 'Execute a storm query.'
-        with s_t_utils.AsyncToSyncCMgr(self.getTestDmon, 'dmoncore') as dmon, \
+        with s_coro.AsyncToSyncCMgr(self.getTestDmon, 'dmoncore') as dmon, \
                 self.getTestProxy(dmon, 'core') as core:
             self.len(1, core.eval("[ teststr=abcd :tick=2015 +#cool ]"))
 
@@ -94,7 +95,6 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             cmdr = s_cmdr.getItemCmdr(core, outp=outp)
             cmdr.runCmdLine('storm --bad')
-            outp.expect('Traceback')
             outp.expect('BadStormSyntax')
 
             outp = self.getTestOutp()
@@ -126,7 +126,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp.expect('complete. 1 nodes')
 
     def test_log(self):
-        with s_t_utils.AsyncToSyncCMgr(self.getTestDmon, 'dmoncore') as dmon:
+        with s_coro.AsyncToSyncCMgr(self.getTestDmon, 'dmoncore') as dmon:
             dirn = s_scope.get('dirn')
             with self.setSynDir(dirn):
                 with self.getTestProxy(dmon, 'core') as core:
