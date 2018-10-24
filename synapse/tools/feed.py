@@ -76,7 +76,6 @@ def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=1000, off
         outp.printf(f'Done consuming from [{bname}]')
         outp.printf(f'Took [{tock - tick}] seconds.')
     if debug:
-        # FIXME
         s_cmdr.runItemCmdr(core, outp)
 
 def main(argv, outp=None):

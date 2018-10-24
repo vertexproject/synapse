@@ -3,8 +3,6 @@ import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.lib.cli as s_cli
-import synapse.lib.coro as s_coro
-
 import synapse.tests.utils as s_t_utils
 
 class TstThrowCmd(s_cli.Cmd):
@@ -13,8 +11,8 @@ class TstThrowCmd(s_cli.Cmd):
     '''
     _cmd_name = 'throwzero'
 
-    def runCmdOpts(self, opts):
-        ret = 1 / 0
+    async def runCmdOpts(self, opts):
+        1 / 0
 
 class TstThrowKeyboard(s_cli.Cmd):
     '''
@@ -22,7 +20,7 @@ class TstThrowKeyboard(s_cli.Cmd):
     '''
     _cmd_name = 'throwkeyboard'
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
         raise KeyboardInterrupt('TstThrowKeyboard')
 
 
@@ -35,48 +33,48 @@ class CliTest(s_t_utils.SynTest):
             cli.cmdprompt = 'hehe> '
             self.eq(cli.getCmdPrompt(), 'hehe> ')
 
-    def test_cli_get_set(self):
+    async def test_cli_get_set(self):
         outp = self.getTestOutp()
         with s_cli.Cli(None, outp=outp, hehe='haha') as cli:
             self.eq(cli.get('hehe'), 'haha')
             self.none(cli.get('foo'))
             cli.set('foo', 'bar')
             self.eq(cli.get('foo'), 'bar')
-            cli.runCmdLine('locs')
+            await cli.runCmdLine('locs')
             self.true(outp.expect('hehe'))
             self.true(outp.expect('haha'))
             self.true(outp.expect('foo'))
             self.true(outp.expect('bar'))
 
-    def test_cli_quit(self):
+    async def test_cli_quit(self):
         outp = self.getTestOutp()
         with s_cli.Cli(None, outp=outp) as cli:
-            cli.runCmdLine('quit')
+            await cli.runCmdLine('quit')
             self.true(cli.isfini)
 
-    def test_cli_help(self):
+    async def test_cli_help(self):
         outp = self.getTestOutp()
         with s_cli.Cli(None, outp=outp) as cli:
-            cli.runCmdLine('help')
+            await cli.runCmdLine('help')
         self.true(outp.expect('Quit the current command line interpreter.'))
 
-    def test_cli_notacommand(self):
+    async def test_cli_notacommand(self):
         outp = self.getTestOutp()
         with s_cli.Cli(None, outp=outp) as cli:
-            cli.runCmdLine('notacommand')
+            await cli.runCmdLine('notacommand')
         self.true(outp.expect('cmd not found: notacommand'))
 
-    def test_cli_cmdret(self):
+    async def test_cli_cmdret(self):
 
         class WootCmd(s_cli.Cmd):
             _cmd_name = 'woot'
 
-            def runCmdOpts(self, opts):
+            async def runCmdOpts(self, opts):
                 return 20
 
         with s_cli.Cli(None) as cli:
             cli.addCmdClass(WootCmd)
-            self.eq(cli.runCmdLine('woot'), 20)
+            self.eq(await cli.runCmdLine('woot'), 20)
 
     def test_cli_cmd(self):
         with s_cli.Cli(None) as cli:
@@ -261,14 +259,7 @@ class CliTest(s_t_utils.SynTest):
 
     def test_cli_cmd_loop(self):
         outp = self.getTestOutp()
-        cmdg = s_t_utils.CmdGenerator(['help',
-                             'locs',
-                             '',
-                             '    ',
-                             'throwzero',
-                             'throwkeyboard',
-                             'quit',
-                             ])
+        cmdg = s_t_utils.CmdGenerator(['help', 'locs', '', '    ', 'throwzero', 'throwkeyboard', 'quit'])
         with mock.patch('synapse.lib.cli.get_input', cmdg):
             with s_cli.Cli(None, outp) as cli:
                 cli.addCmdClass(TstThrowCmd)
@@ -280,11 +271,11 @@ class CliTest(s_t_utils.SynTest):
                 self.true(outp.expect('<ctrl-c>'))
                 self.true(cli.isfini)
 
-    def test_cli_fini_disconnect(self):
+    async def test_cli_fini_disconnect(self):
         evt = threading.Event()
         outp = self.getTestOutp()
-        with s_coro.AsyncToSyncCMgr(self.getTestDmon, 'dmonboot') as dmon:
-            with self.getTestProxy(dmon, 'echo00') as prox:
+        async with self.getTestDmon('dmonboot') as dmon:
+            async with await self.getTestProxy(dmon, 'echo00')as prox:
                 cli = s_cli.Cli(prox, outp)
                 cli.onfini(evt.set)
             self.true(evt.wait(2))

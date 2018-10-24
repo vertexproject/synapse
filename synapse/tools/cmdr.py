@@ -11,7 +11,7 @@ def main(argv):  # pragma: no cover
 
     with s_telepath.openurl(argv[1]) as item:
 
-        cmdr = s_cmdr.getItemCmdr(item)
+        cmdr = s_glob.sync(s_cmdr.getItemCmdr(item))
         # This causes a dropped connection to the cmdr'd item to
         # cause cmdr to exit. We can't safely test this in CI since
         # the fini handler sends a SIGINT to mainthread; which can
