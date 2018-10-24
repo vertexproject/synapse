@@ -202,7 +202,7 @@ class Cmd:
 
     async def execStormCmd(self, runt, genr):
         ''' Abstract base method '''
-        raise NotImplemented
+        raise s_exc.NoSuchImpl('Subclass must implement execStormCmd')
 
 class HelpCmd(Cmd):
     '''
@@ -407,8 +407,8 @@ class SudoCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
         runt.elevate()
-        async for x in genr:
-            yield x
+        async for item in genr:
+            yield item
 
 # TODO
 # class AddNodeCmd(Cmd):     # addnode inet:ipv4 1.2.3.4 5.6.7.8

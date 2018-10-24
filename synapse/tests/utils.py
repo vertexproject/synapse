@@ -436,7 +436,7 @@ class StreamEvent(io.StringIO, threading.Event):
 
 class AsyncStreamEvent(io.StringIO, asyncio.Event):
     '''
-    A combination of a io.StringIO object and a threading.Event object.
+    A combination of a io.StringIO object and an asyncio.Event object.
     '''
     def __init__(self, *args, **kwargs):
         io.StringIO.__init__(self, *args, **kwargs)

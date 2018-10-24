@@ -98,7 +98,7 @@ class Share(s_base.Base):
         Convenience function to enable using Proxy objects as synchronous context managers.
 
         Note:
-            This must not be used from async code or synapse core code.
+            This should never be used by synapse core code.  This is for sync client code convenience only.
         '''
         if s_threads.iden() == self.tid:
             raise s_exc.SynErr('Use of synchronous context manager in async code')
@@ -107,7 +107,7 @@ class Share(s_base.Base):
 
     def __exit__(self, *args):
         '''
-        This should never be used by synapse code.
+        This should never be used by synapse core code.  This is for sync client code convenience only.
         '''
         return self.schedCoroSafePend(self._ctxobj.__aexit__(*args))
 
