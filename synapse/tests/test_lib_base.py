@@ -280,6 +280,7 @@ class BaseTest(s_t_utils.SynTest):
         loop.create_task(callfini())
         # actually wait...
         self.true(await base.waitfini(timeout=0.3))
+        self.true(base.isfini)
 
         # bounce off the isfini block
         self.true(await base.waitfini(timeout=0.3))

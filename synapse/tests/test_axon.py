@@ -309,7 +309,7 @@ class AxonTest(s_t_utils.SynTest):
                     # Make sure the axon gets the updates from the second blobstor
                     await self._wait_for_axon_files(axon, 4)
 
-                    # self.eq(b'asdfasdf', b''.join([x async for x in axon.get(asdfhash)]))
+                    self.eq(b'asdfasdf', b''.join([x async for x in axon.get(asdfhash)]))
 
                     boohash = hashlib.sha256(b'boo').digest()
                     self.eq((1, boohash), await blobstor0.putone(b'boo'))
