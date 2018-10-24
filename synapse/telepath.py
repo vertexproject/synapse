@@ -11,7 +11,7 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
+import synapse.lib.queue as s_queue
 import synapse.lib.certdir as s_certdir
 import synapse.lib.threads as s_threads
 import synapse.lib.urlhelp as s_urlhelp
@@ -115,7 +115,7 @@ class Genr(Share):
 
     async def __anit__(self, proxy, iden):
         await Share.__anit__(self, proxy, iden)
-        self.queue = await s_coro.Queue.anit()
+        self.queue = await s_queue.AQueue.anit()
         self.onfini(self.queue.fini)
 
     async def _onShareData(self, data):

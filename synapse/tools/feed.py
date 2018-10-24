@@ -18,6 +18,8 @@ import synapse.lib.const as s_const
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 
+import synapse.tests.utils as s_t_utils
+
 logger = logging.getLogger(__name__)
 
 @contextlib.contextmanager
@@ -99,7 +101,7 @@ def main(argv, outp=None):
         with getTempDir() as dirn:
             s_common.yamlsave({'layer:lmdb:mapsize': s_const.gibibyte * 5},
                               dirn, 'cell.yaml')
-            with s_coro.AsyncToSyncCMgr(s_glob.sync, s_cortex.Cortex.anit(dirn)) as core:
+            with s_t_utils.AsyncToSyncCMgr(s_glob.sync, s_cortex.Cortex.anit(dirn)) as core:
                 for mod in opts.modules:
                     outp.printf(f'Loading [{mod}]')
                     s_glob.sync(core.loadCoreModule(mod))
