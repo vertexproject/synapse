@@ -8,6 +8,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 import synapse.glob as s_glob
+import synapse.common as s_common
+
 import synapse.lib.base as s_base
 import synapse.lib.queue as s_queue
 
@@ -46,7 +48,7 @@ async def genr2agenr(func, *args, qsize=100, **kwargs):
     class SentinelClass:
         pass
 
-    sentinel = SentinelClass()
+    sentinel = s_common.NoValu()
 
     async with await s_queue.S2AQueue.anit(qsize) as chan:
 

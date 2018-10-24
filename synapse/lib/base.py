@@ -407,7 +407,7 @@ class Base:
         Note:
             This method may be run outside the event loop on a different thread.
         '''
-        self.loop.call_soon_threadsafe(self.schedCoro, coro)
+        return self.loop.call_soon_threadsafe(self.schedCoro, coro)
 
     def schedCoroSafePend(self, coro):
         '''

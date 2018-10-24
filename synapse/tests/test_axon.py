@@ -312,7 +312,7 @@ class AxonTest(s_t_utils.SynTest):
                     self.eq((1, boohash), await blobstor0.putone(b'boo'))
                     await self._wait_for_axon_files(axon, 6)
 
-                    # # Make sure a regular write to the axon still works
+                    # Make sure a regular write to the axon still works
                     self.eq(1, await axon.bulkput([b'bar']))
 
                     # Now turn off the second blobstor and see what happens

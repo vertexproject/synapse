@@ -241,6 +241,7 @@ class Node:
                 return self.tags.get(name)
             return self.props.get(name)
 
+        # FIXME
         raise Exception('Temporarily disabled implicit pivoting in get')
 
         name, text = parts

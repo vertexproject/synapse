@@ -5,7 +5,7 @@ An RMI framework for synapse.
 import os
 import asyncio
 import logging
-
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -256,7 +256,7 @@ class Proxy(s_base.Base):
         Convenience function to enable using Proxy objects as synchronous context managers.
 
         Note:
-            This must not be used from async code
+            This must not be used from async code, and it should never be used in core synapse code.
         '''
         if s_threads.iden() == self.tid:
             raise s_exc.SynErr('Use of synchronous context manager in async code')
@@ -265,7 +265,8 @@ class Proxy(s_base.Base):
 
     def __exit__(self, *args):
         '''
-        This should never be used by synapse code.
+        Note:
+            This should never be used by core synapse code.
         '''
         return self.schedCoroSafePend(self._ctxobj.__aexit__(*args))
 
@@ -495,6 +496,10 @@ async def openurl(url, **opts):
         proxy = await openurl(url)
         valu = await proxy.getFooThing()
 
+    ... or ...
+
+        async with await openurl(url) as proxy:
+            valu = await proxy.getFooThing()
     '''
     if url.find('://') == -1:
         newurl = alias(url)
@@ -529,3 +534,17 @@ async def openurl(url, **opts):
     await prox.handshake(auth=auth)
 
     return prox
+
+@contextlib.asynccontextmanager
+async def openurlctx(url, **opts):
+    '''
+    Opens url as telepath proxy in an async context manager.
+
+    Convenience function for openurl to save a word.
+
+    Usage:
+        async with openurlctx(url) as proxy:
+            valu = await proxy.getFooThing()
+    '''
+    async with await openurl(url, **opts) as prox:
+        yield prox

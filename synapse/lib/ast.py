@@ -118,21 +118,22 @@ class Query(AstNode):
 
         self.canceled = True
 
-    async def execute(self):
+    # FIXME: remove
+    # async def execute(self):
 
-        chan = asyncio.Queue(maxsize=10)
+    #     chan = asyncio.Queue(maxsize=10)
 
-        coro = self._runQueryThread(chan)
+    #     coro = self._runQueryThread(chan)
 
-        s_glob.plex.coroLoopTask(coro)
+    #     s_glob.plex.coroLoopTask(coro)
 
-        while not self.canceled:
+    #     while not self.canceled:
 
-            item = await chan.get()
-            if item is None:
-                return
+    #         item = await chan.get()
+    #         if item is None:
+    #             return
 
-            yield item
+    #         yield item
 
     async def getInput(self, snap):
         for ndef in self.opts.get('ndefs', ()):
@@ -287,8 +288,8 @@ class LiftOper(Oper):
 
     async def run(self, runt, genr):
 
-        async for x in genr:
-            yield x
+        async for item in genr:
+            yield item
 
         async for node in self.lift(runt):
             yield node, runt.initPath(node)
@@ -1119,8 +1120,8 @@ class EditNodeAdd(Edit):
         name = self.kids[0].value()
         formtype = runt.snap.model.types.get(name)
 
-        async for x in genr:
-            yield x
+        async for item in genr:
+            yield item
 
         runt.allowed('node:add', name)
 

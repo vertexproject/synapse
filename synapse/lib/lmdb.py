@@ -589,12 +589,12 @@ class Slab(s_base.Base):
         self.xactops = []
         self.recovering = False
 
+        opts.setdefault('max_dbs', 128)
+        opts.setdefault('writemap', True)
+
         # if growsize is not set, we double...
         self.maxsize = opts.pop('maxsize', None)
         self.growsize = opts.pop('growsize', None)
-
-        opts.setdefault('max_dbs', 128)
-        opts.setdefault('writemap', True)
 
         self.lenv = lmdb.open(path, **opts)
 
@@ -845,9 +845,9 @@ class Slab(s_base.Base):
 
         Example:
 
-            with SHIT.writer():
-                shit.put(foo, bar)
-                shit.put(baz, faz)
+            with dude.writer():
+                dude.put(foo, bar)
+                dude.put(baz, faz)
 
         '''
         self.holders += 1

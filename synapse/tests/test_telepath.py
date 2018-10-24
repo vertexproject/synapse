@@ -248,7 +248,7 @@ class TeleTest(s_t_utils.SynTest):
             addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
 
-            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
+            async with s_telepath.openurlctx('tcp://127.0.0.1/foo', port=addr[1]) as prox:
                 bads = '\u01cb\ufffd\ud842\ufffd\u0012'
                 t0 = ('1234', {'key': bads})
 

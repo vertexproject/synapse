@@ -596,7 +596,7 @@ class BlobStor(s_cell.Cell):
                 return
             self._newdataevent.clear()
             try:
-                await asyncio.wait_for(self._newdataevent.wait(), timeout, loop=self.loop)
+                await asyncio.wait_for(self._newdataevent.wait(), timeout)
             except asyncio.TimeoutError:
                 return
         with self.lenv.begin(buffers=True) as xact:
@@ -1006,7 +1006,7 @@ class Axon(s_cell.Cell):
 
                 # Wait on either the clone completing, or a signal to stop watching (or the blobstor throwing isfini)
                 stop_coro = stop_event.wait()
-                donelist, notdonelist = await asyncio.wait([clone_and_next(), stop_coro], loop=self.loop,
+                donelist, notdonelist = await asyncio.wait([clone_and_next(), stop_coro],
                                                            return_when=concurrent.futures.FIRST_COMPLETED)
                 for task in notdonelist:
                     task.cancel()
