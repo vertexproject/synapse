@@ -1,31 +1,10 @@
-import asyncio
 import contextlib
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.lib.coro as s_coro
-
 import synapse.tests.utils as s_t_utils
 
 class CoroTest(s_t_utils.SynTest):
-
-    def test_coro_queue(self):
-
-        async def init():
-            queue = await s_coro.Queue.anit()
-            queue.put('foo')
-            return queue
-
-        async def poke():
-            await s_glob.plex.sleep(0.1)
-            queue.put('bar')
-
-        queue = s_glob.sync(init())
-
-        self.eq(['foo'], s_glob.sync(queue.slice()))
-
-        s_glob.plex.coroToTask(poke())
-        self.eq(['bar'], s_glob.sync(queue.slice()))
 
     async def test_coro_iscoro(self):
 
@@ -45,23 +24,6 @@ class CoroTest(s_t_utils.SynTest):
 
         self.false(s_coro.iscoro(genr()))
         self.false(s_coro.iscoro(agen()))
-
-    async def test_coro_s2aqueue(self):
-
-        async with await s_coro.S2AQueue.anit(10) as q:
-
-            def sync():
-                for i in range(10):
-                    q.put(i)
-
-            task = asyncio.get_running_loop().run_in_executor(None, sync)
-
-            for i in range(10):
-                await q.get()
-
-            self.len(0, q)
-
-        await task
 
     async def test_genr2agenr(self):
 

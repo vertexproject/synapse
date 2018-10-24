@@ -3,7 +3,7 @@ import lmdb  # type: ignore
 
 import synapse.glob as s_glob
 
-import synapse.lib.lmdb as s_lmdb
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 
 import synapse.tests.utils as s_t_utils
@@ -15,7 +15,7 @@ class SlabSeqn(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             path = os.path.join(dirn, 'test.lmdb')
-            slab = await s_lmdb.Slab.anit(path, map_size=1000000)
+            slab = await s_lmdbslab.Slab.anit(path, map_size=1000000)
 
             seqn = s_slabseqn.SlabSeqn(slab, 'seqn:test')
 
@@ -34,7 +34,7 @@ class SlabSeqn(s_t_utils.SynTest):
             await slab.fini()
 
             # Reopen the seqn and continue where we left off
-            slab = await s_lmdb.Slab.anit(path, map_size=1000000)
+            slab = await s_lmdbslab.Slab.anit(path, map_size=1000000)
 
             seqn = s_slabseqn.SlabSeqn(slab, 'seqn:test')
             self.eq(seqn.index(), 3)

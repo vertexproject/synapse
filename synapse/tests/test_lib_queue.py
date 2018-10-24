@@ -1,9 +1,13 @@
+import time
+import asyncio
 import threading
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.queue as s_queue
+import synapse.lib.threads as s_threads
 
 import synapse.tests.utils as s_t_utils
 
@@ -167,3 +171,71 @@ class QueueTest(s_t_utils.SynTest):
 
         self.true(q.isfini)
         self.eq(data, results)
+
+    def test_queue_aqueue(self):
+
+        async def init():
+            queue = await s_queue.AQueue.anit()
+            queue.put('foo')
+            return queue
+
+        async def poke():
+            await s_glob.plex.sleep(0.1)
+            queue.put('bar')
+
+        queue = s_glob.sync(init())
+
+        self.eq(['foo'], s_glob.sync(queue.slice()))
+
+        s_glob.plex.coroToTask(poke())
+        self.eq(['bar'], s_glob.sync(queue.slice()))
+
+    async def test_queu_s2aqueue(self):
+
+        async with await s_queue.S2AQueue.anit(10) as q:
+
+            def sync():
+                for i in range(10):
+                    q.put(i)
+
+            task = asyncio.get_running_loop().run_in_executor(None, sync)
+
+            for i in range(10):
+                await q.get()
+
+            self.len(0, q)
+
+        await task
+
+class AsyncQueueTest(s_t_utils.SynTest):
+    async def test_asyncqueue(self):
+
+        # The axon tests test most of the asyncqueue functionality.  We just need to test the
+        # draining part
+
+        async with await s_queue.AsyncQueue.anit(5, drain_level=3) as q:
+            [await q.put(i) for i in range(5)]
+            got_to_end = False
+            last_msg = 0
+
+            def sync_worker():
+                nonlocal got_to_end
+                nonlocal last_msg
+                time.sleep(0.1)
+
+                last_msg = q.get()
+                last_msg = q.get()
+                time.sleep(0.1)
+                last_msg = q.get()
+
+                got_to_end = True
+            t = s_threads.worker(sync_worker)
+            before = time.time()
+            await q.put(6)
+            self.lt(0.1, time.time() - before)
+            self.eq(last_msg, 2)
+            await s_glob.plex.sleep(0.1)
+
+            self.true(got_to_end)
+
+            t.join()

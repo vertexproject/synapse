@@ -3,12 +3,12 @@ The layer library contains the base Layer object and helpers used for
 cortex construction.
 '''
 import os
-import asyncio
 import logging
 
 import synapse.exc as s_exc
 
 import synapse.lib.lmdb as s_lmdb
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.slaboffs as s_slaboffs
 import synapse.lib.layer as s_layer
@@ -40,7 +40,7 @@ class LmdbLayer(s_layer.Layer):
         mapsize = self.conf.get('lmdb:mapsize')
         readahead = self.conf.get('lmdb:readahead')
 
-        self.slab = await s_lmdb.Slab.anit(path, max_dbs=128, map_size=mapsize, writemap=True, readahead=readahead)
+        self.slab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, writemap=True, readahead=readahead)
 
         self.onfini(self.slab.fini)
 

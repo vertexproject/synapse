@@ -1,10 +1,7 @@
-import os
 import asyncio
 import logging
 import pathlib
-import tempfile
 import collections
-import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -356,11 +353,9 @@ class Cortex(s_cell.Cell):
             'tag:del': self._onFeedTagDel,
         }
 
-        self.newp = False
         self.setFeedFunc('syn.nodes', self._addSynNodes)
         self.setFeedFunc('syn.splice', self._addSynSplice)
         self.setFeedFunc('syn.ingest', self._addSynIngest)
-        self.newp = True
 
         await self._initCoreLayers()
 
@@ -427,9 +422,6 @@ class Cortex(s_cell.Cell):
 
         layersdir = pathlib.Path(self.dirn, 'layers')
         layersdir.mkdir(exist_ok=True)
-
-        if pathlib.Path(layersdir, 'default').is_dir():
-            self._migrateOldDefaultLayer()
 
         # Layers are imported in reverse lexicographic order, where the earliest in the alphabet is the 'topmost'
         # write layer.
@@ -631,8 +623,6 @@ class Cortex(s_cell.Cell):
         def func(snap, items):
             loaditems...
         '''
-        if self.newp and name == 'syn.splice':
-            raise Exception('omg')
         self.feedfuncs[name] = func
 
     def getFeedFunc(self, name):
@@ -736,8 +726,8 @@ class Cortex(s_cell.Cell):
             try:
                 pnodes = self._getSynIngestNodes(item)
                 logger.info('Made [%s] nodes.', len(pnodes))
-                async for n in snap.addNodes(pnodes):
-                    yield n
+                async for node in snap.addNodes(pnodes):
+                    yield node
             except Exception as e:
                 logger.exception('Failed to process ingest [%r]', item)
                 continue
@@ -814,20 +804,6 @@ class Cortex(s_cell.Cell):
                        {'props': {'.seen': (seen, seen)}}]
                 pnodes.append(obj)
         return pnodes
-
-    # FIXME can remove this before 010 release, since 'old' is prelease 010.
-    def _migrateOldDefaultLayer(self):  # pragma: no cover
-        '''
-        Migrate from 'old' 010 layers configuration structure
-        '''
-        layersdir = pathlib.Path(self.dirn, 'layers')
-        new_path = pathlib.Path(layersdir, DEFAULT_LAYER_NAME)
-        logger.info('Migrating old default layer to new location at %s', new_path)
-        pathlib.Path(layersdir, 'default').rename(new_path)
-        boot_yaml = pathlib.Path(new_path, 'boot.yaml')
-        if not boot_yaml.exists():
-            conf = {'cell:name': 'default', 'type': 'layer-lmdb'}
-            s_common.yamlsave(conf, boot_yaml)
 
     async def _makeDefaultLayer(self):
         '''
@@ -1063,7 +1039,7 @@ class Cortex(s_cell.Cell):
         # now that we've loaded all their models
         # we can call their init functions
         for modu in added:
-            await modu.initCoreModule()
+            await s_coro.ornot(modu.initCoreModule)
 
     async def loadCoreModule(self, ctor, conf=None):
         '''
@@ -1102,22 +1078,3 @@ class Cortex(s_cell.Cell):
             'layer': await self.layer.stat()
         }
         return stats
-
-    @contextlib.asynccontextmanager
-    async def getLocalProxy(self):
-        '''
-        Creates a local telepath daemon, shares this object, and returns the telepath proxy of this object
-        '''
-        import synapse.daemon as s_daemon  # avoid import cycle
-        with tempfile.TemporaryDirectory() as dirn:
-            coredir = pathlib.Path(dirn, 'cells', 'core')
-            if coredir.is_dir():
-                ldir = s_common.gendir(coredir, 'layers')
-                if self.alt_write_layer:
-                    os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
-
-            async with await s_daemon.Daemon.anit(dirn) as dmon:
-                dmon.share('core', self)
-                addr = await dmon.listen('tcp://127.0.0.1:0')
-                prox = await s_telepath.openurl('tcp://127.0.0.1/core', port=addr[1])
-                yield prox

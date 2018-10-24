@@ -128,7 +128,7 @@ class Layer(s_cell.Cell):
             # yield buid, form, prop, valu
             yield (buid, )
 
-    # The following functions must be implemented to function.
+    # The following functions are abstract methods that must be implemented by a subclass
 
     async def setOffset(self, iden, offs):  # pragma: no cover
         raise NotImplementedError

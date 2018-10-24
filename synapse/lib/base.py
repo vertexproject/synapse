@@ -13,7 +13,6 @@ if __debug__:
 import synapse.exc as s_exc
 
 import synapse.lib.coro as s_coro
-import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +89,7 @@ class Base:
 
         self.loop = asyncio.get_running_loop()
         if __debug__:
+            import synapse.lib.threads as s_threads  # avoid import cycle
             self.tid = s_threads.iden()
             self.call_stack = traceback.format_stack()  # For cleanup debugging
         self.isfini = False
@@ -318,8 +318,9 @@ class Base:
 
         if self.isfini:
             return
-
-        assert s_threads.iden() == self.tid
+        if __debug__:
+            import synapse.lib.threads as s_threads  # avoid import cycle
+            assert s_threads.iden() == self.tid
 
         self._syn_refs -= 1
         if self._syn_refs > 0:
@@ -377,7 +378,9 @@ class Base:
             An asyncio.Task
 
         '''
-        assert s_threads.iden() == self.tid
+        if __debug__:
+            import synapse.lib.threads as s_threads  # avoid import cycle
+            assert s_threads.iden() == self.tid
 
         task = self.loop.create_task(coro)
 
@@ -404,7 +407,7 @@ class Base:
         Note:
             This method may be run outside the event loop on a different thread.
         '''
-        self.loop.call_soon_threadsafe(self.schedCoro, coro)
+        return self.loop.call_soon_threadsafe(self.schedCoro, coro)
 
     def schedCoroSafePend(self, coro):
         '''

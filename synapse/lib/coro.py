@@ -4,124 +4,17 @@ Async/Coroutine related utilities.
 import asyncio
 import inspect
 import logging
-import threading
-import collections
 
 logger = logging.getLogger(__name__)
 
 import synapse.glob as s_glob
+import synapse.common as s_common
+
 import synapse.lib.base as s_base
+import synapse.lib.queue as s_queue
 
 def iscoro(item):
     return inspect.iscoroutine(item)
-
-class Queue(s_base.Base):
-    '''
-    An async queue with chunk optimized sync compatible consumer.
-    '''
-    async def __anit__(self):
-        await s_base.Base.__anit__(self)
-
-        self.fifo = []
-        self.event = asyncio.Event(loop=self.loop)
-        self.onfini(self.event.set)
-
-    def put(self, item):
-        '''
-        Add an item to the queue.
-        '''
-        if self.isfini:
-            return False
-
-        self.fifo.append(item)
-
-        if len(self.fifo) == 1:
-            self.event.set()
-
-        return True
-
-    async def slice(self):
-
-        # sync interface to the async queue
-        if len(self.fifo) == 0:
-            await self.event.wait()
-
-        retn = list(self.fifo)
-        self.fifo.clear()
-        self.event.clear()
-        return retn
-
-class S2AQueue(s_base.Base):
-    '''
-    Sync single producer, async single consumer finite queue with blocking at empty and full.
-    '''
-    async def __anit__(self, max_entries, drain_level=None):
-        '''
-        Args:
-            max_entries (int): the maximum number of entries that can be in the queue.
-
-            drain_level (Optional[int]): once the queue is full, no more entries will be admitted until the number of
-                entries falls below this parameter.  Defaults to half of max_entries.
-        '''
-
-        await s_base.Base.__anit__(self)
-        self.deq = collections.deque()
-        self.notdrainingevent = threading.Event()
-        self.notdrainingevent.set()
-        self.notemptyevent = asyncio.Event(loop=self.loop)
-        self.max_entries = max_entries
-        self.drain_level = max_entries // 2 if drain_level is None else drain_level
-        assert self.drain_level
-
-        async def _onfini():
-            self.notemptyevent.set()
-            self.notdrainingevent.set()
-        self.onfini(_onfini)
-
-    async def get(self):
-        '''
-        Async pend retrieve on the queue
-        '''
-        while not self.isfini:
-            try:
-                val = self.deq.popleft()
-                break
-            except IndexError:
-                self.notemptyevent.clear()
-                if len(self.deq):
-                    continue
-                await self.notemptyevent.wait()
-        else:
-            return None  # Raise fini?
-
-        if not self.notdrainingevent.is_set() and len(self.deq) < self.drain_level:
-            self.notdrainingevent.set()
-
-        return val
-
-    def put(self, item):
-        '''
-        Put onto the queue.  Pend if the queue is full or draining.
-        '''
-        while not self.isfini:
-            if len(self.deq) >= self.max_entries:
-                self.notdrainingevent.clear()
-            if not self.notdrainingevent.is_set():
-                self.notdrainingevent.wait()
-                continue
-            break
-        else:
-            return
-
-        self.deq.append(item)
-
-        # N.B. asyncio.Event.is_set is trivially threadsafe, though Event.set is not
-
-        if not self.notemptyevent.is_set():
-            self.loop.call_soon_threadsafe(self.notemptyevent.set)
-
-    def __len__(self):
-        return len(self.deq)
 
 class Genr(s_base.Base):
     '''
@@ -155,9 +48,9 @@ async def genr2agenr(func, *args, qsize=100, **kwargs):
     class SentinelClass:
         pass
 
-    sentinel = SentinelClass()
+    sentinel = s_common.NoValu()
 
-    async with await S2AQueue.anit(qsize) as chan:
+    async with await s_queue.S2AQueue.anit(qsize) as chan:
 
         def sync():
             try:

@@ -1,5 +1,8 @@
 import os
 import logging
+import contextlib
+import tempfile
+import pathlib
 
 import synapse.exc as s_exc
 
@@ -7,7 +10,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
-import synapse.lib.lmdb as s_lmdb
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.const as s_const
 
 logger = logging.getLogger(__name__)
@@ -229,7 +232,7 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         s_common.gendir(self.dirn, 'slabs')
         path = os.path.join(self.dirn, 'slabs', 'cell.lmdb')
-        self.slab = await s_lmdb.Slab.anit(path, map_size=s_const.gibibyte)
+        self.slab = await s_lmdbslab.Slab.anit(path, map_size=s_const.gibibyte)
         self.onfini(self.slab.fini)
 
     async def _initCellAuth(self):
@@ -345,3 +348,24 @@ class Cell(s_base.Base, s_telepath.Aware):
         Add a Cmdr() command to the cell.
         '''
         self.cmds[name] = func
+
+    @contextlib.asynccontextmanager
+    async def getLocalProxy(self):
+        '''
+        Creates a local telepath daemon, shares this object, and returns the telepath proxy of this object
+
+        TODO:  currently, this will fini self if the created dmon is fini'd
+        '''
+        import synapse.daemon as s_daemon  # avoid import cycle
+        with tempfile.TemporaryDirectory() as dirn:
+            coredir = pathlib.Path(dirn, 'cells', 'core')
+            if coredir.is_dir():
+                ldir = s_common.gendir(coredir, 'layers')
+                if self.alt_write_layer:
+                    os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
+
+            async with await s_daemon.Daemon.anit(dirn) as dmon:
+                dmon.share('core', self)
+                addr = await dmon.listen('tcp://127.0.0.1:0')
+                prox = await s_telepath.openurl('tcp://127.0.0.1/core', port=addr[1])
+                yield prox
