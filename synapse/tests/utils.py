@@ -34,12 +34,13 @@ import synapse.cells as s_cells
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.eventbus as s_eventbus
+import synapse.telepath as s_telepath
+
 import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
-import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
@@ -1234,21 +1235,10 @@ class SynTest(unittest.TestCase):
 
             yield dmon
 
-class AsyncToSyncCMgr():
-    '''
-    Wraps an async context manager as a sync one
-    '''
-    def __init__(self, func, *args, **kwargs):
-        self.amgr = func(*args, **kwargs)
-
-    def __enter__(self):
-        return s_glob.plex.coroToSync(self.amgr.__aenter__())
-
-    def __exit__(self, *args):
-        return s_glob.plex.coroToSync(self.amgr.__aexit__(*args))
-
 class SyncToAsyncCMgr():
-    ''' Wraps a regular context manager in an async one '''
+    '''
+    Wraps a regular context manager in an async one
+    '''
     def __init__(self, func, *args, **kwargs):
         def run_and_enter():
             obj = func(*args, **kwargs)

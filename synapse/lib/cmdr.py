@@ -1,6 +1,5 @@
+import synapse.glob as s_glob
 import synapse.lib.cli as s_cli
-import synapse.lib.coro as s_coro
-
 import synapse.cmds.cortex as s_cmds_cortex
 
 cmdsbycell = {
@@ -20,14 +19,14 @@ async def getItemCmdr(cell, outp=None, **opts):
 
     '''
     cmdr = s_cli.Cli(cell, outp=outp)
-    typename = await s_coro.ornot(cell.getCellType)
+    typename = await cell.getCellType()
 
     for ctor in cmdsbycell.get(typename, ()):
         cmdr.addCmdClass(ctor)
 
     return cmdr
 
-async def runItemCmdr(item, outp=None, **opts):
+def runItemCmdr(item, outp=None, **opts):
     '''
     Create a cmdr for the given item and run the cmd loop.
 
@@ -36,5 +35,5 @@ async def runItemCmdr(item, outp=None, **opts):
         runItemCmdr(foo)
 
     '''
-    cmdr = await getItemCmdr(item, outp=outp, **opts)
-    await cmdr.runCmdLoop()
+    cmdr = s_glob.sync(getItemCmdr(item, outp=outp, **opts))
+    cmdr.runCmdLoop()

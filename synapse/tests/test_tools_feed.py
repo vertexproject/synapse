@@ -1,7 +1,9 @@
 import unittest.mock as mock
 
 import synapse.common as s_common
+import synapse.glob as s_glob
 
+import synapse.lib.coro as s_coro
 import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 
@@ -11,7 +13,7 @@ import synapse.tests.utils as s_t_utils
 
 class FeedTest(s_t_utils.SynTest):
 
-    async def test_syningest_local(self):
+    def test_syningest_local(self):
         with self.getTestDir() as dirn:
             guid = s_common.guid()
             seen = s_common.now()
@@ -25,11 +27,11 @@ class FeedTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             cmdg = s_t_utils.CmdGenerator(['storm pivcomp -> *'], on_end=EOFError)
             with mock.patch('synapse.lib.cli.get_input', cmdg):
-                self.eq(await s_feed.main(argv, outp=outp), 0)
+                self.eq(s_feed.main(argv, outp=outp), 0)
             self.true(outp.expect('teststr=haha', throw=False))
             self.true(outp.expect('pivtarg=hehe', throw=False))
 
-    async def test_syningest_fail(self):
+    def test_syningest_fail(self):
         with self.getTestDir() as dirn:
             gestdef = {'forms': {'teststr': ['yes', ],
                                  'newp': ['haha', ],
@@ -43,19 +45,19 @@ class FeedTest(s_t_utils.SynTest):
 
             outp = self.getTestOutp()
             with self.getLoggerStream('synapse.lib.snap', 'NoSuchForm') as stream:
-                self.eq(await s_feed.main(argv, outp=outp), 0)
+                self.eq(s_feed.main(argv, outp=outp), 0)
                 self.true(stream.wait(1))
 
-    async def test_syningest_remote(self):
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+    def test_syningest_remote(self):
+        with s_coro.AsyncToSyncCMgr(self.getTestDmon, mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
+            with self.getTestProxy(dmon, 'core', **pconf) as core:
                 # Setup user permissions
-                await core.addAuthRole('creator')
-                await core.addAuthRule('creator', (True, ('node:add',)))
-                await core.addAuthRule('creator', (True, ('prop:set',)))
-                await core.addAuthRule('creator', (True, ('tag:add',)))
-                await core.addUserRole('root', 'creator')
+                core.addAuthRole('creator')
+                core.addAuthRule('creator', (True, ('node:add',)))
+                core.addAuthRule('creator', (True, ('prop:set',)))
+                core.addAuthRule('creator', (True, ('tag:add',)))
+                core.addUserRole('root', 'creator')
 
             host, port = dmon.addr
             curl = f'tcp://root:root@{host}:{port}/core'
@@ -75,16 +77,16 @@ class FeedTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             cmdg = s_t_utils.CmdGenerator(['storm pivcomp -> *'], on_end=EOFError)
             with mock.patch('synapse.lib.cli.get_input', cmdg):
-                self.eq(await s_feed.main(argv, outp=outp), 0)
+                self.eq(s_feed.main(argv, outp=outp), 0)
             self.true(outp.expect('teststr=haha', throw=False))
             self.true(outp.expect('pivtarg=hehe', throw=False))
 
-    async def test_synsplice_remote(self):
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+    def test_synsplice_remote(self):
+        with s_coro.AsyncToSyncCMgr(self.getTestDmon, mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
-                await self.addCreatorDeleterRoles(core)
-                await core.addUserRole('root', 'creator')
+            with self.getTestProxy(dmon, 'core', **pconf) as core:
+                s_glob.sync(self.addCreatorDeleterRoles(core))
+                core.addUserRole('root', 'creator')
 
             host, port = dmon.addr
             curl = f'tcp://root:root@{host}:{port}/core'
@@ -101,16 +103,16 @@ class FeedTest(s_t_utils.SynTest):
                     splicefp]
 
             outp = self.getTestOutp()
-            self.eq(await s_feed.main(argv, outp=outp), 0)
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
-                await self.agenlen(1, await core.eval('teststr=foo'))
+            self.eq(s_feed.main(argv, outp=outp), 0)
+            with self.getTestProxy(dmon, 'core', **pconf) as core:
+                self.len(1, list(core.eval('teststr=foo')))
 
-    async def test_synnodes_remote(self):
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+    def test_synnodes_remote(self):
+        with s_coro.AsyncToSyncCMgr(self.getTestDmon, mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
-                await self.addCreatorDeleterRoles(core)
-                await core.addUserRole('root', 'creator')
+            with self.getTestProxy(dmon, 'core', **pconf) as core:
+                s_glob.sync(self.addCreatorDeleterRoles(core))
+                core.addUserRole('root', 'creator')
 
             host, port = dmon.addr
             curl = f'tcp://root:root@{host}:{port}/core'
@@ -129,17 +131,16 @@ class FeedTest(s_t_utils.SynTest):
                     mpkfp]
 
             outp = self.getTestOutp()
-            self.eq(await s_feed.main(argv, outp=outp), 0)
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
-                await self.agenlen(20, await core.eval('testint'))
-            print(outp)
+            self.eq(s_feed.main(argv, outp=outp), 0)
+            with self.getTestProxy(dmon, 'core', **pconf) as core:
+                self.len(20, list(core.eval('testint')))
 
-    async def test_synnodes_offset(self):
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+    def test_synnodes_offset(self):
+        with s_coro.AsyncToSyncCMgr(self.getTestDmon, mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
-                await self.addCreatorDeleterRoles(core)
-                await core.addUserRole('root', 'creator')
+            with self.getTestProxy(dmon, 'core', **pconf) as core:
+                s_glob.sync(self.addCreatorDeleterRoles(core))
+                core.addUserRole('root', 'creator')
 
             host, port = dmon.addr
             curl = f'tcp://root:root@{host}:{port}/core'
@@ -159,12 +160,12 @@ class FeedTest(s_t_utils.SynTest):
                     mpkfp]
 
             outp = self.getTestOutp()
-            self.eq(await s_feed.main(argv, outp=outp), 0)
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
-                await self.agenlen(8, await core.eval('testint'))
+            self.eq(s_feed.main(argv, outp=outp), 0)
+            with self.getTestProxy(dmon, 'core', **pconf) as core:
+                self.len(8, list(core.eval('testint')))
 
             # Sad path catch
             outp = self.getTestOutp()
             argv.append(mpkfp)
-            self.eq(await s_feed.main(argv, outp=outp), 1)
+            self.eq(s_feed.main(argv, outp=outp), 1)
             self.true(outp.expect('Cannot start from a arbitrary offset for more than 1 file.'))

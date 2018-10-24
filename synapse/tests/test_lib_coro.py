@@ -1,4 +1,4 @@
-import asyncio
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.lib.coro as s_coro
@@ -37,3 +37,13 @@ class CoroTest(s_t_utils.SynTest):
             raise s_exc.MustBeLocal()
 
         await self.agenraises(s_exc.MustBeLocal, s_coro.genr2agenr(badgenr, 10))
+
+    def test_asynctosynccmgr(self):
+
+        @contextlib.asynccontextmanager
+        async def testmgr():
+            yield 42
+
+        syncmgr = s_coro.AsyncToSyncCMgr(testmgr)
+        with syncmgr as foo:
+            self.eq(foo, 42)

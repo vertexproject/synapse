@@ -12,7 +12,7 @@ class TstThrowCmd(s_cli.Cmd):
     _cmd_name = 'throwzero'
 
     async def runCmdOpts(self, opts):
-        ret = 1 / 0
+        1 / 0
 
 class TstThrowKeyboard(s_cli.Cmd):
     '''
@@ -210,35 +210,35 @@ class CliTest(s_t_utils.SynTest):
             opts = quit.getCmdOpts('quit hehe=haha')
             self.eq(opts.get('bar'), [('hehe', 'haha')])
 
-    async def test_cli_cmd_loop_quit(self):
+    def test_cli_cmd_loop_quit(self):
         outp = self.getTestOutp()
         cmdg = s_t_utils.CmdGenerator(['help', 'quit'])
 
-        with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
+        with mock.patch('synapse.lib.cli.get_input', cmdg):
             with s_cli.Cli(None, outp) as cli:
-                await cli.runCmdLoop()
+                cli.runCmdLoop()
                 self.eq(cli.isfini, True)
         self.true(outp.expect('o/'))
 
-    async def test_cli_cmd_loop_eof(self):
+    def test_cli_cmd_loop_eof(self):
         outp = self.getTestOutp()
         cmdg = s_t_utils.CmdGenerator(['help'], on_end=EOFError)
-        with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
+        with mock.patch('synapse.lib.cli.get_input', cmdg):
             with s_cli.Cli(None, outp) as cli:
-                await cli.runCmdLoop()
+                cli.runCmdLoop()
                 self.eq(cli.isfini, True)
         self.false(outp.expect('o/', throw=False))
 
-    async def test_cli_cmd_loop_bad_input(self):
+    def test_cli_cmd_loop_bad_input(self):
         outp = self.getTestOutp()
         cmdg = s_t_utils.CmdGenerator([1234], on_end=EOFError)
-        with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
+        with mock.patch('synapse.lib.cli.get_input', cmdg):
             with s_cli.Cli(None, outp) as cli:
-                await cli.runCmdLoop()
+                cli.runCmdLoop()
                 self.eq(cli.isfini, True)
         self.true(outp.expect("AttributeError: 'int' object has no attribute 'strip'", throw=False))
 
-    async def test_cli_cmd_loop_keyint(self):
+    def test_cli_cmd_loop_keyint(self):
         outp = self.getTestOutp()
         cmdg = s_t_utils.CmdGenerator(['help'], on_end=KeyboardInterrupt)
 
@@ -249,29 +249,22 @@ class CliTest(s_t_utils.SynTest):
             if data['count'] > 2:
                 cmdg.addCmd('quit')
 
-        with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
+        with mock.patch('synapse.lib.cli.get_input', cmdg):
             with s_cli.Cli(None, outp) as cli:
                 cli.on('cli:getinput', _onGetInput)
-                await cli.runCmdLoop()
+                cli.runCmdLoop()
                 self.eq(cli.isfini, True)
 
         self.true(outp.expect('<ctrl-c>'))
 
-    async def test_cli_cmd_loop(self):
+    def test_cli_cmd_loop(self):
         outp = self.getTestOutp()
-        cmdg = s_t_utils.CmdGenerator(['help',
-                             'locs',
-                             '',
-                             '    ',
-                             'throwzero',
-                             'throwkeyboard',
-                             'quit',
-                             ])
-        with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
+        cmdg = s_t_utils.CmdGenerator(['help', 'locs', '', '    ', 'throwzero', 'throwkeyboard', 'quit'])
+        with mock.patch('synapse.lib.cli.get_input', cmdg):
             with s_cli.Cli(None, outp) as cli:
                 cli.addCmdClass(TstThrowCmd)
                 cli.addCmdClass(TstThrowKeyboard)
-                await cli.runCmdLoop()
+                cli.runCmdLoop()
                 self.true(outp.expect('o/'))
                 self.true(outp.expect('{}'))
                 self.true(outp.expect('ZeroDivisionError'))

@@ -5,6 +5,7 @@ import traceback
 import collections
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.base as s_base
@@ -142,7 +143,7 @@ class Cmd:
                     valu, off = s_syntax.parse_cmd_string(text, off)
                     if valu not in vals:
                         raise s_exc.BadSyntaxError(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
-                                                      text=text)
+                                                   text=text)
 
                     opts[snam] = valu
 
@@ -153,7 +154,7 @@ class Cmd:
 
             if not args:
                 raise s_exc.BadSyntaxError(mesg='trailing text: [%s]' % (text[off:],),
-                                              text=text)
+                                           text=text)
 
             synt = args.popleft()
             styp = synt[1].get('type', 'valu')
@@ -315,7 +316,7 @@ class Cli(s_eventbus.EventBus):
         '''
         return self.cmdprompt
 
-    async def runCmdLoop(self):
+    def runCmdLoop(self):
         '''
         Run commands from a user in an interactive fashion until fini() or EOFError is raised.
         '''
@@ -347,7 +348,7 @@ class Cli(s_eventbus.EventBus):
                 if not line:
                     continue
 
-                await self.runCmdLine(line)
+                s_glob.sync(self.runCmdLine(line))
 
             except KeyboardInterrupt as e:
 
