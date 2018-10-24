@@ -275,7 +275,7 @@ class CliTest(s_t_utils.SynTest):
         evt = threading.Event()
         outp = self.getTestOutp()
         async with self.getTestDmon('dmonboot') as dmon:
-            async with await self.getTestProxy(dmon, 'echo00')as prox:
+            async with await self.getTestProxy(dmon, 'echo00') as prox:
                 cli = s_cli.Cli(prox, outp)
                 cli.onfini(evt.set)
             self.true(evt.wait(2))
