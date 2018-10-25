@@ -368,7 +368,7 @@ class _BlobStorWriter(s_base.Base):
                     _, offset = msg
                     self._updateCloneProgress(offset)
         finally:
-            # Workaround to avoid lmdb close/commit race (so that fini is on same thread as lmdb xact
+            # Workaround to avoid lmdb close/commit race (so that fini is on same thread as lmdb xact)
             self.xact.fini()
 
     # Client methods
@@ -431,7 +431,7 @@ class BlobStor(s_cell.Cell):
         ('cloneof', {'type': 'str', 'doc': 'The telepath of a blob cell to clone from', 'defval': None}),
     )
 
-    async def __anit__(self, dirn: str, conf=None) -> None:
+    async def __anit__(self, dirn: str, conf=None) -> None:  # type: ignore
         await s_cell.Cell.__anit__(self, dirn)
 
         self.clonetask = None
@@ -874,7 +874,7 @@ class Axon(s_cell.Cell):
         ('mapsize', {'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE, 'doc': 'The size of the LMDB memory map'}),
     )
 
-    async def __anit__(self, dirn: str, conf=None) -> None:
+    async def __anit__(self, dirn: str, conf=None) -> None:  # type: ignore
         await s_cell.Cell.__anit__(self, dirn)
 
         path = s_common.gendir(self.dirn, 'axon.lmdb')

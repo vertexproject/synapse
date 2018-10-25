@@ -81,14 +81,14 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-tags --hide-props teststr=abcd')
-            self.false(outp.expect(':tick = 1970/01/01 00:00:00.123', throw=False))
+            self.false(outp.expect(':tick = 2015/01/01 00:00:00.000', throw=False))
             self.false(outp.expect('#cool', throw=False))
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --raw teststr=abcd')
-            outp.expect("'tick': '2015/01/01 00:00:00.000'")
+            outp.expect("'tick': 1420070400000")
             outp.expect("'tags': {'cool': (None, None)")
             outp.expect('complete. 1 nodes')
 
