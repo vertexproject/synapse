@@ -534,17 +534,3 @@ async def openurl(url, **opts):
     await prox.handshake(auth=auth)
 
     return prox
-
-@contextlib.asynccontextmanager
-async def openurlctx(url, **opts):
-    '''
-    Opens url as telepath proxy in an async context manager.
-
-    Convenience function for openurl to save a word.
-
-    Usage:
-        async with openurlctx(url) as proxy:
-            valu = await proxy.getFooThing()
-    '''
-    async with await openurl(url, **opts) as prox:
-        yield prox
