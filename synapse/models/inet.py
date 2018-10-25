@@ -198,6 +198,14 @@ class Fqdn(s_types.Type):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg=f'FQDN failed to match fqdnre [{fqdnre.pattern}]')
 
+        # Make sure we *don't* get an IP address
+        try:
+            socket.inet_pton(socket.AF_INET, valu)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='FQDN Got an IP address instead')
+        except OSError:
+            pass
+
         try:
             valu = valu.encode('idna').decode('utf8').lower()
         except UnicodeError as e:
