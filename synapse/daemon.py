@@ -1,5 +1,4 @@
 import os
-import sys
 import types
 import asyncio
 import logging
@@ -197,18 +196,6 @@ class Daemon(s_base.Base):
         if finis:
             await asyncio.wait(finis, loop=self.loop)
 
-    def _getSslCtx(self):
-        return None
-        #info = self.conf.get('ssl')
-        ##if info is None:
-            #return None
-
-        #capath = s_common.genpath(self.dirn, 'ca.crt')
-        ##keypath = s_common.genpath(self.dirn, 'server.key')
-        #certpath = s_common.genpath(self.dirn, 'server.crt')
-
-        # TODO: build an ssl.SSLContext()
-
     def _loadDmonYaml(self):
         path = s_common.genpath(self.dirn, 'dmon.yaml')
         return self._loadYamlPath(path)
@@ -246,7 +233,6 @@ class Daemon(s_base.Base):
 
         kind = conf.get('type')
 
-        #ctor = s_registry.getService(kind)
         cell = await s_cells.init(kind, dirn)
 
         self.share(name, cell)

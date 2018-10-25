@@ -2,9 +2,8 @@ import os
 import ssl
 import shutil
 import socket
-from typing import Optional
 
-from OpenSSL import crypto
+from OpenSSL import crypto  # type: ignore
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -35,7 +34,8 @@ class CertDir:
         path (str): Optional path which can override the default path directory.
 
     Notes:
-        * All certificates will be loaded from and written to ~/.syn/certs by default. Set the envvar SYN_CERT_DIR to override.
+        * All certificates will be loaded from and written to ~/.syn/certs by default. Set the envvar SYN_CERT_DIR to
+        override.
         * All certificate generation methods create 4096 bit RSA keypairs.
         * All certificate signing methods use sha256 as the signature algorithm.
         * CertDir does not currently support signing CA CSRs.
@@ -662,8 +662,7 @@ class CertDir:
 
         if not ext or ext not in ('crt', 'key', 'p12'):
             mesg = 'importFile only supports .crt, .key, .p12 extensions'
-            raise s_exc.BadFileExt(mesg=mesg,
-                                      ext=ext)
+            raise s_exc.BadFileExt(mesg=mesg, ext=ext)
 
         newpath = s_common.genpath(self.certdir, mode, fname)
         if os.path.isfile(newpath):
@@ -837,7 +836,7 @@ class CertDir:
             if name.endswith('.crt'):
                 ctx.load_verify_locations(os.path.join(path, name))
 
-    def getClientSSLContext(self) -> ssl.SSLContext:
+    def getClientSSLContext(self):
         '''
         Returns an ssl.SSLContext appropriate for initiating a TLS session
         '''
@@ -846,7 +845,7 @@ class CertDir:
 
         return sslctx
 
-    def getServerSSLContext(self, hostname: Optional[str] = None) -> ssl.SSLContext:
+    def getServerSSLContext(self, hostname=None):
         '''
         Returns an ssl.SSLContext appropriate to listen on a socket
 

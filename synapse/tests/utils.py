@@ -12,7 +12,10 @@ whole both multi-component environments into memory.
 Since SynTest is built from unittest.TestCase, the use of SynTest is
 compatible with the unittest, nose and pytest frameworks.  This does not lock
 users into a particular test framework; while at the same time allowing base
-use to be invoked via the built-in Unittest library.
+use to be invoked via the built-in Unittest library, with one important exception:
+due to an unfortunate design approach, you cannot use the unittest module command
+line to run a *single* async unit test.  pytest works fine though.
+
 '''
 import io
 import os
@@ -469,7 +472,10 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
 
 class SynTest(unittest.TestCase):
     '''
-    Mark all async test methods as s_glob.synchelp decorated
+    Mark all async test methods as s_glob.synchelp decorated.
+
+    Note:
+        This precludes running a single unit test via path using the unittest module.
     '''
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
