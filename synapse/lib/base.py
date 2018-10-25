@@ -416,7 +416,9 @@ class Base:
         Note:
             This method may *not* be run inside an event loop
         '''
-        assert s_threads.iden() != self.tid
+        if __debug__:
+            import synapse.lib.threads as s_threads  # avoid import cycle
+            assert s_threads.iden() != self.tid
 
         task = asyncio.run_coroutine_threadsafe(coro, self.loop)
         return task.result()
