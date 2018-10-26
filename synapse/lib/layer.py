@@ -29,7 +29,7 @@ class Layer(s_cell.Cell):
     TODO:
         metadata for layer contents (only specific type / tag)
     '''
-    async def __anit__(self, dirn):
+    async def __anit__(self, dirn, readonly=False):
 
         await s_cell.Cell.__anit__(self, dirn)
 
@@ -51,6 +51,7 @@ class Layer(s_cell.Cell):
             'range': self._rowsByRange,
         }
 
+        self.readonly = readonly
         self.spliced = asyncio.Event(loop=self.loop)
         self.splicelist = []
         self.onfini(self.spliced.set)

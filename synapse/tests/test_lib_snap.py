@@ -97,7 +97,12 @@ class SnapTest(s_t_utils.SynTest):
             await core1.fini()
 
             async with self._getTestCoreMultiLayer(core1.dirn) as core, await core.snap() as snap:
-                # Basic sanity check
+                # Basic sanity checks
+
+                # Make sure only the top layer is writeable
+                self.true(core.layers[0].readonly)
+                self.false(core.layers[1].readonly)
+
                 nodes = await alist(snap.getNodesBy('inet:ipv4', 1))
                 self.len(1, nodes)
                 nodes = await alist(snap.getNodesBy('inet:ipv4.seen', 1))

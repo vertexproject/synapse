@@ -118,7 +118,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             # lets ensure our mapsize / growsize persisted
 
-            async with await s_lmdbslab.Slab.anit(path, map_size=100000) as newdb:
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:
 
                 self.eq(my_maxsize, newdb.mapsize)
 

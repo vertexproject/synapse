@@ -42,6 +42,8 @@ class Slab(s_base.Base):
         self.maxsize = opts.pop('maxsize', None)
         self.growsize = opts.pop('growsize', None)
 
+        self.readonly = opts.get('readonly', False)
+
         self.lenv = lmdb.open(path, **opts)
 
         self.scans = set()
@@ -179,7 +181,7 @@ class Slab(s_base.Base):
     # def valsByRange():
 
     def _initCoXact(self):
-        self.xact = self.lenv.begin(write=True)
+        self.xact = self.lenv.begin(write=not self.readonly)
         self.dirty = False
 
     def _logXactOper(self, func, *args, **kwargs):
@@ -200,7 +202,7 @@ class Slab(s_base.Base):
 
         yield
 
-        self.xact = self.lenv.begin(write=True)
+        self.xact = self.lenv.begin(write=not self.readonly)
 
         self.recovering = True
         self._runXactOpers()

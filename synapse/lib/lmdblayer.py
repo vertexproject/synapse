@@ -38,9 +38,9 @@ class LmdbLayer(s_layer.Layer):
         ('lmdb:readahead', {'type': 'bool', 'defval': True}),
     )
 
-    async def __anit__(self, dirn):
+    async def __anit__(self, dirn, readonly=False):
 
-        await s_layer.Layer.__anit__(self, dirn)
+        await s_layer.Layer.__anit__(self, dirn, readonly=readonly)
         path = os.path.join(self.dirn, 'layer.lmdb')
 
         mapsize = self.conf.get('lmdb:mapsize')
@@ -49,7 +49,7 @@ class LmdbLayer(s_layer.Layer):
         growsize = self.conf.get('lmdb:growsize')
 
         self.slab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize, growsize=growsize,
-                                               writemap=True, readahead=readahead)
+                                               writemap=True, readahead=readahead, readonly=readonly)
 
         self.onfini(self.slab.fini)
 

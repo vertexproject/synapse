@@ -425,7 +425,8 @@ class Cortex(s_cell.Cell):
 
         # Layers are imported in reverse lexicographic order, where the earliest in the alphabet is the 'topmost'
         # write layer.
-        for layerdir in sorted((d for d in layersdir.iterdir() if d.is_dir()), reverse=True):
+        layerdirs = sorted((d for d in layersdir.iterdir() if d.is_dir()), reverse=True)
+        for layeridx, layerdir in enumerate(layerdirs):
 
             logger.info('loading external layer from %s', layerdir)
 
@@ -433,7 +434,9 @@ class Cortex(s_cell.Cell):
                 logger.warning('Skipping layer directory %s due to missing boot.yaml', layerdir)
                 continue
 
-            layer = await s_cells.initFromDirn(layerdir)
+            # Every layer but the top is readonly
+            readonly = (layeridx < len(layerdirs) - 1)
+            layer = await s_cells.initFromDirn(layerdir, readonly=readonly)
             if not isinstance(layer, s_layer.Layer):
                 raise s_exc.BadConfValu('layer dir %s must contain Layer cell', layerdir)
 
