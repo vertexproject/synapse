@@ -194,3 +194,5 @@ class AlreadyInAsync(SynErr):
     pass
 
 class DbOutOfSpace(SynErr): pass
+
+class DbIsReadOnly(SynErr): pass

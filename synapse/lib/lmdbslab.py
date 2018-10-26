@@ -50,10 +50,30 @@ class Slab(s_base.Base):
 
         self.holders = 0
 
-        self._initCoXact()
+        if self.readonly:
+            self.xact = None
+            self.txnrefcount = 0
+        else:
+            self._initCoXact()
 
         self.onfini(self._onCoFini)
         self.schedCoro(self._runSyncLoop())
+
+    def _acqXactForReading(self):
+        if not self.readonly:
+            return self.xact
+        if not self.txnrefcount:
+            self._initCoXact()
+
+        self.txnrefcount += 1
+        return self.xact
+
+    def _relXactForReading(self):
+        if not self.readonly:
+            return
+        self.txnrefcount -= 1
+        if not self.txnrefcount:
+            self._finiCoXact()
 
     def _saveOptsFile(self):
         opts = {'map_size': self.mapsize, 'growsize': self.growsize}
@@ -75,6 +95,7 @@ class Slab(s_base.Base):
         del self.lenv
 
     def _finiCoXact(self):
+
         assert s_glob.plex.iAmLoop()
 
         [scan.bump() for scan in self.scans]
@@ -84,6 +105,7 @@ class Slab(s_base.Base):
         self.xactops.clear()
 
         del self.xact
+        self.xact = None
 
     def grow(self, size=None):
         '''
@@ -125,12 +147,18 @@ class Slab(s_base.Base):
 
     @contextlib.contextmanager
     def _noCoXact(self):
-        self._finiCoXact()
+        if not self.readonly or self.txnrefcount:
+            self._finiCoXact()
         yield None
-        self._initCoXact()
+        if not self.readonly or self.txnrefcount:
+            self._initCoXact()
 
     def get(self, lkey, db=None):
-        return self.xact.get(lkey, db=db)
+        self._acqXactForReading()
+        try:
+            return self.xact.get(lkey, db=db)
+        finally:
+            self._relXactForReading()
 
     # non-scan ("atomic") interface.
     # def getByDup(self, lkey, db=None):
@@ -181,7 +209,14 @@ class Slab(s_base.Base):
     # def valsByRange():
 
     def _initCoXact(self):
-        self.xact = self.lenv.begin(write=not self.readonly)
+        try:
+            self.xact = self.lenv.begin(write=not self.readonly)
+        except lmdb.MapResizedError as e:
+            # This is what happens when some *other* process increased the mapsize.  setting mapsize to 0 should
+            # set my mapsize to whatever the other process raised it to
+            self.lenv.set_mapsize(0)
+            self.mapsize = self.lenv.info()['map_size']
+            self.xact = self.lenv.begin(write=not self.readonly)
         self.dirty = False
 
     def _logXactOper(self, func, *args, **kwargs):
@@ -223,6 +258,8 @@ class Slab(s_base.Base):
 
     # FIXME:  refactor delete/put/replace/pop common code
     def pop(self, lkey, db=None):
+        if self.readonly:
+            raise s_exc.DbIsReadOnly()
 
         try:
             self.dirty = True
@@ -238,6 +275,8 @@ class Slab(s_base.Base):
             return self._handle_mapfull()
 
     def delete(self, lkey, val=None, db=None):
+        if self.readonly:
+            raise s_exc.DbIsReadOnly()
 
         try:
             self.dirty = True
@@ -253,6 +292,8 @@ class Slab(s_base.Base):
             return self._handle_mapfull()
 
     def put(self, lkey, lval, dupdata=False, db=None):
+        if self.readonly:
+            raise s_exc.DbIsReadOnly()
 
         try:
             self.dirty = True
@@ -269,6 +310,8 @@ class Slab(s_base.Base):
         '''
         Like put, but returns the previous value if existed
         '''
+        if self.readonly:
+            raise s_exc.DbIsReadOnly()
 
         try:
             self.dirty = True
@@ -284,6 +327,8 @@ class Slab(s_base.Base):
             return self._handle_mapfull()
 
     def putmulti(self, kvpairs, dupdata=False, append=False, db=None):
+        if self.readonly:
+            raise s_exc.DbIsReadOnly()
 
         try:
             self.dirty = True
@@ -336,20 +381,19 @@ class Scan:
         self.slab = slab
         self.db = db
 
-        self.curs = self.slab.xact.cursor(db=db)
-
         self.atitem = None
         self.bumped = False
 
     def __enter__(self):
+        self.slab._acqXactForReading()
+        self.curs = self.slab.xact.cursor(db=self.db)
         self.slab.scans.add(self)
         return self
 
     def __exit__(self, exc, cls, tb):
-
         self.bump()
-
         self.slab.scans.discard(self)
+        self.slab._relXactForReading()
 
     def last_key(self):
         ''' Return the last key in the database.  Returns none if database is empty. '''

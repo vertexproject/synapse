@@ -1,4 +1,6 @@
 import os
+import asyncio
+import multiprocessing
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
@@ -99,11 +101,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     next(iter)
 
                 multikey = b'\xff\xff\xff\xfe' + s_common.guid().encode('utf8')
-                for i in range(50):
+                for i in range(100):
                     rv = slab.put(multikey, s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
                     self.true(rv)
 
-                self.eq(200, sum(1 for _ in iter))
+                self.eq(250, sum(1 for _ in iter))
 
                 self.true(os.path.isfile(slab.optspath))
 
@@ -116,11 +118,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 for i in range(200):
                     slab.put(multikey, s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
 
-                self.eq(25, sum(1 for _ in iter))
+                self.eq(75, sum(1 for _ in iter))
 
                 # Trigger an out-of-space
                 try:
-                    for i in range(300):
+                    for i in range(400):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid().encode('utf8'), byts, db=foo)
 
                     # Should have hit a DbOutOfSpace exception
@@ -129,9 +131,39 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 except s_exc.DbOutOfSpace:
                     pass
 
-            # lets ensure our mapsize / growsize persisted
+            # lets ensure our mapsize / growsize persisted, and make sure readonly works
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:
 
                 self.eq(my_maxsize, newdb.mapsize)
 
                 self.eq(50000, newdb.growsize)
+                foo = newdb.initdb('foo', dupsort=True)
+                for _, _ in newdb.scanByRange(b'', db=foo):
+                    count += 1
+                self.gt(count, 300)
+
+                # Make sure readonly is really readonly
+                self.raises(s_exc.DbIsReadOnly, newdb.put, b'1234', b'3456')
+                self.raises(s_exc.DbIsReadOnly, newdb.replace, b'1234', b'3456')
+                self.raises(s_exc.DbIsReadOnly, newdb.pop, b'1234')
+                self.raises(s_exc.DbIsReadOnly, newdb.delete, b'1234')
+                self.raises(s_exc.DbIsReadOnly, newdb.putmulti, ((b'1234', b'3456'),))
+
+                # While we have the DB open in readonly, have another process write a bunch of data to cause the
+                # map size to be increased
+
+                def anotherproc(path):
+                    async def lotsofwrites(path):
+                        async with await s_lmdbslab.Slab.anit(path) as slab:
+                            foo = slab.initdb('foo', dupsort=True)
+                            multikey = b'\xff\xff\xff\xff' + s_common.guid().encode('utf8')
+                            for i in range(400):
+                                slab.put(multikey, s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
+                    asyncio.run(lotsofwrites(path))
+
+                proc = multiprocessing.Process(target=anotherproc, args=(path, ))
+                proc.start()
+                proc.join()
+
+                # Now trigger a remap for me
+                newdb.get(multikey, db=foo)
