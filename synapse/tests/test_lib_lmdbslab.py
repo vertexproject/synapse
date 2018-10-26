@@ -87,13 +87,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 foo = slab.initdb('foo', dupsort=True)
 
                 byts = b'\x00' * 256
-                for i in range(200):
+                for i in range(100):
                     slab.put(s_common.guid().encode('utf8'), byts, db=foo)
 
                 count = 0
                 for _, _ in slab.scanByRange(b'', db=foo):
                     count += 1
-                self.eq(count, 200)
+                self.eq(count, 100)
 
                 # Trigger a grow/bump in the middle of a scan; make sure new nodes come after current scan position
                 iter = slab.scanByRange(b'', db=foo)
@@ -101,11 +101,16 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     next(iter)
 
                 multikey = b'\xff\xff\xff\xfe' + s_common.guid().encode('utf8')
-                for i in range(100):
+                mapsize = slab.mapsize
+                count = 0
+
+                # Write until we grow
+                while mapsize == slab.mapsize:
+                    count += 1
                     rv = slab.put(multikey, s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
                     self.true(rv)
 
-                self.eq(250, sum(1 for _ in iter))
+                self.eq(50 + count, sum(1 for _ in iter))
 
                 self.true(os.path.isfile(slab.optspath))
 
@@ -118,7 +123,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 for i in range(200):
                     slab.put(multikey, s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
 
-                self.eq(75, sum(1 for _ in iter))
+                self.eq(count - 25, sum(1 for _ in iter))
 
                 # Trigger an out-of-space
                 try:
@@ -143,11 +148,11 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.gt(count, 300)
 
                 # Make sure readonly is really readonly
-                self.raises(s_exc.DbIsReadOnly, newdb.put, b'1234', b'3456')
-                self.raises(s_exc.DbIsReadOnly, newdb.replace, b'1234', b'3456')
-                self.raises(s_exc.DbIsReadOnly, newdb.pop, b'1234')
-                self.raises(s_exc.DbIsReadOnly, newdb.delete, b'1234')
-                self.raises(s_exc.DbIsReadOnly, newdb.putmulti, ((b'1234', b'3456'),))
+                self.raises(s_exc.IsReadOnly, newdb.put, b'1234', b'3456')
+                self.raises(s_exc.IsReadOnly, newdb.replace, b'1234', b'3456')
+                self.raises(s_exc.IsReadOnly, newdb.pop, b'1234')
+                self.raises(s_exc.IsReadOnly, newdb.delete, b'1234')
+                self.raises(s_exc.IsReadOnly, newdb.putmulti, ((b'1234', b'3456'),))
 
                 # While we have the DB open in readonly, have another process write a bunch of data to cause the
                 # map size to be increased
@@ -156,9 +161,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     async def lotsofwrites(path):
                         async with await s_lmdbslab.Slab.anit(path) as slab:
                             foo = slab.initdb('foo', dupsort=True)
-                            multikey = b'\xff\xff\xff\xff' + s_common.guid().encode('utf8')
-                            for i in range(400):
-                                slab.put(multikey, s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
+                            mapsize = slab.mapsize
+                            while mapsize == slab.mapsize:
+                                slab.put(b'abcd', s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
                     asyncio.run(lotsofwrites(path))
 
                 proc = multiprocessing.Process(target=anotherproc, args=(path, ))

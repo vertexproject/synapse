@@ -259,7 +259,7 @@ class Slab(s_base.Base):
     # FIXME:  refactor delete/put/replace/pop common code
     def pop(self, lkey, db=None):
         if self.readonly:
-            raise s_exc.DbIsReadOnly()
+            raise s_exc.IsReadOnly()
 
         try:
             self.dirty = True
@@ -276,7 +276,7 @@ class Slab(s_base.Base):
 
     def delete(self, lkey, val=None, db=None):
         if self.readonly:
-            raise s_exc.DbIsReadOnly()
+            raise s_exc.IsReadOnly()
 
         try:
             self.dirty = True
@@ -293,7 +293,7 @@ class Slab(s_base.Base):
 
     def put(self, lkey, lval, dupdata=False, db=None):
         if self.readonly:
-            raise s_exc.DbIsReadOnly()
+            raise s_exc.IsReadOnly()
 
         try:
             self.dirty = True
@@ -311,7 +311,7 @@ class Slab(s_base.Base):
         Like put, but returns the previous value if existed
         '''
         if self.readonly:
-            raise s_exc.DbIsReadOnly()
+            raise s_exc.IsReadOnly()
 
         try:
             self.dirty = True
@@ -328,7 +328,7 @@ class Slab(s_base.Base):
 
     def putmulti(self, kvpairs, dupdata=False, append=False, db=None):
         if self.readonly:
-            raise s_exc.DbIsReadOnly()
+            raise s_exc.IsReadOnly()
 
         try:
             self.dirty = True
