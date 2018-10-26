@@ -8,7 +8,7 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.tests.utils as s_t_utils
 
 class LmdbSlabTest(s_t_utils.SynTest):
-    async def test_lmdb_slab_base(self):
+    async def test_lmdbslab_base(self):
 
         self.true(s_glob.plex.iAmLoop())
 
@@ -73,41 +73,54 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             self.raises(s_exc.IsFini, next, scan)
 
-    async def test_lmdb_slab_grow(self):
+    async def test_lmdbslab_grow(self):
 
         with self.getTestDir() as dirn:
 
             path = os.path.join(dirn, 'test.lmdb')
-            my_maxsize = 350000
+            my_maxsize = 500000
 
-            async with await s_lmdbslab.Slab.anit(path, map_size=100000, maxsize=my_maxsize) as slab:
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=50000, maxsize=my_maxsize) as slab:
 
-                foo = slab.initdb('foo')
+                foo = slab.initdb('foo', dupsort=True)
 
-                byts = b'\x00' * 1024
-                for i in range(50):
+                byts = b'\x00' * 256
+                for i in range(200):
                     slab.put(s_common.guid().encode('utf8'), byts, db=foo)
 
                 count = 0
                 for _, _ in slab.scanByRange(b'', db=foo):
                     count += 1
-                self.eq(count, 50)
-
-                iter = slab.scanByRange(b'', db=foo)
-                for i in range(25):
-                    next(iter)
+                self.eq(count, 200)
 
                 # Trigger a grow/bump in the middle of a scan; make sure new nodes come after current scan position
+                iter = slab.scanByRange(b'', db=foo)
                 for i in range(50):
-                    slab.put(b'\xff\xff\xff\xff' + s_common.guid().encode('utf8'), byts, db=foo)
+                    next(iter)
 
-                self.eq(75, sum(1 for _ in iter))
+                multikey = b'\xff\xff\xff\xfe' + s_common.guid().encode('utf8')
+                for i in range(50):
+                    rv = slab.put(multikey, s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
+                    self.true(rv)
+
+                self.eq(200, sum(1 for _ in iter))
 
                 self.true(os.path.isfile(slab.optspath))
 
+                # Trigger a grow/bump in the middle of a dup scan
+                iter = slab.scanByDups(multikey, db=foo)
+                for i in range(25):
+                    next(iter)
+
+                multikey = b'\xff\xff\xff\xff' + s_common.guid().encode('utf8')
+                for i in range(200):
+                    slab.put(multikey, s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
+
+                self.eq(25, sum(1 for _ in iter))
+
                 # Trigger an out-of-space
                 try:
-                    for i in range(50):
+                    for i in range(300):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid().encode('utf8'), byts, db=foo)
 
                     # Should have hit a DbOutOfSpace exception
@@ -117,9 +130,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     pass
 
             # lets ensure our mapsize / growsize persisted
-
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, readonly=True) as newdb:
 
                 self.eq(my_maxsize, newdb.mapsize)
 
-                self.none(newdb.growsize)
+                self.eq(50000, newdb.growsize)

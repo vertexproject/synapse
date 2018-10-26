@@ -188,8 +188,11 @@ class Slab(s_base.Base):
         self.xactops.append((func, args, kwargs))
 
     def _runXactOpers(self):
-        # re-run transaction operations in the event of an abort
-        [f(*a, **k) for (f, a, k) in self.xactops]
+        # re-run transaction operations in the event of an abort.  Return the last operation's return value.
+        retn = None
+        for (f, a, k) in self.xactops:
+            retn = f(*a, **k)
+        return retn
 
     @contextlib.contextmanager
     def aborted(self):
@@ -205,14 +208,18 @@ class Slab(s_base.Base):
         self.xact = self.lenv.begin(write=not self.readonly)
 
         self.recovering = True
-        self._runXactOpers()
+        self.last_retn = self._runXactOpers()
         self.recovering = False
+        return self.last_retn
 
     def _handle_mapfull(self):
         with self.aborted():
             self._growMapSize()
 
         self.forcecommit()
+
+        retn, self.last_retn = self.last_retn, None
+        return retn
 
     # FIXME:  refactor delete/put/replace/pop common code
     def pop(self, lkey, db=None):
@@ -228,7 +235,7 @@ class Slab(s_base.Base):
             return retn
 
         except lmdb.MapFullError as e:
-            self._handle_mapfull()
+            return self._handle_mapfull()
 
     def delete(self, lkey, val=None, db=None):
 
@@ -243,7 +250,7 @@ class Slab(s_base.Base):
             return
 
         except lmdb.MapFullError as e:
-            self._handle_mapfull()
+            return self._handle_mapfull()
 
     def put(self, lkey, lval, dupdata=False, db=None):
 
@@ -253,12 +260,10 @@ class Slab(s_base.Base):
             if not self.recovering:
                 self._logXactOper(self.put, lkey, lval, dupdata=dupdata, db=db)
 
-            self.xact.put(lkey, lval, dupdata=dupdata, db=db)
-
-            return
+            return self.xact.put(lkey, lval, dupdata=dupdata, db=db)
 
         except lmdb.MapFullError as e:
-            self._handle_mapfull()
+            return self._handle_mapfull()
 
     def replace(self, lkey, lval, db=None):
         '''
@@ -276,7 +281,7 @@ class Slab(s_base.Base):
             return retn
 
         except lmdb.MapFullError as e:
-            self._handle_mapfull()
+            return self._handle_mapfull()
 
     def putmulti(self, kvpairs, dupdata=False, append=False, db=None):
 
@@ -287,12 +292,12 @@ class Slab(s_base.Base):
                 self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=True, db=db)
 
             with self.xact.cursor(db=db) as curs:
-                curs.putmulti(kvpairs, dupdata=dupdata, append=append)
+                retn = curs.putmulti(kvpairs, dupdata=dupdata, append=append)
 
-            return
+            return retn
 
         except lmdb.MapFullError as e:
-            self._handle_mapfull()
+            return self._handle_mapfull()
 
     @contextlib.contextmanager
     def synchold(self):
@@ -385,6 +390,8 @@ class Scan:
                     if self.slab.isfini:
                         raise s_exc.IsFini()
 
+                    self.bumped = False
+
                     self.curs = self.slab.xact.cursor(db=self.db)
                     self.curs.set_range(self.atitem[0])
 
@@ -410,6 +417,8 @@ class Scan:
 
                     if self.slab.isfini:
                         raise s_exc.IsFini()
+
+                    self.bumped = False
 
                     self.curs = self.slab.xact.cursor(db=self.db)
                     self.curs.set_range_dup(*self.atitem)
