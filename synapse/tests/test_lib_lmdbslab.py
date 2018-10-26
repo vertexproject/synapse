@@ -78,40 +78,48 @@ class LmdbSlabTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             path = os.path.join(dirn, 'test.lmdb')
+            my_maxsize = 350000
 
-            slab = await s_lmdbslab.Slab.anit(path, map_size=100000)
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, maxsize=my_maxsize) as slab:
 
-            foo = slab.initdb('foo')
+                foo = slab.initdb('foo')
 
-            byts = b'\x00' * 1024
-            for i in range(100):
-                slab.put(s_common.guid().encode('utf8'), byts, db=foo)
+                byts = b'\x00' * 1024
+                for i in range(50):
+                    slab.put(s_common.guid().encode('utf8'), byts, db=foo)
 
-            count = 0
-            for _, _ in slab.scanByRange(b'', db=foo):
-                count += 1
-            self.eq(count, 100)
+                count = 0
+                for _, _ in slab.scanByRange(b'', db=foo):
+                    count += 1
+                self.eq(count, 50)
 
-            iter = slab.scanByRange(b'', db=foo)
-            for i in range(50):
-                next(iter)
+                iter = slab.scanByRange(b'', db=foo)
+                for i in range(25):
+                    next(iter)
 
-            # Trigger a grow/bump in the middle of a scan; make sure new nodes come after current scan position
-            for i in range(100):
-                slab.put(b'\xff\xff\xff\xff' + s_common.guid().encode('utf8'), byts, db=foo)
+                # Trigger a grow/bump in the middle of a scan; make sure new nodes come after current scan position
+                for i in range(50):
+                    slab.put(b'\xff\xff\xff\xff' + s_common.guid().encode('utf8'), byts, db=foo)
 
-            self.eq(150, sum(1 for _ in iter))
+                self.eq(75, sum(1 for _ in iter))
 
-            self.true(os.path.isfile(slab.optspath))
+                self.true(os.path.isfile(slab.optspath))
 
-            await slab.fini()
+                # Trigger an out-of-space
+                try:
+                    for i in range(50):
+                        slab.put(b'\xff\xff\xff\xff' + s_common.guid().encode('utf8'), byts, db=foo)
+
+                    # Should have hit a DbOutOfSpace exception
+                    self.true(0)
+
+                except s_exc.DbOutOfSpace:
+                    pass
 
             # lets ensure our mapsize / growsize persisted
 
-            newdb = await s_lmdbslab.Slab.anit(path, map_size=100000)
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000) as newdb:
 
-            self.eq(slab.mapsize, newdb.mapsize)
+                self.eq(my_maxsize, newdb.mapsize)
 
-            self.none(newdb.growsize)
-
-            await newdb.fini()
+                self.none(newdb.growsize)

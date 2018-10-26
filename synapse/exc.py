@@ -192,3 +192,5 @@ class AlreadyInAsync(SynErr):
     Raised when an attempt to pend on getting the value back from a coroutine, when already in the event loop thread
     '''
     pass
+
+class DbOutOfSpace(SynErr): pass

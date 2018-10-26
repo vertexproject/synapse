@@ -92,18 +92,27 @@ class Slab(s_base.Base):
 
     def _growMapSize(self, size=None):
 
+        mapsize = self.mapsize
+
         if size is not None:
-            self.mapsize += size
+            mapsize += size
 
         elif self.growsize is not None:
-            self.mapsize += self.growsize
+            mapsize += self.growsize
 
         else:
-            self.mapsize *= 2
+            mapsize *= 2
 
-        logger.warning('growing map size to: %d' % (self.mapsize,))
+        if self.maxsize is not None:
+            mapsize = min(mapsize, self.maxsize)
+            if mapsize == self.mapsize:
+                raise s_exc.DbOutOfSpace(
+                    mesg=f'DB at {self.path} is at specified max capacity of {self.maxsize} and is out of space')
 
-        self.lenv.set_mapsize(self.mapsize)
+        logger.warning('growing map size to: %d' % (mapsize,))
+
+        self.lenv.set_mapsize(mapsize)
+        self.mapsize = mapsize
         self._saveOptsFile()
 
         return self.mapsize
