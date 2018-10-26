@@ -32,6 +32,9 @@ class LmdbLayer(s_layer.Layer):
     '''
     confdefs = (  # type: ignore
         ('lmdb:mapsize', {'type': 'int', 'defval': LMDB_LAYER_DEFAULT_MAP_SIZE}),
+        ('lmdb:maxsize', {'type': 'int', 'defval': None, 'doc': 'The largest the DB file will grow to'}),
+        ('lmdb:growsize', {'type': 'int', 'defval': None,
+                           'doc': 'The amount in bytes to grow the DB file when full.  Defaults to doubling'}),
         ('lmdb:readahead', {'type': 'bool', 'defval': True}),
     )
 
@@ -42,8 +45,11 @@ class LmdbLayer(s_layer.Layer):
 
         mapsize = self.conf.get('lmdb:mapsize')
         readahead = self.conf.get('lmdb:readahead')
+        maxsize = self.conf.get('lmdb:maxsize')
+        growsize = self.conf.get('lmdb:growsize')
 
-        self.slab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, writemap=True, readahead=readahead)
+        self.slab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize, growsize=growsize,
+                                               writemap=True, readahead=readahead)
 
         self.onfini(self.slab.fini)
 

@@ -1,7 +1,7 @@
 modules:
     - synapse.tests.utils.TestModule
-# 5 GiByte map size default
-layer:lmdb:mapsize: 5368709120
+# 1 GiByte map size default
+layer:lmdb:mapsize: 1073741824
 
 httpapi:
     port: 0

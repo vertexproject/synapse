@@ -275,7 +275,7 @@ class Cortex(s_cell.Cell):
     confdefs = (  # type: ignore
 
         ('layer:lmdb:mapsize', {
-            'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE,
+            'type': 'int', 'defval': None,
             'doc': 'The default size for a new LMDB layer map.'
         }),
 
