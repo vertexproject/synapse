@@ -163,8 +163,6 @@ class CortexTest(s_t_utils.SynTest):
                 conf['feeds'][0]['type'] = 'com.clown'
                 await self.asyncraises(s_exc.NoSuchType, self.getTestCell(dirn, 'cortex', conf=conf))
 
-    @s_glob.synchelp
-    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     async def test_cortex_model_dict(self):
 
         async with self.getTestDmon(mirror='dmoncore') as dmon, \
@@ -185,8 +183,6 @@ class CortexTest(s_t_utils.SynTest):
             self.nn(pnfo)
             self.eq(pnfo['type'][0], 'inet:asn')
 
-    @s_glob.synchelp
-    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     async def test_storm_graph(self):
 
         async with self.getTestDmon(mirror='dmoncore') as dmon, \

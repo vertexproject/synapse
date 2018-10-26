@@ -7,7 +7,7 @@ import logging
 
 import synapse.exc as s_exc
 
-import synapse.lib.lmdb as s_lmdb
+import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.slaboffs as s_slaboffs
@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 # Maximum number of bytes we're going to put in an index
 MAX_INDEX_LEN = 256
 
+# The layer map size can start much lower because the underlying slab auto-grows.
+LMDB_LAYER_DEFAULT_MAP_SIZE = 512 * s_const.mebibyte
+
 class LmdbLayer(s_layer.Layer):
     '''
     A layer implements btree indexed storage for a cortex.
@@ -28,7 +31,7 @@ class LmdbLayer(s_layer.Layer):
         metadata for layer contents (only specific type / tag)
     '''
     confdefs = (  # type: ignore
-        ('lmdb:mapsize', {'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE}),
+        ('lmdb:mapsize', {'type': 'int', 'defval': LMDB_LAYER_DEFAULT_MAP_SIZE}),
         ('lmdb:readahead', {'type': 'bool', 'defval': True}),
     )
 

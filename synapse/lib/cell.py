@@ -15,6 +15,8 @@ import synapse.lib.const as s_const
 
 logger = logging.getLogger(__name__)
 
+SLAB_MAP_SIZE = 128 * s_const.mebibyte
+
 '''
 Base classes for the synapse "cell" microservice architecture.
 '''
@@ -232,7 +234,7 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         s_common.gendir(self.dirn, 'slabs')
         path = os.path.join(self.dirn, 'slabs', 'cell.lmdb')
-        self.slab = await s_lmdbslab.Slab.anit(path, map_size=s_const.gibibyte)
+        self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE)
         self.onfini(self.slab.fini)
 
     async def _initCellAuth(self):
