@@ -50,6 +50,7 @@ class Slab(s_base.Base):
 
         self.holders = 0
 
+        self.dirty = False
         if self.readonly:
             self.xact = None
             self.txnrefcount = 0
