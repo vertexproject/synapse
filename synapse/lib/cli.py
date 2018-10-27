@@ -374,7 +374,7 @@ class Cli(s_eventbus.EventBus):
                     try:
                         task.result(2)
                     except asyncio.CancelledError:
-                        # Wait a beat to let any remaining nodes to print out
+                        # Wait a beat to let any remaining nodes to print out before we print the prompt
                         time.sleep(1)
                     except Exception:
                         pass
