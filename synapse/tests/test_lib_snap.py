@@ -101,7 +101,9 @@ class SnapTest(s_t_utils.SynTest):
 
                 # Make sure only the top layer is writeable
                 self.true(core.layers[0].readonly)
+                self.true(core.layers[0].slab.readonly)
                 self.false(core.layers[1].readonly)
+                self.false(core.layers[1].slab.readonly)
 
                 nodes = await alist(snap.getNodesBy('inet:ipv4', 1))
                 self.len(1, nodes)
