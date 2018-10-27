@@ -339,6 +339,7 @@ class Cli(s_eventbus.EventBus):
             # FIXME history / completion
 
             try:
+                task = None
 
                 line = self.get_input()
                 if not line:
@@ -348,7 +349,7 @@ class Cli(s_eventbus.EventBus):
                 if not line:
                     continue
 
-                s_glob.sync(self.runCmdLine(line))
+                task = s_glob.sync(self.runCmdLine(line))
 
             except KeyboardInterrupt as e:
 
@@ -363,6 +364,14 @@ class Cli(s_eventbus.EventBus):
             except Exception as e:
                 s = traceback.format_exc()
                 self.printf(s)
+
+            finally:
+                if task is not None:
+                    task.cancel()
+                    try:
+                        task.result(2)
+                    except Exception:
+                        pass
 
     async def runCmdLine(self, line):
         '''
