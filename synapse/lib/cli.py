@@ -1,5 +1,6 @@
 import json
 import signal
+import asyncio
 import threading
 import traceback
 import collections
@@ -349,7 +350,8 @@ class Cli(s_eventbus.EventBus):
                 if not line:
                     continue
 
-                task = s_glob.sync(self.runCmdLine(line))
+                task = s_glob.plex.coroToTask(self.runCmdLine(line))
+                task.result()
 
             except KeyboardInterrupt as e:
 
@@ -406,8 +408,8 @@ class Cli(s_eventbus.EventBus):
         except s_exc.CliFini as e:
             self.fini()
 
-        except KeyboardInterrupt as e:
-            self.printf('<ctrl-c>')
+        except asyncio.CancelledError:
+            self.printf('Cmd cancelled')
 
         except Exception as e:
             exctxt = traceback.format_exc()
