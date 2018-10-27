@@ -101,6 +101,10 @@ class Slab(s_base.Base):
 
         [scan.bump() for scan in self.scans]
 
+        # Readonly or self.xact has already been closed
+        if self.xact is None:
+            return
+
         self.xact.commit()
 
         self.xactops.clear()
