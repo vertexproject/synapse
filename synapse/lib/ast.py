@@ -158,8 +158,6 @@ class Query(AstNode):
 
     def iterNodePaths(self, runt):
 
-        self.core._logStormQuery(self.text, runt.user)
-
         count = 0
 
         graph = runt.getOpt('graph')
