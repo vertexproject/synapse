@@ -31,7 +31,7 @@ class Layer(s_cell.Cell):
     '''
     async def __anit__(self, dirn, readonly=False):
 
-        await s_cell.Cell.__anit__(self, dirn)
+        await s_cell.Cell.__anit__(self, dirn, readonly=readonly)
 
         self._lift_funcs = {
             'indx': self._liftByIndx,
