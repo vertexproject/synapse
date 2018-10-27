@@ -1,4 +1,5 @@
 import json
+import time
 import signal
 import asyncio
 import threading
@@ -372,6 +373,9 @@ class Cli(s_eventbus.EventBus):
                     task.cancel()
                     try:
                         task.result(2)
+                    except asyncio.CancelledError:
+                        # Wait a beat to let any remaining nodes to print out
+                        time.sleep(1)
                     except Exception:
                         pass
 
