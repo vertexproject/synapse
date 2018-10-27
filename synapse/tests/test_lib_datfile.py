@@ -4,11 +4,11 @@ import unittest
 import synapse
 import synapse.lib.datfile as s_datfile
 
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
 syndir = os.path.dirname(synapse.__file__)
 
-class DatFileTest(SynTest):
+class DatFileTest(s_t_utils.SynTest):
 
     def test_datfile_basic(self):
         with s_datfile.openDatFile('synapse.tests/test.dat') as fd:

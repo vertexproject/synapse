@@ -1,4 +1,4 @@
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
 import synapse.lib.reflect as s_reflect
 
@@ -13,7 +13,7 @@ class Bar:
     def _syn_reflect(self):
         return s_reflect.getItemInfo(self.foo)
 
-class ReflectTest(SynTest):
+class ReflectTest(s_t_utils.SynTest):
 
     def test_reflect_getClsNames(self):
         foo = Foo()

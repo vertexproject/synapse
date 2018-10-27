@@ -1,15 +1,21 @@
 import os
 import logging
-import threading
+import contextlib
+import tempfile
+import pathlib
 
 import synapse.exc as s_exc
+
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
-import synapse.lib.coro as s_coro
+import synapse.lib.base as s_base
+import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.const as s_const
 
 logger = logging.getLogger(__name__)
+
+SLAB_MAP_SIZE = 128 * s_const.mebibyte
 
 '''
 Base classes for the synapse "cell" microservice architecture.
@@ -32,10 +38,10 @@ def adminapi(f):
 
     return func
 
-class CellApi(s_coro.Fini):
+class CellApi(s_base.Base):
 
-    def __init__(self, cell, link):
-        s_coro.Fini.__init__(self)
+    async def __anit__(self, cell, link):
+        await s_base.Base.__anit__(self)
         self.cell = cell
         self.link = link
         self.user = link.get('cell:user')
@@ -166,35 +172,34 @@ class CellApi(s_coro.Fini):
 
 bootdefs = (
 
-    #('cell:name', {
-        #'doc': 'Set the log/display name for this cell.'}),
+    # ('cell:name', {
+        # 'doc': 'Set the log/display name for this cell.'}),
 
-    ('auth:en', {'defval': False,
-        'doc': 'Set to True to enable auth for this cortex.'}),
+    ('auth:en', {'defval': False, 'doc': 'Set to True to enable auth for this cortex.'}),
 
-    #('auth:required', {'defval': True,
-        #'doc': 'If auth is enabled, allow non-auth connections.  Cell must manage perms.'})
+    # ('auth:required', {'defval': True,
+        # 'doc': 'If auth is enabled, allow non-auth connections.  Cell must manage perms.'})
 
-    ('auth:admin', {'defval': None,
-        'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
+    ('auth:admin', {'defval': None, 'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
 )
 
-class Cell(s_eventbus.EventBus, s_telepath.Aware):
+class Cell(s_base.Base, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
     '''
     cellapi = CellApi
 
+    # config options that are in all cells...
+    confbase = ()
     confdefs = ()
 
-    def __init__(self, dirn):
+    async def __anit__(self, dirn, readonly=False):
 
-        s_eventbus.EventBus.__init__(self)
+        await s_base.Base.__anit__(self)
+
+        s_telepath.Aware.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
-
-        self.cellfini = threading.Event()
-        self.onfini(self.cellfini.set)
 
         self.auth = None
 
@@ -214,7 +219,7 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         self.boot = s_common.config(boot, bootdefs)
 
         conf = self._loadCellYaml('cell.yaml')
-        self.conf = s_common.config(conf, self.confdefs)
+        self.conf = s_common.config(conf, self.confdefs + self.confbase)
 
         self.cmds = {}
 
@@ -222,9 +227,17 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         if self.cellname is None:
             self.cellname = self.__class__.__name__
 
-        self._initCellAuth()
+        await self._initCellAuth()
+        await self._initCellSlab(readonly=readonly)
 
-    def _initCellAuth(self):
+    async def _initCellSlab(self, readonly=False):
+
+        s_common.gendir(self.dirn, 'slabs')
+        path = os.path.join(self.dirn, 'slabs', 'cell.lmdb')
+        self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
+        self.onfini(self.slab.fini)
+
+    async def _initCellAuth(self):
 
         if not self.boot.get('auth:en'):
             return
@@ -233,7 +246,7 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         import synapse.cells as s_cells
 
         authdir = s_common.gendir(self.dirn, 'auth')
-        self.auth = s_cells.init('auth', authdir)
+        self.auth = await s_cells.init('auth', authdir)
 
         admin = self.boot.get('auth:admin')
         if admin is not None:
@@ -265,20 +278,15 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         # sub-classes may over-ride to do deploy initialization
         pass
 
-    def getTeleApi(self, link, mesg):
+    async def getTeleApi(self, link, mesg):
 
         if self.auth is None:
-            return self.cellapi(self, link)
+            return await self.cellapi.anit(self, link)
 
         user = self._getCellUser(link, mesg)
-        if user is None:
-            _auth = mesg[1].get('auth')
-            user = _auth[0] if _auth else None
-            raise s_exc.AuthDeny(mesg='Unable to find cell user.',
-                                 user=user)
 
         link.set('cell:user', user)
-        return self.cellapi(self, link)
+        return await self.cellapi.anit(self, link)
 
     def getCellType(self):
         return self.__class__.__name__.lower()
@@ -288,27 +296,20 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
 
     def _getCellUser(self, link, mesg):
 
-        # with SSL a valid client cert sets ssl:user
-        name = link.get('ssl:user')
-        if name is not None:
-            return self.auth.users.get(name)
-
-        # fall back on user/passwd
         auth = mesg[1].get('auth')
         if auth is None:
-            return None
+            raise s_exc.AuthDeny(mesg='Unable to find cell user')
 
         name, info = auth
 
         user = self.auth.users.get(name)
         if user is None:
-            return None
+            raise s_exc.AuthDeny(mesg='User not present in link', user=name)
 
         # passwd None always fails...
         passwd = info.get('passwd')
         if not user.tryPasswd(passwd):
-            raise s_exc.AuthDeny(mesg='Invalid password',
-                                 user=user.name)
+            raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 
         return user
 
@@ -349,3 +350,24 @@ class Cell(s_eventbus.EventBus, s_telepath.Aware):
         Add a Cmdr() command to the cell.
         '''
         self.cmds[name] = func
+
+    @contextlib.asynccontextmanager
+    async def getLocalProxy(self):
+        '''
+        Creates a local telepath daemon, shares this object, and returns the telepath proxy of this object
+
+        TODO:  currently, this will fini self if the created dmon is fini'd
+        '''
+        import synapse.daemon as s_daemon  # avoid import cycle
+        with tempfile.TemporaryDirectory() as dirn:
+            coredir = pathlib.Path(dirn, 'cells', 'core')
+            if coredir.is_dir():
+                ldir = s_common.gendir(coredir, 'layers')
+                if self.alt_write_layer:
+                    os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
+
+            async with await s_daemon.Daemon.anit(dirn) as dmon:
+                dmon.share('core', self)
+                addr = await dmon.listen('tcp://127.0.0.1:0')
+                prox = await s_telepath.openurl('tcp://127.0.0.1/core', port=addr[1])
+                yield prox

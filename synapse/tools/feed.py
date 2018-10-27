@@ -1,17 +1,19 @@
 import os
 import sys
 import time
-import types
 import shutil
 import logging
 import argparse
 import tempfile
 import contextlib
+
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
@@ -48,13 +50,7 @@ def getItems(*paths):
             logger.warning('Unsupported file path: [%s]', path)
     return items
 
-# def addFeedData(core, outp, format, debug=False, *paths):
-
-def addFeedData(core, outp, feedformat,
-                debug=False,
-                *paths,
-                chunksize=1000,
-                offset=0):
+def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=1000, offset=0):
 
     items = getItems(*paths)
     for path, item in items:
@@ -80,8 +76,7 @@ def addFeedData(core, outp, feedformat,
         outp.printf(f'Done consuming from [{bname}]')
         outp.printf(f'Took [{tock - tick}] seconds.')
     if debug:
-        cmdr = s_cmdr.getItemCmdr(core, outp)
-        cmdr.runCmdLoop()
+        s_cmdr.runItemCmdr(core, outp)
 
 def main(argv, outp=None):
 
@@ -103,14 +98,15 @@ def main(argv, outp=None):
         with getTempDir() as dirn:
             s_common.yamlsave({'layer:lmdb:mapsize': s_const.gibibyte * 5},
                               dirn, 'cell.yaml')
-            with s_cortex.Cortex(dirn) as core:
+            with s_coro.AsyncToSyncCMgr(s_glob.sync, s_cortex.Cortex.anit(dirn)) as core:
                 for mod in opts.modules:
                     outp.printf(f'Loading [{mod}]')
-                    core.loadCoreModule(mod)
-                addFeedData(core, outp, opts.format, opts.debug,
-                            chunksize=opts.chunksize,
-                            offset=opts.offset,
-                            *opts.files)
+                    s_glob.sync(core.loadCoreModule(mod))
+                with s_coro.AsyncToSyncCMgr(core.getLocalProxy) as prox:
+                    addFeedData(prox, outp, opts.format, opts.debug,
+                                chunksize=opts.chunksize,
+                                offset=opts.offset,
+                                *opts.files)
 
     elif opts.cortex:
         with s_telepath.openurl(opts.cortex) as core:

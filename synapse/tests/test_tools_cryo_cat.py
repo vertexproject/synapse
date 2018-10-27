@@ -9,9 +9,9 @@ import synapse.cryotank as s_cryotank
 import synapse.lib.cell as s_cell
 import synapse.tools.cryo.cat as s_cryocat
 
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
-class CryoCatTest(SynTest):
+class CryoCatTest(s_t_utils.SynTest):
 
     def cell_populate(self, port, auth):
         # Populate the cell with data

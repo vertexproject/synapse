@@ -3,11 +3,11 @@ synapse - test_lib_version.py
 Created on 10/6/17.
 """
 import synapse.exc as s_exc
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 import synapse.lib.version as s_version
 
 
-class VersionTest(s_test.SynTest):
+class VersionTest(s_t_utils.SynTest):
 
     def test_version_basics(self):
         self.eq(s_version.mask20.bit_length(), 20)

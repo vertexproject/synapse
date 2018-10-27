@@ -1,3 +1,4 @@
+import asyncio
 import fnmatch
 import logging
 import collections
@@ -6,12 +7,14 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 
-import synapse.lib.node as s_node
+import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 
 logger = logging.getLogger(__name__)
 
+async def agenrofone(item):
+    yield item
 
 class AstNode:
     '''
@@ -102,7 +105,48 @@ class Query(AstNode):
         # for options parsed from the query itself
         self.opts = {}
 
-    def _finiGraph(self, runt):
+    def setUser(self, user):
+        self.user = user
+
+    def isWrite(self):
+        return any(o.iswrite for o in self.kids)
+
+    def cancel(self):
+
+        if self.snap is not None:
+            self.snap.cancel()
+
+        self.canceled = True
+
+    # FIXME: remove
+    # async def execute(self):
+
+    #     chan = asyncio.Queue(maxsize=10)
+
+    #     coro = self._runQueryThread(chan)
+
+    #     s_glob.plex.coroLoopTask(coro)
+
+    #     while not self.canceled:
+
+    #         item = await chan.get()
+    #         if item is None:
+    #             return
+
+    #         yield item
+
+    async def getInput(self, snap):
+        for ndef in self.opts.get('ndefs', ()):
+            node = await snap.getNodeByNdef(ndef)
+            if node is not None:
+                yield node, node.initPath()
+        for iden in self.opts.get('idens', ()):
+            buid = s_common.uhex(iden)
+            node = await snap.getNodeByBuid(buid)
+            if node is not None:
+                yield node, node.initPath()
+
+    async def _finiGraph(self, runt):
 
         # gather up any remaining todo nodes
         while runt._graph_want:
@@ -112,17 +156,17 @@ class Query(AstNode):
             if runt._graph_done.get(ndef):
                 continue
 
-            node = runt.snap.getNodeByNdef(ndef)
+            node = await runt.snap.getNodeByNdef(ndef)
             if node is None:
                 continue
 
             path = runt.initPath(node)
 
-            self._iterGraph(runt, node, path)
+            await self._iterGraph(runt, node, path)
 
             yield node, path
 
-    def _iterGraph(self, runt, node, path):
+    async def _iterGraph(self, runt, node, path):
 
         runt._graph_done[node.ndef] = True
 
@@ -145,18 +189,18 @@ class Query(AstNode):
 
         path.meta('edges', edges)
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         for oper in self.kids:
             genr = oper.run(runt, genr)
 
-        for node, path in genr:
+        async for node, path in genr:
 
             runt.tick()
 
             yield node, path
 
-    def iterNodePaths(self, runt):
+    async def iterNodePaths(self, runt):
 
         count = 0
 
@@ -167,10 +211,15 @@ class Query(AstNode):
         # turtles all the way down...
         genr = runt.getInput()
 
-        for node, path in self.run(runt, genr):
+        for oper in self.kids:
+            genr = oper.run(runt, genr)
+
+        async for node, path in genr:
+
+            runt.tick()
 
             if graph:
-                self._iterGraph(runt, node, path)
+                await self._iterGraph(runt, node, path)
 
             yield node, path
 
@@ -178,30 +227,30 @@ class Query(AstNode):
 
             limit = runt.getOpt('limit')
             if limit is not None and count >= limit:
-                runt.printf('limit reached: %d' % (limit,))
+                await runt.printf('limit reached: %d' % (limit,))
                 break
 
         if graph:
-            yield from self._finiGraph(runt)
+            async for item in self._finiGraph(runt):
+                yield item
 
 class Oper(AstNode):
     pass
 
 class SubQuery(Oper):
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         subq = self.kids[0]
 
-        for item in genr:
-
-            s_common.spin(subq.run(runt, (item,)))
+        async for item in genr:
+            await s_common.aspin(subq.run(runt, agenrofone(item)))
 
             yield item
 
 class CmdOper(Oper):
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         name = self.kids[0].value()
         text = self.kids[1].value()
@@ -213,14 +262,15 @@ class CmdOper(Oper):
 
         scmd = ctor(text)
 
-        if not scmd.hasValidOpts(runt.snap):
+        if not await scmd.hasValidOpts(runt.snap):
             return
 
-        yield from scmd.execStormCmd(runt, genr)
+        async for item in scmd.execStormCmd(runt, genr):
+            yield item
 
 class VarSetOper(Oper):
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         name = self.kids[0].value()
 
@@ -228,7 +278,7 @@ class VarSetOper(Oper):
             valu = self.kids[1].value()
             runt.vars[name] = valu
 
-        for node, path in genr:
+        async for node, path in genr:
             valu = self.kids[1].compute(runt, node, path)
             path.set(name, valu)
             runt.vars[name] = valu
@@ -236,31 +286,33 @@ class VarSetOper(Oper):
 
 class LiftOper(Oper):
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
-        yield from genr
+        async for item in genr:
+            yield item
 
-        for node in self.lift(runt):
+        async for node in self.lift(runt):
             yield node, runt.initPath(node)
 
 class LiftTag(LiftOper):
 
-    def lift(self, runt):
+    async def lift(self, runt):
         tag = self.kids[0].value()
-        yield from runt.snap._getNodesByTag(tag)
+        async for node in runt.snap._getNodesByTag(tag):
+            yield node
 
 class LiftTagTag(LiftOper):
     '''
     ##foo.bar
     '''
 
-    def lift(self, runt):
+    async def lift(self, runt):
 
         todo = collections.deque()
 
         tag = self.kids[0].value()
 
-        node = runt.snap.getNodeByNdef(('syn:tag', tag))
+        node = await runt.snap.getNodeByNdef(('syn:tag', tag))
         if node is None:
             return
 
@@ -276,7 +328,7 @@ class LiftTagTag(LiftOper):
                 continue
 
             done.add(tagname)
-            for node in runt.snap._getNodesByTag(tagname):
+            async for node in runt.snap._getNodesByTag(tagname):
 
                 if node.form.name == 'syn:tag':
                     todo.append(node)
@@ -286,7 +338,7 @@ class LiftTagTag(LiftOper):
 
 class LiftFormTag(LiftOper):
 
-    def lift(self, runt):
+    async def lift(self, runt):
 
         form = self.kids[0].value()
         tag = self.kids[1].value()
@@ -298,11 +350,12 @@ class LiftFormTag(LiftOper):
             cmpr = self.kids[2].value()
             valu = self.kids[3].runtval(runt)
 
-        yield from runt.snap._getNodesByFormTag(form, tag, valu=valu, cmpr=cmpr)
+        async for node in runt.snap._getNodesByFormTag(form, tag, valu=valu, cmpr=cmpr):
+            yield node
 
 class LiftProp(LiftOper):
 
-    def lift(self, runt):
+    async def lift(self, runt):
 
         name = self.kids[0].value()
 
@@ -315,11 +368,13 @@ class LiftProp(LiftOper):
 
         # If its a secondary prop, there's no optimization
         if runt.snap.model.forms.get(name) is None:
-            yield from runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr)
+            async for node in runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr):
+                yield node
             return
 
         if cmpr is not None:
-            yield from runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr)
+            async for node in runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr):
+                yield node
             return
 
         # lifting by a form only is pretty bad, maybe
@@ -332,7 +387,8 @@ class LiftProp(LiftOper):
 
                     if hint[0] == 'tag':
                         tagname = hint[1].get('name')
-                        yield from runt.snap._getNodesByFormTag(name, tagname)
+                        async for node in runt.snap._getNodesByFormTag(name, tagname):
+                            yield node
                         return
 
             # we can skip other lifts but that's it...
@@ -341,18 +397,20 @@ class LiftProp(LiftOper):
 
             break
 
-        yield from runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr)
+        async for node in runt.snap.getNodesBy(name, valu=valu, cmpr=cmpr):
+            yield node
 
 class LiftPropBy(LiftOper):
 
-    def lift(self, runt):
+    async def lift(self, runt):
 
         name = self.kids[0].value()
         cmpr = self.kids[1].value()
 
         valu = self.kids[2].runtval(runt)
 
-        yield from runt.snap.getNodesBy(name, valu, cmpr=cmpr)
+        async for node in runt.snap.getNodesBy(name, valu, cmpr=cmpr):
+            yield node
 
 class PivotOper(Oper):
 
@@ -364,9 +422,9 @@ class PivotOut(PivotOper):
     '''
     -> *
     '''
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
-        for node, path in genr:
+        async for node, path in genr:
 
             if self.isjoin:
                 yield node, path
@@ -374,14 +432,14 @@ class PivotOut(PivotOper):
             # <syn:tag> -> * is "from tags to nodes with tags"
             if node.form.name == 'syn:tag':
 
-                for pivo in runt.snap._getNodesByTag(node.ndef[1]):
+                async for pivo in runt.snap._getNodesByTag(node.ndef[1]):
                     yield pivo, path.fork(pivo)
 
                 continue
 
             if isinstance(node.form.type, s_types.Edge):
                 n2def = node.get('n2')
-                pivo = runt.snap.getNodeByNdef(n2def)
+                pivo = await runt.snap.getNodeByNdef(n2def)
                 yield pivo, path.fork(pivo)
                 continue
 
@@ -396,7 +454,7 @@ class PivotOut(PivotOper):
 
                 # if the outbound prop is an ndef...
                 if isinstance(prop.type, s_types.Ndef):
-                    pivo = runt.snap.getNodeByNdef(valu)
+                    pivo = await runt.snap.getNodeByNdef(valu)
                     if pivo is None:
                         continue
 
@@ -407,7 +465,7 @@ class PivotOut(PivotOper):
                 if form is None:
                     continue
 
-                pivo = runt.snap.getNodeByNdef((form.name, valu))
+                pivo = await runt.snap.getNodeByNdef((form.name, valu))
                 if pivo is None:
                     continue
 
@@ -420,7 +478,7 @@ class PivotToTags(PivotOper):
     -> #cno.*           pivot to all tag nodes which match cno.*
     -> #foo.bar         pivot to the tag node foo.bar if present
     '''
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         leaf = False
         mval = self.kids[0].value()
@@ -428,6 +486,7 @@ class PivotToTags(PivotOper):
         if not mval:
 
             leaf = True
+
             def filter(x):
                 return True
 
@@ -442,7 +501,7 @@ class PivotToTags(PivotOper):
             def filter(x):
                 return x == mval
 
-        for node, path in genr:
+        async for node, path in genr:
 
             if self.isjoin:
                 yield node, path
@@ -452,7 +511,7 @@ class PivotToTags(PivotOper):
                 if not filter(name):
                     continue
 
-                pivo = runt.snap.getNodeByNdef(('syn:tag', name))
+                pivo = await runt.snap.getNodeByNdef(('syn:tag', name))
                 if pivo is None:
                     continue
 
@@ -463,9 +522,9 @@ class PivotIn(PivotOper):
     <- *
     '''
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
-        for node, path in genr:
+        async for node, path in genr:
 
             if self.isjoin:
                 yield node, path
@@ -475,7 +534,7 @@ class PivotIn(PivotOper):
 
                 ndef = node.get('n1')
 
-                pivo = runt.snap.getNodeByNdef(ndef)
+                pivo = await runt.snap.getNodeByNdef(ndef)
                 if pivo is None:
                     continue
 
@@ -486,12 +545,12 @@ class PivotIn(PivotOper):
             name, valu = node.ndef
 
             for prop in runt.snap.model.propsbytype.get(name, ()):
-                for pivo in runt.snap.getNodesBy(prop.full, valu):
+                async for pivo in runt.snap.getNodesBy(prop.full, valu):
                     yield pivo, path.fork(pivo)
 
 class PivotInFrom(PivotOper):
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         name = self.kids[0].value()
 
@@ -504,18 +563,18 @@ class PivotInFrom(PivotOper):
 
             full = form.name + ':n2'
 
-            for node, path in genr:
+            async for node, path in genr:
 
                 if self.isjoin:
                     yield node, path
 
-                for pivo in runt.snap.getNodesBy(full, node.ndef):
+                async for pivo in runt.snap.getNodesBy(full, node.ndef):
                     yield pivo, path.fork(pivo)
 
             return
 
         # edge <- form
-        for node, path in genr:
+        async for node, path in genr:
 
             if self.isjoin:
                 yield node, path
@@ -529,7 +588,7 @@ class PivotInFrom(PivotOper):
 
             n1def = node.get('n1')
 
-            pivo = runt.snap.getNodeByNdef(n1def)
+            pivo = await runt.snap.getNodeByNdef(n1def)
             if pivo is None:
                 continue
 
@@ -537,7 +596,7 @@ class PivotInFrom(PivotOper):
 
 class FormPivot(PivotOper):
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         name = self.kids[0].value()
 
@@ -548,12 +607,12 @@ class FormPivot(PivotOper):
         # -> baz:ndef
         if isinstance(prop.type, s_types.Ndef):
 
-            for node, path in genr:
+            async for node, path in genr:
 
                 if self.isjoin:
                     yield node, path
 
-                for pivo in runt.snap.getNodesBy(prop.full, node.ndef):
+                async for pivo in runt.snap.getNodesBy(prop.full, node.ndef):
                     yield pivo, path.fork(pivo)
 
             return
@@ -561,7 +620,7 @@ class FormPivot(PivotOper):
         if not prop.isform:
 
             # plain old pivot...
-            for node, path in genr:
+            async for node, path in genr:
 
                 if self.isjoin:
                     yield node, path
@@ -569,7 +628,7 @@ class FormPivot(PivotOper):
                 valu = node.ndef[1]
 
                 # TODO cache/bypass normalization in loop!
-                for pivo in runt.snap.getNodesBy(prop.full, valu):
+                async for pivo in runt.snap.getNodesBy(prop.full, valu):
                     yield pivo, path.fork(pivo)
 
         # form -> form pivot is nonsensical. Lets help out...
@@ -579,12 +638,12 @@ class FormPivot(PivotOper):
 
             full = prop.name + ':n1'
 
-            for node, path in genr:
+            async for node, path in genr:
 
                 if self.isjoin:
                     yield node, path
 
-                for pivo in runt.snap.getNodesBy(full, node.ndef):
+                async for pivo in runt.snap.getNodesBy(full, node.ndef):
                     yield pivo, path.fork(pivo)
 
             return
@@ -598,14 +657,14 @@ class FormPivot(PivotOper):
                 if prop.type.name == destform:
                     return name
 
-        for node, path in genr:
+        async for node, path in genr:
 
             if self.isjoin:
                 yield node, path
 
             # <syn:tag> -> <form> is "from tags to nodes" pivot
             if node.form.name == 'syn:tag' and prop.isform:
-                for pivo in runt.snap.getNodesBy(f'{prop.name}#{node.ndef[1]}'):
+                async for pivo in runt.snap.getNodesBy(f'{prop.name}#{node.ndef[1]}'):
                     yield pivo, path.fork(pivo)
 
             # if the source node is a graph edge, use n2
@@ -615,7 +674,7 @@ class FormPivot(PivotOper):
                 if n2def[0] != destform:
                     continue
 
-                pivo = runt.snap.getNodeByNdef(node.get('n2'))
+                pivo = await runt.snap.getNodeByNdef(node.get('n2'))
                 yield pivo, path.fork(pivo)
 
                 continue
@@ -627,16 +686,16 @@ class FormPivot(PivotOper):
             # TODO: bypass normalization
             valu = node.get(name)
 
-            for pivo in runt.snap.getNodesBy(prop.name, valu):
+            async for pivo in runt.snap.getNodesBy(prop.name, valu):
                 yield pivo, path.fork(pivo)
 
 class PropPivotOut(PivotOper):
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         name = self.kids[0].value()
 
-        for node, path in genr:
+        async for node, path in genr:
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -649,18 +708,18 @@ class PropPivotOut(PivotOper):
             # ndef pivot out syntax...
             # :ndef -> *
             if isinstance(prop.type, s_types.Ndef):
-                pivo = runt.snap.getNodeByNdef(valu)
+                pivo = await runt.snap.getNodeByNdef(valu)
                 yield pivo, path.fork(pivo)
                 continue
 
             # :ipv4 -> *
             ndef = (prop.type.name, valu)
-            pivo = runt.snap.getNodeByNdef(ndef)
+            pivo = await runt.snap.getNodeByNdef(ndef)
             yield pivo, path.fork(pivo)
 
 class PropPivot(PivotOper):
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         name = self.kids[1].value()
 
@@ -670,7 +729,7 @@ class PropPivot(PivotOper):
 
         # TODO if we are pivoting to a form, use ndef!
 
-        for node, path in genr:
+        async for node, path in genr:
 
             if self.isjoin:
                 yield node, path
@@ -681,14 +740,14 @@ class PropPivot(PivotOper):
 
             # TODO cache/bypass normalization in loop!
             try:
-                for pivo in runt.snap.getNodesBy(prop.full, valu):
+                async for pivo in runt.snap.getNodesBy(prop.full, valu):
                     yield pivo, path.fork(pivo)
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
                 logger.warning('Caught error during pivot', exc_info=e)
                 items = e.items()
                 mesg = items.pop('mesg', '')
                 mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
-                runt.snap.warn(mesg, **items)
+                await runt.snap.warn(mesg, **items)
 
 class Cond(AstNode):
 
@@ -704,9 +763,9 @@ class SubqCond(Cond):
 
         subq = self.kids[0]
 
-        def cond(node, path):
-            genr = ((node, path),)
-            for item in subq.run(runt, genr):
+        async def cond(node, path):
+            genr = agenrofone((node, path))
+            async for _ in subq.run(runt, genr):
                 return True
             return False
 
@@ -928,13 +987,13 @@ class FiltOper(Oper):
 
         return self.kids[1].getLiftHints()
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         must = self.kids[0].value() == '+'
         func = self.kids[1].getCondEval(runt)
 
-        for node, path in genr:
-            answ = func(node, path)
+        async for node, path in genr:
+            answ = await s_coro.ornot(func, node, path)
             if (must and answ) or (not must and not answ):
                 yield node, path
 
@@ -1056,28 +1115,29 @@ class Edit(Oper):
 
 class EditNodeAdd(Edit):
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         name = self.kids[0].value()
         formtype = runt.snap.model.types.get(name)
 
-        yield from genr
+        async for item in genr:
+            yield item
 
         runt.allowed('node:add', name)
 
         kval = self.kids[1].runtval(runt)
 
         for valu in formtype.getTypeVals(kval):
-            node = runt.snap.addNode(name, valu)
+            node = await runt.snap.addNode(name, valu)
             yield node, runt.initPath(node)
 
 class EditPropSet(Edit):
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         name = self.kids[0].value()
 
-        for node, path in genr:
+        async for node, path in genr:
 
             valu = self.kids[1].compute(runt, node, path)
 
@@ -1087,17 +1147,17 @@ class EditPropSet(Edit):
 
             runt.allowed('prop:set', prop.full)
 
-            node.set(name, valu)
+            await node.set(name, valu)
 
             yield node, path
 
 class EditPropDel(Edit):
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         name = self.kids[0].value()
 
-        for node, path in genr:
+        async for node, path in genr:
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -1105,13 +1165,13 @@ class EditPropDel(Edit):
 
             runt.allowed('prop:del', prop.full)
 
-            node.pop(name)
+            await node.pop(name)
 
             yield node, path
 
 class EditUnivDel(Edit):
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         name = self.kids[0].value()
 
@@ -1121,13 +1181,13 @@ class EditUnivDel(Edit):
 
         runt.allowed('prop:del', name)
 
-        for node, path in genr:
-            node.pop(name)
+        async for node, path in genr:
+            await node.pop(name)
             yield node, path
 
 class EditTagAdd(Edit):
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         name = self.kids[0].value()
         hasval = len(self.kids) > 1
@@ -1136,28 +1196,28 @@ class EditTagAdd(Edit):
 
         parts = name.split('.')
 
-        for node, path in genr:
+        async for node, path in genr:
 
             runt.allowed('tag:add', *parts)
 
             if hasval:
                 valu = self.kids[1].compute(runt, node, path)
 
-            node.addTag(name, valu=valu)
+            await node.addTag(name, valu=valu)
 
             yield node, path
 
 class EditTagDel(Edit):
 
-    def run(self, runt, genr):
+    async def run(self, runt, genr):
 
         name = self.kids[0].value()
         parts = name.split('.')
 
-        for node, path in genr:
+        async for node, path in genr:
 
             runt.allowed('tag:del', *parts)
 
-            node.delTag(name)
+            await node.delTag(name)
 
             yield node, path

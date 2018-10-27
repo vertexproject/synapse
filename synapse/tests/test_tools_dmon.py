@@ -6,7 +6,7 @@ import tempfile
 
 import synapse.tools.dmon as s_dmon
 
-from synapse.tests.common import SynTest
+from synapse.tests.utils import SynTest
 from synapse.tools.dmon import getArgParser
 
 class TestArgParser(SynTest):

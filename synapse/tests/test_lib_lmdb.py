@@ -1,10 +1,13 @@
-import lmdb
+import lmdb  # type: ignore
+import threading
+
+import synapse.common as s_common
 
 import synapse.lib.lmdb as s_lmdb
 
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
-class LmdbTest(SynTest):
+class LmdbTest(s_t_utils.SynTest):
 
     def test_lmdb_seqn(self):
 
@@ -58,7 +61,7 @@ class LmdbTest(SynTest):
             with lenv.begin() as xact:
                 self.raises(lmdb.ReadonlyError, seqn.save, xact, items)
 
-            # A subseqeunt write works.
+            # A subsequent write works.
             with lenv.begin(write=True) as xact:
                 seqn.save(xact, items)
                 retn = tuple(seqn.iter(xact, 0))
@@ -78,7 +81,7 @@ class LmdbTest(SynTest):
             evt3 = threading.Event()
             evt4 = threading.Event()
 
-            @firethread
+            @s_common.firethread
             def race(n, m, e):
                 valus = [i for i in range(n, m)]
                 e.set()
@@ -271,7 +274,6 @@ class LmdbTest(SynTest):
                 retn = tuple(sorted(psto.recs(xact, rows)))
                 self.len(3, retn)
                 self.eq(retn[0], (buid2, [(rows[0][1], rows[0][2]), (rows[1][1], rows[1][2]), ]))
-                self.eq(retn[1], (buid2, [(rows[0][1], rows[0][2]), (rows[1][1], rows[1][2]), ]))  # FIXME do we really need this twice?
                 self.eq(retn[2], (buid3, ()))
 
     def test_lmdb_encode(self):

@@ -236,7 +236,7 @@ class OuModule(s_module.CoreModule):
 # FIXME: What do we want to do with seedCtors?
 class Fixme:
 
-    def initCoreModule(self):
+    async def initCoreModule(self):
         self.core.addSeedCtor('ou:org:name', self.seedOrgName)
         self.core.addSeedCtor('ou:org:alias', self.seedOrgAlias)
 

@@ -2,102 +2,117 @@
 Async/Coroutine related utilities.
 '''
 import asyncio
+import inspect
 import logging
 
 logger = logging.getLogger(__name__)
 
 import synapse.glob as s_glob
+import synapse.common as s_common
 
-class Fini:
+import synapse.lib.base as s_base
+import synapse.lib.queue as s_queue
 
-    def __init__(self):
-        self.finis = []
-        self.isfini = False
-        self.entered = False
-        self.exitinfo = None
+def iscoro(item):
+    return inspect.iscoroutine(item)
 
-    def onfini(self, corofunc):
-        '''
-        Add a *coroutine* function to be called on fini().
-        '''
-        self.finis.append(corofunc)
+class Genr(s_base.Base):
+    '''
+    Wrap an async generator for use by a potentially sync caller.
+    '''
+    async def __anit__(self, genr):
+        await s_base.Base.__anit__(self)
+        self.genr = genr
 
-    async def fini(self):
-        '''
-        Shut down the object and notify any onfini() coroutines.
-        '''
-        if self.isfini:
-            return
+    def __len__(self):
+        return sum(1 for n in self)
 
-        self.isfini = True
+    def __iter__(self):
 
-        for fini in self.finis:
-
+        while not self.isfini:
             try:
+                yield s_glob.sync(self.genr.__anext__())
+            except StopAsyncIteration as e:
+                return
 
-                valu = fini()
-                if asyncio.iscoroutine(valu):
-                    await valu
+    async def __aiter__(self):
 
-            except Exception as e:
-                logger.exception('fini failed')
+        while not self.isfini:
+            try:
+                yield await self.genr.__anext__()
+            except StopAsyncIteration as e:
+                return
 
-    async def __aenter__(self):
-        self.entered = True
-        return self
+async def genr2agenr(func, *args, qsize=100, **kwargs):
+    ''' Returns an async generator that receives a stream of messages from a sync generator func(*args, **kwargs) '''
+    class SentinelClass:
+        pass
 
-    async def __aexit__(self, exc, cls, tb):
-        self.exitinfo = (exc, cls, tb)
-        await self.fini()
+    sentinel = s_common.NoValu()
+
+    async with await s_queue.S2AQueue.anit(qsize) as chan:
+
+        def sync():
+            try:
+                for msg in func(*args, **kwargs):
+                    chan.put(msg)
+            finally:
+                chan.put(sentinel)
+
+        task = asyncio.get_running_loop().run_in_executor(None, sync)
+
+        while True:
+            msg = await chan.get()
+            if msg is sentinel:
+                break
+            yield msg
+
+        await task
+
+async def event_wait(event: asyncio.Event, timeout=None):
+    '''
+    Wait on an an asyncio event with an optional timeout
+
+    Returns:
+        true if the event got set, None if timed out
+    '''
+    if timeout is None:
+        await event.wait()
+        return True
+
+    try:
+        await asyncio.wait_for(event.wait(), timeout)
+    except asyncio.TimeoutError:
+        return False
+    return True
+
+async def ornot(func, *args, **kwargs):
+    '''
+    Calls func and awaits it if a returns a coroutine.
+
+    Note:
+        This is useful for implementing a function that might take a telepath proxy object or a local object, and you
+        must call a non-async method on that object.
+
+        This is also useful when calling a callback that might either be a coroutine function or a regular function.
+    Usage:
+        ok = await s_coro.ornot(maybeproxy.allowed, 'path')
+    '''
+
+    retn = func(*args, **kwargs)
+    if iscoro(retn):
+        return await retn
+    return retn
+
+class AsyncToSyncCMgr():
+    '''
+    Wraps an async context manager as a sync one
+    '''
+    def __init__(self, func, *args, **kwargs):
+        self.amgr = func(*args, **kwargs)
 
     def __enter__(self):
-        return s_glob.sync(self.__aenter__())
+        return s_glob.plex.coroToSync(self.amgr.__aenter__())
 
-    def __exit__(self, exc, cls, tb):
-        s_glob.sync(self.__aexit__(exc, cls, tb))
-
-    def _isExitExc(self):
-        # if entered but not exited *or* exitinfo has exc
-        if not self.entered:
-            return False
-
-        if self.exitinfo is None:
-            return True
-
-        return self.exitinfo[0] is not None
-
-class Queue(Fini):
-    '''
-    An async queue with chunk optimized sync compatible consumer.
-    '''
-    def __init__(self):
-        Fini.__init__(self)
-        self.fifo = []
-        self.event = asyncio.Event()
-
-    async def fini(self):
-        self.event.set()
-        return await Fini.fini(self)
-
-    def put(self, item):
-        '''
-        Add an item to the queue (async only).
-        '''
-        if self.isfini:
-            return
-
-        self.fifo.append(item)
-
-        if len(self.fifo) == 1:
-            self.event.set()
-
-    async def slice(self):
-
-        # sync interface to the async queue
-        if len(self.fifo) == 0:
-            await self.event.wait()
-
-        retn = list(self.fifo)
-        self.fifo.clear()
-        self.event.clear()
-        return retn
+    def __exit__(self, *args):
+        return s_glob.plex.coroToSync(self.amgr.__aexit__(*args))

@@ -3,7 +3,7 @@ import hashlib
 import synapse.exc as s_exc
 import synapse.cortex as s_cortex
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
 
 BITS = 2048
@@ -33,10 +33,10 @@ TEST_SHA256 = hashlib.sha256(b'test').hexdigest()
 TEST_SHA384 = hashlib.sha384(b'test').hexdigest()
 TEST_SHA512 = hashlib.sha512(b'test').hexdigest()
 
-class CryptoModelTest(s_test.SynTest):
+class CryptoModelTest(s_t_utils.SynTest):
 
-    def test_norm_lm_ntlm(self):
-        with self.getTestCore() as core:  # type: s_cortex.Cortex
+    async def test_norm_lm_ntlm(self):
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
             lm = core.model.type('hash:lm')
             valu, subs = lm.norm(TEST_MD5.upper())
             self.eq(valu, TEST_MD5)
@@ -49,31 +49,31 @@ class CryptoModelTest(s_test.SynTest):
             self.eq(subs, {})
             self.raises(s_exc.BadTypeValu, ntlm.norm, TEST_SHA256)
 
-    def test_forms_crypto_simple(self):
-        with self.getTestCore() as core:  # type: s_cortex.Cortex
-            with core.snap() as snap:
+    async def test_forms_crypto_simple(self):
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            async with await core.snap() as snap:
                 # md5
-                node = snap.addNode('hash:md5', TEST_MD5.upper())
+                node = await snap.addNode('hash:md5', TEST_MD5.upper())
                 self.eq(node.ndef, ('hash:md5', TEST_MD5))
-                self.raises(s_exc.BadPropValu, snap.addNode, 'hash:md5', TEST_SHA1)
+                await self.asyncraises(s_exc.BadPropValu, snap.addNode('hash:md5', TEST_SHA1))
                 # sha1
-                node = snap.addNode('hash:sha1', TEST_SHA1.upper())
+                node = await snap.addNode('hash:sha1', TEST_SHA1.upper())
                 self.eq(node.ndef, ('hash:sha1', TEST_SHA1))
-                self.raises(s_exc.BadPropValu, snap.addNode, 'hash:sha1', TEST_SHA256)
+                await self.asyncraises(s_exc.BadPropValu, snap.addNode('hash:sha1', TEST_SHA256))
                 # sha256
-                node = snap.addNode('hash:sha256', TEST_SHA256.upper())
+                node = await snap.addNode('hash:sha256', TEST_SHA256.upper())
                 self.eq(node.ndef, ('hash:sha256', TEST_SHA256))
-                self.raises(s_exc.BadPropValu, snap.addNode, 'hash:sha256', TEST_SHA384)
+                await self.asyncraises(s_exc.BadPropValu, snap.addNode('hash:sha256', TEST_SHA384))
                 # sha384
-                node = snap.addNode('hash:sha384', TEST_SHA384.upper())
+                node = await snap.addNode('hash:sha384', TEST_SHA384.upper())
                 self.eq(node.ndef, ('hash:sha384', TEST_SHA384))
-                self.raises(s_exc.BadPropValu, snap.addNode, 'hash:sha384', TEST_SHA512)
+                await self.asyncraises(s_exc.BadPropValu, snap.addNode('hash:sha384', TEST_SHA512))
                 # sha512
-                node = snap.addNode('hash:sha512', TEST_SHA512.upper())
+                node = await snap.addNode('hash:sha512', TEST_SHA512.upper())
                 self.eq(node.ndef, ('hash:sha512', TEST_SHA512))
-                self.raises(s_exc.BadPropValu, snap.addNode, 'hash:sha512', TEST_MD5)
+                await self.asyncraises(s_exc.BadPropValu, snap.addNode('hash:sha512', TEST_MD5))
 
-    def test_form_rsakey(self):
+    async def test_form_rsakey(self):
         prop = 'rsa:key'
         props = {
             'bits': BITS,
@@ -83,11 +83,11 @@ class CryptoModelTest(s_test.SynTest):
         }
         valu = (HEXSTR_MODULUS, HEXSTR_PUBLIC_EXPONENT)
 
-        with self.getTestCore() as core:  # type: s_cortex.Cortex
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
 
-            with core.snap() as snap:
+            async with await core.snap() as snap:
 
-                node = snap.addNode(prop, valu, props)
+                node = await snap.addNode(prop, valu, props)
 
                 self.eq(node.ndef[1], (HEXSTR_MODULUS, HEXSTR_PUBLIC_EXPONENT))
 

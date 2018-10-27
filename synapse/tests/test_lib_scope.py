@@ -1,8 +1,8 @@
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
 import synapse.lib.scope as s_scope
 
-class ScopeTest(SynTest):
+class ScopeTest(s_t_utils.SynTest):
 
     def test_lib_scope(self):
         syms = {'foo': 'woot', 'bar': 30, 'baz': [1, 2]}

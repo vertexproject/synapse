@@ -4,9 +4,9 @@ import synapse.glob as s_glob
 
 import synapse.lib.threads as s_threads
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
-class GlobTest(s_test.SynTest):
+class GlobTest(s_t_utils.SynTest):
 
     def test_glob_inpool(self):
 
@@ -31,4 +31,3 @@ class GlobTest(s_test.SynTest):
 
         retn = s_glob.sync(afoo())
         self.eq(retn, 42)
-

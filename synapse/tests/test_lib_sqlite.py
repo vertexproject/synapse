@@ -5,9 +5,9 @@ from synapse.exc import IsFini
 import synapse.lib.sqlite as s_sqlite
 import synapse.lib.threads as s_threads
 
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
-class SqliteTest(SynTest):
+class SqliteTest(s_t_utils.SynTest):
 
     def test_sqlite_pool(self):
 

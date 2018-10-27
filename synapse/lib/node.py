@@ -42,11 +42,12 @@ class Node:
         if self.ndef is not None:
             self.form = self.snap.model.form(self.ndef[0])
 
-    def storm(self, text, opts=None, user=None):
+    async def storm(self, text, opts=None, user=None):
         query = self.snap.core.getStormQuery(text)
         with self.snap.getStormRuntime(opts=opts, user=user) as runt:
             runt.addInput(self)
-            yield from runt.iterStormQuery(query)
+            async for node in runt.iterStormQuery(query):
+                yield node
 
     def iden(self):
         return s_common.ehex(self.buid)
@@ -89,15 +90,15 @@ class Node:
 
         return node
 
-    def seen(self, tick, source=None):
+    async def seen(self, tick, source=None):
         '''
         Update the .seen interval and optionally a source specific seen node.
         '''
-        self.set('.seen', tick)
+        await self.set('.seen', tick)
 
         if source is not None:
-            seen = self.snap.addNode('seen', (source, self.ndef))
-            seen.set('.seen', tick)
+            seen = await self.snap.addNode('seen', (source, self.ndef))
+            await seen.set('.seen', tick)
 
     def getNodeRefs(self):
         '''
@@ -124,7 +125,7 @@ class Node:
 
         return retn
 
-    def set(self, name, valu, init=False):
+    async def set(self, name, valu, init=False):
         '''
         Set a property on the node.
 
@@ -142,7 +143,7 @@ class Node:
             if self.snap.strict:
                 raise s_exc.NoSuchProp(name=name)
 
-            self.snap.warn(f'NoSuchProp: name={name}')
+            await self.snap.warn(f'NoSuchProp: name={name}')
             return False
 
         curv = self.props.get(name)
@@ -154,7 +155,7 @@ class Node:
 
         except Exception as e:
             mesg = f'Bad property value: {prop.full}={valu!r}'
-            return self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, valu=valu, emesg=str(e))
+            return await self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, valu=valu, emesg=str(e))
 
         # do we already have the value?
         if curv == norm:
@@ -168,7 +169,7 @@ class Node:
                     raise s_exc.ReadOnlyProp(name=prop.full)
 
                 # not setting a set-once prop unless we are init...
-                self.snap.warn(f'ReadOnlyProp: name={prop.full}')
+                await self.snap.warn(f'ReadOnlyProp: name={prop.full}')
                 return False
 
             # check for type specific merging...
@@ -178,8 +179,8 @@ class Node:
 
         sops = prop.getSetOps(self.buid, norm)
 
-        self.snap.stor(sops)
-        self.snap.splice('prop:set', ndef=self.ndef, prop=prop.name, valu=norm, oldv=curv)
+        await self.snap.stor(sops)
+        await self.snap.splice('prop:set', ndef=self.ndef, prop=prop.name, valu=norm, oldv=curv)
 
         self.props[prop.name] = norm
 
@@ -187,7 +188,7 @@ class Node:
         auto = self.snap.model.form(prop.type.name)
         if auto is not None:
             buid = s_common.buid((auto.name, norm))
-            self.snap._addNodeFnib((auto, norm, info, buid))
+            await self.snap._addNodeFnib((auto, norm, info, buid))
 
         # does the type think we have special auto nodes to add?
         # ( used only for adds which do not meet the above block )
@@ -195,7 +196,7 @@ class Node:
             auto = self.snap.model.form(autoname)
             autonorm, autoinfo = auto.type.norm(autovalu)
             buid = s_common.buid((auto.name, autonorm))
-            self.snap._addNodeFnib((auto, autovalu, autoinfo, buid))
+            await self.snap._addNodeFnib((auto, autovalu, autoinfo, buid))
 
         # do we need to set any sub props?
         subs = info.get('subs')
@@ -209,15 +210,15 @@ class Node:
                 if subprop is None:
                     continue
 
-                self.set(full, subvalu, init=init)
+                await self.set(full, subvalu, init=init)
 
         # last but not least, if we are *not* in init
         # we need to fire a Prop.onset() callback.
         if not self.init:
-            prop.wasSet(self, curv)
+            await prop.wasSet(self, curv)
             if prop.univ:
                 univ = self.snap.model.prop(prop.univ)
-                univ.wasSet(self, curv)
+                await univ.wasSet(self, curv)
 
     def has(self, name):
         return name in self.props
@@ -240,6 +241,9 @@ class Node:
                 return self.tags.get(name)
             return self.props.get(name)
 
+        # FIXME
+        raise Exception('Temporarily disabled implicit pivoting in get')
+
         name, text = parts
         prop = self.form.props.get(name)
         if prop is None:
@@ -253,16 +257,16 @@ class Node:
         if form is None:
             raise s_exc.NoSuchForm(form=prop.type.name)
 
-        node = self.snap.getNodeByNdef((form.name, valu))
-        return node.get(text)
+        # node = await self.snap.getNodeByNdef((form.name, valu))
+        # return await node.get(text)
 
-    def pop(self, name, init=False):
+    async def pop(self, name, init=False):
 
         prop = self.form.prop(name)
         if prop is None:
             if self.snap.strict:
                 raise s_exc.NoSuchProp(name=name)
-            self.snap.warn(f'No Such Property: {name}')
+            await self.snap.warn(f'No Such Property: {name}')
             return False
 
         if not init:
@@ -270,7 +274,7 @@ class Node:
             if prop.info.get('ro'):
                 if self.snap.strict:
                     raise s_exc.ReadOnlyProp(name=name)
-                self.snap.warn(f'Property is read-only: {name}')
+                await self.snap.warn(f'Property is read-only: {name}')
                 return False
 
         curv = self.props.pop(name, s_common.novalu)
@@ -278,11 +282,11 @@ class Node:
             return False
 
         sops = prop.getDelOps(self.buid)
-        self.snap.stor(sops)
+        await self.snap.stor(sops)
 
-        self.snap.splice('prop:del', ndef=self.ndef, prop=prop.name, valu=curv)
+        await self.snap.splice('prop:del', ndef=self.ndef, prop=prop.name, valu=curv)
 
-        prop.wasDel(self, curv)
+        await prop.wasDel(self, curv)
 
     def repr(self, name=None):
 
@@ -338,18 +342,17 @@ class Node:
 
         return retn
 
-    def addTag(self, tag, valu=(None, None)):
-
+    async def addTag(self, tag, valu=(None, None)):
         path = s_chop.tagpath(tag)
 
         name = '.'.join(path)
 
-        tagnode = self.snap.addTagNode(name)
+        tagnode = await self.snap.addTagNode(name)
 
         # implement tag renames...
         isnow = tagnode.get('isnow')
         if isnow:
-            self.snap.warn(f'tag {name} is now {isnow}')
+            await self.snap.warn(f'tag {name} is now {isnow}')
             name = isnow
             path = isnow.split('.')
 
@@ -371,9 +374,9 @@ class Node:
                 if self.tags.get(tag) is not None:
                     continue
 
-                self._addTagRaw(tag, (None, None))
+                await self._addTagRaw(tag, (None, None))
 
-            self._addTagRaw(tags[-1], valu)
+            await self._addTagRaw(tags[-1], valu)
             return
 
         # merge values into one interval
@@ -381,17 +384,17 @@ class Node:
 
         indx = self.snap.model.types['ival'].indx(valu)
         info = {'univ': True}
-        self._setTagProp(name, valu, indx, info)
+        await self._setTagProp(name, valu, indx, info)
 
-    def _setTagProp(self, name, norm, indx, info):
+    async def _setTagProp(self, name, norm, indx, info):
         self.tags[name] = norm
-        self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),))
-        self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
+        await self.snap.stor((('prop:set', (self.buid, self.form.name, '#' + name, norm, indx, info)),))
+        await self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
 
-    def _addTagRaw(self, name, norm):
+    async def _addTagRaw(self, name, norm):
 
         # these are cached based on norm...
-        self.snap.addTagNode(name)
+        await self.snap.addTagNode(name)
 
         info = {'univ': True}
         if norm == (None, None):
@@ -399,12 +402,15 @@ class Node:
         else:
             indx = self.snap.model.types['ival'].indx(norm)
 
-        self._setTagProp(name, norm, indx, info)
-        self.snap.core.runTagAdd(self, name, norm)
+        await self._setTagProp(name, norm, indx, info)
+
+        # TODO: fire an onTagAdd handler...
+        await self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
+        await self.snap.core.runTagAdd(self, name, norm)
 
         return True
 
-    def delTag(self, tag, init=False):
+    async def delTag(self, tag, init=False):
         '''
         Delete a tag from the node.
         '''
@@ -426,16 +432,16 @@ class Node:
 
         for sublen, subtag in subtags:
             valu = self.tags.pop(subtag, None)
-            self.snap.core.runTagDel(self, subtag, valu)
+            await self.snap.core.runTagDel(self, subtag, valu)
             sops.append(('prop:del', (self.buid, self.form.name, '#' + subtag, info)))
 
-        self.snap.core.runTagDel(self, name, curv)
+        await self.snap.core.runTagDel(self, name, curv)
         sops.append(('prop:del', (self.buid, self.form.name, '#' + name, info)))
 
-        self.snap.stor(sops)
-        self.snap.splice('tag:del', ndef=self.ndef, tag=name, valu=curv)
+        await self.snap.stor(sops)
+        await self.snap.splice('tag:del', ndef=self.ndef, tag=name, valu=curv)
 
-    def delete(self, force=False):
+    async def delete(self, force=False):
         '''
         Delete a node from the cortex.
 
@@ -475,24 +481,24 @@ class Node:
             # refuse to delete tag nodes with existing tags
             if self.form.name == 'syn:tag':
 
-                if any(self.snap._getNodesByTag(self.ndef[1])):
+                async for _ in self.snap._getNodesByTag(self.ndef[1]):
                     mesg = 'Nodes still have this tag.'
-                    return self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
+                    return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 
-            if any(self.snap._getNodesByType(formname, formvalu, addform=False)):
+            async for _ in self.snap._getNodesByType(formname, formvalu, addform=False):
                 mesg = 'Other nodes still refer to this node.'
-                return self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
+                return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 
         for size, tag in sorted(tags, reverse=True):
-            self.delTag(tag, init=True)
+            await self.delTag(tag, init=True)
 
         for name in list(self.props.keys()):
-            self.pop(name, init=True)
+            await self.pop(name, init=True)
 
         sops = self.form.getDelOps(self.buid)
 
-        self.snap.stor(sops)
-        self.snap.splice('node:del', ndef=self.ndef)
+        await self.snap.stor(sops)
+        await self.snap.splice('node:del', ndef=self.ndef)
 
         self.snap.buidcache.pop(self.buid)
 
@@ -525,7 +531,7 @@ class Path:
     def pack(self, path=False):
         ret = dict(self.metadata)
         if path:
-            ret['path'] = [node.iden() for node in self.nodes]
+            ret['nodes'] = [node.iden() for node in self.nodes]
         return ret
 
     def fork(self, node):

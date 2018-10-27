@@ -1,5 +1,4 @@
 import os
-import sys
 import types
 import asyncio
 import logging
@@ -13,64 +12,11 @@ import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 
-from synapse.eventbus import EventBus
-
+import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
-import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.share as s_share
-
-class With(s_share.Share):
-    '''
-    Server side context for a telepath With() proxy.
-    '''
-    typename = 'with'
-
-    def __init__(self, link, item):
-        s_share.Share.__init__(self, link, item)
-
-        self.exitok = None  # None/False == error
-        self.onfini(self._onWithFini)
-
-    async def _onWithFini(self):
-
-        if self.exitok:
-            return await self._runExitFunc((None, None, None))
-
-        try:
-            raise s_exc.SynErr()
-        except Exception as e:
-            args = sys.exc_info()
-            return await self._runExitFunc(args)
-
-    async def _runExitFunc(self, args):
-
-        exit = getattr(self.orig, '__aexit__', None)
-        if exit:
-            await exit(*args)
-            return
-
-        exit = getattr(self.orig, '__exit__', None)
-        if exit:
-            await s_glob.executor(exit, *args)
-            return
-
-    async def _runShareLoop(self):
-
-        self.orig = self.item
-
-        enter = getattr(self.orig, '__aenter__', None)
-        if enter:
-            self.item = await enter()
-            return
-
-        enter = getattr(self.orig, '__enter__', None)
-        if enter:
-            self.item = await s_glob.executor(enter)
-            return
-
-    async def teleexit(self, isexc):
-        self.exitok = isexc
-        await self.fini()
+import synapse.lib.certdir as s_certdir
+import synapse.lib.urlhelp as s_urlhelp
 
 class Genr(s_share.Share):
 
@@ -78,41 +24,9 @@ class Genr(s_share.Share):
 
     async def _runShareLoop(self):
 
-        # automatically begin yielding
-        def syncloop():
-            try:
-                while not self.isfini:
-                    try:
-                        item = next(self.item)
-                    except StopIteration:
-                        break
-                    except Exception as e:
-                        retn = s_common.retnexc(e)
-                        mesg = ('share:data', {'share': self.iden, 'data': retn})
-                        s_glob.sync(self.link.tx(mesg))
-                        break
-
-                    retn = (True, item)
-                    mesg = ('share:data', {'share': self.iden, 'data': retn})
-                    if not s_glob.sync(self.link.tx(mesg)):
-                        logger.debug('Failure in sending data')
-                        break
-            finally:
-                self.item.close()
-                mesg = ('share:data', {'share': self.iden, 'data': None})
-                s_glob.sync(self.link.tx(mesg))
-
-        await s_glob.executor(syncloop)
-
-class AsyncGenr(s_share.Share):
-
-    typename = 'genr'
-
-    async def _runShareLoop(self):
-
         try:
 
-            async for item in self.item:
+            for item in self.item:
 
                 if self.isfini:
                     break
@@ -133,12 +47,42 @@ class AsyncGenr(s_share.Share):
             await self.link.tx(mesg)
             await self.fini()
 
+
+class AsyncGenr(s_share.Share):
+
+    typename = 'genr'
+
+    async def _runShareLoop(self):
+
+        try:
+
+            async for item in self.item:
+
+                if self.isfini:
+                    break
+
+                retn = (True, item)
+                mesg = ('share:data', {'share': self.iden, 'data': retn})
+                await self.link.tx(mesg)
+
+        except Exception as e:
+            retn = s_common.retnexc(e)
+            mesg = ('share:data', {'share': self.iden, 'data': retn})
+            await self.link.tx(mesg)
+
+        finally:
+
+            mesg = ('share:data', {'share': self.iden, 'data': None})
+            await self.link.tx(mesg)
+            await self.fini()
+
 dmonwrap = (
+    (s_coro.Genr, AsyncGenr), # TODO: make this not double wrapped...
     (types.AsyncGeneratorType, AsyncGenr),
     (types.GeneratorType, Genr),
 )
 
-class Daemon(EventBus):
+class Daemon(s_base.Base):
 
     confdefs = (
 
@@ -153,15 +97,16 @@ class Daemon(EventBus):
             #'doc': 'An SSL config dict with certfile/keyfile optional cacert.'}),
     )
 
-    def __init__(self, dirn):
+    async def __anit__(self, dirn):
 
-        EventBus.__init__(self)
+        await s_base.Base.__anit__(self)
 
         self.dirn = s_common.gendir(dirn)
         self._shareLoopTasks = set()
 
         conf = self._loadDmonYaml()
         self.conf = s_common.config(conf, self.confdefs)
+        self.certdir = s_certdir.CertDir(os.path.join(dirn, 'certs'))
 
         self.mods = {}      # keep refs to mods we load ( mostly for testing )
         self.televers = s_telepath.televers
@@ -178,29 +123,31 @@ class Daemon(EventBus):
             'share:fini': self._onShareFini,
         }
 
-        self._loadDmonConf()
-        self._loadDmonCells()
-
         self.onfini(self._onDmonFini)
 
-    def listen(self, url, **opts):
+        await self._loadDmonConf()
+        await self._loadDmonCells()
+
+    @s_glob.synchelp
+    async def listen(self, url, **opts):
         '''
         Bind and listen on the given host/port with possible SSL.
 
         Args:
             host (str): A hostname or IP address.
             port (int): The TCP port to bind.
-            ssl (ssl.SSLContext): An SSL context or None...
         '''
         info = s_urlhelp.chopurl(url, **opts)
+        info.update(opts)
 
         host = info.get('host')
         port = info.get('port')
 
-        # TODO: SSL
-        ssl = None
+        sslctx = None
+        if info.get('scheme') == 'ssl':
+            sslctx = self.certdir.getServerSSLContext(hostname=host)
 
-        server = s_glob.plex.listen(host, port, self._onLinkInit, ssl=ssl)
+        server = await s_glob.plex.listen(host, port, self._onLinkInit, ssl=sslctx)
         self.listenservers.append(server)
         return server.sockets[0].getsockname()
 
@@ -223,44 +170,31 @@ class Daemon(EventBus):
         except Exception as e:
             logger.exception(f'onTeleShare() error for: {name}')
 
-    def _onDmonFini(self):
+    async def _onDmonFini(self):
         for s in self.listenservers:
             try:
                 s.close()
             except Exception as e:  # pragma: no cover
                 logger.warning('Error during socket server close()', exc_info=e)
         for name, share in self.shared.items():
-            if isinstance(share, EventBus):
-                share.fini()
+            if isinstance(share, s_base.Base):
+                await share.fini()
 
-        async def afini():
-            for name, share in self.shared.items():
-                if isinstance(share, s_coro.Fini):
-                    await share.fini()
+        for name, share in self.shared.items():
+            if isinstance(share, s_base.Base):
+                await share.fini()
 
-            for task in self._shareLoopTasks:
-                try:
-                    if task.done():
-                        continue
-                    task.cancel()
-                except Exception as e:
-                    logger.error('Error cancelling task: %s', str(e))
+        for task in self._shareLoopTasks:
+            try:
+                if task.done():
+                    continue
+                task.cancel()
+            except Exception as e:
+                logger.error('Error cancelling task: %s', str(e))
 
-            await asyncio.wait([link.fini() for link in self.connectedlinks], loop=s_glob.plex.loop)
-
-        s_glob.plex.coroToTask(afini())
-
-    def _getSslCtx(self):
-        return None
-        #info = self.conf.get('ssl')
-        ##if info is None:
-            #return None
-
-        #capath = s_common.genpath(self.dirn, 'ca.crt')
-        ##keypath = s_common.genpath(self.dirn, 'server.key')
-        #certpath = s_common.genpath(self.dirn, 'server.crt')
-
-        # TODO: build an ssl.SSLContext()
+        finis = [link.fini() for link in self.connectedlinks]
+        if finis:
+            await asyncio.wait(finis, loop=self.loop)
 
     def _loadDmonYaml(self):
         path = s_common.genpath(self.dirn, 'dmon.yaml')
@@ -273,7 +207,7 @@ class Daemon(EventBus):
         logger.warning('config not found: %r' % (path,))
         return {}
 
-    def _loadDmonCells(self):
+    async def _loadDmonCells(self):
 
         # load our services from a directory
 
@@ -284,9 +218,9 @@ class Daemon(EventBus):
             if name.startswith('.'):
                 continue
 
-            self.loadDmonCell(name)
+            await self.loadDmonCell(name)
 
-    def loadDmonCell(self, name):
+    async def loadDmonCell(self, name):
         dirn = s_common.gendir(self.dirn, 'cells', name)
         logger.info(f'loading cell from: {dirn}')
 
@@ -299,13 +233,12 @@ class Daemon(EventBus):
 
         kind = conf.get('type')
 
-        #ctor = s_registry.getService(kind)
-        cell = s_cells.init(kind, dirn)
+        cell = await s_cells.init(kind, dirn)
 
         self.share(name, cell)
         self.cells[name] = cell
 
-    def _loadDmonConf(self):
+    async def _loadDmonConf(self):
 
         # process per-conf elements...
         for name in self.conf.get('modules', ()):
@@ -316,12 +249,12 @@ class Daemon(EventBus):
 
         lisn = self.conf.get('listen')
         if lisn is not None:
-            self.addr = self.listen(lisn)
+            self.addr = await self.listen(lisn)
 
     async def _onLinkInit(self, link):
 
         async def onrx(mesg):
-            s_glob.plex.loop.create_task(self._onLinkMesg(link, mesg))
+            self.schedCoro(self._onLinkMesg(link, mesg))
 
         link.onrx(onrx)
         self.connectedlinks.append(link)
@@ -373,24 +306,23 @@ class Daemon(EventBus):
 
                 base = self.shared.get(path[0])
                 if base is not None and isinstance(base, s_telepath.Aware):
-                    item = base.onTeleOpen(link, path)
+                    item = await s_coro.ornot(base.onTeleOpen, link, path)
 
             if item is None:
                 raise s_exc.NoSuchName(name=name)
 
             if isinstance(item, s_telepath.Aware):
-                item = item.getTeleApi(link, mesg)
+                item = await s_coro.ornot(item.getTeleApi, link, mesg)
 
             items = {None: item}
             link.set('dmon:items', items)
 
-            @s_glob.synchelp
             async def fini():
 
                 items = list(link.get('dmon:items').values())
 
                 for item in items:
-                    if isinstance(item, s_coro.Fini):
+                    if isinstance(item, s_base.Base):
                         try:
                             await item.fini()
                         except Exception as e:  # pragma: no cover
@@ -406,23 +338,14 @@ class Daemon(EventBus):
 
     async def _runTodoMeth(self, link, meth, args, kwargs):
 
-        # do we get to dispatch it ourselves?
-        if asyncio.iscoroutinefunction(meth):
-            return await meth(*args, **kwargs)
-        else:
-            # the method isn't async :(
-            return await s_glob.executor(meth, *args, **kwargs)
-
-    async def _tryWrapValu(self, link, valu):
+        valu = meth(*args, **kwargs)
 
         for wraptype, wrapctor in dmonwrap:
             if isinstance(valu, wraptype):
-                return wrapctor(link, valu)
+                return await wrapctor.anit(link, valu)
 
-        # turtles all the way down...
-        if asyncio.iscoroutine(valu):
+        if s_coro.iscoro(valu):
             valu = await valu
-            return await self._tryWrapValu(link, valu)
 
         return valu
 
@@ -445,9 +368,6 @@ class Daemon(EventBus):
         if item is None:
             raise s_exc.NoSuchObj(f'name={name}')
 
-        #import synapse.lib.scope as s_scope
-        #with s_scope.enter({'syn:user': user}):
-
         try:
 
             methname, args, kwargs = mesg[1].get('todo')
@@ -461,7 +381,6 @@ class Daemon(EventBus):
                 raise s_exc.NoSuchMeth(name=methname)
 
             valu = await self._runTodoMeth(link, meth, args, kwargs)
-            valu = await self._tryWrapValu(link, valu)
 
             mesg = self._getTaskFiniMesg(task, valu)
             await link.tx(mesg)
@@ -506,8 +425,3 @@ class Daemon(EventBus):
             except KeyError:
                 pass
             return result
-
-    def _getTestProxy(self, name, **kwargs):
-        host, port = self.addr
-        kwargs.update({'host': host, 'port': port})
-        return s_telepath.openurl(f'tcp:///{name}', **kwargs)

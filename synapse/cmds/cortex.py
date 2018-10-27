@@ -5,6 +5,7 @@ import logging
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.reactor as s_reactor
+import synapse.telepath as s_telepath
 
 import synapse.lib.cli as s_cli
 import synapse.lib.node as s_node
@@ -171,7 +172,7 @@ class Log(s_cli.Cmd):
         self.locs['log:splicesonly'] = splice_only
         self._cmd_cli.on('storm:mesg', self.onStormMesg)
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
         on = opts.get('on')
         off = opts.get('off')
 
@@ -290,20 +291,20 @@ class StormCmd(s_cli.Cmd):
         warn = mesg[1].get('mesg')
         self.printf(f'WARNING: {warn}')
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
 
         text = opts.get('query')
         if text is None:
             self.printf(self.__doc__)
             return
 
-        core = self.getCmdItem()
+        core: s_telepath.Proxy = self.getCmdItem()
         stormopts = {'repr': True}
         stormopts.setdefault('path', opts.get('path', False))
         stormopts.setdefault('graph', opts.get('graph', False))
         self.printf('')
 
-        for mesg in core.storm(text, opts=stormopts):
+        async for mesg in await core.storm(text, opts=stormopts):
 
             self._cmd_cli.fire('storm:mesg', mesg=mesg)
 

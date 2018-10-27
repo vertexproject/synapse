@@ -1,3 +1,7 @@
+import os
+import ssl
+import shutil
+import socket
 import asyncio
 import logging
 import threading
@@ -9,11 +13,13 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.share as s_share
+import synapse.lib.coro as s_coro
 import synapse.lib.scope as s_scope
-import synapse.tests.common as s_test
+import synapse.lib.share as s_share
+import synapse.lib.certdir as s_certdir
 
-from synapse.tests.utils import SyncToAsyncCMgr
+import synapse.tests.utils as s_t_utils
+from synapse.tests.utils import alist
 
 class Boom:
     pass
@@ -110,8 +116,8 @@ class TeleApi:
     def getFooBar(self, x, y):
         return x - y
 
-    def customshare(self):
-        return CustomShare(self.link, 42)
+    async def customshare(self):
+        return await CustomShare.anit(self.link, 42)
 
 class TeleAware(s_telepath.Aware):
     def __init__(self):
@@ -151,60 +157,110 @@ class TeleAuth(s_telepath.Aware):
     def getFooBar(self, x, y):
         return x + y
 
-class TeleTest(s_test.SynTest):
+class TeleTest(s_t_utils.SynTest):
 
-    def test_telepath_basics(self):
+    async def test_telepath_basics(self):
 
         foo = Foo()
-        evt = threading.Event()
+        evt = asyncio.Event(loop=s_glob.plex.loop)
 
-        with self.getTestDmon() as dmon:
+        async with self.getTestDmon() as dmon:
 
-            addr = dmon.listen('tcp://127.0.0.1:0')
+            addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
 
-            self.raises(s_exc.BadUrl, s_telepath.openurl, 'noscheme/foo')
+            await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
 
-            # called via synchelp...
-            prox = s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
+            prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
             # Add an additional prox.fini handler.
             prox.onfini(evt.set)
 
-            self.false(prox.iAmLoop())
+            self.true(await prox.iAmLoop())
 
             # check a standard return value
-            self.eq(30, prox.bar(10, 20))
+            self.eq(30, await prox.bar(10, 20))
 
             # check a coroutine return value
-            self.eq(25, prox.corovalu(10, 5))
+            self.eq(25, await prox.corovalu(10, 5))
 
             # check a generator return channel
-            genr = prox.genr()
+            genr = await prox.genr()
             self.true(isinstance(genr, s_telepath.Genr))
-            self.eq((10, 20, 30), tuple(genr))
+            self.eq((10, 20, 30), await alist(genr))
 
             # check an async generator return channel
-            genr = prox.corogenr(3)
+            genr = await prox.corogenr(3)
             self.true(isinstance(genr, s_telepath.Genr))
-            self.eq((0, 1, 2), tuple(genr))
+            self.eq((0, 1, 2), await alist(genr))
 
-            self.raises(s_exc.NoSuchMeth, prox.raze)
+            await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
 
-            self.raises(s_exc.NoSuchMeth, prox.fake)
+            await self.asyncraises(s_exc.NoSuchMeth, prox.fake())
 
-            self.raises(s_exc.SynErr, prox.boom)
+            await self.asyncraises(s_exc.SynErr, prox.boom())
 
         # Fini'ing a daemon fini's proxies connected to it.
-        self.true(evt.wait(2))
+        self.true(await s_coro.event_wait(evt, 2))
         self.true(prox.isfini)
-        self.raises(s_exc.IsFini, prox.bar, (10, 20))
+        await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
 
-    @s_glob.synchelp
+    async def test_telepath_tls_bad_cert(self):
+
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+            # As a workaround to a Python bug (https://bugs.python.org/issue30945) that prevents localhost:0 from
+            # being connected via TLS, make a certificate for whatever my hostname is and sign it with the test CA
+            # key.
+            hostname = socket.gethostname()
+            dmon.certdir.genHostCert(socket.gethostname())
+
+            addr = await dmon.listen(f'ssl://{hostname}:0')
+            dmon.share('foo', foo)
+
+            # host cert is *NOT* signed by a CA that client recognizes
+            await self.asyncraises(ssl.SSLCertVerificationError,
+                                   s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]))
+
+    async def test_telepath_tls(self):
+
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+            # As a workaround to a Python bug (https://bugs.python.org/issue30945) that prevents localhost:0 from
+            # being connected via TLS, make a certificate for whatever my hostname is and sign it with the test CA
+            # key.
+            hostname = socket.gethostname()
+            dmon.certdir.genHostCert(socket.gethostname(), signas='ca')
+
+            addr = await dmon.listen(f'ssl://{hostname}:0')
+            dmon.share('foo', foo)
+
+            prox = await s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1])
+
+            self.eq(30, await prox.bar(10, 20))
+
+    async def test_telepath_surrogate(self):
+
+        foo = Foo()
+        async with self.getTestDmon() as dmon:
+
+            addr = await dmon.listen('tcp://127.0.0.1:0')
+            dmon.share('foo', foo)
+
+            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
+                bads = '\u01cb\ufffd\ud842\ufffd\u0012'
+                t0 = ('1234', {'key': bads})
+
+                # Shovel a malformed UTF8 string with an unpaired surrogate over telepath
+                ret = await prox.echo(t0)
+                self.eq(ret, t0)
+
     async def test_telepath_async(self):
         foo = Foo()
 
-        async with SyncToAsyncCMgr(self.getTestDmon) as dmon:
-            addr = await s_glob.plex.executor(dmon.listen, 'tcp://127.0.0.1:0')
+        async with self.getTestDmon() as dmon:
+            addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
             genr = prox.corogenr(3)
@@ -238,7 +294,6 @@ class TeleTest(s_test.SynTest):
 
         await self.asyncraises(s_exc.IsFini, asyncio.wait_for(fut, timeout=2, loop=s_glob.plex.loop))
 
-    @s_glob.synchelp
     async def test_telepath_blocking(self):
         ''' Make sure that async methods on the same proxy don't block each other '''
 
@@ -260,7 +315,7 @@ class TeleTest(s_test.SynTest):
 
         bar = MyClass()
 
-        async with SyncToAsyncCMgr(self.getTestDmon) as dmon:
+        async with self.getTestDmon() as dmon:
             addr = await s_glob.plex.executor(dmon.listen, 'tcp://127.0.0.1:0')
             dmon.share('bar', bar)
 
@@ -273,56 +328,56 @@ class TeleTest(s_test.SynTest):
             await asyncio.wait_for(asyncio.gather(*tasks, loop=s_glob.plex.loop), timeout=5, loop=s_glob.plex.loop)
             await prox.fini()
 
-    def test_telepath_aware(self):
+    async def test_telepath_aware(self):
 
         item = TeleAware()
 
-        with self.getTestDmon() as dmon:
+        async with self.getTestDmon() as dmon:
             dmon.share('woke', item)
-            with dmon._getTestProxy('woke') as proxy:
-                self.eq(10, proxy.getFooBar(20, 10))
+            async with await self.getTestProxy(dmon, 'woke') as proxy:
+                self.eq(10, await proxy.getFooBar(20, 10))
 
                 # check a custom share works
-                obj = proxy.customshare()
-                self.eq(999, obj.boo(999))
+                obj = await proxy.customshare()
+                self.eq(999, await obj.boo(999))
 
             # check that a dynamic share works
-            with dmon._getTestProxy('woke/up') as proxy:
-                self.eq('up: beep', proxy.beep())
+            async with await self.getTestProxy(dmon, 'woke/up') as proxy:
+                self.eq('up: beep', await proxy.beep())
 
-    def test_telepath_auth(self):
+    async def test_telepath_auth(self):
 
         item = TeleAuth()
-        with self.getTestDmon() as dmon:
+        async with self.getTestDmon() as dmon:
             dmon.share('auth', item)
             host, port = dmon.addr
 
             url = 'tcp://localhost/auth'
-            self.raises(s_exc.AuthDeny, s_telepath.openurl, url, port=port)
+            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url, port=port))
 
             url = 'tcp://visi@localhost/auth'
-            self.raises(s_exc.AuthDeny, s_telepath.openurl, url, port=port)
+            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url, port=port))
 
             url = 'tcp://visi:secretsauce@localhost/auth'
-            with s_telepath.openurl(url, port=port) as proxy:
-                self.eq(17, proxy.getFooBar(10, 7))
+            async with await s_telepath.openurl(url, port=port) as proxy:
+                self.eq(17, await proxy.getFooBar(10, 7))
 
-    def test_telepath_server_badvers(self):
+    async def test_telepath_server_badvers(self):
 
-        with self.getTestDmon() as dmon:
+        async with self.getTestDmon() as dmon:
 
             dmon.televers = (0, 0)
 
-            host, port = dmon.listen('tcp://127.0.0.1:0/')
+            host, port = await dmon.listen('tcp://127.0.0.1:0/')
 
-            self.raises(s_exc.BadMesgVers, s_telepath.openurl, 'tcp://127.0.0.1/', port=port)
+            await self.asyncraises(s_exc.BadMesgVers, s_telepath.openurl('tcp://127.0.0.1/', port=port))
 
-    def test_alias(self):
+    async def test_alias(self):
         item = TeleAware()
         name = 'item'
 
-        with self.getTestDmon() as dmon:
-            addr = dmon.listen('tcp://127.0.0.1:0')
+        async with self.getTestDmon() as dmon:
+            addr = await dmon.listen('ltcp://127.0.0.1:0')
             dmon.share(name, item)
             dirn = s_scope.get('dirn')
 
@@ -345,10 +400,10 @@ class TeleTest(s_test.SynTest):
                 # Dynamic aliases are valid.
                 self.eq(s_telepath.alias(f'{name}/beepbeep'), beepbeep_alias)
 
-                with s_telepath.openurl(name) as prox:
-                    self.eq(10, prox.getFooBar(20, 10))
+                async with await s_telepath.openurl(name) as prox:
+                    self.eq(10, await prox.getFooBar(20, 10))
 
                 # Check to see that we can connect to an aliased name
                 # with a dynamic share attached to it.
-                with s_telepath.openurl(f'{name}/bar') as prox:
-                    self.eq('bar: beep', prox.beep())
+                async with await s_telepath.openurl(f'{name}/bar') as prox:
+                    self.eq('bar: beep', await prox.beep())

@@ -1,8 +1,10 @@
+import os
+
 import synapse.tools.json2mpk as s_json2mpk
 
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
-class Json2MpkTest(SynTest):
+class Json2MpkTest(s_t_utils.SynTest):
 
     def test_tools_json2mpk(self):
 

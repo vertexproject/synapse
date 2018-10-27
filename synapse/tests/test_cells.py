@@ -1,10 +1,9 @@
-import synapse.axon as s_axon
 import synapse.cells as s_cells
-import synapse.cryotank as s_cryotank
+import synapse.common as s_common
 
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
-class CellTest(SynTest):
+class CellTest(s_t_utils.SynTest):
     def test_getcells(self):
         data = s_cells.getCells()
         data = {k: v for k, v in data}

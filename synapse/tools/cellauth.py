@@ -5,8 +5,10 @@ import traceback
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.output as s_output
+import synapse.glob as s_glob
 import synapse.telepath as s_telepath
+
+import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
 
@@ -51,52 +53,51 @@ def printuser(user):
                 rrep = reprrule(rule)
                 outp.printf(f'        {rrep}')
 
-def handleModify(opts):
+async def handleModify(opts):
     try:
-
-        with s_telepath.openurl(opts.cellurl) as cell:
+        async with await s_telepath.openurl(opts.cellurl) as cell:
 
             if opts.adduser:
                 outp.printf(f'adding user: {opts.name}')
-                user = cell.addAuthUser(opts.name)
+                user = await cell.addAuthUser(opts.name)
 
             if opts.addrole:
                 outp.printf(f'adding role: {opts.name}')
-                user = cell.addAuthRole(opts.name)
+                user = await cell.addAuthRole(opts.name)
 
             if opts.passwd:
                 outp.printf(f'setting passwd for: {opts.name}')
-                cell.setUserPasswd(opts.name, opts.passwd)
+                await cell.setUserPasswd(opts.name, opts.passwd)
 
             if opts.grant:
                 outp.printf(f'granting {opts.grant} to: {opts.name}')
-                cell.addUserRole(opts.name, opts.grant)
+                await cell.addUserRole(opts.name, opts.grant)
 
             if opts.revoke:
                 outp.printf(f'revoking {opts.revoke} from: {opts.name}')
-                cell.delUserRole(opts.name, opts.revoke)
+                await cell.delUserRole(opts.name, opts.revoke)
 
             if opts.admin:
                 outp.printf(f'granting admin status: {opts.name}')
-                cell.setAuthAdmin(opts.name, True)
+                await cell.setAuthAdmin(opts.name, True)
 
             if opts.noadmin:
                 outp.printf(f'revoking admin status: {opts.name}')
-                cell.setAuthAdmin(opts.name, False)
+                await cell.setAuthAdmin(opts.name, False)
 
             if opts.lock:
                 outp.printf(f'locking user: {opts.name}')
-                cell.setUserLocked(opts.name, True)
+                await cell.setUserLocked(opts.name, True)
 
             if opts.unlock:
                 outp.printf(f'unlocking user: {opts.name}')
-                cell.setUserLocked(opts.name, False)
+                await cell.setUserLocked(opts.name, False)
 
             if opts.addrule:
 
                 text = opts.addrule
 
-                #TODO: syntax for index...
+                # TODO: syntax for index...
                 allow = True
                 if text.startswith('!'):
                     allow = False
@@ -105,14 +106,14 @@ def handleModify(opts):
                 rule = (allow, text.split('.'))
 
                 outp.printf(f'adding rule to {opts.name}: {rule!r}')
-                cell.addAuthRule(opts.name, rule, indx=None)
+                await cell.addAuthRule(opts.name, rule, indx=None)
 
             if opts.delrule is not None:
                 outp.printf(f'deleting rule index: {opts.delrule}')
-                cell.delAuthRule(opts.name, opts.delrule)
+                await cell.delAuthRule(opts.name, opts.delrule)
 
             try:
-                user = cell.getAuthInfo(opts.name)
+                user = await cell.getAuthInfo(opts.name)
             except s_exc.NoSuchName as e:
                 outp.printf(f'no such user: {opts.name}')
                 return 1
@@ -130,13 +131,13 @@ def handleModify(opts):
     else:
         return 0
 
-def handleList(opts):
+async def handleList(opts):
     try:
-        with s_telepath.openurl(opts.cellurl) as cell:
+        async with await s_telepath.openurl(opts.cellurl) as cell:
 
             if opts.name:
                 for name in opts.name:
-                    user = cell.getAuthInfo(name)
+                    user = await cell.getAuthInfo(name)
                     if user is None:
                         outp.printf(f'no such user: {opts.name}')
                         return 1
@@ -147,11 +148,11 @@ def handleList(opts):
             outp.printf(f'getting users and roles')
 
             outp.printf('users:')
-            for user in cell.getAuthUsers():
+            for user in await cell.getAuthUsers():
                 outp.printf(f'    {user}')
 
             outp.printf('roles:')
-            for role in cell.getAuthRoles():
+            for role in await cell.getAuthRoles():
                 outp.printf(f'    {role}')
 
     except Exception as e:  # pragma: no cover
@@ -165,7 +166,7 @@ def handleList(opts):
     else:
         return 0
 
-def main(argv, outprint=None):
+async def main(argv, outprint=None):
     if outprint is None:   # pragma: no cover
         outprint = s_output.OutPut()
     global outp
@@ -173,7 +174,7 @@ def main(argv, outprint=None):
 
     pars = makeargparser()
     opts = pars.parse_args(argv)
-    return opts.func(opts)
+    return await opts.func(opts)
 
 def makeargparser():
     pars = argparse.ArgumentParser('synapse.tools.cellauth', description=desc)
@@ -214,10 +215,9 @@ def makeargparser():
     pars_mod.set_defaults(func=handleModify)
     return pars
 
-
-def _main():  # pragma: no cover
+async def _main():  # pragma: no cover
     s_common.setlogging(logger, 'DEBUG')
-    return main(sys.argv[1:])
+    return await main(sys.argv[1:])
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(_main())
+    sys.exit(s_glob.sync(_main()))

@@ -1,12 +1,13 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.types as s_types
-import synapse.tests.common as s_test
-import synapse.tests.utils as s_utils
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.types as s_types
 
-class TypesTest(s_test.SynTest):
+import synapse.tests.utils as s_t_utils
+from synapse.tests.utils import alist
+
+class TypesTest(s_t_utils.SynTest):
 
     def test_type(self):
         model = s_datamodel.Model()
@@ -39,12 +40,12 @@ class TypesTest(s_test.SynTest):
         self.eq(t.repr(1), 'True')
         self.eq(t.repr(0), 'False')
 
-    def test_comp(self):
-        with self.getTestCore() as core:
+    async def test_comp(self):
+        async with self.getTestCore() as core:
             t = 'testcomplexcomp'
             valu = ('123', 'HAHA')
-            with core.snap() as snap:
-                node = snap.addNode(t, valu)
+            async with await core.snap() as snap:
+                node = await snap.addNode(t, valu)
             pnode = node.pack(dorepr=True)
             self.eq(pnode[0], (t, (123, 'haha')))
             self.eq(pnode[1].get('repr'), ('123', 'haha'))
@@ -66,13 +67,13 @@ class TypesTest(s_test.SynTest):
         guid = model.type('guid').norm('*')[0]
         self.true(s_common.isguid(guid))
 
-    def test_hex(self):
+    async def test_hex(self):
 
         # Bad configurations are not allowed for the type
         self.raises(s_exc.BadConfValu, s_types.Hex, None, None, None, {'size': -1})
         self.raises(s_exc.BadConfValu, s_types.Hex, None, None, None, {'size': 1})
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             t = core.model.type('testhexa')
             # Test norming to index values
@@ -117,15 +118,15 @@ class TypesTest(s_test.SynTest):
                     self.raises(b, t.norm, v)
 
             # Do some node creation and lifting
-            with core.snap() as snap:  # type: s_snap.Snap
-                node = snap.addNode('testhexa', '010001')
+            async with await core.snap() as snap:
+                node = await snap.addNode('testhexa', '010001')
                 self.eq(node.ndef[1], '010001')
 
-            with core.snap() as snap:  # type: s_snap.Snap
-                nodes = list(snap.getNodesBy('testhexa', '010001'))
+            async with await core.snap() as snap:
+                nodes = await alist(snap.getNodesBy('testhexa', '010001'))
                 self.len(1, nodes)
 
-                nodes = list(snap.getNodesBy('testhexa', b'\x01\x00\x01'))
+                nodes = await alist(snap.getNodesBy('testhexa', b'\x01\x00\x01'))
                 self.len(1, nodes)
 
             # Do some fancy prefix searches for testhexa
@@ -134,24 +135,24 @@ class TypesTest(s_test.SynTest):
                      'deadb3b3',
                      'deaddead',
                      'DEADBEEF']
-            with core.snap() as snap:  # type: s_snap.Snap
+            async with await core.snap() as snap:
                 for valu in valus:
-                    node = snap.addNode('testhexa', valu)
+                    node = await snap.addNode('testhexa', valu)
 
-            with core.snap() as snap:  # type: s_snap.Snap
-                nodes = list(snap.getNodesBy('testhexa', 'dead*'))
+            async with await core.snap() as snap:
+                nodes = await alist(snap.getNodesBy('testhexa', 'dead*'))
                 self.len(5, nodes)
 
-                nodes = list(snap.getNodesBy('testhexa', 'deadb3*'))
+                nodes = await alist(snap.getNodesBy('testhexa', 'deadb3*'))
                 self.len(3, nodes)
 
-                nodes = list(snap.getNodesBy('testhexa', 'deadb33fb3*'))
+                nodes = await alist(snap.getNodesBy('testhexa', 'deadb33fb3*'))
                 self.len(1, nodes)
 
-                nodes = list(snap.getNodesBy('testhexa', 'deadde*'))
+                nodes = await alist(snap.getNodesBy('testhexa', 'deadde*'))
                 self.len(1, nodes)
 
-                nodes = list(snap.getNodesBy('testhexa', 'b33f*'))
+                nodes = await alist(snap.getNodesBy('testhexa', 'b33f*'))
                 self.len(0, nodes)
 
             # Do some fancy prefix searches for testhex4
@@ -160,23 +161,23 @@ class TypesTest(s_test.SynTest):
                      '01ff',
                      '0200',
                      ]
-            with core.snap() as snap:  # type: s_snap.Snap
+            async with await core.snap() as snap:
                 for valu in valus:
-                    node = snap.addNode('testhex4', valu)
+                    node = await snap.addNode('testhex4', valu)
 
-            with core.snap() as snap:  # type: s_snap.Snap
-                nodes = list(snap.getNodesBy('testhex4', '00*'))
+            async with await core.snap() as snap:
+                nodes = await alist(snap.getNodesBy('testhex4', '00*'))
                 self.len(1, nodes)
 
-                nodes = list(snap.getNodesBy('testhex4', '01*'))
+                nodes = await alist(snap.getNodesBy('testhex4', '01*'))
                 self.len(2, nodes)
 
-                nodes = list(snap.getNodesBy('testhex4', '02*'))
+                nodes = await alist(snap.getNodesBy('testhex4', '02*'))
                 self.len(1, nodes)
 
                 # You can ask for a longer prefix then allowed
                 # but you'll get no results
-                nodes = list(snap.getNodesBy('testhex4', '022020*'))
+                nodes = await alist(snap.getNodesBy('testhex4', '022020*'))
                 self.len(0, nodes)
 
     def test_int(self):
@@ -293,7 +294,7 @@ class TypesTest(s_test.SynTest):
 
         self.raises(s_exc.BadTypeValu, ival.norm, '?')
 
-    def test_loc(self):
+    async def test_loc(self):
         model = s_datamodel.Model()
         loctype = model.types.get('loc')
 
@@ -302,35 +303,35 @@ class TypesTest(s_test.SynTest):
         self.eq('us.va.ओं.reston', loctype.norm('US.    VA.ओं.reston')[0])
         self.eq(b'us\x00haha\xed\xb3\xbestuff\x00blah\x00', loctype.indx('us.haha\udcfestuff.blah'))
 
-        with self.getTestCore() as core:
-            self.len(1, core.eval('[testint=1 :loc=us.va.syria]'))
-            self.len(1, core.eval('[testint=2 :loc=us.va.sydney]'))
-            self.len(1, core.eval('[testint=3 :loc=""]'))
+        async with self.getTestCore() as core:
+            await self.agenlen(1, core.eval('[testint=1 :loc=us.va.syria]'))
+            await self.agenlen(1, core.eval('[testint=2 :loc=us.va.sydney]'))
+            await self.agenlen(1, core.eval('[testint=3 :loc=""]'))
 
-            self.len(1, core.eval('testint:loc=us.va.syria'))
-            self.len(1, core.eval('testint:loc=us.va.sydney'))
-            self.len(0, core.eval('testint:loc=us.va.sy'))
-            self.len(2, core.eval('testint:loc=us.va'))
-            self.len(0, core.eval('testint:loc=us.v'))
-            self.len(2, core.eval('testint:loc=us'))
-            self.len(0, core.eval('testint:loc=u'))
-            self.len(1, core.eval('testint:loc=""'))
+            await self.agenlen(1, core.eval('testint:loc=us.va.syria'))
+            await self.agenlen(1, core.eval('testint:loc=us.va.sydney'))
+            await self.agenlen(0, core.eval('testint:loc=us.va.sy'))
+            await self.agenlen(2, core.eval('testint:loc=us.va'))
+            await self.agenlen(0, core.eval('testint:loc=us.v'))
+            await self.agenlen(2, core.eval('testint:loc=us'))
+            await self.agenlen(0, core.eval('testint:loc=u'))
+            await self.agenlen(1, core.eval('testint:loc=""'))
 
-            self.len(1, core.eval('testint +:loc="us.va. syria"'))
-            self.len(1, core.eval('testint +:loc=us.va.sydney'))
-            self.len(0, core.eval('testint +:loc=us.va.sy'))
-            self.len(2, core.eval('testint +:loc=us.va'))
-            self.len(0, core.eval('testint +:loc=us.v'))
-            self.len(2, core.eval('testint +:loc=us'))
-            self.len(0, core.eval('testint +:loc=u'))
-            self.len(1, core.eval('testint +:loc=""'))
+            await self.agenlen(1, core.eval('testint +:loc="us.va. syria"'))
+            await self.agenlen(1, core.eval('testint +:loc=us.va.sydney'))
+            await self.agenlen(0, core.eval('testint +:loc=us.va.sy'))
+            await self.agenlen(2, core.eval('testint +:loc=us.va'))
+            await self.agenlen(0, core.eval('testint +:loc=us.v'))
+            await self.agenlen(2, core.eval('testint +:loc=us'))
+            await self.agenlen(0, core.eval('testint +:loc=u'))
+            await self.agenlen(1, core.eval('testint +:loc=""'))
 
     def test_ndef(self):
         self.skip('Implement base ndef test')
 
     def test_nodeprop(self):
         model = s_datamodel.Model()
-        model.addDataModels([('test', s_utils.testmodel)])
+        model.addDataModels([('test', s_t_utils.testmodel)])
         t = model.type('nodeprop')
 
         expected = (('teststr', 'This is a sTring'), {'subs': {'prop': 'teststr'}})
@@ -439,9 +440,9 @@ class TypesTest(s_test.SynTest):
         # homoglyphs are also possible
         self.eq('is.ｂob.evil', tagtype.norm('is.\uff42ob.evil')[0])
 
-    def test_time(self):
+    async def test_time(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             t = core.model.type('testtime')
 
@@ -454,30 +455,30 @@ class TypesTest(s_test.SynTest):
             tick = t.norm('2014')[0]
             tock = t.norm('2015')[0]
 
-            with core.snap() as snap:
-                node = snap.addNode('teststr', 'a', {'tick': '2014'})
-                node = snap.addNode('teststr', 'b', {'tick': '2015'})
-                node = snap.addNode('teststr', 'c', {'tick': '2016'})
-                node = snap.addNode('teststr', 'd', {'tick': 'now'})
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 'a', {'tick': '2014'})
+                node = await snap.addNode('teststr', 'b', {'tick': '2015'})
+                node = await snap.addNode('teststr', 'c', {'tick': '2016'})
+                node = await snap.addNode('teststr', 'd', {'tick': 'now'})
 
-            nodes = list(core.getNodesBy('teststr:tick', '2014*'))
+            nodes = await alist(core.getNodesBy('teststr:tick', '2014*'))
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
-            nodes = list(core.getNodesBy('teststr:tick', '201401*'))
+            nodes = await alist(core.getNodesBy('teststr:tick', '201401*'))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
-            nodes = list(core.getNodesBy('teststr:tick', '-3000 days'))
+            nodes = await alist(core.getNodesBy('teststr:tick', '-3000 days'))
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b', 'c', 'd'})
-            nodes = list(core.getNodesBy('teststr:tick', (tick, tock)))
+            nodes = await alist(core.getNodesBy('teststr:tick', (tick, tock)))
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
-            nodes = list(core.getNodesBy('teststr:tick', ('20131231', '+2 days')))
+            nodes = await alist(core.getNodesBy('teststr:tick', ('20131231', '+2 days')))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
-            nodes = list(core.eval('teststr:tick=(20131231, "+2 days")'))
+            nodes = await alist(core.eval('teststr:tick=(20131231, "+2 days")'))
             self.eq({node.ndef[1] for node in nodes}, {'a'})
-            nodes = list(core.getNodesBy('teststr:tick', ('-1 day', '+1 day')))
+            nodes = await alist(core.getNodesBy('teststr:tick', ('-1 day', '+1 day')))
             self.eq({node.ndef[1] for node in nodes}, {'d'})
-            nodes = list(core.getNodesBy('teststr:tick', ('-1 days', 'now', )))
+            nodes = await alist(core.getNodesBy('teststr:tick', ('-1 days', 'now', )))
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             # This lifts nothing
-            nodes = list(core.getNodesBy('teststr:tick', ('now', '-1 days')))
+            nodes = await alist(core.getNodesBy('teststr:tick', ('now', '-1 days')))
             self.eq({node.ndef[1] for node in nodes}, set())
             # Sad path
             self.raises(s_exc.BadTypeValu, t.indxByEq, ('', ''))
@@ -492,13 +493,13 @@ class TypesTest(s_test.SynTest):
             self.true(t.cmpr('20150202', '<', '2016'))
             self.false(t.cmpr('2015', '<', '2015'))
 
-            self.len(1, core.eval('teststr +:tick=2015'))
+            await self.agenlen(1, core.eval('teststr +:tick=2015'))
 
-            self.len(1, core.eval('teststr +:tick=(2015, "+1 day")'))
-            self.len(1, core.eval('teststr +:tick=(20150102, "-3 day")'))
-            self.len(0, core.eval('teststr +:tick=(20150201, "+1 day")'))
+            await self.agenlen(1, core.eval('teststr +:tick=(2015, "+1 day")'))
+            await self.agenlen(1, core.eval('teststr +:tick=(20150102, "-3 day")'))
+            await self.agenlen(0, core.eval('teststr +:tick=(20150201, "+1 day")'))
 
-            self.len(1, core.eval('teststr +:tick=(20150102, "+- 2day")'))
+            await self.agenlen(1, core.eval('teststr +:tick=(20150102, "+- 2day")'))
 
-            self.len(1, core.eval('teststr +:tick=($test, "+- 2day")',
-                                  opts={'vars': {'test': '2015'}}))
+            await self.agenlen(1, core.eval('teststr +:tick=($test, "+- 2day")',
+                                            opts={'vars': {'test': '2015'}}))

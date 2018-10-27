@@ -1,8 +1,8 @@
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
 import synapse.lib.cache as s_cache
 
-class CacheTest(s_test.SynTest):
+class CacheTest(s_t_utils.SynTest):
 
     def test_lib_cache_fixed(self):
 

@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import threading
 
 lock = threading.RLock()
 
-plex = None     # s_plex.Plex()
+plex = None     # type: 'synapse.lib.plex.Plex'
 pool = None     # s_threads.Pool(maxsize=tmax)
 
 def inpool(f):
@@ -39,8 +41,9 @@ def synchelp(f):
     valu = stuff(x, y)
 
     # In both cases, the actual work is done by the global loop.
-    '''
 
+    TODO:  Assert that this isn't called from inside a event loop
+    '''
     def wrap(*args, **kwargs):
 
         coro = f(*args, **kwargs)

@@ -1,16 +1,15 @@
 import logging
 
-import synapse.tests.common as s_t_common
+import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
 
+class MediaModelTest(s_t_utils.SynTest):
 
-class MediaModelTest(s_t_common.SynTest):
-
-    def test_news(self):
+    async def test_news(self):
         formname = 'media:news'
-        with self.getTestCore() as core:
-            with core.snap() as snap:
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
 
                 valu = 32 * 'a'
                 expected_ndef = (formname, valu)
@@ -32,5 +31,5 @@ class MediaModelTest(s_t_common.SynTest):
                     'author': '?,?',
                     'org': 'vertex',
                 }
-                node = snap.addNode(formname, valu, props=input_props)
+                node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))

@@ -1,5 +1,5 @@
 import math
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
 import synapse.lib.gis as s_gis
 
@@ -15,7 +15,7 @@ ratios = {
 km = 1000000.0 # using mm as base units
 gchq = (51.8994, -2.0783)
 
-class GisTest(SynTest):
+class GisTest(s_t_utils.SynTest):
 
     def test_lib_gis_haversine(self):
         px = (36.12, -86.67)

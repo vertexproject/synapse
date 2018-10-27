@@ -12,13 +12,18 @@ whole both multi-component environments into memory.
 Since SynTest is built from unittest.TestCase, the use of SynTest is
 compatible with the unittest, nose and pytest frameworks.  This does not lock
 users into a particular test framework; while at the same time allowing base
-use to be invoked via the built-in Unittest library.
+use to be invoked via the built-in Unittest library, with one important exception:
+due to an unfortunate design approach, you cannot use the unittest module command
+line to run a *single* async unit test.  pytest works fine though.
+
 '''
 import io
 import os
 import sys
 import types
 import shutil
+import asyncio
+import inspect
 import logging
 import pathlib
 import tempfile
@@ -27,17 +32,18 @@ import threading
 import contextlib
 
 import synapse.exc as s_exc
-import synapse.data as s_data
 import synapse.glob as s_glob
 import synapse.cells as s_cells
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.eventbus as s_eventbus
+import synapse.telepath as s_telepath
+
+import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
-import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
@@ -48,43 +54,8 @@ logger = logging.getLogger(__name__)
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
 
-def writeCerts(dirn):
-    '''
-    Copy test SSL certs from synapse.data to a directory.
-
-    Args:
-        dirn (str): Path to write files too.
-
-    Notes:
-        Writes the following files to disk:
-        . ca.crt
-        . ca.key
-        . ca.pem
-        . server.crt
-        . server.key
-        . server.pem
-        . root.crt
-        . root.key
-        . user.crt
-        . user.key
-
-        The ca has signed all three certs.  The ``server.crt`` is for
-        a server running on localhost. The ``root.crt`` and ``user.crt``
-        certs are both are user certs which can connect. They have the
-        common names "root@localhost" and "user@localhost", respectively.
-
-    Returns:
-        None
-    '''
-    fns = ('ca.crt', 'ca.key', 'ca.pem',
-           'server.crt', 'server.key', 'server.pem',
-           'root.crt', 'root.key', 'user.crt', 'user.key')
-    for fn in fns:
-        byts = s_data.get(fn)
-        dst = os.path.join(dirn, fn)
-        if not os.path.exists(dst):
-            with s_common.genfile(dst) as fd:
-                fd.write(byts)
+async def alist(coro):
+    return [x async for x in coro]
 
 class TestType(s_types.Type):
 
@@ -217,14 +188,14 @@ testmodel = {
 class TestModule(s_module.CoreModule):
     testguid = '8f1401de15918358d5247e21ca29a814'
 
-    def initCoreModule(self):
+    async def initCoreModule(self):
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
-        with self.core.snap() as snap:
-            snap.addNode('source', self.testguid, {'name': 'test'})
+        async with await self.core.snap() as snap:
+            await snap.addNode('source', self.testguid, {'name': 'test'})
 
-    def addTestRecords(self, snap, items):
+    async def addTestRecords(self, snap, items):
         for name in items:
-            snap.addNode('teststr', name)
+            await snap.addNode('teststr', name)
 
     def getModelDefs(self):
         return (
@@ -319,6 +290,24 @@ class TestSteps:
             raise s_exc.StepTimeout(mesg='timeout waiting for step', step=step)
         return True
 
+    async def asyncwait(self, step, timeout=None):
+        '''
+        Wait (up to timeout seconds) for a step to complete.
+
+        Args:
+            step (str): The step name to wait for.
+            timeout (int): The timeout in seconds (or None)
+
+        Returns:
+            bool: True if the step is completed within the wait timeout.
+
+        Raises:
+            StepTimeout: on wait timeout
+        '''
+        if not await s_glob.executor(self.steps[step].wait, timeout=timeout):
+            raise s_exc.StepTimeout(mesg='timeout waiting for step', step=step)
+        return True
+
     def step(self, done, wait, timeout=None):
         '''
         Complete a step and wait for another.
@@ -375,7 +364,7 @@ class CmdGenerator(s_eventbus.EventBus):
             # Patch the get_input command to call our CmdGenerator instance
             with mock.patch('synapse.lib.cli.get_input', cmdg) as p:
                 with s_cli.Cli(None, outp) as cli:
-                    cli.runCmdLoop()
+                    await cli.runCmdLoop()
                     self.eq(cli.isfini, True)
 
     Notes:
@@ -449,7 +438,52 @@ class StreamEvent(io.StringIO, threading.Event):
         if self.mesg and self.mesg in s:
             self.set()
 
+class AsyncStreamEvent(io.StringIO, asyncio.Event):
+    '''
+    A combination of a io.StringIO object and an asyncio.Event object.
+    '''
+    def __init__(self, *args, **kwargs):
+        io.StringIO.__init__(self, *args, **kwargs)
+        asyncio.Event.__init__(self, loop=asyncio.get_running_loop())
+        self.mesg = ''
+
+    def setMesg(self, mesg):
+        '''
+        Clear the internal event and set a new message that is used to set the event.
+
+        Args:
+            mesg (str): The string to monitor for.
+
+        Returns:
+            None
+        '''
+        self.mesg = mesg
+        self.clear()
+
+    def write(self, s):
+        io.StringIO.write(self, s)
+        if self.mesg and self.mesg in s:
+            self.set()
+
+    async def wait(self, timeout=None):
+        if timeout is None:
+            return await asyncio.Event.wait(self)
+        return await s_coro.event_wait(self, timeout=timeout)
+
 class SynTest(unittest.TestCase):
+    '''
+    Mark all async test methods as s_glob.synchelp decorated.
+
+    Note:
+        This precludes running a single unit test via path using the unittest module.
+    '''
+    def __init__(self, *args, **kwargs):
+        unittest.TestCase.__init__(self, *args, **kwargs)
+        for s in dir(self):
+            attr = getattr(self, s, None)
+            # If s is an instance method and starts with 'test_', synchelp wrap it
+            if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
+                setattr(self, s, s_glob.synchelp(attr))
 
     def setUp(self):
         self.alt_write_layer = None
@@ -545,8 +579,8 @@ class SynTest(unittest.TestCase):
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
-    @contextlib.contextmanager
-    def getTestCore(self, mirror='testcore', conf=None, extra_layers=None):
+    @contextlib.asynccontextmanager
+    async def getTestCore(self, mirror='testcore', conf=None, extra_layers=None):
         '''
         Return a simple test Cortex.
 
@@ -568,13 +602,17 @@ class SynTest(unittest.TestCase):
                 src = pathlib.Path(fn).resolve()
                 os.symlink(src, pathlib.Path(ldir, f'{i + 1:03}-testlayer'))
 
-            with s_cortex.Cortex(dirn) as core:
+            async with await s_cortex.Cortex.anit(dirn) as core:
                 yield core
 
-    @contextlib.contextmanager
-    def getTestDmon(self, mirror='dmontest'):
+    @contextlib.asynccontextmanager
+    async def getTestDmon(self, mirror='dmontest'):
 
         with self.getTestDir(mirror=mirror) as dirn:
+
+            # Copy test certs
+            shutil.copytree(self.getTestFilePath('certdir'), os.path.join(dirn, 'certs'))
+
             coredir = pathlib.Path(dirn, 'cells', 'core')
             if coredir.is_dir():
                 ldir = s_common.gendir(coredir, 'layers')
@@ -583,7 +621,7 @@ class SynTest(unittest.TestCase):
 
             certdir = s_certdir.defdir
 
-            with s_daemon.Daemon(dirn) as dmon:
+            async with await s_daemon.Daemon.anit(dirn) as dmon:
 
                 # act like synapse.tools.dmon...
                 s_certdir.defdir = s_common.genpath(dirn, 'certs')
@@ -591,6 +629,16 @@ class SynTest(unittest.TestCase):
                 yield dmon
 
                 s_certdir.defdir = certdir
+
+    def getTestProxy(self, dmon, name, **kwargs):
+        host, port = dmon.addr
+        kwargs.update({'host': host, 'port': port})
+        return s_telepath.openurl(f'tcp:///{name}', **kwargs)
+
+    async def agetTestProxy(self, dmon, name, **kwargs):
+        host, port = dmon.addr
+        kwargs.update({'host': host, 'port': port})
+        return await s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
     @contextlib.contextmanager
     def getTestDir(self, mirror=None):
@@ -695,7 +743,21 @@ class SynTest(unittest.TestCase):
         slogger.addHandler(handler)
         try:
             yield stream
-        except:  # pragma: no cover
+        except Exception:  # pragma: no cover
+            raise
+        finally:
+            slogger.removeHandler(handler)
+
+    @contextlib.contextmanager
+    def getAsyncLoggerStream(self, logname, mesg=''):
+        stream = AsyncStreamEvent()
+        stream.setMesg(mesg)
+        handler = logging.StreamHandler(stream)
+        slogger = logging.getLogger(logname)
+        slogger.addHandler(handler)
+        try:
+            yield stream
+        except Exception:  # pragma: no cover
             raise
         finally:
             slogger.removeHandler(handler)
@@ -742,7 +804,7 @@ class SynTest(unittest.TestCase):
         # This context manager is a nop
         try:
             yield None
-        except:  # pragma: no cover
+        except Exception:  # pragma: no cover
             raise
         # Clean up any new envars we set and any old envars we need to reset.
         finally:
@@ -797,6 +859,16 @@ class SynTest(unittest.TestCase):
             return list(gfunc(*args, **kwargs))
 
         self.raises(exc, testfunc)
+
+    async def agenraises(self, exc, gfunc):
+        '''
+        Helper to validate that an async generator will throw an exception.
+
+        Args:
+            exc: Exception class to catch
+            gfunc: async Generator
+        '''
+        await self.asyncraises(exc, alist(gfunc))
 
     @contextlib.contextmanager
     def setSynDir(self, dirn):
@@ -941,6 +1013,15 @@ class SynTest(unittest.TestCase):
 
         self.eq(x, len(obj), msg=msg)
 
+    async def agenlen(self, x, obj, msg=None):
+        '''
+        Assert that the async generator produces x items
+        '''
+        count = 0
+        async for _ in obj:
+            count += 1
+        self.eq(x, count, msg=msg)
+
     def istufo(self, obj):
         '''
         Check to see if an object is a tufo.
@@ -972,7 +1053,7 @@ class SynTest(unittest.TestCase):
                 s_common.yamlsave(conf, cdir, 'cell.yaml')
             yield dirn
 
-    def getTestCell(self, dirn, name, boot=None, conf=None):
+    async def getTestCell(self, dirn, name, boot=None, conf=None):
         '''
         Get an instance of a Cell with specific boot and configuration data.
 
@@ -1006,7 +1087,7 @@ class SynTest(unittest.TestCase):
             ldir = s_common.gendir(cdir, 'layers')
             layerdir = pathlib.Path(ldir, '000-default')
             os.symlink(self.alt_write_layer, layerdir)
-        return s_cells.init(name, cdir)
+        return await s_cells.init(name, cdir)
 
     def getIngestDef(self, guid, seen):
         gestdef = {
@@ -1096,27 +1177,27 @@ class SynTest(unittest.TestCase):
         }
         return gestdef
 
-    def addCreatorDeleterRoles(self, core):
+    async def addCreatorDeleterRoles(self, core):
         '''
-        Add two roles to a Cortex, the `creator` and `deleter` roles.
+        Add two roles to a Cortex *proxy*, the `creator` and `deleter` roles.
         Creator allows for node:add, prop:set and tag:add actions.
         Deleter allows for node:del, prop:del and tag:del actions.
 
         Args:
             core: Auth enabled cortex.
         '''
-        core.addAuthRole('creator')
-        core.addAuthRule('creator', (True, ('node:add',)))
-        core.addAuthRule('creator', (True, ('prop:set',)))
-        core.addAuthRule('creator', (True, ('tag:add',)))
+        await core.addAuthRole('creator')
+        await core.addAuthRule('creator', (True, ('node:add',)))
+        await core.addAuthRule('creator', (True, ('prop:set',)))
+        await core.addAuthRule('creator', (True, ('tag:add',)))
 
-        core.addAuthRole('deleter')
-        core.addAuthRule('deleter', (True, ('node:del',)))
-        core.addAuthRule('deleter', (True, ('prop:del',)))
-        core.addAuthRule('deleter', (True, ('tag:del',)))
+        await core.addAuthRole('deleter')
+        await core.addAuthRule('deleter', (True, ('node:del',)))
+        await core.addAuthRule('deleter', (True, ('prop:del',)))
+        await core.addAuthRule('deleter', (True, ('tag:del',)))
 
-    @contextlib.contextmanager
-    def getTestDmonCortexAxon(self, rootperms=True):
+    @contextlib.asynccontextmanager
+    async def getTestDmonCortexAxon(self, rootperms=True):
         '''
         Get a test Daemon with a Cortex and a Axon with a single BlobStor
         enabled. The Cortex is an auth enabled cortex with the root username
@@ -1134,7 +1215,7 @@ class SynTest(unittest.TestCase):
         Returns:
             s_daemon.Daemon: A configured Daemon.
         '''
-        with self.getTestDmon('axoncortexdmon') as dmon:
+        async with self.getTestDmon('axoncortexdmon') as dmon:
 
             # Construct URLS for later use
             blobstorurl = f'tcp://{dmon.addr[0]}:{dmon.addr[1]}/blobstor00'
@@ -1142,8 +1223,8 @@ class SynTest(unittest.TestCase):
             coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
 
             # register the blob with the Axon.
-            with dmon._getTestProxy('axon00') as axon:
-                axon.addBlobStor(blobstorurl)
+            async with await self.agetTestProxy(dmon, 'axon00') as axon:
+                await axon.addBlobStor(blobstorurl)
 
             # Add our helper URLs to scope so others don't
             # have to construct them.
@@ -1153,15 +1234,17 @@ class SynTest(unittest.TestCase):
 
             # grant the root user permissions
             if rootperms:
-                with dmon._getTestProxy('core', user='root', passwd='root') as core:
-                    self.addCreatorDeleterRoles(core)
-                    core.addUserRole('root', 'creator')
-                    core.addUserRole('root', 'deleter')
+                async with await self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
+                    await self.addCreatorDeleterRoles(core)
+                    await core.addUserRole('root', 'creator')
+                    await core.addUserRole('root', 'deleter')
 
             yield dmon
 
 class SyncToAsyncCMgr():
-    ''' Wraps a regular context manager in an async one '''
+    '''
+    Wraps a regular context manager in an async one
+    '''
     def __init__(self, func, *args, **kwargs):
         def run_and_enter():
             obj = func(*args, **kwargs)
