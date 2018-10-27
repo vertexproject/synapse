@@ -859,9 +859,9 @@ class Cortex(s_cell.Cell):
             ((str,dict)): Storm messages.
         '''
         MSG_QUEUE_SIZE = 1000
-        _chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
+        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
 
-        async def runStorm(chan):
+        async def runStorm():
             tick = s_common.now()
             count = 0
             try:
@@ -886,10 +886,10 @@ class Cortex(s_cell.Cell):
                 took = tock - tick
                 await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
 
-        self.schedCoro(runStorm(_chan))
+        self.schedCoro(runStorm())
 
         while True:
-            msg = await _chan.get()
+            msg = await chan.get()
             yield msg
             if msg[0] == 'fini':
                 break
