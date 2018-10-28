@@ -285,10 +285,6 @@ class LmdbLayer(s_layer.Layer):
             'splicelog_indx': self.splicelog.index(),
         }
 
-    # FIXME: is this used anywhere?
-    # async def db(self, name):
-    #     return self.dbs.get(name)
-
     async def initdb(self, name, dupsort=False):
         db = self.slab.initdb(name, dupsort)
         self.dbs[name] = db

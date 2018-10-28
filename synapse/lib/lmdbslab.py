@@ -18,14 +18,16 @@ class Slab(s_base.Base):
     '''
     COMMIT_PERIOD = 1.0  # time between commits
 
-    async def __anit__(self, path, **opts):
+    async def __anit__(self, path, **kwargs):
         await s_base.Base.__anit__(self)
 
+        opts = kwargs
+
         self.path = path
-        self.optspath = os.path.join(path, 'opts.json')
+        self.optspath = os.path.join(path, 'opts.yaml')
 
         if os.path.isfile(self.optspath):
-            opts.update(s_common.jsload(self.optspath))
+            opts.update(s_common.yamlload(self.optspath))
 
         self.mapsize = opts.get('map_size')
         if self.mapsize is None:
@@ -261,8 +263,7 @@ class Slab(s_base.Base):
         retn, self.last_retn = self.last_retn, None
         return retn
 
-    # FIXME:  refactor delete/put/replace/pop common code
-    def pop(self, lkey, db=None):
+    def _xact_action(self, calling_func, xact_func, lkey, *args, db=None, **kwargs):
         if self.readonly:
             raise s_exc.IsReadOnly()
 
@@ -270,63 +271,9 @@ class Slab(s_base.Base):
             self.dirty = True
 
             if not self.recovering:
-                self._logXactOper(self.pop, lkey, db=db)
+                self._logXactOper(calling_func, lkey, *args, db=db, **kwargs)
 
-            retn = self.xact.pop(lkey, db=db)
-
-            return retn
-
-        except lmdb.MapFullError as e:
-            return self._handle_mapfull()
-
-    def delete(self, lkey, val=None, db=None):
-        if self.readonly:
-            raise s_exc.IsReadOnly()
-
-        try:
-            self.dirty = True
-
-            if not self.recovering:
-                self._logXactOper(self.delete, lkey, val, db=db)
-
-            self.xact.delete(lkey, val, db=db)
-
-            return
-
-        except lmdb.MapFullError as e:
-            return self._handle_mapfull()
-
-    def put(self, lkey, lval, dupdata=False, db=None):
-        if self.readonly:
-            raise s_exc.IsReadOnly()
-
-        try:
-            self.dirty = True
-
-            if not self.recovering:
-                self._logXactOper(self.put, lkey, lval, dupdata=dupdata, db=db)
-
-            return self.xact.put(lkey, lval, dupdata=dupdata, db=db)
-
-        except lmdb.MapFullError as e:
-            return self._handle_mapfull()
-
-    def replace(self, lkey, lval, db=None):
-        '''
-        Like put, but returns the previous value if existed
-        '''
-        if self.readonly:
-            raise s_exc.IsReadOnly()
-
-        try:
-            self.dirty = True
-
-            if not self.recovering:
-                self._logXactOper(self.replace, lkey, lval, db=db)
-
-            retn = self.xact.replace(lkey, lval, db=db)
-
-            return retn
+            return xact_func(self.xact, lkey, *args, db=db, **kwargs)
 
         except lmdb.MapFullError as e:
             return self._handle_mapfull()
@@ -348,6 +295,21 @@ class Slab(s_base.Base):
 
         except lmdb.MapFullError as e:
             return self._handle_mapfull()
+
+    def pop(self, lkey, db=None):
+        return self._xact_action(self.pop, lmdb.Transaction.pop, lkey, db=db)
+
+    def delete(self, lkey, val=None, db=None):
+        return self._xact_action(self.delete, lmdb.Transaction.delete, lkey, val, db=db)
+
+    def put(self, lkey, lval, dupdata=False, db=None):
+        return self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, db=db)
+
+    def replace(self, lkey, lval, db=None):
+        '''
+        Like put, but returns the previous value if existed
+        '''
+        return self._xact_action(self.replace, lmdb.Transaction.replace, lkey, lval, db=db)
 
     @contextlib.contextmanager
     def synchold(self):

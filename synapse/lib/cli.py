@@ -1,5 +1,7 @@
 import json
+import time
 import signal
+import asyncio
 import threading
 import traceback
 import collections
@@ -339,6 +341,7 @@ class Cli(s_eventbus.EventBus):
             # FIXME history / completion
 
             try:
+                task = None
 
                 line = self.get_input()
                 if not line:
@@ -348,7 +351,8 @@ class Cli(s_eventbus.EventBus):
                 if not line:
                     continue
 
-                s_glob.sync(self.runCmdLine(line))
+                task = s_glob.plex.coroToTask(self.runCmdLine(line))
+                task.result()
 
             except KeyboardInterrupt as e:
 
@@ -363,6 +367,17 @@ class Cli(s_eventbus.EventBus):
             except Exception as e:
                 s = traceback.format_exc()
                 self.printf(s)
+
+            finally:
+                if task is not None:
+                    task.cancel()
+                    try:
+                        task.result(2)
+                    except asyncio.CancelledError:
+                        # Wait a beat to let any remaining nodes to print out before we print the prompt
+                        time.sleep(1)
+                    except Exception:
+                        pass
 
     async def runCmdLine(self, line):
         '''
@@ -397,8 +412,8 @@ class Cli(s_eventbus.EventBus):
         except s_exc.CliFini as e:
             self.fini()
 
-        except KeyboardInterrupt as e:
-            self.printf('<ctrl-c>')
+        except asyncio.CancelledError:
+            self.printf('Cmd cancelled')
 
         except Exception as e:
             exctxt = traceback.format_exc()

@@ -118,23 +118,6 @@ class Query(AstNode):
 
         self.canceled = True
 
-    # FIXME: remove
-    # async def execute(self):
-
-    #     chan = asyncio.Queue(maxsize=10)
-
-    #     coro = self._runQueryThread(chan)
-
-    #     s_glob.plex.coroLoopTask(coro)
-
-    #     while not self.canceled:
-
-    #         item = await chan.get()
-    #         if item is None:
-    #             return
-
-    #         yield item
-
     async def getInput(self, snap):
         for ndef in self.opts.get('ndefs', ()):
             node = await snap.getNodeByNdef(ndef)
