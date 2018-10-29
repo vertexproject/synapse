@@ -310,9 +310,6 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            print(repr(core))
-            print(repr(core.feedfuncs))
-
             await core.addFeedData('com.test.record', data)
 
             vals = [node.ndef[1] async for node in core.eval('teststr')]

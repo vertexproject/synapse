@@ -193,7 +193,7 @@ class Cell(s_base.Base, s_telepath.Aware):
     confbase = ()
     confdefs = ()
 
-    async def __anit__(self, dirn):
+    async def __anit__(self, dirn, readonly=False):
 
         await s_base.Base.__anit__(self)
 
@@ -228,13 +228,17 @@ class Cell(s_base.Base, s_telepath.Aware):
             self.cellname = self.__class__.__name__
 
         await self._initCellAuth()
-        await self._initCellSlab()
+        await self._initCellSlab(readonly=readonly)
 
-    async def _initCellSlab(self):
+    async def _initCellSlab(self, readonly=False):
 
         s_common.gendir(self.dirn, 'slabs')
         path = os.path.join(self.dirn, 'slabs', 'cell.lmdb')
-        self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE)
+        if not os.path.exists(path) and readonly:
+            logger.warning('Creating a slab for a readonly cell.')
+            _slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE)
+            await _slab.fini()
+        self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
         self.onfini(self.slab.fini)
 
     async def _initCellAuth(self):

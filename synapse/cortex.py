@@ -275,7 +275,7 @@ class Cortex(s_cell.Cell):
     confdefs = (  # type: ignore
 
         ('layer:lmdb:mapsize', {
-            'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE,
+            'type': 'int', 'defval': None,
             'doc': 'The default size for a new LMDB layer map.'
         }),
 
@@ -425,7 +425,8 @@ class Cortex(s_cell.Cell):
 
         # Layers are imported in reverse lexicographic order, where the earliest in the alphabet is the 'topmost'
         # write layer.
-        for layerdir in sorted((d for d in layersdir.iterdir() if d.is_dir()), reverse=True):
+        layerdirs = sorted((d for d in layersdir.iterdir() if d.is_dir()), reverse=True)
+        for layeridx, layerdir in enumerate(layerdirs):
 
             logger.info('loading external layer from %s', layerdir)
 
@@ -433,7 +434,9 @@ class Cortex(s_cell.Cell):
                 logger.warning('Skipping layer directory %s due to missing boot.yaml', layerdir)
                 continue
 
-            layer = await s_cells.initFromDirn(layerdir)
+            # Every layer but the top is readonly
+            readonly = (layeridx < len(layerdirs) - 1)
+            layer = await s_cells.initFromDirn(layerdir, readonly=readonly)
             if not isinstance(layer, s_layer.Layer):
                 raise s_exc.BadConfValu('layer dir %s must contain Layer cell', layerdir)
 
@@ -856,9 +859,9 @@ class Cortex(s_cell.Cell):
             ((str,dict)): Storm messages.
         '''
         MSG_QUEUE_SIZE = 1000
-        _chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
+        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
 
-        async def runStorm(chan):
+        async def runStorm():
             tick = s_common.now()
             count = 0
             try:
@@ -883,10 +886,10 @@ class Cortex(s_cell.Cell):
                 took = tock - tick
                 await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
 
-        self.schedCoro(runStorm(_chan))
+        self.schedCoro(runStorm())
 
         while True:
-            msg = await _chan.get()
+            msg = await chan.get()
             yield msg
             if msg[0] == 'fini':
                 break

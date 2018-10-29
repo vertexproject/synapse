@@ -18,14 +18,16 @@ class Slab(s_base.Base):
     '''
     COMMIT_PERIOD = 1.0  # time between commits
 
-    async def __anit__(self, path, **opts):
+    async def __anit__(self, path, **kwargs):
         await s_base.Base.__anit__(self)
 
+        opts = kwargs
+
         self.path = path
-        self.optspath = os.path.join(path, 'opts.json')
+        self.optspath = os.path.join(path, 'opts.yaml')
 
         if os.path.isfile(self.optspath):
-            opts.update(s_common.jsload(self.optspath))
+            opts.update(s_common.yamlload(self.optspath))
 
         self.mapsize = opts.get('map_size')
         if self.mapsize is None:
@@ -42,16 +44,39 @@ class Slab(s_base.Base):
         self.maxsize = opts.pop('maxsize', None)
         self.growsize = opts.pop('growsize', None)
 
+        self.readonly = opts.get('readonly', False)
+
         self.lenv = lmdb.open(path, **opts)
 
         self.scans = set()
 
         self.holders = 0
 
-        self._initCoXact()
+        self.dirty = False
+        if self.readonly:
+            self.xact = None
+            self.txnrefcount = 0
+        else:
+            self._initCoXact()
 
         self.onfini(self._onCoFini)
         self.schedCoro(self._runSyncLoop())
+
+    def _acqXactForReading(self):
+        if not self.readonly:
+            return self.xact
+        if not self.txnrefcount:
+            self._initCoXact()
+
+        self.txnrefcount += 1
+        return self.xact
+
+    def _relXactForReading(self):
+        if not self.readonly:
+            return
+        self.txnrefcount -= 1
+        if not self.txnrefcount:
+            self._finiCoXact()
 
     def _saveOptsFile(self):
         opts = {'map_size': self.mapsize, 'growsize': self.growsize}
@@ -73,15 +98,21 @@ class Slab(s_base.Base):
         del self.lenv
 
     def _finiCoXact(self):
+
         assert s_glob.plex.iAmLoop()
 
         [scan.bump() for scan in self.scans]
+
+        # Readonly or self.xact has already been closed
+        if self.xact is None:
+            return
 
         self.xact.commit()
 
         self.xactops.clear()
 
         del self.xact
+        self.xact = None
 
     def grow(self, size=None):
         '''
@@ -92,18 +123,27 @@ class Slab(s_base.Base):
 
     def _growMapSize(self, size=None):
 
+        mapsize = self.mapsize
+
         if size is not None:
-            self.mapsize += size
+            mapsize += size
 
         elif self.growsize is not None:
-            self.mapsize += self.growsize
+            mapsize += self.growsize
 
         else:
-            self.mapsize *= 2
+            mapsize *= 2
 
-        logger.warning('growing map size to: %d' % (self.mapsize,))
+        if self.maxsize is not None:
+            mapsize = min(mapsize, self.maxsize)
+            if mapsize == self.mapsize:
+                raise s_exc.DbOutOfSpace(
+                    mesg=f'DB at {self.path} is at specified max capacity of {self.maxsize} and is out of space')
 
-        self.lenv.set_mapsize(self.mapsize)
+        logger.warning('growing map size to: %d' % (mapsize,))
+
+        self.lenv.set_mapsize(mapsize)
+        self.mapsize = mapsize
         self._saveOptsFile()
 
         return self.mapsize
@@ -114,12 +154,18 @@ class Slab(s_base.Base):
 
     @contextlib.contextmanager
     def _noCoXact(self):
-        self._finiCoXact()
+        if not self.readonly or self.txnrefcount:
+            self._finiCoXact()
         yield None
-        self._initCoXact()
+        if not self.readonly or self.txnrefcount:
+            self._initCoXact()
 
     def get(self, lkey, db=None):
-        return self.xact.get(lkey, db=db)
+        self._acqXactForReading()
+        try:
+            return self.xact.get(lkey, db=db)
+        finally:
+            self._relXactForReading()
 
     # non-scan ("atomic") interface.
     # def getByDup(self, lkey, db=None):
@@ -170,15 +216,25 @@ class Slab(s_base.Base):
     # def valsByRange():
 
     def _initCoXact(self):
-        self.xact = self.lenv.begin(write=True)
+        try:
+            self.xact = self.lenv.begin(write=not self.readonly)
+        except lmdb.MapResizedError as e:
+            # This is what happens when some *other* process increased the mapsize.  setting mapsize to 0 should
+            # set my mapsize to whatever the other process raised it to
+            self.lenv.set_mapsize(0)
+            self.mapsize = self.lenv.info()['map_size']
+            self.xact = self.lenv.begin(write=not self.readonly)
         self.dirty = False
 
     def _logXactOper(self, func, *args, **kwargs):
         self.xactops.append((func, args, kwargs))
 
     def _runXactOpers(self):
-        # re-run transaction operations in the event of an abort
-        [f(*a, **k) for (f, a, k) in self.xactops]
+        # re-run transaction operations in the event of an abort.  Return the last operation's return value.
+        retn = None
+        for (f, a, k) in self.xactops:
+            retn = f(*a, **k)
+        return retn
 
     @contextlib.contextmanager
     def aborted(self):
@@ -191,11 +247,12 @@ class Slab(s_base.Base):
 
         yield
 
-        self.xact = self.lenv.begin(write=True)
+        self.xact = self.lenv.begin(write=not self.readonly)
 
         self.recovering = True
-        self._runXactOpers()
+        self.last_retn = self._runXactOpers()
         self.recovering = False
+        return self.last_retn
 
     def _handle_mapfull(self):
         with self.aborted():
@@ -203,71 +260,27 @@ class Slab(s_base.Base):
 
         self.forcecommit()
 
-    # FIXME:  refactor delete/put/replace/pop common code
-    def pop(self, lkey, db=None):
+        retn, self.last_retn = self.last_retn, None
+        return retn
+
+    def _xact_action(self, calling_func, xact_func, lkey, *args, db=None, **kwargs):
+        if self.readonly:
+            raise s_exc.IsReadOnly()
 
         try:
             self.dirty = True
 
             if not self.recovering:
-                self._logXactOper(self.pop, lkey, db=db)
+                self._logXactOper(calling_func, lkey, *args, db=db, **kwargs)
 
-            retn = self.xact.pop(lkey, db=db)
-
-            return retn
+            return xact_func(self.xact, lkey, *args, db=db, **kwargs)
 
         except lmdb.MapFullError as e:
-            self._handle_mapfull()
-
-    def delete(self, lkey, val=None, db=None):
-
-        try:
-            self.dirty = True
-
-            if not self.recovering:
-                self._logXactOper(self.delete, lkey, val, db=db)
-
-            self.xact.delete(lkey, val, db=db)
-
-            return
-
-        except lmdb.MapFullError as e:
-            self._handle_mapfull()
-
-    def put(self, lkey, lval, dupdata=False, db=None):
-
-        try:
-            self.dirty = True
-
-            if not self.recovering:
-                self._logXactOper(self.put, lkey, lval, dupdata=dupdata, db=db)
-
-            self.xact.put(lkey, lval, dupdata=dupdata, db=db)
-
-            return
-
-        except lmdb.MapFullError as e:
-            self._handle_mapfull()
-
-    def replace(self, lkey, lval, db=None):
-        '''
-        Like put, but returns the previous value if existed
-        '''
-
-        try:
-            self.dirty = True
-
-            if not self.recovering:
-                self._logXactOper(self.replace, lkey, lval, db=db)
-
-            retn = self.xact.replace(lkey, lval, db=db)
-
-            return retn
-
-        except lmdb.MapFullError as e:
-            self._handle_mapfull()
+            return self._handle_mapfull()
 
     def putmulti(self, kvpairs, dupdata=False, append=False, db=None):
+        if self.readonly:
+            raise s_exc.IsReadOnly()
 
         try:
             self.dirty = True
@@ -276,12 +289,27 @@ class Slab(s_base.Base):
                 self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=True, db=db)
 
             with self.xact.cursor(db=db) as curs:
-                curs.putmulti(kvpairs, dupdata=dupdata, append=append)
+                retn = curs.putmulti(kvpairs, dupdata=dupdata, append=append)
 
-            return
+            return retn
 
         except lmdb.MapFullError as e:
-            self._handle_mapfull()
+            return self._handle_mapfull()
+
+    def pop(self, lkey, db=None):
+        return self._xact_action(self.pop, lmdb.Transaction.pop, lkey, db=db)
+
+    def delete(self, lkey, val=None, db=None):
+        return self._xact_action(self.delete, lmdb.Transaction.delete, lkey, val, db=db)
+
+    def put(self, lkey, lval, dupdata=False, db=None):
+        return self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, db=db)
+
+    def replace(self, lkey, lval, db=None):
+        '''
+        Like put, but returns the previous value if existed
+        '''
+        return self._xact_action(self.replace, lmdb.Transaction.replace, lkey, lval, db=db)
 
     @contextlib.contextmanager
     def synchold(self):
@@ -320,20 +348,19 @@ class Scan:
         self.slab = slab
         self.db = db
 
-        self.curs = self.slab.xact.cursor(db=db)
-
         self.atitem = None
         self.bumped = False
 
     def __enter__(self):
+        self.slab._acqXactForReading()
+        self.curs = self.slab.xact.cursor(db=self.db)
         self.slab.scans.add(self)
         return self
 
     def __exit__(self, exc, cls, tb):
-
         self.bump()
-
         self.slab.scans.discard(self)
+        self.slab._relXactForReading()
 
     def last_key(self):
         ''' Return the last key in the database.  Returns none if database is empty. '''
@@ -374,6 +401,8 @@ class Scan:
                     if self.slab.isfini:
                         raise s_exc.IsFini()
 
+                    self.bumped = False
+
                     self.curs = self.slab.xact.cursor(db=self.db)
                     self.curs.set_range(self.atitem[0])
 
@@ -399,6 +428,8 @@ class Scan:
 
                     if self.slab.isfini:
                         raise s_exc.IsFini()
+
+                    self.bumped = False
 
                     self.curs = self.slab.xact.cursor(db=self.db)
                     self.curs.set_range_dup(*self.atitem)

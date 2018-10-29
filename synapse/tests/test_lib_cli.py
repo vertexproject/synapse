@@ -1,3 +1,4 @@
+import asyncio
 import threading
 import unittest.mock as mock
 
@@ -21,7 +22,7 @@ class TstThrowKeyboard(s_cli.Cmd):
     _cmd_name = 'throwkeyboard'
 
     async def runCmdOpts(self, opts):
-        raise KeyboardInterrupt('TstThrowKeyboard')
+        raise asyncio.CancelledError()
 
 
 class CliTest(s_t_utils.SynTest):
@@ -268,7 +269,7 @@ class CliTest(s_t_utils.SynTest):
                 self.true(outp.expect('o/'))
                 self.true(outp.expect('{}'))
                 self.true(outp.expect('ZeroDivisionError'))
-                self.true(outp.expect('<ctrl-c>'))
+                self.true(outp.expect('Cmd cancelled'))
                 self.true(cli.isfini)
 
     async def test_cli_fini_disconnect(self):
