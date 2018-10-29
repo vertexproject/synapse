@@ -1,5 +1,6 @@
 import synapse.exc as s_exc
 import synapse.cells as s_cells
+import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
@@ -57,3 +58,19 @@ class CellTest(s_t_utils.SynTest):
                 self.true(await proxy.allowed(('foo', 'bar')))
                 self.false(await proxy.isadmin())
                 self.false(await proxy.allowed(('hehe', 'haha')))
+
+    async def test_cell_readonly(self):
+        with self.getTestDir() as dirn:
+            async with await s_cells.init('echoauth', dirn) as cell:
+                self.false(cell.slab.readonly)
+
+            async with await s_cells.init('echoauth', dirn, readonly=True) as cell:
+                self.true(cell.slab.readonly)
+
+        # Start up a cell in readonly mode without its slab present.
+        with self.getTestDir() as dirn:
+            with self.getAsyncLoggerStream('synapse.lib.cell',
+                                           'Creating a slab for a readonly cell') as stream:
+                async with await s_cells.init('echoauth', dirn, readonly=True) as cell:
+                    self.true(cell.slab.readonly)
+                self.true(await stream.wait(1))

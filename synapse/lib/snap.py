@@ -87,6 +87,8 @@ class Snap(s_base.Base):
         dorepr = False
         dopath = False
 
+        self.core._logStormQuery(text, user)
+
         if opts is not None:
             dorepr = opts.get('repr', False)
             dopath = opts.get('path', False)
@@ -283,8 +285,6 @@ class Snap(s_base.Base):
             async for row, node in self.getLiftNodes(lops, prop):
                 yield node
 
-    # FIXME:  uncomment
-    # @s_glob.synchelp
     async def addNode(self, name, valu, props=None):
         '''
         Add a node by form name and value with optional props.
@@ -294,21 +294,20 @@ class Snap(s_base.Base):
             valu (obj): The value for the node.
             props (dict): Optional secondary properties for the node.
         '''
-        with self.bulkload():
 
-            try:
+        try:
 
-                fnib = self._getNodeFnib(name, valu)
-                return await self._addNodeFnib(fnib, props=props)
+            fnib = self._getNodeFnib(name, valu)
+            return await self._addNodeFnib(fnib, props=props)
 
-            except Exception as e:
+        except Exception as e:
 
-                mesg = f'{name} {valu!r} {props!r}'
-                logger.exception(mesg)
-                if self.strict:
-                    raise
+            mesg = f'{name} {valu!r} {props!r}'
+            logger.exception(mesg)
+            if self.strict:
+                raise
 
-                return None
+            return None
 
     async def addFeedNodes(self, name, items):
         '''
@@ -489,24 +488,23 @@ class Snap(s_base.Base):
         Returns:
             (list): A list of xact messages.
         '''
-        with self.bulkload():
 
-            for (formname, formvalu), forminfo in nodedefs:
+        for (formname, formvalu), forminfo in nodedefs:
 
-                props = forminfo.get('props')
+            props = forminfo.get('props')
 
-                # remove any universal created props...
-                if props is not None:
-                    props.pop('.created', None)
+            # remove any universal created props...
+            if props is not None:
+                props.pop('.created', None)
 
-                node = await self.addNode(formname, formvalu, props=props)
-                if node is not None:
-                    tags = forminfo.get('tags')
-                    if tags is not None:
-                        for tag, asof in tags.items():
-                            await node.addTag(tag, valu=asof)
+            node = await self.addNode(formname, formvalu, props=props)
+            if node is not None:
+                tags = forminfo.get('tags')
+                if tags is not None:
+                    for tag, asof in tags.items():
+                        await node.addTag(tag, valu=asof)
 
-                yield node
+            yield node
 
     async def stor(self, sops):
 
@@ -515,12 +513,6 @@ class Snap(s_base.Base):
             return
 
         await self.wlyr.stor(sops)
-
-    # FIXME: remove?
-    @contextlib.contextmanager
-    def bulkload(self):
-
-        yield None
 
     async def getLiftNodes(self, lops, rawprop, cmpr=None):
         genr = self.getLiftRows(lops)

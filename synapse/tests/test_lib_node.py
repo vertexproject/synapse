@@ -4,8 +4,6 @@ import synapse.lib.node as s_node
 
 import synapse.tests.utils as s_t_utils
 
-#FIXME:  need a sync test
-
 class NodeTest(s_t_utils.SynTest):
 
     async def test_pack(self):

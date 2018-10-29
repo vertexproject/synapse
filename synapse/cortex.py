@@ -1,10 +1,7 @@
-import os
 import asyncio
 import logging
 import pathlib
-import tempfile
 import collections
-import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -245,29 +242,9 @@ class CoreApi(s_cell.CellApi):
         '''
         Evalute a storm query and yield packed nodes.
         '''
-        MSG_QUEUE_SIZE = 1000
-        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
-
-        async def runEval(chan):
-            try:
-                async with await self.cell.snap(user=self.user) as snap:
-                    async for item in snap.iterStormPodes(text, opts=opts, user=self.user):
-                        await chan.put(item)
-            except Exception as e:
-                await chan.put(e)
-
-            finally:
-                await chan.put(None)  # sentinel to indicate end of stream
-
-        self.schedCoro(runEval(chan))
-
-        while True:
-            item = await chan.get()
-            if item is None:
-                break
-            if isinstance(item, Exception):
-                raise item
-            yield item
+        async with await self.cell.snap(user=self.user) as snap:
+            async for item in snap.iterStormPodes(text, opts=opts, user=self.user):
+                yield item
 
     async def storm(self, text, opts=None):
         '''
@@ -298,7 +275,7 @@ class Cortex(s_cell.Cell):
     confdefs = (  # type: ignore
 
         ('layer:lmdb:mapsize', {
-            'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE,
+            'type': 'int', 'defval': None,
             'doc': 'The default size for a new LMDB layer map.'
         }),
 
@@ -376,11 +353,9 @@ class Cortex(s_cell.Cell):
             'tag:del': self._onFeedTagDel,
         }
 
-        self.newp = False
         self.setFeedFunc('syn.nodes', self._addSynNodes)
         self.setFeedFunc('syn.splice', self._addSynSplice)
         self.setFeedFunc('syn.ingest', self._addSynIngest)
-        self.newp = True
 
         await self._initCoreLayers()
 
@@ -448,12 +423,10 @@ class Cortex(s_cell.Cell):
         layersdir = pathlib.Path(self.dirn, 'layers')
         layersdir.mkdir(exist_ok=True)
 
-        if pathlib.Path(layersdir, 'default').is_dir():
-            self._migrateOldDefaultLayer()
-
         # Layers are imported in reverse lexicographic order, where the earliest in the alphabet is the 'topmost'
         # write layer.
-        for layerdir in sorted((d for d in layersdir.iterdir() if d.is_dir()), reverse=True):
+        layerdirs = sorted((d for d in layersdir.iterdir() if d.is_dir()), reverse=True)
+        for layeridx, layerdir in enumerate(layerdirs):
 
             logger.info('loading external layer from %s', layerdir)
 
@@ -461,7 +434,9 @@ class Cortex(s_cell.Cell):
                 logger.warning('Skipping layer directory %s due to missing boot.yaml', layerdir)
                 continue
 
-            layer = await s_cells.initFromDirn(layerdir)
+            # Every layer but the top is readonly
+            readonly = (layeridx < len(layerdirs) - 1)
+            layer = await s_cells.initFromDirn(layerdir, readonly=readonly)
             if not isinstance(layer, s_layer.Layer):
                 raise s_exc.BadConfValu('layer dir %s must contain Layer cell', layerdir)
 
@@ -651,8 +626,6 @@ class Cortex(s_cell.Cell):
         def func(snap, items):
             loaditems...
         '''
-        if self.newp and name == 'syn.splice':
-            raise Exception('omg')
         self.feedfuncs[name] = func
 
     def getFeedFunc(self, name):
@@ -756,8 +729,8 @@ class Cortex(s_cell.Cell):
             try:
                 pnodes = self._getSynIngestNodes(item)
                 logger.info('Made [%s] nodes.', len(pnodes))
-                async for n in snap.addNodes(pnodes):
-                    yield n
+                async for node in snap.addNodes(pnodes):
+                    yield node
             except Exception as e:
                 logger.exception('Failed to process ingest [%r]', item)
                 continue
@@ -835,20 +808,6 @@ class Cortex(s_cell.Cell):
                 pnodes.append(obj)
         return pnodes
 
-    # FIXME can remove this before 010 release, since 'old' is prelease 010.
-    def _migrateOldDefaultLayer(self):  # pragma: no cover
-        '''
-        Migrate from 'old' 010 layers configuration structure
-        '''
-        layersdir = pathlib.Path(self.dirn, 'layers')
-        new_path = pathlib.Path(layersdir, DEFAULT_LAYER_NAME)
-        logger.info('Migrating old default layer to new location at %s', new_path)
-        pathlib.Path(layersdir, 'default').rename(new_path)
-        boot_yaml = pathlib.Path(new_path, 'boot.yaml')
-        if not boot_yaml.exists():
-            conf = {'cell:name': 'default', 'type': 'layer-lmdb'}
-            s_common.yamlsave(conf, boot_yaml)
-
     async def _makeDefaultLayer(self):
         '''
         Since a user hasn't specified any layers, make one
@@ -905,10 +864,12 @@ class Cortex(s_cell.Cell):
         MSG_QUEUE_SIZE = 1000
         chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
 
-        task = s_task.init('storm', user=user, info={'text': text})
+        task = s_task.promote('storm', user=user, info={'text': text})
+
         task.livefor(self)
 
         async def runStorm():
+
             tick = s_common.now()
             count = 0
             try:
@@ -928,11 +889,11 @@ class Cortex(s_cell.Cell):
                         count += 1
 
             except Exception as e:
-                    logger.exception('Error during storm execution')
-                    enfo = s_common.err(e)
-                    enfo[1].pop('esrc', None)
-                    enfo[1].pop('ename', None)
-                    await chan.put(('err', enfo))
+                logger.exception('Error during storm execution')
+                enfo = s_common.err(e)
+                enfo[1].pop('esrc', None)
+                enfo[1].pop('ename', None)
+                await chan.put(('err', enfo))
 
             finally:
                 tock = s_common.now()
@@ -942,8 +903,11 @@ class Cortex(s_cell.Cell):
         s_task.fork(runStorm())
 
         while True:
-            mesg = await _chan.get()
+
+            mesg = await chan.get()
+
             yield mesg
+
             if mesg[0] == 'fini':
                 break
 
@@ -1095,7 +1059,7 @@ class Cortex(s_cell.Cell):
         # now that we've loaded all their models
         # we can call their init functions
         for modu in added:
-            await modu.initCoreModule()
+            await s_coro.ornot(modu.initCoreModule)
 
     async def loadCoreModule(self, ctor, conf=None):
         '''
@@ -1134,22 +1098,3 @@ class Cortex(s_cell.Cell):
             'layer': await self.layer.stat()
         }
         return stats
-
-    @contextlib.asynccontextmanager
-    async def getLocalProxy(self):
-        '''
-        Creates a local telepath daemon, shares this object, and returns the telepath proxy of this object
-        '''
-        import synapse.daemon as s_daemon  # avoid import cycle
-        with tempfile.TemporaryDirectory() as dirn:
-            coredir = pathlib.Path(dirn, 'cells', 'core')
-            if coredir.is_dir():
-                ldir = s_common.gendir(coredir, 'layers')
-                if self.alt_write_layer:
-                    os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
-
-            async with await s_daemon.Daemon.anit(dirn) as dmon:
-                dmon.share('core', self)
-                addr = await dmon.listen('tcp://127.0.0.1:0')
-                prox = await s_telepath.openurl('tcp://127.0.0.1/core', port=addr[1])
-                yield prox

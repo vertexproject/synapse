@@ -81,14 +81,14 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --hide-tags --hide-props teststr=abcd')
-            self.false(outp.expect(':tick = 1970/01/01 00:00:00.123', throw=False))
+            self.false(outp.expect(':tick = 2015/01/01 00:00:00.000', throw=False))
             self.false(outp.expect('#cool', throw=False))
             outp.expect('complete. 1 nodes')
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
             await cmdr.runCmdLine('storm --raw teststr=abcd')
-            outp.expect("'tick': '2015/01/01 00:00:00.000'")
+            outp.expect("'tick': 1420070400000")
             outp.expect("'tags': {'cool': (None, None)")
             outp.expect('complete. 1 nodes')
 
@@ -177,30 +177,3 @@ class CmdCoreTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine('log')
                     cmdr.fini()
                     self.true(outp.expect('Pick one'))
-
-# FIXME incorporate these into storm tests
-'''
-class SynCmdCoreTest(s_t_utils.SynTest):
-
-    def test_cmds_storm_showcols(self):
-        with self.getDmonCore() as core:
-            core.formTufoByProp('inet:email', 'visi@vertex.link')
-            core.formTufoByProp('inet:email', 'vertexmc@vertex.link')
-            core.formTufoByProp('inet:email', 'z@a.vertex.link')
-            core.formTufoByProp('inet:email', 'a@vertex.link')
-
-            outp = self.getTestOutp()
-            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-            line = 'storm inet:email="visi@vertex.link" show:cols(inet:email:fqdn,inet:email:user,node:ndef)'
-            resp = await cmdr.runCmdLine(line)
-            self.len(1, resp['data'])
-            self.true(outp.expect('vertex.link visi a20979f71b90cf2ae1c53933675b5c3c'))
-
-            outp = self.getTestOutp()
-            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-            line = 'storm inet:email show:cols(inet:email, order=inet:email:fqdn)'
-            resp = await cmdr.runCmdLine(line)
-            self.len(4, resp['data'])
-            result = [mesg.strip() for mesg in outp.mesgs]
-            self.eq(result, ['z@a.vertex.link', 'a@vertex.link', 'vertexmc@vertex.link', 'visi@vertex.link', '(4 results)'])
-'''

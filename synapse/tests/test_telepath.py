@@ -1,6 +1,9 @@
+import os
+import ssl
+import shutil
+import socket
 import asyncio
 import logging
-import unittest
 import threading
 
 logger = logging.getLogger(__name__)
@@ -13,6 +16,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.coro as s_coro
 import synapse.lib.scope as s_scope
 import synapse.lib.share as s_share
+import synapse.lib.certdir as s_certdir
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -199,6 +203,42 @@ class TeleTest(s_t_utils.SynTest):
         self.true(await s_coro.event_wait(evt, 2))
         self.true(prox.isfini)
         await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
+
+    async def test_telepath_tls_bad_cert(self):
+
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+            # As a workaround to a Python bug (https://bugs.python.org/issue30945) that prevents localhost:0 from
+            # being connected via TLS, make a certificate for whatever my hostname is and sign it with the test CA
+            # key.
+            hostname = socket.gethostname()
+            dmon.certdir.genHostCert(socket.gethostname())
+
+            addr = await dmon.listen(f'ssl://{hostname}:0')
+            dmon.share('foo', foo)
+
+            # host cert is *NOT* signed by a CA that client recognizes
+            await self.asyncraises(ssl.SSLCertVerificationError,
+                                   s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]))
+
+    async def test_telepath_tls(self):
+
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+            # As a workaround to a Python bug (https://bugs.python.org/issue30945) that prevents localhost:0 from
+            # being connected via TLS, make a certificate for whatever my hostname is and sign it with the test CA
+            # key.
+            hostname = socket.gethostname()
+            dmon.certdir.genHostCert(socket.gethostname(), signas='ca')
+
+            addr = await dmon.listen(f'ssl://{hostname}:0')
+            dmon.share('foo', foo)
+
+            prox = await s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1])
+
+            self.eq(30, await prox.bar(10, 20))
 
     async def test_telepath_surrogate(self):
 

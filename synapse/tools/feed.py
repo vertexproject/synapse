@@ -13,6 +13,7 @@ import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
@@ -49,7 +50,7 @@ def getItems(*paths):
             logger.warning('Unsupported file path: [%s]', path)
     return items
 
-async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=1000, offset=0):
+def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=1000, offset=0):
 
     items = getItems(*paths)
     for path, item in items:
@@ -66,7 +67,7 @@ async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=100
                 foff += clen
                 continue
 
-            await core.addFeedData(feedformat, chunk)
+            core.addFeedData(feedformat, chunk)
 
             foff += clen
             outp.printf(f'Added [{clen}] items from [{bname}] - offset [{foff}]')
@@ -75,10 +76,9 @@ async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=100
         outp.printf(f'Done consuming from [{bname}]')
         outp.printf(f'Took [{tock - tick}] seconds.')
     if debug:
-        cmdr = await s_cmdr.getItemCmdr(core, outp)
-        await cmdr.runCmdLoop()
+        s_cmdr.runItemCmdr(core, outp)
 
-async def main(argv, outp=None):
+def main(argv, outp=None):
 
     if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
@@ -98,22 +98,22 @@ async def main(argv, outp=None):
         with getTempDir() as dirn:
             s_common.yamlsave({'layer:lmdb:mapsize': s_const.gibibyte * 5},
                               dirn, 'cell.yaml')
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            with s_coro.AsyncToSyncCMgr(s_glob.sync, s_cortex.Cortex.anit(dirn)) as core:
                 for mod in opts.modules:
                     outp.printf(f'Loading [{mod}]')
-                    await core.loadCoreModule(mod)
-                async with core.getLocalProxy() as prox:
-                    await addFeedData(prox, outp, opts.format, opts.debug,
-                                      chunksize=opts.chunksize,
-                                      offset=opts.offset,
-                                      *opts.files)
+                    s_glob.sync(core.loadCoreModule(mod))
+                with s_coro.AsyncToSyncCMgr(core.getLocalProxy) as prox:
+                    addFeedData(prox, outp, opts.format, opts.debug,
+                                chunksize=opts.chunksize,
+                                offset=opts.offset,
+                                *opts.files)
 
     elif opts.cortex:
-        async with await s_telepath.openurl(opts.cortex) as core:
-            await addFeedData(core, outp, opts.format, opts.debug,
-                              chunksize=opts.chunksize,
-                              offset=opts.offset,
-                              *opts.files)
+        with s_telepath.openurl(opts.cortex) as core:
+            addFeedData(core, outp, opts.format, opts.debug,
+                        chunksize=opts.chunksize,
+                        offset=opts.offset,
+                        *opts.files)
 
     else:  # pragma: no cover
         outp.printf('No valid options provided [%s]', opts)
@@ -145,9 +145,9 @@ def makeargparser():
 
     return pars
 
-async def _main():  # pragma: no cover
+def _main():  # pragma: no cover
     s_common.setlogging(logger, 'DEBUG')
-    return await main(sys.argv[1:])
+    return main(sys.argv[1:])
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(s_glob.sync(_main()))
+    sys.exit(_main())

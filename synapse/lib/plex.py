@@ -102,7 +102,7 @@ class Plex(s_eventbus.EventBus):
         NOTE: This function must *not* be run from inside the event loop
         '''
         if self.iAmLoop():
-            raise Exception('Already in async thread')
+            raise s_exc.AlreadyInAsync()
 
         task = self.coroToTask(coro)
         return task.result(timeout=timeout)

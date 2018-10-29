@@ -3,12 +3,12 @@ The layer library contains the base Layer object and helpers used for
 cortex construction.
 '''
 import os
-import asyncio
 import logging
 
 import synapse.exc as s_exc
 
-import synapse.lib.lmdb as s_lmdb
+import synapse.lib.const as s_const
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.slaboffs as s_slaboffs
 import synapse.lib.layer as s_layer
@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 # Maximum number of bytes we're going to put in an index
 MAX_INDEX_LEN = 256
 
+# The layer map size can start much lower because the underlying slab auto-grows.
+LMDB_LAYER_DEFAULT_MAP_SIZE = 512 * s_const.mebibyte
+
 class LmdbLayer(s_layer.Layer):
     '''
     A layer implements btree indexed storage for a cortex.
@@ -28,19 +31,25 @@ class LmdbLayer(s_layer.Layer):
         metadata for layer contents (only specific type / tag)
     '''
     confdefs = (  # type: ignore
-        ('lmdb:mapsize', {'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE}),
+        ('lmdb:mapsize', {'type': 'int', 'defval': LMDB_LAYER_DEFAULT_MAP_SIZE}),
+        ('lmdb:maxsize', {'type': 'int', 'defval': None, 'doc': 'The largest the DB file will grow to'}),
+        ('lmdb:growsize', {'type': 'int', 'defval': None,
+                           'doc': 'The amount in bytes to grow the DB file when full.  Defaults to doubling'}),
         ('lmdb:readahead', {'type': 'bool', 'defval': True}),
     )
 
-    async def __anit__(self, dirn):
+    async def __anit__(self, dirn, readonly=False):
 
-        await s_layer.Layer.__anit__(self, dirn)
+        await s_layer.Layer.__anit__(self, dirn, readonly=readonly)
         path = os.path.join(self.dirn, 'layer.lmdb')
 
         mapsize = self.conf.get('lmdb:mapsize')
         readahead = self.conf.get('lmdb:readahead')
+        maxsize = self.conf.get('lmdb:maxsize')
+        growsize = self.conf.get('lmdb:growsize')
 
-        self.slab = await s_lmdb.Slab.anit(path, max_dbs=128, map_size=mapsize, writemap=True, readahead=readahead)
+        self.slab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize, growsize=growsize,
+                                               writemap=True, readahead=readahead, readonly=readonly)
 
         self.onfini(self.slab.fini)
 
@@ -275,10 +284,6 @@ class LmdbLayer(s_layer.Layer):
         return {
             'splicelog_indx': self.splicelog.index(),
         }
-
-    # FIXME: is this used anywhere?
-    # async def db(self, name):
-    #     return self.dbs.get(name)
 
     async def initdb(self, name, dupsort=False):
         db = self.slab.initdb(name, dupsort)

@@ -163,8 +163,6 @@ class CortexTest(s_t_utils.SynTest):
                 conf['feeds'][0]['type'] = 'com.clown'
                 await self.asyncraises(s_exc.NoSuchType, self.getTestCell(dirn, 'cortex', conf=conf))
 
-    @s_glob.synchelp
-    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     async def test_cortex_model_dict(self):
 
         async with self.getTestDmon(mirror='dmoncore') as dmon, \
@@ -185,8 +183,6 @@ class CortexTest(s_t_utils.SynTest):
             self.nn(pnfo)
             self.eq(pnfo['type'][0], 'inet:asn')
 
-    @s_glob.synchelp
-    @patch('synapse.lib.lmdb.DEFAULT_MAP_SIZE', s_t_utils.TEST_MAP_SIZE)
     async def test_storm_graph(self):
 
         async with self.getTestDmon(mirror='dmoncore') as dmon, \
@@ -294,11 +290,10 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(node.ndef, ('teststr', 'teehee'))
 
     async def test_onadd(self):
-        arg_hit = None
+        arg_hit = {}
 
         async def testcb(node):
-            nonlocal arg_hit
-            arg_hit = node
+            arg_hit['hit'] = node
 
         async with self.getTestCore() as core:
 
@@ -307,16 +302,13 @@ class CortexTest(s_t_utils.SynTest):
                 core.model.form('inet:ipv4').onAdd(testcb)
 
                 node = await snap.addNode('inet:ipv4', '1.2.3.4')
-                self.eq(node, arg_hit)
+                self.eq(node, arg_hit.get('hit'))
 
     async def test_adddata(self):
 
         data = ('foo', 'bar', 'baz')
 
         async with self.getTestCore() as core:
-
-            print(repr(core))
-            print(repr(core.feedfuncs))
 
             await core.addFeedData('com.test.record', data)
 

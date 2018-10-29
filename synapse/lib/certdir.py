@@ -1,8 +1,9 @@
-
 import os
+import ssl
 import shutil
+import socket
 
-from OpenSSL import crypto
+from OpenSSL import crypto  # type: ignore
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -33,7 +34,8 @@ class CertDir:
         path (str): Optional path which can override the default path directory.
 
     Notes:
-        * All certificates will be loaded from and written to ~/.syn/certs by default. Set the envvar SYN_CERT_DIR to override.
+        * All certificates will be loaded from and written to ~/.syn/certs by default. Set the envvar SYN_CERT_DIR to
+        override.
         * All certificate generation methods create 4096 bit RSA keypairs.
         * All certificate signing methods use sha256 as the signature algorithm.
         * CertDir does not currently support signing CA CSRs.
@@ -660,8 +662,7 @@ class CertDir:
 
         if not ext or ext not in ('crt', 'key', 'p12'):
             mesg = 'importFile only supports .crt, .key, .p12 extensions'
-            raise s_exc.BadFileExt(mesg=mesg,
-                                      ext=ext)
+            raise s_exc.BadFileExt(mesg=mesg, ext=ext)
 
         newpath = s_common.genpath(self.certdir, mode, fname)
         if os.path.isfile(newpath):
@@ -760,7 +761,11 @@ class CertDir:
             None
         '''
         cakey = self.getCaKey(signas)
+        if cakey is None:
+            raise s_exc.NoCertKey('Missing .key for %s' % signas)
         cacert = self.getCaCert(signas)
+        if cacert is None:
+            raise s_exc.NoCertKey('Missing .crt for %s' % signas)
 
         cert.set_issuer(cacert.get_subject())
         cert.sign(cakey, self.signing_digest)
@@ -824,6 +829,44 @@ class CertDir:
         pkey = xcsr.get_pubkey()
         name = xcsr.get_subject().CN
         return self.genUserCert(name, csr=pkey, signas=signas, outp=outp)
+
+    def _loadCasIntoSSLContext(self, ctx):
+        path = s_common.genpath(self.certdir, 'cas')
+        for name in os.listdir(path):
+            if name.endswith('.crt'):
+                ctx.load_verify_locations(os.path.join(path, name))
+
+    def getClientSSLContext(self):
+        '''
+        Returns an ssl.SSLContext appropriate for initiating a TLS session
+        '''
+        sslctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        self._loadCasIntoSSLContext(sslctx)
+
+        return sslctx
+
+    def getServerSSLContext(self, hostname=None):
+        '''
+        Returns an ssl.SSLContext appropriate to listen on a socket
+
+        Args:
+            hostname:  if None, the value from socket.gethostname is used to find the key in the servers directory.
+            This name should match the not-suffixed part of two files ending in .key and .crt in the hosts subdirectory
+
+        '''
+        sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        if hostname is None:
+            hostname = socket.gethostname()
+        certfile = self.getHostCertPath(hostname)
+        if certfile is None:
+            raise s_exc.NoCertKey('Missing .crt for %s' % hostname)
+        keyfile = self.getHostKeyPath(hostname)
+        if keyfile is None:
+            raise s_exc.NoCertKey('Missing .key for %s' % hostname)
+
+        sslctx.load_cert_chain(certfile, keyfile)
+
+        return sslctx
 
     def _checkDupFile(self, path):
         if os.path.isfile(path):

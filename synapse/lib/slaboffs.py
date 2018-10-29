@@ -1,10 +1,10 @@
 import synapse.common as s_common
 
-import synapse.lib.lmdb as s_lmdb
+import synapse.lib.lmdbslab as s_lmdbslab
 
 class SlabOffs:
 
-    def __init__(self, slab: s_lmdb.Slab, db) -> None:
+    def __init__(self, slab: s_lmdbslab.Slab, db) -> None:
         self.db = db
         self.lenv = slab
 

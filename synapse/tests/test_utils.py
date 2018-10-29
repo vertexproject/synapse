@@ -8,7 +8,6 @@ Test for synapse.tests.utils classes
 import os
 import time
 import logging
-import contextlib
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -299,13 +298,3 @@ class TestUtils(s_t_utils.SynTest):
             async with await self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
                 node = await core.addNode('teststr', 'hehe')
                 self.nn(node)
-
-    def test_asynctosynccmgr(self):
-
-        @contextlib.asynccontextmanager
-        async def testmgr():
-            yield 42
-
-        syncmgr = s_t_utils.AsyncToSyncCMgr(testmgr)
-        with syncmgr as foo:
-            self.eq(foo, 42)

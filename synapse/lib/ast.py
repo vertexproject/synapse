@@ -118,22 +118,6 @@ class Query(AstNode):
 
         self.canceled = True
 
-    async def execute(self):
-
-        chan = asyncio.Queue(maxsize=10)
-
-        coro = self._runQueryThread(chan)
-
-        s_glob.plex.coroLoopTask(coro)
-
-        while not self.canceled:
-
-            item = await chan.get()
-            if item is None:
-                return
-
-            yield item
-
     async def getInput(self, snap):
         for ndef in self.opts.get('ndefs', ()):
             node = await snap.getNodeByNdef(ndef)
@@ -200,8 +184,6 @@ class Query(AstNode):
             yield node, path
 
     async def iterNodePaths(self, runt):
-
-        self.core._logStormQuery(self.text, runt.user)
 
         count = 0
 
@@ -289,8 +271,8 @@ class LiftOper(Oper):
 
     async def run(self, runt, genr):
 
-        async for x in genr:
-            yield x
+        async for item in genr:
+            yield item
 
         async for node in self.lift(runt):
             yield node, runt.initPath(node)
@@ -1121,8 +1103,8 @@ class EditNodeAdd(Edit):
         name = self.kids[0].value()
         formtype = runt.snap.model.types.get(name)
 
-        async for x in genr:
-            yield x
+        async for item in genr:
+            yield item
 
         runt.allowed('node:add', name)
 

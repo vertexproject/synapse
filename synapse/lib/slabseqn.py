@@ -1,7 +1,7 @@
 import synapse.common as s_common
 
-import synapse.lib.lmdb as s_lmdb
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.lmdbslab as s_lmdbslab
 
 class SlabSeqn:
     '''
@@ -11,7 +11,7 @@ class SlabSeqn:
         lenv (lmdb.Environment): The LMDB Environment.
         name (str): The name of the sequence.
     '''
-    def __init__(self, slab: s_lmdb.Slab, name: str) -> None:
+    def __init__(self, slab: s_lmdbslab.Slab, name: str) -> None:
 
         self.lenv = slab
         self.db = self.lenv.initdb(name)
@@ -61,7 +61,7 @@ class SlabSeqn:
             int: The next insert offset.
         '''
         indx = 0
-        with s_lmdb.Scan(self.lenv, self.db) as curs:
+        with s_lmdbslab.Scan(self.lenv, self.db) as curs:
             last_key = curs.last_key()
             if last_key is not None:
                 indx = s_common.int64un(last_key) + 1

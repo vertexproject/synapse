@@ -29,9 +29,9 @@ class Layer(s_cell.Cell):
     TODO:
         metadata for layer contents (only specific type / tag)
     '''
-    async def __anit__(self, dirn):
+    async def __anit__(self, dirn, readonly=False):
 
-        await s_cell.Cell.__anit__(self, dirn)
+        await s_cell.Cell.__anit__(self, dirn, readonly=readonly)
 
         self._lift_funcs = {
             'indx': self._liftByIndx,
@@ -51,6 +51,7 @@ class Layer(s_cell.Cell):
             'range': self._rowsByRange,
         }
 
+        self.readonly = readonly
         self.spliced = asyncio.Event(loop=self.loop)
         self.splicelist = []
         self.onfini(self.spliced.set)
@@ -128,7 +129,7 @@ class Layer(s_cell.Cell):
             # yield buid, form, prop, valu
             yield (buid, )
 
-    # The following functions must be implemented to function.
+    # The following functions are abstract methods that must be implemented by a subclass
 
     async def setOffset(self, iden, offs):  # pragma: no cover
         raise NotImplementedError

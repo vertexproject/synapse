@@ -5,15 +5,15 @@ An RMI framework for synapse.
 import os
 import asyncio
 import logging
-import inspect
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
+import synapse.lib.queue as s_queue
+import synapse.lib.certdir as s_certdir
 import synapse.lib.threads as s_threads
-
 import synapse.lib.urlhelp as s_urlhelp
 
 logger = logging.getLogger(__name__)
@@ -98,7 +98,7 @@ class Share(s_base.Base):
         Convenience function to enable using Proxy objects as synchronous context managers.
 
         Note:
-            This must not be used from async code or synapse core code.
+            This should never be used by synapse core code.  This is for sync client code convenience only.
         '''
         if s_threads.iden() == self.tid:
             raise s_exc.SynErr('Use of synchronous context manager in async code')
@@ -107,7 +107,7 @@ class Share(s_base.Base):
 
     def __exit__(self, *args):
         '''
-        This should never be used by synapse code.
+        This should never be used by synapse core code.  This is for sync client code convenience only.
         '''
         return self.schedCoroSafePend(self._ctxobj.__aexit__(*args))
 
@@ -115,7 +115,7 @@ class Genr(Share):
 
     async def __anit__(self, proxy, iden):
         await Share.__anit__(self, proxy, iden)
-        self.queue = await s_coro.Queue.anit()
+        self.queue = await s_queue.AQueue.anit()
         self.onfini(self.queue.fini)
 
     async def _onShareData(self, data):
@@ -260,7 +260,7 @@ class Proxy(s_base.Base):
         Convenience function to enable using Proxy objects as synchronous context managers.
 
         Note:
-            This must not be used from async code
+            This must not be used from async code, and it should never be used in core synapse code.
         '''
         if s_threads.iden() == self.tid:
             raise s_exc.SynErr('Use of synchronous context manager in async code')
@@ -269,7 +269,8 @@ class Proxy(s_base.Base):
 
     def __exit__(self, *args):
         '''
-        This should never be used by synapse code.
+        Note:
+            This should never be used by core synapse code.
         '''
         return self.schedCoroSafePend(self._ctxobj.__aexit__(*args))
 
@@ -499,6 +500,10 @@ async def openurl(url, **opts):
         proxy = await openurl(url)
         valu = await proxy.getFooThing()
 
+    ... or ...
+
+        async with await openurl(url) as proxy:
+            valu = await proxy.getFooThing()
     '''
     if url.find('://') == -1:
         newurl = alias(url)
@@ -517,13 +522,16 @@ async def openurl(url, **opts):
 
     user = info.get('user')
     if user is not None:
-        auth = (user, {
-            'passwd': info.get('passwd')
-        })
+        passwd = info.get('passwd')
+        auth = (user, {'passwd': passwd})
 
-    #TODO SSL
+    sslctx = None
+    if info.get('scheme') == 'ssl':
+        certpath = info.get('certdir')
+        certdir = s_certdir.CertDir(certpath)
+        sslctx = certdir.getClientSSLContext()
 
-    link = await s_glob.plex.link(host, port)
+    link = await s_glob.plex.link(host, port, ssl=sslctx)
 
     prox = await Proxy.anit(link, name)
 

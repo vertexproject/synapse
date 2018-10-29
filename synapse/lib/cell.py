@@ -1,5 +1,8 @@
 import os
 import logging
+import contextlib
+import tempfile
+import pathlib
 
 import synapse.exc as s_exc
 
@@ -7,10 +10,12 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
-import synapse.lib.lmdb as s_lmdb
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.const as s_const
 
 logger = logging.getLogger(__name__)
+
+SLAB_MAP_SIZE = 128 * s_const.mebibyte
 
 '''
 Base classes for the synapse "cell" microservice architecture.
@@ -188,7 +193,7 @@ class Cell(s_base.Base, s_telepath.Aware):
     confbase = ()
     confdefs = ()
 
-    async def __anit__(self, dirn):
+    async def __anit__(self, dirn, readonly=False):
 
         await s_base.Base.__anit__(self)
 
@@ -223,13 +228,17 @@ class Cell(s_base.Base, s_telepath.Aware):
             self.cellname = self.__class__.__name__
 
         await self._initCellAuth()
-        await self._initCellSlab()
+        await self._initCellSlab(readonly=readonly)
 
-    async def _initCellSlab(self):
+    async def _initCellSlab(self, readonly=False):
 
         s_common.gendir(self.dirn, 'slabs')
         path = os.path.join(self.dirn, 'slabs', 'cell.lmdb')
-        self.slab = await s_lmdb.Slab.anit(path, map_size=s_const.gibibyte)
+        if not os.path.exists(path) and readonly:
+            logger.warning('Creating a slab for a readonly cell.')
+            _slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE)
+            await _slab.fini()
+        self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
         self.onfini(self.slab.fini)
 
     async def _initCellAuth(self):
@@ -279,11 +288,6 @@ class Cell(s_base.Base, s_telepath.Aware):
             return await self.cellapi.anit(self, link)
 
         user = self._getCellUser(link, mesg)
-        if user is None:
-            _auth = mesg[1].get('auth')
-            user = _auth[0] if _auth else None
-            raise s_exc.AuthDeny(mesg='Unable to find cell user.',
-                                 user=user)
 
         link.set('cell:user', user)
         return await self.cellapi.anit(self, link)
@@ -296,27 +300,21 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     def _getCellUser(self, link, mesg):
 
-        # with SSL a valid client cert sets ssl:user
-        name = link.get('ssl:user')
-        if name is not None:
-            return self.auth.users.get(name)
-
-        # fall back on user/passwd
         auth = mesg[1].get('auth')
         if auth is None:
-            return None
+            raise s_exc.AuthDeny(mesg='Unable to find cell user')
 
         name, info = auth
 
         user = self.auth.users.get(name)
         if user is None:
-            return None
+            raise s_exc.AuthDeny(mesg='User not present in link', user=name)
 
         # passwd None always fails...
         passwd = info.get('passwd')
         if not user.tryPasswd(passwd):
-            raise s_exc.AuthDeny(mesg='Invalid password',
-                                 user=user.name)
+            raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
+
         return user
 
     def initCellAuth(self):
@@ -356,3 +354,24 @@ class Cell(s_base.Base, s_telepath.Aware):
         Add a Cmdr() command to the cell.
         '''
         self.cmds[name] = func
+
+    @contextlib.asynccontextmanager
+    async def getLocalProxy(self):
+        '''
+        Creates a local telepath daemon, shares this object, and returns the telepath proxy of this object
+
+        TODO:  currently, this will fini self if the created dmon is fini'd
+        '''
+        import synapse.daemon as s_daemon  # avoid import cycle
+        with tempfile.TemporaryDirectory() as dirn:
+            coredir = pathlib.Path(dirn, 'cells', 'core')
+            if coredir.is_dir():
+                ldir = s_common.gendir(coredir, 'layers')
+                if self.alt_write_layer:
+                    os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
+
+            async with await s_daemon.Daemon.anit(dirn) as dmon:
+                dmon.share('core', self)
+                addr = await dmon.listen('tcp://127.0.0.1:0')
+                prox = await s_telepath.openurl('tcp://127.0.0.1/core', port=addr[1])
+                yield prox

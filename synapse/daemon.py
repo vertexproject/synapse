@@ -1,5 +1,4 @@
 import os
-import sys
 import types
 import asyncio
 import logging
@@ -16,6 +15,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.share as s_share
+import synapse.lib.certdir as s_certdir
 import synapse.lib.urlhelp as s_urlhelp
 
 class Genr(s_share.Share):
@@ -107,6 +107,7 @@ class Daemon(s_base.Base):
 
         conf = self._loadDmonYaml()
         self.conf = s_common.config(conf, self.confdefs)
+        self.certdir = s_certdir.CertDir(os.path.join(dirn, 'certs'))
 
         self.mods = {}      # keep refs to mods we load ( mostly for testing )
         self.televers = s_telepath.televers
@@ -136,17 +137,18 @@ class Daemon(s_base.Base):
         Args:
             host (str): A hostname or IP address.
             port (int): The TCP port to bind.
-            ssl (ssl.SSLContext): An SSL context or None...
         '''
         info = s_urlhelp.chopurl(url, **opts)
+        info.update(opts)
 
         host = info.get('host')
         port = info.get('port')
 
-        # TODO: SSL
-        ssl = None
+        sslctx = None
+        if info.get('scheme') == 'ssl':
+            sslctx = self.certdir.getServerSSLContext(hostname=host)
 
-        server = await s_glob.plex.listen(host, port, self._onLinkInit, ssl=ssl)
+        server = await s_glob.plex.listen(host, port, self._onLinkInit, ssl=sslctx)
         self.listenservers.append(server)
         return server.sockets[0].getsockname()
 
@@ -195,18 +197,6 @@ class Daemon(s_base.Base):
         if finis:
             await asyncio.wait(finis, loop=self.loop)
 
-    def _getSslCtx(self):
-        return None
-        #info = self.conf.get('ssl')
-        ##if info is None:
-            #return None
-
-        #capath = s_common.genpath(self.dirn, 'ca.crt')
-        ##keypath = s_common.genpath(self.dirn, 'server.key')
-        #certpath = s_common.genpath(self.dirn, 'server.crt')
-
-        # TODO: build an ssl.SSLContext()
-
     def _loadDmonYaml(self):
         path = s_common.genpath(self.dirn, 'dmon.yaml')
         return self._loadYamlPath(path)
@@ -244,7 +234,6 @@ class Daemon(s_base.Base):
 
         kind = conf.get('type')
 
-        #ctor = s_registry.getService(kind)
         cell = await s_cells.init(kind, dirn)
 
         self.share(name, cell)

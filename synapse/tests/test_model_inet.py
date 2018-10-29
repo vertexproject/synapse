@@ -2,11 +2,10 @@ import copy
 import logging
 
 import synapse.exc as s_exc
-import synapse.models.inet as s_m_inet
+import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
-ENFORCE_MODEL_COVERAGE = True  # TODO: replace with envvar when we decide upon a convention
 logger = logging.getLogger(__name__)
 
 class InetModelTest(s_t_utils.SynTest):
@@ -1502,3 +1501,31 @@ class InetModelTest(s_t_utils.SynTest):
 
                 strn = await snap.getNodeByNdef(('it:dev:str', 'Hi There'))
                 self.nn(strn)
+
+    async def test_search_query(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                props = {
+                    'time': 200,
+                    'text': 'hi there',
+                    'engine': 'roofroof',
+                }
+                iden = s_common.guid()
+                node = await snap.addNode('inet:search:query', iden, props=props)
+                self.eq(node.get('time'), 200)
+                self.eq(node.get('text'), 'hi there')
+                self.eq(node.get('engine'), 'roofroof')
+                props = {
+                    'query': iden,
+                    'url': 'http://hehehaha.com/',
+                    'rank': 0,
+                    'text': 'woot woot woot',
+                    'title': 'this is a title',
+                }
+                residen = s_common.guid()
+                node = await snap.addNode('inet:search:result', residen, props=props)
+                self.eq(node.get('url'), 'http://hehehaha.com/')
+                self.eq(node.get('rank'), 0)
+                self.eq(node.get('text'), 'woot woot woot')
+                self.eq(node.get('title'), 'this is a title')
+                self.eq(node.get('query'), iden)

@@ -7,10 +7,8 @@ import logging
 import binascii
 import tempfile
 import functools
-import threading
 import concurrent
 import contextlib
-import collections
 
 import lmdb  # type: ignore
 
@@ -24,6 +22,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
+import synapse.lib.queue as s_queue
 import synapse.lib.share as s_share
 
 logger = logging.getLogger(__name__)
@@ -191,71 +190,6 @@ class Uploader(s_share.Share):
         '''
         self.chunknum = 0
 
-class _AsyncQueue(s_base.Base):
-    '''
-    Multi-async producer, single sync finite consumer queue with blocking at empty and full.  Assumes producers run on
-    s_glob.plex.loop
-    '''
-    async def __anit__(self, max_entries, drain_level=None):
-        '''
-        Args:
-            max_entries (int): the maximum number of entries that can be in the queue.
-
-            drain_level (int): once the queue is full, no more entries will be admitted until the number of entries
-                falls below this parameter.
-        '''
-
-        await s_base.Base.__anit__(self)
-        self.deq = collections.deque()
-        self.notdrainingevent = asyncio.Event(loop=self.loop)
-        self.notdrainingevent.set()
-        self.notemptyevent = threading.Event()
-        self.max_entries = max_entries
-        self.drain_level = max_entries // 2 if drain_level is None else drain_level
-
-        async def _onfini():
-            self.notemptyevent.set()
-            self.notdrainingevent.set()
-        self.onfini(_onfini)
-
-    def get(self):
-        '''
-        Pending retrieve on the queue
-        '''
-        while not self.isfini:
-            try:
-                val = self.deq.popleft()
-                break
-            except IndexError:
-                self.notemptyevent.clear()
-                if len(self.deq):
-                    continue
-                self.notemptyevent.wait()
-        else:
-            return None
-
-        if not self.notdrainingevent.is_set():
-            if len(self.deq) < self.drain_level:
-                s_glob.plex.callSoonSafe(self.notdrainingevent.set)
-        return val
-
-    async def put(self, item):
-        '''
-        Put onto the queue.  It will async pend if the queue is full or draining.
-        '''
-        while not self.isfini:
-            if len(self.deq) >= self.max_entries:
-                self.notdrainingevent.clear()
-            if not self.notdrainingevent.is_set():
-                await self.notdrainingevent.wait()
-                continue
-            break
-        else:
-            return
-
-        self.deq.append(item)
-        self.notemptyevent.set()
-
 class _BlobStorWriter(s_base.Base):
     '''
     An active object that writes to disk on behalf of a blobstor (plus the client methods to interact with it)
@@ -293,7 +227,7 @@ class _BlobStorWriter(s_base.Base):
         self.xact = IncrementalTransaction(blobstor.lenv)
         self.lenv = blobstor.lenv
         self.blobstor = blobstor
-        self._workq = await _AsyncQueue.anit(50)
+        self._workq = await s_queue.AsyncQueue.anit(50)
         self._worker = self._workloop()
         self._worker.name = 'BlobStorWriter'
         self.clients = {}
@@ -434,7 +368,7 @@ class _BlobStorWriter(s_base.Base):
                     _, offset = msg
                     self._updateCloneProgress(offset)
         finally:
-            # Workaround to avoid lmdb close/commit race (so that fini is on same thread as lmdb xact
+            # Workaround to avoid lmdb close/commit race (so that fini is on same thread as lmdb xact)
             self.xact.fini()
 
     # Client methods
@@ -497,7 +431,7 @@ class BlobStor(s_cell.Cell):
         ('cloneof', {'type': 'str', 'doc': 'The telepath of a blob cell to clone from', 'defval': None}),
     )
 
-    async def __anit__(self, dirn: str, conf=None) -> None:
+    async def __anit__(self, dirn: str, conf=None) -> None:  # type: ignore
         await s_cell.Cell.__anit__(self, dirn)
 
         self.clonetask = None
@@ -662,7 +596,7 @@ class BlobStor(s_cell.Cell):
                 return
             self._newdataevent.clear()
             try:
-                await asyncio.wait_for(self._newdataevent.wait(), timeout, loop=self.loop)
+                await asyncio.wait_for(self._newdataevent.wait(), timeout)
             except asyncio.TimeoutError:
                 return
         with self.lenv.begin(buffers=True) as xact:
@@ -940,7 +874,7 @@ class Axon(s_cell.Cell):
         ('mapsize', {'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE, 'doc': 'The size of the LMDB memory map'}),
     )
 
-    async def __anit__(self, dirn: str, conf=None) -> None:
+    async def __anit__(self, dirn: str, conf=None) -> None:  # type: ignore
         await s_cell.Cell.__anit__(self, dirn)
 
         path = s_common.gendir(self.dirn, 'axon.lmdb')
@@ -975,7 +909,7 @@ class Axon(s_cell.Cell):
 
         conn_future = s_glob.plex.coroToTask(_connect_to_blobstors())
 
-        self._workq = await _AsyncQueue.anit(50)
+        self._workq = await s_queue.AsyncQueue.anit(50)
         self.xact = IncrementalTransaction(self.lenv)
         self._worker = self._workloop()
         self._worker.name = 'Axon Writer'
@@ -1072,7 +1006,7 @@ class Axon(s_cell.Cell):
 
                 # Wait on either the clone completing, or a signal to stop watching (or the blobstor throwing isfini)
                 stop_coro = stop_event.wait()
-                donelist, notdonelist = await asyncio.wait([clone_and_next(), stop_coro], loop=self.loop,
+                donelist, notdonelist = await asyncio.wait([clone_and_next(), stop_coro],
                                                            return_when=concurrent.futures.FIRST_COMPLETED)
                 for task in notdonelist:
                     task.cancel()

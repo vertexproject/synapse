@@ -12,7 +12,10 @@ whole both multi-component environments into memory.
 Since SynTest is built from unittest.TestCase, the use of SynTest is
 compatible with the unittest, nose and pytest frameworks.  This does not lock
 users into a particular test framework; while at the same time allowing base
-use to be invoked via the built-in Unittest library.
+use to be invoked via the built-in Unittest library, with one important exception:
+due to an unfortunate design approach, you cannot use the unittest module command
+line to run a *single* async unit test.  pytest works fine though.
+
 '''
 import io
 import os
@@ -29,18 +32,18 @@ import threading
 import contextlib
 
 import synapse.exc as s_exc
-import synapse.data as s_data
 import synapse.glob as s_glob
 import synapse.cells as s_cells
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
+import synapse.eventbus as s_eventbus
+import synapse.telepath as s_telepath
+
 import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
-import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
@@ -53,44 +56,6 @@ TEST_MAP_SIZE = s_const.gibibyte
 
 async def alist(coro):
     return [x async for x in coro]
-
-def writeCerts(dirn):
-    '''
-    Copy test SSL certs from synapse.data to a directory.
-
-    Args:
-        dirn (str): Path to write files too.
-
-    Notes:
-        Writes the following files to disk:
-        . ca.crt
-        . ca.key
-        . ca.pem
-        . server.crt
-        . server.key
-        . server.pem
-        . root.crt
-        . root.key
-        . user.crt
-        . user.key
-
-        The ca has signed all three certs.  The ``server.crt`` is for
-        a server running on localhost. The ``root.crt`` and ``user.crt``
-        certs are both are user certs which can connect. They have the
-        common names "root@localhost" and "user@localhost", respectively.
-
-    Returns:
-        None
-    '''
-    fns = ('ca.crt', 'ca.key', 'ca.pem',
-           'server.crt', 'server.key', 'server.pem',
-           'root.crt', 'root.key', 'user.crt', 'user.key')
-    for fn in fns:
-        byts = s_data.get(fn)
-        dst = os.path.join(dirn, fn)
-        if not os.path.exists(dst):
-            with s_common.genfile(dst) as fd:
-                fd.write(byts)
 
 class TestType(s_types.Type):
 
@@ -475,7 +440,7 @@ class StreamEvent(io.StringIO, threading.Event):
 
 class AsyncStreamEvent(io.StringIO, asyncio.Event):
     '''
-    A combination of a io.StringIO object and a threading.Event object.
+    A combination of a io.StringIO object and an asyncio.Event object.
     '''
     def __init__(self, *args, **kwargs):
         io.StringIO.__init__(self, *args, **kwargs)
@@ -507,7 +472,10 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
 
 class SynTest(unittest.TestCase):
     '''
-    Mark all async test methods as s_glob.synchelp decorated
+    Mark all async test methods as s_glob.synchelp decorated.
+
+    Note:
+        This precludes running a single unit test via path using the unittest module.
     '''
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
@@ -641,6 +609,10 @@ class SynTest(unittest.TestCase):
     async def getTestDmon(self, mirror='dmontest'):
 
         with self.getTestDir(mirror=mirror) as dirn:
+
+            # Copy test certs
+            shutil.copytree(self.getTestFilePath('certdir'), os.path.join(dirn, 'certs'))
+
             coredir = pathlib.Path(dirn, 'cells', 'core')
             if coredir.is_dir():
                 ldir = s_common.gendir(coredir, 'layers')
@@ -1269,21 +1241,10 @@ class SynTest(unittest.TestCase):
 
             yield dmon
 
-class AsyncToSyncCMgr():
-    '''
-    Wraps an async context manager as a sync one
-    '''
-    def __init__(self, func, *args, **kwargs):
-        self.amgr = func(*args, **kwargs)
-
-    def __enter__(self):
-        return s_glob.plex.coroToSync(self.amgr.__aenter__())
-
-    def __exit__(self, *args):
-        return s_glob.plex.coroToSync(self.amgr.__aexit__(*args))
-
 class SyncToAsyncCMgr():
-    ''' Wraps a regular context manager in an async one '''
+    '''
+    Wraps a regular context manager in an async one
+    '''
     def __init__(self, func, *args, **kwargs):
         def run_and_enter():
             obj = func(*args, **kwargs)

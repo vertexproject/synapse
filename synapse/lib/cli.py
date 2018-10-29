@@ -1,10 +1,13 @@
 import json
+import time
 import signal
+import asyncio
 import threading
 import traceback
 import collections
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.base as s_base
@@ -142,7 +145,7 @@ class Cmd:
                     valu, off = s_syntax.parse_cmd_string(text, off)
                     if valu not in vals:
                         raise s_exc.BadSyntaxError(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
-                                                      text=text)
+                                                   text=text)
 
                     opts[snam] = valu
 
@@ -153,7 +156,7 @@ class Cmd:
 
             if not args:
                 raise s_exc.BadSyntaxError(mesg='trailing text: [%s]' % (text[off:],),
-                                              text=text)
+                                           text=text)
 
             synt = args.popleft()
             styp = synt[1].get('type', 'valu')
@@ -315,7 +318,7 @@ class Cli(s_eventbus.EventBus):
         '''
         return self.cmdprompt
 
-    async def runCmdLoop(self):
+    def runCmdLoop(self):
         '''
         Run commands from a user in an interactive fashion until fini() or EOFError is raised.
         '''
@@ -338,6 +341,7 @@ class Cli(s_eventbus.EventBus):
             # FIXME history / completion
 
             try:
+                task = None
 
                 line = self.get_input()
                 if not line:
@@ -347,7 +351,8 @@ class Cli(s_eventbus.EventBus):
                 if not line:
                     continue
 
-                await self.runCmdLine(line)
+                task = s_glob.plex.coroToTask(self.runCmdLine(line))
+                task.result()
 
             except KeyboardInterrupt as e:
 
@@ -362,6 +367,17 @@ class Cli(s_eventbus.EventBus):
             except Exception as e:
                 s = traceback.format_exc()
                 self.printf(s)
+
+            finally:
+                if task is not None:
+                    task.cancel()
+                    try:
+                        task.result(2)
+                    except asyncio.CancelledError:
+                        # Wait a beat to let any remaining nodes to print out before we print the prompt
+                        time.sleep(1)
+                    except Exception:
+                        pass
 
     async def runCmdLine(self, line):
         '''
@@ -396,8 +412,8 @@ class Cli(s_eventbus.EventBus):
         except s_exc.CliFini as e:
             self.fini()
 
-        except KeyboardInterrupt as e:
-            self.printf('<ctrl-c>')
+        except asyncio.CancelledError:
+            self.printf('Cmd cancelled')
 
         except Exception as e:
             exctxt = traceback.format_exc()

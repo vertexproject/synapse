@@ -188,3 +188,13 @@ class JobErr(SynErr):
         Exception.__init__(self, '%s: %s (%s:%s)' % (err, errmsg, errfile, errline))
 
 class CorruptDatabase(SynErr): pass
+
+class AlreadyInAsync(SynErr):
+    '''
+    Raised when an attempt to pend on getting the value back from a coroutine, when already in the event loop thread
+    '''
+    pass
+
+class DbOutOfSpace(SynErr): pass
+
+class IsReadOnly(SynErr): pass

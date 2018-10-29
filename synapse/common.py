@@ -535,7 +535,6 @@ async def aspin(genr):
     '''
     Async version of spin
     '''
-    # FIXME:  is there anything faster?
     async for _ in genr:
         pass
 
