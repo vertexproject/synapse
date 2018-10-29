@@ -234,6 +234,10 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         s_common.gendir(self.dirn, 'slabs')
         path = os.path.join(self.dirn, 'slabs', 'cell.lmdb')
+        if not os.path.exists(path) and readonly:
+            logger.warning('Creating a slab for a readonly cell.')
+            _slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE)
+            await _slab.fini()
         self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
         self.onfini(self.slab.fini)
 
