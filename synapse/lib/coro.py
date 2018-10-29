@@ -4,6 +4,7 @@ Async/Coroutine related utilities.
 import asyncio
 import inspect
 import logging
+import functools
 import threading
 import collections
 
@@ -151,7 +152,9 @@ class Genr(s_base.Base):
                 return
 
 async def genr2agenr(func, *args, qsize=100, **kwargs):
-    ''' Returns an async generator that receives a stream of messages from a sync generator func(*args, **kwargs) '''
+    '''
+    Returns an async generator that receives a stream of messages from a sync generator func(*args, **kwargs)
+    '''
     class SentinelClass:
         pass
 
@@ -210,3 +213,24 @@ async def ornot(func, *args, **kwargs):
     if iscoro(retn):
         return await retn
     return retn
+
+class GenrHelp:
+
+    def __init__(self, genr):
+        self.genr = genr
+
+    def __aiter__(self):
+        return self.genr
+
+    async def spin(self):
+        async for x in self.genr:
+            pass
+
+    async def list(self):
+        return [ x async for x in self.genr ]
+
+def genrhelp(f):
+    @functools.wraps(f)
+    def func(*args, **kwargs):
+        return GenrHelp(f(*args, **kwargs))
+    return func

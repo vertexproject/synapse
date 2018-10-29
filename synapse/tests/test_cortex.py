@@ -1703,9 +1703,9 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await alist(core.eval('[ teststr=visi +#foo.bar ] -> # [ +#baz.faz ]'))
+            await core.eval('[ teststr=visi +#foo.bar ] -> # [ +#baz.faz ]').spin()
 
-            nodes = await alist(core.eval('##baz.faz'))
+            nodes = await core.eval('##baz.faz').list()
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'visi')
 
@@ -1716,3 +1716,18 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await alist(core.eval('##baz.faz'))
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'visi')
+
+    async def test_storm_cancel(self):
+
+        async with self.getTestCore() as core:
+
+            async def doit():
+                return await core.eval('[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ] | sleep 0.5').spin()
+
+            task = core.schedCoro(doit())
+
+            runts = core.ps()
+            self.len(1, runts)
+            runts[0][1].cancel()
+
+            await self.asyncraises(Cancel, task)

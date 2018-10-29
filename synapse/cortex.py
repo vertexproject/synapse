@@ -875,14 +875,16 @@ class Cortex(s_cell.Cell):
             ret.append((modname, mod.conf))
         return ret
 
+    @s_coro.genrhelp
     async def eval(self, text, opts=None, user=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
         async with await self.snap(user=user) as snap:
-            async for node in snap.eval(text, opts=opts):
+            async for node in snap.eval(text, opts=opts, user=user):
                 yield node
 
+    @s_coro.genrhelp
     async def storm(self, text, opts=None, user=None):
         '''
         Evaluate a storm query and yield result messages.
@@ -893,6 +895,7 @@ class Cortex(s_cell.Cell):
             async for mesg in snap.storm(text, opts=opts):
                 yield mesg
 
+    @s_coro.genrhelp
     async def streamstorm(self, text, opts=None, user=None):
         '''
         Evaluate a storm query and yield result messages.
@@ -900,9 +903,12 @@ class Cortex(s_cell.Cell):
             ((str,dict)): Storm messages.
         '''
         MSG_QUEUE_SIZE = 1000
-        _chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
+        chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
 
-        async def runStorm(chan):
+        task = s_task.init('storm', user=user, info={'text': text})
+        task.livefor(self)
+
+        async def runStorm():
             tick = s_common.now()
             count = 0
             try:
@@ -910,29 +916,35 @@ class Cortex(s_cell.Cell):
                 # a storm runtime in the snap, so catch and pass the `err` message
                 # before handing a `fini` message along.
                 self.getStormQuery(text)
+
                 await chan.put(('init', {'tick': tick, 'text': text}))
+
                 async with await self.snap(user=user) as snap:
+
                     snap.link(chan.put)
+
                     async for pode in snap.iterStormPodes(text, opts=opts, user=user):
                         await chan.put(('node', pode))
                         count += 1
+
             except Exception as e:
                     logger.exception('Error during storm execution')
                     enfo = s_common.err(e)
                     enfo[1].pop('esrc', None)
                     enfo[1].pop('ename', None)
                     await chan.put(('err', enfo))
+
             finally:
                 tock = s_common.now()
                 took = tock - tick
                 await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
 
-        self.schedCoro(runStorm(_chan))
+        s_task.fork(runStorm())
 
         while True:
-            msg = await _chan.get()
-            yield msg
-            if msg[0] == 'fini':
+            mesg = await _chan.get()
+            yield mesg
+            if mesg[0] == 'fini':
                 break
 
     @s_cache.memoize(size=10000)

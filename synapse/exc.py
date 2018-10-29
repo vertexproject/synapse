@@ -130,6 +130,8 @@ class NoSuchUser(SynErr): pass
 class NoSuchRole(SynErr): pass
 class NoSuchIndx(SynErr): pass
 
+class NoCurrTask(SynErr): pass
+
 class ReadOnlyProp(SynErr): pass
 class ReqConfOpt(SynErr): pass
 

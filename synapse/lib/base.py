@@ -92,11 +92,12 @@ class Base:
         if __debug__:
             self.tid = s_threads.iden()
             self.call_stack = traceback.format_stack()  # For cleanup debugging
+
         self.isfini = False
         self.anitted = True  # For assertion purposes
+        self.finievt = None
         self.entered = False
         self.exitinfo = None
-        self.finievt = None
 
         self.exitok = None
         self.entered = False

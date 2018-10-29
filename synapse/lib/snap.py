@@ -96,6 +96,7 @@ class Snap(s_base.Base):
             pode[1]['path'] = path.pack(path=dopath)
             yield pode
 
+    @s_coro.genrhelp
     async def storm(self, text, opts=None, user=None):
         '''
         Execute a storm query and yield (Node(), Path()) tuples.
@@ -105,6 +106,7 @@ class Snap(s_base.Base):
             async for x in runt.iterStormQuery(query):
                 yield x
 
+    @s_coro.genrhelp
     async def eval(self, text, opts=None, user=None):
         '''
         Run a storm query and yield Node() objects.

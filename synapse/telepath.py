@@ -218,6 +218,7 @@ class Proxy(s_base.Base):
 
     '''
     async def __anit__(self, link, name):
+
         await s_base.Base.__anit__(self)
         self.tid = s_threads.iden()
 
@@ -240,11 +241,14 @@ class Proxy(s_base.Base):
         }
 
         async def fini():
+
             for item in list(self.shares.values()):
                 await item.fini()
+
             for name, task in list(self.tasks.items()):
                 task.reply((False, (('IsFini', {}))))
                 del self.tasks[name]
+
             del self.syndone
             await self.link.fini()
 
