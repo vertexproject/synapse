@@ -1723,8 +1723,7 @@ class CortexTest(s_t_utils.SynTest):
                     event.set()
                     ips = ((('inet:ipv4', x), {}) for x in range(20000))
 
-                    msgs = await alist(snap.addNodes(ips))
-                    print('got msgs', len(msgs))
+                    await alist(snap.addNodes(ips))
 
                 snap.schedCoro(add_stuff())
 
