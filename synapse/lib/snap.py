@@ -1,4 +1,5 @@
 import types
+import asyncio
 import logging
 import contextlib
 
@@ -597,4 +598,8 @@ class Snap(s_base.Base):
             props.update(layerprops)
 
         node = s_node.Node(self, buid, props.items())
+
+        # Give other tasks a chance to run
+        await asyncio.sleep(0)
+
         return None if node.ndef is None else node

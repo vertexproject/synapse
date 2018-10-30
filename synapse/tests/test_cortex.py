@@ -1,3 +1,4 @@
+import time
 import asyncio
 import unittest
 
@@ -1708,3 +1709,30 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await alist(core.eval('##baz.faz'))
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'visi')
+
+    async def test_cortex_latency(self):
+        ''' Issue a large snap request, and make sure we can still do stuff in a reasonable amount of time'''
+
+        async with self.getTestCore() as core:
+
+            async with await core.snap() as snap:
+
+                event = asyncio.Event()
+
+                async def add_stuff():
+                    event.set()
+                    ips = ((('inet:ipv4', x), {}) for x in range(20000))
+
+                    await alist(snap.addNodes(ips))
+
+                snap.schedCoro(add_stuff())
+
+                # Wait for him to get started
+                before = time.time()
+                await event.wait()
+
+                await snap.addNode('inet:dns:a', ('woot.com', 0x01020304))
+                delta = time.time() - before
+
+                # Note: before latency improvement, delta was > 4 seconds
+                self.lt(delta, 0.5)
