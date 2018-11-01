@@ -126,7 +126,8 @@ class CmdCoreTest(s_t_utils.SynTest):
 
     async def test_log(self):
         async with self.getTestDmon('dmoncore') as dmon:
-            with self.getTestDir() as dirn:
+
+            with self.getTestSynDir() as dirn:
 
                 async with await self.agetTestProxy(dmon, 'core') as core:
                     outp = self.getTestOutp()

@@ -379,7 +379,7 @@ class Base:
             return True
 
         if self.finievt is None:
-            self.finievt = asyncio.Event(loop=self.loop)
+            self.finievt = asyncio.Event()
 
         return await s_coro.event_wait(self.finievt, timeout)
 

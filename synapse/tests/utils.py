@@ -898,6 +898,15 @@ class SynTest(unittest.TestCase):
         finally:
             s_common.syndir = olddir
 
+    @contextlib.contextmanager
+    def getTestSynDir(self):
+        '''
+        Combines getTestDir() and setSynDir() into one.
+        '''
+        with self.getTestDir() as dirn:
+            with self.setSynDir(dirn):
+                yield dirn
+
     def eq(self, x, y, msg=None):
         '''
         Assert X is equal to Y

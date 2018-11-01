@@ -13,3 +13,5 @@ if sys.maxsize < 9223372036854775807:  # pragma: no cover
 import lmdb
 if tuple([int(x) for x in lmdb.__version__.split('.')]) < (0, 94): # pragma: no cover
     raise Exception('synapse is only supported on version >= 0.94 of the lmdb python module')
+
+from synapse.lib.version import version, verstring
