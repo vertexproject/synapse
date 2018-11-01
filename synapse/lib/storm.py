@@ -438,6 +438,7 @@ class ReIndexCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('--type', default=None, help='Re-index all properties of a specified type.')
         pars.add_argument('--subs', default=False, action='store_true', help='Re-parse and set sub props.')
+        pars.add_argument('--form-counts', default=False, action='store_true', help='Re-calculate all form counts.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -472,18 +473,31 @@ class ReIndexCmd(Cmd):
 
             return
 
-        async for node, path in genr:
+        if self.opts.subs:
 
-            form, valu = node.ndef
-            norm, info = node.form.type.norm(valu)
+            async for node, path in genr:
 
-            subs = info.get('subs')
-            if subs is not None:
-                for subn, subv in subs.items():
-                    if node.form.props.get(subn):
-                        await node.set(subn, subv)
+                form, valu = node.ndef
+                norm, info = node.form.type.norm(valu)
 
-            yield node, path
+                subs = info.get('subs')
+                if subs is not None:
+                    for subn, subv in subs.items():
+                        if node.form.props.get(subn):
+                            await node.set(subn, subv)
+
+                yield node, path
+
+            return
+
+        if self.opts.form_counts:
+            await snap.printf(f'reindex form counts (full) beginning...')
+            await snap.core._calcFormCounts()
+            await snap.printf(f'...done')
+            return
+
+        raise Exception('reindex was not told what to do!')
+
 
 class MoveTagCmd(Cmd):
     '''
@@ -878,7 +892,7 @@ class SleepCmd(Cmd):
     async def execStormCmd(self, runt, genr):
         async for item in genr:
             yield item
-            asyncio.sleep(self.opts.delay)
+            await asyncio.sleep(self.opts.delay)
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)

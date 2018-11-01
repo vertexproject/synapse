@@ -4,12 +4,9 @@ Async/Coroutine related utilities.
 import asyncio
 import inspect
 import logging
-<< << << < HEAD
 import functools
 import threading
 import collections
-== == == =
->>>>>> > 010
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +74,9 @@ async def genr2agenr(func, *args, qsize=100, **kwargs):
 
         await task
 
+def executor(coro):
+    return asyncio.get_running_loop().run_in_executor(None, coro)
+
 async def event_wait(event: asyncio.Event, timeout=None):
     '''
     Wait on an an asyncio event with an optional timeout
@@ -115,10 +115,21 @@ async def ornot(func, *args, **kwargs):
 class GenrHelp:
 
     def __init__(self, genr):
+        assert genr is not None
         self.genr = genr
 
     def __aiter__(self):
         return self.genr
+
+    def __iter__(self):
+
+        try:
+
+            while True:
+                yield s_glob.sync(self.genr.__anext__())
+
+        except StopAsyncIteration as e:
+            return
 
     async def spin(self):
         async for x in self.genr:

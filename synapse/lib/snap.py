@@ -423,6 +423,8 @@ class Snap(s_base.Base):
         # we are done initializing.
         node.init = False
 
+        self.core.pokeFormCount(form.name, 1)
+
         await form.wasAdded(node)
 
         # now we must fire all his prop sets

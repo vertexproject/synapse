@@ -630,6 +630,19 @@ class SynTest(unittest.TestCase):
 
                 s_certdir.defdir = certdir
 
+    def getTestUrl(self, dmon, name, **opts):
+
+        host, port = dmon.addr
+        netloc = '%s:%s' % (host, port)
+
+        user = opts.get('user')
+        passwd = opts.get('passwd')
+
+        if user is not None and passwd is not None:
+            netlock = '%s:%s@%s' % (user, passwd, netloc)
+
+        return 'tcp://%s/%s' % (netloc, name)
+
     def getTestProxy(self, dmon, name, **kwargs):
         host, port = dmon.addr
         kwargs.update({'host': host, 'port': port})
@@ -669,15 +682,12 @@ class SynTest(unittest.TestCase):
                     srcpath = self.getTestFilePath(mirror)
                 dstpath = os.path.join(tempdir, 'mirror')
                 shutil.copytree(srcpath, dstpath)
-                s_scope.set('dirn', dstpath)
                 yield dstpath
 
             else:
-                s_scope.set('dirn', tempdir)
                 yield tempdir
 
         finally:
-            s_scope.pop('dirn')
             shutil.rmtree(tempdir, ignore_errors=True)
 
     def getTestFilePath(self, *names):
@@ -1005,9 +1015,12 @@ class SynTest(unittest.TestCase):
         '''
         Assert that the length of an object is equal to X
         '''
-        gtyps = (s_telepath.Genr,
+        gtyps = (
+                 s_telepath.Genr,
+                 s_coro.GenrHelp,
                  types.GeneratorType,
                  )
+
         if isinstance(obj, gtyps):
             obj = list(obj)
 
@@ -1230,6 +1243,7 @@ class SynTest(unittest.TestCase):
             # have to construct them.
             s_scope.set('axonurl', axonurl)
             s_scope.set('coreurl', coreurl)
+
             s_scope.set('blobstorurl', blobstorurl)
 
             # grant the root user permissions

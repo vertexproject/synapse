@@ -1,5 +1,4 @@
 import io
-
 import logging
 import msgpack
 import msgpack.fallback as m_fallback

@@ -186,6 +186,65 @@ class Log(s_cli.Cmd):
         if off:
             return self.closeLogFd()
 
+class PsCmd(s_cli.Cmd):
+
+    _cmd_name = 'ps'
+    _cmd_syntax = ()
+
+    async def runCmdOpts(self, opts):
+
+        core = self.getCmdItem()
+        tasks = await core.ps()
+
+        for task in tasks:
+
+            self.printf('task iden: %s' % (task.get('iden'),))
+            self.printf('    name: %r' % (task.get('name'),))
+            self.printf('    user: %r' % (task.get('user'),))
+            self.printf('    status: %r' % (task.get('status'),))
+            self.printf('    metadata: %r' % (task.get('info'),))
+
+class KillCmd(s_cli.Cmd):
+    '''
+    Kill a running task/query within the cortex.
+
+    Syntax:
+        kill <iden>
+
+    Users may specify a partial iden GUID in order to kill
+    exactly one matching process based on the partial guid.
+    '''
+    _cmd_name = 'kill'
+    _cmd_syntax = (
+        ('iden', {}),
+    )
+
+    async def runCmdOpts(self, opts):
+
+        core = self.getCmdItem()
+
+        match = opts.get('iden')
+        if not match:
+            self.printf('no iden given to kill.')
+            return
+
+        idens = []
+        for task in await core.ps():
+            iden = task.get('iden')
+            if iden.startswith(match):
+                idens.append(iden)
+
+        if len(idens) == 0:
+            self.printf('no matching process found. aborting.')
+            return
+
+        if len(idens) > 1:
+            self.printf('multiple matching process found. aborting.')
+            return
+
+        kild = await core.kill(idens[0])
+        self.printf('kill status: %r' % (kild,))
+
 class StormCmd(s_cli.Cmd):
     '''
     Execute a storm query.
@@ -298,27 +357,37 @@ class StormCmd(s_cli.Cmd):
             self.printf(self.__doc__)
             return
 
-        core: s_telepath.Proxy = self.getCmdItem()
+        core = self.getCmdItem()
         stormopts = {'repr': True}
         stormopts.setdefault('path', opts.get('path', False))
         stormopts.setdefault('graph', opts.get('graph', False))
         self.printf('')
 
-        async for mesg in await core.storm(text, opts=stormopts):
+        try:
 
-            self._cmd_cli.fire('storm:mesg', mesg=mesg)
+            async for mesg in await core.storm(text, opts=stormopts):
 
-            if opts.get('debug'):
-                self.printf(pprint.pformat(mesg))
+                self._cmd_cli.fire('storm:mesg', mesg=mesg)
 
-            else:
-                if mesg[0] == 'node':
-                    # Tuck the opts into the node dictionary since
-                    # they control node metadata display
-                    mesg[1][1]['_opts'] = opts
-                try:
-                    self.reac.react(mesg)
-                except s_exc.NoSuchAct as e:
-                    if opts.get('hide-unknown'):
-                        continue
-                    self.printf(repr(mesg))
+                if opts.get('debug'):
+                    self.printf(pprint.pformat(mesg))
+
+                else:
+                    if mesg[0] == 'node':
+                        # Tuck the opts into the node dictionary since
+                        # they control node metadata display
+                        mesg[1][1]['_opts'] = opts
+                    try:
+                        self.reac.react(mesg)
+                    except s_exc.NoSuchAct as e:
+                        if opts.get('hide-unknown'):
+                            continue
+                        self.printf(repr(mesg))
+
+        except s_exc.SynErr as e:
+
+            if e.errinfo.get('errx') == 'CancelledError':
+                self.printf('query canceled.')
+                return
+
+            raise

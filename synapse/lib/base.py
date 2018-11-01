@@ -4,6 +4,7 @@ import signal
 import inspect
 import asyncio
 import logging
+import weakref
 import threading
 import collections
 
@@ -103,6 +104,10 @@ class Base:
         self.entered = False
         self.exitinfo = None
 
+        # hold a weak ref to other bases we should fini if they
+        # are still around when we go down...
+        self.tofini = weakref.WeakSet()
+
         self._syn_funcs = collections.defaultdict(list)
 
         self._syn_refs = 1  # one ref for the ctor
@@ -113,8 +118,12 @@ class Base:
 
     def onfini(self, func):
         '''
-        Add a function or coroutine function to be called on fini().
+        Add a function/coroutine/Base to be called on fini().
         '''
+        if isinstance(func, Base):
+            self.tofini.add(func)
+            return
+
         assert self.anitted
         self._fini_funcs.append(func)
 
@@ -305,8 +314,6 @@ class Base:
             except Exception:
                 # The taskDone callback will emit the exception.  No need to repeat
                 pass
-        await asyncio.sleep(0, loop=self.loop)
-        assert not self._active_tasks
 
     async def fini(self):
         '''
@@ -333,6 +340,9 @@ class Base:
 
         if fevt is not None:
             fevt.set()
+
+        for base in list(self.tofini):
+            await base.fini()
 
         await self._kill_active_tasks()
 
@@ -380,6 +390,7 @@ class Base:
 
         '''
         if __debug__:
+            assert s_coro.iscoro(coro)
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
 
@@ -398,6 +409,11 @@ class Base:
         task.add_done_callback(taskDone)
 
         return task
+
+    def schedCallSafe(self, func, *args, **kwargs):
+        def real():
+            return func(*args, **kwargs)
+        return self.loop.call_soon_threadsafe(real)
 
     def schedCoroSafe(self, coro):
         '''

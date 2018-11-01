@@ -11,8 +11,6 @@ import synapse.lib.link as s_link
 import synapse.lib.const as s_const
 import synapse.lib.threads as s_threads
 
-readsize = 10 * s_const.megabyte
-
 class Plex(s_eventbus.EventBus):
 
     def __init__(self):
@@ -43,40 +41,6 @@ class Plex(s_eventbus.EventBus):
 
         '''
         return threading.get_ident() == self.ident
-
-    async def link(self, host, port, ssl=None):
-        '''
-        Async connect and return a Link().
-        '''
-        reader, writer = await asyncio.open_connection(host, port, ssl=ssl)
-
-        return await self._initPlexLink(reader, writer)
-
-    def connect(self, host, port, ssl=None, timeout=None):
-        '''
-        Connect to the remote host and return a Link.
-        '''
-        coro = self.link(host, port, ssl=ssl)
-        return self.coroToSync(coro, timeout=timeout)
-
-    async def listen(self, host, port, onlink, ssl=None):
-        '''
-        Listen on the given host/port and fire onlink(Link).
-
-        Returns a server object that contains the listening sockets
-        '''
-        async def onconn(reader, writer):
-
-            link = await self._initPlexLink(reader, writer)
-
-            # if the onlink() function is a coroutine, task it.
-            await s_coro.ornot(onlink, link)
-
-        server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
-        return server
-
-    def queue(self, maxsize=None):
-        return asyncio.Queue(maxsize=maxsize, loop=self.loop)
 
     def coroToTask(self, coro):
         '''
@@ -118,39 +82,6 @@ class Plex(s_eventbus.EventBus):
             return func(*args, **kwargs)
 
         return await self.loop.run_in_executor(None, syncfunc)
-
-    async def sleep(self, delay):
-        '''
-        A coroutine that suspends for delay seconds.
-
-        Args:
-            delay (float): Time to delay the function call for.
-
-        Notes:
-            This API must be called on the IOLoop
-        '''
-        await asyncio.sleep(delay, loop=self.loop)
-
-    async def _initPlexLink(self, reader, writer):
-
-        # init a Link from reader, writer
-
-        link = await s_link.Link.anit(self, reader, writer)
-
-        self.links[link.iden] = link
-
-        def fini():
-            self.links.pop(link.iden, None)
-
-        link.onfini(fini)
-
-        return link
-
-    def initLinkLoop(self, link):
-        '''
-        Initialize the ioloop for the given link.
-        '''
-        self.coroToTask(self._linkRxLoop(link))
 
     def coroLoopTask(self, coro):
         '''
@@ -250,28 +181,6 @@ class Plex(s_eventbus.EventBus):
             float: The current loop time.
         '''
         return self.loop.time()
-
-    async def _linkRxLoop(self, link):
-
-        try:
-
-            byts = await link.reader.read(readsize)
-
-            while byts:
-
-                for size, mesg in link.feed(byts):
-                    await link.rx(mesg)
-
-                byts = await link.reader.read(readsize)
-
-        except (BrokenPipeError, ConnectionResetError) as e:
-            logger.warning('%s', str(e))
-
-        except Exception as e:
-            logger.exception('_linkRxLoop Error!')
-
-        finally:
-            await link.fini()
 
     def _runIoLoop(self):
 

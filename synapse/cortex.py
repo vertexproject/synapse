@@ -233,18 +233,16 @@ class CoreApi(s_cell.CellApi):
             (int): The number of nodes resulting from the query.
         '''
         i = 0
-        async with await self.cell.snap(user=self.user) as snap:
-            async for _ in snap.eval(text, opts=opts, user=self.user):
-                i += 1
+        async for _ in self.cell.eval(text, opts=opts, user=self.user):
+            i += 1
         return i
 
     async def eval(self, text, opts=None):
         '''
         Evalute a storm query and yield packed nodes.
         '''
-        async with await self.cell.snap(user=self.user) as snap:
-            async for item in snap.iterStormPodes(text, opts=opts, user=self.user):
-                yield item
+        async for pode in self.cell.iterStormPodes(text, opts=opts, user=self.user):
+            yield pode
 
     async def storm(self, text, opts=None):
         '''
@@ -252,8 +250,8 @@ class CoreApi(s_cell.CellApi):
         Yields:
             ((str,dict)): Storm messages.
         '''
-        async for msg in self.cell.streamstorm(text, opts, user=self.user):
-            yield msg
+        async for mesg in self.cell.streamstorm(text, opts, user=self.user):
+            yield mesg
 
     @s_cell.adminapi
     async def splices(self, offs, size):
@@ -339,6 +337,7 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.UniqCmd)
         self.addStormCmd(s_storm.CountCmd)
         self.addStormCmd(s_storm.LimitCmd)
+        self.addStormCmd(s_storm.SleepCmd)
         self.addStormCmd(s_storm.DelNodeCmd)
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
@@ -374,11 +373,56 @@ class Cortex(s_cell.Cell):
 
         mods = self.conf.get('modules')
 
+        self._initFormCounts()
+
         await self.addCoreMods(mods)
 
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    def _initFormCounts(self):
+
+        self.counts = {}
+        self.formcountdb = self.slab.initdb('form:counts')
+
+        for lkey, lval in self.slab.scanByFull(db=self.formcountdb):
+            form = lkey.decode('utf8')
+            valu = s_common.int64un(lval)
+            self.counts[form] = valu
+
+    def pokeFormCount(self, form, valu):
+
+        curv = self.counts.get(form, 0)
+        newv = curv + valu
+
+        self.counts[form] = newv
+
+        byts = s_common.int64en(newv)
+        self.slab.put(form.encode('utf8'), byts, db=self.formcountdb)
+
+    async def _calcFormCounts(self):
+        '''
+        Recalculate form counts from scratch.
+        '''
+        self.counts.clear()
+
+        for name, form in self.model.forms.items():
+
+            count = 0
+
+            async for buid, valu in self.layer.iterFormRows(name):
+
+                count += 1
+
+                if count % 10000 == 0:
+                    await asyncio.sleep(0)
+
+            self.counts[name] = count
+
+        for name, valu in self.counts.items():
+            byts = s_common.int64en(valu)
+            self.slab.put(name.encode('utf8'), byts)
 
     def onTagAdd(self, name, func):
         '''
@@ -839,6 +883,7 @@ class Cortex(s_cell.Cell):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
+        await self.boss.promote('storm', user=user, info={'query': text})
         async with await self.snap(user=user) as snap:
             async for node in snap.eval(text, opts=opts, user=user):
                 yield node
@@ -846,10 +891,11 @@ class Cortex(s_cell.Cell):
     @s_coro.genrhelp
     async def storm(self, text, opts=None, user=None):
         '''
-        Evaluate a storm query and yield result messages.
+        Evaluate a storm query and yield (node, path) tuples.
         Yields:
             (Node, Path) tuples
         '''
+        await self.boss.promote('storm', user=user, info={'query': text})
         async with await self.snap(user=user) as snap:
             async for mesg in snap.storm(text, opts=opts):
                 yield mesg
@@ -864,9 +910,8 @@ class Cortex(s_cell.Cell):
         MSG_QUEUE_SIZE = 1000
         chan = asyncio.Queue(MSG_QUEUE_SIZE, loop=self.loop)
 
-        task = s_task.promote('storm', user=user, info={'text': text})
-
-        task.livefor(self)
+        # promote ourself to a synapse task
+        synt = await self.boss.promote('storm', user=user, info={'query': text})
 
         async def runStorm():
 
@@ -878,7 +923,7 @@ class Cortex(s_cell.Cell):
                 # before handing a `fini` message along.
                 self.getStormQuery(text)
 
-                await chan.put(('init', {'tick': tick, 'text': text}))
+                await chan.put(('init', {'tick': tick, 'text': text, 'task': synt.iden}))
 
                 async with await self.snap(user=user) as snap:
 
@@ -900,7 +945,7 @@ class Cortex(s_cell.Cell):
                 took = tock - tick
                 await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
 
-        s_task.fork(runStorm())
+        await synt.worker(runStorm())
 
         while True:
 
@@ -910,6 +955,13 @@ class Cortex(s_cell.Cell):
 
             if mesg[0] == 'fini':
                 break
+
+    @s_coro.genrhelp
+    async def iterStormPodes(self, text, opts=None, user=None):
+        synt = await self.boss.promote('storm', user=user, info={'query': text})
+        async with await self.snap(user=user) as snap:
+            async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                yield pode
 
     @s_cache.memoize(size=10000)
     def getStormQuery(self, text):

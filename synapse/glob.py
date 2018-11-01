@@ -1,9 +1,3 @@
-from __future__ import annotations
-
-import threading
-
-lock = threading.RLock()
-
 plex = None     # type: 'synapse.lib.plex.Plex'
 pool = None     # s_threads.Pool(maxsize=tmax)
 

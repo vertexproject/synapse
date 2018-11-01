@@ -2,6 +2,8 @@ import socket
 import asyncio
 import logging
 
+import collections
+
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
@@ -10,29 +12,56 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.const as s_const
 import synapse.lib.queue as s_queue
 import synapse.lib.msgpack as s_msgpack
+
+readsize = 10 * s_const.megabyte
+
+async def connect(host, port, ssl=None):
+    '''
+    Async connect and return a Link().
+    '''
+    info = {'host': host, 'port': port, 'ssl': ssl}
+    reader, writer = await asyncio.open_connection(host, port, ssl=ssl)
+    return await Link.anit(reader, writer, info=info)
+
+async def listen(host, port, onlink, ssl=None):
+    '''
+    Listen on the given host/port and fire onlink(Link).
+
+    Returns a server object that contains the listening sockets
+    '''
+    async def onconn(reader, writer):
+        link = await Link.anit(reader, writer)
+        link.schedCoro(onlink(link))
+
+    server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
+    return server
 
 class Link(s_base.Base):
     '''
     A Link() is created for each Plex sock.
     '''
-    async def __anit__(self, plex, reader, writer):
+    async def __anit__(self, reader, writer, info=None):
 
         await s_base.Base.__anit__(self)
 
-        self.plex = plex
         self.iden = s_common.guid()
 
         self.reader = reader
         self.writer = writer
 
+        self.rxqu = collections.deque()
+        self.rxlock = asyncio.Lock()
+
         self.sock = self.writer.get_extra_info('socket')
 
-        self._drain_lock = asyncio.Lock(loop=plex.loop)
+        self._drain_lock = asyncio.Lock()
 
         # disable nagle ( to minimize latency for small xmit )
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
         # enable TCP keep alives...
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         if hasattr(socket, 'TCP_KEEPIDLE'):
@@ -43,34 +72,17 @@ class Link(s_base.Base):
             # close the socket after 5 failed keep alives (15 sec)
             self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
 
-        self.info = {}
-        self.chans = {}
+        if info is None:
+            info = {}
+
+        self.info = info
 
         self.unpk = s_msgpack.Unpk()
-        self.txque = asyncio.Queue(maxsize=1000, loop=plex.loop)
-        self.rxfunc = None
 
         async def fini():
-
-            [await c.fini() for c in self.chans.values()]
             self.writer.close()
 
         self.onfini(fini)
-
-    def chan(self, iden=None):
-
-        if iden is None:
-            iden = s_common.guid()
-
-        chan = Chan(self, iden)
-
-        async def fini():
-            self.chans.pop(iden, None)
-
-        chan.onfini(fini)
-        self.chans[iden] = chan
-
-        return chan
 
     async def tx(self, mesg):
         '''
@@ -80,15 +92,15 @@ class Link(s_base.Base):
             logger.debug('Attempt to transmit on disconnected link')
             return False
 
-        if self.rxfunc is None:
-            raise s_exc.NoLinkRx()
-
         byts = s_msgpack.en(mesg)
         try:
+
             self.writer.write(byts)
+
             # Avoid Python bug.  See https://bugs.python.org/issue29930
             async with self._drain_lock:
                 await self.writer.drain()
+
         except ConnectionError as e:
             await self.fini()
             einfo = s_common.retnexc(e)
@@ -97,26 +109,40 @@ class Link(s_base.Base):
 
         return True
 
-    async def rx(self, mesg):
-        '''
-        Routine called by Plex to rx a mesg for this Link.
-        '''
-        coro = self.rxfunc(mesg)
-        if s_coro.iscoro(coro):
-            await coro
+    async def rx(self):
 
-    def onrx(self, func):
-        '''
-        Register the rx function for the link.
+        async with self.rxlock:
 
-        NOTE: recv loop only begins once this is set!
-        NOTE: func *must* be a coroutine function.
-        '''
-        if self.rxfunc:
-            raise Exception('already set...')
+            while not self.rxqu:
 
-        self.rxfunc = func
-        self.plex.initLinkLoop(self)
+                if self.isfini:
+                    return None
+
+                try:
+
+                    byts = await self.reader.read(readsize)
+                    if not byts:
+                        await self.fini()
+                        return None
+
+                    for size, mesg in self.feed(byts):
+                        self.rxqu.append(mesg)
+
+                except (BrokenPipeError, ConnectionResetError) as e:
+                    logger.warning('%s', str(e))
+                    await self.fini()
+                    return None
+
+                except asyncio.CancelledError as e:
+                    await self.fini()
+                    return None
+
+                except Exception as e:
+                    logger.exception('rx error')
+                    await self.fini()
+                    return None
+
+            return self.rxqu.popleft()
 
     def get(self, name, defval=None):
         '''
@@ -135,82 +161,3 @@ class Link(s_base.Base):
         Used by Plex() to unpack bytes.
         '''
         return self.unpk.feed(byts)
-
-class Chan(s_base.Base):
-    '''
-    An on-going data channel in a Link.
-    '''
-    async def __anit__(self, link, iden):
-        await s_base.Base.__anit__(self)
-
-        self.link = link
-        self.iden = iden
-
-        self.info = dict(link.info)
-        self.rxque = s_queue.Queue()
-
-    async def txfini(self):
-        '''
-        We are done sending on this channel.
-        '''
-        wrap = ('chan:data', {
-            'chan': self.iden,
-            'retn': None,
-        })
-
-        return await self.link.tx(wrap)
-
-    async def init(self, task):
-        '''
-        Send a chan init message.
-        '''
-        mesg = ('chan:init', {
-            'task': task,
-            'chan': self.iden,
-        })
-        return await self.link.tx(mesg)
-
-    async def tx(self, data):
-
-        if self.isfini:
-            return False
-
-        wrap = ('chan:data', {
-            'chan': self.iden,
-            'retn': (True, data),
-        })
-
-        return await self.link.tx(wrap)
-
-    async def txexc(self, exc):
-        retn = s_common.retnexc(exc)
-        wrap = ('chan:data', {
-            'chan': self.iden,
-            'retn': retn,
-        })
-        return await self.link.tx(wrap)
-
-    def rx(self, item):
-        '''
-        Add an item to the rx queue. Used by Plex.
-        '''
-        if self.isfini:
-            return
-
-        self.rxque.put(item)
-
-    def rxfini(self):
-        self.rxque.put(s_common.novalu)
-
-    def __iter__(self):
-        try:
-
-            for retn in self.rxque:
-
-                if retn is None:
-                    break
-
-                yield s_common.result(retn)
-
-        finally:
-            s_glob.sync(self.fini())

@@ -8,10 +8,6 @@ logging.basicConfig(level=loglevel, format=_logformat)
 
 # import synapse.lib.scope as s_scope
 
-# create the global multi-plexor *not* within a test
-# to avoid "leaked resource" when a test triggers creation
-# s_scope.get('plex')
-
 testdir = os.path.dirname(__file__)
 
 def getTestPath(*paths):

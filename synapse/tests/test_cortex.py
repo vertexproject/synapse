@@ -1713,13 +1713,57 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            async def doit():
-                return await core.eval('[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 ] | sleep 0.5').spin()
+            evnt = asyncio.Event()
 
-            task = core.schedCoro(doit())
+            self.len(0, core.boss.ps())
 
-            runts = core.ps()
-            self.len(1, runts)
-            runts[0][1].cancel()
+            async def todo():
+                async for node in core.eval('[ teststr=foo teststr=bar ] | sleep 10'):
+                    evnt.set()
 
-            await self.asyncraises(Cancel, task)
+            task = core.schedCoro(todo())
+
+            await evnt.wait()
+
+            synts = core.boss.ps()
+
+            self.len(1, synts)
+
+            await synts[0].kill()
+
+            self.len(0, core.boss.ps())
+
+            await self.asyncraises(asyncio.CancelledError, task)
+
+    async def test_cortex_formcounts(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await self.getTestCell(dirn, 'cortex') as core:
+
+                await core.loadCoreModule('synapse.tests.utils.TestModule')
+
+                await core.eval('[ teststr=foo teststr=bar testint=42 ]').spin()
+
+                self.eq(1, core.counts['testint'])
+                self.eq(2, core.counts['teststr'])
+
+                core.counts['teststr'] = 99
+
+                await core.eval('reindex --form-counts').spin()
+
+                self.eq(1, core.counts['testint'])
+                self.eq(2, core.counts['teststr'])
+
+            # test that counts persist...
+            async with await self.getTestCell(dirn, 'cortex') as core:
+
+                await core.loadCoreModule('synapse.tests.utils.TestModule')
+
+                self.eq(1, core.counts['testint'])
+                self.eq(2, core.counts['teststr'])
+
+                node = await core.getNodeByNdef(('teststr', 'foo'))
+                await node.delete()
+
+                self.eq(1, core.counts['teststr'])

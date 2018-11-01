@@ -2,7 +2,6 @@ import os
 import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
-import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.encoding as s_encoding
 
@@ -127,8 +126,8 @@ class CmdCoreTest(s_t_utils.SynTest):
 
     async def test_log(self):
         async with self.getTestDmon('dmoncore') as dmon:
-            dirn = s_scope.get('dirn')
-            with self.setSynDir(dirn):
+            with self.getTestDir() as dirn:
+
                 async with await self.agetTestProxy(dmon, 'core') as core:
                     outp = self.getTestOutp()
                     cmdr = await s_cmdr.getItemCmdr(core, outp=outp)

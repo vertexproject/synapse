@@ -10,8 +10,9 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
-import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.boss as s_boss
 import synapse.lib.const as s_const
+import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,36 @@ class CellApi(s_base.Base):
 
     def getCellIden(self):
         return self.cell.getCellIden()
+
+    async def ps(self):
+
+        retn = []
+
+        admin = False
+        if self.user is not None:
+            admin = self.user.admin
+
+        for synt in self.cell.boss.ps():
+            if admin or synt.user == self.user:
+                retn.append(synt.pack())
+
+        return retn
+
+    async def kill(self, iden):
+
+        admin = False
+        if self.user is not None:
+            admin = self.user.admin
+
+        task = self.cell.boss.get(iden)
+        if task is None:
+            return False
+
+        if admin or task.user == self.user:
+            await task.kill()
+            return True
+
+        raise s_exc.AuthDeny(mesg='Caller must own task or be admin.')
 
     @adminapi
     def addAuthUser(self, name):
@@ -223,6 +254,9 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         self.cmds = {}
 
+        self.boss = await s_boss.Boss.anit()
+        self.onfini(self.boss)
+
         self.cellname = self.boot.get('cell:name')
         if self.cellname is None:
             self.cellname = self.__class__.__name__
@@ -233,11 +267,13 @@ class Cell(s_base.Base, s_telepath.Aware):
     async def _initCellSlab(self, readonly=False):
 
         s_common.gendir(self.dirn, 'slabs')
+
         path = os.path.join(self.dirn, 'slabs', 'cell.lmdb')
         if not os.path.exists(path) and readonly:
             logger.warning('Creating a slab for a readonly cell.')
             _slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE)
             await _slab.fini()
+
         self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
         self.onfini(self.slab.fini)
 
