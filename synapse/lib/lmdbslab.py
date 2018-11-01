@@ -92,14 +92,14 @@ class Slab(s_base.Base):
                 self.forcecommit()
 
     async def _onCoFini(self):
-        assert s_glob.plex.iAmLoop()
+        assert s_glob.iAmLoop()
         self._finiCoXact()
         self.lenv.close()
         del self.lenv
 
     def _finiCoXact(self):
 
-        assert s_glob.plex.iAmLoop()
+        assert s_glob.iAmLoop()
 
         [scan.bump() for scan in self.scans]
 

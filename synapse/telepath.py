@@ -418,16 +418,8 @@ class Proxy(s_base.Base):
         try:
 
             await self.link.tx(mesg)
-            mesg = await task.result()
-
-            retn = mesg[1].get('retn')
-            type = mesg[1].get('type')
-
-            if type is None:
-                return s_common.result(retn)
-
-            ctor = sharetypes.get(type, Share)
-            return await ctor.anit(self, retn[1])
+            retn = await task.result()
+            return s_common.result(retn)
 
         finally:
             self.tasks.pop(task.iden, None)
@@ -493,7 +485,16 @@ class Proxy(s_base.Base):
             logger.warning('task:fini for invalid task: %r' % (iden,))
             return
 
-        return task.reply(mesg)
+        retn = mesg[1].get('retn')
+        type = mesg[1].get('type')
+
+        if type is None:
+            return task.reply(retn)
+
+        ctor = sharetypes.get(type, Share)
+        item = await ctor.anit(self, retn[1])
+
+        return task.reply((True, item))
 
     def __getattr__(self, name):
         meth = Method(self, name)

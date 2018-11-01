@@ -288,7 +288,9 @@ class AsyncQueue(s_base.Base):
 
         if not self.notdrainingevent.is_set():
             if len(self.deq) < self.drain_level:
-                s_glob.plex.callSoonSafe(self.notdrainingevent.set)
+                s_glob.initloop().call_soon_threadsafe(
+                    self.notdrainingevent.set
+                )
         return val
 
     async def put(self, item):

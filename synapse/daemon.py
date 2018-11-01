@@ -96,7 +96,6 @@ class AsyncGenr(s_share.Share):
             await self.fini()
 
 dmonwrap = (
-    (s_coro.Genr, AsyncGenr),
     (s_coro.GenrHelp, AsyncGenr),
     (types.AsyncGeneratorType, AsyncGenr),
     (types.GeneratorType, Genr),

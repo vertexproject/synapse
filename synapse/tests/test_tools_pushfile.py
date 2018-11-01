@@ -19,7 +19,6 @@ class TestPushFile(s_t_utils.SynTest):
 
     async def test_pushfile(self):
 
-        #with s_coro.AsyncToSyncCMgr(self.getTestDmonCortexAxon) as dmon:
         async with self.getTestDmonCortexAxon() as dmon:
 
             coreurl = s_scope.get('coreurl')

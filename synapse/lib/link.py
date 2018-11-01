@@ -53,7 +53,6 @@ class Link(s_base.Base):
         self.writer = writer
 
         self.rxqu = collections.deque()
-        self.rxlock = asyncio.Lock()
 
         self.sock = self.writer.get_extra_info('socket')
 
@@ -111,38 +110,36 @@ class Link(s_base.Base):
 
     async def rx(self):
 
-        async with self.rxlock:
+        while not self.rxqu:
 
-            while not self.rxqu:
+            if self.isfini:
+                return None
 
-                if self.isfini:
-                    return None
+            try:
 
-                try:
-
-                    byts = await self.reader.read(readsize)
-                    if not byts:
-                        await self.fini()
-                        return None
-
-                    for size, mesg in self.feed(byts):
-                        self.rxqu.append(mesg)
-
-                except (BrokenPipeError, ConnectionResetError) as e:
-                    logger.warning('%s', str(e))
+                byts = await self.reader.read(readsize)
+                if not byts:
                     await self.fini()
                     return None
 
-                except asyncio.CancelledError as e:
-                    await self.fini()
-                    return None
+                for size, mesg in self.feed(byts):
+                    self.rxqu.append(mesg)
 
-                except Exception as e:
-                    logger.exception('rx error')
-                    await self.fini()
-                    return None
+            except (BrokenPipeError, ConnectionResetError) as e:
+                logger.warning('%s', str(e))
+                await self.fini()
+                return None
 
-            return self.rxqu.popleft()
+            except asyncio.CancelledError as e:
+                await self.fini()
+                return None
+
+            except Exception as e:
+                logger.exception('rx error')
+                await self.fini()
+                return None
+
+        return self.rxqu.popleft()
 
     def get(self, name, defval=None):
         '''

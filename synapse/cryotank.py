@@ -976,7 +976,8 @@ class CryoTankIndexer:
             self._removeSome()
             if not rowcount and not self._meta.deleting:
                 if stillworktodo is True:
-                    s_glob.plex.coroToTask(self.cryotank.fire('cryotank:indexer:noworkleft:' + last_callback))
+                    coro = self.cryotank.fire('cryotank:indexer:noworkleft:' + last_callback)
+                    s_glob.coroToTask(coro)
                     last_callback = 'None'
                     stillworktodo = False
             else:

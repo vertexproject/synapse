@@ -25,19 +25,6 @@ class CoroTest(s_t_utils.SynTest):
         self.false(s_coro.iscoro(genr()))
         self.false(s_coro.iscoro(agen()))
 
-    async def test_genr2agenr(self):
-
-        def testgenr(n):
-            yield from range(n)
-
-        await self.agenlen(10, s_coro.genr2agenr(testgenr, 10, qsize=5))
-
-        def badgenr(n):
-            yield 42
-            raise s_exc.MustBeLocal()
-
-        await self.agenraises(s_exc.MustBeLocal, s_coro.genr2agenr(badgenr, 10))
-
     async def test_coro_genrhelp(self):
 
         @s_coro.genrhelp

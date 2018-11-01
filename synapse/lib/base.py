@@ -12,6 +12,7 @@ if __debug__:
     import traceback
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 
 import synapse.lib.coro as s_coro
 
@@ -77,6 +78,11 @@ class Base:
 
     @classmethod
     async def anit(cls, *args, **kwargs):
+
+        # sneak in a quick loop check here for convenience
+        if s_glob._glob_loop is None:
+            s_glob.initloop()
+
         self = cls()
         try:
             await self.__anit__(*args, **kwargs)
