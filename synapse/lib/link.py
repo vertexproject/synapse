@@ -83,6 +83,12 @@ class Link(s_base.Base):
 
         self.onfini(fini)
 
+    async def send(self, byts):
+        self.writer.write(byts)
+        # Avoid Python bug.  See https://bugs.python.org/issue29930
+        async with self._drain_lock:
+            await self.writer.drain()
+
     async def tx(self, mesg):
         '''
         Async transmit routine which will wait for writer drain().
@@ -107,6 +113,23 @@ class Link(s_base.Base):
             return False
 
         return True
+
+    async def recv(self, size):
+        return await self.reader.read(size)
+
+    async def recvsize(self, size):
+        byts = b''
+        while size:
+
+            recv = await self.reader.read(size)
+            if not recv:
+                await self.fini()
+                return None
+
+            size -= len(recv)
+            byts += recv
+
+        return byts
 
     async def rx(self):
 

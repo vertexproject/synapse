@@ -4,7 +4,7 @@ import synapse.lib.scope as s_scope
 
 class ScopeTest(s_t_utils.SynTest):
 
-    async def test_lib_scope(self):
+    def test_lib_scope(self):
 
         syms = {'foo': 'woot', 'bar': 30, 'baz': [1, 2]}
         scope = s_scope.Scope(**syms)
@@ -68,7 +68,7 @@ class ScopeTest(s_t_utils.SynTest):
         self.none(scope.get('no'))
         self.raises(IndexError, scope.leave)
 
-    async def test_lib_scope_get_defval(self):
+    def test_lib_scope_get_defval(self):
         syms = {'foo': None, 'bar': 123}
         scope = s_scope.Scope(**syms)
         self.eq(scope.get('foo'), None)
