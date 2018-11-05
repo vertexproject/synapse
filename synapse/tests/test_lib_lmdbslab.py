@@ -196,12 +196,12 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     count += 1
                 self.eq(count, 100)
 
-                # Trigger a bump in the middle of a scan; make sure new nodes come after current scan position
+                # Partially read through scan
                 iter = slab.scanByRange(lmin=key, lmax=key, db=foo)
                 for i in range(60):
                     next(iter)
 
-                # Trigger a bump by writing a bunch
+                # Trigger a bump by writing a bunch; make sure we're not writing into the middle of the scan
                 multikey = b'\xff\xff\xff\xff' + s_common.guid().encode('utf8')
                 mapsize = slab.mapsize
                 while mapsize == slab.mapsize:
