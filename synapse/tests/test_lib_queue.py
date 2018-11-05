@@ -216,6 +216,7 @@ class AsyncQueueTest(s_t_utils.SynTest):
         async with await s_queue.AsyncQueue.anit(5, drain_level=3) as q:
             [await q.put(i) for i in range(5)]
             got_to_end = False
+            waiter = asyncio.Event()
             last_msg = 0
 
             def sync_worker():
@@ -223,16 +224,18 @@ class AsyncQueueTest(s_t_utils.SynTest):
                 nonlocal last_msg
                 time.sleep(0.1)
 
-                last_msg = q.get()
-                last_msg = q.get()
+                last_msg = q.get()  # got 0
+                last_msg = q.get()  # got 1
+                s_glob.plex.callSoonSafe(waiter.set)
                 time.sleep(0.1)
-                last_msg = q.get()
-
+                last_msg = q.get()  # got 2
                 got_to_end = True
             t = s_threads.worker(sync_worker)
             before = time.time()
+            await waiter.wait()
             await q.put(6)
             self.lt(0.1, time.time() - before)
+            await s_glob.plex.sleep(0.1)
             self.eq(last_msg, 2)
             await s_glob.plex.sleep(0.1)
 
