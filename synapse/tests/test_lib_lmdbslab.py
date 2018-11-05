@@ -175,8 +175,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
     async def test_lmdbslab_iternext_repeat_regression(self):
         '''
-        Regression test for a scan being bumped in the middle of a iternext scan in the middle of a list of values
-        with the same key
+        Test for a scan being bumped in an iternext where the cursor is in the middle of a list of values with the same
+        key
         '''
 
         with self.getTestDir() as dirn:
