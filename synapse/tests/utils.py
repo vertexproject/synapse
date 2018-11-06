@@ -249,6 +249,9 @@ class TstOutPut(s_output.OutPutStr):
             return False
         return True
 
+    def clear(self):
+        self.mesgs.clear()
+
 class TestSteps:
     '''
     A class to assist with interlocking for multi-thread tests.

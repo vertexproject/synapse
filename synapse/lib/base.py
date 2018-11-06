@@ -492,6 +492,7 @@ class Base:
         finally:
             # Avoid https://bugs.python.org/issue34680 by removing handler before closing down
             self.loop.remove_signal_handler(signal.SIGTERM)
+            s_glob.sync(self.fini())
 
     def waiter(self, count, *names):
         '''

@@ -204,6 +204,8 @@ class PsCmd(s_cli.Cmd):
             self.printf('    status: %r' % (task.get('status'),))
             self.printf('    metadata: %r' % (task.get('info'),))
 
+        self.printf('%d tasks found.' % (len(tasks,)))
+
 class KillCmd(s_cli.Cmd):
     '''
     Kill a running task/query within the cortex.

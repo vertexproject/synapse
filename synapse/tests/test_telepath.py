@@ -198,6 +198,50 @@ class TeleTest(s_t_utils.SynTest):
             self.true(prox.isfini)
             await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
 
+    async def test_telepath_no_sess(self):
+
+        foo = Foo()
+        evt = asyncio.Event()
+
+        async with self.getTestDmon() as dmon:
+
+            addr = await dmon.listen('tcp://127.0.0.1:0')
+            dmon.share('foo', foo)
+
+            await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
+
+            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
+
+                prox.sess = None
+
+                # Add an additional prox.fini handler.
+                prox.onfini(evt.set)
+
+                # check a standard return value
+                self.eq(30, await prox.bar(10, 20))
+
+                # check a coroutine return value
+                self.eq(25, await prox.corovalu(10, 5))
+
+                # check a generator return channel
+                genr = await prox.genr()
+                self.eq((10, 20, 30), await alist(genr))
+
+                # check an async generator return channel
+                genr = await prox.corogenr(3)
+                self.eq((0, 1, 2), await alist(genr))
+
+                await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
+
+                await self.asyncraises(s_exc.NoSuchMeth, prox.fake())
+
+                await self.asyncraises(s_exc.SynErr, prox.boom())
+
+            # Fini'ing a daemon fini's proxies connected to it.
+            self.true(await s_coro.event_wait(evt, 2))
+            self.true(prox.isfini)
+            await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
+
     async def test_telepath_tls_bad_cert(self):
 
         foo = Foo()
