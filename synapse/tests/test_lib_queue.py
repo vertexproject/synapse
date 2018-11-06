@@ -3,6 +3,7 @@ import asyncio
 import threading
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.queue as s_queue
@@ -211,6 +212,7 @@ class AsyncQueueTest(s_t_utils.SynTest):
         async with await s_queue.AsyncQueue.anit(5, drain_level=3) as q:
             [await q.put(i) for i in range(5)]
             got_to_end = False
+            waiter = asyncio.Event()
             last_msg = 0
 
             def sync_worker():
@@ -220,19 +222,22 @@ class AsyncQueueTest(s_t_utils.SynTest):
 
                 time.sleep(0.1)
 
-                last_msg = q.get()
-                last_msg = q.get()
+                last_msg = q.get()  # got 0
+                last_msg = q.get()  # got 1
+                q.schedCallSafe(waiter.set)
                 time.sleep(0.1)
-                last_msg = q.get()
-
+                last_msg = q.get()  # got 2
                 got_to_end = True
 
             t = s_threads.worker(sync_worker)
             before = time.time()
 
+            await waiter.wait()
+
             await q.put(6)
 
             self.lt(0.1, time.time() - before)
+            await asyncio.sleep(0.1)
             self.eq(last_msg, 2)
 
             await asyncio.sleep(0.1)
