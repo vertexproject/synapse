@@ -13,6 +13,11 @@ class Boss(s_base.Base):
     async def __anit__(self):
         await s_base.Base.__anit__(self)
         self.tasks = {}
+        self.onfini(self._onBossFini)
+
+    async def _onBossFini(self):
+        for task in list(self.tasks.values()):
+            await task.kill()
 
     def ps(self):
         # top level tasks only...

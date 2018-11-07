@@ -438,8 +438,9 @@ class Daemon(s_base.Base):
                     await link.tx(('t2:yield', {'retn': None}))
 
                 except Exception as e:
-                    retn = s_common.retnexc(e)
-                    await link.tx(('t2:yield', {'retn': retn}))
+                    if not link.isfini:
+                        retn = s_common.retnexc(e)
+                        await link.tx(('t2:yield', {'retn': retn}))
 
                 return
 
@@ -455,8 +456,9 @@ class Daemon(s_base.Base):
                     await link.tx(('t2:yield', {'retn': None}))
 
                 except Exception as e:
-                    retn = s_common.retnexc(e)
-                    await link.tx(('t2:yield', {'retn': (False, retn)}))
+                    if not link.isfini:
+                        retn = s_common.retnexc(e)
+                        await link.tx(('t2:yield', {'retn': (False, retn)}))
 
                 return
 
@@ -472,11 +474,9 @@ class Daemon(s_base.Base):
 
             logger.exception('on task:init: %r' % (mesg,))
 
-            retn = s_common.retnexc(e)
-
-            await link.tx(
-                ('t2:fini', {'retn': retn})
-            )
+            if not link.isfini:
+                retn = s_common.retnexc(e)
+                await link.tx(('t2:fini', {'retn': retn}))
 
     async def _onTaskInit(self, link, mesg):
 

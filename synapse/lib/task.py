@@ -51,7 +51,8 @@ class Task(s_base.Base):
         return 'task: %s (%s) %r' % (self.iden, user, self.info)
 
     def _onTaskDone(self, t):
-        self.boss.schedCoro(self.fini())
+        if not self.isfini:
+            self.boss.schedCoro(self.fini())
 
     async def _onTaskFini(self):
 
