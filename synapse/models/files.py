@@ -209,8 +209,8 @@ class FileModule(s_module.CoreModule):
                 }),
                 ('file:mime:pe:resource', ('comp', {'fields': (
                         ('file', 'file:bytes'),
-                        ('type', 'int'),
-                        ('langid', 'int'),
+                        ('type', 'pe:resource:type'),
+                        ('langid', 'pe:langid'),
                         ('resource', 'file:bytes'))}), {
                     'doc': 'The fused knowledge of a file:bytes node containing a pe resource.',
                 }),
