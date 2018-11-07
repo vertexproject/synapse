@@ -727,7 +727,7 @@ class CortexTest(s_t_utils.SynTest):
             pconf = {'user': 'root', 'passwd': 'root'}
             async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
                 # Storm logging
-                with self.getAsyncLoggerStream('synapse.cortex', 'Executing storm query [help ask] as [root]') \
+                with self.getAsyncLoggerStream('synapse.cortex', 'Executing storm query {help ask} as [root]') \
                         as stream:
                     await alist(await core.storm('help ask'))
                     self.true(await stream.wait(4))
