@@ -1,11 +1,16 @@
 import synapse.glob as s_glob
 import synapse.lib.cli as s_cli
 import synapse.cmds.cortex as s_cmds_cortex
+import synapse.cmds.trigger as s_cmds_trigger
 
 cmdsbycell = {
     'cortex': (
         s_cmds_cortex.StormCmd,
         s_cmds_cortex.Log,
+        s_cmds_trigger.TriggerAdd,
+        s_cmds_trigger.TriggerDel,
+        s_cmds_trigger.TriggerMod,
+        s_cmds_trigger.TriggerList,
     ),
 }
 

@@ -196,3 +196,4 @@ class AlreadyInAsync(SynErr):
 class DbOutOfSpace(SynErr): pass
 
 class IsReadOnly(SynErr): pass
+class RecursionLimitHit(SynErr): pass

@@ -1,69 +1,244 @@
 import logging
+import contextlib
+import collections
+import contextvars
+import dataclasses
+
+from typing import Optional
+
+import synapse.exc as s_exc
+import synapse.common as s_common
+
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
+Conditions = set((
+    'tag:add',
+    'tag:del',
+    'node:add',
+    'node:del',
+    'prop:set',
+))
+
+RecursionDepth = contextvars.ContextVar('RecursionDepth', default=0)
+
 class Triggers:
 
-    def __init__(self):
-        self._trig_list = []
-        raise FIXME
+    TRIGGERS_DB_NAME = 'triggers'
+    RECURSION_LIMIT = 16
 
-    def clear(self):
+    @dataclasses.dataclass
+    class Rule:
+        ver: int  # version: must be 0
+        cond: str  # condition from above list
+        user: str  # username
+        storm: str  # story query
+        form: Optional[str]  # form name
+        tag: Optional[str]  # tag name
+        prop: Optional[str]  # property name
+
+        def __post_init__(self):
+            if self.ver != 0:
+                raise s_exc.BadOptValu('Unexpected rule version')
+            if self.cond not in Conditions:
+                raise s_exc.BadOptValu('Invalid trigger condition')
+            if self.cond in ('node:add', 'node:del') and self.form is None:
+                raise s_exc.BadOptValu('form must be present for node:add or node:del')
+            if self.cond in ('node:add', 'node:del') and self.tag is not None:
+                raise s_exc.BadOptValu('tag must not be present for node:add or node:del')
+            if self.cond == 'prop:set' and (self.form is not None or self.tag is not None):
+                raise s_exc.BadOptValu('form and tag must not be present for prop:set')
+            if self.cond in ('tag:add', 'tag:del') and self.tag is None:
+                raise s_exc.BadOptValu('missing tag')
+            if self.prop is not None and self.cond != 'prop:set':
+                raise s_exc.BadOptValu('prop parameter invalid')
+            if self.cond == 'prop:set' and self.prop is None:
+                raise s_exc.BadOptValu('missing prop parameter')
+            if self.tag is not None:
+                if '*' in self.tag[:-1] or (self.tag[-1] == '*' and self.tag[-2] != '.'):
+                    raise s_exc.BadOptValu('only tag globbing at end supported')
+
+        def en(self):
+            return s_msgpack.en(dataclasses.asdict(self))
+
+        async def execute(self, node):
+            '''
+            Actually execute the query
+            '''
+            opts = None if self.tag is None else {'vars': {'tag': self.tag}}
+            if node.snap.core.auth is not None:
+                user = node.snap.core.auth.users.get(self.user)
+                if user is None:
+                    logger.warning('Unknown user in stored trigger')
+                    return
+            else:
+                user = None
+            try:
+                await s_common.aspin(node.storm(self.storm, opts=opts, user=user))
+            except Exception:
+                logger.exception('Trigger encountered exception running storm query %s', self.storm)
+
+    def __init__(self, core):
         '''
-        Clear all previously registered triggers
+        Initialize a cortex triggers subsystem.
+
+        Note:
+            Triggers will not fire until enable() is called.
         '''
-        self._trig_list = []
-        self._trig_byname.clear()
+        self._rules = {}
+        self._rule_by_prop = collections.defaultdict(list)
+        self._rule_by_form = collections.defaultdict(list)
+        self._rule_by_tag = collections.defaultdict(list)
+        self.core = core
+        self._load_all(self.core.slab)
+        self.enabled = False
+        self._deferred_events = []
 
-    def add(self, func, perm):
+    async def enable(self):
+
         '''
-        Add a new callback to the triggers.
+        Enable triggers to start firing.
 
-        Args:
-            func (function):    The function to call
-            perm (str,dict):    The permission tufo
-
-        Returns:
-            (None)
+        Go through all the rules, making sure the query is valid, and remove the ones that aren't.  (We can't evaluate
+        queries until enabled because not all the modules are loaded yet.)
         '''
-        self._trig_list.append((perm, func))
-        self._trig_byname.clear()
+        if self.enabled:
+            return
 
-    def _onTrigNameMiss(self, name):
-        retn = []
-        for perm, func in self._trig_list:
-            if self._trig_match.match(name, perm[0]):
-                retn.append((perm, func))
-        return retn
+        to_delete = []
+        for buid, rule in self._rules.items():
+            try:
+                self.core.getStormQuery(rule.storm)
+            except Exception as e:
+                logger.warning('Invalid rule %r found in storage: %r.  Removing.', buid, e)
+                to_delete.append(buid)
+        for buid in to_delete:
+            self.delete(buid)
 
-    def _cmpperm(self, perm, must):
+        self.enabled = True
 
-        for prop, match in must[1].items():
+        # Re-evaluate all the events that occurred before we were enabled
+        for node, cond, form, tag, prop in self._deferred_events:
+            await self.fire(node, cond, form=form, tag=tag, prop=prop)
 
-            valu = perm[1].get(prop)
-            if valu is None:
-                return False
+        self._deferred_events.clear()
 
-            if not self._trig_match.match(valu, match):
-                return False
+    def _load_all(self, slab):
+        db = slab.initdb(self.TRIGGERS_DB_NAME)
+        for buid, val in self.core.slab.scanByRange(b'', db=db):
+            try:
+                self._load_rule(buid, **s_msgpack.un(val))
+            except Exception as e:
+                logger.warning('Invalid rule %r found in storage: %r', buid, e)
+                continue
 
-        return True
+    def _load_rule(self, buid, *args, **kwargs):
+            rule = Triggers.Rule(*args, **kwargs)
 
-    def trigger(self, perm, *args, **kwargs):
+            ''' Make sure the query parses '''
+            if self.enabled:
+                self.core.getStormQuery(rule.storm)
+
+            self._rules[buid] = rule
+            if rule.prop is not None:
+                self._rule_by_prop[rule.prop].append(rule)
+            elif rule.form is not None:
+                self._rule_by_form[rule.form].append(rule)
+            else:
+                assert rule.tag
+                self._rule_by_tag[rule.tag].append(rule)
+            return rule
+
+    def list(self):
+        return [(buid, dataclasses.asdict(rule)) for buid, rule in self._rules.items()]
+
+    def mod(self, buid, query):
+        self._rules[buid].storm = query
+
+    @contextlib.contextmanager
+    def _recursion_check(self):
+        depth = RecursionDepth.get()
+        if depth > self.RECURSION_LIMIT:
+            raise s_exc.RecursionLimitHit(mesg='Hit trigger limit')
+        token = RecursionDepth.set(depth + 1)
+
+        try:
+            yield
+
+        finally:
+            RecursionDepth.reset(token)
+
+    async def fire(self, node, cond, *, form=None, tag=None, prop=None):
         '''
-        Fire any matching trigger functions for the given perm.
-
-        Args:
-            perm ((str,dict)):  The perm tufo to trigger
-            *args (list):       args list to use calling the trigger function
-            **kwargs (dict):    kwargs dict to use calling the trigger function
-
-        Returns:
-            (None)
+        Execute any rules that match the condition and arguments
         '''
-        for must, func in self._trig_byname.get(perm[0]):
-            if self._cmpperm(perm, must):
-                try:
-                    func(*args, **kwargs)
-                except Exception as e:
-                    logger.exception(e)
+
+        if not self.enabled:
+            self._deferred_events.append((node, cond, form, tag, prop))
+            return
+
+        if __debug__:
+            try:
+                Triggers.Rule(0, cond, '', '', form, tag, prop)
+            except s_exc.BadOptValu:
+                logger.exception('fire called with inconsistent arguments')
+                assert False
+
+        with self._recursion_check():
+
+            if prop is not None:
+                for rule in self._rule_by_prop[prop]:
+                    await rule.execute(node)
+                return
+
+            if form is not None:
+                for rule in self._rule_by_form[form]:
+                    if cond == rule.cond and (rule.tag is None or rule.tag == tag):
+                        await rule.execute(node)
+
+            if tag is not None:
+                for rule in self._rule_by_tag[tag]:
+                    if cond == rule.cond:
+                        await rule.execute(node)
+                if tag[0] != '.' and '.' in tag:
+                    globbed_tag = tag.rsplit('.', 1)[0] + '.*'
+                    for rule in self._rule_by_tag[globbed_tag]:
+                        if cond == rule.cond:
+                            await rule.execute(node)
+
+    def add(self, username, condition, query, *, form=None, tag=None, prop=None):
+
+        buid = s_common.buid()
+        db = self.core.slab.initdb(self.TRIGGERS_DB_NAME)
+
+        # Check the storm query if we can
+        if self.enabled:
+            self.core.getStormQuery(query)
+
+        rule = self._load_rule(buid, 0, condition, username, query, form, tag, prop)
+        self.core.slab.put(buid, rule.en(), db=db)
+
+    def delete(self, buid):
+        rule = self._rules.get(buid)
+        if rule is None:
+            raise s_exc.NoSuchIden()
+
+        db = self.core.slab.initdb(self.TRIGGERS_DB_NAME)
+
+        if rule.prop is not None:
+            self._rule_by_prop[rule.prop].remove(rule)
+        elif rule.form is not None:
+            self._rule_by_form[rule.form].remove(rule)
+        else:
+            assert rule.tag is not None
+            self._rule_by_tag[rule.tag].remove(rule)
+
+        del self._rules[buid]
+        self.core.slab.delete(buid, db=db)
+
+    def find(self, buid):
+        rule = self._rules.get(buid)
+        if rule is None:
+            raise s_exc.NoSuchIden()
+        return dataclasses.asdict(rule)

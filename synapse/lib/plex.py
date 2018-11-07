@@ -4,6 +4,7 @@ import threading
 
 logger = logging.getLogger(__name__)
 
+import synapse.exc as s_exc
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.coro as s_coro

@@ -11,12 +11,12 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
-import synapse.lib.lmdb as s_lmdb
 import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
 import synapse.lib.layer as s_layer
 import synapse.lib.syntax as s_syntax
+import synapse.lib.trigger as s_trigger
 import synapse.lib.modules as s_modules
 
 logger = logging.getLogger(__name__)
@@ -101,6 +101,41 @@ class CoreApi(s_cell.CellApi):
             (dict): A model description dictionary.
         '''
         return self.cell.model.getModelDict()
+
+    async def addTrigger(self, condition, query, *, form=None, tag=None, prop=None):
+        '''
+        Adds a trigger to the cortex
+        '''
+        username = None if self.user is None else self.user.name
+        self.cell.triggers.add(username, condition, query, form=form, tag=tag, prop=prop)
+
+    async def delTrigger(self, buid):
+        '''
+        Deletes aa trigger from the cortex
+        '''
+        trig = self.cell.triggers.find(buid)
+        username = None if self.user is None else self.user.name
+        if username is not None and (not self.user.admin) and username != trig.get('user'):
+            raise s_exc.AuthDeny(user=self.user.name, mesg='May only delete triggers created by you')
+        self.cell.triggers.delete(buid)
+
+    async def updateTrigger(self, buid, query):
+        '''
+        Change an existing trigger's query
+        '''
+        trig = self.cell.triggers.find(buid)
+        username = None if self.user is None else self.user.name
+        if username is not None and (not self.user.admin) and username != trig.get('user'):
+            raise s_exc.AuthDeny(user=self.user.name, mesg='May only update triggers created by you')
+        self.cell.triggers.mod(buid, query)
+
+    async def listTriggers(self):
+        '''
+        Lists all the triggers that the current user is authorized to access
+        '''
+        username = None if self.user is None else self.user.name
+        return [(buid, trig) for (buid, trig) in self.cell.triggers.list()
+                if username is None or self.user.admin or trig.get('user') == username]
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
@@ -363,6 +398,8 @@ class Cortex(s_cell.Cell):
             await asyncio.gather(*[layr.fini() for layr in self.layers], loop=self.loop)
         self.onfini(fini)
 
+        self.triggers = s_trigger.Triggers(self)
+
         # these may be used directly
         self.model = s_datamodel.Model()
         self.view = View(self, self.layers)
@@ -375,6 +412,8 @@ class Cortex(s_cell.Cell):
         mods = self.conf.get('modules')
 
         await self.addCoreMods(mods)
+
+        await self.triggers.enable()
 
         self._initCryoLoop()
         self._initPushLoop()
@@ -907,7 +946,7 @@ class Cortex(s_cell.Cell):
         '''
         if self.conf.get('storm:log'):
             lvl = self.conf.get('storm:log:level')
-            logger.log(lvl, 'Executing storm query [%s] as [%s]', text, user)
+            logger.log(lvl, 'Executing storm query {%s} as [%s]', text, user)
 
     async def getNodeByNdef(self, ndef):
         '''

@@ -299,7 +299,7 @@ class Snap(s_base.Base):
             fnib = self._getNodeFnib(name, valu)
             return await self._addNodeFnib(fnib, props=props)
 
-        except Exception as e:
+        except Exception:
 
             mesg = f'{name} {valu!r} {props!r}'
             logger.exception(mesg)

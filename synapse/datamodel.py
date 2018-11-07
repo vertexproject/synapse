@@ -68,14 +68,14 @@ class PropBase:
         for func in self.onsets:
             try:
                 await s_coro.ornot(func, node, oldv)
-            except Exception as e:
+            except Exception:
                 logger.exception('onset() error for %s' % (self.full,))
 
     async def wasDel(self, node, oldv):
         for func in self.ondels:
             try:
                 await s_coro.ornot(func, node, oldv)
-            except Exception as e:
+            except Exception:
                 logger.exception('ondel() error for %s' % (self.full,))
 
 class Prop(PropBase):
@@ -256,23 +256,30 @@ class Form:
         '''
         Fire the onAdd() callbacks for node creation.
         '''
+
+        await node.snap.core.triggers.fire(node, 'node:add', form=self.name)
+
         for func in self.onadds:
             try:
                 retn = func(node)
                 if s_coro.iscoro(retn):
                     await retn
-            except Exception as e:
+            except Exception:
                 logger.exception('error on onadd for %s' % (self.name,))
 
-    def wasDeleted(self, node):
+    async def wasDeleted(self, node):
         '''
         Fire the onDel() callbacks for node deletion.
         '''
+        await node.snap.core.triggers.fire(node, 'node:del', form=self.name)
+
         for func in self.ondels:
             try:
-                func(node)
-            except Exception as e:
-                logger.exception('error on onadel for %s' % (self.name,))
+                retn = func(node)
+                if s_coro.iscoro(retn):
+                    await retn
+            except Exception:
+                logger.exception('error on ondel for %s' % (self.name,))
 
     def getSetOps(self, buid, norm):
         indx = self.type.getStorIndx(norm)
@@ -389,9 +396,9 @@ class Model:
         item = s_types.Ndef(self, 'ndef', info, {})
         self.addBaseType(item)
 
-        #info = {'doc': 'A list type for storing multiple values of the same type.'}
-        #item = s_types.List(self, 'list', info, {'type': 'str'})
-        #self.addBaseType(item)
+        # info = {'doc': 'A list type for storing multiple values of the same type.'}
+        # item = s_types.List(self, 'list', info, {'type': 'str'})
+        # self.addBaseType(item)
 
         info = {'doc': 'An digraph edge base type.'}
         item = s_types.Edge(self, 'edge', info, {})
@@ -422,22 +429,23 @@ class Model:
         # TODO order props based on score...
         return props
 
-    def _addTypeDecl(self, decl):
+    # FIXME:  isn't used and won't work.  DELETE ME
+    # def _addTypeDecl(self, decl):
 
-        typename, basename, typeopts, typeinfo = decl
+    #     typename, basename, typeopts, typeinfo = decl
 
-        base = self.types.get(basename)
-        if base is None:
-            self._type_pends[typename].append(tdef)
-            return
+    #     base = self.types.get(basename)
+    #     if base is None:
+    #         self._type_pends[typename].append(tdef)
+    #         return
 
-        item = base.extend(name, info, opts)
-        self.types[name] = item
+    #     item = base.extend(name, info, opts)
+    #     self.types[name] = item
 
-        pends = self._type_pends.pop(name, None)
-        if pends is not None:
-            for name, subof, info, opts in pends:
-                self.types[name] = item.clone(name, info, opts)
+    #     pends = self._type_pends.pop(name, None)
+    #     if pends is not None:
+    #         for name, subof, info, opts in pends:
+    #             self.types[name] = item.clone(name, info, opts)
 
     def getTypeClone(self, typedef):
 

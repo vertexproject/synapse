@@ -3,7 +3,6 @@ import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.scope as s_scope
-import synapse.lib.msgpack as s_msgpack
 import synapse.lib.encoding as s_encoding
 
 import synapse.tests.utils as s_t_utils

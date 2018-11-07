@@ -75,7 +75,7 @@ class Cmd:
             text (str): Command to process.
 
         Notes:
-            This is implemented independent of argparse (et.al) due to the
+            This is implemented independent of argparse (et al) due to the
             need for syntax aware argument splitting. Also, allows different
             split per command type
 
