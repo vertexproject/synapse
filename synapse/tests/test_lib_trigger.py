@@ -13,6 +13,12 @@ class TrigTest(s_t_utils.SynTest):
         async with self.getTestDmon(mirror='dmoncore') as dmon:
             await self.trigger_tests(dmon)
 
+    async def test_trigger_recursion(self):
+        async with self.getTestDmon(mirror='dmoncore') as dmon, \
+                await self.agetTestProxy(dmon, 'core') as core:
+            await core.addTrigger('node:add', 'sudo | [ testguid="*" ]', form='testguid')
+            await s_common.aspin(await core.eval('sudo | [ testguid="*" ]'))
+
     async def trigger_tests(self, dmon):
         pconf = {'user': 'root', 'passwd': 'root'}
         async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
