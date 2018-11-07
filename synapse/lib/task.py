@@ -56,6 +56,16 @@ class Task(s_base.Base):
 
     async def _onTaskFini(self):
 
+        for task in list(self.kids.values()):
+            await task.fini()
+
+        self.task.cancel()
+
+        try:
+            await self.task
+        except Exception as e:
+            pass
+
         if self.root is not None:
             self.root.kids.pop(self.iden)
 
@@ -69,17 +79,7 @@ class Task(s_base.Base):
         self.kids[synt.iden] = synt
 
     async def kill(self):
-
-        for task in list(self.kids.values()):
-            await task.kill()
-
-        self.task.cancel()
-
-        try:
-            await self.task
-        except Exception as e:
-            pass
-
+        # task kill and fini are the same...
         await self.fini()
 
     def pack(self):
