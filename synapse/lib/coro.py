@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 import synapse.glob as s_glob
 import synapse.common as s_common
 
+import synapse.lib.queue as s_queue
+
 def iscoro(item):
     return inspect.iscoroutine(item)
 
