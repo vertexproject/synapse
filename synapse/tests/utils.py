@@ -249,6 +249,9 @@ class TstOutPut(s_output.OutPutStr):
             return False
         return True
 
+    def clear(self):
+        self.mesgs.clear()
+
 class TestSteps:
     '''
     A class to assist with interlocking for multi-thread tests.
@@ -630,6 +633,19 @@ class SynTest(unittest.TestCase):
 
                 s_certdir.defdir = certdir
 
+    def getTestUrl(self, dmon, name, **opts):
+
+        host, port = dmon.addr
+        netloc = '%s:%s' % (host, port)
+
+        user = opts.get('user')
+        passwd = opts.get('passwd')
+
+        if user is not None and passwd is not None:
+            netlock = '%s:%s@%s' % (user, passwd, netloc)
+
+        return 'tcp://%s/%s' % (netloc, name)
+
     def getTestProxy(self, dmon, name, **kwargs):
         host, port = dmon.addr
         kwargs.update({'host': host, 'port': port})
@@ -669,15 +685,12 @@ class SynTest(unittest.TestCase):
                     srcpath = self.getTestFilePath(mirror)
                 dstpath = os.path.join(tempdir, 'mirror')
                 shutil.copytree(srcpath, dstpath)
-                s_scope.set('dirn', dstpath)
                 yield dstpath
 
             else:
-                s_scope.set('dirn', tempdir)
                 yield tempdir
 
         finally:
-            s_scope.pop('dirn')
             shutil.rmtree(tempdir, ignore_errors=True)
 
     def getTestFilePath(self, *names):
@@ -888,6 +901,15 @@ class SynTest(unittest.TestCase):
         finally:
             s_common.syndir = olddir
 
+    @contextlib.contextmanager
+    def getTestSynDir(self):
+        '''
+        Combines getTestDir() and setSynDir() into one.
+        '''
+        with self.getTestDir() as dirn:
+            with self.setSynDir(dirn):
+                yield dirn
+
     def eq(self, x, y, msg=None):
         '''
         Assert X is equal to Y
@@ -1005,9 +1027,12 @@ class SynTest(unittest.TestCase):
         '''
         Assert that the length of an object is equal to X
         '''
-        gtyps = (s_telepath.Genr,
+        gtyps = (
+                 s_telepath.Genr,
+                 s_coro.GenrHelp,
                  types.GeneratorType,
                  )
+
         if isinstance(obj, gtyps):
             obj = list(obj)
 
@@ -1230,6 +1255,7 @@ class SynTest(unittest.TestCase):
             # have to construct them.
             s_scope.set('axonurl', axonurl)
             s_scope.set('coreurl', coreurl)
+
             s_scope.set('blobstorurl', blobstorurl)
 
             # grant the root user permissions
@@ -1240,23 +1266,3 @@ class SynTest(unittest.TestCase):
                     await core.addUserRole('root', 'deleter')
 
             yield dmon
-
-class SyncToAsyncCMgr():
-    '''
-    Wraps a regular context manager in an async one
-    '''
-    def __init__(self, func, *args, **kwargs):
-        def run_and_enter():
-            obj = func(*args, **kwargs)
-            rv = obj.__enter__()
-            return obj, rv
-
-        self.coro = s_glob.plex.executor(run_and_enter)
-        self.obj = None
-
-    async def __aenter__(self):
-        self.obj, rv = await self.coro
-        return rv
-
-    async def __aexit__(self, *args):
-        return await s_glob.plex.executor(self.obj.__exit__, *args)

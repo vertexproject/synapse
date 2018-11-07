@@ -1,62 +1,94 @@
-from __future__ import annotations
-
+import asyncio
 import threading
 
-lock = threading.RLock()
+_glob_loop = None
+_glob_thrd = None
 
-plex = None     # type: 'synapse.lib.plex.Plex'
-pool = None     # s_threads.Pool(maxsize=tmax)
+def initloop():
 
-def inpool(f):
-    '''
-    Wrap the given function to be called from the global thread pool.
-    '''
-    def wrap(*args, **kwargs):
-        return pool.call(f, *args, **kwargs)
-    return wrap
+    global _glob_loop
+    global _glob_thrd
+
+    # if there's no global loop....
+    if _glob_loop is None:
+
+        # check if it's us....
+        try:
+            _glob_loop = asyncio.get_running_loop()
+            # if we get here, it's us!
+            _glob_thrd = threading.currentThread()
+
+        except RuntimeError as e:
+
+            # otherwise, lets fire one...
+            _glob_loop = asyncio.new_event_loop()
+
+            _glob_thrd = threading.Thread(target=_glob_loop.run_forever, name='SynLoop')
+            _glob_thrd.setDaemon(True)
+            _glob_thrd.start()
+
+    return _glob_loop
+
+def iAmLoop():
+    initloop()
+    return threading.currentThread() == _glob_thrd
 
 def sync(coro, timeout=None):
     '''
-    A terse way to return a value from a coroutine
-    via the global Plex() event loop.
+    Schedule a coroutine to run on the global loop and return it's result.
+
+    Args:
+        coro (coroutine): The coroutine instance.
+
+    Notes:
+        This API is thread safe and should only be called by non-loop threads.
     '''
-    return plex.coroToSync(coro, timeout=timeout)
+    loop = initloop()
+    return asyncio.run_coroutine_threadsafe(coro, loop).result(timeout)
+
+def coroToTask(coro):
+    '''
+    Schedule a coro to run on the global loop and return a task.
+
+    Args:
+        coro (coroutine): The coroutine instance.
+
+    Notes:
+        This API is thread safe.
+
+    Returns:
+        concurrent.futures.Future: A Future to wait on.
+    '''
+    loop = initloop()
+    return asyncio.run_coroutine_threadsafe(coro, loop)
 
 def synchelp(f):
     '''
     The synchelp decorator allows the transparent execution of
-    a coroutine using the global plex from a thread other than
+    a coroutine using the global loop from a thread other than
     the event loop:
 
     @s_glob.synchelp
     async def stuff(x, y):
         ...
 
-    # From within the global plex event loop, the standard await:
+    # From within the global event loop, the standard await:
 
     valu = await stuff(x, y)
 
-    # From a worker thread, outside the plex event loop:
+    # From a worker thread, outside the event loop:
 
     valu = stuff(x, y)
 
     # In both cases, the actual work is done by the global loop.
-
-    TODO:  Assert that this isn't called from inside a event loop
     '''
     def wrap(*args, **kwargs):
 
         coro = f(*args, **kwargs)
 
-        if not plex.iAmLoop():
+        if not iAmLoop():
             return sync(coro)
 
         return coro
 
     return wrap
-
-async def executor(func, *args, **kwargs):
-    '''
-    Run the given function in an executor to the global loop.
-    '''
-    return await plex.executor(func, *args, **kwargs)

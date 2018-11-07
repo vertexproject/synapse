@@ -13,7 +13,6 @@ import contextlib
 import lmdb  # type: ignore
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
@@ -362,7 +361,7 @@ class _BlobStorWriter(s_base.Base):
                     _, wcid, fut = msg
                     result = self._complete_session(wcid)
                     if fut is not None:
-                        s_glob.plex.callSoonSafe(functools.partial(fut.set_result, result))
+                        self.schedCallSafe(fut.set_result, result)
 
                 elif cmd == self.Command.UPDATE_OFFSET:
                     _, offset = msg
@@ -418,7 +417,9 @@ class BlobStorApi(PassThroughApi):
                        '_complete', '_cancel', '_partialsubmit', 'getCloneProgress']
 
     async def startput(self):
-        return await Uploader.anit(self.link, self)
+        upld = await Uploader.anit(self.link, self)
+        self.onfini(upld)
+        return upld
 
 class BlobStor(s_cell.Cell):
     '''
@@ -463,7 +464,7 @@ class BlobStor(s_cell.Cell):
         self.cloneof = self.conf.get('cloneof')
 
         if self.cloneof is not None:
-            self.clonetask = s_glob.plex.coroToTask(self._cloneeLoop(self.cloneof))
+            self.clonetask = self.schedCoro(self._cloneeLoop(self.cloneof))
 
         self.onfini(self.writer.fini)
 
@@ -900,14 +901,14 @@ class Axon(s_cell.Cell):
         async def _connect_to_blobstors():
             # Wait a few seconds for the daemon to register all of its shared objects
             DAEMON_DELAY = 3
-            await s_glob.plex.sleep(DAEMON_DELAY)
+            await asyncio.sleep(DAEMON_DELAY)
             for path in paths:
                 try:
                     await self._start_watching_blobstor(path)
                 except Exception:
                     logger.error('At axon startup, failed to connect to stored blobstor path %s', _path_sanitize(path))
 
-        conn_future = s_glob.plex.coroToTask(_connect_to_blobstors())
+        conn_future = self.schedCoro(_connect_to_blobstors())
 
         self._workq = await s_queue.AsyncQueue.anit(50)
         self.xact = IncrementalTransaction(self.lenv)
@@ -921,6 +922,7 @@ class Axon(s_cell.Cell):
             await self._workq.fini()
             await self._proxykeeper.fini()
             self._worker.join()
+
         self.onfini(fini)
 
     def _get_stored_blobstorpaths(self):
@@ -941,8 +943,7 @@ class Axon(s_cell.Cell):
         stop_watching_event = asyncio.Event(loop=self.loop)
         self.blobstorwatchers[blobstorpath] = stop_watching_event
 
-        future = s_glob.plex.coroToTask(self._watch_blobstor(blobstor, bsid, blobstorpath, stop_watching_event))
-        self.onfini(future.cancel)
+        self.schedCoro(self._watch_blobstor(blobstor, bsid, blobstorpath, stop_watching_event))
 
     async def addBlobStor(self, blobstorpath):
         '''
@@ -1035,11 +1036,12 @@ class Axon(s_cell.Cell):
             except ConnectionRefusedError:
                 logger.warning('Trouble connecting to blobstor %s.  Will retry in %ss.', _path_sanitize(blobstorpath),
                                CLONE_TIMEOUT)
-                await s_glob.plex.sleep(CLONE_TIMEOUT)
+                await asyncio.sleep(CLONE_TIMEOUT)
             except Exception:
+                logger.exception('BlobStor._watch_blobstor error on %s', _path_sanitize(blobstorpath))
                 if not self.isfini:
-                    logger.exception('BlobStor._watch_blobstor error on %s', _path_sanitize(blobstorpath))
-                await s_glob.plex.sleep(CLONE_TIMEOUT)
+                    logger.error(f'_watch_blobstor - asyncio.sleep({CLONE_TIMEOUT})')
+                    await asyncio.sleep(CLONE_TIMEOUT)
 
     def _updateSyncProgress(self, bsid, new_offset):
         '''
@@ -1080,7 +1082,7 @@ class Axon(s_cell.Cell):
                 func, done_event = msg
                 func()
                 if done_event is not None:
-                    s_glob.plex.callSoonSafe(done_event.set)
+                    self.schedCallSafe(done_event.set)
         finally:
             self.xact.fini()
 

@@ -2,7 +2,6 @@ import os
 import asyncio
 import multiprocessing
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -10,9 +9,8 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.tests.utils as s_t_utils
 
 class LmdbSlabTest(s_t_utils.SynTest):
-    async def test_lmdbslab_base(self):
 
-        self.true(s_glob.plex.iAmLoop())
+    async def test_lmdbslab_base(self):
 
         with self.getTestDir() as dirn:
 

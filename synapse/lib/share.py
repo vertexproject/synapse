@@ -19,13 +19,14 @@ class Share(s_base.Base):
         self.exited = False
         self.entered = False
 
-        items = link.get('dmon:items')
+        sess = link.get('sess')
 
         async def fini():
-            items.pop(self.iden, None)
+            sess.popSessItem(self.iden)
 
         self.onfini(fini)
-        items[self.iden] = self
+
+        sess.setSessItem(self.iden, self)
 
     async def _runShareLoop(self):
         return

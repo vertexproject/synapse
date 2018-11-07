@@ -93,14 +93,14 @@ class Slab(s_base.Base):
                 self.forcecommit()
 
     async def _onCoFini(self):
-        assert s_glob.plex.iAmLoop()
+        assert s_glob.iAmLoop()
         self._finiCoXact()
         self.lenv.close()
         del self.lenv
 
     def _finiCoXact(self):
 
-        assert s_glob.plex.iAmLoop()
+        assert s_glob.iAmLoop()
 
         [scan.bump() for scan in self.scans]
 
@@ -211,6 +211,16 @@ class Slab(s_base.Base):
                 if lmax is not None and lkey[:size] > lmax:
                     return
 
+                yield lkey, lval
+
+    def scanByFull(self, db=None):
+
+        with Scan(self, db) as scan:
+
+            if not scan.first():
+                return
+
+            for lkey, lval in scan.iternext():
                 yield lkey, lval
 
     # def keysByRange():
@@ -369,6 +379,15 @@ class Scan:
         if not self.curs.last():
             return None
         return self.curs.key()
+
+    def first(self):
+
+        if self.curs.first():
+            self.genr = self.curs.iternext()
+            self.atitem = next(self.genr)
+            return True
+
+        return False
 
     def set_key(self, lkey):
 

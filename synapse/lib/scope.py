@@ -1,5 +1,5 @@
 import os
-import threading
+import asyncio
 import contextlib
 
 import synapse.common as s_common
@@ -128,42 +128,42 @@ class Scope:
 envr = dict(os.environ)
 globscope = Scope(envr)
 
-def _thr_scope():
+def _task_scope():
 
-    thrd = threading.currentThread()
-    scope = getattr(thrd, '_syn_scope', None)
+    task = asyncio.current_task()
+    scope = getattr(task, '_syn_scope', None)
 
-    # no need to lock because it's per-thread...
+    # no need to lock because it's per-task...
     if scope is None:
         scope = Scope(globscope)
-        thrd._syn_scope = scope
+        task._syn_scope = scope
 
     return scope
 
 def get(name, defval=None):
     '''
-    Access this thread's scope with default values from glob.
+    Access this task's scope with default values from glob.
     '''
-    return _thr_scope().get(name, defval=defval)
+    return _task_scope().get(name, defval=defval)
 
 def set(name, valu):
     '''
-    Set a value in the current frame of the local thread scope.
+    Set a value in the current frame of the local task scope.
     '''
-    _thr_scope().set(name, valu)
+    _task_scope().set(name, valu)
 
 def pop(name):
     '''
-    Pop and return a thread scope variable.
+    Pop and return a task scope variable.
     Args:
-        name (str): The thread scope variable name.
+        name (str): The task scope variable name.
     Returns:
         obj: The scope value or None
     '''
-    return _thr_scope().pop(name)
+    return _task_scope().pop(name)
 
 def update(vals):
-    scope = _thr_scope()
+    scope = _task_scope()
     scope.update(vals)
 
 def ctor(name, func, *args, **kwargs):
@@ -175,9 +175,9 @@ def ctor(name, func, *args, **kwargs):
 @contextlib.contextmanager
 def enter(vals=None):
     '''
-    Return the thread's local scope for use in a with block
+    Return the task's local scope for use in a with block
     '''
-    scope = _thr_scope()
+    scope = _task_scope()
     scope.enter(vals)
     yield
     scope.leave()
