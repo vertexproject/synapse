@@ -41,7 +41,7 @@ async def listen(host, port, onlink, ssl=None):
 
 class Link(s_base.Base):
     '''
-    A Link() is created for each Plex sock.
+    A Link() is created to wrap a socket reader/writer.
     '''
     async def __anit__(self, reader, writer, info=None):
 

@@ -496,7 +496,7 @@ class ReIndexCmd(Cmd):
             await snap.printf(f'...done')
             return
 
-        raise Exception('reindex was not told what to do!')
+        raise s_exc.SynErr('reindex was not told what to do!')
 
 
 class MoveTagCmd(Cmd):

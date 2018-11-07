@@ -321,6 +321,8 @@ class Base:
                 # The taskDone callback will emit the exception.  No need to repeat
                 pass
 
+            await asyncio.sleep(0)
+
     async def fini(self):
         '''
         Shut down the object and notify any onfini() coroutines.

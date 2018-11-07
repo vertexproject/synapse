@@ -351,7 +351,10 @@ class Cli(s_eventbus.EventBus):
                 if not line:
                     continue
 
-                s_glob.sync(self.runCmdLine(line))
+                coro = self.runCmdLine(line)
+                task = s_glob.coroToTask(coro)
+
+                task.result()
 
             except KeyboardInterrupt as e:
 
