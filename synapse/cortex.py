@@ -914,7 +914,7 @@ class Cortex(s_cell.Cell):
         synt = await self.boss.promote('storm', user=user, info={'query': text})
 
         async def runStorm():
-
+            cancelled = False
             tick = s_common.now()
             count = 0
             try:
@@ -933,6 +933,11 @@ class Cortex(s_cell.Cell):
                         await chan.put(('node', pode))
                         count += 1
 
+            except asyncio.CancelledError:
+                logger.exception('Storm runtime cancelled.')
+                cancelled = True
+                raise
+
             except Exception as e:
                 logger.exception('Error during storm execution')
                 enfo = s_common.err(e)
@@ -941,6 +946,8 @@ class Cortex(s_cell.Cell):
                 await chan.put(('err', enfo))
 
             finally:
+                if cancelled:
+                    return
                 tock = s_common.now()
                 took = tock - tick
                 await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
