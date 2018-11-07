@@ -94,8 +94,7 @@ class Link(s_base.Base):
         Async transmit routine which will wait for writer drain().
         '''
         if self.isfini:
-            logger.debug('Attempt to transmit on disconnected link')
-            return False
+            raise s_exc.IsFini()
 
         byts = s_msgpack.en(mesg)
         try:
@@ -106,13 +105,14 @@ class Link(s_base.Base):
             async with self._drain_lock:
                 await self.writer.drain()
 
-        except ConnectionError as e:
+        except Exception as e:
+
             await self.fini()
+
             einfo = s_common.retnexc(e)
             logger.debug('link.tx connection trouble %s', einfo)
-            return False
 
-        return True
+            raise
 
     async def recv(self, size):
         return await self.reader.read(size)

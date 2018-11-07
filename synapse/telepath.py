@@ -598,6 +598,7 @@ async def openurl(url, **opts):
     link = await s_link.connect(host, port, ssl=sslctx)
 
     prox = await Proxy.anit(link, name)
+    prox.onfini(link)
 
     await prox.handshake(auth=auth)
 
