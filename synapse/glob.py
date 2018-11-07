@@ -23,7 +23,7 @@ def initloop():
             # otherwise, lets fire one...
             _glob_loop = asyncio.new_event_loop()
 
-            _glob_thrd = threading.Thread(target=_glob_loop.run_forever)
+            _glob_thrd = threading.Thread(target=_glob_loop.run_forever, name='SynLoop')
             _glob_thrd.setDaemon(True)
             _glob_thrd.start()
 
