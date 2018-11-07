@@ -62,11 +62,11 @@ class Triggers:
         def en(self):
             return s_msgpack.en(dataclasses.asdict(self))
 
-        async def execute(self, node):
+        async def execute(self, node, tag=None):
             '''
             Actually execute the query
             '''
-            opts = None if self.tag is None else {'vars': {'tag': self.tag}}
+            opts = None if tag is None else {'vars': {'tag': tag}}
             if node.snap.core.auth is not None:
                 user = node.snap.core.auth.users.get(self.user)
                 if user is None:
@@ -91,8 +91,8 @@ class Triggers:
         self._rule_by_form = collections.defaultdict(list)
         self._rule_by_tag = collections.defaultdict(list)
         self.core = core
-        self._load_all(self.core.slab)
         self.enabled = False
+        self._load_all(self.core.slab)
         self._deferred_events = []
 
     async def enable(self):
@@ -185,6 +185,12 @@ class Triggers:
                 logger.exception('fire called with inconsistent arguments')
                 assert False
 
+        def parent_glob(tag):
+            ''' Returns foo.* given foo.bar or None if already top level '''
+            if tag is None or tag[0] == '.' or '.' not in tag:
+                return None
+            return tag.rsplit('.', 1)[0] + '.*'
+
         with self._recursion_check():
 
             if prop is not None:
@@ -192,20 +198,21 @@ class Triggers:
                     await rule.execute(node)
                 return
 
+            glob_tag = parent_glob(tag)
+
             if form is not None:
                 for rule in self._rule_by_form[form]:
-                    if cond == rule.cond and (rule.tag is None or rule.tag == tag):
-                        await rule.execute(node)
+                    if cond == rule.cond and (rule.tag is None or rule.tag == tag or rule.tag == glob_tag):
+                        await rule.execute(node, tag)
 
             if tag is not None:
                 for rule in self._rule_by_tag[tag]:
                     if cond == rule.cond:
-                        await rule.execute(node)
+                        await rule.execute(node, tag)
                 if tag[0] != '.' and '.' in tag:
-                    globbed_tag = tag.rsplit('.', 1)[0] + '.*'
-                    for rule in self._rule_by_tag[globbed_tag]:
+                    for rule in self._rule_by_tag[glob_tag]:
                         if cond == rule.cond:
-                            await rule.execute(node)
+                            await rule.execute(node, tag)
 
     def add(self, username, condition, query, *, form=None, tag=None, prop=None):
 

@@ -1,5 +1,3 @@
-import asyncio
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
@@ -44,7 +42,7 @@ class TrigTest(s_t_utils.SynTest):
             await s_common.aspin(await core.eval('sudo | [ teststr=foo +#footag ]'))
             await s_common.aspin(await core.eval('sudo | [ teststr=foo +#foota.bar ]'))
             await self.agenlen(1, await core.eval('#count'))
-            await self.agenlen(1, await core.eval('teststr=footag.*'))
+            await self.agenlen(1, await core.eval('teststr=footag.bar'))
 
             # tag:del case
             await core.addTrigger('tag:del', 'sudo | [ testint=4 ]', tag='footag')
@@ -104,11 +102,17 @@ class TrigTest(s_t_utils.SynTest):
             await s_common.aspin(await core.eval('sudo | [ testtype10=3 :intprop=25 ]'))
             await self.agenlen(0, await core.eval('testint=6'))
 
+            await self.asyncraises(s_exc.NoSuchIden, core.delTrigger(b'badbuid'))
+
             # Mod trigger
             buid = [b for b, r in triglist if r['cond'] == 'tag:add' and r.get('form') == 'teststr'][0]
+            buid2 = [b for b, r in triglist if r['cond'] == 'tag:add' and r.get('form') is None][0]
             await core.updateTrigger(buid, 'sudo | [ testint=42 ]')
             await s_common.aspin(await core.eval('sudo | [ teststr=foo4 +#bartag ]'))
             await self.agenlen(1, await core.eval('testint=42'))
+
+            # Delete a tag:add
+            await core.delTrigger(buid2)
 
             auth_enabled = True
             try:
@@ -129,3 +133,4 @@ class TrigTest(s_t_utils.SynTest):
 
                 # Mod trigger auth failure
                 await self.asyncraises(s_exc.AuthDeny, core.updateTrigger(buid, '[ teststr=44 ]'))
+

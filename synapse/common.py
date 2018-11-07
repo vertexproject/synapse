@@ -680,7 +680,6 @@ def result(retn):
 
     ctor = getattr(s_exc, name, None)
     if ctor is not None:
-        # breakpoint()
         raise ctor(**info)
 
     info['errx'] = name

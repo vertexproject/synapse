@@ -1,9 +1,6 @@
-import os
 import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
-import synapse.lib.scope as s_scope
-import synapse.lib.encoding as s_encoding
 
 import synapse.tests.utils as s_t_utils
 
@@ -19,10 +16,10 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await s_common.aspin(await core.eval('sudo | [ teststr=foo ]'))
             await self.agenlen(1, await core.eval('testint'))
 
-            await cmdr.runCmdLine('trigger.add tag:add #footag.* [ +#count teststr=$tag ]')
-            await s_common.aspin(await core.eval('sudo | [ teststr=foo +#footag.bar ]'))
+            await cmdr.runCmdLine('trigger.add tag:add teststr #footag.* [ +#count teststr=$tag ]')
+            await s_common.aspin(await core.eval('sudo | [ teststr=bar +#footag.bar ]'))
             await self.agenlen(1, await core.eval('#count'))
-            await self.agenlen(1, await core.eval('teststr=footag.*'))
+            await self.agenlen(1, await core.eval('teststr=footag.bar'))
 
             await cmdr.runCmdLine('trigger.add prop:set testtype10.intprop [ testint=6 ]')
             await s_common.aspin(await core.eval('sudo | [ testtype10=1 :intprop=25 ]'))
@@ -47,3 +44,13 @@ class CmdTriggersTest(s_t_utils.SynTest):
 
             await cmdr.runCmdLine(f'trigger.mod deadbeef12341234')
             self.true(outp.expect('does not match'))
+
+            await cmdr.runCmdLine('trigger.add tag:add #another [ +#count2 ]')
+
+            # Syntax mistake
+            await cmdr.runCmdLine('trigger.add tag:add another [ +#count2 ]')
+            self.true(outp.expect('starting with #'))
+            await cmdr.runCmdLine('trigger.add tug:udd another [ +#count2 ]')
+            self.true(outp.expect('Unrecognized'))
+            await cmdr.runCmdLine('trigger.add tag:add')
+            self.true(outp.expect('Valid values for condition'))

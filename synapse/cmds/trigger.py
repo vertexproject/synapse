@@ -37,11 +37,8 @@ class TriggerList(s_cli.Cmd):
             cond = trig.get('cond') or '<missing'
             if cond.startswith('tag:'):
                 tag = '#' + (trig.get('tag') or '<missing>')
-                form = trig.get('form')
-                if form is None:
-                    obj, obj2 = tag, ''
-                else:
-                    obj, obj2 = form, tag
+                form = trig.get('form') or ''
+                obj, obj2 = form, tag
             else:
                 obj, obj2 = trig.get('prop') or trig.get('form') or '<missing>', ''
 
@@ -185,7 +182,11 @@ class TriggerAdd(s_cli.Cmd):
         if cond.startswith('tag'):
             if rest.startswith('#'):
                 form = parm1
-                tag, query = rest[1:].split(maxsplit=1)
+                try:
+                    tag, query = rest[1:].split(maxsplit=1)
+                except ValueError:
+                    self.printf('Missing query')
+                    return
             else:
                 if parm1[0] != '#':
                     self.printf('Expected tag starting with #')
