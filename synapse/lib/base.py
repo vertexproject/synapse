@@ -313,6 +313,9 @@ class Base:
         return threading.get_ident() == self.ident
 
     async def _kill_active_tasks(self):
+        if not self._active_tasks:
+            return
+
         for task in self._active_tasks.copy():
             task.cancel()
             try:
@@ -321,7 +324,7 @@ class Base:
                 # The taskDone callback will emit the exception.  No need to repeat
                 pass
 
-            await asyncio.sleep(0)
+        await asyncio.sleep(0)
 
     async def fini(self):
         '''
@@ -352,13 +355,16 @@ class Base:
         for base in list(self.tofini):
             await base.fini()
 
-        await self._kill_active_tasks()
+        try:
+            await self._kill_active_tasks()
+        except:
+            logger.exception(f'{self} - Exception during _kill_active_tasks')
 
         for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
             except Exception as e:
-                logger.exception('fini failed')
+                logger.exception(f'{self} - fini function failed: {fini}')
 
         self._syn_funcs.clear()
         self._fini_funcs.clear()

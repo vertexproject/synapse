@@ -303,7 +303,7 @@ class Snap(s_base.Base):
 
         except Exception as e:
 
-            mesg = f'{name} {valu!r} {props!r}'
+            mesg = f'Error adding node: {name} {valu!r} {props!r}'
             logger.exception(mesg)
             if self.strict:
                 raise

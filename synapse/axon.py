@@ -1038,9 +1038,10 @@ class Axon(s_cell.Cell):
                                CLONE_TIMEOUT)
                 await asyncio.sleep(CLONE_TIMEOUT)
             except Exception:
+                logger.exception('BlobStor._watch_blobstor error on %s', _path_sanitize(blobstorpath))
                 if not self.isfini:
-                    logger.exception('BlobStor._watch_blobstor error on %s', _path_sanitize(blobstorpath))
-                await asyncio.sleep(CLONE_TIMEOUT)
+                    logger.error(f'_watch_blobstor - asyncio.sleep({CLONE_TIMEOUT})')
+                    await asyncio.sleep(CLONE_TIMEOUT)
 
     def _updateSyncProgress(self, bsid, new_offset):
         '''
@@ -1081,7 +1082,7 @@ class Axon(s_cell.Cell):
                 func, done_event = msg
                 func()
                 if done_event is not None:
-                    self.schedCoroSafe(done_event.set())
+                    self.schedCallSafe(done_event.set)
         finally:
             self.xact.fini()
 
