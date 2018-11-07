@@ -13,17 +13,17 @@ logger = logging.getLogger(__name__)
 import synapse.glob as s_glob
 import synapse.common as s_common
 
-import synapse.lib.queue as s_queue
-
 def iscoro(item):
     return inspect.iscoroutine(item)
 
 async def genr2agenr(func, *args, qsize=100, **kwargs):
-    ''' Returns an async generator that receives a stream of messages from a sync generator func(*args, **kwargs) '''
-    class SentinelClass:
-        pass
-
+    '''
+    Returns an async generator that receives a stream of messages from a sync generator func(*args, **kwargs)
+    '''
     sentinel = s_common.NoValu()
+
+    # Deferred import to avoid a import loop
+    import synapse.lib.queue as s_queue
 
     async with await s_queue.S2AQueue.anit(qsize) as chan:
 
