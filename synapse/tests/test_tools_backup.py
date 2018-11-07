@@ -1,11 +1,11 @@
 import os
 import synapse.lib.scope as s_scope
 
-import synapse.tests.utils as s_test
+import synapse.tests.utils as s_t_utils
 
 import synapse.tools.backup as s_backup
 
-class BackupTest(s_test.SynTest):
+class BackupTest(s_t_utils.SynTest):
 
     def dirset(self, sdir, skipfns):
         ret = set()
@@ -28,8 +28,9 @@ class BackupTest(s_test.SynTest):
         self.eq(set1, set2)
         return set1
 
-    def test_backup(self):
-        with self.getTestCore() as core:
+    async def test_backup(self):
+        async with self.getTestCore() as core:
+            await core.fini()  # Avoid having the same DB open twice
             src_dirn = s_scope.get('dirn')
             # This technically mangles the value in scope but that value
             # is not used for doing directory removal.
@@ -41,7 +42,7 @@ class BackupTest(s_test.SynTest):
                 cmpr_path = os.path.join(args.outpath,
                                          os.path.basename(src_dirn))
                 fpset = self.compare_dirs(src_dirn,
-                                         cmpr_path,
-                                         skipfns=['lock.mdb'])
+                                          cmpr_path,
+                                          skipfns=['lock.mdb'])
                 # We expect the data.mdb file to be in the fpset
                 self.isin('/layers/000-default/layer.lmdb/data.mdb', fpset)

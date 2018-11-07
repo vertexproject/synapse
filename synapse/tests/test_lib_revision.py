@@ -1,5 +1,5 @@
 import synapse.exc as s_exc
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 import synapse.lib.revision as s_revision
 
 class Revr(s_revision.Revisioner):
@@ -12,7 +12,7 @@ class Revr(s_revision.Revisioner):
     def _addBarInfo(self, x, y=10):
         x['bar'] = 20
 
-class RevTest(s_test.SynTest):
+class RevTest(s_t_utils.SynTest):
 
     def test_revision_er(self):
 

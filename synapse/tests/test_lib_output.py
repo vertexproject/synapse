@@ -1,8 +1,8 @@
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
 import synapse.lib.output as s_output
 
-class TestOutPut(SynTest):
+class TestOutPut(s_t_utils.SynTest):
 
     #def test_output(self):
         #outp = s_output.OutPut()

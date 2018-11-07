@@ -1,41 +1,49 @@
-import asyncio
+import contextlib
 
-import synapse.glob as s_glob
+import synapse.exc as s_exc
 import synapse.lib.coro as s_coro
+import synapse.tests.utils as s_t_utils
 
-import synapse.tests.common as s_test
+class CoroTest(s_t_utils.SynTest):
 
-class CoroTest(s_test.SynTest):
+    async def test_coro_iscoro(self):
 
-    @s_glob.synchelp
-    async def test_coro_fini(self):
+        async def agen():
+            yield 42
 
-        event = asyncio.Event()
-        async def setit():
-            event.set()
+        def genr():
+            yield 'woot'
 
-        f = s_coro.Fini()
-        async with f as f:
-            f.onfini(setit)
+        async def woot():
+            return 10
 
-        self.true(f.isfini)
-        self.true(event.is_set())
-        self.false(f._isExitExc())
+        item = woot()
+        self.true(s_coro.iscoro(item))
 
-    def test_coro_queue(self):
+        await item
 
-        async def init():
-            queue = s_coro.Queue()
-            queue.put('foo')
-            return queue
+        self.false(s_coro.iscoro(genr()))
+        self.false(s_coro.iscoro(agen()))
 
-        async def poke():
-            await asyncio.sleep(0.1)
-            queue.put('bar')
+    async def test_genr2agenr(self):
 
-        queue = s_glob.sync(init())
+        def testgenr(n):
+            yield from range(n)
 
-        self.eq(['foo'], s_glob.sync(queue.slice()))
+        await self.agenlen(10, s_coro.genr2agenr(testgenr, 10, qsize=5))
 
-        s_glob.plex.coroToTask(poke())
-        self.eq(['bar'], s_glob.sync(queue.slice()))
+        def badgenr(n):
+            yield 42
+            raise s_exc.MustBeLocal()
+
+        await self.agenraises(s_exc.MustBeLocal, s_coro.genr2agenr(badgenr, 10))
+
+    def test_asynctosynccmgr(self):
+
+        @contextlib.asynccontextmanager
+        async def testmgr():
+            yield 42
+
+        syncmgr = s_coro.AsyncToSyncCMgr(testmgr)
+        with syncmgr as foo:
+            self.eq(foo, 42)

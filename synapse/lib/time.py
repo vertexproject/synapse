@@ -59,6 +59,9 @@ def repr(tick, pack=False):
     Returns:
         (str):  A date time string
     '''
+    if tick == 0x7fffffffffffffff:
+        return '?'
+
     dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=tick)
     millis = dt.microsecond / 1000
     if pack:

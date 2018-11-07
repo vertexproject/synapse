@@ -1,16 +1,13 @@
-import logging
-
 import synapse.common as s_common
-import synapse.lib.coro as s_coro
 
-logger = logging.getLogger(__name__)
+import synapse.lib.base as s_base
 
-class Share(s_coro.Fini):
+class Share(s_base.Base):
     '''
     Class to wrap a dynamically shared object.
     '''
-    def __init__(self, link, item):
-        s_coro.Fini.__init__(self)
+    async def __anit__(self, link, item):
+        await s_base.Base.__anit__(self)
 
         self.link = link
 

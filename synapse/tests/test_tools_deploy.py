@@ -1,10 +1,10 @@
 import synapse.common as s_common
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
 import synapse.tools.deploy as s_deploy
 
-class DeployTest(s_test.SynTest):
+class DeployTest(s_t_utils.SynTest):
     def test_deploy_cells(self):
         outp = self.getTestOutp()
         argv = ['--cells', 'hehe', 'haha']

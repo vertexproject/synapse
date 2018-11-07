@@ -1,3 +1,4 @@
+import synapse.glob as s_glob
 import synapse.lib.cli as s_cli
 import synapse.cmds.cortex as s_cmds_cortex
 
@@ -8,17 +9,17 @@ cmdsbycell = {
     ),
 }
 
-def getItemCmdr(cell, outp=None, **opts):
+async def getItemCmdr(cell, outp=None, **opts):
     '''
     Construct and return a cmdr for the given remote cell.
 
     Example:
 
-        cmdr = getItemCmdr(foo)
+        cmdr = await getItemCmdr(foo)
 
     '''
     cmdr = s_cli.Cli(cell, outp=outp)
-    typename = cell.getCellType()
+    typename = await cell.getCellType()
 
     for ctor in cmdsbycell.get(typename, ()):
         cmdr.addCmdClass(ctor)
@@ -34,5 +35,5 @@ def runItemCmdr(item, outp=None, **opts):
         runItemCmdr(foo)
 
     '''
-    cmdr = getItemCmdr(item, outp=outp, **opts)
+    cmdr = s_glob.sync(getItemCmdr(item, outp=outp, **opts))
     cmdr.runCmdLoop()

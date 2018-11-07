@@ -4,6 +4,7 @@ import argparse
 import collections
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.node as s_node
@@ -26,6 +27,11 @@ class Runtime:
         self.snap = snap
         self.user = user
 
+        self.varmeths = {
+            'split': self._varMethSplit,
+            # TODO encode/decode/slice
+        }
+
         self.inputs = []    # [synapse.lib.node.Node(), ...]
 
         self.iden = s_common.guid()
@@ -41,11 +47,14 @@ class Runtime:
         self._graph_done = {}
         self._graph_want = collections.deque()
 
-    def printf(self, mesg):
-        return self.snap.printf(mesg)
+    def _varMethSplit(self, valu, args):
+        return valu.split(*args)
 
-    def warn(self, mesg, **info):
-        return self.snap.warn(mesg, **info)
+    async def printf(self, mesg):
+        return await self.snap.printf(mesg)
+
+    async def warn(self, mesg, **info):
+        return await self.snap.warn(mesg, **info)
 
     def elevate(self):
 
@@ -78,14 +87,14 @@ class Runtime:
         '''
         self.inputs.append(node)
 
-    def getInput(self):
+    async def getInput(self):
 
         for node in self.inputs:
             yield node, self.initPath(node)
 
         for ndef in self.opts.get('ndefs', ()):
 
-            node = self.snap.getNodeByNdef(ndef)
+            node = await self.snap.getNodeByNdef(ndef)
             if node is not None:
                 yield node, self.initPath(node)
 
@@ -93,7 +102,7 @@ class Runtime:
 
             buid = s_common.uhex(iden)
 
-            node = self.snap.getNodeByBuid(buid)
+            node = await self.snap.getNodeByBuid(buid)
             if node is not None:
                 yield node, self.initPath(node)
 
@@ -114,13 +123,13 @@ class Runtime:
         perm = '.'.join(args)
         raise s_exc.AuthDeny(perm=perm, user=self.user.name)
 
-    def execStormQuery(self, query):
+    async def execStormQuery(self, query):
         count = 0
         for node, path in self.iterStormQuery(query):
             count += 1
         return count
 
-    def iterStormQuery(self, query):
+    async def iterStormQuery(self, query):
         # init any options from the query
         # (but dont override our own opts)
         for name, valu in query.opts.items():
@@ -137,7 +146,7 @@ class Runtime:
 
                 try:
 
-                    for node, path in query.iterNodePaths(self):
+                    async for node, path in query.iterNodePaths(self):
                         self.tick()
                         yield node, path
 
@@ -146,7 +155,7 @@ class Runtime:
 
             return
 
-        for node, path in query.iterNodePaths(self):
+        async for node, path in query.iterNodePaths(self):
             self.tick()
             yield node, path
 
@@ -154,13 +163,13 @@ class Parser(argparse.ArgumentParser):
 
     def __init__(self, prog=None, descr=None):
 
-        self.printf = None
         self.exited = False
+        self.mesgs = []
 
         argparse.ArgumentParser.__init__(self,
-            prog=prog,
-            description=descr,
-            formatter_class=argparse.RawDescriptionHelpFormatter)
+                                         prog=prog,
+                                         description=descr,
+                                         formatter_class=argparse.RawDescriptionHelpFormatter)
 
     def exit(self, status=0, message=None):
         '''
@@ -168,18 +177,17 @@ class Parser(argparse.ArgumentParser):
         As such, this function must raise an exception which will be caught
         by Cmd.hasValidOpts.
         '''
-        if message:
-            self._print_message(message)
         self.exited = True
+        if message is not None:
+            self.mesgs.extend(message.split('\n'))
         raise s_exc.BadSyntaxError(mesg=message, prog=self.prog, status=status)
 
     def _print_message(self, text, fd=None):
-
-        if self.printf is None:
-            return
-
-        for line in text.split('\n'):
-            self.printf(line)
+        '''
+        Note:  this overrides an existing method in ArgumentParser
+        '''
+        # Since we have the async->sync->async problem, queue up and print at exit
+        self.mesgs.extend(text.split('\n'))
 
 class Cmd:
     '''
@@ -209,21 +217,20 @@ class Cmd:
     def getArgParser(self):
         return Parser(prog=self.name, descr=self.__class__.__doc__)
 
-    def hasValidOpts(self, snap):
+    async def hasValidOpts(self, snap):
+
         self.pars.printf = snap.printf
         try:
             self.opts = self.pars.parse_args(self.argv)
         except s_exc.BadSyntaxError as e:
             pass
+        for line in self.pars.mesgs:
+            await snap.printf(line)
         return not self.pars.exited
 
-    def execStormCmd(self, runt, genr):
-        # override me!
-        yield from self.runStormCmd(runt.snap, genr)
-
-    def runStormCmd(self, snap, genr):
-        # Older API.  Prefer execStormCmd().
-        yield from genr
+    async def execStormCmd(self, runt, genr):
+        ''' Abstract base method '''
+        raise s_exc.NoSuchImpl('Subclass must implement execStormCmd')
 
 class HelpCmd(Cmd):
     '''
@@ -236,16 +243,17 @@ class HelpCmd(Cmd):
         pars.add_argument('command', nargs='?', help='Show the help output for a given command.')
         return pars
 
-    def runStormCmd(self, snap, genr):
+    async def execStormCmd(self, runt, genr):
 
-        yield from genr
+        async for item in genr:
+            yield item
 
         if not self.opts.command:
-            for name, ctor in sorted(snap.core.getStormCmds()):
-                snap.printf('%.20s: %s' % (name, ctor.getCmdBrief()))
+            for name, ctor in sorted(runt.snap.core.getStormCmds()):
+                await runt.printf('%.20s: %s' % (name, ctor.getCmdBrief()))
 
-        snap.printf('')
-        snap.printf('For detailed help on any command, use <cmd> --help')
+        await runt.printf('')
+        await runt.printf('For detailed help on any command, use <cmd> --help')
 
 class LimitCmd(Cmd):
     '''
@@ -263,15 +271,17 @@ class LimitCmd(Cmd):
         pars.add_argument('count', type=int, help='The maximum number of nodes to yield.')
         return pars
 
-    def runStormCmd(self, snap, genr):
+    async def execStormCmd(self, runt, genr):
 
-        for count, item in enumerate(genr):
-
-            if count >= self.opts.count:
-                snap.printf(f'limit reached: {self.opts.count}')
-                break
+        count = 0
+        async for item in genr:
 
             yield item
+            count += 1
+
+            if count >= self.opts.count:
+                await runt.printf(f'limit reached: {self.opts.count}')
+                break
 
 class UniqCmd(Cmd):
     '''
@@ -291,13 +301,88 @@ class UniqCmd(Cmd):
         pars = Cmd.getArgParser(self)
         return pars
 
-    def runStormCmd(self, snap, genr):
+    async def execStormCmd(self, runt, genr):
+
         buidset = set()
-        for node, path in genr:
+
+        async for node, path in genr:
+
             if node.buid in buidset:
                 continue
+
             buidset.add(node.buid)
             yield node, path
+
+class MaxCmd(Cmd):
+    '''
+    Consume nodes and yield only the one node with the highest value for a property.
+
+    Examples:
+
+        file:bytes +#foo.bar | max size
+
+    '''
+
+    name = 'max'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('propname')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        maxvalu = None
+        maxitem = None
+
+        name = self.opts.propname.strip(':')
+
+        async for node, path in genr:
+
+            valu = node.get(name)
+            if valu is None:
+                continue
+
+            if maxvalu is None or valu > maxvalu:
+                maxvalu = valu
+                maxitem = (node, path)
+
+        yield maxitem
+
+class MinCmd(Cmd):
+    '''
+    Consume nodes and yield only the one node with the lowest value for a property.
+
+    Examples:
+
+        file:bytes +#foo.bar | min size
+
+    '''
+    name = 'min'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('propname')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        minvalu = None
+        minitem = None
+
+        name = self.opts.propname.strip(':')
+
+        async for node, path in genr:
+
+            valu = node.get(name)
+            if valu is None:
+                continue
+
+            if minvalu is None or valu < minvalu:
+                minvalu = valu
+                minitem = (node, path)
+
+        yield minitem
 
 class DelNodeCmd(Cmd):
     '''
@@ -317,14 +402,14 @@ class DelNodeCmd(Cmd):
         pars.add_argument('--force', default=False, action='store_true', help=forcehelp)
         return pars
 
-    def execStormCmd(self, runt, genr):
+    async def execStormCmd(self, runt, genr):
 
         if self.opts.force:
             if runt.user is not None and not runt.user.admin:
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg)
 
-        for node, path in genr:
+        async for node, path in genr:
 
             # make sure we can delete the tags...
             for tag in node.tags.keys():
@@ -332,10 +417,11 @@ class DelNodeCmd(Cmd):
 
             runt.allowed('node:del', node.form.name)
 
-            node.delete(force=self.opts.force)
+            await node.delete(force=self.opts.force)
 
         # a bit odd, but we need to be detected as a generator
-        yield from ()
+        if False:
+            yield
 
 class SudoCmd(Cmd):
     '''
@@ -347,18 +433,19 @@ class SudoCmd(Cmd):
     '''
     name = 'sudo'
 
-    def execStormCmd(self, runt, genr):
+    async def execStormCmd(self, runt, genr):
         runt.elevate()
-        yield from genr
+        async for item in genr:
+            yield item
 
 # TODO
-#class AddNodeCmd(Cmd):     # addnode inet:ipv4 1.2.3.4 5.6.7.8
-#class DelPropCmd(Cmd):     # | delprop baz
-#class SetPropCmd(Cmd):     # | setprop foo bar
-#class AddTagCmd(Cmd):      # | addtag --time 2015 #hehe.haha
-#class DelTagCmd(Cmd):      # | deltag #foo.bar
-#class SeenCmd(Cmd):        # | seen --from <guid>update .seen and seen=(src,node).seen
-#class SourcesCmd(Cmd):     # | sources ( <nodes> -> seen:ndef :source -> source )
+# class AddNodeCmd(Cmd):     # addnode inet:ipv4 1.2.3.4 5.6.7.8
+# class DelPropCmd(Cmd):     # | delprop baz
+# class SetPropCmd(Cmd):     # | setprop foo bar
+# class AddTagCmd(Cmd):      # | addtag --time 2015 #hehe.haha
+# class DelTagCmd(Cmd):      # | deltag #foo.bar
+# class SeenCmd(Cmd):        # | seen --from <guid>update .seen and seen=(src,node).seen
+# class SourcesCmd(Cmd):     # | sources ( <nodes> -> seen:ndef :source -> source )
 
 class ReIndexCmd(Cmd):
     '''
@@ -381,14 +468,13 @@ class ReIndexCmd(Cmd):
         pars.add_argument('--subs', default=False, action='store_true', help='Re-parse and set sub props.')
         return pars
 
-    def runStormCmd(self, snap, genr):
+    async def execStormCmd(self, runt, genr):
+
+        snap = runt.snap
 
         if snap.user is not None and not snap.user.admin:
-            snap.warn('reindex requires an admin')
+            await snap.warn('reindex requires an admin')
             return
-
-        snap.elevated = True
-        snap.writeable()
 
         # are we re-indexing a type?
         if self.opts.type is not None:
@@ -398,22 +484,23 @@ class ReIndexCmd(Cmd):
 
             if form is not None:
 
-                snap.printf(f'reindex form: {form.name}')
-                for buid, norm in snap.xact.iterFormRows(form.name):
-                    snap.stor(form.getSetOps(buid, norm))
+                await snap.printf(f'reindex form: {form.name}')
+
+                async for buid, norm in snap.xact.iterFormRows(form.name):
+                    await snap.stor(form.getSetOps(buid, norm))
 
             for prop in snap.model.getPropsByType(self.opts.type):
 
-                snap.printf(f'reindex prop: {prop.full}')
+                await snap.printf(f'reindex prop: {prop.full}')
 
                 formname = prop.form.name
 
-                for buid, norm in snap.xact.iterPropRows(formname, prop.name):
-                    snap.stor(prop.getSetOps(buid, norm))
+                async for buid, norm in snap.xact.iterPropRows(formname, prop.name):
+                    await snap.stor(prop.getSetOps(buid, norm))
 
             return
 
-        for node, path in genr:
+        async for node, path in genr:
 
             form, valu = node.ndef
             norm, info = node.form.type.norm(valu)
@@ -422,7 +509,7 @@ class ReIndexCmd(Cmd):
             if subs is not None:
                 for subn, subv in subs.items():
                     if node.form.props.get(subn):
-                        node.set(subn, subv)
+                        await node.set(subn, subv)
 
             yield node, path
 
@@ -442,13 +529,20 @@ class MoveTagCmd(Cmd):
         pars.add_argument('newtag', help='The new tag tree name.')
         return pars
 
-    def runStormCmd(self, snap, genr):
+    async def execStormCmd(self, runt, genr):
+        snap = runt.snap
 
-        oldt = snap.addNode('syn:tag', self.opts.oldtag)
+        nodes = [node async for node in snap.getNodesBy('syn:tag', self.opts.oldtag)]
+        if not nodes:
+            raise s_exc.BadOperArg(mesg='Cannot move a tag which does not exist.',
+                                   oldtag=self.opts.oldtag)
+        oldt = nodes[0]
         oldstr = oldt.ndef[1]
         oldsize = len(oldstr)
+        oldparts = oldstr.split('.')
+        noldparts = len(oldparts)
 
-        newt = snap.addNode('syn:tag', self.opts.newtag)
+        newt = await snap.addNode('syn:tag', self.opts.newtag)
         newstr = newt.ndef[1]
 
         if oldstr == newstr:
@@ -458,32 +552,36 @@ class MoveTagCmd(Cmd):
         retag = {oldstr: newstr}
 
         # first we set all the syn:tag:isnow props
-        for node in snap.getNodesBy('syn:tag', self.opts.oldtag, cmpr='^='):
+        async for node in snap.getNodesBy('syn:tag', self.opts.oldtag, cmpr='^='):
 
             tagstr = node.ndef[1]
+            tagparts = tagstr.split('.')
+            # Are we in the same tree?
+            if tagparts[:noldparts] != oldparts:
+                continue
 
             newtag = newstr + tagstr[oldsize:]
 
-            newnode = snap.addNode('syn:tag', newtag)
+            newnode = await snap.addNode('syn:tag', newtag)
 
             olddoc = node.get('doc')
             if olddoc is not None:
-                newnode.set('doc', olddoc)
+                await newnode.set('doc', olddoc)
 
             oldtitle = node.get('title')
             if oldtitle is not None:
-                newnode.set('title', oldtitle)
+                await newnode.set('title', oldtitle)
 
             # Copy any tags over to the newnode if any are present.
             for k, v in node.tags.items():
-                newnode.addTag(k, v)
+                await newnode.addTag(k, v)
 
             retag[tagstr] = newtag
-            node.set('isnow', newtag)
+            await node.set('isnow', newtag)
 
         # now we re-tag all the nodes...
         count = 0
-        for node in snap.getNodesBy(f'#{oldstr}'):
+        async for node in snap.getNodesBy(f'#{oldstr}'):
 
             count += 1
 
@@ -496,12 +594,12 @@ class MoveTagCmd(Cmd):
                 if newt is None:
                     continue
 
-                node.delTag(name)
-                node.addTag(newt, valu=valu)
+                await node.delTag(name)
+                await node.addTag(newt, valu=valu)
 
-        snap.printf(f'moved tags on {count} nodes.')
+        await snap.printf(f'moved tags on {count} nodes.')
 
-        for node, path in genr:
+        async for node, path in genr:
             yield node, path
 
 class SpinCmd(Cmd):
@@ -516,11 +614,12 @@ class SpinCmd(Cmd):
     '''
     name = 'spin'
 
-    def runStormCmd(self, snap, genr):
+    async def execStormCmd(self, runt, genr):
 
-        yield from ()
+        if False:
+            yield None
 
-        for node, path in genr:
+        async for node, path in genr:
             pass
 
 class CountCmd(Cmd):
@@ -535,13 +634,14 @@ class CountCmd(Cmd):
     '''
     name = 'count'
 
-    def runStormCmd(self, snap, genr):
+    async def execStormCmd(self, runt, genr):
 
         i = 0
-        for i, (node, path) in enumerate(genr, 1):
-            yield node, path
+        async for item in genr:
+            yield item
+            i += 1
 
-        snap.printf(f'Counted {i} nodes.')
+        await runt.printf(f'Counted {i} nodes.')
 
 class IdenCmd(Cmd):
     '''
@@ -559,18 +659,19 @@ class IdenCmd(Cmd):
                           help='Iden to lift nodes by. May be specified multiple times.')
         return pars
 
-    def execStormCmd(self, runt, genr):
+    async def execStormCmd(self, runt, genr):
 
-        yield from genr
+        async for x in genr:
+            yield x
 
         for iden in self.opts.iden:
             try:
                 buid = s_common.uhex(iden)
             except Exception as e:
-                runt.warn(f'Failed to decode iden: [{iden}]')
+                await runt.warn(f'Failed to decode iden: [{iden}]')
                 continue
 
-            node = runt.snap.getNodeByBuid(buid)
+            node = await runt.snap.getNodeByBuid(buid)
             if node is not None:
                 yield node, runt.initPath(node)
 
@@ -656,6 +757,7 @@ class NoderefsCmd(Cmd):
 
     '''
     name = 'noderefs'
+
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('-d', '--degrees', type=int, default=1, action='store',
@@ -681,9 +783,10 @@ class NoderefsCmd(Cmd):
                           help='Unique the output across ALL input nodes, instead of each input node at a time.')
         return pars
 
-    def runStormCmd(self, snap, genr):
+    async def execStormCmd(self, runt, genr):
 
-        self.snap = snap
+        self.snap = runt.snap
+
         self.omit_traversal_forms = set(self.opts.omit_traversal_form)
         self.omit_traversal_tags = set(self.opts.omit_traversal_tag)
         self.omit_forms = set(self.opts.omit_form)
@@ -696,7 +799,8 @@ class NoderefsCmd(Cmd):
 
         visited = set()
 
-        for node, path in genr:
+        async for node, path in genr:
+
             if self.opts.join:
                 yield node, path
 
@@ -706,9 +810,13 @@ class NoderefsCmd(Cmd):
             # Don't revisit the inbound node from genr
             visited.add(node.buid)
 
-            yield from self.doRefs(node, path, visited)
+            async for item in self.doRefs(node, path, visited):
+                yield item
 
-    def doRefs(self, srcnode, srcpath, visited):
+            async for x in self.doRefs(node, path, visited):
+                yield x
+
+    async def doRefs(self, srcnode, srcpath, visited):
 
         srcqueue = collections.deque()
         srcqueue.append((srcnode, srcpath))
@@ -727,17 +835,21 @@ class NoderefsCmd(Cmd):
                     srcqueue = newqueue
                     break
 
-                for pnode, ppath in self.getRefs(snode, spath):
+                async for pnode, ppath in self.getRefs(snode, spath):
+
                     if pnode.buid in visited:
                         continue
+
                     visited.add(pnode.buid)
+
                     # Are we clear to yield this node?
                     if pnode.ndef[0] in self.omit_forms:
                         continue
+
                     if self.omit_tags.intersection(set(pnode.tags.keys())):
                         continue
 
-                    yield  pnode, ppath
+                    yield pnode, ppath
 
                     # Can we traverse across this node?
                     if pnode.ndef[0] in self.omit_traversal_forms:
@@ -748,10 +860,11 @@ class NoderefsCmd(Cmd):
                     # pointed by this node.
                     newqueue.append((pnode, ppath))
 
-    def getRefs(self, srcnode, srcpath):
+    async def getRefs(self, srcnode, srcpath):
 
         # Pivot out to secondary properties which are forms.
         for name, valu in srcnode.props.items():
+
             prop = srcnode.form.props.get(name)
             if prop is None:  # pragma: no cover
                 # this should be impossible
@@ -759,7 +872,7 @@ class NoderefsCmd(Cmd):
                 continue
 
             if isinstance(prop.type, s_types.Ndef):
-                pivo = self.snap.getNodeByNdef(valu)
+                pivo = await self.snap.getNodeByNdef(valu)
                 if pivo is None:
                     continue  # pragma: no cover
                 yield pivo, srcpath.fork(pivo)
@@ -767,14 +880,14 @@ class NoderefsCmd(Cmd):
 
             if isinstance(prop.type, s_types.NodeProp):
                 qprop, qvalu = valu
-                for pivo in self.snap.getNodesBy(qprop, qvalu):
+                async for pivo in self.snap.getNodesBy(qprop, qvalu):
                     yield pivo, srcpath.fork(pivo)
 
             form = self.snap.model.forms.get(prop.type.name)
             if form is None:
                 continue
 
-            pivo = self.snap.getNodeByNdef((form.name, valu))
+            pivo = await self.snap.getNodeByNdef((form.name, valu))
             if pivo is None:
                 continue  # pragma: no cover
 
@@ -784,28 +897,34 @@ class NoderefsCmd(Cmd):
         # type as me!
         name, valu = srcnode.ndef
         for prop in self.snap.model.propsbytype.get(name, ()):
-            for pivo in self.snap.getNodesBy(prop.full, valu):
+            async for pivo in self.snap.getNodesBy(prop.full, valu):
                 yield pivo, srcpath.fork(pivo)
 
         # Pivot to any Ndef properties we haven't pivoted to yet
         for prop in self.ndef_props:
-            for pivo in self.snap.getNodesBy(prop.full, srcnode.ndef):
+
+            async for pivo in self.snap.getNodesBy(prop.full, srcnode.ndef):
+
                 if self.opts.traverse_edge and isinstance(pivo.form.type, s_types.Edge):
+
                     # Determine if srcnode.ndef is n1 or n2, and pivot to the other side
                     if srcnode.ndef == pivo.get('n1'):
-                        npivo = self.snap.getNodeByNdef(pivo.get('n2'))
+                        npivo = await self.snap.getNodeByNdef(pivo.get('n2'))
                         if npivo is None:  # pragma: no cover
                             logger.warning('n2 does not exist for edge? [%s]', pivo.ndef)
                             continue
                         yield npivo, srcpath.fork(npivo)
                         continue
+
                     if srcnode.ndef == pivo.get('n2'):
-                        npivo = self.snap.getNodeByNdef(pivo.get('n1'))
+
+                        npivo = await self.snap.getNodeByNdef(pivo.get('n1'))
                         if npivo is None:  # pragma: no cover
                             logger.warning('n1 does not exist for edge? [%s]', pivo.ndef)
                             continue
                         yield npivo, srcpath.fork(npivo)
                         continue
+
                     logger.warning('edge type has no n1/n2 property. [%s]', pivo.ndef)  # pragma: no cover
                     continue  # pragma: no cover
 

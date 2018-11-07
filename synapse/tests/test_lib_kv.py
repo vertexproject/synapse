@@ -1,10 +1,12 @@
+import os
 import lmdb
 
 import synapse.lib.kv as s_kv
+import synapse.lib.msgpack as s_msgpack
 
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
-class KvTest(SynTest):
+class KvTest(s_t_utils.SynTest):
 
     def test_lib_kv_base_rewrite(self):
         with self.getTestDir() as dirn:

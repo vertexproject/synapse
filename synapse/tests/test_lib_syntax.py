@@ -1,8 +1,8 @@
 import synapse.exc as s_exc
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 import synapse.lib.syntax as s_syntax
 
-class StormSyntaxTest(s_test.SynTest):
+class StormSyntaxTest(s_t_utils.SynTest):
 
     def test_storm_syntax_basic(self):
         insts = s_syntax.parse('foo("lol",bar=20) baz(10,faz="lol")')

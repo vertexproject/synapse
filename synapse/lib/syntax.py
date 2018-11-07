@@ -5,6 +5,7 @@ import synapse.exc as s_exc
 import synapse.lib.ast as s_ast
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
+import synapse.lib.scrape as s_scrape
 
 '''
 This module implements syntax parsing for the storm runtime.
@@ -594,6 +595,8 @@ def parse_stormsub(text, off=0):
     return opers, off
 
 tagterm = set('*=)]},@ \t\n')
+tagmatchterm = set('=)]},@ \t\n')
+
 whitespace = set(' \t\n')
 
 optset = set('abcdefghijklmnopqrstuvwxyz')
@@ -604,7 +607,7 @@ cmprstart = set('*@!<>^~=')
 cmdset = set('abcdefghijklmnopqrstuvwxyz1234567890.')
 alphanum = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 
-varchars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._-')
+varchars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_')
 
 optcast = {
     'limit': int,
@@ -650,6 +653,14 @@ class Parser:
 
             if not self.more():
                 break
+
+            if self.nextstr('//'):
+                self.noms(until='\n')
+                continue
+
+            if self.nextstr('/*'):
+                self.expect('*/')
+                continue
 
             # if we are sub-query, time to go...
             if self.nextstr('}'):
@@ -854,7 +865,7 @@ class Parser:
 
         self.nextmust('+')
 
-        tag = self.tag()
+        tag = self.tagname()
 
         self.ignore(whitespace)
 
@@ -872,7 +883,7 @@ class Parser:
 
         self.nextmust('-')
 
-        tag = self.tag()
+        tag = self.tagname()
 
         return s_ast.EditTagDel(kids=(tag,))
 
@@ -913,12 +924,22 @@ class Parser:
         return s_ast.PivotInFrom(kids=(prop,), isjoin=True)
 
     def formpivot(self):
+        '''
+        -> *
+        -> #tag.match
+        -> form:prop
+        -> form
+        '''
 
         self.ignore(whitespace)
 
         self.nextmust('->')
 
         self.ignore(whitespace)
+
+        if self.nextchar() == '#':
+            match = self.tagmatch()
+            return s_ast.PivotToTags(kids=(match,))
 
         # check for pivot out syntax
         if self.nextchar() == '*':
@@ -927,6 +948,16 @@ class Parser:
 
         prop = self.absprop()
         return s_ast.FormPivot(kids=(prop,))
+
+    def tagmatch(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('#')
+
+        text = self.noms(until=tagmatchterm)
+
+        return s_ast.TagMatch(text)
 
     def formjoin(self):
 
@@ -1003,6 +1034,9 @@ class Parser:
         if self.nextstr('<+-'):
             return self.formjoinin()
 
+        if self.nextstr('##'):
+            return self.lifttagtag()
+
         char = self.nextchar()
 
         # $foo = valu var assignment
@@ -1045,23 +1079,23 @@ class Parser:
             if self.nextstrs('<-', '<+-'):
                 self._raiseSyntaxError('Pivot in syntax does not currently support relative properties.')
 
+        tokn = self.peek(varset)
+        if tokn == 'for':
+            return self.forloop()
+
+        if tokn == 'switch':
+            return self.switchcase()
+
         name = self.noms(varset)
         if not name:
             self._raiseSyntaxError('unknown query syntax')
 
         self.ignore(whitespace)
 
-        if name == 'match':
-
-            if self.nextstr('$'):
-                return self.varmatch()
-
-            self._raiseSyntaxError('unknown match syntax')
-
         # before ignoring more whitespace, check for form#tag=time
         if self.model.forms.get(name) is not None and self.nextstr('#'):
 
-            tag = self.tag()
+            tag = self.tagname()
             form = s_ast.Const(name)
 
             self.ignore(whitespace)
@@ -1077,35 +1111,49 @@ class Parser:
 
             return s_ast.LiftFormTag(kids=(form, tag, cmpr, valu))
 
-        if self.model.props.get(name) is None:
+        if self.model.props.get(name) is not None:
+            # we have a prop <cmpr> <valu>!
+            if self.nextchar() in cmprstart:
 
-            if self.core.getStormCmd(name) is not None:
+                # TODO: check for :: pivot syntax and raise
 
-                text = self.cmdtext()
-                self.ignore(whitespace)
+                cmpr = self.cmpr()
+                valu = self.valu()
 
-                # eat a trailing | from a command at the beginning
-                if self.nextstr('|'):
-                    self.offs += 1
+                kids = (s_ast.Const(name), cmpr, valu)
+                return s_ast.LiftPropBy(kids=kids)
 
-                return s_ast.CmdOper(kids=(s_ast.Const(name), text))
+            # lift by prop only
+            return s_ast.LiftProp(kids=(s_ast.Const(name),))
 
-        # we have a prop <cmpr> <valu>!
-        if self.nextchar() in cmprstart:
+        if self.core.getStormCmd(name) is not None:
 
-            # TODO: check for :: pivot syntax and raise
+            text = self.cmdtext()
+            self.ignore(whitespace)
 
-            cmpr = self.cmpr()
-            valu = self.valu()
+            # eat a trailing | from a command at the beginning
+            if self.nextstr('|'):
+                self.offs += 1
 
-            kids = (s_ast.Const(name), cmpr, valu)
-            return s_ast.LiftPropBy(kids=kids)
+            return s_ast.CmdOper(kids=(s_ast.Const(name), text))
 
-        # lift by prop only
-        return s_ast.LiftProp(kids=(s_ast.Const(name),))
+        # TODO maybe this should be a cortex/runtime thing...
 
-    def varmatch(self):
+        # rewind and noms until whitespace
+        self.offs -= len(name)
+        tokn = self.noms(until=whitespace)
 
+        ndefs = list(s_scrape.scrape(tokn))
+        if ndefs:
+            # TODO: what about more than one?
+            return s_ast.LiftByScrape(ndefs)
+
+        self._raiseSyntaxError('Switch case syntax only supports const values.')
+
+    def switchcase(self):
+
+        self.ignore(whitespace)
+        self.nextmust('switch')
         self.ignore(whitespace)
 
         varn = self.varvalu()
@@ -1116,7 +1164,7 @@ class Parser:
 
         self.nextmust('{')
 
-        cases = []
+        kids = [varn]
 
         while self.more():
 
@@ -1129,48 +1177,89 @@ class Parser:
             valu = self.valu()
 
             if not isinstance(valu, s_ast.Const):
-                self._raiseSyntaxError('Match case syntax only supports const values.')
-
-            vals = [valu]
+                self._raiseSyntaxError('Switch case syntax only supports const values.')
 
             self.ignore(whitespace)
 
-            #while self.nextstr('or'):
-            while not self.nextstr('{'):
+            subq = self.subquery()
+            cent = s_ast.CaseEntry(kids=[valu, subq])
 
-                #self.offs += 2
-                self.ignore(whitespace)
+            kids.append(cent)
 
-                valu = self.valu()
-                if not isinstance(valu, s_ast.Const):
-                    self._raiseSyntaxError('Match case syntax only supports const values.')
+        return s_ast.SwitchCase(kids=kids)
 
-                vals.append(valu)
-                self.ignore(whitespace)
+    def varlist(self):
 
-            self.nextmust('{')
+        self.ignore(whitespace)
+        self.nextmust('(')
 
-            query = self.query()
+        names = []
+        while True:
 
-            self.nextmust('}')
+            self.ignore(whitespace)
 
-            cases.append((vals, query))
+            varn = self.varname()
+            names.append(varn.value())
 
-        return s_ast.VarMatch(varn, cases)
+            self.ignore(whitespace)
+            if self.nextstr(')'):
+                self.offs += 1
+                break
+
+            self.nextmust(',')
+
+        return s_ast.VarNames(names)
+
+    def forloop(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('for')
+
+        self.ignore(whitespace)
+
+        if self.nextstr('$'):
+            vkid = self.varname()
+
+        elif self.nextstr('('):
+            vkid = self.varlist()
+
+        else:
+            self._raiseSyntaxError('expected variable name or variable list')
+
+        self.ignore(whitespace)
+
+        self.nextmust('in')
+        self.ignore(whitespace)
+
+        ikid = self.varname()
+        qkid = self.subquery()
+
+        return s_ast.ForLoop(kids=(vkid, ikid, qkid))
 
     def liftbytag(self):
 
         self.ignore(whitespace)
 
-        tag = self.tag()
+        tag = self.tagname()
 
         self.ignore(whitespace)
-        cmprstart
 
         #TODO
+        #cmprstart
         #if self.nextstr('@='):
 
         return s_ast.LiftTag(kids=(tag,))
+
+    def lifttagtag(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('#')
+
+        tag = self.tagname()
+
+        return s_ast.LiftTagTag(kids=(tag,))
 
     def filtoper(self):
 
@@ -1255,7 +1344,7 @@ class Parser:
 
         if self.nextstr('#'):
 
-            tag = self.tag()
+            tag = self.tagname()
 
             self.ignore(whitespace)
 
@@ -1402,7 +1491,7 @@ class Parser:
 
         # a simple whitespace separated string
         nexc = self.nextchar()
-        if nexc in alphanum or nexc == '-':
+        if nexc in alphanum or nexc in ('-', '?'):
             text = self.noms(until=mustquote)
             return s_ast.Const(text)
 
@@ -1420,7 +1509,7 @@ class Parser:
             return s_ast.UnivPropValue(kids=(prop,))
 
         if self.nextstr('#'):
-            tag = self.tag()
+            tag = self.tagname()
             return s_ast.TagPropValue(kids=(tag,))
 
         if self.nextstr('$'):
@@ -1446,10 +1535,27 @@ class Parser:
 
         return s_ast.Const(name)
 
+# decode(name)  encode(name)  split(chr) size() lower() regex() onespace()
+
+    def funccall(self):
+        self.ignore(whitespace)
+        name = s_ast.Value(self.noms(varchars))
+        self.ignore(whitespace)
+        args = s_ast.CallArgs(kids=self.valulist())
+        return s_ast.FuncCall(kids=[name, args])
+
     def varvalu(self):
         self.ignore(whitespace)
-        varn = self.varname()
-        return s_ast.VarValue(kids=(varn,))
+
+        kids = [self.varname()]
+        self.ignore(whitespace)
+
+        while self.nextstr('.'):
+            self.offs += 1
+            kids.append(self.funccall())
+            self.ignore(whitespace)
+
+        return s_ast.VarValue(kids=kids)
 
     def cmdname(self):
 
@@ -1538,7 +1644,7 @@ class Parser:
 
         return subq
 
-    def tag(self):
+    def tagname(self):
 
         self.ignore(whitespace)
 
@@ -1546,12 +1652,13 @@ class Parser:
 
         self.ignore(whitespace)
 
-        # a bit odd, but the tag could require quoting...
-        #if self.nextchar() == '"':
+        if self.nextstr('$'):
+            varn = self.varname()
+            return s_ast.TagVar(kids=[varn])
 
         text = self.noms(until=tagterm)
 
-        return s_ast.Tag(text)
+        return s_ast.TagName(text)
 
     ###########################################################################
     # parsing helpers from here down...
@@ -1597,6 +1704,21 @@ class Parser:
             self.ignore(ignore)
 
         return ''.join(rets)
+
+    def peek(self, chars):
+        tokn = ''
+        offs = self.offs
+        while offs < len(self.text):
+
+            char = self.text[offs]
+            offs += 1
+
+            if char not in chars:
+                break
+
+            tokn += char
+
+        return tokn
 
     def nextstr(self, text):
 

@@ -7,10 +7,8 @@ import logging
 import binascii
 import tempfile
 import functools
-import threading
 import concurrent
 import contextlib
-import collections
 
 import lmdb  # type: ignore
 
@@ -21,14 +19,19 @@ import synapse.eventbus as s_eventbus
 import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
-import synapse.lib.coro as s_coro
+import synapse.lib.base as s_base
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.const as s_const
+import synapse.lib.queue as s_queue
 import synapse.lib.share as s_share
 
 logger = logging.getLogger(__name__)
 
 # File convention: bsid -> persistent unique id for a blobstor (actually the cell iden)
+
+# N.B. BlobStor does *not* use lmdb Slab.  It has its own incremental transaction.
+
+# TODO: port to use Slab
 
 CHUNK_SIZE = 16 * s_const.mebibyte
 
@@ -64,10 +67,10 @@ class PassThroughApi(s_cell.CellApi):
     '''
     Class that passes through methods made on it to its cell.
     '''
-    allowed_methods = []
+    allowed_methods = []  # type: ignore
 
-    def __init__(self, cell, link):
-        s_cell.CellApi.__init__(self, cell, link)
+    async def __anit__(self, cell, link):
+        await s_cell.CellApi.__anit__(self, cell, link)
 
         for f in self.allowed_methods:
             # N.B. this curious double nesting is due to Python's closure mechanism (f is essentially captured by name)
@@ -135,9 +138,9 @@ class Uploader(s_share.Share):
     '''
     typename = 'uploader'
 
-    def __init__(self, link, item):
-        s_share.Share.__init__(self, link, item)
-        self.doneevent = asyncio.Event()
+    async def __anit__(self, link, item):
+        await s_share.Share.__anit__(self, link, item)
+        self.doneevent = asyncio.Event(loop=self.loop)
         self.exitok = False
         self.chunknum = 0
         self.wcid = s_common.guid()
@@ -187,72 +190,7 @@ class Uploader(s_share.Share):
         '''
         self.chunknum = 0
 
-class _AsyncQueue(s_coro.Fini):
-    '''
-    Multi-async producer, single sync finite consumer queue with blocking at empty and full.  Assumes producers run on
-    s_glob.plex.loop
-    '''
-    def __init__(self, max_entries, drain_level=None):
-        '''
-        Yield bytes for the given SHA256.
-
-        Args:
-            max_entries (int): the maximum number of entries that can be in the queue.
-
-            drain_level (int): once the queue is full, no more entries will be admitted until the number of entries
-                falls below this parameter.
-        '''
-
-        s_coro.Fini.__init__(self)
-        self.deq = collections.deque()
-        self.notdrainingevent = asyncio.Event(loop=s_glob.plex.loop)
-        self.notdrainingevent.set()
-        self.notemptyevent = threading.Event()
-        self.max_entries = max_entries
-        self.drain_level = max_entries // 2 if drain_level is None else drain_level
-
-        async def _onfini():
-            self.notemptyevent.set()
-            self.notdrainingevent.set()
-        self.onfini(_onfini)
-
-    def get(self):
-        '''
-        Pending retrieve on the queue
-        '''
-        while not self.isfini:
-            try:
-                val = self.deq.popleft()
-                break
-            except IndexError:
-                self.notemptyevent.clear()
-                if len(self.deq):
-                    continue
-                self.notemptyevent.wait()
-        else:
-            return None
-
-        if not self.notdrainingevent.is_set():
-            if len(self.deq) < self.drain_level:
-                s_glob.plex.callSoonSafe(self.notdrainingevent.set)
-        return val
-
-    async def put(self, item):
-        '''
-        Put onto the queue.  It will async pend if the queue is full or draining.
-        '''
-        while not self.isfini:
-            if len(self.deq) >= self.max_entries:
-                self.notdrainingevent.clear()
-            if not self.notdrainingevent.is_set():
-                await self.notdrainingevent.wait()
-                continue
-            break
-
-        self.deq.append(item)
-        self.notemptyevent.set()
-
-class _BlobStorWriter(s_coro.Fini):
+class _BlobStorWriter(s_base.Base):
     '''
     An active object that writes to disk on behalf of a blobstor (plus the client methods to interact with it)
     '''
@@ -284,12 +222,12 @@ class _BlobStorWriter(s_coro.Fini):
             self.hashing = hashlib.sha256()
             self.anything_written = False
 
-    def __init__(self, blobstor):
-        s_coro.Fini.__init__(self)
+    async def __anit__(self, blobstor):
+        await s_base.Base.__anit__(self)
         self.xact = IncrementalTransaction(blobstor.lenv)
         self.lenv = blobstor.lenv
         self.blobstor = blobstor
-        self._workq = _AsyncQueue(50)
+        self._workq = await s_queue.AsyncQueue.anit(50)
         self._worker = self._workloop()
         self._worker.name = 'BlobStorWriter'
         self.clients = {}
@@ -297,6 +235,7 @@ class _BlobStorWriter(s_coro.Fini):
         async def _onfini():
             await self._workq.fini()
             self._worker.join()
+            self.xact.fini()
         self.onfini(_onfini)
 
     def _finish_file(self, client):
@@ -404,6 +343,9 @@ class _BlobStorWriter(s_coro.Fini):
 
     @s_common.firethread
     def _workloop(self):
+        '''
+        Main loop for _BlobStorWriter
+        '''
         try:
             while not self.isfini:
                 msg = self._workq.get()
@@ -426,7 +368,7 @@ class _BlobStorWriter(s_coro.Fini):
                     _, offset = msg
                     self._updateCloneProgress(offset)
         finally:
-            # Workaround to avoid lmdb close/commit race
+            # Workaround to avoid lmdb close/commit race (so that fini is on same thread as lmdb xact)
             self.xact.fini()
 
     # Client methods
@@ -445,7 +387,7 @@ class _BlobStorWriter(s_coro.Fini):
     async def complete(self, wcid, wait_for_result=False):
         rv = None
         if wait_for_result:
-            fut = asyncio.Future(loop=s_glob.plex.loop)
+            fut = asyncio.Future(loop=self.loop)
             await self._workq.put((self.Command.FINISH, wcid, fut))
             await fut
             rv = fut.result()
@@ -476,7 +418,7 @@ class BlobStorApi(PassThroughApi):
                        '_complete', '_cancel', '_partialsubmit', 'getCloneProgress']
 
     async def startput(self):
-        return Uploader(self.link, self)
+        return await Uploader.anit(self.link, self)
 
 class BlobStor(s_cell.Cell):
     '''
@@ -489,9 +431,9 @@ class BlobStor(s_cell.Cell):
         ('cloneof', {'type': 'str', 'doc': 'The telepath of a blob cell to clone from', 'defval': None}),
     )
 
-    def __init__(self, dirn: str, conf=None) -> None:
+    async def __anit__(self, dirn: str, conf=None) -> None:  # type: ignore
+        await s_cell.Cell.__anit__(self, dirn)
 
-        s_cell.Cell.__init__(self, dirn)
         self.clonetask = None
 
         if conf is not None:
@@ -501,29 +443,29 @@ class BlobStor(s_cell.Cell):
 
         mapsize = self.conf.get('mapsize')
         self.lenv = lmdb.open(path, writemap=True, max_dbs=128, map_size=mapsize)
-
         self._blob_info = self.lenv.open_db(b'info')
         self._blob_bytes = self.lenv.open_db(b'bytes') # <sha256>=<byts>
 
         self._clone_seqn = s_lmdb.Seqn(self.lenv, b'clone')
         self._metrics = s_lmdb.Metrics(self.lenv)
-        self._newdataevent = asyncio.Event(loop=s_glob.plex.loop)
+        self._newdataevent = asyncio.Event(loop=self.loop)
+
+        def delevent():
+            del self._newdataevent
+
+        self.onfini(delevent)
 
         self._recover_partial()
         self._partial_hash = None  # hash currently being written
 
-        self.writer = _BlobStorWriter(self)
+        self.writer = await _BlobStorWriter.anit(self)
 
         self.cloneof = self.conf.get('cloneof')
 
         if self.cloneof is not None:
             self.clonetask = s_glob.plex.coroToTask(self._cloneeLoop(self.cloneof))
 
-        def fini():
-            s_glob.plex.coroToSync(self.writer.fini())
-            # To avoid lmdb seg fault, let writer close the environment
-
-        self.onfini(fini)
+        self.onfini(self.writer.fini)
 
     def _recover_partial(self):
         '''
@@ -654,7 +596,7 @@ class BlobStor(s_cell.Cell):
                 return
             self._newdataevent.clear()
             try:
-                await asyncio.wait_for(self._newdataevent.wait(), timeout, loop=s_glob.plex.loop)
+                await asyncio.wait_for(self._newdataevent.wait(), timeout)
             except asyncio.TimeoutError:
                 return
         with self.lenv.begin(buffers=True) as xact:
@@ -737,16 +679,16 @@ class BlobStor(s_cell.Cell):
 
             return struct.unpack('>Q', lval)[0]
 
-class _ProxyKeeper(s_coro.Fini):
+class _ProxyKeeper(s_base.Base):
     '''
     A container for active blobstor proxy objects.
     '''
 
     # All the proxy keepers share a common bsid -> path map
-    bsidpathmap = {}
+    bsidpathmap = {}  # type: ignore
 
-    def __init__(self):
-        s_coro.Fini.__init__(self)
+    async def __anit__(self):
+        await s_base.Base.__anit__(self)
         self._proxymap = {}  # bsid -> proxy
 
         async def fini():
@@ -833,11 +775,11 @@ class AxonApi(PassThroughApi):
     allowed_methods = ['get', 'locs', 'stat', 'wants', 'metrics', 'putone',
                        'addBlobStor', 'unwatchBlobStor', 'getBlobStors']
 
-    def __init__(self, cell, link):
-        PassThroughApi.__init__(self, cell, link)
+    async def __anit__(self, cell, link):
+        await PassThroughApi.__anit__(self, cell, link)
 
         # The Axon makes new connections to each blobstor for each client.
-        self._proxykeeper = _ProxyKeeper()
+        self._proxykeeper = await _ProxyKeeper.anit()
 
         async def fini():
             await self._proxykeeper.fini()
@@ -849,16 +791,16 @@ class AxonApi(PassThroughApi):
 
     async def startput(self):
         bsid, blobstor = await self._proxykeeper.randoproxy()
-        rv = UploaderProxy(self.link, self.cell, blobstor, bsid)
+        rv = await UploaderProxy.anit(self.link, self.cell, blobstor, bsid)
         return rv
 
 class UploaderProxy(s_share.Share):
     ''' A proxy to a blobstor uploader living with the axon '''
     typename = 'uploaderproxy'
 
-    def __init__(self, link, axon, blobstorproxy, bsid):
-        s_share.Share.__init__(self, link, axon)
-        self.doneevent = asyncio.Event()
+    async def __anit__(self, link, axon, blobstorproxy, bsid):
+        await s_share.Share.__anit__(self, link, axon)
+        self.doneevent = asyncio.Event(loop=self.loop)
         self.blobstor = blobstorproxy
         self.bsid = bsid
         self.uploader = None
@@ -932,8 +874,8 @@ class Axon(s_cell.Cell):
         ('mapsize', {'type': 'int', 'defval': s_lmdb.DEFAULT_MAP_SIZE, 'doc': 'The size of the LMDB memory map'}),
     )
 
-    def __init__(self, dirn: str, conf=None) -> None:
-        s_cell.Cell.__init__(self, dirn)
+    async def __anit__(self, dirn: str, conf=None) -> None:  # type: ignore
+        await s_cell.Cell.__anit__(self, dirn)
 
         path = s_common.gendir(self.dirn, 'axon.lmdb')
         mapsize = self.conf.get('mapsize')
@@ -947,13 +889,13 @@ class Axon(s_cell.Cell):
         self.settings = self.lenv.open_db(b'axon:settings', dupsort=True)
 
         self._metrics = s_lmdb.Metrics(self.lenv)
-        self._proxykeeper = _ProxyKeeper()
+        self._proxykeeper = await _ProxyKeeper.anit()
 
         # Clear the global proxykeeper bsid->telepath path map (really just for unit tests)
         _ProxyKeeper.bsidpathmap = {}
 
         paths = self._get_stored_blobstorpaths()
-        self.blobstorwatchers = {}
+        self.blobstorwatchers = {}  # type: ignore
 
         async def _connect_to_blobstors():
             # Wait a few seconds for the daemon to register all of its shared objects
@@ -965,21 +907,19 @@ class Axon(s_cell.Cell):
                 except Exception:
                     logger.error('At axon startup, failed to connect to stored blobstor path %s', _path_sanitize(path))
 
-        future = s_glob.plex.coroToTask(_connect_to_blobstors())
-        self.onfini(future.cancel)
+        conn_future = s_glob.plex.coroToTask(_connect_to_blobstors())
 
-        self._workq = _AsyncQueue(50)
+        self._workq = await s_queue.AsyncQueue.anit(50)
         self.xact = IncrementalTransaction(self.lenv)
         self._worker = self._workloop()
         self._worker.name = 'Axon Writer'
 
-        def fini():
-            async def run_on_loop():
-                for stop_event in self.blobstorwatchers.values():
-                    stop_event.set()
-                await self._workq.fini()
-                await self._proxykeeper.fini()
-            s_glob.plex.coroToTask(run_on_loop())
+        async def fini():
+            conn_future.cancel()
+            for stop_event in self.blobstorwatchers.values():
+                stop_event.set()
+            await self._workq.fini()
+            await self._proxykeeper.fini()
             self._worker.join()
         self.onfini(fini)
 
@@ -998,10 +938,11 @@ class Axon(s_cell.Cell):
             telepath openurl exceptions
         '''
         bsid, blobstor = await self._proxykeeper.connect(blobstorpath)
-        stop_watching_event = asyncio.Event(loop=s_glob.plex.loop)
+        stop_watching_event = asyncio.Event(loop=self.loop)
         self.blobstorwatchers[blobstorpath] = stop_watching_event
 
-        s_glob.plex.coroToTask(self._watch_blobstor(blobstor, bsid, blobstorpath, stop_watching_event))
+        future = s_glob.plex.coroToTask(self._watch_blobstor(blobstor, bsid, blobstorpath, stop_watching_event))
+        self.onfini(future.cancel)
 
     async def addBlobStor(self, blobstorpath):
         '''
@@ -1063,9 +1004,9 @@ class Axon(s_cell.Cell):
                     except (StopAsyncIteration, s_exc.SynErr):
                         return None, None
 
-                # Wait on either the clone completing, or a signal to stop watching
+                # Wait on either the clone completing, or a signal to stop watching (or the blobstor throwing isfini)
                 stop_coro = stop_event.wait()
-                donelist, notdonelist = await asyncio.wait([clone_and_next(), stop_coro], loop=s_glob.plex.loop,
+                donelist, notdonelist = await asyncio.wait([clone_and_next(), stop_coro],
                                                            return_when=concurrent.futures.FIRST_COMPLETED)
                 for task in notdonelist:
                     task.cancel()
@@ -1084,6 +1025,12 @@ class Axon(s_cell.Cell):
                 logger.debug('Got clone data for %s', _path_sanitize(blobstorpath))
                 cur_offset = 1 + await self._consume_clone_data(first_item, genr, bsid)
                 await self._executor_nowait(self._updateSyncProgress, bsid, cur_offset)
+
+            except s_exc.IsFini:
+                continue
+
+            except asyncio.CancelledError:
+                break
 
             except ConnectionRefusedError:
                 logger.warning('Trouble connecting to blobstor %s.  Will retry in %ss.', _path_sanitize(blobstorpath),
@@ -1123,7 +1070,7 @@ class Axon(s_cell.Cell):
     @s_common.firethread
     def _workloop(self):
         '''
-        A worker for running stuff that requires a write lock
+        Axon:  A worker for running stuff that requires a write lock
         '''
         try:
             while not self.isfini:
@@ -1150,7 +1097,7 @@ class Axon(s_cell.Cell):
         '''
         Run a function on the Axon's work thread
         '''
-        done_event = asyncio.Event(loop=s_glob.plex.loop)
+        done_event = asyncio.Event(loop=self.loop)
         retn = None
 
         def syncfunc():

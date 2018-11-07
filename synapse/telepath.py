@@ -5,12 +5,15 @@ An RMI framework for synapse.
 import os
 import asyncio
 import logging
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
-
-import synapse.lib.coro as s_coro
+import synapse.lib.base as s_base
+import synapse.lib.queue as s_queue
+import synapse.lib.certdir as s_certdir
+import synapse.lib.threads as s_threads
 import synapse.lib.urlhelp as s_urlhelp
 
 logger = logging.getLogger(__name__)
@@ -22,12 +25,13 @@ class Aware:
     The telepath.Aware mixin allows shared objects to
     handle individual links managed by the Daemon.
     '''
-    def getTeleApi(self, link, mesg):
+    async def getTeleApi(self, link, mesg):
         '''
         Return a shared object for this link.
         Args:
             link (synapse.lib.link.Link): A network link.
             mesg ((str,dict)): The tele:syn handshake message.
+
         '''
         return self
 
@@ -44,10 +48,10 @@ class Task:
     '''
     A telepath Task is used to internally track calls/responses.
     '''
-    def __init__(self):
+    def __init__(self, loop):
         self.retn = None
         self.iden = s_common.guid()
-        self.done = asyncio.Event()
+        self.done = asyncio.Event(loop=loop)
 
     async def result(self):
         await self.done.wait()
@@ -57,12 +61,12 @@ class Task:
         self.retn = retn
         self.done.set()
 
-class Share(s_coro.Fini):
+class Share(s_base.Base):
     '''
     The telepath client side of a dynamically shared object.
     '''
-    def __init__(self, proxy, iden):
-        s_coro.Fini.__init__(self)
+    async def __anit__(self, proxy, iden):
+        await s_base.Base.__anit__(self)
         self.iden = iden
         self.proxy = proxy
 
@@ -89,11 +93,29 @@ class Share(s_coro.Fini):
         setattr(self, name, meth)
         return meth
 
+    def __enter__(self):
+        '''
+        Convenience function to enable using Proxy objects as synchronous context managers.
+
+        Note:
+            This should never be used by synapse core code.  This is for sync client code convenience only.
+        '''
+        if s_threads.iden() == self.tid:
+            raise s_exc.SynErr('Use of synchronous context manager in async code')
+        self._ctxobj = self.schedCoroSafePend(self.__aenter__())
+        return self
+
+    def __exit__(self, *args):
+        '''
+        This should never be used by synapse core code.  This is for sync client code convenience only.
+        '''
+        return self.schedCoroSafePend(self._ctxobj.__aexit__(*args))
+
 class Genr(Share):
 
-    def __init__(self, proxy, iden):
-        Share.__init__(self, proxy, iden)
-        self.queue = s_coro.Queue()
+    async def __anit__(self, proxy, iden):
+        await Share.__anit__(self, proxy, iden)
+        self.queue = await s_queue.AQueue.anit()
         self.onfini(self.queue.fini)
 
     async def _onShareData(self, data):
@@ -130,11 +152,11 @@ class Genr(Share):
 
 class With(Share):
 
-    def __init__(self, proxy, iden):
-        Share.__init__(self, proxy, iden)
+    async def __anit__(self, proxy, iden):
+        await Share.__anit__(self, proxy, iden)
         # a with is optimized to already be entered.
         # so a fini() with no enter causes exit with error.
-        self.entered = True # local to synapse.lib.coro.Fini()
+        self.entered = True
 
     async def __aenter__(self):
         return self
@@ -172,7 +194,7 @@ class Method:
         todo = (self.name, args, kwargs)
         return await self.proxy.task(todo, name=self.share)
 
-class Proxy(s_coro.Fini):
+class Proxy(s_base.Base):
     '''
     A telepath Proxy is used to call remote APIs on a shared object.
 
@@ -195,8 +217,9 @@ class Proxy(s_coro.Fini):
         valu = proxy.getFooValu(x, y)
 
     '''
-    def __init__(self, link, name):
-        s_coro.Fini.__init__(self)
+    async def __anit__(self, link, name):
+        await s_base.Base.__anit__(self)
+        self.tid = s_threads.iden()
 
         self.link = link
         self.name = name
@@ -205,7 +228,7 @@ class Proxy(s_coro.Fini):
         self.shares = {}
 
         self.synack = None
-        self.syndone = asyncio.Event()
+        self.syndone = asyncio.Event(loop=self.loop)
 
         self.timeout = None     # API call timeout default
 
@@ -222,10 +245,30 @@ class Proxy(s_coro.Fini):
             for name, task in list(self.tasks.items()):
                 task.reply((False, (('IsFini', {}))))
                 del self.tasks[name]
+            del self.syndone
             await self.link.fini()
 
         self.onfini(fini)
         self.link.onfini(self.fini)
+
+    def __enter__(self):
+        '''
+        Convenience function to enable using Proxy objects as synchronous context managers.
+
+        Note:
+            This must not be used from async code, and it should never be used in core synapse code.
+        '''
+        if s_threads.iden() == self.tid:
+            raise s_exc.SynErr('Use of synchronous context manager in async code')
+        self._ctxobj = self.schedCoroSafePend(self.__aenter__())
+        return self
+
+    def __exit__(self, *args):
+        '''
+        Note:
+            This should never be used by core synapse code.
+        '''
+        return self.schedCoroSafePend(self._ctxobj.__aexit__(*args))
 
     async def _onShareFini(self, mesg):
 
@@ -271,7 +314,7 @@ class Proxy(s_coro.Fini):
         if self.isfini:
             raise s_exc.IsFini()
 
-        task = Task()
+        task = Task(loop=self.loop)
 
         mesg = ('task:init', {
                     'task': task.iden,
@@ -381,7 +424,7 @@ class Proxy(s_coro.Fini):
         retntype = mesg[1].get('type')
         if retntype is not None:
             ctor = sharetypes.get(retntype, Share)
-            retn = (True, ctor(self, retn[1]))
+            retn = (True, await ctor.anit(self, retn[1]))
 
         return task.reply(retn)
 
@@ -453,6 +496,10 @@ async def openurl(url, **opts):
         proxy = await openurl(url)
         valu = await proxy.getFooThing()
 
+    ... or ...
+
+        async with await openurl(url) as proxy:
+            valu = await proxy.getFooThing()
     '''
     if url.find('://') == -1:
         newurl = alias(url)
@@ -471,15 +518,18 @@ async def openurl(url, **opts):
 
     user = info.get('user')
     if user is not None:
-        auth = (user, {
-            'passwd': info.get('passwd')
-        })
+        passwd = info.get('passwd')
+        auth = (user, {'passwd': passwd})
 
-    #TODO SSL
+    sslctx = None
+    if info.get('scheme') == 'ssl':
+        certpath = info.get('certdir')
+        certdir = s_certdir.CertDir(certpath)
+        sslctx = certdir.getClientSSLContext()
 
-    link = await s_glob.plex.link(host, port)
+    link = await s_glob.plex.link(host, port, ssl=sslctx)
 
-    prox = Proxy(link, name)
+    prox = await Proxy.anit(link, name)
 
     await prox.handshake(auth=auth)
 

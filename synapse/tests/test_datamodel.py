@@ -1,11 +1,11 @@
 import synapse.datamodel as s_datamodel
 
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
 import unittest
 raise unittest.SkipTest()
 
-class DataModelTest(SynTest):
+class DataModelTest(s_t_utils.SynTest):
 
     def test_datamodel_types(self):
         model = s_datamodel.DataModel()

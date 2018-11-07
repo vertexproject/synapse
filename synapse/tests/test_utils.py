@@ -8,21 +8,19 @@ Test for synapse.tests.utils classes
 import os
 import time
 import logging
-import synapse.glob as s_glob
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.output as s_output
 
-import synapse.tests.common as s_test
 import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
 
-
-class TestUtils(s_test.SynTest):
+class TestUtils(s_t_utils.SynTest):
     def test_syntest_helpers(self):
         # Execute all of the test helpers here
         self.len(2, (1, 2))
@@ -275,16 +273,15 @@ class TestUtils(s_test.SynTest):
         self.raises(AssertionError, self.istufo, (1234, set()))
         self.raises(AssertionError, self.istufo, (None, set()))
 
-    def test_getTestCell(self):
+    async def test_getTestCell(self):
         with self.getTestDir() as dirn:
             boot = {'auth:en': True}
             conf = {'test': 1}
-            with self.getTestCell(dirn, 'cortex', boot, conf) as cortex:
+            async with await self.getTestCell(dirn, 'cortex', boot, conf) as cortex:
                 self.eq(os.path.join(dirn, 'cortex'), cortex.dirn)
                 self.eq(cortex.conf.get('test'), 1)
                 self.eq(cortex.boot.get('auth:en'), True)
 
-    @s_glob.synchelp
     async def test_async(self):
 
         async def araiser():
@@ -292,12 +289,12 @@ class TestUtils(s_test.SynTest):
 
         await self.asyncraises(ZeroDivisionError, araiser())
 
-    def test_dmoncoreaxon(self):
-        with self.getTestDmonCortexAxon() as dmon:
+    async def test_dmoncoreaxon(self):
+        async with self.getTestDmonCortexAxon() as dmon:
             self.isin('core', dmon.cells)
             self.isin('axon00', dmon.cells)
             self.isin('blobstor00', dmon.cells)
 
-            with dmon._getTestProxy('core', user='root', passwd='root') as core:
-                node = core.addNode('teststr', 'hehe')
+            async with await self.getTestProxy(dmon, 'core', user='root', passwd='root') as core:
+                node = await core.addNode('teststr', 'hehe')
                 self.nn(node)

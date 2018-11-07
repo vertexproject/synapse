@@ -83,6 +83,9 @@ class BadConfValu(SynErr):
     '''
     pass
 
+class StormRuntimeError(SynErr): pass
+class StormVarListError(StormRuntimeError): pass
+
 class CantDelNode(SynErr): pass
 class CantDelProp(SynErr): pass
 
@@ -92,8 +95,6 @@ class DupFileName(SynErr): pass
 class DupIndx (SynErr): pass
 class DupUserName(SynErr): pass
 class DupRoleName(SynErr): pass
-
-class HitStormLimit(SynErr): pass
 
 class IsRuntProp(SynErr): pass
 
@@ -112,7 +113,6 @@ class NoSuchPath(SynErr): pass
 class NoSuchImpl(SynErr): pass
 class NoSuchIden(SynErr): pass
 class NoSuchName(SynErr): pass
-class NoSuchTufo(SynErr): pass
 class NoSuchOper(SynErr): pass
 class NoSuchCmpr(SynErr): pass
 class NoSuchRule(SynErr): pass
@@ -130,6 +130,8 @@ class NoSuchFunc(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchRole(SynErr): pass
 class NoSuchIndx(SynErr): pass
+
+class NoSuchPivot(SynErr): pass
 
 class ReadOnlyProp(SynErr): pass
 class ReqConfOpt(SynErr): pass
@@ -187,3 +189,13 @@ class JobErr(SynErr):
         Exception.__init__(self, '%s: %s (%s:%s)' % (err, errmsg, errfile, errline))
 
 class CorruptDatabase(SynErr): pass
+
+class AlreadyInAsync(SynErr):
+    '''
+    Raised when an attempt to pend on getting the value back from a coroutine, when already in the event loop thread
+    '''
+    pass
+
+class DbOutOfSpace(SynErr): pass
+
+class IsReadOnly(SynErr): pass

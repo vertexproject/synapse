@@ -96,7 +96,7 @@ class CoreModule:
         dirn = self.getModDir()
         return s_common.genpath(dirn, *paths)
 
-    def initCoreModule(self):
+    async def initCoreModule(self):
         '''
         Module implementers may over-ride this method to initialize the
         module during initial construction.  Any exception raised within

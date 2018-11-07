@@ -1,7 +1,6 @@
-
 import synapse.exc as s_exc
 
-from synapse.tests.common import SynTest
+from synapse.tests.utils import SynTest
 
 testmodel = (
     (
@@ -20,17 +19,17 @@ testmodel = (
 
 class IntlGovTest(SynTest):
 
-    def test_models_intl(self):
+    async def test_models_intl(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
             core.model.addDataModels(testmodel)
 
             formname = 'fakem49'
             expected_ndef = (formname, 17)
-            with core.snap() as snap:
-                self.raises(s_exc.BadPropValu, snap.addNode, formname, 3417)
-                self.raises(s_exc.BadPropValu, snap.addNode, formname, 0)
-                n0 = snap.addNode(formname, 17)
+            async with await core.snap() as snap:
+                await self.asyncraises(s_exc.BadPropValu, snap.addNode(formname, 3417))
+                await self.asyncraises(s_exc.BadPropValu, snap.addNode(formname, 0))
+                n0 = await snap.addNode(formname, 17)
 
             self.eq(n0.ndef, expected_ndef)

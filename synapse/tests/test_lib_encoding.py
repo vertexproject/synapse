@@ -6,7 +6,7 @@ import synapse.common as s_common
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.encoding as s_encoding
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
 testxml = b'''<?xml version="1.0"?>
 <data>
@@ -27,7 +27,7 @@ foo.com
 bar.com
 '''
 
-class EncTest(s_test.SynTest):
+class EncTest(s_t_utils.SynTest):
 
     def test_lib_encoding_en(self):
         self.eq(s_encoding.encode('base64', b'visi'), b'dmlzaQ==')

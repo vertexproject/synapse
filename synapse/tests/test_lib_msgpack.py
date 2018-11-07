@@ -1,10 +1,11 @@
 import msgpack
 
-from synapse.tests.common import *
-
+import synapse.common as s_common
 import synapse.lib.msgpack as s_msgpack
 
-class MsgPackTest(SynTest):
+import synapse.tests.utils as s_t_utils
+
+class MsgPackTest(s_t_utils.SynTest):
 
     def test_msgpack_en(self):
         byts = s_msgpack.en(('hehe', 10))
@@ -35,12 +36,12 @@ class MsgPackTest(SynTest):
         t1 = ('1234', {'key': 'haha'})
 
         with self.getTestDir() as fdir:
-            fd = genfile(fdir, 'test.mpk')
+            fd = s_common.genfile(fdir, 'test.mpk')
             for obj in (t0, t1):
                 fd.write(s_msgpack.en(obj))
             fd.close()
 
-            fd = genfile(fdir, 'test.mpk')
+            fd = s_common.genfile(fdir, 'test.mpk')
             gen = s_msgpack.iterfd(fd)
 
             items = [obj for obj in gen]
@@ -54,12 +55,12 @@ class MsgPackTest(SynTest):
         t1 = ('1234', {'key': 'haha'})
 
         with self.getTestDir() as fdir:
-            fd = genfile(fdir, 'test.mpk')
+            fd = s_common.genfile(fdir, 'test.mpk')
             for obj in (t0, t1):
                 fd.write(s_msgpack.en(obj))
             fd.close()
 
-            gen = s_msgpack.iterfile(genpath(fdir, 'test.mpk'))
+            gen = s_msgpack.iterfile(s_common.genpath(fdir, 'test.mpk'))
 
             items = [obj for obj in gen]
             self.len(2, items)
@@ -72,20 +73,20 @@ class MsgPackTest(SynTest):
         t1 = ('1234', {'key': 'haha'})
 
         with self.getTestDir() as fdir:
-            fd = genfile(fdir, 'oneobj.mpk')
+            fd = s_common.genfile(fdir, 'oneobj.mpk')
             fd.write(s_msgpack.en(t0))
             fd.close()
 
-            fd = genfile(fdir, 'twoobjs.mpk')
+            fd = s_common.genfile(fdir, 'twoobjs.mpk')
             for obj in (t0, t1):
                 fd.write(s_msgpack.en(obj))
             fd.close()
 
-            data = s_msgpack.loadfile(genpath(fdir, 'oneobj.mpk'))
+            data = s_msgpack.loadfile(s_common.genpath(fdir, 'oneobj.mpk'))
             self.eq(data, ('5678', {'key': 1}))
 
             # Files containing multiple objects are not supported
-            self.raises(msgpack.exceptions.ExtraData, s_msgpack.loadfile, genpath(fdir, 'twoobjs.mpk'))
+            self.raises(msgpack.exceptions.ExtraData, s_msgpack.loadfile, s_common.genpath(fdir, 'twoobjs.mpk'))
 
     def test_msgpack_types(self):
         # This is a future-proofing test for msgpack to ensure that
@@ -117,11 +118,11 @@ class MsgPackTest(SynTest):
         self.eq(outs, bads)
 
         with self.getTestDir() as fdir:
-            fd = genfile(fdir, 'test.mpk')
+            fd = s_common.genfile(fdir, 'test.mpk')
             fd.write(obyts)
             fd.close()
 
-            fd = genfile(fdir, 'test.mpk')
+            fd = s_common.genfile(fdir, 'test.mpk')
             gen = s_msgpack.iterfd(fd)
 
             items = [obj for obj in gen]

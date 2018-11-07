@@ -1,12 +1,12 @@
 import asyncio
 import logging
 import threading
-import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
 import synapse.eventbus as s_eventbus
 
+import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.const as s_const
 import synapse.lib.threads as s_threads
@@ -24,15 +24,13 @@ class Plex(s_eventbus.EventBus):
         self.links = {}
 
         self.thrd = s_threads.worker(self._runIoLoop)
+        self.thrd.setName('SynPlex')
+
         self.ident = self.thrd.ident
 
         def fini():
-            coro = self._onAsyncFini()
-            try:
-                self.coroToSync(coro, timeout=.05)
-            except concurrent.futures.TimeoutError:
-                pass
-            self.thrd.join(.1)
+            self.callSoonSafe(self.loop.stop)
+            self.thrd.join(0.3)
 
         self.onfini(fini)
 
@@ -52,7 +50,7 @@ class Plex(s_eventbus.EventBus):
         '''
         reader, writer = await asyncio.open_connection(host, port, ssl=ssl)
 
-        return self._initPlexLink(reader, writer)
+        return await self._initPlexLink(reader, writer)
 
     def connect(self, host, port, ssl=None, timeout=None):
         '''
@@ -61,7 +59,7 @@ class Plex(s_eventbus.EventBus):
         coro = self.link(host, port, ssl=ssl)
         return self.coroToSync(coro, timeout=timeout)
 
-    def listen(self, host, port, onlink, ssl=None):
+    async def listen(self, host, port, onlink, ssl=None):
         '''
         Listen on the given host/port and fire onlink(Link).
 
@@ -69,19 +67,16 @@ class Plex(s_eventbus.EventBus):
         '''
         async def onconn(reader, writer):
 
-            link = self._initPlexLink(reader, writer)
+            link = await self._initPlexLink(reader, writer)
 
             # if the onlink() function is a coroutine, task it.
-            coro = onlink(link)
-            if asyncio.iscoroutine(coro):
-                await coro
+            await s_coro.ornot(onlink, link)
 
-        async def bind():
-            server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
-            return server
+        server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
+        return server
 
-        coro = bind()
-        return self.coroToSync(coro)
+    def queue(self, maxsize=None):
+        return asyncio.Queue(maxsize=maxsize, loop=self.loop)
 
     def coroToTask(self, coro):
         '''
@@ -102,8 +97,13 @@ class Plex(s_eventbus.EventBus):
         '''
         Schedule a coro to run on this loop and return the result.
 
-        NOTE: This API *is* thread safe
+        NOTE: This API *is* thread safe.
+
+        NOTE: This function must *not* be run from inside the event loop
         '''
+        if self.iAmLoop():
+            raise s_exc.AlreadyInAsync()
+
         task = self.coroToTask(coro)
         return task.result(timeout=timeout)
 
@@ -131,15 +131,11 @@ class Plex(s_eventbus.EventBus):
         '''
         await asyncio.sleep(delay, loop=self.loop)
 
-    async def _onAsyncFini(self):
-        # async fini stuff here...
-        self.loop.stop()
-
-    def _initPlexLink(self, reader, writer):
+    async def _initPlexLink(self, reader, writer):
 
         # init a Link from reader, writer
 
-        link = s_link.Link(self, reader, writer)
+        link = await s_link.Link.anit(self, reader, writer)
 
         self.links[link.iden] = link
 
@@ -268,7 +264,7 @@ class Plex(s_eventbus.EventBus):
 
                 byts = await link.reader.read(readsize)
 
-        except BrokenPipeError as e:
+        except (BrokenPipeError, ConnectionResetError) as e:
             logger.warning('%s', str(e))
 
         except Exception as e:
@@ -285,4 +281,5 @@ class Plex(s_eventbus.EventBus):
             self.loop.run_forever()
 
         finally:
+            self.loop.run_until_complete(self.loop.shutdown_asyncgens())
             self.loop.close()

@@ -1,6 +1,6 @@
 import synapse.lib.scrape as s_scrape
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
 data0 = '''
 
@@ -23,7 +23,7 @@ and BOB@WOOT.COM is another
 import unittest
 raise unittest.SkipTest('SHOULD WORK. REGEX DEBUGGING?')
 
-class ScrapeTest(s_test.SynTest):
+class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape(self):
 

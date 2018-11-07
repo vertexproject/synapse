@@ -1,61 +1,60 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.version as s_version
-
 import synapse.models.crypto as s_m_crypto
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
+from synapse.tests.utils import alist
 
 # 010 TODO / Fixme!
 # Test it:prod:softver by range!
 #
 
-class InfotechModelTest(s_test.SynTest):
+class InfotechModelTest(s_t_utils.SynTest):
 
-    def test_infotech_ios(self):
+    async def test_infotech_ios(self):
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
-            with core.snap() as snap:
+            async with await core.snap() as snap:
 
                 valu = '00000000-0000-0000-0000-00000000000A'
-                idfa = snap.addNode('it:os:ios:idfa', valu)
+                idfa = await snap.addNode('it:os:ios:idfa', valu)
                 self.eq(idfa.ndef[1], '00000000-0000-0000-0000-00000000000a')
 
-    def test_infotech_android(self):
+    async def test_infotech_android(self):
 
         softver = s_common.guid()
 
-        with self.getTestCore() as core:
+        async with self.getTestCore() as core:
 
-            with core.snap() as snap:
+            async with await core.snap() as snap:
 
-                perm = snap.addNode('it:os:android:perm', 'Foo Perm')
+                perm = await snap.addNode('it:os:android:perm', 'Foo Perm')
                 self.eq(perm.ndef[1], 'Foo Perm')
-                intent = snap.addNode('it:os:android:intent', 'Foo Intent')
+                intent = await snap.addNode('it:os:android:intent', 'Foo Intent')
                 self.eq(intent.ndef[1], 'Foo Intent')
 
-                ilisn = snap.addNode('it:os:android:ilisten', (softver, 'Listen Test'))
+                ilisn = await snap.addNode('it:os:android:ilisten', (softver, 'Listen Test'))
                 self.eq(ilisn.get('app'), softver)
                 self.eq(ilisn.get('intent'), 'Listen Test')
 
-                ibcast = snap.addNode('it:os:android:ibroadcast', (softver, 'Broadcast Test'))
+                ibcast = await snap.addNode('it:os:android:ibroadcast', (softver, 'Broadcast Test'))
                 self.eq(ibcast.get('app'), softver)
                 self.eq(ibcast.get('intent'), 'Broadcast Test')
 
-                reqperm = snap.addNode('it:os:android:reqperm', (softver, 'Test Perm'))
+                reqperm = await snap.addNode('it:os:android:reqperm', (softver, 'Test Perm'))
                 self.eq(reqperm.get('app'), softver)
                 self.eq(reqperm.get('perm'), 'Test Perm')
 
                 valu = 'someIdentifier'
-                aaid = snap.addNode('it:os:android:aaid', valu)
+                aaid = await snap.addNode('it:os:android:aaid', valu)
                 self.eq(aaid.ndef[1], 'someidentifier')
 
-    def test_it_forms_simple(self):
-        with self.getTestCore() as core:
-            with core.snap() as snap:
-                node = snap.addNode('it:hostname', 'Bobs Computer')
+    async def test_it_forms_simple(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('it:hostname', 'Bobs Computer')
                 self.eq(node.ndef[1], 'bobs computer')
                 host0 = s_common.guid()
                 sver0 = s_common.guid()
@@ -66,7 +65,7 @@ class InfotechModelTest(s_test.SynTest):
                     'latlong': '0.0, 0.0',
                     'os': sver0,
                 }
-                node = snap.addNode('it:host', host0, hprops)
+                node = await snap.addNode('it:host', host0, hprops)
                 self.eq(node.ndef[1], host0)
                 self.eq(node.get('name'), 'bobs laptop')
                 self.eq(node.get('desc'), 'Bobs paperweight')
@@ -74,18 +73,18 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('latlong'), (0.0, 0.0))
                 self.eq(node.get('os'), sver0)
 
-                node = snap.addNode('it:hosturl', (host0, 'http://vertex.ninja/cool.php'))
+                node = await snap.addNode('it:hosturl', (host0, 'http://vertex.ninja/cool.php'))
                 self.eq(node.ndef[1], (host0, 'http://vertex.ninja/cool.php'))
                 self.eq(node.get('host'), host0)
                 self.eq(node.get('url'), 'http://vertex.ninja/cool.php')
 
-                node = snap.addNode('it:dev:int', 0x61C88648)
+                node = await snap.addNode('it:dev:int', 0x61C88648)
                 self.eq(node.ndef[1], 1640531528)
 
                 cprops = {
                     'desc': 'Some words.',
                 }
-                node = snap.addNode('it:sec:cve', 'CVE-2013-9999', cprops)
+                node = await snap.addNode('it:sec:cve', 'CVE-2013-9999', cprops)
                 self.eq(node.ndef[1], 'cve-2013-9999')
                 self.eq(node.get('desc'), 'Some words.')
 
@@ -100,7 +99,7 @@ class InfotechModelTest(s_test.SynTest):
                     'hash:ntlm': s_m_crypto.ex_md5,
                     'passwd': "I've got the same combination on my luggage!",
                 }
-                node = snap.addNode('it:auth:passwdhash', hash0, hprops)
+                node = await snap.addNode('it:auth:passwdhash', hash0, hprops)
                 self.eq(node.ndef[1], hash0)
                 self.eq(node.get('salt'), 'b33f')
                 self.eq(node.get('hash:md5'), s_m_crypto.ex_md5)
@@ -111,10 +110,10 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('hash:ntlm'), s_m_crypto.ex_md5)
                 self.eq(node.get('passwd'), "I've got the same combination on my luggage!")
 
-    def test_it_forms_prodsoft(self):
+    async def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms
-        with self.getTestCore() as core:
-            with core.snap() as snap:
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
                 # it:prod:soft
                 prod0 = s_common.guid()
                 org0 = s_common.guid()
@@ -132,7 +131,7 @@ class InfotechModelTest(s_test.SynTest):
                     'author:person': person0,
                     'url': url0,
                 }
-                node = snap.addNode('it:prod:soft', prod0, sprops)
+                node = await snap.addNode('it:prod:soft', prod0, sprops)
                 self.eq(node.ndef[1], prod0)
                 self.eq(node.get('name'), 'balloon maker')
                 self.eq(node.get('desc'), "Pennywise's patented balloon blower upper")
@@ -143,8 +142,8 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('author:person'), person0)
                 self.false(node.get('isos'))
                 self.false(node.get('islib'))
-                node.set('isos', True)
-                node.set('islib', True)
+                await node.set('isos', True)
+                await node.set('islib', True)
                 self.true(node.get('isos'))
                 self.true(node.get('islib'))
 
@@ -159,7 +158,7 @@ class InfotechModelTest(s_test.SynTest):
                     'arch': 'amd64'
                 }
                 ver0 = s_common.guid()
-                node = snap.addNode('it:prod:softver', ver0, vprops)
+                node = await snap.addNode('it:prod:softver', ver0, vprops)
 
                 self.eq(node.ndef[1], ver0)
                 self.eq(node.get('arch'), 'amd64')
@@ -175,28 +174,28 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('semver:build'), 'exp.sha.5114f85')
                 self.eq(node.get('url'), url1)
                 # callback node creation checks
-                nodes = list(snap.getNodesBy('it:dev:str', 'V1.0.1-beta+exp.sha.5114f85'))
+                nodes = await alist(snap.getNodesBy('it:dev:str', 'V1.0.1-beta+exp.sha.5114f85'))
                 self.len(1, nodes)
-                nodes = list(snap.getNodesBy('it:dev:str', 'amd64'))
+                nodes = await alist(snap.getNodesBy('it:dev:str', 'amd64'))
                 self.len(1, nodes)
 
                 host0 = s_common.guid()
-                node = snap.addNode('it:hostsoft', (host0, ver0))
+                node = await snap.addNode('it:hostsoft', (host0, ver0))
                 self.eq(node.ndef[1], (host0, ver0))
                 self.eq(node.get('host'), host0)
                 self.eq(node.get('softver'), ver0)
 
-                softfile = snap.addNode('it:prod:softfile', (ver0, file0))
+                softfile = await snap.addNode('it:prod:softfile', (ver0, file0))
                 self.eq(softfile.get('soft'), ver0)
                 self.eq(softfile.get('file'), f'sha256:{file0}')
 
                 ver1 = s_common.guid()
-                softlib = snap.addNode('it:prod:softlib', (ver0, ver1))
+                softlib = await snap.addNode('it:prod:softlib', (ver0, ver1))
                 self.eq(softlib.get('soft'), ver0)
                 self.eq(softlib.get('lib'), ver1)
 
                 os0 = s_common.guid()
-                softos = snap.addNode('it:prod:softos', (ver0, os0))
+                softos = await snap.addNode('it:prod:softos', (ver0, os0))
                 self.eq(softos.get('soft'), ver0)
                 self.eq(softos.get('os'), os0)
 
@@ -206,14 +205,14 @@ class InfotechModelTest(s_test.SynTest):
                     'url': url1,
                 }
                 sig0 = (prod1, 'Bar.BAZ.faZ')
-                node = snap.addNode('it:av:sig', sig0, sigprops)
+                node = await snap.addNode('it:av:sig', sig0, sigprops)
                 self.eq(node.ndef[1], (prod1, 'Bar.BAZ.faZ'.lower()))
                 self.eq(node.get('soft'), prod1)
                 self.eq(node.get('name'), 'bar.baz.faz')
                 self.eq(node.get('desc'), 'The evil balloon virus!')
                 self.eq(node.get('url'), url1)
 
-                node = snap.addNode('it:av:filehit', (file0, sig0))
+                node = await snap.addNode('it:av:filehit', (file0, sig0))
                 self.eq(node.ndef[1], (f'sha256:{file0}', (prod1, 'Bar.BAZ.faZ'.lower())))
                 self.eq(node.get('file'), f'sha256:{file0}')
                 self.eq(node.get('sig'), (prod1, 'Bar.BAZ.faZ'.lower()))
@@ -237,13 +236,13 @@ class InfotechModelTest(s_test.SynTest):
                     props = {
                         'vers': tv
                     }
-                    node = snap.addNode('it:prod:softver', '*', props)
+                    node = await snap.addNode('it:prod:softver', '*', props)
                     self.eq(node.get('semver'), te)
                     self.eq(node.get('semver:major'), subs.get('major'))
                     self.eq(node.get('semver:minor'), subs.get('minor'))
                     self.eq(node.get('semver:patch'), subs.get('patch'))
 
-                node = snap.addNode('it:prod:softver', '*', {'vers': ''})
+                node = await snap.addNode('it:prod:softver', '*', {'vers': ''})
                 self.eq(node.get('vers'), '')
                 self.none(node.get('vers:norm'))
                 self.none(node.get('semver'))
@@ -251,36 +250,36 @@ class InfotechModelTest(s_test.SynTest):
                 with self.getLoggerStream('synapse.models.infotech',
                                           'Unable to brute force version parts out of the string') as stream:
 
-                    node = snap.addNode('it:prod:softver', '*', {'vers': 'Alpha'})
+                    node = await snap.addNode('it:prod:softver', '*', {'vers': 'Alpha'})
                     self.none(node.get('semver'))
                     self.true(stream.is_set())
 
-    def test_it_form_callbacks(self):
-        with self.getTestCore() as core:
-            with core.snap() as snap:
+    async def test_it_form_callbacks(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
                 # it:dev:str kicks out the :norm property on him when he is made
-                node = snap.addNode('it:dev:str', 'evil RAT')
+                node = await snap.addNode('it:dev:str', 'evil RAT')
                 self.eq(node.ndef[1], 'evil RAT')
                 self.eq(node.get('norm'), 'evil rat')
 
                 pipe = 'MyPipe'
-                node = snap.addNode('it:dev:pipe', pipe)
+                node = await snap.addNode('it:dev:pipe', pipe)
                 self.eq(node.ndef[1], pipe)
-                nodes = list(snap.getNodesBy('it:dev:str', pipe))
+                nodes = await alist(snap.getNodesBy('it:dev:str', pipe))
                 self.len(1, nodes)
                 # The callback created node also has norm set on it
                 self.eq(nodes[0].get('norm'), pipe.lower())
 
                 mutex = 'MyMutxex'
-                node = snap.addNode('it:dev:mutex', mutex)
+                node = await snap.addNode('it:dev:mutex', mutex)
                 self.eq(node.ndef[1], mutex)
-                nodes = list(snap.getNodesBy('it:dev:str', mutex))
+                nodes = await alist(snap.getNodesBy('it:dev:str', mutex))
                 self.len(1, nodes)
 
                 key = 'HKEY_LOCAL_MACHINE\\Foo\\Bar'
-                node = snap.addNode('it:dev:regkey', key)
+                node = await snap.addNode('it:dev:regkey', key)
                 self.eq(node.ndef[1], key)
-                nodes = list(snap.getNodesBy('it:dev:str', key))
+                nodes = await alist(snap.getNodesBy('it:dev:str', key))
                 self.len(1, nodes)
 
                 fbyts = 'sha256:' + 64 * 'f'
@@ -296,16 +295,16 @@ class InfotechModelTest(s_test.SynTest):
                         'key': key,
                         prop: valu,
                     }
-                    node = snap.addNode('it:dev:regval', guid, props)
+                    node = await snap.addNode('it:dev:regval', guid, props)
                     self.eq(node.ndef[1], guid)
                     self.eq(node.get('key'), key)
                     self.eq(node.get(prop), valu)
 
-                nodes = list(snap.getNodesBy('it:dev:str', key))
+                nodes = await alist(snap.getNodesBy('it:dev:str', key))
                 self.len(1, nodes)
 
-    def test_it_semvertype(self):
-        with self.getTestCore() as core:
+    async def test_it_semvertype(self):
+        async with self.getTestCore() as core:
             t = core.model.type('it:semver')
             testvectors = (
                 # Strings
@@ -402,10 +401,10 @@ class InfotechModelTest(s_test.SynTest):
             for v, e in testvectors_repr:
                 self.eq(t.repr(v), e)
 
-    def test_it_forms_hostexec(self):
+    async def test_it_forms_hostexec(self):
         # forms related to the host execution model
-        with self.getTestCore() as core:
-            with core.snap() as snap:
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
                 exe = 'sha256:' + 'a' * 64
                 port = 80
                 tick = s_common.now()
@@ -440,7 +439,7 @@ class InfotechModelTest(s_test.SynTest):
                     'src:exe': src_path,
                     'src:proc': src_proc,
                 }
-                node = snap.addNode('it:exec:proc', proc, pprops)
+                node = await snap.addNode('it:exec:proc', proc, pprops)
                 self.eq(node.ndef[1], proc)
                 self.eq(node.get('exe'), exe)
                 self.eq(node.get('pid'), pid)
@@ -460,7 +459,7 @@ class InfotechModelTest(s_test.SynTest):
                     'host': host,
                     'time': tick,
                 }
-                node = snap.addNode('it:exec:mutex', m0, mprops)
+                node = await snap.addNode('it:exec:mutex', m0, mprops)
                 self.eq(node.ndef[1], m0)
                 self.eq(node.get('exe'), exe)
                 self.eq(node.get('proc'), proc)
@@ -476,7 +475,7 @@ class InfotechModelTest(s_test.SynTest):
                     'host': host,
                     'time': tick,
                 }
-                node = snap.addNode('it:exec:pipe', p0, pipeprops)
+                node = await snap.addNode('it:exec:pipe', p0, pipeprops)
                 self.eq(node.ndef[1], p0)
                 self.eq(node.get('exe'), exe)
                 self.eq(node.get('proc'), proc)
@@ -493,7 +492,7 @@ class InfotechModelTest(s_test.SynTest):
                     'url': url,
                     'client': addr4,
                 }
-                node = snap.addNode('it:exec:url', u0, uprops)
+                node = await snap.addNode('it:exec:url', u0, uprops)
                 self.eq(node.ndef[1], u0)
                 self.eq(node.get('exe'), exe)
                 self.eq(node.get('proc'), proc)
@@ -506,7 +505,7 @@ class InfotechModelTest(s_test.SynTest):
 
                 u1 = s_common.guid()
                 uprops['client'] = addr6
-                node = snap.addNode('it:exec:url', u1, uprops)
+                node = await snap.addNode('it:exec:url', u1, uprops)
                 self.eq(node.ndef[1], u1)
                 self.eq(node.get('client'), addr6)
                 self.eq(node.get('client:ipv6'), ipv6)
@@ -520,7 +519,7 @@ class InfotechModelTest(s_test.SynTest):
                     'time': tick,
                     'server': addr4
                 }
-                node = snap.addNode('it:exec:bind', b0, bprops)
+                node = await snap.addNode('it:exec:bind', b0, bprops)
                 self.eq(node.ndef[1], b0)
                 self.eq(node.get('exe'), exe)
                 self.eq(node.get('proc'), proc)
@@ -532,7 +531,7 @@ class InfotechModelTest(s_test.SynTest):
 
                 b1 = s_common.guid()
                 bprops['server'] = addr6
-                node = snap.addNode('it:exec:bind', b1, bprops)
+                node = await snap.addNode('it:exec:bind', b1, bprops)
                 self.eq(node.ndef[1], b1)
                 self.eq(node.get('server'), addr6)
                 self.eq(node.get('server:ipv6'), ipv6)
@@ -547,7 +546,7 @@ class InfotechModelTest(s_test.SynTest):
                     'path': fpath,
                 }
                 fa0 = s_common.guid()
-                node = snap.addNode('it:exec:file:add', fa0, faprops)
+                node = await snap.addNode('it:exec:file:add', fa0, faprops)
                 self.eq(node.ndef[1], fa0)
                 self.eq(node.get('exe'), exe)
                 self.eq(node.get('host'), host)
@@ -560,7 +559,7 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('path:ext'), 'rar')
 
                 fr0 = s_common.guid()
-                node = snap.addNode('it:exec:file:read', fr0, faprops)
+                node = await snap.addNode('it:exec:file:read', fr0, faprops)
                 self.eq(node.ndef[1], fr0)
                 self.eq(node.get('exe'), exe)
                 self.eq(node.get('host'), host)
@@ -573,7 +572,7 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('path:ext'), 'rar')
 
                 fw0 = s_common.guid()
-                node = snap.addNode('it:exec:file:write', fw0, faprops)
+                node = await snap.addNode('it:exec:file:write', fw0, faprops)
                 self.eq(node.ndef[1], fw0)
                 self.eq(node.get('exe'), exe)
                 self.eq(node.get('host'), host)
@@ -586,7 +585,7 @@ class InfotechModelTest(s_test.SynTest):
                 self.eq(node.get('path:ext'), 'rar')
 
                 fd0 = s_common.guid()
-                node = snap.addNode('it:exec:file:del', fd0, faprops)
+                node = await snap.addNode('it:exec:file:del', fd0, faprops)
                 self.eq(node.ndef[1], fd0)
                 self.eq(node.get('exe'), exe)
                 self.eq(node.get('host'), host)
@@ -609,7 +608,7 @@ class InfotechModelTest(s_test.SynTest):
                     'user': user,
                     'group': 'domainadmin'
                 }
-                node = snap.addNode('it:fs:file', file0, fsprops)
+                node = await snap.addNode('it:fs:file', file0, fsprops)
                 self.eq(node.ndef[1], file0)
                 self.eq(node.get('host'), host)
                 self.eq(node.get('user'), user)
@@ -645,7 +644,7 @@ class InfotechModelTest(s_test.SynTest):
                         rk0 = s_common.guid()
                         nprops = rprops.copy()
                         nprops[ekey] = valu
-                        node = snap.addNode(form, rk0, nprops)
+                        node = await snap.addNode(form, rk0, nprops)
                         self.eq(node.ndef[1], rk0)
                         self.eq(node.get('host'), host)
                         self.eq(node.get('proc'), proc)

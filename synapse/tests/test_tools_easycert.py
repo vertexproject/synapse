@@ -4,11 +4,11 @@ import os
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 import synapse.tools.easycert as s_easycert
 
 
-class TestEasyCert(s_test.SynTest):
+class TestEasyCert(s_t_utils.SynTest):
 
     def make_testca(self, path):
         '''

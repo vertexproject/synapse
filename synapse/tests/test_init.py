@@ -2,9 +2,9 @@ import os
 import imp
 
 import synapse
-from synapse.tests.common import *
+import synapse.tests.utils as s_t_utils
 
-class InitTest(SynTest):
+class InitTest(s_t_utils.SynTest):
     pass
 
     '''

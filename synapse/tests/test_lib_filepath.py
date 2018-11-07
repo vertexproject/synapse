@@ -1,16 +1,16 @@
-
-import io
+import os
 import shutil
 import tarfile
 import zipfile
 import tempfile
 
-from synapse.tests.common import *
+from synapse.tests.common import getTestPath
+import synapse.tests.utils as s_t_utils
 
 import synapse.exc as s_exc
 import synapse.lib.filepath as s_filepath
 
-class TestFilePath(SynTest):
+class TestFilePath(s_t_utils.SynTest):
 
     def test_filepath_glob(self):
         temp_dir = tempfile.mkdtemp()

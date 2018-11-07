@@ -1,15 +1,16 @@
 import synapse.exc as s_exc
+
 import synapse.lib.auth as s_auth
 
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 
-class AuthTest(s_test.SynTest):
+class AuthTest(s_t_utils.SynTest):
 
-    def test_auth_basics(self):
+    async def test_auth_basics(self):
 
         with self.getTestDir() as dirn:
 
-            with s_auth.Auth(dirn) as auth:
+            async with await s_auth.Auth.anit(dirn) as auth:
 
                 user = auth.addUser('hatguy')
                 user.setPasswd('secretsauce')
@@ -80,7 +81,7 @@ class AuthTest(s_test.SynTest):
                 self.raises(s_exc.DupUserName, auth.addUser, 'hatguy')
                 self.raises(s_exc.DupRoleName, auth.addRole, 'ninja')
 
-            with s_auth.Auth(dirn) as auth:
+            async with await s_auth.Auth.anit(dirn) as auth:
 
                 user = auth.users.get('hatguy')
                 self.nn(user.shadow)

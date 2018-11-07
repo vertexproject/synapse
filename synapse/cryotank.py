@@ -10,7 +10,10 @@ from typing import Iterable, Optional, Union, Tuple, Dict
 
 import lmdb  # type: ignore
 
+import synapse.glob as s_glob
+
 import synapse.lib.kv as s_kv
+import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.lmdb as s_lmdb
 import synapse.lib.queue as s_queue
@@ -20,7 +23,6 @@ import synapse.lib.datapath as s_datapath
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
 import synapse.datamodel as s_datamodel
 
 logger = logging.getLogger(__name__)
@@ -159,14 +161,14 @@ class CryoTank(s_cell.Cell):
     '''
     cellapi = TankApi
 
-    confdefs = (
+    confdefs = (  # type: ignore
         ('mapsize', {'type': 'int', 'doc': 'LMDB mapsize value', 'defval': s_lmdb.DEFAULT_MAP_SIZE}),
         ('noindex', {'type': 'bool', 'doc': 'Disable indexing', 'defval': 0}),
     )
 
-    def __init__(self, dirn: str, conf=None) -> None:
+    async def __anit__(self, dirn: str, conf=None) -> None:
 
-        s_cell.Cell.__init__(self, dirn)
+        await s_cell.Cell.__anit__(self, dirn)
 
         if conf is not None:
             self.conf.update(conf)
@@ -260,7 +262,7 @@ class CryoTank(s_cell.Cell):
                 self.offs.xset(xact, iden, nextoff)
                 retn = nextoff
 
-        self.fire('cryotank:puts', numrecords=len(itembyts))
+        self.schedCoroSafe(self.fire('cryotank:puts', numrecords=len(itembyts)))
 
         return retn
 
@@ -379,36 +381,39 @@ class CryoApi(s_cell.CellApi):
 
     This is the API to reference for remote CryoCell use.
     '''
-    def init(self, name, conf=None):
-        self.cell.init(name, conf=conf)
+    async def init(self, name, conf=None):
+        await self.cell.init(name, conf=conf)
         return True
 
-    def slice(self, name, offs, size, iden=None):
-        tank = self.cell.init(name)
-        yield from tank.slice(offs, size, iden=iden)
+    async def slice(self, name, offs, size, iden=None):
+        tank = await self.cell.init(name)
+        for item in tank.slice(offs, size, iden=iden):
+            yield item
 
     def list(self):
         return self.cell.list()
 
-    def last(self, name):
-        tank = self.cell.init(name)
+    async def last(self, name):
+        tank = await self.cell.init(name)
         return tank.last()
 
-    def puts(self, name, items, seqn=None):
-        tank = self.cell.init(name)
+    async def puts(self, name, items, seqn=None):
+        tank = await self.cell.init(name)
         return tank.puts(items, seqn=seqn)
 
-    def offset(self, name, iden):
-        tank = self.cell.init(name)
+    async def offset(self, name, iden):
+        tank = await self.cell.init(name)
         return tank.getOffset(iden)
 
-    def rows(self, name, offs, size, iden=None):
-        tank = self.cell.init(name)
-        yield from tank.rows(offs, size, iden=iden)
+    async def rows(self, name, offs, size, iden=None):
+        tank = await self.cell.init(name)
+        for item in tank.rows(offs, size, iden=iden):
+            yield item
 
-    def metrics(self, name, offs, size=None):
-        tank = self.cell.init(name)
-        yield from tank.metrics(offs, size=size)
+    async def metrics(self, name, offs, size=None):
+        tank = await self.cell.init(name)
+        for item in tank.metrics(offs, size=size):
+            yield item
 
     @s_cell.adminapi
     def delete(self, name):
@@ -423,9 +428,9 @@ class CryoCell(s_cell.Cell):
                           'doc': 'Default config over-rides for a new tank.'}),
     )
 
-    def __init__(self, dirn):
+    async def __anit__(self, dirn):
 
-        s_cell.Cell.__init__(self, dirn)
+        await s_cell.Cell.__anit__(self, dirn)
 
         path = s_common.gendir(self.dirn, 'cryo.lmdb')
 
@@ -438,8 +443,7 @@ class CryoCell(s_cell.Cell):
         self.names = self.kvstor.getKvDict('cryo:names')
         self.confs = self.kvstor.getKvDict('cryo:confs')
 
-        self.tanks = s_eventbus.BusRef()
-
+        self.tanks = await s_base.BaseRef.anit()
         self.onfini(self.tanks.fini)
 
         for name, iden in self.names.items():
@@ -449,13 +453,13 @@ class CryoCell(s_cell.Cell):
             path = s_common.genpath(self.dirn, 'tanks', iden)
 
             conf = self.confs.get(name)
-            tank = CryoTank(path, conf)
+            tank = await CryoTank.anit(path, conf)
             self.tanks.put(name, tank)
 
-    def onTeleOpen(self, link, path):
-        return self.init(path[1])
+    async def onTeleOpen(self, link, path):
+        return await self.init(path[1])
 
-    def init(self, name, conf=None):
+    async def init(self, name, conf=None):
         '''
         Generate a new CryoTank with a given name or get an reference to an existing CryoTank.
 
@@ -479,7 +483,7 @@ class CryoCell(s_cell.Cell):
         if conf is not None:
             mergeconf.update(conf)
 
-        tank = CryoTank(path, mergeconf)
+        tank = await CryoTank.anit(path, mergeconf)
 
         self.names.set(name, iden)
         self.confs.set(name, conf)
@@ -972,7 +976,7 @@ class CryoTankIndexer:
             self._removeSome()
             if not rowcount and not self._meta.deleting:
                 if stillworktodo is True:
-                    self.cryotank.fire('cryotank:indexer:noworkleft:' + last_callback)
+                    s_glob.plex.coroToTask(self.cryotank.fire('cryotank:indexer:noworkleft:' + last_callback))
                     last_callback = 'None'
                     stillworktodo = False
             else:

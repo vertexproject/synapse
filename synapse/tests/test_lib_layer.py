@@ -1,4 +1,4 @@
-import synapse.tests.common as s_t_common
+import synapse.tests.utils as s_t_utils
 
-class LayerTest(s_t_common.SynTest):
+class LayerTest(s_t_utils.SynTest):
     pass

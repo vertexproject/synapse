@@ -1,12 +1,18 @@
 import gc
 import atexit
 import signal
+import inspect
 import asyncio
 import logging
 import threading
 import collections
 
+if __debug__:
+    import traceback
+
 import synapse.exc as s_exc
+
+import synapse.lib.coro as s_coro
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +27,17 @@ def _fini_atexit(): # pragma: no cover
             continue
 
         if not item._fini_atexit:
+            if __debug__:
+                print(f'At exit: Missing fini for {item}')
+                for depth, call in enumerate(item.call_stack[:-2]):
+                    print(f'{depth+1:3}: {call.strip()}')
             continue
 
         try:
+            if __debug__:
+                logger.debug('At exit: Calling fini for %r', item)
             rv = item.fini()
-            if asyncio.iscoroutine(rv):
+            if s_coro.iscoro(rv):
                 # Try to run the fini on its loop
                 loop = item.loop
                 if not loop.is_running():
@@ -45,25 +57,43 @@ class Base:
 
     Example:
 
-        class Foo(Anit):
+        class Foo(Base):
 
-            def __init__(self, x):
-                self.x = x
+            async def __anit__(self, x, y):
 
-            async def __anit__(self):
-                await stuff()
+                await Base.__anit__(self)
+
+                await stuff(x, y)
 
         foo = await Foo.anit(10)
+
+    Note:
+        One should not create instances directly via its initializer, i.e. Base().  One shall always use the class
+        method anit.
     '''
+    def __init__(self):
+        assert inspect.stack()[1].function == 'anit', 'Objects from Base must be constructed solely via "anit"'
+
     @classmethod
     async def anit(cls, *args, **kwargs):
-        self = cls(*args, **kwargs)
-        self.loop = asyncio.get_event_loop()
-        await self.__anit__()
+        self = cls()
+        try:
+            await self.__anit__(*args, **kwargs)
+        except Exception:
+            await self.fini()
+            raise
+
         return self
 
-    def __init__(self):
+    async def __anit__(self):
+
+        self.loop = asyncio.get_running_loop()
+        if __debug__:
+            import synapse.lib.threads as s_threads  # avoid import cycle
+            self.tid = s_threads.iden()
+            self.call_stack = traceback.format_stack()  # For cleanup debugging
         self.isfini = False
+        self.anitted = True  # For assertion purposes
         self.entered = False
         self.exitinfo = None
         self.finievt = None
@@ -78,22 +108,27 @@ class Base:
         self._syn_links = []
         self._fini_funcs = []
         self._fini_atexit = False
-        self.loop: asyncio.AbstractEventLoop = None
-
-    async def __anit__(self):
-        pass
+        self._active_tasks = set()  # the free running tasks associated with me
 
     def onfini(self, func):
         '''
         Add a function or coroutine function to be called on fini().
         '''
+        assert self.anitted
         self._fini_funcs.append(func)
 
     async def __aenter__(self):
+        assert asyncio.get_running_loop() == self.loop
         self.entered = True
         return self
 
     async def __aexit__(self, exc, cls, tb):
+        # Either there should be no running loop or we shall be on the right one
+        try:
+            assert asyncio.get_running_loop() == self.loop
+        except RuntimeError:
+            pass
+
         self.exitok = cls is None
         self.exitinfo = (exc, cls, tb)
         await self.fini()
@@ -121,12 +156,12 @@ class Base:
 
         Example:
 
-            bus1 = Base()
-            bus2 = Base()
+            base1 = Base()
+            base2 = Base()
 
-            bus1.link( bus2.dist )
+            base1.link( base2.dist )
 
-            # all events on bus1 are also propigated on bus2
+            # all events on base1 are also propagated on base2
 
         '''
         self._syn_links.append(func)
@@ -137,7 +172,7 @@ class Base:
 
         Example:
 
-            bus.unlink( callback )
+            base.unlink( callback )
 
         '''
         if func in self._syn_links:
@@ -165,10 +200,10 @@ class Base:
                 d.on('foo', baz, x=10)
 
                 # this fire triggers baz...
-                d.fire('foo', x=10, y=20)
+                await d.fire('foo', x=10, y=20)
 
                 # this fire does not ( due to filt )
-                d.fire('foo', x=30, y=20)
+                await d.fire('foo', x=30, y=20)
 
         Returns:
             None:
@@ -181,7 +216,7 @@ class Base:
 
         Example:
 
-            bus.off( 'foo', onFooFunc )
+            base.off( 'foo', onFooFunc )
 
         '''
         funcs = self._syn_funcs.get(evnt)
@@ -223,7 +258,7 @@ class Base:
 
         Example:
 
-            base.dist( ('foo',{'bar':'baz'}) )
+            await base.dist( ('foo',{'bar':'baz'}) )
 
         '''
         if self.isfini:
@@ -237,9 +272,7 @@ class Base:
                 if any(True for k, v in filt if mesg[1].get(k) != v):
                     continue
 
-                retn = func(mesg)
-                if asyncio.iscoroutine(retn):
-                    retn = await retn
+                retn = await s_coro.ornot(func, mesg)
                 ret.append(retn)
 
             except Exception as e:
@@ -253,6 +286,27 @@ class Base:
 
         return ret
 
+    def _iAmLoop(self):
+        '''
+        Return True if the current thread is same loop anit was called on
+
+        Returns:
+            (bool)
+
+        '''
+        return threading.get_ident() == self.ident
+
+    async def _kill_active_tasks(self):
+        for task in self._active_tasks.copy():
+            task.cancel()
+            try:
+                await task
+            except Exception:
+                # The taskDone callback will emit the exception.  No need to repeat
+                pass
+        await asyncio.sleep(0, loop=self.loop)
+        assert not self._active_tasks
+
     async def fini(self):
         '''
         Shut down the object and notify any onfini() coroutines.
@@ -260,8 +314,13 @@ class Base:
         Returns:
             Remaining ref count
         '''
+        assert self.anitted, 'Base object initialized improperly.  Must use Base.anit class method.'
+
         if self.isfini:
             return
+        if __debug__:
+            import synapse.lib.threads as s_threads  # avoid import cycle
+            assert s_threads.iden() == self.tid
 
         self._syn_refs -= 1
         if self._syn_refs > 0:
@@ -270,29 +329,32 @@ class Base:
         self.isfini = True
 
         fevt = self.finievt
-        for fini in self._fini_funcs:
-
-            try:
-                rv = fini()
-                if asyncio.iscoroutine(rv):
-                    await rv
-
-            except Exception as e:
-                logger.exception('fini failed')
 
         if fevt is not None:
             fevt.set()
+
+        await self._kill_active_tasks()
+
+        for fini in self._fini_funcs:
+            try:
+                await s_coro.ornot(fini)
+            except Exception as e:
+                logger.exception('fini failed')
+
         self._syn_funcs.clear()
-        del self._fini_funcs[:]
+        self._fini_funcs.clear()
         return 0
 
     async def waitfini(self, timeout=None):
         '''
         Wait for the base to fini()
 
+        Returns:
+            None if timed out, True if fini happened
+
         Example:
 
-            bus.waitfini(timeout=30)
+            base.waitfini(timeout=30)
 
         '''
 
@@ -302,11 +364,64 @@ class Base:
         if self.finievt is None:
             self.finievt = asyncio.Event(loop=self.loop)
 
-        try:
-            await asyncio.wait_for(self.finievt.wait(), timeout, loop=self.loop)
-        except asyncio.TimeoutError:
-            return None
-        return True
+        return await s_coro.event_wait(self.finievt, timeout)
+
+    def schedCoro(self, coro):
+        '''
+        Schedules a free-running coroutine to run on this base's event loop.  Kills the coroutine if Base is fini'd.
+        It does not pend on coroutine completion.
+
+        Precondition:
+            This function is *not* threadsafe and must be run on the Base's event loop
+
+        Returns:
+            An asyncio.Task
+
+        '''
+        if __debug__:
+            import synapse.lib.threads as s_threads  # avoid import cycle
+            assert s_threads.iden() == self.tid
+
+        task = self.loop.create_task(coro)
+
+        def taskDone(task):
+            self._active_tasks.remove(task)
+            try:
+                task.result()
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                logger.exception('Task scheduled through Base.schedCoro raised exception')
+
+        self._active_tasks.add(task)
+        task.add_done_callback(taskDone)
+
+        return task
+
+    def schedCoroSafe(self, coro):
+        '''
+        Schedules a coroutine to run as soon as possible on the same event loop that this Base is running on
+
+        This function does *not* pend on coroutine completion.
+
+        Note:
+            This method may be run outside the event loop on a different thread.
+        '''
+        return self.loop.call_soon_threadsafe(self.schedCoro, coro)
+
+    def schedCoroSafePend(self, coro):
+        '''
+        Schedules a coroutine to run as soon as possible on the same event loop that this Base is running on
+
+        Note:
+            This method may *not* be run inside an event loop
+        '''
+        if __debug__:
+            import synapse.lib.threads as s_threads  # avoid import cycle
+            assert s_threads.iden() != self.tid
+
+        task = asyncio.run_coroutine_threadsafe(coro, self.loop)
+        return task.result()
 
     def main(self):
         '''
@@ -320,8 +435,7 @@ class Base:
                 dostuff()
 
         Notes:
-            This does fire a 'ebus:main' event prior to entering the
-            waitfini() loop.
+            This fires a 'ebus:main' event prior to entering the waitfini() loop.
 
         Returns:
             None
@@ -358,13 +472,13 @@ class Base:
 
     def waiter(self, count, *names):
         '''
-        Construct and return a new Waiter for events on this bus.
+        Construct and return a new Waiter for events on this base.
 
         Example:
 
             # wait up to 3 seconds for 10 foo:bar events...
 
-            waiter = bus.waiter(10,'foo:bar')
+            waiter = base.waiter(10,'foo:bar')
 
             # .. fire thread that will cause foo:bar events
 
@@ -418,20 +532,19 @@ class Waiter:
     '''
     A helper to wait for a given number of events on a Base.
     '''
-    def __init__(self, bus, count, loop, *names):
-        self.bus = bus
+    def __init__(self, base, count, *names):
+        self.base = base
         self.names = names
         self.count = count
-        self.loop = loop
-        self.event = asyncio.Event(loop=loop)
+        self.event = asyncio.Event(loop=base.loop)
 
         self.events = []
 
         for name in names:
-            bus.on(name, self._onWaitEvent)
+            base.on(name, self._onWaitEvent)
 
         if not names:
-            bus.link(self._onWaitEvent)
+            base.link(self._onWaitEvent)
 
     def _onWaitEvent(self, mesg):
         self.events.append(mesg)
@@ -455,9 +568,9 @@ class Waiter:
 
         '''
         try:
-            try:
-                await asyncio.wait_for(self.event.wait(), timeout, loop=self.loop)
-            except asyncio.TimeoutError:
+
+            retn = await s_coro.event_wait(self.event, timeout)
+            if not retn:
                 return None
 
             return self.events
@@ -468,24 +581,24 @@ class Waiter:
     def fini(self):
 
         for name in self.names:
-            self.bus.off(name, self._onWaitEvent)
+            self.base.off(name, self._onWaitEvent)
 
         if not self.names:
-            self.bus.unlink(self._onWaitEvent)
+            self.base.unlink(self._onWaitEvent)
         del self.event
 
 class BaseRef(Base):
     '''
     An object for managing multiple Base instances by name.
     '''
-    def __init__(self, ctor=None):
-        Base.__init__(self)
+    async def __anit__(self, ctor=None):
+        await Base.__anit__(self)
         self.ctor = ctor
         self.base_by_name = {}
         self.onfini(self._onBaseRefFini)
 
     async def _onBaseRefFini(self):
-        await asyncio.gather(*[base.fini() for base in self.vals()])
+        await asyncio.gather(*[base.fini() for base in self.vals()], loop=self.loop)
 
     def put(self, name, base):
         '''
@@ -514,7 +627,7 @@ class BaseRef(Base):
             name (str): The name/iden of the Base instance
 
         Returns:
-            (Base): The named base (or None)
+            (Base): The named base ( or None )
         '''
         return self.base_by_name.pop(name, None)
 

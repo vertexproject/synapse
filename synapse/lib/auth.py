@@ -112,9 +112,8 @@ class Auth(s_cell.Cell):
             'doc': 'Memory map size for the auth LMDB.'}),
     )
 
-    def __init__(self, dirn):
-
-        s_cell.Cell.__init__(self, dirn)
+    async def __anit__(self, dirn):
+        await s_cell.Cell.__anit__(self, dirn)
 
         path = os.path.join(dirn, 'auth.lmdb')
 

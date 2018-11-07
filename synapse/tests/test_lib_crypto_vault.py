@@ -6,7 +6,7 @@ import multiprocessing
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.tests.common as s_test
+import synapse.tests.utils as s_t_utils
 import synapse.lib.crypto.ecc as s_ecc
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.crypto.vault as s_vault
@@ -26,7 +26,7 @@ def addUserToVault(evt1, evt2, fp, user):
         vlt.genUserCert(user)
     evt2.set()
 
-class VaultTest(s_test.SynTest):
+class VaultTest(s_t_utils.SynTest):
     def test_lib_crypto_vault_cert(self):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'vault.lmdb')

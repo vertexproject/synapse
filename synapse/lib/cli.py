@@ -1,13 +1,16 @@
 import json
+import time
 import signal
+import asyncio
 import threading
 import traceback
 import collections
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.eventbus as s_eventbus
 
-import synapse.lib.coro as s_coro
+import synapse.lib.base as s_base
 import synapse.lib.mixins as s_mixins
 import synapse.lib.output as s_output
 import synapse.lib.syntax as s_syntax
@@ -42,7 +45,7 @@ class Cmd:
         self._cmd_cli = cli
         self._cmd_opts = opts
 
-    def runCmdLine(self, line):
+    async def runCmdLine(self, line):
         '''
         Run a line of command input for this command.
 
@@ -52,11 +55,11 @@ class Cmd:
         Examples:
             Run the foo command with some arguments:
 
-                foo.runCmdLine('foo --opt baz woot.com')
+                await foo.runCmdLine('foo --opt baz woot.com')
 
         '''
         opts = self.getCmdOpts(line)
-        return self.runCmdOpts(opts)
+        return await self.runCmdOpts(opts)
 
     def getCmdItem(self):
         '''
@@ -142,7 +145,7 @@ class Cmd:
                     valu, off = s_syntax.parse_cmd_string(text, off)
                     if valu not in vals:
                         raise s_exc.BadSyntaxError(mesg='%s (%s)' % (swit[0], '|'.join(vals)),
-                                                      text=text)
+                                                   text=text)
 
                     opts[snam] = valu
 
@@ -153,7 +156,7 @@ class Cmd:
 
             if not args:
                 raise s_exc.BadSyntaxError(mesg='trailing text: [%s]' % (text[off:],),
-                                              text=text)
+                                           text=text)
 
             synt = args.popleft()
             styp = synt[1].get('type', 'valu')
@@ -204,7 +207,7 @@ class Cmd:
     def printf(self, mesg, addnl=True):
         return self._cmd_cli.printf(mesg, addnl=addnl)
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
         '''
         Perform the command actions. Must be implemented by Cmd implementers.
 
@@ -233,7 +236,7 @@ class Cli(s_eventbus.EventBus):
         self.finikill = False
         self.loopthread = None
 
-        if isinstance(item, (s_coro.Fini, s_eventbus.EventBus)):
+        if isinstance(item, (s_base.Base, s_eventbus.EventBus)):
             self.item.onfini(self._onItemFini)
 
         self.cmds = {}
@@ -338,6 +341,7 @@ class Cli(s_eventbus.EventBus):
             # FIXME history / completion
 
             try:
+                task = None
 
                 line = self.get_input()
                 if not line:
@@ -347,7 +351,8 @@ class Cli(s_eventbus.EventBus):
                 if not line:
                     continue
 
-                self.runCmdLine(line)
+                task = s_glob.plex.coroToTask(self.runCmdLine(line))
+                task.result()
 
             except KeyboardInterrupt as e:
 
@@ -363,7 +368,18 @@ class Cli(s_eventbus.EventBus):
                 s = traceback.format_exc()
                 self.printf(s)
 
-    def runCmdLine(self, line):
+            finally:
+                if task is not None:
+                    task.cancel()
+                    try:
+                        task.result(2)
+                    except asyncio.CancelledError:
+                        # Wait a beat to let any remaining nodes to print out before we print the prompt
+                        time.sleep(1)
+                    except Exception:
+                        pass
+
+    async def runCmdLine(self, line):
         '''
         Run a single command line.
 
@@ -373,7 +389,7 @@ class Cli(s_eventbus.EventBus):
         Examples:
             Execute the 'woot' command with the 'help' switch:
 
-                cli.runCmdLine('woot --help')
+                await cli.runCmdLine('woot --help')
 
         Returns:
             object: Arbitrary data from the cmd class.
@@ -391,13 +407,13 @@ class Cli(s_eventbus.EventBus):
 
         try:
 
-            ret = cmdo.runCmdLine(line)
+            ret = await cmdo.runCmdLine(line)
 
         except s_exc.CliFini as e:
             self.fini()
 
-        except KeyboardInterrupt as e:
-            self.printf('<ctrl-c>')
+        except asyncio.CancelledError:
+            self.printf('Cmd cancelled')
 
         except Exception as e:
             exctxt = traceback.format_exc()
@@ -417,7 +433,7 @@ class CmdQuit(Cmd):
 
     _cmd_name = 'quit'
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
         self.printf('o/')
         raise s_exc.CliFini()
 
@@ -435,7 +451,7 @@ class CmdHelp(Cmd):
         ('cmds', {'type': 'list'})
     ]
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
         cmds = opts.get('cmds')
 
         # if they didn't specify one, just show the list
@@ -470,7 +486,7 @@ class CmdLocals(Cmd):
     '''
     _cmd_name = 'locs'
 
-    def runCmdOpts(self, opts):
+    async def runCmdOpts(self, opts):
         ret = {}
         for k, v in self._cmd_cli.locs.items():
             ret[k] = repr(v)

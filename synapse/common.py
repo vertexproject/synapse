@@ -8,6 +8,7 @@ import fcntl
 import types
 import base64
 import shutil
+import struct
 import fnmatch
 import hashlib
 import logging
@@ -21,19 +22,15 @@ import traceback
 import contextlib
 import collections
 
-
 import yaml
 import regex
-
 
 import synapse.exc as s_exc
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
-
 class NoValu:
     pass
-
 
 major = sys.version_info.major
 minor = sys.version_info.minor
@@ -45,7 +42,6 @@ version = (major, minor, micro)
 guidre = regex.compile('^[0-9a-f]{32}$')
 
 novalu = NoValu()
-
 
 def now():
     '''
@@ -547,6 +543,13 @@ def spin(genr):
     '''
     collections.deque(genr, 0)
 
+async def aspin(genr):
+    '''
+    Async version of spin
+    '''
+    async for _ in genr:
+        pass
+
 def reqStorDict(x):
     '''
     Raises BadStorValu if any value in the dict is not compatible
@@ -614,6 +617,20 @@ def to_bytes(valu, size):
 def to_int(byts):
     return int.from_bytes(byts, 'little')
 
+_Int64be = struct.Struct('>Q')
+
+def int64en(i):
+    '''
+    Encode a 64-bit int into 8 byte big-endian bytes
+    '''
+    return _Int64be.pack(i)
+
+def int64un(b):
+    '''
+    Decode a 64-bit int from 8 byte big-endian
+    '''
+    return _Int64be.unpack(b)[0]
+
 def enbase64(b):
     return base64.b64encode(b).decode('utf8')
 
@@ -651,11 +668,6 @@ def setlogging(mlogger, defval=None):
             raise ValueError('Invalid log level provided: {}'.format(log_level))
         logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
         mlogger.info('log level set to %s', log_level)
-
-################################################
-#
-# 0.1.0 stuff....
-#
 
 syndir = os.getenv('SYN_DIR')
 if syndir is None:

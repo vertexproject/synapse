@@ -8,17 +8,18 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 
+import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.queue as s_queue
 import synapse.lib.msgpack as s_msgpack
 
-class Link(s_coro.Fini):
+class Link(s_base.Base):
     '''
     A Link() is created for each Plex sock.
     '''
-    def __init__(self, plex, reader, writer):
+    async def __anit__(self, plex, reader, writer):
 
-        s_coro.Fini.__init__(self)
+        await s_base.Base.__anit__(self)
 
         self.plex = plex
         self.iden = s_common.guid()
@@ -46,7 +47,7 @@ class Link(s_coro.Fini):
         self.chans = {}
 
         self.unpk = s_msgpack.Unpk()
-        self.txque = asyncio.Queue(maxsize=1000)
+        self.txque = asyncio.Queue(maxsize=1000, loop=plex.loop)
         self.rxfunc = None
 
         async def fini():
@@ -101,7 +102,7 @@ class Link(s_coro.Fini):
         Routine called by Plex to rx a mesg for this Link.
         '''
         coro = self.rxfunc(mesg)
-        if asyncio.iscoroutine(coro):
+        if s_coro.iscoro(coro):
             await coro
 
     def onrx(self, func):
@@ -135,12 +136,12 @@ class Link(s_coro.Fini):
         '''
         return self.unpk.feed(byts)
 
-class Chan(s_coro.Fini):
+class Chan(s_base.Base):
     '''
     An on-going data channel in a Link.
     '''
-    def __init__(self, link, iden):
-        s_coro.Fini.__init__(self)
+    async def __anit__(self, link, iden):
+        await s_base.Base.__anit__(self)
 
         self.link = link
         self.iden = iden

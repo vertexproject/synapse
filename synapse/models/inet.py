@@ -16,6 +16,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
+import synapse.lib.scrape as s_scrape
 import synapse.lib.module as s_module
 import synapse.lookup.iana as s_l_iana
 
@@ -453,13 +454,11 @@ class Rfc2822Addr(s_types.Type):
 
         return valu, {'subs': subs}
 
-class Url(s_types.Type):
+class Url(s_types.StrBase):
 
     def postTypeInit(self):
+        s_types.StrBase.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-
-    def indx(self, norm):
-        return norm.encode('utf8', 'surrogatepass')
 
     def _normPyStr(self, valu):
         orig = valu
@@ -575,91 +574,106 @@ class Url(s_types.Type):
 
 class InetModule(s_module.CoreModule):
 
-    def initCoreModule(self):
+    async def initCoreModule(self):
         self.model.form('inet:fqdn').onAdd(self._onAddFqdn)
         self.model.prop('inet:fqdn:zone').onSet(self._onSetFqdnZone)
         self.model.prop('inet:fqdn:iszone').onSet(self._onSetFqdnIsZone)
         self.model.prop('inet:fqdn:issuffix').onSet(self._onSetFqdnIsSuffix)
         self.model.form('inet:passwd').onAdd(self._onAddPasswd)
 
-    def _onAddPasswd(self, node):
+        self.model.prop('inet:whois:rec:text').onSet(self._onSetWhoisText)
+
+    async def _onSetWhoisText(self, node, oldv):
+
+        text = node.get('text')
+        fqdn = node.get('fqdn')
+        asof = node.get('asof')
+
+        for form, valu in s_scrape.scrape(text):
+
+            if form == 'inet:email':
+
+                whomail = await node.snap.addNode('inet:whois:email', (fqdn, valu))
+                await whomail.set('.seen', asof)
+
+    async def _onAddPasswd(self, node):
 
         byts = node.ndef[1].encode('utf8')
-        node.set('md5', hashlib.md5(byts).hexdigest())
-        node.set('sha1', hashlib.sha1(byts).hexdigest())
-        node.set('sha256', hashlib.sha256(byts).hexdigest())
+        await node.set('md5', hashlib.md5(byts).hexdigest())
+        await node.set('sha1', hashlib.sha1(byts).hexdigest())
+        await node.set('sha256', hashlib.sha256(byts).hexdigest())
 
-    def _onAddFqdn(self, node):
+    async def _onAddFqdn(self, node):
 
         fqdn = node.ndef[1]
         domain = node.get('domain')
 
         if domain is None:
-            node.set('issuffix', True)
+            await node.set('issuffix', True)
             return
 
         # almost certainly in the cache anyway....
-        parent = node.snap.getNodeByNdef(('inet:fqdn', domain))
+        parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
 
         if parent.get('issuffix'):
-            node.set('iszone', True)
-            node.set('zone', fqdn)
+            await node.set('iszone', True)
+            await node.set('zone', fqdn)
             return
 
         if parent.get('iszone'):
-            node.set('zone', domain)
+            await node.set('zone', domain)
             return
 
         zone = parent.get('zone')
         if zone is not None:
-            node.set('zone', zone)
+            await node.set('zone', zone)
 
-    def _onSetFqdnIsSuffix(self, node, oldv):
+    async def _onSetFqdnIsSuffix(self, node, oldv):
 
         fqdn = node.ndef[1]
 
         issuffix = node.get('issuffix')
-        for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
-            child.set('iszone', issuffix)
+        async for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
+            await child.set('iszone', issuffix)
 
-    def _onSetFqdnIsZone(self, node, oldv):
+    async def _onSetFqdnIsZone(self, node, oldv):
 
         fqdn = node.ndef[1]
 
         iszone = node.get('iszone')
         if iszone:
-            node.set('zone', fqdn)
+            await node.set('zone', fqdn)
             return
 
         # we are not a zone...
 
         domain = node.get('domain')
         if not domain:
-            node.pop('zone')
+            await node.pop('zone')
             return
 
-        parent = node.snap.getNodeByNdef(('inet:fqdn', domain))
+        parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
 
         zone = parent.get('zone')
         if zone is None:
-            node.pop('zone')
+            await node.pop('zone')
             return
 
-        node.set('zone', zone)
+        await node.set('zone', zone)
 
-    def _onSetFqdnZone(self, node, oldv):
+    async def _onSetFqdnZone(self, node, oldv):
 
         fqdn = node.ndef[1]
         zone = node.get('zone')
 
-        for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
+        async for child in node.snap.getNodesBy('inet:fqdn:domain', fqdn):
 
             # if they are their own zone level, skip
             if child.get('iszone'):
                 continue
 
             # the have the same zone we do
-            child.set('zone', zone)
+            await child.set('zone', zone)
 
     def getModelDefs(self):
         return (
@@ -814,6 +828,14 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A username string.'
                     }),
 
+                    ('inet:search:query', ('guid', {}), {
+                        'doc': 'An instance of a search query issued to a search engine.',
+                    }),
+
+                    ('inet:search:result', ('guid', {}), {
+                        'doc': 'A single result from a web search.',
+                    }),
+
                     ('inet:web:acct', ('comp', {'fields': (('site', 'inet:fqdn'), ('user', 'inet:user'))}), {
                         'doc': 'An account with a given Internet-based site or service.',
                         'ex': 'twitter.com/invisig0th'
@@ -890,6 +912,10 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:whois:regmail', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
                         'doc': 'An association between a domain and a registrant email address.'
+                    }),
+
+                    ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
+                        'doc': 'An email address associated with an FQDN via whois registration text.',
                     }),
 
                     ('inet:wifi:ap', ('comp', {'fields': (('ssid', 'inet:wifi:ssid'), ('bssid', 'inet:mac'))}), {
@@ -1145,7 +1171,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:http:request:header', {}, (
 
-                        ('name', ('str', {'lower': True}), {'ro': True,
+                        ('name', ('inet:http:header:name', {}), {'ro': True,
                             'doc': 'The name of the HTTP request header.'}),
 
                         ('value', ('str', {}), {'ro': True,
@@ -1155,7 +1181,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:http:response:header', {}, (
 
-                        ('name', ('str', {'lower': True}), {'ro': True,
+                        ('name', ('inet:http:header:name', {}), {'ro': True,
                             'doc': 'The name of the HTTP response header.'}),
 
                         ('value', ('str', {}), {'ro': True,
@@ -1471,6 +1497,38 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:user', {}, ()),
+
+                    ('inet:search:query', {}, (
+
+                        ('text', ('str', {}), {
+                            'doc': 'The search query text.'}),
+
+                        ('time', ('time', {}), {
+                            'doc': 'The time the web search was issued.'}),
+
+                        ('engine', ('str', {'lower': True}), {
+                            'ex': 'google',
+                            'doc': 'A simple name for the search engine used.'}),
+                    )),
+
+                    ('inet:search:result', {}, (
+
+                        ('query', ('inet:search:query', {}), {
+                            'doc': 'The search query that produced the result.'}),
+
+                        ('title', ('str', {'lower': True}), {
+                            'doc': 'The title of the matching web page.'}),
+
+                        ('rank', ('int', {}), {
+                            'doc': 'The rank/order of the query result.'}),
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL hosting the matching content.'}),
+
+                        ('text', ('str', {'lower': True}), {
+                            'doc': 'Extracted/matched text from the matched content.'}),
+                    )),
+
 
                     ('inet:web:acct', {}, (
                         ('avatar', ('file:bytes', {}), {
@@ -1961,13 +2019,28 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:whois:email', {}, (
+                        ('fqdn', ('inet:fqdn', {}), {'ro': True,
+                            'doc': 'The domain with a whois record containing the email address.',
+                        }),
+                        ('email', ('inet:email', {}), {'ro': True,
+                            'doc': 'The email address associated with the domain whois record.',
+                        }),
+                    )),
+
                     ('inet:wifi:ap', {}, (
+
                         ('ssid', ('inet:wifi:ssid', {}), {
-                            'doc': 'The SSID for the wireless access point.'
-                        }),
+                            'doc': 'The SSID for the wireless access point.'}),
+
                         ('bssid', ('inet:mac', {}), {
-                            'doc': 'The MAC address for the wireless access point.'
-                        }),
+                            'doc': 'The MAC address for the wireless access point.'}),
+
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The best known latitude/longitude for the wireless access point.'}),
+
+                        ('loc', ('loc', {}), {'defval': '??',
+                            'doc': 'The geo-political location string for the wireless access point.'}),
                     )),
 
                     ('inet:wifi:ssid', {}, ()),

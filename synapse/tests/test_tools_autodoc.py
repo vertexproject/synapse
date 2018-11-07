@@ -4,7 +4,7 @@ raise unittest.SkipTest()
 
 import synapse.tools.autodoc as s_autodoc
 
-class TestAutoDoc(SynTest):
+class TestAutoDoc(s_t_utils.SynTest):
 
     def test_tools_autodoc(self):
 
