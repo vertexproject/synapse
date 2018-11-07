@@ -199,6 +199,7 @@ class Query(AstNode):
         genr = runt.getInput()
 
         for oper in self.kids:
+            print('OPER: %r' % (oper,))
             genr = oper.run(runt, genr)
 
         async for node, path in genr:
@@ -291,16 +292,54 @@ class VarSetOper(Oper):
 
     async def run(self, runt, genr):
 
-        name = self.kids[0].value()
+        print('HI')
 
-        if isinstance(self.kids[1], Value):
-            valu = self.kids[1].value()
+        for item in genr:
+            yield item
+
+        name = self.kids[0].value()
+        vkid = self.kids[1]
+
+        if self.kids[1].isRuntSafe():
+            valu = vkid.runtval(runt)
             runt.vars[name] = valu
+            for item in genr:
+                yield item
 
         async for node, path in genr:
-            valu = self.kids[1].compute(runt, node, path)
+            valu = vkid.compute(runt, node, path)
             path.set(name, valu)
-            runt.vars[name] = valu
+            yield node, path
+
+class VarListSetOper(Oper):
+
+    async def run(self, runt, genr):
+
+        names = [k.value() for k in self.kids[1:]]
+
+        if self.kids[0].isRuntSafe():
+
+            item = self.kids[0].runtval(runt)
+            if len(item) < len(names):
+                raise s_exc.StormVarListError(names=names, vals=item)
+
+            for name, valu in zip(names, item):
+                runt.vars[name] = valu
+
+            async for item in genr:
+                yield item
+
+            return
+
+        async for node, path in genr:
+
+            item = self.kids[0].compute(runt, node, path)
+            if len(item) < len(names):
+                raise s_exc.StormVarListError(names=names, vals=item)
+
+            for name, valu in zip(names, item):
+                path.set(name, valu)
+
             yield node, path
 
 class SwitchCase(Oper):
@@ -1073,17 +1112,47 @@ class FiltOper(Oper):
                 yield node, path
 
 class CompValue(AstNode):
-
+    '''
+    A computed value which requires a runtime, node, and path.
+    '''
     def compute(self, runt, node, path):
         raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()')
 
-class RunValue(AstNode):
+    def isRuntSafe(self):
+        return False
+
+class RunValue(CompValue):
+    '''
+    A computed value requires a runtime.
+    '''
 
     def runtval(self, runt):
         return self.value()
 
     def compute(self, runt, node, path):
         return self.runtval(runt)
+
+    def isRuntSafe(self):
+        if all([k.isRuntSafe() for k in self.kids]):
+            return True
+
+class Value(RunValue):
+
+    '''
+    A fixed/constant value.
+    '''
+    def __init__(self, valu, kids=()):
+        RunValue.__init__(self, kids=kids)
+        self.valu = valu
+
+    def runtval(self, runt):
+        return self.value()
+
+    def compute(self, runt, node, path):
+        return self.value()
+
+    def value(self):
+        return self.valu
 
 class TagVar(RunValue):
 
@@ -1120,7 +1189,7 @@ class TagPropValue(CompValue):
     def compute(self, runt, node, path):
         return node.getTag(self.name)
 
-class FuncCall(AstNode):
+class FuncCall(RunValue):
     pass
 
 class CallArgs(RunValue):
@@ -1148,7 +1217,6 @@ class VarValue(RunValue):
         for name, varl in self.meths:
             args = varl.runtval(runt)
             meth = runt.varmeths.get(name)
-            print('VAR METH %r %r' % (name, args))
             if meth is None:
                 raise s_exc.NoSuchName(name=name)
 
@@ -1156,20 +1224,21 @@ class VarValue(RunValue):
 
         return valu
 
-class Value(RunValue):
-
-    def __init__(self, valu, kids=()):
-        RunValue.__init__(self, kids=kids)
-        self.valu = valu
-
-    def runtval(self, runt):
-        return self.value()
-
     def compute(self, runt, node, path):
-        return self.value()
 
-    def value(self):
-        return self.valu
+        valu = path.get(self.name, s_common.novalu)
+        if valu is s_common.novalu:
+            raise s_exc.NoSuchVar(name=self.name)
+
+        for name, varl in self.meths:
+            args = varl.runtval(runt)
+            meth = runt.varmeths.get(name)
+            if meth is None:
+                raise s_exc.NoSuchName(name=name)
+
+            valu = meth(valu, args)
+
+        return valu
 
 class VarNames(Value):
     pass
@@ -1256,7 +1325,6 @@ class EditNodeAdd(Edit):
                 for valu in formtype.getTypeVals(kval):
                     newn = await runt.snap.addNode(name, valu)
                     yield newn, runt.initPath(newn)
-
 
 class EditPropSet(Edit):
 

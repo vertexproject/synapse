@@ -649,18 +649,10 @@ class Parser:
 
         while True:
 
-            self.ignore(whitespace)
+            self.ignorespace()
 
             if not self.more():
                 break
-
-            if self.nextstr('//'):
-                self.noms(until='\n')
-                continue
-
-            if self.nextstr('/*'):
-                self.expect('*/')
-                continue
 
             # if we are sub-query, time to go...
             if self.nextstr('}'):
@@ -738,10 +730,6 @@ class Parser:
             query.addKid(oper)
 
             self.ignore(whitespace)
-
-            #if self.nextstr('{'):
-                #self.offs += 1
-                #oper = self.query()
 
         query.init(self.core)
         return query
@@ -975,6 +963,22 @@ class Parser:
         prop = self.absprop()
         return s_ast.FormPivot(kids=(prop,), isjoin=True)
 
+    def ignorespace(self):
+
+        while True:
+
+            self.ignore(whitespace)
+
+            if self.nextstr('//'):
+                self.noms(until='\n')
+                continue
+
+            if self.nextstr('/*'):
+                self.expect('*/')
+                continue
+
+            break
+
     def proppivot(self, prop):
         '''
         :foo:bar -> baz:faz
@@ -1045,6 +1049,30 @@ class Parser:
             varn = self.varname()
 
             self.ignore(whitespace)
+
+            # it's a var list assignment...
+            if self.nextstr(','):
+
+                names = [varn]
+
+                while self.nextstr(','):
+
+                    self.offs += 1
+                    self.ignore(whitespace)
+
+                    if self.nextstr('$'):
+                        names.append(self.varname())
+
+                    self.ignore(whitespace)
+
+                self.nextmust('=')
+                self.ignore(whitespace)
+
+                valu = self.valu()
+
+                kids = [valu] + names
+                print('VAR LIST SET KIDS: %r' % (kids,))
+                return s_ast.VarListSetOper(kids=kids)
 
             # TODO special var assigments for lists?
             self.nextmust('=')
@@ -1168,7 +1196,7 @@ class Parser:
 
         while self.more():
 
-            self.ignore(whitespace)
+            self.ignorespace()
 
             if self.nextstr('}'):
                 self.offs += 1
