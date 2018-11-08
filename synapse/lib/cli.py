@@ -351,7 +351,9 @@ class Cli(s_eventbus.EventBus):
                 if not line:
                     continue
 
-                task = s_glob.plex.coroToTask(self.runCmdLine(line))
+                coro = self.runCmdLine(line)
+                task = s_glob.coroToTask(coro)
+
                 task.result()
 
             except KeyboardInterrupt as e:

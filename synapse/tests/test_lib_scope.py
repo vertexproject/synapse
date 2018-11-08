@@ -5,6 +5,7 @@ import synapse.lib.scope as s_scope
 class ScopeTest(s_t_utils.SynTest):
 
     def test_lib_scope(self):
+
         syms = {'foo': 'woot', 'bar': 30, 'baz': [1, 2]}
         scope = s_scope.Scope(**syms)
 
@@ -39,7 +40,7 @@ class ScopeTest(s_t_utils.SynTest):
         self.eq(scope.pop('bar'), 30)
         self.none(scope.get('bar'))
 
-    def test_lib_scope_thread(self):
+    async def test_lib_scope_task(self):
         s_scope.set('test:foo', 10)
         self.eq(s_scope.get('test:foo'), 10)
         self.eq(s_scope.pop('test:foo'), 10)
@@ -48,7 +49,7 @@ class ScopeTest(s_t_utils.SynTest):
         self.eq(s_scope.get('test:hehe'), 1)
         self.eq(s_scope.get('test:haha'), 'wow')
 
-    def test_lib_scope_enter(self):
+    async def test_lib_scope_enter(self):
 
         with s_scope.enter({'woot': 10}):
             self.eq(s_scope.get('woot'), 10)

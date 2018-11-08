@@ -503,6 +503,7 @@ class Node:
         await self.snap.splice('node:del', ndef=self.ndef)
 
         self.snap.buidcache.pop(self.buid)
+        self.snap.core.pokeFormCount(formname, -1)
 
         await self.form.wasDeleted(self)
 

@@ -4,6 +4,7 @@ import signal
 import inspect
 import asyncio
 import logging
+import weakref
 import threading
 import collections
 
@@ -11,6 +12,7 @@ if __debug__:
     import traceback
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 
 import synapse.lib.coro as s_coro
 
@@ -76,6 +78,11 @@ class Base:
 
     @classmethod
     async def anit(cls, *args, **kwargs):
+
+        # sneak in a quick loop check here for convenience
+        if s_glob._glob_loop is None:
+            s_glob.initloop()
+
         self = cls()
         try:
             await self.__anit__(*args, **kwargs)
@@ -92,15 +99,20 @@ class Base:
             import synapse.lib.threads as s_threads  # avoid import cycle
             self.tid = s_threads.iden()
             self.call_stack = traceback.format_stack()  # For cleanup debugging
+
         self.isfini = False
         self.anitted = True  # For assertion purposes
+        self.finievt = None
         self.entered = False
         self.exitinfo = None
-        self.finievt = None
 
         self.exitok = None
         self.entered = False
         self.exitinfo = None
+
+        # hold a weak ref to other bases we should fini if they
+        # are still around when we go down...
+        self.tofini = weakref.WeakSet()
 
         self._syn_funcs = collections.defaultdict(list)
 
@@ -112,8 +124,12 @@ class Base:
 
     def onfini(self, func):
         '''
-        Add a function or coroutine function to be called on fini().
+        Add a function/coroutine/Base to be called on fini().
         '''
+        if isinstance(func, Base):
+            self.tofini.add(func)
+            return
+
         assert self.anitted
         self._fini_funcs.append(func)
 
@@ -297,6 +313,9 @@ class Base:
         return threading.get_ident() == self.ident
 
     async def _kill_active_tasks(self):
+        if not self._active_tasks:
+            return
+
         for task in self._active_tasks.copy():
             task.cancel()
             try:
@@ -304,8 +323,8 @@ class Base:
             except Exception:
                 # The taskDone callback will emit the exception.  No need to repeat
                 pass
-        await asyncio.sleep(0, loop=self.loop)
-        assert not self._active_tasks
+
+        await asyncio.sleep(0)
 
     async def fini(self):
         '''
@@ -333,13 +352,19 @@ class Base:
         if fevt is not None:
             fevt.set()
 
-        await self._kill_active_tasks()
+        for base in list(self.tofini):
+            await base.fini()
+
+        try:
+            await self._kill_active_tasks()
+        except:
+            logger.exception(f'{self} - Exception during _kill_active_tasks')
 
         for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
             except Exception as e:
-                logger.exception('fini failed')
+                logger.exception(f'{self} - fini function failed: {fini}')
 
         self._syn_funcs.clear()
         self._fini_funcs.clear()
@@ -362,7 +387,7 @@ class Base:
             return True
 
         if self.finievt is None:
-            self.finievt = asyncio.Event(loop=self.loop)
+            self.finievt = asyncio.Event()
 
         return await s_coro.event_wait(self.finievt, timeout)
 
@@ -379,6 +404,7 @@ class Base:
 
         '''
         if __debug__:
+            assert s_coro.iscoro(coro)
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
 
@@ -397,6 +423,11 @@ class Base:
         task.add_done_callback(taskDone)
 
         return task
+
+    def schedCallSafe(self, func, *args, **kwargs):
+        def real():
+            return func(*args, **kwargs)
+        return self.loop.call_soon_threadsafe(real)
 
     def schedCoroSafe(self, coro):
         '''
@@ -469,6 +500,7 @@ class Base:
         finally:
             # Avoid https://bugs.python.org/issue34680 by removing handler before closing down
             self.loop.remove_signal_handler(signal.SIGTERM)
+            s_glob.sync(self.fini())
 
     def waiter(self, count, *names):
         '''

@@ -1,4 +1,5 @@
 import shlex
+import asyncio
 import logging
 import argparse
 import collections
@@ -27,6 +28,8 @@ class Runtime:
         self.snap = snap
         self.user = user
 
+        self.task = asyncio.current_task()
+
         self.inputs = []    # [synapse.lib.node.Node(), ...]
 
         self.iden = s_common.guid()
@@ -35,7 +38,6 @@ class Runtime:
         if varz is not None:
             self.vars.update(varz)
 
-        self.canceled = False
         self.elevated = False
 
         # used by the digraph projection logic
@@ -57,12 +59,10 @@ class Runtime:
         self.elevated = True
 
     def tick(self):
-
-        if self.canceled:
-            raise s_exc.Canceled()
+        pass
 
     def cancel(self):
-        self.canceled = True
+        self.task.cancel()
 
     def initPath(self, node):
         return s_node.Path(self, dict(self.vars), [node])
@@ -438,6 +438,7 @@ class ReIndexCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('--type', default=None, help='Re-index all properties of a specified type.')
         pars.add_argument('--subs', default=False, action='store_true', help='Re-parse and set sub props.')
+        pars.add_argument('--form-counts', default=False, action='store_true', help='Re-calculate all form counts.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -472,18 +473,31 @@ class ReIndexCmd(Cmd):
 
             return
 
-        async for node, path in genr:
+        if self.opts.subs:
 
-            form, valu = node.ndef
-            norm, info = node.form.type.norm(valu)
+            async for node, path in genr:
 
-            subs = info.get('subs')
-            if subs is not None:
-                for subn, subv in subs.items():
-                    if node.form.props.get(subn):
-                        await node.set(subn, subv)
+                form, valu = node.ndef
+                norm, info = node.form.type.norm(valu)
 
-            yield node, path
+                subs = info.get('subs')
+                if subs is not None:
+                    for subn, subv in subs.items():
+                        if node.form.props.get(subn):
+                            await node.set(subn, subv)
+
+                yield node, path
+
+            return
+
+        if self.opts.form_counts:
+            await snap.printf(f'reindex form counts (full) beginning...')
+            await snap.core._calcFormCounts()
+            await snap.printf(f'...done')
+            return
+
+        raise s_exc.SynErr('reindex was not told what to do!')
+
 
 class MoveTagCmd(Cmd):
     '''
@@ -861,3 +875,26 @@ class NoderefsCmd(Cmd):
                     continue  # pragma: no cover
 
                 yield pivo, srcpath.fork(pivo)
+
+class SleepCmd(Cmd):
+    '''
+    Introduce a delay between returning each result for the storm query.
+
+    NOTE: This is mostly used for testing / debugging.
+
+    Example:
+
+        #foo.bar | sleep 0.5
+
+    '''
+    name = 'sleep'
+
+    async def execStormCmd(self, runt, genr):
+        async for item in genr:
+            yield item
+            await asyncio.sleep(self.opts.delay)
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('delay', type=float, default=1, help='Delay in floating point seconds.')
+        return pars

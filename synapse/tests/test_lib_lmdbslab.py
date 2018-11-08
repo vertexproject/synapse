@@ -2,7 +2,6 @@ import os
 import asyncio
 import multiprocessing
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -10,9 +9,8 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.tests.utils as s_t_utils
 
 class LmdbSlabTest(s_t_utils.SynTest):
-    async def test_lmdbslab_base(self):
 
-        self.true(s_glob.plex.iAmLoop())
+    async def test_lmdbslab_base(self):
 
         with self.getTestDir() as dirn:
 
@@ -172,3 +170,40 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 # Now trigger a remap for me
                 newdb.get(multikey, db=foo)
+
+    async def test_lmdbslab_iternext_repeat_regression(self):
+        '''
+        Test for a scan being bumped in an iternext where the cursor is in the middle of a list of values with the same
+        key
+        '''
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            my_maxsize = 500000
+
+            async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=50000, maxsize=my_maxsize) as slab:
+                foo = slab.initdb('foo', dupsort=True)
+
+                key = b'foo'
+                for i in range(100):
+                    slab.put(key, s_common.guid().encode('utf8'), db=foo)
+
+                count = 0
+                for _, _ in slab.scanByRange(b'', db=foo):
+                    count += 1
+                self.eq(count, 100)
+
+                # Partially read through scan
+                iter = slab.scanByRange(lmin=key, lmax=key, db=foo)
+                for i in range(60):
+                    next(iter)
+
+                # Trigger a bump by writing a bunch; make sure we're not writing into the middle of the scan
+                multikey = b'\xff\xff\xff\xff' + s_common.guid().encode('utf8')
+                mapsize = slab.mapsize
+                while mapsize == slab.mapsize:
+                    slab.put(multikey, s_common.guid().encode('utf8') + b'0' * 256, dupdata=True, db=foo)
+
+                # we wrote 100, read 60.  We should read only another 40
+                self.len(40, list(iter))

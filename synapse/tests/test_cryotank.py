@@ -139,132 +139,135 @@ class CryoIndexTest(s_t_utils.SynTest):
         self.nn(rv)
 
     async def test_cryotank_index(self):
+
         conf = {'mapsize': s_t_utils.TEST_MAP_SIZE}
-        async with s_t_utils.SyncToAsyncCMgr(self.getTestConfDir, name='CryoTank', conf=conf) as dirn, \
-                await s_cryotank.CryoTank.anit(dirn) as tank:
 
-            idxr = tank.indexer
+        with self.getTestConfDir(name='CryoTank', conf=conf) as dirn:
 
-            data1 = {'foo': 1234, 'bar': 'stringval'}
-            data2 = {'foo': 2345, 'baz': 4567, 'bar': 'strinstrin'}
-            data3 = {'foo': 388383, 'bar': ('strinstrin' * 20)}
-            data4 = {'foo2': 9999, 'baz': 4567}
-            baddata = {'foo': 'bad'}
+            async with await s_cryotank.CryoTank.anit(dirn) as tank:
 
-            # Simple index add/remove
-            self.eq([], idxr.getIndices())
-            idxr.addIndex('first', 'int', ['foo'])
-            self.raises(s_exc.DupIndx, idxr.addIndex, 'first', 'int', ['foo'])
-            idxs = idxr.getIndices()
-            self.eq(idxs[0]['propname'], 'first')
-            idxr.delIndex('first')
-            self.raises(s_exc.NoSuchIndx, idxr.delIndex, 'first')
-            self.eq([], idxr.getIndices())
+                idxr = tank.indexer
 
-            self.genraises(s_exc.NoSuchIndx, idxr.queryNormValu, 'notanindex')
+                data1 = {'foo': 1234, 'bar': 'stringval'}
+                data2 = {'foo': 2345, 'baz': 4567, 'bar': 'strinstrin'}
+                data3 = {'foo': 388383, 'bar': ('strinstrin' * 20)}
+                data4 = {'foo2': 9999, 'baz': 4567}
+                baddata = {'foo': 'bad'}
 
-            # Check simple 1 record, 1 index index and retrieval
-            waiter = self.initWaiter(tank, 'addIndex')
-            tank.puts([data1])
-            idxr.addIndex('first', 'int', ['foo'])
-            await self.wait(waiter)
-            waiter = self.initWaiter(tank, 'getIndices')
-            idxs = idxr.getIndices()
-            await self.wait(waiter)
-            self.eq(1, idxs[0]['nextoffset'])
-            self.eq(1, idxs[0]['ngood'])
-            retn = list(idxr.queryNormRecords('first'))
-            self.eq(1, len(retn))
-            t = retn[0]
-            self.eq(2, len(t))
-            self.eq(t[0], 0)
-            self.eq(t[1], {'first': 1234})
+                # Simple index add/remove
+                self.eq([], idxr.getIndices())
+                idxr.addIndex('first', 'int', ['foo'])
+                self.raises(s_exc.DupIndx, idxr.addIndex, 'first', 'int', ['foo'])
+                idxs = idxr.getIndices()
+                self.eq(idxs[0]['propname'], 'first')
+                idxr.delIndex('first')
+                self.raises(s_exc.NoSuchIndx, idxr.delIndex, 'first')
+                self.eq([], idxr.getIndices())
 
-            waiter = self.initWaiter(tank, 'None')
-            tank.puts([data2])
-            await self.wait(waiter)
-            idxs = idxr.getIndices()
-            self.eq(2, idxs[0]['nextoffset'])
-            self.eq(2, idxs[0]['ngood'])
+                self.genraises(s_exc.NoSuchIndx, idxr.queryNormValu, 'notanindex')
 
-            # exact query
-            retn = list(idxr.queryRows('first', valu=2345, exact=True))
-            self.eq(1, len(retn))
-            t = retn[0]
-            self.eq(2, len(t))
-            self.eq(t[0], 1)
-            self.eq(s_msgpack.un(t[1]), data2)
+                # Check simple 1 record, 1 index index and retrieval
+                waiter = self.initWaiter(tank, 'addIndex')
+                tank.puts([data1])
+                idxr.addIndex('first', 'int', ['foo'])
+                await self.wait(waiter)
+                waiter = self.initWaiter(tank, 'getIndices')
+                idxs = idxr.getIndices()
+                await self.wait(waiter)
+                self.eq(1, idxs[0]['nextoffset'])
+                self.eq(1, idxs[0]['ngood'])
+                retn = list(idxr.queryNormRecords('first'))
+                self.eq(1, len(retn))
+                t = retn[0]
+                self.eq(2, len(t))
+                self.eq(t[0], 0)
+                self.eq(t[1], {'first': 1234})
 
-            # second index
-            waiter = self.initWaiter(tank, 'addIndex')
-            idxr.addIndex('second', 'str', ['bar'])
-            await self.wait(waiter)
+                waiter = self.initWaiter(tank, 'None')
+                tank.puts([data2])
+                await self.wait(waiter)
+                idxs = idxr.getIndices()
+                self.eq(2, idxs[0]['nextoffset'])
+                self.eq(2, idxs[0]['ngood'])
 
-            # prefix search
-            retn = list(idxr.queryNormValu('second', valu='strin'))
-            self.eq(retn, [(0, 'stringval'), (1, 'strinstrin')])
+                # exact query
+                retn = list(idxr.queryRows('first', valu=2345, exact=True))
+                self.eq(1, len(retn))
+                t = retn[0]
+                self.eq(2, len(t))
+                self.eq(t[0], 1)
+                self.eq(s_msgpack.un(t[1]), data2)
 
-            # long value, exact
-            waiter = self.initWaiter(tank, 'None')
-            tank.puts([data3])
-            await self.wait(waiter)
-            retn = list(idxr.queryRows('second', valu='strinstrin' * 20, exact=True))
-            self.eq(1, len(retn))
-            self.eq(s_msgpack.un(retn[0][1]), data3)
+                # second index
+                waiter = self.initWaiter(tank, 'addIndex')
+                idxr.addIndex('second', 'str', ['bar'])
+                await self.wait(waiter)
 
-            # long value with prefix
-            retn = list(idxr.queryRows('second', valu='str'))
-            self.eq(3, len(retn))
+                # prefix search
+                retn = list(idxr.queryNormValu('second', valu='strin'))
+                self.eq(retn, [(0, 'stringval'), (1, 'strinstrin')])
 
-            # long value with long prefix
-            self.genraises(s_exc.BadOperArg, idxr.queryNormRecords, 'second', valu='strinstrin' * 15)
+                # long value, exact
+                waiter = self.initWaiter(tank, 'None')
+                tank.puts([data3])
+                await self.wait(waiter)
+                retn = list(idxr.queryRows('second', valu='strinstrin' * 20, exact=True))
+                self.eq(1, len(retn))
+                self.eq(s_msgpack.un(retn[0][1]), data3)
 
-            # Bad data
-            waiter = self.initWaiter(tank, 'None')
-            tank.puts([baddata])
-            await self.wait(waiter)
-            idxs = idxr.getIndices()
-            idx = next(i for i in idxs if i['propname'] == 'first')
-            self.eq(4, idx['nextoffset'])
-            self.eq(3, idx['ngood'])
-            self.eq(1, idx['nnormfail'])
+                # long value with prefix
+                retn = list(idxr.queryRows('second', valu='str'))
+                self.eq(3, len(retn))
 
-            waiter = self.initWaiter(tank, 'delIndex')
-            idxr.delIndex('second')
-            await self.wait(waiter)
+                # long value with long prefix
+                self.genraises(s_exc.BadOperArg, idxr.queryNormRecords, 'second', valu='strinstrin' * 15)
 
-            # Multiple datapaths
-            waiter = self.initWaiter(tank, 'delIndex')
-            idxr.delIndex('first')
-            await self.wait(waiter)
-            waiter = self.initWaiter(tank, 'addIndex')
-            idxr.addIndex('first', 'int', ('foo', 'foo2'))
-            await self.wait(waiter)
+                # Bad data
+                waiter = self.initWaiter(tank, 'None')
+                tank.puts([baddata])
+                await self.wait(waiter)
+                idxs = idxr.getIndices()
+                idx = next(i for i in idxs if i['propname'] == 'first')
+                self.eq(4, idx['nextoffset'])
+                self.eq(3, idx['ngood'])
+                self.eq(1, idx['nnormfail'])
 
-            waiter = self.initWaiter(tank, 'None')
-            tank.puts([data4])
-            await self.wait(waiter)
-            retn = list(idxr.queryNormValu('first'))
-            self.eq(retn, [(0, 1234), (1, 2345), (4, 9999), (2, 388383)])
+                waiter = self.initWaiter(tank, 'delIndex')
+                idxr.delIndex('second')
+                await self.wait(waiter)
 
-            waiter = self.initWaiter(tank, 'pauseIndex')
-            idxr.pauseIndex('first')
-            await self.wait(waiter)
+                # Multiple datapaths
+                waiter = self.initWaiter(tank, 'delIndex')
+                idxr.delIndex('first')
+                await self.wait(waiter)
+                waiter = self.initWaiter(tank, 'addIndex')
+                idxr.addIndex('first', 'int', ('foo', 'foo2'))
+                await self.wait(waiter)
 
-            waiter = self.initWaiter(tank, 'resumeIndex')
-            idxr.resumeIndex('first')
-            await self.wait(waiter)
+                waiter = self.initWaiter(tank, 'None')
+                tank.puts([data4])
+                await self.wait(waiter)
+                retn = list(idxr.queryNormValu('first'))
+                self.eq(retn, [(0, 1234), (1, 2345), (4, 9999), (2, 388383)])
 
-            waiter = self.initWaiter(tank, 'getIndices')
-            before_idxs = idxr.getIndices()
-            before_idx = next(i for i in before_idxs if i['propname'] == 'first')
-            await self.wait(waiter)
-            waiter = self.initWaiter(tank, 'None')
-            tank.puts([data1, data2, data3, data4] * 1000)
-            await self.wait(waiter)
-            after_idxs = idxr.getIndices()
-            after_idx = next(i for i in after_idxs if i['propname'] == 'first')
-            self.lt(before_idx['ngood'], after_idx['ngood'])
+                waiter = self.initWaiter(tank, 'pauseIndex')
+                idxr.pauseIndex('first')
+                await self.wait(waiter)
+
+                waiter = self.initWaiter(tank, 'resumeIndex')
+                idxr.resumeIndex('first')
+                await self.wait(waiter)
+
+                waiter = self.initWaiter(tank, 'getIndices')
+                before_idxs = idxr.getIndices()
+                before_idx = next(i for i in before_idxs if i['propname'] == 'first')
+                await self.wait(waiter)
+                waiter = self.initWaiter(tank, 'None')
+                tank.puts([data1, data2, data3, data4] * 1000)
+                await self.wait(waiter)
+                after_idxs = idxr.getIndices()
+                after_idx = next(i for i in after_idxs if i['propname'] == 'first')
+                self.lt(before_idx['ngood'], after_idx['ngood'])
 
     async def test_cryotank_index_nest(self):
         conf = {'mapsize': s_t_utils.TEST_MAP_SIZE}

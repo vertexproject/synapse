@@ -1,8 +1,10 @@
 import os
+import regex
+import asyncio
+
 import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
-import synapse.lib.scope as s_scope
 import synapse.lib.encoding as s_encoding
 
 import synapse.tests.utils as s_t_utils
@@ -11,9 +13,11 @@ import synapse.tests.utils as s_t_utils
 class CmdCoreTest(s_t_utils.SynTest):
 
     async def test_storm(self):
+
         help_msg = 'Execute a storm query.'
         async with self.getTestDmon('dmoncore') as dmon, \
                 await self.agetTestProxy(dmon, 'core') as core:
+
             await self.agenlen(1, await core.eval("[ teststr=abcd :tick=2015 +#cool ]"))
 
             outp = self.getTestOutp()
@@ -125,9 +129,11 @@ class CmdCoreTest(s_t_utils.SynTest):
             outp.expect('complete. 1 nodes')
 
     async def test_log(self):
+
         async with self.getTestDmon('dmoncore') as dmon:
-            dirn = s_scope.get('dirn')
-            with self.setSynDir(dirn):
+
+            with self.getTestSynDir() as dirn:
+
                 async with await self.agetTestProxy(dmon, 'core') as core:
                     outp = self.getTestOutp()
                     cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
@@ -176,3 +182,40 @@ class CmdCoreTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine('log')
                     cmdr.fini()
                     self.true(outp.expect('Pick one'))
+
+    async def test_storm_cmd_ps_kill(self):
+
+        async with self.getTestDmon('dmoncore') as dmon:
+
+            async with await self.agetTestProxy(dmon, 'core') as core:
+
+                evnt = asyncio.Event()
+
+                outp = self.getTestOutp()
+                cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+
+                await cmdr.runCmdLine('ps')
+
+                self.true(outp.expect('0 tasks found.'))
+
+                async def runLongStorm():
+                    async for _ in await core.storm('[ teststr=foo teststr=bar ] | sleep 10'):
+                        evnt.set()
+
+                dmon.schedCoro(runLongStorm())
+
+                await evnt.wait()
+
+                outp.clear()
+                await cmdr.runCmdLine('ps')
+                self.true(outp.expect('1 tasks found.'))
+
+                regx = regex.compile('task iden: ([a-f0-9]{32})')
+                match = regx.match(str(outp))
+
+                iden = match.groups()[0]
+
+                outp.clear()
+                await cmdr.runCmdLine('kill %s' % (iden,))
+
+                outp.expect('kill status: True')

@@ -1,4 +1,5 @@
 import os
+import functools
 import contextlib
 
 import logging
@@ -92,14 +93,14 @@ class Slab(s_base.Base):
                 self.forcecommit()
 
     async def _onCoFini(self):
-        assert s_glob.plex.iAmLoop()
+        assert s_glob.iAmLoop()
         self._finiCoXact()
         self.lenv.close()
         del self.lenv
 
     def _finiCoXact(self):
 
-        assert s_glob.plex.iAmLoop()
+        assert s_glob.iAmLoop()
 
         [scan.bump() for scan in self.scans]
 
@@ -179,7 +180,7 @@ class Slab(s_base.Base):
             if not scan.set_key(lkey):
                 return
 
-            yield from scan.iternext_dup()
+            yield from scan.iternext()
 
     def scanByPref(self, byts, db=None):
 
@@ -210,6 +211,16 @@ class Slab(s_base.Base):
                 if lmax is not None and lkey[:size] > lmax:
                     return
 
+                yield lkey, lval
+
+    def scanByFull(self, db=None):
+
+        with Scan(self, db) as scan:
+
+            if not scan.first():
+                return
+
+            for lkey, lval in scan.iternext():
                 yield lkey, lval
 
     # def keysByRange():
@@ -350,6 +361,7 @@ class Scan:
 
         self.atitem = None
         self.bumped = False
+        self.iterfunc = None
 
     def __enter__(self):
         self.slab._acqXactForReading()
@@ -368,13 +380,23 @@ class Scan:
             return None
         return self.curs.key()
 
+    def first(self):
+
+        if self.curs.first():
+            self.genr = self.curs.iternext()
+            self.atitem = next(self.genr)
+            return True
+
+        return False
+
     def set_key(self, lkey):
 
         if not self.curs.set_key(lkey):
             return False
 
         # set_key for a scan is only logical if it's a dup scan
-        self.genr = self.curs.iternext_dup(keys=True)
+        self.iterfunc = functools.partial(lmdb.Cursor.iternext_dup, keys=True)
+        self.genr = self.iterfunc(self.curs)
         self.atitem = next(self.genr)
         return True
 
@@ -383,7 +405,8 @@ class Scan:
         if not self.curs.set_range(lkey):
             return False
 
-        self.genr = self.curs.iternext()
+        self.iterfunc = lmdb.Cursor.iternext
+        self.genr = self.iterfunc(self.curs)
         self.atitem = next(self.genr)
 
         return True
@@ -404,44 +427,16 @@ class Scan:
                     self.bumped = False
 
                     self.curs = self.slab.xact.cursor(db=self.db)
-                    self.curs.set_range(self.atitem[0])
-
-                    self.genr = self.curs.iternext()
-
-                    if self.curs.item() == self.atitem:
-                        next(self.genr)
-
-                self.atitem = next(self.genr)
-
-        except StopIteration as e:
-            return
-
-    def iternext_dup(self):
-
-        try:
-
-            while True:
-
-                yield self.atitem
-
-                if self.bumped:
-
-                    if self.slab.isfini:
-                        raise s_exc.IsFini()
-
-                    self.bumped = False
-
-                    self.curs = self.slab.xact.cursor(db=self.db)
                     self.curs.set_range_dup(*self.atitem)
 
-                    self.genr = self.curs.iternext_dup(keys=True)
+                    self.genr = self.iterfunc(self.curs)
 
                     if self.curs.item() == self.atitem:
                         next(self.genr)
 
                 self.atitem = next(self.genr)
 
-        except StopIteration as e:
+        except StopIteration:
             return
 
     def bump(self):

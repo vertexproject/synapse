@@ -22,11 +22,14 @@ asdfhash = hashlib.sha256(b'asdfasdf').digest()
 class AxonTest(s_t_utils.SynTest):
 
     async def _wait_for_axon_files(self, axon, nfiles):
+
         for i in range(20):
             stats = await axon.stat()
             if stats.get('files', 0) >= nfiles:
                 break
-            await asyncio.sleep(0.2, loop=s_glob.plex.loop)
+
+            await asyncio.sleep(0.2)
+
         self.eq(nfiles, (await axon.stat()).get('files'))
 
     async def test_blobstor(self):
@@ -289,11 +292,15 @@ class AxonTest(s_t_utils.SynTest):
                 bs2path = os.path.join(dirn, 'bs2')
                 # Make a second blobstor that clones the first
                 async with await s_axon.BlobStor.anit(bs2path, conf=blobstor1conf) as blobstor1:
+
                     # Make sure the cloning works
                     for i in range(10):
+
                         if blobstor1.getCloneProgress() >= 2:
                             break
-                        await asyncio.sleep(0.2, loop=s_glob.plex.loop)
+
+                        await asyncio.sleep(0.2)
+
                     self.eq(2, blobstor1.getCloneProgress())
 
                     # Add the second blobstor to the axon

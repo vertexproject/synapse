@@ -99,6 +99,7 @@ class Snap(s_base.Base):
             pode[1]['path'] = path.pack(path=dopath)
             yield pode
 
+    @s_coro.genrhelp
     async def storm(self, text, opts=None, user=None):
         '''
         Execute a storm query and yield (Node(), Path()) tuples.
@@ -108,6 +109,7 @@ class Snap(s_base.Base):
             async for x in runt.iterStormQuery(query):
                 yield x
 
+    @s_coro.genrhelp
     async def eval(self, text, opts=None, user=None):
         '''
         Run a storm query and yield Node() objects.
@@ -301,7 +303,7 @@ class Snap(s_base.Base):
 
         except Exception:
 
-            mesg = f'{name} {valu!r} {props!r}'
+            mesg = f'Error adding node: {name} {valu!r} {props!r}'
             logger.exception(mesg)
             if self.strict:
                 raise
@@ -421,6 +423,8 @@ class Snap(s_base.Base):
 
         # we are done initializing.
         node.init = False
+
+        self.core.pokeFormCount(form.name, 1)
 
         await form.wasAdded(node)
 

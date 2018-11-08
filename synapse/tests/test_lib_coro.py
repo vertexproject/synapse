@@ -38,6 +38,17 @@ class CoroTest(s_t_utils.SynTest):
 
         await self.agenraises(s_exc.MustBeLocal, s_coro.genr2agenr(badgenr, 10))
 
+    async def test_coro_genrhelp(self):
+
+        @s_coro.genrhelp
+        async def woot():
+            yield 1
+            yield 2
+            yield 3
+
+        self.none(await woot().spin())
+        self.eq([1, 2, 3], await woot().list())
+
     def test_asynctosynccmgr(self):
 
         @contextlib.asynccontextmanager
