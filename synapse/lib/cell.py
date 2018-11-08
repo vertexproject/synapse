@@ -82,7 +82,7 @@ class CellApi(s_base.Base):
         if admin or task.user == self.user:
             logger.info(f'Killing task: {iden}')
             await task.kill()
-            logger.info(f'Task killedd: {iden}')
+            logger.info(f'Task killed: {iden}')
             return True
 
         raise s_exc.AuthDeny(mesg='Caller must own task or be admin.', task=iden, user=str(self.user))
