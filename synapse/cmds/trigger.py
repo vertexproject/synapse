@@ -1,4 +1,4 @@
-import binascii
+import synapse.common as s_common
 import synapse.lib.cli as s_cli
 import synapse.lib.trigger as s_trigger
 
@@ -29,9 +29,9 @@ class TriggerList(s_cli.Cmd):
         core = self.getCmdItem()
 
         triglist = await core.listTriggers()
-        self.printf(f'{"user":10} {"buid":12} {"cond":9} {"object":14} {"":10} {"storm query"}')
-        for buid, trig in triglist:
-            buidf = binascii.hexlify(buid)[:8].decode() + '..'
+        self.printf(f'{"user":10} {"iden":12} {"cond":9} {"object":14} {"":10} {"storm query"}')
+        for iden, trig in triglist:
+            idenf = s_common.ehex(iden)[:8] + '..'
             user = trig.get('user') or '<None>'
             query = trig.get('storm') or '<missing>'
             cond = trig.get('cond') or '<missing'
@@ -42,22 +42,21 @@ class TriggerList(s_cli.Cmd):
             else:
                 obj, obj2 = trig.get('prop') or trig.get('form') or '<missing>', ''
 
-            self.printf(f'{user:10} {buidf:12} {cond:9} {obj:14} {obj2:10} {query}')
+            self.printf(f'{user:10} {idenf:12} {cond:9} {obj:14} {obj2:10} {query}')
 
-async def _match_buids(self, core, prefix):
+async def _match_idens(self, core, prefix):
     '''
-    Returns the buid that starts with prefix.  Prints out error and returns None if it doesn't match
+    Returns the iden that starts with prefix.  Prints out error and returns None if it doesn't match
     exactly one.
     '''
-    prefix = prefix.encode()
-    buids = [buid for buid, trig in await core.listTriggers()]
-    matches = [buid for buid in buids if binascii.hexlify(buid).startswith(prefix)]
+    idens = [iden for iden, trig in await core.listTriggers()]
+    matches = [iden for iden in idens if s_common.ehex(iden).startswith(prefix)]
     if len(matches) == 1:
         return matches[0]
     elif len(matches) == 0:
-        self.printf('Error: provided buid does not match any valid authorized triggers')
+        self.printf('Error: provided iden does not match any valid authorized triggers')
     else:
-        self.printf('Error: provided buid matches more than one trigger')
+        self.printf('Error: provided iden matches more than one trigger')
     return None
 
 class TriggerDel(s_cli.Cmd):
@@ -68,10 +67,10 @@ class TriggerDel(s_cli.Cmd):
     event happens.
 
     Syntax:
-        trigger.del <buid prefix>
+        trigger.del <iden prefix>
 
     Notes:
-        Any prefix that matches exactly one valid trigger buid is accepted.
+        Any prefix that matches exactly one valid trigger iden is accepted.
     '''
     _cmd_name = 'trigger.del'
 
@@ -85,21 +84,21 @@ class TriggerDel(s_cli.Cmd):
             self.printf(self.__doc__)
             return
         core = self.getCmdItem()
-        buid = await _match_buids(self, core, prefix)
-        if buid is None:
+        iden = await _match_idens(self, core, prefix)
+        if iden is None:
             return
-        await core.delTrigger(buid)
-        self.printf(f'Deleted trigger {binascii.hexlify(buid).decode()}')
+        await core.delTrigger(iden)
+        self.printf(f'Deleted trigger {s_common.ehex(iden)}')
 
 class TriggerMod(s_cli.Cmd):
     '''
     Modifies an existing trigger to change the query.
 
     Syntax:
-        trigger.mod <buid prefix> <new query>
+        trigger.mod <iden prefix> <new query>
 
     Notes:
-        Any prefix that matches exactly one valid trigger buid is accepted.
+        Any prefix that matches exactly one valid trigger iden is accepted.
     '''
     _cmd_name = 'trigger.mod'
 
@@ -115,11 +114,11 @@ class TriggerMod(s_cli.Cmd):
             self.printf(self.__doc__)
             return
         core = self.getCmdItem()
-        buid = await _match_buids(self, core, prefix)
-        if buid is None:
+        iden = await _match_idens(self, core, prefix)
+        if iden is None:
             return
-        await core.updateTrigger(buid, query)
-        self.printf(f'Modified trigger {binascii.hexlify(buid).decode()}')
+        await core.updateTrigger(iden, query)
+        self.printf(f'Modified trigger {s_common.ehex(iden)}')
 
 class TriggerAdd(s_cli.Cmd):
     '''
@@ -201,4 +200,4 @@ class TriggerAdd(s_cli.Cmd):
 
         core = self.getCmdItem()
 
-        await core.addTrigger(cond, query, form=form, tag=tag, prop=prop)
+        await core.addTrigger(cond, query, info={'form': form, 'tag': tag, 'prop': prop})

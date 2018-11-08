@@ -257,7 +257,7 @@ class Form:
         Fire the onAdd() callbacks for node creation.
         '''
 
-        await node.snap.core.triggers.fire(node, 'node:add', form=self.name)
+        await node.snap.core.triggers.fire(node, 'node:add', info={'form': self.name})
 
         for func in self.onadds:
             try:
@@ -271,7 +271,7 @@ class Form:
         '''
         Fire the onDel() callbacks for node deletion.
         '''
-        await node.snap.core.triggers.fire(node, 'node:del', form=self.name)
+        await node.snap.core.triggers.fire(node, 'node:del', info={'form': self.name})
 
         for func in self.ondels:
             try:
@@ -428,24 +428,6 @@ class Model:
         props = self.propsbytype.get(name, ())
         # TODO order props based on score...
         return props
-
-    # FIXME:  isn't used and won't work.  DELETE ME
-    # def _addTypeDecl(self, decl):
-
-    #     typename, basename, typeopts, typeinfo = decl
-
-    #     base = self.types.get(basename)
-    #     if base is None:
-    #         self._type_pends[typename].append(tdef)
-    #         return
-
-    #     item = base.extend(name, info, opts)
-    #     self.types[name] = item
-
-    #     pends = self._type_pends.pop(name, None)
-    #     if pends is not None:
-    #         for name, subof, info, opts in pends:
-    #             self.types[name] = item.clone(name, info, opts)
 
     def getTypeClone(self, typedef):
 

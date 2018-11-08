@@ -220,7 +220,7 @@ class Node:
                 univ = self.snap.model.prop(prop.univ)
                 await univ.wasSet(self, curv)
 
-        await self.snap.core.triggers.fire(self, 'prop:set', prop=f'{self.form.name}.{prop.name}')
+        await self.snap.core.triggers.fire(self, 'prop:set', info={'prop': f'{self.form.name}.{prop.name}'})
 
         return True
 
@@ -408,7 +408,7 @@ class Node:
 
         await self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
         await self.snap.core.runTagAdd(self, name, norm)
-        await self.snap.core.triggers.fire(self, 'tag:add', form=self.form.name, tag=name)
+        await self.snap.core.triggers.fire(self, 'tag:add', info={'form': self.form.name, 'tag': name})
 
         return True
 
@@ -438,7 +438,7 @@ class Node:
             sops.append(('prop:del', (self.buid, self.form.name, '#' + subtag, info)))
 
         await self.snap.core.runTagDel(self, name, curv)
-        await self.snap.core.triggers.fire(self, 'tag:del', form=self.form.name, tag=name)
+        await self.snap.core.triggers.fire(self, 'tag:del', info={'form': self.form.name, 'tag': name})
         sops.append(('prop:del', (self.buid, self.form.name, '#' + name, info)))
 
         await self.snap.stor(sops)

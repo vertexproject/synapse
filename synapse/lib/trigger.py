@@ -1,3 +1,4 @@
+import os
 import logging
 import contextlib
 import collections
@@ -34,9 +35,9 @@ class Triggers:
         cond: str  # condition from above list
         user: str  # username
         storm: str  # story query
-        form: Optional[str]  # form name
-        tag: Optional[str]  # tag name
-        prop: Optional[str]  # property name
+        form: Optional[str] = dataclasses.field(default=None) # form name
+        tag: Optional[str] = dataclasses.field(default=None) # tag name
+        prop: Optional[str] = dataclasses.field(default=None) # property name
 
         def __post_init__(self):
             if self.ver != 0:
@@ -107,54 +108,60 @@ class Triggers:
             return
 
         to_delete = []
-        for buid, rule in self._rules.items():
+        for iden, rule in self._rules.items():
             try:
                 self.core.getStormQuery(rule.storm)
             except Exception as e:
-                logger.warning('Invalid rule %r found in storage: %r.  Removing.', buid, e)
-                to_delete.append(buid)
-        for buid in to_delete:
-            self.delete(buid)
+                logger.warning('Invalid rule %r found in storage: %r.  Removing.', iden, e)
+                to_delete.append(iden)
+        for iden in to_delete:
+            self.delete(iden)
 
         self.enabled = True
 
         # Re-evaluate all the events that occurred before we were enabled
-        for node, cond, form, tag, prop in self._deferred_events:
-            await self.fire(node, cond, form=form, tag=tag, prop=prop)
+        for node, cond, info in self._deferred_events:
+            await self.fire(node, cond, info=info)
 
         self._deferred_events.clear()
 
     def _load_all(self, slab):
         db = slab.initdb(self.TRIGGERS_DB_NAME)
-        for buid, val in self.core.slab.scanByRange(b'', db=db):
+        for iden, val in self.core.slab.scanByRange(b'', db=db):
             try:
-                self._load_rule(buid, **s_msgpack.un(val))
+                ruledict = s_msgpack.un(val)
+                ver = ruledict.pop('ver')
+                cond = ruledict.pop('cond')
+                user = ruledict.pop('user')
+                query = ruledict.pop('storm')
+                self._load_rule(iden, ver, cond, user, query, info=ruledict)
             except Exception as e:
-                logger.warning('Invalid rule %r found in storage: %r', buid, e)
+                logger.warning('Invalid rule %r found in storage: %r', iden, e)
                 continue
 
-    def _load_rule(self, buid, *args, **kwargs):
-            rule = Triggers.Rule(*args, **kwargs)
+    def _load_rule(self, iden, ver, cond, user, query, info):
 
-            ''' Make sure the query parses '''
-            if self.enabled:
-                self.core.getStormQuery(rule.storm)
+        rule = Triggers.Rule(ver, cond, user, query, **info)
 
-            self._rules[buid] = rule
-            if rule.prop is not None:
-                self._rule_by_prop[rule.prop].append(rule)
-            elif rule.form is not None:
-                self._rule_by_form[rule.form].append(rule)
-            else:
-                assert rule.tag
-                self._rule_by_tag[rule.tag].append(rule)
-            return rule
+        ''' Make sure the query parses '''
+        if self.enabled:
+            self.core.getStormQuery(rule.storm)
+
+        self._rules[iden] = rule
+        if rule.prop is not None:
+            self._rule_by_prop[rule.prop].append(rule)
+        elif rule.form is not None:
+            self._rule_by_form[rule.form].append(rule)
+        else:
+            assert rule.tag
+            self._rule_by_tag[rule.tag].append(rule)
+        return rule
 
     def list(self):
-        return [(buid, dataclasses.asdict(rule)) for buid, rule in self._rules.items()]
+        return [(iden, dataclasses.asdict(rule)) for iden, rule in self._rules.items()]
 
-    def mod(self, buid, query):
-        self._rules[buid].storm = query
+    def mod(self, iden, query):
+        self._rules[iden].storm = query
 
     @contextlib.contextmanager
     def _recursion_check(self):
@@ -169,18 +176,18 @@ class Triggers:
         finally:
             RecursionDepth.reset(token)
 
-    async def fire(self, node, cond, *, form=None, tag=None, prop=None):
+    async def fire(self, node, cond, *, info):
         '''
         Execute any rules that match the condition and arguments
         '''
 
         if not self.enabled:
-            self._deferred_events.append((node, cond, form, tag, prop))
+            self._deferred_events.append((node, cond, info))
             return
 
         if __debug__:
             try:
-                Triggers.Rule(0, cond, '', '', form, tag, prop)
+                Triggers.Rule(0, cond, '', '', **info)
             except s_exc.BadOptValu:
                 logger.exception('fire called with inconsistent arguments')
                 assert False
@@ -192,6 +199,10 @@ class Triggers:
             return tag.rsplit('.', 1)[0] + '.*'
 
         with self._recursion_check():
+
+            prop = info.get('prop')
+            tag = info.get('tag')
+            form = info.get('form')
 
             if prop is not None:
                 for rule in self._rule_by_prop[prop]:
@@ -214,20 +225,20 @@ class Triggers:
                         if cond == rule.cond:
                             await rule.execute(node, tag)
 
-    def add(self, username, condition, query, *, form=None, tag=None, prop=None):
+    def add(self, username, condition, query, *, info):
 
-        buid = s_common.buid()
+        iden = os.urandom(16)
         db = self.core.slab.initdb(self.TRIGGERS_DB_NAME)
 
         # Check the storm query if we can
         if self.enabled:
             self.core.getStormQuery(query)
 
-        rule = self._load_rule(buid, 0, condition, username, query, form, tag, prop)
-        self.core.slab.put(buid, rule.en(), db=db)
+        rule = self._load_rule(iden, 0, condition, username, query, info=info)
+        self.core.slab.put(iden, rule.en(), db=db)
 
-    def delete(self, buid):
-        rule = self._rules.get(buid)
+    def delete(self, iden):
+        rule = self._rules.get(iden)
         if rule is None:
             raise s_exc.NoSuchIden()
 
@@ -241,11 +252,11 @@ class Triggers:
             assert rule.tag is not None
             self._rule_by_tag[rule.tag].remove(rule)
 
-        del self._rules[buid]
-        self.core.slab.delete(buid, db=db)
+        del self._rules[iden]
+        self.core.slab.delete(iden, db=db)
 
-    def find(self, buid):
-        rule = self._rules.get(buid)
+    def get(self, iden):
+        rule = self._rules.get(iden)
         if rule is None:
             raise s_exc.NoSuchIden()
         return dataclasses.asdict(rule)

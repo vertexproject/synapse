@@ -102,39 +102,40 @@ class CoreApi(s_cell.CellApi):
         '''
         return self.cell.model.getModelDict()
 
-    async def addTrigger(self, condition, query, *, form=None, tag=None, prop=None):
+    async def addTrigger(self, condition, query, *, info):
         '''
         Adds a trigger to the cortex
         '''
         username = None if self.user is None else self.user.name
-        self.cell.triggers.add(username, condition, query, form=form, tag=tag, prop=prop)
+        self.cell.triggers.add(username, condition, query, info=info)
 
-    async def delTrigger(self, buid):
+    def _trig_auth_check(self, triguser):
+        username = None if self.user is None else self.user.name
+        if username is not None and (not self.user.admin) and username != triguser:
+            raise s_exc.AuthDeny(user=self.user.name, mesg='As non-admin, may only manipulate triggers created by you')
+
+    async def delTrigger(self, iden):
         '''
         Deletes aa trigger from the cortex
         '''
-        trig = self.cell.triggers.find(buid)
-        username = None if self.user is None else self.user.name
-        if username is not None and (not self.user.admin) and username != trig.get('user'):
-            raise s_exc.AuthDeny(user=self.user.name, mesg='May only delete triggers created by you')
-        self.cell.triggers.delete(buid)
+        trig = self.cell.triggers.get(iden)
+        self._trig_auth_check(trig.get('user'))
+        self.cell.triggers.delete(iden)
 
-    async def updateTrigger(self, buid, query):
+    async def updateTrigger(self, iden, query):
         '''
         Change an existing trigger's query
         '''
-        trig = self.cell.triggers.find(buid)
-        username = None if self.user is None else self.user.name
-        if username is not None and (not self.user.admin) and username != trig.get('user'):
-            raise s_exc.AuthDeny(user=self.user.name, mesg='May only update triggers created by you')
-        self.cell.triggers.mod(buid, query)
+        trig = self.cell.triggers.get(iden)
+        self._trig_auth_check(trig.get('user'))
+        self.cell.triggers.mod(iden, query)
 
     async def listTriggers(self):
         '''
         Lists all the triggers that the current user is authorized to access
         '''
         username = None if self.user is None else self.user.name
-        return [(buid, trig) for (buid, trig) in self.cell.triggers.list()
+        return [(iden, trig) for (iden, trig) in self.cell.triggers.list()
                 if username is None or self.user.admin or trig.get('user') == username]
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
