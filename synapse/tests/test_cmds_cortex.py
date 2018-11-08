@@ -2,6 +2,7 @@ import os
 import regex
 import asyncio
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
@@ -203,7 +204,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                     async for mesg in await core.storm('[ teststr=foo teststr=bar ] | sleep 10'):
                         evnt.set()
 
-                dmon.schedCoro(runLongStorm())
+                task = dmon.schedCoro(runLongStorm())
 
                 await evnt.wait()
 
@@ -220,3 +221,8 @@ class CmdCoreTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('kill %s' % (iden,))
 
                 outp.expect('kill status: True')
+                self.true(task.done())
+
+                outp.clear()
+                await cmdr.runCmdLine('ps')
+                self.true(outp.expect('0 tasks found.'))
