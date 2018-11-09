@@ -59,6 +59,12 @@ class DnsModule(s_module.CoreModule):
 
                 ('inet:dns:answer', ('guid', {}), {
                     'doc': 'A single answer from within a DNS reply.'}),
+
+                ('inet:dns:wild:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ipv4', 'inet:ipv4'))}), {
+                    'doc': 'A DNS A wild card record and the IPv4 it resolves to.'}),
+
+                ('inet:dns:wild:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ipv6', 'inet:ipv6'))}), {
+                    'doc': 'A DNS AAAA wild card record and the IPv6 it resolves to.'}),
             ),
 
             'forms': (
@@ -183,6 +189,20 @@ class DnsModule(s_module.CoreModule):
                     ('txt', ('inet:dns:txt', {}), {'ro': True,
                         'doc': 'The DNS TXT record returned by the lookup.',
                     }),
+                )),
+
+                ('inet:dns:wild:a', {}, (
+                    ('fqdn', ('inet:fqdn', {}), {'ro': 1,
+                        'doc': 'The domain containing a wild card record.'}),
+                    ('ipv4', ('inet:ipv4', {}), {'ro': 1,
+                        'doc': 'The IPv4 address returned by wild card resolutions.'}),
+                )),
+
+                ('inet:dns:wild:aaaa', {}, (
+                    ('fqdn', ('inet:fqdn', {}), {'ro': 1,
+                        'doc': 'The domain containing a wild card record.'}),
+                    ('ipv6', ('inet:ipv6', {}), {'ro': 1,
+                        'doc': 'The IPv6 address returned by wild card resolutions.'}),
                 )),
             )
 

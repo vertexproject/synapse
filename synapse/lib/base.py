@@ -291,12 +291,16 @@ class Base:
                 retn = await s_coro.ornot(func, mesg)
                 ret.append(retn)
 
+            except asyncio.CancelledError as e:
+                raise
             except Exception as e:
                 logger.exception('base %s error with mesg %s', self, mesg)
 
         for func in self._syn_links:
             try:
                 ret.append(await func(mesg))
+            except asyncio.CancelledError as e:
+                raise
             except Exception as e:
                 logger.exception('base %s error with mesg %s', self, mesg)
 
@@ -363,6 +367,8 @@ class Base:
         for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
+            except asyncio.CancelledError as e:
+                raise
             except Exception as e:
                 logger.exception(f'{self} - fini function failed: {fini}')
 
