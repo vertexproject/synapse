@@ -73,15 +73,19 @@ class CellApi(s_base.Base):
         if self.user is not None:
             admin = self.user.admin
 
+        logger.info(f'User [{str(self.user)}] Requesting task kill: {iden}')
         task = self.cell.boss.get(iden)
         if task is None:
+            logger.info(f'Task does not exist: {iden}')
             return False
 
         if admin or task.user == self.user:
+            logger.info(f'Killing task: {iden}')
             await task.kill()
+            logger.info(f'Task killed: {iden}')
             return True
 
-        raise s_exc.AuthDeny(mesg='Caller must own task or be admin.')
+        raise s_exc.AuthDeny(mesg='Caller must own task or be admin.', task=iden, user=str(self.user))
 
     @adminapi
     def addAuthUser(self, name):
