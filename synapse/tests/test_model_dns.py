@@ -191,3 +191,19 @@ class DnsModelTest(s_t_utils.SynTest):
                 props = {'txt': (fqdn0, 'Oh my!')}
                 node = await snap.addNode('inet:dns:answer', '*', props)
                 self.eq(node.get('txt'), (fqdn0, 'Oh my!'))
+
+    async def test_model_dns_wild(self):
+
+        async with self.getTestCore() as core:
+
+            async with await core.snap() as snap:
+
+                wild = await snap.addNode('inet:dns:wild:a', ('vertex.link', '1.2.3.4'))
+                self.eq(wild.ndef, ('inet:dns:wild:a', ('vertex.link', 0x01020304)))
+                self.eq(wild.get('ipv4'), 0x01020304)
+                self.eq(wild.get('fqdn'), 'vertex.link')
+
+                wild = await snap.addNode('inet:dns:wild:aaaa', ('vertex.link', '2001:db8:85a3::8a2e:370:7334'))
+                self.eq(wild.ndef, ('inet:dns:wild:aaaa', ('vertex.link', '2001:db8:85a3::8a2e:370:7334')))
+                self.eq(wild.get('ipv6'), '2001:db8:85a3::8a2e:370:7334')
+                self.eq(wild.get('fqdn'), 'vertex.link')

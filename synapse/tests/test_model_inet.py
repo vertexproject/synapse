@@ -611,12 +611,14 @@ class InetModelTest(s_t_utils.SynTest):
             input_props = {
                 'asn': 3,
                 'loc': 'uS',
+                'dns:rev': 'vertex.link',
                 'latlong': '-50.12345, 150.56789'
             }
             expected_props = {
                 'asn': 3,
                 'loc': 'us',
                 'type': 'unicast',
+                'dns:rev': 'vertex.link',
                 'latlong': (-50.12345, 150.56789),
             }
             valu_str = '1.2.3.4'
@@ -670,12 +672,17 @@ class InetModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
 
                 valu_str = '::fFfF:1.2.3.4'
-                input_props = {'latlong': '0,2', 'loc': 'cool'}
+                input_props = {
+                    'loc': 'cool',
+                    'latlong': '0,2',
+                    'dns:rev': 'vertex.link',
+                }
                 expected_props = {
                     'asn': 0,
                     'ipv4': 16909060,
                     'loc': 'cool',
                     'latlong': (0.0, 2.0),
+                    'dns:rev': 'vertex.link',
                 }
                 expected_ndef = (formname, valu_str.lower())
                 node = await snap.addNode(formname, valu_str, props=input_props)

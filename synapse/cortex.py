@@ -450,6 +450,8 @@ class Cortex(s_cell.Cell):
         for func in self.ontagadds.get(tag, ()):
             try:
                 await s_coro.ornot(func, node, tag, valu)
+            except asyncio.CancelledError as e:
+                raise
             except Exception as e:
                 logger.exception('onTagAdd Error')
 
@@ -457,6 +459,8 @@ class Cortex(s_cell.Cell):
         for func in self.ontagdels.get(tag, ()):
             try:
                 await s_coro.ornot(func, node, tag, valu)
+            except asyncio.CancelledError as e:
+                raise
             except Exception as e:
                 logger.exception('onTagDel Error')
 
@@ -693,6 +697,8 @@ class Cortex(s_cell.Cell):
 
             try:
                 await func(snap, item)
+            except asyncio.CancelledError as e:
+                raise
             except Exception as e:
                 logger.exception('splice error')
                 await snap.warn(f'splice error: {e}')
@@ -775,6 +781,8 @@ class Cortex(s_cell.Cell):
                 logger.info('Made [%s] nodes.', len(pnodes))
                 async for node in snap.addNodes(pnodes):
                     yield node
+            except asyncio.CancelledError as e:
+                raise
             except Exception as e:
                 logger.exception('Failed to process ingest [%r]', item)
                 continue
