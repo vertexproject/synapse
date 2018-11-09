@@ -9,7 +9,6 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 
 import synapse.lib.base as s_base
-import synapse.lib.plex as s_plex
 
 import synapse.tests.utils as s_t_utils
 
@@ -23,9 +22,7 @@ def block_processing(evt1, evt2):
     '''
     try:
 
-        plex = s_plex.Plex()
-
-        base = plex.coroToSync(s_base.Base.anit())
+        base = s_glob.sync(s_base.Base.anit())
 
         async def onMain(mesg):
             evt1.set()
@@ -72,7 +69,7 @@ class BaseTest(s_t_utils.SynTest):
 
     async def test_coro_fini(self):
 
-        event = asyncio.Event(loop=s_glob.plex.loop)
+        event = asyncio.Event()
 
         async def setit():
             event.set()
@@ -267,14 +264,14 @@ class BaseTest(s_t_utils.SynTest):
         await base2.fini()
 
     async def test_base_waitfini(self):
-        loop = s_glob.plex.loop
+        loop = asyncio.get_running_loop()
 
         base = await s_base.Base.anit()
 
         self.false(await base.waitfini(timeout=0.1))
 
         async def callfini():
-            await asyncio.sleep(0.1, loop=loop)
+            await asyncio.sleep(0.1)
             await base.fini()
 
         loop.create_task(callfini())

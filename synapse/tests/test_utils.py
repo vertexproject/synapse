@@ -10,11 +10,11 @@ import time
 import logging
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.eventbus as s_eventbus
 
 import synapse.lib.output as s_output
+import synapse.lib.threads as s_threads
 
 import synapse.tests.utils as s_t_utils
 
@@ -224,43 +224,46 @@ class TestUtils(s_t_utils.SynTest):
         self.assertIn('Unhandled end action', str(cm.exception))
 
     def test_teststeps(self):
+
         # Helper function - he is used a few times
         def setStep(w, stepper, step):
             time.sleep(w)
             stepper.done(step)
 
-        names = ['hehe', 'haha', 'ohmy']
-        tsteps = self.getTestSteps(names)
-        self.isinstance(tsteps, s_t_utils.TestSteps)
+        with s_threads.Pool() as pool:
 
-        tsteps.done('hehe')
-        self.true(tsteps.wait('hehe', 1))
+            names = ['hehe', 'haha', 'ohmy']
+            tsteps = self.getTestSteps(names)
+            self.isinstance(tsteps, s_t_utils.TestSteps)
 
-        s_glob.pool.call(setStep, 0.1, tsteps, 'haha')
-        self.true(tsteps.wait('haha', 1))
+            tsteps.done('hehe')
+            self.true(tsteps.wait('hehe', 1))
 
-        s_glob.pool.call(setStep, 0.2, tsteps, 'ohmy')
-        self.raises(s_exc.StepTimeout, tsteps.wait, 'ohmy', 0.01)
-        self.true(tsteps.wait('ohmy', 1))
+            pool.call(setStep, 0.1, tsteps, 'haha')
+            self.true(tsteps.wait('haha', 1))
 
-        # use the waitall api
-        tsteps = self.getTestSteps(names)
+            pool.call(setStep, 0.2, tsteps, 'ohmy')
+            self.raises(s_exc.StepTimeout, tsteps.wait, 'ohmy', 0.01)
+            self.true(tsteps.wait('ohmy', 1))
 
-        s_glob.pool.call(setStep, 0.01, tsteps, 'hehe')
-        s_glob.pool.call(setStep, 0.10, tsteps, 'haha')
-        s_glob.pool.call(setStep, 0.05, tsteps, 'ohmy')
-        self.true(tsteps.waitall(1))
+            # use the waitall api
+            tsteps = self.getTestSteps(names)
 
-        tsteps = self.getTestSteps(names)
-        self.raises(s_exc.StepTimeout, tsteps.waitall, 0.1)
+            pool.call(setStep, 0.01, tsteps, 'hehe')
+            pool.call(setStep, 0.10, tsteps, 'haha')
+            pool.call(setStep, 0.05, tsteps, 'ohmy')
+            self.true(tsteps.waitall(1))
 
-        # Use the step() api
-        tsteps = self.getTestSteps(names)
-        s_glob.pool.call(setStep, 0.1, tsteps, 'haha')
-        self.true(tsteps.step('hehe', 'haha', 1))
+            tsteps = self.getTestSteps(names)
+            self.raises(s_exc.StepTimeout, tsteps.waitall, 0.1)
 
-        tsteps = self.getTestSteps(names)
-        self.raises(s_exc.StepTimeout, tsteps.step, 'hehe', 'haha', 0.01)
+            # Use the step() api
+            tsteps = self.getTestSteps(names)
+            pool.call(setStep, 0.1, tsteps, 'haha')
+            self.true(tsteps.step('hehe', 'haha', 1))
+
+            tsteps = self.getTestSteps(names)
+            self.raises(s_exc.StepTimeout, tsteps.step, 'hehe', 'haha', 0.01)
 
     def test_istufo(self):
         node = (None, {})

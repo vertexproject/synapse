@@ -342,6 +342,9 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com')
 
+            # IP addresses are NOT valid FQDNs
+            self.raises(s_exc.BadTypeValu, t.norm, '1.2.3.4')
+
             # Form Tests ======================================================
             valu = 'api.vertex.link'
             expected_ndef = (formname, valu)

@@ -1696,9 +1696,9 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await alist(core.eval('[ teststr=visi +#foo.bar ] -> # [ +#baz.faz ]'))
+            await core.eval('[ teststr=visi +#foo.bar ] -> # [ +#baz.faz ]').spin()
 
-            nodes = await alist(core.eval('##baz.faz'))
+            nodes = await core.eval('##baz.faz').list()
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'visi')
 
@@ -1709,6 +1709,65 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await alist(core.eval('##baz.faz'))
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'visi')
+
+    async def test_storm_cancel(self):
+
+        async with self.getTestCore() as core:
+
+            evnt = asyncio.Event()
+
+            self.len(0, core.boss.ps())
+
+            async def todo():
+                async for node in core.eval('[ teststr=foo teststr=bar ] | sleep 10'):
+                    evnt.set()
+
+            task = core.schedCoro(todo())
+
+            await evnt.wait()
+
+            synts = core.boss.ps()
+
+            self.len(1, synts)
+
+            await synts[0].kill()
+
+            self.len(0, core.boss.ps())
+
+            await self.asyncraises(asyncio.CancelledError, task)
+
+    async def test_cortex_formcounts(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await self.getTestCell(dirn, 'cortex') as core:
+
+                await core.loadCoreModule('synapse.tests.utils.TestModule')
+
+                await core.eval('[ teststr=foo teststr=bar testint=42 ]').spin()
+
+                self.eq(1, core.counts['testint'])
+                self.eq(2, core.counts['teststr'])
+
+                core.counts['teststr'] = 99
+
+                await core.eval('reindex --form-counts').spin()
+
+                self.eq(1, core.counts['testint'])
+                self.eq(2, core.counts['teststr'])
+
+            # test that counts persist...
+            async with await self.getTestCell(dirn, 'cortex') as core:
+
+                await core.loadCoreModule('synapse.tests.utils.TestModule')
+
+                self.eq(1, core.counts['testint'])
+                self.eq(2, core.counts['teststr'])
+
+                node = await core.getNodeByNdef(('teststr', 'foo'))
+                await node.delete()
+
+                self.eq(1, core.counts['teststr'])
 
     async def test_cortex_latency(self):
         ''' Issue a large snap request, and make sure we can still do stuff in a reasonable amount of time'''

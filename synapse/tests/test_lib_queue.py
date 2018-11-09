@@ -172,23 +172,19 @@ class QueueTest(s_t_utils.SynTest):
         self.true(q.isfini)
         self.eq(data, results)
 
-    def test_queue_aqueue(self):
+    async def test_queue_aqueue(self):
 
-        async def init():
-            queue = await s_queue.AQueue.anit()
-            queue.put('foo')
-            return queue
+        queue = await s_queue.AQueue.anit()
+        queue.put('foo')
 
         async def poke():
-            await s_glob.plex.sleep(0.1)
             queue.put('bar')
 
-        queue = s_glob.sync(init())
+        self.eq(['foo'], await queue.slice())
 
-        self.eq(['foo'], s_glob.sync(queue.slice()))
+        queue.schedCoro(poke())
 
-        s_glob.plex.coroToTask(poke())
-        self.eq(['bar'], s_glob.sync(queue.slice()))
+        self.eq(['bar'], await queue.slice())
 
     async def test_queu_s2aqueue(self):
 
@@ -220,24 +216,31 @@ class AsyncQueueTest(s_t_utils.SynTest):
             last_msg = 0
 
             def sync_worker():
+
                 nonlocal got_to_end
                 nonlocal last_msg
+
                 time.sleep(0.1)
 
                 last_msg = q.get()  # got 0
                 last_msg = q.get()  # got 1
-                s_glob.plex.callSoonSafe(waiter.set)
+                q.schedCallSafe(waiter.set)
                 time.sleep(0.1)
                 last_msg = q.get()  # got 2
                 got_to_end = True
+
             t = s_threads.worker(sync_worker)
             before = time.time()
+
             await waiter.wait()
+
             await q.put(6)
+
             self.lt(0.1, time.time() - before)
-            await s_glob.plex.sleep(0.1)
+            await asyncio.sleep(0.1)
             self.eq(last_msg, 2)
-            await s_glob.plex.sleep(0.1)
+
+            await asyncio.sleep(0.1)
 
             self.true(got_to_end)
 

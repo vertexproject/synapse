@@ -86,13 +86,17 @@ def main(argv, outp=None):
                     f' to get to that location in the input file.')
 
     if opts.test:
+
         with s_common.getTempDir() as dirn:
+
             s_common.yamlsave({'layer:lmdb:mapsize': s_const.gibibyte * 5},
                               dirn, 'cell.yaml')
+
             with s_coro.AsyncToSyncCMgr(s_glob.sync, s_cortex.Cortex.anit(dirn)) as core:
                 for mod in opts.modules:
                     outp.printf(f'Loading [{mod}]')
                     s_glob.sync(core.loadCoreModule(mod))
+
                 with s_coro.AsyncToSyncCMgr(core.getLocalProxy) as prox:
                     addFeedData(prox, outp, opts.format, opts.debug,
                                 chunksize=opts.chunksize,

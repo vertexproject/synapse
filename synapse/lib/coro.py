@@ -4,51 +4,26 @@ Async/Coroutine related utilities.
 import asyncio
 import inspect
 import logging
+import functools
+import threading
+import collections
 
 logger = logging.getLogger(__name__)
 
 import synapse.glob as s_glob
 import synapse.common as s_common
 
-import synapse.lib.base as s_base
-import synapse.lib.queue as s_queue
-
 def iscoro(item):
     return inspect.iscoroutine(item)
 
-class Genr(s_base.Base):
-    '''
-    Wrap an async generator for use by a potentially sync caller.
-    '''
-    async def __anit__(self, genr):
-        await s_base.Base.__anit__(self)
-        self.genr = genr
-
-    def __len__(self):
-        return sum(1 for n in self)
-
-    def __iter__(self):
-
-        while not self.isfini:
-            try:
-                yield s_glob.sync(self.genr.__anext__())
-            except StopAsyncIteration as e:
-                return
-
-    async def __aiter__(self):
-
-        while not self.isfini:
-            try:
-                yield await self.genr.__anext__()
-            except StopAsyncIteration as e:
-                return
-
 async def genr2agenr(func, *args, qsize=100, **kwargs):
-    ''' Returns an async generator that receives a stream of messages from a sync generator func(*args, **kwargs) '''
-    class SentinelClass:
-        pass
-
+    '''
+    Returns an async generator that receives a stream of messages from a sync generator func(*args, **kwargs)
+    '''
     sentinel = s_common.NoValu()
+
+    # Deferred import to avoid a import loop
+    import synapse.lib.queue as s_queue
 
     async with await s_queue.S2AQueue.anit(qsize) as chan:
 
@@ -68,6 +43,9 @@ async def genr2agenr(func, *args, qsize=100, **kwargs):
             yield msg
 
         await task
+
+def executor(coro):
+    return asyncio.get_running_loop().run_in_executor(None, coro)
 
 async def event_wait(event: asyncio.Event, timeout=None):
     '''
@@ -104,6 +82,39 @@ async def ornot(func, *args, **kwargs):
         return await retn
     return retn
 
+class GenrHelp:
+
+    def __init__(self, genr):
+        assert genr is not None
+        self.genr = genr
+
+    def __aiter__(self):
+        return self.genr
+
+    def __iter__(self):
+
+        try:
+
+            while True:
+                item = s_glob.sync(self.genr.__anext__())
+                yield item
+
+        except StopAsyncIteration as e:
+            return
+
+    async def spin(self):
+        async for x in self.genr:
+            pass
+
+    async def list(self):
+        return [x async for x in self.genr]
+
+def genrhelp(f):
+    @functools.wraps(f)
+    def func(*args, **kwargs):
+        return GenrHelp(f(*args, **kwargs))
+    return func
+
 class AsyncToSyncCMgr():
     '''
     Wraps an async context manager as a sync one
@@ -112,7 +123,7 @@ class AsyncToSyncCMgr():
         self.amgr = func(*args, **kwargs)
 
     def __enter__(self):
-        return s_glob.plex.coroToSync(self.amgr.__aenter__())
+        return s_glob.sync(self.amgr.__aenter__())
 
     def __exit__(self, *args):
-        return s_glob.plex.coroToSync(self.amgr.__aexit__(*args))
+        return s_glob.sync(self.amgr.__aexit__(*args))

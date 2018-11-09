@@ -9,12 +9,10 @@ import threading
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
-import synapse.lib.scope as s_scope
 import synapse.lib.share as s_share
 import synapse.lib.certdir as s_certdir
 
@@ -29,7 +27,7 @@ class CustomShare(s_share.Share):
 
     async def _runShareLoop(self):
         try:
-            await s_glob.plex.sleep(10)
+            await asyncio.sleep(10)
         except asyncio.CancelledError as e:
             raise e
 
@@ -49,9 +47,6 @@ class Foo:
         self.genrwait = threading.Event()
         self.retnwait = threading.Event()
         self.genrexited = False
-
-    def iAmLoop(self):
-        return s_glob.plex.iAmLoop()
 
     def bar(self, x, y):
         return x + y
@@ -78,14 +73,14 @@ class Foo:
         return x * 2 + y
 
     async def longasync(self):
-        await s_glob.plex.sleep(5)
+        await asyncio.sleep(5)
         return 42
 
     async def corogenr(self, x):
         for i in range(x):
             yield i
             try:
-                await s_glob.plex.sleep(0.1)
+                await asyncio.sleep(0.1)
             except asyncio.CancelledError:
                 return
 
@@ -162,7 +157,7 @@ class TeleTest(s_t_utils.SynTest):
     async def test_telepath_basics(self):
 
         foo = Foo()
-        evt = asyncio.Event(loop=s_glob.plex.loop)
+        evt = asyncio.Event()
 
         async with self.getTestDmon() as dmon:
 
@@ -172,10 +167,9 @@ class TeleTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
 
             prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
+
             # Add an additional prox.fini handler.
             prox.onfini(evt.set)
-
-            self.true(await prox.iAmLoop())
 
             # check a standard return value
             self.eq(30, await prox.bar(10, 20))
@@ -185,12 +179,12 @@ class TeleTest(s_t_utils.SynTest):
 
             # check a generator return channel
             genr = await prox.genr()
-            self.true(isinstance(genr, s_telepath.Genr))
-            self.eq((10, 20, 30), await alist(genr))
+            self.true(isinstance(genr, s_coro.GenrHelp))
+            self.eq((10, 20, 30), await genr.list())
 
             # check an async generator return channel
             genr = await prox.corogenr(3)
-            self.true(isinstance(genr, s_telepath.Genr))
+            self.true(isinstance(genr, s_coro.GenrHelp))
             self.eq((0, 1, 2), await alist(genr))
 
             await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
@@ -203,6 +197,50 @@ class TeleTest(s_t_utils.SynTest):
         self.true(await s_coro.event_wait(evt, 2))
         self.true(prox.isfini)
         await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
+
+    async def test_telepath_no_sess(self):
+
+        foo = Foo()
+        evt = asyncio.Event()
+
+        async with self.getTestDmon() as dmon:
+
+            addr = await dmon.listen('tcp://127.0.0.1:0')
+            dmon.share('foo', foo)
+
+            await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
+
+            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
+
+                prox.sess = None
+
+                # Add an additional prox.fini handler.
+                prox.onfini(evt.set)
+
+                # check a standard return value
+                self.eq(30, await prox.bar(10, 20))
+
+                # check a coroutine return value
+                self.eq(25, await prox.corovalu(10, 5))
+
+                # check a generator return channel
+                genr = await prox.genr()
+                self.eq((10, 20, 30), await alist(genr))
+
+                # check an async generator return channel
+                genr = await prox.corogenr(3)
+                self.eq((0, 1, 2), await alist(genr))
+
+                await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
+
+                await self.asyncraises(s_exc.NoSuchMeth, prox.fake())
+
+                await self.asyncraises(s_exc.SynErr, prox.boom())
+
+            # Fini'ing a daemon fini's proxies connected to it.
+            self.true(await s_coro.event_wait(evt, 2))
+            self.true(prox.isfini)
+            await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
 
     async def test_telepath_tls_bad_cert(self):
 
@@ -257,42 +295,46 @@ class TeleTest(s_t_utils.SynTest):
                 self.eq(ret, t0)
 
     async def test_telepath_async(self):
+
         foo = Foo()
 
         async with self.getTestDmon() as dmon:
+
             addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share('foo', foo)
-            prox = await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1])
-            genr = prox.corogenr(3)
-            self.eq([0, 1, 2], [x async for x in await genr])
-            # To act the same as a local object, would be:
-            # self.eq([0, 1, 2], [x async for x in genr])
 
-            aitr = (await prox.corogenr('fred')).__aiter__()
-            await self.asyncraises(s_exc.SynErr, aitr.__anext__())
+            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=addr[1]) as prox:
 
-            aitr = (await prox.corogenr(3)).__aiter__()
-            await aitr.__anext__()
+                genr = prox.corogenr(3)
+                self.eq([0, 1, 2], [x async for x in await genr])
+                # To act the same as a local object, would be:
+                # self.eq([0, 1, 2], [x async for x in genr])
 
-            start_event = asyncio.Event(loop=s_glob.plex.loop)
+                aitr = (await prox.corogenr('fred')).__aiter__()
+                await self.asyncraises(s_exc.SynErr, aitr.__anext__())
 
-            async def longwaiter():
-                coro = prox.longasync()
-                await start_event.wait()
-                await coro
+                aitr = (await prox.corogenr(3)).__aiter__()
+                await aitr.__anext__()
 
-            fut = s_glob.plex.loop.create_task(longwaiter())
+                start_event = asyncio.Event()
 
-        await self.asyncraises(StopAsyncIteration, aitr.__anext__())
-        start_event.set()
+                async def longwaiter():
+                    coro = prox.longasync()
+                    await start_event.wait()
+                    await coro
 
-        # Test that a coroutine about to await on an async proxy method doesn't become "stuck" by awaiting on a
-        # just-fini'd object method
+                task = dmon.schedCoro(longwaiter())
 
-        # Give the longwaiter a chance to run
-        await s_glob.plex.sleep(.1)
+            await self.asyncraises(StopAsyncIteration, aitr.__anext__())
+            start_event.set()
 
-        await self.asyncraises(s_exc.IsFini, asyncio.wait_for(fut, timeout=2, loop=s_glob.plex.loop))
+            # Test that a coroutine about to await on an async proxy method doesn't become "stuck" by awaiting on a
+            # just-fini'd object method
+
+            # Give the longwaiter a chance to run
+            await asyncio.sleep(.1)
+
+            await self.asyncraises(s_exc.IsFini, asyncio.wait_for(task, timeout=2))
 
     async def test_telepath_blocking(self):
         ''' Make sure that async methods on the same proxy don't block each other '''
@@ -301,8 +343,8 @@ class TeleTest(s_t_utils.SynTest):
             typename = 'myshare'
 
             def __init__(self):
-                self.sema = asyncio.Semaphore(value=0, loop=s_glob.plex.loop)
-                self.evnt = asyncio.Event(loop=s_glob.plex.loop)
+                self.evnt = asyncio.Event()
+                self.sema = asyncio.Semaphore(value=0)
 
             async def do_it(self):
                 self.sema.release()
@@ -316,7 +358,9 @@ class TeleTest(s_t_utils.SynTest):
         bar = MyClass()
 
         async with self.getTestDmon() as dmon:
-            addr = await s_glob.plex.executor(dmon.listen, 'tcp://127.0.0.1:0')
+
+            addr = await dmon.listen('tcp://127.0.0.1:0')
+
             dmon.share('bar', bar)
 
             prox = await s_telepath.openurl('tcp://127.0.0.1/bar', port=addr[1])
@@ -325,7 +369,7 @@ class TeleTest(s_t_utils.SynTest):
 
             tasks = [prox.do_it() for _ in range(2)]
             tasks.append(prox.wait_for_doits())
-            await asyncio.wait_for(asyncio.gather(*tasks, loop=s_glob.plex.loop), timeout=5, loop=s_glob.plex.loop)
+            await asyncio.wait_for(asyncio.gather(*tasks), timeout=5)
             await prox.fini()
 
     async def test_telepath_aware(self):
@@ -373,37 +417,41 @@ class TeleTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadMesgVers, s_telepath.openurl('tcp://127.0.0.1/', port=port))
 
     async def test_alias(self):
+
         item = TeleAware()
         name = 'item'
 
         async with self.getTestDmon() as dmon:
+
             addr = await dmon.listen('ltcp://127.0.0.1:0')
             dmon.share(name, item)
-            dirn = s_scope.get('dirn')
 
-            url = f'tcp://{addr[0]}:{addr[1]}/{name}'
-            beepbeep_alias = url + '/beepbeep'
-            aliases = {name: url,
-                       f'{name}/borp': beepbeep_alias}
+            with self.getTestDir() as dirn:
 
-            with self.setSynDir(dirn):
-                fp = s_common.getSynPath('aliases.yaml')
-                s_common.yamlsave(aliases, fp)
+                url = f'tcp://{addr[0]}:{addr[1]}/{name}'
+                beepbeep_alias = url + '/beepbeep'
+                aliases = {name: url,
+                           f'{name}/borp': beepbeep_alias}
 
-                # None existent aliases return None
-                self.none(s_telepath.alias('newp'))
-                self.none(s_telepath.alias('newp/path'))
+                with self.setSynDir(dirn):
 
-                # An exact match wins
-                self.eq(s_telepath.alias(name), url)
-                self.eq(s_telepath.alias(f'{name}/borp'), beepbeep_alias)
-                # Dynamic aliases are valid.
-                self.eq(s_telepath.alias(f'{name}/beepbeep'), beepbeep_alias)
+                    fp = s_common.getSynPath('aliases.yaml')
+                    s_common.yamlsave(aliases, fp)
 
-                async with await s_telepath.openurl(name) as prox:
-                    self.eq(10, await prox.getFooBar(20, 10))
+                    # None existent aliases return None
+                    self.none(s_telepath.alias('newp'))
+                    self.none(s_telepath.alias('newp/path'))
 
-                # Check to see that we can connect to an aliased name
-                # with a dynamic share attached to it.
-                async with await s_telepath.openurl(f'{name}/bar') as prox:
-                    self.eq('bar: beep', await prox.beep())
+                    # An exact match wins
+                    self.eq(s_telepath.alias(name), url)
+                    self.eq(s_telepath.alias(f'{name}/borp'), beepbeep_alias)
+                    # Dynamic aliases are valid.
+                    self.eq(s_telepath.alias(f'{name}/beepbeep'), beepbeep_alias)
+
+                    async with await s_telepath.openurl(name) as prox:
+                        self.eq(10, await prox.getFooBar(20, 10))
+
+                    # Check to see that we can connect to an aliased name
+                    # with a dynamic share attached to it.
+                    async with await s_telepath.openurl(f'{name}/bar') as prox:
+                        self.eq('bar: beep', await prox.beep())
