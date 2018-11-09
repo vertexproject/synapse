@@ -199,7 +199,6 @@ class Query(AstNode):
         genr = runt.getInput()
 
         for oper in self.kids:
-            print('OPER: %r' % (oper,))
             genr = oper.run(runt, genr)
 
         async for node, path in genr:
