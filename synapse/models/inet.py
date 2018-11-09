@@ -1293,23 +1293,29 @@ class InetModule(s_module.CoreModule):
 
                         ('type', ('str', {}), {'defval': '??',
                             'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
+
+                        ('dns:rev', ('inet:fqdn', {}), {
+                            'doc': 'The most current DNS reverse lookup for the IPv4.'}),
                     )),
 
                     ('inet:ipv6', {}, (
+
                         ('asn', ('inet:asn', {}), {
                             'defval': 0,  # TODO replace with nullval
-                            'doc': 'The ASN to which the IPv6 address is currently assigned.'
-                        }),
+                            'doc': 'The ASN to which the IPv6 address is currently assigned.'}),
+
                         ('ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The mapped ipv4.'
-                        }),
+                            'doc': 'The mapped ipv4.'}),
+
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The last known latitude/longitude for the node'
-                        }),
+                            'doc': 'The last known latitude/longitude for the node'}),
+
+                        ('dns:rev', ('inet:fqdn', {}), {
+                            'doc': 'The most current DNS reverse lookup for the IPv6.'}),
+
                         ('loc', ('loc', {}), {
                             'defval': '??',
-                            'doc': 'The geo-political location string for the IPv6.'
-                        }),
+                            'doc': 'The geo-political location string for the IPv6.'}),
                     )),
 
                     ('inet:mac', {}, (
