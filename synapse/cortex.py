@@ -525,7 +525,7 @@ class Cortex(s_cell.Cell):
         logger.info('sync loop init: %s', url)
 
         while not self.isfini:
-
+            timeout = 1
             try:
 
                 url = self.conf.get('splice:sync')
@@ -556,8 +556,11 @@ class Cortex(s_cell.Cell):
                 break
 
             except Exception as e:  # pragma: no cover
+                if isinstance(e, OSError):
+                    timeout = 60
+
                 logger.exception('sync error')
-                await self.waitfini(timeout=1)
+                await self.waitfini(timeout)
 
     def _initCryoLoop(self):
 
@@ -595,7 +598,7 @@ class Cortex(s_cell.Cell):
         logger.info('feed loop init: %s @ %s', typename, url)
 
         while not self.isfini:
-
+            timeout = 1
             try:
 
                 url = feed.get('cryotank')
@@ -624,8 +627,10 @@ class Cortex(s_cell.Cell):
                 break
 
             except Exception as e:  # pragma: no cover
+                if isinstance(e, OSError):
+                    timeout = 60
                 logger.exception('feed error')
-                await self.waitfini(timeout=1)
+                await self.waitfini(timeout)
 
     async def _runCryoLoop(self):
 
@@ -635,7 +640,7 @@ class Cortex(s_cell.Cell):
         layr = self.layers[-1]
 
         while not self.isfini:
-
+            timeout = 2
             try:
 
                 async with await s_telepath.openurl(tankurl) as tank:
@@ -661,11 +666,12 @@ class Cortex(s_cell.Cell):
                         await self.fire('core:splice:cryotank:sent')
 
             except Exception as e:  # pragma: no cover
-
+                if isinstance(e, OSError):
+                    timeout = 60
                 online = False
                 logger.exception('splice cryotank offline')
 
-                await self.waitfini(timeout=2)
+                await self.waitfini(timeout)
 
     def setFeedFunc(self, name, func):
         '''
