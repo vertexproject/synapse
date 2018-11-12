@@ -665,6 +665,9 @@ class Cortex(s_cell.Cell):
                         offs = await tank.puts(items, seqn=(self.iden, offs))
                         await self.fire('core:splice:cryotank:sent')
 
+            except asyncio.CancelledError:  # pragma: no cover
+                break
+
             except Exception as e:  # pragma: no cover
                 if isinstance(e, OSError):
                     timeout = 60
