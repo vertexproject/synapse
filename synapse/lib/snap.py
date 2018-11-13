@@ -68,6 +68,10 @@ class Snap(s_base.Base):
             for layr in self.layers:
                 try:
                     await layr.commit()
+
+                except asyncio.CancelledError as e:
+                    raise
+
                 except Exception as e:
                     logger.exception('commit error for layer')
             # N.B. don't fini the layers here since they are owned by the cortex
@@ -300,6 +304,9 @@ class Snap(s_base.Base):
 
             fnib = self._getNodeFnib(name, valu)
             return await self._addNodeFnib(fnib, props=props)
+
+        except asyncio.CancelledError:
+            raise
 
         except Exception:
 

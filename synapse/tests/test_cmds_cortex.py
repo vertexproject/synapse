@@ -2,6 +2,7 @@ import os
 import regex
 import asyncio
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
@@ -202,7 +203,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                     async for _ in await core.storm('[ teststr=foo teststr=bar ] | sleep 10'):
                         evnt.set()
 
-                dmon.schedCoro(runLongStorm())
+                task = dmon.schedCoro(runLongStorm())
 
                 await evnt.wait()
 
@@ -219,3 +220,56 @@ class CmdCoreTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('kill %s' % (iden,))
 
                 outp.expect('kill status: True')
+                self.true(task.done())
+
+                outp.clear()
+                await cmdr.runCmdLine('ps')
+                self.true(outp.expect('0 tasks found.'))
+
+        async with self.getTestDmon('dmoncoreauth') as dmon:
+            pconf = {'user': 'root', 'passwd': 'root'}
+            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
+                await core.addAuthUser('test')
+                await core.setUserPasswd('test', 'test')
+
+                tconf = {'user': 'test', 'passwd': 'test'}
+                async with await self.agetTestProxy(dmon, 'core', **tconf) as tcore:
+
+                    evnt = asyncio.Event()
+
+                    async def runLongStorm():
+                        async for mesg in await core.storm('[ teststr=foo teststr=bar ] | sleep 10 | sudo'):
+                            evnt.set()
+
+                    outp = self.getTestOutp()
+                    cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
+
+                    toutp = self.getTestOutp()
+                    tcmdr = await s_cmdr.getItemCmdr(tcore, outp=toutp)
+
+                    task = dmon.schedCoro(runLongStorm())
+                    await evnt.wait()
+
+                    outp.clear()
+                    await cmdr.runCmdLine('ps')
+                    self.true(outp.expect('1 tasks found.'))
+
+                    regx = regex.compile('task iden: ([a-f0-9]{32})')
+                    match = regx.match(str(outp))
+                    iden = match.groups()[0]
+
+                    toutp.clear()
+                    await tcmdr.runCmdLine('ps')
+                    self.true(toutp.expect('0 tasks found.'))
+
+                    # Try killing from the unprivileged user
+                    await self.asyncraises(s_exc.AuthDeny, tcore.kill(iden))
+                    toutp.clear()
+                    await tcmdr.runCmdLine('kill %s' % (iden,))
+                    self.true(toutp.expect('no matching process found. aborting.'))
+
+                    # Tear down the task as a real user
+                    outp.clear()
+                    await cmdr.runCmdLine('kill %s' % (iden,))
+                    outp.expect('kill status: True')
+                    self.true(task.done())

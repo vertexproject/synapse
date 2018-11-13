@@ -497,6 +497,8 @@ class Cortex(s_cell.Cell):
         for func in self.ontagadds.get(tag, ()):
             try:
                 await s_coro.ornot(func, node, tag, valu)
+            except asyncio.CancelledError as e:
+                raise
             except Exception as e:
                 logger.exception('onTagAdd Error')
 
@@ -504,6 +506,8 @@ class Cortex(s_cell.Cell):
         for func in self.ontagdels.get(tag, ()):
             try:
                 await s_coro.ornot(func, node, tag, valu)
+            except asyncio.CancelledError as e:
+                raise
             except Exception as e:
                 logger.exception('onTagDel Error')
 
@@ -568,7 +572,7 @@ class Cortex(s_cell.Cell):
         logger.info('sync loop init: %s', url)
 
         while not self.isfini:
-
+            timeout = 1
             try:
 
                 url = self.conf.get('splice:sync')
@@ -599,8 +603,11 @@ class Cortex(s_cell.Cell):
                 break
 
             except Exception as e:  # pragma: no cover
+                if isinstance(e, OSError):
+                    timeout = 60
+
                 logger.exception('sync error')
-                await self.waitfini(timeout=1)
+                await self.waitfini(timeout)
 
     def _initCryoLoop(self):
 
@@ -638,7 +645,7 @@ class Cortex(s_cell.Cell):
         logger.info('feed loop init: %s @ %s', typename, url)
 
         while not self.isfini:
-
+            timeout = 1
             try:
 
                 url = feed.get('cryotank')
@@ -667,8 +674,10 @@ class Cortex(s_cell.Cell):
                 break
 
             except Exception as e:  # pragma: no cover
+                if isinstance(e, OSError):
+                    timeout = 60
                 logger.exception('feed error')
-                await self.waitfini(timeout=1)
+                await self.waitfini(timeout)
 
     async def _runCryoLoop(self):
 
@@ -678,7 +687,7 @@ class Cortex(s_cell.Cell):
         layr = self.layers[-1]
 
         while not self.isfini:
-
+            timeout = 2
             try:
 
                 async with await s_telepath.openurl(tankurl) as tank:
@@ -703,12 +712,16 @@ class Cortex(s_cell.Cell):
                         offs = await tank.puts(items, seqn=(self.iden, offs))
                         await self.fire('core:splice:cryotank:sent')
 
-            except Exception as e:  # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover
+                break
 
+            except Exception as e:  # pragma: no cover
+                if isinstance(e, OSError):
+                    timeout = 60
                 online = False
                 logger.exception('splice cryotank offline')
 
-                await self.waitfini(timeout=2)
+                await self.waitfini(timeout)
 
     def setFeedFunc(self, name, func):
         '''
@@ -740,6 +753,8 @@ class Cortex(s_cell.Cell):
 
             try:
                 await func(snap, item)
+            except asyncio.CancelledError as e:
+                raise
             except Exception as e:
                 logger.exception('splice error')
                 await snap.warn(f'splice error: {e}')
@@ -822,6 +837,8 @@ class Cortex(s_cell.Cell):
                 logger.info('Made [%s] nodes.', len(pnodes))
                 async for node in snap.addNodes(pnodes):
                     yield node
+            except asyncio.CancelledError as e:
+                raise
             except Exception as e:
                 logger.exception('Failed to process ingest [%r]', item)
                 continue
