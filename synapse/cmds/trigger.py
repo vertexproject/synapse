@@ -136,7 +136,6 @@ class Trigger(s_cli.Cmd):
             raise s_exc.BadSyntaxError(mesg=message, prog=self.prog, status=status)
 
         parser = CmdArgParser(self, prog='trigger', description=self.__doc__)
-        parser._print_target = self
 
         subparsers = parser.add_subparsers(title='subcommands', required=True, dest='cmd',
                                            parser_class=functools.partial(CmdArgParser, self))
@@ -235,7 +234,6 @@ class Trigger(s_cli.Cmd):
     async def _handle_mod(self, core, opts):
         prefix = opts.prefix
         query = opts.query
-        assert prefix
         if not query.startswith('{'):
             self.printf('Expected second argument to start with {')
             return
@@ -249,7 +247,6 @@ class Trigger(s_cli.Cmd):
 
     async def _handle_del(self, core, opts):
         prefix = opts.prefix
-        assert prefix is not None
         iden = await self._match_idens(core, prefix)
         if iden is None:
             return

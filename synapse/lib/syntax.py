@@ -237,7 +237,6 @@ def parse_string(text, off, trim=True):
     return ''.join(vals), off
 
 def parse_time(text, off):
-    raise Exception('Am I used')
     tstr, off = nom(text, off, timeset)
     valu = s_time.parse(tstr)
     return valu, off
@@ -315,7 +314,6 @@ def parse_macro_lift(text, off=0, trim=True):
     return inst, off
 
 def parse_opts(text, off=0):
-    raise Exception('Am I used')
     inst = ('opts', {'args': [], 'kwlist': []})
     valu = 1
     name, off = nom(text, off, varset, trim=True)
@@ -543,7 +541,6 @@ def parse_perm(text, off=0):
     Parse a permission string
         <name> [<opt>=<match>...]
     '''
-    raise Exception('Am I used')
     _, off = nom(text, off, whites)
 
     name, off = nom(text, off, varset)
@@ -580,7 +577,6 @@ def oper(name, *args, **kwargs):
     return (name, {'args': args, 'kwlist': kwlist})
 
 def parse_stormsub(text, off=0):
-    raise Exception('Am I used')
 
     _, off = nom(text, off, whites)
 

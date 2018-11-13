@@ -1,6 +1,7 @@
 '''
 An API to assist with the creation and enforcement of cortex data models.
 '''
+import asyncio
 import logging
 import collections
 
@@ -68,6 +69,8 @@ class PropBase:
         for func in self.onsets:
             try:
                 await s_coro.ornot(func, node, oldv)
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 logger.exception('onset() error for %s' % (self.full,))
 
@@ -75,6 +78,8 @@ class PropBase:
         for func in self.ondels:
             try:
                 await s_coro.ornot(func, node, oldv)
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 logger.exception('ondel() error for %s' % (self.full,))
 
@@ -264,6 +269,8 @@ class Form:
                 retn = func(node)
                 if s_coro.iscoro(retn):
                     await retn
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 logger.exception('error on onadd for %s' % (self.name,))
 
@@ -278,6 +285,8 @@ class Form:
                 retn = func(node)
                 if s_coro.iscoro(retn):
                     await retn
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 logger.exception('error on ondel for %s' % (self.name,))
 
@@ -379,13 +388,12 @@ class Model:
     '''
     The data model used by a Cortex hypergraph.
     '''
-    def __init__(self, ignore_missing=False):
+    def __init__(self):
 
         self.types = {} # name: Type()
         self.forms = {} # name: Form()
         self.props = {} # (form,name): Prop() and full: Prop()
         self.formabbr = {} # name: [Form(), ... ]
-        self.ignore_missing = ignore_missing
 
         self.univs = []
         self.univlook = {}
@@ -542,7 +550,6 @@ class Model:
 
         Args:
             mods (list);  The list of tuples.
-            skip_ctors (bool):  If True, no ctors will be executed.  Resulting types will be missing from model.
         '''
 
         # load all the base type ctors in order...
