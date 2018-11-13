@@ -1,6 +1,8 @@
 import json
 import time
+import shlex
 import signal
+
 import asyncio
 import threading
 import traceback
@@ -31,6 +33,44 @@ def get_input(text):  # pragma: no cover
         str: String of text from the user.
     '''
     return input(text)
+
+def _get_query_start(s):
+    '''
+    Returns the first position of the beginning of a curly-braced string sequence, after accounting for quoting.
+
+    Returns:
+        None, if no curly-braced string sequence found, or an integer, if it is
+
+    Note:
+        This currently doesn't support parsing escaped quotes, e.g. "\""
+    '''
+    in_q = None
+    for pos, c in enumerate(s):
+        if c == '{' and not in_q:
+            return pos
+        if c == "'" or c == '"':
+            if c == in_q:
+                in_q = None
+
+    if in_q:
+        raise s_exc.BadSyntaxError(mesg='Unmatched quotes')
+    return None
+
+def split(s):
+    '''
+    Parses s into a series of tokens suitable for argparse, where the string may end in a curly-braced storm query.
+    The storm query, if present, is provided as a single unmodified token without the outside curly braces.
+    '''
+    pos = _get_query_start(s)
+    if pos is None:
+        return shlex.split(s)
+    command, query = s[:pos], s[pos:]
+    query = query.strip()
+    assert query[0] == '{'
+    if query[-1] != '}':
+        raise s_exc.BadSyntaxError(mesg='Missing }')
+
+    return shlex.split(command) + [query[1:-1]]
 
 class Cmd:
     '''

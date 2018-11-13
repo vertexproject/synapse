@@ -282,3 +282,9 @@ class CliTest(s_t_utils.SynTest):
             self.true(evt.wait(2))
             self.true(cli.isfini)
             self.true(outp.expect('connection closed...'))
+
+    # def test_split(self):
+    #     retn = s_cli.split('foo bar { storm }')
+    #     self.eq(retn, ['foo', 'bar', 'storm'])
+    #     retn = s_cli.split('foo "{"')
+    #     self.eq(ret

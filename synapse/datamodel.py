@@ -329,16 +329,63 @@ class Form:
         info.update(self.info)
         return info
 
+class ModelInfo:
+    '''
+    A summary of the information in a DataModel, sufficent for parsing storm queries.
+    '''
+    def __init__(self):
+        self.formnames = set()
+        self.propnames = set()
+        self.univnames = set()
+
+    def addDataModels(self, mods):
+        '''
+        Adds a model definition (same format as input to Model.addDataModels and output of Model.getModelDef).
+        '''
+        # Load all the universal properties
+        for _, mdef in mods:
+            for univname, _, _ in mdef.get('univs', ()):
+                self.addUnivName(univname)
+
+        # Load all the forms
+        for _, mdef in mods:
+            for formname, _, propdefs in mdef.get('forms', ()):
+
+                self.formnames.add(formname)
+                self.propnames.add(formname)
+
+                for univname in self.univnames:
+                    full = f'{formname}{univname}'
+                    self.propnames.add(full)
+
+                for propname, _, _ in propdefs:
+                    full = f'{formname}:{propname}'
+                    self.propnames.add(full)
+
+    def addUnivName(self, univname):
+        self.univnames.add('.' + univname)
+        self.propnames.add('.' + univname)
+
+    def isprop(self, name):
+        return name in self.propnames
+
+    def isform(self, name):
+        return name in self.formnames
+
+    def isuniv(self, name):
+        return name in self.univnames
+
 class Model:
     '''
     The data model used by a Cortex hypergraph.
     '''
-    def __init__(self):
+    def __init__(self, ignore_missing=False):
 
         self.types = {} # name: Type()
         self.forms = {} # name: Form()
         self.props = {} # (form,name): Prop() and full: Prop()
         self.formabbr = {} # name: [Form(), ... ]
+        self.ignore_missing = ignore_missing
 
         self.univs = []
         self.univlook = {}
@@ -346,6 +393,13 @@ class Model:
         self.propsbytype = collections.defaultdict(list) # name: Prop()
 
         self._type_pends = collections.defaultdict(list)
+        self._modeldef = {
+            'ctors': [],
+            'types': [],
+            'forms': [],
+            'univs': []
+        }
+        self._modelinfo = ModelInfo()
 
         # add the primitive base types
         info = {'doc': 'The base 64 bit signed integer type.'}
@@ -424,6 +478,9 @@ class Model:
             'doc': 'The time the node was created in the cortex.',
         })
 
+    def getModelInfo(self):
+        return self._modelinfo
+
     def getPropsByType(self, name):
         props = self.propsbytype.get(name, ())
         # TODO order props based on score...
@@ -437,8 +494,14 @@ class Model:
 
         return base.clone(typedef[1])
 
-    def getModelDict(self):
+    def getModelDef(self):
+        '''
+        Returns:
+            A list of one model definition compatible with addDataModels that represents the current data model
+        '''
+        return [('all', self._modeldef)]
 
+    def getModelDict(self):
         retn = {
             'types': {},
             'forms': {},
@@ -472,7 +535,14 @@ class Model:
                     (propname, (typename, typeopts), {info}),
                 )),
             ),
+            "univs":(
+                (propname, (typename, typeopts), {info}),
+            )
         }
+
+        Args:
+            mods (list);  The list of tuples.
+            skip_ctors (bool):  If True, no ctors will be executed.  Resulting types will be missing from model.
         '''
 
         # load all the base type ctors in order...
@@ -481,6 +551,7 @@ class Model:
             for name, ctor, opts, info in mdef.get('ctors', ()):
                 item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts)
                 self.types[name] = item
+                self._modeldef['ctors'].append((name, ctor, opts, info))
 
         # load all the types in order...
         for modlname, mdef in mods:
@@ -492,6 +563,12 @@ class Model:
                     raise s_exc.NoSuchType(name=basename)
 
                 self.types[typename] = base.extend(typename, opts, info)
+                self._modeldef['types'].append((typename, (basename, opts), info))
+
+        # Load all the universal properties
+        for modlname, mdef in mods:
+            for univname, typedef, univinfo in mdef.get('univs', ()):
+                self.addUnivProp(univname, typedef, univinfo)
 
         # now we can load all the forms...
         for modlname, mdef in mods:
@@ -501,6 +578,8 @@ class Model:
                 _type = self.types.get(formname)
                 if _type is None:
                     raise s_exc.NoSuchType(name=formname)
+
+                self._modeldef['forms'].append((formname, forminfo, propdefs))
 
                 form = Form(self, formname, forminfo)
 
@@ -523,6 +602,8 @@ class Model:
                     self.props[full] = prop
                     self.props[(formname, propname)] = prop
 
+        self._modelinfo.addDataModels(mods)
+
     def _addFormUniv(self, form, name, tdef, info):
 
         base = '.' + name
@@ -535,6 +616,8 @@ class Model:
 
     def addUnivProp(self, name, tdef, info):
 
+        self._modelinfo.addUnivName(name)
+
         base = '.' + name
         univ = Univ(self, base, tdef, info)
 
@@ -542,6 +625,7 @@ class Model:
         self.univlook[base] = univ
 
         self.univs.append((name, tdef, info))
+        self._modeldef['univs'].append((name, tdef, info))
 
         for form in self.forms.values():
             self._addFormUniv(form, name, tdef, info)

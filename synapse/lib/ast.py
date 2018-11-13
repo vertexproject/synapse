@@ -95,11 +95,10 @@ class AstNode:
 
 class Query(AstNode):
 
-    def __init__(self, core, kids=()):
+    def __init__(self, kids=()):
 
         AstNode.__init__(self, kids=kids)
 
-        self.core = core
         self.text = ''
 
         # for options parsed from the query itself

@@ -3,6 +3,7 @@ import logging
 import pathlib
 import collections
 
+import synapse
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
@@ -101,6 +102,12 @@ class CoreApi(s_cell.CellApi):
             (dict): A model description dictionary.
         '''
         return self.cell.model.getModelDict()
+
+    def getCoreInfo(self):
+        '''
+        Return generic information about the cortex including model definition
+        '''
+        return self.cell.getCoreInfo()
 
     async def addTrigger(self, condition, query, *, info):
         '''
@@ -1015,7 +1022,13 @@ class Cortex(s_cell.Cell):
         '''
         Parse storm query text and return a Query object.
         '''
-        return s_syntax.Parser(self, text).query()
+        parseinfo = {
+            'stormcmds': list(self.stormcmds.keys()),
+            'modelinfo': self.model.getModelInfo(),
+        }
+        query = s_syntax.Parser(parseinfo, text).query()
+        query.init(self)
+        return query
 
     def _logStormQuery(self, text, user):
         '''
@@ -1064,6 +1077,13 @@ class Cortex(s_cell.Cell):
         async with await self.snap() as snap:
             async for node in snap.getNodesBy(full, valu, cmpr=cmpr):
                 yield node
+
+    def getCoreInfo(self):
+        return {
+            'version': synapse.version,
+            'modeldef': self.model.getModelDef(),
+            'stormcmds': list(self.stormcmds.keys()),
+        }
 
     async def addNodes(self, nodedefs):
         '''

@@ -9,10 +9,7 @@ cmdsbycell = {
         s_cmds_cortex.PsCmd,
         s_cmds_cortex.KillCmd,
         s_cmds_cortex.Log,
-        s_cmds_trigger.TriggerAdd,
-        s_cmds_trigger.TriggerDel,
-        s_cmds_trigger.TriggerMod,
-        s_cmds_trigger.TriggerList,
+        s_cmds_trigger.Trigger,
     ),
 }
 
