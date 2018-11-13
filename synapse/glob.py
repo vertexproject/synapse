@@ -1,11 +1,9 @@
+import os
 import asyncio
 import threading
 
 _glob_loop = None
 _glob_thrd = None
-
-# If asyncio is in debug mode, it will emit a line if a coroutine takes longer than this
-GREEDY_CORO_S = 2
 
 def initloop():
 
@@ -25,7 +23,9 @@ def initloop():
 
             # otherwise, lets fire one...
             _glob_loop = asyncio.new_event_loop()
-            _glob_loop.slow_callback_duration = GREEDY_CORO_S
+            greedy_threshold = os.environ.get('SYN_GREEDY_CORO')
+            if greedy_threshold is not None:
+                _glob_loop.slow_callback_duration = int(greedy_threshold)
 
             _glob_thrd = threading.Thread(target=_glob_loop.run_forever, name='SynLoop')
             _glob_thrd.setDaemon(True)
