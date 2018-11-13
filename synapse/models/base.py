@@ -17,7 +17,7 @@ class BaseModule(s_module.CoreModule):
 
                 ('cluster', ('guid', {}), {
                     'doc': 'A generic node, used in conjunction with Edge types, to cluster arbitrary nodes to a '
-                           'single node the model.'}),
+                           'single node in the model.'}),
 
                 ('seen', ('comp', {'fields': (('source', 'source'), ('node', 'ndef'))}), {
                     'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
