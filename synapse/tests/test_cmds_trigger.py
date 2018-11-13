@@ -52,9 +52,52 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine('trigger add tag:add #another {[ +#count2 ]}')
 
             # Syntax mistakes
+            await cmdr.runCmdLine(f'trigger')
+            self.true(outp.expect('Manipulate triggers in a '))
+
             await cmdr.runCmdLine('trigger add tag:add another {[ +#count2 ]}')
             self.true(outp.expect('Missing tag parameter'))
+
             await cmdr.runCmdLine('trigger add tug:udd another {[ +#count2 ]}')
             self.true(outp.expect('invalid choice'))
+
             await cmdr.runCmdLine('trigger add tag:add')
             self.true(outp.expect('trigger add: error: the following'))
+
+            await cmdr.runCmdLine('trigger add tag:add inet:ipv4')
+            self.true(outp.expect('Missing argument for trigger add'))
+
+            await cmdr.runCmdLine('trigger add')
+            self.true(outp.expect('Add triggers in a cortex.'))
+
+            await cmdr.runCmdLine('trigger add tag:add #foo #bar')
+            self.true(outp.expect('single tag'))
+
+            await cmdr.runCmdLine('trigger add tag:add {foo} {bar}')
+            self.true(outp.expect('single query'))
+
+            await cmdr.runCmdLine('trigger add node:add teststr #foo {bar}')
+            self.true(outp.expect('node:* does not support'))
+
+            await cmdr.runCmdLine('trigger add prop:set #foo {bar}')
+            self.true(outp.expect('Missing prop parameter'))
+
+            await cmdr.runCmdLine('trigger add prop:set testtype10.intprop #foo {bar}')
+            self.true(outp.expect('prop:set does not support a tag'))
+
+            await cmdr.runCmdLine('trigger add node:add teststr testint {bar}')
+            self.true(outp.expect('Only a single form'))
+
+            await cmdr.runCmdLine('trigger add prop:set testtype10.intprop teststr {bar}')
+            self.true(outp.expect('single prop'))
+
+            await cmdr.runCmdLine('trigger add tag:add #tag testint')
+            self.true(outp.expect('Missing query'))
+
+            await cmdr.runCmdLine('trigger add node:add #tag1 {bar}')
+            self.true(outp.expect('Missing form'))
+
+            await cmdr.runCmdLine(f'trigger mod {goodbuid2} teststr')
+            self.true(outp.expect('start with {'))
+
+

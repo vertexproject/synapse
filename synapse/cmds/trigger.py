@@ -194,13 +194,21 @@ class Trigger(s_cli.Cmd):
             self.printf('Missing tag parameter')
             return
 
-        if cond.startswith('node') and form is None:
-            self.printf('Missing form parameter')
-            return
+        elif cond.startswith('node'):
+            if form is None:
+                self.printf('Missing form parameter')
+                return
+            if tag is not None:
+                self.printf('node:* does not support a tag')
+                return
 
-        if cond.startswith('prop') and prop is None:
-            self.printf('Missing prop parameter')
-            return
+        elif cond.startswith('prop'):
+            if prop is None:
+                self.printf('Missing prop parameter')
+                return
+            if tag is not None:
+                self.printf('prop:set does not support a tag')
+                return
 
         # Remove the curly braces
         query = query[1:-1]
