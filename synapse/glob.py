@@ -1,3 +1,4 @@
+import os
 import asyncio
 import threading
 
@@ -22,6 +23,9 @@ def initloop():
 
             # otherwise, lets fire one...
             _glob_loop = asyncio.new_event_loop()
+            greedy_threshold = os.environ.get('SYN_GREEDY_CORO')
+            if greedy_threshold is not None:
+                _glob_loop.slow_callback_duration = float(greedy_threshold)
 
             _glob_thrd = threading.Thread(target=_glob_loop.run_forever, name='SynLoop')
             _glob_thrd.setDaemon(True)
