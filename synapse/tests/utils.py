@@ -181,6 +181,8 @@ testmodel = {
             ('targ', ('pivtarg', {}), {}),
             ('lulz', ('teststr', {}), {}),
             ('tick', ('time', {}), {}),
+            ('size', ('testint', {}), {}),
+            ('width', ('testint', {}), {}),
         )),
     ),
 }

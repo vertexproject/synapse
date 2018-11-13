@@ -1011,6 +1011,19 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][0], ('pivtarg', 'foo'))
 
+            # Regression test:  bug in implicit form pivot where absence of foreign key in source node was treated like
+            # a match-any
+            await alist(core.eval('[ testint=42 ]'))
+            q = 'pivcomp -> testint'
+            nodes = await getPackNodes(core, q)
+            self.len(0, nodes)
+
+            # Multiple props of source form have type of destination form:  pivot through all the matching props.
+            await alist(core.eval('[ pivcomp=(xxx,yyy) :width=42 ]'))
+            q = 'pivcomp -> testint'
+            nodes = await getPackNodes(core, q)
+            self.len(1, nodes)
+
             q = 'pivcomp=(foo,bar) :targ -> pivtarg'
             nodes = await getPackNodes(core, q)
             self.len(1, nodes)
