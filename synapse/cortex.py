@@ -951,7 +951,7 @@ class Cortex(s_cell.Cell):
                         count += 1
 
             except asyncio.CancelledError:
-                logger.exception('Storm runtime cancelled.')
+                logger.warning('Storm runtime cancelled.')
                 cancelled = True
                 raise
 

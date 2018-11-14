@@ -129,6 +129,12 @@ class BaseTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, (n1def, ('testint', 1)))
             self.raises(s_exc.BadTypeValu, t.norm, (('testint', 1), n2def))
 
+            # Make sure we don't return None nodes if one node of an edge is deleted
+            node = await core.getNodeByNdef(n2def)
+            await node.delete()
+            opts = {'vars': {'pers': pers}}
+            await self.agenlen(0, core.eval('ps:person=$pers -> wentto -> *', opts=opts))
+
     async def test_model_base_source(self):
 
         async with self.getTestCore() as core:
