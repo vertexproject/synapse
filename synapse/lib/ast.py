@@ -423,6 +423,9 @@ class PivotOut(PivotOper):
             if isinstance(node.form.type, s_types.Edge):
                 n2def = node.get('n2')
                 pivo = await runt.snap.getNodeByNdef(n2def)
+                if pivo is None:
+                    logger.warning(f'Missing node corresponding to ndef {n2def} on edge')
+                    continue
                 yield pivo, path.fork(pivo)
                 continue
 
