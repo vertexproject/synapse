@@ -235,7 +235,9 @@ class StormTest(s_t_utils.SynTest):
             await self.agenlen(6, core.eval(q))
 
             # We can traverse edges in both directions
-            await self.agenlen(1, core.eval('[refs=((teststr, 123), (testint, 123))]'))
+            nodes = await alist(core.eval('[refs=((teststr, 123), (testint, 123))]'))
+            self.len(1, nodes)
+            ref_iden = nodes[0].iden()
 
             q = 'teststr=123 | noderefs'
             nodes = await alist(core.eval(q))
@@ -287,18 +289,25 @@ class StormTest(s_t_utils.SynTest):
             # Do a huge traversal that includes paths
             q = 'teststr=pennywise | noderefs --join -d 9'
             mesgs = await alist(core.storm(q, opts={'path': True}))
-            nodes = [mesg[1] for mesg in mesgs]
-            self.len(10, nodes)
-            self.len(1, nodes[0].nodes)
-            self.len(9, nodes[9].nodes)
+            nodes = [mesg[0] for mesg in mesgs]
+            self.isin(ref_iden, {n.iden() for n in nodes})
+            paths = [mesg[1] for mesg in mesgs]
+            self.len(10, paths)
+            self.len(1, paths[0].nodes)
+            self.len(9, paths[9].nodes)
 
             # Paths may change depending on traversal options
             q = 'teststr=pennywise | noderefs --join -d 9 --traverse-edge'
             mesgs = await alist(core.storm(q, opts={'path': True}))
-            nodes = [mesg[1] for mesg in mesgs]
-            self.len(9, nodes)
-            self.len(1, nodes[0].nodes)
-            self.len(8, nodes[8].nodes)
+            nodes = [mesg[0] for mesg in mesgs]
+            self.notin(ref_iden, {n.iden() for n in nodes})
+            paths = [mesg[1] for mesg in mesgs]
+            self.len(9, paths)
+            self.len(1, paths[0].nodes)
+            self.len(9, paths[8].nodes)
+            # Ensure that the ref_iden is present in the path since
+            # we did move through it.
+            self.isin(ref_iden, {n.iden() for n in paths[8].nodes})
 
             # Start from multiple nodes and get their refs
             q = 'teststr | noderefs -d 3'

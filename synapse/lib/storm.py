@@ -859,16 +859,19 @@ class NoderefsCmd(Cmd):
                         if npivo is None:  # pragma: no cover
                             logger.warning('n2 does not exist for edge? [%s]', pivo.ndef)
                             continue
-                        yield npivo, srcpath.fork(npivo)
+                        # Ensure that the path includes the edge node we are traversing across.
+                        _path = srcpath.fork(pivo)
+                        yield npivo, _path.fork(npivo)
                         continue
 
                     if srcnode.ndef == pivo.get('n2'):
-
                         npivo = await self.snap.getNodeByNdef(pivo.get('n1'))
                         if npivo is None:  # pragma: no cover
                             logger.warning('n1 does not exist for edge? [%s]', pivo.ndef)
                             continue
-                        yield npivo, srcpath.fork(npivo)
+                        # Ensure that the path includes the edge node we are traversing across.
+                        _path = srcpath.fork(pivo)
+                        yield npivo, _path.fork(npivo)
                         continue
 
                     logger.warning('edge type has no n1/n2 property. [%s]', pivo.ndef)  # pragma: no cover
