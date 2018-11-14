@@ -756,11 +756,8 @@ class NoderefsCmd(Cmd):
             # Don't revisit the inbound node from genr
             visited.add(node.buid)
 
-            async for item in self.doRefs(node, path, visited):
-                yield item
-
-            async for x in self.doRefs(node, path, visited):
-                yield x
+            async for nnode, npath in self.doRefs(node, path, visited):
+                yield nnode, npath
 
     async def doRefs(self, srcnode, srcpath, visited):
 
@@ -843,6 +840,9 @@ class NoderefsCmd(Cmd):
         # type as me!
         name, valu = srcnode.ndef
         for prop in self.snap.model.propsbytype.get(name, ()):
+            # Do not do pivot-in when we know we don't want the form of the resulting node.
+            if prop.form.full in self.omit_forms:
+                continue
             async for pivo in self.snap.getNodesBy(prop.full, valu):
                 yield pivo, srcpath.fork(pivo)
 

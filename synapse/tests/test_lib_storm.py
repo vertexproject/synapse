@@ -323,3 +323,10 @@ class StormTest(s_t_utils.SynTest):
             q = 'teststr | noderefs -d 3 -u'
             nodes = await alist(core.eval(q))
             self.len(8, nodes)
+
+            # Coverage for the pivot-in optimization.
+            guid = s_common.guid()
+            await alist(core.eval(f'[inet:ipv4=1.2.3.4 :asn=10] [seen=({guid}, (inet:asn, 10))]'))
+            nodes = await alist(core.eval('inet:asn=10 | noderefs -of inet:ipv4 --join -d 3'))
+            forms = {node.form.full for node in nodes}
+            self.eq(forms, {'source', 'inet:asn', 'seen'})
