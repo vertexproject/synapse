@@ -173,16 +173,31 @@ async def main(argv, outprint=None):
     outp = outprint
 
     pars = makeargparser()
-    opts = pars.parse_args(argv)
+    try:
+        opts = pars.parse_args(argv)
+    except s_exc.BadSyntaxError:
+        return -1
+
     return await opts.func(opts)
 
+class ArgParser(argparse.ArgumentParser):
+
+    def exit(self, status=0, message=None):
+        '''
+        Argparse expects exit() to be a terminal function and not return.
+        As such, this function must raise an exception
+        '''
+        if message is not None:
+            outp.printf(message)
+        raise s_exc.BadSyntaxError(mesg=message, prog=self.prog, status=status)
+
 def makeargparser():
-    pars = argparse.ArgumentParser('synapse.tools.cellauth', description=desc)
+    pars = ArgParser('synapse.tools.cellauth', description=desc)
 
     pars.add_argument('--debug', action='store_true', help='Show debug traceback on error.')
     pars.add_argument('cellurl', help='The telepath URL to connect to a cell.')
 
-    subpars = pars.add_subparsers()
+    subpars = pars.add_subparsers(parser_class=ArgParser)
 
     # list
     pars_list = subpars.add_parser('list', help='List users/roles')
