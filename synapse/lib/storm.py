@@ -756,11 +756,8 @@ class NoderefsCmd(Cmd):
             # Don't revisit the inbound node from genr
             visited.add(node.buid)
 
-            async for item in self.doRefs(node, path, visited):
-                yield item
-
-            async for x in self.doRefs(node, path, visited):
-                yield x
+            async for nnode, npath in self.doRefs(node, path, visited):
+                yield nnode, npath
 
     async def doRefs(self, srcnode, srcpath, visited):
 
