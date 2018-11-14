@@ -151,3 +151,22 @@ class BaseTest(s_t_utils.SynTest):
 
                 self.eq(seen.get('source'), sorc.ndef[1])
                 self.eq(seen.get('node'), ('inet:fqdn', 'woot.com'))
+
+    async def test_model_base_cluster(self):
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                guid = s_common.guid()
+                props = {'name': 'Test Cluster', 'desc': 'A cluster for testing', 'type': 'similarity'}
+                cnode = await snap.addNode('cluster', guid, props)
+                self.eq(cnode.get('type'), 'similarity')
+                self.eq(cnode.get('name'), 'test cluster')
+                self.eq(cnode.get('desc'), 'a cluster for testing')
+
+                # Example reference nodes
+                r1 = await snap.addNode('refs', (cnode.ndef, ('teststr', '1234')))
+                r2 = await snap.addNode('refs', (cnode.ndef, ('testint', 1234)))
+
+                # Gather up all the nodes in the cluster
+                nodes = await snap.eval(f'cluster={guid} | noderefs -d 2 --join').list()
+                self.len(5, nodes)
