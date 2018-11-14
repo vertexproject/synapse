@@ -840,6 +840,9 @@ class NoderefsCmd(Cmd):
         # type as me!
         name, valu = srcnode.ndef
         for prop in self.snap.model.propsbytype.get(name, ()):
+            # Do not do pivot-in when we know we don't want the form of the resulting node.
+            if prop.form.full in self.omit_forms:
+                continue
             async for pivo in self.snap.getNodesBy(prop.full, valu):
                 yield pivo, srcpath.fork(pivo)
 
