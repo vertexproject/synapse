@@ -602,11 +602,17 @@ class SpinCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        if False:
+        if False:  # make this method an async generator function
             yield None
 
+        i = 0
+
         async for node, path in genr:
-            pass
+            i += 1
+
+            # Yield to other tasks occasionally
+            if not i % 1000:
+                await asyncio.sleep(0)
 
 class CountCmd(Cmd):
     '''
@@ -626,6 +632,10 @@ class CountCmd(Cmd):
         async for item in genr:
             yield item
             i += 1
+
+            # Yield to other tasks occasionally
+            if not i % 1000:
+                await asyncio.sleep(0)
 
         await runt.printf(f'Counted {i} nodes.')
 
@@ -779,6 +789,7 @@ class NoderefsCmd(Cmd):
                     break
 
                 async for pnode, ppath in self.getRefs(snode, spath):
+                    await asyncio.sleep(0)
 
                     if pnode.buid in visited:
                         continue
