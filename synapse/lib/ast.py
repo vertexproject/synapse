@@ -697,6 +697,9 @@ class PropPivotOut(PivotOper):
             # :ndef -> *
             if isinstance(prop.type, s_types.Ndef):
                 pivo = await runt.snap.getNodeByNdef(valu)
+                if pivo is None:
+                    logger.warning(f'Missing node corresponding to ndef {valu}')
+                    continue
                 yield pivo, path.fork(pivo)
                 continue
 
