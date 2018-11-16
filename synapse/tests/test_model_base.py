@@ -135,6 +135,10 @@ class BaseTest(s_t_utils.SynTest):
             opts = {'vars': {'pers': pers}}
             await self.agenlen(0, core.eval('ps:person=$pers -> wentto -> *', opts=opts))
 
+            # Make sure we don't return None nodes on a PropPivotOut
+            opts = {'vars': {'pers': pers}}
+            await self.agenlen(0, core.eval('ps:person=$pers -> wentto :n2 -> *', opts=opts))
+
     async def test_model_base_source(self):
 
         async with self.getTestCore() as core:
