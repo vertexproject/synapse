@@ -1802,19 +1802,45 @@ class CortexTest(s_t_utils.SynTest):
     async def test_storm_switchcase(self):
 
         async with self.getTestCore() as core:
+
             opts = {'vars': {'woot': 'hehe'}}
-            text = '[teststr=foo] switch $woot { hehe {[+#baz]} "haha hoho" {[+#faz]} }'
-            async for node in core.eval(text, opts=opts):
-                self.eq(node.ndef[1], 'foo')
+            text = '[teststr=a] switch $woot { hehe: {[+#baz]} }'
+            nodes = await core.eval(text, opts=opts).list()
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq(node.ndef[1], 'a')
                 self.nn(node.getTag('baz'))
                 self.none(node.getTag('faz'))
+                self.none(node.getTag('jaz'))
 
             opts = {'vars': {'woot': 'haha hoho'}}
-            text = '[teststr=bar] switch $woot { hehe {[+#baz]} "haha hoho" {[+#faz]} }'
-            async for node in core.eval(text, opts=opts):
-                self.eq(node.ndef[1], 'bar')
-                self.nn(node.getTag('faz'))
+            text = '[teststr=b] switch $woot { hehe: {[+#baz]} haha hoho: {[+#faz]} "lolz:lulz": {[+#jaz]} }'
+            nodes = await core.eval(text, opts=opts).list()
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq(node.ndef[1], 'b')
                 self.none(node.getTag('baz'))
+                self.nn(node.getTag('faz'))
+                self.none(node.getTag('jaz'))
+
+            opts = {'vars': {'woot': 'lolz:lulz'}}
+            text = '[teststr=c] switch $woot { hehe: {[+#baz]} haha hoho: {[+#faz]} "lolz:lulz": {[+#jaz]} }'
+            nodes = await core.eval(text, opts=opts).list()
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq(node.ndef[1], 'c')
+                self.none(node.getTag('baz'))
+                self.none(node.getTag('faz'))
+                self.nn(node.getTag('jaz'))
+
+            opts = {'vars': {'woot': 'lulz'}}
+            text = '[teststr=c] switch $woot { hehe: {[+#baz]} *: {[+#jaz]} }'
+            nodes = await core.eval(text, opts=opts).list()
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq(node.ndef[1], 'c')
+                self.none(node.getTag('baz'))
+                self.nn(node.getTag('jaz'))
 
     async def test_storm_tagvar(self):
 
@@ -1849,7 +1875,7 @@ class CortexTest(s_t_utils.SynTest):
             opts = {'vars': {'dnsa': (('foo.com', '1.2.3.4'), ('bar.com', '5.6.7.8'))}}
 
             vals = []
-            async for node in core.eval('for ($fqdn,$ipv4) in $dnsa { [ inet:dns:a=($fqdn,$ipv4) ] }', opts=opts):
+            async for node in core.eval('for ($fqdn, $ipv4) in $dnsa { [ inet:dns:a=($fqdn,$ipv4) ] }', opts=opts):
                 vals.append(node.ndef[1])
 
             self.eq((('foo.com', 0x01020304), ('bar.com', 0x05060708)), vals)
@@ -1925,7 +1951,8 @@ class CortexTest(s_t_utils.SynTest):
 
                 // The bar case...
 
-                bar {
+                bar: {
+                    [ +#hehe.haha ]
                 }
 
                 /*
@@ -1933,11 +1960,11 @@ class CortexTest(s_t_utils.SynTest):
                    baz
                    case
                 */
-                baz
+                baz faz: {}
             }
             '''
             opts = {'vars': {'foo': 'bar'}}
-            nodes = await alist(core.eval(text))
+            nodes = await alist(core.eval(text, opts=opts))
             self.len(1, nodes)
             for node in nodes:
                 self.eq(node.ndef, ('inet:ipv4', 0x01020304))
@@ -1947,17 +1974,73 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            opts = {'vars': {'blob': 'vertex.link|hehe'}}
-            #text = '$fqdn, $crap = $blob.split("|") [ inet:fqdn=$fqdn ]'
-            text = '$fqdn = woot.com [ inet:fqdn=$fqdn ]'
-            #text = '[ teststr=hehe ] $fqdn, $crap = $blob.split("|") [ inet:fqdn=$fqdn ]'
-            #text = '[ teststr=hehe ] $fqdn, $crap = $blob.split("|") [ +#$fqdn ]'
-            #text = '[ teststr=hehe ] $fqdn="hehe" [ +#$fqdn ]'
-            #text = '[ teststr=hehe ] $fqdn, $crap = $blob.split("|")'
+            opts = {'vars': {'blob': ('vertex.link', '9001')}}
+            text = '($fqdn, $crap) = $blob [ inet:fqdn=$fqdn ]'
 
-            nodes = await alist(core.eval(text, opts=opts))
+            nodes = await core.eval(text, opts=opts).list()
             self.len(1, nodes)
             for node in nodes:
-                print(node.ndef)
-                print(node.tags)
                 self.eq(node.ndef, ('inet:fqdn', 'vertex.link'))
+
+    async def test_storm_pivprop(self):
+
+        async with self.getTestCore() as core:
+
+            await core.eval('[ inet:asn=200 :name=visi ]').spin()
+            await core.eval('[ inet:ipv4=1.2.3.4 :asn=200 ]').spin()
+
+            nodes = await core.eval('inet:ipv4 +:asn::name=visi').list()
+            self.len(1, nodes)
+
+    async def test_storm_contbreak(self):
+
+        async with self.getTestCore() as core:
+
+            text = '''
+            for $foo in $foos {
+
+                [ inet:ipv4=1.2.3.4 ]
+
+                switch $foo {
+                    bar: { [ +#ohai ] break }
+                    baz: { [ +#visi ] continue }
+                }
+
+                [ inet:ipv4=5.6.7.8 ]
+                [ +#hehe ]
+            }
+            '''
+            opts = {'vars': {'foos': ['baz', 'baz']}}
+            nodes = await core.eval(text, opts=opts).list()
+            self.len(2, nodes)
+            self.nn(nodes[0].getTag('visi'))
+            self.none(nodes[0].getTag('hehe'))
+
+            opts = {'vars': {'foos': ['bar', 'bar']}}
+            nodes = await core.eval(text, opts=opts).list()
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('ohai'))
+            self.none(nodes[0].getTag('hehe'))
+
+            opts = {'vars': {'foos': ['lols', 'lulz']}}
+            nodes = await core.eval(text, opts=opts).list()
+            self.len(4, nodes)
+            for node in nodes:
+                self.nn(node.getTag('hehe'))
+
+    async def test_storm_varcall(self):
+
+        async with self.getTestCore() as core:
+
+            text = '''
+            for $foo in $foos {
+
+                ($fqdn, $ipv4) = $foo.split("|")
+
+                [ inet:dns:a=($fqdn, $ipv4) ]
+            }
+            '''
+            opts = {'vars': {'foos': ['vertex.link|1.2.3.4']}}
+            nodes = await core.eval(text, opts=opts).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], ('vertex.link', 0x01020304))

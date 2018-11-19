@@ -1043,6 +1043,20 @@ class Parser:
 
         char = self.nextchar()
 
+        # var list assignment
+        # ($foo, $bar) = $baz
+        if char == '(':
+            varl = self.varlist()
+
+            self.ignore(whitespace)
+
+            self.nextmust('=')
+            self.ignore(whitespace)
+
+            valu = self.valu()
+
+            return s_ast.VarListSetOper(kids=(varl, valu))
+
         # $foo = valu var assignment
         if char == '$':
 
@@ -1051,28 +1065,27 @@ class Parser:
             self.ignore(whitespace)
 
             # it's a var list assignment...
-            if self.nextstr(','):
+            #if self.nextstr(','):
 
-                names = [varn]
+                #names = [varn]
 
-                while self.nextstr(','):
+                #while self.nextstr(','):
 
-                    self.offs += 1
-                    self.ignore(whitespace)
+                    #self.offs += 1
+                    #self.ignore(whitespace)
 
-                    if self.nextstr('$'):
-                        names.append(self.varname())
+                    #if self.nextstr('$'):
+                        #names.append(self.varname())
 
-                    self.ignore(whitespace)
+                    #self.ignore(whitespace)
 
-                self.nextmust('=')
-                self.ignore(whitespace)
+                #self.nextmust('=')
+                #self.ignore(whitespace)
 
-                valu = self.valu()
+                #valu = self.valu()
 
-                kids = [valu] + names
-                print('VAR LIST SET KIDS: %r' % (kids,))
-                return s_ast.VarListSetOper(kids=kids)
+                #kids = [valu] + names
+                #return s_ast.VarListSetOper(kids=kids)
 
             # TODO special var assigments for lists?
             self.nextmust('=')
@@ -1113,6 +1126,14 @@ class Parser:
 
         if tokn == 'switch':
             return self.switchcase()
+
+        if tokn == 'break':
+            self.offs += 5
+            return s_ast.BreakOper()
+
+        if tokn == 'continue':
+            self.offs += 8
+            return s_ast.ContinueOper()
 
         name = self.noms(varset)
         if not name:
@@ -1178,6 +1199,23 @@ class Parser:
 
         self._raiseSyntaxError('Switch case syntax only supports const values.')
 
+    def casevalu(self):
+
+        self.ignorespace()
+
+        if self.nextstr('"'):
+            text = self.quoted()
+            self.ignorespace()
+            self.nextmust(':')
+            return s_ast.Const(text)
+
+        text = self.noms(until=':').strip()
+        if not text:
+            self._raiseSyntaxError('empty case statement')
+
+        self.nextmust(':')
+        return s_ast.Const(text)
+
     def switchcase(self):
 
         self.ignore(whitespace)
@@ -1187,8 +1225,6 @@ class Parser:
         varn = self.varvalu()
 
         self.ignore(whitespace)
-
-        # TODO allow casting...
 
         self.nextmust('{')
 
@@ -1202,12 +1238,23 @@ class Parser:
                 self.offs += 1
                 break
 
-            valu = self.valu()
+            if self.nextstr('*'):
 
+                self.offs += 1
+                self.ignore(whitespace)
+                self.nextmust(':')
+
+                subq = self.subquery()
+
+                cent = s_ast.CaseEntry(kids=[subq])
+                kids.append(cent)
+                continue
+
+            valu = self.casevalu()
             if not isinstance(valu, s_ast.Const):
                 self._raiseSyntaxError('Switch case syntax only supports const values.')
 
-            self.ignore(whitespace)
+            self.ignorespace()
 
             subq = self.subquery()
             cent = s_ast.CaseEntry(kids=[valu, subq])
@@ -1236,7 +1283,7 @@ class Parser:
 
             self.nextmust(',')
 
-        return s_ast.VarNames(names)
+        return s_ast.VarList(names)
 
     def forloop(self):
 
@@ -1341,7 +1388,7 @@ class Parser:
 
         if self.nextstr(':'):
 
-            name = self.relprop()
+            prop = self.relpropvalu()
 
             self.ignore(whitespace)
 
@@ -1353,7 +1400,7 @@ class Parser:
             self.ignore(whitespace)
             valu = self.valu()
 
-            return s_ast.RelPropCond(kids=(name, cmpr, valu))
+            return s_ast.RelPropCond(kids=(prop, cmpr, valu))
 
         if self.nextstr('.'):
 
@@ -1513,6 +1560,11 @@ class Parser:
         text = self.noms(cmprset)
         return s_ast.Const(text)
 
+    def relpropvalu(self):
+        self.ignore(whitespace)
+        name = self.relprop()
+        return s_ast.RelPropValue(kids=[name])
+
     def valu(self):
 
         self.ignore(whitespace)
@@ -1529,8 +1581,7 @@ class Parser:
             return s_ast.List(None, kids=kids)
 
         if self.nextstr(':'):
-            prop = self.relprop()
-            return s_ast.RelPropValue(kids=(prop,))
+            return self.relpropvalu()
 
         if self.nextstr('.'):
             prop = self.univprop()
@@ -1554,6 +1605,9 @@ class Parser:
         self.ignore(whitespace)
 
         self.nextmust('$')
+        return self.vartokn()
+
+    def vartokn(self):
 
         self.ignore(whitespace)
 
@@ -1572,18 +1626,46 @@ class Parser:
         args = s_ast.CallArgs(kids=self.valulist())
         return s_ast.FuncCall(kids=[name, args])
 
+    def varderef(self, varv):
+        self.nextmust('.')
+        varn = self.vartokn()
+        return s_ast.VarDeref(kids=[varv, varn])
+
+    def varcall(self, varv):
+        args = s_ast.CallArgs(kids=self.valulist())
+        return s_ast.VarCall(kids=[varv, args])
+
     def varvalu(self):
+        '''
+        $foo
+        $foo.bar
+        $foo.bar()
+        $foo[0]
+        $foo.bar(10)
+        '''
+
         self.ignore(whitespace)
 
-        kids = [self.varname()]
-        self.ignore(whitespace)
+        varn = self.varname()
+        varv = s_ast.VarValue(kids=[varn])
 
-        while self.nextstr('.'):
-            self.offs += 1
-            kids.append(self.funccall())
-            self.ignore(whitespace)
+        # handle derefs and calls...
+        while self.more():
 
-        return s_ast.VarValue(kids=kids)
+            if self.nextstr('.'):
+                varv = self.varderef(varv)
+                continue
+
+            if self.nextstr('('):
+                varv = self.varcall(varv)
+                continue
+
+            #if self.nextstr('['):
+                #varv = self.varslice(varv)
+
+            break
+
+        return varv
 
     def cmdname(self):
 
