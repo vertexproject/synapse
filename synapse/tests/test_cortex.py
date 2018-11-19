@@ -1814,9 +1814,6 @@ class CortexTest(s_t_utils.SynTest):
                 # Note: before latency improvement, delta was > 4 seconds
                 self.lt(delta, 0.5)
 
-            self.len(0, core.eval('pivcomp=(foo,bar) -{ :lulz -> teststr +#baz }'))
-            self.len(1, core.eval('pivcomp=(foo,bar) +{ :lulz -> teststr +#baz } +pivcomp'))
-
     async def test_storm_switchcase(self):
 
         async with self.getTestCore() as core:

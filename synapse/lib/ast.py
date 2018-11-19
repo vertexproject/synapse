@@ -321,9 +321,6 @@ class VarSetOper(Oper):
 
     async def run(self, runt, genr):
 
-        async for item in genr:
-            yield item
-
         name = self.kids[0].value()
         vkid = self.kids[1]
 
@@ -334,9 +331,12 @@ class VarSetOper(Oper):
             async for item in genr:
                 yield item
 
+            return
+
         async for node, path in genr:
             valu = await vkid.compute(runt, node, path)
             path.set(name, valu)
+            runt.vars[name] = valu
             yield node, path
 
 class VarListSetOper(Oper):
@@ -818,6 +818,8 @@ class FormPivot(PivotOper):
                 async for pivo in runt.snap.getNodesBy(f'{prop.name}#{node.ndef[1]}'):
                     yield pivo, path.fork(pivo)
 
+                continue
+
             # if the source node is a graph edge, use n2
             if isinstance(node.form.type, s_types.Edge):
 
@@ -1216,7 +1218,7 @@ class TagVar(RunValue):
             raise s_exc.NoSuchVar(name=self.varn)
         return tag
 
-class RelPropValue(CompValue):
+class PropValue(CompValue):
 
     def prepare(self):
         self.name = self.kids[0].value()
@@ -1256,13 +1258,8 @@ class RelPropValue(CompValue):
         prop, valu = await self.getPropAndValu(runt, node, path)
         return valu
 
-class UnivPropValue(CompValue):
-
-    def prepare(self):
-        self.name = self.kids[0].value()
-
-    async def compute(self, runt, node, path):
-        return node.get(self.name)
+class RelPropValue(PropValue): pass
+class UnivPropValue(PropValue): pass
 
 class TagPropValue(CompValue):
 
@@ -1391,6 +1388,9 @@ class EditNodeAdd(Edit):
 
     async def run(self, runt, genr):
 
+        async for node, path in genr:
+            yield node, path
+
         name = self.kids[0].value()
         runt.allowed('node:add', name)
 
@@ -1398,43 +1398,11 @@ class EditNodeAdd(Edit):
         if form is None:
             raise s_exc.NoSuchForm(name=name)
 
-        async for node, path in genr:
-            yield node, path
-
         valu = self.kids[1].runtval(runt)
 
         for valu in form.type.getTypeVals(valu):
             node = await runt.snap.addNode(name, valu)
             yield node, runt.initPath(node)
-
-        #name = self.kids[0].value()
-        #valu = self.kids[1].runtval(runt)
-
-        #vkid = self.kids[1]
-        #kval = vkid.runtval(runt)
-
-        #if kval is not None:
-
-            #async for item in genr:
-                #yield item
-
-            #for valu in formtype.getTypeVals(kval):
-                #node = await runt.snap.addNode(name, valu)
-                #yield node, runt.initPath(node)
-
-            #return
-
-        #async for node, path in genr:
-
-            #yield node, path
-
-            #kval = await vkid.compute(runt, node, path)
-
-            #if kval is not None:
-
-                #for valu in formtype.getTypeVals(kval):
-                    #newn = await runt.snap.addNode(name, valu)
-                    #yield newn, runt.initPath(newn)
 
 class EditPropSet(Edit):
 

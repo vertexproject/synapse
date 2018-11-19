@@ -1367,12 +1367,14 @@ class Parser:
 
         if self.nextstr(':'):
 
-            prop = self.relpropvalu()
+            name = self.relprop()
 
             self.ignore(whitespace)
 
             if self.nextchar() not in cmprstart:
-                return s_ast.HasRelPropCond(kids=(name,))
+                return s_ast.HasRelPropCond(kids=[name])
+
+            prop = s_ast.RelPropValue(kids=[name])
 
             cmpr = self.cmpr()
 
@@ -1389,12 +1391,13 @@ class Parser:
             if self.nextchar() not in cmprstart:
                 return s_ast.HasRelPropCond(kids=(name,))
 
+            prop = s_ast.RelPropValue(kids=[name])
             cmpr = self.cmpr()
 
             self.ignore(whitespace)
             valu = self.valu()
 
-            return s_ast.RelPropCond(kids=(name, cmpr, valu))
+            return s_ast.RelPropCond(kids=(prop, cmpr, valu))
 
         if self.nextstr('#'):
 
@@ -1544,6 +1547,10 @@ class Parser:
         name = self.relprop()
         return s_ast.RelPropValue(kids=[name])
 
+    def univpropvalu(self):
+        prop = self.univprop()
+        return s_ast.UnivPropValue(kids=(prop,))
+
     def valu(self):
 
         self.ignore(whitespace)
@@ -1563,8 +1570,7 @@ class Parser:
             return self.relpropvalu()
 
         if self.nextstr('.'):
-            prop = self.univprop()
-            return s_ast.UnivPropValue(kids=(prop,))
+            return self.univpropvalu()
 
         if self.nextstr('#'):
             tag = self.tagname()

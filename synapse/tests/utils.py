@@ -1031,7 +1031,6 @@ class SynTest(unittest.TestCase):
         '''
         gtyps = (
                  s_telepath.Genr,
-                 s_coro.GenrHelp,
                  types.GeneratorType,
                  )
 
