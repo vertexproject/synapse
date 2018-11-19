@@ -1579,6 +1579,11 @@ class CortexTest(s_t_utils.SynTest):
                 nstat = await core.stat()
                 self.gt(nstat.get('layer').get('splicelog_indx'), ostat.get('layer').get('splicelog_indx'))
 
+                core_counts = dmon.shared['core'].counts
+                counts = nstat.get('formcounts')
+                self.eq(counts.get('teststr'), 1)
+                self.eq(counts, core_counts)
+
     async def test_offset(self):
         async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
             pconf = {'user': 'root', 'passwd': 'root'}
