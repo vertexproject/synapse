@@ -1285,25 +1285,11 @@ class VarValue(RunValue):
 
         self.name = self.kids[0].value()
 
-        self.meths = []
-        for call in self.kids[1:]:
-            name = call.kids[0].value()
-            args = call.kids[1]
-            self.meths.append((name, args))
-
     def runtval(self, runt):
 
         valu = runt.vars.get(self.name, s_common.novalu)
         if valu is s_common.novalu:
             raise s_exc.NoSuchVar(name=self.name)
-
-        for name, varl in self.meths:
-            args = varl.runtval(runt)
-            meth = runt.varmeths.get(name)
-            if meth is None:
-                raise s_exc.NoSuchName(name=name)
-
-            valu = meth(valu, args)
 
         return valu
 

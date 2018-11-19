@@ -964,6 +964,9 @@ class Parser:
         return s_ast.FormPivot(kids=(prop,), isjoin=True)
 
     def ignorespace(self):
+        '''
+        Ignore whitespace as well as comment syntax // and /* */
+        '''
 
         while True:
 
@@ -1064,30 +1067,6 @@ class Parser:
 
             self.ignore(whitespace)
 
-            # it's a var list assignment...
-            #if self.nextstr(','):
-
-                #names = [varn]
-
-                #while self.nextstr(','):
-
-                    #self.offs += 1
-                    #self.ignore(whitespace)
-
-                    #if self.nextstr('$'):
-                        #names.append(self.varname())
-
-                    #self.ignore(whitespace)
-
-                #self.nextmust('=')
-                #self.ignore(whitespace)
-
-                #valu = self.valu()
-
-                #kids = [valu] + names
-                #return s_ast.VarListSetOper(kids=kids)
-
-            # TODO special var assigments for lists?
             self.nextmust('=')
 
             self.ignore(whitespace)

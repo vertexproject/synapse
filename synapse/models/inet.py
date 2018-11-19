@@ -288,17 +288,17 @@ class IPv4(s_types.Type):
 
     def getTypeVals(self, text):
 
-        #if text.find('/') != -1:
+        if text.find('/') != -1:
 
-            #minv, maxv = self.getCidrRange(text)
-            #if maxv - minv > 65535:
-                #raise
+            minv, maxv = self.getCidrRange(text)
+            if maxv - minv > 65535:
+                raise
 
-            #while minv < maxv:
-                #yield minv
-                #minv += 1
+            while minv < maxv:
+                yield minv
+                minv += 1
 
-            #return
+            return
 
         if text.find('-') != -1:
 

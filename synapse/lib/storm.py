@@ -28,11 +28,6 @@ class Runtime:
         self.snap = snap
         self.user = user
 
-        self.varmeths = {
-            'split': self._varMethSplit,
-            # TODO encode/decode/slice
-        }
-
         self.task = asyncio.current_task()
 
         self.inputs = []    # [synapse.lib.node.Node(), ...]
@@ -48,9 +43,6 @@ class Runtime:
         # used by the digraph projection logic
         self._graph_done = {}
         self._graph_want = collections.deque()
-
-    def _varMethSplit(self, valu, args):
-        return valu.split(*args)
 
     async def printf(self, mesg):
         return await self.snap.printf(mesg)
@@ -134,26 +126,6 @@ class Runtime:
         # (but dont override our own opts)
         for name, valu in query.opts.items():
             self.opts.setdefault(name, valu)
-
-        # rows are mapped into vars and the query is
-        # executed for each row...
-        rows = self.opts.get('rows')
-        if rows is not None:
-
-            for row in rows:
-
-                self.vars.update({str(i): v for (i, v) in enumerate(row)})
-
-                try:
-
-                    async for node, path in query.iterNodePaths(self):
-                        self.tick()
-                        yield node, path
-
-                except Exception as e:
-                    self.warn('ERROR ON ROW %r: %r' % (row, e))
-
-            return
 
         async for node, path in query.iterNodePaths(self):
             self.tick()
