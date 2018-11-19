@@ -1044,7 +1044,7 @@ class Cortex(s_cell.Cell):
         Parse storm query text and return a Query object.
         '''
         parseinfo = {
-            'stormcmds': list(self.stormcmds.keys()),
+            'stormcmds': {cmd: {} for cmd in self.stormcmds.keys()},
             'modelinfo': self.model.getModelInfo(),
         }
         query = s_syntax.Parser(parseinfo, text).query()
@@ -1103,7 +1103,7 @@ class Cortex(s_cell.Cell):
         return {
             'version': synapse.version,
             'modeldef': self.model.getModelDef(),
-            'stormcmds': list(self.stormcmds.keys()),
+            'stormcmds': {cmd: {} for cmd in self.stormcmds.keys()},
         }
 
     async def addNodes(self, nodedefs):
