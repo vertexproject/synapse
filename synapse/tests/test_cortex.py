@@ -1011,6 +1011,19 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][0], ('pivtarg', 'foo'))
 
+            # Regression test:  bug in implicit form pivot where absence of foreign key in source node was treated like
+            # a match-any
+            await alist(core.eval('[ testint=42 ]'))
+            q = 'pivcomp -> testint'
+            nodes = await getPackNodes(core, q)
+            self.len(0, nodes)
+
+            # Multiple props of source form have type of destination form:  pivot through all the matching props.
+            await alist(core.eval('[ pivcomp=(xxx,yyy) :width=42 ]'))
+            q = 'pivcomp -> testint'
+            nodes = await getPackNodes(core, q)
+            self.len(1, nodes)
+
             q = 'pivcomp=(foo,bar) :targ -> pivtarg'
             nodes = await getPackNodes(core, q)
             self.len(1, nodes)
@@ -1565,6 +1578,11 @@ class CortexTest(s_t_utils.SynTest):
                 await self.agenlen(1, (await core.eval('sudo | [teststr=123 :tick=2018]')))
                 nstat = await core.stat()
                 self.gt(nstat.get('layer').get('splicelog_indx'), ostat.get('layer').get('splicelog_indx'))
+
+                core_counts = dmon.shared['core'].counts
+                counts = nstat.get('formcounts')
+                self.eq(counts.get('teststr'), 1)
+                self.eq(counts, core_counts)
 
     async def test_offset(self):
         async with self.getTestDmon(mirror='dmoncoreauth') as dmon:

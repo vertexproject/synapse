@@ -129,6 +129,16 @@ class BaseTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, (n1def, ('testint', 1)))
             self.raises(s_exc.BadTypeValu, t.norm, (('testint', 1), n2def))
 
+            # Make sure we don't return None nodes if one node of an edge is deleted
+            node = await core.getNodeByNdef(n2def)
+            await node.delete()
+            opts = {'vars': {'pers': pers}}
+            await self.agenlen(0, core.eval('ps:person=$pers -> wentto -> *', opts=opts))
+
+            # Make sure we don't return None nodes on a PropPivotOut
+            opts = {'vars': {'pers': pers}}
+            await self.agenlen(0, core.eval('ps:person=$pers -> wentto :n2 -> *', opts=opts))
+
     async def test_model_base_source(self):
 
         async with self.getTestCore() as core:
@@ -151,3 +161,22 @@ class BaseTest(s_t_utils.SynTest):
 
                 self.eq(seen.get('source'), sorc.ndef[1])
                 self.eq(seen.get('node'), ('inet:fqdn', 'woot.com'))
+
+    async def test_model_base_cluster(self):
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                guid = s_common.guid()
+                props = {'name': 'Test Cluster', 'desc': 'A cluster for testing', 'type': 'similarity'}
+                cnode = await snap.addNode('cluster', guid, props)
+                self.eq(cnode.get('type'), 'similarity')
+                self.eq(cnode.get('name'), 'test cluster')
+                self.eq(cnode.get('desc'), 'a cluster for testing')
+
+                # Example reference nodes
+                r1 = await snap.addNode('refs', (cnode.ndef, ('teststr', '1234')))
+                r2 = await snap.addNode('refs', (cnode.ndef, ('testint', 1234)))
+
+                # Gather up all the nodes in the cluster
+                nodes = await snap.eval(f'cluster={guid} | noderefs -d 2 --join').list()
+                self.len(5, nodes)

@@ -630,11 +630,17 @@ class SpinCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        if False:
+        if False:  # make this method an async generator function
             yield None
 
+        i = 0
+
         async for node, path in genr:
-            pass
+            i += 1
+
+            # Yield to other tasks occasionally
+            if not i % 1000:
+                await asyncio.sleep(0)
 
 class CountCmd(Cmd):
     '''
@@ -654,6 +660,10 @@ class CountCmd(Cmd):
         async for item in genr:
             yield item
             i += 1
+
+            # Yield to other tasks occasionally
+            if not i % 1000:
+                await asyncio.sleep(0)
 
         await runt.printf(f'Counted {i} nodes.')
 
@@ -784,11 +794,8 @@ class NoderefsCmd(Cmd):
             # Don't revisit the inbound node from genr
             visited.add(node.buid)
 
-            async for item in self.doRefs(node, path, visited):
-                yield item
-
-            async for x in self.doRefs(node, path, visited):
-                yield x
+            async for nnode, npath in self.doRefs(node, path, visited):
+                yield nnode, npath
 
     async def doRefs(self, srcnode, srcpath, visited):
 
@@ -810,6 +817,7 @@ class NoderefsCmd(Cmd):
                     break
 
                 async for pnode, ppath in self.getRefs(snode, spath):
+                    await asyncio.sleep(0)
 
                     if pnode.buid in visited:
                         continue
@@ -871,6 +879,9 @@ class NoderefsCmd(Cmd):
         # type as me!
         name, valu = srcnode.ndef
         for prop in self.snap.model.propsbytype.get(name, ()):
+            # Do not do pivot-in when we know we don't want the form of the resulting node.
+            if prop.form.full in self.omit_forms:
+                continue
             async for pivo in self.snap.getNodesBy(prop.full, valu):
                 yield pivo, srcpath.fork(pivo)
 
@@ -887,16 +898,19 @@ class NoderefsCmd(Cmd):
                         if npivo is None:  # pragma: no cover
                             logger.warning('n2 does not exist for edge? [%s]', pivo.ndef)
                             continue
-                        yield npivo, srcpath.fork(npivo)
+                        # Ensure that the path includes the edge node we are traversing across.
+                        _path = srcpath.fork(pivo)
+                        yield npivo, _path.fork(npivo)
                         continue
 
                     if srcnode.ndef == pivo.get('n2'):
-
                         npivo = await self.snap.getNodeByNdef(pivo.get('n1'))
                         if npivo is None:  # pragma: no cover
                             logger.warning('n1 does not exist for edge? [%s]', pivo.ndef)
                             continue
-                        yield npivo, srcpath.fork(npivo)
+                        # Ensure that the path includes the edge node we are traversing across.
+                        _path = srcpath.fork(pivo)
+                        yield npivo, _path.fork(npivo)
                         continue
 
                     logger.warning('edge type has no n1/n2 property. [%s]', pivo.ndef)  # pragma: no cover

@@ -574,6 +574,9 @@ class PivotOut(PivotOper):
             if isinstance(node.form.type, s_types.Edge):
                 n2def = node.get('n2')
                 pivo = await runt.snap.getNodeByNdef(n2def)
+                if pivo is None:
+                    logger.warning(f'Missing node corresponding to ndef {n2def} on edge')
+                    continue
                 yield pivo, path.fork(pivo)
                 continue
 
@@ -790,16 +793,20 @@ class FormPivot(PivotOper):
 
         @s_cache.memoize()
         def getsrc(form):
+            names = []
             for name, prop in form.props.items():
                 if prop.type.name == destform:
-                    return name
+                    names.append(name)
+            return names
 
         @s_cache.memoize()
         def getdst(form):
             # formprop is really a form here...
+            names = []
             for name, prop in formprop.props.items():
                 if prop.type.name == form.type.name:
-                    return prop.full
+                    names.append(prop.full)
+            return names
 
         async for node, path in genr:
 
@@ -823,19 +830,27 @@ class FormPivot(PivotOper):
 
                 continue
 
-            name = getsrc(node.form)
-            if name is not None:
-                valu = node.get(name)
-                async for pivo in runt.snap.getNodesBy(prop.name, valu):
-                    yield pivo, path.fork(pivo)
+            names = getsrc(node.form)
+            if names:
+                for name in names:
+
+                    valu = node.get(name)
+                    if valu is None:
+                        continue
+
+                    async for pivo in runt.snap.getNodesBy(prop.name, valu):
+                        yield pivo, path.fork(pivo)
 
                 continue
 
-            name = getdst(node.form)
-            if name is not None:
-                valu = node.ndef[1]
-                async for pivo in runt.snap.getNodesBy(name, valu):
-                    yield pivo, path.fork(pivo)
+            names = getdst(node.form)
+            if names:
+                for name in names:
+                    found = True
+
+                    valu = node.ndef[1]
+                    async for pivo in runt.snap.getNodesBy(name, valu):
+                        yield pivo, path.fork(pivo)
 
                 continue
 
@@ -861,6 +876,9 @@ class PropPivotOut(PivotOper):
             # :ndef -> *
             if isinstance(prop.type, s_types.Ndef):
                 pivo = await runt.snap.getNodeByNdef(valu)
+                if pivo is None:
+                    logger.warning(f'Missing node corresponding to ndef {valu}')
+                    continue
                 yield pivo, path.fork(pivo)
                 continue
 

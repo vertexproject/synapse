@@ -15,6 +15,10 @@ class BaseModule(s_module.CoreModule):
                 ('source', ('guid', {}), {
                     'doc': 'A data source unique identifier.'}),
 
+                ('cluster', ('guid', {}), {
+                    'doc': 'A generic node, used in conjunction with Edge types, to cluster arbitrary nodes to a '
+                           'single node in the model.'}),
+
                 ('seen', ('comp', {'fields': (('source', 'source'), ('node', 'ndef'))}), {
                     'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
 
@@ -48,6 +52,16 @@ class BaseModule(s_module.CoreModule):
                     ('type', ('str', {'lower': True}), {
                         'doc': 'An optional type field used to group sources.'}),
                 )),
+
+                ('cluster', {}, (
+                    ('name', ('str', {'lower': True}), {
+                        'doc': 'A human friendly name for the cluster.'}),
+                    ('desc', ('str', {'lower': True}), {
+                        'doc': 'A human friendly long form description for the cluster.'}),
+                    ('type', ('str', {'lower': True}), {
+                        'doc': 'An optional type field used to group clusters.'}),
+                )),
+
 
                 ('seen', {}, (
 

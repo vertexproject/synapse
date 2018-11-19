@@ -405,10 +405,13 @@ class Cortex(s_cell.Cell):
         '''
         Recalculate form counts from scratch.
         '''
+        logger.info('Calculating form counts from scratch.')
         self.counts.clear()
 
-        for name, form in self.model.forms.items():
-
+        nameforms = list(self.model.forms.items())
+        for i, (name, form) in enumerate(nameforms, 1):
+            logger.info('Calculating form counts for [%s] [%s/%s]',
+                        name, i, len(nameforms))
             count = 0
 
             async for buid, valu in self.layer.iterFormRows(name):
@@ -423,6 +426,7 @@ class Cortex(s_cell.Cell):
         for name, valu in self.counts.items():
             byts = s_common.int64en(valu)
             self.slab.put(name.encode('utf8'), byts)
+        logger.info('Done calculating form counts.')
 
     def onTagAdd(self, name, func):
         '''
@@ -525,7 +529,7 @@ class Cortex(s_cell.Cell):
         logger.info('sync loop init: %s', url)
 
         while not self.isfini:
-
+            timeout = 1
             try:
 
                 url = self.conf.get('splice:sync')
@@ -556,8 +560,11 @@ class Cortex(s_cell.Cell):
                 break
 
             except Exception as e:  # pragma: no cover
+                if isinstance(e, OSError):
+                    timeout = 60
+
                 logger.exception('sync error')
-                await self.waitfini(timeout=1)
+                await self.waitfini(timeout)
 
     def _initCryoLoop(self):
 
@@ -595,7 +602,7 @@ class Cortex(s_cell.Cell):
         logger.info('feed loop init: %s @ %s', typename, url)
 
         while not self.isfini:
-
+            timeout = 1
             try:
 
                 url = feed.get('cryotank')
@@ -624,8 +631,10 @@ class Cortex(s_cell.Cell):
                 break
 
             except Exception as e:  # pragma: no cover
+                if isinstance(e, OSError):
+                    timeout = 60
                 logger.exception('feed error')
-                await self.waitfini(timeout=1)
+                await self.waitfini(timeout)
 
     async def _runCryoLoop(self):
 
@@ -635,7 +644,7 @@ class Cortex(s_cell.Cell):
         layr = self.layers[-1]
 
         while not self.isfini:
-
+            timeout = 2
             try:
 
                 async with await s_telepath.openurl(tankurl) as tank:
@@ -660,12 +669,16 @@ class Cortex(s_cell.Cell):
                         offs = await tank.puts(items, seqn=(self.iden, offs))
                         await self.fire('core:splice:cryotank:sent')
 
-            except Exception as e:  # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover
+                break
 
+            except Exception as e:  # pragma: no cover
+                if isinstance(e, OSError):
+                    timeout = 60
                 online = False
                 logger.exception('splice cryotank offline')
 
-                await self.waitfini(timeout=2)
+                await self.waitfini(timeout)
 
     def setFeedFunc(self, name, func):
         '''
@@ -942,7 +955,7 @@ class Cortex(s_cell.Cell):
                         count += 1
 
             except asyncio.CancelledError:
-                logger.exception('Storm runtime cancelled.')
+                logger.warning('Storm runtime cancelled.')
                 cancelled = True
                 raise
 
@@ -1162,6 +1175,7 @@ class Cortex(s_cell.Cell):
     async def stat(self):
         stats = {
             'iden': self.iden,
-            'layer': await self.layer.stat()
+            'layer': await self.layer.stat(),
+            'formcounts': self.counts,
         }
         return stats
