@@ -580,13 +580,10 @@ class PivotOut(PivotOper):
                 yield pivo, path.fork(pivo)
                 continue
 
-            for name, valu in node.props.items():
+            for name, prop in node.form.props.items():
 
-                prop = node.form.props.get(name)
-
-                if prop is None:
-                    # this should be impossible
-                    logger.warning(f'node prop is not form prop: {node.form.name} {name}')
+                valu = node.get(name)
+                if valu is None:
                     continue
 
                 # if the outbound prop is an ndef...

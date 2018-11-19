@@ -729,7 +729,7 @@ class Parser:
             oper = self.oper()
             query.addKid(oper)
 
-            self.ignore(whitespace)
+            self.ignorespace()
 
         query.init(self.core)
         return query
@@ -1114,6 +1114,8 @@ class Parser:
             self.offs += 8
             return s_ast.ContinueOper()
 
+        noff = self.offs
+
         name = self.noms(varset)
         if not name:
             self._raiseSyntaxError('unknown query syntax')
@@ -1168,7 +1170,8 @@ class Parser:
         # TODO maybe this should be a cortex/runtime thing...
 
         # rewind and noms until whitespace
-        self.offs -= len(name)
+        self.offs = noff
+
         tokn = self.noms(until=whitespace)
 
         ndefs = list(s_scrape.scrape(tokn))
@@ -1176,7 +1179,8 @@ class Parser:
             # TODO: what about more than one?
             return s_ast.LiftByScrape(ndefs)
 
-        self._raiseSyntaxError('Switch case syntax only supports const values.')
+        self.offs = noff
+        self._raiseSyntaxError('failed to parse')
 
     def casevalu(self):
 

@@ -21,8 +21,7 @@ class Parser(argparse.ArgumentParser):
         As such, this function must raise an exception instead.
         '''
         self.exited = True
+        self.status = status
 
         if message is not None:
             self.outp.printf(message)
-
-        raise s_exc.BadSyntaxError(mesg=message, prog=self.prog, status=status)
