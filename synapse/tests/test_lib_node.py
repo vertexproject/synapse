@@ -91,7 +91,8 @@ class NodeTest(s_t_utils.SynTest):
                 self.eq(node.get('tick'), 12345)
                 self.none(node.get('nope'))
 
-                self.none(node.get('#cool'))
+                self.eq(node.get('#cool'), (1, 2))
+                self.none(node.get('#newp'))
 
                 # FIXME:  disabled implicit pivot temporarily
                 # self.raises(s_exc.NoSuchProp, node.get, 'neat::tick')  # implicit pivot from neat (not a prop) to tick

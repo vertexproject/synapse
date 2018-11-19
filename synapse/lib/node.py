@@ -242,7 +242,7 @@ class Node:
         if len(parts) is 1:
             name = parts[0]
             if name.startswith('#'):
-                return self.tags.get(name)
+                return self.tags.get(name[1:])
             return self.props.get(name)
 
         # FIXME

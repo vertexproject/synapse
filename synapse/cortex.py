@@ -452,10 +452,13 @@ class Cortex(s_cell.Cell):
         '''
         Recalculate form counts from scratch.
         '''
+        logger.info('Calculating form counts from scratch.')
         self.counts.clear()
 
-        for name, form in self.model.forms.items():
-
+        nameforms = list(self.model.forms.items())
+        for i, (name, form) in enumerate(nameforms, 1):
+            logger.info('Calculating form counts for [%s] [%s/%s]',
+                        name, i, len(nameforms))
             count = 0
 
             async for buid, valu in self.layer.iterFormRows(name):
@@ -470,6 +473,7 @@ class Cortex(s_cell.Cell):
         for name, valu in self.counts.items():
             byts = s_common.int64en(valu)
             self.slab.put(name.encode('utf8'), byts)
+        logger.info('Done calculating form counts.')
 
     def onTagAdd(self, name, func):
         '''
@@ -998,7 +1002,7 @@ class Cortex(s_cell.Cell):
                         count += 1
 
             except asyncio.CancelledError:
-                logger.exception('Storm runtime cancelled.')
+                logger.warning('Storm runtime cancelled.')
                 cancelled = True
                 raise
 
@@ -1231,6 +1235,7 @@ class Cortex(s_cell.Cell):
     async def stat(self):
         stats = {
             'iden': self.iden,
-            'layer': await self.layer.stat()
+            'layer': await self.layer.stat(),
+            'formcounts': self.counts,
         }
         return stats
