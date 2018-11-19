@@ -1145,8 +1145,6 @@ class Parser:
             # we have a prop <cmpr> <valu>!
             if self.nextchar() in cmprstart:
 
-                # TODO: check for :: pivot syntax and raise
-
                 cmpr = self.cmpr()
                 valu = self.valu()
 
@@ -1167,8 +1165,6 @@ class Parser:
 
             return s_ast.CmdOper(kids=(s_ast.Const(name), text))
 
-        # TODO maybe this should be a cortex/runtime thing...
-
         # rewind and noms until whitespace
         self.offs = noff
 
@@ -1176,11 +1172,10 @@ class Parser:
 
         ndefs = list(s_scrape.scrape(tokn))
         if ndefs:
-            # TODO: what about more than one?
             return s_ast.LiftByScrape(ndefs)
 
         self.offs = noff
-        self._raiseSyntaxError('failed to parse')
+        raise s_exc.NoSuchProp(name=tokn)
 
     def casevalu(self):
 
