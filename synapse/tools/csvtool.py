@@ -9,54 +9,7 @@ import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 
 def main(argv, outp=s_output.stdout):
-
-    desc = '''
-    Command line tool for ingesting csv files into a cortex
-
-    The storm file is run with the CSV rows specified in the variable "rows" so most
-    storm files will use a variable based for loop to create edit nodes.  For example:
-
-    for ($fqdn, $ipv4, $tag) in $rows {
-
-        [ inet:dns:a=($fqdn, $ipv4) +#$tag ]
-
-    }
-
-    More advanced uses may include switch cases to provide different logic based on
-    a column value.
-
-    for ($type, $valu, $info) in $rows {
-
-        switch $type {
-
-            fqdn: {
-                [ inet:fqdn=$valu ]
-            }
-
-            "person name": {
-                [ ps:name=$valu ]
-            }
-
-            *: {
-                // default case...
-            }
-
-        }
-
-        switch $info {
-            "known malware": { [+#cno.mal] }
-        }
-
-    }
-    '''
-    pars = s_cmd.Parser('synapse.tools.csvtool', description=desc)
-    pars.add_argument('--logfile', help='Set a log file to get JSON lines from the server events.')
-    pars.add_argument('--csv-header', default=False, action='store_true', help='Skip the first line from each CSV file.')
-    pars.add_argument('--debug', default=False, action='store_true', help='Enable verbose debug output.')
-    pars.add_argument('cortex', help='The telepath URL for the cortex ( or alias from ~/.syn/aliases ).')
-    pars.add_argument('stormfile', help='A STORM script describing how to create nodes from rows.')
-    pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
-
+    pars = makeargparser()
     opts = pars.parse_args(argv)
 
     def iterrows():
@@ -115,6 +68,55 @@ def main(argv, outp=s_output.stdout):
         logfd.close()
 
     outp.printf('%d nodes (%d created).' % (nodecount, newcount,))
+
+def makeargparser():
+    desc = '''
+    Command line tool for ingesting csv files into a cortex
+
+    The storm file is run with the CSV rows specified in the variable "rows" so most
+    storm files will use a variable based for loop to create edit nodes.  For example:
+
+    for ($fqdn, $ipv4, $tag) in $rows {
+
+        [ inet:dns:a=($fqdn, $ipv4) +#$tag ]
+
+    }
+
+    More advanced uses may include switch cases to provide different logic based on
+    a column value.
+
+    for ($type, $valu, $info) in $rows {
+
+        switch $type {
+
+            fqdn: {
+                [ inet:fqdn=$valu ]
+            }
+
+            "person name": {
+                [ ps:name=$valu ]
+            }
+
+            *: {
+                // default case...
+            }
+
+        }
+
+        switch $info {
+            "known malware": { [+#cno.mal] }
+        }
+
+    }
+    '''
+    pars = s_cmd.Parser('synapse.tools.csvtool', description=desc)
+    pars.add_argument('--logfile', help='Set a log file to get JSON lines from the server events.')
+    pars.add_argument('--csv-header', default=False, action='store_true', help='Skip the first line from each CSV file.')
+    pars.add_argument('--debug', default=False, action='store_true', help='Enable verbose debug output.')
+    pars.add_argument('cortex', help='The telepath URL for the cortex ( or alias from ~/.syn/aliases ).')
+    pars.add_argument('stormfile', help='A STORM script describing how to create nodes from rows.')
+    pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
+    return pars
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(main(sys.argv[1:]))
