@@ -25,6 +25,35 @@ def iterrows(csv_header=None, *paths):
             for rows in s_common.chunks(genr(), 1000):
                 yield rows
 
+def addCsvData(core, outp, text, logfd, rowgenr, debug=False):
+    newcount = 0
+    nodecount = 0
+    for rows in rowgenr:
+
+        stormopts = {
+            'vars': {'rows': rows},
+        }
+
+        for mesg in core.storm(text, opts=stormopts):
+
+            if mesg[0] == 'node:add':
+                newcount += 1
+
+            elif mesg[0] == 'node':
+                nodecount += 1
+
+            elif mesg[0] == 'err' and not debug:
+                outp.printf(repr(mesg))
+
+            if debug:
+                outp.printf(repr(mesg))
+
+            if logfd is not None:
+                byts = json.dumps(mesg).encode('utf8')
+                logfd.write(byts + b'\n')
+
+    return newcount, nodecount
+
 def main(argv, outp=s_output.stdout):
     pars = makeargparser()
     try:
@@ -35,37 +64,15 @@ def main(argv, outp=s_output.stdout):
     with open(opts.stormfile, 'r', encoding='utf8') as fd:
         text = fd.read()
 
+    rowgenr = iterrows(opts.csv_header, *opts.csvfiles)
+
     logfd = None
     if opts.logfile is not None:
         logfd = s_common.genfile(opts.logfile)
 
-    newcount = 0
-    nodecount = 0
     with s_telepath.openurl(opts.cortex) as core:
-
-        for rows in iterrows(opts.csv_header, *opts.csvfiles):
-
-            stormopts = {
-                'vars': {'rows': rows},
-            }
-
-            for mesg in core.storm(text, opts=stormopts):
-
-                if mesg[0] == 'node:add':
-                    newcount += 1
-
-                elif mesg[0] == 'node':
-                    nodecount += 1
-
-                elif mesg[0] == 'err' and not opts.debug:
-                    outp.printf(repr(mesg))
-
-                if opts.debug:
-                    outp.printf(repr(mesg))
-
-                if logfd is not None:
-                    byts = json.dumps(mesg).encode('utf8')
-                    logfd.write(byts + b'\n')
+        newcount, nodecount = addCsvData(core, outp, text, logfd, rowgenr,
+                                         debug=opts.debug)
 
     if logfd is not None:
         logfd.close()
