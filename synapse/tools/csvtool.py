@@ -2,6 +2,7 @@ import csv
 import sys
 import json
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -26,7 +27,10 @@ def iterrows(csv_header=None, *paths):
 
 def main(argv, outp=s_output.stdout):
     pars = makeargparser()
-    opts = pars.parse_args(argv)
+    try:
+        opts = pars.parse_args(argv)
+    except s_exc.ParserExit as e:
+        return e.get('status')
 
     with open(opts.stormfile, 'r', encoding='utf8') as fd:
         text = fd.read()
