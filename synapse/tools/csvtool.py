@@ -29,7 +29,7 @@ def iterrows(csv_header=None, *paths):
             for rows in s_common.chunks(genr(), 1000):
                 yield rows
 
-def addCsvData(core, outp, text, logfd, rowgenr, debug=False, cmdr=False):
+def addCsvData(core, outp, text, logfd, rowgenr, debug=False, cli=False):
     newcount = 0
     nodecount = 0
     for rows in rowgenr:
@@ -56,7 +56,7 @@ def addCsvData(core, outp, text, logfd, rowgenr, debug=False, cmdr=False):
                 byts = json.dumps(mesg).encode('utf8')
                 logfd.write(byts + b'\n')
 
-    if cmdr:
+    if cli:
         s_cmdr.runItemCmdr(core, outp)
 
     return newcount, nodecount
@@ -82,12 +82,12 @@ def main(argv, outp=s_output.stdout):
             with s_coro.AsyncToSyncCMgr(s_glob.sync, s_cortex.Cortex.anit(dirn)) as core:
                 with s_coro.AsyncToSyncCMgr(core.getLocalProxy) as prox:
                     newcount, nodecount = addCsvData(prox, outp, text, logfd, rowgenr,
-                                                     debug=opts.debug, cmdr=opts.cmdr)
+                                                     debug=opts.debug, cli=opts.cli)
 
     else:
         with s_telepath.openurl(opts.cortex) as core:
             newcount, nodecount = addCsvData(core, outp, text, logfd, rowgenr,
-                                             debug=opts.debug, cmdr=opts.cmdr)
+                                             debug=opts.debug, cli=opts.cli)
 
     if logfd is not None:
         logfd.close()
@@ -137,8 +137,8 @@ def makeargparser():
     pars = s_cmd.Parser('synapse.tools.csvtool', description=desc)
     pars.add_argument('--logfile', help='Set a log file to get JSON lines from the server events.')
     pars.add_argument('--csv-header', default=False, action='store_true', help='Skip the first line from each CSV file.')
-    pars.add_argument('--cmdr', default=False, action='store_true',
-                      help='Drop into a cmdr session after loading data.')
+    pars.add_argument('--cli', default=False, action='store_true',
+                      help='Drop into a cli session after loading data.')
     pars.add_argument('--debug', default=False, action='store_true', help='Enable verbose debug output.')
     muxp = pars.add_mutually_exclusive_group(required=True)
     muxp.add_argument('--cortex', '-c', type=str,
