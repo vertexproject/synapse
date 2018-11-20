@@ -14,6 +14,8 @@ import synapse.lib.cell as s_cell
 
 logger = logging.getLogger(__name__)
 
+FAIR_ITERS = 5000  # every this many rows, yield CPU to other tasks
+
 class Encoder(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8') + b'\x00'
@@ -82,7 +84,13 @@ class Layer(s_cell.Cell):
 
         regx = regex.compile(query)
 
+        count = 0
+
         async for buid, valu in self.iterFormRows(form):
+
+            count += 1
+            if not count % FAIR_ITERS:
+                await asyncio.sleep(0)  # give other tasks a chance
 
             # for now... but maybe repr eventually?
             if not isinstance(valu, str):
@@ -99,7 +107,13 @@ class Layer(s_cell.Cell):
 
         regx = regex.compile(query)
 
+        count = 0
+
         async for buid, valu in self.iterUnivRows(prop):
+
+            count += 1
+            if not count % FAIR_ITERS:
+                await asyncio.sleep(0)  # give other tasks a chance
 
             # for now... but maybe repr eventually?
             if not isinstance(valu, str):
@@ -116,8 +130,14 @@ class Layer(s_cell.Cell):
 
         regx = regex.compile(query)
 
+        count = 0
+
         # full table scan...
         async for buid, valu in self.iterPropRows(form, prop):
+
+            count += 1
+            if not count % FAIR_ITERS:
+                await asyncio.sleep(0)  # give other tasks a chance
 
             # for now... but maybe repr eventually?
             if not isinstance(valu, str):
