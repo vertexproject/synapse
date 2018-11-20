@@ -3,10 +3,14 @@ import sys
 import json
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
+import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
+import synapse.lib.cmdr as s_cmdr
+import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
 
 def iterrows(csv_header=None, *paths):
@@ -25,7 +29,7 @@ def iterrows(csv_header=None, *paths):
             for rows in s_common.chunks(genr(), 1000):
                 yield rows
 
-def addCsvData(core, outp, text, logfd, rowgenr, debug=False):
+def addCsvData(core, outp, text, logfd, rowgenr, debug=False, cmdr=False):
     newcount = 0
     nodecount = 0
     for rows in rowgenr:
@@ -52,6 +56,9 @@ def addCsvData(core, outp, text, logfd, rowgenr, debug=False):
                 byts = json.dumps(mesg).encode('utf8')
                 logfd.write(byts + b'\n')
 
+    if cmdr:
+        s_cmdr.runItemCmdr(core, outp)
+
     return newcount, nodecount
 
 def main(argv, outp=s_output.stdout):
@@ -70,9 +77,17 @@ def main(argv, outp=s_output.stdout):
     if opts.logfile is not None:
         logfd = s_common.genfile(opts.logfile)
 
-    with s_telepath.openurl(opts.cortex) as core:
-        newcount, nodecount = addCsvData(core, outp, text, logfd, rowgenr,
-                                         debug=opts.debug)
+    if opts.test:
+        with s_common.getTempDir() as dirn:
+            with s_coro.AsyncToSyncCMgr(s_glob.sync, s_cortex.Cortex.anit(dirn)) as core:
+                with s_coro.AsyncToSyncCMgr(core.getLocalProxy) as prox:
+                    newcount, nodecount = addCsvData(prox, outp, text, logfd, rowgenr,
+                                                     debug=opts.debug, cmdr=opts.cmdr)
+
+    else:
+        with s_telepath.openurl(opts.cortex) as core:
+            newcount, nodecount = addCsvData(core, outp, text, logfd, rowgenr,
+                                             debug=opts.debug, cmdr=opts.cmdr)
 
     if logfd is not None:
         logfd.close()
@@ -122,8 +137,14 @@ def makeargparser():
     pars = s_cmd.Parser('synapse.tools.csvtool', description=desc)
     pars.add_argument('--logfile', help='Set a log file to get JSON lines from the server events.')
     pars.add_argument('--csv-header', default=False, action='store_true', help='Skip the first line from each CSV file.')
+    pars.add_argument('--cmdr', default=False, action='store_true',
+                      help='Drop into a cmdr session after loading data.')
     pars.add_argument('--debug', default=False, action='store_true', help='Enable verbose debug output.')
-    pars.add_argument('cortex', help='The telepath URL for the cortex ( or alias from ~/.syn/aliases ).')
+    muxp = pars.add_mutually_exclusive_group(required=True)
+    muxp.add_argument('--cortex', '-c', type=str,
+                      help='The telepath URL for the cortex ( or alias from ~/.syn/aliases ).')
+    muxp.add_argument('--test', '-t', default=False, action='store_true',
+                      help='Perform a local CSV ingest against a temporary cortex.')
     pars.add_argument('stormfile', help='A STORM script describing how to create nodes from rows.')
     pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
     return pars
