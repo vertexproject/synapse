@@ -44,8 +44,12 @@ async def genr2agenr(func, *args, qsize=100, **kwargs):
 
         await task
 
-def executor(coro):
-    return asyncio.get_running_loop().run_in_executor(None, coro)
+def executor(func, *args, **kwargs):
+
+    def real():
+        return func(*args, **kwargs)
+
+    return asyncio.get_running_loop().run_in_executor(None, real)
 
 async def event_wait(event: asyncio.Event, timeout=None):
     '''

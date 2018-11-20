@@ -517,7 +517,16 @@ class Path:
         self.metadata = {}
 
     def get(self, name, defv=s_common.novalu):
-        return self.vars.get(name, defv)
+
+        valu = self.vars.get(name, s_common.novalu)
+
+        if valu is s_common.novalu:
+            valu = self.runt.vars.get(name, s_common.novalu)
+
+        if valu is s_common.novalu:
+            valu = defv
+
+        return valu
 
     def set(self, name, valu):
         self.vars[name] = valu

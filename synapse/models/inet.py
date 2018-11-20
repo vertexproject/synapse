@@ -194,6 +194,9 @@ class Fqdn(s_types.Type):
         valu = valu.replace('[.]', '.')
         valu = valu.replace('(.)', '.')
 
+        # strip leading/trailing .
+        valu = valu.strip().strip('.')
+
         if not fqdnre.match(valu):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg=f'FQDN failed to match fqdnre [{fqdnre.pattern}]')
@@ -212,7 +215,7 @@ class Fqdn(s_types.Type):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Failed to encode/decode the value with idna/utf8.')
 
-        parts = valu.strip('.').split('.', 1)
+        parts = valu.split('.', 1)
         subs = {'host': parts[0]}
 
         if len(parts) == 2:
@@ -288,7 +291,6 @@ class IPv4(s_types.Type):
         if text.find('/') != -1:
 
             minv, maxv = self.getCidrRange(text)
-
             while minv < maxv:
                 yield minv
                 minv += 1

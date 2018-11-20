@@ -6,12 +6,14 @@ import time
 import fcntl
 import types
 import base64
+import shutil
 import struct
 import fnmatch
 import hashlib
 import logging
 import binascii
 import builtins
+import tempfile
 import functools
 import itertools
 import threading
@@ -251,6 +253,16 @@ def genfile(*paths):
     if not os.path.isfile(path):
         return io.open(path, 'w+b')
     return io.open(path, 'r+b')
+
+@contextlib.contextmanager
+def getTempDir():
+    tempdir = tempfile.mkdtemp()
+
+    try:
+        yield tempdir
+
+    finally:
+        shutil.rmtree(tempdir, ignore_errors=True)
 
 @contextlib.contextmanager
 def lockfile(path):

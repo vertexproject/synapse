@@ -83,6 +83,9 @@ class BadConfValu(SynErr):
     '''
     pass
 
+class StormRuntimeError(SynErr): pass
+class StormVarListError(StormRuntimeError): pass
+
 class CantDelNode(SynErr): pass
 class CantDelProp(SynErr): pass
 
@@ -92,8 +95,6 @@ class DupFileName(SynErr): pass
 class DupIndx (SynErr): pass
 class DupUserName(SynErr): pass
 class DupRoleName(SynErr): pass
-
-class HitStormLimit(SynErr): pass
 
 class IsRuntProp(SynErr): pass
 
@@ -131,6 +132,7 @@ class NoSuchRole(SynErr): pass
 class NoSuchIndx(SynErr): pass
 
 class NoCurrTask(SynErr): pass
+class NoSuchPivot(SynErr): pass
 
 class ReadOnlyProp(SynErr): pass
 class ReqConfOpt(SynErr): pass
@@ -199,3 +201,8 @@ class DbOutOfSpace(SynErr): pass
 
 class IsReadOnly(SynErr): pass
 class RecursionLimitHit(SynErr): pass
+class ParserExit(SynErr):
+    '''
+    Raised by synapse.lib.cmd.Parser on Parser exit()
+    '''
+    pass

@@ -6,6 +6,7 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.ast as s_ast
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
+import synapse.lib.scrape as s_scrape
 
 '''
 This module implements syntax parsing for the storm runtime.
@@ -607,6 +608,8 @@ cmprstart = set('*@!<>^~=')
 cmdset = set('abcdefghijklmnopqrstuvwxyz1234567890.')
 alphanum = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 
+varchars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_')
+
 optcast = {
     'limit': int,
     'uniq': bool,
@@ -667,7 +670,7 @@ class Parser:
 
         while True:
 
-            self.ignore(whitespace)
+            self.ignorespace()
 
             if not self.more():
                 break
@@ -747,7 +750,7 @@ class Parser:
             oper = self.oper()
             query.addKid(oper)
 
-            self.ignore(whitespace)
+            self.ignorespace()
 
         return query
 
@@ -894,7 +897,7 @@ class Parser:
 
         self.nextmust('+')
 
-        tag = self.tag()
+        tag = self.tagname()
 
         self.ignore(whitespace)
 
@@ -912,7 +915,7 @@ class Parser:
 
         self.nextmust('-')
 
-        tag = self.tag()
+        tag = self.tagname()
 
         return s_ast.EditTagDel(kids=(tag,))
 
@@ -953,6 +956,12 @@ class Parser:
         return s_ast.PivotInFrom(kids=(prop,), isjoin=True)
 
     def formpivot(self):
+        '''
+        -> *
+        -> #tag.match
+        -> form:prop
+        -> form
+        '''
 
         self.ignore(whitespace)
 
@@ -997,6 +1006,25 @@ class Parser:
 
         prop = self.absprop()
         return s_ast.FormPivot(kids=(prop,), isjoin=True)
+
+    def ignorespace(self):
+        '''
+        Ignore whitespace as well as comment syntax // and /* */
+        '''
+
+        while True:
+
+            self.ignore(whitespace)
+
+            if self.nextstr('//'):
+                self.noms(until='\n')
+                continue
+
+            if self.nextstr('/*'):
+                self.expect('*/')
+                continue
+
+            break
 
     def proppivot(self, prop):
         '''
@@ -1062,6 +1090,20 @@ class Parser:
 
         char = self.nextchar()
 
+        # var list assignment
+        # ($foo, $bar) = $baz
+        if char == '(':
+            varl = self.varlist()
+
+            self.ignore(whitespace)
+
+            self.nextmust('=')
+            self.ignore(whitespace)
+
+            valu = self.valu()
+
+            return s_ast.VarListSetOper(kids=(varl, valu))
+
         # $foo = valu var assignment
         if char == '$':
 
@@ -1069,7 +1111,6 @@ class Parser:
 
             self.ignore(whitespace)
 
-            # TODO special var assigments for lists?
             self.nextmust('=')
 
             self.ignore(whitespace)
@@ -1102,31 +1143,59 @@ class Parser:
             if self.nextstrs('<-', '<+-'):
                 self._raiseSyntaxError('Pivot in syntax does not currently support relative properties.')
 
+        tokn = self.peek(varset)
+        if tokn == 'for':
+            return self.forloop()
+
+        if tokn == 'switch':
+            return self.switchcase()
+
+        if tokn == 'break':
+            self.offs += 5
+            return s_ast.BreakOper()
+
+        if tokn == 'continue':
+            self.offs += 8
+            return s_ast.ContinueOper()
+
+        noff = self.offs
+
         name = self.noms(varset)
         if not name:
             self._raiseSyntaxError('unknown query syntax')
 
-        # before ignoring more whitespace, check for form#tag=time
         if self.modelinfo.isprop(name):
+
+            # before ignoring more whitespace, check for form#tag[=time]
             if self.nextstr('#'):
 
-                tag = self.tag()
+                tag = self.tagname()
                 form = s_ast.Const(name)
 
                 self.ignore(whitespace)
 
-                if self.nextchar() not in cmprstart:
-                    return s_ast.LiftFormTag(kids=(form, tag))
+                kids = [form, tag]
+
+                if self.nextchar() in cmprstart:
+                    kids.append(self.cmpr())
+                    kids.append(self.valu())
+
+                return s_ast.LiftFormTag(kids=kids)
+
+            self.ignore(whitespace)
+
+            if self.nextchar() in cmprstart:
 
                 cmpr = self.cmpr()
-
-                self.ignore(whitespace)
-
                 valu = self.valu()
 
-                return s_ast.LiftFormTag(kids=(form, tag, cmpr, valu))
+                kids = (s_ast.Const(name), cmpr, valu)
+                return s_ast.LiftPropBy(kids=kids)
 
-        elif name in self.stormcmds:
+            # lift by prop only
+            return s_ast.LiftProp(kids=(s_ast.Const(name),))
+
+        if name in self.stormcmds:
 
             text = self.cmdtext()
             self.ignore(whitespace)
@@ -1137,25 +1206,136 @@ class Parser:
 
             return s_ast.CmdOper(kids=(s_ast.Const(name), text))
 
-        # we have a prop <cmpr> <valu>!
-        if self.nextchar() in cmprstart:
+        # rewind and noms until whitespace
+        self.offs = noff
 
-            # TODO: check for :: pivot syntax and raise
+        tokn = self.noms(until=whitespace)
 
-            cmpr = self.cmpr()
-            valu = self.valu()
+        ndefs = list(s_scrape.scrape(tokn))
+        if ndefs:
+            return s_ast.LiftByScrape(ndefs)
 
-            kids = (s_ast.Const(name), cmpr, valu)
-            return s_ast.LiftPropBy(kids=kids)
+        self.offs = noff
+        raise s_exc.NoSuchProp(name=name)
 
-        # lift by prop only
-        return s_ast.LiftProp(kids=(s_ast.Const(name),))
+    def casevalu(self):
+
+        self.ignorespace()
+
+        if self.nextstr('"'):
+            text = self.quoted()
+            self.ignorespace()
+            self.nextmust(':')
+            return s_ast.Const(text)
+
+        text = self.noms(until=':').strip()
+        if not text:
+            self._raiseSyntaxError('empty case statement')
+
+        self.nextmust(':')
+        return s_ast.Const(text)
+
+    def switchcase(self):
+
+        self.ignore(whitespace)
+        self.nextmust('switch')
+        self.ignore(whitespace)
+
+        varn = self.varvalu()
+
+        self.ignore(whitespace)
+
+        self.nextmust('{')
+
+        kids = [varn]
+
+        while self.more():
+
+            self.ignorespace()
+
+            if self.nextstr('}'):
+                self.offs += 1
+                break
+
+            if self.nextstr('*'):
+
+                self.offs += 1
+                self.ignore(whitespace)
+                self.nextmust(':')
+
+                subq = self.subquery()
+
+                cent = s_ast.CaseEntry(kids=[subq])
+                kids.append(cent)
+                continue
+
+            valu = self.casevalu()
+            if not isinstance(valu, s_ast.Const):
+                self._raiseSyntaxError('Switch case syntax only supports const values.')
+
+            self.ignorespace()
+
+            subq = self.subquery()
+            cent = s_ast.CaseEntry(kids=[valu, subq])
+
+            kids.append(cent)
+
+        return s_ast.SwitchCase(kids=kids)
+
+    def varlist(self):
+
+        self.ignore(whitespace)
+        self.nextmust('(')
+
+        names = []
+        while True:
+
+            self.ignore(whitespace)
+
+            varn = self.varname()
+            names.append(varn.value())
+
+            self.ignore(whitespace)
+            if self.nextstr(')'):
+                self.offs += 1
+                break
+
+            self.nextmust(',')
+
+        return s_ast.VarList(names)
+
+    def forloop(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust('for')
+
+        self.ignore(whitespace)
+
+        if self.nextstr('$'):
+            vkid = self.varname()
+
+        elif self.nextstr('('):
+            vkid = self.varlist()
+
+        else:
+            self._raiseSyntaxError('expected variable name or variable list')
+
+        self.ignore(whitespace)
+
+        self.nextmust('in')
+        self.ignore(whitespace)
+
+        ikid = self.varname()
+        qkid = self.subquery()
+
+        return s_ast.ForLoop(kids=(vkid, ikid, qkid))
 
     def liftbytag(self):
 
         self.ignore(whitespace)
 
-        tag = self.tag()
+        tag = self.tagname()
 
         self.ignore(whitespace)
 
@@ -1171,7 +1351,7 @@ class Parser:
 
         self.nextmust('#')
 
-        tag = self.tag()
+        tag = self.tagname()
 
         return s_ast.LiftTagTag(kids=(tag,))
 
@@ -1232,14 +1412,16 @@ class Parser:
             self.ignore(whitespace)
 
             if self.nextchar() not in cmprstart:
-                return s_ast.HasRelPropCond(kids=(name,))
+                return s_ast.HasRelPropCond(kids=[name])
+
+            prop = s_ast.RelPropValue(kids=[name])
 
             cmpr = self.cmpr()
 
             self.ignore(whitespace)
             valu = self.valu()
 
-            return s_ast.RelPropCond(kids=(name, cmpr, valu))
+            return s_ast.RelPropCond(kids=(prop, cmpr, valu))
 
         if self.nextstr('.'):
 
@@ -1249,16 +1431,17 @@ class Parser:
             if self.nextchar() not in cmprstart:
                 return s_ast.HasRelPropCond(kids=(name,))
 
+            prop = s_ast.RelPropValue(kids=[name])
             cmpr = self.cmpr()
 
             self.ignore(whitespace)
             valu = self.valu()
 
-            return s_ast.RelPropCond(kids=(name, cmpr, valu))
+            return s_ast.RelPropCond(kids=(prop, cmpr, valu))
 
         if self.nextstr('#'):
 
-            tag = self.tag()
+            tag = self.tagname()
 
             self.ignore(whitespace)
 
@@ -1399,6 +1582,15 @@ class Parser:
         text = self.noms(cmprset)
         return s_ast.Const(text)
 
+    def relpropvalu(self):
+        self.ignore(whitespace)
+        name = self.relprop()
+        return s_ast.RelPropValue(kids=[name])
+
+    def univpropvalu(self):
+        prop = self.univprop()
+        return s_ast.UnivPropValue(kids=(prop,))
+
     def valu(self):
 
         self.ignore(whitespace)
@@ -1415,20 +1607,17 @@ class Parser:
             return s_ast.List(None, kids=kids)
 
         if self.nextstr(':'):
-            prop = self.relprop()
-            return s_ast.RelPropValue(kids=(prop,))
+            return self.relpropvalu()
 
         if self.nextstr('.'):
-            prop = self.univprop()
-            return s_ast.UnivPropValue(kids=(prop,))
+            return self.univpropvalu()
 
         if self.nextstr('#'):
-            tag = self.tag()
+            tag = self.tagname()
             return s_ast.TagPropValue(kids=(tag,))
 
         if self.nextstr('$'):
-            varn = self.varname()
-            return s_ast.VarValue(kids=(varn,))
+            return self.varvalu()
 
         if self.nextstr('"'):
             text = self.quoted()
@@ -1445,14 +1634,58 @@ class Parser:
         self.ignore(whitespace)
 
         self.nextmust('$')
+        return self.vartokn()
+
+    def vartokn(self):
 
         self.ignore(whitespace)
 
-        name = self.noms(alphanum)
+        name = self.noms(varchars)
         if not name:
             self._raiseSyntaxError('expected variable name')
 
         return s_ast.Const(name)
+
+    def varderef(self, varv):
+        self.nextmust('.')
+        varn = self.vartokn()
+        return s_ast.VarDeref(kids=[varv, varn])
+
+    def varcall(self, varv):
+        args = s_ast.CallArgs(kids=self.valulist())
+        return s_ast.VarCall(kids=[varv, args])
+
+    def varvalu(self):
+        '''
+        $foo
+        $foo.bar
+        $foo.bar()
+        $foo[0]
+        $foo.bar(10)
+        '''
+
+        self.ignore(whitespace)
+
+        varn = self.varname()
+        varv = s_ast.VarValue(kids=[varn])
+
+        # handle derefs and calls...
+        while self.more():
+
+            if self.nextstr('.'):
+                varv = self.varderef(varv)
+                continue
+
+            if self.nextstr('('):
+                varv = self.varcall(varv)
+                continue
+
+            #if self.nextstr('['):
+                #varv = self.varslice(varv)
+
+            break
+
+        return varv
 
     def cmdname(self):
 
@@ -1564,7 +1797,7 @@ class Parser:
 
         return subq
 
-    def tag(self):
+    def tagname(self):
 
         self.ignore(whitespace)
 
@@ -1572,12 +1805,13 @@ class Parser:
 
         self.ignore(whitespace)
 
-        # a bit odd, but the tag could require quoting...
-        # if self.nextchar() == '"':
+        if self.nextstr('$'):
+            varn = self.varname()
+            return s_ast.TagVar(kids=[varn])
 
         text = self.noms(until=tagterm)
 
-        return s_ast.Tag(text)
+        return s_ast.TagName(text)
 
     ###########################################################################
     # parsing helpers from here down...
@@ -1623,6 +1857,21 @@ class Parser:
             self.ignore(ignore)
 
         return ''.join(rets)
+
+    def peek(self, chars):
+        tokn = ''
+        offs = self.offs
+        while offs < len(self.text):
+
+            char = self.text[offs]
+            offs += 1
+
+            if char not in chars:
+                break
+
+            tokn += char
+
+        return tokn
 
     def nextstr(self, text):
 
