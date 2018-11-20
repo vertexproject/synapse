@@ -31,9 +31,6 @@ class Node:
         self.props = {}
         self.univs = {}
 
-        #self.vars = {}  # runtime storm variables
-        # self.runt = {}  # a runtime info dict for things like storm
-
         # self.buid may be None during
         # initial node construction...
         if rawprops is not None:
@@ -220,6 +217,10 @@ class Node:
                 univ = self.snap.model.prop(prop.univ)
                 await univ.wasSet(self, curv)
 
+        await self.snap.core.triggers.run(self, 'prop:set', info={'prop': prop.full})
+
+        return True
+
     def has(self, name):
         return name in self.props
 
@@ -326,8 +327,6 @@ class Node:
         if not leaf:
             return list(self.tags.items())
 
-        fulltags = list(self.tags)
-
         # longest first
         retn = []
 
@@ -404,9 +403,9 @@ class Node:
 
         await self._setTagProp(name, norm, indx, info)
 
-        # TODO: fire an onTagAdd handler...
         await self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
         await self.snap.core.runTagAdd(self, name, norm)
+        await self.snap.core.triggers.run(self, 'tag:add', info={'form': self.form.name, 'tag': name})
 
         return True
 
@@ -436,6 +435,7 @@ class Node:
             sops.append(('prop:del', (self.buid, self.form.name, '#' + subtag, info)))
 
         await self.snap.core.runTagDel(self, name, curv)
+        await self.snap.core.triggers.run(self, 'tag:del', info={'form': self.form.name, 'tag': name})
         sops.append(('prop:del', (self.buid, self.form.name, '#' + name, info)))
 
         await self.snap.stor(sops)
@@ -472,8 +472,7 @@ class Node:
         tags = [(len(t), t) for t in self.tags.keys()]
 
         # check for tag permissions
-        for size, tag in tags:
-            tagpath = s_chop.tagpath(tag)
+        # FIXME
 
         # check for any nodes which reference us...
         if not force:
@@ -503,7 +502,7 @@ class Node:
         self.snap.buidcache.pop(self.buid)
         self.snap.core.pokeFormCount(formname, -1)
 
-        self.form.wasDeleted(self)
+        await self.form.wasDeleted(self)
 
 class Path:
     '''
@@ -575,7 +574,8 @@ def prop(pode, prop):
         prop (str): Property to retrieve.
 
     Notes:
-        The prop argument may be the full property name (foo:bar:baz), relative property name (:baz) , or the unadorned property name (baz).
+        The prop argument may be the full property name (foo:bar:baz), relative property name (:baz) , or the unadorned
+        property name (baz).
 
     Returns:
 

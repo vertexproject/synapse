@@ -6,7 +6,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
-import synapse.lib.msgpack as s_msgpack
 import synapse.lib.encoding as s_encoding
 
 import synapse.tests.utils as s_t_utils
@@ -201,7 +200,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 self.true(outp.expect('0 tasks found.'))
 
                 async def runLongStorm():
-                    async for mesg in await core.storm('[ teststr=foo teststr=bar ] | sleep 10'):
+                    async for _ in await core.storm('[ teststr=foo teststr=bar ] | sleep 10'):
                         evnt.set()
 
                 task = dmon.schedCoro(runLongStorm())

@@ -1,6 +1,7 @@
 import collections
 
 import synapse.exc as s_exc
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
 import synapse.lib.time as s_time
@@ -143,7 +144,7 @@ def nom_whitespace(text, off):
     return nom(text, off, whites)
 
 def isquote(text, off):
-    return nextin(text, off, (",", '"'))
+    return nextin(text, off, (",", '"', "'"))
 
 def parse_list(text, off=0, trim=True):
     '''
@@ -445,7 +446,7 @@ def parse_valu(text, off=0):
     try:
         # NOTE: this is ugly, but faster than parsing the string
         valu = int(valu, 0)
-    except ValueError as e:
+    except ValueError:
         pass
 
     return valu, off
@@ -614,6 +615,21 @@ optcast = {
     'uniq': bool,
 }
 
+async def getRemoteParseInfo(proxy):
+    '''
+    Returns a parseinfo dict from a cortex proxy
+    '''
+    coreinfo = await proxy.getCoreInfo()
+    if 'stormcmds' not in coreinfo or 'modeldef' not in coreinfo:
+        raise s_exc.BadPropValu()
+    modelinfo = s_datamodel.ModelInfo()
+    modelinfo.addDataModels(coreinfo['modeldef'])
+    parseinfo = {
+        'stormcmds': coreinfo['stormcmds'],
+        'modelinfo': modelinfo
+    }
+    return parseinfo
+
 class Parser:
 
     '''
@@ -621,14 +637,19 @@ class Parser:
     must be quoted at beginning: . : # @ ( $ etc....
     '''
 
-    def __init__(self, core, text, offs=0):
+    def __init__(self, parseinfo, text, offs=0):
 
+        '''
+        Args:
+            parseinfo (dict): information about the cortex returned via getParseInfo
+        '''
         self.offs = offs
+        assert text is not None
         self.text = text.strip()
         self.size = len(self.text)
 
-        self.core = core
-        self.model = core.model
+        self.stormcmds = set(parseinfo['stormcmds'])
+        self.modelinfo = parseinfo['modelinfo']
 
     def _raiseSyntaxError(self, mesg):
         at = self.text[self.offs:self.offs + 12]
@@ -644,7 +665,7 @@ class Parser:
 
         self.ignore(whitespace)
 
-        query = s_ast.Query(self.core)
+        query = s_ast.Query()
         query.text = self.text
 
         while True:
@@ -705,7 +726,7 @@ class Parser:
 
                 try:
                     valu = cast(valu)
-                except Exception as e:
+                except Exception:
                     raise s_exc.BadOptValu(name=name, valu=valu)
 
                 query.opts[name] = valu
@@ -731,8 +752,31 @@ class Parser:
 
             self.ignorespace()
 
-        query.init(self.core)
         return query
+
+    def stormcmd(self):
+        argv = []
+
+        while self.more():
+            self.ignore(whitespace)
+            if self.nextstr('{'):
+                self.offs += 1
+                start = self.offs
+                self.query()
+                argv.append('{' + self.text[start:self.offs] + '}')
+                self.nextmust('}')
+                continue
+
+            argv.append(self.cmdvalu())
+        return argv
+
+    def cmdvalu(self):
+        self.ignore(whitespace)
+        if self.nextstr('"'):
+            return self.quoted()
+        if self.nextstr("'"):
+            return self.singlequoted()
+        return self.noms(until=whitespace)
 
     def editoper(self):
 
@@ -1123,23 +1167,22 @@ class Parser:
         self.ignore(whitespace)
 
         # before ignoring more whitespace, check for form#tag=time
-        if self.model.forms.get(name) is not None and self.nextstr('#'):
+        if self.modelinfo.isprop(name):
+            if self.nextstr('#'):
 
             tag = self.tagname()
             form = s_ast.Const(name)
 
-            self.ignore(whitespace)
+                self.ignore(whitespace)
 
-            if self.nextchar() not in cmprstart:
-                return s_ast.LiftFormTag(kids=(form, tag))
+                if self.nextchar() not in cmprstart:
+                    return s_ast.LiftFormTag(kids=(form, tag))
 
-            cmpr = self.cmpr()
+                cmpr = self.cmpr()
 
-            self.ignore(whitespace)
+                self.ignore(whitespace)
 
-            valu = self.valu()
-
-            return s_ast.LiftFormTag(kids=(form, tag, cmpr, valu))
+                valu = self.valu()
 
         if self.model.props.get(name) is not None:
             # we have a prop <cmpr> <valu>!
@@ -1154,7 +1197,7 @@ class Parser:
             # lift by prop only
             return s_ast.LiftProp(kids=(s_ast.Const(name),))
 
-        if self.core.getStormCmd(name) is not None:
+        if name in self.stormcmds:
 
             text = self.cmdtext()
             self.ignore(whitespace)
@@ -1298,9 +1341,9 @@ class Parser:
 
         self.ignore(whitespace)
 
-        #TODO
-        #cmprstart
-        #if self.nextstr('@='):
+        # TODO
+        # cmprstart
+        # if self.nextstr('@='):
 
         return s_ast.LiftTag(kids=(tag,))
 
@@ -1488,7 +1531,7 @@ class Parser:
 
         name = self.noms(varset)
 
-        if self.model.prop(name) is None:
+        if not self.modelinfo.isprop(name):
             self._raiseSyntaxError(f'no such property: {name!r}')
 
         return s_ast.AbsProp(name)
@@ -1518,7 +1561,7 @@ class Parser:
 
         name = self.noms(varset)
 
-        if self.model.univ(name) is None:
+        if not self.modelinfo.isuniv(name):
             self._raiseSyntaxError(f'no such universal property: {name!r}')
 
         return s_ast.UnivProp(name)
@@ -1580,6 +1623,10 @@ class Parser:
 
         if self.nextstr('"'):
             text = self.quoted()
+            return s_ast.Const(text)
+
+        if self.nextstr("'"):
+            text = self.singlequoted()
             return s_ast.Const(text)
 
         self._raiseSyntaxError('unrecognized value prefix')
@@ -1698,7 +1745,30 @@ class Parser:
 
             text += c
 
-        self._raiseSytaxError('unexpected end of query text')
+        self._raiseSyntaxError('unexpected end of query text')
+
+    def singlequoted(self):
+
+        self.ignore(whitespace)
+
+        self.nextmust("'")
+
+        text = ''
+
+        offs = self.offs
+        while offs < self.size:
+
+            c = self.text[offs]
+            offs += 1
+
+            if c == "'":
+
+                self.offs = offs
+                return text
+
+            text += c
+
+        self._raiseSyntaxError('unexpected end of query text')
 
     def valulist(self):
 

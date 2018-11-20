@@ -1,6 +1,7 @@
 '''
 An API to assist with the creation and enforcement of cortex data models.
 '''
+import asyncio
 import logging
 import collections
 
@@ -68,14 +69,18 @@ class PropBase:
         for func in self.onsets:
             try:
                 await s_coro.ornot(func, node, oldv)
-            except Exception as e:
+            except asyncio.CancelledError:
+                raise
+            except Exception:
                 logger.exception('onset() error for %s' % (self.full,))
 
     async def wasDel(self, node, oldv):
         for func in self.ondels:
             try:
                 await s_coro.ornot(func, node, oldv)
-            except Exception as e:
+            except asyncio.CancelledError:
+                raise
+            except Exception:
                 logger.exception('ondel() error for %s' % (self.full,))
 
 class Prop(PropBase):
@@ -256,23 +261,34 @@ class Form:
         '''
         Fire the onAdd() callbacks for node creation.
         '''
+
+        await node.snap.core.triggers.run(node, 'node:add', info={'form': self.name})
+
         for func in self.onadds:
             try:
                 retn = func(node)
                 if s_coro.iscoro(retn):
                     await retn
-            except Exception as e:
+            except asyncio.CancelledError:
+                raise
+            except Exception:
                 logger.exception('error on onadd for %s' % (self.name,))
 
-    def wasDeleted(self, node):
+    async def wasDeleted(self, node):
         '''
         Fire the onDel() callbacks for node deletion.
         '''
+        await node.snap.core.triggers.run(node, 'node:del', info={'form': self.name})
+
         for func in self.ondels:
             try:
-                func(node)
-            except Exception as e:
-                logger.exception('error on onadel for %s' % (self.name,))
+                retn = func(node)
+                if s_coro.iscoro(retn):
+                    await retn
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception('error on ondel for %s' % (self.name,))
 
     def getSetOps(self, buid, norm):
         indx = self.type.getStorIndx(norm)
@@ -322,6 +338,52 @@ class Form:
         info.update(self.info)
         return info
 
+class ModelInfo:
+    '''
+    A summary of the information in a DataModel, sufficent for parsing storm queries.
+    '''
+    def __init__(self):
+        self.formnames = set()
+        self.propnames = set()
+        self.univnames = set()
+
+    def addDataModels(self, mods):
+        '''
+        Adds a model definition (same format as input to Model.addDataModels and output of Model.getModelDef).
+        '''
+        # Load all the universal properties
+        for _, mdef in mods:
+            for univname, _, _ in mdef.get('univs', ()):
+                self.addUnivName(univname)
+
+        # Load all the forms
+        for _, mdef in mods:
+            for formname, _, propdefs in mdef.get('forms', ()):
+
+                self.formnames.add(formname)
+                self.propnames.add(formname)
+
+                for univname in self.univnames:
+                    full = f'{formname}{univname}'
+                    self.propnames.add(full)
+
+                for propname, _, _ in propdefs:
+                    full = f'{formname}:{propname}'
+                    self.propnames.add(full)
+
+    def addUnivName(self, univname):
+        self.univnames.add('.' + univname)
+        self.propnames.add('.' + univname)
+
+    def isprop(self, name):
+        return name in self.propnames
+
+    def isform(self, name):
+        return name in self.formnames
+
+    def isuniv(self, name):
+        return name in self.univnames
+
 class Model:
     '''
     The data model used by a Cortex hypergraph.
@@ -339,6 +401,13 @@ class Model:
         self.propsbytype = collections.defaultdict(list) # name: Prop()
 
         self._type_pends = collections.defaultdict(list)
+        self._modeldef = {
+            'ctors': [],
+            'types': [],
+            'forms': [],
+            'univs': []
+        }
+        self._modelinfo = ModelInfo()
 
         # add the primitive base types
         info = {'doc': 'The base 64 bit signed integer type.'}
@@ -389,9 +458,9 @@ class Model:
         item = s_types.Ndef(self, 'ndef', info, {})
         self.addBaseType(item)
 
-        #info = {'doc': 'A list type for storing multiple values of the same type.'}
-        #item = s_types.List(self, 'list', info, {'type': 'str'})
-        #self.addBaseType(item)
+        # info = {'doc': 'A list type for storing multiple values of the same type.'}
+        # item = s_types.List(self, 'list', info, {'type': 'str'})
+        # self.addBaseType(item)
 
         info = {'doc': 'An digraph edge base type.'}
         item = s_types.Edge(self, 'edge', info, {})
@@ -417,27 +486,13 @@ class Model:
             'doc': 'The time the node was created in the cortex.',
         })
 
+    def getModelInfo(self):
+        return self._modelinfo
+
     def getPropsByType(self, name):
         props = self.propsbytype.get(name, ())
         # TODO order props based on score...
         return props
-
-    def _addTypeDecl(self, decl):
-
-        typename, basename, typeopts, typeinfo = decl
-
-        base = self.types.get(basename)
-        if base is None:
-            self._type_pends[typename].append(tdef)
-            return
-
-        item = base.extend(name, info, opts)
-        self.types[name] = item
-
-        pends = self._type_pends.pop(name, None)
-        if pends is not None:
-            for name, subof, info, opts in pends:
-                self.types[name] = item.clone(name, info, opts)
 
     def getTypeClone(self, typedef):
 
@@ -447,8 +502,14 @@ class Model:
 
         return base.clone(typedef[1])
 
-    def getModelDict(self):
+    def getModelDef(self):
+        '''
+        Returns:
+            A list of one model definition compatible with addDataModels that represents the current data model
+        '''
+        return [('all', self._modeldef)]
 
+    def getModelDict(self):
         retn = {
             'types': {},
             'forms': {},
@@ -482,7 +543,13 @@ class Model:
                     (propname, (typename, typeopts), {info}),
                 )),
             ),
+            "univs":(
+                (propname, (typename, typeopts), {info}),
+            )
         }
+
+        Args:
+            mods (list);  The list of tuples.
         '''
 
         # load all the base type ctors in order...
@@ -491,6 +558,7 @@ class Model:
             for name, ctor, opts, info in mdef.get('ctors', ()):
                 item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts)
                 self.types[name] = item
+                self._modeldef['ctors'].append((name, ctor, opts, info))
 
         # load all the types in order...
         for modlname, mdef in mods:
@@ -502,6 +570,12 @@ class Model:
                     raise s_exc.NoSuchType(name=basename)
 
                 self.types[typename] = base.extend(typename, opts, info)
+                self._modeldef['types'].append((typename, (basename, opts), info))
+
+        # Load all the universal properties
+        for modlname, mdef in mods:
+            for univname, typedef, univinfo in mdef.get('univs', ()):
+                self.addUnivProp(univname, typedef, univinfo)
 
         # now we can load all the forms...
         for modlname, mdef in mods:
@@ -511,6 +585,8 @@ class Model:
                 _type = self.types.get(formname)
                 if _type is None:
                     raise s_exc.NoSuchType(name=formname)
+
+                self._modeldef['forms'].append((formname, forminfo, propdefs))
 
                 form = Form(self, formname, forminfo)
 
@@ -533,6 +609,8 @@ class Model:
                     self.props[full] = prop
                     self.props[(formname, propname)] = prop
 
+        self._modelinfo.addDataModels(mods)
+
     def _addFormUniv(self, form, name, tdef, info):
 
         base = '.' + name
@@ -545,6 +623,8 @@ class Model:
 
     def addUnivProp(self, name, tdef, info):
 
+        self._modelinfo.addUnivName(name)
+
         base = '.' + name
         univ = Univ(self, base, tdef, info)
 
@@ -552,6 +632,7 @@ class Model:
         self.univlook[base] = univ
 
         self.univs.append((name, tdef, info))
+        self._modeldef['univs'].append((name, tdef, info))
 
         for form in self.forms.values():
             self._addFormUniv(form, name, tdef, info)
