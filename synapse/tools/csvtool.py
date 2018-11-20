@@ -8,26 +8,25 @@ import synapse.telepath as s_telepath
 import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 
+def iterrows(csv_header=None, *paths):
+    for path in paths:
+
+        with open(path, 'r', encoding='utf8') as fd:
+
+            if csv_header:
+                fd.readline()
+
+            def genr():
+
+                for row in csv.reader(fd):
+                    yield row
+
+            for rows in s_common.chunks(genr(), 1000):
+                yield rows
+
 def main(argv, outp=s_output.stdout):
     pars = makeargparser()
     opts = pars.parse_args(argv)
-
-    def iterrows():
-
-        for path in opts.csvfiles:
-
-            with open(path, 'r', encoding='utf8') as fd:
-
-                if opts.csv_header:
-                    fd.readline()
-
-                def genr():
-
-                    for row in csv.reader(fd):
-                        yield row
-
-                for rows in s_common.chunks(genr(), 1000):
-                    yield rows
 
     with open(opts.stormfile, 'r', encoding='utf8') as fd:
         text = fd.read()
@@ -40,7 +39,7 @@ def main(argv, outp=s_output.stdout):
     nodecount = 0
     with s_telepath.openurl(opts.cortex) as core:
 
-        for rows in iterrows():
+        for rows in iterrows(opts.csv_header, *opts.csvfiles):
 
             stormopts = {
                 'vars': {'rows': rows},
