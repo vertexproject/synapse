@@ -3,6 +3,7 @@ import logging
 import pathlib
 import collections
 
+import synapse
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
@@ -11,12 +12,12 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
-import synapse.lib.lmdb as s_lmdb
 import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
 import synapse.lib.layer as s_layer
 import synapse.lib.syntax as s_syntax
+import synapse.lib.trigger as s_trigger
 import synapse.lib.modules as s_modules
 
 logger = logging.getLogger(__name__)
@@ -101,6 +102,48 @@ class CoreApi(s_cell.CellApi):
             (dict): A model description dictionary.
         '''
         return self.cell.model.getModelDict()
+
+    def getCoreInfo(self):
+        '''
+        Return static generic information about the cortex including model definition
+        '''
+        return self.cell.getCoreInfo()
+
+    async def addTrigger(self, condition, query, *, info):
+        '''
+        Adds a trigger to the cortex
+        '''
+        username = None if self.user is None else self.user.name
+        self.cell.triggers.add(username, condition, query, info=info)
+
+    def _trig_auth_check(self, triguser):
+        username = None if self.user is None else self.user.name
+        if username is not None and (not self.user.admin) and username != triguser:
+            raise s_exc.AuthDeny(user=self.user.name, mesg='As non-admin, may only manipulate triggers created by you')
+
+    async def delTrigger(self, iden):
+        '''
+        Deletes a trigger from the cortex
+        '''
+        trig = self.cell.triggers.get(iden)
+        self._trig_auth_check(trig.get('user'))
+        self.cell.triggers.delete(iden)
+
+    async def updateTrigger(self, iden, query):
+        '''
+        Change an existing trigger's query
+        '''
+        trig = self.cell.triggers.get(iden)
+        self._trig_auth_check(trig.get('user'))
+        self.cell.triggers.mod(iden, query)
+
+    async def listTriggers(self):
+        '''
+        Lists all the triggers that the current user is authorized to access
+        '''
+        username = None if self.user is None else self.user.name
+        return [(iden, trig) for (iden, trig) in self.cell.triggers.list()
+                if username is None or self.user.admin or trig.get('user') == username]
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
@@ -362,6 +405,8 @@ class Cortex(s_cell.Cell):
             await asyncio.gather(*[layr.fini() for layr in self.layers], loop=self.loop)
         self.onfini(fini)
 
+        self.triggers = s_trigger.Triggers(self)
+
         # these may be used directly
         self.model = s_datamodel.Model()
         self.view = View(self, self.layers)
@@ -376,6 +421,8 @@ class Cortex(s_cell.Cell):
         self._initFormCounts()
 
         await self.addCoreMods(mods)
+
+        await self.triggers.enable()
 
         self._initCryoLoop()
         self._initPushLoop()
@@ -405,10 +452,13 @@ class Cortex(s_cell.Cell):
         '''
         Recalculate form counts from scratch.
         '''
+        logger.info('Calculating form counts from scratch.')
         self.counts.clear()
 
-        for name, form in self.model.forms.items():
-
+        nameforms = list(self.model.forms.items())
+        for i, (name, form) in enumerate(nameforms, 1):
+            logger.info('Calculating form counts for [%s] [%s/%s]',
+                        name, i, len(nameforms))
             count = 0
 
             async for buid, valu in self.layer.iterFormRows(name):
@@ -423,6 +473,7 @@ class Cortex(s_cell.Cell):
         for name, valu in self.counts.items():
             byts = s_common.int64en(valu)
             self.slab.put(name.encode('utf8'), byts)
+        logger.info('Done calculating form counts.')
 
     def onTagAdd(self, name, func):
         '''
@@ -992,7 +1043,13 @@ class Cortex(s_cell.Cell):
         '''
         Parse storm query text and return a Query object.
         '''
-        return s_syntax.Parser(self, text).query()
+        parseinfo = {
+            'stormcmds': {cmd: {} for cmd in self.stormcmds.keys()},
+            'modelinfo': self.model.getModelInfo(),
+        }
+        query = s_syntax.Parser(parseinfo, text).query()
+        query.init(self)
+        return query
 
     def _logStormQuery(self, text, user):
         '''
@@ -1000,7 +1057,7 @@ class Cortex(s_cell.Cell):
         '''
         if self.conf.get('storm:log'):
             lvl = self.conf.get('storm:log:level')
-            logger.log(lvl, 'Executing storm query [%s] as [%s]', text, user)
+            logger.log(lvl, 'Executing storm query {%s} as [%s]', text, user)
 
     async def getNodeByNdef(self, ndef):
         '''
@@ -1041,6 +1098,13 @@ class Cortex(s_cell.Cell):
         async with await self.snap() as snap:
             async for node in snap.getNodesBy(full, valu, cmpr=cmpr):
                 yield node
+
+    def getCoreInfo(self):
+        return {
+            'version': synapse.version,
+            'modeldef': self.model.getModelDef(),
+            'stormcmds': {cmd: {} for cmd in self.stormcmds.keys()},
+        }
 
     async def addNodes(self, nodedefs):
         '''
@@ -1171,6 +1235,7 @@ class Cortex(s_cell.Cell):
     async def stat(self):
         stats = {
             'iden': self.iden,
-            'layer': await self.layer.stat()
+            'layer': await self.layer.stat(),
+            'formcounts': self.counts,
         }
         return stats

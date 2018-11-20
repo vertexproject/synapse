@@ -305,10 +305,10 @@ class Snap(s_base.Base):
             fnib = self._getNodeFnib(name, valu)
             return await self._addNodeFnib(fnib, props=props)
 
-        except asyncio.CancelledError as e:
+        except asyncio.CancelledError:
             raise
 
-        except Exception as e:
+        except Exception:
 
             mesg = f'Error adding node: {name} {valu!r} {props!r}'
             logger.exception(mesg)

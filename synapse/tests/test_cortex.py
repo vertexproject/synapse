@@ -10,6 +10,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
+import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -163,6 +164,17 @@ class CortexTest(s_t_utils.SynTest):
                 # Sad path testing
                 conf['feeds'][0]['type'] = 'com.clown'
                 await self.asyncraises(s_exc.NoSuchType, self.getTestCell(dirn, 'cortex', conf=conf))
+
+    async def test_cortex_coreinfo(self):
+        async with self.getTestDmon(mirror='dmoncore') as dmon, \
+                await self.agetTestProxy(dmon, 'core') as core:
+
+            coreinfo = await core.getCoreInfo()
+            for field in ('version', 'modeldef', 'stormcmds'):
+                self.isin(field, coreinfo)
+
+            # Verify serializability
+            s_msgpack.en(coreinfo)
 
     async def test_cortex_model_dict(self):
 
@@ -727,7 +739,7 @@ class CortexTest(s_t_utils.SynTest):
             pconf = {'user': 'root', 'passwd': 'root'}
             async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
                 # Storm logging
-                with self.getAsyncLoggerStream('synapse.cortex', 'Executing storm query [help ask] as [root]') \
+                with self.getAsyncLoggerStream('synapse.cortex', 'Executing storm query {help ask} as [root]') \
                         as stream:
                     await alist(await core.storm('help ask'))
                     self.true(await stream.wait(4))
@@ -1578,6 +1590,11 @@ class CortexTest(s_t_utils.SynTest):
                 await self.agenlen(1, (await core.eval('sudo | [teststr=123 :tick=2018]')))
                 nstat = await core.stat()
                 self.gt(nstat.get('layer').get('splicelog_indx'), ostat.get('layer').get('splicelog_indx'))
+
+                core_counts = dmon.shared['core'].counts
+                counts = nstat.get('formcounts')
+                self.eq(counts.get('teststr'), 1)
+                self.eq(counts, core_counts)
 
     async def test_offset(self):
         async with self.getTestDmon(mirror='dmoncoreauth') as dmon:

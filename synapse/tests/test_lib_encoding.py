@@ -118,7 +118,7 @@ class EncTest(s_t_utils.SynTest):
                 self.len(1, lines)
                 line = lines[0]
                 elem = line.get('data')
-                self.len(3, elem.getchildren())
+                self.len(3, list(elem))
 
     def test_fmt_lines(self):
         with self.getTestDir() as dirn:
