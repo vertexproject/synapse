@@ -65,7 +65,7 @@ class TrigTest(s_t_utils.SynTest):
             await self.agenlen(0, await core.eval('testint=5'))
 
             # Prop set
-            await core.addTrigger('prop:set', 'sudo | [ testint=6 ]', info={'prop': 'testtype10.intprop'})
+            await core.addTrigger('prop:set', 'sudo | [ testint=6 ]', info={'prop': 'testtype10:intprop'})
             await s_common.aspin(await core.eval('sudo | [ testtype10=1 ]'))
             await self.agenlen(1, await core.eval('testint=6'))  # Triggered by default value setting
             await s_common.aspin(await core.eval('sudo | [ testtype10=1 :intprop=25 ]'))

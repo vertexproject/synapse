@@ -105,7 +105,7 @@ class CoreApi(s_cell.CellApi):
 
     def getCoreInfo(self):
         '''
-        Return generic information about the cortex including model definition
+        Return static generic information about the cortex including model definition
         '''
         return self.cell.getCoreInfo()
 
@@ -123,7 +123,7 @@ class CoreApi(s_cell.CellApi):
 
     async def delTrigger(self, iden):
         '''
-        Deletes aa trigger from the cortex
+        Deletes a trigger from the cortex
         '''
         trig = self.cell.triggers.get(iden)
         self._trig_auth_check(trig.get('user'))

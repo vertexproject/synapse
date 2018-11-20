@@ -41,24 +41,24 @@ class Triggers:
 
         def __post_init__(self):
             if self.ver != 0:
-                raise s_exc.BadOptValu('Unexpected rule version')
+                raise s_exc.BadOptValu(mesg='Unexpected rule version')
             if self.cond not in Conditions:
-                raise s_exc.BadOptValu('Invalid trigger condition')
+                raise s_exc.BadOptValu(mesg='Invalid trigger condition')
             if self.cond in ('node:add', 'node:del') and self.form is None:
-                raise s_exc.BadOptValu('form must be present for node:add or node:del')
+                raise s_exc.BadOptValu(mesg='form must be present for node:add or node:del')
             if self.cond in ('node:add', 'node:del') and self.tag is not None:
-                raise s_exc.BadOptValu('tag must not be present for node:add or node:del')
+                raise s_exc.BadOptValu(mesg='tag must not be present for node:add or node:del')
             if self.cond == 'prop:set' and (self.form is not None or self.tag is not None):
-                raise s_exc.BadOptValu('form and tag must not be present for prop:set')
+                raise s_exc.BadOptValu(mesg='form and tag must not be present for prop:set')
             if self.cond in ('tag:add', 'tag:del') and self.tag is None:
-                raise s_exc.BadOptValu('missing tag')
+                raise s_exc.BadOptValu(mesg='missing tag')
             if self.prop is not None and self.cond != 'prop:set':
-                raise s_exc.BadOptValu('prop parameter invalid')
+                raise s_exc.BadOptValu(mesg='prop parameter invalid')
             if self.cond == 'prop:set' and self.prop is None:
-                raise s_exc.BadOptValu('missing prop parameter')
+                raise s_exc.BadOptValu(mesg='missing prop parameter')
             if self.tag is not None:
                 if '*' in self.tag[:-1] or (self.tag[-1] == '*' and self.tag[-2] != '.'):
-                    raise s_exc.BadOptValu('only tag globbing at end supported')
+                    raise s_exc.BadOptValu(mesg='only tag globbing at end supported')
 
         def en(self):
             return s_msgpack.en(dataclasses.asdict(self))
@@ -97,7 +97,6 @@ class Triggers:
         self._deferred_events = []
 
     async def enable(self):
-
         '''
         Enable triggers to start firing.
 
@@ -115,13 +114,13 @@ class Triggers:
                 logger.warning('Invalid rule %r found in storage: %r.  Removing.', iden, e)
                 to_delete.append(iden)
         for iden in to_delete:
-            self.delete(iden)
+            self.delete(iden, persistent=False)
 
         self.enabled = True
 
         # Re-evaluate all the events that occurred before we were enabled
         for node, cond, info in self._deferred_events:
-            await self.fire(node, cond, info=info)
+            await self.run(node, cond, info=info)
 
         self._deferred_events.clear()
 
@@ -176,7 +175,7 @@ class Triggers:
         finally:
             RecursionDepth.reset(token)
 
-    async def fire(self, node, cond, *, info):
+    async def run(self, node, cond, *, info):
         '''
         Execute any rules that match the condition and arguments
         '''
@@ -237,7 +236,11 @@ class Triggers:
         rule = self._load_rule(iden, 0, condition, username, query, info=info)
         self.core.slab.put(iden, rule.en(), db=db)
 
-    def delete(self, iden):
+    def delete(self, iden, persistent=True):
+        '''
+        Args:
+            persistent (bool): if True, removes from persistent storage as well
+        '''
         rule = self._rules.get(iden)
         if rule is None:
             raise s_exc.NoSuchIden()
@@ -253,7 +256,8 @@ class Triggers:
             self._rule_by_tag[rule.tag].remove(rule)
 
         del self._rules[iden]
-        self.core.slab.delete(iden, db=db)
+        if persistent:
+            self.core.slab.delete(iden, db=db)
 
     def get(self, iden):
         rule = self._rules.get(iden)

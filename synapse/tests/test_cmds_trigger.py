@@ -1,10 +1,8 @@
-import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
 
 import synapse.tests.utils as s_t_utils
-
 
 class CmdTriggersTest(s_t_utils.SynTest):
 
@@ -12,9 +10,6 @@ class CmdTriggersTest(s_t_utils.SynTest):
         async with self.getTestDmon('dmoncore') as dmon, await self.agetTestProxy(dmon, 'core') as core:
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-
-            # Bad storm syntax
-            # self.araises(s_exc.BadStormSyntax, cmdr.runCmdLine('trigger add node:add teststr {[ | | testint=1 ] }'))
 
             await cmdr.runCmdLine('trigger add Node:add teststr {[ testint=1 ] }')
             await s_common.aspin(await core.eval('sudo | [ teststr=foo ]'))
@@ -25,7 +20,7 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await self.agenlen(1, await core.eval('#count'))
             await self.agenlen(1, await core.eval('teststr=footag.bar'))
 
-            await cmdr.runCmdLine('trigger add prop:set testtype10.intprop {[ testint=6 ]}')
+            await cmdr.runCmdLine('trigger add prop:set testtype10:intprop {[ testint=6 ]}')
             await s_common.aspin(await core.eval('sudo | [ testtype10=1 :intprop=25 ]'))
             await self.agenlen(1, await core.eval('testint=6'))
 
@@ -100,4 +95,6 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine(f'trigger mod {goodbuid2} teststr')
             self.true(outp.expect('start with {'))
 
-
+            # Bad storm syntax
+            await cmdr.runCmdLine('trigger add node:add teststr {[ | | testint=1 ] }')
+            self.true(outp.expect('BadStormSyntax'))

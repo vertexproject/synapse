@@ -749,10 +749,6 @@ class Parser:
 
             self.ignore(whitespace)
 
-            # if self.nextstr('{'):
-            #     self.offs += 1
-            #     oper = self.query()
-
         return query
 
     def stormcmd(self):
