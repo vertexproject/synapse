@@ -68,28 +68,28 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine('trigger add tag:add #foo #bar')
             self.true(outp.expect('single tag'))
 
-            await cmdr.runCmdLine('trigger add tag:add {foo} {bar}')
+            await cmdr.runCmdLine('trigger add tag:add {teststr} {teststr}')
             self.true(outp.expect('single query'))
 
-            await cmdr.runCmdLine('trigger add node:add teststr #foo {bar}')
+            await cmdr.runCmdLine('trigger add node:add teststr #foo {teststr}')
             self.true(outp.expect('node:* does not support'))
 
-            await cmdr.runCmdLine('trigger add prop:set #foo {bar}')
+            await cmdr.runCmdLine('trigger add prop:set #foo {teststr}')
             self.true(outp.expect('Missing prop parameter'))
 
-            await cmdr.runCmdLine('trigger add prop:set testtype10.intprop #foo {bar}')
+            await cmdr.runCmdLine('trigger add prop:set testtype10.intprop #foo {teststr}')
             self.true(outp.expect('prop:set does not support a tag'))
 
-            await cmdr.runCmdLine('trigger add node:add teststr testint {bar}')
+            await cmdr.runCmdLine('trigger add node:add teststr testint {teststr}')
             self.true(outp.expect('Only a single form'))
 
-            await cmdr.runCmdLine('trigger add prop:set testtype10.intprop teststr {bar}')
+            await cmdr.runCmdLine('trigger add prop:set testtype10.intprop teststr {teststr}')
             self.true(outp.expect('single prop'))
 
             await cmdr.runCmdLine('trigger add tag:add #tag testint')
             self.true(outp.expect('Missing query'))
 
-            await cmdr.runCmdLine('trigger add node:add #tag1 {bar}')
+            await cmdr.runCmdLine('trigger add node:add #tag1 {teststr}')
             self.true(outp.expect('Missing form'))
 
             await cmdr.runCmdLine(f'trigger mod {goodbuid2} teststr')

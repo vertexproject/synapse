@@ -16,6 +16,13 @@ logger = logging.getLogger(__name__)
 async def agenrofone(item):
     yield item
 
+class StormCtrlFlow(Exception):
+    def __init__(self, item=None):
+        self.item = item
+
+class StormBreak(StormCtrlFlow): pass
+class StormContinue(StormCtrlFlow): pass
+
 class AstNode:
     '''
     Base class for all nodes in the STORM abstract syntax tree.
@@ -230,6 +237,61 @@ class SubQuery(Oper):
 
             yield item
 
+    async def inline(self, runt, genr):
+        async for item in self.kids[0].run(runt, genr):
+            yield item
+
+class ForLoop(Oper):
+
+    async def run(self, runt, genr):
+
+        kvar = self.kids[0].value()
+        ivar = self.kids[1].value()
+        subq = self.kids[2]
+
+        items = runt.vars.get(ivar)
+        if items is None:
+            raise s_exc.NoSuchVar(name=ivar)
+
+        broke = False
+        for item in items:
+
+            if isinstance(self.kids[0], VarList):
+
+                if len(item) != len(kvar):
+                    raise s_exc.StormVarListError(names=kvar, vals=item)
+
+                for name, valu in zip(kvar, item):
+                    runt.vars[name] = valu
+
+            else:
+                runt.vars[kvar] = item
+
+            newg = subq.inline(runt, genr)
+
+            while True:
+
+                try:
+
+                    async for node, path in newg:
+                        yield node, path
+
+                    break
+
+                except StormBreak as e:
+                    broke = True
+                    if e.item is not None:
+                        yield e.item
+                    break
+
+                except StormContinue as e:
+                    if e.item is not None:
+                        yield e.item
+                    break
+
+            if broke:
+                break
+
 class CmdOper(Oper):
 
     async def run(self, runt, genr):
@@ -255,16 +317,91 @@ class VarSetOper(Oper):
     async def run(self, runt, genr):
 
         name = self.kids[0].value()
+        vkid = self.kids[1]
 
-        if isinstance(self.kids[1], Value):
-            valu = self.kids[1].value()
+        if vkid.isRuntSafe():
+            valu = vkid.runtval(runt)
             runt.vars[name] = valu
+            # yield from :(
+            async for item in genr:
+                yield item
+
+            return
 
         async for node, path in genr:
-            valu = self.kids[1].compute(runt, node, path)
+            valu = await vkid.compute(runt, node, path)
             path.set(name, valu)
             runt.vars[name] = valu
             yield node, path
+
+class VarListSetOper(Oper):
+
+    async def run(self, runt, genr):
+
+        names = self.kids[0].value()
+
+        if self.kids[1].isRuntSafe():
+
+            item = self.kids[1].runtval(runt)
+            if len(item) < len(names):
+                raise s_exc.StormVarListError(names=names, vals=item)
+
+            for name, valu in zip(names, item):
+                runt.vars[name] = valu
+
+            async for item in genr:
+                yield item
+
+            return
+
+        async for node, path in genr:
+
+            item = await self.kids[1].compute(runt, node, path)
+            if len(item) < len(names):
+                raise s_exc.StormVarListError(names=names, vals=item)
+
+            for name, valu in zip(names, item):
+                runt.vars[name] = valu
+                path.set(name, valu)
+
+            yield node, path
+
+class SwitchCase(Oper):
+
+    def prepare(self):
+        self.cases = {}
+        self.defcase = None
+
+        for cent in self.kids[1:]:
+
+            # if they only have one kid, it's a default case.
+            if len(cent.kids) == 1:
+                self.defcase = cent.kids[0]
+                continue
+
+            valu = cent.kids[0].value()
+            self.cases[valu] = cent.kids[1]
+
+    async def run(self, runt, genr):
+
+        varv = self.kids[0].runtval(runt)
+        if varv is None:
+            raise s_exc.NoSuchVar()
+
+        subq = self.cases.get(varv)
+        if subq is None and self.defcase is not None:
+            subq = self.defcase
+
+        if subq is None:
+            async for item in genr:
+                yield item
+            return
+
+        async for item in subq.inline(runt, genr):
+            yield item
+
+class CaseEntry(AstNode):
+    pass
 
 class LiftOper(Oper):
 
@@ -279,7 +416,7 @@ class LiftOper(Oper):
 class LiftTag(LiftOper):
 
     async def lift(self, runt):
-        tag = self.kids[0].value()
+        tag = self.kids[0].runtval(runt)
         async for node in runt.snap._getNodesByTag(tag):
             yield node
 
@@ -292,7 +429,7 @@ class LiftTagTag(LiftOper):
 
         todo = collections.deque()
 
-        tag = self.kids[0].value()
+        tag = self.kids[0].runtval(runt)
 
         node = await runt.snap.getNodeByNdef(('syn:tag', tag))
         if node is None:
@@ -323,7 +460,7 @@ class LiftFormTag(LiftOper):
     async def lift(self, runt):
 
         form = self.kids[0].value()
-        tag = self.kids[1].value()
+        tag = self.kids[1].runtval(runt)
 
         cmpr = None
         valu = None
@@ -394,6 +531,17 @@ class LiftPropBy(LiftOper):
         async for node in runt.snap.getNodesBy(name, valu, cmpr=cmpr):
             yield node
 
+class LiftByScrape(LiftOper):
+
+    def __init__(self, ndefs):
+        LiftOper.__init__(self)
+        self.ndefs = ndefs
+
+    async def lift(self, runt):
+        for name, valu in self.ndefs:
+            async for node in runt.snap.getNodesBy(name, valu):
+                yield node
+
 class PivotOper(Oper):
 
     def __init__(self, kids=(), isjoin=False):
@@ -428,13 +576,10 @@ class PivotOut(PivotOper):
                 yield pivo, path.fork(pivo)
                 continue
 
-            for name, valu in node.props.items():
+            for name, prop in node.form.props.items():
 
-                prop = node.form.props.get(name)
-
-                if prop is None:
-                    # this should be impossible
-                    logger.warning(f'node prop is not form prop: {node.form.name} {name}')
+                valu = node.get(name)
+                if valu is None:
                     continue
 
                 # if the outbound prop is an ndef...
@@ -634,7 +779,10 @@ class FormPivot(PivotOper):
             return
 
         # form name and type name match
+        formprop = prop
         destform = prop.name
+
+        # TODO: both of these should be precomputed in the model
 
         @s_cache.memoize()
         def getsrc(form):
@@ -642,6 +790,15 @@ class FormPivot(PivotOper):
             for name, prop in form.props.items():
                 if prop.type.name == destform:
                     names.append(name)
+            return names
+
+        @s_cache.memoize()
+        def getdst(form):
+            # formprop is really a form here...
+            names = []
+            for name, prop in formprop.props.items():
+                if prop.type.name == form.type.name:
+                    names.append(prop.full)
             return names
 
         async for node, path in genr:
@@ -653,6 +810,8 @@ class FormPivot(PivotOper):
             if node.form.name == 'syn:tag' and prop.isform:
                 async for pivo in runt.snap.getNodesBy(f'{prop.name}#{node.ndef[1]}'):
                     yield pivo, path.fork(pivo)
+
+                continue
 
             # if the source node is a graph edge, use n2
             if isinstance(node.form.type, s_types.Edge):
@@ -666,15 +825,31 @@ class FormPivot(PivotOper):
 
                 continue
 
-            for name in getsrc(node.form):
+            names = getsrc(node.form)
+            if names:
+                for name in names:
 
-                # TODO: bypass normalization
-                valu = node.get(name)
-                if valu is None:
-                    continue
+                    valu = node.get(name)
+                    if valu is None:
+                        continue
 
-                async for pivo in runt.snap.getNodesBy(prop.name, valu):
-                    yield pivo, path.fork(pivo)
+                    async for pivo in runt.snap.getNodesBy(prop.name, valu):
+                        yield pivo, path.fork(pivo)
+
+                continue
+
+            names = getdst(node.form)
+            if names:
+                for name in names:
+                    found = True
+
+                    valu = node.ndef[1]
+                    async for pivo in runt.snap.getNodesBy(name, valu):
+                        yield pivo, path.fork(pivo)
+
+                continue
+
+            raise s_exc.NoSuchPivot(n1=node.form.name, n2=destform)
 
 class PropPivotOut(PivotOper):
 
@@ -724,7 +899,7 @@ class PropPivot(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            valu = self.kids[0].compute(runt, node, path)
+            valu = await self.kids[0].compute(runt, node, path)
             if valu is None:
                 continue
 
@@ -770,12 +945,12 @@ class OrCond(Cond):
         cond0 = self.kids[0].getCondEval(runt)
         cond1 = self.kids[1].getCondEval(runt)
 
-        def cond(node, path):
+        async def cond(node, path):
 
-            if cond0(node, path):
+            if await cond0(node, path):
                 return True
 
-            return cond1(node, path)
+            return await cond1(node, path)
 
         return cond
 
@@ -793,12 +968,12 @@ class AndCond(Cond):
         cond0 = self.kids[0].getCondEval(runt)
         cond1 = self.kids[1].getCondEval(runt)
 
-        def cond(node, path):
+        async def cond(node, path):
 
-            if not cond0(node, path):
+            if not await cond0(node, path):
                 return False
 
-            return cond1(node, path)
+            return await cond1(node, path)
 
         return cond
 
@@ -811,8 +986,8 @@ class NotCond(Cond):
 
         kidcond = self.kids[0].getCondEval(runt)
 
-        def cond(node, path):
-            return not kidcond(node, path)
+        async def cond(node, path):
+            return not await kidcond(node, path)
 
         return cond
 
@@ -830,7 +1005,7 @@ class TagCond(Cond):
 
         name = self.kids[0].value()
 
-        def cond(node, path):
+        async def cond(node, path):
             return node.tags.get(name) is not None
 
         return cond
@@ -841,7 +1016,7 @@ class HasRelPropCond(Cond):
 
         name = self.kids[0].value()
 
-        def cond(node, path):
+        async def cond(node, path):
             return node.has(name)
 
         return cond
@@ -858,12 +1033,12 @@ class HasAbsPropCond(Cond):
 
         if prop.isform:
 
-            def cond(node, path):
+            async def cond(node, path):
                 return node.form.name == prop.name
 
             return cond
 
-        def cond(node, path):
+        async def cond(node, path):
 
             if node.form.name != prop.form.name:
                 return False
@@ -889,24 +1064,24 @@ class AbsPropCond(Cond):
 
         if prop.isform:
 
-            def cond(node, path):
+            async def cond(node, path):
 
                 if node.ndef[0] != name:
                     return False
 
                 val1 = node.ndef[1]
-                val2 = self.kids[2].compute(runt, node, path)
+                val2 = await self.kids[2].compute(runt, node, path)
 
                 return ctor(val2)(val1)
 
             return cond
 
-        def cond(node, path):
+        async def cond(node, path):
             val1 = node.get(prop.name)
             if val1 is None:
                 return False
 
-            val2 = self.kids[2].compute(runt, node, path)
+            val2 = await self.kids[2].compute(runt, node, path)
             return ctor(val2)(val1)
 
         return cond
@@ -930,14 +1105,14 @@ class TagValuCond(Cond):
 
             cmpr = cmprctor(valu)
 
-            def cond(node, path):
+            async def cond(node, path):
                 return cmpr(node.tags.get(name))
 
             return cond
 
         # it's a runtime value...
-        def cond(node, path):
-            valu = self.kids[2].compute(runt, node, path)
+        async def cond(node, path):
+            valu = await self.kids[2].compute(runt, node, path)
             return cmprctor(valu)(node.tags.get(name))
 
         return cond
@@ -948,20 +1123,15 @@ class RelPropCond(Cond):
     '''
     def getCondEval(self, runt):
 
-        name = self.kids[0].value()
         cmpr = self.kids[1].value()
 
-        def cond(node, path):
+        async def cond(node, path):
 
-            prop = node.form.props.get(name)
-            if prop is None:
-                return False
-
-            valu = node.get(prop.name)
+            prop, valu = await self.kids[0].getPropAndValu(runt, node, path)
             if valu is None:
                 return False
 
-            xval = self.kids[2].compute(runt, node, path)
+            xval = await self.kids[2].compute(runt, node, path)
             func = prop.type.getCmprCtor(cmpr)(xval)
 
             return func(valu)
@@ -980,66 +1150,43 @@ class FiltOper(Oper):
     async def run(self, runt, genr):
 
         must = self.kids[0].value() == '+'
-        func = self.kids[1].getCondEval(runt)
+        cond = self.kids[1].getCondEval(runt)
 
         async for node, path in genr:
-            answ = await s_coro.ornot(func, node, path)
+            answ = await cond(node, path)
             if (must and answ) or (not must and not answ):
                 yield node, path
 
 class CompValue(AstNode):
-
-    def compute(self, runt, node, path):
+    '''
+    A computed value which requires a runtime, node, and path.
+    '''
+    async def compute(self, runt, node, path):
         raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()')
 
-class RunValue(AstNode):
+    def isRuntSafe(self):
+        return False
+
+class RunValue(CompValue):
+    '''
+    A computed value that requires a runtime.
+    '''
 
     def runtval(self, runt):
         return self.value()
 
-    def compute(self, runt, node, path):
+    async def compute(self, runt, node, path):
         return self.runtval(runt)
 
-class RelPropValue(CompValue):
-
-    def prepare(self):
-        self.name = self.kids[0].value()
-
-    def compute(self, runt, node, path):
-        return node.get(self.name)
-
-class UnivPropValue(CompValue):
-
-    def prepare(self):
-        self.name = self.kids[0].value()
-
-    def compute(self, runt, node, path):
-        return node.get(self.name)
-
-class TagPropValue(CompValue):
-
-    def prepare(self):
-        self.name = self.kids[0].value()
-
-    def compute(self, runt, node, path):
-        return node.getTag(self.name)
-
-class VarValue(RunValue):
-
-    def prepare(self):
-        self.name = self.kids[0].value()
-
-    def runtval(self, runt):
-        return runt.vars.get(self.name)
-
-    def compute(self, runt, node, path):
-        valu = path.get(self.name, s_common.novalu)
-        if valu is s_common.novalu:
-            raise s_exc.NoSuchVar(name=self.name)
-        return valu
+    def isRuntSafe(self):
+        if all([k.isRuntSafe() for k in self.kids]):
+            return True
 
 class Value(RunValue):
 
+    '''
+    A fixed/constant value.
+    '''
     def __init__(self, valu, kids=()):
         RunValue.__init__(self, kids=kids)
         self.valu = valu
@@ -1047,11 +1194,143 @@ class Value(RunValue):
     def runtval(self, runt):
         return self.value()
 
-    def compute(self, runt, node, path):
+    async def compute(self, runt, node, path):
         return self.value()
 
     def value(self):
         return self.valu
+
+class TagVar(RunValue):
+
+    def prepare(self):
+        self.varn = self.kids[0].value()
+
+    def runtval(self, runt):
+        tag = runt.vars.get(self.varn)
+        if tag is None:
+            raise s_exc.NoSuchVar(name=self.varn)
+        return tag
+
+class PropValue(CompValue):
+
+    def prepare(self):
+        self.name = self.kids[0].value()
+        self.ispiv = self.name.find('::') != -1
+
+    async def getPropAndValu(self, runt, node, path):
+
+        if not self.ispiv:
+            valu = node.get(self.name)
+            prop = node.form.props.get(self.name)
+            return prop, valu
+
+        # handle implicit pivot properties
+        names = self.name.split('::')
+
+        imax = len(names) - 1
+        for i, name in enumerate(names):
+
+            valu = node.get(name)
+            if valu is None:
+                return None, None
+
+            prop = node.form.props.get(name)
+
+            if i >= imax:
+                return prop, valu
+
+            form = runt.snap.model.forms.get(prop.type.name)
+            if form is None:
+                raise s_exc.NoSuchForm(name=prop.type.name)
+
+            node = await runt.snap.getNodeByNdef((form.name, valu))
+            if node is None:
+                return None, None
+
+    async def compute(self, runt, node, path):
+        prop, valu = await self.getPropAndValu(runt, node, path)
+        return valu
+
+class RelPropValue(PropValue): pass
+class UnivPropValue(PropValue): pass
+
+class TagPropValue(CompValue):
+
+    def prepare(self):
+        self.name = self.kids[0].value()
+
+    async def compute(self, runt, node, path):
+        return node.getTag(self.name)
+
+class FuncCall(RunValue):
+    pass
+
+class CallArgs(RunValue):
+    def runtval(self, runt):
+        return [k.runtval(runt) for k in self.kids]
+
+class VarValue(RunValue):
+
+    def prepare(self):
+
+        self.name = self.kids[0].value()
+
+    def runtval(self, runt):
+
+        valu = runt.vars.get(self.name, s_common.novalu)
+        if valu is s_common.novalu:
+            raise s_exc.NoSuchVar(name=self.name)
+
+        return valu
+
+    async def compute(self, runt, node, path):
+
+        valu = path.get(self.name, s_common.novalu)
+        if valu is s_common.novalu:
+            raise s_exc.NoSuchVar(name=self.name)
+
+        return valu
+
+def strsplit(text):
+    def call(*args):
+        return text.split(*args)
+    return call
+
+# TODO make this more sophisticated...
+varmeths = {
+    str: {
+        'split': strsplit,
+    }
+}
+
+class VarDeref(RunValue):
+
+    def runtval(self, runt):
+        valu = self.kids[0].runtval(runt)
+        name = self.kids[1].value()
+
+        # is it a var method?
+        meths = varmeths.get(type(valu))
+
+        if meths is not None:
+            ctor = meths.get(name)
+            if ctor is not None:
+                return ctor(valu)
+
+        raise s_exc.NoSuchName(name)
+
+class VarCall(RunValue):
+
+    def runtval(self, runt):
+        meth = self.kids[0].runtval(runt)
+        args = self.kids[1].runtval(runt)
+        return meth(*args)
+
+class VarList(Value):
+    pass
+
+class TagName(Value):
+    pass
 
 class TagMatch(Value):
     pass
@@ -1074,16 +1353,11 @@ class List(Value):
     def runtval(self, runt):
         return [k.runtval(runt) for k in self.kids]
 
-    def compute(self, runt, node, path):
-        return [k.compute(runt, node, path) for k in self.kids]
+    async def compute(self, runt, node, path):
+        return [await k.compute(runt, node, path) for k in self.kids]
 
     def value(self):
         return [k.value() for k in self.kids]
-
-class Tag(Value):
-
-    def repr(self):
-        return 'Tag: #%s' % (self.valu,)
 
 class RelProp(Value):
 
@@ -1107,17 +1381,19 @@ class EditNodeAdd(Edit):
 
     async def run(self, runt, genr):
 
+        async for node, path in genr:
+            yield node, path
+
         name = self.kids[0].value()
-        formtype = runt.snap.model.types.get(name)
-
-        async for item in genr:
-            yield item
-
         runt.allowed('node:add', name)
 
-        kval = self.kids[1].runtval(runt)
+        form = runt.snap.model.forms.get(name)
+        if form is None:
+            raise s_exc.NoSuchForm(name=name)
 
-        for valu in formtype.getTypeVals(kval):
+        valu = self.kids[1].runtval(runt)
+
+        for valu in form.type.getTypeVals(valu):
             node = await runt.snap.addNode(name, valu)
             yield node, runt.initPath(node)
 
@@ -1129,7 +1405,7 @@ class EditPropSet(Edit):
 
         async for node, path in genr:
 
-            valu = self.kids[1].compute(runt, node, path)
+            valu = await self.kids[1].compute(runt, node, path)
 
             prop = node.form.props.get(name)
             if prop is None:
@@ -1179,7 +1455,7 @@ class EditTagAdd(Edit):
 
     async def run(self, runt, genr):
 
-        name = self.kids[0].value()
+        name = self.kids[0].runtval(runt)
         hasval = len(self.kids) > 1
 
         valu = (None, None)
@@ -1191,7 +1467,7 @@ class EditTagAdd(Edit):
             runt.allowed('tag:add', *parts)
 
             if hasval:
-                valu = self.kids[1].compute(runt, node, path)
+                valu = await self.kids[1].compute(runt, node, path)
 
             await node.addTag(name, valu=valu)
 
@@ -1201,7 +1477,7 @@ class EditTagDel(Edit):
 
     async def run(self, runt, genr):
 
-        name = self.kids[0].value()
+        name = self.kids[0].runtval(runt)
         parts = name.split('.')
 
         async for node, path in genr:
@@ -1211,3 +1487,29 @@ class EditTagDel(Edit):
             await node.delTag(name)
 
             yield node, path
+
+class BreakOper(AstNode):
+
+    async def run(self, runt, genr):
+
+        # we must be a genr...
+        for _ in ():
+            yield _
+
+        async for node, path in genr:
+            raise StormBreak(item=(node, path))
+
+        raise StormBreak()
+
+class ContinueOper(AstNode):
+
+    async def run(self, runt, genr):
+
+        # we must be a genr...
+        for _ in ():
+            yield _
+
+        async for node, path in genr:
+            raise StormContinue(item=(node, path))
+
+        raise StormContinue()
