@@ -428,6 +428,7 @@ class FieldHelper(collections.defaultdict):
             if not basetype:
                 raise s_exc.BadTypeDef(valu=val, mesg='type is not present in datamodel')
             _type = basetype.clone(opts)
+        self.setdefault(key, _type)
         return _type
 
 
