@@ -1030,6 +1030,7 @@ class SynTest(unittest.TestCase):
         Assert that the length of an object is equal to X
         '''
         gtyps = (
+                 s_coro.GenrHelp,
                  s_telepath.Genr,
                  types.GeneratorType,
                  )
