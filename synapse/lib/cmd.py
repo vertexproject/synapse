@@ -25,3 +25,4 @@ class Parser(argparse.ArgumentParser):
 
         if message is not None:
             self.outp.printf(message)
+        raise s_exc.ParserExit(mesg=message, status=status)

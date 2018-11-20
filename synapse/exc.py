@@ -201,3 +201,8 @@ class DbOutOfSpace(SynErr): pass
 
 class IsReadOnly(SynErr): pass
 class RecursionLimitHit(SynErr): pass
+class ParserExit(SynErr):
+    '''
+    Raised by synapse.lib.cmd.Parser on Parser exit()
+    '''
+    pass

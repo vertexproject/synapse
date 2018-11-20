@@ -1,10 +1,12 @@
 import asyncio
 import logging
 import pathlib
+import contextlib
 import collections
 
 import synapse
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
@@ -1239,3 +1241,26 @@ class Cortex(s_cell.Cell):
             'formcounts': self.counts,
         }
         return stats
+
+
+@contextlib.contextmanager
+def getTempCortex(mods=None):
+    '''
+    Get a proxy to a cortex backed by a temporary directory.
+
+    Args:
+        mods (list): A list of modules which are loaded into the cortex.
+
+    Notes:
+        The cortex and temporary directory are town down on exit.
+
+    Returns:
+        Proxy to the cortex.
+    '''
+    with s_common.getTempDir() as dirn:
+        with s_coro.AsyncToSyncCMgr(s_glob.sync, Cortex.anit(dirn)) as core:
+            if mods:
+                for mod in mods:
+                    s_glob.sync(core.loadCoreModule(mod))
+            with s_coro.AsyncToSyncCMgr(core.getLocalProxy) as prox:
+                yield prox
