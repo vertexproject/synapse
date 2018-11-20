@@ -1,11 +1,12 @@
 import synapse.exc as s_exc
+import synapse.datamodel as s_datamodel
 import synapse.tests.utils as s_t_utils
 import synapse.lib.syntax as s_syntax
 
 class StormSyntaxTest(s_t_utils.SynTest):
 
     def test_storm_syntax_basic(self):
-        insts = s_syntax.parse('foo("lol",bar=20) baz(10,faz="lol")')
+        insts = s_syntax.parse('''foo("lol",bar=20) baz(10, faz="lol")''')
 
         self.eq(insts[0][0], 'foo')
         self.eq(insts[0][1]['args'][0], 'lol')
@@ -30,6 +31,9 @@ class StormSyntaxTest(s_t_utils.SynTest):
 
         ###########################################################
         insts = s_syntax.parse('foo:bar="woot"')
+        self.eq(insts[0], s_syntax.oper('lift', 'foo:bar', 'woot', by='eq'))
+
+        insts = s_syntax.parse("foo:bar='woot'")
         self.eq(insts[0], s_syntax.oper('lift', 'foo:bar', 'woot', by='eq'))
 
         ###########################################################
@@ -180,3 +184,40 @@ class StormSyntaxTest(s_t_utils.SynTest):
 
     def test_lib_syntax_term(self):
         self.raises(s_exc.BadSyntaxError, s_syntax.parse, '}')
+
+    async def test_lib_syntax_query(self):
+        async with self.getTestCore() as core:
+            def q(text):
+                parseinfo = {
+                    'stormcmds': list(core.stormcmds.keys()),
+                    'modelinfo': core.model.getModelInfo(),
+                }
+                retn = s_syntax.Parser(parseinfo, text).query()
+                retn.init(core)
+                return retn
+            self.len(1, q('teststr=4').kids)
+            self.len(1, q('teststr="4"').kids)
+            self.len(1, q("teststr='4'").kids)
+            self.len(2, q('inet:ipv4=1.2.3.0/24 +{ :asn -> inet:asn +:name~="visi k" }').kids)
+            self.raises(s_exc.BadStormSyntax, q, '[x&f]')
+
+    async def test_lib_syntax_query_client(self):
+        '''
+        Make sure we can do Parser stuff on client
+        '''
+        async with self.getTestDmon(mirror='dmoncore') as dmon, \
+                await self.agetTestProxy(dmon, 'core') as core:
+
+            parseinfo = await s_syntax.getRemoteParseInfo(core)
+            retn = s_syntax.Parser(parseinfo, 'teststr=4').query()
+            retn.init(core)
+            return retn
+
+    async def test_lib_syntax_stormcmd(self):
+        async with self.getTestCore() as core:
+            parseinfo = {
+                'stormcmds': list(core.stormcmds.keys()),
+                'modelinfo': core.model.getModelInfo(),
+            }
+            retn = s_syntax.Parser(parseinfo, ('''cmd.cmd 'he{}o' "o'leary" {[teststr='foo']}''')).stormcmd()
+            self.eq(retn, ['cmd.cmd', 'he{}o', "o'leary", "{[teststr='foo']}"])

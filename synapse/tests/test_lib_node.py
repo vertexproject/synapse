@@ -55,7 +55,7 @@ class NodeTest(s_t_utils.SynTest):
                 node = await snap.addNode(form, valu, props=props)
 
                 self.false(await node.set('tick', 12345))
-                self.none(await node.set('tick', 123456))
+                self.true(await node.set('tick', 123456))
                 await self.asyncraises(s_exc.NoSuchProp, node.set('notreal', 12345))
 
                 ronode = await snap.addNode('testcomp', (1, 's'))
