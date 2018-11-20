@@ -1,21 +1,14 @@
 import os
 import sys
 import time
-import types
-import shutil
 import logging
 import argparse
-import tempfile
-import contextlib
 
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
-import synapse.lib.coro as s_coro
-import synapse.lib.const as s_const
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 
@@ -86,19 +79,11 @@ def main(argv, outp=None):
                     f' to get to that location in the input file.')
 
     if opts.test:
-
-        with s_common.getTempDir() as dirn:
-
-            with s_coro.AsyncToSyncCMgr(s_glob.sync, s_cortex.Cortex.anit(dirn)) as core:
-                for mod in opts.modules:
-                    outp.printf(f'Loading [{mod}]')
-                    s_glob.sync(core.loadCoreModule(mod))
-
-                with s_coro.AsyncToSyncCMgr(core.getLocalProxy) as prox:
-                    addFeedData(prox, outp, opts.format, opts.debug,
-                                chunksize=opts.chunksize,
-                                offset=opts.offset,
-                                *opts.files)
+        with s_cortex.getTempCortex(opts.modules) as prox:
+            addFeedData(prox, outp, opts.format, opts.debug,
+                        chunksize=opts.chunksize,
+                        offset=opts.offset,
+                        *opts.files)
 
     elif opts.cortex:
         with s_telepath.openurl(opts.cortex) as core:

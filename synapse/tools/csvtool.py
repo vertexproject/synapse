@@ -3,63 +3,13 @@ import sys
 import json
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.cortex as s_cortex
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
 import synapse.lib.cmdr as s_cmdr
-import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
-
-def iterrows(csv_header=None, *paths):
-    for path in paths:
-
-        with open(path, 'r', encoding='utf8') as fd:
-
-            if csv_header:
-                fd.readline()
-
-            def genr():
-
-                for row in csv.reader(fd):
-                    yield row
-
-            for rows in s_common.chunks(genr(), 1000):
-                yield rows
-
-def addCsvData(core, outp, text, logfd, rowgenr, debug=False, cli=False):
-    newcount = 0
-    nodecount = 0
-    for rows in rowgenr:
-
-        stormopts = {
-            'vars': {'rows': rows},
-        }
-
-        for mesg in core.storm(text, opts=stormopts):
-
-            if mesg[0] == 'node:add':
-                newcount += 1
-
-            elif mesg[0] == 'node':
-                nodecount += 1
-
-            elif mesg[0] == 'err' and not debug:
-                outp.printf(repr(mesg))
-
-            if debug:
-                outp.printf(repr(mesg))
-
-            if logfd is not None:
-                byts = json.dumps(mesg).encode('utf8')
-                logfd.write(byts + b'\n')
-
-    if cli:
-        s_cmdr.runItemCmdr(core, outp)
-
-    return newcount, nodecount
 
 def main(argv, outp=s_output.stdout):
     pars = makeargparser()
@@ -71,23 +21,66 @@ def main(argv, outp=s_output.stdout):
     with open(opts.stormfile, 'r', encoding='utf8') as fd:
         text = fd.read()
 
-    rowgenr = iterrows(opts.csv_header, *opts.csvfiles)
+    def iterrows():
+        for path in opts.csvfiles:
+
+            with open(path, 'r', encoding='utf8') as fd:
+
+                if opts.csv_header:
+                    fd.readline()
+
+                def genr():
+
+                    for row in csv.reader(fd):
+                        yield row
+
+                for rows in s_common.chunks(genr(), 1000):
+                    yield rows
+
+    rowgenr = iterrows()
 
     logfd = None
     if opts.logfile is not None:
         logfd = s_common.genfile(opts.logfile)
 
+    def addCsvData(core):
+        newcount, nodecount = 0, 0
+        for rows in rowgenr:
+
+            stormopts = {
+                'vars': {'rows': rows},
+            }
+
+            for mesg in core.storm(text, opts=stormopts):
+
+                if mesg[0] == 'node:add':
+                    newcount += 1
+
+                elif mesg[0] == 'node':
+                    nodecount += 1
+
+                elif mesg[0] == 'err' and not opts.debug:
+                    outp.printf(repr(mesg))
+
+                if opts.debug:
+                    outp.printf(repr(mesg))
+
+                if logfd is not None:
+                    byts = json.dumps(mesg).encode('utf8')
+                    logfd.write(byts + b'\n')
+
+        if opts.cli:
+            s_cmdr.runItemCmdr(core, outp)
+
+        return newcount, nodecount
+
     if opts.test:
-        with s_common.getTempDir() as dirn:
-            with s_coro.AsyncToSyncCMgr(s_glob.sync, s_cortex.Cortex.anit(dirn)) as core:
-                with s_coro.AsyncToSyncCMgr(core.getLocalProxy) as prox:
-                    newcount, nodecount = addCsvData(prox, outp, text, logfd, rowgenr,
-                                                     debug=opts.debug, cli=opts.cli)
+        with s_cortex.getTempCortex() as core:
+            newcount, nodecount = addCsvData(core)
 
     else:
         with s_telepath.openurl(opts.cortex) as core:
-            newcount, nodecount = addCsvData(core, outp, text, logfd, rowgenr,
-                                             debug=opts.debug, cli=opts.cli)
+            newcount, nodecount = addCsvData(core)
 
     if logfd is not None:
         logfd.close()
