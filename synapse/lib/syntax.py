@@ -1646,15 +1646,6 @@ class Parser:
 
         return s_ast.Const(name)
 
-# decode(name)  encode(name)  split(chr) size() lower() regex() onespace()
-
-    def funccall(self):
-        self.ignore(whitespace)
-        name = s_ast.Value(self.noms(varchars))
-        self.ignore(whitespace)
-        args = s_ast.CallArgs(kids=self.valulist())
-        return s_ast.FuncCall(kids=[name, args])
-
     def varderef(self, varv):
         self.nextmust('.')
         varn = self.vartokn()

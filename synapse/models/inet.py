@@ -291,9 +291,6 @@ class IPv4(s_types.Type):
         if text.find('/') != -1:
 
             minv, maxv = self.getCidrRange(text)
-            if maxv - minv > 65535:
-                raise
-
             while minv < maxv:
                 yield minv
                 minv += 1

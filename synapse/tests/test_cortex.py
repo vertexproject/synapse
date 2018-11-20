@@ -2071,3 +2071,17 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.eval(text, opts=opts).list()
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], ('vertex.link', 0x01020304))
+
+    async def test_storm_varlist_compute(self):
+
+        async with self.getTestCore() as core:
+
+            text = '''
+                [ teststr=foo .seen=(2014,2015) ]
+                ($tick, $tock) = .seen
+                [ testint=$tick ]
+                +testint
+            '''
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 1388534400000)

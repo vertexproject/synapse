@@ -100,10 +100,6 @@ class AstNode:
     def optimize(self):
         [k.optimize() for k in self.kids]
 
-    def __iter__(self):
-        for kid in self.kids:
-            yield kid
-
 class Query(AstNode):
 
     def __init__(self, kids=()):
@@ -365,6 +361,7 @@ class VarListSetOper(Oper):
                 raise s_exc.StormVarListError(names=names, vals=item)
 
             for name, valu in zip(names, item):
+                runt.vars[name] = valu
                 path.set(name, valu)
 
             yield node, path
