@@ -41,7 +41,7 @@ class CsvToolTest(s_t_utils.SynTest):
 
                 podes = []
 
-                argv = ['--csv-header', '--debug', '--logfile', logpath, url, stormpath, csvpath]
+                argv = ['--csv-header', '--debug', '--cortex', url, '--logfile', logpath, stormpath, csvpath]
                 outp = self.getTestOutp()
 
                 await s_coro.executor(s_csvtool.main, argv, outp=outp)
