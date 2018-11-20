@@ -1164,28 +1164,26 @@ class Parser:
         if not name:
             self._raiseSyntaxError('unknown query syntax')
 
-        self.ignore(whitespace)
-
-        # before ignoring more whitespace, check for form#tag=time
         if self.modelinfo.isprop(name):
+
+            # before ignoring more whitespace, check for form#tag[=time]
             if self.nextstr('#'):
 
-            tag = self.tagname()
-            form = s_ast.Const(name)
+                tag = self.tagname()
+                form = s_ast.Const(name)
 
                 self.ignore(whitespace)
 
-                if self.nextchar() not in cmprstart:
-                    return s_ast.LiftFormTag(kids=(form, tag))
+                kids = [form, tag]
 
-                cmpr = self.cmpr()
+                if self.nextchar() in cmprstart:
+                    kids.append(self.cmpr())
+                    kids.append(self.valu())
 
-                self.ignore(whitespace)
+                return s_ast.LiftFormTag(kids=kids)
 
-                valu = self.valu()
+            self.ignore(whitespace)
 
-        if self.model.props.get(name) is not None:
-            # we have a prop <cmpr> <valu>!
             if self.nextchar() in cmprstart:
 
                 cmpr = self.cmpr()
@@ -1218,7 +1216,7 @@ class Parser:
             return s_ast.LiftByScrape(ndefs)
 
         self.offs = noff
-        raise s_exc.NoSuchProp(name=tokn)
+        raise s_exc.NoSuchProp(name=name)
 
     def casevalu(self):
 
