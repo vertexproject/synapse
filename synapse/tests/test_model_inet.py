@@ -973,7 +973,7 @@ class InetModelTest(s_t_utils.SynTest):
         url = f'https://user:password@{host_port}:1234/a/b/c/'
         expected = (f'https://user:password@{repr_host_port}:1234/a/b/c/', {'subs': {
             'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 1234,
-            'base': f'https://user:password@{repr_host_port}:1234/a/b/c/', 
+            'base': f'https://user:password@{repr_host_port}:1234/a/b/c/',
             'params': ''
         }})
         self.eq(t.norm(url), expected)
