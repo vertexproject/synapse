@@ -979,7 +979,6 @@ class Axon(s_cell.Cell):
 
                 async def clone_and_next():
                     ''' Get the async generator and the first item of that generator '''
-                    breakpoint()
                     genr = await blobstor.clone(cur_offset, timeout=CLONE_TIMEOUT, include_contents=False)
                     try:
                         if genr is None:

@@ -12,9 +12,7 @@ import synapse.lib.layer as s_layer
 logger = logging.getLogger(__name__)
 
 PASSTHROUGHFUNCS = (
-    'commit', 'getBuidProps',
-    'getOffset', 'setOffset',
-    'stat', 'initdb', 'stor', 'splicelist_append',
+    'commit', 'getBuidProps', 'getOffset', 'setOffset', 'stat', 'initdb', 'stor', 'splicelistAppend',
 )
 
 ASYNCGENFUNCS = (
@@ -42,15 +40,6 @@ class RemoteLayer(s_layer.Layer):
 
         for funcname in PASSTHROUGHFUNCS:
             setattr(self, funcname, getattr(self.remote, funcname))
-
-        # for funcname in ASYNCGENFUNCS:
-        #     async def f(func, *args, **kwargs):
-        #         async for item in await f(*args, **kwargs):
-        #             breakpoint()
-        #             yield item
-        #     breakpoint()
-        #     newmeth = functools.partial(f, getattr(self.remote, funcname))
-        #     setattr(self, funcname, newmeth)
 
     # Hack to get around issue that telepath is not async-generator-transparent
 

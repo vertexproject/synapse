@@ -462,7 +462,7 @@ class Snap(s_base.Base):
         await self.fire(name, **info)
 
         mesg = (name, info)
-        await self.wlyr.splicelist_append(mesg)
+        await self.wlyr.splicelistAppend(mesg)
 
         return (name, info)
 

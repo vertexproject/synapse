@@ -27,7 +27,7 @@ class LayerApi(s_cell.PassThroughApi):
     allowed_methods = [
         'getLiftRows', 'stor', 'commit', 'abort', 'getBuidProps',
         'iterFormRows', 'iterPropRows', 'iterUnivRows', 'getOffset',
-        'setOffset', 'initdb', 'splicelist_append', 'splices', 'stat'
+        'setOffset', 'initdb', 'splicelistAppend', 'splices', 'stat'
     ]
 
 class Layer(s_cell.Cell):
@@ -66,7 +66,7 @@ class Layer(s_cell.Cell):
         self.splicelist = []
         self.onfini(self.spliced.set)
 
-    async def splicelist_append(self, mesg):
+    async def splicelistAppend(self, mesg):
         self.splicelist.append(mesg)
 
     async def getLiftRows(self, lops):
