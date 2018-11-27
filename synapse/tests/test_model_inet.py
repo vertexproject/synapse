@@ -899,17 +899,19 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('fqdn'), 'vertex.link')
                 self.eq(node.get('passwd'), 'hunter2')
-                self.eq(node.get('path'), '/coolthings?a=1')
+                self.eq(node.get('path'), '/coolthings')
                 self.eq(node.get('port'), 1337)
                 self.eq(node.get('proto'), 'https')
                 self.eq(node.get('user'), 'vertexmc')
+                self.eq(node.get('base'), 'https://vertexmc:hunter2@vertex.link:1337/coolthings')
+                self.eq(node.get('params'), '?a=1')
 
                 valu = 'https://vertex.link?a=1'
                 expected_ndef = (formname, valu)
                 node = await snap.addNode(formname, valu)
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('fqdn'), 'vertex.link')
-                self.eq(node.get('path'), '?a=1')
+                self.eq(node.get('path'), '')
 
     async def test_url_fqdn(self):
 
@@ -970,15 +972,19 @@ class InetModelTest(s_t_utils.SynTest):
         # URL with auth and port.
         url = f'https://user:password@{host_port}:1234/a/b/c/'
         expected = (f'https://user:password@{repr_host_port}:1234/a/b/c/', {'subs': {
-            'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 1234
+            'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 1234,
+            'base': f'https://user:password@{repr_host_port}:1234/a/b/c/', 
+            'params': ''
         }})
         self.eq(t.norm(url), expected)
 
         # URL with no port, but default port valu.
         # Port should be in subs, but not normed URL.
-        url = f'https://user:password@{host}/a/b/c/'
-        expected = (f'https://user:password@{repr_host}/a/b/c/', {'subs': {
-            'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 443
+        url = f'https://user:password@{host}/a/b/c/?foo=bar&baz=faz'
+        expected = (f'https://user:password@{repr_host}/a/b/c/?foo=bar&baz=faz', {'subs': {
+            'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 443,
+            'base': f'https://user:password@{repr_host}/a/b/c/',
+            'params': '?foo=bar&baz=faz',
         }})
         self.eq(t.norm(url), expected)
 
@@ -986,7 +992,9 @@ class InetModelTest(s_t_utils.SynTest):
         # Port should not be in subs or normed URL.
         url = f'arbitrary://user:password@{host}/a/b/c/'
         expected = (f'arbitrary://user:password@{repr_host}/a/b/c/', {'subs': {
-            'proto': 'arbitrary', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host
+            'proto': 'arbitrary', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host,
+            'base': f'arbitrary://user:password@{repr_host}/a/b/c/',
+            'params': '',
         }})
         self.eq(t.norm(url), expected)
 
@@ -994,7 +1002,9 @@ class InetModelTest(s_t_utils.SynTest):
         # User should still be in URL and subs.
         url = f'https://user@{host_port}:1234/a/b/c/'
         expected = (f'https://user@{repr_host_port}:1234/a/b/c/', {'subs': {
-            'proto': 'https', 'path': '/a/b/c/', 'user': 'user', htype: norm_host, 'port': 1234
+            'proto': 'https', 'path': '/a/b/c/', 'user': 'user', htype: norm_host, 'port': 1234,
+            'base': f'https://user@{repr_host_port}:1234/a/b/c/',
+            'params': '',
         }})
         self.eq(t.norm(url), expected)
 
@@ -1002,21 +1012,27 @@ class InetModelTest(s_t_utils.SynTest):
         # User/Password should not be in URL or subs.
         url = f'https://{host_port}:1234/a/b/c/'
         expected = (f'https://{repr_host_port}:1234/a/b/c/', {'subs': {
-            'proto': 'https', 'path': '/a/b/c/', htype: norm_host, 'port': 1234
+            'proto': 'https', 'path': '/a/b/c/', htype: norm_host, 'port': 1234,
+            'base': f'https://{repr_host_port}:1234/a/b/c/',
+            'params': '',
         }})
         self.eq(t.norm(url), expected)
 
         # URL with no path.
         url = f'https://{host_port}:1234'
         expected = (f'https://{repr_host_port}:1234', {'subs': {
-            'proto': 'https', 'path': '', htype: norm_host, 'port': 1234
+            'proto': 'https', 'path': '', htype: norm_host, 'port': 1234,
+            'base': f'https://{repr_host_port}:1234',
+            'params': '',
         }})
         self.eq(t.norm(url), expected)
 
         # URL with no path or port or default port.
         url = f'a://{host}'
         expected = (f'a://{repr_host}', {'subs': {
-            'proto': 'a', 'path': '', htype: norm_host
+            'proto': 'a', 'path': '', htype: norm_host,
+            'base': f'a://{repr_host}',
+            'params': '',
         }})
         self.eq(t.norm(url), expected)
 
