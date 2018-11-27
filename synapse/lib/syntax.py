@@ -1562,7 +1562,7 @@ class Parser:
         self.ignore(whitespace)
 
         if not self.nextstr('.'):
-            self._raiseBadSyntax('universal property expected .')
+            self._raiseSyntaxError('universal property expected .')
 
         name = self.noms(varset)
 
