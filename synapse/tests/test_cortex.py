@@ -2206,3 +2206,17 @@ class CortexTest(s_t_utils.SynTest):
             self.none(alldefs.get(('inet:asn', 20)))
             self.none(alldefs.get(('syn:tag', 'nope')))
             self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
+
+    async def test_stormvar_reserved_node(self):
+        async with self.getTestDmon(mirror='dmoncore') as dmon, \
+                await self.agetTestProxy(dmon, 'core') as core:
+
+            q = '[teststr=clowntown teststr=pennywise]'
+            podes = await alist(await core.eval(q))
+            for pode in podes:
+                print(pode)
+
+            q = 'teststr=clowntown [testedge=($.node.ndef, (teststr, pennywise))]'
+            podes = await alist(await core.eval(q))
+            for pode in podes:
+                print(pode)

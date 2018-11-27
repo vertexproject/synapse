@@ -97,6 +97,7 @@ testmodel = {
         ('testint', ('int', {}), {}),
         ('teststr', ('str', {}), {}),
         ('testauto', ('str', {}), {}),
+        ('testedge', ('edge', {}), {}),
         ('testguid', ('guid', {}), {}),
 
         ('testcomp', ('comp', {'fields': (
@@ -155,6 +156,13 @@ testmodel = {
         ('testint', {}, (
             ('loc', ('loc', {}), {}),
         )),
+
+        ('testedge', {}, (
+                    ('n1', ('ndef', {}), {'ro': 1}),
+                    ('n1:form', ('str', {}), {'ro': 1}),
+                    ('n2', ('ndef', {}), {'ro': 1}),
+                    ('n2:form', ('str', {}), {'ro': 1}),
+                )),
 
         ('testguid', {}, (
             ('tick', ('testtime', {}), {}),

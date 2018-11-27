@@ -639,7 +639,6 @@ class Parser:
     '''
 
     def __init__(self, parseinfo, text, offs=0):
-
         '''
         Args:
             parseinfo (dict): information about the cortex returned via getParseInfo
@@ -1643,6 +1642,12 @@ class Parser:
         self.nextmust('$')
         return self.vartokn()
 
+    def resvarname(self):
+        self.ignore(whitespace)
+
+        self.nextmust('$.')
+        return self.vartokn()
+
     def vartokn(self):
 
         self.ignore(whitespace)
@@ -1669,17 +1674,25 @@ class Parser:
         $foo.bar()
         $foo[0]
         $foo.bar(10)
+        # Reserved namespaces
+        $.node.<deref>
+        $.lib.model.repr()
         '''
-
         self.ignore(whitespace)
 
-        varn = self.varname()
-        varv = s_ast.VarValue(kids=[varn])
+        if self.nextstr('$.'):
+            varn = self.resvarname()
+            varv = s_ast.ResVarValue(kids=[varn])
+
+        else:
+            varn = self.varname()
+            varv = s_ast.VarValue(kids=[varn])
 
         # handle derefs and calls...
         while self.more():
 
             if self.nextstr('.'):
+
                 varv = self.varderef(varv)
                 continue
 

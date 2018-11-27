@@ -736,3 +736,13 @@ def config(conf, confdefs):
         conf.setdefault(name, info.get('defval'))
 
     return conf
+
+def tupleize(obj):
+    '''
+    Convert list objects to tuples in a nested python struct.
+    '''
+    if isinstance(obj, (list, tuple)):
+        return tuple([tupleize(o) for o in obj])
+    if isinstance(obj, dict):
+        return {k: tupleize(v) for k, v in obj.items()}
+    return obj

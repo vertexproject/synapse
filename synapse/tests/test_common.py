@@ -210,3 +210,28 @@ class CommonTest(s_t_utils.SynTest):
             robj = s_common.yamlload(dirn, 'test.yaml')
             obj['bar'] = 42
             self.eq(obj, robj)
+
+    def test_tuplize(self):
+        tv = ['node', [['teststr', 'test'],
+                       {'tags': {
+                           'beep': [None, None],
+                           'beep.boop': [0x01020304, 0x01020305]
+                       },
+                           'props': {
+                               'tick': 0x01020304,
+                               'tock': ['hehe', ['haha', 1]]
+                           }}]]
+        ev = ('node', (('teststr', 'test'),
+                       {'tags': {
+                           'beep': (None, None),
+                           'beep.boop': (0x01020304, 0x01020305)
+                       },
+                           'props': {
+                               'tick': 0x01020304,
+                               'tock': ('hehe', ('haha', 1))
+                           }}))
+
+        self.eq(ev, s_common.tupleize(tv))
+        tv = ('foo', ['bar', 'bat'])
+        ev = ('foo', ('bar', 'bat'))
+        self.eq(ev, s_common.tupleize(tv))

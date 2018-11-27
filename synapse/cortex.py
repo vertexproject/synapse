@@ -370,6 +370,9 @@ class Cortex(s_cell.Cell):
         self.modules = {}
         self.feedfuncs = {}
 
+        self.resvars = {}
+        self._initResVars()
+
         self.stormcmds = {}
         self.stormrunts = {}
 
@@ -433,6 +436,14 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
         self.addStormCmd(s_storm.NoderefsCmd)
+
+    def _initResVars(self):
+        self.resvars['node'] = self._resVarNode
+
+    def _resVarNode(self, runt, node, path):
+        if node is None:
+            raise s_exc.StormRuntimeError(mesg='resVarNode requires a Node.')
+        return node
 
     def _initFormCounts(self):
 
