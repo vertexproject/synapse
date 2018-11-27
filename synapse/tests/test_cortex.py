@@ -2213,10 +2213,10 @@ class CortexTest(s_t_utils.SynTest):
 
             q = '[teststr=clowntown teststr=pennywise]'
             podes = await alist(await core.eval(q))
-            for pode in podes:
-                print(pode)
+            self.len(2, podes)
 
-            q = 'teststr=clowntown [testedge=($.node.ndef, (teststr, pennywise))]'
+            q = 'teststr [testedge=($.node.ndef, (testint, 31337))] -teststr'
             podes = await alist(await core.eval(q))
-            for pode in podes:
-                print(pode)
+            self.len(2, podes)
+
+            await self.agenlen(2, await core.eval('testint=31337 -> testedge:n2'))
