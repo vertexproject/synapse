@@ -14,7 +14,11 @@ setup(
     packages=find_packages(exclude=['scripts',
                                     ]),
 
-    include_package_data=True,
+    package_data={
+        'synapse': [
+            'data/*.mpk',
+        ],
+    },
 
     install_requires=[
         'pyOpenSSL>=16.2.0,<18.0.0',
