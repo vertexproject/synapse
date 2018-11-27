@@ -371,6 +371,7 @@ class Cortex(s_cell.Cell):
         self.feedfuncs = {}
 
         self.resvars = {}
+        self.resvars_runtsafe = {}
         self._initResVars()
 
         self.stormcmds = {}
@@ -439,6 +440,7 @@ class Cortex(s_cell.Cell):
 
     def _initResVars(self):
         self.resvars['node'] = self._resVarNode
+        self.resvars_runtsafe['node'] = False
 
     def _resVarNode(self, runt, node, path):
         if node is None:

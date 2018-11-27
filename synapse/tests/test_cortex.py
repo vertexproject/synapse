@@ -2220,3 +2220,13 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, podes)
 
             await self.agenlen(2, await core.eval('testint=31337 -> testedge:n2'))
+
+            q = 'teststr=clowntown $foo=$.node.form [teststr=$foo] -teststr=clowntown'
+            podes = await alist(await core.eval(q))
+            self.len(1, podes)
+            self.eq(podes[0][0], ('teststr', 'teststr'))
+
+            q = 'testint=31337 $foo=$.node.valu [teststr=$foo] -testint'
+            podes = await alist(await core.eval(q))
+            self.len(1, podes)
+            self.eq(podes[0][0], ('teststr', '31337'))
