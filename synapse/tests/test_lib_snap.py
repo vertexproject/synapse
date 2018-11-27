@@ -83,9 +83,11 @@ class SnapTest(s_t_utils.SynTest):
         Notes:
             This method is broken out so subclasses can override.
         '''
+        tmp, self.alt_write_layer = self.alt_write_layer, None
         layerfn = os.path.join(first_dirn, 'layers', '000-default')
         async with self.getTestCore(extra_layers=[layerfn]) as core:
             yield core
+        self.alt_write_layer = tmp
 
     async def test_cortex_lift_layers_bad_filter(self):
         '''
