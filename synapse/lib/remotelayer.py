@@ -2,7 +2,6 @@
 The layer that exists locally (as a client) passing data requests to a remote layer
 '''
 import logging
-import functools
 
 import synapse.exc as s_exc
 import synapse.telepath as s_telepath
@@ -13,10 +12,6 @@ logger = logging.getLogger(__name__)
 
 PASSTHROUGHFUNCS = (
     'commit', 'getBuidProps', 'getOffset', 'setOffset', 'stat', 'initdb', 'stor', 'splicelistAppend',
-)
-
-ASYNCGENFUNCS = (
-    'splices'
 )
 
 class RemoteLayer(s_layer.Layer):

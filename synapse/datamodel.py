@@ -261,6 +261,7 @@ class Form:
         '''
         Fire the onAdd() callbacks for node creation.
         '''
+
         await node.snap.core.triggers.run(node, 'node:add', info={'form': self.name})
 
         for func in self.onadds:

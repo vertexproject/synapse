@@ -8,8 +8,7 @@ import synapse.tests.test_lib_layer as t_layer
 class RemoteLayerTestBase:
     def setUp(self):
         '''
-        Spin up a separate dmon that's serving up a remote LMDB layer, and set up our test layer to point to tha, and
-        set up our test layer to point to that.
+        Spin up a separate dmon that's serving up a remote LMDB layer and set up our test layer to point to that
         '''
         self.alt_write_layer = None
         self._dmonctx = self.getTestDmon(mirror='dmonlayer')
@@ -33,7 +32,8 @@ class RemoteLayerTestBase:
 
 class RemoteLayerTest(RemoteLayerTestBase, t_layer.LayerTest):
     '''
-    Note:  doesn't do anything right now, but if we ever do add layer unit tests, it will
+    Note:  doesn't do anything right now, but if we ever do add layer unit tests, this class will run those tests
+    with the RemoteLayer subclass
     '''
     pass
 
