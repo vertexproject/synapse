@@ -373,21 +373,7 @@ class Cortex(s_cell.Cell):
         self.stormcmds = {}
         self.stormrunts = {}
 
-        self.addStormCmd(s_storm.MaxCmd)
-        self.addStormCmd(s_storm.MinCmd)
-        self.addStormCmd(s_storm.HelpCmd)
-        self.addStormCmd(s_storm.IdenCmd)
-        self.addStormCmd(s_storm.SpinCmd)
-        self.addStormCmd(s_storm.SudoCmd)
-        self.addStormCmd(s_storm.UniqCmd)
-        self.addStormCmd(s_storm.CountCmd)
-        self.addStormCmd(s_storm.GraphCmd)
-        self.addStormCmd(s_storm.LimitCmd)
-        self.addStormCmd(s_storm.SleepCmd)
-        self.addStormCmd(s_storm.DelNodeCmd)
-        self.addStormCmd(s_storm.MoveTagCmd)
-        self.addStormCmd(s_storm.ReIndexCmd)
-        self.addStormCmd(s_storm.NoderefsCmd)
+        self._initStormCmd()
 
         self.splicers = {
             'node:add': self._onFeedNodeAdd,
@@ -430,6 +416,23 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    def _initStormCmd(self):
+        self.addStormCmd(s_storm.MaxCmd)
+        self.addStormCmd(s_storm.MinCmd)
+        self.addStormCmd(s_storm.HelpCmd)
+        self.addStormCmd(s_storm.IdenCmd)
+        self.addStormCmd(s_storm.SpinCmd)
+        self.addStormCmd(s_storm.SudoCmd)
+        self.addStormCmd(s_storm.UniqCmd)
+        self.addStormCmd(s_storm.CountCmd)
+        self.addStormCmd(s_storm.GraphCmd)
+        self.addStormCmd(s_storm.LimitCmd)
+        self.addStormCmd(s_storm.SleepCmd)
+        self.addStormCmd(s_storm.DelNodeCmd)
+        self.addStormCmd(s_storm.MoveTagCmd)
+        self.addStormCmd(s_storm.ReIndexCmd)
+        self.addStormCmd(s_storm.NoderefsCmd)
 
     def _initFormCounts(self):
 
