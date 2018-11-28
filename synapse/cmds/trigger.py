@@ -10,7 +10,7 @@ import synapse.lib.trigger as s_trigger
 AddHelp = '''
 Add triggers in a cortex.
 
-Syntax: triggeradd condition <object> [#tag] query
+Syntax: trigger add condition <object> [#tag] query
 
 Notes:
     Valid values for condition are:
@@ -102,7 +102,7 @@ class Trigger(s_cli.Cmd):
     a cortex such that storm queries automatically run when a particular event
     happens.
 
-    A subcommand is required.
+    A subcommand is required.  Use `trigger -h` for more detailed help.
     '''
     _cmd_name = 'trigger'
 
