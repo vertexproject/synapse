@@ -934,6 +934,20 @@ class Edge(Type):
     def indx(self, norm):
         return s_common.buid(norm)
 
+    def repr(self, norm, defval=None):
+        (n1form, n1valu), (n2form, n2valu) = norm
+        try:
+            n1repr = self.modl.type(n1form).repr(n1valu, n1valu)
+            n2repr = self.modl.type(n2form).repr(n2valu, n2valu)
+            # We are doing some arbitrary storm escaping here to make things safe.
+            # If we ever make repr behavior more universally storm safe, we will
+            # need to change calling this ourselves.
+            s = f'(({n1form}, "{s_chop.stormstring(n1repr)}"), ({n2form}, "{s_chop.stormstring(n2repr)}"))'
+            return s
+        except Exception as e:
+            logger.error(f'Edge repr issue: {norm}')
+            return defval
+
 class TimeEdge(Edge):
 
     def _normPyTuple(self, valu):
@@ -951,6 +965,22 @@ class TimeEdge(Edge):
         info['subs']['time'] = tick
 
         return (n1, n2, tick), info
+
+    def repr(self, norm, defval=None):
+        (n1form, n1valu), (n2form, n2valu), tick = norm
+        try:
+            n1repr = self.modl.type(n1form).repr(n1valu, n1valu)
+            n2repr = self.modl.type(n2form).repr(n2valu, n2valu)
+            trepr = self.modl.type('time').repr(tick)
+            # We are doing some arbitrary storm escaping here to make things safe.
+            # If we ever make repr behavior more universally storm safe, we will
+            # need to change calling this ourselves.
+            s = f'(({n1form}, "{s_chop.stormstring(n1repr)}"), ({n2form}, "{s_chop.stormstring(n2repr)}"), ' \
+                f'"{s_chop.stormstring(trepr)}")'
+            return s
+        except Exception as e:
+            logger.error(f'TimeEdge repr issue: {norm}')
+            return defval
 
 class Data(Type):
 
