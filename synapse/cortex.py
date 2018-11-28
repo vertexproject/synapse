@@ -440,7 +440,12 @@ class Cortex(s_cell.Cell):
 
     def _initResVars(self):
         self.resvars['node'] = self._resVarNode
+        self.resvars['model'] = self._resVarModel
         self.resvars_runtsafe['node'] = False
+        self.resvars_runtsafe['model'] = False
+
+    def _resVarModel(self, runt, node, path):
+        return self.model
 
     def _resVarNode(self, runt, node, path):
         if node is None:

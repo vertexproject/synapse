@@ -1451,7 +1451,6 @@ def noderepr(node):
                 return prop.type.repr(valu, valu)
             except Exception as e:
                 raise
-        return node.form.type.repr(node.ndef[1], node.ndef[1])
     return nrepr
 
 # TODO make this more sophisticated...
@@ -1507,7 +1506,7 @@ class VarCall(RunValue):
     async def compute(self, runt, node, path):
         meth = await self.kids[0].compute(runt, node, path)
         args = await self.kids[1].compute(runt, node, path)
-        return meth(*args)
+        return meth(*args, runt=runt, node=node, path=path)
 
 class VarList(Value):
     pass
