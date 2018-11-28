@@ -2208,25 +2208,24 @@ class CortexTest(s_t_utils.SynTest):
             self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
 
     async def test_stormvar_reserved_node(self):
-        async with self.getTestDmon(mirror='dmoncore') as dmon, \
-                await self.agetTestProxy(dmon, 'core') as core:
+        async with self.getTestCore() as core:
 
-            q = '[teststr=clowntown teststr=pennywise]'
-            podes = await alist(await core.eval(q))
-            self.len(2, podes)
+            text = '[teststr=clowntown teststr=pennywise]'
+            nodes = await core.eval(text).list()
+            self.len(2, nodes)
 
-            q = 'teststr [testedge=($.node.ndef, (testint, 31337))] -teststr'
-            podes = await alist(await core.eval(q))
-            self.len(2, podes)
+            text = 'teststr [testedge=($.node.ndef, (testint, 31337))] -teststr'
+            nodes = await core.eval(text).list()
+            self.len(2, nodes)
 
-            await self.agenlen(2, await core.eval('testint=31337 -> testedge:n2'))
+            self.len(2, await core.eval('testint=31337 -> testedge:n2').list())
 
-            q = 'teststr=clowntown $foo=$.node.form [teststr=$foo] -teststr=clowntown'
-            podes = await alist(await core.eval(q))
-            self.len(1, podes)
-            self.eq(podes[0][0], ('teststr', 'teststr'))
+            text = 'teststr=clowntown $foo=$.node.form [teststr=$foo] -teststr=clowntown'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('teststr', 'teststr'))
 
-            q = 'testint=31337 $foo=$.node.valu [teststr=$foo] -testint'
-            podes = await alist(await core.eval(q))
-            self.len(1, podes)
-            self.eq(podes[0][0], ('teststr', '31337'))
+            text = 'testint=31337 $foo=$.node.valu [teststr=$foo] -testint'
+            nodes = await core.eval(text).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('teststr', '31337'))
