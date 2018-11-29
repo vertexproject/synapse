@@ -84,3 +84,22 @@ def tags(norm):
     # this is ugly for speed....
     parts = norm.split('.')
     return ['.'.join(parts[:i]) for i in range(1, len(parts) + 1)]
+
+@s_cache.memoize(size=10000)
+def stormstring(s):
+    '''
+    Make a string storm safe by escaping backslashes and double quotes.
+
+    Args:
+        s (str): String to make storm safe.
+
+    Notes:
+        This does not encapsulate a string in double quotes.
+
+    Returns:
+        str: A string which can be embedded directly into a storm query.
+
+    '''
+    s = s.replace('\\', '\\\\')
+    s = s.replace('"', '\\"')
+    return s
