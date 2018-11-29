@@ -490,7 +490,7 @@ class ReIndexCmd(Cmd):
                 if subs is not None:
                     for subn, subv in subs.items():
                         if node.form.props.get(subn):
-                            await node.set(subn, subv)
+                            await node.set(subn, subv, init=True)
 
                 yield node, path
 
