@@ -59,3 +59,21 @@ class ChopTest(s_t_utils.SynTest):
         for iv, ev in tvs:
             rv = s_chop.printables(iv)
             self.eq(rv, ev)
+
+    def test_chop_stormstring(self):
+        tvs = [
+            ('', ''), # no change
+            ('beep', 'beep'), # no change
+            ('''be'ep''', '''be'ep'''),  # no change
+            ('beep"', 'beep\\"'), # Simple case
+            ('be"ep', 'be\\"ep'), # Simple case
+            ('"', '\\"'),
+            ('""', '\\"\\"'),
+            ('\\"', '\\\\\\"'),
+            ('"\\""', '\\"\\\\\\"\\"'),
+            ('\\', '\\\\'),
+            ('be\\"ep', 'be\\\\\\"ep'),
+        ]
+        for tv, ev in tvs:
+            gv = s_chop.stormstring(tv)
+            self.eq(gv, ev)
