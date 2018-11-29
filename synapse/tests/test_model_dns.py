@@ -5,6 +5,42 @@ import synapse.tests.utils as s_t_utils
 
 class DnsModelTest(s_t_utils.SynTest):
 
+    async def test_model_dns_name_type(self):
+        async with self.getTestCore() as core:
+            typ = core.model.type('inet:dns:name')
+            # ipv4 - good and newp
+            norm, info = typ.norm('4.3.2.1.in-addr.ARPA')
+            self.eq(norm, '4.3.2.1.in-addr.arpa')
+            self.eq(info.get('subs'), {'ipv4': 0x01020304})
+            norm, info = typ.norm('newp.in-addr.ARPA')
+            self.eq(norm, 'newp.in-addr.arpa')
+            self.eq(info.get('subs'), {})
+
+            # Ipv6 - good, newp, and ipv4 included
+            ipv6 = 'b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.ARPA'
+            norm, info = typ.norm(ipv6)
+            self.eq(norm, 'b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa')
+            self.eq(info.get('subs'), {'ipv6': '2001:db8::567:89ab'})
+
+            ipv6 = 'newp.2.ip6.arpa'
+            norm, info = typ.norm(ipv6)
+            self.eq(norm, 'newp.2.ip6.arpa')
+            self.eq(info.get('subs'), {})
+
+            ipv6 = '4.0.3.0.2.0.1.0.f.f.f.f.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa'
+            norm, info = typ.norm(ipv6)
+            self.eq(norm, ipv6)
+            self.eq(info.get('subs'), {'ipv6': '::ffff:1.2.3.4', 'ipv4': 0x01020304})
+
+            # fqdn and a invalid fqdn
+            norm, info = typ.norm('test.vertex.link')
+            self.eq(norm, 'test.vertex.link')
+            self.eq(info.get('subs'), {'fqdn': 'test.vertex.link'})
+
+            norm, info = typ.norm('1.2.3.4')
+            self.eq(norm, '1.2.3.4')
+            self.eq(info.get('subs'), {})
+
     async def test_model_dns_request(self):
 
         async with self.getTestCore() as core:
