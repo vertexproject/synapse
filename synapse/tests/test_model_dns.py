@@ -2,6 +2,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
+from synapse.tests.utils import alist
 
 class DnsModelTest(s_t_utils.SynTest):
 
@@ -87,6 +88,10 @@ class DnsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('query:name'), '::ffff:1.2.3.4')
                 self.eq(node.get('query:name:ipv4'), 0x01020304)
                 self.eq(node.get('query:name:ipv6'), '::ffff:1.2.3.4')
+
+                # Ensure that lift via prefix for inet:dns:name type works
+                nodes = await alist(snap.getNodesBy('inet:dns:request:query:name', 'vertex', cmpr='^='))
+                self.len(1, nodes)
 
                 # Ensure that subs are broken out for inet:dns:query
                 node = await snap.getNodeByNdef(('inet:dns:query', ('tcp://1.2.3.4', 'vertex.link', 255)))
