@@ -212,6 +212,9 @@ class DnsModule(s_module.CoreModule):
                 ('inet:dns:query', {}, (
                     ('client', ('inet:client', {}), {}),
                     ('name', ('inet:dns:name', {}), {}),
+                    ('name:ipv4', ('inet:ipv4', {}), {}),
+                    ('name:ipv6', ('inet:ipv6', {}), {}),
+                    ('name:fqdn', ('inet:fqdn', {}), {}),
                     ('type', ('int', {}), {}),
                 )),
 
@@ -221,6 +224,9 @@ class DnsModule(s_module.CoreModule):
 
                     ('query', ('inet:dns:query', {}), {}),
                     ('query:name', ('inet:dns:name', {}), {}),
+                    ('query:name:ipv4', ('inet:ipv4', {}), {}),
+                    ('query:name:ipv6', ('inet:ipv6', {}), {}),
+                    ('query:name:fqdn', ('inet:fqdn', {}), {}),
                     ('query:type', ('int', {}), {}),
 
                     ('server', ('inet:server', {}), {}),
