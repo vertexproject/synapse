@@ -46,11 +46,27 @@ class DnsName(s_types.StrBase):
                 pass
             else:
                 subs['ipv6'] = ipv6norm
-                # XXX Do we also want to be pulling out the ipv4 sub?
                 ipv4 = info.get('subs').get('ipv4')
                 if ipv4 is not None:
                     subs['ipv4'] = ipv4
         else:
+            # Try fallbacks to parse out possible ipv4/ipv6 garbage queries
+            try:
+                ipv4norm, info = self.modl.type('inet:ipv4').norm(norm)
+            except s_exc.BadTypeValu as e:
+                try:
+                    ipv6norm, info = self.modl.type('inet:ipv6').norm(norm)
+                except s_exc.BadTypeValu as e2:
+                    pass
+                else:
+                    subs['ipv6'] = ipv6norm
+                    ipv4 = info.get('subs').get('ipv4')
+                    if ipv4 is not None:
+                        subs['ipv4'] = ipv4
+            else:
+                subs['ipv4'] = ipv4norm
+
+            # Lastly, try give the norm'd valu a shot as an inet:fqdn
             try:
                 fqdnnorm, info = self.modl.type('inet:fqdn').norm(norm)
             except s_exc.BadTypeValu as e:

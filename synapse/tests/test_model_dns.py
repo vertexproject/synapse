@@ -39,7 +39,15 @@ class DnsModelTest(s_t_utils.SynTest):
 
             norm, info = typ.norm('1.2.3.4')
             self.eq(norm, '1.2.3.4')
-            self.eq(info.get('subs'), {})
+            self.eq(info.get('subs'), {'ipv4': 0x01020304})
+
+            norm, info = typ.norm('::FFFF:1.2.3.4')
+            self.eq(norm, '::ffff:1.2.3.4')
+            self.eq(info.get('subs'), {'ipv6': '::ffff:1.2.3.4', 'ipv4': 0x01020304})
+
+            norm, info = typ.norm('::1')
+            self.eq(norm, '::1')
+            self.eq(info.get('subs'), {'ipv6': '::1'})
 
     async def test_model_dns_request(self):
 
