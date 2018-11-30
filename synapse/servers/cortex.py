@@ -8,6 +8,8 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 
+import synapse.lib.output as s_output
+
 teleport = os.getenv('SYN_CORTEX_PORT', '27492')
 telehost = os.getenv('SYN_CORTEX_HOST', '127.0.0.1')
 
@@ -17,7 +19,7 @@ telehost = os.getenv('SYN_CORTEX_HOST', '127.0.0.1')
 #httpsport = os.getenv('SYN_CORTEX_HTTPS_PORT', '443')
 #httpshost = os.getenv('SYN_CORTEX_HTTPS_HOST', '127.0.0.1')
 
-def main(argv):
+def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
 
@@ -28,11 +30,11 @@ def main(argv):
 
     opts = pars.parse_args(argv)
 
-    dmon = s_glob.sync(mainopts(opts))
+    dmon = s_glob.sync(mainopts(opts, outp=outp))
 
     return dmon.main()
 
-async def mainopts(opts):
+async def mainopts(opts, outp=s_output.stdout):
 
     proto = 'tcp'
 
@@ -42,7 +44,7 @@ async def mainopts(opts):
         'listen': lisn,
     }
 
-    print('starting cortex at: %s' % (lisn,))
+    outp.printf('starting cortex at: %s' % (lisn,))
 
     path = s_common.gendir(opts.coredir, 'dmon')
 
