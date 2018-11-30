@@ -599,6 +599,10 @@ class PivotOut(PivotOper):
                 if pivo is None:
                     continue
 
+                # avoid self references
+                if pivo.buid == node.buid:
+                    continue
+
                 yield pivo, path.fork(pivo)
 
 class PivotToTags(PivotOper):

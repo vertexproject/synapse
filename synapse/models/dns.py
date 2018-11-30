@@ -1,10 +1,95 @@
+import synapse.exc as s_exc
+
+import synapse.lib.types as s_types
 import synapse.lib.module as s_module
+
+class DnsName(s_types.StrBase):
+
+    def postTypeInit(self):
+
+        s_types.StrBase.postTypeInit(self)
+
+        self.setNormFunc(str, self._normPyStr)
+
+    def indxByPref(self, valu):
+        valu = valu.lower()
+        valu = valu.strip()
+        return s_types.StrBase.indxByPref(self, valu)
+
+    def _normPyStr(self, valu):
+        # Backwards compatible
+        norm = valu.lower()
+        norm = norm.strip()
+        # Break out fqdn / ipv4 / ipv6 subs :D
+        subs = {}
+        # ipv4
+        inarpa = '.in-addr.arpa'
+        inarpa6 = '.ip6.arpa'
+        if norm.endswith(inarpa):
+            # Strip, reverse, check if ipv4
+            temp = norm[:-len(inarpa)]
+            temp = '.'.join(temp.split('.')[::-1])
+            try:
+                ipv4norm, info = self.modl.type('inet:ipv4').norm(temp)
+            except s_exc.BadTypeValu as e:
+                pass
+            else:
+                subs['ipv4'] = ipv4norm
+        elif norm.endswith(inarpa6):
+            parts = [c for c in norm[:-len(inarpa6)][::-1] if c != '.']
+            try:
+                if len(parts) != 32:
+                    raise s_exc.BadTypeValu
+                temp = int(''.join(parts), 16)
+                ipv6norm, info = self.modl.type('inet:ipv6').norm(temp)
+            except s_exc.BadTypeValu as e:
+                pass
+            else:
+                subs['ipv6'] = ipv6norm
+                ipv4 = info.get('subs').get('ipv4')
+                if ipv4 is not None:
+                    subs['ipv4'] = ipv4
+        else:
+            # Try fallbacks to parse out possible ipv4/ipv6 garbage queries
+            try:
+                ipv4norm, info = self.modl.type('inet:ipv4').norm(norm)
+            except s_exc.BadTypeValu as e:
+                try:
+                    ipv6norm, info = self.modl.type('inet:ipv6').norm(norm)
+                except s_exc.BadTypeValu as e2:
+                    pass
+                else:
+                    subs['ipv6'] = ipv6norm
+                    ipv4 = info.get('subs').get('ipv4')
+                    if ipv4 is not None:
+                        subs['ipv4'] = ipv4
+            else:
+                subs['ipv4'] = ipv4norm
+
+            # Lastly, try give the norm'd valu a shot as an inet:fqdn
+            try:
+                fqdnnorm, info = self.modl.type('inet:fqdn').norm(norm)
+            except s_exc.BadTypeValu as e:
+                pass
+            else:
+                subs['fqdn'] = fqdnnorm
+
+        return norm, {'subs': subs}
 
 class DnsModule(s_module.CoreModule):
 
     def getModelDefs(self):
 
         modl = {
+
+            'ctors': (
+
+                ('inet:dns:name', 'synapse.models.dns.DnsName', {}, {
+                    'doc': 'A DNS query name string. Likely an FQDN but not always.',
+                    'ex': 'XXX'  # XXX Example!
+                }),
+
+            ),
 
             'types': (
 
@@ -45,9 +130,6 @@ class DnsModule(s_module.CoreModule):
 
                 ('inet:dns:type', ('int', {}), {
                     'doc': 'A DNS query/answer type integer.'}),
-
-                ('inet:dns:name', ('str', {'lower': True, 'strip': True}), {
-                    'doc': 'A DNS query name string.  Likely an FQDN but not always.'}),
 
                 ('inet:dns:query',
                     ('comp', {'fields': (('client', 'inet:client'), ('name', 'inet:dns:name'), ('type', 'int'))}), {
@@ -130,6 +212,9 @@ class DnsModule(s_module.CoreModule):
                 ('inet:dns:query', {}, (
                     ('client', ('inet:client', {}), {}),
                     ('name', ('inet:dns:name', {}), {}),
+                    ('name:ipv4', ('inet:ipv4', {}), {}),
+                    ('name:ipv6', ('inet:ipv6', {}), {}),
+                    ('name:fqdn', ('inet:fqdn', {}), {}),
                     ('type', ('int', {}), {}),
                 )),
 
@@ -139,6 +224,9 @@ class DnsModule(s_module.CoreModule):
 
                     ('query', ('inet:dns:query', {}), {}),
                     ('query:name', ('inet:dns:name', {}), {}),
+                    ('query:name:ipv4', ('inet:ipv4', {}), {}),
+                    ('query:name:ipv6', ('inet:ipv6', {}), {}),
+                    ('query:name:fqdn', ('inet:fqdn', {}), {}),
                     ('query:type', ('int', {}), {}),
 
                     ('server', ('inet:server', {}), {}),

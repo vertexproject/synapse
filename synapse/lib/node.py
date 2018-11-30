@@ -484,7 +484,11 @@ class Node:
                     mesg = 'Nodes still have this tag.'
                     return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 
-            async for _ in self.snap._getNodesByType(formname, formvalu, addform=False):
+            async for refr in self.snap._getNodesByType(formname, formvalu, addform=False):
+
+                if refr.buid == self.buid:
+                    continue
+
                 mesg = 'Other nodes still refer to this node.'
                 return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 
