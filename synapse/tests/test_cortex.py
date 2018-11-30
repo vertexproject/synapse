@@ -268,6 +268,8 @@ class CortexTest(s_t_utils.SynTest):
             self.ge(data[1][1].get('time'), 0)
 
     async def test_splice_sync(self):
+        # Save off the alternative write layer because we only want the source cortex to use that
+        saved_alt, self.alt_write_layer = self.alt_write_layer, None
         async with self.getTestDmon(mirror='dmoncore') as dst_dmon:
             name = 'core'
             host, port = dst_dmon.addr
@@ -279,6 +281,8 @@ class CortexTest(s_t_utils.SynTest):
                 evt.set()
 
             dst_core.model.form('teststr').onAdd(onAdd)
+
+            self.alt_write_layer = saved_alt
 
             # Spin up a source core configured to send splices to dst core
             with self.getTestDir() as dirn:
@@ -293,7 +297,7 @@ class CortexTest(s_t_utils.SynTest):
                         await snap.addNode('teststr', 'teehee')
                         self.nn(await snap.getNodeByNdef(('teststr', 'teehee')))
 
-                    await waiter.wait(timeout=3)
+                    await waiter.wait(timeout=5)
 
             self.true(await s_coro.event_wait(evt, timeout=3))
             # Now that the src core is closed, make sure that the node exists

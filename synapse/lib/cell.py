@@ -205,6 +205,23 @@ class CellApi(s_base.Base):
 
         return (role.name, info)
 
+class PassThroughApi(CellApi):
+    '''
+    Class that passes through methods made on it to its cell.
+    '''
+    allowed_methods = []  # type: ignore
+
+    async def __anit__(self, cell, link):
+        await CellApi.__anit__(self, cell, link)
+
+        for f in self.allowed_methods:
+            # N.B. this curious double nesting is due to Python's closure mechanism (f is essentially captured by name)
+            def funcapply(f):
+                def func(*args, **kwargs):
+                    return getattr(cell, f)(*args, **kwargs)
+                return func
+            setattr(self, f, funcapply(f))
+
 bootdefs = (
 
     # ('cell:name', {
