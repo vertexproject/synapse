@@ -6,7 +6,6 @@ import hashlib
 import logging
 import binascii
 import tempfile
-import functools
 import concurrent
 import contextlib
 
@@ -61,23 +60,6 @@ def _find_hash(curs, key):
     if not curs.set_range(key):
         return False
     return curs.key()[:len(key)] == key
-
-class PassThroughApi(s_cell.CellApi):
-    '''
-    Class that passes through methods made on it to its cell.
-    '''
-    allowed_methods = []  # type: ignore
-
-    async def __anit__(self, cell, link):
-        await s_cell.CellApi.__anit__(self, cell, link)
-
-        for f in self.allowed_methods:
-            # N.B. this curious double nesting is due to Python's closure mechanism (f is essentially captured by name)
-            def funcapply(f):
-                def func(*args, **kwargs):
-                    return getattr(cell, f)(*args, **kwargs)
-                return func
-            setattr(self, f, funcapply(f))
 
 class IncrementalTransaction(s_eventbus.EventBus):
     '''
@@ -411,7 +393,7 @@ class _BlobStorWriter(s_base.Base):
         rv = await self.complete(wcid, wait_for_result)
         return rv
 
-class BlobStorApi(PassThroughApi):
+class BlobStorApi(s_cell.PassThroughApi):
 
     allowed_methods = ['clone', 'stat', 'metrics', 'offset', 'bulkput', 'putone', 'putmany', 'get',
                        '_complete', '_cancel', '_partialsubmit', 'getCloneProgress']
@@ -772,12 +754,12 @@ class _ProxyKeeper(s_base.Base):
             raise s_exc.AxonBlobStorBsidChanged()
         return proxy
 
-class AxonApi(PassThroughApi):
+class AxonApi(s_cell.PassThroughApi):
     allowed_methods = ['get', 'locs', 'stat', 'wants', 'metrics', 'putone',
                        'addBlobStor', 'unwatchBlobStor', 'getBlobStors']
 
     async def __anit__(self, cell, link):
-        await PassThroughApi.__anit__(self, cell, link)
+        await s_cell.PassThroughApi.__anit__(self, cell, link)
 
         # The Axon makes new connections to each blobstor for each client.
         self._proxykeeper = await _ProxyKeeper.anit()
@@ -999,6 +981,9 @@ class Axon(s_cell.Cell):
                     ''' Get the async generator and the first item of that generator '''
                     genr = await blobstor.clone(cur_offset, timeout=CLONE_TIMEOUT, include_contents=False)
                     try:
+                        if genr is None:
+                            # This shouldn't be possible...
+                            return None, None
                         it = genr.__aiter__()
                         first_item = await it.__anext__()
                         return it, first_item
