@@ -102,25 +102,6 @@ class TestUtils(s_t_utils.SynTest):
         outp = self.getTestOutp()
         self.isinstance(outp, s_output.OutPut)
 
-        # FIXME - Test Fix Cortex helper tests
-        # # Cortex helpers
-        #
-        # with self.getRamCore() as core:
-        #     self.isinstance(core, s_cores_common.Cortex)
-        #     self.nn(core.getTufoByProp('syn:form', 'guidform'))
-        #     waiter = self.getTestWait(core, 1, 'node:add')
-        #     core.formTufoByProp('strform', 'oh hai')
-        #     self.len(1, waiter.wait())
-        #
-        # with self.getDmonCore() as core:
-        #     self.isinstance(core, s_telepath.Proxy)
-        #     self.nn(core.getTufoByProp('syn:form', 'guidform'))
-        #
-        # with self.getDirCore() as core:
-        #     self.isinstance(core, s_cores_common.Cortex)
-        #     opt = core.getConfOpt('dir')
-        #     self.true(os.path.isdir(opt))
-
     def test_syntest_logstream(self):
         with self.getLoggerStream('synapse.tests.test_utils') as stream:
             logger.error('ruh roh i am a error message')
