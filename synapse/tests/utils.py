@@ -681,10 +681,7 @@ class SynTest(unittest.TestCase):
         try:
 
             if mirror is not None:
-                if os.path.isdir(mirror):
-                    srcpath = mirror
-                else:
-                    srcpath = self.getTestFilePath(mirror)
+                srcpath = self.getTestFilePath(mirror)
                 dstpath = os.path.join(tempdir, 'mirror')
                 shutil.copytree(srcpath, dstpath)
                 yield dstpath
