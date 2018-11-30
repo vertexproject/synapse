@@ -668,10 +668,13 @@ class SynTest(unittest.TestCase):
             mirror (str): A directory to mirror into the test directory.
 
         Notes:
-            If the ``mirror`` argument is a directory, that directory will be
-            copied to the test directory. If it is not a directory, the helper
-            ``getTestFilePath`` is used to get the test directory under the
-            ``synapse/tests/files/`` directory.
+            The mirror argument is normally used to mirror test directory
+            under ``synapse/tests/files``.  This is accomplised by passing in
+            the name of the directory (such as ``testcore``) as the mirror
+            argument.
+
+            If the ``mirror`` argument is an absolute directory, that directory
+            will be copied to the test directory.
 
         Returns:
             str: The path to a temporary directory.
