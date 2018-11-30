@@ -10,11 +10,13 @@ import synapse.cryotank as s_cryotank
 
 import synapse.lib.auth as s_auth
 import synapse.lib.lmdblayer as s_lmdblayer
+import synapse.lib.remotelayer as s_remotelayer
 
 ctors = {
     'auth': s_auth.Auth,
     'axon': s_axon.Axon,
     'layer-lmdb': s_lmdblayer.LmdbLayer,
+    'layer-remote': s_remotelayer.RemoteLayer,
     'cortex': s_cortex.Cortex,
     'blobstor': s_axon.BlobStor,
     'cryocell': s_cryotank.CryoCell,

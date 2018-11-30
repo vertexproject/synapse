@@ -597,7 +597,8 @@ class Cortex(s_cell.Cell):
                             continue
 
                         size = len(items)
-                        indx = self.layer.splicelog.indx
+                        indx = (await self.layer.stat())['splicelog_indx']
+
                         perc = float(offs) / float(indx) * 100.0
 
                         logger.info('splice push: %d %d/%d (%.4f%%)', size, offs, indx, perc)
