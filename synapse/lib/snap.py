@@ -462,7 +462,7 @@ class Snap(s_base.Base):
         await self.fire(name, **info)
 
         mesg = (name, info)
-        self.wlyr.splicelist.append(mesg)
+        await self.wlyr.splicelistAppend(mesg)
 
         return (name, info)
 
@@ -562,7 +562,11 @@ class Snap(s_base.Base):
         Yields:
             (tuple): (row, node)
         '''
+        count = 0
         async for origlayer, row in rows:
+            count += 1
+            if not count % 5:
+                await asyncio.sleep(0)  # give other tasks some time
             props = {}
             buid = row[0]
             node = self.buidcache.cache.get(buid)

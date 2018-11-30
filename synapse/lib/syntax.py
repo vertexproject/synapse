@@ -705,6 +705,10 @@ class Parser:
                     self.offs += 1
                     continue
 
+                # End of subquery
+                if self.nextstr('}'):
+                    continue
+
                 self._raiseSyntaxError('expected | or end of input for cmd')
 
             # parse a query option: %foo=10
@@ -1701,11 +1705,11 @@ class Parser:
         '''
         --bar baz faz
 
-        Terminated by unescaped |
+        Terminated by unescaped | or }
         '''
         # TODO: pipe escape syntax...
         self.ignore(whitespace)
-        text = self.noms(until='|').strip()
+        text = self.noms(until='|}').strip()
         return s_ast.Const(text)
 
     def quoted(self):
