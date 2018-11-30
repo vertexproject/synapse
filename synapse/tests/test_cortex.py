@@ -2097,7 +2097,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.eval('[ inet:fqdn=woot.com ] -> *').list()
 
             self.len(1, nodes)
-            self.eq('com', nodes[0][0][1])
+            self.eq('com', nodes[0].ndef[1])
 
             await core.eval('inet:fqdn=woot.com | delnode').list()
 
