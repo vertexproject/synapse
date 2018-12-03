@@ -472,6 +472,7 @@ class Url(s_types.StrBase):
         authparts = None
         hostparts = ''
         pathpart = ''
+        parampart = ''
 
         # Protocol
         try:
@@ -493,10 +494,11 @@ class Url(s_types.StrBase):
         if len(parts) == 2:
             valu, pathpart = parts
             pathpart = f'/{pathpart}'
+        subs['path'] = pathpart
 
         if queryrem:
-            pathpart += f'?{queryrem}'
-        subs['path'] = pathpart
+            parampart = f'?{queryrem}'
+        subs['params'] = parampart
 
         # Optional User/Password
         parts = valu.split('@', 1)
@@ -574,7 +576,9 @@ class Url(s_types.StrBase):
         if port is not None:
             hostparts = f'{hostparts}:{port}'
 
-        norm = f'{proto}://{hostparts}{pathpart}'
+        base = f'{proto}://{hostparts}{pathpart}'
+        subs['base'] = base
+        norm = f'{base}{parampart}'
         return norm, {'subs': subs}
 
 class InetModule(s_module.CoreModule):
@@ -1458,9 +1462,17 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The optional password used to access the URL.'
                         }),
+                        ('base', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The base scheme, user/pass, fqdn, port and path w/o parameters.'
+                        }),
                         ('path', ('str', {}), {
                             'ro': True,
-                            'doc': 'The path in the URL.'
+                            'doc': 'The path in the URL w/o parameters'
+                        }),
+                        ('params', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The URL parameter string'
                         }),
                         ('port', ('inet:port', {}), {
                             'ro': True,
