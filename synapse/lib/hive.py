@@ -9,7 +9,10 @@ import synapse.telepath as s_telepath
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
+
+import synapse.lib.lmdbslab as s_slab
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +44,12 @@ class Node(s_base.Base):
     def get(self, name):
         return self.kids.get(name)
 
+    def dir(self):
+        retn = []
+        for name, node in self.kids.items():
+            retn.append((name, node.valu, len(node.kids)))
+        return retn
+
     async def set(self, valu):
         return await self.hive.set(self.full, valu)
 
@@ -60,19 +69,24 @@ class Node(s_base.Base):
         for name, node in self.kids.items():
             yield name, node
 
-def iterpath(path):
-    for i in range(len(path)):
-        yield path[:i + 1]
-
 class Hive(s_base.Base, s_telepath.Aware):
     '''
+    An optionally persistent atomicly accessed tree which implements
+    primitives for use in making distributed/clustered services.
     '''
-    async def __anit__(self):
+    async def __anit__(self, conf=None):
 
         await s_base.Base.__anit__(self)
         s_telepath.Aware.__init__(self)
 
+        if conf is None:
+            conf = {}
+
+        self.conf = conf
         self.nodes = {} # full=Node()
+
+        self.conf.setdefault('auth:en', False)
+        self.conf.setdefault('auth:path', 'hive/auth')
 
         # event dist by path
         self.editsbypath = collections.defaultdict(set)
@@ -84,6 +98,19 @@ class Hive(s_base.Base, s_telepath.Aware):
         await self._storLoadHive()
 
         self.onfini(self._onHiveFini)
+
+        self.auth = None
+
+    async def getHiveAuth(self):
+
+        if self.auth is None:
+
+            path = tuple(self.conf.get('auth:path').split('/'))
+
+            node = await self.open(path)
+            self.auth = await HiveAuth.anit(node)
+
+        return self.auth
 
     async def _onNodeEdit(self, mesg):
 
@@ -118,6 +145,13 @@ class Hive(s_base.Base, s_telepath.Aware):
             return None
 
         return node.valu
+
+    async def dir(self, full):
+        node = self.nodes.get(full)
+        if node is None:
+            return tuple()
+
+        return node.dir()
 
     async def dict(self, full):
         '''
@@ -241,7 +275,23 @@ class Hive(s_base.Base, s_telepath.Aware):
         return node.valu
 
     async def getTeleApi(self, link, mesg):
-        return await HiveApi.anit(self, link, mesg)
+
+        auth = await self.getHiveAuth()
+
+        if not self.conf.get('auth:en'):
+            user = auth.getUserByName('root')
+            return await HiveApi.anit(self, user)
+
+        name, info = mesg[1].get('auth')
+
+        user = auth.getUserByName(name)
+        if user is None:
+            raise s_exc.NoSuchUser(name=name)
+
+        # passwd None always fails...
+        passwd = info.get('passwd')
+        if not user.tryPasswd(passwd):
+            raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 
     # TODO maybe eventually allow opening at a position and acting
     # like a hive with the given path as the root...
@@ -260,10 +310,10 @@ class Hive(s_base.Base, s_telepath.Aware):
 
 class SlabHive(Hive):
 
-    async def __anit__(self, slab, db=None):
+    async def __anit__(self, slab, db=None, conf=None):
         self.db = db
         self.slab = slab
-        await Hive.__anit__(self)
+        await Hive.__anit__(self, conf=conf)
 
     async def _storLoadHive(self):
 
@@ -286,16 +336,20 @@ class SlabHive(Hive):
 
 class HiveApi(s_base.Base):
 
-    async def __anit__(self, hive, link, mesg):
+    async def __anit__(self, hive, user):
 
         await s_base.Base.__anit__(self)
 
         self.hive = hive
-        self.link = link
+        self.user = user
 
         self.msgq = asyncio.Queue(maxsize=10000)
 
         self.onfini(self._onHapiFini)
+
+    def _getUserPass(self, mesg):
+        name, info = mesg[1].get('auth')
+        return name, info.get('passwd')
 
     async def treeAndSync(self, path, iden):
 
@@ -530,6 +584,23 @@ class HiveAuth(s_base.Base):
         for node in self.users:
             await self._addUserNode(node)
 
+        # initialize an admin user named root
+        if self.getUserByName('root') is None:
+            user = await self.addUser('root')
+            await user.setAdmin(True)
+
+    def getUserByName(self, name):
+        return self.usersbyname.get(name)
+
+    def getRoleByName(self, name):
+        return self.rolesbyname.get(name)
+
+    def getUserByIden(self, iden):
+        return self.usersbyiden.get(iden)
+
+    def getRoleByIden(self, iden):
+        return self.rolesbyiden.get(iden)
+
     async def _addUserNode(self, node):
 
         user = await HiveUser.anit(self, node)
@@ -738,12 +809,47 @@ class HiveUser(HiveIden):
     async def setAdmin(self, admin):
         await self.info.set('admin', admin)
 
-    async def setPasswd(self, passwd):
-        await self.info.set('passwd', passwd)
+    #async def setPasswd(self, passwd):
+        #await self.info.set('passwd', passwd)
 
     async def setLocked(self, locked):
         await self.info.set('locked', locked)
 
+    def tryPasswd(self, passwd):
+
+        if self.locked:
+            return False
+
+        if passwd is None:
+            return False
+
+        shadow = self.info.get('passwd')
+        if shadow is None:
+            return False
+
+        salt, hashed = shadow
+
+        if s_common.guid((salt, passwd)) == hashed:
+            return True
+
+        return False
+
+    async def setPasswd(self, passwd):
+        salt = s_common.guid()
+        hashed = s_common.guid((salt, passwd))
+        await self.info.set('passwd', (salt, hashed))
+
+def iterpath(path):
+    for i in range(len(path)):
+        yield path[:i + 1]
+
 async def openurl(url, **opts):
     prox = await s_telepath.openurl(url, **opts)
     return await TeleHive.anit(prox)
+
+async def opendir(dirn, conf=None):
+
+    slab = await s_slab.Slab.anit(dirn, map_size=s_const.gibibyte)
+
+    db = slab.initdb('hive')
+    return await SlabHive(slab, db=db, conf=conf)

@@ -1,8 +1,8 @@
 import os
 import logging
-import contextlib
-import tempfile
 import pathlib
+import tempfile
+import contextlib
 
 import synapse.exc as s_exc
 
@@ -11,6 +11,8 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
+import synapse.lib.hive as s_hive
+
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -216,6 +218,11 @@ bootdefs = (
         # 'doc': 'If auth is enabled, allow non-auth connections.  Cell must manage perms.'})
 
     ('auth:admin', {'defval': None, 'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
+
+    ('hive', {'defval': None, 'doc': 'Set to a Hive telepath URL or list of URLs'}),
+    ('hive:auth:en', {'defval': False, 'doc': 'Set to True to enable hive based authentication.'}),
+    ('hive:auth:path', {'defval': None, 'doc': 'Set to /hive/path to over-ride default /hive/cells/<iden>/auth.'}),
+
 )
 
 class Cell(s_base.Base, s_telepath.Aware):
@@ -267,6 +274,38 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         await self._initCellAuth()
         await self._initCellSlab(readonly=readonly)
+        await self._initCellHive()
+
+    async def _initCellHive(self):
+
+        hurl = self.conf.get('hive')
+
+        authpath = self.conf.get('hive:auth:path', f'hive/cells/{self.iden}/auth')
+
+        if hurl is not None:
+            self.hive = await s_hive.openurl(hurl)
+
+        else:
+
+            db = self.slab.initdb('hive')
+
+            # use the same auth path for the hive as for the cell
+            conf = {'auth:path': authpath}
+            self.hive = s_hive.SlabHive.anit(self.slab, db=db, conf=conf)
+
+        self.hiveauth = None
+
+        if self.conf.get('hive:auth:en'):
+
+            text = self.conf.get('hive:auth:path', f'hive/cells/{self.iden}/auth')
+            path = text.split('/')
+
+            node = await self.hive.open(path)
+            self.hiveauth = await s_hive.HiveAuth.anit(node)
+
+    #async def onTeleOpen(self, link, path):
+        # TODO make a path resolver for layers/etc
+        #if path == 'hive/auth'
 
     async def _initCellSlab(self, readonly=False):
 
