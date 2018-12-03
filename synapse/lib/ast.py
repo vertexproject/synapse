@@ -135,49 +135,6 @@ class Query(AstNode):
             if node is not None:
                 yield node, node.initPath()
 
-    async def _finiGraph(self, runt):
-
-        # gather up any remaining todo nodes
-        while runt._graph_want:
-
-            ndef = runt._graph_want.popleft()
-
-            if runt._graph_done.get(ndef):
-                continue
-
-            node = await runt.snap.getNodeByNdef(ndef)
-            if node is None:
-                continue
-
-            path = runt.initPath(node)
-
-            await self._iterGraph(runt, node, path)
-
-            yield node, path
-
-    async def _iterGraph(self, runt, node, path):
-
-        runt._graph_done[node.ndef] = True
-
-        done = {}
-        edges = []
-
-        for name, ndef in node.getNodeRefs():
-
-            if done.get(ndef):
-                continue
-
-            done[ndef] = True
-
-            iden = s_common.ehex(s_common.buid(ndef))
-
-            edges.append((iden, {}))
-
-            if not runt._graph_done.get(ndef):
-                runt._graph_want.append(ndef)
-
-        path.meta('edges', edges)
-
     async def run(self, runt, genr):
 
         for oper in self.kids:
@@ -192,8 +149,15 @@ class Query(AstNode):
     async def iterNodePaths(self, runt):
 
         count = 0
+        subgraph = None
 
-        graph = runt.getOpt('graph')
+        rules = runt.getOpt('graph')
+
+        if rules not in (False, None):
+            if rules is True:
+                rules = {'degrees': None, 'pivots': ('-> *',)}
+
+            subgraph = SubGraph(rules)
 
         self.optimize()
 
@@ -203,12 +167,12 @@ class Query(AstNode):
         for oper in self.kids:
             genr = oper.run(runt, genr)
 
+        if subgraph is not None:
+            genr = subgraph.run(runt, genr)
+
         async for node, path in genr:
 
             runt.tick()
-
-            if graph:
-                await self._iterGraph(runt, node, path)
 
             yield node, path
 
@@ -219,9 +183,144 @@ class Query(AstNode):
                 await runt.printf('limit reached: %d' % (limit,))
                 break
 
-        if graph:
-            async for item in self._finiGraph(runt):
-                yield item
+class SubGraph:
+    '''
+    An Oper like object which generates a subgraph.
+
+    rules = {
+
+        'degrees': 1,
+
+        'filters': [
+            '-(#foo or #bar)',
+            '-(foo:bar or baz:faz)',
+        ],
+
+        'pivots': [
+            '-> * | limit 100',
+            '<- * | limit 100',
+        ]
+
+        'forms': {
+
+            'inet:fqdn':{
+                'filters': [],
+                'pivots': [],
+            }
+
+            '*': {
+                'filters': [],
+                'pivots': [],
+            },
+        },
+    }
+
+    # nodes which were original seeds have path.meta('graph:seed')
+    # all nodes have path.meta('edges') which is a list of (iden, info) tuples.
+    '''
+
+    def __init__(self, rules):
+
+        self.omits = {}
+        self.rules = rules
+
+        self.rules.setdefault('forms', {})
+        self.rules.setdefault('pivots', ())
+        self.rules.setdefault('filters', ())
+        self.rules.setdefault('degrees', 1)
+
+    async def omit(self, node):
+
+        answ = self.omits.get(node.buid)
+        if answ is not None:
+            return answ
+
+        for filt in self.rules.get('filters'):
+            if await node.filter(filt, user=self.user):
+                self.omits[node.buid] = True
+                return True
+
+        rules = self.rules['forms'].get(node.form.name)
+        if rules is None:
+            rules = self.rules['forms'].get('*')
+
+        if rules is None:
+            self.omits[node.buid] = False
+            return False
+
+        for filt in rules.get('filters', ()):
+            if await node.filter(filt, user=self.user):
+                self.omits[node.buid] = True
+                return True
+
+        self.omits[node.buid] = False
+        return False
+
+    async def pivots(self, node):
+
+        for pivq in self.rules.get('pivots'):
+
+            async for pivo in node.storm(pivq, user=self.user):
+                yield pivo
+
+        rules = self.rules['forms'].get(node.form.name)
+        if rules is None:
+            rules = self.rules['forms'].get('*')
+
+        if rules is None:
+            return
+
+        for pivq in rules.get('pivots', ()):
+            async for pivo in node.storm(pivq, user=self.user):
+                yield pivo
+
+    async def run(self, runt, genr):
+
+        done = {}
+        degrees = self.rules.get('degrees')
+
+        self.user = runt.user
+
+        async for node, path in genr:
+
+            if await self.omit(node):
+                continue
+
+            path.meta('graph:seed', True)
+
+            todo = collections.deque([(node, path, 0)])
+
+            while todo:
+
+                tnode, tpath, tdist = todo.popleft()
+
+                # filter out nodes that we've already done at
+                # the given distance or less... (best possible)
+                donedist = done.get(tnode.buid)
+                if donedist is not None and donedist <= tdist:
+                    continue
+
+                done[tnode.buid] = tdist
+
+                edges = {}
+                ndist = tdist + 1
+                async for pivn, pivp in self.pivots(tnode):
+
+                    if await self.omit(pivn):
+                        continue
+
+                    edges[pivn.iden()] = True
+
+                    if degrees is not None and ndist > degrees:
+                        continue
+
+                    todo.append((pivn, pivp, ndist))
+
+                edgelist = [(iden, {}) for iden in edges.keys()]
+                tpath.meta('edges', edgelist)
+
+                if donedist is None:
+                    yield tnode, tpath
 
 class Oper(AstNode):
     pass
@@ -297,14 +396,14 @@ class CmdOper(Oper):
     async def run(self, runt, genr):
 
         name = self.kids[0].value()
-        text = self.kids[1].value()
+        argv = self.kids[1].value()
 
         ctor = runt.snap.core.getStormCmd(name)
         if ctor is None:
             mesg = 'Storm command not found.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
-        scmd = ctor(text)
+        scmd = ctor(argv)
 
         if not await scmd.hasValidOpts(runt.snap):
             return

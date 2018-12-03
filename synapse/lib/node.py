@@ -43,8 +43,13 @@ class Node:
         query = self.snap.core.getStormQuery(text)
         with self.snap.getStormRuntime(opts=opts, user=user) as runt:
             runt.addInput(self)
-            async for node in runt.iterStormQuery(query):
-                yield node
+            async for item in runt.iterStormQuery(query):
+                yield item
+
+    async def filter(self, text, opts=None, user=None):
+        async for item in self.storm(text, opts=opts, user=user):
+            return False
+        return True
 
     def iden(self):
         return s_common.ehex(self.buid)
