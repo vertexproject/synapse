@@ -698,6 +698,10 @@ class PivotOut(PivotOper):
                 if pivo is None:
                     continue
 
+                # avoid self references
+                if pivo.buid == node.buid:
+                    continue
+
                 yield pivo, path.fork(pivo)
 
 class PivotToTags(PivotOper):
@@ -1451,6 +1455,7 @@ def noderepr(node):
                 return prop.type.repr(valu, valu)
             except Exception as e:
                 raise
+        return node.form.type.repr(node.ndef[1], node.ndef[1])
     return nrepr
 
 # TODO make this more sophisticated...
