@@ -2103,6 +2103,15 @@ class CortexTest(s_t_utils.SynTest):
 
             self.len(0, await core.eval('inet:fqdn=woot.com').list())
 
+    async def test_storm_addnode_runtsafe(self):
+
+        async with self.getTestCore() as core:
+            # test adding nodes from other nodes output
+            nodes = await core.eval('[ inet:fqdn=woot.com inet:fqdn=vertex.link ] [ inet:user = :zone ] +inet:user').list()
+            self.len(2, nodes)
+            ndefs = list(sorted([n.ndef for n in nodes]))
+            self.eq(ndefs, (('inet:user', 'vertex.link'), ('inet:user', 'woot.com')))
+
     async def test_storm_subgraph(self):
 
         async with self.getTestCore() as core:

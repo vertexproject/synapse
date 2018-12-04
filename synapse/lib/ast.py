@@ -1485,21 +1485,41 @@ class EditNodeAdd(Edit):
 
     async def run(self, runt, genr):
 
-        async for node, path in genr:
-            yield node, path
-
         name = self.kids[0].value()
-        runt.allowed('node:add', name)
 
         form = runt.snap.model.forms.get(name)
         if form is None:
             raise s_exc.NoSuchForm(name=name)
 
-        valu = self.kids[1].runtval(runt)
+        if not self.kids[1].isRuntSafe():
 
-        for valu in form.type.getTypeVals(valu):
-            node = await runt.snap.addNode(name, valu)
-            yield node, runt.initPath(node)
+            first = True
+            async for node, path in genr:
+
+                if first:
+                    runt.allowed('node:add', name)
+                    first = False
+
+                yield node, path
+
+                valu = await self.kids[1].compute(runt, node, path)
+
+                for valu in form.type.getTypeVals(valu):
+                    newn = await runt.snap.addNode(name, valu)
+                    yield newn, runt.initPath(newn)
+
+        else:
+
+            async for node, path in genr:
+                yield node, path
+
+            runt.allowed('node:add', name)
+
+            valu = self.kids[1].runtval(runt)
+
+            for valu in form.type.getTypeVals(valu):
+                node = await runt.snap.addNode(name, valu)
+                yield node, runt.initPath(node)
 
 class EditPropSet(Edit):
 
