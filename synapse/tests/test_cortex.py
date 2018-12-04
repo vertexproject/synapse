@@ -2253,30 +2253,19 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('teststr', '0'))
 
-            # XXX ADD SAD PATH CASES
-
     async def test_stormvar_reserved_model(self):
         self.skipTest('changing this implementation')
         async with self.getTestCore() as core:
             text = '[inet:ipv4=1.2.3.4 teststr=1.2.3.4]'
             nodes = await core.eval(text).list()
             self.len(2, nodes)
-            # for node in nodes:
-            #     print(node.pack())
 
-            text = 'inet:ipv4 $foo=$.node.valu teststr=$foo -inet:ipv4'
+            text = '$foo=$.model.prop("teststr:tick").type.norm(2001) [teststr=$foo]'
             nodes = await core.eval(text).list()
-            self.len(0, nodes)
+            # self.len(1, nodes)
+            # self.eq(nodes[0].ndef, ('teststr', '1.2.3.4'))
 
-            text = 'inet:ipv4 $foo=$.model.repr() teststr=$foo -inet:ipv4'
-            nodes = await core.eval(text).list()
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('teststr', '1.2.3.4'))
-
-            # Using :asn results in resolving the valu at runtime
-            # which means the varcall method ends up with the system
-            # valu of the property, and not the prop name :(
-            text = 'inet:ipv4 $foo=$.model.repr(asn) [teststr=$foo] -inet:ipv4'
+            text = '$foo=$.model.prop("teststr:tick").type.norm(2001) $bar=.model.prop("teststr:tick").type.repr($foo) [teststr=$bar]'
             nodes = await core.eval(text).list()
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('teststr', '0'))
+            # self.eq(nodes[0].ndef, ('teststr', '1.2.3.4'))
