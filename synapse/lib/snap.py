@@ -424,7 +424,7 @@ class Snap(s_base.Base):
         for name, valu in props.items():
             await node.set(name, valu, init=True)
 
-        # set our global properties
+        #    set our global properties
         tick = s_common.now()
         await node.set('.created', tick, init=True)
 
