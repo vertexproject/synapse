@@ -975,3 +975,17 @@ class GraphCmd(Cmd):
 
         async for node, path in subg.run(runt, genr):
             yield node, path
+
+####################### PROTOTYPING #############################33
+
+import collections
+
+class Deference:
+    def __init__(self):
+        self.refs = collections.defaultdict(dict)
+
+    def setDeref(self, namespace, valu, func):
+        self.refs[namespace][valu] = func
+
+    def getDeref(self, valu):
+        pass
