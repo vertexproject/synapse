@@ -2102,3 +2102,98 @@ class CortexTest(s_t_utils.SynTest):
             await core.eval('inet:fqdn=woot.com | delnode').list()
 
             self.len(0, await core.eval('inet:fqdn=woot.com').list())
+
+    async def test_storm_subgraph(self):
+
+        async with self.getTestCore() as core:
+
+            await core.eval('[ inet:ipv4=1.2.3.4 :asn=20 ]').list()
+            await core.eval('[ inet:dns:a=(woot.com, 1.2.3.4) +#yepr ]').list()
+            await core.eval('[ inet:dns:a=(vertex.link, 5.5.5.5) +#nope ]').list()
+
+            rules = {
+
+                'degrees': 2,
+
+                'pivots': ['<- seen <- source'],
+
+                'filters': ['-#nope'],
+
+                'forms': {
+
+                    'inet:fqdn': {
+                        'pivots': ['<- *', '-> *'],
+                        'filters': ['-inet:fqdn:issuffix=1'],
+                    },
+
+                    'syn:tag': {
+                        'pivots': ['-> *'],
+                    },
+
+                    '*': {
+                        'pivots': ['-> #'],
+                    },
+
+                }
+            }
+
+            seeds = []
+            alldefs = {}
+
+            async for node, path in core.storm('inet:fqdn', opts={'graph': rules}):
+
+                if path.metadata.get('graph:seed'):
+                    seeds.append(node.ndef)
+
+                alldefs[node.ndef] = path.metadata.get('edges')
+
+            # our TLDs should be omits
+            self.len(2, seeds)
+            self.len(4, alldefs)
+
+            self.isin(('inet:fqdn', 'woot.com'), seeds)
+            self.isin(('inet:fqdn', 'vertex.link'), seeds)
+
+            self.nn(alldefs.get(('syn:tag', 'yepr')))
+            self.nn(alldefs.get(('inet:dns:a', ('woot.com', 0x01020304))))
+
+            self.none(alldefs.get(('inet:asn', 20)))
+            self.none(alldefs.get(('syn:tag', 'nope')))
+            self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
+
+            # now do the same options via the command...
+            text = '''
+                inet:fqdn | graph
+                                --degrees 2
+                                --filter { -#nope }
+                                --pivot { <- seen <- source }
+                                --form-pivot inet:fqdn {<- * | limit 20}
+                                --form-pivot inet:fqdn {-> * | limit 20}
+                                --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
+                                --form-pivot syn:tag {-> *}
+                                --form-pivot * {-> #}
+            '''
+
+            seeds = []
+            alldefs = {}
+
+            async for node, path in core.storm(text):
+
+                if path.metadata.get('graph:seed'):
+                    seeds.append(node.ndef)
+
+                alldefs[node.ndef] = path.metadata.get('edges')
+
+            # our TLDs should be omits
+            self.len(2, seeds)
+            self.len(4, alldefs)
+
+            self.isin(('inet:fqdn', 'woot.com'), seeds)
+            self.isin(('inet:fqdn', 'vertex.link'), seeds)
+
+            self.nn(alldefs.get(('syn:tag', 'yepr')))
+            self.nn(alldefs.get(('inet:dns:a', ('woot.com', 0x01020304))))
+
+            self.none(alldefs.get(('inet:asn', 20)))
+            self.none(alldefs.get(('syn:tag', 'nope')))
+            self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
