@@ -302,21 +302,22 @@ class SubGraph:
 
                 done[tnode.buid] = tdist
 
-                edges = {}
+                edges = set()
                 ndist = tdist + 1
+
                 async for pivn, pivp in self.pivots(tnode):
 
                     if await self.omit(pivn):
                         continue
 
-                    edges[pivn.iden()] = True
+                    edges.add(pivn.iden())
 
                     if degrees is not None and ndist > degrees:
                         continue
 
                     todo.append((pivn, pivp, ndist))
 
-                edgelist = [(iden, {}) for iden in edges.keys()]
+                edgelist = [(iden, {}) for iden in edges]
                 tpath.meta('edges', edgelist)
 
                 if donedist is None:
