@@ -1,9 +1,38 @@
 import os
+import signal
 import asyncio
 import threading
+import faulthandler
 
 _glob_loop = None
 _glob_thrd = None
+
+
+def _asynciostacks(*args, **kwargs):  # pragma: no cover
+    '''
+    A signal handler used to print asyncio task stacks and thread stacks.
+    '''
+    print(80 * '*')
+    print('Asyncio tasks stacks:')
+    tasks = asyncio.all_tasks(_glob_loop)
+    for task in tasks:
+        task.print_stack()
+    print(80 * '*')
+    print('Faulthandler stack frames per thread:')
+    faulthandler.dump_traceback()
+    print(80 * '*')
+
+def _threadstacks(*args, **kwargs):  # pragma: no cover
+    '''
+    A signal handler used to print thread stacks.
+    '''
+    print(80 * '*')
+    print('Faulthandler stack frames per thread:')
+    faulthandler.dump_traceback()
+    print(80 * '*')
+
+signal.signal(signal.SIGUSR1, _threadstacks)
+signal.signal(signal.SIGUSR2, _asynciostacks)
 
 def initloop():
 
