@@ -4,7 +4,6 @@ cortex construction.
 '''
 import asyncio
 import logging
-import threading
 import collections
 
 import regex
@@ -24,6 +23,13 @@ class Utf8er(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8')
 
+class LayerApi(s_cell.PassThroughApi):
+    allowed_methods = [
+        'getLiftRows', 'stor', 'commit', 'abort', 'getBuidProps',
+        'iterFormRows', 'iterPropRows', 'iterUnivRows', 'getOffset',
+        'setOffset', 'initdb', 'splicelistAppend', 'splices', 'stat'
+    ]
+
 class Layer(s_cell.Cell):
     '''
     A layer implements btree indexed storage for a cortex.
@@ -31,6 +37,8 @@ class Layer(s_cell.Cell):
     TODO:
         metadata for layer contents (only specific type / tag)
     '''
+    cellapi = LayerApi
+
     async def __anit__(self, dirn, readonly=False):
 
         await s_cell.Cell.__anit__(self, dirn, readonly=readonly)
@@ -57,6 +65,9 @@ class Layer(s_cell.Cell):
         self.spliced = asyncio.Event(loop=self.loop)
         self.splicelist = []
         self.onfini(self.spliced.set)
+
+    async def splicelistAppend(self, mesg):
+        self.splicelist.append(mesg)
 
     async def getLiftRows(self, lops):
         for oper in lops:

@@ -25,6 +25,7 @@ propset = set(':abcdefghijklmnopqrstuvwxyz_0123456789')
 tagfilt = varset.union({'#', '*'})
 alphaset = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
+cmdquote = set(' \t\n|}')
 mustquote = set(' \t\n),=]}')
 
 # this may be used to meh() potentially unquoted values
@@ -691,14 +692,20 @@ class Parser:
 
                 # switch to command interpreter...
                 name = self.cmdname()
-                text = self.cmdtext()
+                argv = self.cmdargv()
 
-                oper = s_ast.CmdOper(kids=(name, text))
+                oper = s_ast.CmdOper(kids=(name, argv))
                 query.addKid(oper)
 
                 # command is last query text case...
                 if not self.more():
                     break
+
+                self.ignorespace()
+
+                # End of subquery
+                if self.nextstr('}'):
+                    continue
 
                 # back to storm mode...
                 if self.nextstr('|'):
@@ -756,7 +763,6 @@ class Parser:
 
     def stormcmd(self):
         argv = []
-
         while self.more():
             self.ignore(whitespace)
             if self.nextstr('{'):
@@ -776,7 +782,7 @@ class Parser:
             return self.quoted()
         if self.nextstr("'"):
             return self.singlequoted()
-        return self.noms(until=whitespace)
+        return self.noms(until=cmdquote)
 
     def editoper(self):
 
@@ -1197,14 +1203,15 @@ class Parser:
 
         if name in self.stormcmds:
 
-            text = self.cmdtext()
+            argv = self.cmdargv()
+
             self.ignore(whitespace)
 
             # eat a trailing | from a command at the beginning
             if self.nextstr('|'):
                 self.offs += 1
 
-            return s_ast.CmdOper(kids=(s_ast.Const(name), text))
+            return s_ast.CmdOper(kids=(s_ast.Const(name), argv))
 
         # rewind and noms until whitespace
         self.offs = noff
@@ -1697,16 +1704,33 @@ class Parser:
 
         return s_ast.Const(name)
 
-    def cmdtext(self):
-        '''
-        --bar baz faz
+    def cmdargv(self):
 
-        Terminated by unescaped |
-        '''
-        # TODO: pipe escape syntax...
-        self.ignore(whitespace)
-        text = self.noms(until='|').strip()
-        return s_ast.Const(text)
+        argv = []
+        while self.more():
+
+            self.ignore(whitespace)
+
+            # if we hit a | or a } we're done
+            if self.nextstr('|'):
+                break
+
+            if self.nextstr('}'):
+                break
+
+            if not self.nextstr('{'):
+                valu = self.cmdvalu()
+                argv.append(valu)
+                continue
+
+            start = self.offs
+            query = self.subquery()
+
+            text = self.text[start:self.offs]
+
+            argv.append(text)
+
+        return s_ast.Const(tuple(argv))
 
     def quoted(self):
 
@@ -1791,7 +1815,10 @@ class Parser:
         self.nextmust('{')
 
         q = self.query()
+
         subq = s_ast.SubQuery(kids=(q,))
+
+        self.ignore(whitespace)
 
         self.nextmust('}')
 

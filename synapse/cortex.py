@@ -381,6 +381,7 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.SudoCmd)
         self.addStormCmd(s_storm.UniqCmd)
         self.addStormCmd(s_storm.CountCmd)
+        self.addStormCmd(s_storm.GraphCmd)
         self.addStormCmd(s_storm.LimitCmd)
         self.addStormCmd(s_storm.SleepCmd)
         self.addStormCmd(s_storm.DelNodeCmd)
@@ -597,10 +598,11 @@ class Cortex(s_cell.Cell):
                             continue
 
                         size = len(items)
-                        indx = self.layer.splicelog.indx
+                        indx = (await self.layer.stat())['splicelog_indx']
+
                         perc = float(offs) / float(indx) * 100.0
 
-                        logger.info('splice push: %d %d/%d (%.2f%%)', size, offs, indx, perc)
+                        logger.info('splice push: %d %d/%d (%.4f%%)', size, offs, indx, perc)
 
                         offs = await core.addFeedData('syn.splice', items, seqn=(iden, offs))
                         await self.fire('core:splice:sync:sent')

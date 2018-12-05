@@ -2,8 +2,53 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
+from synapse.tests.utils import alist
 
 class DnsModelTest(s_t_utils.SynTest):
+
+    async def test_model_dns_name_type(self):
+        async with self.getTestCore() as core:
+            typ = core.model.type('inet:dns:name')
+            # ipv4 - good and newp
+            norm, info = typ.norm('4.3.2.1.in-addr.ARPA')
+            self.eq(norm, '4.3.2.1.in-addr.arpa')
+            self.eq(info.get('subs'), {'ipv4': 0x01020304})
+            norm, info = typ.norm('newp.in-addr.ARPA')
+            self.eq(norm, 'newp.in-addr.arpa')
+            self.eq(info.get('subs'), {})
+
+            # Ipv6 - good, newp, and ipv4 included
+            ipv6 = 'b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.ARPA'
+            norm, info = typ.norm(ipv6)
+            self.eq(norm, 'b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa')
+            self.eq(info.get('subs'), {'ipv6': '2001:db8::567:89ab'})
+
+            ipv6 = 'newp.2.ip6.arpa'
+            norm, info = typ.norm(ipv6)
+            self.eq(norm, 'newp.2.ip6.arpa')
+            self.eq(info.get('subs'), {})
+
+            ipv6 = '4.0.3.0.2.0.1.0.f.f.f.f.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa'
+            norm, info = typ.norm(ipv6)
+            self.eq(norm, ipv6)
+            self.eq(info.get('subs'), {'ipv6': '::ffff:1.2.3.4', 'ipv4': 0x01020304})
+
+            # fqdn and a invalid fqdn
+            norm, info = typ.norm('test.vertex.link')
+            self.eq(norm, 'test.vertex.link')
+            self.eq(info.get('subs'), {'fqdn': 'test.vertex.link'})
+
+            norm, info = typ.norm('1.2.3.4')
+            self.eq(norm, '1.2.3.4')
+            self.eq(info.get('subs'), {'ipv4': 0x01020304})
+
+            norm, info = typ.norm('::FFFF:1.2.3.4')
+            self.eq(norm, '::ffff:1.2.3.4')
+            self.eq(info.get('subs'), {'ipv6': '::ffff:1.2.3.4', 'ipv4': 0x01020304})
+
+            norm, info = typ.norm('::1')
+            self.eq(norm, '::1')
+            self.eq(info.get('subs'), {'ipv6': '::1'})
 
     async def test_model_dns_request(self):
 
@@ -19,21 +64,58 @@ class DnsModelTest(s_t_utils.SynTest):
                 }
 
                 node = await snap.addNode('inet:dns:request', '*', props)
-
+                req_ndef = node.ndef
                 self.eq(node.get('time'), 1514764800000)
                 self.eq(node.get('reply:code'), 0)
                 self.eq(node.get('server'), 'udp://5.6.7.8:53')
                 self.eq(node.get('query'), ('tcp://1.2.3.4', 'vertex.link', 255))
                 self.eq(node.get('query:name'), 'vertex.link')
+                self.eq(node.get('query:name:fqdn'), 'vertex.link')
                 self.eq(node.get('query:type'), 255)
                 self.none(node.get('query:client'))
-
                 self.nn(await snap.getNodeByNdef(('inet:server', 'udp://5.6.7.8:53')))
-                self.nn(await snap.getNodeByNdef(('inet:server', 'udp://5.6.7.8:53')))
-                self.nn(await snap.getNodeByNdef(('inet:dns:query', ('tcp://1.2.3.4', 'vertex.link', 255))))
 
+                # Ensure some remaining inet:dns:query:name:* props are broken out
+                node = await snap.addNode('inet:dns:request', '*', {'query:name': '4.3.2.1.in-addr.arpa'})
+                self.none(node.get('query:name:fqdn'))
+                self.eq(node.get('query:name:ipv4'), 0x01020304)
+                self.eq(node.get('query:name'), '4.3.2.1.in-addr.arpa')
+
+                # A bit of a bunk example but sometimes people query for raw ipv4/ipv6 addresses
+                # and we'll try to extract them if possible :)
+                node = await snap.addNode('inet:dns:request', '*', {'query:name': '::ffff:1.2.3.4'})
+                self.none(node.get('query:name:fqdn'))
+                self.eq(node.get('query:name'), '::ffff:1.2.3.4')
+                self.eq(node.get('query:name:ipv4'), 0x01020304)
+                self.eq(node.get('query:name:ipv6'), '::ffff:1.2.3.4')
+
+                # Ensure that lift via prefix for inet:dns:name type works
+                nodes = await alist(snap.getNodesBy('inet:dns:request:query:name', 'vertex', cmpr='^='))
+                self.len(1, nodes)
+
+                # Ensure that subs are broken out for inet:dns:query
+                node = await snap.getNodeByNdef(('inet:dns:query', ('tcp://1.2.3.4', 'vertex.link', 255)))
+                self.eq(node.get('client'), 'tcp://1.2.3.4')
+                self.eq(node.get('name'), 'vertex.link')
+                self.eq(node.get('name:fqdn'), 'vertex.link')
+                self.eq(node.get('type'), 255)
+
+                node = await snap.addNode('inet:dns:query', ('tcp://1.2.3.4', '4.3.2.1.in-addr.arpa', 255))
+                self.eq(node.get('name'), '4.3.2.1.in-addr.arpa')
+                self.none(node.get('name:fqdn'))
+                self.eq(node.get('name:ipv4'), 0x01020304)
+                self.none(node.get('name:ipv6'))
+                valu = ('tcp://1.2.3.4',
+                        '4.0.3.0.2.0.1.0.f.f.f.f.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa',
+                        255)
+                node = await snap.addNode('inet:dns:query', valu)
+                self.none(node.get('name:fqdn'))
+                self.eq(node.get('name:ipv4'), 0x01020304)
+                self.eq(node.get('name:ipv6'), '::ffff:1.2.3.4')
+
+                # Try inet:dns:answer now
                 props = {
-                    'request': node.ndef[1],
+                    'request': req_ndef[1],
                     'a': ('vertex.link', '2.3.4.5'),
                 }
 
