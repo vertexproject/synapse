@@ -2252,3 +2252,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.eval(text).list()
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('teststr', '0'))
+
+            # Sad path test cases
+            await self.agenraises(s_exc.NoSuchProp, core.eval('inet:ipv4 $foo=$.node.repr(newp)'))
+            await self.agenraises(s_exc.StormRuntimeError, core.eval('inet:ipv4 $foo=$.node.repr(latlong)'))
