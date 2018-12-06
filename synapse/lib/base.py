@@ -194,7 +194,7 @@ class Base:
         if func in self._syn_links:
             self._syn_links.remove(func)
 
-    def on(self, evnt, func, **filts):
+    def on(self, evnt, func, base=None):
         '''
         Add an base function callback for a specific event with optional filtering.  If the function returns a
         coroutine, it will be awaited.
@@ -202,7 +202,6 @@ class Base:
         Args:
             evnt (str):         An event name
             func (function):    A callback function to receive event tufo
-            **filts:            Optional positive filter values for the event tuple.
 
         Examples:
 
@@ -213,18 +212,26 @@ class Base:
                     y = event[1].get('y')
                     return x + y
 
-                d.on('foo', baz, x=10)
+                d.on('foo', baz)
 
                 # this fire triggers baz...
                 await d.fire('foo', x=10, y=20)
 
-                # this fire does not ( due to filt )
-                await d.fire('foo', x=30, y=20)
-
         Returns:
             None:
         '''
-        self._syn_funcs[evnt].append((func, tuple(filts.items())))
+        funcs = self._syn_funcs[evnt]
+        if func in funcs:
+            return
+
+        funcs.append(func)
+
+        if base is not None:
+
+            def fini():
+                self.off(evnt, func)
+
+            base.onfini(fini)
 
     def off(self, evnt, func):
         '''
@@ -236,16 +243,13 @@ class Base:
 
         '''
         funcs = self._syn_funcs.get(evnt)
-        if funcs is not None:
+        if funcs is None:
+            return
 
-            for i in range(len(funcs)):
-
-                if funcs[i][0] == func:
-                    funcs.pop(i)
-                    break
-
-            if not funcs:
-                self._syn_funcs.pop(evnt, None)
+        try:
+            funcs.remove(func)
+        except ValueError as e:
+            pass
 
     async def fire(self, evtname, **info):
         '''
@@ -281,16 +285,10 @@ class Base:
             return ()
 
         ret = []
-        for func, filt in self._syn_funcs.get(mesg[0], ()):
+        for func in self._syn_funcs.get(mesg[0], ()):
 
             try:
-
-                if any(True for k, v in filt if mesg[1].get(k) != v):
-                    continue
-
-                retn = await s_coro.ornot(func, mesg)
-                ret.append(retn)
-
+                ret.append(await s_coro.ornot(func, mesg))
             except asyncio.CancelledError as e:
                 raise
             except Exception as e:

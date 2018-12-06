@@ -33,8 +33,10 @@ class FixedCache:
         self.iscorocall = asyncio.iscoroutinefunction(self.callback)
 
         self.cache = {}
-        self.size = size
         self.fifo = collections.deque()
+
+    def __len__(self):
+        return len(self.cache)
 
     def pop(self, key):
         return self.cache.pop(key, None)

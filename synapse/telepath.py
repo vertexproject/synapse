@@ -435,6 +435,9 @@ class Proxy(s_base.Base):
         await self.link.tx(mesg)
 
         self.synack = await self.link.rx()
+        if self.synack is None:
+            mesg = 'socket closed by server before handshake'
+            raise s_exc.LinkShutDown(mesg=mesg)
 
         self.sess = self.synack[1].get('sess')
 
@@ -600,6 +603,11 @@ async def openurl(url, **opts):
     prox = await Proxy.anit(link, name)
     prox.onfini(link)
 
-    await prox.handshake(auth=auth)
+    try:
+        await prox.handshake(auth=auth)
+
+    except Exception as e:
+        await prox.fini()
+        raise
 
     return prox

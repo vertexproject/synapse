@@ -614,6 +614,7 @@ varchars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'
 optcast = {
     'limit': int,
     'uniq': bool,
+    'graph': bool,
 }
 
 async def getRemoteParseInfo(proxy):
@@ -639,7 +640,6 @@ class Parser:
     '''
 
     def __init__(self, parseinfo, text, offs=0):
-
         '''
         Args:
             parseinfo (dict): information about the cortex returned via getParseInfo
