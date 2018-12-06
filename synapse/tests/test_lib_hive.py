@@ -257,6 +257,13 @@ class HiveTest(s_test.SynTest):
 
             turl = self.getTestUrl(dmon, 'hive')
 
+            await user.setLocked(True)
+
+            with self.raises(s_exc.AuthDeny):
+                await s_hive.openurl(turl, user='root', passwd='secret')
+
+            await user.setLocked(False)
+
             with self.raises(s_exc.AuthDeny):
                 await s_hive.openurl(turl, user='root', passwd='newpnewp')
 
