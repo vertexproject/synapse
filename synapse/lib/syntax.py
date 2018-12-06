@@ -1562,7 +1562,7 @@ class Parser:
         self.ignore(whitespace)
 
         if not self.nextstr('.'):
-            self._raiseBadSyntax('universal property expected .')
+            self._raiseSyntaxError('universal property expected .')
 
         name = self.noms(varset)
 
@@ -1643,6 +1643,12 @@ class Parser:
         self.nextmust('$')
         return self.vartokn()
 
+    def resvarname(self):
+        self.ignore(whitespace)
+
+        self.nextmust('$.')
+        return self.vartokn()
+
     def vartokn(self):
 
         self.ignore(whitespace)
@@ -1669,12 +1675,18 @@ class Parser:
         $foo.bar()
         $foo[0]
         $foo.bar(10)
+        # Reserved namespaces
+        $.node.<deref>
         '''
-
         self.ignore(whitespace)
 
-        varn = self.varname()
-        varv = s_ast.VarValue(kids=[varn])
+        if self.nextstr('$.'):
+            varn = self.resvarname()
+            varv = s_ast.ResVarValue(kids=[varn])
+
+        else:
+            varn = self.varname()
+            varv = s_ast.VarValue(kids=[varn])
 
         # handle derefs and calls...
         while self.more():

@@ -370,24 +370,14 @@ class Cortex(s_cell.Cell):
         self.modules = {}
         self.feedfuncs = {}
 
+        self.resvars = {}
+        self.resvars_runtsafe = {}
+        self._initResVars()
+
         self.stormcmds = {}
         self.stormrunts = {}
 
-        self.addStormCmd(s_storm.MaxCmd)
-        self.addStormCmd(s_storm.MinCmd)
-        self.addStormCmd(s_storm.HelpCmd)
-        self.addStormCmd(s_storm.IdenCmd)
-        self.addStormCmd(s_storm.SpinCmd)
-        self.addStormCmd(s_storm.SudoCmd)
-        self.addStormCmd(s_storm.UniqCmd)
-        self.addStormCmd(s_storm.CountCmd)
-        self.addStormCmd(s_storm.GraphCmd)
-        self.addStormCmd(s_storm.LimitCmd)
-        self.addStormCmd(s_storm.SleepCmd)
-        self.addStormCmd(s_storm.DelNodeCmd)
-        self.addStormCmd(s_storm.MoveTagCmd)
-        self.addStormCmd(s_storm.ReIndexCmd)
-        self.addStormCmd(s_storm.NoderefsCmd)
+        self._initStormCmd()
 
         self.splicers = {
             'node:add': self._onFeedNodeAdd,
@@ -430,6 +420,35 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    def _initStormCmd(self):
+        self.addStormCmd(s_storm.MaxCmd)
+        self.addStormCmd(s_storm.MinCmd)
+        self.addStormCmd(s_storm.HelpCmd)
+        self.addStormCmd(s_storm.IdenCmd)
+        self.addStormCmd(s_storm.SpinCmd)
+        self.addStormCmd(s_storm.SudoCmd)
+        self.addStormCmd(s_storm.UniqCmd)
+        self.addStormCmd(s_storm.CountCmd)
+        self.addStormCmd(s_storm.GraphCmd)
+        self.addStormCmd(s_storm.LimitCmd)
+        self.addStormCmd(s_storm.SleepCmd)
+        self.addStormCmd(s_storm.DelNodeCmd)
+        self.addStormCmd(s_storm.MoveTagCmd)
+        self.addStormCmd(s_storm.ReIndexCmd)
+        self.addStormCmd(s_storm.NoderefsCmd)
+
+    def _initResVars(self):
+        # TODO - This is a non-easily extensible solution to get a POC
+        # available for use.  This needs to be replaced with a smarter
+        # registration system.
+        self.resvars['node'] = self._resVarNode
+        self.resvars_runtsafe['node'] = False
+
+    def _resVarNode(self, runt, node=None, path=None):
+        if node is None:
+            raise s_exc.StormRuntimeError(mesg='resVarNode requires a Node.')
+        return node
 
     def _initFormCounts(self):
 

@@ -1,13 +1,12 @@
-import asyncio
 import fnmatch
 import logging
 import collections
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
+import synapse.datamodel as s_datamodel
 
-import synapse.lib.coro as s_coro
+import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 
@@ -1373,6 +1372,9 @@ class CallArgs(RunValue):
     def runtval(self, runt):
         return [k.runtval(runt) for k in self.kids]
 
+    async def compute(self, runt, node, path):
+        return [await k.compute(runt, node, path) for k in self.kids]
+
 class VarValue(RunValue):
 
     def prepare(self):
@@ -1395,16 +1397,77 @@ class VarValue(RunValue):
 
         return valu
 
+class ResVarValue(RunValue):
+
+    def prepare(self):
+        self.name = self.kids[0].value()
+        # TODO - Replace this with a smarter registration/awareness system.
+        self.runtsafe = self.core.resvars_runtsafe.get(self.name, True)
+
+    def isRuntSafe(self):
+        return self.runtsafe
+
+    def runtval(self, runt):
+        func = runt.snap.core.resvars.get(self.name)
+        if func is None:
+            raise s_exc.NoSuchVar(name=self.name,
+                                  mesg='No such reserved var name')
+        valu = func(runt)
+
+        return valu
+
+    async def compute(self, runt, node, path):
+
+        func = runt.snap.core.resvars.get(self.name)
+        if func is None:
+            raise s_exc.NoSuchVar(name=self.name,
+                                  mesg='No such reserved var name')
+        valu = func(runt, node, path)
+
+        return valu
+
 def strsplit(text):
     def call(*args):
         return text.split(*args)
     return call
 
+def nodeform(node):
+    return node.form.name
+
+def nodendef(node):
+    return node.ndef
+
+def nodevalu(node):
+    return node.ndef[1]
+
+def noderepr(node):
+    def nrepr(*args):
+        if args:
+            propname, *_ = args
+
+            prop = node.form.props.get(propname)
+            if prop is None:
+                raise s_exc.NoSuchProp(prop=propname, form=node.form,
+                                       mesg='Form does not have prop.')
+            valu = node.get(propname)
+            if valu is None:
+                raise s_exc.StormRuntimeError(mesg='Node has no value for a given prop.',
+                                              prop=propname, form=node.form, ndef=node.ndef)
+            return prop.type.repr(valu, valu)
+        return node.form.type.repr(node.ndef[1], node.ndef[1])
+    return nrepr
+
 # TODO make this more sophisticated...
 varmeths = {
     str: {
         'split': strsplit,
-    }
+    },
+    s_node.Node: {
+        'form': nodeform,
+        'valu': nodevalu,
+        'ndef': nodendef,
+        'repr': noderepr,
+    },
 }
 
 class VarDeref(RunValue):
@@ -1423,11 +1486,30 @@ class VarDeref(RunValue):
 
         raise s_exc.NoSuchName(name)
 
+    async def compute(self, runt, node, path):
+        valu = await self.kids[0].compute(runt, node, path)
+        name = self.kids[1].value()
+
+        # is it a var method?
+        meths = varmeths.get(type(valu))
+
+        if meths is not None:
+            ctor = meths.get(name)
+            if ctor is not None:
+                return ctor(valu)
+
+        raise s_exc.NoSuchName(name)
+
 class VarCall(RunValue):
 
     def runtval(self, runt):
         meth = self.kids[0].runtval(runt)
         args = self.kids[1].runtval(runt)
+        return meth(*args)
+
+    async def compute(self, runt, node, path):
+        meth = await self.kids[0].compute(runt, node, path)
+        args = await self.kids[1].compute(runt, node, path)
         return meth(*args)
 
 class VarList(Value):
