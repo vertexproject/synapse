@@ -295,7 +295,8 @@ class Cell(s_base.Base, s_telepath.Aware):
         else:
 
             db = self.slab.initdb('hive')
-            self.hive = s_hive.SlabHive.anit(self.slab, db=db)
+            self.hive = await s_hive.SlabHive.anit(self.slab, db=db)
+            self.onfini(self.hive.fini)
 
     #async def onTeleOpen(self, link, path):
         # TODO make a path resolver for layers/etc
