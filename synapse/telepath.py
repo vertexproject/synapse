@@ -603,6 +603,11 @@ async def openurl(url, **opts):
     prox = await Proxy.anit(link, name)
     prox.onfini(link)
 
-    await prox.handshake(auth=auth)
+    try:
+        await prox.handshake(auth=auth)
+
+    except Exception as e:
+        await prox.fini()
+        raise
 
     return prox

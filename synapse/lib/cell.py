@@ -295,10 +295,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         else:
 
             db = self.slab.initdb('hive')
-
-            # use the same auth path for the hive as for the cell
-            conf = {'auth:path': authpath}
-            self.hive = s_hive.SlabHive.anit(self.slab, db=db, conf=conf)
+            self.hive = s_hive.SlabHive.anit(self.slab, db=db)
 
     #async def onTeleOpen(self, link, path):
         # TODO make a path resolver for layers/etc
@@ -312,6 +309,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         if not os.path.exists(path) and readonly:
             logger.warning('Creating a slab for a readonly cell.')
             _slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE)
+            _slab.initdb('hive')
             await _slab.fini()
 
         self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
