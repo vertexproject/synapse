@@ -19,7 +19,7 @@ telehost = os.getenv('SYN_CORTEX_HOST', '127.0.0.1')
 #httpsport = os.getenv('SYN_CORTEX_HTTPS_PORT', '443')
 #httpshost = os.getenv('SYN_CORTEX_HTTPS_HOST', '127.0.0.1')
 
-def main(argv, outp=s_output.stdout):
+def main(argv, outp=s_output.stdout): # pragma: no cover
 
     pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
 
@@ -34,7 +34,7 @@ def main(argv, outp=s_output.stdout):
 
     return dmon.main()
 
-async def mainopts(opts, outp=s_output.stdout):
+async def mainopts(opts, outp=s_output.stdout): # pragma: no cover
 
     proto = 'tcp'
 
@@ -56,5 +56,5 @@ async def mainopts(opts, outp=s_output.stdout):
 
     return dmon
 
-if __name__ == '__main__':
+if __name__ == '__main__': # pragma: no cover
     sys.exit(main(sys.argv[1:]))

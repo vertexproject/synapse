@@ -71,7 +71,7 @@ class Node(s_base.Base):
 
 class Hive(s_base.Base, s_telepath.Aware):
     '''
-    An optionally persistent atomicly accessed tree which implements
+    An optionally persistent atomically accessed tree which implements
     primitives for use in making distributed/clustered services.
     '''
     async def __anit__(self, conf=None):
@@ -167,8 +167,6 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         # all node events dist up the tree
         node.link(base.dist)
-
-        #print('INIT: %r %r %r %r' % (self, path, node, valu))
 
         self.nodes[path] = node
         base.kids[path[-1]] = node
@@ -352,10 +350,6 @@ class HiveApi(s_base.Base):
         self.msgq = asyncio.Queue(maxsize=10000)
 
         self.onfini(self._onHapiFini)
-
-    def _getUserPass(self, mesg):
-        name, info = mesg[1].get('auth')
-        return name, info.get('passwd')
 
     async def treeAndSync(self, path, iden):
 
