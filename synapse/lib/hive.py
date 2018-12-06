@@ -109,6 +109,7 @@ class Hive(s_base.Base, s_telepath.Aware):
 
             node = await self.open(path)
             self.auth = await HiveAuth.anit(node)
+            self.onfini(self.auth.fini)
 
         return self.auth
 
@@ -374,7 +375,7 @@ class HiveApi(s_base.Base):
             for name, kidn in node.kids.items():
 
                 kidp = (kidn.valu, {})
-                pode[1][kidn] = kidp
+                pode[1][name] = kidp
 
                 todo.append((kidn, kidp))
 
@@ -455,7 +456,6 @@ class TeleHive(Hive):
     async def _runHiveLoop(self):
         while not self.isfini:
             async for mesg in await self.proxy.edits():
-                #print('HIVE LOOP: %r %r' % (self, mesg,))
                 await self.mesgbus.dist(mesg)
 
     async def _onHiveSet(self, mesg):
@@ -559,8 +559,10 @@ class HiveDict(s_base.Base):
     def setdefault(self, name, valu):
         self.defs[name] = valu
 
+#TODO
 #class HiveLock(s_base.Base):
 #class HiveSeqn(s_base.Base):
+#class HiveRules(s_base.Base): allow separate rules for different objects
 
 class HiveAuth(s_base.Base):
 
@@ -578,10 +580,10 @@ class HiveAuth(s_base.Base):
         self.usersbyname = {}
         self.rolesbyname = {}
 
-        for node in self.roles:
+        for iden, node in self.roles:
             await self._addRoleNode(node)
 
-        for node in self.users:
+        for idne, node in self.users:
             await self._addUserNode(node)
 
         # initialize an admin user named root
@@ -809,9 +811,6 @@ class HiveUser(HiveIden):
     async def setAdmin(self, admin):
         await self.info.set('admin', admin)
 
-    #async def setPasswd(self, passwd):
-        #await self.info.set('passwd', passwd)
-
     async def setLocked(self, locked):
         await self.info.set('locked', locked)
 
@@ -848,8 +847,6 @@ async def openurl(url, **opts):
     return await TeleHive.anit(prox)
 
 async def opendir(dirn, conf=None):
-
     slab = await s_slab.Slab.anit(dirn, map_size=s_const.gibibyte)
-
     db = slab.initdb('hive')
     return await SlabHive(slab, db=db, conf=conf)
