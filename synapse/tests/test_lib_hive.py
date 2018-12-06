@@ -139,6 +139,12 @@ class HiveTest(s_test.SynTest):
                 user = await auth.addUser('visi@vertex.link')
                 role = await auth.addRole('ninjas')
 
+                self.eq(user, auth.user(user.iden))
+                self.eq(user, auth.getUserByName('visi@vertex.link'))
+
+                self.eq(role, auth.role(role.iden))
+                self.eq(role, auth.getRoleByName('ninjas'))
+
                 with self.raises(s_exc.DupUserName):
                     await auth.addUser('visi@vertex.link')
 
@@ -163,6 +169,13 @@ class HiveTest(s_test.SynTest):
                 self.true(user.allowed(('foo', 'bar'), elev=False))
 
                 self.len(1, user.permcache)
+
+                await user.delRule((True, ('foo',)))
+
+                self.len(0, user.permcache)
+                self.false(user.allowed(('foo', 'bar'), elev=False))
+
+                await user.addRule((True, ('foo',)))
 
                 await user.grant('ninjas')
 
@@ -193,3 +206,59 @@ class HiveTest(s_test.SynTest):
 
                 self.true(user.allowed(('baz', 'faz'), elev=False))
                 self.true(user.allowed(('foo', 'bar'), elev=False))
+
+    async def test_hive_dir(self):
+
+        async with self.getTestHive() as hive:
+
+            await hive.open(('foo', 'bar'))
+            await hive.open(('foo', 'baz'))
+            await hive.open(('foo', 'faz'))
+
+            node = await hive.open(('foo',))
+
+            kids = list(hive.dir(('foo',)))
+
+            self.len(3, kids)
+
+            names = list(sorted([name for (name, node, size) in kids]))
+
+            self.eq(names, ('bar', 'baz', 'faz'))
+
+    async def test_hive_pop(self):
+
+        async with self.getTestHive() as hive:
+
+            node = await hive.open(('foo', 'bar'))
+
+            await node.set(20)
+
+            self.none(await hive.pop(('newp',)))
+
+            self.eq(20, await hive.pop(('foo', 'bar')))
+
+            self.none(await hive.get(('foo', 'bar')))
+
+    async def test_hive_tele_auth(self):
+
+        # confirm that the primitives used by higher level APIs
+        # work using telepath remotes and property synchronize.
+
+        async with self.getTestHiveDmon() as dmon:
+
+            hive = dmon.shared.get('hive')
+
+            hive.conf['auth:en'] = True
+
+            auth = await hive.getHiveAuth()
+
+            user = auth.getUserByName('root')
+            await user.setPasswd('secret')
+
+            turl = self.getTestUrl(dmon, 'hive')
+
+            with self.raises(s_exc.AuthDeny):
+                await s_hive.openurl(turl, user='root', passwd='newpnewp')
+
+            async with await s_hive.openurl(turl, user='root', passwd='secret') as hive0:
+                node = await hive.open(('foo', 'bar'))

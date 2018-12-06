@@ -39,7 +39,7 @@ class Node(s_base.Base):
         return self.full[-1]
 
     def parent(self):
-        return self.hive.open(self.full[:-1])
+        return self.hive.nodes.get(self.full[:-1])
 
     def get(self, name):
         return self.kids.get(name)
@@ -147,7 +147,7 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         return node.valu
 
-    async def dir(self, full):
+    def dir(self, full):
         node = self.nodes.get(full)
         if node is None:
             return tuple()
@@ -257,6 +257,9 @@ class Hive(s_base.Base, s_telepath.Aware):
         Remove and return the value for the given node.
         '''
         node = self.nodes.get(full)
+        if node is None:
+            return
+
         return await self._popHiveNode(node)
 
     async def _popHiveNode(self, node):
@@ -272,6 +275,8 @@ class Hive(s_base.Base, s_telepath.Aware):
         await self.storNodeDele(node.full)
 
         await node.fire('hive:pop', path=node.full, valu=node.valu)
+
+        await node.fini()
 
         return node.valu
 
@@ -294,14 +299,14 @@ class Hive(s_base.Base, s_telepath.Aware):
         if not user.tryPasswd(passwd):
             raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
 
+        return await HiveApi.anit(self, user)
+
     # TODO maybe eventually allow opening at a position and acting
     # like a hive with the given path as the root...
     #async def onTeleOpen(self, link, path):
         #class HivePathApi(s_telepath.Aware):
             #async def getTeleApi(self, link, mesg):
                 #return await HiveApi.anit(self, link, mesg, path=path)
-
-        return HivePathApi()
 
     async def _storLoadHive(self):
         pass
@@ -591,17 +596,17 @@ class HiveAuth(s_base.Base):
             user = await self.addUser('root')
             await user.setAdmin(True)
 
+    def role(self, iden):
+        return self.rolesbyiden.get(iden)
+
+    def user(self, iden):
+        return self.usersbyiden.get(iden)
+
     def getUserByName(self, name):
         return self.usersbyname.get(name)
 
     def getRoleByName(self, name):
         return self.rolesbyname.get(name)
-
-    def getUserByIden(self, iden):
-        return self.usersbyiden.get(iden)
-
-    def getRoleByIden(self, iden):
-        return self.rolesbyiden.get(iden)
 
     async def _addUserNode(self, node):
 
@@ -624,12 +629,6 @@ class HiveAuth(s_base.Base):
         self.rolesbyname[role.name] = role
 
         return role
-
-    def role(self, iden):
-        return self.rolesbyiden.get(iden)
-
-    def user(self, iden):
-        return self.usersbyiden.get(iden)
 
     async def addUser(self, name):
 
