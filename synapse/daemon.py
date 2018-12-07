@@ -166,7 +166,6 @@ class Daemon(s_base.Base):
             host (str): A hostname or IP address.
             port (int): The TCP port to bind.
         '''
-        print(f'Calling listen for {url}')
         info = s_urlhelp.chopurl(url, **opts)
         info.update(opts)
 

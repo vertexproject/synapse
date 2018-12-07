@@ -366,11 +366,10 @@ class StormCmd(s_cli.Cmd):
         stormopts.setdefault('graph', opts.get('graph', False))
         self.printf('')
 
-        print(f'cli - Running query {text}')
         try:
 
             async for mesg in await core.storm(text, opts=stormopts):
-                print(f'got mesg: {mesg}')
+
                 self._cmd_cli.fire('storm:mesg', mesg=mesg)
 
                 if opts.get('debug'):
