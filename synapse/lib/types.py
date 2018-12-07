@@ -53,6 +53,7 @@ class Type:
         self.setCmprCtor('~=', self._ctorCmprRe)
         self.setCmprCtor('^=', self._ctorCmprPref)
         self.setCmprCtor('*in=', self._ctorCmprIn)
+        self.setCmprCtor('*range=', self._ctorCmprRange)
 
         self.postTypeInit()
 
@@ -153,6 +154,14 @@ class Type:
 
         def cmpr(valu):
             return valu in norms
+        return cmpr
+
+    def _ctorCmprRange(self, vals):
+        minv = self.norm(vals[0])[0]
+        maxv = self.norm(vals[1])[0]
+
+        def cmpr(valu):
+            return minv <= valu <= maxv
         return cmpr
 
     def indxByEq(self, valu):

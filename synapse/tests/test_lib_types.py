@@ -1,3 +1,5 @@
+import hashlib
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
@@ -366,6 +368,36 @@ class TypesTest(s_t_utils.SynTest):
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': None})
         self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': ('inet:ipv4', {})})  # inet is not loaded yet
+
+    async def test_range_filter(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('inet:ipv4', '3.3.3.3')
+                node = await snap.addNode('inet:ipv4', '172.111.92.6')
+                node = await snap.addNode('inet:ipv4', '4.4.4.5')
+                node = await snap.addNode('inet:ipv4', '192.168.1.1')
+                node = await snap.addNode('file:bytes', b'f')
+                node = await snap.addNode('file:bytes', b'foo')
+                node = await snap.addNode('file:bytes', b'ffoo')
+                node = await snap.addNode('file:bytes', b'foobar')
+                node = await snap.addNode('file:bytes', b'A Slightly longer string for a test')
+
+            nodes = await alist(core.eval('file:bytes +:size*range=(1,2)'))
+            self.eq({node.ndef[1] for node in nodes}, {'sha256:' + hashlib.sha256(b'f').hexdigest()})
+            nodes = await alist(core.eval('file:bytes +:size*range=(3,6)'))
+            self.eq({node.ndef[1] for node in nodes},
+                    {'sha256:' + hashlib.sha256(b'foo').hexdigest(),
+                     'sha256:' + hashlib.sha256(b'ffoo').hexdigest(),
+                     'sha256:' + hashlib.sha256(b'foobar').hexdigest()})
+
+            await self.agenlen(0, core.eval('file:bytes +:size*range=(10,12)'))
+
+            nodes = await alist(core.eval('inet:ipv4 +inet:ipv4*range=(1.1.1.1, 4.4.4.4)'))
+            self.eq({node.repr() for node in nodes}, {'3.3.3.3'})
+            nodes = await alist(core.eval('inet:ipv4 +inet:ipv4*range=(0.0.0.0, 255.255.255.255)'))
+            self.eq({node.repr() for node in nodes}, {'3.3.3.3', '172.111.92.6', '4.4.4.5', '192.168.1.1'})
+            nodes = await alist(core.eval('inet:ipv4 +inet:ipv4*range=(4.4.4.5, 180.9.16.90)'))
+            self.eq({node.repr() for node in nodes}, {'4.4.4.5', '172.111.92.6'})
 
     def test_str(self):
 
