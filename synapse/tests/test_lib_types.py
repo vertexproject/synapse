@@ -370,7 +370,9 @@ class TypesTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': ('inet:ipv4', {})})  # inet is not loaded yet
 
     async def test_range_filter(self):
+
         async with self.getTestCore() as core:
+
             async with await core.snap() as snap:
                 node = await snap.addNode('inet:ipv4', '3.3.3.3')
                 node = await snap.addNode('inet:ipv4', '172.111.92.6')
