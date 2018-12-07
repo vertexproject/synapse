@@ -445,8 +445,10 @@ class Cell(s_base.Base, s_telepath.Aware):
                 if self.alt_write_layer:
                     os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
 
-            async with await s_daemon.Daemon.anit(dirn) as dmon:
+            async with await s_daemon.Daemon.anit(dirn, conf={'listen': None}) as dmon:
                 dmon.share('core', self)
-                addr = await dmon.listen('tcp://127.0.0.1:0')
+                listenaddr = 'tcp://127.0.0.1:0'
+                print(f'listing on local loopback: {listenaddr}')
+                addr = await dmon.listen(listenaddr)
                 prox = await s_telepath.openurl('tcp://127.0.0.1/core', port=addr[1])
                 yield prox

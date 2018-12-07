@@ -44,14 +44,19 @@ def initloop():
 
         # check if it's us....
         try:
+            print('getting running loop')
             _glob_loop = asyncio.get_running_loop()
+            print(f'_glob_loop is {_glob_loop}/{id(_glob_loop)}')
             # if we get here, it's us!
             _glob_thrd = threading.currentThread()
+            print(f'hey we got _glob_thread {_glob_thrd}')
 
         except RuntimeError as e:
 
             # otherwise, lets fire one...
+            print('making a new io loop!')
             _glob_loop = asyncio.new_event_loop()
+            print(f'made _glob_loop {_glob_loop}/{id(_glob_loop)}')
             greedy_threshold = os.environ.get('SYN_GREEDY_CORO')
             if greedy_threshold is not None:
                 _glob_loop.slow_callback_duration = float(greedy_threshold)
