@@ -12,6 +12,7 @@ FROM vertexproject/synapse-base-image2:py37
 
 COPY synapse /build/synapse/synapse
 COPY setup.py /build/synapse/setup.py
+COPY MANIFEST.in /build/synapse/MANIFEST.in
 
 COPY docker/images/cortex/bootstrap.sh /build/synapse/bootstrap.sh
 COPY docker/images/cortex/entrypoint.sh /vertex/synapse/entrypoint.sh
