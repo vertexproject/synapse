@@ -159,10 +159,10 @@ class Type:
     def _ctorCmprRange(self, vals):
 
         if type(vals) not in (list, tuple):
-            raise s_exc.BadCmprValue(valu=vals, cmpr='*range=')
+            raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
 
         if len(vals) != 2:
-            raise s_exc.BadCmprValue(valu=vals, cmpr='*range=')
+            raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
 
         minv = self.norm(vals[0])[0]
         maxv = self.norm(vals[1])[0]
