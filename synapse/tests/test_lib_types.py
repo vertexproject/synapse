@@ -380,6 +380,7 @@ class TypesTest(s_t_utils.SynTest):
                 node = await snap.addNode('testguid', 'F' * 32)
                 node = await alist(core.eval('[refs=((testcomp, (2048, horton)), (testcomp, (4096, whoville)))]'))
                 node = await alist(core.eval('[refs=((testcomp, (9001, "A mean one")), (testcomp, (40000, greeneggs)))]'))
+                node = await alist(core.eval('[refs=((testint, 16), (testcomp, (9999, greenham)))]'))
 
             nodes = await alist(core.eval('teststr=a +:tick*range=(20000101, 20101201)'))
             self.eq(0, len(nodes))
@@ -404,11 +405,10 @@ class TypesTest(s_t_utils.SynTest):
                     {(('testcomp', (2048, 'horton')), ('testcomp', (4096, 'whoville')))})
 
             # sad path
-            with self.raises(s_exc.BadCmprValu):
-                nodes = await alist(core.eval('testcomp +:hehe*range=(0.0.0.0, 1.1.1.1, 6.6.6.6)'))
-                nodes = await alist(core.eval('testcomp +:haha*range=(somestring,) '))
-                nodes = await alist(core.eval('teststr +:bar*range=Foobar'))
-                nodes = await alist(core.eval('testint +:bar*range=3456'))
+            await self.agenraises(s_exc.BadCmprValu, core.eval('testcomp +:hehe*range=(0.0.0.0, 1.1.1.1, 6.6.6.6)'))
+            await self.agenraises(s_exc.BadCmprValu, core.eval('testcomp +:haha*range=(somestring,) '))
+            await self.agenraises(s_exc.BadCmprValu, core.eval('teststr +:bar*range=Foobar'))
+            await self.agenraises(s_exc.BadCmprValu, core.eval('testint +testint*range=3456'))
 
     def test_str(self):
 
