@@ -698,6 +698,10 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].pack()[0], ('teststr', 'foo bar'))
 
+            # Seed nodes in the query invalid idens
+            opts = {'idens': ('deadb33f',)}
+            await self.agenraises(s_exc.NoSuchIden, core.eval('', opts=opts))
+
             # Test and/or/not
             await alist(core.eval('[testcomp=(1, test) +#meep.morp +#bleep.blorp +#cond]'))
             await alist(core.eval('[testcomp=(2, test) +#meep.morp +#bleep.zlorp +#cond]'))

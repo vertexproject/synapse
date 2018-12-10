@@ -93,6 +93,8 @@ class Runtime:
         for iden in self.opts.get('idens', ()):
 
             buid = s_common.uhex(iden)
+            if len(buid) != 32:
+                raise s_exc.NoSuchIden(mesg='Iden must be 32 bytes', iden=iden)
 
             node = await self.snap.getNodeByBuid(buid)
             if node is not None:
@@ -667,6 +669,9 @@ class IdenCmd(Cmd):
                 buid = s_common.uhex(iden)
             except Exception as e:
                 await runt.warn(f'Failed to decode iden: [{iden}]')
+                continue
+            if len(buid) != 32:
+                await runt.warn(f'iden must be 32 bytes [{iden}]')
                 continue
 
             node = await runt.snap.getNodeByBuid(buid)
