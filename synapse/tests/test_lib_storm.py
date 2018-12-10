@@ -188,6 +188,11 @@ class StormTest(s_t_utils.SynTest):
                 await self.agenlen(0, core.eval(q))
                 self.true(stream.wait(1))
 
+            q = 'iden deadb33f'
+            with self.getLoggerStream('synapse.lib.snap', 'iden must be 32 bytes') as stream:
+                await self.agenlen(0, core.eval(q))
+                self.true(stream.wait(1))
+
     async def test_storm_input(self):
 
         async with self.getTestCore() as core:
