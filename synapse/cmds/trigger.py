@@ -33,7 +33,7 @@ that is aka.* matches aka.foo and aka.bar but not aka.foo.bar.  aka* is not
 supported.
 
 Examples:
-    # Adds a tag to ever inet:ipv4 added
+    # Adds a tag to every inet:ipv4 added
     trigger add node:add inet:ipv4 {[ +#mytag ]}
 
     # Adds a tag #todo to every node as it is tagged #aka

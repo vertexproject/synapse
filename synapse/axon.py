@@ -6,7 +6,6 @@ import hashlib
 import logging
 import binascii
 import tempfile
-import functools
 import concurrent
 import contextlib
 

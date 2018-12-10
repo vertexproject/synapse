@@ -19,6 +19,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
 import synapse.lib.layer as s_layer
 import synapse.lib.syntax as s_syntax
+import synapse.lib.agenda as s_agenda
 import synapse.lib.trigger as s_trigger
 import synapse.lib.modules as s_modules
 
@@ -118,7 +119,7 @@ class CoreApi(s_cell.CellApi):
         username = None if self.user is None else self.user.name
         self.cell.triggers.add(username, condition, query, info=info)
 
-    def _trig_auth_check(self, triguser):
+    def _auth_check(self, triguser):
         username = None if self.user is None else self.user.name
         if username is not None and (not self.user.admin) and username != triguser:
             raise s_exc.AuthDeny(user=self.user.name, mesg='As non-admin, may only manipulate triggers created by you')
@@ -128,7 +129,7 @@ class CoreApi(s_cell.CellApi):
         Deletes a trigger from the cortex
         '''
         trig = self.cell.triggers.get(iden)
-        self._trig_auth_check(trig.get('user'))
+        self._auth_check(trig.get('user'))
         self.cell.triggers.delete(iden)
 
     async def updateTrigger(self, iden, query):
@@ -136,7 +137,7 @@ class CoreApi(s_cell.CellApi):
         Change an existing trigger's query
         '''
         trig = self.cell.triggers.get(iden)
-        self._trig_auth_check(trig.get('user'))
+        self._auth_check(trig.get('user'))
         self.cell.triggers.mod(iden, query)
 
     async def listTriggers(self):
@@ -146,6 +147,30 @@ class CoreApi(s_cell.CellApi):
         username = None if self.user is None else self.user.name
         return [(iden, trig) for (iden, trig) in self.cell.triggers.list()
                 if username is None or self.user.admin or trig.get('user') == username]
+
+    async def addCronJob(self, query, reqdict, incunit=None, incval=1):
+        # FIXME: convert time unit
+        username = None if self.user is None else self.user.name
+        self.cell.agenda.add(username, query, reqdict, incunit, incval)
+
+    async def delCronJob(self, iden):
+        cron = self.cell.agenda.get(iden)
+        self._auth_check(cron.get('user'))
+        self.cell.agenda.delete(iden)
+
+    async def updateCronJob(self, iden, query):
+        '''
+        Change an existing cron job's query
+        '''
+        cron = self.cell.triggers.get(iden)
+        self._auth_check(cron.get('user'))
+        self.cell.agenda.mod(iden, query)
+
+    async def listCronJobs(self):
+        username = None if self.user is None else self.user.name
+        # FIXME: convert time unit
+        return [(iden, cron) for (iden, cron) in self.cell.agenda.list()
+                if username is None or self.user.admin or cron.get('username') == username]
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
@@ -408,6 +433,7 @@ class Cortex(s_cell.Cell):
         self.onfini(fini)
 
         self.triggers = s_trigger.Triggers(self)
+        self.agenda = await s_agenda.Agenda.anit(self)
 
         # these may be used directly
         self.model = s_datamodel.Model()
@@ -425,6 +451,7 @@ class Cortex(s_cell.Cell):
         await self.addCoreMods(mods)
 
         await self.triggers.enable()
+        await self.agenda.enable()
 
         self._initCryoLoop()
         self._initPushLoop()
