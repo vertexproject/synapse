@@ -372,34 +372,43 @@ class TypesTest(s_t_utils.SynTest):
     async def test_range_filter(self):
 
         async with self.getTestCore() as core:
-
             async with await core.snap() as snap:
-                node = await snap.addNode('inet:ipv4', '3.3.3.3')
-                node = await snap.addNode('inet:ipv4', '172.111.92.6')
-                node = await snap.addNode('inet:ipv4', '4.4.4.5')
-                node = await snap.addNode('inet:ipv4', '192.168.1.1')
-                node = await snap.addNode('file:bytes', b'f')
-                node = await snap.addNode('file:bytes', b'foo')
-                node = await snap.addNode('file:bytes', b'ffoo')
-                node = await snap.addNode('file:bytes', b'foobar')
-                node = await snap.addNode('file:bytes', b'A Slightly longer string for a test')
+                node = await snap.addNode('teststr', 'a', {'bar': ('teststr', 'a'), 'tick': '19990101'})
+                node = await snap.addNode('teststr', 'b', {'.seen': ('20100101', '20110101'), 'tick': '20151207'})
+                node = await snap.addNode('teststr', 'm', {'bar': ('teststr', 'm'), 'tick': '20200101'})
+                node = await snap.addNode('testguid', 'C' * 32)
+                node = await snap.addNode('testguid', 'F' * 32)
+                node = await alist(core.eval('[refs=((testcomp, (2048, horton)), (testcomp, (4096, whoville)))]'))
+                node = await alist(core.eval('[refs=((testcomp, (9001, "A mean one")), (testcomp, (40000, greeneggs)))]'))
 
-            nodes = await alist(core.eval('file:bytes +:size*range=(1,2)'))
-            self.eq({node.ndef[1] for node in nodes}, {'sha256:' + hashlib.sha256(b'f').hexdigest()})
-            nodes = await alist(core.eval('file:bytes +:size*range=(3,6)'))
+            nodes = await alist(core.eval('teststr=a +:tick*range=(20000101, 20101201)'))
+            self.eq(0, len(nodes))
+            nodes = await alist(core.eval('teststr +:tick*range=(19701125, 20151212)'))
+            self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
+            nodes = await alist(core.eval('testcomp +:haha*range=(grinch, meanone)'))
+            self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
+            nodes = await alist(core.eval('teststr +:.seen*range=((20090601, 20090701), (20110905, 20110906,))'))
+            self.eq({node.ndef[1] for node in nodes}, {'b'})
+            nodes = await alist(core.eval('teststr +:bar*range=((teststr, c), (teststr, q))'))
+            self.eq({node.ndef[1] for node in nodes}, {'m'})
+            nodes = await alist(core.eval('testcomp +testcomp*range=((1024, grinch), (4096, zemeanone))'))
+            self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton'), (4096, 'whoville')})
+            guid0 = 'B'*32
+            guid1 = 'D'*32
+            nodes = await alist(core.eval(f'testguid +testguid*range=({guid0}, {guid1})'))
+            self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
+            nodes = await alist(core.eval('testint | noderefs | +testcomp*range=((1000, grinch), (4000, whoville))'))
+            self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
+            nodes = await alist(core.eval('refs +:n1*range=((testcomp, (1000, green)), (testcomp, (3000, ham)))'))
             self.eq({node.ndef[1] for node in nodes},
-                    {'sha256:' + hashlib.sha256(b'foo').hexdigest(),
-                     'sha256:' + hashlib.sha256(b'ffoo').hexdigest(),
-                     'sha256:' + hashlib.sha256(b'foobar').hexdigest()})
+                    {(('testcomp', (2048, 'horton')), ('testcomp', (4096, 'whoville')))})
 
-            await self.agenlen(0, core.eval('file:bytes +:size*range=(10,12)'))
-
-            nodes = await alist(core.eval('inet:ipv4 +inet:ipv4*range=(1.1.1.1, 4.4.4.4)'))
-            self.eq({node.repr() for node in nodes}, {'3.3.3.3'})
-            nodes = await alist(core.eval('inet:ipv4 +inet:ipv4*range=(0.0.0.0, 255.255.255.255)'))
-            self.eq({node.repr() for node in nodes}, {'3.3.3.3', '172.111.92.6', '4.4.4.5', '192.168.1.1'})
-            nodes = await alist(core.eval('inet:ipv4 +inet:ipv4*range=(4.4.4.5, 180.9.16.90)'))
-            self.eq({node.repr() for node in nodes}, {'4.4.4.5', '172.111.92.6'})
+            # sad path
+            with self.raises(s_exc.BadCmprValu):
+                nodes = await alist(core.eval('testcomp +:hehe*range=(0.0.0.0, 1.1.1.1, 6.6.6.6)'))
+                nodes = await alist(core.eval('testcomp +:haha*range=(somestring,) '))
+                nodes = await alist(core.eval('teststr +:bar*range=Foobar'))
+                nodes = await alist(core.eval('testint +:bar*range=3456'))
 
     def test_str(self):
 
