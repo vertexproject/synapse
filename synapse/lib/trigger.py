@@ -160,7 +160,16 @@ class Triggers:
         return [(iden, dataclasses.asdict(rule)) for iden, rule in self._rules.items()]
 
     def mod(self, iden, query):
-        self._rules[iden].storm = query
+        rule = self._rules.get(iden)
+        if rule is None:
+            raise s_exc.NoSuchIden()
+
+        if self.enabled:
+            self.core.getStormQuery(query)
+
+        db = self.core.slab.initdb(self.TRIGGERS_DB_NAME)
+        rule.storm = query
+        self.core.slab.put(iden, rule.en(), db=db)
 
     @contextlib.contextmanager
     def _recursion_check(self):
