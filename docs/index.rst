@@ -11,6 +11,7 @@ Welcome to synapse's documentation!
    :caption: Contents:
 
    contributing
+   synapse/api/modules
 
 Indices and tables
 ==================

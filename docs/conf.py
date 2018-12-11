@@ -16,6 +16,8 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
 
+import synapse
+
 
 # -- Project information -----------------------------------------------------
 
@@ -24,9 +26,9 @@ copyright = '2018, The Vertex Project'
 author = 'The Vertex Project'
 
 # The short X.Y version
-version = ''
+version = synapse.verstring
 # The full version, including alpha/beta/rc tags
-release = ''
+release = synapse.verstring
 
 
 # -- General configuration ---------------------------------------------------
@@ -182,3 +184,15 @@ epub_exclude_files = ['search.html']
 
 
 # -- Extension configuration -------------------------------------------------
+# Our magic
+def run_apidoc(_):
+    from sphinx.ext.apidoc import main
+
+    args = ['-M', '-o', 'synapse/api', '../synapse', ]
+    ignores = ['../synapse/tests']
+    args.extend(ignores)
+    main(args)
+
+def setup(app):
+    # app.add_stylesheet('theme_overrides.css')
+    app.connect('builder-inited', run_apidoc)
