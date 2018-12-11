@@ -12,6 +12,7 @@ import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.const as s_const
 
 class Slab(s_base.Base):
     '''
@@ -20,7 +21,10 @@ class Slab(s_base.Base):
     COMMIT_PERIOD = 1.0  # time between commits
 
     async def __anit__(self, path, **kwargs):
+
         await s_base.Base.__anit__(self)
+
+        kwargs.setdefault('map_size', s_const.gibibyte)
 
         opts = kwargs
 

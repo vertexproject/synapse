@@ -199,10 +199,11 @@ class PsCmd(s_cli.Cmd):
         for task in tasks:
 
             self.printf('task iden: %s' % (task.get('iden'),))
-            self.printf('    name: %r' % (task.get('name'),))
+            self.printf('    name: %s' % (task.get('name'),))
             self.printf('    user: %r' % (task.get('user'),))
             self.printf('    status: %r' % (task.get('status'),))
             self.printf('    metadata: %r' % (task.get('info'),))
+            self.printf('    start time: %s' % (s_time.repr(task.get('tick', 0)),))
 
         self.printf('%d tasks found.' % (len(tasks,)))
 

@@ -17,6 +17,25 @@ class TrigTest(s_t_utils.SynTest):
             await core.addTrigger('node:add', 'sudo | [ testguid="*" ]', info={'form': 'testguid'})
             await s_common.aspin(await core.eval('sudo | [ testguid="*" ]'))
 
+    async def test_modification_persistence(self):
+        with self.getTestDir() as fdir:
+            async with await self.getTestCell(fdir, 'cortex') as core:
+                core.triggers.add('root', 'node:add', 'sudo | [inet:user=1]', info={'form': 'inet:ipv4'})
+                triggers = core.triggers.list()
+                self.eq(triggers[0][1].get('storm'), 'sudo | [inet:user=1]')
+                iden = triggers[0][0]
+                core.triggers.mod(iden, 'sudo | [inet:user=2]')
+                triggers = core.triggers.list()
+                self.eq(triggers[0][1].get('storm'), 'sudo | [inet:user=2]')
+
+                # Sad case
+                self.raises(s_exc.BadStormSyntax, core.triggers.mod, iden, ' | | badstorm ')
+                self.raises(s_exc.NoSuchIden, core.triggers.mod, 'deadb33f', 'inet:user')
+
+            async with await self.getTestCell(fdir, 'cortex') as core:
+                triggers = core.triggers.list()
+                self.eq(triggers[0][1].get('storm'), 'sudo | [inet:user=2]')
+
     async def trigger_tests(self, dmon):
         pconf = {'user': 'root', 'passwd': 'root'}
         async with await self.agetTestProxy(dmon, 'core', **pconf) as core:

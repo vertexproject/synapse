@@ -60,7 +60,9 @@ class CellTest(s_t_utils.SynTest):
                 self.false(await proxy.allowed(('hehe', 'haha')))
 
     async def test_cell_readonly(self):
+
         with self.getTestDir() as dirn:
+
             async with await s_cells.init('echoauth', dirn) as cell:
                 self.false(cell.slab.readonly)
 

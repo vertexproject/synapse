@@ -30,6 +30,7 @@ class LmdbLayer(s_layer.Layer):
     TODO:
         metadata for layer contents (only specific type / tag)
     '''
+
     confdefs = (  # type: ignore
         ('lmdb:mapsize', {'type': 'int', 'defval': LMDB_LAYER_DEFAULT_MAP_SIZE}),
         ('lmdb:maxsize', {'type': 'int', 'defval': None, 'doc': 'The largest the DB file will grow to'}),
@@ -277,7 +278,7 @@ class LmdbLayer(s_layer.Layer):
         return self.offs.set(iden, offs)
 
     async def splices(self, offs, size):
-        for i, mesg in self.splicelog.slice(offs, size):
+        for _, mesg in self.splicelog.slice(offs, size):
             yield mesg
 
     async def stat(self):

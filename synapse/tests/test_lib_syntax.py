@@ -199,6 +199,7 @@ class StormSyntaxTest(s_t_utils.SynTest):
             self.len(1, q('teststr="4"').kids)
             self.len(1, q("teststr='4'").kids)
             self.len(2, q('inet:ipv4=1.2.3.0/24 +{ :asn -> inet:asn +:name~="visi k" }').kids)
+            self.len(2, q('inet:ipv4=1.2.3.0/24 +{ :asn -> inet:asn +:name~="visi k" | spin }').kids)
             self.raises(s_exc.BadStormSyntax, q, '[x&f]')
 
     async def test_lib_syntax_query_client(self):

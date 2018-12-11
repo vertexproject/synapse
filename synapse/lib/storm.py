@@ -1,4 +1,3 @@
-import shlex
 import asyncio
 import logging
 import argparse
@@ -8,6 +7,7 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 
+import synapse.lib.ast as s_ast
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
@@ -93,6 +93,8 @@ class Runtime:
         for iden in self.opts.get('idens', ()):
 
             buid = s_common.uhex(iden)
+            if len(buid) != 32:
+                raise s_exc.NoSuchIden(mesg='Iden must be 32 bytes', iden=iden)
 
             node = await self.snap.getNodeByBuid(buid)
             if node is not None:
@@ -173,18 +175,14 @@ class Cmd:
     '''
     name = 'cmd'
 
-    def __init__(self, text):
+    def __init__(self, argv):
         self.opts = None
-        self.text = text
-        self.argv = self.getCmdArgv()
+        self.argv = argv
         self.pars = self.getArgParser()
 
     @classmethod
     def getCmdBrief(cls):
         return cls.__doc__.strip().split('\n')[0]
-
-    def getCmdArgv(self):
-        return shlex.split(self.text)
 
     def getArgParser(self):
         return Parser(prog=self.name, descr=self.__class__.__doc__)
@@ -490,7 +488,7 @@ class ReIndexCmd(Cmd):
                 if subs is not None:
                     for subn, subv in subs.items():
                         if node.form.props.get(subn):
-                            await node.set(subn, subv)
+                            await node.set(subn, subv, init=True)
 
                 yield node, path
 
@@ -671,6 +669,9 @@ class IdenCmd(Cmd):
                 buid = s_common.uhex(iden)
             except Exception as e:
                 await runt.warn(f'Failed to decode iden: [{iden}]')
+                continue
+            if len(buid) != 32:
+                await runt.warn(f'iden must be 32 bytes [{iden}]')
                 continue
 
             node = await runt.snap.getNodeByBuid(buid)
@@ -918,3 +919,64 @@ class SleepCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('delay', type=float, default=1, help='Delay in floating point seconds.')
         return pars
+
+class GraphCmd(Cmd):
+    '''
+    Generate a subgraph from the given input nodes and command line options.
+    '''
+    name = 'graph'
+
+    def getArgParser(self):
+
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('--degrees', type=int, default=1, help='How many degrees to graph out.')
+
+        pars.add_argument('--pivot', default=[], action='append', help='Specify a storm pivot for all nodes. (must quote)')
+        pars.add_argument('--filter', default=[], action='append', help='Specify a storm filter for all nodes. (must quote)')
+
+        pars.add_argument('--form-pivot', default=[], nargs=2, action='append', help='Specify a <form> <pivot> form specific pivot.')
+        pars.add_argument('--form-filter', default=[], nargs=2, action='append', help='Specify a <form> <filter> form specific filter.')
+
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        rules = {
+            'degrees': self.opts.degrees,
+
+            'pivots': [],
+            'filters': [],
+
+            'forms': {},
+        }
+
+        for pivo in self.opts.pivot:
+            rules['pivots'].append(pivo[1:-1])
+
+        for filt in self.opts.filter:
+            rules['filters'].append(filt[1:-1])
+
+        for name, pivo in self.opts.form_pivot:
+
+            formrule = rules['forms'].get(name)
+            if formrule is None:
+                formrule = {'pivots': [], 'filters': []}
+                rules['forms'][name] = formrule
+
+            formrule['pivots'].append(pivo[1:-1])
+
+        for name, filt in self.opts.form_filter:
+
+            formrule = rules['forms'].get(name)
+            if formrule is None:
+                formrule = {'pivots': [], 'filters': []}
+                rules['forms'][name] = formrule
+
+            formrule['filters'].append(filt[1:-1])
+
+        subg = s_ast.SubGraph(rules)
+
+        genr = subg.run(runt, genr)
+
+        async for node, path in subg.run(runt, genr):
+            yield node, path

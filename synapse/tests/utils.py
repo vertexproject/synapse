@@ -491,7 +491,7 @@ class SynTest(unittest.TestCase):
                 setattr(self, s, s_glob.synchelp(attr))
 
     def setUp(self):
-        self.alt_write_layer = None
+        self.alt_write_layer = None  # Subclass hook to override the top layer
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
@@ -668,10 +668,13 @@ class SynTest(unittest.TestCase):
             mirror (str): A directory to mirror into the test directory.
 
         Notes:
-            If the ``mirror`` argument is a directory, that directory will be
-            copied to the test directory. If it is not a directory, the helper
-            ``getTestFilePath`` is used to get the test directory under the
-            ``synapse/tests/files/`` directory.
+            The mirror argument is normally used to mirror test directory
+            under ``synapse/tests/files``.  This is accomplised by passing in
+            the name of the directory (such as ``testcore``) as the mirror
+            argument.
+
+            If the ``mirror`` argument is an absolute directory, that directory
+            will be copied to the test directory.
 
         Returns:
             str: The path to a temporary directory.
@@ -681,10 +684,7 @@ class SynTest(unittest.TestCase):
         try:
 
             if mirror is not None:
-                if os.path.isdir(mirror):
-                    srcpath = mirror
-                else:
-                    srcpath = self.getTestFilePath(mirror)
+                srcpath = self.getTestFilePath(mirror)
                 dstpath = os.path.join(tempdir, 'mirror')
                 shutil.copytree(srcpath, dstpath)
                 yield dstpath
@@ -1113,7 +1113,10 @@ class SynTest(unittest.TestCase):
         if name == 'cortex' and self.alt_write_layer:
             ldir = s_common.gendir(cdir, 'layers')
             layerdir = pathlib.Path(ldir, '000-default')
-            os.symlink(self.alt_write_layer, layerdir)
+            try:
+                shutil.copytree(self.alt_write_layer, layerdir)
+            except FileExistsError:
+                pass
         return await s_cells.init(name, cdir)
 
     def getIngestDef(self, guid, seen):
@@ -1141,8 +1144,9 @@ class SynTest(unittest.TestCase):
             },
             'nodes': [
                 [
-                    ['teststr',
-                     'ohmy'
+                    [
+                        'teststr',
+                        'ohmy'
                     ],
                     {
                         'props': {
@@ -1192,8 +1196,8 @@ class SynTest(unittest.TestCase):
                     [
                         [
                             [
-                            'testint',
-                            8675309
+                                'testint',
+                                8675309
 
                             ],
                             '20170102'

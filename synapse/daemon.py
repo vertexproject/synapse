@@ -116,15 +116,21 @@ class Daemon(s_base.Base):
             #'doc': 'An SSL config dict with certfile/keyfile optional cacert.'}),
     )
 
-    async def __anit__(self, dirn):
+    async def __anit__(self, dirn=None, conf=None):
 
         await s_base.Base.__anit__(self)
 
-        self.dirn = s_common.gendir(dirn)
+        self.dirn = None
+        if dirn is not None:
+            self.dirn = s_common.gendir(dirn)
+
         self._shareLoopTasks = set()
 
-        conf = self._loadDmonYaml()
-        self.conf = s_common.config(conf, self.confdefs)
+        yaml = self._loadDmonYaml()
+        if conf is not None:
+            yaml.update(conf)
+
+        self.conf = s_common.config(yaml, self.confdefs)
         self.certdir = s_certdir.CertDir(os.path.join(dirn, 'certs'))
 
         self.mods = {}      # keep refs to mods we load ( mostly for testing )
@@ -213,19 +219,23 @@ class Daemon(s_base.Base):
             await asyncio.wait(finis)
 
     def _loadDmonYaml(self):
-        path = s_common.genpath(self.dirn, 'dmon.yaml')
-        return self._loadYamlPath(path)
+        if self.dirn is not None:
+            path = s_common.genpath(self.dirn, 'dmon.yaml')
+            return self._loadYamlPath(path)
 
     def _loadYamlPath(self, path):
+
         if os.path.isfile(path):
             return s_common.yamlload(path)
 
-        logger.warning('config not found: %r' % (path,))
         return {}
 
     async def _loadDmonCells(self):
 
         # load our services from a directory
+
+        if self.dirn is None:
+            return
 
         path = s_common.gendir(self.dirn, 'cells')
 

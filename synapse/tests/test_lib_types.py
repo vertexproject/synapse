@@ -1,3 +1,5 @@
+import hashlib
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
@@ -366,6 +368,47 @@ class TypesTest(s_t_utils.SynTest):
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': None})
         self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': ('inet:ipv4', {})})  # inet is not loaded yet
+
+    async def test_range_filter(self):
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 'a', {'bar': ('teststr', 'a'), 'tick': '19990101'})
+                node = await snap.addNode('teststr', 'b', {'.seen': ('20100101', '20110101'), 'tick': '20151207'})
+                node = await snap.addNode('teststr', 'm', {'bar': ('teststr', 'm'), 'tick': '20200101'})
+                node = await snap.addNode('testguid', 'C' * 32)
+                node = await snap.addNode('testguid', 'F' * 32)
+                node = await alist(core.eval('[refs=((testcomp, (2048, horton)), (testcomp, (4096, whoville)))]'))
+                node = await alist(core.eval('[refs=((testcomp, (9001, "A mean one")), (testcomp, (40000, greeneggs)))]'))
+                node = await alist(core.eval('[refs=((testint, 16), (testcomp, (9999, greenham)))]'))
+
+            nodes = await alist(core.eval('teststr=a +:tick*range=(20000101, 20101201)'))
+            self.eq(0, len(nodes))
+            nodes = await alist(core.eval('teststr +:tick*range=(19701125, 20151212)'))
+            self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
+            nodes = await alist(core.eval('testcomp +:haha*range=(grinch, meanone)'))
+            self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
+            nodes = await alist(core.eval('teststr +:.seen*range=((20090601, 20090701), (20110905, 20110906,))'))
+            self.eq({node.ndef[1] for node in nodes}, {'b'})
+            nodes = await alist(core.eval('teststr +:bar*range=((teststr, c), (teststr, q))'))
+            self.eq({node.ndef[1] for node in nodes}, {'m'})
+            nodes = await alist(core.eval('testcomp +testcomp*range=((1024, grinch), (4096, zemeanone))'))
+            self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton'), (4096, 'whoville')})
+            guid0 = 'B'*32
+            guid1 = 'D'*32
+            nodes = await alist(core.eval(f'testguid +testguid*range=({guid0}, {guid1})'))
+            self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
+            nodes = await alist(core.eval('testint | noderefs | +testcomp*range=((1000, grinch), (4000, whoville))'))
+            self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
+            nodes = await alist(core.eval('refs +:n1*range=((testcomp, (1000, green)), (testcomp, (3000, ham)))'))
+            self.eq({node.ndef[1] for node in nodes},
+                    {(('testcomp', (2048, 'horton')), ('testcomp', (4096, 'whoville')))})
+
+            # sad path
+            await self.agenraises(s_exc.BadCmprValu, core.eval('testcomp +:hehe*range=(0.0.0.0, 1.1.1.1, 6.6.6.6)'))
+            await self.agenraises(s_exc.BadCmprValu, core.eval('testcomp +:haha*range=(somestring,) '))
+            await self.agenraises(s_exc.BadCmprValu, core.eval('teststr +:bar*range=Foobar'))
+            await self.agenraises(s_exc.BadCmprValu, core.eval('testint +testint*range=3456'))
 
     def test_str(self):
 

@@ -26,6 +26,7 @@ class Task(s_base.Base):
 
         self.task = task                # the real task...
         self.iden = s_common.guid()
+        self.tick = s_common.now()
 
         self.boss.tasks[self.iden] = self
         if root is not None:
@@ -88,6 +89,7 @@ class Task(s_base.Base):
             'iden': self.iden,
             'name': self.name,
             'info': self.info,
+            'tick': self.tick,
             'user': 'root',
             'kids': {i: k.pack() for i, k in self.kids.items()},
         }

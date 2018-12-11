@@ -1,8 +1,8 @@
 import os
 import logging
-import contextlib
-import tempfile
 import pathlib
+import tempfile
+import contextlib
 
 import synapse.exc as s_exc
 
@@ -11,6 +11,8 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
+import synapse.lib.hive as s_hive
+
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -205,17 +207,31 @@ class CellApi(s_base.Base):
 
         return (role.name, info)
 
-bootdefs = (
+class PassThroughApi(CellApi):
+    '''
+    Class that passes through methods made on it to its cell.
+    '''
+    allowed_methods = []  # type: ignore
 
-    # ('cell:name', {
-        # 'doc': 'Set the log/display name for this cell.'}),
+    async def __anit__(self, cell, link):
+        await CellApi.__anit__(self, cell, link)
+
+        for f in self.allowed_methods:
+            # N.B. this curious double nesting is due to Python's closure mechanism (f is essentially captured by name)
+            def funcapply(f):
+                def func(*args, **kwargs):
+                    return getattr(cell, f)(*args, **kwargs)
+                return func
+            setattr(self, f, funcapply(f))
+
+bootdefs = (
 
     ('auth:en', {'defval': False, 'doc': 'Set to True to enable auth for this cortex.'}),
 
-    # ('auth:required', {'defval': True,
-        # 'doc': 'If auth is enabled, allow non-auth connections.  Cell must manage perms.'})
-
     ('auth:admin', {'defval': None, 'doc': 'Set to <user>:<passwd> (local only) to bootstrap an admin.'}),
+
+    ('hive', {'defval': None, 'doc': 'Set to a Hive telepath URL or list of URLs'}),
+
 )
 
 class Cell(s_base.Base, s_telepath.Aware):
@@ -267,6 +283,24 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         await self._initCellAuth()
         await self._initCellSlab(readonly=readonly)
+        await self._initCellHive()
+
+    async def _initCellHive(self):
+
+        hurl = self.conf.get('hive')
+
+        if hurl is not None:
+            self.hive = await s_hive.openurl(hurl)
+
+        else:
+
+            db = self.slab.initdb('hive')
+            self.hive = await s_hive.SlabHive.anit(self.slab, db=db)
+            self.onfini(self.hive.fini)
+
+    #async def onTeleOpen(self, link, path):
+        # TODO make a path resolver for layers/etc
+        #if path == 'hive/auth'
 
     async def _initCellSlab(self, readonly=False):
 
@@ -276,6 +310,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         if not os.path.exists(path) and readonly:
             logger.warning('Creating a slab for a readonly cell.')
             _slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE)
+            _slab.initdb('hive')
             await _slab.fini()
 
         self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)

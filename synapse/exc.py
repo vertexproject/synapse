@@ -27,19 +27,15 @@ class SynErr(Exception):
         return self.errinfo.get(name)
 
 ##########################################################################
-class NoLinkRx(SynErr):
-    '''
-    No onrx() has been set for the link.
-    '''
-    pass
-
-##########################################################################
 
 class CliFini(SynErr):
     '''
     Raised when the CLI is to exit.
     '''
     pass
+
+class LinkErr(SynErr): pass
+class LinkShutDown(LinkErr): pass
 
 class Retry(SynErr): pass
 class NotReady(Retry): pass

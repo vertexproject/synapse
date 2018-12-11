@@ -210,6 +210,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                 outp.clear()
                 await cmdr.runCmdLine('ps')
                 self.true(outp.expect('1 tasks found.'))
+                self.true(outp.expect('start time: 2'))
 
                 regx = regex.compile('task iden: ([a-f0-9]{32})')
                 match = regx.match(str(outp))

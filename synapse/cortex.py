@@ -424,6 +424,7 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.SudoCmd)
         self.addStormCmd(s_storm.UniqCmd)
         self.addStormCmd(s_storm.CountCmd)
+        self.addStormCmd(s_storm.GraphCmd)
         self.addStormCmd(s_storm.LimitCmd)
         self.addStormCmd(s_storm.SleepCmd)
         self.addStormCmd(s_storm.DelNodeCmd)
@@ -506,6 +507,8 @@ class Cortex(s_cell.Cell):
         self.counts.clear()
 
         nameforms = list(self.model.forms.items())
+        fairiter = 5
+        tcount = 0
         for i, (name, form) in enumerate(nameforms, 1):
             logger.info('Calculating form counts for [%s] [%s/%s]',
                         name, i, len(nameforms))
@@ -514,9 +517,13 @@ class Cortex(s_cell.Cell):
             async for buid, valu in self.layer.iterFormRows(name):
 
                 count += 1
+                tcount += 1
 
-                if count % 10000 == 0:
+                if count % fairiter == 0:
                     await asyncio.sleep(0)
+                    # identity check for small integer
+                    if fairiter is 5 and tcount > 100000:
+                        fairiter = 1000
 
             self.counts[name] = count
 
@@ -645,7 +652,8 @@ class Cortex(s_cell.Cell):
                             continue
 
                         size = len(items)
-                        indx = self.layer.splicelog.indx
+                        indx = (await self.layer.stat())['splicelog_indx']
+
                         perc = float(offs) / float(indx) * 100.0
 
                         logger.info('splice push: %d %d/%d (%.4f%%)', size, offs, indx, perc)

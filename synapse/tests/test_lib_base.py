@@ -184,29 +184,6 @@ class BaseTest(s_t_utils.SynTest):
         evts = await wait1.wait(timeout=0.1)
         self.none(evts)
 
-    async def test_base_filt(self):
-
-        base = await s_base.Base.anit()
-
-        def wootfunc(mesg):
-            mesg[1]['woot'] = True
-
-        base.on('lol', wootfunc)
-
-        base.on('rofl', wootfunc, foo=10)
-
-        mesg = await base.fire('lol')
-        self.true(mesg[1].get('woot'))
-
-        mesg = await base.fire('rofl')
-        self.false(mesg[1].get('woot'))
-
-        mesg = await base.fire('rofl', foo=20)
-        self.false(mesg[1].get('woot'))
-
-        mesg = await base.fire('rofl', foo=10)
-        self.true(mesg[1].get('woot'))
-
     @unittest.skip('Remove me when base.log confirmed unused')
     async def test_base_log(self):
 
