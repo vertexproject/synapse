@@ -731,21 +731,58 @@ class Ival(Type):
     def _normPyInt(self, valu):
         return (valu, valu + 1), {}
 
+    def _normRelStr(self, valu, relto=None):
+        valu = valu.strip().lower()
+        if valu == 'now':
+            return self._normPyInt(s_common.now())[0]
+
+        # an unspecififed time in the future...
+        if valu == '?':
+            return 0x7fffffffffffffff
+
+        if valu[0] in ('-', '+'):
+            splitter = valu[0]
+
+            delt = s_time.delta(valu)
+            if not relto:
+                relto = s_common.now()
+
+            return delt + relto
+
+        valu = s_time.parse(valu)
+        return self._normPyInt(valu)[0]
+
     def _normPyStr(self, valu):
+        valu = valu.strip().lower()
 
         if valu == '?':
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires begin time')
 
-        norm, info = self.timetype.norm(valu)
-        # TODO until we support 2013+2years syntax...
+        norm, _ = self.timetype.norm(valu)
 
         return (norm, norm + 1), {}
 
     def _normPyIter(self, valu):
 
-        vals = [self.timetype.norm(v)[0] for v in valu if v is not None]
-        if len(vals) == 1:
+        # split self contained from relative values
+        vals = []
+        relvals = []
+        for val in valu:
+            if val is None:
+                continue
+            if isinstance(val, str) and val[0] in ('-', '+'):
+                relvals.append(val)
+                continue
+            vals.append(self.timetype.norm(val)[0])
+        if len(vals) + len(relvals) == 1:
             vals.append(vals[0] + 1)
+        val = vals[0]
+        if len(vals) + len(relvals) != 2:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires at most 2 time arguments')
+
+        # make absolute vals assuming the current val
+        absvals = [self._normRelStr(r, relto=val) for r in relvals if r is not None]
+        vals += absvals
 
         norm = (min(vals), max(vals))
         return norm, {}
@@ -1217,6 +1254,25 @@ class Time(IntBase):
         # an unspecififed time in the future...
         if valu == '?':
             return 0x7fffffffffffffff, {}
+
+        # self contained relative time string
+
+        # we need to be pretty sure this is meant for us, otherwise it might
+        # just be a slightly messy time parse
+        unitcheck = [u for u in s_time.timeunits.keys() if u in valu]
+        if unitcheck and '-' in valu or '+' in valu:
+            splitter = '+'
+            if '-' in valu:
+                splitter = '-'
+
+            bgn, end = valu.split(splitter, 1)
+            delt = s_time.delta(splitter + end)
+            if bgn:
+                bgn = self._normPyStr(bgn)[0]
+            else:
+                bgn = s_common.now()
+
+            return delt + bgn, {}
 
         valu = s_time.parse(valu)
         return self._normPyInt(valu)

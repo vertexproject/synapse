@@ -2,6 +2,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.time as s_time
 import synapse.lib.types as s_types
 
 import synapse.tests.utils as s_t_utils
@@ -290,9 +291,20 @@ class TypesTest(s_t_utils.SynTest):
 
         self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
         self.eq((1451606400000, 1451606400001), ival.norm(1451606400000)[0])
-        self.eq((1451606400000, 1483228800000), ival.norm(('2016', '2017'))[0])
+        self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
+        self.eq((1451606400000, 1483228800000), ival.norm(('2016', '  2017'))[0])
+        self.eq((1451606400000, 1483228800000), ival.norm(('2016-01-01', '  2017'))[0])
+        self.eq((1451606400000, 1483142400000), ival.norm(('2016', '+365 days'))[0])
+        self.eq((1448150400000, 1451606400000), ival.norm(('2016', '-40 days'))[0])
+        self.eq((1447891200000, 1451347200000), ival.norm(('2016-3days', '-40 days   '))[0])
+        self.eq((1451347200000, 0x7fffffffffffffff), ival.norm(('2016-3days', '?'))[0])
+
+        start = s_common.now() + s_time.oneday - 1
+        end = ival.norm(('now', '+1day'))[0][1]
+        self.lt(start, end)
 
         self.raises(s_exc.BadTypeValu, ival.norm, '?')
+        self.raises(s_exc.BadTypeValu, ival.norm, ('2016-3days', '+77days', '-40days'))
 
     async def test_loc(self):
         model = s_datamodel.Model()
