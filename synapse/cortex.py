@@ -149,7 +149,16 @@ class CoreApi(s_cell.CellApi):
                 if username is None or self.user.admin or trig.get('user') == username]
 
     async def addCronJob(self, query, reqdict, incunit=None, incval=1):
-        # FIXME: convert time unit
+        try:
+            if incunit is not None:
+                if isinstance(incunit, (List, Tuple)):
+                    incunit = [s_agenda.TimeUnit.fromString(i) for i in incunit]
+                else:
+                    incunit = s_agenda.TimeUnit.fromString(incunit)
+            reqdict = {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
+        except KeyError:
+            raise s_exc.BadConfValu('Unrecognized TimeUnit value')
+
         username = None if self.user is None else self.user.name
         self.cell.agenda.add(username, query, reqdict, incunit, incval)
 
@@ -168,7 +177,6 @@ class CoreApi(s_cell.CellApi):
 
     async def listCronJobs(self):
         username = None if self.user is None else self.user.name
-        # FIXME: convert time unit
         return [(iden, cron) for (iden, cron) in self.cell.agenda.list()
                 if username is None or self.user.admin or cron.get('username') == username]
 
@@ -378,6 +386,16 @@ class Cortex(s_cell.Cell):
             'doc': 'A list of feed dictionaries.'
         }),
 
+        ('triggers:enable', {
+            'type': 'bool', 'defval': True,
+            'doc': 'Enable triggers running.'
+        }),
+
+        ('cron:enable', {
+            'type': 'bool', 'defval': True,
+            'doc': 'Enable cron jobs running.'
+        }),
+
         # ('storm:save', {
         #     'type': 'bool', 'defval': False,
         #     'doc': 'Archive storm queries for audit trail.'
@@ -450,8 +468,11 @@ class Cortex(s_cell.Cell):
 
         await self.addCoreMods(mods)
 
-        await self.triggers.enable()
-        await self.agenda.enable()
+        if self.conf.get('triggers:enable'):
+            await self.triggers.enable()
+
+        if self.conf.get('cron:enable'):
+            await self.agenda.enable()
 
         self._initCryoLoop()
         self._initPushLoop()

@@ -46,6 +46,10 @@ class TimeUnit(enum.IntEnum):
     HOUR = enum.auto()
     MINUTE = enum.auto()
 
+    @classmethod
+    def fromString(cls, s):
+        return cls.__members__[s]
+
 _NextUnitMap = {
     TimeUnit.YEAR: None,
     TimeUnit.MONTH: TimeUnit.YEAR,
@@ -65,6 +69,17 @@ _TimeunitToDatetime = {
     TimeUnit.MINUTE: 'minute',
 }
 
+# The valid ranges for required and recurring
+_UnitBounds = {
+    TimeUnit.YEAR: ((2018, 2999), (1, 5)),
+    TimeUnit.MONTH: ((1, 12), (1, 60)),
+    TimeUnit.DAYOFMONTH: ((-31, 31), (-31, 31)),
+    TimeUnit.DAYOFWEEK: ((0, 6), (0, 6)),
+    TimeUnit.DAY: ((0, 0), (1, 365 * 5)),
+    TimeUnit.HOUR: ((0, 23), (1, 1000)),
+    TimeUnit.MINUTE: ((0, 59), (1, 60 * 60 * 24 * 30))
+}
+
 class ApptRec:
     '''
     Represents a single element of a single combination of an appointment
@@ -82,32 +97,32 @@ class ApptRec:
 
         if incunit == TimeUnit.MONTH and (TimeUnit.DAYOFMONTH in reqdict or TimeUnit.DAYOFWEEK in reqdict):
             # There's more than one way to interpret this, so disallow all
-            raise s_exc.BadTime('Requiring day of month only compatible with year increment')
+            raise s_exc.BadTime('Requiring day of month only compatible with year recurrence')
 
         if TimeUnit.DAYOFMONTH in reqdict and TimeUnit.DAYOFWEEK in reqdict:
             raise s_exc.BadTime('Both day of month and day of week must not both be requirements')
 
         if TimeUnit.DAYOFWEEK in reqdict and incunit is not None:
-            raise s_exc.BadTime('Day of week requirement not supported with an increment')
-
-        if TimeUnit.YEAR in reqdict:
-            if not 1970 < reqdict[TimeUnit.YEAR] < 3000:
-                raise s_exc.BadTime('Year out of bounds')
-        # FIXME add all bounds checks
-
-        # and incval > 0 for several
-
-        self.reqdict = {}
+            raise s_exc.BadTime('Day of week requirement not supported with a recurrence')
 
         if incunit is not None:
-            for reqtime in reqdict:
-                if reqtime not in TimeUnit:
-                    raise s_exc.BadTime('Keys of reqdict parameter  must be valid TimeUnits')
-                if reqtime <= incunit:
-                    # We could, actually support this, but most of these combinations are nonsensical (e.g. run every 5
-                    # minutes in 2018 only?)
-                    raise s_exc.BadTime('Must not have fixed unit equal to or greater than variable unit')
+            boundmin, boundmax = _UnitBounds[incunit][1]
+            if not boundmin <= incval <= boundmax:
+                raise s_exc.BadTime('Out of bounds incval')
 
+        for reqkey, reqval in reqdict.items():
+            if reqkey not in TimeUnit:
+                raise s_exc.BadTime('Keys of reqdict parameter must be valid TimeUnit values')
+            boundmin, boundmax = _UnitBounds[reqkey][0]
+            if not boundmin <= reqval <= boundmax:
+                raise s_exc.BadTime('Out of bounds reqdict value')
+
+            if incunit is not None and reqkey <= incunit:
+                # We could, actually support this, but most of these combinations are nonsensical (e.g. run every 5
+                # minutes in 2018 only?)
+                raise s_exc.BadTime('Must not have fixed unit equal to or greater than recurrence unit')
+
+        self.reqdict = {}
         # Put keys in size order, with dayof... added last, as nexttime processes in that order
         for key in _NextUnitMap:
             if key in reqdict:
@@ -117,7 +132,7 @@ class ApptRec:
         return repr(self.entupl())
 
     def entupl(self):
-        return (self.reqdict, self.incunit, self.incval)
+        return ({k.name.tolower(): v for (k, v) in self.reqdict.items()}, self.incunit.name.tolower(), self.incval)
 
     @classmethod
     def untupl(cls, val):
@@ -126,7 +141,7 @@ class ApptRec:
     def nexttime(self, lastts):
         '''
         Returns next timestamp that meets requirements, incrementing by self.incunit, incval if not increasing, or
-        0.0 if there are no future k
+        0.0 if there are no future matches
         '''
         lastdt = datetime.datetime.fromtimestamp(lastts, tz.utc)
         newvals = {}  # all the new fields that will be changed in the
@@ -225,7 +240,7 @@ class _Appt:
     A single entry in the Agenda:  a storm query to run in the future
     '''
 
-    def __init__(self, iden, recur, indx, query, username, recs, nexttime=None, timesrun=0):
+    def __init__(self, iden, recur, indx, query, username, recs, nexttime=None, startcount=0):
         self.iden = iden
         self.recur = recur
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
@@ -243,7 +258,11 @@ class _Appt:
         else:
             self.nexttime = nexttime
         self.isrunning = False  # whether it is currently running
-        self.timesrun = 0  # how many times query has started
+        self.startcount = 0  # how many times query has started
+        self.laststartime = None
+        self.lastfinishtime = None
+        self.lastresult = None
+        self.enabled = True
 
     def __eq__(self, other):
         ''' For heap logic '''
@@ -256,13 +275,18 @@ class _Appt:
     def todict(self):
         return {
             'ver': 0,
+            'enabled': self.enabled,
             'recur': self.recur,
             'indx': self.indx,
             'query': self.query,
             'user': self.username,
             'recs': [d.entupl() for d in self.recs],
             'nexttime': self.nexttime,
-            'timesrun': self.timesrun
+            'startcount': self.startcount,
+            'isrunning': self.isrunning,
+            'laststarttime': self.laststarttime,
+            'lastfinishtime': self.lastfinishtime,
+            'lastresult': self.lastresult
         }
 
     @classmethod
@@ -317,15 +341,33 @@ class Agenda(s_base.Base):
         self._wake_event = asyncio.Event()
         self.onfini(self._wake_event.set)
         self._load_all()
-        self._schedtask = self.schedCoro(self._scheduleLoop())
+        self.enabled = False
+        self._schedtask = None
 
     async def enable(self):
-        # FIXME
-        pass
+        '''
+        Enable cron jobs to start running.
+
+        Go through all the appointment s, making sure the query is valid, and remove the ones that aren't.  (We can't
+        evaluate queries until enabled because not all the modules are loaded yet.)
+        '''
+        if self.enabled:
+            return
+
+        to_delete = []
+        for iden, appt in self.appts.items():
+            try:
+                self.core.getStormQuery(appt.query)
+            except Exception as e:
+                logger.warning('Invalid appt %r found in storage: %r.  Removing.', iden, e)
+                to_delete.append(iden)
+        for iden in to_delete:
+            self.delete(iden)
+
+        self._schedtask = self.schedCoro(self._scheduleLoop())
+        self.enabled = True
 
     def _load_all(self):
-
-        # FIXME:  need enable step, evaluate trigger
 
         # FIXME:  migrate to hive
         return
@@ -383,7 +425,7 @@ class Agenda(s_base.Base):
                 one or more dicts of the fixed aspects of the appointment.  dict value may be a single or multiple.
                 May be an empty dict or None.
             incunit (Union[None, TimeUnit]):
-                the unit that changes for repeating, or None for non-repeating.  It is an error for this value to match
+                the unit that changes for recurring, or None for non-recurring.  It is an error for this value to match
                 a key in reqdict.
             incvals (Union[None, int, Iterable[int]): count of units of incunit or explicit day of week or day of month.
                 Not allowed for incunit == None, required for others (1 would be a typical
@@ -444,17 +486,15 @@ class Agenda(s_base.Base):
             try:
                 timeout = None if not self.apptheap else self.apptheap[0].nexttime - time.time()
                 if timeout is None or timeout >= 0.0:
-                    print(f'**Waiting for event or {timeout}s')
                     await asyncio.wait_for(self._wake_event.wait(), timeout=timeout)
             except asyncio.TimeoutError:
-                print('Woke up due to timeout')
                 pass
             if self.isfini:
                 return
             self._wake_event.clear()
 
             now = time.time()
-            print(f'now is {now} {datetime.datetime.fromtimestamp(now, tz.utc)}')
+            # print(f'now is {now} {datetime.datetime.fromtimestamp(now, tz.utc)}')
             while self.apptheap and self.apptheap[0].nexttime <= now:
                 appt = heapq.heappop(self.apptheap)
                 appt.updateNexttime(now)
@@ -465,7 +505,7 @@ class Agenda(s_base.Base):
                         'Appointment %s is still running from previous time when scheduled to run.  Skipping.',
                         appt.iden)
 
-                appt.timesrun += 1
+                appt.startcount += 1
                 await self.execute(appt)
 
     async def execute(self, appt):
@@ -478,6 +518,8 @@ class Agenda(s_base.Base):
     async def _runJob(self, user, appt):
         count = 0
         appt.isrunning = True
+        appt.laststarttime = time.time()
+        appt.startcount += 1
         try:
             async for _ in self.core.eval(appt.query, user=user):
                 count += 1
@@ -489,6 +531,7 @@ class Agenda(s_base.Base):
         else:
             result = f'finished successfully with {count} nodes'
         finally:
+            appt.lastfinishtime = time.time()
             appt.isrunning = False
             appt.lastresult = result
             self._storeAppt(appt)
