@@ -3,6 +3,7 @@ import logging
 import pathlib
 import contextlib
 import collections
+from collections.abc import Iterable, Mapping
 
 import synapse
 import synapse.exc as s_exc
@@ -117,7 +118,8 @@ class CoreApi(s_cell.CellApi):
         Adds a trigger to the cortex
         '''
         username = None if self.user is None else self.user.name
-        self.cell.triggers.add(username, condition, query, info=info)
+        iden = self.cell.triggers.add(username, condition, query, info=info)
+        return iden
 
     def _auth_check(self, triguser):
         username = None if self.user is None else self.user.name
@@ -148,37 +150,49 @@ class CoreApi(s_cell.CellApi):
         return [(iden, trig) for (iden, trig) in self.cell.triggers.list()
                 if username is None or self.user.admin or trig.get('user') == username]
 
-    async def addCronJob(self, query, reqdict, incunit=None, incval=1):
+    async def addCronJob(self, query, reqs, incunit=None, incval=1):
+
+        def _convert_reqdict(reqdict):
+            return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
+
         try:
             if incunit is not None:
-                if isinstance(incunit, (List, Tuple)):
+                if isinstance(incunit, (list, tuple)):
                     incunit = [s_agenda.TimeUnit.fromString(i) for i in incunit]
                 else:
                     incunit = s_agenda.TimeUnit.fromString(incunit)
-            reqdict = {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
+            if isinstance(reqs, Mapping):
+                newreqs = _convert_reqdict(reqs)
+            else:
+                newreqs = [_convert_reqdict(req) for req in reqs]
+
         except KeyError:
-            raise s_exc.BadConfValu('Unrecognized TimeUnit value')
+            raise s_exc.BadConfValu('Unrecognized time unit')
 
         username = None if self.user is None else self.user.name
-        self.cell.agenda.add(username, query, reqdict, incunit, incval)
+        return self.cell.agenda.add(username, query, newreqs, incunit, incval)
 
     async def delCronJob(self, iden):
-        cron = self.cell.agenda.get(iden)
-        self._auth_check(cron.get('user'))
+        cron = self.cell.agenda.appts.get(iden)
+        if cron is None:
+            raise s_exc.NoSuchIden()
+        self._auth_check(cron.username)
         self.cell.agenda.delete(iden)
 
     async def updateCronJob(self, iden, query):
         '''
         Change an existing cron job's query
         '''
-        cron = self.cell.triggers.get(iden)
-        self._auth_check(cron.get('user'))
+        cron = self.cell.agenda.appts.get(iden)
+        if cron is None:
+            raise s_exc.NoSuchIden()
+        self._auth_check(cron.username)
         self.cell.agenda.mod(iden, query)
 
     async def listCronJobs(self):
         username = None if self.user is None else self.user.name
         return [(iden, cron) for (iden, cron) in self.cell.agenda.list()
-                if username is None or self.user.admin or cron.get('username') == username]
+                if username is None or self.user.admin or cron.get('user') == username]
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
@@ -453,6 +467,7 @@ class Cortex(s_cell.Cell):
 
         self.triggers = s_trigger.Triggers(self)
         self.agenda = await s_agenda.Agenda.anit(self)
+        self.onfini(self.agenda)
 
         # these may be used directly
         self.model = s_datamodel.Model()

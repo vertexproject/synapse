@@ -1,3 +1,5 @@
+import time
+import calendar
 import datetime
 import functools
 
@@ -5,8 +7,8 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
+import synapse.lib.time as s_time
 import synapse.lib.syntax as s_syntax
-import synapse.lib.trigger as s_trigger
 
 StatHelp = '''
 Gives detailed information about a single cron job.
@@ -40,25 +42,25 @@ Example:
 '''
 
 ModHelp = '''
-Changes an existing trigger's query.
+Changes an existing cron job's query.
 
 Syntax:
-    trigger mod <iden prefix> <new query>
+    cron mod <iden prefix> <new query>
 
 Notes:
-    Any prefix that matches exactly one valid trigger iden is accepted.
+    Any prefix that matches exactly one valid cron iden is accepted.
 '''
 
 AddHelp = '''
 Add a recurring cron job to a cortex.
 
 Syntax:
-    trigger add [optional arguments] {query}
+    cron add [optional arguments] {query}
 
-    --minute, -m int[,int...][=]
-    --hour, -h
+    --minute, -M int[,int...][=]
+    --hour, -H
     --day, -d
-    --month, -M
+    --month, -m
     --year, -y
 
 Notes:
@@ -86,8 +88,8 @@ Notes:
     interpreted as an recurrence interval of that many days.
 
     If no non-equals-sign-ending parameter is specified, the recurrence period
-    defaults to the unit larger than all the fixed parameters.   e.g. '-m 5='
-    means every hour at 5 minutes past, and -h 3=, -m 1= means 3:01 every day.
+    defaults to the unit larger than all the fixed parameters.   e.g. '-M 5='
+    means every hour at 5 minutes past, and -H 3=, -M 1= means 3:01 every day.
 
     At least one optional parameter must be provided.
 
@@ -95,27 +97,28 @@ Notes:
     parameters have multiple values, all combinations of those values are used.
 
     All fixed units not specified lower than the recurrence period default to
-    the lowest valid value, e.g. -M 2 will be scheduled at 12:00am the first of
-    every other month.  One exception is the largest fixed value is day of the week, then the default
-    period is set to be a week.
+    the lowest valid value, e.g. -m 2 will be scheduled at 12:00am the first of
+    every other month.  One exception is the largest fixed value is day of the
+    week, then the default period is set to be a week.
 
-    A month period with a day of week or day of month fixed value is not currently supported.
+    A month period with a day of week or day of month fixed value is not
+    currently supported.
 
     Fixed-value year (i.e. --year 2019=) is not supported.  See the 'at'
     command for one-time cron jobs.
 
 Examples:
     Run a query every last day of the month at 3 am
-    cron -h 3= -d -1=
+    cron add -H 3= -d-1= {#foo}
 
     Run a query every 8 hours
-    cron -h 8
+    cron add -H 8 {#foo}
 
     Run a query every Wednesday and Sunday at midnight and noon
-    cron -h 0,12= -d Wed,Sun= {}
+    cron add -H 0,12= -d Wed,Sun= {#foo}
 
     Run a query every other day at 3:57pm
-    cron -d 2 -m 57= -h 15
+    cron add -d 2 -M 57= -H 15 {#foo}
 '''
 
 class Cron(s_cli.Cmd):
@@ -125,7 +128,7 @@ cortex such that storm queries automatically run on a time schedule.   Cron
 jobs maybe be recurring or one-time.
 
 A subcommand is required.  Use 'cron -h' for more detailed help.  '''
-    _cmd_name = 'at'
+    _cmd_name = 'cron'
 
     _cmd_syntax = (
         ('line', {'type': 'glob'}),
@@ -148,58 +151,141 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
     def _make_argparser(self):
 
-        parser = s_cmd.Parser(prog='trigger', outp=self, description=self.__doc__)
+        parser = s_cmd.Parser(prog='cron', outp=self, description=self.__doc__)
 
         subparsers = parser.add_subparsers(title='subcommands', required=True, dest='cmd',
                                            parser_class=functools.partial(s_cmd.Parser, outp=self))
 
         subparsers.add_parser('list', help="List cron jobs you're allowed to manipulate", usage=ListHelp)
 
-        parser_del = subparsers.add_parser('del', help='delete a trigger', usage=DelHelp)
-        parser_del.add_argument('prefix', help='Trigger iden prefix')
+        parser_del = subparsers.add_parser('del', help='delete a cron job', usage=DelHelp)
+        parser_del.add_argument('prefix', help='Cron jobiden prefix')
         parser_add = subparsers.add_parser('add', help='add a cron job', usage=AddHelp)
-        parser_add.add_argument('--minute', '-m')
-        parser_add.add_argument('--hour', '-h')
-        parser_add.add_argument('--day', '-d')
-        parser_add.add_argument('--month', '-M')
+        parser_add.add_argument('--minute', '-M')
+        parser_add.add_argument('--hour', '-H')
+        parser_add.add_argument('--day', '-d', help='day of week, day of month or number of days')
+        parser_add.add_argument('--month', '-m')
         parser_add.add_argument('--year', '-y')
         parser_add.add_argument('query', help='Storm query in curly braces')
 
         parser_del = subparsers.add_parser('del', help='delete a cron job', usage=DelHelp)
-        parser_del.add_argument('prefix', help='Trigger iden prefix')
+        parser_del.add_argument('prefix', help='Cron job iden prefix')
+
+        parser_del = subparsers.add_parser('stat', help='details a cron job', usage=StatHelp)
+        parser_del.add_argument('prefix', help='Cron job iden prefix')
 
         parser_mod = subparsers.add_parser('mod', help='change an existing cron jobquery', usage=ModHelp)
-        parser_mod.add_argument('prefix', help='Trigger iden prefix')
-        parser_mod.add_argument('query', help='Storm query in curly braces')
+        parser_mod.add_argument('prefix', help='Cron job iden prefix')
+        parser_mod.add_argument('query', help='New Storm query in curly braces')
 
-        parser_stat = subparsers.add_parser('mod', help='details an existing cron job', usage=ModHelp)
-        parser_stat.add_argument('prefix', help='Trigger iden prefix')
         return parser
 
     @staticmethod
-    def _validate_incval(self, incunit, incval):
-        pass
+    def _parse_weekday(val):
+        val = val.title()
+        try:
+            return list(calendar.day_abbr).index(val)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _parse_incval(incunit, incval):
+        try:
+            retn = [int(val) for val in incval.split(',')]
+        except ValueError:
+            return None
+
+        return retn[0] if len(retn) == 1 else retn
+
+    @staticmethod
+    def _parse_req(requnit, reqval):
+        assert reqval[-1] == '='
+
+        try:
+            retn = []
+            for val in reqval[:-1].split(','):
+                if requnit == 'month':
+                    if reqval[0].isdigit():
+                        retn.append(int(reqval))  # must be a day of month
+                    else:
+                        try:
+                            retn.append(list(calendar.month_abbr).index(val.title()))
+                        except ValueError:
+                            retn.append(list(calendar.month_name).index(val.title()))
+                else:
+                    retn.append(int(val))
+        except ValueError:
+            return None
+
+        if not retn:
+            return None
+
+        return retn[0] if len(retn) == 1 else retn
+
+    @staticmethod
+    def _parse_day(optval):
+        isreq = (optval[-1] == '=')
+        if isreq:
+            optval = optval[:-1]
+        try:
+            retnval = []
+            unit = None
+            for val in optval.split(','):
+                if val[-1].isdigit():
+                    newunit = 'dayofmonth' if isreq else 'day'
+                    if unit is None:
+                        unit = newunit
+                    elif newunit != unit:
+                        return None, None
+                    retnval.append(int(val))
+                else:
+                    newunit = 'dayofweek'
+                    if unit is None:
+                        unit = newunit
+                    elif newunit != unit:
+                        return None, None
+                    retnval.append(Cron._parse_weekday(val))
+        except ValueError:
+            return None, None
+        if not retnval:
+            return None, None
+        return unit, retnval
 
     async def _handle_add(self, core, opts):
         incunit = None
         incval = None
         reqdict = {}
-        valinfo = {
+        valinfo = {  # unit: (minval, next largest unit)
             'month': (1, 'year'),
             'day': (1, 'month'),
             'hour': (0, 'day'),
             'minute': (0, 'hour'),
         }
-        dayofweekreq = None
-        dayofmonth = None
 
         for optname in ('year', 'month', 'day', 'hour', 'minute'):
-            optval = opts.get(optname)
+            optval = getattr(opts, optname, None)
 
             if optval is None:
                 if incunit is None:
                     continue
+                # The option isn't set, but a higher unit is.  Go ahead and set the required part to the lowest valid
+                # value, e.g. so -M 2 would run on the *first* of every other month at midnight
                 reqdict[optname] = valinfo[optname][0]
+                continue
+
+            if optname == 'day':
+                # Both fixed day options actual get encoded in the recurring part
+                if incunit is not None:
+                    self.printf('May not provide a recurrence value with day of week or day of month')
+                    return
+                if reqdict:
+                    self.printf('Error: may not fix month or year with day of week or day of month')
+                    return
+                incunit, incval = self._parse_day(optval)
+                if incval is None:
+                    self.printf(f'Error: failed to parse day value "{optval}"')
+                    return
+                continue
 
             if optval[-1] != '=':
                 if incunit is not None:
@@ -211,6 +297,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
                 incunit = optname
                 incval = self._parse_incval(optname, optval)
                 if incval is None:
+                    self.printf('Error: failed to parse parameter')
                     return
                 continue
 
@@ -218,39 +305,28 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
                 self.printf('Error: year may not be a fixed value')
                 return
 
-            if optname == 'day':
-                # Both fixed day options actual get encoded in the recurring part
-                reqkey, reqval = self._parse_req(optname, optval)
-                if incunit is not None:
-                    self.printf('May not provide a recurrence value with day of week or day of month')
-                    return
-                if reqdict:
-                    self.printf('Error: may not fix month or year with day of week or day of month')
-                    return
-                dayunit, dayval = self._parse_day(optval)
-                if key is None:
-                    return
-                incunit = dayunit
-                incval = dayval
-
-            reqkey, reqval = self._parse_req(optname, optval)
+            reqval = self._parse_req(optname, optval)
             if reqval is None:
+                self.printf(f'Error: failed to parse = parameter "{optval}"')
                 return
-            reqdict[reqkey] = reqval
+            reqdict[optname] = reqval
 
-        # Set the default incunit, incval if necessary
+        # If not set, default the incunit, incval to 1 of the next largest unit
         if incunit is None:
-            if not defval:
-                self.printf('Must provide at least one optional argument')
+            if not reqdict:
+                self.printf('Error: must provide at least one optional argument')
                 return
-            requnit = next(iter(reqdict))
+            requnit = next(iter(reqdict))  # the first key added
             incunit = valinfo[requnit][1]
             incval = 1
 
         # Remove the curly braces
-        query = query[1:-1]
+        query = opts.query[1:-1]
 
-        await core.addCronJob(query, reqdict, incunit, incval)
+        print(f'Issuing addCronJob redict={reqdict}, incunit={incunit} {incval}')
+
+        iden = await core.addCronJob(query, reqdict, incunit, incval)
+        self.printf(f'Added cron job {s_common.ehex(iden)}')
 
     @staticmethod
     def _format_timestamp(ts):
@@ -264,36 +340,36 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             self.printf('No cron jobs found')
             return
         self.printf(
-            f'{"user":10} {"iden":12} {"recurs?":1} {"now?":1} '
-            '{"# start":2} {"last start":16} {"last end":16} {"query"}')
+            f'{"user":10} {"iden":10} {"recurs?":7} {"now?":4} '
+            f'{"# start":7} {"last start":16} {"last end":16} {"query"}')
 
         for iden, cron in cronlist:
             idenf = s_common.ehex(iden)[:8] + '..'
             user = cron.get('user') or '<None>'
-            query = cron.get('storm') or '<missing>'
-            isrecur = 'Y' if cron.recur else 'N'
-            isrunning = 'Y' if cron.isrunning else 'N'
+            query = cron.get('query') or '<missing>'
+            isrecur = 'Y' if cron.get('recur') else 'N'
+            isrunning = 'Y' if cron.get('isrunning') else 'N'
             startcount = cron.get('startcount') or 0
             laststart = cron.get('laststarttime')
-            lastend = cron.get('lastfinishtime')
             laststart = 'Never' if laststart is None else self._format_timestamp(laststart)
-            lastend = 'Never' if lastend is None else self._format_timestamp(laststart)
+            lastend = cron.get('lastfinishtime')
+            lastend = 'Never' if lastend is None else self._format_timestamp(lastend)
 
             self.printf(
-                f'{user:10} {idenf:12} {isrecur:7} {isrunning:1} {startcount:2} {laststart:16} {lastend:16} {query}')
+                f'{user:10} {idenf:10} {isrecur:7} {isrunning:4} {startcount:7} {laststart:16} {lastend:16} {query}')
 
     async def _handle_mod(self, core, opts):
         prefix = opts.prefix
         query = opts.query
         if not query.startswith('{'):
-            self.printf('Expected second argument to start with {')
+            self.printf('Error:  expected second argument to start with {')
             return
         # remove the curly braces
         query = query[1:-1]
         iden = await self._match_idens(core, prefix)
         if iden is None:
             return
-        await core.updateCron(iden, query)
+        await core.updateCronJob(iden, query)
         self.printf(f'Modified cron job {s_common.ehex(iden)}')
 
     async def _handle_del(self, core, opts):
@@ -307,26 +383,28 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
     async def _handle_stat(self, core, opts):
         ''' Prints details about a particular cron job. Not actually a different API call '''
         prefix = opts.prefix
-        crondict = await core.listCronJobs()
-        idens = crondict.keys()
+        crons = await core.listCronJobs()
+        idens = [cron[0] for cron in crons]
         matches = [iden for iden in idens if s_common.ehex(iden).startswith(prefix)]
         if len(matches) == 0:
             self.printf('Error: provided iden does not match any valid authorized cron job')
         elif len(matches) > 1:
             self.printf('Error: provided iden matches more than one cron job')
 
-        cron = crondict[matches[0]]
+        iden = matches[0]
+        cron = [cron[1] for cron in crons if cron[0] == iden][0]
 
         idenf = s_common.ehex(iden)
         user = cron.get('user') or '<None>'
-        query = cron.get('storm') or '<missing>'
-        isrecur = 'Y' if cron.recur else 'N'
+        query = cron.get('query') or '<missing>'
+        isrecur = 'Yes' if cron.get('recur') else 'No'
         startcount = cron.get('startcount') or 0
         recs = cron.get('recs', [])
         laststart = cron.get('laststarttime')
         lastend = cron.get('lastfinishtime')
         laststart = 'Never' if laststart is None else self._format_timestamp(laststart)
-        lastend = 'Never' if lastend is None else self._format_timestamp(laststart)
+        lastend = 'Never' if lastend is None else self._format_timestamp(lastend)
+        lastresult = cron.get('lastresult') or '<None>'
 
         self.printf(f'iden:            {idenf}')
         self.printf(f'user:            {user}')
@@ -334,13 +412,14 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         self.printf(f'# starts:        {startcount}')
         self.printf(f'last start time: {laststart}')
         self.printf(f'last end time:   {lastend}')
+        self.printf(f'last result:     {lastresult}')
         self.printf(f'query:           {query}')
         if not recs:
-            self.printf(f'combos:      None')
+            self.printf(f'entries:         <None>')
         else:
-            self.printf(f'combos:          {"incunit":10} {"incval":4} {"reqdict"}')
+            self.printf(f'entries:         {"incunit":10} {"incval":6} {"required"}')
             for reqdict, incunit, incval in recs:
-                self.printf(f'                 {incunit:10} {incval:4} {reqdict}')
+                self.printf(f'                 {incunit:10} {incval:6} {reqdict}')
 
     async def runCmdOpts(self, opts):
         line = opts.get('line')
@@ -371,33 +450,31 @@ class At(s_cli.Cmd):
 Adds a non-recurring cron job that will execute a Storm query at one or more
 specified times.
 
-List/details/deleting cron jobs created with 'at' use the same commands as other
-cron jobs:  cron list/stat/del respectively.
+List/details/deleting cron jobs created with 'at' use the same commands as
+other cron jobs:  cron list/stat/del respectively.
 
-Syntax: at (ISO 8601|+time delta)+ {query}
+Syntax: at (time|+time delta)+ {query}
 
 Notes: This command accepts one or more time specifications followed by exactly
-one storm query in curly braces.  Each time specification may be in ISO-8601
-datetime format (e.g. 2018-12-10T14:35:49.626722) or simply HH:MM.  Note that
-seconds and fractions of seconds will be ignore in the specification.
+one storm query in curly braces.  Each time specification may be in synapse
+time delta format (e.g + 1 day) or synapse time format (e.g.
+20501217030432101).  Seconds will be ignored, as cron jobs' granularity is
+limited to minutes.
 
-    All times are immediately converted into UTC, so any daylight saving
-    changes between now and the specified time will not be accounted for.
+All times are interpreted as UTC.
 
-    The other option for time specification is a relative time from now.  This
-    consists of an integer followed by a single character out of m,h,d,M,Y
-    corresponding to minutes, hours, days, months, and years.
-
+The other option for time specification is a relative time from now.  This
+consists of a plus sign, a positive integer, then one of 'minutes, hours, days'.
 
 Examples:
     # Run a storm query in 5 minutes
-    at +5m {[inet:ipv4=1]}
+    at +5 minutes {[inet:ipv4=1]}
 
     # Run a storm query tomorrow and in a week
-    at +1d +7d {[inet:ipv4=1]}
+    at +1 day +7 days {[inet:ipv4=1]}
 
     # Run a query at the end of the year Zulu
-    at 2018-12-31Z23:59 15:30 {[inet:ipv4=1]}
+    at 20181231Z2359 15:30 {[inet:ipv4=1]}
 '''
     _cmd_name = 'at'
 
@@ -406,7 +483,74 @@ Examples:
     )
 
     def _make_argparser(self):
-
         parser = s_cmd.Parser(prog='at', outp=self, description=self.__doc__)
-        parser.add_argument('args', metavar='times', nargs='+', help='ISO 8601 | +number[mhdMY] | {query} | HH:MM)'
+        parser.add_argument('args', nargs='+', help='date | delta| {query})')
         return parser
+
+    async def runCmdOpts(self, opts):
+        line = opts.get('line')
+        if line is None:
+            self.printf(self.__doc__)
+            return
+
+        core = self.getCmdItem()
+
+        parseinfo = await s_syntax.getRemoteParseInfo(core)
+        argv = s_syntax.Parser(parseinfo, line).stormcmd()
+        # Currently, using an argparser is overkill for this command.  Using for future extensibility (and help).
+        try:
+            opts = self._make_argparser().parse_args(argv)
+        except s_exc.ParserExit:
+            return
+
+        query = None
+        consumed_next = False
+
+        tslist = []
+        # TODO: retrieve time from cortex in case of wrong cmdr time
+        now = time.time()
+
+        for pos, arg in enumerate(opts.args):
+            if consumed_next:
+                consumed_next = False
+                continue
+
+            if arg.startswith('{'):
+                if query is not None:
+                    self.printf('Error: only a single query is allowed')
+                    return
+                query = arg[1:-1]
+                continue
+
+            if arg.startswith('+'):
+                if arg[-1].isdigit():
+                    if pos == len(opts.args) - 1:
+                        self.printf('Time delta missing unit')
+                        return
+                    arg = f'{arg} {opts.args[pos + 1]}'
+                    consumed_next = True
+                ts = now + s_time.delta(arg) / 1000.0
+                tslist.append(ts)
+                continue
+
+            ts = s_time.parse(arg) / 1000.0
+            tslist.append(ts)
+
+        if query is None:
+            self.printf('Error: Missing query argument')
+            return
+
+        def _ts_to_reqdict(ts):
+            dt = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc)
+            return {
+                'minute': dt.minute,
+                'hour': dt.hour,
+                'dayofmonth': dt.day,
+                'month': dt.month,
+                'year': dt.year
+            }
+
+        reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
+
+        iden = await core.addCronJob(query, reqdicts, None, None)
+        self.printf(f'Cron job {s_common.ehex(iden)} created')

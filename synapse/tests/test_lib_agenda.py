@@ -1,8 +1,7 @@
-import time
 import asyncio
 import datetime
-from datetime import timezone as tz
 from unittest import mock
+from datetime import timezone as tz
 
 import synapse.exc as s_exc
 import synapse.tests.utils as s_t_utils

@@ -183,7 +183,8 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         # Remove the curly braces
         query = query[1:-1]
 
-        await core.addTrigger(cond, query, info={'form': form, 'tag': tag, 'prop': prop})
+        iden = await core.addTrigger(cond, query, info={'form': form, 'tag': tag, 'prop': prop})
+        self.printf(f'Added trigger {s_common.ehex(iden)}')
 
     async def _handle_list(self, core, opts):
         triglist = await core.listTriggers()

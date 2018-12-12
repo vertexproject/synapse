@@ -92,6 +92,7 @@ timeunits = {
 
     'min': onemin,
     'mins': onemin,
+    'minute': onemin,
     'minutes': onemin,
 
     'hour': onehour,

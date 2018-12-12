@@ -48,7 +48,7 @@ class TimeUnit(enum.IntEnum):
 
     @classmethod
     def fromString(cls, s):
-        return cls.__members__[s]
+        return cls.__members__[s.upper()]
 
 _NextUnitMap = {
     TimeUnit.YEAR: None,
@@ -132,7 +132,9 @@ class ApptRec:
         return repr(self.entupl())
 
     def entupl(self):
-        return ({k.name.tolower(): v for (k, v) in self.reqdict.items()}, self.incunit.name.tolower(), self.incval)
+        reqdictf = {k.name.lower(): v for (k, v) in self.reqdict.items()}
+        incunitf = None if self.incunit is None else self.incunit.name.lower()
+        return (reqdictf, incunitf, self.incval)
 
     @classmethod
     def untupl(cls, val):
@@ -146,7 +148,8 @@ class ApptRec:
         lastdt = datetime.datetime.fromtimestamp(lastts, tz.utc)
         newvals = {}  # all the new fields that will be changed in the
 
-        newdt = lastdt.replace()
+        # Truncate the seconds part
+        newdt = lastdt.replace(second=0)
 
         for unit, newval in self.reqdict.items():
             dtkey = _TimeunitToDatetime[unit]
@@ -259,7 +262,7 @@ class _Appt:
             self.nexttime = nexttime
         self.isrunning = False  # whether it is currently running
         self.startcount = 0  # how many times query has started
-        self.laststartime = None
+        self.laststarttime = None
         self.lastfinishtime = None
         self.lastresult = None
         self.enabled = True
@@ -461,6 +464,20 @@ class Agenda(s_base.Base):
 
         return iden
 
+    def mod(self, iden, query):
+        appt = self.appts.get(iden)
+        if appt is None:
+            raise s_exc.NoSuchIden()
+
+        if self.enabled:
+            self.core.getStormQuery(query)
+
+        appt.query = query
+
+        # FIXME: persist
+        # db = self.core.slab.initdb(self.TRIGGERS_DB_NAME)
+        # self.core.slab.put(iden, rule.en(), db=db)
+
     def delete(self, iden):
         appt = self.appts.get(iden)
         if appt is None:
@@ -478,6 +495,8 @@ class Agenda(s_base.Base):
                 # put the last item at the current position and reheap
                 self.apptheap[heappos] = self.apptheap.pop()
                 heapq.heapify(self.apptheap)
+
+        del self.appts[iden]
 
         # FIXME: persist
 
@@ -509,10 +528,13 @@ class Agenda(s_base.Base):
                 await self.execute(appt)
 
     async def execute(self, appt):
-        user = self.core.auth.users.get(appt.username)
-        if user is None:
-            logger.warning('Unknown username %s in stored appointment', appt.username)
-            return
+        if appt.username is None or self.core.auth is None:
+            user = None
+        else:
+            user = self.core.auth.users.get(appt.username)
+            if user is None:
+                logger.warning('Unknown username %s in stored appointment', appt.username)
+                return
         await self.schedCoro(self._runJob(user, appt))
 
     async def _runJob(self, user, appt):
@@ -520,6 +542,7 @@ class Agenda(s_base.Base):
         appt.isrunning = True
         appt.laststarttime = time.time()
         appt.startcount += 1
+        logger.info(f'Agenda executing as user {user} query {appt.query}')
         try:
             async for _ in self.core.eval(appt.query, user=user):
                 count += 1
