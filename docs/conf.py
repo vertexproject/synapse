@@ -202,7 +202,7 @@ def convert_ipynb(_):
         for fn in fns:
             if fn.endswith('.ipynb'):
                 fp = os.path.join(fdir, fn)
-                args = ['--execute', '--to', 'rst', fp]
+                args = ['--execute', '--template', './vertex.tpl', '--to', 'rst', fp]
                 nba.main(args)
 
 def setup(app):

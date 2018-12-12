@@ -332,7 +332,9 @@ In order to do local doc generation you can do the following steps:
 
    ::
 
-      pip install sphinx==1.5.3 Pygments==2.2.0 setuptools==28.8.0 docutils==0.13.1 mkdocs==0.15.0 mock==1.0.1 pillow==2.6.1 git+https://github.com/rtfd/readthedocs-sphinx-ext.git@0.6-alpha#egg=readthedocs-sphinx-ext sphinx_rtd_theme commonmark==0.5.4 recommonmark==0.4.0
+      pip install -U -r requirements_doc.txt
+      # Enable extensions for jupyter
+      jupyter contrib nbextension install --user
 
 #. Build the docs using sphinx.  A makefile is provided which makes this
    painless.
@@ -355,6 +357,19 @@ In order to do local doc generation you can do the following steps:
 If you need to write explicit docs for Synapse, they should be added to the
 repository at docs/synapse and a reference added to the docs in docs/index.rst
 in order for the documentation
+
+Additional configuration required to setup document building.
+
+After launching jupytyer notebook to start a local notebook server, go here to enable the hide_input extension.
+ http://localhost:8888/nbextensions/?nbextension=hide_input/main
+
+You can then select cells which which will have their code input hidden.
+
+# Try hide-code?
+python -m pip install hide_code
+jupyter nbextension install --user --py hide_code
+jupyter nbextension enable hide_code --user --py
+
 
 Contribution Process
 --------------------

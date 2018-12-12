@@ -1,4 +1,5 @@
 sphinx
 jupyter
+hide-code
 sphinx-rtd-theme
-
+jupyter_contrib_nbextensions
