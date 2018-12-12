@@ -193,6 +193,21 @@ def run_apidoc(_):
     args.extend(ignores)
     main(args)
 
+def convert_ipynb(_):
+    import nbconvert.nbconvertapp as nba
+    cwd = os.getcwd()
+    for fdir, dirs, fns in os.walk(cwd):
+        if '.ipynb_checkpoints' in dirs:
+            dirs.remove('.ipynb_checkpoints')
+        for fn in fns:
+            if fn.endswith('.ipynb'):
+                fp = os.path.join(fdir, fn)
+                # XXX Do we want to replay the notebook contents here first?
+                # or as part of the conversion?
+                args = ['--to', 'rst', fp]
+                nba.main(args)
+
 def setup(app):
     # app.add_stylesheet('theme_overrides.css')
     app.connect('builder-inited', run_apidoc)
+    app.connect('builder-inited', convert_ipynb)
