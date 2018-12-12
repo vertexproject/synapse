@@ -10,6 +10,9 @@ docs/synapse/api
 docs/synapse/datamodel.rst
 docs/synapse/configables.rst
 
+# ipython checkpoints
+.ipynb_checkpoints
+
 # C extensions
 *.so
 
