@@ -784,7 +784,7 @@ class Ival(Type):
         vals = []
         relvals = []
         for val in valu:
-            if val is None:
+            if not val:
                 continue
             if isinstance(val, str) and val[0] in ('-', '+'):
                 relvals.append(val)
@@ -792,9 +792,9 @@ class Ival(Type):
             vals.append(self.timetype.norm(val)[0])
         if len(vals) + len(relvals) == 1:
             vals.append(vals[0] + 1)
-        val = vals[0]
         if len(vals) + len(relvals) != 2:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires at most 2 time arguments')
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires 1 and at most 2 time arguments')
+        val = vals[0]
 
         # make absolute vals assuming the current val
         absvals = [self._normRelStr(r, relto=val) for r in relvals if r is not None]

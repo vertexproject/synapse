@@ -287,7 +287,7 @@ class TypesTest(s_t_utils.SynTest):
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('int').clone, {'min': 100, 'max': 1})
 
-    def test_ival(self):
+    async def test_ival(self):
         model = s_datamodel.Model()
         ival = model.types.get('ival')
 
@@ -305,8 +305,33 @@ class TypesTest(s_t_utils.SynTest):
         end = ival.norm(('now', '+1day'))[0][1]
         self.lt(start, end)
 
+        oldv = ival.norm(('2016', '2017'))[0]
+        newv = ival.norm(('2015', '2018'))[0]
+        self.eq((1420070400000, 1514764800000), ival.merge(oldv, newv))
+
         self.raises(s_exc.BadTypeValu, ival.norm, '?')
+        self.raises(s_exc.BadTypeValu, ival.norm, ('', ''))
         self.raises(s_exc.BadTypeValu, ival.norm, ('2016-3days', '+77days', '-40days'))
+
+        async with self.getTestCore() as core:
+
+            t = core.model.type('testtime')
+
+            tick = t.norm('2014')[0]
+            tock = t.norm('2015')[0]
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 'a', {'tick': '2014'})
+                node = await snap.addNode('teststr', 'b', {'tick': '2015'})
+                node = await snap.addNode('teststr', 'c', {'tick': '2016'})
+                node = await snap.addNode('teststr', 'd', {'tick': 'now'})
+
+            await self.agenraises(s_exc.BadStormSyntax, core.eval('teststr :tick=(20150102, "-4 day")'))
+
+            await self.agenlen(1, core.eval('teststr +:tick@=(2015)'))
+            await self.agenlen(1, core.eval('teststr +:tick@=(2015, "+1 day")'))
+            await self.agenlen(1, core.eval('teststr +:tick@=(20150102+1day, "-4 day")'))
+            await self.agenlen(1, core.eval('teststr +:tick@=(20150102, "-4 day")'))
 
     async def test_loc(self):
         model = s_datamodel.Model()
@@ -406,8 +431,8 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'m'})
             nodes = await alist(core.eval('testcomp +testcomp*range=((1024, grinch), (4096, zemeanone))'))
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton'), (4096, 'whoville')})
-            guid0 = 'B'*32
-            guid1 = 'D'*32
+            guid0 = 'B' * 32
+            guid1 = 'D' * 32
             nodes = await alist(core.eval(f'testguid +testguid*range=({guid0}, {guid1})'))
             self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
             nodes = await alist(core.eval('testint | noderefs | +testcomp*range=((1000, grinch), (4000, whoville))'))
