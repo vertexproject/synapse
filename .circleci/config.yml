@@ -10,7 +10,7 @@ doc_test_steps:  &doc_test_steps
 
     - restore_cache:
         keys:
-          - v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}-{{ checksum "requirements_docs.txt" }}
+          - v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}-{{ checksum "requirements_doc.txt" }}
 
     - run:
         name: setup venv
@@ -18,7 +18,7 @@ doc_test_steps:  &doc_test_steps
           python3 -m venv --copies venv
           . venv/bin/activate
           python3 -m pip install -U wheel pip
-          python3 -m pip install -U -r requirements_docs.txt
+          python3 -m pip install -U -r requirements_doc.txt
 
     - run:
         name: install synapse requirements
@@ -30,7 +30,7 @@ doc_test_steps:  &doc_test_steps
     - save_cache:
         paths:
           - ./venv
-        key: v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}-{{ checksum "requirements_docs.txt" }}
+        key: v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}-{{ checksum "requirements_doc.txt" }}
 
 test_steps:  &test_steps
   steps:
