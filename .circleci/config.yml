@@ -30,7 +30,7 @@ doc_test_steps:  &doc_test_steps
     - save_cache:
         paths:
           - ./venv
-          - v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}-{{ checksum "requirements_docs.txt" }}
+        key: v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}-{{ checksum "requirements_docs.txt" }}
 
 test_steps:  &test_steps
   steps:
