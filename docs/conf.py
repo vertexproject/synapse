@@ -202,9 +202,7 @@ def convert_ipynb(_):
         for fn in fns:
             if fn.endswith('.ipynb'):
                 fp = os.path.join(fdir, fn)
-                # XXX Do we want to replay the notebook contents here first?
-                # or as part of the conversion?
-                args = ['--to', 'rst', fp]
+                args = ['--execute', '--to', 'rst', fp]
                 nba.main(args)
 
 def setup(app):
