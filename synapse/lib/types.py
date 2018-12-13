@@ -790,6 +790,7 @@ class Loc(Type):
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+        self.indxcmpr['^='] = self.indxByPref
 
     def _normPyStr(self, valu):
 
@@ -817,6 +818,17 @@ class Loc(Type):
             ('pref', indx),
         )
 
+    def indxByPref(self, valu):
+        norm, info = self.norm(valu)
+        indx = self.indx(norm)
+
+        if indx is None:
+            raise s_exc.NoSuchIndx(name=self.name)
+
+        return (
+            ('pref', indx),
+        )
+
     @s_cache.memoize()
     def stems(self, valu):
         norm, info = self.norm(valu)
@@ -839,7 +851,6 @@ class Loc(Type):
             return norm in vstems
 
         return cmpr
-
 
 class Ndef(Type):
 
