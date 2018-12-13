@@ -42,6 +42,7 @@ def main():
         print(f'Error executing notebook: {str(e)}')
         print(f'Stdout:\n{e.stdout.decode()}')
         print(f'Stderr:\n{e.stderr.decode()}')
+        return 1
     except:
         traceback.print_exc()
         return 1
