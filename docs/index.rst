@@ -10,8 +10,9 @@ Welcome to synapse's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   contributing
+   synapse/devops
    synapse/userguide
+   contributing
    api/modules
 
 Indices and tables
