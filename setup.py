@@ -26,6 +26,14 @@ setup(
         'PyYAML>=3.13,<4.0',
     ],
 
+    extras_require={
+        'docs': [
+            'sphinx',
+            'jupyter',
+            'sphinx-rtd-theme',
+        ],
+    },
+
     classifiers=[
         'Development Status :: 4 - Beta',
 

@@ -1,8 +1,10 @@
 # .readthedocs.yml
 
 build:
-  image: latest
+  image: 4.0rc1
 
 python:
   version: 3.7
   setup_py_install: true
+  extra_requirements:
+    - docs
