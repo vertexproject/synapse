@@ -8,6 +8,11 @@ doc_test_steps:  &doc_test_steps
   steps:
     - checkout
 
+    - run:
+        name: install deps
+        command: |
+          sudo apt-get -y install pandoc
+
     - restore_cache:
         keys:
           - v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}-{{ checksum "requirements_doc.txt" }}
