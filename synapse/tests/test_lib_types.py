@@ -291,6 +291,11 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         ival = model.types.get('ival')
 
+        self.eq(b'', ival.indx(None))
+        self.eq(('2016/01/01 00:00:00.000', '2017/01/01 00:00:00.000'), ival.repr(ival.norm(('2016', '2017'))[0]))
+
+        self.gt(s_common.now(), ival._normRelStr('-1 min'))
+
         self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
         self.eq((1451606400000, 1451606400001), ival.norm(1451606400000)[0])
         self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
@@ -325,13 +330,18 @@ class TypesTest(s_t_utils.SynTest):
                 node = await snap.addNode('teststr', 'b', {'tick': '2015'})
                 node = await snap.addNode('teststr', 'c', {'tick': '2016'})
                 node = await snap.addNode('teststr', 'd', {'tick': 'now'})
+                node = await snap.addNode('teststr', 'e', {'tick': 'now-3days'})
 
             await self.agenraises(s_exc.BadStormSyntax, core.eval('teststr :tick=(20150102, "-4 day")'))
 
+            await self.agenlen(1, core.eval('teststr +:tick@=("-1 day")'))
             await self.agenlen(1, core.eval('teststr +:tick@=(2015)'))
             await self.agenlen(1, core.eval('teststr +:tick@=(2015, "+1 day")'))
             await self.agenlen(1, core.eval('teststr +:tick@=(20150102+1day, "-4 day")'))
             await self.agenlen(1, core.eval('teststr +:tick@=(20150102, "-4 day")'))
+            await self.agenlen(1, core.eval('teststr +:tick@=(now, "-1 day")'))
+            await self.agenlen(1, core.eval('teststr +:tick@=("now-1day", "?")'))
+            await self.agenlen(1, core.eval('teststr +:tick@=("now+2days", "-3 day")'))
 
     async def test_loc(self):
         model = s_datamodel.Model()
@@ -521,6 +531,11 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('is.ｂob.evil', tagtype.norm('is.\uff42ob.evil')[0])
 
     async def test_time(self):
+
+        model = s_datamodel.Model()
+        ttime = model.types.get('time')
+
+        self.gt(s_common.now(), ttime.norm('-1hour')[0])
 
         async with self.getTestCore() as core:
 

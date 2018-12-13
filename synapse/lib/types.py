@@ -749,24 +749,14 @@ class Ival(Type):
 
     def _normRelStr(self, valu, relto=None):
         valu = valu.strip().lower()
-        if valu == 'now':
-            return self._normPyInt(s_common.now())[0]
+        # assumes the relative string starts with a - or +
+        splitter = valu[0]
 
-        # an unspecififed time in the future...
-        if valu == '?':
-            return 0x7fffffffffffffff
+        delt = s_time.delta(valu)
+        if not relto:
+            relto = s_common.now()
 
-        if valu[0] in ('-', '+'):
-            splitter = valu[0]
-
-            delt = s_time.delta(valu)
-            if not relto:
-                relto = s_common.now()
-
-            return delt + relto
-
-        valu = s_time.parse(valu)
-        return self._normPyInt(valu)[0]
+        return delt + relto
 
     def _normPyStr(self, valu):
         valu = valu.strip().lower()
@@ -790,8 +780,15 @@ class Ival(Type):
                 relvals.append(val)
                 continue
             vals.append(self.timetype.norm(val)[0])
+
+        # relative value with implicit "now"
+        if not len(vals) and len(relvals):
+            vals.append(s_common.now())
+
+        # interval as a point in time
         if len(vals) + len(relvals) == 1:
             vals.append(vals[0] + 1)
+
         if len(vals) + len(relvals) != 2:
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='interval requires 1 and at most 2 time arguments')
         val = vals[0]
