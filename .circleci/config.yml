@@ -32,6 +32,12 @@ doc_test_steps:  &doc_test_steps
           - ./venv
         key: v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}-{{ checksum "requirements_doc.txt" }}
 
+    - run:
+        name: executing docs jupyter notebooks
+        command: |
+          . venv/bin/activate
+          ./scripts/doctests.py
+
 test_steps:  &test_steps
   steps:
     - checkout
