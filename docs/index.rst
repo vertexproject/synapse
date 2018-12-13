@@ -12,7 +12,7 @@ Welcome to synapse's documentation!
 
    contributing
    synapse/userguide
-   synapse/api/modules
+   api/modules
 
 Indices and tables
 ==================

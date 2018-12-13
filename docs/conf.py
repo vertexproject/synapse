@@ -188,7 +188,7 @@ epub_exclude_files = ['search.html']
 def run_apidoc(_):
     from sphinx.ext.apidoc import main
 
-    args = ['-M', '-o', 'synapse/api', '../synapse', ]
+    args = ['-M', '-o', './api', '../synapse', ]
     ignores = ['../synapse/tests']
     args.extend(ignores)
     main(args)
