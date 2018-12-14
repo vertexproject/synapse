@@ -54,6 +54,7 @@ class Node(s_base.Base):
         return await self.hive.set(self.full, valu)
 
     async def add(self, valu):
+        ''' Increments existing node valu '''
         return await self.hive.add(self.full, valu)
 
     async def open(self, *path):
@@ -237,7 +238,7 @@ class Hive(s_base.Base, s_telepath.Aware):
 
     async def add(self, full, valu):
         '''
-        Atomically add a value to a node.
+        Atomically increments a node's value.
         '''
         node = await self.open(full)
 
@@ -557,6 +558,21 @@ class HiveDict(s_base.Base):
 
     def setdefault(self, name, valu):
         self.defs[name] = valu
+
+    def items(self):
+        for key, node in iter(self.node):
+            yield key, node.valu
+
+    async def pop(self, name):
+        node = self.node.get(name)
+        if node is None:
+            return self.defs.get(name)
+
+        retn = node.valu
+
+        await node.hive.pop(node.full)
+
+        return retn
 
 #TODO
 #class HiveLock(s_base.Base):

@@ -170,14 +170,14 @@ class CoreApi(s_cell.CellApi):
             raise s_exc.BadConfValu('Unrecognized time unit')
 
         username = None if self.user is None else self.user.name
-        return self.cell.agenda.add(username, query, newreqs, incunit, incval)
+        return await self.cell.agenda.add(username, query, newreqs, incunit, incval)
 
     async def delCronJob(self, iden):
         cron = self.cell.agenda.appts.get(iden)
         if cron is None:
             raise s_exc.NoSuchIden()
         self._auth_check(cron.username)
-        self.cell.agenda.delete(iden)
+        await self.cell.agenda.delete(iden)
 
     async def updateCronJob(self, iden, query):
         '''
@@ -187,7 +187,7 @@ class CoreApi(s_cell.CellApi):
         if cron is None:
             raise s_exc.NoSuchIden()
         self._auth_check(cron.username)
-        self.cell.agenda.mod(iden, query)
+        await self.cell.agenda.mod(iden, query)
 
     async def listCronJobs(self):
         username = None if self.user is None else self.user.name

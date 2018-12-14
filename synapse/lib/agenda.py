@@ -6,13 +6,13 @@ import asyncio
 import logging
 import calendar
 import datetime
-from collections.abc import Iterable, Mapping
 import itertools
 from datetime import timezone as tz
+from collections.abc import Iterable, Mapping
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.lib.base as s_base
-import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -87,36 +87,36 @@ class ApptRec:
         self.incval = incval if incunit is not None else None
 
         if not reqdict and incunit is None:
-            raise s_exc.BadTime('reqdict must be nonempty or incunit must be non-None')
+            raise s_exc.BadTime(mesg='reqdict must be nonempty or incunit must be non-None')
 
         if TimeUnit.DAY in reqdict:
-            raise s_exc.BadTime('Must not specify day as requirement')
+            raise s_exc.BadTime(mesg='Must not specify day as requirement')
 
         if TimeUnit.DAYOFMONTH in reqdict and TimeUnit.DAYOFWEEK in reqdict:
-            raise s_exc.BadTime('Both day of month and day of week must not both be requirements')
+            raise s_exc.BadTime(mesg='Both day of month and day of week must not both be requirements')
 
         if TimeUnit.DAYOFWEEK in reqdict and incunit is not None:
-            raise s_exc.BadTime('Day of week requirement not supported with a recurrence')
+            raise s_exc.BadTime(mesg='Day of week requirement not supported with a recurrence')
 
         if incunit == TimeUnit.DAYOFMONTH:
-            raise s_exc.BadTime('Day of month not a valid incunit')
+            raise s_exc.BadTime(mesg='Day of month not a valid incunit')
 
         if incunit is not None:
             boundmin, boundmax = _UnitBounds[incunit][1]
             if not boundmin <= incval <= boundmax:
-                raise s_exc.BadTime('Out of bounds incval')
+                raise s_exc.BadTime(mesg='Out of bounds incval')
 
         for reqkey, reqval in reqdict.items():
             if reqkey not in TimeUnit:
-                raise s_exc.BadTime('Keys of reqdict parameter must be valid TimeUnit values')
+                raise s_exc.BadTime(mesg='Keys of reqdict parameter must be valid TimeUnit values')
             boundmin, boundmax = _UnitBounds[reqkey][0]
             if not boundmin <= reqval <= boundmax:
-                raise s_exc.BadTime('Out of bounds reqdict value')
+                raise s_exc.BadTime(mesg='Out of bounds reqdict value')
 
             if incunit is not None and reqkey <= incunit:
                 # We could, actually support this, but most of these combinations are nonsensical (e.g. run every 5
                 # minutes in 2018 only?)
-                raise s_exc.BadTime('Must not have fixed unit equal to or greater than recurrence unit')
+                raise s_exc.BadTime(mesg='Must not have fixed unit equal to or greater than recurrence unit')
 
         self.reqdict = {}
         # Put keys in size order, with dayof... added last, as nexttime processes in that order
@@ -134,7 +134,10 @@ class ApptRec:
 
     @classmethod
     def untupl(cls, val):
-        return cls(*val)
+        reqdictf, incunitf, incval = val
+        reqdict = {TimeUnit[k.upper()]: v for (k, v) in reqdictf.items()}
+        incunit = None if incunitf is None else TimeUnit[incunitf.upper()]
+        return cls(reqdict, incunit, incval)
 
     def nexttime(self, lastts):
         '''
@@ -219,14 +222,13 @@ class ApptRec:
         if incunit == TimeUnit.MINUTE:
             return dt + datetime.timedelta(minutes=incval)
         else:
-            raise s_exc.BadTime('Invalid incunit')
+            raise s_exc.BadTime(mesg='Invalid incunit')
 
 class _Appt:
     '''
     A single entry in the Agenda:  a storm query to run in the future
     '''
-
-    def __init__(self, iden, recur, indx, query, username, recs, nexttime=None, startcount=0):
+    def __init__(self, iden, recur, indx, query, username, recs, nexttime=None):
         self.iden = iden
         self.recur = recur
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
@@ -235,12 +237,15 @@ class _Appt:
         self.recs = recs  # A list of zero or more ApptRecs
         self._recidxnexttime = None # index of rec who is up next
 
-        if nexttime is None:
+        if self.recur and not self.recs:
+            raise s_exc.BadTime(mesg='A recurrent appointment with no records')
+
+        if nexttime is None and self.recs:
             now = time.time()
             self.nexttime = now
             self.updateNexttime(now + 1.0)  # lie slightly about the time so it does advance
             if self.nexttime is None:
-                raise s_exc.BadTime('Appointment is in the past')
+                raise s_exc.BadTime(mesg='Appointment is in the past')
         else:
             self.nexttime = nexttime
         self.isrunning = False  # whether it is currently running
@@ -263,9 +268,10 @@ class _Appt:
             'ver': 0,
             'enabled': self.enabled,
             'recur': self.recur,
+            'iden': self.iden,
             'indx': self.indx,
             'query': self.query,
-            'user': self.username,
+            'username': self.username,
             'recs': [d.entupl() for d in self.recs],
             'nexttime': self.nexttime,
             'startcount': self.startcount,
@@ -279,7 +285,14 @@ class _Appt:
     def fromdict(cls, val):
         if val['ver'] != 0:
             raise s_exc.BadStorageVersion
-        # FIXME
+        recs = [ApptRec.untupl(tupl) for tupl in val['recs']]
+        appt = cls(val['iden'], val['recur'], val['indx'], val['query'], val['username'], recs, val['nexttime'])
+        appt.startcount = val['startcount']
+        appt.laststarttime = val['laststarttime']
+        appt.lastfinishtime = val['lastfinishtime']
+        appt.lastresult = val['lastresult']
+
+        return appt
 
     def updateNexttime(self, now):
 
@@ -298,7 +311,7 @@ class _Appt:
                 if nexttime == 0.0:
                     # We blew by and missed a fixed-year appointment, either due to clock shenanigans, this query going
                     # really long, or the initial requirement being in the past
-                    logger.warning('Missed an appointment: {rec}')
+                    logger.warning(f'Missed an appointment: {rec}')
                     del self.recs[i]
                     continue
                 if nexttime < lowtime:
@@ -322,13 +335,18 @@ class Agenda(s_base.Base):
         await s_base.Base.__anit__(self)
         self.core = core
         self.apptheap = []
-        self.appts = {}  # iden: appt
+        self.appts = {}  # Dict[bytes: Appt]
         self._next_indx = 0
+
         self._wake_event = asyncio.Event()
         self.onfini(self._wake_event.set)
-        self._load_all()
+
+        self._hivedict = await self.core.hive.dict(('agenda', 'appts'))
+        self.onfini(self._hivedict)
+
         self.enabled = False
         self._schedtask = None
+        await self._load_all()
 
     async def enable(self):
         '''
@@ -345,38 +363,44 @@ class Agenda(s_base.Base):
             try:
                 self.core.getStormQuery(appt.query)
             except Exception as e:
-                logger.warning('Invalid appt %r found in storage: %r.  Removing.', iden, e)
+                logger.warning('Invalid appointment %r found in storage: %r.  Removing.', iden, e)
                 to_delete.append(iden)
+
         for iden in to_delete:
-            self.delete(iden)
+            await self.delete(iden)
 
         self._schedtask = self.schedCoro(self._scheduleLoop())
         self.enabled = True
 
-    def _load_all(self):
+    async def _load_all(self):
 
-        # FIXME:  migrate to hive
-        return
-        db = self.core.slab.initdb(self.AGENDA_DB_NAME)
-        for iden, val in self.core.slab.scanByRange(b'', db=db):
+        to_delete = []
+        for idenf, val in self._hivedict.items():
             try:
-                apptdict = s_msgpack.un(val)
-                appt = _Appt.unsimpl(apptdict)
+                iden = s_common.uhex(idenf)
+                breakpoint()
+                appt = _Appt.fromdict(val)
+                if appt.iden != iden:
+                    raise s_exc.InconsistentStorage(mesg='iden inconsistency')
                 self._addappt(iden, appt)
                 self._next_indx = max(self._next_indx, appt.indx + 1)
-            except (s_exc.InconsistentStorage, TypeError, KeyError) as e:
-                logger.warning('Invalid appointment %r found in storage: %r', iden, e)
+            except (s_exc.InconsistentStorage, s_exc.BadTime, TypeError, KeyError) as e:
+                logger.warning('Invalid appointment %r found in storage: %r.  Removing', iden, e)
+                to_delete.append(iden)
                 continue
 
+        for iden in to_delete:
+            await self._hivedict.pop(s_common.ehex(iden))
+
     def _addappt(self, iden, appt):
-        heapq.heappush(self.apptheap, appt)
+        if appt.nexttime:
+            heapq.heappush(self.apptheap, appt)
         self.appts[iden] = appt
-        if self.apptheap[0] is appt:
+        if self.apptheap and self.apptheap[0] is appt:
             self._wake_event.set()
 
-    def _storeAppt(self, appt):
-        # FIXME
-        pass
+    async def _storeAppt(self, appt):
+        await self._hivedict.set(s_common.ehex(appt.iden), appt.todict())
 
     @staticmethod
     def _dictproduct(rdict):
@@ -400,7 +424,7 @@ class Agenda(s_base.Base):
     def list(self):
         return [(iden, (appt.todict())) for (iden, appt) in self.appts.items()]
 
-    def add(self, username, query: str, reqs, incunit=None, incvals=None):
+    async def add(self, username, query: str, reqs, incunit=None, incvals=None):
         '''
         Persistently adds an appointment
 
@@ -446,11 +470,11 @@ class Agenda(s_base.Base):
         appt = _Appt(iden, recur, indx, query, username, recs)
         self._addappt(iden, appt)
 
-        # FIXME: persist
+        await self._storeAppt(appt)
 
         return iden
 
-    def mod(self, iden, query):
+    async def mod(self, iden, query):
         appt = self.appts.get(iden)
         if appt is None:
             raise s_exc.NoSuchIden()
@@ -460,11 +484,9 @@ class Agenda(s_base.Base):
 
         appt.query = query
 
-        # FIXME: persist
-        # db = self.core.slab.initdb(self.TRIGGERS_DB_NAME)
-        # self.core.slab.put(iden, rule.en(), db=db)
+        await self._storeAppt(appt)
 
-    def delete(self, iden):
+    async def delete(self, iden):
         appt = self.appts.get(iden)
         if appt is None:
             raise s_exc.NoSuchIden()
@@ -472,7 +494,7 @@ class Agenda(s_base.Base):
         try:
             heappos = self.apptheap.index(appt)
         except ValueError:
-            pass
+            pass  # this is OK, just a non-recurring appt that has no more records
         else:
             # If we're already the last item, just delete it
             if heappos == len(self.apptheap) - 1:
@@ -483,8 +505,7 @@ class Agenda(s_base.Base):
                 heapq.heapify(self.apptheap)
 
         del self.appts[iden]
-
-        # FIXME: persist
+        await self._hivedict.pop(s_common.ehex(iden))
 
     async def _scheduleLoop(self):
         while True:
@@ -528,6 +549,7 @@ class Agenda(s_base.Base):
         appt.isrunning = True
         appt.laststarttime = time.time()
         appt.startcount += 1
+        await self._storeAppt(appt)
         logger.info(f'Agenda executing as user {user} query {appt.query}')
         try:
             async for _ in self.core.eval(appt.query, user=user):
@@ -543,4 +565,4 @@ class Agenda(s_base.Base):
             appt.lastfinishtime = time.time()
             appt.isrunning = False
             appt.lastresult = result
-            self._storeAppt(appt)
+            await self._storeAppt(appt)

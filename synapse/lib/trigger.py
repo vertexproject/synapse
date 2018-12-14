@@ -244,6 +244,7 @@ class Triggers:
 
         rule = self._load_rule(iden, 0, condition, username, query, info=info)
         self.core.slab.put(iden, rule.en(), db=db)
+        return iden
 
     def delete(self, iden, persistent=True):
         '''

@@ -38,7 +38,9 @@ Syntax:
 
 Example:
     cli> cron list
-    user       iden        one-time?  Is running? times started   Last start timeLast finish time storm query
+    user       iden       recurs? now? # start last start       last end         query
+    <None>     4ad2218a.. N       N          1 2018-12-14T15:53 2018-12-14T15:53 #foo
+    <None>     f6b6aebd.. Y       N          3 2018-12-14T16:25 2018-12-14T16:25 #foo
 '''
 
 ModHelp = '''
@@ -124,8 +126,10 @@ Examples:
 class Cron(s_cli.Cmd):
     '''
 Manages cron jobs in a cortex.  Cron jobs are rules persistently stored in a
-cortex such that storm queries automatically run on a time schedule.   Cron
-jobs maybe be recurring or one-time.
+cortex such that storm queries automatically run on a time schedule.
+
+Cron jobs maybe be recurring or one-time.  Use the 'at' command to add one-time
+jobs.
 
 A subcommand is required.  Use 'cron -h' for more detailed help.  '''
     _cmd_name = 'cron'
@@ -351,7 +355,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         print(f'Issuing addCronJob redict={reqdict}, incunit={incunit} {incval}')
 
         iden = await core.addCronJob(query, reqdict, incunit, incval)
-        self.printf(f'Added cron job {s_common.ehex(iden)}')
+        self.printf(f'Created cron job {s_common.ehex(iden)}')
 
     @staticmethod
     def _format_timestamp(ts):
@@ -413,8 +417,10 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         matches = [iden for iden in idens if s_common.ehex(iden).startswith(prefix)]
         if len(matches) == 0:
             self.printf('Error: provided iden does not match any valid authorized cron job')
+            return
         elif len(matches) > 1:
             self.printf('Error: provided iden matches more than one cron job')
+            return
 
         iden = matches[0]
         cron = [cron[1] for cron in crons if cron[0] == iden][0]
@@ -444,6 +450,9 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         else:
             self.printf(f'entries:         {"incunit":10} {"incval":6} {"required"}')
             for reqdict, incunit, incval in recs:
+                reqdict = reqdict or '<None>'
+                incunit = incunit or '<None>'
+                incval = incval or '<None>'
                 self.printf(f'                 {incunit:10} {incval:6} {reqdict}')
 
     async def runCmdOpts(self, opts):
@@ -536,30 +545,34 @@ Examples:
         now = time.time()
 
         for pos, arg in enumerate(opts.args):
-            if consumed_next:
-                consumed_next = False
-                continue
+            try:
+                if consumed_next:
+                    consumed_next = False
+                    continue
 
-            if arg.startswith('{'):
-                if query is not None:
-                    self.printf('Error: only a single query is allowed')
-                    return
-                query = arg[1:-1]
-                continue
-
-            if arg.startswith('+'):
-                if arg[-1].isdigit():
-                    if pos == len(opts.args) - 1:
-                        self.printf('Time delta missing unit')
+                if arg.startswith('{'):
+                    if query is not None:
+                        self.printf('Error: only a single query is allowed')
                         return
-                    arg = f'{arg} {opts.args[pos + 1]}'
-                    consumed_next = True
-                ts = now + s_time.delta(arg) / 1000.0
-                tslist.append(ts)
-                continue
+                    query = arg[1:-1]
+                    continue
 
-            ts = s_time.parse(arg) / 1000.0
-            tslist.append(ts)
+                if arg.startswith('+'):
+                    if arg[-1].isdigit():
+                        if pos == len(opts.args) - 1:
+                            self.printf('Time delta missing unit')
+                            return
+                        arg = f'{arg} {opts.args[pos + 1]}'
+                        consumed_next = True
+                    ts = now + s_time.delta(arg) / 1000.0
+                    tslist.append(ts)
+                    continue
+
+                ts = s_time.parse(arg) / 1000.0
+                tslist.append(ts)
+            except ValueError:
+                self.printf(f'Error: Trouble parsing "{arg}"')
+                return
 
         if query is None:
             self.printf('Error: Missing query argument')
@@ -578,4 +591,4 @@ Examples:
         reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
 
         iden = await core.addCronJob(query, reqdicts, None, None)
-        self.printf(f'Cron job {s_common.ehex(iden)} created')
+        self.printf(f'Created cron job {s_common.ehex(iden)}')
