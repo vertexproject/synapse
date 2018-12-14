@@ -18,6 +18,11 @@ class AgendaTest(s_t_utils.SynTest):
         # Invalid combinations
         self.raises(s_exc.BadTime, s_agenda.ApptRec, {s_tu.DAYOFWEEK: 3, s_tu.DAYOFMONTH: 4})
         self.raises(s_exc.BadTime, s_agenda.ApptRec, {s_tu.HOUR: 1}, s_tu.MINUTE)
+        self.raises(s_exc.BadTime, s_agenda.ApptRec, {}, None)
+        self.raises(s_exc.BadTime, s_agenda.ApptRec, {}, s_tu.DAYOFMONTH)
+        self.raises(s_exc.BadTime, s_agenda.ApptRec, {s_tu.HOUR: -99}, s_tu.MINUTE)
+        self.raises(s_exc.BadTime, s_agenda.ApptRec, {}, s_tu.YEAR, -1)
+        self.raises(s_exc.BadTime, s_agenda.ApptRec, {'day': 4}, s_tu.YEAR, -1)
 
         ###############################
 
@@ -167,6 +172,7 @@ class AgendaTest(s_t_utils.SynTest):
                 agenda.onfini(core.slab)
 
                 await agenda.enable()
+                await agenda.enable()  # make sure it doesn't blow up
                 self.eq([], agenda.list())
 
                 # Schedule a one-shot 1 minute from now

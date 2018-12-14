@@ -194,7 +194,6 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
                 return list(calendar.day_name).index(val)
             except ValueError:
                 return None
-            return None
 
     @staticmethod
     def _parse_incval(incunit, incval):
@@ -214,7 +213,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             for val in reqval[:-1].split(','):
                 if requnit == 'month':
                     if reqval[0].isdigit():
-                        retn.append(int(reqval))  # must be a day of month
+                        retn.append(int(reqval))  # must be a month
                     else:
                         try:
                             retn.append(list(calendar.month_abbr).index(val.title()))
@@ -240,6 +239,8 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             retnval = []
             unit = None
             for val in optval.split(','):
+                if not val:
+                    raise ValueError
                 if val[-1].isdigit():
                     newunit = 'dayofmonth' if isreq else 'day'
                     if unit is None:
@@ -272,7 +273,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         reqdict = {}
         valinfo = {  # unit: (minval, next largest unit)
             'month': (1, 'year'),
-            'day': (1, 'month'),
+            'dayofmonth': (1, 'month'),
             'hour': (0, 'day'),
             'minute': (0, 'hour'),
         }
@@ -281,7 +282,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             optval = getattr(opts, optname, None)
 
             if optval is None:
-                if incunit is None:
+                if incunit is None and not reqdict:
                     continue
                 # The option isn't set, but a higher unit is.  Go ahead and set the required part to the lowest valid
                 # value, e.g. so -m 2 would run on the *first* of every other month at midnight
@@ -311,9 +312,6 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
                 else:
                     assert unit == 'dayofmonth'
                     reqdict[unit] = val
-                    if incunit is None:
-                        incunit = 'month'
-                        incval = 1
                 continue
 
             if not isreq:
@@ -572,7 +570,7 @@ Examples:
 
                 ts = s_time.parse(arg) / 1000.0
                 tslist.append(ts)
-            except ValueError:
+            except (ValueError, s_exc.BadTypeValu):
                 self.printf(f'Error: Trouble parsing "{arg}"')
                 return
 
@@ -589,6 +587,10 @@ Examples:
                 'month': dt.month,
                 'year': dt.year
             }
+
+        if not tslist:
+            self.printf('Error: at least one requirement must be provided')
+            return
 
         reqdicts = [_ts_to_reqdict(ts) for ts in tslist]
 

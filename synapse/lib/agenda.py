@@ -230,7 +230,7 @@ class ApptRec:
         if incunit == TimeUnit.MINUTE:
             return dt + datetime.timedelta(minutes=incval)
         else:
-            raise s_exc.BadTime(mesg='Invalid incunit')
+            assert 0, 'Invalid incunit'  # pragma: no cover
 
 class _Appt:
     '''
@@ -295,7 +295,7 @@ class _Appt:
     @classmethod
     def fromdict(cls, val):
         if val['ver'] != 0:
-            raise s_exc.BadStorageVersion
+            raise s_exc.BadStorageVersion  # pragma: no cover
         recs = [ApptRec.untupl(tupl) for tupl in val['recs']]
         appt = cls(val['iden'], val['recur'], val['indx'], val['query'], val['username'], recs, val['nexttime'])
         appt.startcount = val['startcount']
@@ -341,6 +341,7 @@ class _Appt:
             self.nexttime = lowtime
 
         if not self.recs:
+            self._recidxnexttime = None
             self.nexttime = None
             return
 
@@ -481,6 +482,9 @@ class Agenda(s_base.Base):
         if reqs is None:
             reqs = {}
 
+        if not reqs and incunit is None:
+            raise ValueError('at least one of reqs and incunit must be non-empty')
+
         if incunit is not None and incvals is None:
             raise ValueError('incvals must be non-None if incunit is non-None')
 
@@ -566,9 +570,9 @@ class Agenda(s_base.Base):
                 if appt.isrunning:
                     logger.warning(
                         'Appointment %s is still running from previous time when scheduled to run.  Skipping.',
-                        appt.iden)
-
-                await self._execute(appt)
+                        s_common.ehex(appt.iden))
+                else:
+                    await self._execute(appt)
 
     async def _execute(self, appt):
         '''
@@ -592,9 +596,9 @@ class Agenda(s_base.Base):
         appt.laststarttime = time.time()
         appt.startcount += 1
         await self._storeAppt(appt)
-        logger.info(f'Agenda executing as user {user} query {appt.query}')
+        logger.info(f'Agenda executing as user {user}: query {appt.query}')
         try:
-            async for _ in self.core.eval(appt.query, user=user):
+            async for _ in self.core.eval(appt.query, user=user):  # NOQA
                 count += 1
         except asyncio.CancelledError:
             result = 'cancelled'
