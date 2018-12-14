@@ -16,9 +16,6 @@ import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
-# A time that sorts past all reasonable times
-
-
 def _dayofmonth(hardday, month, year):
     '''
     Returns a valid day of the month given the desired value.
@@ -55,7 +52,7 @@ _NextUnitMap = {
     TimeUnit.MONTH: TimeUnit.YEAR,
     TimeUnit.HOUR: TimeUnit.DAY,
     TimeUnit.MINUTE: TimeUnit.HOUR,
-    TimeUnit.DAYOFMONTH: TimeUnit.DAYOFMONTH,
+    TimeUnit.DAYOFMONTH: TimeUnit.MONTH,
     TimeUnit.DAYOFWEEK: TimeUnit.DAYOFWEEK,
 }
 
@@ -71,7 +68,7 @@ _TimeunitToDatetime = {
 
 # The valid ranges for required and recurring
 _UnitBounds = {
-    TimeUnit.YEAR: ((2018, 2999), (1, 5)),
+    TimeUnit.YEAR: ((2000, 2999), (1, 5)),
     TimeUnit.MONTH: ((1, 12), (1, 60)),
     TimeUnit.DAYOFMONTH: ((-31, 31), (-31, 31)),
     TimeUnit.DAYOFWEEK: ((0, 6), (0, 6)),
@@ -95,15 +92,14 @@ class ApptRec:
         if TimeUnit.DAY in reqdict:
             raise s_exc.BadTime('Must not specify day as requirement')
 
-        if incunit == TimeUnit.MONTH and (TimeUnit.DAYOFMONTH in reqdict or TimeUnit.DAYOFWEEK in reqdict):
-            # There's more than one way to interpret this, so disallow all
-            raise s_exc.BadTime('Requiring day of month only compatible with year recurrence')
-
         if TimeUnit.DAYOFMONTH in reqdict and TimeUnit.DAYOFWEEK in reqdict:
             raise s_exc.BadTime('Both day of month and day of week must not both be requirements')
 
         if TimeUnit.DAYOFWEEK in reqdict and incunit is not None:
             raise s_exc.BadTime('Day of week requirement not supported with a recurrence')
+
+        if incunit == TimeUnit.DAYOFMONTH:
+            raise s_exc.BadTime('Day of month not a valid incunit')
 
         if incunit is not None:
             boundmin, boundmax = _UnitBounds[incunit][1]
@@ -153,11 +149,7 @@ class ApptRec:
 
         for unit, newval in self.reqdict.items():
             dtkey = _TimeunitToDatetime[unit]
-            if unit is TimeUnit.DAYOFMONTH:
-                newdt = newdt.replace(**newvals)
-                newvals = {}
-                newval = _dayofmonth(newval, newdt.month, newdt.year)
-            elif unit is TimeUnit.DAYOFWEEK:
+            if unit is TimeUnit.DAYOFWEEK:
                 newdt = newdt.replace(**newvals)
                 newvals = {}
                 newval = newdt.day + (6 + newval - newdt.weekday()) % 7 + 1
@@ -167,8 +159,12 @@ class ApptRec:
                 # As we change the month, clamp the day of the month to a valid value
                 newdt = newdt.replace(**newvals)
                 newvals = {}
-                newday = _dayofmonth(newdt.day, newval, newdt.year)
-                newvals['day'] = newday
+                dayval = _dayofmonth(newdt.day, newval, newdt.year)
+                newvals['day'] = dayval
+            elif unit is TimeUnit.DAYOFMONTH:
+                newdt = newdt.replace(**newvals)
+                newvals = {}
+                newval = _dayofmonth(newval, newdt.month, newdt.year)
 
             newvals[dtkey] = newval
 
@@ -176,25 +172,23 @@ class ApptRec:
 
         # Then move forward if we have to
         if newdt <= lastdt or \
-                self.incunit == TimeUnit.DAYOFMONTH and newdt.day != self.incval or \
                 self.incunit == TimeUnit.DAYOFWEEK and newdt.weekday() != self.incval:
             if self.incunit is None:
                 largest_req = min(self.reqdict.keys())
                 tmpunit = _NextUnitMap[largest_req]
                 if tmpunit is None:  # required a year and we're already there
                     return 0.0
-                # Unless we're going to the next day of month or day of week, increment by 1 unit of the next larger
-                # unit
-                tmpincval = self.reqdict.get(TimeUnit.DAYOFWEEK, self.reqdict.get(TimeUnit.DAYOFMONTH, 1))
+                # Unless we're going to the next day of week, increment by 1 unit of the next larger unit
+                tmpincval = self.reqdict.get(TimeUnit.DAYOFWEEK, 1)
             else:
                 tmpunit = self.incunit
                 tmpincval = self.incval
-            newdt = self._inc(tmpunit, tmpincval, lastdt, newdt)
+            newdt = self._inc(tmpunit, tmpincval, self.reqdict, lastdt, newdt)
             assert newdt > lastdt
         print(newdt)
         return newdt.timestamp()
 
-    def _inc(self, incunit, incval, origdt, dt):
+    def _inc(self, incunit, incval, reqdict, origdt, dt):
         '''
         Return a datetime incremented by the incunit
         '''
@@ -206,7 +200,11 @@ class ApptRec:
             newmonth = absmonth % 12 + 1
             newyear += absmonth // 12
             daysinmonth = calendar.monthrange(newyear, newmonth)[1]
-            newday = min(daysinmonth, dt.day)
+            dayofmonthreq = reqdict.get(TimeUnit.DAYOFMONTH)
+            if dayofmonthreq is not None:
+                newday = _dayofmonth(dayofmonthreq, newmonth, newyear)
+            else:
+                newday = min(daysinmonth, dt.day)
             return dt.replace(day=newday, month=newmonth, year=newyear)
         if incunit == TimeUnit.DAY:
             return dt + datetime.timedelta(days=incval)
@@ -219,22 +217,7 @@ class ApptRec:
         if incunit == TimeUnit.HOUR:
             return dt + datetime.timedelta(hours=incval)
         if incunit == TimeUnit.MINUTE:
-            return dt + datetime.timedelta(minute=incval)
-        if incunit == TimeUnit.DAYOFMONTH:
-            # incval in this case means next instance of a particular day of the month, with negative values
-            # counting backwards from the end of the month (e.g. -1 means the last day of the month)
-            newday = _dayofmonth(incval, dt.month, dt.year)
-            newdt = dt.replace(day=newday)
-            if newdt > origdt:
-                return newdt
-
-            # Advance a month
-            newyear = dt.year
-            newmonth = dt.month % 12 + 1
-            if newmonth == 1:
-                newyear += 1
-            newday = _dayofmonth(incval, newmonth, dt.year)
-            return dt.replace(day=newday, month=newmonth, year=newyear)
+            return dt + datetime.timedelta(minutes=incval)
         else:
             raise s_exc.BadTime('Invalid incunit')
 
@@ -304,7 +287,7 @@ class _Appt:
         if self._recidxnexttime is not None and not self.recur:
             del self.recs[self._recidxnexttime]
 
-        while self.recs and self.nexttime < now:
+        while self.recs and self.nexttime <= now:
 
             lowtime = 999999999999.9
 
@@ -445,6 +428,9 @@ class Agenda(s_base.Base):
         if reqs is None:
             reqs = {}
 
+        if incunit is not None and incvals is None:
+            raise ValueError('incvals must be non-None if incunit is non-None')
+
         if isinstance(reqs, Mapping):
             reqs = [reqs]
 
@@ -505,6 +491,7 @@ class Agenda(s_base.Base):
             try:
                 timeout = None if not self.apptheap else self.apptheap[0].nexttime - time.time()
                 if timeout is None or timeout >= 0.0:
+                    print(f'Waiting for {timeout}s')
                     await asyncio.wait_for(self._wake_event.wait(), timeout=timeout)
             except asyncio.TimeoutError:
                 pass
@@ -524,7 +511,6 @@ class Agenda(s_base.Base):
                         'Appointment %s is still running from previous time when scheduled to run.  Skipping.',
                         appt.iden)
 
-                appt.startcount += 1
                 await self.execute(appt)
 
     async def execute(self, appt):

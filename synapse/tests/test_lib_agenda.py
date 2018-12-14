@@ -14,11 +14,11 @@ class AgendaTest(s_t_utils.SynTest):
 
         # Invalid combinations
         self.raises(s_exc.BadTime, s_agenda.ApptRec, {s_tu.DAYOFWEEK: 3, s_tu.DAYOFMONTH: 4})
-        self.raises(s_exc.BadTime, s_agenda.ApptRec, {s_tu.DAYOFMONTH: 15}, s_tu.MONTH)
         self.raises(s_exc.BadTime, s_agenda.ApptRec, {s_tu.HOUR: 1}, s_tu.MINUTE)
 
-        # incunit = None, i.e. one-shot
         ###############################
+
+        # incunit = None, i.e. one-shot
         self.raises(s_exc.BadTime, s_agenda.ApptRec, {s_tu.DAY: 15})
 
         # No inc, year req: One shot in 2017.  It is 2018
@@ -56,8 +56,9 @@ class AgendaTest(s_t_utils.SynTest):
         newts = ar.nexttime(now)
         self.eq(newts, datetime.datetime(year=2019, month=1, day=1, hour=16, minute=2, tzinfo=tz.utc).timestamp())
 
-        # incunit = Year
         ################
+
+        # incunit = Year
 
         # Year inc, day of month req:  every year on the 15th of the month
         ar = s_agenda.ApptRec({s_tu.DAYOFMONTH: 15}, s_tu.YEAR, 1)
@@ -92,8 +93,9 @@ class AgendaTest(s_t_utils.SynTest):
         newts = ar.nexttime(now)
         self.eq(newts, datetime.datetime(year=2020, month=12, day=31, hour=10, minute=2, tzinfo=tz.utc).timestamp())
 
-        # incunit = Month
         #################
+
+        # incunit = Month
 
         # Month inc, minute req: When the minute hand hits 30 every 14 months
         ar = s_agenda.ApptRec({s_tu.MINUTE: 30}, s_tu.MONTH, 14)
@@ -101,26 +103,18 @@ class AgendaTest(s_t_utils.SynTest):
         newts = ar.nexttime(now)
         self.eq(newts, datetime.datetime(year=2019, month=2, day=28, hour=0, minute=30, tzinfo=tz.utc).timestamp())
 
-        # Month inc, day of month req fail
-        self.raises(s_exc.BadTime, s_agenda.ApptRec, {s_tu.DAYOFMONTH: 4}, s_tu.MONTH, 2)
+        # Month inc, day of month req:  every other month on the 4th
+        ar = s_agenda.ApptRec({s_tu.DAYOFMONTH: 4}, s_tu.MONTH, 2)
+        now = datetime.datetime(year=2017, month=12, day=30, hour=0, minute=30, tzinfo=tz.utc).timestamp()
+        newts = ar.nexttime(now)
+        self.eq(newts, datetime.datetime(2018, 2, 4, 0, 30, tzinfo=tz.utc).timestamp())
 
         # Month inc, day of week fail
         self.raises(s_exc.BadTime, s_agenda.ApptRec, {s_tu.DAYOFWEEK: 4}, s_tu.MONTH, 2)
 
-        # incunit = DayOfMonth
-        ######################
-
-        # Hour req, minute inc: not supported
-        self.raises(s_exc.BadTime, s_agenda.ApptRec, {s_tu.HOUR: 4}, s_tu.MINUTE, 2)
-
-        # Day of month inc, hour req:  last day of month at 7am
-        ar = s_agenda.ApptRec({s_tu.HOUR: 7}, s_tu.DAYOFMONTH, -1)
-        now = datetime.datetime(year=2018, month=2, day=28, hour=7, minute=2, tzinfo=tz.utc).timestamp()
-        newts = ar.nexttime(now)
-        self.eq(newts, datetime.datetime(year=2018, month=3, day=31, hour=7, minute=2, tzinfo=tz.utc).timestamp())
+        ###############
 
         # incunit = Day
-        ###############
 
         # Day inc, minute req:  Every day some time when the minute hand hits 30
         ar = s_agenda.ApptRec({s_tu.MINUTE: 30}, s_tu.DAY, 1)
@@ -128,8 +122,9 @@ class AgendaTest(s_t_utils.SynTest):
         newts = ar.nexttime(now)
         self.eq(newts, datetime.datetime(year=2019, month=2, day=1, hour=0, minute=30, tzinfo=tz.utc).timestamp())
 
+        ###############
+
         # incunit = DayOfWeek
-        #####################
 
         # Day of week inc, hour req: Every Wednesday at 7pm
         ar = s_agenda.ApptRec({s_tu.HOUR: 7}, s_tu.DAYOFWEEK, 2)
@@ -177,7 +172,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 appts = agenda.list()
                 self.len(1, appts)
-                self.eq(appts[0][1]['timesrun'], 1)
+                self.eq(appts[0][1]['startcount'], 1)
                 self.eq(appts[0][1]['nexttime'], None)
 
                 # Schedule a query to run every Wednesday and Friday at 10:15am
@@ -185,8 +180,8 @@ class AgendaTest(s_t_utils.SynTest):
                                   incunit=s_agenda.TimeUnit.DAYOFWEEK, incvals=(2, 4))
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                guid2 = agenda.add('visi', '[teststr=baz]', {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0},
-                                   incunit=s_agenda.TimeUnit.DAYOFMONTH, incvals=6)
+                guid2 = agenda.add('visi', '[teststr=baz]', {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
+                                   incunit=s_agenda.TimeUnit.MONTH, incvals=1)
 
                 xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2018}
                 lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2018}
@@ -249,6 +244,10 @@ class AgendaTest(s_t_utils.SynTest):
                 await sync.wait()
                 sync.clear()
                 self.eq(lastquery, '[teststr=baz]')
+
+                # Modify the last appointment
+                agenda.mod(guid2, '#baz')
+                self.eq(agenda.appts[guid2].query, '#baz')
 
                 # Delete the other recurring appointment
                 agenda.delete(guid2)

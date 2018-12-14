@@ -186,6 +186,10 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         try:
             return list(calendar.day_abbr).index(val)
         except ValueError:
+            try:
+                return list(calendar.day_name).index(val)
+            except ValueError:
+                return None
             return None
 
     @staticmethod
@@ -227,6 +231,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         isreq = (optval[-1] == '=')
         if isreq:
             optval = optval[:-1]
+
         try:
             retnval = []
             unit = None
@@ -236,19 +241,25 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
                     if unit is None:
                         unit = newunit
                     elif newunit != unit:
-                        return None, None
+                        raise ValueError
                     retnval.append(int(val))
                 else:
                     newunit = 'dayofweek'
                     if unit is None:
                         unit = newunit
                     elif newunit != unit:
-                        return None, None
-                    retnval.append(Cron._parse_weekday(val))
+                        raise ValueError
+
+                    weekday = Cron._parse_weekday(val)
+                    if weekday is None:
+                        raise ValueError
+                    retnval.append(weekday)
+            if len(retnval) == 0:
+                raise ValueError
         except ValueError:
             return None, None
-        if not retnval:
-            return None, None
+        if len(retnval) == 1:
+            retnval = retnval[0]
         return unit, retnval
 
     async def _handle_add(self, core, opts):
@@ -269,25 +280,39 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
                 if incunit is None:
                     continue
                 # The option isn't set, but a higher unit is.  Go ahead and set the required part to the lowest valid
-                # value, e.g. so -M 2 would run on the *first* of every other month at midnight
-                reqdict[optname] = valinfo[optname][0]
+                # value, e.g. so -m 2 would run on the *first* of every other month at midnight
+                if optname == 'day':
+                    reqdict['dayofmonth'] = 1
+                else:
+                    reqdict[optname] = valinfo[optname][0]
                 continue
+
+            isreq = (optval[-1] == '=')
 
             if optname == 'day':
-                # Both fixed day options actual get encoded in the recurring part
-                if incunit is not None:
-                    self.printf('May not provide a recurrence value with day of week or day of month')
-                    return
-                if reqdict:
-                    self.printf('Error: may not fix month or year with day of week or day of month')
-                    return
-                incunit, incval = self._parse_day(optval)
-                if incval is None:
+                unit, val = self._parse_day(optval)
+                if val is None:
                     self.printf(f'Error: failed to parse day value "{optval}"')
                     return
+                if unit == 'dayofweek':
+                    if incunit is not None:
+                        self.printf('Error: May not provide a recurrence value with day of week')
+                        return
+                    if reqdict:
+                        self.printf('Error: may not fix month or year with day of week')
+                        return
+                    incunit, incval = unit, val
+                elif unit == 'day':
+                    incunit, incval = unit, val
+                else:
+                    assert unit == 'dayofmonth'
+                    reqdict[unit] = val
+                    if incunit is None:
+                        incunit = 'month'
+                        incval = 1
                 continue
 
-            if optval[-1] != '=':
+            if not isreq:
                 if incunit is not None:
                     self.printf('Error: may not provide more than 1 recurrence parameter')
                     return
