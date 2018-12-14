@@ -339,9 +339,11 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(9, core.eval('testint +:loc^=us'))
             await self.agenlen(5, core.eval('testint +:loc^=us.va'))
             await self.agenlen(2, core.eval('testint +:loc^=us.va.fairfax'))
-            await self.agenlen(1, core.eval('testint +:loc^=us.va.syria'))
+            await self.agenlen(1, core.eval('testint +:loc^=us.va.fairfax.reston'))
+            await self.agenlen(0, core.eval('testint +:loc^=us.va.fairfax.chantilly'))
+            await self.agenlen(0, core.eval('testint +:loc^=u'))
             await self.agenlen(1, core.eval('testint +:loc^=""'))
-            await self.agenlen(0, core.eval('testint +:loc^=gb.london'))
+            await self.agenlen(0, core.eval('testint +:loc^=23'))
 
             await self.agenlen(9, core.eval('testint:loc^=us'))
             await self.agenlen(5, core.eval('testint:loc^=us.va'))
