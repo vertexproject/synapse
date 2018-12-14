@@ -822,7 +822,7 @@ class Loc(Type):
         )
 
     def indxByPref(self, valu):
-        valu.strip('.')
+        valu = valu.strip('.')
         norm, info = self.norm(valu)
         indx = self.indx(norm)
 
