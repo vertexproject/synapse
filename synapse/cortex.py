@@ -1371,24 +1371,15 @@ def getTempCortex(mods=None):
 
     Notes:
         The cortex and temporary directory are town down on exit.
+        This should not be called from
 
     Returns:
         Proxy to the cortex.
     '''
-    print('getting tempdir')
     with s_common.getTempDir() as dirn:
-        print(f'Got tempdir: {dirn}')
-        print('getting cortex....')
         with s_coro.AsyncToSyncCMgr(s_glob.sync, Cortex.anit(dirn)) as core:
-            print(f'Got cortex: {core}')
             if mods:
                 for mod in mods:
                     s_glob.sync(core.loadCoreModule(mod))
-            print('Getting local proxy')
             with s_coro.AsyncToSyncCMgr(core.getLocalProxy) as prox:
-                print(f'Got proxy: {prox}')
                 yield prox
-                print('closing down proxy/local dmon')
-            print('closing down cortex')
-        print('tearing down tempdir')
-    print('done with getTempCortex')

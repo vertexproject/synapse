@@ -15,25 +15,21 @@ import synapse.lib.node as s_node
 
 
 @contextlib.asynccontextmanager
-async def genTempCmdrCore():
+async def genTempCoreProxy(mods=None):
+    '''Get a temporary cortex proxy.'''
     with s_common.getTempDir() as dirn:
         async with await s_cortex.Cortex.anit(dirn) as core:
-            async with core.getLocalProxy() as prox:
-                async with await CmdrCore.anit(prox) as cmdrcore:
-                    yield cmdrcore
-
-@contextlib.asynccontextmanager
-async def genTempCoreProxy():
-    with s_common.getTempDir() as dirn:
-        async with await s_cortex.Cortex.anit(dirn) as core:
+            if mods:
+                for mod in mods:
+                    await core.loadCoreModule(mod)
             async with core.getLocalProxy() as prox:
                 yield prox
 
-async def getCoreCmdr(core):
-    cmdr = await s_cmdr.getItemCmdr(core)
+async def getItemCmdr(prox, locs=None):
+    cmdr = await s_cmdr.getItemCmdr(prox)
     cmdr.echoline = True
-    # Hide unknown cmdr events (ie. splices)
-    cmdr.locs['storm:hide-unknown'] = True
+    if locs:
+        cmdr.locs.update(locs)
     return cmdr
 
 class CmdrCore(s_base.Base):
@@ -44,8 +40,8 @@ class CmdrCore(s_base.Base):
         await s_base.Base.__anit__(self)
         self.prefix = 'storm'  # Eventually we may remove or change this
         self.core = core
-        self.cmdr = await getCoreCmdr(self.core)
-        self.onfini(self.cmdr.fini)
+        locs = {'storm:hide-unknown': True}
+        self.cmdr = await getItemCmdr(self.core, locs=locs)
         self.onfini(self._onCmdrCoreFini)
         self.acm = None  # A placeholder for the context manager
 
@@ -81,7 +77,7 @@ class CmdrCore(s_base.Base):
     async def eval(self, text, opts=None, num=None, cmdr=False):
         mesgs = await self._runStorm(text, opts, cmdr)
 
-        nodes = [m for m in mesgs if m[0] == 'node']
+        nodes = [m[1] for m in mesgs if m[0] == 'node']
 
         if num is not None:
             assert len(nodes) == num
@@ -89,21 +85,25 @@ class CmdrCore(s_base.Base):
         return nodes
 
     async def _onCmdrCoreFini(self):
+        self.cmdr.fini()
+        # await self.core.fini()
+        # If self.acm is set, acm.__aexit should handle the self.core fini.
         if self.acm:
             await self.acm.__aexit__(None, None, None)
 
-
-async def getTempCoreProxy():
-    acm = genTempCoreProxy()
-    proxy = await acm.__aenter__()
-    object.__setattr__(proxy, 'acm', acm)
+async def getTempCoreProx(mods=None):
+    acm = genTempCoreProxy(mods)
+    core = await acm.__aenter__()
+    # Use object.__setattr__ to hulk smash and avoid proxy getattr magick
+    object.__setattr__(core, '_acm', acm)
     async def onfini():
-        await proxy.acm.__aexit__(None, None, None)
-    proxy.onfini(onfini)
-    return proxy
+        await core._acm.__aexit__(None, None, None)
+    core.onfini(onfini)
+    return core
 
-async def getTempCmdrCore():
-    acm = genTempCmdrCore()
-    cmdrcore = await acm.__aenter__()
+async def getTempCoreCmdr(mods=None):
+    acm = genTempCoreProxy(mods)
+    prox = await acm.__aenter__()
+    cmdrcore = await CmdrCore.anit(prox)
     cmdrcore.acm = acm
     return cmdrcore
