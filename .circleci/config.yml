@@ -30,7 +30,8 @@ doc_test_steps:  &doc_test_steps
         command: |
           . venv/bin/activate
           python3 setup.py egg_info
-          python3 -m pip install -r synapse.egg-info/requires.txt
+          grep -v -E "^\[" synapse.egg-info/requires.txt > _requirements.txt
+          python3 -m pip install -r _requirements.txt
 
     - save_cache:
         paths:
