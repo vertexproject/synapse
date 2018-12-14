@@ -14,6 +14,8 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.base as s_base
 
+# Agenda: manages running one-shot and periodic tasks in the future ("appointments")
+
 logger = logging.getLogger(__name__)
 
 def _dayofmonth(hardday, month, year):
@@ -30,10 +32,9 @@ def _dayofmonth(hardday, month, year):
     newday = max(1, min(newday, daysinmonth))
     return newday
 
-# Manages running one-shot and periodic tasks in the future ("appointments")
 class TimeUnit(enum.IntEnum):
     '''
-    Different time units repeating appointments can be specified
+    Unit of time that recurring and required parts of appointments are made of
     '''
     YEAR = enum.auto()
     MONTH = enum.auto()
@@ -47,6 +48,7 @@ class TimeUnit(enum.IntEnum):
     def fromString(cls, s):
         return cls.__members__[s.upper()]
 
+# Next largest unit for each unit
 _NextUnitMap = {
     TimeUnit.YEAR: None,
     TimeUnit.MONTH: TimeUnit.YEAR,
@@ -56,6 +58,7 @@ _NextUnitMap = {
     TimeUnit.DAYOFWEEK: TimeUnit.DAYOFWEEK,
 }
 
+# Unit equivalence to datettime arguments
 _TimeunitToDatetime = {
     TimeUnit.YEAR: 'year',
     TimeUnit.MONTH: 'month',
@@ -128,12 +131,18 @@ class ApptRec:
         return repr(self.entupl())
 
     def entupl(self):
+        '''
+        Make ApptRec json/msgpack-friendly
+        '''
         reqdictf = {k.name.lower(): v for (k, v) in self.reqdict.items()}
         incunitf = None if self.incunit is None else self.incunit.name.lower()
         return (reqdictf, incunitf, self.incval)
 
     @classmethod
     def untupl(cls, val):
+        '''
+        Convert from json/msgpack-friendly
+        '''
         reqdictf, incunitf, incval = val
         reqdict = {TimeUnit[k.upper()]: v for (k, v) in reqdictf.items()}
         incunit = None if incunitf is None else TimeUnit[incunitf.upper()]
@@ -141,7 +150,7 @@ class ApptRec:
 
     def nexttime(self, lastts):
         '''
-        Returns next timestamp that meets requirements, incrementing by self.incunit, incval if not increasing, or
+        Returns next timestamp that meets requirements, incrementing by (self.incunit * incval) if not increasing, or
         0.0 if there are no future matches
         '''
         lastdt = datetime.datetime.fromtimestamp(lastts, tz.utc)
@@ -192,7 +201,7 @@ class ApptRec:
 
     def _inc(self, incunit, incval, reqdict, origdt, dt):
         '''
-        Return a datetime incremented by the incunit
+        Return a datetime incremented by incunit * incval
         '''
         if incunit == TimeUnit.YEAR:
             return dt.replace(year=dt.year + incval)
@@ -225,15 +234,18 @@ class ApptRec:
 
 class _Appt:
     '''
-    A single entry in the Agenda:  a storm query to run in the future
+    A single entry in the Agenda:  a storm query to run in the future, potentially more than once
+
+    Each such entry has a list of ApptRecs.  Each time the appointment is scheduled, the nexttime of the appointment is
+    the lowest nexttime of all its ApptRecs.
     '''
     def __init__(self, iden, recur, indx, query, username, recs, nexttime=None):
         self.iden = iden
-        self.recur = recur
+        self.recur = recur # does this appointment repeat
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
         self.query = query  # query to run
         self.username = username  # user to run query as
-        self.recs = recs  # A list of zero or more ApptRecs
+        self.recs = recs  # List[ApptRec]
         self._recidxnexttime = None # index of rec who is up next
 
         if self.recur and not self.recs:
@@ -255,7 +267,7 @@ class _Appt:
         self.enabled = True
 
     def __eq__(self, other):
-        ''' For heap logic '''
+        ''' For heap logic to sort upcoming events lower '''
         return (self.nexttime, self.indx) == (other.nexttime, other.indx)
 
     def __lt__(self, other):
@@ -294,6 +306,11 @@ class _Appt:
         return appt
 
     def updateNexttime(self, now):
+        '''
+        Find the next time this appointment should be scheduled.
+
+        Delete any nonrecurring record that just happened
+        '''
 
         # If we're not recurring, delete the entry that just happened
         if self._recidxnexttime is not None and not self.recur:
@@ -328,30 +345,32 @@ class _Appt:
             return
 
 class Agenda(s_base.Base):
-    AGENDA_DB_NAME = 'agenda'
+    '''
+    Organize and execute all the scheduled storm queries in a cortex.
+    '''
 
     async def __anit__(self, core):
         await s_base.Base.__anit__(self)
         self.core = core
-        self.apptheap = []
+        self.apptheap = []  # Stores the appointments in a heap such that the first element is the next appt to run
         self.appts = {}  # Dict[bytes: Appt]
         self._next_indx = 0
 
-        self._wake_event = asyncio.Event()
+        self._wake_event = asyncio.Event()  # Causes the scheduler loop to wake up
         self.onfini(self._wake_event.set)
 
-        self._hivedict = await self.core.hive.dict(('agenda', 'appts'))
+        self._hivedict = await self.core.hive.dict(('agenda', 'appts'))  # Persistent storage
         self.onfini(self._hivedict)
 
         self.enabled = False
-        self._schedtask = None
+        self._schedtask = None  # The task of the scheduler loop.  Doesn't run until we're enabled
         await self._load_all()
 
     async def enable(self):
         '''
-        Enable cron jobs to start running.
+        Enable cron jobs to start running, start the scheduler loop
 
-        Go through all the appointment s, making sure the query is valid, and remove the ones that aren't.  (We can't
+        Go through all the appointments, making sure the query is valid, and remove the ones that aren't.  (We can't
         evaluate queries until enabled because not all the modules are loaded yet.)
         '''
         if self.enabled:
@@ -372,6 +391,9 @@ class Agenda(s_base.Base):
         self.enabled = True
 
     async def _load_all(self):
+        '''
+        Load all the appointments from persistent storage
+        '''
 
         to_delete = []
         for idenf, val in self._hivedict.items():
@@ -390,7 +412,15 @@ class Agenda(s_base.Base):
         for iden in to_delete:
             await self._hivedict.pop(s_common.ehex(iden))
 
+        # Make sure we don't assign the same index to 2 appointments
+        if self.appts:
+            maxindx = max(appt.indx for appt in self.appts.values())
+            self._next_indx = maxindx + 1
+
     def _addappt(self, iden, appt):
+        '''
+        Updates the data structures to add an appointment
+        '''
         if appt.nexttime:
             heapq.heappush(self.apptheap, appt)
         self.appts[iden] = appt
@@ -398,6 +428,7 @@ class Agenda(s_base.Base):
             self._wake_event.set()
 
     async def _storeAppt(self, appt):
+        ''' Store a single appointment '''
         await self._hivedict.set(s_common.ehex(appt.iden), appt.todict())
 
     @staticmethod
@@ -473,6 +504,9 @@ class Agenda(s_base.Base):
         return iden
 
     async def mod(self, iden, query):
+        '''
+        Change the query of an appointment
+        '''
         appt = self.appts.get(iden)
         if appt is None:
             raise s_exc.NoSuchIden()
@@ -485,6 +519,9 @@ class Agenda(s_base.Base):
         await self._storeAppt(appt)
 
     async def delete(self, iden):
+        '''
+        Delete an appointment
+        '''
         appt = self.appts.get(iden)
         if appt is None:
             raise s_exc.NoSuchIden()
@@ -506,6 +543,9 @@ class Agenda(s_base.Base):
         await self._hivedict.pop(s_common.ehex(iden))
 
     async def _scheduleLoop(self):
+        '''
+        Task loop to issue query tasks at the right times.
+        '''
         while True:
             try:
                 timeout = None if not self.apptheap else self.apptheap[0].nexttime - time.time()
@@ -528,9 +568,12 @@ class Agenda(s_base.Base):
                         'Appointment %s is still running from previous time when scheduled to run.  Skipping.',
                         appt.iden)
 
-                await self.execute(appt)
+                await self._execute(appt)
 
-    async def execute(self, appt):
+    async def _execute(self, appt):
+        '''
+        Fire off the task to make the storm query
+        '''
         if appt.username is None or self.core.auth is None:
             user = None
         else:
@@ -541,6 +584,9 @@ class Agenda(s_base.Base):
         await self.schedCoro(self._runJob(user, appt))
 
     async def _runJob(self, user, appt):
+        '''
+        Actualy run the storm query, updating the appropriate statistics and results
+        '''
         count = 0
         appt.isrunning = True
         appt.laststarttime = time.time()

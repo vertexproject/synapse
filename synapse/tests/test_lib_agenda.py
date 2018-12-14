@@ -22,6 +22,7 @@ class AgendaTest(s_t_utils.SynTest):
         ###############################
 
         # incunit = None, i.e. one-shot
+
         self.raises(s_exc.BadTime, s_agenda.ApptRec, {s_tu.DAY: 15})
 
         # No inc, year req: One shot in 2017.  It is 2018
@@ -265,6 +266,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.len(0, agenda.apptheap)
 
     async def test_agenda_persistence(self):
+        ''' Test we can make/change/delete appointments and they are persisted to storage '''
         with self.getTestDir() as fdir:
             async with await self.getTestCell(fdir, 'cortex') as core:
                 agenda = core.agenda
@@ -291,4 +293,3 @@ class AgendaTest(s_t_utils.SynTest):
                 self.len(2, appts)
                 last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
                 self.eq(last_appt['query'], '#bahhumbug')
-

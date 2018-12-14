@@ -352,8 +352,6 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         # Remove the curly braces
         query = opts.query[1:-1]
 
-        print(f'Issuing addCronJob redict={reqdict}, incunit={incunit} {incval}')
-
         iden = await core.addCronJob(query, reqdict, incunit, incval)
         self.printf(f'Created cron job {s_common.ehex(iden)}')
 
@@ -498,7 +496,11 @@ limited to minutes.
 All times are interpreted as UTC.
 
 The other option for time specification is a relative time from now.  This
-consists of a plus sign, a positive integer, then one of 'minutes, hours, days'.
+consists of a plus sign, a positive integer, then one of 'minutes, hours,
+days'.
+
+Note that the record for a cron job is stored until explicitly deleted via
+"cron del".
 
 Examples:
     # Run a storm query in 5 minutes
