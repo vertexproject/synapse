@@ -188,7 +188,6 @@ class ApptRec:
                 tmpincval = self.incval
             newdt = self._inc(tmpunit, tmpincval, self.reqdict, lastdt, newdt)
             assert newdt > lastdt
-        print(newdt)
         return newdt.timestamp()
 
     def _inc(self, incunit, incval, reqdict, origdt, dt):
@@ -378,7 +377,6 @@ class Agenda(s_base.Base):
         for idenf, val in self._hivedict.items():
             try:
                 iden = s_common.uhex(idenf)
-                breakpoint()
                 appt = _Appt.fromdict(val)
                 if appt.iden != iden:
                     raise s_exc.InconsistentStorage(mesg='iden inconsistency')
@@ -512,7 +510,6 @@ class Agenda(s_base.Base):
             try:
                 timeout = None if not self.apptheap else self.apptheap[0].nexttime - time.time()
                 if timeout is None or timeout >= 0.0:
-                    print(f'Waiting for {timeout}s')
                     await asyncio.wait_for(self._wake_event.wait(), timeout=timeout)
             except asyncio.TimeoutError:
                 pass
@@ -521,7 +518,6 @@ class Agenda(s_base.Base):
             self._wake_event.clear()
 
             now = time.time()
-            # print(f'now is {now} {datetime.datetime.fromtimestamp(now, tz.utc)}')
             while self.apptheap and self.apptheap[0].nexttime <= now:
                 appt = heapq.heappop(self.apptheap)
                 appt.updateNexttime(now)

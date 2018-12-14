@@ -6,6 +6,9 @@ from datetime import timezone as tz
 import synapse.exc as s_exc
 import synapse.tests.utils as s_t_utils
 
+import synapse.lib.hive as s_hive
+import synapse.lib.lmdbslab as s_lmdbslab
+
 import synapse.lib.agenda as s_agenda
 from synapse.lib.agenda import TimeUnit as s_tu
 
@@ -152,15 +155,21 @@ class AgendaTest(s_t_utils.SynTest):
             yield None
 
         loop = asyncio.get_running_loop()
-        with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime):
+        with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime), self.getTestDir() as dirn:
             core = mock.Mock()
             core.eval = myeval
+            core.slab = await s_lmdbslab.Slab.anit(dirn, map_size=s_t_utils.TEST_MAP_SIZE, readonly=False)
+            db = core.slab.initdb('hive')
+            core.hive = await s_hive.SlabHive.anit(core.slab, db=db)
             async with await s_agenda.Agenda.anit(core) as agenda:
+                agenda.onfini(core.hive)
+                agenda.onfini(core.slab)
+
                 await agenda.enable()
                 self.eq([], agenda.list())
 
                 # Schedule a one-shot 1 minute from now
-                agenda.add('visi', '[teststr=foo]', {s_agenda.TimeUnit.MINUTE: 1})
+                await agenda.add('visi', '[teststr=foo]', {s_agenda.TimeUnit.MINUTE: 1})
                 await asyncio.sleep(0)  # give the scheduler a shot to wait
                 unixtime += 61
                 await sync.wait()  # wait for the query to run
@@ -176,18 +185,18 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(appts[0][1]['nexttime'], None)
 
                 # Schedule a query to run every Wednesday and Friday at 10:15am
-                guid = agenda.add('visi', '[teststr=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
+                guid = await agenda.add('visi', '[teststr=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                                   incunit=s_agenda.TimeUnit.DAYOFWEEK, incvals=(2, 4))
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                guid2 = agenda.add('visi', '[teststr=baz]', {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
+                guid2 = await agenda.add('visi', '[teststr=baz]', {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
                                    incunit=s_agenda.TimeUnit.MONTH, incvals=1)
 
                 xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2018}
                 lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2018}
 
                 # And one-shots for Christmas and last day of Hanukkah of 2018
-                agenda.add('visi', '#happyholidays', (xmas, lasthanu))
+                await agenda.add('visi', '#happyholidays', (xmas, lasthanu))
 
                 await asyncio.sleep(0)
                 unixtime += 1
@@ -230,8 +239,8 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(lastquery, '[teststr=bar]')
 
                 # Cancel the Wednesday/Friday appt
-                agenda.delete(guid)
-                self.raises(s_exc.NoSuchIden, agenda.delete, b'1234')
+                await agenda.delete(guid)
+                await self.asyncraises(s_exc.NoSuchIden, agenda.delete(b'1234'))
 
                 # Then Dec 25
                 unixtime = datetime.datetime(year=2018, month=12, day=25, hour=10, minute=16, tzinfo=tz.utc).timestamp()
@@ -246,11 +255,40 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(lastquery, '[teststr=baz]')
 
                 # Modify the last appointment
-                agenda.mod(guid2, '#baz')
+                await agenda.mod(guid2, '#baz')
                 self.eq(agenda.appts[guid2].query, '#baz')
 
                 # Delete the other recurring appointment
-                agenda.delete(guid2)
+                await agenda.delete(guid2)
 
                 # Then nothing left scheduled
                 self.len(0, agenda.apptheap)
+
+    async def test_agenda_persistence(self):
+        with self.getTestDir() as fdir:
+            async with await self.getTestCell(fdir, 'cortex') as core:
+                agenda = core.agenda
+                # Schedule a query to run every Wednesday and Friday at 10:15am
+                guid1 = await agenda.add('visi', '[teststr=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
+                                         incunit=s_agenda.TimeUnit.DAYOFWEEK, incvals=(2, 4))
+
+                # every 6th of the month at 7am and 8am (the 6th is a Thursday)
+                await agenda.add('visi', '[teststr=baz]', {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
+                                 incunit=s_agenda.TimeUnit.MONTH, incvals=1)
+
+                xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2018}
+                lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2018}
+
+                await agenda.delete(guid1)
+
+                # And one-shots for Christmas and last day of Hanukkah of 2018
+                guid3 = await agenda.add('visi', '#happyholidays', (xmas, lasthanu))
+
+                await agenda.mod(guid3, '#bahhumbug')
+
+            async with await self.getTestCell(fdir, 'cortex') as core:
+                appts = agenda.list()
+                self.len(2, appts)
+                last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
+                self.eq(last_appt['query'], '#bahhumbug')
+
