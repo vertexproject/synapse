@@ -2,9 +2,7 @@
 """
 Copy this file to .git/hooks/pre-commit in order to have the hooks run when doing a git commit action.
 
-Currently it does not cause a commit to fail; but will generate warnings.
-
-Requires pycodestyle to be installed.
+Requires pycodestyle and nbstripout to be installed.
 
 Forked from https://gist.github.com/810399
 Updated from https://github.com/cbrueffer/pep8-git-hook
@@ -85,12 +83,16 @@ def main():
             sys.exit(1)
     if nbfiles:
         print('Ipython notebooks detected - stripping their output automatically and re-adding them.')
-        for nbfp in nbfiles:
-            nbfp = os.path.join(gitdir, nbfp)
-            args = ['nbstripout', nbfp]
-            system(*args)
-            args = ['git', 'add', nbfp]
-            system(*args)
+        output = system('nbstripout', '--help').decode('utf-8')
+        if 'notebook' in output:
+            for nbfp in nbfiles:
+                nbfp = os.path.join(gitdir, nbfp)
+                args = ['nbstripout', nbfp]
+                system(*args)
+                args = ['git', 'add', nbfp]
+                system(*args)
+        else:
+            print('nbstripout not installed - skipping notebook normalization.')
 
     sys.exit(0)
 
