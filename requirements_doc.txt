@@ -1,5 +1,6 @@
 sphinx
 jupyter
 hide-code
+nbstripout
 sphinx-rtd-theme
-jupyter_contrib_nbextensions
+# jupyter_contrib_nbextensions

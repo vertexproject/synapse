@@ -30,6 +30,7 @@ setup(
         'docs': [
             'sphinx',
             'jupyter',
+            'nbstripout',
             'sphinx-rtd-theme',
         ],
     },

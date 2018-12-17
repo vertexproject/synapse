@@ -46,38 +46,47 @@ def system(*args, **kwargs):
 
 def main():
     files = system('git', 'diff', '--cached', '--name-only').decode("utf-8")
-    files = [file.strip() for file in files.split('\n') if file.strip().endswith('.py')]
+    pyfiles = [file.strip() for file in files.split('\n') if file.strip().endswith('.py')]
+    nbfiles = [file.strip() for file in files.split('\n') if file.strip().endswith('.ipynb')]
 
-    if not files:
+    all_files = pyfiles + nbfiles
+
+    if not all_files:
         sys.exit(0)
 
-    tempdir = tempfile.mkdtemp()
-    for name in files:
-        filename = os.path.join(tempdir, name)
-        filepath = os.path.dirname(filename)
+    if pyfiles:
+        tempdir = tempfile.mkdtemp()
+        for name in pyfiles:
+            filename = os.path.join(tempdir, name)
+            filepath = os.path.dirname(filename)
 
-        if not os.path.exists(filepath):
-            os.makedirs(filepath)
-        with open(filename, 'w') as f:
-            system('git', 'show', ':' + name, stdout=f)
+            if not os.path.exists(filepath):
+                os.makedirs(filepath)
+            with open(filename, 'w') as f:
+                system('git', 'show', ':' + name, stdout=f)
 
-    args = ['pycodestyle']
-    if select_codes and ignore_codes:
-        print('Error: select and ignore codes are mutually exclusive')
-        sys.exit(1)
-    elif select_codes:
-        args.extend(('--select', ','.join(select_codes)))
-    elif ignore_codes:
-        args.extend(('--ignore', ','.join(ignore_codes)))
-    args.extend(overrides)
-    args.append('.')
-    output = system(*args, cwd=tempdir)
-    shutil.rmtree(tempdir)
-    if output:
-        print('PEP8 style violations have been detected.  Please fix them\n'
-              'or force the commit with "git commit --no-verify".\n')
-        print(output.decode("utf-8"),)
-        sys.exit(1)
+        args = ['pycodestyle']
+        if select_codes and ignore_codes:
+            print('Error: select and ignore codes are mutually exclusive')
+            sys.exit(1)
+        elif select_codes:
+            args.extend(('--select', ','.join(select_codes)))
+        elif ignore_codes:
+            args.extend(('--ignore', ','.join(ignore_codes)))
+        args.extend(overrides)
+        args.append('.')
+        output = system(*args, cwd=tempdir)
+        shutil.rmtree(tempdir)
+        if output:
+            print('PEP8 style violations have been detected.  Please fix them\n'
+                  'or force the commit with "git commit --no-verify".\n')
+            print(output.decode("utf-8"),)
+            sys.exit(1)
+    if nbfiles:
+        print('Ipython notebooks detected - strip their output automatically and re-add them.')
+        for nbfp in nbfiles:
+            print(nbfp)
+
     sys.exit(0)
 
 if __name__ == '__main__':
