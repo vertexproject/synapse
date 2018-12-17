@@ -84,16 +84,13 @@ def main():
             print(output.decode("utf-8"),)
             sys.exit(1)
     if nbfiles:
-        print('Ipython notebooks detected - strip their output automatically and re-add them.')
+        print('Ipython notebooks detected - stripping their output automatically and re-adding them.')
         for nbfp in nbfiles:
             nbfp = os.path.join(gitdir, nbfp)
-            print(f'rewriting.. {nbfp}')
             args = ['nbstripout', nbfp]
             system(*args)
-            print(f'adding.. {nbfp}')
             args = ['git', 'add', nbfp]
             system(*args)
-
 
     sys.exit(0)
 
