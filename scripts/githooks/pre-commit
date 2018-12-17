@@ -45,9 +45,10 @@ def system(*args, **kwargs):
     return out
 
 def main():
-    files = system('git', 'diff', '--cached', '--name-only').decode("utf-8")
+    gitdir = system('git', 'rev-parse', '--show-toplevel').decode('utf-8').strip()
+    files = system('git', 'diff', '--cached', '--name-only').decode('utf-8')
     pyfiles = [file.strip() for file in files.split('\n') if file.strip().endswith('.py')]
-    nbfiles = [file.strip() for file in files.split('\n') if file.strip().endswith('.ipynb')]
+    nbfiles = [os.path.join(gitdir, file.strip()) for file in files.split('\n') if file.strip().endswith('.ipynb')]
 
     all_files = pyfiles + nbfiles
 
@@ -85,7 +86,14 @@ def main():
     if nbfiles:
         print('Ipython notebooks detected - strip their output automatically and re-add them.')
         for nbfp in nbfiles:
-            print(nbfp)
+            nbfp = os.path.join(gitdir, nbfp)
+            print(f'rewriting.. {nbfp}')
+            args = ['nbstripout', nbfp]
+            system(*args)
+            print(f'adding.. {nbfp}')
+            args = ['git', 'add', nbfp]
+            system(*args)
+
 
     sys.exit(0)
 
