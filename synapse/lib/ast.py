@@ -124,17 +124,6 @@ class Query(AstNode):
 
         self.canceled = True
 
-    async def getInput(self, snap):
-        for ndef in self.opts.get('ndefs', ()):
-            node = await snap.getNodeByNdef(ndef)
-            if node is not None:
-                yield node, node.initPath()
-        for iden in self.opts.get('idens', ()):
-            buid = s_common.uhex(iden)
-            node = await snap.getNodeByBuid(buid)
-            if node is not None:
-                yield node, node.initPath()
-
     async def run(self, runt, genr):
 
         for oper in self.kids:
