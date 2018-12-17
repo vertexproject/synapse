@@ -1,6 +1,7 @@
 import collections
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
@@ -617,6 +618,7 @@ optcast = {
     'graph': bool,
 }
 
+@s_glob.synchelp
 async def getRemoteParseInfo(proxy):
     '''
     Returns a parseinfo dict from a cortex proxy
@@ -762,6 +764,10 @@ class Parser:
         return query
 
     def stormcmd(self):
+        '''
+        A storm sub-query aware command line splitter.
+        ( not for storm commands, but for commands which may take storm )
+        '''
         argv = []
         while self.more():
             self.ignore(whitespace)
@@ -1479,22 +1485,33 @@ class Parser:
         cmpr = self.cmpr()
 
         self.ignore(whitespace)
+
         valu = self.valu()
 
         return s_ast.AbsPropCond(kids=(prop, cmpr, valu))
 
     def condsubq(self):
 
-        self.ignore(whitespace)
+        self.ignorespace()
 
         self.nextmust('{')
 
-        q = self.query()
-        subq = s_ast.SubqCond(kids=(q,))
+        quer = self.query()
 
         self.nextmust('}')
 
-        return subq
+        self.ignorespace()
+
+        if self.nextchar not in cmprstart:
+            return s_ast.SubqCond(kids=(quer,))
+
+        cmpr = self.cmpr()
+
+        self.ignorespace()
+
+        valu = self.valu()
+
+        return s_ast.SubqCond(kids=(quer, cmpr, valu))
 
     def condexpr(self):
 
