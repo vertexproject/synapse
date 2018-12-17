@@ -774,9 +774,9 @@ class Ival(Type):
         vals = []
         relvals = []
         for val in valu:
-            if not val:
+            if val is None:
                 continue
-            if isinstance(val, str) and val[0] in ('-', '+'):
+            if val and isinstance(val, str) and val[0] in ('-', '+'):
                 relvals.append(val)
                 continue
             vals.append(self.timetype.norm(val)[0])

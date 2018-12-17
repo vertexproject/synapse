@@ -296,6 +296,7 @@ class TypesTest(s_t_utils.SynTest):
 
         self.gt(s_common.now(), ival._normRelStr('-1 min'))
 
+        self.eq((0, 5356800000), ival.norm((0, '1970-03-04'))[0])
         self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
         self.eq((1451606400000, 1451606400001), ival.norm(1451606400000)[0])
         self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
