@@ -42,6 +42,7 @@ class NotReady(Retry): pass
 
 class AuthDeny(SynErr): pass
 
+class BadCmdName(SynErr): pass
 class BadTypeDef(SynErr): pass
 class BadPropDef(SynErr): pass
 class BadThreadIden(SynErr): pass
