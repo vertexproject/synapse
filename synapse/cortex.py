@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LAYER_NAME = '000-default'
 
-cmdre = regex.compile(f'^[\w\.]+$')
+cmdre = regex.compile(r'^[\w\.]+$')
 
 '''
 A Cortex implements the synapse hypergraph object.
