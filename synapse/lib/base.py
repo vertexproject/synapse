@@ -25,6 +25,9 @@ def _fini_atexit(): # pragma: no cover
         if not isinstance(item, Base):
             continue
 
+        if not item.anitted:
+            continue
+
         if item.isfini:
             continue
 
@@ -74,6 +77,7 @@ class Base:
         method anit.
     '''
     def __init__(self):
+        self.anitted = False
         assert inspect.stack()[1].function == 'anit', 'Objects from Base must be constructed solely via "anit"'
 
     @classmethod
@@ -84,10 +88,16 @@ class Base:
             s_glob.initloop()
 
         self = cls()
+
         try:
+
             await self.__anit__(*args, **kwargs)
-        except Exception:
-            await self.fini()
+
+        except Exception as e:
+
+            if self.anitted:
+                await self.fini()
+
             raise
 
         return self
