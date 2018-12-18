@@ -1,9 +1,10 @@
-import regex
 import asyncio
 import logging
 import pathlib
 import contextlib
 import collections
+
+import regex
 
 import synapse
 import synapse.exc as s_exc
