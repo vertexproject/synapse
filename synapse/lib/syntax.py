@@ -1502,7 +1502,7 @@ class Parser:
 
         self.ignorespace()
 
-        if self.nextchar not in cmprstart:
+        if self.nextchar() not in cmprstart:
             return s_ast.SubqCond(kids=(quer,))
 
         cmpr = self.cmpr()

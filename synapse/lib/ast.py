@@ -1018,6 +1018,7 @@ class Cond(AstNode):
 class SubqCond(Cond):
 
     def __init__(self, kids=()):
+        Cond.__init__(self, kids=kids)
         self.funcs = {
             '=': self._subqCondEq,
             '>': self._subqCondGt,
@@ -1039,7 +1040,7 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
-            valu = self.kids[1].compute(runt, node, path)
+            valu = int(await self.kids[2].compute(runt, node, path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
@@ -1049,11 +1050,11 @@ class SubqCond(Cond):
 
         return cond
 
-    def _subqCondGt(self, node, path):
+    def _subqCondGt(self, runt):
 
         async def cond(node, path):
 
-            valu = self.kids[1].compute(runt, node, path)
+            valu = int(await self.kids[2].compute(runt, node, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
                     return True
@@ -1066,7 +1067,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = self.kids[1].compute(runt, node, path)
+            valu = int(await self.kids[2].compute(runt, node, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
                     return False
@@ -1079,7 +1080,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = self.kids[1].compute(runt, node, path)
+            valu = int(await self.kids[2].compute(runt, node, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
                     return True
@@ -1092,7 +1093,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = self.kids[1].compute(runt, node, path)
+            valu = int(await self.kids[2].compute(runt, node, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
                     return False
@@ -1116,7 +1117,7 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
-            valu = await self.kids[1].compute(runt, node, path)
+            valu = int(await self.kids[2].compute(runt, node, path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
