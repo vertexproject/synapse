@@ -318,8 +318,6 @@ class Slab(s_base.Base):
         return self._xact_action(self.delete, lmdb.Transaction.delete, lkey, val, db=db)
 
     def put(self, lkey, lval, dupdata=False, db=None):
-        if self.isfini:
-            breakpoint()
         return self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, db=db)
 
     def replace(self, lkey, lval, db=None):
