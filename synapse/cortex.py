@@ -121,9 +121,10 @@ class CoreApi(s_cell.CellApi):
         iden = self.cell.triggers.add(username, condition, query, info=info)
         return iden
 
-    def _auth_check(self, triguser):
+    def _auth_check(self, user):
+        ''' Check that, as a non-admin, may only manipulate resources created by you. '''
         username = None if self.user is None else self.user.name
-        if username is not None and (not self.user.admin) and username != triguser:
+        if username is not None and (not self.user.admin) and username != user:
             raise s_exc.AuthDeny(user=self.user.name, mesg='As non-admin, may only manipulate triggers created by you')
 
     async def delTrigger(self, iden):
@@ -151,6 +152,33 @@ class CoreApi(s_cell.CellApi):
                 if username is None or self.user.admin or trig.get('user') == username]
 
     async def addCronJob(self, query, reqs, incunit=None, incval=1):
+        '''
+        Add a cron job to the cortex
+
+        A cron job is a persistently-stored item that causes storm queries to be run in the future.  The specification
+        for the times that the queries run can be one-shot or recurring.
+
+        Args:
+            query (str):  The storm query to execute in the future
+            reqs (Union[Dict[str, Union[int, List[int]]], List[Dict[...]]]):
+                Either a dict of the fixed time fields or a list of such dicts.  The keys are in the set ('year',
+                'month', 'dayofmonth', 'dayofweek', 'hour', 'minute'.  The values must be positive integers, except for
+                the key of 'dayofmonth' in which it may also be a negative integer which represents the number of days
+                from the end of the month with -1 representing the last day of the month.  All values may also be lists
+                of valid values.
+            incunit (Optional[str]):
+                A member of the same set as above, with an additional member 'day'.  If is None (default), then the
+                appointment is one-shot and will not recur.
+            incval (Union[int, List[int]):
+                A integer or a list of integers of the number of units
+
+        Returns (bytes):
+            An iden that can be used to later modify, query, and delete the job.
+
+        Notes:
+            reqs must have fields present or incunit must not be None (or both)
+            The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
+        '''
 
         def _convert_reqdict(reqdict):
             return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
@@ -173,6 +201,12 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.agenda.add(username, query, newreqs, incunit, incval)
 
     async def delCronJob(self, iden):
+        '''
+        Delete a cron job
+
+        Args:
+            iden (bytes):  The iden of the cron job to be deleted
+        '''
         cron = self.cell.agenda.appts.get(iden)
         if cron is None:
             raise s_exc.NoSuchIden()
@@ -182,6 +216,9 @@ class CoreApi(s_cell.CellApi):
     async def updateCronJob(self, iden, query):
         '''
         Change an existing cron job's query
+
+        Args:
+            iden (bytes):  The iden of the cron job to be changed
         '''
         cron = self.cell.agenda.appts.get(iden)
         if cron is None:
@@ -190,6 +227,9 @@ class CoreApi(s_cell.CellApi):
         await self.cell.agenda.mod(iden, query)
 
     async def listCronJobs(self):
+        '''
+        Get information about all the cron jobs accessible to the current user
+        '''
         username = None if self.user is None else self.user.name
         return [(iden, cron) for (iden, cron) in self.cell.agenda.list()
                 if username is None or self.user.admin or cron.get('user') == username]

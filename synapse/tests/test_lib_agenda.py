@@ -6,6 +6,7 @@ from datetime import timezone as tz
 import synapse.exc as s_exc
 import synapse.tests.utils as s_t_utils
 
+import synapse.lib.boss as s_boss
 import synapse.lib.hive as s_hive
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -167,9 +168,11 @@ class AgendaTest(s_t_utils.SynTest):
             core.slab = await s_lmdbslab.Slab.anit(dirn, map_size=s_t_utils.TEST_MAP_SIZE, readonly=False)
             db = core.slab.initdb('hive')
             core.hive = await s_hive.SlabHive.anit(core.slab, db=db)
+            core.boss = await s_boss.Boss.anit()
             async with await s_agenda.Agenda.anit(core) as agenda:
                 agenda.onfini(core.hive)
                 agenda.onfini(core.slab)
+                agenda.onfini(core.boss)
 
                 await agenda.enable()
                 await agenda.enable()  # make sure it doesn't blow up
@@ -193,11 +196,12 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Schedule a query to run every Wednesday and Friday at 10:15am
                 guid = await agenda.add('visi', '[teststr=bar]', {s_tu.HOUR: 10, s_tu.MINUTE: 15},
-                                  incunit=s_agenda.TimeUnit.DAYOFWEEK, incvals=(2, 4))
+                                        incunit=s_agenda.TimeUnit.DAYOFWEEK, incvals=(2, 4))
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                guid2 = await agenda.add('visi', '[teststr=baz]', {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
-                                   incunit=s_agenda.TimeUnit.MONTH, incvals=1)
+                guid2 = await agenda.add('visi', '[teststr=baz]',
+                                         {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
+                                         incunit=s_agenda.TimeUnit.MONTH, incvals=1)
 
                 xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2018}
                 lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2018}

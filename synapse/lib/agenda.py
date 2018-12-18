@@ -58,7 +58,7 @@ _NextUnitMap = {
     TimeUnit.DAYOFWEEK: TimeUnit.DAYOFWEEK,
 }
 
-# Unit equivalence to datettime arguments
+# Unit equivalence to datetime arguments
 _TimeunitToDatetime = {
     TimeUnit.YEAR: 'year',
     TimeUnit.MONTH: 'month',
@@ -128,9 +128,9 @@ class ApptRec:
                 self.reqdict[key] = reqdict[key]
 
     def __repr__(self):
-        return repr(self.entupl())
+        return repr(self.pack())
 
-    def entupl(self):
+    def pack(self):
         '''
         Make ApptRec json/msgpack-friendly
         '''
@@ -139,7 +139,7 @@ class ApptRec:
         return (reqdictf, incunitf, self.incval)
 
     @classmethod
-    def untupl(cls, val):
+    def unpack(cls, val):
         '''
         Convert from json/msgpack-friendly
         '''
@@ -154,7 +154,7 @@ class ApptRec:
         0.0 if there are no future matches
         '''
         lastdt = datetime.datetime.fromtimestamp(lastts, tz.utc)
-        newvals = {}  # all the new fields that will be changed in the
+        newvals = {}  # all the new fields that will be changed in datetime of lastts
 
         # Truncate the seconds part
         newdt = lastdt.replace(second=0)
@@ -245,7 +245,7 @@ class _Appt:
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
         self.query = query  # query to run
         self.username = username  # user to run query as
-        self.recs = recs  # List[ApptRec]
+        self.recs = recs  # List[ApptRec]  list of the individual entries to calculate next time from
         self._recidxnexttime = None # index of rec who is up next
 
         if self.recur and not self.recs:
@@ -274,7 +274,7 @@ class _Appt:
         ''' For heap logic '''
         return (self.nexttime, self.indx) < (other.nexttime, other.indx)
 
-    def todict(self):
+    def pack(self):
         return {
             'ver': 0,
             'enabled': self.enabled,
@@ -283,7 +283,7 @@ class _Appt:
             'indx': self.indx,
             'query': self.query,
             'username': self.username,
-            'recs': [d.entupl() for d in self.recs],
+            'recs': [d.pack() for d in self.recs],
             'nexttime': self.nexttime,
             'startcount': self.startcount,
             'isrunning': self.isrunning,
@@ -293,10 +293,10 @@ class _Appt:
         }
 
     @classmethod
-    def fromdict(cls, val):
+    def unpack(cls, val):
         if val['ver'] != 0:
             raise s_exc.BadStorageVersion  # pragma: no cover
-        recs = [ApptRec.untupl(tupl) for tupl in val['recs']]
+        recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
         appt = cls(val['iden'], val['recur'], val['indx'], val['query'], val['username'], recs, val['nexttime'])
         appt.startcount = val['startcount']
         appt.laststarttime = val['laststarttime']
@@ -309,10 +309,8 @@ class _Appt:
         '''
         Find the next time this appointment should be scheduled.
 
-        Delete any nonrecurring record that just happened
+        Delete any nonrecurring record that just happened.
         '''
-
-        # If we're not recurring, delete the entry that just happened
         if self._recidxnexttime is not None and not self.recur:
             del self.recs[self._recidxnexttime]
 
@@ -355,7 +353,7 @@ class Agenda(s_base.Base):
         self.core = core
         self.apptheap = []  # Stores the appointments in a heap such that the first element is the next appt to run
         self.appts = {}  # Dict[bytes: Appt]
-        self._next_indx = 0
+        self._next_indx = 0  # index a new appt gets assigned
 
         self._wake_event = asyncio.Event()  # Causes the scheduler loop to wake up
         self.onfini(self._wake_event.set)
@@ -395,12 +393,11 @@ class Agenda(s_base.Base):
         '''
         Load all the appointments from persistent storage
         '''
-
         to_delete = []
         for idenf, val in self._hivedict.items():
             try:
                 iden = s_common.uhex(idenf)
-                appt = _Appt.fromdict(val)
+                appt = _Appt.unpack(val)
                 if appt.iden != iden:
                     raise s_exc.InconsistentStorage(mesg='iden inconsistency')
                 self._addappt(iden, appt)
@@ -430,7 +427,7 @@ class Agenda(s_base.Base):
 
     async def _storeAppt(self, appt):
         ''' Store a single appointment '''
-        await self._hivedict.set(s_common.ehex(appt.iden), appt.todict())
+        await self._hivedict.set(s_common.ehex(appt.iden), appt.pack())
 
     @staticmethod
     def _dictproduct(rdict):
@@ -452,7 +449,7 @@ class Agenda(s_base.Base):
             yield newdict
 
     def list(self):
-        return [(iden, (appt.todict())) for (iden, appt) in self.appts.items()]
+        return [(iden, (appt.pack())) for (iden, appt) in self.appts.items()]
 
     async def add(self, username, query: str, reqs, incunit=None, incvals=None):
         '''
@@ -470,6 +467,10 @@ class Agenda(s_base.Base):
             incvals (Union[None, int, Iterable[int]): count of units of incunit or explicit day of week or day of month.
                 Not allowed for incunit == None, required for others (1 would be a typical
                 value)
+
+        Notes:
+            For values in reqs that are lists and incvals if a list, all combinations of all values (the product) are
+            used
 
         Returns:
             iden of new appointment
@@ -491,9 +492,9 @@ class Agenda(s_base.Base):
         if isinstance(reqs, Mapping):
             reqs = [reqs]
 
+        # Find all combinations of values in reqdict values and incvals values
         recs = []
         for req in reqs:
-            # Find all combinations of values in reqdict values and incvals values
 
             reqdicts = self._dictproduct(req)
             if not isinstance(incvals, Iterable):
@@ -585,18 +586,19 @@ class Agenda(s_base.Base):
             if user is None:
                 logger.warning('Unknown username %s in stored appointment', appt.username)
                 return
-        await self.schedCoro(self._runJob(user, appt))
+        await self.core.boss.execute(self._runJob(user, appt), f'Agenda {s_common.ehex(appt.iden)}', user)
 
     async def _runJob(self, user, appt):
         '''
-        Actualy run the storm query, updating the appropriate statistics and results
+        Actually run the storm query, updating the appropriate statistics and results
         '''
         count = 0
         appt.isrunning = True
         appt.laststarttime = time.time()
         appt.startcount += 1
         await self._storeAppt(appt)
-        logger.info(f'Agenda executing as user {user}: query {appt.query}')
+        idenf = s_common.ehex(appt.iden)
+        logger.info(f'Agenda executing for iden={idenf}, user={user}: query={{appt.query}}')
         try:
             async for _ in self.core.eval(appt.query, user=user):  # NOQA
                 count += 1
@@ -605,10 +607,13 @@ class Agenda(s_base.Base):
             raise
         except Exception as e:
             result = f'raised exception {e}'
+            logger.exception('Agenda job %s raised exception', idenf)
         else:
             result = f'finished successfully with {count} nodes'
         finally:
-            appt.lastfinishtime = time.time()
+            finishtime = time.time()
+            logger.info(f'Agenda completed query for iden={idenf} with result="{result}" took {finishtime:0.2}')
+            appt.lastfinishtime = finishtime
             appt.isrunning = False
             appt.lastresult = result
             await self._storeAppt(appt)

@@ -86,7 +86,9 @@ Notes:
 
     If the fixed day parameter is a value in ([Mon, Tue, Wed, Thu, Fri, Sat,
     Sun] if locale is set to English) it is interpreted as a fixed day of the
-    week.  If the parameter value does not end in an '=', then it is
+    week.
+
+    Otherwise, if the parameter value does not end in an '=', then it is
     interpreted as an recurrence interval of that many days.
 
     If no non-equals-sign-ending parameter is specified, the recurrence period
@@ -103,8 +105,7 @@ Notes:
     every other month.  One exception is the largest fixed value is day of the
     week, then the default period is set to be a week.
 
-    A month period with a day of week or day of month fixed value is not
-    currently supported.
+    A month period with a day of week fixed value is not currently supported.
 
     Fixed-value year (i.e. --year 2019=) is not supported.  See the 'at'
     command for one-time cron jobs.
@@ -120,7 +121,7 @@ Examples:
     cron add -H 0,12= -d Wed,Sun= {#foo}
 
     Run a query every other day at 3:57pm
-    cron add -d 2 -M 57= -H 15 {#foo}
+    cron add -d 2 -M 57= -H 15= {#foo}
 '''
 
 class Cron(s_cli.Cmd):
@@ -128,8 +129,8 @@ class Cron(s_cli.Cmd):
 Manages cron jobs in a cortex.  Cron jobs are rules persistently stored in a
 cortex such that storm queries automatically run on a time schedule.
 
-Cron jobs maybe be recurring or one-time.  Use the 'at' command to add one-time
-jobs.
+Cron jobs may be be recurring or one-time.  Use the 'at' command to add
+one-time jobs.
 
 A subcommand is required.  Use 'cron -h' for more detailed help.  '''
     _cmd_name = 'cron'
@@ -186,6 +187,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
     @staticmethod
     def _parse_weekday(val):
+        ''' Try to match a day-of-week abbreviation, then try a day-of-week full name '''
         val = val.title()
         try:
             return list(calendar.day_abbr).index(val)
@@ -197,6 +199,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
     @staticmethod
     def _parse_incval(incunit, incval):
+        ''' Parse a non-day increment value. Should be an integer or a comma-separated integer list. '''
         try:
             retn = [int(val) for val in incval.split(',')]
         except ValueError:
@@ -206,6 +209,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
     @staticmethod
     def _parse_req(requnit, reqval):
+        ''' Parse a non-day fixed ('=') value '''
         assert reqval[-1] == '='
 
         try:
@@ -213,7 +217,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             for val in reqval[:-1].split(','):
                 if requnit == 'month':
                     if reqval[0].isdigit():
-                        retn.append(int(reqval))  # must be a month
+                        retn.append(int(reqval))  # must be a month (1-12)
                     else:
                         try:
                             retn.append(list(calendar.month_abbr).index(val.title()))
@@ -231,6 +235,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
     @staticmethod
     def _parse_day(optval):
+        ''' Parse a --day argument '''
         isreq = (optval[-1] == '=')
         if isreq:
             optval = optval[:-1]
@@ -338,12 +343,12 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
                 return
             reqdict[optname] = reqval
 
-        # If not set, default the incunit, incval to 1 of the next largest unit
+        # If not set, default (incunit, incval) to (1, the next largest unit)
         if incunit is None:
             if not reqdict:
                 self.printf('Error: must provide at least one optional argument')
                 return
-            requnit = next(iter(reqdict))  # the first key added
+            requnit = next(iter(reqdict))  # the first key added is the biggest unit
             incunit = valinfo[requnit][1]
             incval = 1
 
@@ -483,22 +488,24 @@ specified times.
 List/details/deleting cron jobs created with 'at' use the same commands as
 other cron jobs:  cron list/stat/del respectively.
 
-Syntax: at (time|+time delta)+ {query}
+Syntax:
+    at (time|+time delta)+ {query}
 
-Notes: This command accepts one or more time specifications followed by exactly
-one storm query in curly braces.  Each time specification may be in synapse
-time delta format (e.g + 1 day) or synapse time format (e.g.
-20501217030432101).  Seconds will be ignored, as cron jobs' granularity is
-limited to minutes.
+Notes:
+    This command accepts one or more time specifications followed by exactly
+    one storm query in curly braces.  Each time specification may be in synapse
+    time delta format (e.g + 1 day) or synapse time format (e.g.
+    20501217030432101).  Seconds will be ignored, as cron jobs' granularity is
+    limited to minutes.
 
-All times are interpreted as UTC.
+    All times are interpreted as UTC.
 
-The other option for time specification is a relative time from now.  This
-consists of a plus sign, a positive integer, then one of 'minutes, hours,
-days'.
+    The other option for time specification is a relative time from now.  This
+    consists of a plus sign, a positive integer, then one of 'minutes, hours,
+    days'.
 
-Note that the record for a cron job is stored until explicitly deleted via
-"cron del".
+    Note that the record for a cron job is stored until explicitly deleted via
+    "cron del".
 
 Examples:
     # Run a storm query in 5 minutes
@@ -508,7 +515,7 @@ Examples:
     at +1 day +7 days {[inet:ipv4=1]}
 
     # Run a query at the end of the year Zulu
-    at 20181231Z2359 15:30 {[inet:ipv4=1]}
+    at 20181231Z2359 {[inet:ipv4=1]}
 '''
     _cmd_name = 'at'
 

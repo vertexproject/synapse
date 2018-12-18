@@ -1,18 +1,18 @@
 import synapse.glob as s_glob
 import synapse.lib.cli as s_cli
+import synapse.cmds.cron as s_cmds_cron
 import synapse.cmds.cortex as s_cmds_cortex
 import synapse.cmds.trigger as s_cmds_trigger
-import synapse.cmds.cron as s_cmds_cron
 
 cmdsbycell = {
     'cortex': (
+        s_cmds_cron.At,
+        s_cmds_cron.Cron,
         s_cmds_cortex.Log,
         s_cmds_cortex.PsCmd,
         s_cmds_cortex.KillCmd,
         s_cmds_cortex.StormCmd,
         s_cmds_trigger.Trigger,
-        s_cmds_cron.Cron,
-        s_cmds_cron.At
     ),
 }
 
