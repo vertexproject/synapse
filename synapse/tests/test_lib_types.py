@@ -4,6 +4,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.time as s_time
 import synapse.lib.types as s_types
 
 import synapse.tests.utils as s_t_utils
@@ -286,15 +287,62 @@ class TypesTest(s_t_utils.SynTest):
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('int').clone, {'min': 100, 'max': 1})
 
-    def test_ival(self):
+    async def test_ival(self):
         model = s_datamodel.Model()
         ival = model.types.get('ival')
 
+        self.eq(b'', ival.indx(None))
+        self.eq(('2016/01/01 00:00:00.000', '2017/01/01 00:00:00.000'), ival.repr(ival.norm(('2016', '2017'))[0]))
+
+        self.gt(s_common.now(), ival._normRelStr('-1 min'))
+
+        self.eq((0, 5356800000), ival.norm((0, '1970-03-04'))[0])
         self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
         self.eq((1451606400000, 1451606400001), ival.norm(1451606400000)[0])
-        self.eq((1451606400000, 1483228800000), ival.norm(('2016', '2017'))[0])
+        self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
+        self.eq((1451606400000, 1483228800000), ival.norm(('2016', '  2017'))[0])
+        self.eq((1451606400000, 1483228800000), ival.norm(('2016-01-01', '  2017'))[0])
+        self.eq((1451606400000, 1483142400000), ival.norm(('2016', '+365 days'))[0])
+        self.eq((1448150400000, 1451606400000), ival.norm(('2016', '-40 days'))[0])
+        self.eq((1447891200000, 1451347200000), ival.norm(('2016-3days', '-40 days   '))[0])
+        self.eq((1451347200000, 0x7fffffffffffffff), ival.norm(('2016-3days', '?'))[0])
+
+        start = s_common.now() + s_time.oneday - 1
+        end = ival.norm(('now', '+1day'))[0][1]
+        self.lt(start, end)
+
+        oldv = ival.norm(('2016', '2017'))[0]
+        newv = ival.norm(('2015', '2018'))[0]
+        self.eq((1420070400000, 1514764800000), ival.merge(oldv, newv))
 
         self.raises(s_exc.BadTypeValu, ival.norm, '?')
+        self.raises(s_exc.BadTypeValu, ival.norm, ('', ''))
+        self.raises(s_exc.BadTypeValu, ival.norm, ('2016-3days', '+77days', '-40days'))
+
+        async with self.getTestCore() as core:
+
+            t = core.model.type('testtime')
+
+            tick = t.norm('2014')[0]
+            tock = t.norm('2015')[0]
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 'a', {'tick': '2014'})
+                node = await snap.addNode('teststr', 'b', {'tick': '2015'})
+                node = await snap.addNode('teststr', 'c', {'tick': '2016'})
+                node = await snap.addNode('teststr', 'd', {'tick': 'now'})
+                node = await snap.addNode('teststr', 'e', {'tick': 'now-3days'})
+
+            await self.agenraises(s_exc.BadStormSyntax, core.eval('teststr :tick=(20150102, "-4 day")'))
+
+            await self.agenlen(1, core.eval('teststr +:tick@=("-1 day")'))
+            await self.agenlen(1, core.eval('teststr +:tick@=(2015)'))
+            await self.agenlen(1, core.eval('teststr +:tick@=(2015, "+1 day")'))
+            await self.agenlen(1, core.eval('teststr +:tick@=(20150102+1day, "-4 day")'))
+            await self.agenlen(1, core.eval('teststr +:tick@=(20150102, "-4 day")'))
+            await self.agenlen(1, core.eval('teststr +:tick@=(now, "-1 day")'))
+            await self.agenlen(1, core.eval('teststr +:tick@=("now-1day", "?")'))
+            await self.agenlen(1, core.eval('teststr +:tick@=("now+2days", "-3 day")'))
 
     async def test_loc(self):
         model = s_datamodel.Model()
@@ -394,8 +442,8 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'m'})
             nodes = await alist(core.eval('testcomp +testcomp*range=((1024, grinch), (4096, zemeanone))'))
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton'), (4096, 'whoville')})
-            guid0 = 'B'*32
-            guid1 = 'D'*32
+            guid0 = 'B' * 32
+            guid1 = 'D' * 32
             nodes = await alist(core.eval(f'testguid +testguid*range=({guid0}, {guid1})'))
             self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
             nodes = await alist(core.eval('testint | noderefs | +testcomp*range=((1000, grinch), (4000, whoville))'))
@@ -484,6 +532,11 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('is.ｂob.evil', tagtype.norm('is.\uff42ob.evil')[0])
 
     async def test_time(self):
+
+        model = s_datamodel.Model()
+        ttime = model.types.get('time')
+
+        self.gt(s_common.now(), ttime.norm('-1hour')[0])
 
         async with self.getTestCore() as core:
 
