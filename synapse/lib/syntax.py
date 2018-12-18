@@ -26,7 +26,7 @@ tagfilt = varset.union({'#', '*'})
 alphaset = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
 cmdquote = set(' \t\n|}')
-mustquote = set(' \t\n),=]}')
+mustquote = set(' \t\n),=]}|')
 
 # this may be used to meh() potentially unquoted values
 valmeh = whites.union({'(', ')', '=', ',', '[', ']', '{', '}'})
