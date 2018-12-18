@@ -1,9 +1,9 @@
-import argparse
 import functools
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.cli as s_cli
+import synapse.lib.cmd as s_cmd
 import synapse.lib.syntax as s_syntax
 import synapse.lib.trigger as s_trigger
 
@@ -33,7 +33,7 @@ that is aka.* matches aka.foo and aka.bar but not aka.foo.bar.  aka* is not
 supported.
 
 Examples:
-    # Adds a tag to ever inet:ipv4 added
+    # Adds a tag to every inet:ipv4 added
     trigger add node:add inet:ipv4 {[ +#mytag ]}
 
     # Adds a tag #todo to every node as it is tagged #aka
@@ -66,7 +66,7 @@ Notes:
 '''
 
 ModHelp = '''
-Modifies an existing trigger to change the query.
+Changes an existing trigger's query.
 
 Syntax:
     trigger mod <iden prefix> <new query>
@@ -75,35 +75,14 @@ Notes:
     Any prefix that matches exactly one valid trigger iden is accepted.
 '''
 
-class CmdArgParser(argparse.ArgumentParser):
-
-    def __init__(self, print_target, **kwargs):
-        self._print_target = print_target
-        argparse.ArgumentParser.__init__(self, **kwargs)
-
-    def exit(self, status=0, message=None):
-        '''
-        Argparse expects exit() to be a terminal function and not return.
-        As such, this function must raise an exception
-        '''
-        if message is not None:
-            self._print_target.printf(message)
-        raise s_exc.BadSyntaxError(mesg=message, prog=self.prog, status=status)
-
-    def _print_message(self, text, fd=None):
-        '''
-        Note:  this overrides an existing method in ArgumentParser
-        '''
-        self._print_target.printf(text)
-
 class Trigger(s_cli.Cmd):
     '''
-    Manipulate triggers in a cortex.  Triggers are rules persistently stored in
-    a cortex such that storm queries automatically run when a particular event
-    happens.
+Manipulate triggers in a cortex.  Triggers are rules persistently stored in
+a cortex such that storm queries automatically run when a particular event
+happens.
 
-    A subcommand is required.  Use `trigger -h` for more detailed help.
-    '''
+A subcommand is required.  Use `trigger -h` for more detailed help.
+'''
     _cmd_name = 'trigger'
 
     _cmd_syntax = (
@@ -127,18 +106,10 @@ class Trigger(s_cli.Cmd):
 
     def _make_argparser(self):
 
-        def print_message(text, fd=None):
-            self.printf(text)
-
-        def exit(status=0, message=None):
-            if message is not None:
-                self.printf(message)
-            raise s_exc.BadSyntaxError(mesg=message, prog=self.prog, status=status)
-
-        parser = CmdArgParser(self, prog='trigger', description=self.__doc__)
+        parser = s_cmd.Parser(prog='trigger', outp=self, description=self.__doc__)
 
         subparsers = parser.add_subparsers(title='subcommands', required=True, dest='cmd',
-                                           parser_class=functools.partial(CmdArgParser, self))
+                                           parser_class=functools.partial(s_cmd.Parser, outp=self))
 
         subparsers.add_parser('list', help="List triggers you're allowed to manipulate", usage=ListHelp)
 
@@ -212,11 +183,18 @@ class Trigger(s_cli.Cmd):
         # Remove the curly braces
         query = query[1:-1]
 
-        await core.addTrigger(cond, query, info={'form': form, 'tag': tag, 'prop': prop})
+        iden = await core.addTrigger(cond, query, info={'form': form, 'tag': tag, 'prop': prop})
+        self.printf(f'Added trigger {s_common.ehex(iden)}')
 
     async def _handle_list(self, core, opts):
         triglist = await core.listTriggers()
+
+        if not triglist:
+            self.printf('No triggers found')
+            return
+
         self.printf(f'{"user":10} {"iden":12} {"cond":9} {"object":14} {"":10} {"storm query"}')
+
         for iden, trig in triglist:
             idenf = s_common.ehex(iden)[:8] + '..'
             user = trig.get('user') or '<None>'
@@ -265,7 +243,7 @@ class Trigger(s_cli.Cmd):
         argv = s_syntax.Parser(parseinfo, line).stormcmd()
         try:
             opts = self._make_argparser().parse_args(argv)
-        except s_exc.BadSyntaxError:
+        except s_exc.ParserExit:
             return
 
         handlers = {

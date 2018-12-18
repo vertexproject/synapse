@@ -3,6 +3,7 @@ import logging
 import pathlib
 import contextlib
 import collections
+from collections.abc import Iterable, Mapping
 
 import regex
 
@@ -21,6 +22,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
 import synapse.lib.layer as s_layer
 import synapse.lib.syntax as s_syntax
+import synapse.lib.agenda as s_agenda
 import synapse.lib.trigger as s_trigger
 import synapse.lib.modules as s_modules
 
@@ -120,11 +122,13 @@ class CoreApi(s_cell.CellApi):
         Adds a trigger to the cortex
         '''
         username = None if self.user is None else self.user.name
-        self.cell.triggers.add(username, condition, query, info=info)
+        iden = self.cell.triggers.add(username, condition, query, info=info)
+        return iden
 
-    def _trig_auth_check(self, triguser):
+    def _auth_check(self, user):
+        ''' Check that, as a non-admin, may only manipulate resources created by you. '''
         username = None if self.user is None else self.user.name
-        if username is not None and (not self.user.admin) and username != triguser:
+        if username is not None and (not self.user.admin) and username != user:
             raise s_exc.AuthDeny(user=self.user.name, mesg='As non-admin, may only manipulate triggers created by you')
 
     async def delTrigger(self, iden):
@@ -132,7 +136,7 @@ class CoreApi(s_cell.CellApi):
         Deletes a trigger from the cortex
         '''
         trig = self.cell.triggers.get(iden)
-        self._trig_auth_check(trig.get('user'))
+        self._auth_check(trig.get('user'))
         self.cell.triggers.delete(iden)
 
     async def updateTrigger(self, iden, query):
@@ -140,7 +144,7 @@ class CoreApi(s_cell.CellApi):
         Change an existing trigger's query
         '''
         trig = self.cell.triggers.get(iden)
-        self._trig_auth_check(trig.get('user'))
+        self._auth_check(trig.get('user'))
         self.cell.triggers.mod(iden, query)
 
     async def listTriggers(self):
@@ -150,6 +154,89 @@ class CoreApi(s_cell.CellApi):
         username = None if self.user is None else self.user.name
         return [(iden, trig) for (iden, trig) in self.cell.triggers.list()
                 if username is None or self.user.admin or trig.get('user') == username]
+
+    async def addCronJob(self, query, reqs, incunit=None, incval=1):
+        '''
+        Add a cron job to the cortex
+
+        A cron job is a persistently-stored item that causes storm queries to be run in the future.  The specification
+        for the times that the queries run can be one-shot or recurring.
+
+        Args:
+            query (str):  The storm query to execute in the future
+            reqs (Union[Dict[str, Union[int, List[int]]], List[Dict[...]]]):
+                Either a dict of the fixed time fields or a list of such dicts.  The keys are in the set ('year',
+                'month', 'dayofmonth', 'dayofweek', 'hour', 'minute'.  The values must be positive integers, except for
+                the key of 'dayofmonth' in which it may also be a negative integer which represents the number of days
+                from the end of the month with -1 representing the last day of the month.  All values may also be lists
+                of valid values.
+            incunit (Optional[str]):
+                A member of the same set as above, with an additional member 'day'.  If is None (default), then the
+                appointment is one-shot and will not recur.
+            incval (Union[int, List[int]):
+                A integer or a list of integers of the number of units
+
+        Returns (bytes):
+            An iden that can be used to later modify, query, and delete the job.
+
+        Notes:
+            reqs must have fields present or incunit must not be None (or both)
+            The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
+        '''
+
+        def _convert_reqdict(reqdict):
+            return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
+
+        try:
+            if incunit is not None:
+                if isinstance(incunit, (list, tuple)):
+                    incunit = [s_agenda.TimeUnit.fromString(i) for i in incunit]
+                else:
+                    incunit = s_agenda.TimeUnit.fromString(incunit)
+            if isinstance(reqs, Mapping):
+                newreqs = _convert_reqdict(reqs)
+            else:
+                newreqs = [_convert_reqdict(req) for req in reqs]
+
+        except KeyError:
+            raise s_exc.BadConfValu('Unrecognized time unit')
+
+        username = None if self.user is None else self.user.name
+        return await self.cell.agenda.add(username, query, newreqs, incunit, incval)
+
+    async def delCronJob(self, iden):
+        '''
+        Delete a cron job
+
+        Args:
+            iden (bytes):  The iden of the cron job to be deleted
+        '''
+        cron = self.cell.agenda.appts.get(iden)
+        if cron is None:
+            raise s_exc.NoSuchIden()
+        self._auth_check(cron.username)
+        await self.cell.agenda.delete(iden)
+
+    async def updateCronJob(self, iden, query):
+        '''
+        Change an existing cron job's query
+
+        Args:
+            iden (bytes):  The iden of the cron job to be changed
+        '''
+        cron = self.cell.agenda.appts.get(iden)
+        if cron is None:
+            raise s_exc.NoSuchIden()
+        self._auth_check(cron.username)
+        await self.cell.agenda.mod(iden, query)
+
+    async def listCronJobs(self):
+        '''
+        Get information about all the cron jobs accessible to the current user
+        '''
+        username = None if self.user is None else self.user.name
+        return [(iden, cron) for (iden, cron) in self.cell.agenda.list()
+                if username is None or self.user.admin or cron.get('user') == username]
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
@@ -357,6 +444,16 @@ class Cortex(s_cell.Cell):
             'doc': 'A list of feed dictionaries.'
         }),
 
+        ('triggers:enable', {
+            'type': 'bool', 'defval': True,
+            'doc': 'Enable triggers running.'
+        }),
+
+        ('cron:enable', {
+            'type': 'bool', 'defval': True,
+            'doc': 'Enable cron jobs running.'
+        }),
+
         # ('storm:save', {
         #     'type': 'bool', 'defval': False,
         #     'doc': 'Archive storm queries for audit trail.'
@@ -413,6 +510,8 @@ class Cortex(s_cell.Cell):
         self.onfini(fini)
 
         self.triggers = s_trigger.Triggers(self)
+        self.agenda = await s_agenda.Agenda.anit(self)
+        self.onfini(self.agenda)
 
         # these may be used directly
         self.model = s_datamodel.Model()
@@ -429,7 +528,11 @@ class Cortex(s_cell.Cell):
 
         await self.addCoreMods(mods)
 
-        await self.triggers.enable()
+        if self.conf.get('triggers:enable'):
+            await self.triggers.enable()
+
+        if self.conf.get('cron:enable'):
+            await self.agenda.enable()
 
         self._initCryoLoop()
         self._initPushLoop()

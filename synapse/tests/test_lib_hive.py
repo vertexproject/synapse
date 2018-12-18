@@ -85,6 +85,13 @@ class HiveTest(s_test.SynTest):
                     hivedict.setdefault('lulz', 31337)
 
                     self.eq(31337, hivedict.get('lulz'))
+                    await hivedict.set('lulz', 'boo')
+                    items = list(hivedict.items())
+                    self.eq([('hehe', 400), ('haha', 'hoho'), ('lulz', 'boo')], items)
+                    self.eq('boo', await hivedict.pop('lulz'))
+                    self.eq(31337, await hivedict.pop('lulz'))
+
+                    self.eq(None, hivedict.get('nope'))
 
             async with self.getTestHiveFromDirn(dirn) as hive:
 

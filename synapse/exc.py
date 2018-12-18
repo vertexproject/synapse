@@ -203,3 +203,17 @@ class ParserExit(SynErr):
     Raised by synapse.lib.cmd.Parser on Parser exit()
     '''
     pass
+
+class BadStorageVersion(SynErr):
+    '''
+    Stored persistent data is incompatible with running software
+    '''
+    pass
+
+class InconsistentStorage(SynErr):
+    '''
+    Stored persistent data is inconsistent
+    '''
+    pass
+
+class BadTime(SynErr): pass
