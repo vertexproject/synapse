@@ -1017,10 +1017,127 @@ class Cond(AstNode):
 
 class SubqCond(Cond):
 
+    def __init__(self, kids=()):
+        Cond.__init__(self, kids=kids)
+        self.funcs = {
+            '=': self._subqCondEq,
+            '>': self._subqCondGt,
+            '<': self._subqCondLt,
+            '>=': self._subqCondGe,
+            '<=': self._subqCondLe,
+            '!=': self._subqCondNe,
+        }
+
+    async def _runSubQuery(self, runt, node, path):
+        size = 1
+        genr = agenrofone((node, path))
+        async for item in self.kids[0].run(runt, genr):
+            yield size, item
+            size += 1
+
+    def _subqCondEq(self, runt):
+
+        async def cond(node, path):
+
+            size = 0
+            valu = int(await self.kids[2].compute(runt, node, path))
+
+            async for size, item in self._runSubQuery(runt, node, path):
+                if size > valu:
+                    return False
+
+            return size == valu
+
+        return cond
+
+    def _subqCondGt(self, runt):
+
+        async def cond(node, path):
+
+            valu = int(await self.kids[2].compute(runt, node, path))
+            async for size, item in self._runSubQuery(runt, node, path):
+                if size > valu:
+                    return True
+
+            return False
+
+        return cond
+
+    def _subqCondLt(self, runt):
+
+        async def cond(node, path):
+
+            valu = int(await self.kids[2].compute(runt, node, path))
+            async for size, item in self._runSubQuery(runt, node, path):
+                if size >= valu:
+                    return False
+
+            return True
+
+        return cond
+
+    def _subqCondGe(self, runt):
+
+        async def cond(node, path):
+
+            valu = int(await self.kids[2].compute(runt, node, path))
+            async for size, item in self._runSubQuery(runt, node, path):
+                if size >= valu:
+                    return True
+
+            return False
+
+        return cond
+
+    def _subqCondLe(self, runt):
+
+        async def cond(node, path):
+
+            valu = int(await self.kids[2].compute(runt, node, path))
+            async for size, item in self._runSubQuery(runt, node, path):
+                if size > valu:
+                    return False
+
+            return True
+
+        return cond
+
+    def _subqCondNz(self, runt):
+
+        async def cond(node, path):
+            async for size, item in self._runSubQuery(runt, node, path):
+                return True
+
+            return False
+
+        return cond
+
+    def _subqCondNe(self, runt):
+
+        async def cond(node, path):
+
+            size = 0
+            valu = int(await self.kids[2].compute(runt, node, path))
+
+            async for size, item in self._runSubQuery(runt, node, path):
+                if size > valu:
+                    return True
+
+            return size != valu
+
+        return cond
+
     def getCondEval(self, runt):
 
-        subq = self.kids[0]
+        if len(self.kids) == 3:
+            cmpr = self.kids[1].value()
+            ctor = self.funcs.get(cmpr)
+            if ctor is None:
+                raise s_exc.NoSuchCmpr(cmpr=cmpr, type='subquery')
 
+            return ctor(runt)
+
+        subq = self.kids[0]
         async def cond(node, path):
             genr = agenrofone((node, path))
             async for _ in subq.run(runt, genr):
