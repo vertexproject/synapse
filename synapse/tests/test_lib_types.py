@@ -10,6 +10,7 @@ import synapse.lib.types as s_types
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
+
 class TypesTest(s_t_utils.SynTest):
 
     def test_type(self):
