@@ -13,6 +13,7 @@ Welcome to synapse's documentation!
    synapse/devops
    synapse/userguide
    contributing
+   mastering
    api/modules
 
 Indices and tables
