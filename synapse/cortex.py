@@ -4,6 +4,8 @@ import pathlib
 import contextlib
 import collections
 
+import regex
+
 import synapse
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -25,6 +27,8 @@ import synapse.lib.modules as s_modules
 logger = logging.getLogger(__name__)
 
 DEFAULT_LAYER_NAME = '000-default'
+
+cmdre = regex.compile(r'^[\w\.]+$')
 
 '''
 A Cortex implements the synapse hypergraph object.
@@ -561,6 +565,9 @@ class Cortex(s_cell.Cell):
         '''
         Add a synapse.lib.storm.Cmd class to the cortex.
         '''
+        if cmdre.match(ctor.name) is None:
+            raise s_exc.BadCmdName(name=ctor.name)
+
         self.stormcmds[ctor.name] = ctor
 
     def getStormCmd(self, name):

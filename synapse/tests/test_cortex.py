@@ -1971,6 +1971,21 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchPivot):
                 nodes = await alist(core.eval('inet:ipv4 -> teststr'))
 
+    async def test_storm_mustquote(self):
+
+        async with self.getTestCore() as core:
+            await core.storm('[ inet:ipv4=1.2.3.4 ]').list()
+            self.len(1, await core.storm('inet:ipv4=1.2.3.4|limit 20').list())
+
+    async def test_storm_cmdname(self):
+
+        class Bork:
+            name = 'foo:bar'
+
+        async with self.getTestCore() as core:
+            with self.raises(s_exc.BadCmdName):
+                core.addStormCmd(Bork)
+
     async def test_storm_comment(self):
 
         async with self.getTestCore() as core:
