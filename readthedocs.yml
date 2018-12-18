@@ -1,10 +1,4 @@
 # .readthedocs.yml
 
-build:
-  image: 4.0rc1
-
-python:
-  version: 3.7
-  pip_install: true
-  extra_requirements:
-    - docs
+conda:
+    file: environment_docs.yml
