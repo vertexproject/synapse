@@ -794,6 +794,7 @@ class Loc(Type):
         self.setCmprCtor('=', self._ctorCmprEq)
         self.indxcmpr['^='] = self.indxByPref
         self.indxcmpr['='] = self.indxByEq
+        self.setLiftHintCmprCtor('^=', self._ctorCmprPref)
 
     def _normPyStr(self, valu):
 
@@ -822,7 +823,6 @@ class Loc(Type):
         )
 
     def indxByPref(self, valu):
-        valu = valu.strip('.')
         norm, info = self.norm(valu)
         indx = self.indx(norm)
 
@@ -841,7 +841,6 @@ class Loc(Type):
         return ret
 
     def _ctorCmprPref(self, text):
-        text = text.strip('.')
         norm, _ = self.norm(text)
 
         def cmpr(valu):
