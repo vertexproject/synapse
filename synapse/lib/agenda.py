@@ -380,8 +380,8 @@ class Agenda(s_base.Base):
             try:
                 self.core.getStormQuery(appt.query)
             except Exception as e:
-                logger.warning('Invalid appointment %r found in storage: %r.  Removing.', iden, e)
-                to_delete.append(iden)
+                logger.warning('Invalid appointment %r found in storage: %r.  Disabling.', iden, e)
+                appt.enabled = False
 
         for iden in to_delete:
             await self.delete(iden)
@@ -520,6 +520,7 @@ class Agenda(s_base.Base):
             self.core.getStormQuery(query)
 
         appt.query = query
+        appt.enabled = True  # in case it was disabled for a bad query
 
         await self._storeAppt(appt)
 
@@ -568,6 +569,8 @@ class Agenda(s_base.Base):
                 appt.updateNexttime(now)
                 if appt.nexttime:
                     heapq.heappush(self.apptheap, appt)
+                if not appt.enabled:
+                    continue
                 if appt.isrunning:
                     logger.warning(
                         'Appointment %s is still running from previous time when scheduled to run.  Skipping.',
@@ -616,4 +619,5 @@ class Agenda(s_base.Base):
             appt.lastfinishtime = finishtime
             appt.isrunning = False
             appt.lastresult = result
-            await self._storeAppt(appt)
+            if not self.isfini:
+                await self._storeAppt(appt)

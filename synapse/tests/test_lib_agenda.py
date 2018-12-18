@@ -158,6 +158,11 @@ class AgendaTest(s_t_utils.SynTest):
             nonlocal lastquery
             lastquery = query
             sync.set()
+            if 'sleep' in query:
+                await asyncio.sleep(60)
+
+            if query == 'badquery':
+                raise Exception('test exception')
             return
             yield None
 
@@ -274,6 +279,34 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Then nothing left scheduled
                 self.len(0, agenda.apptheap)
+
+                # Test that isrunning updated, cancelling works
+                guid = await agenda.add('visi', 'inet:ipv4=1 | sleep 120', {},
+                                        incunit=s_agenda.TimeUnit.MINUTE, incvals=1)
+                unixtime += 60
+                await sync.wait()
+                sync.clear()
+                self.len(1, core.boss.tasks)
+                task = next(iter(core.boss.tasks.values()))
+                appt_info = [info for g, info in agenda.list() if g == guid][0]
+                self.eq(appt_info['isrunning'], True)
+                await task.kill()
+                appt_info = [info for g, info in agenda.list() if g == guid][0]
+                self.eq(appt_info['isrunning'], False)
+                self.eq(appt_info['lastresult'], 'cancelled')
+                await agenda.delete(guid)
+
+                # Test bad queries record exception
+                guid = await agenda.add('visi', '#foo', {},
+                                        incunit=s_agenda.TimeUnit.MINUTE, incvals=1)
+                # bypass the API because it would actually syntax check
+                agenda.appts[guid].query = 'badquery'
+                unixtime += 60
+                await sync.wait()
+                sync.clear()
+                appt_info = [info for g, info in agenda.list() if g == guid][0]
+                self.eq(appt_info['isrunning'], False)
+                self.eq(appt_info['lastresult'], 'raised exception test exception')
 
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''

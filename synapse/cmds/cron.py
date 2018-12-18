@@ -1,4 +1,5 @@
 import time
+import types
 import calendar
 import datetime
 import functools
@@ -65,6 +66,13 @@ Syntax:
     --month, -m
     --year, -y
 
+       *or:*
+
+    [--hourly <min> |
+     --daily <hour>:<min> |
+     --monthly <day>:<hour>:<min> |
+     --yearly <month>:<day>:<hour>:<min>]
+
 Notes:
     All times are interpreted as UTC.
 
@@ -73,12 +81,12 @@ Notes:
     period.  Only one recurrence period parameter may be specified.
 
     Currently, a fixed unit must not be larger than a specified recurrence
-    period.  i.e. '--hour 7= --minute 15' (every 15 minutes from 7-8am?) is not
+    period.  i.e. '--hour 7 --minute +15' (every 15 minutes from 7-8am?) is not
     supported.
 
     Value values for fixed hours are 0-23 on a 24-hour clock where midnight is 0.
 
-    If the --day parameter value ends in '=' and is an integer, it is
+    If the --day parameter value does not start with in '+' and is an integer, it is
     interpreted as a fixed day of the month.  A negative integer may be
     specified to count from the end of the month with -1 meaning the last day
     of the month.  All fixed day values are clamped to valid days, so for
@@ -88,12 +96,12 @@ Notes:
     Sun] if locale is set to English) it is interpreted as a fixed day of the
     week.
 
-    Otherwise, if the parameter value does not end in an '=', then it is
-    interpreted as an recurrence interval of that many days.
+    Otherwise, if the parameter value starts with a '+', then it is interpreted
+    as an recurrence interval of that many days.
 
-    If no non-equals-sign-ending parameter is specified, the recurrence period
-    defaults to the unit larger than all the fixed parameters.   e.g. '-M 5='
-    means every hour at 5 minutes past, and -H 3=, -M 1= means 3:01 every day.
+    If no plus-sign-starting parameter is specified, the recurrence period
+    defaults to the unit larger than all the fixed parameters.   e.g. '-M 5'
+    means every hour at 5 minutes past, and -H 3, -M 1 means 3:01 every day.
 
     At least one optional parameter must be provided.
 
@@ -101,27 +109,32 @@ Notes:
     parameters have multiple values, all combinations of those values are used.
 
     All fixed units not specified lower than the recurrence period default to
-    the lowest valid value, e.g. -m 2 will be scheduled at 12:00am the first of
+    the lowest valid value, e.g. -m +2 will be scheduled at 12:00am the first of
     every other month.  One exception is the largest fixed value is day of the
     week, then the default period is set to be a week.
 
     A month period with a day of week fixed value is not currently supported.
 
-    Fixed-value year (i.e. --year 2019=) is not supported.  See the 'at'
+    Fixed-value year (i.e. --year 2019) is not supported.  See the 'at'
     command for one-time cron jobs.
+
+    As an alternative to the above options, one may use exactly one of
+    --hourly, --daily, --monthly, --yearly with a colon-separated list of
+    fixed parameters for the value.  It is an error to use both the individual
+    options and these aliases at the same time.
 
 Examples:
     Run a query every last day of the month at 3 am
-    cron add -H 3= -d-1= {#foo}
+    cron add -H 3 -d-1 {#foo}
 
     Run a query every 8 hours
-    cron add -H 8 {#foo}
+    cron add -H +8 {#foo}
 
     Run a query every Wednesday and Sunday at midnight and noon
-    cron add -H 0,12= -d Wed,Sun= {#foo}
+    cron add -H 0,12 -d Wed,Sun {#foo}
 
     Run a query every other day at 3:57pm
-    cron add -d 2 -M 57= -H 15= {#foo}
+    cron add -d +2 -M 57 -H 15 {#foo}
 '''
 
 class Cron(s_cli.Cmd):
@@ -171,6 +184,11 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         parser_add.add_argument('--day', '-d', help='day of week, day of month or number of days')
         parser_add.add_argument('--month', '-m')
         parser_add.add_argument('--year', '-y')
+        group = parser_add.add_mutually_exclusive_group()
+        group.add_argument('--hourly')
+        group.add_argument('--daily')
+        group.add_argument('--monthly')
+        group.add_argument('--yearly')
         parser_add.add_argument('query', help='Storm query in curly braces')
 
         parser_del = subparsers.add_parser('del', help='delete a cron job', usage=DelHelp)
@@ -209,12 +227,12 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
     @staticmethod
     def _parse_req(requnit, reqval):
-        ''' Parse a non-day fixed ('=') value '''
-        assert reqval[-1] == '='
+        ''' Parse a non-day fixed value '''
+        assert reqval[0] != '='
 
         try:
             retn = []
-            for val in reqval[:-1].split(','):
+            for val in reqval.split(','):
                 if requnit == 'month':
                     if reqval[0].isdigit():
                         retn.append(int(reqval))  # must be a month (1-12)
@@ -236,9 +254,9 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
     @staticmethod
     def _parse_day(optval):
         ''' Parse a --day argument '''
-        isreq = (optval[-1] == '=')
-        if isreq:
-            optval = optval[:-1]
+        isreq = not optval.startswith('+')
+        if not isreq:
+            optval = optval[1:]
 
         try:
             retnval = []
@@ -272,6 +290,41 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             retnval = retnval[0]
         return unit, retnval
 
+    def _parse_alias(self, opts):
+        retn = types.SimpleNamespace()
+        retn.query = opts.query
+
+        if opts.hourly is not None:
+            retn.hour = '+1'
+            retn.minute = str(int(opts.hourly))
+            return retn
+
+        if opts.daily is not None:
+            fields = time.strptime(opts.daily, '%H:%M')
+            retn.day = '+1'
+            retn.hour = str(fields.tm_hour)
+            retn.minute = str(fields.tm_min)
+            return retn
+
+        if opts.monthly is not None:
+            day, rest = opts.monthly.split(':', 1)
+            fields = time.strptime(rest, '%H:%M')
+            retn.month = '+1'
+            retn.day = day
+            retn.hour = str(fields.tm_hour)
+            retn.minute = str(fields.tm_min)
+            return retn
+
+        if opts.yearly is not None:
+            fields = opts.yearly.split(':')
+            if len(fields) != 4:
+                raise ValueError(f'Failed to parse parameter {opts.yearly}')
+            retn.year = '+1'
+            retn.month, retn.day, retn.hour, retn.minute = fields
+            return retn
+
+        return None
+
     async def _handle_add(self, core, opts):
         incunit = None
         incval = None
@@ -282,6 +335,17 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             'hour': (0, 'day'),
             'minute': (0, 'hour'),
         }
+        try:
+            alias_opts = self._parse_alias(opts)
+        except ValueError as e:
+            self.printf(f'Error: Failed to parse ..ly parameter: {" ".join(e.args)}')
+            return
+
+        if alias_opts:
+            if opts.year or opts.month or opts.day or opts.hour or opts.minute:
+                self.printf('Error: may not use both alias (..ly) and explicit options at the same time')
+                return
+            opts = alias_opts
 
         for optname in ('year', 'month', 'day', 'hour', 'minute'):
             optval = getattr(opts, optname, None)
@@ -297,7 +361,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
                     reqdict[optname] = valinfo[optname][0]
                 continue
 
-            isreq = (optval[-1] == '=')
+            isreq = not optval.startswith('+')
 
             if optname == 'day':
                 unit, val = self._parse_day(optval)
@@ -339,7 +403,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
             reqval = self._parse_req(optname, optval)
             if reqval is None:
-                self.printf(f'Error: failed to parse = parameter "{optval}"')
+                self.printf(f'Error: failed to parse fixed parameter "{optval}"')
                 return
             reqdict[optname] = reqval
 

@@ -51,35 +51,35 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     outp.clear()
 
-                    await cmdr.runCmdLine("cron add -M1,beeroclock {[graph:node='*' :type=m1]}")
+                    await cmdr.runCmdLine("cron add -M+1,beeroclock {[graph:node='*' :type=m1]}")
                     self.true(outp.expect('failed to parse parameter'))
 
-                    await cmdr.runCmdLine("cron add -m nosuchmonth= -d=-2= {#foo}")
-                    self.true(outp.expect('failed to parse = parameter'))
+                    await cmdr.runCmdLine("cron add -m nosuchmonth -d=-2 {#foo}")
+                    self.true(outp.expect('failed to parse fixed parameter'))
 
                     outp.clear()
-                    await cmdr.runCmdLine("cron add -m 8nosuchmonth= -d=-2= {#foo}")
-                    self.true(outp.expect('failed to parse = parameter'))
+                    await cmdr.runCmdLine("cron add -m 8nosuchmonth -d=-2 {#foo}")
+                    self.true(outp.expect('failed to parse fixed parameter'))
 
-                    await cmdr.runCmdLine("cron add -d=,= {#foo}")
+                    await cmdr.runCmdLine("cron add -d=, {#foo}")
                     self.true(outp.expect('failed to parse day value'))
 
-                    await cmdr.runCmdLine("cron add -dMon= -m 3 {#foo}")
+                    await cmdr.runCmdLine("cron add -dMon -m +3 {#foo}")
                     self.true(outp.expect('provide a recurrence value with day of week'))
 
-                    await cmdr.runCmdLine("cron add -dMon= -m June= {#foo}")
+                    await cmdr.runCmdLine("cron add -dMon -m June {#foo}")
                     self.true(outp.expect('fix month or year with day of week'))
 
-                    await cmdr.runCmdLine("cron add -dMon= -m 3 -y 2 {#foo}")
+                    await cmdr.runCmdLine("cron add -dMon -m +3 -y +2 {#foo}")
                     self.true(outp.expect('more than 1 recurrence'))
 
-                    await cmdr.runCmdLine("cron add --year=2019= {#foo}")
+                    await cmdr.runCmdLine("cron add --year=2019 {#foo}")
                     self.true(outp.expect('year may not be a fixed value'))
 
                     await cmdr.runCmdLine("cron add {#foo}")
                     self.true(outp.expect('must provide at least one optional'))
 
-                    await cmdr.runCmdLine("cron add -H3= -M 4 {#foo}")
+                    await cmdr.runCmdLine("cron add -H3 -M +4 {#foo}")
                     self.true(outp.expect('fixed unit may not be larger'))
 
                     outp.clear()
@@ -95,7 +95,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     ##################
 
                     # Start simple: add a cron job that creates a node every minute
-                    await cmdr.runCmdLine("cron add -M 1 {[graph:node='*' :type=m1]}")
+                    await cmdr.runCmdLine("cron add -M +1 {[graph:node='*' :type=m1]}")
                     self.true(outp.expect('Created cron job'))
                     guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
 
@@ -134,7 +134,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     # Test fixed minute, i.e. every hour at 17 past
                     unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
                                                  tzinfo=tz.utc).timestamp()
-                    await cmdr.runCmdLine("cron add -M 17= {[graph:node='*' :type=m3]}")
+                    await cmdr.runCmdLine("cron add -M 17 {[graph:node='*' :type=m3]}")
                     guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
 
                     unixtime += 7 * MINSECS
@@ -147,7 +147,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     ##################
 
                     # Test day increment
-                    await cmdr.runCmdLine("cron add -d 2 {[graph:node='*' :type=d1]}")
+                    await cmdr.runCmdLine("cron add -d +2 {[graph:node='*' :type=d1]}")
                     self.true(outp.expect('Created cron job'))
                     guid1 = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
 
@@ -173,7 +173,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     unixtime = datetime.datetime(year=2018, month=12, day=11, hour=7, minute=10,
                                                  tzinfo=tz.utc).timestamp()  # A Tuesday
 
-                    await cmdr.runCmdLine("cron add -H 3= -d Mon,Thursday= {[graph:node='*' :type=d2]}")
+                    await cmdr.runCmdLine("cron add -H 3 -d Mon,Thursday {[graph:node='*' :type=d2]}")
                     guid2 = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
                     unixtime = datetime.datetime(year=2018, month=12, day=13, hour=3, minute=10,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
@@ -183,13 +183,13 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine(f"cron del {guid1}")
                     await cmdr.runCmdLine(f"cron del {guid2}")
 
-                    await cmdr.runCmdLine("cron add -H 3= -d Noday= {[graph:node='*' :type=d2]}")
-                    self.true(outp.expect('failed to parse day value "Noday="'))
+                    await cmdr.runCmdLine("cron add -H 3 -d Noday {[graph:node='*' :type=d2]}")
+                    self.true(outp.expect('failed to parse day value "Noday"'))
 
                     ##################
 
                     # Test fixed day of month: second-to-last day of month
-                    await cmdr.runCmdLine("cron add -d-2= -mDec= {[graph:node='*' :type=d3]}")
+                    await cmdr.runCmdLine("cron add -d-2 -mDec {[graph:node='*' :type=d3]}")
                     guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
 
                     unixtime = datetime.datetime(year=2018, month=12, day=29, hour=0, minute=0,
@@ -205,7 +205,7 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     # Test month increment
 
-                    await cmdr.runCmdLine("cron add -m 2 -d=4= {[graph:node='*' :type=month1]}")
+                    await cmdr.runCmdLine("cron add -m +2 -d=4 {[graph:node='*' :type=month1]}")
 
                     unixtime = datetime.datetime(year=2019, month=2, day=4, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
@@ -216,7 +216,7 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     # Test year increment
 
-                    await cmdr.runCmdLine("cron add -y 2 {[graph:node='*' :type=year1]}")
+                    await cmdr.runCmdLine("cron add -y +2 {[graph:node='*' :type=year1]}")
                     guid2 = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
                     unixtime = datetime.datetime(year=2021, month=1, day=1, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
@@ -224,7 +224,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     await self.agenlen(1, await core.eval('graph:node:type=year1'))
 
                     # Make sure second-to-last day works for February
-                    await cmdr.runCmdLine("cron add -m February= -d=-2= {[graph:node='*' :type=year2]}")
+                    await cmdr.runCmdLine("cron add -m February -d=-2 {[graph:node='*' :type=year2]}")
                     unixtime = datetime.datetime(year=2021, month=2, day=27, hour=0, minute=0,
                                                  tzinfo=tz.utc).timestamp()  # Now Thursday
                     await cmdr.runCmdLine('cron list')
@@ -293,3 +293,42 @@ class CmdCronTest(s_t_utils.SynTest):
                     outp.clear()
                     await cmdr.runCmdLine(f"cron del {guid}")
                     self.true(outp.expect('Deleted cron job'))
+
+                    ##################
+
+                    # Test the aliases
+                    outp.clear()
+                    await cmdr.runCmdLine('cron add --hourly 15 {#bar}')
+                    guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
+                    await cmdr.runCmdLine(f'cron stat {guid[:6]}')
+                    self.true(outp.expect("{'minute': 15}"))
+
+                    outp.clear()
+                    await cmdr.runCmdLine('cron add --daily 05:47 {#bar}')
+                    guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
+                    await cmdr.runCmdLine(f'cron stat {guid[:6]}')
+                    self.true(outp.expect("{'hour': 5, 'minute': 47"))
+
+                    outp.clear()
+                    await cmdr.runCmdLine('cron add --monthly=-1:12:30 {#bar}')
+                    guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
+                    await cmdr.runCmdLine(f'cron stat {guid[:6]}')
+                    self.true(outp.expect("{'hour': 12, 'minute': 30, 'dayofmonth': -1}"))
+
+                    outp.clear()
+                    await cmdr.runCmdLine('cron add --yearly 04:17:12:30 {#bar}')
+                    guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
+                    await cmdr.runCmdLine(f'cron stat {guid[:6]}')
+                    self.true(outp.expect("{'month': 4, 'hour': 12, 'minute': 30, 'dayofmonth': 17}"))
+
+                    outp.clear()
+                    await cmdr.runCmdLine('cron add --yearly 04:17:12 {#bar}')
+                    self.true(outp.expect('Failed to parse parameter'))
+
+                    outp.clear()
+                    await cmdr.runCmdLine('cron add --daily xx:xx {#bar}')
+                    self.true(outp.expect('Failed to parse ..ly parameter'))
+
+                    outp.clear()
+                    await cmdr.runCmdLine('cron add --hourly 1 -M 17 {#bar}')
+                    self.true(outp.expect('may not use both'))
