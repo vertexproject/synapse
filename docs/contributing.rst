@@ -2,7 +2,7 @@ Contributing to Synapse
 =======================
 
 * `Project Style Guide`_.
-* `Docs Generation`_.
+* `Git Hook & Syntax Checking`_.
 * `Contribution Process`_.
 
 Project Style Guide
@@ -321,8 +321,8 @@ not be accepted.
 
 .. _synapse-contributing-hook:
 
-Git Hooks & Syntax Checking
----------------------------
+Git Hook & Syntax Checking
+--------------------------
 
 A set of helper scripts are available for doing python syntax checking.
 These include a script to do generic syntax checking of all synapse files;
@@ -334,13 +334,13 @@ data from cells. This results in cleaner diffs for .ipynb files over time.
 
 #. An example of running the generic syntax check script is seen below:
 
-  ::
+   ::
 
-     ~/git/synapse$ ./scripts/syntax_check.py
-     PEP8 style violations have been detected.
+      ~/git/synapse$ ./scripts/syntax_check.py
+      PEP8 style violations have been detected.
 
-     ./synapse/tests/test_lib_types.py:397: [E226] missing whitespace around arithmetic operator
-     ./synapse/tests/test_lib_types.py:398: [E226] missing whitespace around arithmetic operator
+      ./synapse/tests/test_lib_types.py:397: [E226] missing whitespace around arithmetic operator
+      ./synapse/tests/test_lib_types.py:398: [E226] missing whitespace around arithmetic operator
 
 
 #. Installing the git hook is easy:
@@ -362,7 +362,8 @@ data from cells. This results in cleaner diffs for .ipynb files over time.
       ./synapse/tests/test_lib_types.py:397: [E226] missing whitespace around arithmetic operator
       ./synapse/tests/test_lib_types.py:398: [E226] missing whitespace around arithmetic operator
 
-#. This may be automatically fixed for you:
+#. This may be automatically fixed for you using the `pep8_staged_files.py` script.
+   Note that **most**, but not **all** syntax errors may be fixed with the helper script.
 
    ::
 
@@ -395,8 +396,6 @@ data from cells. This results in cleaner diffs for .ipynb files over time.
       [some-branch f254f5bf] Demo commit
        1 file changed, 3 insertions(+), 2 deletions(-)
 
-
-#. Note - **most**, but not **all** syntax errors may be fixed with the
 
 Contribution Process
 --------------------
