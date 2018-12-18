@@ -824,6 +824,11 @@ class Loc(Type):
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+        self.setCmprCtor('^=', self._ctorCmprPref)
+        self.setCmprCtor('=', self._ctorCmprEq)
+        self.indxcmpr['^='] = self.indxByPref
+        self.indxcmpr['='] = self.indxByEq
+        self.setLiftHintCmprCtor('^=', self._ctorCmprPref)
 
     def _normPyStr(self, valu):
 
@@ -851,6 +856,14 @@ class Loc(Type):
             ('pref', indx),
         )
 
+    def indxByPref(self, valu):
+        norm, info = self.norm(valu)
+        indx = self.indx(norm)
+
+        return (
+            ('pref', indx.strip(b'\x00')),
+        )
+
     @s_cache.memoize()
     def stems(self, valu):
         norm, info = self.norm(valu)
@@ -860,6 +873,14 @@ class Loc(Type):
             part = '.'.join(parts[:i + 1])
             ret.append(part)
         return ret
+
+    def _ctorCmprPref(self, text):
+        norm, _ = self.norm(text)
+
+        def cmpr(valu):
+            return valu.startswith(norm)
+
+        return cmpr
 
     def _ctorCmprEq(self, text):
         norm, _ = self.norm(text)
@@ -873,7 +894,6 @@ class Loc(Type):
             return norm in vstems
 
         return cmpr
-
 
 class Ndef(Type):
 
