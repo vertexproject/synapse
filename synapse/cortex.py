@@ -588,7 +588,7 @@ class Cortex(s_cell.Cell):
 
         for name, valu in self.counts.items():
             byts = s_common.int64en(valu)
-            self.slab.put(name.encode('utf8'), byts)
+            self.slab.put(name.encode('utf8'), byts, db=self.formcountdb)
         logger.info('Done calculating form counts.')
 
     def onTagAdd(self, name, func):
