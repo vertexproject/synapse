@@ -1,3 +1,6 @@
+.. note::
+   This document needs to be updated.
+
 Background - Why Synapse?
 =========================
 
