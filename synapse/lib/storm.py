@@ -401,7 +401,7 @@ class DelNodeCmd(Cmd):
 
 class SudoCmd(Cmd):
     '''
-    Use admin priviliges to bypass standard query permissions.
+    Use admin privileges to bypass standard query permissions.
 
     Example:
 
@@ -425,7 +425,7 @@ class SudoCmd(Cmd):
 
 class ReIndexCmd(Cmd):
     '''
-    Use admin priviliges to re index/normalize node properties.
+    Use admin privileges to re index/normalize node properties.
 
     Example:
 
