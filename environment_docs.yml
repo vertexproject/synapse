@@ -1,0 +1,9 @@
+# Environment file for conda for readthedocs
+# This is to be used until rtd supports python 3.7 natively
+name: synapse-docs
+dependencies:
+  - python=3.7
+  - pip:
+    - sphinx
+    - jupyter
+    - sphinx-rtd-theme

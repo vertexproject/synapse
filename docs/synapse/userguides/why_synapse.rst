@@ -1,3 +1,6 @@
+.. note::
+   This document needs to be updated.
+
 Background - Why Synapse?
 =========================
 
@@ -25,8 +28,6 @@ Highly Optimized Performance
 ----------------------------
 
 Synapse was designed to address the performance limitations that constrain many large-scale analysis systems and eventually make them unworkable in practice. Synapse developers conducted extensive performance testing during Synapse’s initial development phase, and selected LMDB as the storage backing that provides optimal performance to meet Synapse’s goals. In addition, Synapse uses type-optimized indexing so that each type of data can be indexed in a manner that is optimized for how that data is typically queried and used.
-
-For detailed performance benchmarks, see `Synapse Performance`_.
 
 Comprehensive, Extensible Data Model
 ------------------------------------
@@ -109,5 +110,3 @@ Many of the real-world examples in this User Guide reference data from the field
 .. _Github:                https://github.com/vertexproject
 
 .. _`Apache License 2.0`:  https://github.com/vertexproject/synapse/blob/master/LICENSE
- 
-.. _`Synapse Performance`: ../../performance.rst

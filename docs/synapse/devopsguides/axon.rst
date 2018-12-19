@@ -1,3 +1,0 @@
-Axon: Synapse Blob Storage
-==========================
-

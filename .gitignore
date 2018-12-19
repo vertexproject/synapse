@@ -3,12 +3,13 @@ __pycache__/
 *.py[cod]
 *.swp
 
-# sphinx build dir
-docs/_build
 # sphinx API doc dir
-docs/synapse/api
+docs/api
 docs/synapse/datamodel.rst
 docs/synapse/configables.rst
+
+# ipython checkpoints
+.ipynb_checkpoints
 
 # C extensions
 *.so

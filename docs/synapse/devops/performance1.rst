@@ -1,5 +1,8 @@
-Synapse Performance
-===================
+.. note::
+   This document was generated from a single .rst file
+
+Synapse Performance - 1
+=======================
 
 Measuring the performance of a synapse cortex is a complex undertaking which depends
 not only on the test configurations, but the "shape" of the data being ingested and
@@ -34,7 +37,7 @@ Majestic Million
 ````````````````
 
 The Majestic Million is a ranked list of a million FQDNs which is freely
-available at http://downloads.majestic.com/majestic_million.csv .  
+available at http://downloads.majestic.com/majestic_million.csv .
 
 This dataset was selected for performance benchmarking due to it being a "worst case" bookend.
 Within a cortex, inet:fqdn nodes undergo extensive normalization and often the creation of one
@@ -116,7 +119,7 @@ Each of the test results below shows how the various test configurations perform
 benchmark tests.  In sections below, we discuss results for individual configurations and what that
 means when selecting how to select a cortex configuration for a given purpose.
 
-.. image:: images/synapse_bench.png
+.. image:: ../../images/synapse_bench.png
    :width: 100%
 
 +----------------------------+-------------+------------+-------------+------------------+----------------+

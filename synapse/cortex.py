@@ -1371,6 +1371,7 @@ def getTempCortex(mods=None):
 
     Notes:
         The cortex and temporary directory are town down on exit.
+        This should only be called from synchronous code.
 
     Returns:
         Proxy to the cortex.

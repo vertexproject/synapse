@@ -2,9 +2,7 @@
 """
 Copy this file to .git/hooks/pre-commit in order to have the hooks run when doing a git commit action.
 
-Currently it does not cause a commit to fail; but will generate warnings.
-
-Requires pycodestyle to be installed.
+Requires pycodestyle and nbstripout to be installed.
 
 Forked from https://gist.github.com/810399
 Updated from https://github.com/cbrueffer/pep8-git-hook
@@ -45,39 +43,57 @@ def system(*args, **kwargs):
     return out
 
 def main():
-    files = system('git', 'diff', '--cached', '--name-only').decode("utf-8")
-    files = [file.strip() for file in files.split('\n') if file.strip().endswith('.py')]
+    gitdir = system('git', 'rev-parse', '--show-toplevel').decode('utf-8').strip()
+    files = system('git', 'diff', '--cached', '--name-only').decode('utf-8')
+    pyfiles = [file.strip() for file in files.split('\n') if file.strip().endswith('.py')]
+    nbfiles = [os.path.join(gitdir, file.strip()) for file in files.split('\n') if file.strip().endswith('.ipynb')]
 
-    if not files:
+    all_files = pyfiles + nbfiles
+
+    if not all_files:
         sys.exit(0)
 
-    tempdir = tempfile.mkdtemp()
-    for name in files:
-        filename = os.path.join(tempdir, name)
-        filepath = os.path.dirname(filename)
+    if pyfiles:
+        tempdir = tempfile.mkdtemp()
+        for name in pyfiles:
+            filename = os.path.join(tempdir, name)
+            filepath = os.path.dirname(filename)
 
-        if not os.path.exists(filepath):
-            os.makedirs(filepath)
-        with open(filename, 'w') as f:
-            system('git', 'show', ':' + name, stdout=f)
+            if not os.path.exists(filepath):
+                os.makedirs(filepath)
+            with open(filename, 'w') as f:
+                system('git', 'show', ':' + name, stdout=f)
 
-    args = ['pycodestyle']
-    if select_codes and ignore_codes:
-        print('Error: select and ignore codes are mutually exclusive')
-        sys.exit(1)
-    elif select_codes:
-        args.extend(('--select', ','.join(select_codes)))
-    elif ignore_codes:
-        args.extend(('--ignore', ','.join(ignore_codes)))
-    args.extend(overrides)
-    args.append('.')
-    output = system(*args, cwd=tempdir)
-    shutil.rmtree(tempdir)
-    if output:
-        print('PEP8 style violations have been detected.  Please fix them\n'
-              'or force the commit with "git commit --no-verify".\n')
-        print(output.decode("utf-8"),)
-        sys.exit(1)
+        args = ['pycodestyle']
+        if select_codes and ignore_codes:
+            print('Error: select and ignore codes are mutually exclusive')
+            sys.exit(1)
+        elif select_codes:
+            args.extend(('--select', ','.join(select_codes)))
+        elif ignore_codes:
+            args.extend(('--ignore', ','.join(ignore_codes)))
+        args.extend(overrides)
+        args.append('.')
+        output = system(*args, cwd=tempdir)
+        shutil.rmtree(tempdir)
+        if output:
+            print('PEP8 style violations have been detected.  Please fix them\n'
+                  'or force the commit with "git commit --no-verify".\n')
+            print(output.decode("utf-8"),)
+            sys.exit(1)
+    if nbfiles:
+        print('Ipython notebooks detected - stripping their output automatically and re-adding them.')
+        output = system('nbstripout', '--help').decode('utf-8')
+        if 'notebook' in output:
+            for nbfp in nbfiles:
+                nbfp = os.path.join(gitdir, nbfp)
+                args = ['nbstripout', nbfp]
+                system(*args)
+                args = ['git', 'add', nbfp]
+                system(*args)
+        else:
+            print('nbstripout not installed - skipping notebook normalization.')
+
     sys.exit(0)
 
 if __name__ == '__main__':
