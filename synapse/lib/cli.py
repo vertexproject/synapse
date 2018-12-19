@@ -485,7 +485,7 @@ class CmdHelp(Cmd):
 
 class CmdLocals(Cmd):
     '''
-    List the current locals for a given CLI object
+    List the current locals for a given CLI object.
     '''
     _cmd_name = 'locs'
 
