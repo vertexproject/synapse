@@ -139,8 +139,10 @@ Examples:
 
 class Cron(s_cli.Cmd):
     '''
-Manages cron jobs in a cortex.  Cron jobs are rules persistently stored in a
-cortex such that storm queries automatically run on a time schedule.
+Manages cron jobs in a cortex.
+
+Cron jobs are rules persistently stored in a cortex such that storm queries
+automatically run on a time schedule.
 
 Cron jobs may be be recurring or one-time.  Use the 'at' command to add
 one-time jobs.
@@ -546,8 +548,9 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
 class At(s_cli.Cmd):
     '''
-Adds a non-recurring cron job that will execute a Storm query at one or more
-specified times.
+Adds a non-recurring cron job.
+
+It will execute a Storm query at one or more specified times.
 
 List/details/deleting cron jobs created with 'at' use the same commands as
 other cron jobs:  cron list/stat/del respectively.

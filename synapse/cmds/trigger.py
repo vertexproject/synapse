@@ -77,9 +77,10 @@ Notes:
 
 class Trigger(s_cli.Cmd):
     '''
-Manipulate triggers in a cortex.  Triggers are rules persistently stored in
-a cortex such that storm queries automatically run when a particular event
-happens.
+Manipulate triggers in a cortex.
+
+Triggers are rules persistently stored in a cortex such that storm queries
+automatically run when a particular event happens.
 
 A subcommand is required.  Use `trigger -h` for more detailed help.
 '''
