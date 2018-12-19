@@ -1,5 +1,0 @@
-
-Design Concepts - Layers
-========================
-
-TBD
