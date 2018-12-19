@@ -48,6 +48,9 @@ class CmdrCore(s_base.Base):
         self.onfini(self._onCmdrCoreFini)
         self.acm = None  # A placeholder for the context manager
 
+    async def addFeedData(self, name, items, seqn=None):
+        return await self.core.addFeedData(name, items, seqn)
+
     async def _runStorm(self, text, opts=None, cmdr=False):
         mesgs = []
 

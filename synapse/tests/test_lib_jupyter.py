@@ -1,7 +1,4 @@
-import synapse.exc as s_exc
-
-import synapse.lib.node as s_node
-
+import synapse.common as s_common
 import synapse.lib.jupyter as s_jupyter
 
 import synapse.tests.utils as s_t_utils
@@ -68,3 +65,14 @@ class JupyterTest(s_t_utils.SynTest):
                     podes = await cmdrcore.eval('teststr', num=3)
                     self.len(3, podes)
                     await self.asyncraises(AssertionError, cmdrcore.eval('teststr', num=1))
+
+                    # Feed function for data loading
+                    data = [
+                        (('testint', 137), {}),
+                    ]
+                    guid = s_common.guid()
+                    ret = await cmdrcore.addFeedData('syn.nodes', data, (guid, 1))
+                    self.eq(ret, 2)
+                    podes = await cmdrcore.eval('testint=137',
+                                                num=1, cmdr=False)
+                    self.len(1, podes)
