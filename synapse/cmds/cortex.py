@@ -188,6 +188,10 @@ class Log(s_cli.Cmd):
 
 class PsCmd(s_cli.Cmd):
 
+    '''
+    List running tasks in the cortex.
+    '''
+
     _cmd_name = 'ps'
     _cmd_syntax = ()
 
