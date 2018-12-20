@@ -779,16 +779,19 @@ class Parser:
                 self.nextmust('}')
                 continue
 
-            argv.append(self.cmdvalu())
+            argv.append(self.cmdvalu(until=whitespace))
         return argv
 
-    def cmdvalu(self):
+    def cmdvalu(self, until=cmdquote):
+        '''
+        Consume and return one command argument, stopping when it hits a character (not in a quotation) in `until`.
+        '''
         self.ignore(whitespace)
         if self.nextstr('"'):
             return self.quoted()
         if self.nextstr("'"):
             return self.singlequoted()
-        return self.noms(until=cmdquote)
+        return self.noms(until=until)
 
     def editoper(self):
 

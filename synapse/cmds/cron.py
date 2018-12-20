@@ -337,6 +337,11 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             'hour': (0, 'day'),
             'minute': (0, 'hour'),
         }
+
+        if not opts.query.startswith('{'):
+            self.printf('Error: query parameter must start with {')
+            return
+
         try:
             alias_opts = self._parse_alias(opts)
         except ValueError as e:
