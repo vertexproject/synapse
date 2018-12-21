@@ -1,10 +1,7 @@
 import os
-import sys
+import json
+import pathlib
 import contextlib
-
-# Insert the root path of the repository to sys.path
-synroot = os.path.abspath('../../../')
-sys.path.insert(0, synroot)
 
 import synapse.glob as s_glob
 import synapse.common as s_common
@@ -14,6 +11,59 @@ import synapse.telepath as s_telepath
 import synapse.lib.base as s_base
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.node as s_node
+import synapse.lib.msgpack as s_msgpack
+
+def getDocFile(fn, root=None):  # pragma: no cover
+    '''
+    Helper for getting a documentation data file paths.
+    Mainly used for loading data into temporary cortexes.
+    '''
+    cwd = pathlib.Path(os.getcwd())
+    if root:
+        cwd = pathlib.Path(root)
+    # Walk up a directory until you find '...d./data'
+    while True:
+        dpath = cwd.joinpath('docdata')
+        if dpath.is_dir():
+            break
+        parent = cwd.parent
+        if parent == cwd:
+            raise ValueError(f'Unable to find data directory from {os.getwcd()}.')
+        cwd = parent
+
+    # Protect against traversal
+    fpath = os.path.abspath(os.path.join(dpath.as_posix(), fn))
+    if not fpath.startswith(dpath.as_posix()):
+        raise ValueError(f'Path escaping detected: {fn}')
+
+    # Existence
+    if not os.path.isfile(fpath):
+        raise ValueError(f'File does not exist: {fn}')
+
+    return fpath
+
+def getDocData(fp, root=None):
+    '''
+    Helper for getting a data from documentation data files.
+    Mainly used for loading data into temporary cortexes.
+
+    Will detect json/jsonl/yaml/mpk extensions and automatically
+    decode that data if found; otherwise it returns bytes.
+    '''
+    fpath = getDocFile(fp, root)
+    if fpath.endswith('.yaml'):
+        return s_common.yamlload(fpath)
+    if fpath.endswith('.json'):
+        return s_common.jsload(fpath)
+    with s_common.genfile(fpath) as fd:
+        if fpath.endswith('.mpk'):
+            return s_msgpack.un(fd.read())
+        if fpath.endswith('.jsonl'):
+            recs = []
+            for line in fd.readlines():
+                recs.append(json.loads(line.decode()))
+            return recs
+        return fd.read()
 
 
 @contextlib.asynccontextmanager
