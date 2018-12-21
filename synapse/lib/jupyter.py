@@ -13,10 +13,25 @@ import synapse.lib.cmdr as s_cmdr
 import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
 
-def getDocFile(fn, root=None):  # pragma: no cover
+def getDocPath(fn, root=None):
     '''
     Helper for getting a documentation data file paths.
-    Mainly used for loading data into temporary cortexes.
+
+    Args:
+        fn (str): Name of the file to retrieve the full path for.
+        root (str): Optional root path to look for a docdata in.
+
+    Notes:
+        Defaults to looking for the ``docdata`` directory in the current
+        working directory. This behavior works fine for notebooks nested
+        in the docs directory of synapse; but this root directory that
+        is looked for may be overridden by providing an alternative root.
+
+    Returns:
+        str: A file path.
+
+    Raises:
+        ValueError if the file does not exist or directory traversal attempted..
     '''
     cwd = pathlib.Path(os.getcwd())
     if root:
@@ -44,13 +59,27 @@ def getDocFile(fn, root=None):  # pragma: no cover
 
 def getDocData(fp, root=None):
     '''
-    Helper for getting a data from documentation data files.
-    Mainly used for loading data into temporary cortexes.
 
-    Will detect json/jsonl/yaml/mpk extensions and automatically
-    decode that data if found; otherwise it returns bytes.
+    Args:
+        fn (str): Name of the file to retrieve the data of.
+        root (str): Optional root path to look for a docdata directory in.
+
+    Notes:
+        Will detect json/jsonl/yaml/mpk extensions and automatically
+        decode that data if found; otherwise it returns bytes.
+
+        Defaults to looking for the ``docdata`` directory in the current
+        working directory. This behavior works fine for notebooks nested
+        in the docs directory of synapse; but this root directory that
+        is looked for may be overridden by providing an alternative root.
+
+    Returns:
+        data: May be deserialized data or bytes.
+
+    Raises:
+        ValueError if the file does not exist or directory traversal attempted..
     '''
-    fpath = getDocFile(fp, root)
+    fpath = getDocPath(fp, root)
     if fpath.endswith('.yaml'):
         return s_common.yamlload(fpath)
     if fpath.endswith('.json'):
