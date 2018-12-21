@@ -1,4 +1,8 @@
+import os
+import json
+
 import synapse.common as s_common
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jupyter as s_jupyter
 
 import synapse.tests.utils as s_t_utils
@@ -76,3 +80,38 @@ class JupyterTest(s_t_utils.SynTest):
                     podes = await cmdrcore.eval('testint=137',
                                                 num=1, cmdr=False)
                     self.len(1, podes)
+
+    def test_doc_data(self):
+        with self.getTestDir() as dirn:
+            s_common.gendir(dirn, 'docdata', 'stuff')
+
+            docdata = s_common.genpath(dirn, 'docdata')
+
+            root = s_common.genpath(dirn, 'synapse', 'userguides')
+
+            d = {'key': 'value'}
+
+            s_common.jssave(d, docdata, 'data.json')
+            s_common.yamlsave(d, docdata, 'data.yaml')
+            s_msgpack.dumpfile(d, os.path.join(docdata, 'data.mpk'))
+            with s_common.genfile(docdata, 'stuff', 'data.txt') as fd:
+                fd.write('beep'.encode())
+            with s_common.genfile(docdata, 'data.jsonl') as fd:
+                fd.write(json.dumps(d).encode() + b'\n')
+                fd.write(json.dumps(d).encode() + b'\n')
+                fd.write(json.dumps(d).encode() + b'\n')
+
+            data = s_jupyter.getDocData('data.json', root)
+            self.eq(data, d)
+            data = s_jupyter.getDocData('data.yaml', root)
+            self.eq(data, d)
+            data = s_jupyter.getDocData('data.mpk', root)
+            self.eq(data, d)
+            data = s_jupyter.getDocData('stuff/data.txt', root)
+            self.eq(data, b'beep')
+            data = s_jupyter.getDocData('data.jsonl', root)
+            self.eq(data, [d, d, d])
+
+            self.raises(ValueError, s_jupyter.getDocData, 'newp.bin', root)
+            self.raises(ValueError, s_jupyter.getDocData,
+                        '../../../../../../etc/passwd', root)
