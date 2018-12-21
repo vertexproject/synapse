@@ -96,7 +96,6 @@ class JupyterTest(s_t_utils.SynTest):
             s_msgpack.dumpfile(d, os.path.join(docdata, 'data.mpk'))
             with s_common.genfile(docdata, 'stuff', 'data.txt') as fd:
                 fd.write('beep'.encode())
-            # TODO JSONL
             with s_common.genfile(docdata, 'data.jsonl') as fd:
                 fd.write(json.dumps(d).encode() + b'\n')
                 fd.write(json.dumps(d).encode() + b'\n')
