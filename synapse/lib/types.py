@@ -825,9 +825,7 @@ class Loc(Type):
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
         self.setCmprCtor('^=', self._ctorCmprPref)
-        self.setCmprCtor('=', self._ctorCmprEq)
         self.indxcmpr['^='] = self.indxByPref
-        self.indxcmpr['='] = self.indxByEq
         self.setLiftHintCmprCtor('^=', self._ctorCmprPref)
 
     def _normPyStr(self, valu):
@@ -846,15 +844,6 @@ class Loc(Type):
         parts = norm.split('.')
         valu = '\x00'.join(parts) + '\x00'
         return valu.encode('utf8', 'surrogatepass')
-
-    def indxByEq(self, valu):
-
-        norm, info = self.norm(valu)
-        indx = self.indx(norm)
-
-        return (
-            ('pref', indx),
-        )
 
     def indxByPref(self, valu):
         norm, info = self.norm(valu)
@@ -875,14 +864,6 @@ class Loc(Type):
         return ret
 
     def _ctorCmprPref(self, text):
-        norm, _ = self.norm(text)
-
-        def cmpr(valu):
-            return valu.startswith(norm)
-
-        return cmpr
-
-    def _ctorCmprEq(self, text):
         norm, _ = self.norm(text)
 
         def cmpr(valu):
