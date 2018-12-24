@@ -624,7 +624,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(2, nodes)
 
                 # test loc prop prefix based lookup
-                nodes = await alist(snap.getNodesBy('testtype10:locprop', 'us.va'))
+                nodes = await alist(snap.getNodesBy('testtype10:locprop', 'us.va', cmpr='^='))
 
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef[1], 'one')
