@@ -4,32 +4,39 @@
 %import common.DIGIT
 %import common.ESCAPED_STRING
 
-query: WSCOMM? ((command | queryoption | editopers | oper) WSCOMM?)+
+query: WSCOMM? ((command | queryoption | editopers | oper) WSCOMM?)*
 
 command: "|" WS? stormcmd WSCOMM? ["|"]
 
-queryoption: "%" WS? OPTSETS WS? "=" ALPHANUMS
+queryoption: "%" WS? LCASE_LETTER+ WS? "=" (LETTER | DIGIT)+
 editopers: "[" WS? (editoper WS?)* "]"
-editoper: editnodeadd | edittagadd // et al
-editnodeadd: ABSPROP WS? "=" WS? valu
+editoper: editpropset | editunivset | edittagadd | editpropdel | editunivdel | edittagdel | editnodeadd
 edittagadd: "+" tagname [WS? "=" valu]
+editunivdel: "-" UNIVPROP
+edittagdel: "-" tagname
+editpropset: RELPROP WS? "=" WS? valu
+editpropdel: "-" RELPROP
+editunivset: UNIVPROP WS? "=" WS? valu
+editnodeadd: ABSPROP WS? "=" WS? valu
 ABSPROP: VARSETS // must be a propname
 
-oper: formpivot | formpivotin | opervarlist | filtoper | liftbytag | liftpropby | liftprop | stormcmd | operrelprop
-    | forloop | switchcase | "break" | "continue" | valuvar
+oper: subquery | formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | filtoper | liftbytag
+    | liftpropby | stormcmd | operrelprop | forloop | switchcase | "break" | "continue" | valuvar
 
 forloop: "for" WS? (VARNAME | varlist) WS? "in" WS? VARNAME WS? subquery
-subquery: "{" query? "}"
+subquery: "{" query "}"
 switchcase: "switch" WS? varvalu WS? "{" (WSCOMM? (("*" WS? ":" subquery) | (CASEVALU WSCOMM? subquery)) )* WSCOMM? "}"
 varlist: "(" [WS? VARNAME (WS? "," WS? VARNAME)*] WS? ["," WS?] ")"
 CASEVALU: (DOUBLEQUOTEDSTRING WSCOMM? ":") | /[^:]+:/
 
-OPTSETS: LCASE_LETTER+
-ALPHANUMS: (LETTER | DIGIT)+
-VARSETS: ("$" | "." | ":" | LETTER | DIGIT)+
+// Note: changed from syntax.py in that cannot start with ':' or '.'
+VARSETS: ("$" | LETTER | DIGIT) ("$" | "." | ":" | LETTER | DIGIT)*
 
+// TAGMATCH and tagname/TAG are redundant
 formpivot: "->" WS? ("*" | TAGMATCH | ABSPROP)
+formjoin:   "-+>" WS? ("*" | ABSPROP)
 formpivotin: "<-" WS? ("*" | ABSPROP)
+formjoinin: "<+-" WS? ("*" | ABSPROP)
 opervarlist: varlist WS? "=" WS? valu
 
 operrelprop: RELPROP [WS? (proppivot | propjoin)]
@@ -38,8 +45,8 @@ propjoin: "-*>" WS? ABSPROP
 
 valuvar: VARNAME WS? "=" WS? valu
 
-liftpropby: PROPNAME WS? CMPR WS? valu
-liftprop: PROPNAME
+liftpropby: PROPNAME [(tagname [WS? CMPR valu]) | (WS? CMPR WS? valu)]
+lifttagtag: "#" tagname
 liftbytag: tagname
 tagname: "#" WS? (VARNAME | TAG)
 
@@ -48,22 +55,25 @@ VARTOKN: VARCHARS
 VARCHARS: (LETTER | DIGIT | "_")+
 stormcmd: CMDNAME (WS cmdargv)* [WS? "|"]
 cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
-TAG: /[^=\)\]},@ \t\n]/+
+
+// Note: different from syntax.py in explicitly disallowing # as first char
+TAG: /[^#=\)\]},@ \t\n][^=\)\]},@ \t\n]*/
 TAGMATCH: /#[^=)\]},@ \t\n]*/
 
 CMPR: /\*.*?=|[!<>@^~=]+/
-valu: NONQUOTEWORD | valulist | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | varvalu | tagname | RELPROPVALU
-    | UNIVPROPVALU // and more
+valu: NONQUOTEWORD | valulist | varvalu | RELPROPVALU | UNIVPROPVALU | tagname | DOUBLEQUOTEDSTRING
+    | SINGLEQUOTEDSTRING
 valulist: "(" [WS? valu (WS? "," WS? valu)*] WS? ["," WS?] ")"
 
 NONCMDQUOTE: /[^ \t\n|}]+/
 NONQUOTEWORD: (LETTER | DIGIT | "-" | "?") /[^ \t\n\),=\]}|]*/
 
-varvalu:  VARNAME (VARDEREF | varcall)* // et al
+varvalu:  VARNAME (VARDEREF | varcall)*
 varcall: valulist
 filtoper: ("+" | "-") cond
 
-cond: condexpr | (WSCOMM? condsubq) | ((RELPROP | tagname | UNIVPROP | ABSPROP) [WS? CMPR WS? valu]) // et al
+cond: condexpr | condsubq | ("not" WS? cond)
+    | ((RELPROP | UNIVPROP | tagname | ABSPROP) [WS? CMPR WS? valu])
 condexpr: "(" WS? cond (WS? (("and" | "or") WS? cond))* WS? ")"
 condsubq: "{" WSCOMM? query WS? "}" [WSCOMM? CMPR valu]
 VARDEREF: "." VARTOKN
@@ -84,10 +94,11 @@ CPPCOMMENT: /\/\/[^\n]*/
 
 // TOOD:  fix all one-word propnames and define propname as word with a colon
 PROPNAME: "inet:fqdn" | "inet:dns:a" | "inet:dns:query" | "syn:tag" | "teststr:tick" | "teststr" | ".created"
-    | "refs" | ".seen" | "testcomp:haha" | "testcomp" | "testint:loc" | "testint"
-    | ".favcolor" | "file:bytes:size" | "pivcomp" | "pivtarg" | "inet:ipv4" | "seen:source" | "inet:user"
+    | "refs" | ".seen" | ".hehe" | "testcomp:haha" | "testcomp" | "testint:loc" | "testint" | "wentto"
+    | ".favcolor" | "file:bytes:size" | "pivcomp:tick" | "pivcomp" | "pivtarg" | "inet:ipv4:loc"
+    | "inet:ipv4" | "seen:source" | "inet:user" | "media:news"
     | "ps:person" | "geo:place:latlong" | "geo:place" | "cluster" | "testguid" | "inet:asn"
-    | "tel:mob:telem:latlong" // FIXME: all the props
+    | "tel:mob:telem:latlong" | "source" // FIXME: all the props
 
 CMDNAME: "help" | "iden" | "movetag" | "noderefs" | "sudo" | "limit" | "reindex" | "delnode" | "uniq" | "count"
-    | "spin" | "graph" // FIXME: all the commands
+    | "spin" | "graph" | "max" | "min" | "sleep" // FIXME: all the commands
