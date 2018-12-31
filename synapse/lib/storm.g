@@ -60,7 +60,7 @@ cmdargv: subquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | NONCMDQUOTE
 TAG: /[^#=\)\]},@ \t\n][^=\)\]},@ \t\n]*/
 TAGMATCH: /#[^=)\]},@ \t\n]*/
 
-CMPR: /\*.*?=|[!<>@^~=]+/
+CMPR: /\*[^=]*=|[!<>@^~=]+/
 valu: NONQUOTEWORD | valulist | varvalu | RELPROPVALU | UNIVPROPVALU | tagname | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING
 valulist: "(" [WS? valu (WS? "," WS? valu)*] WS? ["," WS?] ")"
@@ -89,7 +89,7 @@ RELPROPVALU: RELPROP
 WSCOMM: (CCOMMENT | CPPCOMMENT | WS)+
 
 // From https://stackoverflow.com/a/36328890/6518334
-CCOMMENT: /\/\*+[^*]*\*+(?:[^\/*][^*]*\*+)*\//
+CCOMMENT: /\/\*+[^*]*\*+([^\/*][^*]*\*+)*\//
 CPPCOMMENT: /\/\/[^\n]*/
 
 // TOOD:  fix all one-word propnames and define propname as word with a colon
