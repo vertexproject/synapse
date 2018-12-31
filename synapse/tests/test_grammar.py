@@ -481,8 +481,6 @@ class GrammarTest(s_t_utils.SynTest):
 
         parser = lark.Lark(grammar, start='query', debug=True)
 
-        _Queries = [
-            'pivtarg=hehe [ .seen=2015 ]', ]
         for i, query in enumerate(_Queries):
             try:
 

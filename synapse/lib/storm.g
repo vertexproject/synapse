@@ -30,7 +30,7 @@ varlist: "(" [WS? VARNAME (WS? "," WS? VARNAME)*] WS? ["," WS?] ")"
 CASEVALU: (DOUBLEQUOTEDSTRING WSCOMM? ":") | /[^:]+:/
 
 // Note: changed from syntax.py in that cannot start with ':' or '.'
-VARSETS: ("$" | LETTER | DIGIT) ("$" | "." | ":" | LETTER | DIGIT)*
+VARSETS: ("$" | "." | LETTER | DIGIT) ("$" | "." | ":" | LETTER | DIGIT)*
 
 // TAGMATCH and tagname/TAG are redundant
 formpivot: "->" WS? ("*" | TAGMATCH | ABSPROP)
