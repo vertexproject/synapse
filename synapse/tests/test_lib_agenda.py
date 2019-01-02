@@ -183,6 +183,8 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.enable()  # make sure it doesn't blow up
                 self.eq([], agenda.list())
 
+                await self.asyncraises(ValueError, agenda.add('visi', '', {s_agenda.TimeUnit.MINUTE: 1}))
+
                 # Schedule a one-shot 1 minute from now
                 await agenda.add('visi', '[teststr=foo]', {s_agenda.TimeUnit.MINUTE: 1})
                 await asyncio.sleep(0)  # give the scheduler a shot to wait
@@ -271,6 +273,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(lastquery, '[teststr=baz]')
 
                 # Modify the last appointment
+                await self.asyncraises(ValueError, agenda.mod(guid2, '', ))
                 await agenda.mod(guid2, '#baz')
                 self.eq(agenda.appts[guid2].query, '#baz')
 

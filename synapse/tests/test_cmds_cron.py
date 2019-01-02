@@ -91,10 +91,13 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('failed to parse day value'))
 
                     outp.clear()
+                    await cmdr.runCmdLine('cron add }')
+                    self.true(outp.expect('query parameter must start with {'))
 
                     ##################
 
                     # Start simple: add a cron job that creates a node every minute
+                    outp.clear()
                     await cmdr.runCmdLine("cron add -M +1 {[graph:node='*' :type=m1]}")
                     self.true(outp.expect('Created cron job'))
                     guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
