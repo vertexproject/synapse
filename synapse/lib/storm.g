@@ -4,35 +4,35 @@
 %import common.DIGIT
 %import common.ESCAPED_STRING
 
-query: WSCOMM? ((command | queryoption | editopers | oper) WSCOMM?)*
+query: WSCOMM? ((command | queryoption | editopers | _oper) WSCOMM?)*
 
 command: "|" WS? stormcmd WSCOMM? ["|"]
 
 queryoption: "%" WS? LCASE_LETTER+ WS? "=" (LETTER | DIGIT)+
 editopers: "[" WS? (editoper WS?)* "]"
 editoper: editpropset | editunivset | edittagadd | editpropdel | editunivdel | edittagdel | editnodeadd
-edittagadd: "+" tagname [WS? "=" valu]
+edittagadd: "+" _tagname [WS? "=" valu]
 editunivdel: "-" UNIVPROP
-edittagdel: "-" tagname
+edittagdel: "-" _tagname
 editpropset: RELPROP WS? "=" WS? valu
 editpropdel: "-" RELPROP
 editunivset: UNIVPROP WS? "=" WS? valu
 editnodeadd: ABSPROP WS? "=" WS? valu
 ABSPROP: VARSETS // must be a propname
 
-oper: subquery | formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | filtoper | liftbytag
+_oper: subquery | formpivot | formjoin | formpivotin | formjoinin | lifttagtag | opervarlist | filtoper | liftbytag
     | liftpropby | stormcmd | operrelprop | forloop | switchcase | "break" | "continue" | valuvar
 
-forloop: "for" WS? (VARNAME | varlist) WS? "in" WS? VARNAME WS? subquery
+forloop: "for" WS? (_varname | varlist) WS? "in" WS? _varname WS? subquery
 subquery: "{" query "}"
 switchcase: "switch" WS? varvalu WS? "{" (WSCOMM? (("*" WS? ":" subquery) | (CASEVALU WSCOMM? subquery)) )* WSCOMM? "}"
-varlist: "(" [WS? VARNAME (WS? "," WS? VARNAME)*] WS? ["," WS?] ")"
+varlist: "(" [WS? _varname (WS? "," WS? _varname)*] WS? ["," WS?] ")"
 CASEVALU: (DOUBLEQUOTEDSTRING WSCOMM? ":") | /[^:]+:/
 
 // Note: changed from syntax.py in that cannot start with ':' or '.'
 VARSETS: ("$" | "." | LETTER | DIGIT) ("$" | "." | ":" | LETTER | DIGIT)*
 
-// TAGMATCH and tagname/TAG are redundant
+// TODO: TAGMATCH and _tagname/TAG are redundant
 formpivot: "->" WS? ("*" | TAGMATCH | ABSPROP)
 formjoin:   "-+>" WS? ("*" | ABSPROP)
 formpivotin: "<-" WS? ("*" | ABSPROP)
@@ -43,14 +43,14 @@ operrelprop: RELPROP [WS? (proppivot | propjoin)]
 proppivot: "->" WS? ("*" | ABSPROP)
 propjoin: "-*>" WS? ABSPROP
 
-valuvar: VARNAME WS? "=" WS? valu
+valuvar: _varname WS? "=" WS? valu
 
-liftpropby: PROPNAME [(tagname [WS? CMPR valu]) | (WS? CMPR WS? valu)]
-lifttagtag: "#" tagname
-liftbytag: tagname
-tagname: "#" WS? (VARNAME | TAG)
+liftpropby: PROPNAME [(_tagname [WS? CMPR valu]) | (WS? CMPR WS? valu)]
+lifttagtag: "#" _tagname
+liftbytag: _tagname
+_tagname: "#" WS? (_varname | TAG)
 
-VARNAME: "$" WS? VARTOKN
+_varname: "$" WS? VARTOKN
 VARTOKN: VARCHARS
 VARCHARS: (LETTER | DIGIT | "_")+
 stormcmd: CMDNAME (WS cmdargv)* [WS? "|"]
@@ -61,19 +61,19 @@ TAG: /[^#=\)\]},@ \t\n][^=\)\]},@ \t\n]*/
 TAGMATCH: /#[^=)\]},@ \t\n]*/
 
 CMPR: /\*[^=]*=|[!<>@^~=]+/
-valu: NONQUOTEWORD | valulist | varvalu | RELPROPVALU | UNIVPROPVALU | tagname | DOUBLEQUOTEDSTRING
+valu: NONQUOTEWORD | valulist | varvalu | RELPROPVALU | UNIVPROPVALU | _tagname | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING
 valulist: "(" [WS? valu (WS? "," WS? valu)*] WS? ["," WS?] ")"
 
 NONCMDQUOTE: /[^ \t\n|}]+/
 NONQUOTEWORD: (LETTER | DIGIT | "-" | "?") /[^ \t\n\),=\]}|]*/
 
-varvalu:  VARNAME (VARDEREF | varcall)*
+varvalu:  _varname (VARDEREF | varcall)*
 varcall: valulist
 filtoper: ("+" | "-") cond
 
 cond: condexpr | condsubq | ("not" WS? cond)
-    | ((RELPROP | UNIVPROP | tagname | ABSPROP) [WS? CMPR WS? valu])
+    | ((RELPROP | UNIVPROP | _tagname | ABSPROP) [WS? CMPR WS? valu])
 condexpr: "(" WS? cond (WS? (("and" | "or") WS? cond))* WS? ")"
 condsubq: "{" WSCOMM? query WS? "}" [WSCOMM? CMPR valu]
 VARDEREF: "." VARTOKN

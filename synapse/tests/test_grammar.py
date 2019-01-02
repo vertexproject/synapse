@@ -1,3 +1,5 @@
+import synapse.lib.syntax2 as s_syntax2
+
 import synapse.tests.utils as s_t_utils
 import lark
 
@@ -476,7 +478,7 @@ _Queries = [
 
 class GrammarTest(s_t_utils.SynTest):
 
-    def test_grammar(*args):
+    def test_grammar(self):
         grammar = open('synapse/lib/storm.g').read()
 
         parser = lark.Lark(grammar, start='query', debug=True)
@@ -484,8 +486,22 @@ class GrammarTest(s_t_utils.SynTest):
         for i, query in enumerate(_Queries):
             try:
 
-                tree = parser.parse(query)
+                parser.parse(query)
                 # print(f'{tree.pretty()}\n)')
             except (lark.ParseError, lark.UnexpectedCharacters):
                 # print(f'Failure on parsing {{{query}}}')
                 raise
+
+    async def test_parser(self):
+
+        _Queries = [
+            'testint<20',
+            '#foo ',
+            '#$tag',
+        ]
+        parseinfo = {'stormcmds': [], 'modelinfo': {}}
+        for i, query in enumerate(_Queries):
+            parser = s_syntax2.Parser(parseinfo, query)
+            tree = parser.query()
+            breakpoint()
+            print(tree)
