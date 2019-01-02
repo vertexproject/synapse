@@ -15,6 +15,8 @@ The User Guide is a living document and will continue to be updated and expanded
 
     userguides/syn_tools_cmdr
 
+    userguides/syn_triggers
+
     userguides/syn_ref_cmd
     userguides/storm_ref_intro
     userguides/storm_ref_syntax
