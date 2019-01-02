@@ -1,0 +1,34 @@
+[
+  {
+    "nodes": [
+      [
+        [
+          "inet:ipv4",
+          1
+        ],
+        {
+          "tags": {
+            "example": [
+              null,
+              null
+            ]
+          }
+        }
+      ],
+      [
+        [
+          "inet:fqdn",
+          "woot.com"
+        ],
+        {
+          "tags": {
+            "example": [
+              null,
+              null
+            ]
+          }
+        }
+      ]
+    ]
+  }
+]

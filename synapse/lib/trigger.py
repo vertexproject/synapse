@@ -238,6 +238,9 @@ class Triggers:
         iden = os.urandom(16)
         db = self.core.slab.initdb(self.TRIGGERS_DB_NAME)
 
+        if not query:
+            raise ValueError('empty query')
+
         # Check the storm query if we can
         if self.enabled:
             self.core.getStormQuery(query)

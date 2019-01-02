@@ -337,6 +337,11 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             'hour': (0, 'day'),
             'minute': (0, 'hour'),
         }
+
+        if not opts.query.startswith('{'):
+            self.printf('Error: query parameter must start with {')
+            return
+
         try:
             alias_opts = self._parse_alias(opts)
         except ValueError as e:
@@ -441,7 +446,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
         for iden, cron in cronlist:
             idenf = s_common.ehex(iden)[:8] + '..'
-            user = cron.get('user') or '<None>'
+            user = cron.get('username') or '<None>'
             query = cron.get('query') or '<missing>'
             isrecur = 'Y' if cron.get('recur') else 'N'
             isrunning = 'Y' if cron.get('isrunning') else 'N'
@@ -493,7 +498,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
         cron = [cron[1] for cron in crons if cron[0] == iden][0]
 
         idenf = s_common.ehex(iden)
-        user = cron.get('user') or '<None>'
+        user = cron.get('username') or '<None>'
         query = cron.get('query') or '<missing>'
         isrecur = 'Yes' if cron.get('recur') else 'No'
         startcount = cron.get('startcount') or 0

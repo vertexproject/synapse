@@ -483,6 +483,9 @@ class Agenda(s_base.Base):
         if reqs is None:
             reqs = {}
 
+        if not query:
+            raise ValueError('empty query')
+
         if not reqs and incunit is None:
             raise ValueError('at least one of reqs and incunit must be non-empty')
 
@@ -515,6 +518,9 @@ class Agenda(s_base.Base):
         appt = self.appts.get(iden)
         if appt is None:
             raise s_exc.NoSuchIden()
+
+        if not query:
+            raise ValueError('empty query')
 
         if self.enabled:
             self.core.getStormQuery(query)

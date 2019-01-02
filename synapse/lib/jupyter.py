@@ -1,10 +1,7 @@
 import os
-import sys
+import json
+import pathlib
 import contextlib
-
-# Insert the root path of the repository to sys.path
-synroot = os.path.abspath('../../../')
-sys.path.insert(0, synroot)
 
 import synapse.glob as s_glob
 import synapse.common as s_common
@@ -14,6 +11,88 @@ import synapse.telepath as s_telepath
 import synapse.lib.base as s_base
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.node as s_node
+import synapse.lib.msgpack as s_msgpack
+
+def getDocPath(fn, root=None):
+    '''
+    Helper for getting a documentation data file paths.
+
+    Args:
+        fn (str): Name of the file to retrieve the full path for.
+        root (str): Optional root path to look for a docdata in.
+
+    Notes:
+        Defaults to looking for the ``docdata`` directory in the current
+        working directory. This behavior works fine for notebooks nested
+        in the docs directory of synapse; but this root directory that
+        is looked for may be overridden by providing an alternative root.
+
+    Returns:
+        str: A file path.
+
+    Raises:
+        ValueError if the file does not exist or directory traversal attempted..
+    '''
+    cwd = pathlib.Path(os.getcwd())
+    if root:
+        cwd = pathlib.Path(root)
+    # Walk up a directory until you find '...d./data'
+    while True:
+        dpath = cwd.joinpath('docdata')
+        if dpath.is_dir():
+            break
+        parent = cwd.parent
+        if parent == cwd:
+            raise ValueError(f'Unable to find data directory from {os.getwcd()}.')
+        cwd = parent
+
+    # Protect against traversal
+    fpath = os.path.abspath(os.path.join(dpath.as_posix(), fn))
+    if not fpath.startswith(dpath.as_posix()):
+        raise ValueError(f'Path escaping detected: {fn}')
+
+    # Existence
+    if not os.path.isfile(fpath):
+        raise ValueError(f'File does not exist: {fn}')
+
+    return fpath
+
+def getDocData(fp, root=None):
+    '''
+
+    Args:
+        fn (str): Name of the file to retrieve the data of.
+        root (str): Optional root path to look for a docdata directory in.
+
+    Notes:
+        Will detect json/jsonl/yaml/mpk extensions and automatically
+        decode that data if found; otherwise it returns bytes.
+
+        Defaults to looking for the ``docdata`` directory in the current
+        working directory. This behavior works fine for notebooks nested
+        in the docs directory of synapse; but this root directory that
+        is looked for may be overridden by providing an alternative root.
+
+    Returns:
+        data: May be deserialized data or bytes.
+
+    Raises:
+        ValueError if the file does not exist or directory traversal attempted..
+    '''
+    fpath = getDocPath(fp, root)
+    if fpath.endswith('.yaml'):
+        return s_common.yamlload(fpath)
+    if fpath.endswith('.json'):
+        return s_common.jsload(fpath)
+    with s_common.genfile(fpath) as fd:
+        if fpath.endswith('.mpk'):
+            return s_msgpack.un(fd.read())
+        if fpath.endswith('.jsonl'):
+            recs = []
+            for line in fd.readlines():
+                recs.append(json.loads(line.decode()))
+            return recs
+        return fd.read()
 
 
 @contextlib.asynccontextmanager
@@ -49,7 +128,16 @@ class CmdrCore(s_base.Base):
         self.acm = None  # A placeholder for the context manager
 
     async def addFeedData(self, name, items, seqn=None):
+        '''
+        Add feed data to the cortex.
+        '''
         return await self.core.addFeedData(name, items, seqn)
+
+    async def runCmdLine(self, text):
+        '''
+        Run a line of text directly via cmdr.
+        '''
+        await self.cmdr.runCmdLine(text)
 
     async def _runStorm(self, text, opts=None, cmdr=False):
         mesgs = []
@@ -64,7 +152,7 @@ class CmdrCore(s_base.Base):
                 mesgs.append(mesg)
 
             with self.cmdr.onWith('storm:mesg', onEvent):
-                await self.cmdr.runCmdLine(text)
+                await self.runCmdLine(text)
 
         else:
             async for mesg in await self.core.storm(text, opts=opts):
