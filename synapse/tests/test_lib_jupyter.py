@@ -81,6 +81,15 @@ class JupyterTest(s_t_utils.SynTest):
                                                 num=1, cmdr=False)
                     self.len(1, podes)
 
+        # Raw cmdline test
+        async with self.getTestDmon(mirror='dmoncore') as dmon:
+            async with await self.agetTestProxy(dmon, 'core') as core:
+                outp = self.getTestOutp()
+                async with await s_jupyter.CmdrCore.anit(core, outp=outp) as cmdrcore:
+                    await cmdrcore.runCmdLine('help')
+                    self.true(outp.expect('cli> help'))
+                    self.true(outp.expect('List commands and display help output.'))
+
     def test_doc_data(self):
         with self.getTestDir() as dirn:
             s_common.gendir(dirn, 'docdata', 'stuff')
