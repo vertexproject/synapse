@@ -375,6 +375,9 @@ class ModelInfo:
         self.univnames.add('.' + univname)
         self.propnames.add('.' + univname)
 
+    def addUnivForm(self, univname, form):
+        self.propnames.add('.'.join([form, univname]))
+
     def isprop(self, name):
         return name in self.propnames
 
@@ -613,6 +616,7 @@ class Model:
 
     def _addFormUniv(self, form, name, tdef, info):
 
+        self._modelinfo.addUnivForm(name, form.name)
         base = '.' + name
         prop = Prop(self, form, base, tdef, info)
 
