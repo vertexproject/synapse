@@ -178,8 +178,6 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
         subparsers.add_parser('list', help="List cron jobs you're allowed to manipulate", usage=ListHelp)
 
-        parser_del = subparsers.add_parser('del', help='delete a cron job', usage=DelHelp)
-        parser_del.add_argument('prefix', help='Cron jobiden prefix')
         parser_add = subparsers.add_parser('add', help='add a cron job', usage=AddHelp)
         parser_add.add_argument('--minute', '-M')
         parser_add.add_argument('--hour', '-H')
