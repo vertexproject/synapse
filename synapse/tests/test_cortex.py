@@ -1560,7 +1560,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.none(tags.get('foo.bar'))
                 self.none(tags.get('foo.bar.baz'))
 
-    async def test_cortex_del_univ(self):
+    async def test_cortex_univ(self):
 
         async with self.getTestCore() as core:
 
@@ -1568,6 +1568,8 @@ class CortexTest(s_t_utils.SynTest):
 
             await self.agenlen(1, core.eval('[ teststr=woot .hehe=20 ]'))
             await self.agenlen(1, core.eval('.hehe'))
+            await self.agenlen(1, core.eval('teststr.hehe=20'))
+            await self.agenlen(0, core.eval('teststr.hehe=19'))
             await self.agenlen(1, core.eval('.hehe [ -.hehe ]'))
             await self.agenlen(0, core.eval('.hehe'))
 
