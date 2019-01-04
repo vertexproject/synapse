@@ -158,7 +158,7 @@ class Type:
 
     def _ctorCmprRange(self, vals):
 
-        if type(vals) not in (list, tuple):
+        if not isinstance(vals, (list, tuple)):
             raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='*range=')
 
         if len(vals) != 2:
@@ -196,7 +196,7 @@ class Type:
     def indxByIn(self, vals):
 
         opers = []
-        if type(vals) not in (list, tuple):
+        if not isinstance(vals, (list, tuple)):
             raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='*in=')
 
         for valu in vals:
@@ -206,7 +206,7 @@ class Type:
 
     def indxByRange(self, valu):
 
-        if type(valu) not in (list, tuple):
+        if not isinstance(valu, (list, tuple)):
             raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='*range=')
 
         if len(valu) != 2:
