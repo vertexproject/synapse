@@ -14,7 +14,7 @@ The User Guide is a living document and will continue to be updated and expanded
     userguides/syn_tools_cmdr
     userguides/syn_tools_feed
 
-    userguides/syn_permissions
+    userguides/syn_perms
     userguides/syn_triggers
     userguides/syn_layers
 
