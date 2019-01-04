@@ -8,14 +8,15 @@ The User Guide is a living document and will continue to be updated and expanded
 .. toctree::
     :titlesonly:
 
-    userguides/storm_data_modification_demo
-
     userguides/bkd_data_model
     userguides/bkd_storm
 
     userguides/syn_tools_cmdr
+    userguides/syn_tools_feed
 
+    userguides/syn_permissions
     userguides/syn_triggers
+    userguides/syn_layers
 
     userguides/syn_ref_cmd
     userguides/storm_ref_intro
