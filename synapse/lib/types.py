@@ -159,10 +159,10 @@ class Type:
     def _ctorCmprRange(self, vals):
 
         if type(vals) not in (list, tuple):
-            raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
+            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='*range=')
 
         if len(vals) != 2:
-            raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
+            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='*range=')
 
         minv = self.norm(vals[0])[0]
         maxv = self.norm(vals[1])[0]
@@ -197,7 +197,7 @@ class Type:
 
         opers = []
         if type(vals) not in (list, tuple):
-            raise s_exc.BadCmprValu(valu=vals, cmpr='*in=')
+            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='*in=')
 
         for valu in vals:
             opers.extend(self.getIndxOps(valu))
@@ -207,10 +207,10 @@ class Type:
     def indxByRange(self, valu):
 
         if type(valu) not in (list, tuple):
-            raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
+            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='*range=')
 
         if len(valu) != 2:
-            raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
+            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='*range=')
 
         minv, _ = self.norm(valu[0])
         maxv, _ = self.norm(valu[1])
@@ -637,7 +637,7 @@ class Int(IntBase):
             maxval = maxmax
 
         if minval < minmin or maxval > maxmax or maxval < minval:
-            raise s_exc.BadTypeDef(self.opts)
+            raise s_exc.BadTypeDef(self.opts, name=self.name)
 
         if not self.signed:
             self._indx_offset = 0
@@ -890,7 +890,7 @@ class Ndef(Type):
 
         form = self.modl.form(formname)
         if form is None:
-            raise s_exc.NoSuchForm(name=formname)
+            raise s_exc.NoSuchForm(name=self.name, form=formname)
 
         formnorm, info = form.type.norm(formvalu)
         norm = (form.name, formnorm)
@@ -1061,7 +1061,7 @@ class NodeProp(Type):
 
         prop = self.modl.prop(propname)
         if prop is None:
-            raise s_exc.NoSuchProp(name=propname)
+            raise s_exc.NoSuchProp(name=self.name, prop=propname)
 
         propnorm, info = prop.type.norm(propvalu)
         return (prop.full, propnorm), {'subs': {'prop': prop.full}}
@@ -1079,13 +1079,13 @@ class Range(Type):
     def postTypeInit(self):
         subtype = self.opts.get('type')
         if not(type(subtype) is tuple and len(subtype) is 2):
-            raise s_exc.BadTypeDef(self.opts)
+            raise s_exc.BadTypeDef(self.opts, name=self.name)
 
         try:
             self.subtype = self.modl.type(subtype[0]).clone(subtype[1])
         except Exception as e:
             logger.exception('subtype invalid or unavailable')
-            raise s_exc.BadTypeDef(self.opts, mesg='subtype invalid or unavailable')
+            raise s_exc.BadTypeDef(self.opts, name=self.name, mesg='subtype invalid or unavailable')
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(tuple, self._normPyTuple)
