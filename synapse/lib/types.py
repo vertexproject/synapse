@@ -1337,6 +1337,33 @@ class Time(IntBase):
 
         return self.norm(valu)[0]
 
+    def getTickTock(self, vals):
+        '''
+        Get a tick, tock time pair.
+
+        Args:
+            vals (list): A pair of values to norm.
+
+        Returns:
+            (int, int): A pair of integers, sorted so that it the first is less than or equal to the second int.
+        '''
+        val0, val1 = vals
+
+        _tick = self._getLiftValu(val0)
+
+        if isinstance(val1, str) and val1.startswith(('+-', '-+')):
+            delt = s_time.delta(val1[2:])
+            # order matters
+            _tock = _tick + delt
+            _tick = _tick - delt
+        else:
+            _tock = self._getLiftValu(val1, relto=_tick)
+
+        tick = min(_tick, _tock)
+        tock = max(_tick, _tock)
+
+        return tick, tock
+
     def _indxTimeRange(self, mint, maxt):
         minv, _ = self.norm(mint)
         maxv, _ = self.norm(maxt)
@@ -1359,31 +1386,52 @@ class Time(IntBase):
                 return self._indxTimeRange(tock + delt, tock)
 
         if type(valu) in (tuple, list):
-            tick = self._getLiftValu(valu[0])
-            tock = self._getLiftValu(valu[1], relto=tick)
+            tick, tock = self.getTickTock(valu)
             return self._indxTimeRange(tick, tock)
 
         return Type.indxByEq(self, valu)
+
+    def indxByRange(self, valu):
+        '''
+        Override default *range= handler to account for relative computation.
+        '''
+
+        if not isinstance(valu, (list, tuple)):
+            raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
+
+        if len(valu) != 2:
+            raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
+
+        tick, tock = self.getTickTock(valu)
+
+        return self._indxTimeRange(tick, tock)
+
+    def _ctorCmprRange(self, vals):
+        '''
+        Override default *range= handler to account for relative computation.
+        '''
+
+        if not isinstance(vals, (list, tuple)):
+            raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
+
+        if len(vals) != 2:
+            raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
+
+        tick, tock = self.getTickTock(vals)
+
+        def cmpr(valu):
+            return tick <= valu <= tock
+
+        return cmpr
 
     def _ctorCmprEq(self, text):
 
         if isinstance(text, (tuple, list)):
 
-            _tick = self._getLiftValu(text[0])
-
-            if text[1].startswith(('+-', '-+')):
-                delt = s_time.delta(text[1][2:])
-                # order matters
-                _tock = _tick + delt
-                _tick = _tick - delt
-            else:
-                _tock = self._getLiftValu(text[1], relto=_tick)
-
-            tick = min(_tick, _tock)
-            tock = max(_tick, _tock)
+            tick, tock = self.getTickTock(text)
 
             def cmpr(valu):
-                return valu >= tick and valu < tock
+                return tick <= valu < tock
             return cmpr
 
         norm, info = self.norm(text)
