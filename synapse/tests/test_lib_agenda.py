@@ -324,8 +324,8 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.add('visi', '[teststr=baz]', {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
                                  incunit=s_agenda.TimeUnit.MONTH, incvals=1)
 
-                xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2018}
-                lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2018}
+                xmas = {s_tu.DAYOFMONTH: 25, s_tu.MONTH: 12, s_tu.YEAR: 2099}
+                lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2099}
 
                 await agenda.delete(guid1)
 
