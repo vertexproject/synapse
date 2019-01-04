@@ -24,7 +24,7 @@ _Queries = [
     'testint>20',
     'testint<30',
     'testint>30',
-    'testint<=20',
+    'testint <=20',
     'testint>=20',
     'testint<=30',
     'teststr=foo',
@@ -922,12 +922,13 @@ class GrammarTest(s_t_utils.SynTest):
                 'modelinfo': core.model.getModelInfo(),
             }
             for i, query in enumerate(_Queries):
-                print(f'{{{query}}}')
-                if i > 10:
+                print(f'{{{query}}}: ', end='')
+                if i > 25:
                     # FIXME:  increase as we get more
                     break
                 parser = s_syntax2.Parser(parseinfo, query)
                 tree = parser.query()
+                print(str(tree))
                 self.eq(str(tree), _ParseResults[i])
 
 def gen_parse_list():
@@ -946,3 +947,4 @@ def gen_parse_list():
             tree = parser.query()
             retn.append(str(tree))
     return retn
+
