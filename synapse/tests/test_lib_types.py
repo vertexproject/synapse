@@ -723,6 +723,20 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.BadCmprValu,
                                   core.eval('teststr +:tick*range=(2015, 2016, 2017)'))
 
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 't1', {'tick': '2018/12/02 23:59:59.000'})
+                node = await snap.addNode('teststr', 't2', {'tick': '2018/12/03'})
+                node = await snap.addNode('teststr', 't3', {'tick': '2018/12/03 00:00:01.000'})
+
+            await self.agenlen(0, core.eval('teststr:tick*range=(2018/12/01, "+24 hours")'))
+            await self.agenlen(2, core.eval('teststr:tick*range=(2018/12/01, "+48 hours")'))
+
+            await self.agenlen(0, core.eval('teststr:tick*range=(2018/12/02, "+23 hours")'))
+            await self.agenlen(1, core.eval('teststr:tick*range=(2018/12/02, "+86399 seconds")'))
+            await self.agenlen(2, core.eval('teststr:tick*range=(2018/12/02, "+24 hours")'))
+            await self.agenlen(3, core.eval('teststr:tick*range=(2018/12/02, "+86401 seconds")'))
+            await self.agenlen(3, core.eval('teststr:tick*range=(2018/12/02, "+25 hours")'))
+
     def test_edges(self):
         model = s_datamodel.Model()
         e = model.type('edge')
