@@ -22,11 +22,6 @@ class TypesTest(s_t_utils.SynTest):
         self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', '*range=')
         self.raises(s_exc.BadCmprValu, t.getIndxOps, ['newp'], '*range=')
 
-        # async with self.getTestCore() as core:
-            # async with await core.snap() as snap:
-                # self.agenraises(s_exc.BadCmprValu,
-                                # snap.getNodesBy(''))
-
     def test_bool(self):
         model = s_datamodel.Model()
         t = model.type('bool')
