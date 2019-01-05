@@ -102,7 +102,7 @@ class BaseTest(s_t_utils.SynTest):
                 self.eq(node.get('n1'), n1def)
                 self.eq(node.get('n1:form'), 'ps:person')
 
-                self.eq(node.get('n2'), n2def)
+                self.eq(node.get('en2'), n2def)
                 self.eq(node.get('n2:form'), 'geo:place')
 
                 # repr test

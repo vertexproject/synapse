@@ -115,6 +115,8 @@ testmodel = {
 
         ('cycle0', ('str', {}), {}),
         ('cycle1', ('str', {}), {}),
+
+        ('test:ndef', ('ndef', {}), {}),
     ),
 
     'forms': (
@@ -183,6 +185,10 @@ testmodel = {
             ('tick', ('time', {}), {}),
             ('size', ('testint', {}), {}),
             ('width', ('testint', {}), {}),
+        )),
+
+        ('test:ndef', {}, (
+            ('form', ('str', {}), {'ro': 1}),
         )),
     ),
 }

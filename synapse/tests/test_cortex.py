@@ -2255,3 +2255,22 @@ class CortexTest(s_t_utils.SynTest):
 
             self.len(1, await core.storm('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } > 1 ').list())
             self.len(0, await core.storm('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } > 2 ').list())
+
+    async def test_cortex_in(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 'a')
+                node = await snap.addNode('teststr', 'b')
+                node = await snap.addNode('teststr', 'c')
+
+            self.len(0, await core.storm('teststr*in=()').list())
+            self.len(0, await core.storm('teststr*in=(d)').list())
+            self.len(2, await core.storm('teststr*in=(a, c)').list())
+            self.len(1, await core.storm('teststr*in=(a, d)').list())
+            self.len(3, await core.storm('teststr*in=(a, b, c)').list())
+
+            self.len(0, await core.storm('teststr +teststr*in=()').list())
+            self.len(0, await core.storm('teststr +teststr*in=(d)').list())
+            self.len(2, await core.storm('teststr +teststr*in=(a, c)').list())
+            self.len(1, await core.storm('teststr +teststr*in=(a, d)').list())
+            self.len(3, await core.storm('teststr +teststr*in=(a, b, c)').list())
