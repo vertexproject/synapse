@@ -1068,7 +1068,7 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
-            valu = int(await self.kids[2].compute(runt, node, path))
+            valu = int(await self.kids[2].compute(path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
@@ -1082,7 +1082,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = int(await self.kids[2].compute(runt, node, path))
+            valu = int(await self.kids[2].compute(path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
                     return True
@@ -1095,7 +1095,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = int(await self.kids[2].compute(runt, node, path))
+            valu = int(await self.kids[2].compute(path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
                     return False
@@ -1108,7 +1108,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = int(await self.kids[2].compute(runt, node, path))
+            valu = int(await self.kids[2].compute(path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
                     return True
@@ -1121,7 +1121,7 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
-            valu = int(await self.kids[2].compute(runt, node, path))
+            valu = int(await self.kids[2].compute(path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
                     return False
@@ -1145,7 +1145,7 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
-            valu = int(await self.kids[2].compute(runt, node, path))
+            valu = int(await self.kids[2].compute(path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
