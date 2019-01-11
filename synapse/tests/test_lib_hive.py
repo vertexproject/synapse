@@ -222,6 +222,8 @@ class HiveTest(s_test.SynTest):
             await hive.open(('foo', 'baz'))
             await hive.open(('foo', 'faz'))
 
+            self.eq([('foo', None, 3)], list(hive.dir(())))
+
             node = await hive.open(('foo',))
 
             kids = list(hive.dir(('foo',)))

@@ -93,6 +93,7 @@ class Hive(s_base.Base, s_telepath.Aware):
         self.editsbypath = collections.defaultdict(set)
 
         self.root = await Node.anit(self, (), None)
+        self.nodes[()] = self.root
 
         self.root.link(self._onNodeEdit)
 
