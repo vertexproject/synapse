@@ -851,8 +851,15 @@ class FormPivot(PivotOper):
                 valu = node.ndef[1]
 
                 # TODO cache/bypass normalization in loop!
-                async for pivo in runt.snap.getNodesBy(prop.full, valu):
-                    yield pivo, path.fork(pivo)
+                try:
+                    async for pivo in runt.snap.getNodesBy(prop.full, valu):
+                        yield pivo, path.fork(pivo)
+                except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
+                    logger.warning('Caught error during pivot', exc_info=e)
+                    items = e.items()
+                    mesg = items.pop('mesg', '')
+                    mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
+                    await runt.snap.warn(mesg, **items)
 
         # form -> form pivot is nonsensical. Lets help out...
 
