@@ -89,6 +89,21 @@ class CellApi(s_base.Base):
 
         raise s_exc.AuthDeny(mesg='Caller must own task or be admin.', task=iden, user=str(self.user))
 
+    async def hivels(self, path=None):
+        if path is None:
+            path = ()
+        items = self.cell.hive.dir(path)
+        return [item[0] for item in items]
+
+    async def hivegetkey(self, path):
+        return await self.cell.hive.get(path)
+
+    async def hiveputkey(self, path, value):
+        return await self.cell.hive.set(path, value)
+
+    async def hivepopkey(self, path):
+        return await self.cell.hive.pop(path)
+
     @adminapi
     def addAuthUser(self, name):
         self.cell.auth.addUser(name)

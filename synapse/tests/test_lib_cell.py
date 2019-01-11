@@ -76,3 +76,19 @@ class CellTest(s_t_utils.SynTest):
                 async with await s_cells.init('echoauth', dirn, readonly=True) as cell:
                     self.true(cell.slab.readonly)
                 self.true(await stream.wait(1))
+
+    async def test_cell_hive(self):
+
+        # test out built in cell auth
+        async with self.getTestDmon(mirror='cellauth') as dmon:
+            host, port = dmon.addr
+            url = f'tcp://root:secretsauce@{host}:{port}/echo00'
+            async with await s_telepath.openurl(url) as proxy:
+
+                self.eq([], await proxy.hivels())
+                await proxy.hiveputkey(('foo', 'bar'), [1, 2, 3, 4])
+                self.eq([1, 2, 3, 4], await proxy.hivegetkey(('foo', 'bar')))
+                self.eq(['foo'], await proxy.hivels())
+                self.eq(['bar'], await proxy.hivels(('foo', )))
+                await proxy.hivepopkey(('foo', 'bar'))
+                self.eq([], await proxy.hivels(('foo', )))
