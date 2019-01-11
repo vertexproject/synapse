@@ -1747,7 +1747,12 @@ class CortexTest(s_t_utils.SynTest):
 
             await self.agenlen(2, core.eval('syn:tag=foo.bar -> *'))
 
-            await self.agenraises(s_exc.BadTypeValu, core.eval('syn:tag=foo.bar -> teststr:tick'))
+            # Attempt a formpivot from a syn:tag node to a secondary property
+            # which is not valid
+            with self.getAsyncLoggerStream('synapse.lib.ast',
+                                           'Unknown time format') as stream:
+                self.len(0, await core.eval('syn:tag=foo.bar -> teststr:tick').list())
+                self.true(await stream.wait(4))
 
     async def test_storm_tagtags(self):
 
