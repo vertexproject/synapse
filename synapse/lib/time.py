@@ -5,7 +5,6 @@ Time related utilities for synapse "epoch millis" time values.
 import datetime
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 
 def parse(text, base=None, chop=False):
     '''
@@ -92,6 +91,7 @@ timeunits = {
 
     'min': onemin,
     'mins': onemin,
+    'minute': onemin,
     'minutes': onemin,
 
     'hour': onehour,

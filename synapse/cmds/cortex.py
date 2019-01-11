@@ -188,6 +188,10 @@ class Log(s_cli.Cmd):
 
 class PsCmd(s_cli.Cmd):
 
+    '''
+    List running tasks in the cortex.
+    '''
+
     _cmd_name = 'ps'
     _cmd_syntax = ()
 
@@ -360,6 +364,7 @@ class StormCmd(s_cli.Cmd):
             self.printf(self.__doc__)
             return
 
+        hide_unknown = opts.get('hide-unknown', self._cmd_cli.locs.get('storm:hide-unknown'))
         core = self.getCmdItem()
         stormopts = {'repr': True}
         stormopts.setdefault('path', opts.get('path', False))
@@ -383,7 +388,7 @@ class StormCmd(s_cli.Cmd):
                     try:
                         self.reac.react(mesg)
                     except s_exc.NoSuchAct as e:
-                        if opts.get('hide-unknown'):
+                        if hide_unknown:
                             continue
                         self.printf(repr(mesg))
 

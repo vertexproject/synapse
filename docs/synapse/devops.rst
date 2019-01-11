@@ -10,17 +10,9 @@ The DevOps Guide is a living document and will continue to be updated and expand
 .. toctree::
     :titlesonly:
 
-    devopsguides/cortex_basics
-    devopsguides/cortex_storage_types
-    devopsguides/cortex_storage_details
-    devopsguides/ingest_intro
-    devopsguides/axon
-    devopsguides/dmon
-    devopsguides/eventbus
-    devopsguides/model_format
-    devopsguides/storm
-    devopsguides/telepath
-    devopsguides/deployment
+    devops/performance1
+    devops/performance2markdown
+    devops/performance3rst
 
 The following sections are still under development:
 

@@ -71,7 +71,7 @@ class Triggers:
             if node.snap.core.auth is not None:
                 user = node.snap.core.auth.users.get(self.user)
                 if user is None:
-                    logger.warning('Unknown user in stored trigger')
+                    logger.warning('Unknown user %s in stored trigger', self.user)
                     return
             else:
                 user = None
@@ -238,12 +238,16 @@ class Triggers:
         iden = os.urandom(16)
         db = self.core.slab.initdb(self.TRIGGERS_DB_NAME)
 
+        if not query:
+            raise ValueError('empty query')
+
         # Check the storm query if we can
         if self.enabled:
             self.core.getStormQuery(query)
 
         rule = self._load_rule(iden, 0, condition, username, query, info=info)
         self.core.slab.put(iden, rule.en(), db=db)
+        return iden
 
     def delete(self, iden, persistent=True):
         '''

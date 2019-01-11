@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from setuptools import setup, find_packages
 
-
 setup(
     name='synapse',
     version='0.1.0a2',
@@ -25,6 +24,23 @@ setup(
         'regex>=2017.9.23',
         'PyYAML>=3.13,<4.0',
     ],
+
+    extras_require={
+        'docs': [
+            'sphinx>=1.8.2,<2.0.0',
+            'jupyter>=1.0.0,<2.0.0',
+            'hide-code>=0.5.2,<1.0.0',
+            'nbstripout>=0.3.3,<1.0.0',
+            'sphinx-rtd-theme>=0.4.2,<1.0.0',
+        ],
+        'dev': [
+            'pytest>=4.0.0,<5.0.0',
+            'autopep8>=1.4.3,<2.0.0',
+            'pytest-cov>=2.6.0,<3.0.0',
+            'pycodestyle>=2.4.0,<3.0.0',
+            'pytest-xdist>=1.25.0,<2.0.0',
+        ],
+    },
 
     classifiers=[
         'Development Status :: 4 - Beta',

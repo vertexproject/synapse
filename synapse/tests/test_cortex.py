@@ -624,7 +624,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(2, nodes)
 
                 # test loc prop prefix based lookup
-                nodes = await alist(snap.getNodesBy('testtype10:locprop', 'us.va'))
+                nodes = await alist(snap.getNodesBy('testtype10:locprop', 'us.va', cmpr='^='))
 
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef[1], 'one')
@@ -1560,7 +1560,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.none(tags.get('foo.bar'))
                 self.none(tags.get('foo.bar.baz'))
 
-    async def test_cortex_del_univ(self):
+    async def test_cortex_univ(self):
 
         async with self.getTestCore() as core:
 
@@ -1568,6 +1568,8 @@ class CortexTest(s_t_utils.SynTest):
 
             await self.agenlen(1, core.eval('[ teststr=woot .hehe=20 ]'))
             await self.agenlen(1, core.eval('.hehe'))
+            await self.agenlen(1, core.eval('teststr.hehe=20'))
+            await self.agenlen(0, core.eval('teststr.hehe=19'))
             await self.agenlen(1, core.eval('.hehe [ -.hehe ]'))
             await self.agenlen(0, core.eval('.hehe'))
 
@@ -1971,6 +1973,21 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchPivot):
                 nodes = await alist(core.eval('inet:ipv4 -> teststr'))
 
+    async def test_storm_mustquote(self):
+
+        async with self.getTestCore() as core:
+            await core.storm('[ inet:ipv4=1.2.3.4 ]').list()
+            self.len(1, await core.storm('inet:ipv4=1.2.3.4|limit 20').list())
+
+    async def test_storm_cmdname(self):
+
+        class Bork:
+            name = 'foo:bar'
+
+        async with self.getTestCore() as core:
+            with self.raises(s_exc.BadCmdName):
+                core.addStormCmd(Bork)
+
     async def test_storm_comment(self):
 
         async with self.getTestCore() as core:
@@ -2236,3 +2253,50 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.eval('[ ps:person="*" has=($node, (inet:fqdn,woot.com)) ]').list()
             self.len(2, nodes)
             self.eq('has', nodes[1].ndef[0])
+
+    async def test_storm_subq_size(self):
+
+        async with self.getTestCore() as core:
+
+            await core.storm('[ inet:dns:a=(woot.com, 1.2.3.4) inet:dns:a=(vertex.link, 1.2.3.4) ]').list()
+
+            self.len(0, await core.storm('inet:ipv4=1.2.3.4 +( { -> inet:dns:a }=0 )').list())
+
+            self.len(1, await core.storm('inet:ipv4=1.2.3.4 +( { -> inet:dns:a }=2 )').list())
+            self.len(0, await core.storm('inet:ipv4=1.2.3.4 +( { -> inet:dns:a }=3 )').list())
+
+            self.len(0, await core.storm('inet:ipv4=1.2.3.4 +( { -> inet:dns:a }!=2 )').list())
+            self.len(1, await core.storm('inet:ipv4=1.2.3.4 +( { -> inet:dns:a }!=3 )').list())
+
+            self.len(1, await core.storm('inet:ipv4=1.2.3.4 +( { -> inet:dns:a }>=1 )').list())
+            self.len(1, await core.storm('inet:ipv4=1.2.3.4 +( { -> inet:dns:a }>=2 )').list())
+            self.len(0, await core.storm('inet:ipv4=1.2.3.4 +( { -> inet:dns:a }>=3 )').list())
+
+            self.len(0, await core.storm('inet:ipv4=1.2.3.4 +( { -> inet:dns:a }<=1 )').list())
+            self.len(1, await core.storm('inet:ipv4=1.2.3.4 +( { -> inet:dns:a }<=2 )').list())
+            self.len(1, await core.storm('inet:ipv4=1.2.3.4 +( { -> inet:dns:a }<=3 )').list())
+
+            self.len(0, await core.storm('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } < 2 ').list())
+            self.len(1, await core.storm('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } < 3 ').list())
+
+            self.len(1, await core.storm('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } > 1 ').list())
+            self.len(0, await core.storm('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } > 2 ').list())
+
+    async def test_cortex_in(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 'a')
+                node = await snap.addNode('teststr', 'b')
+                node = await snap.addNode('teststr', 'c')
+
+            self.len(0, await core.storm('teststr*in=()').list())
+            self.len(0, await core.storm('teststr*in=(d)').list())
+            self.len(2, await core.storm('teststr*in=(a, c)').list())
+            self.len(1, await core.storm('teststr*in=(a, d)').list())
+            self.len(3, await core.storm('teststr*in=(a, b, c)').list())
+
+            self.len(0, await core.storm('teststr +teststr*in=()').list())
+            self.len(0, await core.storm('teststr +teststr*in=(d)').list())
+            self.len(2, await core.storm('teststr +teststr*in=(a, c)').list())
+            self.len(1, await core.storm('teststr +teststr*in=(a, d)').list())
+            self.len(3, await core.storm('teststr +teststr*in=(a, b, c)').list())

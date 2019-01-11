@@ -2,9 +2,8 @@ Contributing to Synapse
 =======================
 
 * `Project Style Guide`_.
-* `Docs Generation`_.
+* `Git Hook & Syntax Checking`_.
 * `Contribution Process`_.
-* `Running Postgres Tests`_.
 
 Project Style Guide
 -------------------
@@ -320,42 +319,83 @@ Contributions to Synapse which do not follow the project style guidelines may
 not be accepted.
 
 
-Docs Generation
----------------
+.. _synapse-contributing-hook:
 
-API documentation is automatically generated from docstrings, and additional
-docs may also be added to Synapse as well for more detailed discussions of
-Syanpse subsystems.  This is currently done via readthedocs.
+Git Hook & Syntax Checking
+--------------------------
 
-In order to do local doc generation you can do the following steps:
+A set of helper scripts are available for doing python syntax checking.
+These include a script to do generic syntax checking of all synapse files;
+a git pre-commit hook; and a script to run autopep8 on staged git files.
 
-#. Install the following packages (preferably in a virtualenv):
+The pre-commit hook does syntax checking on .py files which contain invalid
+syntax. The hook will **ALSO** run nbstripout on .ipynb files to remove output
+data from cells. This results in cleaner diffs for .ipynb files over time.
 
-   ::
-
-      pip install sphinx==1.5.3 Pygments==2.2.0 setuptools==28.8.0 docutils==0.13.1 mkdocs==0.15.0 mock==1.0.1 pillow==2.6.1 git+https://github.com/rtfd/readthedocs-sphinx-ext.git@0.6-alpha#egg=readthedocs-sphinx-ext sphinx_rtd_theme commonmark==0.5.4 recommonmark==0.4.0
-
-#. Build the docs using sphinx.  A makefile is provided which makes this
-   painless.
+#. An example of running the generic syntax check script is seen below:
 
    ::
 
-      # Go to your synapse repo
-      cd synapse
-      # Go to the docs folder
-      cd docs
-      # Use the make command to build the HTML docs
-      make html
+      ~/git/synapse$ ./scripts/syntax_check.py
+      PEP8 style violations have been detected.
 
-#. Now you can open the HTML docs for browsing them.
+      ./synapse/tests/test_lib_types.py:397: [E226] missing whitespace around arithmetic operator
+      ./synapse/tests/test_lib_types.py:398: [E226] missing whitespace around arithmetic operator
+
+
+#. Installing the git hook is easy:
 
    ::
 
-      xdg-open _build/html/index.html
+      cp scripts/githooks/pre-commit .git/hooks/pre-commit
+      chmod +x .git/hooks/pre-commit
 
-If you need to write explicit docs for Synapse, they should be added to the
-repository at docs/synapse and a reference added to the docs in docs/index.rst
-in order for the documentation
+
+#. After installing the hook, attempting a commit with a syntax error will fail
+
+   ::
+
+      ~/git/synapse$ git commit -m "Demo commit"
+      PEP8 style violations have been detected.  Please fix them
+      or force the commit with "git commit --no-verify".
+
+      ./synapse/tests/test_lib_types.py:397: [E226] missing whitespace around arithmetic operator
+      ./synapse/tests/test_lib_types.py:398: [E226] missing whitespace around arithmetic operator
+
+#. This may be automatically fixed for you using the `pep8_staged_files.py` script.
+   Note that **most**, but not **all** syntax errors may be fixed with the helper script.
+
+   ::
+
+      # Run the pep8_staged_files.py script
+      ~/git/synapse$ ./scripts/pep8_staged_files.py
+      # Check the diff
+      ~/git/synapse$ git diff synapse/tests/test_lib_types.py
+      diff --git a/synapse/tests/test_lib_types.py b/synapse/tests/test_lib_types.py
+      index 0e3a7498..b81575ef 100644
+      --- a/synapse/tests/test_lib_types.py
+      +++ b/synapse/tests/test_lib_types.py
+       class TypesTest(s_t_utils.SynTest):
+
+           def test_type(self):
+      @@ -397,8 +395,8 @@ class TypesTest(s_t_utils.SynTest):
+                   self.eq({node.ndef[1] for node in nodes}, {'m'})
+                   nodes = await alist(core.eval('testcomp +testcomp*range=((1024, grinch), (4096, zemeanone))'))
+                   self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton'), (4096, 'whoville')})
+      -            guid0 = 'B'*32
+      -            guid1 = 'D'*32
+      +            guid0 = 'B' * 32
+      +            guid1 = 'D' * 32
+                   nodes = await alist(core.eval(f'testguid +testguid*range=({guid0}, {guid1})'))
+                   self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
+                   nodes = await alist(core.eval('testint | noderefs | +testcomp*range=((1000, grinch), (4000, whoville))'))
+
+      # Add the file and commit
+      ~/git/synapse$ git add synapse/tests/test_lib_types.py
+      ~/git/synapse$ git commit -m "Demo commit"
+      [some-branch f254f5bf] Demo commit
+       1 file changed, 3 insertions(+), 2 deletions(-)
+
 
 Contribution Process
 --------------------
@@ -380,15 +420,15 @@ In order to contribute to the project, do the following:
    * If possible, unit tests should also show minimal use examples of new
      features.
 
-#. Ensure that both your tests and existing Synapse tests succesfully run.
+#. Ensure that both your tests and existing Synapse tests successfully run.
    You can do that manually via the python unittest module, or you can set
-   up Travis CI to run tests for your fork.  The following examples show
-   manual test runs:
+   up CircleCI to run tests for your fork (this is a exercise for the reader).
+   The following examples shows manual test runs:
 
    ::
 
-       python -m unittest discover -v
-       python -m unittest synapse.tests.your_test_file -v
+      pytest -v
+      pytest -v synapse/tests/your_test_file.py
 
    If test coverage is desired, you can use the provided testrunner.sh shell
    script to run a test. This script will generate HTML coverage reports and
@@ -397,10 +437,10 @@ In order to contribute to the project, do the following:
 
    ::
 
-        ./scripts/testrunner.sh
-        ./scripts/testrunner.sh synapse/tests/your_test_file.py
-        ./scripts/testrunner.sh synapse/tests/your_test_file.py::YourTestClass
-        ./scripts/testrunner.sh synapse/tests/your_test_file.py::YourTestClass::test_function
+      ./scripts/testrunner.sh
+      ./scripts/testrunner.sh synapse/tests/your_test_file.py
+      ./scripts/testrunner.sh synapse/tests/your_test_file.py::YourTestClass
+      ./scripts/testrunner.sh synapse/tests/your_test_file.py::YourTestClass::test_function
 
 #. Rebase your feature branch on top of the latest master branch of the Vertex
    Project Synapse repository. This may require you to add the Vertex Project
@@ -427,6 +467,10 @@ In order to contribute to the project, do the following:
       git push
 
 #. Ensure your tests still pass with the rebased feature branch.
+#. If your changes require extensive documentation, please very your API
+   documentation builds properly and any additional user or devops docs are
+   created as needed. See :ref:`synapse-document-mastering` for documentation
+   mastering notes.
 #. Create the Pull Request in Github, from your fork's feature branch to the
    master branch of the Vertex Project Synapse repository.  Include a
    description and a reference to any open issues related to the PR.

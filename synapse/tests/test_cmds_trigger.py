@@ -27,10 +27,8 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine('trigger list')
             self.true(outp.expect('user'))
             self.true(outp.expect('<None>'))
-            self.true(outp.expect('<None>'))
-            self.true(outp.expect('<None>'))
-            goodbuid = outp.mesgs[1].split()[1][:6]
-            goodbuid2 = outp.mesgs[2].split()[1][:6]
+            goodbuid = outp.mesgs[-2].split()[1][:6]
+            goodbuid2 = outp.mesgs[-1].split()[1][:6]
 
             await cmdr.runCmdLine(f'trigger del {goodbuid}')
             self.true(outp.expect('Deleted trigger'))

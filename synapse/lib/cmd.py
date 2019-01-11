@@ -26,3 +26,9 @@ class Parser(argparse.ArgumentParser):
         if message is not None:
             self.outp.printf(message)
         raise s_exc.ParserExit(mesg=message, status=status)
+
+    def _print_message(self, text, fd=None):
+        '''
+        Note:  this overrides an existing method in ArgumentParser
+        '''
+        self.outp.printf(text)

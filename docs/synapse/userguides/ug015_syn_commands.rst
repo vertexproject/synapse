@@ -1,5 +1,0 @@
-
-Synapse Commands
-================
-
-TBD

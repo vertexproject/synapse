@@ -234,6 +234,7 @@ class Cli(s_eventbus.EventBus):
         self.locs = locs
         self.item = item    # whatever object we are commanding
 
+        self.echoline = False
         self.finikill = False
         self.loopthread = None
 
@@ -248,6 +249,8 @@ class Cli(s_eventbus.EventBus):
         self.addCmdClass(CmdLocals)
 
     def _onItemFini(self):
+        if self.isfini:
+            return
 
         self.printf('connection closed...')
 
@@ -397,6 +400,9 @@ class Cli(s_eventbus.EventBus):
         Returns:
             object: Arbitrary data from the cmd class.
         '''
+        if self.echoline:
+            self.outp.printf(f'{self.cmdprompt}{line}')
+
         ret = None
 
         name = line.split(None, 1)[0]
@@ -485,7 +491,7 @@ class CmdHelp(Cmd):
 
 class CmdLocals(Cmd):
     '''
-    List the current locals for a given CLI object
+    List the current locals for a given CLI object.
     '''
     _cmd_name = 'locs'
 
