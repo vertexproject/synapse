@@ -856,7 +856,7 @@ class FormPivot(PivotOper):
                         yield pivo, path.fork(pivo)
                 except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
                     if not warned:
-                        logger.warning('Caught error during pivot', exc_info=e)
+                        logger.warning(f'Caught error during pivot: {e.items()}')
                         warned = True
                     items = e.items()
                     mesg = items.pop('mesg', '')
@@ -1011,7 +1011,7 @@ class PropPivot(PivotOper):
                     yield pivo, path.fork(pivo)
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
                 if not warned:
-                    logger.warning('Caught error during pivot', exc_info=e)
+                    logger.warning(f'Caught error during pivot: {e.items()}')
                     warned = True
                 items = e.items()
                 mesg = items.pop('mesg', '')
