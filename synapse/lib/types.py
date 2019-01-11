@@ -8,6 +8,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
+import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
@@ -900,6 +901,10 @@ class Ndef(Type):
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
+        self.setNormFunc(s_node.Node, self._normStormNode)
+
+    def _normStormNode(self, valu):
+        return self._normPyTuple(valu.ndef)
 
     def _normPyTuple(self, valu):
         try:

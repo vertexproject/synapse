@@ -7,6 +7,8 @@ import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.types as s_types
 
+import synapse.lib.stormtypes as s_stormtypes
+
 logger = logging.getLogger(__name__)
 
 class Node:
@@ -519,23 +521,38 @@ class Path:
     '''
     def __init__(self, runt, vars, nodes):
 
+        self.node = None
         self.runt = runt
         self.nodes = nodes
 
+        if len(nodes):
+            self.node = nodes[-1]
+
         self.vars = vars
+        self.ctors = {}
+
+        self.vars.update({
+            'node': self.node,
+        })
+        #self.ctors = {
+            #'node': s_stormtypes.Node,
+        #}
+
         self.metadata = {}
 
     def get(self, name, defv=s_common.novalu):
 
         valu = self.vars.get(name, s_common.novalu)
+        if valu is not s_common.novalu:
+            return valu
 
-        if valu is s_common.novalu:
-            valu = self.runt.vars.get(name, s_common.novalu)
+        ctor = self.ctors.get(name)
+        if ctor is not None:
+            valu = ctor(self)
+            self.vars[name] = valu
+            return valu
 
-        if valu is s_common.novalu:
-            valu = defv
-
-        return valu
+        return self.runt.getVar(name, defv=defv)
 
     def set(self, name, valu):
         self.vars[name] = valu

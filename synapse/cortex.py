@@ -22,6 +22,8 @@ import synapse.lib.syntax as s_syntax
 import synapse.lib.trigger as s_trigger
 import synapse.lib.modules as s_modules
 
+import synapse.lib.stormtypes as s_stormtypes
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_LAYER_NAME = '000-default'
@@ -373,6 +375,8 @@ class Cortex(s_cell.Cell):
         self.stormcmds = {}
         self.stormrunts = {}
 
+        self.libroot = (None, {}, {})
+
         self.addStormCmd(s_storm.MaxCmd)
         self.addStormCmd(s_storm.MinCmd)
         self.addStormCmd(s_storm.HelpCmd)
@@ -388,6 +392,8 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.MoveTagCmd)
         self.addStormCmd(s_storm.ReIndexCmd)
         self.addStormCmd(s_storm.NoderefsCmd)
+
+        self.addStormLib(('time',), s_stormtypes.LibTime)
 
         self.splicers = {
             'node:add': self._onFeedNodeAdd,
@@ -565,6 +571,29 @@ class Cortex(s_cell.Cell):
 
     def getStormCmd(self, name):
         return self.stormcmds.get(name)
+
+    def addStormLib(self, path, ctor):
+
+        root = self.libroot
+        #(name, {kids}, {funcs})
+
+        for name in path:
+            step = root[1].get(name)
+            if step is None:
+                step = (name, {}, {})
+                root[1][name] = step
+            root = step
+
+        root[2]['ctor'] = ctor
+
+    def getStormLib(self, path):
+        root = self.libroot
+        for name in path:
+            step = root[1].get(name)
+            if step is None:
+                return None
+            root = step
+        return root
 
     def getStormCmds(self):
         return list(self.stormcmds.items())

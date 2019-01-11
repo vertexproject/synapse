@@ -1660,7 +1660,7 @@ class Parser:
 
     def varcall(self, varv):
         args = s_ast.CallArgs(kids=self.valulist())
-        return s_ast.VarCall(kids=[varv, args])
+        return s_ast.FuncCall(kids=[varv, args])
 
     def varvalu(self):
         '''
