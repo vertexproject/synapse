@@ -848,7 +848,7 @@ class PivotInFrom(PivotOper):
 class FormPivot(PivotOper):
 
     async def run(self, runt, genr):
-
+        warned = False
         name = self.kids[0].value()
 
         prop = runt.snap.model.props.get(name)
@@ -879,8 +879,17 @@ class FormPivot(PivotOper):
                 valu = node.ndef[1]
 
                 # TODO cache/bypass normalization in loop!
-                async for pivo in runt.snap.getNodesBy(prop.full, valu):
-                    yield pivo, path.fork(pivo)
+                try:
+                    async for pivo in runt.snap.getNodesBy(prop.full, valu):
+                        yield pivo, path.fork(pivo)
+                except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
+                    if not warned:
+                        logger.warning(f'Caught error during pivot: {e.items()}')
+                        warned = True
+                    items = e.items()
+                    mesg = items.pop('mesg', '')
+                    mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
+                    await runt.snap.fire('warn', mesg=mesg, **items)
 
         # form -> form pivot is nonsensical. Lets help out...
 
@@ -1006,7 +1015,7 @@ class PropPivotOut(PivotOper):
 class PropPivot(PivotOper):
 
     async def run(self, runt, genr):
-
+        warned = False
         name = self.kids[1].value()
 
         prop = runt.snap.model.props.get(name)
@@ -1029,11 +1038,13 @@ class PropPivot(PivotOper):
                 async for pivo in runt.snap.getNodesBy(prop.full, valu):
                     yield pivo, path.fork(pivo)
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
-                logger.warning('Caught error during pivot', exc_info=e)
+                if not warned:
+                    logger.warning(f'Caught error during pivot: {e.items()}')
+                    warned = True
                 items = e.items()
                 mesg = items.pop('mesg', '')
                 mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
-                await runt.snap.warn(mesg, **items)
+                await runt.snap.fire('warn', mesg=mesg, **items)
 
 class Cond(AstNode):
 

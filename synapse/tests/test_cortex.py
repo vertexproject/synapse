@@ -1194,6 +1194,23 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][1][0], ('testint', 127))
 
+            # Setup a form pivot where the primary prop may fail to norm
+            # to the destination prop for some of the inbound nodes.
+            async with await core.snap() as snap:
+                node = await snap.addNode('testint', 10)
+                node = await snap.addNode('testint', 25)
+                node = await snap.addNode('testtype10', 'test', {'intprop': 25})
+            mesgs = await alist(core.streamstorm('testint*in=(10, 25) -> testtype10:intprop'))
+
+            warns = [msg for msg in mesgs if msg[0] == 'warn']
+            self.len(1, warns)
+            emesg = "BadTypeValu [10] during pivot: value is below min=20"
+            self.eq(warns[0][1], {'name': 'int', 'valu': 10,
+                                  'mesg': emesg})
+            nodes = [msg for msg in mesgs if msg[0] == 'node']
+            self.len(1, nodes)
+            self.eq(nodes[0][1][0], ('testtype10', 'test'))
+
             # Bad pivots go here
             for q in ['pivcomp :lulz <- *',
                       'pivcomp :lulz <+- *',
@@ -1730,7 +1747,12 @@ class CortexTest(s_t_utils.SynTest):
 
             await self.agenlen(2, core.eval('syn:tag=foo.bar -> *'))
 
-            await self.agenraises(s_exc.BadTypeValu, core.eval('syn:tag=foo.bar -> teststr:tick'))
+            # Attempt a formpivot from a syn:tag node to a secondary property
+            # which is not valid
+            with self.getAsyncLoggerStream('synapse.lib.ast',
+                                           'Unknown time format') as stream:
+                self.len(0, await core.eval('syn:tag=foo.bar -> teststr:tick').list())
+                self.true(await stream.wait(4))
 
     async def test_storm_tagtags(self):
 
