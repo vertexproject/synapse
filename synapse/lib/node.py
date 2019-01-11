@@ -534,9 +534,6 @@ class Path:
         self.vars.update({
             'node': self.node,
         })
-        #self.ctors = {
-            #'node': s_stormtypes.Node,
-        #}
 
         self.metadata = {}
 

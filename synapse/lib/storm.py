@@ -151,25 +151,10 @@ class Runtime:
 
     async def iterStormQuery(self, query):
 
-        print('RUNTVARS: %r' % (self.runtvars,))
-
         # do a quick pass to determine which vars are per-node.
         for oper in query.kids:
             for name in oper.getRuntVars(self):
-                print('RUNT ADD: %r' % (name,))
                 self.runtvars.add(name)
-
-            #if isinstance(oper, s_ast.VarSetOper):
-                #name = oper.kids[0].value()
-                #print('CHECKING: %r' % (name,))
-                #if oper.kids[1].isRuntSafe(self):
-                    #print('ADDING %r' % (name,))
-                    #self.runtvars.add(name)
-
-            #elif isinstance(oper, s_ast.VarListSetOper):
-                #if oper.kids[1].isRuntSafe(self):
-                    #for name in oper.kids[0].value():
-                        #self.runtvars.add(name)
 
         # init any options from the query
         # (but dont override our own opts)

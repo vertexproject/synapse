@@ -25,7 +25,6 @@ import synapse.lib.syntax as s_syntax
 import synapse.lib.agenda as s_agenda
 import synapse.lib.trigger as s_trigger
 import synapse.lib.modules as s_modules
-
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
