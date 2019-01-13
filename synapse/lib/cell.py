@@ -93,6 +93,8 @@ class CellApi(s_base.Base):
         if path is None:
             path = ()
         items = self.cell.hive.dir(path)
+        if items is None:
+            return None
         return [item[0] for item in items]
 
     async def hivegetkey(self, path):
