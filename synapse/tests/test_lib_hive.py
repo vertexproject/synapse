@@ -36,8 +36,7 @@ class HiveTest(s_test.SynTest):
 
             async with self.getTestHiveFromDirn(dirn) as hive:
 
-                async with await s_daemon.Daemon.anit(dirn) as dmon:
-
+                async with await s_daemon.Daemon.anit(dirn, conf={'listen': None}) as dmon:
                     await dmon.listen('tcp://127.0.0.1:0/')
                     dmon.share('hive', hive)
 
