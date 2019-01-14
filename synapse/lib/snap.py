@@ -382,8 +382,6 @@ class Snap(s_base.Base):
         if props is None:
             props = {}
 
-        sops = []
-
         node = await self.getNodeByBuid(buid)
         if node is not None:
 
@@ -404,8 +402,6 @@ class Snap(s_base.Base):
 
         sops = form.getSetOps(buid, norm)
         await self.stor(sops)
-
-        self.buidcache.put(buid, node)
 
         await self.splice('node:add', ndef=node.ndef)
 
@@ -432,6 +428,7 @@ class Snap(s_base.Base):
         node.init = False
 
         self.core.pokeFormCount(form.name, 1)
+        self.buidcache.put(buid, node)
 
         await form.wasAdded(node)
 
