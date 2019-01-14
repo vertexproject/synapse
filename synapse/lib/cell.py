@@ -27,10 +27,7 @@ def adminapi(f):
 
     def func(*args, **kwargs):
 
-        if args[0].user is None:
-            raise s_exc.AuthDeny(mesg='Auth not enabled.')
-
-        if not args[0].user.admin:
+        if args[0].user is not None and not args[0].user.admin:
             raise s_exc.AuthDeny(mesg='User is not an admin.',
                                  user=args[0].user.name)
 
@@ -88,6 +85,30 @@ class CellApi(s_base.Base):
             return True
 
         raise s_exc.AuthDeny(mesg='Caller must own task or be admin.', task=iden, user=str(self.user))
+
+    @adminapi
+    async def listHiveKey(self, path=None):
+        if path is None:
+            path = ()
+        items = self.cell.hive.dir(path)
+        if items is None:
+            return None
+        return [item[0] for item in items]
+
+    @adminapi
+    async def getHiveKey(self, path):
+        ''' Get the value of a key in the cell default hive '''
+        return await self.cell.hive.get(path)
+
+    @adminapi
+    async def setHiveKey(self, path, value):
+        ''' Set or change the value of a key in the cell default hive '''
+        return await self.cell.hive.set(path, value)
+
+    @adminapi
+    async def popHiveKey(self, path):
+        ''' Remove and return the value of a key in the cell default hive '''
+        return await self.cell.hive.pop(path)
 
     @adminapi
     def addAuthUser(self, name):
@@ -298,9 +319,9 @@ class Cell(s_base.Base, s_telepath.Aware):
             self.hive = await s_hive.SlabHive.anit(self.slab, db=db)
             self.onfini(self.hive.fini)
 
-    #async def onTeleOpen(self, link, path):
+    # async def onTeleOpen(self, link, path):
         # TODO make a path resolver for layers/etc
-        #if path == 'hive/auth'
+        # if path == 'hive/auth'
 
     async def _initCellSlab(self, readonly=False):
 
