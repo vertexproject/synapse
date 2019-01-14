@@ -1236,7 +1236,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The reconstructed URL for the request if known.'}),
 
                         ('query', ('str', {}), {
-                            'doc': 'The HTTP query string which optionally folows the path.'}),
+                            'doc': 'The HTTP query string which optionally follows the path.'}),
 
                         ('body', ('file:bytes', {}), {
                             'doc': 'The body of the HTTP request.'}),

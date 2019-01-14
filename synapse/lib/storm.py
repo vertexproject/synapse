@@ -289,7 +289,9 @@ class MaxCmd(Cmd):
 
     Examples:
 
-        file:bytes +#foo.bar | max size
+        file:bytes +#foo.bar | max :size
+
+        file:bytes +#foo.bar | max file:bytes:size
 
     '''
 
@@ -305,9 +307,27 @@ class MaxCmd(Cmd):
         maxvalu = None
         maxitem = None
 
-        name = self.opts.propname.strip(':')
+        pname = self.opts.propname
+        prop = None
+        if not pname.startswith((':', '.')):
+            # Are we a full prop name?
+            prop = runt.snap.core.model.prop(pname)
+            if prop is None or prop.isform:
+                mesg = f'{self.name} argument requires a relative secondary ' \
+                    f'property name or a full path to the secondary property.'
+                raise s_exc.BadSyntaxError(mesg=mesg, valu=pname)
+
+        if prop:
+            name = prop.name
+            form = prop.form
+        else:
+            form = None
+            name = pname.strip(':')
 
         async for node, path in genr:
+
+            if form and node.form is not form:
+                continue
 
             valu = node.get(name)
             if valu is None:
@@ -317,7 +337,8 @@ class MaxCmd(Cmd):
                 maxvalu = valu
                 maxitem = (node, path)
 
-        yield maxitem
+        if maxitem:
+            yield maxitem
 
 class MinCmd(Cmd):
     '''
@@ -325,7 +346,9 @@ class MinCmd(Cmd):
 
     Examples:
 
-        file:bytes +#foo.bar | min size
+        file:bytes +#foo.bar | min :size
+
+        file:bytes +#foo.bar | min file:bytes:size
 
     '''
     name = 'min'
@@ -340,9 +363,27 @@ class MinCmd(Cmd):
         minvalu = None
         minitem = None
 
-        name = self.opts.propname.strip(':')
+        pname = self.opts.propname
+        prop = None
+        if not pname.startswith((':', '.')):
+            # Are we a full prop name?
+            prop = runt.snap.core.model.prop(pname)
+            if prop is None or prop.isform:
+                mesg = f'{self.name} argument requires a relative secondary ' \
+                    f'property name or a full path to the secondary property.'
+                raise s_exc.BadSyntaxError(mesg=mesg, valu=pname)
+
+        if prop:
+            name = prop.name
+            form = prop.form
+        else:
+            form = None
+            name = pname.strip(':')
 
         async for node, path in genr:
+
+            if form and node.form is not form:
+                continue
 
             valu = node.get(name)
             if valu is None:
@@ -352,7 +393,8 @@ class MinCmd(Cmd):
                 minvalu = valu
                 minitem = (node, path)
 
-        yield minitem
+        if minitem:
+            yield minitem
 
 class DelNodeCmd(Cmd):
     '''
