@@ -369,5 +369,14 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('tick'), minval)
 
             # Sad paths where there are no nodes which match the specified values.
-            await self.agenlen(0, core.eval('testguid | min :newp'))
             await self.agenlen(0, core.eval('testguid | max :newp'))
+            await self.agenlen(0, core.eval('testguid | min :newp'))
+            # Sad path for a form, not a property; and does not exist at all
+            await self.agenraises(s_exc.BadSyntaxError,
+                                  core.eval('testguid | max testguid'))
+            await self.agenraises(s_exc.BadSyntaxError,
+                                  core.eval('testguid | min testguid'))
+            await self.agenraises(s_exc.BadSyntaxError,
+                                  core.eval('testguid | max test:newp'))
+            await self.agenraises(s_exc.BadSyntaxError,
+                                  core.eval('testguid | min test:newp'))
