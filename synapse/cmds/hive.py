@@ -115,7 +115,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
 
     async def _handle_ls(self, core, opts):
         path = self.parsepath(opts.path) if opts.path is not None else None
-        keys = await core.hivels(path=path)
+        keys = await core.listHiveKey(path=path)
         if keys is None:
             self.printf('Path not found')
             return
@@ -124,7 +124,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
 
     async def _handle_get(self, core, opts):
         path = self.parsepath(opts.path)
-        valu = await core.hivegetkey(path)
+        valu = await core.getHiveKey(path)
         if valu is None:
             self.printf(f'{opts.path} not present')
             return
@@ -132,14 +132,14 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
 
     async def _handle_rm(self, core, opts):
         path = self.parsepath(opts.path)
-        await core.hivepopkey(path)
+        await core.popHiveKey(path)
 
     async def _handle_edit(self, core, opts):
         path = self.parsepath(opts.path)
 
         if opts.value is not None:
             data = json.loads(opts.value)
-            await core.hiveputkey(path, data)
+            await core.setHiveKey(path, data)
             return
         elif opts.file is not None:
             with open(opts.file) as fh:
@@ -148,7 +148,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                     self.printf('Empty file.  Not writing key.')
                     return
                 data = json.loads(s)
-                await core.hiveputkey(path, data)
+                await core.setHiveKey(path, data)
                 return
 
         editor = os.getenv('VISUAL', (os.getenv('EDITOR', None)))
@@ -158,7 +158,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
         tnam = None
         try:
             with tempfile.NamedTemporaryFile(mode='w', delete=False) as fh:
-                old_valu = await core.hivegetkey(path)
+                old_valu = await core.getHiveKey(path)
                 if old_valu is not None:
                     try:
                         js = json.dumps(old_valu, indent=4)
@@ -187,7 +187,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                     if tuplify(valu) == old_valu:
                         self.printf('Valu not changed.  Not writing key.')
                         return
-                    await core.hiveputkey(path, valu)
+                    await core.setHiveKey(path, valu)
                     break
 
         finally:
