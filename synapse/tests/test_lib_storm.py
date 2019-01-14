@@ -354,5 +354,5 @@ class StormTest(s_t_utils.SynTest):
                 self.eq(node.get('tick'), minval)
 
             # Sad paths where there are no nodes which match the specified values.
-            self.agenlen(0, core.eval('testguid | min :newp'))
-            self.agenlen(0, core.eval('testguid | max :newp'))
+            await self.agenlen(0, core.eval('testguid | min :newp'))
+            await self.agenlen(0, core.eval('testguid | max :newp'))
