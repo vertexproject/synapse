@@ -335,3 +335,57 @@ class StormTest(s_t_utils.SynTest):
             nodes = await alist(core.eval('inet:asn=10 | noderefs -of inet:ipv4 --join -d 3'))
             forms = {node.form.full for node in nodes}
             self.eq(forms, {'source', 'inet:asn', 'seen'})
+
+    async def test_minmax(self):
+
+        async with self.getTestCore() as core:
+
+            minval = core.model.type('time').norm('2015')[0]
+            midval = core.model.type('time').norm('2016')[0]
+            maxval = core.model.type('time').norm('2017')[0]
+
+            await self.agenlen(1, core.eval('[ testguid="*" :tick=2015 ]'))
+            await self.agenlen(1, core.eval('[ testguid="*" :tick=2016 ]'))
+            await self.agenlen(1, core.eval('[ testguid="*" :tick=2017 ]'))
+
+            await self.agenlen(1, core.eval('[ teststr="1" :tick=2016 ]'))
+
+            # Relative paths
+            nodes = await core.eval('testguid | max :tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), maxval)
+
+            nodes = await core.eval('testguid | min :tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), minval)
+
+            # Full paths
+            nodes = await core.eval('testguid | max testguid:tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), maxval)
+
+            nodes = await core.eval('testguid | min testguid:tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), minval)
+
+            # Implicit form filtering with a full path
+            nodes = await core.eval('.created | max teststr:tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), midval)
+
+            nodes = await core.eval('.created | min teststr:tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), midval)
+
+            # Sad paths where there are no nodes which match the specified values.
+            await self.agenlen(0, core.eval('testguid | max :newp'))
+            await self.agenlen(0, core.eval('testguid | min :newp'))
+            # Sad path for a form, not a property; and does not exist at all
+            await self.agenraises(s_exc.BadSyntaxError,
+                                  core.eval('testguid | max testguid'))
+            await self.agenraises(s_exc.BadSyntaxError,
+                                  core.eval('testguid | min testguid'))
+            await self.agenraises(s_exc.BadSyntaxError,
+                                  core.eval('testguid | max test:newp'))
+            await self.agenraises(s_exc.BadSyntaxError,
+                                  core.eval('testguid | min test:newp'))
