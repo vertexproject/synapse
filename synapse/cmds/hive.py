@@ -142,12 +142,16 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
             return
         elif opts.file is not None:
             with open(opts.file) as fh:
-                data = json.loads(fh.read())
+                s = fh.read()
+                if len(s) == 0:
+                    self.printf('Empty file.  Not writing key.')
+                    return
+                data = json.loads(s)
                 await core.hiveputkey(path, data)
                 return
 
         editor = os.getenv('VISUAL', (os.getenv('EDITOR', None)))
-        if editor is None:
+        if editor is None or editor == '':
             self.printf('Environment variable VISUAL or EDITOR must be set for --editor')
             return
         tnam = None
@@ -169,13 +173,13 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                     return
                 with open(tnam) as fh:
                     bytz = fh.read()
-                    if len(bytz) == 0:
+                    if len(bytz) == 0:  # pragma: no cover
                         self.printf('Empty file.  Not writing key.')
                         return
                     try:
                         valu = json.loads(bytz)
-                    except json.JSONDecodeError:
-                        self.printf('JSON decode failure.  Reopening.')
+                    except json.JSONDecodeError as e:  # pragma: no cover
+                        self.printf('JSON decode failure: [{e}].  Reopening.')
                         await asyncio.sleep(1)
                         continue
                     # We lose the tuple/list distinction in the telepath round trip, so tuplify everything to compare

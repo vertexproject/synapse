@@ -46,12 +46,32 @@ class CmdHiveTest(s_t_utils.SynTest):
                 self.true(outp.expect("foo/bar2: {'foo': 123}"))
 
                 outp.clear()
+                fn = os.path.join(dirn, 'empty.json')
+                with open(fn, 'w') as fh:
+                    pass
+                await cmdr.runCmdLine(f'hive edit foo/empty -f {fn}')
+                self.true(outp.expect('Empty file.  Not writing key.'))
+
+                # Editor tests
+                outp.clear()
+                with self.setTstEnvars(EDITOR='', VISUAL='') as nop:
+                    await cmdr.runCmdLine(f'hive edit foo/bar3 --editor')
+                    self.true(outp.expect('Environment variable VISUAL or EDITOR must be set for --editor'))
+
+                outp.clear()
                 with self.setTstEnvars(EDITOR='echo [1,2,3] > ') as nop:
+
                     await cmdr.runCmdLine(f'hive edit foo/bar3 --editor')
                     await cmdr.runCmdLine('hive get foo/bar3')
                     self.true(outp.expect('foo/bar3: (1, 2, 3)'))
 
+                outp.clear()
                 with self.setTstEnvars(VISUAL='echo [1,2,3] > ') as nop:
-                    await cmdr.runCmdLine(f'hive edit foo/bar3 --editor')
-                    await cmdr.runCmdLine('hive get foo/bar3')
-                    self.true(outp.expect('foo/bar3: (1, 2, 3)'))
+                    await cmdr.runCmdLine(f'hive edit foo/bar4 --editor')
+                    await cmdr.runCmdLine('hive get foo/bar4')
+                    self.true(outp.expect('foo/bar4: (1, 2, 3)'))
+
+                outp.clear()
+                with self.setTstEnvars(VISUAL='echo [1,2,3] > ') as nop:
+                    await cmdr.runCmdLine(f'hive edit foo/bar4 --editor')
+                    self.true(outp.expect('Valu not changed.  Not writing key.'))
