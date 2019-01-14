@@ -317,7 +317,8 @@ class MaxCmd(Cmd):
                 maxvalu = valu
                 maxitem = (node, path)
 
-        yield maxitem
+        if maxitem:
+            yield maxitem
 
 class MinCmd(Cmd):
     '''
@@ -352,7 +353,8 @@ class MinCmd(Cmd):
                 minvalu = valu
                 minitem = (node, path)
 
-        yield minitem
+        if minitem:
+            yield minitem
 
 class DelNodeCmd(Cmd):
     '''
