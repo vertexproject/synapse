@@ -75,3 +75,9 @@ class CmdHiveTest(s_t_utils.SynTest):
                 with self.setTstEnvars(VISUAL='echo [1,2,3] > ') as nop:
                     await cmdr.runCmdLine(f'hive edit foo/bar4 --editor')
                     self.true(outp.expect('Valu not changed.  Not writing key.'))
+
+                outp.clear()
+                await cmdr.item.hiveputkey(('foo', 'notJson'), {'newp': b'deadb33f'})
+                with self.setTstEnvars(VISUAL='echo [1,2,3] > ') as nop:
+                    await cmdr.runCmdLine(f'hive edit foo/notJson --editor')
+                    self.true(outp.expect('Value is not JSON-encodable, therefore not editable.'))

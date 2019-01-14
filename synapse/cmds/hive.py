@@ -168,7 +168,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                 tnam = fh.name
             while True:
                 retn = subprocess.call(f'{editor} {tnam}', shell=True)
-                if retn != 0:
+                if retn != 0:  # pragma: no cover
                     self.printf('Editor failed with non-zero code.  Aborting.')
                     return
                 with open(tnam) as fh:
