@@ -1,4 +1,4 @@
-import unittest
+import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -344,11 +344,13 @@ class StormTest(s_t_utils.SynTest):
             midval = core.model.type('time').norm('2016')[0]
             maxval = core.model.type('time').norm('2017')[0]
 
-            await self.agenlen(1, core.eval('[ testguid="*" :tick=2015 ]'))
-            await self.agenlen(1, core.eval('[ testguid="*" :tick=2016 ]'))
-            await self.agenlen(1, core.eval('[ testguid="*" :tick=2017 ]'))
-
-            await self.agenlen(1, core.eval('[ teststr="1" :tick=2016 ]'))
+            async with await core.snap() as snap:
+                node = await snap.addNode('testguid', '*', {'tick': '2015'})
+                minc = node.get('.created')
+                node = await snap.addNode('testguid', '*', {'tick': '2016'})
+                node = await snap.addNode('testguid', '*', {'tick': '2017'})
+                await asyncio.sleep(0.01)
+                node = await snap.addNode('teststr', '1', {'tick': '2016'})
 
             # Relative paths
             nodes = await core.eval('testguid | max :tick').list()
@@ -374,6 +376,28 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('tick'), midval)
 
             nodes = await core.eval('.created | min teststr:tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), midval)
+
+            # Universal prop for relative path
+            nodes = await core.eval('.created>=$minc | max .created',
+                                    {'vars': {'minc': minc}}).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), midval)
+
+            nodes = await core.eval('.created>=$minc | min .created',
+                                    {'vars': {'minc': minc}}).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), minval)
+
+            # Universal prop for full paths
+            nodes = await core.eval('.created>=$minc  | max teststr.created',
+                                    {'vars': {'minc': minc}}).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), midval)
+
+            nodes = await core.eval('.created>=$minc  | min teststr.created',
+                                    {'vars': {'minc': minc}}).list()
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), midval)
 
