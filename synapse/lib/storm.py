@@ -289,7 +289,9 @@ class MaxCmd(Cmd):
 
     Examples:
 
-        file:bytes +#foo.bar | max size
+        file:bytes +#foo.bar | max :size
+
+        file:bytes +#foo.bar | max file:bytes:size
 
     '''
 
@@ -344,7 +346,9 @@ class MinCmd(Cmd):
 
     Examples:
 
-        file:bytes +#foo.bar | min size
+        file:bytes +#foo.bar | min :size
+
+        file:bytes +#foo.bar | min file:bytes:size
 
     '''
     name = 'min'
