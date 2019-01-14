@@ -335,3 +335,20 @@ class StormTest(s_t_utils.SynTest):
             nodes = await alist(core.eval('inet:asn=10 | noderefs -of inet:ipv4 --join -d 3'))
             forms = {node.form.full for node in nodes}
             self.eq(forms, {'source', 'inet:asn', 'seen'})
+
+    async def test_minmax(self):
+
+        async with self.getTestCore() as core:
+
+            minval = core.model.type('time').norm('2015')[0]
+            maxval = core.model.type('time').norm('2017')[0]
+
+            await self.agenlen(1, core.eval('[ testguid="*" :tick=2015 ]'))
+            await self.agenlen(1, core.eval('[ testguid="*" :tick=2016 ]'))
+            await self.agenlen(1, core.eval('[ testguid="*" :tick=2017 ]'))
+
+            async for node in core.eval('testguid | max tick'):
+                self.eq(node.get('tick'), maxval)
+
+            async for node in core.eval('testguid | min tick'):
+                self.eq(node.get('tick'), minval)
