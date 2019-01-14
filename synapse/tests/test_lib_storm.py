@@ -341,6 +341,7 @@ class StormTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             minval = core.model.type('time').norm('2015')[0]
+            midval = core.model.type('time').norm('2016')[0]
             maxval = core.model.type('time').norm('2017')[0]
 
             await self.agenlen(1, core.eval('[ testguid="*" :tick=2015 ]'))
@@ -348,7 +349,6 @@ class StormTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('[ testguid="*" :tick=2017 ]'))
 
             await self.agenlen(1, core.eval('[ teststr="1" :tick=2016 ]'))
-            await self.agenlen(1, core.eval('[ teststr="1" :tick=2018 ]'))
 
             # Relative paths
             nodes = await core.eval('testguid | max :tick').list()
@@ -367,6 +367,15 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.eval('testguid | min testguid:tick').list()
             self.len(1, nodes)
             self.eq(nodes[0].get('tick'), minval)
+
+            # Implicit form filtering with a full path
+            nodes = await core.eval('.created | max teststr:tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), midval)
+
+            nodes = await core.eval('.created | min teststr:tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), midval)
 
             # Sad paths where there are no nodes which match the specified values.
             await self.agenlen(0, core.eval('testguid | max :newp'))
