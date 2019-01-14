@@ -1705,23 +1705,6 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('[ teststr=foo +#bar ] +(not .seen)'))
             await self.agenlen(1, core.eval('[ teststr=foo +#bar ] +(#baz or not .seen)'))
 
-    async def test_storm_minmax(self):
-
-        async with self.getTestCore() as core:
-
-            minval = core.model.type('time').norm('2015')[0]
-            maxval = core.model.type('time').norm('2017')[0]
-
-            await self.agenlen(1, core.eval('[ testguid="*" :tick=2015 ]'))
-            await self.agenlen(1, core.eval('[ testguid="*" :tick=2016 ]'))
-            await self.agenlen(1, core.eval('[ testguid="*" :tick=2017 ]'))
-
-            async for node in core.eval('testguid | max tick'):
-                self.eq(node.get('tick'), maxval)
-
-            async for node in core.eval('testguid | min tick'):
-                self.eq(node.get('tick'), minval)
-
     async def test_storm_totags(self):
 
         async with self.getTestCore() as core:
