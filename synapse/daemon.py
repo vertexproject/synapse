@@ -178,7 +178,12 @@ class Daemon(s_base.Base):
 
         server = await s_link.listen(host, port, self._onLinkInit, ssl=sslctx)
         self.listenservers.append(server)
-        return server.sockets[0].getsockname()
+        ret = server.sockets[0].getsockname()
+
+        if self.addr is None:
+            self.addr = ret
+
+        return ret
 
     def share(self, name, item):
         '''
