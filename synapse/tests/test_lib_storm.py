@@ -347,11 +347,26 @@ class StormTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('[ testguid="*" :tick=2016 ]'))
             await self.agenlen(1, core.eval('[ testguid="*" :tick=2017 ]'))
 
-            async for node in core.eval('testguid | max tick'):
-                self.eq(node.get('tick'), maxval)
+            await self.agenlen(1, core.eval('[ teststr="1" :tick=2016 ]'))
+            await self.agenlen(1, core.eval('[ teststr="1" :tick=2018 ]'))
 
-            async for node in core.eval('testguid | min tick'):
-                self.eq(node.get('tick'), minval)
+            # Relative paths
+            nodes = await core.eval('testguid | max :tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), maxval)
+
+            nodes = await core.eval('testguid | min :tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), minval)
+
+            # Full paths
+            nodes = await core.eval('testguid | max testguid:tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), maxval)
+
+            nodes = await core.eval('testguid | min testguid:tick').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].get('tick'), minval)
 
             # Sad paths where there are no nodes which match the specified values.
             await self.agenlen(0, core.eval('testguid | min :newp'))
