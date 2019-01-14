@@ -2252,6 +2252,20 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(20000, nodes[0].get('dob'))
 
+    async def test_storm_lib_custom(self):
+
+        async with self.getTestCore() as core:
+            # Test the registered function from test utils
+            q = '[ ps:person="*" :name = $lib.test.beep(loud) ]'
+            nodes = await core.eval(q).list()
+            self.len(1, nodes)
+            self.eq('a loud beep!', nodes[0].get('name'))
+
+            q = '$test = $lib.test.beep(test) [teststr=$test]'
+            nodes = await core.eval(q).list()
+            self.len(1, nodes)
+            self.eq('A test beep!', nodes[0].ndef[1])
+
     async def test_storm_type_node(self):
 
         async with self.getTestCore() as core:
