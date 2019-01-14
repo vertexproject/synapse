@@ -41,7 +41,7 @@ class CmdHiveTest(s_t_utils.SynTest):
                 await cmdr.runCmdLine('hive get foo/bar2')
                 self.true(outp.expect("foo/bar2: {'foo': 123}"))
 
-                os.environ['EDITOR'] = 'echo [1,2,3] > '
+                os.environ['VISUAL'] = 'echo [1,2,3] > '
                 await cmdr.runCmdLine(f'hive edit foo/bar3 --editor')
                 await cmdr.runCmdLine('hive get foo/bar3')
                 self.true(outp.expect('foo/bar3: (1, 2, 3)'))
