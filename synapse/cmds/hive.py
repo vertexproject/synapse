@@ -110,6 +110,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
 
     @staticmethod
     def parsepath(path):
+        ''' Turn a slash-delimited path into a list that hive takes '''
         return path.split('/')
 
     async def _handle_ls(self, core, opts):
@@ -178,7 +179,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                         return
                     try:
                         valu = json.loads(bytz)
-                    except json.JSONDecodeError as e:  # pragma: no cover
+                    except json.JSONDecodeError:  # pragma: no cover
                         self.printf('JSON decode failure: [{e}].  Reopening.')
                         await asyncio.sleep(1)
                         continue

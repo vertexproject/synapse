@@ -98,12 +98,15 @@ class CellApi(s_base.Base):
         return [item[0] for item in items]
 
     async def hivegetkey(self, path):
+        ''' Get the value of a key in the cell default hive '''
         return await self.cell.hive.get(path)
 
     async def hiveputkey(self, path, value):
+        ''' Set or change the value of a key in the cell default hive '''
         return await self.cell.hive.set(path, value)
 
     async def hivepopkey(self, path):
+        ''' Remove and return the value of a key in the cell default hive '''
         return await self.cell.hive.pop(path)
 
     @adminapi
