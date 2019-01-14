@@ -345,10 +345,13 @@ class StormTest(s_t_utils.SynTest):
             maxval = core.model.type('time').norm('2017')[0]
 
             async with await core.snap() as snap:
-                await asyncio.sleep(0.01)  # Give the cortex a moment
+                # Ensure each node we make has its own discrete created time.
+                await asyncio.sleep(0.01)
                 node = await snap.addNode('testguid', '*', {'tick': '2015'})
                 minc = node.get('.created')
+                await asyncio.sleep(0.01)
                 node = await snap.addNode('testguid', '*', {'tick': '2016'})
+                await asyncio.sleep(0.01)
                 node = await snap.addNode('testguid', '*', {'tick': '2017'})
                 await asyncio.sleep(0.01)
                 node = await snap.addNode('teststr', '1', {'tick': '2016'})
