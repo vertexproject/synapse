@@ -756,7 +756,7 @@ class Ival(Type):
         if not relto:
             relto = s_common.now()
 
-        return delt + relto
+        return self.timetype.norm(delt + relto)[0]
 
     def _normPyStr(self, valu):
         valu = valu.strip().lower()

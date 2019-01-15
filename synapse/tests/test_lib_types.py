@@ -327,6 +327,7 @@ class TypesTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTypeValu, ival.norm, '?')
         self.raises(s_exc.BadTypeValu, ival.norm, ('', ''))
         self.raises(s_exc.BadTypeValu, ival.norm, ('2016-3days', '+77days', '-40days'))
+        self.raises(s_exc.BadTypeValu, ival.norm, ('?', '-1 day'))
 
         async with self.getTestCore() as core:
 
