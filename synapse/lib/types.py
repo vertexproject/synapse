@@ -756,7 +756,7 @@ class Ival(Type):
         if not relto:
             relto = s_common.now()
 
-        return self.timetype.norm(delt + relto)[0]
+        return self.timetype._normPyInt(delt + relto)[0]
 
     def _normPyStr(self, valu):
         valu = valu.strip().lower()
@@ -1288,7 +1288,7 @@ class Time(IntBase):
             else:
                 bgn = s_common.now()
 
-            return self.norm(delt + bgn)
+            return self._normPyInt(delt + bgn)
 
         valu = s_time.parse(valu)
         return self._normPyInt(valu)
@@ -1338,7 +1338,7 @@ class Time(IntBase):
                 if relto is None:
                     relto = s_common.now()
 
-                return self.norm(delt + relto)[0]
+                return self._normPyInt(delt + relto)[0]
 
         return self.norm(valu)[0]
 
