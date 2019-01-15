@@ -640,6 +640,7 @@ class TypesTest(s_t_utils.SynTest):
             # Explicitly test our max time vs. future marker
             maxtime = 253402300799999  # 9999/12/31 23:59:59.999
             self.eq(t.norm(maxtime)[0], maxtime)
+            self.eq(t.repr(maxtime), '9999/12/31 23:59:59.999')
             self.eq(t.norm('9999/12/31 23:59:59.999')[0], maxtime)
             self.raises(s_exc.BadTypeValu, t.norm, maxtime + 1)
 
