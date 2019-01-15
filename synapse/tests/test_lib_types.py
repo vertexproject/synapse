@@ -633,7 +633,14 @@ class TypesTest(s_t_utils.SynTest):
             future = 0x7fffffffffffffff
             self.eq(t.indx(future), b'\xff\xff\xff\xff\xff\xff\xff\xff')
             self.eq(t.norm('?')[0], future)
+            self.eq(t.norm(future)[0], future)
             self.eq(t.repr(future), '?')
+
+            # Explicitly test our max time vs. future marker
+            maxtime = 253402300799999  # 9999/12/31 23:59:59.999
+            self.eq(t.norm(maxtime)[0], maxtime)
+            self.eq(t.norm('9999/12/31 23:59:59.999')[0], maxtime)
+            self.raises(s_exc.BadTypeValu, t.norm, maxtime + 1)
 
             tick = t.norm('2014')[0]
             self.eq(t.repr(tick), '2014/01/01 00:00:00.000')
@@ -672,6 +679,7 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             # Sad path
             self.raises(s_exc.BadTypeValu, t.indxByEq, ('', ''))
+            self.raises(s_exc.BadTypeValu, t.indxByEq, ('?', '-1 day'))
 
             self.true(t.cmpr('2015', '>=', '20140202'))
             self.true(t.cmpr('2015', '>=', '2015'))
@@ -717,6 +725,14 @@ class TypesTest(s_t_utils.SynTest):
                                   core.eval('teststr +:tick*range=(2015)'))
             await self.agenraises(s_exc.BadCmprValu,
                                   core.eval('teststr +:tick*range=(2015, 2016, 2017)'))
+            await self.agenraises(s_exc.BadTypeValu,
+                                  core.eval('teststr +:tick*range=("?", "+1 day")'))
+            await self.agenraises(s_exc.BadTypeValu,
+                                  core.eval('teststr +:tick*range=(2000, "?+1 day")'))
+            await self.agenraises(s_exc.BadTypeValu,
+                                  core.eval('teststr:tick*range=("?", "+1 day")'))
+            await self.agenraises(s_exc.BadTypeValu,
+                                  core.eval('teststr:tick*range=(2000, "?+1 day")'))
 
             async with await core.snap() as snap:
                 node = await snap.addNode('teststr', 't1', {'tick': '2018/12/02 23:59:59.000'})
