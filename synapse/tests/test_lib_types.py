@@ -488,27 +488,27 @@ class TypesTest(s_t_utils.SynTest):
                 node = await alist(core.eval('[refs=((testcomp, (9001, "A mean one")), (testcomp, (40000, greeneggs)))]'))
                 node = await alist(core.eval('[refs=((testint, 16), (testcomp, (9999, greenham)))]'))
 
-            # nodes = await alist(core.eval('teststr=a +:tick*range=(20000101, 20101201)'))
-            # self.eq(0, len(nodes))
-            # nodes = await alist(core.eval('teststr +:tick*range=(19701125, 20151212)'))
-            # self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
-            # nodes = await alist(core.eval('testcomp +:haha*range=(grinch, meanone)'))
-            # self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            # nodes = await alist(core.eval('teststr +:.seen*range=((20090601, 20090701), (20110905, 20110906,))'))
-            # self.eq({node.ndef[1] for node in nodes}, {'b'})
-            # nodes = await alist(core.eval('teststr +:bar*range=((teststr, c), (teststr, q))'))
-            # self.eq({node.ndef[1] for node in nodes}, {'m'})
-            # nodes = await alist(core.eval('testcomp +testcomp*range=((1024, grinch), (4096, zemeanone))'))
-            # self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton'), (4096, 'whoville')})
-            # guid0 = 'B' * 32
-            # guid1 = 'D' * 32
-            # nodes = await alist(core.eval(f'testguid +testguid*range=({guid0}, {guid1})'))
-            # self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
-            # nodes = await alist(core.eval('testint | noderefs | +testcomp*range=((1000, grinch), (4000, whoville))'))
-            # self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            # nodes = await alist(core.eval('refs +:n1*range=((testcomp, (1000, green)), (testcomp, (3000, ham)))'))
-            # self.eq({node.ndef[1] for node in nodes},
-            #         {(('testcomp', (2048, 'horton')), ('testcomp', (4096, 'whoville')))})
+            nodes = await alist(core.eval('teststr=a +:tick*range=(20000101, 20101201)'))
+            self.eq(0, len(nodes))
+            nodes = await alist(core.eval('teststr +:tick*range=(19701125, 20151212)'))
+            self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
+            nodes = await alist(core.eval('testcomp +:haha*range=(grinch, meanone)'))
+            self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
+            nodes = await alist(core.eval('teststr +:.seen*range=((20090601, 20090701), (20110905, 20110906,))'))
+            self.eq({node.ndef[1] for node in nodes}, {'b'})
+            nodes = await alist(core.eval('teststr +:bar*range=((teststr, c), (teststr, q))'))
+            self.eq({node.ndef[1] for node in nodes}, {'m'})
+            nodes = await alist(core.eval('testcomp +testcomp*range=((1024, grinch), (4096, zemeanone))'))
+            self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton'), (4096, 'whoville')})
+            guid0 = 'B' * 32
+            guid1 = 'D' * 32
+            nodes = await alist(core.eval(f'testguid +testguid*range=({guid0}, {guid1})'))
+            self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
+            nodes = await alist(core.eval('testint | noderefs | +testcomp*range=((1000, grinch), (4000, whoville))'))
+            self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
+            nodes = await alist(core.eval('refs +:n1*range=((testcomp, (1000, green)), (testcomp, (3000, ham)))'))
+            self.eq({node.ndef[1] for node in nodes},
+                    {(('testcomp', (2048, 'horton')), ('testcomp', (4096, 'whoville')))})
 
             # The following tests show range working against a string
             nodes = await alist(core.eval('teststr*range=(b, m)'))
