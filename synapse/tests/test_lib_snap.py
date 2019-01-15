@@ -1,4 +1,6 @@
 import os
+import random
+import asyncio
 import contextlib
 
 import synapse.common as s_common
@@ -74,6 +76,45 @@ class SnapTest(s_t_utils.SynTest):
                 nodes = await alist(snap.getNodesBy('teststr', 'hehe'))
                 self.len(1, nodes)
                 self.eq(nodes[0], node)
+
+    async def test_addNodeRace(self):
+        ''' A regression in which a reader might retrieve a partially constructed node '''
+        NUM_TASKS = 2
+        random.seed(4)  # chosen by fair dice roll.
+        failed = False
+        done_events = []
+        async with self.getTestCore() as core:
+
+            async def write_a_bunch(done_event):
+                nonlocal failed
+                data = list(range(50))
+                random.shuffle(data)
+                await asyncio.sleep(0)
+                async with await core.snap() as snap:
+
+                    async def waitabit(info):
+                        await asyncio.sleep(0.1)
+
+                    snap.on('node:add', waitabit)
+
+                    for i in data:
+                        node = await snap.addNode('testint', i)
+                        if node.props.get('.created') is None:
+                            failed = True
+                            done_event.set()
+                            return
+                        await asyncio.sleep(0)
+                done_event.set()
+
+            for _ in range(NUM_TASKS):
+                done_event = asyncio.Event()
+                core.schedCoro(write_a_bunch(done_event))
+                done_events.append(done_event)
+
+            for event in done_events:
+                await event.wait()
+
+            self.false(failed)
 
     @contextlib.asynccontextmanager
     async def _getTestCoreMultiLayer(self, first_dirn):
