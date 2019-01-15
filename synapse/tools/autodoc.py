@@ -1,52 +1,24 @@
-import os
 import sys
-import shutil
+import logging
 import argparse
-import tempfile
-import importlib
-import collections
 
-import synapse
+import collections
 
 import synapse.common as s_common
 import synapse.cortex as s_cortex
-import synapse.dyndeps as s_dyndeps
+import synapse.telepath as s_telepath
 
-import synapse.lib.const as s_const
 import synapse.lib.output as s_output
-import synapse.lib.reflect as s_reflect
 
-base_synaspe_dir = os.path.split(synapse.__file__)[0]
+logger = logging.getLogger(__name__)
 
-dir_skips = ('/tests',
-             '/tools',
-             '/__pycache__',
-             'synapse/docker',
-             )
+poptsToWords = {
+        'ex': 'Example',
+        'ro': 'Read Only',
+        'defval': 'Default Value',
+    }
 
-fn_skips = ('__init__.py',
-            )
-
-obj_path_skips = ('synapse.cores.common.Runtime',
-                  'synapse.cores.storage.Storage',
-                  )
-
-obj_instance_confs = [
-    ('synapse.lib.cell.Cell', {'bind': '127.0.0.1'}),
-    ('synapse.cryotank.CryoCell', {'bind': '127.0.0.1'}),
-    ('synapse.neuron.Neuron', {'bind': '127.0.0.1', 'port': 0}),
-    ('synapse.lib.auth.Auth', {'lmdb:mapsize': s_const.mebibyte})
-]
-
-obj_instance_reqpath = [
-    'synapse.lib.cell.Cell',
-    'synapse.lib.auth.Auth',
-]
-
-descr = '''
-Command line tool to generate various synapse documentation
-'''
-
+# TODO Ensure this is consistent with other documentation.
 rstlvls = [
     ('#', {'over': True}),
     ('*', {'over': True}),
@@ -55,305 +27,53 @@ rstlvls = [
     ('^', {}),
 ]
 
-def reprvalu(valu):
-    if isinstance(valu, str):
-        return repr(valu)
-    return '%d (0x%x)' % (valu, valu)
 
-def inspect_mod(mod, cls):
+class DocHelp:
     '''
-    Find Config classes in a module which has @confdef decorated functions in them.
+    Helper to pre-compute all doc strings hierarchically
     '''
-    for modname in dir(mod):
-        valu = getattr(mod, modname)
-        try:
-            is_cls = issubclass(valu, cls)
-        except TypeError:
-            continue
-        if not is_cls:
-            continue
-        # Snag configable defs
-        for name, meth in s_reflect.getItemLocals(valu):
-            attr = getattr(meth, '_syn_config', None)
-            if attr is None:
-                continue
-            yield modname, valu, name, meth()
-
-def docConfigables(outp, fd):
-    rst = RstHelp()
-    rst.addHead('Synapse Configable Classes', lvl=0)
-    rst.addLines('The following objects are Configable objects. They have'
-                 ' settings which may be provided at runtime or during object'
-                 ' initialization which may change their behavior.')
-    basename = 'synapse'
-    confdetails = collections.defaultdict(list)
-
-    for root, dirs, files in os.walk(base_synaspe_dir):
-
-        if any([v for v in dir_skips if v in root]):
-            continue
-
-        for fn in files:
-            if fn in fn_skips:
-                continue
-            if not fn.endswith('.py'):
-                continue
-
-            modname = fn.rsplit('.', 1)[0]
-            _modpath = root[len(base_synaspe_dir) + 1:].replace(os.sep, '.')
-            modpath = '.'.join([v for v in [basename, _modpath, modname] if v])
-
-            mod = importlib.import_module(modpath)
-            for modattr, valu, name, results in inspect_mod(mod, cls=s_config.Configable):
-                confdetails[modpath].append((modattr, name, results))
-
-    # Collapse details into a modpath -> Details struct
-    detaildict = collections.defaultdict(list)
-
-    for modpath, details in confdetails.items():
-        for detail in details:
-            modattr, name, results = detail
-            obj_path = '.'.join([modpath, modattr])
-            if obj_path in obj_path_skips:
-                continue
-            for rslt in results:
-                if not rslt:
-                    continue
-                detaildict[obj_path].append(rslt)
-
-    # Extract configable information from object instances
-    cls_req_paths = tuple([s_dyndeps.getDynMeth(obj_path) for obj_path
-                           in obj_instance_reqpath])
-    tdir = tempfile.mkdtemp()
-    for obj_path, conf in obj_instance_confs:
-        fp = os.path.join(tdir, obj_path)
-        cls = s_dyndeps.getDynMeth(obj_path)
-        # Handle special configables which require additional args
-        if issubclass(cls, cls_req_paths):
-            os.makedirs(fp)
-            obj = cls(fp, conf=conf)  # type: s_config.Config
-        else:
-            obj = cls(conf=conf)  # type: s_config.Config
-        cdefs = obj.getConfDefs()
-        cdefs = list(cdefs.items())
-        detaildict[obj_path].extend(cdefs)
-        obj.fini()
-    shutil.rmtree(tdir, ignore_errors=True)
-
-    # Now make the RST proper like
-    keys = list(detaildict.keys())
-    keys.sort()
-    for obj_path in keys:
-        details = detaildict.get(obj_path, [])
-        details.sort(key=lambda x: x[0])
-        rst.addHead(name=obj_path, lvl=1)
-        for detail in details:
-            confvalu, confdict = detail[0], detail[1]
-            rst.addHead(confvalu, lvl=2)
-            _keys = list(confdict.keys())
-            _keys.sort()
-            for _key in _keys:
-                v = confdict.get(_key)
-                line = '  - {}: {}'.format(_key, v)
-                rst.addLines(line)
-
-    outp.printf(rst.getRstText())
-    if fd:
-        fd.close()
-    return 0
-
-def docModel(outp, fd, core):
-    forms = []
-    types = []
-
-    props = collections.defaultdict(list)
-
-    for tufo in core.getTufosByProp('syn:type'):
-        name = tufo[1].get('syn:type')
-        info = s_tufo.props(tufo)
-        types.append((name, info))
-
-    for tufo in core.getTufosByProp('syn:form'):
-        name = tufo[1].get('syn:form')
-        info = s_tufo.props(tufo)
-        forms.append((name, info))
-
-    for tufo in core.getTufosByProp('syn:prop'):
-        prop = tufo[1].get('syn:prop')
-        form = tufo[1].get('syn:prop:form')
-        info = s_tufo.props(tufo)
-        props[form].append((prop, info))
-
-    types.sort()
-    forms.sort()
-
-    [v.sort() for v in props.values()]
-
-    rst = RstHelp()
-    rst.addHead('Synapse Data Model', lvl=0)
-
-    rst.addHead('Types', lvl=1)
-
-    for name, info in types:
-
-        rst.addHead(name, lvl=2)
-        inst = core.getTypeInst(name)
-
-        ex = inst.get('ex')
-        doc = inst.get('doc')
-
-        if doc is not None:
-            rst.addLines(doc)
-
-        bases = core.getTypeBases(name)
-        rst.addLines('', 'Type Hierarchy: %s' % (' -> '.join(bases),), '')
-
-        if ex is not None:
-
-            #valu = core.getTypeParse(name,ex)
-            #vrep = reprvalu(valu)
-
-            rst.addLines('', 'Examples:', '')
-            rst.addLines('- repr mode: %s' % (repr(ex),))
-            #rst.addLines('- system mode: %s' % (vrep,))
-            rst.addLines('')
-
-        cons = []
-        xforms = []
-
-        if core.isSubType(name, 'str'):
-
-            regex = inst.get('regex')
-            if regex is not None:
-                cons.append('- regex: ``%s``' % (regex,))
-
-            lower = inst.get('lower')
-            if lower:
-                xforms.append('- case: lower')
-
-            restrip = inst.get('restrip')
-            if restrip is not None:
-                xforms.append('- regex strip: %s' % (restrip,))
-
-            nullval = inst.get('nullval')
-            if nullval is not None:
-                cons.append('- null value: %s' % (nullval,))
-
-        if core.isSubType(name, 'int'):
-
-            minval = inst.get('min')
-            if minval is not None:
-                cons.append('- min value: %d (0x%x)' % (minval, minval))
-
-            maxval = inst.get('max')
-            if maxval is not None:
-                cons.append('- max value: %d (0x%x)' % (maxval, maxval))
-
-            ismin = inst.get('ismin')
-            if ismin is not None:
-                xforms.append('- is minimum: True')
-
-            ismax = inst.get('ismax')
-            if ismax is not None:
-                xforms.append('- is maximum: True')
-
-        if core.isSubType(name, 'sepr'):
-
-            sep = inst.get('sep')
-            fields = inst.get('fields')
-
-            parts = []
-            for part in fields.split('|'):
-                name, stype = part.split(',')
-                parts.append(stype)
-
-            seprs = sep.join(['<%s>' % p for p in parts])
-            rst.addLines('', 'Sepr Fields: %s' % (seprs,))
-
-        if cons:
-            cons.append('')
-            rst.addLines('', 'Type Constraints:', '', *cons)
-
-        if xforms:
-            xforms.append('')
-            rst.addLines('', 'Type Transforms:', '', *xforms)
-
-    rst.addHead('Forms', lvl=1)
-
-    for name, info in forms:
-        ftype = info.get('ptype', 'str')
-        rst.addHead('%s = <%s>' % (name, ftype), lvl=2)
-
-        doc = core.getPropInfo(name, 'doc')
-        if doc is not None:
-            rst.addLines(doc)
-
-        rst.addLines('', 'Properties:', '')
-
-        for prop, pnfo in props.get(name, ()):
-
-            # use the resolver funcs that will recurse upward
-            pex = core.getPropInfo(prop, 'ex')
-            pdoc = core.getPropInfo(prop, 'doc')
-
-            ptype = pnfo.get('ptype')
-
-            pline = '\t- %s = <%s>' % (prop, ptype)
-
-            defval = pnfo.get('defval')
-            if defval is not None:
-                pline += ' (default: %r)' % (defval,)
-
-            rst.addLines(pline)
-
-            if pdoc:
-                rst.addLines('\t\t- %s' % (pdoc,))
-
-    # Add universal props last - they are not associated with a form.
-    uniprops = props.get(None)
-    if uniprops:
-        rst.addHead('Universal Props', lvl=1)
-
-        rst.addLines('', 'Universal props are system level properties which are generally present on every node.',
-                     '', 'These properties are not specific to a particular form and exist outside of a particular'
-                         ' namespace.', '')
-        plist = sorted(uniprops, key=lambda x: x[0])
-        for prop, pnfo in plist:
-            rst.addHead(prop, lvl=2)
-
-            pdoc = core.getPropInfo(prop, 'doc')
-
-            ptype = pnfo.get('ptype')
-
-            pline = '\t- %s = <%s>' % (prop, ptype)
-            rst.addLines(pline)
-
-            if pdoc:
-                rst.addLines('\t\t- %s' % (pdoc,))
-
-    outp.printf(rst.getRstText())
-    if fd:
-        fd.close()
-    return 0
+    def __init__(self, ctors, types, forms, props, univs):
+        self.ctors = {c[0]: c[3].get('doc', 'BaseType has no doc string.') for c in ctors}
+        self.types = {t[0]: t[2].get('doc', self.ctors.get(t[1][0])) for t in types}
+        self.forms = {f[0]: f[1].get('doc', self.types.get(f[0], self.ctors.get(f[0]))) for f in forms}
+        self.univs = {}
+        for unam, utyp, unfo in univs:
+            tn = utyp[0]
+            doc = unfo.get('doc', self.forms.get(tn, self.types.get(tn, self.ctors.get(tn))))
+            self.univs[unam] = doc
+        self.props = {}
+        for form, props in props.items():
+            for prop in props:
+                tn = prop[1][0]
+                doc = prop[2].get('doc', self.forms.get(tn, self.types.get(tn, self.ctors.get(tn))))
+                self.props[(form, prop[0])] = doc
 
 class RstHelp:
 
     def __init__(self):
         self.lines = []
 
-    def addHead(self, name, lvl=0):
+    def addHead(self, name, lvl=0, link=None):
         char, info = rstlvls[lvl]
         under = char * len(name)
 
-        self.lines.append('')
+        lines = []
+
+        lines.append('')
+
+        if link:
+            lines.append('')
+            lines.append(link)
+            lines.append('')
 
         if info.get('over'):
-            self.lines.append(under)
+            lines.append(under)
 
-        self.lines.append(name)
-        self.lines.append(under)
+        lines.append(name)
+        lines.append(under)
+        lines.append('')
 
-        self.lines.append('')
+        self.addLines(*lines)
 
     def addLines(self, *lines):
         self.lines.extend(lines)
@@ -361,31 +81,310 @@ class RstHelp:
     def getRstText(self):
         return '\n'.join(self.lines)
 
+def processCtors(rst, dochelp, ctors):
+    '''
+
+    Args:
+        rst (RstHelp):
+        dochelp (DocHelp):
+        ctors (list):
+
+    Returns:
+        None
+    '''
+    rst.addHead('Base Types', lvl=1, link='.. _dm-base-types:')
+    rst.addLines('',
+                 'Base types are defined via Python classes.',
+                 '')
+
+    for name, ctor, opts, info in ctors:
+
+        doc = dochelp.ctors.get(name)
+        if not doc.endswith('.'):
+            logger.warning(f'Docstring for ctor {name} does not end with a period.]')
+            doc = doc + '.'
+
+        # Break implicit links to nowhere
+        hname = name
+        if ':' in name:
+            hname = name.replace(':', '\:')
+
+        link = f'.. _dm-type-{name.replace(":", "-")}:'
+        rst.addHead(hname, lvl=2, link=link)
+
+        rst.addLines(doc, f'It is implemented by the following class\: ``{ctor}``.')
+        _ = info.pop('doc', None)
+        ex = info.pop('ex', None)
+        if ex:
+            rst.addLines('',
+                         f'A example of ``{name}``\:',
+                         '',
+                         f' * ``{ex}``',
+                         )
+
+        if opts:
+            rst.addLines('',
+                         f'The base type ``{name}`` has the following default options set:',
+                         ''
+                         )
+            for k, v in opts.items():
+                rst.addLines(f' * {k}: ``{v}``')
+
+        if info:
+            logger.warning(f'Base type {name} has unhandled info: {info}')
+
+def processTypes(rst, dochelp, types):
+    '''
+
+    Args:
+        rst (RstHelp):
+        dochelp (DocHelp):
+        ctors (list):
+
+    Returns:
+        None
+    '''
+
+    rst.addHead('Types', lvl=1, link='.. _dm-types:')
+
+    rst.addLines('',
+                 'Regular types are derived from BaseTypes.',
+                 '')
+
+    for name, (ttyp, topt), info in types:
+
+        doc = dochelp.types.get(name)
+        if not doc.endswith('.'):
+            logger.warning(f'Docstring for type {name} does not end with a period.]')
+            doc = doc + '.'
+
+        # Break implicit links to nowhere
+        hname = name
+        if ':' in name:
+            hname = name.replace(':', '\:')
+
+        link = f'.. _dm-type-{name.replace(":", "-")}:'
+        rst.addHead(hname, lvl=2, link=link)
+
+        rst.addLines(doc,
+                     f'The ``{name}`` type is derived from the base type: ``{ttyp}``.')
+
+        _ = info.pop('doc', None)
+        ex = info.pop('ex', None)
+        if ex:
+            rst.addLines('',
+                         f'A example of {name}\:',
+                         '',
+                         f' * ``{ex}``',
+                         )
+
+        if topt:
+            rst.addLines('',
+                         f'The type ``{name}`` has the following options set:',
+                         ''
+                         )
+            for k, v in sorted(topt.items(), key=lambda x: x[0]):
+                rst.addLines(f' * {k}: ``{v}``')
+
+        if info:
+            logger.warning(f'Type {name} has unhandled info: {info}')
+
+def processFormsProps(rst, dochelp, forms):
+
+    rst.addHead('Forms', lvl=1, link='.. _dm-forms:')
+    rst.addLines('',
+                 'Forms are derived from types, or base types. Forms represent node types in the graph.'
+                 '')
+
+    for name, info, props in forms:
+
+        doc = dochelp.forms.get(name)
+        if not doc.endswith('.'):
+            logger.warning(f'Docstring for form {name} does not end with a period.]')
+            doc = doc + '.'
+
+        hname = name
+        if ':' in name:
+            hname = name.replace(':', '\:')
+        link = f'.. _dm-form-{name.replace(":", "-")}:'
+        rst.addHead(hname, lvl=2, link=link)
+
+        rst.addLines(doc,
+                     '')
+
+        if props:
+            rst.addLines('Properties:',
+                         )
+        for pname, (ptname, ptopts), popts in props:
+
+            hpname = pname
+            if ':' in pname:
+                hpname = pname.replace(':', '\:')
+
+            _ = popts.pop('doc', None)
+            doc = dochelp.props.get((name, pname))
+            if not doc.endswith('.'):
+                logger.warning(f'Docstring for prop ({name}, {pname}) does not end with a period.]')
+                doc = doc + '.'
+
+            rst.addLines('',
+                         '\:' + hpname,
+                         '  ' + doc,
+                         '  ' + f'Full property name is ``{":".join([name, pname])}``.'
+                         )
+
+            if popts:
+
+                rst.addLines('  ' + 'It has the following property options set:',
+                             ''
+                             )
+                for k, v in popts.items():
+                    if k == 'defval' and v == '':
+                        v = "''"
+                    k = poptsToWords.get(k, k.replace(':', '\:'))
+                    rst.addLines('  ' + f'* {k}: ``{v}``')
+
+            hptlink = f'dm-type-{ptname.replace(":", "-")}'
+            tdoc = f'The property type is :ref:`{hptlink}`.'
+
+            rst.addLines('',
+                         '  ' + tdoc,
+                         )
+            if ptopts:
+                rst.addLines('  ' + "It's type has the following options set:",
+                             '')
+                for k, v in ptopts.items():
+                    rst.addLines('  ' + f'* {k}: ``{v}``')
+
+def processUnivs(rst, dochelp, univs):
+    rst.addHead('Universal Properties', lvl=1, link='.. _dm-universal-props:')
+
+    rst.addLines('',
+                 'Universal props are system level properties which may be present on every node.',
+                 '',
+                 'These properties are not specific to a particular form and exist outside of a particular',
+                 'namespace.',
+                 '')
+
+    for name, (utyp, uopt), info in univs:
+
+        _ = info.pop('doc', None)
+        doc = dochelp.univs.get(name)
+        if not doc.endswith('.'):
+            logger.warning(f'Docstring for form {name} does not end with a period.]')
+            doc = doc + '.'
+
+        hname = name
+        if ':' in name:
+            hname = name.replace(':', '\:')
+
+        rst.addHead('.' + hname, lvl=2, link=f'.. _dm-univ-{name.replace(":", "-")}:')
+
+        rst.addLines('',
+                     doc,
+                     )
+
+        if info:
+            rst.addLines('It has the following property options set:',
+                         ''
+                         )
+            for k, v in info.items():
+                if k == 'defval' and v == '':
+                    v = "''"
+                k = poptsToWords.get(k, k.replace(':', '\:'))
+                rst.addLines('  ' + f'* {k}: ``{v}``')
+
+        hptlink = f'dm-type-{utyp.replace(":", "-")}'
+        tdoc = f'The universal property type is :ref:`{hptlink}`.'
+
+        rst.addLines('',
+                     tdoc,
+                     )
+        if uopt:
+            rst.addLines("It's type has the following options set:",
+                         '')
+            for k, v in uopt.items():
+                rst.addLines('  ' + f'* {k}: ``{v}``')
+
+def docModel(outp,
+             core):
+    coreinfo = core.getCoreInfo()
+    _, model = coreinfo.get('modeldef')[0]
+    ctors = model.get('ctors')
+    types = model.get('types')
+    forms = model.get('forms')
+    univs = model.get('univs')
+    props = collections.defaultdict(list)
+
+    ctors = sorted(ctors, key=lambda x: x[0])
+    univs = sorted(univs, key=lambda x: x[0])
+    types = sorted(types, key=lambda x: x[0])
+    forms = sorted(forms, key=lambda x: x[0])
+
+    for fname, fnfo, fprops in forms:
+        for prop in fprops:
+            props[fname].append(prop)
+
+    [v.sort() for k, v in props.items()]
+
+    dochelp = DocHelp(ctors, types, forms, props, univs)
+
+    rst = RstHelp()
+    rst.addHead('Synapse Data Model - Types', lvl=0)
+
+    processCtors(rst, dochelp, ctors)
+    processTypes(rst, dochelp, types)
+
+    rst2 = RstHelp()
+    rst2.addHead('Synapse Data Model - Forms', lvl=0)
+
+    processFormsProps(rst2, dochelp, forms)
+    processUnivs(rst2, dochelp, univs)
+
+    # outp.printf(rst.getRstText())
+    # outp.printf(rst2.getRstText())
+    return rst, rst2
+
 def main(argv, outp=None):
 
     if outp is None:
         outp = s_output.OutPut()
 
-    pars = argparse.ArgumentParser(prog='autodoc', description=descr)
-
-    #pars.add_argument('--format', default='rst')
-    pars.add_argument('--cortex', default='ram://', help='Cortex URL for model inspection')
-    pars.add_argument('--doc-model', action='store_true', default=False, help='Generate RST docs for the DataModel within a cortex')
-    pars.add_argument('--configable-opts', action='store_true', default=False, help='Generate RST docs of the Configable classes in Synapse.')
-    pars.add_argument('--savefile', default=None, help='Save output to the given file')
+    pars = makeargparser()
 
     opts = pars.parse_args(argv)
-    fd = None
-    if opts.savefile:
-        fd = open(opts.savefile, 'wb')
-        outp = s_output.OutPutFd(fd)
 
     if opts.doc_model:
-        with s_cortex.openurl(opts.cortex) as core:
-            return docModel(outp, fd, core)
+        if opts.cortex:
+            with s_telepath.openurl(opts.cortex) as core:
+                rsttypes, rstforms = docModel(outp, core)
+        else:
+            with s_cortex.getTempCortex() as core:
+                rsttypes, rstforms = docModel(outp, core)
 
-    if opts.configable_opts:
-        return docConfigables(outp, fd)
+        if opts.savedir:
+            with open(s_common.genpath(opts.savedir, 'datamodel_types.rst'), 'wb') as fd:
+                fd.write(rsttypes.getRstText().encode())
+            with open(s_common.genpath(opts.savedir, 'datamodel_forms.rst'), 'wb') as fd:
+                fd.write(rstforms.getRstText().encode())
 
-if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:]))
+    return 0
+
+def makeargparser():
+    desc = 'Command line tool to generate various synapse documentation.'
+    pars = argparse.ArgumentParser('synapse.tools.autodoc', description=desc)
+
+    pars.add_argument('--cortex', '-c', default=None,
+                      help='Cortex URL for model inspection')
+    pars.add_argument('--savedir', default=None,
+                      help='Save output to the given directory')
+    pars.add_argument('--doc-model', action='store_true', default=False,
+                      help='Generate RST docs for the DataModel within a cortex')
+    return pars
+
+def _main():  # pragma: no cover
+    s_common.setlogging(logger, 'DEBUG')
+    return main(sys.argv[1:])
+
+if __name__ == '__main__':  # pragma: no cover
+    sys.exit(_main())
