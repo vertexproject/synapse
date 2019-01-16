@@ -132,7 +132,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
             return
 
         if opts.json:
-            rend = json.dumps(valu, indent=4)
+            rend = json.dumps(valu, indent=2)
         else:
             rend = pprint.pformat(valu)
         self.printf(f'{opts.path}:\n{rend}')
