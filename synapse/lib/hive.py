@@ -93,6 +93,7 @@ class Hive(s_base.Base, s_telepath.Aware):
         self.editsbypath = collections.defaultdict(set)
 
         self.root = await Node.anit(self, (), None)
+        self.nodes[()] = self.root
 
         self.root.link(self._onNodeEdit)
 
@@ -151,7 +152,7 @@ class Hive(s_base.Base, s_telepath.Aware):
     def dir(self, full):
         node = self.nodes.get(full)
         if node is None:
-            return tuple()
+            return None
 
         return node.dir()
 
@@ -262,8 +263,7 @@ class Hive(s_base.Base, s_telepath.Aware):
         return await self._popHiveNode(node)
 
     async def _popHiveNode(self, node):
-
-        for name, kidn in list(node.kids.values()):
+        for kidn in list(node.kids.values()):
             await self._popHiveNode(kidn)
 
         name = node.name()

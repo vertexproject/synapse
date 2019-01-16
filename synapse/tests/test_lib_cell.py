@@ -1,6 +1,5 @@
 import synapse.exc as s_exc
 import synapse.cells as s_cells
-import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
@@ -76,3 +75,19 @@ class CellTest(s_t_utils.SynTest):
                 async with await s_cells.init('echoauth', dirn, readonly=True) as cell:
                     self.true(cell.slab.readonly)
                 self.true(await stream.wait(1))
+
+    async def test_cell_hive(self):
+
+        # test out built in cell auth
+        async with self.getTestDmon(mirror='cellauth') as dmon:
+            host, port = dmon.addr
+            url = f'tcp://root:secretsauce@{host}:{port}/echo00'
+            async with await s_telepath.openurl(url) as proxy:
+
+                self.eq([], await proxy.listHiveKey())
+                await proxy.setHiveKey(('foo', 'bar'), [1, 2, 3, 4])
+                self.eq([1, 2, 3, 4], await proxy.getHiveKey(('foo', 'bar')))
+                self.eq(['foo'], await proxy.listHiveKey())
+                self.eq(['bar'], await proxy.listHiveKey(('foo', )))
+                await proxy.popHiveKey(('foo', 'bar'))
+                self.eq([], await proxy.listHiveKey(('foo', )))

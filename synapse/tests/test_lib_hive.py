@@ -221,7 +221,11 @@ class HiveTest(s_test.SynTest):
             await hive.open(('foo', 'baz'))
             await hive.open(('foo', 'faz'))
 
-            node = await hive.open(('foo',))
+            self.none(hive.dir(('nosuchdir',)))
+
+            self.eq([('foo', None, 3)], list(hive.dir(())))
+
+            await hive.open(('foo',))
 
             kids = list(hive.dir(('foo',)))
 
@@ -243,6 +247,13 @@ class HiveTest(s_test.SynTest):
 
             self.eq(20, await hive.pop(('foo', 'bar')))
 
+            self.none(await hive.get(('foo', 'bar')))
+
+            # Test recursive delete
+            node = await hive.open(('foo', 'bar'))
+            await node.set(20)
+
+            self.eq(None, await hive.pop(('foo', )))
             self.none(await hive.get(('foo', 'bar')))
 
     async def test_hive_tele_auth(self):

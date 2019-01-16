@@ -41,6 +41,9 @@ class Node:
         if self.ndef is not None:
             self.form = self.snap.model.form(self.ndef[0])
 
+    def __repr__(self):
+        return f'Node{{{self.pack()}}}'
+
     async def storm(self, text, opts=None, user=None):
         query = self.snap.core.getStormQuery(text)
         with self.snap.getStormRuntime(opts=opts, user=user) as runt:
