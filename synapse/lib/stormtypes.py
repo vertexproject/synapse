@@ -113,8 +113,8 @@ def fromprim(valu, path=None):
     if isinstance(valu, StormType):
         return valu
 
-    if isinstance(valu, (tuple, list)):
-        return List(valu, path=path)
+    #if isinstance(valu, (tuple, list)):
+        #return List(valu, path=path)
 
     if isinstance(valu, dict):
         return Dict(valu, path=path)
