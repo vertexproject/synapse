@@ -179,8 +179,8 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                         return
                     try:
                         valu = json.loads(bytz)
-                    except json.JSONDecodeError:  # pragma: no cover
-                        self.printf('JSON decode failure: [{e}].  Reopening.')
+                    except json.JSONDecodeError as e:  # pragma: no cover
+                        self.printf(f'JSON decode failure: [{e}].  Reopening.')
                         await asyncio.sleep(1)
                         continue
                     # We lose the tuple/list distinction in the telepath round trip, so tuplify everything to compare
