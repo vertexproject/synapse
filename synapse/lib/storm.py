@@ -11,6 +11,7 @@ import synapse.lib.ast as s_ast
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
+import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,10 @@ class Runtime:
             opts = {}
 
         self.vars = {}
+        self.ctors = {
+            'lib': s_stormtypes.Lib,
+        }
+
         self.opts = opts
         self.snap = snap
         self.user = user
@@ -37,6 +42,10 @@ class Runtime:
         varz = self.opts.get('vars')
         if varz is not None:
             self.vars.update(varz)
+
+        self.runtvars = set()
+        self.runtvars.update(self.vars.keys())
+        self.runtvars.update(self.ctors.keys())
 
         self.elevated = False
 
@@ -72,6 +81,23 @@ class Runtime:
 
     def setOpt(self, name, valu):
         self.opts[name] = valu
+
+    def getVar(self, name, defv=None):
+
+        item = self.vars.get(name, s_common.novalu)
+        if item is not s_common.novalu:
+            return item
+
+        ctor = self.ctors.get(name)
+        if ctor is not None:
+            item = ctor(self)
+            self.vars[name] = item
+            return item
+
+        return defv
+
+    def setVar(self, name, valu):
+        self.vars[name] = valu
 
     def addInput(self, node):
         '''
@@ -124,6 +150,12 @@ class Runtime:
         return count
 
     async def iterStormQuery(self, query):
+
+        # do a quick pass to determine which vars are per-node.
+        for oper in query.kids:
+            for name in oper.getRuntVars(self):
+                self.runtvars.add(name)
+
         # init any options from the query
         # (but dont override our own opts)
         for name, valu in query.opts.items():
