@@ -351,7 +351,7 @@ class ForLoop(Oper):
         ivar = self.kids[1].value()
         subq = self.kids[2]
 
-        items = runt.vars.get(ivar)
+        items = runt.getVar(ivar)
         if items is None:
             raise s_exc.NoSuchVar(name=ivar)
 
@@ -1455,7 +1455,7 @@ class TagVar(RunValue):
         self.varn = self.kids[0].value()
 
     async def runtval(self, runt):
-        tag = runt.vars.get(self.varn)
+        tag = runt.getVar(self.varn)
         if tag is None:
             raise s_exc.NoSuchVar(name=self.varn)
         return tag
@@ -1531,7 +1531,7 @@ class VarValue(RunValue):
 
     async def runtval(self, runt):
 
-        valu = runt.vars.get(self.name, s_common.novalu)
+        valu = runt.getVar(self.name, s_common.novalu)
         if valu is s_common.novalu:
             raise s_exc.NoSuchVar(name=self.name)
 
