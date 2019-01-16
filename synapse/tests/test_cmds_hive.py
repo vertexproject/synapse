@@ -4,6 +4,13 @@ import synapse.lib.cmdr as s_cmdr
 
 import synapse.tests.utils as s_t_utils
 
+_json_output = '''[
+  1,
+  2,
+  3,
+  4
+]'''
+
 class CmdHiveTest(s_t_utils.SynTest):
 
     async def test_hive(self):
@@ -22,9 +29,12 @@ class CmdHiveTest(s_t_utils.SynTest):
 
                 outp.clear()
                 await cmdr.runCmdLine('hive get foo/bar')
-                self.true(outp.expect('foo/bar: (1, 2, 3, 4)'))
-
+                self.true(outp.expect('foo/bar:\n(1, 2, 3, 4)'))
                 outp.clear()
+
+                await cmdr.runCmdLine('hive get --json foo/bar')
+                self.true(outp.expect('foo/bar:\n' + _json_output))
+
                 await cmdr.runCmdLine('hive ls foo')
                 self.true(outp.expect('bar'))
 
@@ -41,7 +51,7 @@ class CmdHiveTest(s_t_utils.SynTest):
                 outp.clear()
                 await cmdr.runCmdLine(f'hive edit foo/bar2 -f {fn}')
                 await cmdr.runCmdLine('hive get foo/bar2')
-                self.true(outp.expect("foo/bar2: {'foo': 123}"))
+                self.true(outp.expect("foo/bar2:\n{'foo': 123}"))
 
                 outp.clear()
                 fn = os.path.join(dirn, 'empty.json')
@@ -61,13 +71,13 @@ class CmdHiveTest(s_t_utils.SynTest):
 
                     await cmdr.runCmdLine(f'hive edit foo/bar3 --editor')
                     await cmdr.runCmdLine('hive get foo/bar3')
-                    self.true(outp.expect('foo/bar3: (1, 2, 3)'))
+                    self.true(outp.expect('foo/bar3:\n(1, 2, 3)'))
 
                 outp.clear()
                 with self.setTstEnvars(VISUAL='echo [1,2,3] > '):
                     await cmdr.runCmdLine(f'hive edit foo/bar4 --editor')
                     await cmdr.runCmdLine('hive get foo/bar4')
-                    self.true(outp.expect('foo/bar4: (1, 2, 3)'))
+                    self.true(outp.expect('foo/bar4:\n(1, 2, 3)'))
 
                 outp.clear()
                 with self.setTstEnvars(VISUAL='echo [1,2,3] > '):
