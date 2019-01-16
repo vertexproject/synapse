@@ -170,7 +170,7 @@ def genpath(*paths):
 def reqpath(*paths):
     path = genpath(*paths)
     if not os.path.isfile(path):
-        raise s_exc.NoSuchFile(path)
+        raise s_exc.NoSuchFile(name=path)
     return path
 
 def reqfile(*paths, **opts):
