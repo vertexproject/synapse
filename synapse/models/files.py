@@ -234,12 +234,64 @@ class FileModule(s_module.CoreModule):
                         ('string', 'str'))}), {
                     'doc': 'The fused knowledge of a file:bytes node containing a string.',
                 }),
+
                 ('pe:resource:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
                     'doc': 'The typecode for the resource',
                 }),
+
                 ('pe:langid', ('int', {'enums': s_l_pe.getLangCodes()}), {
                     'doc': 'The PE language id',
                 }),
+
+                ('file:mime', ('str', {'lower': 1}), {
+                    'doc': 'A file mime type name.',
+                }),
+
+                ('file:ismime', ('comp', {'fields': (
+                        ('file:bytes', 'file'),
+                        ('file:mime', 'mime'),
+                    )}), {
+                    'doc': 'Records that a given file is an instance of a file mime type.',
+                }),
+
+                ('file:mime:email:header:name', ('str', {'lower': 1}), {
+                    'doc': 'The lower case normalied name of an RFC822 email header.',
+                }),
+
+                ('file:mime:email:header', ('comp', {'fields': (
+                    })),
+                    'doc': 'An key/value pair found in an RFC822 email header.',
+                }),
+
+                '''
+                ('inet:email:message'
+                    :from
+                    :to
+                    :subject
+                    :sent
+                    :bytes
+
+                ('inet:email:to',
+                    message
+                    email
+                    type = to | cc | bcc
+
+                ('inet:email:header:name',
+                ('inet:email:header',
+                    name
+                    value,
+
+                ('inet:email:message:header',
+                    message
+                    header
+                    header:name
+                    header:value
+
+                ('inet:email:attachment',
+                    message,
+                    file
+                    name,
+                '''
             ),
 
             'forms': (
@@ -264,8 +316,9 @@ class FileModule(s_module.CoreModule):
                     ('name', ('file:base', {}), {
                         'doc': 'The best known base name for the file.'}),
 
-                    ('mime', ('str', {'lower': 1}), {'defval': '??',
-                                                     'doc': 'The MIME type of the file.'}),
+                    ('mime', ('str', {'lower': 1}), {
+                        'defval': '??',
+                        'doc': 'The MIME type of the file.'}),
 
                     ('mime:x509:cn', ('str', {}), {
                         'doc': 'The Common Name (CN) attribute of the x509 Subject.'}),
@@ -291,6 +344,20 @@ class FileModule(s_module.CoreModule):
 
                     ('mime:pe:richhdr', ('hash:sha256', {}), {
                         'doc': 'The sha256 hash of the rich header bytes.'}),
+
+                )),
+
+                ('file:mime', {}, ()),
+
+                ('file:ismime', {}, (
+                    ('file', ('file:bytes', {}), {
+                        'ro': True,
+                        'doc': 'The file node that is an instance of the named mime type.',
+                    }),
+                    ('mime', ('file:mime', {}), {
+                        'ro': True,
+                        'doc': 'The mime type of the file.',
+                    }),
                 )),
 
                 ('file:mime:pe:section', {}, (
