@@ -1555,3 +1555,36 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.get('text'), 'woot woot woot')
                 self.eq(node.get('title'), 'this is a title')
                 self.eq(node.get('query'), iden)
+
+    async def test_model_inet_email_message(self):
+
+        async with self.getTestCore() as core:
+            q = '''
+            [
+            inet:email:message="*"
+                :to=woot@woot.com
+                :from=visi@vertex.link
+                :subject="hi there"
+                :sent=2015
+                :body="there are mad sploitz here!"
+                :bytes="*"
+            ]
+
+            {[ inet:email:message:link=($node, https://www.vertex.link) ]}
+
+            {[ inet:email:message:attachment=($node, "*") ] -inet:email:message [ :name=sploit.exe ]}
+
+            {[ has=($node, ('inet:email:header', ('to', 'Visi Kensho <visi@vertex.link>'))) ]}
+            '''
+            nodes = await core.eval(q).list()
+            self.len(1, nodes)
+
+            self.len(1, await core.eval('inet:email:message:to=woot@woot.com').list())
+            self.len(1, await core.eval('inet:email:message:sent=2015').list())
+            self.len(1, await core.eval('inet:email:message:body="there are mad sploitz here!"').list())
+            self.len(1, await core.eval('inet:email:message:subject="hi there"').list())
+
+            self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> has -> inet:email:header +:name=to +:value="Visi Kensho <visi@vertex.link>"').list())
+            self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> inet:email:message:link -> inet:url +inet:url=https://www.vertex.link').list())
+            self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes').list())
+            self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> file:bytes').list())

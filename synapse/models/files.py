@@ -173,6 +173,15 @@ class FileBytes(s_types.Type):
 
 class FileModule(s_module.CoreModule):
 
+    async def initCoreModule(self):
+        self.model.prop('file:bytes:mime').onSet(self._onSetFileBytesMime)
+
+    async def _onSetFileBytesMime(self, node, oldv):
+        name = node.get('mime')
+        if name == '??':
+            return
+        await node.snap.addNode('file:ismime', (node.ndef[1], name))
+
     def getModelDefs(self):
         modl = {
             'ctors': (
@@ -197,9 +206,20 @@ class FileModule(s_module.CoreModule):
                 ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
                     'doc': 'A parent file that fully contains the specified child file.',
                 }),
+
                 ('file:filepath', ('comp', {'fields': (('file', 'file:bytes'), ('path', 'file:path'))}), {
                     'doc': 'The fused knowledge of the association of a file:bytes node and a file:path.',
                 }),
+
+                ('file:mime', ('str', {'lower': 1}), {
+                    'doc': 'A file mime name string',
+                    'ex': 'text/plain',
+                }),
+
+                ('file:ismime', ('comp', {'fields': (('file', 'file:bytes'), ('mime', 'file:mime'))}), {
+                    'doc': 'Records one, of potentially multiple, mime types for a given file.',
+                }),
+
                 ('file:mime:pe:section', ('comp', {'fields': (
                         ('file', 'file:bytes'),
                         ('name', 'str'),
@@ -243,55 +263,6 @@ class FileModule(s_module.CoreModule):
                     'doc': 'The PE language id',
                 }),
 
-                ('file:mime', ('str', {'lower': 1}), {
-                    'doc': 'A file mime type name.',
-                }),
-
-                ('file:ismime', ('comp', {'fields': (
-                        ('file:bytes', 'file'),
-                        ('file:mime', 'mime'),
-                    )}), {
-                    'doc': 'Records that a given file is an instance of a file mime type.',
-                }),
-
-                ('file:mime:email:header:name', ('str', {'lower': 1}), {
-                    'doc': 'The lower case normalied name of an RFC822 email header.',
-                }),
-
-                ('file:mime:email:header', ('comp', {'fields': (
-                    })),
-                    'doc': 'An key/value pair found in an RFC822 email header.',
-                }),
-
-                '''
-                ('inet:email:message'
-                    :from
-                    :to
-                    :subject
-                    :sent
-                    :bytes
-
-                ('inet:email:to',
-                    message
-                    email
-                    type = to | cc | bcc
-
-                ('inet:email:header:name',
-                ('inet:email:header',
-                    name
-                    value,
-
-                ('inet:email:message:header',
-                    message
-                    header
-                    header:name
-                    header:value
-
-                ('inet:email:attachment',
-                    message,
-                    file
-                    name,
-                '''
             ),
 
             'forms': (
@@ -316,9 +287,9 @@ class FileModule(s_module.CoreModule):
                     ('name', ('file:base', {}), {
                         'doc': 'The best known base name for the file.'}),
 
-                    ('mime', ('str', {'lower': 1}), {
+                    ('mime', ('file:mime', {}), {
                         'defval': '??',
-                        'doc': 'The MIME type of the file.'}),
+                        'doc': 'The "best" mime type name for the file.'}),
 
                     ('mime:x509:cn', ('str', {}), {
                         'doc': 'The Common Name (CN) attribute of the x509 Subject.'}),

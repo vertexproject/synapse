@@ -936,9 +936,77 @@ class InetModule(s_module.CoreModule):
                         'ex': 'The Vertex Project'
                     }),
 
+                    ('inet:email:message', ('guid', {}), {
+                        'doc': 'A unique email message.',
+                    }),
+
+                    ('inet:email:header:name', ('str', {'lower': True}), {
+                        'doc': 'An email header name.',
+                        'ex': 'subject',
+                    }),
+                    ('inet:email:header', ('comp', {'fields': (('name', 'inet:email:header:name'), ('value', 'str'))}), {
+                        'doc': 'A unique email message header.',
+                    }),
+                    #('inet:email:message:has_header', ('comp', {'fields': (('message', 'inet:email:message'), ('header', 'inet:email:header'))}), {
+                        #'doc': 'A message header on a specific email message.'}),
+                    ('inet:email:message:attachment', ('comp', {'fields': (('message', 'inet:email:message'), ('file', 'file:bytes'))}), {
+                        'doc': 'A file which was attached to an email message.',
+                    }),
+                    ('inet:email:message:link', ('comp', {'fields': (('message', 'inet:email:message'), ('url', 'inet:url'))}), {
+                        'doc': 'A url/link embedded in an email message.',
+                    }),
                 ),
 
                 'forms': (
+
+                    ('inet:email:message', {}, (
+
+                        ('to', ('inet:email', {}), {
+                            'doc': 'The email address of the recipient.'}),
+
+                        ('from', ('inet:email', {}), {
+                            'doc': 'The email address of the sender.'}),
+
+                        ('subject', ('str', {}), {
+                            'doc': 'The email message subject line.'}),
+
+                        ('body', ('str', {}), {
+                            'doc': 'The body of the email message.'}),
+
+                        ('sent', ('time', {}), {
+                            'doc': 'The time the email message was sent.'}),
+
+                        ('bytes', ('file:bytes', {}), {
+                            'doc': 'The file bytes which contain the email message.'}),
+                    )),
+
+                    ('inet:email:header', {}, (
+                        ('name', ('inet:email:header:name', {}), {
+                            'ro': True,
+                            'doc': 'The name of the email header.'}),
+                        ('value', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The value of the email header.'}),
+                    )),
+
+                    ('inet:email:message:attachment', {}, (
+                        ('message', ('inet:email:message', {}), {
+                            'ro': True,
+                            'doc': 'The message containing the attached file.'}),
+                        ('file', ('file:bytes', {}), {
+                            'ro': True,
+                            'doc': 'The attached file.'}),
+                        ('name', ('file:base', {}), {
+                            'doc': 'The name of the attached file.'}),
+                    )),
+
+                    ('inet:email:message:link', {}, (
+                        ('message', ('inet:email:message', {}), {
+                            'ro': True,
+                            'doc': 'The message containing the embedded link.'}),
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The url contained within the email message.'}),
+                    )),
 
                     ('inet:asn', {}, (
                         ('name', ('str', {'lower': True}), {

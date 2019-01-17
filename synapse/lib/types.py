@@ -56,7 +56,12 @@ class Type:
         self.setCmprCtor('*in=', self._ctorCmprIn)
         self.setCmprCtor('*range=', self._ctorCmprRange)
 
+        self.setNormFunc(s_node.Node, self._normStormNode)
+
         self.postTypeInit()
+
+    def _normStormNode(self, node):
+        return self.norm(node.ndef[1])
 
     def _getIndxChop(self, indx):
 
@@ -381,6 +386,7 @@ class Comp(Type):
         norms = []
 
         for i, (name, typename) in enumerate(fields):
+
             _type = self.tcache[name]
 
             norm, info = _type.norm(valu[i])
@@ -882,7 +888,6 @@ class Ndef(Type):
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
-        self.setNormFunc(s_node.Node, self._normStormNode)
 
     def _normStormNode(self, valu):
         return self._normPyTuple(valu.ndef)
