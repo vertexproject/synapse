@@ -62,6 +62,7 @@ class Layer(s_cell.Cell):
             'range': self._rowsByRange,
         }
 
+        self.fresh = False
         self.readonly = readonly
         self.spliced = asyncio.Event(loop=self.loop)
         self.splicelist = []
@@ -74,7 +75,7 @@ class Layer(s_cell.Cell):
 
         return s_msgpack.un(byts)
 
-    def setModelVers(self, vers):
+    async def setModelVers(self, vers):
         byts = s_msgpack.en(vers)
         self.slab.put(b'layer:model:version', byts)
 

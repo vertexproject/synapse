@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 PASSTHROUGHFUNCS = (
     'commit', 'getBuidProps', 'getOffset', 'setOffset', 'stat', 'initdb', 'stor', 'splicelistAppend',
+    'getModelVers',
 )
 
 class RemoteLayer(s_layer.Layer):
@@ -57,3 +58,6 @@ class RemoteLayer(s_layer.Layer):
     async def iterUnivRows(self, *args, **kwargs):
         async for item in await self.remote.iterUnivRows(*args, **kwargs):
             yield item
+
+    async def setModelVers(self, vers):
+        raise s_exc.SynErr(mesg='setModelVers not allowed!')
