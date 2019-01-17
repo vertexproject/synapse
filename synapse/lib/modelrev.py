@@ -37,7 +37,5 @@ class ModelRev:
                     await layr.setModelVers(revvers)
                     vers = revvers
 
-            print('layer %r is at %r' % (layr, vers))
-
     def _addModelVers(self, core, layr):
         pass
