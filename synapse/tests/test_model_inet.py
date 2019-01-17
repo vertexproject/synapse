@@ -1564,8 +1564,9 @@ class InetModelTest(s_t_utils.SynTest):
             inet:email:message="*"
                 :to=woot@woot.com
                 :from=visi@vertex.link
+                :replyto=root@root.com
                 :subject="hi there"
-                :sent=2015
+                :date=2015
                 :body="there are mad sploitz here!"
                 :bytes="*"
             ]
@@ -1580,9 +1581,10 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             self.len(1, await core.eval('inet:email:message:to=woot@woot.com').list())
-            self.len(1, await core.eval('inet:email:message:sent=2015').list())
+            self.len(1, await core.eval('inet:email:message:date=2015').list())
             self.len(1, await core.eval('inet:email:message:body="there are mad sploitz here!"').list())
             self.len(1, await core.eval('inet:email:message:subject="hi there"').list())
+            self.len(1, await core.eval('inet:email:message:replyto=root@root.com').list())
 
             self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> has -> inet:email:header +:name=to +:value="Visi Kensho <visi@vertex.link>"').list())
             self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> inet:email:message:link -> inet:url +inet:url=https://www.vertex.link').list())

@@ -947,8 +947,6 @@ class InetModule(s_module.CoreModule):
                     ('inet:email:header', ('comp', {'fields': (('name', 'inet:email:header:name'), ('value', 'str'))}), {
                         'doc': 'A unique email message header.',
                     }),
-                    #('inet:email:message:has_header', ('comp', {'fields': (('message', 'inet:email:message'), ('header', 'inet:email:header'))}), {
-                        #'doc': 'A message header on a specific email message.'}),
                     ('inet:email:message:attachment', ('comp', {'fields': (('message', 'inet:email:message'), ('file', 'file:bytes'))}), {
                         'doc': 'A file which was attached to an email message.',
                     }),
@@ -967,14 +965,17 @@ class InetModule(s_module.CoreModule):
                         ('from', ('inet:email', {}), {
                             'doc': 'The email address of the sender.'}),
 
+                        ('replyto', ('inet:email', {}), {
+                            'doc': 'The email address from the reply-to header.'}),
+
                         ('subject', ('str', {}), {
                             'doc': 'The email message subject line.'}),
 
                         ('body', ('str', {}), {
                             'doc': 'The body of the email message.'}),
 
-                        ('sent', ('time', {}), {
-                            'doc': 'The time the email message was sent.'}),
+                        ('date', ('time', {}), {
+                            'doc': 'The time the email message was received.'}),
 
                         ('bytes', ('file:bytes', {}), {
                             'doc': 'The file bytes which contain the email message.'}),
