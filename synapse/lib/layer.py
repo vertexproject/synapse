@@ -10,6 +10,7 @@ import regex
 
 import synapse.exc as s_exc
 import synapse.lib.cell as s_cell
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,17 @@ class Layer(s_cell.Cell):
         self.spliced = asyncio.Event(loop=self.loop)
         self.splicelist = []
         self.onfini(self.spliced.set)
+
+    async def getModelVers(self):
+        byts = self.slab.get(b'layer:model:version')
+        if byts is None:
+            return (-1, -1, -1)
+
+        return s_msgpack.un(byts)
+
+    def setModelVers(self, vers):
+        byts = s_msgpack.en(vers)
+        self.slab.put(b'layer:model:version', byts)
 
     async def splicelistAppend(self, mesg):
         self.splicelist.append(mesg)
