@@ -73,6 +73,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
 
         parser_get = subparsers.add_parser('get', help="Get any entry in the hive", usage=ListHelp)
         parser_get.add_argument('path', help='Hive path')
+        parser_get.add_argument('--json', default=False, action='store_true', help='Emit output as json')
 
         parser_rm = subparsers.add_parser('rm', help='Delete a key in the hive', usage=DelHelp)
         parser_rm.add_argument('path', help='Hive path')
@@ -124,11 +125,17 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
 
     async def _handle_get(self, core, opts):
         path = self.parsepath(opts.path)
+
         valu = await core.getHiveKey(path)
         if valu is None:
             self.printf(f'{opts.path} not present')
             return
-        self.printf(f'{opts.path}: {pprint.pformat(valu)}')
+
+        if opts.json:
+            rend = json.dumps(valu, indent=2)
+        else:
+            rend = pprint.pformat(valu)
+        self.printf(f'{opts.path}:\n{rend}')
 
     async def _handle_rm(self, core, opts):
         path = self.parsepath(opts.path)
@@ -179,8 +186,8 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                         return
                     try:
                         valu = json.loads(bytz)
-                    except json.JSONDecodeError:  # pragma: no cover
-                        self.printf('JSON decode failure: [{e}].  Reopening.')
+                    except json.JSONDecodeError as e:  # pragma: no cover
+                        self.printf(f'JSON decode failure: [{e}].  Reopening.')
                         await asyncio.sleep(1)
                         continue
                     # We lose the tuple/list distinction in the telepath round trip, so tuplify everything to compare

@@ -48,6 +48,7 @@ import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.thishost as s_thishost
+import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,20 @@ TEST_MAP_SIZE = s_const.gibibyte
 
 async def alist(coro):
     return [x async for x in coro]
+
+class LibTst(s_stormtypes.Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'beep': self.beep,
+        })
+
+    async def beep(self, valu):
+        '''
+        Example storm func
+        '''
+        ret = f'A {valu} beep!'
+        return ret
 
 class TestType(s_types.Type):
 
@@ -200,6 +215,8 @@ class TestModule(s_module.CoreModule):
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
         async with await self.core.snap() as snap:
             await snap.addNode('source', self.testguid, {'name': 'test'})
+
+        self.core.addStormLib(('test',), LibTst)
 
     async def addTestRecords(self, snap, items):
         for name in items:

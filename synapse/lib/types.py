@@ -8,6 +8,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
+import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
@@ -756,7 +757,7 @@ class Ival(Type):
         if not relto:
             relto = s_common.now()
 
-        return delt + relto
+        return self.timetype._normPyInt(delt + relto)[0]
 
     def _normPyStr(self, valu):
         valu = valu.strip().lower()
@@ -881,6 +882,10 @@ class Ndef(Type):
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
+        self.setNormFunc(s_node.Node, self._normStormNode)
+
+    def _normStormNode(self, valu):
+        return self._normPyTuple(valu.ndef)
 
     def _normPyTuple(self, valu):
         try:
@@ -1247,6 +1252,8 @@ class Time(IntBase):
     )
 
     def postTypeInit(self):
+        self.futsize = 0x7fffffffffffffff
+        self.maxsize = 253402300799999  # 9999/12/31 23:59:59.999
 
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
@@ -1286,12 +1293,15 @@ class Time(IntBase):
             else:
                 bgn = s_common.now()
 
-            return delt + bgn, {}
+            return self._normPyInt(delt + bgn)
 
         valu = s_time.parse(valu)
         return self._normPyInt(valu)
 
     def _normPyInt(self, valu):
+        if valu > self.maxsize and valu != self.futsize:
+            mesg = f'Time exceeds max size [{self.maxsize}] allowed for a non-future marker.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu, name=self.name)
         return valu, {}
 
     def merge(self, oldv, newv):
@@ -1333,7 +1343,7 @@ class Time(IntBase):
                 if relto is None:
                     relto = s_common.now()
 
-                return delt + relto
+                return self._normPyInt(delt + relto)[0]
 
         return self.norm(valu)[0]
 
