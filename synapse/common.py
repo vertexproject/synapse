@@ -549,15 +549,6 @@ async def aspin(genr):
     async for _ in genr:
         pass
 
-def reqStorDict(x):
-    '''
-    Raises BadStorValu if any value in the dict is not compatible
-    with being stored in a cortex.
-    '''
-    for k, v in x.items():
-        if not canstor(v):
-            raise s_exc.BadStorValu(name=k, valu=v)
-
 def firethread(f):
     '''
     A decorator for making a function fire a thread.
@@ -575,24 +566,6 @@ def worker(meth, *args, **kwargs):
     thr.setDaemon(True)
     thr.start()
     return thr
-
-def reqstor(name, valu):
-    '''
-    Check to see if a value can be stored in a Cortex.
-
-    Args:
-        name (str): Property name.
-        valu: Value to check.
-
-    Returns:
-        The valu is returned if it can be stored in a Cortex.
-
-    Raises:
-        BadPropValu if the value is not Cortex storable.
-    '''
-    if not canstor(valu):
-        raise s_exc.BadPropValu(name=name, valu=valu)
-    return valu
 
 def rowstotufos(rows):
     '''
@@ -635,9 +608,6 @@ def enbase64(b):
 
 def debase64(b):
     return base64.b64decode(b.encode('utf8'))
-
-def canstor(s):
-    return type(s) in (int, str)
 
 def makedirs(path, mode=0o777):
     os.makedirs(path, mode=mode, exist_ok=True)
