@@ -191,3 +191,32 @@ class FileTest(s_t_utils.SynTest):
                 self.eq(node.get('path:dir'), 'c:/www/woah/really')
                 self.eq(node.get('path:base'), 'sup.exe')
                 self.eq(node.get('path:base:ext'), 'exe')
+
+    async def test_model_file_ismime(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.eval('[ file:bytes="*" :mime=text/PLAIN ]').list()
+
+            self.len(1, nodes)
+            guid = nodes[0].ndef[1]
+            self.eq('text/plain', nodes[0].get('mime'))
+
+            nodes = await core.eval('file:mime=text/plain').list()
+            self.len(1, nodes)
+
+            opts = {'vars': {'guid': guid}}
+            nodes = await core.eval('file:ismime:file=$guid', opts=opts).list()
+            self.len(1, nodes)
+
+            node = nodes[0]
+            self.eq(node.ndef, ('file:ismime', (guid, 'text/plain')))
+
+            # Ensure no file:ismime node is made for defvals
+            nodes = await core.eval('[ file:bytes="*"]').list()
+            guid = nodes[0].ndef[1]
+            self.eq('??', nodes[0].get('mime'))
+
+            opts = {'vars': {'guid': guid}}
+            nodes = await core.eval('file:ismime:file=$guid', opts=opts).list()
+            self.len(0, nodes)
