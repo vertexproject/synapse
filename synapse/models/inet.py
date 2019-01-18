@@ -1006,6 +1006,7 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The message containing the embedded link.'}),
                         ('url', ('inet:url', {}), {
+                            'ro': True,
                             'doc': 'The url contained within the email message.'}),
                     )),
 
