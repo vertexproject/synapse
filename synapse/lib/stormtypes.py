@@ -1,5 +1,6 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.node as s_node
 
 class StormType:
     '''
@@ -105,10 +106,32 @@ class Dict(Prim):
     def deref(self, name):
         return self.valu.get(name)
 
+class Node(Prim):
+    '''
+    Implements the STORM api for a node instance.
+    '''
+
+    def __init__(self, node, path=None):
+        Prim.__init__(self, node, path=path)
+        self.locls.update({
+            'value': self._methNodeValue,
+            'form': self._methNodeForm,
+        })
+
+    async def _methNodeValue(self):
+        return self.valu.ndef[1]
+
+    async def _methNodeForm(self):
+        return self.valu.ndef[0]
+
 def fromprim(valu, path=None):
 
     if isinstance(valu, str):
         return Str(valu, path=path)
+
+    # TODO: make s_node.Node a storm type itself?
+    if isinstance(valu, s_node.Node):
+        return Node(valu, path=path)
 
     if isinstance(valu, StormType):
         return valu
