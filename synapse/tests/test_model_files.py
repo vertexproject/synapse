@@ -211,3 +211,12 @@ class FileTest(s_t_utils.SynTest):
 
             node = nodes[0]
             self.eq(node.ndef, ('file:ismime', (guid, 'text/plain')))
+
+            # Ensure no file:ismime node is made for defvals
+            nodes = await core.eval('[ file:bytes="*"]').list()
+            guid = nodes[0].ndef[1]
+            self.eq('??', nodes[0].get('mime'))
+
+            opts = {'vars': {'guid': guid}}
+            nodes = await core.eval('file:ismime:file=$guid', opts=opts).list()
+            self.len(0, nodes)
