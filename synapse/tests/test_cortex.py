@@ -2277,6 +2277,14 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], (('teststr', 'test'), ('testint', 1234)))
 
+            nodes = await core.eval('testint=1234 [teststr=$node.value()] -testint').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('teststr', '1234'))
+
+            nodes = await core.eval('testint=1234 [teststr=$node.form()] -testint').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('teststr', 'testint'))
+
     async def test_storm_subq_size(self):
 
         async with self.getTestCore() as core:
