@@ -907,7 +907,7 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:whois:rec', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('asof', 'time'))}), {
-                        'doc': 'A domain whois record'
+                        'doc': 'A domain whois record.'
                     }),
 
                     ('inet:whois:recns', ('comp', {'fields': (('ns', 'inet:fqdn'), ('rec', 'inet:whois:rec'))}), {
@@ -1538,11 +1538,11 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('path', ('str', {}), {
                             'ro': True,
-                            'doc': 'The path in the URL w/o parameters'
+                            'doc': 'The path in the URL w/o parameters.'
                         }),
                         ('params', ('str', {}), {
                             'ro': True,
-                            'doc': 'The URL parameter string'
+                            'doc': 'The URL parameter string.'
                         }),
                         ('port', ('inet:port', {}), {
                             'ro': True,
@@ -1573,19 +1573,19 @@ class InetModule(s_module.CoreModule):
                     ('inet:urlredir', {}, (
                         ('src', ('inet:url', {}), {
                             'ro': True,
-                            'doc': 'The original/source URL before redirect'
+                            'doc': 'The original/source URL before redirect.'
                         }),
                         ('src:fqdn', ('inet:fqdn', {}), {
                             'ro': True,
-                            'doc': 'The FQDN within the src URL (if present)'
+                            'doc': 'The FQDN within the src URL (if present).'
                         }),
                         ('dst', ('inet:url', {}), {
                             'ro': True,
-                            'doc': 'The redirected/destination URL'
+                            'doc': 'The redirected/destination URL.'
                         }),
                         ('dst:fqdn', ('inet:fqdn', {}), {
                             'ro': True,
-                            'doc': 'The FQDN within the dst URL (if present)'
+                            'doc': 'The FQDN within the dst URL (if present).'
                         }),
                     )),
 
@@ -1634,7 +1634,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The email address associated with the account.'
                         }),
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The last known latitude/longitude for the node'
+                            'doc': 'The last known latitude/longitude for the node.'
                         }),
                         ('loc', ('loc', {}), {
                             'doc': 'A self-declared location for the account.'
@@ -1855,7 +1855,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'A self-declared location for the group.'
                         }),
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The last known latitude/longitude for the node'
+                            'doc': 'The last known latitude/longitude for the node.'
                         }),
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the group was created on the site.'
@@ -2040,7 +2040,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The content of the fax field of the contact.'
                         }),
                         ('url', ('inet:url', {}), {
-                            'doc': 'The URL specified for the contact'
+                            'doc': 'The URL specified for the contact.'
                         }),
                         ('whois:fqdn', ('inet:fqdn', {}), {
                             'doc': 'The whois server FQDN for the given contact (most likely a registrar).'

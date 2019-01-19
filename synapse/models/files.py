@@ -212,7 +212,7 @@ class FileModule(s_module.CoreModule):
                 }),
 
                 ('file:mime', ('str', {'lower': 1}), {
-                    'doc': 'A file mime name string',
+                    'doc': 'A file mime name string.',
                     'ex': 'text/plain',
                 }),
 
@@ -256,11 +256,11 @@ class FileModule(s_module.CoreModule):
                 }),
 
                 ('pe:resource:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
-                    'doc': 'The typecode for the resource',
+                    'doc': 'The typecode for the resource.',
                 }),
 
                 ('pe:langid', ('int', {'enums': s_l_pe.getLangCodes()}), {
-                    'doc': 'The PE language id',
+                    'doc': 'The PE language id.',
                 }),
 
             ),
@@ -299,19 +299,19 @@ class FileModule(s_module.CoreModule):
 
                     ('mime:pe:imphash', ('guid', {}), {
                         'doc': 'The PE import hash of the file as calculated by pefile; '
-                               'https://github.com/erocarrera/pefile'}),
+                               'https://github.com/erocarrera/pefile .'}),
 
                     ('mime:pe:compiled', ('time', {}), {
                         'doc': 'The compile time of the file according to the PE header.'}),
 
                     ('mime:pe:pdbpath', ('file:path', {}), {
-                        'doc': 'The PDB string according to the PE'}),
+                        'doc': 'The PDB string according to the PE.'}),
 
                     ('mime:pe:exports:time', ('time', {}), {
-                        'doc': 'The export time of the file according to the PE'}),
+                        'doc': 'The export time of the file according to the PE.'}),
 
                     ('mime:pe:exports:libname', ('str', {}), {
-                        'doc': 'The export library name according to the PE'}),
+                        'doc': 'The export library name according to the PE.'}),
 
                     ('mime:pe:richhdr', ('hash:sha256', {}), {
                         'doc': 'The sha256 hash of the rich header bytes.'}),
@@ -349,48 +349,48 @@ class FileModule(s_module.CoreModule):
                 ('file:mime:pe:resource', {}, (
                     ('file', ('file:bytes', {}), {
                         'ro': True,
-                        'doc': 'The file containing the resource',
+                        'doc': 'The file containing the resource.',
                     }),
                     ('type', ('pe:resource:type', {}), {
                         'ro': True,
-                        'doc': 'The typecode for the resource',
+                        'doc': 'The typecode for the resource.',
                     }),
                     ('langid', ('pe:langid', {}), {
                         'ro': True,
-                        'doc': 'The language code for the resource',
+                        'doc': 'The language code for the resource.',
                     }),
                     ('resource', ('file:bytes', {}), {
                         'ro': True,
-                        'doc': 'The sha256 hash of the resource bytes',
+                        'doc': 'The sha256 hash of the resource bytes.',
                     }),
                 )),
 
                 ('file:mime:pe:export', {}, (
                     ('file', ('file:bytes', {}), {
                         'ro': True,
-                        'doc': 'The file containing the export',
+                        'doc': 'The file containing the export.',
                     }),
                     ('name', ('str', {}), {
                         'ro': True,
-                        'doc': 'The name of the export in the file',
+                        'doc': 'The name of the export in the file.',
                     }),
                 )),
 
                 ('file:mime:pe:vsvers:keyval', {}, (
                     ('name', ('str', {}), {
                         'ro': True,
-                        'doc': 'The key for the vsversion keyval pair',
+                        'doc': 'The key for the vsversion keyval pair.',
                     }),
                     ('value', ('str', {}), {
                         'ro': True,
-                        'doc': 'The value for the vsversion keyval pair',
+                        'doc': 'The value for the vsversion keyval pair.',
                     }),
                 )),
 
                 ('file:mime:pe:vsvers:info', {}, (
                     ('file', ('file:bytes', {}), {
                         'ro': True,
-                        'doc': 'The file containing the vsversion keyval pair',
+                        'doc': 'The file containing the vsversion keyval pair.',
                     }),
                     ('keyval', ('file:mime:pe:vsvers:keyval', {}), {
                         'ro': True,
@@ -401,7 +401,7 @@ class FileModule(s_module.CoreModule):
                 ('file:string', {}, (
                     ('file', ('file:bytes', {}), {
                         'ro': True,
-                        'doc': 'The file containing the string',
+                        'doc': 'The file containing the string.',
                     }),
                     ('string', ('str', {}), {
                         'ro': True,

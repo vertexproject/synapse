@@ -148,12 +148,12 @@ class ItModule(s_module.CoreModule):
         modl = {
             'ctors': (
                 ('it:semver', 'synapse.models.infotech.SemVer', {}, {
-                    'doc': 'Semantic Version type',
+                    'doc': 'Semantic Version type.',
                 }),
             ),
             'types': (
                 ('it:hostname', ('str', {'strip': True, 'lower': True}), {
-                    'doc': 'The name of a host or sytsem',
+                    'doc': 'The name of a host or sytsem.',
                 }),
                 ('it:host', ('guid', {}), {
                     'doc': 'A GUID that represents a host or system.'
@@ -245,7 +245,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A file that triggered an alert on a specific antivirus signature.',
                 }),
                 ('it:auth:passwdhash', ('guid', {}), {
-                    'doc': 'An instance of a password hash',
+                    'doc': 'An instance of a password hash.',
                 }),
                 ('it:exec:proc', ('guid', {}), {
                     'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.',
@@ -281,7 +281,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of a host getting a registry key.',
                 }),
                 ('it:exec:reg:set', ('guid', {}), {
-                    'doc': 'An instance of a host creating or setting a registry key',
+                    'doc': 'An instance of a host creating or setting a registry key.',
                 }),
                 ('it:exec:reg:del', ('guid', {}), {
                     'doc': 'An instance of a host deleting a registry key.',
@@ -357,7 +357,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'A short description of the software.',
                     }),
                     ('author:org', ('ou:org', {}), {
-                        'doc': 'Organization which authored the software',
+                        'doc': 'Organization which authored the software.',
                     }),
                     ('author:acct', ('inet:web:acct', {}), {
                         'doc': 'Web account of the software author.',
@@ -425,7 +425,7 @@ class ItModule(s_module.CoreModule):
                 ('it:prod:softver', {}, (
 
                     ('software', ('it:prod:soft', {}), {
-                        'doc': 'Software associated with this version instance',
+                        'doc': 'Software associated with this version instance.',
                     }),
                     ('software:name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The name of the software at a particular version.',
@@ -437,7 +437,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Normalized version of the version string.',
                     }),
                     ('arch', ('it:dev:str', {}), {
-                        'doc': 'Software architecture',
+                        'doc': 'Software architecture.',
                     }),
                     ('semver', ('it:semver', {}), {
                         'doc': 'System normalized semantic version number.',
@@ -499,7 +499,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The signature name.'
                     }),
                     ('desc', ('str', {}), {
-                        'doc': 'A free-form description of the signature',
+                        'doc': 'A free-form description of the signature.',
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'A reference URL for information about the signature.',
@@ -561,7 +561,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The command string used to launch the process, including any command line parameters.',
                     }),
                     ('pid', ('int', {}), {
-                        'doc': 'The process ID',
+                        'doc': 'The process ID.',
                     }),
                     ('time', ('time', {}), {
                         'doc': 'The start time for the process.',
@@ -573,7 +573,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path to the executable of the process.',
                     }),
                     ('src:exe', ('file:path', {}), {
-                        'doc': 'The path to the executable which started the process',
+                        'doc': 'The path to the executable which started the process.',
                     }),
                     ('src:proc', ('it:exec:proc', {}), {
                         'doc': 'The process which created the process.'

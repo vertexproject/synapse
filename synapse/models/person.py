@@ -28,7 +28,7 @@ class PsModule(s_module.CoreModule):
                            ' resource, potentially during a specific period of time.'
                 }),
                 ('ps:contact', ('guid', {}), {
-                    'doc': 'A GUID for a contact info record',
+                    'doc': 'A GUID for a contact info record.',
                 }),
 
                 # FIXME add wireless elemements like NMEI and IMEI once modeled - pre 010 item
@@ -38,13 +38,13 @@ class PsModule(s_module.CoreModule):
                 ('ps:tokn', {}, ()),
                 ('ps:name', {}, (
                     ('sur', ('ps:tokn', {}), {
-                        'doc': 'The surname part of the name'
+                        'doc': 'The surname part of the name.'
                     }),
                     ('middle', ('ps:tokn', {}), {
-                        'doc': 'The middle name part of the name'
+                        'doc': 'The middle name part of the name.'
                     }),
                     ('given', ('ps:tokn', {}), {
-                        'doc': 'The given name part of the name'
+                        'doc': 'The given name part of the name.'
                     }),
                 )),
                 ('ps:person', {}, (
@@ -55,19 +55,19 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The primary image of a person.'
                     }),
                     ('nick', ('inet:user', {}), {
-                        'doc': 'A username commonly used by the person',
+                        'doc': 'A username commonly used by the person.',
                     }),
                     ('name', ('ps:name', {}), {
                         'doc': 'The localized name for the person.',
                     }),
                     ('name:sur', ('ps:tokn', {}), {
-                        'doc': 'The surname of the person'
+                        'doc': 'The surname of the person.'
                     }),
                     ('name:middle', ('ps:tokn', {}), {
-                        'doc': 'The middle name of the person'
+                        'doc': 'The middle name of the person.'
                     }),
                     ('name:given', ('ps:tokn', {}), {
-                        'doc': 'The given name of the person'
+                        'doc': 'The given name of the person.'
                     }),
                 )),
                 ('ps:persona', {}, (
@@ -82,7 +82,7 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The primary image of a suspected person.'
                     }),
                     ('nick', ('inet:user', {}), {
-                        'doc': 'A username commonly used by the suspected person',
+                        'doc': 'A username commonly used by the suspected person.',
                     }),
                     ('name', ('ps:name', {}), {
                         'doc': 'The localized name for the suspected person.',
@@ -136,7 +136,7 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The ps:person GUID which owns this contact.',
                     }),
                     ('name', ('ps:name', {}), {
-                        'doc': 'The person name listed for the contact',
+                        'doc': 'The person name listed for the contact.',
                     }),
                     ('title', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The job/org title listed for this contact.',
@@ -169,10 +169,10 @@ class PsModule(s_module.CoreModule):
                         'doc': 'Best known contact geopolitical location.'
                     }),
                     ('address', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The free-form address listed for the contact',
+                        'doc': 'The free-form address listed for the contact.',
                     }),
                     ('phone', ('tel:phone', {}), {
-                        'doc': 'The main phone number for this contact',
+                        'doc': 'The main phone number for this contact.',
                     }),
                     ('phone:fax', ('tel:phone', {}), {
                         'doc': 'The fax number for this contact.',
