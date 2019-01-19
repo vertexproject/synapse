@@ -641,7 +641,7 @@ class Model:
         for form in self.forms.values():
             self._addFormUniv(form, name, tdef, info)
 
-    def addBaseType(self, item: s_types.Type):
+    def addBaseType(self, item):
         '''
         Add a Type instance to the data model.
         '''
