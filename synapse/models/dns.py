@@ -266,7 +266,7 @@ class DnsModule(s_module.CoreModule):
                         'doc': 'The DNS PTR record returned by the lookup of a IPv6 address.',
                     }),
                     ('cname', ('inet:dns:cname', {}), {'ro': True,
-                        'doc': 'The DNS CNAME record returned by the lookup.',
+                        'doc': 'The DNS CNAME record returned by the lookup',
                     }),
                     ('mx', ('inet:dns:mx', {}), {'ro': True,
                         'doc': 'The DNS MX record returned by the lookup.',

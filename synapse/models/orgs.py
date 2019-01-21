@@ -16,10 +16,10 @@ class OuModule(s_module.CoreModule):
                     'ex': '541715',
                 }),
                 ('ou:org', ('guid', {}), {
-                    'doc': 'A GUID for a human organization such as a company or military unit.',
+                    'doc': 'A GUID for a human organization such as a company or military unit',
                 }),
                 ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z]+$'}), {
-                    'doc': 'An alias for the org GUID.',
+                    'doc': 'An alias for the org GUID',
                     'ex': 'vertexproject',
                 }),
                 ('ou:hasalias', ('comp', {'fields': (('org', 'ou:org'), ('alias', 'ou:alias'))}), {
@@ -41,7 +41,7 @@ class OuModule(s_module.CoreModule):
                            'potentially during a specific period of time.',
                 }),
                 ('ou:user', ('comp', {'fields': (('org', 'ou:org'), ('user', 'inet:user'))}), {
-                    'doc': 'A user name within an organization.',
+                    'doc': 'A user name within an organization',
                 }),
                 ('ou:meet', ('guid', {}), {
                     'doc': 'A informal meeting of people which has no title or sponsor.  See also: ou:conference.',
@@ -65,7 +65,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The localized name of an organization.',
                     }),
                     ('alias', ('ou:alias', {}), {
-                        'doc': 'The default alias for an organization.'
+                        'doc': 'The default alias for an organization'
                     }),
                     ('phone', ('tel:phone', {}), {
                         'doc': 'The primary phone number for the organization.',
@@ -87,11 +87,11 @@ class OuModule(s_module.CoreModule):
                 ('ou:hasalias', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': 'Org guid.',
+                        'doc': 'Org guid',
                     }),
                     ('alias', ('ou:alias', {}), {
                         'ro': True,
-                        'doc': 'Alias for the organization.',
+                        'doc': 'Alias for the organization',
                     }),
                 )),
                 ('ou:member', {}, (
@@ -116,14 +116,14 @@ class OuModule(s_module.CoreModule):
                 ('ou:suborg', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': 'The org which owns the sub organization.',
+                        'doc': 'The org which owns the sub organization',
                     }),
                     ('sub', ('ou:org', {}), {
                         'ro': True,
                         'doc': 'The sub org which owned by the org.',
                     }),
                     ('perc', ('int', {'min': 0, 'max': 100}), {
-                        'doc': 'The optional percentage of sub which is owned by org.',
+                        'doc': 'The optional percentage of sub which is owned by org',
                     }),
                     ('current', ('bool', {}), {
                         'doc': 'Bool indicating if the suborg relationship still current.',
@@ -146,11 +146,11 @@ class OuModule(s_module.CoreModule):
                 ('ou:user', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
-                        'doc': 'Org guid.',
+                        'doc': 'Org guid',
                     }),
                     ('user', ('inet:user', {}), {
                         'ro': True,
-                        'doc': 'The username associated with the organization.',
+                        'doc': 'The username associated with the organization',
                     }),
                 )),
                 ('ou:meet', {}, (
@@ -232,3 +232,22 @@ class OuModule(s_module.CoreModule):
 
         name = 'ou'
         return ((name, modl),)
+
+# FIXME: What do we want to do with seedCtors?
+class Fixme:
+
+    async def initCoreModule(self):
+        self.core.addSeedCtor('ou:org:name', self.seedOrgName)
+        self.core.addSeedCtor('ou:org:alias', self.seedOrgAlias)
+
+    def seedOrgName(self, prop, valu, **props):
+        node = self.core.getTufoByProp('ou:org:name', valu)
+        if node is None:
+            node = self.core.formTufoByProp('ou:org', guid(), name=valu, **props)
+        return node
+
+    def seedOrgAlias(self, prop, valu, **props):
+        node = self.core.getTufoByProp('ou:org:alias', valu)
+        if node is None:
+            node = self.core.formTufoByProp('ou:org', guid(), alias=valu, **props)
+        return node

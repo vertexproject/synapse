@@ -17,31 +17,31 @@ class CryptoModule(s_module.CoreModule):
         modl = {
             'types': (
                 ('hash:md5', ('hex', {'size': 32}), {
-                    'doc': 'A hex encodeded MD5 hash.',
+                    'doc': 'A hex encodeded MD5 hash',
                     'ex': ex_md5
                 }),
                 ('hash:sha1', ('hex', {'size': 40}), {
-                    'doc': 'A hex encoded SHA1 hash.',
+                    'doc': 'A hex encoded SHA1 hash',
                     'ex': ex_sha1
                 }),
                 ('hash:sha256', ('hex', {'size': 64}), {
-                    'doc': 'A hex encoded SHA256 hash.',
+                    'doc': 'A hex encoded SHA256 hash',
                     'ex': ex_sha256
                 }),
                 ('hash:sha384', ('hex', {'size': 96}), {
-                    'doc': 'A hex encoded SHA384 hash.',
+                    'doc': 'A hex encoded SHA384 hash',
                     'ex': ex_sha384
                 }),
                 ('hash:sha512', ('hex', {'size': 128}), {
-                    'doc': 'A hex encoded SHA512 hash.',
+                    'doc': 'A hex encoded SHA512 hash',
                     'ex': ex_sha512
                 }),
                 ('hash:lm', ('hex', {'size': 32}), {
-                    'doc': 'A hex encoded Microsoft Windows LM password hash.',
+                    'doc': 'A hex encoded Microsoft Windows LM password hash',
                     'ex': ex_md5
                 }),
                 ('hash:ntlm', ('hex', {'size': 32}), {
-                    'doc': 'A hex encoded Microsoft Windows NTLM password hash.',
+                    'doc': 'A hex encoded Microsoft Windows NTLM password hash',
                     'ex': ex_md5
                 }),
                 ('rsa:key', ('comp', {'fields': (('mod', 'hex'), ('pub:exp', 'int')), }), {
@@ -58,11 +58,11 @@ class CryptoModule(s_module.CoreModule):
                     ('mod', ('hex', {}), {'ro': 1,
                        'doc': 'The RSA key modulus.'}),
                     ('pub:exp', ('int', {}), {'ro': 1,
-                       'doc': 'The public exponent.'}),
+                       'doc': 'The public exponent'}),
                     ('bits', ('int', {}),
-                     {'doc': 'The length of the modulus in bits.'}),
+                     {'doc': 'The length of the modulus in bits'}),
                     ('priv:exp', ('hex', {}),
-                     {'doc': 'The private exponent.'}),
+                     {'doc': 'The private exponent'}),
                     ('priv:p', ('hex', {}),
                      {'doc': 'One of the two private primes.'}),
                     ('priv:q', ('hex', {}),

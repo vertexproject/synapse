@@ -183,7 +183,7 @@ class GeoModule(s_module.CoreModule):
 
                 'ctors': (
                     ('geo:dist', 'synapse.models.geospace.Dist', {}, {
-                        'doc': 'A geographic distance (base unit is mm).', 'ex': '10 km'
+                        'doc': 'A geographic distance (base unit is mm)', 'ex': '10 km'
                     }),
                     ('geo:latitude', 'synapse.models.geospace.Latitude', {}, {}),
                     ('geo:longitude', 'synapse.models.geospace.Longitude', {}, {}),
@@ -208,7 +208,7 @@ class GeoModule(s_module.CoreModule):
                     ('geo:nloc', {}, (
 
                         ('ndef', ('ndef', {}), {'ro': True,
-                            'doc': 'The node with location in geo/time.'}),
+                            'doc': 'The node with location in geo/time'}),
 
                         ('ndef:form', ('str', {}), {'ro': True,
                             'doc': 'The form of node referenced by the ndef.'}),
@@ -217,7 +217,7 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'The latitude/longitude the node was observed.'}),
 
                         ('time', ('time', {}), {'ro': True,
-                            'doc': 'The time the node was observed at location.'}),
+                            'doc': 'The time the node was observed at location'}),
 
                     )),
 

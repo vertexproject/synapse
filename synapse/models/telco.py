@@ -185,11 +185,11 @@ class TelcoModule(s_module.CoreModule):
 
                 ('tel:mob:imei', 'synapse.models.telco.Imei', {}, {
                     'ex': '490154203237518',
-                    'doc': 'An International Mobile Equipment Id.'}),
+                    'doc': 'An International Mobile Equipment Id'}),
 
                 ('tel:mob:imsi', 'synapse.models.telco.Imsi', {}, {
                     'ex': '310150123456789',
-                    'doc': 'An International Mobile Subscriber Id.'}),
+                    'doc': 'An International Mobile Subscriber Id'}),
 
                 ('tel:phone', 'synapse.models.telco.Phone', {}, {
                     'ex': '+15558675309',
@@ -201,7 +201,7 @@ class TelcoModule(s_module.CoreModule):
 
                 ('tel:mob:tac', ('int', {}), {
                     'ex': '49015420',
-                    'doc': 'A mobile Type Allocation Code.'}),
+                    'doc': 'A mobile Type Allocation Code'}),
 
                 ('tel:mob:imid', ('comp', {'fields': (('imei', 'tel:mob:imei'), ('imsi', 'tel:mob:imsi'))}), {
                     'ex': '(490154203237518, 310150123456789)',
@@ -215,11 +215,11 @@ class TelcoModule(s_module.CoreModule):
                     'doc': 'A single mobile telemetry measurement.'}),
 
                 ('tel:mob:mcc', ('str', {'regex': '^[0-9]{3}$', 'strip': 1}), {
-                    'doc': 'ITU Mobile Country Code.',
+                    'doc': 'ITU Mobile Country Code',
                 }),
 
                 ('tel:mob:mnc', ('str', {'regex': '^[0-9]{2,3}$', 'strip': 1}), {
-                    'doc': 'ITU Mobile Network Code.',
+                    'doc': 'ITU Mobile Network Code',
                 }),
 
                 ('tel:mob:carrier', ('comp', {'fields': (('mcc', 'tel:mob:mcc'), ('mnc', 'tel:mob:mnc'))}), {
@@ -243,29 +243,29 @@ class TelcoModule(s_module.CoreModule):
                 )),
                 ('tel:mob:tac', {}, (
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org guid for the manufacturer.',
+                        'doc': 'The org guid for the manufacturer',
                     }),
                     ('manu', ('str', {'lower': 1}), {
-                        'doc': 'The TAC manufacturer name.',
+                        'doc': 'The TAC manufacturer name',
                         'defval': '??',
                     }),
                     ('model', ('str', {'lower': 1}), {
-                        'doc': 'The TAC model name.',
+                        'doc': 'The TAC model name',
                         'defval': '??',
                     }),
                     ('internal', ('str', {'lower': 1}), {
-                        'doc': 'The TAC internal model name.',
+                        'doc': 'The TAC internal model name',
                         'defval': '??',
                     }),
                 )),
                 ('tel:mob:imei', {}, (
                     ('tac', ('tel:mob:tac', {}), {
                         'ro': 1,
-                        'doc': 'The Type Allocate Code within the IMEI.'
+                        'doc': 'The Type Allocate Code within the IMEI'
                     }),
                     ('serial', ('int', {}), {
                         'ro': 1,
-                        'doc': 'The serial number within the IMEI.',
+                        'doc': 'The serial number within the IMEI',
                     })
                 )),
                 ('tel:mob:imsi', {}, (
@@ -311,11 +311,11 @@ class TelcoModule(s_module.CoreModule):
                     }),
                 )),
                 ('tel:mob:cell', {}, (
-                    ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier.'}),
-                    ('carrier:mcc', ('tel:mob:mcc', {}), {'doc': 'Mobile Country Code.'}),
-                    ('carrier:mnc', ('tel:mob:mnc', {}), {'doc': 'Mobile Network Code.'}),
+                    ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier'}),
+                    ('carrier:mcc', ('tel:mob:mcc', {}), {'doc': 'Mobile Country Code'}),
+                    ('carrier:mnc', ('tel:mob:mnc', {}), {'doc': 'Mobile Network Code'}),
                     ('lac', ('int', {}), {'doc': 'Location Area Code. LTE networks may call this a TAC.'}),
-                    ('cid', ('int', {}), {'doc': 'The Cell ID.'}),
+                    ('cid', ('int', {}), {'doc': 'Cell ID'}),
                     ('radio', ('str', {'lower': 1, 'onespace': 1}), {'doc': 'Cell radio type.'}),
                     ('latlong', ('geo:latlong', {}), {'doc': 'Last known location of the cell site.'}),
                     ('loc', ('loc', {}), {

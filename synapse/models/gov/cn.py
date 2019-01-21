@@ -7,11 +7,11 @@ class GovCnModule(s_module.CoreModule):
             'types': (
                 ('gov:cn:icp',
                     ('int', {}),
-                    {'doc': 'A Chinese Internet Content Provider ID.'},
+                    {'doc': 'A Chinese Internet Content Provider ID'},
                  ),
                 ('gov:cn:mucd',
                     ('int', {}),
-                    {'doc': 'A Chinese PLA MUCD.'},
+                    {'doc': 'A Chinese PLA MUCD'},
                  ),
             ),
             'forms': (

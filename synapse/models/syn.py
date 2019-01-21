@@ -30,7 +30,7 @@ class SynModule(s_module.CoreModule):
                         'doc': 'A display title for the tag.'}),
 
                     ('base', ('str', {}), {'ro': 1,
-                        'doc': 'The tag base name. Eg baz for "foo.bar.baz".'}),
+                        'doc': 'The tag base name. Eg baz for foo.bar.baz'}),
                 )),
 
             ),
