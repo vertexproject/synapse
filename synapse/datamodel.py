@@ -645,6 +645,8 @@ class Model:
         '''
         Add a Type instance to the data model.
         '''
+        ctor = '.'.join([item.__class__.__module__, item.__class__.__qualname__])
+        self._modeldef['ctors'].append(((item.name, ctor, dict(item.opts), dict(item.info))))
         self.types[item.name] = item
 
     def type(self, name):
