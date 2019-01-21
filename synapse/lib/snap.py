@@ -384,6 +384,12 @@ class Snap(s_base.Base):
 
         node = await self.getNodeByBuid(buid)
         if node is not None:
+            valu = self.core.newnodes.get(buid)
+            if valu is not None:
+                if valu is True:
+                    valu = asyncio.Event()
+                    self.core.newnodes[buid] = valu
+                await valu
 
             # maybe set some props...
             for name, valu in props.items():
@@ -436,6 +442,13 @@ class Snap(s_base.Base):
         for name, valu in tuple(node.props.items()):
             prop = node.form.props.get(name)
             await prop.wasSet(node, None)
+
+            # Nic dded
+            if prop.univ:
+                univ = self.snap.model.prop(prop.univ)
+                await univ.wasSet(self, curv)
+
+            await self.snap.core.triggers.run(self, 'prop:set', info={'prop': prop.full})
 
         return node
 
