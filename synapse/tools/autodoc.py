@@ -228,9 +228,8 @@ def processFormsProps(rst, dochelp, forms):
                 doc = doc + '.'
 
             rst.addLines('',
-                         '\:' + hpname,
+                         '\:' + hpname + ' / ' + f'{":".join([hname, hpname])}',
                          '  ' + doc,
-                         '  ' + f'Full property name is ``{":".join([name, pname])}``.'
                          )
 
             if popts:
@@ -251,7 +250,7 @@ def processFormsProps(rst, dochelp, forms):
                          '  ' + tdoc,
                          )
             if ptopts:
-                rst.addLines('  ' + "It's type has the following options set:",
+                rst.addLines('  ' + "Its type has the following options set:",
                              '')
                 for k, v in ptopts.items():
                     rst.addLines('  ' + f'* {k}: ``{v}``')
@@ -301,7 +300,7 @@ def processUnivs(rst, dochelp, univs):
                      tdoc,
                      )
         if uopt:
-            rst.addLines("It's type has the following options set:",
+            rst.addLines("Its type has the following options set:",
                          '')
             for k, v in uopt.items():
                 rst.addLines('  ' + f'* {k}: ``{v}``')
