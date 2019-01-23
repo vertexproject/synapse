@@ -130,35 +130,72 @@ class Node:
 
         return retn
 
-    async def initprop(self, name, valu, fnibtxn):
+    async def _sethelper(self, name, valu, init=False):
+        '''
+        Shared code between initprop and set
+
+        Returns False if valu is improper or already set, else
+        returns Tuple of prop, old valu, new normed valu, type info, storage ops
+        '''
         prop = self.form.prop(name)
         if prop is None:
 
             if self.snap.strict:
                 raise s_exc.NoSuchProp(name=name)
 
-            fnibtxn.warns.append(f'NoSuchProp: name={name}')
+            await self.snap.warn(f'NoSuchProp: name={name}')
             return False
 
         curv = self.props.get(name)
 
         # normalize the property value...
         try:
-
             norm, info = prop.type.norm(valu)
 
         except Exception as e:
             mesg = f'Bad property value: {prop.full}={valu!r}'
-            fnibtxn.warns.append(f'BadPropValu: {mesg} emesg={e}')
-            if self.snap.strict:
-                raise s_exc.BadPropValu(mesg, emesg=str(e))
-            return False
+            return await self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, valu=valu, emesg=str(e))
 
         # do we already have the value?
         if curv == norm:
             return False
 
+        if curv is not None and not init:
+
+            if prop.info.get('ro'):
+
+                if self.snap.strict:
+                    raise s_exc.ReadOnlyProp(name=prop.full)
+
+                # not setting a set-once prop unless we are init...
+                await self.snap.warn(f'ReadOnlyProp: name={prop.full}')
+                return False
+
+            # check for type specific merging...
+            norm = prop.type.merge(curv, norm)
+            if curv == norm:
+                return False
+
         sops = prop.getSetOps(self.buid, norm)
+
+        return prop, curv, norm, info, sops
+
+    async def initprop(self, name, valu, fnibtxn):
+        '''
+        Set a property on the node for the first time.
+
+        Args:
+            name (str): The name of the property.
+            valu (obj): The value of the property.
+            init (bool): Set to True to force initialization.
+
+        Returns:
+            (bool): True if the property was changed.
+        '''
+        valu = await self._sethelper(name, valu, init=True)
+        if valu is False:
+            return False
+        prop, curv, norm, info, sops = valu
 
         fnibtxn.sops.extend(sops)
 
@@ -202,52 +239,15 @@ class Node:
         Args:
             name (str): The name of the property.
             valu (obj): The value of the property.
-            init (bool): Set to True to force initialization.
+            init (bool): Set to True to disable read-only enforcement
 
         Returns:
             (bool): True if the property was changed.
         '''
-        prop = self.form.prop(name)
-        if prop is None:
-
-            if self.snap.strict:
-                raise s_exc.NoSuchProp(name=name)
-
-            await self.snap.warn(f'NoSuchProp: name={name}')
+        valu = await self._sethelper(name, valu, init)
+        if valu is False:
             return False
-
-        curv = self.props.get(name)
-
-        # normalize the property value...
-        try:
-
-            norm, info = prop.type.norm(valu)
-
-        except Exception as e:
-            mesg = f'Bad property value: {prop.full}={valu!r}'
-            return await self.snap._raiseOnStrict(s_exc.BadPropValu, mesg, valu=valu, emesg=str(e))
-
-        # do we already have the value?
-        if curv == norm:
-            return False
-
-        if curv is not None and not init:
-
-            if prop.info.get('ro'):
-
-                if self.snap.strict:
-                    raise s_exc.ReadOnlyProp(name=prop.full)
-
-                # not setting a set-once prop unless we are init...
-                await self.snap.warn(f'ReadOnlyProp: name={prop.full}')
-                return False
-
-            # check for type specific merging...
-            norm = prop.type.merge(curv, norm)
-            if curv == norm:
-                return False
-
-        sops = prop.getSetOps(self.buid, norm)
+        prop, curv, norm, info, sops = valu
 
         await self.snap.stor(sops)
         await self.snap.splice('prop:set', ndef=self.ndef, prop=prop.name, valu=norm, oldv=curv)

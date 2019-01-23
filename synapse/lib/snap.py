@@ -24,7 +24,6 @@ class FnibTxn:
         self.doneevent = asyncio.Event()
         self.sops: List[Tuple[str, Tuple[bytes, str, str, Dict[str, Any]]]] = []
         self.allbldgbuids = allbldgbuids # buid -> (Node, Event)
-        self.warns: List[str] = []
         self.notified = False
 
     def __enter__(self):
@@ -464,9 +463,6 @@ class Snap(s_base.Base):
                 return node
 
             await self.stor(fnibtxn.sops)
-
-            for warn in fnibtxn.warns:
-                await self.snap.warn(warn)
 
             for node in fnibtxn.mybldgbuids.values():
                 self.core.pokeFormCount(node.form.name, 1)
