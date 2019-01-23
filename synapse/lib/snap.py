@@ -3,6 +3,8 @@ import asyncio
 import logging
 import contextlib
 
+from typing import Any, Dict, List, Tuple
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -14,6 +16,54 @@ import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
 
 logger = logging.getLogger(__name__)
+
+class FnibTxn:
+    def __init__(self, allbldgbuids):
+        self.mybldgbuids = {}  # buid -> node
+        self.otherbldgbuids = set()
+        self.doneevent = asyncio.Event()
+        self.sops: List[Tuple[str, Tuple[bytes, str, str, Dict[str, Any]]]] = []
+        self.allbldgbuids = allbldgbuids # buid -> (Node, Event)
+        self.warns: List[str] = []
+        self.notified = False
+
+    def __enter__(self):
+        return self
+
+    def addNode(self, node):
+        '''
+        Update the shared map with my in-construction nodes
+        '''
+        self.mybldgbuids[node.buid] = node
+        self.allbldgbuids[node.buid] = (node, self.doneevent)
+
+    def notifyDone(self):
+        '''
+        Allow any other fnibtxns waiting on this to complete to resume
+        '''
+        if self.notified:
+            return
+
+        self.doneevent.set()
+
+        for buid in self.mybldgbuids:
+            del self.allbldgbuids[buid]
+
+        self.notified = True
+
+
+    async def wait(self):
+        '''
+        Wait on the other fnibtxns who are constructing nodes my new nodes refer to
+        '''
+        for buid in self.otherbldgbuids:
+            _, evnt = self.allbldgbuids.get(buid)
+            if buid is None:
+                continue
+            await evnt.wait()
+
+    def __exit__(self, exc, cls, tb):
+        self.notifyDone()
 
 class Snap(s_base.Base):
     '''
@@ -69,11 +119,12 @@ class Snap(s_base.Base):
                 try:
                     await layr.commit()
 
-                except asyncio.CancelledError as e:
+                except asyncio.CancelledError:
                     raise
 
-                except Exception as e:
+                except Exception:
                     logger.exception('commit error for layer')
+
             # N.B. don't fini the layers here since they are owned by the cortex
 
         self.onfini(fini)
@@ -373,43 +424,83 @@ class Snap(s_base.Base):
     async def _addTagNode(self, name):
         return await self.addNode('syn:tag', name)
 
-    async def _addNodeFnib(self, fnib, props=None):
+    async def notifyPropSet(self, node, prop, oldv=None):
         '''
-        Add a node via (form, norm, info, buid)
+        Fire any callbacks listening for property setting on a node
+        '''
+        await prop.wasSet(node, oldv)
+
+        if prop.univ:
+            univ = self.model.prop(prop.univ)
+            await univ.wasSet(self, oldv)
+
+        await self.core.triggers.run(node, 'prop:set', info={'prop': prop.full})
+
+    async def _addNodeFnib(self, fnib, props=None):
+
+        with FnibTxn(self.core.bldgbuids) as fnibtxn:
+            node = await self.addNodeFnibOps(fnib, fnibtxn, props)
+            if node is not None:
+                if props is not None:
+                    for name, valu in props.items():
+                        await node.set(name, valu)
+                return node
+
+            await self.stor(fnibtxn.sops)
+
+            for warn in fnibtxn.warns:
+                await self.snap.warn(warn)
+
+            for node in fnibtxn.mybldgbuids.values():
+                self.core.pokeFormCount(node.form.name, 1)
+                self.buidcache.put(node.buid, node)
+
+            topnode = fnibtxn.mybldgbuids[fnib[3]]
+            fnibtxn.notifyDone()
+
+            for node in fnibtxn.mybldgbuids.values():
+                await self.splice('node:add', ndef=node.ndef)
+                await node.form.wasAdded(node)
+
+            for node in fnibtxn.mybldgbuids.values():
+                # fire all his prop sets
+                for name, valu in tuple(node.props.items()):
+                    prop = node.form.props.get(name)
+                    await self.splice('prop:set', ndef=node.ndef, prop=prop.name, valu=valu)
+                    await self.notifyPropSet(node, prop)
+
+            return topnode
+
+    async def addNodeFnibOps(self, fnib, fnibtxn, props=None):
+        '''
+        Add a node via (form, norm, info, buid) and add ops to fnibtxn
         '''
         form, norm, info, buid = fnib
+
+        valu = fnibtxn.allbldgbuids.get(buid)
+        if valu:
+            if buid not in fnibtxn.mybldgbuids:
+                fnibtxn.otherbldgbuids.add(buid)
+            return valu[0]
+
+        node = await self.getNodeByBuid(buid)
+        if node is not None:
+            return node
 
         if props is None:
             props = {}
 
-        node = await self.getNodeByBuid(buid)
-        if node is not None:
-            valu = self.core.newnodes.get(buid)
-            if valu is not None:
-                if valu is True:
-                    valu = asyncio.Event()
-                    self.core.newnodes[buid] = valu
-                await valu
-
-            # maybe set some props...
-            for name, valu in props.items():
-                # TODO: node.merge(name, valu)
-                await node.set(name, valu)
-
-            return node
-
         # lets build a node...
         node = s_node.Node(self, None)
 
-        node.init = True    # the node is initializing
         node.buid = buid
         node.form = form
         node.ndef = (form.name, norm)
 
         sops = form.getSetOps(buid, norm)
-        await self.stor(sops)
+        fnibtxn.sops.extend(sops)
 
-        await self.splice('node:add', ndef=node.ndef)
+        fnibtxn.addNode(node)
 
         # update props with any subs from form value
         subs = info.get('subs')
@@ -424,33 +515,13 @@ class Snap(s_base.Base):
 
         # set all the properties with init=True
         for name, valu in props.items():
-            await node.set(name, valu, init=True)
+            await node.initprop(name, valu, fnibtxn)
 
         # set our global properties
         tick = s_common.now()
-        await node.set('.created', tick, init=True)
+        await node.initprop('.created', tick, fnibtxn)
 
-        # we are done initializing.
-        node.init = False
-
-        self.core.pokeFormCount(form.name, 1)
-        self.buidcache.put(buid, node)
-
-        await form.wasAdded(node)
-
-        # now we must fire all his prop sets
-        for name, valu in tuple(node.props.items()):
-            prop = node.form.props.get(name)
-            await prop.wasSet(node, None)
-
-            # Nic dded
-            if prop.univ:
-                univ = self.snap.model.prop(prop.univ)
-                await univ.wasSet(self, curv)
-
-            await self.snap.core.triggers.run(self, 'prop:set', info={'prop': prop.full})
-
-        return node
+        return None
 
     async def _raiseOnStrict(self, ctor, mesg, **info):
         await self.warn(f'{ctor.__name__}: {mesg} {info!r}')
@@ -479,7 +550,9 @@ class Snap(s_base.Base):
     #########################################################################
 
     def _getNodeFnib(self, name, valu):
-        # return a form, norm, info, buid tuple
+        '''
+        return a form, norm, info, buid tuple
+        '''
         form = self.model.form(name)
         if form is None:
             raise s_exc.NoSuchForm(name=name)

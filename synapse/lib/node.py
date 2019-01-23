@@ -7,8 +7,6 @@ import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.types as s_types
 
-import synapse.lib.stormtypes as s_stormtypes
-
 logger = logging.getLogger(__name__)
 
 class Node:
@@ -132,6 +130,71 @@ class Node:
 
         return retn
 
+    async def initprop(self, name, valu, fnibtxn):
+        prop = self.form.prop(name)
+        if prop is None:
+
+            if self.snap.strict:
+                raise s_exc.NoSuchProp(name=name)
+
+            fnibtxn.warns.append(f'NoSuchProp: name={name}')
+            return False
+
+        curv = self.props.get(name)
+
+        # normalize the property value...
+        try:
+
+            norm, info = prop.type.norm(valu)
+
+        except Exception as e:
+            mesg = f'Bad property value: {prop.full}={valu!r}'
+            fnibtxn.warns.append(f'BadPropValu: {mesg} emesg={e}')
+            if self.snap.strict:
+                raise s_exc.BadPropValu(mesg, emesg=str(e))
+            return False
+
+        # do we already have the value?
+        if curv == norm:
+            return False
+
+        sops = prop.getSetOps(self.buid, norm)
+
+        fnibtxn.sops.extend(sops)
+
+        self.props[prop.name] = norm
+
+        # do we have any auto nodes to add?
+        auto = self.snap.model.form(prop.type.name)
+        if auto is not None:
+            buid = s_common.buid((auto.name, norm))
+            await self.snap.addNodeFnibOps((auto, norm, info, buid), fnibtxn)
+
+        # does the type think we have special auto nodes to add?
+        # (used only for adds which do not meet the above block)
+        for autoname, autovalu in info.get('adds', ()):
+            auto = self.snap.model.form(autoname)
+            autonorm, autoinfo = auto.type.norm(autovalu)
+            buid = s_common.buid((auto.name, autonorm))
+            await self.snap.addNodeFnibOps((auto, autovalu, autoinfo, buid), fnibtxn)
+
+        # do we need to set any sub props?
+        subs = info.get('subs')
+        if subs is not None:
+
+            for subname, subvalu in subs.items():
+
+                full = prop.name + ':' + subname
+
+                subprop = self.form.prop(full)
+                if subprop is None:
+                    continue
+
+                await self.initprop(full, subvalu, fnibtxn)
+
+        return True
+
+    # FIXME: refactor with initprop
     async def set(self, name, valu, init=False):
         '''
         Set a property on the node.
@@ -219,15 +282,7 @@ class Node:
 
                 await self.set(full, subvalu, init=init)
 
-        # last but not least, if we are *not* in init
-        # we need to fire a Prop.onset() callback.
-        if not self.init:
-            await prop.wasSet(self, curv)
-            if prop.univ:
-                univ = self.snap.model.prop(prop.univ)
-                await univ.wasSet(self, curv)
-
-        await self.snap.core.triggers.run(self, 'prop:set', info={'prop': prop.full})
+        await self.snap.notifyPropSet(self, prop, curv)
 
         return True
 
@@ -482,7 +537,7 @@ class Node:
         tags = [(len(t), t) for t in self.tags.keys()]
 
         # check for tag permissions
-        # FIXME
+        # TODO
 
         # check for any nodes which reference us...
         if not force:
