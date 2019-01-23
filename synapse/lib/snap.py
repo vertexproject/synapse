@@ -30,6 +30,17 @@ class FnibTxn:
     def __enter__(self):
         return self
 
+    def getNodeBeingMade(self, buid):
+        '''
+        Return a node if it is currently being made, mark as a dependency, else None if none found
+        '''
+        valu = self.allbldgbuids.get(buid)
+        if valu is None:
+            return None
+        if buid not in self.mybldgbuids:
+            self.otherbldgbuids.add(buid)
+        return valu[0]
+
     def addNode(self, node):
         '''
         Update the shared map with my in-construction nodes
@@ -37,7 +48,14 @@ class FnibTxn:
         self.mybldgbuids[node.buid] = node
         self.allbldgbuids[node.buid] = (node, self.doneevent)
 
-    def notifyDone(self):
+    async def rendevous(self):
+        '''
+        Wait until all my adjacent FnibTxns are also at this point
+        '''
+        self._notifyDone()
+        await self._wait()
+
+    def _notifyDone(self):
         '''
         Allow any other fnibtxns waiting on this to complete to resume
         '''
@@ -51,8 +69,7 @@ class FnibTxn:
 
         self.notified = True
 
-
-    async def wait(self):
+    async def _wait(self):
         '''
         Wait on the other fnibtxns who are constructing nodes my new nodes refer to
         '''
@@ -63,7 +80,7 @@ class FnibTxn:
             await evnt.wait()
 
     def __exit__(self, exc, cls, tb):
-        self.notifyDone()
+        self._notifyDone()
 
 class Snap(s_base.Base):
     '''
@@ -456,7 +473,8 @@ class Snap(s_base.Base):
                 self.buidcache.put(node.buid, node)
 
             topnode = fnibtxn.mybldgbuids[fnib[3]]
-            fnibtxn.notifyDone()
+
+            await fnibtxn.rendevous()
 
             for node in fnibtxn.mybldgbuids.values():
                 await self.splice('node:add', ndef=node.ndef)
@@ -477,15 +495,20 @@ class Snap(s_base.Base):
         '''
         form, norm, info, buid = fnib
 
-        valu = fnibtxn.allbldgbuids.get(buid)
-        if valu:
-            if buid not in fnibtxn.mybldgbuids:
-                fnibtxn.otherbldgbuids.add(buid)
-            return valu[0]
+        # Check if this buid is already under construction
+        valu = fnibtxn.getNodeBeingMade(buid)
+        if valu is not None:
+            return valu
 
+        # Check if this buid is already fully made
         node = await self.getNodeByBuid(buid)
         if node is not None:
             return node
+
+        # Another fnibtxn might have created in the above call, so check again
+        valu = fnibtxn.getNodeBeingMade(buid)
+        if valu is not None:
+            return valu
 
         if props is None:
             props = {}
