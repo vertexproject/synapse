@@ -33,8 +33,10 @@ class ModelRev:
 
             for revvers, revmeth in self.revs:
                 if vers < revvers:
+                    logger.warning(f'beginning model {vers} -> {revvers} (layer: {layr.iden})')
                     await revmeth(self.core, layr)
                     await layr.setModelVers(revvers)
+                    logger.warning('...complete!')
                     vers = revvers
 
     def _addModelVers(self, core, layr):
