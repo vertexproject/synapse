@@ -13,7 +13,9 @@ Welcome to synapse's documentation!
    synapse/userguide
    synapse/devops
    synapse/contributing
-   api/modules
+   autodocs/datamodel_types
+   autodocs/datamodel_forms
+   autodocs/modules
 
 Indices and tables
 ==================
