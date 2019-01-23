@@ -95,6 +95,39 @@ class LmdbLayer(s_layer.Layer):
 
         return props
 
+    async def getNodeNdef(self, buid):
+        pref = buid + b'*'
+        for lkey, lval in self.slab.scanByPref(buid + b'*', db=self.bybuid):
+            valu, indx = s_msgpack.un(lval)
+            return lkey[33:].decode('utf'), valu
+
+    async def _storBuidSet(self, oper):
+
+        _, (form, oldb, newb) = oper
+
+        fenc = self.encoder[form]
+
+        pvoldval = s_msgpack.en((oldb,))
+        pvnewval = s_msgpack.en((newb,))
+
+        for lkey, lval in self.slab.scanByPref(oldb, db=self.bybuid):
+
+            penc = lkey[32:]
+            valu, indx = s_msgpack.un(lval)
+
+            if penc[0] in (46, 35): # ".univ" or "#tag"
+                byunivkey = penc + indx
+                self.slab.put(byunivkey, pvnewval, db=self.byuniv)
+                self.slab.delete(byunivkey, pvoldval, db=self.byuniv)
+
+            bypropkey = fenc + penc + indx
+
+            self.slab.put(bypropkey, pvnewval, db=self.byprop)
+            self.slab.delete(bypropkey, pvoldval, db=self.byprop)
+
+            self.slab.put(newb + penc, lval, db=self.bybuid)
+            self.slab.delete(lkey, db=self.bybuid)
+
     async def _storPropSet(self, oper):
 
         _, (buid, form, prop, valu, indx, info) = oper
