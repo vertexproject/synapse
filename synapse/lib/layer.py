@@ -63,6 +63,7 @@ class Layer(s_cell.Cell):
         }
 
         self.fresh = False
+        self.canrev = not readonly
         self.readonly = readonly
         self.spliced = asyncio.Event(loop=self.loop)
         self.splicelist = []

@@ -27,6 +27,9 @@ class RemoteLayer(s_layer.Layer):
 
         await s_layer.Layer.__anit__(self, dirn, readonly=readonly)
 
+        # a remote layer may never be revd
+        self.canrev = False
+
         self.path = self.conf.get('remote:telepath')
         if self.path is None:
             raise s_exc.BadConfValu('Missing remote layer path')
