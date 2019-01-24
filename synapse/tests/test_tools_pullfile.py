@@ -29,11 +29,15 @@ class TestPullFile(s_t_utils.SynTest):
                     nonehash = hashlib.sha256(b'none').hexdigest()
 
                     with self.getTestDir() as wdir:
-                        pullargs = ['-a', axonurl,
-                                    '-o', wdir,
-                                    '-l', [testhash, visihash, nonehash]]
                         outp = self.getTestOutp()
-                        self.eq(0, s_pullfile.main(pullargs, outp))
+                        self.eq(0, s_pullfile.main(['-a', axonurl,
+                                                    '-o', wdir,
+                                                    '-l', [testhash, nonehash]], outp))
+                        oldcwd = os.getcwd()
+                        os.chdir(wdir)
+                        self.eq(0, s_pullfile.main(['-a', axonurl,
+                                                    '-l', [visihash, ]], outp))
+                        os.chdir(oldcwd)
                         with open(pathlib.Path(wdir, testhash), 'rb') as fd:
                             self.eq(b'test', fd.read())
                         with open(pathlib.Path(wdir, visihash), 'rb') as fd:
