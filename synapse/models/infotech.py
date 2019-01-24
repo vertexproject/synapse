@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class SemVer(s_types.Type):
     '''
     Provides support for parsing a semantic version string into its component
-    parts. This normalizes a version string into a integer to allow version
+    parts. This normalizes a version string into an integer to allow version
     ordering.  Prerelease information is disregarded for integer comparison
     purposes, as we cannot map an arbitrary pre-release version into a integer
     value
@@ -286,9 +286,22 @@ class ItModule(s_module.CoreModule):
                 ('it:exec:reg:del', ('guid', {}), {
                     'doc': 'An instance of a host deleting a registry key.',
                 })
+                ('it:app:yara:rule', ('guid', {}), {
+                    'doc': 'A yara rule unique identifier.',
+                }),
+                ('it:app:yara:match', ('comp', {'fields': (('rule', 'it:app:yara:rule'), ('file', 'file:bytes'))}), {
+                    'doc': 'A yara rule match to a file.',
+                }),
+                ('it:app:snort:rule', ('guid', {}), {
+                    'doc': 'A snort rule unique identifier.',
+                }),
+                ('it:app:snort:hit', ('guid', {}), {
+                    'doc': 'An instance of a snort rule hit.',
+                }),
             ),
             'forms': (
                 ('it:hostname', {}, ()),
+
                 ('it:host', {}, (
                     ('name', ('it:hostname', {}), {
                         'doc': 'The name of the host or system.',
@@ -929,6 +942,49 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The binary data that was deleted (parsed from :reg).',
                     }),
                 )),
+
+                ('it:app:snort:rule', {}, (
+                    ('text', ('str', {}), {
+                        'doc': 'The snort rule text.'}),
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the snort rule.'}),
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The current version of the rule.'}),
+                )),
+
+                ('it:app:snort:hit', {}, (
+                    ('rule', ('it:app:snort:rule', {}), {
+                        'doc': 'The yara rule that matched the file.'}),
+                    ('src', ('inet:addr', {}), {
+                        'doc': 'The source of the network traffic that matched the snort rule.'}),
+                    ('dst', {'inet:addr', {}), {
+                        'doc': 'The destinaion of the network traffic that matched the snort rule.'}),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the rule was matched.'}),
+                    ('sensor', ('it:host', {}), {
+                        'doc': 'The sensor host node that produced the hit.'}),
+                )),
+
+                ('it:app:yara:rule', {}, (
+                    ('text', ('str', {}), {
+                        'doc': 'The yara rule text.'}),
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the yara rule.'}),
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The current version of the rule.'}),
+                )),
+
+                ('it:app:yara:match', {}, (
+                    ('rule', ('it:app:yara:rule', {}), {
+                        'ro': True,
+                        'doc': 'The yara rule that matched the file.'}),
+                    ('file', ('file:bytes', {}), {
+                        'ro': True,
+                        'doc': 'The file that matched the yara rule.'}),
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The most recent version of the rule evaluated as a match.'}),
+                )),
+
             ),
         }
         name = 'it'
