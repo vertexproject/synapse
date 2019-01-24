@@ -1,4 +1,5 @@
 import sys
+import pathlib
 import argparse
 import binascii
 
@@ -14,17 +15,17 @@ def main(argv, outp=None):
     pars = setup()
     opts = pars.parse_args(argv)
 
-    if outp is None:
+    if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
 
     if opts.output is None:
         opts.output = '.'
 
+    outdir = pathlib.Path(opts.output)
+
     s_common.gendir(opts.output)
 
     with s_telepath.openurl(opts.axon) as axon:
-        if not axon:
-            raise s_exc.SynErr(mesg='Failed to connect to Axon')
 
         # reminder: these are the hashes *not* available
         awants = axon.wants([binascii.unhexlify(h) for h in opts.hashes])
@@ -37,7 +38,7 @@ def main(argv, outp=None):
 
             try:
                 outp.printf(f'Fetching {h} to file')
-                with open(f'{opts.output}/{h}', 'wb') as fd:
+                with open(outdir.joinpath(h), 'wb') as fd:
                     for b in axon.get(binascii.unhexlify(h)):
                         fd.write(b)
                 outp.printf(f'Fetched {h} to file')
