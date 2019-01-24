@@ -22,30 +22,29 @@ def main(argv, outp=None):
 
     s_common.gendir(opts.output)
 
-    axon = s_telepath.openurl(opts.axon)
-    if not axon:
-        raise s_exc.SynErr(mesg='Failed to connect to Axon')
+    with s_telepath.openurl(opts.axon) as axon:
+        if not axon:
+            raise s_exc.SynErr(mesg='Failed to connect to Axon')
 
-    # reminder: these are the hashes *not* available
-    awants = axon.wants([binascii.unhexlify(h) for h in opts.hashes])
-    for a in awants:
-        outp.printf(f'{binascii.hexlify(a)} not in axon store')
+        # reminder: these are the hashes *not* available
+        awants = axon.wants([binascii.unhexlify(h) for h in opts.hashes])
+        for a in awants:
+            outp.printf(f'{binascii.hexlify(a)} not in axon store')
 
-    exists = [h for h in opts.hashes if binascii.unhexlify(h) not in awants]
+        exists = [h for h in opts.hashes if binascii.unhexlify(h) not in awants]
 
-    for h in exists:
+        for h in exists:
 
-        try:
-            outp.printf(f'Fetching {h} to file')
-            with open(f'{opts.output}/{h}', 'wb') as fd:
-                for b in axon.get(binascii.unhexlify(h)):
-                    fd.write(b)
-            outp.printf(f'Fetched {h} to file')
-        except Exception as e:
-            outp.printf('Error: Hit Exception: %s' % (str(e),))
-            continue
+            try:
+                outp.printf(f'Fetching {h} to file')
+                with open(f'{opts.output}/{h}', 'wb') as fd:
+                    for b in axon.get(binascii.unhexlify(h)):
+                        fd.write(b)
+                outp.printf(f'Fetched {h} to file')
+            except Exception as e:
+                outp.printf('Error: Hit Exception: %s' % (str(e),))
+                continue
 
-    s_glob.sync(axon.fini())
     return 0
 
 
