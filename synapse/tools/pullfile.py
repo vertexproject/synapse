@@ -3,8 +3,6 @@ import pathlib
 import argparse
 import binascii
 
-import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
