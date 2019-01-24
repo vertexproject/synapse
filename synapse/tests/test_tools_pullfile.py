@@ -15,7 +15,7 @@ class TestPullFile(s_t_utils.SynTest):
 
     async def test_pullfile(self):
 
-        async with self.getTestDmonCortexAxon() as dmon:  # NOQA
+        async with self.getTestDmonCortexAxon():
 
             coreurl = s_scope.get('coreurl')
             axonurl = s_scope.get('axonurl')

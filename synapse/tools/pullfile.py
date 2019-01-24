@@ -1,7 +1,3 @@
-'''
-Fetches file details from a cortex and then pulls the associated file from the axon given
-'''
-
 import sys
 import argparse
 import binascii
@@ -54,7 +50,7 @@ def main(argv, outp=None):
 
 
 def setup():
-    desc = 'Looks up a file in a cortex and then fetches it from the given axon'
+    desc = 'Fetches file from the given axon'
     pars = argparse.ArgumentParser('pullfile', description=desc)
     pars.add_argument('-a', '--axon', type=str, dest='axon', required=True,
                       help='URL to the axon blob store')
