@@ -78,9 +78,9 @@ class SnapTest(s_t_utils.SynTest):
                 self.eq(nodes[0], node)
 
     async def test_addNodeRace(self):
-        ''' A regression in which a reader might retrieve a partially constructed node '''
+        ''' Test when a reader might retrieve a partially constructed node '''
         NUM_TASKS = 2
-        random.seed(4)  # chosen by fair dice roll.
+        random.seed(4)  # chosen by fair dice roll
         failed = False
         done_events = []
         async with self.getTestCore() as core:

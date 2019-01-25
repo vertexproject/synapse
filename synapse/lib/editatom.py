@@ -10,7 +10,8 @@ class EditAtom:
     def __init__(self, allbldgbuids):
         '''
         Args:
-            allbldgbuids (Dict[bytes, Node]): a dict that should be shared among all instances of this class
+            allbldgbuids (Dict[bytes, Node]): a dict that should be shared among all instances of this class for a
+            particular cortex.
         '''
         self.mybldgbuids = {}  # buid -> node
         self.otherbldgbuids = set()

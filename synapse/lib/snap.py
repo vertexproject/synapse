@@ -400,19 +400,19 @@ class Snap(s_base.Base):
         form, norm, info, buid = fnib
 
         # Check if this buid is already under construction
-        valu = editatom.getNodeBeingMade(buid)
-        if valu is not None:
-            return valu
+        node = editatom.getNodeBeingMade(buid)
+        if node is not None:
+            return node
 
         # Check if this buid is already fully made
         node = await self.getNodeByBuid(buid)
         if node is not None:
             return node
 
-        # Another editatom might have created in the above call, so check again
-        valu = editatom.getNodeBeingMade(buid)
-        if valu is not None:
-            return valu
+        # Another editatom might have created in another task during the above call, so check again
+        node = editatom.getNodeBeingMade(buid)
+        if node is not None:
+            return node
 
         if props is None:
             props = {}
