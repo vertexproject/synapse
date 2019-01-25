@@ -3,8 +3,6 @@ import asyncio
 import logging
 import contextlib
 
-from typing import Any, Dict, List, Tuple
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -14,72 +12,10 @@ import synapse.lib.base as s_base
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
+import synapse.lib.editatom as s_editatom
 
 logger = logging.getLogger(__name__)
 
-class FnibTxn:
-    def __init__(self, allbldgbuids):
-        self.mybldgbuids = {}  # buid -> node
-        self.otherbldgbuids = set()
-        self.doneevent = asyncio.Event()
-        self.sops: List[Tuple[str, Tuple[bytes, str, str, Dict[str, Any]]]] = []
-        self.allbldgbuids = allbldgbuids # buid -> (Node, Event)
-        self.notified = False
-
-    def __enter__(self):
-        return self
-
-    def getNodeBeingMade(self, buid):
-        '''
-        Return a node if it is currently being made, mark as a dependency, else None if none found
-        '''
-        valu = self.allbldgbuids.get(buid)
-        if valu is None:
-            return None
-        if buid not in self.mybldgbuids:
-            self.otherbldgbuids.add(buid)
-        return valu[0]
-
-    def addNode(self, node):
-        '''
-        Update the shared map with my in-construction nodes
-        '''
-        self.mybldgbuids[node.buid] = node
-        self.allbldgbuids[node.buid] = (node, self.doneevent)
-
-    async def rendevous(self):
-        '''
-        Wait until all my adjacent FnibTxns are also at this point
-        '''
-        self._notifyDone()
-        await self._wait()
-
-    def _notifyDone(self):
-        '''
-        Allow any other fnibtxns waiting on this to complete to resume
-        '''
-        if self.notified:
-            return
-
-        self.doneevent.set()
-
-        for buid in self.mybldgbuids:
-            del self.allbldgbuids[buid]
-
-        self.notified = True
-
-    async def _wait(self):
-        '''
-        Wait on the other fnibtxns who are constructing nodes my new nodes refer to
-        '''
-        for buid in self.otherbldgbuids:
-            _, evnt = self.allbldgbuids.get(buid)
-            if buid is None:
-                continue
-            await evnt.wait()
-
-    def __exit__(self, exc, cls, tb):
-        self._notifyDone()
 
 class Snap(s_base.Base):
     '''
@@ -440,59 +376,31 @@ class Snap(s_base.Base):
     async def _addTagNode(self, name):
         return await self.addNode('syn:tag', name)
 
-    async def notifyPropSet(self, node, prop, oldv=None):
-        '''
-        Fire any callbacks listening for property setting on a node
-        '''
-        await prop.wasSet(node, oldv)
-
-        if prop.univ:
-            univ = self.model.prop(prop.univ)
-            await univ.wasSet(self, oldv)
-
-        await self.core.triggers.run(node, 'prop:set', info={'prop': prop.full})
-
     async def _addNodeFnib(self, fnib, props=None):
 
-        with FnibTxn(self.core.bldgbuids) as fnibtxn:
-            node = await self.addNodeFnibOps(fnib, fnibtxn, props)
+        with s_editatom.EditAtom(self.core.bldgbuids) as editatom:
+
+            node = await self._addNodeFnibOps(fnib, editatom, props)
             if node is not None:
                 if props is not None:
                     for name, valu in props.items():
-                        await node.set(name, valu)
-                return node
+                        await node._setops(name, valu, editatom)
 
-            await self.stor(fnibtxn.sops)
+            await editatom.commit(self)
 
-            for node in fnibtxn.mybldgbuids.values():
-                self.core.pokeFormCount(node.form.name, 1)
-                self.buidcache.put(node.buid, node)
+            if node is None:
+                node = editatom.mybldgbuids[fnib[3]]
 
-            topnode = fnibtxn.mybldgbuids[fnib[3]]
+            return node
 
-            await fnibtxn.rendevous()
-
-            for node in fnibtxn.mybldgbuids.values():
-                await self.splice('node:add', ndef=node.ndef)
-                await node.form.wasAdded(node)
-
-            for node in fnibtxn.mybldgbuids.values():
-                # fire all his prop sets
-                for name, valu in tuple(node.props.items()):
-                    prop = node.form.props.get(name)
-                    await self.splice('prop:set', ndef=node.ndef, prop=prop.name, valu=valu)
-                    await self.notifyPropSet(node, prop)
-
-            return topnode
-
-    async def addNodeFnibOps(self, fnib, fnibtxn, props=None):
+    async def _addNodeFnibOps(self, fnib, editatom, props=None):
         '''
-        Add a node via (form, norm, info, buid) and add ops to fnibtxn
+        Add a node via (form, norm, info, buid) and add ops to editatom
         '''
         form, norm, info, buid = fnib
 
         # Check if this buid is already under construction
-        valu = fnibtxn.getNodeBeingMade(buid)
+        valu = editatom.getNodeBeingMade(buid)
         if valu is not None:
             return valu
 
@@ -501,8 +409,8 @@ class Snap(s_base.Base):
         if node is not None:
             return node
 
-        # Another fnibtxn might have created in the above call, so check again
-        valu = fnibtxn.getNodeBeingMade(buid)
+        # Another editatom might have created in the above call, so check again
+        valu = editatom.getNodeBeingMade(buid)
         if valu is not None:
             return valu
 
@@ -517,9 +425,9 @@ class Snap(s_base.Base):
         node.ndef = (form.name, norm)
 
         sops = form.getSetOps(buid, norm)
-        fnibtxn.sops.extend(sops)
+        editatom.sops.extend(sops)
 
-        fnibtxn.addNode(node)
+        editatom.addNode(node)
 
         # update props with any subs from form value
         subs = info.get('subs')
@@ -534,11 +442,11 @@ class Snap(s_base.Base):
 
         # set all the properties with init=True
         for name, valu in props.items():
-            await node.initprop(name, valu, fnibtxn)
+            await node._setops(name, valu, editatom, init=True)
 
         # set our global properties
         tick = s_common.now()
-        await node.initprop('.created', tick, fnibtxn)
+        await node._setops('.created', tick, editatom, init=True)
 
         return None
 

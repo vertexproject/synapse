@@ -6,6 +6,7 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.types as s_types
+import synapse.lib.editatom as s_editatom
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ class Node:
                 yield item
 
     async def filter(self, text, opts=None, user=None):
-        async for item in self.storm(text, opts=opts, user=user):
+        async for item in self.storm(text, opts=opts, user=user):  # NOQA
             return False
         return True
 
@@ -130,13 +131,26 @@ class Node:
 
         return retn
 
-    async def _sethelper(self, name, valu, init=False):
+    async def set(self, name, valu, init=False):
         '''
-        Shared code between initprop and set
+        Set a property on the node.
 
-        Returns False if valu is improper or already set, else
-        returns Tuple of prop, old valu, new normed valu, type info, storage ops
+        Args:
+            name (str): The name of the property.
+            valu (obj): The value of the property.
+            init (bool): Set to True to disable read-only enforcement
+
+        Returns:
+            (bool): True if the property was changed.
         '''
+        with s_editatom.EditAtom(self.snap.core.bldgbuids) as editatom:
+            retn = await self._setops(name, valu, editatom, init)
+            if not retn:
+                return False
+            await editatom.commit(self.snap)
+            return True
+
+    async def _setops(self, name, valu, editatom, init=False):
         prop = self.form.prop(name)
         if prop is None:
 
@@ -178,87 +192,16 @@ class Node:
 
         sops = prop.getSetOps(self.buid, norm)
 
-        return prop, curv, norm, info, sops
+        editatom.sops.extend(sops)
 
-    async def initprop(self, name, valu, fnibtxn):
-        '''
-        Set a property on the node for the first time.
-
-        Args:
-            name (str): The name of the property.
-            valu (obj): The value of the property.
-            init (bool): Set to True to force initialization.
-
-        Returns:
-            (bool): True if the property was changed.
-        '''
-        valu = await self._sethelper(name, valu, init=True)
-        if valu is False:
-            return False
-        prop, curv, norm, info, sops = valu
-
-        fnibtxn.sops.extend(sops)
-
-        self.props[prop.name] = norm
+        # self.props[prop.name] = norm
+        editatom.npvs.append((self, prop, curv, norm))
 
         # do we have any auto nodes to add?
         auto = self.snap.model.form(prop.type.name)
         if auto is not None:
             buid = s_common.buid((auto.name, norm))
-            await self.snap.addNodeFnibOps((auto, norm, info, buid), fnibtxn)
-
-        # does the type think we have special auto nodes to add?
-        # (used only for adds which do not meet the above block)
-        for autoname, autovalu in info.get('adds', ()):
-            auto = self.snap.model.form(autoname)
-            autonorm, autoinfo = auto.type.norm(autovalu)
-            buid = s_common.buid((auto.name, autonorm))
-            await self.snap.addNodeFnibOps((auto, autovalu, autoinfo, buid), fnibtxn)
-
-        # do we need to set any sub props?
-        subs = info.get('subs')
-        if subs is not None:
-
-            for subname, subvalu in subs.items():
-
-                full = prop.name + ':' + subname
-
-                subprop = self.form.prop(full)
-                if subprop is None:
-                    continue
-
-                await self.initprop(full, subvalu, fnibtxn)
-
-        return True
-
-    # FIXME: refactor with initprop
-    async def set(self, name, valu, init=False):
-        '''
-        Set a property on the node.
-
-        Args:
-            name (str): The name of the property.
-            valu (obj): The value of the property.
-            init (bool): Set to True to disable read-only enforcement
-
-        Returns:
-            (bool): True if the property was changed.
-        '''
-        valu = await self._sethelper(name, valu, init)
-        if valu is False:
-            return False
-        prop, curv, norm, info, sops = valu
-
-        await self.snap.stor(sops)
-        await self.snap.splice('prop:set', ndef=self.ndef, prop=prop.name, valu=norm, oldv=curv)
-
-        self.props[prop.name] = norm
-
-        # do we have any auto nodes to add?
-        auto = self.snap.model.form(prop.type.name)
-        if auto is not None:
-            buid = s_common.buid((auto.name, norm))
-            await self.snap._addNodeFnib((auto, norm, info, buid))
+            await self.snap._addNodeFnibOps((auto, norm, info, buid), editatom)
 
         # does the type think we have special auto nodes to add?
         # ( used only for adds which do not meet the above block )
@@ -266,7 +209,7 @@ class Node:
             auto = self.snap.model.form(autoname)
             autonorm, autoinfo = auto.type.norm(autovalu)
             buid = s_common.buid((auto.name, autonorm))
-            await self.snap._addNodeFnib((auto, autovalu, autoinfo, buid))
+            await self.snap._addNodeFnibOps((auto, autovalu, autoinfo, buid), editatom)
 
         # do we need to set any sub props?
         subs = info.get('subs')
@@ -280,9 +223,7 @@ class Node:
                 if subprop is None:
                     continue
 
-                await self.set(full, subvalu, init=init)
-
-        await self.snap.notifyPropSet(self, prop, curv)
+                await self._setops(full, subvalu, editatom, init=init)
 
         return True
 
@@ -545,7 +486,7 @@ class Node:
             # refuse to delete tag nodes with existing tags
             if self.form.name == 'syn:tag':
 
-                async for _ in self.snap._getNodesByTag(self.ndef[1]):
+                async for _ in self.snap._getNodesByTag(self.ndef[1]):  # NOQA
                     mesg = 'Nodes still have this tag.'
                     return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 
