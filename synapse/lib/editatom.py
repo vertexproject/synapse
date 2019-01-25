@@ -101,7 +101,7 @@ class EditAtom:
             await node.form.wasAdded(node)
 
         # fire all his prop sets
-        for name, prop, oldv, valu in self.npvs:
+        for node, prop, oldv, valu in self.npvs:
             await snap.splice('prop:set', ndef=node.ndef, prop=prop.name, valu=valu, oldv=oldv)
             await prop.wasSet(node, oldv)
 
