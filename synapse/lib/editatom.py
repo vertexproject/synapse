@@ -30,12 +30,12 @@ class EditAtom:
         '''
         Return a node if it is currently being made, mark as a dependency, else None if none found
         '''
-        valu = self.allbldgbuids.get(buid)
-        if valu is None:
+        nodeevnt = self.allbldgbuids.get(buid)
+        if nodeevnt is None:
             return None
         if buid not in self.mybldgbuids:
             self.otherbldgbuids.add(buid)
-        return valu[0]
+        return nodeevnt[0]
 
     def addNode(self, node):
         '''
@@ -70,10 +70,10 @@ class EditAtom:
         Wait on the other editatoms who are constructing nodes my new nodes refer to
         '''
         for buid in self.otherbldgbuids:
-            _, evnt = self.allbldgbuids.get(buid)
-            if buid is None:
+            nodeevnt = self.allbldgbuids.get(buid)
+            if nodeevnt is None:
                 continue
-            await evnt.wait()
+            await nodeevnt[1].wait()
 
     def __exit__(self, exc, cls, tb):
         '''
