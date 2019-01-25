@@ -151,6 +151,9 @@ class Node:
             return True
 
     async def _setops(self, name, valu, editatom, init=False):
+        '''
+        Generate operations to set a property on a node.
+        '''
         prop = self.form.prop(name)
         if prop is None:
 

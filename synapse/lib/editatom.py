@@ -3,7 +3,15 @@ import asyncio
 from typing import Any, Dict, List, Tuple
 
 class EditAtom:
+    '''
+    A simple utility class to track all the changes for adding a node or setting a property before committing them all
+    at once.
+    '''
     def __init__(self, allbldgbuids):
+        '''
+        Args:
+            allbldgbuids (Dict[bytes, Node]): a dict that should be shared among all instances of this class
+        '''
         self.mybldgbuids = {}  # buid -> node
         self.otherbldgbuids = set()
         self.doneevent = asyncio.Event()
@@ -13,6 +21,9 @@ class EditAtom:
         self.npvs = [] # List of tuple(Node, prop, val)
 
     def __enter__(self):
+        '''
+        Implement the context manager convention
+        '''
         return self
 
     def getNodeBeingMade(self, buid):
@@ -28,7 +39,7 @@ class EditAtom:
 
     def addNode(self, node):
         '''
-        Update the shared map with my in-construction nodes
+        Update the shared map with my in-construction node
         '''
         self.mybldgbuids[node.buid] = node
         self.allbldgbuids[node.buid] = (node, self.doneevent)
@@ -42,7 +53,7 @@ class EditAtom:
 
     def _notifyDone(self):
         '''
-        Allow any other editatoms waiting on this to complete to resume
+        Allow any other editatoms waiting on me to complete to resume
         '''
         if self.notified:
             return
@@ -65,9 +76,15 @@ class EditAtom:
             await evnt.wait()
 
     def __exit__(self, exc, cls, tb):
+        '''
+        Regardless of success, wake up any waiters and clean myself up from shared dict
+        '''
         self._notifyDone()
 
     async def commit(self, snap):
+        '''
+        Push the recorded changes to disk, notify all the listeners
+        '''
         for node, prop, _, valu in self.npvs:
             node.props[prop.name] = valu
 
