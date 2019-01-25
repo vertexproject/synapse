@@ -133,7 +133,7 @@ class PsModule(s_module.CoreModule):
                         'date': 'The time this contact was created or modified.',
                     }),
                     ('person', ('ps:person', {}), {
-                        'doc': ' The ps:person GUID which owns this contact.',
+                        'doc': 'The ps:person GUID which owns this contact.',
                     }),
                     ('name', ('ps:name', {}), {
                         'doc': 'The person name listed for the contact',
