@@ -80,7 +80,6 @@ class SnapTest(s_t_utils.SynTest):
     async def test_addNodeRace(self):
         ''' Test when a reader might retrieve a partially constructed node '''
         NUM_TASKS = 2
-        random.seed(4)  # chosen by fair dice roll
         failed = False
         done_events = []
         async with self.getTestCore() as core:
@@ -88,6 +87,7 @@ class SnapTest(s_t_utils.SynTest):
             async def write_a_bunch(done_event):
                 nonlocal failed
                 data = list(range(50))
+                random.seed(4)  # chosen by fair dice roll
                 random.shuffle(data)
                 await asyncio.sleep(0)
                 async with await core.snap() as snap:
@@ -115,6 +115,48 @@ class SnapTest(s_t_utils.SynTest):
                 await event.wait()
 
             self.false(failed)
+
+    async def test_addNodeRace2(self):
+        ''' Test that dependencies between active editatoms don't wedge '''
+        bc_done_event = asyncio.Event()
+        ab_middle_event = asyncio.Event()
+        ab_done_event = asyncio.Event()
+
+        async with self.getTestCore() as core:
+            async def bc_writer():
+                async with await core.snap() as snap:
+                    call_count = 0
+
+                    async def slowGetNodeByBuid(buid):
+                        nonlocal call_count
+                        call_count += 1
+                        if call_count > 0:
+                            await ab_middle_event.wait()
+                        return await snap.buidcache.aget(buid)
+
+                    snap.getNodeByBuid = slowGetNodeByBuid
+
+                    await snap.addNode('pivcomp', ('woot', 'rofl'))
+                bc_done_event.set()
+
+            core.schedCoro(bc_writer())
+            await asyncio.sleep(0)
+
+            async def ab_writer():
+                async with await core.snap() as snap:
+
+                    async def slowGetNodeByBuid(buid):
+                        ab_middle_event.set()
+                        return await snap.buidcache.aget(buid)
+
+                    snap.getNodeByBuid = slowGetNodeByBuid
+
+                    await snap.addNode('haspivcomp', 42, props={'have': ('woot', 'rofl')})
+                ab_done_event.set()
+
+            core.schedCoro(ab_writer())
+            await bc_done_event.wait()
+            await ab_done_event.wait()
 
     @contextlib.asynccontextmanager
     async def _getTestCoreMultiLayer(self, first_dirn):
