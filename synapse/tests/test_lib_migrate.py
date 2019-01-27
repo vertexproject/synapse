@@ -15,6 +15,10 @@ class MigrTest(s_testutils.SynTest):
             guid = s_common.guid()
             opts = {'vars': {'guid': guid}}
 
+            nodes = await core.eval('[ testguid=$guid :size=10 ]', opts=opts).list()
+            self.len(1, nodes)
+            self.eq(10, nodes[0].get('size'))
+
             await core.eval('[ refs=( (testguid, $guid), (testcomp, (10, test10)) ) +#baz ]', opts=opts).list()
 
             self.len(1, await core.eval('testint=10 [ +#foo ]').list())
@@ -22,6 +26,7 @@ class MigrTest(s_testutils.SynTest):
             self.len(1, await core.eval('[ testcomp=(20, test20) ]').list())
 
             async with await s_migrate.Migration.anit(core, s_common.guid()) as migr:
+
                 async for layr, buid, valu in migr.getFormTodo('testint'):
                     if valu == 10:
                         await migr.setNodeForm(layr, buid, 'testint', valu, valu + 1000)
@@ -51,3 +56,8 @@ class MigrTest(s_testutils.SynTest):
             self.len(1, await core.eval('testcomp=(1010, test10) +:hehe=1010 +:haha=test10 +#bar').list())
             self.len(1, await core.eval('testcomp:hehe=1010 +:hehe=1010 +:haha=test10 +#bar').list())
             self.len(1, await core.eval('testcomp#bar +:hehe=1010 +:haha=test10 +#bar').list())
+
+            # check that a simple secondary prop got migrated correctly
+            opts = {'vars': {'guid': guid}}
+            self.len(1, await core.eval('testguid=$guid +:size=1010', opts=opts).list())
+            self.len(1, await core.eval('testguid:size=1010', opts=opts).list())

@@ -174,6 +174,7 @@ testmodel = {
         )),
 
         ('testguid', {}, (
+            ('size', ('testint', {}), {}),
             ('tick', ('testtime', {}), {}),
         )),
 
