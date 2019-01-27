@@ -21,7 +21,7 @@ class ModelRev:
         for layr in self.core.layers:
             vers = await layr.getModelVers()
             if not layr.canrev and vers != version:
-                mesg = f'layer {layr.iden} ({layr.dirn}) can not be updated.'
+                mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) can not be updated.'
                 raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg)
 
         for layr in self.core.layers:

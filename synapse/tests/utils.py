@@ -608,7 +608,7 @@ class SynTest(unittest.TestCase):
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
     @contextlib.asynccontextmanager
-    async def getTestCore(self, mirror='testcore', conf=None, extra_layers=None):
+    async def getTestCore(self, mirror='testcore', conf=None, extra_layers=()):
         '''
         Return a simple test Cortex.
 
@@ -620,13 +620,15 @@ class SynTest(unittest.TestCase):
             s_common.yamlmod(conf, dirn, 'cell.yaml')
             ldir = s_common.gendir(dirn, 'layers')
             layerdir = pathlib.Path(ldir, '000-default')
+
             if self.alt_write_layer:
                 os.symlink(self.alt_write_layer, layerdir)
             else:
                 layerdir.mkdir()
                 s_cells.deploy('layer-lmdb', layerdir)
                 s_common.yamlmod({'lmdb:mapsize': TEST_MAP_SIZE}, layerdir, 'cell.yaml')
-            for i, fn in enumerate(extra_layers or []):
+
+            for i, fn in enumerate(extra_layers):
                 src = pathlib.Path(fn).resolve()
                 os.symlink(src, pathlib.Path(ldir, f'{i + 1:03}-testlayer'))
 

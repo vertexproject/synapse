@@ -30,6 +30,8 @@ class LayerApi(s_cell.PassThroughApi):
         'iterFormRows', 'iterPropRows', 'iterUnivRows', 'getOffset',
         'setOffset', 'initdb', 'splicelistAppend', 'splices', 'stat'
     ]
+    async def getModelVers(self):
+        return await self.cell.getModelVers()
 
 class Layer(s_cell.Cell):
     '''

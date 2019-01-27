@@ -1,44 +1,33 @@
+import os
+import contextlib
+
 import synapse.glob as s_glob
+import synapse.cells as s_cells
 import synapse.common as s_common
 
 import synapse.tests.test_cortex as t_cortex
 import synapse.tests.test_lib_snap as t_snap
 import synapse.tests.test_lib_layer as t_layer
 
-class RemoteLayerTestBase:
-    def setUp(self):
-        '''
-        Spin up a separate dmon that's serving up a remote LMDB layer and set up our test layer to point to that
-        '''
-        self.alt_write_layer = None
-        self._dmonctx = self.getTestDmon(mirror='dmonlayer')
-        self._layrdmon = s_glob.sync(self._dmonctx.__aenter__())
-        telepath = self.getTestUrl(self._layrdmon, 'layer1')
-        bootconf = {
-            'type': 'layer-remote'
-        }
-        cellconf = {
-            'remote:telepath': telepath
-        }
-        self._testdirctx = self.getTestConfDir('', boot=bootconf, conf=cellconf)
-        self._testdir = self._testdirctx.__enter__()
-        s_common.yamlsave(cellconf, self._testdir, 'cell.yaml')
-        self.alt_write_layer = self._testdir
+class RemoteLayerTest(t_cortex.CortexTest):
 
-    def tearDown(self):
-        self._testdirctx.__exit__(None, None, None)
-        s_glob.sync(self._dmonctx.__aexit__(None, None, None))
-        self.alt_write_layer = None
+    @contextlib.asynccontextmanager
+    async def getTestCore(self):
 
-class RemoteLayerTest(RemoteLayerTestBase, t_layer.LayerTest):
-    '''
-    Note:  doesn't do anything right now, but if we ever do add layer unit tests, this class will run those tests
-    with the RemoteLayer subclass
-    '''
-    pass
+        async with self.getTestDmon('dmoncore') as dmon:
 
-class RemoteLayerSnapTest(RemoteLayerTestBase, t_snap.SnapTest):
-    pass
+            core0 = dmon.shared.get('core')
+            layer = core0.layers[0]
+            dmon.share('layer', layer)
 
-class RemoteLayerCortexTest(RemoteLayerTestBase, t_cortex.CortexTest):
-    pass
+            async with t_cortex.CortexTest.getTestCore(self) as core:
+                url = self.getTestUrl(dmon, 'layer')
+                dirn = os.path.join(core.dirn, 'layers', s_common.guid())
+                layr = await s_cells.init('layer-remote', dirn, teleurl=url)
+
+                await core.layer.fini()
+
+                core.layer = layr
+                core.layers[0] = layr
+
+                yield core
