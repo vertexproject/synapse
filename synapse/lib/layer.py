@@ -56,6 +56,7 @@ class Layer(s_cell.Cell):
         self._stor_funcs = {
             'prop:set': self._storPropSet,
             'prop:del': self._storPropDel,
+            'buid:set': self._storBuidSet,
         }
 
         self.indxfunc = {
@@ -196,6 +197,9 @@ class Layer(s_cell.Cell):
     async def _storPropSet(self, oper):  # pragma: no cover
         raise NotImplementedError
 
+    async def _storBuidSet(self, oper):  # pragma: no cover
+        raise NotImplementedError
+
     async def _storPropDel(self, oper):  # pragma: no cover
         raise NotImplementedError
 
@@ -230,7 +234,10 @@ class Layer(s_cell.Cell):
         raise NotImplementedError
 
     async def stat(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     async def splices(self, offs, size):  # pragma: no cover
-        raise NotImplementedError()
+        raise NotImplementedError
+
+    async def getNodeNdef(self, buid):
+        raise NotImplementedError

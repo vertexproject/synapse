@@ -94,9 +94,22 @@ class ThreeType(s_types.Type):
     def indx(self, norm):
         return '3'.encode('utf8')
 
+class TestSubType(s_types.Type):
+
+    def norm(self, valu):
+        valu = int(valu)
+        return valu, {'subs': {'isbig': valu >= 1000}}
+
+    def repr(self, norm):
+        return str(norm)
+
+    def indx(self, norm):
+        return norm.to_bytes(4, 'big')
+
 testmodel = {
 
     'ctors': (
+        ('testsub', 'synapse.tests.utils.TestSubType', {}, {}),
         ('testtype', 'synapse.tests.utils.TestType', {}, {}),
         ('testthreetype', 'synapse.tests.utils.ThreeType', {}, {}),
     ),
@@ -174,7 +187,10 @@ testmodel = {
         )),
 
         ('testguid', {}, (
+            ('size', ('testint', {}), {}),
             ('tick', ('testtime', {}), {}),
+            ('posneg', ('testsub', {}), {}),
+            ('posneg:isbig', ('bool', {}), {}),
         )),
 
         ('teststr', {}, (
