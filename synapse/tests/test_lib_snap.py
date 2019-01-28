@@ -82,13 +82,16 @@ class SnapTest(s_t_utils.SynTest):
         NUM_TASKS = 2
         failed = False
         done_events = []
+
+        data = list(range(50))
+        rnd = random.Random()
+        rnd.seed(4)  # chosen by fair dice roll
+        rnd.shuffle(data)
+
         async with self.getTestCore() as core:
 
             async def write_a_bunch(done_event):
                 nonlocal failed
-                data = list(range(50))
-                random.seed(4)  # chosen by fair dice roll
-                random.shuffle(data)
                 await asyncio.sleep(0)
                 async with await core.snap() as snap:
 

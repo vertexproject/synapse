@@ -306,9 +306,7 @@ class Snap(s_base.Base):
         try:
 
             fnib = self._getNodeFnib(name, valu)
-            print(f'>{fnib[0].name}={fnib[1]}', flush=True)
             retn = await self._addNodeFnib(fnib, props=props)
-            print(f'<{fnib[0].name}={fnib[1]}', flush=True)
             return retn
 
         except asyncio.CancelledError:
