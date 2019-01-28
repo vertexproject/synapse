@@ -44,6 +44,8 @@ class LmdbLayer(s_layer.Layer):
         await s_layer.Layer.__anit__(self, dirn, readonly=readonly)
         path = os.path.join(self.dirn, 'layer.lmdb')
 
+        self.fresh = not os.path.exists(path)
+
         mapsize = self.conf.get('lmdb:mapsize')
         readahead = self.conf.get('lmdb:readahead')
         maxsize = self.conf.get('lmdb:maxsize')

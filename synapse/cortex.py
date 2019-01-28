@@ -25,6 +25,7 @@ import synapse.lib.syntax as s_syntax
 import synapse.lib.agenda as s_agenda
 import synapse.lib.trigger as s_trigger
 import synapse.lib.modules as s_modules
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -509,6 +510,7 @@ class Cortex(s_cell.Cell):
         self.setFeedFunc('syn.ingest', self._addSynIngest)
 
         await self._initCoreLayers()
+        await self._checkLayerModels()
 
         async def fini():
             await asyncio.gather(*[layr.fini() for layr in self.layers], loop=self.loop)
@@ -635,6 +637,10 @@ class Cortex(s_cell.Cell):
                 raise
             except Exception as e:
                 logger.exception('onTagDel Error')
+
+    async def _checkLayerModels(self):
+        mrev = s_modelrev.ModelRev(self)
+        await mrev.revCoreLayers()
 
     async def _initCoreLayers(self):
 
