@@ -17,6 +17,7 @@ class TypesTest(s_t_utils.SynTest):
         # Base type tests, mainly sad paths
         model = s_datamodel.Model()
         t = model.type('bool')
+        self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
         self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', '*in=')
         self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', '*range=')
@@ -65,6 +66,9 @@ class TypesTest(s_t_utils.SynTest):
             typ = core.model.type(t)
             self.raises(s_exc.BadTypeValu, typ.norm,
                         (123, 'haha', 'newp'))
+            self.eq(0, typ.getCompOffs('foo'))
+            self.eq(1, typ.getCompOffs('bar'))
+            self.none(typ.getCompOffs('newp'))
 
     def test_fieldhelper(self):
         self.skip('Implement base fieldhelper test')
@@ -761,6 +765,15 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         e = model.type('edge')
         t = model.type('timeedge')
+
+        self.eq(0, e.getCompOffs('n1'))
+        self.eq(1, e.getCompOffs('n2'))
+        self.none(e.getCompOffs('newp'))
+
+        self.eq(0, t.getCompOffs('n1'))
+        self.eq(1, t.getCompOffs('n2'))
+        self.eq(2, t.getCompOffs('time'))
+        self.none(t.getCompOffs('newp'))
 
         # Sad path testing
         self.raises(s_exc.BadTypeValu, e.norm, ('newp',))
