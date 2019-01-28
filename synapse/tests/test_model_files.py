@@ -9,17 +9,13 @@ class FileTest(s_t_utils.SynTest):
 
     async def test_model_filebytes(self):
 
-        # test that sha256: form kicks out a sha256 sub.
+        # test that sha256 form kicks out a sha256 sub.
         async with self.getTestCore() as core:
-            valu = 'sha256:' + ('a' * 64)
             fbyts = core.model.type('file:bytes')
-            norm, info = fbyts.norm(valu)
-            self.eq(info['subs']['sha256'], 'a' * 64)
 
             norm, info = fbyts.norm('b' * 64)
             self.eq(info['subs']['sha256'], 'b' * 64)
 
-            self.raises(s_exc.BadTypeValu, fbyts.norm, s_common.guid())
             self.raises(s_exc.BadTypeValu, fbyts.norm, 'guid:0101')
             self.raises(s_exc.BadTypeValu, fbyts.norm, 'helo:moto')
             self.raises(s_exc.BadTypeValu, fbyts.norm, f'sha256:{s_common.guid()}')
@@ -163,20 +159,9 @@ class FileTest(s_t_utils.SynTest):
                 self.none(node.get('dir'))
                 self.eq(node.ndef[1], '')
 
-                node0 = await snap.addNode('file:bytes', 'hex:56565656')
-                node1 = await snap.addNode('file:bytes', 'base64:VlZWVg==')
-                node2 = await snap.addNode('file:bytes', b'VVVV')
-
-                self.eq(node0.ndef, node1.ndef)
-                self.eq(node1.ndef, node2.ndef)
-
-                self.nn(node0.get('md5'))
-                self.nn(node0.get('sha1'))
-                self.nn(node0.get('sha256'))
-                self.nn(node0.get('sha512'))
-
-                fake = await snap.addNode('file:bytes', '*')
-                self.true(fake.ndef[1].startswith('guid:'))
+                node0 = await snap.addNode('file:bytes', '*')
+                node1 = await snap.addNode('file:bytes', '*')
+                node2 = await snap.addNode('file:bytes', '*')
 
                 node = await snap.addNode('file:subfile', (node1.ndef[1], node2.ndef[1]), {'name': 'embed.BIN'})
                 self.eq(node.ndef[1], (node1.ndef[1], node2.ndef[1]))

@@ -15,7 +15,7 @@ class PsModelTest(s_t_utils.SynTest):
 
                 node = await snap.addNode('ps:name', ' robert GREY  the\t3rd  ')
                 self.eq(node.ndef[1], 'robert grey the 3rd')
-                file0 = 'sha256:' + 64 * '0'
+                file0 = s_common.guid()
                 person_props = {
                     'dob': '1971',
                     'img': file0,

@@ -118,7 +118,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 prod0 = s_common.guid()
                 org0 = s_common.guid()
                 person0 = s_common.guid()
-                file0 = 'a' * 64
+                file0 = s_common.guid()
                 acct0 = ('vertex.link', 'pennywise')
                 url0 = 'https://vertex.link/products/balloonmaker'
                 sprops = {
@@ -187,7 +187,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
                 softfile = await snap.addNode('it:prod:softfile', (ver0, file0))
                 self.eq(softfile.get('soft'), ver0)
-                self.eq(softfile.get('file'), f'sha256:{file0}')
+                self.eq(softfile.get('file'), file0)
 
                 ver1 = s_common.guid()
                 softlib = await snap.addNode('it:prod:softlib', (ver0, ver1))
@@ -213,8 +213,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('url'), url1)
 
                 node = await snap.addNode('it:av:filehit', (file0, sig0))
-                self.eq(node.ndef[1], (f'sha256:{file0}', (prod1, 'Bar.BAZ.faZ'.lower())))
-                self.eq(node.get('file'), f'sha256:{file0}')
+                self.eq(node.ndef[1], (file0, (prod1, 'Bar.BAZ.faZ'.lower())))
+                self.eq(node.get('file'), file0)
                 self.eq(node.get('sig'), (prod1, 'Bar.BAZ.faZ'.lower()))
                 self.eq(node.get('sig:name'), 'bar.baz.faz')
                 self.eq(node.get('sig:soft'), prod1)
@@ -282,7 +282,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 nodes = await alist(snap.getNodesBy('it:dev:str', key))
                 self.len(1, nodes)
 
-                fbyts = 'sha256:' + 64 * 'f'
+                fbyts = s_common.guid()
                 key = 'HKEY_LOCAL_MACHINE\\DUCK\\QUACK'
                 valus = [
                     ('str', 'knight'),
@@ -405,7 +405,7 @@ class InfotechModelTest(s_t_utils.SynTest):
         # forms related to the host execution model
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
-                exe = 'sha256:' + 'a' * 64
+                exe = s_common.guid()
                 port = 80
                 tick = s_common.now()
                 host = s_common.guid()
@@ -427,7 +427,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 src_path = r'c:/temp/ping.exe'
                 cmd0 = 'rar a -r yourfiles.rar *.txt'
                 fpath = 'c:/temp/yourfiles.rar'
-                fbyts = 'sha256:' + 'b' * 64
+                fbyts = s_common.guid()
                 pprops = {
                     'exe': exe,
                     'pid': pid,
