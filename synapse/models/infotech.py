@@ -285,7 +285,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:exec:reg:del', ('guid', {}), {
                     'doc': 'An instance of a host deleting a registry key.',
-                })
+                }),
                 ('it:app:yara:rule', ('guid', {}), {
                     'doc': 'A yara rule unique identifier.',
                 }),
@@ -955,14 +955,30 @@ class ItModule(s_module.CoreModule):
                 ('it:app:snort:hit', {}, (
                     ('rule', ('it:app:snort:rule', {}), {
                         'doc': 'The yara rule that matched the file.'}),
+                    ('flow', ('inet:flow', {}), {
+                        'doc': 'The inet:flow that matched the snort rule.'}),
                     ('src', ('inet:addr', {}), {
-                        'doc': 'The source of the network traffic that matched the snort rule.'}),
-                    ('dst', {'inet:addr', {}), {
-                        'doc': 'The destinaion of the network traffic that matched the snort rule.'}),
+                        'doc': 'The source address of flow that caused the hit.'}),
+                    ('src:ipv4', ('inet:ipv4', {}), {
+                        'doc': 'The source IPv4 address of the flow that caused the hit.'}),
+                    ('src:ipv6', ('inet:ipv6', {}), {
+                        'doc': 'The source IPv6 address of the flow that caused the hit.'}),
+                    ('src:port', ('inet:port', {}), {
+                        'doc': 'The source port of the flow that caused the hit.'}),
+                    ('dst', ('inet:addr', {}), {
+                        'doc': 'The destination address of the trigger.'}),
+                    ('dst:ipv4', ('inet:ipv4', {}), {
+                        'doc': 'The destination IPv4 address of the flow that caused the hit.'}),
+                    ('dst:ipv6', ('inet:ipv6', {}), {
+                        'doc': 'The destination IPv4 address of the flow that caused the hit.'}),
+                    ('dst:port', ('inet:port', {}), {
+                        'doc': 'The destination port of the flow that caused the hit.'}),
                     ('time', ('time', {}), {
-                        'doc': 'The time the rule was matched.'}),
+                        'doc': 'The time of the network flow that caused the hit.'}),
                     ('sensor', ('it:host', {}), {
                         'doc': 'The sensor host node that produced the hit.'}),
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The version of the rule at the time of match.'}),
                 )),
 
                 ('it:app:yara:rule', {}, (
