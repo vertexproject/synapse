@@ -752,6 +752,11 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.raises(s_exc.BadTypeValu, t.norm, (valu[1], valu[0]))
 
+            # Test case in which ipaddress ordering is not alphabetical
+            valu = ('3300:100::', '3300:100:1::ffff')
+            expected = (('3300:100::', '3300:100:1::ffff'), {'subs': {'min': '3300:100::', 'max': '3300:100:1::ffff'}})
+            self.eq(t.norm(valu), expected)
+
     async def test_passwd(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:

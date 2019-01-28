@@ -7,7 +7,6 @@ import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.types as s_types
 
-import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 

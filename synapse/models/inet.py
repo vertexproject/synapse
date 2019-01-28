@@ -405,6 +405,26 @@ class IPv6(s_types.Type):
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e))
 
+class IPv6Range(s_types.Range):
+    _opt_defs = ()
+
+    def postTypeInit(self):
+        self.opts['type'] = ('inet:ipv6', {})
+        s_types.Range.postTypeInit(self)
+
+    def _normPyTuple(self, valu):
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=f'Must be a 2-tuple of type {self.subtype.name}')
+
+        minv = self.subtype.norm(valu[0])[0]
+        maxv = self.subtype.norm(valu[1])[0]
+
+        if ipaddress.ip_address(minv) > ipaddress.ip_address(maxv):
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='minval cannot be greater than maxval')
+
+        return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
 
 class Rfc2822Addr(s_types.Type):
     '''
@@ -718,6 +738,11 @@ class InetModule(s_module.CoreModule):
                         'ex': '2607:f8b0:4004:809::200e'
                     }),
 
+                    ('inet:ipv6range', 'synapse.models.inet.IPv6Range', {}, {
+                        'doc': 'An IPv6 address range',
+                        'ex': '(2607:f8b0:4004:809::200e, 2607:f8b0:4004:809::2011)'
+                    }),
+
                     ('inet:rfc2822:addr', 'synapse.models.inet.Rfc2822Addr', {}, {
                         'doc': 'An RFC 2822 Address field.',
                         'ex': '"Visi Kenshoto" <visi@vertex.link>'
@@ -792,7 +817,7 @@ class InetModule(s_module.CoreModule):
                         'ex': '(1.2.3.4, 1.2.3.20)'
                     }),
 
-                    ('inet:net6', ('range', {'type': ('inet:ipv6', {})}), {
+                    ('inet:net6', ('inet:ipv6range', {}), {
                         'doc': 'An IPv6 address range.',
                         'ex': "('ff::00', 'ff::30')"
                     }),
