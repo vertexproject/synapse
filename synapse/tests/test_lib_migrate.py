@@ -15,9 +15,12 @@ class MigrTest(s_testutils.SynTest):
             guid = s_common.guid()
             opts = {'vars': {'guid': guid}}
 
-            nodes = await core.eval('[ testguid=$guid :size=10 ]', opts=opts).list()
+            nodes = await core.eval('[ testguid=$guid :size=10 :posneg=100 ]', opts=opts).list()
+
             self.len(1, nodes)
             self.eq(10, nodes[0].get('size'))
+            self.eq(100, nodes[0].get('posneg'))
+            self.eq(0, nodes[0].get('posneg:isbig'))
 
             await core.eval('[ refs=( (testguid, $guid), (testcomp, (10, test10)) ) +#baz ]', opts=opts).list()
 
@@ -30,6 +33,12 @@ class MigrTest(s_testutils.SynTest):
                 async for layr, buid, valu in migr.getFormTodo('testint'):
                     if valu == 10:
                         await migr.setNodeForm(layr, buid, 'testint', valu, valu + 1000)
+
+                # check sub sets via easy prop
+                norm, info = core.model.type('testsub').norm(2000)
+                await migr.setPropsByType('testsub', 100, norm, info)
+
+            self.len(1, await core.eval('testguid:posneg=2000 +:posneg:isbig=1').list())
 
             # check main node values *and* indexes
             self.len(0, await core.eval('testint=10').list())
