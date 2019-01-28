@@ -132,6 +132,9 @@ class NoCurrTask(SynErr): pass
 class NoSuchPivot(SynErr): pass
 
 class ReadOnlyProp(SynErr): pass
+
+class CantRevLayer(SynErr): pass
+
 class ReqConfOpt(SynErr): pass
 
 class AxonErr(SynErr): pass

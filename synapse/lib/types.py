@@ -60,6 +60,13 @@ class Type:
 
         self.postTypeInit()
 
+    def getCompOffs(self, name):
+        '''
+        If this type is a compound, return the field offset for the given
+        property name or None.
+        '''
+        return None
+
     def _normStormNode(self, node):
         return self.norm(node.ndef[1])
 
@@ -369,10 +376,19 @@ class Bool(Type):
 
 class Comp(Type):
 
+    def getCompOffs(self, name):
+        return self.fieldoffs.get(name)
+
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
-        self.tcache = FieldHelper(self.modl, self.opts.get('fields', ()))
+
+        fields = self.opts.get('fields', ())
+
+        # calc and save field offsets...
+        self.fieldoffs = {n: i for (i, (n, t)) in enumerate(fields)}
+
+        self.tcache = FieldHelper(self.modl, fields)
 
     def _normPyTuple(self, valu):
 
@@ -454,11 +470,15 @@ class FieldHelper(collections.defaultdict):
         self.setdefault(key, _type)
         return _type
 
-
 class Guid(Type):
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyList)
+        self.setNormFunc(tuple, self._normPyList)
+
+    def _normPyList(self, valu):
+        return s_common.guid(valu), {}
 
     def _normPyStr(self, valu):
 
@@ -946,7 +966,12 @@ class Ndef(Type):
 
 class Edge(Type):
 
+    def getCompOffs(self, name):
+        return self.fieldoffs.get(name)
+
     def postTypeInit(self):
+
+        self.fieldoffs = {'n1': 0, 'n2': 1}
 
         self.ndeftype = self.modl.types.get('ndef')
 
@@ -1010,6 +1035,13 @@ class Edge(Type):
             return defval
 
 class TimeEdge(Edge):
+
+    def getCompOffs(self, name):
+        return self.fieldoffs.get(name)
+
+    def postTypeInit(self):
+        Edge.postTypeInit(self)
+        self.fieldoffs['time'] = 2
 
     def _normPyTuple(self, valu):
 
