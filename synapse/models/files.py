@@ -94,73 +94,26 @@ class FilePath(s_types.Type):
     def indx(self, norm):
         return norm.encode('utf8', 'surrogatepass')
 
-class FileBytes(s_types.Type):
+class FileBytes(s_types.Guid):
 
     def postTypeInit(self):
-        self.setNormFunc(str, self._normPyStr)
+        s_types.Guid.postTypeInit(self)
         self.setNormFunc(bytes, self._normPyBytes)
-
-    def indx(self, norm):
-        return norm.encode('utf8')
 
     def _normPyStr(self, valu):
 
-        if valu == '*':
-            guid = s_common.guid()
-            norm = f'guid:{guid}'
-            return norm, {}
+        # special recognizer for sha256 hashes
+        if len(valu) == 64 and s_common.uhex(valu):
+            norm = s_common.guid(('sha256', valu))
+            return norm, {'subs': {'sha256': valu}}
 
-        if valu.find(':') == -1:
-
-            # we're ok with un-adorned sha256s
-            if len(valu) == 64 and s_common.uhex(valu):
-                valu = valu.lower()
-                subs = {'sha256': valu}
-                return f'sha256:{valu}', {'subs': subs}
-
-            raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg='unadorned file:bytes value is not a sha256')
-
-        kind, kval = valu.split(':', 1)
-
-        if kind == 'base64':
-            byts = base64.b64decode(kval)
-            return self._normPyBytes(byts)
-
-        kval = kval.lower()
-
-        if kind == 'hex':
-            byts = s_common.uhex(kval)
-            return self._normPyBytes(byts)
-
-        if kind == 'guid':
-
-            kval = kval.lower()
-            if not s_common.isguid(kval):
-                raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                        mesg='guid is not a guid')
-
-            return f'guid:{kval}', {}
-
-        if kind == 'sha256':
-
-            if len(kval) != 64:
-                raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                        mesg='invalid length for sha256 valu')
-
-            s_common.uhex(kval)
-
-            subs = {'sha256': kval}
-            return f'sha256:{kval}', {'subs': subs}
-
-        raise s_exc.BadTypeValu(name=self.name, valu=valu, kind=kind,
-                                mesg='unable to norm as file:bytes')
+        return s_types.Guid._normPyStr(self, valu)
 
     def _normPyBytes(self, valu):
 
         sha256 = hashlib.sha256(valu).hexdigest()
 
-        norm = f'sha256:{sha256}'
+        norm = s_common.guid(('sha256', sha256))
 
         subs = {
             'md5': hashlib.md5(valu).hexdigest(),

@@ -803,7 +803,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:ssl:cert', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
                         'doc': 'An SSL certificate file served by a server.',
-                        'ex': '(1.2.3.4:443, guid:ff....fff)',
+                        'ex': '(1.2.3.4:443, $byts)',
                     }),
 
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {

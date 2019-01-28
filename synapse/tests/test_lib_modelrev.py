@@ -14,7 +14,7 @@ class ModelRevTest(s_tests.SynTest):
 
             async with await s_cells.init('cortex', dirn) as core:
                 self.true(core.layers[0].fresh)
-                self.eq((0, 0, 0), await core.layers[0].getModelVers())
+                self.eq(s_modelrev.version, await core.layers[0].getModelVers())
 
             # no longer "fresh", but lets mark a layer as read only
             # and test the bail condition for layers which we cant update
@@ -33,7 +33,7 @@ class ModelRevTest(s_tests.SynTest):
             async with await s_cells.init('cortex', dirn) as core:
 
                 self.false(core.layers[0].fresh)
-                self.eq((0, 0, 0), await core.layers[0].getModelVers())
+                self.eq(s_modelrev.version, await core.layers[0].getModelVers())
 
                 mrev = s_modelrev.ModelRev(core)
 

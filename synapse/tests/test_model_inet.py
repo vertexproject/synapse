@@ -218,16 +218,18 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_download(self):
         formname = 'inet:download'
+        fileguid = s_common.guid()
         input_props = {
             'time': 0,
-            'file': 64 * 'b',
+            'file': fileguid,
             'fqdn': 'vertex.link',
             'client': 'tcp://127.0.0.1:45654',
             'server': 'tcp://1.2.3.4:80'
         }
+        guid = s_common.guid()
         expected_props = {
             'time': 0,
-            'file': 'sha256:' + 64 * 'b',
+            'file': fileguid,
             'fqdn': 'vertex.link',
             'client': 'tcp://127.0.0.1:45654',
             'client:ipv4': 2130706433,
@@ -270,6 +272,8 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_flow(self):
         formname = 'inet:flow'
+        srcexe = s_common.guid()
+        dstexe = s_common.guid()
         input_props = {
             'time': 0,
             'duration': 1,
@@ -277,12 +281,12 @@ class InetModelTest(s_t_utils.SynTest):
             'src': 'tcp://127.0.0.1:45654',
             'src:host': 32 * 'b',
             'src:proc': 32 * 'c',
-            'src:exe': 64 * 'd',
+            'src:exe': srcexe,
             'src:txbytes': 1,
             'dst': 'tcp://1.2.3.4:80',
             'dst:host': 32 * 'e',
             'dst:proc': 32 * 'f',
-            'dst:exe': 64 * '0',
+            'dst:exe': dstexe,
             'dst:txbytes': 2
         }
         expected_props = {
@@ -295,7 +299,7 @@ class InetModelTest(s_t_utils.SynTest):
             'src:ipv4': 2130706433,
             'src:host': 32 * 'b',
             'src:proc': 32 * 'c',
-            'src:exe': 'sha256:' + 64 * 'd',
+            'src:exe': srcexe,
             'src:txbytes': 1,
             'dst': 'tcp://1.2.3.4:80',
             'dst:port': 80,
@@ -303,7 +307,7 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:ipv4': 16909060,
             'dst:host': 32 * 'e',
             'dst:proc': 32 * 'f',
-            'dst:exe': 'sha256:' + 64 * '0',
+            'dst:exe': dstexe,
             'dst:txbytes': 2
         }
         expected_ndef = (formname, 32 * 'a')
@@ -513,6 +517,8 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_http_request(self):
         formname = 'inet:http:request'
+        reqbody = s_common.guid()
+        respbody = s_common.guid()
         input_props = {
             'time': '2015',
             'flow': 32 * 'f',
@@ -521,10 +527,10 @@ class InetModelTest(s_t_utils.SynTest):
             'query': 'hoho=1&qaz=bar',
             'client': '1.2.3.4',
             'server': '5.5.5.5:443',
-            'body': 64 * 'b',
+            'body': reqbody,
             'response:code': 200,
             'response:reason': 'OK',
-            'response:body': 64 * 'b'
+            'response:body': respbody,
         }
         expected_props = {
             'time': 1420070400000,
@@ -532,7 +538,7 @@ class InetModelTest(s_t_utils.SynTest):
             'method': 'gEt',
             'path': '/woot/hehe/',
             'query': 'hoho=1&qaz=bar',
-            'body': 'sha256:' + 64 * 'b',
+            'body': reqbody,
 
             'client:ipv4': 0x01020304,
 
@@ -541,7 +547,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             'response:code': 200,
             'response:reason': 'OK',
-            'response:body': 'sha256:' + 64 * 'b',
+            'response:body': respbody,
         }
         expected_ndef = (formname, 32 * 'a')
         async with self.getTestCore() as core:
@@ -844,7 +850,8 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_servfile(self):
         formname = 'inet:servfile'
-        valu = ('tcp://127.0.0.1:4040', 'sha256:' + 64 * 'f')
+        fileguid = s_common.guid()
+        valu = ('tcp://127.0.0.1:4040', fileguid)
         input_props = {
             'server:host': 32 * 'a'
         }
@@ -854,7 +861,7 @@ class InetModelTest(s_t_utils.SynTest):
             'server:port': 4040,
             'server:proto': 'tcp',
             'server:ipv4': 2130706433,
-            'file': 'sha256:' + 64 * 'f'
+            'file': fileguid,
         }
         expected_ndef = (formname, tuple(item.lower() for item in valu))
         async with self.getTestCore() as core:
@@ -868,9 +875,9 @@ class InetModelTest(s_t_utils.SynTest):
 
             async with await core.snap() as snap:
 
-                node = await snap.addNode('inet:ssl:cert', ('tcp://1.2.3.4:443', 'guid:abcdabcdabcdabcdabcdabcdabcdabcd'))
+                node = await snap.addNode('inet:ssl:cert', ('tcp://1.2.3.4:443', 'abcdabcdabcdabcdabcdabcdabcdabcd'))
 
-                self.eq(node.get('file'), 'guid:abcdabcdabcdabcdabcdabcdabcdabcd')
+                self.eq(node.get('file'), 'abcdabcdabcdabcdabcdabcdabcdabcd')
                 self.eq(node.get('server'), 'tcp://1.2.3.4:443')
 
                 self.eq(node.get('server:port'), 443)
@@ -1038,12 +1045,13 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_urlfile(self):
         formname = 'inet:urlfile'
-        valu = ('https://vertex.link/a_cool_program.exe', 64 * 'f')
+        fileguid = s_common.guid()
+        valu = ('https://vertex.link/a_cool_program.exe', fileguid)
         expected_props = {
             'url': 'https://vertex.link/a_cool_program.exe',
-            'file': 'sha256:' + 64 * 'f',
+            'file': fileguid,
         }
-        expected_ndef = (formname, (valu[0], 'sha256:' + valu[1]))
+        expected_ndef = (formname, (valu[0], fileguid))
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu)
@@ -1092,8 +1100,9 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Form Tests
             valu = ('blogs.Vertex.link', 'Brutus')
+            avatar = s_common.guid()
             input_props = {
-                'avatar': 'sha256:' + 64 * 'a',
+                'avatar': avatar,
                 'dob': -64836547200000,
                 'email': 'brutus@vertex.link',
                 'latlong': '0,0',
@@ -1195,7 +1204,8 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_web_file(self):
         formname = 'inet:web:file'
-        valu = (('vertex.link', 'vertexmc'), 64 * 'f')
+        fileguid = s_common.guid()
+        valu = (('vertex.link', 'vertexmc'), fileguid)
         input_props = {
             'name': 'Cool',
             'posted': 0,
@@ -1205,13 +1215,13 @@ class InetModelTest(s_t_utils.SynTest):
             'acct': ('vertex.link', 'vertexmc'),
             'acct:site': 'vertex.link',
             'acct:user': 'vertexmc',
-            'file': 'sha256:' + 64 * 'f',
+            'file': fileguid,
             'name': 'cool',
             'posted': 0,
             'client': 'tcp://::1',
             'client:ipv6': '::1'
         }
-        expected_ndef = (formname, (valu[0], 'sha256:' + valu[1]))
+        expected_ndef = (formname, (valu[0], fileguid))
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu, props=input_props)
@@ -1234,11 +1244,12 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_web_group(self):
         formname = 'inet:web:group'
         valu = ('vertex.link', 'CoolGroup')
+        avatar = s_common.guid()
         input_props = {
             'name': 'The coolest group',
             'name:en': 'The coolest group (in english)',
             'url': 'https://vertex.link/CoolGroup',
-            'avatar': 64 * 'f',
+            'avatar': avatar,
             'desc': 'a Really cool group',
             'webpage': 'https://vertex.link/CoolGroup/page',
             'loc': 'the internet',
@@ -1252,7 +1263,7 @@ class InetModelTest(s_t_utils.SynTest):
             'name': 'The coolest group',
             'name:en': 'The coolest group (in english)',
             'url': 'https://vertex.link/CoolGroup',
-            'avatar': 'sha256:' + 64 * 'f',
+            'avatar': avatar,
             'desc': 'a Really cool group',
             'webpage': 'https://vertex.link/CoolGroup/page',
             'loc': 'the internet',
@@ -1310,10 +1321,11 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_web_mesg(self):
         formname = 'inet:web:mesg'
         valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'vertexmc'), 0)
+        fileguid = s_common.guid()
         input_props = {
             'url': 'https://vertex.link/messages/0',
             'text': 'a cool Message',
-            'file': 'sha256:' + 64 * 'F'
+            'file': fileguid,
         }
         expected_props = {
             'to': ('vertex.link', 'vertexmc'),
@@ -1321,7 +1333,7 @@ class InetModelTest(s_t_utils.SynTest):
             'time': 0,
             'url': 'https://vertex.link/messages/0',
             'text': 'a cool Message',
-            'file': 'sha256:' + 64 * 'f'
+            'file': fileguid,
         }
         expected_ndef = (formname, (('vertex.link', 'visi'), ('vertex.link', 'vertexmc'), 0))
         async with self.getTestCore() as core:
@@ -1332,12 +1344,13 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_web_post(self):
         formname = 'inet:web:post'
         valu = 32 * 'a'
+        fileguid = s_common.guid()
         input_props = {
             'acct': ('vertex.link', 'vertexmc'),
             'text': 'my cooL POST',
             'time': 0,
             'url': 'https://vertex.link/mypost',
-            'file': 64 * 'f',
+            'file': fileguid,
             'replyto': 32 * 'b',
             'repost': 32 * 'c',
         }
@@ -1348,7 +1361,7 @@ class InetModelTest(s_t_utils.SynTest):
             'text': 'my cooL POST',
             'time': 0,
             'url': 'https://vertex.link/mypost',
-            'file': 'sha256:' + 64 * 'f',
+            'file': fileguid,
             'replyto': 32 * 'b',
             'repost': 32 * 'c',
         }

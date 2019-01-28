@@ -127,12 +127,12 @@ class DnsModelTest(s_t_utils.SynTest):
                 # IP is unknown
                 props = {
                     'time': '2018',
-                    'exe': f'guid:{"a" * 32}',
+                    'exe': 'a' * 32,
                     'query:name': 'notac2.someone.com'
                 }
                 node = await snap.addNode('inet:dns:request', '*', props)
                 self.none(node.get('query'))
-                self.eq(node.get('exe'), f'guid:{"a" * 32}')
+                self.eq(node.get('exe'), 'a' * 32)
                 self.eq(node.get('query:name'), 'notac2.someone.com')
 
             # DNS queries can be quite complex or awkward since the protocol

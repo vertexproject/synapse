@@ -4,12 +4,15 @@ import synapse.exc as s_exc
 
 logger = logging.getLogger(__file__)
 
+version = (0, 1, 0)
+
 class ModelRev:
 
     def __init__(self, core):
         self.core = core
         self.revs = (
             ((0, 0, 0), self._addModelVers),
+            ((0, 1, 0), self._init010Model),
         )
 
     async def revCoreLayers(self):
@@ -44,5 +47,14 @@ class ModelRev:
                     logger.warning('...complete!')
                     vers = revvers
 
-    def _addModelVers(self, core, layr):
+    async def _addModelVers(self, core, layr):
         pass
+
+    async def _init010Model(self, core, layr):
+
+        async with await s_migrate.Migration.anit(core, s_common.guid()) as migr:
+
+            # migrate file:bytes nodes to an opaque guid
+            async for layr, buid, valu in migr.getFormTodo('file:bytes'):
+                newv = s_common.guid(valu.split(':'))
+                await migr.setNodeForm(layr, buid, 'file:bytes', valu, newv)

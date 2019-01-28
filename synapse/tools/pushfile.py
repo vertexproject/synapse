@@ -63,7 +63,7 @@ def main(argv, outp=None):
 
         if core:
             pnode = (
-                ('file:bytes', f'sha256:{sha256}'),
+                ('file:bytes', sha256),
                 {
                     'props': {
                         'md5': fhashes.get('md5'),

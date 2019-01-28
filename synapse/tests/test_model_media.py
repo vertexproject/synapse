@@ -1,5 +1,7 @@
 import logging
 
+import synapse.common as s_common
+
 import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
@@ -7,15 +9,18 @@ logger = logging.getLogger(__name__)
 class MediaModelTest(s_t_utils.SynTest):
 
     async def test_news(self):
+
         formname = 'media:news'
+        fileguid = s_common.guid()
         async with self.getTestCore() as core:
+
             async with await core.snap() as snap:
 
                 valu = 32 * 'a'
                 expected_ndef = (formname, valu)
                 input_props = {
                     'url': 'https://vertex.link/synapse',
-                    'file': 64 * 'f',
+                    'file': fileguid,
                     'title': 'Synapse is awesome! ',
                     'summary': 'I forget ',
                     'published': 0,
@@ -24,7 +29,7 @@ class MediaModelTest(s_t_utils.SynTest):
                 expected_props = {
                     'url': 'https://vertex.link/synapse',
                     'url:fqdn': 'vertex.link',
-                    'file': 'sha256:' + 64 * 'f',
+                    'file': fileguid,
                     'title': 'synapse is awesome! ',
                     'summary': 'I forget ',
                     'published': 0,
