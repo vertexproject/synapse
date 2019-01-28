@@ -10,6 +10,7 @@ import regex
 
 import synapse.exc as s_exc
 import synapse.lib.cell as s_cell
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,8 @@ class LayerApi(s_cell.PassThroughApi):
         'iterFormRows', 'iterPropRows', 'iterUnivRows', 'getOffset',
         'setOffset', 'initdb', 'splicelistAppend', 'splices', 'stat'
     ]
+    async def getModelVers(self):
+        return await self.cell.getModelVers()
 
 class Layer(s_cell.Cell):
     '''
@@ -53,6 +56,7 @@ class Layer(s_cell.Cell):
         self._stor_funcs = {
             'prop:set': self._storPropSet,
             'prop:del': self._storPropDel,
+            'buid:set': self._storBuidSet,
         }
 
         self.indxfunc = {
@@ -61,10 +65,23 @@ class Layer(s_cell.Cell):
             'range': self._rowsByRange,
         }
 
+        self.fresh = False
+        self.canrev = not readonly
         self.readonly = readonly
         self.spliced = asyncio.Event(loop=self.loop)
         self.splicelist = []
         self.onfini(self.spliced.set)
+
+    async def getModelVers(self):
+        byts = self.slab.get(b'layer:model:version')
+        if byts is None:
+            return (-1, -1, -1)
+
+        return s_msgpack.un(byts)
+
+    async def setModelVers(self, vers):
+        byts = s_msgpack.en(vers)
+        self.slab.put(b'layer:model:version', byts)
 
     async def splicelistAppend(self, mesg):
         self.splicelist.append(mesg)
@@ -180,6 +197,9 @@ class Layer(s_cell.Cell):
     async def _storPropSet(self, oper):  # pragma: no cover
         raise NotImplementedError
 
+    async def _storBuidSet(self, oper):  # pragma: no cover
+        raise NotImplementedError
+
     async def _storPropDel(self, oper):  # pragma: no cover
         raise NotImplementedError
 
@@ -214,7 +234,10 @@ class Layer(s_cell.Cell):
         raise NotImplementedError
 
     async def stat(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     async def splices(self, offs, size):  # pragma: no cover
-        raise NotImplementedError()
+        raise NotImplementedError
+
+    async def getNodeNdef(self, buid):
+        raise NotImplementedError
