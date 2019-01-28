@@ -79,6 +79,13 @@ class TypesTest(s_t_utils.SynTest):
         guid = model.type('guid').norm('*')[0]
         self.true(s_common.isguid(guid))
 
+        objs = [1, 2, 'three', {'four': 5}]
+        tobjs = tuple(objs)
+        lnorm, _ = model.type('guid').norm(objs)
+        tnorm, _ = model.type('guid').norm(tobjs)
+        self.true(s_common.isguid(lnorm))
+        self.eq(lnorm, tnorm)
+
     async def test_hex(self):
 
         # Bad configurations are not allowed for the type
