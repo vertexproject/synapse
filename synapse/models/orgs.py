@@ -26,10 +26,10 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The knowledge that an organization has an alias.',
                 }),
                 ('ou:orgnet4', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net4'))}), {
-                    'doc': "An organization's IPv4 netblock.",
+                    'doc': "An organization's IPv4 netblock",
                 }),
                 ('ou:orgnet6', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net6'))}), {
-                    'doc': "An organization's IPv4 netblock.",
+                    'doc': "An organization's IPv6 netblock",
                 }),
                 ('ou:name', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'The name of an organization. This may be a formal name or informal name of the '
