@@ -5,6 +5,8 @@ import contextlib
 
 import synapse.common as s_common
 
+import synapse.lib.coro as s_coro
+
 from synapse.tests.utils import alist
 import synapse.tests.utils as s_t_utils
 
@@ -158,8 +160,8 @@ class SnapTest(s_t_utils.SynTest):
                 ab_done_event.set()
 
             core.schedCoro(ab_writer())
-            await bc_done_event.wait()
-            await ab_done_event.wait()
+            self.true(await s_coro.event_wait(bc_done_event, 5))
+            self.true(await s_coro.event_wait(ab_done_event, 5))
 
     @contextlib.asynccontextmanager
     async def _getTestCoreMultiLayer(self, first_dirn):
