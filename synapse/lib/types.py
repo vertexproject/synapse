@@ -1280,9 +1280,6 @@ class Time(IntBase):
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')
 
-    def _normPyIter(self, valu):
-        return self.modl.types.get('ival')._normPyIter(valu)
-
     def _ctorCmprAt(self, valu):
         return self.modl.types.get('ival')._ctorCmprAt(valu)
 
