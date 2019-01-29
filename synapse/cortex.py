@@ -25,6 +25,7 @@ import synapse.lib.syntax as s_syntax
 import synapse.lib.agenda as s_agenda
 import synapse.lib.trigger as s_trigger
 import synapse.lib.modules as s_modules
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -476,6 +477,7 @@ class Cortex(s_cell.Cell):
         self.stormrunts = {}
 
         self.libroot = (None, {}, {})
+        self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
 
         self.addStormCmd(s_storm.MaxCmd)
         self.addStormCmd(s_storm.MinCmd)
@@ -509,6 +511,7 @@ class Cortex(s_cell.Cell):
         self.setFeedFunc('syn.ingest', self._addSynIngest)
 
         await self._initCoreLayers()
+        await self._checkLayerModels()
 
         async def fini():
             await asyncio.gather(*[layr.fini() for layr in self.layers], loop=self.loop)
@@ -636,6 +639,10 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 logger.exception('onTagDel Error')
 
+    async def _checkLayerModels(self):
+        mrev = s_modelrev.ModelRev(self)
+        await mrev.revCoreLayers()
+
     async def _initCoreLayers(self):
 
         import synapse.cells as s_cells  # avoid import cycle
@@ -684,7 +691,7 @@ class Cortex(s_cell.Cell):
     def addStormLib(self, path, ctor):
 
         root = self.libroot
-        #(name, {kids}, {funcs})
+        # (name, {kids}, {funcs})
 
         for name in path:
             step = root[1].get(name)

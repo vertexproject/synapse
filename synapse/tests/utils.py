@@ -94,9 +94,22 @@ class ThreeType(s_types.Type):
     def indx(self, norm):
         return '3'.encode('utf8')
 
+class TestSubType(s_types.Type):
+
+    def norm(self, valu):
+        valu = int(valu)
+        return valu, {'subs': {'isbig': valu >= 1000}}
+
+    def repr(self, norm):
+        return str(norm)
+
+    def indx(self, norm):
+        return norm.to_bytes(4, 'big')
+
 testmodel = {
 
     'ctors': (
+        ('testsub', 'synapse.tests.utils.TestSubType', {}, {}),
         ('testtype', 'synapse.tests.utils.TestType', {}, {}),
         ('testthreetype', 'synapse.tests.utils.ThreeType', {}, {}),
     ),
@@ -127,6 +140,7 @@ testmodel = {
 
         ('pivtarg', ('str', {}), {}),
         ('pivcomp', ('comp', {'fields': (('targ', 'pivtarg'), ('lulz', 'teststr'))}), {}),
+        ('haspivcomp', ('int', {}), {}),
 
         ('cycle0', ('str', {}), {}),
         ('cycle1', ('str', {}), {}),
@@ -174,7 +188,10 @@ testmodel = {
         )),
 
         ('testguid', {}, (
+            ('size', ('testint', {}), {}),
             ('tick', ('testtime', {}), {}),
+            ('posneg', ('testsub', {}), {}),
+            ('posneg:isbig', ('bool', {}), {}),
         )),
 
         ('teststr', {}, (
@@ -200,6 +217,10 @@ testmodel = {
             ('tick', ('time', {}), {}),
             ('size', ('testint', {}), {}),
             ('width', ('testint', {}), {}),
+        )),
+
+        ('haspivcomp', {}, (
+            ('have', ('pivcomp', {}), {}),
         )),
 
         ('test:ndef', {}, (
@@ -608,7 +629,7 @@ class SynTest(unittest.TestCase):
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
     @contextlib.asynccontextmanager
-    async def getTestCore(self, mirror='testcore', conf=None, extra_layers=None):
+    async def getTestCore(self, mirror='testcore', conf=None, extra_layers=()):
         '''
         Return a simple test Cortex.
 
@@ -620,13 +641,15 @@ class SynTest(unittest.TestCase):
             s_common.yamlmod(conf, dirn, 'cell.yaml')
             ldir = s_common.gendir(dirn, 'layers')
             layerdir = pathlib.Path(ldir, '000-default')
+
             if self.alt_write_layer:
                 os.symlink(self.alt_write_layer, layerdir)
             else:
                 layerdir.mkdir()
                 s_cells.deploy('layer-lmdb', layerdir)
                 s_common.yamlmod({'lmdb:mapsize': TEST_MAP_SIZE}, layerdir, 'cell.yaml')
-            for i, fn in enumerate(extra_layers or []):
+
+            for i, fn in enumerate(extra_layers):
                 src = pathlib.Path(fn).resolve()
                 os.symlink(src, pathlib.Path(ldir, f'{i + 1:03}-testlayer'))
 

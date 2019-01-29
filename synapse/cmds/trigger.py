@@ -21,7 +21,7 @@ Notes:
         * prop:set
 
 When condition is tag:add or tag:del, you may optionally provide a form name
-to restrict the trigger firing on only tags added or deleted form nodes of
+to restrict the trigger to fire only on tags added or deleted from nodes of
 those forms.
 
 Tag names must start with #.
