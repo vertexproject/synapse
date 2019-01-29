@@ -170,17 +170,26 @@ class Snap(s_base.Base):
         # TODO interval indexing for valu... and @=
         name = s_chop.tag(name)
         pref = b'#' + name.encode('utf8') + b'\x00'
+        cmpf = None
 
         if valu is None:
             iops = (('pref', b''), )
+            lops = (
+                ('indx', ('byuniv', pref, iops)),
+            )
+        elif valu is not None and cmpr == '@=':
+            iops = self.tagtype.getIndxOps(valu, cmpr)
+            cmpf = self.tagtype.getLiftHintCmpr(valu, cmpr)
+            lops = (
+                ('univ:ival', ('syn:tag', '#' + name, pref, iops)),
+            )
         else:
             iops = self.tagtype.getIndxOps(valu, cmpr)
+            lops = (
+                ('indx', ('byuniv', pref, iops)),
+            )
 
-        lops = (
-            ('indx', ('byuniv', pref, iops)),
-        )
-
-        async for row, node in self.getLiftNodes(lops, '#' + name):
+        async for row, node in self.getLiftNodes(lops, '#' + name, cmpr=cmpf):
             yield node
 
     async def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):

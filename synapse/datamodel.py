@@ -145,6 +145,13 @@ class Prop(PropBase):
                 ('prop:re', (self.form.name, self.name, valu, {})),
             )
 
+        # TODO: Until we have the interval tree plumbed through, this stays
+        if cmpr == '@=':
+            norm, _ = self.modl.types.get('ival').norm(valu)
+            return (
+                ('prop:ival', (self.form.name, self.name, norm, {})),
+            )
+
         iops = self.type.getIndxOps(valu, cmpr=cmpr)
         return (
             ('indx', ('byprop', self.pref, iops)),
@@ -199,6 +206,12 @@ class Univ(PropBase):
         if cmpr == '~=':
             return (
                 ('univ:re', (self.name, valu, {})),
+            )
+
+        if cmpr == '@=':
+            norm, _ = self.modl.types.get('ival').norm(valu)
+            return (
+                ('univ:ival', (self.form.name, self.name, norm, {})),
             )
 
         iops = self.type.getIndxOps(valu, cmpr)
