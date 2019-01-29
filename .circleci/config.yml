@@ -46,6 +46,13 @@ doc_test_steps:  &doc_test_steps
 test_steps:  &test_steps
   steps:
     - checkout
+
+    - run:
+        name: checkout regression repo
+        command: |
+            git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
+            env
+
     - run:
         name: install deps
         command: |
@@ -183,6 +190,7 @@ jobs:
           CODECOV_ARGS: --required
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
           PYVERS: 3.7
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
 
     working_directory: ~/repo
 
