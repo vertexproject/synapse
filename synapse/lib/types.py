@@ -158,7 +158,7 @@ class Type:
 
         def cmpr(valu):
             vtxt = self.repr(valu, defval=valu)
-            return regx.match(vtxt) is not None
+            return regx.search(vtxt) is not None
 
         return cmpr
 

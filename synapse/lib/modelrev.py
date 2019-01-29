@@ -44,5 +44,5 @@ class ModelRev:
                     logger.warning('...complete!')
                     vers = revvers
 
-    def _addModelVers(self, core, layr):
+    async def _addModelVers(self, core, layr):
         pass
