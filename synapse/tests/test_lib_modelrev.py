@@ -1,3 +1,5 @@
+import os
+
 import synapse.exc as s_exc
 import synapse.cells as s_cells
 import synapse.tests.utils as s_tests
@@ -48,3 +50,8 @@ class ModelRevTest(s_tests.SynTest):
 
                 self.true(core.layers[0].woot)
                 self.eq((9999, 9999, 9999), await core.layers[0].getModelVers())
+
+    async def test_cortex_model_0_1_0(self):
+
+        async with self.getRegrCore('0.0.0') as core:
+            pass
