@@ -54,11 +54,11 @@ def setup():
                       help='URL to the axon blob store')
     pars.add_argument('-o', '--output', type=str, dest='output',
                       help='Directory to output files to')
-    pars.add_argument('-l', '--list-hashes', dest='hashes',
+    pars.add_argument('-l', '--list-hashes', dest='hashes', action='append', default=[],
                       help='List of hashes to pull from axon')
 
     return pars
 
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(main(sys.argv))
+    sys.exit(main(sys.argv[1:]))
