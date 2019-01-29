@@ -3,8 +3,9 @@ import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.module as s_module
 import synapse.datamodel as s_datamodel
+
+import synapse.lib.module as s_module
 
 logger = logging.getLogger(__name__)
 
