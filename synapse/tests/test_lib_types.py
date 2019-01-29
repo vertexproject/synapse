@@ -558,6 +558,15 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('foo', lowr.norm('FOO')[0])
         self.eq((('pref', b'bhaha'),), lowr.indxByPref('BHAHA'))
 
+        self.eq(True, lowr.cmpr('xxherexx', '~=', 'here'))
+        self.eq(False, lowr.cmpr('xxherexx', '~=', '^here'))
+
+        self.eq(True, lowr.cmpr('foo', '!=', 'bar'))
+        self.eq(False, lowr.cmpr('foo', '!=', 'FOO'))
+
+        self.eq(True, lowr.cmpr('foobar', '^=', 'FOO'))
+        self.eq(False, lowr.cmpr('foubar', '^=', 'FOO'))
+
         regx = model.type('str').clone({'regex': '^[a-f][0-9]+$'})
         self.eq('a333', regx.norm('a333')[0])
         self.raises(s_exc.BadTypeValu, regx.norm, 'A333')

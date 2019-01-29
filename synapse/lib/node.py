@@ -7,6 +7,7 @@ import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.types as s_types
 
+import synapse.lib.editatom as s_editatom
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class Node:
                 yield item
 
     async def filter(self, text, opts=None, user=None):
-        async for item in self.storm(text, opts=opts, user=user):
+        async for item in self.storm(text, opts=opts, user=user):  # NOQA
             return False
         return True
 
@@ -138,10 +139,21 @@ class Node:
         Args:
             name (str): The name of the property.
             valu (obj): The value of the property.
-            init (bool): Set to True to force initialization.
+            init (bool): Set to True to disable read-only enforcement
 
         Returns:
             (bool): True if the property was changed.
+        '''
+        with s_editatom.EditAtom(self.snap.core.bldgbuids) as editatom:
+            retn = await self._setops(name, valu, editatom, init)
+            if not retn:
+                return False
+            await editatom.commit(self.snap)
+            return True
+
+    async def _setops(self, name, valu, editatom, init=False):
+        '''
+        Generate operations to set a property on a node.
         '''
         prop = self.form.prop(name)
         if prop is None:
@@ -156,7 +168,6 @@ class Node:
 
         # normalize the property value...
         try:
-
             norm, info = prop.type.norm(valu)
 
         except Exception as e:
@@ -185,16 +196,16 @@ class Node:
 
         sops = prop.getSetOps(self.buid, norm)
 
-        await self.snap.stor(sops)
-        await self.snap.splice('prop:set', ndef=self.ndef, prop=prop.name, valu=norm, oldv=curv)
+        editatom.sops.extend(sops)
 
-        self.props[prop.name] = norm
+        # self.props[prop.name] = norm
+        editatom.npvs.append((self, prop, curv, norm))
 
         # do we have any auto nodes to add?
         auto = self.snap.model.form(prop.type.name)
         if auto is not None:
             buid = s_common.buid((auto.name, norm))
-            await self.snap._addNodeFnib((auto, norm, info, buid))
+            await self.snap._addNodeFnibOps((auto, norm, info, buid), editatom)
 
         # does the type think we have special auto nodes to add?
         # ( used only for adds which do not meet the above block )
@@ -202,7 +213,7 @@ class Node:
             auto = self.snap.model.form(autoname)
             autonorm, autoinfo = auto.type.norm(autovalu)
             buid = s_common.buid((auto.name, autonorm))
-            await self.snap._addNodeFnib((auto, autovalu, autoinfo, buid))
+            await self.snap._addNodeFnibOps((auto, autovalu, autoinfo, buid), editatom)
 
         # do we need to set any sub props?
         subs = info.get('subs')
@@ -216,17 +227,7 @@ class Node:
                 if subprop is None:
                     continue
 
-                await self.set(full, subvalu, init=init)
-
-        # last but not least, if we are *not* in init
-        # we need to fire a Prop.onset() callback.
-        if not self.init:
-            await prop.wasSet(self, curv)
-            if prop.univ:
-                univ = self.snap.model.prop(prop.univ)
-                await univ.wasSet(self, curv)
-
-        await self.snap.core.triggers.run(self, 'prop:set', info={'prop': prop.full})
+                await self._setops(full, subvalu, editatom, init=init)
 
         return True
 
@@ -481,7 +482,7 @@ class Node:
         tags = [(len(t), t) for t in self.tags.keys()]
 
         # check for tag permissions
-        # FIXME
+        # TODO
 
         # check for any nodes which reference us...
         if not force:
@@ -489,7 +490,7 @@ class Node:
             # refuse to delete tag nodes with existing tags
             if self.form.name == 'syn:tag':
 
-                async for _ in self.snap._getNodesByTag(self.ndef[1]):
+                async for _ in self.snap._getNodesByTag(self.ndef[1]):  # NOQA
                     mesg = 'Nodes still have this tag.'
                     return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname)
 
