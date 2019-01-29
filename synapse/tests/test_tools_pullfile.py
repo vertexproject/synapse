@@ -32,11 +32,12 @@ class TestPullFile(s_t_utils.SynTest):
                         outp = self.getTestOutp()
                         self.eq(0, s_pullfile.main(['-a', axonurl,
                                                     '-o', wdir,
-                                                    '-l', [testhash, nonehash]], outp))
+                                                    '-l', testhash,
+                                                    '-l', nonehash], outp))
                         oldcwd = os.getcwd()
                         os.chdir(wdir)
                         self.eq(0, s_pullfile.main(['-a', axonurl,
-                                                    '-l', [visihash, ]], outp))
+                                                    '-l', visihash], outp))
                         os.chdir(oldcwd)
                         with open(pathlib.Path(wdir, testhash), 'rb') as fd:
                             self.eq(b'test', fd.read())
