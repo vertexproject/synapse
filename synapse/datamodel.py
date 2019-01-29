@@ -216,7 +216,7 @@ class Univ(PropBase):
         if cmpr == '@=':
             norm, _ = self.modl.types.get('ival').norm(valu)
             return (
-                ('univ:ival', (self.form.name, self.name, norm, {})),
+                ('univ:ival', (self.type.name, self.name, norm, {})),
             )
 
         iops = self.type.getIndxOps(valu, cmpr)

@@ -390,11 +390,11 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('teststr:tick@=("now-1day", "?")'))
             await self.agenlen(1, core.eval('teststr:tick@=("now+2days", "-3 day")'))
 
-            await self.agenlen(2, core.eval('teststr.seen@=("now+6days", "?")'))
-            await self.agenlen(2, core.eval('teststr.seen@=("-4 days")'))
-            await self.agenlen(2, core.eval('teststr.seen@=(8900, 9500)'))
-            await self.agenlen(1, core.eval('teststr.seen@=("2004", "20050201")'))
-            await self.agenlen(2, core.eval('teststr.seen@=("now", "-3 days")'))
+            await self.agenlen(2, core.eval('.seen@=("now+6days", "?")'))
+            await self.agenlen(2, core.eval('.seen@=("-4 days")'))
+            await self.agenlen(2, core.eval('.seen@=(8900, 9500)'))
+            await self.agenlen(1, core.eval('.seen@=("2004", "20050201")'))
+            await self.agenlen(2, core.eval('.seen@=("now", "-3 days")'))
 
             await self.agenlen(1, core.eval('#foo@=("1999", "2002")'))
             await self.agenlen(1, core.eval('#foo@="2015"'))
