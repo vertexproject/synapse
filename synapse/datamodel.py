@@ -21,6 +21,7 @@ propre = regex.compile('^[0-9a-z:_]+$')
 class PropBase:
 
     def __init__(self):
+        self.isrunt = False
         self.onsets = []
         self.ondels = []
 
@@ -96,6 +97,7 @@ class Prop(PropBase):
         self.info = info
 
         self.isform = False     # for quick Prop()/Form() detection
+        self.isrunt = form.isrunt
         self.compoffs = form.type.getCompOffs(self.name)
 
         self.form = form
@@ -222,6 +224,7 @@ class Form:
         self.info = info
 
         self.isform = True
+        self.isrunt = bool(info.get('runt', False))
 
         self.onadds = []
         self.ondels = []

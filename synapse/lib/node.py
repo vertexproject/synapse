@@ -28,6 +28,7 @@ class Node:
         # if set, the node is complete.
         self.ndef = None
         self.form = None
+        self.runt = None
 
         self.tags = {}
         self.props = {}
@@ -40,6 +41,7 @@ class Node:
 
         if self.ndef is not None:
             self.form = self.snap.model.form(self.ndef[0])
+            self.runt = self.form.isrunt
 
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
@@ -152,6 +154,12 @@ class Node:
 
             await self.snap.warn(f'NoSuchProp: name={name}')
             return False
+
+        if self.runt:
+            if prop.info.get('ro'):
+                raise s_exc.IsRuntForm(mesg='Cannot set read-only props on runt nodes',
+                                       form=self.form.full, prop=name, valu=valu)
+            return await self.snap.core.runRuntPropSet(self, prop, valu)
 
         curv = self.props.get(name)
 
@@ -280,6 +288,12 @@ class Node:
             await self.snap.warn(f'No Such Property: {name}')
             return False
 
+        if self.runt:
+            if prop.info.get('ro'):
+                raise s_exc.IsRuntForm(mesg='Cannot delete read-only props on runt nodes',
+                                       form=self.form.full, prop=name)
+            return await self.snap.core.runRuntPropDel(self, prop)
+
         if not init:
 
             if prop.info.get('ro'):
@@ -352,6 +366,11 @@ class Node:
         return retn
 
     async def addTag(self, tag, valu=(None, None)):
+
+        if self.runt:
+            raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.',
+                                   form=self.form.full, tag=tag)
+
         path = s_chop.tagpath(tag)
 
         name = '.'.join(path)
@@ -427,6 +446,10 @@ class Node:
 
         name = '.'.join(path)
 
+        if self.runt:
+            raise s_exc.IsRuntForm(mesg='Cannot delete tags from runt nodes.',
+                                   form=self.form.full, tag=tag)
+
         curv = self.tags.pop(name, s_common.novalu)
         if curv is s_common.novalu:
             return False
@@ -478,6 +501,10 @@ class Node:
         '''
 
         formname, formvalu = self.ndef
+
+        if self.runt:
+            raise s_exc.IsRuntForm(mesg='Cannot delete runt nodes',
+                                   form=formname, valu=formvalu)
 
         tags = [(len(t), t) for t in self.tags.keys()]
 

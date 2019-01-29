@@ -527,6 +527,10 @@ class Cortex(s_cell.Cell):
         self.ontagadds = collections.defaultdict(list)
         self.ontagdels = collections.defaultdict(list)
 
+        self._runtLiftFuncs = {}
+        self._runtPropSetFuncs = {}
+        self._runtPropDelFuncs = {}
+
         await self.addCoreMods(s_modules.coremods)
 
         mods = self.conf.get('modules')
@@ -619,6 +623,69 @@ class Cortex(s_cell.Cell):
         '''
         # TODO allow name wild cards
         self.ontagdels[name].append(func)
+
+    def addRuntLiftHelp(self, form, func):
+        '''
+        Register a lift helper for a given form (and his sub props)
+        '''
+        self._runtLiftFuncs[form.full] = func
+        for name, prop in form.props.items():
+            pfull = prop.full
+            # universal properties are indexed separately.
+            univ = prop.univ
+            if univ:
+                pfull = form.full + univ
+            self._runtLiftFuncs[pfull] = func
+
+    async def runRuntLiftHelp(self, full, valu=None, cmpr=None):
+        '''
+        Execute a runt lift function.
+
+        Args:
+            full (str): Property to lift by.
+            valu:
+            cmpr:
+
+        Returns:
+            bytes, list: Yields bytes, list tuples where the list contains a series of
+                key/value pairs which are used to construct a Node object.
+
+        '''
+        func = self._runtLiftFuncs.get(full)
+        if func is None:
+            raise s_exc.NoSuchLift(mesg='No runt lift implemented for requested property.',
+                                   full=full, valu=valu, cmpr=cmpr)
+
+        async for buid, rows in func(full, valu, cmpr):
+            yield buid, rows
+
+    def addRuntPropSet(self, prop, func):
+        '''
+        Register a prop set helper for a runt form
+        '''
+        self._runtPropSetFuncs[prop.full] = func
+
+    async def runRuntPropSet(self, node, prop, valu):
+        func = self._runtPropSetFuncs.get(prop.full)
+        if func is None:
+            raise s_exc.IsRuntForm(mesg='No prop:set func set for runt property.',
+                                   prop=prop.full, valu=valu, ndef=node.ndef)
+        ret = await s_coro.ornot(func, node, prop, valu)
+        return ret
+
+    def addRuntPropDel(self, prop, func):
+        '''
+        Register a prop set helper for a runt form
+        '''
+        self._runtPropDelFuncs[prop.full] = func
+
+    async def runRuntPropDel(self, node, prop):
+        func = self._runtPropDelFuncs.get(prop.full)
+        if func is None:
+            raise s_exc.IsRuntForm(mesg='No prop:del func set for runt property.',
+                                   prop=prop.full, ndef=node.ndef)
+        ret = await s_coro.ornot(func, node, prop)
+        return ret
 
     async def runTagAdd(self, node, tag, valu):
         for func in self.ontagadds.get(tag, ()):
