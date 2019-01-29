@@ -180,7 +180,7 @@ class Layer(s_cell.Cell):
             yield (buid, )
 
     async def _liftByUnivIval(self, oper):
-        form, prop, query, info = oper[1]
+        _, prop, _, _ = oper[1]
         count = 0
         async for buid, valu in self.iterUnivRows(prop):
             count += 1
