@@ -348,11 +348,20 @@ class TypesTest(s_t_utils.SynTest):
             tock = t.norm('2015')[0]
 
             async with await core.snap() as snap:
-                node = await snap.addNode('teststr', 'a', {'tick': '2014'})
-                node = await snap.addNode('teststr', 'b', {'tick': '2015'})
-                node = await snap.addNode('teststr', 'c', {'tick': '2016'})
-                node = await snap.addNode('teststr', 'd', {'tick': 'now'})
-                node = await snap.addNode('teststr', 'e', {'tick': 'now-3days'})
+                node = await snap.addNode('teststr', 'a', {'tick': '2014', '.seen': ('2005', '2006')})
+                await node.addTag('foo', valu=('2000', '2001'))
+
+                node = await snap.addNode('teststr', 'b', {'tick': '2015', '.seen': ('8679', '9000')})
+                await node.addTag('foo', valu=('2015', '2018'))
+
+                node = await snap.addNode('teststr', 'c', {'tick': '2016', '.seen': ('now-5days', 'now-1day')})
+                await node.addTag('bar', valu=('1970', '1990'))
+
+                node = await snap.addNode('teststr', 'd', {'tick': 'now', '.seen': ('now-10days', '?')})
+                await node.addTag('baz', valu='now')
+
+                node = await snap.addNode('teststr', 'e', {'tick': 'now-3days', '.seen': ('now+1day', 'now+5days')})
+                await node.addTag('biz', valu=('now-1day', 'now+1day'))
 
             await self.agenraises(s_exc.BadStormSyntax, core.eval('teststr :tick=(20150102, "-4 day")'))
 
@@ -364,6 +373,32 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('teststr +:tick@=(now, "-1 day")'))
             await self.agenlen(1, core.eval('teststr +:tick@=("now-1day", "?")'))
             await self.agenlen(1, core.eval('teststr +:tick@=("now+2days", "-3 day")'))
+
+            # these don't go down the normal univ path, why?
+            await self.agenlen(1, core.eval('teststr:tick@=("-1 day")'))
+            await self.agenlen(1, core.eval('teststr:tick@=(2015)'))
+            await self.agenlen(1, core.eval('teststr:tick@=(2015, "+1 day")'))
+            await self.agenlen(1, core.eval('teststr:tick@=(20150102+1day, "-4 day")'))
+            await self.agenlen(1, core.eval('teststr:tick@=(20150102, "-4 day")'))
+            await self.agenlen(1, core.eval('teststr:tick@=(now, "-1 day")'))
+            await self.agenlen(1, core.eval('teststr:tick@=("now-1day", "?")'))
+            await self.agenlen(1, core.eval('teststr:tick@=("now+2days", "-3 day")'))
+
+            await self.agenlen(2, core.eval('teststr.seen@=("now+6days", "?")'))
+            await self.agenlen(2, core.eval('teststr.seen@=("-4 days")'))
+            await self.agenlen(2, core.eval('teststr.seen@=(8900, 9500)'))
+            await self.agenlen(1, core.eval('teststr.seen@=("2004", "20050201")'))
+            await self.agenlen(2, core.eval('teststr.seen@=("now", "-3 days")'))
+
+            await self.agenlen(1, core.eval('#foo@=("1999", "2002")'))
+            await self.agenlen(1, core.eval('#foo@="2015"'))
+            await self.agenlen(1, core.eval('#foo@=("2010", "20150601")'))
+            await self.agenlen(2, core.eval('#foo@=("2000", "2017")'))
+            await self.agenlen(1, core.eval('#bar@=("1985", "1995")'))
+            await self.agenlen(0, core.eval('#bar@="2000"'))
+            await self.agenlen(1, core.eval('#baz@=("now","-1 day")'))
+            await self.agenlen(1, core.eval('#baz@=("now-1day", "+1day")'))
+            await self.agenlen(1, core.eval('#biz@="now"'))
 
     async def test_loc(self):
         model = s_datamodel.Model()

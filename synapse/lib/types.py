@@ -46,6 +46,7 @@ class Type:
 
         self.indxcmpr = {
             '=': self.indxByEq,
+            '@=': self.indxByIval,
             '*in=': self.indxByIn,
             '*range=': self.indxByRange,
         }
@@ -217,6 +218,16 @@ class Type:
             opers.extend(self.getIndxOps(valu))
 
         return opers
+
+    def indxByIval(self, valu):
+        if type(valu) not in (list, tuple, int, str):
+            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='@=')
+
+        norm = self.norm(valu)[0]
+
+        return (
+            ('interval', norm),
+        )
 
     def indxByRange(self, valu):
 
@@ -737,6 +748,7 @@ class Ival(Type):
         self.timetype = self.modl.type('time')
 
         self.setCmprCtor('@=', self._ctorCmprAt)
+        self.setLiftHintCmprCtor('@=', self._ctorCmprAt)
 
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
@@ -754,7 +766,6 @@ class Ival(Type):
         norm = self.norm(valu)[0]
 
         def cmpr(item):
-
             if item is None or item == (None, None):
                 return False
 
@@ -1300,9 +1311,13 @@ class Time(IntBase):
         self.setNormFunc(str, self._normPyStr)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
+        self.setLiftHintCmprCtor('@=', self._ctorCmprAt)
 
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')
+
+    def _normPyIter(self, valu):
+        return self.modl.types.get('ival')._normPyIter(valu)
 
     def _ctorCmprAt(self, valu):
         return self.modl.types.get('ival')._ctorCmprAt(valu)

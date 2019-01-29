@@ -533,8 +533,13 @@ class LiftOper(Oper):
 class LiftTag(LiftOper):
 
     async def lift(self, runt):
+        valu = None
+        cmpr = '='
         tag = await self.kids[0].runtval(runt)
-        async for node in runt.snap._getNodesByTag(tag):
+        if len(self.kids) > 1:
+            valu = await self.kids[1].runtval(runt)
+            cmpr = '@='
+        async for node in runt.snap._getNodesByTag(tag, valu=valu, cmpr=cmpr):
             yield node
 
 class LiftTagTag(LiftOper):
