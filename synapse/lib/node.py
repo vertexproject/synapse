@@ -6,6 +6,7 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.types as s_types
+
 import synapse.lib.editatom as s_editatom
 
 logger = logging.getLogger(__name__)
