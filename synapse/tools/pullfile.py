@@ -61,4 +61,4 @@ def setup():
 
 
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(main(sys.argv))
+    sys.exit(main(sys.argv[1:]))
