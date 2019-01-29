@@ -363,6 +363,13 @@ class TypesTest(s_t_utils.SynTest):
                 node = await snap.addNode('teststr', 'e', {'tick': 'now-3days', '.seen': ('now+1day', 'now+5days')})
                 await node.addTag('biz', valu=('now-1day', 'now+1day'))
 
+                # tag of tags
+                node = (await alist(snap.getNodesBy('syn:tag', 'bar')))[0]
+                await node.addTag('vert.proj', valu=('20110605', 'now'))
+
+                node = (await alist(snap.getNodesBy('syn:tag', 'biz')))[0]
+                await node.addTag('vertex.project', valu=('now-5days', 'now'))
+
             await self.agenraises(s_exc.BadStormSyntax, core.eval('teststr :tick=(20150102, "-4 day")'))
 
             await self.agenlen(1, core.eval('teststr +:tick@=("-1 day")'))
@@ -399,6 +406,11 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('#baz@=("now","-1 day")'))
             await self.agenlen(1, core.eval('#baz@=("now-1day", "+1day")'))
             await self.agenlen(1, core.eval('#biz@="now"'))
+
+            await self.agenlen(1, core.eval('##vert.proj@="2016"'))
+            await self.agenlen(1, core.eval('##vert.proj@=("2010", "2012")'))
+            await self.agenlen(1, core.eval('##vert.proj@=("2016", "now+6days")'))
+            await self.agenlen(1, core.eval('##vertex.project@=("now-9days", "now-3days")'))
 
     async def test_loc(self):
         model = s_datamodel.Model()

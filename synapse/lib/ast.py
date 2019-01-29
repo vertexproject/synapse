@@ -533,12 +533,12 @@ class LiftOper(Oper):
 class LiftTag(LiftOper):
 
     async def lift(self, runt):
-        valu = None
         cmpr = '='
+        valu = None
         tag = await self.kids[0].runtval(runt)
-        if len(self.kids) > 1:
-            valu = await self.kids[1].runtval(runt)
-            cmpr = '@='
+        if len(self.kids) == 3:
+            cmpr = await self.kids[1].runtval(runt)
+            valu = await self.kids[2].runtval(runt)
         async for node in runt.snap._getNodesByTag(tag, valu=valu, cmpr=cmpr):
             yield node
 
@@ -550,29 +550,35 @@ class LiftTagTag(LiftOper):
     async def lift(self, runt):
 
         todo = collections.deque()
+        cmpr = '='
+        valu = None
 
         tag = await self.kids[0].runtval(runt)
+        if len(self.kids) == 3:
+            cmpr = await self.kids[1].runtval(runt)
+            valu = await self.kids[2].runtval(runt)
 
         node = await runt.snap.getNodeByNdef(('syn:tag', tag))
         if node is None:
             return
 
-        todo.append(node)
+        # only apply the lift valu to the top level tag of tags, not to the sub tags 
+        # or non-tag nodes
+        todo.append((node, valu, cmpr))
 
         done = set()
         while todo:
 
-            node = todo.popleft()
+            node, valu, cmpr = todo.popleft()
 
             tagname = node.ndef[1]
             if tagname in done:
                 continue
 
             done.add(tagname)
-            async for node in runt.snap._getNodesByTag(tagname):
-
+            async for node in runt.snap._getNodesByTag(tagname, valu=valu, cmpr=cmpr):
                 if node.form.name == 'syn:tag':
-                    todo.append(node)
+                    todo.append((node, None, '='))
                     continue
 
                 yield node

@@ -170,7 +170,6 @@ class Snap(s_base.Base):
         return await self.getNodeByBuid(buid)
 
     async def _getNodesByTag(self, name, valu=None, cmpr='='):
-        # TODO interval indexing for valu... and @=
         name = s_chop.tag(name)
         pref = b'#' + name.encode('utf8') + b'\x00'
         cmpf = None
@@ -627,7 +626,6 @@ class Snap(s_base.Base):
                     self.buidcache.put(buid, node)
 
             if node.ndef is not None:
-
                 if cmpr:
                     if rawprop == node.form:
                         valu = node.ndef[1]
