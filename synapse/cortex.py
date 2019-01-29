@@ -477,6 +477,7 @@ class Cortex(s_cell.Cell):
         self.stormrunts = {}
 
         self.libroot = (None, {}, {})
+        self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
 
         self.addStormCmd(s_storm.MaxCmd)
         self.addStormCmd(s_storm.MinCmd)
@@ -757,7 +758,7 @@ class Cortex(s_cell.Cell):
     def addStormLib(self, path, ctor):
 
         root = self.libroot
-        #(name, {kids}, {funcs})
+        # (name, {kids}, {funcs})
 
         for name in path:
             step = root[1].get(name)

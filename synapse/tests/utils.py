@@ -142,6 +142,7 @@ testmodel = {
 
         ('pivtarg', ('str', {}), {}),
         ('pivcomp', ('comp', {'fields': (('targ', 'pivtarg'), ('lulz', 'teststr'))}), {}),
+        ('haspivcomp', ('int', {}), {}),
 
         ('cycle0', ('str', {}), {}),
         ('cycle1', ('str', {}), {}),
@@ -227,6 +228,10 @@ testmodel = {
             ('tick', ('time', {}), {}),
             ('size', ('testint', {}), {}),
             ('width', ('testint', {}), {}),
+        )),
+
+        ('haspivcomp', {}, (
+            ('have', ('pivcomp', {}), {}),
         )),
 
         ('test:ndef', {}, (
