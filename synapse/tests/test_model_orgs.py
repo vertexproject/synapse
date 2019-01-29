@@ -103,10 +103,22 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('org'), guid0)
                 self.eq(node.get('user'), 'arrowman')
 
-                # ou:haslias
+                # ou:hasalias
                 node = await snap.addNode('ou:hasalias', (guid0, 'EVILCORP'))
                 self.eq(node.ndef[1], (guid0, 'evilcorp'))
                 self.eq(node.get('alias'), 'evilcorp')
+                self.eq(node.get('org'), guid0)
+
+                # ou:orgnet4
+                node = await snap.addNode('ou:orgnet4', (guid0, ('192.168.1.1', '192.168.1.127')))
+                self.eq(node.ndef[1], (guid0, (3232235777, 3232235903)))
+                self.eq(node.get('net'), (3232235777, 3232235903))
+                self.eq(node.get('org'), guid0)
+
+                # ou:orgnet6
+                node = await snap.addNode('ou:orgnet6', (guid0, ('fd00::1', 'fd00::127')))
+                self.eq(node.ndef[1], (guid0, ('fd00::1', 'fd00::127')))
+                self.eq(node.get('net'), ('fd00::1', 'fd00::127'))
                 self.eq(node.get('org'), guid0)
 
                 # ou:org:has

@@ -1,7 +1,11 @@
 import os
+import random
+import asyncio
 import contextlib
 
 import synapse.common as s_common
+
+import synapse.lib.coro as s_coro
 
 from synapse.tests.utils import alist
 import synapse.tests.utils as s_t_utils
@@ -74,6 +78,90 @@ class SnapTest(s_t_utils.SynTest):
                 nodes = await alist(snap.getNodesBy('teststr', 'hehe'))
                 self.len(1, nodes)
                 self.eq(nodes[0], node)
+
+    async def test_addNodeRace(self):
+        ''' Test when a reader might retrieve a partially constructed node '''
+        NUM_TASKS = 2
+        failed = False
+        done_events = []
+
+        data = list(range(50))
+        rnd = random.Random()
+        rnd.seed(4)  # chosen by fair dice roll
+        rnd.shuffle(data)
+
+        async with self.getTestCore() as core:
+
+            async def write_a_bunch(done_event):
+                nonlocal failed
+                await asyncio.sleep(0)
+                async with await core.snap() as snap:
+
+                    async def waitabit(info):
+                        await asyncio.sleep(0.1)
+
+                    snap.on('node:add', waitabit)
+
+                    for i in data:
+                        node = await snap.addNode('testint', i)
+                        if node.props.get('.created') is None:
+                            failed = True
+                            done_event.set()
+                            return
+                        await asyncio.sleep(0)
+                done_event.set()
+
+            for _ in range(NUM_TASKS):
+                done_event = asyncio.Event()
+                core.schedCoro(write_a_bunch(done_event))
+                done_events.append(done_event)
+
+            for event in done_events:
+                await event.wait()
+
+            self.false(failed)
+
+    async def test_addNodeRace2(self):
+        ''' Test that dependencies between active editatoms don't wedge '''
+        bc_done_event = asyncio.Event()
+        ab_middle_event = asyncio.Event()
+        ab_done_event = asyncio.Event()
+
+        async with self.getTestCore() as core:
+            async def bc_writer():
+                async with await core.snap() as snap:
+                    call_count = 0
+
+                    async def slowGetNodeByBuid(buid):
+                        nonlocal call_count
+                        call_count += 1
+                        if call_count > 0:
+                            await ab_middle_event.wait()
+                        return await snap.buidcache.aget(buid)
+
+                    snap.getNodeByBuid = slowGetNodeByBuid
+
+                    await snap.addNode('pivcomp', ('woot', 'rofl'))
+                bc_done_event.set()
+
+            core.schedCoro(bc_writer())
+            await asyncio.sleep(0)
+
+            async def ab_writer():
+                async with await core.snap() as snap:
+
+                    async def slowGetNodeByBuid(buid):
+                        ab_middle_event.set()
+                        return await snap.buidcache.aget(buid)
+
+                    snap.getNodeByBuid = slowGetNodeByBuid
+
+                    await snap.addNode('haspivcomp', 42, props={'have': ('woot', 'rofl')})
+                ab_done_event.set()
+
+            core.schedCoro(ab_writer())
+            self.true(await s_coro.event_wait(bc_done_event, 5))
+            self.true(await s_coro.event_wait(ab_done_event, 5))
 
     @contextlib.asynccontextmanager
     async def _getTestCoreMultiLayer(self, first_dirn):
