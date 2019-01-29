@@ -48,6 +48,7 @@ import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.thishost as s_thishost
+import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,20 @@ TEST_MAP_SIZE = s_const.gibibyte
 
 async def alist(coro):
     return [x async for x in coro]
+
+class LibTst(s_stormtypes.Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'beep': self.beep,
+        })
+
+    async def beep(self, valu):
+        '''
+        Example storm func
+        '''
+        ret = f'A {valu} beep!'
+        return ret
 
 class TestType(s_types.Type):
 
@@ -79,9 +94,22 @@ class ThreeType(s_types.Type):
     def indx(self, norm):
         return '3'.encode('utf8')
 
+class TestSubType(s_types.Type):
+
+    def norm(self, valu):
+        valu = int(valu)
+        return valu, {'subs': {'isbig': valu >= 1000}}
+
+    def repr(self, norm):
+        return str(norm)
+
+    def indx(self, norm):
+        return norm.to_bytes(4, 'big')
+
 testmodel = {
 
     'ctors': (
+        ('testsub', 'synapse.tests.utils.TestSubType', {}, {}),
         ('testtype', 'synapse.tests.utils.TestType', {}, {}),
         ('testthreetype', 'synapse.tests.utils.ThreeType', {}, {}),
     ),
@@ -112,6 +140,7 @@ testmodel = {
 
         ('pivtarg', ('str', {}), {}),
         ('pivcomp', ('comp', {'fields': (('targ', 'pivtarg'), ('lulz', 'teststr'))}), {}),
+        ('haspivcomp', ('int', {}), {}),
 
         ('cycle0', ('str', {}), {}),
         ('cycle1', ('str', {}), {}),
@@ -159,7 +188,10 @@ testmodel = {
         )),
 
         ('testguid', {}, (
+            ('size', ('testint', {}), {}),
             ('tick', ('testtime', {}), {}),
+            ('posneg', ('testsub', {}), {}),
+            ('posneg:isbig', ('bool', {}), {}),
         )),
 
         ('teststr', {}, (
@@ -187,6 +219,10 @@ testmodel = {
             ('width', ('testint', {}), {}),
         )),
 
+        ('haspivcomp', {}, (
+            ('have', ('pivcomp', {}), {}),
+        )),
+
         ('test:ndef', {}, (
             ('form', ('str', {}), {'ro': 1}),
         )),
@@ -200,6 +236,8 @@ class TestModule(s_module.CoreModule):
         self.core.setFeedFunc('com.test.record', self.addTestRecords)
         async with await self.core.snap() as snap:
             await snap.addNode('source', self.testguid, {'name': 'test'})
+
+        self.core.addStormLib(('test',), LibTst)
 
     async def addTestRecords(self, snap, items):
         for name in items:
@@ -591,7 +629,7 @@ class SynTest(unittest.TestCase):
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
     @contextlib.asynccontextmanager
-    async def getTestCore(self, mirror='testcore', conf=None, extra_layers=None):
+    async def getTestCore(self, mirror='testcore', conf=None, extra_layers=()):
         '''
         Return a simple test Cortex.
 
@@ -603,13 +641,15 @@ class SynTest(unittest.TestCase):
             s_common.yamlmod(conf, dirn, 'cell.yaml')
             ldir = s_common.gendir(dirn, 'layers')
             layerdir = pathlib.Path(ldir, '000-default')
+
             if self.alt_write_layer:
                 os.symlink(self.alt_write_layer, layerdir)
             else:
                 layerdir.mkdir()
                 s_cells.deploy('layer-lmdb', layerdir)
                 s_common.yamlmod({'lmdb:mapsize': TEST_MAP_SIZE}, layerdir, 'cell.yaml')
-            for i, fn in enumerate(extra_layers or []):
+
+            for i, fn in enumerate(extra_layers):
                 src = pathlib.Path(fn).resolve()
                 os.symlink(src, pathlib.Path(ldir, f'{i + 1:03}-testlayer'))
 

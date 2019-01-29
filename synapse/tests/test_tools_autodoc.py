@@ -1,41 +1,32 @@
-import unittest
-raise unittest.SkipTest()
-# FIXME broken because no configable
+import synapse.common as s_common
+
+import synapse.tests.utils as s_t_utils
 
 import synapse.tools.autodoc as s_autodoc
 
 class TestAutoDoc(s_t_utils.SynTest):
 
-    def test_tools_autodoc(self):
+    def test_tools_autodoc_docmodel(self):
 
         with self.getTestDir() as path:
 
-            save = os.path.join(path, 'model.rst')
+            argv = ['--doc-model', '--savedir', path]
+
             outp = self.getTestOutp()
-            argv = ['--doc-model', '--savefile', save]
             self.eq(s_autodoc.main(argv, outp=outp), 0)
 
-            with open(save, 'rb') as fd:
-                rst = fd.read().decode()
+            with s_common.genfile(path, 'datamodel_types.rst') as fd:
+                buf = fd.read()
+            s = buf.decode()
+            self.isin('Base types are defined via Python classes.', s)
+            self.isin('synapse.models.inet.Addr', s)
+            self.isin('Regular types are derived from BaseTypes.', s)
+            self.isin('inet\:server', s)
 
-            self.true('inet:ipv4:asn = <inet:asn> (default: -1)' in rst)
-            self.true('Universal Props' in rst)
-
-    def test_tools_autodoc_configable(self):
-        with self.getTestDir() as path:
-
-            save = os.path.join(path, 'configables.rst')
-            outp = self.getTestOutp()
-            argv = ['--configable-opts', '--savefile', save]
-            self.eq(s_autodoc.main(argv, outp=outp), 0)
-
-            with open(save, 'rb') as fd:
-                rst = fd.read().decode()
-
-            self.true('Synapse Configable Classes' in rst)
-            # Some cell configs which are comming in from @staticmethod and initConfDefs()
-            self.isin('synapse.lib.auth.Auth', rst)
-            self.isin('synapse.cryotank.CryoCell', rst)
-            self.true('axon:mapsize' in rst)
-            self.true('The TCP port the Cell binds to (defaults to dynamic)' in rst)
-            self.true('The TCP port the Neuron binds to' in rst)
+            with s_common.genfile(path, 'datamodel_forms.rst') as fd:
+                buf = fd.read()
+            s = buf.decode()
+            self.isin('Forms are derived from types, or base types. Forms represent node types in the graph.', s)
+            self.isin('inet\:ipv4', s)
+            self.isin('Universal props are system level properties which may be present on every node.', s)
+            self.isin('.created', s)

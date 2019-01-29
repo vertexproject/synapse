@@ -96,6 +96,7 @@ class Prop(PropBase):
         self.info = info
 
         self.isform = False     # for quick Prop()/Form() detection
+        self.compoffs = form.type.getCompOffs(self.name)
 
         self.form = form
         self.type = None
@@ -130,6 +131,12 @@ class Prop(PropBase):
         # if we are required, tell the form...
         if self.info.get('req'):
             self.form.reqprops.append(self)
+
+    def getCompOffs(self):
+        '''
+        Return the offset of this field within the compound primary prop or None.
+        '''
+        return self.compoffs
 
     def getLiftOps(self, valu, cmpr='='):
 
@@ -645,6 +652,8 @@ class Model:
         '''
         Add a Type instance to the data model.
         '''
+        ctor = '.'.join([item.__class__.__module__, item.__class__.__qualname__])
+        self._modeldef['ctors'].append(((item.name, ctor, dict(item.opts), dict(item.info))))
         self.types[item.name] = item
 
     def type(self, name):

@@ -2102,6 +2102,18 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], ('vertex.link', 0x01020304))
 
+    async def test_storm_dict_deref(self):
+
+        async with self.getTestCore() as core:
+
+            text = '''
+            [ testint=$hehe.haha ]
+            '''
+            opts = {'vars': {'hehe': {'haha': 20}}}
+            nodes = await core.eval(text, opts=opts).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 20)
+
     async def test_storm_varlist_compute(self):
 
         async with self.getTestCore() as core:
@@ -2232,6 +2244,46 @@ class CortexTest(s_t_utils.SynTest):
             self.none(alldefs.get(('inet:asn', 20)))
             self.none(alldefs.get(('syn:tag', 'nope')))
             self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
+
+    async def test_storm_lib_time(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.eval('[ ps:person="*" :dob = $lib.time.fromunix(20) ]').list()
+            self.len(1, nodes)
+            self.eq(20000, nodes[0].get('dob'))
+
+    async def test_storm_lib_custom(self):
+
+        async with self.getTestCore() as core:
+            # Test the registered function from test utils
+            q = '[ ps:person="*" :name = $lib.test.beep(loud) ]'
+            nodes = await core.eval(q).list()
+            self.len(1, nodes)
+            self.eq('a loud beep!', nodes[0].get('name'))
+
+            q = '$test = $lib.test.beep(test) [teststr=$test]'
+            nodes = await core.eval(q).list()
+            self.len(1, nodes)
+            self.eq('A test beep!', nodes[0].ndef[1])
+
+    async def test_storm_type_node(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.eval('[ ps:person="*" has=($node, (inet:fqdn,woot.com)) ]').list()
+            self.len(2, nodes)
+            self.eq('has', nodes[1].ndef[0])
+
+            nodes = await core.eval('[teststr=test] [refs=($node,(testint, 1234))] -teststr').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], (('teststr', 'test'), ('testint', 1234)))
+
+            nodes = await core.eval('testint=1234 [teststr=$node.value()] -testint').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('teststr', '1234'))
+
+            nodes = await core.eval('testint=1234 [teststr=$node.form()] -testint').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('teststr', 'testint'))
 
     async def test_storm_subq_size(self):
 
