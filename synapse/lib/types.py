@@ -1134,6 +1134,7 @@ class Range(Type):
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(tuple, self._normPyTuple)
+        self.setNormFunc(list, self._normPyTuple)
 
     def _normPyStr(self, valu):
         valu = valu.split('-', 1)
