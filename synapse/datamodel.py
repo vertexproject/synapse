@@ -363,7 +363,7 @@ class ModelInfo:
 
         # Load all the forms
         for _, mdef in mods:
-            for formname, _, propdefs in mdef.get('forms', ()):
+            for formname, formopts, propdefs in mdef.get('forms', ()):
 
                 self.formnames.add(formname)
                 self.propnames.add(formname)

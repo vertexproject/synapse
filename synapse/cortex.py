@@ -1407,7 +1407,7 @@ class Cortex(s_cell.Cell):
             if modu is None:
                 continue
 
-            added.append(modu)
+            added.append((ctor, modu))
 
             # does the module carry have a data model?
             mdef = modu.getModelDefs()
@@ -1419,8 +1419,9 @@ class Cortex(s_cell.Cell):
 
         # now that we've loaded all their models
         # we can call their init functions
-        for modu in added:
+        for ctor, modu in added:
             await s_coro.ornot(modu.initCoreModule)
+            await self.fire('core:module:load', module=ctor)
 
     async def loadCoreModule(self, ctor, conf=None):
         '''
@@ -1438,7 +1439,8 @@ class Cortex(s_cell.Cell):
         mdefs = modu.getModelDefs()
         self.model.addDataModels(mdefs)
 
-        await modu.initCoreModule()
+        await s_coro.ornot(modu.initCoreModule)
+        await self.fire('core:module:load', module=ctor)
 
     def _loadCoreModule(self, ctor):
 
