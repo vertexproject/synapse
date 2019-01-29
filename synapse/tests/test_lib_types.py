@@ -407,9 +407,20 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('#baz@=("now-1day", "+1day")'))
             await self.agenlen(1, core.eval('#biz@="now"'))
 
+            await self.agenlen(1, core.eval('teststr#foo@=("1999", "2002")'))
+            await self.agenlen(1, core.eval('teststr#foo@="2015"'))
+            await self.agenlen(1, core.eval('teststr#foo@=("2010", "20150601")'))
+            await self.agenlen(2, core.eval('teststr#foo@=("2000", "2017")'))
+            await self.agenlen(1, core.eval('teststr#bar@=("1985", "1995")'))
+            await self.agenlen(0, core.eval('teststr#bar@="2000"'))
+            await self.agenlen(1, core.eval('teststr#baz@=("now","-1 day")'))
+            await self.agenlen(1, core.eval('teststr#baz@=("now-1day", "+1day")'))
+            await self.agenlen(1, core.eval('teststr#biz@="now"'))
+
             await self.agenlen(1, core.eval('##vert.proj@="2016"'))
             await self.agenlen(1, core.eval('##vert.proj@=("2010", "2012")'))
             await self.agenlen(1, core.eval('##vert.proj@=("2016", "now+6days")'))
+            await self.agenlen(1, core.eval('##vert.proj@=("1995", "now+6 days")'))
             await self.agenlen(1, core.eval('##vertex.project@=("now-9days", "now-3days")'))
 
     async def test_loc(self):

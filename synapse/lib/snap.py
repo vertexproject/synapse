@@ -207,8 +207,6 @@ class Snap(s_base.Base):
         if form is None:
             raise s_exc.NoSuchForm(form=name)
 
-        # TODO interval indexing for valu... and @=
-
         tag = s_chop.tag(tag)
 
         # maybe use Encoder here?
