@@ -1355,8 +1355,8 @@ class Parser:
 
         self.ignore(whitespace)
 
-        if self.nextstr('@='):
-            self.offs += 2
+        if self.nextchar() in cmprstart:
+            kids.append(self.cmpr())
             kids.append(self.valu())
 
         return s_ast.LiftTag(kids=kids)
@@ -1367,9 +1367,12 @@ class Parser:
 
         self.nextmust('#')
 
-        tag = self.tagname()
+        kids = [self.tagname(),]
+        if self.nextchar() in cmprstart:
+            kids.append(self.cmpr())
+            kids.append(self.valu())
 
-        return s_ast.LiftTagTag(kids=(tag,))
+        return s_ast.LiftTagTag(kids=kids)
 
     def filtoper(self):
 
