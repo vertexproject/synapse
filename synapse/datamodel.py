@@ -128,10 +128,6 @@ class Prop(PropBase):
         if defv is not None:
             self.form.defvals[name] = defv
 
-        # if we are required, tell the form...
-        if self.info.get('req'):
-            self.form.reqprops.append(self)
-
     def getCompOffs(self):
         '''
         Return the offset of this field within the compound primary prop or None.
@@ -242,7 +238,6 @@ class Form:
 
         self.props = {}     # name: Prop()
         self.defvals = {}   # name: valu
-        self.reqprops = []  # [ Prop(), ... ]
 
     def onAdd(self, func):
         '''
