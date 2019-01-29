@@ -370,7 +370,6 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('teststr +:tick@=("now-1day", "?")'))
             await self.agenlen(1, core.eval('teststr +:tick@=("now+2days", "-3 day")'))
 
-            # these don't go down the normal univ path, why?
             await self.agenlen(1, core.eval('teststr:tick@=("-1 day")'))
             await self.agenlen(1, core.eval('teststr:tick@=(2015)'))
             await self.agenlen(1, core.eval('teststr:tick@=(2015, "+1 day")'))

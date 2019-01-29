@@ -1355,7 +1355,7 @@ class Parser:
 
         self.ignore(whitespace)
 
-        if self.nextchar() in cmprstart:
+        if self.nextstr('@='):
             kids.append(self.cmpr())
             kids.append(self.valu())
 
@@ -1368,7 +1368,8 @@ class Parser:
         self.nextmust('#')
 
         kids = [self.tagname(),]
-        if self.nextchar() in cmprstart:
+
+        if self.nextstr('@='):
             kids.append(self.cmpr())
             kids.append(self.valu())
 
