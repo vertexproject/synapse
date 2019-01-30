@@ -14,7 +14,7 @@ import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
-FAIR_ITERS = 5000  # every this many rows, yield CPU to other tasks
+FAIR_ITERS = 10  # every this many rows, yield CPU to other tasks
 
 class Encoder(collections.defaultdict):
     def __missing__(self, name):

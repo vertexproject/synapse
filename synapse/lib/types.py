@@ -158,7 +158,7 @@ class Type:
 
         def cmpr(valu):
             vtxt = self.repr(valu, defval=valu)
-            return regx.match(vtxt) is not None
+            return regx.search(vtxt) is not None
 
         return cmpr
 
@@ -1131,6 +1131,7 @@ class Range(Type):
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(tuple, self._normPyTuple)
+        self.setNormFunc(list, self._normPyTuple)
 
     def _normPyStr(self, valu):
         valu = valu.split('-', 1)
