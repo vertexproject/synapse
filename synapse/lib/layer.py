@@ -71,6 +71,7 @@ class Layer(s_cell.Cell):
         self.spliced = asyncio.Event(loop=self.loop)
         self.splicelist = []
         self.onfini(self.spliced.set)
+        self.migrations = {}
 
     async def splicelistAppend(self, mesg):
         self.splicelist.append(mesg)

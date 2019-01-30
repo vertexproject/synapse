@@ -483,6 +483,8 @@ class Cortex(s_cell.Cell):
         self.libroot = (None, {}, {})
         self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
 
+        self.model = s_datamodel.Model()
+
         self.addStormCmd(s_storm.MaxCmd)
         self.addStormCmd(s_storm.MinCmd)
         self.addStormCmd(s_storm.HelpCmd)
@@ -515,7 +517,6 @@ class Cortex(s_cell.Cell):
         self.setFeedFunc('syn.ingest', self._addSynIngest)
 
         await self._initCoreLayers()
-        await self._checkLayerModels()
 
         async def fini():
             await asyncio.gather(*[layr.fini() for layr in self.layers], loop=self.loop)
@@ -525,10 +526,6 @@ class Cortex(s_cell.Cell):
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
-        # these may be used directly
-        self.model = s_datamodel.Model()
-        self.view = View(self, self.layers)
-
         self.ontagadds = collections.defaultdict(list)
         self.ontagdels = collections.defaultdict(list)
 
@@ -536,13 +533,20 @@ class Cortex(s_cell.Cell):
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
 
-        await self.addCoreMods(s_modules.coremods)
-
-        mods = self.conf.get('modules')
-
         self._initFormCounts()
 
-        await self.addCoreMods(mods)
+        await self._loadCoreMods(s_modules.coremods)
+        await self._loadCoreMods(self.conf.get('modules'))
+
+        # bring the data model online
+        await self._initCoreModel()
+
+        await self._checkLayerModels()
+
+        self.view = View(self, self.layers)
+
+        # initialize all core modules
+        await self._initCoreMods()
 
         if self.conf.get('triggers:enable'):
             await self.triggers.enable()
@@ -1399,34 +1403,34 @@ class Cortex(s_cell.Cell):
             snap.setUser(user)
         return snap
 
-    async def addCoreMods(self, mods):
+    async def _loadCoreMods(self, mods):
+        for ctor in mods:
+            await self._loadCoreModule(ctor)
+
+    async def _initCoreModel(self):
         '''
-        Add a list of (name,conf) module tuples to the cortex.
+        Initialize the cortex DataModel from loaded modules.
+
+        ( this must be called after all _loadCoreMods() calls )
         '''
         mdefs = []
-        added = []
 
-        for ctor in mods:
-
-            modu = self._loadCoreModule(ctor)
-            if modu is None:
-                continue
-
-            added.append((ctor, modu))
-
-            # does the module carry have a data model?
+        for modu in self.modules.values():
             mdef = modu.getModelDefs()
             if mdef is not None:
                 mdefs.extend(mdef)
 
-        # add all data models at once.
         self.model.addDataModels(mdefs)
 
-        # now that we've loaded all their models
-        # we can call their init functions
-        for ctor, modu in added:
-            await s_coro.ornot(modu.initCoreModule)
-            await self.fire('core:module:load', module=ctor)
+    async def _initCoreMods(self):
+        '''
+        Call initCoreModule for each of the modules we have loaded.
+        '''
+        for modu in self.modules.values():
+            try:
+                await modu.initCoreModule()
+            except Exception as e:
+                logger.exception('initCoreModule failed')
 
     async def loadCoreModule(self, ctor, conf=None):
         '''
@@ -1443,11 +1447,9 @@ class Cortex(s_cell.Cell):
 
         mdefs = modu.getModelDefs()
         self.model.addDataModels(mdefs)
+        await modu.initCoreModule()
 
-        await s_coro.ornot(modu.initCoreModule)
-        await self.fire('core:module:load', module=ctor)
-
-    def _loadCoreModule(self, ctor):
+    async def _loadCoreModule(self, ctor):
 
         try:
             modu = s_dyndeps.tryDynFunc(ctor, self)

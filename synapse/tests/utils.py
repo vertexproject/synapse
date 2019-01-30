@@ -703,19 +703,13 @@ class SynTest(unittest.TestCase):
 
         dirn = os.path.join(regr, *path)
 
-        with self.getTestDir() as tempdir:
-
-            try:
-                shutil.copytree(dirn, tempdir)
-                yield tempdir
-
-            finally:
-                shutil.rmtree(tempdir, ignore_errors=True)
+        with self.getTestDir(copyfrom=dirn) as regrdir:
+            yield regrdir
 
     @contextlib.asynccontextmanager
     async def getRegrCore(self, vers):
         with self.getRegrDir('cortexes', vers) as dirn:
-            async with s_cells.init('cortex', dirn):
+            async with await s_cells.init('cortex', dirn) as core:
                 yield core
 
     def skipIfNoInternet(self):  # pragma: no cover
@@ -853,7 +847,7 @@ class SynTest(unittest.TestCase):
         return await s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
     @contextlib.contextmanager
-    def getTestDir(self, mirror=None):
+    def getTestDir(self, mirror=None, copyfrom=None):
         '''
         Get a temporary directory for test purposes.
         This destroys the directory afterwards.
@@ -881,6 +875,11 @@ class SynTest(unittest.TestCase):
                 srcpath = self.getTestFilePath(mirror)
                 dstpath = os.path.join(tempdir, 'mirror')
                 shutil.copytree(srcpath, dstpath)
+                yield dstpath
+
+            elif copyfrom is not None:
+                dstpath = os.path.join(tempdir, 'mirror')
+                shutil.copytree(copyfrom, dstpath)
                 yield dstpath
 
             else:

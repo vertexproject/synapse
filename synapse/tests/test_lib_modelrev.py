@@ -1,6 +1,8 @@
 import os
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+
 import synapse.cells as s_cells
 import synapse.tests.utils as s_tests
 import synapse.lib.modelrev as s_modelrev
@@ -54,4 +56,46 @@ class ModelRevTest(s_tests.SynTest):
     async def test_cortex_model_0_1_0(self):
 
         async with self.getRegrCore('0.0.0') as core:
-            pass
+
+            nodes = await core.eval('.created').list()
+            self.len(7, nodes)
+
+            for node in nodes:
+                self.eq(node.buid, s_common.buid(node.ndef))
+
+            # check that we updated the univ index
+            self.len(2, await core.eval('.created +file:bytes').list())
+            self.len(2, await core.eval('file:bytes.created').list())
+
+            # check that we updated the tag index
+            self.len(1, await core.eval('file:bytes#foo').list())
+            self.len(1, await core.eval('#foo +file:bytes').list())
+
+            # check that we updated the secondary prop buids
+            self.len(1, await core.eval('file:bytes +:size=200').list())
+            self.len(1, await core.eval('file:bytes:size=200').list())
+
+            # check that *other* secondary props got updated
+            self.len(1, await core.eval('inet:flow=3e6659a92d18cab2f20bfc1adecc3284 :src:exe -> file:bytes').list())
+
+            # check that we updated the ndefs for edge types...
+            self.len(1, await core.eval('file:bytes=ecb4789e1c9588964dbaefc4c2380e83 -> refs -> ps:person').list())
+
+            nodes = await core.eval('refs').list()
+            for node in nodes:
+                self.eq(node.buid, s_common.buid(node.ndef))
+
+                n1def = node.get('n1')
+                n2def = node.get('n2')
+
+                self.eq(node.ndef[1], (n1def, n2def))
+
+            nodes = await core.eval('file:bytes#foo').list()
+            self.len(1, nodes)
+            self.eq(200, nodes[0].get('size'))
+            self.eq(('file:bytes', '96bad5aea02c4757e971d61faf988390'), nodes[0].ndef)
+
+            nodes = await core.eval('#foo').list()
+            self.len(1, nodes)
+            self.eq(200, nodes[0].get('size'))
+            self.eq(('file:bytes', '96bad5aea02c4757e971d61faf988390'), nodes[0].ndef)
