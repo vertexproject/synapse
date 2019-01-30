@@ -1368,7 +1368,7 @@ class Cortex(s_cell.Cell):
         if conf is None:
             conf = {}
 
-        modu = self._loadCoreModule(ctor)
+        modu = await self._loadCoreModule(ctor)
 
         mdefs = modu.getModelDefs()
         self.model.addDataModels(mdefs)
