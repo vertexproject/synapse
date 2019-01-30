@@ -531,8 +531,6 @@ class Cortex(s_cell.Cell):
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
 
-        await self.addCoreMods(s_modules.coremods)
-
         await self._loadCoreMods(s_modules.coremods)
         await self._loadCoreMods(self.conf.get('modules'))
 
@@ -1423,9 +1421,9 @@ class Cortex(s_cell.Cell):
         '''
         Call initCoreModule for each of the modules we have loaded.
         '''
-        for modu in self.modules.values():
+        for name, modu in self.modules.items():
             await s_coro.ornot(modu.initCoreModule)
-            await self.fire('core:module:load', module=ctor)
+            await self.fire('core:module:load', module=name)
 
     async def loadCoreModule(self, ctor, conf=None):
         '''
@@ -1444,6 +1442,7 @@ class Cortex(s_cell.Cell):
         self.model.addDataModels(mdefs)
 
         await modu.initCoreModule()
+        await self.fire('core:module:load', module=ctor)
 
     async def _loadCoreModule(self, ctor):
 
