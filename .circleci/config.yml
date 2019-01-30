@@ -51,7 +51,6 @@ test_steps:  &test_steps
         name: checkout regression repo
         command: |
             git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
-            env
 
     - run:
         name: install deps
