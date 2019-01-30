@@ -698,6 +698,8 @@ class SynTest(unittest.TestCase):
         if regr is None:
             raise unittest.SkipTest('SYN_REGRESSION_REPO is not set')
 
+        regr = s_common.genpath(regr)
+
         if not os.path.isdir(regr):
             raise Exception('SYN_REGREGSSION_REPO is not a dir')
 
