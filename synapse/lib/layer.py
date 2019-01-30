@@ -234,11 +234,11 @@ class Layer(s_cell.Cell):
         '''
         raise NotImplementedError
 
-    async def stat(self):
+    async def stat(self): # pragma: no cover
         raise NotImplementedError
 
     async def splices(self, offs, size):  # pragma: no cover
         raise NotImplementedError
 
-    async def getNodeNdef(self, buid):
+    async def getNodeNdef(self, buid): # pragma: no cover
         raise NotImplementedError
