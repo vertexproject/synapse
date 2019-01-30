@@ -21,6 +21,7 @@ propre = regex.compile('^[0-9a-z:_]+$')
 class PropBase:
 
     def __init__(self):
+        self.isrunt = False
         self.onsets = []
         self.ondels = []
 
@@ -96,6 +97,7 @@ class Prop(PropBase):
         self.info = info
 
         self.isform = False     # for quick Prop()/Form() detection
+        self.isrunt = form.isrunt
         self.compoffs = form.type.getCompOffs(self.name)
 
         self.form = form
@@ -127,10 +129,6 @@ class Prop(PropBase):
         defv = self.info.get('defval')
         if defv is not None:
             self.form.defvals[name] = defv
-
-        # if we are required, tell the form...
-        if self.info.get('req'):
-            self.form.reqprops.append(self)
 
     def getCompOffs(self):
         '''
@@ -226,6 +224,7 @@ class Form:
         self.info = info
 
         self.isform = True
+        self.isrunt = bool(info.get('runt', False))
 
         self.onadds = []
         self.ondels = []
@@ -242,7 +241,6 @@ class Form:
 
         self.props = {}     # name: Prop()
         self.defvals = {}   # name: valu
-        self.reqprops = []  # [ Prop(), ... ]
 
     def onAdd(self, func):
         '''
@@ -365,7 +363,7 @@ class ModelInfo:
 
         # Load all the forms
         for _, mdef in mods:
-            for formname, _, propdefs in mdef.get('forms', ()):
+            for formname, formopts, propdefs in mdef.get('forms', ()):
 
                 self.formnames.add(formname)
                 self.propnames.add(formname)

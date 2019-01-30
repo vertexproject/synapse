@@ -223,7 +223,7 @@ class OuModule(s_module.CoreModule):
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which created/managed the conference.',
                     }),
-                    ('name', ('str', {'lower': True, 'req': True}), {
+                    ('name', ('str', {'lower': True}), {
                         'doc': 'The full name of the conference.',
                         'ex': 'decfon 2017',
                     }),
