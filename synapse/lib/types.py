@@ -35,6 +35,7 @@ class Type:
         self.name = name
         self.info = info
         self.form = None # this will reference a Form() if the type is a form
+        self.subof = None  # This references the name that a type was extended from.
 
         self.opts = dict(self._opt_defs)
         self.opts.update(opts)
@@ -313,7 +314,9 @@ class Type:
         topt = self.opts.copy()
         topt.update(opts)
 
-        return self.__class__(self.modl, name, tifo, topt)
+        tobj = self.__class__(self.modl, name, tifo, topt)
+        tobj.subof = self.name
+        return tobj
 
     def clone(self, opts):
         '''
