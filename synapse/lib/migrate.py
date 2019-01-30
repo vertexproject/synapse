@@ -21,12 +21,39 @@ class Migration(s_base.Base):
         self.core = core
         self.iden = iden
 
-        #path = os.path.join(self.core.dirn, 'migrations', iden)
-        #if os.path.exists(path):
-            #logger.info('resuming migration from %r' % (path,))
+        self.oldindx = {}
 
-        #dirn = s_common.gendir(path)
-        #slab
+    def addOldIndx(self, name, func):
+        '''
+        Add a function to produce lift operations for an *old* type.
+        This can be used to produce lift ops for previous (now invalid) values.
+        '''
+        self.oldindx[name] = func
+
+    def getLiftOps(self, prop, valu):
+        '''
+        Get lift ops for a potentially old (now invalid) normalized value.
+        '''
+        if prop.type.name == 'ndef':
+            # assume all ndef lift ops are for pre-normalized values
+            indx = s_common.buid(valu)
+            return (
+                ('indx', ('byprop', prop.pref, (
+                    ('eq', indx),
+                ))),
+            )
+
+        func = self.oldindx.get(prop.type.name)
+        if func is None:
+            return prop.getLiftOps(valu)
+
+        indx = func(prop, valu)
+
+        return (
+            ('indx', ('byprop', prop.pref, (
+                ('eq', indx),
+            ))),
+        )
 
     async def setNodeBuid(self, form, oldb, newb):
         '''
@@ -54,7 +81,8 @@ class Migration(s_base.Base):
 
     async def _editCompProp(self, prop, coff, oldv, newv, info):
 
-        lops = prop.getLiftOps(oldv)
+        lops = self.getLiftOps(prop, oldv)
+
         for layr in self.getLayers():
 
             async for row in layr.getLiftRows(lops):
@@ -83,7 +111,7 @@ class Migration(s_base.Base):
 
                 subtodo.append((subp, subv))
 
-        lops = prop.getLiftOps(oldv)
+        lops = self.getLiftOps(prop, oldv)
 
         for layr in self.getLayers():
 
@@ -114,6 +142,58 @@ class Migration(s_base.Base):
                 continue
 
             await self._editEasyProp(prop, oldv, newv, info)
+
+    async def setTypeNorm(self, name, func):
+
+        # first check for nodes with that type as their form..
+        form = self.core.model.form(name)
+        if form is not None:
+
+            for layr in self.getLayers():
+
+                async for buid, valu in layr.iterFormRows(name):
+
+                    norm, info = func(valu)
+                    if norm == valu:
+                        continue
+
+                    newb = s_common.buid((name, norm))
+
+                    dops = form.getDelOps(buid)
+                    sops = form.getSetOps(newb, norm)
+
+                    await layr.stor(dops + sops)
+                    await self.setNodeBuid(name, buid, newb)
+
+                    oldndef = (form.name, valu)
+                    newndef = (form.name, norm)
+
+                    await self.editNdefProps(oldndef, newndef)
+
+        # specifically handle ndefs from Edge sub classes
+        for prop in self.core.model.getPropsByType(name):
+
+            # if we are a member field of a comp type, recurse
+            coff = prop.getCompOffs()
+            if coff is not None:
+
+                def frob(x):
+                    y = list(x)
+                    y[coff], info = func(y[coff])
+                    return prop.form.type.norm(y)
+
+                await self.setTypeNorm(prop.form.name, frob)
+
+            for layr in self.getLayers():
+
+                async for buid, valu in layr.iterPropRows(prop.form.name, prop.name):
+
+                    norm, info = func(valu)
+                    if norm == valu:
+                        continue
+
+                    sops = prop.getSetOps(buid, norm)
+                    await layr.stor(sops)
 
     async def setNodeForm(self, layr, buid, name, oldv, newv):
         '''

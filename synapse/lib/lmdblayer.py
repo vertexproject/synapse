@@ -114,20 +114,24 @@ class LmdbLayer(s_layer.Layer):
 
         for lkey, lval in self.slab.scanByPref(oldb, db=self.bybuid):
 
-            penc = lkey[32:]
+            proputf8 = lkey[32:]
+
             valu, indx = s_msgpack.un(lval)
 
-            if penc[0] in (46, 35): # ".univ" or "#tag"
-                byunivkey = penc + indx
-                self.slab.put(byunivkey, pvnewval, db=self.byuniv)
-                self.slab.delete(byunivkey, pvoldval, db=self.byuniv)
+            #<prop><00><indx>
+            propindx = proputf8 + b'\x00' + indx
 
-            bypropkey = fenc + penc + indx
+            if proputf8[0] in (46, 35): # ".univ" or "#tag"
+                self.slab.put(propindx, pvnewval, dupdata=True, db=self.byuniv)
+                self.slab.delete(propindx, pvoldval, db=self.byuniv)
+
+            # <form><00><prop><00><indx>
+            bypropkey = fenc + propindx
 
             self.slab.put(bypropkey, pvnewval, db=self.byprop)
             self.slab.delete(bypropkey, pvoldval, db=self.byprop)
 
-            self.slab.put(newb + penc, lval, db=self.bybuid)
+            self.slab.put(newb + proputf8, lval, db=self.bybuid)
             self.slab.delete(lkey, db=self.bybuid)
 
     async def _storPropSet(self, oper):

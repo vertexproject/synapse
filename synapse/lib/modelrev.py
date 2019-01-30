@@ -1,6 +1,9 @@
 import logging
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+
+import synapse.lib.migrate as s_migrate
 
 logger = logging.getLogger(__file__)
 
@@ -52,9 +55,17 @@ class ModelRev:
 
     async def _init010Model(self, core, layr):
 
-        async with await s_migrate.Migration.anit(core, s_common.guid()) as migr:
+        iden = '9bb1cd19373ae8228485a544ec976bde'
+        async with await s_migrate.Migration.anit(core, iden) as migr:
 
-            # migrate file:bytes nodes to an opaque guid
-            async for layr, buid, valu in migr.getFormTodo('file:bytes'):
-                newv = s_common.guid(valu.split(':'))
-                await migr.setNodeForm(layr, buid, 'file:bytes', valu, newv)
+            def indxFileBytes(p, v):
+                return v.encode('utf8')
+
+            migr.addOldIndx('file:bytes', indxFileBytes)
+
+            def norm(valu):
+                if valu.find(':') == -1:
+                    return valu, {}
+                return s_common.guid(valu.split(':')), {}
+
+            await migr.setTypeNorm('file:bytes', norm)
