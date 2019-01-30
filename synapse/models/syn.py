@@ -17,10 +17,17 @@ class SynModule(s_module.CoreModule):
         self._modelRuntsByBuid = {}
         self._modelRuntsByPropValu = collections.defaultdict(list)
 
-        # Add runt lift helpres
-        self.core.addRuntLiftHelp(self.model.form('syn:type'), self._synModelLift)
-        self.core.addRuntLiftHelp(self.model.form('syn:form'), self._synModelLift)
-        self.core.addRuntLiftHelp(self.model.form('syn:prop'), self._synModelLift)
+        # Add runt lift helpers
+        for form in ('syn:type', 'syn:form', 'syn:prop'):
+            form = self.model.form(form)
+            self.core.addRuntLift(form.full, self._synModelLift)
+            for name, prop in form.props.items():
+                pfull = prop.full
+                # universal properties are indexed separately.
+                univ = prop.univ
+                if univ:
+                    pfull = form.full + univ
+                self.core.addRuntLift(pfull, self._synModelLift)
 
         # add event registration for model changes to allow for new models to reset the runtime model data
         self.core.on('core:module:load', self._onCoreModuleLoad)

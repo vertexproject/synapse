@@ -28,7 +28,7 @@ class Node:
         # if set, the node is complete.
         self.ndef = None
         self.form = None
-        self.runt = None
+        self.isrunt = None
 
         self.tags = {}
         self.props = {}
@@ -41,7 +41,7 @@ class Node:
 
         if self.ndef is not None:
             self.form = self.snap.model.form(self.ndef[0])
-            self.runt = self.form.isrunt
+            self.isrunt = self.form.isrunt
 
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
@@ -166,7 +166,7 @@ class Node:
             await self.snap.warn(f'NoSuchProp: name={name}')
             return False
 
-        if self.runt:
+        if self.isrunt:
             if prop.info.get('ro'):
                 raise s_exc.IsRuntForm(mesg='Cannot set read-only props on runt nodes',
                                        form=self.form.full, prop=name, valu=valu)
@@ -288,7 +288,7 @@ class Node:
             await self.snap.warn(f'No Such Property: {name}')
             return False
 
-        if self.runt:
+        if self.isrunt:
             if prop.info.get('ro'):
                 raise s_exc.IsRuntForm(mesg='Cannot delete read-only props on runt nodes',
                                        form=self.form.full, prop=name)
@@ -367,7 +367,7 @@ class Node:
 
     async def addTag(self, tag, valu=(None, None)):
 
-        if self.runt:
+        if self.isrunt:
             raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.',
                                    form=self.form.full, tag=tag)
 
@@ -446,7 +446,7 @@ class Node:
 
         name = '.'.join(path)
 
-        if self.runt:
+        if self.isrunt:
             raise s_exc.IsRuntForm(mesg='Cannot delete tags from runt nodes.',
                                    form=self.form.full, tag=tag)
 
@@ -502,7 +502,7 @@ class Node:
 
         formname, formvalu = self.ndef
 
-        if self.runt:
+        if self.isrunt:
             raise s_exc.IsRuntForm(mesg='Cannot delete runt nodes',
                                    form=formname, valu=formvalu)
 

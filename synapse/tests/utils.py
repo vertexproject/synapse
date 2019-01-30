@@ -260,7 +260,17 @@ class TestModule(s_module.CoreModule):
         self._runtsByPropValu = collections.defaultdict(list)
         await self._initTestRunts()
 
-        self.core.addRuntLiftHelp(self.model.form('test:runt'), self._testRuntLiftHelp)
+        # Add runt lift helpers
+        for form in ('test:runt',):
+            form = self.model.form(form)
+            self.core.addRuntLift(form.full, self._testRuntLift)
+            for name, prop in form.props.items():
+                pfull = prop.full
+                # universal properties are indexed separately.
+                univ = prop.univ
+                if univ:
+                    pfull = form.full + univ
+                self.core.addRuntLift(pfull, self._testRuntLift)
         self.core.addRuntPropSet(self.model.prop('test:runt:lulz'), self._testRuntPropSetLulz)
         self.core.addRuntPropDel(self.model.prop('test:runt:lulz'), self._testRuntPropDelLulz)
 
@@ -268,7 +278,7 @@ class TestModule(s_module.CoreModule):
         for name in items:
             await snap.addNode('teststr', name)
 
-    async def _testRuntLiftHelp(self, full, valu=None, cmpr=None):
+    async def _testRuntLift(self, full, valu=None, cmpr=None):
         # runt lift helpers must decide what comparators they support
         if cmpr is not None and cmpr != '=':
             raise s_exc.BadCmprValu(mesg='Test runts do not support cmpr which is not equality',

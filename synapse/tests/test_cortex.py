@@ -2448,5 +2448,5 @@ class CortexTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadCmprValu, core.eval('test:runt~="b.*"').list())
             await self.asyncraises(s_exc.BadCmprValu, core.eval('test:runt:tick*range=(1999, 2001)').list())
 
-            # Sad path for underlying Cortex.runRuntLiftHelp
-            await self.agenraises(s_exc.NoSuchLift, core.runRuntLiftHelp('test:newp', 'newp'))
+            # Sad path for underlying Cortex.runRuntLift
+            await self.agenraises(s_exc.NoSuchLift, core.runRuntLift('test:newp', 'newp'))

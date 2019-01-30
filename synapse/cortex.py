@@ -625,20 +625,20 @@ class Cortex(s_cell.Cell):
         # TODO allow name wild cards
         self.ontagdels[name].append(func)
 
-    def addRuntLiftHelp(self, form, func):
+    def addRuntLift(self, prop, func):
         '''
-        Register a lift helper for a given form (and his sub props)
-        '''
-        self._runtLiftFuncs[form.full] = func
-        for name, prop in form.props.items():
-            pfull = prop.full
-            # universal properties are indexed separately.
-            univ = prop.univ
-            if univ:
-                pfull = form.full + univ
-            self._runtLiftFuncs[pfull] = func
+        Register a runt lift helper for a given prop.
 
-    async def runRuntLiftHelp(self, full, valu=None, cmpr=None):
+        Args:
+            prop (str): Full property name for the prop to register the helper for.
+            func:
+
+        Returns:
+            None: None.
+        '''
+        self._runtLiftFuncs[prop] = func
+
+    async def runRuntLift(self, full, valu=None, cmpr=None):
         '''
         Execute a runt lift function.
 

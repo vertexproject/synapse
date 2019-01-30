@@ -551,7 +551,7 @@ class Snap(s_base.Base):
 
     async def getRuntNodes(self, full, valu=None, cmpr='='):
 
-        async for buid, rows in self.core.runRuntLiftHelp(full, valu, cmpr):
+        async for buid, rows in self.core.runRuntLift(full, valu, cmpr):
             node = s_node.Node(self, buid, rows)
             if node.ndef is not None:
                 yield node
