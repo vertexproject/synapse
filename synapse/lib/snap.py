@@ -269,11 +269,14 @@ class Snap(s_base.Base):
         prop = self.model.prop(full)
         if prop is None:
             raise s_exc.NoSuchProp(name=full)
-
-        lops = prop.getLiftOps(valu, cmpr=cmpr)
-        cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
-        async for row, node in self.getLiftNodes(lops, prop.name, cmpf):
-            yield node
+        if prop.isrunt:
+            async for node in self.getRuntNodes(full, valu, cmpr):
+                yield node
+        else:
+            lops = prop.getLiftOps(valu, cmpr=cmpr)
+            cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
+            async for row, node in self.getLiftNodes(lops, prop.name, cmpf):
+                yield node
 
     async def _getNodesByType(self, name, valu=None, addform=True):
 
@@ -400,6 +403,12 @@ class Snap(s_base.Base):
         '''
         form, norm, info, buid = fnib
 
+        if form.isrunt:
+            raise s_exc.IsRuntForm(mesg='Cannot make runt nodes.',
+                                   form=form.full, prop=norm)
+
+        if props is None:
+            props = {}
         # Check if this buid is already under construction
         node = editatom.getNodeBeingMade(buid)
         if node is not None:
@@ -539,6 +548,13 @@ class Snap(s_base.Base):
         genr = self.getLiftRows(lops)
         async for node in self.getRowNodes(genr, rawprop, cmpr):
             yield node
+
+    async def getRuntNodes(self, full, valu=None, cmpr='='):
+
+        async for buid, rows in self.core.runRuntLift(full, valu, cmpr):
+            node = s_node.Node(self, buid, rows)
+            if node.ndef is not None:
+                yield node
 
     async def getLiftRows(self, lops):
         '''

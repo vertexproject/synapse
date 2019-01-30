@@ -528,6 +528,10 @@ class Cortex(s_cell.Cell):
         self.ontagadds = collections.defaultdict(list)
         self.ontagdels = collections.defaultdict(list)
 
+        self._runtLiftFuncs = {}
+        self._runtPropSetFuncs = {}
+        self._runtPropDelFuncs = {}
+
         await self.addCoreMods(s_modules.coremods)
 
         mods = self.conf.get('modules')
@@ -620,6 +624,69 @@ class Cortex(s_cell.Cell):
         '''
         # TODO allow name wild cards
         self.ontagdels[name].append(func)
+
+    def addRuntLift(self, prop, func):
+        '''
+        Register a runt lift helper for a given prop.
+
+        Args:
+            prop (str): Full property name for the prop to register the helper for.
+            func:
+
+        Returns:
+            None: None.
+        '''
+        self._runtLiftFuncs[prop] = func
+
+    async def runRuntLift(self, full, valu=None, cmpr=None):
+        '''
+        Execute a runt lift function.
+
+        Args:
+            full (str): Property to lift by.
+            valu:
+            cmpr:
+
+        Returns:
+            bytes, list: Yields bytes, list tuples where the list contains a series of
+                key/value pairs which are used to construct a Node object.
+
+        '''
+        func = self._runtLiftFuncs.get(full)
+        if func is None:
+            raise s_exc.NoSuchLift(mesg='No runt lift implemented for requested property.',
+                                   full=full, valu=valu, cmpr=cmpr)
+
+        async for buid, rows in func(full, valu, cmpr):
+            yield buid, rows
+
+    def addRuntPropSet(self, prop, func):
+        '''
+        Register a prop set helper for a runt form
+        '''
+        self._runtPropSetFuncs[prop.full] = func
+
+    async def runRuntPropSet(self, node, prop, valu):
+        func = self._runtPropSetFuncs.get(prop.full)
+        if func is None:
+            raise s_exc.IsRuntForm(mesg='No prop:set func set for runt property.',
+                                   prop=prop.full, valu=valu, ndef=node.ndef)
+        ret = await s_coro.ornot(func, node, prop, valu)
+        return ret
+
+    def addRuntPropDel(self, prop, func):
+        '''
+        Register a prop set helper for a runt form
+        '''
+        self._runtPropDelFuncs[prop.full] = func
+
+    async def runRuntPropDel(self, node, prop):
+        func = self._runtPropDelFuncs.get(prop.full)
+        if func is None:
+            raise s_exc.IsRuntForm(mesg='No prop:del func set for runt property.',
+                                   prop=prop.full, ndef=node.ndef)
+        ret = await s_coro.ornot(func, node, prop)
+        return ret
 
     async def runTagAdd(self, node, tag, valu):
         for func in self.ontagadds.get(tag, ()):
@@ -1341,7 +1408,7 @@ class Cortex(s_cell.Cell):
             if modu is None:
                 continue
 
-            added.append(modu)
+            added.append((ctor, modu))
 
             # does the module carry have a data model?
             mdef = modu.getModelDefs()
@@ -1353,8 +1420,9 @@ class Cortex(s_cell.Cell):
 
         # now that we've loaded all their models
         # we can call their init functions
-        for modu in added:
+        for ctor, modu in added:
             await s_coro.ornot(modu.initCoreModule)
+            await self.fire('core:module:load', module=ctor)
 
     async def loadCoreModule(self, ctor, conf=None):
         '''
@@ -1372,7 +1440,8 @@ class Cortex(s_cell.Cell):
         mdefs = modu.getModelDefs()
         self.model.addDataModels(mdefs)
 
-        await modu.initCoreModule()
+        await s_coro.ornot(modu.initCoreModule)
+        await self.fire('core:module:load', module=ctor)
 
     def _loadCoreModule(self, ctor):
 
