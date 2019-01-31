@@ -653,3 +653,59 @@ class InfotechModelTest(s_t_utils.SynTest):
                         self.nn(node.get('reg'))
                         self.eq(node.get('reg:key'), key)
                         self.eq(node.get(ekey), valu)
+
+    async def test_it_app_yara(self):
+
+        async with self.getTestCore() as core:
+
+            rule = s_common.guid()
+            opts = {'vars': {'rule': rule}}
+
+            nodes = await core.eval('[ it:app:yara:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts).list()
+
+            self.len(1, nodes)
+            self.eq('foo', nodes[0].get('name'))
+            self.eq('gronk', nodes[0].get('text'))
+            self.eq(0x10000200003, nodes[0].get('version'))
+
+            nodes = await core.eval('[ it:app:yara:match=($rule, "*") :version=1.2.3 ]', opts=opts).list()
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.eq(rule, nodes[0].get('rule'))
+            self.eq(0x10000200003, nodes[0].get('version'))
+
+    async def test_it_app_snort(self):
+
+        async with self.getTestCore() as core:
+
+            hit = s_common.guid()
+            rule = s_common.guid()
+            flow = s_common.guid()
+            host = s_common.guid()
+            opts = {'vars': {'rule': rule, 'flow': flow, 'host': host, 'hit': hit}}
+
+            nodes = await core.eval('[ it:app:snort:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts).list()
+
+            self.len(1, nodes)
+            self.eq('foo', nodes[0].get('name'))
+            self.eq('gronk', nodes[0].get('text'))
+            self.eq(0x10000200003, nodes[0].get('version'))
+
+            nodes = await core.eval('[ it:app:snort:hit=$hit :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0" :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host :version=1.2.3 ]', opts=opts).list()
+            self.len(1, nodes)
+            self.eq(rule, nodes[0].get('rule'))
+            self.eq(flow, nodes[0].get('flow'))
+            self.eq(host, nodes[0].get('sensor'))
+            self.eq(1420070400000, nodes[0].get('time'))
+
+            self.eq('tcp://[::ffff:1.2.3.4]:0', nodes[0].get('src'))
+            self.eq(0, nodes[0].get('src:port'))
+            self.eq(0x01020304, nodes[0].get('src:ipv4'))
+            self.eq('::ffff:1.2.3.4', nodes[0].get('src:ipv6'))
+
+            self.eq('tcp://[::ffff:5.5.5.5]:80', nodes[0].get('dst'))
+            self.eq(80, nodes[0].get('dst:port'))
+            self.eq(0x05050505, nodes[0].get('dst:ipv4'))
+            self.eq('::ffff:5.5.5.5', nodes[0].get('dst:ipv6'))
+
+            self.eq(0x10000200003, nodes[0].get('version'))

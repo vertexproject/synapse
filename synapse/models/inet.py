@@ -67,6 +67,9 @@ class Addr(s_types.Type):
         orig = valu
         subs = {}
 
+        # no protos use case sensitivity yet...
+        valu = valu.lower()
+
         proto = 'tcp'
         parts = valu.split('://', 1)
         if len(parts) == 2:
@@ -97,7 +100,14 @@ class Addr(s_types.Type):
             if match:
                 ipv6, port = match.groups()
 
-                ipv6 = self.modl.type('inet:ipv6').norm(ipv6)[0]
+                ipv6, v6info = self.modl.type('inet:ipv6').norm(ipv6)
+
+                v6subs = v6info.get('subs')
+                if v6subs is not None:
+                    v6v4addr = v6subs.get('ipv4')
+                    if v6v4addr is not None:
+                        subs['ipv4'] = v6v4addr
+
                 port = self.modl.type('inet:port').norm(port)[0]
                 subs['ipv6'] = ipv6
                 subs['port'] = port

@@ -554,6 +554,9 @@ class CortexTest(s_t_utils.SynTest):
                 await self.agenlen(2, core.eval('.created*range=(2010, 3001)'))
                 await self.agenlen(2, core.eval('.created*range=("2010", "?")'))
 
+            # The .created time is ro
+            await self.asyncraises(s_exc.ReadOnlyProp, core.eval(f'.created="{created}" [.created=3001]').list())
+
             # Open another snap to test some more default value behavior
             async with await core.snap() as snap:
                 # Grab an updated reference to the first node
@@ -827,6 +830,10 @@ class CortexTest(s_t_utils.SynTest):
                 splice[1].pop('user', None)
                 splice[1].pop('time', None)
                 splices.append(splice)
+
+            # Ensure the splices are unique
+            self.len(len(splices), {s_msgpack.en(s) for s in splices})
+
             # Check to ensure a few expected splices exist
             mesg = ('node:add', {'ndef': ('teststr', 'hello')})
             self.isin(mesg, splices)
