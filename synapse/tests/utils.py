@@ -122,6 +122,8 @@ testmodel = {
 
         ('testtime', ('time', {}), {}),
 
+        ('testival', ('ival', {}), {}),
+
         ('testint', ('int', {}), {}),
         ('teststr', ('str', {}), {}),
         ('testauto', ('str', {}), {}),
@@ -206,6 +208,7 @@ testmodel = {
         ('testauto', {}, ()),
         ('testhexa', {}, ()),
         ('testhex4', {}, ()),
+        ('testival', {}, ()),
 
         ('pivtarg', {}, (
             ('name', ('str', {}), {}),
