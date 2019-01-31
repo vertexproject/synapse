@@ -554,6 +554,9 @@ class CortexTest(s_t_utils.SynTest):
                 await self.agenlen(2, core.eval('.created*range=(2010, 3001)'))
                 await self.agenlen(2, core.eval('.created*range=("2010", "?")'))
 
+            # The .created time is ro
+            await self.asyncraises(s_exc.ReadOnlyProp, core.eval(f'.created="{created}" [.created=3001]').list())
+
             # Open another snap to test some more default value behavior
             async with await core.snap() as snap:
                 # Grab an updated reference to the first node
@@ -827,6 +830,10 @@ class CortexTest(s_t_utils.SynTest):
                 splice[1].pop('user', None)
                 splice[1].pop('time', None)
                 splices.append(splice)
+
+            # Ensure the splices are unique
+            self.len(len(splices), {s_msgpack.en(s) for s in splices})
+
             # Check to ensure a few expected splices exist
             mesg = ('node:add', {'ndef': ('teststr', 'hello')})
             self.isin(mesg, splices)
@@ -2331,3 +2338,122 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, await core.storm('teststr +teststr*in=(a, c)').list())
             self.len(1, await core.storm('teststr +teststr*in=(a, d)').list())
             self.len(3, await core.storm('teststr +teststr*in=(a, b, c)').list())
+
+    async def test_runt(self):
+        async with self.getTestCore() as core:
+
+            # Ensure that lifting by form/prop/values works.
+            nodes = await core.eval('test:runt').list()
+            self.len(4, nodes)
+
+            nodes = await core.eval('test:runt.created').list()
+            self.len(4, nodes)
+
+            nodes = await core.eval('test:runt:tick=2010').list()
+            self.len(2, nodes)
+
+            nodes = await core.eval('test:runt:tick=2001').list()
+            self.len(1, nodes)
+
+            nodes = await core.eval('test:runt:tick=2019').list()
+            self.len(0, nodes)
+
+            nodes = await core.eval('test:runt:lulz="beep.sys"').list()
+            self.len(1, nodes)
+
+            nodes = await core.eval('test:runt:lulz').list()
+            self.len(2, nodes)
+
+            nodes = await core.eval('test:runt:tick=$foo', {'vars': {'foo': '2010'}}).list()
+            self.len(2, nodes)
+
+            # Ensure that a lift by a universal property doesn't lift a runt node
+            # accidentally.
+            nodes = await core.eval('.created').list()
+            self.ge(len(nodes), 1)
+            self.notin('test:ret', {node.ndef[0] for node in nodes})
+
+            # Ensure we can do filter operations on runt nodes
+            nodes = await core.eval('test:runt +:tick*range=(1999, 2003)').list()
+            self.len(1, nodes)
+
+            nodes = await core.eval('test:runt -:tick*range=(1999, 2003)').list()
+            self.len(3, nodes)
+
+            # Ensure we can pivot to/from runt nodes
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 'beep.sys')
+
+            nodes = await core.eval('test:runt :lulz -> teststr').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('teststr', 'beep.sys'))
+
+            nodes = await core.eval('teststr -> test:runt:lulz').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:runt', 'beep'))
+
+            # Lift by ndef/iden/opts does not work since runt support is not plumbed
+            # into any caching which those lifts perform.
+            ndef = ('test:runt', 'blah')
+            iden = '15e33ccff08f9f96b5cea9bf0bcd2a55a96ba02af87f8850ba656f2a31429224'
+            nodes = await core.eval(f'iden {iden}').list()
+            self.len(0, nodes)
+
+            nodes = await core.eval('', {'idens': [iden]}).list()
+            self.len(0, nodes)
+
+            nodes = await core.eval('', {'ndefs': [ndef]}).list()
+            self.len(0, nodes)
+
+            # Ensure that add/edit a read-only runt prop fails, whether or not it exists.
+            await self.asyncraises(s_exc.IsRuntForm,
+                                   core.eval('test:runt=beep [:tick=3001]').list())
+            await self.asyncraises(s_exc.IsRuntForm,
+                                   core.eval('test:runt=woah [:tick=3001]').list())
+
+            # Ensure that we can add/edit secondary props which has a callback.
+            nodes = await core.eval('test:runt=beep [:lulz=beepbeep.sys]').list()
+            self.eq(nodes[0].get('lulz'), 'beepbeep.sys')
+            await nodes[0].set('lulz', 'beepbeep.sys')  # We can do no-operation edits
+            self.eq(nodes[0].get('lulz'), 'beepbeep.sys')
+
+            # We can set props which were not there previously
+            nodes = await core.eval('test:runt=woah [:lulz=woah.sys]').list()
+            self.eq(nodes[0].get('lulz'), 'woah.sys')
+
+            # A edit may throw an exception due to some prop-specific normalization reason.
+            await self.asyncraises(s_exc.BadPropValu, core.eval('test:runt=woah [:lulz=no.way]').list())
+
+            # Setting a property which has no callback or ro fails.
+            await self.asyncraises(s_exc.IsRuntForm, core.eval('test:runt=woah [:newp=pennywise]').list())
+
+            # Ensure that delete a read-only runt prop fails, whether or not it exists.
+            await self.asyncraises(s_exc.IsRuntForm,
+                                   core.eval('test:runt=beep [-:tick]').list())
+            await self.asyncraises(s_exc.IsRuntForm,
+                                   core.eval('test:runt=woah [-:tick]').list())
+
+            # Ensure that we can delete a secondary prop which has a callback.
+            nodes = await core.eval('test:runt=beep [-:lulz]').list()
+            self.none(nodes[0].get('lulz'))
+
+            nodes = await core.eval('test:runt=woah [-:lulz]').list()
+            self.none(nodes[0].get('lulz'))
+
+            # Deleting a property which has no callback or ro fails.
+            await self.asyncraises(s_exc.IsRuntForm, core.eval('test:runt=woah [-:newp]').list())
+
+            # # Ensure that adding tags on runt nodes fails
+            await self.asyncraises(s_exc.IsRuntForm, core.eval('test:runt=beep [+#hehe]').list())
+            await self.asyncraises(s_exc.IsRuntForm, core.eval('test:runt=beep [-#hehe]').list())
+
+            # Ensure that adding / deleting test runt nodes fails
+            await self.asyncraises(s_exc.IsRuntForm, core.eval('[test:runt=" oh MY! "]').list())
+            await self.asyncraises(s_exc.IsRuntForm, core.eval('test:runt=beep | delnode').list())
+
+            # Ensure that non-equality based lift comparators for the test runt nodes fails.
+            await self.asyncraises(s_exc.BadCmprValu, core.eval('test:runt~="b.*"').list())
+            await self.asyncraises(s_exc.BadCmprValu, core.eval('test:runt:tick*range=(1999, 2001)').list())
+
+            # Sad path for underlying Cortex.runRuntLift
+            await self.agenraises(s_exc.NoSuchLift, core.runRuntLift('test:newp', 'newp'))
