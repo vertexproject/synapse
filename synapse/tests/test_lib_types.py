@@ -364,10 +364,10 @@ class TypesTest(s_t_utils.SynTest):
                 await node.addTag('biz', valu=('now-1day', 'now+1day'))
 
                 # node who's primary prop is an ival
-                node = await snap.addNode('testival', (0, 10))
-                node = await snap.addNode('testival', (50, 100))
-                node = await snap.addNode('testival', (1024, 2048))
-                node = await snap.addNode('testival', ("now-2days", "now+4days"))
+                node = await snap.addNode('testival', (0, 10), {'interval': ("now", "now+4days")})
+                node = await snap.addNode('testival', (50, 100), {'interval': ("now-2days", "now+2days")})
+                node = await snap.addNode('testival', (1024, 2048), {'interval': ("2010", "2011")})
+                node = await snap.addNode('testival', ("now-2days", "now+4days"), {'interval': ("201006", "20100605")})
 
                 # tag of tags
                 node = (await alist(snap.getNodesBy('syn:tag', 'bar')))[0]
@@ -408,6 +408,15 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('testival@=("now+1day", "now+6days")'))
             await self.agenlen(1, core.eval('testival@=("now-9days", "now-1day")'))
             await self.agenlen(1, core.eval('testival@=("now-3days", "now+3days")'))
+
+            await self.agenlen(1, core.eval('testival:interval@="now+2days"'))
+            await self.agenlen(0, core.eval('testival:interval@=("now-4days","now-3days")'))
+            await self.agenlen(0, core.eval('testival:interval@=("now+4days","now+6days")'))
+            await self.agenlen(1, core.eval('testival:interval@=("now-3days","now-1days")'))
+            await self.agenlen(1, core.eval('testival:interval@=("now+3days","now+6days")'))
+            await self.agenlen(2, core.eval('testival:interval@="now+1day"'))
+            await self.agenlen(2, core.eval('testival:interval@=("20100602","20100603")'))
+            await self.agenlen(2, core.eval('testival:interval@=("now-10days","now+10days")'))
 
             await self.agenlen(1, core.eval('#foo@=("1999", "2002")'))
             await self.agenlen(1, core.eval('#foo@="2015"'))
