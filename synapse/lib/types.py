@@ -68,13 +68,13 @@ class Type:
         '''
         return None
 
-    def getLiftOps(self, valu, cmpr):
+    def getLiftOps(self, cmpr):
         '''
         If this type has special lift operations it needs to do (like a regex
         search), that will be handled by a sub class. Base types with no special
         needs can let the Prop/Univ/Form classes handle the generic lift case.
         '''
-        return None, None
+        return None
 
     def _normStormNode(self, node):
         return self.norm(node.ndef[1])
@@ -789,11 +789,10 @@ class Ival(Type):
             ('interval', norm),
         )
 
-    def getLiftOps(self, valu, cmpr):
+    def getLiftOps(self, cmpr):
         if cmpr != '@=':
-            return None, None
-        norm, _ = self.norm(valu)
-        return 'ival', norm
+            return None
+        return 'ival'
 
     #def _normPyNone(self, valu):
         # none is an ok interval (unknown...)
@@ -1235,10 +1234,10 @@ class Str(StrBase):
         if enumstr is not None:
             self.envals = enumstr.split(',')
 
-    def getLiftOps(self, valu, cmpr):
+    def getLiftOps(self, cmpr):
         if cmpr == '~=':
-            return 're', valu
-        return None, None
+            return 're'
+        return None
 
     def indxByPref(self, valu):
 
@@ -1341,8 +1340,7 @@ class Time(IntBase):
         return self.indxByRange(norm)
 
     def _ctorCmprAt(self, valu):
-        norm, _ = self.modl.types.get('ival').norm(valu)
-        return self._ctorCmprRange(norm)
+        return self.modl.types.get('ival')._ctorCmprAt(valu)
 
     def _normPyStr(self, valu):
 

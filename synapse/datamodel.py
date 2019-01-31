@@ -144,10 +144,18 @@ class Prop(PropBase):
                 ('indx', ('byprop', self.pref, iops)),
             )
 
-        lopf, lopv = self.type.getLiftOps(valu, cmpr)
+        # TODO: In an ideal world, this would get smashed down into the self.type.getLiftOps
+        # but since doing so breaks existing types, and fixing those could cause a cascade
+        # of fun failures, we'll put this off until another flag day
+        if cmpr == '~=':
+            return (
+                ('prop:re', (self.form.name, self.name, valu, {})),
+            )
+
+        lopf = self.type.getLiftOps(cmpr)
         if lopf is not None:
             return (
-                ('prop:' + lopf, (self.form.name, self.name, lopv, {})),
+                ('prop:' + lopf, (self.form.name, self.name, valu, {})),
             )
 
         iops = self.type.getIndxOps(valu, cmpr=cmpr)
@@ -200,10 +208,18 @@ class Univ(PropBase):
                 ('indx', ('byuniv', self.pref, iops)),
             )
 
-        lopf, lopv = self.type.getLiftOps(valu, cmpr)
+        # TODO: In an ideal world, this would get smashed down into the self.type.getLiftOps
+        # but since doing so breaks existing types, and fixing those could cause a cascade
+        # of fun failures, we'll put this off until another flag day
+        if cmpr == '~=':
+            return (
+                ('univ:re', (self.name, valu, {})),
+            )
+
+        lopf = self.type.getLiftOps(cmpr)
         if lopf is not None:
             return (
-                ('univ:' + lopf, (self.name, lopv, {})),
+                ('univ:' + lopf, (self.name, valu, {})),
             )
 
         iops = self.type.getIndxOps(valu, cmpr)
@@ -316,10 +332,18 @@ class Form:
                 ('indx', ('byprop', self.pref, iops)),
             )
 
-        lopf, lopv = self.type.getLiftOps(valu, cmpr)
+        # TODO: In an ideal world, this would get smashed down into the self.type.getLiftOps
+        # but since doing so breaks existing types, and fixing those could cause a cascade
+        # of fun failures, we'll put this off until another flag day
+        if cmpr == '~=':
+            return (
+                ('form:re', (self.name, valu, {})),
+            )
+
+        lopf = self.type.getLiftOps(cmpr)
         if lopf is not None:
             return (
-                ('form:' + lopf, (self.name, lopv, {})),
+                ('form:' + lopf, (self.name, valu, {})),
             )
 
         iops = self.type.getIndxOps(valu, cmpr)
