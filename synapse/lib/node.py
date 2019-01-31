@@ -432,7 +432,6 @@ class Node:
 
         await self._setTagProp(name, norm, indx, info)
 
-        await self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
         await self.snap.core.runTagAdd(self, name, norm)
         await self.snap.core.triggers.run(self, 'tag:add', info={'form': self.form.name, 'tag': name})
 
