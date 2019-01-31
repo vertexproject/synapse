@@ -93,7 +93,7 @@ class DupIndx (SynErr): pass
 class DupUserName(SynErr): pass
 class DupRoleName(SynErr): pass
 
-class IsRuntProp(SynErr): pass
+class IsRuntForm(SynErr): pass
 
 class MustBeLocal(SynErr): pass
 

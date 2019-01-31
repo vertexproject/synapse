@@ -85,6 +85,10 @@ class OuModule(s_module.CoreModule):
                     ('us:cage', ('gov:us:cage', {}), {
                         'doc': 'The Commercial and Government Entity (CAGE) code for the organization.',
                     }),
+                    ('founded', ('time', {}), {
+                        'doc': 'The date on which the org was founded.'}),
+                    ('disolved', ('time', {}), {
+                        'doc': 'The date on which the org was disolved.'}),
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary url for the organization.',
                     }),
@@ -219,7 +223,7 @@ class OuModule(s_module.CoreModule):
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which created/managed the conference.',
                     }),
-                    ('name', ('str', {'lower': True, 'req': True}), {
+                    ('name', ('str', {'lower': True}), {
                         'doc': 'The full name of the conference.',
                         'ex': 'decfon 2017',
                     }),

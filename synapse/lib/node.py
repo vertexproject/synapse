@@ -28,6 +28,7 @@ class Node:
         # if set, the node is complete.
         self.ndef = None
         self.form = None
+        self.isrunt = None
 
         self.tags = {}
         self.props = {}
@@ -40,6 +41,7 @@ class Node:
 
         if self.ndef is not None:
             self.form = self.snap.model.form(self.ndef[0])
+            self.isrunt = self.form.isrunt
 
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
@@ -164,6 +166,12 @@ class Node:
             await self.snap.warn(f'NoSuchProp: name={name}')
             return False
 
+        if self.isrunt:
+            if prop.info.get('ro'):
+                raise s_exc.IsRuntForm(mesg='Cannot set read-only props on runt nodes',
+                                       form=self.form.full, prop=name, valu=valu)
+            return await self.snap.core.runRuntPropSet(self, prop, valu)
+
         curv = self.props.get(name)
 
         # normalize the property value...
@@ -280,6 +288,12 @@ class Node:
             await self.snap.warn(f'No Such Property: {name}')
             return False
 
+        if self.isrunt:
+            if prop.info.get('ro'):
+                raise s_exc.IsRuntForm(mesg='Cannot delete read-only props on runt nodes',
+                                       form=self.form.full, prop=name)
+            return await self.snap.core.runRuntPropDel(self, prop)
+
         if not init:
 
             if prop.info.get('ro'):
@@ -352,6 +366,11 @@ class Node:
         return retn
 
     async def addTag(self, tag, valu=(None, None)):
+
+        if self.isrunt:
+            raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.',
+                                   form=self.form.full, tag=tag)
+
         path = s_chop.tagpath(tag)
 
         name = '.'.join(path)
@@ -413,7 +432,6 @@ class Node:
 
         await self._setTagProp(name, norm, indx, info)
 
-        await self.snap.splice('tag:add', ndef=self.ndef, tag=name, valu=norm)
         await self.snap.core.runTagAdd(self, name, norm)
         await self.snap.core.triggers.run(self, 'tag:add', info={'form': self.form.name, 'tag': name})
 
@@ -426,6 +444,10 @@ class Node:
         path = s_chop.tagpath(tag)
 
         name = '.'.join(path)
+
+        if self.isrunt:
+            raise s_exc.IsRuntForm(mesg='Cannot delete tags from runt nodes.',
+                                   form=self.form.full, tag=tag)
 
         curv = self.tags.pop(name, s_common.novalu)
         if curv is s_common.novalu:
@@ -478,6 +500,10 @@ class Node:
         '''
 
         formname, formvalu = self.ndef
+
+        if self.isrunt:
+            raise s_exc.IsRuntForm(mesg='Cannot delete runt nodes',
+                                   form=formname, valu=formvalu)
 
         tags = [(len(t), t) for t in self.tags.keys()]
 
