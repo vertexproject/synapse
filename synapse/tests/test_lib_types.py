@@ -363,6 +363,12 @@ class TypesTest(s_t_utils.SynTest):
                 node = await snap.addNode('teststr', 'e', {'tick': 'now-3days', '.seen': ('now+1day', 'now+5days')})
                 await node.addTag('biz', valu=('now-1day', 'now+1day'))
 
+                # node who's primary prop is an ival
+                node = await snap.addNode('testival', (0, 10))
+                node = await snap.addNode('testival', (50, 100))
+                node = await snap.addNode('testival', (1024, 2048))
+                node = await snap.addNode('testival', ("now-2days", "now+4days"))
+
                 # tag of tags
                 node = (await alist(snap.getNodesBy('syn:tag', 'bar')))[0]
                 await node.addTag('vert.proj', valu=('20110605', 'now'))
@@ -395,6 +401,13 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(2, core.eval('.seen@=(8900, 9500)'))
             await self.agenlen(1, core.eval('.seen@=("2004", "20050201")'))
             await self.agenlen(2, core.eval('.seen@=("now", "-3 days")'))
+
+            await self.agenlen(1, core.eval('testival@=1970'))
+            await self.agenlen(4, core.eval('testival@=("now+10days", 1970)'))
+            await self.agenlen(1, core.eval('testival@="now"'))
+            await self.agenlen(1, core.eval('testival@=("now+1day", "now+6days")'))
+            await self.agenlen(1, core.eval('testival@=("now-9days", "now-1day")'))
+            await self.agenlen(1, core.eval('testival@=("now-3days", "now+3days")'))
 
             await self.agenlen(1, core.eval('#foo@=("1999", "2002")'))
             await self.agenlen(1, core.eval('#foo@="2015"'))

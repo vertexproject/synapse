@@ -183,7 +183,7 @@ class Snap(s_base.Base):
             iops = self.tagtype.getIndxOps(valu, cmpr)
             cmpf = self.tagtype.getLiftHintCmpr(valu, cmpr)
             lops = (
-                ('univ:ival', ('syn:tag', '#' + name, pref, iops)),
+                ('univ:ival', ('#' + name, pref, iops)),
             )
         else:
             iops = self.tagtype.getIndxOps(valu, cmpr)
@@ -625,7 +625,7 @@ class Snap(s_base.Base):
 
             if node.ndef is not None:
                 if cmpr:
-                    if rawprop == node.form:
+                    if rawprop == node.form.name:
                         valu = node.ndef[1]
                     else:
                         valu = node.get(rawprop)

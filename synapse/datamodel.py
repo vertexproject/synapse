@@ -144,17 +144,10 @@ class Prop(PropBase):
                 ('indx', ('byprop', self.pref, iops)),
             )
 
-        # TODO: make types control this more tightly...
-        if cmpr == '~=':
+        lopf, lopv = self.type.getLiftOps(valu, cmpr)
+        if lopf is not None:
             return (
-                ('prop:re', (self.form.name, self.name, valu, {})),
-            )
-
-        # TODO: Until we have the interval tree plumbed through, this stays
-        if cmpr == '@=':
-            norm, _ = self.modl.types.get('ival').norm(valu)
-            return (
-                ('prop:ival', (self.form.name, self.name, norm, {})),
+                ('prop:' + lopf, (self.form.name, self.name, lopv, {})),
             )
 
         iops = self.type.getIndxOps(valu, cmpr=cmpr)
@@ -207,16 +200,10 @@ class Univ(PropBase):
                 ('indx', ('byuniv', self.pref, iops)),
             )
 
-        # TODO: make types control this more tightly...
-        if cmpr == '~=':
+        lopf, lopv = self.type.getLiftOps(valu, cmpr)
+        if lopf is not None:
             return (
-                ('univ:re', (self.name, valu, {})),
-            )
-
-        if cmpr == '@=':
-            norm, _ = self.modl.types.get('ival').norm(valu)
-            return (
-                ('univ:ival', (self.type.name, self.name, norm, {})),
+                ('univ:' + lopf, (self.name, lopv, {})),
             )
 
         iops = self.type.getIndxOps(valu, cmpr)
@@ -329,9 +316,10 @@ class Form:
                 ('indx', ('byprop', self.pref, iops)),
             )
 
-        if cmpr == '~=':
+        lopf, lopv = self.type.getLiftOps(valu, cmpr)
+        if lopf is not None:
             return (
-                ('form:re', (self.name, valu, {})),
+                ('form:' + lopf, (self.name, lopv, {})),
             )
 
         iops = self.type.getIndxOps(valu, cmpr)

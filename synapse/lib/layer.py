@@ -53,6 +53,7 @@ class Layer(s_cell.Cell):
             'form:re': self._liftByFormRe,
             'prop:ival': self._liftByPropIval,
             'univ:ival': self._liftByUnivIval,
+            'form:ival': self._liftByFormIval,
         }
 
         self._stor_funcs = {
@@ -169,23 +170,42 @@ class Layer(s_cell.Cell):
             yield (buid, )
 
     async def _liftByPropIval(self, oper):
-        form, prop, _, _= oper[1]
+        form, prop, _, _ = oper[1]
         count = 0
         async for buid, valu in self.iterPropRows(form, prop):
             count += 1
+
             if not count % FAIR_ITERS:
                 await asyncio.sleep(0)
+
             if type(valu) not in (int, list, tuple):
                 continue
+
             yield (buid, )
 
     async def _liftByUnivIval(self, oper):
-        _, prop, _, _ = oper[1]
+        prop = oper[1][0]
         count = 0
         async for buid, valu in self.iterUnivRows(prop):
             count += 1
+
             if not count % FAIR_ITERS:
                 await asyncio.sleep(0)
+
+            yield (buid, )
+
+    async def _liftByFormIval(self, oper):
+        form = oper[1][0]
+        count = 0
+        async for buid, valu in self.iterFormRows(form):
+            count += 1
+
+            if not count % FAIR_ITERS:
+                await asyncio.sleep(0)
+
+            if type(valu) not in (list, tuple):
+                continue
+
             yield (buid, )
 
     # The following functions are abstract methods that must be implemented by a subclass
