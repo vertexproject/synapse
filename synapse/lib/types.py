@@ -1337,13 +1337,12 @@ class Time(IntBase):
         self.ismax = self.opts.get('ismax')
 
     def indxByIval(self, valu):
-        # Convert this to a range indx
         norm, _ = self.modl.types.get('ival').norm(valu)
         return self.indxByRange(norm)
 
     def _ctorCmprAt(self, valu):
-        # Convert this to a range indx
-        return self.modl.types.get('ival')._ctorCmprAt(valu)
+        norm, _ = self.modl.types.get('ival').norm(valu)
+        return self._ctorCmprRange(norm)
 
     def _normPyStr(self, valu):
 
