@@ -1234,11 +1234,6 @@ class Str(StrBase):
         if enumstr is not None:
             self.envals = enumstr.split(',')
 
-    def getLiftOps(self, cmpr):
-        if cmpr == '~=':
-            return 're'
-        return None
-
     def indxByPref(self, valu):
 
         # doesnt have to be normable...

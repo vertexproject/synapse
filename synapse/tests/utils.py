@@ -219,7 +219,9 @@ testmodel = {
         ('testauto', {}, ()),
         ('testhexa', {}, ()),
         ('testhex4', {}, ()),
-        ('testival', {}, ()),
+        ('testival', {}, (
+            ('interval', ('ival', {}), {}),
+        )),
 
         ('pivtarg', {}, (
             ('name', ('str', {}), {}),
