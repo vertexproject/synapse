@@ -618,6 +618,22 @@ class Cortex(s_cell.Cell):
         # TODO allow name wild cards
         self.ontagadds[name].append(func)
 
+    def offTagAdd(self, name, func):
+        '''
+        Unregister a callback for tag addition.
+        Args:
+            name (str): The name of the tag.
+            func (function): The callback func(node, tagname, tagval).
+
+        '''
+        cblist = self.ontagadds.get(name)
+        if cblist is None:
+            return
+        try:
+            cblist.remove(func)
+        except ValueError:
+            pass
+
     def onTagDel(self, name, func):
         '''
         Register a callback for tag deletion.
