@@ -83,10 +83,12 @@ class LmdbSlabTest(s_t_utils.SynTest):
             async with await s_lmdbslab.Slab.anit(path, map_size=100000, growsize=50000, maxsize=my_maxsize) as slab:
 
                 foo = slab.initdb('foo', dupsort=True)
+                foo2 = slab.initdb('foo2', dupsort=False)
 
                 byts = b'\x00' * 256
                 for i in range(100):
                     slab.put(s_common.guid().encode('utf8'), byts, db=foo)
+                    slab.put(s_common.guid().encode('utf8'), byts, db=foo2)
 
                 count = 0
                 for _, _ in slab.scanByRange(b'', db=foo):
@@ -114,14 +116,17 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 # Trigger a grow/bump in the middle of a dup scan
                 iter = slab.scanByDups(multikey, db=foo)
-                for i in range(25):
-                    next(iter)
+                next(iter)
+
+                iter2 = slab.scanByRange(b'', db=foo2)
+                next(iter2)
 
                 multikey = b'\xff\xff\xff\xff' + s_common.guid().encode('utf8')
                 for i in range(200):
                     slab.put(multikey, s_common.guid().encode('utf8') + byts, dupdata=True, db=foo)
 
-                self.eq(count - 25, sum(1 for _ in iter))
+                self.eq(count - 1, sum(1 for _ in iter))
+                self.eq(99, sum(1 for _ in iter2))
 
                 # Trigger an out-of-space
                 try:
