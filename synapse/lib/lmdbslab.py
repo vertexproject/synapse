@@ -61,7 +61,6 @@ class Slab(s_base.Base):
         self.lenv = lmdb.open(path, **opts)
 
         self.scans = set()
-        self.dbdupsortmap = {id(None): False}  # Keep which open dbs are dupsort
 
         self.holders = 0
 
