@@ -61,7 +61,7 @@ class SlabSeqn:
             int: The next insert offset.
         '''
         indx = 0
-        with s_lmdbslab.Scan(self.lenv, self.db) as curs:
+        with s_lmdbslab.Scan(self.lenv, self.db, dupsort=False) as curs:
             last_key = curs.last_key()
             if last_key is not None:
                 indx = s_common.int64un(last_key) + 1

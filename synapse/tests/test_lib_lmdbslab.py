@@ -118,7 +118,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 iter = slab.scanByDups(multikey, db=foo)
                 next(iter)
 
-                iter2 = slab.scanByRange(b'', db=foo2)
+                iter2 = slab.scanByFull(db=foo2)
                 next(iter2)
 
                 multikey = b'\xff\xff\xff\xff' + s_common.guid().encode('utf8')
