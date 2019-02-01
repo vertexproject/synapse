@@ -39,6 +39,18 @@ async def listen(host, port, onlink, ssl=None):
     server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
     return server
 
+async def unixlisten(path, onlink):
+    info = {'path': path, 'unix': True}
+    async def onconn(reader, writer):
+        link = await Link.anit(reader, writer, info=info)
+        link.schedCoro(onlink(link))
+    return await asyncio.start_unix_server(onconn, path=path)
+
+async def unixconnect(path):
+    reader, writer = await asyncio.open_unix_connection(path=path)
+    info = {'path': path, 'unix': True}
+    return await Link.anit(reader, writer, info=info)
+
 class Link(s_base.Base):
     '''
     A Link() is created to wrap a socket reader/writer.

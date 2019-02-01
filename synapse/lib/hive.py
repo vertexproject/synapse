@@ -319,6 +319,7 @@ class SlabHive(Hive):
         self.db = db
         self.slab = slab
         await Hive.__anit__(self, conf=conf)
+        self.slab.onfini(self.fini)
 
     async def _storLoadHive(self):
 
@@ -587,24 +588,32 @@ class HiveAuth(s_base.Base):
 
         self.node = node
 
-        self.users = await node.open('users')
-        self.roles = await node.open('roles')
-
         self.usersbyiden = {}
         self.rolesbyiden = {}
         self.usersbyname = {}
         self.rolesbyname = {}
 
-        for iden, node in self.roles:
+        roles = await node.open('roles')
+        for iden, node in roles:
             await self._addRoleNode(node)
 
-        for idne, node in self.users:
+        users = await node.open('users')
+        for iden, node in users:
             await self._addUserNode(node)
 
         # initialize an admin user named root
-        if self.getUserByName('root') is None:
-            user = await self.addUser('root')
-            await user.setAdmin(True)
+        root = self.getUserByName('root')
+        if root is None:
+            root = await self.addUser('root')
+
+        await root.setAdmin(True)
+        await root.setLocked(False)
+
+    def users(self):
+        return self.usersbyiden.values()
+
+    def roles(self):
+        return self.rolesbyiden.values()
 
     def role(self, iden):
         return self.rolesbyiden.get(iden)
@@ -684,6 +693,10 @@ class HiveIden(s_base.Base):
         self.info.setdefault('rules', ())
         self.rules = self.info.get('rules', onedit=self._onRulesEdit)
 
+    async def setRules(self, rules):
+        self.rules = list(rules)
+        await self.info.set('rules', rules)
+
     async def addRule(self, rule, indx=None):
 
         rules = list(self.rules)
@@ -719,6 +732,13 @@ class HiveRole(HiveIden):
             if self.iden in user.roles:
                 await user._initFullRules()
 
+    def pack(self):
+        return {
+            'type': 'role',
+            'name': self.name,
+            'rules': self.rules,
+        }
+
 class HiveUser(HiveIden):
 
     async def __anit__(self, auth, node):
@@ -735,10 +755,24 @@ class HiveUser(HiveIden):
         self.admin = self.info.get('admin', onedit=self._onAdminEdit)
         self.locked = self.info.get('locked', onedit=self._onLockedEdit)
 
+        # arbitrary profile data for application layer use
+        prof = await self.node.open('profile')
+        self.profile = await prof.dict()
+
         self.fullrules = []
         self.permcache = s_cache.FixedCache(self._calcPermAllow)
 
         self._initFullRules()
+
+    def pack(self):
+        return {
+            'type': 'user',
+            'name': self.name,
+            'rules': self.rules,
+            'roles': self.roles,
+            'admin': self.admin,
+            'locked': self.locked,
+        }
 
     def _calcPermAllow(self, perm):
         for retn, path in self.fullrules:

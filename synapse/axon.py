@@ -415,6 +415,7 @@ class BlobStor(s_cell.Cell):
     )
 
     async def __anit__(self, dirn: str, conf=None) -> None:  # type: ignore
+
         await s_cell.Cell.__anit__(self, dirn)
 
         self.clonetask = None
@@ -858,6 +859,7 @@ class Axon(s_cell.Cell):
     )
 
     async def __anit__(self, dirn: str, conf=None) -> None:  # type: ignore
+
         await s_cell.Cell.__anit__(self, dirn)
 
         path = s_common.gendir(self.dirn, 'axon.lmdb')
