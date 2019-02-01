@@ -14,6 +14,13 @@ import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 
+class _LmdbDatabase():
+    def __init__(self, db, dupsort):
+        self.db = db
+        self.dupsort = dupsort
+
+_DefaultDB = _LmdbDatabase(None, False)
+
 class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
@@ -158,9 +165,7 @@ class Slab(s_base.Base):
         with self._noCoXact():
             db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
 
-        self.dbdupsortmap[id(db)] = dupsort
-
-        return db
+        return _LmdbDatabase(db, dupsort)
 
     @contextlib.contextmanager
     def _noCoXact(self):
@@ -170,10 +175,10 @@ class Slab(s_base.Base):
         if not self.readonly or self.txnrefcount:
             self._initCoXact()
 
-    def get(self, lkey, db=None):
+    def get(self, lkey, db=_DefaultDB):
         self._acqXactForReading()
         try:
-            return self.xact.get(lkey, db=db)
+            return self.xact.get(lkey, db=db.db)
         finally:
             self._relXactForReading()
 
@@ -184,7 +189,7 @@ class Slab(s_base.Base):
 
     def scanByDups(self, lkey, db=None):
 
-        with Scan(self, db, self.dbdupsortmap[id(db)]) as scan:
+        with Scan(self, db) as scan:
 
             if not scan.set_key(lkey):
                 return
@@ -193,7 +198,7 @@ class Slab(s_base.Base):
 
     def scanByPref(self, byts, db=None):
 
-        with Scan(self, db, self.dbdupsortmap[id(db)]) as scan:
+        with Scan(self, db) as scan:
 
             if not scan.set_range(byts):
                 return
@@ -208,7 +213,7 @@ class Slab(s_base.Base):
 
     def scanByRange(self, lmin, lmax=None, db=None):
 
-        with Scan(self, db, self.dbdupsortmap[id(db)]) as scan:
+        with Scan(self, db) as scan:
 
             if not scan.set_range(lmin):
                 return
@@ -224,7 +229,7 @@ class Slab(s_base.Base):
 
     def scanByFull(self, db=None):
 
-        with Scan(self, db, self.dbdupsortmap[id(db)]) as scan:
+        with Scan(self, db) as scan:
 
             if not scan.first():
                 return
@@ -287,18 +292,21 @@ class Slab(s_base.Base):
         if self.readonly:
             raise s_exc.IsReadOnly()
 
+        if db is None:
+            db = _DefaultDB
+
         try:
             self.dirty = True
 
             if not self.recovering:
                 self._logXactOper(calling_func, lkey, *args, db=db, **kwargs)
 
-            return xact_func(self.xact, lkey, *args, db=db, **kwargs)
+            return xact_func(self.xact, lkey, *args, db=db.db, **kwargs)
 
         except lmdb.MapFullError:
             return self._handle_mapfull()
 
-    def putmulti(self, kvpairs, dupdata=False, append=False, db=None):
+    def putmulti(self, kvpairs, dupdata=False, append=False, db=_DefaultDB):
         if self.readonly:
             raise s_exc.IsReadOnly()
 
@@ -308,7 +316,7 @@ class Slab(s_base.Base):
             if not self.recovering:
                 self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=True, db=db)
 
-            with self.xact.cursor(db=db) as curs:
+            with self.xact.cursor(db=db.db) as curs:
                 retn = curs.putmulti(kvpairs, dupdata=dupdata, append=append)
 
             return retn
@@ -363,15 +371,12 @@ class Scan:
     '''
     A state-object used by Slab.  Not to be instantiated directly.
     '''
-    def __init__(self, slab, db, dupsort):
-        '''
-        Args:
-            dupsort: must match how db was opened
-        '''
-
+    def __init__(self, slab, db):
+        if db is None:
+            db = _DefaultDB
         self.slab = slab
-        self.db = db
-        self.dupsort = dupsort
+        self.db = db.db
+        self.dupsort = db.dupsort
 
         self.atitem = None
         self.bumped = False
