@@ -133,8 +133,8 @@ class LmdbLayer(s_layer.Layer):
             propindx = proputf8 + b'\x00' + indx
 
             if proputf8[0] in (46, 35): # ".univ" or "#tag"
-                self.slab.put(propindx, pvnewval, dupdata=True, db=self.byuniv)
-                self.slab.delete(propindx, pvoldval, db=self.byuniv)
+                self.layrslab.put(propindx, pvnewval, dupdata=True, db=self.byuniv)
+                self.layrslab.delete(propindx, pvoldval, db=self.byuniv)
 
             # <form><00><prop><00><indx>
             bypropkey = fenc + propindx
@@ -142,8 +142,8 @@ class LmdbLayer(s_layer.Layer):
             self.layrslab.put(bypropkey, pvnewval, db=self.byprop)
             self.layrslab.delete(bypropkey, pvoldval, db=self.byprop)
 
-            self.slab.put(newb + proputf8, lval, db=self.bybuid)
-            self.slab.delete(lkey, db=self.bybuid)
+            self.layrslab.put(newb + proputf8, lval, db=self.bybuid)
+            self.layrslab.delete(lkey, db=self.bybuid)
 
     async def _storPropSet(self, oper):
 

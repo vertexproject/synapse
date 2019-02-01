@@ -1287,7 +1287,7 @@ class Cortex(s_cell.Cell):
         '''
         if self.conf.get('storm:log'):
             lvl = self.conf.get('storm:log:level')
-            logger.log(lvl, 'Executing storm query {%s} as [%s]', text, user)
+            logger.log(lvl, 'Executing storm query {%s} as [%s]', text, user.name)
 
     async def getNodeByNdef(self, ndef):
         '''
