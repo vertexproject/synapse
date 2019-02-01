@@ -777,16 +777,6 @@ class Ival(Type):
 
         return cmpr
 
-    def indxByIval(self, valu):
-        if type(valu) not in (list, tuple, int, str):
-            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='@=')
-
-        norm = self.norm(valu)[0]
-
-        return (
-            ('interval', norm),
-        )
-
     def getLiftOps(self, tabl, cmpr, oper):
         if cmpr != '@=':
             return None
