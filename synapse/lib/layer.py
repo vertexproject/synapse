@@ -189,6 +189,9 @@ class Layer(s_cell.Cell):
             if type(valu) not in (list, tuple):
                 continue
 
+            if len(valu) != 2:
+                continue
+
             if not self._cmprIval(ival, valu):
                 continue
 
@@ -206,6 +209,9 @@ class Layer(s_cell.Cell):
             if type(valu) not in (list, tuple):
                 continue
 
+            if len(valu) != 2:
+                continue
+
             if not self._cmprIval(ival, valu):
                 continue
 
@@ -221,6 +227,9 @@ class Layer(s_cell.Cell):
                 await asyncio.sleep(0)
 
             if type(valu) not in (list, tuple):
+                continue
+
+            if len(valu) != 2:
                 continue
 
             if not self._cmprIval(ival, valu):
