@@ -51,10 +51,10 @@ class LmdbLayer(s_layer.Layer):
         maxsize = self.conf.get('lmdb:maxsize')
         growsize = self.conf.get('lmdb:growsize')
 
-        self.slab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize, growsize=growsize,
+        self.layrslab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize, growsize=growsize,
                                                writemap=True, readahead=readahead, readonly=readonly)
 
-        self.onfini(self.slab.fini)
+        self.onfini(self.layrslab.fini)
 
         self.dbs = {}
 
@@ -67,17 +67,17 @@ class LmdbLayer(s_layer.Layer):
         self.byprop = await self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
         self.byuniv = await self.initdb('byuniv', dupsort=True) # <prop>00<indx>=<buid>
         offsdb = await self.initdb('offsets')
-        self.offs = s_slaboffs.SlabOffs(self.slab, offsdb)
+        self.offs = s_slaboffs.SlabOffs(self.layrslab, offsdb)
 
         self.splicedb = await self.initdb('splices')
-        self.splicelog = s_slabseqn.SlabSeqn(self.slab, 'splices')
+        self.splicelog = s_slabseqn.SlabSeqn(self.layrslab, 'splices')
 
     async def commit(self):
 
         if self.splicelist:
             self.splicelog.save(self.splicelist)
 
-        self.slab.forcecommit()
+        self.layrslab.forcecommit()
 
         # wake any splice waiters and clear the splices out...
         if self.splicelist:
@@ -89,7 +89,7 @@ class LmdbLayer(s_layer.Layer):
 
         props = {}
 
-        for lkey, lval in self.slab.scanByPref(buid, db=self.bybuid):
+        for lkey, lval in self.layrslab.scanByPref(buid, db=self.bybuid):
 
             prop = lkey[32:].decode('utf8')
             valu, indx = s_msgpack.un(lval)
@@ -99,7 +99,7 @@ class LmdbLayer(s_layer.Layer):
 
     async def getNodeNdef(self, buid):
         pref = buid + b'*'
-        for lkey, lval in self.slab.scanByPref(buid + b'*', db=self.bybuid):
+        for lkey, lval in self.layrslab.scanByPref(buid + b'*', db=self.bybuid):
             valu, indx = s_msgpack.un(lval)
             return lkey[33:].decode('utf'), valu
 
@@ -112,23 +112,23 @@ class LmdbLayer(s_layer.Layer):
         pvoldval = s_msgpack.en((oldb,))
         pvnewval = s_msgpack.en((newb,))
 
-        for lkey, lval in self.slab.scanByPref(oldb, db=self.bybuid):
+        for lkey, lval in self.layrslab.scanByPref(oldb, db=self.bybuid):
 
             penc = lkey[32:]
             valu, indx = s_msgpack.un(lval)
 
             if penc[0] in (46, 35): # ".univ" or "#tag"
                 byunivkey = penc + indx
-                self.slab.put(byunivkey, pvnewval, db=self.byuniv)
-                self.slab.delete(byunivkey, pvoldval, db=self.byuniv)
+                self.layrslab.put(byunivkey, pvnewval, db=self.byuniv)
+                self.layrslab.delete(byunivkey, pvoldval, db=self.byuniv)
 
             bypropkey = fenc + penc + indx
 
-            self.slab.put(bypropkey, pvnewval, db=self.byprop)
-            self.slab.delete(bypropkey, pvoldval, db=self.byprop)
+            self.layrslab.put(bypropkey, pvnewval, db=self.byprop)
+            self.layrslab.delete(bypropkey, pvoldval, db=self.byprop)
 
-            self.slab.put(newb + penc, lval, db=self.bybuid)
-            self.slab.delete(lkey, db=self.bybuid)
+            self.layrslab.put(newb + penc, lval, db=self.bybuid)
+            self.layrslab.delete(lkey, db=self.bybuid)
 
     async def _storPropSet(self, oper):
 
@@ -156,21 +156,21 @@ class LmdbLayer(s_layer.Layer):
         pvpref = fenc + penc
         pvvalu = s_msgpack.en((buid,))
 
-        byts = self.slab.replace(bpkey, bpval, db=self.bybuid)
+        byts = self.layrslab.replace(bpkey, bpval, db=self.bybuid)
         if byts is not None:
 
             oldv, oldi = s_msgpack.un(byts)
 
-            self.slab.delete(pvpref + oldi, pvvalu, db=self.byprop)
+            self.layrslab.delete(pvpref + oldi, pvvalu, db=self.byprop)
 
             if univ:
                 unkey = penc + oldi
-                self.slab.delete(unkey, pvvalu, db=self.byuniv)
+                self.layrslab.delete(unkey, pvvalu, db=self.byuniv)
 
-        self.slab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
+        self.layrslab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
 
         if univ:
-            self.slab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
+            self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
 
     async def _storPropDel(self, oper):
 
@@ -189,17 +189,17 @@ class LmdbLayer(s_layer.Layer):
 
         univ = info.get('univ')
 
-        byts = self.slab.pop(bpkey, db=self.bybuid)
+        byts = self.layrslab.pop(bpkey, db=self.bybuid)
         if byts is None:
             return
 
         oldv, oldi = s_msgpack.un(byts)
 
         pvvalu = s_msgpack.en((buid,))
-        self.slab.delete(fenc + penc + oldi, pvvalu, db=self.byprop)
+        self.layrslab.delete(fenc + penc + oldi, pvvalu, db=self.byprop)
 
         if univ:
-            self.slab.delete(penc + oldi, pvvalu, db=self.byuniv)
+            self.layrslab.delete(penc + oldi, pvvalu, db=self.byuniv)
 
     async def _liftByIndx(self, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))
@@ -223,19 +223,19 @@ class LmdbLayer(s_layer.Layer):
 
     async def _rowsByEq(self, db, pref, valu):
         lkey = pref + valu
-        for _, byts in self.slab.scanByDups(lkey, db=db):
+        for _, byts in self.layrslab.scanByDups(lkey, db=db):
             yield s_msgpack.un(byts)
 
     async def _rowsByPref(self, db, pref, valu):
         pref = pref + valu
-        for _, byts in self.slab.scanByPref(pref, db=db):
+        for _, byts in self.layrslab.scanByPref(pref, db=db):
             yield s_msgpack.un(byts)
 
     async def _rowsByRange(self, db, pref, valu):
         lmin = pref + valu[0]
         lmax = pref + valu[1]
 
-        for _, byts in self.slab.scanByRange(lmin, lmax, db=db):
+        for _, byts in self.layrslab.scanByRange(lmin, lmax, db=db):
             yield s_msgpack.un(byts)
 
     async def iterFormRows(self, form):
@@ -247,11 +247,11 @@ class LmdbLayer(s_layer.Layer):
         pref = self.encoder[form] + b'\x00'
         penc = self.utf8['*' + form]
 
-        for _, pval in self.slab.scanByPref(pref, db=self.byprop):
+        for _, pval in self.layrslab.scanByPref(pref, db=self.byprop):
 
             buid = s_msgpack.un(pval)[0]
 
-            byts = self.slab.get(buid + penc, db=self.bybuid)
+            byts = self.layrslab.get(buid + penc, db=self.bybuid)
             if byts is None:
                 continue
 
@@ -268,11 +268,11 @@ class LmdbLayer(s_layer.Layer):
         penc = self.utf8[prop]
         pref = self.encoder[form] + self.encoder[prop]
 
-        for _, pval in self.slab.scanByPref(pref, db=self.byprop):
+        for _, pval in self.layrslab.scanByPref(pref, db=self.byprop):
 
             buid = s_msgpack.un(pval)[0]
 
-            byts = self.slab.get(buid + penc, db=self.bybuid)
+            byts = self.layrslab.get(buid + penc, db=self.bybuid)
             if byts is None:
                 continue
 
@@ -287,10 +287,10 @@ class LmdbLayer(s_layer.Layer):
         penc = self.utf8[prop]
         pref = self.encoder[prop]
 
-        for _, pval in self.slab.scanByPref(pref, db=self.byuniv):
+        for _, pval in self.layrslab.scanByPref(pref, db=self.byuniv):
             buid = s_msgpack.un(pval)[0]
 
-            byts = self.slab.get(buid + penc, db=self.bybuid)
+            byts = self.layrslab.get(buid + penc, db=self.bybuid)
             if byts is None:
                 continue
 
@@ -322,6 +322,6 @@ class LmdbLayer(s_layer.Layer):
         }
 
     async def initdb(self, name, dupsort=False):
-        db = self.slab.initdb(name, dupsort)
+        db = self.layrslab.initdb(name, dupsort)
         self.dbs[name] = db
         return db
