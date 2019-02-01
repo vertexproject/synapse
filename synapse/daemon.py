@@ -27,6 +27,7 @@ class Sess(s_base.Base):
 
         self.items = {}
         self.iden = s_common.guid()
+        self.user = None
 
     def getSessItem(self, name):
         return self.items.get(name)
