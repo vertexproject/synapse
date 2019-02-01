@@ -72,6 +72,17 @@ class LmdbLayer(s_layer.Layer):
         self.splicedb = await self.initdb('splices')
         self.splicelog = s_slabseqn.SlabSeqn(self.layrslab, 'splices')
 
+    async def getModelVers(self):
+        byts = self.layrslab.get(b'layer:model:version')
+        if byts is None:
+            return (-1, -1, -1)
+
+        return s_msgpack.un(byts)
+
+    async def setModelVers(self, vers):
+        byts = s_msgpack.en(vers)
+        self.layrslab.put(b'layer:model:version', byts)
+
     async def commit(self):
 
         if self.splicelist:
