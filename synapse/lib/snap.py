@@ -180,11 +180,7 @@ class Snap(s_base.Base):
                 ('indx', ('byuniv', pref, iops)),
             )
         elif valu is not None and cmpr == '@=':
-            iops = self.tagtype.getIndxOps(valu, cmpr)
-            cmpf = self.tagtype.getLiftHintCmpr(valu, cmpr)
-            lops = (
-                ('univ:ival', ('#' + name, pref, iops)),
-            )
+            lops = self.tagtype.getLiftOps('univ', cmpr, (None, '#' + name, valu))
         else:
             iops = self.tagtype.getIndxOps(valu, cmpr)
             lops = (

@@ -68,7 +68,7 @@ class Type:
         '''
         return None
 
-    def getLiftOps(self, cmpr):
+    def getLiftOps(self, tabl, cmpr, oper):
         '''
         If this type has special lift operations it needs to do (like a regex
         search), that will be handled by a sub class. Base types with no special
@@ -745,8 +745,6 @@ class Ival(Type):
         self.timetype = self.modl.type('time')
 
         self.setCmprCtor('@=', self._ctorCmprAt)
-        self.setLiftHintCmprCtor('@=', self._ctorCmprAt)
-        self.indxcmpr['@='] = self.indxByIval
 
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
@@ -789,10 +787,14 @@ class Ival(Type):
             ('interval', norm),
         )
 
-    def getLiftOps(self, cmpr):
+    def getLiftOps(self, tabl, cmpr, oper):
         if cmpr != '@=':
             return None
-        return 'ival'
+        form, prop, valu = oper
+        norm, _ = self.norm(valu)
+        return (
+            (tabl + ':ival', (form, prop, norm)),
+        )
 
     #def _normPyNone(self, valu):
         # none is an ok interval (unknown...)
@@ -1325,7 +1327,6 @@ class Time(IntBase):
 
         self.indxcmpr['@='] = self.indxByIval
         self.setCmprCtor('@=', self._ctorCmprAt)
-        self.setLiftHintCmprCtor('@=', self._ctorCmprAt)
 
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')

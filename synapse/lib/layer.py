@@ -180,8 +180,16 @@ class Layer(s_cell.Cell):
             # yield buid, form, prop, valu
             yield (buid, )
 
+    # TODO: Hack until we get interval trees pushed all the way through
+    def _cmprIval(self, item, othr):
+        if othr[0] >= item[1]:
+            return False
+        if othr[1] <= item[0]:
+            return False
+        return True
+
     async def _liftByPropIval(self, oper):
-        form, prop, _, _ = oper[1]
+        form, prop, ival = oper[1]
         count = 0
         async for buid, valu in self.iterPropRows(form, prop):
             count += 1
@@ -189,13 +197,16 @@ class Layer(s_cell.Cell):
             if not count % FAIR_ITERS:
                 await asyncio.sleep(0)
 
-            if type(valu) not in (int, list, tuple):
+            if type(valu) not in (list, tuple):
+                continue
+
+            if not self._cmprIval(ival, valu):
                 continue
 
             yield (buid, )
 
     async def _liftByUnivIval(self, oper):
-        prop = oper[1][0]
+        _, prop, ival = oper[1]
         count = 0
         async for buid, valu in self.iterUnivRows(prop):
             count += 1
@@ -203,10 +214,16 @@ class Layer(s_cell.Cell):
             if not count % FAIR_ITERS:
                 await asyncio.sleep(0)
 
+            if type(valu) not in (list, tuple):
+                continue
+
+            if not self._cmprIval(ival, valu):
+                continue
+
             yield (buid, )
 
     async def _liftByFormIval(self, oper):
-        form = oper[1][0]
+        _, form, ival = oper[1]
         count = 0
         async for buid, valu in self.iterFormRows(form):
             count += 1
@@ -215,6 +232,9 @@ class Layer(s_cell.Cell):
                 await asyncio.sleep(0)
 
             if type(valu) not in (list, tuple):
+                continue
+
+            if not self._cmprIval(ival, valu):
                 continue
 
             yield (buid, )
