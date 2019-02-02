@@ -517,6 +517,9 @@ class ReIndexCmd(Cmd):
         pars.add_argument('--type', default=None, help='Re-index all properties of a specified type.')
         pars.add_argument('--subs', default=False, action='store_true', help='Re-parse and set sub props.')
         pars.add_argument('--form-counts', default=False, action='store_true', help='Re-calculate all form counts.')
+        pars.add_argument('--fire-handler', default=None, action='store', dest='fire_handler',
+                          help='Fire onAdd/wasSet/runTagAdd commands for a fully qualified form/property'
+                               ' or tag name on inbound nodes.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -574,7 +577,42 @@ class ReIndexCmd(Cmd):
             await snap.printf(f'...done')
             return
 
-        raise s_exc.SynErr('reindex was not told what to do!')
+        if self.opts.fire_handler:
+            obj = None
+            if self.opts.fire_handler.startswith('#'):
+                # Pull tag.... onadd handler???
+                name, _ = runt.snap.model.prop('syn:tag').type.norm(self.opts.fire_handler)
+                tname = '#' + name
+            else:
+                obj = runt.snap.model.prop(self.opts.fire_handler)
+                if obj is None:
+                    raise s_exc.NoSuchName(mesg='WORDS GO HERE',
+                                           name=self.opts.fire_handler)
+
+            async for node, path in genr:
+                if hasattr(obj, 'wasAdded'):
+                    if node.form.full != obj.full:
+                        continue
+                    await obj.wasAdded(node)
+                elif hasattr(obj, 'wasSet'):
+                    if obj.form.name != node.form.name:
+                        continue
+                    valu = node.get(obj.name)
+                    if valu is None:
+                        continue
+                    await obj.wasSet(node, valu)
+                else:
+                    # We're a tag...
+                    valu = node.get(tname)
+                    if valu is None:
+                        continue
+                    await runt.snap.core.runTagAdd(node, name, valu)
+
+                yield node, path
+
+            return
+
+        raise s_exc.SynErr(mesg='reindex was not told what to do!')
 
 
 class MoveTagCmd(Cmd):
