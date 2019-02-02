@@ -5,7 +5,6 @@ import synapse.glob as s_glob
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
-import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.scrape as s_scrape
 
