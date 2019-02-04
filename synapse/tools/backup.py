@@ -4,7 +4,6 @@ import time
 import shutil
 import logging
 import argparse
-import datetime
 
 import lmdb
 import lmdb.tool
@@ -23,13 +22,9 @@ def backup(srcdir, dstdir):
     logger.info(f'Starting backup of [{srcdir}]')
     logger.info(f'Destination dir: [{dstdir}]')
 
-    lmdb_dirs = []
-
     for root, dnames, fnames in os.walk(srcdir, topdown=True):
 
         relpath = os.path.relpath(root, start=srcdir)
-
-        filter_dirs = []
 
         for name in list(dnames):
 
@@ -77,10 +72,17 @@ def backup_lmdb(envpath, dstdir):
     tick = time.time()
 
     # use the builtin lmdb command
-    lmdb.tool.cmd_copy(opts, args[1:])
+    ret = lmdb.tool.cmd_copy(opts, args[1:])
+    logger.warning(f'lmdb ret: {ret}')
 
     tock = time.time()
     logger.info(f'backup took: {tock-tick:.2f} seconds')
+    env.close()
+
+def main(argv):
+    args = parse_args(argv)
+    backup(args.srcdir, args.dstdir)
+    return 0
 
 def parse_args(argv):
     parser = argparse.ArgumentParser()
@@ -89,10 +91,9 @@ def parse_args(argv):
     args = parser.parse_args(argv)
     return args
 
-def main(argv):
-    args = parse_args(argv)
+def _main(argv):  # pragma: no cover
     s_common.setlogging(logger, defval='DEBUG')
-    return backup(args.srcdir, args.dstdir)
+    return main(argv)
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(_main(sys.argv[1:]))

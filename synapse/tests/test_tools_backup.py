@@ -37,7 +37,7 @@ class BackupTest(s_t_utils.SynTest):
 
                 argv = (core.dirn, dirn2)
 
-                s_backup.main(argv)
+                self.eq(0, s_backup.main(argv))
 
                 fpset = self.compare_dirs(core.dirn, dirn2, skipfns=['lock.mdb'])
 
