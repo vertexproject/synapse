@@ -52,6 +52,8 @@ class OuModelTest(s_t_utils.SynTest):
                     'naics': 541715,
                     'url': 'http://www.arrowinc.link',
                     'us:cage': '7qe71',
+                    'founded': '2015',
+                    'disolved': '2019',
                 }
                 node = await snap.addNode('ou:org', guid0, oprops)
                 self.eq(node.ndef[1], guid0),
@@ -63,6 +65,8 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('naics'), '541715')
                 self.eq(node.get('url'), 'http://www.arrowinc.link')
                 self.eq(node.get('us:cage'), '7qe71')
+                self.eq(node.get('founded'), 1420070400000)
+                self.eq(node.get('disolved'), 1546300800000)
 
                 node = (await alist(snap.getNodesBy('ou:name', name)))[0]
                 self.eq(node.ndef[1], normname)
@@ -99,10 +103,22 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('org'), guid0)
                 self.eq(node.get('user'), 'arrowman')
 
-                # ou:haslias
+                # ou:hasalias
                 node = await snap.addNode('ou:hasalias', (guid0, 'EVILCORP'))
                 self.eq(node.ndef[1], (guid0, 'evilcorp'))
                 self.eq(node.get('alias'), 'evilcorp')
+                self.eq(node.get('org'), guid0)
+
+                # ou:orgnet4
+                node = await snap.addNode('ou:orgnet4', (guid0, ('192.168.1.1', '192.168.1.127')))
+                self.eq(node.ndef[1], (guid0, (3232235777, 3232235903)))
+                self.eq(node.get('net'), (3232235777, 3232235903))
+                self.eq(node.get('org'), guid0)
+
+                # ou:orgnet6
+                node = await snap.addNode('ou:orgnet6', (guid0, ('fd00::1', 'fd00::127')))
+                self.eq(node.ndef[1], (guid0, ('fd00::1', 'fd00::127')))
+                self.eq(node.get('net'), ('fd00::1', 'fd00::127'))
                 self.eq(node.get('org'), guid0)
 
                 # ou:org:has

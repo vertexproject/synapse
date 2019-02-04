@@ -35,6 +35,7 @@ class Type:
         self.name = name
         self.info = info
         self.form = None # this will reference a Form() if the type is a form
+        self.subof = None  # This references the name that a type was extended from.
 
         self.opts = dict(self._opt_defs)
         self.opts.update(opts)
@@ -158,7 +159,7 @@ class Type:
 
         def cmpr(valu):
             vtxt = self.repr(valu, defval=valu)
-            return regx.match(vtxt) is not None
+            return regx.search(vtxt) is not None
 
         return cmpr
 
@@ -313,7 +314,9 @@ class Type:
         topt = self.opts.copy()
         topt.update(opts)
 
-        return self.__class__(self.modl, name, tifo, topt)
+        tobj = self.__class__(self.modl, name, tifo, topt)
+        tobj.subof = self.name
+        return tobj
 
     def clone(self, opts):
         '''
@@ -1131,6 +1134,7 @@ class Range(Type):
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(tuple, self._normPyTuple)
+        self.setNormFunc(list, self._normPyTuple)
 
     def _normPyStr(self, valu):
         valu = valu.split('-', 1)

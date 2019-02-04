@@ -1,6 +1,6 @@
 import sys
 import logging
-import argparse
+import functools
 import traceback
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -8,6 +8,7 @@ import synapse.common as s_common
 import synapse.glob as s_glob
 import synapse.telepath as s_telepath
 
+import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
@@ -175,29 +176,22 @@ async def main(argv, outprint=None):
     pars = makeargparser()
     try:
         opts = pars.parse_args(argv)
-    except s_exc.BadSyntaxError:
+    except s_exc.ParserExit:
         return -1
 
     return await opts.func(opts)
 
-class ArgParser(argparse.ArgumentParser):
-
-    def exit(self, status=0, message=None):
-        '''
-        Argparse expects exit() to be a terminal function and not return.
-        As such, this function must raise an exception
-        '''
-        if message is not None:
-            outp.printf(message)
-        raise s_exc.BadSyntaxError(mesg=message, prog=self.prog, status=status)
-
 def makeargparser():
-    pars = ArgParser('synapse.tools.cellauth', description=desc)
+    global outp
+    pars = s_cmd.Parser('synapse.tools.cellauth', outp=outp, description=desc)
 
     pars.add_argument('--debug', action='store_true', help='Show debug traceback on error.')
     pars.add_argument('cellurl', help='The telepath URL to connect to a cell.')
 
-    subpars = pars.add_subparsers(parser_class=ArgParser)
+    subpars = pars.add_subparsers(required=True,
+                                  title='subcommands',
+                                  dest='cmd',
+                                  parser_class=functools.partial(s_cmd.Parser, outp=outp))
 
     # list
     pars_list = subpars.add_parser('list', help='List users/roles')

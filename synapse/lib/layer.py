@@ -14,7 +14,7 @@ import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
-FAIR_ITERS = 5000  # every this many rows, yield CPU to other tasks
+FAIR_ITERS = 10  # every this many rows, yield CPU to other tasks
 
 class Encoder(collections.defaultdict):
     def __missing__(self, name):
@@ -71,17 +71,6 @@ class Layer(s_cell.Cell):
         self.spliced = asyncio.Event(loop=self.loop)
         self.splicelist = []
         self.onfini(self.spliced.set)
-
-    async def getModelVers(self):
-        byts = self.slab.get(b'layer:model:version')
-        if byts is None:
-            return (-1, -1, -1)
-
-        return s_msgpack.un(byts)
-
-    async def setModelVers(self, vers):
-        byts = s_msgpack.en(vers)
-        self.slab.put(b'layer:model:version', byts)
 
     async def splicelistAppend(self, mesg):
         self.splicelist.append(mesg)
@@ -178,6 +167,12 @@ class Layer(s_cell.Cell):
             yield (buid, )
 
     # The following functions are abstract methods that must be implemented by a subclass
+
+    async def getModelVers(self):  # pragma: no cover
+        raise NotImplementedError
+
+    async def setModelVers(self, vers):  # pragma: no cover
+        raise NotImplementedError
 
     async def setOffset(self, iden, offs):  # pragma: no cover
         raise NotImplementedError
