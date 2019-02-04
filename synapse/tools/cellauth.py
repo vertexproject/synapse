@@ -183,7 +183,7 @@ async def main(argv, outprint=None):
 
 def makeargparser():
     global outp
-    pars = s_cmd.Parser('synapse.tools.cellauth', description=desc)
+    pars = s_cmd.Parser('synapse.tools.cellauth', outp=outp, description=desc)
 
     pars.add_argument('--debug', action='store_true', help='Show debug traceback on error.')
     pars.add_argument('cellurl', help='The telepath URL to connect to a cell.')
