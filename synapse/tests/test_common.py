@@ -1,7 +1,7 @@
-
 import os
 import sys
 
+import yaml
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -245,3 +245,9 @@ class CommonTest(s_t_utils.SynTest):
             robj = s_common.yamlload(dirn, 'test.yaml')
             obj['bar'] = 42
             self.eq(obj, robj)
+
+            # Test yaml helper safety
+            s = '!!python/object/apply:os.system ["pwd"]'
+            with s_common.genfile(dirn, 'explode.yaml') as fd:
+                fd.write(s.encode())
+            self.raises(yaml.YAMLError, s_common.yamlload, dirn, 'explode.yaml')
