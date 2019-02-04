@@ -197,10 +197,12 @@ class StormTest(s_t_utils.SynTest):
                 nodes = await snap.storm(q).list()
                 self.eq(events, {})
 
-            await self.asyncraises(s_exc.NoSuchName, core.eval('reindex --fire-handler=test:newp').list())
+            await self.asyncraises(s_exc.NoSuchProp, core.eval('reindex --fire-handler=test:newp').list())
 
             # Generic sad path for not having any arguments.
-            await self.asyncraises(s_exc.SynErr, core.eval('reindex').list())
+            mesgs = await core.streamstorm('reindex').list()
+            self.stormIsInPrint('reindex: error: one of the arguments', mesgs)
+            self.stormIsInPrint('is required', mesgs)
 
     async def test_storm_count(self):
 
