@@ -141,6 +141,69 @@ class StormTest(s_t_utils.SynTest):
                 node = await snap.getNodeByNdef(('inet:ipv4', 0x7f000001))
                 self.eq('loopback', node.get('type'))
 
+        async with self.getTestCore() as core:
+            # Set handlers
+            async def _onAdd(node):
+                await node.snap.fire('test:node:add')
+
+            async def _onSet(node, oldv):
+                await node.snap.fire('test:prop:set')
+
+            async def _onTagAdd(node, tag, valu):
+                await node.snap.fire('test:tag:add')
+
+            core.model.form('teststr').onAdd(_onAdd)
+            core.model.prop('teststr:tick').onSet(_onSet)
+            core.onTagAdd('test.tag', _onTagAdd)
+
+            nodes = await core.eval('[teststr=beep :tick=3001 +#test.tag.foo]').list()
+            self.len(1, nodes)
+
+            nodes = await core.eval('[teststr=newp]').list()
+            self.len(1, nodes)
+
+            nodes = await core.eval('[testguid="*" :tick=3001 +#test.bleep.bloop]').list()
+            self.len(1, nodes)
+
+            args = [('--fire-handler=teststr', 'test:node:add'),
+                    ('--fire-handler=teststr:tick', 'test:prop:set'),
+                    ('--fire-handler=#test.tag', 'test:tag:add')]
+            for arg, ename in args:
+                async with await core.snap() as snap:
+                    events = {}
+                    async def func(event):
+                        name, _ = event
+                        events[name] = True
+                    snap.link(func)
+                    q = 'teststr=beep | reindex ' + arg
+                    nodes = await snap.storm(q).list()
+                    self.true(events.get(ename))
+                    # sad path in loop
+                    events.clear()
+                    q = 'testguid | reindex ' + arg
+                    nodes = await snap.storm(q).list()
+                    self.eq(events, {})
+
+            # More sad paths
+            async with await core.snap() as snap:
+                events = {}
+
+                async def func(event):
+                    name, _ = event
+                    events[name] = True
+
+                snap.link(func)
+                q = 'teststr=newp | reindex --fire-handler=teststr:tick'
+                nodes = await snap.storm(q).list()
+                self.eq(events, {})
+
+            await self.asyncraises(s_exc.NoSuchProp, core.eval('reindex --fire-handler=test:newp').list())
+
+            # Generic sad path for not having any arguments.
+            mesgs = await core.streamstorm('reindex').list()
+            self.stormIsInPrint('reindex: error: one of the arguments', mesgs)
+            self.stormIsInPrint('is required', mesgs)
+
     async def test_storm_count(self):
 
         async with self.getTestDmon(mirror='dmoncore') as dmon, \

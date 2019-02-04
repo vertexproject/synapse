@@ -3,6 +3,16 @@ import synapse.tests.utils as s_t_utils
 import synapse.tools.cellauth as s_cellauth
 
 class CellAuthTest(s_t_utils.SynTest):
+
+    async def test_cellauth_bad(self):
+        async with self.getTestDmon(mirror='dmoncoreauth') as dmon, \
+                await self.agetTestProxy(dmon, 'core', user='root', passwd='root'):
+            coreurl = f'tcp://root:root@{dmon.addr[0]}:{dmon.addr[1]}/core'
+            argv = [coreurl]
+            outp = self.getTestOutp()
+            self.eq(await s_cellauth.main(argv, outp), -1)
+            outp.expect('the following arguments are required:')
+
     async def test_cellauth_list(self):
         async with self.getTestDmon(mirror='dmoncoreauth') as dmon, \
                 await self.agetTestProxy(dmon, 'core', user='root', passwd='root') as core:
