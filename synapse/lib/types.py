@@ -8,6 +8,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
+import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
@@ -34,6 +35,7 @@ class Type:
         self.name = name
         self.info = info
         self.form = None # this will reference a Form() if the type is a form
+        self.subof = None  # This references the name that a type was extended from.
 
         self.opts = dict(self._opt_defs)
         self.opts.update(opts)
@@ -55,7 +57,19 @@ class Type:
         self.setCmprCtor('*in=', self._ctorCmprIn)
         self.setCmprCtor('*range=', self._ctorCmprRange)
 
+        self.setNormFunc(s_node.Node, self._normStormNode)
+
         self.postTypeInit()
+
+    def getCompOffs(self, name):
+        '''
+        If this type is a compound, return the field offset for the given
+        property name or None.
+        '''
+        return None
+
+    def _normStormNode(self, node):
+        return self.norm(node.ndef[1])
 
     def _getIndxChop(self, indx):
 
@@ -145,7 +159,7 @@ class Type:
 
         def cmpr(valu):
             vtxt = self.repr(valu, defval=valu)
-            return regx.match(vtxt) is not None
+            return regx.search(vtxt) is not None
 
         return cmpr
 
@@ -158,11 +172,11 @@ class Type:
 
     def _ctorCmprRange(self, vals):
 
-        if type(vals) not in (list, tuple):
-            raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
+        if not isinstance(vals, (list, tuple)):
+            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='*range=')
 
         if len(vals) != 2:
-            raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
+            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='*range=')
 
         minv = self.norm(vals[0])[0]
         maxv = self.norm(vals[1])[0]
@@ -196,8 +210,8 @@ class Type:
     def indxByIn(self, vals):
 
         opers = []
-        if type(vals) not in (list, tuple):
-            raise s_exc.BadCmprValu(valu=vals, cmpr='*in=')
+        if not isinstance(vals, (list, tuple)):
+            raise s_exc.BadCmprValu(name=self.name, valu=vals, cmpr='*in=')
 
         for valu in vals:
             opers.extend(self.getIndxOps(valu))
@@ -206,11 +220,11 @@ class Type:
 
     def indxByRange(self, valu):
 
-        if type(valu) not in (list, tuple):
-            raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
+        if not isinstance(valu, (list, tuple)):
+            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='*range=')
 
         if len(valu) != 2:
-            raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
+            raise s_exc.BadCmprValu(name=self.name, valu=valu, cmpr='*range=')
 
         minv, _ = self.norm(valu[0])
         maxv, _ = self.norm(valu[1])
@@ -300,7 +314,9 @@ class Type:
         topt = self.opts.copy()
         topt.update(opts)
 
-        return self.__class__(self.modl, name, tifo, topt)
+        tobj = self.__class__(self.modl, name, tifo, topt)
+        tobj.subof = self.name
+        return tobj
 
     def clone(self, opts):
         '''
@@ -363,10 +379,19 @@ class Bool(Type):
 
 class Comp(Type):
 
+    def getCompOffs(self, name):
+        return self.fieldoffs.get(name)
+
     def postTypeInit(self):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
-        self.tcache = FieldHelper(self.modl, self.opts.get('fields', ()))
+
+        fields = self.opts.get('fields', ())
+
+        # calc and save field offsets...
+        self.fieldoffs = {n: i for (i, (n, t)) in enumerate(fields)}
+
+        self.tcache = FieldHelper(self.modl, fields)
 
     def _normPyTuple(self, valu):
 
@@ -380,6 +405,7 @@ class Comp(Type):
         norms = []
 
         for i, (name, typename) in enumerate(fields):
+
             _type = self.tcache[name]
 
             norm, info = _type.norm(valu[i])
@@ -447,11 +473,15 @@ class FieldHelper(collections.defaultdict):
         self.setdefault(key, _type)
         return _type
 
-
 class Guid(Type):
 
     def postTypeInit(self):
         self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyList)
+        self.setNormFunc(tuple, self._normPyList)
+
+    def _normPyList(self, valu):
+        return s_common.guid(valu), {}
 
     def _normPyStr(self, valu):
 
@@ -637,7 +667,7 @@ class Int(IntBase):
             maxval = maxmax
 
         if minval < minmin or maxval > maxmax or maxval < minval:
-            raise s_exc.BadTypeDef(self.opts)
+            raise s_exc.BadTypeDef(self.opts, name=self.name)
 
         if not self.signed:
             self._indx_offset = 0
@@ -756,7 +786,7 @@ class Ival(Type):
         if not relto:
             relto = s_common.now()
 
-        return delt + relto
+        return self.timetype._normPyInt(delt + relto)[0]
 
     def _normPyStr(self, valu):
         valu = valu.strip().lower()
@@ -882,6 +912,9 @@ class Ndef(Type):
         self.setNormFunc(list, self._normPyTuple)
         self.setNormFunc(tuple, self._normPyTuple)
 
+    def _normStormNode(self, valu):
+        return self._normPyTuple(valu.ndef)
+
     def _normPyTuple(self, valu):
         try:
             formname, formvalu = valu
@@ -890,7 +923,7 @@ class Ndef(Type):
 
         form = self.modl.form(formname)
         if form is None:
-            raise s_exc.NoSuchForm(name=formname)
+            raise s_exc.NoSuchForm(name=self.name, form=formname)
 
         formnorm, info = form.type.norm(formvalu)
         norm = (form.name, formnorm)
@@ -936,7 +969,12 @@ class Ndef(Type):
 
 class Edge(Type):
 
+    def getCompOffs(self, name):
+        return self.fieldoffs.get(name)
+
     def postTypeInit(self):
+
+        self.fieldoffs = {'n1': 0, 'n2': 1}
 
         self.ndeftype = self.modl.types.get('ndef')
 
@@ -1001,6 +1039,13 @@ class Edge(Type):
 
 class TimeEdge(Edge):
 
+    def getCompOffs(self, name):
+        return self.fieldoffs.get(name)
+
+    def postTypeInit(self):
+        Edge.postTypeInit(self)
+        self.fieldoffs['time'] = 2
+
     def _normPyTuple(self, valu):
 
         if len(valu) != 3:
@@ -1061,7 +1106,7 @@ class NodeProp(Type):
 
         prop = self.modl.prop(propname)
         if prop is None:
-            raise s_exc.NoSuchProp(name=propname)
+            raise s_exc.NoSuchProp(name=self.name, prop=propname)
 
         propnorm, info = prop.type.norm(propvalu)
         return (prop.full, propnorm), {'subs': {'prop': prop.full}}
@@ -1079,16 +1124,17 @@ class Range(Type):
     def postTypeInit(self):
         subtype = self.opts.get('type')
         if not(type(subtype) is tuple and len(subtype) is 2):
-            raise s_exc.BadTypeDef(self.opts)
+            raise s_exc.BadTypeDef(self.opts, name=self.name)
 
         try:
             self.subtype = self.modl.type(subtype[0]).clone(subtype[1])
         except Exception as e:
             logger.exception('subtype invalid or unavailable')
-            raise s_exc.BadTypeDef(self.opts, mesg='subtype invalid or unavailable')
+            raise s_exc.BadTypeDef(self.opts, name=self.name, mesg='subtype invalid or unavailable')
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(tuple, self._normPyTuple)
+        self.setNormFunc(list, self._normPyTuple)
 
     def _normPyStr(self, valu):
         valu = valu.split('-', 1)
@@ -1247,6 +1293,8 @@ class Time(IntBase):
     )
 
     def postTypeInit(self):
+        self.futsize = 0x7fffffffffffffff
+        self.maxsize = 253402300799999  # 9999/12/31 23:59:59.999
 
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
@@ -1286,12 +1334,15 @@ class Time(IntBase):
             else:
                 bgn = s_common.now()
 
-            return delt + bgn, {}
+            return self._normPyInt(delt + bgn)
 
         valu = s_time.parse(valu)
         return self._normPyInt(valu)
 
     def _normPyInt(self, valu):
+        if valu > self.maxsize and valu != self.futsize:
+            mesg = f'Time exceeds max size [{self.maxsize}] allowed for a non-future marker.'
+            raise s_exc.BadTypeValu(mesg=mesg, valu=valu, name=self.name)
         return valu, {}
 
     def merge(self, oldv, newv):
@@ -1333,9 +1384,36 @@ class Time(IntBase):
                 if relto is None:
                     relto = s_common.now()
 
-                return delt + relto
+                return self._normPyInt(delt + relto)[0]
 
         return self.norm(valu)[0]
+
+    def getTickTock(self, vals):
+        '''
+        Get a tick, tock time pair.
+
+        Args:
+            vals (list): A pair of values to norm.
+
+        Returns:
+            (int, int): A pair of integers, sorted so that it the first is less than or equal to the second int.
+        '''
+        val0, val1 = vals
+
+        _tick = self._getLiftValu(val0)
+
+        if isinstance(val1, str) and val1.startswith(('+-', '-+')):
+            delt = s_time.delta(val1[2:])
+            # order matters
+            _tock = _tick + delt
+            _tick = _tick - delt
+        else:
+            _tock = self._getLiftValu(val1, relto=_tick)
+
+        tick = min(_tick, _tock)
+        tock = max(_tick, _tock)
+
+        return tick, tock
 
     def _indxTimeRange(self, mint, maxt):
         minv, _ = self.norm(mint)
@@ -1359,31 +1437,52 @@ class Time(IntBase):
                 return self._indxTimeRange(tock + delt, tock)
 
         if type(valu) in (tuple, list):
-            tick = self._getLiftValu(valu[0])
-            tock = self._getLiftValu(valu[1], relto=tick)
+            tick, tock = self.getTickTock(valu)
             return self._indxTimeRange(tick, tock)
 
         return Type.indxByEq(self, valu)
+
+    def indxByRange(self, valu):
+        '''
+        Override default *range= handler to account for relative computation.
+        '''
+
+        if not isinstance(valu, (list, tuple)):
+            raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
+
+        if len(valu) != 2:
+            raise s_exc.BadCmprValu(valu=valu, cmpr='*range=')
+
+        tick, tock = self.getTickTock(valu)
+
+        return self._indxTimeRange(tick, tock)
+
+    def _ctorCmprRange(self, vals):
+        '''
+        Override default *range= handler to account for relative computation.
+        '''
+
+        if not isinstance(vals, (list, tuple)):
+            raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
+
+        if len(vals) != 2:
+            raise s_exc.BadCmprValu(valu=vals, cmpr='*range=')
+
+        tick, tock = self.getTickTock(vals)
+
+        def cmpr(valu):
+            return tick <= valu <= tock
+
+        return cmpr
 
     def _ctorCmprEq(self, text):
 
         if isinstance(text, (tuple, list)):
 
-            _tick = self._getLiftValu(text[0])
-
-            if text[1].startswith(('+-', '-+')):
-                delt = s_time.delta(text[1][2:])
-                # order matters
-                _tock = _tick + delt
-                _tick = _tick - delt
-            else:
-                _tock = self._getLiftValu(text[1], relto=_tick)
-
-            tick = min(_tick, _tock)
-            tock = max(_tick, _tock)
+            tick, tock = self.getTickTock(text)
 
             def cmpr(valu):
-                return valu >= tick and valu < tock
+                return tick <= valu < tock
             return cmpr
 
         norm, info = self.norm(text)

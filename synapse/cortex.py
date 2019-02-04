@@ -25,6 +25,8 @@ import synapse.lib.syntax as s_syntax
 import synapse.lib.agenda as s_agenda
 import synapse.lib.trigger as s_trigger
 import synapse.lib.modules as s_modules
+import synapse.lib.modelrev as s_modelrev
+import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
@@ -394,7 +396,11 @@ class CoreApi(s_cell.CellApi):
         '''
         Return the list of splices at the given offset.
         '''
+        count = 0
         async for mesg in self.cell.layer.splices(offs, size):
+            count += 1
+            if not count % 1000:
+                await asyncio.sleep(0)
             yield mesg
 
 class Cortex(s_cell.Cell):
@@ -474,6 +480,9 @@ class Cortex(s_cell.Cell):
         self.stormcmds = {}
         self.stormrunts = {}
 
+        self.libroot = (None, {}, {})
+        self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
+
         self.addStormCmd(s_storm.MaxCmd)
         self.addStormCmd(s_storm.MinCmd)
         self.addStormCmd(s_storm.HelpCmd)
@@ -490,6 +499,8 @@ class Cortex(s_cell.Cell):
         self.addStormCmd(s_storm.ReIndexCmd)
         self.addStormCmd(s_storm.NoderefsCmd)
 
+        self.addStormLib(('time',), s_stormtypes.LibTime)
+
         self.splicers = {
             'node:add': self._onFeedNodeAdd,
             'node:del': self._onFeedNodeDel,
@@ -504,6 +515,7 @@ class Cortex(s_cell.Cell):
         self.setFeedFunc('syn.ingest', self._addSynIngest)
 
         await self._initCoreLayers()
+        await self._checkLayerModels()
 
         async def fini():
             await asyncio.gather(*[layr.fini() for layr in self.layers], loop=self.loop)
@@ -519,6 +531,10 @@ class Cortex(s_cell.Cell):
 
         self.ontagadds = collections.defaultdict(list)
         self.ontagdels = collections.defaultdict(list)
+
+        self._runtLiftFuncs = {}
+        self._runtPropSetFuncs = {}
+        self._runtPropDelFuncs = {}
 
         await self.addCoreMods(s_modules.coremods)
 
@@ -613,6 +629,69 @@ class Cortex(s_cell.Cell):
         # TODO allow name wild cards
         self.ontagdels[name].append(func)
 
+    def addRuntLift(self, prop, func):
+        '''
+        Register a runt lift helper for a given prop.
+
+        Args:
+            prop (str): Full property name for the prop to register the helper for.
+            func:
+
+        Returns:
+            None: None.
+        '''
+        self._runtLiftFuncs[prop] = func
+
+    async def runRuntLift(self, full, valu=None, cmpr=None):
+        '''
+        Execute a runt lift function.
+
+        Args:
+            full (str): Property to lift by.
+            valu:
+            cmpr:
+
+        Returns:
+            bytes, list: Yields bytes, list tuples where the list contains a series of
+                key/value pairs which are used to construct a Node object.
+
+        '''
+        func = self._runtLiftFuncs.get(full)
+        if func is None:
+            raise s_exc.NoSuchLift(mesg='No runt lift implemented for requested property.',
+                                   full=full, valu=valu, cmpr=cmpr)
+
+        async for buid, rows in func(full, valu, cmpr):
+            yield buid, rows
+
+    def addRuntPropSet(self, prop, func):
+        '''
+        Register a prop set helper for a runt form
+        '''
+        self._runtPropSetFuncs[prop.full] = func
+
+    async def runRuntPropSet(self, node, prop, valu):
+        func = self._runtPropSetFuncs.get(prop.full)
+        if func is None:
+            raise s_exc.IsRuntForm(mesg='No prop:set func set for runt property.',
+                                   prop=prop.full, valu=valu, ndef=node.ndef)
+        ret = await s_coro.ornot(func, node, prop, valu)
+        return ret
+
+    def addRuntPropDel(self, prop, func):
+        '''
+        Register a prop set helper for a runt form
+        '''
+        self._runtPropDelFuncs[prop.full] = func
+
+    async def runRuntPropDel(self, node, prop):
+        func = self._runtPropDelFuncs.get(prop.full)
+        if func is None:
+            raise s_exc.IsRuntForm(mesg='No prop:del func set for runt property.',
+                                   prop=prop.full, ndef=node.ndef)
+        ret = await s_coro.ornot(func, node, prop)
+        return ret
+
     async def runTagAdd(self, node, tag, valu):
         for func in self.ontagadds.get(tag, ()):
             try:
@@ -630,6 +709,10 @@ class Cortex(s_cell.Cell):
                 raise
             except Exception as e:
                 logger.exception('onTagDel Error')
+
+    async def _checkLayerModels(self):
+        mrev = s_modelrev.ModelRev(self)
+        await mrev.revCoreLayers()
 
     async def _initCoreLayers(self):
 
@@ -675,6 +758,29 @@ class Cortex(s_cell.Cell):
 
     def getStormCmd(self, name):
         return self.stormcmds.get(name)
+
+    def addStormLib(self, path, ctor):
+
+        root = self.libroot
+        # (name, {kids}, {funcs})
+
+        for name in path:
+            step = root[1].get(name)
+            if step is None:
+                step = (name, {}, {})
+                root[1][name] = step
+            root = step
+
+        root[2]['ctor'] = ctor
+
+    def getStormLib(self, path):
+        root = self.libroot
+        for name in path:
+            step = root[1].get(name)
+            if step is None:
+                return None
+            root = step
+        return root
 
     def getStormCmds(self):
         return list(self.stormcmds.items())
@@ -1306,7 +1412,7 @@ class Cortex(s_cell.Cell):
             if modu is None:
                 continue
 
-            added.append(modu)
+            added.append((ctor, modu))
 
             # does the module carry have a data model?
             mdef = modu.getModelDefs()
@@ -1318,8 +1424,9 @@ class Cortex(s_cell.Cell):
 
         # now that we've loaded all their models
         # we can call their init functions
-        for modu in added:
+        for ctor, modu in added:
             await s_coro.ornot(modu.initCoreModule)
+            await self.fire('core:module:load', module=ctor)
 
     async def loadCoreModule(self, ctor, conf=None):
         '''
@@ -1337,7 +1444,8 @@ class Cortex(s_cell.Cell):
         mdefs = modu.getModelDefs()
         self.model.addDataModels(mdefs)
 
-        await modu.initCoreModule()
+        await s_coro.ornot(modu.initCoreModule)
+        await self.fire('core:module:load', module=ctor)
 
     def _loadCoreModule(self, ctor):
 

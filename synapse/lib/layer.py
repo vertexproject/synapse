@@ -10,10 +10,11 @@ import regex
 
 import synapse.exc as s_exc
 import synapse.lib.cell as s_cell
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
-FAIR_ITERS = 5000  # every this many rows, yield CPU to other tasks
+FAIR_ITERS = 10  # every this many rows, yield CPU to other tasks
 
 class Encoder(collections.defaultdict):
     def __missing__(self, name):
@@ -29,6 +30,8 @@ class LayerApi(s_cell.PassThroughApi):
         'iterFormRows', 'iterPropRows', 'iterUnivRows', 'getOffset',
         'setOffset', 'initdb', 'splicelistAppend', 'splices', 'stat'
     ]
+    async def getModelVers(self):
+        return await self.cell.getModelVers()
 
 class Layer(s_cell.Cell):
     '''
@@ -53,6 +56,7 @@ class Layer(s_cell.Cell):
         self._stor_funcs = {
             'prop:set': self._storPropSet,
             'prop:del': self._storPropDel,
+            'buid:set': self._storBuidSet,
         }
 
         self.indxfunc = {
@@ -61,6 +65,8 @@ class Layer(s_cell.Cell):
             'range': self._rowsByRange,
         }
 
+        self.fresh = False
+        self.canrev = not readonly
         self.readonly = readonly
         self.spliced = asyncio.Event(loop=self.loop)
         self.splicelist = []
@@ -162,6 +168,12 @@ class Layer(s_cell.Cell):
 
     # The following functions are abstract methods that must be implemented by a subclass
 
+    async def getModelVers(self):  # pragma: no cover
+        raise NotImplementedError
+
+    async def setModelVers(self, vers):  # pragma: no cover
+        raise NotImplementedError
+
     async def setOffset(self, iden, offs):  # pragma: no cover
         raise NotImplementedError
 
@@ -178,6 +190,9 @@ class Layer(s_cell.Cell):
         raise NotImplementedError
 
     async def _storPropSet(self, oper):  # pragma: no cover
+        raise NotImplementedError
+
+    async def _storBuidSet(self, oper):  # pragma: no cover
         raise NotImplementedError
 
     async def _storPropDel(self, oper):  # pragma: no cover
@@ -214,7 +229,10 @@ class Layer(s_cell.Cell):
         raise NotImplementedError
 
     async def stat(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     async def splices(self, offs, size):  # pragma: no cover
-        raise NotImplementedError()
+        raise NotImplementedError
+
+    async def getNodeNdef(self, buid):
+        raise NotImplementedError

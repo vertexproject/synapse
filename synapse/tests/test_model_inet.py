@@ -92,6 +92,12 @@ class InetModelTest(s_t_utils.SynTest):
             # IPv6
             self.eq(t.norm('icmp://::1'), ('icmp://::1', {'subs': {'ipv6': '::1', 'proto': 'icmp'}}))
             self.eq(t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'subs': {'ipv6': '::1', 'port': 2, 'proto': 'tcp'}}))
+            self.eq(t.norm('tcp://[::fFfF:0102:0304]:2'),
+                    ('tcp://[::ffff:1.2.3.4]:2', {'subs': {'ipv6': '::ffff:1.2.3.4',
+                                                           'ipv4': 0x01020304,
+                                                           'port': 2,
+                                                           'proto': 'tcp',
+                                                           }}))
             self.raises(s_exc.BadTypeValu, t.norm, 'tcp://[::1')  # bad ipv6 w/ port
 
             # Host
@@ -602,6 +608,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.norm(ip_str_unicode), (ip_int, info))
             self.eq(t.repr(ip_int), ip_str)
 
+            # Link local test
+            ip_str = '169.254.1.1'
+            norm, info = t.norm(ip_str)
+            self.eq(2851995905, norm)
+            self.eq(info.get('subs').get('type'), 'linklocal')
+
             # Demonstrate wrap-around
             info = {'subs': {'type': 'private'}}
             self.eq(t.norm(0x00000000 - 1), (2**32 - 1, info))
@@ -624,6 +636,7 @@ class InetModelTest(s_t_utils.SynTest):
             valu_str = '1.2.3.4'
             valu_int = 16909060
             expected_ndef = (formname, valu_int)
+
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu_str, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
@@ -667,6 +680,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.norm(0)[0], '::')
             self.eq(t.norm(1)[0], '::1')
             self.eq(t.norm(2**128 - 1)[0], 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
+
+            # Link local test
+            ip_str = 'fe80::1'
+            norm, info = t.norm(ip_str)
+            self.eq('fe80::1', norm)
+            self.eq(info.get('subs').get('type'), 'linklocal')
 
             # Form Tests ======================================================
             async with await core.snap() as snap:
@@ -751,6 +770,11 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.norm(valu), expected)
 
             self.raises(s_exc.BadTypeValu, t.norm, (valu[1], valu[0]))
+
+            # Test case in which ipaddress ordering is not alphabetical
+            valu = ('3300:100::', '3300:100:1::ffff')
+            expected = (('3300:100::', '3300:100:1::ffff'), {'subs': {'min': '3300:100::', 'max': '3300:100:1::ffff'}})
+            self.eq(t.norm(valu), expected)
 
     async def test_passwd(self):
         async with self.getTestCore() as core:
@@ -1428,7 +1452,7 @@ class InetModelTest(s_t_utils.SynTest):
         formname = 'inet:whois:rec'
         valu = ('woot.com', '@20501217')
         input_props = {
-            'text': 'YELLING',
+            'text': 'YELLING AT pennywise@vertex.link LOUDLY',
             'created': 0,
             'updated': 1,
             'expires': 2,
@@ -1438,7 +1462,7 @@ class InetModelTest(s_t_utils.SynTest):
         expected_props = {
             'fqdn': 'woot.com',
             'asof': 2554848000000,
-            'text': 'yelling',
+            'text': 'yelling at pennywise@vertex.link loudly',
             'created': 0,
             'updated': 1,
             'expires': 2,
@@ -1450,6 +1474,9 @@ class InetModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
+            nodes = await core.eval('inet:whois:email').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:whois:email', ('woot.com', 'pennywise@vertex.link')))
 
     async def test_whois_recns(self):
         formname = 'inet:whois:recns'
@@ -1555,3 +1582,38 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.get('text'), 'woot woot woot')
                 self.eq(node.get('title'), 'this is a title')
                 self.eq(node.get('query'), iden)
+
+    async def test_model_inet_email_message(self):
+
+        async with self.getTestCore() as core:
+            q = '''
+            [
+            inet:email:message="*"
+                :to=woot@woot.com
+                :from=visi@vertex.link
+                :replyto=root@root.com
+                :subject="hi there"
+                :date=2015
+                :body="there are mad sploitz here!"
+                :bytes="*"
+            ]
+
+            {[ inet:email:message:link=($node, https://www.vertex.link) ]}
+
+            {[ inet:email:message:attachment=($node, "*") ] -inet:email:message [ :name=sploit.exe ]}
+
+            {[ has=($node, ('inet:email:header', ('to', 'Visi Kensho <visi@vertex.link>'))) ]}
+            '''
+            nodes = await core.eval(q).list()
+            self.len(1, nodes)
+
+            self.len(1, await core.eval('inet:email:message:to=woot@woot.com').list())
+            self.len(1, await core.eval('inet:email:message:date=2015').list())
+            self.len(1, await core.eval('inet:email:message:body="there are mad sploitz here!"').list())
+            self.len(1, await core.eval('inet:email:message:subject="hi there"').list())
+            self.len(1, await core.eval('inet:email:message:replyto=root@root.com').list())
+
+            self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> has -> inet:email:header +:name=to +:value="Visi Kensho <visi@vertex.link>"').list())
+            self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> inet:email:message:link -> inet:url +inet:url=https://www.vertex.link').list())
+            self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes').list())
+            self.len(1, await core.eval('inet:email:message:from=visi@vertex.link -> file:bytes').list())

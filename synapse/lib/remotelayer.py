@@ -22,15 +22,23 @@ class RemoteLayer(s_layer.Layer):
         ('remote:telepath', {'type': 'str', 'doc': 'Path to remote layer'}),
     )
 
-    async def __anit__(self, dirn, readonly=False):
+    async def __anit__(self, dirn, readonly=False, teleurl=None):
 
         await s_layer.Layer.__anit__(self, dirn, readonly=readonly)
 
-        self.path = self.conf.get('remote:telepath')
-        if self.path is None:
-            raise s_exc.BadConfValu('Missing remote layer path')
+        # a remote layer may never be revd
+        self.canrev = False
 
-        self.remote = await s_telepath.openurl(self.path)
+        if teleurl is None:
+            teleurl = self.conf.get('remote:telepath')
+
+        self.teleurl = teleurl
+
+        #self.path = self.conf.get('remote:telepath')
+        if self.teleurl is None:
+            raise s_exc.BadConfValu(mesg='remote:telepath must be url for remote layer')
+
+        self.remote = await s_telepath.openurl(self.teleurl)
         self.onfini(self.remote.fini)
 
         for funcname in PASSTHROUGHFUNCS:
@@ -57,3 +65,9 @@ class RemoteLayer(s_layer.Layer):
     async def iterUnivRows(self, *args, **kwargs):
         async for item in await self.remote.iterUnivRows(*args, **kwargs):
             yield item
+
+    async def getModelVers(self):
+        return await self.remote.getModelVers()
+
+    async def setModelVers(self, vers):
+        raise s_exc.SynErr(mesg='setModelVers not allowed!')

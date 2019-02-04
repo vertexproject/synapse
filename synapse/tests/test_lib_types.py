@@ -14,9 +14,14 @@ from synapse.tests.utils import alist
 class TypesTest(s_t_utils.SynTest):
 
     def test_type(self):
+        # Base type tests, mainly sad paths
         model = s_datamodel.Model()
         t = model.type('bool')
+        self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
+        self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', '*in=')
+        self.raises(s_exc.BadCmprValu, t.getIndxOps, 'newp', '*range=')
+        self.raises(s_exc.BadCmprValu, t.getIndxOps, ['newp'], '*range=')
 
     def test_bool(self):
         model = s_datamodel.Model()
@@ -58,6 +63,13 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(node.get('foo'), 123)
             self.eq(node.get('bar'), 'haha')
 
+            typ = core.model.type(t)
+            self.raises(s_exc.BadTypeValu, typ.norm,
+                        (123, 'haha', 'newp'))
+            self.eq(0, typ.getCompOffs('foo'))
+            self.eq(1, typ.getCompOffs('bar'))
+            self.none(typ.getCompOffs('newp'))
+
     def test_fieldhelper(self):
         self.skip('Implement base fieldhelper test')
 
@@ -70,6 +82,13 @@ class TypesTest(s_t_utils.SynTest):
 
         guid = model.type('guid').norm('*')[0]
         self.true(s_common.isguid(guid))
+
+        objs = [1, 2, 'three', {'four': 5}]
+        tobjs = tuple(objs)
+        lnorm, _ = model.type('guid').norm(objs)
+        tnorm, _ = model.type('guid').norm(tobjs)
+        self.true(s_common.isguid(lnorm))
+        self.eq(lnorm, tnorm)
 
     async def test_hex(self):
 
@@ -319,6 +338,7 @@ class TypesTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTypeValu, ival.norm, '?')
         self.raises(s_exc.BadTypeValu, ival.norm, ('', ''))
         self.raises(s_exc.BadTypeValu, ival.norm, ('2016-3days', '+77days', '-40days'))
+        self.raises(s_exc.BadTypeValu, ival.norm, ('?', '-1 day'))
 
         async with self.getTestCore() as core:
 
@@ -415,7 +435,17 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(0, core.eval('testint:loc^=23'))
 
     def test_ndef(self):
-        self.skip('Implement base ndef test')
+        model = s_datamodel.Model()
+        model.addDataModels([('test', s_t_utils.testmodel)])
+        t = model.type('test:ndef')
+
+        norm, info = t.norm(('teststr', 'Foobar!'))
+        self.eq(norm, ('teststr', 'Foobar!'))
+        self.eq(info, {'adds': (('teststr', 'Foobar!'),),
+                       'subs': {'form': 'teststr'}})
+
+        self.raises(s_exc.NoSuchForm, t.norm, ('test:newp', 'newp'))
+        self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
 
     def test_nodeprop(self):
         model = s_datamodel.Model()
@@ -425,6 +455,8 @@ class TypesTest(s_t_utils.SynTest):
         expected = (('teststr', 'This is a sTring'), {'subs': {'prop': 'teststr'}})
         self.eq(t.norm('teststr=This is a sTring'), expected)
         self.eq(t.norm(('teststr', 'This is a sTring')), expected)
+
+        self.raises(s_exc.NoSuchProp, t.norm, ('teststr:newp', 'newp'))
 
     def test_range(self):
         model = s_datamodel.Model()
@@ -490,6 +522,28 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes},
                     {(('testcomp', (2048, 'horton')), ('testcomp', (4096, 'whoville')))})
 
+            # The following tests show range working against a string
+            nodes = await alist(core.eval('teststr*range=(b, m)'))
+            self.len(2, nodes)
+            nodes = await alist(core.eval('teststr +teststr*range=(b, m)'))
+            self.len(2, nodes)
+
+            # Range against a integer
+            async with await core.snap() as snap:
+                node = await snap.addNode('testint', -1)
+                node = await snap.addNode('testint', 0)
+                node = await snap.addNode('testint', 1)
+                node = await snap.addNode('testint', 2)
+            nodes = await alist(core.eval('testint*range=(0, 2)'))
+            self.len(3, nodes)
+            nodes = await alist(core.eval('testint +testint*range=(0, 2)'))
+            self.len(3, nodes)
+
+            nodes = await alist(core.eval('testint*range=(-1, -1)'))
+            self.len(1, nodes)
+            nodes = await alist(core.eval('testint +testint*range=(-1, -1)'))
+            self.len(1, nodes)
+
             # sad path
             await self.agenraises(s_exc.BadCmprValu, core.eval('testcomp +:hehe*range=(0.0.0.0, 1.1.1.1, 6.6.6.6)'))
             await self.agenraises(s_exc.BadCmprValu, core.eval('testcomp +:haha*range=(somestring,) '))
@@ -502,6 +556,16 @@ class TypesTest(s_t_utils.SynTest):
 
         lowr = model.type('str').clone({'lower': True})
         self.eq('foo', lowr.norm('FOO')[0])
+        self.eq((('pref', b'bhaha'),), lowr.indxByPref('BHAHA'))
+
+        self.eq(True, lowr.cmpr('xxherexx', '~=', 'here'))
+        self.eq(False, lowr.cmpr('xxherexx', '~=', '^here'))
+
+        self.eq(True, lowr.cmpr('foo', '!=', 'bar'))
+        self.eq(False, lowr.cmpr('foo', '!=', 'FOO'))
+
+        self.eq(True, lowr.cmpr('foobar', '^=', 'FOO'))
+        self.eq(False, lowr.cmpr('foubar', '^=', 'FOO'))
 
         regx = model.type('str').clone({'regex': '^[a-f][0-9]+$'})
         self.eq('a333', regx.norm('a333')[0])
@@ -576,6 +640,12 @@ class TypesTest(s_t_utils.SynTest):
 
         self.gt(s_common.now(), ttime.norm('-1hour')[0])
 
+        tminmax = ttime.clone({'min': True, 'max': True})
+        # Merge testing with tminmax
+        now = s_common.now()
+        self.eq(now + 1, tminmax.merge(now, now + 1))
+        self.eq(now, tminmax.merge(now + 1, now))
+
         async with self.getTestCore() as core:
 
             t = core.model.type('testtime')
@@ -584,10 +654,23 @@ class TypesTest(s_t_utils.SynTest):
             future = 0x7fffffffffffffff
             self.eq(t.indx(future), b'\xff\xff\xff\xff\xff\xff\xff\xff')
             self.eq(t.norm('?')[0], future)
+            self.eq(t.norm(future)[0], future)
             self.eq(t.repr(future), '?')
 
+            # Explicitly test our max time vs. future marker
+            maxtime = 253402300799999  # 9999/12/31 23:59:59.999
+            self.eq(t.norm(maxtime)[0], maxtime)
+            self.eq(t.repr(maxtime), '9999/12/31 23:59:59.999')
+            self.eq(t.norm('9999/12/31 23:59:59.999')[0], maxtime)
+            self.raises(s_exc.BadTypeValu, t.norm, maxtime + 1)
+
             tick = t.norm('2014')[0]
+            self.eq(t.repr(tick), '2014/01/01 00:00:00.000')
+
             tock = t.norm('2015')[0]
+
+            self.raises(s_exc.BadCmprValu,
+                        t.cmpr, '2015', '*range=', tick)
 
             async with await core.snap() as snap:
                 node = await snap.addNode('teststr', 'a', {'tick': '2014'})
@@ -595,6 +678,8 @@ class TypesTest(s_t_utils.SynTest):
                 node = await snap.addNode('teststr', 'c', {'tick': '2016'})
                 node = await snap.addNode('teststr', 'd', {'tick': 'now'})
 
+            nodes = await alist(core.getNodesBy('teststr:tick', '2014'))
+            self.eq({node.ndef[1] for node in nodes}, {'a'})
             nodes = await alist(core.getNodesBy('teststr:tick', '2014*'))
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
             nodes = await alist(core.getNodesBy('teststr:tick', '201401*'))
@@ -611,11 +696,12 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'d'})
             nodes = await alist(core.getNodesBy('teststr:tick', ('-1 days', 'now', )))
             self.eq({node.ndef[1] for node in nodes}, {'d'})
-            # This lifts nothing
+            # This is equivalent of the previous lift
             nodes = await alist(core.getNodesBy('teststr:tick', ('now', '-1 days')))
-            self.eq({node.ndef[1] for node in nodes}, set())
+            self.eq({node.ndef[1] for node in nodes}, {'d'})
             # Sad path
             self.raises(s_exc.BadTypeValu, t.indxByEq, ('', ''))
+            self.raises(s_exc.BadTypeValu, t.indxByEq, ('?', '-1 day'))
 
             self.true(t.cmpr('2015', '>=', '20140202'))
             self.true(t.cmpr('2015', '>=', '2015'))
@@ -637,3 +723,67 @@ class TypesTest(s_t_utils.SynTest):
 
             await self.agenlen(1, core.eval('teststr +:tick=($test, "+- 2day")',
                                             opts={'vars': {'test': '2015'}}))
+
+            await self.agenlen(1, core.eval('teststr +:tick=(now, "-+ 1day")'))
+
+            await self.agenlen(1, core.eval('teststr +:tick*range=(2015, "+1 day")'))
+            await self.agenlen(1, core.eval('teststr +:tick*range=(20150102, "-3 day")'))
+            await self.agenlen(0, core.eval('teststr +:tick*range=(20150201, "+1 day")'))
+
+            await self.agenlen(2, core.eval('teststr:tick*range=(2015, 2016)'))
+            await self.agenlen(2, core.eval('teststr:tick*range=(2016, 2015)'))
+            await self.agenlen(1, core.eval('teststr:tick*range=(2015, "+1 day")'))
+            await self.agenlen(4, core.eval('teststr:tick*range=(2014, "now")'))
+            await self.agenlen(0, core.eval('teststr:tick*range=(20150201, "+1 day")'))
+            await self.agenlen(1, core.eval('teststr:tick*range=(now, "+-1 day")'))
+            await self.agenlen(0, core.eval('teststr:tick*range=(now, "+1 day")'))
+
+            # Sad path for *range=
+            await self.agenraises(s_exc.BadCmprValu,
+                                  core.eval('teststr:tick*range=(2015)'))
+            await self.agenraises(s_exc.BadCmprValu,
+                                  core.getNodesBy('teststr:tick', tick, '*range='))
+            await self.agenraises(s_exc.BadCmprValu,
+                                  core.eval('teststr +:tick*range=(2015)'))
+            await self.agenraises(s_exc.BadCmprValu,
+                                  core.eval('teststr +:tick*range=(2015, 2016, 2017)'))
+            await self.agenraises(s_exc.BadTypeValu,
+                                  core.eval('teststr +:tick*range=("?", "+1 day")'))
+            await self.agenraises(s_exc.BadTypeValu,
+                                  core.eval('teststr +:tick*range=(2000, "?+1 day")'))
+            await self.agenraises(s_exc.BadTypeValu,
+                                  core.eval('teststr:tick*range=("?", "+1 day")'))
+            await self.agenraises(s_exc.BadTypeValu,
+                                  core.eval('teststr:tick*range=(2000, "?+1 day")'))
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 't1', {'tick': '2018/12/02 23:59:59.000'})
+                node = await snap.addNode('teststr', 't2', {'tick': '2018/12/03'})
+                node = await snap.addNode('teststr', 't3', {'tick': '2018/12/03 00:00:01.000'})
+
+            await self.agenlen(0, core.eval('teststr:tick*range=(2018/12/01, "+24 hours")'))
+            await self.agenlen(2, core.eval('teststr:tick*range=(2018/12/01, "+48 hours")'))
+
+            await self.agenlen(0, core.eval('teststr:tick*range=(2018/12/02, "+23 hours")'))
+            await self.agenlen(1, core.eval('teststr:tick*range=(2018/12/02, "+86399 seconds")'))
+            await self.agenlen(2, core.eval('teststr:tick*range=(2018/12/02, "+24 hours")'))
+            await self.agenlen(3, core.eval('teststr:tick*range=(2018/12/02, "+86401 seconds")'))
+            await self.agenlen(3, core.eval('teststr:tick*range=(2018/12/02, "+25 hours")'))
+
+    def test_edges(self):
+        model = s_datamodel.Model()
+        e = model.type('edge')
+        t = model.type('timeedge')
+
+        self.eq(0, e.getCompOffs('n1'))
+        self.eq(1, e.getCompOffs('n2'))
+        self.none(e.getCompOffs('newp'))
+
+        self.eq(0, t.getCompOffs('n1'))
+        self.eq(1, t.getCompOffs('n2'))
+        self.eq(2, t.getCompOffs('time'))
+        self.none(t.getCompOffs('newp'))
+
+        # Sad path testing
+        self.raises(s_exc.BadTypeValu, e.norm, ('newp',))
+        self.raises(s_exc.BadTypeValu, t.norm, ('newp',))

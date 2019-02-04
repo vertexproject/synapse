@@ -12,8 +12,10 @@ import synapse.lib.base as s_base
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
+import synapse.lib.editatom as s_editatom
 
 logger = logging.getLogger(__name__)
+
 
 class Snap(s_base.Base):
     '''
@@ -69,11 +71,12 @@ class Snap(s_base.Base):
                 try:
                     await layr.commit()
 
-                except asyncio.CancelledError as e:
+                except asyncio.CancelledError:
                     raise
 
-                except Exception as e:
+                except Exception:
                     logger.exception('commit error for layer')
+
             # N.B. don't fini the layers here since they are owned by the cortex
 
         self.onfini(fini)
@@ -148,7 +151,7 @@ class Snap(s_base.Base):
             buid (bytes): The binary ID for the node.
 
         Returns:
-            ((str,dict)): The node tuple or None.
+            Optional[s_node.Node]: The node object or None.
 
         '''
         return await self.buidcache.aget(buid)
@@ -266,11 +269,14 @@ class Snap(s_base.Base):
         prop = self.model.prop(full)
         if prop is None:
             raise s_exc.NoSuchProp(name=full)
-
-        lops = prop.getLiftOps(valu, cmpr=cmpr)
-        cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
-        async for row, node in self.getLiftNodes(lops, prop.name, cmpf):
-            yield node
+        if prop.isrunt:
+            async for node in self.getRuntNodes(full, valu, cmpr):
+                yield node
+        else:
+            lops = prop.getLiftOps(valu, cmpr=cmpr)
+            cmpf = prop.type.getLiftHintCmpr(valu, cmpr=cmpr)
+            async for row, node in self.getLiftNodes(lops, prop.name, cmpf):
+                yield node
 
     async def _getNodesByType(self, name, valu=None, addform=True):
 
@@ -303,7 +309,8 @@ class Snap(s_base.Base):
         try:
 
             fnib = self._getNodeFnib(name, valu)
-            return await self._addNodeFnib(fnib, props=props)
+            retn = await self._addNodeFnib(fnib, props=props)
+            return retn
 
         except asyncio.CancelledError:
             raise
@@ -374,40 +381,63 @@ class Snap(s_base.Base):
         return await self.addNode('syn:tag', name)
 
     async def _addNodeFnib(self, fnib, props=None):
+
+        with s_editatom.EditAtom(self.core.bldgbuids) as editatom:
+
+            node = await self._addNodeFnibOps(fnib, editatom, props)
+            if node is not None:
+                if props is not None:
+                    for name, valu in props.items():
+                        await node._setops(name, valu, editatom)
+
+            await editatom.commit(self)
+
+            if node is None:
+                node = editatom.mybldgbuids[fnib[3]]
+
+            return node
+
+    async def _addNodeFnibOps(self, fnib, editatom, props=None):
         '''
-        Add a node via (form, norm, info, buid)
+        Add a node via (form, norm, info, buid) and add ops to editatom
         '''
         form, norm, info, buid = fnib
+
+        if form.isrunt:
+            raise s_exc.IsRuntForm(mesg='Cannot make runt nodes.',
+                                   form=form.full, prop=norm)
+
+        if props is None:
+            props = {}
+        # Check if this buid is already under construction
+        node = editatom.getNodeBeingMade(buid)
+        if node is not None:
+            return node
+
+        # Check if this buid is already fully made
+        node = await self.getNodeByBuid(buid)
+        if node is not None:
+            return node
+
+        # Another editatom might have created in another task during the above call, so check again
+        node = editatom.getNodeBeingMade(buid)
+        if node is not None:
+            return node
 
         if props is None:
             props = {}
 
-        sops = []
-
-        node = await self.getNodeByBuid(buid)
-        if node is not None:
-
-            # maybe set some props...
-            for name, valu in props.items():
-                # TODO: node.merge(name, valu)
-                await node.set(name, valu)
-
-            return node
-
         # lets build a node...
         node = s_node.Node(self, None)
 
-        node.init = True    # the node is initializing
         node.buid = buid
         node.form = form
         node.ndef = (form.name, norm)
 
         sops = form.getSetOps(buid, norm)
-        await self.stor(sops)
+        editatom.sops.extend(sops)
 
-        self.buidcache.put(buid, node)
-
-        await self.splice('node:add', ndef=node.ndef)
+        editatom.addNode(node)
 
         # update props with any subs from form value
         subs = info.get('subs')
@@ -422,25 +452,13 @@ class Snap(s_base.Base):
 
         # set all the properties with init=True
         for name, valu in props.items():
-            await node.set(name, valu, init=True)
+            await node._setops(name, valu, editatom, init=True)
 
         # set our global properties
         tick = s_common.now()
-        await node.set('.created', tick, init=True)
+        await node._setops('.created', tick, editatom, init=True)
 
-        # we are done initializing.
-        node.init = False
-
-        self.core.pokeFormCount(form.name, 1)
-
-        await form.wasAdded(node)
-
-        # now we must fire all his prop sets
-        for name, valu in tuple(node.props.items()):
-            prop = node.form.props.get(name)
-            await prop.wasSet(node, None)
-
-        return node
+        return None
 
     async def _raiseOnStrict(self, ctor, mesg, **info):
         await self.warn(f'{ctor.__name__}: {mesg} {info!r}')
@@ -469,7 +487,9 @@ class Snap(s_base.Base):
     #########################################################################
 
     def _getNodeFnib(self, name, valu):
-        # return a form, norm, info, buid tuple
+        '''
+        return a form, norm, info, buid tuple
+        '''
         form = self.model.form(name)
         if form is None:
             raise s_exc.NoSuchForm(name=name)
@@ -528,6 +548,13 @@ class Snap(s_base.Base):
         genr = self.getLiftRows(lops)
         async for node in self.getRowNodes(genr, rawprop, cmpr):
             yield node
+
+    async def getRuntNodes(self, full, valu=None, cmpr='='):
+
+        async for buid, rows in self.core.runRuntLift(full, valu, cmpr):
+            node = s_node.Node(self, buid, rows)
+            if node.ndef is not None:
+                yield node
 
     async def getLiftRows(self, lops):
         '''

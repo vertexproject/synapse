@@ -133,7 +133,7 @@ class PsModule(s_module.CoreModule):
                         'date': 'The time this contact was created or modified.',
                     }),
                     ('person', ('ps:person', {}), {
-                        'doc': ' The ps:person GUID which owns this contact.',
+                        'doc': 'The ps:person GUID which owns this contact.',
                     }),
                     ('name', ('ps:name', {}), {
                         'doc': 'The person name listed for the contact',
@@ -185,23 +185,3 @@ class PsModule(s_module.CoreModule):
         }
         name = 'ps'
         return ((name, modl), )
-
-# FIXME - what do we want to do with seed ctors?
-class Fixme:
-    async def initCoreModule(self):
-        self.core.addSeedCtor('ps:person:guidname', self.seedPersonGuidName)
-        self.core.addSeedCtor('ps:persona:guidname', self.seedPersonaGuidName)
-
-    def seedPersonGuidName(self, prop, valu, **props):
-        node = self.core.getTufoByProp('ps:person:guidname', valu)
-        if node is None:
-            # trigger GUID auto-creation
-            node = self.core.formTufoByProp('ps:person', None, guidname=valu, **props)
-        return node
-
-    def seedPersonaGuidName(self, prop, valu, **props):
-        node = self.core.getTufoByProp('ps:persona:guidname', valu)
-        if node is None:
-            # trigger GUID auto-creation
-            node = self.core.formTufoByProp('ps:persona', None, guidname=valu, **props)
-        return node

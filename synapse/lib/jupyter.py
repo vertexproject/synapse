@@ -43,7 +43,7 @@ def getDocPath(fn, root=None):
             break
         parent = cwd.parent
         if parent == cwd:
-            raise ValueError(f'Unable to find data directory from {os.getwcd()}.')
+            raise ValueError(f'Unable to find data directory from {os.getcwd()}.')
         cwd = parent
 
     # Protect against traversal
@@ -128,7 +128,16 @@ class CmdrCore(s_base.Base):
         self.acm = None  # A placeholder for the context manager
 
     async def addFeedData(self, name, items, seqn=None):
+        '''
+        Add feed data to the cortex.
+        '''
         return await self.core.addFeedData(name, items, seqn)
+
+    async def runCmdLine(self, text):
+        '''
+        Run a line of text directly via cmdr.
+        '''
+        await self.cmdr.runCmdLine(text)
 
     async def _runStorm(self, text, opts=None, cmdr=False):
         mesgs = []
@@ -143,7 +152,7 @@ class CmdrCore(s_base.Base):
                 mesgs.append(mesg)
 
             with self.cmdr.onWith('storm:mesg', onEvent):
-                await self.cmdr.runCmdLine(text)
+                await self.runCmdLine(text)
 
         else:
             async for mesg in await self.core.storm(text, opts=opts):

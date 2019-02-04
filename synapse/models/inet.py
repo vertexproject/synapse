@@ -67,6 +67,9 @@ class Addr(s_types.Type):
         orig = valu
         subs = {}
 
+        # no protos use case sensitivity yet...
+        valu = valu.lower()
+
         proto = 'tcp'
         parts = valu.split('://', 1)
         if len(parts) == 2:
@@ -97,7 +100,14 @@ class Addr(s_types.Type):
             if match:
                 ipv6, port = match.groups()
 
-                ipv6 = self.modl.type('inet:ipv6').norm(ipv6)[0]
+                ipv6, v6info = self.modl.type('inet:ipv6').norm(ipv6)
+
+                v6subs = v6info.get('subs')
+                if v6subs is not None:
+                    v6v4addr = v6subs.get('ipv4')
+                    if v6v4addr is not None:
+                        subs['ipv4'] = v6v4addr
+
                 port = self.modl.type('inet:port').norm(port)[0]
                 subs['ipv6'] = ipv6
                 subs['port'] = port
@@ -405,6 +415,26 @@ class IPv6(s_types.Type):
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e))
 
+class IPv6Range(s_types.Range):
+    _opt_defs = ()
+
+    def postTypeInit(self):
+        self.opts['type'] = ('inet:ipv6', {})
+        s_types.Range.postTypeInit(self)
+
+    def _normPyTuple(self, valu):
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=f'Must be a 2-tuple of type {self.subtype.name}')
+
+        minv = self.subtype.norm(valu[0])[0]
+        maxv = self.subtype.norm(valu[1])[0]
+
+        if ipaddress.ip_address(minv) > ipaddress.ip_address(maxv):
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='minval cannot be greater than maxval')
+
+        return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
 
 class Rfc2822Addr(s_types.Type):
     '''
@@ -718,6 +748,11 @@ class InetModule(s_module.CoreModule):
                         'ex': '2607:f8b0:4004:809::200e'
                     }),
 
+                    ('inet:ipv6range', 'synapse.models.inet.IPv6Range', {}, {
+                        'doc': 'An IPv6 address range',
+                        'ex': '(2607:f8b0:4004:809::200e, 2607:f8b0:4004:809::2011)'
+                    }),
+
                     ('inet:rfc2822:addr', 'synapse.models.inet.Rfc2822Addr', {}, {
                         'doc': 'An RFC 2822 Address field.',
                         'ex': '"Visi Kenshoto" <visi@vertex.link>'
@@ -792,7 +827,7 @@ class InetModule(s_module.CoreModule):
                         'ex': '(1.2.3.4, 1.2.3.20)'
                     }),
 
-                    ('inet:net6', ('range', {'type': ('inet:ipv6', {})}), {
+                    ('inet:net6', ('inet:ipv6range', {}), {
                         'doc': 'An IPv6 address range.',
                         'ex': "('ff::00', 'ff::30')"
                     }),
@@ -936,9 +971,79 @@ class InetModule(s_module.CoreModule):
                         'ex': 'The Vertex Project'
                     }),
 
+                    ('inet:email:message', ('guid', {}), {
+                        'doc': 'A unique email message.',
+                    }),
+
+                    ('inet:email:header:name', ('str', {'lower': True}), {
+                        'doc': 'An email header name.',
+                        'ex': 'subject',
+                    }),
+                    ('inet:email:header', ('comp', {'fields': (('name', 'inet:email:header:name'), ('value', 'str'))}), {
+                        'doc': 'A unique email message header.',
+                    }),
+                    ('inet:email:message:attachment', ('comp', {'fields': (('message', 'inet:email:message'), ('file', 'file:bytes'))}), {
+                        'doc': 'A file which was attached to an email message.',
+                    }),
+                    ('inet:email:message:link', ('comp', {'fields': (('message', 'inet:email:message'), ('url', 'inet:url'))}), {
+                        'doc': 'A url/link embedded in an email message.',
+                    }),
                 ),
 
                 'forms': (
+
+                    ('inet:email:message', {}, (
+
+                        ('to', ('inet:email', {}), {
+                            'doc': 'The email address of the recipient.'}),
+
+                        ('from', ('inet:email', {}), {
+                            'doc': 'The email address of the sender.'}),
+
+                        ('replyto', ('inet:email', {}), {
+                            'doc': 'The email address from the reply-to header.'}),
+
+                        ('subject', ('str', {}), {
+                            'doc': 'The email message subject line.'}),
+
+                        ('body', ('str', {}), {
+                            'doc': 'The body of the email message.'}),
+
+                        ('date', ('time', {}), {
+                            'doc': 'The time the email message was received.'}),
+
+                        ('bytes', ('file:bytes', {}), {
+                            'doc': 'The file bytes which contain the email message.'}),
+                    )),
+
+                    ('inet:email:header', {}, (
+                        ('name', ('inet:email:header:name', {}), {
+                            'ro': True,
+                            'doc': 'The name of the email header.'}),
+                        ('value', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The value of the email header.'}),
+                    )),
+
+                    ('inet:email:message:attachment', {}, (
+                        ('message', ('inet:email:message', {}), {
+                            'ro': True,
+                            'doc': 'The message containing the attached file.'}),
+                        ('file', ('file:bytes', {}), {
+                            'ro': True,
+                            'doc': 'The attached file.'}),
+                        ('name', ('file:base', {}), {
+                            'doc': 'The name of the attached file.'}),
+                    )),
+
+                    ('inet:email:message:link', {}, (
+                        ('message', ('inet:email:message', {}), {
+                            'ro': True,
+                            'doc': 'The message containing the embedded link.'}),
+                        ('url', ('inet:url', {}), {
+                            'ro': True,
+                            'doc': 'The url contained within the email message.'}),
+                    )),
 
                     ('inet:asn', {}, (
                         ('name', ('str', {'lower': True}), {
@@ -1236,7 +1341,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The reconstructed URL for the request if known.'}),
 
                         ('query', ('str', {}), {
-                            'doc': 'The HTTP query string which optionally folows the path.'}),
+                            'doc': 'The HTTP query string which optionally follows the path.'}),
 
                         ('body', ('file:bytes', {}), {
                             'doc': 'The body of the HTTP request.'}),

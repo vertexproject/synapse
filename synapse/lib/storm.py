@@ -11,6 +11,7 @@ import synapse.lib.ast as s_ast
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
+import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,10 @@ class Runtime:
             opts = {}
 
         self.vars = {}
+        self.ctors = {
+            'lib': s_stormtypes.Lib,
+        }
+
         self.opts = opts
         self.snap = snap
         self.user = user
@@ -37,6 +42,10 @@ class Runtime:
         varz = self.opts.get('vars')
         if varz is not None:
             self.vars.update(varz)
+
+        self.runtvars = set()
+        self.runtvars.update(self.vars.keys())
+        self.runtvars.update(self.ctors.keys())
 
         self.elevated = False
 
@@ -72,6 +81,23 @@ class Runtime:
 
     def setOpt(self, name, valu):
         self.opts[name] = valu
+
+    def getVar(self, name, defv=None):
+
+        item = self.vars.get(name, s_common.novalu)
+        if item is not s_common.novalu:
+            return item
+
+        ctor = self.ctors.get(name)
+        if ctor is not None:
+            item = ctor(self)
+            self.vars[name] = item
+            return item
+
+        return defv
+
+    def setVar(self, name, valu):
+        self.vars[name] = valu
 
     def addInput(self, node):
         '''
@@ -124,6 +150,12 @@ class Runtime:
         return count
 
     async def iterStormQuery(self, query):
+
+        # do a quick pass to determine which vars are per-node.
+        for oper in query.kids:
+            for name in oper.getRuntVars(self):
+                self.runtvars.add(name)
+
         # init any options from the query
         # (but dont override our own opts)
         for name, valu in query.opts.items():
@@ -289,7 +321,9 @@ class MaxCmd(Cmd):
 
     Examples:
 
-        file:bytes +#foo.bar | max size
+        file:bytes +#foo.bar | max :size
+
+        file:bytes +#foo.bar | max file:bytes:size
 
     '''
 
@@ -305,9 +339,27 @@ class MaxCmd(Cmd):
         maxvalu = None
         maxitem = None
 
-        name = self.opts.propname.strip(':')
+        pname = self.opts.propname
+        prop = None
+        if not pname.startswith((':', '.')):
+            # Are we a full prop name?
+            prop = runt.snap.core.model.prop(pname)
+            if prop is None or prop.isform:
+                mesg = f'{self.name} argument requires a relative secondary ' \
+                    f'property name or a full path to the secondary property.'
+                raise s_exc.BadSyntaxError(mesg=mesg, valu=pname)
+
+        if prop:
+            name = prop.name
+            form = prop.form
+        else:
+            form = None
+            name = pname.strip(':')
 
         async for node, path in genr:
+
+            if form and node.form is not form:
+                continue
 
             valu = node.get(name)
             if valu is None:
@@ -317,7 +369,8 @@ class MaxCmd(Cmd):
                 maxvalu = valu
                 maxitem = (node, path)
 
-        yield maxitem
+        if maxitem:
+            yield maxitem
 
 class MinCmd(Cmd):
     '''
@@ -325,7 +378,9 @@ class MinCmd(Cmd):
 
     Examples:
 
-        file:bytes +#foo.bar | min size
+        file:bytes +#foo.bar | min :size
+
+        file:bytes +#foo.bar | min file:bytes:size
 
     '''
     name = 'min'
@@ -340,9 +395,27 @@ class MinCmd(Cmd):
         minvalu = None
         minitem = None
 
-        name = self.opts.propname.strip(':')
+        pname = self.opts.propname
+        prop = None
+        if not pname.startswith((':', '.')):
+            # Are we a full prop name?
+            prop = runt.snap.core.model.prop(pname)
+            if prop is None or prop.isform:
+                mesg = f'{self.name} argument requires a relative secondary ' \
+                    f'property name or a full path to the secondary property.'
+                raise s_exc.BadSyntaxError(mesg=mesg, valu=pname)
+
+        if prop:
+            name = prop.name
+            form = prop.form
+        else:
+            form = None
+            name = pname.strip(':')
 
         async for node, path in genr:
+
+            if form and node.form is not form:
+                continue
 
             valu = node.get(name)
             if valu is None:
@@ -352,7 +425,8 @@ class MinCmd(Cmd):
                 minvalu = valu
                 minitem = (node, path)
 
-        yield minitem
+        if minitem:
+            yield minitem
 
 class DelNodeCmd(Cmd):
     '''
@@ -440,9 +514,13 @@ class ReIndexCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('--type', default=None, help='Re-index all properties of a specified type.')
-        pars.add_argument('--subs', default=False, action='store_true', help='Re-parse and set sub props.')
-        pars.add_argument('--form-counts', default=False, action='store_true', help='Re-calculate all form counts.')
+        mutx = pars.add_mutually_exclusive_group(required=True)
+        mutx.add_argument('--type', default=None, help='Re-index all properties of a specified type.')
+        mutx.add_argument('--subs', default=False, action='store_true', help='Re-parse and set sub props.')
+        mutx.add_argument('--form-counts', default=False, action='store_true', help='Re-calculate all form counts.')
+        mutx.add_argument('--fire-handler', default=None,
+                          help='Fire onAdd/wasSet/runTagAdd commands for a fully qualified form/property'
+                               ' or tag name on inbound nodes.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -500,7 +578,42 @@ class ReIndexCmd(Cmd):
             await snap.printf(f'...done')
             return
 
-        raise s_exc.SynErr('reindex was not told what to do!')
+        if self.opts.fire_handler:
+            obj = None
+            name = None
+            tname = None
+
+            if self.opts.fire_handler.startswith('#'):
+                name, _ = runt.snap.model.prop('syn:tag').type.norm(self.opts.fire_handler)
+                tname = '#' + name
+            else:
+                obj = runt.snap.model.prop(self.opts.fire_handler)
+                if obj is None:
+                    raise s_exc.NoSuchProp(mesg='',
+                                           name=self.opts.fire_handler)
+
+            async for node, path in genr:
+                if hasattr(obj, 'wasAdded'):
+                    if node.form.full != obj.full:
+                        continue
+                    await obj.wasAdded(node)
+                elif hasattr(obj, 'wasSet'):
+                    if obj.form.name != node.form.name:
+                        continue
+                    valu = node.get(obj.name)
+                    if valu is None:
+                        continue
+                    await obj.wasSet(node, valu)
+                else:
+                    # We're a tag...
+                    valu = node.get(tname)
+                    if valu is None:
+                        continue
+                    await runt.snap.core.runTagAdd(node, name, valu)
+
+                yield node, path
+
+            return
 
 
 class MoveTagCmd(Cmd):

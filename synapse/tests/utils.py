@@ -30,6 +30,7 @@ import tempfile
 import unittest
 import threading
 import contextlib
+import collections
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -48,6 +49,7 @@ import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.thishost as s_thishost
+import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,20 @@ TEST_MAP_SIZE = s_const.gibibyte
 
 async def alist(coro):
     return [x async for x in coro]
+
+class LibTst(s_stormtypes.Lib):
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'beep': self.beep,
+        })
+
+    async def beep(self, valu):
+        '''
+        Example storm func
+        '''
+        ret = f'A {valu} beep!'
+        return ret
 
 class TestType(s_types.Type):
 
@@ -79,9 +95,22 @@ class ThreeType(s_types.Type):
     def indx(self, norm):
         return '3'.encode('utf8')
 
+class TestSubType(s_types.Type):
+
+    def norm(self, valu):
+        valu = int(valu)
+        return valu, {'subs': {'isbig': valu >= 1000}}
+
+    def repr(self, norm):
+        return str(norm)
+
+    def indx(self, norm):
+        return norm.to_bytes(4, 'big')
+
 testmodel = {
 
     'ctors': (
+        ('testsub', 'synapse.tests.utils.TestSubType', {}, {}),
         ('testtype', 'synapse.tests.utils.TestType', {}, {}),
         ('testthreetype', 'synapse.tests.utils.ThreeType', {}, {}),
     ),
@@ -97,6 +126,7 @@ testmodel = {
         ('testint', ('int', {}), {}),
         ('teststr', ('str', {}), {}),
         ('testauto', ('str', {}), {}),
+        ('test:edge', ('edge', {}), {}),
         ('testguid', ('guid', {}), {}),
 
         ('testcomp', ('comp', {'fields': (
@@ -112,9 +142,14 @@ testmodel = {
 
         ('pivtarg', ('str', {}), {}),
         ('pivcomp', ('comp', {'fields': (('targ', 'pivtarg'), ('lulz', 'teststr'))}), {}),
+        ('haspivcomp', ('int', {}), {}),
 
         ('cycle0', ('str', {}), {}),
         ('cycle1', ('str', {}), {}),
+
+        ('test:ndef', ('ndef', {}), {}),
+        ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
+
     ),
 
     'forms': (
@@ -156,8 +191,18 @@ testmodel = {
             ('loc', ('loc', {}), {}),
         )),
 
+        ('test:edge', {}, (
+                    ('n1', ('ndef', {}), {'ro': 1}),
+                    ('n1:form', ('str', {}), {'ro': 1}),
+                    ('n2', ('ndef', {}), {'ro': 1}),
+                    ('n2:form', ('str', {}), {'ro': 1}),
+        )),
+
         ('testguid', {}, (
+            ('size', ('testint', {}), {}),
             ('tick', ('testtime', {}), {}),
+            ('posneg', ('testsub', {}), {}),
+            ('posneg:isbig', ('bool', {}), {}),
         )),
 
         ('teststr', {}, (
@@ -184,6 +229,20 @@ testmodel = {
             ('size', ('testint', {}), {}),
             ('width', ('testint', {}), {}),
         )),
+
+        ('haspivcomp', {}, (
+            ('have', ('pivcomp', {}), {}),
+        )),
+
+        ('test:ndef', {}, (
+            ('form', ('str', {}), {'ro': 1}),
+        )),
+
+        ('test:runt', {'runt': True}, (
+            ('tick', ('time', {}), {'ro': True}),
+            ('lulz', ('str', {}), {}),
+            ('newp', ('str', {}), {'doc': 'A stray property we never use in nodes.'}),
+        )),
     ),
 }
 
@@ -195,9 +254,115 @@ class TestModule(s_module.CoreModule):
         async with await self.core.snap() as snap:
             await snap.addNode('source', self.testguid, {'name': 'test'})
 
+        self.core.addStormLib(('test',), LibTst)
+
+        self._runtsByBuid = {}
+        self._runtsByPropValu = collections.defaultdict(list)
+        await self._initTestRunts()
+
+        # Add runt lift helpers
+        for form in ('test:runt',):
+            form = self.model.form(form)
+            self.core.addRuntLift(form.full, self._testRuntLift)
+            for name, prop in form.props.items():
+                pfull = prop.full
+                # universal properties are indexed separately.
+                univ = prop.univ
+                if univ:
+                    pfull = form.full + univ
+                self.core.addRuntLift(pfull, self._testRuntLift)
+        self.core.addRuntPropSet(self.model.prop('test:runt:lulz'), self._testRuntPropSetLulz)
+        self.core.addRuntPropDel(self.model.prop('test:runt:lulz'), self._testRuntPropDelLulz)
+
     async def addTestRecords(self, snap, items):
         for name in items:
             await snap.addNode('teststr', name)
+
+    async def _testRuntLift(self, full, valu=None, cmpr=None):
+        # runt lift helpers must decide what comparators they support
+        if cmpr is not None and cmpr != '=':
+            raise s_exc.BadCmprValu(mesg='Test runts do not support cmpr which is not equality',
+                                    cmpr=cmpr)
+
+        # Runt lift helpers must support their own normalization for data retrieval
+        if valu is not None:
+            prop = self.model.prop(full)
+            valu, _ = prop.type.norm(valu)
+
+        # runt lift helpers must then yield buid/rows pairs for Node object creation.
+        if valu is None:
+            buids = self._runtsByPropValu.get(full, ())
+        else:
+            buids = self._runtsByPropValu.get((full, valu), ())
+
+        rowsets = [(buid, self._runtsByBuid.get(buid, ())) for buid in buids]
+        for buid, rows in rowsets:
+            yield buid, rows
+
+    async def _testRuntPropSetLulz(self, node, prop, valu):
+        curv = node.get(prop.name)
+        valu, _ = prop.type.norm(valu)
+        if curv == valu:
+            return False
+        if not valu.endswith('.sys'):
+            raise s_exc.BadPropValu(mesg='test:runt:lulz must end with ".sys"',
+                                    valu=valu, name=prop.full)
+        node.props[prop.name] = valu
+        # In this test helper, we do NOT persist the change to our in-memory
+        # storage of row data, so a re-lift of the node would not reflect the
+        # change that a user made here.
+        return True
+
+    async def _testRuntPropDelLulz(self, node, prop,):
+        curv = node.props.pop(prop.name, s_common.novalu)
+        if curv is s_common.novalu:
+            return False
+
+        # In this test helper, we do NOT persist the change to our in-memory
+        # storage of row data, so a re-lift of the node would not reflect the
+        # change that a user made here.
+        return True
+
+    async def _initTestRunts(self):
+        modl = self.core.model
+        fnme = 'test:runt'
+        form = modl.form(fnme)
+        now = s_common.now()
+        data = [(' BEEP ', {'tick': modl.type('time').norm('2001')[0], 'lulz': 'beep.sys', '.created': now}),
+                ('boop', {'tick': modl.type('time').norm('2010')[0], '.created': now}),
+                ('blah', {'tick': modl.type('time').norm('2010')[0], 'lulz': 'blah.sys'}),
+                ('woah', {}),
+                ]
+        for pprop, propd in data:
+            props = {}
+            pnorm, _ = form.type.norm(pprop)
+
+            for k, v in propd.items():
+                prop = form.props.get(k)
+                if prop:
+                    norm, _ = prop.type.norm(v)
+                    props[k] = norm
+
+            props.setdefault('.created', s_common.now())
+
+            rows = [('*' + fnme, pnorm)]
+            for k, v in props.items():
+                rows.append((k, v))
+
+            buid = s_common.buid((fnme, pnorm))
+            self._runtsByBuid[buid] = rows
+
+            # Allow for indirect lookup to a set of buids
+            self._runtsByPropValu[fnme].append(buid)
+            self._runtsByPropValu[(fnme, pnorm)].append(buid)
+            for k, propvalu in props.items():
+                prop = fnme + ':' + k
+                if k.startswith('.'):
+                    prop = fnme + k
+                self._runtsByPropValu[prop].append(buid)
+                if modl.prop(prop).type.indx(propvalu):
+                    # Can the secondary property be indexed for lift?
+                    self._runtsByPropValu[(prop, propvalu)].append(buid)
 
     def getModelDefs(self):
         return (
@@ -585,7 +750,7 @@ class SynTest(unittest.TestCase):
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
 
     @contextlib.asynccontextmanager
-    async def getTestCore(self, mirror='testcore', conf=None, extra_layers=None):
+    async def getTestCore(self, mirror='testcore', conf=None, extra_layers=()):
         '''
         Return a simple test Cortex.
 
@@ -597,13 +762,15 @@ class SynTest(unittest.TestCase):
             s_common.yamlmod(conf, dirn, 'cell.yaml')
             ldir = s_common.gendir(dirn, 'layers')
             layerdir = pathlib.Path(ldir, '000-default')
+
             if self.alt_write_layer:
                 os.symlink(self.alt_write_layer, layerdir)
             else:
                 layerdir.mkdir()
                 s_cells.deploy('layer-lmdb', layerdir)
                 s_common.yamlmod({'lmdb:mapsize': TEST_MAP_SIZE}, layerdir, 'cell.yaml')
-            for i, fn in enumerate(extra_layers or []):
+
+            for i, fn in enumerate(extra_layers):
                 src = pathlib.Path(fn).resolve()
                 os.symlink(src, pathlib.Path(ldir, f'{i + 1:03}-testlayer'))
 
@@ -1048,6 +1215,28 @@ class SynTest(unittest.TestCase):
         async for _ in obj:
             count += 1
         self.eq(x, count, msg=msg)
+
+    def stormIsInPrint(self, mesg, mesgs):
+        '''
+        Check if a string is present in all of the print messages from a stream of storm messages.
+
+        Args:
+            mesg (str): A string to check.
+            mesgs (list): A list of storm messages.
+        '''
+        print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+        self.isin(mesg, print_str)
+
+    def stormIsInWarn(self, mesg, mesgs):
+        '''
+        Check if a string is present in all of the warn messages from a stream of storm messages.
+
+        Args:
+            mesg (str): A string to check.
+            mesgs (list): A list of storm messages.
+        '''
+        print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'warn'])
+        self.isin(mesg, print_str)
 
     def istufo(self, obj):
         '''

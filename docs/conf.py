@@ -188,10 +188,20 @@ epub_exclude_files = ['search.html']
 def run_apidoc(_):
     from sphinx.ext.apidoc import main
 
-    args = ['-M', '-o', './api', '../synapse', ]
+    args = ['-M', '-o', './autodocs', '../synapse', ]
     ignores = ['../synapse/tests']
     args.extend(ignores)
     main(args)
+
+def run_modeldoc(_):
+    import synapse
+    import subprocess
+    abssynf = os.path.abspath(synapse.__file__)
+    synbd = os.path.split(abssynf)[0]  # Split off __init__
+    synpd = os.path.split(synbd)[0]  # split off the synapse module directory
+    args = ['python', '-m', 'synapse.tools.autodoc', '--doc-model',
+            '--savedir', './docs/autodocs']
+    subprocess.run(args, cwd=synpd)
 
 def convert_ipynb(_):
     import nbconvert.nbconvertapp as nba
@@ -208,4 +218,5 @@ def convert_ipynb(_):
 def setup(app):
     # app.add_stylesheet('theme_overrides.css')
     app.connect('builder-inited', run_apidoc)
+    app.connect('builder-inited', run_modeldoc)
     app.connect('builder-inited', convert_ipynb)

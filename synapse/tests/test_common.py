@@ -1,7 +1,7 @@
-
 import os
 import sys
 
+import yaml
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -12,10 +12,75 @@ class CommonTest(s_t_utils.SynTest):
         self.eq(s_common.vertup('1.3.30'), (1, 3, 30))
         self.true(s_common.vertup('30.40.50') > (9, 0))
 
-    def test_common_genfile(self):
+    def test_common_file_helpers(self):
+        # genfile
         with self.getTestDir() as testdir:
             fd = s_common.genfile(testdir, 'woot', 'foo.bin')
+            fd.write(b'genfile_test')
             fd.close()
+
+            with open(os.path.join(testdir, 'woot', 'foo.bin'), 'rb') as fd:
+                buf = fd.read()
+            self.eq(buf, b'genfile_test')
+
+        # reqpath
+        with self.getTestDir() as testdir:
+            with s_common.genfile(testdir, 'test.txt') as fd:
+                fd.write(b'')
+            self.eq(os.path.join(testdir, 'test.txt'), s_common.reqpath(testdir, 'test.txt'))
+            self.raises(s_exc.NoSuchFile, s_common.reqpath, testdir, 'newp')
+
+        # reqfile
+        with self.getTestDir() as testdir:
+            with s_common.genfile(testdir, 'test.txt') as fd:
+                fd.write(b'reqfile_test')
+            fd = s_common.reqfile(testdir, 'test.txt')
+            buf = fd.read()
+            self.eq(buf, b'reqfile_test')
+            fd.close()
+            self.raises(s_exc.NoSuchFile, s_common.reqfile, testdir, 'newp')
+
+        # getfile
+        with self.getTestDir() as testdir:
+            with s_common.genfile(testdir, 'test.txt') as fd:
+                fd.write(b'getfile_test')
+            fd = s_common.getfile(testdir, 'test.txt')
+            buf = fd.read()
+            self.eq(buf, b'getfile_test')
+            fd.close()
+            self.none(s_common.getfile(testdir, 'newp'))
+
+        # getbytes
+        with self.getTestDir() as testdir:
+            with s_common.genfile(testdir, 'test.txt') as fd:
+                fd.write(b'getbytes_test')
+            buf = s_common.getbytes(testdir, 'test.txt')
+            self.eq(buf, b'getbytes_test')
+            self.none(s_common.getbytes(testdir, 'newp'))
+
+        # reqbytes
+        with self.getTestDir() as testdir:
+            with s_common.genfile(testdir, 'test.txt') as fd:
+                fd.write(b'reqbytes_test')
+            buf = s_common.reqbytes(testdir, 'test.txt')
+            self.eq(buf, b'reqbytes_test')
+            self.raises(s_exc.NoSuchFile, s_common.reqbytes, testdir, 'newp')
+
+        # listdir
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'woot.txt')
+            with open(path, 'wb') as fd:
+                fd.write(b'woot')
+
+            os.makedirs(os.path.join(dirn, 'nest'))
+            with open(os.path.join(dirn, 'nest', 'nope.txt'), 'wb') as fd:
+                fd.write(b'nope')
+
+            retn = tuple(s_common.listdir(dirn))
+            self.len(2, retn)
+
+            retn = tuple(s_common.listdir(dirn, glob='*.txt'))
+            self.eq(retn, ((path,)))
 
     def test_common_intify(self):
         self.eq(s_common.intify(20), 20)
@@ -33,36 +98,6 @@ class CommonTest(s_t_utils.SynTest):
     def test_common_isguid(self):
         self.true(s_common.isguid('98db59098e385f0bfdec8a6a0a6118b3'))
         self.false(s_common.isguid('visi'))
-
-    def test_compat_canstor(self):
-        self.true(0xf0f0)
-        self.true(0xf0f0f0f0f0f0)
-        self.true(s_common.canstor('asdf'))
-        self.true(s_common.canstor(u'asdf'))
-        # Ensure the previous two strings are actually the same string.
-        self.eq(sys.intern('asdf'), sys.intern(u'asdf'))
-
-        self.false(s_common.canstor(True))
-        self.false(s_common.canstor(b'asdf'))
-        self.false(s_common.canstor(('asdf',)))
-        self.false(s_common.canstor(['asdf', ]))
-        self.false(s_common.canstor({'asdf': True}))
-
-    def test_common_listdir(self):
-        with self.getTestDir() as dirn:
-            path = os.path.join(dirn, 'woot.txt')
-            with open(path, 'wb') as fd:
-                fd.write(b'woot')
-
-            os.makedirs(os.path.join(dirn, 'nest'))
-            with open(os.path.join(dirn, 'nest', 'nope.txt'), 'wb') as fd:
-                fd.write(b'nope')
-
-            retn = tuple(s_common.listdir(dirn))
-            self.len(2, retn)
-
-            retn = tuple(s_common.listdir(dirn, glob='*.txt'))
-            self.eq(retn, ((path,)))
 
     def test_common_chunks(self):
         s = '123456789'
@@ -210,3 +245,9 @@ class CommonTest(s_t_utils.SynTest):
             robj = s_common.yamlload(dirn, 'test.yaml')
             obj['bar'] = 42
             self.eq(obj, robj)
+
+            # Test yaml helper safety
+            s = '!!python/object/apply:os.system ["pwd"]'
+            with s_common.genfile(dirn, 'explode.yaml') as fd:
+                fd.write(s.encode())
+            self.raises(yaml.YAMLError, s_common.yamlload, dirn, 'explode.yaml')

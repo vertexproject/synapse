@@ -25,6 +25,12 @@ class OuModule(s_module.CoreModule):
                 ('ou:hasalias', ('comp', {'fields': (('org', 'ou:org'), ('alias', 'ou:alias'))}), {
                     'doc': 'The knowledge that an organization has an alias.',
                 }),
+                ('ou:orgnet4', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net4'))}), {
+                    'doc': "An organization's IPv4 netblock",
+                }),
+                ('ou:orgnet6', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net6'))}), {
+                    'doc': "An organization's IPv6 netblock",
+                }),
                 ('ou:name', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'The name of an organization. This may be a formal name or informal name of the '
                            'organization.',
@@ -79,6 +85,10 @@ class OuModule(s_module.CoreModule):
                     ('us:cage', ('gov:us:cage', {}), {
                         'doc': 'The Commercial and Government Entity (CAGE) code for the organization.',
                     }),
+                    ('founded', ('time', {}), {
+                        'doc': 'The date on which the org was founded.'}),
+                    ('disolved', ('time', {}), {
+                        'doc': 'The date on which the org was disolved.'}),
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary url for the organization.',
                     }),
@@ -92,6 +102,32 @@ class OuModule(s_module.CoreModule):
                     ('alias', ('ou:alias', {}), {
                         'ro': True,
                         'doc': 'Alias for the organization',
+                    }),
+                )),
+                ('ou:orgnet4', {}, (
+                    ('org', ('ou:org', {}), {
+                        'ro': True,
+                        'doc': 'Org guid',
+                    }),
+                    ('net', ('inet:net4', {}), {
+                        'ro': True,
+                        'doc': 'Netblock owned by the organization',
+                    }),
+                    ('name', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The name that the organization assigns to this netblock'
+                    }),
+                )),
+                ('ou:orgnet6', {}, (
+                    ('org', ('ou:org', {}), {
+                        'ro': True,
+                        'doc': 'Org guid',
+                    }),
+                    ('net', ('inet:net6', {}), {
+                        'ro': True,
+                        'doc': 'Netblock owned by the organization',
+                    }),
+                    ('name', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The name that the organization assigns to this netblock'
                     }),
                 )),
                 ('ou:member', {}, (
@@ -187,7 +223,7 @@ class OuModule(s_module.CoreModule):
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which created/managed the conference.',
                     }),
-                    ('name', ('str', {'lower': True, 'req': True}), {
+                    ('name', ('str', {'lower': True}), {
                         'doc': 'The full name of the conference.',
                         'ex': 'decfon 2017',
                     }),
@@ -232,22 +268,3 @@ class OuModule(s_module.CoreModule):
 
         name = 'ou'
         return ((name, modl),)
-
-# FIXME: What do we want to do with seedCtors?
-class Fixme:
-
-    async def initCoreModule(self):
-        self.core.addSeedCtor('ou:org:name', self.seedOrgName)
-        self.core.addSeedCtor('ou:org:alias', self.seedOrgAlias)
-
-    def seedOrgName(self, prop, valu, **props):
-        node = self.core.getTufoByProp('ou:org:name', valu)
-        if node is None:
-            node = self.core.formTufoByProp('ou:org', guid(), name=valu, **props)
-        return node
-
-    def seedOrgAlias(self, prop, valu, **props):
-        node = self.core.getTufoByProp('ou:org:alias', valu)
-        if node is None:
-            node = self.core.formTufoByProp('ou:org', guid(), alias=valu, **props)
-        return node

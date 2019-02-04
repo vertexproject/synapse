@@ -28,19 +28,18 @@ class BackupTest(s_t_utils.SynTest):
         return set1
 
     async def test_backup(self):
+
         async with self.getTestCore() as core:
+
             await core.fini()  # Avoid having the same DB open twice
-            # This technically mangles the value in scope but that value
-            # is not used for doing directory removal.
+
             with self.getTestDir() as dirn2:
-                argv = [core.dirn, dirn2]
-                args = s_backup.parse_args(argv)
-                ret = s_backup.main(args)
-                self.eq(ret, 0)
-                cmpr_path = os.path.join(args.outpath,
-                                         os.path.basename(core.dirn))
-                fpset = self.compare_dirs(core.dirn,
-                                          cmpr_path,
-                                          skipfns=['lock.mdb'])
+
+                argv = (core.dirn, dirn2)
+
+                self.eq(0, s_backup.main(argv))
+
+                fpset = self.compare_dirs(core.dirn, dirn2, skipfns=['lock.mdb'])
+
                 # We expect the data.mdb file to be in the fpset
                 self.isin('/layers/000-default/layer.lmdb/data.mdb', fpset)

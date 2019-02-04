@@ -10,6 +10,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
+import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.utils as s_t_utils
@@ -554,6 +555,9 @@ class CortexTest(s_t_utils.SynTest):
                 await self.agenlen(2, core.eval('.created*range=(2010, 3001)'))
                 await self.agenlen(2, core.eval('.created*range=("2010", "?")'))
 
+            # The .created time is ro
+            await self.asyncraises(s_exc.ReadOnlyProp, core.eval(f'.created="{created}" [.created=3001]').list())
+
             # Open another snap to test some more default value behavior
             async with await core.snap() as snap:
                 # Grab an updated reference to the first node
@@ -827,6 +831,10 @@ class CortexTest(s_t_utils.SynTest):
                 splice[1].pop('user', None)
                 splice[1].pop('time', None)
                 splices.append(splice)
+
+            # Ensure the splices are unique
+            self.len(len(splices), {s_msgpack.en(s) for s in splices})
+
             # Check to ensure a few expected splices exist
             mesg = ('node:add', {'ndef': ('teststr', 'hello')})
             self.isin(mesg, splices)
@@ -1193,6 +1201,23 @@ class CortexTest(s_t_utils.SynTest):
             nodes = [msg for msg in mesgs if msg[0] == 'node']
             self.len(1, nodes)
             self.eq(nodes[0][1][0], ('testint', 127))
+
+            # Setup a form pivot where the primary prop may fail to norm
+            # to the destination prop for some of the inbound nodes.
+            async with await core.snap() as snap:
+                node = await snap.addNode('testint', 10)
+                node = await snap.addNode('testint', 25)
+                node = await snap.addNode('testtype10', 'test', {'intprop': 25})
+            mesgs = await alist(core.streamstorm('testint*in=(10, 25) -> testtype10:intprop'))
+
+            warns = [msg for msg in mesgs if msg[0] == 'warn']
+            self.len(1, warns)
+            emesg = "BadTypeValu [10] during pivot: value is below min=20"
+            self.eq(warns[0][1], {'name': 'int', 'valu': 10,
+                                  'mesg': emesg})
+            nodes = [msg for msg in mesgs if msg[0] == 'node']
+            self.len(1, nodes)
+            self.eq(nodes[0][1][0], ('testtype10', 'test'))
 
             # Bad pivots go here
             for q in ['pivcomp :lulz <- *',
@@ -1573,6 +1598,20 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('.hehe [ -.hehe ]'))
             await self.agenlen(0, core.eval('.hehe'))
 
+        # ensure that we can delete univ props in a authenticated setting
+        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            realcore = dmon.shared['core']
+            realcore.model.addUnivProp('hehe', ('int', {}), {})
+            await self.agenlen(1, realcore.eval('[ teststr=woot .hehe=20 ]'))
+            await self.agenlen(1, realcore.eval('[ teststr=pennywise .hehe=8086 ]'))
+
+            pconf = {'user': 'root', 'passwd': 'root'}
+            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
+                podes = await alist(await core.eval('teststr=woot [-.hehe] | sudo'))
+                self.none(s_node.prop(podes[0], '.hehe'))
+                podes = await alist(await core.eval('sudo | teststr=pennywise [-.hehe]'))
+                self.none(s_node.prop(podes[0], '.hehe'))
+
     async def test_cortex_snap_eval(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
@@ -1688,23 +1727,6 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('[ teststr=foo +#bar ] +(not .seen)'))
             await self.agenlen(1, core.eval('[ teststr=foo +#bar ] +(#baz or not .seen)'))
 
-    async def test_storm_minmax(self):
-
-        async with self.getTestCore() as core:
-
-            minval = core.model.type('time').norm('2015')[0]
-            maxval = core.model.type('time').norm('2017')[0]
-
-            await self.agenlen(1, core.eval('[ testguid="*" :tick=2015 ]'))
-            await self.agenlen(1, core.eval('[ testguid="*" :tick=2016 ]'))
-            await self.agenlen(1, core.eval('[ testguid="*" :tick=2017 ]'))
-
-            async for node in core.eval('testguid | max tick'):
-                self.eq(node.get('tick'), maxval)
-
-            async for node in core.eval('testguid | min tick'):
-                self.eq(node.get('tick'), minval)
-
     async def test_storm_totags(self):
 
         async with self.getTestCore() as core:
@@ -1730,7 +1752,12 @@ class CortexTest(s_t_utils.SynTest):
 
             await self.agenlen(2, core.eval('syn:tag=foo.bar -> *'))
 
-            await self.agenraises(s_exc.BadTypeValu, core.eval('syn:tag=foo.bar -> teststr:tick'))
+            # Attempt a formpivot from a syn:tag node to a secondary property
+            # which is not valid
+            with self.getAsyncLoggerStream('synapse.lib.ast',
+                                           'Unknown time format') as stream:
+                self.len(0, await core.eval('syn:tag=foo.bar -> teststr:tick').list())
+                self.true(await stream.wait(4))
 
     async def test_storm_tagtags(self):
 
@@ -2097,6 +2124,18 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], ('vertex.link', 0x01020304))
 
+    async def test_storm_dict_deref(self):
+
+        async with self.getTestCore() as core:
+
+            text = '''
+            [ testint=$hehe.haha ]
+            '''
+            opts = {'vars': {'hehe': {'haha': 20}}}
+            nodes = await core.eval(text, opts=opts).list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 20)
+
     async def test_storm_varlist_compute(self):
 
         async with self.getTestCore() as core:
@@ -2228,6 +2267,46 @@ class CortexTest(s_t_utils.SynTest):
             self.none(alldefs.get(('syn:tag', 'nope')))
             self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
 
+    async def test_storm_lib_time(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.eval('[ ps:person="*" :dob = $lib.time.fromunix(20) ]').list()
+            self.len(1, nodes)
+            self.eq(20000, nodes[0].get('dob'))
+
+    async def test_storm_lib_custom(self):
+
+        async with self.getTestCore() as core:
+            # Test the registered function from test utils
+            q = '[ ps:person="*" :name = $lib.test.beep(loud) ]'
+            nodes = await core.eval(q).list()
+            self.len(1, nodes)
+            self.eq('a loud beep!', nodes[0].get('name'))
+
+            q = '$test = $lib.test.beep(test) [teststr=$test]'
+            nodes = await core.eval(q).list()
+            self.len(1, nodes)
+            self.eq('A test beep!', nodes[0].ndef[1])
+
+    async def test_storm_type_node(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.eval('[ ps:person="*" has=($node, (inet:fqdn,woot.com)) ]').list()
+            self.len(2, nodes)
+            self.eq('has', nodes[1].ndef[0])
+
+            nodes = await core.eval('[teststr=test] [refs=($node,(testint, 1234))] -teststr').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], (('teststr', 'test'), ('testint', 1234)))
+
+            nodes = await core.eval('testint=1234 [teststr=$node.value()] -testint').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('teststr', '1234'))
+
+            nodes = await core.eval('testint=1234 [teststr=$node.form()] -testint').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('teststr', 'testint'))
+
     async def test_storm_subq_size(self):
 
         async with self.getTestCore() as core:
@@ -2255,3 +2334,141 @@ class CortexTest(s_t_utils.SynTest):
 
             self.len(1, await core.storm('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } > 1 ').list())
             self.len(0, await core.storm('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } > 2 ').list())
+
+    async def test_cortex_in(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 'a')
+                node = await snap.addNode('teststr', 'b')
+                node = await snap.addNode('teststr', 'c')
+
+            self.len(0, await core.storm('teststr*in=()').list())
+            self.len(0, await core.storm('teststr*in=(d)').list())
+            self.len(2, await core.storm('teststr*in=(a, c)').list())
+            self.len(1, await core.storm('teststr*in=(a, d)').list())
+            self.len(3, await core.storm('teststr*in=(a, b, c)').list())
+
+            self.len(0, await core.storm('teststr +teststr*in=()').list())
+            self.len(0, await core.storm('teststr +teststr*in=(d)').list())
+            self.len(2, await core.storm('teststr +teststr*in=(a, c)').list())
+            self.len(1, await core.storm('teststr +teststr*in=(a, d)').list())
+            self.len(3, await core.storm('teststr +teststr*in=(a, b, c)').list())
+
+    async def test_runt(self):
+        async with self.getTestCore() as core:
+
+            # Ensure that lifting by form/prop/values works.
+            nodes = await core.eval('test:runt').list()
+            self.len(4, nodes)
+
+            nodes = await core.eval('test:runt.created').list()
+            self.len(4, nodes)
+
+            nodes = await core.eval('test:runt:tick=2010').list()
+            self.len(2, nodes)
+
+            nodes = await core.eval('test:runt:tick=2001').list()
+            self.len(1, nodes)
+
+            nodes = await core.eval('test:runt:tick=2019').list()
+            self.len(0, nodes)
+
+            nodes = await core.eval('test:runt:lulz="beep.sys"').list()
+            self.len(1, nodes)
+
+            nodes = await core.eval('test:runt:lulz').list()
+            self.len(2, nodes)
+
+            nodes = await core.eval('test:runt:tick=$foo', {'vars': {'foo': '2010'}}).list()
+            self.len(2, nodes)
+
+            # Ensure that a lift by a universal property doesn't lift a runt node
+            # accidentally.
+            nodes = await core.eval('.created').list()
+            self.ge(len(nodes), 1)
+            self.notin('test:ret', {node.ndef[0] for node in nodes})
+
+            # Ensure we can do filter operations on runt nodes
+            nodes = await core.eval('test:runt +:tick*range=(1999, 2003)').list()
+            self.len(1, nodes)
+
+            nodes = await core.eval('test:runt -:tick*range=(1999, 2003)').list()
+            self.len(3, nodes)
+
+            # Ensure we can pivot to/from runt nodes
+            async with await core.snap() as snap:
+                node = await snap.addNode('teststr', 'beep.sys')
+
+            nodes = await core.eval('test:runt :lulz -> teststr').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('teststr', 'beep.sys'))
+
+            nodes = await core.eval('teststr -> test:runt:lulz').list()
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:runt', 'beep'))
+
+            # Lift by ndef/iden/opts does not work since runt support is not plumbed
+            # into any caching which those lifts perform.
+            ndef = ('test:runt', 'blah')
+            iden = '15e33ccff08f9f96b5cea9bf0bcd2a55a96ba02af87f8850ba656f2a31429224'
+            nodes = await core.eval(f'iden {iden}').list()
+            self.len(0, nodes)
+
+            nodes = await core.eval('', {'idens': [iden]}).list()
+            self.len(0, nodes)
+
+            nodes = await core.eval('', {'ndefs': [ndef]}).list()
+            self.len(0, nodes)
+
+            # Ensure that add/edit a read-only runt prop fails, whether or not it exists.
+            await self.asyncraises(s_exc.IsRuntForm,
+                                   core.eval('test:runt=beep [:tick=3001]').list())
+            await self.asyncraises(s_exc.IsRuntForm,
+                                   core.eval('test:runt=woah [:tick=3001]').list())
+
+            # Ensure that we can add/edit secondary props which has a callback.
+            nodes = await core.eval('test:runt=beep [:lulz=beepbeep.sys]').list()
+            self.eq(nodes[0].get('lulz'), 'beepbeep.sys')
+            await nodes[0].set('lulz', 'beepbeep.sys')  # We can do no-operation edits
+            self.eq(nodes[0].get('lulz'), 'beepbeep.sys')
+
+            # We can set props which were not there previously
+            nodes = await core.eval('test:runt=woah [:lulz=woah.sys]').list()
+            self.eq(nodes[0].get('lulz'), 'woah.sys')
+
+            # A edit may throw an exception due to some prop-specific normalization reason.
+            await self.asyncraises(s_exc.BadPropValu, core.eval('test:runt=woah [:lulz=no.way]').list())
+
+            # Setting a property which has no callback or ro fails.
+            await self.asyncraises(s_exc.IsRuntForm, core.eval('test:runt=woah [:newp=pennywise]').list())
+
+            # Ensure that delete a read-only runt prop fails, whether or not it exists.
+            await self.asyncraises(s_exc.IsRuntForm,
+                                   core.eval('test:runt=beep [-:tick]').list())
+            await self.asyncraises(s_exc.IsRuntForm,
+                                   core.eval('test:runt=woah [-:tick]').list())
+
+            # Ensure that we can delete a secondary prop which has a callback.
+            nodes = await core.eval('test:runt=beep [-:lulz]').list()
+            self.none(nodes[0].get('lulz'))
+
+            nodes = await core.eval('test:runt=woah [-:lulz]').list()
+            self.none(nodes[0].get('lulz'))
+
+            # Deleting a property which has no callback or ro fails.
+            await self.asyncraises(s_exc.IsRuntForm, core.eval('test:runt=woah [-:newp]').list())
+
+            # # Ensure that adding tags on runt nodes fails
+            await self.asyncraises(s_exc.IsRuntForm, core.eval('test:runt=beep [+#hehe]').list())
+            await self.asyncraises(s_exc.IsRuntForm, core.eval('test:runt=beep [-#hehe]').list())
+
+            # Ensure that adding / deleting test runt nodes fails
+            await self.asyncraises(s_exc.IsRuntForm, core.eval('[test:runt=" oh MY! "]').list())
+            await self.asyncraises(s_exc.IsRuntForm, core.eval('test:runt=beep | delnode').list())
+
+            # Ensure that non-equality based lift comparators for the test runt nodes fails.
+            await self.asyncraises(s_exc.BadCmprValu, core.eval('test:runt~="b.*"').list())
+            await self.asyncraises(s_exc.BadCmprValu, core.eval('test:runt:tick*range=(1999, 2001)').list())
+
+            # Sad path for underlying Cortex.runRuntLift
+            await self.agenraises(s_exc.NoSuchLift, core.runRuntLift('test:newp', 'newp'))

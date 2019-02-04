@@ -173,6 +173,15 @@ class FileBytes(s_types.Type):
 
 class FileModule(s_module.CoreModule):
 
+    async def initCoreModule(self):
+        self.model.prop('file:bytes:mime').onSet(self._onSetFileBytesMime)
+
+    async def _onSetFileBytesMime(self, node, oldv):
+        name = node.get('mime')
+        if name == '??':
+            return
+        await node.snap.addNode('file:ismime', (node.ndef[1], name))
+
     def getModelDefs(self):
         modl = {
             'ctors': (
@@ -197,9 +206,20 @@ class FileModule(s_module.CoreModule):
                 ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
                     'doc': 'A parent file that fully contains the specified child file.',
                 }),
+
                 ('file:filepath', ('comp', {'fields': (('file', 'file:bytes'), ('path', 'file:path'))}), {
                     'doc': 'The fused knowledge of the association of a file:bytes node and a file:path.',
                 }),
+
+                ('file:mime', ('str', {'lower': 1}), {
+                    'doc': 'A file mime name string',
+                    'ex': 'text/plain',
+                }),
+
+                ('file:ismime', ('comp', {'fields': (('file', 'file:bytes'), ('mime', 'file:mime'))}), {
+                    'doc': 'Records one, of potentially multiple, mime types for a given file.',
+                }),
+
                 ('file:mime:pe:section', ('comp', {'fields': (
                         ('file', 'file:bytes'),
                         ('name', 'str'),
@@ -234,12 +254,15 @@ class FileModule(s_module.CoreModule):
                         ('string', 'str'))}), {
                     'doc': 'The fused knowledge of a file:bytes node containing a string.',
                 }),
+
                 ('pe:resource:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
                     'doc': 'The typecode for the resource',
                 }),
+
                 ('pe:langid', ('int', {'enums': s_l_pe.getLangCodes()}), {
                     'doc': 'The PE language id',
                 }),
+
             ),
 
             'forms': (
@@ -264,8 +287,9 @@ class FileModule(s_module.CoreModule):
                     ('name', ('file:base', {}), {
                         'doc': 'The best known base name for the file.'}),
 
-                    ('mime', ('str', {'lower': 1}), {'defval': '??',
-                                                     'doc': 'The MIME type of the file.'}),
+                    ('mime', ('file:mime', {}), {
+                        'defval': '??',
+                        'doc': 'The "best" mime type name for the file.'}),
 
                     ('mime:x509:cn', ('str', {}), {
                         'doc': 'The Common Name (CN) attribute of the x509 Subject.'}),
@@ -291,6 +315,20 @@ class FileModule(s_module.CoreModule):
 
                     ('mime:pe:richhdr', ('hash:sha256', {}), {
                         'doc': 'The sha256 hash of the rich header bytes.'}),
+
+                )),
+
+                ('file:mime', {}, ()),
+
+                ('file:ismime', {}, (
+                    ('file', ('file:bytes', {}), {
+                        'ro': True,
+                        'doc': 'The file node that is an instance of the named mime type.',
+                    }),
+                    ('mime', ('file:mime', {}), {
+                        'ro': True,
+                        'doc': 'The mime type of the file.',
+                    }),
                 )),
 
                 ('file:mime:pe:section', {}, (

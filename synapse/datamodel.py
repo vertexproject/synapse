@@ -21,6 +21,7 @@ propre = regex.compile('^[0-9a-z:_]+$')
 class PropBase:
 
     def __init__(self):
+        self.isrunt = False
         self.onsets = []
         self.ondels = []
 
@@ -96,6 +97,8 @@ class Prop(PropBase):
         self.info = info
 
         self.isform = False     # for quick Prop()/Form() detection
+        self.isrunt = form.isrunt
+        self.compoffs = form.type.getCompOffs(self.name)
 
         self.form = form
         self.type = None
@@ -127,9 +130,11 @@ class Prop(PropBase):
         if defv is not None:
             self.form.defvals[name] = defv
 
-        # if we are required, tell the form...
-        if self.info.get('req'):
-            self.form.reqprops.append(self)
+    def getCompOffs(self):
+        '''
+        Return the offset of this field within the compound primary prop or None.
+        '''
+        return self.compoffs
 
     def getLiftOps(self, valu, cmpr='='):
 
@@ -219,6 +224,7 @@ class Form:
         self.info = info
 
         self.isform = True
+        self.isrunt = bool(info.get('runt', False))
 
         self.onadds = []
         self.ondels = []
@@ -235,7 +241,6 @@ class Form:
 
         self.props = {}     # name: Prop()
         self.defvals = {}   # name: valu
-        self.reqprops = []  # [ Prop(), ... ]
 
     def onAdd(self, func):
         '''
@@ -358,7 +363,7 @@ class ModelInfo:
 
         # Load all the forms
         for _, mdef in mods:
-            for formname, _, propdefs in mdef.get('forms', ()):
+            for formname, formopts, propdefs in mdef.get('forms', ()):
 
                 self.formnames.add(formname)
                 self.propnames.add(formname)
@@ -486,6 +491,7 @@ class Model:
             'doc': 'The time interval for first/last observation of the node.',
         })
         self.addUnivProp('created', ('time', {}), {
+            'ro': True,
             'doc': 'The time the node was created in the cortex.',
         })
 
@@ -645,6 +651,8 @@ class Model:
         '''
         Add a Type instance to the data model.
         '''
+        ctor = '.'.join([item.__class__.__module__, item.__class__.__qualname__])
+        self._modeldef['ctors'].append(((item.name, ctor, dict(item.opts), dict(item.info))))
         self.types[item.name] = item
 
     def type(self, name):

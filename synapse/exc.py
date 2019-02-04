@@ -93,7 +93,7 @@ class DupIndx (SynErr): pass
 class DupUserName(SynErr): pass
 class DupRoleName(SynErr): pass
 
-class IsRuntProp(SynErr): pass
+class IsRuntForm(SynErr): pass
 
 class MustBeLocal(SynErr): pass
 
@@ -132,6 +132,9 @@ class NoCurrTask(SynErr): pass
 class NoSuchPivot(SynErr): pass
 
 class ReadOnlyProp(SynErr): pass
+
+class CantRevLayer(SynErr): pass
+
 class ReqConfOpt(SynErr): pass
 
 class AxonErr(SynErr): pass
