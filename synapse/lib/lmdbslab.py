@@ -5,7 +5,7 @@ import contextlib
 import logging
 logger = logging.getLogger(__name__)
 
-import lmdb  # type: ignore
+import lmdb
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
@@ -13,6 +13,13 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
+
+class _LmdbDatabase():
+    def __init__(self, db, dupsort):
+        self.db = db
+        self.dupsort = dupsort
+
+_DefaultDB = _LmdbDatabase(None, False)
 
 class Slab(s_base.Base):
     '''
@@ -127,7 +134,6 @@ class Slab(s_base.Base):
             self._growMapSize(size=size)
 
     def _growMapSize(self, size=None):
-
         mapsize = self.mapsize
 
         if size is not None:
@@ -154,8 +160,11 @@ class Slab(s_base.Base):
         return self.mapsize
 
     def initdb(self, name, dupsort=False):
+
         with self._noCoXact():
-            return self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
+            db = self.lenv.open_db(name.encode('utf8'), dupsort=dupsort)
+
+        return _LmdbDatabase(db, dupsort)
 
     @contextlib.contextmanager
     def _noCoXact(self):
@@ -165,10 +174,10 @@ class Slab(s_base.Base):
         if not self.readonly or self.txnrefcount:
             self._initCoXact()
 
-    def get(self, lkey, db=None):
+    def get(self, lkey, db=_DefaultDB):
         self._acqXactForReading()
         try:
-            return self.xact.get(lkey, db=db)
+            return self.xact.get(lkey, db=db.db)
         finally:
             self._relXactForReading()
 
@@ -233,7 +242,7 @@ class Slab(s_base.Base):
     def _initCoXact(self):
         try:
             self.xact = self.lenv.begin(write=not self.readonly)
-        except lmdb.MapResizedError as e:
+        except lmdb.MapResizedError:
             # This is what happens when some *other* process increased the mapsize.  setting mapsize to 0 should
             # set my mapsize to whatever the other process raised it to
             self.lenv.set_mapsize(0)
@@ -282,18 +291,21 @@ class Slab(s_base.Base):
         if self.readonly:
             raise s_exc.IsReadOnly()
 
+        if db is None:
+            db = _DefaultDB
+
         try:
             self.dirty = True
 
             if not self.recovering:
                 self._logXactOper(calling_func, lkey, *args, db=db, **kwargs)
 
-            return xact_func(self.xact, lkey, *args, db=db, **kwargs)
+            return xact_func(self.xact, lkey, *args, db=db.db, **kwargs)
 
-        except lmdb.MapFullError as e:
+        except lmdb.MapFullError:
             return self._handle_mapfull()
 
-    def putmulti(self, kvpairs, dupdata=False, append=False, db=None):
+    def putmulti(self, kvpairs, dupdata=False, append=False, db=_DefaultDB):
         if self.readonly:
             raise s_exc.IsReadOnly()
 
@@ -303,12 +315,12 @@ class Slab(s_base.Base):
             if not self.recovering:
                 self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=True, db=db)
 
-            with self.xact.cursor(db=db) as curs:
+            with self.xact.cursor(db=db.db) as curs:
                 retn = curs.putmulti(kvpairs, dupdata=dupdata, append=append)
 
             return retn
 
-        except lmdb.MapFullError as e:
+        except lmdb.MapFullError:
             return self._handle_mapfull()
 
     def pop(self, lkey, db=None):
@@ -359,9 +371,11 @@ class Scan:
     A state-object used by Slab.  Not to be instantiated directly.
     '''
     def __init__(self, slab, db):
-
+        if db is None:
+            db = _DefaultDB
         self.slab = slab
-        self.db = db
+        self.db = db.db
+        self.dupsort = db.dupsort
 
         self.atitem = None
         self.bumped = False
@@ -379,19 +393,27 @@ class Scan:
         self.slab._relXactForReading()
 
     def last_key(self):
-        ''' Return the last key in the database.  Returns none if database is empty. '''
+        '''
+        Return the last key in the database.  Returns none if database is empty.
+        '''
         if not self.curs.last():
             return None
+
         return self.curs.key()
 
     def first(self):
 
-        if self.curs.first():
-            self.genr = self.curs.iternext()
-            self.atitem = next(self.genr)
-            return True
+        if not self.curs.first():
+            return False
 
-        return False
+        if self.dupsort:
+            self.iterfunc = functools.partial(lmdb.Cursor.iternext_dup, keys=True)
+        else:
+            self.iterfunc = lmdb.Cursor.iternext
+
+        self.genr = self.curs.iternext()
+        self.atitem = next(self.genr)
+        return True
 
     def set_key(self, lkey):
 
@@ -399,7 +421,11 @@ class Scan:
             return False
 
         # set_key for a scan is only logical if it's a dup scan
-        self.iterfunc = functools.partial(lmdb.Cursor.iternext_dup, keys=True)
+        if self.dupsort:
+            self.iterfunc = functools.partial(lmdb.Cursor.iternext_dup, keys=True)
+        else:
+            self.iterfunc = lmdb.Cursor.iternext
+
         self.genr = self.iterfunc(self.curs)
         self.atitem = next(self.genr)
         return True
@@ -431,7 +457,10 @@ class Scan:
                     self.bumped = False
 
                     self.curs = self.slab.xact.cursor(db=self.db)
-                    self.curs.set_range_dup(*self.atitem)
+                    if self.dupsort:
+                        self.curs.set_range_dup(*self.atitem)
+                    else:
+                        self.curs.set_range(self.atitem[0])
 
                     self.genr = self.iterfunc(self.curs)
 
