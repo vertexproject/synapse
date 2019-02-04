@@ -1725,9 +1725,10 @@ class EditUnivDel(Edit):
         if univ is None:
             raise s_exc.NoSuchProp(name=name)
 
-        runt.allowed('prop:del', name)
-
         async for node, path in genr:
+
+            runt.allowed('prop:del', name)
+
             await node.pop(name)
             yield node, path
 
