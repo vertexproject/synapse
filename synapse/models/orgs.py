@@ -268,22 +268,3 @@ class OuModule(s_module.CoreModule):
 
         name = 'ou'
         return ((name, modl),)
-
-# FIXME: What do we want to do with seedCtors?
-class Fixme:
-
-    async def initCoreModule(self):
-        self.core.addSeedCtor('ou:org:name', self.seedOrgName)
-        self.core.addSeedCtor('ou:org:alias', self.seedOrgAlias)
-
-    def seedOrgName(self, prop, valu, **props):
-        node = self.core.getTufoByProp('ou:org:name', valu)
-        if node is None:
-            node = self.core.formTufoByProp('ou:org', guid(), name=valu, **props)
-        return node
-
-    def seedOrgAlias(self, prop, valu, **props):
-        node = self.core.getTufoByProp('ou:org:alias', valu)
-        if node is None:
-            node = self.core.formTufoByProp('ou:org', guid(), alias=valu, **props)
-        return node
