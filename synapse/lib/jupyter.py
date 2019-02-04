@@ -43,7 +43,7 @@ def getDocPath(fn, root=None):
             break
         parent = cwd.parent
         if parent == cwd:
-            raise ValueError(f'Unable to find data directory from {os.getwcd()}.')
+            raise ValueError(f'Unable to find data directory from {os.getcwd()}.')
         cwd = parent
 
     # Protect against traversal
