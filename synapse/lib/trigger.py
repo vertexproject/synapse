@@ -161,34 +161,6 @@ class Triggers:
                 for expr, rule in globs.get(tag):
                     await rule.execute(node, vars=vars)
 
-    #async def enable(self):
-        #'''
-        #Enable triggers to start firing.
-
-        #Go through all the rules, making sure the query is valid, and remove the ones that aren't.  (We can't evaluate
-        #queries until enabled because not all the modules are loaded yet.)
-        #'''
-        #if self.enabled:
-            #return
-
-        #to_delete = []
-        #for iden, rule in self._rules.items():
-            #try:
-                #self.core.getStormQuery(rule.storm)
-            #except Exception as e:
-                #logger.warning('Invalid rule %r found in storage: %r.  Removing.', iden, e)
-                #to_delete.append(iden)
-        #for iden in to_delete:
-            #self.delete(iden, persistent=False)
-
-        #self.enabled = True
-
-        # Re-evaluate all the events that occurred before we were enabled
-        #for node, cond, info in self._deferred_events:
-            #await self.run(node, cond, info=info)
-
-        #self._deferred_events.clear()
-
     def _load_all(self, slab):
         for iden, val in self.core.slab.scanByRange(b'', db=self.trigdb):
             try:
