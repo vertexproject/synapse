@@ -135,7 +135,7 @@ osx_test_steps:  &osx_test_steps
           name: dump envars
           command: |
             . venv/bin/activate
-            env
+            env | grep -vi codecov
 
       - run:
           name: run tests
