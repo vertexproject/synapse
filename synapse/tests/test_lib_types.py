@@ -363,7 +363,7 @@ class TypesTest(s_t_utils.SynTest):
                 node = await snap.addNode('teststr', 'e', {'tick': 'now-3days', '.seen': ('now+1day', 'now+5days')})
                 await node.addTag('biz', valu=('now-1day', 'now+1day'))
 
-                # node who's primary prop is an ival
+                # node whose primary prop is an ival
                 node = await snap.addNode('testival', (0, 10), {'interval': ("now", "now+4days")})
                 node = await snap.addNode('testival', (50, 100), {'interval': ("now-2days", "now+2days")})
                 node = await snap.addNode('testival', (1024, 2048), {'interval': ("2010", "2011")})

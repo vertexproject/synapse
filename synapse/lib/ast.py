@@ -562,7 +562,7 @@ class LiftTagTag(LiftOper):
         if node is None:
             return
 
-        # only apply the lift valu to the top level tag of tags, not to the sub tags 
+        # only apply the lift valu to the top level tag of tags, not to the sub tags
         # or non-tag nodes
         todo.append((node, valu, cmpr))
 
