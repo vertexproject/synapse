@@ -130,7 +130,7 @@ class TagGlobs:
             base.onfini(fini)
 
     def rem(self, name, valu):
-        self.globs = [g for g in globs if g[1] != (name, valu)]
+        self.globs = [g for g in self.globs if g[1] != (name, valu)]
         self.cache.clear()
 
     def get(self, name):

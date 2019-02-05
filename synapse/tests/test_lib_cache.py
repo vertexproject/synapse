@@ -87,3 +87,7 @@ class CacheTest(s_t_utils.SynTest):
 
         vals = tuple(sorted(v[1] for v in glob.get('a.b.b.c')))
         self.eq(vals, ())
+
+        self.len(1, glob.get('zip.hehe'))
+        glob.rem('zip.*', 1)
+        self.len(0, glob.get('zip.hehe'))

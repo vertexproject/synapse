@@ -286,7 +286,7 @@ class Triggers:
                 return
 
             globs = self.tagaddglobs.get(rule.form)
-            globs.rem((rule.tag, rule))
+            globs.rem(rule.tag, rule)
             return
 
         if rule.cond == 'tag:del':
@@ -296,7 +296,7 @@ class Triggers:
                 return
 
             globs = self.tagaddglobs.get(rule.form)
-            globs.rem((rule.tag, rule))
+            globs.rem(rule.tag, rule)
             return
 
     def get(self, iden):
