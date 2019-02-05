@@ -151,7 +151,7 @@ testmodel = {
 
         ('test:ndef', ('ndef', {}), {}),
         ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
-
+        ('test:latlong', ('geo:latlong', {}), {}),
     ),
 
     'forms': (
@@ -247,6 +247,11 @@ testmodel = {
             ('tick', ('time', {}), {'ro': True}),
             ('lulz', ('str', {}), {}),
             ('newp', ('str', {}), {'doc': 'A stray property we never use in nodes.'}),
+        )),
+
+        ('test:latlong', {}, (
+            ('lat', ('geo:latitude', {}), {}),
+            ('long', ('geo:longitude', {}), {}),
         )),
     ),
 }

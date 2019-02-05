@@ -229,3 +229,13 @@ class GeoTest(s_t_utils.SynTest):
                 f'tel:mob:telem:latlong*near=($latlong, $radius)'
             nodes = await alist(core.eval(q))
             self.len(1, nodes)
+
+        async with self.getTestCore() as core:
+            # Lift behavior for a node whose has a latlong as their primary property
+            nodes = await core.eval('[test:latlong=(10, 10) test:latlong=(10.1, 10.1) test:latlong=(3, 3)]').list()
+            self.len(3, nodes)
+
+            nodes = await core.eval('test:latlong*near=((10, 10), 5km)').list()
+            self.len(1, nodes)
+            nodes = await core.eval('test:latlong*near=((10, 10), 30km)').list()
+            self.len(2, nodes)
