@@ -8,11 +8,7 @@ import synapse.lib.module as s_module
 
 geotestmodel = {
 
-    'ctors': (
-        ('testsub', 'synapse.tests.utils.TestSubType', {}, {}),
-        ('testtype', 'synapse.tests.utils.TestType', {}, {}),
-        ('testthreetype', 'synapse.tests.utils.ThreeType', {}, {}),
-    ),
+    'ctors': (),
 
     'types': (
         ('test:latlong', ('geo:latlong', {}), {}),
