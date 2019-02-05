@@ -521,8 +521,6 @@ class Cortex(s_cell.Cell):
             await asyncio.gather(*[layr.fini() for layr in self.layers], loop=self.loop)
         self.onfini(fini)
 
-        self.triggers = s_trigger.Triggers(self)
-
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
@@ -539,14 +537,13 @@ class Cortex(s_cell.Cell):
 
         await self.addCoreMods(s_modules.coremods)
 
+        self.triggers = s_trigger.Triggers(self)
+
         mods = self.conf.get('modules')
 
         self._initFormCounts()
 
         await self.addCoreMods(mods)
-
-        #if self.conf.get('triggers:enable'):
-            #await self.triggers.enable()
 
         if self.conf.get('cron:enable'):
             await self.agenda.enable()
@@ -716,9 +713,6 @@ class Cortex(s_cell.Cell):
                 raise
             except Exception as e:
                 logger.exception('onTagDel Error')
-
-    #async def runNodeAdd(
-    #async def runNodeDel(
 
     async def _checkLayerModels(self):
         mrev = s_modelrev.ModelRev(self)

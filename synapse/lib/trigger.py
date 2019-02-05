@@ -10,6 +10,7 @@ from typing import Optional
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
@@ -53,9 +54,6 @@ class Triggers:
                 raise s_exc.BadOptValu(mesg='prop parameter invalid')
             if self.cond == 'prop:set' and self.prop is None:
                 raise s_exc.BadOptValu(mesg='missing prop parameter')
-            if self.tag is not None:
-                if '*' in self.tag[:-1] or (self.tag[-1] == '*' and self.tag[-2] != '.'):
-                    raise s_exc.BadOptValu(mesg='only tag globbing at end supported')
 
         def en(self):
             return s_msgpack.en(dataclasses.asdict(self))
@@ -88,39 +86,34 @@ class Triggers:
         Note:
             Triggers will not fire until enable() is called.
         '''
+        self.core = core
         self._rules = {}
+
+        self.trigdb = self.core.slab.initdb('triggers')
 
         self.tagadd = collections.defaultdict(list)    # (form, tag): rule
         self.tagdel = collections.defaultdict(list)    # (form, tag): rule
 
-        self.tagaddglobs = collections.defaultdict(TagGlobs)    # form: TagGlobs
-        self.tagdelglobs = collections.defaultdict(TagGlobs)    # form: TagGlobs
+        self.tagaddglobs = collections.defaultdict(s_cache.TagGlobs)    # form: TagGlobs
+        self.tagdelglobs = collections.defaultdict(s_cache.TagGlobs)    # form: TagGlobs
 
         self.nodeadd = collections.defaultdict(list)   # form: rule
         self.nodedel = collections.defaultdict(list)   # form: rule
         self.propset = collections.defaultdict(list)   # prop: rule
 
-        self._rule_by_prop = collections.defaultdict(list)
-        self._rule_by_form = collections.defaultdict(list)
-        self._rule_by_tag = collections.defaultdict(list)
-        self.core = core
-        self.enabled = False
         self._load_all(self.core.slab)
-        self._deferred_events = []
-
-        self.trigdb = self.core.slab.initdb('triggers')
 
     async def runNodeAdd(self, node):
         with self._recursion_check():
-            [await rule.execute() for rule in self.nodeadd.get(node.form.name, ())]
+            [await rule.execute(node) for rule in self.nodeadd.get(node.form.name, ())]
 
     async def runNodeDel(self, node):
         with self._recursion_check():
-            [await rule.execute() for rule in self.nodedel.get(node.form.name, ())]
+            [await rule.execute(node) for rule in self.nodedel.get(node.form.name, ())]
 
-    async def runPropSet(self, node, name):
+    async def runPropSet(self, node, prop, oldv):
         with self._recursion_check():
-            [await rule.execute() for rule in self.propset.get(name, ())]
+            [await rule.execute(node) for rule in self.propset.get(prop.full, ())]
 
     async def runTagAdd(self, node, tag):
 
@@ -168,33 +161,33 @@ class Triggers:
                 for expr, rule in globs.get(tag):
                     await rule.execute(node, vars=vars)
 
-    async def enable(self):
-        '''
-        Enable triggers to start firing.
+    #async def enable(self):
+        #'''
+        #Enable triggers to start firing.
 
-        Go through all the rules, making sure the query is valid, and remove the ones that aren't.  (We can't evaluate
-        queries until enabled because not all the modules are loaded yet.)
-        '''
-        if self.enabled:
-            return
+        #Go through all the rules, making sure the query is valid, and remove the ones that aren't.  (We can't evaluate
+        #queries until enabled because not all the modules are loaded yet.)
+        #'''
+        #if self.enabled:
+            #return
 
-        to_delete = []
-        for iden, rule in self._rules.items():
-            try:
-                self.core.getStormQuery(rule.storm)
-            except Exception as e:
-                logger.warning('Invalid rule %r found in storage: %r.  Removing.', iden, e)
-                to_delete.append(iden)
-        for iden in to_delete:
-            self.delete(iden, persistent=False)
+        #to_delete = []
+        #for iden, rule in self._rules.items():
+            #try:
+                #self.core.getStormQuery(rule.storm)
+            #except Exception as e:
+                #logger.warning('Invalid rule %r found in storage: %r.  Removing.', iden, e)
+                #to_delete.append(iden)
+        #for iden in to_delete:
+            #self.delete(iden, persistent=False)
 
-        self.enabled = True
+        #self.enabled = True
 
         # Re-evaluate all the events that occurred before we were enabled
-        for node, cond, info in self._deferred_events:
-            await self.run(node, cond, info=info)
+        #for node, cond, info in self._deferred_events:
+            #await self.run(node, cond, info=info)
 
-        self._deferred_events.clear()
+        #self._deferred_events.clear()
 
     def _load_all(self, slab):
         for iden, val in self.core.slab.scanByRange(b'', db=self.trigdb):
@@ -214,41 +207,42 @@ class Triggers:
         rule = Triggers.Rule(ver, cond, user, query, **info)
 
         # Make sure the query parses
-        if self.enabled:
-            self.core.getStormQuery(rule.storm)
+        self.core.getStormQuery(rule.storm)
 
         self._rules[iden] = rule
 
         if rule.cond == 'node:add':
-            self.nodeadds[rule.form].append(rule)
-            return
+            self.nodeadd[rule.form].append(rule)
+            return rule
 
         if rule.cond == 'node:del':
-            self.nodedels[rule.form].append(rule)
-            return
+            self.nodedel[rule.form].append(rule)
+            return rule
 
         if rule.cond == 'prop:set':
-            self.propsets[rule.prop].append(rule)
-            return
+            self.propset[rule.prop].append(rule)
+            return rule
 
         if rule.cond == 'tag:add':
 
             if rule.tag.find('*') == -1:
-                self.tagadds[(rule.form, rule.tag)].append(rule)
-                return
+                self.tagadd[(rule.form, rule.tag)].append(rule)
+                return rule
 
             # we have a glob add
             self.tagaddglobs[rule.form].add(rule.tag, rule)
-            return
+            return rule
 
         if rule.cond == 'tag:del':
 
             if rule.tag.find('*') == -1:
-                self.tagdels[(rule.form, rule.tag)].append(rule)
-                return
+                self.tagdel[(rule.form, rule.tag)].append(rule)
+                return rule
 
             self.tagdelglobs[rule.form].add(rule.tag, rule)
-            return
+            return rule
+
+        raise s_exc.NoSuchCond(name=rule.cond)
 
     def list(self):
         return [(iden, dataclasses.asdict(rule)) for iden, rule in self._rules.items()]
@@ -258,8 +252,7 @@ class Triggers:
         if rule is None:
             raise s_exc.NoSuchIden()
 
-        if self.enabled:
-            self.core.getStormQuery(query)
+        self.core.getStormQuery(query)
 
         rule.storm = query
         self.core.slab.put(iden, rule.en(), db=self.trigdb)
@@ -287,8 +280,7 @@ class Triggers:
             raise ValueError('empty query')
 
         # Check the storm query if we can
-        if self.enabled:
-            self.core.getStormQuery(query)
+        self.core.getStormQuery(query)
 
         rule = self._load_rule(iden, 0, condition, username, query, info=info)
         self.core.slab.put(iden, rule.en(), db=self.trigdb)

@@ -56,12 +56,12 @@ class TrigTest(s_t_utils.SynTest):
             await self.agenlen(3, await core.eval('testint'))
 
             # tag:add globbing and storm var
-            await core.addTrigger('tag:add', 'sudo | [ +#count teststr=$tag ]', info={'tag': 'footag.*'})
-            await s_common.aspin(await core.eval('sudo | [ teststr=foo +#footag.bar ]'))
-            await s_common.aspin(await core.eval('sudo | [ teststr=foo +#footag ]'))
-            await s_common.aspin(await core.eval('sudo | [ teststr=foo +#foota.bar ]'))
+            await core.addTrigger('tag:add', 'sudo | [ +#count teststr=$tag ]', info={'tag': 'a.*.c'})
+            await s_common.aspin(await core.eval('sudo | [ teststr=foo +#a.b ]'))
+            await s_common.aspin(await core.eval('sudo | [ teststr=foo +#a.b.c ]'))
+            await s_common.aspin(await core.eval('sudo | [ teststr=foo +#a.b.ccc ]'))
             await self.agenlen(1, await core.eval('#count'))
-            await self.agenlen(1, await core.eval('teststr=footag.bar'))
+            await self.agenlen(1, await core.eval('teststr=a.b.c'))
 
             # tag:del case
             await core.addTrigger('tag:del', 'sudo | [ testint=4 ]', info={'tag': 'footag'})
@@ -103,8 +103,6 @@ class TrigTest(s_t_utils.SynTest):
                                    core.addTrigger('node:add', 'testint=4', info={'form': 'teststr', 'tag': 'foo'}))
             await self.asyncraises(s_exc.BadOptValu,
                                    core.addTrigger('prop:set', 'testint=4', info={'form': 'teststr', 'prop': 'foo'}))
-            await self.asyncraises(s_exc.BadOptValu, core.addTrigger('tag:add', 'testint=4', info={'tag': 'foo*'}))
-            await self.asyncraises(s_exc.BadOptValu, core.addTrigger('tag:add', 'testint=4', info={'tag': '*foo'}))
 
             # Trigger list
             triglist = await core.listTriggers()
