@@ -1,5 +1,6 @@
 import synapse.tests.utils as s_t_utils
 
+import synapse.lib.base as s_base
 import synapse.lib.cache as s_cache
 
 class CacheTest(s_t_utils.SynTest):
@@ -58,3 +59,31 @@ class CacheTest(s_t_utils.SynTest):
         woot.cache.put((40,), 99)
         self.eq(99, woot(40))
         self.eq(misses, 2)
+
+    async def test_tag_globs(self):
+
+        base = await s_base.Base.anit()
+
+        glob = s_cache.TagGlobs()
+
+        glob.add('zip.*', 1)
+        glob.add('zip.*si', 11)
+        glob.add('foo.*.baz', 2)
+        glob.add('a.*.*.c', 3, base=base)
+
+        vals = tuple(sorted(v[1] for v in glob.get('foo.bar.baz')))
+        self.eq(vals, (2,))
+
+        vals = tuple(sorted(v[1] for v in glob.get('zip.visi')))
+        self.eq(vals, (1, 11))
+
+        vals = tuple(sorted(v[1] for v in glob.get('zip.visi.newp')))
+        self.eq(vals, ())
+
+        vals = tuple(sorted(v[1] for v in glob.get('a.b.b.c')))
+        self.eq(vals, (3,))
+
+        await base.fini()
+
+        vals = tuple(sorted(v[1] for v in glob.get('a.b.b.c')))
+        self.eq(vals, ())

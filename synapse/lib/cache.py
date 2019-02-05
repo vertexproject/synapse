@@ -1,6 +1,7 @@
 '''
 A few speed optimized (lockless) cache helpers.  Use carefully.
 '''
+import regex
 import asyncio
 import collections
 
@@ -95,3 +96,45 @@ class FixedCache:
     def clear(self):
         self.fifo.clear()
         self.cache.clear()
+
+class TagGlobs:
+    '''
+    An object that manages multiple tag globs and values for caching.
+    '''
+    def __init__(self):
+        self.globs = []
+        self.cache = FixedCache(self._getGlobMatches)
+
+    def add(self, name, valu, base=None):
+
+        self.cache.clear()
+
+        parts = []
+
+        for part in name.split('.'):
+            part = part.replace('*', '([^.]+)')
+            parts.append(part)
+
+        regq = '^' + '\\.'.join(parts) + '$'
+
+        regx = regex.compile(regq)
+
+        glob = (regx, (name, valu))
+
+        self.globs.append(glob)
+
+        if base:
+            def fini():
+                self.globs = [g for g in self.globs if g is not glob]
+                self.cache.clear()
+            base.onfini(fini)
+
+    def rem(self, name, valu):
+        self.globs = [g for g in globs if g[1] != (name, valu)]
+        self.cache.clear()
+
+    def get(self, name):
+        return self.cache.get(name)
+
+    def _getGlobMatches(self, name):
+        return [g[1] for g in self.globs if g[0].match(name) is not None]

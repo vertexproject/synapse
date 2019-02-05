@@ -522,6 +522,7 @@ class Cortex(s_cell.Cell):
         self.onfini(fini)
 
         self.triggers = s_trigger.Triggers(self)
+
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
@@ -544,8 +545,8 @@ class Cortex(s_cell.Cell):
 
         await self.addCoreMods(mods)
 
-        if self.conf.get('triggers:enable'):
-            await self.triggers.enable()
+        #if self.conf.get('triggers:enable'):
+            #await self.triggers.enable()
 
         if self.conf.get('cron:enable'):
             await self.agenda.enable()
@@ -693,6 +694,9 @@ class Cortex(s_cell.Cell):
         return ret
 
     async def runTagAdd(self, node, tag, valu):
+
+        await self.triggers.runTagAdd(node, tag)
+
         for func in self.ontagadds.get(tag, ()):
             try:
                 await s_coro.ornot(func, node, tag, valu)
@@ -702,6 +706,9 @@ class Cortex(s_cell.Cell):
                 logger.exception('onTagAdd Error')
 
     async def runTagDel(self, node, tag, valu):
+
+        await self.triggers.runTagDel(node, tag)
+
         for func in self.ontagdels.get(tag, ()):
             try:
                 await s_coro.ornot(func, node, tag, valu)
@@ -709,6 +716,9 @@ class Cortex(s_cell.Cell):
                 raise
             except Exception as e:
                 logger.exception('onTagDel Error')
+
+    #async def runNodeAdd(
+    #async def runNodeDel(
 
     async def _checkLayerModels(self):
         mrev = s_modelrev.ModelRev(self)
