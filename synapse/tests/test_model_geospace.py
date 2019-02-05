@@ -4,6 +4,36 @@ import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
+import synapse.lib.module as s_module
+
+geotestmodel = {
+
+    'ctors': (
+        ('testsub', 'synapse.tests.utils.TestSubType', {}, {}),
+        ('testtype', 'synapse.tests.utils.TestType', {}, {}),
+        ('testthreetype', 'synapse.tests.utils.ThreeType', {}, {}),
+    ),
+
+    'types': (
+        ('test:latlong', ('geo:latlong', {}), {}),
+    ),
+
+    'forms': (
+
+        ('test:latlong', {}, (
+            ('lat', ('geo:latitude', {}), {}),
+            ('long', ('geo:longitude', {}), {}),
+        )),
+    ),
+}
+
+class GeoTstModule(s_module.CoreModule):
+    def getModelDefs(self):
+        return (
+            ('geo:test', geotestmodel),
+        )
+
+
 class GeoTest(s_t_utils.SynTest):
 
     async def test_types_forms(self):
@@ -231,6 +261,7 @@ class GeoTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
         async with self.getTestCore() as core:
+            await core.loadCoreModule('synapse.tests.test_model_geospace.GeoTstModule')
             # Lift behavior for a node whose has a latlong as their primary property
             nodes = await core.eval('[test:latlong=(10, 10) test:latlong=(10.1, 10.1) test:latlong=(3, 3)]').list()
             self.len(3, nodes)
