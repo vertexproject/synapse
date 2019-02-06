@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 import argparse
 
 import synapse.glob as s_glob
@@ -9,6 +10,8 @@ import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 
 import synapse.lib.output as s_output
+
+logger = logging.getLogger(__name__)
 
 teleport = os.getenv('SYN_CORTEX_PORT', '27492')
 telehost = os.getenv('SYN_CORTEX_HOST', '127.0.0.1')
@@ -30,6 +33,7 @@ def main(argv, outp=s_output.stdout): # pragma: no cover
 
     opts = pars.parse_args(argv)
 
+    s_common.setlogging(logger)
     dmon = s_glob.sync(mainopts(opts, outp=outp))
 
     return dmon.main()
