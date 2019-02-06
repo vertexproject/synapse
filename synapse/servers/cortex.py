@@ -13,16 +13,16 @@ import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
 
-teleport = os.getenv('SYN_CORTEX_PORT', '27492')
-telehost = os.getenv('SYN_CORTEX_HOST', '127.0.0.1')
-
-#httpport = os.getenv('SYN_CORTEX_HTTP_PORT', '80')
-#httphost = os.getenv('SYN_CORTEX_HTTP_HOST', '127.0.0.1')
-
-#httpsport = os.getenv('SYN_CORTEX_HTTPS_PORT', '443')
-#httpshost = os.getenv('SYN_CORTEX_HTTPS_HOST', '127.0.0.1')
-
 def main(argv, outp=s_output.stdout): # pragma: no cover
+
+    teleport = os.getenv('SYN_CORTEX_PORT', '27492')
+    telehost = os.getenv('SYN_CORTEX_HOST', '127.0.0.1')
+
+    # httpport = os.getenv('SYN_CORTEX_HTTP_PORT', '80')
+    # httphost = os.getenv('SYN_CORTEX_HTTP_HOST', '127.0.0.1')
+
+    # httpsport = os.getenv('SYN_CORTEX_HTTPS_PORT', '443')
+    # httpshost = os.getenv('SYN_CORTEX_HTTPS_HOST', '127.0.0.1')
 
     pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
 
@@ -38,7 +38,7 @@ def main(argv, outp=s_output.stdout): # pragma: no cover
 
     return dmon.main()
 
-async def mainopts(opts, outp=s_output.stdout): # pragma: no cover
+async def mainopts(opts, outp=s_output.stdout):
 
     proto = 'tcp'
 
