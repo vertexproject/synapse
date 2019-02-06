@@ -974,28 +974,41 @@ class CortexTest(s_t_utils.SynTest):
 
             async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
 
-                await alist(await core.eval('[ cycle0=foo :cycle1=bar ]'))
-                await alist(await core.eval('[ cycle1=bar :cycle0=foo ]'))
+                await core.addAuthUser('visi')
+                await core.setUserPasswd('visi', 'secret')
 
-                await alist(await core.eval('[ teststr=foo +#lol ]'))
+                await core.addAuthRule('visi', (True, ('node:add',)))
+                await core.addAuthRule('visi', (True, ('prop:set',)))
+                await core.addAuthRule('visi', (True, ('tag:add',)))
 
-                # no perms and not elevated...
-                await self.agenraises(s_exc.AuthDeny, await core.eval('teststr=foo | delnode'))
+                uconf = {'user': 'visi', 'passwd': 'secret'}
+                async with await self.agetTestProxy(dmon, 'core', **uconf) as asvisi:
 
-                rule = (True, ('node:del',))
-                await core.addAuthRule('root', rule)
+                    await alist(await asvisi.eval('[ cycle0=foo :cycle1=bar ]'))
+                    await alist(await asvisi.eval('[ cycle1=bar :cycle0=foo ]'))
 
-                # should still deny because node has tag we can't delete
-                await self.agenraises(s_exc.AuthDeny, await core.eval('teststr=foo | delnode'))
+                    await alist(await asvisi.eval('[ teststr=foo +#lol ]'))
 
-                rule = (True, ('tag:del', 'lol'))
-                await core.addAuthRule('root', rule)
+                    # no perms and not elevated...
+                    await self.agenraises(s_exc.AuthDeny, await asvisi.eval('teststr=foo | delnode'))
 
-                await self.agenlen(0, await core.eval('teststr=foo | delnode'))
+                    rule = (True, ('node:del',))
+                    await core.addAuthRule('visi', rule)
 
-                await self.agenraises(s_exc.CantDelNode, await core.eval('cycle0=foo | delnode'))
+                    # should still deny because node has tag we can't delete
+                    await self.agenraises(s_exc.AuthDeny, await asvisi.eval('teststr=foo | delnode'))
 
-                await self.agenlen(0, await core.eval('cycle0=foo | delnode --force'))
+                    rule = (True, ('tag:del', 'lol'))
+                    await core.addAuthRule('visi', rule)
+
+                    await self.agenlen(0, await asvisi.eval('teststr=foo | delnode'))
+
+                    await self.agenraises(s_exc.CantDelNode, await asvisi.eval('cycle0=foo | delnode'))
+                    await self.agenraises(s_exc.AuthDeny, await asvisi.eval('cycle0=foo | delnode --force'))
+
+                    await core.setAuthAdmin('visi', True)
+
+                    await self.agenlen(0, await asvisi.eval('cycle0=foo | delnode --force'))
 
     async def test_cortex_cell_splices(self):
 
