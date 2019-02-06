@@ -1428,7 +1428,7 @@ class Cortex(s_cell.Cell):
         Call initCoreModule for each of the modules we have loaded.
         '''
         for modu in self.modules.values():
-            await modu.initCoreModule()
+            await s_coro.ornot(modu.initCoreModule)
 
     async def loadCoreModule(self, ctor, conf=None):
         '''
@@ -1445,8 +1445,7 @@ class Cortex(s_cell.Cell):
 
         mdefs = modu.getModelDefs()
         self.model.addDataModels(mdefs)
-        await modu.initCoreModule()
-        await self.fire('core:module:load', module=ctor)
+        await s_coro.ornot(modu.initCoreModule)
 
     async def _loadCoreModule(self, ctor):
 
