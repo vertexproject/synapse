@@ -10,6 +10,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
+import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.utils as s_t_utils
@@ -1596,6 +1597,20 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenlen(0, core.eval('teststr.hehe=19'))
             await self.agenlen(1, core.eval('.hehe [ -.hehe ]'))
             await self.agenlen(0, core.eval('.hehe'))
+
+        # ensure that we can delete univ props in a authenticated setting
+        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+            realcore = dmon.shared['core']
+            realcore.model.addUnivProp('hehe', ('int', {}), {})
+            await self.agenlen(1, realcore.eval('[ teststr=woot .hehe=20 ]'))
+            await self.agenlen(1, realcore.eval('[ teststr=pennywise .hehe=8086 ]'))
+
+            pconf = {'user': 'root', 'passwd': 'root'}
+            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
+                podes = await alist(await core.eval('teststr=woot [-.hehe] | sudo'))
+                self.none(s_node.prop(podes[0], '.hehe'))
+                podes = await alist(await core.eval('sudo | teststr=pennywise [-.hehe]'))
+                self.none(s_node.prop(podes[0], '.hehe'))
 
     async def test_cortex_snap_eval(self):
         async with self.getTestCore() as core:

@@ -396,7 +396,11 @@ class CoreApi(s_cell.CellApi):
         '''
         Return the list of splices at the given offset.
         '''
+        count = 0
         async for mesg in self.cell.layer.splices(offs, size):
+            count += 1
+            if not count % 1000:
+                await asyncio.sleep(0)
             yield mesg
 
 class Cortex(s_cell.Cell):

@@ -1244,6 +1244,28 @@ class SynTest(unittest.TestCase):
             count += 1
         self.eq(x, count, msg=msg)
 
+    def stormIsInPrint(self, mesg, mesgs):
+        '''
+        Check if a string is present in all of the print messages from a stream of storm messages.
+
+        Args:
+            mesg (str): A string to check.
+            mesgs (list): A list of storm messages.
+        '''
+        print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+        self.isin(mesg, print_str)
+
+    def stormIsInWarn(self, mesg, mesgs):
+        '''
+        Check if a string is present in all of the warn messages from a stream of storm messages.
+
+        Args:
+            mesg (str): A string to check.
+            mesgs (list): A list of storm messages.
+        '''
+        print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'warn'])
+        self.isin(mesg, print_str)
+
     def istufo(self, obj):
         '''
         Check to see if an object is a tufo.
