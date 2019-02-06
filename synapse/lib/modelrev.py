@@ -2,7 +2,7 @@ import logging
 
 import synapse.exc as s_exc
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 class ModelRev:
 
