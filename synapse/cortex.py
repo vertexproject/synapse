@@ -529,6 +529,8 @@ class Cortex(s_cell.Cell):
         self.ontagadds = collections.defaultdict(list)
         self.ontagdels = collections.defaultdict(list)
 
+        self._initFormCounts()
+
         self._runtLiftFuncs = {}
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
@@ -1414,7 +1416,6 @@ class Cortex(s_cell.Cell):
         ( this must be called after all _loadCoreMods() calls )
         '''
         mdefs = []
-
         for modu in self.modules.values():
             mdef = modu.getModelDefs()
             if mdef is not None:
