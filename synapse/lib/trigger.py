@@ -295,7 +295,7 @@ class Triggers:
                 self.tagdel[(rule.form, rule.tag)].remove(rule)
                 return
 
-            globs = self.tagaddglobs.get(rule.form)
+            globs = self.tagdelglobs.get(rule.form)
             globs.rem(rule.tag, rule)
             return
 
