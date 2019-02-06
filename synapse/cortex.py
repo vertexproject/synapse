@@ -450,21 +450,10 @@ class Cortex(s_cell.Cell):
             'doc': 'A list of feed dictionaries.'
         }),
 
-        ('triggers:enable', {
-            'type': 'bool', 'defval': True,
-            'doc': 'Enable triggers running.'
-        }),
-
         ('cron:enable', {
             'type': 'bool', 'defval': True,
             'doc': 'Enable cron jobs running.'
         }),
-
-        # ('storm:save', {
-        #     'type': 'bool', 'defval': False,
-        #     'doc': 'Archive storm queries for audit trail.'
-        # }),
-
     )
 
     cellapi = CoreApi
@@ -692,8 +681,6 @@ class Cortex(s_cell.Cell):
 
     async def runTagAdd(self, node, tag, valu):
 
-        await self.triggers.runTagAdd(node, tag)
-
         for func in self.ontagadds.get(tag, ()):
             try:
                 await s_coro.ornot(func, node, tag, valu)
@@ -702,9 +689,9 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 logger.exception('onTagAdd Error')
 
-    async def runTagDel(self, node, tag, valu):
+        await self.triggers.runTagAdd(node, tag)
 
-        await self.triggers.runTagDel(node, tag)
+    async def runTagDel(self, node, tag, valu):
 
         for func in self.ontagdels.get(tag, ()):
             try:
@@ -713,6 +700,8 @@ class Cortex(s_cell.Cell):
                 raise
             except Exception as e:
                 logger.exception('onTagDel Error')
+
+        await self.triggers.runTagDel(node, tag)
 
     async def _checkLayerModels(self):
         mrev = s_modelrev.ModelRev(self)

@@ -1,9 +1,10 @@
 '''
 A few speed optimized (lockless) cache helpers.  Use carefully.
 '''
-import regex
 import asyncio
 import collections
+
+import regex
 
 import synapse.exc as s_exc
 import synapse.common as s_common
