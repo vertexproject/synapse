@@ -974,10 +974,10 @@ class CortexTest(s_t_utils.SynTest):
 
             async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
 
-                await alist(await core.eval('sudo | [ cycle0=foo :cycle1=bar ]'))
-                await alist(await core.eval('sudo | [ cycle1=bar :cycle0=foo ]'))
+                await alist(await core.eval('[ cycle0=foo :cycle1=bar ]'))
+                await alist(await core.eval('[ cycle1=bar :cycle0=foo ]'))
 
-                await alist(await core.eval('sudo | [ teststr=foo +#lol ]'))
+                await alist(await core.eval('[ teststr=foo +#lol ]'))
 
                 # no perms and not elevated...
                 await self.agenraises(s_exc.AuthDeny, await core.eval('teststr=foo | delnode'))
@@ -997,19 +997,6 @@ class CortexTest(s_t_utils.SynTest):
 
                 await self.agenlen(0, await core.eval('cycle0=foo | delnode --force'))
 
-    async def test_cortex_sudo(self):
-
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
-
-            pconf = {'user': 'root', 'passwd': 'root'}
-
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
-
-                await self.agenraises(s_exc.AuthDeny, await core.eval('[ inet:ipv4=1.2.3.4 ]'))
-
-                nodes = await alist(await core.eval('sudo | [ inet:ipv4=1.2.3.4 ]'))
-                self.len(1, nodes)
-
     async def test_cortex_cell_splices(self):
 
         async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
@@ -1020,7 +1007,7 @@ class CortexTest(s_t_utils.SynTest):
                 # TestModule creates one node and 3 splices
                 await self.agenlen(3, await core.splices(0, 1000))
 
-                await alist(await core.eval('sudo | [ teststr=foo ]'))
+                await alist(await core.eval('[ teststr=foo ]'))
 
                 self.ge(len(await alist(await core.splices(0, 1000))), 5)
 
@@ -1607,9 +1594,9 @@ class CortexTest(s_t_utils.SynTest):
 
             pconf = {'user': 'root', 'passwd': 'root'}
             async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
-                podes = await alist(await core.eval('teststr=woot [-.hehe] | sudo'))
+                podes = await alist(await core.eval('teststr=woot [-.hehe]'))
                 self.none(s_node.prop(podes[0], '.hehe'))
-                podes = await alist(await core.eval('sudo | teststr=pennywise [-.hehe]'))
+                podes = await alist(await core.eval('teststr=pennywise [-.hehe]'))
                 self.none(s_node.prop(podes[0], '.hehe'))
 
     async def test_cortex_snap_eval(self):
@@ -1636,7 +1623,7 @@ class CortexTest(s_t_utils.SynTest):
                 ostat = await core.stat()
                 self.eq(ostat.get('iden'), coreiden)
                 self.isin('layer', ostat)
-                await self.agenlen(1, (await core.eval('sudo | [teststr=123 :tick=2018]')))
+                await self.agenlen(1, (await core.eval('[teststr=123 :tick=2018]')))
                 nstat = await core.stat()
                 self.gt(nstat.get('layer').get('splicelog_indx'), ostat.get('layer').get('splicelog_indx'))
 

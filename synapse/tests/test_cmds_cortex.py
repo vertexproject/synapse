@@ -239,7 +239,7 @@ class CmdCoreTest(s_t_utils.SynTest):
                     evnt = asyncio.Event()
 
                     async def runLongStorm():
-                        async for mesg in await core.storm('[ teststr=foo teststr=bar ] | sleep 10 | sudo'):
+                        async for mesg in await core.storm('[ teststr=foo teststr=bar ] | sleep 10'):
                             evnt.set()
 
                     outp = self.getTestOutp()
