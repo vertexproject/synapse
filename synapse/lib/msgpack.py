@@ -6,10 +6,18 @@ import msgpack.fallback as m_fallback
 logger = logging.getLogger(__name__)
 
 # Single Packer object which is reused for performance
-pakr = msgpack.Packer(use_bin_type=True, encoding='utf8', unicode_errors='surrogatepass')
+pakr = msgpack.Packer(use_bin_type=True, unicode_errors='surrogatepass')
 if isinstance(pakr, m_fallback.Packer):  # pragma: no cover
     logger.warning('msgpack is using the pure python fallback implementation. This will impact performance negatively.')
     pakr = None
+
+# synapse.lib.msgpack.un uses a hardcoded subset of these arguments for speed
+unpacker_kwargs = {
+    'raw': False,
+    'use_list': False,
+    'max_buffer_size': 2**32 - 1,
+    'unicode_errors': 'surrogatepass'
+}
 
 def en(item):
     '''
@@ -27,8 +35,7 @@ def en(item):
         bytes: The serialized bytes in msgpack format.
     '''
     if pakr is None:  # pragma: no cover
-        return msgpack.packb(item, use_bin_type=True, encoding='utf8',
-                             unicode_errors='surrogatepass')
+        return msgpack.packb(item, use_bin_type=True, unicode_errors='surrogatepass')
     try:
         return pakr.pack(item)
     except Exception as e:
@@ -50,8 +57,8 @@ def un(byts):
     Returns:
         obj: The de-serialized object
     '''
-    return msgpack.loads(byts, use_list=False, encoding='utf8',
-                         unicode_errors='surrogatepass')
+    # This uses a subset of unpacker_kwargs
+    return msgpack.loads(byts, use_list=False, raw=False, unicode_errors='surrogatepass')
 
 def iterfd(fd):
     '''
@@ -68,8 +75,7 @@ def iterfd(fd):
     Yields:
         Objects from a msgpack stream.
     '''
-    unpk = msgpack.Unpacker(fd, use_list=False, encoding='utf8',
-                            unicode_errors='surrogatepass')
+    unpk = msgpack.Unpacker(fd, **unpacker_kwargs)
     for mesg in unpk:
         yield mesg
 
@@ -90,8 +96,7 @@ def iterfile(path, since=-1):
     '''
     with io.open(path, 'rb') as fd:
 
-        unpk = msgpack.Unpacker(fd, use_list=False, encoding='utf8',
-                            unicode_errors='surrogatepass')
+        unpk = msgpack.Unpacker(fd, **unpacker_kwargs)
 
         for i, mesg in enumerate(unpk):
             if i <= since:
@@ -110,15 +115,14 @@ class Unpk:
     '''
     def __init__(self):
         self.size = 0
-        self.unpk = msgpack.Unpacker(use_list=False, encoding='utf8',
-                                     unicode_errors='surrogatepass')
+        self.unpk = msgpack.Unpacker(**unpacker_kwargs)
 
     def feed(self, byts):
         '''
         Feed bytes to the unpacker and return completed objects.
 
         Args:
-            byts (bytes): Bytes to unpack.
+            byts (bytes): Bytes to unpack.ubuf
 
         Notes:
             It is intended that this function is called multiple times with
