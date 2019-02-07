@@ -91,28 +91,28 @@ class CellApi(s_base.Base):
 
         raise s_exc.AuthDeny(mesg='Caller must own task or be admin.', task=iden, user=str(self.user))
 
-    @adminapi
     async def listHiveKey(self, path=None):
         if path is None:
             path = ()
+        self.user.allowed('hive:get', *path)
         items = self.cell.hive.dir(path)
         if items is None:
             return None
         return [item[0] for item in items]
 
-    @adminapi
     async def getHiveKey(self, path):
         ''' Get the value of a key in the cell default hive '''
+        self.user.allowed('hive:get', *path)
         return await self.cell.hive.get(path)
 
-    @adminapi
     async def setHiveKey(self, path, value):
         ''' Set or change the value of a key in the cell default hive '''
+        self.user.allowed('hive:set', *path)
         return await self.cell.hive.set(path, value)
 
-    @adminapi
     async def popHiveKey(self, path):
         ''' Remove and return the value of a key in the cell default hive '''
+        self.user.allowed('hive:pop', *path)
         return await self.cell.hive.pop(path)
 
     @adminapi
