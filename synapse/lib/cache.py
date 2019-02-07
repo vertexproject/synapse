@@ -127,7 +127,10 @@ class TagGlobs:
 
         if base:
             def fini():
-                self.globs = [g for g in self.globs if g is not glob]
+                try:
+                    self.globs.remove(glob)
+                except ValueError:
+                    pass
                 self.cache.clear()
             base.onfini(fini)
 
