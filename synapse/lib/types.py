@@ -1324,7 +1324,7 @@ class Time(IntBase):
     def indxByIval(self, valu):
         norm, _ = self.modl.types.get('ival').norm(valu)
         if norm[1] != self.futsize:
-            norm = (norm[0], norm[1]-1)
+            norm = (norm[0], norm[1] - 1)
         return self.indxByRange(norm)
 
     def _ctorCmprAt(self, valu):
