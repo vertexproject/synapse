@@ -363,23 +363,3 @@ class TelcoModule(s_module.CoreModule):
         }
         name = 'tel'
         return ((name, modl),)
-
-class TelMod(s_module.CoreModule):
-
-    @staticmethod
-    def getBaseModels():
-        modl = {
-            'types': (
-                # TODO: mcc, meid
-            ),
-
-            'forms': (
-
-                ('tel:prefix', {'ptype': 'tel:phone'}, [
-                    ('cc', {'ptype': 'pol:iso2', 'defval': '??'}),
-                    ('tag', {'ptype': 'syn:tag'}),
-                ]),
-            ),
-        }
-        name = 'tel'
-        return ((name, modl), )
