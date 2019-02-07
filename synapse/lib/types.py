@@ -1323,6 +1323,8 @@ class Time(IntBase):
 
     def indxByIval(self, valu):
         norm, _ = self.modl.types.get('ival').norm(valu)
+        if norm[1] != self.futsize:
+            norm = (norm[0], norm[1]-1)
         return self.indxByRange(norm)
 
     def _ctorCmprAt(self, valu):
@@ -1336,7 +1338,7 @@ class Time(IntBase):
 
         # an unspecififed time in the future...
         if valu == '?':
-            return 0x7fffffffffffffff, {}
+            return self.futsize, {}
 
         # self contained relative time string
 
@@ -1378,7 +1380,7 @@ class Time(IntBase):
 
     def repr(self, valu, defval=None):
 
-        if valu == 0x7fffffffffffffff:
+        if valu == self.futsize:
             return '?'
 
         return s_time.repr(valu)

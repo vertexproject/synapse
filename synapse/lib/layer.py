@@ -171,10 +171,13 @@ class Layer(s_cell.Cell):
 
     # TODO: Hack until we get interval trees pushed all the way through
     def _cmprIval(self, item, othr):
+
         if othr[0] >= item[1]:
             return False
+
         if othr[1] <= item[0]:
             return False
+
         return True
 
     async def _liftByPropIval(self, oper):
