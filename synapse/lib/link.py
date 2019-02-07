@@ -76,6 +76,9 @@ class Link(s_base.Base):
 
         self._drain_lock = asyncio.Lock()
 
+        if info is None:
+            info = {}
+
         if not info.get('unix'):
 
             # disable nagle ( to minimize latency for small xmit )
@@ -90,9 +93,6 @@ class Link(s_base.Base):
                 self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
                 # close the socket after 5 failed keep alives (15 sec)
                 self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
-
-        if info is None:
-            info = {}
 
         self.info = info
 

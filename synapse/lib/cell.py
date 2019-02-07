@@ -94,7 +94,8 @@ class CellApi(s_base.Base):
     async def listHiveKey(self, path=None):
         if path is None:
             path = ()
-        self.user.allowed('hive:get', *path)
+        perm = ('hive:get',) + path
+        self.user.allowed(perm)
         items = self.cell.hive.dir(path)
         if items is None:
             return None
@@ -102,17 +103,20 @@ class CellApi(s_base.Base):
 
     async def getHiveKey(self, path):
         ''' Get the value of a key in the cell default hive '''
-        self.user.allowed('hive:get', *path)
+        perm = ('hive:get',) + path
+        self.user.allowed(perm)
         return await self.cell.hive.get(path)
 
     async def setHiveKey(self, path, value):
         ''' Set or change the value of a key in the cell default hive '''
-        self.user.allowed('hive:set', *path)
+        perm = ('hive:set',) + path
+        self.user.allowed(perm)
         return await self.cell.hive.set(path, value)
 
     async def popHiveKey(self, path):
         ''' Remove and return the value of a key in the cell default hive '''
-        self.user.allowed('hive:pop', *path)
+        perm = ('hive:pop',) + path
+        self.user.allowed(perm)
         return await self.cell.hive.pop(path)
 
     @adminapi

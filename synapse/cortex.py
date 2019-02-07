@@ -94,9 +94,6 @@ class CoreApi(s_cell.CellApi):
             yield node.pack()
 
     def allowed(self, *path):
-        if self.user is None:
-            return True
-
         return self.user.allowed(path)
 
     def _reqUserAllowed(self, *path):
@@ -123,8 +120,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Adds a trigger to the cortex
         '''
-        username = None if self.user is None else self.user.name
-        iden = self.cell.triggers.add(username, condition, query, info=info)
+        iden = self.cell.triggers.add(self.user.name, condition, query, info=info)
         return iden
 
     def _auth_check(self, user):

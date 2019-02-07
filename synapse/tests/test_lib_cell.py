@@ -35,7 +35,7 @@ class CellTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
 
             url = f'tcp://fake@{host}:{port}/echo00'
-            await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
+            await self.asyncraises(s_exc.NoSuchUser, s_telepath.openurl(url))
 
             url = f'tcp://root@{host}:{port}/echo00'
             await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
@@ -48,9 +48,9 @@ class CellTest(s_t_utils.SynTest):
                 self.true(await proxy.isadmin())
                 self.true(await proxy.allowed(('hehe', 'haha')))
 
-            user = echo.auth.addUser('visi')
-            user.setPasswd('foo')
-            user.addRule((True, ('foo', 'bar')))
+            user = await echo.auth.addUser('visi')
+            await user.setPasswd('foo')
+            await user.addRule((True, ('foo', 'bar')))
 
             url = f'tcp://visi:foo@{host}:{port}/echo00'
             async with await s_telepath.openurl(url) as proxy:
@@ -66,10 +66,9 @@ class CellTest(s_t_utils.SynTest):
             url = f'tcp://root:secretsauce@{host}:{port}/echo00'
             async with await s_telepath.openurl(url) as proxy:
 
-                self.eq([], await proxy.listHiveKey())
                 await proxy.setHiveKey(('foo', 'bar'), [1, 2, 3, 4])
                 self.eq([1, 2, 3, 4], await proxy.getHiveKey(('foo', 'bar')))
-                self.eq(['foo'], await proxy.listHiveKey())
+                self.isin('foo', await proxy.listHiveKey())
                 self.eq(['bar'], await proxy.listHiveKey(('foo', )))
                 await proxy.popHiveKey(('foo', 'bar'))
                 self.eq([], await proxy.listHiveKey(('foo', )))
