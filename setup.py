@@ -17,7 +17,7 @@ setup(
 
     install_requires=[
         'pyOpenSSL>=16.2.0,<18.0.0',
-        'msgpack>=0.5.1,<0.6.0',
+        'msgpack>=0.6.1,<0.7.0',
         'xxhash>=1.0.1,<2.0.0',
         'lmdb>=0.94,<1.0.0',
         'tornado>=5.1,<6.0.0',
