@@ -12,16 +12,16 @@ class CmdTriggersTest(s_t_utils.SynTest):
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
 
             await cmdr.runCmdLine('trigger add Node:add teststr {[ testint=1 ] }')
-            await s_common.aspin(await core.eval('sudo | [ teststr=foo ]'))
+            await s_common.aspin(await core.eval('[ teststr=foo ]'))
             await self.agenlen(1, await core.eval('testint'))
 
             await cmdr.runCmdLine('trigger add tag:add teststr #footag.* {[ +#count teststr=$tag ]}')
-            await s_common.aspin(await core.eval('sudo | [ teststr=bar +#footag.bar ]'))
+            await s_common.aspin(await core.eval('[ teststr=bar +#footag.bar ]'))
             await self.agenlen(1, await core.eval('#count'))
             await self.agenlen(1, await core.eval('teststr=footag.bar'))
 
             await cmdr.runCmdLine('trigger add prop:set testtype10:intprop {[ testint=6 ]}')
-            await s_common.aspin(await core.eval('sudo | [ testtype10=1 :intprop=25 ]'))
+            await s_common.aspin(await core.eval('[ testtype10=1 :intprop=25 ]'))
             await self.agenlen(1, await core.eval('testint=6'))
 
             await cmdr.runCmdLine('trigger list')
@@ -99,5 +99,5 @@ class CmdTriggersTest(s_t_utils.SynTest):
 
             # (Regression) Just a command as the storm query
             await cmdr.runCmdLine('trigger add Node:add teststr {[ testint=99 ] | spin }')
-            await s_common.aspin(await core.eval('sudo | [ teststr=foo4 ]'))
+            await s_common.aspin(await core.eval('[ teststr=foo4 ]'))
             await self.agenlen(1, await core.eval('testint=99'))

@@ -10,6 +10,34 @@ from synapse.tests.utils import alist
 
 class StormTest(s_t_utils.SynTest):
 
+    async def test_storm_sudo(self):
+
+        async with self.getTestDmon('dmoncoreauth') as dmon:
+
+            pconf = {'user': 'root', 'passwd': 'root'}
+
+            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
+
+                await core.addAuthUser('sudoer')
+                await core.setUserPasswd('sudoer', 'high5')
+
+                uconf = {'user': 'sudoer', 'passwd': 'high5'}
+
+                async with await self.getTestProxy(dmon, 'core', **uconf) as eroc:
+
+                    with self.raises(s_exc.AuthDeny):
+                        await s_common.aspin(await eroc.eval('[ teststr=woot ]'))
+
+                    with self.raises(s_exc.AuthDeny):
+                        await s_common.aspin(await eroc.eval('sudo | [ teststr=woot ]'))
+
+                    await core.addAuthRule('sudoer', (True, ('storm', 'cmd', 'sudo')))
+
+                    with self.raises(s_exc.AuthDeny):
+                        await s_common.aspin(await eroc.eval('[ teststr=woot ]'))
+
+                    await s_common.aspin(await eroc.eval('sudo | [ teststr=woot ]'))
+
     async def test_storm_movetag(self):
 
         async with self.getTestCore() as core:
