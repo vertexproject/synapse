@@ -76,6 +76,6 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_unix_sock(self):
         async with self.getTestCore() as core:
-            async with core.getCellProxy() as prox:
+            async with core.getLocalProxy() as prox:
                 user = await prox.getCellUser()
                 self.eq('root', user.get('name'))

@@ -342,7 +342,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         return auth
 
     @contextlib.asynccontextmanager
-    async def getCellProxy(self):
+    async def getLocalProxy(self):
         prox = await s_telepath.openurl('cell://', path=self.dirn)
         yield prox
 
@@ -403,24 +403,3 @@ class Cell(s_base.Base, s_telepath.Aware):
         Add a Cmdr() command to the cell.
         '''
         self.cmds[name] = func
-
-    @contextlib.asynccontextmanager
-    async def getLocalProxy(self):
-        '''
-        Creates a local telepath daemon, shares this object, and returns the telepath proxy of this object
-
-        TODO:  currently, this will fini self if the created dmon is fini'd
-        '''
-        import synapse.daemon as s_daemon  # avoid import cycle
-        with tempfile.TemporaryDirectory() as dirn:
-            coredir = pathlib.Path(dirn, 'cells', 'core')
-            if coredir.is_dir():
-                ldir = s_common.gendir(coredir, 'layers')
-                if self.alt_write_layer:
-                    os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
-
-            async with await s_daemon.Daemon.anit(dirn, conf={'listen': None}) as dmon:
-                dmon.share('core', self)
-                addr = await dmon.listen('tcp://127.0.0.1:0')
-                prox = await s_telepath.openurl('tcp://127.0.0.1/core', port=addr[1])
-                yield prox
