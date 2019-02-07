@@ -122,7 +122,7 @@ class Unpk:
         Feed bytes to the unpacker and return completed objects.
 
         Args:
-            byts (bytes): Bytes to unpack.ubuf
+            byts (bytes): Bytes to unpack.
 
         Notes:
             It is intended that this function is called multiple times with
