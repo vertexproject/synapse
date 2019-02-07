@@ -404,7 +404,6 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('teststr:tick@=("now-1day", "?")'))
             await self.agenlen(1, core.eval('teststr:tick@=("now+2days", "-3 day")'))
 
-            # Calls into the range handler
             await self.agenlen(0, core.eval('teststr:tick@=("2011", "2014")'))
             await self.agenlen(1, core.eval('teststr:tick@=("2014", "20140601")'))
 
