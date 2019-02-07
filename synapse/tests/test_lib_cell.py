@@ -58,23 +58,23 @@ class CellTest(s_t_utils.SynTest):
                 self.false(await proxy.isadmin())
                 self.false(await proxy.allowed(('hehe', 'haha')))
 
-    async def test_cell_readonly(self):
+    #async def test_cell_readonly(self):
 
-        with self.getTestDir() as dirn:
+        #with self.getTestDir() as dirn:
 
-            async with await s_cells.init('echoauth', dirn) as cell:
-                self.false(cell.slab.readonly)
+            #async with await s_cells.init('echoauth', dirn) as cell:
+                #self.false(cell.slab.readonly)
 
-            async with await s_cells.init('echoauth', dirn, readonly=True) as cell:
-                self.true(cell.slab.readonly)
+            #async with await s_cells.init('echoauth', dirn, readonly=True) as cell:
+                #self.true(cell.slab.readonly)
 
         # Start up a cell in readonly mode without its slab present.
-        with self.getTestDir() as dirn:
-            with self.getAsyncLoggerStream('synapse.lib.cell',
-                                           'Creating a slab for a readonly cell') as stream:
-                async with await s_cells.init('echoauth', dirn, readonly=True) as cell:
-                    self.true(cell.slab.readonly)
-                self.true(await stream.wait(1))
+        #with self.getTestDir() as dirn:
+            #with self.getAsyncLoggerStream('synapse.lib.cell',
+                                           #'Creating a slab for a readonly cell') as stream:
+                #async with await s_cells.init('echoauth', dirn, readonly=True) as cell:
+                    #self.true(cell.slab.readonly)
+                #self.true(await stream.wait(1))
 
     async def test_cell_hive(self):
 
@@ -91,3 +91,9 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(['bar'], await proxy.listHiveKey(('foo', )))
                 await proxy.popHiveKey(('foo', 'bar'))
                 self.eq([], await proxy.listHiveKey(('foo', )))
+
+    async def test_cell_unix_sock(self):
+        async with self.getTestCore() as core:
+            async with core.getCellProxy() as prox:
+                user = await prox.getCellUser()
+                self.eq('root', user.get('name'))

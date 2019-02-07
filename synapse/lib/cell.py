@@ -7,6 +7,7 @@ import contextlib
 import synapse.exc as s_exc
 
 import synapse.common as s_common
+import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
@@ -52,6 +53,9 @@ class CellApi(s_base.Base):
 
     def getCellIden(self):
         return self.cell.getCellIden()
+
+    def getCellUser(self):
+        return self.user.pack()
 
     async def ps(self):
 
@@ -259,6 +263,15 @@ class Cell(s_base.Base, s_telepath.Aware):
         boot = self._loadCellYaml('boot.yaml')
         self.boot = s_common.config(boot, bootdefs)
 
+        # start a unix local socket daemon listener
+        sockpath = os.path.join(self.dirn, 'sock')
+
+        dmonconf = {'listen': f'unix://{sockpath}'}
+        self.dmon = await s_daemon.Daemon.anit(conf=dmonconf)
+        self.dmon.share('*', self)
+
+        self.onfini(self.dmon.fini)
+
         conf = self._loadCellYaml('cell.yaml')
         self.conf = s_common.config(conf, self.confdefs + self.confbase)
 
@@ -274,21 +287,20 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         self.insecure = not self.boot.get('auth:en')
 
-        await self.initCellAuth()
+        self.auth = await self._initCellAuth()
 
         # check and migrate old cell auth
         oldauth = s_common.genpath(self.dirn, 'auth')
         if os.path.isdir(oldauth):
-            auth = await self.initCellAuth()
-            await s_compat.cellAuthToHive(oldauth, auth)
+            await s_compat.cellAuthToHive(oldauth, self.auth)
+            os.path.rename(oldauth, oldauth + '.old')
 
         admin = self.boot.get('auth:admin')
         if admin is not None:
 
-            auth = await self.initCellAuth()
             name, passwd = admin.split(':', 1)
 
-            user = auth.getUserByName(name)
+            user = self.auth.getUserByName(name)
             if user is None:
                 user = await auth.addUser(name)
 
@@ -322,17 +334,17 @@ class Cell(s_base.Base, s_telepath.Aware):
         self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
         self.onfini(self.slab.fini)
 
-    async def initCellAuth(self):
-
-        if self.auth is not None:
-            return self.auth
-
+    async def _initCellAuth(self):
         node = await self.hive.open(('auth',))
-        self.auth = await s_hive.HiveAuth.anit(node)
+        auth = await s_hive.HiveAuth.anit(node)
 
-        self.onfini(self.auth.fini)
+        self.onfini(auth.fini)
+        return auth
 
-        return self.auth
+    @contextlib.asynccontextmanager
+    async def getCellProxy(self):
+        prox = await s_telepath.openurl('cell://', path=self.dirn)
+        yield prox
 
     def _loadCellYaml(self, *path):
 
@@ -351,10 +363,9 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     async def getTeleApi(self, link, mesg):
 
+        # if auth is disabled or it's a unix socket, they're root.
         if self.insecure or link.get('unix'):
             user = self.auth.getUserByName('root')
-            #link.set('cell:user', user)
-            #return await self.cellapi.anit(self, link)
 
         else:
             user = self._getCellUser(mesg)

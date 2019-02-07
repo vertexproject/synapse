@@ -259,12 +259,20 @@ class Proxy(s_base.Base):
 
     async def _initPoolLink(self):
 
-        ssl = self.link.get('ssl')
-        host = self.link.get('host')
-        port = self.link.get('port')
-
         # TODO loop / backoff
-        link = await s_link.connect(host, port, ssl=ssl)
+
+        if self.link.get('unix'):
+
+            path = self.link.get('path')
+            link = await s_link.unixconnect(path)
+
+        else:
+
+            ssl = self.link.get('ssl')
+            host = self.link.get('host')
+            port = self.link.get('port')
+
+            link = await s_link.connect(host, port, ssl=ssl)
 
         self.onfini(link)
 
@@ -583,7 +591,6 @@ async def openurl(url, **opts):
 
     host = info.get('host')
     port = info.get('port')
-    name = info.get('path')[1:]
 
     auth = None
 
@@ -592,13 +599,29 @@ async def openurl(url, **opts):
         passwd = info.get('passwd')
         auth = (user, {'passwd': passwd})
 
-    sslctx = None
-    if info.get('scheme') == 'ssl':
-        certpath = info.get('certdir')
-        certdir = s_certdir.CertDir(certpath)
-        sslctx = certdir.getClientSSLContext()
+    scheme = info.get('scheme')
 
-    link = await s_link.connect(host, port, ssl=sslctx)
+    if scheme == 'cell':
+        name = '*'
+        path = os.path.join(info.get('path'), 'sock')
+        link = await s_link.unixconnect(path)
+
+    elif scheme == 'unix':
+        path = info.get('path')
+        sockpath, name = os.path.split(path)
+        link = await s_link.unixconnect(sockpath)
+
+    else:
+
+        name = info.get('path')[1:]
+
+        sslctx = None
+        if scheme == 'ssl':
+            certpath = info.get('certdir')
+            certdir = s_certdir.CertDir(certpath)
+            sslctx = certdir.getClientSSLContext()
+
+        link = await s_link.connect(host, port, ssl=sslctx)
 
     prox = await Proxy.anit(link, name)
     prox.onfini(link)

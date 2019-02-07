@@ -6,7 +6,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
-import synapse.cells as s_cells
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
@@ -132,7 +131,10 @@ class Daemon(s_base.Base):
             yaml.update(conf)
 
         self.conf = s_common.config(yaml, self.confdefs)
-        self.certdir = s_certdir.CertDir(os.path.join(dirn, 'certs'))
+        self.certdir = None
+
+        if self.dirn is not None:
+            self.certdir = s_certdir.CertDir(os.path.join(dirn, 'certs'))
 
         self.mods = {}      # keep refs to mods we load ( mostly for testing )
         self.televers = s_telepath.televers
@@ -170,14 +172,23 @@ class Daemon(s_base.Base):
         info = s_urlhelp.chopurl(url, **opts)
         info.update(opts)
 
-        host = info.get('host')
-        port = info.get('port')
+        scheme = info.get('scheme')
 
-        sslctx = None
-        if info.get('scheme') == 'ssl':
-            sslctx = self.certdir.getServerSSLContext(hostname=host)
+        if scheme == 'unix':
+            path = info.get('path')
+            server = await s_link.unixlisten(path, self._onLinkInit)
 
-        server = await s_link.listen(host, port, self._onLinkInit, ssl=sslctx)
+        else:
+
+            host = info.get('host')
+            port = info.get('port')
+
+            sslctx = None
+            if scheme == 'ssl':
+                sslctx = self.certdir.getServerSSLContext(hostname=host)
+
+            server = await s_link.listen(host, port, self._onLinkInit, ssl=sslctx)
+
         self.listenservers.append(server)
         ret = server.sockets[0].getsockname()
 
@@ -228,6 +239,7 @@ class Daemon(s_base.Base):
         if self.dirn is not None:
             path = s_common.genpath(self.dirn, 'dmon.yaml')
             return self._loadYamlPath(path)
+        return {}
 
     def _loadYamlPath(self, path):
 
@@ -264,6 +276,9 @@ class Daemon(s_base.Base):
         conf = self._loadYamlPath(path)
 
         kind = conf.get('type')
+
+        # avoid import loop... TODO figure out how to avoid
+        import synapse.cells as s_cells
 
         cell = await s_cells.init(kind, dirn)
 
