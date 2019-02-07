@@ -85,9 +85,6 @@ class Triggers:
     def __init__(self, core):
         '''
         Initialize a cortex triggers subsystem.
-
-        Note:
-            Triggers will not fire until enable() is called.
         '''
         self.core = core
         self._rules = {}
@@ -165,7 +162,7 @@ class Triggers:
                     await rule.execute(node, vars=vars)
 
     def _load_all(self, slab):
-        for iden, val in self.core.slab.scanByRange(b'', db=self.trigdb):
+        for iden, val in self.core.slab.scanByFull(db=self.trigdb):
             try:
                 ruledict = s_msgpack.un(val)
                 ver = ruledict.pop('ver')
@@ -200,7 +197,7 @@ class Triggers:
 
         if rule.cond == 'tag:add':
 
-            if rule.tag.find('*') == -1:
+            if '*' not in rule.tag:
                 self.tagadd[(rule.form, rule.tag)].append(rule)
                 return rule
 
@@ -210,7 +207,7 @@ class Triggers:
 
         if rule.cond == 'tag:del':
 
-            if rule.tag.find('*') == -1:
+            if '*' not in rule.tag:
                 self.tagdel[(rule.form, rule.tag)].append(rule)
                 return rule
 
@@ -254,21 +251,19 @@ class Triggers:
         if not query:
             raise ValueError('empty query')
 
-        # Check the storm query if we can
         self.core.getStormQuery(query)
 
         rule = self._load_rule(iden, 0, condition, username, query, info=info)
         self.core.slab.put(iden, rule.en(), db=self.trigdb)
         return iden
 
-    def delete(self, iden, persistent=True):
-        '''
-        Args:
-            persistent (bool): if True, removes from persistent storage as well
-        '''
+    def delete(self, iden):
+
         rule = self._rules.pop(iden, None)
         if rule is None:
             raise s_exc.NoSuchIden()
+
+        self.core.slab.delete(iden, db=self.trigdb)
 
         if rule.cond == 'node:add':
             self.nodeadd[rule.form].remove(rule)
@@ -284,7 +279,7 @@ class Triggers:
 
         if rule.cond == 'tag:add':
 
-            if rule.tag.find('*') == -1:
+            if '*' not in rule.tag:
                 self.tagadd[(rule.form, rule.tag)].remove(rule)
                 return
 
@@ -294,7 +289,7 @@ class Triggers:
 
         if rule.cond == 'tag:del':
 
-            if rule.tag.find('*') == -1:
+            if '*' not in rule.tag:
                 self.tagdel[(rule.form, rule.tag)].remove(rule)
                 return
 
