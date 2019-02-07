@@ -1,6 +1,8 @@
 import msgpack
 
 import synapse.common as s_common
+
+import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tests.utils as s_t_utils
@@ -91,7 +93,7 @@ class MsgPackTest(s_t_utils.SynTest):
     def test_msgpack_types(self):
         # This is a future-proofing test for msgpack to ensure that
         buf = b'\x92\xa4hehe\x85\xa3str\xa41234\xa3int\xcd\x04\xd2\xa5float\xcb@(\xae\x14z\xe1G\xae\xa3bin\xc4\x041234\xa9realworld\xac\xc7\x8b\xef\xbf\xbd\xed\xa1\x82\xef\xbf\xbd\x12'
-        node = (
+        struct = (
             'hehe',
             {
                 'str': '1234',
@@ -102,7 +104,49 @@ class MsgPackTest(s_t_utils.SynTest):
             }
         )
         unode = s_msgpack.un(buf)
-        self.eq(unode, node)
+        self.eq(unode, struct)
+
+        # Ensure our use of msgpack.Unpacker can also handle this data
+        with self.getTestDir() as dirn:
+            with s_common.genfile(dirn, 'test.mpk') as fd:
+                fd.write(buf)
+            with s_common.genfile(dirn, 'test.mpk') as fd:
+                genr = s_msgpack.iterfd(fd)
+                objs = list(genr)
+                self.len(1, objs)
+                self.eq(objs[0], struct)
+
+        # Ensure that our streaming Unpk object can also handle this data
+        unpk = s_msgpack.Unpk()
+        objs = unpk.feed(buf)
+        self.len(1, objs)
+        self.eq(objs[0], (71, struct))
+
+    def test_msgpack_large_data(self):
+
+        big_string = s_const.mebibyte * 129 * 'V'
+        struct = ('test', {'key': big_string})
+
+        buf = s_msgpack.en(struct)
+
+        unpacked_struct = s_msgpack.un(buf)
+        self.eq(struct, unpacked_struct)
+
+        # Ensure our use of msgpack.Unpacker can also handle this data
+        with self.getTestDir() as dirn:
+            with s_common.genfile(dirn, 'test.mpk') as fd:
+                fd.write(buf)
+            with s_common.genfile(dirn, 'test.mpk') as fd:
+                genr = s_msgpack.iterfd(fd)
+                objs = list(genr)
+                self.len(1, objs)
+                self.eq(objs[0], struct)
+
+        # Ensure that our streaming Unpk object can also handle this data
+        unpk = s_msgpack.Unpk()
+        objs = unpk.feed(buf)
+        self.len(1, objs)
+        self.eq(objs[0], (135266320, struct))
 
     def test_msgpack_bad_types(self):
         self.raises(TypeError, s_msgpack.en, {1, 2})
