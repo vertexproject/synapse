@@ -1,6 +1,7 @@
 '''
 A few speed optimized (lockless) cache helpers.  Use carefully.
 '''
+import re
 import asyncio
 import collections
 
@@ -113,7 +114,7 @@ class TagGlobs:
         parts = []
 
         for part in name.split('.'):
-            part = part.replace('*', '([^.]+)')
+            part = re.escape(part).replace('\\*', '([^.]+)')
             parts.append(part)
 
         regq = '^' + '\\.'.join(parts) + '$'
