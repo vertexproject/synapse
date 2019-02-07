@@ -117,7 +117,7 @@ class TagGlobs:
             part = re.escape(part).replace('\\*', '([^.]+)')
             parts.append(part)
 
-        regq = '^' + '\\.'.join(parts) + '$'
+        regq = '\\.'.join(parts)
 
         regx = regex.compile(regq)
 
@@ -139,4 +139,4 @@ class TagGlobs:
         return self.cache.get(name)
 
     def _getGlobMatches(self, name):
-        return [g[1] for g in self.globs if g[0].match(name) is not None]
+        return [g[1] for g in self.globs if g[0].fullmatch(name) is not None]
