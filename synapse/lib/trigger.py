@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 import contextlib
 import collections
@@ -76,6 +77,8 @@ class Triggers:
 
             try:
                 await s_common.aspin(node.storm(self.storm, opts=opts, user=user))
+            except asyncio.CancelledError: # pragma: no cover
+                raise
             except Exception:
                 logger.exception('Trigger encountered exception running storm query %s', self.storm)
 
