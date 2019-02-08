@@ -1547,7 +1547,7 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('testint>20'))
             await self.agenlen(0, core.eval('testint<20'))
 
-    async def test_cortex_ontag(self):
+    async def test_cortex_onofftag(self):
 
         async with self.getTestCore() as core:
 
@@ -1584,6 +1584,18 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.none(tags.get('foo.bar'))
                 self.none(tags.get('foo.bar.baz'))
+
+                core.offTagAdd('foo.bar', onadd)
+                core.offTagDel('foo.bar', ondel)
+                core.offTagAdd('foo.bar', lambda x: 0)
+                core.offTagDel('foo.bar', lambda x: 0)
+
+                await node.addTag('foo.bar', valu=(200, 300))
+                self.none(tags.get('foo.bar'))
+
+                tags['foo.bar'] = 'fake'
+                await node.delTag('foo.bar')
+                self.eq(tags.get('foo.bar'), 'fake')
 
     async def test_cortex_univ(self):
 
