@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import synapse.exc as s_exc
@@ -141,6 +142,8 @@ class ItModule(s_module.CoreModule):
             await node.set('semver', valu)
             for k, v in subs.items():
                 await node.set(f'semver:{k}', v)
+        except asyncio.CancelledError as e:  # pragma: no cover
+            raise
         except Exception as e:
             logger.exception('Failed to brute force version string [%s]', prop)
 
