@@ -1836,7 +1836,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.eq(1, core.counts['teststr'])
 
-    async def test_cortex_latency(self):
+    async def test_cortex_greedy(self):
         ''' Issue a large snap request, and make sure we can still do stuff in a reasonable amount of time'''
 
         async with self.getTestCore() as core:
@@ -1862,6 +1862,10 @@ class CortexTest(s_t_utils.SynTest):
 
                 # Note: before latency improvement, delta was > 4 seconds
                 self.lt(delta, 0.5)
+
+            # Make sure the task in flight can be killed in a reasonable time
+            delta = time.time() - before
+            self.lt(delta, 1.0)
 
     async def test_storm_switchcase(self):
 
