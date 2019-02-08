@@ -462,7 +462,7 @@ class Proxy(s_base.Base):
 
                     await func(mesg)
 
-                except asyncio.CancelledError:
+                except asyncio.CancelledError:  # pragma: no cover
                     raise
 
                 except Exception as e:

@@ -1597,6 +1597,11 @@ class CortexTest(s_t_utils.SynTest):
                 await node.delTag('foo.bar')
                 self.eq(tags.get('foo.bar'), 'fake')
 
+                # Coverage for removing something from a
+                # tag we never added a handler for.
+                core.offTagAdd('test.newp', lambda x: 0)
+                core.offTagDel('test.newp', lambda x: 0)
+
     async def test_cortex_univ(self):
 
         async with self.getTestCore() as core:
