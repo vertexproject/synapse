@@ -1547,7 +1547,7 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('testint>20'))
             await self.agenlen(0, core.eval('testint<20'))
 
-    async def test_cortex_ontag(self):
+    async def test_cortex_onofftag(self):
 
         async with self.getTestCore() as core:
 
@@ -1584,6 +1584,23 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.none(tags.get('foo.bar'))
                 self.none(tags.get('foo.bar.baz'))
+
+                core.offTagAdd('foo.bar', onadd)
+                core.offTagDel('foo.bar', ondel)
+                core.offTagAdd('foo.bar', lambda x: 0)
+                core.offTagDel('foo.bar', lambda x: 0)
+
+                await node.addTag('foo.bar', valu=(200, 300))
+                self.none(tags.get('foo.bar'))
+
+                tags['foo.bar'] = 'fake'
+                await node.delTag('foo.bar')
+                self.eq(tags.get('foo.bar'), 'fake')
+
+                # Coverage for removing something from a
+                # tag we never added a handler for.
+                core.offTagAdd('test.newp', lambda x: 0)
+                core.offTagDel('test.newp', lambda x: 0)
 
     async def test_cortex_univ(self):
 
@@ -1836,7 +1853,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.eq(1, core.counts['teststr'])
 
-    async def test_cortex_latency(self):
+    async def test_cortex_greedy(self):
         ''' Issue a large snap request, and make sure we can still do stuff in a reasonable amount of time'''
 
         async with self.getTestCore() as core:
@@ -1862,6 +1879,10 @@ class CortexTest(s_t_utils.SynTest):
 
                 # Note: before latency improvement, delta was > 4 seconds
                 self.lt(delta, 0.5)
+
+            # Make sure the task in flight can be killed in a reasonable time
+            delta = time.time() - before
+            self.lt(delta, 1.0)
 
     async def test_storm_switchcase(self):
 
