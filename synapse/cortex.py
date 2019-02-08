@@ -3,7 +3,7 @@ import logging
 import pathlib
 import contextlib
 import collections
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 
 import regex
 
@@ -610,6 +610,7 @@ class Cortex(s_cell.Cell):
     def onTagAdd(self, name, func):
         '''
         Register a callback for tag addition.
+
         Args:
             name (str): The name of the tag.
             func (function): The callback func(node, tagname, tagval).
@@ -621,6 +622,7 @@ class Cortex(s_cell.Cell):
     def offTagAdd(self, name, func):
         '''
         Unregister a callback for tag addition.
+
         Args:
             name (str): The name of the tag.
             func (function): The callback func(node, tagname, tagval).
@@ -637,6 +639,7 @@ class Cortex(s_cell.Cell):
     def onTagDel(self, name, func):
         '''
         Register a callback for tag deletion.
+
         Args:
             name (str): The name of the tag.
             func (function): The callback func(node, tagname, tagval).
@@ -644,6 +647,23 @@ class Cortex(s_cell.Cell):
         '''
         # TODO allow name wild cards
         self.ontagdels[name].append(func)
+
+    def offTagDel(self, name, func):
+        '''
+        Unregister a callback for tag deletion.
+
+        Args:
+            name (str): The name of the tag.
+            func (function): The callback func(node, tagname, tagval).
+
+        '''
+        cblist = self.ontagdels.get(name)
+        if cblist is None:
+            return
+        try:
+            cblist.remove(func)
+        except ValueError:
+            pass
 
     def addRuntLift(self, prop, func):
         '''
