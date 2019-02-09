@@ -123,6 +123,11 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.getLiftRows(lops):
             yield item
 
+    async def iterFormRows(self, form):
+        self.allowed(self.liftperm)
+        async for item in self.layr.iterFormRows(form):
+            yield item
+
     async def iterPropRows(self, form, prop):
         self.allowed(self.liftperm)
         async for item in self.layr.iterPropRows(form, prop):
@@ -542,6 +547,10 @@ class Cortex(s_cell.Cell):
     async def __anit__(self, dirn):
 
         await s_cell.Cell.__anit__(self, dirn)
+
+        # share ourself via the cell dmon as "cortex"
+        # for potential default remote use
+        self.dmon.share('cortex', self)
 
         self.views = {}
         self.layers = {}
