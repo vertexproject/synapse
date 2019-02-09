@@ -144,11 +144,17 @@ class Prop(PropBase):
                 ('indx', ('byprop', self.pref, iops)),
             )
 
-        # TODO: make types control this more tightly...
+        # TODO: In an ideal world, this would get smashed down into the self.type.getLiftOps
+        # but since doing so breaks existing types, and fixing those could cause a cascade
+        # of fun failures, we'll put this off until another flag day
         if cmpr == '~=':
             return (
                 ('prop:re', (self.form.name, self.name, valu, {})),
             )
+
+        lops = self.type.getLiftOps('prop', cmpr, (self.form.name, self.name, valu))
+        if lops is not None:
+            return lops
 
         iops = self.type.getIndxOps(valu, cmpr=cmpr)
         return (
@@ -200,11 +206,17 @@ class Univ(PropBase):
                 ('indx', ('byuniv', self.pref, iops)),
             )
 
-        # TODO: make types control this more tightly...
+        # TODO: In an ideal world, this would get smashed down into the self.type.getLiftOps
+        # but since doing so breaks existing types, and fixing those could cause a cascade
+        # of fun failures, we'll put this off until another flag day
         if cmpr == '~=':
             return (
                 ('univ:re', (self.name, valu, {})),
             )
+
+        lops = self.type.getLiftOps('univ', cmpr, (None, self.name, valu))
+        if lops is not None:
+            return lops
 
         iops = self.type.getIndxOps(valu, cmpr)
 
@@ -315,10 +327,17 @@ class Form:
                 ('indx', ('byprop', self.pref, iops)),
             )
 
+        # TODO: In an ideal world, this would get smashed down into the self.type.getLiftOps
+        # but since doing so breaks existing types, and fixing those could cause a cascade
+        # of fun failures, we'll put this off until another flag day
         if cmpr == '~=':
             return (
                 ('form:re', (self.name, valu, {})),
             )
+
+        lops = self.type.getLiftOps('form', cmpr, (None, self.name, valu))
+        if lops is not None:
+            return lops
 
         iops = self.type.getIndxOps(valu, cmpr)
         return (

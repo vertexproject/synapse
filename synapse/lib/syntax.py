@@ -1082,15 +1082,15 @@ class Parser:
 
         self.ignore(whitespace)
 
-        tag = self.tagname()
+        kids = [self.tagname(),]
 
         self.ignore(whitespace)
 
-        # TODO
-        # cmprstart
-        # if self.nextstr('@='):
+        if self.nextstr('@='):
+            kids.append(self.cmpr())
+            kids.append(self.valu())
 
-        return s_ast.LiftTag(kids=(tag,))
+        return s_ast.LiftTag(kids=kids)
 
     def lifttagtag(self):
 
@@ -1098,9 +1098,13 @@ class Parser:
 
         self.nextmust('#')
 
-        tag = self.tagname()
+        kids = [self.tagname(),]
 
-        return s_ast.LiftTagTag(kids=(tag,))
+        if self.nextstr('@='):
+            kids.append(self.cmpr())
+            kids.append(self.valu())
+
+        return s_ast.LiftTagTag(kids=kids)
 
     def filtoper(self):
 

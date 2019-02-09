@@ -14,19 +14,19 @@ class TrigTest(s_t_utils.SynTest):
     async def test_trigger_recursion(self):
         async with self.getTestDmon(mirror='dmoncore') as dmon, \
                 await self.agetTestProxy(dmon, 'core') as core:
-            await core.addTrigger('node:add', 'sudo | [ testguid="*" ]', info={'form': 'testguid'})
-            await s_common.aspin(await core.eval('sudo | [ testguid="*" ]'))
+            await core.addTrigger('node:add', '[ testguid="*" ]', info={'form': 'testguid'})
+            await s_common.aspin(await core.eval('[ testguid="*" ]'))
 
     async def test_modification_persistence(self):
         with self.getTestDir() as fdir:
             async with await self.getTestCell(fdir, 'cortex') as core:
-                core.triggers.add('root', 'node:add', 'sudo | [inet:user=1]', info={'form': 'inet:ipv4'})
+                core.triggers.add('root', 'node:add', '[inet:user=1]', info={'form': 'inet:ipv4'})
                 triggers = core.triggers.list()
-                self.eq(triggers[0][1].get('storm'), 'sudo | [inet:user=1]')
+                self.eq(triggers[0][1].get('storm'), '[inet:user=1]')
                 iden = triggers[0][0]
-                core.triggers.mod(iden, 'sudo | [inet:user=2]')
+                core.triggers.mod(iden, '[inet:user=2]')
                 triggers = core.triggers.list()
-                self.eq(triggers[0][1].get('storm'), 'sudo | [inet:user=2]')
+                self.eq(triggers[0][1].get('storm'), '[inet:user=2]')
 
                 # Sad case
                 self.raises(s_exc.BadStormSyntax, core.triggers.mod, iden, ' | | badstorm ')
@@ -34,25 +34,25 @@ class TrigTest(s_t_utils.SynTest):
 
             async with await self.getTestCell(fdir, 'cortex') as core:
                 triggers = core.triggers.list()
-                self.eq(triggers[0][1].get('storm'), 'sudo | [inet:user=2]')
+                self.eq(triggers[0][1].get('storm'), '[inet:user=2]')
 
     async def trigger_tests(self, dmon):
         pconf = {'user': 'root', 'passwd': 'root'}
         async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
 
             # node:add case
-            await core.addTrigger('node:add', 'sudo | [ testint=1 ]', info={'form': 'teststr'})
-            await s_common.aspin(await core.eval('sudo | [ teststr=foo ]'))
+            await core.addTrigger('node:add', '[ testint=1 ]', info={'form': 'teststr'})
+            await s_common.aspin(await core.eval('[ teststr=foo ]'))
             await self.agenlen(1, await core.eval('testint'))
 
             # node:del case
-            await core.addTrigger('node:del', 'sudo | [ testint=2 ]', info={'form': 'teststr'})
-            await s_common.aspin(await core.eval('sudo | teststr=foo | delnode'))
+            await core.addTrigger('node:del', '[ testint=2 ]', info={'form': 'teststr'})
+            await s_common.aspin(await core.eval('teststr=foo | delnode'))
             await self.agenlen(2, await core.eval('testint'))
 
             # tag:add case
-            await core.addTrigger('tag:add', 'sudo | [ testint=3 ]', info={'tag': 'footag'})
-            await s_common.aspin(await core.eval('sudo | [ teststr=foo +#footag ]'))
+            await core.addTrigger('tag:add', '[ testint=3 ]', info={'tag': 'footag'})
+            await s_common.aspin(await core.eval('[ teststr=foo +#footag ]'))
             await self.agenlen(3, await core.eval('testint'))
 
             # tag:add globbing and storm var
@@ -64,35 +64,35 @@ class TrigTest(s_t_utils.SynTest):
             await self.agenlen(1, await core.eval('teststr=a.b.c'))
 
             # tag:del case
-            await core.addTrigger('tag:del', 'sudo | [ testint=4 ]', info={'tag': 'footag'})
-            await s_common.aspin(await core.eval('teststr=foo | sudo | [ -#footag ]'))
+            await core.addTrigger('tag:del', '[ testint=4 ]', info={'tag': 'footag'})
+            await s_common.aspin(await core.eval('teststr=foo [ -#footag ]'))
             await self.agenlen(1, await core.eval('testint=4'))
 
             # Form/tag add
-            await core.addTrigger('tag:add', 'sudo | [ testint=5 ]', info={'tag': 'bartag', 'form': 'teststr'})
-            await s_common.aspin(await core.eval('sudo | [ teststr=foo +#bartag ]'))
+            await core.addTrigger('tag:add', '[ testint=5 ]', info={'tag': 'bartag', 'form': 'teststr'})
+            await s_common.aspin(await core.eval('[ teststr=foo +#bartag ]'))
             await self.agenlen(1, await core.eval('testint=5'))
 
             # Wrong form/right tag add doesn't fire
-            await s_common.aspin(await core.eval('sudo | testint=5 | delnode'))
+            await s_common.aspin(await core.eval('testint=5 | delnode'))
             await self.agenlen(0, await core.eval('testint=5'))
-            await s_common.aspin(await core.eval('sudo | [ testauto=1 +#bartag ]'))
+            await s_common.aspin(await core.eval('[ testauto=1 +#bartag ]'))
             await self.agenlen(0, await core.eval('testint=5'))
 
             # Right form/wrong tag add doesn't fire
-            await s_common.aspin(await core.eval('sudo | [ teststr=bar +#footag ]'))
+            await s_common.aspin(await core.eval('[ teststr=bar +#footag ]'))
             await self.agenlen(0, await core.eval('testint=5'))
 
             # Prop set
-            await core.addTrigger('prop:set', 'sudo | [ testint=6 ]', info={'prop': 'testtype10:intprop'})
-            await s_common.aspin(await core.eval('sudo | [ testtype10=1 ]'))
+            await core.addTrigger('prop:set', '[ testint=6 ]', info={'prop': 'testtype10:intprop'})
+            await s_common.aspin(await core.eval('[ testtype10=1 ]'))
             await self.agenlen(1, await core.eval('testint=6'))  # Triggered by default value setting
-            await s_common.aspin(await core.eval('sudo | [ testtype10=1 :intprop=25 ]'))
+            await s_common.aspin(await core.eval('[ testtype10=1 :intprop=25 ]'))
             await self.agenlen(1, await core.eval('testint=6'))
 
             # Test re-setting doesn't fire
-            await s_common.aspin(await core.eval('sudo | testint=6 | delnode'))
-            await s_common.aspin(await core.eval('sudo | [ testtype10=1 :intprop=25 ]'))
+            await s_common.aspin(await core.eval('testint=6 | delnode'))
+            await s_common.aspin(await core.eval('[ testtype10=1 :intprop=25 ]'))
             await self.agenlen(0, await core.eval('testint=6'))
 
             # Bad trigger parms
@@ -110,10 +110,10 @@ class TrigTest(s_t_utils.SynTest):
 
             # Delete trigger
             buid = [b for b, r in triglist if r['cond'] == 'prop:set'][0]
-            await s_common.aspin(await core.eval('sudo | testint=6 | delnode'))
+            await s_common.aspin(await core.eval('testint=6 | delnode'))
             await core.delTrigger(buid)
             # Make sure it didn't fire
-            await s_common.aspin(await core.eval('sudo | [ testtype10=3 :intprop=25 ]'))
+            await s_common.aspin(await core.eval('[ testtype10=3 :intprop=25 ]'))
             await self.agenlen(0, await core.eval('testint=6'))
 
             await self.asyncraises(s_exc.NoSuchIden, core.delTrigger(b'badbuid'))
@@ -121,8 +121,8 @@ class TrigTest(s_t_utils.SynTest):
             # Mod trigger
             buid = [b for b, r in triglist if r['cond'] == 'tag:add' and r.get('form') == 'teststr'][0]
             buid2 = [b for b, r in triglist if r['cond'] == 'tag:add' and r.get('form') is None][0]
-            await core.updateTrigger(buid, 'sudo | [ testint=42 ]')
-            await s_common.aspin(await core.eval('sudo | [ teststr=foo4 +#bartag ]'))
+            await core.updateTrigger(buid, '[ testint=42 ]')
+            await s_common.aspin(await core.eval('[ teststr=foo4 +#bartag ]'))
             await self.agenlen(1, await core.eval('testint=42'))
 
             # Delete a tag:add

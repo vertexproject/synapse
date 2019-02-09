@@ -51,6 +51,9 @@ class Layer(s_cell.Cell):
             'prop:re': self._liftByPropRe,
             'univ:re': self._liftByUnivRe,
             'form:re': self._liftByFormRe,
+            'prop:ival': self._liftByPropIval,
+            'univ:ival': self._liftByUnivIval,
+            'form:ival': self._liftByFormIval,
         }
 
         self._stor_funcs = {
@@ -164,6 +167,77 @@ class Layer(s_cell.Cell):
                 continue
 
             # yield buid, form, prop, valu
+            yield (buid, )
+
+    # TODO: Hack until we get interval trees pushed all the way through
+    def _cmprIval(self, item, othr):
+
+        if othr[0] >= item[1]:
+            return False
+
+        if othr[1] <= item[0]:
+            return False
+
+        return True
+
+    async def _liftByPropIval(self, oper):
+        form, prop, ival = oper[1]
+        count = 0
+        async for buid, valu in self.iterPropRows(form, prop):
+            count += 1
+
+            if not count % FAIR_ITERS:
+                await asyncio.sleep(0)
+
+            if type(valu) not in (list, tuple):
+                continue
+
+            if len(valu) != 2:
+                continue
+
+            if not self._cmprIval(ival, valu):
+                continue
+
+            yield (buid, )
+
+    async def _liftByUnivIval(self, oper):
+        _, prop, ival = oper[1]
+        count = 0
+        async for buid, valu in self.iterUnivRows(prop):
+            count += 1
+
+            if not count % FAIR_ITERS:
+                await asyncio.sleep(0)
+
+            if type(valu) not in (list, tuple):
+                continue
+
+            if len(valu) != 2:
+                continue
+
+            if not self._cmprIval(ival, valu):
+                continue
+
+            yield (buid, )
+
+    async def _liftByFormIval(self, oper):
+        _, form, ival = oper[1]
+        count = 0
+        async for buid, valu in self.iterFormRows(form):
+            count += 1
+
+            if not count % FAIR_ITERS:
+                await asyncio.sleep(0)
+
+            if type(valu) not in (list, tuple):
+                continue
+
+            if len(valu) != 2:
+                continue
+
+            if not self._cmprIval(ival, valu):
+                continue
+
             yield (buid, )
 
     # The following functions are abstract methods that must be implemented by a subclass

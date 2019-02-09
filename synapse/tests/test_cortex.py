@@ -974,41 +974,41 @@ class CortexTest(s_t_utils.SynTest):
 
             async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
 
-                await alist(await core.eval('sudo | [ cycle0=foo :cycle1=bar ]'))
-                await alist(await core.eval('sudo | [ cycle1=bar :cycle0=foo ]'))
+                await core.addAuthUser('visi')
+                await core.setUserPasswd('visi', 'secret')
 
-                await alist(await core.eval('sudo | [ teststr=foo +#lol ]'))
+                await core.addAuthRule('visi', (True, ('node:add',)))
+                await core.addAuthRule('visi', (True, ('prop:set',)))
+                await core.addAuthRule('visi', (True, ('tag:add',)))
 
-                # no perms and not elevated...
-                await self.agenraises(s_exc.AuthDeny, await core.eval('teststr=foo | delnode'))
+                uconf = {'user': 'visi', 'passwd': 'secret'}
+                async with await self.agetTestProxy(dmon, 'core', **uconf) as asvisi:
 
-                rule = (True, ('node:del',))
-                await core.addAuthRule('root', rule)
+                    await alist(await asvisi.eval('[ cycle0=foo :cycle1=bar ]'))
+                    await alist(await asvisi.eval('[ cycle1=bar :cycle0=foo ]'))
 
-                # should still deny because node has tag we can't delete
-                await self.agenraises(s_exc.AuthDeny, await core.eval('teststr=foo | delnode'))
+                    await alist(await asvisi.eval('[ teststr=foo +#lol ]'))
 
-                rule = (True, ('tag:del', 'lol'))
-                await core.addAuthRule('root', rule)
+                    # no perms and not elevated...
+                    await self.agenraises(s_exc.AuthDeny, await asvisi.eval('teststr=foo | delnode'))
 
-                await self.agenlen(0, await core.eval('teststr=foo | delnode'))
+                    rule = (True, ('node:del',))
+                    await core.addAuthRule('visi', rule)
 
-                await self.agenraises(s_exc.CantDelNode, await core.eval('cycle0=foo | delnode'))
+                    # should still deny because node has tag we can't delete
+                    await self.agenraises(s_exc.AuthDeny, await asvisi.eval('teststr=foo | delnode'))
 
-                await self.agenlen(0, await core.eval('cycle0=foo | delnode --force'))
+                    rule = (True, ('tag:del', 'lol'))
+                    await core.addAuthRule('visi', rule)
 
-    async def test_cortex_sudo(self):
+                    await self.agenlen(0, await asvisi.eval('teststr=foo | delnode'))
 
-        async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
+                    await self.agenraises(s_exc.CantDelNode, await asvisi.eval('cycle0=foo | delnode'))
+                    await self.agenraises(s_exc.AuthDeny, await asvisi.eval('cycle0=foo | delnode --force'))
 
-            pconf = {'user': 'root', 'passwd': 'root'}
+                    await core.setAuthAdmin('visi', True)
 
-            async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
-
-                await self.agenraises(s_exc.AuthDeny, await core.eval('[ inet:ipv4=1.2.3.4 ]'))
-
-                nodes = await alist(await core.eval('sudo | [ inet:ipv4=1.2.3.4 ]'))
-                self.len(1, nodes)
+                    await self.agenlen(0, await asvisi.eval('cycle0=foo | delnode --force'))
 
     async def test_cortex_cell_splices(self):
 
@@ -1020,7 +1020,7 @@ class CortexTest(s_t_utils.SynTest):
                 # TestModule creates one node and 3 splices
                 await self.agenlen(3, await core.splices(0, 1000))
 
-                await alist(await core.eval('sudo | [ teststr=foo ]'))
+                await alist(await core.eval('[ teststr=foo ]'))
 
                 self.ge(len(await alist(await core.splices(0, 1000))), 5)
 
@@ -1547,7 +1547,7 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('testint>20'))
             await self.agenlen(0, core.eval('testint<20'))
 
-    async def test_cortex_ontag(self):
+    async def test_cortex_onofftag(self):
 
         async with self.getTestCore() as core:
 
@@ -1585,6 +1585,23 @@ class CortexTest(s_t_utils.SynTest):
                 self.none(tags.get('foo.bar'))
                 self.none(tags.get('foo.bar.baz'))
 
+                core.offTagAdd('foo.bar', onadd)
+                core.offTagDel('foo.bar', ondel)
+                core.offTagAdd('foo.bar', lambda x: 0)
+                core.offTagDel('foo.bar', lambda x: 0)
+
+                await node.addTag('foo.bar', valu=(200, 300))
+                self.none(tags.get('foo.bar'))
+
+                tags['foo.bar'] = 'fake'
+                await node.delTag('foo.bar')
+                self.eq(tags.get('foo.bar'), 'fake')
+
+                # Coverage for removing something from a
+                # tag we never added a handler for.
+                core.offTagAdd('test.newp', lambda x: 0)
+                core.offTagDel('test.newp', lambda x: 0)
+
     async def test_cortex_univ(self):
 
         async with self.getTestCore() as core:
@@ -1607,9 +1624,9 @@ class CortexTest(s_t_utils.SynTest):
 
             pconf = {'user': 'root', 'passwd': 'root'}
             async with await self.agetTestProxy(dmon, 'core', **pconf) as core:
-                podes = await alist(await core.eval('teststr=woot [-.hehe] | sudo'))
+                podes = await alist(await core.eval('teststr=woot [-.hehe]'))
                 self.none(s_node.prop(podes[0], '.hehe'))
-                podes = await alist(await core.eval('sudo | teststr=pennywise [-.hehe]'))
+                podes = await alist(await core.eval('teststr=pennywise [-.hehe]'))
                 self.none(s_node.prop(podes[0], '.hehe'))
 
     async def test_cortex_snap_eval(self):
@@ -1636,7 +1653,7 @@ class CortexTest(s_t_utils.SynTest):
                 ostat = await core.stat()
                 self.eq(ostat.get('iden'), coreiden)
                 self.isin('layer', ostat)
-                await self.agenlen(1, (await core.eval('sudo | [teststr=123 :tick=2018]')))
+                await self.agenlen(1, (await core.eval('[teststr=123 :tick=2018]')))
                 nstat = await core.stat()
                 self.gt(nstat.get('layer').get('splicelog_indx'), ostat.get('layer').get('splicelog_indx'))
 
@@ -1836,7 +1853,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.eq(1, core.counts['teststr'])
 
-    async def test_cortex_latency(self):
+    async def test_cortex_greedy(self):
         ''' Issue a large snap request, and make sure we can still do stuff in a reasonable amount of time'''
 
         async with self.getTestCore() as core:
@@ -1862,6 +1879,10 @@ class CortexTest(s_t_utils.SynTest):
 
                 # Note: before latency improvement, delta was > 4 seconds
                 self.lt(delta, 0.5)
+
+            # Make sure the task in flight can be killed in a reasonable time
+            delta = time.time() - before
+            self.lt(delta, 1.0)
 
     async def test_storm_switchcase(self):
 
