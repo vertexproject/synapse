@@ -433,7 +433,6 @@ class Node:
         await self._setTagProp(name, norm, indx, info)
 
         await self.snap.core.runTagAdd(self, name, norm)
-        await self.snap.core.triggers.run(self, 'tag:add', info={'form': self.form.name, 'tag': name})
 
         return True
 
@@ -458,20 +457,24 @@ class Node:
         subtags = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
         subtags.sort(reverse=True)
 
-        info = {'univ': True}
-        sops = []
+        removed = []
 
         for sublen, subtag in subtags:
             valu = self.tags.pop(subtag, None)
-            await self.snap.core.runTagDel(self, subtag, valu)
-            sops.append(('prop:del', (self.buid, self.form.name, '#' + subtag, info)))
+            removed.append((subtag, valu))
 
-        await self.snap.core.runTagDel(self, name, curv)
-        await self.snap.core.triggers.run(self, 'tag:del', info={'form': self.form.name, 'tag': name})
-        sops.append(('prop:del', (self.buid, self.form.name, '#' + name, info)))
+        removed.append((name, curv))
+
+        info = {'univ': True}
+        sops = [('prop:del', (self.buid, self.form.name, '#' + t, info)) for (t, v) in removed]
 
         await self.snap.stor(sops)
-        await self.snap.splice('tag:del', ndef=self.ndef, tag=name, valu=curv)
+
+        # fire all the splices
+        [await self.snap.splice('tag:del', ndef=self.ndef, tag=t, valu=v) for (t, v) in removed]
+
+        # fire all the handlers / triggers
+        [await self.snap.core.runTagDel(self, t, v) for (t, v) in removed]
 
     async def delete(self, force=False):
         '''

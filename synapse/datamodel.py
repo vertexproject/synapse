@@ -278,9 +278,6 @@ class Form:
         '''
         Fire the onAdd() callbacks for node creation.
         '''
-
-        await node.snap.core.triggers.run(node, 'node:add', info={'form': self.name})
-
         for func in self.onadds:
             try:
                 retn = func(node)
@@ -291,12 +288,12 @@ class Form:
             except Exception:
                 logger.exception('error on onadd for %s' % (self.name,))
 
+        await node.snap.core.triggers.runNodeAdd(node)
+
     async def wasDeleted(self, node):
         '''
         Fire the onDel() callbacks for node deletion.
         '''
-        await node.snap.core.triggers.run(node, 'node:del', info={'form': self.name})
-
         for func in self.ondels:
             try:
                 retn = func(node)
@@ -306,6 +303,8 @@ class Form:
                 raise
             except Exception:
                 logger.exception('error on ondel for %s' % (self.name,))
+
+        await node.snap.core.triggers.runNodeDel(node)
 
     def getSetOps(self, buid, norm):
         indx = self.type.getStorIndx(norm)

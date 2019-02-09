@@ -105,6 +105,7 @@ class NoSuchDyn(SynErr): pass
 class NoSuchSeq(SynErr): pass
 class NoSuchVar(SynErr): pass
 class NoRevPath(SynErr): pass
+class NoSuchCond(SynErr): pass
 class NoSuchCtor(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchImpl(SynErr): pass

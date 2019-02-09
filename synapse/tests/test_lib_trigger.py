@@ -56,12 +56,12 @@ class TrigTest(s_t_utils.SynTest):
             await self.agenlen(3, await core.eval('testint'))
 
             # tag:add globbing and storm var
-            await core.addTrigger('tag:add', '[ +#count teststr=$tag ]', info={'tag': 'footag.*'})
-            await s_common.aspin(await core.eval('[ teststr=foo +#footag.bar ]'))
-            await s_common.aspin(await core.eval('[ teststr=foo +#footag ]'))
-            await s_common.aspin(await core.eval('[ teststr=foo +#foota.bar ]'))
+            await core.addTrigger('tag:add', 'sudo | [ +#count teststr=$tag ]', info={'tag': 'a.*.c'})
+            await s_common.aspin(await core.eval('sudo | [ teststr=foo +#a.b ]'))
+            await s_common.aspin(await core.eval('sudo | [ teststr=foo +#a.b.c ]'))
+            await s_common.aspin(await core.eval('sudo | [ teststr=foo +#a.b.ccc ]'))
             await self.agenlen(1, await core.eval('#count'))
-            await self.agenlen(1, await core.eval('teststr=footag.bar'))
+            await self.agenlen(1, await core.eval('teststr=a.b.c'))
 
             # tag:del case
             await core.addTrigger('tag:del', '[ testint=4 ]', info={'tag': 'footag'})
@@ -103,8 +103,6 @@ class TrigTest(s_t_utils.SynTest):
                                    core.addTrigger('node:add', 'testint=4', info={'form': 'teststr', 'tag': 'foo'}))
             await self.asyncraises(s_exc.BadOptValu,
                                    core.addTrigger('prop:set', 'testint=4', info={'form': 'teststr', 'prop': 'foo'}))
-            await self.asyncraises(s_exc.BadOptValu, core.addTrigger('tag:add', 'testint=4', info={'tag': 'foo*'}))
-            await self.asyncraises(s_exc.BadOptValu, core.addTrigger('tag:add', 'testint=4', info={'tag': '*foo'}))
 
             # Trigger list
             triglist = await core.listTriggers()
@@ -149,3 +147,49 @@ class TrigTest(s_t_utils.SynTest):
 
                 # Mod trigger auth failure
                 await self.asyncraises(s_exc.AuthDeny, core.updateTrigger(buid, '[ teststr=44 ]'))
+
+    async def test_trigger_delete(self):
+
+        async with self.getTestCore() as core:
+
+            iden0 = core.triggers.add('root', 'node:add', '[teststr=add]', {'form': 'testguid'})
+            iden1 = core.triggers.add('root', 'node:del', '[teststr=del]', {'form': 'testguid'})
+            iden2 = core.triggers.add('root', 'prop:set', '[teststr=set]', {'prop': 'testguid:tick'})
+
+            await core.eval('[testguid="*" :tick=2015] | delnode').list()
+            self.len(3, await core.eval('teststr').list())
+
+            core.triggers.delete(iden0)
+            core.triggers.delete(iden1)
+            core.triggers.delete(iden2)
+
+            await core.eval('teststr | delnode').list()
+            await core.eval('[testguid="*" :tick=2015] | delnode').list()
+
+            self.len(0, await core.eval('teststr').list())
+
+    async def test_trigger_tag_globs(self):
+
+        async with self.getTestCore() as core:
+
+            iden0 = core.triggers.add('root', 'tag:add', '[ +#count0 ]', {'tag': 'foo.*.bar'})
+            iden1 = core.triggers.add('root', 'tag:del', '[ +#count1 ]', {'tag': 'baz.*.faz'})
+
+            await core.eval('[ testguid="*" +#foo.asdf.bar ]').list()
+            await core.eval('[ testguid="*" +#baz.asdf.faz ]').list()
+            await core.eval('#baz.asdf.faz [ -#baz.asdf.faz ]').list()
+
+            self.len(1, await core.eval('#count0').list())
+            self.len(1, await core.eval('#count1').list())
+
+            core.triggers.delete(iden0)
+            core.triggers.delete(iden1)
+
+            await core.eval('testguid | delnode').list()
+
+            await core.eval('[ testguid="*" +#foo.asdf.bar ]').list()
+            await core.eval('[ testguid="*" +#baz.asdf.faz ]').list()
+            await core.eval('#baz.asdf.faz [ -#baz.asdf.faz ]').list()
+
+            self.len(0, await core.eval('#count0').list())
+            self.len(0, await core.eval('#count1').list())

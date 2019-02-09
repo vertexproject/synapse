@@ -450,21 +450,10 @@ class Cortex(s_cell.Cell):
             'doc': 'A list of feed dictionaries.'
         }),
 
-        ('triggers:enable', {
-            'type': 'bool', 'defval': True,
-            'doc': 'Enable triggers running.'
-        }),
-
         ('cron:enable', {
             'type': 'bool', 'defval': True,
             'doc': 'Enable cron jobs running.'
         }),
-
-        # ('storm:save', {
-        #     'type': 'bool', 'defval': False,
-        #     'doc': 'Archive storm queries for audit trail.'
-        # }),
-
     )
 
     cellapi = CoreApi
@@ -521,7 +510,6 @@ class Cortex(s_cell.Cell):
             await asyncio.gather(*[layr.fini() for layr in self.layers], loop=self.loop)
         self.onfini(fini)
 
-        self.triggers = s_trigger.Triggers(self)
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
@@ -538,14 +526,13 @@ class Cortex(s_cell.Cell):
 
         await self.addCoreMods(s_modules.coremods)
 
+        self.triggers = s_trigger.Triggers(self)
+
         mods = self.conf.get('modules')
 
         self._initFormCounts()
 
         await self.addCoreMods(mods)
-
-        if self.conf.get('triggers:enable'):
-            await self.triggers.enable()
 
         if self.conf.get('cron:enable'):
             await self.agenda.enable()
@@ -729,6 +716,7 @@ class Cortex(s_cell.Cell):
         return ret
 
     async def runTagAdd(self, node, tag, valu):
+
         for func in self.ontagadds.get(tag, ()):
             try:
                 await s_coro.ornot(func, node, tag, valu)
@@ -737,7 +725,10 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 logger.exception('onTagAdd Error')
 
+        await self.triggers.runTagAdd(node, tag)
+
     async def runTagDel(self, node, tag, valu):
+
         for func in self.ontagdels.get(tag, ()):
             try:
                 await s_coro.ornot(func, node, tag, valu)
@@ -745,6 +736,8 @@ class Cortex(s_cell.Cell):
                 raise
             except Exception as e:
                 logger.exception('onTagDel Error')
+
+        await self.triggers.runTagDel(node, tag)
 
     async def _checkLayerModels(self):
         mrev = s_modelrev.ModelRev(self)
