@@ -7,7 +7,7 @@ import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.lmdbslab as s_slab
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 class Migration(s_base.Base):
     '''

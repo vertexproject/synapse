@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 import argparse
 
 import synapse.glob as s_glob
@@ -10,16 +11,18 @@ import synapse.daemon as s_daemon
 
 import synapse.lib.output as s_output
 
-teleport = os.getenv('SYN_CORTEX_PORT', '27492')
-telehost = os.getenv('SYN_CORTEX_HOST', '127.0.0.1')
-
-#httpport = os.getenv('SYN_CORTEX_HTTP_PORT', '80')
-#httphost = os.getenv('SYN_CORTEX_HTTP_HOST', '127.0.0.1')
-
-#httpsport = os.getenv('SYN_CORTEX_HTTPS_PORT', '443')
-#httpshost = os.getenv('SYN_CORTEX_HTTPS_HOST', '127.0.0.1')
+logger = logging.getLogger(__name__)
 
 def main(argv, outp=s_output.stdout): # pragma: no cover
+
+    teleport = os.getenv('SYN_CORTEX_PORT', '27492')
+    telehost = os.getenv('SYN_CORTEX_HOST', '127.0.0.1')
+
+    # httpport = os.getenv('SYN_CORTEX_HTTP_PORT', '80')
+    # httphost = os.getenv('SYN_CORTEX_HTTP_HOST', '127.0.0.1')
+
+    # httpsport = os.getenv('SYN_CORTEX_HTTPS_PORT', '443')
+    # httpshost = os.getenv('SYN_CORTEX_HTTPS_HOST', '127.0.0.1')
 
     pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
 
@@ -30,11 +33,12 @@ def main(argv, outp=s_output.stdout): # pragma: no cover
 
     opts = pars.parse_args(argv)
 
+    s_common.setlogging(logger)
     dmon = s_glob.sync(mainopts(opts, outp=outp))
 
     return dmon.main()
 
-async def mainopts(opts, outp=s_output.stdout): # pragma: no cover
+async def mainopts(opts, outp=s_output.stdout):
 
     proto = 'tcp'
 

@@ -5,7 +5,7 @@ import synapse.common as s_common
 
 import synapse.lib.migrate as s_migrate
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 version = (0, 1, 0)
 

@@ -60,11 +60,6 @@ class Runtime:
         return await self.snap.warn(mesg, **info)
 
     def elevate(self):
-
-        if self.user is not None:
-            if not self.user.admin:
-                raise s_exc.AuthDeny(mesg='user is not admin', user=self.user.name)
-
         self.elevated = True
 
     def tick(self):
@@ -133,10 +128,13 @@ class Runtime:
         if self.user is None:
             return
 
+        if self.user.admin:
+            return
+
         if self.elevated:
             return
 
-        if self.user.allowed(args, elev=False):
+        if self.user.allowed(args):
             return
 
         # fails will not be cached...
@@ -484,6 +482,7 @@ class SudoCmd(Cmd):
     name = 'sudo'
 
     async def execStormCmd(self, runt, genr):
+        runt.allowed('storm', 'cmd', 'sudo')
         runt.elevate()
         async for item in genr:
             yield item

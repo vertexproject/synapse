@@ -500,7 +500,10 @@ class BlobStor(s_cell.Cell):
                     cur_offset = last_offset + 1
                     await self.writer.updateCloneProgress(cur_offset)
 
-            except Exception:
+            except asyncio.CancelledError:  # pragma: no cover
+                break
+
+            except Exception:  # pragma: no cover
                 if not self.isfini:
                     logger.exception('BlobStor.cloneeLoop error')
 
@@ -730,6 +733,10 @@ class _ProxyKeeper(s_base.Base):
         for bsid in bsidsrot:
             try:
                 blobstor = await self.get(bsid)
+
+            except asyncio.CancelledError:  # pragma: no cover
+                break
+
             except Exception:
                 logger.warning('Trouble connecting to BSID %r', bsid)
                 continue
@@ -889,6 +896,10 @@ class Axon(s_cell.Cell):
             for path in paths:
                 try:
                     await self._start_watching_blobstor(path)
+
+                except asyncio.CancelledError:  # pragma: no cover
+                    break
+
                 except Exception:
                     logger.error('At axon startup, failed to connect to stored blobstor path %s', _path_sanitize(path))
 

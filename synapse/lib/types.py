@@ -68,6 +68,14 @@ class Type:
         '''
         return None
 
+    def getLiftOps(self, tabl, cmpr, oper):
+        '''
+        If this type has special lift operations it needs to do (like a regex
+        search), that will be handled by a sub class. Base types with no special
+        needs can let the Prop/Univ/Form classes handle the generic lift case.
+        '''
+        return None
+
     def _normStormNode(self, node):
         return self.norm(node.ndef[1])
 
@@ -754,7 +762,6 @@ class Ival(Type):
         norm = self.norm(valu)[0]
 
         def cmpr(item):
-
             if item is None or item == (None, None):
                 return False
 
@@ -769,6 +776,15 @@ class Ival(Type):
             return True
 
         return cmpr
+
+    def getLiftOps(self, tabl, cmpr, oper):
+        if cmpr != '@=':
+            return None
+        form, prop, valu = oper
+        norm, _ = self.norm(valu)
+        return (
+            (tabl + ':ival', (form, prop, norm)),
+        )
 
     #def _normPyNone(self, valu):
         # none is an ok interval (unknown...)
@@ -1299,10 +1315,17 @@ class Time(IntBase):
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
 
+        self.indxcmpr['@='] = self.indxByIval
         self.setCmprCtor('@=', self._ctorCmprAt)
 
         self.ismin = self.opts.get('ismin')
         self.ismax = self.opts.get('ismax')
+
+    def indxByIval(self, valu):
+        norm, _ = self.modl.types.get('ival').norm(valu)
+        if norm[1] != self.futsize:
+            norm = (norm[0], norm[1] - 1)
+        return self.indxByRange(norm)
 
     def _ctorCmprAt(self, valu):
         return self.modl.types.get('ival')._ctorCmprAt(valu)
@@ -1315,7 +1338,7 @@ class Time(IntBase):
 
         # an unspecififed time in the future...
         if valu == '?':
-            return 0x7fffffffffffffff, {}
+            return self.futsize, {}
 
         # self contained relative time string
 
@@ -1357,7 +1380,7 @@ class Time(IntBase):
 
     def repr(self, valu, defval=None):
 
-        if valu == 0x7fffffffffffffff:
+        if valu == self.futsize:
             return '?'
 
         return s_time.repr(valu)

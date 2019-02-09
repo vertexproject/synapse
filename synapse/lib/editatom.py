@@ -110,4 +110,4 @@ class EditAtom:
                 univ = snap.model.prop(prop.univ)
                 await univ.wasSet(node, oldv)
 
-            await snap.core.triggers.run(node, 'prop:set', info={'prop': prop.full})
+            await snap.core.triggers.runPropSet(node, prop, oldv)
