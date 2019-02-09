@@ -696,6 +696,28 @@ class SynTest(unittest.TestCase):
     def skip(self, mesg):
         raise unittest.SkipTest(mesg)
 
+    @contextlib.contextmanager
+    def getRegrDir(self, *path):
+        regr = os.getenv('SYN_REGRESSION_REPO')
+        if regr is None:
+            raise unittest.SkipTest('SYN_REGRESSION_REPO is not set')
+
+        regr = s_common.genpath(regr)
+
+        if not os.path.isdir(regr):
+            raise Exception('SYN_REGREGSSION_REPO is not a dir')
+
+        dirn = os.path.join(regr, *path)
+
+        with self.getTestDir(copyfrom=dirn) as regrdir:
+            yield regrdir
+
+    @contextlib.asynccontextmanager
+    async def getRegrCore(self, vers):
+        with self.getRegrDir('cortexes', vers) as dirn:
+            async with await s_cells.init('cortex', dirn) as core:
+                yield core
+
     def skipIfNoInternet(self):  # pragma: no cover
         '''
         Allow skipping a test if SYN_TEST_SKIP_INTERNET envar is set.
