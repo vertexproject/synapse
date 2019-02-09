@@ -32,8 +32,6 @@ async def cellAuthToHive(dirn, auth):
                 name = lkey.decode('utf8')
                 info = s_msgpack.un(lval)
 
-                print('ROLE: %r %r' % (name, info))
-
                 role = auth.getRoleByName(name)
                 if role is None:
                     role = await auth.addRole(name)
