@@ -35,7 +35,7 @@ class Migration(s_base.Base):
         sops = (
             ('buid:set', (form, oldb, newb)),
         )
-        for layr in self.core.layers:
+        for layr in self.core.layers.values():
             await layr.stor(sops)
 
     async def editNdefProps(self, oldv, newv):
@@ -159,7 +159,7 @@ class Migration(s_base.Base):
 
     def getLayers(self):
         # TODO check layers for remote / etc
-        return self.core.layers
+        return self.core.layers.values()
 
     async def getFormTodo(self, name):
         # TODO implement lift / store / resume

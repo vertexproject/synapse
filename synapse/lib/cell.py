@@ -42,11 +42,11 @@ def adminapi(f):
 
 class CellApi(s_base.Base):
 
-    async def __anit__(self, cell, link):
+    async def __anit__(self, cell, link, user):
         await s_base.Base.__anit__(self)
         self.cell = cell
         self.link = link
-        self.user = link.get('cell:user')
+        self.user = user
 
     def getCellType(self):
         return self.cell.getCellType()
@@ -143,7 +143,7 @@ class CellApi(s_base.Base):
     @adminapi
     async def delAuthRule(self, name, indx):
         item = self._getAuthItem(name)
-        return item.delRule(indx)
+        return await item.delRule(indx)
 
     @adminapi
     async def setAuthAdmin(self, name, admin):
@@ -151,7 +151,7 @@ class CellApi(s_base.Base):
         Set the admin status of the given user/role.
         '''
         item = self._getAuthItem(name)
-        item.setAdmin(admin)
+        await item.setAdmin(admin)
 
     @adminapi
     async def setUserPasswd(self, name, passwd):
@@ -159,7 +159,7 @@ class CellApi(s_base.Base):
         if user is None:
             raise s_exc.NoSuchUser(user=name)
 
-        user.setPasswd(passwd)
+        await user.setPasswd(passwd)
 
     @adminapi
     async def setUserLocked(self, name, locked):
@@ -211,8 +211,8 @@ class PassThroughApi(CellApi):
     '''
     allowed_methods = []  # type: ignore
 
-    async def __anit__(self, cell, link):
-        await CellApi.__anit__(self, cell, link)
+    async def __anit__(self, cell, link, user):
+        await CellApi.__anit__(self, cell, link, user)
 
         for f in self.allowed_methods:
             # N.B. this curious double nesting is due to Python's closure mechanism (f is essentially captured by name)
@@ -346,9 +346,13 @@ class Cell(s_base.Base, s_telepath.Aware):
         return auth
 
     @contextlib.asynccontextmanager
-    async def getLocalProxy(self):
-        prox = await s_telepath.openurl('cell://', path=self.dirn)
+    async def getLocalProxy(self, share='*'):
+        url = self.getLocalUrl(share=share)
+        prox = await s_telepath.openurl(url)
         yield prox
+
+    def getLocalUrl(self, share='*'):
+        return f'cell://{self.dirn}:{share}'
 
     def _loadCellYaml(self, *path):
 
@@ -365,17 +369,26 @@ class Cell(s_base.Base, s_telepath.Aware):
         # sub-classes may over-ride to do deploy initialization
         pass
 
-    async def getTeleApi(self, link, mesg):
+    async def getTeleApi(self, link, mesg, path):
 
         # if auth is disabled or it's a unix socket, they're root.
         if self.insecure or link.get('unix'):
-            user = self.auth.getUserByName('root')
+            name = 'root'
+            auth = mesg[1].get('auth')
+            if auth is not None:
+                name, info = auth
+
+            user = self.auth.getUserByName(name)
+            if user is None:
+                raise s_exc.NoSuchUser(name=name)
 
         else:
             user = self._getCellUser(mesg)
 
-        link.set('cell:user', user)
-        return await self.cellapi.anit(self, link)
+        return await self.getCellApi(link, user, path)
+
+    async def getCellApi(self, link, user, path):
+        return await self.cellapi.anit(self, link, user)
 
     def getCellType(self):
         return self.__class__.__name__.lower()

@@ -44,7 +44,9 @@ class Snap(s_base.Base):
 
         self.core = core
         self.model = core.model
-        self.layers = layers
+
+        # it is optimal for a snap to have layers in "bottom up" order
+        self.layers = list(reversed(layers))
         self.wlyr = self.layers[-1]
 
         self.bulk = False
@@ -65,6 +67,7 @@ class Snap(s_base.Base):
         self.changelog = []
         self.tagtype = core.model.type('ival')
 
+        # TODO layr.commit() calls splice slab forcecommit() and might be a bottleneck
         async def fini():
 
             for layr in self.layers:

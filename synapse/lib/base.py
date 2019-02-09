@@ -345,10 +345,11 @@ class Base:
         Returns:
             Remaining ref count
         '''
-        assert self.anitted, 'Base object initialized improperly.  Must use Base.anit class method.'
+        assert self.anitted, f'{self.__class__.__name__} initialized improperly.  Must use Base.anit class method.'
 
         if self.isfini:
             return
+
         if __debug__:
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid

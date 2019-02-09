@@ -192,7 +192,7 @@ class AgendaTest(s_t_utils.SynTest):
                 await sync.wait()  # wait for the query to run
                 sync.clear()
                 self.eq(lastquery, '[teststr=foo]')
-                self.eq(list(core.method_calls[0]), ['auth.users.get', ('visi',), {}])
+                self.eq(list(core.method_calls[0]), ['auth.getUserByName', ('visi',), {}])
                 core.reset_mock()
                 lastquery = None
 

@@ -39,9 +39,10 @@ class LmdbLayer(s_layer.Layer):
         ('lmdb:readahead', {'type': 'bool', 'defval': True}),
     )
 
-    async def __anit__(self, dirn, readonly=False):
+    async def __anit__(self, core, node):
 
-        await s_layer.Layer.__anit__(self, dirn, readonly=readonly)
+        await s_layer.Layer.__anit__(self, core, node)
+
         path = os.path.join(self.dirn, 'layer.lmdb')
 
         self.fresh = not os.path.exists(path)
@@ -52,7 +53,7 @@ class LmdbLayer(s_layer.Layer):
         growsize = self.conf.get('lmdb:growsize')
 
         self.layrslab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize, growsize=growsize,
-                                               writemap=True, readahead=readahead, readonly=readonly)
+                                               writemap=True, readahead=readahead)
 
         self.onfini(self.layrslab.fini)
 
@@ -60,8 +61,6 @@ class LmdbLayer(s_layer.Layer):
 
         self.utf8 = s_layer.Utf8er()
         self.encoder = s_layer.Encoder()
-
-        self.tid = s_threads.iden()
 
         self.bybuid = await self.initdb('bybuid') # <buid><prop>=<valu>
         self.byprop = await self.initdb('byprop', dupsort=True) # <form>00<prop>00<indx>=<buid>
@@ -135,7 +134,7 @@ class LmdbLayer(s_layer.Layer):
                 self.layrslab.put(propindx, pvnewval, dupdata=True, db=self.byuniv)
                 self.layrslab.delete(propindx, pvoldval, db=self.byuniv)
 
-            bypropkey = fenc + penc + indx
+            bypropkey = fenc + propindx
 
             self.layrslab.put(bypropkey, pvnewval, db=self.byprop)
             self.layrslab.delete(bypropkey, pvoldval, db=self.byprop)

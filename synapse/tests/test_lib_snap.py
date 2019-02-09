@@ -164,85 +164,50 @@ class SnapTest(s_t_utils.SynTest):
             self.true(await s_coro.event_wait(ab_done_event, 5))
 
     @contextlib.asynccontextmanager
-    async def _getTestCoreMultiLayer(self, first_dirn):
+    async def _getTestCoreMultiLayer(self):
         '''
         Custom logic to make a second cortex that puts another cortex's layer underneath.
 
         Notes:
             This method is broken out so subclasses can override.
         '''
-        tmp, self.alt_write_layer = self.alt_write_layer, None
-        layerfn = os.path.join(first_dirn, 'layers', '000-default')
-        async with self.getTestCore(extra_layers=[layerfn]) as core:
-            yield core
-        self.alt_write_layer = tmp
+        async with self.getTestCore() as core0:
+
+            async with self.getTestCore() as core1:
+
+                config = {'url': core0.getLocalUrl('*/layer')}
+                layr = await core1.addLayer(type='remote', config=config)
+
+                await core1.view.addLayer(layr)
+                yield core0, core1
 
     async def test_cortex_lift_layers_bad_filter(self):
         '''
         Test a two layer cortex where a lift operation gives the wrong result
         '''
-        async with self.getTestCore() as core1:
-            node = (('inet:ipv4', 1), {'props': {'asn': 42, '.seen': (1, 2)}, 'tags': {'woot': (1, 2)}})
-            nodes_core1 = await alist(core1.addNodes([node]))
-            await core1.fini()
+        async with self._getTestCoreMultiLayer() as (core0, core1):
 
-            async with self._getTestCoreMultiLayer(core1.dirn) as core, await core.snap() as snap:
-                # Basic sanity checks
+            self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=42 +#woot=(2014, 2015)]').list())
+            self.len(1, await core1.eval('inet:ipv4=1.2.3.4 [ :asn=31337 +#woot=2016 ]').list())
 
-                # Make sure only the top layer is writeable
-                self.true(core.layers[0].readonly)
-                self.true(core.layers[0].slab.readonly)
-                self.false(core.layers[1].readonly)
-                self.false(core.layers[1].slab.readonly)
+            self.len(0, await core0.eval('inet:ipv4:asn=31337').list())
+            self.len(1, await core1.eval('inet:ipv4:asn=31337').list())
 
-                nodes = await alist(snap.getNodesBy('inet:ipv4', 1))
-                self.len(1, nodes)
-                nodes = await alist(snap.getNodesBy('inet:ipv4.seen', 1))
-                self.len(1, nodes)
-                self.eq(nodes_core1[0].pack(), nodes[0].pack())
-                nodes = await alist(snap.getNodesBy('inet:ipv4#woot', 1))
-                self.len(1, nodes)
-                nodes = await alist(snap.getNodesBy('inet:ipv4#woot', 99))
-                self.len(0, nodes)
-
-                # Now change asn in the "higher" layer
-                changed_node = (('inet:ipv4', 1), {'props': {'asn': 43, '.seen': (3, 4)}, 'tags': {'woot': (3, 4)}})
-                nodes = await alist(snap.addNodes([changed_node]))
-                # Lookup by prop
-                nodes = await alist(snap.getNodesBy('inet:ipv4:asn', 42))
-                self.len(0, nodes)
-
-                # Lookup by univ prop
-                nodes = await alist(snap.getNodesBy('inet:ipv4.seen', 1))
-                self.len(0, nodes)
-
-                # Lookup by formtag
-                nodes = await alist(snap.getNodesBy('inet:ipv4#woot', 1))
-                self.len(0, nodes)
-
-                # Lookup by tag
-                nodes = await alist(snap.getNodesBy('#woot', 1))
-                self.len(0, nodes)
+            self.len(1, await core0.eval('inet:ipv4:asn=42').list())
+            self.len(0, await core1.eval('inet:ipv4:asn=42').list())
 
     async def test_cortex_lift_layers_dup(self):
         '''
         Test a two layer cortex where a lift operation might give the same node twice incorrectly
         '''
-        async with self.getTestCore() as core1:
-            node = (('inet:ipv4', 1), {'props': {'asn': 42}})
-            nodes_core1 = await alist(core1.addNodes([node]))
-            await core1.fini()
+        async with self._getTestCoreMultiLayer() as (core0, core1):
+            # add to core1 first so we can cause creation in both...
+            self.len(1, await core1.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]').list())
+            self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]').list())
 
-            async with self._getTestCoreMultiLayer(core1.dirn) as core, await core.snap() as snap:
-                # Basic sanity check first
-                nodes = await alist(snap.getNodesBy('inet:ipv4', 1))
-                self.len(1, nodes)
-                self.eq(nodes_core1[0].pack(), nodes[0].pack())
+            # lift by secondary and ensure only one...
+            self.len(1, await core1.eval('inet:ipv4:asn=42').list())
 
-                # Now set asn in the "higher" layer to the same (by changing it, then changing it back)
-                changed_node = (('inet:ipv4', 1), {'props': {'asn': 43}})
-                await s_common.aspin(snap.addNodes([changed_node]))
-                changed_node = (('inet:ipv4', 1), {'props': {'asn': 42}})
-                nodes = await alist(snap.addNodes([changed_node]))
-                nodes = await alist(snap.getNodesBy('inet:ipv4:asn', 42))
-                self.len(1, nodes)
+            # now set one to a diff value that we will ask for but should be masked
+            self.len(1, await core0.eval('[ inet:ipv4=1.2.3.4 :asn=99 ]').list())
+            self.len(0, await core1.eval('inet:ipv4:asn=99').list())

@@ -9,25 +9,23 @@ import synapse.tests.test_cortex as t_cortex
 import synapse.tests.test_lib_snap as t_snap
 import synapse.tests.test_lib_layer as t_layer
 
-class RemoteLayerTest(t_cortex.CortexTest):
+#class RemoteLayerTest(t_cortex.CortexTest):
 
-    @contextlib.asynccontextmanager
-    async def getTestCore(self):
+    #@contextlib.asynccontextmanager
+    #async def getTestCore(self):
 
-        async with self.getTestDmon('dmoncore') as dmon:
+    #async def test_cortex_telepath_layer(self):
 
-            core0 = dmon.shared.get('core')
-            layer = core0.layers[0]
-            dmon.share('layer', layer)
+        #async with t_cortex.CortexTest.getTestCore(self) as core0:
 
-            async with t_cortex.CortexTest.getTestCore(self) as core:
-                url = self.getTestUrl(dmon, 'layer')
-                dirn = os.path.join(core.dirn, 'layers', s_common.guid())
-                layr = await s_cells.init('layer-remote', dirn, teleurl=url)
+            #url = core0.getLocalUrl('*/layer')
+#
+            #async with t_cortex.CortexTest.getTestCore(self) as core1:
 
-                await core.layer.fini()
+                #config={'url': core0.getLocalUrl(share='*/layer')}
+                #layr = await core1.addLayer(type='remote', config=config)
 
-                core.layer = layr
-                core.layers[0] = layr
+                # make the remote layer the "top" layer
+                #await core1.view.addLayer(layr, indx=0)
 
-                yield core
+                #yield core1

@@ -28,7 +28,7 @@ class Aware:
     The telepath.Aware mixin allows shared objects to
     handle individual links managed by the Daemon.
     '''
-    async def getTeleApi(self, link, mesg):
+    async def getTeleApi(self, link, mesg, path):
         '''
         Return a shared object for this link.
         Args:
@@ -41,11 +41,11 @@ class Aware:
     def onTeleShare(self, dmon, name):
         pass
 
-    def onTeleOpen(self, link, path):
-        '''
-        Allow a telepath share to create a new sub-share.
-        '''
-        return None
+    #def onTeleOpen(self, link, path):
+        #'''
+        #Allow a telepath share to create a new sub-share.
+        #'''
+        #return None
 
 class Task:
     '''
@@ -214,8 +214,6 @@ class Proxy(s_base.Base):
 
         self.synack = None
         self.syndone = asyncio.Event()
-
-        self.timeout = None     # API call timeout default
 
         self.handlers = {
             'tele:syn': self._onTeleSyn,
@@ -602,14 +600,27 @@ async def openurl(url, **opts):
     scheme = info.get('scheme')
 
     if scheme == 'cell':
+        # cell:///path/to/celldir:share
+        # cell://rel/path/to/celldir:share
         name = '*'
-        path = os.path.join(info.get('path'), 'sock')
-        link = await s_link.unixconnect(path)
+        path = info.get('path')
+
+        # support cell://<relpath>/<to>/<cell>
+        # by detecting host...
+        host = info.get('host')
+        if host:
+            path = os.path.join(host, path)
+
+        if ':' in path:
+            path, name = path.split(':')
+
+        full = os.path.join(path, 'sock')
+        link = await s_link.unixconnect(full)
 
     elif scheme == 'unix':
-        path = info.get('path')
-        sockpath, name = os.path.split(path)
-        link = await s_link.unixconnect(sockpath)
+        # unix:///path/to/sock:share
+        path, name = info.get('path').split(':')
+        link = await s_link.unixconnect(path)
 
     else:
 

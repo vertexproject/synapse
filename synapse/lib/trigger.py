@@ -69,7 +69,7 @@ class Triggers:
             '''
             opts = None if tag is None else {'vars': {'tag': tag}}
             if node.snap.core.auth is not None:
-                user = node.snap.core.auth.users.get(self.user)
+                user = node.snap.core.auth.getUserByName(self.user)
                 if user is None:
                     logger.warning('Unknown user %s in stored trigger', self.user)
                     return

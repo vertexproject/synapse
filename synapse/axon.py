@@ -758,8 +758,8 @@ class AxonApi(s_cell.PassThroughApi):
     allowed_methods = ['get', 'locs', 'stat', 'wants', 'metrics', 'putone',
                        'addBlobStor', 'unwatchBlobStor', 'getBlobStors']
 
-    async def __anit__(self, cell, link):
-        await s_cell.PassThroughApi.__anit__(self, cell, link)
+    async def __anit__(self, cell, link, user):
+        await s_cell.PassThroughApi.__anit__(self, cell, link, user)
 
         # The Axon makes new connections to each blobstor for each client.
         self._proxykeeper = await _ProxyKeeper.anit()

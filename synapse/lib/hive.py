@@ -279,7 +279,7 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         return node.valu
 
-    async def getTeleApi(self, link, mesg):
+    async def getTeleApi(self, link, mesg, path):
 
         auth = await self.getHiveAuth()
 
@@ -768,8 +768,9 @@ class HiveUser(HiveIden):
         return {
             'type': 'user',
             'name': self.name,
+            'iden': self.node.name(),
             'rules': self.rules,
-            'roles': self.roles,
+            'roles': [r.name for r in self.getRoles()],
             'admin': self.admin,
             'locked': self.locked,
         }
@@ -780,6 +781,12 @@ class HiveUser(HiveIden):
                 return retn
 
         return False
+
+    def getRoles(self):
+        for iden in self.roles:
+            role = self.auth.role(iden)
+            if role is not None:
+                yield role
 
     def _initFullRules(self):
 

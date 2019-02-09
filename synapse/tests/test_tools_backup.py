@@ -9,12 +9,19 @@ class BackupTest(s_t_utils.SynTest):
     def dirset(self, sdir, skipfns):
         ret = set()
         for fdir, _, fns in os.walk(sdir):
+
             for fn in fns:
+
                 if fn in skipfns:
                     continue
+
                 fp = os.path.join(fdir, fn)
+                if not os.path.isfile(fp) and not os.path.isdir(fp):
+                    continue
+
                 fp = fp[len(sdir):]
                 ret.add(fp)
+
         return ret
 
     def compare_dirs(self, dir1, dir2, skipfns=None):
@@ -42,4 +49,4 @@ class BackupTest(s_t_utils.SynTest):
                 fpset = self.compare_dirs(core.dirn, dirn2, skipfns=['lock.mdb'])
 
                 # We expect the data.mdb file to be in the fpset
-                self.isin('/layers/000-default/layer.lmdb/data.mdb', fpset)
+                self.isin(f'/layers/{core.iden}/layer.lmdb/data.mdb', fpset)

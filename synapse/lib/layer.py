@@ -8,8 +8,11 @@ import collections
 
 import regex
 
+import synapse.common as s_common
+
 import synapse.exc as s_exc
-import synapse.lib.cell as s_cell
+import synapse.lib.base as s_base
+#import synapse.lib.cell as s_cell
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
@@ -24,27 +27,36 @@ class Utf8er(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8')
 
-class LayerApi(s_cell.PassThroughApi):
-    allowed_methods = [
-        'getLiftRows', 'stor', 'commit', 'abort', 'getBuidProps',
-        'iterFormRows', 'iterPropRows', 'iterUnivRows', 'getOffset',
-        'setOffset', 'initdb', 'splicelistAppend', 'splices', 'stat'
-    ]
-    async def getModelVers(self):
-        return await self.cell.getModelVers()
-
-class Layer(s_cell.Cell):
+class Layer(s_base.Base):
     '''
-    A layer implements btree indexed storage for a cortex.
-
-    TODO:
-        metadata for layer contents (only specific type / tag)
+    The base class for a cortex layer.
     '''
-    cellapi = LayerApi
+    confdefs = ()
+    async def __anit__(self, core, node):
 
-    async def __anit__(self, dirn, readonly=False):
+        await s_base.Base.__anit__(self)
 
-        await s_cell.Cell.__anit__(self, dirn, readonly=readonly)
+        self.core = core
+        self.node = node
+        self.iden = node.name()
+
+        self.info = await node.dict()
+        self.info.setdefault('owner', 'root')
+
+        self.owner = self.info.get('owner')
+
+        self.conf = await (await node.open('config')).dict()
+
+        for name, info in self.confdefs:
+
+            dval = info.get('defval', s_common.novalu)
+            if dval is s_common.novalu:
+                continue
+
+            self.conf.setdefault(name, dval)
+
+        self.dirn = s_common.gendir(core.dirn, 'layers', self.iden)
+        #await s_cell.Cell.__anit__(self, dirn)
 
         self._lift_funcs = {
             'indx': self._liftByIndx,
@@ -66,11 +78,29 @@ class Layer(s_cell.Cell):
         }
 
         self.fresh = False
-        self.canrev = not readonly
-        self.readonly = readonly
+        self.canrev = True
         self.spliced = asyncio.Event(loop=self.loop)
         self.splicelist = []
         self.onfini(self.spliced.set)
+
+    @classmethod
+    async def validate(conf):
+        raise NotImplementedError
+
+    async def setLayerInfo(self, **info):
+
+        name = info.pop('name', None)
+        if name is not None:
+            await self.info.set('name', name)
+
+        ownr = info.pop('owner', None)
+        if ownr is not None:
+            await self.info.set('owner', ownr)
+
+    async def setLayerConf(self, **conf):
+        #TODO self.__class__.validate(conf)
+        for name, valu in conf.items():
+            await self.conf.set(name, valu)
 
     async def splicelistAppend(self, mesg):
         self.splicelist.append(mesg)

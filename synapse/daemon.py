@@ -354,18 +354,15 @@ class Daemon(s_base.Base):
             if vers[0] != s_telepath.televers[0]:
                 raise s_exc.BadMesgVers(vers=vers, myvers=s_telepath.televers)
 
+            path = ()
             name = mesg[1].get('name')
 
+            if '/' in name:
+                name, rest = name.split('/', 1)
+                if rest:
+                    path = rest.split('/')
+
             item = self.shared.get(name)
-
-            # allow a telepath aware object a shot at dynamic share names
-            if item is None and name.find('/') != -1:
-
-                path = name.split('/')
-
-                base = self.shared.get(path[0])
-                if base is not None and isinstance(base, s_telepath.Aware):
-                    item = await s_coro.ornot(base.onTeleOpen, link, path)
 
             if item is None:
                 raise s_exc.NoSuchName(name=name)
@@ -382,7 +379,7 @@ class Daemon(s_base.Base):
             link.set('sess', sess)
 
             if isinstance(item, s_telepath.Aware):
-                item = await s_coro.ornot(item.getTeleApi, link, mesg)
+                item = await s_coro.ornot(item.getTeleApi, link, mesg, path)
                 if isinstance(item, s_base.Base):
                     link.onfini(item.fini)
 

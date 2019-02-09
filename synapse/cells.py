@@ -8,13 +8,8 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.cryotank as s_cryotank
 
-import synapse.lib.lmdblayer as s_lmdblayer
-import synapse.lib.remotelayer as s_remotelayer
-
 ctors = {
     'axon': s_axon.Axon,
-    'layer-lmdb': s_lmdblayer.LmdbLayer,
-    'layer-remote': s_remotelayer.RemoteLayer,
     'cortex': s_cortex.Cortex,
     'blobstor': s_axon.BlobStor,
     'cryocell': s_cryotank.CryoCell,

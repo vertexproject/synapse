@@ -127,15 +127,15 @@ class TeleAware(s_telepath.Aware):
         self.beeps[path] = beep
         return beep
 
-    def onTeleOpen(self, link, path):
-        return self._initBeep(path[1])
+    def getTeleApi(self, link, mesg, path):
+        if not path:
+            return TeleApi(self, link)
 
-    def getTeleApi(self, link, mesg):
-        return TeleApi(self, link)
+        return self._initBeep(path[0])
 
 class TeleAuth(s_telepath.Aware):
 
-    def getTeleApi(self, link, mesg):
+    def getTeleApi(self, link, mesg, path):
 
         auth = mesg[1].get('auth')
         if auth is None:

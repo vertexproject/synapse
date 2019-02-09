@@ -1,8 +1,10 @@
+import os
 import asyncio
 import logging
 import pathlib
 import contextlib
 import collections
+
 from collections.abc import Iterable, Mapping
 
 import regex
@@ -15,6 +17,7 @@ import synapse.dyndeps as s_dyndeps
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
@@ -30,49 +33,120 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LAYER_NAME = '000-default'
-
 cmdre = regex.compile(r'^[\w\.]+$')
 
 '''
 A Cortex implements the synapse hypergraph object.
-
-Many Cortex APIs operate on nodes which consist of primitive data structures
-which can be serialized with msgpack/json
-
-Example Node
-
-( (<form>, <valu>), {
-
-    "props": {
-        <name>: <valu>,
-        ...
-    },
-    "tags": {
-
-        "foo": <time>,
-        "foo.bar": <time>,
-    },
-})
 '''
 
-class View:
+class View(s_base.Base):
     '''
     A view represents a cortex as seen from a specific set of layers.
 
     The view class is used to implement Copy-On-Write layers as well as
     interact with a subset of the layers configured in a Cortex.
     '''
-    def __init__(self, core, layers):
-        self.core = core
-        self.layers = layers
-        self.model = core.model
+    async def __anit__(self, core, node):
+        await s_base.Base.__anit__(self)
 
-        # our "top" layer is "us"
-        self.layer = self.layers[-1]
+        self.core = core
+
+        self.node = node
+        self.iden = node.name()
+
+        self.info = await node.dict()
+        self.info.setdefault('owner', 'root')
+        self.info.setdefault('layers', ())
+
+        self.layers = []
+
+        for iden in self.info.get('layers'):
+
+            layr = core.layers.get(iden)
+
+            if layr is None:
+                logger.warning('view %r has missing layer %r' % (self.iden, iden))
+                continue
+
+            self.layers.append(layr)
 
     async def snap(self):
         return await s_snap.Snap.anit(self.core, self.layers)
+
+    def pack(self):
+        return {
+            'iden': self.iden,
+            'owner': self.info.get('owner'),
+            'layers': self.info.get('layers'),
+        }
+
+    async def addLayer(self, layr, indx=None):
+        if indx is None:
+            self.layers.append(layr)
+        else:
+            self.layers.insert(indx, layr)
+        await self.info.set('layers', [l.iden for l in self.layers])
+
+    async def setLayers(self, layers):
+        '''
+        Set the view layers from a list of idens.
+        NOTE: view layers are stored "top down" ( write is layers[0] )
+        '''
+        layrs = []
+
+        for iden in layers:
+            layr = self.core.layers.get(iden)
+            if layr is None:
+                raise s_exc.NoSuchLayer(iden=iden)
+
+            layrs.append(layr)
+
+        self.layers = layrs
+        await self.info.set('layers', layers)
+
+class LayerApi(s_cell.CellApi):
+
+    async def __anit__(self, core, link, user, layr):
+
+        await s_cell.CellApi.__anit__(self, core, link, user)
+
+        self.layr = layr
+        self.liftperm = ('layer:lift', self.layr.iden)
+        self.storperm = ('layer:stor', self.layr.iden)
+
+    def allowed(self, perm):
+        if not self.user.allowed(perm):
+            raise s_exc.AuthDeny(user=self.user.name, perm=perm)
+
+    async def getLiftRows(self, lops):
+        self.allowed(self.liftperm)
+        async for item in self.layr.getLiftRows(lops):
+            yield item
+
+    async def iterPropRows(self, form, prop):
+        self.allowed(self.liftperm)
+        async for item in self.layr.iterPropRows(form, prop):
+            yield item
+
+    async def iterUnivRows(self, univ):
+        self.allowed(self.liftperm)
+        async for item in self.layr.iterUnivRows(univ):
+            yield item
+
+    async def stor(self, sops):
+        self.allowed(self.storperm)
+        return await self.layr.stor(sops)
+
+    async def commit(self):
+        self.allowed(self.storperm)
+        return await self.layr.commit()
+
+    async def getBuidProps(self, buid):
+        self.allowed(self.liftperm)
+        return await self.layr.getBuidProps(buid)
+
+    async def getModelVers(self):
+        return await self.layr.getModelVers()
 
 class CoreApi(s_cell.CellApi):
     '''
@@ -469,7 +543,18 @@ class Cortex(s_cell.Cell):
 
         await s_cell.Cell.__anit__(self, dirn)
 
-        self.layers = []
+        self.views = {}
+        self.layers = {}
+
+        import synapse.lib.layer as s_layer
+        import synapse.lib.lmdblayer as s_lmdblayer
+        import synapse.lib.remotelayer as s_remotelayer
+
+        self.layrctors = {
+            'lmdb': s_lmdblayer.LmdbLayer,
+            'remote': s_remotelayer.RemoteLayer,
+        }
+
         self.modules = {}
         self.feedfuncs = {}
 
@@ -513,17 +598,24 @@ class Cortex(s_cell.Cell):
         await self._initCoreLayers()
         await self._checkLayerModels()
 
+        await self._initCoreViews()
+
         async def fini():
-            await asyncio.gather(*[layr.fini() for layr in self.layers], loop=self.loop)
+            await asyncio.gather(*[view.fini() for view in self.views.values()])
+            await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
+
         self.onfini(fini)
 
         self.triggers = s_trigger.Triggers(self)
+
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
         # these may be used directly
         self.model = s_datamodel.Model()
-        self.view = View(self, self.layers)
+
+        # our "main" view has the same iden as we do
+        self.view = self.views.get(self.iden)
 
         self.ontagadds = collections.defaultdict(list)
         self.ontagdels = collections.defaultdict(list)
@@ -549,6 +641,27 @@ class Cortex(s_cell.Cell):
         self._initCryoLoop()
         self._initPushLoop()
         self._initFeedLoops()
+
+    async def getCellApi(self, link, user, path):
+
+        if not path:
+            return await CoreApi.anit(self, link, user)
+
+        if path[0] == 'layer':
+
+            if len(path) == 1:
+                # get the main layer...
+                layr = self.layers.get(self.iden)
+                return await LayerApi.anit(self, link, user, layr)
+
+            if len(path) == 2:
+                layr = self.layers.get(path[1])
+                if layr is None:
+                    raise s_exc.NoSuchLayer(iden=path[1])
+
+                return await LayerApi.anit(self, link, user, layr)
+
+        raise s_exc.NoSuchPath(path=path)
 
     def _initFormCounts(self):
 
@@ -710,38 +823,179 @@ class Cortex(s_cell.Cell):
         mrev = s_modelrev.ModelRev(self)
         await mrev.revCoreLayers()
 
+    def addLayerCtor(self, name, ctor):
+        '''
+        Modules may use this to register additional layer constructors.
+        '''
+        self.layrctors[name] = ctor
+
+    async def initCoreLayer(self, info):
+        '''
+        Add a new layer to the cortex.
+
+        info = {
+            'type': <str> # defaults to lmdb
+            'owner': <str> # a user name
+            'conf': {}  # type specific config info
+        }
+        '''
+        ctor = self.layrctors.get(layrtype)
+        if ctor is None:
+            raise s_exc.NoSuchCtor(name=layrtype)
+
+        layr = await ctor(layrconf)
+
+    async def _initCoreViews(self):
+
+        for iden, node in await self.hive.open(('cortex', 'views')):
+            view = await View.anit(self, node)
+            self.views[iden] = view
+
+        # if we have no views, we are initializing.  add the main view.
+        if self.views.get(self.iden) is None:
+            await self.addView(self.iden, 'root', (self.iden,))
+
+    async def addView(self, iden, owner, layers):
+
+        node = await self.hive.open(('cortex', 'views', iden))
+        info = await node.dict()
+
+        await info.set('owner', owner)
+        await info.set('layers', layers)
+
+        view = await View.anit(self, node)
+        self.views[iden] = view
+
+        return view
+
+    async def delView(self, iden):
+        '''
+        Delete a cortex view by iden.
+        '''
+        if iden == self.iden:
+            raise SynErr(mesg='cannot delete the main view')
+
+        view = self.views.pop(iden, None)
+        if view is None:
+            raise s_exc.NoSuchView(iden=iden)
+
+        await self.hive.pop(('cortex', 'views', iden))
+        await view.fini()
+
+    async def setViewLayers(self, layers, iden=None):
+        '''
+        Args:
+            layers ([str]): A top-down list of of layer guids
+            iden (str): The view iden ( defaults to default view ).
+        '''
+        if iden is None:
+            iden = self.iden
+
+        view = self.views.get(iden)
+        if view is None:
+            raise s_exc.NoSuchView(iden=iden)
+
+        view.setLayers(layers)
+
+    #async def setLayerConf(
+    #async def setLayerInfo(
+
+    def getLayer(self, iden=None):
+        if iden is None:
+            iden = self.iden
+        return self.layers.get(iden)
+
+    def getView(self, iden=None):
+        if iden is None:
+            iden = self.iden
+        return self.views.get(iden)
+
+    async def addLayer(self, **info):
+        '''
+        info = {
+            'iden': <str>, ( optional iden. default guid() )
+            'type': <str>, ( optional type. default lmdb )
+            'owner': <str>, ( optional owner. default root )
+            'config': {}, # type specific config options.
+        }
+        '''
+        iden = info.pop('iden', None)
+        if iden is None:
+            iden = s_common.guid()
+
+        node = await self.hive.open(('cortex', 'layers', iden))
+
+        layrinfo = await node.dict()
+        layrconf = await (await node.open('config')).dict()
+
+        await layrinfo.set('type', info.get('type', 'lmdb'))
+        await layrinfo.set('owner', info.get('owner', 'root'))
+        await layrinfo.set('name', info.get('name', '??'))
+
+        for name, valu in info.get('config', {}).items():
+            await layrconf.set(name, valu)
+
+        return await self._layrFromNode(node)
+
+    async def joinTeleLayer(self, url, indx=0):
+        '''
+        Convenience function to join a remote telepath layer
+        into this cortex and default view.
+        '''
+        info = {
+            'type': 'remote',
+            'owner': 'root',
+            'config': {
+                'url': url
+            }
+        }
+
+        layr = await self.addLayer(**info)
+        self.view.addLayer(layr)
+        return layr.iden
+
+    async def _layrFromNode(self, node):
+
+        info = await node.dict()
+
+        ctor = self.layrctors.get(info.get('type'))
+        if ctor is None:
+            logger.warning('layer has invalid type: %r %r' % (node.name(), info.get('type')))
+            return None
+
+        layr = await ctor.anit(self, node)
+        self.layers[layr.iden] = layr
+
+        return layr
+
     async def _initCoreLayers(self):
 
-        import synapse.cells as s_cells  # avoid import cycle
+        #import synapse.cells as s_cells  # avoid import cycle
 
-        layersdir = pathlib.Path(self.dirn, 'layers')
-        layersdir.mkdir(exist_ok=True)
+        dirn = s_common.gendir(self.dirn, 'layers')
+        node = await self.hive.open(('cortex', 'layers'))
 
-        # Layers are imported in reverse lexicographic order, where the earliest in the alphabet is the 'topmost'
-        # write layer.
-        layerdirs = sorted((d for d in layersdir.iterdir() if d.is_dir()), reverse=True)
-        for layeridx, layerdir in enumerate(layerdirs):
+        # TODO eventually hold this and watch for changes
+        for iden, node in node:
+            await self._layrFromNode(node)
 
-            logger.info('loading external layer from %s', layerdir)
+        self._migrOrigLayer()
 
-            if not pathlib.Path(layerdir, 'boot.yaml').exists():  # pragma: no cover
-                logger.warning('Skipping layer directory %s due to missing boot.yaml', layerdir)
-                continue
+        if self.layers.get(self.iden) is None:
+            # we have no layers.  initialize the default layer.
+            await self.addLayer(iden=self.iden)
 
-            # Every layer but the top is readonly
-            readonly = (layeridx < len(layerdirs) - 1)
-            layer = await s_cells.initFromDirn(layerdir, readonly=readonly)
-            if not isinstance(layer, s_layer.Layer):
-                raise s_exc.BadConfValu('layer dir %s must contain Layer cell', layerdir)
+        # store our "main" layer as self.layer
+        self.layer = self.layers.get(self.iden)
 
-            self.layers.append(layer)
+    def _migrOrigLayer(self):
 
-        if not self.layers:
-            # Setup the fallback/default single LMDB layer
-            self.layers.append(await self._makeDefaultLayer())
+        oldpath = os.path.join(self.dirn, 'layers', '000-default')
+        if not os.path.exists(oldpath):
+            return
 
-        self.layer = self.layers[-1]
-        logger.debug('Cortex using the following layers: %s\n', (''.join(f'\n   {l.dirn}' for l in self.layers)))
+        newpath = os.path.join(self.dirn, 'layers', self.iden)
+        os.rename(oldpath, newpath)
 
     def addStormCmd(self, ctor):
         '''
@@ -910,7 +1164,8 @@ class Cortex(s_cell.Cell):
         online = False
         tankurl = self.conf.get('splice:cryotank')
 
-        layr = self.layers[-1]
+        # push splices for our main layer
+        layr = self.layers.get(self.iden)
 
         while not self.isfini:
             timeout = 2
@@ -1142,22 +1397,22 @@ class Cortex(s_cell.Cell):
                 pnodes.append(obj)
         return pnodes
 
-    async def _makeDefaultLayer(self):
-        '''
-        Since a user hasn't specified any layers, make one
-        '''
-        import synapse.cells as s_cells
-        layerdir = s_common.gendir(self.dirn, 'layers', DEFAULT_LAYER_NAME)
-        s_cells.deploy('layer-lmdb', layerdir)
-        mapsize = self.conf.get('layer:lmdb:mapsize')
-        if mapsize is not None:
-            cell_yaml = pathlib.Path(layerdir, 'cell.yaml')
-            conf = s_common.yamlload(cell_yaml) or {}
-            conf['lmdb:mapsize'] = mapsize
-            s_common.yamlsave(conf, cell_yaml)
+    #async def _makeDefaultLayer(self):
+        #'''
+        #Since a user hasn't specified any layers, make one
+        #'''
+        #import synapse.cells as s_cells
+        #layerdir = s_common.gendir(self.dirn, 'layers', DEFAULT_LAYER_NAME)
+        #s_cells.deploy('layer-lmdb', layerdir)
+        #mapsize = self.conf.get('layer:lmdb:mapsize')
+        #if mapsize is not None:
+            #cell_yaml = pathlib.Path(layerdir, 'cell.yaml')
+            #conf = s_common.yamlload(cell_yaml) or {}
+            #conf['lmdb:mapsize'] = mapsize
+            #s_common.yamlsave(conf, cell_yaml)
 
-        logger.info('Creating a new default storage layer at %s', layerdir)
-        return await s_cells.initFromDirn(layerdir)
+        #logger.info('Creating a new default storage layer at %s', layerdir)
+        #return await s_cells.initFromDirn(layerdir)
 
     def getCoreMod(self, name):
         return self.modules.get(name)
@@ -1378,7 +1633,7 @@ class Cortex(s_cell.Cell):
                     iden, oldoffs, offs)
         return await self.layer.setOffset(iden, offs)
 
-    async def snap(self, user=None):
+    async def snap(self, user=None, view=None):
         '''
         Return a transaction object for the default view.
 
@@ -1390,9 +1645,14 @@ class Cortex(s_cell.Cell):
 
         NOTE: This must be used in a with block.
         '''
+
+        if view is None:
+            view = self.view
+
         snap = await self.view.snap()
         if user is not None:
             snap.setUser(user)
+
         return snap
 
     async def addCoreMods(self, mods):
