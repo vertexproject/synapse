@@ -38,7 +38,7 @@ async def cellAuthToHive(dirn, auth):
 
                 rules = info.get('rules', ())
 
-                await user.setRules(rules)
+                await role.setRules(rules)
 
         with xact.cursor(db=userdb) as curs:
 

@@ -297,7 +297,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         oldauth = s_common.genpath(self.dirn, 'auth')
         if os.path.isdir(oldauth):
             await s_compat.cellAuthToHive(oldauth, self.auth)
-            os.path.rename(oldauth, oldauth + '.old')
+            os.rename(oldauth, oldauth + '.old')
 
         admin = self.boot.get('auth:admin')
         if admin is not None:
@@ -319,10 +319,6 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         db = self.slab.initdb('hive')
         return await s_hive.SlabHive.anit(self.slab, db=db)
-
-    # async def onTeleOpen(self, link, path):
-        # TODO make a path resolver for layers/etc
-        # if path == 'hive/auth'
 
     async def _initCellSlab(self, readonly=False):
 
