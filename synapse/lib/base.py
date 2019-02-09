@@ -325,6 +325,8 @@ class Base:
         return threading.get_ident() == self.ident
 
     async def _kill_active_tasks(self):
+        # FIXME: distinguish between the CancelledError from task being cancelled and *running* task being cancelled
+
         if not self._active_tasks:
             return
 

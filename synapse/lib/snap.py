@@ -173,20 +173,24 @@ class Snap(s_base.Base):
         return await self.getNodeByBuid(buid)
 
     async def _getNodesByTag(self, name, valu=None, cmpr='='):
-        # TODO interval indexing for valu... and @=
         name = s_chop.tag(name)
         pref = b'#' + name.encode('utf8') + b'\x00'
+        cmpf = None
 
         if valu is None:
             iops = (('pref', b''), )
+            lops = (
+                ('indx', ('byuniv', pref, iops)),
+            )
+        elif valu is not None and cmpr == '@=':
+            lops = self.tagtype.getLiftOps('univ', cmpr, (None, '#' + name, valu))
         else:
             iops = self.tagtype.getIndxOps(valu, cmpr)
+            lops = (
+                ('indx', ('byuniv', pref, iops)),
+            )
 
-        lops = (
-            ('indx', ('byuniv', pref, iops)),
-        )
-
-        async for row, node in self.getLiftNodes(lops, '#' + name):
+        async for row, node in self.getLiftNodes(lops, '#' + name, cmpr=cmpf):
             yield node
 
     async def _getNodesByFormTag(self, name, tag, valu=None, cmpr='='):
@@ -201,8 +205,6 @@ class Snap(s_base.Base):
 
         if form is None:
             raise s_exc.NoSuchForm(form=name)
-
-        # TODO interval indexing for valu... and @=
 
         tag = s_chop.tag(tag)
 
@@ -621,9 +623,8 @@ class Snap(s_base.Base):
                     self.buidcache.put(buid, node)
 
             if node.ndef is not None:
-
                 if cmpr:
-                    if rawprop == node.form:
+                    if rawprop == node.form.name:
                         valu = node.ndef[1]
                     else:
                         valu = node.get(rawprop)

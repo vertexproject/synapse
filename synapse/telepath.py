@@ -468,6 +468,9 @@ class Proxy(s_base.Base):
 
                     await func(mesg)
 
+                except asyncio.CancelledError:  # pragma: no cover
+                    raise
+
                 except Exception as e:
                     logger.exception('Proxy.rxloop for %r' % (mesg,))
 

@@ -144,11 +144,17 @@ class Prop(PropBase):
                 ('indx', ('byprop', self.pref, iops)),
             )
 
-        # TODO: make types control this more tightly...
+        # TODO: In an ideal world, this would get smashed down into the self.type.getLiftOps
+        # but since doing so breaks existing types, and fixing those could cause a cascade
+        # of fun failures, we'll put this off until another flag day
         if cmpr == '~=':
             return (
                 ('prop:re', (self.form.name, self.name, valu, {})),
             )
+
+        lops = self.type.getLiftOps('prop', cmpr, (self.form.name, self.name, valu))
+        if lops is not None:
+            return lops
 
         iops = self.type.getIndxOps(valu, cmpr=cmpr)
         return (
@@ -200,11 +206,17 @@ class Univ(PropBase):
                 ('indx', ('byuniv', self.pref, iops)),
             )
 
-        # TODO: make types control this more tightly...
+        # TODO: In an ideal world, this would get smashed down into the self.type.getLiftOps
+        # but since doing so breaks existing types, and fixing those could cause a cascade
+        # of fun failures, we'll put this off until another flag day
         if cmpr == '~=':
             return (
                 ('univ:re', (self.name, valu, {})),
             )
+
+        lops = self.type.getLiftOps('univ', cmpr, (None, self.name, valu))
+        if lops is not None:
+            return lops
 
         iops = self.type.getIndxOps(valu, cmpr)
 
@@ -266,9 +278,6 @@ class Form:
         '''
         Fire the onAdd() callbacks for node creation.
         '''
-
-        await node.snap.core.triggers.run(node, 'node:add', info={'form': self.name})
-
         for func in self.onadds:
             try:
                 retn = func(node)
@@ -279,12 +288,12 @@ class Form:
             except Exception:
                 logger.exception('error on onadd for %s' % (self.name,))
 
+        await node.snap.core.triggers.runNodeAdd(node)
+
     async def wasDeleted(self, node):
         '''
         Fire the onDel() callbacks for node deletion.
         '''
-        await node.snap.core.triggers.run(node, 'node:del', info={'form': self.name})
-
         for func in self.ondels:
             try:
                 retn = func(node)
@@ -294,6 +303,8 @@ class Form:
                 raise
             except Exception:
                 logger.exception('error on ondel for %s' % (self.name,))
+
+        await node.snap.core.triggers.runNodeDel(node)
 
     def getSetOps(self, buid, norm):
         indx = self.type.getStorIndx(norm)
@@ -316,10 +327,17 @@ class Form:
                 ('indx', ('byprop', self.pref, iops)),
             )
 
+        # TODO: In an ideal world, this would get smashed down into the self.type.getLiftOps
+        # but since doing so breaks existing types, and fixing those could cause a cascade
+        # of fun failures, we'll put this off until another flag day
         if cmpr == '~=':
             return (
                 ('form:re', (self.name, valu, {})),
             )
+
+        lops = self.type.getLiftOps('form', cmpr, (None, self.name, valu))
+        if lops is not None:
+            return lops
 
         iops = self.type.getIndxOps(valu, cmpr)
         return (

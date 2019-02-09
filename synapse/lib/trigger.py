@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 import contextlib
 import collections
@@ -10,6 +11,7 @@ from typing import Optional
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
@@ -25,9 +27,6 @@ Conditions = set((
 RecursionDepth = contextvars.ContextVar('RecursionDepth', default=0)
 
 class Triggers:
-
-    TRIGGERS_DB_NAME = 'triggers'
-    RECURSION_LIMIT = 16
 
     @dataclasses.dataclass
     class Rule:
@@ -56,18 +55,18 @@ class Triggers:
                 raise s_exc.BadOptValu(mesg='prop parameter invalid')
             if self.cond == 'prop:set' and self.prop is None:
                 raise s_exc.BadOptValu(mesg='missing prop parameter')
-            if self.tag is not None:
-                if '*' in self.tag[:-1] or (self.tag[-1] == '*' and self.tag[-2] != '.'):
-                    raise s_exc.BadOptValu(mesg='only tag globbing at end supported')
 
         def en(self):
             return s_msgpack.en(dataclasses.asdict(self))
 
-        async def execute(self, node, tag=None):
+        async def execute(self, node, vars=None):
             '''
             Actually execute the query
             '''
-            opts = None if tag is None else {'vars': {'tag': tag}}
+            opts = {}
+            if vars is not None:
+                opts['vars'] = vars
+
             if node.snap.core.auth is not None:
                 user = node.snap.core.auth.getUserByName(self.user)
                 if user is None:
@@ -75,58 +74,95 @@ class Triggers:
                     return
             else:
                 user = None
+
             try:
                 await s_common.aspin(node.storm(self.storm, opts=opts, user=user))
+            except asyncio.CancelledError: # pragma: no cover
+                raise
             except Exception:
                 logger.exception('Trigger encountered exception running storm query %s', self.storm)
 
     def __init__(self, core):
         '''
         Initialize a cortex triggers subsystem.
-
-        Note:
-            Triggers will not fire until enable() is called.
         '''
-        self._rules = {}
-        self._rule_by_prop = collections.defaultdict(list)
-        self._rule_by_form = collections.defaultdict(list)
-        self._rule_by_tag = collections.defaultdict(list)
         self.core = core
-        self.enabled = False
+        self._rules = {}
+
+        self.trigdb = self.core.slab.initdb('triggers')
+
+        self.tagadd = collections.defaultdict(list)    # (form, tag): rule
+        self.tagdel = collections.defaultdict(list)    # (form, tag): rule
+
+        self.tagaddglobs = collections.defaultdict(s_cache.TagGlobs)    # form: TagGlobs
+        self.tagdelglobs = collections.defaultdict(s_cache.TagGlobs)    # form: TagGlobs
+
+        self.nodeadd = collections.defaultdict(list)   # form: rule
+        self.nodedel = collections.defaultdict(list)   # form: rule
+        self.propset = collections.defaultdict(list)   # prop: rule
+
         self._load_all(self.core.slab)
-        self._deferred_events = []
 
-    async def enable(self):
-        '''
-        Enable triggers to start firing.
+    async def runNodeAdd(self, node):
+        with self._recursion_check():
+            [await rule.execute(node) for rule in self.nodeadd.get(node.form.name, ())]
 
-        Go through all the rules, making sure the query is valid, and remove the ones that aren't.  (We can't evaluate
-        queries until enabled because not all the modules are loaded yet.)
-        '''
-        if self.enabled:
-            return
+    async def runNodeDel(self, node):
+        with self._recursion_check():
+            [await rule.execute(node) for rule in self.nodedel.get(node.form.name, ())]
 
-        to_delete = []
-        for iden, rule in self._rules.items():
-            try:
-                self.core.getStormQuery(rule.storm)
-            except Exception as e:
-                logger.warning('Invalid rule %r found in storage: %r.  Removing.', iden, e)
-                to_delete.append(iden)
-        for iden in to_delete:
-            self.delete(iden, persistent=False)
+    async def runPropSet(self, node, prop, oldv):
+        with self._recursion_check():
+            [await rule.execute(node) for rule in self.propset.get(prop.full, ())]
 
-        self.enabled = True
+    async def runTagAdd(self, node, tag):
 
-        # Re-evaluate all the events that occurred before we were enabled
-        for node, cond, info in self._deferred_events:
-            await self.run(node, cond, info=info)
+        vars = {'tag': tag}
+        with self._recursion_check():
 
-        self._deferred_events.clear()
+            for rule in self.tagadd.get((node.form.name, tag), ()):
+                await rule.execute(node, vars=vars)
+
+            for rule in self.tagadd.get((None, tag), ()):
+                await rule.execute(node, vars=vars)
+
+            # check for form specific globs
+            globs = self.tagaddglobs.get(node.form.name)
+            if globs is not None:
+                for expr, rule in globs.get(tag):
+                    await rule.execute(node, vars=vars)
+
+            # check for form agnostic globs
+            globs = self.tagaddglobs.get(None)
+            if globs is not None:
+                for expr, rule in globs.get(tag):
+                    await rule.execute(node, vars=vars)
+
+    async def runTagDel(self, node, tag):
+
+        vars = {'tag': tag}
+        with self._recursion_check():
+
+            for rule in self.tagdel.get((node.form.name, tag), ()):
+                await rule.execute(node, vars=vars)
+
+            for rule in self.tagdel.get((None, tag), ()):
+                await rule.execute(node, vars=vars)
+
+            # check for form specific globs
+            globs = self.tagdelglobs.get(node.form.name)
+            if globs is not None:
+                for expr, rule in globs.get(tag):
+                    await rule.execute(node, vars=vars)
+
+            # check for form agnostic globs
+            globs = self.tagdelglobs.get(None)
+            if globs is not None:
+                for expr, rule in globs.get(tag):
+                    await rule.execute(node, vars=vars)
 
     def _load_all(self, slab):
-        db = slab.initdb(self.TRIGGERS_DB_NAME)
-        for iden, val in self.core.slab.scanByRange(b'', db=db):
+        for iden, val in self.core.slab.scanByFull(db=self.trigdb):
             try:
                 ruledict = s_msgpack.un(val)
                 ver = ruledict.pop('ver')
@@ -142,19 +178,43 @@ class Triggers:
 
         rule = Triggers.Rule(ver, cond, user, query, **info)
 
-        ''' Make sure the query parses '''
-        if self.enabled:
-            self.core.getStormQuery(rule.storm)
+        # Make sure the query parses
+        self.core.getStormQuery(rule.storm)
 
         self._rules[iden] = rule
-        if rule.prop is not None:
-            self._rule_by_prop[rule.prop].append(rule)
-        elif rule.form is not None:
-            self._rule_by_form[rule.form].append(rule)
-        else:
-            assert rule.tag
-            self._rule_by_tag[rule.tag].append(rule)
-        return rule
+
+        if rule.cond == 'node:add':
+            self.nodeadd[rule.form].append(rule)
+            return rule
+
+        if rule.cond == 'node:del':
+            self.nodedel[rule.form].append(rule)
+            return rule
+
+        if rule.cond == 'prop:set':
+            self.propset[rule.prop].append(rule)
+            return rule
+
+        if rule.cond == 'tag:add':
+
+            if '*' not in rule.tag:
+                self.tagadd[(rule.form, rule.tag)].append(rule)
+                return rule
+
+            # we have a glob add
+            self.tagaddglobs[rule.form].add(rule.tag, rule)
+            return rule
+
+        if rule.cond == 'tag:del':
+
+            if '*' not in rule.tag:
+                self.tagdel[(rule.form, rule.tag)].append(rule)
+                return rule
+
+            self.tagdelglobs[rule.form].add(rule.tag, rule)
+            return rule
+
+        raise s_exc.NoSuchCond(name=rule.cond)
 
     def list(self):
         return [(iden, dataclasses.asdict(rule)) for iden, rule in self._rules.items()]
@@ -164,18 +224,18 @@ class Triggers:
         if rule is None:
             raise s_exc.NoSuchIden()
 
-        if self.enabled:
-            self.core.getStormQuery(query)
+        self.core.getStormQuery(query)
 
-        db = self.core.slab.initdb(self.TRIGGERS_DB_NAME)
         rule.storm = query
-        self.core.slab.put(iden, rule.en(), db=db)
+        self.core.slab.put(iden, rule.en(), db=self.trigdb)
 
     @contextlib.contextmanager
     def _recursion_check(self):
+
         depth = RecursionDepth.get()
-        if depth > self.RECURSION_LIMIT:
+        if depth > 64:
             raise s_exc.RecursionLimitHit(mesg='Hit trigger limit')
+
         token = RecursionDepth.set(depth + 1)
 
         try:
@@ -184,93 +244,58 @@ class Triggers:
         finally:
             RecursionDepth.reset(token)
 
-    async def run(self, node, cond, *, info):
-        '''
-        Execute any rules that match the condition and arguments
-        '''
-
-        if not self.enabled:
-            self._deferred_events.append((node, cond, info))
-            return
-
-        if __debug__:
-            try:
-                Triggers.Rule(0, cond, '', '', **info)
-            except s_exc.BadOptValu:
-                logger.exception('fire called with inconsistent arguments')
-                assert False
-
-        def parent_glob(tag):
-            ''' Returns foo.* given foo.bar or None if already top level '''
-            if tag is None or tag[0] == '.' or '.' not in tag:
-                return None
-            return tag.rsplit('.', 1)[0] + '.*'
-
-        with self._recursion_check():
-
-            prop = info.get('prop')
-            tag = info.get('tag')
-            form = info.get('form')
-
-            if prop is not None:
-                for rule in self._rule_by_prop[prop]:
-                    await rule.execute(node)
-                return
-
-            glob_tag = parent_glob(tag)
-
-            if form is not None:
-                for rule in self._rule_by_form[form]:
-                    if cond == rule.cond and (rule.tag is None or rule.tag == tag or rule.tag == glob_tag):
-                        await rule.execute(node, tag)
-
-            if tag is not None:
-                for rule in self._rule_by_tag[tag]:
-                    if cond == rule.cond:
-                        await rule.execute(node, tag)
-                if tag[0] != '.' and '.' in tag:
-                    for rule in self._rule_by_tag[glob_tag]:
-                        if cond == rule.cond:
-                            await rule.execute(node, tag)
-
-    def add(self, username, condition, query, *, info):
+    def add(self, username, condition, query, info):
 
         iden = os.urandom(16)
-        db = self.core.slab.initdb(self.TRIGGERS_DB_NAME)
 
         if not query:
             raise ValueError('empty query')
 
-        # Check the storm query if we can
-        if self.enabled:
-            self.core.getStormQuery(query)
+        self.core.getStormQuery(query)
 
         rule = self._load_rule(iden, 0, condition, username, query, info=info)
-        self.core.slab.put(iden, rule.en(), db=db)
+        self.core.slab.put(iden, rule.en(), db=self.trigdb)
         return iden
 
-    def delete(self, iden, persistent=True):
-        '''
-        Args:
-            persistent (bool): if True, removes from persistent storage as well
-        '''
-        rule = self._rules.get(iden)
+    def delete(self, iden):
+
+        rule = self._rules.pop(iden, None)
         if rule is None:
             raise s_exc.NoSuchIden()
 
-        db = self.core.slab.initdb(self.TRIGGERS_DB_NAME)
+        self.core.slab.delete(iden, db=self.trigdb)
 
-        if rule.prop is not None:
-            self._rule_by_prop[rule.prop].remove(rule)
-        elif rule.form is not None:
-            self._rule_by_form[rule.form].remove(rule)
-        else:
-            assert rule.tag is not None
-            self._rule_by_tag[rule.tag].remove(rule)
+        if rule.cond == 'node:add':
+            self.nodeadd[rule.form].remove(rule)
+            return
 
-        del self._rules[iden]
-        if persistent:
-            self.core.slab.delete(iden, db=db)
+        if rule.cond == 'node:del':
+            self.nodedel[rule.form].remove(rule)
+            return
+
+        if rule.cond == 'prop:set':
+            self.propset[rule.prop].remove(rule)
+            return
+
+        if rule.cond == 'tag:add':
+
+            if '*' not in rule.tag:
+                self.tagadd[(rule.form, rule.tag)].remove(rule)
+                return
+
+            globs = self.tagaddglobs.get(rule.form)
+            globs.rem(rule.tag, rule)
+            return
+
+        if rule.cond == 'tag:del':
+
+            if '*' not in rule.tag:
+                self.tagdel[(rule.form, rule.tag)].remove(rule)
+                return
+
+            globs = self.tagdelglobs.get(rule.form)
+            globs.rem(rule.tag, rule)
+            return
 
     def get(self, iden):
         rule = self._rules.get(iden)

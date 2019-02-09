@@ -1,13 +1,10 @@
 import os
 import contextlib
 
-import synapse.glob as s_glob
 import synapse.cells as s_cells
 import synapse.common as s_common
 
 import synapse.tests.test_cortex as t_cortex
-import synapse.tests.test_lib_snap as t_snap
-import synapse.tests.test_lib_layer as t_layer
 
 #class RemoteLayerTest(t_cortex.CortexTest):
 

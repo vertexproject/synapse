@@ -520,21 +520,10 @@ class Cortex(s_cell.Cell):
             'doc': 'A list of feed dictionaries.'
         }),
 
-        ('triggers:enable', {
-            'type': 'bool', 'defval': True,
-            'doc': 'Enable triggers running.'
-        }),
-
         ('cron:enable', {
             'type': 'bool', 'defval': True,
             'doc': 'Enable cron jobs running.'
         }),
-
-        # ('storm:save', {
-        #     'type': 'bool', 'defval': False,
-        #     'doc': 'Archive storm queries for audit trail.'
-        # }),
-
     )
 
     cellapi = CoreApi
@@ -626,14 +615,13 @@ class Cortex(s_cell.Cell):
 
         await self.addCoreMods(s_modules.coremods)
 
+        self.triggers = s_trigger.Triggers(self)
+
         mods = self.conf.get('modules')
 
         self._initFormCounts()
 
         await self.addCoreMods(mods)
-
-        if self.conf.get('triggers:enable'):
-            await self.triggers.enable()
 
         if self.conf.get('cron:enable'):
             await self.agenda.enable()
@@ -719,6 +707,7 @@ class Cortex(s_cell.Cell):
     def onTagAdd(self, name, func):
         '''
         Register a callback for tag addition.
+
         Args:
             name (str): The name of the tag.
             func (function): The callback func(node, tagname, tagval).
@@ -727,9 +716,27 @@ class Cortex(s_cell.Cell):
         # TODO allow name wild cards
         self.ontagadds[name].append(func)
 
+    def offTagAdd(self, name, func):
+        '''
+        Unregister a callback for tag addition.
+
+        Args:
+            name (str): The name of the tag.
+            func (function): The callback func(node, tagname, tagval).
+
+        '''
+        cblist = self.ontagadds.get(name)
+        if cblist is None:
+            return
+        try:
+            cblist.remove(func)
+        except ValueError:
+            pass
+
     def onTagDel(self, name, func):
         '''
         Register a callback for tag deletion.
+
         Args:
             name (str): The name of the tag.
             func (function): The callback func(node, tagname, tagval).
@@ -737,6 +744,23 @@ class Cortex(s_cell.Cell):
         '''
         # TODO allow name wild cards
         self.ontagdels[name].append(func)
+
+    def offTagDel(self, name, func):
+        '''
+        Unregister a callback for tag deletion.
+
+        Args:
+            name (str): The name of the tag.
+            func (function): The callback func(node, tagname, tagval).
+
+        '''
+        cblist = self.ontagdels.get(name)
+        if cblist is None:
+            return
+        try:
+            cblist.remove(func)
+        except ValueError:
+            pass
 
     def addRuntLift(self, prop, func):
         '''
@@ -802,6 +826,7 @@ class Cortex(s_cell.Cell):
         return ret
 
     async def runTagAdd(self, node, tag, valu):
+
         for func in self.ontagadds.get(tag, ()):
             try:
                 await s_coro.ornot(func, node, tag, valu)
@@ -810,7 +835,10 @@ class Cortex(s_cell.Cell):
             except Exception as e:
                 logger.exception('onTagAdd Error')
 
+        await self.triggers.runTagAdd(node, tag)
+
     async def runTagDel(self, node, tag, valu):
+
         for func in self.ontagdels.get(tag, ()):
             try:
                 await s_coro.ornot(func, node, tag, valu)
@@ -818,6 +846,8 @@ class Cortex(s_cell.Cell):
                 raise
             except Exception as e:
                 logger.exception('onTagDel Error')
+
+        await self.triggers.runTagDel(node, tag)
 
     async def _checkLayerModels(self):
         mrev = s_modelrev.ModelRev(self)

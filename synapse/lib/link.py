@@ -175,7 +175,7 @@ class Link(s_base.Base):
 
             except asyncio.CancelledError as e:
                 await self.fini()
-                return None
+                raise
 
             except Exception as e:
                 logger.exception('rx error')
