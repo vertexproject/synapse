@@ -826,6 +826,7 @@ class CortexTest(s_t_utils.SynTest):
             await alist(core.eval('teststr | delnode --force'))
 
             _splices = await alist(core.layer.splices(0, 10000))
+            print('SPLICES %r' % (_splices,))
             splices = []
             # strip out user and time
             for splice in _splices:
@@ -2492,21 +2493,3 @@ class CortexTest(s_t_utils.SynTest):
 
             # Sad path for underlying Cortex.runRuntLift
             await self.agenraises(s_exc.NoSuchLift, core.runRuntLift('test:newp', 'newp'))
-
-    async def test_cortex_telepath_layer(self):
-
-        async with self.getTestCore() as core0:
-
-            url = core0.getLocalUrl('*/layer')
-
-            await core0.eval('[ teststr=asdf ]').list()
-
-            async with self.getTestCore() as core1:
-
-                config = {'url': core0.getLocalUrl(share='*/layer')}
-                layr = await core1.addLayer(type='remote', config=config)
-
-                await core1.view.addLayer(layr)
-
-                nodes = await core1.eval('teststr').list()
-                self.len(1, nodes)

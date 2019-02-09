@@ -123,3 +123,16 @@ class RemoteLayer(s_layer.Layer):
     async def getBuidProps(self, buid):
         await self._readyPlayerOne()
         return await self.proxy.getBuidProps(buid)
+
+    async def splices(self, offs, size):
+        await self._readyPlayerOne()
+        async for item in await self.proxy.splices(offs, size):
+            yield item
+
+    async def getOffset(self, iden):
+        await self._readyPlayerOne()
+        return await self.proxy.getOffset(iden)
+
+    async def setOffset(self, iden, valu):
+        await self._readyPlayerOne()
+        return await self.proxy.setOffset(iden, valu)

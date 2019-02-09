@@ -148,6 +148,17 @@ class LayerApi(s_cell.CellApi):
     async def getModelVers(self):
         return await self.layr.getModelVers()
 
+    async def getOffset(self, iden):
+        return await self.layr.getOffset(iden)
+
+    async def setOffset(self, iden, valu):
+        return await self.layr.setOffset(iden, valu)
+
+    async def splices(self, offs, size):
+        self.allowed(self.liftperm)
+        async for item in self.layr.splices(offs, size):
+            yield item
+
 class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed over telepath.

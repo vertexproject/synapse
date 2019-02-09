@@ -699,12 +699,12 @@ class SynTest(unittest.TestCase):
     @contextlib.contextmanager
     def getRegrDir(self, *path):
         regr = os.getenv('SYN_REGRESSION_REPO')
-        if regr is None:
+        if regr is None: # pragma: no cover
             raise unittest.SkipTest('SYN_REGRESSION_REPO is not set')
 
         regr = s_common.genpath(regr)
 
-        if not os.path.isdir(regr):
+        if not os.path.isdir(regr): # pragma: no cover
             raise Exception('SYN_REGREGSSION_REPO is not a dir')
 
         dirn = os.path.join(regr, *path)
