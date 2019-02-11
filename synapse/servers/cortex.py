@@ -14,12 +14,7 @@ import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
 
-def main(argv, outp=s_output.stdout): # pragma: no cover
-
-    insecure = json.loads(os.getenv('SYN_CORTEX_INSECURE', 'false').lower())
-
-    teleport = os.getenv('SYN_CORTEX_PORT', '27492')
-    telehost = os.getenv('SYN_CORTEX_HOST', '127.0.0.1')
+def parse(argv):
 
     # httpport = os.getenv('SYN_CORTEX_HTTP_PORT', '80')
     # httphost = os.getenv('SYN_CORTEX_HTTP_HOST', '127.0.0.1')
@@ -27,21 +22,25 @@ def main(argv, outp=s_output.stdout): # pragma: no cover
     # httpsport = os.getenv('SYN_CORTEX_HTTPS_PORT', '443')
     # httpshost = os.getenv('SYN_CORTEX_HTTPS_HOST', '127.0.0.1')
 
-    pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
+    insecure = json.loads(os.getenv('SYN_CORTEX_INSECURE', 'false').lower())
+    teleport = os.getenv('SYN_CORTEX_PORT', '27492')
+    telehost = os.getenv('SYN_CORTEX_HOST', '127.0.0.1')
 
+    pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
     pars.add_argument('--port', default=teleport, help='The TCP port to bind for telepath.')
     pars.add_argument('--host', default=telehost, help='The host address to bind telepath.')
     pars.add_argument('--insecure', default=insecure, action='store_true', help='Start the cortex with all auth bypassed (DANGER!).')
-
     pars.add_argument('coredir', help='The directory for the cortex to use for storage.')
 
-    opts = pars.parse_args(argv)
+    return pars.parse_args(argv)
+
+def main(argv, outp=s_output.stdout): # pragma: no cover
+
+    opts = parse(argv)
 
     s_common.setlogging(logger)
 
-    dmon = s_glob.sync(mainopts(opts, outp=outp))
-
-    return dmon.main()
+    return s_glob.sync(mainopts(opts, outp=outp)).main()
 
 async def mainopts(opts, outp=s_output.stdout):
 
