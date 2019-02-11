@@ -1447,23 +1447,6 @@ class Cortex(s_cell.Cell):
                 pnodes.append(obj)
         return pnodes
 
-    #async def _makeDefaultLayer(self):
-        #'''
-        #Since a user hasn't specified any layers, make one
-        #'''
-        #import synapse.cells as s_cells
-        #layerdir = s_common.gendir(self.dirn, 'layers', DEFAULT_LAYER_NAME)
-        #s_cells.deploy('layer-lmdb', layerdir)
-        #mapsize = self.conf.get('layer:lmdb:mapsize')
-        #if mapsize is not None:
-            #cell_yaml = pathlib.Path(layerdir, 'cell.yaml')
-            #conf = s_common.yamlload(cell_yaml) or {}
-            #conf['lmdb:mapsize'] = mapsize
-            #s_common.yamlsave(conf, cell_yaml)
-
-        #logger.info('Creating a new default storage layer at %s', layerdir)
-        #return await s_cells.initFromDirn(layerdir)
-
     def getCoreMod(self, name):
         return self.modules.get(name)
 
