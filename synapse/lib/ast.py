@@ -1,6 +1,7 @@
 import asyncio
 import fnmatch
 import logging
+import itertools
 import collections
 
 import synapse.exc as s_exc
@@ -14,8 +15,9 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
-async def agenrofone(item):
-    yield item
+async def agen(*items):
+    for item in items:
+        yield item
 
 class StormCtrlFlow(Exception):
     def __init__(self, item=None):
@@ -320,7 +322,7 @@ class SubQuery(Oper):
 
         async for item in genr:
 
-            await s_common.aspin(subq.run(runt, agenrofone(item)))
+            await s_common.aspin(subq.run(runt, agen(item)))
 
             yield item
 
@@ -330,69 +332,59 @@ class SubQuery(Oper):
 
 class ForLoop(Oper):
 
-    def getRuntVars(self, runt):
-
-        if not self.kids[1].isRuntSafe(runt):
-            return
-
-        if isinstance(self.kids[0], VarList):
-            for name in self.kids[0].value():
-                yield name
-
-        else:
-            yield self.kids[0].value()
-
-        for name in self.kids[2].getRuntVars(runt):
-            yield name
-
     async def run(self, runt, genr):
 
-        kvar = self.kids[0].value()
-        ivar = self.kids[1].value()
         subq = self.kids[2]
+        name = self.kids[0].value()
 
-        items = runt.getVar(ivar)
-        if items is None:
-            raise s_exc.NoSuchVar(name=ivar)
+        count = 0
+        async for node, path in genr:
 
-        broke = False
-        for item in items:
+            count += 1
 
-            if isinstance(self.kids[0], VarList):
+            for item in await self.kids[1].compute(path):
 
-                if len(item) != len(kvar):
-                    raise s_exc.StormVarListError(names=kvar, vals=item)
+                if isinstance(name, (list, tuple)):
 
-                for name, valu in zip(kvar, item):
-                    runt.vars[name] = valu
+                    if len(name) > len(item):
+                        raise s_exc.StormVarListError(names=name, vals=item)
 
-            else:
-                runt.vars[kvar] = item
-
-            newg = subq.inline(runt, genr)
-
-            while True:
+                    for x, y in itertools.zip_longest(name, item):
+                        path.set(x, y)
+                else:
+                    path.set(name, item)
 
                 try:
 
-                    async for node, path in newg:
-                        yield node, path
+                    newg = agen((node, path))
+                    await s_common.aspin(subq.inline(runt, newg))
 
+                except StormBreak:
                     break
 
-                except StormBreak as e:
-                    broke = True
-                    if e.item is not None:
-                        yield e.item
-                    break
+                except StormContinue:
+                    continue
 
-                except StormContinue as e:
-                    if e.item is not None:
-                        yield e.item
-                    break
+            yield node, path
 
-            if broke:
-                break
+        # no nodes and a runt safe value should execut once
+        if count == 0 and self.kids[1].isRuntSafe(runt):
+
+            for item in await self.kids[1].runtval(runt):
+
+                if isinstance(name, (list,tuple)):
+
+                    if len(name) > len(item):
+                        raise s_exc.StormVarListError(names=name, vals=item)
+
+                    for x, y in itertools.zip_longest(name, item):
+                        runt.setVar(x, y)
+
+                else:
+                    runt.setVar(name, item)
+
+                async for x in subq.inline(runt, agen()):
+                    yield x
 
 class CmdOper(Oper):
 
@@ -1080,7 +1072,7 @@ class SubqCond(Cond):
 
     async def _runSubQuery(self, runt, node, path):
         size = 1
-        genr = agenrofone((node, path))
+        genr = agen((node, path))
         async for item in self.kids[0].run(runt, genr):
             yield size, item
             size += 1
@@ -1189,7 +1181,7 @@ class SubqCond(Cond):
 
         subq = self.kids[0]
         async def cond(node, path):
-            genr = agenrofone((node, path))
+            genr = agen((node, path))
             async for _ in subq.run(runt, genr):
                 return True
             return False
@@ -1538,7 +1530,7 @@ class VarValue(RunValue):
         self.name = self.kids[0].value()
 
     def isRuntSafe(self, runt):
-        return self.name in runt.runtvars
+        return runt.isRuntVar(self.name)
 
     async def runtval(self, runt):
 
@@ -1747,14 +1739,15 @@ class EditTagAdd(Edit):
 
     async def run(self, runt, genr):
 
-        name = await self.kids[0].runtval(runt)
+        #name = await self.kids[0].runtval(runt)
         hasval = len(self.kids) > 1
 
         valu = (None, None)
 
-        parts = name.split('.')
-
         async for node, path in genr:
+
+            name = await self.kids[0].compute(path)
+            parts = name.split('.')
 
             runt.allowed('tag:add', *parts)
 
@@ -1769,10 +1762,13 @@ class EditTagDel(Edit):
 
     async def run(self, runt, genr):
 
-        name = await self.kids[0].runtval(runt)
-        parts = name.split('.')
+        #name = await self.kids[0].runtval(runt)
+        #parts = name.split('.')
 
         async for node, path in genr:
+
+            name = await self.kids[0].compute(path)
+            parts = name.split('.')
 
             runt.allowed('tag:del', *parts)
 

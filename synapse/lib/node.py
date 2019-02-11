@@ -46,6 +46,9 @@ class Node:
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
 
+    def getGlobTags(self, name):
+        regx = self.snap.core.getTagRegx(name)
+
     async def storm(self, text, opts=None, user=None):
         query = self.snap.core.getStormQuery(text)
         with self.snap.getStormRuntime(opts=opts, user=user) as runt:

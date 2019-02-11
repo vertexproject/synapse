@@ -53,6 +53,13 @@ class Runtime:
         self._graph_done = {}
         self._graph_want = collections.deque()
 
+    def isRuntVar(self, name):
+        if name in self.runtvars:
+            return True
+        if name in self.vars:
+            return True
+        return False
+
     async def printf(self, mesg):
         return await self.snap.printf(mesg)
 

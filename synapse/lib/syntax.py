@@ -1073,7 +1073,7 @@ class Parser:
         self.nextmust('in')
         self.ignore(whitespace)
 
-        ikid = self.varname()
+        ikid = self.varvalu()
         qkid = self.subquery()
 
         return s_ast.ForLoop(kids=(vkid, ikid, qkid))
@@ -1588,8 +1588,9 @@ class Parser:
         self.ignore(whitespace)
 
         if self.nextstr('$'):
-            varn = self.varname()
-            return s_ast.TagVar(kids=[varn])
+            return self.varvalu()
+            #varn = self.varname()
+            #return s_ast.TagVar(kids=[varn])
 
         text = self.noms(until=tagterm)
 
