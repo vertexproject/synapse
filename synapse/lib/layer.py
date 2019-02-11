@@ -90,21 +90,6 @@ class Layer(s_base.Base):
     async def validate(conf):
         raise NotImplementedError
 
-    async def setLayerInfo(self, **info):
-
-        name = info.pop('name', None)
-        if name is not None:
-            await self.info.set('name', name)
-
-        ownr = info.pop('owner', None)
-        if ownr is not None:
-            await self.info.set('owner', ownr)
-
-    async def setLayerConf(self, **conf):
-        #TODO self.__class__.validate(conf)
-        for name, valu in conf.items():
-            await self.conf.set(name, valu)
-
     async def splicelistAppend(self, mesg):
         self.splicelist.append(mesg)
 

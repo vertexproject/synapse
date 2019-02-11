@@ -947,9 +947,6 @@ class Cortex(s_cell.Cell):
 
         view.setLayers(layers)
 
-    #async def setLayerConf(
-    #async def setLayerInfo(
-
     def getLayer(self, iden=None):
         if iden is None:
             iden = self.iden
