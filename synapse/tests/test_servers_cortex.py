@@ -15,7 +15,7 @@ class CortexServerTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             outp = self.getTestOutp()
-            opts = s_s_cortex.parse([dirn])
+            opts = s_s_cortex.parse([dirn, '--port', '0'])
 
             guid = s_common.guid()
 
