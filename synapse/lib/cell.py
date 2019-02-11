@@ -267,14 +267,7 @@ class Cell(s_base.Base, s_telepath.Aware):
         boot = self._loadCellYaml('boot.yaml')
         self.boot = s_common.config(boot, bootdefs)
 
-        # start a unix local socket daemon listener
-        sockpath = os.path.join(self.dirn, 'sock')
-
-        dmonconf = {'listen': f'unix://{sockpath}'}
-        self.dmon = await s_daemon.Daemon.anit(conf=dmonconf)
-        self.dmon.share('*', self)
-
-        self.onfini(self.dmon.fini)
+        await self._initCellDmon()
 
         conf = self._loadCellYaml('cell.yaml')
         self.conf = s_common.config(conf, self.confdefs + self.confbase)
@@ -310,6 +303,15 @@ class Cell(s_base.Base, s_telepath.Aware):
 
             await user.setAdmin(True)
             await user.setPasswd(passwd)
+
+    async def _initCellDmon(self):
+        # start a unix local socket daemon listener
+        sockpath = os.path.join(self.dirn, 'sock')
+        dmonconf = {'listen': f'unix://{sockpath}'}
+
+        self.dmon = await s_daemon.Daemon.anit(conf=dmonconf)
+        self.dmon.share('*', self)
+        self.onfini(self.dmon.fini)
 
     async def _initCellHive(self):
 

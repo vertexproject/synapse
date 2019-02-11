@@ -300,13 +300,6 @@ class Hive(s_base.Base, s_telepath.Aware):
 
         return await HiveApi.anit(self, user)
 
-    # TODO maybe eventually allow opening at a position and acting
-    # like a hive with the given path as the root...
-    #async def onTeleOpen(self, link, path):
-        #class HivePathApi(s_telepath.Aware):
-            #async def getTeleApi(self, link, mesg):
-                #return await HiveApi.anit(self, link, mesg, path=path)
-
     async def _storLoadHive(self):
         pass
 

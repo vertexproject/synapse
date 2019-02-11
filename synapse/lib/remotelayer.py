@@ -11,10 +11,6 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-#PASSTHROUGHFUNCS = (
-    #'commit', 'getBuidProps', 'getOffset', 'setOffset', 'stat', 'initdb', 'stor', 'splicelistAppend',
-#)
-
 class RemoteLayer(s_layer.Layer):
     '''
     A layer retrieved over telepath.
@@ -31,7 +27,6 @@ class RemoteLayer(s_layer.Layer):
         ('readywait', {'type': 'int', 'defval': 30, 'doc': 'Max time to wait for layer ready.'}),
     )
 
-    #async def __anit__(self, dirn, teleurl=None):
     async def __anit__(self, core, node):
 
         await s_layer.Layer.__anit__(self, core, node)
@@ -42,6 +37,11 @@ class RemoteLayer(s_layer.Layer):
 
         self.ready = asyncio.Event()
         await self._fireTeleTask()
+        self.onfini(self._onRemoteLayerFini)
+
+    async def _onRemoteLayerFini(self):
+        if self.proxy is not None:
+            await self.proxy.fini()
 
     async def _fireTeleTask(self):
 
@@ -61,6 +61,7 @@ class RemoteLayer(s_layer.Layer):
                 self.proxy = await s_telepath.openurl(turl)
                 self.proxy.onfini(self._fireTeleTask)
                 self.ready.set()
+                logger.warning(f'connected to remote layer: {turl}')
                 return
 
             except asyncio.CancelledError:

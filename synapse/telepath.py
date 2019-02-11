@@ -41,12 +41,6 @@ class Aware:
     def onTeleShare(self, dmon, name):
         pass
 
-    #def onTeleOpen(self, link, path):
-        #'''
-        #Allow a telepath share to create a new sub-share.
-        #'''
-        #return None
-
 class Task:
     '''
     A telepath Task is used to internally track calls/responses.

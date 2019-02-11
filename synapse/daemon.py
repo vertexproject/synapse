@@ -466,6 +466,7 @@ class Daemon(s_base.Base):
                     await link.tx(('t2:yield', {'retn': None}))
 
                 except Exception as e:
+                    logger.exception('error during async generator task')
                     if not link.isfini:
                         retn = s_common.retnexc(e)
                         await link.tx(('t2:yield', {'retn': retn}))
@@ -484,6 +485,7 @@ class Daemon(s_base.Base):
                     await link.tx(('t2:yield', {'retn': None}))
 
                 except Exception as e:
+                    logger.exception('error during generator task')
                     if not link.isfini:
                         retn = s_common.retnexc(e)
                         await link.tx(('t2:yield', {'retn': (False, retn)}))
