@@ -488,7 +488,7 @@ class Daemon(s_base.Base):
                     logger.exception('error during generator task')
                     if not link.isfini:
                         retn = s_common.retnexc(e)
-                        await link.tx(('t2:yield', {'retn': (False, retn)}))
+                        await link.tx(('t2:yield', {'retn': retn}))
 
                 return
 

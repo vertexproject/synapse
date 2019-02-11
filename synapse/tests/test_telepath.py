@@ -65,6 +65,11 @@ class Foo:
         yield 20
         yield 30
 
+    def genrboom(self):
+        yield 10
+        yield 20
+        raise s_exc.SynErr(mesg='derp')
+
     def raze(self):
         # test that SynErr makes it through
         raise s_exc.NoSuchMeth(name='haha')
@@ -181,6 +186,10 @@ class TeleTest(s_t_utils.SynTest):
             genr = await prox.genr()
             self.true(isinstance(genr, s_coro.GenrHelp))
             self.eq((10, 20, 30), await genr.list())
+
+            # check generator explodes channel
+            genr = await prox.genrboom()
+            await self.asyncraises(s_exc.SynErr, genr.list())
 
             # check an async generator return channel
             genr = await prox.corogenr(3)
