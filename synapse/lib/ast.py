@@ -332,6 +332,21 @@ class SubQuery(Oper):
 
 class ForLoop(Oper):
 
+    def getRuntVars(self, runt):
+
+        if not self.kids[1].isRuntSafe(runt):
+            return
+
+        if isinstance(self.kids[0], VarList):
+            for name in self.kids[0].value():
+                yield name
+
+        else:
+            yield self.kids[0].value()
+
+        for name in self.kids[2].getRuntVars(runt):
+            yield name
+
     async def run(self, runt, genr):
 
         subq = self.kids[2]
@@ -383,8 +398,15 @@ class ForLoop(Oper):
                 else:
                     runt.setVar(name, item)
 
-                async for x in subq.inline(runt, agen()):
-                    yield x
+                try:
+                    async for jtem in subq.inline(runt, agen()):
+                        yield jtem
+
+                except StormBreak:
+                    break
+
+                except StormContinue:
+                    continue
 
 class CmdOper(Oper):
 

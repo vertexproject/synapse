@@ -2107,24 +2107,34 @@ class CortexTest(s_t_utils.SynTest):
                 }
 
                 [ inet:ipv4=5.6.7.8 ]
+
                 [ +#hehe ]
             }
             '''
             opts = {'vars': {'foos': ['baz', 'baz']}}
-            nodes = await core.eval(text, opts=opts).list()
-            self.len(2, nodes)
+            await core.eval(text, opts=opts).list()
+
+            nodes = await core.eval('inet:ipv4').list()
+            self.len(1, nodes)
             self.nn(nodes[0].getTag('visi'))
             self.none(nodes[0].getTag('hehe'))
 
+            await core.eval('inet:ipv4 | delnode').list()
+
             opts = {'vars': {'foos': ['bar', 'bar']}}
-            nodes = await core.eval(text, opts=opts).list()
+            await core.eval(text, opts=opts).list()
+
+            nodes = await core.eval('inet:ipv4').list()
             self.len(1, nodes)
             self.nn(nodes[0].getTag('ohai'))
             self.none(nodes[0].getTag('hehe'))
 
+            await core.eval('inet:ipv4 | delnode').list()
+
             opts = {'vars': {'foos': ['lols', 'lulz']}}
-            nodes = await core.eval(text, opts=opts).list()
-            self.len(4, nodes)
+            await core.eval(text, opts=opts).list()
+
+            nodes = await core.eval('inet:ipv4').list()
             for node in nodes:
                 self.nn(node.getTag('hehe'))
 
@@ -2141,9 +2151,8 @@ class CortexTest(s_t_utils.SynTest):
             }
             '''
             opts = {'vars': {'foos': ['vertex.link|1.2.3.4']}}
-            nodes = await core.eval(text, opts=opts).list()
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef[1], ('vertex.link', 0x01020304))
+            await core.eval(text, opts=opts).list()
+            self.len(1, await core.eval('inet:dns:a=(vertex.link,1.2.3.4)').list())
 
     async def test_storm_dict_deref(self):
 
