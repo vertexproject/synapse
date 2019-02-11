@@ -42,16 +42,6 @@ async def init(name, dirn, *args, **kwargs):
 
     return await ctor.anit(dirn, *args, **kwargs)
 
-async def initFromDirn(dirn, *args, **kwargs):
-    '''
-    As above, but retrieves type from boot.yaml in dirn
-    '''
-    conf = s_common.yamlload(dirn, 'boot.yaml') or {}
-    kind = conf.get('type')
-    if type is None:
-        raise s_exc.BadConfValu('boot.yaml missing type key')
-    return await init(kind, dirn, *args, **kwargs)
-
 def deploy(name, dirn, boot=None):
     '''
     Deploy a cell of the named type to the specified directory.
