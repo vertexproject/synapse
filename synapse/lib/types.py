@@ -1289,9 +1289,6 @@ class Tag(StrBase):
 
         return norm, {'subs': subs}
 
-    #def indx(self, norm):
-        #return norm.encode('utf8')
-
 class Time(IntBase):
 
     _opt_defs = (
