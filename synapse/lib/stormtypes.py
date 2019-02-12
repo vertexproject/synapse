@@ -1,6 +1,8 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
+
 import synapse.lib.node as s_node
+import synapse.lib.cache as s_cache
 
 class StormType:
     '''
@@ -116,7 +118,15 @@ class Node(Prim):
         self.locls.update({
             'value': self._methNodeValue,
             'form': self._methNodeForm,
+            'tags': self._methNodeTags,
         })
+
+    async def _methNodeTags(self, glob=None):
+        tags = list(self.valu.tags.keys())
+        if glob is not None:
+            regx = s_cache.getTagGlobRegx(glob)
+            tags = [ t for t in tags if regx.fullmatch(t) ]
+        return tags
 
     async def _methNodeValue(self):
         return self.valu.ndef[1]
