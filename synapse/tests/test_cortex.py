@@ -1031,8 +1031,12 @@ class CortexTest(s_t_utils.SynTest):
             return nodes
 
         async with self.getTestCore() as core:
+
             # seed a node for pivoting
             await alist(core.eval('[ pivcomp=(foo,bar) :tick=2018 ]'))
+            await alist(core.eval('[ refs=((ou:org, "*"), (pivcomp,(foo,bar))) ]'))
+
+            self.len(1, await core.eval('ou:org -> refs:n1').list())
 
             q = 'pivcomp=(foo,bar) -> pivtarg'
             nodes = await getPackNodes(core, q)
@@ -1736,6 +1740,15 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await alist(core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:asn=1234 }'))
             self.len(2, nodes)
 
+    async def test_storm_cond_has(self):
+        async with self.getTestCore() as core:
+
+            await core.eval('[ inet:ipv4=1.2.3.4 :asn=20 ]').list()
+            self.len(1, await core.eval('inet:ipv4=1.2.3.4 +:asn').list())
+
+            with self.raises(s_exc.BadStormSyntax):
+                await core.eval('[ inet:ipv4=1.2.3.4 +:foo ]').list()
+
     async def test_storm_cond_not(self):
 
         async with self.getTestCore() as core:
@@ -1966,8 +1979,16 @@ class CortexTest(s_t_utils.SynTest):
             self.eq((('foo.com', 0x01020304), ('bar.com', 0x05060708)), vals)
 
             with self.raises(s_exc.StormVarListError):
-                async for node in core.eval('for ($fqdn,$ipv4,$boom) in $dnsa { [ inet:dns:a=($fqdn,$ipv4) ] }', opts=opts):
-                    pass
+                await core.eval('for ($fqdn,$ipv4,$boom) in $dnsa { [ inet:dns:a=($fqdn,$ipv4) ] }', opts=opts).list()
+
+            with self.raises(s_exc.StormVarListError):
+                await core.eval('[ inet:ipv4=1.2.3.4 +#hehe +#haha ] for ($foo,$bar,$baz) in $node.tags() {[+#$foo]}').list()
+
+            await core.eval('inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=5.5.5.5 +#$tag] } continue [ +#visi ] }').list()
+            self.len(1, await core.eval('inet:ipv4=5.5.5.5 +#hehe +#haha -#visi').list())
+
+            await core.eval('inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=6.6.6.6 +#$tag] } break [ +#visi ]}').list()
+            self.len(1, await core.eval('inet:ipv4=6.6.6.6 +(#hehe or #haha) -(#hehe and #haha) -#visi').list())
 
     async def test_storm_varmeth(self):
 

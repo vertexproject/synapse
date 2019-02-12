@@ -361,13 +361,17 @@ class ForLoop(Oper):
 
                 if isinstance(name, (list, tuple)):
 
-                    if len(name) > len(item):
+                    if len(name) != len(item):
                         raise s_exc.StormVarListError(names=name, vals=item)
 
                     for x, y in itertools.zip_longest(name, item):
                         path.set(x, y)
+                        runt.setVar(x, y)
+
                 else:
+                    # set both so inner subqueries have it in their runtime
                     path.set(name, item)
+                    runt.setVar(name, item)
 
                 try:
 
@@ -389,7 +393,7 @@ class ForLoop(Oper):
 
                 if isinstance(name, (list,tuple)):
 
-                    if len(name) > len(item):
+                    if len(name) != len(item):
                         raise s_exc.StormVarListError(names=name, vals=item)
 
                     for x, y in itertools.zip_longest(name, item):
@@ -1076,7 +1080,7 @@ class Cond(AstNode):
     def getLiftHints(self):
         return ()
 
-    def getCondEval(self, runt):
+    def getCondEval(self, runt): # pragma: no cover
         raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.evaluate()')
 
 class SubqCond(Cond):
@@ -1163,16 +1167,6 @@ class SubqCond(Cond):
                     return False
 
             return True
-
-        return cond
-
-    def _subqCondNz(self, runt):
-
-        async def cond(node, path):
-            async for size, item in self._runSubQuery(runt, node, path):
-                return True
-
-            return False
 
         return cond
 
@@ -1435,7 +1429,7 @@ class CompValue(AstNode):
     '''
     A computed value which requires a runtime, node, and path.
     '''
-    async def compute(self, path):
+    async def compute(self, path): # pragma: no cover
         raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()')
 
     def isRuntSafe(self, runt):
