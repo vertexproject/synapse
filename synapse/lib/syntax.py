@@ -1589,8 +1589,6 @@ class Parser:
 
         if self.nextstr('$'):
             return self.varvalu()
-            #varn = self.varname()
-            #return s_ast.TagVar(kids=[varn])
 
         text = self.noms(until=tagterm)
 

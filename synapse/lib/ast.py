@@ -1468,17 +1468,6 @@ class Value(RunValue):
     def value(self):
         return self.valu
 
-class TagVar(RunValue):
-
-    def prepare(self):
-        self.varn = self.kids[0].value()
-
-    async def runtval(self, runt):
-        tag = runt.getVar(self.varn)
-        if tag is None:
-            raise s_exc.NoSuchVar(name=self.varn)
-        return tag
-
 class PropValue(CompValue):
 
     def prepare(self):
