@@ -1,14 +1,11 @@
-import asyncio
 import fnmatch
 import logging
 import itertools
 import collections
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 
-import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 import synapse.lib.stormtypes as s_stormtypes

@@ -3,8 +3,6 @@ import asyncio
 import hashlib
 import pathlib
 
-import synapse.common as s_common
-
 import synapse.lib.scope as s_scope
 import synapse.tests.utils as s_t_utils
 

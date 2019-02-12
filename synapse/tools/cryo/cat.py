@@ -4,7 +4,6 @@ import pprint
 import argparse
 import logging
 
-import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output

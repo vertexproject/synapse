@@ -3,8 +3,6 @@ import asyncio
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.node as s_node
-
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 

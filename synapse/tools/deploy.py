@@ -3,7 +3,6 @@ import sys
 import logging
 import argparse
 
-import synapse.exc as s_exc
 import synapse.cells as s_cells
 import synapse.common as s_common
 import synapse.dyndeps as s_dyndeps

@@ -1,7 +1,5 @@
 import math
 
-import synapse.lib.syntax as s_syntax
-
 '''
 Synapse module with helpers for earth based geo-spacial calculations.
 '''

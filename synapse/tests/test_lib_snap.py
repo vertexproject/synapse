@@ -1,9 +1,6 @@
-import os
 import random
 import asyncio
 import contextlib
-
-import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 

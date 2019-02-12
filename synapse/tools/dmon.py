@@ -1,9 +1,7 @@
 import os
 import sys
-import json
 import logging
 import argparse
-import subprocess
 
 import synapse.glob as s_glob
 import synapse.common as s_common
@@ -11,7 +9,6 @@ import synapse.daemon as s_daemon
 
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
-import synapse.lib.thishost as s_thishost
 
 logger = logging.getLogger(__name__)
 

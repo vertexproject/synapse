@@ -1,5 +1,4 @@
 import os
-import unittest
 
 import synapse
 import synapse.lib.datfile as s_datfile
