@@ -170,7 +170,7 @@ class Triggers:
                 user = ruledict.pop('user')
                 query = ruledict.pop('storm')
                 self._load_rule(iden, ver, cond, user, query, info=ruledict)
-            except Exception as e:
+            except (KeyError, s_exc.SynErr) as e:
                 logger.warning('Invalid rule %r found in storage: %r', iden, e)
                 continue
 
