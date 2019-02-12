@@ -61,7 +61,7 @@ class RemoteLayer(s_layer.Layer):
                 self.proxy = await s_telepath.openurl(turl)
                 self.proxy.onfini(self._fireTeleTask)
                 self.ready.set()
-                logger.warning(f'connected to remote layer: {turl}')
+                logger.info(f'connected to remote layer: {turl}')
                 return
 
             except asyncio.CancelledError:
