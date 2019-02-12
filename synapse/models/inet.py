@@ -434,7 +434,7 @@ class IPv4Range(s_types.Range):
         minv = self.subtype.norm(valu[0])[0]
         maxv = self.subtype.norm(valu[1])[0]
 
-        if ipaddress.ip_address(minv) > ipaddress.ip_address(maxv):
+        if minv > maxv:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='minval cannot be greater than maxval')
 
