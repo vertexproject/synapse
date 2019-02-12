@@ -46,7 +46,15 @@ class View(s_base.Base):
     The view class is used to implement Copy-On-Write layers as well as
     interact with a subset of the layers configured in a Cortex.
     '''
+
     async def __anit__(self, core, node):
+        '''
+        Async init the view.
+
+        Args:
+            core (Cortex):  The cortex that owns the view.
+            node (HiveNode): The hive node containing the view info.
+        '''
         await s_base.Base.__anit__(self)
 
         self.core = core
@@ -167,6 +175,23 @@ class LayerApi(s_cell.CellApi):
 class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed over telepath.
+
+    Many CoreApi methods operate on packed nodes consisting of primitive data structures
+    which can be serialized with msgpack/json.
+
+    Example Node
+
+    ( (<form>, <valu>), {
+
+        "props": {
+            <name>: <valu>,
+            ...
+        },
+        "tags": {
+            "foo": <time>,
+            "foo.bar": <time>,
+        },
+    })
     '''
     @s_cell.adminapi
     def getCoreMods(self):
