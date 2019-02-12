@@ -12,7 +12,6 @@ import synapse.common as s_common
 
 import synapse.exc as s_exc
 import synapse.lib.base as s_base
-#import synapse.lib.cell as s_cell
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)

@@ -5,14 +5,6 @@ import synapse.tests.utils as s_t_utils
 
 class TrigTest(s_t_utils.SynTest):
 
-    #async def test_trigger_with_auth(self):
-        #async with self.getTestDmon(mirror='dmoncoreauth') as dmon:
-            #await self.trigger_tests(dmon)
-
-    #async def test_trigger_no_auth(self):
-        #async with self.getTestDmon(mirror='dmoncore') as dmon:
-            #await self.trigger_tests(dmon)
-
     async def test_trigger_recursion(self):
         async with self.getTestDmon(mirror='dmoncore') as dmon, \
                 await self.agetTestProxy(dmon, 'core') as core:

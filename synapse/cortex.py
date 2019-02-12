@@ -1017,8 +1017,6 @@ class Cortex(s_cell.Cell):
 
     async def _initCoreLayers(self):
 
-        #import synapse.cells as s_cells  # avoid import cycle
-
         dirn = s_common.gendir(self.dirn, 'layers')
         node = await self.hive.open(('cortex', 'layers'))
 
