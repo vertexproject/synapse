@@ -46,13 +46,11 @@ def getAddrType(ip):
 
     return 'unicast'
 
-class Addr(s_types.Type):
+class Addr(s_types.StrBase):
 
     def postTypeInit(self):
+        s_types.StrBase.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-
-    def indx(self, norm):
-        return norm.encode('utf8')
 
     def _getPort(self, valu):
         port = None
@@ -133,10 +131,10 @@ class Addr(s_types.Type):
 
         return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs}
 
-
-class Cidr4(s_types.Type):
+class Cidr4(s_types.StrBase):
 
     def postTypeInit(self):
+        s_types.StrBase.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
@@ -164,12 +162,10 @@ class Cidr4(s_types.Type):
         }
         return norm, info
 
-    def indx(self, norm):
-        return norm.encode('utf8')
-
-class Email(s_types.Type):
+class Email(s_types.StrBase):
 
     def postTypeInit(self):
+        s_types.StrBase.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
@@ -190,9 +186,6 @@ class Email(s_types.Type):
             }
         }
         return norm, info
-
-    def indx(self, norm):
-        return norm.encode('utf8', 'surrogatepass')
 
 class Fqdn(s_types.Type):
 
@@ -436,14 +429,14 @@ class IPv6Range(s_types.Range):
 
         return (minv, maxv), {'subs': {'min': minv, 'max': maxv}}
 
-class Rfc2822Addr(s_types.Type):
+class Rfc2822Addr(s_types.StrBase):
     '''
     An RFC 2822 compatible email address parser
     '''
 
     def postTypeInit(self):
+        s_types.StrBase.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-        self.indxcmpr['^='] = self.indxByPref
 
     def indxByPref(self, valu):
         valu = valu.replace('"', ' ').replace("'", ' ')
@@ -452,9 +445,6 @@ class Rfc2822Addr(s_types.Type):
         return (
             ('pref', valu.encode('utf8', 'surrogatepass')),
         )
-
-    def indx(self, norm):
-        return norm.encode('utf8', 'surrogatepass')
 
     def _normPyStr(self, valu):
 

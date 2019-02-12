@@ -82,6 +82,7 @@ class TestType(s_types.Type):
         return valu.lower(), {}
 
     def indx(self, norm):
+        # make this purposely fragile...
         return norm.encode('utf8')
 
 class ThreeType(s_types.Type):
@@ -178,6 +179,8 @@ testmodel = {
         ('cycle1', {}, (
             ('cycle0', ('cycle0', {}), {}),
         )),
+
+        ('testtype', {}, ()),
 
         ('testcomp', {}, (
             ('hehe', ('testint', {}), {'ro': 1}),

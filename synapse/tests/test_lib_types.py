@@ -924,3 +924,13 @@ class TypesTest(s_t_utils.SynTest):
         # Sad path testing
         self.raises(s_exc.BadTypeValu, e.norm, ('newp',))
         self.raises(s_exc.BadTypeValu, t.norm, ('newp',))
+
+    async def test_types_long_indx(self):
+
+        aaaa = 'A' * 200
+        url = f'http://vertex.link/visi?fuzz0={aaaa}&fuzz1={aaaa}'
+
+        async with self.getTestCore() as core:
+            opts = {'vars': {'url': url}}
+            self.len(1, await core.eval('[ it:exec:url="*" :url=$url ]', opts=opts).list())
+            self.len(1, await core.eval('it:exec:url:url=$url', opts=opts).list())

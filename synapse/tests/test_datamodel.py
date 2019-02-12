@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
 import synapse.lib.msgpack as s_msgpack
 
@@ -24,3 +25,8 @@ class DataModelTest(s_t_utils.SynTest):
             self.false(modelinfo.isuniv('seen'))
             self.true(modelinfo.isprop('testtype10:intprop'))
             self.true(modelinfo.isprop('testtype10.seen'))
+
+    async def test_datamodel_indx_too_big(self):
+        async with self.getTestCore() as core:
+            with self.raises(s_exc.BadIndxValu):
+                core.model.form('testtype').getSetOps('testtype', 'A' * 512)

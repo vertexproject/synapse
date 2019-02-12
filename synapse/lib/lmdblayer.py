@@ -145,7 +145,7 @@ class LmdbLayer(s_layer.Layer):
 
         _, (buid, form, prop, valu, indx, info) = oper
 
-        if len(indx) > MAX_INDEX_LEN:
+        if indx is not None and len(indx) > MAX_INDEX_LEN:
             mesg = 'index bytes are too large'
             raise s_exc.BadIndxValu(mesg=mesg, prop=prop, valu=valu)
 
@@ -178,10 +178,12 @@ class LmdbLayer(s_layer.Layer):
                 unkey = penc + oldi
                 self.layrslab.delete(unkey, pvvalu, db=self.byuniv)
 
-        self.layrslab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
+        if indx is not None:
 
-        if univ:
-            self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
+            self.layrslab.put(pvpref + indx, pvvalu, dupdata=True, db=self.byprop)
+
+            if univ:
+                self.layrslab.put(penc + indx, pvvalu, dupdata=True, db=self.byuniv)
 
     async def _storPropDel(self, oper):
 

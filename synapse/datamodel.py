@@ -162,7 +162,7 @@ class Prop(PropBase):
         )
 
     def getSetOps(self, buid, norm):
-        indx = self.type.getStorIndx(norm)
+        indx = self.type.indx(norm)
         return (
             ('prop:set', (buid, self.form.name, self.name, norm, indx, self.storinfo)),
         )
@@ -307,7 +307,11 @@ class Form:
         await node.snap.core.triggers.runNodeDel(node)
 
     def getSetOps(self, buid, norm):
-        indx = self.type.getStorIndx(norm)
+
+        indx = self.type.indx(norm)
+        if len(indx) > 256:
+            raise s_exc.BadIndxValu(name=self.name, norm=norm, indx=indx)
+
         return (
             ('prop:set', (buid, self.name, '', norm, indx, {})),
         )
