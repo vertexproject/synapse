@@ -44,6 +44,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
+import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.output as s_output
@@ -254,6 +255,19 @@ testmodel = {
     ),
 }
 
+class TestCmd(s_storm.Cmd):
+
+    name = 'testcmd'
+
+    def getArgParser(self):
+        pars = s_storm.Cmd.getArgParser(self)
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+        async for node, path in genr:
+            yield node, path
+
+
 class TestModule(s_module.CoreModule):
     testguid = '8f1401de15918358d5247e21ca29a814'
 
@@ -376,6 +390,9 @@ class TestModule(s_module.CoreModule):
         return (
             ('test', testmodel),
         )
+
+    def getStormCmds(self):
+        return (TestCmd,)
 
 class TstEnv:
 
