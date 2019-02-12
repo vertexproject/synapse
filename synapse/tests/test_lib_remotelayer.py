@@ -7,6 +7,8 @@ import synapse.common as s_common
 
 import synapse.tests.test_cortex as t_cortex
 
+import synapse.lib.remotelayer as s_remotelayer
+
 class RemoteLayerTest(t_cortex.CortexTest):
 
     @contextlib.asynccontextmanager
@@ -30,6 +32,8 @@ class RemoteLayerTest(t_cortex.CortexTest):
             await s_common.aspin(core.eval('[ teststr=woot :tick=2015 ]'))
 
             layr = core.view.layers[0]
+            self.true(isinstance(layr, s_remotelayer.RemoteLayer))
+
             self.len(1, [x async for x in layr.iterFormRows('teststr')])
             self.len(1, [x async for x in layr.iterPropRows('teststr', 'tick')])
 
