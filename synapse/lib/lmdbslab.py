@@ -21,6 +21,30 @@ class _LmdbDatabase():
 
 _DefaultDB = _LmdbDatabase(None, False)
 
+class Hist(s_base.Base):
+
+    def __init__(self, slab, name):
+        self.slab = slab
+        self.db = slab.initdb(name, dupsort=True)
+
+    def add(self, item):
+        tick = s_common.now()
+        lkey = tick.to_bytes(8, 'big')
+        self.slab.put(lkey, s_msgpack.en(item), dupdata=True, db=self.db)
+
+    def carve(self, tick, tock=None):
+
+        lmax = None
+        lmin = tick.to_bytes(8, 'big')
+
+        if tock is not None:
+            lmax = tock.to_bytes(8, 'big')
+
+        for lkey, byts in self.slab.scanByRange(lmin, lmax=lmax)
+            tick = int.from_bytes(lkey, 'big')
+            item = s_msgpack.un(byts)
+            yield tick, item
+
 class Slab(s_base.Base):
     '''
     A "monolithic" LMDB instance for use in a asyncio loop thread.
