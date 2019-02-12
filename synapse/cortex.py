@@ -586,11 +586,6 @@ class Cortex(s_cell.Cell):
 
         self.onfini(fini)
 
-        self.triggers = s_trigger.Triggers(self)
-
-        self.agenda = await s_agenda.Agenda.anit(self)
-        self.onfini(self.agenda)
-
         # these may be used directly
         self.model = s_datamodel.Model()
 
@@ -604,18 +599,22 @@ class Cortex(s_cell.Cell):
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
 
-        await self.addCoreMods(s_modules.coremods)
+        mods = list(s_modules.coremods)
+        mods.extend(self.conf.get('modules'))
 
-        self.triggers = s_trigger.Triggers(self)
-
-        mods = self.conf.get('modules')
+        await self._loadCoreMods(mods)
 
         self._initFormCounts()
 
-        await self.addCoreMods(mods)
+        self.triggers = s_trigger.Triggers(self)
+
+        self.agenda = await s_agenda.Agenda.anit(self)
+        self.onfini(self.agenda)
 
         if self.conf.get('cron:enable'):
             await self.agenda.enable()
+
+        await self._initCoreMods()
 
         self._initCryoLoop()
         self._initPushLoop()
@@ -1638,38 +1637,9 @@ class Cortex(s_cell.Cell):
 
         return snap
 
-    async def addCoreMods(self, mods):
-        '''
-        Add a list of (name,conf) module tuples to the cortex.
-        '''
-        mdefs = []
-        added = []
-
-        for ctor in mods:
-
-            modu = self._loadCoreModule(ctor)
-            if modu is None:
-                continue
-
-            added.append((ctor, modu))
-
-            # does the module carry have a data model?
-            mdef = modu.getModelDefs()
-            if mdef is not None:
-                mdefs.extend(mdef)
-
-        # add all data models at once.
-        self.model.addDataModels(mdefs)
-
-        # now that we've loaded all their models
-        # we can call their init functions
-        for ctor, modu in added:
-            await s_coro.ornot(modu.initCoreModule)
-            await self.fire('core:module:load', module=ctor)
-
     async def loadCoreModule(self, ctor, conf=None):
         '''
-        Load a cortex module with the given ctor and conf.
+        Load a single cortex module with the given ctor and conf.
 
         Args:
             ctor (str): The python module class path
@@ -1683,16 +1653,49 @@ class Cortex(s_cell.Cell):
         mdefs = modu.getModelDefs()
         self.model.addDataModels(mdefs)
 
+        cmds = modu.getStormCmds()
+        [self.addStormCmd(c) for c in cmds]
+
         await s_coro.ornot(modu.initCoreModule)
         await self.fire('core:module:load', module=ctor)
+
+    async def _loadCoreMods(self, ctors):
+
+        mods = []
+
+        cmds = []
+        mdefs = []
+
+        for ctor in ctors:
+
+            modu = self._loadCoreModule(ctor)
+            if modu is not None:
+                mods.append(modu)
+
+            cmds.extend(modu.getStormCmds())
+            mdefs.extend(modu.getModelDefs())
+
+        self.model.addDataModels(mdefs)
+        [self.addStormCmd(c) for c in cmds]
+
+    async def _initCoreMods(self):
+
+        for name, modu in self.modules.items():
+
+            try:
+                await s_coro.ornot(modu.initCoreModule)
+
+            except asyncio.CancelledError:
+                raise
+
+            except Exception as e:
+                logger.exception(f'module init failed: {name}')
 
     def _loadCoreModule(self, ctor):
 
         try:
             modu = s_dyndeps.tryDynFunc(ctor, self)
-
             self.modules[ctor] = modu
-
             return modu
 
         except Exception as e:
