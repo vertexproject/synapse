@@ -587,12 +587,12 @@ class HiveAuth(s_base.Base):
         self.rolesbyname = {}
 
         roles = await node.open('roles')
-        for iden, node in roles:
-            await self._addRoleNode(node)
+        for iden, _node in roles:
+            await self._addRoleNode(_node)
 
         users = await node.open('users')
-        for iden, node in users:
-            await self._addUserNode(node)
+        for iden, _node in users:
+            await self._addUserNode(_node)
 
         # initialize an admin user named root
         root = self.getUserByName('root')
