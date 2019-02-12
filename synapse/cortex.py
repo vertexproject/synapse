@@ -1710,7 +1710,6 @@ class Cortex(s_cell.Cell):
         }
         return stats
 
-
 @contextlib.contextmanager
 def getTempCortex(mods=None):
     '''
