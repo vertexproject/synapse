@@ -13,7 +13,6 @@ import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.slaboffs as s_slaboffs
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.threads as s_threads
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +51,8 @@ class LmdbLayer(s_layer.Layer):
         maxsize = self.conf.get('lmdb:maxsize')
         growsize = self.conf.get('lmdb:growsize')
 
-        self.layrslab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize, growsize=growsize,
-                                               writemap=True, readahead=readahead)
+        self.layrslab = await s_lmdbslab.Slab.anit(path, max_dbs=128, map_size=mapsize, maxsize=maxsize,
+                                                   growsize=growsize, writemap=True, readahead=readahead)
 
         self.onfini(self.layrslab.fini)
 
@@ -108,7 +107,6 @@ class LmdbLayer(s_layer.Layer):
         return props
 
     async def getNodeNdef(self, buid):
-        pref = buid + b'*'
         for lkey, lval in self.layrslab.scanByPref(buid + b'*', db=self.bybuid):
             valu, indx = s_msgpack.un(lval)
             return lkey[33:].decode('utf'), valu

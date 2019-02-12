@@ -57,7 +57,7 @@ async def cellAuthToHive(dirn, auth):
                 if info.get('locked', False):
                     await user.setLocked(True)
 
-                #set this directly since we only have the shadow
+                # set this directly since we only have the shadow
                 shadow = info.get('shadow')
                 if shadow is not None:
                     await user.info.set('passwd', shadow)

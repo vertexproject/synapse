@@ -7,13 +7,10 @@ import collections
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
-import synapse.lib.queue as s_queue
 import synapse.lib.msgpack as s_msgpack
 
 readsize = 10 * s_const.megabyte

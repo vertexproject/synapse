@@ -5,7 +5,6 @@ An RMI framework for synapse.
 import os
 import asyncio
 import logging
-import contextlib
 import collections
 
 import synapse.exc as s_exc
