@@ -4,6 +4,8 @@ import logging
 import contextlib
 import collections
 
+from collections.abc import Mapping
+
 import regex
 
 import synapse
