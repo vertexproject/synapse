@@ -14,11 +14,9 @@ import synapse.lib.remotelayer as s_remotelayer
 
 ctors = {
     'auth': s_auth.Auth,
-    'axon': s_axon.Axon,
     'layer-lmdb': s_lmdblayer.LmdbLayer,
     'layer-remote': s_remotelayer.RemoteLayer,
     'cortex': s_cortex.Cortex,
-    'blobstor': s_axon.BlobStor,
     'cryocell': s_cryotank.CryoCell,
     'cryotank': s_cryotank.CryoTank
 }

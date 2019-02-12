@@ -18,6 +18,16 @@ class SlabSeqn:
 
         self.indx = self.nextindx()
 
+    def add(self, item):
+        '''
+        Add a single item to the sequence.
+        '''
+        byts = s_msgpack.en(item)
+        lkey = s_common.int64en(self.indx)
+
+        self.lenv.put(lkey, byts, db=self.db)
+        self.indx += 1
+
     def save(self, items):
         '''
         Save a series of items to a sequence.

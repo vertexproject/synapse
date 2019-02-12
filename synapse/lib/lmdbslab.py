@@ -13,6 +13,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
+import synapse.lib.msgpack as s_msgpack
 
 class _LmdbDatabase():
     def __init__(self, db, dupsort):
@@ -21,7 +22,7 @@ class _LmdbDatabase():
 
 _DefaultDB = _LmdbDatabase(None, False)
 
-class Hist(s_base.Base):
+class Hist:
 
     def __init__(self, slab, name):
         self.slab = slab
@@ -36,14 +37,12 @@ class Hist(s_base.Base):
 
         lmax = None
         lmin = tick.to_bytes(8, 'big')
-
         if tock is not None:
             lmax = tock.to_bytes(8, 'big')
 
-        for lkey, byts in self.slab.scanByRange(lmin, lmax=lmax)
+        for lkey, byts in self.slab.scanByRange(lmin, lmax=lmax, db=self.db):
             tick = int.from_bytes(lkey, 'big')
-            item = s_msgpack.un(byts)
-            yield tick, item
+            yield tick, s_msgpack.un(byts)
 
 class Slab(s_base.Base):
     '''
