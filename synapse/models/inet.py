@@ -162,6 +162,28 @@ class Cidr4(s_types.StrBase):
         }
         return norm, info
 
+class Cidr6(s_types.StrBase):
+
+    def postTypeInit(self):
+        s_types.StrBase.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+
+    def _normPyStr(self, valu):
+        try:
+            network = ipaddress.IPv6Network(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=e)
+
+        norm = str(network)
+        info = {
+            'subs': {
+                'broadcast': str(network.broadcast_address),
+                'mask': network.prefixlen,
+                'network': str(network.network_address),
+            }
+        }
+        return norm, info
+
 class Email(s_types.StrBase):
 
     def postTypeInit(self):
@@ -277,12 +299,14 @@ class IPv4(s_types.Type):
 
             if valu.find('/') != -1:
                 minv, maxv = self.getCidrRange(valu)
+
                 def cmpr(norm):
                     return norm >= minv and norm < maxv
                 return cmpr
 
             if valu.find('-') != -1:
                 minv, maxv = self.getNetRange(valu)
+
                 def cmpr(norm):
                     return norm >= minv and norm <= maxv
                 return cmpr
@@ -408,12 +432,35 @@ class IPv6(s_types.Type):
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e))
 
+class IPv4Range(s_types.Range):
+
+    def postTypeInit(self):
+        self.opts['type'] = ('inet:ipv4', {})
+        s_types.Range.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+        self.cidrtype = self.modl.type('inet:cidr4')
+
+    def _normPyStr(self, valu):
+        if '-' in valu:
+            return super()._normPyStr(valu)
+        cidrnorm = self.cidrtype._normPyStr(valu)
+        tupl = cidrnorm[1]['subs']['network'], cidrnorm[1]['subs']['broadcast']
+        return self._normPyTuple(tupl)
+
 class IPv6Range(s_types.Range):
-    _opt_defs = ()
 
     def postTypeInit(self):
         self.opts['type'] = ('inet:ipv6', {})
         s_types.Range.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+        self.cidrtype = self.modl.type('inet:cidr6')
+
+    def _normPyStr(self, valu):
+        if '-' in valu:
+            return super()._normPyStr(valu)
+        cidrnorm = self.cidrtype._normPyStr(valu)
+        tupl = cidrnorm[1]['subs']['network'], cidrnorm[1]['subs']['broadcast']
+        return self._normPyTuple(tupl)
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
@@ -721,6 +768,11 @@ class InetModule(s_module.CoreModule):
                         'ex': '1.2.3.0/24'
                     }),
 
+                    ('inet:cidr6', 'synapse.models.inet.Cidr6', {}, {
+                        'doc': 'An IPv6 address block in Classless Inter-Domain Routing (CIDR) notation.',
+                        'ex': '2001:db8::/101'
+                    }),
+
                     ('inet:email', 'synapse.models.inet.Email', {}, {
                         'doc': 'An e-mail address.'}),
 
@@ -731,6 +783,11 @@ class InetModule(s_module.CoreModule):
                     ('inet:ipv4', 'synapse.models.inet.IPv4', {}, {
                         'doc': 'An IPv4 address.',
                         'ex': '1.2.3.4'
+                    }),
+
+                    ('inet:ipv4range', 'synapse.models.inet.IPv4Range', {}, {
+                        'doc': 'An IPv6 address range',
+                        'ex': '(1.2.3.4-1.2.3.8)'
                     }),
 
                     ('inet:ipv6', 'synapse.models.inet.IPv6', {}, {
@@ -812,7 +869,7 @@ class InetModule(s_module.CoreModule):
                         'ex': 'aa:bb:cc:dd:ee:ff'
                     }),
 
-                    ('inet:net4', ('range', {'type': ('inet:ipv4', {})}), {
+                    ('inet:net4', ('inet:ipv4range', {}), {
                         'doc': 'An IPv4 address range.',
                         'ex': '(1.2.3.4, 1.2.3.20)'
                     }),
@@ -1078,6 +1135,22 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The network IP address from the CIDR notation.'
                         }),
                     )),
+
+                    ('inet:cidr6', {}, (
+                        ('broadcast', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The broadcast IP address from the CIDR notation.'
+                        }),
+                        ('mask', ('int', {}), {
+                            'ro': True,
+                            'doc': 'The mask from the CIDR notation.'
+                        }),
+                        ('network', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The network IP address from the CIDR notation.'
+                        }),
+                    )),
+
 
                     ('inet:client', {}, (
                         ('proto', ('str', {'lower': True}), {
