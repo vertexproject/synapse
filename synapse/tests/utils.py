@@ -256,6 +256,9 @@ testmodel = {
 }
 
 class TestCmd(s_storm.Cmd):
+    '''
+    A test command
+    '''
 
     name = 'testcmd'
 
