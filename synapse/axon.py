@@ -110,6 +110,10 @@ class AxonApi(s_cell.CellApi):
         self.user.allowed(('axon:upload',))
         return UpLoadShare.anit(self.cell, self.link)
 
+    async def metrics(self):
+        self.user.allowed(('axon:has',))
+        return await self.cell.metrics()
+
 class Axon(s_cell.Cell):
 
     cellapi = AxonApi
@@ -134,9 +138,9 @@ class Axon(s_cell.Cell):
         self.axonseqn = s_slabseqn.SlabSeqn(self.axonslab, 'axonseqn')
 
         node = await self.hive.open(('axon', 'metrics'))
-        self.metrics = await node.dict()
-        self.metrics.setdefault('size:bytes', 0)
-        self.metrics.setdefault('file:count', 0)
+        self.axonmetrics = await node.dict()
+        self.axonmetrics.setdefault('size:bytes', 0)
+        self.axonmetrics.setdefault('file:count', 0)
 
     def _addSyncItem(self, item):
         self.axonhist.add(item)
@@ -164,6 +168,9 @@ class Axon(s_cell.Cell):
     async def has(self, sha256):
         return self.axonslab.get(sha256, db=self.sizes) is not None
 
+    async def metrics(self):
+        return dict(self.axonmetrics.items())
+
     async def save(self, sha256, genr):
 
         byts = self.axonslab.get(sha256, db=self.sizes)
@@ -179,8 +186,8 @@ class Axon(s_cell.Cell):
 
         self._addSyncItem((sha256, size))
 
-        await self.metrics.set('file:count', self.metrics.get('file:count') + 1)
-        await self.metrics.set('size:bytes', self.metrics.get('size:bytes') + size)
+        await self.axonmetrics.set('file:count', self.axonmetrics.get('file:count') + 1)
+        await self.axonmetrics.set('size:bytes', self.axonmetrics.get('size:bytes') + size)
 
         self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
 

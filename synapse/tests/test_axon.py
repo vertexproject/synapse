@@ -61,6 +61,10 @@ class AxonTest(s_t_utils.SynTest):
         items = [x[1] async for x in axon.history(0, tock=1)]
         self.eq((), items)
 
+        info = await axon.metrics()
+        self.eq(33554445, info.get('size:bytes'))
+        self.eq(2, info.get('file:count'))
+
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
             await self.runAxonTestBase(axon)
