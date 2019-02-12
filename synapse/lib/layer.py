@@ -14,7 +14,6 @@ import synapse.exc as s_exc
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
-import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +92,7 @@ class Layer(s_base.Base):
     The base class for a cortex layer.
     '''
     confdefs = ()
+
     async def __anit__(self, core, node):
 
         await s_base.Base.__anit__(self)
@@ -117,7 +117,6 @@ class Layer(s_base.Base):
             self.conf.setdefault(name, dval)
 
         self.dirn = s_common.gendir(core.dirn, 'layers', self.iden)
-        #await s_cell.Cell.__anit__(self, dirn)
 
         self._lift_funcs = {
             'indx': self._liftByIndx,

@@ -22,7 +22,6 @@ import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
-import synapse.lib.layer as s_layer
 import synapse.lib.syntax as s_syntax
 import synapse.lib.agenda as s_agenda
 import synapse.lib.trigger as s_trigger

@@ -1,7 +1,5 @@
 import os
 import logging
-import pathlib
-import tempfile
 import contextlib
 
 import synapse.exc as s_exc

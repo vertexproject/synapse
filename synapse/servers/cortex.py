@@ -8,7 +8,6 @@ import synapse.glob as s_glob
 
 import synapse.common as s_common
 import synapse.cortex as s_cortex
-import synapse.daemon as s_daemon
 
 import synapse.lib.output as s_output
 
@@ -29,7 +28,8 @@ def parse(argv):
     pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
     pars.add_argument('--port', default=teleport, help='The TCP port to bind for telepath.')
     pars.add_argument('--host', default=telehost, help='The host address to bind telepath.')
-    pars.add_argument('--insecure', default=insecure, action='store_true', help='Start the cortex with all auth bypassed (DANGER!).')
+    pars.add_argument('--insecure', default=insecure, action='store_true',
+                      help='Start the cortex with all auth bypassed (DANGER!).')
     pars.add_argument('coredir', help='The directory for the cortex to use for storage.')
 
     return pars.parse_args(argv)
