@@ -756,6 +756,10 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.raises(s_exc.BadTypeValu, t.norm, (valu[1], valu[0]))
 
+            valu = '1.2.3.0/24'
+            expected = ((0x01020300, 0x010203ff), {'subs': {'min': 0x01020300, 'max': 0x010203ff}})
+            self.eq(t.norm(valu), expected)
+
     async def test_net6(self):
         tname = 'inet:net6'
         async with self.getTestCore() as core:
@@ -775,6 +779,11 @@ class InetModelTest(s_t_utils.SynTest):
             valu = ('3300:100::', '3300:100:1::ffff')
             expected = (('3300:100::', '3300:100:1::ffff'), {'subs': {'min': '3300:100::', 'max': '3300:100:1::ffff'}})
             self.eq(t.norm(valu), expected)
+
+            valu = '2001:db8::/101'
+
+            expected = (('3300:100::', '2001:db8:0000:0000:0000:0000:07ff:ffff'),
+                        {'subs': {'min': '3300:100::', 'max': '2001:db8:0000:0000:0000:0000:07ff:ffff'}})
 
     async def test_passwd(self):
         async with self.getTestCore() as core:
