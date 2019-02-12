@@ -28,6 +28,9 @@ class CoreModule:
             conf = s_common.yamlload(self._confpath)
         self.conf = s_common.config(conf, self.confdefs)
 
+    def getStormCmds(self):
+        return ()
+
     def getModelDefs(self):
         return ()
 
