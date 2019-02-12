@@ -99,6 +99,17 @@ class FixedCache:
         self.fifo.clear()
         self.cache.clear()
 
+@memoize()
+def getTagGlobRegx(name):
+
+    parts = []
+    for part in name.split('.'):
+        part = re.escape(part).replace('\\*', '([^.]+)')
+        parts.append(part)
+
+    regq = '\\.'.join(parts)
+    return regex.compile(regq)
+
 class TagGlobs:
     '''
     An object that manages multiple tag globs and values for caching.
@@ -111,15 +122,7 @@ class TagGlobs:
 
         self.cache.clear()
 
-        parts = []
-
-        for part in name.split('.'):
-            part = re.escape(part).replace('\\*', '([^.]+)')
-            parts.append(part)
-
-        regq = '\\.'.join(parts)
-
-        regx = regex.compile(regq)
+        regx = getTagGlobRegx(name)
 
         glob = (regx, (name, valu))
 
