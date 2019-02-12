@@ -297,6 +297,7 @@ class Cell(s_base.Base, s_telepath.Aware):
 
             user = self.auth.getUserByName(name)
             if user is None:
+                # FIXME - TEST + Bad Reference
                 user = await auth.addUser(name)
 
             await user.setAdmin(True)
