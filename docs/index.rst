@@ -10,6 +10,7 @@ Welcome to synapse's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   synapse/quickstart
    synapse/userguide
    synapse/devops
    synapse/contributing

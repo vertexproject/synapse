@@ -8,6 +8,7 @@ own projects; or those looking to contribute back to the Synapse project.
 The DevOps Guide is a living document and will continue to be updated and expanded. The current sections are:
 
 .. toctree::
+
     :titlesonly:
 
     devops/performance1
