@@ -1,11 +1,10 @@
 import os
 import asyncio
 import logging
-import pathlib
 import contextlib
 import collections
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 
 import regex
 
@@ -29,7 +28,9 @@ import synapse.lib.agenda as s_agenda
 import synapse.lib.trigger as s_trigger
 import synapse.lib.modules as s_modules
 import synapse.lib.modelrev as s_modelrev
+import synapse.lib.lmdblayer as s_lmdblayer
 import synapse.lib.stormtypes as s_stormtypes
+import synapse.lib.remotelayer as s_remotelayer
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,8 @@ class View(s_base.Base):
         self.node = node
         self.iden = node.name()
 
+        self.borked = None
+
         self.info = await node.dict()
         self.info.setdefault('owner', 'root')
         self.info.setdefault('layers', ())
@@ -73,12 +76,17 @@ class View(s_base.Base):
             layr = core.layers.get(iden)
 
             if layr is None:
+                self.borked = iden
                 logger.warning('view %r has missing layer %r' % (self.iden, iden))
                 continue
 
             self.layers.append(layr)
 
     async def snap(self):
+
+        if self.borked is not None:
+            raise s_exc.NoSuchLayer(iden=self.borked)
+
         return await s_snap.Snap.anit(self.core, self.layers)
 
     def pack(self):
@@ -109,68 +117,10 @@ class View(s_base.Base):
 
             layrs.append(layr)
 
+        self.borked = None
         self.layers = layrs
+
         await self.info.set('layers', layers)
-
-class LayerApi(s_cell.CellApi):
-
-    async def __anit__(self, core, link, user, layr):
-
-        await s_cell.CellApi.__anit__(self, core, link, user)
-
-        self.layr = layr
-        self.liftperm = ('layer:lift', self.layr.iden)
-        self.storperm = ('layer:stor', self.layr.iden)
-
-    def allowed(self, perm):
-        if not self.user.allowed(perm):
-            raise s_exc.AuthDeny(user=self.user.name, perm=perm)
-
-    async def getLiftRows(self, lops):
-        self.allowed(self.liftperm)
-        async for item in self.layr.getLiftRows(lops):
-            yield item
-
-    async def iterFormRows(self, form):
-        self.allowed(self.liftperm)
-        async for item in self.layr.iterFormRows(form):
-            yield item
-
-    async def iterPropRows(self, form, prop):
-        self.allowed(self.liftperm)
-        async for item in self.layr.iterPropRows(form, prop):
-            yield item
-
-    async def iterUnivRows(self, univ):
-        self.allowed(self.liftperm)
-        async for item in self.layr.iterUnivRows(univ):
-            yield item
-
-    async def stor(self, sops):
-        self.allowed(self.storperm)
-        return await self.layr.stor(sops)
-
-    async def commit(self):
-        self.allowed(self.storperm)
-        return await self.layr.commit()
-
-    async def getBuidProps(self, buid):
-        self.allowed(self.liftperm)
-        return await self.layr.getBuidProps(buid)
-
-    async def getModelVers(self):
-        return await self.layr.getModelVers()
-
-    async def getOffset(self, iden):
-        return await self.layr.getOffset(iden)
-
-    async def setOffset(self, iden, valu):
-        return await self.layr.setOffset(iden, valu)
-
-    async def splices(self, offs, size):
-        self.allowed(self.liftperm)
-        async for item in self.layr.splices(offs, size):
-            yield item
 
 class CoreApi(s_cell.CellApi):
     '''
@@ -580,10 +530,6 @@ class Cortex(s_cell.Cell):
         self.views = {}
         self.layers = {}
 
-        import synapse.lib.layer as s_layer
-        import synapse.lib.lmdblayer as s_lmdblayer
-        import synapse.lib.remotelayer as s_remotelayer
-
         self.layrctors = {
             'lmdb': s_lmdblayer.LmdbLayer,
             'remote': s_remotelayer.RemoteLayer,
@@ -685,14 +631,14 @@ class Cortex(s_cell.Cell):
             if len(path) == 1:
                 # get the main layer...
                 layr = self.layers.get(self.iden)
-                return await LayerApi.anit(self, link, user, layr)
+                return await s_layer.LayerApi.anit(self, link, user, layr)
 
             if len(path) == 2:
                 layr = self.layers.get(path[1])
                 if layr is None:
                     raise s_exc.NoSuchLayer(iden=path[1])
 
-                return await LayerApi.anit(self, link, user, layr)
+                return await s_layer.LayerApi.anit(self, link, user, layr)
 
         raise s_exc.NoSuchPath(path=path)
 
@@ -903,22 +849,6 @@ class Cortex(s_cell.Cell):
         Modules may use this to register additional layer constructors.
         '''
         self.layrctors[name] = ctor
-
-    async def initCoreLayer(self, info):
-        '''
-        Add a new layer to the cortex.
-
-        info = {
-            'type': <str> # defaults to lmdb
-            'owner': <str> # a user name
-            'conf': {}  # type specific config info
-        }
-        '''
-        ctor = self.layrctors.get(layrtype)
-        if ctor is None:
-            raise s_exc.NoSuchCtor(name=layrtype)
-
-        layr = await ctor(layrconf)
 
     async def _initCoreViews(self):
 

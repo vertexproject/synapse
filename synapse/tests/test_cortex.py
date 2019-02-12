@@ -2522,3 +2522,14 @@ class CortexTest(s_t_utils.SynTest):
 
             # Sad path for underlying Cortex.runRuntLift
             await self.agenraises(s_exc.NoSuchLift, core.runRuntLift('test:newp', 'newp'))
+
+    async def test_cortex_view_borked(self):
+
+        async with self.getTestCore() as core:
+
+            core.view.borked = s_common.guid()
+            with self.raises(s_exc.NoSuchLayer):
+                await core.eval('[ teststr=foo ]').list()
+
+            core.view.borked = None
+            self.len(1, await core.eval('[ teststr=foo ]').list())

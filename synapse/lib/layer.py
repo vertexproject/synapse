@@ -11,7 +11,9 @@ import regex
 import synapse.common as s_common
 
 import synapse.exc as s_exc
+
 import synapse.lib.base as s_base
+import synapse.lib.cell as s_cell
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
@@ -25,6 +27,66 @@ class Encoder(collections.defaultdict):
 class Utf8er(collections.defaultdict):
     def __missing__(self, name):
         return name.encode('utf8')
+
+class LayerApi(s_cell.CellApi):
+
+    async def __anit__(self, core, link, user, layr):
+
+        await s_cell.CellApi.__anit__(self, core, link, user)
+
+        self.layr = layr
+        self.liftperm = ('layer:lift', self.layr.iden)
+        self.storperm = ('layer:stor', self.layr.iden)
+
+    def allowed(self, perm):
+        if not self.user.allowed(perm):
+            raise s_exc.AuthDeny(user=self.user.name, perm=perm)
+
+    async def getLiftRows(self, lops):
+        self.allowed(self.liftperm)
+        async for item in self.layr.getLiftRows(lops):
+            yield item
+
+    async def iterFormRows(self, form):
+        self.allowed(self.liftperm)
+        async for item in self.layr.iterFormRows(form):
+            yield item
+
+    async def iterPropRows(self, form, prop):
+        self.allowed(self.liftperm)
+        async for item in self.layr.iterPropRows(form, prop):
+            yield item
+
+    async def iterUnivRows(self, univ):
+        self.allowed(self.liftperm)
+        async for item in self.layr.iterUnivRows(univ):
+            yield item
+
+    async def stor(self, sops):
+        self.allowed(self.storperm)
+        return await self.layr.stor(sops)
+
+    async def commit(self):
+        self.allowed(self.storperm)
+        return await self.layr.commit()
+
+    async def getBuidProps(self, buid):
+        self.allowed(self.liftperm)
+        return await self.layr.getBuidProps(buid)
+
+    async def getModelVers(self):
+        return await self.layr.getModelVers()
+
+    async def getOffset(self, iden):
+        return await self.layr.getOffset(iden)
+
+    async def setOffset(self, iden, valu):
+        return await self.layr.setOffset(iden, valu)
+
+    async def splices(self, offs, size):
+        self.allowed(self.liftperm)
+        async for item in self.layr.splices(offs, size):
+            yield item
 
 class Layer(s_base.Base):
     '''
