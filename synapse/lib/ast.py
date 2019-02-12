@@ -386,7 +386,7 @@ class ForLoop(Oper):
 
             yield node, path
 
-        # no nodes and a runt safe value should execut once
+        # no nodes and a runt safe value should execute once
         if count == 0 and self.kids[1].isRuntSafe(runt):
 
             for item in await self.kids[1].runtval(runt):
@@ -1744,7 +1744,6 @@ class EditTagAdd(Edit):
 
     async def run(self, runt, genr):
 
-        #name = await self.kids[0].runtval(runt)
         hasval = len(self.kids) > 1
 
         valu = (None, None)
@@ -1766,9 +1765,6 @@ class EditTagAdd(Edit):
 class EditTagDel(Edit):
 
     async def run(self, runt, genr):
-
-        #name = await self.kids[0].runtval(runt)
-        #parts = name.split('.')
 
         async for node, path in genr:
 
