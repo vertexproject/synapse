@@ -32,8 +32,11 @@ async def cellAuthToHive(dirn, auth):
                 name = lkey.decode('utf8')
                 info = s_msgpack.un(lval)
 
+                logger.info(f'Migrating role: {name}')
+
                 role = auth.getRoleByName(name)
                 if role is None:
+                    logger.info(f'Creating role: {name}')
                     role = await auth.addRole(name)
 
                 rules = info.get('rules', ())
@@ -47,8 +50,11 @@ async def cellAuthToHive(dirn, auth):
                 name = lkey.decode('utf8')
                 info = s_msgpack.un(lval)
 
+                logger.info(f'Migrating user: {name}')
+
                 user = auth.getUserByName(name)
                 if user is None:
+                    logger.info(f'Creating user: {name}')
                     user = await auth.addUser(name)
 
                 if info.get('admin', False):
