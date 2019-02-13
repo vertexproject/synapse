@@ -1,5 +1,7 @@
 import synapse.exc as s_exc
 import synapse.cells as s_cells
+import synapse.common as s_common
+import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
@@ -75,6 +77,28 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_unix_sock(self):
         async with self.getTestCore() as core:
+            self.true(core.insecure)  # No remote auth on this cortex is currently enabled
             async with core.getLocalProxy() as prox:
                 user = await prox.getCellUser()
                 self.eq('root', user.get('name'))
+
+    async def test_cell_nonstandard_admin(self):
+        boot = {
+            'auth:admin': 'pennywise:cottoncandy',
+            'type': 'echoauth',
+        }
+        pconf = {'user': 'pennywise', 'passwd': 'cottoncandy'}
+
+        with self.getTestDir('cellauth') as dirn:
+            s_common.yamlsave(boot, dirn, 'cells', 'echo00', 'boot.yaml')
+            async with await s_daemon.Daemon.anit(dirn) as dmon:
+                item = dmon.shared.get('echo00')
+                self.false(item.insecure)
+
+                async with await self.getTestProxy(dmon, 'echo00', **pconf) as proxy:
+                    self.true(await proxy.isadmin())
+                    self.true(await proxy.allowed(('hehe', 'haha')))
+
+                host, port = dmon.addr
+                url = f'tcp://root@{host}:{port}/echo00'
+                await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
