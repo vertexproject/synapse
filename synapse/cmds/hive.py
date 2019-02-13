@@ -79,6 +79,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
         parser_rm.add_argument('path', help='Hive path')
 
         parser_edit = subparsers.add_parser('edit', help='Sets/creates a key', usage=ModHelp)
+        parser_edit.add_argument('--string', action='store_true', help="Edit value as a single string")
         parser_edit.add_argument('path', help='Hive path')
         group = parser_edit.add_mutually_exclusive_group(required=True)
         group.add_argument('value', nargs='?', help='Value to set')
@@ -133,6 +134,8 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
 
         if opts.json:
             rend = json.dumps(valu, indent=2)
+        elif isinstance(valu, str):
+            rend = valu
         else:
             rend = pprint.pformat(valu)
         self.printf(f'{opts.path}:\n{rend}')
@@ -154,7 +157,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                 if len(s) == 0:
                     self.printf('Empty file.  Not writing key.')
                     return
-                data = json.loads(s)
+                data = s if opts.string else json.loads(s)
                 await core.setHiveKey(path, data)
                 return
 
@@ -167,12 +170,18 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
             with tempfile.NamedTemporaryFile(mode='w', delete=False) as fh:
                 old_valu = await core.getHiveKey(path)
                 if old_valu is not None:
-                    try:
-                        js = json.dumps(old_valu, indent=4)
-                    except (ValueError, TypeError):
-                        self.printf('Value is not JSON-encodable, therefore not editable.')
-                        return
-                    fh.write(js)
+                    if opts.string:
+                        if not isinstance(old_valu, str):
+                            self.printf('Existing value is not a string, therefore not editable as a string')
+                            return
+                        data = old_valu
+                    else:
+                        try:
+                            data = json.dumps(old_valu, indent=4)
+                        except (ValueError, TypeError):
+                            self.printf('Value is not JSON-encodable, therefore not editable.')
+                            return
+                    fh.write(data)
                 tnam = fh.name
             while True:
                 retn = subprocess.call(f'{editor} {tnam}', shell=True)
@@ -180,18 +189,19 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                     self.printf('Editor failed with non-zero code.  Aborting.')
                     return
                 with open(tnam) as fh:
-                    bytz = fh.read()
-                    if len(bytz) == 0:  # pragma: no cover
+                    rawval = fh.read()
+                    if len(rawval) == 0:  # pragma: no cover
                         self.printf('Empty file.  Not writing key.')
                         return
                     try:
-                        valu = json.loads(bytz)
+                        valu = rawval if opts.string else json.loads(rawval)
                     except json.JSONDecodeError as e:  # pragma: no cover
                         self.printf(f'JSON decode failure: [{e}].  Reopening.')
                         await asyncio.sleep(1)
                         continue
+
                     # We lose the tuple/list distinction in the telepath round trip, so tuplify everything to compare
-                    if tuplify(valu) == old_valu:
+                    if (opts.string and valu == old_valu) or (not opts.string and tuplify(valu) == old_valu):
                         self.printf('Valu not changed.  Not writing key.')
                         return
                     await core.setHiveKey(path, valu)
