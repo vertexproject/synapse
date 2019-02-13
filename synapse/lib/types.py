@@ -1129,7 +1129,7 @@ class Range(Type):
 
     def postTypeInit(self):
         subtype = self.opts.get('type')
-        if not(type(subtype) is tuple and len(subtype) is 2):
+        if not(type(subtype) is tuple and len(subtype) == 2):
             raise s_exc.BadTypeDef(self.opts, name=self.name)
 
         try:
