@@ -23,6 +23,9 @@ async def cellAuthToHive(dirn, auth):
     userdb = lenv.open_db(b'users')
     roledb = lenv.open_db(b'roles')
 
+    migrated_roles = False
+    migrated_users = False
+
     with lenv.begin() as xact:
 
         with xact.cursor(db=roledb) as curs:
@@ -42,6 +45,11 @@ async def cellAuthToHive(dirn, auth):
                 rules = info.get('rules', ())
 
                 await role.setRules(rules)
+
+                migrated_roles = True
+
+        if not migrated_roles:  # pragma: no cover
+            logger.info('No roles were migrated.')
 
         with xact.cursor(db=userdb) as curs:
 
@@ -73,6 +81,11 @@ async def cellAuthToHive(dirn, auth):
 
                 for name in info.get('roles', ()):
                     await user.grant(name)
+
+                migrated_users = True
+
+        if not migrated_users:  # pragma: no cover
+            logger.info('No users were migrated.')
 
     lenv.sync()
     lenv.close()
