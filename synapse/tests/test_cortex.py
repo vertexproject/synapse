@@ -1016,7 +1016,7 @@ class CortexTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             async with core.getLocalProxy() as prox:
-
+                # TestModule creates one node and 3 splices
                 await self.agenlen(3, await prox.splices(0, 1000))
 
                 await alist(await prox.eval('[ teststr=foo ]'))
