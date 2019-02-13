@@ -32,7 +32,7 @@ def adminapi(f):
                                  user=args[0].user.name)
 
         logger.info('Executing [%s] as [%s] with args [%s][%s]',
-                    f.__qualname__, args[0].user, args[1:], kwargs)
+                    f.__qualname__, args[0].user.name, args[1:], kwargs)
 
         return f(*args, **kwargs)
 
