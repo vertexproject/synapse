@@ -297,11 +297,11 @@ class Cell(s_base.Base, s_telepath.Aware):
 
             user = self.auth.getUserByName(name)
             if user is None:
-                # FIXME - TEST + Bad Reference
-                user = await auth.addUser(name)
+                user = await self.auth.addUser(name)
 
             await user.setAdmin(True)
             await user.setPasswd(passwd)
+            self.insecure = False
 
     async def _initCellDmon(self):
         # start a unix local socket daemon listener
