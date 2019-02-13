@@ -196,7 +196,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                     try:
                         valu = rawval if opts.string else json.loads(rawval)
                     except json.JSONDecodeError as e:  # pragma: no cover
-                        self.printf(f'JSON encode failure: [{e}].  Reopening.')
+                        self.printf(f'JSON decode failure: [{e}].  Reopening.')
                         await asyncio.sleep(1)
                         continue
 
