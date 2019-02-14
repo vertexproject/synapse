@@ -1,7 +1,4 @@
 import os
-import lmdb  # type: ignore
-
-import synapse.glob as s_glob
 
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn

@@ -586,17 +586,18 @@ class HiveAuth(s_base.Base):
         self.usersbyname = {}
         self.rolesbyname = {}
 
-        roles = await node.open('roles')
+        roles = await self.node.open('roles')
         for iden, node in roles:
             await self._addRoleNode(node)
 
-        users = await node.open('users')
+        users = await self.node.open('users')
         for iden, node in users:
             await self._addUserNode(node)
 
         # initialize an admin user named root
         root = self.getUserByName('root')
         if root is None:
+            logger.debug('No root user found. Making default root user.')
             root = await self.addUser('root')
 
         await root.setAdmin(True)
@@ -625,7 +626,7 @@ class HiveAuth(s_base.Base):
         user = await HiveUser.anit(self, node)
 
         self.onfini(user)
-
+        logger.debug(f'Adding user: {user.iden}/{user.name}')
         self.usersbyiden[user.iden] = user
         self.usersbyname[user.name] = user
 

@@ -23,6 +23,9 @@ async def cellAuthToHive(dirn, auth):
     userdb = lenv.open_db(b'users')
     roledb = lenv.open_db(b'roles')
 
+    migrated_roles = False
+    migrated_users = False
+
     with lenv.begin() as xact:
 
         with xact.cursor(db=roledb) as curs:
@@ -32,13 +35,21 @@ async def cellAuthToHive(dirn, auth):
                 name = lkey.decode('utf8')
                 info = s_msgpack.un(lval)
 
+                logger.info(f'Migrating role: {name}')
+
                 role = auth.getRoleByName(name)
                 if role is None:
+                    logger.info(f'Creating role: {name}')
                     role = await auth.addRole(name)
 
                 rules = info.get('rules', ())
 
                 await role.setRules(rules)
+
+                migrated_roles = True
+
+        if not migrated_roles:  # pragma: no cover
+            logger.info('No roles were migrated.')
 
         with xact.cursor(db=userdb) as curs:
 
@@ -47,8 +58,11 @@ async def cellAuthToHive(dirn, auth):
                 name = lkey.decode('utf8')
                 info = s_msgpack.un(lval)
 
+                logger.info(f'Migrating user: {name}')
+
                 user = auth.getUserByName(name)
                 if user is None:
+                    logger.info(f'Creating user: {name}')
                     user = await auth.addUser(name)
 
                 if info.get('admin', False):
@@ -67,6 +81,11 @@ async def cellAuthToHive(dirn, auth):
 
                 for name in info.get('roles', ()):
                     await user.grant(name)
+
+                migrated_users = True
+
+        if not migrated_users:  # pragma: no cover
+            logger.info('No users were migrated.')
 
     lenv.sync()
     lenv.close()

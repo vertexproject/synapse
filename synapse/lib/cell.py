@@ -32,7 +32,7 @@ def adminapi(f):
                                  user=args[0].user.name)
 
         logger.info('Executing [%s] as [%s] with args [%s][%s]',
-                    f.__qualname__, args[0].user, args[1:], kwargs)
+                    f.__qualname__, args[0].user.name, args[1:], kwargs)
 
         return f(*args, **kwargs)
 
@@ -297,10 +297,11 @@ class Cell(s_base.Base, s_telepath.Aware):
 
             user = self.auth.getUserByName(name)
             if user is None:
-                user = await auth.addUser(name)
+                user = await self.auth.addUser(name)
 
             await user.setAdmin(True)
             await user.setPasswd(passwd)
+            self.insecure = False
 
     async def _initCellDmon(self):
         # start a unix local socket daemon listener

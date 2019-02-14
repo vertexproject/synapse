@@ -1,11 +1,7 @@
 import os
 import logging
 import threading
-import traceback
-import contextlib
 import collections
-
-from functools import wraps
 
 import synapse.common as s_common
 

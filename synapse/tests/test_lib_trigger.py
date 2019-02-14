@@ -14,13 +14,13 @@ class TrigTest(s_t_utils.SynTest):
     async def test_modification_persistence(self):
         with self.getTestDir() as fdir:
             async with await self.getTestCell(fdir, 'cortex') as core:
-                core.triggers.add('root', 'node:add', '[inet:user=1]', info={'form': 'inet:ipv4'})
+                core.triggers.add('root', 'node:add', '[inet:user=1] | testcmd', info={'form': 'inet:ipv4'})
                 triggers = core.triggers.list()
-                self.eq(triggers[0][1].get('storm'), '[inet:user=1]')
+                self.eq(triggers[0][1].get('storm'), '[inet:user=1] | testcmd')
                 iden = triggers[0][0]
-                core.triggers.mod(iden, '[inet:user=2]')
+                core.triggers.mod(iden, '[inet:user=2] | testcmd')
                 triggers = core.triggers.list()
-                self.eq(triggers[0][1].get('storm'), '[inet:user=2]')
+                self.eq(triggers[0][1].get('storm'), '[inet:user=2] | testcmd')
 
                 # Sad case
                 self.raises(s_exc.BadStormSyntax, core.triggers.mod, iden, ' | | badstorm ')
@@ -28,7 +28,7 @@ class TrigTest(s_t_utils.SynTest):
 
             async with await self.getTestCell(fdir, 'cortex') as core:
                 triggers = core.triggers.list()
-                self.eq(triggers[0][1].get('storm'), '[inet:user=2]')
+                self.eq(triggers[0][1].get('storm'), '[inet:user=2] | testcmd')
 
     async def test_trigger_basics(self):
 

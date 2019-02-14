@@ -1,6 +1,3 @@
-import os
-import argparse
-
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 

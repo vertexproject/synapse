@@ -3,14 +3,11 @@ import json
 import pathlib
 import contextlib
 
-import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.cortex as s_cortex
-import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.cmdr as s_cmdr
-import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
 
 def getDocPath(fn, root=None):

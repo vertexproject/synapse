@@ -1,9 +1,6 @@
 import os
-import datetime
 
 import synapse.common as s_common
-import synapse.eventbus as s_eventbus
-import synapse.telepath as s_telepath
 
 class CoreModule:
     '''

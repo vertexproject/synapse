@@ -1,31 +1,44 @@
 import os
 
+import synapse.cells as s_cells
+
 import synapse.tests.utils as s_tests
 
 class CompatTest(s_tests.SynTest):
 
-    async def test_lib_compat_cellauth(self):
+    async def cellauth_migration_checks(self, core):
+        self.nn(core.auth.getRoleByName('analysts'))
 
-        async with self.getRegrCore('old-cell-auth') as core:
+        lyst = core.auth.getRoleByName('analysts')
 
-            # check the .old dir exists after migration
-            self.true(os.path.isdir(os.path.join(core.dirn, 'auth.old')))
+        visi = core.auth.getUserByName('visi')
 
-            self.nn(core.auth.getRoleByName('analysts'))
+        self.true(visi.tryPasswd('secret'))
 
-            lyst = core.auth.getRoleByName('analysts')
+        # check role inherited rules
+        self.true(visi.allowed(('node:add', 'inet:fqdn')))
+        self.false(visi.allowed(('node:del', 'inet:fqdn')))
 
-            visi = core.auth.getUserByName('visi')
+        self.isin(lyst, visi.getRoles())
 
-            self.true(visi.tryPasswd('secret'))
+        # check direct user rules with order
+        fred = core.auth.getUserByName('fred')
+        self.true(fred.allowed(('tag:add', 'hehe', 'haha')))
+        self.false(fred.allowed(('tag:add', 'newp')))
 
-            # check role inherited rules
-            self.true(visi.allowed(('node:add', 'inet:fqdn')))
-            self.false(visi.allowed(('node:del', 'inet:fqdn')))
+    async def test_compat_cellauth(self):
 
-            self.isin(lyst, visi.getRoles())
+        # This copies a bit of the regression helper code
+        with self.getRegrDir('cortexes', 'old-cell-auth') as dirn:
+            async with await s_cells.init('cortex', dirn) as core:
+                self.true(os.path.isdir(os.path.join(core.dirn, 'auth.old')))
 
-            # check direct user rules with order
-            fred = core.auth.getUserByName('fred')
-            self.true(fred.allowed(('tag:add', 'hehe', 'haha')))
-            self.false(fred.allowed(('tag:add', 'newp')))
+                await self.cellauth_migration_checks(core)
+
+            self.true(core.isfini)
+            # Now start the cortex back up and ensure that we can get the auth data we expect.
+            async with await s_cells.init('cortex', dirn) as core:
+                self.true(os.path.isdir(os.path.join(core.dirn, 'auth.old')))
+
+                await self.cellauth_migration_checks(core)
+            self.true(core.isfini)

@@ -8,7 +8,6 @@ Forked from https://gist.github.com/810399
 Updated from https://github.com/cbrueffer/pep8-git-hook
 """
 from __future__ import print_function
-import os
 import subprocess
 import sys
 

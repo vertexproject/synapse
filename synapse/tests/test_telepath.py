@@ -1,6 +1,4 @@
-import os
 import ssl
-import shutil
 import socket
 import asyncio
 import logging
@@ -14,7 +12,6 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
 import synapse.lib.share as s_share
-import synapse.lib.certdir as s_certdir
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
