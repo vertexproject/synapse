@@ -10,6 +10,7 @@ import synapse.lib.output as s_output
 
 
 def main(argv, outp=None):
+
     pars = setup()
     opts = pars.parse_args(argv)
 

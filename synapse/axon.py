@@ -53,7 +53,7 @@ class UpLoad(s_base.Base):
         sha256 = self.sha256.digest()
 
         if await self.axon.has(sha256):
-            return sha256
+            return self.size, sha256
 
         def genr():
 
@@ -71,6 +71,8 @@ class UpLoad(s_base.Base):
                 yield byts
 
         await self.axon.save(sha256, genr())
+
+        return self.size, sha256
 
 class UpLoadShare(UpLoad, s_share.Share):
     typename = 'upload'
@@ -161,6 +163,14 @@ class Axon(s_cell.Cell):
 
         for lkey, byts in self.blobslab.scanByPref(sha256, db=self.blobs):
             yield byts
+
+    async def put(self, byts):
+        sha256 = hashlib.sha256(byts).digest()
+        self.save(sha256, [byts])
+        return len(byts), sha256
+
+    async def puts(self, files):
+        return [await self.put(b) for b in files]
 
     async def upload(self):
         return await UpLoad.anit(self)

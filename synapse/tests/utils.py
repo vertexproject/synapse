@@ -33,6 +33,7 @@ import contextlib
 import collections
 
 import synapse.exc as s_exc
+import synapse.axon as s_axon
 import synapse.glob as s_glob
 import synapse.cells as s_cells
 import synapse.common as s_common
@@ -753,6 +754,12 @@ class SynTest(unittest.TestCase):
         for k, v in props.items():
             if s_thishost.get(k) == v:
                 raise unittest.SkipTest('skip thishost: %s==%r' % (k, v))
+
+    @contextlib.asynccontextmanager
+    async def getTestAxon(self):
+        with self.getTestDir() as dirn:
+            async with await s_axon.Axon.anit(dirn) as axon:
+                yield axon
 
     @contextlib.asynccontextmanager
     async def getTestCore(self, mirror='testcore', conf=None, extra_layers=()):
