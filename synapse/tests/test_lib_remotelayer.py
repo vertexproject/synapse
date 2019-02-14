@@ -1,11 +1,16 @@
+import asyncio
 import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.daemon as s_daemon
+
+import synapse.lib.node as s_node
+import synapse.lib.remotelayer as s_remotelayer
 
 import synapse.tests.test_cortex as t_cortex
 
-import synapse.lib.remotelayer as s_remotelayer
+from synapse.tests.utils import alist
 
 class RemoteLayerTest(t_cortex.CortexTest):
 
@@ -65,3 +70,70 @@ class RemoteLayerTest(t_cortex.CortexTest):
 
             # cause a reconnect...
             self.len(1, await core1.eval('teststr=woot').list())
+
+    async def test_cortex_remote_dmon(self):
+        # Full telepath / auth stack
+        pconf = {'user': 'root', 'passwd': 'root'}
+        async with self.getTestDmon('dmoncoreauth') as dmon0:
+            # Setup a remote user that has view into the layer for core0
+            async with await self.getTestProxy(dmon0, 'core', user='root', passwd='root') as core0:
+                coreiden = await core0.getCellIden()
+                await core0.addAuthUser('remuser1')
+                await core0.setUserPasswd('remuser1', 'beep')
+                await core0.addAuthRule('remuser1', (True, ('layer:lift', coreiden)))
+
+                # Make a node
+                nodes = await alist(await core0.eval('[teststr=core0]'))
+                self.len(1, nodes)
+                created = s_node.prop(nodes[0], '.created')
+
+            addr, port = dmon0.addr
+            # Default path is /layer - could be /layer/iden for a specific layer
+            remote_layer_url = f'tcp://remuser1:beep@{addr}:{port}/core/layer'
+
+            await asyncio.sleep(0.002)
+
+            with self.getTestDir(mirror='dmoncoreauth') as dirn:
+                async with await s_daemon.Daemon.anit(dirn) as dmon1:
+                    self.len(1, dmon1.shared['core'].layers)
+
+                    async with await self.getTestProxy(dmon1, 'core', **pconf) as core1:
+                        # Remote layer does not exist, so this node does not exist
+                        nodes = await alist(await core1.eval('teststr=core0'))
+                        self.len(0, nodes)
+
+                        # Add the remote layer via Telepath
+                        ret = await core1.joinTeleLayer(remote_layer_url)
+                        print(ret)
+
+                    self.len(2, dmon1.shared['core'].layers)
+
+                    async with await self.getTestProxy(dmon1, 'core', **pconf) as core1:
+                        # Lift the node from the remote layer
+                        nodes = await alist(await core1.eval('teststr=core0'))
+                        self.len(1, nodes)
+                        self.eq(created, s_node.prop(nodes[0], '.created'))
+                        # Lift the node and set a prop in our layer
+                        nodes = await alist(await core1.eval('teststr=core0 [:tick=2018]'))
+                        self.len(1, nodes)
+                        self.eq(1514764800000, s_node.prop(nodes[0], 'tick'))
+
+                        # Make a node for our layer
+                        nodes = await alist(await core1.eval('[teststr=core1]'))
+                        self.len(1, nodes)
+
+                        # Lift all teststr nodes
+                        nodes = await alist(await core1.eval('teststr'))
+                        self.len(2, nodes)
+
+                # Turn the dmon back on and sure the layer configuration persists
+                async with await s_daemon.Daemon.anit(dirn) as dmon1:
+                    self.len(2, dmon1.shared['core'].layers)
+                    async with await self.getTestProxy(dmon1, 'core', **pconf) as core1:
+                        # Lift the node from the remote layer
+                        nodes = await alist(await core1.eval('teststr=core0'))
+                        self.eq(created, s_node.prop(nodes[0], '.created'))
+
+                        # Lift all teststr nodes
+                        nodes = await alist(await core1.eval('teststr'))
+                        self.len(2, nodes)

@@ -89,11 +89,6 @@ class RemoteLayer(s_layer.Layer):
         async for item in await self.proxy.getLiftRows(*args, **kwargs):
             yield item
 
-    async def splices(self, *args, **kwargs):
-        await self._readyPlayerOne()
-        async for item in await self.proxy.splices(*args, **kwargs):
-            yield item
-
     async def iterFormRows(self, *args, **kwargs):
         await self._readyPlayerOne()
         async for item in await self.proxy.iterFormRows(*args, **kwargs):
@@ -120,10 +115,6 @@ class RemoteLayer(s_layer.Layer):
     async def commit(self):
         await self._readyPlayerOne()
         return await self.proxy.commit()
-
-    async def getBuidProps(self, buid):
-        await self._readyPlayerOne()
-        return await self.proxy.getBuidProps(buid)
 
     async def splices(self, offs, size):
         await self._readyPlayerOne()
