@@ -102,3 +102,9 @@ class CellTest(s_t_utils.SynTest):
                 host, port = dmon.addr
                 url = f'tcp://root@{host}:{port}/echo00'
                 await self.asyncraises(s_exc.AuthDeny, s_telepath.openurl(url))
+
+        # Ensure the cell and its auth have been fini'd
+        self.true(item.isfini)
+        self.true(item.auth.isfini)
+        self.true(item.auth.getUserByName('root').isfini)
+        self.true(item.auth.getUserByName('pennywise').isfini)
