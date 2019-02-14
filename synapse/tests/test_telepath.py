@@ -444,7 +444,7 @@ class TeleTest(s_t_utils.SynTest):
 
         async with self.getTestDmon() as dmon:
 
-            addr = await dmon.listen('ltcp://127.0.0.1:0')
+            addr = await dmon.listen('tcp://127.0.0.1:0')
             dmon.share(name, item)
 
             with self.getTestDir() as dirn:
