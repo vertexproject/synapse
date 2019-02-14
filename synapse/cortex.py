@@ -151,6 +151,11 @@ class CoreApi(s_cell.CellApi):
     def stat(self):
         return self.cell.stat()
 
+    @s_cell.adminapi
+    async def joinTeleLayer(self, url, indx=None):
+        ret = await self.cell.joinTeleLayer(url, indx=indx)
+        return ret
+
     async def getNodesBy(self, full, valu, cmpr='='):
         '''
         Yield Node.pack() tuples which match the query.
@@ -938,7 +943,7 @@ class Cortex(s_cell.Cell):
 
         return await self._layrFromNode(node)
 
-    async def joinTeleLayer(self, url, indx=0):
+    async def joinTeleLayer(self, url, indx=None):
         '''
         Convenience function to join a remote telepath layer
         into this cortex and default view.
@@ -952,7 +957,7 @@ class Cortex(s_cell.Cell):
         }
 
         layr = await self.addLayer(**info)
-        self.view.addLayer(layr)
+        await self.view.addLayer(layr, indx=indx)
         return layr.iden
 
     async def _layrFromNode(self, node):
