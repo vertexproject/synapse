@@ -33,7 +33,7 @@ class LayerTest(s_t_utils.SynTest):
                 node = await snap.addNode('teststr', 'a', {'tick': '1970'})
                 node = await snap.addNode('teststr', 'b', {'tick': '19700101'})
                 node = await snap.addNode('teststr', 'c', {'tick': '1972'})
-                oper = ('teststr', 'tick', (0, 24*60*60*366))
+                oper = ('teststr', 'tick', (0, 24 * 60 * 60 * 366))
 
                 async def liftByHandler(lopf, expt):
                     count = 0

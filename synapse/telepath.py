@@ -5,7 +5,6 @@ An RMI framework for synapse.
 import os
 import asyncio
 import logging
-import contextlib
 import collections
 
 import synapse.exc as s_exc
@@ -28,7 +27,7 @@ class Aware:
     The telepath.Aware mixin allows shared objects to
     handle individual links managed by the Daemon.
     '''
-    async def getTeleApi(self, link, mesg):
+    async def getTeleApi(self, link, mesg, path):
         '''
         Return a shared object for this link.
         Args:
@@ -40,12 +39,6 @@ class Aware:
 
     def onTeleShare(self, dmon, name):
         pass
-
-    def onTeleOpen(self, link, path):
-        '''
-        Allow a telepath share to create a new sub-share.
-        '''
-        return None
 
 class Task:
     '''
@@ -215,8 +208,6 @@ class Proxy(s_base.Base):
         self.synack = None
         self.syndone = asyncio.Event()
 
-        self.timeout = None     # API call timeout default
-
         self.handlers = {
             'tele:syn': self._onTeleSyn,
             'task:fini': self._onTaskFini,
@@ -259,12 +250,20 @@ class Proxy(s_base.Base):
 
     async def _initPoolLink(self):
 
-        ssl = self.link.get('ssl')
-        host = self.link.get('host')
-        port = self.link.get('port')
-
         # TODO loop / backoff
-        link = await s_link.connect(host, port, ssl=ssl)
+
+        if self.link.get('unix'):
+
+            path = self.link.get('path')
+            link = await s_link.unixconnect(path)
+
+        else:
+
+            ssl = self.link.get('ssl')
+            host = self.link.get('host')
+            port = self.link.get('port')
+
+            link = await s_link.connect(host, port, ssl=ssl)
 
         self.onfini(link)
 
@@ -586,7 +585,6 @@ async def openurl(url, **opts):
 
     host = info.get('host')
     port = info.get('port')
-    name = info.get('path')[1:]
 
     auth = None
 
@@ -595,13 +593,42 @@ async def openurl(url, **opts):
         passwd = info.get('passwd')
         auth = (user, {'passwd': passwd})
 
-    sslctx = None
-    if info.get('scheme') == 'ssl':
-        certpath = info.get('certdir')
-        certdir = s_certdir.CertDir(certpath)
-        sslctx = certdir.getClientSSLContext()
+    scheme = info.get('scheme')
 
-    link = await s_link.connect(host, port, ssl=sslctx)
+    if scheme == 'cell':
+        # cell:///path/to/celldir:share
+        # cell://rel/path/to/celldir:share
+        name = '*'
+        path = info.get('path')
+
+        # support cell://<relpath>/<to>/<cell>
+        # by detecting host...
+        host = info.get('host')
+        if host:
+            path = os.path.join(host, path)
+
+        if ':' in path:
+            path, name = path.split(':')
+
+        full = os.path.join(path, 'sock')
+        link = await s_link.unixconnect(full)
+
+    elif scheme == 'unix':
+        # unix:///path/to/sock:share
+        path, name = info.get('path').split(':')
+        link = await s_link.unixconnect(path)
+
+    else:
+
+        name = info.get('path')[1:]
+
+        sslctx = None
+        if scheme == 'ssl':
+            certpath = info.get('certdir')
+            certdir = s_certdir.CertDir(certpath)
+            sslctx = certdir.getClientSSLContext()
+
+        link = await s_link.connect(host, port, ssl=sslctx)
 
     prox = await Proxy.anit(link, name)
     prox.onfini(link)

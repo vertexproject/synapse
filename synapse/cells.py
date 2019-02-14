@@ -8,15 +8,8 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.cryotank as s_cryotank
 
-import synapse.lib.auth as s_auth
-import synapse.lib.lmdblayer as s_lmdblayer
-import synapse.lib.remotelayer as s_remotelayer
-
 ctors = {
-    'auth': s_auth.Auth,
     'axon': s_axon.Axon,
-    'layer-lmdb': s_lmdblayer.LmdbLayer,
-    'layer-remote': s_remotelayer.RemoteLayer,
     'cortex': s_cortex.Cortex,
     'blobstor': s_axon.BlobStor,
     'cryocell': s_cryotank.CryoCell,
@@ -48,16 +41,6 @@ async def init(name, dirn, *args, **kwargs):
         raise s_exc.NoSuchName(name=name, mesg='No cell ctor by that name')
 
     return await ctor.anit(dirn, *args, **kwargs)
-
-async def initFromDirn(dirn, *args, **kwargs):
-    '''
-    As above, but retrieves type from boot.yaml in dirn
-    '''
-    conf = s_common.yamlload(dirn, 'boot.yaml') or {}
-    kind = conf.get('type')
-    if type is None:
-        raise s_exc.BadConfValu('boot.yaml missing type key')
-    return await init(kind, dirn, *args, **kwargs)
 
 def deploy(name, dirn, boot=None):
     '''

@@ -1,5 +1,3 @@
-import synapse.common as s_common
-
 import synapse.lib.datfile as s_datfile
 import synapse.lib.msgpack as s_msgpack
 

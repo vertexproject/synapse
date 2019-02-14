@@ -128,11 +128,14 @@ class NoSuchFunc(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchRole(SynErr): pass
 class NoSuchIndx(SynErr): pass
+class NoSuchView(SynErr): pass
+class NoSuchLayer(SynErr): pass
 
 class NoCurrTask(SynErr): pass
 class NoSuchPivot(SynErr): pass
 
 class ReadOnlyProp(SynErr): pass
+class ReadOnlyLayer(SynErr): pass
 
 class CantRevLayer(SynErr): pass
 

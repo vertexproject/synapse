@@ -1,5 +1,3 @@
-import asyncio
-
 import synapse.lib.boss as s_boss
 import synapse.lib.task as s_task
 import synapse.tests.utils as s_test

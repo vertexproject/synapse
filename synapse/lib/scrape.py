@@ -1,8 +1,6 @@
-import json
 import regex
 
 import synapse.data as s_data
-import synapse.common as s_common
 
 tldlist = list(s_data.get('iana.tlds'))
 

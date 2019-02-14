@@ -5,7 +5,6 @@ import logging
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.reactor as s_reactor
-import synapse.telepath as s_telepath
 
 import synapse.lib.cli as s_cli
 import synapse.lib.node as s_node

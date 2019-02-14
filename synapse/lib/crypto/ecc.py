@@ -11,7 +11,6 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 
 logger = logging.getLogger(__name__)
 

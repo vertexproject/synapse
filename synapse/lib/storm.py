@@ -4,7 +4,6 @@ import argparse
 import collections
 
 import synapse.exc as s_exc
-import synapse.glob as s_glob
 import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
@@ -172,8 +171,12 @@ class Runtime:
 
 class Parser(argparse.ArgumentParser):
 
-    def __init__(self, prog=None, descr=None):
+    def __init__(self, prog=None, descr=None, root=None):
 
+        if root is None:
+            root = self
+
+        self.root = root
         self.exited = False
         self.mesgs = []
 
@@ -193,12 +196,20 @@ class Parser(argparse.ArgumentParser):
             self.mesgs.extend(message.split('\n'))
         raise s_exc.BadSyntaxError(mesg=message, prog=self.prog, status=status)
 
+    def add_subparsers(self, *args, **kwargs):
+
+        def ctor():
+            return Parser(root=self.root)
+
+        kwargs['parser_class'] = ctor
+        return argparse.ArgumentParser.add_subparsers(self, *args, **kwargs)
+
     def _print_message(self, text, fd=None):
         '''
         Note:  this overrides an existing method in ArgumentParser
         '''
         # Since we have the async->sync->async problem, queue up and print at exit
-        self.mesgs.extend(text.split('\n'))
+        self.root.mesgs.extend(text.split('\n'))
 
 class Cmd:
     '''

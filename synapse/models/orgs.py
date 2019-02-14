@@ -1,7 +1,4 @@
-from synapse.common import guid
-
 import synapse.lib.module as s_module
-
 
 class OuModule(s_module.CoreModule):
     def getModelDefs(self):

@@ -44,8 +44,11 @@ class Snap(s_base.Base):
 
         self.core = core
         self.model = core.model
-        self.layers = layers
+
+        # it is optimal for a snap to have layers in "bottom up" order
+        self.layers = list(reversed(layers))
         self.wlyr = self.layers[-1]
+        self.wlyrdirt = False
 
         self.bulk = False
         self.bulksops = []
@@ -65,19 +68,18 @@ class Snap(s_base.Base):
         self.changelog = []
         self.tagtype = core.model.type('ival')
 
+        # TODO layr.commit() calls splice slab forcecommit() and might be a bottleneck
         async def fini():
-
-            for layr in self.layers:
-                try:
-                    await layr.commit()
-
-                except asyncio.CancelledError:
-                    raise
-
-                except Exception:
-                    logger.exception('commit error for layer')
-
             # N.B. don't fini the layers here since they are owned by the cortex
+            try:
+                if self.wlyrdirt:
+                    await self.wlyr.commit()
+
+            except asyncio.CancelledError:  # pragma: no cover
+                raise
+
+            except Exception:  # pragma: no cover
+                logger.exception('commit error for layer')
 
         self.onfini(fini)
 
@@ -545,6 +547,7 @@ class Snap(s_base.Base):
             return
 
         await self.wlyr.stor(sops)
+        self.wlyrdirt = True
 
     async def getLiftNodes(self, lops, rawprop, cmpr=None):
         genr = self.getLiftRows(lops)

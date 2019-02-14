@@ -18,13 +18,13 @@ class ModelRev:
 
         # do a first pass to detect layers at the wrong version
         # that we are not able to rev ourselves and bail...
-        for layr in self.core.layers:
+        for layr in self.core.layers.values():
             vers = await layr.getModelVers()
             if not layr.canrev and vers != version:
                 mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) can not be updated.'
                 raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg)
 
-        for layr in self.core.layers:
+        for layr in self.core.layers.values():
 
             # just bump brand new layers all the way up
             if layr.fresh:

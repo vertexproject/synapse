@@ -1,17 +1,17 @@
 import os
 import logging
-import pathlib
-import tempfile
 import contextlib
 
 import synapse.exc as s_exc
 
 import synapse.common as s_common
+import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.hive as s_hive
+import synapse.lib.compat as s_compat
 
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -32,7 +32,7 @@ def adminapi(f):
                                  user=args[0].user.name)
 
         logger.info('Executing [%s] as [%s] with args [%s][%s]',
-                    f.__qualname__, args[0].user, args[1:], kwargs)
+                    f.__qualname__, args[0].user.name, args[1:], kwargs)
 
         return f(*args, **kwargs)
 
@@ -40,17 +40,20 @@ def adminapi(f):
 
 class CellApi(s_base.Base):
 
-    async def __anit__(self, cell, link):
+    async def __anit__(self, cell, link, user):
         await s_base.Base.__anit__(self)
         self.cell = cell
         self.link = link
-        self.user = link.get('cell:user')
+        self.user = user
 
     def getCellType(self):
         return self.cell.getCellType()
 
     def getCellIden(self):
         return self.cell.getCellIden()
+
+    def getCellUser(self):
+        return self.user.pack()
 
     async def ps(self):
 
@@ -86,147 +89,119 @@ class CellApi(s_base.Base):
 
         raise s_exc.AuthDeny(mesg='Caller must own task or be admin.', task=iden, user=str(self.user))
 
-    @adminapi
     async def listHiveKey(self, path=None):
         if path is None:
             path = ()
+        perm = ('hive:get',) + path
+        self.user.allowed(perm)
         items = self.cell.hive.dir(path)
         if items is None:
             return None
         return [item[0] for item in items]
 
-    @adminapi
     async def getHiveKey(self, path):
         ''' Get the value of a key in the cell default hive '''
+        perm = ('hive:get',) + path
+        self.user.allowed(perm)
         return await self.cell.hive.get(path)
 
-    @adminapi
     async def setHiveKey(self, path, value):
         ''' Set or change the value of a key in the cell default hive '''
+        perm = ('hive:set',) + path
+        self.user.allowed(perm)
         return await self.cell.hive.set(path, value)
 
-    @adminapi
     async def popHiveKey(self, path):
         ''' Remove and return the value of a key in the cell default hive '''
+        perm = ('hive:pop',) + path
+        self.user.allowed(perm)
         return await self.cell.hive.pop(path)
 
     @adminapi
-    def addAuthUser(self, name):
-        self.cell.auth.addUser(name)
+    async def addAuthUser(self, name):
+        await self.cell.auth.addUser(name)
 
     @adminapi
-    def addAuthRole(self, name):
-        self.cell.auth.addRole(name)
+    async def addAuthRole(self, name):
+        await self.cell.auth.addRole(name)
 
     @adminapi
-    def getAuthUsers(self):
-        return self.cell.auth.getUsers()
+    async def getAuthUsers(self):
+        return [u.name for u in self.cell.auth.users()]
 
     @adminapi
-    def getAuthRoles(self):
-        return self.cell.auth.getRoles()
+    async def getAuthRoles(self):
+        return [r.name for r in self.cell.auth.roles()]
 
     @adminapi
-    def addAuthRule(self, name, rule, indx=None):
+    async def addAuthRule(self, name, rule, indx=None):
         item = self._getAuthItem(name)
-        return item.addRule(rule, indx=indx)
+        return await item.addRule(rule, indx=indx)
 
     @adminapi
-    def delAuthRule(self, name, indx):
+    async def delAuthRule(self, name, indx):
         item = self._getAuthItem(name)
-        return item.delRule(indx)
+        return await item.delRule(indx)
 
     @adminapi
-    def setAuthAdmin(self, name, admin):
+    async def setAuthAdmin(self, name, admin):
         '''
         Set the admin status of the given user/role.
         '''
         item = self._getAuthItem(name)
-        item.setAdmin(admin)
+        await item.setAdmin(admin)
 
     @adminapi
-    def setUserPasswd(self, name, passwd):
-        user = self.cell.auth.users.get(name)
+    async def setUserPasswd(self, name, passwd):
+        user = self.cell.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(user=name)
 
-        user.setPasswd(passwd)
+        await user.setPasswd(passwd)
 
     @adminapi
-    def setUserLocked(self, name, locked):
-        user = self.cell.auth.users.get(name)
+    async def setUserLocked(self, name, locked):
+        user = self.cell.auth.getUserByName(name)
         if user is None:
             raise s_exc.NoSuchUser(user=name)
 
-        user.setLocked(locked)
+        await user.setLocked(locked)
 
     @adminapi
-    def addUserRole(self, username, rolename):
-        user = self.cell.auth.users.get(username)
+    async def addUserRole(self, username, rolename):
+        user = self.cell.auth.getUserByName(username)
         if user is None:
             raise s_exc.NoSuchUser(user=username)
 
-        role = self.cell.auth.roles.get(rolename)
-        if role is None:
-            raise s_exc.NoSuchRole(role=rolename)
-
-        user.addRole(rolename)
+        await user.grant(rolename)
 
     @adminapi
-    def delUserRole(self, username, rolename):
+    async def delUserRole(self, username, rolename):
 
-        user = self.cell.auth.users.get(username)
+        user = self.cell.auth.getUserByName(username)
         if user is None:
             raise s_exc.NoSuchUser(user=username)
 
-        role = self.cell.auth.roles.get(rolename)
-        if role is None:
-            raise s_exc.NoSuchRole(role=rolename)
-
-        user.delRole(rolename)
+        await user.revoke(rolename)
 
     @adminapi
-    def getAuthInfo(self, name):
+    async def getAuthInfo(self, name):
         '''
         An admin only API endpoint for getting user info.
         '''
         item = self._getAuthItem(name)
-        if item is None:
-            return None
-
-        return self._getAuthInfo(item)
+        return (name, item.pack())
 
     def _getAuthItem(self, name):
-        # return user or role by name.
-        user = self.cell.auth.users.get(name)
+        user = self.cell.auth.getUserByName(name)
         if user is not None:
             return user
 
-        role = self.cell.auth.roles.get(name)
+        role = self.cell.auth.getRoleByName(name)
         if role is not None:
             return role
 
         raise s_exc.NoSuchName(name=name)
-
-    def _getAuthInfo(self, role):
-
-        authtype = role.info.get('type')
-        info = {
-            'type': authtype,
-            'admin': role.admin,
-            'rules': role.info.get('rules', ()),
-        }
-
-        if authtype == 'user':
-            info['locked'] = role.locked
-
-            roles = []
-            info['roles'] = roles
-
-            for userrole in role.roles.values():
-                roles.append(self._getAuthInfo(userrole))
-
-        return (role.name, info)
 
 class PassThroughApi(CellApi):
     '''
@@ -234,8 +209,8 @@ class PassThroughApi(CellApi):
     '''
     allowed_methods = []  # type: ignore
 
-    async def __anit__(self, cell, link):
-        await CellApi.__anit__(self, cell, link)
+    async def __anit__(self, cell, link, user):
+        await CellApi.__anit__(self, cell, link, user)
 
         for f in self.allowed_methods:
             # N.B. this curious double nesting is due to Python's closure mechanism (f is essentially captured by name)
@@ -290,38 +265,61 @@ class Cell(s_base.Base, s_telepath.Aware):
         boot = self._loadCellYaml('boot.yaml')
         self.boot = s_common.config(boot, bootdefs)
 
+        await self._initCellDmon()
+
         conf = self._loadCellYaml('cell.yaml')
         self.conf = s_common.config(conf, self.confdefs + self.confbase)
 
         self.cmds = {}
+        self.insecure = False
 
         self.boss = await s_boss.Boss.anit()
         self.onfini(self.boss)
 
-        self.cellname = self.boot.get('cell:name')
-        if self.cellname is None:
-            self.cellname = self.__class__.__name__
-
-        await self._initCellAuth()
         await self._initCellSlab(readonly=readonly)
-        await self._initCellHive()
+
+        self.hive = await self._initCellHive()
+
+        self.insecure = not self.boot.get('auth:en')
+
+        self.auth = await self._initCellAuth()
+
+        # check and migrate old cell auth
+        oldauth = s_common.genpath(self.dirn, 'auth')
+        if os.path.isdir(oldauth):
+            await s_compat.cellAuthToHive(oldauth, self.auth)
+            os.rename(oldauth, oldauth + '.old')
+
+        admin = self.boot.get('auth:admin')
+        if admin is not None:
+
+            name, passwd = admin.split(':', 1)
+
+            user = self.auth.getUserByName(name)
+            if user is None:
+                user = await self.auth.addUser(name)
+
+            await user.setAdmin(True)
+            await user.setPasswd(passwd)
+            self.insecure = False
+
+    async def _initCellDmon(self):
+        # start a unix local socket daemon listener
+        sockpath = os.path.join(self.dirn, 'sock')
+        dmonconf = {'listen': f'unix://{sockpath}'}
+
+        self.dmon = await s_daemon.Daemon.anit(conf=dmonconf)
+        self.dmon.share('*', self)
+        self.onfini(self.dmon.fini)
 
     async def _initCellHive(self):
 
         hurl = self.conf.get('hive')
-
         if hurl is not None:
-            self.hive = await s_hive.openurl(hurl)
+            return await s_hive.openurl(hurl)
 
-        else:
-
-            db = self.slab.initdb('hive')
-            self.hive = await s_hive.SlabHive.anit(self.slab, db=db)
-            self.onfini(self.hive.fini)
-
-    # async def onTeleOpen(self, link, path):
-        # TODO make a path resolver for layers/etc
-        # if path == 'hive/auth'
+        db = self.slab.initdb('hive')
+        return await s_hive.SlabHive.anit(self.slab, db=db)
 
     async def _initCellSlab(self, readonly=False):
 
@@ -338,30 +336,20 @@ class Cell(s_base.Base, s_telepath.Aware):
         self.onfini(self.slab.fini)
 
     async def _initCellAuth(self):
+        node = await self.hive.open(('auth',))
+        auth = await s_hive.HiveAuth.anit(node)
 
-        if not self.boot.get('auth:en'):
-            return
+        self.onfini(auth.fini)
+        return auth
 
-        # runtime import.  dep loop.
-        import synapse.cells as s_cells
+    @contextlib.asynccontextmanager
+    async def getLocalProxy(self, share='*'):
+        url = self.getLocalUrl(share=share)
+        prox = await s_telepath.openurl(url)
+        yield prox
 
-        authdir = s_common.gendir(self.dirn, 'auth')
-        self.auth = await s_cells.init('auth', authdir)
-
-        admin = self.boot.get('auth:admin')
-        if admin is not None:
-
-            name, passwd = admin.split(':')
-
-            user = self.auth.users.get(name)
-            if user is None:
-                user = self.auth.addUser(name)
-                logger.warning(f'adding admin user: {name} to {self.cellname}')
-
-            user.setAdmin(True)
-            user.setPasswd(passwd)
-
-        self.onfini(self.auth.fini)
+    def getLocalUrl(self, share='*'):
+        return f'cell://{self.dirn}:{share}'
 
     def _loadCellYaml(self, *path):
 
@@ -378,15 +366,26 @@ class Cell(s_base.Base, s_telepath.Aware):
         # sub-classes may over-ride to do deploy initialization
         pass
 
-    async def getTeleApi(self, link, mesg):
+    async def getTeleApi(self, link, mesg, path):
 
-        if self.auth is None:
-            return await self.cellapi.anit(self, link)
+        # if auth is disabled or it's a unix socket, they're root.
+        if self.insecure or link.get('unix'):
+            name = 'root'
+            auth = mesg[1].get('auth')
+            if auth is not None:
+                name, info = auth
 
-        user = self._getCellUser(link, mesg)
+            user = self.auth.getUserByName(name)
+            if user is None:
+                raise s_exc.NoSuchUser(name=name)
 
-        link.set('cell:user', user)
-        return await self.cellapi.anit(self, link)
+        else:
+            user = self._getCellUser(mesg)
+
+        return await self.getCellApi(link, user, path)
+
+    async def getCellApi(self, link, user, path):
+        return await self.cellapi.anit(self, link, user)
 
     def getCellType(self):
         return self.__class__.__name__.lower()
@@ -394,7 +393,7 @@ class Cell(s_base.Base, s_telepath.Aware):
     def getCellIden(self):
         return self.iden
 
-    def _getCellUser(self, link, mesg):
+    def _getCellUser(self, mesg):
 
         auth = mesg[1].get('auth')
         if auth is None:
@@ -402,9 +401,9 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         name, info = auth
 
-        user = self.auth.users.get(name)
+        user = self.auth.getUserByName(name)
         if user is None:
-            raise s_exc.AuthDeny(mesg='User not present in link', user=name)
+            raise s_exc.NoSuchUser(name=name, mesg=f'No such user: {name}.')
 
         # passwd None always fails...
         passwd = info.get('passwd')
@@ -413,61 +412,8 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         return user
 
-    def initCellAuth(self):
-
-        # To avoid import cycle
-        import synapse.lib.auth as s_auth
-
-        valu = self.boot.get('auth:en')
-        if not valu:
-            return
-
-        url = self.boot.get('auth:url')
-        if url is not None:
-            self.auth = s_telepath.openurl(url)
-            return
-
-        # setup local auth
-
-        dirn = s_common.gendir(self.dirn, 'auth')
-
-        self.auth = s_auth.Auth(dirn)  # FIXME this is not imported, but would cause circular import
-
-        # let them hard code an initial admin user:passwd
-        admin = self.boot.get('auth:admin')
-        if admin is not None:
-            name, passwd = admin.split(':', 1)
-
-            user = self.auth.getUser(name)
-            if user is None:
-                user = self.auth.addUser(name)
-
-            user.setAdmin(True)
-            user.setPasswd(passwd)
-
     def addCellCmd(self, name, func):
         '''
         Add a Cmdr() command to the cell.
         '''
         self.cmds[name] = func
-
-    @contextlib.asynccontextmanager
-    async def getLocalProxy(self):
-        '''
-        Creates a local telepath daemon, shares this object, and returns the telepath proxy of this object
-
-        TODO:  currently, this will fini self if the created dmon is fini'd
-        '''
-        import synapse.daemon as s_daemon  # avoid import cycle
-        with tempfile.TemporaryDirectory() as dirn:
-            coredir = pathlib.Path(dirn, 'cells', 'core')
-            if coredir.is_dir():
-                ldir = s_common.gendir(coredir, 'layers')
-                if self.alt_write_layer:
-                    os.symlink(self.alt_write_layer, pathlib.Path(ldir, '000-default'))
-
-            async with await s_daemon.Daemon.anit(dirn, conf={'listen': None}) as dmon:
-                dmon.share('core', self)
-                addr = await dmon.listen('tcp://127.0.0.1:0')
-                prox = await s_telepath.openurl('tcp://127.0.0.1/core', port=addr[1])
-                yield prox

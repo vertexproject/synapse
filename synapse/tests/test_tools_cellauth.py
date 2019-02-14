@@ -29,9 +29,10 @@ class CellAuthTest(s_t_utils.SynTest):
             outp.expect('root')
             outp.expect('roles:')
 
-            argv = [coreurl, 'list', 'root']
+            argv = [coreurl, '--debug', 'list', 'root']
             outp = self.getTestOutp()
             self.eq(await s_cellauth.main(argv, outp), 0)
+
             outp.expect('root')
             outp.expect('admin: True')
             outp.expect('role: creator')

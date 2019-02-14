@@ -41,6 +41,10 @@ def backup(srcdir, dstdir):
 
         for name in fnames:
             srcpath = s_common.genpath(root, name)
+            # skip unix sockets etc...
+            if not os.path.isfile(srcpath):
+                continue
+
             dstpath = s_common.genpath(dstdir, relpath, name)
             logger.info(f'copying: {srcpath} -> {dstpath}')
             shutil.copy(srcpath, dstpath)
