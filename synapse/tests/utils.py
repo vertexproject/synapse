@@ -1449,6 +1449,7 @@ class SynTest(unittest.TestCase):
         await core.addAuthRule('creator', (True, ('node:add',)))
         await core.addAuthRule('creator', (True, ('prop:set',)))
         await core.addAuthRule('creator', (True, ('tag:add',)))
+        await core.addAuthRule('creator', (True, ('feed:data',)))
 
         await core.addAuthRole('deleter')
         await core.addAuthRule('deleter', (True, ('node:del',)))
