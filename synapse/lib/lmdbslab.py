@@ -13,6 +13,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
+import synapse.lib.msgpack as s_msgpack
 
 class _LmdbDatabase():
     def __init__(self, db, dupsort):
@@ -20,6 +21,52 @@ class _LmdbDatabase():
         self.dupsort = dupsort
 
 _DefaultDB = _LmdbDatabase(None, False)
+
+class SlabDict:
+
+    def __init__(self, slab, info, db=None, pref=b''):
+        self.db = db
+        self.slab = slab
+        self.info = info
+        self.pref = pref
+
+    def get(self, name, defval=None):
+        return self.info.get(name, defval)
+
+    def set(self, name, valu):
+        byts = s_msgpack.en(valu)
+        lkey = self.pref + name.encode('utf8')
+        self.slab.put(lkey, byts, db=self.db)
+        self.info[name] = valu
+
+class GuidStor:
+
+    def __init__(self, slab, name):
+
+        self.slab = slab
+        self.name = name
+
+        self.db = self.slab.initdb(name)
+
+    def gen(self, iden):
+
+        bidn = s_common.uhex(iden)
+        props = self._getBidnProps(bidn)
+        return SlabDict(self.slab, props, db=self.db, pref=bidn)
+
+    def props(self, iden):
+        bidn = s_common.uhex(iden)
+        return self._getBidnProps(bidn)
+
+    def _getBidnProps(self, bidn):
+        size = len(bidn)
+        props = {}
+
+        for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
+            name = lkey[size:].decode('utf8')
+            props[name] = s_msgpack.un(lval)
+
+        return props
 
 class Slab(s_base.Base):
     '''

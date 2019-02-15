@@ -520,7 +520,7 @@ class Cortex(s_cell.Cell):
             'type': 'bool', 'defval': True,
             'doc': 'Enable cron jobs running.'
         }),
-    )
+    ) + s_cell.Cell.confdefs
 
     cellapi = CoreApi
 
@@ -1674,9 +1674,10 @@ class Cortex(s_cell.Cell):
         for ctor in ctors:
 
             modu = self._loadCoreModule(ctor)
-            if modu is not None:
-                mods.append(modu)
+            if modu is None:
+                continue
 
+            mods.append(modu)
             cmds.extend(modu.getStormCmds())
             mdefs.extend(modu.getModelDefs())
 

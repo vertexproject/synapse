@@ -1,6 +1,12 @@
 import os
+import ssl
+import socket
 import logging
 import contextlib
+
+import tornado.web as t_web
+import tornado.netutil as t_netutil
+import tornado.httpserver as t_httpserver
 
 import synapse.exc as s_exc
 
@@ -12,6 +18,7 @@ import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.hive as s_hive
 import synapse.lib.compat as s_compat
+import synapse.lib.httpapi as s_httpapi
 
 import synapse.lib.const as s_const
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -238,7 +245,15 @@ class Cell(s_base.Base, s_telepath.Aware):
 
     # config options that are in all cells...
     confbase = ()
-    confdefs = ()
+
+    confdefs = (
+        ('http:port', {'type': 'int', 'defval': 0}),
+        ('http:host', {'type': 'str', 'defval': '127.0.0.1'}),
+
+        ('https:only', {'type': 'bool', 'defval': False}),
+        ('https:host', {'type': 'str', 'defval': '127.0.0.1'}),
+        ('https:port', {'type': 'int', 'defval': '127.0.0.1'}),
+    )
 
     async def __anit__(self, dirn, readonly=False):
 
@@ -273,6 +288,9 @@ class Cell(s_base.Base, s_telepath.Aware):
         self.cmds = {}
         self.insecure = False
 
+        self.sessions = {}
+        self.httpsonly = self.conf.get('https:only', False)
+
         self.boss = await s_boss.Boss.anit()
         self.onfini(self.boss)
 
@@ -302,6 +320,110 @@ class Cell(s_base.Base, s_telepath.Aware):
             await user.setAdmin(True)
             await user.setPasswd(passwd)
             self.insecure = False
+
+        await self._initCellHttp()
+
+        async def fini():
+            [await s.fini() for s in self.sessions.values()]
+
+        self.onfini(fini)
+
+    def _getSessInfo(self, iden):
+        return self.sessstor.gen(iden)
+
+    async def genHttpSess(self, iden):
+
+        # TODO age out http sessions
+        sess = self.sessions.get(iden)
+        if sess is not None:
+            return sess
+
+        sess = await s_httpapi.Sess.anit(self, iden)
+        self.sessions[iden] = sess
+
+        return sess
+
+    async def addHttpPort(self, port, host='0.0.0.0', ssl=None):
+
+        addr = socket.gethostbyname(host)
+
+        opts = {}
+        if ssl is not None:
+            opts['ssl_options'] = ssl
+
+        serv = self.wapp.listen(port, address=addr, **opts)
+        return list(serv._sockets.values())[0].getsockname()
+
+    def initSslCtx(self, certpath, keypath):
+
+        sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+
+        if not os.path.isfile(keypath):
+            raise s_exc.NoSuchFile(name=keypath)
+
+        if not os.path.isfile(certpath):
+            raise s_exc.NoSuchFile(name=certpath)
+
+        sslctx.load_cert_chain(certpath, keypath)
+        return sslctx
+
+    async def _initCellHttp(self):
+
+        self.httpds = []
+        self.sessstor = s_lmdbslab.GuidStor(self.slab, 'http:sess')
+
+        async def fini():
+            for http in self.httpds:
+                await http.stop()
+
+        # Generate/Load a Cookie Secret
+        secpath = os.path.join(self.dirn, 'cookie.secret')
+        if not os.path.isfile(secpath):
+            with s_common.genfile(secpath) as fd:
+                fd.write(s_common.guid().encode('utf8'))
+
+        with s_common.getfile(secpath) as fd:
+            secret = fd.read().decode('utf8')
+
+        opts = {
+            'cookie_secret': secret,
+            'websocket_ping_interval': 10
+        }
+
+        self.wapp = t_web.Application(**opts)
+
+        #opts = {'ssl_options': self.sslctx}
+        #opts = {}
+        #self.wsrv = t_httpserver.HTTPServer(self.wapp, **opts)
+
+        #port = self.conf.get('port')
+        #logger.info(f'https listening on: 0.0.0.0:{port}')
+        #port = self.conf.get('http:port', 56080)
+        #host = self.conf.get('http:host', '0.0.0.0')
+
+        #socks = t_netutil.bind_sockets(port, '0.0.0.0')
+        #self.webaddr = socks[0].getsockname()
+
+        #self.wsrv.add_sockets(socks)
+
+        self.addHttpApi('/login', s_httpapi.LoginV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/auth/users', s_httpapi.AuthUsersV1, {'cell': self})
+        self.addHttpApi('/api/v1/auth/roles', s_httpapi.AuthRolesV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/auth/adduser', s_httpapi.AuthAddUserV1, {'cell': self})
+        self.addHttpApi('/api/v1/auth/addrole', s_httpapi.AuthAddRoleV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/auth/user/(.*)', s_httpapi.AuthUserV1, {'cell': self})
+        self.addHttpApi('/api/v1/auth/role/(.*)', s_httpapi.AuthRoleV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/auth/grant', s_httpapi.AuthGrantV1, {'cell': self})
+        self.addHttpApi('/api/v1/auth/revoke', s_httpapi.AuthRevokeV1, {'cell': self})
+
+    def addHttpApi(self, path, ctor, info):
+        self.wapp.add_handlers('.*', (
+            (path, ctor, info),
+        ))
 
     async def _initCellDmon(self):
         # start a unix local socket daemon listener

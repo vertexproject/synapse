@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import socket
 import logging
 import argparse
 
@@ -15,19 +16,28 @@ logger = logging.getLogger(__name__)
 
 def parse(argv):
 
-    # httpport = os.getenv('SYN_CORTEX_HTTP_PORT', '80')
-    # httphost = os.getenv('SYN_CORTEX_HTTP_HOST', '127.0.0.1')
+    httpport = os.getenv('SYN_CORTEX_HTTP_PORT')
+    httphost = os.getenv('SYN_CORTEX_HTTP_HOST', '0.0.0.0')
 
-    # httpsport = os.getenv('SYN_CORTEX_HTTPS_PORT', '443')
-    # httpshost = os.getenv('SYN_CORTEX_HTTPS_HOST', '127.0.0.1')
+    httpsport = os.getenv('SYN_CORTEX_HTTPS_PORT')
+    httpshost = os.getenv('SYN_CORTEX_HTTPS_HOST', socket.gethostname())
 
     insecure = json.loads(os.getenv('SYN_CORTEX_INSECURE', 'false').lower())
+
     teleport = os.getenv('SYN_CORTEX_PORT', '27492')
     telehost = os.getenv('SYN_CORTEX_HOST', '127.0.0.1')
 
     pars = argparse.ArgumentParser(prog='synapse.servers.cortex')
+
     pars.add_argument('--port', default=teleport, help='The TCP port to bind for telepath.')
     pars.add_argument('--host', default=telehost, help='The host address to bind telepath.')
+
+    pars.add_argument('--http-port', default=httpport, help='Set port to bind for the HTTP API.')
+    pars.add_argument('--http-host', default=httphost, help='Set the host/addr to bind for the HTTP API.')
+
+    pars.add_argument('--https-host', default=httpshost, help='Set the host/addr to bind for the HTTPS API.')
+    pars.add_argument('--https-port', default=httpsport, help='Set port to bind for the HTTPS API.')
+
     pars.add_argument('--insecure', default=insecure, action='store_true',
                       help='Start the cortex with all auth bypassed (DANGER!).')
     pars.add_argument('coredir', help='The directory for the cortex to use for storage.')
@@ -57,6 +67,12 @@ async def mainopts(opts, outp=s_output.stdout):
         logger.warning('INSECURE MODE ENABLED')
 
     await core.dmon.listen(lisn)
+
+    if opts.http_port:
+        await core.addHttpPort(int(opts.http_port), host=opts.http_host)
+
+    #if opts.https_port:
+        #core.addHttpPort(int(opts.https_port), host=opts.https_host, ssl=True)
 
     return core
 

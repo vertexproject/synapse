@@ -729,6 +729,7 @@ class HiveRole(HiveIden):
     def pack(self):
         return {
             'type': 'role',
+            'iden': self.iden,
             'name': self.name,
             'rules': self.rules,
         }
@@ -828,6 +829,10 @@ class HiveUser(HiveIden):
         if role is None:
             raise s_exc.NoSuchRole(name=name)
 
+        return await self.grantRole(role)
+
+    async def grantRole(self, role, indx=None):
+
         roles = list(self.roles)
         if role.iden in roles:
             return
@@ -844,6 +849,10 @@ class HiveUser(HiveIden):
         role = self.auth.rolesbyname.get(name)
         if role is None:
             raise s_exc.NoSuchRole(name=name)
+
+        return await self.revokeRole(role)
+
+    async def revokeRole(self, role):
 
         roles = list(self.roles)
         if role.iden not in roles:
