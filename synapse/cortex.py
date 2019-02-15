@@ -541,7 +541,6 @@ class Cortex(s_cell.Cell):
             'remote': s_remotelayer.RemoteLayer,
         }
 
-        self.layers = []
         self.modules = {}
         self.feedfuncs = {}
 
