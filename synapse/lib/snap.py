@@ -13,6 +13,7 @@ import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.storm as s_storm
 import synapse.lib.editatom as s_editatom
+import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,13 @@ class Snap(s_base.Base):
     ('print', {}),
     '''
 
-    async def __anit__(self, core, layers, write=False):
+    async def __anit__(self, core, layers, emitprov=True):
+        '''
+        Args:
+            core (cortex):  the cortex
+            layers (List[Layer]): the list of layers to access, write layer last
+            emitprov (bool): whether the provenance stack will be emitted inside write events
+        '''
         await s_base.Base.__anit__(self)
 
         self.stack = contextlib.ExitStack()
@@ -50,15 +57,13 @@ class Snap(s_base.Base):
         self.wlyr = self.layers[-1]
         self.wlyrdirt = False
 
-        self.bulk = False
-        self.bulksops = []
-
         # variables used by the storm runtime
         self.vars = {}
 
         self.runt = {}
 
         self.debug = False      # Set to true to enable debug output.
+        self.emitprov = emitprov  # Whether the provenance stack is on every event
         self.write = False      # True when the snap has a write lock on a layer.
 
         self.tagcache = s_cache.FixedCache(self._addTagNode, size=10000)
@@ -67,21 +72,6 @@ class Snap(s_base.Base):
         self.onfini(self.stack.close)
         self.changelog = []
         self.tagtype = core.model.type('ival')
-
-        # TODO layr.commit() calls splice slab forcecommit() and might be a bottleneck
-        async def fini():
-            # N.B. don't fini the layers here since they are owned by the cortex
-            try:
-                if self.wlyrdirt:
-                    await self.wlyr.commit()
-
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
-
-            except Exception:  # pragma: no cover
-                logger.exception('commit error for layer')
-
-        self.onfini(fini)
 
     @contextlib.contextmanager
     def getStormRuntime(self, opts=None, user=None):
@@ -472,20 +462,8 @@ class Snap(s_base.Base):
 
     async def splice(self, name, **info):
         '''
-        Construct and log a splice record to be saved on commit().
+        Construct a partial splice record for later feeding into Snap.stor method
         '''
-        user = '?'
-        if self.user is not None:
-            user = self.user.name
-
-        info['user'] = user
-        info['time'] = s_common.now()
-
-        await self.fire(name, **info)
-
-        mesg = (name, info)
-        await self.wlyr.splicelistAppend(mesg)
-
         return (name, info)
 
     #########################################################################
@@ -540,14 +518,30 @@ class Snap(s_base.Base):
 
             yield node
 
-    async def stor(self, sops):
+    async def stor(self, sops, splices=None):
+        user = '?'
+        if self.user is not None:
+            user = self.user.name
 
-        if self.bulk:
-            self.bulksops.extend(sops)
-            return
+        now = s_common.now()
+        stackalias, provstack = s_provenance.get()
 
-        await self.wlyr.stor(sops)
+        if splices is not None:
+            for splice in splices:
+                name, info = splice
+                info['user'] = user
+                info['time'] = now
+                if self.emitprov:
+                    await self.fire(name, provstack=provstack, **info)
+                else:
+                    await self.fire(name, **info)
+
+        newstackalias = await self.wlyr.stor(sops, stackalias if stackalias is not None else provstack, splices)
         self.wlyrdirt = True
+
+        if newstackalias != stackalias:
+            # Save off the alias the write layer gave us so we can use that for future calls to save bandwidth
+            s_provenance.setStackAlias()
 
     async def getLiftNodes(self, lops, rawprop, cmpr=None):
         genr = self.getLiftRows(lops)

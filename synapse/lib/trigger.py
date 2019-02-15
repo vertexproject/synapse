@@ -13,6 +13,7 @@ import synapse.common as s_common
 
 import synapse.lib.cache as s_cache
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class Triggers:
         ver: int  # version: must be 0
         cond: str  # condition from above list
         user: str  # username
-        storm: str  # story query
+        storm: str  # storm query
         form: Optional[str] = dataclasses.field(default=None) # form name
         tag: Optional[str] = dataclasses.field(default=None) # tag name
         prop: Optional[str] = dataclasses.field(default=None) # property name
@@ -75,12 +76,14 @@ class Triggers:
             else:
                 user = None
 
-            try:
-                await s_common.aspin(node.storm(self.storm, opts=opts, user=user))
-            except asyncio.CancelledError: # pragma: no cover
-                raise
-            except Exception:
-                logger.exception('Trigger encountered exception running storm query %s', self.storm)
+            with s_provenance.claim('trig', cond=self.cond, form=self.form, tag=self.tag, prop=self.prop):
+
+                try:
+                    await s_common.aspin(node.storm(self.storm, opts=opts, user=user))
+                except asyncio.CancelledError: # pragma: no cover
+                    raise
+                except Exception:
+                    logger.exception('Trigger encountered exception running storm query %s', self.storm)
 
     def __init__(self, core):
         '''

@@ -29,6 +29,7 @@ import synapse.lib.trigger as s_trigger
 import synapse.lib.modules as s_modules
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.lmdblayer as s_lmdblayer
+import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 import synapse.lib.remotelayer as s_remotelayer
 
@@ -540,6 +541,7 @@ class Cortex(s_cell.Cell):
             'remote': s_remotelayer.RemoteLayer,
         }
 
+        self.layers = []
         self.modules = {}
         self.feedfuncs = {}
 
@@ -1416,7 +1418,7 @@ class Cortex(s_cell.Cell):
         Evaluate a storm query and yield Nodes only.
         '''
         await self.boss.promote('storm', user=user, info={'query': text})
-        async with await self.snap(user=user) as snap:
+        async with await self.snap(user=user, emitprov=False) as snap:
             async for node in snap.eval(text, opts=opts, user=user):
                 yield node
 

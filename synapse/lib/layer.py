@@ -143,15 +143,12 @@ class Layer(s_base.Base):
         self.fresh = False
         self.canrev = True
         self.spliced = asyncio.Event(loop=self.loop)
-        self.splicelist = []
         self.onfini(self.spliced.set)
 
     @classmethod
     async def validate(conf):
+        # FIXME:  what is this
         raise NotImplementedError
-
-    async def splicelistAppend(self, mesg):
-        self.splicelist.append(mesg)
 
     async def getLiftRows(self, lops):
         for oper in lops:
@@ -163,7 +160,7 @@ class Layer(s_base.Base):
             async for row in func(oper):
                 yield row
 
-    async def stor(self, sops):
+    async def stor(self, sops, prov=None, splices=None):
         '''
         Execute a series of storage operations.
         '''
@@ -172,6 +169,26 @@ class Layer(s_base.Base):
             if func is None:
                 raise s_exc.NoSuchStor(name=oper[0])
             await func(oper)
+
+        if prov is None:
+            alias = None
+        elif isinstance(prov, int):
+            alias = prov
+        else:
+            alias = await self._storProvStack(prov)
+
+        if splices is None:
+            for splice in splices:
+                splice[1]['prov'] = alias
+
+            await self._storSplices(splices)
+            self.spliced.set()
+            self.spliced.clear()
+
+        return alias
+
+    async def _storSplices(splices):  # pragma: no cover
+        raise NotImplementedError
 
     async def _liftByFormRe(self, oper):
 
@@ -330,9 +347,6 @@ class Layer(s_base.Base):
         raise NotImplementedError
 
     async def abort(self):  # pragma: no cover
-        raise NotImplementedError
-
-    async def commit(self):  # pragma: no cover
         raise NotImplementedError
 
     async def getBuidProps(self, buid):  # pragma: no cover
