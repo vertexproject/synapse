@@ -15,6 +15,7 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 
 import synapse.lib.coro as s_coro
+import synapse.lib.provenance as s_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -425,7 +426,13 @@ class Base:
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
 
-        task = self.loop.create_task(coro)
+        prov = s_provenance.copy()
+
+        async def run_coro(prov, coro):
+            s_provenance.paste(prov)
+            return await coro
+
+        task = self.loop.create_task(run_coro(prov, coro))
 
         def taskDone(task):
             self._active_tasks.remove(task)

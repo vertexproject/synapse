@@ -1,3 +1,4 @@
+import copy
 import time
 import asyncio
 import unittest
@@ -813,6 +814,17 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_splice_generation(self):
 
+        def isin(mesg, splices):
+            '''
+            Checks if the given mesg is in splices except for the 'prov' entry
+            '''
+            for splice in splices:
+                noprovsplice = copy.deepcopy(splice)
+                noprovsplice[1].pop('prov')
+                if mesg == noprovsplice:
+                    return
+            assert 0
+
         async with self.getTestCore() as core:
 
             await alist(core.eval('[teststr=hello]'))
@@ -838,35 +850,35 @@ class CortexTest(s_t_utils.SynTest):
 
             # Check to ensure a few expected splices exist
             mesg = ('node:add', {'ndef': ('teststr', 'hello')})
-            self.isin(mesg, splices)
+            isin(mesg, splices)
 
             mesg = ('prop:set', {'ndef': ('teststr', 'hello'), 'prop': 'tick', 'valu': 978307200000, 'oldv': None})
-            self.isin(mesg, splices)
+            isin(mesg, splices)
 
             mesg = ('prop:set',
                     {'ndef': ('teststr', 'hello'), 'prop': 'tick', 'valu': 1009843200000, 'oldv': 978307200000})
-            self.isin(mesg, splices)
+            isin(mesg, splices)
 
             mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo', 'valu': (None, None)})
-            self.isin(mesg, splices)
+            isin(mesg, splices)
 
             mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo.bar', 'valu': (None, None)})
-            self.isin(mesg, splices)
+            isin(mesg, splices)
 
             mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1009843200000)})
-            self.isin(mesg, splices)
+            isin(mesg, splices)
 
             mesg = ('tag:add', {'ndef': ('teststr', 'hello'), 'tag': 'foo.bar', 'valu': (946684800000, 1022889600000)})
-            self.isin(mesg, splices)
+            isin(mesg, splices)
 
             mesg = ('tag:del', {'ndef': ('teststr', 'hello'), 'tag': 'foo', 'valu': (None, None)})
-            self.isin(mesg, splices)
+            isin(mesg, splices)
 
             mesg = ('prop:del', {'ndef': ('teststr', 'hello'), 'prop': 'tick', 'valu': 1009843200000})
-            self.isin(mesg, splices)
+            isin(mesg, splices)
 
             mesg = ('node:del', {'ndef': ('teststr', 'hello')})
-            self.isin(mesg, splices)
+            isin(mesg, splices)
 
     async def test_strict(self):
 

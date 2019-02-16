@@ -538,7 +538,7 @@ class Node:
 
         sops = self.form.getDelOps(self.buid)
 
-        splice = jself.snap.splice('node:del', ndef=self.ndef)
+        splice = self.snap.splice('node:del', ndef=self.ndef)
         await self.snap.stor(sops, [splice])
 
         self.snap.buidcache.pop(self.buid)

@@ -208,6 +208,8 @@ class LmdbLayer(s_layer.Layer):
         iden = hashlib.md5(data).digest()
         self.layrslab.put(iden, data, overwrite=False, db=self.provdb)
 
+        return iden
+
     async def _liftByIndx(self, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))
         # indx opers:  ('eq', <indx>)  ('pref', <indx>) ('range', (<indx>, <indx>)

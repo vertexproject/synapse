@@ -55,7 +55,6 @@ class Snap(s_base.Base):
         # it is optimal for a snap to have layers in "bottom up" order
         self.layers = list(reversed(layers))
         self.wlyr = self.layers[-1]
-        self.wlyrdirt = False
 
         # variables used by the storm runtime
         self.vars = {}
@@ -460,7 +459,7 @@ class Snap(s_base.Base):
             raise ctor(mesg=mesg, **info)
         return False
 
-    async def splice(self, name, **info):
+    def splice(self, name, **info):
         '''
         Construct a partial splice record for later feeding into Snap.stor method
         '''
@@ -537,11 +536,10 @@ class Snap(s_base.Base):
                     await self.fire(name, **info)
 
         newstackalias = await self.wlyr.stor(sops, stackalias if stackalias is not None else provstack, splices)
-        self.wlyrdirt = True
 
         if newstackalias != stackalias:
             # Save off the alias the write layer gave us so we can use that for future calls to save bandwidth
-            s_provenance.setStackAlias()
+            s_provenance.setStackAlias(newstackalias)
 
     async def getLiftNodes(self, lops, rawprop, cmpr=None):
         genr = self.getLiftRows(lops)

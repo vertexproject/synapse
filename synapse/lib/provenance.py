@@ -3,8 +3,9 @@ import contextvars
 
 from typing import Tuple, List, Optional, Iterator, Any, Dict
 
-# The first entry for each frame is an alias for the stack that ends with that frame
+import synapse.exc as s_exc
 
+# The first entry for each frame is an alias for the stack that ends with that frame
 AliasT = Any
 
 TufoT = Tuple[str, Dict[str, Any]]
@@ -14,7 +15,7 @@ ProvFrameT = Tuple[Optional[AliasT], TufoT]  # (stackalias, tufo))
 ProvStackT = List[ProvFrameT] # List[stackalias, (frametype, frameinfo)]
 
 # Start with a base frame in case there are stors outside any claim
-_ProvStack: contextvars.ContextVar = contextvars.ContextVar('ProvStack', default=[('')])
+_ProvStack: contextvars.ContextVar[ProvStackT] = contextvars.ContextVar('ProvStack', default=[(None, ('', {}))])
 
 @contextlib.contextmanager
 def claim(typ: str, **info: Any) -> Iterator[None]:
@@ -24,6 +25,10 @@ def claim(typ: str, **info: Any) -> Iterator[None]:
     Note:  try to keep these args short, as they will go in every event
     '''
     stack: ProvStackT = _ProvStack.get()
+
+    if len(stack) > 256:
+        raise s_exc.RecursionLimitHit(mesg='Hit global recursion limit')
+
     frame: ProvFrameT = (None, (typ, info))
     stack.append(frame)
     yield
@@ -36,6 +41,15 @@ def reset() -> None:
     For testing purposes
     '''
     _ProvStack.set([])
+
+def copy() -> ProvStackT:
+    '''
+    Get a copy of the raw stack (solely for the sake of pasting it to a child task)
+    '''
+    return _ProvStack.get()[:]
+
+def paste(stack: ProvStackT) -> None:
+    _ProvStack.set(stack)
 
 def get() -> Tuple[Optional[AliasT], List[TufoT]]:
     '''

@@ -61,7 +61,7 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.iterUnivRows(univ):
             yield item
 
-    async def stor(self, sops):
+    async def stor(self, sops, prov=None, splices=None):
         self.allowed(self.storperm)
         return await self.layr.stor(sops)
 
@@ -177,9 +177,10 @@ class Layer(s_base.Base):
         else:
             alias = await self._storProvStack(prov)
 
-        if splices is None:
-            for splice in splices:
-                splice[1]['prov'] = alias
+        if splices is not None:
+            if alias is not None:
+                for splice in splices:
+                    splice[1]['prov'] = alias
 
             await self._storSplices(splices)
             self.spliced.set()

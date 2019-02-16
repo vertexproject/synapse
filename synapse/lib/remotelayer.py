@@ -75,9 +75,9 @@ class RemoteLayer(s_layer.Layer):
         timeout = self.conf.get('readywait')
         await asyncio.wait_for(self.ready.wait(), timeout=timeout)
 
-    async def stor(self, sops):
+    async def stor(self, sops, prov=None, splices=None):
         await self._readyPlayerOne()
-        return await self.proxy.stor(sops)
+        return await self.proxy.stor(sops, prov, splices)
 
     # Hack to get around issue that telepath is not async-generator-transparent
     async def getBuidProps(self, buid):

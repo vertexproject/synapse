@@ -19,6 +19,7 @@ class TestPullFile(s_t_utils.SynTest):
             axonurl = s_scope.get('axonurl')
             async with await s_telepath.openurl(s_scope.get('blobstorurl')) as blob:
                 await blob.putmany([b'visi', b'test'])
+                await asyncio.sleep(0.1)
 
                 def pullfile():
 
