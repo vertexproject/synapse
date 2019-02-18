@@ -680,6 +680,7 @@ class _ProxyKeeper(s_base.Base):
         async def fini():
             for proxy in self._proxymap.values():
                 if proxy is not None:
+                    await asyncio.sleep(0)
                     await proxy.fini()
             self._proxymap = {}
 
@@ -712,8 +713,13 @@ class _ProxyKeeper(s_base.Base):
         '''
         try:
             proxy = await s_telepath.openurl(path)
-        except Exception:
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as e:
             logger.exception('Failed to connect to telepath %s', _path_sanitize(path))
+
             raise
 
         newbsid = await self._addproxy(proxy, path)
