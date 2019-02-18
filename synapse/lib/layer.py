@@ -172,7 +172,7 @@ class Layer(s_base.Base):
 
         if prov is None:
             alias = None
-        elif isinstance(prov, int):
+        elif isinstance(prov, bytes):
             alias = prov
         else:
             alias = await self._storProvStack(prov)
@@ -187,6 +187,12 @@ class Layer(s_base.Base):
             self.spliced.clear()
 
         return alias
+
+    async def getProvStack(self, alias):
+        '''
+        Returns the provenance stack given the alias to it
+        '''
+        raise NotImplementedError
 
     async def _storSplices(splices):  # pragma: no cover
         raise NotImplementedError

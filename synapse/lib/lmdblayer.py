@@ -210,6 +210,13 @@ class LmdbLayer(s_layer.Layer):
 
         return iden
 
+    async def getProvStack(self, alias):
+        retn = self.layrslab.get(alias, db=self.provdb)
+        if retn is None:
+            return None
+
+        return s_msgpack.un(retn)
+
     async def _liftByIndx(self, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))
         # indx opers:  ('eq', <indx>)  ('pref', <indx>) ('range', (<indx>, <indx>)

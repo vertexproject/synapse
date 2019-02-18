@@ -6,6 +6,7 @@ from unittest import mock
 import synapse.lib.cmdr as s_cmdr
 
 import synapse.tests.utils as s_t_utils
+from synapse.tests.utils import alist
 
 MINSECS = 60
 HOURSECS = 60 * MINSECS
@@ -95,6 +96,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('query parameter must start with {'))
 
                     ##################
+                    oldsplices = len(await alist(await core.splices(0, 1000)))
 
                     # Start simple: add a cron job that creates a node every minute
                     outp.clear()
@@ -108,6 +110,18 @@ class CmdCronTest(s_t_utils.SynTest):
 
                     # Make sure it ran
                     await self.agenlen(1, await core.eval('graph:node:type=m1'))
+
+                    # Make sure the provenance of the new splices looks right
+                    splices = await alist(await core.splices(oldsplices, 1000))
+                    self.gt(len(splices), 1)
+                    aliases = [splice[1]['prov'] for splice in splices]
+                    self.true(all(a == aliases[0] for a in aliases))
+                    real = dmon.shared['core']
+                    prov = await real.layer.getProvStack(aliases[0])
+                    correct = (('', {}),
+                               ('cron', {'recs': (({}, 'minute', 1),)}),
+                               ('storm', {'q': "[graph:node='*' :type=m1]", 'user': 'root'}))
+                    self.eq(prov, correct)
 
                     await cmdr.runCmdLine(f"cron mod {guid[:6]} {{[graph:node='*' :type=m2]}}")
                     self.true(outp.expect('Modified cron job'))
