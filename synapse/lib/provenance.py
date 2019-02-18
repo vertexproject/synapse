@@ -40,7 +40,7 @@ def reset() -> None:
 
     For testing purposes
     '''
-    _ProvStack.set([])
+    _ProvStack.set([(None, ('', {}))])
 
 def copy() -> ProvStackT:
     '''

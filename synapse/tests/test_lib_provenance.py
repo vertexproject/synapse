@@ -1,10 +1,16 @@
 import synapse.common as s_common
+
+import synapse.lib.provenance as s_provenance
+
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
 class ProvenanceTest(s_t_utils.SynTest):
 
     async def test_prov(self):
+
+        s_provenance.reset()
+
         async with self.getTestCore() as real, real.getLocalProxy() as core:
             await core.addTrigger('node:add', '[ testint=1 ]', info={'form': 'teststr'})
             await s_common.aspin(await core.eval('[ teststr=foo ]'))
@@ -48,5 +54,3 @@ class ProvenanceTest(s_t_utils.SynTest):
             ds2 = ('storm', {'q': 'testint | delnode', 'user': 'root'})
             ds3 = ('stormcmd', {'name': 'delnode', 'argv': ()})
             self.eq((s1, ds2, ds3), prov)
-
-

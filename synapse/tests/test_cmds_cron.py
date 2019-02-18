@@ -4,6 +4,7 @@ from datetime import timezone as tz
 from unittest import mock
 
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.provenance as s_provenance
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -19,6 +20,7 @@ class CmdCronTest(s_t_utils.SynTest):
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
         sync = asyncio.Event()
         lastquery = None
+        s_provenance.reset()
 
         def timetime():
             return unixtime
