@@ -2,6 +2,8 @@ import json
 import base64
 import logging
 
+from urllib.parse import urlparse
+
 import tornado.web as t_web
 import tornado.websocket as t_websocket
 
@@ -59,6 +61,25 @@ class HandlerBase:
 
         if (self.httpsonly or self.cell.httpsonly) and self.request.protocol != 'https':
             self.redirect('https://' + self.request.host, permanent=False)
+
+        origin = self.request.headers.get('origin')
+        if origin is not None and self.isOrigHost(origin):
+            self.add_header('Access-Control-Allow-Origin', origin)
+            self.add_header('Access-Control-Allow-Credentials', 'true')
+            self.add_header('Access-Control-Allow-Headers', 'Content-Type')
+
+    def isOrigHost(self, origin):
+
+        host = urlparse(origin).hostname
+
+        hosttag = self.request.headers.get('host')
+        if ':' in hosttag:
+            hosttag, hostport = hosttag.split(':', 1)
+
+        return host == hosttag
+
+    def check_origin(self, origin):
+        return self.isOrigHost(origin)
 
     def getJsonBody(self):
         return json.loads(self.request.body)
@@ -197,8 +218,6 @@ class LoginV1(Handler):
         await sess.login(user)
 
         return self.sendRestRetn(user.pack())
-
-#class LogoutV1(Handler):
 
 class AuthUsersV1(Handler):
 
