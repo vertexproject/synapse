@@ -1,40 +1,42 @@
 import contextlib
 import contextvars
 
-from typing import Tuple, List, Optional, Iterator, Any, Dict
-
 import synapse.exc as s_exc
 
-# The first entry for each frame is an alias for the stack that ends with that frame
-AliasT = Any
+'''
+Provenance tracks the reason and path how a particular hypergraph operation
+occurred.
 
-TufoT = Tuple[str, Dict[str, Any]]
+It maintains a separate stack for each asyncio task, where each stack frame is
+a high-level record of how we got there.  For example, a storm query that caused
+a trigger to fire that ran a storm query to delete a node will have 5 frames:
+a base frame, a storm frame, then a trig frame, then another storm frame, then
+a stormcmd frame.
 
-ProvFrameT = Tuple[Optional[AliasT], TufoT]  # (stackalias, tufo))
+To save space in the splice log, the storage system provides an alias for each
+unique provenance stack.  The alias is provided on each splice.  We cache the
+alias on each stack frame (which represents the alias for the stack that ends
+on that stack frame.
+'''
 
-ProvStackT = List[ProvFrameT] # List[stackalias, (frametype, frameinfo)]
-
-# Start with a base frame in case there are stors outside any claim
-_ProvStack: contextvars.ContextVar[ProvStackT] = contextvars.ContextVar('ProvStack', default=[(None, ('', {}))])
+_ProvStack = contextvars.ContextVar('ProvStack', default=[(None, ('', {}))])  # type: ignore
 
 @contextlib.contextmanager
-def claim(typ: str, **info: Any) -> Iterator[None]:
+def claim(typ, **info):
     '''
     Add an entry to the provenance stack for the duration of the context
-
-    Note:  try to keep these args short, as they will go in every event
     '''
-    stack: ProvStackT = _ProvStack.get()
+    stack = _ProvStack.get()
 
-    if len(stack) > 256:
+    if len(stack) > 256:  # pragma: no cover
         raise s_exc.RecursionLimitHit(mesg='Hit global recursion limit')
 
-    frame: ProvFrameT = (None, (typ, info))
+    frame = (None, (typ, info))
     stack.append(frame)
     yield
     stack.pop()
 
-def reset() -> None:
+def reset():
     '''
     Resets the stack to its initial state.
 
@@ -42,26 +44,32 @@ def reset() -> None:
     '''
     _ProvStack.set([(None, ('', {}))])
 
-def copy() -> ProvStackT:
+def copy():
     '''
     Get a copy of the raw stack (solely for the sake of pasting it to a child task)
     '''
     return _ProvStack.get()[:]
 
-def paste(stack: ProvStackT) -> None:
+def paste(stack):
+    '''
+    Sets the stack from a raw copy
+    '''
     _ProvStack.set(stack)
 
-def get() -> Tuple[Optional[AliasT], List[TufoT]]:
+def get():
     '''
     Returns:
        A tuple of the stack alias if set, the current provenance stack
     '''
-    stack: ProvStackT = _ProvStack.get()
+    stack = _ProvStack.get()
     assert stack  # there's a base frame that shall never be popped
     stackalias = stack[-1][0]
     return stackalias, [frame[1] for frame in stack]
 
-def setStackAlias(stackalias: AliasT) -> None:
-    stack: ProvStackT = _ProvStack.get()
+def setStackAlias(stackalias):
+    '''
+    Sets the stack alias for the current provenance stack
+    '''
+    stack = _ProvStack.get()
     assert stack  # there's a base frame that shall never be popped
     stack[-1] = stackalias, stack[-1][1]
