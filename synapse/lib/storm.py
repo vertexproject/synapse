@@ -148,13 +148,6 @@ class Runtime:
         perm = '.'.join(args)
         raise s_exc.AuthDeny(perm=perm, user=self.user.name)
 
-    # FIXME:  delete? unused
-    # async def execStormQuery(self, query):
-    #     count = 0
-    #     for node, path in self.iterStormQuery(query):
-    #         count += 1
-    #     return count
-
     async def iterStormQuery(self, query):
 
         with s_provenance.claim('storm', q=query.text, user=self.user.name if self.user else None):
