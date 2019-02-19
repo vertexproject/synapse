@@ -1,4 +1,5 @@
 import aiohttp
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.cells as s_cells
@@ -126,14 +127,21 @@ class CellTest(s_t_utils.SynTest):
         self.true(item.auth.getUserByName('pennywise').isfini)
 
     async def getHttpJson(self, url):
-        async with aiohttp.ClientSession() as sess:
+        async with self.getHttpSess() as sess:
             async with sess.get(url) as resp:
                 return await resp.json()
 
     async def postHttpJson(self, url, data):
-        async with aiohttp.ClientSession() as sess:
+        async with self.getHttpSess() as sess:
             async with sess.post(url, json=data) as resp:
                 return await resp.json()
+
+    @contextlib.asynccontextmanager
+    async def getHttpSess(self):
+        jar = aiohttp.CookieJar(unsafe=True)
+        conn = aiohttp.TCPConnector(verify_ssl=False)
+        async with aiohttp.ClientSession(cookie_jar=jar, connector=conn) as sess:
+            yield sess
 
     async def test_cell_http_auth(self):
         '''
@@ -141,45 +149,41 @@ class CellTest(s_t_utils.SynTest):
         '''
         async with self.getTestCore() as core:
 
-            host, port = await core.addHttpPort(0, host='127.0.0.1')
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
-            item = await self.getHttpJson(f'http://localhost:{port}/api/v1/auth/adduser?name=visi&passwd=secret')
+            item = await self.getHttpJson(f'https://localhost:{port}/api/v1/auth/adduser?name=visi&passwd=secret')
             self.nn(item.get('result').get('iden'))
 
-            item = await self.getHttpJson(f'http://localhost:{port}/api/v1/auth/users')
+            item = await self.getHttpJson(f'https://localhost:{port}/api/v1/auth/users')
             users = item.get('result')
             self.isin('visi', [u.get('name') for u in users])
 
-            item = await self.getHttpJson(f'http://localhost:{port}/api/v1/auth/adduser?name=visi')
+            item = await self.getHttpJson(f'https://localhost:{port}/api/v1/auth/adduser?name=visi')
             self.eq('err', item.get('status'))
             self.eq('DupUser', item.get('code'))
 
-            item = await self.getHttpJson(f'http://localhost:{port}/api/v1/auth/addrole?name=analysts')
+            item = await self.getHttpJson(f'https://localhost:{port}/api/v1/auth/addrole?name=analysts')
             self.nn(item.get('result').get('iden'))
 
-            item = await self.getHttpJson(f'http://localhost:{port}/api/v1/auth/addrole?name=analysts')
+            item = await self.getHttpJson(f'https://localhost:{port}/api/v1/auth/addrole?name=analysts')
             self.eq('err', item.get('status'))
             self.eq('DupRole', item.get('code'))
 
-            item = await self.getHttpJson(f'http://localhost:{port}/api/v1/auth/roles')
+            item = await self.getHttpJson(f'https://localhost:{port}/api/v1/auth/roles')
             roles = item.get('result')
             self.isin('analysts', [r.get('name') for r in roles])
 
             # lets try out session based login
             core.insecure = False
 
-            jar = aiohttp.CookieJar(unsafe=True)
-            async with aiohttp.ClientSession(cookie_jar=jar) as sess:
-            #async with aiohttp.ClientSession() as sess:
+            async with self.getHttpSess() as sess:
 
-                async with sess.post(f'http://localhost:{port}/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
+                async with sess.post(f'https://localhost:{port}/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq('visi', retn['result']['name'])
 
-                print(repr(jar._cookies))
-
                 # use the authenticated session to do stuff...
-                async with sess.get(f'http://localhost:{port}/api/v1/auth/users') as resp:
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))

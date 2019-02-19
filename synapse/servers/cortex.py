@@ -11,7 +11,6 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.lib.output as s_output
-import synapse.lib.certdir as s_certdir
 
 logger = logging.getLogger(__name__)
 
@@ -61,24 +60,7 @@ async def mainopts(opts, outp=s_output.stdout):
 
     await core.dmon.listen(lisn)
 
-    # check for certs or gen self signed
-    keypath = os.path.join(opts.coredir, 'sslkey.pem')
-    certpath = os.path.join(opts.coredir, 'sslcert.pem')
-
-    if not os.path.isfile(certpath):
-        logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
-        with s_common.getTempDir() as dirn:
-            cdir = s_certdir.CertDir(dirn)
-            pkey, cert = cdir.genHostCert('cortex')
-            cdir.savePkeyPem(pkey, keypath)
-            cdir.saveCertPem(cert, certpath)
-
-    outp.printf(f'loading SSL key from: {keypath}')
-    outp.printf(f'loading SSL cert from: {certpath}')
-
-    sslctx = core.initSslCtx(certpath, keypath)
-
-    await core.addHttpPort(int(opts.https_port), host=opts.https_host, ssl=sslctx)
+    await core.addHttpsPort(opts.https_port)
 
     return core
 

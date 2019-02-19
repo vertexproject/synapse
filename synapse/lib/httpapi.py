@@ -108,8 +108,6 @@ class HandlerBase:
         if self._web_sess is None:
 
             iden = self.get_secure_cookie('sess')
-            print('GOT COOKIE: %r' % (iden,))
-            print(repr(list(self.request.headers.items())))
 
             if iden is None and not gen:
                 return None
@@ -118,7 +116,6 @@ class HandlerBase:
                 iden = s_common.guid()
                 opts = {'expires_days': 14, 'secure': True, 'httponly': True}
                 self.set_secure_cookie('sess', iden, **opts)
-                print('SET COOKIE %r' % (iden,))
 
             self._web_sess = await self.cell.genHttpSess(iden)
 
@@ -196,7 +193,6 @@ class LoginV1(Handler):
             return await self.sendRestErr('AuthDeny', 'Incorrect password.')
 
         sess = await self.sess()
-        print('SESS! %r' % (sess,))
 
         await sess.login(user)
 

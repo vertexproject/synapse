@@ -18,6 +18,7 @@ import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.hive as s_hive
 import synapse.lib.compat as s_compat
+import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 
 import synapse.lib.const as s_const
@@ -343,15 +344,29 @@ class Cell(s_base.Base, s_telepath.Aware):
 
         return sess
 
-    async def addHttpPort(self, port, host='0.0.0.0', ssl=None):
+    async def addHttpsPort(self, port, host='0.0.0.0'):
 
         addr = socket.gethostbyname(host)
 
-        opts = {}
-        if ssl is not None:
-            opts['ssl_options'] = ssl
+        pkeypath = os.path.join(self.dirn, 'sslkey.pem')
+        certpath = os.path.join(self.dirn, 'sslcert.pem')
 
-        serv = self.wapp.listen(port, address=addr, **opts)
+        if not os.path.isfile(certpath):
+            logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
+            with s_common.getTempDir() as dirn:
+                cdir = s_certdir.CertDir(dirn)
+                pkey, cert = cdir.genHostCert('cortex')
+                cdir.savePkeyPem(pkey, pkeypath)
+                cdir.saveCertPem(cert, certpath)
+
+        sslctx = self.initSslCtx(certpath, pkeypath)
+        serv = self.wapp.listen(port, address=addr, ssl_options=sslctx)
+
+        return list(serv._sockets.values())[0].getsockname()
+
+    async def addHttpPort(self, port, host='0.0.0.0', ssl=None):
+        addr = socket.gethostbyname(host)
+        serv = self.wapp.listen(port, address=addr)
         return list(serv._sockets.values())[0].getsockname()
 
     def initSslCtx(self, certpath, keypath):
