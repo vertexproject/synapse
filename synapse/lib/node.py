@@ -254,7 +254,7 @@ class Node:
         '''
         parts = name.split('::', 1)
 
-        if len(parts) is 1:
+        if len(parts) == 1:
             name = parts[0]
             if name.startswith('#'):
                 return self.tags.get(name[1:])
@@ -470,7 +470,6 @@ class Node:
         # fire all the splices
         splices = [self.snap.splice('tag:del', ndef=self.ndef, tag=t, valu=v) for (t, v) in removed]
         await self.snap.stor(sops, splices)
-
 
         # fire all the handlers / triggers
         [await self.snap.core.runTagDel(self, t, v) for (t, v) in removed]
