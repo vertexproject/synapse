@@ -65,10 +65,6 @@ class LayerApi(s_cell.CellApi):
         self.allowed(self.storperm)
         return await self.layr.stor(sops)
 
-    async def commit(self):
-        self.allowed(self.storperm)
-        return await self.layr.commit()
-
     async def getBuidProps(self, buid):
         self.allowed(self.liftperm)
         return await self.layr.getBuidProps(buid)
@@ -145,11 +141,6 @@ class Layer(s_base.Base):
         self.spliced = asyncio.Event(loop=self.loop)
         self.onfini(self.spliced.set)
 
-    @classmethod
-    async def validate(conf):
-        # FIXME:  what is this
-        raise NotImplementedError
-
     async def getLiftRows(self, lops):
         for oper in lops:
 
@@ -166,7 +157,7 @@ class Layer(s_base.Base):
         '''
         for oper in sops:
             func = self._stor_funcs.get(oper[0])
-            if func is None:
+            if func is None:  # pragma: no cover
                 raise s_exc.NoSuchStor(name=oper[0])
             await func(oper)
 
@@ -188,7 +179,7 @@ class Layer(s_base.Base):
 
         return alias
 
-    async def getProvStack(self, alias):
+    async def getProvStack(self, alias):  # pragma: no cover
         '''
         Returns the provenance stack given the alias to it
         '''
@@ -398,11 +389,11 @@ class Layer(s_base.Base):
         '''
         raise NotImplementedError
 
-    async def stat(self):
+    async def stat(self):  # pragma: no cover
         raise NotImplementedError
 
     async def splices(self, offs, size):  # pragma: no cover
         raise NotImplementedError
 
-    async def getNodeNdef(self, buid):
+    async def getNodeNdef(self, buid):  # pragma: no cover
         raise NotImplementedError

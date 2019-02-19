@@ -112,10 +112,6 @@ class RemoteLayer(s_layer.Layer):
         await self._readyPlayerOne()
         raise s_exc.SynErr(mesg='setModelVers not allowed!')
 
-    async def commit(self):
-        await self._readyPlayerOne()
-        return await self.proxy.commit()
-
     async def splices(self, offs, size):
         await self._readyPlayerOne()
         async for item in await self.proxy.splices(offs, size):
