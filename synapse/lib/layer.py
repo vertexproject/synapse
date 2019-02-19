@@ -185,6 +185,12 @@ class Layer(s_base.Base):
         '''
         raise NotImplementedError
 
+    async def provStacks(self, offs, size):  # pragma: no cover
+        '''
+        Returns a stream of provenance stacks at the given offset
+        '''
+        raise NotImplementedError
+
     async def _storSplices(splices):  # pragma: no cover
         raise NotImplementedError
 

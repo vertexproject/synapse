@@ -12,6 +12,10 @@ class ProvenanceTest(s_t_utils.SynTest):
         s_provenance.reset()
 
         async with self.getTestCore() as real, real.getLocalProxy() as core:
+
+            # Non-existent alias
+            self.none(await real.layer.getProvStack(b'abcd'))
+
             await core.addTrigger('node:add', '[ testint=1 ]', info={'form': 'teststr'})
             await s_common.aspin(await core.eval('[ teststr=foo ]'))
             await self.agenlen(1, await core.eval('testint'))
@@ -30,27 +34,30 @@ class ProvenanceTest(s_t_utils.SynTest):
             # node:add and prop:set
             self.eq(aliases[5], aliases[6])
 
-            # FIXME: public API for retrieval?
-
             # The source splices
-            prov = await real.layer.getProvStack(aliases[0])
+            prov1 = await real.layer.getProvStack(aliases[0])
             s1 = ('', {})
-            self.eq((s1,), prov)
+            self.eq((s1,), prov1)
 
             # The teststr splices
-            prov = await real.layer.getProvStack(aliases[3])
+            prov2 = await real.layer.getProvStack(aliases[3])
             s2 = ('storm', {'q': '[ teststr=foo ]', 'user': 'root'})
-            self.eq((s1, s2), prov)
+            self.eq((s1, s2), prov2)
 
             # The trigger splices
-            prov = await real.layer.getProvStack(aliases[5])
+            prov3 = await real.layer.getProvStack(aliases[5])
             s3 = ('trig', {'cond': 'node:add', 'form': 'teststr', 'tag': None, 'prop': None})
             s4 = ('storm', {'q': '[ testint=1 ]', 'user': 'root'})
-            self.eq((s1, s2, s3, s4), prov)
+            self.eq((s1, s2, s3, s4), prov3)
 
             # prop:del/node:del
-            prov = await real.layer.getProvStack(aliases[7])
+            prov4 = await core.getProvStack(aliases[7])
 
             ds2 = ('storm', {'q': 'testint | delnode', 'user': 'root'})
             ds3 = ('stormcmd', {'name': 'delnode', 'argv': ()})
-            self.eq((s1, ds2, ds3), prov)
+            self.eq((s1, ds2, ds3), prov4)
+
+            # Test the streaming API
+            provstacks = await alist(await core.provStacks(0, 1000))
+            correct = [(aliases[0], prov1), (aliases[3], prov2), (aliases[5], prov3), (aliases[7], prov4)]
+            self.eq(provstacks, correct)

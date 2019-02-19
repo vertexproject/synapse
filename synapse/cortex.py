@@ -469,6 +469,27 @@ class CoreApi(s_cell.CellApi):
                 await asyncio.sleep(0)
             yield mesg
 
+    @s_cell.adminapi
+    async def provStacks(self, offs, size):
+        '''
+        Return stream of (alias, provenance stack) tuples at the given offset.
+        '''
+        count = 0
+        async for mesg in self.cell.layer.provStacks(offs, size):
+            count += 1
+            if not count % 1000:
+                await asyncio.sleep(0)
+            yield mesg
+
+    @s_cell.adminapi
+    async def getProvStack(self, alias):
+        '''
+        Return the providence stack associated with the given alias.
+
+        Note: the alias appears on each splice entry as the 'prov' property
+        '''
+        return await self.cell.layer.getProvStack(alias)
+
 class Cortex(s_cell.Cell):
     '''
     A Cortex implements the synapse hypergraph.

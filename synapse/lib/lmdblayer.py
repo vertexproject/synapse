@@ -69,6 +69,7 @@ class LmdbLayer(s_layer.Layer):
         self.offs = s_slaboffs.SlabOffs(self.layrslab, offsdb)
         self.splicelog = s_slabseqn.SlabSeqn(self.layrslab, 'splices')
         self.provdb = await self.initdb('prov') # md5 -> provenance stack
+        self.provseq = s_slabseqn.SlabSeqn(self.layrslab, 'provs')
 
     async def getModelVers(self):
         byts = self.layrslab.get(b'layer:model:version')
@@ -206,7 +207,9 @@ class LmdbLayer(s_layer.Layer):
     async def _storProvStack(self, prov):
         data = s_msgpack.en(prov)
         iden = hashlib.md5(data).digest()
-        self.layrslab.put(iden, data, overwrite=False, db=self.provdb)
+        didwrite = self.layrslab.put(iden, data, overwrite=False, db=self.provdb)
+        if didwrite:
+            self.provseq.save([iden])
 
         return iden
 
@@ -216,6 +219,13 @@ class LmdbLayer(s_layer.Layer):
             return None
 
         return s_msgpack.un(retn)
+
+    async def provStacks(self, offs, size):
+        for _, iden in self.provseq.slice(offs, size):
+            stack = await self.getProvStack(iden)
+            if stack is None:
+                continue
+            yield (iden, stack)
 
     async def _liftByIndx(self, oper):
         # ('indx', (<dbname>, <prefix>, (<indxopers>...))

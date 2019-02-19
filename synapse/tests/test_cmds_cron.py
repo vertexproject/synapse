@@ -118,8 +118,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.gt(len(splices), 1)
                     aliases = [splice[1]['prov'] for splice in splices]
                     self.true(all(a == aliases[0] for a in aliases))
-                    real = dmon.shared['core']
-                    prov = await real.layer.getProvStack(aliases[0])
+                    prov = await core.getProvStack(aliases[0])
                     correct = (('', {}),
                                ('cron', {'recs': (({}, 'minute', 1),)}),
                                ('storm', {'q': "[graph:node='*' :type=m1]", 'user': 'root'}))
